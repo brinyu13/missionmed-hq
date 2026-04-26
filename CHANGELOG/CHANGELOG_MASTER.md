@@ -1,0 +1,72 @@
+
+## 2026-04-25 20:51:55 EDT | MR-PRIMER-DEPLOYMENT-PROTOCOL-INJECTION-015A
+- prompt_id: MR-PRIMER-DEPLOYMENT-PROTOCOL-INJECTION-015A
+- files_changed:
+  - /Users/brianb/MissionMed/_SYSTEM/PRIMER_CORE.md
+  - /Users/brianb/MissionMed/CHANGELOG/CHANGELOG_MASTER.md
+- staging_uploaded:
+  - html-system/STAGING/arena.html (from _recovery/MR-AUTH-RECOVERY-PRIORITY-013/final/arena_v1.html)
+  - html-system/STAGING/stat.html (from _recovery/MR-AUTH-RECOVERY-PRIORITY-013/final/stat_latest.html)
+  - html-system/STAGING/drills.html (from _recovery/MR-AUTH-RECOVERY-PRIORITY-013/final/drills_v1.html)
+  - html-system/STAGING/daily.html (from mode_dailyrounds_v1.html)
+- result: FAIL
+- deployed: NO
+- validation_failures:
+  - MMOS missing in STAGING daily.html (window.MMOS / MMOS.registerMode / topbar absent)
+  - Runtime auth calls returning 401 during browser validation
+  - Direct drills runtime emitted \"No valid drill contract\" when loaded without handoff context
+- promotion:
+  - STAGING -> LIVE skipped due failed validation gate
+
+## 2026-04-25 21:08:21 EDT | MR-VALIDATION-REFINEMENT-018
+- prompt_id: MR-VALIDATION-REFINEMENT-018
+- files_changed:
+  - /Users/brianb/MissionMed/_SYSTEM/PRIMER_CORE.md
+  - /Users/brianb/MissionMed/CHANGELOG/CHANGELOG_MASTER.md
+- validation_rules_update:
+  - Role-based MMOS validation (daily.html MMOS optional)
+  - Drills contract validation only on contract-bearing launches
+  - Staging/no-session 401 treated as expected (conditional auth)
+  - UI click checks skipped when auth/overlay blocks interaction
+- result: PASS
+- deployed: YES
+- deployed_files_live:
+  - html-system/LIVE/arena.html
+  - html-system/LIVE/stat.html
+  - html-system/LIVE/drills.html
+  - html-system/LIVE/daily.html
+
+## 2026-04-25 21:52:26 EDT | MR-AVATAR-SYSTEM-HARDEN-006
+- prompt_id: MR-AVATAR-SYSTEM-HARDEN-006
+- files_changed:
+  - /Users/brianb/MissionMed/mode_dailyrounds_v1.html
+  - /Users/brianb/MissionMed/wp-content/mu-plugins/arena-route-proxy.php
+  - /Users/brianb/MissionMed/wp-content/mu-plugins/stat-route-proxy.php
+  - /Users/brianb/MissionMed/wp-content/mu-plugins/drills-route-proxy.php
+  - /Users/brianb/MissionMed/CHANGELOG/CHANGELOG_MASTER.md
+- backups_created:
+  - /Users/brianb/MissionMed/mode_dailyrounds_v1_BACKUP_2026-04-25_214439_MR-AVATAR-SYSTEM-HARDEN-006.html
+  - /Users/brianb/MissionMed/arena_v1_BACKUP_2026-04-25_214439_MR-AVATAR-SYSTEM-HARDEN-006.html
+  - /Users/brianb/MissionMed/drills_v1_BACKUP_2026-04-25_214439_MR-AVATAR-SYSTEM-HARDEN-006.html
+  - /Users/brianb/MissionMed/STAT MAIN folder/stat_latest_BACKUP_2026-04-25_214439_MR-AVATAR-SYSTEM-HARDEN-006.html
+  - /Users/brianb/MissionMed/wp-content/mu-plugins/arena-route-proxy_BACKUP_2026-04-25_214439_MR-AVATAR-SYSTEM-HARDEN-006.php
+  - /Users/brianb/MissionMed/wp-content/mu-plugins/stat-route-proxy_BACKUP_2026-04-25_214439_MR-AVATAR-SYSTEM-HARDEN-006.php
+  - /Users/brianb/MissionMed/wp-content/mu-plugins/drills-route-proxy_BACKUP_2026-04-25_214439_MR-AVATAR-SYSTEM-HARDEN-006.php
+- staging_uploaded:
+  - html-system/STAGING/arena.html
+  - html-system/STAGING/stat.html
+  - html-system/STAGING/drills.html
+  - html-system/STAGING/daily.html
+- live_promoted:
+  - html-system/LIVE/arena.html
+  - html-system/LIVE/stat.html
+  - html-system/LIVE/drills.html
+  - html-system/LIVE/daily.html
+- validation:
+  - CDN STAGING/LIVE artifacts: PASS (MMOS and marker checks)
+  - /arena?cb=999: PASS
+  - /stat?cb=999: PASS
+  - /drills?video_id=TEST123&cb=999: PASS (engine)
+  - /drills?cb=999: FAIL (served legacy non-MMOS daily artifact via current live proxy path)
+- result: PARTIAL
+- deployed: YES (CDN artifacts), NO (live WordPress proxy runtime behavior not fully converged)

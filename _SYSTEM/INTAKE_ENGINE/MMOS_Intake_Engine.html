@@ -1,0 +1,2268 @@
+<!--
+  MMOS Intake Engine v1.0
+  Authority: MR-1367 (Workflow OS) + MR-1377 (Operator Manual pattern)
+  Purpose: Convert an intake payload into a complete tabbed HTML execution manual.
+  Input contract: INTAKE_SCHEMA.md
+  Generation spec: TEMPLATE_ENGINE.md
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MMOS Intake Engine</title>
+<style>
+  :root{
+    --mm-bg:#0F2A44;
+    --mm-panel:#1B2F4A;
+    --mm-panel-2:#233A59;
+    --mm-text:#FFFFFF;
+    --mm-muted:#B0BEC5;
+    --mm-accent:#B23A3A;
+    --mm-accent-hover:#C24B4B;
+    --mm-line:#3B5470;
+    --mm-input:#10253D;
+    --mm-code-bg:#0A1E33;
+    --mm-code-fg:#E9F1F8;
+    --mm-success:#2A9D62;
+    --mm-warn:#D8A441;
+    --r:14px;
+    --rs:10px;
+    --t:.2s ease;
+    --sh1:0 8px 30px rgba(3,10,20,.35);
+    --sh2:0 14px 38px rgba(3,10,20,.4);
+  }
+
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+
+  html,body{height:100%}
+
+  body{
+    font:400 17px/1.62 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    color:var(--mm-text);
+    background:radial-gradient(circle at 15% 0%,#1A3B61 0%,#0F2A44 42%,#0B233A 100%);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    overflow-x:hidden;
+  }
+
+  *{
+    scrollbar-width:thin;
+    scrollbar-color:#516A87 #0B2238;
+  }
+
+  *::-webkit-scrollbar{width:12px;height:12px}
+  *::-webkit-scrollbar-track{background:#0B2238}
+  *::-webkit-scrollbar-thumb{background:#4A6481;border-radius:999px;border:2px solid #0B2238}
+  *::-webkit-scrollbar-thumb:hover{background:#5B7695}
+
+  .app{
+    display:grid;
+    grid-template-rows:auto 1fr;
+    min-height:100vh;
+  }
+
+  .container{
+    width:100%;
+    max-width:1200px;
+    margin:0 auto;
+    padding:24px;
+    min-width:0;
+  }
+
+  /* Top bar */
+  .bar{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:0 22px;
+    background:linear-gradient(180deg,#1C3B5E 0%,#163453 100%);
+    color:var(--mm-text);
+    border-bottom:1px solid var(--mm-line);
+    box-shadow:var(--sh1);
+    z-index:5;
+    min-width:0;
+    flex-wrap:wrap;
+  }
+
+  .bar .logo{
+    width:38px;
+    height:38px;
+    border-radius:11px;
+    background:linear-gradient(135deg,#F4FAFF 0%,#C9D9E7 100%);
+    display:grid;
+    place-items:center;
+    color:#13324F;
+    font-weight:900;
+    font-size:15px;
+    letter-spacing:-.3px;
+    flex-shrink:0;
+  }
+
+  .bar h1{
+    font-size:1.38rem;
+    font-weight:700;
+    letter-spacing:-.015em;
+    line-height:1.2;
+    min-width:0;
+  }
+
+  .bar .chip{
+    font-size:.94rem;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:5px 12px;
+    border-radius:999px;
+    background:var(--mm-accent);
+    color:var(--mm-text);
+  }
+
+  .bar .spacer{flex:1}
+
+  .bar .status{
+    font-size:.84rem;
+    font-weight:800;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    background:#223A58;
+    border:1px solid #4F6B88;
+    color:#D5E3EC;
+    padding:5px 11px;
+    border-radius:999px;
+    min-width:0;
+  }
+
+  .bar button{
+    appearance:none;
+    border:1px solid #4A6480;
+    background:#1A3A5B;
+    color:var(--mm-text);
+    font:inherit;
+    font-size:.95rem;
+    font-weight:700;
+    line-height:1;
+    padding:13px 17px;
+    border-radius:10px;
+    min-height:48px;
+    cursor:pointer;
+    transition:var(--t);
+  }
+
+  .bar button:hover{
+    background:#21466B;
+    border-color:#6483A4;
+  }
+
+  .bar button.primary{
+    background:var(--mm-accent);
+    border-color:#C85B5B;
+    color:var(--mm-text);
+  }
+
+  .bar button.primary:hover{background:var(--mm-accent-hover)}
+
+  .pane{
+    background:var(--mm-panel);
+    width:100%;
+    min-width:0;
+  }
+
+  .pane.left{
+    border:1px solid var(--mm-line);
+    border-radius:var(--r);
+    padding:24px;
+    min-width:0;
+  }
+
+  .app,
+  .container,
+  section.group,
+  .g-body,
+  .rep,
+  .rep-item,
+  .steps-wrap,
+  .gate-wrap{
+    min-width:0;
+  }
+
+  .bar > *,
+  .g-head > *,
+  .rep-item .ri-head > *,
+  .row > *,
+  .download-row > *{
+    min-width:0;
+  }
+
+  /* Form */
+  section.group{
+    background:var(--mm-panel-2);
+    border:1px solid var(--mm-line);
+    border-radius:var(--r);
+    margin-bottom:18px;
+    overflow:hidden;
+    box-shadow:var(--sh1);
+  }
+
+  .g-head{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:18px 18px;
+    cursor:pointer;
+    user-select:none;
+    background:var(--mm-panel-2);
+    min-width:0;
+    flex-wrap:wrap;
+  }
+
+  .g-head:hover{background:#294463}
+
+  .g-head .num{
+    width:30px;
+    height:30px;
+    border-radius:8px;
+    display:grid;
+    place-items:center;
+    background:#0F2A44;
+    color:var(--mm-text);
+    font-size:.94rem;
+    font-weight:900;
+    flex-shrink:0;
+    border:1px solid #4C6681;
+  }
+
+  .g-head h2{
+    font-size:1.2rem;
+    font-weight:750;
+    color:var(--mm-text);
+    letter-spacing:-.01em;
+    flex:1;
+    min-width:0;
+    line-height:1.3;
+  }
+
+  .g-head .req{
+    font-size:.94rem;
+    font-weight:800;
+    letter-spacing:.06em;
+    color:var(--mm-text);
+    background:rgba(178,58,58,.9);
+    padding:4px 10px;
+    border-radius:999px;
+  }
+
+  .g-head .opt{
+    font-size:.94rem;
+    font-weight:800;
+    letter-spacing:.06em;
+    color:var(--mm-text);
+    background:#355173;
+    padding:4px 10px;
+    border-radius:999px;
+  }
+
+  .g-head .caret{
+    transition:var(--t);
+    color:var(--mm-muted);
+    font-size:1rem;
+  }
+
+  section.group.closed .g-head .caret{transform:rotate(-90deg)}
+
+  .g-body{
+    padding:12px 18px 22px;
+    border-top:1px solid var(--mm-line);
+    display:block;
+  }
+
+  section.group.closed .g-body{display:none}
+
+  .row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:14px;min-width:0}
+  .row.one{grid-template-columns:minmax(0,1fr)}
+  .row.three{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
+
+  .fld{display:flex;flex-direction:column;gap:8px;min-width:0}
+
+  .fld label{
+    font-size:.94rem;
+    font-weight:800;
+    color:#D2DFE8;
+    letter-spacing:.045em;
+    text-transform:uppercase;
+    line-height:1.45;
+    overflow-wrap:anywhere;
+  }
+
+  .fld .hint{
+    font-size:.94rem;
+    color:var(--mm-muted);
+    margin-top:-2px;
+    line-height:1.5;
+  }
+
+  .fld input,
+  .fld select,
+  .fld textarea{
+    font:inherit;
+    font-size:1rem;
+    padding:13px 14px;
+    border:1.5px solid #4A6480;
+    border-radius:var(--rs);
+    background:var(--mm-input);
+    color:var(--mm-text);
+    min-height:50px;
+    line-height:1.55;
+    caret-color:var(--mm-text);
+    transition:var(--t);
+    width:100%;
+    max-width:100%;
+    min-width:0;
+  }
+
+  .fld input::placeholder,
+  .fld textarea::placeholder{
+    color:#98ABB8;
+    opacity:1;
+  }
+
+  .fld textarea{
+    resize:vertical;
+    min-height:104px;
+    font-family:"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+    font-size:.96rem;
+  }
+
+  .fld select{
+    background-image:linear-gradient(45deg,transparent 50%,#BBD0DF 50%),linear-gradient(135deg,#BBD0DF 50%,transparent 50%);
+    background-position:calc(100% - 18px) calc(50% + 2px),calc(100% - 13px) calc(50% + 2px);
+    background-size:5px 5px,5px 5px;
+    background-repeat:no-repeat;
+    padding-right:34px;
+    appearance:none;
+  }
+
+  .fld input:focus,
+  .fld select:focus,
+  .fld textarea:focus{
+    outline:none;
+    border-color:#C96767;
+    box-shadow:0 0 0 3px rgba(178,58,58,.22),0 0 0 1px rgba(178,58,58,.42);
+    background:#142C47;
+  }
+
+  .fld .req-star{color:#FF7B7B}
+
+  /* Repeater */
+  .rep{
+    border:1px dashed #537090;
+    border-radius:var(--rs);
+    padding:14px;
+    margin-top:14px;
+    background:#193451;
+  }
+
+  .rep-item{
+    background:#223A58;
+    border:1px solid #4B6682;
+    border-radius:var(--rs);
+    padding:13px 14px;
+    margin-bottom:10px;
+  }
+
+  .rep-item .ri-head{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-bottom:10px;
+    min-width:0;
+    flex-wrap:wrap;
+  }
+
+  .rep-item .ri-head .ri-num{
+    font-size:.94rem;
+    font-weight:900;
+    color:var(--mm-text);
+    background:#1A324E;
+    border:1px solid #4B6682;
+    padding:5px 10px;
+    border-radius:999px;
+  }
+
+  .rep-item .ri-head .ri-title{
+    font-size:1rem;
+    font-weight:700;
+    color:var(--mm-text);
+    flex:1;
+    min-width:0;
+    line-height:1.4;
+  }
+
+  .rep-item .ri-head button{
+    appearance:none;
+    border:1px solid #B85D5D;
+    background:transparent;
+    color:#FFD3D3;
+    font:inherit;
+    font-size:.9rem;
+    font-weight:700;
+    cursor:pointer;
+    padding:8px 11px;
+    border-radius:8px;
+    min-height:38px;
+  }
+
+  .rep-item .ri-head button:hover{background:rgba(178,58,58,.2)}
+
+  .rep-add{
+    appearance:none;
+    border:1px solid #C86868;
+    background:var(--mm-accent);
+    color:var(--mm-text);
+    font:inherit;
+    font-size:.95rem;
+    font-weight:800;
+    padding:11px 16px;
+    border-radius:10px;
+    min-height:44px;
+    cursor:pointer;
+    transition:var(--t);
+  }
+
+  .rep-add:hover{background:var(--mm-accent-hover)}
+
+  /* Steps inside phase */
+  .steps-wrap{
+    margin-top:12px;
+    padding:14px;
+    background:#193451;
+    border-radius:var(--rs);
+    border:1px solid #45617E;
+  }
+
+  .steps-wrap .steps-label{
+    font-size:.94rem;
+    font-weight:900;
+    color:#D3E1EA;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+
+  /* Gate block */
+  .gate-wrap{
+    margin-top:14px;
+    padding:14px 14px;
+    background:rgba(42,157,98,.12);
+    border:1px solid rgba(82,188,133,.5);
+    border-radius:var(--rs);
+  }
+
+  .gate-wrap .gate-label{
+    font-size:.94rem;
+    font-weight:900;
+    color:#BFEAD0;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    margin-bottom:6px;
+  }
+
+  .validation{
+    background:rgba(216,164,65,.13);
+    border:1px solid rgba(216,164,65,.58);
+    border-radius:var(--rs);
+    padding:14px 15px;
+    margin-bottom:14px;
+    font-size:.96rem;
+    color:#FFE9B8;
+    line-height:1.58;
+  }
+
+  .validation.ok{
+    background:rgba(42,157,98,.13);
+    border-color:rgba(101,215,154,.56);
+    color:#CEF5DF;
+  }
+
+  .validation h4{
+    font-size:.94rem;
+    font-weight:900;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    margin-bottom:8px;
+  }
+
+  .validation ul{margin:4px 0 0 20px}
+  .validation li{margin:5px 0}
+
+  .download-row{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:18px;
+    min-width:0;
+  }
+
+  .download-row button{
+    appearance:none;
+    border:1px solid #C96868;
+    background:var(--mm-accent);
+    color:var(--mm-text);
+    font:inherit;
+    font-size:.95rem;
+    font-weight:800;
+    line-height:1.1;
+    padding:13px 17px;
+    min-height:48px;
+    border-radius:11px;
+    cursor:pointer;
+    transition:var(--t);
+  }
+
+  .download-row button.alt{
+    background:#1E3958;
+    border-color:#5A7897;
+    color:#F0F6FA;
+  }
+
+  .download-row button:hover{filter:brightness(1.1)}
+  .download-row button:disabled{opacity:.52;cursor:not-allowed}
+
+  /* Small helpers */
+  .mini{
+    font-size:.94rem;
+    color:var(--mm-muted);
+    margin-top:5px;
+    line-height:1.6;
+  }
+
+  .pill-sm{
+    display:inline-block;
+    font-size:.94rem;
+    font-weight:800;
+    letter-spacing:.045em;
+    text-transform:uppercase;
+    padding:4px 9px;
+    border-radius:999px;
+    background:#274362;
+    color:#D4E1EA;
+    margin-right:6px;
+    margin-top:3px;
+  }
+
+  pre,
+  code,
+  kbd,
+  samp{
+    font-family:"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  }
+
+  pre{
+    background:var(--mm-code-bg);
+    color:var(--mm-code-fg);
+    border:1px solid var(--mm-code-border,#304A66);
+    border-radius:11px;
+    padding:16px 18px;
+    overflow:auto;
+    line-height:1.65;
+    font-size:.95rem;
+  }
+
+  code{
+    background:rgba(19,45,72,.85);
+    color:var(--mm-code-fg);
+    border-radius:6px;
+    padding:2px 6px;
+  }
+
+  .copy-btn,
+  button.copy,
+  [data-copy]{
+    background:#284666;
+    color:#FFFFFF;
+    border:1px solid #5E7D9D;
+    border-radius:10px;
+    min-height:40px;
+    padding:10px 14px;
+    font-size:.94rem;
+    font-weight:800;
+  }
+
+  .copy-btn:hover,
+  button.copy:hover,
+  [data-copy]:hover{
+    background:#33557A;
+  }
+
+  @media (max-width:1180px){
+    .bar{
+      min-height:74px;
+      padding-top:10px;
+      padding-bottom:10px;
+      gap:10px;
+    }
+    .container{padding:18px}
+    .row.three{grid-template-columns:1fr 1fr}
+  }
+
+  @media (max-width:860px){
+    .bar{
+      padding-left:14px;
+      padding-right:14px;
+    }
+    .pane.left{
+      border-right:1px solid var(--mm-line);
+      padding-bottom:40px;
+    }
+    .container{
+      padding:14px;
+    }
+    .row,
+    .row.three{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <header class="bar">
+    <div class="logo">MM</div>
+    <h1>MMOS Intake Engine</h1>
+    <span class="chip">v1.0</span>
+    <span class="status" id="preview-status">Not generated yet</span>
+    <div class="spacer"></div>
+    <button id="btn-preset">Load Preset</button>
+    <button id="btn-clear">Clear</button>
+    <button id="btn-validate">Validate</button>
+    <button id="btn-generate" class="primary">Generate Manual</button>
+  </header>
+
+  <div class="container">
+    <div id="validation-slot"></div>
+    <aside class="pane left" id="form-pane">
+      <!-- Sections are injected by JS -->
+    </aside>
+    <div class="download-row">
+      <button id="btn-download" disabled>Download HTML</button>
+      <button id="btn-copy-html" class="alt" disabled>Copy HTML Source</button>
+      <button id="btn-export-json" class="alt" disabled>Export Intake (JSON)</button>
+      <button id="btn-import-json" class="alt">Import Intake (JSON)</button>
+      <input id="json-file" type="file" accept="application/json,.json" style="display:none">
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================================
+   MMOS INTAKE ENGINE — STATE + UI + GENERATION
+   ========================================================================= */
+
+/* ---------- STATE ---------- */
+const today = new Date().toISOString().slice(0,10);
+
+const DEFAULT_EXEC_RULES = [
+  "Never skip phases. Earlier phases set preconditions for later phases.",
+  "Always run gates. A failed gate is a stop condition, not a warning.",
+  "Checkpoint after every phase. Git commits are your undo button.",
+  "New session = re-run the init phase first. Your memory is not reliable.",
+  "FAIL FAST: if any step, validation, or gate fails, stop and fix before continuing."
+];
+
+const DEFAULT_THREAD_RULES = {
+  new_thread_triggers: [
+    "Starting the first phase",
+    "Switching between major architecture phases",
+    "Switching AI models (e.g., Claude to Codex)",
+    "Clean validation run at the end"
+  ],
+  same_thread_triggers: [
+    "Sequential steps within a phase",
+    "The next step uses the same AI and builds on prior output",
+    "Debugging or retrying a failed step"
+  ],
+  continuation_steps: [
+    "Start a new thread",
+    "Re-run the init/pre-flight phase to detect what is already done",
+    "Resume from the next incomplete step",
+    "Tell the AI: \"Resuming {MANUAL_ID} build. Last completed: [prompt ID]. Continue from next step.\""
+  ],
+  transitions: [
+    ["Start of build","New thread"],
+    ["Mid-phase sequential step","Same thread"],
+    ["Phase N to Phase N+1","New thread (fresh context)"],
+    ["Switching AI (Claude↔Codex)","New thread"],
+    ["Resume after break","New thread, re-run init first"]
+  ]
+};
+
+const DEFAULT_FAILURES = [
+  ["1","AI response missing RESULT: header","Reply: \"Re-format your response starting with the RESULT: header.\" Do not continue until it appears."],
+  ["2","AI produces files outside the declared scope","Run `git diff --name-only`. Revert extras with `git checkout HEAD -- [file]`."],
+  ["3","A step exceeds its line/token budget","Reply: \"Compress to the stated budget. Remove commentary, keep rules only.\" Re-run."],
+  ["4","Prompt references a deprecated file","Replace the deprecated name with the canonical name (see NAMING_CANON.md). Re-run."],
+  ["5","Session dies mid-phase","Start a new thread. Re-run the init phase. Resume from next incomplete step."]
+];
+
+const WORKFLOW_PRESETS = {
+  BUILD: [
+    {name:"Init",intro:"Verify preconditions before any file changes."},
+    {name:"Plan",intro:"Produce the implementation plan. No code yet."},
+    {name:"Build",intro:"Execute the plan. Create and modify files per spec."},
+    {name:"Validate",intro:"Run verification checks. Lock the system."}
+  ],
+  AUDIT: [
+    {name:"Scope",intro:"Define the audit target and boundaries."},
+    {name:"Collect",intro:"Gather source files, logs, and reference data."},
+    {name:"Analyze",intro:"Classify findings by severity."},
+    {name:"Report",intro:"Produce the final audit report with cited evidence."}
+  ],
+  FIX: [
+    {name:"Reproduce",intro:"Confirm the bug in a known environment."},
+    {name:"Diagnose",intro:"Identify the root cause, not a symptom."},
+    {name:"Patch",intro:"Apply the minimal fix."},
+    {name:"Verify",intro:"Confirm fix + no regression."}
+  ],
+  DEPLOY: [
+    {name:"Prep",intro:"Backup. Version. Pre-deploy validation."},
+    {name:"Checkpoint",intro:"Git checkpoint before deploy."},
+    {name:"Deploy",intro:"Execute deployment via sanctioned path only."},
+    {name:"Verify",intro:"Post-deploy health + functional checks."}
+  ],
+  CONTENT: [
+    {name:"Brief",intro:"Define audience, objective, voice, constraints."},
+    {name:"Draft",intro:"Produce v1 of the content."},
+    {name:"QA",intro:"Voice, structure, conversion, proof checks."},
+    {name:"Ship",intro:"Deliver to target surface. Record in activity log."}
+  ],
+  PLAN: [
+    {name:"Context",intro:"Read existing state. Cite file-level evidence."},
+    {name:"Options",intro:"Draft 2–3 alternative approaches with trade-offs."},
+    {name:"Decision",intro:"Select and justify the chosen path."},
+    {name:"Brief",intro:"Produce the implementation brief for the build phase."}
+  ],
+  SYSTEM_MIGRATION: [
+    {name:"System Init",intro:"Pre-flight validation of every source and target file."},
+    {name:"Core Protocol",intro:"Create the control layer."},
+    {name:"Knowledge Refactor",intro:"Split monoliths, scope knowledge, deprecate legacy."},
+    {name:"Install",intro:"Install prompt templates, engines, and scripts."},
+    {name:"Lock",intro:"Run the system-wide lock audit."},
+    {name:"Validate",intro:"End-to-end live system test."}
+  ]
+};
+
+function freshStep(n){
+  return {
+    number:n,name:"",ai:"Claude",model:"Sonnet OK",time_min:5,time_max:10,
+    token_estimate:"",ai_fit_claude:9,ai_fit_codex:3,ai_fit_note:"",
+    dependency:"",safe_to_run:"",what_you_do:"",
+    prompt_label:"Copy This Prompt",prompt_body:"",
+    success_criteria:"",failure_recovery:"",
+    confidence_pct:"",confidence_gap:"",confidence_improvement:"",
+    pre_action:"",post_action:"",risk:"MEDIUM"
+  };
+}
+function freshGate(pn){
+  return {
+    checks:["Step outputs exist","No broken references","Gate passes manual review"],
+    all_pass_action:"git add -A && git commit -m \"CHECKPOINT: Phase "+pn+" complete\"",
+    any_fail_action:"Fix the failing check. Re-verify before proceeding.",
+    transition_confidence_pct:"",transition_confidence_gap:"",transition_confidence_improvement:""
+  };
+}
+function freshPhase(n){
+  return {number:n,name:"",intro:"",steps:[freshStep(n+".1")],gate:freshGate(n)};
+}
+
+const state = {
+  meta:{
+    project_letter:"A",manual_id:"MR-XXXX",manual_title:"",short_title:"",
+    version:"1.0",date:today,authority:"",purpose:""
+  },
+  workflow:{
+    workflow_type:"BUILD",sub_type:"",baseline_risk:"MEDIUM",
+    naming_format:"({PROJECT})-{MANUAL}-PH{#}-{AI}-{LEVEL}-{###}",
+    thread_format:"({PROJECT}) — [Short Task Description]",
+    result_header_required:true
+  },
+  overview:{
+    estimated_time:"",models_used:"",what_gets_built:"",
+    file_manifest:[]
+  },
+  rules:{
+    execution_rules:DEFAULT_EXEC_RULES.slice(),
+    deploy_source_of_truth:""
+  },
+  protection:{
+    protected_systems:[],
+    deployment_warnings:[]
+  },
+  phases:[freshPhase(0),freshPhase(1)],
+  thread_rules:JSON.parse(JSON.stringify(DEFAULT_THREAD_RULES)),
+  failures:DEFAULT_FAILURES.map(r=>({n:r[0],symptom:r[1],action:r[2]})),
+  sessions:[
+    {name:"Session 1: Foundation",covers:"Phases 0–1",time:"45–65 min",thread_behavior:"New thread. Stay in same thread for sequential steps.",what_happens:"",done_criteria:""}
+  ]
+};
+
+/* ---------- UTILITIES ---------- */
+function $(id){return document.getElementById(id)}
+function esc(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]))}
+function slug(s){return (s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,50)}
+function clone(o){return JSON.parse(JSON.stringify(o))}
+function substituteTokens(text,meta,workflow){
+  if(!text)return "";
+  const map={
+    "({PROJECT})":"("+(meta.project_letter||"X")+")",
+    "{MANUAL_ID}":meta.manual_id||"",
+    "{MANUAL}":(meta.manual_id||"").replace(/[^A-Z0-9]/gi,"").toUpperCase(),
+    "{SHORT}":slug(meta.short_title||""),
+    "{DATE}":meta.date||"",
+    "{VERSION}":meta.version||"",
+    "{AUTHORITY}":meta.authority||""
+  };
+  let out=text;
+  Object.keys(map).forEach(k=>{out=out.split(k).join(map[k])});
+  return out;
+}
+
+/* ---------- FORM RENDERING ---------- */
+function renderForm(){
+  const pane=$("form-pane");
+  pane.innerHTML=[
+    groupMeta(),groupWorkflow(),groupOverview(),groupRules(),groupProtection(),
+    groupPhases(),groupThreadRules(),groupFailures(),groupSessions()
+  ].join("");
+  bindInputs();
+  bindCollapses();
+}
+function groupShell(num,title,kind,bodyHtml,openByDefault){
+  const cls=openByDefault===false?"group closed":"group";
+  return `<section class="${cls}" data-g="${num}">
+    <div class="g-head">
+      <div class="num">${num}</div>
+      <h2>${title}</h2>
+      <span class="${kind==='req'?'req':'opt'}">${kind==='req'?'REQUIRED':'OPTIONAL'}</span>
+      <span class="caret">▾</span>
+    </div>
+    <div class="g-body">${bodyHtml}</div>
+  </section>`;
+}
+
+function inp(label,path,type,opts){
+  opts=opts||{};
+  const val=getPath(path);
+  const req=opts.req?'<span class="req-star">*</span>':'';
+  const hint=opts.hint?`<div class="hint">${esc(opts.hint)}</div>`:'';
+  if(type==="textarea"){
+    return `<div class="fld"><label>${label} ${req}</label><textarea data-path="${path}" rows="${opts.rows||3}" placeholder="${esc(opts.ph||'')}">${esc(val||"")}</textarea>${hint}</div>`;
+  }
+  if(type==="select"){
+    const options=opts.options||[];
+    const opts_html=options.map(o=>`<option value="${esc(o.v)}"${String(o.v)===String(val)?' selected':''}>${esc(o.l)}</option>`).join("");
+    return `<div class="fld"><label>${label} ${req}</label><select data-path="${path}">${opts_html}</select>${hint}</div>`;
+  }
+  if(type==="checkbox"){
+    return `<div class="fld"><label>${label}</label><label style="font-size:13px;color:var(--mm-ink);display:flex;align-items:center;gap:8px;padding:8px 0"><input type="checkbox" data-path="${path}" ${val?'checked':''}> <span>${esc(opts.cbLabel||'Enabled')}</span></label>${hint}</div>`;
+  }
+  return `<div class="fld"><label>${label} ${req}</label><input type="${type||'text'}" data-path="${path}" value="${esc(val||"")}" placeholder="${esc(opts.ph||'')}">${hint}</div>`;
+}
+
+function getPath(p){
+  const parts=p.split(".");let cur=state;
+  for(let i=0;i<parts.length;i++){
+    const seg=parts[i];
+    const m=seg.match(/^(.+)\[(\d+)\]$/);
+    if(m){cur=cur[m[1]]; if(cur==null)return undefined; cur=cur[+m[2]]}
+    else cur=cur==null?undefined:cur[seg];
+    if(cur==null)return cur;
+  }
+  return cur;
+}
+function setPath(p,val){
+  const parts=p.split(".");let cur=state;
+  for(let i=0;i<parts.length-1;i++){
+    const seg=parts[i];
+    const m=seg.match(/^(.+)\[(\d+)\]$/);
+    if(m){cur=cur[m[1]][+m[2]]} else cur=cur[seg];
+  }
+  const last=parts[parts.length-1];
+  const m=last.match(/^(.+)\[(\d+)\]$/);
+  if(m){cur[m[1]][+m[2]]=val} else cur[last]=val;
+}
+
+/* --- Section builders --- */
+function groupMeta(){
+  const body=`
+    <div class="row">
+      ${inp("Project letter","meta.project_letter","text",{req:true,ph:"A",hint:"Single letter A–Z used in ({PROJECT}) tokens"})}
+      ${inp("Manual ID","meta.manual_id","text",{req:true,ph:"MR-1377",hint:"Authority reference"})}
+    </div>
+    <div class="row">
+      ${inp("Manual title","meta.manual_title","text",{req:true,ph:"Workflow OS Operator Manual"})}
+      ${inp("Short title","meta.short_title","text",{req:true,ph:"Workflow OS",hint:"Used in header badge + filename"})}
+    </div>
+    <div class="row three">
+      ${inp("Version","meta.version","text",{req:true,ph:"1.0"})}
+      ${inp("Date","meta.date","date",{req:true})}
+      ${inp("Authority","meta.authority","text",{req:true,ph:"MR-1367 + MR-1377"})}
+    </div>
+    <div class="row one">
+      ${inp("Purpose","meta.purpose","textarea",{req:true,rows:2,ph:"One sentence describing what this manual accomplishes."})}
+    </div>`;
+  return groupShell("1","Meta","req",body,true);
+}
+
+function groupWorkflow(){
+  const types=["BUILD","AUDIT","FIX","DEPLOY","CONTENT","PLAN","SYSTEM_MIGRATION"].map(v=>({v,l:v}));
+  const risks=["LOW","MEDIUM","HIGH"].map(v=>({v,l:v}));
+  const body=`
+    <div class="row">
+      ${inp("Workflow type","workflow.workflow_type","select",{req:true,options:types,hint:"Sets the default phase skeleton"})}
+      ${inp("Sub-type (optional)","workflow.sub_type","text",{ph:"e.g., Knowledge Refactor"})}
+    </div>
+    <div class="row">
+      ${inp("Baseline risk","workflow.baseline_risk","select",{req:true,options:risks,hint:"Overridable per step"})}
+      ${inp("Require RESULT: header","workflow.result_header_required","checkbox",{cbLabel:"Yes, every AI response must begin with RESULT: / SUMMARY:"})}
+    </div>
+    <div class="row">
+      ${inp("Naming format","workflow.naming_format","text",{req:true,hint:"Tokens: ({PROJECT}) {MANUAL} PH{#} {AI} {LEVEL} {###}"})}
+      ${inp("Thread format","workflow.thread_format","text",{req:true})}
+    </div>
+    <div class="mini">Tip: switching workflow type reloads the phase skeleton. Existing edits to phases are preserved. Only empty phases are regenerated.</div>
+    <div class="download-row" style="margin-top:10px">
+      <button class="rep-add" id="apply-preset" type="button">Apply workflow preset to empty phases</button>
+    </div>`;
+  return groupShell("2","Workflow","req",body,true);
+}
+
+function groupOverview(){
+  const fmHtml=(state.overview.file_manifest||[]).map((f,i)=>`
+    <div class="rep-item">
+      <div class="ri-head"><span class="ri-num">#${i+1}</span><div class="ri-title">File manifest entry</div>
+        <button type="button" data-remove="overview.file_manifest[${i}]">Remove</button>
+      </div>
+      <div class="row three">
+        <div class="fld"><label>File path</label><input data-path="overview.file_manifest[${i}].file" value="${esc(f.file||'')}" placeholder="_SYSTEM/PRIMER_CORE.md"></div>
+        <div class="fld"><label>Phase</label><input data-path="overview.file_manifest[${i}].phase" value="${esc(f.phase||'')}" placeholder="1"></div>
+        <div class="fld"><label>Purpose</label><input data-path="overview.file_manifest[${i}].purpose" value="${esc(f.purpose||'')}" placeholder="Control layer file"></div>
+      </div>
+    </div>`).join("");
+  const body=`
+    <div class="row">
+      ${inp("Estimated time","overview.estimated_time","text",{req:true,ph:"2.5–3.5 hours across 3 sessions"})}
+      ${inp("Models used","overview.models_used","text",{req:true,ph:"Claude Opus (4), Sonnet (5), Codex (2)"})}
+    </div>
+    <div class="row one">
+      ${inp("What gets built","overview.what_gets_built","textarea",{req:true,rows:3,ph:"1–3 sentence executive summary."})}
+    </div>
+    <div class="rep">
+      <div class="mini" style="margin-bottom:8px"><strong>File manifest</strong> (optional): files created by this build, shown as a table in the manual.</div>
+      ${fmHtml||'<div class="mini">No manifest entries yet.</div>'}
+      <button type="button" class="rep-add" data-add="file_manifest">+ Add file</button>
+    </div>`;
+  return groupShell("3","Overview","req",body,true);
+}
+
+function groupRules(){
+  const rulesHtml=(state.rules.execution_rules||[]).map((r,i)=>`
+    <div class="rep-item">
+      <div class="ri-head"><span class="ri-num">Rule ${i+1}</span><div class="ri-title"></div>
+        <button type="button" data-remove="rules.execution_rules[${i}]">Remove</button>
+      </div>
+      <div class="fld"><textarea data-path="rules.execution_rules[${i}]" rows="2">${esc(r)}</textarea></div>
+    </div>`).join("");
+  const body=`
+    <div class="rep">
+      <div class="mini" style="margin-bottom:8px"><strong>Execution rules</strong>: global rules shown in the Rules tab of the manual. Defaults supplied. Edit as needed.</div>
+      ${rulesHtml}
+      <button type="button" class="rep-add" data-add="execution_rules">+ Add rule</button>
+    </div>
+    <div class="row one" style="margin-top:10px">
+      ${inp("Deploy source-of-truth (optional)","rules.deploy_source_of_truth","textarea",{rows:2,ph:"e.g., All deployments MUST originate from GitHub via git push origin main."})}
+    </div>`;
+  return groupShell("4","Rules","opt",body,false);
+}
+
+function groupProtection(){
+  const psHtml=(state.protection.protected_systems||[]).map((p,i)=>`
+    <div class="rep-item">
+      <div class="ri-head"><span class="ri-num">#${i+1}</span><div class="ri-title">Protected system</div>
+        <button type="button" data-remove="protection.protected_systems[${i}]">Remove</button>
+      </div>
+      <div class="row">
+        <div class="fld"><label>System</label><input data-path="protection.protected_systems[${i}].system" value="${esc(p.system||'')}" placeholder="arena.html"></div>
+        <div class="fld"><label>Reason</label><input data-path="protection.protected_systems[${i}].reason" value="${esc(p.reason||'')}" placeholder="Production game engine"></div>
+      </div>
+    </div>`).join("");
+  const dwHtml=(state.protection.deployment_warnings||[]).map((w,i)=>`
+    <div class="rep-item">
+      <div class="ri-head"><span class="ri-num">#${i+1}</span><div class="ri-title">Warning</div>
+        <button type="button" data-remove="protection.deployment_warnings[${i}]">Remove</button>
+      </div>
+      <div class="fld"><textarea data-path="protection.deployment_warnings[${i}]" rows="2">${esc(w)}</textarea></div>
+    </div>`).join("");
+  const body=`
+    <div class="rep">
+      <div class="mini" style="margin-bottom:8px"><strong>Protected systems</strong> that must not be modified during this workflow.</div>
+      ${psHtml||'<div class="mini">None declared.</div>'}
+      <button type="button" class="rep-add" data-add="protected_systems">+ Add protected system</button>
+    </div>
+    <div class="rep" style="margin-top:10px">
+      <div class="mini" style="margin-bottom:8px"><strong>Deployment warnings</strong>: highlighted warning banners shown at the top of execution phases.</div>
+      ${dwHtml||'<div class="mini">None declared.</div>'}
+      <button type="button" class="rep-add" data-add="deployment_warnings">+ Add warning</button>
+    </div>`;
+  return groupShell("5","Protection","opt",body,false);
+}
+
+function groupPhases(){
+  const phasesHtml=(state.phases||[]).map((p,pi)=>{
+    const stepsHtml=(p.steps||[]).map((s,si)=>stepCard(pi,si,s)).join("");
+    const gateChecks=(p.gate.checks||[]).map((c,ci)=>`
+      <div class="rep-item" style="padding:6px 10px">
+        <div class="ri-head" style="margin-bottom:4px"><span class="ri-num">Check ${ci+1}</span><div class="ri-title"></div>
+          <button type="button" data-remove="phases[${pi}].gate.checks[${ci}]">Remove</button>
+        </div>
+        <div class="fld"><input data-path="phases[${pi}].gate.checks[${ci}]" value="${esc(c)}"></div>
+      </div>`).join("");
+    return `
+    <div class="rep-item">
+      <div class="ri-head">
+        <span class="ri-num">Phase ${p.number}</span>
+        <div class="ri-title">${esc(p.name||'(unnamed phase)')}</div>
+        <button type="button" data-move-phase-up="${pi}">↑</button>
+        <button type="button" data-move-phase-down="${pi}">↓</button>
+        <button type="button" data-remove-phase="${pi}">Remove phase</button>
+      </div>
+      <div class="row three">
+        <div class="fld"><label>Number *</label><input type="number" data-path="phases[${pi}].number" value="${esc(p.number)}"></div>
+        <div class="fld"><label>Name *</label><input data-path="phases[${pi}].name" value="${esc(p.name)}" placeholder="System Init"></div>
+        <div class="fld"><label>Intro *</label><input data-path="phases[${pi}].intro" value="${esc(p.intro)}" placeholder="Verify everything exists before touching anything."></div>
+      </div>
+      <div class="steps-wrap">
+        <div class="steps-label">Steps (${(p.steps||[]).length})</div>
+        ${stepsHtml}
+        <button type="button" class="rep-add" data-add-step="${pi}">+ Add step</button>
+      </div>
+      <div class="gate-wrap">
+        <div class="gate-label">Gate: Phase ${p.number} to next</div>
+        ${gateChecks}
+        <button type="button" class="rep-add" data-add-check="${pi}">+ Add check</button>
+        <div class="row" style="margin-top:8px">
+          <div class="fld"><label>ALL PASS → action</label><input data-path="phases[${pi}].gate.all_pass_action" value="${esc(p.gate.all_pass_action||'')}"></div>
+          <div class="fld"><label>ANY FAIL → action</label><input data-path="phases[${pi}].gate.any_fail_action" value="${esc(p.gate.any_fail_action||'')}"></div>
+        </div>
+        <div class="row three">
+          <div class="fld"><label>Transition confidence %</label><input type="number" data-path="phases[${pi}].gate.transition_confidence_pct" value="${esc(p.gate.transition_confidence_pct||'')}" min="0" max="100"></div>
+          <div class="fld"><label>Gap</label><input data-path="phases[${pi}].gate.transition_confidence_gap" value="${esc(p.gate.transition_confidence_gap||'')}"></div>
+          <div class="fld"><label>How to improve</label><input data-path="phases[${pi}].gate.transition_confidence_improvement" value="${esc(p.gate.transition_confidence_improvement||'')}"></div>
+        </div>
+      </div>
+    </div>`;
+  }).join("");
+  const body=`
+    <div class="rep">
+      ${phasesHtml}
+      <button type="button" class="rep-add" id="add-phase">+ Add phase</button>
+    </div>
+    <div class="mini">Tip: every phase must end with a gate. Gates are what make the system self-healing.</div>`;
+  return groupShell("6","Phases + Steps","req",body,true);
+}
+
+function stepCard(pi,si,s){
+  return `
+  <div class="rep-item">
+    <div class="ri-head">
+      <span class="ri-num">Step ${s.number||(pi+"."+(si+1))}</span>
+      <div class="ri-title">${esc(s.name||'(unnamed step)')}</div>
+      <button type="button" data-remove-step="${pi}.${si}">Remove step</button>
+    </div>
+    <div class="row three">
+      <div class="fld"><label>Number *</label><input data-path="phases[${pi}].steps[${si}].number" value="${esc(s.number)}" placeholder="1.1"></div>
+      <div class="fld"><label>Name *</label><input data-path="phases[${pi}].steps[${si}].name" value="${esc(s.name)}" placeholder="Pre-Flight Validation"></div>
+      <div class="fld"><label>Risk</label><select data-path="phases[${pi}].steps[${si}].risk"><option${s.risk==='LOW'?' selected':''}>LOW</option><option${(s.risk==='MEDIUM'||!s.risk)?' selected':''}>MEDIUM</option><option${s.risk==='HIGH'?' selected':''}>HIGH</option></select></div>
+    </div>
+    <div class="row three">
+      <div class="fld"><label>AI</label><select data-path="phases[${pi}].steps[${si}].ai"><option${s.ai==='Claude'?' selected':''}>Claude</option><option${s.ai==='Codex'?' selected':''}>Codex</option><option${s.ai==='Other'?' selected':''}>Other</option></select></div>
+      <div class="fld"><label>Model / level</label><input data-path="phases[${pi}].steps[${si}].model" value="${esc(s.model)}" placeholder="Opus Required / Sonnet OK"></div>
+      <div class="fld"><label>Tokens estimate</label><input data-path="phases[${pi}].steps[${si}].token_estimate" value="${esc(s.token_estimate)}" placeholder="~10K tokens"></div>
+    </div>
+    <div class="row three">
+      <div class="fld"><label>Time min</label><input type="number" data-path="phases[${pi}].steps[${si}].time_min" value="${esc(s.time_min)}"></div>
+      <div class="fld"><label>Time max</label><input type="number" data-path="phases[${pi}].steps[${si}].time_max" value="${esc(s.time_max)}"></div>
+      <div class="fld"><label>AI fit: Claude / Codex (0–10)</label><input data-path="phases[${pi}].steps[${si}].ai_fit_claude" value="${esc(s.ai_fit_claude)}" placeholder="9" style="width:45%;display:inline-block;margin-right:4%"><input data-path="phases[${pi}].steps[${si}].ai_fit_codex" value="${esc(s.ai_fit_codex)}" placeholder="3" style="width:45%;display:inline-block"></div>
+    </div>
+    <div class="row">
+      <div class="fld"><label>AI fit note</label><input data-path="phases[${pi}].steps[${si}].ai_fit_note" value="${esc(s.ai_fit_note)}" placeholder="Architectural reasoning required"></div>
+      <div class="fld"><label>Dependency</label><input data-path="phases[${pi}].steps[${si}].dependency" value="${esc(s.dependency)}" placeholder="Requires: Phase 0 gate PASSED"></div>
+    </div>
+    <div class="fld" style="margin-top:8px"><label>What you do *</label><input data-path="phases[${pi}].steps[${si}].what_you_do" value="${esc(s.what_you_do)}" placeholder="Copy the prompt below. Paste into Claude. Run it."></div>
+    <div class="row" style="margin-top:8px">
+      <div class="fld"><label>Pre-action (optional)</label><input data-path="phases[${pi}].steps[${si}].pre_action" value="${esc(s.pre_action)}" placeholder="git add -A && git commit -m 'PRE-CODEX-CHECKPOINT'"></div>
+      <div class="fld"><label>Prompt label</label><input data-path="phases[${pi}].steps[${si}].prompt_label" value="${esc(s.prompt_label)}" placeholder="Copy This Prompt"></div>
+    </div>
+    <div class="fld" style="margin-top:8px"><label>Prompt body *</label><textarea data-path="phases[${pi}].steps[${si}].prompt_body" rows="8" placeholder="PROMPT NAME: ({PROJECT})-{MANUAL}-PH0-CLAUDE-MED-001&#10;THREAD NAME: ({PROJECT}) — ${esc(state.meta.short_title||'Workflow')} Build&#10;---&#10;Load PRIMER_CORE.md&#10;Load KNOWLEDGE_INDEX.md&#10;---&#10;TASK TYPE: BUILD&#10;RISK LEVEL: HIGH&#10;AUTHORITY: {AUTHORITY}&#10;---&#10;...">${esc(s.prompt_body)}</textarea></div>
+    <div class="row">
+      <div class="fld"><label>Success criteria *</label><textarea data-path="phases[${pi}].steps[${si}].success_criteria" rows="2" placeholder="RESULT: COMPLETE. [What visible output indicates success]">${esc(s.success_criteria)}</textarea></div>
+      <div class="fld"><label>Failure recovery</label><textarea data-path="phases[${pi}].steps[${si}].failure_recovery" rows="2" placeholder="If X: do Y. If Y: do Z.">${esc(s.failure_recovery)}</textarea></div>
+    </div>
+    <div class="row">
+      <div class="fld"><label>Post-action (optional)</label><input data-path="phases[${pi}].steps[${si}].post_action" value="${esc(s.post_action)}" placeholder="Run git diff to verify scope"></div>
+      <div class="fld"><label>Safe to run now</label><input data-path="phases[${pi}].steps[${si}].safe_to_run" value="${esc(s.safe_to_run)}" placeholder="YES / Only after X"></div>
+    </div>
+    <div class="row three">
+      <div class="fld"><label>Confidence %</label><input type="number" data-path="phases[${pi}].steps[${si}].confidence_pct" value="${esc(s.confidence_pct)}" min="0" max="100"></div>
+      <div class="fld"><label>Confidence gap</label><input data-path="phases[${pi}].steps[${si}].confidence_gap" value="${esc(s.confidence_gap)}"></div>
+      <div class="fld"><label>How to improve</label><input data-path="phases[${pi}].steps[${si}].confidence_improvement" value="${esc(s.confidence_improvement)}"></div>
+    </div>
+  </div>`;
+}
+
+function groupThreadRules(){
+  const ntHtml=(state.thread_rules.new_thread_triggers||[]).map((r,i)=>`
+    <div class="rep-item" style="padding:6px 10px">
+      <div class="ri-head" style="margin-bottom:4px"><span class="ri-num">#${i+1}</span><div class="ri-title"></div>
+        <button type="button" data-remove="thread_rules.new_thread_triggers[${i}]">Remove</button>
+      </div>
+      <div class="fld"><input data-path="thread_rules.new_thread_triggers[${i}]" value="${esc(r)}"></div>
+    </div>`).join("");
+  const stHtml=(state.thread_rules.same_thread_triggers||[]).map((r,i)=>`
+    <div class="rep-item" style="padding:6px 10px">
+      <div class="ri-head" style="margin-bottom:4px"><span class="ri-num">#${i+1}</span><div class="ri-title"></div>
+        <button type="button" data-remove="thread_rules.same_thread_triggers[${i}]">Remove</button>
+      </div>
+      <div class="fld"><input data-path="thread_rules.same_thread_triggers[${i}]" value="${esc(r)}"></div>
+    </div>`).join("");
+  const trHtml=(state.thread_rules.transitions||[]).map((r,i)=>`
+    <div class="rep-item" style="padding:6px 10px">
+      <div class="ri-head" style="margin-bottom:4px"><span class="ri-num">#${i+1}</span><div class="ri-title"></div>
+        <button type="button" data-remove="thread_rules.transitions[${i}]">Remove</button>
+      </div>
+      <div class="row">
+        <div class="fld"><label>Transition</label><input data-path="thread_rules.transitions[${i}][0]" value="${esc(r[0]||'')}"></div>
+        <div class="fld"><label>Action</label><input data-path="thread_rules.transitions[${i}][1]" value="${esc(r[1]||'')}"></div>
+      </div>
+    </div>`).join("");
+  const body=`
+    <div class="rep">
+      <div class="mini" style="margin-bottom:8px"><strong>New thread when:</strong></div>
+      ${ntHtml}
+      <button type="button" class="rep-add" data-add="new_thread_triggers">+ Add trigger</button>
+    </div>
+    <div class="rep" style="margin-top:10px">
+      <div class="mini" style="margin-bottom:8px"><strong>Same thread when:</strong></div>
+      ${stHtml}
+      <button type="button" class="rep-add" data-add="same_thread_triggers">+ Add trigger</button>
+    </div>
+    <div class="rep" style="margin-top:10px">
+      <div class="mini" style="margin-bottom:8px"><strong>Quick reference transitions:</strong></div>
+      ${trHtml}
+      <button type="button" class="rep-add" data-add="thread_transitions">+ Add transition row</button>
+    </div>`;
+  return groupShell("7","Thread Rules","opt",body,false);
+}
+
+function groupFailures(){
+  const fHtml=(state.failures||[]).map((r,i)=>`
+    <div class="rep-item">
+      <div class="ri-head"><span class="ri-num">#${r.n||i+1}</span><div class="ri-title">Failure row</div>
+        <button type="button" data-remove="failures[${i}]">Remove</button>
+      </div>
+      <div class="row">
+        <div class="fld"><label>Symptom</label><input data-path="failures[${i}].symptom" value="${esc(r.symptom||'')}"></div>
+        <div class="fld"><label>Action</label><input data-path="failures[${i}].action" value="${esc(r.action||'')}"></div>
+      </div>
+    </div>`).join("");
+  const body=`
+    <div class="rep">
+      <div class="mini" style="margin-bottom:8px">Top-5 common failures with remediation.</div>
+      ${fHtml}
+      <button type="button" class="rep-add" data-add="failures">+ Add failure row</button>
+    </div>`;
+  return groupShell("8","Failure Cheat Sheet","opt",body,false);
+}
+
+function groupSessions(){
+  const sHtml=(state.sessions||[]).map((r,i)=>`
+    <div class="rep-item">
+      <div class="ri-head"><span class="ri-num">S${i+1}</span><div class="ri-title">${esc(r.name||'(unnamed session)')}</div>
+        <button type="button" data-remove="sessions[${i}]">Remove</button>
+      </div>
+      <div class="row">
+        <div class="fld"><label>Name</label><input data-path="sessions[${i}].name" value="${esc(r.name||'')}" placeholder="Session 1: Foundation"></div>
+        <div class="fld"><label>Covers</label><input data-path="sessions[${i}].covers" value="${esc(r.covers||'')}" placeholder="Phases 0 + 1"></div>
+      </div>
+      <div class="row">
+        <div class="fld"><label>Time</label><input data-path="sessions[${i}].time" value="${esc(r.time||'')}" placeholder="45–65 min"></div>
+        <div class="fld"><label>Thread behavior</label><input data-path="sessions[${i}].thread_behavior" value="${esc(r.thread_behavior||'')}" placeholder="New thread. Stay in same thread for sequential steps."></div>
+      </div>
+      <div class="row one">
+        <div class="fld"><label>What happens</label><textarea data-path="sessions[${i}].what_happens" rows="2" placeholder="Short narrative of what this session accomplishes.">${esc(r.what_happens||'')}</textarea></div>
+      </div>
+      <div class="row one">
+        <div class="fld"><label>Done criteria</label><textarea data-path="sessions[${i}].done_criteria" rows="2" placeholder="When this session is complete: X, Y, Z.">${esc(r.done_criteria||'')}</textarea></div>
+      </div>
+    </div>`).join("");
+  const body=`
+    <div class="rep">
+      <div class="mini" style="margin-bottom:8px">Chunked session plan. Operators work one session at a time.</div>
+      ${sHtml}
+      <button type="button" class="rep-add" data-add="sessions">+ Add session</button>
+    </div>`;
+  return groupShell("9","Session Plan","opt",body,false);
+}
+
+/* ---------- INPUT BINDINGS ---------- */
+function bindInputs(){
+  document.querySelectorAll("[data-path]").forEach(el=>{
+    el.addEventListener("input",onInput);
+    el.addEventListener("change",onInput);
+  });
+  // add/remove handlers
+  document.querySelectorAll("[data-add]").forEach(el=>el.addEventListener("click",e=>{
+    const k=el.getAttribute("data-add");
+    if(k==="file_manifest") state.overview.file_manifest.push({file:"",phase:"",purpose:""});
+    else if(k==="execution_rules") state.rules.execution_rules.push("");
+    else if(k==="protected_systems") state.protection.protected_systems.push({system:"",reason:""});
+    else if(k==="deployment_warnings") state.protection.deployment_warnings.push("");
+    else if(k==="new_thread_triggers") state.thread_rules.new_thread_triggers.push("");
+    else if(k==="same_thread_triggers") state.thread_rules.same_thread_triggers.push("");
+    else if(k==="thread_transitions") state.thread_rules.transitions.push(["",""]);
+    else if(k==="failures") state.failures.push({n:String(state.failures.length+1),symptom:"",action:""});
+    else if(k==="sessions") state.sessions.push({name:"",covers:"",time:"",thread_behavior:"",what_happens:"",done_criteria:""});
+    renderForm();
+  }));
+  document.querySelectorAll("[data-remove]").forEach(el=>el.addEventListener("click",e=>{
+    const p=el.getAttribute("data-remove");
+    removePath(p);
+    renderForm();
+  }));
+  document.querySelectorAll("[data-add-step]").forEach(el=>el.addEventListener("click",e=>{
+    const pi=+el.getAttribute("data-add-step");
+    const p=state.phases[pi];
+    const n=p.number+"."+((p.steps||[]).length+1);
+    p.steps.push(freshStep(n));
+    renderForm();
+  }));
+  document.querySelectorAll("[data-remove-step]").forEach(el=>el.addEventListener("click",e=>{
+    const [pi,si]=el.getAttribute("data-remove-step").split(".").map(Number);
+    state.phases[pi].steps.splice(si,1);
+    renderForm();
+  }));
+  document.querySelectorAll("[data-add-check]").forEach(el=>el.addEventListener("click",e=>{
+    const pi=+el.getAttribute("data-add-check");
+    state.phases[pi].gate.checks.push("");
+    renderForm();
+  }));
+  document.querySelectorAll("[data-remove-phase]").forEach(el=>el.addEventListener("click",e=>{
+    const pi=+el.getAttribute("data-remove-phase");
+    state.phases.splice(pi,1);
+    renderForm();
+  }));
+  document.querySelectorAll("[data-move-phase-up]").forEach(el=>el.addEventListener("click",e=>{
+    const pi=+el.getAttribute("data-move-phase-up");
+    if(pi>0){const tmp=state.phases[pi-1];state.phases[pi-1]=state.phases[pi];state.phases[pi]=tmp;renderForm()}
+  }));
+  document.querySelectorAll("[data-move-phase-down]").forEach(el=>el.addEventListener("click",e=>{
+    const pi=+el.getAttribute("data-move-phase-down");
+    if(pi<state.phases.length-1){const tmp=state.phases[pi+1];state.phases[pi+1]=state.phases[pi];state.phases[pi]=tmp;renderForm()}
+  }));
+  const addPhaseBtn=$("add-phase");
+  if(addPhaseBtn)addPhaseBtn.addEventListener("click",()=>{
+    const n=(state.phases[state.phases.length-1]?.number ?? -1)+1;
+    state.phases.push(freshPhase(n));
+    renderForm();
+  });
+  const applyPreset=$("apply-preset");
+  if(applyPreset)applyPreset.addEventListener("click",()=>{
+    const preset=WORKFLOW_PRESETS[state.workflow.workflow_type]||[];
+    preset.forEach((p,idx)=>{
+      if(!state.phases[idx]){state.phases.push(freshPhase(idx))}
+      if(!state.phases[idx].name){state.phases[idx].name=p.name}
+      if(!state.phases[idx].intro){state.phases[idx].intro=p.intro}
+      state.phases[idx].number=idx;
+    });
+    renderForm();
+  });
+}
+function removePath(p){
+  const m=p.match(/^(.+)\[(\d+)\]$/);
+  if(m){
+    const arrPath=m[1],idx=+m[2];
+    const parts=arrPath.split(".");let cur=state;
+    for(let i=0;i<parts.length-1;i++){
+      const seg=parts[i];
+      const mm=seg.match(/^(.+)\[(\d+)\]$/);
+      if(mm){cur=cur[mm[1]][+mm[2]]} else cur=cur[seg];
+    }
+    const last=parts[parts.length-1];
+    const mm=last.match(/^(.+)\[(\d+)\]$/);
+    if(mm){cur[mm[1]][+mm[2]].splice(idx,1)} else cur[last].splice(idx,1);
+  }
+}
+function onInput(e){
+  const el=e.target;
+  const p=el.getAttribute("data-path");
+  let v=el.type==="checkbox"?el.checked:el.value;
+  if(el.type==="number"&&v!==""){const n=Number(v);if(!isNaN(n))v=n}
+  setPath(p,v);
+}
+function bindCollapses(){
+  document.querySelectorAll("section.group .g-head").forEach(h=>{
+    h.addEventListener("click",()=>h.parentElement.classList.toggle("closed"));
+  });
+}
+
+/* ---------- VALIDATION ---------- */
+function validate(){
+  const errors=[];
+  const m=state.meta;
+  if(!m.project_letter||!/^[A-Z]$/.test(m.project_letter)) errors.push("Meta: project_letter must be a single uppercase letter A–Z.");
+  if(!m.manual_id) errors.push("Meta: manual_id is required.");
+  if(!m.manual_title) errors.push("Meta: manual_title is required.");
+  if(!m.short_title) errors.push("Meta: short_title is required.");
+  if(!m.version) errors.push("Meta: version is required.");
+  if(!m.date) errors.push("Meta: date is required.");
+  if(!m.authority) errors.push("Meta: authority is required.");
+  if(!m.purpose) errors.push("Meta: purpose is required.");
+  const w=state.workflow;
+  if(!w.workflow_type) errors.push("Workflow: workflow_type is required.");
+  if(!w.baseline_risk) errors.push("Workflow: baseline_risk is required.");
+  const o=state.overview;
+  if(!o.estimated_time) errors.push("Overview: estimated_time is required.");
+  if(!o.models_used) errors.push("Overview: models_used is required.");
+  if(!o.what_gets_built) errors.push("Overview: what_gets_built is required.");
+  if(!state.phases||state.phases.length===0) errors.push("Phases: at least one phase is required.");
+  const promptNames=new Set();
+  (state.phases||[]).forEach((p,pi)=>{
+    if(p.number==null||p.number==="") errors.push(`Phase ${pi}: number is required.`);
+    if(!p.name) errors.push(`Phase ${pi}: name is required.`);
+    if(!p.intro) errors.push(`Phase ${pi}: intro is required.`);
+    if(!p.steps||p.steps.length===0) errors.push(`Phase ${p.number}: at least one step is required.`);
+    (p.steps||[]).forEach((s,si)=>{
+      if(!s.number) errors.push(`Phase ${p.number}, step ${si}: number is required.`);
+      if(!s.name) errors.push(`Phase ${p.number}, step ${s.number}: name is required.`);
+      if(!s.what_you_do) errors.push(`Phase ${p.number}, step ${s.number}: what_you_do is required.`);
+      if(!s.prompt_body) errors.push(`Phase ${p.number}, step ${s.number}: prompt_body is required.`);
+      if(!s.success_criteria) errors.push(`Phase ${p.number}, step ${s.number}: success_criteria is required.`);
+      // uniqueness of prompt name — pull the first "PROMPT NAME:" line from the body
+      const match=(s.prompt_body||"").match(/PROMPT NAME:\s*(.+)/);
+      if(match){
+        const key=match[1].trim();
+        if(promptNames.has(key)) errors.push(`Phase ${p.number}, step ${s.number}: duplicate PROMPT NAME "${key}".`);
+        promptNames.add(key);
+      }
+    });
+    if(!p.gate||!p.gate.checks||p.gate.checks.length===0) errors.push(`Phase ${p.number}: gate must have at least one check.`);
+  });
+  // Phase continuity
+  const nums=(state.phases||[]).map(p=>Number(p.number));
+  for(let i=1;i<nums.length;i++){
+    if(nums[i]!==nums[i-1]+1) errors.push(`Phases: numbers must be contiguous (phase ${nums[i-1]} → ${nums[i]}).`);
+  }
+  return errors;
+}
+
+function showValidation(errors){
+  const slot=$("validation-slot");
+  if(errors.length===0){
+    slot.innerHTML=`<div class="validation ok"><h4>Validation passed</h4><div>All required fields present. Ready to generate.</div></div>`;
+  }else{
+    slot.innerHTML=`<div class="validation"><h4>Validation: ${errors.length} issue${errors.length===1?'':'s'}</h4><ul>${errors.map(e=>`<li>${esc(e)}</li>`).join("")}</ul></div>`;
+  }
+}
+
+/* =========================================================================
+   TEMPLATE ENGINE — GENERATION LAYER
+   Converts state -> self-contained tabbed HTML operator manual.
+   ========================================================================= */
+
+function genHTML(){
+  const meta=state.meta,wf=state.workflow,ov=state.overview;
+  const title=substituteTokens(meta.manual_title||"Execution Manual",meta,wf);
+  const shortTitle=substituteTokens(meta.short_title||"Manual",meta,wf);
+
+  const totals={
+    phases:state.phases.length,
+    prompts:state.phases.reduce((a,p)=>a+(p.steps||[]).length,0),
+    sessions:(state.sessions||[]).length
+  };
+
+  const head=`<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(meta.manual_id)} | ${esc(title)}</title>
+<style>${genCSS()}</style></head><body>`;
+
+  const headerBar=`
+<header class="mmx-bar">
+  <div class="mmx-brand"><span class="mmx-logo">MM</span><span class="mmx-name">MissionMed</span></div>
+  <div class="mmx-title">${esc(title)}</div>
+  <div class="mmx-spacer"></div>
+  <span class="mmx-chip">${esc(meta.manual_id)}</span>
+  <span class="mmx-chip mmx-chip-muted">v${esc(meta.version)}</span>
+</header>`;
+
+  const sidebar=genSidebar();
+  const overview=genOverviewTab(totals);
+  const startHere=genStartHereTab();
+  const phaseTabs=state.phases.map((p,i)=>genPhaseTab(p,i)).join("");
+  const rulesTab=genRulesTab();
+  const threadTab=genThreadRulesTab();
+  const failTab=genFailuresTab();
+  const trackerTab=genTrackerTab();
+  const sessionTab=genSessionTab();
+
+  const footer=`<div class="mmx-footer">(${esc(meta.project_letter)})-${esc(meta.manual_id)}_${esc(slug(shortTitle))} / v${esc(meta.version)} / ${esc(meta.date)} / Authority: ${esc(meta.authority)}</div>`;
+
+  const js=genJS();
+
+  return head
+    + headerBar
+    + `<div class="mmx-layout">`
+    + sidebar
+    + `<main class="mmx-main">`
+    + overview + startHere + phaseTabs + rulesTab + threadTab + failTab + trackerTab + sessionTab
+    + footer
+    + `</main></div>`
+    + `<script>${js}<\/script></body></html>`;
+}
+
+function genCSS(){
+  return `
+  :root{--nv:#0D2642;--nv2:#172F4C;--ink:#1E1E1E;--sl:#5F6A7A;--mist:#EEF0F3;--ln:#D9DDE3;--sf:#FFFFFF;--ac:#A83232;--ok:#1F6B33;--wn:#B56B00;--tl:#1F8A7A;--cd:#0F1A2A;--cf:#E8ECF2;--r:10px;--rs:6px;--t:.2s ease;--sh:0 1px 2px rgba(10,20,35,.06),0 6px 18px rgba(10,20,35,.05);--sh2:0 2px 6px rgba(10,20,35,.10),0 10px 28px rgba(10,20,35,.07)}
+  *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+  body{font:14px/1.6 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:var(--ink);background:var(--mist);-webkit-font-smoothing:antialiased}
+  a{color:var(--nv)}
+  .mmx-bar{display:flex;align-items:center;gap:14px;padding:0 24px;height:60px;background:var(--nv);color:#fff;position:sticky;top:0;z-index:20;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+  .mmx-brand{display:flex;align-items:center;gap:10px}
+  .mmx-logo{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#fff,#D3DAE4);display:grid;place-items:center;color:var(--nv);font-weight:800;font-size:13px}
+  .mmx-name{font-weight:700;letter-spacing:.4px;font-size:13px;color:rgba(255,255,255,.85)}
+  .mmx-title{font-size:15.5px;font-weight:600;letter-spacing:-.15px;margin-left:6px}
+  .mmx-spacer{flex:1}
+  .mmx-chip{font-size:10.5px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;padding:3px 10px;border-radius:20px;background:var(--ac);color:#fff}
+  .mmx-chip-muted{background:rgba(255,255,255,.14)}
+  .mmx-layout{display:grid;grid-template-columns:240px 1fr;min-height:calc(100vh - 60px)}
+  .mmx-side{background:var(--sf);border-right:1px solid var(--ln);padding:18px 0;position:sticky;top:60px;height:calc(100vh - 60px);overflow:auto}
+  .mmx-side-label{font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:var(--sl);padding:0 22px;margin:14px 0 8px}
+  .mmx-side-label:first-child{margin-top:0}
+  .mmx-side-div{height:1px;background:var(--ln);margin:10px 22px}
+  .mmx-tab{display:flex;align-items:center;gap:10px;width:100%;padding:9px 22px;border:0;background:none;cursor:pointer;font:inherit;font-size:13px;font-weight:500;color:var(--ink);text-align:left;transition:var(--t);position:relative;line-height:1.4}
+  .mmx-tab:hover{background:var(--mist);color:var(--nv)}
+  .mmx-tab.on{background:rgba(13,38,66,.06);color:var(--nv);font-weight:700}
+  .mmx-tab.on::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;background:var(--ac);border-radius:0 3px 3px 0}
+  .mmx-tnum{display:inline-grid;place-items:center;min-width:22px;height:22px;padding:0 4px;border-radius:5px;background:var(--mist);color:var(--sl);font-size:11px;font-weight:800}
+  .mmx-tab.on .mmx-tnum{background:var(--nv);color:#fff}
+  .mmx-main{padding:28px 36px 60px;max-width:1060px;overflow:auto}
+  .mmx-panel{display:none;animation:mmxIn .3s ease}
+  .mmx-panel.on{display:block}
+  @keyframes mmxIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .mmx-sec{margin-bottom:24px}
+  .mmx-sec h1{font-size:24px;font-weight:700;color:var(--nv);letter-spacing:-.3px;margin-bottom:6px}
+  .mmx-sub{font-size:14.5px;color:var(--sl);line-height:1.6;max-width:700px}
+  .mmx-card{background:var(--sf);border:1px solid var(--ln);border-radius:var(--r);padding:24px;margin-bottom:16px;box-shadow:var(--sh);transition:box-shadow var(--t)}
+  .mmx-card:hover{box-shadow:var(--sh2)}
+  .mmx-card h2{font-size:16px;font-weight:700;color:var(--nv);margin-bottom:10px}
+  .mmx-card h3{font-size:14px;font-weight:700;color:var(--nv2);margin-top:14px;margin-bottom:6px}
+  .mmx-card p{font-size:14px;margin-bottom:10px;line-height:1.7}
+  .mmx-card ul,.mmx-card ol{margin:6px 0 10px 20px;font-size:14px}
+  .mmx-card li{margin-bottom:5px;line-height:1.6}
+  .mmx-tbl{width:100%;border-collapse:collapse;margin:10px 0;font-size:13.5px}
+  .mmx-tbl th{background:var(--nv);color:#fff;font-weight:600;padding:9px 14px;text-align:left;font-size:12.5px;letter-spacing:.25px}
+  .mmx-tbl th:first-child{border-radius:var(--rs) 0 0 0}.mmx-tbl th:last-child{border-radius:0 var(--rs) 0 0}
+  .mmx-tbl td{padding:9px 14px;border-bottom:1px solid var(--ln)}
+  .mmx-tbl tr:last-child td{border-bottom:0}.mmx-tbl tr:nth-child(even) td{background:rgba(13,38,66,.016)}
+  .mmx-hl{background:rgba(13,38,66,.04);border-left:3px solid var(--nv);padding:14px 18px;border-radius:0 var(--rs) var(--rs) 0;margin:14px 0;font-size:13.5px;color:var(--nv2);line-height:1.65}
+  .mmx-hl strong{color:var(--nv)}
+  .mmx-hl-a{background:rgba(168,50,50,.04);border-left:3px solid var(--ac);padding:14px 18px;border-radius:0 var(--rs) var(--rs) 0;margin:14px 0;font-size:13.5px;color:var(--ink);line-height:1.65}
+  .mmx-hl-a strong{color:var(--ac)}
+  .mmx-hl-w{background:#FFF4DE;border-left:3px solid var(--wn);padding:14px 18px;border-radius:0 var(--rs) var(--rs) 0;margin:14px 0;font-size:13.5px;color:var(--ink);line-height:1.65}
+  .mmx-hl-w strong{color:var(--wn)}
+  .mmx-hl-g{background:rgba(31,107,51,.05);border-left:3px solid var(--ok);padding:14px 18px;border-radius:0 var(--rs) var(--rs) 0;margin:14px 0;font-size:13.5px;color:var(--ink);line-height:1.65}
+  .mmx-hl-g strong{color:var(--ok)}
+  .mmx-verdict{background:var(--nv);color:#fff;border-radius:var(--r);padding:26px 28px;margin:14px 0}
+  .mmx-verdict h2{color:#7DE3C3;font-size:18px;margin-bottom:10px}
+  .mmx-verdict p{color:rgba(255,255,255,.86);line-height:1.7;font-size:14.5px;margin-bottom:8px}
+  .mmx-verdict code{background:rgba(255,255,255,.08);padding:2px 7px;border-radius:4px;font-size:13px}
+  .mmx-status{background:linear-gradient(135deg,#0D2642,#172F4C);color:#fff;border-radius:var(--r);padding:18px 22px;margin:14px 0;font-size:13px;line-height:1.85}
+  .mmx-status .st-title{font-size:10.5px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:#7DE3C3;margin-bottom:6px}
+  .mmx-status .st-row{display:flex;gap:8px}
+  .mmx-status .st-lbl{color:rgba(255,255,255,.55);min-width:150px;flex-shrink:0}
+  .mmx-status .st-val{color:#fff;font-weight:600}
+  .mmx-prompt{position:relative;background:var(--cd);color:var(--cf);border-radius:var(--r);padding:22px 24px;margin:14px 0;font-family:'SF Mono',Consolas,'Courier New',monospace;font-size:12.5px;line-height:1.8;white-space:pre-wrap;overflow-x:auto}
+  .mmx-prompt .pl{position:absolute;top:0;left:0;background:var(--ac);color:#fff;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:4px 12px;border-radius:var(--r) 0 var(--rs) 0;font-family:inherit}
+  .mmx-prompt .cpy{position:absolute;top:8px;right:8px;background:rgba(255,255,255,.12);color:#DDD;border:0;border-radius:6px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;transition:var(--t)}
+  .mmx-prompt .cpy:hover{background:rgba(255,255,255,.24);color:#fff}
+  .mmx-step{margin-top:22px}
+  .mmx-step-head{background:var(--nv);color:#fff;border-radius:var(--r) var(--r) 0 0;padding:14px 22px;font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .mmx-step-head .sai{font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;letter-spacing:.4px;text-transform:uppercase}
+  .mmx-ai-claude{background:#D6DCFA;color:#1A237E}
+  .mmx-ai-codex{background:#BFE3DD;color:#004D40}
+  .mmx-ai-other{background:rgba(255,255,255,.18);color:#fff}
+  .mmx-meta{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px;letter-spacing:.3px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.9)}
+  .mmx-meta.mmx-m-opus{background:rgba(214,220,250,.25);color:#D6DCFA}
+  .mmx-meta.mmx-m-sonnet{background:rgba(191,227,221,.25);color:#BFE3DD}
+  .mmx-meta.mmx-m-risk-HIGH{background:rgba(200,60,60,.25);color:#FFD1CE}
+  .mmx-meta.mmx-m-risk-MEDIUM{background:rgba(181,107,0,.25);color:#FFE0AE}
+  .mmx-meta.mmx-m-risk-LOW{background:rgba(31,107,51,.25);color:#A5D6A7}
+  .mmx-step-body{background:#fff;border:1px solid var(--ln);border-top:0;border-radius:0 0 var(--r) var(--r);padding:22px;box-shadow:var(--sh)}
+  .mmx-step-body p{font-size:14px;margin-bottom:10px;line-height:1.7}
+  .mmx-ctrl{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0 14px;font-size:13px}
+  .mmx-ctrl-item{background:var(--mist);border:1px solid var(--ln);border-radius:var(--rs);padding:10px 13px}
+  .mmx-ctrl-lbl{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--sl);margin-bottom:3px}
+  .mmx-ctrl-val{font-weight:700;color:var(--nv)}
+  .mmx-ctrl-note{font-size:12px;color:var(--sl);margin-top:2px}
+  .mmx-gate{background:var(--cd);color:var(--cf);border-radius:var(--r);padding:18px 22px;margin:16px 0;font-family:'SF Mono',Consolas,'Courier New',monospace;font-size:12.5px;line-height:1.85;white-space:pre-wrap}
+  .mmx-gate .glb{display:inline-block;background:var(--tl);color:#fff;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:3px 10px;border-radius:4px;margin-bottom:10px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  .mmx-gate .kw{color:#9CC4FF}.mmx-gate .hi{color:#7DE3C3}.mmx-gate .cm{color:#7A8294}
+  .mmx-next{background:linear-gradient(135deg,#145124,#1F6B33);color:#fff;border-radius:var(--r);padding:14px 20px;margin:14px 0;font-size:13.5px;font-weight:600}
+  .mmx-next-lbl{font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:#A5D6A7;margin-bottom:4px}
+  .mmx-loc{display:flex;align-items:center;gap:10px;background:var(--ac);color:#fff;border-radius:var(--r);padding:10px 18px;margin-bottom:18px;font-size:12.5px;font-weight:700;letter-spacing:.2px}
+  .mmx-loc-dot{width:9px;height:9px;border-radius:50%;background:#fff;animation:mmxPulse 1.5s ease-in-out infinite}
+  @keyframes mmxPulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .mmx-conf{background:rgba(13,38,66,.03);border:1px dashed var(--nv);border-radius:var(--rs);padding:12px 15px;margin:12px 0;font-size:13px;color:var(--nv2)}
+  .mmx-conf-lbl{font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--sl);margin-bottom:5px}
+  .mmx-badge{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;padding:3px 9px;border-radius:20px}
+  .mmx-b-pending{background:var(--mist);color:var(--sl)}
+  .mmx-b-doing{background:#FFF3DB;color:var(--wn)}
+  .mmx-b-done{background:rgba(31,107,51,.15);color:var(--ok)}
+  .mmx-footer{text-align:center;padding:24px;font-size:12px;color:var(--sl);border-top:1px solid var(--ln);margin-top:30px}
+  code.kbd{background:rgba(13,38,66,.07);padding:2px 7px;border-radius:4px;font-family:'SF Mono',Consolas,monospace;font-size:12.5px;color:var(--nv)}
+  /* OPERATOR UPGRADE */
+  .mmx-run{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 14px;padding:12px 14px;background:#0D2642;border-radius:var(--rs);color:#fff}
+  .mmx-run-item{min-width:0}
+  .mmx-run-lbl{font-size:9.5px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:#7DE3C3;margin-bottom:3px}
+  .mmx-run-val{font-size:13px;font-weight:700;color:#fff;word-break:break-word}
+  .mmx-run .mmx-run-thread-NEW{color:#FFD76B}
+  .mmx-run .mmx-run-thread-SAME{color:#A5D6A7}
+  .mmx-upload{background:rgba(31,138,122,.06);border:1px solid var(--tl);border-left:4px solid var(--tl);border-radius:var(--rs);padding:14px 16px;margin:14px 0;font-size:13.5px;line-height:1.7}
+  .mmx-upload h4{color:var(--tl);font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;margin-bottom:6px}
+  .mmx-upload ol{margin:4px 0 8px 20px}
+  .mmx-upload li{margin-bottom:3px}
+  .mmx-upload .okrow{display:flex;gap:10px;margin-top:8px;font-size:12.5px}
+  .mmx-upload .okrow span{flex:1;padding:6px 10px;border-radius:var(--rs);font-weight:700;text-align:center}
+  .mmx-upload .pass{background:rgba(31,107,51,.12);color:var(--ok);border:1px solid rgba(31,107,51,.3)}
+  .mmx-upload .fail{background:rgba(168,50,50,.08);color:var(--ac);border:1px solid rgba(168,50,50,.3)}
+  .mmx-fail-proto{background:#FFF7F5;border:1px solid rgba(168,50,50,.35);border-left:4px solid var(--ac);border-radius:var(--rs);padding:14px 16px;margin:14px 0;font-size:13.5px;line-height:1.7}
+  .mmx-fail-proto h4{color:var(--ac);font-size:11px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;margin-bottom:8px}
+  .mmx-fail-proto .row{display:flex;gap:8px;margin-bottom:6px}
+  .mmx-fail-proto .row .k{min-width:100px;font-size:10px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:var(--sl);padding-top:2px}
+  .mmx-fail-proto .row .v{flex:1;color:var(--ink)}
+  .mmx-safe{display:flex;align-items:flex-start;gap:12px;background:#fff;border:1px solid var(--ln);border-radius:var(--rs);padding:12px 14px;margin:14px 0;font-size:13.5px}
+  .mmx-safe-badge{flex-shrink:0;min-width:60px;padding:6px 10px;border-radius:var(--rs);font-size:11px;font-weight:800;letter-spacing:1px;text-align:center}
+  .mmx-safe-YES{background:rgba(31,107,51,.14);color:var(--ok);border:1px solid rgba(31,107,51,.35)}
+  .mmx-safe-NO{background:rgba(168,50,50,.10);color:var(--ac);border:1px solid rgba(168,50,50,.35)}
+  .mmx-safe-body .mmx-safe-lbl{font-size:10px;font-weight:800;letter-spacing:.9px;text-transform:uppercase;color:var(--sl);margin-bottom:3px}
+  .mmx-safe-body .mmx-safe-txt{font-size:13px;color:var(--ink);line-height:1.6}
+  .mmx-next-act{background:linear-gradient(135deg,#145124,#1F6B33);color:#fff;border-radius:var(--rs);padding:14px 18px;margin:14px 0;font-size:13px;line-height:1.7}
+  .mmx-next-act .lbl{font-size:10px;font-weight:800;letter-spacing:1.1px;text-transform:uppercase;color:#A5D6A7;margin-bottom:6px}
+  .mmx-next-act .row{display:flex;gap:8px;margin-bottom:2px}
+  .mmx-next-act .row .k{min-width:90px;color:rgba(255,255,255,.65);font-size:11.5px}
+  .mmx-next-act .row .v{flex:1;color:#fff;font-weight:700;font-size:13px;word-break:break-word}
+  .mmx-term{position:relative;background:#0F1A2A;color:#E8ECF2;border-radius:var(--rs);padding:14px 16px;margin:10px 0;font-family:'SF Mono',Consolas,'Courier New',monospace;font-size:12.5px;line-height:1.65;white-space:pre-wrap;overflow-x:auto}
+  .mmx-term .tlbl{display:inline-block;background:var(--tl);color:#fff;font-size:9.5px;font-weight:800;letter-spacing:1px;text-transform:uppercase;padding:2px 9px;border-radius:4px;margin-bottom:6px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+  .mmx-term .cpy{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.12);color:#DDD;border:0;border-radius:5px;padding:5px 12px;font-size:10.5px;font-weight:700;cursor:pointer;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;transition:var(--t)}
+  .mmx-term .cpy:hover{background:rgba(255,255,255,.24);color:#fff}
+  .mmx-term pre{margin:0;white-space:pre-wrap;word-break:break-word}
+  @media print{.mmx-side{display:none}.mmx-panel{display:block!important;page-break-after:always}.mmx-layout{grid-template-columns:1fr}}
+  `;
+}
+
+function genSidebar(){
+  const phaseLinks=state.phases.map(p=>`
+    <button class="mmx-tab" data-panel="ph${p.number}"><span class="mmx-tnum">${esc(p.number)}</span>${esc(p.name||('Phase '+p.number))}</button>`).join("");
+  return `
+  <nav class="mmx-side">
+    <div class="mmx-side-label">Start</div>
+    <button class="mmx-tab on" data-panel="overview"><span class="mmx-tnum">0</span> Overview</button>
+    <button class="mmx-tab" data-panel="start"><span class="mmx-tnum">!</span> Start Here</button>
+    <div class="mmx-side-div"></div>
+    <div class="mmx-side-label">Execute</div>
+    ${phaseLinks}
+    <div class="mmx-side-div"></div>
+    <div class="mmx-side-label">Reference</div>
+    <button class="mmx-tab" data-panel="rules"><span class="mmx-tnum">R</span> Rules + Protection</button>
+    <button class="mmx-tab" data-panel="threads"><span class="mmx-tnum">T</span> Thread Rules</button>
+    <button class="mmx-tab" data-panel="fails"><span class="mmx-tnum">F</span> Failure Cheat Sheet</button>
+    <button class="mmx-tab" data-panel="tracker"><span class="mmx-tnum">P</span> Progress Tracker</button>
+    <button class="mmx-tab" data-panel="sessions"><span class="mmx-tnum">S</span> Session Plan</button>
+  </nav>`;
+}
+
+function genOverviewTab(totals){
+  const meta=state.meta,wf=state.workflow,ov=state.overview;
+  const manifest=(ov.file_manifest||[]).filter(f=>f.file);
+  const manifestTable=manifest.length?`
+    <div class="mmx-card">
+      <h2>What Gets Created</h2>
+      <table class="mmx-tbl">
+        <thead><tr><th>File</th><th>Phase</th><th>Purpose</th></tr></thead>
+        <tbody>${manifest.map(f=>`<tr><td><code class="kbd">${esc(f.file)}</code></td><td>${esc(f.phase)}</td><td>${esc(f.purpose)}</td></tr>`).join("")}</tbody>
+      </table>
+    </div>`:"";
+  const resultHeaderCard=wf.result_header_required?`
+    <div class="mmx-card">
+      <h2>Required AI Response Format</h2>
+      <p>Every AI response to a prompt from this manual MUST begin with:</p>
+      <div class="mmx-gate"><span class="glb">Result Header</span>
+RESULT: COMPLETE / FAILED / PARTIAL
+SUMMARY: [1-2 lines describing what was done]</div>
+      <p>If the AI does not begin with this header, ask it to re-format before continuing.</p>
+    </div>`:"";
+  return `
+  <div class="mmx-panel on" id="p-overview">
+    <div class="mmx-sec">
+      <h1>${esc(meta.manual_title)}</h1>
+      <p class="mmx-sub">${esc(meta.purpose)}</p>
+    </div>
+    <div class="mmx-verdict">
+      <h2>STEP 0: CONFIRM PROJECT BUCKET</h2>
+      <p>This manual uses project letter <strong>(${esc(meta.project_letter)})</strong>. All prompt IDs are scoped to this bucket so the work groups together in your sidebar.</p>
+      <p>Example prompt name: <code>(${esc(meta.project_letter)})-${esc(meta.manual_id)}-PH0-CLAUDE-MED-001</code></p>
+      <p>Example thread name: <code>(${esc(meta.project_letter)}) — ${esc(meta.short_title)} Build</code></p>
+    </div>
+    <div class="mmx-status">
+      <div class="st-title">Build Summary</div>
+      <div class="st-row"><span class="st-lbl">Workflow Type:</span><span class="st-val">${esc(wf.workflow_type)}${wf.sub_type?" · "+esc(wf.sub_type):""}</span></div>
+      <div class="st-row"><span class="st-lbl">Total Phases:</span><span class="st-val">${totals.phases}</span></div>
+      <div class="st-row"><span class="st-lbl">Total Prompts:</span><span class="st-val">${totals.prompts}</span></div>
+      <div class="st-row"><span class="st-lbl">Total Sessions:</span><span class="st-val">${totals.sessions||"-"}</span></div>
+      <div class="st-row"><span class="st-lbl">Estimated Time:</span><span class="st-val">${esc(ov.estimated_time)}</span></div>
+      <div class="st-row"><span class="st-lbl">Models Used:</span><span class="st-val">${esc(ov.models_used)}</span></div>
+      <div class="st-row"><span class="st-lbl">Baseline Risk:</span><span class="st-val">${esc(wf.baseline_risk)}</span></div>
+      <div class="st-row"><span class="st-lbl">Naming Format:</span><span class="st-val">${esc(wf.naming_format)}</span></div>
+      <div class="st-row"><span class="st-lbl">Thread Format:</span><span class="st-val">${esc(wf.thread_format)}</span></div>
+    </div>
+    <div class="mmx-card">
+      <h2>What Gets Built</h2>
+      <p>${esc(ov.what_gets_built)}</p>
+    </div>
+    ${resultHeaderCard}
+    ${manifestTable}
+    <div class="mmx-next"><div class="mmx-next-lbl">Next Step</div>Go to the "Start Here" tab. It tells you exactly what to do first.</div>
+  </div>`;
+}
+
+/* OPERATOR UPGRADE: extract the PROMPT NAME line from a prompt body, after token substitution */
+function extractPromptName(promptBody,meta,workflow){
+  const sub=substituteTokens(promptBody||"",meta,workflow);
+  const m=sub.match(/PROMPT NAME:\s*([^\n\r]+)/i);
+  return m?m[1].trim():"";
+}
+
+/* OPERATOR UPGRADE: infer thread behavior for a step.
+   - First step of the manual: NEW
+   - First step of any phase after phase 0: NEW (phase gate creates a fresh checkpoint)
+   - If previous step used a different AI or model: NEW
+   - Otherwise: SAME */
+function stepThread(phaseIdx,stepIdx,step,prevStep){
+  if(phaseIdx===0 && stepIdx===0) return "NEW";
+  if(stepIdx===0) return "NEW";
+  if(!prevStep) return "NEW";
+  if((prevStep.ai||"")!==(step.ai||"")) return "NEW";
+  if((prevStep.model||"")!==(step.model||"")) return "NEW";
+  return "SAME";
+}
+
+/* OPERATOR UPGRADE: compute the NEXT ACTION block for a step. */
+function stepNext(phaseIdx,stepIdx,phases){
+  const phase=phases[phaseIdx];
+  const next=(phase.steps||[])[stepIdx+1];
+  if(next){
+    const thread=stepThread(phaseIdx,stepIdx+1,next,phase.steps[stepIdx]);
+    return {
+      label:"Same phase, next step",
+      prompt:extractPromptName(next.prompt_body,state.meta,state.workflow)||("Step "+next.number+": "+next.name),
+      ai:next.ai||"-",model:next.model||"-",thread:thread,
+      instruction:"After RESULT: COMPLETE, run the phase gate. Then move to Step "+next.number+" in this phase."
+    };
+  }
+  const nextPhase=phases[phaseIdx+1];
+  if(nextPhase){
+    const first=(nextPhase.steps||[])[0];
+    if(first){
+      return {
+        label:"Next phase",
+        prompt:extractPromptName(first.prompt_body,state.meta,state.workflow)||("Phase "+nextPhase.number+" Step "+first.number),
+        ai:first.ai||"-",model:first.model||"-",thread:"NEW",
+        instruction:"Pass the phase gate first. Then open a NEW thread for Phase "+nextPhase.number+"."
+      };
+    }
+  }
+  return {
+    label:"Workflow complete",
+    prompt:"(none)",ai:"-",model:"-",thread:"-",
+    instruction:"This is the final step. After the phase gate, the workflow is complete. Go to the Progress Tracker tab to mark everything done."
+  };
+}
+
+/* OPERATOR UPGRADE: compute SAFE TO PROCEED for a step. */
+function stepSafe(s){
+  const reasons=[];
+  if(!s.success_criteria) reasons.push("Success criteria not defined.");
+  if(!s.failure_recovery) reasons.push("Failure recovery not defined.");
+  if(!s.ai) reasons.push("AI not assigned.");
+  if(!s.model) reasons.push("Model not specified.");
+  if(!s.prompt_body) reasons.push("Prompt body empty.");
+  if(reasons.length===0){
+    return {ok:"YES",why:"This step has explicit success criteria, failure recovery, a defined AI / model, and a ready-to-paste prompt. Run it as written."};
+  }
+  return {ok:"NO",why:"Missing: "+reasons.join(" ")};
+}
+
+/* OPERATOR UPGRADE: pick the UPLOAD + TEST flavor based on STEP content (not just workflow type).
+   Step-level signals dominate; workflow_type is a weak fallback. */
+function stepVerify(s){
+  const wt=state.workflow.workflow_type||"";
+  const body=(s.prompt_body||"").toLowerCase();
+  const post=(s.post_action||"").toLowerCase();
+  const blob=body+" "+post;
+  // Parse TASK TYPE line if present in the prompt body (honors the step's declared intent)
+  const taskTypeMatch=(s.prompt_body||"").match(/TASK TYPE:\s*([A-Z_]+)/i);
+  const taskType=taskTypeMatch?taskTypeMatch[1].toUpperCase():"";
+  const touchesHTML=/\barena\.html\b|\bdrills\.html\b|\branklistiq\.html\b|\bindex\.html\b|\.html\b/.test(blob);
+  const looksLikeDeploy=/\bupload\b|\bdeploy\b|\bgh-pages\b|\bgit push\b|\bnetlify\b|\bvercel\b/.test(blob);
+  if(taskType==="AUDIT"||wt==="AUDIT"){
+    return {
+      title:"AUDIT VERIFY (REQUIRED)",
+      steps:["Confirm every file or value named in the prompt actually exists.","Spot-check line counts, headers, or values against what the AI reported.","Re-read the AI response against the success criteria below.","If anything looks off, use the Failure Protocol."]
+    };
+  }
+  if(taskType==="DEPLOY"||wt==="DEPLOY"||touchesHTML||looksLikeDeploy){
+    return {
+      title:"UPLOAD + TEST (REQUIRED)",
+      steps:["Upload the updated file to the correct target.","Replace the previous version. Confirm the old file is gone.","Hard-refresh the browser to clear cache (Cmd+Shift+R or Ctrl+Shift+R).","Test the exact behavior the prompt was supposed to change."]
+    };
+  }
+  if(taskType==="FIX"||wt==="FIX"){
+    return {
+      title:"REPRO + VERIFY (REQUIRED)",
+      steps:["Reproduce the original failure on the current codebase.","Confirm the fix actually changes the observed behavior.","Re-run any related tests or checks.","Verify no regression on neighboring behavior."]
+    };
+  }
+  if(taskType==="CONTENT"||wt==="CONTENT"){
+    return {
+      title:"REVIEW + VERIFY (REQUIRED)",
+      steps:["Read the output end-to-end.","Verify tone, format, and length match the brief.","Check for em-dashes, AI clichés, or off-brand phrasing.","Confirm all facts and numbers are correct."]
+    };
+  }
+  if(taskType==="BUILD"||wt==="BUILD"||wt==="SYSTEM_MIGRATION"){
+    return {
+      title:"BUILD VERIFY (REQUIRED)",
+      steps:["Open the file the AI just created or modified.","Confirm structure matches the success criteria (sections, headers, fields).","Spot-check line count against the expected cap.","Run `git diff` to review every line before you checkpoint."]
+    };
+  }
+  return {
+    title:"VERIFY (REQUIRED)",
+    steps:["Confirm the file(s) named in the prompt actually exist.","Spot-check line counts and key section headers.","Re-read the AI response against the success criteria below.","If anything looks off, run the failure protocol before continuing."]
+  };
+}
+
+/* OPERATOR UPGRADE: failure protocol block (diagnosis + cause + fix + copyable report-back prompt). */
+function stepFailProtocol(s){
+  const id=extractPromptName(s.prompt_body,state.meta,state.workflow)||("Step "+s.number);
+  const diag=s.failure_recovery||"Compare the AI response against the success criteria above. Identify the first criterion it fails.";
+  const cause=s.confidence_gap?("Likely cause: "+s.confidence_gap):"Likely cause: ambiguous prompt, wrong model tier, or the AI skipped a success criterion. Re-read the prompt and the response side by side.";
+  const fix=s.confidence_improvement?("Exact fix: "+s.confidence_improvement):"Exact fix: correct the one missing criterion, then re-run the prompt in the SAME thread. If the fix requires broader context, open a NEW thread with the report-back prompt below.";
+  const reportBack="REPORT BACK PROMPT\n---\nPROMPT NAME: "+id+"-FAIL-REPORT\nTHREAD NAME: "+substituteTokens(state.workflow.thread_format||"",state.meta,state.workflow)+" (FAIL REPORT)\n---\nLoad PRIMER_CORE.md\nLoad KNOWLEDGE_INDEX.md\n---\nTASK TYPE: FIX\nRISK LEVEL: MEDIUM\nAUTHORITY: "+(state.meta.authority||"")+"\n---\nThe previous step failed. Here is the full context:\n\n1. Step attempted: "+s.number+" / "+s.name+"\n2. Expected success: "+(s.success_criteria||"(not defined)")+"\n3. Actual response from prior AI (paste below):\n<PASTE THE FAILED RESPONSE HERE>\n\nBegin your reply with:\nRESULT: COMPLETE / FAILED / PARTIAL\nSUMMARY: [1-2 lines]\n\nYour job:\n1. Diagnose the exact criterion that failed.\n2. State the likely root cause in one sentence.\n3. Give me the exact corrected prompt to re-run, copy-ready.\n\nEnd with a NEXT ACTION block.";
+  return `
+    <div class="mmx-fail-proto">
+      <h4>If RESULT is not COMPLETE: Failure Protocol</h4>
+      <div class="row"><div class="k">1. Diagnosis</div><div class="v">${esc(diag)}</div></div>
+      <div class="row"><div class="k">2. Likely cause</div><div class="v">${esc(cause.replace(/^Likely cause:\s*/,""))}</div></div>
+      <div class="row"><div class="k">3. Exact fix</div><div class="v">${esc(fix.replace(/^Exact fix:\s*/,""))}</div></div>
+      <div class="row"><div class="k">4. Report back</div><div class="v">Copy the prompt below into a NEW thread to get a structured diagnosis and corrected prompt.</div></div>
+      <div class="mmx-prompt"><span class="pl">Report Back Prompt</span><button class="cpy" onclick="mmxCopy(this)">Copy</button>${esc(reportBack)}</div>
+    </div>`;
+}
+
+function genStartHereTab(){
+  const p0=state.phases[0]||{steps:[]};
+  const s0=(p0.steps||[])[0];
+  const promptBody=s0?substituteTokens(s0.prompt_body,state.meta,state.workflow):"(no first step defined)";
+  const promptName=s0?extractPromptName(s0.prompt_body,state.meta,state.workflow):"";
+  const threadName=substituteTokens(state.workflow.thread_format||"",state.meta,state.workflow);
+  const success=s0?s0.success_criteria:"";
+  const failure=s0?s0.failure_recovery:"";
+  const checkpointCmd=`git add -A && git commit -m "${(state.meta.manual_id||"").replace(/"/g,'\\"')}-CHECKPOINT: Phase ${state.phases[0]?.number ?? 0} complete"`;
+  return `
+  <div class="mmx-panel" id="p-start">
+    <div class="mmx-sec"><h1>Start Here</h1><p class="mmx-sub">Your first action. Do this now. Nothing to figure out.</p></div>
+    <div class="mmx-verdict"><h2>Step 1: Open a NEW AI Thread</h2>
+      <p>Open your AI tool. Start a brand new, empty thread. Name it exactly:</p>
+      <p><code>${esc(threadName||"(define thread format in intake)")}</code></p>
+    </div>
+    <div class="mmx-card">
+      <h2>Step 2: Run Card</h2>
+      <p>These four values tell you exactly what to do. No ambiguity.</p>
+      <div class="mmx-run">
+        <div class="mmx-run-item"><div class="mmx-run-lbl">Prompt</div><div class="mmx-run-val">${esc(promptName||"(first step not defined)")}</div></div>
+        <div class="mmx-run-item"><div class="mmx-run-lbl">AI</div><div class="mmx-run-val">${esc(s0?.ai||"-")}</div></div>
+        <div class="mmx-run-item"><div class="mmx-run-lbl">Model</div><div class="mmx-run-val">${esc(s0?.model||"-")}</div></div>
+        <div class="mmx-run-item"><div class="mmx-run-lbl">Thread</div><div class="mmx-run-val mmx-run-thread-NEW">NEW</div></div>
+      </div>
+      <p><strong>Exact instruction:</strong> ${esc(s0?.what_you_do||"Copy the prompt below. Paste it into the AI. Press enter. Wait for the response.")}</p>
+      <div class="mmx-prompt"><span class="pl">Your First Prompt</span><button class="cpy" onclick="mmxCopy(this)">Copy</button>${esc(promptBody)}</div>
+    </div>
+    <div class="mmx-card">
+      <h2>Step 3: What to Expect</h2>
+      <p><strong>If the AI response starts with RESULT: COMPLETE:</strong> ${esc(success||"(success criteria not defined)")}</p>
+      ${failure?`<p><strong>If the response starts with RESULT: FAILED or PARTIAL:</strong> ${esc(failure)} See the Failure Protocol on the Phase tab.</p>`:""}
+    </div>
+    <div class="mmx-card">
+      <h2>Step 4: Git Checkpoint After Success</h2>
+      <p>Open your terminal. Copy and paste this exact command.</p>
+      <div class="mmx-term"><span class="tlbl">Terminal</span><button class="cpy" onclick="mmxCopy(this)">Copy</button><pre>${esc(checkpointCmd)}</pre></div>
+    </div>
+    <div class="mmx-next-act">
+      <div class="lbl">Next Action</div>
+      <div class="row"><div class="k">Go to tab</div><div class="v">Phase ${state.phases[0]?.number ?? 0}</div></div>
+      <div class="row"><div class="k">Follow</div><div class="v">Each step, in order, copy-paste as written</div></div>
+      <div class="row"><div class="k">Do not</div><div class="v">Skip steps, reorder, or improvise</div></div>
+    </div>
+  </div>`;
+}
+
+function genPhaseTab(p,idx){
+  const isLast=idx===state.phases.length-1;
+  const warnings=(state.protection.deployment_warnings||[]).map(w=>`<div class="mmx-hl-w"><strong>WARNING:</strong> ${esc(w)}</div>`).join("");
+  const steps=(p.steps||[]).map((s,si)=>genStep(s,p,idx,si)).join("");
+  const gate=genGate(p,idx);
+  const nextMsg=isLast?`Go to the Reference tabs for rules, thread behavior, failure handling, and the session plan.`:`Phase ${state.phases[idx+1].number}, Step ${state.phases[idx+1].steps[0]?.number||''}: ${esc(state.phases[idx+1].steps[0]?.name||'')}`;
+  return `
+  <div class="mmx-panel" id="p-ph${p.number}">
+    <div class="mmx-loc"><span class="mmx-loc-dot"></span> YOU ARE HERE: Phase ${esc(p.number)} / ${esc(p.name)}</div>
+    ${warnings}
+    <div class="mmx-sec"><h1>Phase ${esc(p.number)}: ${esc(p.name)}</h1><p class="mmx-sub">${esc(p.intro)}</p></div>
+    ${steps}
+    ${gate}
+    <div class="mmx-next"><div class="mmx-next-lbl">Next</div>${nextMsg}</div>
+  </div>`;
+}
+
+function genStep(s,p,phaseIdx,stepIdx){
+  const aiCls=s.ai==='Claude'?'mmx-ai-claude':(s.ai==='Codex'?'mmx-ai-codex':'mmx-ai-other');
+  const modelCls=(s.model||'').toLowerCase().includes('opus')?'mmx-m-opus':((s.model||'').toLowerCase().includes('sonnet')?'mmx-m-sonnet':'');
+  const riskCls=s.risk?('mmx-m-risk-'+s.risk):'';
+  const body=substituteTokens(s.prompt_body,state.meta,state.workflow);
+  const promptId=extractPromptName(s.prompt_body,state.meta,state.workflow);
+  const prevStep=(phaseIdx!=null&&stepIdx!=null&&stepIdx>0)?(state.phases[phaseIdx].steps[stepIdx-1]):null;
+  const thread=(phaseIdx!=null&&stepIdx!=null)?stepThread(phaseIdx,stepIdx,s,prevStep):"SAME";
+  const preAction=s.pre_action?`<div class="mmx-term"><span class="tlbl">Before Running</span><button class="cpy" onclick="mmxCopy(this)">Copy</button><pre>${esc(s.pre_action)}</pre></div>`:"";
+  const postAction=s.post_action?`<div class="mmx-term"><span class="tlbl">After Running</span><button class="cpy" onclick="mmxCopy(this)">Copy</button><pre>${esc(s.post_action)}</pre></div>`:"";
+  const confidence=s.confidence_pct!==""&&s.confidence_pct!=null?`
+    <div class="mmx-conf">
+      <div class="mmx-conf-lbl">Confidence check</div>
+      <strong>CONFIDENCE: ${esc(s.confidence_pct)}%</strong>${s.confidence_gap?" | GAP: "+esc(s.confidence_gap):""}${s.confidence_improvement?" | HOW TO IMPROVE: "+esc(s.confidence_improvement):""}
+    </div>`:"";
+  const aiFit=(s.ai_fit_claude!=null||s.ai_fit_codex!=null)?`Claude: ${esc(s.ai_fit_claude)}/10 | Codex: ${esc(s.ai_fit_codex)}/10`:"-";
+  const runCard=`
+      <div class="mmx-run">
+        <div class="mmx-run-item"><div class="mmx-run-lbl">Prompt</div><div class="mmx-run-val">${esc(promptId||("Step "+s.number))}</div></div>
+        <div class="mmx-run-item"><div class="mmx-run-lbl">AI</div><div class="mmx-run-val">${esc(s.ai||"-")}</div></div>
+        <div class="mmx-run-item"><div class="mmx-run-lbl">Model</div><div class="mmx-run-val">${esc(s.model||"-")}</div></div>
+        <div class="mmx-run-item"><div class="mmx-run-lbl">Thread</div><div class="mmx-run-val mmx-run-thread-${thread}">${thread}</div></div>
+      </div>`;
+  const verify=stepVerify(s);
+  const verifyBlock=`
+      <div class="mmx-upload">
+        <h4>${esc(verify.title)}</h4>
+        <ol>${verify.steps.map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
+        <div class="okrow">
+          <span class="pass">IF PASS → continue to next step</span>
+          <span class="fail">IF FAIL → use Failure Protocol below</span>
+        </div>
+      </div>`;
+  const safe=stepSafe(s);
+  const safeBlock=`
+      <div class="mmx-safe">
+        <div class="mmx-safe-badge mmx-safe-${safe.ok}">${safe.ok}</div>
+        <div class="mmx-safe-body">
+          <div class="mmx-safe-lbl">Safe to proceed</div>
+          <div class="mmx-safe-txt">${esc(safe.why)}</div>
+        </div>
+      </div>`;
+  const failProto=stepFailProtocol(s);
+  const next=(phaseIdx!=null&&stepIdx!=null)?stepNext(phaseIdx,stepIdx,state.phases):null;
+  const nextBlock=next?`
+      <div class="mmx-next-act">
+        <div class="lbl">Next Action</div>
+        <div class="row"><div class="k">Context</div><div class="v">${esc(next.label)}</div></div>
+        <div class="row"><div class="k">Prompt</div><div class="v">${esc(next.prompt)}</div></div>
+        <div class="row"><div class="k">AI</div><div class="v">${esc(next.ai)}</div></div>
+        <div class="row"><div class="k">Model</div><div class="v">${esc(next.model)}</div></div>
+        <div class="row"><div class="k">Thread</div><div class="v">${esc(next.thread)}</div></div>
+        <div class="row"><div class="k">Instruction</div><div class="v">${esc(next.instruction)}</div></div>
+      </div>`:"";
+  return `
+  <div class="mmx-step">
+    <div class="mmx-step-head">
+      <span>STEP ${esc(s.number)}: ${esc(s.name)}</span>
+      <span class="sai ${aiCls}">${esc(s.ai)}</span>
+      ${s.model?`<span class="mmx-meta ${modelCls}">${esc(s.model)}</span>`:""}
+      ${s.time_min||s.time_max?`<span class="mmx-meta">${esc(s.time_min)}–${esc(s.time_max)} min</span>`:""}
+      ${s.token_estimate?`<span class="mmx-meta">${esc(s.token_estimate)}</span>`:""}
+      ${s.risk?`<span class="mmx-meta ${riskCls}">Risk: ${esc(s.risk)}</span>`:""}
+    </div>
+    <div class="mmx-step-body">
+      ${runCard}
+      <div class="mmx-ctrl">
+        <div class="mmx-ctrl-item">
+          <div class="mmx-ctrl-lbl">AI Fit</div>
+          <div class="mmx-ctrl-val">${aiFit}</div>
+          ${s.ai_fit_note?`<div class="mmx-ctrl-note">${esc(s.ai_fit_note)}</div>`:""}
+        </div>
+        <div class="mmx-ctrl-item">
+          <div class="mmx-ctrl-lbl">Dependency</div>
+          <div class="mmx-ctrl-val">${esc(s.dependency||"None")}</div>
+          ${s.safe_to_run?`<div class="mmx-ctrl-note">Safe to run now: ${esc(s.safe_to_run)}</div>`:""}
+        </div>
+      </div>
+      <p><strong>What you do:</strong> ${esc(s.what_you_do)}</p>
+      ${preAction}
+      <div class="mmx-prompt"><span class="pl">${esc(s.prompt_label||'Copy This Prompt')}</span><button class="cpy" onclick="mmxCopy(this)">Copy</button>${esc(body)}</div>
+      <p><strong>Success:</strong> ${esc(s.success_criteria)}</p>
+      ${postAction}
+      ${verifyBlock}
+      ${failProto}
+      ${safeBlock}
+      ${confidence}
+      ${nextBlock}
+    </div>
+  </div>`;
+}
+
+function genGate(p,phaseIdx){
+  const checks=(p.gate.checks||[]).map(c=>`  [  ] ${esc(c)}`).join("\n");
+  const tc=p.gate.transition_confidence_pct?`
+    <div class="mmx-conf">
+      <div class="mmx-conf-lbl">Phase transition confidence</div>
+      <strong>CONFIDENCE: ${esc(p.gate.transition_confidence_pct)}%</strong>${p.gate.transition_confidence_gap?" | GAP: "+esc(p.gate.transition_confidence_gap):""}${p.gate.transition_confidence_improvement?" | HOW TO IMPROVE: "+esc(p.gate.transition_confidence_improvement):""}
+    </div>`:"";
+  const allPass=p.gate.all_pass_action||"";
+  const anyFail=p.gate.any_fail_action||"Fix and re-verify.";
+  const passBlock=allPass?`
+  <div class="mmx-term"><span class="tlbl">If ALL Checks Pass</span><button class="cpy" onclick="mmxCopy(this)">Copy</button><pre>${esc(allPass)}</pre></div>`:"";
+  const failBlock=`<div class="mmx-hl-a"><strong>If ANY check fails:</strong> ${esc(anyFail)}</div>`;
+  // Gate-level next action
+  const nextPhase=(phaseIdx!=null)?state.phases[phaseIdx+1]:null;
+  const gateNext=nextPhase?{
+    label:"Next phase after gate passes",
+    where:"Phase "+nextPhase.number+": "+(nextPhase.name||""),
+    firstPrompt:extractPromptName(((nextPhase.steps||[])[0]||{}).prompt_body||"",state.meta,state.workflow)||("Phase "+nextPhase.number+" Step "+((nextPhase.steps||[])[0]||{}).number),
+    ai:((nextPhase.steps||[])[0]||{}).ai||"-",
+    model:((nextPhase.steps||[])[0]||{}).model||"-"
+  }:{
+    label:"Workflow complete",
+    where:"Reference tabs (rules, thread rules, failure cheat sheet, tracker, session plan)",
+    firstPrompt:"(none, workflow done)",ai:"-",model:"-"
+  };
+  const gateNextBlock=`
+  <div class="mmx-next-act">
+    <div class="lbl">Gate Next Action</div>
+    <div class="row"><div class="k">Context</div><div class="v">${esc(gateNext.label)}</div></div>
+    <div class="row"><div class="k">Go to</div><div class="v">${esc(gateNext.where)}</div></div>
+    <div class="row"><div class="k">First prompt</div><div class="v">${esc(gateNext.firstPrompt)}</div></div>
+    <div class="row"><div class="k">AI</div><div class="v">${esc(gateNext.ai)}</div></div>
+    <div class="row"><div class="k">Model</div><div class="v">${esc(gateNext.model)}</div></div>
+    <div class="row"><div class="k">Thread</div><div class="v">NEW (gate creates a checkpoint boundary)</div></div>
+  </div>`;
+  return `
+  <div class="mmx-gate"><span class="glb">Gate: Phase ${esc(p.number)} to next</span>
+<span class="kw">CHECKS:</span>
+${checks}
+
+<span class="kw">ALL PASS?</span> <span class="hi">Run the terminal command below.</span>
+<span class="kw">ANY FAIL?</span> ${esc(anyFail)}</div>
+  ${passBlock}
+  ${failBlock}
+  ${tc}
+  ${gateNextBlock}`;
+}
+
+function genRulesTab(){
+  const rules=(state.rules.execution_rules||[]).map(r=>`<li>${esc(r)}</li>`).join("");
+  const deploy=state.rules.deploy_source_of_truth?`
+    <div class="mmx-card">
+      <h2>Deploy Source of Truth</h2>
+      <div class="mmx-hl-a">${esc(state.rules.deploy_source_of_truth)}</div>
+    </div>`:"";
+  const protectedSys=(state.protection.protected_systems||[]).filter(x=>x.system);
+  const protCard=protectedSys.length?`
+    <div class="mmx-card">
+      <h2>Protected Systems</h2>
+      <div class="mmx-hl-a"><strong>DO NOT MODIFY during this workflow:</strong></div>
+      <table class="mmx-tbl"><thead><tr><th>System</th><th>Reason</th></tr></thead>
+        <tbody>${protectedSys.map(s=>`<tr><td><code class="kbd">${esc(s.system)}</code></td><td>${esc(s.reason)}</td></tr>`).join("")}</tbody>
+      </table>
+    </div>`:"";
+  const resultCard=state.workflow.result_header_required?`
+    <div class="mmx-card">
+      <h2>Result Header (Required for All AI Responses)</h2>
+      <div class="mmx-gate"><span class="glb">Mandatory Format</span>
+RESULT: COMPLETE / FAILED / PARTIAL
+SUMMARY: [1-2 lines describing what was done]</div>
+    </div>`:"";
+  return `
+  <div class="mmx-panel" id="p-rules">
+    <div class="mmx-sec"><h1>Rules + Protection</h1><p class="mmx-sub">Global rules. Non-negotiable.</p></div>
+    <div class="mmx-card"><h2>Execution Rules</h2><ol>${rules}</ol></div>
+    <div class="mmx-card"><h2>FAIL FAST Rule</h2>
+      <div class="mmx-hl-a"><strong>If any step, validation, or gate fails:</strong><br>1. STOP immediately.<br>2. DO NOT continue to the next step.<br>3. Fix the issue.<br>4. Re-run the step.<br>5. Continue ONLY after RESULT: COMPLETE.</div>
+    </div>
+    ${deploy}
+    ${resultCard}
+    ${protCard}
+  </div>`;
+}
+
+function genThreadRulesTab(){
+  const tr=state.thread_rules;
+  const nt=(tr.new_thread_triggers||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const st=(tr.same_thread_triggers||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+  const cont=(tr.continuation_steps||[]).map(x=>`<li>${esc(substituteTokens(x,state.meta,state.workflow))}</li>`).join("");
+  const tx=(tr.transitions||[]).map(row=>`<tr><td>${esc(row[0])}</td><td>${esc(row[1])}</td></tr>`).join("");
+  return `
+  <div class="mmx-panel" id="p-threads">
+    <div class="mmx-sec"><h1>Thread Rules</h1><p class="mmx-sub">When to start new, when to stay, when to resume.</p></div>
+    <div class="mmx-card"><h2>New Thread</h2><p>Start a <strong>new thread</strong> when:</p><ul>${nt}</ul></div>
+    <div class="mmx-card"><h2>Same Thread</h2><p>Stay in the <strong>same thread</strong> when:</p><ul>${st}</ul></div>
+    <div class="mmx-card"><h2>Continuation (Resume After Break)</h2><ol>${cont}</ol></div>
+    <div class="mmx-card"><h2>Quick Reference</h2><table class="mmx-tbl"><thead><tr><th>Transition</th><th>Action</th></tr></thead><tbody>${tx}</tbody></table></div>
+  </div>`;
+}
+
+function genFailuresTab(){
+  const rows=(state.failures||[]).map(r=>`<tr><td><strong>${esc(r.n||'')}</strong></td><td>${esc(r.symptom)}</td><td>${esc(r.action)}</td></tr>`).join("");
+  return `
+  <div class="mmx-panel" id="p-fails">
+    <div class="mmx-sec"><h1>Failure Cheat Sheet</h1><p class="mmx-sub">Common symptoms and the exact action to take.</p></div>
+    <div class="mmx-card"><table class="mmx-tbl"><thead><tr><th>#</th><th>What It Looks Like</th><th>What To Do</th></tr></thead><tbody>${rows}</tbody></table></div>
+  </div>`;
+}
+
+function genTrackerTab(){
+  const rows=[];
+  state.phases.forEach(p=>{
+    rows.push(`<tr><td colspan="7" style="background:var(--ln);padding:2px"></td></tr>`);
+    (p.steps||[]).forEach(s=>{
+      const promptId=(s.prompt_body||"").match(/PROMPT NAME:\s*(.+)/);
+      const pid=promptId?substituteTokens(promptId[1].trim(),state.meta,state.workflow):"-";
+      rows.push(`<tr><td>${esc(p.number)}</td><td>${esc(s.number)} ${esc(s.name||'')}</td><td><code class="kbd" style="font-size:11px">${esc(pid)}</code></td><td>${esc(s.ai)}</td><td>${esc(s.model||'')}</td><td>${esc(s.risk||'')}</td><td><span class="mmx-badge mmx-b-pending">PENDING</span></td></tr>`);
+    });
+  });
+  return `
+  <div class="mmx-panel" id="p-tracker">
+    <div class="mmx-sec"><h1>Progress Tracker</h1><p class="mmx-sub">Click a status badge to cycle through: PENDING → IN PROGRESS → COMPLETE.</p></div>
+    <div class="mmx-card"><table class="mmx-tbl" id="mmx-track-tbl"><thead><tr><th>Phase</th><th>Step</th><th>Prompt ID</th><th>AI</th><th>Model</th><th>Risk</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>
+  </div>`;
+}
+
+function genSessionTab(){
+  const cards=(state.sessions||[]).map(s=>`
+    <div class="mmx-card">
+      <h2>${esc(s.name)}</h2>
+      <p><strong>Do:</strong> ${esc(s.covers)}</p>
+      <p><strong>Time:</strong> ${esc(s.time)}</p>
+      <p><strong>Thread:</strong> ${esc(s.thread_behavior)}</p>
+      ${s.what_happens?`<p><strong>What happens:</strong> ${esc(s.what_happens)}</p>`:""}
+      ${s.done_criteria?`<p><strong>Done when:</strong> ${esc(s.done_criteria)}</p>`:""}
+    </div>`).join("");
+  return `
+  <div class="mmx-panel" id="p-sessions">
+    <div class="mmx-sec"><h1>Session Plan</h1><p class="mmx-sub">Chunked work. Complete one session at a time.</p></div>
+    ${cards||'<div class="mmx-card"><p>No sessions defined.</p></div>'}
+  </div>`;
+}
+
+function genJS(){
+  return `
+  (function(){
+    var tabs=document.querySelectorAll('.mmx-tab');
+    var panels=document.querySelectorAll('.mmx-panel');
+    tabs.forEach(function(t){t.addEventListener('click',function(){
+      var id=this.getAttribute('data-panel');
+      tabs.forEach(function(x){x.classList.remove('on')});
+      panels.forEach(function(x){x.classList.remove('on')});
+      this.classList.add('on');
+      var p=document.getElementById('p-'+id);
+      if(p)p.classList.add('on');
+      document.querySelector('.mmx-main').scrollTop=0;
+    })});
+  })();
+  window.mmxCopy=function(btn){
+    var block=btn.closest('.mmx-prompt')||btn.closest('.mmx-gate');
+    if(!block)return;
+    var clone=block.cloneNode(true);
+    var pl=clone.querySelector('.pl, .glb');if(pl)pl.remove();
+    var c=clone.querySelector('.cpy');if(c)c.remove();
+    var txt=clone.textContent.trim();
+    navigator.clipboard.writeText(txt).then(function(){btn.textContent='Copied!';setTimeout(function(){btn.textContent='Copy'},1400)}).catch(function(){btn.textContent='Failed'});
+  };
+  // Progress tracker status cycling
+  var STATES=['PENDING','IN PROGRESS','COMPLETE'];
+  var CLS={'PENDING':'mmx-b-pending','IN PROGRESS':'mmx-b-doing','COMPLETE':'mmx-b-done'};
+  var KEY='mmx-tracker-'+location.pathname;
+  function load(){try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}}
+  function save(s){try{localStorage.setItem(KEY,JSON.stringify(s))}catch(e){}}
+  (function(){
+    var tbl=document.getElementById('mmx-track-tbl');if(!tbl)return;
+    var saved=load();
+    Array.prototype.slice.call(tbl.querySelectorAll('tbody tr')).forEach(function(tr,i){
+      var badge=tr.querySelector('.mmx-badge');if(!badge)return;
+      if(saved[i]){badge.textContent=saved[i];badge.className='mmx-badge '+CLS[saved[i]]}
+      badge.style.cursor='pointer';
+      badge.addEventListener('click',function(){
+        var idx=STATES.indexOf(badge.textContent);var next=STATES[(idx+1)%STATES.length];
+        badge.textContent=next;badge.className='mmx-badge '+CLS[next];
+        saved[i]=next;save(saved);
+      });
+    });
+  })();
+  `;
+}
+
+/* =========================================================================
+   ACTIONS
+   ========================================================================= */
+let lastHTML="";
+
+function doValidate(){
+  const errors=validate();
+  showValidation(errors);
+  return errors.length===0;
+}
+
+function doGenerate(){
+  const errors=validate();
+  showValidation(errors);
+  if(errors.length){ $("preview-status").textContent="Validation failed"; return }
+  const generatedHTML=genHTML();
+  lastHTML=generatedHTML;
+  const newWindow=window.open();
+  if(newWindow){
+    newWindow.document.write(generatedHTML);
+    newWindow.document.close();
+  }
+  $("preview-status").textContent="Generated · "+new Date().toLocaleTimeString();
+  $("btn-download").disabled=false;
+  $("btn-copy-html").disabled=false;
+  $("btn-export-json").disabled=false;
+}
+
+function doDownload(){
+  if(!lastHTML)return;
+  const fname=`(${state.meta.project_letter||'X'})-${state.meta.manual_id||'MANUAL'}_${slug(state.meta.short_title||'manual')}_v${state.meta.version||'1.0'}.html`;
+  const blob=new Blob([lastHTML],{type:"text/html"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url)},500);
+}
+
+function doCopyHTML(){
+  if(!lastHTML)return;
+  navigator.clipboard.writeText(lastHTML).then(()=>{
+    const b=$("btn-copy-html");const orig=b.textContent;b.textContent="Copied!";setTimeout(()=>b.textContent=orig,1400);
+  });
+}
+
+function doExportJSON(){
+  const blob=new Blob([JSON.stringify(state,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  a.href=url;a.download=`(${state.meta.project_letter||'X'})-${state.meta.manual_id||'MANUAL'}_intake.json`;
+  document.body.appendChild(a);a.click();
+  setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url)},500);
+}
+
+function doImportJSON(){
+  $("json-file").click();
+}
+function handleImport(evt){
+  const f=evt.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    try{
+      const obj=JSON.parse(e.target.result);
+      Object.keys(state).forEach(k=>{if(obj[k]!==undefined)state[k]=obj[k]});
+      renderForm();showValidation([]);
+      $("preview-status").textContent="Intake loaded from JSON";
+    }catch(err){alert("Invalid JSON: "+err.message)}
+  };
+  r.readAsText(f);
+}
+
+function doClear(){
+  if(!confirm("Clear the entire intake and start fresh?"))return;
+  state.meta={project_letter:"A",manual_id:"MR-XXXX",manual_title:"",short_title:"",version:"1.0",date:today,authority:"",purpose:""};
+  state.workflow={workflow_type:"BUILD",sub_type:"",baseline_risk:"MEDIUM",naming_format:"({PROJECT})-{MANUAL}-PH{#}-{AI}-{LEVEL}-{###}",thread_format:"({PROJECT}) — [Short Task Description]",result_header_required:true};
+  state.overview={estimated_time:"",models_used:"",what_gets_built:"",file_manifest:[]};
+  state.rules={execution_rules:DEFAULT_EXEC_RULES.slice(),deploy_source_of_truth:""};
+  state.protection={protected_systems:[],deployment_warnings:[]};
+  state.phases=[freshPhase(0),freshPhase(1)];
+  state.thread_rules=clone(DEFAULT_THREAD_RULES);
+  state.failures=DEFAULT_FAILURES.map(r=>({n:r[0],symptom:r[1],action:r[2]}));
+  state.sessions=[{name:"Session 1: Foundation",covers:"Phases 0–1",time:"45–65 min",thread_behavior:"New thread. Stay in same thread for sequential steps.",what_happens:"",done_criteria:""}];
+  renderForm();
+  $("validation-slot").innerHTML="";
+  $("preview-status").textContent="Not generated yet";
+  $("btn-download").disabled=true;$("btn-copy-html").disabled=true;$("btn-export-json").disabled=true;
+  lastHTML="";
+}
+
+function doLoadPreset(){
+  state.meta={
+    project_letter:"A",manual_id:"MR-EXAMPLE",manual_title:"Example Workflow OS Build",
+    short_title:"Example",version:"1.0",date:today,authority:"MR-1367 + MR-EXAMPLE",
+    purpose:"A worked example that demonstrates a full multi-phase, multi-AI build using this intake engine."
+  };
+  state.workflow={workflow_type:"SYSTEM_MIGRATION",sub_type:"Knowledge Refactor",baseline_risk:"HIGH",naming_format:"({PROJECT})-{MANUAL}-PH{#}-{AI}-{LEVEL}-{###}",thread_format:"({PROJECT}) — {SHORT} Build",result_header_required:true};
+  state.overview={
+    estimated_time:"2–3 hours across 2 sessions",
+    models_used:"Claude Opus (2), Sonnet (1), Codex (1)",
+    what_gets_built:"This example creates a small control file, splits a knowledge monolith into two scoped files, and installs one prompt template.",
+    file_manifest:[
+      {file:"_SYSTEM/EXAMPLE_CORE.md",phase:"1",purpose:"Control layer file"},
+      {file:"_KNOWLEDGE/EXAMPLE_A.md",phase:"2",purpose:"Scoped knowledge A"},
+      {file:"_KNOWLEDGE/EXAMPLE_B.md",phase:"2",purpose:"Scoped knowledge B"},
+      {file:"_SYSTEM/PROMPT_TEMPLATES/EXAMPLE.md",phase:"3",purpose:"Prompt template"}
+    ]
+  };
+  state.rules={execution_rules:DEFAULT_EXEC_RULES.slice(),deploy_source_of_truth:"All deployments MUST originate from the main branch via git push origin main."};
+  state.protection={protected_systems:[{system:"arena.html",reason:"Production game engine. Separate MR required."}],deployment_warnings:["Do NOT run manual CLI deploy commands. git push origin main is the only valid deploy path."]};
+  state.phases=[
+    {number:0,name:"System Init",intro:"Verify every source and target file before any edits.",
+      steps:[{...freshStep("0.1"),name:"Pre-Flight Validation",ai:"Claude",model:"Sonnet OK",time_min:7,time_max:11,token_estimate:"~10K tokens",ai_fit_claude:9,ai_fit_codex:3,ai_fit_note:"Requires filesystem reasoning",dependency:"None (step 1)",safe_to_run:"YES",what_you_do:"Copy the prompt. Paste into Claude. Run it.",prompt_body:"PROMPT NAME: ({PROJECT})-{MANUAL}-PH0-CLAUDE-MED-001\nTHREAD NAME: ({PROJECT}) — {SHORT} Build\n---\nLoad PRIMER_CORE.md\nLoad KNOWLEDGE_INDEX.md\n---\nTASK TYPE: AUDIT\nRISK LEVEL: LOW\nAUTHORITY: {AUTHORITY}\n---\nPRE-BUILD VALIDATION\n\nBegin your response with:\nRESULT: COMPLETE / FAILED / PARTIAL\nSUMMARY: [1-2 lines]\n\nValidate the following files exist and report their line counts:\n1. _SYSTEM/PRIMER_CORE.md\n2. _SYSTEM/NAMING_CANON.md\n3. 08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md\n\nReport as a simple table. End with NEXT ACTION block.",success_criteria:"All 3 files exist with non-zero line counts.",failure_recovery:"Fix the missing file. Re-run the prompt.",risk:"LOW"}],
+      gate:{checks:["All 3 source files exist and are non-empty","Git checkpoint committed"],all_pass_action:"git add -A && git commit -m \"CHECKPOINT: Phase 0 complete\"",any_fail_action:"Fix the missing file before proceeding.",transition_confidence_pct:"95",transition_confidence_gap:"",transition_confidence_improvement:""}
+    },
+    {number:1,name:"Core Protocol",intro:"Create the control layer file.",
+      steps:[{...freshStep("1.1"),name:"Create EXAMPLE_CORE.md",ai:"Claude",model:"Opus Required",time_min:15,time_max:25,token_estimate:"~25K tokens",ai_fit_claude:10,ai_fit_codex:2,ai_fit_note:"Architectural compression",dependency:"Requires: Phase 0 gate PASSED",safe_to_run:"Only if Phase 0 passed",what_you_do:"Copy the prompt. Paste into Claude Opus.",prompt_body:"PROMPT NAME: ({PROJECT})-{MANUAL}-PH1-CLAUDE-HIGH-001\nTHREAD NAME: ({PROJECT}) — {SHORT} Build\n---\nLoad PRIMER_CORE.md\nLoad KNOWLEDGE_INDEX.md\n---\nTASK TYPE: BUILD\nRISK LEVEL: HIGH\nAUTHORITY: {AUTHORITY}\n---\nCREATE EXAMPLE_CORE.md\n\nBegin your response with:\nRESULT: COMPLETE / FAILED / PARTIAL\nSUMMARY: [1-2 lines]\n\nCreate _SYSTEM/EXAMPLE_CORE.md with 5 sections: Purpose, Pre-Flight, Scope Lock, Risk Table, Completion Standard. Under 100 lines.\n\nEnd with NEXT ACTION block.",success_criteria:"File created under 100 lines, all 5 sections present.",failure_recovery:"If over 100 lines: compress. If section missing: add it.",confidence_pct:"85",confidence_gap:"Line-count compression may exceed budget on first try",confidence_improvement:"If over 100, ask: \"Remove commentary, keep only rules.\"",risk:"HIGH"}],
+      gate:{checks:["EXAMPLE_CORE.md exists under 100 lines","All 5 sections present"],all_pass_action:"git add -A && git commit -m \"CHECKPOINT: Phase 1 complete\"",any_fail_action:"Fix and re-verify.",transition_confidence_pct:"90",transition_confidence_gap:"",transition_confidence_improvement:""}
+    }
+  ];
+  state.thread_rules=clone(DEFAULT_THREAD_RULES);
+  state.failures=DEFAULT_FAILURES.map(r=>({n:r[0],symptom:r[1],action:r[2]}));
+  state.sessions=[
+    {name:"Session 1: Foundation",covers:"Phases 0 + 1",time:"30–45 min",thread_behavior:"New thread. Switch to Opus for Phase 1.",what_happens:"Verify preconditions and create the control layer.",done_criteria:"EXAMPLE_CORE.md exists under 100 lines."},
+    {name:"Session 2: Validate",covers:"Phase validation",time:"15–20 min",thread_behavior:"New thread, clean context.",what_happens:"Audit the build end-to-end.",done_criteria:"All gate checks pass."}
+  ];
+  renderForm();
+  doValidate();
+}
+
+/* ---------- WIRE UP ---------- */
+renderForm();
+$("btn-validate").addEventListener("click",doValidate);
+$("btn-generate").addEventListener("click",doGenerate);
+$("btn-download").addEventListener("click",doDownload);
+$("btn-copy-html").addEventListener("click",doCopyHTML);
+$("btn-export-json").addEventListener("click",doExportJSON);
+$("btn-import-json").addEventListener("click",doImportJSON);
+$("json-file").addEventListener("change",handleImport);
+$("btn-clear").addEventListener("click",doClear);
+$("btn-preset").addEventListener("click",doLoadPreset);
+
+</script>
+</body>
+</html>

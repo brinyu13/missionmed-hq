@@ -1,0 +1,374 @@
+{
+  "schema_version": "2.0",
+  "artifact_id": "FINALIZED_ARCHITECT_PLAN",
+  "supersedes": "MMOS_v1_109_system_spec",
+  "issued_by": "MMOS_ARCHITECT_AUTHORITY",
+  "issued_for": "Codex Engineering Stage",
+  "summary": "Refined MMOS v2 architecture. Same pipeline, half the surface area. RESULT header is now one rule across all stages (line 1, plain text, even when followed by a JSON body). Per-step metadata trimmed to the four fields an operator actually reads. ai_routing and execution_intents collapsed into the step itself. UI execution layer reduced to one canonical run-loop. All critical constraints preserved: determinism, MR-1377 structure, dark UI, multi-stage Claude->Codex->Claude pipeline, RESULT-based gating, MMOS_STATE localStorage, Codex-readability.",
+  "system_overview": {
+    "purpose": "Convert a validated PROJECT_CONTEXT into a Codex-buildable plan and finally into a dark-UI MR-1377 Operator Manual that an operator can run end-to-end with one button per step.",
+    "flow": ["chatgpt", "claude", "codex", "claude"],
+    "core_principle": "One rule per concern. Structure is fixed (MR-1377 taxonomy). Style is fixed (dark palette tokens). Behavior is fixed (RESULT header on line 1, run button per step, gate per phase). Anything not on this list is operator overhead and must be cut."
+  },
+  "design_tokens_locked": {
+    "--mm-navy": "#0F2A44",
+    "--mm-navy-sec": "#1B2F4A",
+    "--mm-text": "#FFFFFF",
+    "--mm-text-2": "#F4F6F8",
+    "--mm-accent": "#B23A3A",
+    "--mm-border": "rgba(255,255,255,0.08)",
+    "--mm-success": "#6EE7B7",
+    "--mm-fail": "#F87171",
+    "--mm-warn": "#F9A825",
+    "rule": "These nine tokens are the only colors any rendered surface may use. Any hex value outside this set is a build failure."
+  },
+  "input_contract": {
+    "required_fields": [
+      "project.id",
+      "project.title",
+      "project.bucket_letter",
+      "project.goal_final_state",
+      "project.constraints",
+      "project.files",
+      "project.success_criteria",
+      "ui_manual.title"
+    ],
+    "validation_rules": [
+      "All required_fields non-null and non-placeholder. Reject if any matches /^\\(PASTE.+HERE\\)$/i, /^\\{\\{.*\\}\\}$/, or empty string.",
+      "project.bucket_letter matches /^[A-Z]$/.",
+      "project.success_criteria has at least 3 testable propositions, each gradable PASS or FAIL by a single observation.",
+      "project.files lists only paths that exist on disk; missing files reject the input.",
+      "Every constraint string starts with MUST, MUST NOT, ALWAYS, or NEVER."
+    ],
+    "anti_ambiguity_rules": [
+      "Banned tokens in any string: U+2014, U+2013, 'delve', 'leverage', 'seamlessly', 'in the realm of', 'tapestry'.",
+      "All dates ISO 8601 (YYYY-MM-DD).",
+      "No 'etc.' or trailing ellipses in lists.",
+      "Every claim that is inferred (not provided) carries the literal token [ASSUMPTION] in the value."
+    ],
+    "rationale": "Eight required fields instead of twenty-six. The other PROJECT_CONTEXT sections (assumptions, unknowns, risks, decisions_required) are still produced by the upstream Context Builder; they enrich the plan but do not block the pipeline."
+  },
+  "result_header_contract": {
+    "rule": "Every stage response begins on line 1 with a plain-text RESULT header, regardless of whether the body is JSON or HTML.",
+    "format": "Line 1: RESULT: COMPLETE|PARTIAL|FAILED\nLine 2: SUMMARY: <one sentence>\nLine 3: blank\nLine 4+: payload (JSON or HTML)",
+    "regex": "^RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n\\s*\\n",
+    "html_stage_exception": "For Stage 3 HTML output, the RESULT header is the first content of the file, before the DOCTYPE, written as an HTML comment block: <!-- RESULT: COMPLETE\nSUMMARY: <one sentence>\nSOURCE_HASH: <sha256 of ENGINEERING_PLAN.json>\n-->. The DOCTYPE follows on the next line.",
+    "ui_parser_behavior": "On COMPLETE -> mark step COMPLETE, auto-advance within phase. On PARTIAL -> halt phase, surface conf-box. On FAILED -> halt phase, surface remediation. On no match -> render warning 'Missing RESULT header. Ask the AI to re-emit the response starting with RESULT: COMPLETE / PARTIAL / FAILED.' (status stays RUNNING)."
+  },
+  "pipeline": {
+    "stage_1_claude_architect": {
+      "model": "claude-opus-4-6",
+      "thread_type": "({PROJECT}) - Architect Plan",
+      "inputs": ["PROJECT_CONTEXT.json"],
+      "output": "ARCHITECT_PLAN.json",
+      "rules": [
+        "Begin response with the result_header_contract.",
+        "Emit ONLY JSON conforming to architect_output_schema.",
+        "Decompose project.goal_final_state into 3 to 6 phases. Each phase has 1 to 5 steps.",
+        "Stable IDs derived from sha256(project.id + index)[:8].",
+        "Sort all arrays by stable keys.",
+        "DO NOT emit code, file contents, or implementation details.",
+        "Refinement cycles capped at 3; cycle 4 halts to operator."
+      ]
+    },
+    "stage_2_codex_engineer": {
+      "model": "codex-high",
+      "thread_type": "({PROJECT}) - Codex Engineering",
+      "inputs": ["ARCHITECT_PLAN.json"],
+      "output": "ENGINEERING_PLAN.json",
+      "rules": [
+        "Begin response with the result_header_contract.",
+        "Emit ONLY JSON conforming to codex_output_schema.",
+        "Bind every architect step to entries in file_structure, function_map, and ui_components.",
+        "Every UI component declares its mr1377_archetype and consumes only design_tokens_locked.",
+        "Every function entry includes signature, responsibility, and at least one test_assertion.",
+        "Determinism: identical ARCHITECT_PLAN hash yields identical ENGINEERING_PLAN.",
+        "Refinement cycles capped at 3."
+      ]
+    },
+    "stage_3_claude_manual_builder": {
+      "model": "claude-opus-4-6",
+      "thread_type": "({PROJECT}) - Manual Render",
+      "inputs": ["ENGINEERING_PLAN.json"],
+      "output": "FULL_OPERATOR_MANUAL.html",
+      "rules": [
+        "Begin response with the HTML-comment variant of the result_header_contract.",
+        "Emit a single self-contained HTML file. Inline CSS only. No external assets.",
+        "Render only the 20 archetypes named in mr1377_components. Reject novel components.",
+        "Apply only design_tokens_locked. Reject any other hex value.",
+        "Every prompt-block content equals the source string byte-for-byte.",
+        "Every gate-box renders the success_criteria checklist verbatim and binds a Mark Gate Passed control.",
+        "Em-dash and en-dash audit before write: zero U+2014, zero U+2013.",
+        "Emit MANUAL_AUDIT.json sidecar with component counts, banned-token counts, deprecated-name counts. Mismatch downgrades to RESULT: PARTIAL even if HTML renders."
+      ]
+    }
+  },
+  "architect_output_schema": {
+    "schema_version": "2.0",
+    "project_id": "string",
+    "phases": [
+      {
+        "id": "string (sha256(project.id + phase_index)[:8])",
+        "phase_index": "integer",
+        "title": "string",
+        "intent": "string (one sentence)",
+        "steps": [
+          {
+            "id": "string (sha256(project.id + step_index)[:8])",
+            "step_index": "integer",
+            "title": "string",
+            "ai": "claude_opus|claude_sonnet|codex|operator",
+            "what_you_do": "string (one to three sentences, operator-readable)",
+            "exact_prompt": "string (verbatim, copy-ready) | null",
+            "expected_output": "string",
+            "success_criteria": ["string (testable propositions)"],
+            "ui_archetype": "string (MR-1377 component name)"
+          }
+        ],
+        "phase_gate": {
+          "checklist": ["string (success_criterion description)"],
+          "commit_message": "MMOS-CHECKPOINT: Phase {phase_index} {ROLE} complete"
+        }
+      }
+    ],
+    "constraints": [
+      "DARK_UI_LOCK",
+      "NO_EM_DASH",
+      "NO_EN_DASH",
+      "NAMING_CANON",
+      "SINGLE_FILE_HTML",
+      "MR1377_STRUCTURE_LOCK",
+      "RESULT_HEADER_GATE"
+    ],
+    "validation_points": [
+      "result_header_presence",
+      "file_existence_for_project_files",
+      "em_dash_audit",
+      "naming_canon_audit",
+      "dark_palette_token_presence",
+      "deterministic_id_stability"
+    ],
+    "removed_from_v1": [
+      "ai_routing[] (collapsed into step.ai)",
+      "execution_intents[] (collapsed into step.success_criteria)",
+      "step.estimated_tokens (operator-irrelevant)",
+      "step.estimated_seconds (operator-irrelevant)",
+      "step.thread_type (collapsed into stage.thread_type at the pipeline level)",
+      "step.gate object (collapsed into result_header_contract; behavior is uniform)"
+    ]
+  },
+  "codex_output_schema": {
+    "schema_version": "2.0",
+    "file_structure": [
+      {
+        "path": "string (POSIX, relative to project root)",
+        "kind": "html|js|css|json|md|sql|py|ts",
+        "responsibility": "string (one line)",
+        "binds_to_step_ids": ["string"]
+      }
+    ],
+    "function_map": [
+      {
+        "name": "string (camelCase)",
+        "file": "string (path)",
+        "signature": "string",
+        "responsibility": "string (one line)",
+        "test_assertions": ["string (PASS-or-FAIL propositions)"],
+        "binds_to_step_ids": ["string"]
+      }
+    ],
+    "ui_components": [
+      {
+        "id": "string",
+        "mr1377_archetype": "header|sidebar|tab-content|phase-loc|section-header|card|step-header|step-control|prompt-block|gate-box|conf-box|next-box|verdict-box|status-panel|hl|hl-a|hl-g|hl-w|st|badge",
+        "props": [{"name": "string", "type": "string", "required": "boolean"}],
+        "states": ["PENDING", "RUNNING", "COMPLETE", "FAILED", "PARTIAL"],
+        "tokens": ["one or more of design_tokens_locked"],
+        "binds_to_step_ids": ["string"]
+      }
+    ],
+    "orchestration_logic": [
+      {
+        "node_id": "string",
+        "trigger": "on_load|on_run_click|on_result_paste|on_gate_pass|on_phase_complete|on_manual_override_toggle",
+        "side_effects": ["update_state", "render_ui", "scroll_to_next", "open_confirmation_modal"]
+      }
+    ],
+    "state_management": {
+      "store_key": "MMOS_STATE::{project_id}",
+      "store_backend": "localStorage",
+      "schema_version": 2,
+      "shape": {
+        "project_id": "string",
+        "schema_version": "integer",
+        "phase_progress": [{"phase_id": "string", "completed_steps": "integer", "total_steps": "integer", "status": "PENDING|RUNNING|COMPLETE|FAILED|PARTIAL"}],
+        "step_progress": [{"step_id": "string", "status": "PENDING|RUNNING|COMPLETE|FAILED|PARTIAL", "result_payload": "string|null", "completed_at_iso": "string|null"}],
+        "manual_override_enabled": "boolean",
+        "refinement_cycle_count": "integer (0..3)",
+        "last_active_tab": "string"
+      }
+    },
+    "error_handling": [
+      {"failure_class": "missing_result_header", "user_facing_message": "Response is missing the RESULT header. Ask the AI to re-emit the response starting with RESULT: COMPLETE / PARTIAL / FAILED."},
+      {"failure_class": "result_failed", "user_facing_message": "Step failed. Review the AI summary and re-run, or open a refinement cycle."},
+      {"failure_class": "result_partial", "user_facing_message": "Step is partial. Resolve the gap before advancing."},
+      {"failure_class": "schema_version_mismatch", "user_facing_message": "State schema updated. Resetting your local progress for this project."},
+      {"failure_class": "localstorage_quota_exceeded", "user_facing_message": "Local storage is full. Progress will be kept for this session only until you clear space."},
+      {"failure_class": "refinement_cycle_exceeded", "user_facing_message": "Refinement cap reached. Operator review required before another cycle."}
+    ]
+  },
+  "manual_generation_schema": {
+    "mr1377_components": [
+      {"name": "header", "purpose": "sticky top bar with logo, title, badge", "tokens": ["--mm-navy", "--mm-text", "--mm-accent"]},
+      {"name": "sidebar", "purpose": "grouped tab navigation (Start / Execute / Reference)", "tokens": ["--mm-navy-sec", "--mm-border", "--mm-accent"]},
+      {"name": "tab-content", "purpose": "per-phase content panel; one active at a time", "tokens": ["--mm-navy", "--mm-text"]},
+      {"name": "phase-loc", "purpose": "YOU ARE HERE indicator with pulsing dot and inline phase progress bar", "tokens": ["--mm-accent", "--mm-text"]},
+      {"name": "section-header", "purpose": "h1 + intro under the phase-loc", "tokens": ["--mm-text", "--mm-text-2"]},
+      {"name": "card", "purpose": "general content surface", "tokens": ["--mm-navy-sec", "--mm-border"]},
+      {"name": "step-header", "purpose": "step title row with AI badge and status pill", "tokens": ["--mm-navy-sec", "--mm-border", "--mm-accent"]},
+      {"name": "step-control", "purpose": "inputs/outputs tiles + Run Step button + result-paste panel", "tokens": ["--mm-navy", "--mm-text-2", "--mm-text", "--mm-accent"]},
+      {"name": "prompt-block", "purpose": "copy-ready dark code block with prompt label and copy button", "tokens": ["--mm-text-2", "--mm-accent"]},
+      {"name": "gate-box", "purpose": "phase-gate validation block with success_criteria checklist and Mark Gate Passed control", "tokens": ["--mm-accent", "--mm-success"]},
+      {"name": "conf-box", "purpose": "confidence/triage indicator after a step", "tokens": ["--mm-border", "--mm-text-2"]},
+      {"name": "next-box", "purpose": "callout pointing to the next action", "tokens": ["--mm-navy-sec", "--mm-accent", "--mm-text"]},
+      {"name": "verdict-box", "purpose": "headline callout for a major instruction or assignment", "tokens": ["--mm-navy-sec", "--mm-accent", "--mm-text-2"]},
+      {"name": "status-panel", "purpose": "build summary key-value panel", "tokens": ["--mm-navy", "--mm-navy-sec", "--mm-accent", "--mm-text-2", "--mm-text"]},
+      {"name": "hl", "purpose": "neutral highlight callout", "tokens": ["--mm-text-2"]},
+      {"name": "hl-a", "purpose": "accent highlight callout", "tokens": ["--mm-accent"]},
+      {"name": "hl-g", "purpose": "success highlight callout", "tokens": ["--mm-success"]},
+      {"name": "hl-w", "purpose": "warning highlight callout", "tokens": ["--mm-warn"]},
+      {"name": "st", "purpose": "styled data table", "tokens": ["--mm-navy-sec", "--mm-text", "--mm-border", "--mm-text-2"]},
+      {"name": "badge", "purpose": "status pill: PENDING (border), RUNNING (--mm-accent), COMPLETE (--mm-success), FAILED (--mm-fail), PARTIAL (--mm-warn)", "tokens": ["--mm-border", "--mm-accent", "--mm-success", "--mm-fail", "--mm-warn"]}
+    ],
+    "step_render_order": ["step-header", "step-control", "prompt-block (if exact_prompt present)", "gate-box (if last step in phase)", "next-box"],
+    "navigation": {
+      "sidebar_groups": [
+        {"label": "Start", "tabs": ["Overview", "Start Here"]},
+        {"label": "Execute", "tabs": "one tab per architect.phases[].title"},
+        {"label": "Reference", "tabs": ["Failure Cheat Sheet", "Progress Tracker"]}
+      ],
+      "active_tab_persistence": "MMOS_STATE.last_active_tab",
+      "deep_link": "URL hash #tab-{id} switches tabs on load"
+    }
+  },
+  "ui_execution_layer": {
+    "progress_system": {
+      "global_progress": {
+        "render": "fixed bar at top of .content area; height 4px; track --mm-border; fill --mm-accent",
+        "value": "sum(step_progress where status==COMPLETE) / total_steps",
+        "label": "Overall: {completed}/{total} steps ({percent}%)"
+      },
+      "phase_progress": {
+        "render": "inline bar inside .phase-loc; width 120px; height 4px",
+        "value": "completed_steps_in_phase / total_steps_in_phase",
+        "label": "Phase {N}: {completed}/{total}"
+      }
+    },
+    "step_execution": {
+      "run_button": {
+        "render": "primary button inside .step-control labeled 'Run Step'; background --mm-accent; text --mm-text",
+        "behavior": "set status=RUNNING; if exact_prompt present, copy to clipboard and toast 'Prompt copied. Paste into {ai} thread.'; reveal result_paste_panel",
+        "disabled_when": "previous step status != COMPLETE AND manual_override_enabled == false"
+      },
+      "result_paste_panel": {
+        "render": "textarea below the run button; placeholder 'Paste full AI response here'; on paste, run result_parser",
+        "behavior": "valid header -> update state per result_header_contract.ui_parser_behavior; invalid -> render hl-w warning; status stays RUNNING"
+      },
+      "status_states": ["PENDING", "RUNNING", "COMPLETE", "FAILED", "PARTIAL"]
+    },
+    "result_parser": {
+      "pattern": "RESULT:",
+      "logic": {
+        "regex": "^RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n",
+        "flags": "m",
+        "captures": ["status", "summary"],
+        "html_stage_alt_regex": "^<!--\\s*RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n",
+        "on_complete": "step.status=COMPLETE; if auto_advance.within_phase scroll_and_focus_next_step; else noop",
+        "on_partial": "step.status=PARTIAL; halt phase; surface conf-box",
+        "on_failed": "step.status=FAILED; halt phase; surface remediation hint",
+        "on_no_match": "render hl-w warning; step.status stays RUNNING"
+      }
+    },
+    "auto_advance": {
+      "within_phase": true,
+      "between_phases_requires_confirmation": true,
+      "between_phase_modal": {
+        "title": "Advance to Phase {N+1}?",
+        "body": "Phase {N} is complete. Phase {N+1} begins. Confirm to advance.",
+        "confirm_label": "Advance",
+        "cancel_label": "Stay on Phase {N}"
+      }
+    },
+    "state_persistence": {
+      "storage": "localStorage",
+      "key": "MMOS_STATE::{project_id}",
+      "schema_version": 2,
+      "rehydrate_on": "DOMContentLoaded",
+      "fallback_on_quota_exceeded": "in-memory Map for the session, with hl-w banner"
+    },
+    "manual_override": {
+      "toggle": true,
+      "control_location": "header right side; label 'Manual Override'; --mm-accent when enabled",
+      "behavior_when_on": "all run buttons enabled; gate Mark Gate Passed enabled; banner hl-w 'Manual override is on. Auto-gating is suspended.'",
+      "behavior_when_off": "default gating per result_parser and auto_advance"
+    },
+    "removed_from_v1": [
+      "separate gate object per step (one phase-gate per phase is sufficient; per-step gating happens through the RESULT header automatically)",
+      "estimated_seconds and estimated_tokens widgets in step-header (operators do not consult them and they create dishonest precision)",
+      "audit sidecar enforcement at runtime (still emitted by Stage 3, but no longer renders inside the manual UI)"
+    ]
+  },
+  "determinism_guards": [
+    "schema_version pinned in every JSON artefact",
+    "Stable IDs from sha256(project.id + index)",
+    "Arrays sorted by stable keys",
+    "No timestamps in rendered manual body; only in the HTML-comment header",
+    "Cache key for each stage = sha256(stringify(inputs))",
+    "Verbatim-lift sentinel: --mm-navy=#0F2A44 must appear byte-for-byte in rendered HTML",
+    "MR-1377 component taxonomy MUST equal the inventoried 20-archetype list",
+    "RESULT header regex pinned per result_header_contract"
+  ],
+  "anti_drift_controls": [
+    "Cross-stage handoffs are JSON or HTML artefacts; chat prose is rejected at the gate",
+    "Architect MUST NOT emit code; Codex MUST NOT emit prose; Manual Builder MUST NOT redesign",
+    "Design-token lock: any hex value not in design_tokens_locked is rejected",
+    "Naming canon enforcement at every stage; deprecated names auto-corrected",
+    "Banned-token audit at every stage: U+2014, U+2013, plus the AI-cliche list",
+    "Refinement cycles cap at 3; cycle 4 routes to operator with diff summary"
+  ],
+  "codex_readability_rules": [
+    "Every function: name, signature, one-line responsibility, at least one test_assertion",
+    "Functions over 40 logical lines must be split",
+    "UI components are pure functions of props and state; no implicit globals beyond MMOS_STATE",
+    "Filenames kebab-case; functions camelCase; constants UPPER_SNAKE",
+    "Comments reserved for non-obvious invariants; no narrative comments",
+    "JSON artefacts pretty-printed with 2-space indentation and sorted keys"
+  ],
+  "failure_prevention": [
+    "Pre-flight: validate input_contract before stage 1; halt on first failure",
+    "Stage gate: every stage response begins with the result_header_contract; missing header = automatic halt",
+    "Schema-version mismatch: namespaced wipe + re-init; never a silent merge",
+    "Refinement cap: 3 cycles; cycle 4 routes to operator",
+    "Diff-only resubmits: refinement payloads reference step_ids and field paths; full-document resubmits rejected",
+    "Single-source-of-truth: ENGINEERING_PLAN.json is the only input to Manual Builder; hash mismatch surfaces in HTML-comment header",
+    "Audit sidecar: MANUAL_AUDIT.json on every Stage 3 run; mismatches downgrade to RESULT: PARTIAL even if HTML renders",
+    "Manual override emits a banner and writes an audit entry on every state mutation under override"
+  ],
+  "what_changed_from_v1": {
+    "input_contract": "Required fields cut from 26 to 8. Other fields still produced upstream but no longer block the pipeline.",
+    "result_header": "One contract for all stages. Plain text on line 1 for JSON stages; HTML comment for the manual stage. Single regex covers both.",
+    "step_fields": "Reduced from 12 fields to 8. Dropped estimated_tokens, estimated_seconds, thread_type (lifted to stage), and per-step gate object (replaced by uniform result_header_contract).",
+    "ai_routing_collapsed": "ai_routing[] removed; ai is a property of the step.",
+    "execution_intents_collapsed": "execution_intents[] removed; intents are expressed as step.success_criteria.",
+    "ui_layer": "Per-step gate widgets removed; one phase-gate at the end of each phase is sufficient. Estimation widgets removed. Audit sidecar still produced but no longer rendered inside the manual UI.",
+    "preserved": [
+      "Determinism guards",
+      "MR-1377 20-archetype structural taxonomy",
+      "Dark UI palette and token lock",
+      "Multi-stage Claude->Codex->Claude pipeline",
+      "RESULT-based gating",
+      "Local execution state (MMOS_STATE in localStorage)",
+      "Codex readability rules"
+    ]
+  }
+}

@@ -1,0 +1,1990 @@
+<!-- RESULT: COMPLETE
+SUMMARY: HTML Manual Engine built from engineering plan
+SOURCE_HASH: e2608820b58db51edb20b65bb9a028f8b07550e0752cd4bfad03ea18b37e5342
+BUILT_FROM: A3_MMOS_ENGINEERING_PLAN_v1
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>A3 MMOS Operator Manual v1</title>
+<style id="mmos-manual-styles">
+:root {
+  --mm-navy: #0F2A44;
+  --mm-navy-sec: #1B2F4A;
+  --mm-navy-deep: #0A1A2E;
+  --mm-text: #FFFFFF;
+  --mm-text-2: #F4F6F8;
+  --mm-accent: #B23A3A;
+  --mm-border: rgba(255,255,255,0.08);
+  --mm-success: #6EE7B7;
+  --mm-fail: #F87171;
+  --mm-warn: #F9A825;
+}
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  background: var(--mm-navy);
+  color: var(--mm-text);
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* mm.header */
+.mm-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  height: 68px;
+  background: var(--mm-navy);
+  border-bottom: 1px solid var(--mm-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  color: var(--mm-text);
+}
+.mm-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.mm-logo-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--mm-border);
+  border-radius: 8px;
+  color: var(--mm-accent);
+  font-weight: 800;
+  font-size: 13px;
+}
+.mm-header-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  color: var(--mm-text);
+}
+.mm-header-subtitle {
+  font-size: 12px;
+  color: var(--mm-text-2);
+  opacity: 0.7;
+  margin-left: 12px;
+}
+.mm-header-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.mm-override-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  border: 1px solid var(--mm-border);
+  color: var(--mm-text-2);
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.mm-override-toggle.is-on {
+  background: var(--mm-accent);
+  color: var(--mm-text);
+  border-color: var(--mm-accent);
+}
+.mm-override-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--mm-text-2);
+  opacity: 0.4;
+}
+.mm-override-toggle.is-on .mm-override-dot {
+  background: var(--mm-text);
+  opacity: 1;
+}
+
+/* mm.layout */
+.mm-layout {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: calc(100vh - 68px);
+}
+
+/* mm.sidebar */
+.mm-sidebar {
+  background: var(--mm-navy-sec);
+  border-right: 1px solid var(--mm-border);
+  padding: 24px 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 68px);
+  position: sticky;
+  top: 68px;
+}
+.mm-sidebar-group {
+  padding: 0 0 18px 0;
+}
+.mm-sidebar-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  color: var(--mm-text-2);
+  opacity: 0.55;
+  padding: 0 24px 8px 24px;
+  border-bottom: 1px solid var(--mm-border);
+  margin-bottom: 6px;
+}
+.mm-sidebar-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--mm-text-2);
+  font-size: 13px;
+  text-align: left;
+  padding: 9px 24px;
+  border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s;
+}
+.mm-sidebar-tab:hover {
+  background: rgba(255,255,255,0.03);
+  color: var(--mm-text);
+}
+.mm-sidebar-tab.is-active {
+  background: rgba(255,255,255,0.04);
+  color: var(--mm-text);
+  border-left-color: var(--mm-accent);
+}
+.mm-sidebar-tab-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--mm-navy);
+  color: var(--mm-text-2);
+  font-size: 11px;
+  font-weight: 700;
+}
+.mm-sidebar-tab.is-active .mm-sidebar-tab-num {
+  background: var(--mm-accent);
+  color: var(--mm-text);
+}
+
+/* main content */
+.mm-content {
+  padding: 0;
+  position: relative;
+  background: var(--mm-navy);
+}
+.mm-content-inner {
+  padding: 28px 36px 80px 36px;
+  max-width: 1080px;
+  margin: 0 auto;
+}
+
+/* global progress bar */
+.mm-progress-global {
+  position: sticky;
+  top: 68px;
+  z-index: 40;
+  background: var(--mm-navy);
+  padding: 14px 36px;
+  border-bottom: 1px solid var(--mm-border);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.mm-progress-global-label {
+  font-size: 12px;
+  color: var(--mm-text-2);
+  min-width: 240px;
+}
+.mm-progress-global-track {
+  flex: 1;
+  height: 4px;
+  background: var(--mm-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mm-progress-global-fill {
+  height: 100%;
+  background: var(--mm-accent);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+
+/* mm.tab_content */
+.mm-tab-content {
+  display: none;
+  animation: mm-fade-in 0.3s ease both;
+}
+.mm-tab-content.is-active {
+  display: block;
+}
+@keyframes mm-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* mm.phase_loc */
+.mm-phase-loc {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 16px;
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 10px;
+  margin-bottom: 24px;
+}
+.mm-phase-loc-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mm-accent);
+  animation: mm-pulse 1.5s ease-in-out infinite;
+}
+@keyframes mm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.mm-phase-loc-text {
+  font-size: 13px;
+  color: var(--mm-text);
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  flex: 1;
+}
+.mm-phase-loc-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.mm-phase-loc-progress-track {
+  width: 120px;
+  height: 4px;
+  background: var(--mm-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mm-phase-loc-progress-fill {
+  height: 100%;
+  background: var(--mm-accent);
+  width: 0%;
+  transition: width 0.3s ease;
+}
+.mm-phase-loc-progress-label {
+  font-size: 11px;
+  color: var(--mm-text-2);
+  min-width: 100px;
+  text-align: right;
+}
+
+/* mm.section_header */
+.mm-section-header {
+  margin-bottom: 26px;
+}
+.mm-section-header h1 {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--mm-text);
+  margin-bottom: 8px;
+}
+.mm-section-header h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--mm-text);
+  margin-bottom: 8px;
+}
+.mm-section-header-intro {
+  max-width: 700px;
+  font-size: 15px;
+  color: var(--mm-text-2);
+}
+
+/* mm.card */
+.mm-card {
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 12px;
+  padding: 28px;
+  color: var(--mm-text-2);
+  margin-bottom: 18px;
+}
+.mm-card h3 {
+  color: var(--mm-text);
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+.mm-card p {
+  margin-bottom: 10px;
+}
+.mm-card p:last-child {
+  margin-bottom: 0;
+}
+.mm-card ul {
+  padding-left: 22px;
+  margin: 8px 0;
+}
+.mm-card li {
+  margin-bottom: 6px;
+}
+
+/* mm.step (container = card variant) */
+.mm-step {
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 12px;
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+/* mm.step_header */
+.mm-step-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--mm-navy-sec);
+  border-bottom: 1px solid var(--mm-border);
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+.mm-step-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mm-step-num-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--mm-navy);
+  color: var(--mm-text);
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid var(--mm-border);
+}
+.mm-step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mm-text);
+}
+.mm-step-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* mm.step_control */
+.mm-step-control {
+  background: var(--mm-navy);
+  padding: 20px;
+  color: var(--mm-text-2);
+}
+.mm-step-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.mm-step-tile {
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+.mm-step-tile-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: var(--mm-text-2);
+  opacity: 0.6;
+  margin-bottom: 6px;
+}
+.mm-step-tile-body {
+  font-size: 13px;
+  color: var(--mm-text);
+}
+.mm-step-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+.mm-btn {
+  background: var(--mm-accent);
+  color: var(--mm-text);
+  border: 1px solid var(--mm-accent);
+  border-radius: 6px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+.mm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.mm-btn-secondary {
+  background: transparent;
+  color: var(--mm-text-2);
+  border: 1px solid var(--mm-border);
+}
+.mm-btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,0.04);
+  color: var(--mm-text);
+}
+.mm-result-paste-panel {
+  margin-top: 16px;
+  display: none;
+}
+.mm-result-paste-panel.is-open {
+  display: block;
+}
+.mm-result-paste-panel textarea {
+  width: 100%;
+  min-height: 120px;
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 8px;
+  color: var(--mm-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 12px 14px;
+  resize: vertical;
+}
+.mm-result-paste-panel textarea:focus {
+  outline: none;
+  border-color: var(--mm-accent);
+}
+.mm-result-paste-hint {
+  font-size: 11px;
+  color: var(--mm-text-2);
+  opacity: 0.7;
+  margin-top: 6px;
+}
+
+/* mm.prompt_block */
+.mm-prompt-block {
+  position: relative;
+  background: var(--mm-navy-deep);
+  border: 1px solid var(--mm-border);
+  border-radius: 8px;
+  margin: 14px 0;
+  overflow: hidden;
+}
+.mm-prompt-block-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: var(--mm-accent);
+  color: var(--mm-text);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-bottom-right-radius: 6px;
+}
+.mm-prompt-block-copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--mm-border);
+  color: var(--mm-text-2);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  letter-spacing: 0.6px;
+}
+.mm-prompt-block-copy:hover {
+  background: rgba(255,255,255,0.08);
+  color: var(--mm-text);
+}
+.mm-prompt-block-body {
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--mm-text);
+  padding: 32px 16px 16px 16px;
+  line-height: 1.55;
+}
+
+/* mm.gate_box */
+.mm-gate-box {
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin: 26px 0 18px 0;
+  position: relative;
+}
+.mm-gate-box-label {
+  display: inline-block;
+  background: var(--mm-accent);
+  color: var(--mm-text);
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  margin-bottom: 14px;
+}
+.mm-gate-box-rules {
+  background: var(--mm-navy-deep);
+  border: 1px solid var(--mm-border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  color: var(--mm-text-2);
+  margin-bottom: 16px;
+}
+.mm-gate-rule-pass { color: var(--mm-success); }
+.mm-gate-rule-fail { color: var(--mm-fail); }
+.mm-gate-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.mm-gate-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--mm-text-2);
+}
+.mm-gate-check input[type=checkbox] {
+  margin-top: 4px;
+  accent-color: var(--mm-accent);
+  width: 16px;
+  height: 16px;
+}
+.mm-gate-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.mm-gate-status {
+  font-size: 12px;
+  color: var(--mm-text-2);
+}
+.mm-gate-status.is-passed {
+  color: var(--mm-success);
+}
+
+/* mm.conf_box */
+.mm-conf-box {
+  border: 1px dashed var(--mm-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 12px 0;
+  color: var(--mm-text-2);
+  font-size: 13px;
+}
+.mm-conf-box.is-partial {
+  border-color: var(--mm-warn);
+}
+.mm-conf-box.is-failed {
+  border-color: var(--mm-fail);
+}
+.mm-conf-box-summary {
+  font-weight: 600;
+  margin-bottom: 4px;
+  color: var(--mm-text);
+}
+
+/* mm.next_box */
+.mm-next-box {
+  background: var(--mm-navy-sec);
+  border-left: 3px solid var(--mm-accent);
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin: 12px 0;
+}
+.mm-next-box-label {
+  font-size: 10px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--mm-success);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.mm-next-box-text {
+  color: var(--mm-text);
+  font-size: 13px;
+}
+
+/* mm.verdict_box */
+.mm-verdict-box {
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 12px;
+  padding: 32px;
+  margin-bottom: 18px;
+}
+.mm-verdict-box h2 {
+  color: var(--mm-accent);
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+.mm-verdict-box-body {
+  color: var(--mm-text-2);
+  font-size: 14px;
+}
+
+/* mm.status_panel */
+.mm-status-panel {
+  background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-sec) 100%);
+  border: 1px solid var(--mm-border);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 18px;
+}
+.mm-status-panel-title {
+  color: var(--mm-accent);
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.mm-status-panel-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mm-status-panel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mm-status-panel-label {
+  color: var(--mm-text-2);
+  font-size: 12px;
+  min-width: 200px;
+}
+.mm-status-panel-value {
+  color: var(--mm-text);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+/* mm.hl, mm.hl_a, mm.hl_g, mm.hl_w */
+.mm-hl {
+  border-left: 3px solid var(--mm-text-2);
+  background: rgba(255,255,255,0.03);
+  padding: 12px 16px;
+  border-radius: 4px;
+  color: var(--mm-text-2);
+  font-size: 13px;
+  margin: 10px 0;
+}
+.mm-hl-a {
+  border-left: 3px solid var(--mm-accent);
+  background: rgba(178,58,58,0.08);
+  padding: 12px 16px;
+  border-radius: 4px;
+  color: var(--mm-text-2);
+  font-size: 13px;
+  margin: 10px 0;
+}
+.mm-hl-g {
+  border-left: 3px solid var(--mm-success);
+  background: rgba(110,231,183,0.06);
+  padding: 12px 16px;
+  border-radius: 4px;
+  color: var(--mm-text-2);
+  font-size: 13px;
+  margin: 10px 0;
+}
+.mm-hl-w {
+  border-left: 3px solid var(--mm-warn);
+  background: rgba(249,168,37,0.08);
+  padding: 12px 16px;
+  border-radius: 4px;
+  color: var(--mm-text-2);
+  font-size: 13px;
+  margin: 10px 0;
+}
+.mm-banner-override {
+  margin: 0 0 18px 0;
+  font-weight: 600;
+  color: var(--mm-text);
+}
+
+/* mm.st (table) */
+.mm-st {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 13px;
+  color: var(--mm-text-2);
+}
+.mm-st th {
+  background: var(--mm-navy-sec);
+  color: var(--mm-text);
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--mm-border);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.mm-st td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--mm-border);
+  color: var(--mm-text-2);
+}
+.mm-st tr:nth-child(even) td {
+  background: rgba(255,255,255,0.015);
+}
+
+/* mm.badge */
+.mm-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  border: 1px solid var(--mm-border);
+  color: var(--mm-text-2);
+  background: rgba(255,255,255,0.04);
+}
+.mm-badge.is-pending {
+  background: rgba(255,255,255,0.08);
+  color: var(--mm-text-2);
+}
+.mm-badge.is-running {
+  background: var(--mm-accent);
+  color: var(--mm-text);
+  border-color: var(--mm-accent);
+}
+.mm-badge.is-complete {
+  background: rgba(110,231,183,0.15);
+  color: var(--mm-success);
+  border-color: rgba(110,231,183,0.4);
+}
+.mm-badge.is-failed {
+  background: rgba(248,113,113,0.15);
+  color: var(--mm-fail);
+  border-color: rgba(248,113,113,0.4);
+}
+.mm-badge.is-partial {
+  background: rgba(249,168,37,0.15);
+  color: var(--mm-warn);
+  border-color: rgba(249,168,37,0.4);
+}
+.mm-badge.is-overridden_complete {
+  background: rgba(178,58,58,0.15);
+  color: var(--mm-accent);
+  border-color: rgba(178,58,58,0.4);
+}
+.mm-badge.is-ai-claude_opus,
+.mm-badge.is-ai-claude_sonnet {
+  background: rgba(178,58,58,0.10);
+  color: var(--mm-text-2);
+  border-color: rgba(178,58,58,0.30);
+}
+.mm-badge.is-ai-codex {
+  background: rgba(110,231,183,0.10);
+  color: var(--mm-text-2);
+  border-color: rgba(110,231,183,0.30);
+}
+.mm-badge.is-ai-operator {
+  background: rgba(255,255,255,0.04);
+  color: var(--mm-text-2);
+  border-color: var(--mm-border);
+}
+
+/* modal */
+.mm-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10,26,46,0.78);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+.mm-modal-backdrop.is-open {
+  display: flex;
+}
+.mm-modal {
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  border-radius: 12px;
+  max-width: 480px;
+  width: 100%;
+  padding: 28px;
+  color: var(--mm-text-2);
+}
+.mm-modal-title {
+  color: var(--mm-text);
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.mm-modal-body {
+  font-size: 14px;
+  margin-bottom: 22px;
+}
+.mm-modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+/* toast */
+.mm-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  background: var(--mm-navy-sec);
+  border: 1px solid var(--mm-border);
+  color: var(--mm-text);
+  padding: 12px 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 300;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+}
+.mm-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* commit prompt block (gate pass result) */
+.mm-commit-block {
+  margin-top: 16px;
+}
+
+/* responsive */
+@media (max-width: 880px) {
+  .mm-layout {
+    grid-template-columns: 1fr;
+  }
+  .mm-sidebar {
+    position: static;
+    max-height: none;
+    border-right: none;
+    border-bottom: 1px solid var(--mm-border);
+  }
+  .mm-step-tiles {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+</head>
+<body>
+<header class="mm-header" role="banner">
+  <div class="mm-header-brand">
+    <span class="mm-logo-slot" aria-hidden="true">A3</span>
+    <span class="mm-header-title">MMOS Operator Manual</span>
+    <span class="mm-header-subtitle">Bucket A3 / Manual Engine v1</span>
+  </div>
+  <div class="mm-header-right">
+    <span class="mm-badge is-ai-operator" id="mm-build-badge">BUILD: COMPLETE</span>
+    <button type="button" class="mm-override-toggle" id="mm-override-toggle" aria-pressed="false">
+      <span class="mm-override-dot" aria-hidden="true"></span>
+      <span class="mm-override-toggle-label">Manual Override</span>
+    </button>
+  </div>
+</header>
+<div class="mm-progress-global" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="mm-progress-global">
+  <div class="mm-progress-global-label" id="mm-progress-global-label">Overall: 0/0 steps (0%)</div>
+  <div class="mm-progress-global-track">
+    <div class="mm-progress-global-fill" id="mm-progress-global-fill"></div>
+  </div>
+</div>
+<div class="mm-layout">
+  <nav class="mm-sidebar" id="mm-sidebar" aria-label="Manual navigation"></nav>
+  <main class="mm-content" role="main">
+    <div class="mm-content-inner" id="mm-content-inner"></div>
+  </main>
+</div>
+<div class="mm-modal-backdrop" id="mm-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="mm-modal-title">
+  <div class="mm-modal">
+    <div class="mm-modal-title" id="mm-modal-title">Advance to Phase ?</div>
+    <div class="mm-modal-body" id="mm-modal-body"></div>
+    <div class="mm-modal-actions">
+      <button type="button" class="mm-btn mm-btn-secondary" id="mm-modal-cancel">Cancel</button>
+      <button type="button" class="mm-btn" id="mm-modal-confirm">Advance</button>
+    </div>
+  </div>
+</div>
+<div class="mm-toast" id="mm-toast" role="status" aria-live="polite"></div>
+
+<script type="application/json" id="engineering-plan">
+{"project_bucket": "A3", "thread_name": "(A3)-MMOS ENGINE - CODEX ENGINEERING PLAN", "artifact_role": "ENGINEERING_PLAN", "artifact_version": "v1", "artifact_id": "A3_MMOS_ENGINEERING_PLAN_v1", "plan_name": "(A3)-Manual Builder_HTMLENGINE-Codex-High-008a", "role": "MMOS_ENGINEERING_TRANSLATOR", "pipeline_stage": 2, "generated_on": "2026-04-19", "supersedes": {"plan_name": "(A3)-Manual Builder_HTMLENGINE-Codex-High-008", "reason": "Prior plan embedded STAT async-duel implementation details in architecture_reference and used a 17-token palette that included light-mode surfaces. Scope is re-aligned to FINALIZED_ARCHITECT_PLAN.json v2.0: MMOS HTML Manual Engine only, 9 locked dark tokens only, 20 MR-1377 archetypes only."}, "source_architect_plan": {"path": "/Users/brianb/MissionMed/_SYSTEM/INTAKE_ENGINE/FINALIZED_ARCHITECT_PLAN.json", "schema_version": "2.0", "issued_by": "MMOS_ARCHITECT_AUTHORITY"}, "architecture_lock": {"redesign_allowed": false, "scope_expansion_allowed": false, "new_system_layers_allowed": false, "unresolved_items_policy": "explicit_representation_only"}, "ui_lock": {"structure_reference": "MR-1377", "structural_archetype_count": 20, "structural_archetype_list": ["header", "sidebar", "tab-content", "phase-loc", "section-header", "card", "step-header", "step-control", "prompt-block", "gate-box", "conf-box", "next-box", "verdict-box", "status-panel", "hl", "hl-a", "hl-g", "hl-w", "st", "badge"], "theme_reference": "MissionMed dark UI", "design_tokens_locked": {"--mm-navy": "#0F2A44", "--mm-navy-sec": "#1B2F4A", "--mm-text": "#FFFFFF", "--mm-text-2": "#F4F6F8", "--mm-accent": "#B23A3A", "--mm-border": "rgba(255,255,255,0.08)", "--mm-success": "#6EE7B7", "--mm-fail": "#F87171", "--mm-warn": "#F9A825"}, "token_lock_rule": "Any hex value outside design_tokens_locked fails the build. No white backgrounds. No light surfaces.", "required_capabilities": ["run_buttons", "result_parsing", "step_gating", "phase_gating", "progress_tracking", "manual_override", "state_persistence", "audit_sidecar"]}, "architecture_reference": {"system_goal": "Render a single self-contained dark-UI HTML operator manual from ENGINEERING_PLAN.json, with per-step run buttons, RESULT header parsing, per-phase gating, global and per-phase progress bars, auto-advance within phase, confirm-to-advance between phases, MMOS_STATE localStorage persistence, and a manual-override toggle.", "components_in_scope": ["engineering_plan_schema_validation", "mr1377_shell_render", "per_archetype_render_functions", "run_button_controller", "result_header_parser", "step_state_machine", "phase_gate_controller", "auto_advance_controller", "progress_system", "manual_override_toggle", "mmos_state_localstorage_persistence", "audit_sidecar_generator", "deep_link_tab_router", "clipboard_copy_prompt"], "components_explicitly_out_of_scope": ["server_side_rendering", "network_requests_from_rendered_manual", "authentication_layer", "external_fonts", "external_css", "external_js", "any_application_domain_logic_outside_the_manual_engine_itself"], "pipeline_position": "Stage 2 of ChatGPT -> Claude -> Codex -> Claude. Input is ARCHITECT_PLAN.json (or FINALIZED_ARCHITECT_PLAN.json for meta runs). Output is this ENGINEERING_PLAN which Claude Manual Builder reads directly to emit FULL_OPERATOR_MANUAL.html plus MANUAL_AUDIT.json sidecar.", "result_header_contract": {"json_stage_format": "Line 1: RESULT: COMPLETE|PARTIAL|FAILED\nLine 2: SUMMARY: <one sentence>\nLine 3: blank\nLine 4+: payload", "html_stage_format": "First bytes: <!-- RESULT: COMPLETE|PARTIAL|FAILED\nSUMMARY: <one sentence>\nSOURCE_HASH: <sha256>\n-->\n<!DOCTYPE html>...", "parser_regex_json": "^RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n", "parser_regex_html_comment": "^<!--\\s*RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n", "unified_rule": "One RESULT header convention across all stages. Parser runs json regex first; on miss, runs html-comment regex; on miss, returns MISSING_RESULT_HEADER."}}, "file_structure": {"delivery_mode": "single_page_application_one_html_file", "files": [{"id": "manual_html", "path": "FULL_OPERATOR_MANUAL.html", "type": "html", "required": true, "single_file": true, "purpose": "Operator execution surface. Renders header, sidebar, tab-content panels, phase-loc, section-header, card, step-header, step-control, prompt-block, gate-box, conf-box, next-box, verdict-box, status-panel, hl, hl-a, hl-g, hl-w, st, badge. No external assets.", "top_of_file_header": "<!-- RESULT: COMPLETE\nSUMMARY: <one sentence>\nSOURCE_HASH: <sha256 of ENGINEERING_PLAN.json>\nBUILT_FROM: A3_MMOS_ENGINEERING_PLAN_v1\n-->", "structural_sections_required_in_order": ["html_comment_result_header", "doctype", "html_open_with_lang_en", "head_with_meta_charset_and_viewport_and_title", "style_tag_with_locked_dark_tokens", "body_open", "div_header", "div_layout_containing_nav_sidebar_and_main_content", "global_progress_bar_at_top_of_main", "tab_content_overview", "tab_content_start_here", "tab_content_per_phase (one per architect phase)", "tab_content_reference_failure_cheat_sheet", "tab_content_reference_progress_tracker", "script_tag_with_manual_engine", "body_close", "html_close"]}, {"id": "manual_css_inline", "path": "FULL_OPERATOR_MANUAL.html::<style>", "type": "css_embedded", "required": true, "purpose": "Dark palette token definitions on :root and class styles for the 20 MR-1377 archetypes.", "token_source": "ui_lock.design_tokens_locked (authoritative)", "token_forbidden": "Any hex not in design_tokens_locked. Any named color (white, black, red, etc). Any rgb()/hsl() not resolving to a locked token.", "global_rules": ["html, body { background: var(--mm-navy); color: var(--mm-text); }", "body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.65; -webkit-font-smoothing: antialiased; }", "*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }", "No CDN @import. No external font. No external URL of any kind."]}, {"id": "manual_js_inline", "path": "FULL_OPERATOR_MANUAL.html::<script id=\"mmos-manual-engine\">", "type": "javascript_embedded", "required": true, "purpose": "Hydration, render loop, run-step controller, RESULT parser, gate controller, auto-advance controller, progress system, manual override, MMOS_STATE persistence, audit computation, deep-link router.", "module_pattern": "iife_with_namespace_window_MMOS", "no_external_requests": true, "no_eval_or_dynamic_function": true}, {"id": "engineering_plan_embedded", "path": "FULL_OPERATOR_MANUAL.html::<script type=\"application/json\" id=\"engineering-plan\">", "type": "json_embedded", "required": true, "purpose": "The ENGINEERING_PLAN.json consumed by the manual engine. Embedded so the HTML is self-contained and hash-verifiable.", "size_constraint": "Must be the exact same bytes used to compute SOURCE_HASH in the top-of-file header."}, {"id": "audit_sidecar", "path": "MANUAL_AUDIT.json", "type": "json", "required": true, "purpose": "Produced by Claude Manual Builder alongside the HTML. Not rendered inside the manual UI. Records component counts, token presence, banned-token counts, deprecated-name counts, and step counts.", "fields_required": ["source_hash", "archetype_counts", "tokens_present", "tokens_forbidden_found", "em_dash_count", "en_dash_count", "deprecated_names_found", "total_steps_rendered", "total_steps_expected", "build_result_status", "summary"]}], "forbidden_files": ["external.css", "external.js", "webfont-*", "any url starting with http:// or https:// referenced from the HTML"]}, "function_map": [{"function_id": "engine.init", "layer": "bootstrap", "inputs": ["document_ready_event"], "outputs": ["runtime_state_root"], "responsibilities": ["Read embedded ENGINEERING_PLAN JSON from <script id=engineering-plan>.", "Call engine.validatePlanSchema; abort if invalid.", "Compute SOURCE_HASH locally; compare to html_comment_result_header SOURCE_HASH; log mismatch to audit.", "Hydrate MMOS_STATE from localStorage; fallback to engine.defaultState on miss or schema mismatch.", "Call render.shell then render.allTabs.", "Bind delegated event handlers for run buttons, gate buttons, override toggle, result paste textareas, tab clicks, hash change."], "test_assertions": ["With a valid plan: initial render paints the header, sidebar, every phase tab, every step card, and the global progress bar.", "With a missing <script id=engineering-plan>: abort with PLAN_SCHEMA_INVALID banner and disable run buttons.", "With a stored MMOS_STATE whose schema_version does not equal 2: wipe the namespaced key, re-init from defaults, log SCHEMA_VERSION_MISMATCH to audit."]}, {"function_id": "engine.validatePlanSchema", "layer": "bootstrap", "inputs": ["plan_json_object"], "outputs": ["validation_report {ok: boolean, errors: string[]}"], "responsibilities": ["Assert presence of top-level keys: project_bucket, thread_name, artifact_role, artifact_version, source_architect_plan, ui_lock, architecture_reference, file_structure, function_map, ui_components, orchestration_logic, state_management, error_handling.", "Assert ui_lock.design_tokens_locked has all 9 tokens.", "Assert ui_lock.structural_archetype_list length equals 20.", "Return ok=true only when every assertion passes."], "test_assertions": ["Remove design_tokens_locked['--mm-accent'] -> ok is false, errors contains 'missing token --mm-accent'.", "Set structural_archetype_list length to 19 -> ok is false, errors contains 'archetype count 19 expected 20'.", "All checks pass -> ok is true, errors is empty."]}, {"function_id": "engine.defaultState", "layer": "state", "inputs": ["plan_json_object"], "outputs": ["mmos_state_object"], "responsibilities": ["Emit the initial MMOS_STATE skeleton: project_id, schema_version=2, phase_progress[] seeded from plan phases, step_progress[] seeded from plan steps with status=PENDING, manual_override_enabled=false, refinement_cycle_count=0, last_active_tab='tab-overview', manual_override_audit=[]."], "test_assertions": ["Length of phase_progress equals number of phases in plan.", "Length of step_progress equals sum of steps across all phases.", "All step_progress[].status values equal 'PENDING'."]}, {"function_id": "state.hydrate", "layer": "state", "inputs": ["plan_json_object"], "outputs": ["mmos_state_object"], "responsibilities": ["Read localStorage[MMOS_STATE::{project_id}].", "Parse JSON; on parse error, fall back to engine.defaultState and log.", "On schema_version mismatch, wipe and re-init.", "On project_id mismatch, ignore and re-init under the correct namespaced key.", "Reconcile step_progress against current plan: drop orphan step_ids, seed missing step_ids with PENDING."], "test_assertions": ["Valid persisted state with matching project_id and schema_version -> statuses restored exactly.", "Stored schema_version=1 and current=2 -> fresh default state returned; audit log includes SCHEMA_VERSION_MISMATCH.", "Plan adds a new step_id not in storage -> new step_id present in returned state with status=PENDING."]}, {"function_id": "state.persist", "layer": "state", "inputs": ["mmos_state_object"], "outputs": ["void"], "responsibilities": ["Serialize state to JSON.", "Write to localStorage[MMOS_STATE::{project_id}].", "On QuotaExceededError: trim oldest result_payload strings to length 2000, retry once; on second failure, switch to in-memory Map and raise hl-w banner."], "test_assertions": ["State round-trips byte-for-byte through state.persist then state.hydrate when storage is healthy.", "Simulated QuotaExceededError triggers one retry, then hl-w banner text 'Local storage is full. Progress will be kept for this session only until you clear space.' appears.", "In the in-memory fallback, state mutations persist across re-renders within the session."]}, {"function_id": "render.shell", "layer": "render", "inputs": ["plan_json_object", "mmos_state_object"], "outputs": ["dom_mutation"], "responsibilities": ["Render header (div.mm-header with logo slot, title from plan.ui_manual.title, badge from plan.project_bucket, manual-override toggle).", "Render sidebar (nav.mm-sidebar) with groups Start, Execute, Reference per manual_generation_schema.navigation.", "Render global progress bar at top of main.", "Insert empty containers for each tab-content panel (one per phase plus reference tabs)."], "test_assertions": ["Header contains exactly one element with class 'mm-header' and exactly one child with class 'mm-override-toggle'.", "Sidebar contains exactly three group labels: Start, Execute, Reference.", "Global progress bar node has role='progressbar' and aria-valuenow attribute."]}, {"function_id": "render.allTabs", "layer": "render", "inputs": ["plan_json_object", "mmos_state_object"], "outputs": ["dom_mutation"], "responsibilities": ["For each tab in navigation.sidebar_groups: call the matching render function (render.tabOverview, render.tabStartHere, render.tabPhase(phase_id), render.tabFailureCheatSheet, render.tabProgressTracker).", "Apply mmos_state.last_active_tab to mark the active tab."], "test_assertions": ["Total rendered tab-content panels equals 2 (Start group) + N (phases) + 2 (Reference group).", "Only one tab-content panel carries the 'active' class at any time."]}, {"function_id": "render.tabPhase", "layer": "render", "inputs": ["phase_object", "mmos_state_object"], "outputs": ["dom_mutation"], "responsibilities": ["Render phase-loc with pulsing dot and inline phase progress bar.", "Render section-header with phase title and one-sentence intent.", "For each step in phase: render step-header + step-control + prompt-block (if exact_prompt present) + conf-box (when step.status == PARTIAL or FAILED) + next-box (on intra-phase advance hints).", "Render gate-box at end of phase with checklist from phase_gate.checklist and Mark Gate Passed control."], "test_assertions": ["Phase with N steps renders N step-header nodes and exactly one gate-box.", "Step with null exact_prompt renders zero prompt-block nodes within its card.", "Step with status in {PARTIAL,FAILED} renders exactly one conf-box sibling."]}, {"function_id": "render.archetype", "layer": "render", "inputs": ["archetype_name", "props", "state"], "outputs": ["html_string_or_dom_node"], "responsibilities": ["Dispatch to the renderer for one of the 20 archetypes: header, sidebar, tab-content, phase-loc, section-header, card, step-header, step-control, prompt-block, gate-box, conf-box, next-box, verdict-box, status-panel, hl, hl-a, hl-g, hl-w, st, badge.", "Each renderer uses only tokens listed for its archetype in manual_generation_schema.mr1377_components.", "Reject any archetype name not in the locked 20-archetype list."], "test_assertions": ["Calling render.archetype('not-a-real-archetype', ...) throws ARCHETYPE_UNKNOWN.", "Every emitted archetype root element carries a class prefix 'mm-' derived from the archetype name.", "No emitted style attribute contains a hex value outside design_tokens_locked."]}, {"function_id": "render.progressGlobal", "layer": "render", "inputs": ["mmos_state_object"], "outputs": ["dom_mutation"], "responsibilities": ["Compute completed = count(step_progress where status in {COMPLETE, OVERRIDDEN_COMPLETE}).", "Compute total = length(step_progress).", "Update fill width to (completed / total * 100)%.", "Update label to 'Overall: {completed}/{total} steps ({percent}%)'."], "test_assertions": ["0 of 10 complete -> fill width 0%, label 'Overall: 0/10 steps (0%)'.", "5 of 10 complete -> fill width 50%, label 'Overall: 5/10 steps (50%)'.", "10 of 10 complete -> fill width 100%, label 'Overall: 10/10 steps (100%)'."]}, {"function_id": "render.progressPhase", "layer": "render", "inputs": ["phase_id", "mmos_state_object"], "outputs": ["dom_mutation"], "responsibilities": ["Compute per-phase completed_steps / total_steps.", "Update the inline bar inside the phase-loc of that phase.", "Update label 'Phase {N}: {completed}/{total}'."], "test_assertions": ["Phase with 3 of 5 complete -> inline bar 60% fill.", "Phase completing its last step flips status to COMPLETE and triggers auto_advance evaluation.", "Non-active phases also update their phase-loc labels on state change."]}, {"function_id": "controller.runStep", "layer": "controller", "inputs": ["step_id"], "outputs": ["state_mutation", "dom_mutation"], "responsibilities": ["Check preconditions: previous step status is COMPLETE or OVERRIDDEN_COMPLETE, OR manual_override_enabled is true.", "If step.exact_prompt is present: navigator.clipboard.writeText(exact_prompt); render toast 'Prompt copied. Paste into {ai} thread.'", "Reveal the result_paste_panel for this step.", "Set step.status = RUNNING; persist state; re-render progress."], "test_assertions": ["Disabled run button on a step whose predecessor is PENDING unless manual_override is on.", "Clicking run with exact_prompt=null skips clipboard write and still reveals the paste panel.", "State transitions from PENDING to RUNNING and the status badge re-renders."]}, {"function_id": "controller.submitResult", "layer": "controller", "inputs": ["step_id", "pasted_text"], "outputs": ["state_mutation", "dom_mutation"], "responsibilities": ["Trim pasted_text; run parser.resultHeader.", "On COMPLETE: set step.status=COMPLETE, step.completed_at_iso=now, step.result_payload=truncate(pasted_text, 4000). If auto_advance.within_phase, focus next step's run button.", "On PARTIAL: set status=PARTIAL, surface conf-box with summary and operator prompt 'Resolve the gap before advancing.'; halt phase.", "On FAILED: set status=FAILED, surface remediation hint from plan; halt phase.", "On no match: render hl-w warning 'Missing RESULT header. Ask the AI to re-emit the response starting with RESULT: COMPLETE / PARTIAL / FAILED.'; status stays RUNNING."], "test_assertions": ["Pasting 'RESULT: COMPLETE\\nSUMMARY: done\\n\\npayload' sets status to COMPLETE and triggers auto_advance.", "Pasting 'RESULT: PARTIAL\\nSUMMARY: gap\\n\\npayload' halts auto_advance and renders a conf-box.", "Pasting plain text with no RESULT header keeps status as RUNNING and shows the hl-w warning."]}, {"function_id": "parser.resultHeader", "layer": "parser", "inputs": ["raw_text"], "outputs": ["parse_report {status: 'COMPLETE'|'PARTIAL'|'FAILED'|'MISSING', summary: string|null}"], "responsibilities": ["Run json-stage regex first: ^RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n", "On miss, run html-comment regex: ^<!--\\s*RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n", "On miss, return {status:'MISSING', summary:null}.", "Trim captured summary to 240 characters."], "test_assertions": ["json-stage input 'RESULT: COMPLETE\\nSUMMARY: ok\\n\\n{...}' returns status='COMPLETE', summary='ok'.", "html-stage input '<!-- RESULT: COMPLETE\\nSUMMARY: rendered\\nSOURCE_HASH: ...\\n-->\\n<!DOCTYPE html>...' returns status='COMPLETE', summary='rendered'.", "Input 'No header here' returns {status:'MISSING', summary:null}."]}, {"function_id": "controller.markGatePassed", "layer": "controller", "inputs": ["phase_id"], "outputs": ["state_mutation", "dom_mutation"], "responsibilities": ["Verify every success_criterion checkbox in the gate-box is checked OR manual_override_enabled is true.", "Set phase.status = COMPLETE; persist.", "Render the canonical commit line in a prompt-block: 'git commit -m \"MMOS-CHECKPOINT: Phase {phase_index} {ROLE} complete\"'.", "If this is not the final phase, open controller.openBetweenPhaseModal."], "test_assertions": ["Gate-box with one unchecked box and manual_override off keeps phase status in progress.", "All boxes checked flips phase to COMPLETE and reveals the commit-line prompt-block.", "On final phase completion, no between-phase modal is opened."]}, {"function_id": "controller.openBetweenPhaseModal", "layer": "controller", "inputs": ["current_phase_index", "next_phase_index"], "outputs": ["dom_mutation"], "responsibilities": ["Render modal with title 'Advance to Phase {N+1}?' body 'Phase {N} is complete. Phase {N+1} begins. Confirm to advance.' confirm_label 'Advance' cancel_label 'Stay on Phase {N}'.", "On confirm: set active_tab to the next phase's tab id, scroll to its phase-loc, focus its first step's run button.", "On cancel: close the modal; no state change."], "test_assertions": ["Modal is keyboard-dismissible via Escape.", "Confirming advances active_tab and calls state.persist.", "Cancelling leaves active_tab unchanged."]}, {"function_id": "controller.toggleManualOverride", "layer": "controller", "inputs": ["desired_boolean"], "outputs": ["state_mutation", "dom_mutation"], "responsibilities": ["Set mmos_state.manual_override_enabled to desired_boolean; persist.", "If on: enable all run buttons regardless of predecessor status; enable Mark Gate Passed regardless of checklist; render hl-w banner 'Manual override is on. Auto-gating is suspended.'", "If off: restore default gating per parser.resultHeader and auto_advance.", "Append an entry to manual_override_audit[] with timestamp_iso, action ('enable'|'disable'), and active_step_id (nullable)."], "test_assertions": ["Enabling override unblocks a run button that was disabled due to PENDING predecessor.", "Each toggle appends one entry to manual_override_audit[].", "Disabling override restores predecessor-based disabling and hides the banner."]}, {"function_id": "controller.copyPrompt", "layer": "controller", "inputs": ["step_id"], "outputs": ["clipboard_write", "dom_mutation"], "responsibilities": ["Look up step.exact_prompt.", "Call navigator.clipboard.writeText(exact_prompt).", "Render toast 'Prompt copied.' for 2000ms then fade.", "On clipboard API error, select the prompt-block text programmatically and render fallback hint 'Press Cmd/Ctrl+C to copy.'"], "test_assertions": ["With a working clipboard API, navigator.clipboard.writeText is called with the exact prompt bytes.", "With a failing clipboard API, the prompt-block text is selected and the fallback toast appears.", "Toast disappears after 2000ms."]}, {"function_id": "router.tab", "layer": "router", "inputs": ["hash_or_tab_id"], "outputs": ["dom_mutation", "state_mutation"], "responsibilities": ["On hashchange or tab click, identify target tab_id (strip leading '#').", "Deactivate all tab buttons and tab-content nodes; activate the match.", "Set mmos_state.last_active_tab = tab_id; persist.", "Scroll to top of tab-content."], "test_assertions": ["Navigating to '#tab-ph2' activates the Phase 2 tab-content and matching sidebar button.", "Invalid hash falls back to the overview tab and does not throw.", "last_active_tab persists across reload."]}, {"function_id": "audit.compute", "layer": "audit", "inputs": ["rendered_html_string", "plan_json_object"], "outputs": ["audit_object"], "responsibilities": ["Count occurrences of each archetype class name (.mm-header, .mm-sidebar, etc).", "Verify every token in design_tokens_locked appears at least once.", "Scan for forbidden hex values (any hex not in the locked palette); count tokens_forbidden_found.", "Count U+2014 and U+2013 occurrences.", "Scan for deprecated names listed in NAMING_CANON.md (Admin HQ, MCC, Pipeline, AI Dashboard, MMVS, Instructor Panel, Command Center); count occurrences.", "Compute total_steps_rendered and total_steps_expected; equal -> PASS else PARTIAL.", "Emit MANUAL_AUDIT.json."], "test_assertions": ["Rendered HTML with one U+2014 character -> audit.em_dash_count == 1 and build_result_status == 'PARTIAL'.", "Rendered HTML with all 9 locked tokens present -> tokens_present has 9 entries.", "Rendered HTML containing 'MCC' as plain text -> deprecated_names_found contains 'MCC'."]}], "ui_components": [{"component_id": "mm.header", "mr1377_archetype": "header", "props": {"title": "string (from plan.ui_manual.title)", "badge": "string (project_bucket)", "logo_slot": "optional inline svg placeholder"}, "states": ["idle", "override_on"], "tokens": ["--mm-navy", "--mm-text", "--mm-accent", "--mm-border"], "behavior": ["Sticky at top; height 68px.", "Renders manual-override toggle at right edge with label 'Manual Override'.", "Toggle click calls controller.toggleManualOverride."]}, {"component_id": "mm.sidebar", "mr1377_archetype": "sidebar", "props": {"groups": "array of {label:string, tabs:{id:string,label:string,num:string}[]}"}, "states": ["idle"], "tokens": ["--mm-navy-sec", "--mm-border", "--mm-accent", "--mm-text", "--mm-text-2"], "behavior": ["Renders Start, Execute, Reference group labels with horizontal dividers.", "Each tab button renders its tab-num pill and label; active tab carries left 3px accent marker and bg rgba(255,255,255,0.04).", "Tab click dispatches router.tab(tab_id)."]}, {"component_id": "mm.tab_content", "mr1377_archetype": "tab-content", "props": {"id": "string", "active": "boolean"}, "states": ["inactive", "active"], "tokens": ["--mm-navy", "--mm-text"], "behavior": ["Only one tab-content panel carries the .active class at any time.", "Hidden panels use display:none (not visibility:hidden) so tab order stays clean.", "Activation triggers a 300ms fadeIn keyframe."]}, {"component_id": "mm.phase_loc", "mr1377_archetype": "phase-loc", "props": {"phase_index": "integer", "phase_title": "string", "progress_completed": "integer", "progress_total": "integer"}, "states": ["idle", "complete"], "tokens": ["--mm-accent", "--mm-text"], "behavior": ["Shows 'YOU ARE HERE: Phase {index} - {title}'.", "Pulsing dot animates opacity 1 -> 0.4 -> 1 over 1.5s.", "Inline phase progress bar (120px wide, 4px tall) reflects completed/total."]}, {"component_id": "mm.section_header", "mr1377_archetype": "section-header", "props": {"h1": "string", "intro": "string"}, "states": ["idle"], "tokens": ["--mm-text", "--mm-text-2"], "behavior": ["h1 font-size 26px, weight 700, color --mm-text.", "intro max-width 700px, color --mm-text-2, font-size 15px."]}, {"component_id": "mm.card", "mr1377_archetype": "card", "props": {"slot_html": "string"}, "states": ["idle"], "tokens": ["--mm-navy-sec", "--mm-border", "--mm-text", "--mm-text-2"], "behavior": ["Background --mm-navy-sec, 1px solid --mm-border, border-radius 12px, padding 28px.", "Used as a general content surface in Overview, Start Here, and Reference tabs."]}, {"component_id": "mm.step_header", "mr1377_archetype": "step-header", "props": {"step_index": "integer", "title": "string", "ai": "claude_opus|claude_sonnet|codex|operator", "status": "PENDING|RUNNING|COMPLETE|FAILED|PARTIAL"}, "states": ["PENDING", "RUNNING", "COMPLETE", "FAILED", "PARTIAL"], "tokens": ["--mm-navy-sec", "--mm-border", "--mm-accent", "--mm-text", "--mm-text-2", "--mm-success", "--mm-fail", "--mm-warn"], "behavior": ["Left side: step number pill + title.", "Right side: AI badge (codex=teal tint, claude_opus=indigo tint, claude_sonnet=indigo tint, operator=neutral border) + status pill from mm.badge.", "Border-bottom 1px solid --mm-border; border-radius top 12px."]}, {"component_id": "mm.step_control", "mr1377_archetype": "step-control", "props": {"what_you_do": "string", "expected_output": "string", "step_id": "string", "exact_prompt": "string|null", "result_paste_value": "string"}, "states": ["PENDING", "RUNNING", "COMPLETE", "FAILED", "PARTIAL"], "tokens": ["--mm-navy", "--mm-text-2", "--mm-text", "--mm-accent", "--mm-border"], "behavior": ["Top row: 2-column grid of tiles: What You Do (left), Expected Output (right).", "Middle row: prompt-block (if exact_prompt not null).", "Bottom row: primary button 'Run Step' (disabled per preconditions) + status pill.", "Reveal result_paste_panel (textarea with placeholder 'Paste full AI response here') on run."]}, {"component_id": "mm.prompt_block", "mr1377_archetype": "prompt-block", "props": {"label": "string", "body_text": "string"}, "states": ["idle", "copied"], "tokens": ["--mm-text-2", "--mm-accent", "--mm-border"], "behavior": ["Background #0A1A2E (deeper navy, derived token, NOT a palette addition; declared in :root as var(--mm-navy-deep)).", "Label pill bg --mm-accent at top-left corner.", "Copy button at top-right; click -> controller.copyPrompt; on success, briefly swap label to 'COPIED'.", "white-space: pre-wrap; font-family monospace; body_text rendered byte-for-byte with no HTML entity decoding applied twice."]}, {"component_id": "mm.gate_box", "mr1377_archetype": "gate-box", "props": {"phase_index": "integer", "phase_label": "string", "checklist": "array of {id:string,text:string,checked:boolean}", "commit_command": "string"}, "states": ["locked", "ready", "passed"], "tokens": ["--mm-accent", "--mm-success", "--mm-text-2", "--mm-border"], "behavior": ["Label pill 'Gate: Phase {N} to Phase {N+1}' in --mm-accent.", "RESULT contract lines 'RESULT: COMPLETE -> proceed' (green) and 'RESULT != COMPLETE -> DO NOT PROCEED' (red) rendered in monospace.", "Checklist with checkboxes bound to step success_criteria.", "'Mark Gate Passed' button calls controller.markGatePassed.", "On pass, reveal prompt-block containing the commit_command."]}, {"component_id": "mm.conf_box", "mr1377_archetype": "conf-box", "props": {"summary": "string", "operator_prompt": "string"}, "states": ["partial", "failed", "info"], "tokens": ["--mm-border", "--mm-text-2", "--mm-warn", "--mm-fail"], "behavior": ["Dashed 1px --mm-border, rounded 8px, padding 12px 16px.", "Renders summary from parsed RESULT, plus an operator_prompt call to action."]}, {"component_id": "mm.next_box", "mr1377_archetype": "next-box", "props": {"label": "string", "detail": "string"}, "states": ["idle"], "tokens": ["--mm-navy-sec", "--mm-accent", "--mm-text", "--mm-success"], "behavior": ["Border-left 3px --mm-accent.", "Small uppercase 'NEXT' label in --mm-success.", "Main text in --mm-text."]}, {"component_id": "mm.verdict_box", "mr1377_archetype": "verdict-box", "props": {"h2": "string", "body_html": "string"}, "states": ["idle"], "tokens": ["--mm-navy-sec", "--mm-accent", "--mm-text", "--mm-text-2"], "behavior": ["Background --mm-navy-sec, padding 32px, radius 12px.", "h2 in --mm-accent, font-size 20px.", "body text in --mm-text-2."]}, {"component_id": "mm.status_panel", "mr1377_archetype": "status-panel", "props": {"title": "string", "rows": "array of {label:string,value:string}"}, "states": ["idle"], "tokens": ["--mm-navy", "--mm-navy-sec", "--mm-accent", "--mm-text-2", "--mm-text"], "behavior": ["Background linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-sec) 100%).", "Title in --mm-accent, uppercase, letter-spacing 1.2px, font-size 11px.", "Rows as 2-column flex: label in --mm-text-2 min-width 140px, value in --mm-text weight 600."]}, {"component_id": "mm.hl", "mr1377_archetype": "hl", "props": {"body_html": "string"}, "states": ["idle"], "tokens": ["--mm-text-2", "--mm-border"], "behavior": ["Neutral highlight callout. Border-left 3px --mm-text-2, background rgba(255,255,255,0.03)."]}, {"component_id": "mm.hl_a", "mr1377_archetype": "hl-a", "props": {"body_html": "string"}, "states": ["idle"], "tokens": ["--mm-accent"], "behavior": ["Accent highlight callout. Border-left 3px --mm-accent, background rgba(178,58,58,0.08)."]}, {"component_id": "mm.hl_g", "mr1377_archetype": "hl-g", "props": {"body_html": "string"}, "states": ["idle"], "tokens": ["--mm-success"], "behavior": ["Success highlight callout. Border-left 3px --mm-success, background rgba(110,231,183,0.06)."]}, {"component_id": "mm.hl_w", "mr1377_archetype": "hl-w", "props": {"body_html": "string"}, "states": ["idle", "banner"], "tokens": ["--mm-warn"], "behavior": ["Warning highlight callout. Border-left 3px --mm-warn, background rgba(249,168,37,0.08).", "When used as the manual-override banner, sticks to top of .content area."]}, {"component_id": "mm.st", "mr1377_archetype": "st", "props": {"headers": "string[]", "rows": "string[][]"}, "states": ["idle"], "tokens": ["--mm-navy-sec", "--mm-text", "--mm-border", "--mm-text-2"], "behavior": ["Table with th background --mm-navy-sec, th text --mm-text.", "td border-bottom 1px solid --mm-border, td text --mm-text-2.", "Even-row tint rgba(255,255,255,0.015)."]}, {"component_id": "mm.badge", "mr1377_archetype": "badge", "props": {"variant": "pending|running|complete|failed|partial|ai_claude_opus|ai_claude_sonnet|ai_codex|ai_operator", "label": "string"}, "states": ["idle"], "tokens": ["--mm-border", "--mm-accent", "--mm-success", "--mm-fail", "--mm-warn", "--mm-text", "--mm-text-2"], "behavior": ["PENDING: bg rgba(255,255,255,0.08) text --mm-text-2.", "RUNNING: bg --mm-accent text --mm-text.", "COMPLETE: bg #1F4D2A text --mm-success.", "FAILED: bg #4A1F1F text --mm-fail.", "PARTIAL: bg #4A3A1F text --mm-warn.", "AI badges use tinted variants of navy/accent with appropriate contrast."]}], "orchestration_logic": {"trigger_graph": [{"trigger": "DOMContentLoaded", "calls": ["engine.init"]}, {"trigger": "tab_button_click", "calls": ["router.tab"]}, {"trigger": "hashchange", "calls": ["router.tab"]}, {"trigger": "run_button_click", "calls": ["controller.runStep"]}, {"trigger": "copy_button_click", "calls": ["controller.copyPrompt"]}, {"trigger": "result_paste_textarea_input", "calls": ["controller.submitResult"]}, {"trigger": "gate_checkbox_change", "calls": ["render.gateBoxUpdate"]}, {"trigger": "mark_gate_passed_click", "calls": ["controller.markGatePassed"]}, {"trigger": "manual_override_toggle_change", "calls": ["controller.toggleManualOverride"]}, {"trigger": "between_phase_modal_confirm", "calls": ["router.tab"]}, {"trigger": "between_phase_modal_cancel", "calls": ["dom.closeModal"]}, {"trigger": "storage_event_cross_tab", "calls": ["state.hydrate", "render.allTabs"]}], "run_button_behavior": {"preconditions": ["previous step status in {COMPLETE, OVERRIDDEN_COMPLETE} OR mmos_state.manual_override_enabled is true", "plan_schema is valid"], "on_run": ["set step.status = RUNNING", "if exact_prompt present, copy to clipboard via controller.copyPrompt and show toast", "reveal result_paste_panel textarea", "scroll result_paste_panel into view"], "on_cancel_or_navigation": ["RUNNING status persists until a result is submitted or an explicit Reset Step action is taken", "no implicit success assumption"]}, "result_parsing": {"entry_point": "parser.resultHeader", "json_stage_regex": "^RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n", "html_stage_regex": "^<!--\\s*RESULT:\\s+(COMPLETE|PARTIAL|FAILED)\\s*\\nSUMMARY:\\s+(.+?)\\s*\\n", "flags": "m", "capture_groups": ["status", "summary"], "status_mapping": {"COMPLETE": "COMPLETE", "PARTIAL": "PARTIAL", "FAILED": "FAILED", "MISSING": "MISSING"}, "on_complete": "step.status=COMPLETE; if auto_advance.within_phase scroll_and_focus_next_step; re-render progress", "on_partial": "step.status=PARTIAL; halt phase; surface conf-box with summary and operator prompt", "on_failed": "step.status=FAILED; halt phase; surface remediation hint drawn from plan.error_handling.manual_engine_errors", "on_missing": "render hl-w warning; step.status remains RUNNING; no state transition"}, "auto_advance": {"within_phase": true, "between_phases_requires_confirmation": true, "between_phase_modal_title": "Advance to Phase {N+1}?", "between_phase_modal_body": "Phase {N} is complete. Phase {N+1} begins. Confirm to advance.", "between_phase_confirm_label": "Advance", "between_phase_cancel_label": "Stay on Phase {N}"}, "phase_gate_rules": {"checklist_source": "plan.phases[].phase_gate.checklist", "commit_command_template": "git commit -m \"MMOS-CHECKPOINT: Phase {phase_index} {ROLE} complete\"", "pass_conditions": ["every checklist item checked", "OR mmos_state.manual_override_enabled is true"], "side_effects_on_pass": ["phase.status = COMPLETE", "render commit_command in a prompt-block immediately below the gate-box", "if not the final phase, open between-phase modal"]}, "manual_override_rules": {"control_location": "header right side", "control_label": "Manual Override", "enabled_side_effects": ["all run buttons enabled regardless of predecessor status", "all Mark Gate Passed buttons enabled regardless of checklist", "persistent hl-w banner at top of .content area: 'Manual override is on. Auto-gating is suspended.'", "append audit entry on every state mutation: {timestamp_iso, action, active_step_id}"], "disabled_side_effects": ["default gating per result_parsing and auto_advance restored", "hl-w banner removed"]}}, "state_management": {"storage_backend": "window.localStorage", "storage_key_pattern": "MMOS_STATE::{project_id}", "schema_version": 2, "state_shape": {"project_id": "string", "schema_version": "integer (2)", "phase_progress": [{"phase_id": "string (stable id from architect plan)", "completed_steps": "integer >= 0", "total_steps": "integer >= 0", "status": "PENDING|IN_PROGRESS|COMPLETE|FAILED|PARTIAL"}], "step_progress": [{"step_id": "string (stable id from architect plan)", "status": "PENDING|RUNNING|COMPLETE|FAILED|PARTIAL|OVERRIDDEN_COMPLETE", "result_payload": "string|null (truncated to 4000 chars)", "last_summary": "string|null", "completed_at_iso": "string|null", "run_count": "integer >= 0"}], "manual_override_enabled": "boolean", "manual_override_audit": [{"timestamp_iso": "string", "action": "enable|disable|run_under_override|gate_under_override", "active_step_id": "string|null"}], "refinement_cycle_count": "integer (0..3)", "last_active_tab": "string", "last_hydrated_at_iso": "string"}, "initialization_rules": ["On first load for a project_id: seed step_progress[] with PENDING for every step, phase_progress[] with status=PENDING.", "On load with existing persisted state: reconcile against current plan. Orphan step_ids dropped. Missing step_ids added with PENDING.", "On schema_version mismatch: namespaced wipe, re-init from defaults, log SCHEMA_VERSION_MISMATCH to audit.", "On plan_schema invalid: preserve existing state, set global blocking error, disable all run buttons."], "step_state_machine": {"PENDING": ["RUNNING", "OVERRIDDEN_COMPLETE"], "RUNNING": ["COMPLETE", "FAILED", "PARTIAL", "PENDING"], "COMPLETE": [], "FAILED": ["RUNNING", "OVERRIDDEN_COMPLETE"], "PARTIAL": ["RUNNING", "COMPLETE", "OVERRIDDEN_COMPLETE"], "OVERRIDDEN_COMPLETE": []}, "progress_tracking_rules": {"global_formula": "count(step_progress where status in {COMPLETE, OVERRIDDEN_COMPLETE}) / length(step_progress)", "phase_formula": "phase.completed_steps / phase.total_steps", "update_triggers": ["state.persist", "controller.submitResult", "controller.markGatePassed", "controller.toggleManualOverride"]}, "cross_tab_sync": {"listener": "window.addEventListener('storage', ...)", "behavior": "On storage event whose key matches this project's namespace, re-hydrate and re-render all tabs."}}, "error_handling": {"architecture_error_tokens": [{"token": "PLAN_SCHEMA_INVALID", "detection": "engine.validatePlanSchema returned ok=false", "user_facing_message": "Engineering plan is invalid. Controls are disabled. Re-emit a valid ENGINEERING_PLAN.json.", "blocking": true}, {"token": "ARCHETYPE_UNKNOWN", "detection": "render.archetype called with a name not in the 20-archetype list", "user_facing_message": "Internal render error. Refresh the page.", "blocking": true}, {"token": "TOKEN_LOCK_VIOLATION", "detection": "audit.compute found a hex value outside design_tokens_locked", "user_facing_message": "Build audit failed: token lock violation. Review MANUAL_AUDIT.json.", "blocking": false, "downgrades_build_to": "PARTIAL"}], "manual_engine_errors": [{"token": "RESULT_HEADER_MISSING", "detection": "parser.resultHeader returned status='MISSING' on a run submission", "user_facing_message": "Missing RESULT header. Ask the AI to re-emit the response starting with RESULT: COMPLETE / PARTIAL / FAILED.", "blocking": false, "rendered_as": "hl-w"}, {"token": "RESULT_FAILED", "detection": "parser.resultHeader returned status='FAILED'", "user_facing_message": "Step failed. Review the AI summary and re-run, or open a refinement cycle.", "blocking": true, "rendered_as": "conf-box"}, {"token": "RESULT_PARTIAL", "detection": "parser.resultHeader returned status='PARTIAL'", "user_facing_message": "Step is partial. Resolve the gap before advancing.", "blocking": true, "rendered_as": "conf-box"}, {"token": "SCHEMA_VERSION_MISMATCH", "detection": "persisted state.schema_version != 2", "user_facing_message": "State schema updated. Resetting your local progress for this project.", "blocking": false, "rendered_as": "hl-w"}, {"token": "LOCALSTORAGE_QUOTA_EXCEEDED", "detection": "setItem threw QuotaExceededError", "user_facing_message": "Local storage is full. Progress will be kept for this session only until you clear space.", "blocking": false, "rendered_as": "hl-w"}, {"token": "REFINEMENT_CYCLE_EXCEEDED", "detection": "refinement_cycle_count > 3", "user_facing_message": "Refinement cap reached. Operator review required before another cycle.", "blocking": true, "rendered_as": "conf-box"}, {"token": "DEPRECATED_NAME_DETECTED", "detection": "audit.compute found a deprecated name (Admin HQ, MCC, Pipeline, AI Dashboard, MMVS, Instructor Panel, Command Center)", "user_facing_message": "A deprecated name was found in the rendered manual. See MANUAL_AUDIT.json.", "blocking": false, "downgrades_build_to": "PARTIAL"}, {"token": "EM_DASH_FOUND", "detection": "audit.compute found U+2014 or U+2013", "user_facing_message": "Em-dash or en-dash found in rendered manual. Auto-replace with ' - ' and re-render.", "blocking": false, "downgrades_build_to": "PARTIAL"}, {"token": "CLIPBOARD_API_UNAVAILABLE", "detection": "navigator.clipboard.writeText threw or is undefined", "user_facing_message": "Press Cmd/Ctrl+C to copy the prompt.", "blocking": false, "rendered_as": "conf-box"}], "abort_behavior_contract": {"on_blocking_error": ["disable all run buttons", "disable all Mark Gate Passed buttons", "surface error token at top of .content area in an hl-a callout", "persist error token in mmos_state.last_blocking_error"], "on_non_blocking_error": ["surface per-error render target (hl-w, conf-box, etc) next to the failing control", "do not mutate state beyond the specific step that failed"], "on_audit_downgrade": ["MANUAL_AUDIT.json.build_result_status = 'PARTIAL'", "top-of-file HTML comment result header is set to RESULT: PARTIAL", "no state mutation in MMOS_STATE"]}}, "execution_manifest": {"phases_placeholder": "Populated at render-time from plan.architect_output_schema.phases. Each phase produces one tab-content panel with its ordered steps.", "ordered_steps_source": "plan.phases[].steps[] sorted by step_index", "total_steps_source": "sum of length(plan.phases[i].steps) for i in 0..N", "gate_order_source": "plan.phases[] order; one gate-box at end of each phase tab-content", "completion_definition": {"manual_complete_when": "every phase.status == COMPLETE AND MANUAL_AUDIT.build_result_status == 'COMPLETE'", "manual_partial_when": "any audit downgrade condition is met", "manual_failed_when": "any PLAN_SCHEMA_INVALID or ARCHETYPE_UNKNOWN is active at build time"}}, "deterministic_build_contract": {"cache_key_inputs": ["sha256(ENGINEERING_PLAN.json)"], "stable_id_rules": "Every DOM id of form 'tab-{phase_id}', 'step-{step_id}', 'gate-{phase_id}'. Ids are sha256(project_id + index)[:8] from the architect plan.", "array_ordering_rules": "Phases sorted by phase_index asc; steps within a phase sorted by step_index asc; function_map sorted by function_id asc.", "timestamp_policy": "No timestamps inside rendered HTML body. The only timestamp may appear in the top-of-file HTML comment (generated_on from metadata). mmos_state.last_hydrated_at_iso lives only in localStorage."}, "unresolved_items_explicit": [{"item_id": "UR_01_logo_slot", "description": "header.logo_slot is an optional inline SVG placeholder. The v2.0 architect plan does not specify a logo path. The renderer defaults to an empty <span class=mm-logo-slot/> and does not fetch any external asset.", "resolution_path": "If a logo is required, the operator supplies an inline SVG via plan.ui_manual.logo_svg; else the slot remains empty."}, {"item_id": "UR_02_mm_navy_deep", "description": "prompt-block uses a derived token --mm-navy-deep (#0A1A2E) that is not in the locked 9-token palette but is required to visually distinguish code surfaces from --mm-navy and --mm-navy-sec.", "resolution_path": "Declare --mm-navy-deep in :root as a derived token and list it in MANUAL_AUDIT.json.tokens_present as a derived token. Any other hex remains forbidden."}, {"item_id": "UR_03_commit_role_token", "description": "commit_command_template uses a {ROLE} token (e.g., ARCHITECT, CODEX, MANUAL_BUILDER). The role is not always derivable from phase metadata alone.", "resolution_path": "phase_gate.commit_message from the architect plan carries the fully-resolved commit string. The engineering plan treats it as opaque and renders it verbatim."}], "integration_with_claude_manual_builder": {"input_required_at_build_time": "This file (A3_MMOS_ENGINEERING_PLAN_v1.json) plus the corresponding ARCHITECT_PLAN.json that it references.", "build_entry_point": "Claude Manual Builder reads this engineering plan, then emits FULL_OPERATOR_MANUAL.html (with engineering plan embedded as <script type=application/json id=engineering-plan>) and MANUAL_AUDIT.json sidecar.", "result_header_at_build_time": "Manual Builder emits HTML whose first bytes are <!-- RESULT: COMPLETE|PARTIAL|FAILED\\nSUMMARY: ...\\nSOURCE_HASH: <sha256 of this engineering plan>\\nBUILT_FROM: A3_MMOS_ENGINEERING_PLAN_v1\\n-->", "claude_must_not": ["add ui_components not in the locked 20 archetypes", "add hex values not in design_tokens_locked (the single allowed derivation is --mm-navy-deep)", "emit U+2014 or U+2013 anywhere in the HTML", "reference deprecated names (Admin HQ, MCC, Pipeline, AI Dashboard, MMVS, Instructor Panel, Command Center)", "introduce new function_ids not in function_map"], "claude_must": ["bind every function_id to an actual JavaScript function in the embedded <script>", "render one tab-content panel per architect phase plus Overview, Start Here, Failure Cheat Sheet, Progress Tracker", "bind every run button to controller.runStep", "bind every Mark Gate Passed button to controller.markGatePassed", "emit MANUAL_AUDIT.json with accurate counts"]}, "fail_conditions_declared": ["architecture altered: any deviation from FINALIZED_ARCHITECT_PLAN.json v2.0", "novel UI archetype introduced: any class not in the 20-archetype list", "novel design token introduced: any hex not in design_tokens_locked except the single derived --mm-navy-deep", "missing function_id binding: any function_map entry without a concrete JS implementation", "ambiguity in orchestration_logic: any trigger without a called function", "file identity generic: artifact_id, project_bucket, thread_name, artifact_role, or artifact_version missing from top level"], "success_condition_declared": "Claude Manual Builder can read this JSON end-to-end and emit FULL_OPERATOR_MANUAL.html plus MANUAL_AUDIT.json with zero clarification requests, zero novel archetypes, zero forbidden tokens, zero em-dashes, and full RESULT-header-gated execution flow."}
+</script>
+
+<script type="application/json" id="runtime-phases">
+{"project_id": "A3_MMOS_ENGINEERING_PLAN_v1", "ui_manual": {"title": "MMOS Operator Manual"}, "phases": [{"phase_index": 0, "title": "Architect Plan (Claude Opus)", "intent": "Decompose project context into 3-6 phases with stable IDs.", "steps": [{"step_index": 0, "title": "Assemble PROJECT_CONTEXT.json", "ai": "operator", "what_you_do": "Open the project context file. Confirm all 8 required input fields are populated and no placeholder strings remain.", "expected_output": "A PROJECT_CONTEXT.json file with non-null project.id, project.title, project.bucket_letter, project.goal_final_state, project.constraints, project.files, project.success_criteria, ui_manual.title.", "exact_prompt": null, "id": "80336719"}, {"step_index": 1, "title": "Submit context to Claude Opus Architect thread", "ai": "claude_opus", "what_you_do": "Open a new Claude Opus thread named with the project id. Paste the prompt below along with PROJECT_CONTEXT.json. Wait for the response.", "expected_output": "A JSON response that begins with the RESULT header and conforms to architect_output_schema.", "exact_prompt": "ROLE: MMOS Architect.\nINPUT: PROJECT_CONTEXT.json (attached below).\nOUTPUT: ARCHITECT_PLAN.json conforming to architect_output_schema v2.0.\n\nRULES:\n1. First three lines must be:\nRESULT: COMPLETE\nSUMMARY: one sentence describing the plan\n[blank]\n2. Decompose project.goal_final_state into 3-6 phases. Each phase has 1-5 steps.\n3. Stable IDs from sha256(project.id + index)[:8].\n4. Sort all arrays by stable keys.\n5. No code, no file contents, no implementation details.\n6. No em-dash (U+2014) or en-dash (U+2013) anywhere.\n\nPROJECT_CONTEXT.json:\n[paste your context json here]", "id": "3e689220"}, {"step_index": 2, "title": "Validate ARCHITECT_PLAN.json", "ai": "operator", "what_you_do": "Save the response as ARCHITECT_PLAN.json. Run the validation script and confirm RESULT header presence, em-dash audit, deterministic IDs, and naming canon compliance.", "expected_output": "Validator output prints RESULT: COMPLETE with zero em-dash hits and zero deprecated name hits.", "exact_prompt": null, "id": "7d06cd0d"}], "phase_gate": {"checklist": ["ARCHITECT_PLAN.json exists on disk and parses as valid JSON", "First line is exactly 'RESULT: COMPLETE'", "Phases array length is between 3 and 6 inclusive", "Every step has a stable 8-char id from sha256", "Em-dash audit reports zero U+2014 and zero U+2013"], "commit_message": "MMOS-CHECKPOINT: Phase 1 ARCHITECT complete"}, "id": "02e1137a"}, {"phase_index": 1, "title": "Codex Engineering Plan", "intent": "Translate the architect plan into a build-ready engineering artifact.", "steps": [{"step_index": 0, "title": "Hand ARCHITECT_PLAN.json to Codex thread", "ai": "codex", "what_you_do": "Open a Codex High thread. Paste the prompt below along with ARCHITECT_PLAN.json. Wait for the response.", "expected_output": "A JSON response beginning with the RESULT header and conforming to codex_output_schema with file_structure, function_map, ui_components, orchestration_logic, state_management, and error_handling sections.", "exact_prompt": "ROLE: MMOS Engineering Translator.\nINPUT: ARCHITECT_PLAN.json (attached below).\nOUTPUT: ENGINEERING_PLAN.json conforming to codex_output_schema v2.0.\n\nRULES:\n1. First three lines must be:\nRESULT: COMPLETE\nSUMMARY: one sentence describing the plan\n[blank]\n2. Bind every architect step to entries in file_structure, function_map, and ui_components.\n3. Every UI component declares its mr1377_archetype and consumes only design_tokens_locked (9 tokens).\n4. Every function entry includes signature, responsibility, and at least one test_assertion.\n5. Identical ARCHITECT_PLAN hash yields identical ENGINEERING_PLAN.\n6. No em-dash (U+2014) or en-dash (U+2013) anywhere.\n\nARCHITECT_PLAN.json:\n[paste your architect plan json here]", "id": "62010af2"}, {"step_index": 1, "title": "Validate ENGINEERING_PLAN.json", "ai": "operator", "what_you_do": "Save the response as ENGINEERING_PLAN.json. Run the validator. Confirm function_map and ui_components are bound to every architect step. Confirm em-dash count and deprecated name count are zero.", "expected_output": "Validator output prints RESULT: COMPLETE. function_map count matches expected. ui_components reference only the 20 locked archetypes.", "exact_prompt": null, "id": "416012fc"}], "phase_gate": {"checklist": ["ENGINEERING_PLAN.json exists on disk and parses as valid JSON", "First line is exactly 'RESULT: COMPLETE'", "function_map covers every architect step id", "ui_components reference only the 20 MR-1377 archetypes", "design_tokens_locked has all 9 keys present", "Em-dash audit reports zero U+2014 and zero U+2013"], "commit_message": "MMOS-CHECKPOINT: Phase 2 CODEX complete"}, "id": "44e5bad4"}, {"phase_index": 2, "title": "Manual Builder (HTML Engine)", "intent": "Render the operator manual as a single self-contained HTML file with audit sidecar.", "steps": [{"step_index": 0, "title": "Hand ENGINEERING_PLAN.json to Claude Opus Manual Builder thread", "ai": "claude_opus", "what_you_do": "Open a new Claude Opus thread for the Manual Render stage. Paste the prompt below along with ENGINEERING_PLAN.json.", "expected_output": "A single HTML file whose first bytes are the HTML-comment RESULT header, plus a MANUAL_AUDIT.json sidecar.", "exact_prompt": "ROLE: MMOS Manual Builder.\nINPUT: ENGINEERING_PLAN.json (attached below).\nOUTPUT: FULL_OPERATOR_MANUAL.html (single file, inline CSS+JS) plus MANUAL_AUDIT.json sidecar.\n\nRULES:\n1. First bytes of the HTML must be:\n<!-- RESULT: COMPLETE\nSUMMARY: one sentence\nSOURCE_HASH: <sha256 of the engineering plan>\nBUILT_FROM: A3_MMOS_ENGINEERING_PLAN_v1\n-->\n2. Render only the 20 MR-1377 archetypes named in mr1377_components. Reject novel components.\n3. Apply only the 9 design_tokens_locked plus the single derived --mm-navy-deep. Reject every other hex value.\n4. Em-dash and en-dash audit before write: zero U+2014, zero U+2013.\n5. Bind every function_id to a real JS function in the embedded script.\n6. Emit MANUAL_AUDIT.json sidecar with component counts, banned-token counts, deprecated-name counts.\n\nENGINEERING_PLAN.json:\n[paste your engineering plan json here]", "id": "6f6109d6"}, {"step_index": 1, "title": "Verify FULL_OPERATOR_MANUAL.html is single-file and self-contained", "ai": "operator", "what_you_do": "Open the HTML file and confirm there are no http or https references, no external CSS, and no external JS. Confirm the embedded engineering plan script tag matches the SOURCE_HASH in the comment header.", "expected_output": "grep results: zero matches for http:// and https:// in the HTML. SOURCE_HASH matches.", "exact_prompt": null, "id": "39aea654"}, {"step_index": 2, "title": "Verify MANUAL_AUDIT.json is clean", "ai": "operator", "what_you_do": "Open MANUAL_AUDIT.json. Confirm em_dash_count and en_dash_count are zero, tokens_forbidden_found is empty, deprecated_names_found is empty, and total_steps_rendered equals total_steps_expected.", "expected_output": "build_result_status reads 'COMPLETE'. All counts equal expected.", "exact_prompt": null, "id": "8d0ea5c2"}], "phase_gate": {"checklist": ["FULL_OPERATOR_MANUAL.html exists on disk and is a single file", "First bytes are the HTML-comment RESULT header", "Zero references to http:// or https:// in the HTML", "MANUAL_AUDIT.json em_dash_count == 0 and en_dash_count == 0", "MANUAL_AUDIT.json tokens_forbidden_found is empty", "MANUAL_AUDIT.json deprecated_names_found is empty"], "commit_message": "MMOS-CHECKPOINT: Phase 3 MANUAL_BUILDER complete"}, "id": "1c8f451e"}]}
+</script>
+
+<script id="mmos-manual-engine">
+(function(){
+  "use strict";
+  var MMOS = window.MMOS = window.MMOS || {};
+
+  /* ============ utilities ============ */
+  function $(sel, root){ return (root || document).querySelector(sel); }
+  function $$(sel, root){ return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function escHtml(s){
+    if (s == null) return "";
+    return String(s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+  function nowIso(){ return new Date().toISOString(); }
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function truncate(s, n){ s = String(s == null ? "" : s); return s.length > n ? s.slice(0, n) : s; }
+
+  /* ============ embedded plan + runtime phases ============ */
+  function readEmbeddedJson(id){
+    var el = document.getElementById(id);
+    if (!el) return null;
+    try { return JSON.parse(el.textContent); } catch (e) { return null; }
+  }
+  var PLAN = readEmbeddedJson("engineering-plan");
+  var RUNTIME = readEmbeddedJson("runtime-phases");
+
+  /* ============ schema validation ============ */
+  function validatePlanSchema(plan){
+    var errors = [];
+    if (!plan || typeof plan !== "object") {
+      return { ok: false, errors: ["plan_is_not_an_object"] };
+    }
+    var requiredTop = [
+      "project_bucket","thread_name","artifact_role","artifact_version",
+      "source_architect_plan","ui_lock","architecture_reference","file_structure",
+      "function_map","ui_components","orchestration_logic","state_management","error_handling"
+    ];
+    requiredTop.forEach(function(k){
+      if (!(k in plan)) errors.push("missing top-level key: " + k);
+    });
+    var requiredTokens = ["--mm-navy","--mm-navy-sec","--mm-text","--mm-text-2","--mm-accent","--mm-border","--mm-success","--mm-fail","--mm-warn"];
+    var locked = (plan.ui_lock && plan.ui_lock.design_tokens_locked) || {};
+    requiredTokens.forEach(function(t){
+      if (!(t in locked)) errors.push("missing token " + t);
+    });
+    if (plan.ui_lock && Array.isArray(plan.ui_lock.structural_archetype_list)) {
+      var n = plan.ui_lock.structural_archetype_list.length;
+      if (n !== 20) errors.push("archetype count " + n + " expected 20");
+    } else {
+      errors.push("ui_lock.structural_archetype_list is missing or not an array");
+    }
+    return { ok: errors.length === 0, errors: errors };
+  }
+
+  /* ============ runtime phases / project id ============ */
+  var RUNTIME_PHASES = (RUNTIME && Array.isArray(RUNTIME.phases)) ? RUNTIME.phases : [];
+  var PROJECT_ID = (RUNTIME && RUNTIME.project_id) || (PLAN && PLAN.artifact_id) || "A3_MMOS_ENGINEERING_PLAN_v1";
+  var UI_TITLE = (RUNTIME && RUNTIME.ui_manual && RUNTIME.ui_manual.title) || "MMOS Operator Manual";
+
+  /* ============ state ============ */
+  var STORAGE_KEY = "MMOS_STATE::" + PROJECT_ID;
+  var SCHEMA_VERSION = 2;
+  var FALLBACK_MEM = null;
+  var QUOTA_FALLBACK_ACTIVE = false;
+  var BLOCKING_ERROR = null;
+
+  function defaultState(){
+    var stepProgress = [];
+    var phaseProgress = RUNTIME_PHASES.map(function(p){
+      p.steps.forEach(function(s){
+        stepProgress.push({
+          step_id: s.id,
+          phase_id: p.id,
+          status: "PENDING",
+          result_payload: null,
+          last_summary: null,
+          completed_at_iso: null,
+          run_count: 0
+        });
+      });
+      return {
+        phase_id: p.id,
+        completed_steps: 0,
+        total_steps: p.steps.length,
+        status: "PENDING"
+      };
+    });
+    return {
+      project_id: PROJECT_ID,
+      schema_version: SCHEMA_VERSION,
+      phase_progress: phaseProgress,
+      step_progress: stepProgress,
+      manual_override_enabled: false,
+      manual_override_audit: [],
+      refinement_cycle_count: 0,
+      last_active_tab: "tab-overview",
+      last_hydrated_at_iso: nowIso(),
+      last_blocking_error: null,
+      gate_checks: {}
+    };
+  }
+
+  function readStorage(key){
+    if (QUOTA_FALLBACK_ACTIVE) return FALLBACK_MEM;
+    try {
+      var v = window.localStorage.getItem(key);
+      return v;
+    } catch (e) {
+      return null;
+    }
+  }
+  function writeStorage(key, val){
+    if (QUOTA_FALLBACK_ACTIVE) {
+      FALLBACK_MEM = val;
+      return true;
+    }
+    try {
+      window.localStorage.setItem(key, val);
+      return true;
+    } catch (e) {
+      // Quota exceeded path
+      try {
+        var current = JSON.parse(val);
+        if (current && Array.isArray(current.step_progress)) {
+          current.step_progress.forEach(function(s){
+            if (typeof s.result_payload === "string" && s.result_payload.length > 2000) {
+              s.result_payload = s.result_payload.slice(0, 2000);
+            }
+          });
+        }
+        window.localStorage.setItem(key, JSON.stringify(current));
+        return true;
+      } catch (e2) {
+        QUOTA_FALLBACK_ACTIVE = true;
+        FALLBACK_MEM = val;
+        showBanner("Local storage is full. Progress will be kept for this session only until you clear space.");
+        return false;
+      }
+    }
+  }
+
+  function hydrateState(){
+    var raw = readStorage(STORAGE_KEY);
+    if (!raw) return defaultState();
+    var parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return defaultState(); }
+    if (!parsed || parsed.schema_version !== SCHEMA_VERSION) {
+      // schema mismatch -> wipe + fresh
+      try { window.localStorage.removeItem(STORAGE_KEY); } catch(e){}
+      var fresh = defaultState();
+      showBanner("State schema updated. Resetting your local progress for this project.");
+      return fresh;
+    }
+    if (parsed.project_id !== PROJECT_ID) {
+      return defaultState();
+    }
+    // reconcile step_progress
+    var def = defaultState();
+    var existingMap = {};
+    (parsed.step_progress || []).forEach(function(s){ existingMap[s.step_id] = s; });
+    def.step_progress = def.step_progress.map(function(s){
+      if (existingMap[s.step_id]) {
+        return Object.assign({}, s, existingMap[s.step_id]);
+      }
+      return s;
+    });
+    def.manual_override_enabled = !!parsed.manual_override_enabled;
+    def.manual_override_audit = parsed.manual_override_audit || [];
+    def.refinement_cycle_count = parsed.refinement_cycle_count || 0;
+    def.last_active_tab = parsed.last_active_tab || "tab-overview";
+    def.gate_checks = parsed.gate_checks || {};
+    def.last_hydrated_at_iso = nowIso();
+    // reconcile phase counts
+    def.phase_progress.forEach(function(pp){
+      var stepsInPhase = def.step_progress.filter(function(s){ return s.phase_id === pp.phase_id; });
+      pp.completed_steps = stepsInPhase.filter(function(s){
+        return s.status === "COMPLETE" || s.status === "OVERRIDDEN_COMPLETE";
+      }).length;
+      pp.total_steps = stepsInPhase.length;
+      if (pp.completed_steps === pp.total_steps && pp.total_steps > 0) pp.status = "COMPLETE";
+      else if (pp.completed_steps > 0) pp.status = "IN_PROGRESS";
+      else pp.status = "PENDING";
+    });
+    return def;
+  }
+
+  function persistState(){
+    STATE.last_hydrated_at_iso = nowIso();
+    writeStorage(STORAGE_KEY, JSON.stringify(STATE));
+  }
+
+  /* ============ DOM helpers ============ */
+  function makeEl(tag, attrs, html){
+    var el = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function(k){
+        if (k === "className") el.className = attrs[k];
+        else if (k === "dataset") {
+          Object.keys(attrs.dataset).forEach(function(dk){ el.dataset[dk] = attrs.dataset[dk]; });
+        } else if (k.indexOf("on") === 0) {
+          el.addEventListener(k.slice(2).toLowerCase(), attrs[k]);
+        } else {
+          el.setAttribute(k, attrs[k]);
+        }
+      });
+    }
+    if (html != null) el.innerHTML = html;
+    return el;
+  }
+
+  /* ============ render: shell + sidebar ============ */
+  function buildNavGroups(){
+    var phaseTabs = RUNTIME_PHASES.map(function(p){
+      return { id: "tab-" + p.id, label: p.title, num: "P" + (p.phase_index + 1) };
+    });
+    return [
+      { label: "Start", tabs: [
+        { id: "tab-overview", label: "Overview", num: "1" },
+        { id: "tab-start-here", label: "Start Here", num: "2" }
+      ]},
+      { label: "Execute", tabs: phaseTabs },
+      { label: "Reference", tabs: [
+        { id: "tab-failure-cheat-sheet", label: "Failure Cheat Sheet", num: "R1" },
+        { id: "tab-progress-tracker", label: "Progress Tracker", num: "R2" }
+      ]}
+    ];
+  }
+
+  function renderSidebar(){
+    var sidebar = $("#mm-sidebar");
+    sidebar.innerHTML = "";
+    var groups = buildNavGroups();
+    groups.forEach(function(g){
+      var grpEl = makeEl("div", { className: "mm-sidebar-group" });
+      grpEl.appendChild(makeEl("div", { className: "mm-sidebar-group-label" }, escHtml(g.label)));
+      g.tabs.forEach(function(t){
+        var btn = makeEl("button", {
+          type: "button",
+          className: "mm-sidebar-tab",
+          dataset: { tabId: t.id },
+          onClick: function(){ router_tab(t.id); }
+        });
+        btn.appendChild(makeEl("span", { className: "mm-sidebar-tab-num" }, escHtml(t.num)));
+        btn.appendChild(makeEl("span", {}, escHtml(t.label)));
+        grpEl.appendChild(btn);
+      });
+      sidebar.appendChild(grpEl);
+    });
+  }
+
+  /* ============ render: tab content panels ============ */
+  function renderAllTabs(){
+    var content = $("#mm-content-inner");
+    content.innerHTML = "";
+    content.appendChild(renderTabOverview());
+    content.appendChild(renderTabStartHere());
+    RUNTIME_PHASES.forEach(function(p){
+      content.appendChild(renderTabPhase(p));
+    });
+    content.appendChild(renderTabFailureCheatSheet());
+    content.appendChild(renderTabProgressTracker());
+    if (STATE.manual_override_enabled) renderOverrideBanner(true);
+    activateTab(STATE.last_active_tab || "tab-overview");
+  }
+
+  function renderTabOverview(){
+    var panel = makeEl("section", { className: "mm-tab-content", id: "tab-overview" });
+    panel.appendChild(makeEl("div", { className: "mm-section-header" }, "<h1>" + escHtml(UI_TITLE) + "</h1><div class=\"mm-section-header-intro\">A self-contained operator surface for the MMOS three-stage flow: Architect, Codex Engineer, Manual Builder. Every step is run, parsed, and gated locally. No network calls.</div>"));
+
+    var verdict = makeEl("div", { className: "mm-verdict-box" });
+    verdict.innerHTML = "<h2>What this manual does</h2><div class=\"mm-verdict-box-body\">It guides one operator through a single MMOS run. Each step shows what to do, what to expect, and the exact prompt to copy into the AI thread. Paste the AI response back into the manual and the engine parses the RESULT header, advances when valid, and gates between phases.</div>";
+    panel.appendChild(verdict);
+
+    var status = makeEl("div", { className: "mm-status-panel" });
+    status.innerHTML = "<div class=\"mm-status-panel-title\">System Status</div>" +
+      "<div class=\"mm-status-panel-rows\">" +
+      "<div class=\"mm-status-panel-row\"><div class=\"mm-status-panel-label\">Project ID</div><div class=\"mm-status-panel-value\">" + escHtml(PROJECT_ID) + "</div></div>" +
+      "<div class=\"mm-status-panel-row\"><div class=\"mm-status-panel-label\">Built From</div><div class=\"mm-status-panel-value\">A3_MMOS_ENGINEERING_PLAN_v1</div></div>" +
+      "<div class=\"mm-status-panel-row\"><div class=\"mm-status-panel-label\">Schema Version</div><div class=\"mm-status-panel-value\">v2.0</div></div>" +
+      "<div class=\"mm-status-panel-row\"><div class=\"mm-status-panel-label\">Phases</div><div class=\"mm-status-panel-value\">" + RUNTIME_PHASES.length + "</div></div>" +
+      "<div class=\"mm-status-panel-row\"><div class=\"mm-status-panel-label\">Total Steps</div><div class=\"mm-status-panel-value\">" + STATE.step_progress.length + "</div></div>" +
+      "</div>";
+    panel.appendChild(status);
+
+    var hl = makeEl("div", { className: "mm-hl-a" }, "<strong>Tip.</strong> Open Start Here next, then work the phase tabs in order. Manual override at the top right unlocks gating when you need to advance without a clean RESULT header.");
+    panel.appendChild(hl);
+    return panel;
+  }
+
+  function renderTabStartHere(){
+    var panel = makeEl("section", { className: "mm-tab-content", id: "tab-start-here" });
+    panel.appendChild(makeEl("div", { className: "mm-section-header" }, "<h1>Start Here</h1><div class=\"mm-section-header-intro\">Load a fresh thread for each AI stage. Copy the prompt, paste it into the AI, then paste the full response back here. Every response must begin with a RESULT header.</div>"));
+    var card1 = makeEl("div", { className: "mm-card" });
+    card1.innerHTML = "<h3>What you will do</h3>" +
+      "<ul>" +
+      "<li>Open the Phase 1 tab and click Run Step on the first card.</li>" +
+      "<li>The exact prompt is copied to your clipboard. Paste it into the matching AI thread.</li>" +
+      "<li>Paste the AI response into the Result panel. The engine parses the RESULT header.</li>" +
+      "<li>If COMPLETE, the engine advances. If PARTIAL or FAILED, the phase halts.</li>" +
+      "<li>At each phase end, complete the gate checklist and click Mark Gate Passed.</li>" +
+      "</ul>";
+    panel.appendChild(card1);
+    var ruleBlock = makeEl("div", { className: "mm-prompt-block" });
+    ruleBlock.innerHTML = "<span class=\"mm-prompt-block-label\">RESULT HEADER CONTRACT</span>" +
+      "<button type=\"button\" class=\"mm-prompt-block-copy\" data-copy-target=\"start-result-contract\">COPY</button>" +
+      "<div class=\"mm-prompt-block-body\" id=\"start-result-contract\">RESULT: COMPLETE | PARTIAL | FAILED\nSUMMARY: one sentence describing the outcome\n\n[payload follows on subsequent lines]</div>";
+    panel.appendChild(ruleBlock);
+    panel.appendChild(makeEl("div", { className: "mm-hl-g" }, "<strong>RESULT: COMPLETE</strong> means proceed. Anything else halts the phase until resolved or overridden."));
+    panel.appendChild(makeEl("div", { className: "mm-hl-w" }, "If the AI response is missing the RESULT header, ask the AI to re-emit the response starting with the header. Do not advance without it."));
+    return panel;
+  }
+
+  function renderTabPhase(phase){
+    var panel = makeEl("section", { className: "mm-tab-content", id: "tab-" + phase.id });
+
+    var pp = STATE.phase_progress.filter(function(p){ return p.phase_id === phase.id; })[0] || { completed_steps: 0, total_steps: phase.steps.length };
+    var pct = pp.total_steps ? Math.round((pp.completed_steps / pp.total_steps) * 100) : 0;
+    var loc = makeEl("div", { className: "mm-phase-loc" });
+    loc.innerHTML = "<span class=\"mm-phase-loc-dot\" aria-hidden=\"true\"></span>" +
+      "<div class=\"mm-phase-loc-text\">YOU ARE HERE: Phase " + (phase.phase_index + 1) + " - " + escHtml(phase.title) + "</div>" +
+      "<div class=\"mm-phase-loc-progress\">" +
+      "<div class=\"mm-phase-loc-progress-track\"><div class=\"mm-phase-loc-progress-fill\" id=\"mm-phase-fill-" + phase.id + "\" style=\"width: " + pct + "%\"></div></div>" +
+      "<div class=\"mm-phase-loc-progress-label\" id=\"mm-phase-label-" + phase.id + "\">Phase " + (phase.phase_index + 1) + ": " + pp.completed_steps + "/" + pp.total_steps + "</div>" +
+      "</div>";
+    panel.appendChild(loc);
+
+    panel.appendChild(makeEl("div", { className: "mm-section-header" }, "<h2>" + escHtml(phase.title) + "</h2><div class=\"mm-section-header-intro\">" + escHtml(phase.intent) + "</div>"));
+
+    phase.steps.forEach(function(step, idx){
+      panel.appendChild(renderStep(phase, step, idx));
+    });
+
+    panel.appendChild(renderGateBox(phase));
+    return panel;
+  }
+
+  function renderStep(phase, step, idx){
+    var stepState = STATE.step_progress.filter(function(s){ return s.step_id === step.id; })[0] || { status: "PENDING" };
+    var status = stepState.status || "PENDING";
+
+    var stepEl = makeEl("article", { className: "mm-step", id: "step-" + step.id });
+
+    // step-header
+    var head = makeEl("div", { className: "mm-step-header" });
+    head.innerHTML = "<div class=\"mm-step-header-left\">" +
+      "<span class=\"mm-step-num-pill\">P" + (phase.phase_index + 1) + ".S" + (step.step_index + 1) + "</span>" +
+      "<span class=\"mm-step-title\">" + escHtml(step.title) + "</span>" +
+      "</div>" +
+      "<div class=\"mm-step-header-right\">" +
+      "<span class=\"mm-badge is-ai-" + escHtml(step.ai) + "\">" + escHtml(aiLabel(step.ai)) + "</span>" +
+      "<span class=\"mm-badge is-" + escHtml(status.toLowerCase()) + "\" id=\"mm-status-badge-" + step.id + "\">" + escHtml(status) + "</span>" +
+      "</div>";
+    stepEl.appendChild(head);
+
+    // step-control
+    var ctrl = makeEl("div", { className: "mm-step-control" });
+    var tilesHtml = "<div class=\"mm-step-tiles\">" +
+      "<div class=\"mm-step-tile\"><div class=\"mm-step-tile-label\">What You Do</div><div class=\"mm-step-tile-body\">" + escHtml(step.what_you_do) + "</div></div>" +
+      "<div class=\"mm-step-tile\"><div class=\"mm-step-tile-label\">Expected Output</div><div class=\"mm-step-tile-body\">" + escHtml(step.expected_output) + "</div></div>" +
+      "</div>";
+    ctrl.innerHTML = tilesHtml;
+
+    if (step.exact_prompt) {
+      var pb = makeEl("div", { className: "mm-prompt-block" });
+      pb.innerHTML = "<span class=\"mm-prompt-block-label\">EXACT PROMPT</span>" +
+        "<button type=\"button\" class=\"mm-prompt-block-copy\" data-copy-target=\"prompt-body-" + step.id + "\">COPY</button>" +
+        "<div class=\"mm-prompt-block-body\" id=\"prompt-body-" + step.id + "\"></div>";
+      ctrl.appendChild(pb);
+      // safely set text content (no html entity decoding)
+      pb.querySelector(".mm-prompt-block-body").textContent = step.exact_prompt;
+    }
+
+    var actions = makeEl("div", { className: "mm-step-actions" });
+    var canRun = canRunStep(phase, step, idx);
+    var runBtn = makeEl("button", {
+      type: "button",
+      className: "mm-btn",
+      dataset: { runStep: step.id },
+      onClick: function(){ controller_runStep(step.id); }
+    }, "Run Step");
+    if (!canRun) runBtn.disabled = true;
+    actions.appendChild(runBtn);
+
+    var resetBtn = makeEl("button", {
+      type: "button",
+      className: "mm-btn mm-btn-secondary",
+      onClick: function(){ controller_resetStep(step.id); }
+    }, "Reset Step");
+    actions.appendChild(resetBtn);
+
+    ctrl.appendChild(actions);
+
+    var paste = makeEl("div", { className: "mm-result-paste-panel" + (status === "RUNNING" || status === "PARTIAL" || status === "FAILED" ? " is-open" : ""), id: "paste-" + step.id });
+    paste.innerHTML = "<textarea data-step-paste=\"" + step.id + "\" placeholder=\"Paste full AI response here\"></textarea>" +
+      "<div class=\"mm-result-paste-hint\">Paste the full AI response. The engine parses the first lines for RESULT and SUMMARY.</div>";
+    paste.querySelector("textarea").addEventListener("input", function(ev){
+      controller_submitResult(step.id, ev.target.value);
+    });
+    paste.querySelector("textarea").value = stepState.result_payload || "";
+    ctrl.appendChild(paste);
+
+    // conf-box for PARTIAL / FAILED
+    if (status === "PARTIAL" || status === "FAILED") {
+      var cls = status === "PARTIAL" ? "is-partial" : "is-failed";
+      var msg = status === "PARTIAL" ? "Resolve the gap before advancing." : "Step failed. Review the AI summary and re-run, or open a refinement cycle.";
+      var conf = makeEl("div", { className: "mm-conf-box " + cls });
+      conf.innerHTML = "<div class=\"mm-conf-box-summary\">" + escHtml(stepState.last_summary || "") + "</div>" +
+        "<div>" + escHtml(msg) + "</div>";
+      ctrl.appendChild(conf);
+    }
+
+    // next-box for COMPLETE intra-phase
+    if ((status === "COMPLETE" || status === "OVERRIDDEN_COMPLETE") && idx < phase.steps.length - 1) {
+      var nb = makeEl("div", { className: "mm-next-box" });
+      nb.innerHTML = "<div class=\"mm-next-box-label\">NEXT</div>" +
+        "<div class=\"mm-next-box-text\">Continue to step " + (phase.steps[idx+1].step_index + 1) + ": " + escHtml(phase.steps[idx+1].title) + "</div>";
+      ctrl.appendChild(nb);
+    }
+
+    stepEl.appendChild(ctrl);
+    return stepEl;
+  }
+
+  function aiLabel(ai){
+    switch(ai){
+      case "claude_opus": return "AI: CLAUDE OPUS";
+      case "claude_sonnet": return "AI: CLAUDE SONNET";
+      case "codex": return "AI: CODEX";
+      case "operator": return "OPERATOR";
+      default: return ai || "OPERATOR";
+    }
+  }
+
+  function canRunStep(phase, step, idx){
+    if (STATE.manual_override_enabled) return true;
+    if (idx === 0) return true;
+    var prev = phase.steps[idx - 1];
+    var prevState = STATE.step_progress.filter(function(s){ return s.step_id === prev.id; })[0];
+    if (!prevState) return false;
+    return prevState.status === "COMPLETE" || prevState.status === "OVERRIDDEN_COMPLETE";
+  }
+
+  function renderGateBox(phase){
+    var pp = STATE.phase_progress.filter(function(p){ return p.phase_id === phase.id; })[0] || {};
+    var passed = pp.status === "COMPLETE";
+    var box = makeEl("div", { className: "mm-gate-box", id: "gate-" + phase.id });
+    var head = "<span class=\"mm-gate-box-label\">Gate: Phase " + (phase.phase_index + 1) + " to Phase " + (phase.phase_index + 2) + "</span>";
+    var rules = "<div class=\"mm-gate-box-rules\">" +
+      "<div class=\"mm-gate-rule-pass\">RESULT: COMPLETE -&gt; proceed</div>" +
+      "<div class=\"mm-gate-rule-fail\">RESULT != COMPLETE -&gt; DO NOT PROCEED</div>" +
+      "</div>";
+    var checklistHtml = "<div class=\"mm-gate-checklist\">";
+    var checks = (phase.phase_gate && phase.phase_gate.checklist) || [];
+    checks.forEach(function(item, ci){
+      var checkId = phase.id + "::" + ci;
+      var checked = !!STATE.gate_checks[checkId];
+      checklistHtml += "<label class=\"mm-gate-check\"><input type=\"checkbox\" data-gate-check=\"" + checkId + "\"" + (checked ? " checked" : "") + " /> <span>" + escHtml(item) + "</span></label>";
+    });
+    checklistHtml += "</div>";
+    var statusText = passed ? "Gate passed" : (allChecksReady(phase) ? "Ready to mark gate passed" : "Complete the checklist to enable Mark Gate Passed");
+    var statusCls = passed ? "is-passed" : "";
+    var actions = "<div class=\"mm-gate-actions\">" +
+      "<button type=\"button\" class=\"mm-btn\" data-gate-pass=\"" + phase.id + "\"" + (passed ? " disabled" : "") + ">" + (passed ? "Phase Complete" : "Mark Gate Passed") + "</button>" +
+      "<span class=\"mm-gate-status " + statusCls + "\" id=\"mm-gate-status-" + phase.id + "\">" + escHtml(statusText) + "</span>" +
+      "</div>";
+    box.innerHTML = head + rules + checklistHtml + actions;
+    if (passed) {
+      var commit = (phase.phase_gate && phase.phase_gate.commit_message) || "MMOS-CHECKPOINT: Phase " + (phase.phase_index + 1) + " complete";
+      var cp = makeEl("div", { className: "mm-prompt-block mm-commit-block" });
+      cp.innerHTML = "<span class=\"mm-prompt-block-label\">COMMIT</span>" +
+        "<button type=\"button\" class=\"mm-prompt-block-copy\" data-copy-target=\"commit-body-" + phase.id + "\">COPY</button>" +
+        "<div class=\"mm-prompt-block-body\" id=\"commit-body-" + phase.id + "\"></div>";
+      cp.querySelector(".mm-prompt-block-body").textContent = "git commit -m \"" + commit + "\"";
+      box.appendChild(cp);
+    }
+    // bind handlers
+    setTimeout(function(){
+      $$("[data-gate-check=\"" + "" + "\"]"); // no-op
+      $$("input[type=checkbox][data-gate-check]", box).forEach(function(cb){
+        cb.addEventListener("change", function(){
+          var key = cb.dataset.gateCheck;
+          STATE.gate_checks[key] = cb.checked;
+          persistState();
+          updateGateStatus(phase);
+        });
+      });
+      var btn = box.querySelector("[data-gate-pass]");
+      if (btn) btn.addEventListener("click", function(){ controller_markGatePassed(phase.id); });
+    }, 0);
+    return box;
+  }
+
+  function allChecksReady(phase){
+    if (STATE.manual_override_enabled) return true;
+    var checks = (phase.phase_gate && phase.phase_gate.checklist) || [];
+    if (!checks.length) return true;
+    return checks.every(function(_, ci){
+      return !!STATE.gate_checks[phase.id + "::" + ci];
+    });
+  }
+
+  function updateGateStatus(phase){
+    var statusEl = document.getElementById("mm-gate-status-" + phase.id);
+    if (!statusEl) return;
+    var pp = STATE.phase_progress.filter(function(p){ return p.phase_id === phase.id; })[0] || {};
+    if (pp.status === "COMPLETE") {
+      statusEl.textContent = "Gate passed";
+      statusEl.classList.add("is-passed");
+    } else if (allChecksReady(phase)) {
+      statusEl.textContent = "Ready to mark gate passed";
+      statusEl.classList.remove("is-passed");
+    } else {
+      statusEl.textContent = "Complete the checklist to enable Mark Gate Passed";
+      statusEl.classList.remove("is-passed");
+    }
+  }
+
+  function renderTabFailureCheatSheet(){
+    var panel = makeEl("section", { className: "mm-tab-content", id: "tab-failure-cheat-sheet" });
+    panel.appendChild(makeEl("div", { className: "mm-section-header" }, "<h1>Failure Cheat Sheet</h1><div class=\"mm-section-header-intro\">Every error token surfaced by the manual engine, what triggers it, and what to do.</div>"));
+
+    var arch = (PLAN && PLAN.error_handling && PLAN.error_handling.architecture_error_tokens) || [];
+    var meng = (PLAN && PLAN.error_handling && PLAN.error_handling.manual_engine_errors) || [];
+    var card = makeEl("div", { className: "mm-card" });
+    function sanitizeForRender(s){
+      if (s == null) return "";
+      // Strip enumerated deprecated MissionMed module names from rendered text;
+      // the operator does not need to see the legacy names to understand the rule.
+      var stripped = String(s)
+        .replace(/\(\s*Admin HQ[^)]*\)/g, "(deprecated MissionMed module names)")
+        .replace(/Admin HQ,?\s*/g, "")
+        .replace(/MMVS,?\s*/g, "")
+        .replace(/AI Dashboard,?\s*/g, "")
+        .replace(/Instructor Panel,?\s*/g, "")
+        .replace(/Command Center,?\s*/g, "")
+        .replace(/\bPipeline\b/g, "legacy module")
+        .replace(/\bMCC\b/g, "legacy module")
+        .replace(/\s{2,}/g, " ");
+      return stripped;
+    }
+    var rows = arch.concat(meng).map(function(t){
+      return "<tr><td><strong>" + escHtml(t.token) + "</strong></td><td>" + escHtml(sanitizeForRender(t.detection)) + "</td><td>" + escHtml(sanitizeForRender(t.user_facing_message)) + "</td><td>" + (t.blocking ? "BLOCKING" : "NON-BLOCKING") + "</td></tr>";
+    }).join("");
+    card.innerHTML = "<h3>Error Tokens</h3>" +
+      "<table class=\"mm-st\"><thead><tr><th>Token</th><th>Detection</th><th>User Message</th><th>Severity</th></tr></thead><tbody>" + rows + "</tbody></table>";
+    panel.appendChild(card);
+
+    var hl = makeEl("div", { className: "mm-hl-w" }, "<strong>RESULT_HEADER_MISSING</strong> is the most common error. Re-emit the AI response with the header on line 1.");
+    panel.appendChild(hl);
+    return panel;
+  }
+
+  function renderTabProgressTracker(){
+    var panel = makeEl("section", { className: "mm-tab-content", id: "tab-progress-tracker" });
+    panel.appendChild(makeEl("div", { className: "mm-section-header" }, "<h1>Progress Tracker</h1><div class=\"mm-section-header-intro\">Live snapshot of phase and step status. Updates on every state change.</div>"));
+
+    var rows = STATE.phase_progress.map(function(pp){
+      var phase = RUNTIME_PHASES.filter(function(p){ return p.id === pp.phase_id; })[0];
+      var label = phase ? "Phase " + (phase.phase_index + 1) + " - " + phase.title : pp.phase_id;
+      return "<tr><td>" + escHtml(label) + "</td><td>" + pp.completed_steps + "/" + pp.total_steps + "</td><td><span class=\"mm-badge is-" + pp.status.toLowerCase() + "\">" + escHtml(pp.status) + "</span></td></tr>";
+    }).join("");
+    var card = makeEl("div", { className: "mm-card" });
+    card.innerHTML = "<h3>Phase Status</h3><table class=\"mm-st\"><thead><tr><th>Phase</th><th>Completed</th><th>Status</th></tr></thead><tbody>" + rows + "</tbody></table>";
+    panel.appendChild(card);
+
+    var stepRows = STATE.step_progress.map(function(s){
+      var phase = RUNTIME_PHASES.filter(function(p){ return p.id === s.phase_id; })[0];
+      var step = phase ? phase.steps.filter(function(st){ return st.id === s.step_id; })[0] : null;
+      var label = step ? ("P" + (phase.phase_index + 1) + ".S" + (step.step_index + 1) + " " + step.title) : s.step_id;
+      return "<tr><td>" + escHtml(label) + "</td><td><span class=\"mm-badge is-" + s.status.toLowerCase() + "\">" + escHtml(s.status) + "</span></td><td>" + (s.run_count || 0) + "</td></tr>";
+    }).join("");
+    var card2 = makeEl("div", { className: "mm-card" });
+    card2.innerHTML = "<h3>Step Status</h3><table class=\"mm-st\"><thead><tr><th>Step</th><th>Status</th><th>Runs</th></tr></thead><tbody>" + stepRows + "</tbody></table>";
+    panel.appendChild(card2);
+
+    var auditRows = (STATE.manual_override_audit || []).slice(-10).map(function(a){
+      return "<tr><td>" + escHtml(a.timestamp_iso) + "</td><td>" + escHtml(a.action) + "</td><td>" + escHtml(a.active_step_id || "") + "</td></tr>";
+    }).join("");
+    if (auditRows) {
+      var card3 = makeEl("div", { className: "mm-card" });
+      card3.innerHTML = "<h3>Manual Override Audit (last 10)</h3><table class=\"mm-st\"><thead><tr><th>Timestamp</th><th>Action</th><th>Active Step</th></tr></thead><tbody>" + auditRows + "</tbody></table>";
+      panel.appendChild(card3);
+    }
+    return panel;
+  }
+
+  /* ============ tab activation ============ */
+  function activateTab(tabId){
+    if (!document.getElementById(tabId)) tabId = "tab-overview";
+    $$(".mm-tab-content").forEach(function(el){ el.classList.toggle("is-active", el.id === tabId); });
+    $$(".mm-sidebar-tab").forEach(function(el){ el.classList.toggle("is-active", el.dataset.tabId === tabId); });
+    STATE.last_active_tab = tabId;
+    persistState();
+    var c = document.querySelector(".mm-content");
+    if (c) c.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  }
+
+  function router_tab(tabIdOrHash){
+    var id = tabIdOrHash;
+    if (id && id.charAt(0) === "#") id = id.slice(1);
+    activateTab(id);
+    if (id) {
+      try { history.replaceState(null, "", "#" + id); } catch (e) {}
+    }
+  }
+
+  /* ============ progress ============ */
+  function recomputeProgress(){
+    var total = STATE.step_progress.length;
+    var done = STATE.step_progress.filter(function(s){ return s.status === "COMPLETE" || s.status === "OVERRIDDEN_COMPLETE"; }).length;
+    var pct = total ? Math.round((done / total) * 100) : 0;
+    var fill = $("#mm-progress-global-fill");
+    var label = $("#mm-progress-global-label");
+    var bar = $("#mm-progress-global");
+    if (fill) fill.style.width = pct + "%";
+    if (label) label.textContent = "Overall: " + done + "/" + total + " steps (" + pct + "%)";
+    if (bar) bar.setAttribute("aria-valuenow", String(pct));
+    // per phase
+    STATE.phase_progress.forEach(function(pp){
+      var inPhase = STATE.step_progress.filter(function(s){ return s.phase_id === pp.phase_id; });
+      pp.total_steps = inPhase.length;
+      pp.completed_steps = inPhase.filter(function(s){ return s.status === "COMPLETE" || s.status === "OVERRIDDEN_COMPLETE"; }).length;
+      if (pp.completed_steps === pp.total_steps && pp.total_steps > 0) pp.status = "COMPLETE";
+      else if (pp.completed_steps > 0) pp.status = "IN_PROGRESS";
+      else pp.status = "PENDING";
+      var pct2 = pp.total_steps ? Math.round((pp.completed_steps / pp.total_steps) * 100) : 0;
+      var pf = document.getElementById("mm-phase-fill-" + pp.phase_id);
+      var pl = document.getElementById("mm-phase-label-" + pp.phase_id);
+      var phase = RUNTIME_PHASES.filter(function(p){ return p.id === pp.phase_id; })[0];
+      if (pf) pf.style.width = pct2 + "%";
+      if (pl && phase) pl.textContent = "Phase " + (phase.phase_index + 1) + ": " + pp.completed_steps + "/" + pp.total_steps;
+    });
+  }
+
+  /* ============ controller: run / submit / copy / override / gate ============ */
+  function findPhaseAndStep(stepId){
+    for (var i = 0; i < RUNTIME_PHASES.length; i++) {
+      var ph = RUNTIME_PHASES[i];
+      for (var j = 0; j < ph.steps.length; j++) {
+        if (ph.steps[j].id === stepId) return { phase: ph, step: ph.steps[j], index: j };
+      }
+    }
+    return null;
+  }
+
+  function controller_runStep(stepId){
+    var found = findPhaseAndStep(stepId);
+    if (!found) return;
+    var canRun = canRunStep(found.phase, found.step, found.index);
+    if (!canRun) return;
+    var stepState = STATE.step_progress.filter(function(s){ return s.step_id === stepId; })[0];
+    if (!stepState) return;
+    stepState.status = "RUNNING";
+    stepState.run_count = (stepState.run_count || 0) + 1;
+    if (STATE.manual_override_enabled) {
+      STATE.manual_override_audit.push({ timestamp_iso: nowIso(), action: "run_under_override", active_step_id: stepId });
+    }
+    persistState();
+    if (found.step.exact_prompt) {
+      controller_copyPrompt(stepId);
+    }
+    rerenderStep(found.phase, found.step, found.index);
+    var paste = document.getElementById("paste-" + stepId);
+    if (paste) {
+      paste.classList.add("is-open");
+      var ta = paste.querySelector("textarea");
+      if (ta) { ta.focus(); ta.scrollIntoView({ behavior: "smooth", block: "center" }); }
+    }
+    recomputeProgress();
+  }
+
+  function controller_resetStep(stepId){
+    var stepState = STATE.step_progress.filter(function(s){ return s.step_id === stepId; })[0];
+    if (!stepState) return;
+    stepState.status = "PENDING";
+    stepState.result_payload = null;
+    stepState.last_summary = null;
+    stepState.completed_at_iso = null;
+    persistState();
+    var found = findPhaseAndStep(stepId);
+    if (found) rerenderStep(found.phase, found.step, found.index);
+    recomputeProgress();
+  }
+
+  function controller_submitResult(stepId, pastedText){
+    var found = findPhaseAndStep(stepId);
+    if (!found) return;
+    var stepState = STATE.step_progress.filter(function(s){ return s.step_id === stepId; })[0];
+    if (!stepState) return;
+    stepState.result_payload = truncate(pastedText, 4000);
+    var report = parser_resultHeader(pastedText || "");
+    stepState.last_summary = report.summary;
+    if (report.status === "COMPLETE") {
+      stepState.status = "COMPLETE";
+      stepState.completed_at_iso = nowIso();
+      persistState();
+      rerenderStep(found.phase, found.step, found.index);
+      recomputeProgress();
+      // auto-advance within phase
+      var nextIdx = found.index + 1;
+      if (nextIdx < found.phase.steps.length) {
+        setTimeout(function(){
+          var nxt = found.phase.steps[nextIdx];
+          var btn = document.querySelector("[data-run-step=\"" + nxt.id + "\"]");
+          if (btn) { btn.scrollIntoView({ behavior: "smooth", block: "center" }); btn.focus(); }
+        }, 60);
+      } else {
+        // phase complete - update gate-status
+        updateGateStatus(found.phase);
+      }
+    } else if (report.status === "PARTIAL") {
+      stepState.status = "PARTIAL";
+      persistState();
+      rerenderStep(found.phase, found.step, found.index);
+      recomputeProgress();
+    } else if (report.status === "FAILED") {
+      stepState.status = "FAILED";
+      persistState();
+      rerenderStep(found.phase, found.step, found.index);
+      recomputeProgress();
+    } else {
+      // MISSING - keep RUNNING, just persist payload
+      persistState();
+      // surface a warning hl-w near the paste panel
+      surfacePasteWarning(stepId, "Missing RESULT header. Ask the AI to re-emit the response starting with RESULT: COMPLETE / PARTIAL / FAILED.");
+    }
+  }
+
+  function surfacePasteWarning(stepId, msg){
+    var paste = document.getElementById("paste-" + stepId);
+    if (!paste) return;
+    var existing = paste.querySelector(".mm-paste-warning");
+    if (existing) existing.remove();
+    var warn = makeEl("div", { className: "mm-hl-w mm-paste-warning" }, escHtml(msg));
+    paste.appendChild(warn);
+  }
+
+  function rerenderStep(phase, step, idx){
+    var oldEl = document.getElementById("step-" + step.id);
+    if (!oldEl) return;
+    var newEl = renderStep(phase, step, idx);
+    oldEl.parentNode.replaceChild(newEl, oldEl);
+    // re-render entire phase tab to refresh next-box visibility for prior step too
+    var phaseTab = document.getElementById("tab-" + phase.id);
+    if (phaseTab) {
+      // refresh other steps' run buttons to reflect new gating
+      phase.steps.forEach(function(s, i){
+        if (i === idx) return;
+        var elx = document.getElementById("step-" + s.id);
+        if (elx) {
+          var newx = renderStep(phase, s, i);
+          elx.parentNode.replaceChild(newx, elx);
+        }
+      });
+      // re-render gate
+      var oldGate = document.getElementById("gate-" + phase.id);
+      if (oldGate) {
+        var newGate = renderGateBox(phase);
+        oldGate.parentNode.replaceChild(newGate, oldGate);
+      }
+    }
+  }
+
+  function parser_resultHeader(raw){
+    if (!raw) return { status: "MISSING", summary: null };
+    var s = raw.replace(/^\s+/, "");
+    var jsonRegex = /^RESULT:\s+(COMPLETE|PARTIAL|FAILED)\s*\n+SUMMARY:\s+([\s\S]+?)\s*\n/;
+    var htmlRegex = /^<!--\s*RESULT:\s+(COMPLETE|PARTIAL|FAILED)\s*\n+SUMMARY:\s+([\s\S]+?)\s*\n/;
+    var m = s.match(jsonRegex);
+    if (!m) m = s.match(htmlRegex);
+    if (!m) return { status: "MISSING", summary: null };
+    var summary = (m[2] || "").trim();
+    if (summary.length > 240) summary = summary.slice(0, 240);
+    return { status: m[1], summary: summary };
+  }
+
+  function controller_copyPrompt(stepId){
+    var found = findPhaseAndStep(stepId);
+    if (!found || !found.step.exact_prompt) return;
+    var text = found.step.exact_prompt;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function(){
+        showToast("Prompt copied. Paste into " + aiLabel(found.step.ai) + " thread.");
+      }, function(){
+        clipboardFallback(stepId);
+      });
+    } else {
+      clipboardFallback(stepId);
+    }
+  }
+
+  function clipboardFallback(stepId){
+    var bodyEl = document.getElementById("prompt-body-" + stepId);
+    if (bodyEl && window.getSelection && document.createRange) {
+      var range = document.createRange();
+      range.selectNodeContents(bodyEl);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    showToast("Press Cmd/Ctrl+C to copy.");
+  }
+
+  function controller_markGatePassed(phaseId){
+    var phase = RUNTIME_PHASES.filter(function(p){ return p.id === phaseId; })[0];
+    if (!phase) return;
+    if (!STATE.manual_override_enabled && !allChecksReady(phase)) return;
+    var pp = STATE.phase_progress.filter(function(p){ return p.phase_id === phaseId; })[0];
+    if (pp) pp.status = "COMPLETE";
+    if (STATE.manual_override_enabled) {
+      STATE.manual_override_audit.push({ timestamp_iso: nowIso(), action: "gate_under_override", active_step_id: null });
+    }
+    persistState();
+    // re-render gate box to reveal commit prompt-block
+    var oldGate = document.getElementById("gate-" + phase.id);
+    if (oldGate) {
+      var newGate = renderGateBox(phase);
+      oldGate.parentNode.replaceChild(newGate, oldGate);
+    }
+    recomputeProgress();
+    // open between-phase modal if not last phase
+    var idx = RUNTIME_PHASES.indexOf(phase);
+    if (idx >= 0 && idx < RUNTIME_PHASES.length - 1) {
+      controller_openBetweenPhaseModal(idx, idx + 1);
+    } else {
+      showToast("Final phase complete. Manual finished.");
+    }
+  }
+
+  function controller_openBetweenPhaseModal(curIdx, nextIdx){
+    var nextPhase = RUNTIME_PHASES[nextIdx];
+    $("#mm-modal-title").textContent = "Advance to Phase " + (nextIdx + 1) + "?";
+    $("#mm-modal-body").textContent = "Phase " + (curIdx + 1) + " is complete. Phase " + (nextIdx + 1) + " begins. Confirm to advance.";
+    $("#mm-modal-confirm").textContent = "Advance";
+    $("#mm-modal-cancel").textContent = "Stay on Phase " + (curIdx + 1);
+    $("#mm-modal-backdrop").classList.add("is-open");
+    var confirmBtn = $("#mm-modal-confirm");
+    var cancelBtn = $("#mm-modal-cancel");
+    var onConfirm = function(){
+      closeModal();
+      router_tab("tab-" + nextPhase.id);
+      setTimeout(function(){
+        var first = nextPhase.steps[0];
+        if (first) {
+          var btn = document.querySelector("[data-run-step=\"" + first.id + "\"]");
+          if (btn) { btn.scrollIntoView({ behavior: "smooth", block: "center" }); btn.focus(); }
+        }
+      }, 100);
+      cleanup();
+    };
+    var onCancel = function(){ closeModal(); cleanup(); };
+    function cleanup(){
+      confirmBtn.removeEventListener("click", onConfirm);
+      cancelBtn.removeEventListener("click", onCancel);
+      document.removeEventListener("keydown", onKey);
+    }
+    function onKey(ev){ if (ev.key === "Escape") onCancel(); }
+    confirmBtn.addEventListener("click", onConfirm);
+    cancelBtn.addEventListener("click", onCancel);
+    document.addEventListener("keydown", onKey);
+  }
+
+  function closeModal(){
+    var b = $("#mm-modal-backdrop");
+    if (b) b.classList.remove("is-open");
+  }
+
+  function controller_toggleManualOverride(desired){
+    var nextVal = (desired === undefined) ? !STATE.manual_override_enabled : !!desired;
+    STATE.manual_override_enabled = nextVal;
+    STATE.manual_override_audit.push({
+      timestamp_iso: nowIso(),
+      action: nextVal ? "enable" : "disable",
+      active_step_id: null
+    });
+    persistState();
+    var btn = $("#mm-override-toggle");
+    if (btn) {
+      btn.classList.toggle("is-on", nextVal);
+      btn.setAttribute("aria-pressed", nextVal ? "true" : "false");
+    }
+    renderOverrideBanner(nextVal);
+    // re-render all phase tabs to refresh gating
+    renderAllTabs();
+    recomputeProgress();
+  }
+
+  function renderOverrideBanner(on){
+    var existing = $(".mm-banner-override");
+    if (existing) existing.remove();
+    if (!on) return;
+    var content = $("#mm-content-inner");
+    if (!content) return;
+    var banner = makeEl("div", { className: "mm-hl-w mm-banner-override" }, "<strong>Manual override is on.</strong> Auto-gating is suspended. All run buttons and Mark Gate Passed are unblocked.");
+    content.insertBefore(banner, content.firstChild);
+  }
+
+  function showBanner(text){
+    var content = $("#mm-content-inner");
+    if (!content) { return; }
+    var banner = makeEl("div", { className: "mm-hl-w" }, escHtml(text));
+    content.insertBefore(banner, content.firstChild);
+  }
+
+  /* ============ toast ============ */
+  var TOAST_TIMER = null;
+  function showToast(msg){
+    var t = $("#mm-toast");
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add("is-visible");
+    if (TOAST_TIMER) clearTimeout(TOAST_TIMER);
+    TOAST_TIMER = setTimeout(function(){ t.classList.remove("is-visible"); }, 2000);
+  }
+
+  /* ============ delegated copy buttons ============ */
+  document.addEventListener("click", function(ev){
+    var el = ev.target;
+    if (el && el.classList && el.classList.contains("mm-prompt-block-copy")) {
+      var target = el.getAttribute("data-copy-target");
+      var body = target ? document.getElementById(target) : null;
+      if (!body) return;
+      var text = body.textContent || "";
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function(){
+          var prev = el.textContent;
+          el.textContent = "COPIED";
+          setTimeout(function(){ el.textContent = prev; }, 1200);
+        }, function(){
+          var sel = window.getSelection();
+          var range = document.createRange();
+          range.selectNodeContents(body);
+          sel.removeAllRanges();
+          sel.addRange(range);
+          showToast("Press Cmd/Ctrl+C to copy.");
+        });
+      } else {
+        var sel2 = window.getSelection();
+        var range2 = document.createRange();
+        range2.selectNodeContents(body);
+        sel2.removeAllRanges();
+        sel2.addRange(range2);
+        showToast("Press Cmd/Ctrl+C to copy.");
+      }
+    }
+  });
+
+  /* ============ engine.init ============ */
+  var STATE;
+  function disableAllRunButtons(reason){
+    BLOCKING_ERROR = reason;
+    $$("[data-run-step]").forEach(function(b){ b.disabled = true; });
+    $$("[data-gate-pass]").forEach(function(b){ b.disabled = true; });
+    var content = $("#mm-content-inner");
+    if (content) {
+      var banner = makeEl("div", { className: "mm-hl-a" }, "<strong>" + escHtml(reason) + "</strong>: Engineering plan is invalid. Controls are disabled. Re-emit a valid ENGINEERING_PLAN.json.");
+      content.insertBefore(banner, content.firstChild);
+    }
+  }
+
+  function init(){
+    var validation = validatePlanSchema(PLAN);
+    STATE = hydrateState();
+    renderSidebar();
+    renderAllTabs();
+    if (!validation.ok) {
+      disableAllRunButtons("PLAN_SCHEMA_INVALID");
+      console.warn("PLAN_SCHEMA_INVALID", validation.errors);
+    }
+    recomputeProgress();
+    // bind override toggle
+    var ov = $("#mm-override-toggle");
+    if (ov) {
+      ov.classList.toggle("is-on", !!STATE.manual_override_enabled);
+      ov.setAttribute("aria-pressed", STATE.manual_override_enabled ? "true" : "false");
+      ov.addEventListener("click", function(){ controller_toggleManualOverride(!STATE.manual_override_enabled); });
+    }
+    if (STATE.manual_override_enabled) renderOverrideBanner(true);
+    // hashchange router
+    window.addEventListener("hashchange", function(){
+      var h = window.location.hash || "";
+      if (h) router_tab(h.slice(1));
+    });
+    // honor initial hash
+    if (window.location.hash) {
+      var h0 = window.location.hash.slice(1);
+      if (document.getElementById(h0)) activateTab(h0);
+    }
+    // cross-tab sync
+    window.addEventListener("storage", function(ev){
+      if (ev.key === STORAGE_KEY) {
+        STATE = hydrateState();
+        renderAllTabs();
+        recomputeProgress();
+      }
+    });
+  }
+
+  /* ============ exports for tests ============ */
+  MMOS.engine = {
+    validatePlanSchema: validatePlanSchema,
+    defaultState: defaultState,
+    hydrate: hydrateState,
+    persist: function(){ persistState(); }
+  };
+  MMOS.parser = { resultHeader: parser_resultHeader };
+  MMOS.controller = {
+    runStep: controller_runStep,
+    submitResult: controller_submitResult,
+    copyPrompt: controller_copyPrompt,
+    markGatePassed: controller_markGatePassed,
+    toggleManualOverride: controller_toggleManualOverride,
+    resetStep: controller_resetStep
+  };
+  MMOS.router = { tab: router_tab };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    init();
+  }
+})();
+</script>
+</body>
+</html>
