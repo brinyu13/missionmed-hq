@@ -3164,6 +3164,22 @@ function idempotencyKey(prefix) {
   return [label, String(Date.now()), randomSuffix(), randomSuffix()].join('-');
 }
 
+function uuidV4Fallback() {
+  const template = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
+  return template.replace(/[xy]/g, (ch) => {
+    const n = Math.floor(Math.random() * 16);
+    const v = ch === 'x' ? n : ((n & 0x3) | 0x8);
+    return v.toString(16);
+  });
+}
+
+function e3ClientEventId() {
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  return uuidV4Fallback();
+}
+
 function resolveDuelDatasetVersion() {
   const value = String(window.MM_DUEL_DATASET_VERSION || '').trim();
   return value || null;
@@ -3660,6 +3676,20 @@ async function submitAttemptRpc(duelId, timeMs, answersJson) {
   payload.p_idempotency_key = idempotencyKey('submit');
   console.log('[STAT] submit_attempt', payload);
   const out = await rpcCall('submit_attempt', payload);
+  if (!out.ok) {
+    const detail = out && out.data && typeof out.data === 'object' ? out.data : {};
+    const code = String(detail.code || out.error || '').toLowerCase();
+    const state = String(detail.state || '').toLowerCase();
+    if (activeDuelIsBot === true && code === 'duel_not_ready_for_attempt' && state === 'active') {
+      console.warn('[STAT] submit_attempt soft-accepted for bot duel in active state');
+      return {
+        ok: true,
+        error: null,
+        data: Object.assign({}, detail, { status: 'soft_ok', soft_accepted: true }),
+        raw: out.raw || out
+      };
+    }
+  }
   console.log('[STAT] submit_attempt response', out);
   return out;
 }
@@ -4111,6 +4141,30 @@ if (MM_E3_OUTBOX_ENABLED) {
     const matchId = String(record.match_id || '');
     const qIndex = typeof record.q_index === 'number' ? record.q_index : Number(record.q_index);
     const sessionId = record.session_id || payload.session_id || null;
+    const pack = window.MM_DUEL && window.MM_DUEL.CURRENT_PACK ? window.MM_DUEL.CURRENT_PACK : null;
+    const packQuestionId = (pack && Array.isArray(pack.question_ids) && Number.isFinite(qIndex))
+      ? String(pack.question_ids[qIndex] || '').trim()
+      : '';
+    const questionId = String(payload.question_id || payload.qid || packQuestionId || '').trim();
+    const datasetVersion = String(
+      payload.dataset_version ||
+      (pack && pack.dataset_version) ||
+      window.MM_DUEL_DATASET_VERSION ||
+      resolveDuelDatasetVersion() ||
+      ''
+    ).trim();
+    const contentHash = String(
+      payload.content_hash ||
+      window.__MM_DUEL_PACK_HASH ||
+      (pack && pack.content_hash) ||
+      ''
+    ).trim();
+    let packQuestionCount = Number(payload.pack_question_count || 0);
+    if (!Number.isFinite(packQuestionCount) || packQuestionCount < 1) {
+      const packCount = pack && Array.isArray(pack.question_ids) ? Number(pack.question_ids.length || 0) : 0;
+      if (Number.isFinite(packCount) && packCount > 0) packQuestionCount = packCount;
+    }
+    if (!Number.isFinite(packQuestionCount) || packQuestionCount < 1) packQuestionCount = null;
 
     if (record.event_type === 'question_presented') {
       return {
@@ -4118,12 +4172,12 @@ if (MM_E3_OUTBOX_ENABLED) {
         args: {
           params: {
             match_id: matchId,
-            question_id: payload.question_id,
+            question_id: questionId || null,
             q_index: Number.isFinite(qIndex) ? qIndex : null,
             displayed_choices_order: Array.isArray(payload.displayed_choices_order) ? payload.displayed_choices_order : [],
-            dataset_version: payload.dataset_version || '',
-            content_hash: payload.content_hash || '',
-            pack_question_count: payload.pack_question_count || null,
+            dataset_version: datasetVersion,
+            content_hash: contentHash,
+            pack_question_count: packQuestionCount,
             question_started_at: payload.question_started_at || nowIso(),
             session_id: sessionId,
             client_event_id: record.client_event_id
@@ -4150,9 +4204,9 @@ if (MM_E3_OUTBOX_ENABLED) {
             question_answered_at: payload.question_answered_at || nowIso(),
             time_to_first_answer_ms: Number(payload.time_to_first_answer_ms || 0),
             timed_out: !!payload.timed_out,
-            question_id: payload.question_id || null,
-            dataset_version: payload.dataset_version || null,
-            content_hash: payload.content_hash || null,
+            question_id: questionId || null,
+            dataset_version: datasetVersion || null,
+            content_hash: contentHash || null,
             displayed_choices_order: Array.isArray(payload.displayed_choices_order) ? payload.displayed_choices_order : null,
             client_event_id: record.client_event_id
           }
@@ -4221,6 +4275,9 @@ if (MM_E3_OUTBOX_ENABLED) {
     const msg = toErrorString(err);
     const status = Number(err && (err.rpcStatus || err.status) ? (err.rpcStatus || err.status) : 0);
     if (isIdempotentErrorMessage(msg)) return 'idempotent_success';
+    if (status === 409 && /(duplicate|already|re_presented|23505)/i.test(msg)) return 'idempotent_success';
+    if (status === 409 && /(23503|foreign key|match_attempts_match_id_fkey)/i.test(msg)) return 'permanent';
+    if (status >= 400 && status < 500 && /(invalid input syntax for type uuid|22p02)/i.test(msg)) return 'permanent';
     if (/supabase_rpc_unavailable|STAT_AUTH_REQUIRED|auth_required|identity_mismatch/i.test(msg)) return 'retry_auth';
     if (status >= 400 && status < 500 && /STAT_[A-Z0-9_]+/i.test(msg)) return 'permanent';
     if (status >= 500) return 'retry';
@@ -4638,11 +4695,35 @@ async function e3RpcNonBlocking(name, args, label) {
 }
 
 function e3PackMeta() {
+  const pack = window.MM_DUEL && window.MM_DUEL.CURRENT_PACK ? window.MM_DUEL.CURRENT_PACK : null;
+  const packQuestionCount = pack && Array.isArray(pack.question_ids) ? Number(pack.question_ids.length || 0) : 0;
   return {
-    dataset_version: String(window.MM_DUEL_DATASET_VERSION || resolveDuelDatasetVersion() || ''),
-    content_hash: String(window.__MM_DUEL_PACK_HASH || ''),
-    pack_question_count: Number(state && state.totalQ ? state.totalQ : 0) || null
+    dataset_version: String(
+      window.MM_DUEL_DATASET_VERSION ||
+      (pack && pack.dataset_version) ||
+      resolveDuelDatasetVersion() ||
+      ''
+    ).trim(),
+    content_hash: String(
+      window.__MM_DUEL_PACK_HASH ||
+      (pack && pack.content_hash) ||
+      ''
+    ).trim(),
+    pack_question_count: Number(state && state.totalQ ? state.totalQ : 0) || (packQuestionCount > 0 ? packQuestionCount : null)
   };
+}
+
+function e3ResolveQuestionId(question, qIndex) {
+  const direct = String(
+    (question && (question.id || question.question_id || question.qid || question.uid)) || ''
+  ).trim();
+  if (direct) return direct;
+  const pack = window.MM_DUEL && window.MM_DUEL.CURRENT_PACK ? window.MM_DUEL.CURRENT_PACK : null;
+  if (pack && Array.isArray(pack.question_ids) && Number.isFinite(Number(qIndex))) {
+    const packed = String(pack.question_ids[Number(qIndex)] || '').trim();
+    if (packed) return packed;
+  }
+  return '';
 }
 
 async function e3RecordSessionStart() {
@@ -4683,10 +4764,19 @@ function e3RecordSessionEnd(reason) {
 function e3RecordQuestionPresented(question, qIndex) {
   if (!activeDuelId || !question) return;
   const meta = e3PackMeta();
+  const questionId = e3ResolveQuestionId(question, qIndex);
+  if (!questionId || !meta.dataset_version || !meta.content_hash) {
+    console.warn('[E3_STAT] question_presented skipped due missing canonical payload', {
+      question_id: questionId || null,
+      dataset_version: meta.dataset_version || null,
+      content_hash: meta.content_hash || null
+    });
+    return;
+  }
   const args = {
     params: {
       match_id: String(activeDuelId),
-      question_id: question.id || null,
+      question_id: questionId,
       q_index: Number.isFinite(Number(qIndex)) ? Number(qIndex) : null,
       displayed_choices_order: Array.isArray(question.choices) ? question.choices.map((_c, i) => i) : [],
       dataset_version: meta.dataset_version,
@@ -4694,7 +4784,7 @@ function e3RecordQuestionPresented(question, qIndex) {
       pack_question_count: meta.pack_question_count,
       question_started_at: new Date().toISOString(),
       session_id: e3SessionId || null,
-      client_event_id: idempotencyKey('presented')
+      client_event_id: e3ClientEventId()
     }
   };
   if (!e3OutboxQueue('question_presented', String(activeDuelId), e3SessionId || null, qIndex, args.params)) {
@@ -4705,6 +4795,15 @@ function e3RecordQuestionPresented(question, qIndex) {
 function e3RecordQuestionAnswered(question, qIndex, selectedIndex, elapsedMs, timedOut) {
   if (!activeDuelId || !question) return;
   const meta = e3PackMeta();
+  const questionId = e3ResolveQuestionId(question, qIndex);
+  if (!questionId || !meta.dataset_version || !meta.content_hash) {
+    console.warn('[E3_STAT] question_answered skipped due missing canonical payload', {
+      question_id: questionId || null,
+      dataset_version: meta.dataset_version || null,
+      content_hash: meta.content_hash || null
+    });
+    return;
+  }
   let safeSelected = Number(selectedIndex);
   if (!Number.isFinite(safeSelected)) safeSelected = -1;
   const args = {
@@ -4715,11 +4814,11 @@ function e3RecordQuestionAnswered(question, qIndex, selectedIndex, elapsedMs, ti
       question_answered_at: new Date().toISOString(),
       time_to_first_answer_ms: Math.max(0, Number(elapsedMs || 0)),
       timed_out: !!timedOut,
-      question_id: question.id || null,
-      dataset_version: meta.dataset_version || null,
-      content_hash: meta.content_hash || null,
+      question_id: questionId,
+      dataset_version: meta.dataset_version,
+      content_hash: meta.content_hash,
       displayed_choices_order: Array.isArray(question.choices) ? question.choices.map((_c, i) => i) : null,
-      client_event_id: idempotencyKey('answered')
+      client_event_id: e3ClientEventId()
     }
   };
   if (!e3OutboxQueue('question_answered', String(activeDuelId), e3SessionId || null, qIndex, args.params)) {
