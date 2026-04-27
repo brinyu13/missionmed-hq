@@ -19,6 +19,8 @@ _BUILD_TEMP/
 node_modules/
 venv/
 .env
+.env.local
+_SYSTEM/r2.env
 *.m4v
 *.pdf
 *.jpg

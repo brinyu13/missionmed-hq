@@ -52,16 +52,25 @@ load_r2_env() {
     return 0
   fi
 
+  local shared_env="$ROOT_DIR/_SYSTEM/r2.env"
+  if [[ -f "$shared_env" ]]; then
+    # shellcheck disable=SC1090
+    set -a
+    . "$shared_env"
+    set +a
+  fi
+
   local key_file="$ROOT_DIR/cloudflare key.txt"
   if [[ -f "$key_file" ]]; then
     # shellcheck disable=SC1090
     set -a
-    eval "$(grep -E '^export R2_(ACCESS_KEY_ID|SECRET_ACCESS_KEY|ACCOUNT_ID|BUCKET|CDN_BASE_URL)=' "$key_file" | head -n 5)"
+    eval "$(grep -E '^export R2_(ACCESS_KEY_ID|SECRET_ACCESS_KEY|ACCOUNT_ID|ENDPOINT_URL|BUCKET|REGION|CDN_BASE_URL)=' "$key_file" | head -n 7)"
     set +a
   fi
 
   if [[ -z "${R2_ACCESS_KEY_ID:-}" || -z "${R2_SECRET_ACCESS_KEY:-}" ]]; then
-    echo "Missing R2 credentials (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY)" >&2
+    echo "Missing R2 credentials (R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY)." >&2
+    echo "Expected in env, $ROOT_DIR/_SYSTEM/r2.env, or $ROOT_DIR/cloudflare key.txt" >&2
     exit 1
   fi
 }
@@ -75,10 +84,10 @@ ensure_git_gate() {
   fi
 
   local scope=(
-    LIVE/arena_v1.html
-    LIVE/stat_latest.html
-    LIVE/drills_v1.html
-    LIVE/mode_dailyrounds_v1.html
+    LIVE/arena.html
+    LIVE/stat.html
+    LIVE/drills.html
+    LIVE/daily.html
     CHANGELOG/CHANGELOG.md
     _SYSTEM/DEPLOY_MANIFEST.json
     VALIDATION/validate_deploy.sh
