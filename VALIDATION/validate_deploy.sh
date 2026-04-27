@@ -70,10 +70,10 @@ require_absent() {
   fi
 }
 
-ARENA="$LIVE_DIR/arena_v1.html"
-STAT="$LIVE_DIR/stat_latest.html"
-DRILLS="$LIVE_DIR/drills_v1.html"
-DAILY="$LIVE_DIR/mode_dailyrounds_v1.html"
+ARENA="$LIVE_DIR/arena.html"
+STAT="$LIVE_DIR/stat.html"
+DRILLS="$LIVE_DIR/drills.html"
+DAILY="$LIVE_DIR/daily.html"
 
 require_file "$ARENA"
 require_file "$STAT"
@@ -105,7 +105,7 @@ require_contains "$DAILY" "/drills?video_id=" "Daily launches drills with video_
 require_contains "$DAILY" "mm_selected_drill" "Daily writes contract payload"
 require_contains "$DRILLS" "No valid drill contract" "Drills enforces contract guard"
 require_contains "$DRILLS" "query.video_id" "Drills accepts query.video_id contract path"
-require_contains "$DRILLS" "mode_dailyrounds_v1.html" "Drills knows Daily return path"
+require_contains "$DRILLS" "daily.html" "Drills knows Daily return path"
 
 # Contract flow markers
 require_contains "$DAILY" "buildLaunchPayload" "Daily has launch payload builder"

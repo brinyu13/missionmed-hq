@@ -1,0 +1,2599 @@
+<!-- MissionMed Dashboard OS Demo v1.0 | MMOS-DASHBOARD-OS-01 | Visual Demo Only | No Backend Required -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MissionMed Dashboard OS</title>
+    <!-- MissionMed Dashboard OS Demo v1.0 | MMOS-DASHBOARD-OS-01 | Visual Demo Only | No Backend Required -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --navy-primary: #0F2A44;
+            --navy-secondary: #1B2F4A;
+            --charcoal: #2A2A2A;
+            --medical-red: #B23A3A;
+            --white: #FFFFFF;
+            --light-gray: #F4F6F8;
+            --gold: #E8A41C;
+            --cyan: #00D4FF;
+            --green: #2ECC71;
+            --red: #E74C3C;
+            --orange: #E67E22;
+            --yellow: #F39C12;
+            --blue: #3498DB;
+            --indigo: #6C5CE7;
+            --violet: #A55EEA;
+            --shadow-light: rgba(0, 0, 0, 0.1);
+            --shadow-dark: rgba(0, 0, 0, 0.3);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, var(--navy-primary) 0%, var(--charcoal) 100%);
+            color: var(--white);
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* HEADER */
+        .header {
+            background: linear-gradient(90deg, rgba(15, 42, 68, 0.95) 0%, rgba(27, 47, 74, 0.95) 100%);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            padding: 16px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: 18px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            background: linear-gradient(135deg, var(--cyan) 0%, var(--gold) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .student-info {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .identity {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .identity-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .identity-meta {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .xp-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(0, 212, 255, 0.15);
+        }
+
+        .xp-bar-label {
+            font-size: 11px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.5);
+            min-width: 28px;
+        }
+
+        .xp-bar-fill {
+            width: 120px;
+            height: 6px;
+            background: rgba(0, 212, 255, 0.2);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .xp-bar-progress {
+            height: 100%;
+            width: 62.5%;
+            background: linear-gradient(90deg, var(--gold) 0%, var(--cyan) 100%);
+            border-radius: 3px;
+            transition: width 0.6s ease;
+        }
+
+        .level-badge {
+            background: linear-gradient(135deg, var(--gold) 0%, #D4860E 100%);
+            color: var(--navy-primary);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 4px;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        .streak {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--gold);
+        }
+
+        .streak-flame {
+            font-size: 16px;
+            animation: flicker 1.5s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .sync-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--green);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .btn-header {
+            padding: 8px 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid var(--cyan);
+            border-radius: 4px;
+            color: var(--cyan);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-header:hover {
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+        }
+
+        /* TAB NAVIGATION */
+        .tab-nav {
+            display: flex;
+            gap: 0;
+            background: rgba(27, 47, 74, 0.5);
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+            padding: 0 28px;
+            backdrop-filter: blur(5px);
+        }
+
+        .tab-button {
+            flex: 0 0 auto;
+            padding: 14px 20px;
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            letter-spacing: 0.5px;
+        }
+
+        .tab-button::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--cyan);
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.3s;
+        }
+
+        .tab-button:hover {
+            color: var(--white);
+        }
+
+        .tab-button.active {
+            color: var(--cyan);
+        }
+
+        .tab-button.active::after {
+            transform: scaleX(1);
+        }
+
+        /* CONTENT AREA */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            padding: 28px;
+            gap: 24px;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* COMMAND TAB */
+        .mission-hero {
+            background: linear-gradient(135deg, rgba(232, 164, 28, 0.15) 0%, rgba(0, 212, 255, 0.1) 100%);
+            border: 1px solid rgba(232, 164, 28, 0.3);
+            border-radius: 12px;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 24px;
+            align-items: center;
+        }
+
+        .mission-title {
+            grid-column: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .mission-heading {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--gold);
+        }
+
+        .mission-reason {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.4;
+        }
+
+        .progress-rings {
+            grid-column: 2 / 4;
+            display: flex;
+            justify-content: flex-end;
+            gap: 32px;
+        }
+
+        .ring-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .ring-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .ring {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: conic-gradient(var(--cyan) 0%, var(--cyan) var(--progress, 40%), rgba(255, 255, 255, 0.1) var(--progress, 40%), rgba(255, 255, 255, 0.1) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 4px;
+        }
+
+        .ring::before {
+            content: '';
+            position: absolute;
+            inset: 4px;
+            background: var(--navy-primary);
+            border-radius: 50%;
+            z-index: 0;
+        }
+
+        .ring-content {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+        }
+
+        .ring-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .ring-total {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .intel-panel {
+            background: rgba(0, 212, 255, 0.08);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .intel-icon {
+            font-size: 32px;
+            flex-shrink: 0;
+        }
+
+        .intel-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .intel-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--cyan);
+        }
+
+        .intel-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.4;
+        }
+
+        .top-tasks {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .task-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .task-card:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
+            border-color: rgba(0, 212, 255, 0.3);
+            transform: translateY(-4px);
+        }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .task-topic {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .topic-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .task-duration {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .task-description {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.4;
+        }
+
+        .task-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-task {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--cyan) 0%, #00A8CC 100%);
+            color: var(--navy-primary);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--white);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .quick-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+        }
+
+        .action-button {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .action-button:hover {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.05) 100%);
+            border-color: var(--cyan);
+            transform: translateY(-4px);
+        }
+
+        .action-icon {
+            font-size: 28px;
+        }
+
+        .action-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .advisor-alert {
+            background: linear-gradient(135deg, rgba(178, 58, 58, 0.15) 0%, rgba(232, 164, 28, 0.1) 100%);
+            border: 1px solid rgba(232, 164, 28, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .alert-text {
+            font-size: 14px;
+            color: var(--white);
+        }
+
+        .alert-count {
+            background: var(--medical-red);
+            color: var(--white);
+            font-size: 12px;
+            font-weight: 700;
+            padding: 6px 12px;
+            border-radius: 20px;
+        }
+
+        /* PLANNER TAB */
+        .planner-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .control-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-control {
+            padding: 8px 16px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid var(--cyan);
+            border-radius: 6px;
+            color: var(--cyan);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-control:hover {
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-control.active {
+            background: var(--cyan);
+            color: var(--navy-primary);
+        }
+
+        .recovery-queue {
+            background: linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(0, 212, 255, 0.08) 100%);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .recovery-text {
+            font-size: 13px;
+            color: var(--white);
+        }
+
+        .recovery-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-recovery {
+            padding: 6px 12px;
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid var(--green);
+            border-radius: 4px;
+            color: var(--green);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-recovery:hover {
+            background: rgba(46, 204, 113, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .weekly-grid {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .grid-header {
+            display: grid;
+            grid-template-columns: 60px repeat(7, 1fr);
+            gap: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .grid-cell-header {
+            padding: 12px;
+            text-align: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.6);
+            border-right: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .grid-cell-header:last-child {
+            border-right: none;
+        }
+
+        .grid-time-labels {
+            display: flex;
+            flex-direction: column;
+            background: rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .time-label {
+            padding: 12px;
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .grid-body {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            padding: 12px;
+            flex: 1;
+            overflow-y: auto;
+            max-height: 500px;
+        }
+
+        .day-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .schedule-block {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 11px;
+            cursor: grab;
+            transition: all 0.3s;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .schedule-block:hover {
+            transform: translateY(-2px);
+            border-color: rgba(0, 212, 255, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
+        }
+
+        .schedule-block.dragging {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+
+        .schedule-block.ghost {
+            opacity: 0.6;
+            border: 1px dashed rgba(0, 212, 255, 0.5);
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
+            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
+        }
+
+        .block-topic {
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .block-time {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .block-confidence {
+            display: inline-block;
+            font-size: 9px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: rgba(0, 212, 255, 0.2);
+            color: var(--cyan);
+            font-weight: 500;
+        }
+
+        .block-advisor {
+            font-size: 9px;
+            color: var(--cyan);
+            font-style: italic;
+        }
+
+        .unscheduled-tray {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 16px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 12px;
+        }
+
+        .unscheduled-item {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 12px;
+            cursor: grab;
+            transition: all 0.2s;
+        }
+
+        .unscheduled-item:hover {
+            border-color: var(--cyan);
+            transform: translateY(-2px);
+        }
+
+        /* PERFORMANCE TAB */
+        .topic-heatmap {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .topic-tile {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .topic-tile:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .topic-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .topic-accuracy {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .topic-meta {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .topic-confidence-badge {
+            font-size: 9px;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+        }
+
+        .confidence-low {
+            background: rgba(230, 126, 34, 0.3);
+            color: var(--orange);
+        }
+
+        .confidence-moderate {
+            background: rgba(243, 156, 18, 0.3);
+            color: var(--yellow);
+        }
+
+        .confidence-high {
+            background: rgba(46, 204, 113, 0.3);
+            color: var(--green);
+        }
+
+        .weakest-topics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .ranked-topic {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .rank-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.2);
+            min-width: 40px;
+        }
+
+        .rank-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .rank-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .rank-stats {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .rank-bar {
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .rank-bar-fill {
+            height: 100%;
+            background: var(--red);
+            border-radius: 2px;
+            transition: width 0.4s ease;
+        }
+
+        .strong-topics {
+            background: rgba(46, 204, 113, 0.1);
+            border: 1px solid rgba(46, 204, 113, 0.3);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .strong-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--green);
+        }
+
+        .strong-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .strong-badge {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid var(--green);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--green);
+        }
+
+        /* TASKS TAB */
+        .task-sections {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .task-item {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            transition: all 0.3s;
+        }
+
+        .task-item:hover {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .task-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .task-status-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            flex-shrink: 0;
+        }
+
+        .status-pending {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .status-progress {
+            background: rgba(0, 212, 255, 0.2);
+            border: 1px solid var(--cyan);
+            color: var(--cyan);
+        }
+
+        .status-completed {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid var(--green);
+            color: var(--green);
+        }
+
+        .task-core {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+        }
+
+        .task-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .task-meta {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.5);
+            display: flex;
+            gap: 12px;
+        }
+
+        .task-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid var(--cyan);
+            border-radius: 4px;
+            color: var(--cyan);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-small:hover {
+            background: rgba(0, 212, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-complete {
+            background: rgba(46, 204, 113, 0.2);
+            border-color: var(--green);
+            color: var(--green);
+        }
+
+        .btn-complete:hover {
+            background: rgba(46, 204, 113, 0.3);
+        }
+
+        /* ADVISOR TAB */
+        .suggestions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .suggestion-card {
+            background: linear-gradient(135deg, rgba(232, 164, 28, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
+            border: 1px solid rgba(232, 164, 28, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+
+        .suggestion-advisor {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--gold);
+            background: rgba(232, 164, 28, 0.2);
+            padding: 4px 10px;
+            border-radius: 4px;
+            align-self: fit-content;
+        }
+
+        .suggestion-status {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .suggestion-body {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .suggestion-text {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.85);
+            line-height: 1.5;
+        }
+
+        .suggestion-reason {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 2px solid var(--cyan);
+            padding: 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+        }
+
+        .suggestion-actions {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-suggestion {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-accept {
+            background: rgba(46, 204, 113, 0.2);
+            border: 1px solid var(--green);
+            color: var(--green);
+        }
+
+        .btn-accept:hover {
+            background: rgba(46, 204, 113, 0.3);
+            transform: translateY(-2px);
+        }
+
+        .btn-reject {
+            background: rgba(231, 76, 60, 0.2);
+            border: 1px solid var(--red);
+            color: var(--red);
+        }
+
+        .btn-reject:hover {
+            background: rgba(231, 76, 60, 0.3);
+            transform: translateY(-2px);
+        }
+
+        /* HISTORY TAB */
+        .timeline {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .timeline-section {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .timeline-label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--cyan);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .timeline-item {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .timeline-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+            background: rgba(0, 212, 255, 0.2);
+        }
+
+        .timeline-content {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .timeline-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        .timeline-subtitle {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .timeline-time {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .weekly-summary {
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(232, 164, 28, 0.08) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 12px;
+            padding: 24px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        .summary-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .summary-label {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 500;
+        }
+
+        .summary-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--cyan);
+        }
+
+        .summary-note {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* TOAST NOTIFICATIONS */
+        /* TIMER WIDGET */
+        .timer-widget {
+            position: fixed;
+            bottom: 80px;
+            right: 28px;
+            background: linear-gradient(135deg, var(--navy-secondary) 0%, var(--navy-primary) 100%);
+            border: 1px solid var(--cyan);
+            border-radius: 14px;
+            padding: 16px 20px;
+            z-index: 9998;
+            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.25);
+            display: none;
+            min-width: 220px;
+        }
+        .timer-widget.active { display: block; animation: slideIn 0.3s ease; }
+        .timer-task-name {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--cyan);
+            margin-bottom: 6px;
+        }
+        .timer-display {
+            font-size: 32px;
+            font-weight: 700;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+            margin-bottom: 10px;
+        }
+        .timer-controls { display: flex; gap: 8px; }
+        .timer-controls button {
+            flex: 1;
+            padding: 6px 0;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .timer-btn-stop { background: var(--red); color: #fff; }
+        .timer-btn-done { background: var(--green); color: var(--navy-primary); }
+
+        .toast {
+            position: fixed;
+            bottom: 28px;
+            right: 28px;
+            background: linear-gradient(135deg, var(--cyan) 0%, #00A8CC 100%);
+            color: var(--navy-primary);
+            padding: 14px 20px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 12px 32px rgba(0, 212, 255, 0.4);
+            animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s;
+            z-index: 9999;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOut {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+        }
+
+        /* MODAL */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background: linear-gradient(135deg, var(--navy-secondary) 0%, var(--charcoal) 100%);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 16px;
+            padding: 32px;
+            max-width: 500px;
+            width: 90%;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
+            animation: modalSlide 0.3s ease;
+        }
+
+        @keyframes modalSlide {
+            from {
+                transform: translateY(40px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--white);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .modal-close:hover {
+            color: var(--white);
+        }
+
+        .modal-body {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .modal-field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .modal-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .modal-value {
+            font-size: 14px;
+            color: var(--cyan);
+        }
+
+        .modal-copy {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-modal {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-modal-primary {
+            background: linear-gradient(135deg, var(--cyan) 0%, #00A8CC 100%);
+            color: var(--navy-primary);
+        }
+
+        .btn-modal-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-modal-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: var(--white);
+        }
+
+        .btn-modal-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        /* RESPONSIVE */
+        @media (max-width: 1200px) {
+            .top-tasks {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-actions {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .weakest-topics {
+                grid-template-columns: 1fr;
+            }
+
+            .weekly-summary {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .header {
+                flex-direction: column;
+                gap: 16px;
+                padding: 16px;
+            }
+
+            .student-info {
+                flex-direction: column;
+                gap: 12px;
+                width: 100%;
+            }
+
+            .progress-rings {
+                grid-column: 1 / -1;
+                justify-content: center;
+                gap: 16px;
+            }
+
+            .mission-hero {
+                grid-template-columns: 1fr;
+                gap: 16px;
+            }
+
+            .content {
+                padding: 16px;
+            }
+
+            .quick-actions {
+                grid-template-columns: 1fr;
+            }
+
+            .topic-heatmap {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .suggestions-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .weekly-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .modal {
+                max-width: 90%;
+                padding: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .tab-nav {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 0 16px;
+            }
+
+            .tab-button {
+                padding: 12px 16px;
+                font-size: 12px;
+            }
+
+            .header-left,
+            .header-right {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .mission-hero {
+                padding: 16px;
+            }
+
+            .topic-heatmap {
+                grid-template-columns: 1fr;
+            }
+
+            .modal {
+                padding: 20px;
+                max-width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">MissionMed Dashboard OS</div>
+                <div class="student-info">
+                    <div class="identity">
+                        <div class="identity-name">Alex Morgan</div>
+                        <div class="identity-meta">USMLE Step 2 CK</div>
+                    </div>
+                    <div class="xp-bar">
+                        <div class="xp-bar-label">L12</div>
+                        <div class="xp-bar-fill">
+                            <div class="xp-bar-progress" style="--progress: 62.5%;"></div>
+                        </div>
+                    </div>
+                    <div class="level-badge">12</div>
+                    <div class="streak">
+                        <div class="streak-flame">🔥</div>
+                        <div>5 days</div>
+                    </div>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="sync-status">
+                    <div class="sync-dot"></div>
+                    <div>Synced</div>
+                </div>
+                <button class="btn-header" onclick="openCalendarExport()">Export Calendar</button>
+            </div>
+        </div>
+
+        <!-- TAB NAVIGATION -->
+        <div class="tab-nav">
+            <button class="tab-button active" onclick="switchTab('command')">Command</button>
+            <button class="tab-button" onclick="switchTab('planner')">Planner</button>
+            <button class="tab-button" onclick="switchTab('performance')">Performance</button>
+            <button class="tab-button" onclick="switchTab('tasks')">Tasks</button>
+            <button class="tab-button" onclick="switchTab('advisor')">Advisor</button>
+            <button class="tab-button" onclick="switchTab('history')">History</button>
+        </div>
+
+        <!-- CONTENT AREA -->
+        <div class="content">
+            <!-- COMMAND TAB -->
+            <div id="command" class="tab-content active">
+                <div class="mission-hero">
+                    <div class="mission-title">
+                        <div class="mission-heading">Today's Focus: Renal</div>
+                        <div class="mission-reason">Renal is your best move today. You have 3 fresh review questions, and your confidence is moderate. This is a high-ROI block.</div>
+                    </div>
+                    <div class="progress-rings">
+                        <div class="ring-item">
+                            <div class="ring" style="--progress: 40%;">
+                                <div class="ring-content">
+                                    <div class="ring-value">2</div>
+                                    <div class="ring-total">5</div>
+                                </div>
+                            </div>
+                            <div class="ring-label">Daily Tasks</div>
+                        </div>
+                        <div class="ring-item">
+                            <div class="ring" style="--progress: 28%;">
+                                <div class="ring-content">
+                                    <div class="ring-value">3.5</div>
+                                    <div class="ring-total">12 hrs</div>
+                                </div>
+                            </div>
+                            <div class="ring-label">Weekly Hours</div>
+                        </div>
+                        <div class="ring-item">
+                            <div class="ring" style="--progress: 62%;">
+                                <div class="ring-content">
+                                    <div class="ring-value">62%</div>
+                                    <div class="ring-total">Accuracy</div>
+                                </div>
+                            </div>
+                            <div class="ring-label">Monthly Average</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="intel-panel">
+                    <div class="intel-icon">💡</div>
+                    <div class="intel-content">
+                        <div class="intel-title">Mission Intel</div>
+                        <div class="intel-text">Your Renal accuracy dropped 8% last week. A focused 30-minute block today, paired with this week's Cardiology work, creates strong reciprocal learning. You're on track.</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title" style="margin-bottom: 16px;">Top 3 Today</div>
+                    <div class="top-tasks">
+                        <div class="task-card" onclick="startTask('Renal Review', 30)">
+                            <div class="task-header">
+                                <div class="task-topic">
+                                    <div class="topic-dot" style="background: var(--red);"></div>
+                                    Renal
+                                </div>
+                                <div class="task-duration">30 min</div>
+                            </div>
+                            <div class="task-description">Review acute kidney injury pathophysiology and management protocols with focus areas.</div>
+                            <div class="task-actions">
+                                <button class="btn-task btn-primary" onclick="event.stopPropagation(); startTask('Renal Review', 30)">Start Now</button>
+                                <button class="btn-task btn-secondary" onclick="event.stopPropagation()">Schedule</button>
+                            </div>
+                        </div>
+
+                        <div class="task-card" onclick="startTask('Cardiology STAT', 20)">
+                            <div class="task-header">
+                                <div class="task-topic">
+                                    <div class="topic-dot" style="background: var(--orange);"></div>
+                                    Cardiology
+                                </div>
+                                <div class="task-duration">20 min</div>
+                            </div>
+                            <div class="task-description">Answer 20 timed, mixed-content questions. Focus on arrhythmia diagnosis and management.</div>
+                            <div class="task-actions">
+                                <button class="btn-task btn-primary" onclick="event.stopPropagation(); startTask('Cardiology STAT', 20)">Start Now</button>
+                                <button class="btn-task btn-secondary" onclick="event.stopPropagation()">Schedule</button>
+                            </div>
+                        </div>
+
+                        <div class="task-card" onclick="startTask('Biostatistics Formulas', 15)">
+                            <div class="task-header">
+                                <div class="task-topic">
+                                    <div class="topic-dot" style="background: var(--orange);"></div>
+                                    Biostatistics
+                                </div>
+                                <div class="task-duration">15 min</div>
+                            </div>
+                            <div class="task-description">Drill core formulas: sensitivity, specificity, NPV, PPV, NNT. Flashcard-style repetition.</div>
+                            <div class="task-actions">
+                                <button class="btn-task btn-primary" onclick="event.stopPropagation(); startTask('Biostatistics Formulas', 15)">Start Now</button>
+                                <button class="btn-task btn-secondary" onclick="event.stopPropagation()">Schedule</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title" style="margin-bottom: 16px;">Quick Actions</div>
+                    <div class="quick-actions">
+                        <div class="action-button" onclick="switchTab('tasks')">
+                            <div class="action-icon">▶️</div>
+                            <div class="action-label">Start Current Task</div>
+                        </div>
+                        <div class="action-button" onclick="switchTab('planner')">
+                            <div class="action-icon">📅</div>
+                            <div class="action-label">Open Planner</div>
+                        </div>
+                        <div class="action-button" onclick="openCalendarExport()">
+                            <div class="action-icon">📤</div>
+                            <div class="action-label">Export Today</div>
+                        </div>
+                        <div class="action-button" onclick="switchTab('performance')">
+                            <div class="action-icon">📊</div>
+                            <div class="action-label">Review Weak Topics</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="advisor-alert">
+                    <div class="alert-text">3 pending suggestions from your advisors</div>
+                    <div class="alert-count">3</div>
+                </div>
+            </div>
+
+            <!-- PLANNER TAB -->
+            <div id="planner" class="tab-content">
+                <div class="planner-controls">
+                    <div class="control-group">
+                        <button class="btn-control active" onclick="setWeekView('today')">Today</button>
+                        <button class="btn-control" onclick="setWeekView('week')">This Week</button>
+                    </div>
+                    <div class="control-group">
+                        <button class="btn-control" onclick="openCalendarExport()">Export Week</button>
+                        <button class="btn-control" onclick="showToast('Calendar synced')">Sync Calendar</button>
+                        <button class="btn-control" onclick="showToast('Rebalancing missed tasks')">Rebalance Missed</button>
+                    </div>
+                </div>
+
+                <div class="recovery-queue">
+                    <div class="recovery-text">1 missed task from yesterday: Infectious Disease Review (25 min)</div>
+                    <div class="recovery-actions">
+                        <button class="btn-recovery" onclick="showToast('Recovered task added to today')">Recover Today</button>
+                        <button class="btn-recovery" onclick="showToast('Task moved to tomorrow')">Move Tomorrow</button>
+                    </div>
+                </div>
+
+                <div class="weekly-grid">
+                    <div class="grid-header">
+                        <div class="grid-cell-header"></div>
+                        <div class="grid-cell-header">Mon 4/28</div>
+                        <div class="grid-cell-header">Tue 4/29</div>
+                        <div class="grid-cell-header">Wed 4/30</div>
+                        <div class="grid-cell-header">Thu 5/1</div>
+                        <div class="grid-cell-header">Fri 5/2</div>
+                        <div class="grid-cell-header">Sat 5/3</div>
+                        <div class="grid-cell-header">Sun 5/4</div>
+                    </div>
+                    <div class="grid-body">
+                        <div class="day-column">
+                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
+                                <div class="block-topic">Renal Review</div>
+                                <div class="block-time">7:00 - 7:30 AM</div>
+                                <div class="block-confidence">Moderate</div>
+                            </div>
+                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
+                                <div class="block-topic">Cardiology STAT</div>
+                                <div class="block-time">8:00 - 8:20 AM</div>
+                                <div class="block-confidence">Low</div>
+                            </div>
+                        </div>
+                        <div class="day-column">
+                            <div class="schedule-block ghost" onclick="acceptGhostBlock(event)">
+                                <div class="block-topic">Biostatistics Block</div>
+                                <div class="block-time">9:00 - 9:20 AM</div>
+                                <div class="block-advisor">Dr. J suggests</div>
+                            </div>
+                        </div>
+                        <div class="day-column">
+                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
+                                <div class="block-topic">Pulmonology Review</div>
+                                <div class="block-time">6:00 - 6:25 PM</div>
+                                <div class="block-confidence">High</div>
+                            </div>
+                        </div>
+                        <div class="day-column">
+                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
+                                <div class="block-topic">OB/GYN Practice</div>
+                                <div class="block-time">7:00 - 7:30 PM</div>
+                                <div class="block-confidence">High</div>
+                            </div>
+                        </div>
+                        <div class="day-column">
+                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
+                                <div class="block-topic">Infectious Disease</div>
+                                <div class="block-time">5:00 - 5:25 PM</div>
+                                <div class="block-confidence">High</div>
+                            </div>
+                            <div class="schedule-block ghost" onclick="acceptGhostBlock(event)">
+                                <div class="block-topic">Cardiology Deep</div>
+                                <div class="block-time">7:00 - 7:30 PM</div>
+                                <div class="block-advisor">Dr. Brian suggests</div>
+                            </div>
+                        </div>
+                        <div class="day-column">
+                        </div>
+                        <div class="day-column">
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title" style="margin-bottom: 12px;">Unscheduled Tasks</div>
+                    <div class="unscheduled-tray">
+                        <div class="unscheduled-item" draggable="true" ondragstart="dragStart(event)">
+                            <div style="font-weight: 600; margin-bottom: 4px;">Neurology Review</div>
+                            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">20 min</div>
+                        </div>
+                        <div class="unscheduled-item" draggable="true" ondragstart="dragStart(event)">
+                            <div style="font-weight: 600; margin-bottom: 4px;">Psychiatry Practice</div>
+                            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">25 min</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PERFORMANCE TAB -->
+            <div id="performance" class="tab-content">
+                <div>
+                    <div class="section-title" style="margin-bottom: 16px;">Topic Mastery Map</div>
+                    <div class="topic-heatmap">
+                        <div class="topic-tile" style="border-color: var(--red);">
+                            <div class="topic-name">Cardiology</div>
+                            <div class="topic-accuracy">42%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
+                                <span>38 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--red);">
+                            <div class="topic-name">Renal</div>
+                            <div class="topic-accuracy">29%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
+                                <span>18 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--yellow);">
+                            <div class="topic-name">Pulmonology</div>
+                            <div class="topic-accuracy">64%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-high">High</span>
+                                <span>44 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--yellow);">
+                            <div class="topic-name">Endocrine</div>
+                            <div class="topic-accuracy">53%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
+                                <span>21 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--orange);">
+                            <div class="topic-name">Biostatistics</div>
+                            <div class="topic-accuracy">39%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-low">Low</span>
+                                <span>12 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--blue);">
+                            <div class="topic-name">ID</div>
+                            <div class="topic-accuracy">78%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-high">High</span>
+                                <span>51 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--yellow);">
+                            <div class="topic-name">Neurology</div>
+                            <div class="topic-accuracy">67%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
+                                <span>29 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--blue);">
+                            <div class="topic-name">OB/GYN</div>
+                            <div class="topic-accuracy">72%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-high">High</span>
+                                <span>35 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--yellow);">
+                            <div class="topic-name">Pediatrics</div>
+                            <div class="topic-accuracy">61%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
+                                <span>27 Q</span>
+                            </div>
+                        </div>
+                        <div class="topic-tile" style="border-color: var(--yellow);">
+                            <div class="topic-name">Psychiatry</div>
+                            <div class="topic-accuracy">55%</div>
+                            <div class="topic-meta">
+                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
+                                <span>19 Q</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title" style="margin-bottom: 16px;">Weakest Topics (ROI Priority)</div>
+                    <div class="weakest-topics">
+                        <div class="ranked-topic">
+                            <div class="rank-number">1</div>
+                            <div class="rank-content">
+                                <div class="rank-title">Renal</div>
+                                <div class="rank-stats">29% / 18 questions / Insufficient data</div>
+                                <div class="rank-bar">
+                                    <div class="rank-bar-fill" style="width: 29%; background: var(--red);"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ranked-topic">
+                            <div class="rank-number">2</div>
+                            <div class="rank-content">
+                                <div class="rank-title">Biostatistics</div>
+                                <div class="rank-stats">39% / 12 questions / Low</div>
+                                <div class="rank-bar">
+                                    <div class="rank-bar-fill" style="width: 39%; background: var(--orange);"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ranked-topic">
+                            <div class="rank-number">3</div>
+                            <div class="rank-content">
+                                <div class="rank-title">Cardiology</div>
+                                <div class="rank-stats">42% / 38 questions / Moderate</div>
+                                <div class="rank-bar">
+                                    <div class="rank-bar-fill" style="width: 42%; background: var(--red);"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="ranked-topic">
+                            <div class="rank-number">4</div>
+                            <div class="rank-content">
+                                <div class="rank-title">Endocrine</div>
+                                <div class="rank-stats">53% / 21 questions / Moderate</div>
+                                <div class="rank-bar">
+                                    <div class="rank-bar-fill" style="width: 53%; background: var(--yellow);"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="strong-topics">
+                    <div class="strong-title">Your Strongest Domains</div>
+                    <div class="strong-list">
+                        <div class="strong-badge">Infectious Disease 78%</div>
+                        <div class="strong-badge">OB/GYN 72%</div>
+                        <div class="strong-badge">Neurology 67%</div>
+                        <div class="strong-badge">Pulmonology 64%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TASKS TAB -->
+            <div id="tasks" class="tab-content">
+                <div class="task-sections">
+                    <div>
+                        <div class="section-title">Today's Queue</div>
+                        <div class="task-list" style="margin-top: 16px;">
+                            <div class="task-item">
+                                <div class="task-info">
+                                    <div class="task-status-icon status-progress">▶</div>
+                                    <div class="task-core">
+                                        <div class="task-name">Renal Pathophysiology Review</div>
+                                        <div class="task-meta">
+                                            <span>30 min</span>
+                                            <span style="color: var(--red);">Renal</span>
+                                            <span>In progress</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="task-buttons">
+                                    <button class="btn-small btn-complete" onclick="completeTask(event)">Complete</button>
+                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
+                                </div>
+                            </div>
+
+                            <div class="task-item">
+                                <div class="task-info">
+                                    <div class="task-status-icon status-pending">◯</div>
+                                    <div class="task-core">
+                                        <div class="task-name">20 Cardiology STAT Questions</div>
+                                        <div class="task-meta">
+                                            <span>20 min</span>
+                                            <span style="color: var(--orange);">Cardiology</span>
+                                            <span>Pending</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="task-buttons">
+                                    <button class="btn-small" onclick="startTask('Cardiology STAT', 20)">Start</button>
+                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
+                                </div>
+                            </div>
+
+                            <div class="task-item">
+                                <div class="task-info">
+                                    <div class="task-status-icon status-pending">◯</div>
+                                    <div class="task-core">
+                                        <div class="task-name">Biostatistics Formula Drill</div>
+                                        <div class="task-meta">
+                                            <span>15 min</span>
+                                            <span style="color: var(--orange);">Biostatistics</span>
+                                            <span>Pending</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="task-buttons">
+                                    <button class="btn-small" onclick="startTask('Biostatistics Formulas', 15)">Start</button>
+                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
+                                </div>
+                            </div>
+
+                            <div class="task-item">
+                                <div class="task-info">
+                                    <div class="task-status-icon status-pending">◯</div>
+                                    <div class="task-core">
+                                        <div class="task-name">Missed Question Review</div>
+                                        <div class="task-meta">
+                                            <span>10 min</span>
+                                            <span style="color: var(--yellow);">Mixed</span>
+                                            <span>Pending</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="task-buttons">
+                                    <button class="btn-small" onclick="startTask('Missed Questions', 10)">Start</button>
+                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
+                                </div>
+                            </div>
+
+                            <div class="task-item">
+                                <div class="task-info">
+                                    <div class="task-status-icon status-pending">◯</div>
+                                    <div class="task-core">
+                                        <div class="task-name">Pulmonology Maintenance Block</div>
+                                        <div class="task-meta">
+                                            <span>25 min</span>
+                                            <span style="color: var(--yellow);">Pulmonology</span>
+                                            <span>Pending</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="task-buttons">
+                                    <button class="btn-small" onclick="startTask('Pulmonology Review', 25)">Start</button>
+                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="section-title">Completed</div>
+                        <div class="task-list" style="margin-top: 16px;">
+                            <div class="task-item">
+                                <div class="task-info">
+                                    <div class="task-status-icon status-completed">✓</div>
+                                    <div class="task-core">
+                                        <div class="task-name">Endocrine Hormone Review</div>
+                                        <div class="task-meta">
+                                            <span>20 min</span>
+                                            <span style="color: var(--yellow);">Endocrine</span>
+                                            <span>Completed today</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ADVISOR TAB -->
+            <div id="advisor" class="tab-content">
+                <div class="suggestions-grid">
+                    <div class="suggestion-card">
+                        <div class="suggestion-header">
+                            <div class="suggestion-advisor">Dr. Brian</div>
+                            <div class="suggestion-status">Pending</div>
+                        </div>
+                        <div class="suggestion-body">
+                            <div class="suggestion-text">Move Renal earlier in your week. You have higher energy early mornings, and Renal is your critical gap. Hit it while you're fresh.</div>
+                            <div class="suggestion-reason">Your morning sessions show 6% higher accuracy. Renal is critical priority. Data-driven timing.</div>
+                            <div class="suggestion-actions">
+                                <button class="btn-suggestion btn-accept" onclick="acceptSuggestion(event)">Accept</button>
+                                <button class="btn-suggestion btn-reject" onclick="rejectSuggestion(event)">Reject</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card">
+                        <div class="suggestion-header">
+                            <div class="suggestion-advisor">Dr. J</div>
+                            <div class="suggestion-status">Pending</div>
+                        </div>
+                        <div class="suggestion-body">
+                            <div class="suggestion-text">Add a dedicated 20-minute Biostatistics block on Tuesday morning. Your formula accuracy is only 39% with low sample size.</div>
+                            <div class="suggestion-reason">Biostatistics appears on every block of Step 2. Formula precision creates downstream gains across all topics.</div>
+                            <div class="suggestion-actions">
+                                <button class="btn-suggestion btn-accept" onclick="acceptSuggestion(event)">Accept</button>
+                                <button class="btn-suggestion btn-reject" onclick="rejectSuggestion(event)">Reject</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="suggestion-card">
+                        <div class="suggestion-header">
+                            <div class="suggestion-advisor">Advisor AI</div>
+                            <div class="suggestion-status">Pending</div>
+                        </div>
+                        <div class="suggestion-body">
+                            <div class="suggestion-text">Replace the low-yield general review block on Friday with 30 minutes of focused Cardiology STAT practice. Your ROI is highest here.</div>
+                            <div class="suggestion-reason">Cardiology has the highest question density on Step 2 and your confidence is moderate. Specific practice beats general review.</div>
+                            <div class="suggestion-actions">
+                                <button class="btn-suggestion btn-accept" onclick="acceptSuggestion(event)">Accept</button>
+                                <button class="btn-suggestion btn-reject" onclick="rejectSuggestion(event)">Reject</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 32px;">
+                    <div class="section-title">How Advisor Works</div>
+                    <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 16px; margin-top: 16px; font-size: 13px; color: rgba(255, 255, 255, 0.7); line-height: 1.6;">
+                        Suggestions never change your plan until you accept. Dr. Brian uses your learning patterns. Dr. J targets content gaps with high impact. Advisor AI optimizes time by ROI. Review, accept what fits your goals, decline the rest. Every suggestion is a hypothesis about your best path forward.
+                    </div>
+                </div>
+            </div>
+
+            <!-- HISTORY TAB -->
+            <div id="history" class="tab-content">
+                <div class="weekly-summary">
+                    <div class="summary-stat">
+                        <div class="summary-label">Hours Studied</div>
+                        <div class="summary-value">10.5</div>
+                        <div class="summary-note">Target: 12 hrs</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-label">Tasks Completed</div>
+                        <div class="summary-value">18</div>
+                        <div class="summary-note">Last week: 15</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-label">Accuracy Trend</div>
+                        <div class="summary-value">+2%</div>
+                        <div class="summary-note">Improving week-over-week</div>
+                    </div>
+                    <div class="summary-stat">
+                        <div class="summary-label">Strongest Gain</div>
+                        <div class="summary-value">Neurology</div>
+                        <div class="summary-note">+8% improvement</div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="section-title" style="margin-top: 32px; margin-bottom: 16px;">Timeline</div>
+                    <div class="timeline">
+                        <div class="timeline-section">
+                            <div class="timeline-label">Today</div>
+                            <div class="timeline-item">
+                                <div class="timeline-icon">✓</div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Completed Endocrine Review</div>
+                                    <div class="timeline-subtitle">20 min session, 75% accuracy</div>
+                                    <div class="timeline-time">10:00 AM</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-icon">🔄</div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Started Renal Focus Block</div>
+                                    <div class="timeline-subtitle">Ongoing, 12 min elapsed</div>
+                                    <div class="timeline-time">11:15 AM</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-section">
+                            <div class="timeline-label">This Week</div>
+                            <div class="timeline-item">
+                                <div class="timeline-icon">✓</div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">5 Day Streak Achieved</div>
+                                    <div class="timeline-subtitle">Studied every day Mon-Fri</div>
+                                    <div class="timeline-time">Friday 4/25</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-icon">⬆️</div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Topic Upgrade: Neurology to Stable</div>
+                                    <div class="timeline-subtitle">From 61% to 67%, high confidence</div>
+                                    <div class="timeline-time">Thursday 4/24</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-icon">📊</div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Completed STAT Session: Infectious Disease</div>
+                                    <div class="timeline-subtitle">15 questions, 93% accuracy</div>
+                                    <div class="timeline-time">Wednesday 4/23</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="timeline-section">
+                            <div class="timeline-label">Milestones</div>
+                            <div class="timeline-item">
+                                <div class="timeline-icon">🎯</div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Reached Level 12</div>
+                                    <div class="timeline-subtitle">1,250 / 2,000 XP to Level 13</div>
+                                    <div class="timeline-time">April 10</div>
+                                </div>
+                            </div>
+                            <div class="timeline-item">
+                                <div class="timeline-icon">💡</div>
+                                <div class="timeline-content">
+                                    <div class="timeline-title">Program Start: USMLE Step 2 CK</div>
+                                    <div class="timeline-subtitle">Target exam date: June 28, 2026</div>
+                                    <div class="timeline-time">March 1</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 32px;">
+                    <button class="btn-header" onclick="exportReport()">Export Weekly Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CALENDAR EXPORT MODAL -->
+    <div id="calendarModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Export to Calendar</div>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <div class="modal-label">Select what to export</div>
+                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
+                            <input type="radio" name="export-scope" value="today" checked style="cursor: pointer;">
+                            Today's plan (5 tasks, 1.5 hours)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
+                            <input type="radio" name="export-scope" value="week" style="cursor: pointer;">
+                            This week (18 tasks, 10.5 hours)
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
+                            <input type="radio" name="export-scope" value="full" style="cursor: pointer;">
+                            Full active plan (48 tasks, 32 hours)
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-field">
+                    <div class="modal-label">Reminder before task</div>
+                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
+                            <input type="radio" name="reminder" value="10" style="cursor: pointer;">
+                            10 minutes
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
+                            <input type="radio" name="reminder" value="30" checked style="cursor: pointer;">
+                            30 minutes
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
+                            <input type="radio" name="reminder" value="60" style="cursor: pointer;">
+                            1 hour
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-field">
+                    <div class="modal-label">Export options</div>
+                    <div style="display: flex; gap: 12px; margin-top: 12px;">
+                        <button class="btn-modal btn-modal-primary" onclick="downloadICS()">Download .ics</button>
+                        <button class="btn-modal btn-modal-secondary" onclick="copyFeedURL()">Copy Feed URL</button>
+                    </div>
+                </div>
+                <div class="modal-copy">
+                    ICS export is available now. Live sync can be connected in a future update.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BLOCK DETAIL MODAL -->
+    <div id="blockDetailModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Schedule Block Details</div>
+                <button class="modal-close" onclick="closeBlockDetail()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-field">
+                    <div class="modal-label">Topic</div>
+                    <div class="modal-value" id="blockDetailTopic">Renal Pathophysiology</div>
+                </div>
+                <div class="modal-field">
+                    <div class="modal-label">Time</div>
+                    <div class="modal-value" id="blockDetailTime">Monday 7:00 - 7:30 AM (30 min)</div>
+                </div>
+                <div class="modal-field">
+                    <div class="modal-label">Confidence Level</div>
+                    <div class="modal-value" id="blockDetailConfidence">Moderate</div>
+                </div>
+                <div class="modal-field">
+                    <div class="modal-label">What you'll do</div>
+                    <div style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-top: 8px;">Review acute kidney injury pathophysiology and management protocols with focus areas.</div>
+                </div>
+                <div class="modal-field">
+                    <div class="modal-label">Why this block</div>
+                    <div style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-top: 8px;">Renal is critical. This time follows your strongest learning pattern. Confidence is moderate, meaning you'll benefit from targeted refresh.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-modal btn-modal-primary" onclick="completeBlockDetail()">Mark Complete</button>
+                <button class="btn-modal btn-modal-secondary" onclick="closeBlockDetail()">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TIMER WIDGET -->
+    <div class="timer-widget" id="timerWidget">
+        <div class="timer-task-name" id="timerTaskName">RENAL REVIEW</div>
+        <div class="timer-display" id="timerDisplay">30:00</div>
+        <div class="timer-controls">
+            <button class="timer-btn-stop" onclick="stopTimer()">Stop</button>
+            <button class="timer-btn-done" onclick="completeTimerTask()">Done</button>
+        </div>
+    </div>
+
+    <script>
+        // GLOBAL STATE
+        let currentTab = 'command';
+        let currentXP = 1250;
+        let currentTasks = 2;
+        let tasksCompleted = 2;
+        let draggedElement = null;
+
+        function updateRings() {
+            const taskPct = Math.min((tasksCompleted / 5) * 100, 100);
+            const ringEl = document.querySelector('.ring-tasks');
+            if (ringEl) ringEl.style.setProperty('--progress', taskPct + '%');
+        }
+
+        // TAB SWITCHING
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            currentTab = tabName;
+        }
+
+        // TASK COMPLETION
+        function completeTask(event) {
+            event.stopPropagation();
+            const item = event.target.closest('.task-item');
+            const taskName = item.querySelector('.task-name').textContent;
+            item.style.opacity = '0.5';
+            item.querySelector('.task-status-icon').classList.remove('status-pending');
+            item.querySelector('.task-status-icon').classList.add('status-completed');
+            item.querySelector('.task-status-icon').textContent = '✓';
+
+            // Update XP
+            currentXP += 50;
+            updateXPBar();
+            currentTasks = Math.max(0, currentTasks - 1);
+
+            tasksCompleted++;
+            updateRings();
+            showToast(`+50 XP: Completed ${taskName}`);
+        }
+
+        function completeBlockDetail() {
+            const topic = document.getElementById('blockDetailTopic').textContent;
+            currentXP += 50;
+            tasksCompleted++;
+            updateXPBar();
+            updateRings();
+            showToast(`+50 XP: Completed ${topic}`);
+            closeBlockDetail();
+        }
+
+        let timerInterval = null;
+        let timerSeconds = 0;
+        let currentTimerTask = '';
+
+        function startTask(taskName, duration) {
+            // Stop any existing timer
+            if (timerInterval) clearInterval(timerInterval);
+
+            currentTimerTask = taskName;
+            timerSeconds = duration * 60;
+            document.getElementById('timerTaskName').textContent = taskName.toUpperCase();
+            updateTimerDisplay();
+            document.getElementById('timerWidget').classList.add('active');
+
+            timerInterval = setInterval(function() {
+                timerSeconds--;
+                updateTimerDisplay();
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    showToast(`Time is up: ${taskName}. Mark it done when ready.`);
+                }
+            }, 1000);
+
+            showToast(`Started: ${taskName} (${duration} min)`);
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(Math.abs(timerSeconds) / 60);
+            const s = Math.abs(timerSeconds) % 60;
+            const prefix = timerSeconds < 0 ? '+' : '';
+            document.getElementById('timerDisplay').textContent = prefix + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+            document.getElementById('timerWidget').classList.remove('active');
+            showToast(`Paused: ${currentTimerTask}`);
+        }
+
+        function completeTimerTask() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = null;
+            document.getElementById('timerWidget').classList.remove('active');
+            tasksCompleted++;
+            currentXP += 40;
+            updateXPBar();
+            updateRings();
+            showToast(`+40 XP: Completed ${currentTimerTask}`);
+        }
+
+        function updateXPBar() {
+            const progress = (currentXP / 2000) * 100;
+            document.querySelector('.xp-bar-progress').style.width = progress + '%';
+        }
+
+        // TOAST NOTIFICATIONS
+        function showToast(message) {
+            const toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        // MODALS
+        function openCalendarExport() {
+            document.getElementById('calendarModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('calendarModal').classList.remove('active');
+        }
+
+        function downloadICS() {
+            const scope = document.querySelector('input[name="export-scope"]:checked').value;
+            showToast(`Downloaded ${scope} calendar export (.ics)`);
+            setTimeout(() => closeModal(), 1000);
+        }
+
+        function copyFeedURL() {
+            showToast('Calendar feed URL copied to clipboard');
+            setTimeout(() => closeModal(), 1000);
+        }
+
+        function exportReport() {
+            showToast('Weekly report exported as PDF');
+        }
+
+        function openBlockDetail(element) {
+            const topic = element.querySelector('.block-topic').textContent;
+            const time = element.querySelector('.block-time').textContent;
+            const confidence = element.querySelector('.block-confidence').textContent;
+
+            document.getElementById('blockDetailTopic').textContent = topic;
+            document.getElementById('blockDetailTime').textContent = 'Monday ' + time + ' (30 min)';
+            document.getElementById('blockDetailConfidence').textContent = confidence;
+
+            document.getElementById('blockDetailModal').classList.add('active');
+        }
+
+        function closeBlockDetail() {
+            document.getElementById('blockDetailModal').classList.remove('active');
+        }
+
+        // DRAG AND DROP
+        function dragStart(event) {
+            draggedElement = event.target.closest('.schedule-block, .unscheduled-item');
+            draggedElement.classList.add('dragging');
+        }
+
+        function dragEnd(event) {
+            if (draggedElement) {
+                draggedElement.classList.remove('dragging');
+            }
+        }
+
+        // GHOST BLOCKS
+        function acceptGhostBlock(event) {
+            const ghostBlock = event.target.closest('.schedule-block.ghost');
+            if (!ghostBlock) return;
+
+            const topic = ghostBlock.querySelector('.block-topic').textContent;
+            const advisor = ghostBlock.querySelector('.block-advisor').textContent;
+
+            ghostBlock.classList.remove('ghost');
+            ghostBlock.style.borderStyle = 'solid';
+            ghostBlock.style.opacity = '1';
+            showToast(`Accepted: ${topic} (${advisor})`);
+        }
+
+        // ADVISOR SUGGESTIONS
+        function acceptSuggestion(event) {
+            event.stopPropagation();
+            const card = event.target.closest('.suggestion-card');
+            const advisor = card.querySelector('.suggestion-advisor').textContent;
+            const text = card.querySelector('.suggestion-text').textContent.substring(0, 30) + '...';
+
+            card.style.opacity = '0.6';
+            card.querySelector('.suggestion-status').textContent = 'Accepted';
+            showToast(`Accepted: ${advisor}'s suggestion`);
+        }
+
+        function rejectSuggestion(event) {
+            event.stopPropagation();
+            const card = event.target.closest('.suggestion-card');
+            const advisor = card.querySelector('.suggestion-advisor').textContent;
+
+            card.style.opacity = '0.4';
+            card.querySelector('.suggestion-status').textContent = 'Rejected';
+            showToast(`Declined: ${advisor}'s suggestion`);
+        }
+
+        // WEEK VIEW
+        function setWeekView(view) {
+            document.querySelectorAll('.btn-control').forEach(el => el.classList.remove('active'));
+            event.target.classList.add('active');
+            showToast(`View: ${view === 'today' ? 'Today' : 'This Week'}`);
+        }
+
+        // CLOSE MODALS ON OVERLAY CLICK
+        document.addEventListener('click', function(event) {
+            if (event.target.id === 'calendarModal') {
+                closeModal();
+            }
+            if (event.target.id === 'blockDetailModal') {
+                closeBlockDetail();
+            }
+        });
+
+        // INITIAL LOAD
+        updateXPBar();
+    </script>
+</body>
+</html>

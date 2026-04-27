@@ -31,7 +31,7 @@ restore_live_from_commit() {
   local hash="$1"
   local live_has_layout=1
 
-  for p in LIVE/arena_v1.html LIVE/stat_latest.html LIVE/drills_v1.html LIVE/mode_dailyrounds_v1.html; do
+  for p in LIVE/arena.html LIVE/stat.html LIVE/drills.html LIVE/daily.html; do
     if ! git -C "$ROOT_DIR" cat-file -e "${hash}:${p}" 2>/dev/null; then
       live_has_layout=0
       break
@@ -46,10 +46,10 @@ restore_live_from_commit() {
   fi
 
   log "Target commit uses legacy root layout; reconstructing /LIVE from canonical legacy paths"
-  git -C "$ROOT_DIR" show "${hash}:arena_v1.html" > "$ROOT_DIR/LIVE/arena_v1.html"
-  git -C "$ROOT_DIR" show "${hash}:drills_v1.html" > "$ROOT_DIR/LIVE/drills_v1.html"
-  git -C "$ROOT_DIR" show "${hash}:mode_dailyrounds_v1.html" > "$ROOT_DIR/LIVE/mode_dailyrounds_v1.html"
-  git -C "$ROOT_DIR" show "${hash}:STAT MAIN folder/stat_latest.html" > "$ROOT_DIR/LIVE/stat_latest.html"
+  git -C "$ROOT_DIR" show "${hash}:arena_v1.html" > "$ROOT_DIR/LIVE/arena.html"
+  git -C "$ROOT_DIR" show "${hash}:drills_v1.html" > "$ROOT_DIR/LIVE/drills.html"
+  git -C "$ROOT_DIR" show "${hash}:mode_dailyrounds_v1.html" > "$ROOT_DIR/LIVE/daily.html"
+  git -C "$ROOT_DIR" show "${hash}:STAT MAIN folder/stat_latest.html" > "$ROOT_DIR/LIVE/stat.html"
 }
 
 if [[ -z "$TARGET_HASH" ]]; then

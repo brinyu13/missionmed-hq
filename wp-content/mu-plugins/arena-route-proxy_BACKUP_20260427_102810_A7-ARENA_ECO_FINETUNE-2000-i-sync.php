@@ -164,13 +164,7 @@ if ( ! function_exists( 'mm_arena_route_proxy_inject_auth_config' ) ) {
 			return $body;
 		}
 
-		/*
-		 * Guard only when a concrete config object literal already exists.
-		 * The Arena client also contains reassignment lines such as
-		 * "window.MM_ARENA_AUTH_CONFIG = direct;" which must NOT block
-		 * server-side config injection.
-		 */
-		if ( 1 === preg_match( '/window\.MM_ARENA_AUTH_CONFIG\s*=\s*\{/', $body ) ) {
+		if ( 1 === preg_match( '/window\.MM_ARENA_AUTH_CONFIG\s*=/', $body ) ) {
 			return $body;
 		}
 
@@ -196,173 +190,20 @@ if ( ! function_exists( 'mm_arena_route_proxy_inject_auth_config' ) ) {
 	}
 }
 
-if ( ! function_exists( 'mm_arena_route_proxy_fetch_upstream_html' ) ) {
-	/**
-	 * Fetch Arena upstream HTML using a deterministic transport ladder.
-	 *
-	 * @param string $url Upstream URL.
-	 * @return array{
-	 *   ok:bool,
-	 *   status:int,
-	 *   body:string,
-	 *   transport:string,
-	 *   error:string
-	 * }
-	 */
-	function mm_arena_route_proxy_fetch_upstream_html( $url ) {
-		$result = array(
-			'ok'        => false,
-			'status'    => 0,
-			'body'      => '',
-			'transport' => '',
-			'error'     => '',
-		);
-
-		if ( function_exists( 'curl_init' ) ) {
-			$ch = curl_init();
-
-			curl_setopt_array(
-				$ch,
-				array(
-					CURLOPT_URL            => $url,
-					CURLOPT_RETURNTRANSFER => true,
-					CURLOPT_FOLLOWLOCATION => true,
-					CURLOPT_MAXREDIRS      => 5,
-					CURLOPT_CONNECTTIMEOUT => 5,
-					CURLOPT_TIMEOUT        => 20,
-					CURLOPT_SSL_VERIFYPEER => true,
-					CURLOPT_SSL_VERIFYHOST => 2,
-					CURLOPT_HTTPHEADER     => array(
-						'Accept: text/html',
-						'User-Agent: MissionMed-Arena-Proxy/1.0 (+https://missionmedinstitute.com/arena)',
-					),
-				)
-			);
-
-			$body          = curl_exec( $ch );
-			$curl_errno    = curl_errno( $ch );
-			$curl_error    = curl_error( $ch );
-			$status_code   = (int) curl_getinfo( $ch, CURLINFO_RESPONSE_CODE );
-			$body_string   = is_string( $body ) ? $body : '';
-			$body_nonempty = '' !== $body_string;
-
-			curl_close( $ch );
-
-			if ( 0 === $curl_errno && $status_code >= 200 && $status_code < 400 && $body_nonempty ) {
-				$result['ok']        = true;
-				$result['status']    = $status_code;
-				$result['body']      = $body_string;
-				$result['transport'] = 'curl';
-				return $result;
-			}
-
-			$result['transport'] = 'curl';
-			$result['status']    = $status_code;
-			$result['error']     = 0 !== $curl_errno ? $curl_error : 'curl_invalid_response';
-		}
-
-		$response = wp_remote_get(
-			$url,
-			array(
-				'timeout'     => 20,
-				'redirection' => 5,
-				'sslverify'   => true,
-				'headers'     => array(
-					'Accept'     => 'text/html',
-					'User-Agent' => 'MissionMed-Arena-Proxy/1.0 (+https://missionmedinstitute.com/arena)',
-				),
-			)
-		);
-
-		if ( is_wp_error( $response ) ) {
-			$result['transport'] = '' !== $result['transport'] ? $result['transport'] . '+wp_remote_get' : 'wp_remote_get';
-			$result['error']     = $response->get_error_message();
-			return $result;
-		}
-
-		$status_code = (int) wp_remote_retrieve_response_code( $response );
-		$body        = (string) wp_remote_retrieve_body( $response );
-
-		$result['transport'] = '' !== $result['transport'] ? $result['transport'] . '+wp_remote_get' : 'wp_remote_get';
-		$result['status']    = $status_code;
-
-		if ( $status_code >= 200 && $status_code < 400 && '' !== $body ) {
-			$result['ok']   = true;
-			$result['body'] = $body;
-			return $result;
-		}
-
-		$result['error'] = 'wp_remote_get_invalid_response';
-		return $result;
-	}
-}
-
-if ( ! function_exists( 'mm_arena_route_proxy_request_path' ) ) {
-	/**
-	 * Resolve a normalized request path for robust route matching.
-	 *
-	 * @return string
-	 */
-	function mm_arena_route_proxy_request_path() {
-		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
-		if ( '' === $request_uri ) {
-			return '';
-		}
-
-		$path = wp_parse_url( $request_uri, PHP_URL_PATH );
-		if ( ! is_string( $path ) || '' === $path ) {
-			return '';
-		}
-
-		$path = rawurldecode( $path );
-		$path = preg_replace( '#/+#', '/', $path );
-
-		$home_path = wp_parse_url( home_url( '/' ), PHP_URL_PATH );
-		if ( is_string( $home_path ) && '' !== $home_path && '/' !== $home_path ) {
-			$home_path = rtrim( $home_path, '/' );
-			if ( strpos( $path, $home_path . '/' ) === 0 ) {
-				$path = substr( $path, strlen( $home_path ) );
-			} elseif ( $path === $home_path ) {
-				$path = '/';
-			}
-		}
-
-		if ( strpos( $path, '/index.php/' ) === 0 ) {
-			$path = substr( $path, strlen( '/index.php' ) );
-		} elseif ( '/index.php' === $path ) {
-			$path = '/';
-		}
-
-		return '' !== $path ? $path : '/';
-	}
-}
-
-if ( ! function_exists( 'mm_arena_route_proxy_is_target_request' ) ) {
-	/**
-	 * Determine whether the current request should be served by /arena proxy.
-	 *
-	 * @return bool
-	 */
-	function mm_arena_route_proxy_is_target_request() {
-		$path = mm_arena_route_proxy_request_path();
-		if ( '' === $path ) {
-			return false;
-		}
-
-		return 1 === preg_match( '#^/arena(?:/|$)#', $path );
-	}
-}
-
 if ( ! function_exists( 'mm_arena_route_proxy_handle_request' ) ) {
 	/**
 	 * Serve /arena from upstream Arena artifact.
 	 */
 	function mm_arena_route_proxy_handle_request() {
-		if ( ! mm_arena_route_proxy_is_target_request() ) {
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) $_SERVER['REQUEST_URI'] : '';
+		$path        = parse_url( $request_uri, PHP_URL_PATH );
+		$normalized  = rtrim( (string) $path, '/' );
+
+		if ( '/arena' !== $normalized ) {
 			return;
 		}
 
-		$upstream_base = 'https://cdn.missionmedinstitute.com/html-system/LIVE/arena.html';
+			$upstream_base = 'https://cdn.missionmedinstitute.com/html-system/LIVE/arena.html';
 		$query_string  = isset( $_SERVER['QUERY_STRING'] ) ? trim( (string) $_SERVER['QUERY_STRING'] ) : '';
 		$upstream_url  = $upstream_base;
 
@@ -370,67 +211,67 @@ if ( ! function_exists( 'mm_arena_route_proxy_handle_request' ) ) {
 			$upstream_url .= '?' . $query_string;
 		}
 
-		$fetch_result = mm_arena_route_proxy_fetch_upstream_html( $upstream_url );
-		if ( ! $fetch_result['ok'] ) {
+		$response = wp_remote_get(
+			$upstream_url,
+			array(
+				'timeout'     => 15,
+				'redirection' => 3,
+				'sslverify'   => true,
+				'headers'     => array(
+					'Accept' => 'text/html',
+				),
+			)
+		);
+
+		if ( is_wp_error( $response ) ) {
 			status_header( 502 );
 			nocache_headers();
 			header( 'Content-Type: text/plain; charset=' . get_bloginfo( 'charset' ) );
 			header( 'X-MissionMed-Route: arena-proxy' );
 			header( 'X-MissionMed-Arena-Intercept: true' );
 			header( 'X-MissionMed-Upstream-Error: request_failed' );
-			if ( ! empty( $fetch_result['transport'] ) ) {
-				header( 'X-MissionMed-Upstream-Transport: ' . (string) $fetch_result['transport'] );
-			}
-			if ( ! empty( $fetch_result['error'] ) ) {
-				header( 'X-MissionMed-Upstream-Detail: ' . substr( (string) $fetch_result['error'], 0, 180 ) );
-			}
 			echo 'MissionMed arena upstream fetch failed.';
 			exit;
 		}
 
-		$status_code   = (int) $fetch_result['status'];
-		$body          = (string) $fetch_result['body'];
-		$body_fixed    = mm_arena_route_proxy_force_same_origin_auth( $body );
-		$auth_fixed    = $body_fixed !== $body;
-		$auth_config   = mm_arena_route_proxy_build_auth_config();
-		$body_injected = mm_arena_route_proxy_inject_auth_config( $body_fixed, $auth_config );
-		$cfg_injected  = $body_injected !== $body_fixed;
-		$body          = $body_injected;
+			$status_code  = (int) wp_remote_retrieve_response_code( $response );
+			$body         = (string) wp_remote_retrieve_body( $response );
+			$body_fixed   = mm_arena_route_proxy_force_same_origin_auth( $body );
+			$auth_fixed   = $body_fixed !== $body;
+			$auth_config  = mm_arena_route_proxy_build_auth_config();
+			$body_injected = mm_arena_route_proxy_inject_auth_config( $body_fixed, $auth_config );
+			$cfg_injected = $body_injected !== $body_fixed;
+			$body         = $body_injected;
 
-		if ( $status_code < 200 || $status_code >= 400 || '' === $body ) {
-			status_header( 502 );
-			nocache_headers();
-			header( 'Content-Type: text/plain; charset=' . get_bloginfo( 'charset' ) );
-			header( 'X-MissionMed-Route: arena-proxy' );
+			if ( $status_code < 200 || $status_code >= 400 || '' === $body ) {
+				status_header( 502 );
+				nocache_headers();
+				header( 'Content-Type: text/plain; charset=' . get_bloginfo( 'charset' ) );
+				header( 'X-MissionMed-Route: arena-proxy' );
 			header( 'X-MissionMed-Arena-Intercept: true' );
 			header( 'X-MissionMed-Upstream-Status: ' . (string) $status_code );
-			if ( ! empty( $fetch_result['transport'] ) ) {
-				header( 'X-MissionMed-Upstream-Transport: ' . (string) $fetch_result['transport'] );
-			}
 			echo 'MissionMed arena upstream returned invalid response.';
+				exit;
+			}
+
+				if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+					define( 'DONOTCACHEPAGE', true );
+				}
+
+				status_header( 200 );
+				nocache_headers();
+				header( 'Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private' );
+				header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
+				header( 'X-MissionMed-Route: arena-proxy' );
+				header( 'X-MissionMed-Arena-Auth-Mode: wp-proxy' );
+				if ( $auth_fixed ) {
+				header( 'X-MissionMed-Arena-Auth-Rewrite: true' );
+			}
+			if ( $cfg_injected ) {
+				header( 'X-MissionMed-Arena-Auth-Config: injected' );
+			}
+			echo $body;
 			exit;
-		}
-
-		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
-			define( 'DONOTCACHEPAGE', true );
-		}
-
-		status_header( 200 );
-		nocache_headers();
-		header( 'Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private' );
-		header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
-		header( 'X-MissionMed-Route: arena-proxy' );
-		header( 'X-MissionMed-Arena-Auth-Mode: wp-proxy' );
-		header( 'X-MissionMed-Upstream-Status: ' . (string) $status_code );
-		header( 'X-MissionMed-Upstream-Transport: ' . (string) $fetch_result['transport'] );
-		if ( $auth_fixed ) {
-			header( 'X-MissionMed-Arena-Auth-Rewrite: true' );
-		}
-		if ( $cfg_injected ) {
-			header( 'X-MissionMed-Arena-Auth-Config: injected' );
-		}
-		echo $body;
-		exit;
 	}
 }
 

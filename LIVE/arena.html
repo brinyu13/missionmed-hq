@@ -13379,6 +13379,9 @@ END DRILLS RE-VERIFICATION SNIPPET
     } else if(selectedMode === 'stat'){
       title = 'STAT!';
       desc = 'Head-to-head duel mode';
+    } else if(selectedMode === 'iv_on_call'){
+      title = 'DR BRIAN: IV ON-CALL';
+      desc = 'Train like it matters';
     }
 
     if(subtitleEl) subtitleEl.textContent = 'Selected Mode';
@@ -13415,10 +13418,6 @@ END DRILLS RE-VERIFICATION SNIPPET
         var mode = String(card.getAttribute('data-arena-mode') || '').trim();
         if(!mode){
           showLockedToast('Select a mode first');
-          return;
-        }
-        if(mode === 'iv_on_call'){
-          launchIVOnCall('arena_mode_system_008_tile');
           return;
         }
         log('mode selected:', mode);

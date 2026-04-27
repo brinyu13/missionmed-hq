@@ -159,7 +159,30 @@ export async function selectDbocQuestion({
     throw new Error(poolResult.error || 'question_pool_failed');
   }
 
-  const allQuestions = Array.isArray(poolResult.data) ? poolResult.data : [];
+  let allQuestions = Array.isArray(poolResult.data) ? poolResult.data : [];
+  if (!allQuestions.length) {
+    const fallbackInsert = await fetchSupabaseTable(
+      'dboc_iv_questions?select=id,text,category,use_count,last_used,created_at',
+      {
+        method: 'POST',
+        headers: {
+          ...headers,
+          Prefer: 'return=representation',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          category: 'general',
+          text: 'Tell me about yourself and why you are a strong fit for this residency program.',
+          difficulty: 'core',
+        }),
+      },
+    );
+
+    if (fallbackInsert.ok && Array.isArray(fallbackInsert.data) && fallbackInsert.data[0]) {
+      allQuestions = [fallbackInsert.data[0]];
+    }
+  }
+
   if (!allQuestions.length) {
     return {
       question: null,

@@ -90,7 +90,7 @@ const CONFIG = {
   sessionTtlSeconds: Math.max(600, Number(envValue('MMHQ_SESSION_TTL_SECONDS', '28800'))),
   sessionSecret: SESSION_SECRET,
   sessionSecretConfigured: Boolean(SESSION_SECRET),
-  wpBase: sanitizeServiceUrl(envValue('MMHQ_WP_BASE', '')),
+  wpBase: sanitizeServiceUrl(envValue('MMHQ_WP_BASE', 'https://missionmedinstitute.com')),
   wpNamespace: String(envValue('MMHQ_WP_NAMESPACE', 'missionmed-command-center/v1')).replace(/^\/+|\/+$/gu, ''),
   wpUsername: envValue('MMHQ_WP_USERNAME', ''),
   wpAppPassword: envValue('MMHQ_WP_APP_PASSWORD', ''),
@@ -1005,7 +1005,7 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
 
 function getLoginHints(request = null) {
   const hqBase = getHqBaseForRequest(request);
-  const hqEntryUrl = hqBase ? new URL('/hq', hqBase).toString() : '';
+  const hqEntryUrl = hqBase ? new URL('/api/auth/session', hqBase).toString() : '';
   const sessionPersistence = Boolean(SESSION_SECRET) ? 'persistent' : 'missing-env-secret';
 
   return {
@@ -1046,6 +1046,7 @@ function buildSessionPayload(session = null, request = null) {
     expiresAt: session.expiresAt,
     user: {
       id: session.user.id,
+      dbocUserId: session.supabaseUserId || session.user.id,
       login: session.user.login,
       displayName: session.user.displayName,
       email: session.user.email,
@@ -1666,7 +1667,7 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const hqBase = getHqBaseForRequest(request);
-    const hqEntryUrl = hqBase ? new URL('/hq', hqBase).toString() : '';
+    const hqEntryUrl = hqBase ? new URL('/api/auth/session', hqBase).toString() : '';
     const redirectUrl = buildWordPressAuthRedirectUrl(hqEntryUrl);
 
     if (!redirectUrl) {
@@ -1952,6 +1953,10 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const sessionData = signInResult.session || {};
+    const supabaseUserId = String(sessionData?.user?.id || '').trim();
+    const refreshedSession = supabaseUserId
+      ? { ...authSession, supabaseUserId }
+      : authSession;
     sendJson(response, 200, {
       access_token: String(sessionData.access_token || '').trim(),
       refresh_token: String(sessionData.refresh_token || '').trim(),
@@ -1960,7 +1965,10 @@ async function handleApiRoute(request, response, url, context) {
       user: sessionData.user || null,
       subject: `wp:${wpUser.id}`,
       source: String(signInResult.source || 'auth_bootstrap'),
-    }, authHeaders);
+    }, {
+      ...authHeaders,
+      'Set-Cookie': buildSessionCookie(request, refreshedSession),
+    });
     return;
   }
 
@@ -2665,6 +2673,10 @@ function normalizeDbocUserId(value) {
 }
 
 function getDbocSessionUserId(session = null) {
+  const supabaseUserId = normalizeDbocUserId(session?.supabaseUserId);
+  if (supabaseUserId) {
+    return supabaseUserId;
+  }
   return normalizeDbocUserId(session?.user?.id);
 }
 
@@ -3262,7 +3274,7 @@ function sanitizeDbocPathSegment(value = '', fallback = 'unknown') {
 }
 
 function buildDbocNormalizedVideoUrl(job = {}) {
-  const base = String(CONFIG.mediaUploadBase || 'https://missionmed-videos.s3.missionmedcdn.com').replace(/\/+$/u, '');
+  const base = String(CONFIG.mediaUploadBase || 'https://cdn.missionmedinstitute.com').replace(/\/+$/u, '');
   const userSegment = sanitizeDbocPathSegment(job.user_id, 'unknown-user');
   const responseSegment = sanitizeDbocPathSegment(job.response_id, 'unknown-response');
   return `${base}/dboc-iv/${userSegment}/${responseSegment}.mp4`;
@@ -4031,12 +4043,9 @@ function buildDbocInFilter(values = []) {
 
 function buildDbocSupabaseHeaders(session = null, includeContentType = false) {
   const headers = {};
-  const wpAuthorization = String(session?.wpAuthorization || '').trim();
-
-  // Prefer per-session bearer token when present; fallback headers are provided by fetchSupabaseTable.
-  if (wpAuthorization) {
-    headers.Authorization = wpAuthorization;
-  }
+  void session;
+  // Supabase auth headers are injected by fetchSupabaseTable(). Forwarding
+  // WordPress tokens here causes Supabase JWT verification failures.
 
   if (includeContentType) {
     headers['Content-Type'] = 'application/json';
@@ -4054,6 +4063,86 @@ function dbocEnsureUserMatch(inputUserId, sessionUserId) {
 
 function dbocComputeSafAnalysis(transcriptText) {
   return analyzeSafTranscript(transcriptText);
+}
+
+function buildDbocVaultSummary(transcriptText = '') {
+  const compact = String(transcriptText || '').replace(/\s+/gu, ' ').trim();
+  if (!compact) {
+    return 'Answer submitted';
+  }
+  if (compact.length <= 280) {
+    return compact;
+  }
+  return `${compact.slice(0, 277)}...`;
+}
+
+async function upsertDbocAnswerVaultEntry({ userId = '', questionId = '', transcriptText = '', feedbackText = '', session = null } = {}) {
+  const safeUserId = String(userId || '').trim();
+  if (!safeUserId) {
+    throw new Error('vault_user_id_required');
+  }
+
+  const safeQuestionId = String(questionId || '').trim();
+  let category = null;
+  if (safeQuestionId) {
+    const categoryLookup = await fetchSupabaseTable(
+      `dboc_iv_questions?id=eq.${encodeURIComponent(safeQuestionId)}&select=category&limit=1`,
+      { headers: buildDbocSupabaseHeaders(session) },
+    );
+    if (categoryLookup.ok) {
+      const row = Array.isArray(categoryLookup.data) ? (categoryLookup.data[0] || null) : null;
+      category = String(row?.category || '').trim() || null;
+    }
+  }
+
+  const payload = {
+    user_id: safeUserId,
+    question_id: safeQuestionId || null,
+    summary: buildDbocVaultSummary(transcriptText),
+    notes: String(feedbackText || '').trim() || null,
+    category,
+  };
+
+  if (safeQuestionId) {
+    const existingVault = await fetchSupabaseTable(
+      `dboc_iv_answer_vault?user_id=eq.${encodeURIComponent(safeUserId)}&question_id=eq.${encodeURIComponent(safeQuestionId)}&select=id&order=created_at.desc&limit=1`,
+      { headers: buildDbocSupabaseHeaders(session) },
+    );
+    if (!existingVault.ok) {
+      throw new Error(existingVault.error || 'vault_lookup_failed');
+    }
+
+    const existingRow = Array.isArray(existingVault.data) ? (existingVault.data[0] || null) : null;
+    if (existingRow?.id) {
+      const updateVault = await fetchSupabaseTable(
+        `dboc_iv_answer_vault?id=eq.${encodeURIComponent(String(existingRow.id))}&select=id`,
+        {
+          method: 'PATCH',
+          headers: {
+            Prefer: 'return=representation',
+            ...buildDbocSupabaseHeaders(session, true),
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+      if (!updateVault.ok) {
+        throw new Error(updateVault.error || 'vault_update_failed');
+      }
+      return;
+    }
+  }
+
+  const insertVault = await fetchSupabaseTable('dboc_iv_answer_vault?select=id', {
+    method: 'POST',
+    headers: {
+      Prefer: 'return=representation',
+      ...buildDbocSupabaseHeaders(session, true),
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!insertVault.ok) {
+    throw new Error(insertVault.error || 'vault_insert_failed');
+  }
 }
 
 async function persistDbocSafAnalysis(responseId = '', transcriptText = '', session = null, options = {}) {
@@ -4124,7 +4213,7 @@ function buildDbocUploadUrl(userId, filename) {
   const expiresAtMs = nowMs + (60 * 60 * 1000);
   const safeFilename = sanitizeDbocFilename(filename);
   const objectKey = `dboc-iv/${normalizeDbocUserId(userId)}/${nowMs}_${safeFilename}`;
-  const base = String(CONFIG.mediaUploadBase || 'https://missionmed-videos.s3.missionmedcdn.com').replace(/\/+$/u, '');
+  const base = String(CONFIG.mediaUploadBase || 'https://cdn.missionmedinstitute.com').replace(/\/+$/u, '');
   const signature = createHash('sha256')
     .update(`${objectKey}:${expiresAtMs}:${SESSION_SECRET}`)
     .digest('hex');
@@ -5120,10 +5209,20 @@ async function handleDbocRoute(request, response, url, session) {
         return;
       }
 
-      const responseLookup = await fetchSupabaseTable(
-        `dboc_iv_responses?id=eq.${encodeURIComponent(responseId)}&select=id,user_id&limit=1`,
+      let responseLookup = await fetchSupabaseTable(
+        `dboc_iv_responses?id=eq.${encodeURIComponent(responseId)}&select=id,user_id,question_id,session_id&limit=1`,
         { headers: buildDbocSupabaseHeaders(session) },
       );
+
+      if (!responseLookup.ok) {
+        const errorMessage = String(responseLookup.error || '').toLowerCase();
+        if (isDbocQuestionIdColumnMissing(errorMessage)) {
+          responseLookup = await fetchSupabaseTable(
+            `dboc_iv_responses?id=eq.${encodeURIComponent(responseId)}&select=id,user_id,session_id&limit=1`,
+            { headers: buildDbocSupabaseHeaders(session) },
+          );
+        }
+      }
 
       if (!responseLookup.ok) {
         throw new Error(responseLookup.error || 'response_lookup_failed');
@@ -5139,7 +5238,29 @@ async function handleDbocRoute(request, response, url, session) {
         return;
       }
 
+      let resolvedQuestionId = String(responseRow.question_id || '').trim();
+      if (!resolvedQuestionId) {
+        const linkedSessionId = String(responseRow.session_id || '').trim();
+        if (linkedSessionId) {
+          const sessionLookup = await fetchSupabaseTable(
+            `dboc_iv_sessions?id=eq.${encodeURIComponent(linkedSessionId)}&select=question_id&limit=1`,
+            { headers: buildDbocSupabaseHeaders(session) },
+          );
+          if (sessionLookup.ok) {
+            const sessionRow = Array.isArray(sessionLookup.data) ? (sessionLookup.data[0] || null) : null;
+            resolvedQuestionId = String(sessionRow?.question_id || '').trim();
+          }
+        }
+      }
+
       const analysis = await persistDbocSafAnalysis(responseId, transcriptText, session);
+      await upsertDbocAnswerVaultEntry({
+        userId: String(responseRow.user_id || '').trim(),
+        questionId: resolvedQuestionId,
+        transcriptText,
+        feedbackText: String(analysis?.feedback_text || '').trim(),
+        session,
+      });
       sendDbocJson(response, request, pathname, sessionUserId, 200, analysis);
       return;
     }

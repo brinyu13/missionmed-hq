@@ -1,16 +1,19 @@
-import { randomBytes } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { createRequestId, errorResponse, isUuid } from '@/lib/usce/http';
+import { createRequestId, errorResponse, extractBearerToken, isUuid } from '@/lib/usce/http';
 import { createUSCESupabaseClientFactoryFromRuntime } from '@/lib/usce/supabaseClient';
 
-function isSystemAuthorized(request: NextRequest): boolean {
-  const incoming = request.headers.get('x-system-secret');
-  const expected = process.env.USCE_SYSTEM_SECRET;
-  return Boolean(expected && incoming && incoming === expected);
-}
+function isCoordinatorOrAdmin(user: any): boolean {
+  const appRole = user?.app_metadata?.mm_role;
+  if (appRole === 'admin' || appRole === 'coordinator') {
+    return true;
+  }
 
-function randomPassword(): string {
-  return `${randomBytes(12).toString('base64url')}A9!`;
+  const userRoles = user?.user_metadata?.roles;
+  if (Array.isArray(userRoles)) {
+    return userRoles.includes('admin') || userRoles.includes('coordinator');
+  }
+
+  return false;
 }
 
 export async function POST(
@@ -28,16 +31,35 @@ export async function POST(
     });
   }
 
-  if (!isSystemAuthorized(request)) {
+  const accessToken = extractBearerToken(request);
+  if (!accessToken) {
     return errorResponse(401, {
-      code: 'UNAUTHORIZED',
-      message: 'Missing or invalid system secret.',
+      code: 'AUTH_SESSION_MISSING',
+      message: 'Authorization Bearer token is required.',
       requestId,
     });
   }
 
   const factory = await createUSCESupabaseClientFactoryFromRuntime();
-  const supabase: any = factory.createServiceRoleClient({ internal: true });
+  const supabase: any = factory.createUserFacingClient({ accessToken });
+
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  if (userError || !userData?.user?.id) {
+    return errorResponse(401, {
+      code: 'AUTH_SESSION_INVALID',
+      message: 'Authenticated user session is required.',
+      requestId,
+      details: userError ? { supabase: userError.message } : undefined,
+    });
+  }
+
+  if (!isCoordinatorOrAdmin(userData.user)) {
+    return errorResponse(403, {
+      code: 'FORBIDDEN',
+      message: 'Only coordinator/admin users can trigger onboarding.',
+      requestId,
+    });
+  }
 
   const { data: offer, error: offerError } = await supabase
     .schema('command_center')
@@ -120,7 +142,7 @@ export async function POST(
   const { data: requestRow, error: requestError } = await supabase
     .schema('command_center')
     .from('usce_requests')
-    .select('id, applicant_email, applicant_name')
+    .select('id')
     .eq('id', offer.request_id)
     .maybeSingle();
 
@@ -133,40 +155,18 @@ export async function POST(
     });
   }
 
-  let authUserId: string = offer.applicant_user_id;
-  try {
-    if (requestRow.applicant_email) {
-      const created = await supabase.auth.admin.createUser({
-        email: requestRow.applicant_email,
-        password: randomPassword(),
-        email_confirm: true,
-        user_metadata: {
-          full_name: requestRow.applicant_name ?? null,
-          roles: ['student'],
-        },
-        app_metadata: {
-          mm_role: 'student',
-        },
-      });
-
-      if (created?.data?.user?.id) {
-        authUserId = created.data.user.id;
-      }
-    }
-  } catch {
-    // Provisioning can be eventually consistent. Continue with existing applicant_user_id binding.
-  }
+  const authUserId: string = offer.applicant_user_id;
 
   const nowIso = new Date().toISOString();
   const { data: retention, error: retentionError } = await supabase
     .schema('command_center')
     .from('usce_retention')
-    .insert({
-      request_id: offer.request_id,
-      by_user: null,
-      notes: 'auto onboarding trigger post-payment',
-      retained_at: nowIso,
-    })
+      .insert({
+        request_id: offer.request_id,
+        by_user: userData.user.id,
+        notes: 'auto onboarding trigger post-payment',
+        retained_at: nowIso,
+      })
     .select('id')
     .maybeSingle();
 

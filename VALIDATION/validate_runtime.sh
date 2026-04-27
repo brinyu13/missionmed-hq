@@ -7,6 +7,10 @@ LIVE_DIR="$ROOT_DIR/LIVE"
 BASE_URL="${CDN_BASE_URL:-https://cdn.missionmedinstitute.com}"
 TARGET_ENV="LIVE"
 TIMEOUT="30"
+CANONICAL_CDN_BASE_URL="https://cdn.missionmedinstitute.com"
+CANONICAL_STAGING_PREFIX="html-system/STAGING/"
+CANONICAL_LIVE_PREFIX="html-system/LIVE/"
+WP_BASE_URL="${WP_BASE_URL:-https://missionmedinstitute.com}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -40,6 +44,12 @@ done
 TARGET_ENV="$(echo "$TARGET_ENV" | tr '[:lower:]' '[:upper:]')"
 if [[ "$TARGET_ENV" != "STAGING" && "$TARGET_ENV" != "LIVE" ]]; then
   echo "--env must be STAGING or LIVE" >&2
+  exit 2
+fi
+
+BASE_URL="${BASE_URL%/}"
+if [[ "$BASE_URL" != "$CANONICAL_CDN_BASE_URL" ]]; then
+  echo "--base-url must be $CANONICAL_CDN_BASE_URL" >&2
   exit 2
 fi
 
@@ -102,6 +112,15 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 for line in "${MAPPINGS[@]}"; do
   IFS=$'\t' read -r source staging_key live_key target_key <<<"$line"
+
+  if [[ "$staging_key" != ${CANONICAL_STAGING_PREFIX}* ]]; then
+    fail "Manifest STAGING key invalid (expected ${CANONICAL_STAGING_PREFIX}*): $staging_key"
+    continue
+  fi
+  if [[ "$live_key" != ${CANONICAL_LIVE_PREFIX}* ]]; then
+    fail "Manifest LIVE key invalid (expected ${CANONICAL_LIVE_PREFIX}*): $live_key"
+    continue
+  fi
 
   local_file="$ROOT_DIR/$source"
   remote_url="${BASE_URL%/}/${target_key}"
@@ -183,6 +202,45 @@ for f in "$ARENA_REMOTE" "$STAT_REMOTE" "$DRILLS_REMOTE" "$DAILY_REMOTE"; do
     require_absent_file "$f" "plgndqcplokwiuimwhzh" "No deprecated Supabase project in $(basename "$f")"
   fi
 done
+
+if [[ "$TARGET_ENV" == "LIVE" ]]; then
+  for page in arena stat drills daily; do
+    canonical_url="${CANONICAL_CDN_BASE_URL}/html-system/LIVE/${page}.html"
+    canonical_code=$(curl --silent --show-error --location --max-time "$TIMEOUT" \
+      --output /dev/null --write-out '%{http_code}' \
+      "${canonical_url}?cb=$(date +%s)") || canonical_code="000"
+    if [[ "$canonical_code" == "200" ]]; then
+      pass "Canonical LIVE URL reachable: $canonical_url"
+    else
+      fail "Canonical LIVE URL failed ($canonical_code): $canonical_url"
+    fi
+  done
+
+  WP_BASE_URL="${WP_BASE_URL%/}"
+  proxy_endpoints=(
+    "/arena"
+    "/stat"
+    "/drills"
+    "/daily"
+    "/drills?entry=daily_rounds"
+  )
+  for endpoint in "${proxy_endpoints[@]}"; do
+    proxy_url="${WP_BASE_URL}${endpoint}"
+    if [[ "$proxy_url" == *"?"* ]]; then
+      probe_url="${proxy_url}&cb=$(date +%s)"
+    else
+      probe_url="${proxy_url}?cb=$(date +%s)"
+    fi
+    proxy_code=$(curl --silent --show-error --location --max-time "$TIMEOUT" \
+      --output /dev/null --write-out '%{http_code}' \
+      "$probe_url") || proxy_code="000"
+    if [[ "$proxy_code" == "200" ]]; then
+      pass "WordPress proxy reachable: $proxy_url"
+    else
+      fail "WordPress proxy failed ($proxy_code): $proxy_url"
+    fi
+  done
+fi
 
 AUTH_TMP="$TMP_DIR/auth_exchange.json"
 auth_code=$(curl --silent --show-error --location --max-time "$TIMEOUT" \

@@ -1,9 +1,9 @@
 <?php
 /**
- * Route /drills to the canonical Drills HTML artifact while keeping first-party origin.
+ * Route /drills and /daily to canonical HTML artifacts while keeping first-party origin.
  *
  * Architecture contract:
- * - Browser route stays on missionmedinstitute.com (/drills)
+ * - Browser route stays on missionmedinstitute.com (/drills, /daily)
  * - HTML artifact is served from CDN via server-side proxy
  * - Query parameters are preserved for drill/session launch state
  * - WordPress theme/header/footer never render for this route
@@ -156,7 +156,7 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 	}
 
 	/**
-	 * Determine whether the current request should be served by /drills proxy.
+	 * Determine whether the current request should be served by /drills or /daily proxy.
 	 */
 	function mm_drills_route_proxy_is_target_request() {
 		$path = mm_drills_route_proxy_request_path();
@@ -164,7 +164,21 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 			return false;
 		}
 
-		return 1 === preg_match( '#^/drills(?:/|$)#', $path );
+		return 1 === preg_match( '#^/(?:drills|daily)(?:/|$)#', $path );
+	}
+
+	/**
+	 * Determine whether request explicitly targets /daily route alias.
+	 *
+	 * @return bool
+	 */
+	function mm_drills_route_proxy_is_daily_alias_request() {
+		$path = mm_drills_route_proxy_request_path();
+		if ( '' === $path ) {
+			return false;
+		}
+
+		return 1 === preg_match( '#^/daily(?:/|$)#', $path );
 	}
 
 	/**
@@ -191,12 +205,16 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 	}
 
 	/**
-	 * Resolve whether /drills should load engine or menu based on request contract.
+	 * Resolve whether /drills should load drills engine or Daily menu.
 	 *
-	 * Engine launch signals:
+	 * Drills engine signals:
+	 * - default /drills route (no daily menu markers)
 	 * - video_id (canonical)
 	 * - selected_video_id / drill_id (legacy aliases)
 	 * - explicit contract payload params (mm_selected_drill, mm_launch variants)
+	 *
+	 * Daily menu signals:
+	 * - /drills?entry=daily_rounds (canonical menu entry handoff)
 	 *
 	 * @return array{is_engine_launch:bool,signal:string}
 	 */
@@ -210,6 +228,15 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 					'signal'           => 'query.' . $key,
 				);
 			}
+		}
+
+		$entry_value = strtolower( mm_drills_route_proxy_query_value( 'entry' ) );
+		$daily_entry_values = array( 'daily_rounds', 'daily-rounds', 'daily_round', 'daily' );
+		if ( '' !== $entry_value && in_array( $entry_value, $daily_entry_values, true ) ) {
+			return array(
+				'is_engine_launch' => false,
+				'signal'           => 'query.entry',
+			);
 		}
 
 		$contract_keys = array(
@@ -235,25 +262,31 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 		}
 
 		return array(
-			'is_engine_launch' => false,
-			'signal'           => 'menu.default',
+			'is_engine_launch' => true,
+			'signal'           => 'engine.default',
 		);
 	}
 
 	/**
-	 * Serve /drills from upstream drills artifact.
+	 * Serve /drills and /daily from upstream artifacts.
 	 */
 	function mm_drills_route_proxy_handle_request() {
 		if ( ! mm_drills_route_proxy_is_target_request() ) {
 			return;
 		}
 
-		$launch_signal = mm_drills_route_proxy_resolve_launch_signal();
+		$is_daily_alias  = mm_drills_route_proxy_is_daily_alias_request();
+		$launch_signal   = $is_daily_alias
+			? array(
+				'is_engine_launch' => false,
+				'signal'           => 'menu.daily_alias',
+			)
+			: mm_drills_route_proxy_resolve_launch_signal();
 		$is_engine_launch = ! empty( $launch_signal['is_engine_launch'] );
-		$mode_signal = isset( $launch_signal['signal'] ) ? (string) $launch_signal['signal'] : 'unknown';
-			$upstream_base    = $is_engine_launch
-				? 'https://cdn.missionmedinstitute.com/html-system/LIVE/drills.html'
-				: 'https://cdn.missionmedinstitute.com/html-system/LIVE/daily.html';
+		$mode_signal      = isset( $launch_signal['signal'] ) ? (string) $launch_signal['signal'] : 'unknown';
+		$upstream_base    = $is_engine_launch
+			? 'https://cdn.missionmedinstitute.com/html-system/LIVE/drills.html'
+			: 'https://cdn.missionmedinstitute.com/html-system/LIVE/daily.html';
 		$query_string  = isset( $_SERVER['QUERY_STRING'] ) ? trim( (string) $_SERVER['QUERY_STRING'] ) : '';
 		$upstream_url  = $upstream_base;
 

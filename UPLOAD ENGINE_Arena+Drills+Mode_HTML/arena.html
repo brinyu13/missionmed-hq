@@ -5177,6 +5177,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         <div class="nav-tab fn-nav-tab" data-tab="drills">SHOP</div>
         <div class="nav-tab fn-nav-tab" data-tab="avatar">PROFILE<span class="fn-tab-dot"></span></div>
         <div class="nav-tab fn-nav-tab" data-tab="interview">MEDPASS<span class="fn-tab-dot"></span></div>
+        <div class="nav-tab fn-nav-tab" data-tab="career" id="navTabCareer">CAREER</div>
         <!-- START GAUNTLET UI :: NAV TABS 2 -->
         <div class="nav-tab fn-nav-tab" data-tab="leaderboard" id="navTabLeaderboard">QUESTS</div>
         <!-- END GAUNTLET UI :: NAV TABS 2 -->
@@ -5206,6 +5207,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         </div>
       </div>
     </nav>
+    <div id="mmos-career-root" role="region" aria-label="Career Intelligence HUD"></div>
 
     <div id="arenaAvatarFeatureCard" role="button" tabindex="0" aria-label="Create your Arena avatar">
       <div class="arena-avatar-feature-inner">
@@ -13172,13 +13174,14 @@ END DRILLS RE-VERIFICATION SNIPPET
   }
 
   // ---------------------------------------------------------------------
-  // 2) LOBBY STATE MACHINE: body[data-lobby-state] = lobby | avatar | settings | drills-menu
+  // 2) LOBBY STATE MACHINE: body[data-lobby-state] = lobby | avatar | settings | drills-menu | career
   // ---------------------------------------------------------------------
   var STATE_LOBBY    = 'lobby';
   var STATE_AVATAR   = 'avatar';
   var STATE_SETTINGS = 'settings';
   var STATE_DRILLS_MENU = 'drills-menu';
-  var validStates    = [STATE_LOBBY, STATE_AVATAR, STATE_SETTINGS, STATE_DRILLS_MENU];
+  var STATE_CAREER   = 'career';
+  var validStates    = [STATE_LOBBY, STATE_AVATAR, STATE_SETTINGS, STATE_DRILLS_MENU, STATE_CAREER];
 
   function getState(){
     return document.body.getAttribute('data-lobby-state') || STATE_LOBBY;
@@ -13218,6 +13221,7 @@ END DRILLS RE-VERIFICATION SNIPPET
     if(state === STATE_LOBBY || state === STATE_DRILLS_MENU) targetSelector = '[data-tab="play"]';
     else if(state === STATE_AVATAR)   targetSelector = '[data-tab="avatar"]';
     else if(state === STATE_SETTINGS) targetSelector = '[data-tab="settings"]';
+    else if(state === STATE_CAREER)   targetSelector = '[data-tab="career"]';
     if(!targetSelector) return;
     var target = document.querySelector('.top-nav ' + targetSelector);
     if(!target) return;
@@ -13258,6 +13262,12 @@ END DRILLS RE-VERIFICATION SNIPPET
           return;
         }
         setState(STATE_LOBBY);
+        return;
+      }
+      if(dataTab === 'career'){
+        e.preventDefault();
+        e.stopPropagation();
+        setState(STATE_CAREER);
         return;
       }
       // For all other tabs (gauntlet, drills, leaderboard, etc.) we
@@ -16257,7 +16267,7 @@ body.admin-bar .top-nav.fn-top-nav{top:0 !important}
 }
 
 /* ---------- 3) NAV REDUCTION (STRICT) ---------- */
-/* VISIBLE: LOBBY / MEDPASS / PROFILE only */
+/* VISIBLE: LOBBY / MEDPASS / CAREER / PROFILE */
 /* REMOVED: QUESTS, SHOWDOWN, SHOP, COMPETE, old PROFILE tab */
 .top-nav.fn-top-nav .nav-tab.fn-nav-tab[data-tab="gauntlet"],
 .top-nav.fn-top-nav .nav-tab.fn-nav-tab[data-tab="drills"],
@@ -16268,6 +16278,10 @@ body.admin-bar .top-nav.fn-top-nav{top:0 !important}
 }
 /* Force-show MEDPASS */
 .top-nav.fn-top-nav .nav-tab.fn-nav-tab[data-tab="interview"]{
+  display:block !important;
+}
+/* Force-show CAREER */
+.top-nav.fn-top-nav .nav-tab.fn-nav-tab[data-tab="career"]{
   display:block !important;
 }
 /* Tighten the visible tab row */
@@ -16662,8 +16676,8 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
      START MARENA-OS-MMOS-READINESS-GATE-004 (2026-04-20)
      Canonical MissionMed Operating System (MMOS) - v004.
      Extends PASS-003 with an async readiness gate on navigate().
-     Single source of truth across arena_v1.html / drills_v1.html /
-     stat_latest.html. Supersedes the MMOS-003 block in-place.
+     Single source of truth across arena.html / drills.html /
+     stat.html. Supersedes the MMOS-003 block in-place.
 
      Core API (identical across all three files):
        window.MMOS = {
@@ -18655,6 +18669,622 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
 })();
 </script>
 <!-- END H4-GLOBAL-AUTH-UI-SAFE-IMPLEMENTATION-605 :: ARENA AUTH UI -->
+
+<!-- START MMOS-CAREER-HUD-INTEGRATION-532 -->
+<style id="mmos-career-hud-style">
+  #mmos-career-root{
+    position:fixed;
+    top:78px;
+    left:18px;
+    right:18px;
+    bottom:18px;
+    z-index:1120;
+    display:none;
+    pointer-events:none;
+    overflow:auto;
+  }
+  body[data-lobby-state="career"] #mmos-career-root{
+    display:block;
+    pointer-events:auto;
+  }
+  body[data-lobby-state="career"] #arenaAvatarFeatureCard,
+  body[data-lobby-state="career"] #gauntletCard,
+  body[data-lobby-state="career"] #dr-daily-rounds-card,
+  body[data-lobby-state="career"] #arena-character-stage,
+  body[data-lobby-state="career"] #fnSquadCenter,
+  body[data-lobby-state="career"] #fnSquadPhil,
+  body[data-lobby-state="career"] #fnCarouselTrack,
+  body[data-lobby-state="career"] #lus-play-btn,
+  body[data-lobby-state="career"] #lus-mode-select{
+    opacity:0 !important;
+    pointer-events:none !important;
+    transform:translateY(8px) !important;
+  }
+  #mmos-career-root .career-shell{
+    max-width:1120px;
+    margin:0 auto;
+    padding:18px 18px 26px;
+    border-radius:18px;
+    background:
+      radial-gradient(1100px 620px at 12% -18%, rgba(0,191,255,.16) 0%, rgba(0,191,255,0) 60%),
+      linear-gradient(180deg, rgba(9,17,33,.92) 0%, rgba(6,12,24,.96) 100%);
+    border:1px solid rgba(0,191,255,.24);
+    box-shadow:0 24px 54px rgba(0,0,0,.52), 0 0 28px rgba(0,191,255,.12) inset;
+    color:#EAF2FF;
+    font-family:'Rajdhani',sans-serif;
+  }
+  #mmos-career-root .career-head{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  #mmos-career-root .career-kicker{
+    font-family:'Orbitron',sans-serif;
+    font-size:11px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:#94D8FF;
+    margin-bottom:4px;
+  }
+  #mmos-career-root .career-title{
+    font-family:'Orbitron',sans-serif;
+    font-size:22px;
+    font-weight:900;
+    letter-spacing:1.1px;
+    color:#fff;
+  }
+  #mmos-career-root .career-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    padding:7px 10px;
+    border-radius:999px;
+    border:1px solid rgba(255,255,255,.2);
+    background:rgba(8,22,39,.6);
+    font-family:'Orbitron',sans-serif;
+    font-size:10px;
+    letter-spacing:1px;
+    text-transform:uppercase;
+    color:#E8F4FF;
+    white-space:nowrap;
+  }
+  #mmos-career-root .career-grid{
+    display:grid;
+    grid-template-columns:1.15fr .85fr;
+    gap:12px;
+  }
+  #mmos-career-root .career-card{
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:12px;
+    background:linear-gradient(180deg, rgba(14,29,50,.7), rgba(8,17,33,.82));
+    box-shadow:0 12px 24px rgba(0,0,0,.3);
+    padding:12px;
+  }
+  #mmos-career-root .career-card h3{
+    margin:0 0 6px 0;
+    font-family:'Orbitron',sans-serif;
+    font-size:12px;
+    letter-spacing:1.2px;
+    text-transform:uppercase;
+    color:#9CD9FF;
+  }
+  #mmos-career-root .career-focus-topic{
+    font-size:20px;
+    font-weight:800;
+    line-height:1.15;
+    color:#fff;
+    margin:0 0 4px 0;
+  }
+  #mmos-career-root .career-focus-reason,
+  #mmos-career-root .career-mission-copy{
+    font-size:15px;
+    line-height:1.45;
+    color:#D5E7FA;
+  }
+  #mmos-career-root .career-plan-list{
+    list-style:none;
+    margin:0;
+    padding:0;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+  }
+  #mmos-career-root .career-task{
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:10px;
+    background:rgba(7,16,30,.84);
+    padding:9px 10px;
+    display:grid;
+    grid-template-columns:auto 1fr auto;
+    gap:10px;
+    align-items:center;
+  }
+  #mmos-career-root .career-task-time{
+    font-family:'Orbitron',sans-serif;
+    font-size:11px;
+    letter-spacing:.8px;
+    color:#98BEE5;
+    min-width:64px;
+  }
+  #mmos-career-root .career-task-title{
+    font-size:15px;
+    font-weight:700;
+    color:#F2F8FF;
+  }
+  #mmos-career-root .career-task-meta{
+    font-size:12px;
+    color:#B8D1EA;
+  }
+  #mmos-career-root .career-task.is-done{
+    opacity:.6;
+    border-color:rgba(114,255,176,.35);
+  }
+  #mmos-career-root .career-btn{
+    border:1px solid rgba(0,191,255,.45);
+    background:linear-gradient(180deg, rgba(30,165,226,.28), rgba(6,50,88,.65));
+    color:#EAF7FF;
+    border-radius:9px;
+    padding:7px 10px;
+    font-family:'Orbitron',sans-serif;
+    font-size:10px;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+    cursor:pointer;
+  }
+  #mmos-career-root .career-btn:hover{ filter:brightness(1.1); }
+  #mmos-career-root .career-btn[disabled]{ opacity:.55; cursor:not-allowed; }
+  #mmos-career-root .career-timer{
+    display:grid;
+    gap:8px;
+  }
+  #mmos-career-root .career-timer-value{
+    font-family:'Orbitron',sans-serif;
+    font-size:34px;
+    font-weight:900;
+    letter-spacing:1px;
+    color:#FFD562;
+    text-shadow:0 0 18px rgba(255,213,98,.18);
+  }
+  #mmos-career-root .career-timer-caption{
+    font-size:13px;
+    color:#BED8F3;
+  }
+  #mmos-career-root .career-inline-actions{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+  }
+  #mmos-career-root .career-state{
+    margin-top:8px;
+    font-size:13px;
+    color:#D6E7FA;
+  }
+  #mmos-career-root .career-empty{
+    border:1px dashed rgba(255,255,255,.22);
+    border-radius:10px;
+    padding:12px;
+    color:#CAE0F6;
+    font-size:14px;
+  }
+  @media (max-width:980px){
+    #mmos-career-root{ left:10px; right:10px; top:70px; bottom:10px; }
+    #mmos-career-root .career-grid{ grid-template-columns:1fr; }
+    #mmos-career-root .career-title{ font-size:18px; }
+    #mmos-career-root .career-timer-value{ font-size:28px; }
+  }
+</style>
+<script id="mmos-career-hud-script" nonce="Mzg5NDAwMzc2OCw0MjYyOTM4OA==">
+(function(){
+  'use strict';
+
+  if(window.MMOSCareerHUD && window.MMOSCareerHUD.__version === 'career-532'){
+    return;
+  }
+
+  var PROJECT_REF = 'fglyvdykwgbuivikqoah';
+  var CAREER_STATE = 'career';
+  var ROOT_ID = 'mmos-career-root';
+  var state = {
+    loading: false,
+    user: null,
+    profile: null,
+    diagnostic: null,
+    tasks: [],
+    timerTaskId: null,
+    timerEndAt: 0,
+    timerTick: null,
+    mounted: false
+  };
+
+  function getRoot(){
+    return document.getElementById(ROOT_ID);
+  }
+
+  function log(){
+    try{ console.log.apply(console, ['[MMOS-CAREER]'].concat([].slice.call(arguments))); }catch(_e){}
+  }
+
+  function fmtClock(ts){
+    if(!ts) return '--:--';
+    var d = new Date(ts);
+    if(isNaN(d.getTime())) return '--:--';
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function fmtDurationMinutes(value){
+    var n = Number(value);
+    if(!isFinite(n) || n <= 0) n = 25;
+    return Math.max(5, Math.min(180, Math.round(n)));
+  }
+
+  function fmtCountdown(ms){
+    var remain = Math.max(0, Math.floor(ms / 1000));
+    var min = Math.floor(remain / 60);
+    var sec = remain % 60;
+    return String(min).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  }
+
+  function getTier(profile){
+    if(!profile) return ['free'];
+    var tier = profile.enrollment_tier;
+    if(Array.isArray(tier) && tier.length) return tier;
+    if(typeof tier === 'string' && tier) return [tier];
+    return ['free'];
+  }
+
+  function getSupabaseClient(){
+    var existing = window.arenaSupabase;
+    if(existing && existing.supabaseUrl && String(existing.supabaseUrl).indexOf(PROJECT_REF) !== -1){
+      return existing;
+    }
+    if(window.supabase && window.MISSIONMED_SUPABASE_URL && window.MISSIONMED_SUPABASE_ANON_KEY){
+      if(String(window.MISSIONMED_SUPABASE_URL).indexOf(PROJECT_REF) === -1){
+        return null;
+      }
+      try{
+        var created = window.supabase.createClient(window.MISSIONMED_SUPABASE_URL, window.MISSIONMED_SUPABASE_ANON_KEY);
+        window.arenaSupabase = created;
+        return created;
+      }catch(_createErr){
+        return null;
+      }
+    }
+    return null;
+  }
+
+  function normalizeTask(row){
+    if(!row || typeof row !== 'object') return null;
+    var id = row.id || row.task_id || row.uuid || null;
+    if(!id) return null;
+
+    var topic = row.topic || row.focus_topic || row.subject || '';
+    var label = row.title || row.task_title || row.name || row.task || '';
+    var title = label || (topic ? ('Practice ' + topic) : 'Practice Session');
+
+    var startTs = row.scheduled_for || row.start_at || row.scheduled_at || row.window_start_at || null;
+    var dateOnly = row.planned_for_date || row.task_date || row.scheduled_date || null;
+    if(!startTs && dateOnly){
+      startTs = String(dateOnly) + 'T09:00:00';
+    }
+
+    var status = String(row.status || 'pending').toLowerCase();
+    var duration = fmtDurationMinutes(row.duration_minutes || row.estimated_minutes || row.minutes || 25);
+    var done = status === 'done' || status === 'completed' || !!row.completed_at;
+
+    return {
+      id: id,
+      title: title,
+      topic: topic || null,
+      status: status,
+      done: done,
+      duration: duration,
+      startTs: startTs
+    };
+  }
+
+  function pickDiagnostic(rows){
+    if(!Array.isArray(rows) || !rows.length) return null;
+    var current = rows.filter(function(r){ return r && r.is_current === true; });
+    var pool = current.length ? current : rows.slice();
+    pool.sort(function(a, b){
+      return new Date((b && b.created_at) || 0).getTime() - new Date((a && a.created_at) || 0).getTime();
+    });
+    return pool[0] || null;
+  }
+
+  function isCareerActive(){
+    return (document.body.getAttribute('data-lobby-state') || 'lobby') === CAREER_STATE;
+  }
+
+  function deriveUiState(snapshot){
+    if(!snapshot.user) return 'auth';
+    if(!snapshot.diagnostic && (!snapshot.tasks || !snapshot.tasks.length)) return 'empty';
+    var confidence = String((snapshot.diagnostic && snapshot.diagnostic.confidence) || '').toLowerCase();
+    if(confidence === 'insufficient' || confidence === 'low') return 'low-data';
+    if(snapshot.profile && String(snapshot.profile.enrollment_status || '').toLowerCase() === 'stale') return 'stale';
+    return 'full';
+  }
+
+  function missionCopy(uiState, diagnostic, tasks){
+    if(uiState === 'auth') return 'Session not ready. Re-open Arena sign-in to load Career Intel.';
+    if(uiState === 'empty') return 'No analyzable sessions yet. Complete one STAT or Drill round to unlock recommendations.';
+    if(uiState === 'low-data') return 'Data is still sparse. Keep practicing to improve confidence before trusting weak-topic recommendations.';
+    if(uiState === 'stale') return 'Enrollment or analytics state is stale. Last verified data is shown while sync retries in the background.';
+    var focus = diagnostic && diagnostic.focus_topic ? String(diagnostic.focus_topic) : 'your next topic';
+    var pending = (tasks || []).filter(function(t){ return !t.done; }).length;
+    return 'Primary objective: ' + focus + '. Pending tasks: ' + pending + '. Execute one focused block now.';
+  }
+
+  function render(snapshot){
+    var root = getRoot();
+    if(!root) return;
+
+    var uiState = deriveUiState(snapshot);
+    var diagnostic = snapshot.diagnostic || {};
+    var tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks.slice() : [];
+    var tiers = getTier(snapshot.profile);
+    var freeOnly = tiers.length === 1 && tiers[0] === 'free';
+    var maxVisible = freeOnly ? 3 : 5;
+    var visibleTasks = tasks.slice(0, maxVisible);
+
+    var focusTopic = diagnostic.focus_topic || 'Build baseline data';
+    var focusReason = diagnostic.focus_reason || 'Complete additional rounds to unlock stronger focus recommendations.';
+    var confidence = String(diagnostic.confidence || 'insufficient').toUpperCase();
+
+    var taskHtml = '';
+    if(!visibleTasks.length){
+      taskHtml = '<div class="career-empty">No tasks generated for today yet. A new plan appears after the next diagnostic cycle.</div>';
+    } else {
+      taskHtml = '<ul class="career-plan-list">';
+      visibleTasks.forEach(function(task){
+        var statusText = task.done ? 'Done' : (task.duration + ' min');
+        var btnLabel = task.done ? 'Completed' : 'Start Timer';
+        taskHtml += ''
+          + '<li class="career-task' + (task.done ? ' is-done' : '') + '" data-task-id="' + String(task.id) + '">'
+          + '<div class="career-task-time">' + fmtClock(task.startTs) + '</div>'
+          + '<div><div class="career-task-title">' + escapeHtml(task.title) + '</div>'
+          + '<div class="career-task-meta">' + escapeHtml(statusText + (task.topic ? ' - ' + task.topic : '')) + '</div></div>'
+          + '<button class="career-btn" data-action="start-task" data-task-id="' + String(task.id) + '"' + (task.done ? ' disabled' : '') + '>' + btnLabel + '</button>'
+          + '</li>';
+      });
+      taskHtml += '</ul>';
+      if(freeOnly){
+        taskHtml += '<div class="career-state">Free tier preview: showing first ' + maxVisible + ' tasks.</div>';
+      }
+    }
+
+    var timerTask = tasks.filter(function(t){ return String(t.id) === String(state.timerTaskId); })[0] || null;
+    var timerLabel = timerTask ? timerTask.title : 'No active task';
+    var countdown = state.timerEndAt > 0 ? fmtCountdown(state.timerEndAt - Date.now()) : '00:00';
+
+    root.innerHTML = ''
+      + '<div class="career-shell">'
+      +   '<div class="career-head">'
+      +     '<div><div class="career-kicker">MMOS Arena Intel</div><div class="career-title">Career Command HUD</div></div>'
+      +     '<div class="career-badge">Confidence: ' + escapeHtml(confidence) + '</div>'
+      +   '</div>'
+      +   '<div class="career-grid">'
+      +     '<section class="career-card">'
+      +       '<h3>Today Focus</h3>'
+      +       '<div class="career-focus-topic">' + escapeHtml(focusTopic) + '</div>'
+      +       '<div class="career-focus-reason">' + escapeHtml(focusReason) + '</div>'
+      +     '</section>'
+      +     '<section class="career-card">'
+      +       '<h3>Mission Intel</h3>'
+      +       '<div class="career-mission-copy">' + escapeHtml(missionCopy(uiState, diagnostic, tasks)) + '</div>'
+      +       '<div class="career-state">State: ' + escapeHtml(uiState) + '</div>'
+      +       '<div class="career-inline-actions" style="margin-top:10px;">'
+      +         '<button class="career-btn" data-action="refresh-hud">Refresh</button>'
+      +         '<button class="career-btn" data-action="complete-task" ' + (state.timerTaskId ? 'data-task-id="' + String(state.timerTaskId) + '"' : 'disabled') + '>Complete Active Task</button>'
+      +       '</div>'
+      +     '</section>'
+      +     '<section class="career-card">'
+      +       '<h3>Today Plan</h3>'
+      +       taskHtml
+      +     '</section>'
+      +     '<section class="career-card career-timer">'
+      +       '<h3>Smart Timer</h3>'
+      +       '<div class="career-timer-value" id="careerTimerValue">' + countdown + '</div>'
+      +       '<div class="career-timer-caption" id="careerTimerLabel">' + escapeHtml(timerLabel) + '</div>'
+      +     '</section>'
+      +   '</div>'
+      + '</div>';
+  }
+
+  function escapeHtml(input){
+    return String(input == null ? '' : input)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function updateTimerUi(){
+    var val = document.getElementById('careerTimerValue');
+    if(!val) return;
+    var remaining = Math.max(0, state.timerEndAt - Date.now());
+    val.textContent = fmtCountdown(remaining);
+    if(remaining <= 0 && state.timerTaskId){
+      clearInterval(state.timerTick);
+      state.timerTick = null;
+      completeStudyTask(state.timerTaskId);
+    }
+  }
+
+  function startTimerForTask(taskId){
+    var task = state.tasks.filter(function(t){ return String(t.id) === String(taskId); })[0];
+    if(!task || task.done) return;
+    state.timerTaskId = task.id;
+    state.timerEndAt = Date.now() + (task.duration * 60 * 1000);
+    if(state.timerTick) clearInterval(state.timerTick);
+    state.timerTick = setInterval(updateTimerUi, 1000);
+    render(state);
+    updateTimerUi();
+  }
+
+  async function completeStudyTask(taskId){
+    var client = getSupabaseClient();
+    if(!client || !taskId) return;
+    var auth = await client.auth.getUser();
+    var user = auth && auth.data && auth.data.user ? auth.data.user : null;
+    if(!user || !user.id){
+      log('completeStudyTask aborted: no authenticated user');
+      return;
+    }
+    var rpc = await client.rpc('complete_study_task', { task_id: taskId });
+    if(rpc && rpc.error){
+      log('completeStudyTask RPC error', rpc.error);
+      return;
+    }
+    state.timerTaskId = null;
+    state.timerEndAt = 0;
+    if(state.timerTick){
+      clearInterval(state.timerTick);
+      state.timerTick = null;
+    }
+    await loadHUD();
+  }
+
+  function filterTodayTasks(tasks){
+    var now = new Date();
+    var y = now.getFullYear();
+    var m = now.getMonth();
+    var d = now.getDate();
+    return tasks.filter(function(task){
+      if(!task.startTs) return true;
+      var t = new Date(task.startTs);
+      if(isNaN(t.getTime())) return true;
+      return t.getFullYear() === y && t.getMonth() === m && t.getDate() === d;
+    }).sort(function(a, b){
+      var ta = a.startTs ? new Date(a.startTs).getTime() : 0;
+      var tb = b.startTs ? new Date(b.startTs).getTime() : 0;
+      return ta - tb;
+    });
+  }
+
+  async function loadHUD(){
+    if(state.loading) return;
+    var root = getRoot();
+    if(!root) return;
+    state.loading = true;
+    root.innerHTML = '<div class="career-shell"><div class="career-title">Loading Career Intel...</div></div>';
+
+    try{
+      var client = getSupabaseClient();
+      if(!client){
+        state.user = null;
+        state.profile = null;
+        state.diagnostic = null;
+        state.tasks = [];
+        render(state);
+        return;
+      }
+
+      var auth = await client.auth.getUser();
+      var user = auth && auth.data && auth.data.user ? auth.data.user : null;
+      if(!user || !user.id){
+        state.user = null;
+        state.profile = null;
+        state.diagnostic = null;
+        state.tasks = [];
+        render(state);
+        return;
+      }
+      state.user = user;
+
+      var queries = await Promise.all([
+        client.from('student_profiles').select('*').eq('user_id', user.id).limit(1).maybeSingle(),
+        client.from('diagnostic_reports').select('*').eq('user_id', user.id).limit(10),
+        client.from('study_tasks').select('*').eq('user_id', user.id).limit(120)
+      ]);
+
+      var profileRes = queries[0];
+      var diagRes = queries[1];
+      var taskRes = queries[2];
+
+      state.profile = profileRes && !profileRes.error ? (profileRes.data || null) : null;
+      state.diagnostic = diagRes && !diagRes.error ? pickDiagnostic(diagRes.data || []) : null;
+      state.tasks = taskRes && !taskRes.error
+        ? filterTodayTasks((taskRes.data || []).map(normalizeTask).filter(Boolean))
+        : [];
+      render(state);
+    }catch(err){
+      log('loadHUD failed', err && (err.message || err));
+      state.profile = null;
+      state.diagnostic = null;
+      state.tasks = [];
+      render(state);
+    }finally{
+      state.loading = false;
+    }
+  }
+
+  function onRootClick(ev){
+    var btn = ev.target.closest('[data-action]');
+    if(!btn) return;
+    var action = btn.getAttribute('data-action');
+    var taskId = btn.getAttribute('data-task-id');
+    if(action === 'refresh-hud'){
+      ev.preventDefault();
+      loadHUD();
+      return;
+    }
+    if(action === 'start-task'){
+      ev.preventDefault();
+      startTimerForTask(taskId);
+      return;
+    }
+    if(action === 'complete-task'){
+      ev.preventDefault();
+      if(taskId) completeStudyTask(taskId);
+    }
+  }
+
+  function bindStateObserver(){
+    if(document.body.__careerHudObserved) return;
+    document.body.__careerHudObserved = true;
+    var obs = new MutationObserver(function(records){
+      records.forEach(function(rec){
+        if(rec.type === 'attributes' && rec.attributeName === 'data-lobby-state' && isCareerActive()){
+          loadHUD();
+        }
+      });
+    });
+    obs.observe(document.body, { attributes: true, attributeFilter: ['data-lobby-state'] });
+  }
+
+  function mount(){
+    var root = getRoot();
+    if(!root || root.dataset.careerMounted === '1') return;
+    root.dataset.careerMounted = '1';
+    root.addEventListener('click', onRootClick);
+    bindStateObserver();
+    window.addEventListener('mm-auth-updated', function(){ if(isCareerActive()) loadHUD(); });
+    document.addEventListener('visibilitychange', function(){ if(!document.hidden && isCareerActive()) loadHUD(); });
+    if(isCareerActive()) loadHUD();
+    state.mounted = true;
+  }
+
+  window.MMOSCareerHUD = {
+    __version: 'career-532',
+    loadHUD: loadHUD,
+    mount: mount
+  };
+  if(typeof window.loadHUD !== 'function'){
+    window.loadHUD = loadHUD;
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', mount, { once: true });
+  } else {
+    mount();
+  }
+})();
+</script>
+<!-- END MMOS-CAREER-HUD-INTEGRATION-532 -->
 
 </body>
 </html>

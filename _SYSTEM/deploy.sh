@@ -6,6 +6,9 @@ MANIFEST="$ROOT_DIR/_SYSTEM/DEPLOY_MANIFEST.json"
 VALIDATE_DEPLOY="$ROOT_DIR/VALIDATION/validate_deploy.sh"
 VALIDATE_RUNTIME="$ROOT_DIR/VALIDATION/validate_runtime.sh"
 LIVE_DIR="$ROOT_DIR/LIVE"
+CANONICAL_CDN_BASE_URL="https://cdn.missionmedinstitute.com"
+CANONICAL_STAGING_PREFIX="html-system/STAGING/"
+CANONICAL_LIVE_PREFIX="html-system/LIVE/"
 SKIP_GIT_CHECK=0
 SKIP_PURGE=0
 PROMPT_ID="${PROMPT_ID:-}"
@@ -138,11 +141,17 @@ r2_endpoint() {
 }
 
 cdn_base_url() {
+  local base
   if [[ -n "${R2_CDN_BASE_URL:-}" ]]; then
-    echo "${R2_CDN_BASE_URL%/}"
+    base="${R2_CDN_BASE_URL%/}"
   else
-    echo "https://cdn.missionmedinstitute.com"
+    base="$CANONICAL_CDN_BASE_URL"
   fi
+  if [[ "$base" != "$CANONICAL_CDN_BASE_URL" ]]; then
+    echo "Invalid R2_CDN_BASE_URL: $base (must be $CANONICAL_CDN_BASE_URL)" >&2
+    exit 1
+  fi
+  echo "$base"
 }
 
 r2_request() {
@@ -260,6 +269,18 @@ if [[ ${#MAPPINGS[@]} -eq 0 ]]; then
   echo "No mappings found in manifest" >&2
   exit 1
 fi
+
+for line in "${MAPPINGS[@]}"; do
+  IFS=$'\t' read -r src staging live <<<"$line"
+  if [[ "$staging" != ${CANONICAL_STAGING_PREFIX}* ]]; then
+    echo "Invalid STAGING key in manifest: $staging (must start with ${CANONICAL_STAGING_PREFIX})" >&2
+    exit 1
+  fi
+  if [[ "$live" != ${CANONICAL_LIVE_PREFIX}* ]]; then
+    echo "Invalid LIVE key in manifest: $live (must start with ${CANONICAL_LIVE_PREFIX})" >&2
+    exit 1
+  fi
+done
 
 log "Step 0/5: Local deploy validation"
 validate_args=(--live-dir "$LIVE_DIR")
