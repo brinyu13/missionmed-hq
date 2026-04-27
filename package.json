@@ -64,6 +64,7 @@
     "xmlchars": "^2.2.0"
   },
   "scripts": {
+    "start": "node missionmed-hq/server.mjs",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.spec.ts",
     "build": "echo build-placeholder"

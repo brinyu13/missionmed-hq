@@ -29,3 +29,9 @@
 - Scope: STAT duel sync/outbox canary stabilization with no MMOS/auth architecture changes.
 - Files: LIVE/stat_latest.html
 - Notes: Normalized E3 telemetry payloads (uuid client_event_id + canonical question/pack metadata fallback), hardened outbox 409/UUID failure classification, added safe bot-duel submit soft-accept path when backend returns `duel_not_ready_for_attempt` in `active` state, and primed canonical duel metadata from `create_duel` response so E3 telemetry can resolve pack hash/question IDs before complete_match.
+
+## [2026-04-27 08:46 UTC]
+- PROMPT: MR-E3-BACKEND-CONTRACT-REPAIR-025
+- Scope: Backend contract repair for Railway auth availability + E3 telemetry/duel schema compatibility.
+- Files: package.json, railway.json, supabase/migrations/20260427044500_e3_backend_contract_repair.sql, supabase/snippets/20260427_e3_stat_duel_contract_repair_validation.sql
+- Notes: Added explicit backend start entrypoint for Railway (`node missionmed-hq/server.mjs`), added Railway deploy manifest, patched `private_e3_ensure_match_attempt` to bridge runtime `duel_challenges` IDs into legacy `duels` FK parent when required, updated `submit_attempt` state gate to accept `active` bot-duel progression, and added rollback-safe SQL validation harness for create_duel/submit_attempt/telemetry/complete_match/idempotency checks.
