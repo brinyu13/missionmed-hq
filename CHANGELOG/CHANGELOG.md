@@ -47,3 +47,9 @@
 - Scope: Fix special-character asset mirror handling for `STAT!` object and complete LIVE dependency mirroring.
 - Files: _SYSTEM/mirror_live_assets.sh
 - Notes: Added safe R2 key encoding helper for signed S3 requests, wired encoded key handling into probe/put/copy operations, and added script options `--test-only` plus `--only-source` for targeted retries. Verified full mirror pass `7/7` including `Mode_Lobby_Imagecard_STAT!_Duels.JPG` under `html-system/LIVE/`.
+
+## [2026-04-27 15:54 UTC]
+- PROMPT: MR-CDN-PREFIX-NORMALIZATION-031
+- Scope: Normalize LIVE runtime asset prefixes to the finalized CDN `html-system/LIVE/` tree for verified Shared and STAT data dependencies.
+- Files: LIVE/arena.html, LIVE/stat.html, LIVE/drills.html
+- Notes: Replaced legacy internal asset prefixes `html-system/Shared/` and `html-system/STAT_VERSIONS/` with `html-system/LIVE/Shared/` and `html-system/LIVE/STAT_VERSIONS/` only where mirrored LIVE assets were verified; no route filename, MMOS, auth, or gameplay logic changes.
