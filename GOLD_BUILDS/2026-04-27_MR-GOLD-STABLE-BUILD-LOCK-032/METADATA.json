@@ -1,0 +1,29 @@
+{
+  "prompt_id": "MR-GOLD-STABLE-BUILD-LOCK-032",
+  "gold_build": "2026-04-27_MR-GOLD-STABLE-BUILD-LOCK-032",
+  "source_commit": "909b313",
+  "tag": "MR-GOLD-STABLE-2026-04-27",
+  "cdn_archive_base": "https://cdn.missionmedinstitute.com/html-system/GOLD_BUILDS/2026-04-27/",
+  "runtime_files": [
+    "LIVE/arena.html",
+    "LIVE/stat.html",
+    "LIVE/drills.html",
+    "LIVE/daily.html"
+  ],
+  "validation": {
+    "validate_deploy": "PASS",
+    "validate_runtime_live": "PASS",
+    "routes": {
+      "/arena": 200,
+      "/stat": 200,
+      "/drills": 200,
+      "/daily": 200
+    },
+    "required_live_assets": "7/7 200"
+  },
+  "e3_status": {
+    "outbox_default": "OFF",
+    "outbox_rollout": "internal-only",
+    "replay_avatar_bridge": "blocked"
+  }
+}

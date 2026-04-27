@@ -1,0 +1,22 @@
+{
+  "version": "1.0",
+  "description": "MissionMed Arena deploy map (LIVE source to STAGING keys)",
+  "mappings": [
+    {
+      "source": "LIVE/arena.html",
+      "destination": "html-system/STAGING/arena.html"
+    },
+    {
+      "source": "LIVE/stat.html",
+      "destination": "html-system/STAGING/stat.html"
+    },
+    {
+      "source": "LIVE/drills.html",
+      "destination": "html-system/STAGING/drills.html"
+    },
+    {
+      "source": "LIVE/daily.html",
+      "destination": "html-system/STAGING/daily.html"
+    }
+  ]
+}
