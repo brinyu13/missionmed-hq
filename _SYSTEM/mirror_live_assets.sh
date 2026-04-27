@@ -7,8 +7,32 @@ ENV_FILE="${R2_ENV_FILE:-$ROOT_DIR/_SYSTEM/r2.env}"
 LOG_DIR="$ROOT_DIR/_SYSTEM_LOGS"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 REPORT="$LOG_DIR/cdn_mirror_${PROMPT_ID}_${STAMP}.log"
+CANONICAL_CDN_BASE_URL="https://cdn.missionmedinstitute.com"
+TEST_ONLY=0
+ONLY_SOURCE=""
 
 mkdir -p "$LOG_DIR"
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --test-only)
+      TEST_ONLY=1
+      shift
+      ;;
+    --only-source)
+      ONLY_SOURCE="${2:-}"
+      if [[ -z "$ONLY_SOURCE" ]]; then
+        echo "ERROR: --only-source requires a key argument" >&2
+        exit 1
+      fi
+      shift 2
+      ;;
+    *)
+      echo "ERROR: unknown option: $1" >&2
+      exit 2
+      ;;
+  esac
+done
 
 load_env_file() {
   local path="$1"
@@ -48,7 +72,15 @@ r2_endpoint() {
     echo "https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
   fi
 }
-cdn_base_url() { echo "${R2_CDN_BASE_URL:-https://cdn.missionmedinstitute.com}"; }
+cdn_base_url() {
+  local base="${R2_CDN_BASE_URL:-$CANONICAL_CDN_BASE_URL}"
+  base="${base%/}"
+  if [[ "$base" != "$CANONICAL_CDN_BASE_URL" ]]; then
+    echo "ERROR: R2_CDN_BASE_URL must be $CANONICAL_CDN_BASE_URL (got $base)" >&2
+    exit 1
+  fi
+  echo "$base"
+}
 
 sigcurl() {
   curl --silent --show-error --max-time 90 \
@@ -57,13 +89,24 @@ sigcurl() {
     "$@"
 }
 
+r2_encode_key() {
+  local key="$1"
+  python3 - "$key" <<'PY'
+import sys
+from urllib.parse import quote
+print(quote(sys.argv[1], safe='/%'))
+PY
+}
+
 signed_probe_code() {
   local key="$1"
+  local key_enc
+  key_enc="$(r2_encode_key "$key")"
   sigcurl \
     --output /dev/null \
     --write-out "%{http_code}" \
     --header "Range: bytes=0-0" \
-    "$(r2_endpoint)/${R2_BUCKET}/${key}"
+    "$(r2_endpoint)/${R2_BUCKET}/${key_enc}"
 }
 
 public_get_code() {
@@ -84,22 +127,27 @@ public_content_type() {
 signed_put_file() {
   local local_file="$1"
   local key="$2"
+  local key_enc
+  key_enc="$(r2_encode_key "$key")"
   sigcurl --fail \
     --request PUT \
     --header "Content-Type: text/plain; charset=utf-8" \
     --upload-file "$local_file" \
-    "$(r2_endpoint)/${R2_BUCKET}/${key}" \
+    "$(r2_endpoint)/${R2_BUCKET}/${key_enc}" \
     --output /dev/null
 }
 
 signed_copy() {
   local src="$1"
   local dst="$2"
+  local src_enc dst_enc
+  src_enc="$(r2_encode_key "$src")"
+  dst_enc="$(r2_encode_key "$dst")"
   sigcurl --fail \
     --request PUT \
-    --header "x-amz-copy-source: /${R2_BUCKET}/${src}" \
+    --header "x-amz-copy-source: /${R2_BUCKET}/${src_enc}" \
     --header "x-amz-metadata-directive: COPY" \
-    "$(r2_endpoint)/${R2_BUCKET}/${dst}" \
+    "$(r2_endpoint)/${R2_BUCKET}/${dst_enc}" \
     --output /dev/null
 }
 
@@ -142,6 +190,10 @@ SOURCES=(
   "html-system/STAT_VERSIONS/stat-data/stat_questions_runtime.json"
 )
 
+if [[ -n "$ONLY_SOURCE" ]]; then
+  SOURCES=("$ONLY_SOURCE")
+fi
+
 write_report "PHASE 1: preflight source existence (public)"
 for src in "${SOURCES[@]}"; do
   src_url="$(cdn_base_url)/${src}"
@@ -173,6 +225,13 @@ if [[ "$probe_code" != "200" && "$probe_code" != "206" && "$probe_code" != "416"
   exit 1
 fi
 write_report ""
+
+if [[ "$TEST_ONLY" -eq 1 ]]; then
+  write_report "TEST_ONLY=1; skipping PHASE 3 mirror."
+  write_report "FINAL=PASS"
+  echo "Report: $REPORT"
+  exit 0
+fi
 
 write_report "PHASE 3: mirror required objects"
 ok=0

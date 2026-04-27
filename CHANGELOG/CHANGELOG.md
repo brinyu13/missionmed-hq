@@ -41,3 +41,9 @@
 - Scope: R2 credential/CDN mirror workflow hardening only (no runtime HTML routing/path rewrite).
 - Files: _SYSTEM/deploy.sh, _SYSTEM/mirror_live_assets.sh, _SYSTEM/r2.env.example, .gitignore
 - Notes: Added shared `_SYSTEM/r2.env` credential loader fallback to deploy pipeline, added non-secret R2 env template, added safe mirror script with preflight source checks + non-destructive signed write test + per-object verification, and gitignored local `_SYSTEM/r2.env`. Mirror remains blocked pending valid R2 write credentials (signed write returns 403).
+
+## [2026-04-27 15:42 UTC]
+- PROMPT: MR-R2-SPECIAL-CHAR-ASSET-MIRROR-029
+- Scope: Fix special-character asset mirror handling for `STAT!` object and complete LIVE dependency mirroring.
+- Files: _SYSTEM/mirror_live_assets.sh
+- Notes: Added safe R2 key encoding helper for signed S3 requests, wired encoded key handling into probe/put/copy operations, and added script options `--test-only` plus `--only-source` for targeted retries. Verified full mirror pass `7/7` including `Mode_Lobby_Imagecard_STAT!_Duels.JPG` under `html-system/LIVE/`.
