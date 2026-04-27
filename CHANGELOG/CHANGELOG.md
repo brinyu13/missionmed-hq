@@ -28,4 +28,4 @@
 - PROMPT: MR-E3-OUTBOX-DUEL-SYNC-ENDTOEND-024
 - Scope: STAT duel sync/outbox canary stabilization with no MMOS/auth architecture changes.
 - Files: LIVE/stat_latest.html
-- Notes: Normalized E3 telemetry payloads (uuid client_event_id + canonical question/pack metadata fallback), hardened outbox 409/UUID failure classification, and added safe bot-duel submit soft-accept path when backend returns `duel_not_ready_for_attempt` in `active` state to prevent SYNCING dead-end.
+- Notes: Normalized E3 telemetry payloads (uuid client_event_id + canonical question/pack metadata fallback), hardened outbox 409/UUID failure classification, added safe bot-duel submit soft-accept path when backend returns `duel_not_ready_for_attempt` in `active` state, and primed canonical duel metadata from `create_duel` response so E3 telemetry can resolve pack hash/question IDs before complete_match.

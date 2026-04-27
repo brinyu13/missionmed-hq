@@ -3661,6 +3661,7 @@ async function createBotDuelRpc() {
     p_dataset_version: datasetVersion
   };
   const created = await rpcCall('create_duel', payload);
+  primeDuelCanonicalMetaFromPayload(created);
   return created;
 }
 
@@ -4714,15 +4715,15 @@ function e3PackMeta() {
 }
 
 function e3ResolveQuestionId(question, qIndex) {
-  const direct = String(
-    (question && (question.id || question.question_id || question.qid || question.uid)) || ''
-  ).trim();
-  if (direct) return direct;
   const pack = window.MM_DUEL && window.MM_DUEL.CURRENT_PACK ? window.MM_DUEL.CURRENT_PACK : null;
   if (pack && Array.isArray(pack.question_ids) && Number.isFinite(Number(qIndex))) {
     const packed = String(pack.question_ids[Number(qIndex)] || '').trim();
     if (packed) return packed;
   }
+  const direct = String(
+    (question && (question.id || question.question_id || question.qid || question.uid)) || ''
+  ).trim();
+  if (direct) return direct;
   return '';
 }
 
@@ -4833,7 +4834,16 @@ function e3RecordMatchComplete() {
   if (!activeDuelId) return;
   const args = { p_match_id: String(activeDuelId) };
   if (!e3OutboxQueue('match_complete', String(activeDuelId), e3SessionId || null, null, args)) {
-    void e3RpcNonBlocking('complete_match', args, 'match_complete');
+    const fire = (attempt) => {
+      void e3RpcNonBlocking('complete_match', args, 'match_complete').then((out) => {
+        if (!out || out.ok) return;
+        const message = String(out.error || '');
+        if (attempt < 3 && /STAT_MATCH_NOT_FOUND/i.test(message)) {
+          setTimeout(() => fire(attempt + 1), 300 * attempt);
+        }
+      });
+    };
+    fire(1);
   }
 }
 
@@ -4843,6 +4853,42 @@ function extractDuelId(createPayload) {
   if (data.duel && data.duel.id) return String(data.duel.id);
   if (data.duel_id) return String(data.duel_id);
   return '';
+}
+
+function primeDuelCanonicalMetaFromPayload(createPayload) {
+  const data = createPayload && createPayload.data ? createPayload.data : null;
+  const duel = data && data.duel && typeof data.duel === 'object' ? data.duel : null;
+  if (!duel) return;
+
+  const duelId = String(duel.id || '').trim();
+  const datasetVersion = String(duel.dataset_version || resolveDuelDatasetVersion() || '').trim();
+  const contentHash = String(duel.content_hash || '').trim();
+  const questionIds = Array.isArray(duel.question_ids) ? duel.question_ids.map((id) => String(id || '').trim()).filter(Boolean) : [];
+  const choicesOrder = Array.isArray(duel.choices_order) ? duel.choices_order.slice() : [];
+
+  if (datasetVersion) window.MM_DUEL_DATASET_VERSION = datasetVersion;
+  if (contentHash) window.__MM_DUEL_PACK_HASH = contentHash;
+
+  if (questionIds.length > 0) {
+    window.MM_DUEL = window.MM_DUEL || {};
+    const existing = window.MM_DUEL.CURRENT_PACK && typeof window.MM_DUEL.CURRENT_PACK === 'object'
+      ? window.MM_DUEL.CURRENT_PACK
+      : {};
+    const merged = {
+      duel_id: duelId || String(existing.duel_id || ''),
+      dataset_version: datasetVersion || String(existing.dataset_version || ''),
+      question_ids: questionIds.slice(),
+      choices_order: choicesOrder.length ? choicesOrder.slice() : (Array.isArray(existing.choices_order) ? existing.choices_order.slice() : []),
+      content_hash: contentHash || String(existing.content_hash || ''),
+      sealed_at: duel.sealed_at || existing.sealed_at || null,
+      finalized_at: duel.finalized_at || duel.completed_at || existing.finalized_at || null,
+      questions: Array.isArray(existing.questions) ? existing.questions : []
+    };
+    Object.freeze(merged.question_ids);
+    Object.freeze(merged.choices_order);
+    Object.freeze(merged);
+    window.MM_DUEL.CURRENT_PACK = merged;
+  }
 }
 
 /* =========================================================
