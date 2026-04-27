@@ -1,0 +1,2177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dr Brian On-Call — DBOC IV</title>
+  <style>
+    :root {
+      --bg: #091321;
+      --panel: #11263c;
+      --panel-soft: #172f49;
+      --text: #f2f5f9;
+      --muted: #a8b7c8;
+      --line: #2d4a68;
+      --primary: #0f2a44;
+      --accent: #b23a3a;
+      --ok: #2c9861;
+      --warn: #d8962f;
+      --bad: #d15a5a;
+      --gray: #9f968d;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--text);
+      background: radial-gradient(1200px 600px at 10% 0%, #1a3855 0%, var(--bg) 48%);
+      min-height: 100vh;
+    }
+
+    .app {
+      width: min(1180px, 100% - 24px);
+      margin: 12px auto 28px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(17, 38, 60, 0.96), rgba(12, 26, 41, 0.96));
+      border-radius: 14px;
+      padding: 14px;
+    }
+
+    h1, h2, h3, h4 { margin: 0; }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .topbar h1 { font-size: 1.2rem; }
+
+    .field {
+      display: grid;
+      gap: 5px;
+      min-width: 180px;
+    }
+
+    .field label { color: var(--muted); font-size: 0.84rem; }
+
+    input, select {
+      border: 1px solid var(--line);
+      background: #0c1a2a;
+      color: var(--text);
+      border-radius: 9px;
+      padding: 9px 10px;
+      font-size: 0.94rem;
+      width: 100%;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 10px;
+      font-size: 0.92rem;
+      font-weight: 700;
+      padding: 10px 14px;
+      color: #fff;
+      cursor: pointer;
+      background: var(--primary);
+    }
+
+    .btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
+    .btn-danger { background: var(--accent); }
+    .btn-soft { background: #3e5469; }
+
+    .status-line {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+      color: var(--text);
+      background: rgba(5, 13, 22, 0.78);
+      font-size: 0.88rem;
+    }
+
+    .status-ok { border-color: rgba(44, 152, 97, 0.58); }
+    .status-warn { border-color: rgba(216, 150, 47, 0.58); }
+    .status-bad { border-color: rgba(209, 90, 90, 0.66); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 12px;
+    }
+
+    .sidebar {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .main {
+      display: grid;
+      gap: 10px;
+    }
+
+    .kpi {
+      display: grid;
+      gap: 6px;
+      background: rgba(13, 27, 44, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+    }
+
+    .kpi strong { font-size: 1.25rem; }
+
+    .ring-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ring {
+      width: 64px;
+      height: 64px;
+      border-radius: 999px;
+      border: 6px solid #2c425a;
+      border-top-color: var(--ok);
+      transform: rotate(-45deg);
+    }
+
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+
+    .history-table th,
+    .history-table td {
+      border-bottom: 1px solid #2c425a;
+      text-align: left;
+      padding: 7px 6px;
+      color: #d8e3ef;
+    }
+
+    .history-table th { color: #9fb2c7; font-weight: 700; }
+
+    .chart {
+      width: 100%;
+      height: 140px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(8, 18, 30, 0.9);
+    }
+
+    .cta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 0.78rem;
+      background: rgba(5, 13, 22, 0.7);
+    }
+
+    .hidden { display: none !important; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 7, 12, 0.72);
+      display: grid;
+      place-items: center;
+      padding: 14px;
+      z-index: 30;
+    }
+
+    .modal-card {
+      width: min(980px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: linear-gradient(180deg, #122740, #0b1d30);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(205px, 1fr));
+      gap: 10px;
+    }
+
+    .mode-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(13, 27, 44, 0.92);
+      cursor: pointer;
+      display: grid;
+      gap: 7px;
+    }
+
+    .mode-card.active {
+      border-color: #8cb0d6;
+      box-shadow: 0 0 0 2px rgba(140, 176, 214, 0.22);
+    }
+
+    .mode-card small { color: var(--muted); }
+
+    .session-shell {
+      display: grid;
+      gap: 10px;
+    }
+
+    .session-head {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .question-card {
+      border: 1px solid var(--line);
+      background: rgba(10, 20, 34, 0.9);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .guidance {
+      border: 1px solid rgba(100, 142, 180, 0.5);
+      border-radius: 10px;
+      background: rgba(10, 24, 40, 0.8);
+      padding: 10px;
+      color: #ccdfef;
+      font-size: 0.88rem;
+    }
+
+    .video-wrap {
+      position: relative;
+      width: 100%;
+      max-width: 760px;
+      aspect-ratio: 16 / 9;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #07101b;
+    }
+
+    #camera-preview,
+    #framing-overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #camera-preview {
+      object-fit: cover;
+      transform: scaleX(-1);
+      background: #02060a;
+    }
+
+    .timer-badge {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 0.84rem;
+      background: rgba(5, 12, 22, 0.85);
+    }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .progress {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      overflow: hidden;
+      height: 12px;
+      background: rgba(6, 16, 27, 0.9);
+    }
+
+    .progress > div {
+      height: 100%;
+      width: 0%;
+      transition: width 0.2s ease;
+      background: linear-gradient(90deg, var(--primary), #3f6f98);
+    }
+
+    .feedback {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      background: rgba(8, 18, 30, 0.9);
+    }
+
+    .saf-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .saf-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(12, 24, 38, 0.9);
+      font-size: 0.85rem;
+      color: #d7e2ef;
+    }
+
+    .vault-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .timeline-list {
+      display: grid;
+      gap: 8px;
+      max-height: 260px;
+      overflow: auto;
+    }
+
+    .timeline-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px;
+      background: rgba(10, 21, 35, 0.95);
+      display: grid;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .timeline-item.active {
+      border-color: #86abd2;
+      box-shadow: 0 0 0 1px rgba(134, 171, 210, 0.25);
+    }
+
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .compare-card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px;
+      display: grid;
+      gap: 6px;
+      background: rgba(11, 24, 39, 0.95);
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.45;
+    }
+
+    .skeleton {
+      border-radius: 8px;
+      background: linear-gradient(90deg, rgba(142, 157, 175, 0.18), rgba(185, 198, 214, 0.28), rgba(142, 157, 175, 0.18));
+      background-size: 220% 100%;
+      animation: pulse 1.5s ease-in-out infinite;
+      min-height: 18px;
+    }
+
+    @keyframes pulse {
+      0% { background-position: 0% 0%; opacity: 0.55; }
+      50% { background-position: 100% 0%; opacity: 1; }
+      100% { background-position: 0% 0%; opacity: 0.55; }
+    }
+
+    .warmup-steps {
+      display: grid;
+      gap: 8px;
+    }
+
+    .warmup-step {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px;
+      background: rgba(8, 18, 30, 0.9);
+      color: #cedded;
+      font-size: 0.88rem;
+      display: grid;
+      gap: 6px;
+    }
+
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+    }
+
+    .category-grid button.active {
+      outline: 2px solid #89b2dc;
+    }
+
+    .delivery-panel {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: rgba(8, 18, 30, 0.92);
+      display: grid;
+      gap: 8px;
+    }
+
+    .delivery-layout {
+      display: grid;
+      grid-template-columns: 1fr 40px;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .pitch-canvas {
+      width: 100%;
+      height: 180px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: rgba(6, 15, 25, 0.95);
+    }
+
+    .volume-meter {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(4, 12, 20, 0.95);
+      position: relative;
+      overflow: hidden;
+      min-height: 180px;
+    }
+
+    .volume-fill {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 0%;
+      background: #d15a5a;
+      transition: height 0.08s linear, background 0.08s linear;
+    }
+
+    .delivery-status {
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      padding: 8px 10px;
+      background: rgba(5, 12, 22, 0.9);
+      font-family: ui-monospace, Menlo, monospace;
+      font-size: 0.82rem;
+      color: #dce8f6;
+    }
+
+    @media (max-width: 920px) {
+      .layout { grid-template-columns: 1fr; }
+      .topbar { grid-template-columns: 1fr; }
+      .session-head { grid-template-columns: 1fr; }
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="card topbar">
+      <div>
+        <h1>Dr Brian On-Call — DBOC IV</h1>
+        <p>Phases 4+5: SAF(e), mode isolation, frontend flow integration.</p>
+      </div>
+      <div class="field">
+        <label for="user-id">User ID</label>
+        <input id="user-id" autocomplete="off" placeholder="uuid" />
+      </div>
+      <button id="btn-load-dashboard" class="btn" type="button">Load Dashboard</button>
+    </section>
+
+    <section id="global-status" class="status-line status-ok">Ready.</section>
+
+    <section class="layout">
+      <aside class="sidebar">
+        <div class="card kpi">
+          <span class="badge">Current Streak</span>
+          <div class="ring-wrap">
+            <div id="streak-ring" class="ring" aria-hidden="true"></div>
+            <div>
+              <strong id="streak-current">0</strong>
+              <p>days current</p>
+              <p><span id="streak-longest">0</span> longest</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="card kpi">
+          <span class="badge">Rep Totals</span>
+          <strong id="total-reps">0</strong>
+          <p><span id="categories-covered">0</span> categories covered</p>
+          <p>Last rep: <span id="last-rep">—</span></p>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:1rem; margin-bottom:8px;">Run a Rep</h3>
+          <p style="margin-bottom:8px;">Choose mode, lock session, complete planned reps.</p>
+          <div class="cta-row">
+            <button id="btn-open-mode" class="btn" type="button">Run a Rep</button>
+            <span id="mode-lock-badge" class="badge">Mode unlocked</span>
+          </div>
+        </div>
+      </aside>
+
+      <section class="main">
+        <div class="card">
+          <h3 style="font-size:1rem; margin-bottom:8px;">Progress (7 days)</h3>
+          <svg id="progress-chart" class="chart" viewBox="0 0 700 140" preserveAspectRatio="none" role="img" aria-label="Rep chart"></svg>
+        </div>
+
+        <div class="card">
+          <h3 style="font-size:1rem; margin-bottom:8px;">Rep History (last 10)</h3>
+          <table class="history-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Mode</th>
+                <th>Question</th>
+                <th>SAF(e)</th>
+                <th>Duration</th>
+              </tr>
+            </thead>
+            <tbody id="history-body">
+              <tr><td colspan="5" style="color:var(--muted)">No data loaded.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card vault-grid">
+          <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+            <h3 style="font-size:1rem;">Answer Vault</h3>
+            <button id="btn-refresh-vault" class="btn-soft btn" type="button">Refresh Vault</button>
+          </div>
+          <div class="field">
+            <label for="vault-question-select">Question Timeline</label>
+            <select id="vault-question-select">
+              <option value="">Select a question</option>
+            </select>
+          </div>
+          <div id="vault-timeline" class="timeline-list">
+            <div class="hint">Run a rep to unlock Answer Vault timeline.</div>
+          </div>
+          <div id="vault-compare" class="compare-grid hidden"></div>
+          <div id="vault-improvement" class="hint hidden"></div>
+          <div id="gold-answer" class="question-card hidden"></div>
+          <div id="teaching-suggestion" class="question-card hidden"></div>
+        </div>
+
+        <div id="session-shell" class="card session-shell hidden">
+          <div class="session-head">
+            <div>
+              <h3 id="session-title" style="font-size:1rem;">Session</h3>
+              <p id="session-subtitle">Waiting to start.</p>
+            </div>
+            <div class="cta-row">
+              <span id="active-mode-badge" class="badge">Mode: —</span>
+              <span id="rep-counter-badge" class="badge">Rep 0 / 0</span>
+            </div>
+          </div>
+
+          <div id="category-selector" class="question-card hidden">
+            <h4 style="font-size:0.96rem;">Choose Category (Guided Practice)</h4>
+            <div id="category-grid" class="category-grid"></div>
+            <div class="cta-row">
+              <button id="btn-confirm-category" class="btn" type="button">Confirm Category</button>
+            </div>
+          </div>
+
+          <div id="question-card" class="question-card hidden">
+            <div class="cta-row">
+              <span id="question-category" class="badge">Category: —</span>
+              <span id="question-timer" class="badge">60s</span>
+            </div>
+            <h4 id="question-text" style="font-size:1.02rem; line-height:1.45;">—</h4>
+            <div id="pre-guidance" class="guidance hidden"></div>
+            <div id="teaching-video-cta" class="cta-row hidden">
+              <button id="btn-watch-example" class="btn-soft btn" type="button">Watch Example</button>
+              <span class="badge">Optional</span>
+            </div>
+
+            <div class="video-wrap">
+              <video id="camera-preview" autoplay muted playsinline></video>
+              <canvas id="framing-overlay"></canvas>
+              <div class="timer-badge"><span id="timer-text">00:00</span></div>
+            </div>
+
+            <div id="delivery-panel" class="delivery-panel hidden">
+              <div class="delivery-layout">
+                <canvas id="pitch-canvas" class="pitch-canvas" width="760" height="180"></canvas>
+                <div class="volume-meter" aria-label="Volume meter">
+                  <div id="volume-fill" class="volume-fill"></div>
+                </div>
+              </div>
+              <div id="delivery-status-line" class="delivery-status">Hz: -- | Vol: -- dB | Time: 00:00</div>
+            </div>
+
+            <div class="controls">
+              <button id="btn-enable-camera" class="btn-soft btn" type="button">Enable Camera</button>
+              <button id="btn-record" class="btn-danger btn" type="button" disabled>Record</button>
+              <button id="btn-stop" class="btn" type="button" style="display:none;">Stop</button>
+              <button id="btn-cancel-session" class="btn-soft btn" type="button">End Session</button>
+            </div>
+
+            <div class="progress"><div id="upload-progress"></div></div>
+            <p id="upload-progress-text" style="font-size:0.84rem; color:var(--muted);">Upload progress: 0%</p>
+          </div>
+
+          <div id="feedback-panel" class="feedback hidden">
+            <h4 style="font-size:0.98rem;">Review</h4>
+            <audio id="answer-playback" controls style="width:100%;"></audio>
+            <p id="feedback-summary">Awaiting analysis.</p>
+            <div id="saf-grid" class="saf-grid"></div>
+            <div id="delivery-insights"></div>
+            <div class="cta-row">
+              <button id="btn-next-rep" class="btn" type="button">Next Rep</button>
+              <button id="btn-back-dashboard" class="btn-soft btn" type="button">Dashboard</button>
+            </div>
+          </div>
+
+          <div id="simulation-summary" class="feedback hidden">
+            <h4 style="font-size:0.98rem;">Simulation Summary</h4>
+            <p id="simulation-summary-text">Session complete.</p>
+            <div class="cta-row">
+              <button id="btn-sim-dashboard" class="btn" type="button">Return to Dashboard</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <div id="mode-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
+        <h3 style="font-size:1rem;">Select Mode</h3>
+        <button id="btn-close-mode" class="btn-soft btn" type="button">Close</button>
+      </div>
+      <div id="mode-grid" class="mode-grid"></div>
+      <div class="cta-row" style="justify-content:flex-end;">
+        <button id="btn-start-mode" class="btn" type="button">Start Session</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="warmup-modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 style="font-size:1rem;">First-Time Warm-Up</h3>
+      <div class="warmup-steps">
+        <div class="warmup-step">
+          <strong>1. Welcome</strong>
+          <p>Watch a short Dr. Brian welcome clip (placeholder in dev).</p>
+          <video controls muted style="width:100%; border:1px solid var(--line); border-radius:8px; background:#000; max-height:160px;">
+            <source src="" type="video/mp4" />
+          </video>
+        </div>
+        <div class="warmup-step">
+          <strong>2. Camera Setup</strong>
+          <p>Allow camera/mic access, confirm preview.</p>
+          <button id="btn-warmup-camera" class="btn-soft btn" type="button">Enable Camera</button>
+        </div>
+        <div class="warmup-step">
+          <strong>3. SAF(e) Intro</strong>
+          <p>Start Simple, Add Reasons, Focus on ONE Example, End Strong.</p>
+        </div>
+      </div>
+      <div class="cta-row" style="justify-content:flex-end;">
+        <button id="btn-skip-warmup" class="btn-soft btn" type="button">Skip</button>
+        <button id="btn-start-warmup-rep" class="btn" type="button">Start Warm-Up Rep</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const MODE_CONFIG = {
+      quick_rep: {
+        name: 'Quick Rep',
+        description: 'One fast rep, immediate feedback',
+        session_size: 1,
+        duration_per_q: 60,
+        pre_answer_guidance: true,
+        post_answer_feedback: true,
+        delivery_training_ui: false,
+        delivery_insights: true,
+        coaching_aids: false,
+        countdown_timer: true,
+        saf_scoring: true,
+        question_selection: 'random_with_recency_penalty',
+      },
+      guided_practice: {
+        name: 'Guided Practice',
+        description: 'Learn with coaching, category focused',
+        session_size: 3,
+        duration_per_q: 60,
+        pre_answer_guidance: true,
+        post_answer_feedback: true,
+        delivery_training_ui: false,
+        delivery_insights: true,
+        coaching_aids: true,
+        countdown_timer: true,
+        saf_scoring: true,
+        question_selection: 'category_filtered',
+        category_selector: true,
+      },
+      delivery_training: {
+        name: 'Delivery Training',
+        description: 'Real-time pitch + volume feedback',
+        session_size: 1,
+        duration_per_q: 60,
+        pre_answer_guidance: true,
+        post_answer_feedback: true,
+        delivery_training_ui: true,
+        delivery_insights: true,
+        coaching_aids: false,
+        countdown_timer: true,
+        saf_scoring: true,
+        question_selection: 'random_with_recency_penalty',
+      },
+      simulation: {
+        name: 'Simulation',
+        description: 'Test mode: no coaching, 8 questions',
+        session_size: 8,
+        duration_per_q: 60,
+        pre_answer_guidance: false,
+        post_answer_feedback: false,
+        delivery_training_ui: false,
+        delivery_insights: false,
+        coaching_aids: false,
+        countdown_timer: true,
+        saf_scoring: false,
+        question_selection: 'sequential_rotation',
+      },
+    };
+
+    const CATEGORIES = ['Opening', 'Career Fit', 'Challenge', 'Strength', 'Culture', 'Why Program'];
+    const CHUNK_SIZE = 5 * 1024 * 1024;
+    const RETRY_DELAYS_MS = [1000, 3000, 9000];
+
+    const state = {
+      userId: '',
+      responses: [],
+      progress: null,
+      selectedMode: 'quick_rep',
+      modeLocked: false,
+      session: null,
+      mediaStream: null,
+      mediaRecorder: null,
+      recordedChunks: [],
+      detectedCodec: '',
+      recordInterval: null,
+      elapsedSec: 0,
+      selectedCategory: '',
+      warmupSkipped: false,
+      vault: {
+        selectedQuestionId: '',
+        timeline: [],
+      },
+      delivery: {
+        audioContext: null,
+        sourceNode: null,
+        analyser: null,
+        rafId: 0,
+        running: false,
+        lastTickMs: 0,
+        pitchSeries: [],
+        smoothedVolume: 0,
+        currentHz: 0,
+        currentDb: 0,
+        confidence: 0,
+      },
+    };
+
+    const el = {
+      userId: document.getElementById('user-id'),
+      globalStatus: document.getElementById('global-status'),
+      loadDashboard: document.getElementById('btn-load-dashboard'),
+      totalReps: document.getElementById('total-reps'),
+      categoriesCovered: document.getElementById('categories-covered'),
+      lastRep: document.getElementById('last-rep'),
+      streakCurrent: document.getElementById('streak-current'),
+      streakLongest: document.getElementById('streak-longest'),
+      streakRing: document.getElementById('streak-ring'),
+      chart: document.getElementById('progress-chart'),
+      historyBody: document.getElementById('history-body'),
+      refreshVault: document.getElementById('btn-refresh-vault'),
+      vaultQuestionSelect: document.getElementById('vault-question-select'),
+      vaultTimeline: document.getElementById('vault-timeline'),
+      vaultCompare: document.getElementById('vault-compare'),
+      vaultImprovement: document.getElementById('vault-improvement'),
+      goldAnswer: document.getElementById('gold-answer'),
+      teachingSuggestion: document.getElementById('teaching-suggestion'),
+      openMode: document.getElementById('btn-open-mode'),
+      modeLockBadge: document.getElementById('mode-lock-badge'),
+      modeModal: document.getElementById('mode-modal'),
+      modeGrid: document.getElementById('mode-grid'),
+      closeMode: document.getElementById('btn-close-mode'),
+      startMode: document.getElementById('btn-start-mode'),
+      warmupModal: document.getElementById('warmup-modal'),
+      warmupCamera: document.getElementById('btn-warmup-camera'),
+      skipWarmup: document.getElementById('btn-skip-warmup'),
+      startWarmupRep: document.getElementById('btn-start-warmup-rep'),
+      sessionShell: document.getElementById('session-shell'),
+      sessionTitle: document.getElementById('session-title'),
+      sessionSubtitle: document.getElementById('session-subtitle'),
+      activeModeBadge: document.getElementById('active-mode-badge'),
+      repCounterBadge: document.getElementById('rep-counter-badge'),
+      categorySelector: document.getElementById('category-selector'),
+      categoryGrid: document.getElementById('category-grid'),
+      confirmCategory: document.getElementById('btn-confirm-category'),
+      questionCard: document.getElementById('question-card'),
+      questionCategory: document.getElementById('question-category'),
+      questionTimer: document.getElementById('question-timer'),
+      questionText: document.getElementById('question-text'),
+      preGuidance: document.getElementById('pre-guidance'),
+      teachingVideoCta: document.getElementById('teaching-video-cta'),
+      watchExample: document.getElementById('btn-watch-example'),
+      enableCamera: document.getElementById('btn-enable-camera'),
+      record: document.getElementById('btn-record'),
+      stop: document.getElementById('btn-stop'),
+      cancelSession: document.getElementById('btn-cancel-session'),
+      cameraPreview: document.getElementById('camera-preview'),
+      framingOverlay: document.getElementById('framing-overlay'),
+      timerText: document.getElementById('timer-text'),
+      uploadProgress: document.getElementById('upload-progress'),
+      uploadProgressText: document.getElementById('upload-progress-text'),
+      deliveryPanel: document.getElementById('delivery-panel'),
+      pitchCanvas: document.getElementById('pitch-canvas'),
+      volumeFill: document.getElementById('volume-fill'),
+      deliveryStatusLine: document.getElementById('delivery-status-line'),
+      feedbackPanel: document.getElementById('feedback-panel'),
+      answerPlayback: document.getElementById('answer-playback'),
+      feedbackSummary: document.getElementById('feedback-summary'),
+      safGrid: document.getElementById('saf-grid'),
+      deliveryInsights: document.getElementById('delivery-insights'),
+      nextRep: document.getElementById('btn-next-rep'),
+      backDashboard: document.getElementById('btn-back-dashboard'),
+      simSummary: document.getElementById('simulation-summary'),
+      simSummaryText: document.getElementById('simulation-summary-text'),
+      simDashboard: document.getElementById('btn-sim-dashboard'),
+    };
+
+    function setStatus(message, tone = 'ok') {
+      el.globalStatus.textContent = message;
+      el.globalStatus.className = `status-line status-${tone}`;
+    }
+
+    function formatDate(value) {
+      if (!value) return '—';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '—';
+      return d.toLocaleDateString();
+    }
+
+    function formatTime(totalSeconds) {
+      const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+      const secs = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    function resetDeliveryWidgets() {
+      const delivery = state.delivery;
+      delivery.pitchSeries = [];
+      delivery.smoothedVolume = 0;
+      delivery.currentHz = 0;
+      delivery.currentDb = 0;
+      delivery.confidence = 0;
+      if (el.volumeFill) {
+        el.volumeFill.style.height = '0%';
+        el.volumeFill.style.background = '#d15a5a';
+      }
+      if (el.deliveryStatusLine) {
+        el.deliveryStatusLine.textContent = 'Hz: -- | Vol: -- dB | Time: 00:00';
+      }
+      drawDeliveryPitchGraph();
+    }
+
+    function drawDeliveryPitchGraph() {
+      const canvas = el.pitchCanvas;
+      if (!canvas) {
+        return;
+      }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return;
+      }
+
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.strokeStyle = 'rgba(169, 186, 204, 0.35)';
+      ctx.lineWidth = 1;
+      const rows = 5;
+      const cols = 8;
+      for (let row = 0; row <= rows; row += 1) {
+        const y = (row / rows) * height;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+      for (let col = 0; col <= cols; col += 1) {
+        const x = (col / cols) * width;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+
+      const series = state.delivery.pitchSeries;
+      if (!series.length) {
+        return;
+      }
+
+      ctx.strokeStyle = '#b23a3a';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const maxPoints = 800;
+      const baseX = width / Math.max(1, maxPoints - 1);
+      series.forEach((point, index) => {
+        const hz = clamp(Number(point.hz || 0), 50, 400);
+        const normalizedY = (hz - 50) / 350;
+        const x = index * baseX;
+        const y = height - (normalizedY * height);
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+    }
+
+    function detectPitchAutoCorrelation(samples, sampleRate) {
+      const size = samples.length;
+      if (size < 2) {
+        return { frequency: 0, confidence: 0 };
+      }
+
+      let rms = 0;
+      for (let index = 0; index < size; index += 1) {
+        const value = samples[index] || 0;
+        rms += value * value;
+      }
+      rms = Math.sqrt(rms / size);
+      if (rms < 0.01) {
+        return { frequency: 0, confidence: 0 };
+      }
+
+      const minLag = Math.floor(sampleRate / 400);
+      const maxLag = Math.floor(sampleRate / 50);
+      let bestLag = 0;
+      let bestCorr = 0;
+
+      for (let lag = minLag; lag <= maxLag; lag += 1) {
+        let corr = 0;
+        let normA = 0;
+        let normB = 0;
+        for (let i = 0; i + lag < size; i += 1) {
+          const a = samples[i];
+          const b = samples[i + lag];
+          corr += a * b;
+          normA += a * a;
+          normB += b * b;
+        }
+        const denom = Math.sqrt(normA * normB);
+        if (!denom) {
+          continue;
+        }
+        const normalized = corr / denom;
+        if (normalized > bestCorr) {
+          bestCorr = normalized;
+          bestLag = lag;
+        }
+      }
+
+      if (!bestLag) {
+        return { frequency: 0, confidence: 0 };
+      }
+      const frequency = sampleRate / bestLag;
+      if (frequency < 50 || frequency > 400) {
+        return { frequency: 0, confidence: 0 };
+      }
+      return { frequency, confidence: clamp(bestCorr, 0, 1) };
+    }
+
+    function updateDeliveryStatusLine() {
+      if (!el.deliveryStatusLine) {
+        return;
+      }
+      const hzLabel = state.delivery.currentHz > 0
+        ? `${Math.round(state.delivery.currentHz)}`
+        : '--';
+      const dbLabel = Number.isFinite(state.delivery.currentDb)
+        ? `${Math.round(state.delivery.currentDb)}`
+        : '--';
+      el.deliveryStatusLine.textContent = `Hz: ${hzLabel} | Vol: ${dbLabel} dB | Time: ${formatTime(state.elapsedSec)}`;
+    }
+
+    async function ensureDeliveryAudioPipeline() {
+      if (!state.mediaStream) {
+        throw new Error('delivery_media_stream_required');
+      }
+      const delivery = state.delivery;
+      if (delivery.audioContext && delivery.analyser && delivery.sourceNode) {
+        return;
+      }
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        throw new Error('audio_context_unavailable');
+      }
+
+      const audioContext = new AudioCtx({ sampleRate: 48000 });
+      const sourceNode = audioContext.createMediaStreamSource(state.mediaStream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.3;
+
+      sourceNode.connect(analyser);
+      delivery.audioContext = audioContext;
+      delivery.sourceNode = sourceNode;
+      delivery.analyser = analyser;
+    }
+
+    function stopDeliveryAnalysisLoop() {
+      const delivery = state.delivery;
+      delivery.running = false;
+      delivery.lastTickMs = 0;
+      if (delivery.rafId) {
+        cancelAnimationFrame(delivery.rafId);
+        delivery.rafId = 0;
+      }
+    }
+
+    function startDeliveryAnalysisLoop() {
+      const delivery = state.delivery;
+      if (!delivery.analyser || !delivery.audioContext || delivery.running) {
+        return;
+      }
+
+      const analyser = delivery.analyser;
+      const sampleBuffer = new Float32Array(analyser.fftSize);
+      delivery.running = true;
+
+      const loop = (ts) => {
+        if (!delivery.running) {
+          return;
+        }
+        if (!delivery.lastTickMs || ts - delivery.lastTickMs >= 75) {
+          delivery.lastTickMs = ts;
+          analyser.getFloatTimeDomainData(sampleBuffer);
+          const pitch = detectPitchAutoCorrelation(sampleBuffer, delivery.audioContext.sampleRate);
+
+          let sumSquares = 0;
+          for (let i = 0; i < sampleBuffer.length; i += 1) {
+            const value = sampleBuffer[i] || 0;
+            sumSquares += value * value;
+          }
+          const rms = Math.sqrt(sumSquares / sampleBuffer.length);
+          const volumeRaw = clamp(Math.round(rms * 160), 0, 100);
+          const alpha = 0.2;
+          delivery.smoothedVolume = (alpha * volumeRaw) + ((1 - alpha) * delivery.smoothedVolume);
+
+          const db = rms > 0 ? (20 * Math.log10(rms) + 100) : 0;
+          delivery.currentDb = clamp(db, 0, 100);
+          delivery.currentHz = pitch.frequency;
+          delivery.confidence = pitch.confidence;
+
+          const roundedHz = pitch.confidence >= 0.7 ? Math.round(pitch.frequency) : 0;
+          delivery.pitchSeries.push({
+            t: Date.now(),
+            hz: roundedHz || 50,
+          });
+          if (delivery.pitchSeries.length > 800) {
+            delivery.pitchSeries.splice(0, delivery.pitchSeries.length - 800);
+          }
+
+          const volPct = clamp(delivery.smoothedVolume, 0, 100);
+          if (el.volumeFill) {
+            el.volumeFill.style.height = `${volPct}%`;
+            if (volPct < 40) {
+              el.volumeFill.style.background = '#d15a5a';
+            } else if (volPct < 60) {
+              el.volumeFill.style.background = '#d8962f';
+            } else {
+              el.volumeFill.style.background = '#2c9861';
+            }
+          }
+          drawDeliveryPitchGraph();
+          updateDeliveryStatusLine();
+        }
+        delivery.rafId = requestAnimationFrame(loop);
+      };
+
+      delivery.rafId = requestAnimationFrame(loop);
+    }
+
+    function safeJsonParse(text) {
+      try {
+        return text ? JSON.parse(text) : {};
+      } catch {
+        return {};
+      }
+    }
+
+    async function apiJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = safeJsonParse(await response.text());
+      if (!response.ok) {
+        const message = data.error || data.message || `HTTP ${response.status}`;
+        throw new Error(String(message));
+      }
+      return data;
+    }
+
+    function renderModeCards() {
+      el.modeGrid.innerHTML = '';
+      Object.entries(MODE_CONFIG).forEach(([key, config]) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = `mode-card${state.selectedMode === key ? ' active' : ''}`;
+        card.innerHTML = `
+          <strong>${config.name}</strong>
+          <small>${config.description}</small>
+          <small>Session size: ${config.session_size} • ${config.duration_per_q}s / question</small>
+        `;
+        card.addEventListener('click', () => {
+          state.selectedMode = key;
+          renderModeCards();
+        });
+        el.modeGrid.appendChild(card);
+      });
+    }
+
+    function buildProgressChart(rows = []) {
+      const map = new Map();
+      const now = new Date();
+      for (let i = 6; i >= 0; i -= 1) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        map.set(d.toISOString().slice(0, 10), 0);
+      }
+      rows.forEach((row) => {
+        const key = String(row.submitted_at || '').slice(0, 10);
+        if (map.has(key)) map.set(key, map.get(key) + 1);
+      });
+
+      const values = [...map.values()];
+      const max = Math.max(3, ...values);
+      const width = 700;
+      const height = 140;
+      const barW = 68;
+      const gap = 28;
+      let x = 28;
+      const bars = [];
+      [...map.entries()].forEach(([key, count]) => {
+        const h = Math.round((count / max) * 90);
+        bars.push(`<rect x="${x}" y="${110 - h}" width="${barW}" height="${h}" fill="#254f75" rx="4" />`);
+        bars.push(`<text x="${x + barW / 2}" y="126" font-size="10" fill="#9ab0c8" text-anchor="middle">${key.slice(5)}</text>`);
+        bars.push(`<text x="${x + barW / 2}" y="${106 - h}" font-size="10" fill="#dce8f6" text-anchor="middle">${count}</text>`);
+        x += (barW + gap);
+      });
+
+      const targetY = 110 - Math.round((3 / max) * 90);
+      el.chart.innerHTML = `
+        <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
+        <line x1="18" y1="110" x2="690" y2="110" stroke="#3a5573" stroke-width="1" />
+        <line x1="18" y1="${targetY}" x2="690" y2="${targetY}" stroke="#b28a5f" stroke-width="1.5" stroke-dasharray="4 4" />
+        <text x="690" y="${targetY - 4}" font-size="10" fill="#bca27e" text-anchor="end">target: 3/day</text>
+        ${bars.join('')}
+      `;
+    }
+
+    function computeLongestStreak(rows = []) {
+      const days = [...new Set(rows.map((row) => String(row.submitted_at || '').slice(0, 10)).filter(Boolean))].sort();
+      let longest = 0;
+      let run = 0;
+      let prev = null;
+      for (const day of days) {
+        const d = new Date(`${day}T00:00:00Z`).getTime();
+        if (prev === null) {
+          run = 1;
+        } else {
+          const delta = (d - prev) / (24 * 60 * 60 * 1000);
+          run = delta === 1 ? run + 1 : 1;
+        }
+        longest = Math.max(longest, run);
+        prev = d;
+      }
+      return longest;
+    }
+
+    function renderHistory(rows = []) {
+      if (!rows.length) {
+        el.historyBody.innerHTML = '<tr><td colspan="5" style="color:var(--muted)">No reps yet.</td></tr>';
+        return;
+      }
+
+      const top = rows.slice(0, 10);
+      el.historyBody.innerHTML = top.map((row) => {
+        const saf = row.saf_overall || (row.saf_scores ? 'developing' : '—');
+        const dur = row.metrics && row.metrics.wpm ? `${row.metrics.wpm} wpm` : '—';
+        return `
+          <tr>
+            <td>${formatDate(row.submitted_at)}</td>
+            <td>${row.mode || '—'}</td>
+            <td>${row.question_text || '—'}</td>
+            <td>${saf}</td>
+            <td>${dur}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function buildVaultQuestionOptions(rows = []) {
+      const seen = new Set();
+      const options = [];
+      rows.forEach((row) => {
+        const qid = String(row.question_id || '').trim();
+        const text = String(row.question_text || '').trim();
+        if (!qid || seen.has(qid)) {
+          return;
+        }
+        seen.add(qid);
+        options.push({
+          id: qid,
+          label: text || `Question ${options.length + 1}`,
+        });
+      });
+      return options;
+    }
+
+    function renderVaultQuestionSelect(rows = []) {
+      const options = buildVaultQuestionOptions(rows);
+      const current = state.vault.selectedQuestionId;
+      el.vaultQuestionSelect.innerHTML = '<option value="">Select a question</option>';
+      options.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = item.label;
+        if (current && current === item.id) {
+          option.selected = true;
+        }
+        el.vaultQuestionSelect.appendChild(option);
+      });
+      if (!current && options[0]) {
+        state.vault.selectedQuestionId = options[0].id;
+        el.vaultQuestionSelect.value = options[0].id;
+      }
+    }
+
+    function safBadgeLabel(value) {
+      const normalized = String(value || '').toLowerCase();
+      if (normalized === 'strong') return 'Strong';
+      if (normalized === 'developing') return 'Developing';
+      if (normalized === 'missing') return 'Missing';
+      return 'Pending';
+    }
+
+    function renderVaultTimelineRows(rows = []) {
+      if (!rows.length) {
+        el.vaultTimeline.innerHTML = '<div class="hint">No answers recorded yet for this question.</div>';
+        return;
+      }
+      el.vaultTimeline.innerHTML = rows.map((row, index) => {
+        const duration = row.metrics && row.metrics.wpm ? `${row.metrics.wpm} wpm` : 'duration pending';
+        return `
+          <div class="timeline-item${index === 0 ? ' active' : ''}" data-response-id="${row.response_id || ''}">
+            <strong>${formatDate(row.submitted_at)} • ${row.mode || 'mode pending'}</strong>
+            <span class="hint">SAF(e): ${safBadgeLabel(row.saf_overall)} • ${duration}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderThenVsNow(compare = null) {
+      if (!compare || !compare.first || !compare.latest) {
+        el.vaultCompare.classList.add('hidden');
+        el.vaultCompare.innerHTML = '';
+        el.vaultImprovement.classList.add('hidden');
+        el.vaultImprovement.textContent = '';
+        return;
+      }
+
+      const renderCard = (title, row) => `
+        <article class="compare-card">
+          <strong>${title}</strong>
+          <span class="hint">${formatDate(row.submitted_at)} • ${row.mode || 'mode pending'} • SAF(e): ${safBadgeLabel(row.saf_overall)}</span>
+          <video controls style="width:100%; border:1px solid var(--line); border-radius:8px; background:#000;">
+            <source src="${row.video_url || ''}" />
+          </video>
+          <div class="hint">${(Array.isArray(row.delivery_insights) ? row.delivery_insights.slice(0, 3) : []).join(' ') || 'Delivery insights pending.'}</div>
+        </article>
+      `;
+
+      el.vaultCompare.innerHTML = `
+        ${renderCard('Then (First Answer)', compare.first)}
+        ${renderCard('Now (Most Recent)', compare.latest)}
+      `;
+      el.vaultCompare.classList.remove('hidden');
+
+      if (compare.improvement) {
+        el.vaultImprovement.textContent = compare.improvement;
+        el.vaultImprovement.classList.remove('hidden');
+      } else {
+        el.vaultImprovement.classList.add('hidden');
+        el.vaultImprovement.textContent = '';
+      }
+    }
+
+    function scoreLabelFromExcerpt(excerpt = '') {
+      return String(excerpt || '').trim() ? 'Strong' : 'Developing';
+    }
+
+    function renderGoldAnswer(goldPayload = null, latestRow = null) {
+      if (!goldPayload) {
+        el.goldAnswer.classList.add('hidden');
+        el.goldAnswer.innerHTML = '';
+        return;
+      }
+
+      if (goldPayload.locked) {
+        el.goldAnswer.classList.remove('hidden');
+        el.goldAnswer.innerHTML = '<strong>Gold Answer Locked</strong><p class="hint">Record at least one answer to unlock Dr. Brian\'s gold answer and coaching notes.</p>';
+        return;
+      }
+
+      const gold = goldPayload.data;
+      if (!gold) {
+        el.goldAnswer.classList.add('hidden');
+        el.goldAnswer.innerHTML = '';
+        return;
+      }
+
+      const latestLabel = latestRow ? safBadgeLabel(latestRow.saf_overall) : 'Pending';
+      const breakdown = gold.saf_breakdown || {};
+      el.goldAnswer.classList.remove('hidden');
+      el.goldAnswer.innerHTML = `
+        <h4 style="font-size:0.96rem;">Gold Answer Comparison</h4>
+        <div class="compare-grid">
+          <article class="compare-card">
+            <strong>Your Most Recent Answer</strong>
+            <span class="hint">SAF(e): ${latestLabel}</span>
+            <video controls style="width:100%; border:1px solid var(--line); border-radius:8px; background:#000;">
+              <source src="${latestRow?.video_url || ''}" />
+            </video>
+            <div class="hint">${(Array.isArray(latestRow?.delivery_insights) ? latestRow.delivery_insights.slice(0, 3) : []).join(' ') || 'Delivery insights pending.'}</div>
+          </article>
+          <article class="compare-card">
+            <strong>Gold Answer (Dr. Brian)</strong>
+            <video controls style="width:100%; border:1px solid var(--line); border-radius:8px; background:#000;">
+              <source src="${gold.video_url || ''}" />
+            </video>
+            <div class="saf-grid">
+              <div class="saf-item"><strong>Start Simple</strong><br/>${scoreLabelFromExcerpt(breakdown.start_simple)}${breakdown.start_simple ? ` • "${breakdown.start_simple}"` : ''}</div>
+              <div class="saf-item"><strong>Add Reasons</strong><br/>${scoreLabelFromExcerpt(breakdown.add_reasons)}${breakdown.add_reasons ? ` • "${breakdown.add_reasons}"` : ''}</div>
+              <div class="saf-item"><strong>Focus Example</strong><br/>${scoreLabelFromExcerpt(breakdown.focus_example)}${breakdown.focus_example ? ` • "${breakdown.focus_example}"` : ''}</div>
+              <div class="saf-item"><strong>End Strong</strong><br/>${scoreLabelFromExcerpt(breakdown.end_strong)}${breakdown.end_strong ? ` • "${breakdown.end_strong}"` : ''}</div>
+            </div>
+            <p class="hint">${gold.coaching_notes || 'Coaching notes will appear once seeded for this question.'}</p>
+          </article>
+        </div>
+      `;
+    }
+
+    function renderTeachingSuggestion(suggestion = null) {
+      if (!suggestion || !suggestion.video_url) {
+        el.teachingSuggestion.classList.add('hidden');
+        el.teachingSuggestion.innerHTML = '';
+        return;
+      }
+      if (state.session && state.session.teachingSuggestionShown) {
+        el.teachingSuggestion.classList.add('hidden');
+        el.teachingSuggestion.innerHTML = '';
+        return;
+      }
+
+      el.teachingSuggestion.classList.remove('hidden');
+      const duration = suggestion.duration_sec ? `${Math.round(Number(suggestion.duration_sec) / 60)} min` : 'Quick tip';
+      el.teachingSuggestion.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <strong>${suggestion.message || `Having trouble with ${suggestion.skill_tag}? Here's a quick tip:`}</strong>
+          <button id="btn-dismiss-teaching" class="btn-soft btn" type="button">Dismiss</button>
+        </div>
+        <p class="hint">${suggestion.title || 'Teaching video'} • ${duration}</p>
+        <video controls style="width:100%; border:1px solid var(--line); border-radius:8px; background:#000;">
+          <source src="${suggestion.video_url}" />
+        </video>
+      `;
+      const dismiss = document.getElementById('btn-dismiss-teaching');
+      if (dismiss) {
+        dismiss.addEventListener('click', () => {
+          if (state.session) {
+            state.session.teachingSuggestionShown = true;
+          }
+          el.teachingSuggestion.classList.add('hidden');
+        });
+      }
+    }
+
+    async function loadVaultTimeline(questionId) {
+      if (!state.userId || !questionId) {
+        return;
+      }
+      state.vault.selectedQuestionId = questionId;
+      el.vaultTimeline.innerHTML = '<div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>';
+      try {
+        const data = await apiJson(`/api/dboc/vault/timeline?user_id=${encodeURIComponent(state.userId)}&question_id=${encodeURIComponent(questionId)}`);
+        const timeline = Array.isArray(data.timeline) ? data.timeline : [];
+        state.vault.timeline = timeline;
+        renderVaultTimelineRows(timeline);
+        renderThenVsNow(data.then_vs_now || null);
+        renderGoldAnswer(data.gold_answer || null, data.then_vs_now?.latest || null);
+        renderTeachingSuggestion(data.teaching_suggestion || null);
+      } catch (error) {
+        el.vaultTimeline.innerHTML = `<div class="hint">Vault timeline failed: ${error.message}</div>`;
+        el.vaultCompare.classList.add('hidden');
+        el.goldAnswer.classList.add('hidden');
+        el.teachingSuggestion.classList.add('hidden');
+      }
+    }
+
+    function updateModeLockLabel() {
+      if (state.modeLocked && state.session) {
+        el.modeLockBadge.textContent = `Mode locked: ${MODE_CONFIG[state.session.mode].name}`;
+      } else {
+        el.modeLockBadge.textContent = 'Mode unlocked';
+      }
+    }
+
+    function setDashboardLoadingState(isLoading) {
+      const targets = [el.totalReps, el.categoriesCovered, el.lastRep, el.streakCurrent, el.streakLongest];
+      targets.forEach((node) => {
+        if (!node) return;
+        node.classList.toggle('skeleton', isLoading);
+      });
+      if (isLoading) {
+        el.chart.innerHTML = '<rect x="16" y="20" width="668" height="96" rx="8" fill="rgba(140,155,175,0.2)"></rect>';
+      }
+    }
+
+    async function loadDashboard() {
+      const userId = String(el.userId.value || '').trim();
+      if (!userId) {
+        setStatus('Enter user_id before loading dashboard.', 'warn');
+        return;
+      }
+
+      state.userId = userId;
+      setStatus('Loading dashboard data...', 'ok');
+      setDashboardLoadingState(true);
+      try {
+        const [progress, responses] = await Promise.all([
+          apiJson(`/api/dboc/progress/get?user_id=${encodeURIComponent(userId)}`),
+          apiJson(`/api/dboc/responses/list?user_id=${encodeURIComponent(userId)}`),
+        ]);
+
+        state.progress = progress;
+        state.responses = Array.isArray(responses) ? responses : [];
+
+        el.totalReps.textContent = String(progress.total_reps || state.responses.length || 0);
+        el.categoriesCovered.textContent = String(Array.isArray(progress.categories_covered) ? progress.categories_covered.length : 0);
+        el.lastRep.textContent = formatDate(progress.last_rep_at);
+        el.streakCurrent.textContent = String(progress.streak || 0);
+        const longest = computeLongestStreak(state.responses);
+        el.streakLongest.textContent = String(longest);
+        const progressDeg = Math.min(360, (Number(progress.streak || 0) / 7) * 360);
+        el.streakRing.style.transform = `rotate(${progressDeg - 45}deg)`;
+
+        buildProgressChart(state.responses);
+        renderHistory(state.responses);
+        renderVaultQuestionSelect(state.responses);
+        if (state.vault.selectedQuestionId) {
+          await loadVaultTimeline(state.vault.selectedQuestionId);
+        } else {
+          el.vaultTimeline.innerHTML = '<div class="hint">Run a rep to unlock Answer Vault timeline.</div>';
+          el.vaultCompare.classList.add('hidden');
+          el.goldAnswer.classList.add('hidden');
+          el.teachingSuggestion.classList.add('hidden');
+        }
+
+        const completedReps = Number(progress.total_reps || 0);
+        if (completedReps === 0 && !state.warmupSkipped) {
+          el.warmupModal.classList.remove('hidden');
+        }
+
+        setStatus('Dashboard loaded.', 'ok');
+      } catch (error) {
+        setStatus(`Dashboard load failed: ${error.message}`, 'bad');
+      } finally {
+        setDashboardLoadingState(false);
+      }
+    }
+
+    function openModeModal() {
+      if (state.modeLocked) {
+        setStatus('Mode is locked until current session ends.', 'warn');
+        return;
+      }
+      renderModeCards();
+      el.modeModal.classList.remove('hidden');
+    }
+
+    function closeModeModal() {
+      el.modeModal.classList.add('hidden');
+    }
+
+    function renderCategorySelector() {
+      el.categoryGrid.innerHTML = '';
+      CATEGORIES.forEach((category) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `btn-soft btn${state.selectedCategory === category ? ' active' : ''}`;
+        button.textContent = category;
+        button.addEventListener('click', () => {
+          state.selectedCategory = category;
+          renderCategorySelector();
+        });
+        el.categoryGrid.appendChild(button);
+      });
+    }
+
+    async function startSession(modeKey) {
+      const config = MODE_CONFIG[modeKey];
+      state.modeLocked = true;
+      state.session = {
+        mode: modeKey,
+        planned: config.session_size,
+        done: 0,
+        startedAt: Date.now(),
+        results: [],
+        sharedSessionId: '',
+        teachingSuggestionShown: false,
+        currentTeachingVideoUrl: '',
+      };
+      state.selectedCategory = '';
+      updateModeLockLabel();
+
+      el.sessionShell.classList.remove('hidden');
+      el.feedbackPanel.classList.add('hidden');
+      el.simSummary.classList.add('hidden');
+      el.questionCard.classList.add('hidden');
+      el.categorySelector.classList.add('hidden');
+      el.teachingSuggestion.classList.add('hidden');
+      el.teachingVideoCta.classList.add('hidden');
+
+      el.sessionTitle.textContent = `${config.name} Session`;
+      el.sessionSubtitle.textContent = config.description;
+      el.activeModeBadge.textContent = `Mode: ${config.name}`;
+      el.repCounterBadge.textContent = `Rep ${state.session.done} / ${state.session.planned}`;
+
+      if (config.category_selector) {
+        renderCategorySelector();
+        el.categorySelector.classList.remove('hidden');
+      } else {
+        await prepareNextRep();
+      }
+    }
+
+    function buildGuidanceText(modeKey) {
+      if (!MODE_CONFIG[modeKey].pre_answer_guidance) {
+        return '';
+      }
+      return [
+        'Think in 4 parts:',
+        '1) Start Simple',
+        '2) Add Reasons',
+        '3) Focus on ONE Example',
+        '4) End Strong',
+      ].join(' ');
+    }
+
+    async function fetchNextQuestion() {
+      const mode = state.session.mode;
+      const category = state.selectedCategory;
+      const query = new URLSearchParams({
+        user_id: state.userId,
+        mode,
+      });
+      if (category) query.set('category', category);
+
+      const response = await apiJson(`/api/dboc/questions/select?${query.toString()}`);
+      if (!response.question_id) {
+        throw new Error('No question available for current selection.');
+      }
+      return response;
+    }
+
+    async function prepareNextRep() {
+      const config = MODE_CONFIG[state.session.mode];
+      if (state.session.done >= state.session.planned) {
+        completeSession();
+        return;
+      }
+
+      try {
+        setStatus('Loading next question...', 'ok');
+        el.questionText.classList.add('skeleton');
+        el.questionText.textContent = ' ';
+        const question = await fetchNextQuestion();
+
+        state.session.currentQuestion = question;
+        el.questionText.classList.remove('skeleton');
+        el.questionCategory.textContent = `Category: ${question.category || 'General'}`;
+        el.questionText.textContent = question.text || 'Question unavailable.';
+        el.questionTimer.textContent = `${config.duration_per_q}s`;
+        el.preGuidance.textContent = buildGuidanceText(state.session.mode);
+        el.preGuidance.classList.toggle('hidden', !config.pre_answer_guidance);
+        state.session.currentTeachingVideoUrl = String(question.teaching_video_url || '').trim();
+        el.teachingVideoCta.classList.toggle('hidden', !state.session.currentTeachingVideoUrl);
+
+        el.categorySelector.classList.add('hidden');
+      el.questionCard.classList.remove('hidden');
+      el.feedbackPanel.classList.add('hidden');
+      el.simSummary.classList.add('hidden');
+      el.repCounterBadge.textContent = `Rep ${state.session.done + 1} / ${state.session.planned}`;
+      const showDeliveryUi = Boolean(config.delivery_training_ui);
+      el.deliveryPanel.classList.toggle('hidden', !showDeliveryUi);
+      if (showDeliveryUi) {
+        resetDeliveryWidgets();
+      }
+
+        setUploadProgress(0, 'Upload progress: 0%');
+        setStatus('Question ready. Enable camera and record.', 'ok');
+      } catch (error) {
+        el.questionText.classList.remove('skeleton');
+        setStatus(`Question load failed: ${error.message}`, 'bad');
+      }
+    }
+
+    function setUploadProgress(percent, text) {
+      const value = Math.max(0, Math.min(100, Number(percent) || 0));
+      el.uploadProgress.style.width = `${value}%`;
+      el.uploadProgressText.textContent = text || `Upload progress: ${Math.round(value)}%`;
+    }
+
+    function detectCodec() {
+      const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/mp4'];
+      for (const mime of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(mime)) {
+          return mime;
+        }
+      }
+      return '';
+    }
+
+    function drawFramingOverlay() {
+      const canvas = el.framingOverlay;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;
+      const width = canvas.width = canvas.clientWidth;
+      const height = canvas.height = canvas.clientHeight;
+      if (!width || !height) return;
+
+      ctx.clearRect(0, 0, width, height);
+      const x = width * 0.1;
+      const y = height * 0.1;
+      const w = width * 0.8;
+      const h = height * 0.8;
+      ctx.strokeStyle = 'rgba(48, 208, 125, 0.9)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, w, h);
+    }
+
+    async function enableCamera() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('getUserMedia unavailable');
+        }
+        state.mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        el.cameraPreview.srcObject = state.mediaStream;
+        await el.cameraPreview.play();
+        state.detectedCodec = detectCodec();
+        if (!state.detectedCodec) {
+          throw new Error('No supported recording codec');
+        }
+        drawFramingOverlay();
+        el.record.disabled = false;
+        setStatus('Camera ready.', 'ok');
+      } catch (error) {
+        setStatus(`Camera error: ${error.message}`, 'bad');
+      }
+    }
+
+    function stopRecorderTimer() {
+      if (state.recordInterval) {
+        clearInterval(state.recordInterval);
+        state.recordInterval = null;
+      }
+      el.timerText.textContent = '00:00';
+    }
+
+    function startRecorderTimer(secondsLimit) {
+      stopRecorderTimer();
+      state.elapsedSec = 0;
+      el.timerText.textContent = '00:00';
+      state.recordInterval = setInterval(() => {
+        state.elapsedSec += 1;
+        el.timerText.textContent = formatTime(state.elapsedSec);
+        if (state.elapsedSec >= secondsLimit) {
+          stopRecording();
+          setStatus('Timer reached session limit; recording stopped.', 'warn');
+        }
+      }, 1000);
+    }
+
+    async function startRecording() {
+      if (!state.mediaStream) {
+        setStatus('Enable camera first.', 'warn');
+        return;
+      }
+      if (!state.detectedCodec) {
+        setStatus('No supported codec detected.', 'bad');
+        return;
+      }
+
+      state.recordedChunks = [];
+      state.mediaRecorder = new MediaRecorder(state.mediaStream, { mimeType: state.detectedCodec });
+      state.mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          state.recordedChunks.push(event.data);
+        }
+      };
+      state.mediaRecorder.onstop = () => {
+        stopDeliveryAnalysisLoop();
+        stopRecorderTimer();
+        el.stop.style.display = 'none';
+        el.record.disabled = false;
+        const blob = new Blob(state.recordedChunks, { type: state.detectedCodec });
+        if (!blob.size) {
+          setStatus('Recording failed: empty media output.', 'bad');
+          return;
+        }
+        void submitRepBlob(blob);
+      };
+
+      if (state.session && state.session.mode === 'delivery_training') {
+        try {
+          await ensureDeliveryAudioPipeline();
+          startDeliveryAnalysisLoop();
+        } catch (error) {
+          setStatus(`Delivery analysis unavailable: ${error.message}`, 'warn');
+        }
+      } else {
+        stopDeliveryAnalysisLoop();
+      }
+
+      state.mediaRecorder.start(1000);
+      startRecorderTimer(MODE_CONFIG[state.session.mode].duration_per_q);
+      el.record.disabled = true;
+      el.stop.style.display = 'inline-block';
+      setStatus('Recording...', 'ok');
+    }
+
+    function stopRecording() {
+      if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+        state.mediaRecorder.stop();
+      }
+      stopDeliveryAnalysisLoop();
+    }
+
+    async function sleep(ms) {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function waitOnline() {
+      if (navigator.onLine) return;
+      setStatus('Waiting for network...', 'warn');
+      await new Promise((resolve) => {
+        const fn = () => {
+          window.removeEventListener('online', fn);
+          resolve();
+        };
+        window.addEventListener('online', fn);
+      });
+    }
+
+    async function uploadBlobChunked(blob) {
+      const signed = await apiJson('/api/dboc/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: state.userId,
+          filename: `dboc_${Date.now()}.webm`,
+        }),
+      });
+
+      const signedUrl = String(signed.signed_url || '').trim();
+      if (!signedUrl) {
+        throw new Error('signed_url_missing');
+      }
+
+      const total = blob.size;
+      const parts = Math.max(1, Math.ceil(total / CHUNK_SIZE));
+      let uploaded = 0;
+
+      for (let index = 0; index < parts; index += 1) {
+        const start = index * CHUNK_SIZE;
+        const endExclusive = Math.min(start + CHUNK_SIZE, total);
+        const endInclusive = Math.max(start, endExclusive - 1);
+        const chunk = blob.slice(start, endExclusive);
+        const chunkUrl = `${signedUrl}${signedUrl.includes('?') ? '&' : '?'}part=${index + 1}&parts=${parts}`;
+
+        let success = false;
+        for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt += 1) {
+          try {
+            await waitOnline();
+            const response = await fetch(chunkUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/octet-stream',
+                'Content-Range': `bytes ${start}-${endInclusive}/${total}`,
+              },
+              body: chunk,
+            });
+            if (!response.ok) {
+              throw new Error(`upload_http_${response.status}`);
+            }
+            success = true;
+            break;
+          } catch (error) {
+            if (attempt === RETRY_DELAYS_MS.length - 1) {
+              throw error;
+            }
+            setUploadProgress((uploaded / total) * 100, `Retrying upload (${attempt + 2}/3)...`);
+            await sleep(RETRY_DELAYS_MS[attempt]);
+          }
+        }
+
+        if (!success) {
+          throw new Error('chunk_upload_failed');
+        }
+
+        uploaded += chunk.size;
+        const pct = Math.round((uploaded / total) * 100);
+        setUploadProgress(pct, `Uploading... ${pct}%`);
+      }
+
+      return signedUrl.split('?')[0] || signedUrl;
+    }
+
+    async function createSession(questionId) {
+      return apiJson('/api/dboc/sessions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: state.userId,
+          question_id: questionId,
+          mode: state.session.mode,
+        }),
+      });
+    }
+
+    async function getOrCreateSessionId(questionId) {
+      const mode = state.session.mode;
+      const sharedSessionMode = mode === 'guided_practice' || mode === 'simulation';
+      if (sharedSessionMode && state.session.sharedSessionId) {
+        return state.session.sharedSessionId;
+      }
+
+      const session = await createSession(questionId);
+      const sessionId = String(session.session_id || '').trim();
+      if (!sessionId) {
+        throw new Error('session_id_missing');
+      }
+      if (sharedSessionMode) {
+        state.session.sharedSessionId = sessionId;
+      }
+      return sessionId;
+    }
+
+    async function submitResponse(sessionId, videoUrl, questionId, mode) {
+      return apiJson('/api/dboc/responses/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          session_id: sessionId,
+          question_id: questionId,
+          mode,
+          video_url: videoUrl,
+        }),
+      });
+    }
+
+    async function triggerEncode(responseId, videoUrl) {
+      return apiJson('/api/dboc/encode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          response_id: responseId,
+          video_url: videoUrl,
+        }),
+      });
+    }
+
+    async function pollResponse(responseId) {
+      const maxPolls = 35;
+      for (let i = 0; i < maxPolls; i += 1) {
+        await sleep(2000);
+        const rows = await apiJson(`/api/dboc/responses/list?user_id=${encodeURIComponent(state.userId)}`);
+        const row = Array.isArray(rows)
+          ? rows.find((item) => String(item.response_id || '').trim() === String(responseId).trim())
+          : null;
+        if (!row) {
+          continue;
+        }
+
+        const tStatus = String(row.transcription_status || '').trim();
+        const hasTranscript = Boolean(String(row.transcript_text || '').trim());
+        if (hasTranscript || tStatus === 'completed' || tStatus === 'failed') {
+          return row;
+        }
+      }
+      return null;
+    }
+
+    function renderSafCard(scores) {
+      if (!scores) {
+        el.safGrid.innerHTML = '<div class="saf-item">SAF(e) not available yet.</div>';
+        return;
+      }
+      const rows = [
+        ['Start Simple', scores.s_score],
+        ['Add Reasons', scores.a_reasons],
+        ['Focus Example', scores.f_focus],
+        ['End Strong', scores.e_closing],
+      ];
+
+      function label(score) {
+        if (Number(score) >= 10) return 'Present';
+        if (Number(score) >= 5) return 'Needs Work';
+        return 'Missing';
+      }
+
+      el.safGrid.innerHTML = rows.map(([name, score]) => `
+        <div class="saf-item"><strong>${name}</strong><br/>${label(score)} (${score})</div>
+      `).join('');
+    }
+
+    function renderInsights(insights = []) {
+      if (!Array.isArray(insights) || !insights.length) {
+        el.deliveryInsights.innerHTML = '';
+        return;
+      }
+      el.deliveryInsights.innerHTML = insights.map((item) => `<div class="saf-item">${item}</div>`).join('');
+    }
+
+    async function submitRepBlob(blob) {
+      try {
+        setStatus('Uploading recording...', 'ok');
+        const videoUrl = await uploadBlobChunked(blob);
+
+        setStatus('Creating session...', 'ok');
+        const questionId = String(state.session.currentQuestion.question_id || '').trim();
+        const sessionId = await getOrCreateSessionId(questionId);
+
+        setStatus('Submitting response...', 'ok');
+        const submission = await submitResponse(sessionId, videoUrl, questionId, state.session.mode);
+        const responseId = String(submission.response_id || '').trim();
+        if (!responseId) {
+          throw new Error('response_id_missing');
+        }
+
+        await triggerEncode(responseId, videoUrl);
+        const row = await pollResponse(responseId);
+
+        state.session.done += 1;
+        const result = {
+          response_id: responseId,
+          video_url: videoUrl,
+          row,
+        };
+        state.session.results.push(result);
+
+        if (!state.vault.selectedQuestionId || state.vault.selectedQuestionId === questionId) {
+          state.vault.selectedQuestionId = questionId;
+          el.vaultQuestionSelect.value = questionId;
+          await loadVaultTimeline(questionId);
+        }
+        void loadDashboard();
+
+        if (MODE_CONFIG[state.session.mode].post_answer_feedback && state.session.mode !== 'simulation') {
+          el.feedbackPanel.classList.remove('hidden');
+          el.answerPlayback.src = videoUrl;
+          el.feedbackSummary.textContent = row && row.saf_scores
+            ? (row.saf_scores.feedback_text || 'Feedback generated.')
+            : 'Feedback pending.';
+          renderSafCard(row ? row.saf_scores : null);
+          renderInsights(row ? row.delivery_insights : []);
+        } else {
+          el.feedbackPanel.classList.add('hidden');
+        }
+
+        el.repCounterBadge.textContent = `Rep ${state.session.done} / ${state.session.planned}`;
+        if (state.session.done >= state.session.planned) {
+          completeSession();
+          return;
+        }
+
+        if (state.session.mode === 'simulation') {
+          await prepareNextRep();
+        } else {
+          setStatus('Rep complete. Review feedback or continue.', 'ok');
+        }
+      } catch (error) {
+        setStatus(`Rep submission failed: ${error.message}`, 'bad');
+      }
+    }
+
+    function completeSession() {
+      const elapsed = Math.round((Date.now() - state.session.startedAt) / 1000);
+      if (state.session.mode === 'simulation') {
+        el.simSummary.classList.remove('hidden');
+        el.feedbackPanel.classList.add('hidden');
+        el.simSummaryText.textContent = `Simulation complete: ${state.session.done}/${state.session.planned} questions in ${formatTime(elapsed)}.`;
+      } else {
+        setStatus(`Session complete (${state.session.done}/${state.session.planned}).`, 'ok');
+      }
+      state.modeLocked = false;
+      updateModeLockLabel();
+      void loadDashboard();
+    }
+
+    function endSessionAndReset() {
+      stopDeliveryAnalysisLoop();
+      state.modeLocked = false;
+      state.session = null;
+      updateModeLockLabel();
+      el.sessionShell.classList.add('hidden');
+      el.feedbackPanel.classList.add('hidden');
+      el.simSummary.classList.add('hidden');
+      stopRecorderTimer();
+      setStatus('Session ended. Back on dashboard.', 'ok');
+    }
+
+    function bindEvents() {
+      el.loadDashboard.addEventListener('click', () => { void loadDashboard(); });
+      el.refreshVault.addEventListener('click', () => {
+        if (!state.vault.selectedQuestionId) {
+          setStatus('Select a vault question first.', 'warn');
+          return;
+        }
+        void loadVaultTimeline(state.vault.selectedQuestionId);
+      });
+      el.vaultQuestionSelect.addEventListener('change', (event) => {
+        const value = String(event.target.value || '').trim();
+        state.vault.selectedQuestionId = value;
+        if (!value) {
+          el.vaultTimeline.innerHTML = '<div class="hint">Select a question to view timeline.</div>';
+          el.vaultCompare.classList.add('hidden');
+          el.goldAnswer.classList.add('hidden');
+          el.teachingSuggestion.classList.add('hidden');
+          return;
+        }
+        void loadVaultTimeline(value);
+      });
+      el.openMode.addEventListener('click', openModeModal);
+      el.closeMode.addEventListener('click', closeModeModal);
+      el.startMode.addEventListener('click', async () => {
+        closeModeModal();
+        await startSession(state.selectedMode);
+      });
+
+      el.confirmCategory.addEventListener('click', async () => {
+        if (!state.selectedCategory) {
+          setStatus('Choose a category first.', 'warn');
+          return;
+        }
+        await prepareNextRep();
+      });
+
+      el.watchExample.addEventListener('click', () => {
+        const videoUrl = String(state.session?.currentTeachingVideoUrl || '').trim();
+        if (!videoUrl) {
+          setStatus('No teaching video linked for this question yet.', 'warn');
+          return;
+        }
+        renderTeachingSuggestion({
+          skill_tag: 'Question Example',
+          title: 'Watch Example',
+          video_url: videoUrl,
+          duration_sec: null,
+          message: "Here's a quick example for this question:",
+        });
+      });
+
+      el.enableCamera.addEventListener('click', () => { void enableCamera(); });
+      el.record.addEventListener('click', startRecording);
+      el.stop.addEventListener('click', stopRecording);
+      el.cancelSession.addEventListener('click', endSessionAndReset);
+      el.nextRep.addEventListener('click', () => { void prepareNextRep(); });
+      el.backDashboard.addEventListener('click', endSessionAndReset);
+      el.simDashboard.addEventListener('click', endSessionAndReset);
+
+      el.warmupCamera.addEventListener('click', () => { void enableCamera(); });
+      el.skipWarmup.addEventListener('click', () => {
+        state.warmupSkipped = true;
+        el.warmupModal.classList.add('hidden');
+      });
+      el.startWarmupRep.addEventListener('click', async () => {
+        state.warmupSkipped = true;
+        el.warmupModal.classList.add('hidden');
+        state.selectedMode = 'quick_rep';
+        await startSession('quick_rep');
+      });
+
+      window.addEventListener('beforeunload', () => {
+        stopDeliveryAnalysisLoop();
+        if (state.mediaStream) {
+          state.mediaStream.getTracks().forEach((track) => track.stop());
+        }
+      });
+    }
+
+    function init() {
+      const fromQuery = new URLSearchParams(window.location.search).get('user_id');
+      if (fromQuery) {
+        el.userId.value = fromQuery;
+      }
+      renderModeCards();
+      updateModeLockLabel();
+      bindEvents();
+      setStatus('Ready. Load dashboard to begin.', 'ok');
+    }
+
+    init();
+  </script>
+</body>
+</html>
