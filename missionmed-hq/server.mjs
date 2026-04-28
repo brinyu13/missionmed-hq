@@ -1697,6 +1697,40 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (pathname === '/api/auth/session') {
+    const handoffToken = String(searchParams.get('token') || '').trim();
+
+    if (!session && handoffToken) {
+      const exchange = await exchangeWordPressAuth({ token: handoffToken }, request);
+      if (!exchange.ok || !exchange.session) {
+        sendJson(response, exchange.status || 401, {
+          error: 'auth_exchange_failed',
+          message: exchange.error || 'WordPress authentication failed.',
+          login: getLoginHints(request),
+        }, authHeaders);
+        return;
+      }
+
+      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(exchange.session);
+      if (!bootstrap.ok) {
+        sendJson(response, bootstrap.status || 502, {
+          error: bootstrap.error || 'supabase_bootstrap_failed',
+          message: bootstrap.message || 'Supabase bootstrap failed.',
+        }, authHeaders);
+        return;
+      }
+
+      sendJson(
+        response,
+        200,
+        buildSessionPayload(bootstrap.session || exchange.session, request),
+        {
+          ...authHeaders,
+          'Set-Cookie': buildSessionCookie(request, bootstrap.session || exchange.session),
+        },
+      );
+      return;
+    }
+
     sendJson(response, 200, buildSessionPayload(session, request), authHeaders);
     return;
   }
@@ -1867,107 +1901,18 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const authSession = session || readSessionFromRequest(request);
-    if (!authSession || !authSession.user) {
-      sendJson(response, 401, {
-        error: 'wordpress_session_missing',
-        message: 'WordPress session required before Supabase bootstrap.',
+    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(authSession);
+    if (!bootstrap.ok) {
+      sendJson(response, bootstrap.status || 502, {
+        error: bootstrap.error || 'supabase_bootstrap_failed',
+        message: bootstrap.message || 'Supabase bootstrap failed.',
       }, authHeaders);
       return;
     }
 
-    const projectCheck = isAuthSupabaseProjectAllowed();
-    if (!projectCheck.ok) {
-      sendJson(response, 503, {
-        error: projectCheck.code,
-        message: projectCheck.message,
-      }, authHeaders);
-      return;
-    }
-
-    const wpUser = normalizeWordPressIdentityUser(authSession.user || {});
-    if (!Number(wpUser.id || 0)) {
-      sendJson(response, 401, {
-        error: 'wordpress_session_missing',
-        message: 'WordPress session identity is invalid.',
-      }, authHeaders);
-      return;
-    }
-
-    const email = String(wpUser.email || '').trim().toLowerCase();
-    if (!email) {
-      sendJson(response, 422, {
-        error: 'wordpress_identity_incomplete',
-        message: 'WordPress identity is missing email.',
-      }, authHeaders);
-      return;
-    }
-
-    const password = deriveAuthBootstrapPassword(wpUser.id, email);
-    let signInResult = await signInSupabaseAuthUser(email, password);
-    if (!signInResult.ok) {
-      const reason = String(signInResult.detail || signInResult.error || '').toLowerCase();
-      const shouldEnsureUser =
-        signInResult.status === 400 ||
-        signInResult.status === 401 ||
-        reason.includes('invalid') ||
-        reason.includes('credentials') ||
-        reason.includes('not found') ||
-        reason.includes('email');
-
-      if (shouldEnsureUser) {
-        const ensureUser = await ensureSupabaseAuthUser(email, password, authSession);
-        if (!ensureUser.ok) {
-          sendJson(response, 502, {
-            error: 'supabase_user_unresolved',
-            message: ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.',
-          }, authHeaders);
-          return;
-        }
-
-        signInResult = await signInSupabaseAuthUser(email, password);
-      }
-    }
-
-    if (!signInResult.ok) {
-      if (isSupabaseEmailProviderDisabled(signInResult.detail || signInResult.error)) {
-        const magicLinkSession = await mintSupabaseSessionViaAdminMagicLink(email);
-        if (magicLinkSession.ok) {
-          signInResult = magicLinkSession;
-        } else {
-          signInResult = {
-            ok: false,
-            status: magicLinkSession.status || signInResult.status || 502,
-            error: magicLinkSession.error || signInResult.error || 'supabase_bootstrap_failed',
-            detail: magicLinkSession.detail || signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
-          };
-        }
-      }
-    }
-
-    if (!signInResult.ok) {
-      sendJson(response, 502, {
-        error: 'supabase_bootstrap_failed',
-        message: signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
-      }, authHeaders);
-      return;
-    }
-
-    const sessionData = signInResult.session || {};
-    const supabaseUserId = String(sessionData?.user?.id || '').trim();
-    const refreshedSession = supabaseUserId
-      ? { ...authSession, supabaseUserId }
-      : authSession;
-    sendJson(response, 200, {
-      access_token: String(sessionData.access_token || '').trim(),
-      refresh_token: String(sessionData.refresh_token || '').trim(),
-      expires_in: Number(sessionData.expires_in || 3600),
-      token_type: String(sessionData.token_type || 'bearer'),
-      user: sessionData.user || null,
-      subject: `wp:${wpUser.id}`,
-      source: String(signInResult.source || 'auth_bootstrap'),
-    }, {
+    sendJson(response, 200, bootstrap.payload || {}, {
       ...authHeaders,
-      'Set-Cookie': buildSessionCookie(request, refreshedSession),
+      'Set-Cookie': buildSessionCookie(request, bootstrap.session || authSession),
     });
     return;
   }
@@ -6516,6 +6461,120 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
       },
       'wordpress-token',
     ),
+  };
+}
+
+async function bootstrapSupabaseSessionFromWordPressSession(authSession = null) {
+  if (!authSession || !authSession.user) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'wordpress_session_missing',
+      message: 'WordPress session required before Supabase bootstrap.',
+    };
+  }
+
+  const projectCheck = isAuthSupabaseProjectAllowed();
+  if (!projectCheck.ok) {
+    return {
+      ok: false,
+      status: 503,
+      error: projectCheck.code,
+      message: projectCheck.message,
+    };
+  }
+
+  const wpUser = normalizeWordPressIdentityUser(authSession.user || {});
+  if (!Number(wpUser.id || 0)) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'wordpress_session_missing',
+      message: 'WordPress session identity is invalid.',
+    };
+  }
+
+  const email = String(wpUser.email || '').trim().toLowerCase();
+  if (!email) {
+    return {
+      ok: false,
+      status: 422,
+      error: 'wordpress_identity_incomplete',
+      message: 'WordPress identity is missing email.',
+    };
+  }
+
+  const password = deriveAuthBootstrapPassword(wpUser.id, email);
+  let signInResult = await signInSupabaseAuthUser(email, password);
+  if (!signInResult.ok) {
+    const reason = String(signInResult.detail || signInResult.error || '').toLowerCase();
+    const shouldEnsureUser =
+      signInResult.status === 400 ||
+      signInResult.status === 401 ||
+      reason.includes('invalid') ||
+      reason.includes('credentials') ||
+      reason.includes('not found') ||
+      reason.includes('email');
+
+    if (shouldEnsureUser) {
+      const ensureUser = await ensureSupabaseAuthUser(email, password, authSession);
+      if (!ensureUser.ok) {
+        return {
+          ok: false,
+          status: 502,
+          error: 'supabase_user_unresolved',
+          message: ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.',
+        };
+      }
+
+      signInResult = await signInSupabaseAuthUser(email, password);
+    }
+  }
+
+  if (!signInResult.ok) {
+    if (isSupabaseEmailProviderDisabled(signInResult.detail || signInResult.error)) {
+      const magicLinkSession = await mintSupabaseSessionViaAdminMagicLink(email);
+      if (magicLinkSession.ok) {
+        signInResult = magicLinkSession;
+      } else {
+        signInResult = {
+          ok: false,
+          status: magicLinkSession.status || signInResult.status || 502,
+          error: magicLinkSession.error || signInResult.error || 'supabase_bootstrap_failed',
+          detail: magicLinkSession.detail || signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
+        };
+      }
+    }
+  }
+
+  if (!signInResult.ok) {
+    return {
+      ok: false,
+      status: 502,
+      error: 'supabase_bootstrap_failed',
+      message: signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
+    };
+  }
+
+  const sessionData = signInResult.session || {};
+  const supabaseUserId = String(sessionData?.user?.id || '').trim();
+  const refreshedSession = supabaseUserId
+    ? { ...authSession, supabaseUserId }
+    : authSession;
+
+  return {
+    ok: true,
+    status: 200,
+    payload: {
+      access_token: String(sessionData.access_token || '').trim(),
+      refresh_token: String(sessionData.refresh_token || '').trim(),
+      expires_in: Number(sessionData.expires_in || 3600),
+      token_type: String(sessionData.token_type || 'bearer'),
+      user: sessionData.user || null,
+      subject: `wp:${wpUser.id}`,
+      source: String(signInResult.source || 'auth_bootstrap'),
+    },
+    session: refreshedSession,
   };
 }
 
