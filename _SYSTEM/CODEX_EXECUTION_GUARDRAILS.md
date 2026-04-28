@@ -542,7 +542,15 @@ END OF CODEX EXECUTION GUARDRAILS
 
 These rules are mandatory for MissionMed Git safety and apply to every Codex execution.
 
-### 8.1 Pre-Edit Command Preamble (always run first)
+### 8.1 Required Primer Load (always run first)
+
+Before implementation edits, load:
+
+- `_SYSTEM/SESSION_PRIMER_V2.md` (legacy compatibility trigger)
+- `_SYSTEM/PRIMER_CORE.md` (canonical startup/control)
+- `_SYSTEM/GIT_WORKSPACE_HYGIENE_PROTOCOL.md`
+
+### 8.2 Pre-Edit Command Preamble (always run first)
 
 Before any file edits, print and verify:
 
@@ -552,7 +560,7 @@ git branch --show-current
 bash _SYSTEM/scripts/mm-preflight.sh
 ```
 
-### 8.2 Hard Refusals
+### 8.3 Hard Refusals
 
 Codex must refuse edits when any condition below is true:
 
@@ -560,13 +568,14 @@ Codex must refuse edits when any condition below is true:
 - Current path is `/Users/brianb/MissionMed`
 - Git status is dirty (tracked or untracked non-ignored files)
 - Task mixes unrelated workstreams without explicit scope
+- Task requests reset, `git clean`, destructive cleanup, deploy, push, or merge without explicit authorization
 
-### 8.3 Scope Declaration Before Editing
+### 8.4 Scope Declaration Before Editing
 
 Before editing, state exact target files and task scope.
 If requested edits expand beyond scope, stop and re-confirm scope.
 
-### 8.4 Production Runtime Safety
+### 8.5 Production Runtime Safety
 
 Do not edit production runtime files unless explicitly scoped by prompt:
 
@@ -575,7 +584,7 @@ Do not edit production runtime files unless explicitly scoped by prompt:
 - `missionmed-hq/server.mjs`
 - `supabase/migrations/`
 
-### 8.5 Demo/Scratch Output Location
+### 8.6 Demo/Scratch Output Location
 
 Store demos, reports, screenshots, and scratch output outside repo root:
 
@@ -585,6 +594,30 @@ When relevant, also copy latest deliverables to:
 
 - `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`
 
-### 8.6 No Workstream Mixing
+### 8.7 Routine AI Logging Location
+
+Detailed routine Codex run logs must default to:
+
+- `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/`
+
+Do not use repo `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` for audit-only, demo-only, or planning-only runs.
+
+Repo `MM_ACTIVITY_LOG.md` may be updated only for intentional, curated implementation summaries that are committed with related repo changes from the proper worktree/branch.
+
+### 8.8 No Workstream Mixing
 
 Do not combine unrelated projects (USCE, Arena, STAT, Dashboard, IV, WordPress runtime) in one edit cycle unless prompt explicitly requires coordinated changes.
+
+### 8.9 Future Prompt Requirement Block (Copy/Paste)
+
+```text
+Load SESSION_PRIMER_V2.md and apply all rules.
+Load the MissionMed primer/startup protocol and follow the Git workspace hygiene + AI logging guardrails.
+Do not edit /Users/brianb/MissionMed directly on main.
+For Codex implementation work, use a dedicated worktree under /Users/brianb/MissionMed_worktrees/ and run bash _SYSTEM/scripts/mm-preflight.sh before editing.
+If preflight fails, stop and report.
+For Claude demos, reports, standalone HTML, mockups, screenshots, scratch files, backups, generated outputs, and routine activity logs, do not save inside /Users/brianb/MissionMed.
+Save outputs to /Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/ and save routine logs to /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/.
+Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes in the proper worktree, and commit that curated summary with the related work.
+Do not run reset, git clean, destructive cleanup, deploy, push, or merge unless explicitly authorized.
+```
