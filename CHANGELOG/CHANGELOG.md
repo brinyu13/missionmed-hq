@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-28 10:40 UTC]
+- PROMPT: (E8)-STAT+Async-codex-high-500-c
+- Scope: STAT human challenge UX/auth identity stabilization for live two-user async duel testing.
+- Files: LIVE/stat.html, supabase/migrations/20260428053000_mr_stat_human_async_duel_opponent_lookup_500c.sql
+- Notes: Added friend-mode pre-lock opponent field in Configure Challenge, blocked friend-mode bot fallback unless opponent resolves, upgraded challenge modal/manual path to accept exact email or UUID, added debug-gated auth diagnostics (`debug_auth=1` or `debug_duel=1`) with WordPress/Supabase session status lines, introduced scoped authenticated RPC `resolve_duel_opponent(identifier)` for exact opponent resolution with minimal returned identity, and added a debug-only fallback map for `?cb=035_off` / `debug_duel=1` test emails (`match@...`, `alumni@...`) when RPC lookup is unavailable.
+
 ## [2026-04-26 02:33 UTC] MR-SYSTEM-IMPLEMENTATION-HANDOFF-005
 
 **Files Modified:** System structure

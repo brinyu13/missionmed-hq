@@ -345,6 +345,59 @@
   }
 
   .opt-row { display:flex; gap:10px; flex-wrap: wrap; }
+  .friend-opponent-group[hidden] { display: none; }
+  .friend-opponent-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .friend-opponent-row input {
+    flex: 1;
+    min-width: 220px;
+    padding: 11px 12px;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.22);
+    border: 1px solid rgba(255,255,255,0.09);
+    color: #E6F0FB;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s ease;
+  }
+  .friend-opponent-row input:focus {
+    border-color: rgba(47, 231, 176, 0.5);
+  }
+  .friend-opponent-row button {
+    padding: 11px 14px;
+    border-radius: 10px;
+    background: rgba(47, 231, 176, 0.12);
+    border: 1px solid rgba(47, 231, 176, 0.4);
+    color: #2FE7B0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+  .friend-opponent-row button:hover {
+    background: rgba(47, 231, 176, 0.2);
+    color: #8DF2C8;
+  }
+  .friend-opponent-help {
+    margin-top: 8px;
+    color: #8EA7C7;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+  }
+  .friend-opponent-msg {
+    margin-top: 8px;
+    min-height: 14px;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    color: #8EA7C7;
+    white-space: pre-line;
+  }
+  .friend-opponent-msg.ok { color: #8DF2C8; }
+  .friend-opponent-msg.err { color: #FF9AAE; }
 
   .opt {
     padding: 11px 16px;
@@ -2135,6 +2188,7 @@
     padding: 32px 0;
     font-size: 13px;
     letter-spacing: 0.3px;
+    white-space: pre-line;
   }
   .ch-state.loading { color: #8EA7C7; }
   .ch-state.empty { color: #6F86A8; }
@@ -2273,6 +2327,7 @@
     letter-spacing: 0.3px;
     color: #8EA7C7;
     min-height: 14px;
+    white-space: pre-line;
   }
   .ch-manual-msg.ok { color: #8DF2C8; }
   .ch-manual-msg.err { color: #FF9AAE; }
@@ -2492,6 +2547,15 @@
             <button class="opt" data-val="open">Random <span class="k">Open Pool</span></button>
             <button class="opt" data-val="friend">Friend <span class="k">Invite Style</span></button>
           </div>
+        </div>
+        <div class="config-group friend-opponent-group" id="friend-opponent-group" hidden>
+          <label>Opponent email or user ID</label>
+          <div class="friend-opponent-row">
+            <input id="friend-opponent-input" type="text" placeholder="alumni@missionresidency.com or UUID" autocomplete="off" spellcheck="false" />
+            <button id="friend-opponent-resolve" type="button">Resolve</button>
+          </div>
+          <div class="friend-opponent-help">For testing, use alumni@missionresidency.com or match@missionresidency.com.</div>
+          <div class="friend-opponent-msg" id="friend-opponent-msg"></div>
         </div>
 
         <div class="config-group" data-key="difficulty">
@@ -2803,7 +2867,7 @@
       <div class="ch-header">
         <div>
           <h2>Challenge a Player</h2>
-          <p>Pick a known opponent or enter a user ID</p>
+          <p>Pick a known opponent or enter an email / user ID</p>
         </div>
         <button class="ch-close" id="ch-close">&#x2715;</button>
       </div>
@@ -2811,11 +2875,12 @@
         <div class="ch-state loading" id="ch-state-msg">Loading roster...</div>
         <div class="ch-list" id="ch-list" style="display:none"></div>
         <div class="ch-manual">
-          <label>Enter Opponent User ID</label>
+          <label>Opponent email or user ID</label>
           <div class="ch-manual-row">
-            <input id="ch-manual-input" type="text" placeholder="uuid of opponent" autocomplete="off" spellcheck="false" />
+            <input id="ch-manual-input" type="text" placeholder="alumni@missionresidency.com or UUID" autocomplete="off" spellcheck="false" />
             <button id="ch-manual-send">Send</button>
           </div>
+          <div class="friend-opponent-help">For testing, use alumni@missionresidency.com or match@missionresidency.com.</div>
           <div class="ch-manual-msg" id="ch-manual-msg"></div>
         </div>
       </div>
@@ -2867,6 +2932,19 @@ const AUTH_EXCHANGE_URL = '/api/auth/exchange';
 const AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';
 const WORDPRESS_AUTH_TOKEN_PATH = '/wp-json/missionmed-command-center/v1/auth/token/';
 const DEFAULT_WORDPRESS_ORIGIN = 'https://missionmedinstitute.com';
+const STAT_QUERY_PARAMS = (() => {
+  try { return new URLSearchParams(window.location.search || ''); }
+  catch (_error) { return new URLSearchParams(); }
+})();
+const STAT_DEBUG_DUEL = STAT_QUERY_PARAMS.get('debug_duel') === '1';
+const STAT_DEBUG_AUTH = STAT_QUERY_PARAMS.get('debug_auth') === '1' || STAT_DEBUG_DUEL;
+const STAT_BETA_HINTS_ENABLED = STAT_DEBUG_DUEL || STAT_QUERY_PARAMS.get('cb') === '035_off';
+const STAT_UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const STAT_EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const STAT_DEBUG_TEST_OPPONENTS = Object.freeze({
+  'match@missionresidency.com': '32ec04df-e336-47a5-a3d7-f03edf54b50c',
+  'alumni@missionresidency.com': 'e8bf3dbb-2bf4-4526-9f35-e15c969192ff'
+});
 let ensureSupabaseSessionPromise = null;
 let authBootstrapComplete = false;
 let verifiedAuthUserId = '';
@@ -3373,9 +3451,19 @@ async function runBootstrapSession(exchangeResult) {
   }
 }
 
+function authFailResult(reason) {
+  lastAuthFailureReason = String(reason || 'auth_required');
+  return { ok: false, reason: lastAuthFailureReason };
+}
+
+function authOkResult(payload) {
+  lastAuthFailureReason = '';
+  return payload;
+}
+
 async function ensureSupabaseSession() {
   if (!supabaseClient || !supabaseClient.auth || typeof supabaseClient.auth.getUser !== 'function') {
-    return { ok: false, reason: 'supabase_client_unavailable' };
+    return authFailResult('supabase_client_unavailable');
   }
   if (ensureSupabaseSessionPromise) {
     return ensureSupabaseSessionPromise;
@@ -3387,27 +3475,28 @@ async function ensureSupabaseSession() {
       const existingUser = existing && existing.data ? existing.data.user : null;
       const existingUserId = existingUser && existingUser.id ? String(existingUser.id).trim() : '';
       if (!existingUserId) {
-        return { ok: false, reason: 'supabase_user_missing' };
+        return authFailResult('supabase_user_missing');
       }
       if (verifiedAuthUserId && existingUserId !== verifiedAuthUserId) {
-        return { ok: false, reason: 'identity_mismatch' };
+        return authFailResult('identity_mismatch');
       }
       backendUserId = existingUserId;
-      return { ok: true, source: 'existing_verified', user: existingUser };
+      syncIdentityFromSupabaseUser(existingUser);
+      return authOkResult({ ok: true, source: 'existing_verified', user: existingUser });
     }
 
     const exchange = await runAuthExchange();
     if (!exchange.ok) {
-      return { ok: false, reason: exchange.reason || 'auth_exchange_failed' };
+      return authFailResult(exchange.reason || 'auth_exchange_failed');
     }
 
     const bootstrap = await runBootstrapSession(exchange);
     if (!bootstrap.ok) {
-      return { ok: false, reason: bootstrap.reason || 'auth_bootstrap_failed' };
+      return authFailResult(bootstrap.reason || 'auth_bootstrap_failed');
     }
 
     if (typeof supabaseClient.auth.setSession !== 'function') {
-      return { ok: false, reason: 'supabase_set_session_unavailable' };
+      return authFailResult('supabase_set_session_unavailable');
     }
 
     const setResult = await supabaseClient.auth.setSession({
@@ -3415,23 +3504,24 @@ async function ensureSupabaseSession() {
       refresh_token: bootstrap.tokens.refresh_token
     });
     if (setResult && setResult.error) {
-      return { ok: false, reason: String(setResult.error.message || 'set_session_failed') };
+      return authFailResult(String(setResult.error.message || 'set_session_failed'));
     }
 
     const verified = await supabaseClient.auth.getUser();
     const verifiedUser = verified && verified.data ? verified.data.user : null;
     const verifiedUserId = verifiedUser && verifiedUser.id ? String(verifiedUser.id).trim() : '';
     if (!verifiedUserId) {
-      return { ok: false, reason: 'supabase_user_missing' };
+      return authFailResult('supabase_user_missing');
     }
     if (verifiedAuthUserId && verifiedUserId !== verifiedAuthUserId) {
-      return { ok: false, reason: 'identity_mismatch' };
+      return authFailResult('identity_mismatch');
     }
 
     verifiedAuthUserId = verifiedUserId;
     backendUserId = verifiedUserId;
     authBootstrapComplete = true;
-    return { ok: true, source: 'bootstrap', user: verifiedUser };
+    syncIdentityFromSupabaseUser(verifiedUser);
+    return authOkResult({ ok: true, source: 'bootstrap', user: verifiedUser });
   })();
 
   try {
@@ -3450,6 +3540,160 @@ function mapStartDuelFailureMessage(error) {
     return 'Session sync failed. Reload and retry.';
   }
   return 'Unable to start duel. Please retry.';
+}
+
+function isUuidIdentifier(value) {
+  return STAT_UUID_RE.test(String(value || '').trim());
+}
+
+function isEmailIdentifier(value) {
+  return STAT_EMAIL_RE.test(String(value || '').trim().toLowerCase());
+}
+
+function normalizeOpponentIdentifier(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  if (isEmailIdentifier(raw)) return raw.toLowerCase();
+  return raw;
+}
+
+function clearResolvedFriendOpponent() {
+  resolvedFriendOpponent = null;
+}
+
+function setFriendOpponentMessage(message, tone) {
+  const msg = document.getElementById('friend-opponent-msg');
+  if (!msg) return;
+  msg.className = 'friend-opponent-msg';
+  if (tone === 'ok' || tone === 'err') msg.classList.add(tone);
+  msg.textContent = String(message || '');
+}
+
+function setFriendSummaryWithResolved() {
+  const sumOpp = document.getElementById('sum-opp');
+  if (!sumOpp) return;
+  if (setupConfig.opponent !== 'friend') return;
+  if (resolvedFriendOpponent && resolvedFriendOpponent.label) {
+    sumOpp.textContent = 'Friend • ' + resolvedFriendOpponent.label;
+    return;
+  }
+  sumOpp.textContent = 'Friend Match Style (opponent required)';
+}
+
+function parseResolvedOpponentFromEnvelope(envelope) {
+  if (!envelope || !envelope.ok || !envelope.data) return null;
+  const data = envelope.data;
+  const candidate = (data && typeof data === 'object' && data.data && typeof data.data === 'object')
+    ? data.data
+    : data;
+  const userId = String(candidate.user_id || candidate.opponent_id || candidate.id || '').trim();
+  if (!userId || !isUuidIdentifier(userId)) return null;
+  const labelRaw = String(candidate.display_label || candidate.label || candidate.email || '').trim();
+  const label = labelRaw || userId;
+  return {
+    user_id: userId,
+    label: label,
+    identifier_type: String(candidate.identifier_type || '').trim().toLowerCase()
+  };
+}
+
+async function resolveDuelOpponentIdentifier(identifier) {
+  const normalized = normalizeOpponentIdentifier(identifier);
+  if (!normalized) {
+    return { ok: false, error: 'identifier_required', reason: 'opponent_required' };
+  }
+
+  if (isUuidIdentifier(normalized)) {
+    return {
+      ok: true,
+      data: {
+        user_id: normalized,
+        label: normalized,
+        identifier_type: 'uuid'
+      }
+    };
+  }
+
+  if (!isEmailIdentifier(normalized)) {
+    return { ok: false, error: 'invalid_identifier_format', reason: 'invalid_identifier_format' };
+  }
+
+  const primary = await rpcCallSafe('resolve_duel_opponent', { p_identifier: normalized });
+  if (primary.ok) {
+    const parsedPrimary = parseResolvedOpponentFromEnvelope(primary);
+    if (parsedPrimary) return { ok: true, data: parsedPrimary };
+  }
+
+  const fallback = await rpcCallSafe('resolve_duel_opponent', { identifier: normalized });
+  if (fallback.ok) {
+    const parsedFallback = parseResolvedOpponentFromEnvelope(fallback);
+    if (parsedFallback) return { ok: true, data: parsedFallback };
+  }
+
+  if (STAT_BETA_HINTS_ENABLED && Object.prototype.hasOwnProperty.call(STAT_DEBUG_TEST_OPPONENTS, normalized)) {
+    const mappedId = String(STAT_DEBUG_TEST_OPPONENTS[normalized] || '').trim();
+    if (isUuidIdentifier(mappedId)) {
+      return {
+        ok: true,
+        data: {
+          user_id: mappedId,
+          label: normalized,
+          identifier_type: 'email_debug_map'
+        }
+      };
+    }
+  }
+
+  const errText = String((primary && primary.error) || (fallback && fallback.error) || 'opponent_not_found');
+  return { ok: false, error: errText, reason: errText };
+}
+
+async function getSupabaseSessionDetected() {
+  if (!supabaseClient || !supabaseClient.auth || typeof supabaseClient.auth.getSession !== 'function') return false;
+  try {
+    const sessionCheck = await supabaseClient.auth.getSession();
+    return !!(sessionCheck && sessionCheck.data && sessionCheck.data.session && sessionCheck.data.session.user);
+  } catch (_error) {
+    return false;
+  }
+}
+
+async function buildAuthFailureDetails(reasonHint) {
+  const reason = String(reasonHint || '').trim();
+  const supabaseSessionDetected = await getSupabaseSessionDetected();
+  let wpLoginDetected = null;
+  try {
+    const direct = await postJson(AUTH_EXCHANGE_URL, {}, {}, 'include');
+    if (direct.ok) {
+      wpLoginDetected = true;
+    } else if (requiresWordPressToken(direct)) {
+      const tokenCheck = await fetchWordPressExchangeToken();
+      wpLoginDetected = !!(tokenCheck && tokenCheck.ok && tokenCheck.token);
+    } else if (direct.status === 401 || direct.status === 403) {
+      wpLoginDetected = false;
+    }
+  } catch (_error) {
+    wpLoginDetected = null;
+  }
+  return {
+    reason: reason || 'auth_required',
+    supabaseSessionDetected,
+    wpLoginDetected
+  };
+}
+
+async function authRequiredMessageWithDebug(reasonHint) {
+  const normal = 'Please log in through MissionMed, then reload STAT.';
+  if (!STAT_DEBUG_AUTH) return normal;
+  const details = await buildAuthFailureDetails(reasonHint);
+  const wpText = details.wpLoginDetected === true ? 'YES' : (details.wpLoginDetected === false ? 'NO' : 'UNKNOWN');
+  const sbText = details.supabaseSessionDetected ? 'YES' : 'NO';
+  return [
+    normal,
+    'WordPress login detected: ' + wpText,
+    'Supabase session detected: ' + sbText,
+    'Auth reason: ' + (details.reason || 'unknown')
+  ].join('\n');
 }
 
 function normalizeRpcEnvelope(raw) {
@@ -5696,6 +5940,8 @@ const setupConfig = {
   pace: 'balanced',
   wager: '100'
 };
+let resolvedFriendOpponent = null;
+let lastAuthFailureReason = '';
 
 const PLAYER = {
   name: 'Dr. Brian',
@@ -5812,6 +6058,44 @@ function applyStatPlayerIdentity() {
   setStatAvatarElement('player-hud-avatar', identity.avatar_url, playerToken);
 }
 
+function deriveSupabaseDisplayName(user) {
+  const safe = user && typeof user === 'object' ? user : {};
+  const metadata = safe.user_metadata && typeof safe.user_metadata === 'object' ? safe.user_metadata : {};
+  const appMetadata = safe.app_metadata && typeof safe.app_metadata === 'object' ? safe.app_metadata : {};
+  const email = statPickString([safe.email, metadata.email, appMetadata.email]).toLowerCase();
+  const emailPrefix = email && email.includes('@') ? email.split('@')[0] : '';
+  const prettyPrefix = emailPrefix ? emailPrefix.replace(/[._-]+/g, ' ').trim() : '';
+  return statPickString([
+    metadata.display_name,
+    metadata.displayName,
+    metadata.full_name,
+    metadata.fullName,
+    metadata.name,
+    appMetadata.display_name,
+    appMetadata.full_name,
+    prettyPrefix,
+    email
+  ]);
+}
+
+function syncIdentityFromSupabaseUser(user) {
+  if (!user || typeof user !== 'object') return;
+  const nextName = deriveSupabaseDisplayName(user);
+  if (!nextName) return;
+  if (!window.MM_USER || typeof window.MM_USER !== 'object') window.MM_USER = {};
+  const current = statPickString([
+    window.MM_USER.display_name,
+    window.MM_USER.displayName,
+    window.MM_USER.full_name
+  ]);
+  const fallback = PLAYER && PLAYER.name ? String(PLAYER.name).trim() : '';
+  const shouldReplace = !current || (fallback && current === fallback) || current === 'Dr. Brian';
+  if (shouldReplace) {
+    window.MM_USER.display_name = nextName;
+    applyStatPlayerIdentity();
+  }
+}
+
 let activeOpponent = PERSONAS[0];
 let selectedVersion = 'v2';
 let audioCtx = null;
@@ -5819,6 +6103,7 @@ let cursorMotionAnim = null;
 let cursorPos = { x: -999, y: -999 };
 let ghostPsych = null;
 let duelLaunchInFlight = false;
+let lockMatchupInFlight = false;
 
 const POINT_DECAY_MAX = 100;
 const POINT_DECAY_MIN = 30;
@@ -5978,16 +6263,47 @@ function renderScreen(name) {
 function initSetup() {
   document.querySelectorAll('#screen-setup .config-group').forEach((group) => {
     const key = group.dataset.key;
+    if (!key) return;
     group.querySelectorAll('.opt').forEach((btn) => {
       btn.addEventListener('click', () => {
         playUiClick();
         group.querySelectorAll('.opt').forEach((o) => o.classList.remove('selected'));
         btn.classList.add('selected');
         setupConfig[key] = btn.dataset.val;
+        if (key === 'opponent' && setupConfig[key] !== 'friend') {
+          clearResolvedFriendOpponent();
+          setFriendOpponentMessage('', null);
+        }
         updateSummary();
       });
     });
   });
+
+  const resolveBtn = document.getElementById('friend-opponent-resolve');
+  if (resolveBtn) resolveBtn.addEventListener('click', () => { void resolveFriendOpponentFromSetup(); });
+
+  const friendInput = document.getElementById('friend-opponent-input');
+  if (friendInput) {
+    if (STAT_BETA_HINTS_ENABLED) {
+      friendInput.placeholder = 'alumni@missionresidency.com or UUID';
+    }
+    friendInput.addEventListener('input', () => {
+      if (!resolvedFriendOpponent) return;
+      const current = normalizeOpponentIdentifier(friendInput.value);
+      const resolved = normalizeOpponentIdentifier(resolvedFriendOpponent.source_identifier || resolvedFriendOpponent.user_id);
+      if (current !== resolved) {
+        clearResolvedFriendOpponent();
+        setFriendOpponentMessage('', null);
+        setFriendSummaryWithResolved();
+      }
+    });
+    friendInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void resolveFriendOpponentFromSetup();
+      }
+    });
+  }
   updateSummary();
 }
 
@@ -6009,6 +6325,8 @@ function updateSummary() {
   };
 
   document.getElementById('sum-opp').textContent = oppMap[setupConfig.opponent];
+  updateFriendOpponentVisibility();
+  setFriendSummaryWithResolved();
   document.getElementById('sum-diff').textContent = diffMap[setupConfig.difficulty];
   document.getElementById('sum-count').textContent = setupConfig.count;
   document.getElementById('sum-pace').textContent = paceMap[setupConfig.pace];
@@ -6016,14 +6334,66 @@ function updateSummary() {
   document.getElementById('sum-reward').textContent = '+' + (Number(setupConfig.wager) * 2) + ' MP';
 }
 
+function updateFriendOpponentVisibility() {
+  const group = document.getElementById('friend-opponent-group');
+  if (!group) return;
+  group.hidden = setupConfig.opponent !== 'friend';
+}
+
+async function resolveFriendOpponentFromSetup() {
+  const input = document.getElementById('friend-opponent-input');
+  if (!input) return false;
+  const raw = String(input.value || '').trim();
+  if (!raw) {
+    setFriendOpponentMessage('Enter opponent email or user ID.', 'err');
+    return false;
+  }
+
+  setFriendOpponentMessage('Resolving opponent…', null);
+  const session = await ensureSupabaseSession();
+  if (!session.ok) {
+    const authMessage = await authRequiredMessageWithDebug(session.reason || lastAuthFailureReason || 'auth_required');
+    setFriendOpponentMessage(authMessage, 'err');
+    showToast('Please log in through MissionMed, then reload STAT.', 'err');
+    return false;
+  }
+
+  const resolved = await resolveDuelOpponentIdentifier(raw);
+  if (!resolved.ok || !resolved.data || !resolved.data.user_id) {
+    setFriendOpponentMessage('Opponent not found. Use the email tied to their MissionMed account or their Supabase user ID.', 'err');
+    return false;
+  }
+
+  const opponentUserId = String(resolved.data.user_id || '').trim();
+  if (backendUserId && opponentUserId === String(backendUserId)) {
+    setFriendOpponentMessage('You cannot challenge yourself.', 'err');
+    return false;
+  }
+
+  const label = String(resolved.data.label || opponentUserId).trim();
+  resolvedFriendOpponent = {
+    user_id: opponentUserId,
+    label: label,
+    source_identifier: normalizeOpponentIdentifier(raw),
+    identifier_type: String(resolved.data.identifier_type || '').trim().toLowerCase()
+  };
+  setFriendOpponentMessage('Opponent selected: ' + label, 'ok');
+  setFriendSummaryWithResolved();
+  return true;
+}
+
 /* =========================================================
    MATCHUP / PERSONA
    ========================================================= */
 function pickOpponentPersona() {
   if (setupConfig.opponent === 'friend') {
+    const friendName = resolvedFriendOpponent && resolvedFriendOpponent.label
+      ? resolvedFriendOpponent.label
+      : 'Friend Opponent';
+    const friendInitials = statInitialsFromName(friendName);
     return {
-      name: 'Dr. Jordan Finch',
-      initials: 'JF',
+      name: friendName,
+      initials: friendInitials,
       avatar: '🩺',
       rank: PLAYER.rank,
       speed: 1.01,
@@ -6040,6 +6410,7 @@ function pickOpponentPersona() {
 }
 
 function toSetup() {
+  updateFriendOpponentVisibility();
   renderScreen('setup');
 }
 
@@ -8754,9 +9125,22 @@ document.querySelectorAll('[data-back]').forEach((btn) => {
   });
 });
 
-document.getElementById('send-challenge').addEventListener('click', () => {
+document.getElementById('send-challenge').addEventListener('click', async () => {
+  if (lockMatchupInFlight) return;
+  lockMatchupInFlight = true;
   playUiClick();
-  toMatchup();
+  try {
+    if (setupConfig.opponent === 'friend') {
+      const started = await handleFriendModeLockMatchup();
+      if (!started) return;
+    } else {
+      clearResolvedFriendOpponent();
+      setFriendOpponentMessage('', null);
+    }
+    toMatchup();
+  } finally {
+    lockMatchupInFlight = false;
+  }
 });
 
 document.getElementById('enter-duel').addEventListener('click', async () => {
@@ -9023,6 +9407,86 @@ async function createDuelWithOpponent(opponentId) {
   return primary;
 }
 
+async function handleFriendModeLockMatchup() {
+  updateFriendOpponentVisibility();
+  const friendInput = document.getElementById('friend-opponent-input');
+  const rawFriendInput = friendInput ? String(friendInput.value || '').trim() : '';
+  if (!rawFriendInput && !resolvedFriendOpponent) {
+    setFriendOpponentMessage('Enter opponent email or user ID before locking matchup.', 'err');
+    showToast('Opponent email or user ID required', 'err');
+    return false;
+  }
+
+  const session = await ensureSupabaseSession();
+  if (!session.ok) {
+    const authMessage = await authRequiredMessageWithDebug(session.reason || lastAuthFailureReason || 'auth_required');
+    setFriendOpponentMessage(authMessage, 'err');
+    showToast('Please log in through MissionMed, then reload STAT.', 'err');
+    return false;
+  }
+
+  let ready = false;
+  const normalizedInput = normalizeOpponentIdentifier(rawFriendInput);
+  const normalizedResolved = resolvedFriendOpponent
+    ? normalizeOpponentIdentifier(resolvedFriendOpponent.source_identifier || resolvedFriendOpponent.user_id)
+    : '';
+  if (resolvedFriendOpponent && normalizedResolved && normalizedResolved === normalizedInput) {
+    ready = true;
+  } else if (rawFriendInput) {
+    ready = await resolveFriendOpponentFromSetup();
+  }
+  if (!ready || !resolvedFriendOpponent || !resolvedFriendOpponent.user_id) {
+    setFriendOpponentMessage('Opponent not found. Use the email tied to their MissionMed account or their Supabase user ID.', 'err');
+    showToast('Opponent lookup failed', 'err');
+    return false;
+  }
+
+  const opponentUserId = String(resolvedFriendOpponent.user_id || '').trim();
+  if (!isUuidIdentifier(opponentUserId)) {
+    setFriendOpponentMessage('Opponent resolution failed. Please retry.', 'err');
+    showToast('Opponent lookup failed', 'err');
+    return false;
+  }
+  if (backendUserId && opponentUserId === String(backendUserId)) {
+    setFriendOpponentMessage('You cannot challenge yourself.', 'err');
+    showToast('You cannot challenge yourself', 'err');
+    return false;
+  }
+
+  setFriendOpponentMessage('Creating challenge…', null);
+  const created = await createDuelWithOpponent(opponentUserId);
+  if (!created.ok) {
+    const errText = String(created.error || 'challenge_failed');
+    if (/opponent_id_required_for_human_duel/i.test(errText)) {
+      setFriendOpponentMessage('Enter opponent email or user ID before locking matchup.', 'err');
+    } else {
+      setFriendOpponentMessage('Challenge failed: ' + errText, 'err');
+    }
+    showToast('Challenge failed: ' + errText, 'err');
+    return false;
+  }
+
+  const newDuelId = String((created.data && (created.data.duel_id || (created.data.duel && created.data.duel.id))) || '').trim();
+  if (!newDuelId) {
+    setFriendOpponentMessage('Challenge created but duel ID missing. Retry.', 'err');
+    showToast('Challenge failed: duel_id_missing', 'err');
+    return false;
+  }
+
+  activeDuelId = newDuelId;
+  trackActiveDuelBotSignal(false);
+  persistSessionDuelId(activeDuelId);
+  writeStoredRuntime({
+    duel_id: activeDuelId,
+    duel_is_bot: false,
+    stage: 'duel_created',
+    opponent_name: resolvedFriendOpponent.label || opponentUserId
+  });
+  setFriendOpponentMessage('Challenge locked. Duel ID: ' + shortUid(newDuelId), 'ok');
+  showToast('Challenge sent');
+  return true;
+}
+
 /**
  * accept_duel uses deployed `p_duel_id` arg. Falls back to `duel_id` if needed.
  */
@@ -9117,9 +9581,18 @@ function openChallengeRoster() {
   if (!overlay) return;
   overlay.classList.add('active');
   challengeModalOpen = true;
-  document.getElementById('ch-manual-input').value = '';
-  document.getElementById('ch-manual-msg').textContent = '';
-  document.getElementById('ch-manual-msg').className = 'ch-manual-msg';
+  const manualInput = document.getElementById('ch-manual-input');
+  const manualMsg = document.getElementById('ch-manual-msg');
+  if (manualInput) {
+    manualInput.value = '';
+    if (STAT_BETA_HINTS_ENABLED) {
+      manualInput.placeholder = 'alumni@missionresidency.com or UUID';
+    }
+  }
+  if (manualMsg) {
+    manualMsg.textContent = '';
+    manualMsg.className = 'ch-manual-msg';
+  }
   loadChallengeRoster();
 }
 
@@ -9148,7 +9621,7 @@ async function loadChallengeRoster() {
   const session = await ensureSupabaseSession();
   if (!session.ok) {
     stateEl.className = 'ch-state error';
-    stateEl.textContent = 'Sign-in required to challenge another player.';
+    stateEl.textContent = await authRequiredMessageWithDebug(session.reason || lastAuthFailureReason || 'auth_required');
     return;
   }
 
@@ -9169,7 +9642,7 @@ async function loadChallengeRoster() {
 
   if (seenUids.size === 0) {
     stateEl.className = 'ch-state empty';
-    stateEl.textContent = 'No known opponents yet. Enter a user ID below to challenge someone.';
+    stateEl.textContent = 'No known opponents yet. Enter an opponent email or user ID below to challenge someone.';
     return;
   }
 
@@ -9205,7 +9678,7 @@ async function handleRowChallenge(rowEl, opponentUid) {
   if (!session.ok) {
     rowEl.classList.remove('sending');
     if (btn) btn.textContent = 'Challenge';
-    showToast('Sign-in required', 'err');
+    showToast('Please log in through MissionMed, then reload STAT.', 'err');
     return;
   }
 
@@ -9232,7 +9705,7 @@ async function handleRowChallenge(rowEl, opponentUid) {
       duel_id: activeDuelId,
       duel_is_bot: false,
       stage: 'duel_created',
-      opponent_name: activeOpponent.name
+      opponent_name: String(opponentUid || activeOpponent.name || 'Opponent')
     });
   }
   try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
@@ -9245,31 +9718,42 @@ async function handleManualSend() {
   msg.className = 'ch-manual-msg';
   if (!raw) {
     msg.classList.add('err');
-    msg.textContent = 'Enter an opponent user ID.';
+    msg.textContent = 'Enter opponent email or user ID.';
     return;
   }
-  const uuidLike = /^[0-9a-fA-F-]{8,}$/.test(raw);
-  if (!uuidLike) {
+  if (!isUuidIdentifier(raw) && !isEmailIdentifier(raw)) {
     msg.classList.add('err');
-    msg.textContent = 'That does not look like a valid user ID.';
-    return;
-  }
-  if (backendUserId && raw === backendUserId) {
-    msg.classList.add('err');
-    msg.textContent = 'You cannot challenge yourself.';
+    msg.textContent = 'Use a valid email or Supabase user ID.';
     return;
   }
   playUiClick();
-  msg.textContent = 'Sending…';
+  msg.textContent = 'Resolving opponent…';
 
   const session = await ensureSupabaseSession();
   if (!session.ok) {
     msg.classList.add('err');
-    msg.textContent = 'Sign-in required.';
+    msg.textContent = await authRequiredMessageWithDebug(session.reason || lastAuthFailureReason || 'auth_required');
+    showToast('Please log in through MissionMed, then reload STAT.', 'err');
     return;
   }
 
-  const res = await createDuelWithOpponent(raw);
+  const resolved = await resolveDuelOpponentIdentifier(raw);
+  if (!resolved.ok || !resolved.data || !resolved.data.user_id) {
+    msg.classList.add('err');
+    msg.textContent = 'Opponent not found. Use the email tied to their MissionMed account or their Supabase user ID.';
+    return;
+  }
+
+  const opponentUserId = String(resolved.data.user_id || '').trim();
+  if (backendUserId && opponentUserId === String(backendUserId)) {
+    msg.classList.add('err');
+    msg.textContent = 'You cannot challenge yourself.';
+    return;
+  }
+
+  msg.className = 'ch-manual-msg';
+  msg.textContent = 'Sending…';
+  const res = await createDuelWithOpponent(opponentUserId);
   if (!res.ok) {
     msg.classList.add('err');
     msg.textContent = 'Failed: ' + String(res.error || 'unknown');
@@ -9277,7 +9761,8 @@ async function handleManualSend() {
   }
   const newDuelId = (res.data && (res.data.duel_id || (res.data.duel && res.data.duel.id))) || '';
   msg.classList.add('ok');
-  msg.textContent = 'Challenge sent. Duel ID: ' + shortUid(newDuelId);
+  const resolvedLabel = String(resolved.data.label || opponentUserId).trim();
+  msg.textContent = 'Challenge sent to ' + resolvedLabel + '. Duel ID: ' + shortUid(newDuelId);
   showToast('Challenge sent');
   if (newDuelId) {
     activeDuelId = String(newDuelId);
@@ -9287,7 +9772,7 @@ async function handleManualSend() {
       duel_id: activeDuelId,
       duel_is_bot: false,
       stage: 'duel_created',
-      opponent_name: activeOpponent.name
+      opponent_name: resolvedLabel || opponentUserId
     });
   }
   try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
