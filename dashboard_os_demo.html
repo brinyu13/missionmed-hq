@@ -1,2599 +1,1261 @@
-<!-- MissionMed Dashboard OS Demo v1.0 | MMOS-DASHBOARD-OS-01 | Visual Demo Only | No Backend Required -->
+<!-- MissionMed Dashboard OS v3.0 | 4-Theme Fortnite-Grade Command Center | MMOS-DASHBOARD-OS-01 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MissionMed Dashboard OS</title>
-    <!-- MissionMed Dashboard OS Demo v1.0 | MMOS-DASHBOARD-OS-01 | Visual Demo Only | No Backend Required -->
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --navy-primary: #0F2A44;
-            --navy-secondary: #1B2F4A;
-            --charcoal: #2A2A2A;
-            --medical-red: #B23A3A;
-            --white: #FFFFFF;
-            --light-gray: #F4F6F8;
-            --gold: #E8A41C;
-            --cyan: #00D4FF;
-            --green: #2ECC71;
-            --red: #E74C3C;
-            --orange: #E67E22;
-            --yellow: #F39C12;
-            --blue: #3498DB;
-            --indigo: #6C5CE7;
-            --violet: #A55EEA;
-            --shadow-light: rgba(0, 0, 0, 0.1);
-            --shadow-dark: rgba(0, 0, 0, 0.3);
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
-            background: linear-gradient(135deg, var(--navy-primary) 0%, var(--charcoal) 100%);
-            color: var(--white);
-            min-height: 100vh;
-            overflow: hidden;
-        }
-
-        .container {
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-        }
-
-        /* HEADER */
-        .header {
-            background: linear-gradient(90deg, rgba(15, 42, 68, 0.95) 0%, rgba(27, 47, 74, 0.95) 100%);
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
-            padding: 16px 28px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            backdrop-filter: blur(10px);
-        }
-
-        .header-left {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        .logo {
-            font-size: 18px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            background: linear-gradient(135deg, var(--cyan) 0%, var(--gold) 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        .student-info {
-            display: flex;
-            align-items: center;
-            gap: 24px;
-        }
-
-        .identity {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-
-        .identity-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .identity-meta {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .xp-bar {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 8px 12px;
-            border-radius: 6px;
-            border: 1px solid rgba(0, 212, 255, 0.15);
-        }
-
-        .xp-bar-label {
-            font-size: 11px;
-            font-weight: 500;
-            color: rgba(255, 255, 255, 0.5);
-            min-width: 28px;
-        }
-
-        .xp-bar-fill {
-            width: 120px;
-            height: 6px;
-            background: rgba(0, 212, 255, 0.2);
-            border-radius: 3px;
-            overflow: hidden;
-            position: relative;
-        }
-
-        .xp-bar-progress {
-            height: 100%;
-            width: 62.5%;
-            background: linear-gradient(90deg, var(--gold) 0%, var(--cyan) 100%);
-            border-radius: 3px;
-            transition: width 0.6s ease;
-        }
-
-        .level-badge {
-            background: linear-gradient(135deg, var(--gold) 0%, #D4860E 100%);
-            color: var(--navy-primary);
-            font-size: 12px;
-            font-weight: 700;
-            padding: 4px 10px;
-            border-radius: 4px;
-            min-width: 32px;
-            text-align: center;
-        }
-
-        .streak {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--gold);
-        }
-
-        .streak-flame {
-            font-size: 16px;
-            animation: flicker 1.5s infinite;
-        }
-
-        @keyframes flicker {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-
-        .header-right {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-
-        .sync-status {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .sync-dot {
-            width: 8px;
-            height: 8px;
-            background: var(--green);
-            border-radius: 50%;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        .btn-header {
-            padding: 8px 12px;
-            background: rgba(0, 212, 255, 0.1);
-            border: 1px solid var(--cyan);
-            border-radius: 4px;
-            color: var(--cyan);
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-header:hover {
-            background: rgba(0, 212, 255, 0.2);
-            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
-        }
-
-        /* TAB NAVIGATION */
-        .tab-nav {
-            display: flex;
-            gap: 0;
-            background: rgba(27, 47, 74, 0.5);
-            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
-            padding: 0 28px;
-            backdrop-filter: blur(5px);
-        }
-
-        .tab-button {
-            flex: 0 0 auto;
-            padding: 14px 20px;
-            background: none;
-            border: none;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            position: relative;
-            letter-spacing: 0.5px;
-        }
-
-        .tab-button::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: var(--cyan);
-            transform: scaleX(0);
-            transform-origin: left;
-            transition: transform 0.3s;
-        }
-
-        .tab-button:hover {
-            color: var(--white);
-        }
-
-        .tab-button.active {
-            color: var(--cyan);
-        }
-
-        .tab-button.active::after {
-            transform: scaleX(1);
-        }
-
-        /* CONTENT AREA */
-        .content {
-            flex: 1;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            padding: 28px;
-            gap: 24px;
-        }
-
-        .tab-content {
-            display: none;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* COMMAND TAB */
-        .mission-hero {
-            background: linear-gradient(135deg, rgba(232, 164, 28, 0.15) 0%, rgba(0, 212, 255, 0.1) 100%);
-            border: 1px solid rgba(232, 164, 28, 0.3);
-            border-radius: 12px;
-            padding: 24px;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 24px;
-            align-items: center;
-        }
-
-        .mission-title {
-            grid-column: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .mission-heading {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--gold);
-        }
-
-        .mission-reason {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.7);
-            line-height: 1.4;
-        }
-
-        .progress-rings {
-            grid-column: 2 / 4;
-            display: flex;
-            justify-content: flex-end;
-            gap: 32px;
-        }
-
-        .ring-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .ring-label {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-            text-align: center;
-            font-weight: 500;
-        }
-
-        .ring {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            background: conic-gradient(var(--cyan) 0%, var(--cyan) var(--progress, 40%), rgba(255, 255, 255, 0.1) var(--progress, 40%), rgba(255, 255, 255, 0.1) 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            padding: 4px;
-        }
-
-        .ring::before {
-            content: '';
-            position: absolute;
-            inset: 4px;
-            background: var(--navy-primary);
-            border-radius: 50%;
-            z-index: 0;
-        }
-
-        .ring-content {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 2px;
-        }
-
-        .ring-value {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--cyan);
-        }
-
-        .ring-total {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .intel-panel {
-            background: rgba(0, 212, 255, 0.08);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            gap: 16px;
-        }
-
-        .intel-icon {
-            font-size: 32px;
-            flex-shrink: 0;
-        }
-
-        .intel-content {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .intel-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--cyan);
-        }
-
-        .intel-text {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.8);
-            line-height: 1.4;
-        }
-
-        .top-tasks {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
-        }
-
-        .task-card {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            transition: all 0.3s;
-            cursor: pointer;
-        }
-
-        .task-card:hover {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%);
-            border-color: rgba(0, 212, 255, 0.3);
-            transform: translateY(-4px);
-        }
-
-        .task-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-        }
-
-        .task-topic {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .topic-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-        }
-
-        .task-duration {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .task-description {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.8);
-            line-height: 1.4;
-        }
-
-        .task-actions {
-            display: flex;
-            gap: 12px;
-        }
-
-        .btn-task {
-            flex: 1;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, var(--cyan) 0%, #00A8CC 100%);
-            color: var(--navy-primary);
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 16px rgba(0, 212, 255, 0.3);
-        }
-
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: var(--white);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .quick-actions {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 16px;
-        }
-
-        .action-button {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-        }
-
-        .action-button:hover {
-            background: linear-gradient(135deg, rgba(0, 212, 255, 0.15) 0%, rgba(0, 212, 255, 0.05) 100%);
-            border-color: var(--cyan);
-            transform: translateY(-4px);
-        }
-
-        .action-icon {
-            font-size: 28px;
-        }
-
-        .action-label {
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .advisor-alert {
-            background: linear-gradient(135deg, rgba(178, 58, 58, 0.15) 0%, rgba(232, 164, 28, 0.1) 100%);
-            border: 1px solid rgba(232, 164, 28, 0.3);
-            border-radius: 12px;
-            padding: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .alert-text {
-            font-size: 14px;
-            color: var(--white);
-        }
-
-        .alert-count {
-            background: var(--medical-red);
-            color: var(--white);
-            font-size: 12px;
-            font-weight: 700;
-            padding: 6px 12px;
-            border-radius: 20px;
-        }
-
-        /* PLANNER TAB */
-        .planner-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.05);
-            padding: 16px;
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .control-group {
-            display: flex;
-            gap: 12px;
-        }
-
-        .btn-control {
-            padding: 8px 16px;
-            background: rgba(0, 212, 255, 0.1);
-            border: 1px solid var(--cyan);
-            border-radius: 6px;
-            color: var(--cyan);
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-control:hover {
-            background: rgba(0, 212, 255, 0.2);
-            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
-        }
-
-        .btn-control.active {
-            background: var(--cyan);
-            color: var(--navy-primary);
-        }
-
-        .recovery-queue {
-            background: linear-gradient(135deg, rgba(46, 204, 113, 0.15) 0%, rgba(0, 212, 255, 0.08) 100%);
-            border: 1px solid rgba(46, 204, 113, 0.3);
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .recovery-text {
-            font-size: 13px;
-            color: var(--white);
-        }
-
-        .recovery-actions {
-            display: flex;
-            gap: 12px;
-        }
-
-        .btn-recovery {
-            padding: 6px 12px;
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid var(--green);
-            border-radius: 4px;
-            color: var(--green);
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-recovery:hover {
-            background: rgba(46, 204, 113, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .weekly-grid {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .grid-header {
-            display: grid;
-            grid-template-columns: 60px repeat(7, 1fr);
-            gap: 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            background: rgba(255, 255, 255, 0.05);
-        }
-
-        .grid-cell-header {
-            padding: 12px;
-            text-align: center;
-            font-size: 12px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.6);
-            border-right: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .grid-cell-header:last-child {
-            border-right: none;
-        }
-
-        .grid-time-labels {
-            display: flex;
-            flex-direction: column;
-            background: rgba(255, 255, 255, 0.05);
-            border-right: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .time-label {
-            padding: 12px;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .grid-body {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 8px;
-            padding: 12px;
-            flex: 1;
-            overflow-y: auto;
-            max-height: 500px;
-        }
-
-        .day-column {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .schedule-block {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 8px;
-            padding: 10px;
-            font-size: 11px;
-            cursor: grab;
-            transition: all 0.3s;
-            min-height: 60px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .schedule-block:hover {
-            transform: translateY(-2px);
-            border-color: rgba(0, 212, 255, 0.4);
-            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.2);
-        }
-
-        .schedule-block.dragging {
-            opacity: 0.5;
-            cursor: grabbing;
-        }
-
-        .schedule-block.ghost {
-            opacity: 0.6;
-            border: 1px dashed rgba(0, 212, 255, 0.5);
-            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
-            box-shadow: 0 0 12px rgba(0, 212, 255, 0.3);
-        }
-
-        .block-topic {
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .block-time {
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .block-confidence {
-            display: inline-block;
-            font-size: 9px;
-            padding: 2px 6px;
-            border-radius: 3px;
-            background: rgba(0, 212, 255, 0.2);
-            color: var(--cyan);
-            font-weight: 500;
-        }
-
-        .block-advisor {
-            font-size: 9px;
-            color: var(--cyan);
-            font-style: italic;
-        }
-
-        .unscheduled-tray {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px dashed rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            padding: 16px;
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-            gap: 12px;
-        }
-
-        .unscheduled-item {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            padding: 12px;
-            font-size: 12px;
-            cursor: grab;
-            transition: all 0.2s;
-        }
-
-        .unscheduled-item:hover {
-            border-color: var(--cyan);
-            transform: translateY(-2px);
-        }
-
-        /* PERFORMANCE TAB */
-        .topic-heatmap {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 12px;
-        }
-
-        .topic-tile {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-align: center;
-        }
-
-        .topic-tile:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        .topic-name {
-            font-size: 13px;
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .topic-accuracy {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--cyan);
-        }
-
-        .topic-meta {
-            display: flex;
-            justify-content: center;
-            gap: 8px;
-            font-size: 10px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .topic-confidence-badge {
-            font-size: 9px;
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-weight: 600;
-        }
-
-        .confidence-low {
-            background: rgba(230, 126, 34, 0.3);
-            color: var(--orange);
-        }
-
-        .confidence-moderate {
-            background: rgba(243, 156, 18, 0.3);
-            color: var(--yellow);
-        }
-
-        .confidence-high {
-            background: rgba(46, 204, 113, 0.3);
-            color: var(--green);
-        }
-
-        .weakest-topics {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 16px;
-        }
-
-        .ranked-topic {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            gap: 16px;
-        }
-
-        .rank-number {
-            font-size: 28px;
-            font-weight: 700;
-            color: rgba(255, 255, 255, 0.2);
-            min-width: 40px;
-        }
-
-        .rank-content {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            flex: 1;
-        }
-
-        .rank-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .rank-stats {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .rank-bar {
-            height: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 2px;
-            overflow: hidden;
-        }
-
-        .rank-bar-fill {
-            height: 100%;
-            background: var(--red);
-            border-radius: 2px;
-            transition: width 0.4s ease;
-        }
-
-        .strong-topics {
-            background: rgba(46, 204, 113, 0.1);
-            border: 1px solid rgba(46, 204, 113, 0.3);
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .strong-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--green);
-        }
-
-        .strong-list {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 12px;
-        }
-
-        .strong-badge {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid var(--green);
-            border-radius: 20px;
-            padding: 8px 16px;
-            font-size: 12px;
-            font-weight: 600;
-            color: var(--green);
-        }
-
-        /* TASKS TAB */
-        .task-sections {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .section-title {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--cyan);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .task-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .task-item {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            transition: all 0.3s;
-        }
-
-        .task-item:hover {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
-            border-color: rgba(0, 212, 255, 0.3);
-        }
-
-        .task-info {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            flex: 1;
-        }
-
-        .task-status-icon {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            flex-shrink: 0;
-        }
-
-        .status-pending {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .status-progress {
-            background: rgba(0, 212, 255, 0.2);
-            border: 1px solid var(--cyan);
-            color: var(--cyan);
-        }
-
-        .status-completed {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid var(--green);
-            color: var(--green);
-        }
-
-        .task-core {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            flex: 1;
-        }
-
-        .task-name {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .task-meta {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.5);
-            display: flex;
-            gap: 12px;
-        }
-
-        .task-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn-small {
-            padding: 6px 12px;
-            background: rgba(0, 212, 255, 0.1);
-            border: 1px solid var(--cyan);
-            border-radius: 4px;
-            color: var(--cyan);
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-            white-space: nowrap;
-        }
-
-        .btn-small:hover {
-            background: rgba(0, 212, 255, 0.2);
-            transform: translateY(-1px);
-        }
-
-        .btn-complete {
-            background: rgba(46, 204, 113, 0.2);
-            border-color: var(--green);
-            color: var(--green);
-        }
-
-        .btn-complete:hover {
-            background: rgba(46, 204, 113, 0.3);
-        }
-
-        /* ADVISOR TAB */
-        .suggestions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 20px;
-        }
-
-        .suggestion-card {
-            background: linear-gradient(135deg, rgba(232, 164, 28, 0.1) 0%, rgba(0, 212, 255, 0.05) 100%);
-            border: 1px solid rgba(232, 164, 28, 0.3);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .suggestion-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 12px;
-        }
-
-        .suggestion-advisor {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--gold);
-            background: rgba(232, 164, 28, 0.2);
-            padding: 4px 10px;
-            border-radius: 4px;
-            align-self: fit-content;
-        }
-
-        .suggestion-status {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        .suggestion-body {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .suggestion-text {
-            font-size: 14px;
-            color: rgba(255, 255, 255, 0.85);
-            line-height: 1.5;
-        }
-
-        .suggestion-reason {
-            background: rgba(255, 255, 255, 0.05);
-            border-left: 2px solid var(--cyan);
-            padding: 12px;
-            border-radius: 4px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.7);
-            font-style: italic;
-        }
-
-        .suggestion-actions {
-            display: flex;
-            gap: 12px;
-        }
-
-        .btn-suggestion {
-            flex: 1;
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-accept {
-            background: rgba(46, 204, 113, 0.2);
-            border: 1px solid var(--green);
-            color: var(--green);
-        }
-
-        .btn-accept:hover {
-            background: rgba(46, 204, 113, 0.3);
-            transform: translateY(-2px);
-        }
-
-        .btn-reject {
-            background: rgba(231, 76, 60, 0.2);
-            border: 1px solid var(--red);
-            color: var(--red);
-        }
-
-        .btn-reject:hover {
-            background: rgba(231, 76, 60, 0.3);
-            transform: translateY(-2px);
-        }
-
-        /* HISTORY TAB */
-        .timeline {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .timeline-section {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .timeline-label {
-            font-size: 12px;
-            font-weight: 700;
-            color: var(--cyan);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .timeline-item {
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 16px;
-            display: flex;
-            gap: 16px;
-        }
-
-        .timeline-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            flex-shrink: 0;
-            background: rgba(0, 212, 255, 0.2);
-        }
-
-        .timeline-content {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            flex: 1;
-        }
-
-        .timeline-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--white);
-        }
-
-        .timeline-subtitle {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .timeline-time {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.4);
-        }
-
-        .weekly-summary {
-            background: linear-gradient(135deg, rgba(0, 212, 255, 0.1) 0%, rgba(232, 164, 28, 0.08) 100%);
-            border: 1px solid rgba(0, 212, 255, 0.2);
-            border-radius: 12px;
-            padding: 24px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-        }
-
-        .summary-stat {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .summary-label {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-            font-weight: 500;
-        }
-
-        .summary-value {
-            font-size: 24px;
-            font-weight: 700;
-            color: var(--cyan);
-        }
-
-        .summary-note {
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        /* TOAST NOTIFICATIONS */
-        /* TIMER WIDGET */
-        .timer-widget {
-            position: fixed;
-            bottom: 80px;
-            right: 28px;
-            background: linear-gradient(135deg, var(--navy-secondary) 0%, var(--navy-primary) 100%);
-            border: 1px solid var(--cyan);
-            border-radius: 14px;
-            padding: 16px 20px;
-            z-index: 9998;
-            box-shadow: 0 12px 40px rgba(0, 212, 255, 0.25);
-            display: none;
-            min-width: 220px;
-        }
-        .timer-widget.active { display: block; animation: slideIn 0.3s ease; }
-        .timer-task-name {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--cyan);
-            margin-bottom: 6px;
-        }
-        .timer-display {
-            font-size: 32px;
-            font-weight: 700;
-            color: #fff;
-            font-variant-numeric: tabular-nums;
-            margin-bottom: 10px;
-        }
-        .timer-controls { display: flex; gap: 8px; }
-        .timer-controls button {
-            flex: 1;
-            padding: 6px 0;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .timer-btn-stop { background: var(--red); color: #fff; }
-        .timer-btn-done { background: var(--green); color: var(--navy-primary); }
-
-        .toast {
-            position: fixed;
-            bottom: 28px;
-            right: 28px;
-            background: linear-gradient(135deg, var(--cyan) 0%, #00A8CC 100%);
-            color: var(--navy-primary);
-            padding: 14px 20px;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            box-shadow: 0 12px 32px rgba(0, 212, 255, 0.4);
-            animation: slideIn 0.3s ease, slideOut 0.3s ease 2.7s;
-            z-index: 9999;
-        }
-
-        @keyframes slideIn {
-            from {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideOut {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(400px);
-                opacity: 0;
-            }
-        }
-
-        /* MODAL */
-        .modal-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(5px);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-overlay.active {
-            display: flex;
-        }
-
-        .modal {
-            background: linear-gradient(135deg, var(--navy-secondary) 0%, var(--charcoal) 100%);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            border-radius: 16px;
-            padding: 32px;
-            max-width: 500px;
-            width: 90%;
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
-            animation: modalSlide 0.3s ease;
-        }
-
-        @keyframes modalSlide {
-            from {
-                transform: translateY(40px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--white);
-        }
-
-        .modal-close {
-            background: none;
-            border: none;
-            color: rgba(255, 255, 255, 0.5);
-            font-size: 24px;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-
-        .modal-close:hover {
-            color: var(--white);
-        }
-
-        .modal-body {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-
-        .modal-field {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .modal-label {
-            font-size: 13px;
-            font-weight: 600;
-            color: rgba(255, 255, 255, 0.8);
-        }
-
-        .modal-value {
-            font-size: 14px;
-            color: var(--cyan);
-        }
-
-        .modal-copy {
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        .modal-footer {
-            display: flex;
-            gap: 12px;
-        }
-
-        .btn-modal {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-
-        .btn-modal-primary {
-            background: linear-gradient(135deg, var(--cyan) 0%, #00A8CC 100%);
-            color: var(--navy-primary);
-        }
-
-        .btn-modal-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0, 212, 255, 0.3);
-        }
-
-        .btn-modal-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: var(--white);
-        }
-
-        .btn-modal-secondary:hover {
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        /* RESPONSIVE */
-        @media (max-width: 1200px) {
-            .top-tasks {
-                grid-template-columns: 1fr;
-            }
-
-            .quick-actions {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .weakest-topics {
-                grid-template-columns: 1fr;
-            }
-
-            .weekly-summary {
-                grid-template-columns: repeat(2, 1fr);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 16px;
-                padding: 16px;
-            }
-
-            .student-info {
-                flex-direction: column;
-                gap: 12px;
-                width: 100%;
-            }
-
-            .progress-rings {
-                grid-column: 1 / -1;
-                justify-content: center;
-                gap: 16px;
-            }
-
-            .mission-hero {
-                grid-template-columns: 1fr;
-                gap: 16px;
-            }
-
-            .content {
-                padding: 16px;
-            }
-
-            .quick-actions {
-                grid-template-columns: 1fr;
-            }
-
-            .topic-heatmap {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .suggestions-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .weekly-summary {
-                grid-template-columns: 1fr;
-            }
-
-            .modal {
-                max-width: 90%;
-                padding: 24px;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .tab-nav {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                padding: 0 16px;
-            }
-
-            .tab-button {
-                padding: 12px 16px;
-                font-size: 12px;
-            }
-
-            .header-left,
-            .header-right {
-                flex-direction: column;
-                gap: 8px;
-            }
-
-            .mission-hero {
-                padding: 16px;
-            }
-
-            .topic-heatmap {
-                grid-template-columns: 1fr;
-            }
-
-            .modal {
-                padding: 20px;
-                max-width: 95%;
-            }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MissionMed Dashboard OS</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Russo+One&family=Orbitron:wght@500;700;900&family=Bangers&family=Fredoka:wght@400;500;600;700&display=swap');
+
+/* ============================================================
+   THEME SYSTEM
+   ============================================================ */
+:root {
+  /* Shared */
+  --mastery-critical: #ff4757;
+  --mastery-weak: #ff9f43;
+  --mastery-moderate: #feca57;
+  --mastery-stable: #2ed573;
+  --mastery-strong: #1e90ff;
+  --mastery-mastered: #7c4dff;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+  --transition: 0.2s ease;
+}
+
+/* THEME 1: NEON STORM (Fortnite) */
+[data-theme="neon-storm"] {
+  --bg-deep: #0b0e2a;
+  --bg-panel: #131740;
+  --bg-card: rgba(20,25,70,0.85);
+  --bg-surface: rgba(15,18,55,0.9);
+  --border-subtle: rgba(0,212,255,0.12);
+  --border-glow: rgba(0,212,255,0.4);
+  --text-primary: #f0f4ff;
+  --text-secondary: #a0b4e8;
+  --text-muted: #6070a0;
+  --accent-1: #00d4ff;
+  --accent-2: #ff2d87;
+  --accent-3: #7b2fff;
+  --accent-4: #00ff88;
+  --ghost-glow: rgba(123,47,255,0.2);
+  --ghost-border: rgba(123,47,255,0.5);
+  --font-display: 'Orbitron', sans-serif;
+  --font-body: 'Fredoka', sans-serif;
+  --glow-1: 0 0 20px rgba(0,212,255,0.3);
+  --glow-2: 0 0 20px rgba(255,45,135,0.3);
+  --gradient-hero: linear-gradient(135deg, #0b0e2a 0%, #1a1060 50%, #0b0e2a 100%);
+  --gradient-accent: linear-gradient(135deg, #00d4ff, #7b2fff);
+  --gradient-btn: linear-gradient(135deg, #00d4ff, #ff2d87);
+  --card-border-style: 2px solid;
+  --skew: -1deg;
+}
+
+/* THEME 2: VICTORY ROYALE (Fortnite) */
+[data-theme="victory-royale"] {
+  --bg-deep: #0f0a28;
+  --bg-panel: #1a1245;
+  --bg-card: rgba(30,20,80,0.85);
+  --bg-surface: rgba(20,15,60,0.9);
+  --border-subtle: rgba(255,215,0,0.12);
+  --border-glow: rgba(255,215,0,0.4);
+  --text-primary: #fff8e7;
+  --text-secondary: #c8b8e8;
+  --text-muted: #7868a0;
+  --accent-1: #ffd700;
+  --accent-2: #a855f7;
+  --accent-3: #ff6b35;
+  --accent-4: #22d3ee;
+  --ghost-glow: rgba(168,85,247,0.2);
+  --ghost-border: rgba(168,85,247,0.5);
+  --font-display: 'Bangers', cursive;
+  --font-body: 'Fredoka', sans-serif;
+  --glow-1: 0 0 20px rgba(255,215,0,0.3);
+  --glow-2: 0 0 20px rgba(168,85,247,0.3);
+  --gradient-hero: linear-gradient(135deg, #0f0a28 0%, #2a1570 50%, #0f0a28 100%);
+  --gradient-accent: linear-gradient(135deg, #ffd700, #ff6b35);
+  --gradient-btn: linear-gradient(135deg, #ffd700, #a855f7);
+  --card-border-style: 2px solid;
+  --skew: 0deg;
+}
+
+/* THEME 3: SLURP SURGE (Fortnite) */
+[data-theme="slurp-surge"] {
+  --bg-deep: #041a28;
+  --bg-panel: #082a3e;
+  --bg-card: rgba(8,45,68,0.85);
+  --bg-surface: rgba(6,35,55,0.9);
+  --border-subtle: rgba(0,255,240,0.1);
+  --border-glow: rgba(0,255,240,0.35);
+  --text-primary: #e8fff8;
+  --text-secondary: #88ccbb;
+  --text-muted: #508878;
+  --accent-1: #00fff0;
+  --accent-2: #39ff14;
+  --accent-3: #00bfff;
+  --accent-4: #ff6bff;
+  --ghost-glow: rgba(0,255,240,0.15);
+  --ghost-border: rgba(0,255,240,0.4);
+  --font-display: 'Russo One', sans-serif;
+  --font-body: 'Fredoka', sans-serif;
+  --glow-1: 0 0 20px rgba(0,255,240,0.3);
+  --glow-2: 0 0 20px rgba(57,255,20,0.3);
+  --gradient-hero: linear-gradient(135deg, #041a28 0%, #0a3550 50%, #041a28 100%);
+  --gradient-accent: linear-gradient(135deg, #00fff0, #39ff14);
+  --gradient-btn: linear-gradient(135deg, #00fff0, #00bfff);
+  --card-border-style: 2px solid;
+  --skew: 0deg;
+}
+
+/* THEME 4: ARCADE MODE (Fun Gamer) */
+[data-theme="arcade-mode"] {
+  --bg-deep: #1a0a2e;
+  --bg-panel: #261345;
+  --bg-card: rgba(45,20,85,0.8);
+  --bg-surface: rgba(35,15,70,0.85);
+  --border-subtle: rgba(255,60,172,0.12);
+  --border-glow: rgba(255,60,172,0.35);
+  --text-primary: #fff0fa;
+  --text-secondary: #d8a8e8;
+  --text-muted: #9060b0;
+  --accent-1: #ff3cac;
+  --accent-2: #a8ff3c;
+  --accent-3: #ff6b35;
+  --accent-4: #3c9dff;
+  --ghost-glow: rgba(168,255,60,0.15);
+  --ghost-border: rgba(168,255,60,0.4);
+  --font-display: 'Bangers', cursive;
+  --font-body: 'Fredoka', sans-serif;
+  --glow-1: 0 0 20px rgba(255,60,172,0.3);
+  --glow-2: 0 0 20px rgba(168,255,60,0.3);
+  --gradient-hero: linear-gradient(135deg, #1a0a2e 0%, #3d1570 50%, #1a0a2e 100%);
+  --gradient-accent: linear-gradient(135deg, #ff3cac, #a8ff3c);
+  --gradient-btn: linear-gradient(135deg, #ff3cac, #ff6b35);
+  --card-border-style: 3px solid;
+  --skew: 0deg;
+}
+
+/* ============================================================
+   RESET + BASE
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.4s ease, color 0.3s ease;
+}
+button { cursor: pointer; font-family: var(--font-body); border: none; background: none; color: inherit; }
+
+/* ============================================================
+   SHELL: ZERO-SCROLL VIEWPORT FIT
+   ============================================================ */
+.app-shell {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  grid-template-rows: 52px 1fr;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* TOP BAR */
+.top-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--bg-panel);
+  border-bottom: var(--card-border-style) var(--border-subtle);
+  z-index: 100;
+  gap: 8px;
+}
+.top-bar-left { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.logo {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 900;
+  letter-spacing: 2px;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-transform: uppercase;
+}
+.logo-sub {
+  font-family: var(--font-display);
+  font-size: 0.55rem;
+  color: var(--accent-1);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+.top-bar-center { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.top-bar-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+
+/* Theme toggle */
+.theme-toggle {
+  display: flex;
+  background: var(--bg-surface);
+  border-radius: 20px;
+  padding: 2px;
+  border: 1px solid var(--border-subtle);
+  gap: 2px;
+}
+.theme-btn {
+  padding: 4px 10px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  border-radius: 18px;
+  color: var(--text-muted);
+  transition: var(--transition);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.theme-btn.active { background: var(--gradient-btn); color: #fff; }
+.theme-btn:hover:not(.active) { color: var(--text-primary); }
+
+/* User area */
+.user-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 10px 3px 3px;
+  background: var(--bg-card);
+  border-radius: 20px;
+  border: 1px solid var(--border-subtle);
+}
+.user-avatar {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  background: var(--gradient-btn);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem; font-weight: 900; color: #fff;
+  font-family: var(--font-display);
+}
+.user-name { font-size: 0.72rem; font-weight: 700; }
+.user-level { font-size: 0.58rem; color: var(--accent-1); font-weight: 700; font-family: var(--font-display); }
+.streak-badge {
+  display: flex; align-items: center; gap: 3px;
+  padding: 3px 8px;
+  background: rgba(255,215,0,0.12);
+  border: 1px solid rgba(255,215,0,0.3);
+  border-radius: 14px;
+  font-size: 0.68rem; font-weight: 700;
+  color: #ffd700;
+  font-family: var(--font-display);
+}
+.xp-mini { font-size: 0.68rem; color: var(--accent-1); font-weight: 700; font-family: var(--font-display); }
+
+/* SIDE NAV */
+.side-nav {
+  background: var(--bg-panel);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  gap: 2px;
+  z-index: 90;
+}
+.nav-btn {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  transition: var(--transition);
+  position: relative;
+}
+.nav-btn:hover { background: rgba(255,255,255,0.05); color: var(--text-secondary); }
+.nav-btn.active { color: var(--accent-1); }
+.nav-btn.active::before {
+  content: '';
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 22px;
+  background: var(--gradient-accent);
+  border-radius: 0 3px 3px 0;
+}
+.nav-btn svg { width: 18px; height: 18px; }
+.nav-badge {
+  position: absolute; top: 2px; right: 2px;
+  width: 15px; height: 15px;
+  background: var(--accent-2);
+  border-radius: 50%;
+  font-size: 0.5rem; font-weight: 900; color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-display);
+}
+.nav-tip {
+  display: none;
+  position: absolute; left: 50px; top: 50%; transform: translateY(-50%);
+  padding: 3px 8px; background: var(--bg-card); border: 1px solid var(--border-glow);
+  border-radius: var(--radius-sm);
+  font-size: 0.65rem; font-weight: 600; white-space: nowrap; z-index: 200;
+}
+.nav-btn:hover .nav-tip { display: block; }
+
+/* MAIN */
+.main-content {
+  overflow: hidden;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+}
+.section { display: none; flex: 1; overflow: hidden; animation: fadeIn 0.3s ease; }
+.section.active { display: flex; flex-direction: column; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ============================================================
+   COMMON
+   ============================================================ */
+.card {
+  background: var(--bg-card);
+  border: var(--card-border-style) var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 12px;
+  transition: var(--transition);
+  backdrop-filter: blur(8px);
+}
+.card:hover { border-color: var(--border-glow); box-shadow: var(--glow-1); }
+.card-title {
+  font-family: var(--font-display);
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent-1);
+}
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 20px;
+  background: var(--gradient-btn);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-family: var(--font-display);
+  font-size: 0.78rem; font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  transition: var(--transition);
+  box-shadow: var(--glow-1);
+}
+.btn-primary:hover { transform: translateY(-2px) scale(1.02); box-shadow: var(--glow-1), var(--glow-2); }
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem; font-weight: 600;
+  transition: var(--transition);
+}
+.btn-secondary:hover { border-color: var(--accent-1); color: var(--accent-1); }
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 0.65rem; font-weight: 700;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  transition: var(--transition);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.btn-sm:hover { border-color: var(--accent-1); color: var(--accent-1); }
+.btn-success { border-color: rgba(46,213,115,0.4); color: var(--mastery-stable); }
+.btn-success:hover { border-color: var(--mastery-stable); background: rgba(46,213,115,0.1); }
+.btn-danger { border-color: rgba(255,71,87,0.3); color: var(--mastery-critical); }
+.btn-danger:hover { border-color: var(--mastery-critical); background: rgba(255,71,87,0.1); }
+.btn-ghost {
+  padding: 4px 10px; font-size: 0.65rem; font-weight: 700;
+  color: var(--accent-3);
+  border: 1px solid var(--ghost-border);
+  border-radius: var(--radius-sm);
+  background: var(--ghost-glow);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.tag {
+  display: inline-flex; padding: 1px 7px; border-radius: 8px;
+  font-size: 0.55rem; font-weight: 900; text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-display);
+}
+.tag-critical { background: rgba(255,71,87,0.2); color: var(--mastery-critical); }
+.tag-weak { background: rgba(255,159,67,0.2); color: var(--mastery-weak); }
+.tag-moderate { background: rgba(254,202,87,0.2); color: var(--mastery-moderate); }
+.tag-stable { background: rgba(46,213,115,0.2); color: var(--mastery-stable); }
+.tag-strong { background: rgba(30,144,255,0.2); color: var(--mastery-strong); }
+
+/* Toast */
+.toast-container { position: fixed; bottom: 16px; right: 16px; z-index: 9999; display: flex; flex-direction: column-reverse; gap: 6px; }
+.toast {
+  padding: 10px 16px;
+  background: var(--bg-panel);
+  border: 2px solid var(--accent-1);
+  border-radius: var(--radius-md);
+  font-size: 0.78rem; font-weight: 600;
+  color: var(--text-primary);
+  box-shadow: var(--glow-1);
+  animation: toastIn 0.3s ease, toastOut 0.3s ease 2.7s forwards;
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--font-body);
+}
+@keyframes toastIn { from { opacity:0; transform:translateY(16px) scale(0.95); } to { opacity:1; transform:translateY(0) scale(1); } }
+@keyframes toastOut { from { opacity:1; } to { opacity:0; transform:translateY(-8px); } }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+  z-index: 1000; display: none; align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: var(--bg-panel); border: 2px solid var(--border-glow);
+  border-radius: var(--radius-xl); padding: 24px;
+  max-width: 480px; width: 90%; max-height: 80vh; overflow-y: auto;
+  box-shadow: var(--glow-1);
+}
+.modal h3 { font-family: var(--font-display); font-size: 1rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+.modal .subtitle { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 14px; }
+.modal-actions { display: flex; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
+
+/* ============================================================
+   COMMAND CENTER (zero-scroll grid)
+   ============================================================ */
+.cmd-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  grid-template-rows: auto 1fr auto;
+  gap: 10px;
+  min-height: 0;
+  overflow: hidden;
+}
+.cmd-mission {
+  grid-column: 1; grid-row: 1;
+  background: var(--gradient-hero);
+  border: var(--card-border-style) var(--border-glow);
+  border-radius: var(--radius-xl);
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.cmd-mission::before {
+  content: '';
+  position: absolute; top: -40%; right: -15%;
+  width: 250px; height: 250px;
+  background: radial-gradient(circle, rgba(255,255,255,0.03) 0%, transparent 70%);
+}
+.cmd-mission::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gradient-accent);
+}
+.mission-label {
+  font-family: var(--font-display);
+  font-size: 0.6rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 3px;
+  color: var(--accent-1);
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 6px;
+}
+.pulse-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent-1);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity:1; box-shadow:0 0 4px var(--accent-1); } 50% { opacity:0.4; box-shadow:0 0 12px var(--accent-1); } }
+.mission-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem; font-weight: 900;
+  text-transform: uppercase; letter-spacing: 1px;
+  margin-bottom: 4px; line-height: 1.15;
+}
+.topic-hl { color: var(--accent-1); }
+.mission-why { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.45; margin-bottom: 10px; max-width: 550px; }
+.mission-stats { display: flex; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.mission-stat { display: flex; flex-direction: column; gap: 1px; }
+.mission-stat-val { font-family: var(--font-display); font-size: 1rem; font-weight: 900; }
+.mission-stat-label { font-size: 0.55rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; }
+
+/* Sidebar */
+.cmd-sidebar {
+  grid-column: 2; grid-row: 1 / 4;
+  display: flex; flex-direction: column; gap: 8px;
+  min-height: 0; overflow-y: auto;
+  scrollbar-width: none;
+}
+.cmd-sidebar::-webkit-scrollbar { display: none; }
+
+.progress-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+.prog-item { text-align: center; }
+.prog-value { font-family: var(--font-display); font-size: 1.1rem; font-weight: 900; }
+.prog-label { font-size: 0.52rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 1px; }
+.xp-bar-wrap { margin-top: 8px; background: rgba(255,255,255,0.06); border-radius: 6px; height: 7px; overflow: hidden; }
+.xp-bar-fill { height: 100%; background: var(--gradient-accent); border-radius: 6px; transition: width 0.6s ease; }
+.xp-label { display: flex; justify-content: space-between; font-size: 0.55rem; color: var(--text-muted); margin-top: 3px; }
+.weekly-bar-track { flex:1; height:5px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden; }
+.weekly-bar-fill { height:100%; background:var(--gradient-accent); border-radius:4px; }
+
+.advisor-alert-card {
+  background: var(--ghost-glow); border: 2px solid var(--ghost-border);
+  border-radius: var(--radius-lg); padding: 12px;
+  cursor: pointer; transition: var(--transition);
+}
+.advisor-alert-card:hover { box-shadow: var(--glow-2); }
+.advisor-count { font-family: var(--font-display); font-size: 1.4rem; font-weight: 900; color: var(--accent-3); }
+.advisor-alert-label { font-size: 0.78rem; font-weight: 700; margin-bottom: 2px; }
+.advisor-alert-sub { font-size: 0.65rem; color: var(--text-muted); }
+
+/* Intel + Today blocks */
+.cmd-intel {
+  grid-column: 1; grid-row: 2;
+  padding: 12px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.intel-text { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.5; }
+.intel-source { margin-top: 6px; font-size: 0.6rem; color: var(--text-muted); font-family: var(--font-display); letter-spacing: 0.5px; }
+
+.cmd-today-tasks { grid-column: 1; grid-row: 3; overflow-y: auto; scrollbar-width: none; }
+.cmd-today-tasks::-webkit-scrollbar { display: none; }
+.cmd-today-tasks .card { height: 100%; display: flex; flex-direction: column; }
+.task-list-scroll { flex: 1; overflow-y: auto; scrollbar-width: none; }
+.task-list-scroll::-webkit-scrollbar { display: none; }
+
+.task-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  margin-bottom: 5px;
+  transition: var(--transition);
+}
+.task-row:hover { border-color: var(--border-glow); }
+.task-row.completed { opacity: 0.35; }
+.task-row.completed .task-name { text-decoration: line-through; }
+.task-color { width: 3px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+.task-info { flex: 1; min-width: 0; }
+.task-name { font-size: 0.75rem; font-weight: 700; }
+.task-meta { font-size: 0.6rem; color: var(--text-muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.task-duration { font-size: 0.65rem; font-weight: 700; color: var(--text-secondary); font-family: var(--font-display); }
+.task-actions { display: flex; gap: 4px; }
+
+/* Quick launch buttons */
+.quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.quick-btn {
+  padding: 6px 8px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.62rem; font-weight: 700;
+  color: var(--text-secondary);
+  text-align: center;
+  transition: var(--transition);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.quick-btn:hover { border-color: var(--accent-1); color: var(--accent-1); box-shadow: var(--glow-1); }
+
+/* ============================================================
+   PLANNER (zero-scroll)
+   ============================================================ */
+.planner-wrap { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; }
+.planner-header { display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.planner-grid-wrap { flex: 1; overflow: hidden; border-radius: var(--radius-lg); border: 1px solid var(--border-subtle); }
+.planner-grid {
+  display: grid;
+  grid-template-columns: 64px repeat(7, 1fr);
+  grid-template-rows: auto repeat(4, 1fr);
+  height: 100%;
+  gap: 1px;
+  background: var(--border-subtle);
+}
+.planner-time-label {
+  background: var(--bg-panel); padding: 6px 4px;
+  font-family: var(--font-display);
+  font-size: 0.55rem; font-weight: 700; color: var(--text-muted);
+  text-align: center;
+  display: flex; align-items: center; justify-content: center;
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.planner-day-header {
+  background: var(--bg-panel); padding: 6px;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 0.65rem; font-weight: 900;
+  color: var(--text-secondary);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.planner-day-header.today { color: var(--accent-1); }
+.planner-cell {
+  background: var(--bg-surface);
+  padding: 3px;
+  transition: var(--transition);
+  overflow: hidden;
+}
+.planner-cell:hover { background: rgba(255,255,255,0.02); }
+.planner-cell.drag-over { background: rgba(255,255,255,0.06); outline: 2px dashed var(--accent-1); outline-offset: -2px; }
+.planner-block {
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.58rem; font-weight: 700;
+  cursor: grab;
+  margin-bottom: 2px;
+  border-left: 3px solid;
+  transition: var(--transition);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.planner-block:active { cursor: grabbing; opacity: 0.6; }
+.planner-block .block-topic { font-weight: 900; }
+.planner-block .block-type { font-size: 0.5rem; opacity: 0.7; }
+.planner-block.ghost-block {
+  background: var(--ghost-glow) !important;
+  border-left-color: var(--accent-3) !important;
+  animation: ghostPulse 2.5s ease-in-out infinite;
+}
+@keyframes ghostPulse { 0%,100% { box-shadow:0 0 4px var(--ghost-glow); } 50% { box-shadow:0 0 12px var(--ghost-border); } }
+
+.planner-bottom { display: flex; gap: 8px; flex-shrink: 0; }
+.planner-bottom > * { flex: 1; }
+.tray-title { font-family: var(--font-display); font-size: 0.58rem; color: var(--accent-1); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+.tray-items { display: flex; gap: 4px; flex-wrap: wrap; }
+.tray-item {
+  padding: 4px 10px;
+  background: var(--bg-surface);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.65rem; font-weight: 700;
+  cursor: grab;
+}
+.tray-item:hover { border-color: var(--accent-1); border-style: solid; }
+.recovery-queue {
+  background: rgba(254,202,87,0.05);
+  border: 1px solid rgba(254,202,87,0.2);
+  border-radius: var(--radius-lg); padding: 10px;
+}
+.recovery-title { font-family: var(--font-display); font-size: 0.6rem; color: var(--mastery-moderate); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+.recovery-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.recovery-item-info { font-size: 0.72rem; font-weight: 700; }
+.recovery-actions { display: flex; gap: 4px; }
+
+/* ============================================================
+   ADVISOR
+   ============================================================ */
+.advisor-wrap { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
+.advisor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.advisor-grid::-webkit-scrollbar { display: none; }
+.advisor-card {
+  background: var(--ghost-glow); border: 2px solid var(--ghost-border);
+  border-radius: var(--radius-lg); padding: 14px;
+  transition: var(--transition);
+  display: flex; flex-direction: column;
+}
+.advisor-card.accepted { background: rgba(46,213,115,0.08); border-color: rgba(46,213,115,0.3); }
+.advisor-card.rejected { opacity: 0.25; pointer-events: none; }
+.advisor-name { font-family: var(--font-display); font-size: 0.6rem; color: var(--accent-3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 6px; }
+.advisor-card.accepted .advisor-name { color: var(--mastery-stable); }
+.advisor-suggestion { font-size: 0.82rem; font-weight: 500; line-height: 1.45; color: var(--text-primary); margin-bottom: 10px; flex: 1; }
+.advisor-reasoning {
+  font-size: 0.72rem; color: var(--text-secondary); line-height: 1.45;
+  padding: 8px; background: rgba(0,0,0,0.2);
+  border-radius: var(--radius-sm); margin-bottom: 10px;
+  display: none; border-left: 2px solid var(--accent-3);
+}
+.advisor-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.advisor-trust-note {
+  padding: 10px; text-align: center;
+  font-size: 0.72rem; color: var(--text-muted);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   PERFORMANCE
+   ============================================================ */
+.perf-wrap { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
+.perf-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; flex: 1; min-height: 0; overflow-y: auto; scrollbar-width: none; }
+.perf-grid::-webkit-scrollbar { display: none; }
+.topic-card { display: flex; flex-direction: column; }
+.topic-card:hover { transform: translateY(-2px); box-shadow: var(--glow-1); }
+.topic-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 6px; }
+.topic-name { font-family: var(--font-display); font-size: 0.72rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; }
+.topic-accuracy { font-family: var(--font-display); font-size: 1.1rem; font-weight: 900; }
+.topic-bar-track { height: 4px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+.topic-bar-fill { height: 100%; border-radius: 4px; }
+.topic-details { font-size: 0.58rem; color: var(--text-muted); display: flex; gap: 6px; flex-wrap: wrap; }
+.trend-up { color: var(--mastery-stable); }
+.trend-down { color: var(--mastery-critical); }
+.roi-card {
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg); padding: 12px; flex-shrink: 0;
+}
+.roi-title { font-family: var(--font-display); font-size: 0.72rem; color: var(--accent-1); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+.roi-explanation { font-size: 0.75rem; color: var(--text-secondary); line-height: 1.45; }
+
+/* ============================================================
+   TASKS
+   ============================================================ */
+.tasks-wrap { flex: 1; display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow: hidden; }
+.task-queue { flex: 1; overflow-y: auto; scrollbar-width: none; }
+.task-queue::-webkit-scrollbar { display: none; }
+.task-queue-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--bg-card); border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md); margin-bottom: 6px;
+  transition: var(--transition);
+}
+.task-queue-item:hover { border-color: var(--border-glow); }
+.task-queue-item.task-completed { opacity: 0.35; }
+.task-queue-item.task-completed .tq-name { text-decoration: line-through; }
+.tq-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tq-status-dot.pending { background: var(--text-muted); }
+.tq-status-dot.completed { background: var(--mastery-stable); }
+.tq-info { flex: 1; }
+.tq-name { font-size: 0.82rem; font-weight: 700; }
+.tq-meta { font-size: 0.62rem; color: var(--text-muted); margin-top: 1px; }
+.tq-dur { font-size: 0.72rem; font-weight: 700; color: var(--text-secondary); font-family: var(--font-display); }
+.tq-actions { display: flex; gap: 4px; }
+
+/* ============================================================
+   HISTORY
+   ============================================================ */
+.history-wrap { flex: 1; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr; gap: 10px; min-height: 0; overflow: hidden; }
+.milestone-card {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px; background: var(--bg-surface);
+  border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);
+  margin-bottom: 5px;
+}
+.milestone-icon { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; flex-shrink: 0; }
+.milestone-title { font-size: 0.75rem; font-weight: 700; }
+.milestone-desc { font-size: 0.6rem; color: var(--text-muted); margin-top: 1px; }
+.timeline-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border-subtle); }
+.timeline-item:last-child { border-bottom: none; }
+.timeline-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.timeline-line { width: 2px; flex: 1; background: var(--border-subtle); margin-top: 3px; }
+.timeline-title { font-size: 0.75rem; font-weight: 600; }
+.timeline-time { font-size: 0.6rem; color: var(--text-muted); margin-top: 1px; font-family: var(--font-display); }
+
+/* ============================================================
+   CALENDAR
+   ============================================================ */
+.cal-wrap { flex: 1; display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: hidden; }
+.cal-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cal-export-card { text-align: center; cursor: pointer; padding: 16px 10px; }
+.cal-export-card:hover { transform: translateY(-2px); box-shadow: var(--glow-1); }
+.cal-icon { font-size: 1.8rem; margin-bottom: 6px; }
+.cal-label { font-family: var(--font-display); font-size: 0.78rem; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; }
+.cal-desc { font-size: 0.65rem; color: var(--text-secondary); line-height: 1.3; }
+.reminder-options { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.reminder-opt {
+  padding: 6px 12px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem; font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition);
+}
+.reminder-opt.selected { background: var(--ghost-glow); border-color: var(--accent-1); color: var(--accent-1); }
+
+/* ============================================================
+   TIMER OVERLAY
+   ============================================================ */
+.timer-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.9); backdrop-filter: blur(16px);
+  z-index: 900; display: none;
+  align-items: center; justify-content: center; flex-direction: column;
+}
+.timer-overlay.show { display: flex; }
+.timer-ring { width: 220px; height: 220px; margin-bottom: 16px; position: relative; }
+.timer-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.timer-ring .ring-bg { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 5; }
+.timer-ring .ring-progress { fill: none; stroke: url(#timerGrad); stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.timer-ring .timer-center { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.timer-display { font-family: var(--font-display); font-size: 3.5rem; font-weight: 900; letter-spacing: 4px; }
+.timer-task-name { font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: var(--accent-1); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 3px; }
+.timer-topic { font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 24px; }
+.timer-controls { display: flex; gap: 10px; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1100px) {
+  .cmd-grid { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
+  .cmd-sidebar { grid-column: 1; grid-row: auto; flex-direction: row; flex-wrap: wrap; gap: 8px; overflow-y: visible; }
+  .cmd-sidebar > * { flex: 1; min-width: 180px; }
+  .perf-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .app-shell { grid-template-columns: 1fr; grid-template-rows: 52px 44px 1fr; }
+  .side-nav { flex-direction: row; border-right: none; border-bottom: 1px solid var(--border-subtle); padding: 0 4px; overflow-x: auto; justify-content: center; }
+  .nav-btn.active::before { display: none; }
+  .nav-tip { display: none !important; }
+  .perf-grid { grid-template-columns: repeat(2, 1fr); }
+  .advisor-grid { grid-template-columns: 1fr; }
+  .history-wrap { grid-template-columns: 1fr; }
+  .top-bar-center { display: none; }
+  .cal-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
 </head>
-<body>
-    <div class="container">
-        <!-- HEADER -->
-        <div class="header">
-            <div class="header-left">
-                <div class="logo">MissionMed Dashboard OS</div>
-                <div class="student-info">
-                    <div class="identity">
-                        <div class="identity-name">Alex Morgan</div>
-                        <div class="identity-meta">USMLE Step 2 CK</div>
-                    </div>
-                    <div class="xp-bar">
-                        <div class="xp-bar-label">L12</div>
-                        <div class="xp-bar-fill">
-                            <div class="xp-bar-progress" style="--progress: 62.5%;"></div>
-                        </div>
-                    </div>
-                    <div class="level-badge">12</div>
-                    <div class="streak">
-                        <div class="streak-flame">🔥</div>
-                        <div>5 days</div>
-                    </div>
-                </div>
-            </div>
-            <div class="header-right">
-                <div class="sync-status">
-                    <div class="sync-dot"></div>
-                    <div>Synced</div>
-                </div>
-                <button class="btn-header" onclick="openCalendarExport()">Export Calendar</button>
-            </div>
-        </div>
+<body data-theme="neon-storm">
 
-        <!-- TAB NAVIGATION -->
-        <div class="tab-nav">
-            <button class="tab-button active" onclick="switchTab('command')">Command</button>
-            <button class="tab-button" onclick="switchTab('planner')">Planner</button>
-            <button class="tab-button" onclick="switchTab('performance')">Performance</button>
-            <button class="tab-button" onclick="switchTab('tasks')">Tasks</button>
-            <button class="tab-button" onclick="switchTab('advisor')">Advisor</button>
-            <button class="tab-button" onclick="switchTab('history')">History</button>
-        </div>
-
-        <!-- CONTENT AREA -->
-        <div class="content">
-            <!-- COMMAND TAB -->
-            <div id="command" class="tab-content active">
-                <div class="mission-hero">
-                    <div class="mission-title">
-                        <div class="mission-heading">Today's Focus: Renal</div>
-                        <div class="mission-reason">Renal is your best move today. You have 3 fresh review questions, and your confidence is moderate. This is a high-ROI block.</div>
-                    </div>
-                    <div class="progress-rings">
-                        <div class="ring-item">
-                            <div class="ring" style="--progress: 40%;">
-                                <div class="ring-content">
-                                    <div class="ring-value">2</div>
-                                    <div class="ring-total">5</div>
-                                </div>
-                            </div>
-                            <div class="ring-label">Daily Tasks</div>
-                        </div>
-                        <div class="ring-item">
-                            <div class="ring" style="--progress: 28%;">
-                                <div class="ring-content">
-                                    <div class="ring-value">3.5</div>
-                                    <div class="ring-total">12 hrs</div>
-                                </div>
-                            </div>
-                            <div class="ring-label">Weekly Hours</div>
-                        </div>
-                        <div class="ring-item">
-                            <div class="ring" style="--progress: 62%;">
-                                <div class="ring-content">
-                                    <div class="ring-value">62%</div>
-                                    <div class="ring-total">Accuracy</div>
-                                </div>
-                            </div>
-                            <div class="ring-label">Monthly Average</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="intel-panel">
-                    <div class="intel-icon">💡</div>
-                    <div class="intel-content">
-                        <div class="intel-title">Mission Intel</div>
-                        <div class="intel-text">Your Renal accuracy dropped 8% last week. A focused 30-minute block today, paired with this week's Cardiology work, creates strong reciprocal learning. You're on track.</div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="section-title" style="margin-bottom: 16px;">Top 3 Today</div>
-                    <div class="top-tasks">
-                        <div class="task-card" onclick="startTask('Renal Review', 30)">
-                            <div class="task-header">
-                                <div class="task-topic">
-                                    <div class="topic-dot" style="background: var(--red);"></div>
-                                    Renal
-                                </div>
-                                <div class="task-duration">30 min</div>
-                            </div>
-                            <div class="task-description">Review acute kidney injury pathophysiology and management protocols with focus areas.</div>
-                            <div class="task-actions">
-                                <button class="btn-task btn-primary" onclick="event.stopPropagation(); startTask('Renal Review', 30)">Start Now</button>
-                                <button class="btn-task btn-secondary" onclick="event.stopPropagation()">Schedule</button>
-                            </div>
-                        </div>
-
-                        <div class="task-card" onclick="startTask('Cardiology STAT', 20)">
-                            <div class="task-header">
-                                <div class="task-topic">
-                                    <div class="topic-dot" style="background: var(--orange);"></div>
-                                    Cardiology
-                                </div>
-                                <div class="task-duration">20 min</div>
-                            </div>
-                            <div class="task-description">Answer 20 timed, mixed-content questions. Focus on arrhythmia diagnosis and management.</div>
-                            <div class="task-actions">
-                                <button class="btn-task btn-primary" onclick="event.stopPropagation(); startTask('Cardiology STAT', 20)">Start Now</button>
-                                <button class="btn-task btn-secondary" onclick="event.stopPropagation()">Schedule</button>
-                            </div>
-                        </div>
-
-                        <div class="task-card" onclick="startTask('Biostatistics Formulas', 15)">
-                            <div class="task-header">
-                                <div class="task-topic">
-                                    <div class="topic-dot" style="background: var(--orange);"></div>
-                                    Biostatistics
-                                </div>
-                                <div class="task-duration">15 min</div>
-                            </div>
-                            <div class="task-description">Drill core formulas: sensitivity, specificity, NPV, PPV, NNT. Flashcard-style repetition.</div>
-                            <div class="task-actions">
-                                <button class="btn-task btn-primary" onclick="event.stopPropagation(); startTask('Biostatistics Formulas', 15)">Start Now</button>
-                                <button class="btn-task btn-secondary" onclick="event.stopPropagation()">Schedule</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="section-title" style="margin-bottom: 16px;">Quick Actions</div>
-                    <div class="quick-actions">
-                        <div class="action-button" onclick="switchTab('tasks')">
-                            <div class="action-icon">▶️</div>
-                            <div class="action-label">Start Current Task</div>
-                        </div>
-                        <div class="action-button" onclick="switchTab('planner')">
-                            <div class="action-icon">📅</div>
-                            <div class="action-label">Open Planner</div>
-                        </div>
-                        <div class="action-button" onclick="openCalendarExport()">
-                            <div class="action-icon">📤</div>
-                            <div class="action-label">Export Today</div>
-                        </div>
-                        <div class="action-button" onclick="switchTab('performance')">
-                            <div class="action-icon">📊</div>
-                            <div class="action-label">Review Weak Topics</div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="advisor-alert">
-                    <div class="alert-text">3 pending suggestions from your advisors</div>
-                    <div class="alert-count">3</div>
-                </div>
-            </div>
-
-            <!-- PLANNER TAB -->
-            <div id="planner" class="tab-content">
-                <div class="planner-controls">
-                    <div class="control-group">
-                        <button class="btn-control active" onclick="setWeekView('today')">Today</button>
-                        <button class="btn-control" onclick="setWeekView('week')">This Week</button>
-                    </div>
-                    <div class="control-group">
-                        <button class="btn-control" onclick="openCalendarExport()">Export Week</button>
-                        <button class="btn-control" onclick="showToast('Calendar synced')">Sync Calendar</button>
-                        <button class="btn-control" onclick="showToast('Rebalancing missed tasks')">Rebalance Missed</button>
-                    </div>
-                </div>
-
-                <div class="recovery-queue">
-                    <div class="recovery-text">1 missed task from yesterday: Infectious Disease Review (25 min)</div>
-                    <div class="recovery-actions">
-                        <button class="btn-recovery" onclick="showToast('Recovered task added to today')">Recover Today</button>
-                        <button class="btn-recovery" onclick="showToast('Task moved to tomorrow')">Move Tomorrow</button>
-                    </div>
-                </div>
-
-                <div class="weekly-grid">
-                    <div class="grid-header">
-                        <div class="grid-cell-header"></div>
-                        <div class="grid-cell-header">Mon 4/28</div>
-                        <div class="grid-cell-header">Tue 4/29</div>
-                        <div class="grid-cell-header">Wed 4/30</div>
-                        <div class="grid-cell-header">Thu 5/1</div>
-                        <div class="grid-cell-header">Fri 5/2</div>
-                        <div class="grid-cell-header">Sat 5/3</div>
-                        <div class="grid-cell-header">Sun 5/4</div>
-                    </div>
-                    <div class="grid-body">
-                        <div class="day-column">
-                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
-                                <div class="block-topic">Renal Review</div>
-                                <div class="block-time">7:00 - 7:30 AM</div>
-                                <div class="block-confidence">Moderate</div>
-                            </div>
-                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
-                                <div class="block-topic">Cardiology STAT</div>
-                                <div class="block-time">8:00 - 8:20 AM</div>
-                                <div class="block-confidence">Low</div>
-                            </div>
-                        </div>
-                        <div class="day-column">
-                            <div class="schedule-block ghost" onclick="acceptGhostBlock(event)">
-                                <div class="block-topic">Biostatistics Block</div>
-                                <div class="block-time">9:00 - 9:20 AM</div>
-                                <div class="block-advisor">Dr. J suggests</div>
-                            </div>
-                        </div>
-                        <div class="day-column">
-                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
-                                <div class="block-topic">Pulmonology Review</div>
-                                <div class="block-time">6:00 - 6:25 PM</div>
-                                <div class="block-confidence">High</div>
-                            </div>
-                        </div>
-                        <div class="day-column">
-                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
-                                <div class="block-topic">OB/GYN Practice</div>
-                                <div class="block-time">7:00 - 7:30 PM</div>
-                                <div class="block-confidence">High</div>
-                            </div>
-                        </div>
-                        <div class="day-column">
-                            <div class="schedule-block" draggable="true" ondragstart="dragStart(event)" ondragend="dragEnd(event)" onclick="openBlockDetail(this)">
-                                <div class="block-topic">Infectious Disease</div>
-                                <div class="block-time">5:00 - 5:25 PM</div>
-                                <div class="block-confidence">High</div>
-                            </div>
-                            <div class="schedule-block ghost" onclick="acceptGhostBlock(event)">
-                                <div class="block-topic">Cardiology Deep</div>
-                                <div class="block-time">7:00 - 7:30 PM</div>
-                                <div class="block-advisor">Dr. Brian suggests</div>
-                            </div>
-                        </div>
-                        <div class="day-column">
-                        </div>
-                        <div class="day-column">
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="section-title" style="margin-bottom: 12px;">Unscheduled Tasks</div>
-                    <div class="unscheduled-tray">
-                        <div class="unscheduled-item" draggable="true" ondragstart="dragStart(event)">
-                            <div style="font-weight: 600; margin-bottom: 4px;">Neurology Review</div>
-                            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">20 min</div>
-                        </div>
-                        <div class="unscheduled-item" draggable="true" ondragstart="dragStart(event)">
-                            <div style="font-weight: 600; margin-bottom: 4px;">Psychiatry Practice</div>
-                            <div style="font-size: 11px; color: rgba(255, 255, 255, 0.5);">25 min</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- PERFORMANCE TAB -->
-            <div id="performance" class="tab-content">
-                <div>
-                    <div class="section-title" style="margin-bottom: 16px;">Topic Mastery Map</div>
-                    <div class="topic-heatmap">
-                        <div class="topic-tile" style="border-color: var(--red);">
-                            <div class="topic-name">Cardiology</div>
-                            <div class="topic-accuracy">42%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
-                                <span>38 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--red);">
-                            <div class="topic-name">Renal</div>
-                            <div class="topic-accuracy">29%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
-                                <span>18 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--yellow);">
-                            <div class="topic-name">Pulmonology</div>
-                            <div class="topic-accuracy">64%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-high">High</span>
-                                <span>44 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--yellow);">
-                            <div class="topic-name">Endocrine</div>
-                            <div class="topic-accuracy">53%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
-                                <span>21 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--orange);">
-                            <div class="topic-name">Biostatistics</div>
-                            <div class="topic-accuracy">39%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-low">Low</span>
-                                <span>12 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--blue);">
-                            <div class="topic-name">ID</div>
-                            <div class="topic-accuracy">78%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-high">High</span>
-                                <span>51 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--yellow);">
-                            <div class="topic-name">Neurology</div>
-                            <div class="topic-accuracy">67%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
-                                <span>29 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--blue);">
-                            <div class="topic-name">OB/GYN</div>
-                            <div class="topic-accuracy">72%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-high">High</span>
-                                <span>35 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--yellow);">
-                            <div class="topic-name">Pediatrics</div>
-                            <div class="topic-accuracy">61%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
-                                <span>27 Q</span>
-                            </div>
-                        </div>
-                        <div class="topic-tile" style="border-color: var(--yellow);">
-                            <div class="topic-name">Psychiatry</div>
-                            <div class="topic-accuracy">55%</div>
-                            <div class="topic-meta">
-                                <span class="topic-confidence-badge confidence-moderate">Moderate</span>
-                                <span>19 Q</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="section-title" style="margin-bottom: 16px;">Weakest Topics (ROI Priority)</div>
-                    <div class="weakest-topics">
-                        <div class="ranked-topic">
-                            <div class="rank-number">1</div>
-                            <div class="rank-content">
-                                <div class="rank-title">Renal</div>
-                                <div class="rank-stats">29% / 18 questions / Insufficient data</div>
-                                <div class="rank-bar">
-                                    <div class="rank-bar-fill" style="width: 29%; background: var(--red);"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="ranked-topic">
-                            <div class="rank-number">2</div>
-                            <div class="rank-content">
-                                <div class="rank-title">Biostatistics</div>
-                                <div class="rank-stats">39% / 12 questions / Low</div>
-                                <div class="rank-bar">
-                                    <div class="rank-bar-fill" style="width: 39%; background: var(--orange);"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="ranked-topic">
-                            <div class="rank-number">3</div>
-                            <div class="rank-content">
-                                <div class="rank-title">Cardiology</div>
-                                <div class="rank-stats">42% / 38 questions / Moderate</div>
-                                <div class="rank-bar">
-                                    <div class="rank-bar-fill" style="width: 42%; background: var(--red);"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="ranked-topic">
-                            <div class="rank-number">4</div>
-                            <div class="rank-content">
-                                <div class="rank-title">Endocrine</div>
-                                <div class="rank-stats">53% / 21 questions / Moderate</div>
-                                <div class="rank-bar">
-                                    <div class="rank-bar-fill" style="width: 53%; background: var(--yellow);"></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="strong-topics">
-                    <div class="strong-title">Your Strongest Domains</div>
-                    <div class="strong-list">
-                        <div class="strong-badge">Infectious Disease 78%</div>
-                        <div class="strong-badge">OB/GYN 72%</div>
-                        <div class="strong-badge">Neurology 67%</div>
-                        <div class="strong-badge">Pulmonology 64%</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- TASKS TAB -->
-            <div id="tasks" class="tab-content">
-                <div class="task-sections">
-                    <div>
-                        <div class="section-title">Today's Queue</div>
-                        <div class="task-list" style="margin-top: 16px;">
-                            <div class="task-item">
-                                <div class="task-info">
-                                    <div class="task-status-icon status-progress">▶</div>
-                                    <div class="task-core">
-                                        <div class="task-name">Renal Pathophysiology Review</div>
-                                        <div class="task-meta">
-                                            <span>30 min</span>
-                                            <span style="color: var(--red);">Renal</span>
-                                            <span>In progress</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="task-buttons">
-                                    <button class="btn-small btn-complete" onclick="completeTask(event)">Complete</button>
-                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
-                                </div>
-                            </div>
-
-                            <div class="task-item">
-                                <div class="task-info">
-                                    <div class="task-status-icon status-pending">◯</div>
-                                    <div class="task-core">
-                                        <div class="task-name">20 Cardiology STAT Questions</div>
-                                        <div class="task-meta">
-                                            <span>20 min</span>
-                                            <span style="color: var(--orange);">Cardiology</span>
-                                            <span>Pending</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="task-buttons">
-                                    <button class="btn-small" onclick="startTask('Cardiology STAT', 20)">Start</button>
-                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
-                                </div>
-                            </div>
-
-                            <div class="task-item">
-                                <div class="task-info">
-                                    <div class="task-status-icon status-pending">◯</div>
-                                    <div class="task-core">
-                                        <div class="task-name">Biostatistics Formula Drill</div>
-                                        <div class="task-meta">
-                                            <span>15 min</span>
-                                            <span style="color: var(--orange);">Biostatistics</span>
-                                            <span>Pending</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="task-buttons">
-                                    <button class="btn-small" onclick="startTask('Biostatistics Formulas', 15)">Start</button>
-                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
-                                </div>
-                            </div>
-
-                            <div class="task-item">
-                                <div class="task-info">
-                                    <div class="task-status-icon status-pending">◯</div>
-                                    <div class="task-core">
-                                        <div class="task-name">Missed Question Review</div>
-                                        <div class="task-meta">
-                                            <span>10 min</span>
-                                            <span style="color: var(--yellow);">Mixed</span>
-                                            <span>Pending</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="task-buttons">
-                                    <button class="btn-small" onclick="startTask('Missed Questions', 10)">Start</button>
-                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
-                                </div>
-                            </div>
-
-                            <div class="task-item">
-                                <div class="task-info">
-                                    <div class="task-status-icon status-pending">◯</div>
-                                    <div class="task-core">
-                                        <div class="task-name">Pulmonology Maintenance Block</div>
-                                        <div class="task-meta">
-                                            <span>25 min</span>
-                                            <span style="color: var(--yellow);">Pulmonology</span>
-                                            <span>Pending</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="task-buttons">
-                                    <button class="btn-small" onclick="startTask('Pulmonology Review', 25)">Start</button>
-                                    <button class="btn-small" onclick="showToast('Task rescheduled')">Reschedule</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="section-title">Completed</div>
-                        <div class="task-list" style="margin-top: 16px;">
-                            <div class="task-item">
-                                <div class="task-info">
-                                    <div class="task-status-icon status-completed">✓</div>
-                                    <div class="task-core">
-                                        <div class="task-name">Endocrine Hormone Review</div>
-                                        <div class="task-meta">
-                                            <span>20 min</span>
-                                            <span style="color: var(--yellow);">Endocrine</span>
-                                            <span>Completed today</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ADVISOR TAB -->
-            <div id="advisor" class="tab-content">
-                <div class="suggestions-grid">
-                    <div class="suggestion-card">
-                        <div class="suggestion-header">
-                            <div class="suggestion-advisor">Dr. Brian</div>
-                            <div class="suggestion-status">Pending</div>
-                        </div>
-                        <div class="suggestion-body">
-                            <div class="suggestion-text">Move Renal earlier in your week. You have higher energy early mornings, and Renal is your critical gap. Hit it while you're fresh.</div>
-                            <div class="suggestion-reason">Your morning sessions show 6% higher accuracy. Renal is critical priority. Data-driven timing.</div>
-                            <div class="suggestion-actions">
-                                <button class="btn-suggestion btn-accept" onclick="acceptSuggestion(event)">Accept</button>
-                                <button class="btn-suggestion btn-reject" onclick="rejectSuggestion(event)">Reject</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="suggestion-card">
-                        <div class="suggestion-header">
-                            <div class="suggestion-advisor">Dr. J</div>
-                            <div class="suggestion-status">Pending</div>
-                        </div>
-                        <div class="suggestion-body">
-                            <div class="suggestion-text">Add a dedicated 20-minute Biostatistics block on Tuesday morning. Your formula accuracy is only 39% with low sample size.</div>
-                            <div class="suggestion-reason">Biostatistics appears on every block of Step 2. Formula precision creates downstream gains across all topics.</div>
-                            <div class="suggestion-actions">
-                                <button class="btn-suggestion btn-accept" onclick="acceptSuggestion(event)">Accept</button>
-                                <button class="btn-suggestion btn-reject" onclick="rejectSuggestion(event)">Reject</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="suggestion-card">
-                        <div class="suggestion-header">
-                            <div class="suggestion-advisor">Advisor AI</div>
-                            <div class="suggestion-status">Pending</div>
-                        </div>
-                        <div class="suggestion-body">
-                            <div class="suggestion-text">Replace the low-yield general review block on Friday with 30 minutes of focused Cardiology STAT practice. Your ROI is highest here.</div>
-                            <div class="suggestion-reason">Cardiology has the highest question density on Step 2 and your confidence is moderate. Specific practice beats general review.</div>
-                            <div class="suggestion-actions">
-                                <button class="btn-suggestion btn-accept" onclick="acceptSuggestion(event)">Accept</button>
-                                <button class="btn-suggestion btn-reject" onclick="rejectSuggestion(event)">Reject</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 32px;">
-                    <div class="section-title">How Advisor Works</div>
-                    <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; padding: 16px; margin-top: 16px; font-size: 13px; color: rgba(255, 255, 255, 0.7); line-height: 1.6;">
-                        Suggestions never change your plan until you accept. Dr. Brian uses your learning patterns. Dr. J targets content gaps with high impact. Advisor AI optimizes time by ROI. Review, accept what fits your goals, decline the rest. Every suggestion is a hypothesis about your best path forward.
-                    </div>
-                </div>
-            </div>
-
-            <!-- HISTORY TAB -->
-            <div id="history" class="tab-content">
-                <div class="weekly-summary">
-                    <div class="summary-stat">
-                        <div class="summary-label">Hours Studied</div>
-                        <div class="summary-value">10.5</div>
-                        <div class="summary-note">Target: 12 hrs</div>
-                    </div>
-                    <div class="summary-stat">
-                        <div class="summary-label">Tasks Completed</div>
-                        <div class="summary-value">18</div>
-                        <div class="summary-note">Last week: 15</div>
-                    </div>
-                    <div class="summary-stat">
-                        <div class="summary-label">Accuracy Trend</div>
-                        <div class="summary-value">+2%</div>
-                        <div class="summary-note">Improving week-over-week</div>
-                    </div>
-                    <div class="summary-stat">
-                        <div class="summary-label">Strongest Gain</div>
-                        <div class="summary-value">Neurology</div>
-                        <div class="summary-note">+8% improvement</div>
-                    </div>
-                </div>
-
-                <div>
-                    <div class="section-title" style="margin-top: 32px; margin-bottom: 16px;">Timeline</div>
-                    <div class="timeline">
-                        <div class="timeline-section">
-                            <div class="timeline-label">Today</div>
-                            <div class="timeline-item">
-                                <div class="timeline-icon">✓</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-title">Completed Endocrine Review</div>
-                                    <div class="timeline-subtitle">20 min session, 75% accuracy</div>
-                                    <div class="timeline-time">10:00 AM</div>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-icon">🔄</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-title">Started Renal Focus Block</div>
-                                    <div class="timeline-subtitle">Ongoing, 12 min elapsed</div>
-                                    <div class="timeline-time">11:15 AM</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="timeline-section">
-                            <div class="timeline-label">This Week</div>
-                            <div class="timeline-item">
-                                <div class="timeline-icon">✓</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-title">5 Day Streak Achieved</div>
-                                    <div class="timeline-subtitle">Studied every day Mon-Fri</div>
-                                    <div class="timeline-time">Friday 4/25</div>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-icon">⬆️</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-title">Topic Upgrade: Neurology to Stable</div>
-                                    <div class="timeline-subtitle">From 61% to 67%, high confidence</div>
-                                    <div class="timeline-time">Thursday 4/24</div>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-icon">📊</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-title">Completed STAT Session: Infectious Disease</div>
-                                    <div class="timeline-subtitle">15 questions, 93% accuracy</div>
-                                    <div class="timeline-time">Wednesday 4/23</div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="timeline-section">
-                            <div class="timeline-label">Milestones</div>
-                            <div class="timeline-item">
-                                <div class="timeline-icon">🎯</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-title">Reached Level 12</div>
-                                    <div class="timeline-subtitle">1,250 / 2,000 XP to Level 13</div>
-                                    <div class="timeline-time">April 10</div>
-                                </div>
-                            </div>
-                            <div class="timeline-item">
-                                <div class="timeline-icon">💡</div>
-                                <div class="timeline-content">
-                                    <div class="timeline-title">Program Start: USMLE Step 2 CK</div>
-                                    <div class="timeline-subtitle">Target exam date: June 28, 2026</div>
-                                    <div class="timeline-time">March 1</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div style="margin-top: 32px;">
-                    <button class="btn-header" onclick="exportReport()">Export Weekly Report</button>
-                </div>
-            </div>
-        </div>
+<div class="app-shell">
+  <!-- TOP BAR -->
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <div><div class="logo">MissionMed</div><div class="logo-sub">Dashboard OS</div></div>
     </div>
-
-    <!-- CALENDAR EXPORT MODAL -->
-    <div id="calendarModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">Export to Calendar</div>
-                <button class="modal-close" onclick="closeModal()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-field">
-                    <div class="modal-label">Select what to export</div>
-                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
-                            <input type="radio" name="export-scope" value="today" checked style="cursor: pointer;">
-                            Today's plan (5 tasks, 1.5 hours)
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
-                            <input type="radio" name="export-scope" value="week" style="cursor: pointer;">
-                            This week (18 tasks, 10.5 hours)
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
-                            <input type="radio" name="export-scope" value="full" style="cursor: pointer;">
-                            Full active plan (48 tasks, 32 hours)
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-field">
-                    <div class="modal-label">Reminder before task</div>
-                    <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 12px;">
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
-                            <input type="radio" name="reminder" value="10" style="cursor: pointer;">
-                            10 minutes
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
-                            <input type="radio" name="reminder" value="30" checked style="cursor: pointer;">
-                            30 minutes
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 13px;">
-                            <input type="radio" name="reminder" value="60" style="cursor: pointer;">
-                            1 hour
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-field">
-                    <div class="modal-label">Export options</div>
-                    <div style="display: flex; gap: 12px; margin-top: 12px;">
-                        <button class="btn-modal btn-modal-primary" onclick="downloadICS()">Download .ics</button>
-                        <button class="btn-modal btn-modal-secondary" onclick="copyFeedURL()">Copy Feed URL</button>
-                    </div>
-                </div>
-                <div class="modal-copy">
-                    ICS export is available now. Live sync can be connected in a future update.
-                </div>
-            </div>
-        </div>
+    <div class="top-bar-center">
+      <div class="theme-toggle">
+        <button class="theme-btn active" onclick="setTheme('neon-storm',this)">Neon Storm</button>
+        <button class="theme-btn" onclick="setTheme('victory-royale',this)">Victory Royale</button>
+        <button class="theme-btn" onclick="setTheme('slurp-surge',this)">Slurp Surge</button>
+        <button class="theme-btn" onclick="setTheme('arcade-mode',this)">Arcade Mode</button>
+      </div>
     </div>
-
-    <!-- BLOCK DETAIL MODAL -->
-    <div id="blockDetailModal" class="modal-overlay">
-        <div class="modal">
-            <div class="modal-header">
-                <div class="modal-title">Schedule Block Details</div>
-                <button class="modal-close" onclick="closeBlockDetail()">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-field">
-                    <div class="modal-label">Topic</div>
-                    <div class="modal-value" id="blockDetailTopic">Renal Pathophysiology</div>
-                </div>
-                <div class="modal-field">
-                    <div class="modal-label">Time</div>
-                    <div class="modal-value" id="blockDetailTime">Monday 7:00 - 7:30 AM (30 min)</div>
-                </div>
-                <div class="modal-field">
-                    <div class="modal-label">Confidence Level</div>
-                    <div class="modal-value" id="blockDetailConfidence">Moderate</div>
-                </div>
-                <div class="modal-field">
-                    <div class="modal-label">What you'll do</div>
-                    <div style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-top: 8px;">Review acute kidney injury pathophysiology and management protocols with focus areas.</div>
-                </div>
-                <div class="modal-field">
-                    <div class="modal-label">Why this block</div>
-                    <div style="font-size: 13px; color: rgba(255, 255, 255, 0.7); margin-top: 8px;">Renal is critical. This time follows your strongest learning pattern. Confidence is moderate, meaning you'll benefit from targeted refresh.</div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-modal btn-modal-primary" onclick="completeBlockDetail()">Mark Complete</button>
-                <button class="btn-modal btn-modal-secondary" onclick="closeBlockDetail()">Close</button>
-            </div>
-        </div>
+    <div class="top-bar-right">
+      <span class="streak-badge">&#x1F525; 5</span>
+      <span class="xp-mini" id="xp-mini">1,250 XP</span>
+      <div class="user-pill">
+        <div class="user-avatar">AM</div>
+        <div><div class="user-name">Alex Morgan</div><div class="user-level">Level 12</div></div>
+      </div>
     </div>
+  </header>
 
-    <!-- TIMER WIDGET -->
-    <div class="timer-widget" id="timerWidget">
-        <div class="timer-task-name" id="timerTaskName">RENAL REVIEW</div>
-        <div class="timer-display" id="timerDisplay">30:00</div>
-        <div class="timer-controls">
-            <button class="timer-btn-stop" onclick="stopTimer()">Stop</button>
-            <button class="timer-btn-done" onclick="completeTimerTask()">Done</button>
+  <!-- SIDE NAV -->
+  <nav class="side-nav">
+    <button class="nav-btn active" data-section="command" onclick="go('command')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg><span class="nav-tip">Command</span></button>
+    <button class="nav-btn" data-section="planner" onclick="go('planner')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg><span class="nav-tip">Planner</span></button>
+    <button class="nav-btn" data-section="advisor" onclick="go('advisor')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg><span class="nav-badge">3</span><span class="nav-tip">Advisor</span></button>
+    <button class="nav-btn" data-section="performance" onclick="go('performance')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg><span class="nav-tip">Performance</span></button>
+    <button class="nav-btn" data-section="tasks" onclick="go('tasks')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><span class="nav-tip">Tasks</span></button>
+    <button class="nav-btn" data-section="history" onclick="go('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg><span class="nav-tip">History</span></button>
+    <button class="nav-btn" data-section="calendar" onclick="go('calendar')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="8" y2="18"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="16" y1="14" x2="16" y2="18"/></svg><span class="nav-tip">Calendar</span></button>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- COMMAND CENTER -->
+    <section class="section active" id="section-command">
+      <div class="cmd-grid">
+        <div class="cmd-mission">
+          <div class="mission-label" id="m-label"><span class="pulse-dot"></span> Today's Mission</div>
+          <div class="mission-title" id="m-title"><span class="topic-hl">Renal</span> is your mission today</div>
+          <div class="mission-why" id="m-why">Renal is your highest-ROI block today. You are at 29% across 18 recent questions with moderate confidence. Start with a focused 30-minute review before new questions.</div>
+          <div class="mission-stats">
+            <div class="mission-stat"><div class="mission-stat-val" style="color:var(--mastery-critical)">29%</div><div class="mission-stat-label">Accuracy</div></div>
+            <div class="mission-stat"><div class="mission-stat-val">18</div><div class="mission-stat-label">Questions</div></div>
+            <div class="mission-stat"><div class="mission-stat-val" style="color:var(--mastery-moderate)">Moderate</div><div class="mission-stat-label">Confidence</div></div>
+            <div class="mission-stat"><div class="mission-stat-val" style="color:var(--accent-1)">62 days</div><div class="mission-stat-label">Until Step 2 CK</div></div>
+          </div>
+          <button class="btn-primary" onclick="startTimer('Renal Review','Renal',30)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Start Next Block</button>
         </div>
-    </div>
 
-    <script>
-        // GLOBAL STATE
-        let currentTab = 'command';
-        let currentXP = 1250;
-        let currentTasks = 2;
-        let tasksCompleted = 2;
-        let draggedElement = null;
+        <div class="cmd-sidebar">
+          <div class="card" style="padding:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="card-title">Progress</span><span class="card-title" style="color:var(--mastery-stable)" id="today-prog">1 / 6 today</span></div>
+            <div class="progress-grid">
+              <div class="prog-item"><div class="prog-value" style="color:var(--accent-1)" id="xp-disp">1,250</div><div class="prog-label">XP</div></div>
+              <div class="prog-item"><div class="prog-value" style="color:var(--mastery-moderate)">Lv 12</div><div class="prog-label">Level</div></div>
+              <div class="prog-item"><div class="prog-value" style="color:var(--mastery-stable)" id="tasks-disp">1</div><div class="prog-label">Done</div></div>
+              <div class="prog-item"><div class="prog-value" style="color:var(--accent-1)">5</div><div class="prog-label">Streak</div></div>
+            </div>
+            <div class="xp-bar-wrap"><div class="xp-bar-fill" id="xp-bar" style="width:62.5%"></div></div>
+            <div class="xp-label"><span id="xp-lbl">1,250 XP</span><span>2,000 to Lv 13</span></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;margin-bottom:3px"><span style="font-size:0.55rem;color:var(--text-muted)">Weekly</span><span style="font-size:0.55rem;color:var(--text-secondary);font-family:var(--font-display)">7.5 / 12h</span></div>
+            <div class="weekly-bar-track"><div class="weekly-bar-fill" style="width:62.5%"></div></div>
+          </div>
+          <div class="advisor-alert-card" onclick="go('advisor')">
+            <div class="advisor-count">3</div>
+            <div class="advisor-alert-label">Advisor suggestions waiting</div>
+            <div class="advisor-alert-sub">Dr. Brian, Dr. J, Study Advisor</div>
+          </div>
+          <div class="card" style="padding:10px">
+            <div class="card-title" style="margin-bottom:6px">Quick Launch</div>
+            <div class="quick-grid">
+              <button class="quick-btn" onclick="startTimer('STAT Session','Cardiology',20)">STAT</button>
+              <button class="quick-btn" onclick="startTimer('Focus Drill','Biostatistics',15)">Drill</button>
+              <button class="quick-btn" onclick="go('performance')">Weak Topics</button>
+              <button class="quick-btn" onclick="go('calendar')">Calendar</button>
+            </div>
+          </div>
+        </div>
 
-        function updateRings() {
-            const taskPct = Math.min((tasksCompleted / 5) * 100, 100);
-            const ringEl = document.querySelector('.ring-tasks');
-            if (ringEl) ringEl.style.setProperty('--progress', taskPct + '%');
-        }
+        <div class="cmd-intel card">
+          <div style="display:flex;align-items:center;gap:5px;margin-bottom:6px"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-1)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg><span class="card-title">Mission Intel</span></div>
+          <div class="intel-text" id="intel-text">Your Renal accuracy dropped last week, but the sample is large enough to act. Today's block protects your weakest domain before it compounds. Morning sessions show stronger accuracy.</div>
+          <div class="intel-source" id="intel-src">18 questions | Moderate confidence | 12 min ago</div>
+        </div>
 
-        // TAB SWITCHING
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
-            document.getElementById(tabName).classList.add('active');
-            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
-            currentTab = tabName;
-        }
+        <div class="cmd-today-tasks">
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span class="card-title">Today's Blocks</span><span style="font-size:0.58rem;color:var(--text-muted)" id="remain-lbl">5 remaining</span></div>
+            <div class="task-list-scroll" id="today-task-list"></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        // TASK COMPLETION
-        function completeTask(event) {
-            event.stopPropagation();
-            const item = event.target.closest('.task-item');
-            const taskName = item.querySelector('.task-name').textContent;
-            item.style.opacity = '0.5';
-            item.querySelector('.task-status-icon').classList.remove('status-pending');
-            item.querySelector('.task-status-icon').classList.add('status-completed');
-            item.querySelector('.task-status-icon').textContent = '✓';
+    <!-- PLANNER -->
+    <section class="section" id="section-planner">
+      <div class="planner-wrap">
+        <div class="planner-header">
+          <span class="section-title">Study Planner</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn-secondary" onclick="toast('\u2705','Week rebalanced around your available study windows.')">Rebalance</button>
+            <button class="btn-secondary" onclick="openCalModal()">Export Week</button>
+          </div>
+        </div>
+        <div class="planner-grid-wrap"><div class="planner-grid" id="planner-grid"></div></div>
+        <div class="planner-bottom">
+          <div class="card" style="padding:10px">
+            <div class="tray-title">Unscheduled</div>
+            <div class="tray-items">
+              <div class="tray-item" draggable="true" ondragstart="dragU(event,'Cardiology Extra')">Cardiology Extra</div>
+              <div class="tray-item" draggable="true" ondragstart="dragU(event,'Psych Review')">Psych Review</div>
+              <div class="tray-item" draggable="true" ondragstart="dragU(event,'Missed Qs')">Missed Qs</div>
+            </div>
+          </div>
+          <div class="recovery-queue">
+            <div class="recovery-title">1 missed task needs a home</div>
+            <div class="recovery-item" id="rec-item">
+              <div><div class="recovery-item-info">Endocrine Drill (20m)</div><div style="font-size:0.6rem;color:var(--text-muted)">Missed yesterday. One block moves it forward.</div></div>
+              <div class="recovery-actions">
+                <button class="btn-sm btn-success" onclick="recoverTask('today')">Today</button>
+                <button class="btn-sm" onclick="recoverTask('tomorrow')">Tomorrow</button>
+                <button class="btn-sm" onclick="recoverTask('rebalance')">Rebalance</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-            // Update XP
-            currentXP += 50;
-            updateXPBar();
-            currentTasks = Math.max(0, currentTasks - 1);
+    <!-- ADVISOR -->
+    <section class="section" id="section-advisor">
+      <div class="advisor-wrap">
+        <div><span class="section-title">Advisor Intel</span><div style="font-size:0.78rem;color:var(--text-secondary);margin-top:2px">Suggestions from your coaching team. They never change your plan until you accept.</div></div>
+        <div class="advisor-grid" id="advisor-grid">
+          <div class="advisor-card" id="adv-0">
+            <div class="advisor-name">Dr. Brian</div>
+            <div class="advisor-suggestion">Move Renal earlier this week. Your morning sessions are stronger, and Renal is your highest-ROI topic right now.</div>
+            <div class="advisor-reasoning" id="adv-r-0">Your last 10 morning sessions averaged 12% higher accuracy than afternoon sessions. Renal dropped 6% last week. Moving it to a morning slot captures your strongest focus window.</div>
+            <div class="advisor-actions"><button class="btn-sm btn-success" onclick="advAct(0,'accept')">Accept</button><button class="btn-sm btn-danger" onclick="advAct(0,'reject')">Reject</button><button class="btn-sm" onclick="advAct(0,'modify')">Modify</button><button class="btn-ghost" onclick="advWhy(0)">Why?</button></div>
+          </div>
+          <div class="advisor-card" id="adv-1">
+            <div class="advisor-name">Dr. J</div>
+            <div class="advisor-suggestion">Add a 20-minute Biostatistics block. Your misses cluster around sensitivity/specificity and you have not practiced in 5 days.</div>
+            <div class="advisor-reasoning" id="adv-r-1">You missed 7 of 12 Biostatistics questions, with 5 errors on sensitivity/specificity. A focused 20-minute drill targeting these formulas would address the gap before it widens.</div>
+            <div class="advisor-actions"><button class="btn-sm btn-success" onclick="advAct(1,'accept')">Accept</button><button class="btn-sm btn-danger" onclick="advAct(1,'reject')">Reject</button><button class="btn-sm" onclick="advAct(1,'modify')">Modify</button><button class="btn-ghost" onclick="advWhy(1)">Why?</button></div>
+          </div>
+          <div class="advisor-card" id="adv-2" style="grid-column:1/-1">
+            <div class="advisor-name">Study Advisor</div>
+            <div class="advisor-suggestion">Replace low-yield general review with focused Cardiology STAT practice. Your Cardiology accuracy is at 42% across 38 questions, and STAT sessions build clinical reasoning faster than passive review.</div>
+            <div class="advisor-reasoning" id="adv-r-2">Cardiology at 42% across 38 questions is a large, confirmed weakness. STAT practice forces active recall under time pressure, improving retention significantly. Redirecting this time doubles your ROI.</div>
+            <div class="advisor-actions"><button class="btn-sm btn-success" onclick="advAct(2,'accept')">Accept</button><button class="btn-sm btn-danger" onclick="advAct(2,'reject')">Reject</button><button class="btn-sm" onclick="advAct(2,'modify')">Modify</button><button class="btn-ghost" onclick="advWhy(2)">Why?</button></div>
+          </div>
+        </div>
+        <div class="advisor-trust-note">Suggestions never change your plan until you accept them.</div>
+      </div>
+    </section>
 
-            tasksCompleted++;
-            updateRings();
-            showToast(`+50 XP: Completed ${taskName}`);
-        }
+    <!-- PERFORMANCE -->
+    <section class="section" id="section-performance">
+      <div class="perf-wrap">
+        <div><span class="section-title">Performance Map</span><div style="font-size:0.78rem;color:var(--text-secondary);margin-top:2px">What is driving your plan. Every number shows its confidence level.</div></div>
+        <div class="perf-grid" id="perf-grid"></div>
+        <div class="roi-card">
+          <div class="roi-title">How Priority Works</div>
+          <div class="roi-explanation">Priority = weakness x confidence x exam weight. Weak, well-measured, heavily tested topics get scheduled first. The system never overreacts to small samples.</div>
+        </div>
+      </div>
+    </section>
 
-        function completeBlockDetail() {
-            const topic = document.getElementById('blockDetailTopic').textContent;
-            currentXP += 50;
-            tasksCompleted++;
-            updateXPBar();
-            updateRings();
-            showToast(`+50 XP: Completed ${topic}`);
-            closeBlockDetail();
-        }
+    <!-- TASKS -->
+    <section class="section" id="section-tasks">
+      <div class="tasks-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between"><div><span class="section-title">Task Queue</span><div style="font-size:0.78rem;color:var(--text-secondary);margin-top:2px">Your plan, converted to action. Complete tasks to earn XP.</div></div><span style="font-size:0.72rem;color:var(--text-muted);font-family:var(--font-display)" id="tq-count">1 / 6 complete</span></div>
+        <div class="task-queue" id="task-queue"></div>
+      </div>
+    </section>
 
-        let timerInterval = null;
-        let timerSeconds = 0;
-        let currentTimerTask = '';
+    <!-- HISTORY -->
+    <section class="section" id="section-history">
+      <div style="margin-bottom:8px"><span class="section-title">History</span></div>
+      <div class="history-wrap">
+        <div class="card">
+          <div class="card-title" style="margin-bottom:8px">This Week</div>
+          <div class="progress-grid">
+            <div class="prog-item"><div class="prog-value trend-up">7.5h</div><div class="prog-label">Hours</div></div>
+            <div class="prog-item"><div class="prog-value">18</div><div class="prog-label">Tasks</div></div>
+            <div class="prog-item"><div class="prog-value trend-up">+8%</div><div class="prog-label">Pulm</div></div>
+            <div class="prog-item"><div class="prog-value" style="color:var(--mastery-moderate)">Renal</div><div class="prog-label">Risk</div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title" style="margin-bottom:8px">Milestones</div>
+          <div class="milestone-card"><div class="milestone-icon" style="background:rgba(255,215,0,0.15)">&#x1F525;</div><div><div class="milestone-title">5-Day Streak</div><div class="milestone-desc">Compound gains from consistency.</div></div></div>
+          <div class="milestone-card"><div class="milestone-icon" style="background:rgba(46,213,115,0.15)">&#x2B06;&#xFE0F;</div><div><div class="milestone-title">Neuro upgraded to Stable</div><div class="milestone-desc">29 questions, 67% accuracy.</div></div></div>
+          <div class="milestone-card"><div class="milestone-icon" style="background:rgba(30,144,255,0.15)">&#x1F4C8;</div><div><div class="milestone-title">Pulmonology +8%</div><div class="milestone-desc">Keep maintenance blocks active.</div></div></div>
+        </div>
+        <div class="card" style="grid-column:1/-1;overflow-y:auto;scrollbar-width:none">
+          <div class="card-title" style="margin-bottom:8px">Recent Activity</div>
+          <div class="timeline-item"><div style="display:flex;flex-direction:column;align-items:center"><div class="timeline-dot" style="background:var(--mastery-stable)"></div><div class="timeline-line"></div></div><div><div class="timeline-title">Completed Endocrine Review (20 min)</div><div class="timeline-time">Today, 9:15 AM</div></div></div>
+          <div class="timeline-item"><div style="display:flex;flex-direction:column;align-items:center"><div class="timeline-dot" style="background:var(--mastery-strong)"></div><div class="timeline-line"></div></div><div><div class="timeline-title">STAT: Cardiology 8/10, 2:14 avg</div><div class="timeline-time">Yesterday, 3:40 PM</div></div></div>
+          <div class="timeline-item"><div style="display:flex;flex-direction:column;align-items:center"><div class="timeline-dot" style="background:var(--mastery-stable)"></div><div class="timeline-line"></div></div><div><div class="timeline-title">4 of 5 daily tasks completed</div><div class="timeline-time">Yesterday</div></div></div>
+          <div class="timeline-item"><div style="display:flex;flex-direction:column;align-items:center"><div class="timeline-dot" style="background:var(--accent-1)"></div></div><div><div class="timeline-title">Neuro upgraded: Moderate to Stable</div><div class="timeline-time">3 days ago</div></div></div>
+          <div style="margin-top:10px;text-align:center"><button class="btn-secondary" onclick="toast('\u2705','Weekly report exported.')">Export Report</button></div>
+        </div>
+      </div>
+    </section>
 
-        function startTask(taskName, duration) {
-            // Stop any existing timer
-            if (timerInterval) clearInterval(timerInterval);
+    <!-- CALENDAR -->
+    <section class="section" id="section-calendar">
+      <div class="cal-wrap">
+        <div><span class="section-title">Calendar Sync</span><div style="font-size:0.78rem;color:var(--text-secondary);margin-top:2px">Put your study blocks on your phone calendar. Stay visible, stay on track.</div></div>
+        <div class="cal-grid">
+          <div class="card cal-export-card" onclick="toast('\u2705','Today downloaded as .ics')"><div class="cal-icon">&#x1F4C5;</div><div class="cal-label">Export Today</div><div class="cal-desc">Download today's blocks</div></div>
+          <div class="card cal-export-card" onclick="toast('\u2705','Week downloaded as .ics')"><div class="cal-icon">&#x1F4C6;</div><div class="cal-label">Export Week</div><div class="cal-desc">All blocks this week</div></div>
+          <div class="card cal-export-card" onclick="toast('\u2705','Full plan downloaded')"><div class="cal-icon">&#x1F4E6;</div><div class="cal-label">Full Plan</div><div class="cal-desc">Your entire study plan</div></div>
+          <div class="card cal-export-card" onclick="toast('\u{1F34E}','Opening Apple Calendar')"><div class="cal-icon">&#x1F34E;</div><div class="cal-label">Apple Calendar</div><div class="cal-desc">Sync to Apple Calendar</div></div>
+          <div class="card cal-export-card" onclick="toast('\u{1F310}','Opening Google Calendar')"><div class="cal-icon">&#x1F310;</div><div class="cal-label">Google Calendar</div><div class="cal-desc">Sync to Google Calendar</div></div>
+          <div class="card cal-export-card" onclick="copyFeed()"><div class="cal-icon">&#x1F517;</div><div class="cal-label">Feed URL</div><div class="cal-desc">Live feed that auto-updates</div></div>
+        </div>
+        <div class="card" style="padding:14px">
+          <div class="card-title" style="margin-bottom:4px">Reminder Settings</div>
+          <div style="font-size:0.75rem;color:var(--text-secondary)">Get notified before each study block.</div>
+          <div class="reminder-options">
+            <div class="reminder-opt" onclick="this.classList.toggle('selected')">10 min</div>
+            <div class="reminder-opt selected" onclick="this.classList.toggle('selected')">30 min</div>
+            <div class="reminder-opt" onclick="this.classList.toggle('selected')">1 hour</div>
+            <div class="reminder-opt" onclick="this.classList.toggle('selected')">Morning summary</div>
+          </div>
+          <div style="margin-top:10px"><button class="btn-primary" style="font-size:0.72rem;padding:6px 16px" onclick="toast('\u2705','Reminder settings saved.')">Save Settings</button></div>
+        </div>
+      </div>
+    </section>
 
-            currentTimerTask = taskName;
-            timerSeconds = duration * 60;
-            document.getElementById('timerTaskName').textContent = taskName.toUpperCase();
-            updateTimerDisplay();
-            document.getElementById('timerWidget').classList.add('active');
+  </main>
+</div>
 
-            timerInterval = setInterval(function() {
-                timerSeconds--;
-                updateTimerDisplay();
-                if (timerSeconds <= 0) {
-                    clearInterval(timerInterval);
-                    timerInterval = null;
-                    showToast(`Time is up: ${taskName}. Mark it done when ready.`);
-                }
-            }, 1000);
+<!-- TIMER -->
+<div class="timer-overlay" id="timer-overlay">
+  <div class="timer-ring">
+    <svg viewBox="0 0 100 100"><defs><linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" style="stop-color:var(--accent-1)"/><stop offset="100%" style="stop-color:var(--accent-2)"/></linearGradient></defs><circle class="ring-bg" cx="50" cy="50" r="45"/><circle class="ring-progress" id="t-ring" cx="50" cy="50" r="45" stroke-dasharray="282.74" stroke-dashoffset="0"/></svg>
+    <div class="timer-center"><div class="timer-display" id="t-display">30:00</div></div>
+  </div>
+  <div class="timer-task-name" id="t-name">Renal Review</div>
+  <div class="timer-topic" id="t-topic">Renal</div>
+  <div class="timer-controls">
+    <button class="btn-secondary" id="t-pause" onclick="togglePause()">Pause</button>
+    <button class="btn-primary" onclick="completeTimer()">Complete</button>
+    <button class="btn-sm btn-danger" onclick="stopTimer()">Stop</button>
+  </div>
+</div>
 
-            showToast(`Started: ${taskName} (${duration} min)`);
-        }
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-ov" onclick="if(event.target===this)this.classList.remove('show')"><div class="modal" id="modal-c" onclick="event.stopPropagation()"></div></div>
 
-        function updateTimerDisplay() {
-            const m = Math.floor(Math.abs(timerSeconds) / 60);
-            const s = Math.abs(timerSeconds) % 60;
-            const prefix = timerSeconds < 0 ? '+' : '';
-            document.getElementById('timerDisplay').textContent = prefix + String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
-        }
+<!-- TOAST -->
+<div class="toast-container" id="toast-c"></div>
 
-        function stopTimer() {
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = null;
-            document.getElementById('timerWidget').classList.remove('active');
-            showToast(`Paused: ${currentTimerTask}`);
-        }
+<script>
+/* ============================================================
+   DATA
+   ============================================================ */
+let done=1, xp=1250;
+const TASKS=[
+  {n:'Endocrine Review',tp:'Endocrine',dur:20,ty:'Study',st:'completed',r:'Moderate accuracy needs reinforcement',c:'var(--mastery-moderate)'},
+  {n:'Renal Focused Review',tp:'Renal',dur:30,ty:'Study',st:'pending',r:'Critical weakness, highest ROI',c:'var(--mastery-critical)'},
+  {n:'Cardiology STAT',tp:'Cardiology',dur:20,ty:'STAT',st:'pending',r:'Weak area, active recall builds faster',c:'var(--mastery-weak)'},
+  {n:'Biostats Formula Drill',tp:'Biostatistics',dur:15,ty:'Drill',st:'pending',r:'Misses cluster: sensitivity/specificity',c:'var(--mastery-weak)'},
+  {n:'Missed Q Review',tp:'Mixed',dur:10,ty:'Review',st:'pending',r:'Clear error patterns first',c:'var(--mastery-moderate)'},
+  {n:'Pulm Maintenance',tp:'Pulmonology',dur:25,ty:'Review',st:'pending',r:'Stable topic, light practice',c:'var(--mastery-stable)'}
+];
+const TOPICS=[
+  {n:'Renal',a:29,q:18,conf:'Moderate',s:'critical',t:'down',c:'var(--mastery-critical)'},
+  {n:'Biostatistics',a:39,q:12,conf:'Low',s:'weak',t:'flat',c:'var(--mastery-weak)'},
+  {n:'Cardiology',a:42,q:38,conf:'Moderate',s:'weak',t:'flat',c:'var(--mastery-weak)'},
+  {n:'Endocrine',a:53,q:21,conf:'Moderate',s:'moderate',t:'up',c:'var(--mastery-moderate)'},
+  {n:'Psychiatry',a:55,q:19,conf:'Moderate',s:'moderate',t:'flat',c:'var(--mastery-moderate)'},
+  {n:'Pediatrics',a:61,q:27,conf:'Moderate',s:'stable',t:'flat',c:'var(--mastery-stable)'},
+  {n:'Pulmonology',a:64,q:44,conf:'High',s:'stable',t:'up',c:'var(--mastery-stable)'},
+  {n:'Neurology',a:67,q:29,conf:'Moderate',s:'stable',t:'up',c:'var(--mastery-stable)'},
+  {n:'OB/GYN',a:72,q:35,conf:'High',s:'strong',t:'flat',c:'var(--mastery-strong)'},
+  {n:'Infectious Dz',a:78,q:51,conf:'High',s:'strong',t:'flat',c:'var(--mastery-strong)'}
+];
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], SLOTS=['Morning','Midday','Afternoon','Evening'];
+const PB=[
+  {d:0,s:0,tp:'Renal',ty:'Study',dur:'30m',c:'var(--mastery-critical)',g:0},{d:0,s:1,tp:'Cardio',ty:'STAT',dur:'20m',c:'var(--mastery-weak)',g:0},
+  {d:0,s:2,tp:'Biostats',ty:'Drill',dur:'15m',c:'var(--mastery-weak)',g:0},{d:0,s:3,tp:'Pulm',ty:'Review',dur:'25m',c:'var(--mastery-stable)',g:0},
+  {d:1,s:0,tp:'Cardio',ty:'Study',dur:'30m',c:'var(--mastery-weak)',g:0},{d:1,s:1,tp:'Renal',ty:'STAT',dur:'20m',c:'var(--mastery-critical)',g:0},
+  {d:1,s:2,tp:'Endo',ty:'Drill',dur:'20m',c:'var(--mastery-moderate)',g:0},{d:2,s:0,tp:'Biostats',ty:'Study',dur:'25m',c:'var(--mastery-weak)',g:0},
+  {d:2,s:1,tp:'Neuro',ty:'Review',dur:'20m',c:'var(--mastery-stable)',g:0},{d:2,s:2,tp:'Psych',ty:'STAT',dur:'20m',c:'var(--mastery-moderate)',g:0},
+  {d:3,s:0,tp:'Renal',ty:'Study',dur:'30m',c:'var(--mastery-critical)',g:0},{d:3,s:1,tp:'Peds',ty:'Review',dur:'20m',c:'var(--mastery-stable)',g:0},
+  {d:3,s:2,tp:'OB/GYN',ty:'Review',dur:'15m',c:'var(--mastery-strong)',g:0},{d:4,s:0,tp:'Cardio',ty:'STAT',dur:'25m',c:'var(--mastery-weak)',g:0},
+  {d:4,s:1,tp:'Inf Dz',ty:'Review',dur:'15m',c:'var(--mastery-strong)',g:0},{d:4,s:2,tp:'Endo',ty:'Study',dur:'20m',c:'var(--mastery-moderate)',g:0},
+  {d:5,s:0,tp:'Renal',ty:'Drill',dur:'20m',c:'var(--mastery-critical)',g:0},{d:5,s:1,tp:'Biostats',ty:'STAT',dur:'15m',c:'var(--mastery-weak)',g:0},
+  {d:6,s:0,tp:'Pulm',ty:'Review',dur:'20m',c:'var(--mastery-stable)',g:0},{d:6,s:1,tp:'Neuro',ty:'Review',dur:'15m',c:'var(--mastery-stable)',g:0},
+  {d:0,s:0,tp:'Renal AM',ty:'Ghost',dur:'',c:'var(--accent-3)',g:1,adv:'Dr. Brian: Move Renal earlier'},
+  {d:1,s:2,tp:'Biostats',ty:'Ghost',dur:'20m',c:'var(--accent-3)',g:1,adv:'Dr. J: Add Biostats block'}
+];
+const CBG={'var(--mastery-critical)':'rgba(255,71,87,0.15)','var(--mastery-weak)':'rgba(255,159,67,0.15)','var(--mastery-moderate)':'rgba(254,202,87,0.12)','var(--mastery-stable)':'rgba(46,213,115,0.15)','var(--mastery-strong)':'rgba(30,144,255,0.15)','var(--accent-3)':'var(--ghost-glow)'};
 
-        function completeTimerTask() {
-            if (timerInterval) clearInterval(timerInterval);
-            timerInterval = null;
-            document.getElementById('timerWidget').classList.remove('active');
-            tasksCompleted++;
-            currentXP += 40;
-            updateXPBar();
-            updateRings();
-            showToast(`+40 XP: Completed ${currentTimerTask}`);
-        }
+/* THEME */
+function setTheme(t,btn){
+  document.body.setAttribute('data-theme',t);
+  document.querySelectorAll('.theme-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
 
-        function updateXPBar() {
-            const progress = (currentXP / 2000) * 100;
-            document.querySelector('.xp-bar-progress').style.width = progress + '%';
-        }
+/* NAV */
+function go(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  const s=document.getElementById('section-'+id);if(s)s.classList.add('active');
+  const b=document.querySelector('.nav-btn[data-section="'+id+'"]');if(b)b.classList.add('active');
+}
 
-        // TOAST NOTIFICATIONS
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
+/* TOAST */
+function toast(i,m){const c=document.getElementById('toast-c'),t=document.createElement('div');t.className='toast';t.innerHTML='<span style="font-size:1rem">'+i+'</span> '+m;c.appendChild(t);setTimeout(()=>{if(t.parentNode)t.remove()},3200);}
 
-        // MODALS
-        function openCalendarExport() {
-            document.getElementById('calendarModal').classList.add('active');
-        }
+/* DEMO STATE - uses top-bar-center if we add state btns, for now via keyboard */
 
-        function closeModal() {
-            document.getElementById('calendarModal').classList.remove('active');
-        }
+/* MODAL */
+function showModal(h){document.getElementById('modal-c').innerHTML=h;document.getElementById('modal-ov').classList.add('show');}
+function closeM(){document.getElementById('modal-ov').classList.remove('show');}
 
-        function downloadICS() {
-            const scope = document.querySelector('input[name="export-scope"]:checked').value;
-            showToast(`Downloaded ${scope} calendar export (.ics)`);
-            setTimeout(() => closeModal(), 1000);
-        }
+/* PROGRESS */
+function upProg(){
+  document.getElementById('xp-disp').textContent=xp.toLocaleString();
+  document.getElementById('xp-mini').textContent=xp.toLocaleString()+' XP';
+  document.getElementById('tasks-disp').textContent=done;
+  document.getElementById('today-prog').textContent=done+' / '+TASKS.length+' today';
+  document.getElementById('xp-lbl').textContent=xp.toLocaleString()+' XP';
+  document.getElementById('xp-bar').style.width=Math.min(xp/2000*100,100)+'%';
+  document.getElementById('remain-lbl').textContent=TASKS.filter(t=>t.st!=='completed').length+' remaining';
+}
 
-        function copyFeedURL() {
-            showToast('Calendar feed URL copied to clipboard');
-            setTimeout(() => closeModal(), 1000);
-        }
+/* TODAY TASKS */
+function renderToday(){
+  const el=document.getElementById('today-task-list');let h='';
+  TASKS.forEach((t,i)=>{
+    const d=t.st==='completed';
+    h+='<div class="task-row'+(d?' completed':'')+'"><div class="task-color" style="background:'+t.c+'"></div><div class="task-info"><div class="task-name">'+t.n+'</div><div class="task-meta">'+t.tp+' &middot; '+t.ty+'</div></div><div class="task-duration">'+t.dur+'m</div><div class="task-actions">'+(d?'<span style="color:var(--mastery-stable);font-size:0.62rem;font-weight:700;font-family:var(--font-display)">DONE</span>':'<button class="btn-sm btn-success" onclick="compTask('+i+')">Done</button><button class="btn-sm" onclick="startTimer(\''+t.n.replace(/'/g,"\\'")+'\',\''+t.tp+'\','+t.dur+')">Start</button>')+'</div></div>';
+  });el.innerHTML=h;
+}
 
-        function exportReport() {
-            showToast('Weekly report exported as PDF');
-        }
+/* TASK QUEUE */
+function renderTQ(){
+  const el=document.getElementById('task-queue');let h='';
+  TASKS.forEach((t,i)=>{
+    const d=t.st==='completed';
+    h+='<div class="task-queue-item'+(d?' task-completed':'')+'"><div class="tq-status-dot '+(d?'completed':'pending')+'"></div><div style="width:3px;height:28px;border-radius:2px;background:'+t.c+';flex-shrink:0"></div><div class="tq-info"><div class="tq-name">'+t.n+'</div><div class="tq-meta">'+t.tp+' &middot; '+t.ty+' &middot; '+t.r+'</div></div><div class="tq-dur">'+t.dur+'m</div><div class="tq-actions">'+(d?'<span style="color:var(--mastery-stable);font-size:0.62rem;font-weight:700;font-family:var(--font-display)">DONE</span>':'<button class="btn-sm btn-success" onclick="compTask('+i+')">Done</button><button class="btn-sm" onclick="startTimer(\''+t.n.replace(/'/g,"\\'")+'\',\''+t.tp+'\','+t.dur+')">Start</button><button class="btn-sm" onclick="reschedTask('+i+')">Move</button>')+'</div></div>';
+  });el.innerHTML=h;
+  const dn=TASKS.filter(t=>t.st==='completed').length;
+  document.getElementById('tq-count').textContent=dn+' / '+TASKS.length+' complete';
+}
+function compTask(i){if(TASKS[i].st==='completed')return;TASKS[i].st='completed';done++;xp+=40;upProg();renderToday();renderTQ();toast('\u{1F3C6}','Task complete. +40 XP.');if(TASKS.every(t=>t.st==='completed'))setTimeout(()=>toast('\u{1F451}','All tasks complete. Outstanding work today.'),600);}
+function reschedTask(i){showModal('<h3>Reschedule: '+TASKS[i].n+'</h3><div class="subtitle">'+TASKS[i].tp+' &middot; '+TASKS[i].dur+' min</div><p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:12px">Move this block or recover it tomorrow. No pressure.</p><div class="modal-actions"><button class="btn-sm btn-success" onclick="toast(\'\u2705\',\'Moved to later today.\');closeM();">Later Today</button><button class="btn-sm" onclick="toast(\'\u2705\',\'Moved to tomorrow.\');closeM();">Tomorrow</button><button class="btn-sm" onclick="toast(\'\u2705\',\'Week rebalanced.\');closeM();">Rebalance</button><button class="btn-sm btn-danger" onclick="closeM()">Cancel</button></div>');}
 
-        function openBlockDetail(element) {
-            const topic = element.querySelector('.block-topic').textContent;
-            const time = element.querySelector('.block-time').textContent;
-            const confidence = element.querySelector('.block-confidence').textContent;
+/* PLANNER */
+function renderPlanner(){
+  const g=document.getElementById('planner-grid');g.innerHTML='';
+  g.innerHTML+='<div class="planner-time-label"></div>';
+  DAYS.forEach((d,i)=>g.innerHTML+='<div class="planner-day-header'+(i===0?' today':'')+'">'+d+'</div>');
+  SLOTS.forEach((sl,si)=>{
+    g.innerHTML+='<div class="planner-time-label">'+sl+'</div>';
+    DAYS.forEach((dy,di)=>{
+      const cell=document.createElement('div');cell.className='planner-cell';cell.dataset.d=di;cell.dataset.s=si;
+      cell.addEventListener('dragover',function(e){e.preventDefault();this.classList.add('drag-over');});
+      cell.addEventListener('dragleave',function(){this.classList.remove('drag-over');});
+      cell.addEventListener('drop',function(e){dropB(e,this);});
+      PB.filter(b=>b.d===di&&b.s===si).forEach(b=>{
+        const bl=document.createElement('div');bl.className='planner-block'+(b.g?' ghost-block':'');
+        bl.style.borderLeftColor=b.c;bl.style.background=CBG[b.c]||'rgba(79,124,255,0.1)';
+        bl.draggable=true;
+        bl.addEventListener('dragstart',function(e){e.dataTransfer.setData('text/plain',JSON.stringify(b));this.style.opacity='0.4';});
+        bl.addEventListener('dragend',function(){this.style.opacity='1';});
+        bl.addEventListener('click',function(){openBlock(b);});
+        bl.innerHTML='<div class="block-topic">'+(b.g?'\u{1F47B} ':'')+b.tp+'</div><div class="block-type">'+b.ty+(b.dur?' &middot; '+b.dur:'')+'</div>';
+        cell.appendChild(bl);
+      });g.appendChild(cell);
+    });
+  });
+}
+function dropB(e,cell){e.preventDefault();cell.classList.remove('drag-over');let n='';try{n=JSON.parse(e.dataTransfer.getData('text/plain')).tp;}catch{n=e.dataTransfer.getData('text/plain');}if(n){toast('\u{1F4CB}',n+' moved to '+DAYS[cell.dataset.d]+' '+SLOTS[cell.dataset.s].toLowerCase()+'.');const bl=document.createElement('div');bl.className='planner-block';bl.style.borderLeftColor='var(--accent-1)';bl.style.background='rgba(255,255,255,0.06)';bl.innerHTML='<div class="block-topic">'+n+'</div><div class="block-type">Scheduled</div>';cell.appendChild(bl);}}
+function dragU(e,n){e.dataTransfer.setData('text/plain',n);}
+function openBlock(b){showModal('<h3>'+(b.g?'\u{1F47B} Ghost: ':'')+b.tp+' '+b.ty+'</h3><div class="subtitle">'+(b.dur||'Suggested')+(b.g?' &middot; Advisor suggestion':' &middot; '+SLOTS[b.s]+' &middot; '+DAYS[b.d])+'</div>'+(b.g&&b.adv?'<p style="font-size:0.82rem;color:var(--accent-3);margin-bottom:8px">'+b.adv+'</p>':'')+'<p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:12px">'+(b.g?'Accept to add to your plan.':'Targets '+b.tp+' with '+b.ty.toLowerCase()+' practice.')+'</p><div class="modal-actions">'+(b.g?'<button class="btn-sm btn-success" onclick="toast(\'\u2705\',\'Accepted.\');closeM();">Accept</button><button class="btn-sm btn-danger" onclick="toast(\'\u274C\',\'Removed.\');closeM();">Reject</button>':'<button class="btn-primary" style="font-size:0.72rem;padding:6px 16px" onclick="startTimer(\''+b.tp+' '+b.ty+'\',\''+b.tp+'\','+(parseInt(b.dur)||20)+');closeM();">Start Timer</button><button class="btn-sm btn-success" onclick="xp+=40;done++;upProg();toast(\'\u2705\',\'+40 XP\');closeM();">Complete</button><button class="btn-sm" onclick="toast(\'\u{1F4CB}\',\'Rescheduled.\');closeM();">Move</button><button class="btn-sm" onclick="toast(\'\u{1F4C5}\',\'Exported.\');closeM();">Calendar</button>')+'<button class="btn-sm btn-danger" onclick="closeM()">Close</button></div>');}
+function recoverTask(a){const m={today:'Endocrine drill recovered for today.',tomorrow:'Moved to tomorrow morning.',rebalance:'Week rebalanced.'};toast('\u2705',m[a]);document.getElementById('rec-item').style.opacity='0.25';document.getElementById('rec-item').style.pointerEvents='none';}
 
-            document.getElementById('blockDetailTopic').textContent = topic;
-            document.getElementById('blockDetailTime').textContent = 'Monday ' + time + ' (30 min)';
-            document.getElementById('blockDetailConfidence').textContent = confidence;
+/* ADVISOR */
+function advAct(i,a){
+  const c=document.getElementById('adv-'+i);
+  if(a==='accept'){c.classList.add('accepted');c.querySelector('.advisor-actions').innerHTML='<span style="color:var(--mastery-stable);font-size:0.72rem;font-weight:700;font-family:var(--font-display)">ACCEPTED</span>';toast('\u2705','Suggestion accepted. Block added.');updBadge();}
+  else if(a==='reject'){c.classList.add('rejected');c.querySelector('.advisor-actions').innerHTML='<span style="color:var(--text-muted);font-size:0.72rem">Removed.</span>';toast('\u{1F44D}','Removed. Plan unchanged.');updBadge();}
+  else if(a==='modify'){showModal('<h3>Modify Suggestion</h3><div class="subtitle">Adjust to fit your schedule.</div><div style="margin:12px 0"><label style="font-size:0.72rem;color:var(--text-secondary);display:block;margin-bottom:4px">Time</label><select style="width:100%;padding:6px 10px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);font-size:0.82rem;font-family:var(--font-body)"><option>Morning</option><option>Midday</option><option selected>Afternoon</option><option>Evening</option></select></div><div style="margin:12px 0"><label style="font-size:0.72rem;color:var(--text-secondary);display:block;margin-bottom:4px">Duration</label><select style="width:100%;padding:6px 10px;background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);color:var(--text-primary);font-size:0.82rem;font-family:var(--font-body)"><option>10 min</option><option>15 min</option><option selected>20 min</option><option>30 min</option></select></div><div class="modal-actions"><button class="btn-primary" style="font-size:0.72rem;padding:6px 16px" onclick="toast(\'\u2705\',\'Modified + accepted.\');closeM();">Accept Modified</button><button class="btn-sm btn-danger" onclick="closeM()">Cancel</button></div>');}
+}
+function advWhy(i){const r=document.getElementById('adv-r-'+i);r.style.display=r.style.display==='block'?'none':'block';}
+function updBadge(){const n=document.querySelectorAll('.advisor-card:not(.accepted):not(.rejected)').length;const b=document.querySelector('.nav-badge');if(b)b.textContent=n;}
 
-            document.getElementById('blockDetailModal').classList.add('active');
-        }
+/* PERFORMANCE */
+function renderPerf(){
+  const g=document.getElementById('perf-grid');let h='';
+  TOPICS.forEach(t=>{
+    const ti=t.t==='up'?'\u2191':t.t==='down'?'\u2193':'\u2192';
+    const tc=t.t==='up'?'trend-up':t.t==='down'?'trend-down':'';
+    h+='<div class="topic-card card"><div class="topic-top"><div><div class="topic-name">'+t.n+'</div><span class="tag tag-'+t.s+'">'+t.s+'</span></div><div class="topic-accuracy" style="color:'+t.c+'">'+t.a+'%</div></div><div class="topic-bar-track"><div class="topic-bar-fill" style="width:'+t.a+'%;background:'+t.c+'"></div></div><div class="topic-details"><span>'+t.q+' Qs</span><span>'+t.conf+'</span><span class="'+tc+'">'+ti+' '+t.t+'</span></div></div>';
+  });g.innerHTML=h;
+}
 
-        function closeBlockDetail() {
-            document.getElementById('blockDetailModal').classList.remove('active');
-        }
+/* TIMER */
+let tInt=null,tSec=0,tTot=0,tPaused=false,tName='';
+function startTimer(n,tp,m){tName=n;tSec=m*60;tTot=tSec;tPaused=false;document.getElementById('t-name').textContent=n;document.getElementById('t-topic').textContent=tp;document.getElementById('t-pause').textContent='Pause';document.getElementById('timer-overlay').classList.add('show');upTimer();clearInterval(tInt);tInt=setInterval(()=>{if(!tPaused){tSec--;upTimer();if(tSec<=0)completeTimer();}},1000);}
+function upTimer(){const m=Math.floor(Math.max(tSec,0)/60),s=Math.max(tSec,0)%60;document.getElementById('t-display').textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');const ci=2*Math.PI*45,off=ci*(1-Math.max(tSec,0)/tTot);document.getElementById('t-ring').style.strokeDashoffset=off;}
+function togglePause(){tPaused=!tPaused;document.getElementById('t-pause').textContent=tPaused?'Resume':'Pause';}
+function completeTimer(){clearInterval(tInt);document.getElementById('timer-overlay').classList.remove('show');xp+=40;done++;upProg();toast('\u{1F3C6}',tName+' complete. +40 XP.');const p=TASKS.find(t=>t.st==='pending');if(p)setTimeout(()=>toast('\u27A1\uFE0F','Next: '+p.n+' ('+p.dur+'m)'),800);}
+function stopTimer(){clearInterval(tInt);document.getElementById('timer-overlay').classList.remove('show');toast('\u23F9\uFE0F','Timer stopped.');}
 
-        // DRAG AND DROP
-        function dragStart(event) {
-            draggedElement = event.target.closest('.schedule-block, .unscheduled-item');
-            draggedElement.classList.add('dragging');
-        }
+/* CALENDAR MODAL */
+function openCalModal(){showModal('<h3>Export to Calendar</h3><div class="subtitle">Put your study blocks on your phone.</div><div style="margin:12px 0"><div style="font-size:0.72rem;color:var(--text-secondary);margin-bottom:6px">Scope</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-sm" onclick="toast(\'\u2705\',\'Today exported.\');closeM();">Today</button><button class="btn-sm" onclick="toast(\'\u2705\',\'Week exported.\');closeM();">This Week</button><button class="btn-sm" onclick="toast(\'\u2705\',\'Full plan exported.\');closeM();">Full Plan</button></div></div><div style="margin:12px 0"><div style="font-size:0.72rem;color:var(--text-secondary);margin-bottom:6px">Destination</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn-secondary" onclick="toast(\'\u2705\',\'Downloaded .ics\');closeM();">.ics File</button><button class="btn-secondary" onclick="toast(\'\u{1F310}\',\'Google Calendar\');closeM();">Google</button><button class="btn-secondary" onclick="toast(\'\u{1F34E}\',\'Apple Calendar\');closeM();">Apple</button><button class="btn-secondary" onclick="copyFeed();closeM();">Feed URL</button></div></div><div class="modal-actions"><button class="btn-sm btn-danger" onclick="closeM()">Close</button></div>');}
+function copyFeed(){toast('\u{1F517}','Feed URL copied. Add to Apple or Google Calendar.');}
 
-        function dragEnd(event) {
-            if (draggedElement) {
-                draggedElement.classList.remove('dragging');
-            }
-        }
-
-        // GHOST BLOCKS
-        function acceptGhostBlock(event) {
-            const ghostBlock = event.target.closest('.schedule-block.ghost');
-            if (!ghostBlock) return;
-
-            const topic = ghostBlock.querySelector('.block-topic').textContent;
-            const advisor = ghostBlock.querySelector('.block-advisor').textContent;
-
-            ghostBlock.classList.remove('ghost');
-            ghostBlock.style.borderStyle = 'solid';
-            ghostBlock.style.opacity = '1';
-            showToast(`Accepted: ${topic} (${advisor})`);
-        }
-
-        // ADVISOR SUGGESTIONS
-        function acceptSuggestion(event) {
-            event.stopPropagation();
-            const card = event.target.closest('.suggestion-card');
-            const advisor = card.querySelector('.suggestion-advisor').textContent;
-            const text = card.querySelector('.suggestion-text').textContent.substring(0, 30) + '...';
-
-            card.style.opacity = '0.6';
-            card.querySelector('.suggestion-status').textContent = 'Accepted';
-            showToast(`Accepted: ${advisor}'s suggestion`);
-        }
-
-        function rejectSuggestion(event) {
-            event.stopPropagation();
-            const card = event.target.closest('.suggestion-card');
-            const advisor = card.querySelector('.suggestion-advisor').textContent;
-
-            card.style.opacity = '0.4';
-            card.querySelector('.suggestion-status').textContent = 'Rejected';
-            showToast(`Declined: ${advisor}'s suggestion`);
-        }
-
-        // WEEK VIEW
-        function setWeekView(view) {
-            document.querySelectorAll('.btn-control').forEach(el => el.classList.remove('active'));
-            event.target.classList.add('active');
-            showToast(`View: ${view === 'today' ? 'Today' : 'This Week'}`);
-        }
-
-        // CLOSE MODALS ON OVERLAY CLICK
-        document.addEventListener('click', function(event) {
-            if (event.target.id === 'calendarModal') {
-                closeModal();
-            }
-            if (event.target.id === 'blockDetailModal') {
-                closeBlockDetail();
-            }
-        });
-
-        // INITIAL LOAD
-        updateXPBar();
-    </script>
+/* INIT */
+renderToday();renderPlanner();renderPerf();renderTQ();
+</script>
 </body>
 </html>

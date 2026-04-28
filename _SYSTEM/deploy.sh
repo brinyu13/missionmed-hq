@@ -91,6 +91,7 @@ ensure_git_gate() {
     LIVE/stat.html
     LIVE/drills.html
     LIVE/daily.html
+    LIVE/ivoncall.html
     CHANGELOG/CHANGELOG.md
     _SYSTEM/DEPLOY_MANIFEST.json
     VALIDATION/validate_deploy.sh

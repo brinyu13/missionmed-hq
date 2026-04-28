@@ -1,0 +1,3882 @@
+<!doctype html>
+<html lang="en" data-theme="victory-royale">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dr Brian On-Call — IV On-Call</title>
+  <style>
+    /* ================================================================
+       IV ON-CALL — 4-THEME FORTNITE REBUILD
+       Zero-scroll composition. Lighter, bolder, FUN.
+       Themes: Victory Royale | Neon Nights | Island Vibes | Pixel Arena
+       ================================================================ */
+
+    @import url('https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700&family=Press+Start+2P&display=swap');
+
+    /* ================================================================
+       THEME 1: VICTORY ROYALE (Classic Fortnite)
+       Bright sky blue, golden yellow, electric blue, white cards
+       ================================================================ */
+    [data-theme="victory-royale"] {
+      --bg-main: #4DA6FF;
+      --bg-gradient: linear-gradient(180deg, #3B8FE8 0%, #6DB9FF 40%, #A8DBFF 100%);
+      --bg-card: rgba(255, 255, 255, 0.92);
+      --bg-card-hover: rgba(255, 255, 255, 0.97);
+      --bg-glass: rgba(255, 255, 255, 0.85);
+      --bg-nav: rgba(30, 80, 160, 0.9);
+      --bg-modal: rgba(20, 60, 130, 0.95);
+      --bg-input: rgba(255, 255, 255, 0.95);
+
+      --accent-1: #FFD32E;
+      --accent-2: #3B8FE8;
+      --accent-3: #FF6B3D;
+      --accent-4: #36D399;
+
+      --neon-cyan: #3B8FE8;
+      --neon-magenta: #FF6B3D;
+      --neon-green: #36D399;
+      --neon-gold: #FFD32E;
+      --neon-blue: #5B7FFF;
+
+      --ok: #36D399;
+      --warn: #FFB020;
+      --bad: #FF5252;
+
+      --text: #1A365D;
+      --text-bright: #0D2137;
+      --text-on-nav: #FFFFFF;
+      --muted: #5A7A9E;
+      --dim: #8BA4C0;
+
+      --line: rgba(30, 80, 160, 0.12);
+      --line-hover: rgba(59, 143, 232, 0.35);
+
+      --shadow-card: 0 4px 20px rgba(30, 80, 160, 0.12), 0 1px 4px rgba(0,0,0,0.06);
+      --shadow-card-hover: 0 8px 32px rgba(30, 80, 160, 0.2), 0 2px 8px rgba(0,0,0,0.08);
+
+      --mode-color: var(--accent-2);
+      --mode-glow: 0 0 20px rgba(59, 143, 232, 0.3);
+
+      --radius-sm: 12px;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+      --radius-xl: 30px;
+
+      --font-display: 'Lilita One', 'Nunito', sans-serif;
+      --font-body: 'Nunito', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --btn-bg: linear-gradient(135deg, #FFD32E 0%, #FFC107 100%);
+      --btn-text: #1A365D;
+      --btn-border: rgba(255, 193, 7, 0.5);
+      --btn-shadow: 0 4px 16px rgba(255, 211, 46, 0.35);
+
+      --theme-decor-1: #FFD32E;
+      --theme-decor-2: #FF6B3D;
+    }
+
+    [data-theme="victory-royale"] [data-mode="quick_rep"]         { --mode-color: var(--accent-2); --mode-glow: 0 0 20px rgba(59,143,232,0.3); }
+    [data-theme="victory-royale"] [data-mode="guided_practice"]   { --mode-color: var(--accent-4); --mode-glow: 0 0 20px rgba(54,211,153,0.3); }
+    [data-theme="victory-royale"] [data-mode="delivery_training"] { --mode-color: var(--accent-3); --mode-glow: 0 0 20px rgba(255,107,61,0.3); }
+    [data-theme="victory-royale"] [data-mode="simulation"]        { --mode-color: var(--accent-1); --mode-glow: 0 0 20px rgba(255,211,46,0.3); }
+
+    /* ================================================================
+       THEME 2: NEON NIGHTS (Fortnite Party/Event)
+       Deep purple, hot pink, electric cyan, glowy
+       ================================================================ */
+    [data-theme="neon-nights"] {
+      --bg-main: #1A0A3E;
+      --bg-gradient: linear-gradient(180deg, #0D0628 0%, #1A0A3E 40%, #2D1B69 100%);
+      --bg-card: rgba(40, 20, 90, 0.85);
+      --bg-card-hover: rgba(50, 25, 110, 0.92);
+      --bg-glass: rgba(30, 15, 70, 0.88);
+      --bg-nav: rgba(15, 5, 40, 0.92);
+      --bg-modal: rgba(10, 4, 30, 0.96);
+      --bg-input: rgba(60, 30, 120, 0.7);
+
+      --accent-1: #FF2D9C;
+      --accent-2: #00E5FF;
+      --accent-3: #B24DFF;
+      --accent-4: #00FF85;
+
+      --neon-cyan: #00E5FF;
+      --neon-magenta: #FF2D9C;
+      --neon-green: #00FF85;
+      --neon-gold: #FFD700;
+      --neon-blue: #7B5EFF;
+
+      --ok: #00FF85;
+      --warn: #FFB020;
+      --bad: #FF3355;
+
+      --text: #E0D4FF;
+      --text-bright: #FFFFFF;
+      --text-on-nav: #E0D4FF;
+      --muted: #9B86CC;
+      --dim: #6B5A99;
+
+      --line: rgba(160, 100, 255, 0.15);
+      --line-hover: rgba(0, 229, 255, 0.35);
+
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3), 0 0 30px rgba(178, 77, 255, 0.08);
+      --shadow-card-hover: 0 8px 40px rgba(0, 0, 0, 0.4), 0 0 40px rgba(178, 77, 255, 0.15);
+
+      --mode-color: var(--accent-2);
+      --mode-glow: 0 0 20px rgba(0, 229, 255, 0.4);
+
+      --radius-sm: 12px;
+      --radius-md: 16px;
+      --radius-lg: 22px;
+      --radius-xl: 30px;
+
+      --font-display: 'Lilita One', 'Nunito', sans-serif;
+      --font-body: 'Nunito', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --btn-bg: linear-gradient(135deg, #FF2D9C 0%, #B24DFF 100%);
+      --btn-text: #FFFFFF;
+      --btn-border: rgba(255, 45, 156, 0.5);
+      --btn-shadow: 0 4px 20px rgba(255, 45, 156, 0.35);
+
+      --theme-decor-1: #FF2D9C;
+      --theme-decor-2: #00E5FF;
+    }
+
+    [data-theme="neon-nights"] [data-mode="quick_rep"]         { --mode-color: var(--accent-2); --mode-glow: 0 0 20px rgba(0,229,255,0.4); }
+    [data-theme="neon-nights"] [data-mode="guided_practice"]   { --mode-color: var(--accent-4); --mode-glow: 0 0 20px rgba(0,255,133,0.4); }
+    [data-theme="neon-nights"] [data-mode="delivery_training"] { --mode-color: var(--accent-1); --mode-glow: 0 0 20px rgba(255,45,156,0.4); }
+    [data-theme="neon-nights"] [data-mode="simulation"]        { --mode-color: var(--neon-gold); --mode-glow: 0 0 20px rgba(255,215,0,0.4); }
+
+    /* ================================================================
+       THEME 3: ISLAND VIBES (Fortnite Tropical)
+       Warm teal, coral, lime green, sunset feel
+       ================================================================ */
+    [data-theme="island-vibes"] {
+      --bg-main: #0EA5A5;
+      --bg-gradient: linear-gradient(180deg, #0D8B8B 0%, #14B8B8 30%, #67D9C0 60%, #B8F0D5 100%);
+      --bg-card: rgba(255, 255, 255, 0.9);
+      --bg-card-hover: rgba(255, 255, 255, 0.96);
+      --bg-glass: rgba(255, 255, 255, 0.82);
+      --bg-nav: rgba(8, 100, 100, 0.92);
+      --bg-modal: rgba(5, 70, 70, 0.96);
+      --bg-input: rgba(255, 255, 255, 0.92);
+
+      --accent-1: #FF6B6B;
+      --accent-2: #0DBFBF;
+      --accent-3: #FF9F43;
+      --accent-4: #78E08F;
+
+      --neon-cyan: #0DBFBF;
+      --neon-magenta: #FF6B6B;
+      --neon-green: #78E08F;
+      --neon-gold: #FFCA28;
+      --neon-blue: #5DADE2;
+
+      --ok: #78E08F;
+      --warn: #FF9F43;
+      --bad: #FF6B6B;
+
+      --text: #1A4A4A;
+      --text-bright: #0D2828;
+      --text-on-nav: #FFFFFF;
+      --muted: #5A8A8A;
+      --dim: #8BB0B0;
+
+      --line: rgba(13, 191, 191, 0.15);
+      --line-hover: rgba(255, 107, 107, 0.3);
+
+      --shadow-card: 0 4px 20px rgba(13, 139, 139, 0.12), 0 1px 4px rgba(0,0,0,0.05);
+      --shadow-card-hover: 0 8px 32px rgba(13, 139, 139, 0.2), 0 2px 8px rgba(0,0,0,0.08);
+
+      --mode-color: var(--accent-2);
+      --mode-glow: 0 0 20px rgba(13, 191, 191, 0.3);
+
+      --radius-sm: 14px;
+      --radius-md: 18px;
+      --radius-lg: 24px;
+      --radius-xl: 32px;
+
+      --font-display: 'Lilita One', 'Nunito', sans-serif;
+      --font-body: 'Nunito', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --btn-bg: linear-gradient(135deg, #FF6B6B 0%, #FF9F43 100%);
+      --btn-text: #FFFFFF;
+      --btn-border: rgba(255, 107, 107, 0.5);
+      --btn-shadow: 0 4px 16px rgba(255, 107, 107, 0.3);
+
+      --theme-decor-1: #FF6B6B;
+      --theme-decor-2: #FFCA28;
+    }
+
+    [data-theme="island-vibes"] [data-mode="quick_rep"]         { --mode-color: var(--accent-2); --mode-glow: 0 0 20px rgba(13,191,191,0.3); }
+    [data-theme="island-vibes"] [data-mode="guided_practice"]   { --mode-color: var(--accent-4); --mode-glow: 0 0 20px rgba(120,224,143,0.3); }
+    [data-theme="island-vibes"] [data-mode="delivery_training"] { --mode-color: var(--accent-1); --mode-glow: 0 0 20px rgba(255,107,107,0.3); }
+    [data-theme="island-vibes"] [data-mode="simulation"]        { --mode-color: var(--neon-gold); --mode-glow: 0 0 20px rgba(255,202,40,0.3); }
+
+    /* ================================================================
+       THEME 4: PIXEL ARENA (Retro Arcade Gamer)
+       Dark purple, pixel font accents, neon green, arcade cabinet feel
+       ================================================================ */
+    [data-theme="pixel-arena"] {
+      --bg-main: #1B0033;
+      --bg-gradient: linear-gradient(180deg, #110022 0%, #1B0033 40%, #2A0A50 80%, #3D1570 100%);
+      --bg-card: rgba(35, 10, 65, 0.9);
+      --bg-card-hover: rgba(45, 15, 80, 0.95);
+      --bg-glass: rgba(30, 8, 55, 0.9);
+      --bg-nav: rgba(10, 2, 25, 0.95);
+      --bg-modal: rgba(8, 2, 20, 0.97);
+      --bg-input: rgba(50, 15, 90, 0.75);
+
+      --accent-1: #39FF14;
+      --accent-2: #FF00FF;
+      --accent-3: #00FFFF;
+      --accent-4: #FFFF00;
+
+      --neon-cyan: #00FFFF;
+      --neon-magenta: #FF00FF;
+      --neon-green: #39FF14;
+      --neon-gold: #FFFF00;
+      --neon-blue: #00AAFF;
+
+      --ok: #39FF14;
+      --warn: #FFFF00;
+      --bad: #FF3333;
+
+      --text: #D4B8FF;
+      --text-bright: #FFFFFF;
+      --text-on-nav: #D4B8FF;
+      --muted: #9070CC;
+      --dim: #6A4FA0;
+
+      --line: rgba(57, 255, 20, 0.12);
+      --line-hover: rgba(255, 0, 255, 0.3);
+
+      --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4), 0 0 20px rgba(57, 255, 20, 0.05);
+      --shadow-card-hover: 0 8px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(57, 255, 20, 0.1);
+
+      --mode-color: var(--accent-1);
+      --mode-glow: 0 0 20px rgba(57, 255, 20, 0.35);
+
+      --radius-sm: 4px;
+      --radius-md: 6px;
+      --radius-lg: 8px;
+      --radius-xl: 10px;
+
+      --font-display: 'Press Start 2P', 'Nunito', monospace;
+      --font-body: 'Nunito', system-ui, sans-serif;
+      --font-mono: 'Press Start 2P', 'JetBrains Mono', monospace;
+
+      --btn-bg: linear-gradient(135deg, #39FF14 0%, #00CC10 100%);
+      --btn-text: #0A0020;
+      --btn-border: rgba(57, 255, 20, 0.6);
+      --btn-shadow: 0 4px 20px rgba(57, 255, 20, 0.3);
+
+      --theme-decor-1: #39FF14;
+      --theme-decor-2: #FF00FF;
+    }
+
+    [data-theme="pixel-arena"] [data-mode="quick_rep"]         { --mode-color: var(--accent-3); --mode-glow: 0 0 20px rgba(0,255,255,0.4); }
+    [data-theme="pixel-arena"] [data-mode="guided_practice"]   { --mode-color: var(--accent-1); --mode-glow: 0 0 20px rgba(57,255,20,0.4); }
+    [data-theme="pixel-arena"] [data-mode="delivery_training"] { --mode-color: var(--accent-2); --mode-glow: 0 0 20px rgba(255,0,255,0.4); }
+    [data-theme="pixel-arena"] [data-mode="simulation"]        { --mode-color: var(--accent-4); --mode-glow: 0 0 20px rgba(255,255,0,0.4); }
+
+    /* ================================================================
+       EASING
+       ================================================================ */
+    :root {
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+      --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+      /* Legacy compat */
+      --bg: var(--bg-main);
+      --panel: var(--bg-card);
+      --panel-soft: var(--bg-glass);
+      --primary: var(--accent-2);
+      --gray: var(--muted);
+      --accent: var(--bad);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--text);
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ================================================================
+       ANIMATED BACKGROUND
+       ================================================================ */
+    .arena-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .arena-bg::before {
+      content: '';
+      position: absolute;
+      inset: -50%;
+      background:
+        radial-gradient(ellipse 600px 400px at 20% 30%, color-mix(in srgb, var(--theme-decor-1) 12%, transparent) 0%, transparent 70%),
+        radial-gradient(ellipse 500px 350px at 75% 65%, color-mix(in srgb, var(--theme-decor-2) 10%, transparent) 0%, transparent 60%);
+      animation: bgDrift 20s ease-in-out infinite alternate;
+    }
+
+    @keyframes bgDrift {
+      0% { transform: translate(0, 0) rotate(0deg); }
+      100% { transform: translate(30px, -20px) rotate(1.5deg); }
+    }
+
+    /* Decorative floating shapes */
+    .arena-bg::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle 80px at 15% 80%, color-mix(in srgb, var(--accent-1) 15%, transparent) 0%, transparent 100%),
+        radial-gradient(circle 60px at 85% 15%, color-mix(in srgb, var(--accent-3) 12%, transparent) 0%, transparent 100%),
+        radial-gradient(circle 100px at 50% 50%, color-mix(in srgb, var(--accent-4) 8%, transparent) 0%, transparent 100%);
+      animation: bgDrift2 25s ease-in-out infinite alternate;
+    }
+
+    @keyframes bgDrift2 {
+      0% { transform: translate(0, 0); }
+      100% { transform: translate(-20px, 15px); }
+    }
+
+    .arena-grid { display: none; }
+
+    /* ================================================================
+       LAYOUT SYSTEM - zero-scroll viewport
+       ================================================================ */
+    .arena {
+      position: relative;
+      z-index: 1;
+      height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      overflow: hidden;
+    }
+
+    /* ================================================================
+       TOP NAV
+       ================================================================ */
+    .arena-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 24px;
+      background: var(--bg-nav);
+      backdrop-filter: blur(20px);
+      border-bottom: 2px solid color-mix(in srgb, var(--accent-1) 30%, transparent);
+      position: relative;
+      z-index: 50;
+    }
+
+    .arena-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .arena-brand h1 {
+      font-family: var(--font-display);
+      font-size: 1.3rem;
+      font-weight: 400;
+      letter-spacing: 0.02em;
+      color: var(--text-on-nav);
+      text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .arena-brand .subtitle {
+      font-size: 0.65rem;
+      color: color-mix(in srgb, var(--text-on-nav) 70%, transparent);
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      font-weight: 800;
+    }
+
+    .arena-nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .nav-input {
+      border: 2px solid color-mix(in srgb, var(--accent-1) 30%, transparent);
+      background: var(--bg-input);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      font-family: var(--font-body);
+      width: 150px;
+      transition: border-color 0.2s, box-shadow 0.2s, width 0.3s var(--ease-out-expo);
+    }
+
+    .nav-input:focus {
+      outline: none;
+      border-color: var(--accent-1);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-1) 20%, transparent);
+      width: 180px;
+    }
+
+    .nav-input::placeholder {
+      color: var(--dim);
+    }
+
+    /* Theme Toggle */
+    .theme-toggle {
+      display: flex;
+      gap: 4px;
+      padding: 3px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 999px;
+      margin-left: 8px;
+    }
+
+    .theme-dot {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.25);
+      cursor: pointer;
+      transition: transform 0.2s var(--ease-spring), border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+    }
+
+    .theme-dot:hover {
+      transform: scale(1.15);
+    }
+
+    .theme-dot.active {
+      border-color: #fff;
+      box-shadow: 0 0 10px rgba(255,255,255,0.4);
+      transform: scale(1.2);
+    }
+
+    .theme-dot[data-theme-key="victory-royale"] { background: linear-gradient(135deg, #3B8FE8, #FFD32E); }
+    .theme-dot[data-theme-key="neon-nights"]    { background: linear-gradient(135deg, #1A0A3E, #FF2D9C); }
+    .theme-dot[data-theme-key="island-vibes"]   { background: linear-gradient(135deg, #0EA5A5, #FF6B6B); }
+    .theme-dot[data-theme-key="pixel-arena"]    { background: linear-gradient(135deg, #1B0033, #39FF14); }
+
+    /* ================================================================
+       STATUS PILL
+       ================================================================ */
+    .status-pill {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      padding: 8px 20px;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 2px solid var(--line);
+      box-shadow: var(--shadow-card);
+      transition: all 0.3s var(--ease-out-expo);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .status-pill.status-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .status-pill.s-ok { border-color: color-mix(in srgb, var(--ok) 40%, transparent); color: var(--ok); }
+    .status-pill.s-warn { border-color: color-mix(in srgb, var(--warn) 40%, transparent); color: var(--warn); }
+    .status-pill.s-bad { border-color: color-mix(in srgb, var(--bad) 40%, transparent); color: var(--bad); }
+
+    /* ================================================================
+       FLOW TOAST
+       ================================================================ */
+    .flow-toast {
+      position: fixed;
+      inset: 50% auto auto 50%;
+      transform: translate(-50%, -50%) scale(0.96);
+      z-index: 140;
+      width: min(420px, calc(100vw - 32px));
+      border-radius: var(--radius-xl);
+      border: 2px solid color-mix(in srgb, var(--accent-1) 40%, transparent);
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      text-align: center;
+      padding: 16px 20px;
+      opacity: 0;
+      pointer-events: none;
+      box-shadow: var(--shadow-card-hover);
+      transition: opacity 0.25s var(--ease-out-expo), transform 0.25s var(--ease-out-expo);
+    }
+
+    .flow-toast.is-visible {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+      animation: flowToastPulse 0.9s ease-out;
+    }
+
+    .flow-toast.tone-ok { border-color: color-mix(in srgb, var(--ok) 40%, transparent); }
+    .flow-toast.tone-warn { border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+    .flow-toast.tone-bad { border-color: color-mix(in srgb, var(--bad) 40%, transparent); }
+
+    .flow-toast-title {
+      font-family: var(--font-display);
+      font-size: clamp(1rem, 2.2vw, 1.25rem);
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-bright);
+    }
+
+    .flow-toast-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    @keyframes flowToastPulse {
+      0% { box-shadow: var(--shadow-card), 0 0 0 0 color-mix(in srgb, var(--accent-1) 25%, transparent); }
+      100% { box-shadow: var(--shadow-card-hover), 0 0 0 16px color-mix(in srgb, var(--accent-1) 0%, transparent); }
+    }
+
+    /* ================================================================
+       BUTTONS
+       ================================================================ */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border: 2px solid var(--btn-border);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 800;
+      font-family: var(--font-body);
+      padding: 8px 18px;
+      color: var(--btn-text);
+      cursor: pointer;
+      background: var(--btn-bg);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      transition: all 0.2s var(--ease-out-expo);
+      position: relative;
+      overflow: hidden;
+      white-space: nowrap;
+      box-shadow: var(--btn-shadow), inset 0 1px 0 rgba(255,255,255,0.15);
+    }
+
+    .btn:hover {
+      transform: translateY(-2px) scale(1.04);
+      box-shadow: var(--btn-shadow), 0 6px 24px rgba(0,0,0,0.15);
+    }
+
+    .btn:active {
+      transform: translateY(1px) scale(0.97);
+      box-shadow: inset 0 2px 6px rgba(0,0,0,0.2);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .btn-primary {
+      background: var(--btn-bg);
+      border-color: var(--btn-border);
+      font-size: 0.85rem;
+      padding: 10px 24px;
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, var(--bad), color-mix(in srgb, var(--bad) 70%, #000));
+      border-color: color-mix(in srgb, var(--bad) 50%, transparent);
+      color: #fff;
+      box-shadow: 0 4px 16px color-mix(in srgb, var(--bad) 30%, transparent);
+    }
+
+    .btn-danger:hover {
+      border-color: var(--bad);
+      box-shadow: 0 0 20px color-mix(in srgb, var(--bad) 40%, transparent);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: var(--line);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    .btn-ghost:hover {
+      background: color-mix(in srgb, var(--accent-2) 8%, transparent);
+      border-color: color-mix(in srgb, var(--accent-2) 35%, transparent);
+      box-shadow: none;
+    }
+
+    .btn-large {
+      font-size: 1rem;
+      padding: 14px 36px;
+      border-radius: 999px;
+      letter-spacing: 0.08em;
+    }
+
+    /* ================================================================
+       LOBBY STATE - zero-scroll, compact
+       ================================================================ */
+    .lobby {
+      display: grid;
+      grid-template-rows: auto auto auto 1fr;
+      gap: 0;
+      padding: 0 20px;
+      overflow-y: auto;
+      overflow-x: hidden;
+      align-content: start;
+      transition: opacity 0.4s var(--ease-smooth);
+    }
+
+    .lobby.view-hidden {
+      display: none;
+    }
+
+    /* Hero */
+    .lobby-hero {
+      text-align: center;
+      padding: 18px 0 10px;
+    }
+
+    .lobby-hero h2 {
+      font-family: var(--font-display);
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      line-height: 1.15;
+      color: var(--text-bright);
+      text-shadow: 0 2px 12px rgba(0,0,0,0.12);
+      margin-bottom: 4px;
+    }
+
+    .lobby-hero p {
+      font-size: 0.88rem;
+      color: var(--muted);
+      max-width: 420px;
+      margin: 0 auto;
+      line-height: 1.5;
+      font-weight: 600;
+    }
+
+    /* Player stats */
+    .player-bar {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      max-width: 600px;
+      margin: 8px auto 10px;
+      width: 100%;
+    }
+
+    .player-stat {
+      background: var(--bg-card);
+      padding: 10px 8px;
+      text-align: center;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-card);
+      transition: transform 0.2s var(--ease-out-expo), box-shadow 0.2s;
+      position: relative;
+    }
+
+    .player-stat:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .player-stat .stat-value {
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--text-bright);
+      font-family: var(--font-mono);
+      display: block;
+      margin-bottom: 2px;
+      transition: transform 0.3s var(--ease-spring), color 0.3s;
+    }
+
+    .player-stat .stat-value.stat-pop {
+      transform: scale(1.2);
+      color: var(--accent-1);
+    }
+
+    .player-stat .stat-label {
+      font-size: 0.6rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 800;
+    }
+
+    /* CTA */
+    .lobby-cta {
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    .lobby-cta .btn-enter {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      padding: 14px 44px;
+      background: var(--btn-bg);
+      border: 3px solid var(--btn-border);
+      box-shadow: var(--btn-shadow);
+      animation: ctaPulse 3s ease-in-out infinite;
+    }
+
+    .lobby-cta .btn-enter:hover {
+      animation: none;
+      transform: translateY(-3px) scale(1.06);
+    }
+
+    @keyframes ctaPulse {
+      0%, 100% { box-shadow: var(--btn-shadow); }
+      50% { box-shadow: var(--btn-shadow), 0 0 30px color-mix(in srgb, var(--accent-1) 25%, transparent); }
+    }
+
+    .mode-lock-label {
+      display: block;
+      margin-top: 6px;
+      font-size: 0.68rem;
+      color: var(--dim);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    /* Activity panels */
+    .lobby-activity {
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .activity-panel {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--bg-card);
+      box-shadow: var(--shadow-card);
+      overflow: hidden;
+      transition: transform 0.25s var(--ease-out-expo), box-shadow 0.25s;
+    }
+
+    .activity-panel:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .activity-panel-head {
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .activity-panel-head h3 {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text);
+    }
+
+    .activity-panel-body {
+      padding: 10px 14px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .chart-area {
+      width: 100%;
+      height: 110px;
+    }
+
+    /* History rows */
+    .history-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--line);
+      align-items: center;
+      animation: rowSlide 0.3s var(--ease-out-expo) both;
+    }
+
+    .history-row:last-child { border-bottom: none; }
+
+    .history-row .hr-title {
+      font-size: 0.78rem;
+      color: var(--text);
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .history-row .hr-meta {
+      font-size: 0.65rem;
+      color: var(--dim);
+    }
+
+    .history-row .hr-score {
+      font-size: 0.72rem;
+      font-weight: 800;
+      color: var(--accent-2);
+      font-family: var(--font-mono);
+    }
+
+    .history-row:nth-child(1) { animation-delay: 0s; }
+    .history-row:nth-child(2) { animation-delay: 0.04s; }
+    .history-row:nth-child(3) { animation-delay: 0.08s; }
+    .history-row:nth-child(4) { animation-delay: 0.12s; }
+    .history-row:nth-child(5) { animation-delay: 0.16s; }
+
+    @keyframes rowSlide {
+      from { opacity: 0; transform: translateX(-8px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Vault */
+    .vault-section {
+      grid-column: 1 / -1;
+      border: 2px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--bg-card);
+      box-shadow: var(--shadow-card);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .vault-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .vault-head h3 {
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    .vault-select {
+      border: 2px solid var(--line);
+      background: var(--bg-input);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: var(--font-body);
+      min-width: 180px;
+    }
+
+    .vault-select:focus {
+      outline: none;
+      border-color: var(--accent-2);
+    }
+
+    .vault-timeline {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px;
+    }
+
+    .vault-entry {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      background: color-mix(in srgb, var(--bg-card) 60%, transparent);
+      cursor: pointer;
+      transition: all 0.2s var(--ease-out-expo);
+      animation: vaultEntryIn 0.3s var(--ease-out-expo) both;
+    }
+
+    .vault-entry:hover {
+      border-color: var(--line-hover);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-card);
+    }
+
+    .vault-entry.active {
+      border-color: var(--accent-2);
+      box-shadow: 0 0 12px color-mix(in srgb, var(--accent-2) 20%, transparent);
+    }
+
+    .vault-entry strong {
+      font-size: 0.75rem;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .vault-entry .hint {
+      font-size: 0.68rem;
+      color: var(--dim);
+    }
+
+    .vault-entry:nth-child(1) { animation-delay: 0s; }
+    .vault-entry:nth-child(2) { animation-delay: 0.05s; }
+    .vault-entry:nth-child(3) { animation-delay: 0.1s; }
+    .vault-entry:nth-child(4) { animation-delay: 0.15s; }
+
+    @keyframes vaultEntryIn {
+      from { opacity: 0; transform: scale(0.92); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .vault-compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .compare-card {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      background: color-mix(in srgb, var(--bg-card) 50%, transparent);
+      display: grid;
+      gap: 6px;
+    }
+
+    .compare-card strong {
+      font-size: 0.8rem;
+    }
+
+    .compare-card video {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--line);
+      background: #000;
+    }
+
+    /* ================================================================
+       MODE SELECT
+       ================================================================ */
+    .mode-select {
+      position: fixed;
+      inset: 0;
+      z-index: 60;
+      background: var(--bg-modal);
+      backdrop-filter: blur(24px);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s var(--ease-smooth);
+    }
+
+    .mode-select.mode-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .mode-select.hidden { display: none !important; }
+
+    .mode-select-inner {
+      width: min(900px, 100%);
+      display: grid;
+      gap: 20px;
+    }
+
+    .mode-select-head {
+      text-align: center;
+    }
+
+    .mode-select-head h2 {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-bright);
+      text-shadow: 0 2px 12px rgba(0,0,0,0.15);
+      margin-bottom: 4px;
+    }
+
+    .mode-select-head p {
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .mode-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .mode-card {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 20px 14px;
+      background: var(--bg-card);
+      cursor: pointer;
+      display: grid;
+      gap: 8px;
+      text-align: center;
+      transition: all 0.25s var(--ease-out-expo);
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+      animation: modeCardEnter 0.4s var(--ease-out-expo) both;
+    }
+
+    .mode-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--line);
+      transition: background 0.25s;
+    }
+
+    .mode-card::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 30%, rgba(255,255,255,0.06) 50%, transparent 70%);
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .mode-card:hover {
+      transform: translateY(-4px) scale(1.03);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .mode-card:hover::after {
+      opacity: 1;
+      animation: cardSweep 0.6s ease-out;
+    }
+
+    .mode-card.active {
+      border-color: var(--mode-color);
+      box-shadow: var(--mode-glow), var(--shadow-card);
+    }
+
+    .mode-card.active::before {
+      background: var(--mode-color);
+    }
+
+    .mode-card[data-mode-key="quick_rep"]::before { background: var(--neon-cyan); }
+    .mode-card[data-mode-key="guided_practice"]::before { background: var(--neon-green); }
+    .mode-card[data-mode-key="delivery_training"]::before { background: var(--neon-magenta); }
+    .mode-card[data-mode-key="simulation"]::before { background: var(--neon-gold); }
+
+    .mode-card[data-mode-key="quick_rep"].active { border-color: var(--neon-cyan); box-shadow: 0 0 20px color-mix(in srgb, var(--neon-cyan) 30%, transparent), var(--shadow-card); }
+    .mode-card[data-mode-key="guided_practice"].active { border-color: var(--neon-green); box-shadow: 0 0 20px color-mix(in srgb, var(--neon-green) 30%, transparent), var(--shadow-card); }
+    .mode-card[data-mode-key="delivery_training"].active { border-color: var(--neon-magenta); box-shadow: 0 0 20px color-mix(in srgb, var(--neon-magenta) 30%, transparent), var(--shadow-card); }
+    .mode-card[data-mode-key="simulation"].active { border-color: var(--neon-gold); box-shadow: 0 0 20px color-mix(in srgb, var(--neon-gold) 30%, transparent), var(--shadow-card); }
+
+    .mode-icon {
+      font-size: 2.2rem;
+      margin-bottom: 2px;
+    }
+
+    .mode-card .mode-name {
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .mode-card[data-mode-key="quick_rep"] .mode-name { color: var(--neon-cyan); }
+    .mode-card[data-mode-key="guided_practice"] .mode-name { color: var(--neon-green); }
+    .mode-card[data-mode-key="delivery_training"] .mode-name { color: var(--neon-magenta); }
+    .mode-card[data-mode-key="simulation"] .mode-name { color: var(--neon-gold); }
+
+    .mode-card .mode-desc {
+      font-size: 0.72rem;
+      color: var(--muted);
+      line-height: 1.4;
+    }
+
+    .mode-card .mode-meta {
+      font-size: 0.65rem;
+      color: var(--dim);
+      font-family: var(--font-mono);
+      letter-spacing: 0.03em;
+    }
+
+    .mode-card:nth-child(1) { animation-delay: 0.05s; }
+    .mode-card:nth-child(2) { animation-delay: 0.1s; }
+    .mode-card:nth-child(3) { animation-delay: 0.15s; }
+    .mode-card:nth-child(4) { animation-delay: 0.2s; }
+
+    @keyframes modeCardEnter {
+      from { opacity: 0; transform: translateY(16px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes cardSweep {
+      from { transform: translateX(-100%); }
+      to { transform: translateX(100%); }
+    }
+
+    .mode-select-footer {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    /* ================================================================
+       SESSION STATE
+       ================================================================ */
+    .session-arena {
+      padding: 0 20px 10px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      overflow-y: auto;
+      transition: opacity 0.4s var(--ease-smooth);
+    }
+
+    .session-arena.view-hidden {
+      display: none;
+    }
+
+    .session-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 2px solid var(--line);
+    }
+
+    .session-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .session-mode-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 2px solid color-mix(in srgb, var(--mode-color) 40%, transparent);
+      background: color-mix(in srgb, var(--mode-color) 10%, transparent);
+      font-size: 0.68rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--mode-color);
+    }
+
+    .session-rep-counter {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .session-actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    /* Category selector */
+    .category-panel {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      background: var(--bg-card);
+      box-shadow: var(--shadow-card);
+      text-align: center;
+      display: grid;
+      gap: 10px;
+    }
+
+    .category-panel h3 {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .category-grid {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .category-grid .btn.active {
+      border-color: var(--mode-color);
+      box-shadow: var(--mode-glow);
+      color: var(--mode-color);
+    }
+
+    /* Question zone */
+    .question-zone {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      max-width: 800px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .question-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .q-category-badge {
+      font-size: 0.65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--mode-color);
+      padding: 4px 10px;
+      border: 2px solid color-mix(in srgb, var(--mode-color) 30%, transparent);
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--mode-color) 8%, transparent);
+    }
+
+    .q-timer-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      padding: 4px 10px;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+    }
+
+    .question-text {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 400;
+      line-height: 1.4;
+      color: var(--text-bright);
+      text-align: center;
+      padding: 8px 0;
+      animation: questionReveal 0.6s var(--ease-out-expo) both;
+    }
+
+    @keyframes questionReveal {
+      from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
+      to { opacity: 1; transform: translateY(0); filter: blur(0); }
+    }
+
+    .guidance-strip {
+      border: 2px solid color-mix(in srgb, var(--accent-2) 20%, transparent);
+      border-radius: var(--radius-md);
+      padding: 8px 12px;
+      background: color-mix(in srgb, var(--accent-2) 5%, transparent);
+      color: var(--muted);
+      font-size: 0.78rem;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .teaching-cta {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* Video area */
+    .video-stage {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      aspect-ratio: 16 / 9;
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: 3px solid var(--line);
+      background: #010308;
+      transition: border-color 0.3s, box-shadow 0.3s;
+      animation: videoIdle 4s ease-in-out infinite;
+    }
+
+    @keyframes videoIdle {
+      0%, 100% { border-color: var(--line); }
+      50% { border-color: color-mix(in srgb, var(--accent-2) 25%, var(--line)); }
+    }
+
+    .video-stage.is-recording {
+      border-color: var(--bad);
+      box-shadow: 0 0 30px color-mix(in srgb, var(--bad) 30%, transparent);
+      animation: recPulse 2s ease-in-out infinite;
+    }
+
+    @keyframes recPulse {
+      0%, 100% { box-shadow: 0 0 20px color-mix(in srgb, var(--bad) 25%, transparent); }
+      50% { box-shadow: 0 0 40px color-mix(in srgb, var(--bad) 45%, transparent); }
+    }
+
+    .video-stage video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    .video-stage canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .timer-overlay {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: var(--bg-card);
+      backdrop-filter: blur(8px);
+      border: 2px solid var(--line);
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text);
+      transition: color 0.2s, border-color 0.2s;
+    }
+
+    .timer-overlay.timer-warning {
+      color: var(--warn);
+      border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+    }
+
+    .timer-overlay.timer-critical {
+      color: var(--bad);
+      border-color: color-mix(in srgb, var(--bad) 50%, transparent);
+      animation: timerShake 0.5s ease-in-out;
+    }
+
+    @keyframes timerShake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-2px); }
+      75% { transform: translateX(2px); }
+    }
+
+    /* Countdown overlay */
+    .countdown-overlay {
+      position: absolute;
+      inset: 0;
+      background: color-mix(in srgb, var(--bg-main) 92%, transparent);
+      display: grid;
+      place-items: center;
+      z-index: 20;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .countdown-overlay.countdown-active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .countdown-overlay.countdown-active::before {
+      content: '';
+      position: absolute;
+      inset: -20%;
+      background: radial-gradient(circle, color-mix(in srgb, var(--mode-color) 24%, transparent) 0%, transparent 65%);
+      animation: countdownAura 0.9s ease-out infinite;
+    }
+
+    .countdown-number {
+      font-family: var(--font-display);
+      font-size: 6rem;
+      font-weight: 400;
+      color: var(--mode-color);
+      text-shadow: 0 0 40px color-mix(in srgb, var(--mode-color) 50%, transparent);
+      animation: countPop 0.7s var(--ease-out-expo);
+      line-height: 1;
+    }
+
+    .countdown-number.countdown-beat {
+      animation: countPop 0.72s var(--ease-out-expo), countdownBeatGlow 0.72s ease-out;
+    }
+
+    @keyframes countPop {
+      0% { transform: scale(3); opacity: 0; }
+      30% { opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    @keyframes countdownAura {
+      0% { opacity: 0.12; transform: scale(0.84); }
+      70% { opacity: 0.32; transform: scale(1); }
+      100% { opacity: 0.06; transform: scale(1.1); }
+    }
+
+    @keyframes countdownBeatGlow {
+      0% { filter: drop-shadow(0 0 0 color-mix(in srgb, var(--mode-color) 0%, transparent)); }
+      100% { filter: drop-shadow(0 0 24px color-mix(in srgb, var(--mode-color) 45%, transparent)); }
+    }
+
+    .countdown-sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      font-weight: 700;
+      margin-top: 6px;
+    }
+
+    /* Controls */
+    .session-controls {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Upload progress */
+    .upload-bar {
+      height: 5px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent-2) 15%, transparent);
+      overflow: hidden;
+      max-width: 640px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .upload-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent-1));
+      border-radius: 999px;
+      transition: width 0.3s;
+      box-shadow: 0 0 8px color-mix(in srgb, var(--accent-2) 40%, transparent);
+    }
+
+    .upload-text {
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--dim);
+      font-weight: 700;
+    }
+
+    /* Delivery panel */
+    .delivery-zone {
+      border: 2px solid color-mix(in srgb, var(--neon-magenta) 25%, transparent);
+      border-radius: var(--radius-lg);
+      padding: 12px;
+      background: color-mix(in srgb, var(--neon-magenta) 5%, transparent);
+      display: grid;
+      gap: 8px;
+      max-width: 640px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .delivery-layout {
+      display: grid;
+      grid-template-columns: 1fr 36px;
+      gap: 8px;
+    }
+
+    .pitch-canvas {
+      width: 100%;
+      height: 120px;
+      border: 2px solid color-mix(in srgb, var(--neon-magenta) 20%, transparent);
+      border-radius: var(--radius-md);
+      background: rgba(0,0,0,0.3);
+    }
+
+    .volume-meter {
+      border: 2px solid color-mix(in srgb, var(--neon-magenta) 20%, transparent);
+      border-radius: var(--radius-sm);
+      background: rgba(0,0,0,0.3);
+      position: relative;
+      overflow: hidden;
+      min-height: 120px;
+    }
+
+    .volume-fill {
+      position: absolute;
+      left: 0; right: 0; bottom: 0;
+      height: 0%;
+      background: var(--bad);
+      transition: height 0.08s linear, background 0.08s linear;
+      border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    }
+
+    .delivery-status {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      letter-spacing: 0.02em;
+    }
+
+    /* ================================================================
+       FEEDBACK STATE
+       ================================================================ */
+    .feedback-zone {
+      max-width: 640px;
+      margin: 0 auto;
+      width: 100%;
+      border: 2px solid color-mix(in srgb, var(--mode-color) 30%, transparent);
+      border-radius: var(--radius-xl);
+      padding: 18px;
+      background: var(--bg-card);
+      box-shadow: var(--shadow-card);
+      display: grid;
+      gap: 10px;
+      animation: feedbackReveal 0.5s var(--ease-out-expo);
+    }
+
+    .feedback-zone.reveal-ready .feedback-stage {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+
+    .feedback-zone.reveal-ready .feedback-stage.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.36s var(--ease-out-expo), transform 0.36s var(--ease-out-expo);
+    }
+
+    .feedback-zone.feedback-pulse {
+      animation:
+        feedbackReveal 0.5s var(--ease-out-expo),
+        feedbackPulseGlow 0.9s ease-out;
+    }
+
+    @keyframes feedbackReveal {
+      from { opacity: 0; transform: translateY(20px) scale(0.97); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    @keyframes feedbackPulseGlow {
+      0% { box-shadow: var(--shadow-card), 0 0 0 0 color-mix(in srgb, var(--mode-color) 0%, transparent); }
+      45% { box-shadow: var(--shadow-card), 0 0 0 12px color-mix(in srgb, var(--mode-color) 15%, transparent); }
+      100% { box-shadow: var(--shadow-card), 0 0 0 20px color-mix(in srgb, var(--mode-color) 0%, transparent); }
+    }
+
+    .feedback-head {
+      text-align: center;
+    }
+
+    .feedback-head h3 {
+      font-family: var(--font-display);
+      font-size: 1.05rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--mode-color);
+      margin-bottom: 4px;
+    }
+
+    .feedback-summary {
+      color: var(--muted);
+      font-size: 0.82rem;
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    .feedback-audio {
+      width: 100%;
+      border-radius: var(--radius-sm);
+    }
+
+    .saf-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .saf-item {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+      font-size: 0.78rem;
+      color: var(--muted);
+      transition: all 0.2s;
+      animation: safSlide 0.4s var(--ease-out-expo) both;
+    }
+
+    .saf-item:nth-child(1) { animation-delay: 0ms; }
+    .saf-item:nth-child(2) { animation-delay: 80ms; }
+    .saf-item:nth-child(3) { animation-delay: 160ms; }
+    .saf-item:nth-child(4) { animation-delay: 240ms; }
+
+    @keyframes safSlide {
+      from { opacity: 0; transform: translateX(-10px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .saf-item[data-saf="s"] { border-left: 4px solid var(--neon-cyan); }
+    .saf-item[data-saf="a"] { border-left: 4px solid var(--neon-green); }
+    .saf-item[data-saf="f"] { border-left: 4px solid var(--neon-magenta); }
+    .saf-item[data-saf="e"] { border-left: 4px solid var(--neon-gold); }
+
+    .saf-item strong {
+      color: var(--text);
+      font-weight: 800;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .feedback-actions {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    /* Simulation summary */
+    .sim-summary {
+      text-align: center;
+      padding: 16px;
+    }
+
+    .sim-summary h3 {
+      font-family: var(--font-display);
+      font-size: 1.2rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      color: var(--neon-gold);
+      margin-bottom: 6px;
+    }
+
+    /* Delivery insights */
+    .delivery-insights {
+      display: grid;
+      gap: 6px;
+    }
+
+    .delivery-insights .saf-item {
+      animation: none;
+    }
+
+    /* ================================================================
+       WARMUP MODAL
+       ================================================================ */
+    .warmup-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 70;
+      background: var(--bg-modal);
+      backdrop-filter: blur(20px);
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s;
+    }
+
+    .warmup-overlay.modal-visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .warmup-overlay.hidden { display: none !important; }
+
+    .warmup-card {
+      width: min(500px, 100%);
+      border: 2px solid var(--line);
+      border-radius: var(--radius-xl);
+      background: var(--bg-card);
+      padding: 20px;
+      display: grid;
+      gap: 14px;
+      transform: scale(0.95);
+      transition: transform 0.35s var(--ease-out-expo);
+      box-shadow: var(--shadow-card-hover);
+    }
+
+    .warmup-overlay.modal-visible .warmup-card {
+      transform: scale(1);
+    }
+
+    .warmup-card h3 {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+
+    .warmup-steps {
+      display: grid;
+      gap: 10px;
+    }
+
+    .warmup-step {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      background: color-mix(in srgb, var(--bg-card) 60%, transparent);
+      display: grid;
+      gap: 6px;
+    }
+
+    .warmup-step strong {
+      color: var(--accent-2);
+      font-size: 0.8rem;
+    }
+
+    .warmup-step p {
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+
+    .warmup-step video {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--line);
+      background: #000;
+      max-height: 100px;
+    }
+
+    .warmup-actions {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    /* ================================================================
+       UTILITIES
+       ================================================================ */
+    .hidden { display: none !important; }
+
+    .skeleton {
+      border-radius: 8px;
+      background: linear-gradient(90deg, color-mix(in srgb, var(--accent-2) 6%, transparent), color-mix(in srgb, var(--accent-2) 14%, transparent), color-mix(in srgb, var(--accent-2) 6%, transparent));
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      min-height: 16px;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    .hint {
+      font-size: 0.72rem;
+      color: var(--dim);
+      line-height: 1.4;
+    }
+
+    /* Teaching panel */
+    .teaching-panel {
+      border: 2px solid var(--line);
+      border-radius: var(--radius-md);
+      padding: 10px;
+      background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+      display: grid;
+      gap: 6px;
+    }
+
+    .teaching-panel video {
+      width: 100%;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--line);
+      background: #000;
+    }
+
+    /* Gold panel */
+    .gold-panel {
+      border: 2px solid color-mix(in srgb, var(--neon-gold) 25%, transparent);
+      border-radius: var(--radius-lg);
+      padding: 14px;
+      background: color-mix(in srgb, var(--neon-gold) 4%, transparent);
+      display: grid;
+      gap: 10px;
+    }
+
+    .gold-panel h4 {
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 400;
+      text-transform: uppercase;
+      color: var(--neon-gold);
+    }
+
+    /* ================================================================
+       ENTRANCE ANIMATIONS
+       ================================================================ */
+    .lobby-hero { animation: heroEnter 0.8s var(--ease-out-expo) both; }
+    .player-bar { animation: heroEnter 0.8s var(--ease-out-expo) 0.1s both; }
+    .lobby-cta { animation: heroEnter 0.8s var(--ease-out-expo) 0.2s both; }
+    .lobby-activity { animation: heroEnter 0.8s var(--ease-out-expo) 0.3s both; }
+
+    @keyframes heroEnter {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .lobby, .session-arena {
+      animation: viewEnter 0.4s var(--ease-out-expo) both;
+    }
+
+    @keyframes viewEnter {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    /* ================================================================
+       PSYCHOLOGY PASS
+       ================================================================ */
+    .daily-target-ring {
+      position: absolute;
+      top: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 3px solid color-mix(in srgb, var(--accent-2) 15%, transparent);
+      pointer-events: none;
+    }
+
+    .daily-target-ring::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      border-top-color: var(--accent-2);
+      transition: transform 0.6s var(--ease-out-expo);
+    }
+
+    .stat-value.streak-fire {
+      color: var(--neon-gold) !important;
+      text-shadow: 0 0 10px color-mix(in srgb, var(--neon-gold) 40%, transparent);
+    }
+
+    .rep-complete-flash {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      pointer-events: none;
+      background: radial-gradient(circle at center, color-mix(in srgb, var(--accent-1) 18%, transparent) 0%, transparent 70%);
+      animation: celebFlash 0.6s ease-out forwards;
+    }
+
+    @keyframes celebFlash {
+      0% { opacity: 1; transform: scale(0.8); }
+      100% { opacity: 0; transform: scale(1.5); }
+    }
+
+    .daily-progress {
+      width: 100%;
+      height: 3px;
+      border-radius: 999px;
+      background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .daily-progress-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--accent-2), var(--accent-4));
+      transition: width 0.8s var(--ease-out-expo);
+      box-shadow: 0 0 6px color-mix(in srgb, var(--accent-2) 40%, transparent);
+    }
+
+    .daily-progress-fill.goal-hit {
+      background: linear-gradient(90deg, var(--neon-gold), var(--warn));
+      box-shadow: 0 0 8px color-mix(in srgb, var(--neon-gold) 50%, transparent);
+    }
+
+    .improvement-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 0.65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      animation: badgePop 0.5s var(--ease-spring) both;
+    }
+
+    .improvement-badge.badge-up {
+      background: color-mix(in srgb, var(--ok) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent);
+      color: var(--ok);
+    }
+
+    .improvement-badge.badge-new {
+      background: color-mix(in srgb, var(--accent-2) 12%, transparent);
+      border: 1px solid color-mix(in srgb, var(--accent-2) 30%, transparent);
+      color: var(--accent-2);
+    }
+
+    @keyframes badgePop {
+      0% { opacity: 0; transform: scale(0.5); }
+      60% { transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    .score-reveal {
+      font-family: var(--font-mono);
+      font-size: 1.3rem;
+      font-weight: 900;
+      color: var(--mode-color);
+      text-align: center;
+      animation: scoreCountUp 0.8s var(--ease-out-expo) both;
+    }
+
+    @keyframes scoreCountUp {
+      from { opacity: 0; transform: translateY(10px) scale(0.8); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    .momentum-msg {
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--ok);
+      opacity: 0;
+      animation: momentumFade 2s ease-out forwards;
+      margin-top: 6px;
+    }
+
+    @keyframes momentumFade {
+      0% { opacity: 0; transform: translateY(6px); }
+      15% { opacity: 1; transform: translateY(0); }
+      80% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* ================================================================
+       RESPONSIVE
+       ================================================================ */
+    @media (max-width: 900px) {
+      .mode-grid { grid-template-columns: repeat(2, 1fr); }
+      .lobby-activity { grid-template-columns: 1fr; }
+      .vault-compare { grid-template-columns: 1fr; }
+      .saf-grid { grid-template-columns: 1fr; }
+      .arena-nav { padding: 8px 12px; }
+      .lobby { padding: 0 12px; }
+      .session-arena { padding: 0 12px 10px; }
+    }
+
+    @media (max-width: 600px) {
+      .mode-grid { grid-template-columns: 1fr; }
+      .player-bar { grid-template-columns: repeat(2, 1fr); }
+      .lobby-hero h2 { font-size: 1.5rem; }
+      .question-text { font-size: 1rem; }
+      .countdown-number { font-size: 4rem; }
+      .theme-toggle { margin-left: 4px; }
+      .theme-dot { width: 18px; height: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Animated background layers -->
+  <div class="arena-bg"></div>
+  <div class="arena-grid"></div>
+
+  <div class="arena">
+    <!-- ============ TOP NAV ============ -->
+    <nav class="arena-nav">
+      <div class="arena-brand">
+        <h1>IV On-Call</h1>
+        <span class="subtitle">Interview Arena</span>
+      </div>
+      <div class="arena-nav-actions">
+        <input id="user-id" class="nav-input" autocomplete="off" placeholder="Student ID" />
+        <button id="btn-load-dashboard" class="btn" type="button">Load</button>
+        <div class="theme-toggle" id="theme-toggle">
+          <div class="theme-dot active" data-theme-key="victory-royale" title="Victory Royale"></div>
+          <div class="theme-dot" data-theme-key="neon-nights" title="Neon Nights"></div>
+          <div class="theme-dot" data-theme-key="island-vibes" title="Island Vibes"></div>
+          <div class="theme-dot" data-theme-key="pixel-arena" title="Pixel Arena"></div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ============ STATUS PILL (floating) ============ -->
+    <div id="global-status" class="status-pill s-ok">Ready</div>
+    <div id="flow-toast" class="flow-toast hidden" aria-live="polite">
+      <div id="flow-toast-title" class="flow-toast-title">Response Logged</div>
+      <div id="flow-toast-sub" class="flow-toast-sub">Preparing feedback</div>
+    </div>
+
+    <!-- ============ LOBBY STATE ============ -->
+    <section id="lobby-view" class="lobby">
+      <div class="lobby-hero">
+        <h2>Train Like It Matters</h2>
+        <p>Real-time SAF(e) scoring. Delivery analysis. Every rep builds your interview muscle.</p>
+      </div>
+
+      <div class="player-bar">
+        <div class="player-stat">
+          <span id="streak-current" class="stat-value">0</span>
+          <span class="stat-label">Day Streak</span>
+        </div>
+        <div class="player-stat">
+          <span id="total-reps" class="stat-value">0</span>
+          <span class="stat-label">Total Reps</span>
+        </div>
+        <div class="player-stat">
+          <span id="categories-covered" class="stat-value">0</span>
+          <span class="stat-label">Categories</span>
+        </div>
+        <div class="player-stat">
+          <span id="last-rep" class="stat-value">&mdash;</span>
+          <span class="stat-label">Last Rep</span>
+        </div>
+      </div>
+
+      <div class="lobby-cta">
+        <button id="btn-open-mode" class="btn btn-large btn-enter" type="button">Enter Arena</button>
+        <span id="mode-lock-badge" class="mode-lock-label">Mode unlocked</span>
+      </div>
+
+      <div class="lobby-activity">
+        <div class="activity-panel">
+          <div class="activity-panel-head">
+            <h3>7-Day Progress</h3>
+          </div>
+          <div class="activity-panel-body">
+            <svg id="progress-chart" class="chart-area" viewBox="0 0 700 150" preserveAspectRatio="none" role="img" aria-label="Rep chart"></svg>
+          </div>
+        </div>
+
+        <div class="activity-panel">
+          <div class="activity-panel-head">
+            <h3>Recent Reps</h3>
+          </div>
+          <div class="activity-panel-body" id="history-body">
+            <div class="hint">Load dashboard to see history.</div>
+          </div>
+        </div>
+
+        <div class="vault-section">
+          <div class="vault-head">
+            <h3>Answer Vault</h3>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <select id="vault-question-select" class="vault-select">
+                <option value="">Select a question</option>
+              </select>
+              <button id="btn-refresh-vault" class="btn btn-ghost" type="button">Refresh</button>
+            </div>
+          </div>
+          <div id="vault-timeline" class="vault-timeline">
+            <div class="hint">Run a rep to unlock Answer Vault timeline.</div>
+          </div>
+          <div id="vault-compare" class="vault-compare hidden"></div>
+          <div id="vault-improvement" class="hint hidden"></div>
+          <div id="gold-answer" class="gold-panel hidden"></div>
+          <div id="teaching-suggestion" class="teaching-panel hidden"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SESSION STATE ============ -->
+    <section id="session-shell" class="session-arena view-hidden">
+      <div class="session-bar">
+        <div class="session-info">
+          <span id="active-mode-badge" class="session-mode-badge">Mode</span>
+          <span id="rep-counter-badge" class="session-rep-counter">Rep 0 / 0</span>
+          <span id="session-subtitle" class="hint" style="display:none;">Waiting to start.</span>
+        </div>
+        <div class="session-actions">
+          <button id="btn-cancel-session" class="btn btn-ghost" type="button">End Session</button>
+        </div>
+      </div>
+
+      <!-- Category selector (Guided Practice) -->
+      <div id="category-selector" class="category-panel hidden">
+        <h3>Choose Your Focus</h3>
+        <div id="category-grid" class="category-grid"></div>
+        <button id="btn-confirm-category" class="btn btn-primary" type="button">Lock In</button>
+      </div>
+
+      <!-- Question zone -->
+      <div id="question-card" class="question-zone hidden">
+        <div class="question-header">
+          <span id="question-category" class="q-category-badge">Category</span>
+          <span id="question-timer" class="q-timer-badge">60s</span>
+        </div>
+
+        <h2 id="question-text" class="question-text">&mdash;</h2>
+
+        <div id="pre-guidance" class="guidance-strip hidden"></div>
+
+        <div id="teaching-video-cta" class="teaching-cta hidden">
+          <button id="btn-watch-example" class="btn btn-ghost" type="button">Watch Example</button>
+        </div>
+
+        <div class="video-stage" id="video-wrap">
+          <video id="camera-preview" autoplay muted playsinline></video>
+          <canvas id="framing-overlay"></canvas>
+          <div class="timer-overlay" id="timer-badge-wrap"><span id="timer-text">00:00</span></div>
+          <div class="countdown-overlay" id="countdown-overlay">
+            <div style="text-align:center;">
+              <div class="countdown-number" id="countdown-number"></div>
+              <div class="countdown-sub" id="countdown-sublabel">Get ready</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="delivery-panel" class="delivery-zone hidden">
+          <div class="delivery-layout">
+            <canvas id="pitch-canvas" class="pitch-canvas" width="760" height="160"></canvas>
+            <div class="volume-meter">
+              <div id="volume-fill" class="volume-fill"></div>
+            </div>
+          </div>
+          <div id="delivery-status-line" class="delivery-status">Hz: -- | Vol: -- dB | Time: 00:00</div>
+        </div>
+
+        <div class="session-controls">
+          <button id="btn-enable-camera" class="btn btn-ghost" type="button">Enable Camera</button>
+          <button id="btn-record" class="btn btn-danger" type="button" disabled>Record</button>
+          <button id="btn-stop" class="btn btn-primary" type="button" style="display:none;">Stop</button>
+        </div>
+
+        <div class="upload-bar"><div id="upload-progress" class="upload-bar-fill"></div></div>
+        <p id="upload-progress-text" class="upload-text">Upload progress: 0%</p>
+      </div>
+
+      <!-- Feedback -->
+      <div id="feedback-panel" class="feedback-zone hidden">
+        <div id="feedback-head" class="feedback-head feedback-stage">
+          <h3>Rep Complete</h3>
+        </div>
+        <audio id="answer-playback" class="feedback-audio feedback-stage" controls></audio>
+        <p id="feedback-summary" class="feedback-summary feedback-stage">Awaiting analysis.</p>
+        <div id="saf-grid" class="saf-grid feedback-stage"></div>
+        <div id="delivery-insights" class="delivery-insights feedback-stage"></div>
+        <div id="feedback-actions" class="feedback-actions feedback-stage">
+          <button id="btn-next-rep" class="btn btn-primary" type="button">Next Rep</button>
+          <button id="btn-back-dashboard" class="btn btn-ghost" type="button">Dashboard</button>
+        </div>
+      </div>
+
+      <!-- Simulation summary -->
+      <div id="simulation-summary" class="sim-summary hidden">
+        <h3>Simulation Complete</h3>
+        <p id="simulation-summary-text">Session complete.</p>
+        <div style="margin-top:12px;">
+          <button id="btn-sim-dashboard" class="btn btn-primary" type="button">Return to Arena</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ MODE SELECT (full-screen takeover) ============ -->
+  <div id="mode-modal" class="mode-select hidden" role="dialog" aria-modal="true">
+    <div class="mode-select-inner">
+      <div class="mode-select-head">
+        <h2>Choose Your Mode</h2>
+        <p>Each mode trains a different skill. Pick your challenge.</p>
+      </div>
+      <div id="mode-grid" class="mode-grid"></div>
+      <div class="mode-select-footer">
+        <button id="btn-close-mode" class="btn btn-ghost" type="button">Cancel</button>
+        <button id="btn-start-mode" class="btn btn-primary btn-large" type="button">Start Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ WARMUP MODAL ============ -->
+  <div id="warmup-modal" class="warmup-overlay hidden" role="dialog" aria-modal="true">
+    <div class="warmup-card">
+      <h3>Welcome to the Arena</h3>
+      <div class="warmup-steps">
+        <div class="warmup-step">
+          <strong>1. Welcome</strong>
+          <p>Watch a short Dr. Brian welcome clip.</p>
+          <video controls muted>
+            <source src="" type="video/mp4" />
+          </video>
+        </div>
+        <div class="warmup-step">
+          <strong>2. Camera Setup</strong>
+          <p>Allow camera/mic access, confirm your preview looks good.</p>
+          <button id="btn-warmup-camera" class="btn btn-ghost" type="button">Enable Camera</button>
+        </div>
+        <div class="warmup-step">
+          <strong>3. SAF(e) Framework</strong>
+          <p>Start Simple. Add Reasons. Focus on ONE Example. End Strong.</p>
+        </div>
+      </div>
+      <div class="warmup-actions">
+        <button id="btn-skip-warmup" class="btn btn-ghost" type="button">Skip</button>
+        <button id="btn-start-warmup-rep" class="btn btn-primary" type="button">Start Warm-Up Rep</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ================================================================
+       IV ON-CALL — 4-THEME FORTNITE REBUILD (JavaScript)
+       ALL LOGIC PRESERVED. Theme toggle added.
+       ================================================================ */
+
+    /* ---- Theme Toggle ---- */
+    (function initThemeToggle() {
+      const toggle = document.getElementById('theme-toggle');
+      if (!toggle) return;
+      const dots = toggle.querySelectorAll('.theme-dot');
+      dots.forEach(dot => {
+        dot.addEventListener('click', () => {
+          const key = dot.getAttribute('data-theme-key');
+          if (!key) return;
+          document.documentElement.setAttribute('data-theme', key);
+          dots.forEach(d => d.classList.remove('active'));
+          dot.classList.add('active');
+        });
+      });
+    })();
+
+    const MODE_CONFIG = {
+      quick_rep: {
+        name: 'Quick Rep',
+        description: 'One fast rep, immediate feedback',
+        icon: '\u26A1',
+        session_size: 1,
+        duration_per_q: 60,
+        pre_answer_guidance: true,
+        post_answer_feedback: true,
+        delivery_training_ui: false,
+        delivery_insights: true,
+        coaching_aids: false,
+        countdown_timer: true,
+        saf_scoring: true,
+        question_selection: 'random_with_recency_penalty',
+      },
+      guided_practice: {
+        name: 'Guided Practice',
+        description: 'Learn with coaching, category focused',
+        icon: '\uD83E\uDDED',
+        session_size: 3,
+        duration_per_q: 60,
+        pre_answer_guidance: true,
+        post_answer_feedback: true,
+        delivery_training_ui: false,
+        delivery_insights: true,
+        coaching_aids: true,
+        countdown_timer: true,
+        saf_scoring: true,
+        question_selection: 'category_filtered',
+        category_selector: true,
+      },
+      delivery_training: {
+        name: 'Delivery Training',
+        description: 'Real-time pitch + volume feedback',
+        icon: '\uD83C\uDFA4',
+        session_size: 1,
+        duration_per_q: 60,
+        pre_answer_guidance: true,
+        post_answer_feedback: true,
+        delivery_training_ui: true,
+        delivery_insights: true,
+        coaching_aids: false,
+        countdown_timer: true,
+        saf_scoring: true,
+        question_selection: 'random_with_recency_penalty',
+      },
+      simulation: {
+        name: 'Simulation',
+        description: 'Test mode: no coaching, 8 questions',
+        icon: '\uD83C\uDFAF',
+        session_size: 8,
+        duration_per_q: 60,
+        pre_answer_guidance: false,
+        post_answer_feedback: false,
+        delivery_training_ui: false,
+        delivery_insights: false,
+        coaching_aids: false,
+        countdown_timer: true,
+        saf_scoring: false,
+        question_selection: 'sequential_rotation',
+      },
+    };
+
+    const CATEGORIES = ['Opening', 'Career Fit', 'Challenge', 'Strength', 'Culture', 'Why Program'];
+    const CHUNK_SIZE = 5 * 1024 * 1024;
+    const RETRY_DELAYS_MS = [1000, 3000, 9000];
+
+    const state = {
+      userId: '',
+      responses: [],
+      progress: null,
+      selectedMode: 'quick_rep',
+      modeLocked: false,
+      session: null,
+      mediaStream: null,
+      mediaRecorder: null,
+      recordedChunks: [],
+      detectedCodec: '',
+      recordInterval: null,
+      elapsedSec: 0,
+      selectedCategory: '',
+      warmupSkipped: false,
+      vault: {
+        selectedQuestionId: '',
+        timeline: [],
+      },
+      delivery: {
+        audioContext: null,
+        sourceNode: null,
+        analyser: null,
+        rafId: 0,
+        running: false,
+        lastTickMs: 0,
+        pitchSeries: [],
+        smoothedVolume: 0,
+        currentHz: 0,
+        currentDb: 0,
+        confidence: 0,
+      },
+      statusTimer: null,
+    };
+
+    const el = {
+      userId: document.getElementById('user-id'),
+      globalStatus: document.getElementById('global-status'),
+      flowToast: document.getElementById('flow-toast'),
+      flowToastTitle: document.getElementById('flow-toast-title'),
+      flowToastSub: document.getElementById('flow-toast-sub'),
+      loadDashboard: document.getElementById('btn-load-dashboard'),
+      lobbyView: document.getElementById('lobby-view'),
+      totalReps: document.getElementById('total-reps'),
+      categoriesCovered: document.getElementById('categories-covered'),
+      lastRep: document.getElementById('last-rep'),
+      streakCurrent: document.getElementById('streak-current'),
+      chart: document.getElementById('progress-chart'),
+      historyBody: document.getElementById('history-body'),
+      refreshVault: document.getElementById('btn-refresh-vault'),
+      vaultQuestionSelect: document.getElementById('vault-question-select'),
+      vaultTimeline: document.getElementById('vault-timeline'),
+      vaultCompare: document.getElementById('vault-compare'),
+      vaultImprovement: document.getElementById('vault-improvement'),
+      goldAnswer: document.getElementById('gold-answer'),
+      teachingSuggestion: document.getElementById('teaching-suggestion'),
+      openMode: document.getElementById('btn-open-mode'),
+      modeLockBadge: document.getElementById('mode-lock-badge'),
+      modeModal: document.getElementById('mode-modal'),
+      modeGrid: document.getElementById('mode-grid'),
+      closeMode: document.getElementById('btn-close-mode'),
+      startMode: document.getElementById('btn-start-mode'),
+      warmupModal: document.getElementById('warmup-modal'),
+      warmupCamera: document.getElementById('btn-warmup-camera'),
+      skipWarmup: document.getElementById('btn-skip-warmup'),
+      startWarmupRep: document.getElementById('btn-start-warmup-rep'),
+      sessionShell: document.getElementById('session-shell'),
+      sessionSubtitle: document.getElementById('session-subtitle'),
+      activeModeBadge: document.getElementById('active-mode-badge'),
+      repCounterBadge: document.getElementById('rep-counter-badge'),
+      categorySelector: document.getElementById('category-selector'),
+      categoryGrid: document.getElementById('category-grid'),
+      confirmCategory: document.getElementById('btn-confirm-category'),
+      questionCard: document.getElementById('question-card'),
+      questionCategory: document.getElementById('question-category'),
+      questionTimer: document.getElementById('question-timer'),
+      questionText: document.getElementById('question-text'),
+      preGuidance: document.getElementById('pre-guidance'),
+      teachingVideoCta: document.getElementById('teaching-video-cta'),
+      watchExample: document.getElementById('btn-watch-example'),
+      enableCamera: document.getElementById('btn-enable-camera'),
+      record: document.getElementById('btn-record'),
+      stop: document.getElementById('btn-stop'),
+      cancelSession: document.getElementById('btn-cancel-session'),
+      cameraPreview: document.getElementById('camera-preview'),
+      framingOverlay: document.getElementById('framing-overlay'),
+      timerText: document.getElementById('timer-text'),
+      uploadProgress: document.getElementById('upload-progress'),
+      uploadProgressText: document.getElementById('upload-progress-text'),
+      deliveryPanel: document.getElementById('delivery-panel'),
+      pitchCanvas: document.getElementById('pitch-canvas'),
+      volumeFill: document.getElementById('volume-fill'),
+      deliveryStatusLine: document.getElementById('delivery-status-line'),
+      feedbackPanel: document.getElementById('feedback-panel'),
+      answerPlayback: document.getElementById('answer-playback'),
+      feedbackSummary: document.getElementById('feedback-summary'),
+      safGrid: document.getElementById('saf-grid'),
+      deliveryInsights: document.getElementById('delivery-insights'),
+      nextRep: document.getElementById('btn-next-rep'),
+      backDashboard: document.getElementById('btn-back-dashboard'),
+      simSummary: document.getElementById('simulation-summary'),
+      simSummaryText: document.getElementById('simulation-summary-text'),
+      simDashboard: document.getElementById('btn-sim-dashboard'),
+      videoWrap: document.getElementById('video-wrap'),
+      countdownOverlay: document.getElementById('countdown-overlay'),
+      countdownNumber: document.getElementById('countdown-number'),
+      countdownSublabel: document.getElementById('countdown-sublabel'),
+      timerBadgeWrap: document.getElementById('timer-badge-wrap'),
+    };
+
+    /* ---- Status system (floating pill, auto-dismiss) ---- */
+    function setStatus(message, tone = 'ok') {
+      const pill = el.globalStatus;
+      pill.textContent = message;
+      pill.className = `status-pill status-visible s-${tone}`;
+      if (state.statusTimer) clearTimeout(state.statusTimer);
+      state.statusTimer = setTimeout(() => {
+        pill.classList.remove('status-visible');
+      }, 4000);
+    }
+
+    function clearFlowToast() {
+      if (!el.flowToast) return;
+      el.flowToast.classList.remove('is-visible');
+      setTimeout(() => {
+        if (el.flowToast) el.flowToast.classList.add('hidden');
+      }, 250);
+    }
+
+    function showFlowToast(title, sub = '', tone = 'ok', durationMs = 1100) {
+      const toast = el.flowToast;
+      if (!toast) return Promise.resolve();
+      if (el.flowToastTitle) el.flowToastTitle.textContent = title;
+      if (el.flowToastSub) {
+        el.flowToastSub.textContent = sub;
+        el.flowToastSub.style.display = sub ? '' : 'none';
+      }
+      toast.classList.remove('hidden', 'tone-ok', 'tone-warn', 'tone-bad', 'is-visible');
+      toast.classList.add(`tone-${tone}`);
+      requestAnimationFrame(() => toast.classList.add('is-visible'));
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          clearFlowToast();
+          resolve();
+        }, durationMs);
+      });
+    }
+
+    function revealFeedbackPanelStaged() {
+      if (!el.feedbackPanel) return;
+      const stages = el.feedbackPanel.querySelectorAll('.feedback-stage');
+      if (!stages.length) return;
+      el.feedbackPanel.classList.add('reveal-ready', 'feedback-pulse');
+      stages.forEach((node) => node.classList.remove('is-visible'));
+      stages.forEach((node, index) => {
+        setTimeout(() => node.classList.add('is-visible'), 120 * index);
+      });
+      setTimeout(() => {
+        if (el.feedbackPanel) el.feedbackPanel.classList.remove('feedback-pulse');
+      }, 1000);
+    }
+
+    /* ---- View management ---- */
+    function showLobby() {
+      el.lobbyView.classList.remove('view-hidden');
+      el.sessionShell.classList.add('view-hidden');
+    }
+
+    function showSession() {
+      el.lobbyView.classList.add('view-hidden');
+      el.sessionShell.classList.remove('view-hidden');
+    }
+
+    /* ---- Utilities ---- */
+    function formatDate(value) {
+      if (!value) return '\u2014';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return '\u2014';
+      return d.toLocaleDateString();
+    }
+
+    function formatTime(totalSeconds) {
+      const mins = Math.floor(totalSeconds / 60).toString().padStart(2, '0');
+      const secs = Math.floor(totalSeconds % 60).toString().padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function clamp(value, min, max) {
+      return Math.min(max, Math.max(min, value));
+    }
+
+    /* ---- Delivery analysis (unchanged logic) ---- */
+    function resetDeliveryWidgets() {
+      const delivery = state.delivery;
+      delivery.pitchSeries = [];
+      delivery.smoothedVolume = 0;
+      delivery.currentHz = 0;
+      delivery.currentDb = 0;
+      delivery.confidence = 0;
+      if (el.volumeFill) {
+        el.volumeFill.style.height = '0%';
+        el.volumeFill.style.background = '#d15a5a';
+      }
+      if (el.deliveryStatusLine) {
+        el.deliveryStatusLine.textContent = 'Hz: -- | Vol: -- dB | Time: 00:00';
+      }
+      drawDeliveryPitchGraph();
+    }
+
+    function drawDeliveryPitchGraph() {
+      const canvas = el.pitchCanvas;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+
+      ctx.strokeStyle = 'rgba(100, 150, 220, 0.1)';
+      ctx.lineWidth = 1;
+      const rows = 5;
+      const cols = 8;
+      for (let row = 0; row <= rows; row += 1) {
+        const y = (row / rows) * height;
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+      }
+      for (let col = 0; col <= cols; col += 1) {
+        const x = (col / cols) * width;
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+      }
+
+      const series = state.delivery.pitchSeries;
+      if (!series.length) return;
+
+      ctx.strokeStyle = '#FF2D9C';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(255, 45, 156, 0.4)';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      const maxPoints = 800;
+      const baseX = width / Math.max(1, maxPoints - 1);
+      series.forEach((point, index) => {
+        const hz = clamp(Number(point.hz || 0), 50, 400);
+        const normalizedY = (hz - 50) / 350;
+        const x = index * baseX;
+        const y = height - (normalizedY * height);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+    }
+
+    function detectPitchAutoCorrelation(samples, sampleRate) {
+      const size = samples.length;
+      if (size < 2) return { frequency: 0, confidence: 0 };
+
+      let rms = 0;
+      for (let index = 0; index < size; index += 1) {
+        const value = samples[index] || 0;
+        rms += value * value;
+      }
+      rms = Math.sqrt(rms / size);
+      if (rms < 0.01) return { frequency: 0, confidence: 0 };
+
+      const minLag = Math.floor(sampleRate / 400);
+      const maxLag = Math.floor(sampleRate / 50);
+      let bestLag = 0;
+      let bestCorr = 0;
+
+      for (let lag = minLag; lag <= maxLag; lag += 1) {
+        let corr = 0;
+        let normA = 0;
+        let normB = 0;
+        for (let i = 0; i + lag < size; i += 1) {
+          const a = samples[i];
+          const b = samples[i + lag];
+          corr += a * b;
+          normA += a * a;
+          normB += b * b;
+        }
+        const denom = Math.sqrt(normA * normB);
+        if (!denom) continue;
+        const normalized = corr / denom;
+        if (normalized > bestCorr) {
+          bestCorr = normalized;
+          bestLag = lag;
+        }
+      }
+
+      if (!bestLag) return { frequency: 0, confidence: 0 };
+      const frequency = sampleRate / bestLag;
+      if (frequency < 50 || frequency > 400) return { frequency: 0, confidence: 0 };
+      return { frequency, confidence: clamp(bestCorr, 0, 1) };
+    }
+
+    function updateDeliveryStatusLine() {
+      if (!el.deliveryStatusLine) return;
+      const hzLabel = state.delivery.currentHz > 0 ? `${Math.round(state.delivery.currentHz)}` : '--';
+      const dbLabel = Number.isFinite(state.delivery.currentDb) ? `${Math.round(state.delivery.currentDb)}` : '--';
+      el.deliveryStatusLine.textContent = `Hz: ${hzLabel} | Vol: ${dbLabel} dB | Time: ${formatTime(state.elapsedSec)}`;
+    }
+
+    async function ensureDeliveryAudioPipeline() {
+      if (!state.mediaStream) throw new Error('delivery_media_stream_required');
+      const delivery = state.delivery;
+      if (delivery.audioContext && delivery.analyser && delivery.sourceNode) return;
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) throw new Error('audio_context_unavailable');
+
+      const audioContext = new AudioCtx({ sampleRate: 48000 });
+      const sourceNode = audioContext.createMediaStreamSource(state.mediaStream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      analyser.smoothingTimeConstant = 0.3;
+
+      sourceNode.connect(analyser);
+      delivery.audioContext = audioContext;
+      delivery.sourceNode = sourceNode;
+      delivery.analyser = analyser;
+    }
+
+    function stopDeliveryAnalysisLoop() {
+      const delivery = state.delivery;
+      delivery.running = false;
+      delivery.lastTickMs = 0;
+      if (delivery.rafId) {
+        cancelAnimationFrame(delivery.rafId);
+        delivery.rafId = 0;
+      }
+    }
+
+    function startDeliveryAnalysisLoop() {
+      const delivery = state.delivery;
+      if (!delivery.analyser || !delivery.audioContext || delivery.running) return;
+
+      const analyser = delivery.analyser;
+      const sampleBuffer = new Float32Array(analyser.fftSize);
+      delivery.running = true;
+
+      const loop = (ts) => {
+        if (!delivery.running) return;
+        if (!delivery.lastTickMs || ts - delivery.lastTickMs >= 75) {
+          delivery.lastTickMs = ts;
+          analyser.getFloatTimeDomainData(sampleBuffer);
+          const pitch = detectPitchAutoCorrelation(sampleBuffer, delivery.audioContext.sampleRate);
+
+          let sumSquares = 0;
+          for (let i = 0; i < sampleBuffer.length; i += 1) {
+            const value = sampleBuffer[i] || 0;
+            sumSquares += value * value;
+          }
+          const rms = Math.sqrt(sumSquares / sampleBuffer.length);
+          const volumeRaw = clamp(Math.round(rms * 160), 0, 100);
+          const alpha = 0.2;
+          delivery.smoothedVolume = (alpha * volumeRaw) + ((1 - alpha) * delivery.smoothedVolume);
+
+          const db = rms > 0 ? (20 * Math.log10(rms) + 100) : 0;
+          delivery.currentDb = clamp(db, 0, 100);
+          delivery.currentHz = pitch.frequency;
+          delivery.confidence = pitch.confidence;
+
+          const roundedHz = pitch.confidence >= 0.7 ? Math.round(pitch.frequency) : 0;
+          delivery.pitchSeries.push({ t: Date.now(), hz: roundedHz || 50 });
+          if (delivery.pitchSeries.length > 800) {
+            delivery.pitchSeries.splice(0, delivery.pitchSeries.length - 800);
+          }
+
+          const volPct = clamp(delivery.smoothedVolume, 0, 100);
+          if (el.volumeFill) {
+            el.volumeFill.style.height = `${volPct}%`;
+            if (volPct < 40) el.volumeFill.style.background = 'var(--bad)';
+            else if (volPct < 60) el.volumeFill.style.background = 'var(--warn)';
+            else el.volumeFill.style.background = 'var(--ok)';
+          }
+          drawDeliveryPitchGraph();
+          updateDeliveryStatusLine();
+        }
+        delivery.rafId = requestAnimationFrame(loop);
+      };
+      delivery.rafId = requestAnimationFrame(loop);
+    }
+
+    /* ---- API helpers ---- */
+    function safeJsonParse(text) {
+      try { return text ? JSON.parse(text) : {}; }
+      catch { return {}; }
+    }
+
+    async function apiJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = safeJsonParse(await response.text());
+      if (!response.ok) {
+        const message = data.error || data.message || `HTTP ${response.status}`;
+        throw new Error(String(message));
+      }
+      return data;
+    }
+
+    /* ---- Mode cards ---- */
+    function renderModeCards() {
+      el.modeGrid.innerHTML = '';
+      Object.entries(MODE_CONFIG).forEach(([key, config]) => {
+        const card = document.createElement('button');
+        card.type = 'button';
+        card.className = `mode-card${state.selectedMode === key ? ' active' : ''}`;
+        card.setAttribute('data-mode-key', key);
+        card.innerHTML = `
+          <div class="mode-icon">${config.icon || ''}</div>
+          <div class="mode-name">${config.name}</div>
+          <div class="mode-desc">${config.description}</div>
+          <div class="mode-meta">${config.session_size} rep${config.session_size > 1 ? 's' : ''} \u2022 ${config.duration_per_q}s each</div>
+        `;
+        card.addEventListener('click', () => {
+          state.selectedMode = key;
+          renderModeCards();
+        });
+        el.modeGrid.appendChild(card);
+      });
+    }
+
+    /* ---- Progress chart ---- */
+    function buildProgressChart(rows = []) {
+      const map = new Map();
+      const now = new Date();
+      for (let i = 6; i >= 0; i -= 1) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        map.set(d.toISOString().slice(0, 10), 0);
+      }
+      rows.forEach((row) => {
+        const key = String(row.submitted_at || '').slice(0, 10);
+        if (map.has(key)) map.set(key, map.get(key) + 1);
+      });
+
+      const values = [...map.values()];
+      const max = Math.max(3, ...values);
+      const width = 700;
+      const height = 150;
+      const barW = 60;
+      const gap = 35;
+      let x = 35;
+      const bars = [];
+      [...map.entries()].forEach(([key, count]) => {
+        const h = Math.round((count / max) * 100);
+        bars.push(`<defs><linearGradient id="bar-${key}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="rgba(0,229,255,0.8)"/><stop offset="100%" stop-color="rgba(0,80,180,0.4)"/></linearGradient></defs>`);
+        bars.push(`<rect x="${x}" y="${120 - h}" width="${barW}" height="${h}" fill="url(#bar-${key})" rx="4" />`);
+        bars.push(`<text x="${x + barW / 2}" y="138" font-size="10" fill="#5a7a9e" text-anchor="middle" font-family="Inter,system-ui" font-weight="600">${key.slice(5)}</text>`);
+        if (count > 0) {
+          bars.push(`<text x="${x + barW / 2}" y="${115 - h}" font-size="11" fill="#e8f0ff" text-anchor="middle" font-weight="800" font-family="Inter,system-ui">${count}</text>`);
+        }
+        x += (barW + gap);
+      });
+
+      const targetY = 120 - Math.round((3 / max) * 100);
+      el.chart.innerHTML = `
+        <rect x="0" y="0" width="${width}" height="${height}" fill="transparent" />
+        <line x1="20" y1="120" x2="680" y2="120" stroke="rgba(70,140,220,0.08)" stroke-width="1" />
+        <line x1="20" y1="${targetY}" x2="680" y2="${targetY}" stroke="rgba(255,215,0,0.3)" stroke-width="1.5" stroke-dasharray="4 4" />
+        <text x="680" y="${targetY - 5}" font-size="9" fill="rgba(255,215,0,0.6)" text-anchor="end" font-family="JetBrains Mono,monospace" font-weight="700">TARGET 3/DAY</text>
+        ${bars.join('')}
+      `;
+    }
+
+    /* ---- Streak ---- */
+    function computeLongestStreak(rows = []) {
+      const days = [...new Set(rows.map((row) => String(row.submitted_at || '').slice(0, 10)).filter(Boolean))].sort();
+      let longest = 0;
+      let run = 0;
+      let prev = null;
+      for (const day of days) {
+        const d = new Date(`${day}T00:00:00Z`).getTime();
+        if (prev === null) run = 1;
+        else {
+          const delta = (d - prev) / (24 * 60 * 60 * 1000);
+          run = delta === 1 ? run + 1 : 1;
+        }
+        longest = Math.max(longest, run);
+        prev = d;
+      }
+      return longest;
+    }
+
+    /* ---- History rendering ---- */
+    function renderHistory(rows = []) {
+      if (!rows.length) {
+        el.historyBody.innerHTML = '<div class="hint">No reps yet. Enter the arena to start.</div>';
+        return;
+      }
+      const top = rows.slice(0, 8);
+      el.historyBody.innerHTML = top.map((row) => {
+        const saf = row.saf_overall || (row.saf_scores ? 'developing' : '\u2014');
+        return `
+          <div class="history-row">
+            <div>
+              <div class="hr-title">${row.question_text || 'Question'}</div>
+              <div class="hr-meta">${formatDate(row.submitted_at)} \u2022 ${row.mode || 'mode'}</div>
+            </div>
+            <div class="hr-score">${saf}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* ---- Vault ---- */
+    function buildVaultQuestionOptions(rows = []) {
+      const seen = new Set();
+      const options = [];
+      rows.forEach((row) => {
+        const qid = String(row.question_id || '').trim();
+        const text = String(row.question_text || '').trim();
+        if (!qid || seen.has(qid)) return;
+        seen.add(qid);
+        options.push({ id: qid, label: text || `Question ${options.length + 1}` });
+      });
+      return options;
+    }
+
+    function renderVaultQuestionSelect(rows = []) {
+      const options = buildVaultQuestionOptions(rows);
+      const current = state.vault.selectedQuestionId;
+      el.vaultQuestionSelect.innerHTML = '<option value="">Select a question</option>';
+      options.forEach((item) => {
+        const option = document.createElement('option');
+        option.value = item.id;
+        option.textContent = item.label;
+        if (current && current === item.id) option.selected = true;
+        el.vaultQuestionSelect.appendChild(option);
+      });
+      if (!current && options[0]) {
+        state.vault.selectedQuestionId = options[0].id;
+        el.vaultQuestionSelect.value = options[0].id;
+      }
+    }
+
+    function safBadgeLabel(value) {
+      const normalized = String(value || '').toLowerCase();
+      if (normalized === 'strong') return 'Strong';
+      if (normalized === 'developing') return 'Developing';
+      if (normalized === 'missing') return 'Missing';
+      return 'Pending';
+    }
+
+    function renderVaultTimelineRows(rows = []) {
+      if (!rows.length) {
+        el.vaultTimeline.innerHTML = '<div class="hint">No answers recorded yet for this question.</div>';
+        return;
+      }
+      el.vaultTimeline.innerHTML = rows.map((row, index) => {
+        const duration = row.metrics && row.metrics.wpm ? `${row.metrics.wpm} wpm` : '';
+        return `
+          <div class="vault-entry${index === 0 ? ' active' : ''}" data-response-id="${row.response_id || ''}">
+            <strong>${formatDate(row.submitted_at)} \u2022 ${row.mode || ''}</strong>
+            <span class="hint">SAF: ${safBadgeLabel(row.saf_overall)}${duration ? ' \u2022 ' + duration : ''}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderThenVsNow(compare = null) {
+      if (!compare || !compare.first || !compare.latest) {
+        el.vaultCompare.classList.add('hidden');
+        el.vaultCompare.innerHTML = '';
+        el.vaultImprovement.classList.add('hidden');
+        el.vaultImprovement.textContent = '';
+        return;
+      }
+
+      const renderCard = (title, row) => `
+        <article class="compare-card">
+          <strong>${title}</strong>
+          <span class="hint">${formatDate(row.submitted_at)} \u2022 ${row.mode || ''} \u2022 SAF: ${safBadgeLabel(row.saf_overall)}</span>
+          <video controls>
+            <source src="${row.video_url || ''}" />
+          </video>
+          <div class="hint">${(Array.isArray(row.delivery_insights) ? row.delivery_insights.slice(0, 3) : []).join(' ') || 'Delivery insights pending.'}</div>
+        </article>
+      `;
+
+      el.vaultCompare.innerHTML = `
+        ${renderCard('Then (First Answer)', compare.first)}
+        ${renderCard('Now (Most Recent)', compare.latest)}
+      `;
+      el.vaultCompare.classList.remove('hidden');
+
+      if (compare.improvement) {
+        el.vaultImprovement.textContent = compare.improvement;
+        el.vaultImprovement.classList.remove('hidden');
+      } else {
+        el.vaultImprovement.classList.add('hidden');
+        el.vaultImprovement.textContent = '';
+      }
+    }
+
+    function scoreLabelFromExcerpt(excerpt = '') {
+      return String(excerpt || '').trim() ? 'Strong' : 'Developing';
+    }
+
+    function renderGoldAnswer(goldPayload = null, latestRow = null) {
+      if (!goldPayload) {
+        el.goldAnswer.classList.add('hidden');
+        el.goldAnswer.innerHTML = '';
+        return;
+      }
+
+      if (goldPayload.locked) {
+        el.goldAnswer.classList.remove('hidden');
+        el.goldAnswer.innerHTML = '<h4>Gold Answer Locked</h4><p class="hint">Record at least one answer to unlock Dr. Brian\'s gold answer and coaching notes.</p>';
+        return;
+      }
+
+      const gold = goldPayload.data;
+      if (!gold) {
+        el.goldAnswer.classList.add('hidden');
+        el.goldAnswer.innerHTML = '';
+        return;
+      }
+
+      const latestLabel = latestRow ? safBadgeLabel(latestRow.saf_overall) : 'Pending';
+      const breakdown = gold.saf_breakdown || {};
+      el.goldAnswer.classList.remove('hidden');
+      el.goldAnswer.innerHTML = `
+        <h4>Gold Answer Comparison</h4>
+        <div class="vault-compare">
+          <article class="compare-card">
+            <strong>Your Most Recent</strong>
+            <span class="hint">SAF: ${latestLabel}</span>
+            <video controls>
+              <source src="${latestRow?.video_url || ''}" />
+            </video>
+            <div class="hint">${(Array.isArray(latestRow?.delivery_insights) ? latestRow.delivery_insights.slice(0, 3) : []).join(' ') || ''}</div>
+          </article>
+          <article class="compare-card">
+            <strong>Gold (Dr. Brian)</strong>
+            <video controls>
+              <source src="${gold.video_url || ''}" />
+            </video>
+            <div class="saf-grid">
+              <div class="saf-item" data-saf="s"><strong>Start Simple</strong>${scoreLabelFromExcerpt(breakdown.start_simple)}${breakdown.start_simple ? ' \u2022 "' + breakdown.start_simple + '"' : ''}</div>
+              <div class="saf-item" data-saf="a"><strong>Add Reasons</strong>${scoreLabelFromExcerpt(breakdown.add_reasons)}${breakdown.add_reasons ? ' \u2022 "' + breakdown.add_reasons + '"' : ''}</div>
+              <div class="saf-item" data-saf="f"><strong>Focus Example</strong>${scoreLabelFromExcerpt(breakdown.focus_example)}${breakdown.focus_example ? ' \u2022 "' + breakdown.focus_example + '"' : ''}</div>
+              <div class="saf-item" data-saf="e"><strong>End Strong</strong>${scoreLabelFromExcerpt(breakdown.end_strong)}${breakdown.end_strong ? ' \u2022 "' + breakdown.end_strong + '"' : ''}</div>
+            </div>
+            <p class="hint">${gold.coaching_notes || ''}</p>
+          </article>
+        </div>
+      `;
+    }
+
+    function renderTeachingSuggestion(suggestion = null) {
+      if (!suggestion || !suggestion.video_url) {
+        el.teachingSuggestion.classList.add('hidden');
+        el.teachingSuggestion.innerHTML = '';
+        return;
+      }
+      if (state.session && state.session.teachingSuggestionShown) {
+        el.teachingSuggestion.classList.add('hidden');
+        el.teachingSuggestion.innerHTML = '';
+        return;
+      }
+
+      el.teachingSuggestion.classList.remove('hidden');
+      const duration = suggestion.duration_sec ? `${Math.round(Number(suggestion.duration_sec) / 60)} min` : 'Quick tip';
+      el.teachingSuggestion.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+          <strong style="font-size:0.82rem;">${suggestion.message || 'Here\'s a quick tip:'}</strong>
+          <button id="btn-dismiss-teaching" class="btn btn-ghost" type="button">Dismiss</button>
+        </div>
+        <p class="hint">${suggestion.title || 'Teaching video'} \u2022 ${duration}</p>
+        <video controls>
+          <source src="${suggestion.video_url}" />
+        </video>
+      `;
+      const dismiss = document.getElementById('btn-dismiss-teaching');
+      if (dismiss) {
+        dismiss.addEventListener('click', () => {
+          if (state.session) state.session.teachingSuggestionShown = true;
+          el.teachingSuggestion.classList.add('hidden');
+        });
+      }
+    }
+
+    async function loadVaultTimeline(questionId) {
+      if (!state.userId || !questionId) return;
+      state.vault.selectedQuestionId = questionId;
+      el.vaultTimeline.innerHTML = '<div class="skeleton" style="height:40px;"></div><div class="skeleton" style="height:40px;"></div>';
+      try {
+        const data = await apiJson(`/api/dboc/vault/timeline?user_id=${encodeURIComponent(state.userId)}&question_id=${encodeURIComponent(questionId)}`);
+        const timeline = Array.isArray(data.timeline) ? data.timeline : [];
+        state.vault.timeline = timeline;
+        renderVaultTimelineRows(timeline);
+        renderThenVsNow(data.then_vs_now || null);
+        renderGoldAnswer(data.gold_answer || null, data.then_vs_now?.latest || null);
+        renderTeachingSuggestion(data.teaching_suggestion || null);
+      } catch (error) {
+        el.vaultTimeline.innerHTML = `<div class="hint">Vault failed: ${error.message}</div>`;
+        el.vaultCompare.classList.add('hidden');
+        el.goldAnswer.classList.add('hidden');
+        el.teachingSuggestion.classList.add('hidden');
+      }
+    }
+
+    /* ---- Mode lock ---- */
+    function updateModeLockLabel() {
+      if (state.modeLocked && state.session) {
+        el.modeLockBadge.textContent = `Locked: ${MODE_CONFIG[state.session.mode].name}`;
+      } else {
+        el.modeLockBadge.textContent = 'Mode unlocked';
+      }
+    }
+
+    /* ---- Dashboard loading ---- */
+    function setDashboardLoadingState(isLoading) {
+      const targets = [el.totalReps, el.categoriesCovered, el.lastRep, el.streakCurrent];
+      targets.forEach((node) => {
+        if (!node) return;
+        node.classList.toggle('skeleton', isLoading);
+      });
+    }
+
+    async function loadDashboard() {
+      const userId = String(el.userId.value || '').trim();
+      if (!userId) {
+        setStatus('Enter your student ID to load.', 'warn');
+        return;
+      }
+
+      state.userId = userId;
+      setStatus('Loading...', 'ok');
+      setDashboardLoadingState(true);
+      try {
+        const [progress, responses] = await Promise.all([
+          apiJson(`/api/dboc/progress/get?user_id=${encodeURIComponent(userId)}`),
+          apiJson(`/api/dboc/responses/list?user_id=${encodeURIComponent(userId)}`),
+        ]);
+
+        state.progress = progress;
+        state.responses = Array.isArray(responses) ? responses : [];
+
+        el.totalReps.textContent = String(progress.total_reps || state.responses.length || 0);
+        el.categoriesCovered.textContent = String(Array.isArray(progress.categories_covered) ? progress.categories_covered.length : 0);
+        el.lastRep.textContent = formatDate(progress.last_rep_at);
+        el.streakCurrent.textContent = String(progress.streak || 0);
+
+        buildProgressChart(state.responses);
+        renderHistory(state.responses);
+        renderVaultQuestionSelect(state.responses);
+        if (state.vault.selectedQuestionId) {
+          await loadVaultTimeline(state.vault.selectedQuestionId);
+        } else {
+          el.vaultTimeline.innerHTML = '<div class="hint">Run a rep to unlock Answer Vault timeline.</div>';
+          el.vaultCompare.classList.add('hidden');
+          el.goldAnswer.classList.add('hidden');
+          el.teachingSuggestion.classList.add('hidden');
+        }
+
+        const completedReps = Number(progress.total_reps || 0);
+        if (completedReps === 0 && !state.warmupSkipped) {
+          showModal(el.warmupModal);
+        }
+
+        setStatus('Arena loaded.', 'ok');
+      } catch (error) {
+        setStatus(`Load failed: ${error.message}`, 'bad');
+      } finally {
+        setDashboardLoadingState(false);
+      }
+    }
+
+    /* ---- Modal helpers ---- */
+    function showModal(modalEl) {
+      modalEl.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          modalEl.classList.add('modal-visible');
+          modalEl.classList.add('mode-visible');
+        });
+      });
+    }
+
+    function hideModal(modalEl) {
+      modalEl.classList.remove('modal-visible');
+      modalEl.classList.remove('mode-visible');
+      const onEnd = () => {
+        modalEl.classList.add('hidden');
+        modalEl.removeEventListener('transitionend', onEnd);
+      };
+      modalEl.addEventListener('transitionend', onEnd);
+      setTimeout(() => { modalEl.classList.add('hidden'); }, 400);
+    }
+
+    /* ---- Mode selection ---- */
+    function openModeModal() {
+      if (state.modeLocked) {
+        setStatus('Mode locked until session ends.', 'warn');
+        return;
+      }
+      renderModeCards();
+      showModal(el.modeModal);
+    }
+
+    function closeModeModal() {
+      hideModal(el.modeModal);
+    }
+
+    /* ---- Category selector ---- */
+    function renderCategorySelector() {
+      el.categoryGrid.innerHTML = '';
+      CATEGORIES.forEach((category) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `btn btn-ghost${state.selectedCategory === category ? ' active' : ''}`;
+        button.textContent = category;
+        button.addEventListener('click', () => {
+          state.selectedCategory = category;
+          renderCategorySelector();
+        });
+        el.categoryGrid.appendChild(button);
+      });
+    }
+
+    /* ---- Mode theme ---- */
+    function applyModeTheme(modeKey) {
+      el.sessionShell.setAttribute('data-mode', modeKey);
+    }
+
+    /* ---- Session flow ---- */
+    async function startSession(modeKey) {
+      const config = MODE_CONFIG[modeKey];
+      state.modeLocked = true;
+      state.session = {
+        mode: modeKey,
+        planned: config.session_size,
+        done: 0,
+        startedAt: Date.now(),
+        results: [],
+        sharedSessionId: '',
+        teachingSuggestionShown: false,
+        currentTeachingVideoUrl: '',
+      };
+      state.selectedCategory = '';
+      updateModeLockLabel();
+      applyModeTheme(modeKey);
+
+      showSession();
+      el.feedbackPanel.classList.add('hidden');
+      el.simSummary.classList.add('hidden');
+      el.questionCard.classList.add('hidden');
+      el.categorySelector.classList.add('hidden');
+      el.teachingSuggestion.classList.add('hidden');
+      el.teachingVideoCta.classList.add('hidden');
+
+      el.activeModeBadge.textContent = `${config.icon} ${config.name}`;
+      el.repCounterBadge.textContent = `Rep ${state.session.done} / ${state.session.planned}`;
+
+      if (config.category_selector) {
+        renderCategorySelector();
+        el.categorySelector.classList.remove('hidden');
+      } else {
+        await prepareNextRep();
+      }
+    }
+
+    function buildGuidanceText(modeKey) {
+      if (!MODE_CONFIG[modeKey].pre_answer_guidance) return '';
+      return 'Think in 4 parts: 1) Start Simple  2) Add Reasons  3) Focus on ONE Example  4) End Strong';
+    }
+
+    async function fetchNextQuestion() {
+      const mode = state.session.mode;
+      const category = state.selectedCategory;
+      const query = new URLSearchParams({ user_id: state.userId, mode });
+      if (category) query.set('category', category);
+      const response = await apiJson(`/api/dboc/questions/select?${query.toString()}`);
+      if (!response.question_id) throw new Error('No question available.');
+      return response;
+    }
+
+    async function prepareNextRep() {
+      const config = MODE_CONFIG[state.session.mode];
+      if (state.session.done >= state.session.planned) {
+        completeSession();
+        return;
+      }
+
+      try {
+        setStatus('Loading question...', 'ok');
+        el.questionText.classList.add('skeleton');
+        el.questionText.textContent = ' ';
+        const question = await fetchNextQuestion();
+
+        state.session.currentQuestion = question;
+        el.questionText.classList.remove('skeleton');
+        el.questionCategory.textContent = question.category || 'General';
+        el.questionText.textContent = question.text || 'Question unavailable.';
+        el.questionTimer.textContent = `${config.duration_per_q}s`;
+        el.preGuidance.textContent = buildGuidanceText(state.session.mode);
+        el.preGuidance.classList.toggle('hidden', !config.pre_answer_guidance);
+        state.session.currentTeachingVideoUrl = String(question.teaching_video_url || '').trim();
+        el.teachingVideoCta.classList.toggle('hidden', !state.session.currentTeachingVideoUrl);
+
+        el.categorySelector.classList.add('hidden');
+        el.questionCard.classList.remove('hidden');
+        el.feedbackPanel.classList.add('hidden');
+        el.simSummary.classList.add('hidden');
+        el.repCounterBadge.textContent = `Rep ${state.session.done + 1} / ${state.session.planned}`;
+        const showDeliveryUi = Boolean(config.delivery_training_ui);
+        el.deliveryPanel.classList.toggle('hidden', !showDeliveryUi);
+        if (showDeliveryUi) resetDeliveryWidgets();
+
+        setUploadProgress(0, 'Upload progress: 0%');
+        setStatus('Question ready. Enable camera and record.', 'ok');
+      } catch (error) {
+        el.questionText.classList.remove('skeleton');
+        setStatus(`Question failed: ${error.message}`, 'bad');
+      }
+    }
+
+    function setUploadProgress(percent, text) {
+      const value = Math.max(0, Math.min(100, Number(percent) || 0));
+      el.uploadProgress.style.width = `${value}%`;
+      el.uploadProgressText.textContent = text || `Upload: ${Math.round(value)}%`;
+    }
+
+    /* ---- Camera + Recording ---- */
+    function detectCodec() {
+      const candidates = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/mp4'];
+      for (const mime of candidates) {
+        if (window.MediaRecorder && MediaRecorder.isTypeSupported(mime)) return mime;
+      }
+      return '';
+    }
+
+    function drawFramingOverlay() {
+      const canvas = el.framingOverlay;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) return;
+      const width = canvas.width = canvas.clientWidth;
+      const height = canvas.height = canvas.clientHeight;
+      if (!width || !height) return;
+      ctx.clearRect(0, 0, width, height);
+      const x = width * 0.12;
+      const y = height * 0.12;
+      const w = width * 0.76;
+      const h = height * 0.76;
+      ctx.strokeStyle = 'rgba(0, 255, 133, 0.5)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 8]);
+      ctx.strokeRect(x, y, w, h);
+      ctx.setLineDash([]);
+    }
+
+    async function enableCamera() {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('getUserMedia unavailable');
+        }
+        state.mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        el.cameraPreview.srcObject = state.mediaStream;
+        await el.cameraPreview.play();
+        state.detectedCodec = detectCodec();
+        if (!state.detectedCodec) throw new Error('No supported recording codec');
+        drawFramingOverlay();
+        el.record.disabled = false;
+        setStatus('Camera ready.', 'ok');
+      } catch (error) {
+        setStatus(`Camera error: ${error.message}`, 'bad');
+      }
+    }
+
+    function stopRecorderTimer() {
+      if (state.recordInterval) {
+        clearInterval(state.recordInterval);
+        state.recordInterval = null;
+      }
+      el.timerText.textContent = '00:00';
+      if (el.timerBadgeWrap) el.timerBadgeWrap.classList.remove('timer-warning');
+    }
+
+    function startRecorderTimer(secondsLimit) {
+      stopRecorderTimer();
+      state.elapsedSec = 0;
+      el.timerText.textContent = '00:00';
+      state.recordInterval = setInterval(() => {
+        state.elapsedSec += 1;
+        el.timerText.textContent = formatTime(state.elapsedSec);
+        if (state.elapsedSec >= secondsLimit - 10 && el.timerBadgeWrap) {
+          el.timerBadgeWrap.classList.add('timer-warning');
+        }
+        if (state.elapsedSec >= secondsLimit) {
+          stopRecording();
+          setStatus('Time limit reached.', 'warn');
+        }
+      }, 1000);
+    }
+
+    /* ---- Countdown ---- */
+    function runCountdown() {
+      return new Promise((resolve) => {
+        const overlay = el.countdownOverlay;
+        let numEl = el.countdownNumber;
+        const subEl = el.countdownSublabel;
+        if (!overlay || !numEl) { resolve(); return; }
+
+        const steps = [
+          { text: '3', sub: 'Get ready' },
+          { text: '2', sub: 'Take a breath' },
+          { text: '1', sub: 'Here we go' },
+        ];
+        let idx = 0;
+        overlay.classList.add('countdown-active');
+
+        function showStep() {
+          if (idx >= steps.length) {
+            overlay.classList.remove('countdown-active');
+            resolve();
+            return;
+          }
+          numEl.textContent = steps[idx].text;
+          subEl.textContent = steps[idx].sub;
+          const clone = numEl.cloneNode(true);
+          clone.classList.add('countdown-beat');
+          numEl.parentNode.replaceChild(clone, numEl);
+          numEl = clone;
+          idx += 1;
+          setTimeout(showStep, 800);
+        }
+        showStep();
+      });
+    }
+
+    async function startRecording() {
+      if (!state.mediaStream) { setStatus('Enable camera first.', 'warn'); return; }
+      if (!state.detectedCodec) { setStatus('No supported codec.', 'bad'); return; }
+
+      el.record.disabled = true;
+      await runCountdown();
+
+      state.recordedChunks = [];
+      state.mediaRecorder = new MediaRecorder(state.mediaStream, { mimeType: state.detectedCodec });
+      state.mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) state.recordedChunks.push(event.data);
+      };
+      state.mediaRecorder.onstop = () => {
+        stopDeliveryAnalysisLoop();
+        stopRecorderTimer();
+        el.stop.style.display = 'none';
+        el.record.disabled = false;
+        if (el.videoWrap) el.videoWrap.classList.remove('is-recording');
+        const blob = new Blob(state.recordedChunks, { type: state.detectedCodec });
+        if (!blob.size) { setStatus('Recording empty.', 'bad'); return; }
+        void submitRepBlob(blob);
+      };
+
+      if (state.session && state.session.mode === 'delivery_training') {
+        try {
+          await ensureDeliveryAudioPipeline();
+          startDeliveryAnalysisLoop();
+        } catch (error) {
+          setStatus(`Delivery analysis unavailable: ${error.message}`, 'warn');
+        }
+      } else {
+        stopDeliveryAnalysisLoop();
+      }
+
+      state.mediaRecorder.start(1000);
+      startRecorderTimer(MODE_CONFIG[state.session.mode].duration_per_q);
+      if (el.videoWrap) el.videoWrap.classList.add('is-recording');
+      el.record.disabled = true;
+      el.stop.style.display = 'inline-flex';
+      setStatus('Recording...', 'ok');
+    }
+
+    function stopRecording() {
+      if (state.mediaRecorder && state.mediaRecorder.state !== 'inactive') {
+        state.mediaRecorder.stop();
+      }
+      stopDeliveryAnalysisLoop();
+    }
+
+    /* ---- Upload + Submit ---- */
+    async function sleep(ms) {
+      await new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    async function waitOnline() {
+      if (navigator.onLine) return;
+      setStatus('Waiting for network...', 'warn');
+      await new Promise((resolve) => {
+        const fn = () => { window.removeEventListener('online', fn); resolve(); };
+        window.addEventListener('online', fn);
+      });
+    }
+
+    async function uploadBlobChunked(blob) {
+      const signed = await apiJson('/api/dboc/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: state.userId, filename: `dboc_${Date.now()}.webm` }),
+      });
+
+      const signedUrl = String(signed.signed_url || '').trim();
+      if (!signedUrl) throw new Error('signed_url_missing');
+
+      const total = blob.size;
+      const parts = Math.max(1, Math.ceil(total / CHUNK_SIZE));
+      let uploaded = 0;
+
+      for (let index = 0; index < parts; index += 1) {
+        const start = index * CHUNK_SIZE;
+        const endExclusive = Math.min(start + CHUNK_SIZE, total);
+        const endInclusive = Math.max(start, endExclusive - 1);
+        const chunk = blob.slice(start, endExclusive);
+        const chunkUrl = `${signedUrl}${signedUrl.includes('?') ? '&' : '?'}part=${index + 1}&parts=${parts}`;
+
+        let success = false;
+        for (let attempt = 0; attempt < RETRY_DELAYS_MS.length; attempt += 1) {
+          try {
+            await waitOnline();
+            const response = await fetch(chunkUrl, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/octet-stream',
+                'Content-Range': `bytes ${start}-${endInclusive}/${total}`,
+              },
+              body: chunk,
+            });
+            if (!response.ok) throw new Error(`upload_http_${response.status}`);
+            success = true;
+            break;
+          } catch (error) {
+            if (attempt === RETRY_DELAYS_MS.length - 1) throw error;
+            setUploadProgress((uploaded / total) * 100, `Retrying upload (${attempt + 2}/3)...`);
+            await sleep(RETRY_DELAYS_MS[attempt]);
+          }
+        }
+
+        if (!success) throw new Error('chunk_upload_failed');
+        uploaded += chunk.size;
+        const pct = Math.round((uploaded / total) * 100);
+        setUploadProgress(pct, `Uploading... ${pct}%`);
+      }
+
+      return signedUrl.split('?')[0] || signedUrl;
+    }
+
+    async function createSession(questionId) {
+      return apiJson('/api/dboc/sessions/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: state.userId, question_id: questionId, mode: state.session.mode }),
+      });
+    }
+
+    async function getOrCreateSessionId(questionId) {
+      const mode = state.session.mode;
+      const sharedSessionMode = mode === 'guided_practice' || mode === 'simulation';
+      if (sharedSessionMode && state.session.sharedSessionId) return state.session.sharedSessionId;
+
+      const session = await createSession(questionId);
+      const sessionId = String(session.session_id || '').trim();
+      if (!sessionId) throw new Error('session_id_missing');
+      if (sharedSessionMode) state.session.sharedSessionId = sessionId;
+      return sessionId;
+    }
+
+    async function submitResponse(sessionId, videoUrl, questionId, mode) {
+      return apiJson('/api/dboc/responses/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, question_id: questionId, mode, video_url: videoUrl }),
+      });
+    }
+
+    async function triggerEncode(responseId, videoUrl) {
+      return apiJson('/api/dboc/encode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response_id: responseId, video_url: videoUrl }),
+      });
+    }
+
+    async function pollResponse(responseId) {
+      const maxPolls = 35;
+      for (let i = 0; i < maxPolls; i += 1) {
+        await sleep(2000);
+        const rows = await apiJson(`/api/dboc/responses/list?user_id=${encodeURIComponent(state.userId)}`);
+        const row = Array.isArray(rows)
+          ? rows.find((item) => String(item.response_id || '').trim() === String(responseId).trim())
+          : null;
+        if (!row) continue;
+        const tStatus = String(row.transcription_status || '').trim();
+        const hasTranscript = Boolean(String(row.transcript_text || '').trim());
+        if (hasTranscript || tStatus === 'completed' || tStatus === 'failed') return row;
+      }
+      return null;
+    }
+
+    /* ---- SAF rendering ---- */
+    function renderSafCard(scores) {
+      if (!scores) {
+        el.safGrid.innerHTML = '<div class="saf-item">SAF(e) not available yet.</div>';
+        return;
+      }
+      const rows = [
+        ['Start Simple', scores.s_score, 's'],
+        ['Add Reasons', scores.a_reasons, 'a'],
+        ['Focus Example', scores.f_focus, 'f'],
+        ['End Strong', scores.e_closing, 'e'],
+      ];
+
+      function label(score) {
+        if (Number(score) >= 10) return 'Present';
+        if (Number(score) >= 5) return 'Needs Work';
+        return 'Missing';
+      }
+
+      el.safGrid.innerHTML = rows.map(([name, score, safKey]) => `
+        <div class="saf-item" data-saf="${safKey}"><strong>${name}</strong>${label(score)} (${score})</div>
+      `).join('');
+    }
+
+    function renderInsights(insights = []) {
+      if (!Array.isArray(insights) || !insights.length) {
+        el.deliveryInsights.innerHTML = '';
+        return;
+      }
+      el.deliveryInsights.innerHTML = insights.map((item) => `<div class="saf-item">${item}</div>`).join('');
+    }
+
+    /* ---- Rep submission ---- */
+    async function submitRepBlob(blob) {
+      try {
+        clearFlowToast();
+        setStatus('Uploading...', 'ok');
+        const videoUrl = await uploadBlobChunked(blob);
+
+        setStatus('Creating session...', 'ok');
+        const questionId = String(state.session.currentQuestion.question_id || '').trim();
+        const sessionId = await getOrCreateSessionId(questionId);
+
+        setStatus('Submitting...', 'ok');
+        const submission = await submitResponse(sessionId, videoUrl, questionId, state.session.mode);
+        const responseId = String(submission.response_id || '').trim();
+        if (!responseId) throw new Error('response_id_missing');
+
+        setStatus('Processing media...', 'ok');
+        await triggerEncode(responseId, videoUrl);
+
+        setStatus('Running SAF analysis...', 'ok');
+        const row = await pollResponse(responseId);
+
+        state.session.done += 1;
+        state.session.results.push({ response_id: responseId, video_url: videoUrl, row });
+
+        if (!state.vault.selectedQuestionId || state.vault.selectedQuestionId === questionId) {
+          state.vault.selectedQuestionId = questionId;
+          el.vaultQuestionSelect.value = questionId;
+          await loadVaultTimeline(questionId);
+        }
+        void loadDashboard();
+
+        if (MODE_CONFIG[state.session.mode].post_answer_feedback && state.session.mode !== 'simulation') {
+          el.feedbackPanel.classList.remove('hidden');
+          el.answerPlayback.src = videoUrl;
+          el.feedbackSummary.textContent = row && row.saf_scores
+            ? (row.saf_scores.feedback_text || 'Feedback generated.')
+            : 'Feedback pending.';
+          renderSafCard(row ? row.saf_scores : null);
+          renderInsights(row ? row.delivery_insights : []);
+          revealFeedbackPanelStaged();
+        } else {
+          el.feedbackPanel.classList.add('hidden');
+        }
+
+        await showFlowToast('Response Logged', 'Preparing next rep', 'ok', 1100);
+
+        el.repCounterBadge.textContent = `Rep ${state.session.done} / ${state.session.planned}`;
+        if (state.session.done >= state.session.planned) {
+          completeSession();
+          return;
+        }
+
+        if (state.session.mode === 'simulation') {
+          await prepareNextRep();
+        } else {
+          setStatus('Rep complete. Review or continue.', 'ok');
+        }
+      } catch (error) {
+        setStatus(`Submission failed: ${error.message}`, 'bad');
+      }
+    }
+
+    function completeSession() {
+      const elapsed = Math.round((Date.now() - state.session.startedAt) / 1000);
+      if (state.session.mode === 'simulation') {
+        el.simSummary.classList.remove('hidden');
+        el.feedbackPanel.classList.add('hidden');
+        el.questionCard.classList.add('hidden');
+        el.simSummaryText.textContent = `${state.session.done}/${state.session.planned} questions in ${formatTime(elapsed)}.`;
+      } else {
+        setStatus(`Session complete (${state.session.done}/${state.session.planned}).`, 'ok');
+      }
+      state.modeLocked = false;
+      updateModeLockLabel();
+      void loadDashboard();
+    }
+
+    function endSessionAndReset() {
+      stopDeliveryAnalysisLoop();
+      state.modeLocked = false;
+      state.session = null;
+      updateModeLockLabel();
+      showLobby();
+      el.feedbackPanel.classList.add('hidden');
+      el.simSummary.classList.add('hidden');
+      if (el.videoWrap) el.videoWrap.classList.remove('is-recording');
+      stopRecorderTimer();
+      setStatus('Back in the arena.', 'ok');
+    }
+
+    /* ---- Event bindings ---- */
+    function bindEvents() {
+      el.loadDashboard.addEventListener('click', () => { void loadDashboard(); });
+      el.userId.addEventListener('keydown', (e) => { if (e.key === 'Enter') void loadDashboard(); });
+
+      el.refreshVault.addEventListener('click', () => {
+        if (!state.vault.selectedQuestionId) { setStatus('Select a vault question first.', 'warn'); return; }
+        void loadVaultTimeline(state.vault.selectedQuestionId);
+      });
+      el.vaultQuestionSelect.addEventListener('change', (event) => {
+        const value = String(event.target.value || '').trim();
+        state.vault.selectedQuestionId = value;
+        if (!value) {
+          el.vaultTimeline.innerHTML = '<div class="hint">Select a question to view timeline.</div>';
+          el.vaultCompare.classList.add('hidden');
+          el.goldAnswer.classList.add('hidden');
+          el.teachingSuggestion.classList.add('hidden');
+          return;
+        }
+        void loadVaultTimeline(value);
+      });
+
+      el.openMode.addEventListener('click', openModeModal);
+      el.closeMode.addEventListener('click', closeModeModal);
+      el.startMode.addEventListener('click', async () => {
+        closeModeModal();
+        await startSession(state.selectedMode);
+      });
+
+      el.confirmCategory.addEventListener('click', async () => {
+        if (!state.selectedCategory) { setStatus('Choose a category first.', 'warn'); return; }
+        await prepareNextRep();
+      });
+
+      el.watchExample.addEventListener('click', () => {
+        const videoUrl = String(state.session?.currentTeachingVideoUrl || '').trim();
+        if (!videoUrl) { setStatus('No teaching video for this question.', 'warn'); return; }
+        renderTeachingSuggestion({
+          skill_tag: 'Question Example',
+          title: 'Watch Example',
+          video_url: videoUrl,
+          duration_sec: null,
+          message: "Here's a quick example:",
+        });
+      });
+
+      el.enableCamera.addEventListener('click', () => { void enableCamera(); });
+      el.record.addEventListener('click', startRecording);
+      el.stop.addEventListener('click', stopRecording);
+      el.cancelSession.addEventListener('click', endSessionAndReset);
+      el.nextRep.addEventListener('click', () => { void prepareNextRep(); });
+      el.backDashboard.addEventListener('click', endSessionAndReset);
+      el.simDashboard.addEventListener('click', endSessionAndReset);
+
+      el.warmupCamera.addEventListener('click', () => { void enableCamera(); });
+      el.skipWarmup.addEventListener('click', () => {
+        state.warmupSkipped = true;
+        hideModal(el.warmupModal);
+      });
+      el.startWarmupRep.addEventListener('click', async () => {
+        state.warmupSkipped = true;
+        hideModal(el.warmupModal);
+        state.selectedMode = 'quick_rep';
+        await startSession('quick_rep');
+      });
+
+      window.addEventListener('beforeunload', () => {
+        stopDeliveryAnalysisLoop();
+        if (state.mediaStream) state.mediaStream.getTracks().forEach((track) => track.stop());
+      });
+    }
+
+    /* ================================================================
+       PSYCHOLOGY LAYER
+       ================================================================ */
+
+    const DAILY_GOAL = 3;
+    const MOMENTUM_MESSAGES = [
+      'Nice one. Keep the momentum.',
+      'Building that muscle.',
+      'One more closer to ready.',
+      'Consistency wins interviews.',
+      'Your future self thanks you.',
+      'That felt better than last time.',
+    ];
+
+    function triggerRepCelebration() {
+      const flash = document.createElement('div');
+      flash.className = 'rep-complete-flash';
+      document.body.appendChild(flash);
+      flash.addEventListener('animationend', () => flash.remove());
+    }
+
+    function showMomentumMessage(container) {
+      if (!container) return;
+      const existing = container.querySelector('.momentum-msg');
+      if (existing) existing.remove();
+      const msg = document.createElement('div');
+      msg.className = 'momentum-msg';
+      msg.textContent = MOMENTUM_MESSAGES[Math.floor(Math.random() * MOMENTUM_MESSAGES.length)];
+      container.appendChild(msg);
+      msg.addEventListener('animationend', () => msg.remove());
+    }
+
+    function updateDailyProgress(todayReps) {
+      const totalRepsEl = el.totalReps;
+      if (!totalRepsEl) return;
+      const statContainer = totalRepsEl.closest('.player-stat');
+      if (!statContainer) return;
+
+      let bar = statContainer.querySelector('.daily-progress');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.className = 'daily-progress';
+        bar.innerHTML = '<div class="daily-progress-fill"></div>';
+        statContainer.appendChild(bar);
+      }
+      const fill = bar.querySelector('.daily-progress-fill');
+      const pct = Math.min(100, (todayReps / DAILY_GOAL) * 100);
+      fill.style.width = `${pct}%`;
+      fill.classList.toggle('goal-hit', todayReps >= DAILY_GOAL);
+    }
+
+    function animateStatPop(el) {
+      if (!el) return;
+      el.classList.add('stat-pop');
+      setTimeout(() => el.classList.remove('stat-pop'), 400);
+    }
+
+    function updateStreakFire(streak) {
+      const streakEl = el.streakCurrent;
+      if (!streakEl) return;
+      streakEl.classList.toggle('streak-fire', streak >= 3);
+    }
+
+    function countTodayReps(responses) {
+      const today = new Date().toISOString().slice(0, 10);
+      return responses.filter(r => String(r.submitted_at || '').startsWith(today)).length;
+    }
+
+    function showImprovementBadge(container, type) {
+      if (!container) return;
+      const existing = container.querySelector('.improvement-badge');
+      if (existing) existing.remove();
+      const badge = document.createElement('span');
+      badge.className = `improvement-badge badge-${type}`;
+      badge.textContent = type === 'up' ? '\u2191 Improved' : '\u2605 New best';
+      container.appendChild(badge);
+      setTimeout(() => badge.remove(), 4000);
+    }
+
+    /* Patch: hook into existing loadDashboard success */
+    const _originalSetStatus = setStatus;
+    function setStatus(message, tone = 'ok') {
+      _originalSetStatus(message, tone);
+      if (message === 'Arena loaded.' && state.responses) {
+        const todayCount = countTodayReps(state.responses);
+        updateDailyProgress(todayCount);
+        updateStreakFire(Number(state.progress?.streak || 0));
+        if (Number(el.totalReps?.textContent) > 0) animateStatPop(el.totalReps);
+        if (Number(el.streakCurrent?.textContent) > 0) animateStatPop(el.streakCurrent);
+      }
+    }
+
+    /* Patch: hook celebration into rep complete */
+    const _originalSubmitRepBlob = submitRepBlob;
+    submitRepBlob = async function(blob) {
+      const prevDone = state.session ? state.session.done : 0;
+      await _originalSubmitRepBlob(blob);
+      if (state.session && state.session.done > prevDone) {
+        triggerRepCelebration();
+        showMomentumMessage(el.feedbackPanel);
+      }
+    };
+
+    /* Timer critical state at 5s */
+    const _originalStartRecorderTimer = startRecorderTimer;
+    startRecorderTimer = function(secondsLimit) {
+      _originalStartRecorderTimer(secondsLimit);
+      const origInterval = state.recordInterval;
+      clearInterval(origInterval);
+      state.elapsedSec = 0;
+      el.timerText.textContent = '00:00';
+      state.recordInterval = setInterval(() => {
+        state.elapsedSec += 1;
+        el.timerText.textContent = formatTime(state.elapsedSec);
+        if (state.elapsedSec >= secondsLimit - 10 && el.timerBadgeWrap) {
+          el.timerBadgeWrap.classList.add('timer-warning');
+        }
+        if (state.elapsedSec >= secondsLimit - 5 && el.timerBadgeWrap) {
+          el.timerBadgeWrap.classList.add('timer-critical');
+        }
+        if (state.elapsedSec >= secondsLimit) {
+          stopRecording();
+          _originalSetStatus('Time limit reached.', 'warn');
+        }
+      }, 1000);
+    };
+
+    function init() {
+      const fromQuery = new URLSearchParams(window.location.search).get('user_id');
+      if (fromQuery) el.userId.value = fromQuery;
+      renderModeCards();
+      updateModeLockLabel();
+      bindEvents();
+    }
+
+    init();
+  </script>
+</body>
+</html>

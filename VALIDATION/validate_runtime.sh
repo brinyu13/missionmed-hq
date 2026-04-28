@@ -155,6 +155,7 @@ ARENA_REMOTE="$TMP_DIR/arena.html"
 STAT_REMOTE="$TMP_DIR/stat.html"
 DRILLS_REMOTE="$TMP_DIR/drills.html"
 DAILY_REMOTE="$TMP_DIR/daily.html"
+IVONCALL_REMOTE="$TMP_DIR/ivoncall.html"
 
 for f in "$ARENA_REMOTE" "$STAT_REMOTE" "$DRILLS_REMOTE"; do
   if [[ -s "$f" ]]; then
@@ -178,11 +179,19 @@ fi
 if [[ -s "$ARENA_REMOTE" ]]; then
   require_contains_file "$ARENA_REMOTE" "STAT_CANONICAL_ROUTE = '/stat'" "Arena route to /stat intact"
   require_contains_file "$ARENA_REMOTE" "/drills?entry=daily_rounds" "Arena daily menu routing intact"
+  require_contains_file "$ARENA_REMOTE" "IV_ON_CALL_CANONICAL_ROUTE = '/ivoncall.html'" "Arena IV On-Call routing intact"
+  require_absent_file "$ARENA_REMOTE" "/dboc_interview_v1.html" "Arena legacy IV route removed"
 fi
 
 if [[ -s "$DAILY_REMOTE" ]]; then
   require_contains_file "$DAILY_REMOTE" "mm_selected_drill" "Daily contract payload marker present"
   require_contains_file "$DAILY_REMOTE" "/drills?video_id=" "Daily drill launch query marker present"
+fi
+
+if [[ -s "$IVONCALL_REMOTE" ]]; then
+  require_contains_file "$IVONCALL_REMOTE" "/api/dboc/" "IV On-Call DBOC route markers present"
+else
+  fail "Downloaded file missing: $IVONCALL_REMOTE"
 fi
 
 if [[ -s "$DRILLS_REMOTE" ]]; then
@@ -197,14 +206,14 @@ for f in "$ARENA_REMOTE" "$STAT_REMOTE" "$DAILY_REMOTE"; do
   fi
 done
 
-for f in "$ARENA_REMOTE" "$STAT_REMOTE" "$DRILLS_REMOTE" "$DAILY_REMOTE"; do
+for f in "$ARENA_REMOTE" "$STAT_REMOTE" "$DRILLS_REMOTE" "$DAILY_REMOTE" "$IVONCALL_REMOTE"; do
   if [[ -s "$f" ]]; then
     require_absent_file "$f" "plgndqcplokwiuimwhzh" "No deprecated Supabase project in $(basename "$f")"
   fi
 done
 
 if [[ "$TARGET_ENV" == "LIVE" ]]; then
-  for page in arena stat drills daily; do
+  for page in arena stat drills daily ivoncall; do
     canonical_url="${CANONICAL_CDN_BASE_URL}/html-system/LIVE/${page}.html"
     canonical_code=$(curl --silent --show-error --location --max-time "$TIMEOUT" \
       --output /dev/null --write-out '%{http_code}' \
@@ -222,6 +231,7 @@ if [[ "$TARGET_ENV" == "LIVE" ]]; then
     "/stat"
     "/drills"
     "/daily"
+    "/ivoncall.html"
     "/drills?entry=daily_rounds"
   )
   for endpoint in "${proxy_endpoints[@]}"; do

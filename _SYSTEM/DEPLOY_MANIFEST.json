@@ -17,6 +17,10 @@
     {
       "source": "LIVE/daily.html",
       "destination": "html-system/STAGING/daily.html"
+    },
+    {
+      "source": "LIVE/ivoncall.html",
+      "destination": "html-system/STAGING/ivoncall.html"
     }
   ]
 }

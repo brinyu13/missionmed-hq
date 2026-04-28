@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>STAT! — Reimagined</title>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Fredoka:wght@500;600;700&family=Orbitron:wght@700;800;900&family=Righteous&family=Russo+One&family=Poppins:wght@500;600;700;800;900&display=swap" rel="stylesheet"/>
+<style>
+/* =============================================
+   RESET + BASE
+   ============================================= */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{-webkit-font-smoothing:antialiased;transition:background .45s,color .45s}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+button:focus{outline:none}
+input{font-family:inherit}
+
+/* =============================================
+   THEME: STORM (Fortnite Battle Storm)
+   Purple vortex + gold lightning + pink energy
+   ============================================= */
+body.t-storm{
+  --bg:linear-gradient(145deg,#0f0525 0%,#1a0a3e 35%,#12063a 70%,#0a0420 100%);
+  --panel:rgba(90,40,180,.12);--panel-b:rgba(138,80,255,.22);--panel-hover:rgba(138,80,255,.18);
+  --glass:rgba(18,6,58,.88);--glass-b:rgba(138,80,255,.2);
+  --a1:#b47aff;--a2:#ff6eb4;--a3:#ffd84a;
+  --txt:#f0e8ff;--txt2:#c9b6f0;--txt3:#8a72b0;
+  --ok:#5bffa8;--no:#ff5c8a;
+  --grad1:linear-gradient(135deg,#b47aff,#ff6eb4);--grad2:linear-gradient(135deg,#ffd84a,#ff6eb4);
+  --glow1:rgba(180,122,255,.45);--glow2:rgba(255,110,180,.35);
+  --font1:'Bungee',cursive;--font2:'Fredoka',sans-serif;
+  --av-p:linear-gradient(135deg,#b47aff,#7c3aed);--av-o:linear-gradient(135deg,#ff6eb4,#e11d48);
+  --ring:conic-gradient(from 0deg,#b47aff,#ff6eb4,#ffd84a,#b47aff);
+  background:var(--bg);font-family:var(--font2);color:var(--txt);
+}
+
+/* THEME: NEON RAVE (Fortnite Party Royale) */
+body.t-neon{
+  --bg:linear-gradient(145deg,#020810 0%,#050d1a 35%,#0a0a20 70%,#020612 100%);
+  --panel:rgba(0,255,136,.05);--panel-b:rgba(0,255,136,.18);--panel-hover:rgba(0,255,136,.1);
+  --glass:rgba(5,8,18,.92);--glass-b:rgba(0,255,136,.14);
+  --a1:#00ff88;--a2:#ff00cc;--a3:#00e0ff;
+  --txt:#e0ffe8;--txt2:#7affb0;--txt3:#3d8a5a;
+  --ok:#00ff88;--no:#ff2266;
+  --grad1:linear-gradient(135deg,#00ff88,#00e0ff);--grad2:linear-gradient(135deg,#ff00cc,#ff6600);
+  --glow1:rgba(0,255,136,.4);--glow2:rgba(255,0,204,.3);
+  --font1:'Bungee',cursive;--font2:'Fredoka',sans-serif;
+  --av-p:linear-gradient(135deg,#00ff88,#00b060);--av-o:linear-gradient(135deg,#ff00cc,#cc0066);
+  --ring:conic-gradient(from 0deg,#00ff88,#00e0ff,#ff00cc,#00ff88);
+  background:var(--bg);font-family:var(--font2);color:var(--txt);
+}
+
+/* THEME: ROYALE GOLD (Fortnite Victory Royale) */
+body.t-royale{
+  --bg:linear-gradient(145deg,#0c0a1e 0%,#16103a 35%,#1a1240 70%,#0e0a22 100%);
+  --panel:rgba(255,200,50,.06);--panel-b:rgba(255,200,50,.2);--panel-hover:rgba(255,200,50,.12);
+  --glass:rgba(14,10,34,.9);--glass-b:rgba(255,200,50,.16);
+  --a1:#ffc832;--a2:#ff7a2e;--a3:#ffe8a0;
+  --txt:#fff5e0;--txt2:#ffd480;--txt3:#997a40;
+  --ok:#66ff99;--no:#ff5050;
+  --grad1:linear-gradient(135deg,#ffc832,#ff7a2e);--grad2:linear-gradient(135deg,#ff7a2e,#ff3860);
+  --glow1:rgba(255,200,50,.4);--glow2:rgba(255,122,46,.3);
+  --font1:'Russo One',sans-serif;--font2:'Fredoka',sans-serif;
+  --av-p:linear-gradient(135deg,#ffc832,#e0a000);--av-o:linear-gradient(135deg,#ff7a2e,#cc4400);
+  --ring:conic-gradient(from 0deg,#ffc832,#ff7a2e,#ffe8a0,#ffc832);
+  background:var(--bg);font-family:var(--font2);color:var(--txt);
+}
+
+/* THEME: CYBERDECK (Non-Fortnite gamer) */
+body.t-cyber{
+  --bg:linear-gradient(145deg,#0a0a0a 0%,#0e0818 35%,#080c1a 70%,#060606 100%);
+  --panel:rgba(255,50,120,.05);--panel-b:rgba(255,50,120,.16);--panel-hover:rgba(255,50,120,.1);
+  --glass:rgba(8,6,14,.93);--glass-b:rgba(255,50,120,.12);
+  --a1:#ff3278;--a2:#00d4ff;--a3:#c8ff00;
+  --txt:#ffe8f0;--txt2:#ffb0c8;--txt3:#8a5068;
+  --ok:#c8ff00;--no:#ff2020;
+  --grad1:linear-gradient(135deg,#ff3278,#c8ff00);--grad2:linear-gradient(135deg,#00d4ff,#0066ff);
+  --glow1:rgba(255,50,120,.4);--glow2:rgba(0,212,255,.3);
+  --font1:'Orbitron',sans-serif;--font2:'Poppins',sans-serif;
+  --av-p:linear-gradient(135deg,#00d4ff,#0080cc);--av-o:linear-gradient(135deg,#ff3278,#cc0044);
+  --ring:conic-gradient(from 0deg,#ff3278,#00d4ff,#c8ff00,#ff3278);
+  background:var(--bg);font-family:var(--font2);color:var(--txt);
+}
+
+/* =============================================
+   THEME SWITCHER — floating pill, top-right
+   ============================================= */
+.themer{
+  position:fixed;top:10px;right:10px;z-index:9999;
+  display:flex;gap:4px;padding:5px 8px;border-radius:16px;
+  background:var(--glass);border:1px solid var(--glass-b);
+  backdrop-filter:blur(14px);box-shadow:0 4px 24px rgba(0,0,0,.5);
+}
+.themer button{
+  padding:5px 11px;border-radius:11px;font-size:10px;font-weight:700;
+  letter-spacing:.8px;text-transform:uppercase;color:var(--txt3);
+  transition:all .2s;white-space:nowrap;
+}
+.themer button:hover{color:var(--txt)}
+.themer button.on{background:var(--grad1);color:#000;box-shadow:0 0 14px var(--glow1)}
+
+/* =============================================
+   SCREEN TABS — bottom bar
+   ============================================= */
+.tabs{
+  position:fixed;bottom:0;left:0;right:0;z-index:9998;
+  display:flex;justify-content:center;gap:3px;padding:6px 10px;
+  background:var(--glass);border-top:1px solid var(--glass-b);
+  backdrop-filter:blur(14px);
+}
+.tabs button{
+  padding:6px 13px;border-radius:10px;font-size:9px;font-weight:700;
+  letter-spacing:1.2px;text-transform:uppercase;color:var(--txt3);transition:all .2s;
+}
+.tabs button:hover{color:var(--txt2)}
+.tabs button.on{color:var(--a1);background:var(--panel);border:1px solid var(--panel-b)}
+
+/* =============================================
+   APP SHELL
+   ============================================= */
+.app{width:100%;height:100vh;position:relative;overflow:hidden}
+.scr{
+  display:none;position:absolute;inset:0;
+  padding:10px 24px 44px;
+  flex-direction:column;
+  animation:sin .35s ease;
+}
+.scr.on{display:flex}
+@keyframes sin{from{opacity:0;transform:scale(.97)}to{opacity:1;transform:scale(1)}}
+
+/* Shared label */
+.lbl{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--txt3);font-weight:700}
+
+/* =============================================
+   SCREEN 1 — LOBBY (Version Select reimagined)
+   Full-width hero banner at top, mode tiles below,
+   profile ring left, quick-stats strip right
+   ============================================= */
+
+.lobby{gap:0}
+
+/* Top hero strip */
+.lobby-hero{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 0 12px;flex-shrink:0;
+}
+.lobby-logo{display:flex;align-items:center;gap:10px}
+.logo-icon{
+  width:44px;height:44px;border-radius:14px;
+  background:var(--grad1);box-shadow:0 0 22px var(--glow1);
+  display:grid;place-items:center;font-family:var(--font1);
+  font-size:16px;color:#000;font-weight:900;
+}
+.logo-title{font-family:var(--font1);font-size:22px;color:var(--txt);letter-spacing:1px}
+.logo-sub{font-size:9px;letter-spacing:3px;text-transform:uppercase;color:var(--txt3)}
+
+.lobby-actions{display:flex;gap:8px;align-items:center}
+.pill{
+  padding:5px 13px;border-radius:999px;font-size:10px;font-weight:700;
+  letter-spacing:.8px;border:1px solid var(--panel-b);background:var(--panel);
+  color:var(--a1);transition:all .2s;
+}
+.pill:hover{background:var(--panel-hover);transform:translateY(-1px);box-shadow:0 4px 14px var(--glow1)}
+
+/* Main lobby grid */
+.lobby-grid{
+  flex:1;display:grid;
+  grid-template-columns:220px 1fr 220px;
+  grid-template-rows:1fr;
+  gap:16px;min-height:0;padding-top:8px;
+}
+
+/* Left: Player identity card */
+.id-card{
+  background:var(--panel);border:1px solid var(--panel-b);border-radius:20px;
+  padding:16px;display:flex;flex-direction:column;align-items:center;
+  gap:10px;position:relative;overflow:hidden;
+}
+.id-card::before{
+  content:"";position:absolute;inset:-60%;
+  background:var(--ring);filter:blur(60px);opacity:.15;
+  animation:idSpin 20s linear infinite;pointer-events:none;
+}
+@keyframes idSpin{to{transform:rotate(360deg)}}
+
+.id-ring{
+  width:80px;height:80px;border-radius:50%;padding:4px;
+  background:var(--ring);position:relative;z-index:1;
+  box-shadow:0 0 24px var(--glow1);
+}
+.id-ring-inner{
+  width:100%;height:100%;border-radius:50%;
+  background:var(--av-p);display:grid;place-items:center;
+  font-size:36px;
+}
+.id-name{font-family:var(--font1);font-size:16px;position:relative;z-index:1;text-align:center}
+.id-rank{
+  font-size:11px;color:var(--a1);font-weight:700;
+  padding:3px 12px;border-radius:999px;
+  background:var(--panel);border:1px solid var(--panel-b);
+  position:relative;z-index:1;
+}
+
+.xp-bar{
+  width:100%;height:6px;border-radius:99px;
+  background:rgba(255,255,255,.06);overflow:hidden;
+  position:relative;z-index:1;
+}
+.xp-fill{height:100%;width:67%;background:var(--grad1);border-radius:inherit;box-shadow:0 0 8px var(--glow1)}
+
+.id-stats{
+  width:100%;display:flex;flex-direction:column;gap:4px;
+  position:relative;z-index:1;
+}
+.id-stat{display:flex;justify-content:space-between;font-size:11px;color:var(--txt3)}
+.id-stat strong{color:var(--txt);font-weight:700}
+
+/* Center: Mode select */
+.modes{
+  display:flex;flex-direction:column;gap:12px;justify-content:center;
+  padding:0 20px;
+}
+.modes-head{text-align:center;margin-bottom:4px}
+.modes-title{
+  font-family:var(--font1);
+  font-size:clamp(28px,3.5vw,44px);
+  line-height:1.05;
+  background:var(--grad1);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.modes-sub{color:var(--txt3);font-size:12px;margin-top:4px}
+
+.mode-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+.mode-tile{
+  padding:16px;border-radius:16px;
+  background:var(--panel);border:1px solid var(--panel-b);
+  text-align:left;transition:all .25s;position:relative;overflow:hidden;
+}
+.mode-tile:hover{
+  transform:translateY(-3px);border-color:var(--a1);
+  box-shadow:0 8px 28px var(--glow1);
+}
+.mode-tile.hero{
+  grid-column:1/-1;
+  background:var(--panel-hover);border-color:var(--a1);
+  box-shadow:0 4px 20px var(--glow1);
+  display:flex;align-items:center;gap:16px;
+}
+.mode-tile.hero::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.08) 50%,transparent 70%);
+  transform:translateX(-100%);animation:mShim 4s ease-in-out infinite;pointer-events:none;
+}
+@keyframes mShim{50%,100%{transform:translateX(100%)}}
+
+.mode-icon{
+  width:48px;height:48px;border-radius:14px;
+  background:var(--grad1);display:grid;place-items:center;
+  font-size:22px;flex-shrink:0;box-shadow:0 0 16px var(--glow1);
+}
+.mode-info h3{font-family:var(--font1);font-size:16px;color:var(--txt);margin-bottom:2px}
+.mode-info p{font-size:11px;color:var(--txt3);line-height:1.4}
+.mode-tag{
+  display:inline-block;padding:2px 8px;border-radius:6px;
+  font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:800;
+  background:rgba(255,255,255,.06);color:var(--a1);margin-bottom:6px;
+}
+.mode-tile.locked{opacity:.4;pointer-events:none}
+.mode-tile.locked .mode-tag{color:var(--txt3)}
+
+/* Right: Live feed / quick stats */
+.feed{
+  background:var(--panel);border:1px solid var(--panel-b);border-radius:20px;
+  padding:14px;display:flex;flex-direction:column;gap:8px;overflow:hidden;
+}
+.feed-title{font-family:var(--font1);font-size:12px;color:var(--a1);letter-spacing:1px}
+.feed-item{
+  padding:8px 10px;border-radius:10px;
+  background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04);
+  font-size:11px;color:var(--txt2);display:flex;align-items:center;gap:8px;
+}
+.feed-dot{
+  width:6px;height:6px;border-radius:50%;flex-shrink:0;
+  background:var(--a1);box-shadow:0 0 8px var(--glow1);
+}
+.feed-dot.hot{background:var(--a2);box-shadow:0 0 8px var(--glow2)}
+.feed-item strong{color:var(--txt);font-weight:700}
+.feed-item .ts{margin-left:auto;font-size:9px;color:var(--txt3)}
+.feed-cta{
+  margin-top:auto;padding:10px;border-radius:12px;
+  background:var(--grad1);color:#000;font-weight:800;
+  font-size:12px;text-align:center;letter-spacing:1px;
+  text-transform:uppercase;transition:all .2s;
+  box-shadow:0 4px 18px var(--glow1);
+}
+.feed-cta:hover{transform:translateY(-2px);box-shadow:0 8px 28px var(--glow1)}
+
+/* =============================================
+   SCREEN 2 — LOADOUT (Settings reimagined)
+   Two-panel: left = visual config wheel,
+   right = live match preview card
+   ============================================= */
+.loadout{gap:0}
+.loadout-top{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 0 10px;flex-shrink:0;
+}
+.loadout-back{
+  padding:6px 14px;border-radius:10px;font-size:10px;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;color:var(--txt3);
+  border:1px solid rgba(255,255,255,.08);transition:all .2s;
+}
+.loadout-back:hover{color:var(--txt);border-color:var(--panel-b)}
+
+.loadout-grid{
+  flex:1;display:grid;grid-template-columns:1fr 300px;gap:18px;min-height:0;
+}
+
+.config-panel{
+  background:var(--panel);border:1px solid var(--panel-b);border-radius:20px;
+  padding:20px;overflow-y:auto;display:flex;flex-direction:column;gap:14px;
+}
+.config-panel::-webkit-scrollbar{width:4px}
+.config-panel::-webkit-scrollbar-thumb{background:rgba(255,255,255,.08);border-radius:99px}
+
+.cfg-title{font-family:var(--font1);font-size:20px;color:var(--txt)}
+.cfg-sub{font-size:11px;color:var(--txt3);margin-top:-8px}
+
+.cfg-group{display:flex;flex-direction:column;gap:6px}
+.cfg-group .lbl{margin-bottom:2px}
+
+.cfg-opts{display:flex;gap:6px;flex-wrap:wrap}
+.cfg-opt{
+  padding:10px 16px;border-radius:12px;
+  background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);
+  font-size:12px;font-weight:600;color:var(--txt2);
+  transition:all .2s;display:flex;align-items:center;gap:6px;
+}
+.cfg-opt:hover{border-color:var(--a1);color:var(--txt);transform:translateY(-1px)}
+.cfg-opt.on{
+  border-color:var(--a1);background:var(--panel-hover);color:var(--txt);
+  box-shadow:0 0 12px var(--glow1);
+}
+.cfg-opt .sub{font-size:9px;color:var(--txt3);font-weight:500}
+
+/* Match preview card */
+.match-preview{
+  display:flex;flex-direction:column;gap:12px;
+}
+.preview-card{
+  background:var(--panel);border:1px solid var(--panel-b);border-radius:18px;
+  padding:18px;flex:1;display:flex;flex-direction:column;gap:8px;
+}
+.preview-card h4{
+  font-family:var(--font1);font-size:12px;color:var(--a3);letter-spacing:1px;
+}
+.preview-row{
+  display:flex;justify-content:space-between;padding:5px 0;
+  border-bottom:1px solid rgba(255,255,255,.04);font-size:12px;color:var(--txt3);
+}
+.preview-row:last-child{border-bottom:none}
+.preview-row .v{color:var(--txt);font-weight:700}
+.preview-reward{
+  text-align:center;padding:10px;border-radius:12px;
+  border:1px dashed var(--panel-b);
+  font-family:var(--font1);font-size:18px;color:var(--a3);
+  margin-top:auto;
+}
+.go-btn{
+  padding:16px;border-radius:16px;font-family:var(--font1);
+  font-size:14px;letter-spacing:2px;text-transform:uppercase;
+  background:var(--grad1);color:#000;
+  box-shadow:0 6px 24px var(--glow1);transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.go-btn:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 10px 32px var(--glow1)}
+.go-btn::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.22) 50%,transparent 70%);
+  transform:translateX(-100%);animation:mShim 3s ease-in-out infinite;pointer-events:none;
+}
+
+/* =============================================
+   SCREEN 3 — FACE-OFF (Matchup reimagined)
+   Cinematic split-screen with VS in center
+   ============================================= */
+.faceoff{justify-content:center;align-items:center;position:relative}
+.faceoff::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse at center,var(--glow1),transparent 60%);
+  animation:foPulse 3s ease-in-out infinite;opacity:.3;
+}
+@keyframes foPulse{0%,100%{opacity:.2;transform:scale(.95)}50%{opacity:.4;transform:scale(1.05)}}
+
+.fo-card{
+  position:relative;width:min(820px,96%);
+  padding:28px 32px;border-radius:24px;
+  background:var(--glass);border:2px solid var(--a1);
+  box-shadow:0 0 60px var(--glow1);
+}
+.fo-badge{
+  position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  padding:6px 20px;border-radius:999px;
+  background:var(--grad1);color:#000;
+  font-family:var(--font1);font-size:10px;letter-spacing:2px;text-transform:uppercase;
+  box-shadow:0 4px 16px var(--glow1);
+}
+
+.fo-split{
+  display:grid;grid-template-columns:1fr 100px 1fr;align-items:center;
+  gap:8px;margin:20px 0 18px;
+}
+.fo-player{display:flex;flex-direction:column;align-items:center;gap:8px}
+.fo-av{
+  width:72px;height:72px;border-radius:50%;padding:3px;
+  background:var(--ring);box-shadow:0 0 20px var(--glow1);
+}
+.fo-av-inner{
+  width:100%;height:100%;border-radius:50%;display:grid;place-items:center;font-size:30px;
+}
+.fo-av-inner.p{background:var(--av-p);color:#000}
+.fo-av-inner.o{background:var(--av-o);color:#fff}
+.fo-pname{font-family:var(--font1);font-size:15px}
+.fo-pmeta{font-size:10px;color:var(--txt3);letter-spacing:1px}
+
+.fo-vs{
+  font-family:var(--font1);font-size:48px;text-align:center;
+  background:var(--grad2);-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:vsP 1.2s ease-in-out infinite;filter:drop-shadow(0 0 12px var(--glow2));
+}
+@keyframes vsP{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+
+.fo-stats{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px;
+}
+.fo-stat{
+  padding:10px;border-radius:12px;background:var(--panel);
+  border:1px solid var(--panel-b);text-align:center;
+}
+.fo-stat .lbl{margin-bottom:2px}
+.fo-stat .val{font-family:var(--font1);font-size:16px;color:var(--txt)}
+
+.fo-enter{
+  width:100%;padding:16px;border-radius:16px;
+  font-family:var(--font1);font-size:15px;letter-spacing:3px;text-transform:uppercase;
+  background:var(--grad2);color:#000;
+  box-shadow:0 6px 30px var(--glow2);transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.fo-enter:hover{transform:scale(1.02);box-shadow:0 10px 40px var(--glow2)}
+.fo-enter::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.2) 50%,transparent 70%);
+  transform:translateX(-100%);animation:mShim 3s ease-in-out infinite;pointer-events:none;
+}
+
+/* =============================================
+   SCREEN 4 — DROP (Countdown reimagined)
+   Full cinematic countdown like a battle bus drop
+   ============================================= */
+.drop{justify-content:center;align-items:center;position:relative}
+.drop::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(circle at center,var(--glow2),transparent 50%);
+  animation:dropGlow 1.4s ease-in-out infinite;opacity:.4;
+}
+@keyframes dropGlow{0%,100%{opacity:.25;transform:scale(.9)}50%{opacity:.5;transform:scale(1.1)}}
+
+.drop-num{
+  font-family:var(--font1);font-size:clamp(140px,20vw,220px);
+  line-height:.8;color:var(--a3);
+  text-shadow:0 0 60px var(--glow2),0 0 120px var(--glow1);
+  animation:dropPulse 1s ease infinite;position:relative;z-index:1;
+}
+@keyframes dropPulse{
+  0%{transform:scale(.6);opacity:0}
+  50%{transform:scale(1.05);opacity:1}
+  100%{transform:scale(1.2);opacity:0}
+}
+.drop-label{
+  font-family:var(--font1);font-size:12px;letter-spacing:4px;text-transform:uppercase;
+  color:var(--a3);position:relative;z-index:1;margin-bottom:8px;
+}
+.drop-names{font-size:13px;color:var(--txt3);position:relative;z-index:1;margin-top:8px}
+
+/* =============================================
+   SCREEN 5 — ARENA (Gameplay reimagined)
+   Compact top HUD bar, question dominates center,
+   opponent presence integrated, NOT a 3-column
+   ============================================= */
+.arena{gap:0;padding-top:8px}
+
+/* Top HUD strip — horizontal, compact */
+.hud-strip{
+  display:grid;grid-template-columns:1fr auto 1fr;
+  gap:10px;align-items:center;flex-shrink:0;
+  padding:6px 0 8px;
+}
+
+.hud-cell{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 12px;border-radius:14px;
+  background:var(--panel);border:1px solid var(--panel-b);
+}
+.hud-cell.p{border-color:var(--a1);box-shadow:0 0 14px var(--glow1)}
+.hud-cell.o{border-color:var(--a2);box-shadow:0 0 14px var(--glow2);justify-content:flex-end}
+
+.hud-av{
+  width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+  font-size:16px;flex-shrink:0;
+}
+.hud-cell.p .hud-av{background:var(--av-p);color:#000}
+.hud-cell.o .hud-av{background:var(--av-o);color:#fff}
+
+.hud-info{display:flex;flex-direction:column;min-width:0}
+.hud-nm{font-size:12px;font-weight:800;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-sub{font-size:9px;color:var(--txt3);letter-spacing:1px;display:flex;align-items:center;gap:4px}
+
+.hud-sc{
+  font-family:var(--font1);font-size:26px;color:var(--a1);
+  margin-left:auto;flex-shrink:0;
+}
+.hud-cell.o .hud-sc{color:var(--a2);margin-left:0;margin-right:auto}
+.hud-cell.o .hud-info{align-items:flex-end}
+
+/* Center scoreboard bubble */
+.hud-center{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+}
+.hud-q{font-family:var(--font1);font-size:14px;color:var(--a3)}
+.hud-timer-wrap{
+  width:52px;height:52px;position:relative;
+}
+.hud-timer-wrap svg{transform:rotate(-90deg)}
+.hud-timer-wrap .tbg{stroke:rgba(255,255,255,.07)}
+.hud-timer-wrap .tfg{stroke:var(--a1)}
+.hud-timer-wrap .tnum{
+  position:absolute;inset:0;display:grid;place-items:center;
+  font-family:var(--font1);font-size:17px;color:var(--txt);
+}
+
+/* Streak + point chips */
+.arena-chips{
+  display:flex;justify-content:center;gap:8px;flex-shrink:0;padding:4px 0;
+}
+.achip{
+  padding:4px 12px;border-radius:999px;font-size:10px;font-weight:700;
+  letter-spacing:.8px;border:1px solid var(--panel-b);background:var(--panel);color:var(--a1);
+}
+.achip.streak{border-color:var(--a3);color:var(--a3);background:rgba(255,255,255,.03)}
+.achip.pts{border-color:var(--a1);color:var(--a1)}
+.achip.opp{border-color:var(--a2);color:var(--a2)}
+
+/* Question area */
+.q-zone{
+  flex:1;display:flex;flex-direction:column;justify-content:center;
+  padding:0 40px;min-height:0;
+}
+
+.q-bar{
+  height:4px;border-radius:99px;background:rgba(255,255,255,.05);
+  overflow:hidden;margin-bottom:10px;flex-shrink:0;
+}
+.q-bar-fill{
+  height:100%;width:72%;border-radius:inherit;
+  background:linear-gradient(90deg,var(--a1),var(--a3),var(--a2));
+}
+
+.q-text{
+  font-size:clamp(16px,2vw,22px);font-weight:700;line-height:1.4;
+  color:var(--txt);margin-bottom:14px;
+}
+
+.q-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+
+.q-choice{
+  padding:14px 16px;border-radius:14px;
+  background:var(--panel);border:1px solid var(--panel-b);
+  text-align:left;font-size:13px;font-weight:600;color:var(--txt);
+  transition:all .18s;display:flex;align-items:center;gap:10px;
+  min-height:52px;
+}
+.q-choice:hover{
+  border-color:var(--a1);transform:translateY(-2px);
+  background:var(--panel-hover);box-shadow:0 4px 18px var(--glow1);
+}
+.q-choice.picked{
+  border-color:var(--a1);background:var(--panel-hover);
+  box-shadow:0 0 16px var(--glow1);
+}
+
+.q-letter{
+  width:26px;height:26px;border-radius:8px;
+  background:rgba(255,255,255,.06);display:grid;place-items:center;
+  font-size:11px;font-weight:800;color:var(--txt3);flex-shrink:0;
+}
+.q-choice.picked .q-letter{background:var(--grad1);color:#000}
+
+/* Bottom status line */
+.arena-foot{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:6px 40px 0;flex-shrink:0;font-size:10px;color:var(--txt3);
+}
+.opp-ind{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:8px;
+  background:rgba(255,255,255,.02);border:1px solid var(--panel-b);
+}
+.opp-dot{
+  width:6px;height:6px;border-radius:50%;background:var(--a2);
+  box-shadow:0 0 8px var(--glow2);animation:odot 1s ease-in-out infinite;
+}
+@keyframes odot{0%,100%{transform:scale(.8);opacity:.5}50%{transform:scale(1.2);opacity:1}}
+
+/* =============================================
+   SCREEN 6 — VICTORY (Results reimagined)
+   Huge banner, compact side-by-side cards,
+   rewards strip, coaching tip, CTA
+   ============================================= */
+.victory{justify-content:center;align-items:center;gap:10px;position:relative}
+.victory::before{
+  content:"";position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 30%,var(--glow1),transparent 55%);
+  opacity:.2;pointer-events:none;
+}
+
+.v-banner{
+  font-family:var(--font1);
+  font-size:clamp(48px,8vw,88px);
+  background:var(--grad1);-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:vIn .8s ease;position:relative;z-index:1;text-align:center;
+  filter:drop-shadow(0 0 20px var(--glow1));
+}
+@keyframes vIn{0%{letter-spacing:24px;opacity:0;filter:blur(12px)}100%{letter-spacing:-1px;opacity:1;filter:blur(0)}}
+
+.v-sub{color:var(--txt3);font-size:12px;text-align:center;position:relative;z-index:1}
+
+.v-cards{
+  display:grid;grid-template-columns:1fr 60px 1fr;gap:10px;
+  width:100%;max-width:700px;align-items:stretch;position:relative;z-index:1;
+}
+.v-card{
+  padding:16px;border-radius:16px;background:var(--panel);
+  border:1px solid var(--panel-b);text-align:center;
+}
+.v-card.w{border-color:var(--a1);box-shadow:0 0 22px var(--glow1)}
+.v-card.l{border-color:var(--a2);box-shadow:0 0 22px var(--glow2)}
+.v-card h3{font-size:13px;color:var(--txt);margin-bottom:6px;font-weight:800}
+.v-card .big{font-family:var(--font1);font-size:36px;margin-bottom:6px}
+.v-card.w .big{color:var(--a1)}
+.v-card.l .big{color:var(--a2)}
+.v-row{
+  display:flex;justify-content:space-between;padding:3px 0;
+  font-size:10px;color:var(--txt3);border-top:1px solid rgba(255,255,255,.04);
+}
+.v-row strong{color:var(--txt);font-weight:700}
+.v-div{
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font1);font-size:28px;
+  background:var(--grad2);-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+
+.v-rewards{
+  display:flex;gap:8px;position:relative;z-index:1;
+}
+.v-rw{
+  padding:8px 18px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--panel-b);
+  font-family:var(--font1);font-size:14px;color:var(--a3);
+  box-shadow:0 0 14px rgba(0,0,0,.2);
+}
+
+.v-tip{
+  display:flex;align-items:center;gap:10px;
+  padding:10px 16px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--panel-b);
+  max-width:520px;width:100%;position:relative;z-index:1;
+}
+.v-tip-icon{
+  width:24px;height:24px;border-radius:50%;background:var(--panel-hover);
+  display:grid;place-items:center;font-size:13px;color:var(--a1);flex-shrink:0;
+}
+.v-tip-text{font-size:12px;color:var(--txt2);line-height:1.3}
+.v-tip-text strong{color:var(--txt)}
+
+.v-actions{display:flex;gap:10px;position:relative;z-index:1}
+.v-btn{
+  padding:14px 28px;border-radius:14px;font-family:var(--font1);
+  font-size:12px;letter-spacing:2px;text-transform:uppercase;
+  transition:all .2s;
+}
+.v-btn.primary{
+  background:var(--grad1);color:#000;box-shadow:0 6px 24px var(--glow1);
+  position:relative;overflow:hidden;
+}
+.v-btn.primary:hover{transform:translateY(-2px) scale(1.02);box-shadow:0 10px 32px var(--glow1)}
+.v-btn.primary::after{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.2) 50%,transparent 70%);
+  transform:translateX(-100%);animation:mShim 3s ease-in-out infinite;pointer-events:none;
+}
+.v-btn.ghost{
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+  color:var(--txt2);
+}
+.v-btn.ghost:hover{border-color:var(--panel-b);color:var(--txt)}
+
+/* =============================================
+   PARTICLES
+   ============================================= */
+.ptcls{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.ptcl{
+  position:absolute;border-radius:50%;opacity:.25;
+  animation:ptclUp linear infinite;
+}
+@keyframes ptclUp{
+  0%{transform:translateY(100vh) rotate(0);opacity:0}
+  8%{opacity:.35}88%{opacity:.35}
+  100%{transform:translateY(-30px) rotate(600deg);opacity:0}
+}
+</style>
+</head>
+<body class="t-storm">
+
+<div class="ptcls" id="ptcls"></div>
+
+<div class="themer">
+  <button class="on" data-t="storm">Storm</button>
+  <button data-t="neon">Neon</button>
+  <button data-t="royale">Royale</button>
+  <button data-t="cyber">Cyber</button>
+</div>
+
+<nav class="tabs">
+  <button class="on" data-s="lobby">Lobby</button>
+  <button data-s="loadout">Loadout</button>
+  <button data-s="faceoff">Face-Off</button>
+  <button data-s="drop">Drop</button>
+  <button data-s="arena">Arena</button>
+  <button data-s="victory">Victory</button>
+</nav>
+
+<div class="app">
+
+<!-- ============ LOBBY ============ -->
+<section class="scr on" id="s-lobby">
+  <div class="lobby-hero">
+    <div class="lobby-logo">
+      <div class="logo-icon">ST</div>
+      <div><div class="logo-title">STAT!</div><div class="logo-sub">Async Duel Engine</div></div>
+    </div>
+    <div class="lobby-actions">
+      <button class="pill">Challenge</button>
+      <button class="pill">Leaderboard</button>
+      <button class="pill" style="border-color:var(--a3);color:var(--a3)">Build 2.0</button>
+    </div>
+  </div>
+  <div class="lobby-grid">
+
+    <!-- Player ID Card -->
+    <div class="id-card">
+      <div class="id-ring"><div class="id-ring-inner">&#129504;</div></div>
+      <div class="id-name">Dr. Brian</div>
+      <div class="id-rank">Rank 19</div>
+      <div class="xp-bar"><div class="xp-fill"></div></div>
+      <div style="font-size:9px;color:var(--txt3);width:100%;text-align:right">2,780 XP to Rank 20</div>
+      <div class="id-stats">
+        <div class="id-stat"><span>Win Rate</span><strong>71%</strong></div>
+        <div class="id-stat"><span>Avg Response</span><strong>3.4s</strong></div>
+        <div class="id-stat"><span>Best Streak</span><strong>11</strong></div>
+        <div class="id-stat"><span>This Week</span><strong>12 duels</strong></div>
+        <div class="id-stat"><span>Queued</span><strong style="color:var(--a3)">3</strong></div>
+      </div>
+    </div>
+
+    <!-- Mode Select Center -->
+    <div class="modes">
+      <div class="modes-head">
+        <div class="modes-title">Choose Your Mode</div>
+        <div class="modes-sub">Pick a duel format and jump in</div>
+      </div>
+      <div class="mode-tiles">
+        <button class="mode-tile hero" onclick="go('loadout')">
+          <div class="mode-icon">&#9889;</div>
+          <div class="mode-info">
+            <div class="mode-tag">&#9733; Current Build</div>
+            <h3>STAT! v2 Async Duel</h3>
+            <p>Full competitive flow: settings, matchup, countdown, timed duel, result reveal with streaks and scoring.</p>
+          </div>
+        </button>
+        <div class="mode-tile locked">
+          <div class="mode-tag">Legacy</div>
+          <h3>STAT v1</h3>
+          <p>Previous baseline build.</p>
+        </div>
+        <div class="mode-tile locked">
+          <div class="mode-tag">Coming Soon</div>
+          <h3>Live Ladder</h3>
+          <p>Realtime ranked queue.</p>
+        </div>
+        <div class="mode-tile locked">
+          <div class="mode-tag">Coming Soon</div>
+          <h3>TournaMed Cup</h3>
+          <p>Elimination bracket.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Feed -->
+    <div class="feed">
+      <div class="feed-title">Live Feed</div>
+      <div class="feed-item"><span class="feed-dot"></span>You beat <strong>Dr. Patel</strong> by 245 pts<span class="ts">2h ago</span></div>
+      <div class="feed-item"><span class="feed-dot hot"></span><strong>Dr. Maya Khan</strong> challenged you<span class="ts">4h ago</span></div>
+      <div class="feed-item"><span class="feed-dot"></span>New streak record: <strong>11</strong><span class="ts">1d ago</span></div>
+      <div class="feed-item"><span class="feed-dot"></span>Rank up: <strong>18 &rarr; 19</strong><span class="ts">2d ago</span></div>
+      <div class="feed-item"><span class="feed-dot hot"></span><strong>3 matches</strong> in queue<span class="ts">now</span></div>
+      <button class="feed-cta" onclick="go('loadout')">Start New Duel</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ LOADOUT ============ -->
+<section class="scr" id="s-loadout">
+  <div class="loadout-top">
+    <div class="lobby-logo">
+      <div class="logo-icon">ST</div>
+      <div><div class="logo-title">Loadout</div><div class="logo-sub">Configure Your Challenge</div></div>
+    </div>
+    <button class="loadout-back" onclick="go('lobby')">&larr; Back to Lobby</button>
+  </div>
+  <div class="loadout-grid">
+    <div class="config-panel">
+      <div class="cfg-title">Build Your Match</div>
+      <div class="cfg-sub">Same question set, same clock, same pressure. You vs. them.</div>
+
+      <div class="cfg-group">
+        <div class="lbl">Opponent Pool</div>
+        <div class="cfg-opts">
+          <button class="cfg-opt on">&#127919; Similar Rank<span class="sub">Matched</span></button>
+          <button class="cfg-opt">&#127760; Open Pool<span class="sub">Anyone</span></button>
+          <button class="cfg-opt">&#129309; Friend<span class="sub">Invite</span></button>
+        </div>
+      </div>
+
+      <div class="cfg-group">
+        <div class="lbl">Difficulty</div>
+        <div class="cfg-opts">
+          <button class="cfg-opt">Step 1</button>
+          <button class="cfg-opt on">Step 2</button>
+          <button class="cfg-opt">Mixed</button>
+        </div>
+      </div>
+
+      <div class="cfg-group">
+        <div class="lbl">Question Count</div>
+        <div class="cfg-opts">
+          <button class="cfg-opt">20</button>
+          <button class="cfg-opt on">40</button>
+          <button class="cfg-opt">60</button>
+        </div>
+      </div>
+
+      <div class="cfg-group">
+        <div class="lbl">Opponent Tempo</div>
+        <div class="cfg-opts">
+          <button class="cfg-opt">&#128034; Steady<span class="sub">Measured</span></button>
+          <button class="cfg-opt on">&#9878; Balanced<span class="sub">Adaptive</span></button>
+          <button class="cfg-opt">&#128293; Aggressive<span class="sub">Fast Locks</span></button>
+        </div>
+      </div>
+
+      <div class="cfg-group">
+        <div class="lbl">Match Points Wager</div>
+        <div class="cfg-opts">
+          <button class="cfg-opt">50 MP</button>
+          <button class="cfg-opt on">100 MP</button>
+          <button class="cfg-opt">250 MP</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="match-preview">
+      <div class="preview-card">
+        <h4>Match Preview</h4>
+        <div class="preview-row"><span>Opponent</span><span class="v">Similar Rank</span></div>
+        <div class="preview-row"><span>Difficulty</span><span class="v">Step 2</span></div>
+        <div class="preview-row"><span>Questions</span><span class="v">40</span></div>
+        <div class="preview-row"><span>Timer</span><span class="v">15s / question</span></div>
+        <div class="preview-row"><span>Tempo</span><span class="v">Balanced</span></div>
+        <div class="preview-row"><span>Wager</span><span class="v">100 MP</span></div>
+        <div class="preview-reward">+200 MP</div>
+      </div>
+      <button class="go-btn" onclick="go('faceoff')">Lock Matchup</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FACE-OFF ============ -->
+<section class="scr" id="s-faceoff">
+  <div class="fo-card">
+    <div class="fo-badge">&#10004; Opponent Found</div>
+    <div class="fo-split">
+      <div class="fo-player">
+        <div class="fo-av"><div class="fo-av-inner p">&#129504;</div></div>
+        <div class="fo-pname">Dr. Brian</div>
+        <div class="fo-pmeta">RANK 19 &bull; YOU</div>
+      </div>
+      <div class="fo-vs">VS</div>
+      <div class="fo-player">
+        <div class="fo-av"><div class="fo-av-inner o">&#129658;</div></div>
+        <div class="fo-pname">Dr. Maya Khan</div>
+        <div class="fo-pmeta">RANK 20 &bull; OPPONENT</div>
+      </div>
+    </div>
+    <div class="fo-stats">
+      <div class="fo-stat"><div class="lbl">Questions</div><div class="val">40</div></div>
+      <div class="fo-stat"><div class="lbl">Timer</div><div class="val">15s</div></div>
+      <div class="fo-stat"><div class="lbl">Stakes</div><div class="val">100 MP</div></div>
+      <div class="fo-stat"><div class="lbl">Mode</div><div class="val">Step 2</div></div>
+    </div>
+    <button class="fo-enter" onclick="go('drop')">Enter the Duel &rarr;</button>
+  </div>
+</section>
+
+<!-- ============ DROP ============ -->
+<section class="scr" id="s-drop">
+  <div class="drop-label">Round Start</div>
+  <div class="drop-num" id="drop-n">3</div>
+  <div class="drop-names">Dr. Brian vs Dr. Maya Khan</div>
+</section>
+
+<!-- ============ ARENA ============ -->
+<section class="scr" id="s-arena">
+  <!-- Top HUD strip -->
+  <div class="hud-strip">
+    <div class="hud-cell p">
+      <div class="hud-av">&#129504;</div>
+      <div class="hud-info">
+        <div class="hud-nm">Dr. Brian</div>
+        <div class="hud-sub">You &bull; &#128293; 4 streak</div>
+      </div>
+      <div class="hud-sc">540</div>
+    </div>
+    <div class="hud-center">
+      <div class="hud-q">Q7 / 40</div>
+      <div class="hud-timer-wrap">
+        <svg width="52" height="52">
+          <circle cx="26" cy="26" r="21" stroke-width="3.5" fill="none" class="tbg"/>
+          <circle cx="26" cy="26" r="21" stroke-width="3.5" fill="none" class="tfg"
+                  stroke-dasharray="132" stroke-dashoffset="33" stroke-linecap="round"/>
+        </svg>
+        <div class="tnum">11</div>
+      </div>
+    </div>
+    <div class="hud-cell o">
+      <div class="hud-sc">495</div>
+      <div class="hud-info">
+        <div class="hud-nm">Dr. Maya Khan</div>
+        <div class="hud-sub"><span class="opp-dot"></span>Hovering Q7</div>
+      </div>
+      <div class="hud-av">&#129658;</div>
+    </div>
+  </div>
+
+  <!-- Chip row -->
+  <div class="arena-chips">
+    <div class="achip pts">&#9650; 92 pts available</div>
+    <div class="achip streak">&#128293; 4 streak</div>
+    <div class="achip opp">Opp: 5/40 correct &bull; 4.1s avg</div>
+  </div>
+
+  <!-- Question zone -->
+  <div class="q-zone">
+    <div class="q-bar"><div class="q-bar-fill"></div></div>
+    <div class="q-text">A 45-year-old woman presents with sudden onset chest pain radiating to the back. CT angiography reveals a Stanford Type B aortic dissection. What is the most appropriate initial management?</div>
+    <div class="q-grid">
+      <button class="q-choice"><span class="q-letter">A</span>Emergency surgical repair</button>
+      <button class="q-choice picked"><span class="q-letter">B</span>IV labetalol for blood pressure control</button>
+      <button class="q-choice"><span class="q-letter">C</span>Endovascular stent placement</button>
+      <button class="q-choice"><span class="q-letter">D</span>Oral ACE inhibitor therapy</button>
+    </div>
+  </div>
+
+  <!-- Bottom bar -->
+  <div class="arena-foot">
+    <div class="opp-ind"><span class="opp-dot"></span>Opponent cursor active on Q7</div>
+    <div>Lock fast for max points</div>
+  </div>
+</section>
+
+<!-- ============ VICTORY ============ -->
+<section class="scr" id="s-victory">
+  <div class="v-banner">VICTORY</div>
+  <div class="v-sub">Finalized duel outcome &bull; Score differential: +245</div>
+  <div class="v-cards">
+    <div class="v-card w">
+      <h3>Dr. Brian</h3>
+      <div class="big">2,840</div>
+      <div class="v-row"><span>Accuracy</span><strong>85%</strong></div>
+      <div class="v-row"><span>Avg Speed</span><strong>3.2s</strong></div>
+      <div class="v-row"><span>Best Streak</span><strong>7</strong></div>
+    </div>
+    <div class="v-div">&#9876;</div>
+    <div class="v-card l">
+      <h3>Dr. Maya Khan</h3>
+      <div class="big">2,595</div>
+      <div class="v-row"><span>Accuracy</span><strong>78%</strong></div>
+      <div class="v-row"><span>Avg Speed</span><strong>4.1s</strong></div>
+      <div class="v-row"><span>Best Streak</span><strong>4</strong></div>
+    </div>
+  </div>
+  <div class="v-rewards">
+    <div class="v-rw">+ 220 XP</div>
+    <div class="v-rw">+ 100 MP</div>
+  </div>
+  <div class="v-tip">
+    <div class="v-tip-icon">&#9650;</div>
+    <div class="v-tip-text"><strong>Speed improved:</strong> Your avg response dropped 0.6s from your last duel. Keep this pace to climb faster.</div>
+  </div>
+  <div class="v-actions">
+    <button class="v-btn primary" onclick="go('faceoff')">Rematch</button>
+    <button class="v-btn ghost" onclick="go('lobby')">Back to Lobby</button>
+  </div>
+</section>
+
+</div>
+
+<script>
+/* ---- Screen nav ---- */
+function go(id){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('on'));
+  document.getElementById('s-'+id).classList.add('on');
+  document.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.s===id));
+  if(id==='drop') runDrop();
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.addEventListener('click',()=>go(b.dataset.s)));
+
+/* ---- Theme toggle ---- */
+const tColors={storm:['#b47aff','#ff6eb4','#ffd84a'],neon:['#00ff88','#ff00cc','#00e0ff'],royale:['#ffc832','#ff7a2e','#ffe8a0'],cyber:['#ff3278','#00d4ff','#c8ff00']};
+function setT(t){
+  document.body.className='t-'+t;
+  document.querySelectorAll('.themer button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));
+  mkPtcls(t);
+}
+document.querySelectorAll('.themer button').forEach(b=>b.addEventListener('click',()=>setT(b.dataset.t)));
+
+/* ---- Config option toggle ---- */
+document.querySelectorAll('.cfg-group').forEach(g=>{
+  g.querySelectorAll('.cfg-opt').forEach(o=>{
+    o.addEventListener('click',()=>{
+      g.querySelectorAll('.cfg-opt').forEach(x=>x.classList.remove('on'));
+      o.classList.add('on');
+    });
+  });
+});
+
+/* ---- Choice toggle ---- */
+document.querySelectorAll('.q-choice').forEach(c=>{
+  c.addEventListener('click',()=>{
+    document.querySelectorAll('.q-choice').forEach(x=>x.classList.remove('picked'));
+    c.classList.add('picked');
+  });
+});
+
+/* ---- Countdown ---- */
+let dropT=null;
+function runDrop(){
+  const el=document.getElementById('drop-n');
+  let n=3;el.textContent=n;el.style.fontSize='';
+  clearInterval(dropT);
+  dropT=setInterval(()=>{
+    n--;
+    if(n>0){el.textContent=n}
+    else if(n===0){el.textContent='GO!';el.style.fontSize='clamp(100px,14vw,160px)'}
+    else{clearInterval(dropT);el.style.fontSize='';go('arena')}
+  },1000);
+}
+
+/* ---- Particles ---- */
+function mkPtcls(t){
+  const c=document.getElementById('ptcls');c.innerHTML='';
+  const cols=tColors[t]||tColors.storm;
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div');p.className='ptcl';
+    const sz=2+Math.random()*5;
+    p.style.cssText=`left:${Math.random()*100}%;width:${sz}px;height:${sz}px;background:${cols[~~(Math.random()*3)]};animation-duration:${10+Math.random()*18}s;animation-delay:${Math.random()*12}s;`;
+    c.appendChild(p);
+  }
+}
+mkPtcls('storm');
+</script>
+</body>
+</html>

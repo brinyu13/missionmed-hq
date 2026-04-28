@@ -1,0 +1,1205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>TOURNAMED - March Madness Medical Training</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Poppins:wght@500;600;700;800;900&family=Orbitron:wght@600;700;800;900&family=Fredoka:wght@500;600;700&family=Lilita+One&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{-webkit-font-smoothing:antialiased;transition:background .45s ease,color .45s ease}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+button:focus{outline:none}
+
+/* ======================================================
+   THEME 1: FORTNITE BATTLE ROYALE (purple/gold/pink)
+   ====================================================== */
+body.theme-battle {
+  background: linear-gradient(145deg, #2d1459 0%, #1a1040 35%, #0f0d2a 100%);
+  color:#efe8ff;
+  --accent1:#c77dff; --accent2:#ff6eb4; --accent3:#ffe45e;
+  --bg-card:rgba(199,125,255,0.07); --border-card:rgba(199,125,255,0.22);
+  --bg-card-hover:rgba(199,125,255,0.14); --bg-card-active:rgba(199,125,255,0.22);
+  --bg-glass:rgba(45,20,89,0.88); --border-glass:rgba(199,125,255,0.15);
+  --text-primary:#f8f0ff; --text-secondary:#d4b8ff; --text-muted:#9b7ec8;
+  --correct:#5ef7a0; --wrong:#ff6b8a;
+  --btn-primary-bg:linear-gradient(135deg,#c77dff,#ff6eb4);
+  --btn-primary-text:#1a0533;
+  --glow1:rgba(199,125,255,0.45); --glow2:rgba(255,110,180,0.35);
+  --font-display:'Bangers', cursive; --font-body:'Poppins', sans-serif;
+  --topbar-bg:rgba(15,13,42,0.92);
+  --chip-bg:rgba(255,228,94,0.12); --chip-border:rgba(255,228,94,0.4); --chip-color:#ffe45e;
+  --xp-fill:linear-gradient(90deg,#c77dff,#ffe45e);
+  --bracket-line:#c77dff; --bracket-glow:rgba(199,125,255,0.3);
+  --win-gradient:linear-gradient(120deg,#ffe45e,#c77dff,#ff6eb4);
+  --seed-bg:rgba(255,228,94,0.15); --seed-color:#ffe45e;
+  --round-active-bg:linear-gradient(135deg,rgba(199,125,255,0.25),rgba(255,110,180,0.15));
+  --avatar-you:linear-gradient(135deg,#c77dff,#8b5cf6);
+  --particle1:#c77dff; --particle2:#ff6eb4; --particle3:#ffe45e;
+  --banner-font:'Bangers', cursive;
+  font-family:'Poppins', sans-serif;
+}
+
+/* ======================================================
+   THEME 2: FORTNITE SLURP SPLASH (teal/cyan/lime)
+   ====================================================== */
+body.theme-slurp {
+  background: linear-gradient(145deg, #0a2e3d 0%, #0d1f30 35%, #081520 100%);
+  color:#e0fff4;
+  --accent1:#00e5a0; --accent2:#00d4ff; --accent3:#b8ff57;
+  --bg-card:rgba(0,229,160,0.06); --border-card:rgba(0,229,160,0.2);
+  --bg-card-hover:rgba(0,229,160,0.12); --bg-card-active:rgba(0,229,160,0.2);
+  --bg-glass:rgba(10,46,61,0.9); --border-glass:rgba(0,229,160,0.12);
+  --text-primary:#eafff8; --text-secondary:#80ffd0; --text-muted:#4aad88;
+  --correct:#00e5a0; --wrong:#ff5577;
+  --btn-primary-bg:linear-gradient(135deg,#00e5a0,#00d4ff);
+  --btn-primary-text:#081520;
+  --glow1:rgba(0,229,160,0.4); --glow2:rgba(0,212,255,0.3);
+  --font-display:'Bangers', cursive; --font-body:'Poppins', sans-serif;
+  --topbar-bg:rgba(8,21,32,0.93);
+  --chip-bg:rgba(184,255,87,0.1); --chip-border:rgba(184,255,87,0.35); --chip-color:#b8ff57;
+  --xp-fill:linear-gradient(90deg,#00e5a0,#b8ff57);
+  --bracket-line:#00e5a0; --bracket-glow:rgba(0,229,160,0.25);
+  --win-gradient:linear-gradient(120deg,#b8ff57,#00e5a0,#00d4ff);
+  --seed-bg:rgba(184,255,87,0.15); --seed-color:#b8ff57;
+  --round-active-bg:linear-gradient(135deg,rgba(0,229,160,0.2),rgba(0,212,255,0.12));
+  --avatar-you:linear-gradient(135deg,#00e5a0,#00d4ff);
+  --particle1:#00e5a0; --particle2:#00d4ff; --particle3:#b8ff57;
+  --banner-font:'Bangers', cursive;
+  font-family:'Poppins', sans-serif;
+}
+
+/* ======================================================
+   THEME 3: FORTNITE PEELY PARTY (yellow/orange/pink banana fun)
+   ====================================================== */
+body.theme-peely {
+  background: linear-gradient(145deg, #3d2800 0%, #2a1a00 35%, #1a1000 100%);
+  color:#fff8e0;
+  --accent1:#ffcc00; --accent2:#ff8c42; --accent3:#ff5ea3;
+  --bg-card:rgba(255,204,0,0.07); --border-card:rgba(255,204,0,0.22);
+  --bg-card-hover:rgba(255,204,0,0.13); --bg-card-active:rgba(255,204,0,0.22);
+  --bg-glass:rgba(61,40,0,0.9); --border-glass:rgba(255,204,0,0.14);
+  --text-primary:#fffbee; --text-secondary:#ffd966; --text-muted:#b89830;
+  --correct:#8fff60; --wrong:#ff5555;
+  --btn-primary-bg:linear-gradient(135deg,#ffcc00,#ff8c42);
+  --btn-primary-text:#2a1a00;
+  --glow1:rgba(255,204,0,0.4); --glow2:rgba(255,140,66,0.35);
+  --font-display:'Bangers', cursive; --font-body:'Poppins', sans-serif;
+  --topbar-bg:rgba(26,16,0,0.93);
+  --chip-bg:rgba(255,94,163,0.12); --chip-border:rgba(255,94,163,0.4); --chip-color:#ff5ea3;
+  --xp-fill:linear-gradient(90deg,#ffcc00,#ff5ea3);
+  --bracket-line:#ffcc00; --bracket-glow:rgba(255,204,0,0.3);
+  --win-gradient:linear-gradient(120deg,#ff5ea3,#ffcc00,#ff8c42);
+  --seed-bg:rgba(255,94,163,0.15); --seed-color:#ff5ea3;
+  --round-active-bg:linear-gradient(135deg,rgba(255,204,0,0.2),rgba(255,140,66,0.12));
+  --avatar-you:linear-gradient(135deg,#ffcc00,#ff8c42);
+  --particle1:#ffcc00; --particle2:#ff8c42; --particle3:#ff5ea3;
+  --banner-font:'Bangers', cursive;
+  font-family:'Poppins', sans-serif;
+}
+
+/* ======================================================
+   THEME 4: PIXEL QUEST (retro arcade - NOT Fortnite)
+   ====================================================== */
+body.theme-pixel {
+  background: linear-gradient(145deg, #120024 0%, #0d0030 35%, #05001a 100%);
+  color:#ffe0ff;
+  --accent1:#ff4da6; --accent2:#4dffff; --accent3:#ffff4d;
+  --bg-card:rgba(255,77,166,0.06); --border-card:rgba(255,77,166,0.2);
+  --bg-card-hover:rgba(255,77,166,0.12); --bg-card-active:rgba(255,77,166,0.2);
+  --bg-glass:rgba(18,0,36,0.92); --border-glass:rgba(255,77,166,0.12);
+  --text-primary:#fff0ff; --text-secondary:#ffb3dd; --text-muted:#aa5588;
+  --correct:#4dff88; --wrong:#ff4d4d;
+  --btn-primary-bg:linear-gradient(135deg,#ff4da6,#4dffff);
+  --btn-primary-text:#120024;
+  --glow1:rgba(255,77,166,0.4); --glow2:rgba(77,255,255,0.3);
+  --font-display:'Orbitron', sans-serif; --font-body:'Fredoka', sans-serif;
+  --topbar-bg:rgba(5,0,26,0.94);
+  --chip-bg:rgba(255,255,77,0.1); --chip-border:rgba(255,255,77,0.35); --chip-color:#ffff4d;
+  --xp-fill:linear-gradient(90deg,#ff4da6,#4dffff);
+  --bracket-line:#ff4da6; --bracket-glow:rgba(255,77,166,0.25);
+  --win-gradient:linear-gradient(120deg,#ffff4d,#ff4da6,#4dffff);
+  --seed-bg:rgba(77,255,255,0.12); --seed-color:#4dffff;
+  --round-active-bg:linear-gradient(135deg,rgba(255,77,166,0.2),rgba(77,255,255,0.1));
+  --avatar-you:linear-gradient(135deg,#ff4da6,#4dffff);
+  --particle1:#ff4da6; --particle2:#4dffff; --particle3:#ffff4d;
+  --banner-font:'Orbitron', sans-serif;
+  font-family:'Fredoka', sans-serif;
+}
+
+/* Pixel theme overrides for retro feel */
+body.theme-pixel .brand-mark,
+body.theme-pixel .round-label,
+body.theme-pixel .bracket-seed,
+body.theme-pixel .match-name,
+body.theme-pixel .hero-title,
+body.theme-pixel .stat-val,
+body.theme-pixel .config-title,
+body.theme-pixel .trophy-icon {
+  font-family:'Orbitron', sans-serif !important;
+}
+body.theme-pixel .bracket-slot {
+  border-radius:4px !important;
+}
+body.theme-pixel .btn-primary, body.theme-pixel .btn-ghost {
+  border-radius:4px !important;
+}
+
+/* ======================================================
+   THEME TOGGLE (fixed top-right)
+   ====================================================== */
+.theme-toggle {
+  position:fixed; top:10px; right:10px; z-index:9999;
+  display:flex; gap:5px; padding:5px 8px;
+  border-radius:14px; background:var(--bg-glass);
+  border:1px solid var(--border-glass);
+  backdrop-filter:blur(14px);
+  box-shadow:0 4px 24px rgba(0,0,0,0.5);
+}
+.theme-toggle button {
+  padding:5px 11px; border-radius:9px;
+  font-size:10px; font-weight:700;
+  letter-spacing:.6px; text-transform:uppercase;
+  color:var(--text-muted); transition:all .25s ease;
+  white-space:nowrap;
+}
+.theme-toggle button:hover { color:var(--text-primary); background:var(--bg-card-hover); }
+.theme-toggle button.active {
+  background:var(--btn-primary-bg); color:var(--btn-primary-text);
+  box-shadow:0 0 14px var(--glow1);
+}
+
+/* ======================================================
+   VIEW TABS (bottom)
+   ====================================================== */
+.view-tabs {
+  position:fixed; bottom:0; left:0; right:0; z-index:9998;
+  display:flex; justify-content:center; gap:3px;
+  padding:7px 10px; background:var(--topbar-bg);
+  border-top:1px solid var(--border-glass);
+  backdrop-filter:blur(14px);
+}
+.view-tabs button {
+  padding:6px 14px; border-radius:9px;
+  font-size:10px; font-weight:700;
+  letter-spacing:1px; text-transform:uppercase;
+  color:var(--text-muted); transition:all .2s ease;
+}
+.view-tabs button:hover { color:var(--text-secondary); }
+.view-tabs button.active {
+  color:var(--accent1); background:var(--bg-card);
+  border:1px solid var(--border-card);
+}
+
+/* ======================================================
+   FLOATING PARTICLES
+   ====================================================== */
+.particles { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+.particle {
+  position:absolute; border-radius:50%; opacity:.3;
+  animation:pFloat linear infinite;
+}
+@keyframes pFloat {
+  0%{transform:translateY(100vh) rotate(0);opacity:0}
+  10%{opacity:.35} 90%{opacity:.35}
+  100%{transform:translateY(-30px) rotate(720deg);opacity:0}
+}
+
+/* ======================================================
+   APP SHELL
+   ====================================================== */
+.app { width:100%; height:100vh; display:flex; flex-direction:column; overflow:hidden; position:relative; z-index:1; }
+
+.screen {
+  display:none; flex-direction:column;
+  width:100%; height:calc(100vh - 38px);
+  padding:8px 20px 4px;
+  animation:screenIn .35s ease;
+  overflow:hidden;
+}
+.screen.active { display:flex; }
+@keyframes screenIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+
+/* ======================================================
+   TOPBAR
+   ====================================================== */
+.topbar {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:4px 0 6px; border-bottom:1px solid var(--border-glass);
+  flex-shrink:0; min-height:42px;
+}
+.brand { display:flex; align-items:center; gap:8px; }
+.brand-mark {
+  width:34px; height:34px; border-radius:10px;
+  background:var(--btn-primary-bg);
+  box-shadow:0 0 16px var(--glow1);
+  display:grid; place-items:center;
+  font-weight:900; font-size:11px;
+  color:var(--btn-primary-text);
+  font-family:var(--font-display);
+  letter-spacing:-.5px;
+}
+.brand-title { font-family:var(--font-display); font-size:20px; font-weight:700; color:var(--text-primary); letter-spacing:1px; }
+.brand-sub { font-size:9px; letter-spacing:2.5px; text-transform:uppercase; color:var(--text-muted); font-weight:600; }
+.topbar-right { display:flex; gap:8px; align-items:center; }
+.chip {
+  padding:4px 10px; border-radius:999px;
+  background:var(--chip-bg); border:1px solid var(--chip-border);
+  color:var(--chip-color); font-size:10px; font-weight:700; letter-spacing:.5px;
+}
+
+/* ======================================================
+   BUTTONS
+   ====================================================== */
+.btn-primary {
+  padding:10px 22px; border-radius:12px;
+  font-size:13px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--btn-primary-text); background:var(--btn-primary-bg);
+  box-shadow:0 4px 20px var(--glow1);
+  transition:all .2s ease; position:relative; overflow:hidden;
+}
+.btn-primary:hover { transform:translateY(-2px) scale(1.02); box-shadow:0 8px 30px var(--glow1); }
+.btn-primary::after {
+  content:""; position:absolute; inset:0;
+  background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,0.22) 50%,transparent 70%);
+  transform:translateX(-100%); animation:shimmer 3s ease-in-out infinite;
+}
+@keyframes shimmer { 50%,100%{transform:translateX(100%)} }
+
+.btn-ghost {
+  padding:8px 16px; border-radius:10px;
+  font-size:11px; font-weight:700; letter-spacing:1px; text-transform:uppercase;
+  background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
+  color:var(--text-secondary); transition:all .2s ease;
+}
+.btn-ghost:hover { border-color:var(--border-card); color:var(--text-primary); }
+
+.btn-sm {
+  padding:6px 12px; border-radius:8px;
+  font-size:10px; font-weight:700; letter-spacing:.8px; text-transform:uppercase;
+  color:var(--accent1); background:var(--bg-card);
+  border:1px solid var(--border-card); transition:all .2s ease;
+}
+.btn-sm:hover { background:var(--bg-card-hover); transform:translateY(-1px); box-shadow:0 3px 12px var(--glow1); }
+
+/* ======================================================
+   SCREEN 1: TOURNAMENT HUB (bracket + hero + stats)
+   ====================================================== */
+.hub-body {
+  flex:1; display:grid;
+  grid-template-columns:1fr 280px;
+  gap:12px; padding-top:6px; min-height:0;
+}
+
+/* LEFT: bracket + hero */
+.hub-left { display:flex; flex-direction:column; gap:8px; min-height:0; overflow:hidden; }
+
+.hub-hero {
+  display:flex; align-items:center; gap:16px;
+  padding:10px 16px; border-radius:14px;
+  background:var(--round-active-bg);
+  border:1px solid var(--border-card);
+  flex-shrink:0;
+}
+.hero-icon { font-size:36px; line-height:1; }
+.hero-title {
+  font-family:var(--font-display); font-size:clamp(22px,3.5vw,36px);
+  font-weight:900; letter-spacing:1.5px;
+  background:var(--win-gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.hero-sub { font-size:11px; color:var(--text-muted); letter-spacing:.5px; margin-top:1px; }
+.hero-right { margin-left:auto; display:flex; gap:8px; align-items:center; }
+.hero-stat-pill {
+  padding:6px 12px; border-radius:10px;
+  background:var(--bg-card); border:1px solid var(--border-glass);
+  text-align:center;
+}
+.hero-stat-pill .pv { font-size:16px; font-weight:900; color:var(--accent1); font-family:var(--font-display); }
+.hero-stat-pill .pk { font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); font-weight:700; }
+
+/* BRACKET */
+.bracket-container {
+  flex:1; min-height:0; overflow:hidden;
+  display:flex; align-items:stretch; justify-content:center;
+  gap:0; padding:4px 0;
+}
+
+.bracket-round {
+  display:flex; flex-direction:column; justify-content:space-around;
+  gap:4px; min-width:0; flex:1; max-width:180px;
+  position:relative;
+}
+
+.round-header {
+  text-align:center; flex-shrink:0; margin-bottom:2px;
+}
+.round-label {
+  font-family:var(--font-display); font-size:10px; font-weight:800;
+  letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted);
+}
+.round-label.active { color:var(--accent1); }
+
+.bracket-match {
+  display:flex; flex-direction:column; gap:2px;
+  padding:3px; border-radius:10px;
+  background:var(--bg-card); border:1px solid var(--border-glass);
+  transition:all .25s ease; position:relative;
+}
+.bracket-match:hover {
+  border-color:var(--accent1); box-shadow:0 0 14px var(--bracket-glow);
+  transform:scale(1.02);
+}
+.bracket-match.active-match {
+  border-color:var(--accent1); box-shadow:0 0 18px var(--bracket-glow);
+  background:var(--round-active-bg);
+  animation:matchPulse 2s ease-in-out infinite;
+}
+@keyframes matchPulse { 0%,100%{box-shadow:0 0 18px var(--bracket-glow)} 50%{box-shadow:0 0 30px var(--glow1)} }
+
+.bracket-slot {
+  display:flex; align-items:center; gap:5px;
+  padding:4px 6px; border-radius:7px;
+  font-size:11px; font-weight:600; color:var(--text-secondary);
+  transition:background .2s ease;
+  min-height:26px;
+}
+.bracket-slot.you { background:rgba(255,255,255,0.04); }
+.bracket-slot.winner { color:var(--correct); font-weight:800; }
+.bracket-slot.loser { opacity:.45; }
+.bracket-slot.tbd { color:var(--text-muted); font-style:italic; font-size:10px; }
+
+.bracket-seed {
+  width:18px; height:18px; border-radius:5px;
+  background:var(--seed-bg); color:var(--seed-color);
+  font-size:9px; font-weight:900; display:grid; place-items:center;
+  flex-shrink:0; font-family:var(--font-display);
+}
+.bracket-slot.you .bracket-seed { background:var(--avatar-you); color:var(--btn-primary-text); box-shadow:0 0 8px var(--glow1); }
+
+.match-score { margin-left:auto; font-weight:800; font-size:11px; color:var(--text-primary); }
+.match-score.winner-score { color:var(--correct); }
+.match-score.loser-score { color:var(--wrong); opacity:.5; }
+
+.match-name { font-size:10px; max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
+/* Connector lines between rounds */
+.bracket-connectors {
+  width:20px; display:flex; flex-direction:column; justify-content:space-around;
+  flex-shrink:0; position:relative;
+}
+.connector-line {
+  width:100%; height:1px; background:var(--bracket-line); opacity:.3;
+  position:relative;
+}
+
+/* Champion slot */
+.bracket-champion {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  min-width:100px; gap:4px;
+}
+.trophy-icon { font-size:40px; animation:trophyFloat 2.5s ease-in-out infinite; }
+@keyframes trophyFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+.champ-label {
+  font-family:var(--font-display); font-size:12px; font-weight:900;
+  letter-spacing:2px; text-transform:uppercase;
+  background:var(--win-gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+}
+.champ-name { font-size:10px; color:var(--text-muted); font-weight:600; }
+
+/* RIGHT SIDEBAR */
+.hub-right {
+  display:flex; flex-direction:column; gap:8px;
+  overflow:hidden;
+}
+
+.profile-card {
+  background:var(--bg-card); border:1px solid var(--border-card);
+  border-radius:14px; padding:12px; position:relative; overflow:hidden;
+}
+.profile-card::before {
+  content:""; position:absolute; inset:-50%;
+  background:radial-gradient(circle,var(--glow1),transparent 55%);
+  animation:sideDrift 20s linear infinite; pointer-events:none; opacity:.2;
+}
+@keyframes sideDrift { 0%{transform:rotate(0)} 100%{transform:rotate(360deg)} }
+
+.profile-label {
+  font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  color:var(--text-muted); font-weight:700; position:relative; z-index:1;
+  margin-bottom:6px;
+}
+
+.profile-row { display:flex; align-items:center; gap:10px; position:relative; z-index:1; margin-bottom:6px; }
+.profile-avatar {
+  width:44px; height:44px; border-radius:12px;
+  background:var(--avatar-you); display:grid; place-items:center;
+  font-weight:900; font-size:18px; color:var(--btn-primary-text);
+  box-shadow:0 0 14px var(--glow1); font-family:var(--font-display);
+}
+.profile-name { font-size:15px; font-weight:800; color:var(--text-primary); }
+.profile-rank { font-size:10px; color:var(--text-muted); }
+
+.xp-track { height:5px; background:rgba(255,255,255,0.06); border-radius:999px; overflow:hidden; position:relative; z-index:1; }
+.xp-fill { height:100%; width:67%; background:var(--xp-fill); border-radius:inherit; box-shadow:0 0 8px var(--glow1); }
+
+.stat-grid {
+  display:grid; grid-template-columns:1fr 1fr; gap:5px;
+  position:relative; z-index:1; margin-top:6px;
+}
+.stat-cell {
+  padding:6px; border-radius:8px; background:rgba(255,255,255,0.03);
+  text-align:center;
+}
+.stat-label { font-size:8px; letter-spacing:1.5px; text-transform:uppercase; color:var(--text-muted); font-weight:700; }
+.stat-val { font-size:15px; font-weight:900; color:var(--text-primary); font-family:var(--font-display); }
+
+/* Tournament progress card */
+.tourney-card {
+  background:var(--bg-card); border:1px solid var(--border-card);
+  border-radius:14px; padding:12px;
+}
+.tourney-title {
+  font-family:var(--font-display); font-size:13px; font-weight:800;
+  color:var(--text-primary); margin-bottom:6px; letter-spacing:.5px;
+}
+.tourney-row {
+  display:flex; justify-content:space-between; padding:4px 0;
+  border-bottom:1px solid rgba(255,255,255,0.04);
+  font-size:11px; color:var(--text-muted);
+}
+.tourney-row:last-child { border-bottom:none; }
+.tourney-row .tv { color:var(--text-primary); font-weight:700; }
+
+/* Training config mini */
+.config-card {
+  background:var(--bg-card); border:1px solid var(--border-card);
+  border-radius:14px; padding:10px;
+}
+.config-title {
+  font-family:var(--font-display); font-size:12px; font-weight:800;
+  color:var(--text-primary); margin-bottom:6px; letter-spacing:.5px;
+}
+.config-pills { display:flex; flex-wrap:wrap; gap:4px; }
+.config-pill {
+  padding:4px 8px; border-radius:7px; font-size:9px; font-weight:700;
+  letter-spacing:.5px; text-transform:uppercase;
+  background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+  color:var(--text-secondary); transition:all .2s;
+}
+.config-pill:hover { border-color:var(--accent1); color:var(--text-primary); }
+.config-pill.active {
+  border-color:var(--accent1); background:var(--bg-card-hover);
+  color:var(--text-primary); box-shadow:0 0 8px var(--glow1);
+}
+
+/* Action buttons at bottom of sidebar */
+.sidebar-actions { display:flex; flex-direction:column; gap:5px; margin-top:auto; }
+
+/* ======================================================
+   SCREEN 2: ACTIVE MATCH (gameplay)
+   ====================================================== */
+.match-body {
+  flex:1; display:grid;
+  grid-template-columns:200px 1fr 200px;
+  gap:10px; padding-top:6px; min-height:0;
+}
+
+.hud {
+  background:var(--bg-card); border:1px solid var(--border-card);
+  border-radius:14px; padding:10px;
+  display:flex; flex-direction:column; gap:6px;
+  overflow:hidden;
+}
+.hud.player-hud { border-color:var(--accent1); box-shadow:0 0 16px var(--glow1); }
+.hud.opp-hud { border-color:var(--accent2); box-shadow:0 0 16px var(--glow2); }
+
+.hud-head { display:flex; align-items:center; gap:8px; }
+.hud-avatar {
+  width:36px; height:36px; border-radius:50%;
+  display:grid; place-items:center; font-weight:900; font-size:16px; flex-shrink:0;
+}
+.hud.player-hud .hud-avatar { background:var(--avatar-you); color:var(--btn-primary-text); }
+.hud.opp-hud .hud-avatar { background:linear-gradient(135deg,var(--accent2),var(--wrong)); color:#fff; }
+
+.hud-name { font-size:12px; font-weight:800; color:var(--text-primary); }
+.hud-tag { font-size:8px; letter-spacing:1.5px; color:var(--text-muted); text-transform:uppercase; }
+
+.hud-score-row { text-align:center; padding:6px 0; border-top:1px solid var(--border-glass); border-bottom:1px solid var(--border-glass); }
+.hud-score-label { font-size:8px; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; }
+.hud-score { font-family:var(--font-display); font-size:32px; font-weight:900; letter-spacing:-1px; }
+.hud.player-hud .hud-score { color:var(--accent1); }
+.hud.opp-hud .hud-score { color:var(--accent2); }
+
+.hud-metrics { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+.hud-metric { background:rgba(255,255,255,0.03); border-radius:6px; padding:5px; text-align:center; }
+.hud-metric .mk { font-size:7px; letter-spacing:1.5px; color:var(--text-muted); text-transform:uppercase; }
+.hud-metric .mv { font-size:14px; font-weight:800; color:var(--text-primary); }
+
+.streak-bar {
+  text-align:center; padding:5px; border-radius:7px;
+  background:linear-gradient(135deg,rgba(255,255,255,0.04),rgba(255,255,255,0.02));
+  border:1px solid var(--border-glass);
+  color:var(--accent3); font-size:11px; font-weight:700; letter-spacing:.5px;
+}
+
+.answer-event {
+  min-height:28px; border-radius:7px; padding:5px;
+  font-size:10px; font-weight:700; text-align:center;
+  border:1px dashed var(--border-glass); color:var(--text-muted);
+  display:flex; align-items:center; justify-content:center;
+}
+.answer-event.correct {
+  background:linear-gradient(120deg,rgba(52,211,153,0.2),rgba(52,211,153,0.06));
+  border:1px solid var(--correct); color:#fff; box-shadow:0 0 10px rgba(52,211,153,0.25);
+}
+.answer-event.wrong {
+  background:linear-gradient(120deg,rgba(255,100,120,0.2),rgba(255,100,120,0.06));
+  border:1px solid var(--wrong); color:#fff; box-shadow:0 0 10px rgba(255,100,120,0.25);
+}
+
+/* Arena center */
+.arena-center {
+  display:flex; flex-direction:column;
+  background:var(--bg-card); border:1px solid var(--border-card);
+  border-radius:14px; padding:12px; overflow:hidden;
+}
+.q-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-shrink:0; }
+.q-progress { font-size:10px; letter-spacing:2px; color:var(--text-muted); text-transform:uppercase; font-weight:700; }
+.q-progress strong { color:var(--text-primary); }
+.q-head-right { display:flex; align-items:center; gap:6px; }
+
+.round-chip {
+  padding:4px 10px; border-radius:8px;
+  background:var(--round-active-bg); border:1px solid var(--border-card);
+  font-size:9px; font-weight:800; letter-spacing:1.5px; text-transform:uppercase;
+  color:var(--accent1);
+}
+
+.point-chip {
+  padding:4px 8px; border-radius:8px;
+  border:1px solid var(--accent1); background:var(--bg-card-hover);
+  display:flex; flex-direction:column; align-items:flex-end; gap:0;
+}
+.point-chip .lbl { font-size:7px; letter-spacing:1.5px; color:var(--text-muted); text-transform:uppercase; font-weight:700; }
+.point-chip .val { font-size:16px; font-weight:900; color:var(--accent1); line-height:1; }
+
+.timer-ring { position:relative; width:42px; height:42px; }
+.timer-ring svg { transform:rotate(-90deg); }
+.timer-ring .t-bg { stroke:rgba(255,255,255,0.08); }
+.timer-ring .t-fg { stroke:var(--accent1); }
+.timer-ring .t-num {
+  position:absolute; inset:0; display:grid; place-items:center;
+  font-size:14px; font-weight:800; color:var(--text-primary);
+}
+
+.timer-bar-wrap { height:4px; background:rgba(255,255,255,0.05); border-radius:999px; overflow:hidden; margin-bottom:8px; flex-shrink:0; }
+.timer-bar { height:100%; width:72%; background:linear-gradient(90deg,var(--accent1),var(--accent3),var(--wrong)); border-radius:inherit; }
+
+.q-prompt {
+  font-size:clamp(13px,1.6vw,17px); line-height:1.4; font-weight:700;
+  color:var(--text-primary); padding:4px 0 10px; flex-shrink:0;
+}
+
+.choices { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.choice {
+  padding:10px 11px; font-size:12px; font-weight:600; line-height:1.3;
+  background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08);
+  border-radius:10px; text-align:left; color:var(--text-primary);
+  transition:all .18s ease; min-height:40px;
+}
+.choice:hover { border-color:var(--accent1); transform:translateY(-1px); background:var(--bg-card-hover); }
+.choice .letter {
+  display:inline-block; width:18px; height:18px; border-radius:5px;
+  background:rgba(255,255,255,0.06); text-align:center; line-height:18px;
+  font-size:9px; margin-right:6px; color:var(--text-muted); font-weight:700;
+}
+.choice.selected { border-color:var(--accent1); background:var(--bg-card-hover); box-shadow:0 0 10px var(--glow1); }
+
+.q-bottom {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-top:8px; color:var(--text-muted); font-size:10px; flex-shrink:0;
+}
+.opp-strip {
+  display:flex; align-items:center; gap:6px;
+  padding:4px 8px; border-radius:7px;
+  border:1px solid var(--border-glass); background:rgba(255,255,255,0.02);
+  font-size:9px; color:var(--text-muted); text-transform:uppercase;
+  letter-spacing:1px; font-weight:700;
+}
+.opp-dot {
+  width:6px; height:6px; border-radius:50%;
+  background:var(--accent2); box-shadow:0 0 6px var(--glow2);
+  animation:dotPulse 1s ease-in-out infinite;
+}
+@keyframes dotPulse { 0%,100%{transform:scale(.85);opacity:.6} 50%{transform:scale(1.15);opacity:1} }
+
+/* ======================================================
+   SCREEN 3: MATCH RESULT + BRACKET ADVANCE
+   ====================================================== */
+.result-body {
+  flex:1; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; gap:10px;
+}
+.result-banner {
+  font-family:var(--banner-font); font-size:clamp(48px,7vw,80px);
+  font-weight:900; letter-spacing:2px;
+  background:var(--win-gradient);
+  -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent;
+  animation:bannerIn .7s ease; text-align:center;
+}
+@keyframes bannerIn { 0%{letter-spacing:18px;opacity:0;filter:blur(8px)} 100%{letter-spacing:2px;opacity:1;filter:blur(0)} }
+
+.result-sub { color:var(--text-muted); font-size:11px; text-align:center; }
+
+.result-cards {
+  display:grid; grid-template-columns:1fr auto 1fr;
+  gap:12px; width:100%; max-width:680px; align-items:stretch;
+}
+.result-card {
+  padding:14px; background:var(--bg-card); border:1px solid var(--border-glass);
+  border-radius:14px; text-align:center;
+}
+.result-card.player-card { border-color:var(--accent1); box-shadow:0 0 20px var(--glow1); }
+.result-card.opp-card { border-color:var(--accent2); box-shadow:0 0 20px var(--glow2); }
+.result-card h3 { font-size:13px; color:var(--text-primary); margin-bottom:6px; font-weight:800; }
+.result-score-big {
+  font-family:var(--font-display); font-size:36px; font-weight:900;
+  letter-spacing:-1px; margin-bottom:6px;
+}
+.result-card.player-card .result-score-big { color:var(--accent1); }
+.result-card.opp-card .result-score-big { color:var(--accent2); }
+.result-row {
+  display:flex; justify-content:space-between; padding:3px 0;
+  font-size:10px; border-top:1px solid rgba(255,255,255,0.04); color:var(--text-muted);
+}
+.result-row strong { color:var(--text-primary); }
+.result-divider { display:flex; align-items:center; justify-content:center; font-size:26px; }
+.result-divider span {
+  background:var(--win-gradient); -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent; font-weight:900;
+}
+
+.advance-badge {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 16px; border-radius:12px;
+  border:1px solid var(--border-card); background:var(--round-active-bg);
+  max-width:520px; width:100%;
+}
+.advance-icon { font-size:24px; }
+.advance-text { font-size:12px; font-weight:600; color:var(--text-secondary); line-height:1.3; }
+.advance-text strong { color:var(--accent1); }
+
+.rewards { display:flex; gap:8px; }
+.reward-chip {
+  padding:8px 14px; border-radius:10px;
+  background:var(--chip-bg); border:1px solid var(--chip-border);
+  color:var(--chip-color); font-weight:800; letter-spacing:.8px; font-size:12px;
+  box-shadow:0 0 12px rgba(0,0,0,0.2);
+}
+.result-actions { display:flex; gap:8px; }
+
+/* ======================================================
+   SCREEN 4: MATCHUP PREVIEW
+   ====================================================== */
+.matchup-body {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  position:relative;
+}
+.matchup-body::before {
+  content:""; position:absolute; inset:0;
+  background:radial-gradient(circle at center,var(--glow1),transparent 55%);
+  animation:matchBgPulse 2.5s ease-in-out infinite; opacity:.3;
+}
+@keyframes matchBgPulse { 0%,100%{opacity:.25} 50%{opacity:.5} }
+
+.matchup-card {
+  position:relative; text-align:center;
+  max-width:580px; width:100%; padding:28px 32px;
+  background:var(--bg-glass); border:1px solid var(--accent1);
+  border-radius:18px; box-shadow:0 0 40px var(--glow1);
+}
+.matchup-tag {
+  display:inline-block; padding:4px 12px; border-radius:999px;
+  background:var(--bg-card); color:var(--accent1);
+  font-size:9px; letter-spacing:2px; text-transform:uppercase;
+  font-weight:700; margin-bottom:10px; border:1px solid var(--border-card);
+}
+.matchup-title {
+  font-family:var(--font-display); font-size:28px; font-weight:900;
+  color:var(--text-primary); margin-bottom:4px; letter-spacing:1px;
+}
+.matchup-sub { color:var(--text-muted); font-size:11px; margin-bottom:16px; }
+
+.versus-row { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:16px; margin-bottom:16px; }
+.duelist { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.duelist-avatar {
+  width:60px; height:60px; border-radius:50%;
+  display:grid; place-items:center; font-size:26px; font-weight:900;
+  box-shadow:0 0 18px var(--glow1);
+}
+.duelist-avatar.player { background:var(--avatar-you); color:var(--btn-primary-text); }
+.duelist-avatar.opp {
+  background:linear-gradient(135deg,var(--accent2),var(--wrong)); color:#fff;
+  box-shadow:0 0 18px var(--glow2); animation:oppPulse 1.5s ease-in-out infinite;
+}
+@keyframes oppPulse { 0%,100%{box-shadow:0 0 18px var(--glow2)} 50%{box-shadow:0 0 32px var(--glow2)} }
+.duelist-name { font-weight:800; font-size:13px; color:var(--text-primary); }
+.duelist-meta { color:var(--text-muted); font-size:9px; letter-spacing:1px; }
+.vs-text {
+  font-family:var(--font-display); font-size:36px; font-weight:900;
+  background:var(--win-gradient); -webkit-background-clip:text; background-clip:text;
+  -webkit-text-fill-color:transparent; animation:vsBounce 1.2s ease-in-out infinite;
+}
+@keyframes vsBounce { 0%,100%{transform:scale(1)} 50%{transform:scale(1.1)} }
+
+.summary-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-bottom:16px; }
+.summary-item { padding:8px; background:var(--bg-card); border:1px solid var(--border-glass); border-radius:8px; text-align:center; }
+.summary-item .sk { font-size:8px; letter-spacing:1.5px; color:var(--text-muted); text-transform:uppercase; }
+.summary-item .sv { font-size:14px; font-weight:800; color:var(--text-primary); margin-top:1px; }
+</style>
+</head>
+<body class="theme-battle">
+
+<!-- PARTICLES -->
+<div class="particles" id="particles"></div>
+
+<!-- THEME TOGGLE -->
+<div class="theme-toggle">
+  <button class="active" data-theme="battle">Battle Royale</button>
+  <button data-theme="slurp">Slurp Splash</button>
+  <button data-theme="peely">Peely Party</button>
+  <button data-theme="pixel">Pixel Quest</button>
+</div>
+
+<!-- VIEW TABS -->
+<nav class="view-tabs">
+  <button class="active" data-view="hub">Bracket Hub</button>
+  <button data-view="matchup">Next Matchup</button>
+  <button data-view="play">Live Match</button>
+  <button data-view="results">Results</button>
+</nav>
+
+<div class="app">
+
+  <!-- ========== SCREEN 1: TOURNAMENT HUB ========== -->
+  <section class="screen active" id="screen-hub">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TM</div>
+        <div>
+          <div class="brand-title">TOURNAMED</div>
+          <div class="brand-sub">March Madness Medical</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn-sm" onclick="showView('matchup')">Next Match</button>
+        <div class="chip">Season 1</div>
+        <div class="chip">2,630 MP</div>
+      </div>
+    </div>
+    <div class="hub-body">
+      <div class="hub-left">
+        <div class="hub-hero">
+          <div class="hero-icon">&#127942;</div>
+          <div>
+            <div class="hero-title">TOURNAMED CUP</div>
+            <div class="hero-sub">16-Seed Single Elimination - Quarterfinal Round</div>
+          </div>
+          <div class="hero-right">
+            <div class="hero-stat-pill"><div class="pv">3</div><div class="pk">Wins</div></div>
+            <div class="hero-stat-pill"><div class="pv">0</div><div class="pk">Losses</div></div>
+            <div class="hero-stat-pill"><div class="pv">QF</div><div class="pk">Round</div></div>
+          </div>
+        </div>
+        <!-- BRACKET -->
+        <div class="bracket-container">
+          <!-- ROUND OF 16 (LEFT HALF - TOP 8 SEEDS) -->
+          <div class="bracket-round">
+            <div class="round-header"><div class="round-label">Round of 16</div></div>
+            <!-- Match 1 -->
+            <div class="bracket-match">
+              <div class="bracket-slot you winner"><div class="bracket-seed">1</div><span class="match-name">Dr. Brian</span><span class="match-score winner-score">2840</span></div>
+              <div class="bracket-slot loser"><div class="bracket-seed">16</div><span class="match-name">Dr. Patel</span><span class="match-score loser-score">1920</span></div>
+            </div>
+            <!-- Match 2 -->
+            <div class="bracket-match">
+              <div class="bracket-slot winner"><div class="bracket-seed">8</div><span class="match-name">Dr. Kim</span><span class="match-score winner-score">2310</span></div>
+              <div class="bracket-slot loser"><div class="bracket-seed">9</div><span class="match-name">Dr. Santos</span><span class="match-score loser-score">2100</span></div>
+            </div>
+            <!-- Match 3 -->
+            <div class="bracket-match">
+              <div class="bracket-slot winner"><div class="bracket-seed">4</div><span class="match-name">Dr. Chen</span><span class="match-score winner-score">2650</span></div>
+              <div class="bracket-slot loser"><div class="bracket-seed">13</div><span class="match-name">Dr. Okafor</span><span class="match-score loser-score">1850</span></div>
+            </div>
+            <!-- Match 4 -->
+            <div class="bracket-match">
+              <div class="bracket-slot loser"><div class="bracket-seed">5</div><span class="match-name">Dr. Lopez</span><span class="match-score loser-score">2200</span></div>
+              <div class="bracket-slot winner"><div class="bracket-seed">12</div><span class="match-name">Dr. Tanaka</span><span class="match-score winner-score">2450</span></div>
+            </div>
+          </div>
+
+          <div class="bracket-connectors"><div class="connector-line"></div><div class="connector-line"></div></div>
+
+          <!-- QUARTERFINALS (LEFT) -->
+          <div class="bracket-round">
+            <div class="round-header"><div class="round-label active">Quarterfinals</div></div>
+            <!-- QF1: you vs Dr. Kim -->
+            <div class="bracket-match active-match" onclick="showView('matchup')">
+              <div class="bracket-slot you"><div class="bracket-seed">1</div><span class="match-name">Dr. Brian</span><span class="match-score" style="color:var(--accent3)">LIVE</span></div>
+              <div class="bracket-slot"><div class="bracket-seed">8</div><span class="match-name">Dr. Kim</span><span class="match-score" style="color:var(--accent3)">LIVE</span></div>
+            </div>
+            <!-- QF2 -->
+            <div class="bracket-match">
+              <div class="bracket-slot"><div class="bracket-seed">4</div><span class="match-name">Dr. Chen</span></div>
+              <div class="bracket-slot"><div class="bracket-seed">12</div><span class="match-name">Dr. Tanaka</span></div>
+            </div>
+          </div>
+
+          <div class="bracket-connectors"><div class="connector-line"></div></div>
+
+          <!-- SEMIFINALS -->
+          <div class="bracket-round">
+            <div class="round-header"><div class="round-label">Semifinals</div></div>
+            <div class="bracket-match">
+              <div class="bracket-slot tbd"><div class="bracket-seed">?</div><span class="match-name">TBD</span></div>
+              <div class="bracket-slot tbd"><div class="bracket-seed">?</div><span class="match-name">TBD</span></div>
+            </div>
+          </div>
+
+          <div class="bracket-connectors"><div class="connector-line"></div></div>
+
+          <!-- FINALS -->
+          <div class="bracket-round">
+            <div class="round-header"><div class="round-label">Finals</div></div>
+            <div class="bracket-match">
+              <div class="bracket-slot tbd"><div class="bracket-seed">?</div><span class="match-name">TBD</span></div>
+              <div class="bracket-slot tbd"><div class="bracket-seed">?</div><span class="match-name">TBD</span></div>
+            </div>
+          </div>
+
+          <div class="bracket-connectors"><div class="connector-line"></div></div>
+
+          <!-- CHAMPION -->
+          <div class="bracket-champion">
+            <div class="trophy-icon">&#127942;</div>
+            <div class="champ-label">Champion</div>
+            <div class="champ-name">TBD</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT SIDEBAR -->
+      <aside class="hub-right">
+        <div class="profile-card">
+          <div class="profile-label">Your Profile</div>
+          <div class="profile-row">
+            <div class="profile-avatar">B</div>
+            <div>
+              <div class="profile-name">Dr. Brian</div>
+              <div class="profile-rank">Seed #1 - 2,780 XP to next rank</div>
+            </div>
+          </div>
+          <div class="xp-track"><div class="xp-fill"></div></div>
+          <div class="stat-grid">
+            <div class="stat-cell"><div class="stat-label">Win Rate</div><div class="stat-val">100%</div></div>
+            <div class="stat-cell"><div class="stat-label">Avg Time</div><div class="stat-val">3.2s</div></div>
+            <div class="stat-cell"><div class="stat-label">Accuracy</div><div class="stat-val">87%</div></div>
+            <div class="stat-cell"><div class="stat-label">Streak</div><div class="stat-val">3W</div></div>
+          </div>
+        </div>
+        <div class="tourney-card">
+          <div class="tourney-title">Tournament Intel</div>
+          <div class="tourney-row"><span>Format</span><span class="tv">Single Elim</span></div>
+          <div class="tourney-row"><span>Players</span><span class="tv">16 Seeded</span></div>
+          <div class="tourney-row"><span>Questions / Match</span><span class="tv">40</span></div>
+          <div class="tourney-row"><span>Timer</span><span class="tv">15s / Q</span></div>
+          <div class="tourney-row"><span>Your Seed</span><span class="tv" style="color:var(--accent3)">#1</span></div>
+          <div class="tourney-row"><span>Matches Left</span><span class="tv">2 to win</span></div>
+        </div>
+        <div class="config-card">
+          <div class="config-title">Training Focus</div>
+          <div class="config-pills">
+            <button class="config-pill active">Step 2</button>
+            <button class="config-pill">Cardio</button>
+            <button class="config-pill active">Pharm</button>
+            <button class="config-pill">Neuro</button>
+            <button class="config-pill active">Path</button>
+            <button class="config-pill">Renal</button>
+            <button class="config-pill">GI</button>
+            <button class="config-pill">Endo</button>
+          </div>
+        </div>
+        <div class="sidebar-actions">
+          <button class="btn-primary" onclick="showView('matchup')">Play Next Match</button>
+          <button class="btn-ghost" onclick="showView('results')">View Last Result</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ========== SCREEN 2: MATCHUP PREVIEW ========== -->
+  <section class="screen" id="screen-matchup">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TM</div>
+        <div>
+          <div class="brand-title">Quarterfinal Match</div>
+          <div class="brand-sub">TOURNAMED Cup</div>
+        </div>
+      </div>
+      <button class="btn-sm" onclick="showView('hub')">&#8592; Bracket</button>
+    </div>
+    <div class="matchup-body">
+      <div class="matchup-card">
+        <div class="matchup-tag">&#9733; Quarterfinal - Match 1</div>
+        <div class="matchup-title">The Bracket Narrows</div>
+        <div class="matchup-sub">Win this and you're in the Final Four. Same 40 questions, same 15s clock.</div>
+        <div class="versus-row">
+          <div class="duelist">
+            <div class="duelist-avatar player">&#129504;</div>
+            <div class="duelist-name">Dr. Brian</div>
+            <div class="duelist-meta">Seed #1 - You</div>
+          </div>
+          <div class="vs-text">VS</div>
+          <div class="duelist">
+            <div class="duelist-avatar opp">&#129658;</div>
+            <div class="duelist-name">Dr. Kim</div>
+            <div class="duelist-meta">Seed #8 - Opponent</div>
+          </div>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-item"><div class="sk">Questions</div><div class="sv">40</div></div>
+          <div class="summary-item"><div class="sk">Timer</div><div class="sv">15s</div></div>
+          <div class="summary-item"><div class="sk">Round</div><div class="sv">QF</div></div>
+          <div class="summary-item"><div class="sk">Stakes</div><div class="sv">2x MP</div></div>
+        </div>
+        <button class="btn-primary" onclick="showView('play')">Enter the Bracket &#8594;</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== SCREEN 3: LIVE MATCH ========== -->
+  <section class="screen" id="screen-play">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TM</div>
+        <div>
+          <div class="brand-title">Live Match</div>
+          <div class="brand-sub">Quarterfinal - Seed #1 vs Seed #8</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="round-chip">Quarterfinal</div>
+        <div class="chip">15s Clock</div>
+      </div>
+    </div>
+    <div class="match-body">
+      <!-- Player HUD -->
+      <aside class="hud player-hud">
+        <div class="hud-head">
+          <div class="hud-avatar">&#129504;</div>
+          <div>
+            <div class="hud-name">Dr. Brian</div>
+            <div class="hud-tag">Seed #1 - You</div>
+          </div>
+        </div>
+        <div class="hud-score-row">
+          <div class="hud-score-label">Score</div>
+          <div class="hud-score">540</div>
+        </div>
+        <div class="hud-metrics">
+          <div class="hud-metric"><div class="mk">Correct</div><div class="mv">6</div></div>
+          <div class="hud-metric"><div class="mk">Avg</div><div class="mv">3.2s</div></div>
+        </div>
+        <div class="streak-bar">&#128293; Streak: 4</div>
+        <div class="answer-event correct">&#10003; Correct +85 pts (2.1s)</div>
+      </aside>
+
+      <!-- Arena Center -->
+      <main class="arena-center">
+        <div class="q-head">
+          <div class="q-progress">Q <strong>7</strong> / <strong>40</strong></div>
+          <div class="q-head-right">
+            <div class="round-chip">QF Match</div>
+            <div class="point-chip"><div class="lbl">Points</div><div class="val">92</div></div>
+            <div class="timer-ring">
+              <svg width="42" height="42">
+                <circle cx="21" cy="21" r="17" stroke-width="3" fill="none" class="t-bg"></circle>
+                <circle cx="21" cy="21" r="17" stroke-width="3" fill="none" class="t-fg"
+                  stroke-dasharray="106.8" stroke-dashoffset="26" stroke-linecap="round"></circle>
+              </svg>
+              <div class="t-num">11</div>
+            </div>
+          </div>
+        </div>
+        <div class="timer-bar-wrap"><div class="timer-bar"></div></div>
+        <div class="q-prompt">A 45-year-old woman presents with sudden onset chest pain radiating to the back. CT angiography reveals a Stanford Type B aortic dissection. What is the most appropriate initial management?</div>
+        <div class="choices">
+          <button class="choice"><span class="letter">A</span>Emergency surgical repair</button>
+          <button class="choice selected"><span class="letter">B</span>IV labetalol for blood pressure control</button>
+          <button class="choice"><span class="letter">C</span>Endovascular stent placement</button>
+          <button class="choice"><span class="letter">D</span>Oral ACE inhibitor therapy</button>
+        </div>
+        <div class="q-bottom">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span>Opponent active</span>
+            <div class="opp-strip"><span class="opp-dot"></span><span>Q7 Thinking...</span></div>
+          </div>
+          <div>Lock fast for max points</div>
+        </div>
+      </main>
+
+      <!-- Opponent HUD -->
+      <aside class="hud opp-hud">
+        <div class="hud-head">
+          <div class="hud-avatar">&#129658;</div>
+          <div>
+            <div class="hud-name">Dr. Kim</div>
+            <div class="hud-tag">Seed #8</div>
+          </div>
+        </div>
+        <div class="hud-score-row">
+          <div class="hud-score-label">Score</div>
+          <div class="hud-score">495</div>
+        </div>
+        <div class="opp-strip" style="margin-bottom:2px">
+          <span class="opp-dot"></span><span>6/40</span><span style="margin-left:auto">Hovering...</span>
+        </div>
+        <div class="hud-metrics">
+          <div class="hud-metric"><div class="mk">Correct</div><div class="mv">5</div></div>
+          <div class="hud-metric"><div class="mk">Avg</div><div class="mv">4.1s</div></div>
+        </div>
+        <div class="streak-bar">Streak: 2</div>
+        <div class="answer-event wrong">&#10007; Wrong (5.3s)</div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ========== SCREEN 4: RESULTS + BRACKET ADVANCE ========== -->
+  <section class="screen" id="screen-results">
+    <div class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TM</div>
+        <div>
+          <div class="brand-title">Match Complete</div>
+          <div class="brand-sub">Quarterfinal Result</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="chip">MP 2,830</div>
+      </div>
+    </div>
+    <div class="result-body">
+      <div class="result-banner">YOU ADVANCE!</div>
+      <div class="result-sub">Quarterfinal Victory - You move to the Final Four</div>
+      <div class="result-cards">
+        <div class="result-card player-card">
+          <h3>Dr. Brian (Seed #1)</h3>
+          <div class="result-score-big">2,840</div>
+          <div class="result-row"><span>Accuracy</span><strong>85%</strong></div>
+          <div class="result-row"><span>Avg Response</span><strong>3.2s</strong></div>
+          <div class="result-row"><span>Best Streak</span><strong>7</strong></div>
+        </div>
+        <div class="result-divider"><span>&#9876;</span></div>
+        <div class="result-card opp-card">
+          <h3>Dr. Kim (Seed #8)</h3>
+          <div class="result-score-big">2,595</div>
+          <div class="result-row"><span>Accuracy</span><strong>78%</strong></div>
+          <div class="result-row"><span>Avg Response</span><strong>4.1s</strong></div>
+          <div class="result-row"><span>Best Streak</span><strong>4</strong></div>
+        </div>
+      </div>
+      <div class="rewards">
+        <div class="reward-chip">+ 440 XP (2x QF)</div>
+        <div class="reward-chip">+ 200 MP</div>
+        <div class="reward-chip">&#127942; QF Winner</div>
+      </div>
+      <div class="advance-badge">
+        <div class="advance-icon">&#128640;</div>
+        <div class="advance-text"><strong>Next up: Semifinal!</strong> You'll face the winner of Chen vs Tanaka. XP multiplier goes to 3x in the Final Four.</div>
+      </div>
+      <div class="result-actions">
+        <button class="btn-primary" onclick="showView('hub')">View Updated Bracket</button>
+        <button class="btn-ghost" onclick="showView('matchup')">Preview Semifinal</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+// ============ VIEW NAVIGATION ============
+function showView(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+  document.querySelectorAll('.view-tabs button').forEach(b => {
+    b.classList.toggle('active', b.dataset.view === id);
+  });
+}
+document.querySelectorAll('.view-tabs button').forEach(btn => {
+  btn.addEventListener('click', () => showView(btn.dataset.view));
+});
+
+// ============ THEME TOGGLE ============
+const themeColors = {
+  battle: ['#c77dff','#ff6eb4','#ffe45e'],
+  slurp: ['#00e5a0','#00d4ff','#b8ff57'],
+  peely: ['#ffcc00','#ff8c42','#ff5ea3'],
+  pixel: ['#ff4da6','#4dffff','#ffff4d']
+};
+
+function setTheme(name) {
+  document.body.className = 'theme-' + name;
+  document.querySelectorAll('.theme-toggle button').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === name);
+  });
+  generateParticles(name);
+}
+document.querySelectorAll('.theme-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => setTheme(btn.dataset.theme));
+});
+
+// ============ CONFIG PILL TOGGLE ============
+document.querySelectorAll('.config-pill').forEach(pill => {
+  pill.addEventListener('click', () => pill.classList.toggle('active'));
+});
+
+// ============ CHOICE TOGGLE ============
+document.querySelectorAll('.choices .choice').forEach(ch => {
+  ch.addEventListener('click', () => {
+    document.querySelectorAll('.choices .choice').forEach(c => c.classList.remove('selected'));
+    ch.classList.add('selected');
+  });
+});
+
+// ============ FLOATING PARTICLES ============
+function generateParticles(theme) {
+  const container = document.getElementById('particles');
+  container.innerHTML = '';
+  const colors = themeColors[theme] || themeColors.battle;
+  for (let i = 0; i < 28; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    const size = 2 + Math.random() * 4;
+    p.style.cssText = `
+      left:${Math.random()*100}%;
+      width:${size}px; height:${size}px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      animation-duration:${8+Math.random()*16}s;
+      animation-delay:${Math.random()*10}s;
+    `;
+    container.appendChild(p);
+  }
+}
+
+// ============ INIT ============
+generateParticles('battle');
+</script>
+</body>
+</html>

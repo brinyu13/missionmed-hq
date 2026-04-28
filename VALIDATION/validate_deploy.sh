@@ -74,13 +74,15 @@ ARENA="$LIVE_DIR/arena.html"
 STAT="$LIVE_DIR/stat.html"
 DRILLS="$LIVE_DIR/drills.html"
 DAILY="$LIVE_DIR/daily.html"
+IVONCALL="$LIVE_DIR/ivoncall.html"
 
 require_file "$ARENA"
 require_file "$STAT"
 require_file "$DRILLS"
 require_file "$DAILY"
+require_file "$IVONCALL"
 
-for f in "$ARENA" "$STAT" "$DRILLS" "$DAILY"; do
+for f in "$ARENA" "$STAT" "$DRILLS" "$DAILY" "$IVONCALL"; do
   require_regex "$f" '</html>|</HTML>' "HTML closes correctly: $(basename "$f")"
 done
 
@@ -100,12 +102,15 @@ fi
 # Routing integrity
 require_contains "$ARENA" "STAT_CANONICAL_ROUTE = '/stat'" "Arena routes to /stat"
 require_contains "$ARENA" "/drills?entry=daily_rounds" "Arena routes Daily launch to /drills?entry=daily_rounds"
+require_contains "$ARENA" "IV_ON_CALL_CANONICAL_ROUTE = '/ivoncall.html'" "Arena routes IV On-Call to /ivoncall.html"
+require_absent "$ARENA" "/dboc_interview_v1.html" "Arena no longer references legacy IV route"
 require_contains "$ARENA" "/drills?video_id=" "Arena preserves drill contract route"
 require_contains "$DAILY" "/drills?video_id=" "Daily launches drills with video_id"
 require_contains "$DAILY" "mm_selected_drill" "Daily writes contract payload"
 require_contains "$DRILLS" "No valid drill contract" "Drills enforces contract guard"
 require_contains "$DRILLS" "query.video_id" "Drills accepts query.video_id contract path"
 require_contains "$DRILLS" "daily.html" "Drills knows Daily return path"
+require_contains "$IVONCALL" "/api/dboc/" "IV On-Call contains DBOC API contract paths"
 
 # Contract flow markers
 require_contains "$DAILY" "buildLaunchPayload" "Daily has launch payload builder"
@@ -118,7 +123,7 @@ for f in "$ARENA" "$STAT" "$DAILY"; do
   require_contains "$f" "fglyvdykwgbuivikqoah" "Correct Supabase project in $(basename "$f")"
 done
 
-for f in "$ARENA" "$STAT" "$DRILLS" "$DAILY"; do
+for f in "$ARENA" "$STAT" "$DRILLS" "$DAILY" "$IVONCALL"; do
   require_absent "$f" "plgndqcplokwiuimwhzh" "No deprecated Supabase project in $(basename "$f")"
   require_absent "$f" "supabase.auth.signUp" "No forbidden signUp flow in $(basename "$f")"
   require_absent "$f" "service_role" "No service role key string in $(basename "$f")"

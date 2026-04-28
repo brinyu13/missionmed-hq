@@ -1,0 +1,32 @@
+* 15f2561 (origin/main, origin/c8-usce-auth-permanentize-200a, c8-usce-auth-permanentize-200a) (C8)-usCe+OFFERsystem-200a log validation and smoke status
+* ee949c7 Auth: complete token handoff on /api/auth/session and lock WP redirect host
+* 0c4b430 (stat-async-500b-deploy) (E8)-STAT+Async-codex-high-500-b — add changelog entry for deploy gate
+* f4a07e0 (E8)-STAT+Async-codex-high-500-b — apply and deploy human async STAT duel contract repair
+| * dafea51 (HEAD -> main, backup/C8-usce-auth-200a-before-reconcile-20260428-042257) Auth: complete token handoff on /api/auth/session and lock WP redirect host
+|/  
+* a334bce auth redirect fix deploy
+* d69913d (tag: MR-GOLD-STABLE-2026-04-27) MR-GOLD-STABLE-BUILD-LOCK-032 — lock Gold Stable Build snapshot
+* 909b313 MR-CDN-PREFIX-NORMALIZATION-031 — normalize runtime asset references to LIVE CDN
+* d22ac17 MR-R2-SPECIAL-CHAR-ASSET-MIRROR-029 — support special-character R2 asset mirror
+* 4bdb454 MR-R2-CREDENTIAL-CDN-REPAIR-027 — standardize R2 write/mirror workflow
+* 83a7235 Add DBOC metrics and SAF transcription workers
+* 62219de MR-E3-BACKEND-CONTRACT-REPAIR-025: backend auth entrypoint + E3 contract repair
+* 67f8e8e MR-E3-OUTBOX-DUEL-SYNC-ENDTOEND-024: prime duel canonical telemetry metadata
+* d3f3e8a MR-E3-OUTBOX-DUEL-SYNC-ENDTOEND-024: stabilize telemetry payloads and duel submit fallback
+* 130840c IV On-Call build (scoped)
+* bbf9089 checkpoint: DBOC P2.2 step 1 transcribe endpoint added (server.mjs)
+| * e22ba28 (clean/source-of-truth-iv-build) Standardize CDN LIVE paths across runtime assets
+| * a885ab6 IV On-Call Phase 2–5 complete, arena restored
+| * 3040673 USCE W027 complete — ready for deploy
+|/  
+* a20294b CLEAN SOURCE OF TRUTH — MissionMed runtime core after E3 outbox
+* 2a711cd (backup/pre-clean-history-20260426-1537) MR-E3-OUTBOX-REINTRODUCTION-016 — add feature-flagged STAT outbox
+* 4efef41 checkpoint: fix validation SQL tablename -> table_name
+* cdfaa32 checkpoint: DBOC P2.1 API routes added in server.mjs
+* cdef141 checkpoint: pre-DBOC P2.1 server.mjs backup
+* f1d0ae5 checkpoint: DBOC GATE P1->P2 PASS_BY_OPERATOR_OVERRIDE (validation overrides active)
+* 7e52c98 checkpoint: DBOC P1.3 validation bundle + override flow
+* d853ce9 checkpoint: DBOC P1.2 RLS policies derived + idempotent
+* ff288d5 checkpoint: DBOC P1.1 schema derived + idempotent migration
+* 4d23227 pre-build clean state
+* 80a3b83 checkpoint: DBOC GATE P1->P2 PASS_BY_OPERATOR_OVERRIDE

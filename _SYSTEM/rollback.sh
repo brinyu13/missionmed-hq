@@ -31,7 +31,7 @@ restore_live_from_commit() {
   local hash="$1"
   local live_has_layout=1
 
-  for p in LIVE/arena.html LIVE/stat.html LIVE/drills.html LIVE/daily.html; do
+  for p in LIVE/arena.html LIVE/stat.html LIVE/drills.html LIVE/daily.html LIVE/ivoncall.html; do
     if ! git -C "$ROOT_DIR" cat-file -e "${hash}:${p}" 2>/dev/null; then
       live_has_layout=0
       break
@@ -50,6 +50,16 @@ restore_live_from_commit() {
   git -C "$ROOT_DIR" show "${hash}:drills_v1.html" > "$ROOT_DIR/LIVE/drills.html"
   git -C "$ROOT_DIR" show "${hash}:mode_dailyrounds_v1.html" > "$ROOT_DIR/LIVE/daily.html"
   git -C "$ROOT_DIR" show "${hash}:STAT MAIN folder/stat_latest.html" > "$ROOT_DIR/LIVE/stat.html"
+  if git -C "$ROOT_DIR" cat-file -e "${hash}:missionmed-hq/public/ivoncall.html" 2>/dev/null; then
+    git -C "$ROOT_DIR" show "${hash}:missionmed-hq/public/ivoncall.html" > "$ROOT_DIR/LIVE/ivoncall.html"
+  elif git -C "$ROOT_DIR" cat-file -e "${hash}:missionmed-hq/public/dboc_interview_v1.html" 2>/dev/null; then
+    git -C "$ROOT_DIR" show "${hash}:missionmed-hq/public/dboc_interview_v1.html" > "$ROOT_DIR/LIVE/ivoncall.html"
+  elif git -C "$ROOT_DIR" cat-file -e "${hash}:dboc_interview_v1.html" 2>/dev/null; then
+    git -C "$ROOT_DIR" show "${hash}:dboc_interview_v1.html" > "$ROOT_DIR/LIVE/ivoncall.html"
+  else
+    echo "Unable to reconstruct LIVE/ivoncall.html from rollback target: $hash" >&2
+    exit 1
+  fi
 }
 
 if [[ -z "$TARGET_HASH" ]]; then

@@ -3540,6 +3540,7 @@ function normalizeDuelPackForProbe(rawEnvelope) {
   if (!duel) return null;
   const pack = {
     duel_id: String(duel.id || ''),
+    is_bot_match: parseBooleanish(duel.is_bot_match) === true,
     dataset_version: String(duel.dataset_version || ''),
     question_ids: Array.isArray(duel.question_ids) ? duel.question_ids.slice() : [],
     choices_order: Array.isArray(duel.choices_order) ? duel.choices_order.slice() : [],
@@ -3629,6 +3630,7 @@ window.api.getDuelPack = async function getDuelPack(duelId) {
   }
   window.MM_DUEL = window.MM_DUEL || {};
   window.MM_DUEL.CURRENT_PACK = normalized;
+  trackActiveDuelBotSignal(normalized.is_bot_match === true);
   return normalized;
 };
 
@@ -3669,9 +3671,23 @@ async function submitAttemptRpc(duelId, timeMs, answersJson) {
   const safeDuelId = String(duelId || '').trim();
   const safeTimeMs = Math.max(0, Number(timeMs || 0));
   const safeAnswers = Array.isArray(answersJson) ? answersJson : [];
+  const canonicalAnswers = safeAnswers.map((row) => {
+    const r = row && typeof row === 'object' ? row : {};
+    const qid = String(r.question_id || r.id || '').trim();
+    let choiceIndex = Number(r.choice_index);
+    if (!Number.isInteger(choiceIndex)) choiceIndex = Number(r.selected_index);
+    if (!Number.isInteger(choiceIndex)) choiceIndex = -1;
+    const timeVal = Number(r.time_ms);
+    const timeMsSafe = Number.isFinite(timeVal) && timeVal >= 0 ? Math.round(timeVal) : 0;
+    return {
+      question_id: qid,
+      choice_index: choiceIndex,
+      time_ms: timeMsSafe
+    };
+  });
   const payload = {
     p_duel_id: safeDuelId,
-    p_answers: safeAnswers,
+    p_answers: canonicalAnswers,
     p_total_time_ms: safeTimeMs
   };
   payload.p_idempotency_key = idempotencyKey('submit');
@@ -4891,6 +4907,67 @@ function primeDuelCanonicalMetaFromPayload(createPayload) {
   }
 }
 
+async function ensureCanonicalDuelPackForActiveDuel() {
+  if (!activeDuelId) {
+    window.MM_DUEL_ACTIVE = false;
+    return null;
+  }
+  if (activeDuelIsBot === true) {
+    window.MM_DUEL_ACTIVE = false;
+    return null;
+  }
+
+  const duelId = String(activeDuelId || '').trim();
+  if (!duelId) {
+    window.MM_DUEL_ACTIVE = false;
+    throw new Error('duel_id_missing');
+  }
+
+  let pack = (window.MM_DUEL && window.MM_DUEL.CURRENT_PACK && typeof window.MM_DUEL.CURRENT_PACK === 'object')
+    ? window.MM_DUEL.CURRENT_PACK
+    : null;
+  if (!pack || String(pack.duel_id || '').trim() !== duelId || !Array.isArray(pack.question_ids) || pack.question_ids.length < 1) {
+    pack = await window.api.getDuelPack(duelId);
+  }
+  if (!pack) {
+    window.MM_DUEL_ACTIVE = false;
+    throw new Error('duel_pack_missing');
+  }
+  if (pack.is_bot_match === true) {
+    trackActiveDuelBotSignal(true);
+    window.MM_DUEL_ACTIVE = false;
+    return null;
+  }
+  if (!Array.isArray(pack.question_ids) || pack.question_ids.length < 1) {
+    window.MM_DUEL_ACTIVE = false;
+    throw new Error('duel_pack_question_ids_missing');
+  }
+  if (!Array.isArray(pack.choices_order) || pack.choices_order.length !== pack.question_ids.length) {
+    window.MM_DUEL_ACTIVE = false;
+    throw new Error('duel_pack_choices_order_invalid');
+  }
+
+  await window.api.verifyPackHash(pack);
+
+  const missingIds = pack.question_ids.filter((qid) => {
+    const id = String(qid || '').trim();
+    if (!id) return true;
+    return !(statRuntimeMap[id] || QUESTION_INDEX.byId[id]);
+  });
+  if (missingIds.length > 0) {
+    window.MM_DUEL_ACTIVE = false;
+    throw new Error('duel_pack_question_lookup_missing');
+  }
+
+  window.MM_DUEL = window.MM_DUEL || {};
+  window.MM_DUEL.CURRENT_PACK = pack;
+  window.MM_DUEL_ACTIVE = true;
+  trackActiveDuelBotSignal(false);
+  if (pack.dataset_version) window.MM_DUEL_DATASET_VERSION = String(pack.dataset_version);
+  if (pack.content_hash) window.__MM_DUEL_PACK_HASH = String(pack.content_hash);
+  return pack;
+}
+
 /* =========================================================
    DATA LAYER
    ========================================================= */
@@ -6071,6 +6148,17 @@ async function startMatch() {
     console.error('[STAT DATA] question dataset unavailable; start blocked');
     return false;
   }
+  if (activeDuelId && activeDuelIsBot !== true) {
+    try {
+      await ensureCanonicalDuelPackForActiveDuel();
+    } catch (packErr) {
+      window.MM_DUEL_ACTIVE = false;
+      duelRpcFailedNoLocalFallback(packErr, 'Unable to load this duel pack. Reload and retry.');
+      return false;
+    }
+  } else {
+    window.MM_DUEL_ACTIVE = false;
+  }
   startDuel();
   return true;
 }
@@ -6089,7 +6177,13 @@ function startDuel() {
   state.totalQ = Math.min(QUESTIONS.length, mapConfiguredCountToLiveCount(setupConfig.count));
   /* MM_DUEL_MVP_TOTALQ:BEGIN */
   if (window.MM_DUEL && window.MM_DUEL_ACTIVE) {
-    state.totalQ = QUESTIONS.length;
+    const pack = window.MM_DUEL.CURRENT_PACK && typeof window.MM_DUEL.CURRENT_PACK === 'object'
+      ? window.MM_DUEL.CURRENT_PACK
+      : null;
+    const packCount = pack && Array.isArray(pack.question_ids) ? Number(pack.question_ids.length || 0) : 0;
+    if (Number.isFinite(packCount) && packCount > 0) {
+      state.totalQ = packCount;
+    }
   }
   /* MM_DUEL_MVP_TOTALQ:END */
   state.questionDeliveryMode = resolveQuestionDeliveryMode();
@@ -6982,6 +7076,7 @@ function handlePlayerAnswer(idx, timedOut = false) {
   state.playerTotalTimeMs += elapsedMs;
   state.answerLog.push({
     question_id: q.id,
+    choice_index: verdict.selectedIndex,
     selected_index: verdict.selectedIndex,
     time_ms: elapsedMs
   });
@@ -8965,13 +9060,25 @@ function rosterFromEnvelope(envelope) {
 
 function peerUidOfDuel(duel) {
   if (!duel) return '';
-  if (duel.is_bot) return '';
+  if (parseBooleanish(duel.is_bot) === true || parseBooleanish(duel.is_bot_match) === true) return '';
+  if (duel.player_id) return String(duel.player_id || '');
   if (String(duel.role) === 'creator') return String(duel.opponent_id || '');
   if (String(duel.role) === 'opponent') return String(duel.created_by || '');
   return '';
 }
 
 function describeDuelForRow(duel) {
+  if (duel && duel.player_id) {
+    const rating = Number(duel.rating);
+    const wins = Number(duel.wins);
+    const losses = Number(duel.losses);
+    const parts = [];
+    if (Number.isFinite(rating) && rating > 0) parts.push('Rating ' + Math.round(rating));
+    if (Number.isFinite(wins) || Number.isFinite(losses)) {
+      parts.push(String(Number.isFinite(wins) ? wins : 0) + '-' + String(Number.isFinite(losses) ? losses : 0));
+    }
+    return parts.join(' • ') || 'Available opponent';
+  }
   const status = String(duel.status || '').toLowerCase();
   const role = String(duel.role || '');
   const statusMap = {
@@ -8983,6 +9090,26 @@ function describeDuelForRow(duel) {
   const statusText = statusMap[status] || status || 'Unknown';
   const roleText = role === 'creator' ? 'You challenged' : (role === 'opponent' ? 'Challenged you' : '');
   return [roleText, statusText].filter(Boolean).join(' • ');
+}
+
+function normalizeIncomingChallengeRow(row) {
+  const candidate = row && typeof row === 'object' ? row : {};
+  const duelId = String(candidate.duel_id || candidate.id || '').trim();
+  const state = String(candidate.status || candidate.state || '').trim().toLowerCase();
+  const challenger = String(candidate.created_by || candidate.challenger_id || '').trim();
+  const opponent = String(candidate.opponent_id || '').trim();
+  const isBot = parseBooleanish(candidate.is_bot) === true || parseBooleanish(candidate.is_bot_match) === true;
+  const expiryRaw = candidate.challenge_expires_at || candidate.expires_at || null;
+  const expiryTs = expiryRaw ? Date.parse(String(expiryRaw)) : NaN;
+  return {
+    duel_id: duelId,
+    state: state,
+    created_by: challenger,
+    opponent_id: opponent,
+    is_bot: isBot,
+    challenge_expires_at: expiryRaw,
+    expired: Number.isFinite(expiryTs) ? expiryTs <= Date.now() : false
+  };
 }
 
 function openChallengeRoster() {
@@ -9097,6 +9224,17 @@ async function handleRowChallenge(rowEl, opponentUid) {
   if (btn) btn.textContent = 'Sent ✓';
   showToast('Challenge sent');
   console.log('[STAT_V7] create_duel ok', { duel_id: newDuelId, opponent: opponentUid });
+  if (newDuelId) {
+    activeDuelId = String(newDuelId);
+    trackActiveDuelBotSignal(false);
+    persistSessionDuelId(activeDuelId);
+    writeStoredRuntime({
+      duel_id: activeDuelId,
+      duel_is_bot: false,
+      stage: 'duel_created',
+      opponent_name: activeOpponent.name
+    });
+  }
   try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
 }
 
@@ -9141,6 +9279,17 @@ async function handleManualSend() {
   msg.classList.add('ok');
   msg.textContent = 'Challenge sent. Duel ID: ' + shortUid(newDuelId);
   showToast('Challenge sent');
+  if (newDuelId) {
+    activeDuelId = String(newDuelId);
+    trackActiveDuelBotSignal(false);
+    persistSessionDuelId(activeDuelId);
+    writeStoredRuntime({
+      duel_id: activeDuelId,
+      duel_is_bot: false,
+      stage: 'duel_created',
+      opponent_name: activeOpponent.name
+    });
+  }
   try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
 }
 
@@ -9231,18 +9380,49 @@ async function pollIncomingChallenges() {
       backendUserId = String(sessionCheck.data.session.user.id || '');
     }
 
-    const envelope = await rpcCallSafe('duel_roster', {});
-    if (!envelope.ok) return;
-    const roster = rosterFromEnvelope(envelope);
     const ignored = ignoredChallenges();
-    const incoming = roster.find((d) => (
-      !d.is_bot
-      && String(d.role) === 'opponent'
-      && String(d.status) === 'pending'
-      && d.duel_id
-      && !ignored.has(String(d.duel_id))
-    ));
-    if (incoming) {
+    let incoming = null;
+
+    if (typeof supabaseClient.from === 'function') {
+      const query = supabaseClient
+        .from('duel_challenges')
+        .select('id, challenger_id, opponent_id, is_bot_match, state, challenge_expires_at, created_at')
+        .eq('is_bot_match', false)
+        .eq('opponent_id', backendUserId)
+        .in('state', ['pending', 'created'])
+        .order('created_at', { ascending: false })
+        .limit(20);
+      const queryRes = await query;
+      if (queryRes && !queryRes.error && Array.isArray(queryRes.data)) {
+        const normalizedRows = queryRes.data.map(normalizeIncomingChallengeRow);
+        incoming = normalizedRows.find((row) => (
+          row
+          && row.duel_id
+          && !row.is_bot
+          && !row.expired
+          && !ignored.has(String(row.duel_id))
+        )) || null;
+      }
+    }
+
+    if (!incoming) {
+      const envelope = await rpcCallSafe('duel_roster', {});
+      if (envelope.ok) {
+        const roster = rosterFromEnvelope(envelope);
+        const normalizedRoster = roster.map(normalizeIncomingChallengeRow);
+        incoming = normalizedRoster.find((row) => (
+          row
+          && row.duel_id
+          && !row.is_bot
+          && (row.state === 'pending' || row.state === 'created')
+          && String(row.opponent_id || backendUserId || '') === String(backendUserId || '')
+          && !row.expired
+          && !ignored.has(String(row.duel_id))
+        )) || null;
+      }
+    }
+
+    if (incoming && incoming.duel_id) {
       showIncomingModal(incoming);
     }
   } catch (err) {

@@ -13457,7 +13457,7 @@ END DRILLS RE-VERIFICATION SNIPPET
   var STAT_CANONICAL_ROUTE = '/stat';
   var STAT_LAUNCH_ENVELOPE_KEY = 'mm.stat.launch.v1';
   var STAT_LAUNCH_ENVELOPE_VERSION = 'v1';
-  var IV_ON_CALL_CANONICAL_ROUTE = '/dboc_interview_v1.html';
+  var IV_ON_CALL_CANONICAL_ROUTE = '/ivoncall.html';
   var IV_ON_CALL_LAUNCH_KEY = 'mm.iv_on_call.launch.v1';
   var IV_ON_CALL_TRANSITION_MS = 1200;
   var ivOnCallLaunchPending = false;
@@ -13738,6 +13738,8 @@ END DRILLS RE-VERIFICATION SNIPPET
   function wirePlayButton(){
     var btn = document.getElementById('lus-play-btn');
     if(!btn){ console.warn('[TRACE] wirePlayButton: #lus-play-btn NOT FOUND'); return; }
+    if(btn.dataset.lusPlayBound === '1') return;
+    btn.dataset.lusPlayBound = '1';
     console.log('[TRACE] wirePlayButton: wiring click handler on #lus-play-btn');
     btn.addEventListener('click', async function(event){
       if(btn.disabled){
@@ -13775,11 +13777,26 @@ END DRILLS RE-VERIFICATION SNIPPET
       if(mode === 'iv_on_call'){
         event.preventDefault();
         event.stopPropagation();
-        launchIVOnCall('arena_mode_system_008_play_button');
+        var launched = false;
+        try {
+          launched = await launchIVOnCall('arena_mode_system_008_play_button');
+        } catch (launchErr) {
+          warn('IV launch error', launchErr);
+          launched = null;
+        }
+        if(launched === false){
+          showLockedToast('Sign in required to enter IV On-Call');
+          return;
+        }
+        if(launched === null){
+          warn('IV launch fallback -> canonical route');
+          window.location.href = IV_ON_CALL_CANONICAL_ROUTE;
+          return;
+        }
         return;
       }
       showLockedToast('Select a mode first');
-    });
+    }, true);
   }
 
   function showLockedToast(modeName){

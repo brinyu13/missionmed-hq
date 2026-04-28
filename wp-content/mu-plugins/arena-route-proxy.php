@@ -105,6 +105,7 @@ if ( ! function_exists( 'mm_arena_route_proxy_build_auth_config' ) ) {
 			home_url( '/my-account/' )
 		);
 		$logout_url       = wp_logout_url( $logged_out_url );
+		$logout_url       = html_entity_decode( (string) $logout_url, ENT_QUOTES, 'UTF-8' );
 		$forgot_url       = wp_lostpassword_url( $login_return_url );
 		$login_form_html  = '';
 		$logged_out_param = false;
@@ -133,6 +134,20 @@ if ( ! function_exists( 'mm_arena_route_proxy_build_auth_config' ) ) {
 			if ( '' !== $login_form_html ) {
 				$login_form_html .= '<p class="login-lost-password"><a href="' . esc_url( $forgot_url ) . '">Forgot password?</a></p>';
 			}
+		}
+
+		// Safety fallback: keep native WP login mechanics embedded even if wp_login_form() is unavailable/empty.
+		if ( '' === trim( (string) $login_form_html ) ) {
+			$login_form_html =
+				'<form name="loginform" id="loginform" action="' . esc_url( site_url( 'wp-login.php', 'login' ) ) . '" method="post">' .
+				'<p class="login-username"><label for="user_login">' . esc_html__( 'Email or Username' ) . '</label>' .
+				'<input type="text" name="log" id="user_login" autocomplete="username" class="input" value="" size="20" /></p>' .
+				'<p class="login-password"><label for="user_pass">' . esc_html__( 'Password' ) . '</label>' .
+				'<input type="password" name="pwd" id="user_pass" autocomplete="current-password" spellcheck="false" class="input" value="" size="20" /></p>' .
+				'<p class="login-remember"><label><input name="rememberme" type="checkbox" id="rememberme" value="forever" /> ' . esc_html__( 'Remember Me' ) . '</label></p>' .
+				'<p class="login-submit"><input type="submit" name="wp-submit" id="wp-submit" class="button button-primary" value="' . esc_attr__( 'Enter Arena' ) . '" />' .
+				'<input type="hidden" name="redirect_to" value="' . esc_attr( $login_return_url ) . '" /></p></form>' .
+				'<p class="login-lost-password"><a href="' . esc_url( $forgot_url ) . '">' . esc_html__( 'Forgot password?' ) . '</a></p>';
 		}
 
 		return array(

@@ -4,7 +4,7 @@
 **Date:** 2026-04-27  
 **Risk Level:** HIGH (modifies existing production UI)  
 **System:** Dr Brian On-Call - Residency Interview System  
-**Files Analyzed:** `dboc_interview_v1.html`, `server.mjs`, `saf_analyzer.mjs`, `question_selector.mjs`, `worker_metrics.mjs`
+**Files Analyzed:** `ivoncall.html`, `server.mjs`, `saf_analyzer.mjs`, `question_selector.mjs`, `worker_metrics.mjs`
 
 ---
 
@@ -496,7 +496,7 @@ Replace dropdown-based vault with:
 
 | Component | Current File | Change |
 |-----------|-------------|--------|
-| App Shell | `dboc_interview_v1.html` | Split into: `lobby.html` (dashboard) + `arena.html` (session) OR use client-side routing |
+| App Shell | `ivoncall.html` | Split into: `lobby.html` (dashboard) + `arena.html` (session) OR use client-side routing |
 | CSS Variables | `:root` block | Replace entire palette with Fortnite design system colors |
 | Mode Cards | `.mode-card` + JS render | New component: `ModeSelector` with neon themes, lock states, recommendation badge |
 | Video Recorder | `.video-wrap` + controls | New component: `RecordingArena` - full-screen, countdown, live metrics |
