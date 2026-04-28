@@ -1,0 +1,2472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MR-1401B: Mission Residency Six-Version Premium Demo</title>
+<style>
+
+/* ============================================
+   MR-1401B DEMO — SHARED RESET + UTILITIES
+   ============================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #fff; overflow-x: hidden; }
+
+.mr1401-demo { width: 100%; }
+.mr1401-version { display: none; }
+.mr1401-version.mr1401-active { display: block; }
+
+/* Version Selector */
+.mr1401-selector { position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: rgba(10,10,10,0.97); border-bottom: 2px solid #B23A3A; padding: 8px 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; backdrop-filter: blur(10px); }
+.mr1401-selector button { padding: 7px 14px; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #ccc; border-radius: 20px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.3s; white-space: nowrap; }
+.mr1401-selector button:hover { border-color: #B23A3A; color: #fff; }
+.mr1401-selector button.mr1401-sel-active { background: #B23A3A; border-color: #B23A3A; color: #fff; }
+
+/* Shared Section Utilities */
+.mr1401-section { padding: 80px 20px; max-width: 1200px; margin: 0 auto; }
+.mr1401-section-full { padding: 80px 20px; width: 100%; }
+
+/* Shared Filter Chips */
+.mr1401-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 30px; }
+.mr1401-chip { padding: 8px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; transition: all 0.3s; border: 1px solid rgba(255,255,255,0.2); background: transparent; color: #aaa; }
+.mr1401-chip:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+.mr1401-chip.mr1401-chip-active { color: #fff; }
+
+/* Shared Proof Cards */
+.mr1401-proof-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.mr1401-proof-card { border-radius: 12px; padding: 24px; transition: all 0.3s; }
+.mr1401-proof-card.mr1401-hidden { display: none; }
+
+/* Video Card Shared */
+.mr1401-video-thumb { width: 100%; aspect-ratio: 16/9; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; cursor: pointer; }
+.mr1401-play-btn { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: transform 0.3s; }
+.mr1401-play-btn:hover { transform: scale(1.1); }
+.mr1401-play-btn svg { width: 24px; height: 24px; fill: #fff; }
+
+/* Shared CTA */
+.mr1401-cta-btn { display: inline-block; padding: 16px 36px; border-radius: 8px; font-weight: 700; font-size: 16px; text-decoration: none; cursor: pointer; border: none; transition: all 0.3s; text-align: center; }
+.mr1401-cta-btn:hover { transform: translateY(-2px); }
+
+/* Responsive */
+@media (max-width: 768px) {
+    .mr1401-selector { padding: 6px 8px; gap: 4px; }
+    .mr1401-selector button { padding: 5px 10px; font-size: 10px; }
+    .mr1401-section { padding: 50px 16px; }
+    .mr1401-proof-grid { grid-template-columns: 1fr; }
+    .mr1401-chips { gap: 6px; }
+    .mr1401-chip { padding: 6px 12px; font-size: 11px; }
+}
+
+
+/* ============================================
+   VERSION 1 — MISSIONMED PRESTIGE
+   Deep navy, muted red, gold/cream highlights
+   ============================================ */
+.mr1401-v1 { background: #0F2A44; color: #F4F6F8; font-family: 'Georgia', 'Times New Roman', serif; }
+.mr1401-v1 .mr1401-v1-hero { min-height: 90vh; display: flex; align-items: center; justify-content: center; padding: 120px 20px 80px; background: linear-gradient(170deg, #0F2A44 0%, #1B2F4A 40%, #0F2A44 100%); position: relative; overflow: hidden; }
+.mr1401-v1 .mr1401-v1-hero::before { content: ''; position: absolute; top: -50%; right: -20%; width: 80%; height: 200%; background: radial-gradient(ellipse, rgba(178,58,58,0.08) 0%, transparent 70%); }
+.mr1401-v1 .mr1401-v1-hero-inner { max-width: 900px; text-align: center; position: relative; z-index: 1; }
+.mr1401-v1 .mr1401-v1-hero h1 { font-size: clamp(2.2rem, 5vw, 3.6rem); line-height: 1.2; margin-bottom: 24px; color: #fff; font-weight: 700; }
+.mr1401-v1 .mr1401-v1-hero h1 span { color: #B23A3A; }
+.mr1401-v1 .mr1401-v1-hero p { font-size: 1.15rem; line-height: 1.7; color: #c0cfe0; margin-bottom: 36px; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v1 .mr1401-v1-cta { background: #B23A3A; color: #fff; padding: 18px 44px; border-radius: 6px; font-family: 'Segoe UI', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 0.5px; }
+.mr1401-v1 .mr1401-v1-cta:hover { background: #9a2e2e; box-shadow: 0 8px 30px rgba(178,58,58,0.4); }
+.mr1401-v1 .mr1401-v1-logo { width: 80px; margin-bottom: 24px; }
+
+/* V1 Enrollment Strip */
+.mr1401-v1 .mr1401-v1-strip { background: #B23A3A; padding: 12px 20px; text-align: center; font-family: 'Segoe UI', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 0.5px; }
+
+/* V1 Stats Bar */
+.mr1401-v1 .mr1401-v1-stats { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; padding: 50px 20px; background: #1B2F4A; border-top: 1px solid rgba(255,255,255,0.05); border-bottom: 1px solid rgba(255,255,255,0.05); }
+.mr1401-v1 .mr1401-v1-stat { text-align: center; }
+.mr1401-v1 .mr1401-v1-stat-num { font-size: 2.4rem; font-weight: 700; color: #B23A3A; display: block; }
+.mr1401-v1 .mr1401-v1-stat-label { font-size: 0.85rem; color: #8ba3c7; font-family: 'Segoe UI', sans-serif; margin-top: 4px; }
+
+/* V1 Section Styles */
+.mr1401-v1 .mr1401-v1-section { padding: 80px 20px; max-width: 1100px; margin: 0 auto; }
+.mr1401-v1 .mr1401-v1-section-dark { background: #0a1f36; }
+.mr1401-v1 .mr1401-v1-section-mid { background: #1B2F4A; }
+.mr1401-v1 h2 { font-size: clamp(1.6rem, 3vw, 2.4rem); text-align: center; margin-bottom: 16px; line-height: 1.3; }
+.mr1401-v1 .mr1401-v1-subtitle { text-align: center; color: #8ba3c7; font-size: 1rem; margin-bottom: 48px; font-family: 'Segoe UI', sans-serif; line-height: 1.6; max-width: 700px; margin-left: auto; margin-right: auto; }
+
+/* V1 Gates */
+.mr1401-v1 .mr1401-v1-gates { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 40px; }
+.mr1401-v1 .mr1401-v1-gate { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 36px; }
+.mr1401-v1 .mr1401-v1-gate h3 { font-size: 1.3rem; margin-bottom: 12px; color: #fff; }
+.mr1401-v1 .mr1401-v1-gate p { color: #8ba3c7; line-height: 1.6; font-family: 'Segoe UI', sans-serif; font-size: 0.95rem; }
+.mr1401-v1 .mr1401-v1-gate-label { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-bottom: 16px; font-family: 'Segoe UI', sans-serif; letter-spacing: 1px; text-transform: uppercase; }
+.mr1401-v1 .mr1401-v1-gate-label-1 { background: rgba(178,58,58,0.2); color: #e06060; }
+.mr1401-v1 .mr1401-v1-gate-label-2 { background: rgba(58,120,178,0.2); color: #60a0e0; }
+
+/* V1 NRMP Bars */
+.mr1401-v1 .mr1401-v1-bar-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+.mr1401-v1 .mr1401-v1-bar-label { width: 200px; text-align: right; font-size: 0.85rem; color: #c0cfe0; font-family: 'Segoe UI', sans-serif; flex-shrink: 0; }
+.mr1401-v1 .mr1401-v1-bar-track { flex: 1; height: 28px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+.mr1401-v1 .mr1401-v1-bar-fill { height: 100%; border-radius: 4px; transition: width 1.5s ease; display: flex; align-items: center; justify-content: flex-end; padding-right: 10px; font-size: 0.8rem; font-weight: 700; font-family: 'Segoe UI', sans-serif; }
+
+/* V1 Proof Module */
+.mr1401-v1 .mr1401-chip.mr1401-chip-active { background: #B23A3A; border-color: #B23A3A; }
+.mr1401-v1 .mr1401-proof-card { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); }
+.mr1401-v1 .mr1401-proof-card:hover { border-color: rgba(178,58,58,0.4); background: rgba(255,255,255,0.06); }
+.mr1401-v1 .mr1401-video-thumb { background: linear-gradient(135deg, #1a3050 0%, #0F2A44 100%); }
+.mr1401-v1 .mr1401-play-btn { background: rgba(178,58,58,0.9); }
+.mr1401-v1 .mr1401-proof-name { font-size: 1rem; font-weight: 700; margin-top: 14px; }
+.mr1401-v1 .mr1401-proof-quote { font-style: italic; color: #c0cfe0; margin-top: 8px; line-height: 1.5; font-size: 0.95rem; }
+.mr1401-v1 .mr1401-proof-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.mr1401-v1 .mr1401-proof-tag { font-size: 0.7rem; padding: 3px 8px; background: rgba(178,58,58,0.15); color: #e06060; border-radius: 10px; font-family: 'Segoe UI', sans-serif; }
+
+/* V1 How It Works */
+.mr1401-v1 .mr1401-v1-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 40px; }
+.mr1401-v1 .mr1401-v1-step { text-align: center; padding: 30px 20px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); }
+.mr1401-v1 .mr1401-v1-step-num { font-size: 2rem; font-weight: 700; color: #B23A3A; margin-bottom: 12px; }
+.mr1401-v1 .mr1401-v1-step h4 { font-size: 1rem; margin-bottom: 8px; }
+.mr1401-v1 .mr1401-v1-step p { font-size: 0.85rem; color: #8ba3c7; line-height: 1.5; font-family: 'Segoe UI', sans-serif; }
+
+/* V1 Dr. Brian */
+.mr1401-v1 .mr1401-v1-authority { display: grid; grid-template-columns: 300px 1fr; gap: 50px; align-items: center; }
+.mr1401-v1 .mr1401-v1-portrait { width: 300px; height: 380px; background: linear-gradient(135deg, #1a3050, #0F2A44); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; color: #8ba3c7; border: 1px solid rgba(255,255,255,0.08); }
+.mr1401-v1 .mr1401-v1-authority-text h2 { text-align: left; margin-bottom: 20px; }
+.mr1401-v1 .mr1401-v1-authority-text p { color: #c0cfe0; line-height: 1.7; font-family: 'Segoe UI', sans-serif; margin-bottom: 16px; }
+
+/* V1 Tiers */
+.mr1401-v1 .mr1401-v1-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+.mr1401-v1 .mr1401-v1-tier { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 36px 28px; text-align: center; transition: all 0.3s; }
+.mr1401-v1 .mr1401-v1-tier:hover { border-color: rgba(178,58,58,0.4); transform: translateY(-4px); }
+.mr1401-v1 .mr1401-v1-tier.mr1401-v1-tier-featured { border-color: #B23A3A; background: rgba(178,58,58,0.05); }
+.mr1401-v1 .mr1401-v1-tier h3 { font-size: 1.2rem; margin-bottom: 12px; }
+.mr1401-v1 .mr1401-v1-tier p { font-size: 0.9rem; color: #8ba3c7; line-height: 1.5; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v1 .mr1401-v1-tier-badge { display: inline-block; padding: 4px 12px; background: #B23A3A; color: #fff; border-radius: 12px; font-size: 0.7rem; font-weight: 700; margin-bottom: 16px; font-family: 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: 1px; }
+.mr1401-v1 .mr1401-v1-tier-features { list-style: none; text-align: left; margin: 20px 0; }
+.mr1401-v1 .mr1401-v1-tier-features li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.85rem; color: #c0cfe0; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v1 .mr1401-v1-tier-features li::before { content: '\2713'; color: #B23A3A; margin-right: 8px; font-weight: 700; }
+
+/* V1 Final CTA */
+.mr1401-v1 .mr1401-v1-final-cta { text-align: center; padding: 100px 20px; background: linear-gradient(170deg, #0a1f36, #0F2A44); }
+.mr1401-v1 .mr1401-v1-final-cta h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); margin-bottom: 20px; }
+.mr1401-v1 .mr1401-v1-final-cta p { color: #8ba3c7; max-width: 600px; margin: 0 auto 36px; line-height: 1.6; font-family: 'Segoe UI', sans-serif; }
+
+/* V1 FAQ */
+.mr1401-v1 .mr1401-v1-faq-item { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 20px 0; }
+.mr1401-v1 .mr1401-v1-faq-q { font-size: 1rem; font-weight: 600; cursor: pointer; color: #fff; display: flex; justify-content: space-between; align-items: center; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v1 .mr1401-v1-faq-a { color: #8ba3c7; line-height: 1.6; margin-top: 12px; display: none; font-family: 'Segoe UI', sans-serif; font-size: 0.9rem; }
+.mr1401-v1 .mr1401-v1-faq-item.mr1401-open .mr1401-v1-faq-a { display: block; }
+
+@media (max-width: 768px) {
+    .mr1401-v1 .mr1401-v1-gates { grid-template-columns: 1fr; }
+    .mr1401-v1 .mr1401-v1-steps { grid-template-columns: 1fr 1fr; }
+    .mr1401-v1 .mr1401-v1-authority { grid-template-columns: 1fr; }
+    .mr1401-v1 .mr1401-v1-portrait { width: 100%; max-width: 300px; margin: 0 auto; }
+    .mr1401-v1 .mr1401-v1-tiers { grid-template-columns: 1fr; }
+    .mr1401-v1 .mr1401-v1-bar-label { width: 120px; font-size: 0.75rem; }
+    .mr1401-v1 .mr1401-v1-stats { gap: 20px; }
+}
+
+
+/* ============================================
+   VERSION 2 — MISSIONMED EXECUTIVE CLINICAL
+   High-trust, institutional, clean, powerful
+   ============================================ */
+.mr1401-v2 { background: #FFFFFF; color: #2A2A2A; font-family: 'Segoe UI', -apple-system, sans-serif; }
+.mr1401-v2 .mr1401-v2-hero { min-height: 85vh; display: flex; align-items: center; padding: 120px 20px 80px; background: linear-gradient(160deg, #0F2A44 0%, #1B2F4A 60%, #243b5c 100%); color: #fff; position: relative; }
+.mr1401-v2 .mr1401-v2-hero::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 120px; background: linear-gradient(to bottom, transparent, #fff); }
+.mr1401-v2 .mr1401-v2-hero-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; position: relative; z-index: 1; }
+.mr1401-v2 .mr1401-v2-hero h1 { font-size: clamp(2rem, 4vw, 3rem); line-height: 1.2; font-weight: 800; }
+.mr1401-v2 .mr1401-v2-hero h1 span { color: #e06060; }
+.mr1401-v2 .mr1401-v2-hero p { color: #c0cfe0; line-height: 1.7; margin: 20px 0 32px; font-size: 1.05rem; }
+.mr1401-v2 .mr1401-v2-hero-right { background: rgba(255,255,255,0.06); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 40px; }
+.mr1401-v2 .mr1401-v2-hero-right h3 { font-size: 1.1rem; margin-bottom: 20px; color: #fff; }
+.mr1401-v2 .mr1401-v2-hero-stat { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.08); font-size: 0.9rem; }
+.mr1401-v2 .mr1401-v2-hero-stat span:last-child { font-weight: 700; color: #e06060; }
+.mr1401-v2 .mr1401-v2-cta { background: #B23A3A; color: #fff; padding: 16px 40px; border-radius: 4px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; font-size: 14px; }
+.mr1401-v2 .mr1401-v2-cta:hover { background: #9a2e2e; }
+
+/* V2 Strip */
+.mr1401-v2 .mr1401-v2-strip { background: #0F2A44; color: #fff; padding: 14px 20px; text-align: center; font-size: 14px; font-weight: 600; }
+
+/* V2 Light Sections */
+.mr1401-v2 .mr1401-v2-section { padding: 80px 20px; max-width: 1100px; margin: 0 auto; }
+.mr1401-v2 .mr1401-v2-section-alt { background: #F4F6F8; }
+.mr1401-v2 .mr1401-v2-section-dark { background: #0F2A44; color: #fff; }
+.mr1401-v2 h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); text-align: center; margin-bottom: 12px; color: #0F2A44; font-weight: 800; }
+.mr1401-v2 .mr1401-v2-section-dark h2 { color: #fff; }
+.mr1401-v2 .mr1401-v2-subtitle { text-align: center; color: #666; font-size: 1rem; margin-bottom: 48px; line-height: 1.6; max-width: 650px; margin-left: auto; margin-right: auto; }
+.mr1401-v2 .mr1401-v2-section-dark .mr1401-v2-subtitle { color: #8ba3c7; }
+
+/* V2 Gates */
+.mr1401-v2 .mr1401-v2-gates { display: grid; grid-template-columns: 1fr 60px 1fr; gap: 0; align-items: stretch; margin-top: 40px; }
+.mr1401-v2 .mr1401-v2-gate { background: #fff; border: 2px solid #e8ecf0; border-radius: 12px; padding: 40px 32px; }
+.mr1401-v2 .mr1401-v2-gate:hover { border-color: #B23A3A; }
+.mr1401-v2 .mr1401-v2-gate-divider { display: flex; align-items: center; justify-content: center; font-weight: 800; color: #B23A3A; font-size: 1.2rem; }
+.mr1401-v2 .mr1401-v2-gate h3 { color: #0F2A44; font-size: 1.2rem; margin-bottom: 12px; }
+.mr1401-v2 .mr1401-v2-gate p { color: #555; line-height: 1.6; font-size: 0.9rem; }
+
+/* V2 NRMP Data */
+.mr1401-v2 .mr1401-v2-bar-row { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.mr1401-v2 .mr1401-v2-bar-label { width: 200px; text-align: right; font-size: 0.85rem; color: #444; flex-shrink: 0; }
+.mr1401-v2 .mr1401-v2-bar-track { flex: 1; height: 24px; background: #e8ecf0; border-radius: 4px; overflow: hidden; }
+.mr1401-v2 .mr1401-v2-bar-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, #0F2A44, #1B2F4A); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.75rem; font-weight: 700; color: #fff; transition: width 1.5s ease; }
+
+/* V2 Proof */
+.mr1401-v2 .mr1401-chip { border-color: #ddd; color: #666; }
+.mr1401-v2 .mr1401-chip:hover { border-color: #B23A3A; color: #B23A3A; }
+.mr1401-v2 .mr1401-chip.mr1401-chip-active { background: #0F2A44; border-color: #0F2A44; color: #fff; }
+.mr1401-v2 .mr1401-proof-card { background: #fff; border: 1px solid #e8ecf0; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.mr1401-v2 .mr1401-proof-card:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.1); border-color: #B23A3A; }
+.mr1401-v2 .mr1401-video-thumb { background: linear-gradient(135deg, #0F2A44, #1B2F4A); }
+.mr1401-v2 .mr1401-play-btn { background: #B23A3A; }
+.mr1401-v2 .mr1401-proof-name { color: #0F2A44; font-weight: 700; margin-top: 14px; }
+.mr1401-v2 .mr1401-proof-quote { color: #555; margin-top: 8px; font-style: italic; line-height: 1.5; }
+.mr1401-v2 .mr1401-proof-tag { background: #F4F6F8; color: #0F2A44; font-size: 0.7rem; padding: 3px 8px; border-radius: 10px; }
+
+/* V2 Steps */
+.mr1401-v2 .mr1401-v2-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; margin-top: 40px; counter-reset: step-counter; }
+.mr1401-v2 .mr1401-v2-step { background: #fff; border: 2px solid #e8ecf0; border-radius: 12px; padding: 32px 24px; text-align: center; position: relative; }
+.mr1401-v2 .mr1401-v2-step-num { width: 40px; height: 40px; background: #0F2A44; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; font-weight: 700; }
+.mr1401-v2 .mr1401-v2-step h4 { color: #0F2A44; margin-bottom: 8px; }
+.mr1401-v2 .mr1401-v2-step p { color: #666; font-size: 0.85rem; line-height: 1.5; }
+
+/* V2 Authority */
+.mr1401-v2 .mr1401-v2-authority { display: grid; grid-template-columns: 280px 1fr; gap: 50px; align-items: center; }
+.mr1401-v2 .mr1401-v2-portrait { width: 280px; height: 360px; background: linear-gradient(135deg, #e8ecf0, #F4F6F8); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 0.85rem; }
+.mr1401-v2 .mr1401-v2-authority-text h2 { text-align: left; }
+.mr1401-v2 .mr1401-v2-authority-text p { color: #555; line-height: 1.7; margin-bottom: 16px; }
+
+/* V2 Tiers */
+.mr1401-v2 .mr1401-v2-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 40px; }
+.mr1401-v2 .mr1401-v2-tier { background: #fff; border: 2px solid #e8ecf0; border-radius: 12px; padding: 36px 28px; text-align: center; transition: all 0.3s; }
+.mr1401-v2 .mr1401-v2-tier:hover { border-color: #B23A3A; }
+.mr1401-v2 .mr1401-v2-tier.mr1401-v2-tier-featured { border-color: #0F2A44; }
+.mr1401-v2 .mr1401-v2-tier h3 { color: #0F2A44; margin-bottom: 8px; }
+.mr1401-v2 .mr1401-v2-tier p { color: #666; font-size: 0.9rem; line-height: 1.5; }
+.mr1401-v2 .mr1401-v2-tier-features { list-style: none; text-align: left; margin: 20px 0; }
+.mr1401-v2 .mr1401-v2-tier-features li { padding: 8px 0; border-bottom: 1px solid #f0f0f0; color: #444; font-size: 0.85rem; }
+.mr1401-v2 .mr1401-v2-tier-features li::before { content: '\2713'; color: #0F2A44; margin-right: 8px; font-weight: 700; }
+
+/* V2 Final CTA */
+.mr1401-v2 .mr1401-v2-final-cta { text-align: center; padding: 80px 20px; background: #0F2A44; color: #fff; }
+.mr1401-v2 .mr1401-v2-final-cta h2 { color: #fff; }
+.mr1401-v2 .mr1401-v2-final-cta p { color: #8ba3c7; max-width: 600px; margin: 0 auto 32px; }
+
+/* V2 FAQ */
+.mr1401-v2 .mr1401-v2-faq-item { border-bottom: 1px solid #e8ecf0; padding: 20px 0; }
+.mr1401-v2 .mr1401-v2-faq-q { font-weight: 600; cursor: pointer; color: #0F2A44; display: flex; justify-content: space-between; }
+.mr1401-v2 .mr1401-v2-faq-a { color: #666; line-height: 1.6; margin-top: 12px; display: none; font-size: 0.9rem; }
+.mr1401-v2 .mr1401-v2-faq-item.mr1401-open .mr1401-v2-faq-a { display: block; }
+
+@media (max-width: 768px) {
+    .mr1401-v2 .mr1401-v2-hero-inner { grid-template-columns: 1fr; }
+    .mr1401-v2 .mr1401-v2-gates { grid-template-columns: 1fr; }
+    .mr1401-v2 .mr1401-v2-gate-divider { display: none; }
+    .mr1401-v2 .mr1401-v2-steps { grid-template-columns: 1fr 1fr; }
+    .mr1401-v2 .mr1401-v2-authority { grid-template-columns: 1fr; }
+    .mr1401-v2 .mr1401-v2-tiers { grid-template-columns: 1fr; }
+    .mr1401-v2 .mr1401-v2-bar-label { width: 120px; font-size: 0.75rem; }
+}
+
+
+/* ============================================
+   VERSION 3 — CINEMATIC MATCH STORIES
+   Story-driven, editorial, photo-heavy
+   ============================================ */
+.mr1401-v3 { background: #111; color: #f0f0f0; font-family: 'Georgia', serif; }
+.mr1401-v3 .mr1401-v3-hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 120px 20px 80px; background: linear-gradient(180deg, #111 0%, #1a1a2e 50%, #16213e 100%); text-align: center; position: relative; }
+.mr1401-v3 .mr1401-v3-hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 80%, rgba(178,58,58,0.15) 0%, transparent 60%); }
+.mr1401-v3 .mr1401-v3-hero-inner { position: relative; z-index: 1; max-width: 800px; }
+.mr1401-v3 .mr1401-v3-hero .mr1401-v3-eyebrow { text-transform: uppercase; letter-spacing: 4px; font-size: 0.8rem; color: #B23A3A; font-family: 'Segoe UI', sans-serif; font-weight: 700; margin-bottom: 24px; }
+.mr1401-v3 .mr1401-v3-hero h1 { font-size: clamp(2.4rem, 6vw, 4.5rem); line-height: 1.1; margin-bottom: 28px; font-weight: 400; font-style: italic; }
+.mr1401-v3 .mr1401-v3-hero h1 em { font-style: normal; color: #B23A3A; font-weight: 700; }
+.mr1401-v3 .mr1401-v3-hero p { font-size: 1.2rem; color: #999; line-height: 1.7; margin-bottom: 40px; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v3 .mr1401-v3-cta { background: transparent; border: 2px solid #B23A3A; color: #fff; padding: 16px 44px; border-radius: 0; font-family: 'Segoe UI', sans-serif; font-weight: 700; font-size: 14px; letter-spacing: 2px; text-transform: uppercase; }
+.mr1401-v3 .mr1401-v3-cta:hover { background: #B23A3A; }
+
+/* V3 Strip */
+.mr1401-v3 .mr1401-v3-strip { background: #B23A3A; padding: 12px 20px; text-align: center; font-family: 'Segoe UI', sans-serif; font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+
+/* V3 Editorial Sections */
+.mr1401-v3 .mr1401-v3-section { padding: 100px 20px; max-width: 900px; margin: 0 auto; }
+.mr1401-v3 .mr1401-v3-wide { max-width: 1200px; }
+.mr1401-v3 .mr1401-v3-divider { width: 60px; height: 2px; background: #B23A3A; margin: 0 auto 40px; }
+.mr1401-v3 h2 { font-size: clamp(1.8rem, 3.5vw, 2.8rem); text-align: center; margin-bottom: 16px; font-weight: 400; font-style: italic; line-height: 1.3; }
+.mr1401-v3 h2 em { font-style: normal; color: #B23A3A; }
+.mr1401-v3 .mr1401-v3-subtitle { text-align: center; color: #777; font-size: 1rem; margin-bottom: 60px; line-height: 1.7; font-family: 'Segoe UI', sans-serif; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+/* V3 Story Panels */
+.mr1401-v3 .mr1401-v3-story-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 0; min-height: 500px; margin: 80px 0; }
+.mr1401-v3 .mr1401-v3-story-img { background: linear-gradient(135deg, #1a1a2e, #16213e); display: flex; align-items: center; justify-content: center; color: #555; font-size: 0.85rem; min-height: 400px; }
+.mr1401-v3 .mr1401-v3-story-text { padding: 60px 50px; display: flex; flex-direction: column; justify-content: center; background: rgba(255,255,255,0.03); }
+.mr1401-v3 .mr1401-v3-story-text h3 { font-size: 1.6rem; margin-bottom: 16px; font-style: italic; }
+.mr1401-v3 .mr1401-v3-story-text p { color: #999; line-height: 1.8; font-family: 'Segoe UI', sans-serif; }
+
+/* V3 Gates - cinematic cards */
+.mr1401-v3 .mr1401-v3-gates { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+.mr1401-v3 .mr1401-v3-gate { background: rgba(255,255,255,0.02); border-left: 3px solid #B23A3A; padding: 40px; }
+.mr1401-v3 .mr1401-v3-gate h3 { font-size: 1.3rem; font-style: italic; margin-bottom: 16px; }
+.mr1401-v3 .mr1401-v3-gate p { color: #888; line-height: 1.7; font-family: 'Segoe UI', sans-serif; }
+
+/* V3 Proof - editorial magazine style */
+.mr1401-v3 .mr1401-chip { border-color: #333; color: #666; border-radius: 0; }
+.mr1401-v3 .mr1401-chip:hover { border-color: #B23A3A; color: #ccc; }
+.mr1401-v3 .mr1401-chip.mr1401-chip-active { background: transparent; border-color: #B23A3A; color: #B23A3A; border-bottom: 2px solid #B23A3A; }
+.mr1401-v3 .mr1401-proof-card { background: rgba(255,255,255,0.02); border: none; border-left: 3px solid #B23A3A; }
+.mr1401-v3 .mr1401-proof-card:hover { background: rgba(255,255,255,0.04); }
+.mr1401-v3 .mr1401-video-thumb { background: linear-gradient(135deg, #1a1a2e, #16213e); }
+.mr1401-v3 .mr1401-play-btn { background: rgba(178,58,58,0.9); border-radius: 0; width: 50px; height: 50px; }
+.mr1401-v3 .mr1401-proof-name { font-style: italic; font-size: 1rem; margin-top: 14px; }
+.mr1401-v3 .mr1401-proof-quote { color: #888; margin-top: 10px; line-height: 1.7; font-size: 1rem; }
+.mr1401-v3 .mr1401-proof-tag { background: transparent; border: 1px solid #333; color: #777; border-radius: 0; font-size: 0.7rem; padding: 3px 8px; }
+
+/* V3 Steps */
+.mr1401-v3 .mr1401-v3-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 30px; }
+.mr1401-v3 .mr1401-v3-step { text-align: center; }
+.mr1401-v3 .mr1401-v3-step-num { font-size: 3rem; color: #B23A3A; font-style: italic; margin-bottom: 12px; }
+.mr1401-v3 .mr1401-v3-step h4 { font-style: italic; margin-bottom: 8px; }
+.mr1401-v3 .mr1401-v3-step p { color: #777; font-size: 0.85rem; line-height: 1.6; font-family: 'Segoe UI', sans-serif; }
+
+/* V3 Authority */
+.mr1401-v3 .mr1401-v3-authority { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+.mr1401-v3 .mr1401-v3-authority-img { background: linear-gradient(135deg, #1a1a2e, #16213e); min-height: 500px; display: flex; align-items: center; justify-content: center; color: #555; }
+.mr1401-v3 .mr1401-v3-authority-text { padding: 60px 50px; display: flex; flex-direction: column; justify-content: center; }
+.mr1401-v3 .mr1401-v3-authority-text h2 { text-align: left; font-size: 2rem; margin-bottom: 24px; }
+.mr1401-v3 .mr1401-v3-authority-text p { color: #999; line-height: 1.8; margin-bottom: 16px; font-family: 'Segoe UI', sans-serif; }
+
+/* V3 Tiers */
+.mr1401-v3 .mr1401-v3-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 30px; }
+.mr1401-v3 .mr1401-v3-tier { border-left: 3px solid #333; padding: 40px 30px; transition: all 0.3s; }
+.mr1401-v3 .mr1401-v3-tier:hover { border-color: #B23A3A; }
+.mr1401-v3 .mr1401-v3-tier.mr1401-v3-tier-featured { border-color: #B23A3A; }
+.mr1401-v3 .mr1401-v3-tier h3 { font-style: italic; font-size: 1.2rem; margin-bottom: 12px; }
+.mr1401-v3 .mr1401-v3-tier p { color: #777; font-size: 0.9rem; line-height: 1.6; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v3 .mr1401-v3-tier-features { list-style: none; margin: 20px 0; }
+.mr1401-v3 .mr1401-v3-tier-features li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.05); color: #aaa; font-size: 0.85rem; font-family: 'Segoe UI', sans-serif; }
+
+/* V3 Final CTA */
+.mr1401-v3 .mr1401-v3-final-cta { text-align: center; padding: 120px 20px; background: linear-gradient(180deg, #111, #1a1a2e); }
+.mr1401-v3 .mr1401-v3-final-cta p { color: #777; max-width: 600px; margin: 0 auto 40px; font-family: 'Segoe UI', sans-serif; line-height: 1.7; }
+
+@media (max-width: 768px) {
+    .mr1401-v3 .mr1401-v3-story-panel { grid-template-columns: 1fr; }
+    .mr1401-v3 .mr1401-v3-gates { grid-template-columns: 1fr; }
+    .mr1401-v3 .mr1401-v3-steps { grid-template-columns: 1fr 1fr; }
+    .mr1401-v3 .mr1401-v3-authority { grid-template-columns: 1fr; }
+    .mr1401-v3 .mr1401-v3-tiers { grid-template-columns: 1fr; }
+    .mr1401-v3 .mr1401-v3-story-text { padding: 30px 24px; }
+}
+
+
+/* ============================================
+   VERSION 4 — GLOBAL IMG COMMAND CENTER
+   Dashboard, tactical, energetic, modern
+   ============================================ */
+.mr1401-v4 { background: #0a0f1a; color: #e0e8f0; font-family: 'Segoe UI', -apple-system, sans-serif; }
+.mr1401-v4 .mr1401-v4-hero { min-height: 90vh; display: flex; align-items: center; padding: 120px 20px 80px; background: radial-gradient(ellipse at 30% 50%, rgba(0,100,200,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(178,58,58,0.08) 0%, transparent 50%), linear-gradient(170deg, #0a0f1a 0%, #0f1829 100%); }
+.mr1401-v4 .mr1401-v4-hero-inner { max-width: 1200px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: 1.2fr 1fr; gap: 50px; align-items: center; }
+.mr1401-v4 .mr1401-v4-hero h1 { font-size: clamp(2rem, 4.5vw, 3.2rem); line-height: 1.15; font-weight: 800; }
+.mr1401-v4 .mr1401-v4-hero h1 span { background: linear-gradient(135deg, #4a9eff, #00d4ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.mr1401-v4 .mr1401-v4-hero p { color: #8ba3c7; line-height: 1.7; margin: 20px 0 32px; }
+.mr1401-v4 .mr1401-v4-cta { background: linear-gradient(135deg, #B23A3A, #d44444); color: #fff; padding: 16px 40px; border-radius: 8px; font-weight: 700; font-size: 15px; box-shadow: 0 4px 20px rgba(178,58,58,0.3); }
+.mr1401-v4 .mr1401-v4-cta:hover { box-shadow: 0 8px 30px rgba(178,58,58,0.5); }
+
+/* V4 HUD Panel in Hero */
+.mr1401-v4 .mr1401-v4-hud-panel { background: rgba(20,30,50,0.8); border: 1px solid rgba(74,158,255,0.2); border-radius: 16px; padding: 30px; backdrop-filter: blur(10px); }
+.mr1401-v4 .mr1401-v4-hud-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; color: #4a9eff; margin-bottom: 20px; font-weight: 700; }
+.mr1401-v4 .mr1401-v4-hud-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.9rem; }
+.mr1401-v4 .mr1401-v4-hud-row span:last-child { color: #4a9eff; font-weight: 700; }
+.mr1401-v4 .mr1401-v4-hud-glow { width: 100%; height: 4px; background: linear-gradient(90deg, transparent, #4a9eff, transparent); border-radius: 2px; margin-top: 20px; opacity: 0.6; }
+
+/* V4 Strip */
+.mr1401-v4 .mr1401-v4-strip { background: linear-gradient(90deg, #0F2A44, #1a3a5c, #0F2A44); padding: 12px 20px; text-align: center; font-size: 13px; font-weight: 600; letter-spacing: 1px; border-bottom: 1px solid rgba(74,158,255,0.2); }
+
+/* V4 Sections */
+.mr1401-v4 .mr1401-v4-section { padding: 80px 20px; max-width: 1200px; margin: 0 auto; }
+.mr1401-v4 .mr1401-v4-section-panel { background: rgba(15,20,35,0.6); border: 1px solid rgba(74,158,255,0.1); margin: 20px; border-radius: 16px; padding: 60px 40px; }
+.mr1401-v4 h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); text-align: center; margin-bottom: 8px; font-weight: 800; }
+.mr1401-v4 h2 span { color: #4a9eff; }
+.mr1401-v4 .mr1401-v4-subtitle { text-align: center; color: #6b8ab0; font-size: 0.95rem; margin-bottom: 48px; }
+
+/* V4 Gates - tactical panels */
+.mr1401-v4 .mr1401-v4-gates { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.mr1401-v4 .mr1401-v4-gate { background: rgba(20,30,50,0.6); border: 1px solid rgba(74,158,255,0.15); border-radius: 12px; padding: 32px; position: relative; overflow: hidden; }
+.mr1401-v4 .mr1401-v4-gate::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, transparent, #4a9eff, transparent); }
+.mr1401-v4 .mr1401-v4-gate h3 { color: #4a9eff; margin-bottom: 12px; font-size: 1.1rem; }
+.mr1401-v4 .mr1401-v4-gate p { color: #8ba3c7; line-height: 1.6; font-size: 0.9rem; }
+
+/* V4 NRMP Bars */
+.mr1401-v4 .mr1401-v4-bar-row { display: flex; align-items: center; gap: 16px; margin-bottom: 12px; }
+.mr1401-v4 .mr1401-v4-bar-label { width: 200px; text-align: right; font-size: 0.8rem; color: #6b8ab0; flex-shrink: 0; }
+.mr1401-v4 .mr1401-v4-bar-track { flex: 1; height: 20px; background: rgba(255,255,255,0.04); border-radius: 4px; overflow: hidden; border: 1px solid rgba(74,158,255,0.1); }
+.mr1401-v4 .mr1401-v4-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #1a3a5c, #4a9eff); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.7rem; font-weight: 700; color: #fff; transition: width 1.5s ease; }
+
+/* V4 Proof */
+.mr1401-v4 .mr1401-chip { border-color: rgba(74,158,255,0.2); color: #6b8ab0; }
+.mr1401-v4 .mr1401-chip:hover { border-color: #4a9eff; color: #4a9eff; }
+.mr1401-v4 .mr1401-chip.mr1401-chip-active { background: rgba(74,158,255,0.15); border-color: #4a9eff; color: #4a9eff; }
+.mr1401-v4 .mr1401-proof-card { background: rgba(20,30,50,0.6); border: 1px solid rgba(74,158,255,0.1); }
+.mr1401-v4 .mr1401-proof-card:hover { border-color: #4a9eff; box-shadow: 0 0 20px rgba(74,158,255,0.1); }
+.mr1401-v4 .mr1401-video-thumb { background: linear-gradient(135deg, #0f1829, #1a2a44); border: 1px solid rgba(74,158,255,0.1); }
+.mr1401-v4 .mr1401-play-btn { background: rgba(74,158,255,0.8); }
+.mr1401-v4 .mr1401-proof-name { color: #fff; font-weight: 700; margin-top: 14px; }
+.mr1401-v4 .mr1401-proof-quote { color: #8ba3c7; margin-top: 8px; font-style: italic; line-height: 1.5; }
+.mr1401-v4 .mr1401-proof-tag { background: rgba(74,158,255,0.1); color: #4a9eff; border-radius: 4px; font-size: 0.7rem; padding: 3px 8px; }
+
+/* V4 Steps */
+.mr1401-v4 .mr1401-v4-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; }
+.mr1401-v4 .mr1401-v4-step { background: rgba(20,30,50,0.6); border: 1px solid rgba(74,158,255,0.1); border-radius: 12px; padding: 28px 20px; text-align: center; }
+.mr1401-v4 .mr1401-v4-step-icon { width: 48px; height: 48px; border-radius: 12px; background: rgba(74,158,255,0.1); border: 1px solid rgba(74,158,255,0.2); margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+.mr1401-v4 .mr1401-v4-step h4 { color: #fff; margin-bottom: 8px; font-size: 0.95rem; }
+.mr1401-v4 .mr1401-v4-step p { color: #6b8ab0; font-size: 0.8rem; line-height: 1.5; }
+
+/* V4 Authority */
+.mr1401-v4 .mr1401-v4-authority { display: grid; grid-template-columns: 280px 1fr; gap: 50px; align-items: center; }
+.mr1401-v4 .mr1401-v4-portrait { width: 280px; height: 360px; background: rgba(20,30,50,0.8); border: 1px solid rgba(74,158,255,0.15); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #6b8ab0; font-size: 0.85rem; }
+.mr1401-v4 .mr1401-v4-authority-text h2 { text-align: left; }
+.mr1401-v4 .mr1401-v4-authority-text p { color: #8ba3c7; line-height: 1.7; margin-bottom: 16px; }
+
+/* V4 Tiers */
+.mr1401-v4 .mr1401-v4-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.mr1401-v4 .mr1401-v4-tier { background: rgba(20,30,50,0.6); border: 1px solid rgba(74,158,255,0.1); border-radius: 12px; padding: 32px 24px; text-align: center; transition: all 0.3s; }
+.mr1401-v4 .mr1401-v4-tier:hover { border-color: #4a9eff; }
+.mr1401-v4 .mr1401-v4-tier.mr1401-v4-tier-featured { border-color: #4a9eff; background: rgba(74,158,255,0.05); }
+.mr1401-v4 .mr1401-v4-tier h3 { color: #4a9eff; margin-bottom: 8px; }
+.mr1401-v4 .mr1401-v4-tier p { color: #6b8ab0; font-size: 0.85rem; line-height: 1.5; }
+.mr1401-v4 .mr1401-v4-tier-features { list-style: none; text-align: left; margin: 20px 0; }
+.mr1401-v4 .mr1401-v4-tier-features li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); color: #8ba3c7; font-size: 0.8rem; }
+.mr1401-v4 .mr1401-v4-tier-features li::before { content: '\25C6'; color: #4a9eff; margin-right: 8px; }
+
+/* V4 Final CTA */
+.mr1401-v4 .mr1401-v4-final-cta { text-align: center; padding: 100px 20px; background: radial-gradient(ellipse at 50% 100%, rgba(74,158,255,0.08) 0%, transparent 60%), #0a0f1a; }
+.mr1401-v4 .mr1401-v4-final-cta p { color: #6b8ab0; max-width: 600px; margin: 0 auto 36px; }
+
+@media (max-width: 768px) {
+    .mr1401-v4 .mr1401-v4-hero-inner { grid-template-columns: 1fr; }
+    .mr1401-v4 .mr1401-v4-gates { grid-template-columns: 1fr; }
+    .mr1401-v4 .mr1401-v4-steps { grid-template-columns: 1fr 1fr; }
+    .mr1401-v4 .mr1401-v4-authority { grid-template-columns: 1fr; }
+    .mr1401-v4 .mr1401-v4-tiers { grid-template-columns: 1fr; }
+    .mr1401-v4 .mr1401-v4-section-panel { margin: 10px; padding: 30px 20px; }
+    .mr1401-v4 .mr1401-v4-bar-label { width: 120px; font-size: 0.7rem; }
+}
+
+
+/* ============================================
+   VERSION 5 — FUTURE-MATCH / EXTREME
+   Bold, asymmetric, immersive, experimental
+   ============================================ */
+.mr1401-v5 { background: #050505; color: #f0f0f0; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v5 .mr1401-v5-hero { min-height: 100vh; display: flex; align-items: center; padding: 120px 20px; background: linear-gradient(135deg, #0a0015 0%, #1a0025 30%, #050520 60%, #0a0a0a 100%); position: relative; overflow: hidden; }
+.mr1401-v5 .mr1401-v5-hero::before { content: ''; position: absolute; top: 20%; left: -10%; width: 60%; height: 60%; background: radial-gradient(circle, rgba(200,50,80,0.15) 0%, transparent 70%); }
+.mr1401-v5 .mr1401-v5-hero::after { content: ''; position: absolute; bottom: 10%; right: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(100,50,200,0.1) 0%, transparent 70%); }
+.mr1401-v5 .mr1401-v5-hero-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; display: grid; grid-template-columns: 1.3fr 1fr; gap: 60px; align-items: center; }
+.mr1401-v5 .mr1401-v5-hero h1 { font-size: clamp(2.5rem, 5.5vw, 4rem); line-height: 1.05; font-weight: 900; letter-spacing: -1px; }
+.mr1401-v5 .mr1401-v5-hero h1 span { background: linear-gradient(135deg, #ff4466, #cc33ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.mr1401-v5 .mr1401-v5-hero p { color: #888; line-height: 1.7; margin: 24px 0 36px; font-size: 1.1rem; }
+.mr1401-v5 .mr1401-v5-cta { background: linear-gradient(135deg, #ff4466, #cc33ff); color: #fff; padding: 18px 48px; border-radius: 50px; font-weight: 800; font-size: 15px; letter-spacing: 0.5px; box-shadow: 0 4px 30px rgba(255,68,102,0.3); }
+.mr1401-v5 .mr1401-v5-cta:hover { box-shadow: 0 8px 40px rgba(255,68,102,0.5); transform: translateY(-3px); }
+
+/* V5 Hero Visual */
+.mr1401-v5 .mr1401-v5-hero-visual { position: relative; }
+.mr1401-v5 .mr1401-v5-hero-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 20px; padding: 30px; backdrop-filter: blur(20px); }
+.mr1401-v5 .mr1401-v5-hero-card-stat { display: flex; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.mr1401-v5 .mr1401-v5-hero-card-stat span:last-child { background: linear-gradient(135deg, #ff4466, #cc33ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-weight: 700; }
+
+/* V5 Strip */
+.mr1401-v5 .mr1401-v5-strip { background: linear-gradient(90deg, #ff4466, #cc33ff, #ff4466); padding: 12px 20px; text-align: center; font-size: 13px; font-weight: 700; }
+
+/* V5 Sections */
+.mr1401-v5 .mr1401-v5-section { padding: 100px 20px; max-width: 1100px; margin: 0 auto; }
+.mr1401-v5 h2 { font-size: clamp(1.8rem, 4vw, 2.8rem); text-align: center; font-weight: 900; letter-spacing: -0.5px; margin-bottom: 12px; }
+.mr1401-v5 h2 span { background: linear-gradient(135deg, #ff4466, #cc33ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.mr1401-v5 .mr1401-v5-subtitle { text-align: center; color: #666; font-size: 1rem; margin-bottom: 60px; }
+
+/* V5 Gates - asymmetric */
+.mr1401-v5 .mr1401-v5-gates { display: grid; grid-template-columns: 1.2fr 1fr; gap: 30px; }
+.mr1401-v5 .mr1401-v5-gate { background: rgba(255,255,255,0.02); border-radius: 20px; padding: 40px; position: relative; overflow: hidden; }
+.mr1401-v5 .mr1401-v5-gate:first-child { border: 1px solid rgba(255,68,102,0.2); }
+.mr1401-v5 .mr1401-v5-gate:last-child { border: 1px solid rgba(204,51,255,0.2); }
+.mr1401-v5 .mr1401-v5-gate h3 { font-size: 1.3rem; font-weight: 800; margin-bottom: 14px; }
+.mr1401-v5 .mr1401-v5-gate p { color: #888; line-height: 1.7; }
+
+/* V5 Proof */
+.mr1401-v5 .mr1401-chip { border-color: rgba(255,255,255,0.1); color: #666; border-radius: 50px; }
+.mr1401-v5 .mr1401-chip:hover { border-color: #ff4466; color: #ff4466; }
+.mr1401-v5 .mr1401-chip.mr1401-chip-active { background: linear-gradient(135deg, rgba(255,68,102,0.15), rgba(204,51,255,0.15)); border-color: #ff4466; color: #ff4466; }
+.mr1401-v5 .mr1401-proof-card { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 20px; }
+.mr1401-v5 .mr1401-proof-card:hover { border-color: rgba(255,68,102,0.3); }
+.mr1401-v5 .mr1401-video-thumb { background: linear-gradient(135deg, #0a0015, #1a0025); border-radius: 12px; }
+.mr1401-v5 .mr1401-play-btn { background: linear-gradient(135deg, #ff4466, #cc33ff); }
+.mr1401-v5 .mr1401-proof-name { font-weight: 800; margin-top: 14px; }
+.mr1401-v5 .mr1401-proof-quote { color: #888; margin-top: 8px; line-height: 1.6; }
+.mr1401-v5 .mr1401-proof-tag { background: rgba(255,68,102,0.1); color: #ff4466; border-radius: 50px; font-size: 0.7rem; padding: 3px 10px; }
+
+/* V5 Steps */
+.mr1401-v5 .mr1401-v5-steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.mr1401-v5 .mr1401-v5-step { text-align: center; padding: 30px; border-radius: 20px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); }
+.mr1401-v5 .mr1401-v5-step-num { font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #ff4466, #cc33ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+.mr1401-v5 .mr1401-v5-step h4 { margin: 12px 0 8px; font-weight: 700; }
+.mr1401-v5 .mr1401-v5-step p { color: #666; font-size: 0.85rem; line-height: 1.5; }
+
+/* V5 Authority */
+.mr1401-v5 .mr1401-v5-authority { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center; }
+.mr1401-v5 .mr1401-v5-portrait { width: 100%; aspect-ratio: 3/4; max-width: 400px; background: linear-gradient(135deg, rgba(255,68,102,0.05), rgba(204,51,255,0.05)); border-radius: 20px; border: 1px solid rgba(255,255,255,0.06); display: flex; align-items: center; justify-content: center; color: #555; }
+.mr1401-v5 .mr1401-v5-authority-text h2 { text-align: left; }
+.mr1401-v5 .mr1401-v5-authority-text p { color: #888; line-height: 1.7; margin-bottom: 16px; }
+
+/* V5 Tiers */
+.mr1401-v5 .mr1401-v5-tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.mr1401-v5 .mr1401-v5-tier { border-radius: 20px; padding: 36px 28px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); text-align: center; transition: all 0.3s; }
+.mr1401-v5 .mr1401-v5-tier:hover { border-color: rgba(255,68,102,0.3); }
+.mr1401-v5 .mr1401-v5-tier.mr1401-v5-tier-featured { border-color: #ff4466; background: linear-gradient(135deg, rgba(255,68,102,0.03), rgba(204,51,255,0.03)); }
+.mr1401-v5 .mr1401-v5-tier h3 { font-weight: 800; margin-bottom: 8px; }
+.mr1401-v5 .mr1401-v5-tier p { color: #666; font-size: 0.85rem; line-height: 1.5; }
+.mr1401-v5 .mr1401-v5-tier-features { list-style: none; text-align: left; margin: 20px 0; }
+.mr1401-v5 .mr1401-v5-tier-features li { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); color: #888; font-size: 0.85rem; }
+
+/* V5 Final CTA */
+.mr1401-v5 .mr1401-v5-final-cta { text-align: center; padding: 120px 20px; background: radial-gradient(circle at 50% 50%, rgba(200,50,80,0.1) 0%, transparent 50%), #050505; }
+.mr1401-v5 .mr1401-v5-final-cta p { color: #666; max-width: 600px; margin: 0 auto 40px; }
+
+@media (max-width: 768px) {
+    .mr1401-v5 .mr1401-v5-hero-inner { grid-template-columns: 1fr; }
+    .mr1401-v5 .mr1401-v5-gates { grid-template-columns: 1fr; }
+    .mr1401-v5 .mr1401-v5-steps { grid-template-columns: 1fr 1fr; }
+    .mr1401-v5 .mr1401-v5-authority { grid-template-columns: 1fr; }
+    .mr1401-v5 .mr1401-v5-tiers { grid-template-columns: 1fr; }
+}
+
+
+/* ============================================
+   VERSION 6 — ARENA MATCH ROYALE
+   Game-grade, Fortnite-inspired energy
+   ============================================ */
+/*
+VERSION 6 TYPOGRAPHY:
+Preferred Fortnite-style display font: Burbank Big Condensed Black.
+Use only if MissionMed legally owns/licenses the font.
+Do not embed or distribute proprietary font files in this demo.
+Fallbacks are provided for visual approximation.
+*/
+.mr1401-v6 { background: #050a12; color: #f0f4ff; font-family: 'Segoe UI', sans-serif; }
+.mr1401-v6-display { font-family: "Burbank Big Condensed Black", "Burbank Big Condensed", "Burbank Big", "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif; text-transform: uppercase; letter-spacing: 1px; }
+
+.mr1401-v6 .mr1401-v6-hero { min-height: 100vh; display: flex; align-items: center; padding: 120px 20px 80px; background: linear-gradient(160deg, #050a12 0%, #0b1526 30%, #121f35 60%, #0a1020 100%); position: relative; overflow: hidden; }
+.mr1401-v6 .mr1401-v6-hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at 30% 60%, rgba(0,240,255,0.08) 0%, transparent 50%), radial-gradient(ellipse at 70% 40%, rgba(255,215,0,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 90%, rgba(255,46,203,0.06) 0%, transparent 40%); }
+.mr1401-v6 .mr1401-v6-hero-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; text-align: center; }
+.mr1401-v6 .mr1401-v6-hero-badge { display: inline-block; padding: 8px 24px; background: rgba(0,240,255,0.1); border: 1px solid rgba(0,240,255,0.3); border-radius: 4px; font-size: 0.75rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; color: #00f0ff; margin-bottom: 28px; }
+.mr1401-v6 .mr1401-v6-hero h1 { font-size: clamp(2.8rem, 7vw, 5rem); line-height: 1.0; font-weight: 900; text-shadow: 0 0 40px rgba(0,240,255,0.15); margin-bottom: 20px; }
+.mr1401-v6 .mr1401-v6-hero h1 .mr1401-v6-cyan { color: #00f0ff; text-shadow: 0 0 20px rgba(0,240,255,0.4); }
+.mr1401-v6 .mr1401-v6-hero h1 .mr1401-v6-gold { color: #ffd700; text-shadow: 0 0 20px rgba(255,215,0,0.4); }
+.mr1401-v6 .mr1401-v6-hero p { color: #8ba3c7; font-size: 1.15rem; line-height: 1.7; max-width: 700px; margin: 0 auto 40px; }
+.mr1401-v6 .mr1401-v6-cta { background: linear-gradient(135deg, #00f0ff, #00c8ff); color: #050a12; padding: 18px 48px; border-radius: 4px; font-weight: 900; font-size: 16px; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 0 30px rgba(0,240,255,0.3), inset 0 1px 0 rgba(255,255,255,0.2); text-shadow: none; }
+.mr1401-v6 .mr1401-v6-cta:hover { box-shadow: 0 0 50px rgba(0,240,255,0.5), inset 0 1px 0 rgba(255,255,255,0.3); transform: translateY(-3px); }
+.mr1401-v6 .mr1401-v6-cta-secondary { background: transparent; border: 2px solid #ffd700; color: #ffd700; padding: 16px 40px; border-radius: 4px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-left: 16px; }
+.mr1401-v6 .mr1401-v6-cta-secondary:hover { background: rgba(255,215,0,0.1); box-shadow: 0 0 20px rgba(255,215,0,0.2); }
+
+/* V6 HUD Stats Strip */
+.mr1401-v6 .mr1401-v6-hud-strip { display: flex; justify-content: center; gap: 40px; flex-wrap: wrap; margin-top: 50px; }
+.mr1401-v6 .mr1401-v6-hud-stat { text-align: center; position: relative; }
+.mr1401-v6 .mr1401-v6-hud-stat-num { font-size: 2rem; font-weight: 900; color: #00f0ff; text-shadow: 0 0 10px rgba(0,240,255,0.3); display: block; }
+.mr1401-v6 .mr1401-v6-hud-stat-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: #6b8ab0; font-weight: 600; }
+
+/* V6 Enrollment Strip */
+.mr1401-v6 .mr1401-v6-strip { background: linear-gradient(90deg, #050a12, rgba(0,240,255,0.08), #050a12); padding: 14px 20px; text-align: center; font-size: 13px; font-weight: 700; letter-spacing: 1px; border-top: 1px solid rgba(0,240,255,0.15); border-bottom: 1px solid rgba(0,240,255,0.15); }
+
+/* V6 Sections */
+.mr1401-v6 .mr1401-v6-section { padding: 80px 20px; max-width: 1200px; margin: 0 auto; }
+.mr1401-v6 .mr1401-v6-section-panel { background: rgba(11,21,38,0.6); border: 1px solid rgba(0,240,255,0.08); border-radius: 8px; margin: 20px; padding: 60px 40px; position: relative; }
+.mr1401-v6 .mr1401-v6-section-panel::before { content: ''; position: absolute; top: 0; left: 20px; right: 20px; height: 2px; background: linear-gradient(90deg, transparent, #00f0ff, transparent); opacity: 0.4; }
+.mr1401-v6 h2 { font-size: clamp(1.6rem, 3.5vw, 2.4rem); text-align: center; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.mr1401-v6 h2 .mr1401-v6-cyan { color: #00f0ff; }
+.mr1401-v6 h2 .mr1401-v6-gold { color: #ffd700; }
+.mr1401-v6 .mr1401-v6-subtitle { text-align: center; color: #6b8ab0; font-size: 0.95rem; margin-bottom: 50px; }
+
+/* V6 Boss Gates */
+.mr1401-v6 .mr1401-v6-gates { display: grid; grid-template-columns: 1fr 80px 1fr; gap: 0; align-items: stretch; }
+.mr1401-v6 .mr1401-v6-gate { background: rgba(11,21,38,0.8); border: 1px solid rgba(0,240,255,0.12); border-radius: 8px; padding: 36px; position: relative; overflow: hidden; }
+.mr1401-v6 .mr1401-v6-gate::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.mr1401-v6 .mr1401-v6-gate:first-child::before { background: linear-gradient(90deg, transparent, #00f0ff, transparent); }
+.mr1401-v6 .mr1401-v6-gate:last-child::before { background: linear-gradient(90deg, transparent, #ffd700, transparent); }
+.mr1401-v6 .mr1401-v6-gate-divider { display: flex; align-items: center; justify-content: center; }
+.mr1401-v6 .mr1401-v6-gate-divider-inner { width: 50px; height: 50px; background: rgba(255,46,203,0.1); border: 2px solid rgba(255,46,203,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; color: #ff2ecb; font-size: 0.8rem; }
+.mr1401-v6 .mr1401-v6-gate-label { display: inline-block; padding: 4px 12px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 16px; }
+.mr1401-v6 .mr1401-v6-gate-label-1 { background: rgba(0,240,255,0.1); color: #00f0ff; border: 1px solid rgba(0,240,255,0.2); }
+.mr1401-v6 .mr1401-v6-gate-label-2 { background: rgba(255,215,0,0.1); color: #ffd700; border: 1px solid rgba(255,215,0,0.2); }
+.mr1401-v6 .mr1401-v6-gate h3 { font-weight: 800; font-size: 1.1rem; margin-bottom: 12px; }
+.mr1401-v6 .mr1401-v6-gate p { color: #8ba3c7; line-height: 1.6; font-size: 0.9rem; }
+
+/* V6 NRMP Bars */
+.mr1401-v6 .mr1401-v6-bar-row { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+.mr1401-v6 .mr1401-v6-bar-label { width: 180px; text-align: right; font-size: 0.8rem; color: #6b8ab0; flex-shrink: 0; }
+.mr1401-v6 .mr1401-v6-bar-track { flex: 1; height: 22px; background: rgba(255,255,255,0.03); border-radius: 4px; overflow: hidden; border: 1px solid rgba(0,240,255,0.08); }
+.mr1401-v6 .mr1401-v6-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0b1526, #00f0ff); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; font-size: 0.7rem; font-weight: 800; color: #fff; transition: width 1.5s ease; box-shadow: 0 0 10px rgba(0,240,255,0.2); }
+
+/* V6 Challenge Selector (Red Flag) */
+.mr1401-v6 .mr1401-chip { border-color: rgba(0,240,255,0.15); color: #6b8ab0; border-radius: 4px; font-weight: 600; }
+.mr1401-v6 .mr1401-chip:hover { border-color: #00f0ff; color: #00f0ff; }
+.mr1401-v6 .mr1401-chip.mr1401-chip-active { background: rgba(0,240,255,0.1); border-color: #00f0ff; color: #00f0ff; box-shadow: 0 0 10px rgba(0,240,255,0.15); }
+
+/* V6 Proof Cards - Arena Replay */
+.mr1401-v6 .mr1401-proof-card { background: rgba(11,21,38,0.8); border: 1px solid rgba(0,240,255,0.1); border-radius: 8px; position: relative; overflow: hidden; }
+.mr1401-v6 .mr1401-proof-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, #00f0ff, transparent); opacity: 0.5; }
+.mr1401-v6 .mr1401-proof-card:hover { border-color: #00f0ff; box-shadow: 0 0 20px rgba(0,240,255,0.1); }
+.mr1401-v6 .mr1401-video-thumb { background: linear-gradient(135deg, #0b1526, #121f35); border-radius: 6px; }
+.mr1401-v6 .mr1401-play-btn { background: rgba(0,240,255,0.8); box-shadow: 0 0 20px rgba(0,240,255,0.3); }
+.mr1401-v6 .mr1401-proof-name { font-weight: 800; margin-top: 14px; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.9rem; }
+.mr1401-v6 .mr1401-proof-quote { color: #8ba3c7; margin-top: 8px; line-height: 1.5; }
+.mr1401-v6 .mr1401-proof-tag { background: rgba(0,240,255,0.08); color: #00f0ff; border-radius: 4px; font-size: 0.65rem; padding: 3px 8px; font-weight: 600; border: 1px solid rgba(0,240,255,0.15); }
+.mr1401-v6 .mr1401-v6-replay-label { position: absolute; top: 8px; right: 8px; background: rgba(0,240,255,0.1); border: 1px solid rgba(0,240,255,0.2); padding: 2px 8px; font-size: 0.6rem; font-weight: 800; color: #00f0ff; text-transform: uppercase; letter-spacing: 1px; border-radius: 4px; }
+
+/* V6 Campaign Path (How It Works) */
+.mr1401-v6 .mr1401-v6-campaign { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.mr1401-v6 .mr1401-v6-mission { background: rgba(11,21,38,0.8); border: 1px solid rgba(0,240,255,0.1); border-radius: 8px; padding: 28px 20px; text-align: center; position: relative; transition: all 0.3s; }
+.mr1401-v6 .mr1401-v6-mission:hover { border-color: #00f0ff; box-shadow: 0 0 15px rgba(0,240,255,0.1); }
+.mr1401-v6 .mr1401-v6-mission-num { width: 36px; height: 36px; background: rgba(0,240,255,0.1); border: 1px solid rgba(0,240,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; font-weight: 900; font-size: 0.85rem; color: #00f0ff; }
+.mr1401-v6 .mr1401-v6-mission h4 { font-weight: 800; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.mr1401-v6 .mr1401-v6-mission p { color: #6b8ab0; font-size: 0.8rem; line-height: 1.5; }
+.mr1401-v6 .mr1401-v6-mission-connector { position: absolute; right: -12px; top: 50%; transform: translateY(-50%); color: #00f0ff; font-size: 1rem; opacity: 0.4; }
+
+/* V6 Commander Panel (Dr. Brian) */
+.mr1401-v6 .mr1401-v6-commander { display: grid; grid-template-columns: 320px 1fr; gap: 50px; align-items: center; }
+.mr1401-v6 .mr1401-v6-commander-portrait { width: 320px; height: 420px; background: linear-gradient(135deg, #0b1526, #121f35); border: 1px solid rgba(0,240,255,0.1); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #6b8ab0; font-size: 0.85rem; position: relative; overflow: hidden; }
+.mr1401-v6 .mr1401-v6-commander-portrait::before { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 50%; background: linear-gradient(to top, rgba(0,240,255,0.05), transparent); }
+.mr1401-v6 .mr1401-v6-commander-rank { position: absolute; bottom: 16px; left: 16px; right: 16px; background: rgba(0,0,0,0.6); border: 1px solid rgba(0,240,255,0.2); border-radius: 4px; padding: 8px 12px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #00f0ff; text-align: center; }
+.mr1401-v6 .mr1401-v6-commander-text h2 { text-align: left; }
+.mr1401-v6 .mr1401-v6-commander-text p { color: #8ba3c7; line-height: 1.7; margin-bottom: 16px; }
+
+/* V6 Strategy Loadout Tiers */
+.mr1401-v6 .mr1401-v6-loadouts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.mr1401-v6 .mr1401-v6-loadout { background: rgba(11,21,38,0.8); border: 1px solid rgba(0,240,255,0.08); border-radius: 8px; padding: 32px 24px; text-align: center; position: relative; overflow: hidden; transition: all 0.3s; }
+.mr1401-v6 .mr1401-v6-loadout::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(1)::before { background: #00f0ff; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(2)::before { background: #ffd700; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(3)::before { background: #ff2ecb; }
+.mr1401-v6 .mr1401-v6-loadout:hover { border-color: rgba(0,240,255,0.3); }
+.mr1401-v6 .mr1401-v6-loadout.mr1401-v6-loadout-featured { border-color: #ffd700; background: rgba(255,215,0,0.03); }
+.mr1401-v6 .mr1401-v6-loadout-tier-label { font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 12px; }
+.mr1401-v6 .mr1401-v6-loadout h3 { font-weight: 800; font-size: 1.1rem; text-transform: uppercase; margin-bottom: 8px; }
+.mr1401-v6 .mr1401-v6-loadout p { color: #6b8ab0; font-size: 0.85rem; line-height: 1.5; }
+.mr1401-v6 .mr1401-v6-loadout-features { list-style: none; text-align: left; margin: 20px 0; }
+.mr1401-v6 .mr1401-v6-loadout-features li { padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.03); color: #8ba3c7; font-size: 0.8rem; }
+.mr1401-v6 .mr1401-v6-loadout-features li::before { content: '\25B8'; margin-right: 8px; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(1) .mr1401-v6-loadout-tier-label { color: #00f0ff; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(1) .mr1401-v6-loadout-features li::before { color: #00f0ff; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(2) .mr1401-v6-loadout-tier-label { color: #ffd700; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(2) .mr1401-v6-loadout-features li::before { color: #ffd700; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(3) .mr1401-v6-loadout-tier-label { color: #ff2ecb; }
+.mr1401-v6 .mr1401-v6-loadout:nth-child(3) .mr1401-v6-loadout-features li::before { color: #ff2ecb; }
+
+/* V6 Final CTA */
+.mr1401-v6 .mr1401-v6-final-cta { text-align: center; padding: 100px 20px; background: radial-gradient(ellipse at 50% 80%, rgba(0,240,255,0.06) 0%, transparent 50%), #050a12; }
+.mr1401-v6 .mr1401-v6-final-cta p { color: #6b8ab0; max-width: 600px; margin: 0 auto 40px; }
+
+/* V6 FAQ */
+.mr1401-v6 .mr1401-v6-faq-item { border-bottom: 1px solid rgba(0,240,255,0.08); padding: 18px 0; }
+.mr1401-v6 .mr1401-v6-faq-q { font-weight: 700; cursor: pointer; color: #f0f4ff; display: flex; justify-content: space-between; font-size: 0.95rem; }
+.mr1401-v6 .mr1401-v6-faq-a { color: #8ba3c7; line-height: 1.6; margin-top: 12px; display: none; font-size: 0.9rem; }
+.mr1401-v6 .mr1401-v6-faq-item.mr1401-open .mr1401-v6-faq-a { display: block; }
+
+@media (max-width: 768px) {
+    .mr1401-v6 .mr1401-v6-gates { grid-template-columns: 1fr; }
+    .mr1401-v6 .mr1401-v6-gate-divider { display: none; }
+    .mr1401-v6 .mr1401-v6-campaign { grid-template-columns: 1fr 1fr; }
+    .mr1401-v6 .mr1401-v6-mission-connector { display: none; }
+    .mr1401-v6 .mr1401-v6-commander { grid-template-columns: 1fr; }
+    .mr1401-v6 .mr1401-v6-commander-portrait { width: 100%; max-width: 320px; margin: 0 auto; }
+    .mr1401-v6 .mr1401-v6-loadouts { grid-template-columns: 1fr; }
+    .mr1401-v6 .mr1401-v6-section-panel { margin: 10px; padding: 30px 20px; }
+    .mr1401-v6 .mr1401-v6-bar-label { width: 120px; font-size: 0.7rem; }
+    .mr1401-v6 .mr1401-v6-hud-strip { gap: 20px; }
+}
+
+</style>
+</head>
+<body>
+
+<!-- VERSION SELECTOR -->
+<div class="mr1401-selector">
+    <button class="mr1401-sel-active">V1: MissionMed Prestige</button>
+    <button>V2: Executive Clinical</button>
+    <button>V3: Cinematic Stories</button>
+    <button>V4: IMG Command Center</button>
+    <button>V5: Future-Match</button>
+    <button>V6: Arena Match Royale</button>
+</div>
+
+<div class="mr1401-demo">
+<!-- VERSION 1 / WRAPPER -->
+<div id="mr1401-v1" class="mr1401-version mr1401-v1 mr1401-active">
+
+<!-- VERSION 1 / ENROLLMENT STRIP -->
+<div class="mr1401-v1-strip">Early Access Open for 2027 Match Cycle. Limited Strategy Sessions Available.</div>
+
+<!-- VERSION 1 / HERO -->
+<div class="mr1401-v1-hero">
+    <div class="mr1401-v1-hero-inner">
+        <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="mr1401-v1-logo">
+        <h1>Your Red Flags <span>Don't Define</span> Your Match.</h1>
+        <p>Low scores. Gaps. Failed attempts. Previous unmatched cycles. You have heard all the reasons it should not work. Mission Residency exists because strategy changes the equation that numbers alone cannot.</p>
+        <a href="#" class="mr1401-cta-btn mr1401-v1-cta">Book Your Strategy Session</a>
+    </div>
+</div>
+
+<!-- VERSION 1 / STATS BAR -->
+<div class="mr1401-v1-stats">
+    <div class="mr1401-v1-stat"><span class="mr1401-v1-stat-num">89%</span><span class="mr1401-v1-stat-label">Interview-to-Match Rate</span></div>
+    <div class="mr1401-v1-stat"><span class="mr1401-v1-stat-num">500+</span><span class="mr1401-v1-stat-label">Students Coached</span></div>
+    <div class="mr1401-v1-stat"><span class="mr1401-v1-stat-num">40+</span><span class="mr1401-v1-stat-label">Specialties Matched</span></div>
+    <div class="mr1401-v1-stat"><span class="mr1401-v1-stat-num">92%</span><span class="mr1401-v1-stat-label">Student Satisfaction</span></div>
+</div>
+
+<!-- VERSION 1 / WHY APPLICANTS GO UNMATCHED -->
+<div class="mr1401-v1-section-dark">
+    <div class="mr1401-v1-section">
+        <h2>Why Good Applicants Still Go Unmatched</h2>
+        <p class="mr1401-v1-subtitle">It is rarely about being unqualified. Most unmatched applicants had the clinical knowledge. What they lacked was a strategy for how programs actually evaluate and select candidates.</p>
+    </div>
+</div>
+
+<!-- VERSION 1 / NRMP GATES -->
+<div class="mr1401-v1-section-mid">
+    <div class="mr1401-v1-section">
+        <h2>Two Gates Determine Your Match</h2>
+        <p class="mr1401-v1-subtitle">The NRMP Program Director Survey reveals what actually drives ranking decisions. It is not just your scores.</p>
+        <div class="mr1401-v1-gates">
+            <div class="mr1401-v1-gate">
+                <span class="mr1401-v1-gate-label mr1401-v1-gate-label-1">Gate 1</span>
+                <h3>Getting the Interview</h3>
+                <p>Your application on paper. Scores, experiences, letters, personal statement. This gate filters who gets seen. But passing Gate 1 does not guarantee a match.</p>
+            </div>
+            <div class="mr1401-v1-gate">
+                <span class="mr1401-v1-gate-label mr1401-v1-gate-label-2">Gate 2</span>
+                <h3>Earning the Match</h3>
+                <p>Your interview performance. How you communicate, connect, explain your story, and demonstrate fit. This is where most unmatched applicants lost their position on the rank list.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 1 / NRMP DATA -->
+<div class="mr1401-v1-section-dark">
+    <div class="mr1401-v1-section">
+        <h2>What Program Directors Actually Prioritize</h2>
+        <p class="mr1401-v1-subtitle">Source: NRMP Program Director Survey. The top ranking factors are overwhelmingly interview and interpersonal qualities.</p>
+        <div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Interpersonal Skills</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="92%">92%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Interactions with Faculty</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="89%">89%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Feedback from Residents</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="85%">85%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Motivation / Enthusiasm</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="83%">83%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Letters of Recommendation</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="80%">80%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Personal Statement</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="75%">75%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">USMLE Step 2 CK Score</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="72%">72%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Perceived Commitment</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="70%">70%</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 1 / TESTIMONIAL PROOF ENGINE -->
+<div class="mr1401-v1-section-mid">
+    <div class="mr1401-v1-section">
+        <h2>Find Someone Like You</h2>
+        <p class="mr1401-v1-subtitle">Select the challenge or situation that applies to you. See real proof from students who shared your concerns.</p>
+        <div class="mr1401-chips mr1401-proof-filter" data-version="1">
+            <button class="mr1401-chip" data-filter="Previous unmatched cycle">Previous unmatched cycle</button>
+<button class="mr1401-chip" data-filter="Low Step score">Low Step score</button>
+<button class="mr1401-chip" data-filter="USMLE attempt">USMLE attempt</button>
+<button class="mr1401-chip" data-filter="Old graduate / YOG gap">Old graduate / YOG gap</button>
+<button class="mr1401-chip" data-filter="Limited or weak USCE">Limited or weak USCE</button>
+<button class="mr1401-chip" data-filter="Visa concern">Visa concern</button>
+<button class="mr1401-chip" data-filter="Low interview count">Low interview count</button>
+<button class="mr1401-chip" data-filter="Weak interview confidence">Weak interview confidence</button>
+<button class="mr1401-chip" data-filter="Caribbean graduate">Caribbean graduate</button>
+<button class="mr1401-chip" data-filter="IMG applying from abroad">IMG applying from abroad</button>
+<button class="mr1401-chip" data-filter="Reapplicant">Reapplicant</button>
+<button class="mr1401-chip" data-filter="Specialty uncertainty">Specialty uncertainty</button>
+<button class="mr1401-chip" data-filter="SOAP fear">SOAP fear</button>
+<button class="mr1401-chip" data-filter="Family pressure">Family pressure</button>
+<button class="mr1401-chip" data-filter="Financial pressure">Financial pressure</button>
+        </div>
+        <div class="mr1401-proof-grid mr1401-proof-container" data-version="1">
+            <div class="mr1401-proof-card" data-tags="Previous unmatched cycle Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sana</div>
+                <div class="mr1401-proof-quote">"Everything was worth it."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="IMG applying from abroad Financial pressure">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Kriti</div>
+                <div class="mr1401-proof-quote">"Worth every penny."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">IMG applying from abroad</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Weak interview confidence">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sudha</div>
+                <div class="mr1401-proof-quote">"Best mentor. The tough coaching helps."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Weak interview confidence</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Yamina</div>
+                <div class="mr1401-proof-quote">"Best investment forever."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Pratham</div>
+                <div class="mr1401-proof-quote">"Beautiful experience working with Dr. Brian."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Limited or weak USCE IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Milan</div>
+                <div class="mr1401-proof-quote">"The externship advice changed everything for me."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle Weak interview confidence Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Marianne</div>
+                <div class="mr1401-proof-quote">"I fell in love with my own story again."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Weak interview confidence</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Visa concern IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Gunjan</div>
+                <div class="mr1401-proof-quote">"I would recommend this program to anyone."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt Previous unmatched cycle">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"I had two failed attempts and a 5-year gap. Dr. Brian helped me build a narrative that programs actually wanted to hear. I matched."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span><span class="mr1401-proof-tag">Previous unmatched cycle</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle SOAP fear Reapplicant">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"After going unmatched, I almost gave up. The strategy session alone was worth more than everything else I tried combined."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">SOAP fear</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE Low interview count">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"As a Caribbean graduate with limited USCE, I felt invisible. Mission Residency gave me a plan that actually worked."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">Low interview count</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Visa concern Financial pressure">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"My Step score was below average and I had visa limitations. Dr. Brian showed me how to position my strengths instead of hiding my weaknesses."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 1 / HOW IT WORKS -->
+<div class="mr1401-v1-section-dark">
+    <div class="mr1401-v1-section">
+        <h2>How Mission Residency Actually Works</h2>
+        <p class="mr1401-v1-subtitle">A structured, strategic process. Not generic advice.</p>
+        <div class="mr1401-v1-steps">
+            <div class="mr1401-v1-step"><div class="mr1401-v1-step-num">01</div><h4>Application Diagnosis</h4><p>We review your full profile, identify vulnerabilities, and map your strategic position.</p></div>
+            <div class="mr1401-v1-step"><div class="mr1401-v1-step-num">02</div><h4>Strategy Building</h4><p>Custom plan for your red flags, target programs, and timeline.</p></div>
+            <div class="mr1401-v1-step"><div class="mr1401-v1-step-num">03</div><h4>Interview Mastery</h4><p>Intensive mock interviews, behavioral drills, and story coaching.</p></div>
+            <div class="mr1401-v1-step"><div class="mr1401-v1-step-num">04</div><h4>Match Execution</h4><p>Rank list strategy, post-interview follow-up, and SOAP preparation if needed.</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 1 / DR. BRIAN -->
+<div class="mr1401-v1-section-mid">
+    <div class="mr1401-v1-section">
+        <div class="mr1401-v1-authority">
+            <div class="mr1401-v1-portrait"><!-- Replace with Dr. Brian portrait --><br>Dr. Brian Portrait</div>
+            <div class="mr1401-v1-authority-text">
+                <h2>Meet Dr. Brian</h2>
+                <p>Dr. Brian has spent years studying what makes residency programs say yes. Not from theory, but from working directly with hundreds of applicants, including those with red flags that traditional advisors had written off.</p>
+                <p>His approach is direct, strategic, and personal. He does not sell false hope. He builds real plans.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 1 / PROGRAM TIERS -->
+<div class="mr1401-v1-section-dark">
+    <div class="mr1401-v1-section">
+        <h2>Three Levels of Support. One Goal: Your Match.</h2>
+        <p class="mr1401-v1-subtitle">Choose the level that fits your situation, timeline, and goals. Pricing is discussed during your strategy session.</p>
+        <div class="mr1401-v1-tiers">
+            <div class="mr1401-v1-tier">
+                <h3>Interview Prep Foundation</h3>
+                <p>Core interview readiness for applicants who need focused preparation.</p>
+                <ul class="mr1401-v1-tier-features"><li>Core interview strategy framework</li><li>Common question preparation</li><li>Personal statement review</li><li>Red flag narrative coaching</li><li>1 mock interview session</li></ul>
+            </div>
+            <div class="mr1401-v1-tier mr1401-v1-tier-featured">
+                <span class="mr1401-v1-tier-badge">Most Popular</span>
+                <h3>Interview Prep Complete</h3>
+                <p>Comprehensive interview and application strategy for competitive applicants.</p>
+                <ul class="mr1401-v1-tier-features"><li>Everything in Foundation</li><li>Advanced behavioral interview drills</li><li>Program-specific strategy</li><li>Multiple mock interview rounds</li><li>ERAS application review</li><li>Red flag recovery coaching</li><li>Post-interview follow-up strategy</li></ul>
+            </div>
+            <div class="mr1401-v1-tier">
+                <h3>360 Match Mentorship</h3>
+                <p>Full-cycle mentorship for applicants who want maximum strategic support.</p>
+                <ul class="mr1401-v1-tier-features"><li>Everything in Complete</li><li>Full-cycle mentorship with Dr. Brian</li><li>Personalized Match strategy</li><li>Rank list strategy support</li><li>SOAP preparation if needed</li><li>Unlimited strategy sessions</li><li>Application timeline management</li><li>Direct access to Dr. Brian</li></ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 1 / INVESTMENT FRAMING -->
+<div class="mr1401-v1-section-mid">
+    <div class="mr1401-v1-section" style="text-align:center">
+        <h2>The Real Cost of Not Matching</h2>
+        <p class="mr1401-v1-subtitle">An unmatched cycle costs more than money. It costs a year of your life, your momentum, your confidence, and often $50,000 or more in lost income and reapplication expenses. Strategic preparation is not an expense. It is the most important investment in your medical career.</p>
+    </div>
+</div>
+
+<!-- VERSION 1 / FAQ -->
+<div class="mr1401-v1-section-dark">
+    <div class="mr1401-v1-section">
+        <h2>Common Questions</h2>
+        <div style="max-width:700px;margin:40px auto 0">
+            <div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">When should I start working with Mission Residency? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">The best time is as early as possible in your application cycle. Many students start 6 to 12 months before ERAS opens. However, even if you are late in the cycle or reapplying, a strategic approach can still make a significant difference.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">I have a low Step score. Is it too late for me? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">A low score does not automatically disqualify you. Programs evaluate many factors beyond test scores. Strategy, interview performance, and how you present your application can shift the outcome significantly. That is exactly what we help you build.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">What if I have already gone unmatched? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Reapplicants are one of the groups we work with most frequently. Going unmatched is not the end. It means you need a different strategy, not more of the same.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">How is pricing handled? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Pricing is discussed during your strategy session. We want to understand your situation, your goals, and your timeline before recommending a specific program tier.</div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 1 / FINAL CTA -->
+<div class="mr1401-v1-final-cta">
+    <h2>Your Red Flag Is Not the Whole Story.</h2>
+    <p>The next step is a real strategy conversation. No pressure, no pitch. Just an honest assessment of where you stand and what it will take.</p>
+    <a href="#" class="mr1401-cta-btn mr1401-v1-cta">Book Your Strategy Session</a>
+</div>
+
+</div><!-- /VERSION 1 -->
+<!-- VERSION 2 / WRAPPER -->
+<div id="mr1401-v2" class="mr1401-version mr1401-v2">
+
+<!-- VERSION 2 / ENROLLMENT STRIP -->
+<div class="mr1401-v2-strip">2027 Match Cycle: Strategy Sessions Now Open</div>
+
+<!-- VERSION 2 / HERO -->
+<div class="mr1401-v2-hero">
+    <div class="mr1401-v2-hero-inner">
+        <div>
+            <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" style="width:70px;margin-bottom:20px">
+            <h1>Programs See More Than <span>Your Numbers.</span></h1>
+            <p>The NRMP data is clear: interview performance and interpersonal qualities drive rank list decisions more than scores. Mission Residency helps you master the factors you can still control.</p>
+            <a href="#" class="mr1401-cta-btn mr1401-v2-cta">Book Strategy Session</a>
+        </div>
+        <div class="mr1401-v2-hero-right">
+            <h3>By the Numbers</h3>
+            <div class="mr1401-v2-hero-stat"><span>Students Coached</span><span>500+</span></div>
+            <div class="mr1401-v2-hero-stat"><span>Interview-to-Match Rate</span><span>89%</span></div>
+            <div class="mr1401-v2-hero-stat"><span>Specialties Matched</span><span>40+</span></div>
+            <div class="mr1401-v2-hero-stat"><span>Student Satisfaction</span><span>92%</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / WHY UNMATCHED -->
+<div class="mr1401-v2-section-alt">
+    <div class="mr1401-v2-section">
+        <h2>Why Qualified Applicants Still Go Unmatched</h2>
+        <p class="mr1401-v2-subtitle">Most unmatched applicants were clinically capable. They lacked strategic preparation for the human side of the evaluation process.</p>
+    </div>
+</div>
+
+<!-- VERSION 2 / NRMP GATES -->
+<div class="mr1401-v2-section">
+    <h2>Two Gates Determine Your Match</h2>
+    <p class="mr1401-v2-subtitle">Understanding this framework is the first step toward a stronger application strategy.</p>
+    <div class="mr1401-v2-gates">
+        <div class="mr1401-v2-gate">
+            <h3>Gate 1: Getting the Interview</h3>
+            <p>Your on-paper profile. Scores, USCE, letters, personal statement. This is what gets your foot in the door. But most applicants who interview still do not match at their top choices.</p>
+        </div>
+        <div class="mr1401-v2-gate-divider">+</div>
+        <div class="mr1401-v2-gate">
+            <h3>Gate 2: Earning the Match</h3>
+            <p>How you perform in the room. Communication, professionalism, how you handle difficult questions, and whether the program sees you as someone they want on their team.</p>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / NRMP DATA -->
+<div class="mr1401-v2-section-alt">
+    <div class="mr1401-v2-section">
+        <h2>What Program Directors Prioritize</h2>
+        <p class="mr1401-v2-subtitle">NRMP Program Director Survey data. The highest-weighted factors are interpersonal and interview-based.</p>
+        <div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">Interpersonal Skills</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="92%">92%</div></div>
+        </div>
+<div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">Interactions with Faculty</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="89%">89%</div></div>
+        </div>
+<div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">Feedback from Residents</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="85%">85%</div></div>
+        </div>
+<div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">Motivation / Enthusiasm</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="83%">83%</div></div>
+        </div>
+<div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">Letters of Recommendation</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="80%">80%</div></div>
+        </div>
+<div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">Personal Statement</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="75%">75%</div></div>
+        </div>
+<div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">USMLE Step 2 CK Score</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="72%">72%</div></div>
+        </div>
+<div class="mr1401-v2-bar-row">
+            <span class="mr1401-v2-bar-label">Perceived Commitment</span>
+            <div class="mr1401-v2-bar-track"><div class="mr1401-v2-bar-fill" style="width:0%" data-width="70%">70%</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / TESTIMONIAL PROOF ENGINE -->
+<div class="mr1401-v2-section">
+    <h2>Proof That Strategy Changes Outcomes</h2>
+    <p class="mr1401-v2-subtitle">Select the situation that describes you. See evidence from students who faced similar challenges.</p>
+    <div class="mr1401-chips mr1401-proof-filter" data-version="2">
+        <button class="mr1401-chip" data-filter="Previous unmatched cycle">Previous unmatched cycle</button>
+<button class="mr1401-chip" data-filter="Low Step score">Low Step score</button>
+<button class="mr1401-chip" data-filter="USMLE attempt">USMLE attempt</button>
+<button class="mr1401-chip" data-filter="Old graduate / YOG gap">Old graduate / YOG gap</button>
+<button class="mr1401-chip" data-filter="Limited or weak USCE">Limited or weak USCE</button>
+<button class="mr1401-chip" data-filter="Visa concern">Visa concern</button>
+<button class="mr1401-chip" data-filter="Low interview count">Low interview count</button>
+<button class="mr1401-chip" data-filter="Weak interview confidence">Weak interview confidence</button>
+<button class="mr1401-chip" data-filter="Caribbean graduate">Caribbean graduate</button>
+<button class="mr1401-chip" data-filter="IMG applying from abroad">IMG applying from abroad</button>
+<button class="mr1401-chip" data-filter="Reapplicant">Reapplicant</button>
+<button class="mr1401-chip" data-filter="Specialty uncertainty">Specialty uncertainty</button>
+<button class="mr1401-chip" data-filter="SOAP fear">SOAP fear</button>
+<button class="mr1401-chip" data-filter="Family pressure">Family pressure</button>
+<button class="mr1401-chip" data-filter="Financial pressure">Financial pressure</button>
+    </div>
+    <div class="mr1401-proof-grid mr1401-proof-container" data-version="2">
+        <div class="mr1401-proof-card" data-tags="Previous unmatched cycle Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sana</div>
+                <div class="mr1401-proof-quote">"Everything was worth it."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="IMG applying from abroad Financial pressure">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Kriti</div>
+                <div class="mr1401-proof-quote">"Worth every penny."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">IMG applying from abroad</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Weak interview confidence">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sudha</div>
+                <div class="mr1401-proof-quote">"Best mentor. The tough coaching helps."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Weak interview confidence</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Yamina</div>
+                <div class="mr1401-proof-quote">"Best investment forever."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Pratham</div>
+                <div class="mr1401-proof-quote">"Beautiful experience working with Dr. Brian."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Limited or weak USCE IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Milan</div>
+                <div class="mr1401-proof-quote">"The externship advice changed everything for me."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle Weak interview confidence Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Marianne</div>
+                <div class="mr1401-proof-quote">"I fell in love with my own story again."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Weak interview confidence</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Visa concern IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Gunjan</div>
+                <div class="mr1401-proof-quote">"I would recommend this program to anyone."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt Previous unmatched cycle">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"I had two failed attempts and a 5-year gap. Dr. Brian helped me build a narrative that programs actually wanted to hear. I matched."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span><span class="mr1401-proof-tag">Previous unmatched cycle</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle SOAP fear Reapplicant">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"After going unmatched, I almost gave up. The strategy session alone was worth more than everything else I tried combined."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">SOAP fear</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE Low interview count">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"As a Caribbean graduate with limited USCE, I felt invisible. Mission Residency gave me a plan that actually worked."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">Low interview count</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Visa concern Financial pressure">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"My Step score was below average and I had visa limitations. Dr. Brian showed me how to position my strengths instead of hiding my weaknesses."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / HOW IT WORKS -->
+<div class="mr1401-v2-section-alt">
+    <div class="mr1401-v2-section">
+        <h2>How Mission Residency Works</h2>
+        <p class="mr1401-v2-subtitle">Structured, evidence-based, and personalized to your situation.</p>
+        <div class="mr1401-v2-steps">
+            <div class="mr1401-v2-step"><div class="mr1401-v2-step-num">1</div><h4>Diagnosis</h4><p>Full application and profile review. Red flag identification and strategic positioning.</p></div>
+            <div class="mr1401-v2-step"><div class="mr1401-v2-step-num">2</div><h4>Strategy</h4><p>Custom plan built around your specific red flags, strengths, and target programs.</p></div>
+            <div class="mr1401-v2-step"><div class="mr1401-v2-step-num">3</div><h4>Preparation</h4><p>Mock interviews, behavioral drills, narrative coaching, and application refinement.</p></div>
+            <div class="mr1401-v2-step"><div class="mr1401-v2-step-num">4</div><h4>Execution</h4><p>Rank list strategy, follow-up coaching, and SOAP readiness.</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / DR. BRIAN -->
+<div class="mr1401-v2-section-dark">
+    <div class="mr1401-v2-section">
+        <div class="mr1401-v2-authority" style="color:#fff">
+            <div class="mr1401-v2-portrait" style="color:#8ba3c7;background:linear-gradient(135deg,#1a3050,#0F2A44)">Dr. Brian Portrait</div>
+            <div class="mr1401-v2-authority-text">
+                <h2 style="color:#fff">Meet Dr. Brian</h2>
+                <p style="color:#c0cfe0">Dr. Brian is not a career counselor. He is a strategic advisor who has studied, in detail, what makes residency programs rank applicants. His work is built on direct experience coaching hundreds of IMGs, Caribbean graduates, reapplicants, and applicants with red flags.</p>
+                <p style="color:#c0cfe0">The approach is honest, direct, and focused on what you can actually control.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / PROGRAM TIERS -->
+<div class="mr1401-v2-section">
+    <h2>Program Tiers</h2>
+    <p class="mr1401-v2-subtitle">Each tier is designed for a different level of need. Pricing is discussed during your strategy session.</p>
+    <div class="mr1401-v2-tiers">
+        <div class="mr1401-v2-tier">
+            <h3>Interview Prep Foundation</h3>
+            <p>Focused interview preparation for applicants with clear goals.</p>
+            <ul class="mr1401-v2-tier-features"><li>Core interview strategy framework</li><li>Common question preparation</li><li>Personal statement review</li><li>Red flag narrative coaching</li><li>1 mock interview session</li></ul>
+        </div>
+        <div class="mr1401-v2-tier mr1401-v2-tier-featured">
+            <h3>Interview Prep Complete</h3>
+            <p>Comprehensive strategy and preparation for competitive applicants.</p>
+            <ul class="mr1401-v2-tier-features"><li>Everything in Foundation</li><li>Advanced behavioral interview drills</li><li>Program-specific strategy</li><li>Multiple mock interview rounds</li><li>ERAS application review</li><li>Red flag recovery coaching</li><li>Post-interview follow-up strategy</li></ul>
+        </div>
+        <div class="mr1401-v2-tier">
+            <h3>360 Match Mentorship</h3>
+            <p>Full-cycle strategic partnership with Dr. Brian.</p>
+            <ul class="mr1401-v2-tier-features"><li>Everything in Complete</li><li>Full-cycle mentorship with Dr. Brian</li><li>Personalized Match strategy</li><li>Rank list strategy support</li><li>SOAP preparation if needed</li><li>Unlimited strategy sessions</li><li>Application timeline management</li><li>Direct access to Dr. Brian</li></ul>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / INVESTMENT -->
+<div class="mr1401-v2-section-alt">
+    <div class="mr1401-v2-section" style="text-align:center">
+        <h2>Consider the Alternative</h2>
+        <p class="mr1401-v2-subtitle">An unmatched cycle costs a year of income, reapplication fees, and momentum. Strategic preparation is the single highest-return investment in your medical career.</p>
+    </div>
+</div>
+
+<!-- VERSION 2 / FAQ -->
+<div class="mr1401-v2-section">
+    <h2>Frequently Asked Questions</h2>
+    <div style="max-width:700px;margin:40px auto 0">
+        <div class="mr1401-v2-faq-item">
+            <div class="mr1401-v2-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">When should I start working with Mission Residency? <span>+</span></div>
+            <div class="mr1401-v2-faq-a">The best time is as early as possible in your application cycle. Many students start 6 to 12 months before ERAS opens. However, even if you are late in the cycle or reapplying, a strategic approach can still make a significant difference.</div>
+        </div>
+<div class="mr1401-v2-faq-item">
+            <div class="mr1401-v2-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">I have a low Step score. Is it too late for me? <span>+</span></div>
+            <div class="mr1401-v2-faq-a">A low score does not automatically disqualify you. Programs evaluate many factors beyond test scores. Strategy, interview performance, and how you present your application can shift the outcome significantly. That is exactly what we help you build.</div>
+        </div>
+<div class="mr1401-v2-faq-item">
+            <div class="mr1401-v2-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">What if I have already gone unmatched? <span>+</span></div>
+            <div class="mr1401-v2-faq-a">Reapplicants are one of the groups we work with most frequently. Going unmatched is not the end. It means you need a different strategy, not more of the same.</div>
+        </div>
+<div class="mr1401-v2-faq-item">
+            <div class="mr1401-v2-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">How is pricing handled? <span>+</span></div>
+            <div class="mr1401-v2-faq-a">Pricing is discussed during your strategy session. We want to understand your situation, your goals, and your timeline before recommending a specific program tier.</div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 2 / FINAL CTA -->
+<div class="mr1401-v2-final-cta">
+    <h2 style="color:#fff">Start With a Strategy Conversation.</h2>
+    <p>No sales pitch. An honest assessment of your situation and what a strategic plan could look like for you.</p>
+    <a href="#" class="mr1401-cta-btn mr1401-v2-cta">Book Your Strategy Session</a>
+</div>
+
+</div><!-- /VERSION 2 -->
+<!-- VERSION 3 / WRAPPER -->
+<div id="mr1401-v3" class="mr1401-version mr1401-v3">
+
+<!-- VERSION 3 / ENROLLMENT STRIP -->
+<div class="mr1401-v3-strip">THE 2027 MATCH CYCLE IS OPEN</div>
+
+<!-- VERSION 3 / HERO -->
+<div class="mr1401-v3-hero">
+    <div class="mr1401-v3-hero-inner">
+        <div class="mr1401-v3-eyebrow">Mission Residency</div>
+        <h1>They Said Your Red Flags Were the <em>End of the Story.</em></h1>
+        <p>They were wrong. Behind every matched doctor with a "red flag" is a story of strategy, resilience, and a plan that worked. This is where those stories start.</p>
+        <a href="#" class="mr1401-cta-btn mr1401-v3-cta">Begin Your Strategy Session</a>
+    </div>
+</div>
+
+<!-- VERSION 3 / CINEMATIC STORY PANEL -->
+<div class="mr1401-v3-story-panel" style="max-width:100%">
+    <div class="mr1401-v3-story-img"><!-- Photo panel: Match Day celebration --><br>Match Day Photo Panel</div>
+    <div class="mr1401-v3-story-text">
+        <h3>Every Match Has a Story Behind It</h3>
+        <p>The student who was told their gap year made them unemployable. The reapplicant who almost gave up. The IMG who could not get a single interview the year before. They all have one thing in common: they stopped listening to generic advice and started building a real strategy.</p>
+    </div>
+</div>
+
+<!-- VERSION 3 / NRMP GATES -->
+<div style="background:rgba(255,255,255,0.02)">
+    <div class="mr1401-v3-section mr1401-v3-wide">
+        <div class="mr1401-v3-divider"></div>
+        <h2>Two Gates. <em>One Match.</em></h2>
+        <p class="mr1401-v3-subtitle">Programs evaluate you through two lenses. Most applicants prepare for only one.</p>
+        <div class="mr1401-v3-gates">
+            <div class="mr1401-v3-gate">
+                <h3>Gate One: The Paper You</h3>
+                <p>Scores, letters, USCE, personal statement. This is the filter. It decides whether you get seen. But it does not decide whether you match.</p>
+            </div>
+            <div class="mr1401-v3-gate">
+                <h3>Gate Two: The Real You</h3>
+                <p>Your interview. Your communication. Your ability to explain your story, address red flags, and show programs who you actually are. This is where matches are won and lost.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 3 / NRMP DATA -->
+<div class="mr1401-v3-section">
+    <div class="mr1401-v3-divider"></div>
+    <h2>What Actually <em>Drives Rankings</em></h2>
+    <p class="mr1401-v3-subtitle">NRMP Program Director Survey. The data tells the story.</p>
+    <div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Interpersonal Skills</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="92%">92%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Interactions with Faculty</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="89%">89%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Feedback from Residents</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="85%">85%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Motivation / Enthusiasm</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="83%">83%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Letters of Recommendation</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="80%">80%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Personal Statement</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="75%">75%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">USMLE Step 2 CK Score</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="72%">72%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Perceived Commitment</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="70%">70%</div></div>
+        </div>
+</div>
+
+<!-- VERSION 3 / TESTIMONIAL PROOF ENGINE -->
+<div style="background:rgba(255,255,255,0.02)">
+    <div class="mr1401-v3-section mr1401-v3-wide">
+        <div class="mr1401-v3-divider"></div>
+        <h2>Find a Story That <em>Sounds Like Yours</em></h2>
+        <p class="mr1401-v3-subtitle">You are not the only one who has felt this way. Select your situation.</p>
+        <div class="mr1401-chips mr1401-proof-filter" data-version="3">
+            <button class="mr1401-chip" data-filter="Previous unmatched cycle">Previous unmatched cycle</button>
+<button class="mr1401-chip" data-filter="Low Step score">Low Step score</button>
+<button class="mr1401-chip" data-filter="USMLE attempt">USMLE attempt</button>
+<button class="mr1401-chip" data-filter="Old graduate / YOG gap">Old graduate / YOG gap</button>
+<button class="mr1401-chip" data-filter="Limited or weak USCE">Limited or weak USCE</button>
+<button class="mr1401-chip" data-filter="Visa concern">Visa concern</button>
+<button class="mr1401-chip" data-filter="Low interview count">Low interview count</button>
+<button class="mr1401-chip" data-filter="Weak interview confidence">Weak interview confidence</button>
+<button class="mr1401-chip" data-filter="Caribbean graduate">Caribbean graduate</button>
+<button class="mr1401-chip" data-filter="IMG applying from abroad">IMG applying from abroad</button>
+<button class="mr1401-chip" data-filter="Reapplicant">Reapplicant</button>
+<button class="mr1401-chip" data-filter="Specialty uncertainty">Specialty uncertainty</button>
+<button class="mr1401-chip" data-filter="SOAP fear">SOAP fear</button>
+<button class="mr1401-chip" data-filter="Family pressure">Family pressure</button>
+<button class="mr1401-chip" data-filter="Financial pressure">Financial pressure</button>
+        </div>
+        <div class="mr1401-proof-grid mr1401-proof-container" data-version="3">
+            <div class="mr1401-proof-card" data-tags="Previous unmatched cycle Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sana</div>
+                <div class="mr1401-proof-quote">"Everything was worth it."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="IMG applying from abroad Financial pressure">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Kriti</div>
+                <div class="mr1401-proof-quote">"Worth every penny."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">IMG applying from abroad</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Weak interview confidence">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sudha</div>
+                <div class="mr1401-proof-quote">"Best mentor. The tough coaching helps."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Weak interview confidence</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Yamina</div>
+                <div class="mr1401-proof-quote">"Best investment forever."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Pratham</div>
+                <div class="mr1401-proof-quote">"Beautiful experience working with Dr. Brian."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Limited or weak USCE IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Milan</div>
+                <div class="mr1401-proof-quote">"The externship advice changed everything for me."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle Weak interview confidence Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Marianne</div>
+                <div class="mr1401-proof-quote">"I fell in love with my own story again."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Weak interview confidence</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Visa concern IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Gunjan</div>
+                <div class="mr1401-proof-quote">"I would recommend this program to anyone."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt Previous unmatched cycle">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"I had two failed attempts and a 5-year gap. Dr. Brian helped me build a narrative that programs actually wanted to hear. I matched."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span><span class="mr1401-proof-tag">Previous unmatched cycle</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle SOAP fear Reapplicant">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"After going unmatched, I almost gave up. The strategy session alone was worth more than everything else I tried combined."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">SOAP fear</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE Low interview count">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"As a Caribbean graduate with limited USCE, I felt invisible. Mission Residency gave me a plan that actually worked."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">Low interview count</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Visa concern Financial pressure">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"My Step score was below average and I had visa limitations. Dr. Brian showed me how to position my strengths instead of hiding my weaknesses."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 3 / HOW IT WORKS -->
+<div class="mr1401-v3-section">
+    <div class="mr1401-v3-divider"></div>
+    <h2>The Process</h2>
+    <p class="mr1401-v3-subtitle">Four stages. One goal.</p>
+    <div class="mr1401-v3-steps">
+        <div class="mr1401-v3-step"><div class="mr1401-v3-step-num">I</div><h4>Diagnosis</h4><p>We study your full application. Every strength, every vulnerability, every angle.</p></div>
+        <div class="mr1401-v3-step"><div class="mr1401-v3-step-num">II</div><h4>Strategy</h4><p>A plan built for your specific red flags and target programs.</p></div>
+        <div class="mr1401-v3-step"><div class="mr1401-v3-step-num">III</div><h4>Preparation</h4><p>Intensive drills, mock interviews, and story coaching.</p></div>
+        <div class="mr1401-v3-step"><div class="mr1401-v3-step-num">IV</div><h4>Execution</h4><p>Rank list strategy and match-day readiness.</p></div>
+    </div>
+</div>
+
+<!-- VERSION 3 / DR. BRIAN - CINEMATIC SPLIT -->
+<div class="mr1401-v3-authority" style="max-width:100%">
+    <div class="mr1401-v3-authority-img">Dr. Brian Portrait</div>
+    <div class="mr1401-v3-authority-text">
+        <h2>The Strategist Behind the Stories</h2>
+        <p>Dr. Brian does not give motivational speeches. He builds plans. His work is rooted in years of direct experience coaching IMGs, reapplicants, Caribbean graduates, and applicants who had been told their chances were over.</p>
+        <p>He studies what programs actually look for, and he teaches his students how to deliver exactly that.</p>
+    </div>
+</div>
+
+<!-- VERSION 3 / PROGRAM TIERS -->
+<div class="mr1401-v3-section mr1401-v3-wide">
+    <div class="mr1401-v3-divider"></div>
+    <h2>Your Path</h2>
+    <p class="mr1401-v3-subtitle">Three tiers. Pricing discussed during your strategy session.</p>
+    <div class="mr1401-v3-tiers">
+        <div class="mr1401-v3-tier">
+            <h3>Interview Prep Foundation</h3>
+            <p>Core interview readiness.</p>
+            <ul class="mr1401-v3-tier-features"><li>Core interview strategy framework</li><li>Common question preparation</li><li>Personal statement review</li><li>Red flag narrative coaching</li><li>1 mock interview session</li></ul>
+        </div>
+        <div class="mr1401-v3-tier mr1401-v3-tier-featured">
+            <h3>Interview Prep Complete</h3>
+            <p>Comprehensive strategy and preparation.</p>
+            <ul class="mr1401-v3-tier-features"><li>Everything in Foundation</li><li>Advanced behavioral interview drills</li><li>Program-specific strategy</li><li>Multiple mock interview rounds</li><li>ERAS application review</li><li>Red flag recovery coaching</li><li>Post-interview follow-up strategy</li></ul>
+        </div>
+        <div class="mr1401-v3-tier">
+            <h3>360 Match Mentorship</h3>
+            <p>Full-cycle mentorship.</p>
+            <ul class="mr1401-v3-tier-features"><li>Everything in Complete</li><li>Full-cycle mentorship with Dr. Brian</li><li>Personalized Match strategy</li><li>Rank list strategy support</li><li>SOAP preparation if needed</li><li>Unlimited strategy sessions</li><li>Application timeline management</li><li>Direct access to Dr. Brian</li></ul>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 3 / FAQ -->
+<div style="background:rgba(255,255,255,0.02)">
+    <div class="mr1401-v3-section">
+        <div class="mr1401-v3-divider"></div>
+        <h2>Questions</h2>
+        <div style="max-width:700px;margin:40px auto 0">
+            <div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">When should I start working with Mission Residency? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">The best time is as early as possible in your application cycle. Many students start 6 to 12 months before ERAS opens. However, even if you are late in the cycle or reapplying, a strategic approach can still make a significant difference.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">I have a low Step score. Is it too late for me? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">A low score does not automatically disqualify you. Programs evaluate many factors beyond test scores. Strategy, interview performance, and how you present your application can shift the outcome significantly. That is exactly what we help you build.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">What if I have already gone unmatched? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Reapplicants are one of the groups we work with most frequently. Going unmatched is not the end. It means you need a different strategy, not more of the same.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">How is pricing handled? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Pricing is discussed during your strategy session. We want to understand your situation, your goals, and your timeline before recommending a specific program tier.</div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 3 / FINAL CTA -->
+<div class="mr1401-v3-final-cta">
+    <div class="mr1401-v3-divider"></div>
+    <h2>Your Story Is Not <em>Over.</em></h2>
+    <p>The next chapter starts with a conversation. No pressure. Just honesty about where you stand and what comes next.</p>
+    <a href="#" class="mr1401-cta-btn mr1401-v3-cta">Begin Your Strategy Session</a>
+</div>
+
+</div><!-- /VERSION 3 -->
+<!-- VERSION 4 / WRAPPER -->
+<div id="mr1401-v4" class="mr1401-version mr1401-v4">
+
+<!-- VERSION 4 / ENROLLMENT STRIP -->
+<div class="mr1401-v4-strip">MISSION CONTROL: 2027 MATCH CYCLE STRATEGY SESSIONS OPEN</div>
+
+<!-- VERSION 4 / HERO -->
+<div class="mr1401-v4-hero">
+    <div class="mr1401-v4-hero-inner">
+        <div>
+            <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" style="width:70px;margin-bottom:20px">
+            <h1>Your Match Strategy <span>Command Center</span></h1>
+            <p>Red flags are variables, not verdicts. Mission Residency gives you the strategic tools, coaching, and intelligence to navigate the Match with precision.</p>
+            <a href="#" class="mr1401-cta-btn mr1401-v4-cta">Launch Strategy Session</a>
+        </div>
+        <div class="mr1401-v4-hud-panel">
+            <div class="mr1401-v4-hud-title">Mission Readiness Intel</div>
+            <div class="mr1401-v4-hud-row"><span>Students Coached</span><span>500+</span></div>
+            <div class="mr1401-v4-hud-row"><span>Interview-to-Match Rate</span><span>89%</span></div>
+            <div class="mr1401-v4-hud-row"><span>Specialties Matched</span><span>40+</span></div>
+            <div class="mr1401-v4-hud-row"><span>Satisfaction Score</span><span>92%</span></div>
+            <div class="mr1401-v4-hud-glow"></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 4 / NRMP GATES -->
+<div class="mr1401-v4-section-panel">
+    <div class="mr1401-v4-section">
+        <h2>Two <span>Strategic Gates</span> Control Your Match</h2>
+        <p class="mr1401-v4-subtitle">Every Match decision runs through two evaluation phases. Most applicants only prepare for one.</p>
+        <div class="mr1401-v4-gates">
+            <div class="mr1401-v4-gate"><h3>Gate 1: Application Filter</h3><p>Your on-paper profile: scores, USCE, letters, personal statement. This determines who gets interviewed. Necessary, but not sufficient.</p></div>
+            <div class="mr1401-v4-gate"><h3>Gate 2: Interview Decision</h3><p>Your performance in the room. Communication, fit, professionalism, and how you handle your red flags. This is where rank lists are built.</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 4 / NRMP DATA -->
+<div class="mr1401-v4-section">
+    <h2>Program Director <span>Decision Matrix</span></h2>
+    <p class="mr1401-v4-subtitle">NRMP Survey data: the highest-priority ranking factors are all interview and interpersonal.</p>
+    <div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">Interpersonal Skills</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="92%">92%</div></div>
+        </div>
+<div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">Interactions with Faculty</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="89%">89%</div></div>
+        </div>
+<div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">Feedback from Residents</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="85%">85%</div></div>
+        </div>
+<div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">Motivation / Enthusiasm</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="83%">83%</div></div>
+        </div>
+<div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">Letters of Recommendation</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="80%">80%</div></div>
+        </div>
+<div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">Personal Statement</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="75%">75%</div></div>
+        </div>
+<div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">USMLE Step 2 CK Score</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="72%">72%</div></div>
+        </div>
+<div class="mr1401-v4-bar-row">
+            <span class="mr1401-v4-bar-label">Perceived Commitment</span>
+            <div class="mr1401-v4-bar-track"><div class="mr1401-v4-bar-fill" style="width:0%" data-width="70%">70%</div></div>
+        </div>
+</div>
+
+<!-- VERSION 4 / TESTIMONIAL PROOF ENGINE -->
+<div class="mr1401-v4-section-panel">
+    <div class="mr1401-v4-section">
+        <h2><span>Evidence Engine</span>: Find Your Profile Match</h2>
+        <p class="mr1401-v4-subtitle">Select your situation. See strategic outcomes from applicants with similar challenges.</p>
+        <div class="mr1401-chips mr1401-proof-filter" data-version="4">
+            <button class="mr1401-chip" data-filter="Previous unmatched cycle">Previous unmatched cycle</button>
+<button class="mr1401-chip" data-filter="Low Step score">Low Step score</button>
+<button class="mr1401-chip" data-filter="USMLE attempt">USMLE attempt</button>
+<button class="mr1401-chip" data-filter="Old graduate / YOG gap">Old graduate / YOG gap</button>
+<button class="mr1401-chip" data-filter="Limited or weak USCE">Limited or weak USCE</button>
+<button class="mr1401-chip" data-filter="Visa concern">Visa concern</button>
+<button class="mr1401-chip" data-filter="Low interview count">Low interview count</button>
+<button class="mr1401-chip" data-filter="Weak interview confidence">Weak interview confidence</button>
+<button class="mr1401-chip" data-filter="Caribbean graduate">Caribbean graduate</button>
+<button class="mr1401-chip" data-filter="IMG applying from abroad">IMG applying from abroad</button>
+<button class="mr1401-chip" data-filter="Reapplicant">Reapplicant</button>
+<button class="mr1401-chip" data-filter="Specialty uncertainty">Specialty uncertainty</button>
+<button class="mr1401-chip" data-filter="SOAP fear">SOAP fear</button>
+<button class="mr1401-chip" data-filter="Family pressure">Family pressure</button>
+<button class="mr1401-chip" data-filter="Financial pressure">Financial pressure</button>
+        </div>
+        <div class="mr1401-proof-grid mr1401-proof-container" data-version="4">
+            <div class="mr1401-proof-card" data-tags="Previous unmatched cycle Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sana</div>
+                <div class="mr1401-proof-quote">"Everything was worth it."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="IMG applying from abroad Financial pressure">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Kriti</div>
+                <div class="mr1401-proof-quote">"Worth every penny."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">IMG applying from abroad</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Weak interview confidence">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sudha</div>
+                <div class="mr1401-proof-quote">"Best mentor. The tough coaching helps."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Weak interview confidence</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Yamina</div>
+                <div class="mr1401-proof-quote">"Best investment forever."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Pratham</div>
+                <div class="mr1401-proof-quote">"Beautiful experience working with Dr. Brian."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Limited or weak USCE IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Milan</div>
+                <div class="mr1401-proof-quote">"The externship advice changed everything for me."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle Weak interview confidence Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Marianne</div>
+                <div class="mr1401-proof-quote">"I fell in love with my own story again."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Weak interview confidence</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Visa concern IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Gunjan</div>
+                <div class="mr1401-proof-quote">"I would recommend this program to anyone."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt Previous unmatched cycle">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"I had two failed attempts and a 5-year gap. Dr. Brian helped me build a narrative that programs actually wanted to hear. I matched."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span><span class="mr1401-proof-tag">Previous unmatched cycle</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle SOAP fear Reapplicant">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"After going unmatched, I almost gave up. The strategy session alone was worth more than everything else I tried combined."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">SOAP fear</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE Low interview count">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"As a Caribbean graduate with limited USCE, I felt invisible. Mission Residency gave me a plan that actually worked."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">Low interview count</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Visa concern Financial pressure">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"My Step score was below average and I had visa limitations. Dr. Brian showed me how to position my strengths instead of hiding my weaknesses."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 4 / HOW IT WORKS -->
+<div class="mr1401-v4-section">
+    <h2>Mission <span>Operations</span></h2>
+    <p class="mr1401-v4-subtitle">Four-phase strategic deployment.</p>
+    <div class="mr1401-v4-steps">
+        <div class="mr1401-v4-step"><div class="mr1401-v4-step-icon">&#9679;</div><h4>Intel Gathering</h4><p>Full profile analysis. Red flag mapping. Strategic position assessment.</p></div>
+        <div class="mr1401-v4-step"><div class="mr1401-v4-step-icon">&#9650;</div><h4>Strategy Build</h4><p>Custom plan. Target programs. Timeline and action sequence.</p></div>
+        <div class="mr1401-v4-step"><div class="mr1401-v4-step-icon">&#9670;</div><h4>Training Phase</h4><p>Mock interviews. Behavioral drills. Story development and stress testing.</p></div>
+        <div class="mr1401-v4-step"><div class="mr1401-v4-step-icon">&#9733;</div><h4>Deployment</h4><p>Rank list finalization. Post-interview strategy. SOAP readiness.</p></div>
+    </div>
+</div>
+
+<!-- VERSION 4 / DR. BRIAN -->
+<div class="mr1401-v4-section-panel">
+    <div class="mr1401-v4-section">
+        <div class="mr1401-v4-authority">
+            <div class="mr1401-v4-portrait">Dr. Brian Portrait</div>
+            <div class="mr1401-v4-authority-text">
+                <h2 style="text-align:left">Mission <span>Commander</span>: Dr. Brian</h2>
+                <p>Hundreds of applicants coached. Decades of strategic pattern recognition. Dr. Brian does not give generic advice. He builds precision plans for applicants that other advisors have written off.</p>
+                <p>His approach is data-driven, honest, and relentlessly focused on what you can control.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 4 / PROGRAM TIERS -->
+<div class="mr1401-v4-section">
+    <h2>Strategic <span>Deployment Paths</span></h2>
+    <p class="mr1401-v4-subtitle">Three levels of support. Pricing discussed during your strategy session.</p>
+    <div class="mr1401-v4-tiers">
+        <div class="mr1401-v4-tier"><h3 style="color:#4a9eff">Interview Prep Foundation</h3><p>Core readiness for focused applicants.</p><ul class="mr1401-v4-tier-features"><li>Core interview strategy framework</li><li>Common question preparation</li><li>Personal statement review</li><li>Red flag narrative coaching</li><li>1 mock interview session</li></ul></div>
+        <div class="mr1401-v4-tier mr1401-v4-tier-featured"><h3 style="color:#4a9eff">Interview Prep Complete</h3><p>Full strategy and preparation system.</p><ul class="mr1401-v4-tier-features"><li>Everything in Foundation</li><li>Advanced behavioral interview drills</li><li>Program-specific strategy</li><li>Multiple mock interview rounds</li><li>ERAS application review</li><li>Red flag recovery coaching</li><li>Post-interview follow-up strategy</li></ul></div>
+        <div class="mr1401-v4-tier"><h3 style="color:#4a9eff">360 Match Mentorship</h3><p>Maximum strategic support with Dr. Brian.</p><ul class="mr1401-v4-tier-features"><li>Everything in Complete</li><li>Full-cycle mentorship with Dr. Brian</li><li>Personalized Match strategy</li><li>Rank list strategy support</li><li>SOAP preparation if needed</li><li>Unlimited strategy sessions</li><li>Application timeline management</li><li>Direct access to Dr. Brian</li></ul></div>
+    </div>
+</div>
+
+<!-- VERSION 4 / FAQ -->
+<div class="mr1401-v4-section-panel">
+    <div class="mr1401-v4-section">
+        <h2>Mission <span>Briefing</span>: FAQ</h2>
+        <div style="max-width:700px;margin:40px auto 0">
+            <div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">When should I start working with Mission Residency? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">The best time is as early as possible in your application cycle. Many students start 6 to 12 months before ERAS opens. However, even if you are late in the cycle or reapplying, a strategic approach can still make a significant difference.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">I have a low Step score. Is it too late for me? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">A low score does not automatically disqualify you. Programs evaluate many factors beyond test scores. Strategy, interview performance, and how you present your application can shift the outcome significantly. That is exactly what we help you build.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">What if I have already gone unmatched? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Reapplicants are one of the groups we work with most frequently. Going unmatched is not the end. It means you need a different strategy, not more of the same.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">How is pricing handled? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Pricing is discussed during your strategy session. We want to understand your situation, your goals, and your timeline before recommending a specific program tier.</div>
+        </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 4 / FINAL CTA -->
+<div class="mr1401-v4-final-cta">
+    <h2>Ready to <span>Deploy?</span></h2>
+    <p>Your strategy session is the first step. No commitment required. Just a clear-eyed assessment of your position and your options.</p>
+    <a href="#" class="mr1401-cta-btn mr1401-v4-cta">Launch Strategy Session</a>
+</div>
+
+</div><!-- /VERSION 4 -->
+<!-- VERSION 5 / WRAPPER -->
+<div id="mr1401-v5" class="mr1401-version mr1401-v5">
+
+<!-- VERSION 5 / ENROLLMENT STRIP -->
+<div class="mr1401-v5-strip">2027 MATCH CYCLE IS LIVE</div>
+
+<!-- VERSION 5 / HERO -->
+<div class="mr1401-v5-hero">
+    <div class="mr1401-v5-hero-inner">
+        <div>
+            <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" style="width:60px;margin-bottom:20px;filter:brightness(1.5)">
+            <h1>The Match Doesn't Care About Your <span>Red Flags.</span></h1>
+            <p>It cares about strategy. About how you communicate. About the story you tell in the room. Mission Residency exists to help you build that story when the numbers alone will not get you there.</p>
+            <a href="#" class="mr1401-cta-btn mr1401-v5-cta">Start Your Strategy</a>
+        </div>
+        <div class="mr1401-v5-hero-visual">
+            <div class="mr1401-v5-hero-card">
+                <div class="mr1401-v5-hero-card-stat"><span>Match Rate</span><span>89%</span></div>
+                <div class="mr1401-v5-hero-card-stat"><span>Students</span><span>500+</span></div>
+                <div class="mr1401-v5-hero-card-stat"><span>Specialties</span><span>40+</span></div>
+                <div class="mr1401-v5-hero-card-stat"><span>Satisfaction</span><span>92%</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 5 / GATES -->
+<div class="mr1401-v5-section">
+    <h2>Two Gates. One <span>Decision.</span></h2>
+    <p class="mr1401-v5-subtitle">The Match evaluates you twice. Prepare for both or risk preparing for neither.</p>
+    <div class="mr1401-v5-gates">
+        <div class="mr1401-v5-gate"><h3>Gate 1</h3><p>The paper filter. Scores, experiences, letters. Gets you into the room. Does not get you matched.</p></div>
+        <div class="mr1401-v5-gate"><h3>Gate 2</h3><p>The human filter. Interview, communication, story, fit. This is where decisions actually happen.</p></div>
+    </div>
+</div>
+
+<!-- VERSION 5 / NRMP DATA -->
+<div style="background:rgba(255,255,255,0.01)">
+    <div class="mr1401-v5-section">
+        <h2>The Data Is <span>Clear.</span></h2>
+        <p class="mr1401-v5-subtitle">NRMP Program Director Survey: ranking decisions are dominated by interview performance.</p>
+        <div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Interpersonal Skills</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="92%">92%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Interactions with Faculty</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="89%">89%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Feedback from Residents</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="85%">85%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Motivation / Enthusiasm</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="83%">83%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Letters of Recommendation</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="80%">80%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Personal Statement</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="75%">75%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">USMLE Step 2 CK Score</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="72%">72%</div></div>
+        </div>
+<div class="mr1401-v1-bar-row">
+            <span class="mr1401-v1-bar-label">Perceived Commitment</span>
+            <div class="mr1401-v1-bar-track"><div class="mr1401-v1-bar-fill" style="width:0%" data-width="70%">70%</div></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 5 / TESTIMONIAL PROOF ENGINE -->
+<div class="mr1401-v5-section">
+    <h2>Show Me Someone <span>Like Me.</span></h2>
+    <p class="mr1401-v5-subtitle">Your red flag. Your fear. Someone else felt it too, and found a way through.</p>
+    <div class="mr1401-chips mr1401-proof-filter" data-version="5">
+        <button class="mr1401-chip" data-filter="Previous unmatched cycle">Previous unmatched cycle</button>
+<button class="mr1401-chip" data-filter="Low Step score">Low Step score</button>
+<button class="mr1401-chip" data-filter="USMLE attempt">USMLE attempt</button>
+<button class="mr1401-chip" data-filter="Old graduate / YOG gap">Old graduate / YOG gap</button>
+<button class="mr1401-chip" data-filter="Limited or weak USCE">Limited or weak USCE</button>
+<button class="mr1401-chip" data-filter="Visa concern">Visa concern</button>
+<button class="mr1401-chip" data-filter="Low interview count">Low interview count</button>
+<button class="mr1401-chip" data-filter="Weak interview confidence">Weak interview confidence</button>
+<button class="mr1401-chip" data-filter="Caribbean graduate">Caribbean graduate</button>
+<button class="mr1401-chip" data-filter="IMG applying from abroad">IMG applying from abroad</button>
+<button class="mr1401-chip" data-filter="Reapplicant">Reapplicant</button>
+<button class="mr1401-chip" data-filter="Specialty uncertainty">Specialty uncertainty</button>
+<button class="mr1401-chip" data-filter="SOAP fear">SOAP fear</button>
+<button class="mr1401-chip" data-filter="Family pressure">Family pressure</button>
+<button class="mr1401-chip" data-filter="Financial pressure">Financial pressure</button>
+    </div>
+    <div class="mr1401-proof-grid mr1401-proof-container" data-version="5">
+        <div class="mr1401-proof-card" data-tags="Previous unmatched cycle Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sana</div>
+                <div class="mr1401-proof-quote">"Everything was worth it."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="IMG applying from abroad Financial pressure">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Kriti</div>
+                <div class="mr1401-proof-quote">"Worth every penny."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">IMG applying from abroad</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Weak interview confidence">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Sudha</div>
+                <div class="mr1401-proof-quote">"Best mentor. The tough coaching helps."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Weak interview confidence</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Yamina</div>
+                <div class="mr1401-proof-quote">"Best investment forever."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Pratham</div>
+                <div class="mr1401-proof-quote">"Beautiful experience working with Dr. Brian."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Limited or weak USCE IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Milan</div>
+                <div class="mr1401-proof-quote">"The externship advice changed everything for me."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle Weak interview confidence Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Marianne</div>
+                <div class="mr1401-proof-quote">"I fell in love with my own story again."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Weak interview confidence</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Visa concern IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    
+                </div>
+                <div class="mr1401-proof-name">Gunjan</div>
+                <div class="mr1401-proof-quote">"I would recommend this program to anyone."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt Previous unmatched cycle">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"I had two failed attempts and a 5-year gap. Dr. Brian helped me build a narrative that programs actually wanted to hear. I matched."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span><span class="mr1401-proof-tag">Previous unmatched cycle</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle SOAP fear Reapplicant">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"After going unmatched, I almost gave up. The strategy session alone was worth more than everything else I tried combined."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">SOAP fear</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE Low interview count">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"As a Caribbean graduate with limited USCE, I felt invisible. Mission Residency gave me a plan that actually worked."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">Low interview count</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Visa concern Financial pressure">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"My Step score was below average and I had visa limitations. Dr. Brian showed me how to position my strengths instead of hiding my weaknesses."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+    </div>
+</div>
+
+<!-- VERSION 5 / HOW IT WORKS -->
+<div style="background:rgba(255,255,255,0.01)">
+    <div class="mr1401-v5-section">
+        <h2>The <span>Process.</span></h2>
+        <div class="mr1401-v5-steps">
+            <div class="mr1401-v5-step"><div class="mr1401-v5-step-num">01</div><h4>Diagnosis</h4><p>Full strategic assessment of your profile, vulnerabilities, and positioning.</p></div>
+            <div class="mr1401-v5-step"><div class="mr1401-v5-step-num">02</div><h4>Plan</h4><p>Custom strategy mapped to your red flags, targets, and timeline.</p></div>
+            <div class="mr1401-v5-step"><div class="mr1401-v5-step-num">03</div><h4>Train</h4><p>Intensive interview drills, behavioral coaching, and narrative mastery.</p></div>
+            <div class="mr1401-v5-step"><div class="mr1401-v5-step-num">04</div><h4>Match</h4><p>Rank list strategy, follow-up system, SOAP preparation.</p></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 5 / DR. BRIAN -->
+<div class="mr1401-v5-section">
+    <div class="mr1401-v5-authority">
+        <div class="mr1401-v5-portrait">Dr. Brian Portrait</div>
+        <div class="mr1401-v5-authority-text">
+            <h2 style="text-align:left">Meet <span>Dr. Brian.</span></h2>
+            <p>He has spent years doing one thing: studying what makes residency programs say yes to applicants the system said no to. His coaching is direct, strategic, and built for people who need a plan, not a pep talk.</p>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 5 / PROGRAM TIERS -->
+<div style="background:rgba(255,255,255,0.01)">
+    <div class="mr1401-v5-section">
+        <h2>Your <span>Level.</span></h2>
+        <p class="mr1401-v5-subtitle">Three tiers. Pricing discussed in your strategy session.</p>
+        <div class="mr1401-v5-tiers">
+            <div class="mr1401-v5-tier"><h3>Interview Prep Foundation</h3><p>Core preparation.</p><ul class="mr1401-v5-tier-features"><li>Core interview strategy framework</li><li>Common question preparation</li><li>Personal statement review</li><li>Red flag narrative coaching</li><li>1 mock interview session</li></ul></div>
+            <div class="mr1401-v5-tier mr1401-v5-tier-featured"><h3>Interview Prep Complete</h3><p>Full strategy.</p><ul class="mr1401-v5-tier-features"><li>Everything in Foundation</li><li>Advanced behavioral interview drills</li><li>Program-specific strategy</li><li>Multiple mock interview rounds</li><li>ERAS application review</li><li>Red flag recovery coaching</li><li>Post-interview follow-up strategy</li></ul></div>
+            <div class="mr1401-v5-tier"><h3>360 Match Mentorship</h3><p>Total support.</p><ul class="mr1401-v5-tier-features"><li>Everything in Complete</li><li>Full-cycle mentorship with Dr. Brian</li><li>Personalized Match strategy</li><li>Rank list strategy support</li><li>SOAP preparation if needed</li><li>Unlimited strategy sessions</li><li>Application timeline management</li><li>Direct access to Dr. Brian</li></ul></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 5 / FAQ -->
+<div class="mr1401-v5-section">
+    <h2><span>Questions.</span></h2>
+    <div style="max-width:700px;margin:40px auto 0">
+        <div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">When should I start working with Mission Residency? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">The best time is as early as possible in your application cycle. Many students start 6 to 12 months before ERAS opens. However, even if you are late in the cycle or reapplying, a strategic approach can still make a significant difference.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">I have a low Step score. Is it too late for me? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">A low score does not automatically disqualify you. Programs evaluate many factors beyond test scores. Strategy, interview performance, and how you present your application can shift the outcome significantly. That is exactly what we help you build.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">What if I have already gone unmatched? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Reapplicants are one of the groups we work with most frequently. Going unmatched is not the end. It means you need a different strategy, not more of the same.</div>
+        </div>
+<div class="mr1401-v1-faq-item">
+            <div class="mr1401-v1-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">How is pricing handled? <span>+</span></div>
+            <div class="mr1401-v1-faq-a">Pricing is discussed during your strategy session. We want to understand your situation, your goals, and your timeline before recommending a specific program tier.</div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 5 / FINAL CTA -->
+<div class="mr1401-v5-final-cta">
+    <h2>Stop Wondering. <span>Start Planning.</span></h2>
+    <p>One conversation. No pressure. Just clarity about where you stand and what strategic preparation actually looks like.</p>
+    <a href="#" class="mr1401-cta-btn mr1401-v5-cta">Book Your Strategy Session</a>
+</div>
+
+</div><!-- /VERSION 5 -->
+<!-- VERSION 6 / ARENA WRAPPER -->
+<div id="mr1401-v6" class="mr1401-version mr1401-v6">
+
+<!-- VERSION 6 / ARENA ENROLLMENT STRIP -->
+<div class="mr1401-v6-strip">MATCH SEASON 2027: STRATEGY SESSIONS NOW DEPLOYING</div>
+
+<!-- VERSION 6 / ARENA HERO -->
+<div class="mr1401-v6-hero">
+    <div class="mr1401-v6-hero-inner">
+        <div class="mr1401-v6-hero-badge mr1401-v6-display">Mission Residency</div>
+        <h1 class="mr1401-v6-display">Your Red Flags Are <span class="mr1401-v6-cyan">Challenge Modifiers,</span> Not <span class="mr1401-v6-gold">Game Over.</span></h1>
+        <p>The Match is not random. It is strategic. Low scores, gaps, failed attempts, previous unmatched cycles are not death sentences. They are variables in a game that rewards preparation, positioning, and performance.</p>
+        <div>
+            <a href="#" class="mr1401-cta-btn mr1401-v6-cta mr1401-v6-display">Start Match Campaign</a>
+            <a href="#" class="mr1401-cta-btn mr1401-v6-cta-secondary mr1401-v6-display" style="font-size:13px">View Match Replays</a>
+        </div>
+        <!-- VERSION 6 / HUD STATS -->
+        <div class="mr1401-v6-hud-strip">
+            <div class="mr1401-v6-hud-stat"><span class="mr1401-v6-hud-stat-num mr1401-v6-display">89%</span><span class="mr1401-v6-hud-stat-label">Match Rate</span></div>
+            <div class="mr1401-v6-hud-stat"><span class="mr1401-v6-hud-stat-num mr1401-v6-display">500+</span><span class="mr1401-v6-hud-stat-label">Coached</span></div>
+            <div class="mr1401-v6-hud-stat"><span class="mr1401-v6-hud-stat-num mr1401-v6-display">40+</span><span class="mr1401-v6-hud-stat-label">Specialties</span></div>
+            <div class="mr1401-v6-hud-stat"><span class="mr1401-v6-hud-stat-num mr1401-v6-display">92%</span><span class="mr1401-v6-hud-stat-label">Satisfaction</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 6 / NRMP BOSS GATES -->
+<div class="mr1401-v6-section-panel">
+    <div class="mr1401-v6-section">
+        <h2 class="mr1401-v6-display">Boss Gates: <span class="mr1401-v6-cyan">Two Checkpoints</span> to Your Match</h2>
+        <p class="mr1401-v6-subtitle">Every applicant must clear both gates. Most only train for one.</p>
+        <div class="mr1401-v6-gates">
+            <div class="mr1401-v6-gate">
+                <span class="mr1401-v6-gate-label mr1401-v6-gate-label-1 mr1401-v6-display">Gate 1</span>
+                <h3>The Application Filter</h3>
+                <p>Your on-paper profile: scores, USCE, letters, personal statement. This gate determines who gets the interview. Clearing it is necessary but not sufficient.</p>
+            </div>
+            <div class="mr1401-v6-gate-divider"><div class="mr1401-v6-gate-divider-inner mr1401-v6-display">VS</div></div>
+            <div class="mr1401-v6-gate">
+                <span class="mr1401-v6-gate-label mr1401-v6-gate-label-2 mr1401-v6-display">Gate 2</span>
+                <h3>The Interview Arena</h3>
+                <p>Your performance in the room. How you communicate, connect, explain your story, and handle pressure. This is where rank lists are decided.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 6 / NRMP DATA -->
+<div class="mr1401-v6-section">
+    <h2 class="mr1401-v6-display">Program Director <span class="mr1401-v6-gold">Decision Matrix</span></h2>
+    <p class="mr1401-v6-subtitle">NRMP Survey Intelligence: the top-weighted ranking factors are interview and interpersonal.</p>
+    <div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">Interpersonal Skills</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="92%">92%</div></div>
+        </div>
+<div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">Interactions with Faculty</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="89%">89%</div></div>
+        </div>
+<div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">Feedback from Residents</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="85%">85%</div></div>
+        </div>
+<div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">Motivation / Enthusiasm</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="83%">83%</div></div>
+        </div>
+<div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">Letters of Recommendation</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="80%">80%</div></div>
+        </div>
+<div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">Personal Statement</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="75%">75%</div></div>
+        </div>
+<div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">USMLE Step 2 CK Score</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="72%">72%</div></div>
+        </div>
+<div class="mr1401-v6-bar-row">
+            <span class="mr1401-v6-bar-label">Perceived Commitment</span>
+            <div class="mr1401-v6-bar-track"><div class="mr1401-v6-bar-fill" style="width:0%" data-width="70%">70%</div></div>
+        </div>
+</div>
+
+<!-- VERSION 6 / RED FLAG CHALLENGE SELECTOR -->
+<div class="mr1401-v6-section-panel">
+    <div class="mr1401-v6-section">
+        <h2 class="mr1401-v6-display">Choose Your <span class="mr1401-v6-cyan">Challenge</span></h2>
+        <p class="mr1401-v6-subtitle">Select the challenge modifier that applies to you. Watch replays from players who faced the same challenge and won.</p>
+        <div class="mr1401-chips mr1401-proof-filter" data-version="6">
+            <button class="mr1401-chip" data-filter="Previous unmatched cycle">Previous unmatched cycle</button>
+<button class="mr1401-chip" data-filter="Low Step score">Low Step score</button>
+<button class="mr1401-chip" data-filter="USMLE attempt">USMLE attempt</button>
+<button class="mr1401-chip" data-filter="Old graduate / YOG gap">Old graduate / YOG gap</button>
+<button class="mr1401-chip" data-filter="Limited or weak USCE">Limited or weak USCE</button>
+<button class="mr1401-chip" data-filter="Visa concern">Visa concern</button>
+<button class="mr1401-chip" data-filter="Low interview count">Low interview count</button>
+<button class="mr1401-chip" data-filter="Weak interview confidence">Weak interview confidence</button>
+<button class="mr1401-chip" data-filter="Caribbean graduate">Caribbean graduate</button>
+<button class="mr1401-chip" data-filter="IMG applying from abroad">IMG applying from abroad</button>
+<button class="mr1401-chip" data-filter="Reapplicant">Reapplicant</button>
+<button class="mr1401-chip" data-filter="Specialty uncertainty">Specialty uncertainty</button>
+<button class="mr1401-chip" data-filter="SOAP fear">SOAP fear</button>
+<button class="mr1401-chip" data-filter="Family pressure">Family pressure</button>
+<button class="mr1401-chip" data-filter="Financial pressure">Financial pressure</button>
+        </div>
+        <!-- VERSION 6 / ARENA TESTIMONIAL REPLAY WALL -->
+        <div class="mr1401-proof-grid mr1401-proof-container" data-version="6">
+            <div class="mr1401-proof-card" data-tags="Previous unmatched cycle Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Sana</div>
+                <div class="mr1401-proof-quote">"Everything was worth it."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="IMG applying from abroad Financial pressure">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Kriti</div>
+                <div class="mr1401-proof-quote">"Worth every penny."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">IMG applying from abroad</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Weak interview confidence">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Sudha</div>
+                <div class="mr1401-proof-quote">"Best mentor. The tough coaching helps."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Weak interview confidence</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Yamina</div>
+                <div class="mr1401-proof-quote">"Best investment forever."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Pratham</div>
+                <div class="mr1401-proof-quote">"Beautiful experience working with Dr. Brian."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Limited or weak USCE IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Milan</div>
+                <div class="mr1401-proof-quote">"The externship advice changed everything for me."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle Weak interview confidence Reapplicant">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Marianne</div>
+                <div class="mr1401-proof-quote">"I fell in love with my own story again."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">Weak interview confidence</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Visa concern IMG applying from abroad">
+                <div class="mr1401-video-thumb">
+                    <div class="mr1401-play-btn"><svg viewBox="0 0 24 24"><polygon points="8,5 20,12 8,19" fill="white"/></svg></div>
+                    <span class='mr1401-v6-replay-label'>Match Replay</span>
+                </div>
+                <div class="mr1401-proof-name">Gunjan</div>
+                <div class="mr1401-proof-quote">"I would recommend this program to anyone."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">IMG applying from abroad</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Old graduate / YOG gap USMLE attempt Previous unmatched cycle">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"I had two failed attempts and a 5-year gap. Dr. Brian helped me build a narrative that programs actually wanted to hear. I matched."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Old graduate / YOG gap</span><span class="mr1401-proof-tag">USMLE attempt</span><span class="mr1401-proof-tag">Previous unmatched cycle</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Previous unmatched cycle SOAP fear Reapplicant">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"After going unmatched, I almost gave up. The strategy session alone was worth more than everything else I tried combined."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Previous unmatched cycle</span><span class="mr1401-proof-tag">SOAP fear</span><span class="mr1401-proof-tag">Reapplicant</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Caribbean graduate Limited or weak USCE Low interview count">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"As a Caribbean graduate with limited USCE, I felt invisible. Mission Residency gave me a plan that actually worked."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Caribbean graduate</span><span class="mr1401-proof-tag">Limited or weak USCE</span><span class="mr1401-proof-tag">Low interview count</span></div>
+            </div>
+<div class="mr1401-proof-card" data-tags="Low Step score Visa concern Financial pressure">
+                <div class="mr1401-proof-quote" style="font-size:1.05rem">"My Step score was below average and I had visa limitations. Dr. Brian showed me how to position my strengths instead of hiding my weaknesses."</div>
+                <div class="mr1401-proof-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:12px"><span class="mr1401-proof-tag">Low Step score</span><span class="mr1401-proof-tag">Visa concern</span><span class="mr1401-proof-tag">Financial pressure</span></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 6 / MATCH CAMPAIGN PATH -->
+<div class="mr1401-v6-section">
+    <h2 class="mr1401-v6-display">Match <span class="mr1401-v6-cyan">Campaign</span> Path</h2>
+    <p class="mr1401-v6-subtitle">Four missions. One objective: your residency match.</p>
+    <div class="mr1401-v6-campaign">
+        <div class="mr1401-v6-mission"><div class="mr1401-v6-mission-num mr1401-v6-display">01</div><h4 class="mr1401-v6-display">Recon</h4><p>Full strategic profile analysis. Red flag mapping. Position assessment.</p><span class="mr1401-v6-mission-connector">&#9654;</span></div>
+        <div class="mr1401-v6-mission"><div class="mr1401-v6-mission-num mr1401-v6-display">02</div><h4 class="mr1401-v6-display">Plan</h4><p>Custom strategy for your challenges, target programs, and timeline.</p><span class="mr1401-v6-mission-connector">&#9654;</span></div>
+        <div class="mr1401-v6-mission"><div class="mr1401-v6-mission-num mr1401-v6-display">03</div><h4 class="mr1401-v6-display">Train</h4><p>Intensive drills, mock interviews, story coaching, stress testing.</p><span class="mr1401-v6-mission-connector">&#9654;</span></div>
+        <div class="mr1401-v6-mission"><div class="mr1401-v6-mission-num mr1401-v6-display">04</div><h4 class="mr1401-v6-display">Deploy</h4><p>Rank list strategy, follow-up system, SOAP readiness.</p></div>
+    </div>
+</div>
+
+<!-- VERSION 6 / COMMANDER PANEL (DR. BRIAN) -->
+<div class="mr1401-v6-section-panel">
+    <div class="mr1401-v6-section">
+        <div class="mr1401-v6-commander">
+            <div class="mr1401-v6-commander-portrait">
+                Dr. Brian Portrait
+                <div class="mr1401-v6-commander-rank mr1401-v6-display">Match Strategy Commander</div>
+            </div>
+            <div class="mr1401-v6-commander-text">
+                <h2 class="mr1401-v6-display" style="text-align:left">Your <span class="mr1401-v6-cyan">Commander</span>: Dr. Brian</h2>
+                <p>Hundreds of applicants coached through the Match. Years of studying what makes programs say yes to candidates the system said no to. Dr. Brian does not give motivational speeches. He builds precision strategies for applicants who need a real plan.</p>
+                <p>His approach is data-driven, direct, and built for doctors who are ready to stop hoping and start executing.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 6 / STRATEGY LOADOUT TIERS -->
+<div class="mr1401-v6-section">
+    <h2 class="mr1401-v6-display">Select Your <span class="mr1401-v6-gold">Loadout</span></h2>
+    <p class="mr1401-v6-subtitle">Three strategy paths. Pricing discussed during your initial strategy session.</p>
+    <div class="mr1401-v6-loadouts">
+        <div class="mr1401-v6-loadout">
+            <div class="mr1401-v6-loadout-tier-label mr1401-v6-display">Tier 1</div>
+            <h3 class="mr1401-v6-display">Interview Prep Foundation</h3>
+            <p>Core interview readiness for focused preparation.</p>
+            <ul class="mr1401-v6-loadout-features"><li>Core interview strategy framework</li><li>Common question preparation</li><li>Personal statement review</li><li>Red flag narrative coaching</li><li>1 mock interview session</li></ul>
+        </div>
+        <div class="mr1401-v6-loadout mr1401-v6-loadout-featured">
+            <div class="mr1401-v6-loadout-tier-label mr1401-v6-display">Tier 2</div>
+            <h3 class="mr1401-v6-display">Interview Prep Complete</h3>
+            <p>Full strategy and comprehensive preparation.</p>
+            <ul class="mr1401-v6-loadout-features"><li>Everything in Foundation</li><li>Advanced behavioral interview drills</li><li>Program-specific strategy</li><li>Multiple mock interview rounds</li><li>ERAS application review</li><li>Red flag recovery coaching</li><li>Post-interview follow-up strategy</li></ul>
+        </div>
+        <div class="mr1401-v6-loadout">
+            <div class="mr1401-v6-loadout-tier-label mr1401-v6-display">Tier 3</div>
+            <h3 class="mr1401-v6-display">360 Match Mentorship</h3>
+            <p>Maximum strategic support with Dr. Brian.</p>
+            <ul class="mr1401-v6-loadout-features"><li>Everything in Complete</li><li>Full-cycle mentorship with Dr. Brian</li><li>Personalized Match strategy</li><li>Rank list strategy support</li><li>SOAP preparation if needed</li><li>Unlimited strategy sessions</li><li>Application timeline management</li><li>Direct access to Dr. Brian</li></ul>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 6 / INVESTMENT -->
+<div class="mr1401-v6-section-panel">
+    <div class="mr1401-v6-section" style="text-align:center">
+        <h2 class="mr1401-v6-display">The Cost of <span class="mr1401-v6-cyan">Not Matching</span></h2>
+        <p class="mr1401-v6-subtitle">An unmatched cycle costs a year of income, reapplication expenses, lost momentum, and lost confidence. Strategic preparation is not an expense. It is the single highest-return investment in your medical career.</p>
+    </div>
+</div>
+
+<!-- VERSION 6 / FAQ -->
+<div class="mr1401-v6-section">
+    <h2 class="mr1401-v6-display">Mission <span class="mr1401-v6-gold">Briefing</span></h2>
+    <div style="max-width:700px;margin:40px auto 0">
+        <div class="mr1401-v6-faq-item">
+            <div class="mr1401-v6-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">When should I start working with Mission Residency? <span>+</span></div>
+            <div class="mr1401-v6-faq-a">The best time is as early as possible in your application cycle. Many students start 6 to 12 months before ERAS opens. However, even if you are late in the cycle or reapplying, a strategic approach can still make a significant difference.</div>
+        </div>
+<div class="mr1401-v6-faq-item">
+            <div class="mr1401-v6-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">I have a low Step score. Is it too late for me? <span>+</span></div>
+            <div class="mr1401-v6-faq-a">A low score does not automatically disqualify you. Programs evaluate many factors beyond test scores. Strategy, interview performance, and how you present your application can shift the outcome significantly. That is exactly what we help you build.</div>
+        </div>
+<div class="mr1401-v6-faq-item">
+            <div class="mr1401-v6-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">What if I have already gone unmatched? <span>+</span></div>
+            <div class="mr1401-v6-faq-a">Reapplicants are one of the groups we work with most frequently. Going unmatched is not the end. It means you need a different strategy, not more of the same.</div>
+        </div>
+<div class="mr1401-v6-faq-item">
+            <div class="mr1401-v6-faq-q" onclick="this.parentElement.classList.toggle('mr1401-open')">How is pricing handled? <span>+</span></div>
+            <div class="mr1401-v6-faq-a">Pricing is discussed during your strategy session. We want to understand your situation, your goals, and your timeline before recommending a specific program tier.</div>
+        </div>
+    </div>
+</div>
+
+<!-- VERSION 6 / FINAL CTA -->
+<div class="mr1401-v6-final-cta">
+    <h2 class="mr1401-v6-display">Ready to Start Your <span class="mr1401-v6-cyan">Match Campaign?</span></h2>
+    <p>Your strategy session is the first mission. No commitment. Just a clear assessment of your position and your best strategic options.</p>
+    <a href="#" class="mr1401-cta-btn mr1401-v6-cta mr1401-v6-display">Start Match Strategy Session</a>
+</div>
+
+</div><!-- /VERSION 6 -->
+</div>
+
+
+<script>
+(function() {
+    // Version Toggle
+    const versions = ['v1','v2','v3','v4','v5','v6'];
+    const buttons = document.querySelectorAll('.mr1401-selector button');
+    
+    buttons.forEach((btn, i) => {
+        btn.addEventListener('click', function() {
+            buttons.forEach(b => b.classList.remove('mr1401-sel-active'));
+            btn.classList.add('mr1401-sel-active');
+            versions.forEach(v => {
+                const el = document.getElementById('mr1401-' + v);
+                if (el) el.classList.remove('mr1401-active');
+            });
+            const target = document.getElementById('mr1401-' + versions[i]);
+            if (target) {
+                target.classList.add('mr1401-active');
+                window.scrollTo({top: 0, behavior: 'smooth'});
+                // Trigger bar animations
+                setTimeout(() => animateBars(target), 300);
+            }
+        });
+    });
+    
+    // Bar animations
+    function animateBars(container) {
+        const bars = container.querySelectorAll('[data-width]');
+        bars.forEach(bar => {
+            bar.style.width = bar.getAttribute('data-width');
+        });
+    }
+    
+    // Initial animation for V1
+    setTimeout(() => {
+        const v1 = document.getElementById('mr1401-v1');
+        if (v1) animateBars(v1);
+    }, 500);
+    
+    // Proof Filter System
+    document.querySelectorAll('.mr1401-proof-filter').forEach(filterContainer => {
+        const chips = filterContainer.querySelectorAll('.mr1401-chip');
+        const version = filterContainer.getAttribute('data-version');
+        const proofContainer = document.querySelector('.mr1401-proof-container[data-version="' + version + '"]');
+        
+        if (!proofContainer) return;
+        
+        let activeFilter = null;
+        
+        chips.forEach(chip => {
+            chip.addEventListener('click', function() {
+                const filter = chip.getAttribute('data-filter');
+                
+                if (activeFilter === filter) {
+                    // Deselect
+                    chip.classList.remove('mr1401-chip-active');
+                    activeFilter = null;
+                    proofContainer.querySelectorAll('.mr1401-proof-card').forEach(card => {
+                        card.classList.remove('mr1401-hidden');
+                    });
+                } else {
+                    // Select new filter
+                    chips.forEach(c => c.classList.remove('mr1401-chip-active'));
+                    chip.classList.add('mr1401-chip-active');
+                    activeFilter = filter;
+                    
+                    proofContainer.querySelectorAll('.mr1401-proof-card').forEach(card => {
+                        const tags = card.getAttribute('data-tags') || '';
+                        if (tags.includes(filter)) {
+                            card.classList.remove('mr1401-hidden');
+                        } else {
+                            card.classList.add('mr1401-hidden');
+                        }
+                    });
+                }
+            });
+        });
+    });
+    
+    // FAQ Toggle (already handled by inline onclick, but adding for robustness)
+    
+})();
+</script>
+
+
+</body>
+</html>

@@ -1,0 +1,1955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MR-1401C: Mission Residency Photo-First Six-Version Demo</title>
+<style>
+/* ============================================
+   MR-1401C — GLOBAL RESET + VERSION SELECTOR
+   ============================================ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;-webkit-font-smoothing:antialiased}
+body{overflow-x:hidden;background:#0a0a0a;color:#fff;font-family:'Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif}
+img{max-width:100%;display:block}
+a{text-decoration:none;color:inherit}
+button{cursor:pointer;border:none;font-family:inherit}
+
+.mr1401c-version{display:none}
+.mr1401c-version.mr1401c-active{display:block}
+
+/* STICKY VERSION SELECTOR */
+.mr1401c-selector{position:fixed;top:0;left:0;right:0;z-index:99999;background:rgba(10,10,10,0.96);border-bottom:2px solid #B23A3A;padding:10px 12px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;backdrop-filter:blur(12px)}
+.mr1401c-selector button{padding:8px 18px;border:1px solid rgba(255,255,255,0.15);background:transparent;color:#999;border-radius:24px;font-size:12px;font-weight:700;transition:all .3s;white-space:nowrap;letter-spacing:.3px}
+.mr1401c-selector button:hover{border-color:#B23A3A;color:#fff}
+.mr1401c-selector button.mr1401c-sel-active{background:#B23A3A;border-color:#B23A3A;color:#fff;box-shadow:0 2px 12px rgba(178,58,58,.4)}
+
+/* ============================================
+   VERSION 1 — EXECUTIVE CLINICAL PROOF
+   Navy / White / Red — Photo-rich split panels
+   ============================================ */
+.mr1401c-v1{font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e}
+
+/* V1 Enrollment Strip */
+.mr1401c-v1-strip{background:#B23A3A;color:#fff;text-align:center;padding:10px 20px;font-size:13px;font-weight:600;letter-spacing:.5px}
+
+/* V1 Hero */
+.mr1401c-v1-hero{position:relative;min-height:92vh;display:flex;align-items:center;overflow:hidden}
+.mr1401c-v1-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mr1401c-v1-hero-overlay{position:absolute;inset:0;background:linear-gradient(135deg,rgba(15,42,68,.92) 0%,rgba(15,42,68,.7) 50%,rgba(15,42,68,.4) 100%)}
+.mr1401c-v1-hero-content{position:relative;z-index:2;max-width:680px;padding:140px 60px 80px}
+.mr1401c-v1-hero-logo{width:90px;margin-bottom:28px}
+.mr1401c-v1-hero h1{font-size:clamp(2.4rem,5vw,3.8rem);font-weight:800;line-height:1.12;color:#fff;margin-bottom:20px}
+.mr1401c-v1-hero h1 em{font-style:normal;color:#e06060}
+.mr1401c-v1-hero p{font-size:1.15rem;line-height:1.7;color:rgba(255,255,255,.8);margin-bottom:32px;max-width:520px}
+.mr1401c-v1-cta{display:inline-block;padding:18px 44px;background:#B23A3A;color:#fff;font-weight:700;font-size:15px;border-radius:4px;letter-spacing:.5px;transition:all .3s}
+.mr1401c-v1-cta:hover{background:#9a2e2e;box-shadow:0 8px 30px rgba(178,58,58,.5);transform:translateY(-2px)}
+
+/* V1 Stats Bar */
+.mr1401c-v1-stats{display:flex;justify-content:center;gap:60px;flex-wrap:wrap;padding:48px 20px;background:#0F2A44;color:#fff}
+.mr1401c-v1-stat{text-align:center}
+.mr1401c-v1-stat-num{display:block;font-size:2.6rem;font-weight:800;color:#e06060}
+.mr1401c-v1-stat-label{font-size:.82rem;color:#8ba3c7;margin-top:4px;letter-spacing:.3px}
+
+/* V1 Two Gates */
+.mr1401c-v1-gates-section{display:grid;grid-template-columns:1fr 1fr;min-height:600px}
+.mr1401c-v1-gates-img{position:relative;overflow:hidden}
+.mr1401c-v1-gates-img img{width:100%;height:100%;object-fit:cover}
+.mr1401c-v1-gates-text{padding:80px 60px;background:#fff;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v1-gates-text h2{font-size:clamp(1.6rem,3vw,2.4rem);color:#0F2A44;margin-bottom:20px;font-weight:800;line-height:1.2}
+.mr1401c-v1-gates-text p{color:#555;line-height:1.7;margin-bottom:16px}
+.mr1401c-v1-gate-box{background:#f4f7fa;border-left:4px solid #B23A3A;padding:20px 24px;margin:10px 0;border-radius:0 8px 8px 0}
+.mr1401c-v1-gate-box.mr1401c-v1-gate2{border-left-color:#0F2A44}
+.mr1401c-v1-gate-box h3{font-size:1rem;font-weight:700;margin-bottom:6px;color:#0F2A44}
+.mr1401c-v1-gate-box p{font-size:.9rem;color:#666;margin:0}
+
+/* V1 NRMP Bars */
+.mr1401c-v1-nrmp{padding:70px 20px;background:#f4f7fa}
+.mr1401c-v1-nrmp-inner{max-width:900px;margin:0 auto}
+.mr1401c-v1-nrmp h2{text-align:center;color:#0F2A44;font-size:1.8rem;margin-bottom:12px}
+.mr1401c-v1-nrmp-sub{text-align:center;color:#666;margin-bottom:40px;font-size:.95rem}
+.mr1401c-v1-bar-row{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+.mr1401c-v1-bar-label{width:240px;text-align:right;font-size:.85rem;color:#333;font-weight:600;flex-shrink:0}
+.mr1401c-v1-bar-track{flex:1;height:36px;background:#dce4ed;border-radius:4px;overflow:hidden}
+.mr1401c-v1-bar-fill{height:100%;border-radius:4px;display:flex;align-items:center;justify-content:flex-end;padding-right:12px;font-size:.8rem;font-weight:700;color:#fff;transition:width 1.5s ease}
+.mr1401c-v1-bar-fill-red{background:linear-gradient(90deg,#B23A3A,#d04545)}
+.mr1401c-v1-bar-fill-navy{background:linear-gradient(90deg,#0F2A44,#1d4a7a)}
+
+/* V1 Image Band */
+.mr1401c-v1-imgband{width:100%;height:320px;overflow:hidden;position:relative}
+.mr1401c-v1-imgband img{width:100%;height:100%;object-fit:cover}
+.mr1401c-v1-imgband-overlay{position:absolute;inset:0;background:linear-gradient(0deg,rgba(15,42,68,.6),transparent 40%,transparent 60%,rgba(15,42,68,.6))}
+
+/* V1 Proof Module */
+.mr1401c-v1-proof{padding:80px 20px;background:#fff}
+.mr1401c-v1-proof-inner{max-width:1100px;margin:0 auto}
+.mr1401c-v1-proof h2{text-align:center;color:#0F2A44;font-size:2rem;margin-bottom:12px}
+.mr1401c-v1-proof-sub{text-align:center;color:#666;margin-bottom:32px}
+.mr1401c-v1-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px}
+.mr1401c-v1-chip{padding:8px 16px;border-radius:20px;font-size:13px;cursor:pointer;transition:all .3s;border:1px solid #dce4ed;background:#fff;color:#555}
+.mr1401c-v1-chip:hover{border-color:#B23A3A;color:#B23A3A}
+.mr1401c-v1-chip.mr1401c-active{background:#B23A3A;border-color:#B23A3A;color:#fff}
+.mr1401c-v1-proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:24px}
+.mr1401c-v1-proof-card{background:#f8f9fb;border-radius:12px;overflow:hidden;transition:all .3s;border:1px solid #e8ecf0}
+.mr1401c-v1-proof-card:hover{box-shadow:0 12px 40px rgba(0,0,0,.08);transform:translateY(-4px)}
+.mr1401c-v1-proof-card.mr1401c-hidden{display:none}
+.mr1401c-v1-proof-img{width:100%;height:200px;object-fit:cover}
+.mr1401c-v1-proof-body{padding:24px}
+.mr1401c-v1-proof-quote{font-style:italic;color:#333;line-height:1.6;font-size:.95rem;margin-bottom:12px}
+.mr1401c-v1-proof-name{font-weight:700;color:#0F2A44;font-size:.9rem}
+.mr1401c-v1-proof-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mr1401c-v1-proof-tag{font-size:.7rem;padding:3px 10px;background:rgba(178,58,58,.1);color:#B23A3A;border-radius:12px;font-weight:600}
+
+/* V1 Video Section */
+.mr1401c-v1-videos{padding:70px 20px;background:#0F2A44;color:#fff}
+.mr1401c-v1-videos h2{text-align:center;margin-bottom:40px;font-size:2rem}
+.mr1401c-v1-vid-strip{display:flex;gap:20px;overflow-x:auto;padding-bottom:20px;scroll-snap-type:x mandatory}
+.mr1401c-v1-vid-card{flex:0 0 300px;scroll-snap-align:start;border-radius:12px;overflow:hidden;position:relative;cursor:pointer}
+.mr1401c-v1-vid-card img{width:100%;height:200px;object-fit:cover;transition:transform .5s}
+.mr1401c-v1-vid-card:hover img{transform:scale(1.05)}
+.mr1401c-v1-vid-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;background:rgba(178,58,58,.9);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.mr1401c-v1-vid-play::after{content:'';border-left:18px solid #fff;border-top:11px solid transparent;border-bottom:11px solid transparent;margin-left:4px}
+.mr1401c-v1-vid-info{padding:16px;background:rgba(255,255,255,.05)}
+.mr1401c-v1-vid-info h4{font-size:.9rem;margin-bottom:4px}
+.mr1401c-v1-vid-info p{font-size:.8rem;color:#8ba3c7}
+
+/* V1 Dr Brian */
+.mr1401c-v1-brian{display:grid;grid-template-columns:420px 1fr;min-height:500px}
+.mr1401c-v1-brian-img{overflow:hidden}
+.mr1401c-v1-brian-img img{width:100%;height:100%;object-fit:cover}
+.mr1401c-v1-brian-text{padding:80px 60px;background:#fff;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v1-brian-text h2{color:#0F2A44;font-size:2rem;margin-bottom:20px}
+.mr1401c-v1-brian-text p{color:#555;line-height:1.7;margin-bottom:16px}
+
+/* V1 How It Works */
+.mr1401c-v1-how{padding:80px 20px;background:#f4f7fa}
+.mr1401c-v1-how h2{text-align:center;color:#0F2A44;font-size:2rem;margin-bottom:48px}
+.mr1401c-v1-how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;max-width:1100px;margin:0 auto}
+.mr1401c-v1-how-step{text-align:center;padding:40px 24px;position:relative;border-right:1px solid #dce4ed}
+.mr1401c-v1-how-step:last-child{border-right:none}
+.mr1401c-v1-how-num{width:48px;height:48px;border-radius:50%;background:#B23A3A;color:#fff;font-weight:800;font-size:1.2rem;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.mr1401c-v1-how-step h3{color:#0F2A44;font-size:1rem;margin-bottom:8px}
+.mr1401c-v1-how-step p{color:#666;font-size:.85rem;line-height:1.5}
+
+/* V1 Tiers */
+.mr1401c-v1-tiers{padding:80px 20px;background:#fff}
+.mr1401c-v1-tiers h2{text-align:center;color:#0F2A44;font-size:2rem;margin-bottom:12px}
+.mr1401c-v1-tiers-sub{text-align:center;color:#666;margin-bottom:48px}
+.mr1401c-v1-tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1100px;margin:0 auto}
+.mr1401c-v1-tier-card{background:#f8f9fb;border:2px solid #e8ecf0;border-radius:16px;padding:40px 28px;text-align:center;transition:all .3s}
+.mr1401c-v1-tier-card:hover{border-color:#B23A3A;transform:translateY(-6px);box-shadow:0 16px 48px rgba(0,0,0,.08)}
+.mr1401c-v1-tier-card.mr1401c-featured{border-color:#B23A3A;background:#fff;box-shadow:0 8px 32px rgba(178,58,58,.12)}
+.mr1401c-v1-tier-badge{display:inline-block;padding:4px 14px;background:#B23A3A;color:#fff;border-radius:12px;font-size:.7rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:16px}
+.mr1401c-v1-tier-card h3{font-size:1.3rem;color:#0F2A44;margin-bottom:8px}
+.mr1401c-v1-tier-card .mr1401c-v1-tier-desc{color:#666;font-size:.9rem;margin-bottom:20px}
+.mr1401c-v1-tier-features{list-style:none;text-align:left;margin-bottom:24px}
+.mr1401c-v1-tier-features li{padding:8px 0;border-bottom:1px solid #eee;font-size:.85rem;color:#444;padding-left:24px;position:relative}
+.mr1401c-v1-tier-features li::before{content:'\2713';position:absolute;left:0;color:#B23A3A;font-weight:700}
+
+/* V1 FAQ */
+.mr1401c-v1-faq{padding:80px 20px;background:#f4f7fa}
+.mr1401c-v1-faq-inner{max-width:800px;margin:0 auto}
+.mr1401c-v1-faq h2{text-align:center;color:#0F2A44;font-size:2rem;margin-bottom:40px}
+.mr1401c-v1-faq-item{border-bottom:1px solid #dce4ed;padding:20px 0}
+.mr1401c-v1-faq-q{width:100%;text-align:left;background:none;font-size:1rem;font-weight:600;color:#0F2A44;display:flex;justify-content:space-between;align-items:center;padding:0}
+.mr1401c-v1-faq-q::after{content:'+';font-size:1.4rem;color:#B23A3A;transition:transform .3s}
+.mr1401c-v1-faq-item.mr1401c-open .mr1401c-v1-faq-q::after{transform:rotate(45deg)}
+.mr1401c-v1-faq-a{color:#555;line-height:1.7;margin-top:12px;display:none;font-size:.9rem}
+.mr1401c-v1-faq-item.mr1401c-open .mr1401c-v1-faq-a{display:block}
+
+/* V1 Final CTA */
+.mr1401c-v1-final{position:relative;padding:120px 20px;text-align:center;overflow:hidden}
+.mr1401c-v1-final-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mr1401c-v1-final-over{position:absolute;inset:0;background:rgba(15,42,68,.88)}
+.mr1401c-v1-final-content{position:relative;z-index:2;max-width:600px;margin:0 auto}
+.mr1401c-v1-final h2{color:#fff;font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:20px}
+.mr1401c-v1-final p{color:rgba(255,255,255,.7);margin-bottom:36px;line-height:1.7}
+
+/* V1 Footer */
+.mr1401c-v1-footer{background:#0a1a2a;color:#8ba3c7;text-align:center;padding:40px 20px;font-size:.82rem;line-height:1.8}
+
+/* V1 Responsive */
+@media(max-width:900px){
+.mr1401c-v1-gates-section,.mr1401c-v1-brian{grid-template-columns:1fr}
+.mr1401c-v1-gates-img{height:300px}
+.mr1401c-v1-brian-img{height:350px}
+.mr1401c-v1-gates-text,.mr1401c-v1-brian-text{padding:40px 24px}
+.mr1401c-v1-how-grid{grid-template-columns:1fr 1fr}
+.mr1401c-v1-how-step{border-right:none;border-bottom:1px solid #dce4ed}
+.mr1401c-v1-tier-grid{grid-template-columns:1fr}
+.mr1401c-v1-hero-content{padding:120px 24px 60px}
+.mr1401c-v1-bar-label{width:140px;font-size:.75rem}
+.mr1401c-v1-stats{gap:24px}
+}
+
+/* ============================================
+   VERSION 2 — CINEMATIC MATCH DAY
+   Documentary / Editorial / Emotional
+   ============================================ */
+.mr1401c-v2{font-family:'Segoe UI',-apple-system,sans-serif;color:#fff;background:#111}
+
+.mr1401c-v2-strip{background:#c0392b;color:#fff;text-align:center;padding:10px 20px;font-size:13px;font-weight:600}
+
+/* V2 Hero - massive full bleed */
+.mr1401c-v2-hero{position:relative;min-height:100vh;display:flex;align-items:flex-end;overflow:hidden}
+.mr1401c-v2-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.55) saturate(.8)}
+.mr1401c-v2-hero-content{position:relative;z-index:2;padding:0 60px 100px;max-width:800px}
+.mr1401c-v2-hero h1{font-size:clamp(2.8rem,6vw,5rem);font-weight:900;line-height:1.05;margin-bottom:24px;letter-spacing:-1px}
+.mr1401c-v2-hero h1 span{color:#e74c3c}
+.mr1401c-v2-hero p{font-size:1.2rem;color:rgba(255,255,255,.75);margin-bottom:36px;max-width:550px;line-height:1.6}
+.mr1401c-v2-cta{display:inline-block;padding:18px 48px;background:#e74c3c;color:#fff;font-weight:800;font-size:15px;border-radius:0;letter-spacing:1px;text-transform:uppercase;transition:all .3s}
+.mr1401c-v2-cta:hover{background:#c0392b;box-shadow:0 0 40px rgba(231,76,60,.5)}
+
+/* V2 Editorial Quote Band */
+.mr1401c-v2-quote-band{padding:60px 40px;background:#1a1a1a;text-align:center;border-top:1px solid #222;border-bottom:1px solid #222}
+.mr1401c-v2-quote-band blockquote{font-size:clamp(1.2rem,2.5vw,1.8rem);font-style:italic;color:rgba(255,255,255,.8);max-width:800px;margin:0 auto;line-height:1.5}
+.mr1401c-v2-quote-band cite{display:block;margin-top:16px;font-style:normal;color:#e74c3c;font-weight:600;font-size:.9rem}
+
+/* V2 Stats */
+.mr1401c-v2-stats{display:flex;justify-content:center;gap:80px;padding:50px 20px;background:#0d0d0d;flex-wrap:wrap}
+.mr1401c-v2-stat-num{font-size:3rem;font-weight:900;color:#e74c3c;display:block}
+.mr1401c-v2-stat-label{font-size:.8rem;color:#666;text-transform:uppercase;letter-spacing:2px}
+
+/* V2 Two Gates - cinematic split */
+.mr1401c-v2-gates{display:grid;grid-template-columns:1fr 1fr}
+.mr1401c-v2-gate{padding:80px 60px;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v2-gate1{background:#1a1a1a;border-right:1px solid #222}
+.mr1401c-v2-gate2{background:#111}
+.mr1401c-v2-gate-label{font-size:.7rem;text-transform:uppercase;letter-spacing:3px;color:#e74c3c;font-weight:800;margin-bottom:16px}
+.mr1401c-v2-gate h3{font-size:1.6rem;margin-bottom:16px;font-weight:800}
+.mr1401c-v2-gate p{color:#888;line-height:1.7;font-size:.95rem}
+
+/* V2 Full bleed image row */
+.mr1401c-v2-imgrow{display:grid;grid-template-columns:1fr 1fr 1fr;height:400px}
+.mr1401c-v2-imgrow img{width:100%;height:100%;object-fit:cover;filter:saturate(.7);transition:filter .5s}
+.mr1401c-v2-imgrow img:hover{filter:saturate(1)}
+
+/* V2 Proof Module */
+.mr1401c-v2-proof{padding:80px 20px;background:#0d0d0d}
+.mr1401c-v2-proof-inner{max-width:1100px;margin:0 auto}
+.mr1401c-v2-proof h2{text-align:center;font-size:2.4rem;margin-bottom:12px;font-weight:900}
+.mr1401c-v2-proof-sub{text-align:center;color:#666;margin-bottom:32px}
+.mr1401c-v2-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px}
+.mr1401c-v2-chip{padding:8px 16px;border-radius:20px;font-size:12px;cursor:pointer;transition:all .3s;border:1px solid #333;background:transparent;color:#888}
+.mr1401c-v2-chip:hover{border-color:#e74c3c;color:#e74c3c}
+.mr1401c-v2-chip.mr1401c-active{background:#e74c3c;border-color:#e74c3c;color:#fff}
+.mr1401c-v2-proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:20px}
+.mr1401c-v2-proof-card{border-radius:12px;overflow:hidden;background:#1a1a1a;transition:all .4s;position:relative}
+.mr1401c-v2-proof-card:hover{transform:translateY(-6px);box-shadow:0 20px 60px rgba(0,0,0,.5)}
+.mr1401c-v2-proof-card.mr1401c-hidden{display:none}
+.mr1401c-v2-proof-img{width:100%;height:220px;object-fit:cover;filter:brightness(.7) saturate(.8)}
+.mr1401c-v2-proof-body{padding:24px}
+.mr1401c-v2-proof-quote{color:rgba(255,255,255,.8);font-style:italic;line-height:1.6;font-size:.95rem;margin-bottom:12px}
+.mr1401c-v2-proof-name{font-weight:700;color:#e74c3c;font-size:.9rem}
+.mr1401c-v2-proof-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mr1401c-v2-proof-tag{font-size:.68rem;padding:3px 10px;background:rgba(231,76,60,.15);color:#e74c3c;border-radius:12px;font-weight:600}
+
+/* V2 Match Day Film Strip */
+.mr1401c-v2-matchday{padding:80px 20px;background:#111}
+.mr1401c-v2-matchday h2{text-align:center;font-size:2rem;margin-bottom:48px;font-weight:900}
+.mr1401c-v2-film{display:flex;gap:4px;overflow-x:auto;padding-bottom:20px}
+.mr1401c-v2-film-card{flex:0 0 280px;position:relative;overflow:hidden;cursor:pointer;height:380px}
+.mr1401c-v2-film-card img{width:100%;height:100%;object-fit:cover;filter:brightness(.6);transition:all .5s}
+.mr1401c-v2-film-card:hover img{filter:brightness(.8);transform:scale(1.05)}
+.mr1401c-v2-film-overlay{position:absolute;bottom:0;left:0;right:0;padding:24px;background:linear-gradient(transparent,rgba(0,0,0,.9))}
+.mr1401c-v2-film-overlay h4{font-size:.95rem;margin-bottom:4px}
+.mr1401c-v2-film-overlay p{font-size:.8rem;color:#888}
+.mr1401c-v2-film-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border:3px solid rgba(255,255,255,.5);border-radius:50%;display:flex;align-items:center;justify-content:center;transition:all .3s}
+.mr1401c-v2-film-play::after{content:'';border-left:20px solid #fff;border-top:12px solid transparent;border-bottom:12px solid transparent;margin-left:5px}
+.mr1401c-v2-film-card:hover .mr1401c-v2-film-play{border-color:#e74c3c;box-shadow:0 0 30px rgba(231,76,60,.4)}
+
+/* V2 Dr Brian */
+.mr1401c-v2-brian{display:grid;grid-template-columns:1fr 1fr;min-height:550px}
+.mr1401c-v2-brian-img{overflow:hidden}
+.mr1401c-v2-brian-img img{width:100%;height:100%;object-fit:cover;filter:saturate(.7)}
+.mr1401c-v2-brian-text{padding:80px 60px;background:#1a1a1a;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v2-brian-text h2{font-size:2.2rem;margin-bottom:20px;font-weight:900}
+.mr1401c-v2-brian-text p{color:#888;line-height:1.7;margin-bottom:16px}
+
+/* V2 How It Works */
+.mr1401c-v2-how{padding:80px 20px;background:#0d0d0d}
+.mr1401c-v2-how h2{text-align:center;font-size:2rem;margin-bottom:60px;font-weight:900}
+.mr1401c-v2-how-timeline{max-width:700px;margin:0 auto;position:relative;padding-left:40px}
+.mr1401c-v2-how-timeline::before{content:'';position:absolute;left:12px;top:0;bottom:0;width:2px;background:#333}
+.mr1401c-v2-how-step{position:relative;padding-bottom:48px}
+.mr1401c-v2-how-dot{position:absolute;left:-40px;top:0;width:26px;height:26px;border-radius:50%;background:#e74c3c;border:3px solid #0d0d0d}
+.mr1401c-v2-how-step h3{font-size:1.1rem;margin-bottom:8px;font-weight:700}
+.mr1401c-v2-how-step p{color:#888;line-height:1.6;font-size:.9rem}
+
+/* V2 Tiers */
+.mr1401c-v2-tiers{padding:80px 20px;background:#111}
+.mr1401c-v2-tiers h2{text-align:center;font-size:2rem;margin-bottom:48px;font-weight:900}
+.mr1401c-v2-tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;max-width:1100px;margin:0 auto}
+.mr1401c-v2-tier-card{background:#1a1a1a;padding:48px 32px;text-align:center;transition:all .3s}
+.mr1401c-v2-tier-card:hover{background:#222}
+.mr1401c-v2-tier-card.mr1401c-featured{background:#1e1010;border:1px solid #e74c3c}
+.mr1401c-v2-tier-card h3{font-size:1.3rem;margin-bottom:12px;font-weight:800}
+.mr1401c-v2-tier-card .mr1401c-v2-tier-desc{color:#666;font-size:.85rem;margin-bottom:20px}
+.mr1401c-v2-tier-features{list-style:none;text-align:left}
+.mr1401c-v2-tier-features li{padding:8px 0;border-bottom:1px solid #222;font-size:.82rem;color:#888;padding-left:20px;position:relative}
+.mr1401c-v2-tier-features li::before{content:'\25B6';position:absolute;left:0;color:#e74c3c;font-size:.6rem;top:10px}
+
+/* V2 FAQ */
+.mr1401c-v2-faq{padding:80px 20px;background:#0d0d0d}
+.mr1401c-v2-faq-inner{max-width:800px;margin:0 auto}
+.mr1401c-v2-faq h2{text-align:center;font-size:2rem;margin-bottom:40px}
+.mr1401c-v2-faq-item{border-bottom:1px solid #222;padding:20px 0}
+.mr1401c-v2-faq-q{width:100%;text-align:left;background:none;font-size:1rem;font-weight:600;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0}
+.mr1401c-v2-faq-q::after{content:'+';font-size:1.4rem;color:#e74c3c;transition:transform .3s}
+.mr1401c-v2-faq-item.mr1401c-open .mr1401c-v2-faq-q::after{transform:rotate(45deg)}
+.mr1401c-v2-faq-a{color:#888;line-height:1.7;margin-top:12px;display:none;font-size:.9rem}
+.mr1401c-v2-faq-item.mr1401c-open .mr1401c-v2-faq-a{display:block}
+
+/* V2 Final CTA */
+.mr1401c-v2-final{position:relative;padding:140px 20px;text-align:center;overflow:hidden}
+.mr1401c-v2-final-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;filter:brightness(.3) saturate(.5)}
+.mr1401c-v2-final-content{position:relative;z-index:2;max-width:650px;margin:0 auto}
+.mr1401c-v2-final h2{font-size:clamp(2rem,5vw,3.5rem);margin-bottom:20px;font-weight:900}
+.mr1401c-v2-final p{color:rgba(255,255,255,.6);margin-bottom:40px;line-height:1.7}
+
+.mr1401c-v2-footer{background:#0a0a0a;color:#555;text-align:center;padding:40px 20px;font-size:.82rem;line-height:1.8;border-top:1px solid #1a1a1a}
+
+@media(max-width:900px){
+.mr1401c-v2-hero-content{padding:0 24px 60px}
+.mr1401c-v2-gates,.mr1401c-v2-brian{grid-template-columns:1fr}
+.mr1401c-v2-imgrow{grid-template-columns:1fr;height:auto}
+.mr1401c-v2-imgrow img{height:250px}
+.mr1401c-v2-tier-grid{grid-template-columns:1fr}
+.mr1401c-v2-gate,.mr1401c-v2-brian-text{padding:40px 24px}
+.mr1401c-v2-brian-img{height:350px}
+}
+
+/* ============================================
+   VERSION 3 — LUXURY ADVISORY INSTITUTION
+   Cream / Charcoal / Gold — Spacious & Elegant
+   ============================================ */
+.mr1401c-v3{font-family:Georgia,'Times New Roman',serif;color:#2c2c2c;background:#faf8f5}
+
+.mr1401c-v3-strip{background:#2c2c2c;color:#c9a96e;text-align:center;padding:12px 20px;font-size:12px;font-weight:600;letter-spacing:2px;text-transform:uppercase;font-family:'Segoe UI',sans-serif}
+
+/* V3 Hero - full width portrait with minimal text */
+.mr1401c-v3-hero{position:relative;min-height:90vh;display:flex;align-items:center;overflow:hidden}
+.mr1401c-v3-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mr1401c-v3-hero-overlay{position:absolute;inset:0;background:linear-gradient(90deg,rgba(44,44,44,.92) 0%,rgba(44,44,44,.6) 45%,transparent 100%)}
+.mr1401c-v3-hero-content{position:relative;z-index:2;padding:140px 80px 80px;max-width:600px}
+.mr1401c-v3-hero-logo{width:80px;margin-bottom:32px}
+.mr1401c-v3-hero h1{font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:400;line-height:1.2;color:#fff;margin-bottom:24px;letter-spacing:-.5px}
+.mr1401c-v3-hero h1 em{font-style:italic;color:#c9a96e}
+.mr1401c-v3-hero p{font-size:1.05rem;line-height:1.8;color:rgba(255,255,255,.65);margin-bottom:36px;font-family:'Segoe UI',sans-serif}
+.mr1401c-v3-cta{display:inline-block;padding:16px 40px;background:transparent;color:#c9a96e;font-weight:600;font-size:13px;border:1.5px solid #c9a96e;letter-spacing:2px;text-transform:uppercase;transition:all .3s;font-family:'Segoe UI',sans-serif}
+.mr1401c-v3-cta:hover{background:#c9a96e;color:#2c2c2c}
+
+/* V3 Stats */
+.mr1401c-v3-stats{display:flex;justify-content:center;gap:80px;padding:60px 20px;background:#fff;border-bottom:1px solid #e8e4de;flex-wrap:wrap}
+.mr1401c-v3-stat{text-align:center}
+.mr1401c-v3-stat-num{display:block;font-size:2.8rem;font-weight:400;color:#c9a96e;font-family:Georgia,serif}
+.mr1401c-v3-stat-label{font-size:.75rem;color:#888;font-family:'Segoe UI',sans-serif;text-transform:uppercase;letter-spacing:2px;margin-top:8px}
+
+/* V3 Intro Section */
+.mr1401c-v3-intro{padding:100px 20px;background:#fff;text-align:center}
+.mr1401c-v3-intro-inner{max-width:700px;margin:0 auto}
+.mr1401c-v3-intro h2{font-size:clamp(1.6rem,3vw,2.4rem);font-weight:400;color:#2c2c2c;margin-bottom:24px;line-height:1.3}
+.mr1401c-v3-intro p{color:#666;line-height:1.8;font-family:'Segoe UI',sans-serif;font-size:1rem}
+.mr1401c-v3-gold-line{width:60px;height:2px;background:#c9a96e;margin:0 auto 32px}
+
+/* V3 Two Gates */
+.mr1401c-v3-gates{padding:100px 20px;background:#faf8f5}
+.mr1401c-v3-gates-inner{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:1fr 60px 1fr;gap:0;align-items:stretch}
+.mr1401c-v3-gate{padding:48px;background:#fff;border:1px solid #e8e4de}
+.mr1401c-v3-gate-divider{display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#c9a96e;font-weight:300}
+.mr1401c-v3-gate h3{font-size:1.3rem;color:#2c2c2c;margin-bottom:16px;font-weight:400}
+.mr1401c-v3-gate p{color:#666;line-height:1.7;font-family:'Segoe UI',sans-serif;font-size:.9rem}
+
+/* V3 Full-width image */
+.mr1401c-v3-imgfull{width:100%;height:360px;overflow:hidden;position:relative}
+.mr1401c-v3-imgfull img{width:100%;height:100%;object-fit:cover;filter:sepia(.15) brightness(.9)}
+
+/* V3 Proof Module */
+.mr1401c-v3-proof{padding:100px 20px;background:#fff}
+.mr1401c-v3-proof-inner{max-width:1100px;margin:0 auto}
+.mr1401c-v3-proof h2{text-align:center;font-size:2rem;font-weight:400;margin-bottom:12px}
+.mr1401c-v3-proof-sub{text-align:center;color:#888;margin-bottom:32px;font-family:'Segoe UI',sans-serif;font-size:.9rem}
+.mr1401c-v3-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:40px}
+.mr1401c-v3-chip{padding:8px 18px;border-radius:0;font-size:12px;cursor:pointer;transition:all .3s;border:1px solid #d4cfc7;background:transparent;color:#888;font-family:'Segoe UI',sans-serif;letter-spacing:.3px}
+.mr1401c-v3-chip:hover{border-color:#c9a96e;color:#c9a96e}
+.mr1401c-v3-chip.mr1401c-active{background:#2c2c2c;border-color:#2c2c2c;color:#fff}
+.mr1401c-v3-proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:32px}
+.mr1401c-v3-proof-card{background:#faf8f5;border:1px solid #e8e4de;padding:0;overflow:hidden;transition:all .4s}
+.mr1401c-v3-proof-card:hover{box-shadow:0 12px 48px rgba(0,0,0,.06)}
+.mr1401c-v3-proof-card.mr1401c-hidden{display:none}
+.mr1401c-v3-proof-img{width:100%;height:200px;object-fit:cover;filter:sepia(.1)}
+.mr1401c-v3-proof-body{padding:28px}
+.mr1401c-v3-proof-quote{font-style:italic;color:#444;line-height:1.7;font-size:.95rem;margin-bottom:16px}
+.mr1401c-v3-proof-name{font-weight:600;color:#2c2c2c;font-size:.85rem;font-family:'Segoe UI',sans-serif;letter-spacing:.5px}
+.mr1401c-v3-proof-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.mr1401c-v3-proof-tag{font-size:.68rem;padding:3px 10px;background:rgba(201,169,110,.12);color:#a07f3f;border-radius:0;font-weight:600;font-family:'Segoe UI',sans-serif;letter-spacing:.5px}
+
+/* V3 Video Section */
+.mr1401c-v3-videos{padding:80px 20px;background:#faf8f5}
+.mr1401c-v3-videos h2{text-align:center;font-size:1.8rem;font-weight:400;margin-bottom:48px}
+.mr1401c-v3-vid-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1000px;margin:0 auto}
+.mr1401c-v3-vid-card{position:relative;overflow:hidden;cursor:pointer;border:1px solid #e8e4de}
+.mr1401c-v3-vid-card img{width:100%;height:200px;object-fit:cover;transition:transform .5s;filter:sepia(.08)}
+.mr1401c-v3-vid-card:hover img{transform:scale(1.03)}
+.mr1401c-v3-vid-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:50px;height:50px;border:2px solid rgba(255,255,255,.6);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.mr1401c-v3-vid-play::after{content:'';border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:3px}
+.mr1401c-v3-vid-info{padding:16px;background:#fff}
+.mr1401c-v3-vid-info h4{font-size:.85rem;font-weight:400;margin-bottom:4px;font-family:Georgia,serif}
+.mr1401c-v3-vid-info p{font-size:.75rem;color:#888;font-family:'Segoe UI',sans-serif}
+
+/* V3 Dr Brian */
+.mr1401c-v3-brian{display:grid;grid-template-columns:1fr 480px;min-height:500px}
+.mr1401c-v3-brian-text{padding:80px;background:#fff;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v3-brian-text h2{font-size:2rem;font-weight:400;margin-bottom:24px;color:#2c2c2c}
+.mr1401c-v3-brian-text p{color:#666;line-height:1.8;font-family:'Segoe UI',sans-serif;margin-bottom:16px;font-size:.95rem}
+.mr1401c-v3-brian-img{overflow:hidden}
+.mr1401c-v3-brian-img img{width:100%;height:100%;object-fit:cover;filter:sepia(.1)}
+
+/* V3 How */
+.mr1401c-v3-how{padding:100px 20px;background:#faf8f5}
+.mr1401c-v3-how h2{text-align:center;font-size:2rem;font-weight:400;margin-bottom:60px}
+.mr1401c-v3-how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:40px;max-width:1000px;margin:0 auto}
+.mr1401c-v3-how-step{text-align:center}
+.mr1401c-v3-how-num{font-size:2.4rem;color:#c9a96e;font-weight:400;margin-bottom:16px;font-family:Georgia,serif}
+.mr1401c-v3-how-step h3{font-size:1rem;font-weight:400;margin-bottom:8px;color:#2c2c2c}
+.mr1401c-v3-how-step p{color:#888;font-size:.85rem;line-height:1.6;font-family:'Segoe UI',sans-serif}
+
+/* V3 Tiers */
+.mr1401c-v3-tiers{padding:100px 20px;background:#fff}
+.mr1401c-v3-tiers h2{text-align:center;font-size:2rem;font-weight:400;margin-bottom:12px}
+.mr1401c-v3-tiers-sub{text-align:center;color:#888;font-family:'Segoe UI',sans-serif;margin-bottom:60px;font-size:.9rem}
+.mr1401c-v3-tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1100px;margin:0 auto}
+.mr1401c-v3-tier-card{background:#faf8f5;border:1px solid #e8e4de;padding:48px 32px;text-align:center;transition:all .3s}
+.mr1401c-v3-tier-card:hover{border-color:#c9a96e}
+.mr1401c-v3-tier-card.mr1401c-featured{border-color:#c9a96e;box-shadow:0 4px 24px rgba(201,169,110,.15)}
+.mr1401c-v3-tier-badge{display:inline-block;padding:4px 14px;background:#2c2c2c;color:#c9a96e;font-size:.65rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;font-family:'Segoe UI',sans-serif}
+.mr1401c-v3-tier-card h3{font-size:1.3rem;font-weight:400;margin-bottom:8px}
+.mr1401c-v3-tier-card .mr1401c-v3-tier-desc{color:#888;font-size:.85rem;margin-bottom:24px;font-family:'Segoe UI',sans-serif}
+.mr1401c-v3-tier-features{list-style:none;text-align:left}
+.mr1401c-v3-tier-features li{padding:8px 0;border-bottom:1px solid #e8e4de;font-size:.82rem;color:#666;font-family:'Segoe UI',sans-serif;padding-left:20px;position:relative}
+.mr1401c-v3-tier-features li::before{content:'\2022';position:absolute;left:0;color:#c9a96e;font-size:1.2rem;top:5px}
+
+/* V3 FAQ */
+.mr1401c-v3-faq{padding:80px 20px;background:#faf8f5}
+.mr1401c-v3-faq-inner{max-width:750px;margin:0 auto}
+.mr1401c-v3-faq h2{text-align:center;font-size:1.8rem;font-weight:400;margin-bottom:48px}
+.mr1401c-v3-faq-item{border-bottom:1px solid #d4cfc7;padding:24px 0}
+.mr1401c-v3-faq-q{width:100%;text-align:left;background:none;font-size:.95rem;font-weight:400;color:#2c2c2c;display:flex;justify-content:space-between;align-items:center;padding:0;font-family:Georgia,serif}
+.mr1401c-v3-faq-q::after{content:'+';font-size:1.2rem;color:#c9a96e;transition:transform .3s;font-family:'Segoe UI',sans-serif}
+.mr1401c-v3-faq-item.mr1401c-open .mr1401c-v3-faq-q::after{transform:rotate(45deg)}
+.mr1401c-v3-faq-a{color:#666;line-height:1.8;margin-top:16px;display:none;font-size:.88rem;font-family:'Segoe UI',sans-serif}
+.mr1401c-v3-faq-item.mr1401c-open .mr1401c-v3-faq-a{display:block}
+
+/* V3 Final CTA */
+.mr1401c-v3-final{padding:120px 20px;background:#2c2c2c;text-align:center}
+.mr1401c-v3-final h2{color:#fff;font-size:clamp(1.8rem,4vw,2.8rem);font-weight:400;margin-bottom:20px}
+.mr1401c-v3-final p{color:rgba(255,255,255,.5);margin-bottom:40px;font-family:'Segoe UI',sans-serif;max-width:500px;margin-left:auto;margin-right:auto;line-height:1.7}
+
+.mr1401c-v3-footer{background:#1a1a1a;color:#888;text-align:center;padding:40px 20px;font-size:.8rem;font-family:'Segoe UI',sans-serif;line-height:1.8}
+
+@media(max-width:900px){
+.mr1401c-v3-hero-content{padding:120px 24px 60px}
+.mr1401c-v3-gates-inner{grid-template-columns:1fr}
+.mr1401c-v3-gate-divider{padding:20px;font-size:1rem}
+.mr1401c-v3-brian{grid-template-columns:1fr}
+.mr1401c-v3-brian-img{height:350px}
+.mr1401c-v3-brian-text{padding:40px 24px}
+.mr1401c-v3-how-grid{grid-template-columns:1fr 1fr}
+.mr1401c-v3-tier-grid,.mr1401c-v3-vid-grid{grid-template-columns:1fr}
+}
+
+/* ============================================
+   VERSION 4 — INTERACTIVE APPLICANT DIAGNOSIS
+   Modern / Gradient / Interactive / Conversion
+   ============================================ */
+.mr1401c-v4{font-family:'Segoe UI',-apple-system,sans-serif;color:#1a1a2e;background:#f0f2f8}
+
+.mr1401c-v4-strip{background:linear-gradient(90deg,#6c5ce7,#a855f7);color:#fff;text-align:center;padding:10px 20px;font-size:13px;font-weight:600}
+
+/* V4 Hero */
+.mr1401c-v4-hero{position:relative;min-height:95vh;display:flex;align-items:center;overflow:hidden;background:#1a1a2e}
+.mr1401c-v4-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.25}
+.mr1401c-v4-hero-content{position:relative;z-index:2;max-width:1100px;margin:0 auto;padding:140px 40px 80px;display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center}
+.mr1401c-v4-hero-left h1{font-size:clamp(2.2rem,4.5vw,3.4rem);font-weight:800;color:#fff;line-height:1.15;margin-bottom:20px}
+.mr1401c-v4-hero-left h1 span{background:linear-gradient(135deg,#a855f7,#6c5ce7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.mr1401c-v4-hero-left p{color:rgba(255,255,255,.6);line-height:1.7;margin-bottom:32px;font-size:1.05rem}
+
+/* V4 Diagnosis Card */
+.mr1401c-v4-diag-card{background:rgba(255,255,255,.06);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:36px;color:#fff}
+.mr1401c-v4-diag-card h3{font-size:1.1rem;margin-bottom:20px;font-weight:700}
+.mr1401c-v4-diag-options{display:flex;flex-direction:column;gap:10px}
+.mr1401c-v4-diag-opt{padding:14px 20px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:12px;cursor:pointer;transition:all .3s;font-size:.9rem;color:rgba(255,255,255,.7)}
+.mr1401c-v4-diag-opt:hover{border-color:#a855f7;color:#fff;background:rgba(168,85,247,.1)}
+.mr1401c-v4-diag-opt.mr1401c-selected{border-color:#a855f7;background:rgba(168,85,247,.15);color:#fff}
+.mr1401c-v4-cta{display:inline-block;padding:16px 40px;background:linear-gradient(135deg,#6c5ce7,#a855f7);color:#fff;font-weight:700;font-size:15px;border-radius:12px;transition:all .3s}
+.mr1401c-v4-cta:hover{transform:translateY(-2px);box-shadow:0 12px 40px rgba(108,92,231,.4)}
+
+/* V4 Stats */
+.mr1401c-v4-stats{display:flex;justify-content:center;gap:60px;padding:50px 20px;background:#fff;flex-wrap:wrap}
+.mr1401c-v4-stat{text-align:center}
+.mr1401c-v4-stat-num{display:block;font-size:2.6rem;font-weight:800;background:linear-gradient(135deg,#6c5ce7,#a855f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.mr1401c-v4-stat-label{font-size:.8rem;color:#888;margin-top:4px}
+
+/* V4 Route Result Section */
+.mr1401c-v4-route{padding:80px 20px;background:#f0f2f8}
+.mr1401c-v4-route-inner{max-width:1100px;margin:0 auto}
+.mr1401c-v4-route h2{text-align:center;font-size:2rem;color:#1a1a2e;margin-bottom:12px;font-weight:800}
+.mr1401c-v4-route-sub{text-align:center;color:#666;margin-bottom:40px}
+
+/* V4 Two Gates (split image + info) */
+.mr1401c-v4-gates{display:grid;grid-template-columns:1fr 1fr;gap:0;border-radius:20px;overflow:hidden;max-width:1000px;margin:0 auto 60px;box-shadow:0 8px 40px rgba(0,0,0,.08)}
+.mr1401c-v4-gate-img{overflow:hidden}
+.mr1401c-v4-gate-img img{width:100%;height:100%;object-fit:cover;min-height:400px}
+.mr1401c-v4-gate-text{padding:60px 40px;background:#fff;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v4-gate-text h3{font-size:1.4rem;font-weight:700;color:#1a1a2e;margin-bottom:16px}
+.mr1401c-v4-gate-text p{color:#666;line-height:1.7;font-size:.95rem}
+
+/* V4 Proof */
+.mr1401c-v4-proof{padding:80px 20px;background:#fff}
+.mr1401c-v4-proof-inner{max-width:1100px;margin:0 auto}
+.mr1401c-v4-proof h2{text-align:center;color:#1a1a2e;font-size:2rem;margin-bottom:12px;font-weight:800}
+.mr1401c-v4-proof-sub{text-align:center;color:#666;margin-bottom:32px}
+.mr1401c-v4-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px}
+.mr1401c-v4-chip{padding:8px 16px;border-radius:24px;font-size:12px;cursor:pointer;transition:all .3s;border:1px solid #ddd;background:#fff;color:#666}
+.mr1401c-v4-chip:hover{border-color:#6c5ce7;color:#6c5ce7}
+.mr1401c-v4-chip.mr1401c-active{background:linear-gradient(135deg,#6c5ce7,#a855f7);border-color:transparent;color:#fff}
+.mr1401c-v4-proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px}
+.mr1401c-v4-proof-card{background:#f8f9fc;border-radius:16px;overflow:hidden;border:1px solid #e8ecf0;transition:all .3s}
+.mr1401c-v4-proof-card:hover{box-shadow:0 12px 40px rgba(108,92,231,.1);transform:translateY(-4px)}
+.mr1401c-v4-proof-card.mr1401c-hidden{display:none}
+.mr1401c-v4-proof-img{width:100%;height:200px;object-fit:cover}
+.mr1401c-v4-proof-body{padding:24px}
+.mr1401c-v4-proof-quote{color:#333;line-height:1.6;font-size:.9rem;margin-bottom:12px;font-style:italic}
+.mr1401c-v4-proof-name{font-weight:700;color:#6c5ce7;font-size:.9rem}
+.mr1401c-v4-proof-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mr1401c-v4-proof-tag{font-size:.68rem;padding:3px 10px;background:rgba(108,92,231,.1);color:#6c5ce7;border-radius:12px;font-weight:600}
+
+/* V4 Videos */
+.mr1401c-v4-videos{padding:70px 20px;background:#1a1a2e;color:#fff}
+.mr1401c-v4-videos h2{text-align:center;font-size:2rem;margin-bottom:48px;font-weight:800}
+.mr1401c-v4-vid-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:1000px;margin:0 auto}
+.mr1401c-v4-vid-card{border-radius:16px;overflow:hidden;position:relative;cursor:pointer}
+.mr1401c-v4-vid-card img{width:100%;height:220px;object-fit:cover;transition:all .5s}
+.mr1401c-v4-vid-card:hover img{transform:scale(1.05)}
+.mr1401c-v4-vid-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52px;height:52px;background:rgba(108,92,231,.9);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.mr1401c-v4-vid-play::after{content:'';border-left:16px solid #fff;border-top:10px solid transparent;border-bottom:10px solid transparent;margin-left:4px}
+.mr1401c-v4-vid-info{padding:16px;background:rgba(255,255,255,.05)}
+.mr1401c-v4-vid-info h4{font-size:.9rem}
+.mr1401c-v4-vid-info p{font-size:.78rem;color:rgba(255,255,255,.5)}
+
+/* V4 Dr Brian */
+.mr1401c-v4-brian{display:grid;grid-template-columns:1fr 400px;min-height:450px;max-width:1100px;margin:0 auto;border-radius:20px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.06)}
+.mr1401c-v4-brian-text{padding:60px;background:#fff;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v4-brian-text h2{color:#1a1a2e;font-size:2rem;margin-bottom:20px;font-weight:800}
+.mr1401c-v4-brian-text p{color:#666;line-height:1.7;margin-bottom:16px}
+.mr1401c-v4-brian-img img{width:100%;height:100%;object-fit:cover}
+
+/* V4 How */
+.mr1401c-v4-how{padding:80px 20px;background:#f0f2f8}
+.mr1401c-v4-how h2{text-align:center;color:#1a1a2e;font-size:2rem;margin-bottom:48px;font-weight:800}
+.mr1401c-v4-how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;max-width:1100px;margin:0 auto}
+.mr1401c-v4-how-step{background:#fff;border-radius:16px;padding:32px 24px;text-align:center;position:relative;border:1px solid #e8ecf0;transition:all .3s}
+.mr1401c-v4-how-step:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(108,92,231,.08)}
+.mr1401c-v4-how-num{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,#6c5ce7,#a855f7);color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.mr1401c-v4-how-step h3{color:#1a1a2e;font-size:.95rem;margin-bottom:8px}
+.mr1401c-v4-how-step p{color:#888;font-size:.82rem;line-height:1.5}
+
+/* V4 Tiers */
+.mr1401c-v4-tiers{padding:80px 20px;background:#fff}
+.mr1401c-v4-tiers h2{text-align:center;color:#1a1a2e;font-size:2rem;margin-bottom:48px;font-weight:800}
+.mr1401c-v4-tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;max-width:1100px;margin:0 auto}
+.mr1401c-v4-tier-card{background:#f8f9fc;border:2px solid #e8ecf0;border-radius:20px;padding:40px 28px;text-align:center;transition:all .3s}
+.mr1401c-v4-tier-card:hover{border-color:#6c5ce7;transform:translateY(-4px)}
+.mr1401c-v4-tier-card.mr1401c-featured{border-color:#6c5ce7;box-shadow:0 8px 32px rgba(108,92,231,.12)}
+.mr1401c-v4-tier-badge{display:inline-block;padding:4px 14px;background:linear-gradient(135deg,#6c5ce7,#a855f7);color:#fff;border-radius:16px;font-size:.7rem;font-weight:700;margin-bottom:16px}
+.mr1401c-v4-tier-card h3{font-size:1.2rem;color:#1a1a2e;margin-bottom:8px;font-weight:700}
+.mr1401c-v4-tier-card .mr1401c-v4-tier-desc{color:#888;font-size:.85rem;margin-bottom:20px}
+.mr1401c-v4-tier-features{list-style:none;text-align:left}
+.mr1401c-v4-tier-features li{padding:8px 0;border-bottom:1px solid #eee;font-size:.82rem;color:#555;padding-left:20px;position:relative}
+.mr1401c-v4-tier-features li::before{content:'\2713';position:absolute;left:0;color:#6c5ce7;font-weight:700}
+
+/* V4 FAQ */
+.mr1401c-v4-faq{padding:80px 20px;background:#f0f2f8}
+.mr1401c-v4-faq-inner{max-width:800px;margin:0 auto}
+.mr1401c-v4-faq h2{text-align:center;color:#1a1a2e;font-size:2rem;margin-bottom:40px;font-weight:800}
+.mr1401c-v4-faq-item{border-bottom:1px solid #ddd;padding:20px 0}
+.mr1401c-v4-faq-q{width:100%;text-align:left;background:none;font-size:1rem;font-weight:600;color:#1a1a2e;display:flex;justify-content:space-between;align-items:center;padding:0}
+.mr1401c-v4-faq-q::after{content:'+';font-size:1.4rem;color:#6c5ce7;transition:transform .3s}
+.mr1401c-v4-faq-item.mr1401c-open .mr1401c-v4-faq-q::after{transform:rotate(45deg)}
+.mr1401c-v4-faq-a{color:#666;line-height:1.7;margin-top:12px;display:none;font-size:.9rem}
+.mr1401c-v4-faq-item.mr1401c-open .mr1401c-v4-faq-a{display:block}
+
+/* V4 Final CTA */
+.mr1401c-v4-final{padding:120px 20px;background:#1a1a2e;text-align:center;position:relative;overflow:hidden}
+.mr1401c-v4-final::before{content:'';position:absolute;top:-200px;right:-200px;width:600px;height:600px;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,.15),transparent 70%)}
+.mr1401c-v4-final h2{color:#fff;font-size:clamp(1.8rem,4vw,2.8rem);margin-bottom:20px;font-weight:800;position:relative;z-index:1}
+.mr1401c-v4-final p{color:rgba(255,255,255,.5);margin-bottom:36px;max-width:500px;margin-left:auto;margin-right:auto;position:relative;z-index:1}
+
+.mr1401c-v4-footer{background:#111;color:#666;text-align:center;padding:40px 20px;font-size:.82rem;line-height:1.8}
+
+@media(max-width:900px){
+.mr1401c-v4-hero-content{grid-template-columns:1fr;padding:120px 24px 60px}
+.mr1401c-v4-gates{grid-template-columns:1fr}
+.mr1401c-v4-brian{grid-template-columns:1fr;border-radius:0}
+.mr1401c-v4-how-grid{grid-template-columns:1fr 1fr}
+.mr1401c-v4-tier-grid,.mr1401c-v4-vid-grid{grid-template-columns:1fr}
+.mr1401c-v4-brian-text{padding:40px 24px}
+}
+
+/* ============================================
+   VERSION 5 — BOLD EDUCATION FLAGSHIP
+   Awwwards-level / Asymmetric / Editorial / Colorful
+   ============================================ */
+.mr1401c-v5{font-family:'Segoe UI',-apple-system,sans-serif;color:#111;background:#fff}
+
+.mr1401c-v5-strip{background:#111;color:#fff;text-align:center;padding:10px 20px;font-size:13px;font-weight:700;letter-spacing:1px}
+
+/* V5 Hero - asymmetric bold */
+.mr1401c-v5-hero{display:grid;grid-template-columns:55% 45%;min-height:100vh}
+.mr1401c-v5-hero-left{padding:140px 60px 80px;display:flex;flex-direction:column;justify-content:center;background:#fff}
+.mr1401c-v5-hero-left h1{font-size:clamp(2.6rem,5.5vw,4.5rem);font-weight:900;line-height:1.05;color:#111;margin-bottom:24px;letter-spacing:-2px}
+.mr1401c-v5-hero-left h1 span{color:#e63946}
+.mr1401c-v5-hero-left p{font-size:1.1rem;color:#666;line-height:1.7;margin-bottom:36px;max-width:480px}
+.mr1401c-v5-hero-right{overflow:hidden;position:relative}
+.mr1401c-v5-hero-right img{width:100%;height:100%;object-fit:cover}
+.mr1401c-v5-cta{display:inline-block;padding:18px 44px;background:#e63946;color:#fff;font-weight:800;font-size:14px;border-radius:50px;transition:all .3s;letter-spacing:.5px}
+.mr1401c-v5-cta:hover{background:#c1272d;transform:translateY(-2px);box-shadow:0 12px 36px rgba(230,57,70,.3)}
+
+/* V5 Marquee Bar */
+.mr1401c-v5-marquee{padding:16px 0;background:#111;color:#fff;overflow:hidden;white-space:nowrap}
+.mr1401c-v5-marquee-track{display:flex;gap:60px;animation:mr1401c-marquee 20s linear infinite}
+.mr1401c-v5-marquee-item{font-size:.8rem;font-weight:700;letter-spacing:3px;text-transform:uppercase;flex-shrink:0}
+@keyframes mr1401c-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* V5 Oversized Section Headers */
+.mr1401c-v5-section{padding:100px 40px;max-width:1200px;margin:0 auto}
+.mr1401c-v5-section h2{font-size:clamp(2rem,4vw,3.5rem);font-weight:900;letter-spacing:-1px;line-height:1.1;margin-bottom:24px}
+.mr1401c-v5-section-sub{color:#888;font-size:1rem;margin-bottom:48px;max-width:600px;line-height:1.7}
+
+/* V5 Two Gates - asymmetric panels */
+.mr1401c-v5-gates{display:grid;grid-template-columns:40% 60%;min-height:500px}
+.mr1401c-v5-gates-img{overflow:hidden}
+.mr1401c-v5-gates-img img{width:100%;height:100%;object-fit:cover}
+.mr1401c-v5-gates-content{padding:80px 60px;background:#f8f8f8;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v5-gates-content h2{font-size:2.2rem;font-weight:900;margin-bottom:24px;color:#111}
+.mr1401c-v5-gate-item{padding:20px 0;border-bottom:2px solid #eee}
+.mr1401c-v5-gate-item h3{font-size:1rem;font-weight:800;color:#e63946;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;font-size:.8rem}
+.mr1401c-v5-gate-item p{color:#666;line-height:1.6;font-size:.9rem}
+
+/* V5 Full bleed image */
+.mr1401c-v5-imgfull{width:100%;height:50vh;overflow:hidden}
+.mr1401c-v5-imgfull img{width:100%;height:100%;object-fit:cover}
+
+/* V5 Proof Module */
+.mr1401c-v5-proof{padding:100px 20px;background:#fff}
+.mr1401c-v5-proof-inner{max-width:1200px;margin:0 auto}
+.mr1401c-v5-proof h2{font-size:3rem;font-weight:900;margin-bottom:12px;letter-spacing:-1px}
+.mr1401c-v5-proof-sub{color:#888;margin-bottom:32px}
+.mr1401c-v5-chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:40px}
+.mr1401c-v5-chip{padding:10px 20px;border-radius:50px;font-size:12px;cursor:pointer;transition:all .3s;border:2px solid #eee;background:#fff;color:#666;font-weight:600}
+.mr1401c-v5-chip:hover{border-color:#e63946;color:#e63946}
+.mr1401c-v5-chip.mr1401c-active{background:#e63946;border-color:#e63946;color:#fff}
+.mr1401c-v5-proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(350px,1fr));gap:24px}
+.mr1401c-v5-proof-card{border-radius:20px;overflow:hidden;background:#f8f8f8;transition:all .3s}
+.mr1401c-v5-proof-card:hover{transform:translateY(-6px);box-shadow:0 20px 60px rgba(0,0,0,.06)}
+.mr1401c-v5-proof-card.mr1401c-hidden{display:none}
+.mr1401c-v5-proof-img{width:100%;height:220px;object-fit:cover}
+.mr1401c-v5-proof-body{padding:28px}
+.mr1401c-v5-proof-quote{color:#333;line-height:1.6;font-size:.95rem;margin-bottom:14px;font-style:italic}
+.mr1401c-v5-proof-name{font-weight:800;color:#e63946;font-size:.9rem;text-transform:uppercase;letter-spacing:.5px}
+.mr1401c-v5-proof-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.mr1401c-v5-proof-tag{font-size:.68rem;padding:4px 12px;background:rgba(230,57,70,.08);color:#e63946;border-radius:50px;font-weight:700;letter-spacing:.3px}
+
+/* V5 Videos */
+.mr1401c-v5-videos{padding:80px 0;background:#111;color:#fff}
+.mr1401c-v5-videos h2{text-align:center;font-size:2.5rem;margin-bottom:48px;font-weight:900;letter-spacing:-1px}
+.mr1401c-v5-vid-scroll{display:flex;gap:16px;overflow-x:auto;padding:0 40px 20px}
+.mr1401c-v5-vid-card{flex:0 0 320px;border-radius:16px;overflow:hidden;position:relative;cursor:pointer}
+.mr1401c-v5-vid-card img{width:100%;height:240px;object-fit:cover;transition:transform .5s}
+.mr1401c-v5-vid-card:hover img{transform:scale(1.05)}
+.mr1401c-v5-vid-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:56px;height:56px;background:rgba(230,57,70,.9);border-radius:50%;display:flex;align-items:center;justify-content:center}
+.mr1401c-v5-vid-play::after{content:'';border-left:18px solid #fff;border-top:11px solid transparent;border-bottom:11px solid transparent;margin-left:4px}
+.mr1401c-v5-vid-info{padding:16px}
+.mr1401c-v5-vid-info h4{font-size:.9rem}
+.mr1401c-v5-vid-info p{font-size:.78rem;color:#888}
+
+/* V5 Dr Brian - bold editorial */
+.mr1401c-v5-brian{display:grid;grid-template-columns:45% 55%;min-height:550px}
+.mr1401c-v5-brian-img{overflow:hidden;position:relative}
+.mr1401c-v5-brian-img img{width:100%;height:100%;object-fit:cover}
+.mr1401c-v5-brian-text{padding:80px 60px;background:#f8f8f8;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v5-brian-text h2{font-size:2.5rem;font-weight:900;margin-bottom:24px;letter-spacing:-1px}
+.mr1401c-v5-brian-text p{color:#666;line-height:1.7;margin-bottom:16px;font-size:1rem}
+
+/* V5 How */
+.mr1401c-v5-how{padding:100px 40px;background:#fff}
+.mr1401c-v5-how h2{font-size:3rem;font-weight:900;margin-bottom:60px;letter-spacing:-1px}
+.mr1401c-v5-how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:32px;max-width:1200px;margin:0 auto}
+.mr1401c-v5-how-step{position:relative}
+.mr1401c-v5-how-step::before{content:attr(data-num);font-size:6rem;font-weight:900;color:rgba(230,57,70,.08);position:absolute;top:-20px;left:0;line-height:1}
+.mr1401c-v5-how-step h3{font-size:1rem;font-weight:800;color:#111;margin-bottom:8px;padding-top:48px;text-transform:uppercase;letter-spacing:1px;font-size:.8rem}
+.mr1401c-v5-how-step p{color:#888;font-size:.85rem;line-height:1.5}
+
+/* V5 Tiers */
+.mr1401c-v5-tiers{padding:100px 40px;background:#f8f8f8}
+.mr1401c-v5-tiers h2{font-size:3rem;font-weight:900;margin-bottom:48px;letter-spacing:-1px}
+.mr1401c-v5-tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;max-width:1200px;margin:0 auto}
+.mr1401c-v5-tier-card{background:#fff;border:2px solid #eee;border-radius:24px;padding:44px 28px;text-align:center;transition:all .3s}
+.mr1401c-v5-tier-card:hover{border-color:#e63946;transform:translateY(-6px)}
+.mr1401c-v5-tier-card.mr1401c-featured{border-color:#e63946;box-shadow:0 8px 32px rgba(230,57,70,.1)}
+.mr1401c-v5-tier-badge{display:inline-block;padding:4px 16px;background:#e63946;color:#fff;border-radius:50px;font-size:.7rem;font-weight:800;margin-bottom:16px;letter-spacing:1px;text-transform:uppercase}
+.mr1401c-v5-tier-card h3{font-size:1.3rem;color:#111;margin-bottom:8px;font-weight:800}
+.mr1401c-v5-tier-card .mr1401c-v5-tier-desc{color:#888;font-size:.85rem;margin-bottom:20px}
+.mr1401c-v5-tier-features{list-style:none;text-align:left}
+.mr1401c-v5-tier-features li{padding:8px 0;border-bottom:2px solid #f0f0f0;font-size:.82rem;color:#555;padding-left:20px;position:relative}
+.mr1401c-v5-tier-features li::before{content:'\2713';position:absolute;left:0;color:#e63946;font-weight:800}
+
+/* V5 FAQ */
+.mr1401c-v5-faq{padding:100px 40px;background:#fff}
+.mr1401c-v5-faq-inner{max-width:800px;margin:0 auto}
+.mr1401c-v5-faq h2{font-size:3rem;font-weight:900;margin-bottom:48px;letter-spacing:-1px}
+.mr1401c-v5-faq-item{border-bottom:2px solid #eee;padding:24px 0}
+.mr1401c-v5-faq-q{width:100%;text-align:left;background:none;font-size:1.05rem;font-weight:700;color:#111;display:flex;justify-content:space-between;align-items:center;padding:0}
+.mr1401c-v5-faq-q::after{content:'+';font-size:1.6rem;color:#e63946;transition:transform .3s;font-weight:300}
+.mr1401c-v5-faq-item.mr1401c-open .mr1401c-v5-faq-q::after{transform:rotate(45deg)}
+.mr1401c-v5-faq-a{color:#666;line-height:1.7;margin-top:16px;display:none;font-size:.9rem}
+.mr1401c-v5-faq-item.mr1401c-open .mr1401c-v5-faq-a{display:block}
+
+/* V5 Final CTA */
+.mr1401c-v5-final{position:relative;padding:140px 40px;overflow:hidden}
+.mr1401c-v5-final-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.mr1401c-v5-final-over{position:absolute;inset:0;background:rgba(17,17,17,.85)}
+.mr1401c-v5-final-content{position:relative;z-index:2;max-width:700px}
+.mr1401c-v5-final h2{color:#fff;font-size:clamp(2rem,5vw,4rem);font-weight:900;margin-bottom:24px;letter-spacing:-1px;line-height:1.05}
+.mr1401c-v5-final p{color:rgba(255,255,255,.5);margin-bottom:40px;font-size:1.1rem;line-height:1.7}
+
+.mr1401c-v5-footer{background:#111;color:#666;text-align:center;padding:40px;font-size:.82rem;line-height:1.8}
+
+@media(max-width:900px){
+.mr1401c-v5-hero{grid-template-columns:1fr}
+.mr1401c-v5-hero-right{height:400px}
+.mr1401c-v5-hero-left{padding:120px 24px 60px}
+.mr1401c-v5-gates,.mr1401c-v5-brian{grid-template-columns:1fr}
+.mr1401c-v5-gates-img,.mr1401c-v5-brian-img{height:300px}
+.mr1401c-v5-how-grid{grid-template-columns:1fr 1fr}
+.mr1401c-v5-tier-grid{grid-template-columns:1fr}
+.mr1401c-v5-section,.mr1401c-v5-proof,.mr1401c-v5-how,.mr1401c-v5-tiers,.mr1401c-v5-faq{padding:60px 24px}
+.mr1401c-v5-brian-text,.mr1401c-v5-gates-content{padding:40px 24px}
+.mr1401c-v5-final-content{padding:0 20px}
+}
+
+/* ============================================
+   VERSION 6 — ARENA MATCH ROYALE
+   Game-grade / Fortnite-inspired (original design)
+   ============================================ */
+.mr1401c-v6{font-family:"Luckiest Guy","Anton","Impact","Arial Black",sans-serif;color:#fff;background:#0a0c14}
+
+.mr1401c-v6-strip{background:linear-gradient(90deg,#ff6b00,#ffb800);color:#0a0c14;text-align:center;padding:10px 20px;font-size:13px;font-weight:900;letter-spacing:1px;text-transform:uppercase}
+
+/* V6 Hero */
+.mr1401c-v6-hero{position:relative;min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden;background:linear-gradient(135deg,#0a0c14 0%,#1a1040 50%,#0a0c14 100%)}
+.mr1401c-v6-hero-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.2;mix-blend-mode:luminosity}
+.mr1401c-v6-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(255,107,0,.15) 0%,transparent 60%)}
+.mr1401c-v6-hero-content{position:relative;z-index:2;text-align:center;padding:140px 40px 80px}
+.mr1401c-v6-hero h1{font-size:clamp(3rem,8vw,7rem);line-height:.95;text-transform:uppercase;letter-spacing:-2px;margin-bottom:20px;text-shadow:0 4px 40px rgba(255,107,0,.3)}
+.mr1401c-v6-hero h1 span{background:linear-gradient(135deg,#ff6b00,#ffb800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.mr1401c-v6-hero p{font-size:1.1rem;color:rgba(255,255,255,.5);font-family:'Segoe UI',sans-serif;font-weight:400;margin-bottom:36px;max-width:500px;margin-left:auto;margin-right:auto}
+.mr1401c-v6-cta{display:inline-block;padding:18px 48px;background:linear-gradient(135deg,#ff6b00,#ffb800);color:#0a0c14;font-weight:900;font-size:16px;text-transform:uppercase;letter-spacing:2px;clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);transition:all .3s}
+.mr1401c-v6-cta:hover{transform:scale(1.05);box-shadow:0 0 40px rgba(255,107,0,.5)}
+
+/* V6 HUD Stats */
+.mr1401c-v6-hud{display:flex;justify-content:center;gap:2px;padding:0;background:#0d0f1a;flex-wrap:wrap}
+.mr1401c-v6-hud-item{padding:24px 40px;text-align:center;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);flex:1;min-width:150px}
+.mr1401c-v6-hud-num{display:block;font-size:2.2rem;color:#ffb800;text-shadow:0 0 20px rgba(255,184,0,.3)}
+.mr1401c-v6-hud-label{font-size:.65rem;color:#555;font-family:'Segoe UI',sans-serif;text-transform:uppercase;letter-spacing:3px;font-weight:600;margin-top:4px}
+
+/* V6 Gates - game cards */
+.mr1401c-v6-gates{padding:80px 20px;background:#0d0f1a}
+.mr1401c-v6-gates h2{text-align:center;font-size:2.4rem;text-transform:uppercase;margin-bottom:48px;letter-spacing:2px}
+.mr1401c-v6-gates h2 span{color:#ff6b00}
+.mr1401c-v6-gate-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px;max-width:900px;margin:0 auto}
+.mr1401c-v6-gate-card{padding:48px 36px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);position:relative;overflow:hidden}
+.mr1401c-v6-gate-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ff6b00,#ffb800)}
+.mr1401c-v6-gate-card h3{font-size:1.4rem;text-transform:uppercase;margin-bottom:12px;letter-spacing:1px}
+.mr1401c-v6-gate-card p{color:#888;font-family:'Segoe UI',sans-serif;font-weight:400;line-height:1.7;font-size:.9rem}
+
+/* V6 Image Row */
+.mr1401c-v6-imgrow{display:grid;grid-template-columns:1fr 1fr 1fr;height:300px}
+.mr1401c-v6-imgrow img{width:100%;height:100%;object-fit:cover;filter:hue-rotate(20deg) saturate(.6) brightness(.5)}
+
+/* V6 Proof */
+.mr1401c-v6-proof{padding:80px 20px;background:#0a0c14}
+.mr1401c-v6-proof-inner{max-width:1100px;margin:0 auto}
+.mr1401c-v6-proof h2{text-align:center;font-size:2.2rem;text-transform:uppercase;margin-bottom:12px;letter-spacing:2px}
+.mr1401c-v6-proof-sub{text-align:center;color:#555;margin-bottom:32px;font-family:'Segoe UI',sans-serif;font-weight:400}
+.mr1401c-v6-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:36px}
+.mr1401c-v6-chip{padding:8px 16px;border-radius:0;font-size:12px;cursor:pointer;transition:all .3s;border:1px solid #222;background:transparent;color:#555;font-family:'Segoe UI',sans-serif;font-weight:600;clip-path:polygon(6px 0,100% 0,calc(100% - 6px) 100%,0 100%)}
+.mr1401c-v6-chip:hover{border-color:#ff6b00;color:#ff6b00}
+.mr1401c-v6-chip.mr1401c-active{background:linear-gradient(135deg,#ff6b00,#ffb800);border-color:transparent;color:#0a0c14}
+.mr1401c-v6-proof-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:4px}
+.mr1401c-v6-proof-card{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);overflow:hidden;transition:all .3s;position:relative}
+.mr1401c-v6-proof-card:hover{border-color:rgba(255,107,0,.4);box-shadow:0 0 30px rgba(255,107,0,.1)}
+.mr1401c-v6-proof-card.mr1401c-hidden{display:none}
+.mr1401c-v6-proof-img{width:100%;height:200px;object-fit:cover;filter:saturate(.5) brightness(.6)}
+.mr1401c-v6-proof-body{padding:24px}
+.mr1401c-v6-proof-quote{color:rgba(255,255,255,.6);font-family:'Segoe UI',sans-serif;font-weight:400;font-style:italic;line-height:1.6;font-size:.9rem;margin-bottom:12px}
+.mr1401c-v6-proof-name{font-weight:700;color:#ffb800;font-size:.9rem;font-family:'Segoe UI',sans-serif;text-transform:uppercase;letter-spacing:1px}
+.mr1401c-v6-proof-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.mr1401c-v6-proof-tag{font-size:.65rem;padding:3px 10px;background:rgba(255,107,0,.12);color:#ff6b00;font-weight:600;font-family:'Segoe UI',sans-serif;letter-spacing:.5px}
+
+/* V6 Match Day */
+.mr1401c-v6-matchday{padding:80px 20px;background:#0d0f1a}
+.mr1401c-v6-matchday h2{text-align:center;font-size:2rem;text-transform:uppercase;margin-bottom:48px;letter-spacing:2px}
+.mr1401c-v6-replay-grid{display:flex;gap:4px;overflow-x:auto;padding-bottom:20px}
+.mr1401c-v6-replay-card{flex:0 0 260px;height:340px;position:relative;overflow:hidden;cursor:pointer;border:1px solid rgba(255,255,255,.06)}
+.mr1401c-v6-replay-card img{width:100%;height:100%;object-fit:cover;filter:brightness(.4) saturate(.5);transition:all .5s}
+.mr1401c-v6-replay-card:hover img{filter:brightness(.6) saturate(.7)}
+.mr1401c-v6-replay-overlay{position:absolute;bottom:0;left:0;right:0;padding:20px;background:linear-gradient(transparent,rgba(10,12,20,.95))}
+.mr1401c-v6-replay-overlay h4{font-size:.85rem;text-transform:uppercase;letter-spacing:1px}
+.mr1401c-v6-replay-overlay p{font-size:.75rem;color:#888;font-family:'Segoe UI',sans-serif}
+.mr1401c-v6-replay-badge{position:absolute;top:12px;right:12px;background:linear-gradient(135deg,#ff6b00,#ffb800);color:#0a0c14;font-size:.6rem;font-weight:900;padding:4px 10px;text-transform:uppercase;letter-spacing:1px;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%)}
+
+/* V6 Dr Brian */
+.mr1401c-v6-brian{display:grid;grid-template-columns:350px 1fr;min-height:450px;background:#0d0f1a;border-top:1px solid rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.05)}
+.mr1401c-v6-brian-img{overflow:hidden}
+.mr1401c-v6-brian-img img{width:100%;height:100%;object-fit:cover;filter:saturate(.5)}
+.mr1401c-v6-brian-text{padding:60px;display:flex;flex-direction:column;justify-content:center}
+.mr1401c-v6-brian-text h2{font-size:2rem;text-transform:uppercase;margin-bottom:20px;letter-spacing:2px}
+.mr1401c-v6-brian-text p{color:#888;font-family:'Segoe UI',sans-serif;font-weight:400;line-height:1.7;margin-bottom:16px;font-size:.95rem}
+
+/* V6 How */
+.mr1401c-v6-how{padding:80px 20px;background:#0a0c14}
+.mr1401c-v6-how h2{text-align:center;font-size:2rem;text-transform:uppercase;margin-bottom:48px;letter-spacing:2px}
+.mr1401c-v6-how-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:1000px;margin:0 auto}
+.mr1401c-v6-how-step{padding:36px 20px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);text-align:center;position:relative}
+.mr1401c-v6-how-step::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,#ff6b00,transparent)}
+.mr1401c-v6-how-num{font-size:2rem;color:#ff6b00;margin-bottom:12px;text-shadow:0 0 20px rgba(255,107,0,.3)}
+.mr1401c-v6-how-step h3{font-size:.8rem;text-transform:uppercase;letter-spacing:2px;margin-bottom:8px}
+.mr1401c-v6-how-step p{color:#666;font-family:'Segoe UI',sans-serif;font-weight:400;font-size:.8rem;line-height:1.5}
+
+/* V6 Tiers */
+.mr1401c-v6-tiers{padding:80px 20px;background:#0d0f1a}
+.mr1401c-v6-tiers h2{text-align:center;font-size:2rem;text-transform:uppercase;margin-bottom:48px;letter-spacing:2px}
+.mr1401c-v6-tier-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;max-width:1100px;margin:0 auto}
+.mr1401c-v6-tier-card{background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06);padding:40px 24px;text-align:center;transition:all .3s;position:relative;overflow:hidden}
+.mr1401c-v6-tier-card:hover{border-color:rgba(255,107,0,.4)}
+.mr1401c-v6-tier-card.mr1401c-featured{border-color:#ff6b00;box-shadow:0 0 30px rgba(255,107,0,.1)}
+.mr1401c-v6-tier-card.mr1401c-featured::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#ff6b00,#ffb800)}
+.mr1401c-v6-tier-badge{display:inline-block;padding:4px 14px;background:linear-gradient(135deg,#ff6b00,#ffb800);color:#0a0c14;font-size:.6rem;font-weight:900;text-transform:uppercase;letter-spacing:2px;margin-bottom:16px;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%)}
+.mr1401c-v6-tier-card h3{font-size:1.2rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px}
+.mr1401c-v6-tier-card .mr1401c-v6-tier-desc{color:#666;font-size:.82rem;margin-bottom:20px;font-family:'Segoe UI',sans-serif;font-weight:400}
+.mr1401c-v6-tier-features{list-style:none;text-align:left}
+.mr1401c-v6-tier-features li{padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:.8rem;color:#888;font-family:'Segoe UI',sans-serif;font-weight:400;padding-left:20px;position:relative}
+.mr1401c-v6-tier-features li::before{content:'\25B6';position:absolute;left:0;color:#ff6b00;font-size:.55rem;top:10px}
+
+/* V6 FAQ */
+.mr1401c-v6-faq{padding:80px 20px;background:#0a0c14}
+.mr1401c-v6-faq-inner{max-width:800px;margin:0 auto}
+.mr1401c-v6-faq h2{text-align:center;font-size:1.8rem;text-transform:uppercase;margin-bottom:40px;letter-spacing:2px}
+.mr1401c-v6-faq-item{border-bottom:1px solid rgba(255,255,255,.06);padding:20px 0}
+.mr1401c-v6-faq-q{width:100%;text-align:left;background:none;font-size:.95rem;font-weight:700;color:#fff;display:flex;justify-content:space-between;align-items:center;padding:0;font-family:'Segoe UI',sans-serif}
+.mr1401c-v6-faq-q::after{content:'+';font-size:1.4rem;color:#ff6b00;transition:transform .3s}
+.mr1401c-v6-faq-item.mr1401c-open .mr1401c-v6-faq-q::after{transform:rotate(45deg)}
+.mr1401c-v6-faq-a{color:#888;line-height:1.7;margin-top:12px;display:none;font-size:.85rem;font-family:'Segoe UI',sans-serif;font-weight:400}
+.mr1401c-v6-faq-item.mr1401c-open .mr1401c-v6-faq-a{display:block}
+
+/* V6 Final CTA */
+.mr1401c-v6-final{padding:120px 20px;background:linear-gradient(135deg,#0a0c14,#1a1040);text-align:center;position:relative;overflow:hidden}
+.mr1401c-v6-final::before{content:'';position:absolute;top:-100px;left:50%;transform:translateX(-50%);width:800px;height:800px;border-radius:50%;background:radial-gradient(circle,rgba(255,107,0,.08),transparent 60%)}
+.mr1401c-v6-final h2{font-size:clamp(2rem,6vw,4rem);text-transform:uppercase;margin-bottom:20px;letter-spacing:2px;position:relative;z-index:1}
+.mr1401c-v6-final h2 span{background:linear-gradient(135deg,#ff6b00,#ffb800);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.mr1401c-v6-final p{color:rgba(255,255,255,.4);margin-bottom:40px;font-family:'Segoe UI',sans-serif;font-weight:400;max-width:500px;margin-left:auto;margin-right:auto;position:relative;z-index:1}
+
+.mr1401c-v6-footer{background:#050710;color:#333;text-align:center;padding:40px 20px;font-size:.8rem;font-family:'Segoe UI',sans-serif;line-height:1.8;border-top:1px solid rgba(255,255,255,.03)}
+
+@media(max-width:900px){
+.mr1401c-v6-gate-grid,.mr1401c-v6-brian{grid-template-columns:1fr}
+.mr1401c-v6-how-grid{grid-template-columns:1fr 1fr}
+.mr1401c-v6-tier-grid{grid-template-columns:1fr}
+.mr1401c-v6-imgrow{grid-template-columns:1fr;height:auto}
+.mr1401c-v6-imgrow img{height:200px}
+.mr1401c-v6-brian-img{height:300px}
+.mr1401c-v6-brian-text{padding:40px 24px}
+.mr1401c-v6-hero-content{padding:120px 20px 60px}
+}
+
+/* Shared responsive for selector */
+@media(max-width:768px){
+.mr1401c-selector{padding:6px 8px;gap:4px}
+.mr1401c-selector button{padding:5px 10px;font-size:10px}
+}
+</style>
+</head>
+<body>
+
+<!-- VERSION SELECTOR -->
+<div class="mr1401c-selector">
+<button class="mr1401c-sel-active" onclick="mr1401cSwitch(1)">V1: Executive Clinical</button>
+<button onclick="mr1401cSwitch(2)">V2: Cinematic Match Day</button>
+<button onclick="mr1401cSwitch(3)">V3: Luxury Advisory</button>
+<button onclick="mr1401cSwitch(4)">V4: Interactive Diagnosis</button>
+<button onclick="mr1401cSwitch(5)">V5: Bold Flagship</button>
+<button onclick="mr1401cSwitch(6)">V6: Arena Royale</button>
+</div>
+
+<!-- ==========================================
+     VERSION 1 — EXECUTIVE CLINICAL PROOF
+     ========================================== -->
+<div id="mr1401c-v1" class="mr1401c-version mr1401c-v1 mr1401c-active">
+
+<div class="mr1401c-v1-strip">Limited Cohort Seats Available for the 2026 Match Cycle. <a href="#" style="color:#fff;text-decoration:underline">Reserve Your Spot</a></div>
+
+<section class="mr1401c-v1-hero">
+<img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1400&q=80" alt="Medical professionals in clinical environment" class="mr1401c-v1-hero-bg">
+<div class="mr1401c-v1-hero-overlay"></div>
+<div class="mr1401c-v1-hero-content">
+<img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="mr1401c-v1-hero-logo">
+<h1>Your Red Flags Don't Define Your <em>Match</em></h1>
+<p>Strategic mentorship for IMGs, Caribbean graduates, and reapplicants who refuse to let their profile tell the whole story.</p>
+<a href="#" class="mr1401c-v1-cta">Book Your Strategy Session</a>
+</div>
+</section>
+
+<div class="mr1401c-v1-stats">
+<div class="mr1401c-v1-stat"><span class="mr1401c-v1-stat-num">10+</span><span class="mr1401c-v1-stat-label">Years of Match Expertise</span></div>
+<div class="mr1401c-v1-stat"><span class="mr1401c-v1-stat-num">2 Gates</span><span class="mr1401c-v1-stat-label">Comprehensive Framework</span></div>
+<div class="mr1401c-v1-stat"><span class="mr1401c-v1-stat-num">1:1</span><span class="mr1401c-v1-stat-label">Personalized Mentorship</span></div>
+<div class="mr1401c-v1-stat"><span class="mr1401c-v1-stat-num">20+</span><span class="mr1401c-v1-stat-label">Video Testimonials</span></div>
+</div>
+
+<section class="mr1401c-v1-gates-section">
+<div class="mr1401c-v1-gates-img"><img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80" alt="Strategy session"></div>
+<div class="mr1401c-v1-gates-text">
+<h2>Two Gates Determine Your Match</h2>
+<p>According to NRMP Program Director Survey data, your match depends on passing two distinct evaluations. Most applicants only prepare for one.</p>
+<div class="mr1401c-v1-gate-box">
+<h3>Gate 1: Screening</h3>
+<p>USMLE scores, USCE, research, LORs, red flag management. This determines whether programs see your application at all.</p>
+</div>
+<div class="mr1401c-v1-gate-box mr1401c-v1-gate2">
+<h3>Gate 2: Interview Performance</h3>
+<p>Communication, personality, confidence, and strategic narrative. This is where matches are won or lost, and most applicants are unprepared.</p>
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v1-nrmp">
+<div class="mr1401c-v1-nrmp-inner">
+<h2>What Program Directors Actually Prioritize</h2>
+<p class="mr1401c-v1-nrmp-sub">Source: NRMP Program Director Survey</p>
+<div class="mr1401c-v1-bar-row"><span class="mr1401c-v1-bar-label">Interactions with faculty</span><div class="mr1401c-v1-bar-track"><div class="mr1401c-v1-bar-fill mr1401c-v1-bar-fill-red" style="width:88%">88%</div></div></div>
+<div class="mr1401c-v1-bar-row"><span class="mr1401c-v1-bar-label">Interpersonal skills</span><div class="mr1401c-v1-bar-track"><div class="mr1401c-v1-bar-fill mr1401c-v1-bar-fill-red" style="width:85%">85%</div></div></div>
+<div class="mr1401c-v1-bar-row"><span class="mr1401c-v1-bar-label">Interview performance</span><div class="mr1401c-v1-bar-track"><div class="mr1401c-v1-bar-fill mr1401c-v1-bar-fill-red" style="width:82%">82%</div></div></div>
+<div class="mr1401c-v1-bar-row"><span class="mr1401c-v1-bar-label">USMLE Step 1 score</span><div class="mr1401c-v1-bar-track"><div class="mr1401c-v1-bar-fill mr1401c-v1-bar-fill-navy" style="width:69%">69%</div></div></div>
+<div class="mr1401c-v1-bar-row"><span class="mr1401c-v1-bar-label">Letters of recommendation</span><div class="mr1401c-v1-bar-track"><div class="mr1401c-v1-bar-fill mr1401c-v1-bar-fill-navy" style="width:65%">65%</div></div></div>
+</div>
+</section>
+
+<div class="mr1401c-v1-imgband">
+<img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1400&q=80" alt="Hospital environment">
+<div class="mr1401c-v1-imgband-overlay"></div>
+</div>
+
+<section class="mr1401c-v1-proof">
+<div class="mr1401c-v1-proof-inner">
+<h2>Find Someone Like You</h2>
+<p class="mr1401c-v1-proof-sub">Select your situation to see real stories from applicants who faced similar challenges.</p>
+<div class="mr1401c-v1-chips" data-version="1">
+<span class="mr1401c-v1-chip mr1401c-active" data-filter="all">All Stories</span>
+<span class="mr1401c-v1-chip" data-filter="unmatched">Previous unmatched cycle</span>
+<span class="mr1401c-v1-chip" data-filter="lowstep">Low Step score</span>
+<span class="mr1401c-v1-chip" data-filter="attempt">USMLE attempt</span>
+<span class="mr1401c-v1-chip" data-filter="yog">Old graduate / YOG gap</span>
+<span class="mr1401c-v1-chip" data-filter="usce">Limited USCE</span>
+<span class="mr1401c-v1-chip" data-filter="visa">Visa concern</span>
+<span class="mr1401c-v1-chip" data-filter="lowiv">Low interview count</span>
+<span class="mr1401c-v1-chip" data-filter="confidence">Weak interview confidence</span>
+<span class="mr1401c-v1-chip" data-filter="caribbean">Caribbean graduate</span>
+<span class="mr1401c-v1-chip" data-filter="img">IMG applying from abroad</span>
+<span class="mr1401c-v1-chip" data-filter="family">Family pressure</span>
+<span class="mr1401c-v1-chip" data-filter="chance">"I don't know if I still have a chance"</span>
+</div>
+<div class="mr1401c-v1-proof-grid" data-version="1">
+
+<div class="mr1401c-v1-proof-card" data-tags="unmatched,lowiv,chance">
+<img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80" alt="Student story" class="mr1401c-v1-proof-img">
+<div class="mr1401c-v1-proof-body">
+<p class="mr1401c-v1-proof-quote">"I matched on my first cycle! If somebody would have told me this after I started my journey, I wouldn't believe it because I was facing so many adversities and obstacles, it seemed not a reality."</p>
+<p class="mr1401c-v1-proof-name">Krishna Desai</p>
+<div class="mr1401c-v1-proof-tags"><span class="mr1401c-v1-proof-tag">Multiple adversities</span><span class="mr1401c-v1-proof-tag">First-cycle match</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v1-proof-card" data-tags="img,caribbean,family">
+<img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&q=80" alt="Student story" class="mr1401c-v1-proof-img">
+<div class="mr1401c-v1-proof-body">
+<p class="mr1401c-v1-proof-quote">"I thought it's expensive. Thank god I did join Mission Residency, this is the best ever decision I made in my life. Mission Residency's priceless."</p>
+<p class="mr1401c-v1-proof-name">Janani Babu, IMG from India</p>
+<div class="mr1401c-v1-proof-tags"><span class="mr1401c-v1-proof-tag">IMG</span><span class="mr1401c-v1-proof-tag">Investment validated</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v1-proof-card" data-tags="img,confidence,usce">
+<img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=600&q=80" alt="Student story" class="mr1401c-v1-proof-img">
+<div class="mr1401c-v1-proof-body">
+<p class="mr1401c-v1-proof-quote">"Initially I thought it was too expensive... this is one of the best decisions I made. Dr. B teaches lot of new techniques and strategies which are extremely very important for match."</p>
+<p class="mr1401c-v1-proof-name">Rekha Chandra</p>
+<div class="mr1401c-v1-proof-tags"><span class="mr1401c-v1-proof-tag">Techniques & Strategies</span><span class="mr1401c-v1-proof-tag">Investment validated</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v1-proof-card" data-tags="confidence,lowiv,attempt">
+<img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&q=80" alt="Student story" class="mr1401c-v1-proof-img">
+<div class="mr1401c-v1-proof-body">
+<p class="mr1401c-v1-proof-quote">"I was in the mission residency IV prep course in 2015 and it helped me tremendously to effectively communicate during my residency interviews. I matched in my first attempt!"</p>
+<p class="mr1401c-v1-proof-name">Sirajum Munira</p>
+<div class="mr1401c-v1-proof-tags"><span class="mr1401c-v1-proof-tag">First attempt match</span><span class="mr1401c-v1-proof-tag">Interview excellence</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v1-proof-card" data-tags="yog,visa,lowstep">
+<img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80" alt="Student story" class="mr1401c-v1-proof-img">
+<div class="mr1401c-v1-proof-body">
+<p class="mr1401c-v1-proof-quote">"Dr. B takes the time to understand both your personal and academic struggles, offering tailored advice that fits your unique situation..."</p>
+<p class="mr1401c-v1-proof-name">Maulik Dhanani, 360 Elite</p>
+<div class="mr1401c-v1-proof-tags"><span class="mr1401c-v1-proof-tag">360 Elite</span><span class="mr1401c-v1-proof-tag">Personalized approach</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v1-proof-card" data-tags="img,confidence,family">
+<img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&q=80" alt="Student story" class="mr1401c-v1-proof-img">
+<div class="mr1401c-v1-proof-body">
+<p class="mr1401c-v1-proof-quote">"Dr. B is so dedicated and committed to his students. This is the best place to get trained."</p>
+<p class="mr1401c-v1-proof-name">Iswarya Mart, IMG from India</p>
+<div class="mr1401c-v1-proof-tags"><span class="mr1401c-v1-proof-tag">IMG from India</span><span class="mr1401c-v1-proof-tag">Dedication</span></div>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v1-videos">
+<h2>Match Day Video Stories</h2>
+<div class="mr1401c-v1-vid-strip">
+<div class="mr1401c-v1-vid-card"><img src="https://images.unsplash.com/photo-1523050854058-8df90110c476?w=400&q=80" alt="Match Day"><div class="mr1401c-v1-vid-play"></div><div class="mr1401c-v1-vid-info"><h4>Chelsey: Matched After 5 Cycles</h4><p>The most dramatic turnaround story</p></div></div>
+<div class="mr1401c-v1-vid-card"><img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&q=80" alt="Match Day"><div class="mr1401c-v1-vid-play"></div><div class="mr1401c-v1-vid-info"><h4>Shamsun: 8-Year YOG Gap, Matched IM</h4><p>Repeat applicant success</p></div></div>
+<div class="mr1401c-v1-vid-card"><img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=400&q=80" alt="Match Day"><div class="mr1401c-v1-vid-play"></div><div class="mr1401c-v1-vid-info"><h4>Manisha: Bangladesh Grad, Psychiatry</h4><p>First-cycle match despite YOG gap</p></div></div>
+<div class="mr1401c-v1-vid-card"><img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=400&q=80" alt="Match Day"><div class="mr1401c-v1-vid-play"></div><div class="mr1401c-v1-vid-info"><h4>Marian: Matched After 2 Cycles</h4><p>Red flag navigation success</p></div></div>
+</div>
+</section>
+
+<section class="mr1401c-v1-how">
+<h2>How Mission Residency Works</h2>
+<div class="mr1401c-v1-how-grid">
+<div class="mr1401c-v1-how-step"><div class="mr1401c-v1-how-num">1</div><h3>Strategy Session</h3><p>Deep dive into your profile, red flags, and Match readiness across both Gates</p></div>
+<div class="mr1401c-v1-how-step"><div class="mr1401c-v1-how-num">2</div><h3>Custom Game Plan</h3><p>Personalized coaching roadmap addressing your specific weaknesses and strengths</p></div>
+<div class="mr1401c-v1-how-step"><div class="mr1401c-v1-how-num">3</div><h3>Intensive Coaching</h3><p>Mock interviews, story crafting, red flag reframing, and strategic positioning</p></div>
+<div class="mr1401c-v1-how-step"><div class="mr1401c-v1-how-num">4</div><h3>Match Day</h3><p>Walk into interviews with confidence and a strategy that programs respond to</p></div>
+</div>
+</section>
+
+<section class="mr1401c-v1-brian">
+<div class="mr1401c-v1-brian-img">
+<!-- REPLACE: Dr. Brian professional portrait -->
+<img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=600&q=80" alt="Dr. Brian Mark" style="width:100%;height:100%;object-fit:cover">
+</div>
+<div class="mr1401c-v1-brian-text">
+<h2>Meet Dr. Brian</h2>
+<p>Dr. Brian has spent over a decade helping IMGs, Caribbean graduates, and applicants with red flags navigate the Match. His students include doctors who matched after 5 unmatched cycles, applicants with 8-year graduation gaps, and IMGs applying from abroad with no U.S. connections.</p>
+<p>His Two-Gate Framework addresses what most prep programs ignore: that interview performance and strategic narrative are often more decisive than scores and credentials alone.</p>
+<p>Every student gets direct, personal mentorship. No group calls with 50 people. No generic advice.</p>
+<a href="#" class="mr1401c-v1-cta">Talk to Dr. Brian</a>
+</div>
+</section>
+
+<section class="mr1401c-v1-tiers">
+<h2>Program Tiers</h2>
+<p class="mr1401c-v1-tiers-sub">Pricing is discussed during your strategy session. Choose the level that matches your needs.</p>
+<div class="mr1401c-v1-tier-grid">
+<div class="mr1401c-v1-tier-card">
+<h3>Interview Prep Foundation</h3>
+<p class="mr1401c-v1-tier-desc">Focused interview coaching for applicants who need targeted preparation.</p>
+<ul class="mr1401c-v1-tier-features">
+<li>Core interview coaching sessions</li>
+<li>Mock interviews with Dr. Brian</li>
+<li>Story crafting and red flag navigation</li>
+<li>Email support throughout your cycle</li>
+</ul>
+<a href="#" class="mr1401c-v1-cta" style="margin-top:20px;display:inline-block;font-size:13px;padding:14px 32px">Learn More</a>
+</div>
+<div class="mr1401c-v1-tier-card mr1401c-featured">
+<span class="mr1401c-v1-tier-badge">Most Popular</span>
+<h3>Interview Prep Complete</h3>
+<p class="mr1401c-v1-tier-desc">Comprehensive preparation covering Gate 1 and Gate 2 strategy.</p>
+<ul class="mr1401c-v1-tier-features">
+<li>Extended interview coaching program</li>
+<li>Full Gate 1 + Gate 2 strategic analysis</li>
+<li>Weekly coaching sessions with Dr. Brian</li>
+<li>Program selection and rank list guidance</li>
+<li>Priority email and phone support</li>
+</ul>
+<a href="#" class="mr1401c-v1-cta" style="margin-top:20px;display:inline-block;font-size:13px;padding:14px 32px">Learn More</a>
+</div>
+<div class="mr1401c-v1-tier-card">
+<h3>360 Match Mentorship</h3>
+<p class="mr1401c-v1-tier-desc">The full mentorship experience from credentials through Match Day.</p>
+<ul class="mr1401c-v1-tier-features">
+<li>Unlimited access to Dr. Brian</li>
+<li>Full-cycle coaching (credentials to Match)</li>
+<li>USCE and research strategy</li>
+<li>Visa strategy integration</li>
+<li>Application review and rank list optimization</li>
+<li>Dedicated phone and email access</li>
+</ul>
+<a href="#" class="mr1401c-v1-cta" style="margin-top:20px;display:inline-block;font-size:13px;padding:14px 32px">Learn More</a>
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v1-faq">
+<div class="mr1401c-v1-faq-inner">
+<h2>Frequently Asked Questions</h2>
+<div class="mr1401c-v1-faq-item"><button class="mr1401c-v1-faq-q">Is Mission Residency right for me if I've already gone unmatched?</button><div class="mr1401c-v1-faq-a">Yes. Previous unmatched cycles are one of the most common situations our students face. Our approach identifies what went wrong in Gate 1 or Gate 2 and builds a targeted strategy to address it. Many of our most successful outcomes come from repeat applicants.</div></div>
+<div class="mr1401c-v1-faq-item"><button class="mr1401c-v1-faq-q">What if I'm a Caribbean graduate? Do I have a real chance?</button><div class="mr1401c-v1-faq-a">Caribbean graduates make up a significant portion of our successful matches. The key is strategic positioning and interview excellence. We help you frame your training background as a strength and prepare you to outperform in interviews.</div></div>
+<div class="mr1401c-v1-faq-item"><button class="mr1401c-v1-faq-q">My graduation year is old. Is it too late?</button><div class="mr1401c-v1-faq-a">We have worked with students who had 8+ year graduation gaps and still matched. The YOG gap requires strategic framing, not avoidance. Dr. Brian will show you exactly how to address this in your application and interviews.</div></div>
+<div class="mr1401c-v1-faq-item"><button class="mr1401c-v1-faq-q">Do you guarantee a match?</button><div class="mr1401c-v1-faq-a">No ethical program can guarantee a match because residency selection is competitive. What we provide is maximum strategic advantage across both Gates. Our outcomes speak for themselves in our testimonials and Match Day stories.</div></div>
+<div class="mr1401c-v1-faq-item"><button class="mr1401c-v1-faq-q">How is this different from other interview prep services?</button><div class="mr1401c-v1-faq-a">Most services focus exclusively on mock interviews. Mission Residency addresses both Gates: credentials strategy AND interview performance. Dr. Brian provides direct, personal mentorship to every student, not group coaching to hundreds of people at once.</div></div>
+</div>
+</section>
+
+<section class="mr1401c-v1-final">
+<img src="https://images.unsplash.com/photo-1551190822-a9ce113ac100?w=1400&q=80" alt="Medical professionals" class="mr1401c-v1-final-bg">
+<div class="mr1401c-v1-final-over"></div>
+<div class="mr1401c-v1-final-content">
+<h2>Your Match Starts With a Conversation</h2>
+<p>Limited cohort seats available for the 2026 cycle. Start with a strategy session to assess your Match readiness across both Gates.</p>
+<a href="#" class="mr1401c-v1-cta">Book Your Strategy Session</a>
+</div>
+</section>
+
+<footer class="mr1401c-v1-footer">&copy; 2026 MissionMed Institute. All rights reserved.<br>info@missionmedinstitute.com | missionmedinstitute.com</footer>
+</div>
+
+<!-- ==========================================
+     VERSION 2 — CINEMATIC MATCH DAY
+     ========================================== -->
+<div id="mr1401c-v2" class="mr1401c-version mr1401c-v2">
+
+<div class="mr1401c-v2-strip">The 2026 Match Cycle Is Open. Your Story Starts Now.</div>
+
+<section class="mr1401c-v2-hero">
+<img src="https://images.unsplash.com/photo-1523050854058-8df90110c476?w=1600&q=80" alt="Graduation celebration" class="mr1401c-v2-hero-bg">
+<div class="mr1401c-v2-hero-content">
+<h1>They Said You <span>Wouldn't Match.</span></h1>
+<p>Every year, thousands of qualified applicants go unmatched. Not because they aren't good enough. Because nobody taught them the other gate.</p>
+<a href="#" class="mr1401c-v2-cta">Begin Your Story</a>
+</div>
+</section>
+
+<div class="mr1401c-v2-quote-band">
+<blockquote>"I matched on my first cycle! If somebody would have told me this after I started my journey, I wouldn't believe it because I was facing so many adversities and obstacles, it seemed not a reality."</blockquote>
+<cite>Krishna Desai, Mission Residency Student</cite>
+</div>
+
+<div class="mr1401c-v2-stats">
+<div><span class="mr1401c-v2-stat-num">20+</span><span class="mr1401c-v2-stat-label">Video Testimonials</span></div>
+<div><span class="mr1401c-v2-stat-num">5/5</span><span class="mr1401c-v2-stat-label">Student Ratings</span></div>
+<div><span class="mr1401c-v2-stat-num">2</span><span class="mr1401c-v2-stat-label">Gate Framework</span></div>
+<div><span class="mr1401c-v2-stat-num">1:1</span><span class="mr1401c-v2-stat-label">Personal Mentorship</span></div>
+</div>
+
+<div class="mr1401c-v2-gates">
+<div class="mr1401c-v2-gate mr1401c-v2-gate1">
+<span class="mr1401c-v2-gate-label">Gate One</span>
+<h3>The Screening Gate</h3>
+<p>USMLE scores. USCE hours. Research publications. Letters of recommendation. This is where programs decide whether to even look at your application. Most prep services stop here. We don't.</p>
+</div>
+<div class="mr1401c-v2-gate mr1401c-v2-gate2">
+<span class="mr1401c-v2-gate-label">Gate Two</span>
+<h3>The Interview Gate</h3>
+<p>How you communicate. How you tell your story. How you handle difficult questions about your red flags. This gate is where qualified applicants fail, and where Mission Residency students win.</p>
+</div>
+</div>
+
+<div class="mr1401c-v2-imgrow">
+<img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&q=80" alt="Clinical environment">
+<img src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=600&q=80" alt="Mentorship moment">
+<img src="https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=600&q=80" alt="Medical preparation">
+</div>
+
+<section class="mr1401c-v2-proof">
+<div class="mr1401c-v2-proof-inner">
+<h2>Real People. Real Red Flags. Real Matches.</h2>
+<p class="mr1401c-v2-proof-sub">Filter by your situation to find someone who walked the same path.</p>
+<div class="mr1401c-v2-chips" data-version="2">
+<span class="mr1401c-v2-chip mr1401c-active" data-filter="all">All Stories</span>
+<span class="mr1401c-v2-chip" data-filter="unmatched">Previous unmatched cycle</span>
+<span class="mr1401c-v2-chip" data-filter="lowstep">Low Step score</span>
+<span class="mr1401c-v2-chip" data-filter="attempt">USMLE attempt</span>
+<span class="mr1401c-v2-chip" data-filter="yog">Old graduate / YOG gap</span>
+<span class="mr1401c-v2-chip" data-filter="usce">Limited USCE</span>
+<span class="mr1401c-v2-chip" data-filter="visa">Visa concern</span>
+<span class="mr1401c-v2-chip" data-filter="lowiv">Low interview count</span>
+<span class="mr1401c-v2-chip" data-filter="confidence">Weak interview confidence</span>
+<span class="mr1401c-v2-chip" data-filter="caribbean">Caribbean graduate</span>
+<span class="mr1401c-v2-chip" data-filter="img">IMG applying from abroad</span>
+<span class="mr1401c-v2-chip" data-filter="family">Family pressure</span>
+<span class="mr1401c-v2-chip" data-filter="chance">"I don't know if I still have a chance"</span>
+</div>
+<div class="mr1401c-v2-proof-grid" data-version="2">
+
+<div class="mr1401c-v2-proof-card" data-tags="unmatched,lowiv,chance">
+<img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80" alt="Celebration" class="mr1401c-v2-proof-img">
+<div class="mr1401c-v2-proof-body">
+<p class="mr1401c-v2-proof-quote">"I matched on my first cycle! If somebody would have told me this after I started my journey, I wouldn't believe it."</p>
+<p class="mr1401c-v2-proof-name">Krishna Desai</p>
+<div class="mr1401c-v2-proof-tags"><span class="mr1401c-v2-proof-tag">Multiple adversities</span><span class="mr1401c-v2-proof-tag">First-cycle match</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v2-proof-card" data-tags="yog,img,unmatched">
+<img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80" alt="Student" class="mr1401c-v2-proof-img">
+<div class="mr1401c-v2-proof-body">
+<p class="mr1401c-v2-proof-quote">"I was in the mission residency IV prep course in 2015 and it helped me tremendously to effectively communicate during my residency interviews. I matched in my first attempt!"</p>
+<p class="mr1401c-v2-proof-name">Sirajum Munira</p>
+<div class="mr1401c-v2-proof-tags"><span class="mr1401c-v2-proof-tag">First attempt match</span><span class="mr1401c-v2-proof-tag">Returned for fellowship</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v2-proof-card" data-tags="img,caribbean,family">
+<img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&q=80" alt="Family" class="mr1401c-v2-proof-img">
+<div class="mr1401c-v2-proof-body">
+<p class="mr1401c-v2-proof-quote">"Thank god I did join Mission Residency, this is the best ever decision I made in my life. Mission Residency's priceless."</p>
+<p class="mr1401c-v2-proof-name">Janani Babu, IMG from India</p>
+<div class="mr1401c-v2-proof-tags"><span class="mr1401c-v2-proof-tag">IMG from India</span><span class="mr1401c-v2-proof-tag">"Priceless"</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v2-proof-card" data-tags="confidence,usce,lowstep">
+<img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=600&q=80" alt="Success" class="mr1401c-v2-proof-img">
+<div class="mr1401c-v2-proof-body">
+<p class="mr1401c-v2-proof-quote">"Dr. B takes the time to understand both your personal and academic struggles, offering tailored advice that fits your unique situation..."</p>
+<p class="mr1401c-v2-proof-name">Maulik Dhanani, 360 Elite</p>
+<div class="mr1401c-v2-proof-tags"><span class="mr1401c-v2-proof-tag">360 Elite</span><span class="mr1401c-v2-proof-tag">Tailored approach</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v2-proof-card" data-tags="visa,attempt,yog">
+<img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&q=80" alt="Study" class="mr1401c-v2-proof-img">
+<div class="mr1401c-v2-proof-body">
+<p class="mr1401c-v2-proof-quote">"Initially I thought it was too expensive... this is one of the best decisions I made. Dr. B teaches lot of new techniques and strategies which are extremely very important for match."</p>
+<p class="mr1401c-v2-proof-name">Rekha Chandra</p>
+<div class="mr1401c-v2-proof-tags"><span class="mr1401c-v2-proof-tag">Techniques & strategies</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v2-proof-card" data-tags="img,confidence,family">
+<img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&q=80" alt="Students" class="mr1401c-v2-proof-img">
+<div class="mr1401c-v2-proof-body">
+<p class="mr1401c-v2-proof-quote">"Dr. B is so dedicated and committed to his students. This is the best place to get trained."</p>
+<p class="mr1401c-v2-proof-name">Iswarya Mart, IMG from India</p>
+<div class="mr1401c-v2-proof-tags"><span class="mr1401c-v2-proof-tag">IMG from India</span><span class="mr1401c-v2-proof-tag">Word-of-mouth referral</span></div>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v2-matchday">
+<h2>Match Day Replays</h2>
+<div class="mr1401c-v2-film">
+<div class="mr1401c-v2-film-card"><img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500&q=80" alt="Match Day"><div class="mr1401c-v2-film-play"></div><div class="mr1401c-v2-film-overlay"><h4>Chelsey: 5 Cycles, Then Matched</h4><p>The most dramatic turnaround</p></div></div>
+<div class="mr1401c-v2-film-card"><img src="https://images.unsplash.com/photo-1523050854058-8df90110c476?w=500&q=80" alt="Match Day"><div class="mr1401c-v2-film-play"></div><div class="mr1401c-v2-film-overlay"><h4>Shamsun: 8-Year Gap, Matched IM</h4><p>Bangladesh graduate, repeat applicant</p></div></div>
+<div class="mr1401c-v2-film-card"><img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=500&q=80" alt="Match Day"><div class="mr1401c-v2-film-play"></div><div class="mr1401c-v2-film-overlay"><h4>Manisha: First Cycle Psychiatry</h4><p>Bangladesh grad, YOG gap</p></div></div>
+<div class="mr1401c-v2-film-card"><img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&q=80" alt="Match Day"><div class="mr1401c-v2-film-play"></div><div class="mr1401c-v2-film-overlay"><h4>Marian: Matched After 2 Cycles</h4><p>Red flag recovery</p></div></div>
+<div class="mr1401c-v2-film-card"><img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=500&q=80" alt="Match Day"><div class="mr1401c-v2-film-play"></div><div class="mr1401c-v2-film-overlay"><h4>Krishna: First Cycle Despite Adversity</h4><p>Against all odds</p></div></div>
+</div>
+</section>
+
+<section class="mr1401c-v2-brian">
+<div class="mr1401c-v2-brian-img"><img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=700&q=80" alt="Dr. Brian"></div>
+<div class="mr1401c-v2-brian-text">
+<h2>The Person Behind the Method</h2>
+<p>Dr. Brian has spent over a decade working directly with IMGs, Caribbean graduates, and applicants carrying red flags that most advisors call "deal-breakers."</p>
+<p>His students include someone who matched after 5 unmatched cycles. An applicant with an 8-year graduation gap who matched Internal Medicine. IMGs who had never set foot in a U.S. hospital.</p>
+<p>He doesn't do group webinars. He doesn't sell recorded courses. Every student gets him, directly, building a strategy for their unique situation.</p>
+<a href="#" class="mr1401c-v2-cta">Meet Dr. Brian</a>
+</div>
+</section>
+
+<section class="mr1401c-v2-how">
+<h2>Your Path Forward</h2>
+<div class="mr1401c-v2-how-timeline">
+<div class="mr1401c-v2-how-step"><div class="mr1401c-v2-how-dot"></div><h3>Strategic Assessment</h3><p>Dr. Brian evaluates your full profile: scores, experience, red flags, interview readiness, and the story your application tells.</p></div>
+<div class="mr1401c-v2-how-step"><div class="mr1401c-v2-how-dot"></div><h3>Two-Gate Diagnosis</h3><p>Identify exactly where you are weak: Gate 1 (credentials/positioning), Gate 2 (interview/communication), or both.</p></div>
+<div class="mr1401c-v2-how-step"><div class="mr1401c-v2-how-dot"></div><h3>Personalized Coaching</h3><p>Weekly 1:1 sessions building your narrative, practicing interviews, and strategically reframing every red flag.</p></div>
+<div class="mr1401c-v2-how-step"><div class="mr1401c-v2-how-dot"></div><h3>Match Day</h3><p>You walk into interviews as a prepared, confident applicant who knows exactly how to win the room.</p></div>
+</div>
+</section>
+
+<section class="mr1401c-v2-tiers">
+<h2>Choose Your Level</h2>
+<div class="mr1401c-v2-tier-grid">
+<div class="mr1401c-v2-tier-card">
+<h3>Interview Prep Foundation</h3>
+<p class="mr1401c-v2-tier-desc">Targeted interview coaching to build confidence and technique.</p>
+<ul class="mr1401c-v2-tier-features"><li>Core interview coaching sessions with Dr. Brian</li><li>Mock interviews with real-time feedback</li><li>Story crafting and red flag navigation</li><li>Email support throughout your cycle</li></ul>
+</div>
+<div class="mr1401c-v2-tier-card mr1401c-featured">
+<h3>Interview Prep Complete</h3>
+<p class="mr1401c-v2-tier-desc">Comprehensive Gate 1 + Gate 2 preparation.</p>
+<ul class="mr1401c-v2-tier-features"><li>Extended coaching program</li><li>Full Gate 1 + Gate 2 strategic analysis</li><li>Weekly sessions with Dr. Brian</li><li>Program selection and rank list guidance</li><li>Priority email and phone support</li></ul>
+</div>
+<div class="mr1401c-v2-tier-card">
+<h3>360 Match Mentorship</h3>
+<p class="mr1401c-v2-tier-desc">Complete mentorship from credentials through Match Day.</p>
+<ul class="mr1401c-v2-tier-features"><li>Unlimited access to Dr. Brian</li><li>Full-cycle coaching (credentials to Match)</li><li>USCE and research strategy</li><li>Visa strategy integration</li><li>Application review and rank list optimization</li></ul>
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v2-faq">
+<div class="mr1401c-v2-faq-inner">
+<h2>Questions</h2>
+<div class="mr1401c-v2-faq-item"><button class="mr1401c-v2-faq-q">I've already gone unmatched. Is it too late?</button><div class="mr1401c-v2-faq-a">It is not too late. Previous unmatched cycles are one of the most common red flags our students carry. The key is diagnosing what went wrong and building a new strategy that addresses it directly. Many of our strongest outcomes come from repeat applicants.</div></div>
+<div class="mr1401c-v2-faq-item"><button class="mr1401c-v2-faq-q">I'm an IMG with no U.S. connections. Can you help?</button><div class="mr1401c-v2-faq-a">Yes. IMGs applying from abroad make up a core part of our student population. Dr. Brian helps you build a strategic application even without extensive U.S. clinical experience, and prepares you to compete in interviews against applicants who trained in the U.S.</div></div>
+<div class="mr1401c-v2-faq-item"><button class="mr1401c-v2-faq-q">Do you guarantee a match?</button><div class="mr1401c-v2-faq-a">No. Guarantees in residency matching would be dishonest. What we guarantee is that you will be more strategically prepared than you have ever been, with a clear plan for both Gates. Our video testimonials and Match Day stories demonstrate what that preparation produces.</div></div>
+<div class="mr1401c-v2-faq-item"><button class="mr1401c-v2-faq-q">How much does it cost?</button><div class="mr1401c-v2-faq-a">Pricing depends on which tier fits your situation and is discussed during your strategy session. We believe in transparent conversations about investment, not hidden pricing games.</div></div>
+</div>
+</section>
+
+<section class="mr1401c-v2-final">
+<img src="https://images.unsplash.com/photo-1523050854058-8df90110c476?w=1600&q=80" alt="Graduation" class="mr1401c-v2-final-bg">
+<div class="mr1401c-v2-final-content">
+<h2>Your Story Doesn't End With a Red Flag</h2>
+<p>Thousands of applicants with red flags have matched. The difference between those who do and those who don't is strategy. Start yours today.</p>
+<a href="#" class="mr1401c-v2-cta">Book Your Strategy Session</a>
+</div>
+</section>
+
+<footer class="mr1401c-v2-footer">&copy; 2026 MissionMed Institute. All rights reserved.<br>info@missionmedinstitute.com | missionmedinstitute.com</footer>
+</div>
+
+<!-- ==========================================
+     VERSION 3 — LUXURY ADVISORY INSTITUTION
+     ========================================== -->
+<div id="mr1401c-v3" class="mr1401c-version mr1401c-v3">
+
+<div class="mr1401c-v3-strip">By Appointment Only. 2026 Cohort Now Accepting Applications.</div>
+
+<section class="mr1401c-v3-hero">
+<img src="https://images.unsplash.com/photo-1560439514-4e9645039924?w=1600&q=80" alt="Professional advisory setting" class="mr1401c-v3-hero-bg">
+<div class="mr1401c-v3-hero-overlay"></div>
+<div class="mr1401c-v3-hero-content">
+<img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="mr1401c-v3-hero-logo">
+<h1>Strategic Advisory for the <em>Residency Match</em></h1>
+<p>Private mentorship for physicians who need more than preparation. They need a partner who understands the system from inside.</p>
+<a href="#" class="mr1401c-v3-cta">Request a Consultation</a>
+</div>
+</section>
+
+<div class="mr1401c-v3-stats">
+<div class="mr1401c-v3-stat"><span class="mr1401c-v3-stat-num">10+</span><span class="mr1401c-v3-stat-label">Years of Advisory Practice</span></div>
+<div class="mr1401c-v3-stat"><span class="mr1401c-v3-stat-num">20+</span><span class="mr1401c-v3-stat-label">Video Testimonials</span></div>
+<div class="mr1401c-v3-stat"><span class="mr1401c-v3-stat-num">1:1</span><span class="mr1401c-v3-stat-label">Direct Mentorship Model</span></div>
+</div>
+
+<section class="mr1401c-v3-intro">
+<div class="mr1401c-v3-intro-inner">
+<div class="mr1401c-v3-gold-line"></div>
+<h2>The Match is not a lottery. It is a strategic process with known variables.</h2>
+<p>Most applicants treat the Match as something that happens to them. Our clients treat it as something they prepare for with the same rigor they applied to medical school. The difference in outcomes is measurable.</p>
+</div>
+</section>
+
+<section class="mr1401c-v3-gates">
+<div class="mr1401c-v3-gates-inner">
+<div class="mr1401c-v3-gate">
+<h3>Gate One: Screening</h3>
+<p>USMLE scores, clinical experience, research, and letters of recommendation. This is the gate where programs decide whether your application warrants attention. We help you optimize every element for maximum pass-through.</p>
+</div>
+<div class="mr1401c-v3-gate-divider">&</div>
+<div class="mr1401c-v3-gate">
+<h3>Gate Two: Interview</h3>
+<p>Communication, confidence, narrative control, and the ability to address red flags with honesty and strategy. This is where matches are won. NRMP data confirms that program directors rank interpersonal skills and interview performance above board scores.</p>
+</div>
+</div>
+</section>
+
+<div class="mr1401c-v3-imgfull"><img src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=1400&q=80" alt="Library study environment"></div>
+
+<section class="mr1401c-v3-proof">
+<div class="mr1401c-v3-proof-inner">
+<h2>Client Outcomes</h2>
+<p class="mr1401c-v3-proof-sub">Select your situation to view relevant case studies.</p>
+<div class="mr1401c-v3-chips" data-version="3">
+<span class="mr1401c-v3-chip mr1401c-active" data-filter="all">All</span>
+<span class="mr1401c-v3-chip" data-filter="unmatched">Previous unmatched cycle</span>
+<span class="mr1401c-v3-chip" data-filter="lowstep">Low Step score</span>
+<span class="mr1401c-v3-chip" data-filter="attempt">USMLE attempt</span>
+<span class="mr1401c-v3-chip" data-filter="yog">Old graduate / YOG gap</span>
+<span class="mr1401c-v3-chip" data-filter="usce">Limited USCE</span>
+<span class="mr1401c-v3-chip" data-filter="visa">Visa concern</span>
+<span class="mr1401c-v3-chip" data-filter="lowiv">Low interview count</span>
+<span class="mr1401c-v3-chip" data-filter="confidence">Weak interview confidence</span>
+<span class="mr1401c-v3-chip" data-filter="caribbean">Caribbean graduate</span>
+<span class="mr1401c-v3-chip" data-filter="img">IMG applying from abroad</span>
+<span class="mr1401c-v3-chip" data-filter="family">Family pressure</span>
+<span class="mr1401c-v3-chip" data-filter="chance">"I don't know if I still have a chance"</span>
+</div>
+<div class="mr1401c-v3-proof-grid" data-version="3">
+
+<div class="mr1401c-v3-proof-card" data-tags="unmatched,lowiv,chance">
+<img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=600&q=80" alt="Strategy session" class="mr1401c-v3-proof-img">
+<div class="mr1401c-v3-proof-body">
+<p class="mr1401c-v3-proof-quote">"I matched on my first cycle! If somebody would have told me this after I started my journey, I wouldn't believe it because I was facing so many adversities and obstacles."</p>
+<p class="mr1401c-v3-proof-name">Krishna Desai</p>
+<div class="mr1401c-v3-proof-tags"><span class="mr1401c-v3-proof-tag">Multiple adversities</span><span class="mr1401c-v3-proof-tag">First-cycle match</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v3-proof-card" data-tags="img,caribbean,family">
+<img src="https://images.unsplash.com/photo-1560439514-4e9645039924?w=600&q=80" alt="Advisory" class="mr1401c-v3-proof-img">
+<div class="mr1401c-v3-proof-body">
+<p class="mr1401c-v3-proof-quote">"This is the best ever decision I made in my life. Mission Residency's priceless."</p>
+<p class="mr1401c-v3-proof-name">Janani Babu, IMG from India</p>
+<div class="mr1401c-v3-proof-tags"><span class="mr1401c-v3-proof-tag">IMG</span><span class="mr1401c-v3-proof-tag">Investment justified</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v3-proof-card" data-tags="confidence,attempt,lowstep">
+<img src="https://images.unsplash.com/photo-1531482615713-2afd69097998?w=600&q=80" alt="Mentoring" class="mr1401c-v3-proof-img">
+<div class="mr1401c-v3-proof-body">
+<p class="mr1401c-v3-proof-quote">"I was in the mission residency IV prep course in 2015 and it helped me tremendously. I matched in my first attempt!"</p>
+<p class="mr1401c-v3-proof-name">Sirajum Munira</p>
+<div class="mr1401c-v3-proof-tags"><span class="mr1401c-v3-proof-tag">First-attempt match</span><span class="mr1401c-v3-proof-tag">Long-term relationship</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v3-proof-card" data-tags="yog,visa,usce">
+<img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=600&q=80" alt="Professional" class="mr1401c-v3-proof-img">
+<div class="mr1401c-v3-proof-body">
+<p class="mr1401c-v3-proof-quote">"Dr. B takes the time to understand both your personal and academic struggles, offering tailored advice that fits your unique situation."</p>
+<p class="mr1401c-v3-proof-name">Maulik Dhanani, 360 Elite</p>
+<div class="mr1401c-v3-proof-tags"><span class="mr1401c-v3-proof-tag">360 Elite</span><span class="mr1401c-v3-proof-tag">Tailored advisory</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v3-proof-card" data-tags="img,confidence,family">
+<img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80" alt="Confidence" class="mr1401c-v3-proof-img">
+<div class="mr1401c-v3-proof-body">
+<p class="mr1401c-v3-proof-quote">"Dr. B is so dedicated and committed to his students. This is the best place to get trained."</p>
+<p class="mr1401c-v3-proof-name">Iswarya Mart, IMG from India</p>
+<div class="mr1401c-v3-proof-tags"><span class="mr1401c-v3-proof-tag">IMG from India</span><span class="mr1401c-v3-proof-tag">Referral-driven</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v3-proof-card" data-tags="img,confidence,lowstep">
+<img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&q=80" alt="Preparation" class="mr1401c-v3-proof-img">
+<div class="mr1401c-v3-proof-body">
+<p class="mr1401c-v3-proof-quote">"Dr. B teaches lot of new techniques and strategies which are extremely very important for match. Very dedicated and hard working mentor."</p>
+<p class="mr1401c-v3-proof-name">Rekha Chandra</p>
+<div class="mr1401c-v3-proof-tags"><span class="mr1401c-v3-proof-tag">Strategic techniques</span><span class="mr1401c-v3-proof-tag">Dedicated mentorship</span></div>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v3-videos">
+<h2>Match Day Testimonials</h2>
+<div class="mr1401c-v3-vid-grid">
+<div class="mr1401c-v3-vid-card"><img src="https://images.unsplash.com/photo-1523050854058-8df90110c476?w=500&q=80" alt="Video"><div class="mr1401c-v3-vid-play"></div><div class="mr1401c-v3-vid-info"><h4>Chelsey: Five Cycles to Match</h4><p>The persistence story</p></div></div>
+<div class="mr1401c-v3-vid-card"><img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500&q=80" alt="Video"><div class="mr1401c-v3-vid-play"></div><div class="mr1401c-v3-vid-info"><h4>Shamsun: Eight-Year Gap, Internal Medicine</h4><p>Bangladesh graduate, repeat applicant</p></div></div>
+<div class="mr1401c-v3-vid-card"><img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=500&q=80" alt="Video"><div class="mr1401c-v3-vid-play"></div><div class="mr1401c-v3-vid-info"><h4>Manisha: Psychiatry, First Cycle</h4><p>Despite YOG gap</p></div></div>
+</div>
+</section>
+
+<section class="mr1401c-v3-brian">
+<div class="mr1401c-v3-brian-text">
+<div class="mr1401c-v3-gold-line" style="margin:0 0 32px"></div>
+<h2>Dr. Brian</h2>
+<p>Over a decade of direct advisory work with IMGs, Caribbean graduates, and applicants whose profiles carry complications most advisors avoid.</p>
+<p>His client outcomes include physicians who matched after five unmatched cycles, applicants with eight-year graduation gaps, and IMGs with no prior U.S. clinical exposure. His method is built on the insight that interview performance and strategic narrative are often more decisive than scores alone.</p>
+<p>Every engagement is direct and personal. There are no group calls, no recorded modules, no delegation to junior coaches.</p>
+<a href="#" class="mr1401c-v3-cta" style="margin-top:24px">Request a Consultation</a>
+</div>
+<div class="mr1401c-v3-brian-img"><img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=700&q=80" alt="Dr. Brian"></div>
+</section>
+
+<section class="mr1401c-v3-how">
+<h2>The Advisory Process</h2>
+<div class="mr1401c-v3-how-grid">
+<div class="mr1401c-v3-how-step"><div class="mr1401c-v3-how-num">I</div><h3>Consultation</h3><p>Comprehensive review of your profile, challenges, and Match objectives</p></div>
+<div class="mr1401c-v3-how-step"><div class="mr1401c-v3-how-num">II</div><h3>Strategic Plan</h3><p>Custom roadmap addressing both Gate 1 positioning and Gate 2 preparation</p></div>
+<div class="mr1401c-v3-how-step"><div class="mr1401c-v3-how-num">III</div><h3>Intensive Coaching</h3><p>1:1 sessions for interview mastery, narrative development, and red flag reframing</p></div>
+<div class="mr1401c-v3-how-step"><div class="mr1401c-v3-how-num">IV</div><h3>Match Execution</h3><p>Guided application strategy, rank list optimization, and interview-day confidence</p></div>
+</div>
+</section>
+
+<section class="mr1401c-v3-tiers">
+<h2>Engagement Tiers</h2>
+<p class="mr1401c-v3-tiers-sub">Investment is discussed during your initial consultation.</p>
+<div class="mr1401c-v3-tier-grid">
+<div class="mr1401c-v3-tier-card">
+<h3>Interview Prep Foundation</h3>
+<p class="mr1401c-v3-tier-desc">Focused preparation for applicants who need targeted interview coaching.</p>
+<ul class="mr1401c-v3-tier-features"><li>Core interview coaching sessions</li><li>Mock interviews with direct feedback</li><li>Story crafting and red flag strategy</li><li>Email correspondence throughout cycle</li></ul>
+</div>
+<div class="mr1401c-v3-tier-card mr1401c-featured">
+<span class="mr1401c-v3-tier-badge">Recommended</span>
+<h3>Interview Prep Complete</h3>
+<p class="mr1401c-v3-tier-desc">Full strategic preparation covering Gate 1 and Gate 2.</p>
+<ul class="mr1401c-v3-tier-features"><li>Extended coaching engagement</li><li>Gate 1 + Gate 2 comprehensive analysis</li><li>Weekly advisory sessions</li><li>Program selection guidance</li><li>Priority access</li></ul>
+</div>
+<div class="mr1401c-v3-tier-card">
+<h3>360 Match Mentorship</h3>
+<p class="mr1401c-v3-tier-desc">Complete advisory from credentials through Match Day.</p>
+<ul class="mr1401c-v3-tier-features"><li>Unlimited advisory access</li><li>Full-cycle strategic guidance</li><li>USCE and research positioning</li><li>Visa strategy integration</li><li>Application and rank list review</li></ul>
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v3-faq">
+<div class="mr1401c-v3-faq-inner">
+<h2>Common Questions</h2>
+<div class="mr1401c-v3-faq-item"><button class="mr1401c-v3-faq-q">Is this appropriate for applicants who have previously gone unmatched?</button><div class="mr1401c-v3-faq-a">Previous unmatched cycles are a core part of our advisory practice. We diagnose what failed in the prior attempt and build a strategy that addresses it. Some of our most notable outcomes involve repeat applicants.</div></div>
+<div class="mr1401c-v3-faq-item"><button class="mr1401c-v3-faq-q">I graduated several years ago. Is the YOG gap an insurmountable barrier?</button><div class="mr1401c-v3-faq-a">It is not. We have advised clients with graduation gaps exceeding eight years who subsequently matched. The gap requires strategic framing in both your application and interviews, which is a core part of our method.</div></div>
+<div class="mr1401c-v3-faq-item"><button class="mr1401c-v3-faq-q">What distinguishes Mission Residency from other advisory services?</button><div class="mr1401c-v3-faq-a">Direct access to Dr. Brian in every session. No group calls. No recorded content. No delegation. Combined with a proprietary two-gate framework that addresses both credentials strategy and interview performance, rather than focusing on one at the expense of the other.</div></div>
+<div class="mr1401c-v3-faq-item"><button class="mr1401c-v3-faq-q">Is a match guaranteed?</button><div class="mr1401c-v3-faq-a">We do not make guarantees about match outcomes. We provide the most comprehensive strategic preparation available. Our client testimonials and documented outcomes reflect the caliber of that preparation.</div></div>
+</div>
+</section>
+
+<section class="mr1401c-v3-final">
+<h2>Your Next Step</h2>
+<p>We accept a limited number of clients each cycle. If you are serious about matching, we invite you to begin with a consultation.</p>
+<a href="#" class="mr1401c-v3-cta">Request a Consultation</a>
+</section>
+
+<footer class="mr1401c-v3-footer">&copy; 2026 MissionMed Institute. All rights reserved.<br>info@missionmedinstitute.com | missionmedinstitute.com</footer>
+</div>
+
+<!-- ==========================================
+     VERSION 4 — INTERACTIVE APPLICANT DIAGNOSIS
+     ========================================== -->
+<div id="mr1401c-v4" class="mr1401c-version mr1401c-v4">
+
+<div class="mr1401c-v4-strip">2026 Match Cycle Is Open. Find Your Path Forward.</div>
+
+<section class="mr1401c-v4-hero">
+<img src="https://images.unsplash.com/photo-1551190822-a9ce113ac100?w=1600&q=80" alt="Medical professionals" class="mr1401c-v4-hero-bg">
+<div class="mr1401c-v4-hero-content">
+<div class="mr1401c-v4-hero-left">
+<h1>What's Standing Between You and Your <span>Match?</span></h1>
+<p>Select your biggest challenge. We'll show you exactly how applicants like you have overcome it.</p>
+<a href="#" class="mr1401c-v4-cta">Get Your Free Assessment</a>
+</div>
+<div class="mr1401c-v4-diag-card">
+<h3>What describes your situation?</h3>
+<div class="mr1401c-v4-diag-options" id="mr1401c-v4-diag">
+<div class="mr1401c-v4-diag-opt" data-route="unmatched" onclick="mr1401cDiag(this)">I've gone unmatched before</div>
+<div class="mr1401c-v4-diag-opt" data-route="lowstep" onclick="mr1401cDiag(this)">My Step score is below average</div>
+<div class="mr1401c-v4-diag-opt" data-route="yog" onclick="mr1401cDiag(this)">I graduated years ago (YOG gap)</div>
+<div class="mr1401c-v4-diag-opt" data-route="img" onclick="mr1401cDiag(this)">I'm an IMG applying from abroad</div>
+<div class="mr1401c-v4-diag-opt" data-route="caribbean" onclick="mr1401cDiag(this)">I'm a Caribbean graduate</div>
+<div class="mr1401c-v4-diag-opt" data-route="confidence" onclick="mr1401cDiag(this)">I struggle with interview confidence</div>
+<div class="mr1401c-v4-diag-opt" data-route="chance" onclick="mr1401cDiag(this)">I don't know if I still have a chance</div>
+</div>
+</div>
+</div>
+</section>
+
+<div class="mr1401c-v4-stats">
+<div class="mr1401c-v4-stat"><span class="mr1401c-v4-stat-num">10+</span><span class="mr1401c-v4-stat-label">Years of Expertise</span></div>
+<div class="mr1401c-v4-stat"><span class="mr1401c-v4-stat-num">20+</span><span class="mr1401c-v4-stat-label">Video Success Stories</span></div>
+<div class="mr1401c-v4-stat"><span class="mr1401c-v4-stat-num">2-Gate</span><span class="mr1401c-v4-stat-label">Strategic Framework</span></div>
+<div class="mr1401c-v4-stat"><span class="mr1401c-v4-stat-num">1:1</span><span class="mr1401c-v4-stat-label">Personal Mentorship</span></div>
+</div>
+
+<section class="mr1401c-v4-route">
+<div class="mr1401c-v4-route-inner">
+<h2>The Two Gates That Control Your Match</h2>
+<p class="mr1401c-v4-route-sub">NRMP data shows that program directors prioritize interview performance and interpersonal skills above test scores. Most applicants only prepare for one gate.</p>
+</div>
+<div class="mr1401c-v4-gates">
+<div class="mr1401c-v4-gate-img"><img src="https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?w=700&q=80" alt="Clinical tools"></div>
+<div class="mr1401c-v4-gate-text">
+<h3>Gate 1: Credential Screening</h3>
+<p>USMLE scores, USCE, research, LORs, and red flag management. This determines whether programs even open your file. We help you optimize every element, including strategic framing of weaknesses.</p>
+<br>
+<h3>Gate 2: Interview Performance</h3>
+<p>Communication, narrative control, confidence, and the ability to turn red flags into compelling stories. NRMP data shows this gate is more decisive than most applicants realize. This is our specialty.</p>
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v4-proof">
+<div class="mr1401c-v4-proof-inner">
+<h2>Find Someone Like You</h2>
+<p class="mr1401c-v4-proof-sub">Select your situation to see matching success stories.</p>
+<div class="mr1401c-v4-chips" data-version="4">
+<span class="mr1401c-v4-chip mr1401c-active" data-filter="all">All Stories</span>
+<span class="mr1401c-v4-chip" data-filter="unmatched">Previous unmatched cycle</span>
+<span class="mr1401c-v4-chip" data-filter="lowstep">Low Step score</span>
+<span class="mr1401c-v4-chip" data-filter="attempt">USMLE attempt</span>
+<span class="mr1401c-v4-chip" data-filter="yog">Old graduate / YOG gap</span>
+<span class="mr1401c-v4-chip" data-filter="usce">Limited USCE</span>
+<span class="mr1401c-v4-chip" data-filter="visa">Visa concern</span>
+<span class="mr1401c-v4-chip" data-filter="lowiv">Low interview count</span>
+<span class="mr1401c-v4-chip" data-filter="confidence">Weak interview confidence</span>
+<span class="mr1401c-v4-chip" data-filter="caribbean">Caribbean graduate</span>
+<span class="mr1401c-v4-chip" data-filter="img">IMG applying from abroad</span>
+<span class="mr1401c-v4-chip" data-filter="family">Family pressure</span>
+<span class="mr1401c-v4-chip" data-filter="chance">"I don't know if I still have a chance"</span>
+</div>
+<div class="mr1401c-v4-proof-grid" data-version="4">
+
+<div class="mr1401c-v4-proof-card" data-tags="unmatched,lowiv,chance">
+<img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80" alt="Success" class="mr1401c-v4-proof-img">
+<div class="mr1401c-v4-proof-body">
+<p class="mr1401c-v4-proof-quote">"I matched on my first cycle! I was facing so many adversities and obstacles, it seemed not a reality."</p>
+<p class="mr1401c-v4-proof-name">Krishna Desai</p>
+<div class="mr1401c-v4-proof-tags"><span class="mr1401c-v4-proof-tag">Multiple adversities</span><span class="mr1401c-v4-proof-tag">First-cycle match</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v4-proof-card" data-tags="img,caribbean,family">
+<img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&q=80" alt="Family" class="mr1401c-v4-proof-img">
+<div class="mr1401c-v4-proof-body">
+<p class="mr1401c-v4-proof-quote">"This is the best ever decision I made in my life. Mission Residency's priceless."</p>
+<p class="mr1401c-v4-proof-name">Janani Babu, IMG from India</p>
+<div class="mr1401c-v4-proof-tags"><span class="mr1401c-v4-proof-tag">IMG</span><span class="mr1401c-v4-proof-tag">Investment validated</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v4-proof-card" data-tags="confidence,attempt,lowstep">
+<img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80" alt="Confident" class="mr1401c-v4-proof-img">
+<div class="mr1401c-v4-proof-body">
+<p class="mr1401c-v4-proof-quote">"I matched in my first attempt! The IV prep course helped me tremendously to effectively communicate."</p>
+<p class="mr1401c-v4-proof-name">Sirajum Munira</p>
+<div class="mr1401c-v4-proof-tags"><span class="mr1401c-v4-proof-tag">First attempt</span><span class="mr1401c-v4-proof-tag">Communication mastery</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v4-proof-card" data-tags="yog,visa,usce">
+<img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=600&q=80" alt="Professional" class="mr1401c-v4-proof-img">
+<div class="mr1401c-v4-proof-body">
+<p class="mr1401c-v4-proof-quote">"Dr. B takes the time to understand both your personal and academic struggles, offering tailored advice."</p>
+<p class="mr1401c-v4-proof-name">Maulik Dhanani, 360 Elite</p>
+<div class="mr1401c-v4-proof-tags"><span class="mr1401c-v4-proof-tag">Tailored strategy</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v4-proof-card" data-tags="img,confidence,family">
+<img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&q=80" alt="Students" class="mr1401c-v4-proof-img">
+<div class="mr1401c-v4-proof-body">
+<p class="mr1401c-v4-proof-quote">"Dr. B is so dedicated and committed to his students. This is the best place to get trained."</p>
+<p class="mr1401c-v4-proof-name">Iswarya Mart, IMG from India</p>
+<div class="mr1401c-v4-proof-tags"><span class="mr1401c-v4-proof-tag">IMG from India</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v4-proof-card" data-tags="img,lowstep,visa">
+<img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&q=80" alt="Study" class="mr1401c-v4-proof-img">
+<div class="mr1401c-v4-proof-body">
+<p class="mr1401c-v4-proof-quote">"Dr. B teaches lot of new techniques and strategies which are extremely very important for match."</p>
+<p class="mr1401c-v4-proof-name">Rekha Chandra</p>
+<div class="mr1401c-v4-proof-tags"><span class="mr1401c-v4-proof-tag">Techniques & strategies</span></div>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v4-videos">
+<h2>Watch Their Stories</h2>
+<div class="mr1401c-v4-vid-grid">
+<div class="mr1401c-v4-vid-card"><img src="https://images.unsplash.com/photo-1523050854058-8df90110c476?w=500&q=80" alt="Video"><div class="mr1401c-v4-vid-play"></div><div class="mr1401c-v4-vid-info"><h4>5 Cycles, Then Matched</h4><p>Chelsey's turnaround story</p></div></div>
+<div class="mr1401c-v4-vid-card"><img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500&q=80" alt="Video"><div class="mr1401c-v4-vid-play"></div><div class="mr1401c-v4-vid-info"><h4>8-Year YOG Gap, Matched IM</h4><p>Shamsun's persistence</p></div></div>
+<div class="mr1401c-v4-vid-card"><img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=500&q=80" alt="Video"><div class="mr1401c-v4-vid-play"></div><div class="mr1401c-v4-vid-info"><h4>First Cycle Psychiatry</h4><p>Manisha's first-try success</p></div></div>
+</div>
+</section>
+
+<div style="padding:80px 20px;background:#f0f2f8">
+<div class="mr1401c-v4-brian">
+<div class="mr1401c-v4-brian-text">
+<h2>Meet Dr. Brian</h2>
+<p>Over a decade of direct mentorship with IMGs, Caribbean graduates, and applicants carrying red flags. His students include physicians who matched after 5 unmatched cycles, applicants with 8-year graduation gaps, and IMGs with no U.S. connections.</p>
+<p>His Two-Gate Framework is built on the insight that interview performance and strategic narrative are often more decisive than credentials alone.</p>
+<a href="#" class="mr1401c-v4-cta" style="margin-top:16px">Talk to Dr. Brian</a>
+</div>
+<div class="mr1401c-v4-brian-img"><img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=600&q=80" alt="Dr. Brian"></div>
+</div>
+</div>
+
+<section class="mr1401c-v4-how">
+<h2>How It Works</h2>
+<div class="mr1401c-v4-how-grid">
+<div class="mr1401c-v4-how-step"><div class="mr1401c-v4-how-num">1</div><h3>Diagnostic Assessment</h3><p>We evaluate your profile across both Gates to find your specific gaps</p></div>
+<div class="mr1401c-v4-how-step"><div class="mr1401c-v4-how-num">2</div><h3>Personalized Roadmap</h3><p>Custom strategy addressing your red flags and building your strengths</p></div>
+<div class="mr1401c-v4-how-step"><div class="mr1401c-v4-how-num">3</div><h3>Intensive Coaching</h3><p>1:1 sessions with Dr. Brian for mock interviews and story crafting</p></div>
+<div class="mr1401c-v4-how-step"><div class="mr1401c-v4-how-num">4</div><h3>Match Execution</h3><p>Confident, strategic interviews with a narrative that wins the room</p></div>
+</div>
+</section>
+
+<section class="mr1401c-v4-tiers">
+<h2>Program Tiers</h2>
+<div class="mr1401c-v4-tier-grid">
+<div class="mr1401c-v4-tier-card">
+<h3>Interview Prep Foundation</h3>
+<p class="mr1401c-v4-tier-desc">Targeted interview coaching for focused preparation.</p>
+<ul class="mr1401c-v4-tier-features"><li>Core coaching sessions with Dr. Brian</li><li>Mock interviews with feedback</li><li>Story crafting and red flag navigation</li><li>Email support</li></ul>
+</div>
+<div class="mr1401c-v4-tier-card mr1401c-featured">
+<span class="mr1401c-v4-tier-badge">Most Chosen</span>
+<h3>Interview Prep Complete</h3>
+<p class="mr1401c-v4-tier-desc">Full Gate 1 + Gate 2 strategic preparation.</p>
+<ul class="mr1401c-v4-tier-features"><li>Extended coaching program</li><li>Gate 1 + Gate 2 analysis</li><li>Weekly sessions with Dr. Brian</li><li>Program selection guidance</li><li>Priority support</li></ul>
+</div>
+<div class="mr1401c-v4-tier-card">
+<h3>360 Match Mentorship</h3>
+<p class="mr1401c-v4-tier-desc">Complete mentorship from start to Match Day.</p>
+<ul class="mr1401c-v4-tier-features"><li>Unlimited access to Dr. Brian</li><li>Full-cycle guidance</li><li>USCE and research strategy</li><li>Visa strategy</li><li>Rank list optimization</li></ul>
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v4-faq">
+<div class="mr1401c-v4-faq-inner">
+<h2>Frequently Asked Questions</h2>
+<div class="mr1401c-v4-faq-item"><button class="mr1401c-v4-faq-q">Is this right for me if I've already gone unmatched?</button><div class="mr1401c-v4-faq-a">Yes. Previous unmatched cycles are one of the most common situations our students face. We diagnose what went wrong and build a targeted strategy. Many of our best outcomes come from repeat applicants.</div></div>
+<div class="mr1401c-v4-faq-item"><button class="mr1401c-v4-faq-q">How is this different from other services?</button><div class="mr1401c-v4-faq-a">Most services offer group coaching or recorded content. Mission Residency provides direct, personal mentorship from Dr. Brian with a two-gate framework that addresses both credentials and interview performance.</div></div>
+<div class="mr1401c-v4-faq-item"><button class="mr1401c-v4-faq-q">Do you guarantee a match?</button><div class="mr1401c-v4-faq-a">No ethical advisor guarantees match outcomes. We provide maximum strategic advantage across both Gates. Our video testimonials and Match Day stories demonstrate what that preparation produces.</div></div>
+<div class="mr1401c-v4-faq-item"><button class="mr1401c-v4-faq-q">What does it cost?</button><div class="mr1401c-v4-faq-a">Pricing is discussed during your initial assessment. We believe in transparent conversations about investment, not hidden pages.</div></div>
+</div>
+</section>
+
+<section class="mr1401c-v4-final">
+<h2>Find Your Path Forward</h2>
+<p>Start with a free diagnostic assessment. We'll show you exactly where you stand across both Gates.</p>
+<a href="#" class="mr1401c-v4-cta" style="position:relative;z-index:1">Start Your Assessment</a>
+</section>
+
+<footer class="mr1401c-v4-footer">&copy; 2026 MissionMed Institute. All rights reserved.<br>info@missionmedinstitute.com | missionmedinstitute.com</footer>
+</div>
+
+<!-- ==========================================
+     VERSION 5 — BOLD EDUCATION FLAGSHIP
+     ========================================== -->
+<div id="mr1401c-v5" class="mr1401c-version mr1401c-v5">
+
+<div class="mr1401c-v5-strip">MISSION RESIDENCY 2026. LIMITED SEATS. APPLY NOW.</div>
+
+<section class="mr1401c-v5-hero">
+<div class="mr1401c-v5-hero-left">
+<h1>Red Flags Don't End <span>Careers.</span></h1>
+<p>Mission Residency has helped applicants match after 5 unmatched cycles, 8-year graduation gaps, and every red flag in the book. The common thread? Strategy beats circumstance.</p>
+<a href="#" class="mr1401c-v5-cta">Book a Strategy Session</a>
+</div>
+<div class="mr1401c-v5-hero-right">
+<img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1000&q=80" alt="Medical professionals">
+</div>
+</section>
+
+<div class="mr1401c-v5-marquee">
+<div class="mr1401c-v5-marquee-track">
+<span class="mr1401c-v5-marquee-item">Match Day Success</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">Red Flag Navigation</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">Two-Gate Framework</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">1:1 Mentorship</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">IMG Specialists</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">Interview Excellence</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">Match Day Success</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">Red Flag Navigation</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">Two-Gate Framework</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">1:1 Mentorship</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">IMG Specialists</span>
+<span class="mr1401c-v5-marquee-item">&bull;</span>
+<span class="mr1401c-v5-marquee-item">Interview Excellence</span>
+</div>
+</div>
+
+<section class="mr1401c-v5-gates">
+<div class="mr1401c-v5-gates-img"><img src="https://images.unsplash.com/photo-1552664730-d307ca884978?w=800&q=80" alt="Strategy"></div>
+<div class="mr1401c-v5-gates-content">
+<h2>The Two Gates</h2>
+<div class="mr1401c-v5-gate-item">
+<h3>Gate 1: Screening</h3>
+<p>USMLE scores, USCE, research, LORs. This determines whether programs open your file. Most applicants over-invest here and under-invest in Gate 2.</p>
+</div>
+<div class="mr1401c-v5-gate-item">
+<h3>Gate 2: Interview</h3>
+<p>Communication, narrative, confidence, and red flag reframing. NRMP data confirms this is where matches are won. This is Mission Residency's specialty.</p>
+</div>
+</div>
+</section>
+
+<div class="mr1401c-v5-imgfull"><img src="https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1400&q=80" alt="Hospital"></div>
+
+<section class="mr1401c-v5-proof">
+<div class="mr1401c-v5-proof-inner">
+<h2>Proof.</h2>
+<p class="mr1401c-v5-proof-sub">Filter by your red flag. Find someone who had the same one and matched.</p>
+<div class="mr1401c-v5-chips" data-version="5">
+<span class="mr1401c-v5-chip mr1401c-active" data-filter="all">All</span>
+<span class="mr1401c-v5-chip" data-filter="unmatched">Previous unmatched cycle</span>
+<span class="mr1401c-v5-chip" data-filter="lowstep">Low Step score</span>
+<span class="mr1401c-v5-chip" data-filter="attempt">USMLE attempt</span>
+<span class="mr1401c-v5-chip" data-filter="yog">Old graduate / YOG gap</span>
+<span class="mr1401c-v5-chip" data-filter="usce">Limited USCE</span>
+<span class="mr1401c-v5-chip" data-filter="visa">Visa concern</span>
+<span class="mr1401c-v5-chip" data-filter="lowiv">Low interview count</span>
+<span class="mr1401c-v5-chip" data-filter="confidence">Weak interview confidence</span>
+<span class="mr1401c-v5-chip" data-filter="caribbean">Caribbean graduate</span>
+<span class="mr1401c-v5-chip" data-filter="img">IMG applying from abroad</span>
+<span class="mr1401c-v5-chip" data-filter="family">Family pressure</span>
+<span class="mr1401c-v5-chip" data-filter="chance">"I don't know if I still have a chance"</span>
+</div>
+<div class="mr1401c-v5-proof-grid" data-version="5">
+
+<div class="mr1401c-v5-proof-card" data-tags="unmatched,lowiv,chance">
+<img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=600&q=80" alt="Success" class="mr1401c-v5-proof-img">
+<div class="mr1401c-v5-proof-body">
+<p class="mr1401c-v5-proof-quote">"I matched on my first cycle! I was facing so many adversities and obstacles, it seemed not a reality."</p>
+<p class="mr1401c-v5-proof-name">Krishna Desai</p>
+<div class="mr1401c-v5-proof-tags"><span class="mr1401c-v5-proof-tag">Multiple adversities</span><span class="mr1401c-v5-proof-tag">First cycle</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v5-proof-card" data-tags="img,caribbean,family">
+<img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=600&q=80" alt="Family" class="mr1401c-v5-proof-img">
+<div class="mr1401c-v5-proof-body">
+<p class="mr1401c-v5-proof-quote">"Thank god I did join Mission Residency, this is the best ever decision I made in my life."</p>
+<p class="mr1401c-v5-proof-name">Janani Babu</p>
+<div class="mr1401c-v5-proof-tags"><span class="mr1401c-v5-proof-tag">IMG from India</span><span class="mr1401c-v5-proof-tag">"Priceless"</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v5-proof-card" data-tags="confidence,attempt,lowstep">
+<img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&q=80" alt="Confidence" class="mr1401c-v5-proof-img">
+<div class="mr1401c-v5-proof-body">
+<p class="mr1401c-v5-proof-quote">"I matched in my first attempt! It helped me tremendously to effectively communicate."</p>
+<p class="mr1401c-v5-proof-name">Sirajum Munira</p>
+<div class="mr1401c-v5-proof-tags"><span class="mr1401c-v5-proof-tag">First attempt</span><span class="mr1401c-v5-proof-tag">Communication</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v5-proof-card" data-tags="yog,visa,usce">
+<img src="https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=600&q=80" alt="Professional" class="mr1401c-v5-proof-img">
+<div class="mr1401c-v5-proof-body">
+<p class="mr1401c-v5-proof-quote">"Dr. B takes the time to understand both your personal and academic struggles."</p>
+<p class="mr1401c-v5-proof-name">Maulik Dhanani</p>
+<div class="mr1401c-v5-proof-tags"><span class="mr1401c-v5-proof-tag">360 Elite</span><span class="mr1401c-v5-proof-tag">Tailored</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v5-proof-card" data-tags="img,confidence,family">
+<img src="https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&q=80" alt="Students" class="mr1401c-v5-proof-img">
+<div class="mr1401c-v5-proof-body">
+<p class="mr1401c-v5-proof-quote">"Dr. B is so dedicated and committed to his students."</p>
+<p class="mr1401c-v5-proof-name">Iswarya Mart</p>
+<div class="mr1401c-v5-proof-tags"><span class="mr1401c-v5-proof-tag">IMG from India</span></div>
+</div>
+</div>
+
+<div class="mr1401c-v5-proof-card" data-tags="img,lowstep,visa">
+<img src="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&q=80" alt="Study" class="mr1401c-v5-proof-img">
+<div class="mr1401c-v5-proof-body">
+<p class="mr1401c-v5-proof-quote">"Dr. B teaches lot of new techniques and strategies extremely important for match."</p>
+<p class="mr1401c-v5-proof-name">Rekha Chandra</p>
+<div class="mr1401c-v5-proof-tags"><span class="mr1401c-v5-proof-tag">Techniques</span></div>
+</div>
+</div>
+
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v5-videos">
+<h2>Match Day</h2>
+<div class="mr1401c-v5-vid-scroll">
+<div class="mr1401c-v5-vid-card"><img src="https://images.unsplash.com/photo-1523050854058-8df90110c476?w=500&q=80" alt="Video"><div class="mr1401c-v5-vid-play"></div><div class="mr1401c-v5-vid-info"><h4>Chelsey: 5 Cycles, Then Matched</h4><p>The ultimate turnaround</p></div></div>
+<div class="mr1401c-v5-vid-card"><img src="https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=500&q=80" alt="Video"><div class="mr1401c-v5-vid-play"></div><div class="mr1401c-v5-vid-info"><h4>Shamsun: 8-Year Gap, Matched IM</h4><p>Against all odds</p></div></div>
+<div class="mr1401c-v5-vid-card"><img src="https://images.unsplash.com/photo-1511895426328-dc8714191300?w=500&q=80" alt="Video"><div class="mr1401c-v5-vid-play"></div><div class="mr1401c-v5-vid-info"><h4>Manisha: First Cycle Psychiatry</h4><p>YOG gap overcome</p></div></div>
+<div class="mr1401c-v5-vid-card"><img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&q=80" alt="Video"><div class="mr1401c-v5-vid-play"></div><div class="mr1401c-v5-vid-info"><h4>Marian: 2 Cycles to Match</h4><p>Red flag recovery</p></div></div>
+</div>
+</section>
+
+<section class="mr1401c-v5-brian">
+<div class="mr1401c-v5-brian-img"><img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=700&q=80" alt="Dr. Brian"></div>
+<div class="mr1401c-v5-brian-text">
+<h2>Dr. Brian</h2>
+<p>Over a decade working directly with IMGs, Caribbean graduates, and applicants carrying red flags others call "deal-breakers." His students have matched after 5 unmatched cycles, 8-year graduation gaps, and complete lack of U.S. clinical experience.</p>
+<p>No group calls. No recorded content. Direct, personal mentorship in every session.</p>
+<a href="#" class="mr1401c-v5-cta" style="margin-top:16px">Meet Dr. Brian</a>
+</div>
+</section>
+
+<section class="mr1401c-v5-how">
+<h2>The Process</h2>
+<div class="mr1401c-v5-how-grid">
+<div class="mr1401c-v5-how-step" data-num="01"><h3>Assessment</h3><p>Full profile review across both Gates</p></div>
+<div class="mr1401c-v5-how-step" data-num="02"><h3>Strategy</h3><p>Custom roadmap for your specific situation</p></div>
+<div class="mr1401c-v5-how-step" data-num="03"><h3>Coaching</h3><p>1:1 intensive interview and narrative prep</p></div>
+<div class="mr1401c-v5-how-step" data-num="04"><h3>Match</h3><p>Confident, strategic interview performance</p></div>
+</div>
+</section>
+
+<section class="mr1401c-v5-tiers">
+<h2>Tiers</h2>
+<div class="mr1401c-v5-tier-grid">
+<div class="mr1401c-v5-tier-card">
+<h3>Interview Prep Foundation</h3>
+<p class="mr1401c-v5-tier-desc">Targeted interview coaching.</p>
+<ul class="mr1401c-v5-tier-features"><li>Core coaching with Dr. Brian</li><li>Mock interviews with feedback</li><li>Story crafting and red flag navigation</li><li>Email support</li></ul>
+</div>
+<div class="mr1401c-v5-tier-card mr1401c-featured">
+<span class="mr1401c-v5-tier-badge">Popular</span>
+<h3>Interview Prep Complete</h3>
+<p class="mr1401c-v5-tier-desc">Full two-gate strategic preparation.</p>
+<ul class="mr1401c-v5-tier-features"><li>Extended coaching program</li><li>Gate 1 + Gate 2 analysis</li><li>Weekly sessions</li><li>Program selection guidance</li><li>Priority support</li></ul>
+</div>
+<div class="mr1401c-v5-tier-card">
+<h3>360 Match Mentorship</h3>
+<p class="mr1401c-v5-tier-desc">Start-to-finish mentorship.</p>
+<ul class="mr1401c-v5-tier-features"><li>Unlimited access to Dr. Brian</li><li>Full-cycle guidance</li><li>USCE and research strategy</li><li>Visa strategy</li><li>Rank list optimization</li></ul>
+</div>
+</div>
+</section>
+
+<section class="mr1401c-v5-faq">
+<div class="mr1401c-v5-faq-inner">
+<h2>FAQ</h2>
+<div class="mr1401c-v5-faq-item"><button class="mr1401c-v5-faq-q">I've gone unmatched. Is it too late?</button><div class="mr1401c-v5-faq-a">No. Previous unmatched cycles are a core part of our practice. We diagnose what failed and rebuild your strategy. Some of our strongest outcomes come from repeat applicants.</div></div>
+<div class="mr1401c-v5-faq-item"><button class="mr1401c-v5-faq-q">My YOG gap is significant. Can you help?</button><div class="mr1401c-v5-faq-a">Yes. We've worked with applicants who had 8+ year graduation gaps and still matched. The gap needs strategic framing, not avoidance.</div></div>
+<div class="mr1401c-v5-faq-item"><button class="mr1401c-v5-faq-q">Do you guarantee a match?</button><div class="mr1401c-v5-faq-a">No. Guarantees in residency matching would be dishonest. We guarantee maximum strategic preparation. Our testimonials speak for themselves.</div></div>
+<div class="mr1401c-v5-faq-item"><button class="mr1401c-v5-faq-q">What does it cost?</button><div class="mr1401c-v5-faq-a">Pricing is discussed during your strategy session. We believe in honest conversations, not hidden pricing.</div></div>
+</div>
+</section>
+
+<section class="mr1401c-v5-final">
+<img src="https://images.unsplash.com/photo-1551190822-a9ce113ac100?w=1400&q=80" alt="Professionals" class="mr1401c-v5-final-bg">
+<div class="mr1401c-v5-final-over"></div>
+<div class="mr1401c-v5-final-content">
+<h2>Your Red Flag Is Not Your Ending.</h2>
+<p>Limited seats for the 2026 cycle. Start with a strategy session to find out where you stand.</p>
+<a href="#" class="mr1401c-v5-cta">Book Your Session</a>
+</div>
+</section>
+
+<footer class="mr1401c-v5-footer">&copy; 2026 MissionMed Institute. All rights reserved.<br>info@missionmedinstitute.com | missionmedinstitute.com</footer>
+</div>

@@ -1,0 +1,2597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SLY-1500: Someone Like You — 6-Version Testimonial Engine Demo</title>
+<style>
+/* ============================================
+   SLY-1500 DEMO — GLOBAL RESET + VERSION SELECTOR
+   ============================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif; background: #0a0a0a; color: #fff; overflow-x: hidden; line-height: 1.6; }
+img { max-width: 100%; height: auto; display: block; }
+button { cursor: pointer; font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+
+/* Version Wrapper */
+.sly1500-demo { width: 100%; }
+.sly1500-version { display: none; }
+.sly1500-version.sly1500-active { display: block; }
+
+/* Sticky Version Selector */
+.sly1500-selector {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 99999;
+  background: rgba(8,8,12,0.97); border-bottom: 2px solid #B23A3A;
+  padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 6px;
+  justify-content: center; align-items: center;
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+}
+.sly1500-selector-label {
+  font-size: 11px; color: #666; text-transform: uppercase; letter-spacing: 1.5px;
+  margin-right: 8px; font-weight: 700;
+}
+.sly1500-selector button {
+  padding: 7px 16px; border: 1px solid rgba(255,255,255,0.15);
+  background: transparent; color: #999; border-radius: 20px;
+  font-size: 11px; font-weight: 700; transition: all 0.3s;
+  white-space: nowrap; letter-spacing: 0.3px;
+}
+.sly1500-selector button:hover { border-color: #B23A3A; color: #fff; }
+.sly1500-selector button.sly1500-sel-active {
+  background: #B23A3A; border-color: #B23A3A; color: #fff;
+}
+
+/* Shared Story Modal Overlay */
+.sly1500-modal-overlay {
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85); z-index: 100000;
+  display: none; align-items: center; justify-content: center;
+  padding: 20px; backdrop-filter: blur(6px);
+}
+.sly1500-modal-overlay.sly1500-modal-open { display: flex; }
+.sly1500-modal-content {
+  background: #1a1a2e; border-radius: 16px; max-width: 700px; width: 100%;
+  max-height: 85vh; overflow-y: auto; padding: 40px; position: relative;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.sly1500-modal-close {
+  position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.1);
+  border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%;
+  font-size: 18px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.3s;
+}
+.sly1500-modal-close:hover { background: rgba(178,58,58,0.6); }
+.sly1500-modal-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+.sly1500-modal-tag {
+  padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600;
+  background: rgba(178,58,58,0.15); color: #e88; border: 1px solid rgba(178,58,58,0.3);
+}
+.sly1500-modal-section { margin: 24px 0; }
+.sly1500-modal-section h4 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 1.5px;
+  color: #666; margin-bottom: 8px;
+}
+.sly1500-modal-section p { color: #ccc; line-height: 1.7; font-size: 15px; }
+.sly1500-modal-quote {
+  border-left: 3px solid #B23A3A; padding: 16px 20px; margin: 20px 0;
+  background: rgba(178,58,58,0.06); border-radius: 0 8px 8px 0;
+  font-style: italic; color: #ddd; font-size: 16px; line-height: 1.7;
+}
+.sly1500-modal-cta {
+  display: inline-block; margin-top: 24px; padding: 14px 32px;
+  background: #B23A3A; color: #fff; border-radius: 8px; font-weight: 700;
+  font-size: 15px; border: none; transition: all 0.3s;
+}
+.sly1500-modal-cta:hover { background: #9a2e2e; transform: translateY(-1px); }
+.sly1500-modal-video {
+  width: 100%; aspect-ratio: 16/9; background: linear-gradient(135deg, #1a1a2e, #2a1a3e);
+  border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  margin: 16px 0; position: relative; overflow: hidden;
+}
+.sly1500-modal-video img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+.sly1500-modal-play {
+  width: 64px; height: 64px; background: rgba(178,58,58,0.9); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; z-index: 2;
+}
+
+@media (max-width: 768px) {
+  .sly1500-selector { padding: 6px 8px; gap: 4px; }
+  .sly1500-selector-label { display: none; }
+  .sly1500-selector button { padding: 5px 10px; font-size: 9px; }
+  .sly1500-modal-content { padding: 24px 20px; }
+}
+
+
+/* ============================================
+   VERSION 1 — PROOF CONCIERGE
+   Warm, guided, premium advisory feel
+   ============================================ */
+.sly1500-v1 {
+  background: #f8f6f3; color: #2c2c2c;
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+/* V1 Hero */
+.sly1500-v1-hero {
+  min-height: 85vh; display: flex; align-items: center; justify-content: center;
+  padding: 100px 24px 60px; position: relative;
+  background: linear-gradient(170deg, #1a2332 0%, #243447 50%, #1a2332 100%);
+  overflow: hidden;
+}
+.sly1500-v1-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1400&q=80') center/cover;
+  opacity: 0.12;
+}
+.sly1500-v1-hero-inner {
+  max-width: 780px; text-align: center; position: relative; z-index: 2;
+}
+.sly1500-v1-hero-label {
+  font-family: 'Segoe UI', sans-serif; font-size: 12px; letter-spacing: 3px;
+  text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 20px;
+}
+.sly1500-v1-hero h1 {
+  font-size: clamp(2rem, 4.5vw, 3.2rem); line-height: 1.25;
+  color: #fff; margin-bottom: 20px; font-weight: 400;
+}
+.sly1500-v1-hero h1 em { font-style: italic; color: #e8a87c; }
+.sly1500-v1-hero p {
+  font-family: 'Segoe UI', sans-serif; font-size: 1.05rem;
+  color: rgba(255,255,255,0.65); line-height: 1.7; margin-bottom: 32px;
+  max-width: 600px; margin-left: auto; margin-right: auto;
+}
+
+/* V1 Concierge Questions */
+.sly1500-v1-concierge {
+  padding: 70px 24px; max-width: 800px; margin: 0 auto;
+}
+.sly1500-v1-concierge h2 {
+  font-size: 1.8rem; text-align: center; margin-bottom: 8px; color: #1a2332;
+}
+.sly1500-v1-concierge-sub {
+  text-align: center; color: #777; font-family: 'Segoe UI', sans-serif;
+  font-size: 0.95rem; margin-bottom: 40px;
+}
+.sly1500-v1-q-group { margin-bottom: 32px; }
+.sly1500-v1-q-label {
+  font-family: 'Segoe UI', sans-serif; font-size: 13px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.5px; color: #999;
+  margin-bottom: 12px;
+}
+.sly1500-v1-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+}
+.sly1500-v1-chip {
+  padding: 10px 18px; border-radius: 24px; font-size: 13px;
+  font-family: 'Segoe UI', sans-serif; border: 1px solid #ddd;
+  background: #fff; color: #555; transition: all 0.25s; cursor: pointer;
+}
+.sly1500-v1-chip:hover { border-color: #B23A3A; color: #B23A3A; }
+.sly1500-v1-chip.sly1500-v1-chip-active {
+  background: #B23A3A; border-color: #B23A3A; color: #fff;
+}
+
+/* V1 Controls */
+.sly1500-v1-controls {
+  display: flex; gap: 12px; justify-content: center; margin-top: 32px; flex-wrap: wrap;
+}
+.sly1500-v1-btn-find {
+  padding: 14px 36px; background: #B23A3A; color: #fff; border: none;
+  border-radius: 8px; font-size: 15px; font-weight: 700;
+  font-family: 'Segoe UI', sans-serif; transition: all 0.3s;
+}
+.sly1500-v1-btn-find:hover { background: #9a2e2e; }
+.sly1500-v1-btn-reset {
+  padding: 14px 24px; background: transparent; color: #999; border: 1px solid #ddd;
+  border-radius: 8px; font-size: 14px; font-family: 'Segoe UI', sans-serif;
+  transition: all 0.3s;
+}
+.sly1500-v1-btn-reset:hover { border-color: #999; color: #555; }
+
+/* V1 Results */
+.sly1500-v1-results {
+  padding: 60px 24px; background: #f0ede8; min-height: 300px;
+}
+.sly1500-v1-results-inner { max-width: 1100px; margin: 0 auto; }
+.sly1500-v1-results-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 32px; flex-wrap: wrap; gap: 12px;
+}
+.sly1500-v1-results-count {
+  font-family: 'Segoe UI', sans-serif; font-size: 14px; color: #888;
+}
+.sly1500-v1-results-count strong { color: #B23A3A; }
+.sly1500-v1-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px;
+}
+.sly1500-v1-card {
+  background: #fff; border-radius: 14px; overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.06); transition: all 0.3s;
+  cursor: pointer;
+}
+.sly1500-v1-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.1); }
+.sly1500-v1-card-img {
+  width: 100%; height: 200px; object-fit: cover;
+  background: linear-gradient(135deg, #243447, #3a4f66);
+}
+.sly1500-v1-card-body { padding: 24px; }
+.sly1500-v1-card-name {
+  font-size: 1.1rem; color: #1a2332; margin-bottom: 4px;
+}
+.sly1500-v1-card-meta {
+  font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #999;
+  margin-bottom: 12px;
+}
+.sly1500-v1-card-quote {
+  font-size: 14px; color: #555; line-height: 1.6; font-style: italic;
+  margin-bottom: 14px;
+}
+.sly1500-v1-card-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 14px; }
+.sly1500-v1-card-tag {
+  padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: 600;
+  font-family: 'Segoe UI', sans-serif;
+  background: rgba(178,58,58,0.08); color: #B23A3A;
+}
+.sly1500-v1-card-tag-video { background: rgba(58,120,178,0.1); color: #3a78b2; }
+.sly1500-v1-card-link {
+  font-family: 'Segoe UI', sans-serif; font-size: 13px; color: #B23A3A;
+  font-weight: 600;
+}
+.sly1500-v1-card-match {
+  font-family: 'Segoe UI', sans-serif; font-size: 11px; color: #999;
+  float: right;
+}
+
+/* V1 Video row */
+.sly1500-v1-video-row {
+  display: flex; gap: 16px; overflow-x: auto; padding: 0 0 16px;
+  margin-top: 40px; -webkit-overflow-scrolling: touch;
+}
+.sly1500-v1-video-card {
+  min-width: 280px; border-radius: 12px; overflow: hidden;
+  background: #fff; flex-shrink: 0; cursor: pointer; transition: all 0.3s;
+}
+.sly1500-v1-video-card:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+.sly1500-v1-video-thumb {
+  width: 100%; height: 160px; position: relative;
+  background: linear-gradient(135deg, #1a2332, #3a4f66);
+  display: flex; align-items: center; justify-content: center;
+}
+.sly1500-v1-video-thumb img { width: 100%; height: 100%; object-fit: cover; position: absolute; }
+.sly1500-v1-play {
+  width: 48px; height: 48px; background: rgba(178,58,58,0.9); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center; z-index: 2;
+}
+.sly1500-v1-play svg { width: 20px; height: 20px; fill: #fff; margin-left: 3px; }
+.sly1500-v1-video-info { padding: 14px; }
+.sly1500-v1-video-title { font-size: 14px; color: #1a2332; margin-bottom: 4px; font-family: 'Segoe UI', sans-serif; font-weight: 600; }
+.sly1500-v1-video-sub { font-size: 12px; color: #888; font-family: 'Segoe UI', sans-serif; }
+
+/* V1 Empty State */
+.sly1500-v1-empty {
+  text-align: center; padding: 60px 20px; display: none;
+}
+.sly1500-v1-empty h3 { font-size: 1.3rem; color: #1a2332; margin-bottom: 8px; }
+.sly1500-v1-empty p { color: #888; font-family: 'Segoe UI', sans-serif; font-size: 14px; }
+
+/* V1 CTA Section */
+.sly1500-v1-cta-section {
+  padding: 80px 24px; text-align: center;
+  background: linear-gradient(170deg, #1a2332, #243447);
+}
+.sly1500-v1-cta-section h2 { color: #fff; font-size: 1.8rem; margin-bottom: 12px; }
+.sly1500-v1-cta-section p {
+  color: rgba(255,255,255,0.6); font-family: 'Segoe UI', sans-serif;
+  font-size: 1rem; margin-bottom: 32px; max-width: 550px; margin-left: auto; margin-right: auto;
+}
+.sly1500-v1-cta-btn {
+  display: inline-block; padding: 16px 40px; background: #B23A3A; color: #fff;
+  border-radius: 8px; font-weight: 700; font-size: 16px;
+  font-family: 'Segoe UI', sans-serif; border: none; transition: all 0.3s;
+}
+.sly1500-v1-cta-btn:hover { background: #9a2e2e; transform: translateY(-2px); }
+
+/* V1 Stats Strip */
+.sly1500-v1-stats {
+  display: flex; justify-content: center; gap: 48px; flex-wrap: wrap;
+  padding: 40px 20px; background: #1a2332; border-top: 1px solid rgba(255,255,255,0.06);
+}
+.sly1500-v1-stat { text-align: center; }
+.sly1500-v1-stat-num { font-size: 2rem; font-weight: 700; color: #e8a87c; display: block; }
+.sly1500-v1-stat-label {
+  font-size: 12px; color: rgba(255,255,255,0.4); font-family: 'Segoe UI', sans-serif;
+  text-transform: uppercase; letter-spacing: 1px; margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .sly1500-v1-hero { min-height: 70vh; padding: 90px 20px 50px; }
+  .sly1500-v1-grid { grid-template-columns: 1fr; }
+  .sly1500-v1-stats { gap: 24px; }
+  .sly1500-v1-video-row { gap: 12px; }
+  .sly1500-v1-video-card { min-width: 240px; }
+}
+
+
+/* ============================================
+   VERSION 2 — NETFLIX FOR MATCH STORIES
+   Cinematic, video-first, streaming UI
+   ============================================ */
+.sly1500-v2 {
+  background: #141414; color: #fff;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+}
+
+/* V2 Hero Billboard */
+.sly1500-v2-billboard {
+  min-height: 80vh; position: relative; display: flex; align-items: flex-end;
+  padding: 60px 48px 80px; margin-top: 50px;
+}
+.sly1500-v2-billboard-bg {
+  position: absolute; inset: 0;
+  background: url('https://images.unsplash.com/photo-1551076805-e1869033e561?w=1400&q=80') center/cover;
+}
+.sly1500-v2-billboard-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to top, #141414 0%, rgba(20,20,20,0.6) 40%, rgba(20,20,20,0.3) 100%);
+}
+.sly1500-v2-billboard-content { position: relative; z-index: 2; max-width: 600px; }
+.sly1500-v2-billboard-badge {
+  display: inline-block; padding: 4px 12px; background: #B23A3A; color: #fff;
+  font-size: 11px; font-weight: 700; border-radius: 3px; margin-bottom: 16px;
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.sly1500-v2-billboard h1 {
+  font-size: clamp(2rem, 4vw, 3rem); font-weight: 800; line-height: 1.15;
+  margin-bottom: 16px;
+}
+.sly1500-v2-billboard p {
+  font-size: 1.05rem; color: rgba(255,255,255,0.7); line-height: 1.6;
+  margin-bottom: 24px;
+}
+.sly1500-v2-billboard-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.sly1500-v2-btn-play {
+  padding: 12px 28px; background: #fff; color: #000; border: none;
+  border-radius: 4px; font-weight: 700; font-size: 15px; display: flex;
+  align-items: center; gap: 8px; transition: background 0.3s;
+}
+.sly1500-v2-btn-play:hover { background: #e0e0e0; }
+.sly1500-v2-btn-play svg { width: 20px; height: 20px; }
+.sly1500-v2-btn-info {
+  padding: 12px 28px; background: rgba(255,255,255,0.2); color: #fff;
+  border: none; border-radius: 4px; font-weight: 700; font-size: 15px;
+  transition: background 0.3s;
+}
+.sly1500-v2-btn-info:hover { background: rgba(255,255,255,0.3); }
+
+/* V2 Filter Row */
+.sly1500-v2-filter-bar {
+  padding: 24px 48px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+}
+.sly1500-v2-filter-label { font-size: 13px; color: #888; font-weight: 600; }
+.sly1500-v2-select {
+  padding: 8px 16px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+  color: #fff; border-radius: 4px; font-size: 13px; appearance: none;
+  -webkit-appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 30px;
+}
+.sly1500-v2-select option { background: #222; }
+.sly1500-v2-chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+.sly1500-v2-chip {
+  padding: 6px 14px; border: 1px solid rgba(255,255,255,0.2);
+  background: transparent; color: #aaa; border-radius: 20px;
+  font-size: 12px; font-weight: 600; transition: all 0.25s;
+}
+.sly1500-v2-chip:hover { border-color: #fff; color: #fff; }
+.sly1500-v2-chip.sly1500-v2-chip-active { background: #B23A3A; border-color: #B23A3A; color: #fff; }
+
+/* V2 Story Rows */
+.sly1500-v2-row-section { padding: 0 48px 40px; }
+.sly1500-v2-row-title {
+  font-size: 1.3rem; font-weight: 700; margin-bottom: 16px; padding-left: 4px;
+}
+.sly1500-v2-row {
+  display: flex; gap: 12px; overflow-x: auto; padding-bottom: 12px;
+  -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory;
+}
+.sly1500-v2-row::-webkit-scrollbar { height: 3px; }
+.sly1500-v2-row::-webkit-scrollbar-track { background: transparent; }
+.sly1500-v2-row::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+.sly1500-v2-tile {
+  min-width: 280px; border-radius: 6px; overflow: hidden; flex-shrink: 0;
+  position: relative; cursor: pointer; transition: transform 0.3s;
+  scroll-snap-align: start;
+}
+.sly1500-v2-tile:hover { transform: scale(1.05); z-index: 10; }
+.sly1500-v2-tile-img {
+  width: 100%; height: 160px; object-fit: cover;
+  background: linear-gradient(135deg, #222, #333);
+}
+.sly1500-v2-tile-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 40px 14px 14px;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+}
+.sly1500-v2-tile-name { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+.sly1500-v2-tile-meta { font-size: 11px; color: #999; }
+.sly1500-v2-tile-badge {
+  position: absolute; top: 10px; left: 10px; padding: 3px 8px;
+  background: #B23A3A; font-size: 10px; font-weight: 700; border-radius: 3px;
+}
+.sly1500-v2-tile-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 44px; height: 44px; background: rgba(0,0,0,0.6); border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.3s;
+}
+.sly1500-v2-tile:hover .sly1500-v2-tile-play { opacity: 1; }
+.sly1500-v2-tile-play svg { width: 18px; height: 18px; fill: #fff; margin-left: 2px; }
+
+/* V2 Results Count */
+.sly1500-v2-results-info {
+  padding: 0 48px 16px; font-size: 13px; color: #666;
+}
+.sly1500-v2-results-info strong { color: #B23A3A; }
+
+/* V2 Empty */
+.sly1500-v2-empty {
+  text-align: center; padding: 60px 20px; display: none;
+}
+.sly1500-v2-empty h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.sly1500-v2-empty p { color: #666; font-size: 14px; }
+
+/* V2 CTA */
+.sly1500-v2-cta-section {
+  padding: 60px 48px; text-align: center;
+  background: linear-gradient(to bottom, #141414, #1a1a1a);
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.sly1500-v2-cta-section h2 { font-size: 1.6rem; margin-bottom: 12px; }
+.sly1500-v2-cta-section p { color: #888; font-size: 15px; margin-bottom: 28px; }
+.sly1500-v2-cta-btn {
+  padding: 14px 36px; background: #B23A3A; color: #fff; border: none;
+  border-radius: 4px; font-weight: 700; font-size: 15px; transition: all 0.3s;
+}
+.sly1500-v2-cta-btn:hover { background: #d44; }
+
+@media (max-width: 768px) {
+  .sly1500-v2-billboard { padding: 60px 20px 60px; min-height: 65vh; }
+  .sly1500-v2-filter-bar { padding: 16px 20px; }
+  .sly1500-v2-row-section { padding: 0 20px 32px; }
+  .sly1500-v2-tile { min-width: 220px; }
+  .sly1500-v2-cta-section { padding: 40px 20px; }
+}
+
+
+/* ============================================
+   VERSION 3 — CASE FILE ARCHIVE
+   Investigative, evidence-driven, serious
+   ============================================ */
+.sly1500-v3 {
+  background: #f5f5f0; color: #1a1a1a;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+}
+
+/* V3 Header */
+.sly1500-v3-header {
+  padding: 80px 24px 50px; max-width: 900px; margin: 0 auto; text-align: center;
+  margin-top: 50px;
+}
+.sly1500-v3-header-label {
+  font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: #999;
+  margin-bottom: 16px; font-weight: 700;
+}
+.sly1500-v3-header h1 {
+  font-size: clamp(1.8rem, 3.5vw, 2.6rem); font-weight: 800; line-height: 1.2;
+  margin-bottom: 16px;
+}
+.sly1500-v3-header p { color: #666; font-size: 1rem; line-height: 1.7; max-width: 600px; margin: 0 auto; }
+
+/* V3 Layout: Sidebar + Content */
+.sly1500-v3-layout {
+  display: grid; grid-template-columns: 280px 1fr; gap: 0;
+  max-width: 1300px; margin: 0 auto; min-height: 60vh;
+}
+.sly1500-v3-sidebar {
+  background: #eae8e3; padding: 32px 24px; border-right: 1px solid #ddd;
+  position: sticky; top: 55px; height: calc(100vh - 55px); overflow-y: auto;
+}
+.sly1500-v3-sidebar h3 {
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #888;
+  margin-bottom: 12px; font-weight: 700;
+}
+.sly1500-v3-filter-group { margin-bottom: 24px; }
+.sly1500-v3-filter-group label {
+  display: flex; align-items: center; gap: 8px; padding: 6px 0;
+  font-size: 13px; color: #555; cursor: pointer; transition: color 0.2s;
+}
+.sly1500-v3-filter-group label:hover { color: #B23A3A; }
+.sly1500-v3-filter-group input[type="checkbox"] {
+  width: 16px; height: 16px; accent-color: #B23A3A;
+}
+.sly1500-v3-clear-btn {
+  padding: 8px 16px; background: transparent; border: 1px solid #ccc;
+  color: #888; border-radius: 4px; font-size: 12px; font-weight: 600;
+  width: 100%; transition: all 0.3s; margin-top: 8px;
+}
+.sly1500-v3-clear-btn:hover { border-color: #B23A3A; color: #B23A3A; }
+
+/* V3 Content Area */
+.sly1500-v3-content { padding: 32px; }
+.sly1500-v3-results-bar {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 8px;
+}
+.sly1500-v3-results-count { font-size: 14px; color: #888; }
+.sly1500-v3-results-count strong { color: #B23A3A; font-weight: 700; }
+
+/* V3 Case File Cards */
+.sly1500-v3-cases { display: flex; flex-direction: column; gap: 20px; }
+.sly1500-v3-case {
+  background: #fff; border: 1px solid #e0ddd8; border-radius: 8px;
+  padding: 28px; cursor: pointer; transition: all 0.3s;
+  display: grid; grid-template-columns: auto 1fr auto; gap: 20px; align-items: start;
+}
+.sly1500-v3-case:hover { border-color: #B23A3A; box-shadow: 0 4px 20px rgba(0,0,0,0.06); }
+.sly1500-v3-case-img {
+  width: 80px; height: 80px; border-radius: 50%; object-fit: cover;
+  background: linear-gradient(135deg, #ddd, #ccc); flex-shrink: 0;
+}
+.sly1500-v3-case-body { min-width: 0; }
+.sly1500-v3-case-id {
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: #B23A3A;
+  text-transform: uppercase; margin-bottom: 4px;
+}
+.sly1500-v3-case-name { font-size: 1.1rem; font-weight: 700; margin-bottom: 6px; }
+.sly1500-v3-case-flags { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.sly1500-v3-case-flag {
+  padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 700;
+  background: #fef3f3; color: #B23A3A; border: 1px solid rgba(178,58,58,0.15);
+}
+.sly1500-v3-case-flag-green { background: #f0faf0; color: #2d8a2d; border-color: rgba(45,138,45,0.15); }
+.sly1500-v3-case-excerpt {
+  font-size: 14px; color: #666; line-height: 1.6;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sly1500-v3-case-score {
+  text-align: center; flex-shrink: 0;
+}
+.sly1500-v3-case-score-num {
+  font-size: 1.6rem; font-weight: 800; color: #B23A3A;
+}
+.sly1500-v3-case-score-label {
+  font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1px;
+}
+.sly1500-v3-case-type {
+  display: inline-block; margin-top: 8px; padding: 3px 8px;
+  border-radius: 3px; font-size: 10px; font-weight: 700;
+}
+.sly1500-v3-type-video { background: rgba(58,120,178,0.1); color: #3a78b2; }
+.sly1500-v3-type-written { background: rgba(120,120,120,0.1); color: #777; }
+
+/* V3 Empty */
+.sly1500-v3-empty { text-align: center; padding: 60px 20px; display: none; }
+.sly1500-v3-empty h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.sly1500-v3-empty p { color: #888; font-size: 14px; }
+
+/* V3 CTA */
+.sly1500-v3-cta-section {
+  padding: 70px 24px; text-align: center; background: #1a2332;
+  color: #fff;
+}
+.sly1500-v3-cta-section h2 { font-size: 1.6rem; margin-bottom: 12px; }
+.sly1500-v3-cta-section p { color: rgba(255,255,255,0.6); font-size: 15px; margin-bottom: 28px; }
+.sly1500-v3-cta-btn {
+  padding: 14px 36px; background: #B23A3A; color: #fff; border: none;
+  border-radius: 6px; font-weight: 700; font-size: 15px; transition: all 0.3s;
+}
+
+@media (max-width: 768px) {
+  .sly1500-v3-layout { grid-template-columns: 1fr; }
+  .sly1500-v3-sidebar {
+    position: static; height: auto; border-right: none;
+    border-bottom: 1px solid #ddd; padding: 20px;
+  }
+  .sly1500-v3-case { grid-template-columns: 1fr; gap: 12px; }
+  .sly1500-v3-case-img { width: 56px; height: 56px; }
+  .sly1500-v3-case-score { text-align: left; }
+  .sly1500-v3-content { padding: 20px; }
+}
+
+
+/* ============================================
+   VERSION 4 — SOMEONE LIKE ME DIAGNOSTIC
+   Interactive profile builder, smartest UX
+   ============================================ */
+.sly1500-v4 {
+  background: #0f1117; color: #e8e8f0;
+  font-family: 'Segoe UI', -apple-system, sans-serif;
+}
+
+/* V4 Diagnostic Hero */
+.sly1500-v4-hero {
+  min-height: 50vh; display: flex; align-items: center; justify-content: center;
+  padding: 100px 24px 50px; text-align: center;
+  background: radial-gradient(ellipse at center, #1a1d2e 0%, #0f1117 70%);
+}
+.sly1500-v4-hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.8rem); font-weight: 800; line-height: 1.2;
+  margin-bottom: 12px;
+}
+.sly1500-v4-hero h1 span { color: #7b68ee; }
+.sly1500-v4-hero p { color: #888; font-size: 1rem; max-width: 500px; margin: 0 auto 32px; }
+
+/* V4 Step Wizard */
+.sly1500-v4-wizard {
+  max-width: 700px; margin: 0 auto; padding: 0 24px 60px;
+}
+.sly1500-v4-progress {
+  display: flex; gap: 4px; margin-bottom: 40px;
+}
+.sly1500-v4-progress-bar {
+  flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,0.08);
+  transition: background 0.4s;
+}
+.sly1500-v4-progress-bar.sly1500-v4-prog-active { background: #7b68ee; }
+.sly1500-v4-progress-bar.sly1500-v4-prog-done { background: #4caf50; }
+
+.sly1500-v4-step { display: none; }
+.sly1500-v4-step.sly1500-v4-step-active { display: block; }
+.sly1500-v4-step h2 {
+  font-size: 1.4rem; margin-bottom: 6px; text-align: center;
+}
+.sly1500-v4-step-sub {
+  text-align: center; color: #666; font-size: 14px; margin-bottom: 28px;
+}
+.sly1500-v4-options {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 10px;
+}
+.sly1500-v4-option {
+  padding: 14px 16px; border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; background: rgba(255,255,255,0.03);
+  color: #ccc; font-size: 13px; text-align: center; transition: all 0.25s;
+}
+.sly1500-v4-option:hover { border-color: #7b68ee; color: #fff; }
+.sly1500-v4-option.sly1500-v4-opt-active {
+  background: rgba(123,104,238,0.15); border-color: #7b68ee; color: #fff;
+}
+.sly1500-v4-nav {
+  display: flex; justify-content: space-between; margin-top: 32px;
+}
+.sly1500-v4-btn-back {
+  padding: 10px 24px; background: transparent; border: 1px solid rgba(255,255,255,0.15);
+  color: #888; border-radius: 8px; font-size: 14px; transition: all 0.3s;
+}
+.sly1500-v4-btn-back:hover { border-color: #fff; color: #fff; }
+.sly1500-v4-btn-next {
+  padding: 10px 28px; background: #7b68ee; border: none; color: #fff;
+  border-radius: 8px; font-size: 14px; font-weight: 700; transition: all 0.3s;
+}
+.sly1500-v4-btn-next:hover { background: #6a58dd; }
+
+/* V4 Results Dashboard */
+.sly1500-v4-dashboard {
+  display: none; padding: 40px 24px; max-width: 1100px; margin: 0 auto;
+}
+.sly1500-v4-dashboard.sly1500-v4-dash-visible { display: block; }
+.sly1500-v4-profile-summary {
+  background: rgba(123,104,238,0.08); border: 1px solid rgba(123,104,238,0.2);
+  border-radius: 12px; padding: 24px; margin-bottom: 32px;
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.sly1500-v4-profile-label {
+  font-size: 12px; color: #7b68ee; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; margin-right: 8px;
+}
+.sly1500-v4-profile-tag {
+  padding: 5px 12px; border-radius: 16px; font-size: 12px; font-weight: 600;
+  background: rgba(123,104,238,0.12); color: #a99bf5;
+  border: 1px solid rgba(123,104,238,0.2);
+}
+.sly1500-v4-profile-edit {
+  margin-left: auto; padding: 6px 14px; background: transparent;
+  border: 1px solid rgba(255,255,255,0.15); color: #888; border-radius: 6px;
+  font-size: 12px; transition: all 0.3s;
+}
+.sly1500-v4-profile-edit:hover { color: #fff; border-color: #fff; }
+
+.sly1500-v4-match-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;
+}
+.sly1500-v4-match-card {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.3s;
+}
+.sly1500-v4-match-card:hover {
+  border-color: #7b68ee; transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(123,104,238,0.15);
+}
+.sly1500-v4-match-img {
+  width: 100%; height: 180px; object-fit: cover;
+  background: linear-gradient(135deg, #1a1d2e, #2a2d4e);
+}
+.sly1500-v4-match-body { padding: 20px; }
+.sly1500-v4-match-score-bar {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.sly1500-v4-match-pct {
+  font-size: 1.3rem; font-weight: 800; color: #7b68ee;
+}
+.sly1500-v4-match-pct-label { font-size: 11px; color: #666; }
+.sly1500-v4-match-bar-track {
+  flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px;
+}
+.sly1500-v4-match-bar-fill {
+  height: 100%; border-radius: 2px; background: #7b68ee; transition: width 0.5s;
+}
+.sly1500-v4-match-name { font-size: 1rem; font-weight: 700; margin-bottom: 4px; }
+.sly1500-v4-match-meta { font-size: 12px; color: #666; margin-bottom: 10px; }
+.sly1500-v4-match-overlap { display: flex; flex-wrap: wrap; gap: 4px; }
+.sly1500-v4-match-overlap-tag {
+  padding: 3px 8px; border-radius: 8px; font-size: 10px; font-weight: 600;
+  background: rgba(76,175,80,0.12); color: #6fcf73;
+  border: 1px solid rgba(76,175,80,0.2);
+}
+
+/* V4 Dashboard CTA */
+.sly1500-v4-dash-cta {
+  text-align: center; padding: 50px 20px; margin-top: 40px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.sly1500-v4-dash-cta h3 { font-size: 1.3rem; margin-bottom: 8px; }
+.sly1500-v4-dash-cta p { color: #666; font-size: 14px; margin-bottom: 20px; }
+.sly1500-v4-dash-cta-btn {
+  padding: 14px 32px; background: #7b68ee; color: #fff; border: none;
+  border-radius: 8px; font-weight: 700; font-size: 15px; transition: all 0.3s;
+}
+
+/* V4 Empty */
+.sly1500-v4-empty { text-align: center; padding: 60px 20px; display: none; }
+.sly1500-v4-empty h3 { color: #e8e8f0; margin-bottom: 8px; }
+.sly1500-v4-empty p { color: #666; font-size: 14px; }
+
+@media (max-width: 768px) {
+  .sly1500-v4-options { grid-template-columns: 1fr 1fr; }
+  .sly1500-v4-match-grid { grid-template-columns: 1fr; }
+  .sly1500-v4-wizard { padding: 0 16px 40px; }
+}
+
+
+/* ============================================
+   VERSION 5 — EMOTIONAL STORY WALL
+   Cinematic, human, photo-rich, immersive
+   ============================================ */
+.sly1500-v5 {
+  background: #111; color: #f0f0f0;
+  font-family: 'Georgia', 'Times New Roman', serif;
+}
+
+/* V5 Cinematic Hero */
+.sly1500-v5-hero {
+  min-height: 90vh; display: flex; align-items: center; justify-content: center;
+  position: relative; margin-top: 50px; overflow: hidden;
+}
+.sly1500-v5-hero-bg {
+  position: absolute; inset: 0;
+  background: url('https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=1400&q=80') center/cover;
+}
+.sly1500-v5-hero-bg::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.5), rgba(0,0,0,0.8));
+}
+.sly1500-v5-hero-content {
+  position: relative; z-index: 2; text-align: center; padding: 40px 24px;
+  max-width: 700px;
+}
+.sly1500-v5-hero h1 {
+  font-size: clamp(2.2rem, 5vw, 3.5rem); font-weight: 400; line-height: 1.25;
+  margin-bottom: 20px; font-style: italic;
+}
+.sly1500-v5-hero p {
+  font-family: 'Segoe UI', sans-serif; font-size: 1.05rem;
+  color: rgba(255,255,255,0.6); line-height: 1.7; margin-bottom: 28px;
+}
+.sly1500-v5-hero-scroll {
+  font-family: 'Segoe UI', sans-serif; font-size: 12px;
+  letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.3);
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+}
+.sly1500-v5-hero-scroll span {
+  display: block; width: 1px; height: 40px; background: rgba(255,255,255,0.2);
+  animation: sly1500-v5-scroll 2s infinite;
+}
+@keyframes sly1500-v5-scroll {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 0.8; }
+}
+
+/* V5 Filter Strip */
+.sly1500-v5-filters {
+  padding: 24px 24px; display: flex; gap: 8px; flex-wrap: wrap;
+  justify-content: center; background: rgba(255,255,255,0.03);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.sly1500-v5-filter-chip {
+  padding: 8px 18px; border: 1px solid rgba(255,255,255,0.12);
+  background: transparent; color: #888; border-radius: 24px;
+  font-family: 'Segoe UI', sans-serif; font-size: 13px; transition: all 0.25s;
+}
+.sly1500-v5-filter-chip:hover { border-color: rgba(255,255,255,0.4); color: #ddd; }
+.sly1500-v5-filter-chip.sly1500-v5-fc-active {
+  background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: #fff;
+}
+
+/* V5 Story Wall Grid */
+.sly1500-v5-wall {
+  padding: 40px 24px; max-width: 1400px; margin: 0 auto;
+}
+.sly1500-v5-wall-section { margin-bottom: 60px; }
+.sly1500-v5-wall-section h2 {
+  font-size: 1.6rem; font-weight: 400; font-style: italic;
+  margin-bottom: 24px; padding-left: 8px;
+  border-left: 3px solid rgba(178,58,58,0.5); padding-top: 4px; padding-bottom: 4px;
+}
+.sly1500-v5-masonry {
+  columns: 3; column-gap: 20px;
+}
+.sly1500-v5-story {
+  break-inside: avoid; margin-bottom: 20px; border-radius: 12px;
+  overflow: hidden; cursor: pointer; transition: all 0.3s;
+  background: rgba(255,255,255,0.04);
+}
+.sly1500-v5-story:hover { transform: translateY(-4px); box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+.sly1500-v5-story-img {
+  width: 100%; aspect-ratio: 4/3; object-fit: cover;
+  background: linear-gradient(135deg, #222, #333);
+}
+.sly1500-v5-story-img.sly1500-v5-tall { aspect-ratio: 3/4; }
+.sly1500-v5-story-body { padding: 20px; }
+.sly1500-v5-story-name {
+  font-family: 'Segoe UI', sans-serif; font-size: 13px; font-weight: 700;
+  color: #B23A3A; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+}
+.sly1500-v5-story-quote {
+  font-size: 1.1rem; line-height: 1.6; color: #ddd; font-style: italic;
+  margin-bottom: 10px;
+}
+.sly1500-v5-story-meta {
+  font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #666;
+}
+.sly1500-v5-story-video-badge {
+  display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px;
+  background: rgba(178,58,58,0.15); color: #e88; border-radius: 12px;
+  font-family: 'Segoe UI', sans-serif; font-size: 11px; font-weight: 600;
+  margin-top: 8px;
+}
+
+/* V5 Empty */
+.sly1500-v5-empty { text-align: center; padding: 60px 20px; display: none; }
+.sly1500-v5-empty h3 { font-size: 1.2rem; margin-bottom: 8px; }
+.sly1500-v5-empty p { color: #666; font-size: 14px; }
+
+/* V5 CTA */
+.sly1500-v5-cta-section {
+  padding: 100px 24px; text-align: center;
+  background: linear-gradient(to bottom, #111, #0a0a0a);
+}
+.sly1500-v5-cta-section h2 { font-size: 1.8rem; font-style: italic; margin-bottom: 12px; }
+.sly1500-v5-cta-section p {
+  font-family: 'Segoe UI', sans-serif; color: #666; font-size: 15px; margin-bottom: 32px;
+}
+.sly1500-v5-cta-btn {
+  padding: 16px 40px; background: #B23A3A; color: #fff; border: none;
+  border-radius: 8px; font-weight: 700; font-size: 16px;
+  font-family: 'Segoe UI', sans-serif; transition: all 0.3s;
+}
+
+@media (max-width: 1024px) {
+  .sly1500-v5-masonry { columns: 2; }
+}
+@media (max-width: 768px) {
+  .sly1500-v5-masonry { columns: 1; }
+  .sly1500-v5-hero { min-height: 70vh; }
+}
+
+
+/* ============================================
+   VERSION 6 — ARENA PROOF VAULT
+   Game-grade, collectible cards, vault energy
+   ============================================ */
+.sly1500-v6 {
+  background: #0a0a14; color: #fff;
+  font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+}
+
+/* V6 Vault Hero */
+.sly1500-v6-hero {
+  min-height: 80vh; display: flex; align-items: center; justify-content: center;
+  padding: 100px 24px 60px; position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at 30% 50%, rgba(123,58,178,0.2), transparent 50%),
+              radial-gradient(ellipse at 70% 30%, rgba(178,58,58,0.15), transparent 50%),
+              #0a0a14;
+}
+.sly1500-v6-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg, transparent, transparent 2px, rgba(255,255,255,0.01) 2px, rgba(255,255,255,0.01) 4px
+  );
+}
+.sly1500-v6-hero-inner {
+  position: relative; z-index: 2; text-align: center; max-width: 700px;
+}
+.sly1500-v6-hero-badge {
+  display: inline-block; padding: 6px 16px;
+  background: linear-gradient(135deg, #B23A3A, #7b3ab2);
+  color: #fff; font-size: 12px; letter-spacing: 3px; text-transform: uppercase;
+  border-radius: 4px; margin-bottom: 20px;
+  font-family: 'Segoe UI', sans-serif; font-weight: 800;
+}
+.sly1500-v6-hero h1 {
+  font-size: clamp(2.4rem, 6vw, 4rem); line-height: 1.05;
+  text-transform: uppercase; margin-bottom: 16px;
+  background: linear-gradient(to bottom, #fff, #ccc);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.sly1500-v6-hero p {
+  font-family: 'Segoe UI', sans-serif; font-size: 1rem;
+  color: rgba(255,255,255,0.5); line-height: 1.6; margin-bottom: 32px;
+}
+.sly1500-v6-hero-btn {
+  padding: 16px 40px;
+  background: linear-gradient(135deg, #B23A3A, #d44);
+  color: #fff; border: none; border-radius: 8px;
+  font-family: "Luckiest Guy", "Anton", "Impact", sans-serif;
+  font-size: 18px; text-transform: uppercase; letter-spacing: 2px;
+  transition: all 0.3s; position: relative; overflow: hidden;
+}
+.sly1500-v6-hero-btn:hover {
+  transform: translateY(-2px); box-shadow: 0 8px 30px rgba(178,58,58,0.4);
+}
+
+/* V6 Loadout Filters */
+.sly1500-v6-loadout {
+  padding: 32px 24px; max-width: 1000px; margin: 0 auto;
+}
+.sly1500-v6-loadout h2 {
+  font-size: 1.2rem; text-transform: uppercase; letter-spacing: 3px;
+  text-align: center; margin-bottom: 24px;
+  background: linear-gradient(to right, #B23A3A, #7b3ab2);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.sly1500-v6-loadout-row {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 16px;
+}
+.sly1500-v6-loadout-chip {
+  padding: 8px 16px; border: 2px solid rgba(178,58,58,0.3);
+  background: rgba(178,58,58,0.05); color: #e88; border-radius: 6px;
+  font-family: 'Segoe UI', sans-serif; font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.25s;
+}
+.sly1500-v6-loadout-chip:hover { border-color: #B23A3A; background: rgba(178,58,58,0.15); }
+.sly1500-v6-loadout-chip.sly1500-v6-lc-active {
+  background: linear-gradient(135deg, rgba(178,58,58,0.3), rgba(123,58,178,0.3));
+  border-color: #B23A3A; color: #fff;
+}
+
+/* V6 Vault Cards */
+.sly1500-v6-vault {
+  padding: 40px 24px; max-width: 1200px; margin: 0 auto;
+}
+.sly1500-v6-vault-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 24px; flex-wrap: wrap; gap: 8px;
+}
+.sly1500-v6-vault-count {
+  font-family: 'Segoe UI', sans-serif; font-size: 13px; color: #666;
+}
+.sly1500-v6-vault-count strong { color: #B23A3A; }
+.sly1500-v6-vault-reset {
+  padding: 6px 14px; border: 1px solid rgba(255,255,255,0.15);
+  background: transparent; color: #888; border-radius: 4px;
+  font-family: 'Segoe UI', sans-serif; font-size: 12px; transition: all 0.3s;
+}
+.sly1500-v6-vault-reset:hover { border-color: #fff; color: #fff; }
+
+.sly1500-v6-card-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 20px;
+}
+.sly1500-v6-card {
+  border-radius: 12px; overflow: hidden; cursor: pointer;
+  border: 2px solid rgba(255,255,255,0.06); transition: all 0.3s;
+  background: linear-gradient(160deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  position: relative;
+}
+.sly1500-v6-card:hover {
+  border-color: rgba(178,58,58,0.5);
+  box-shadow: 0 0 30px rgba(178,58,58,0.15), 0 8px 32px rgba(0,0,0,0.3);
+  transform: translateY(-4px);
+}
+.sly1500-v6-card-img {
+  width: 100%; height: 200px; object-fit: cover;
+  background: linear-gradient(135deg, #1a1a2e, #2a1a3e);
+}
+.sly1500-v6-card-rarity {
+  position: absolute; top: 12px; right: 12px; padding: 4px 10px;
+  border-radius: 4px; font-family: 'Segoe UI', sans-serif;
+  font-size: 10px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+}
+.sly1500-v6-rarity-legendary {
+  background: linear-gradient(135deg, #FFD700, #FFA500); color: #000;
+}
+.sly1500-v6-rarity-epic {
+  background: linear-gradient(135deg, #9b59b6, #7b3ab2); color: #fff;
+}
+.sly1500-v6-rarity-rare {
+  background: linear-gradient(135deg, #3498db, #2980b9); color: #fff;
+}
+.sly1500-v6-card-body { padding: 16px; }
+.sly1500-v6-card-name {
+  font-family: "Luckiest Guy", "Anton", "Impact", sans-serif;
+  font-size: 1.1rem; text-transform: uppercase; margin-bottom: 4px;
+}
+.sly1500-v6-card-specialty {
+  font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #888; margin-bottom: 10px;
+}
+.sly1500-v6-card-modifiers { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 10px; }
+.sly1500-v6-modifier {
+  padding: 3px 8px; border-radius: 4px; font-family: 'Segoe UI', sans-serif;
+  font-size: 10px; font-weight: 700;
+  background: rgba(255,0,0,0.1); color: #f66; border: 1px solid rgba(255,0,0,0.2);
+}
+.sly1500-v6-card-outcome {
+  font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #4caf50;
+  font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+}
+.sly1500-v6-card-type-badge {
+  position: absolute; top: 12px; left: 12px; padding: 4px 10px;
+  border-radius: 4px; font-family: 'Segoe UI', sans-serif;
+  font-size: 10px; font-weight: 700; background: rgba(0,0,0,0.7); color: #fff;
+}
+
+/* V6 Empty */
+.sly1500-v6-empty { text-align: center; padding: 60px 20px; display: none; }
+.sly1500-v6-empty h3 { font-size: 1.2rem; margin-bottom: 8px; font-family: 'Segoe UI', sans-serif; }
+.sly1500-v6-empty p { color: #666; font-size: 14px; font-family: 'Segoe UI', sans-serif; }
+
+/* V6 CTA */
+.sly1500-v6-cta-section {
+  padding: 80px 24px; text-align: center;
+  background: radial-gradient(ellipse at center, rgba(178,58,58,0.08), transparent);
+}
+.sly1500-v6-cta-section h2 {
+  font-size: 1.8rem; text-transform: uppercase; margin-bottom: 12px;
+}
+.sly1500-v6-cta-section p {
+  font-family: 'Segoe UI', sans-serif; color: #666; font-size: 15px; margin-bottom: 28px;
+}
+.sly1500-v6-cta-btn {
+  padding: 16px 40px; background: linear-gradient(135deg, #B23A3A, #d44);
+  color: #fff; border: none; border-radius: 8px;
+  font-family: "Luckiest Guy", "Anton", "Impact", sans-serif;
+  font-size: 16px; text-transform: uppercase; letter-spacing: 2px;
+  transition: all 0.3s;
+}
+.sly1500-v6-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(178,58,58,0.4); }
+
+@media (max-width: 768px) {
+  .sly1500-v6-hero h1 { font-size: 2rem; }
+  .sly1500-v6-card-grid { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+}
+
+</style>
+</head>
+<body>
+
+<!-- ============================================
+     VERSION SELECTOR (STICKY TOP)
+     ============================================ -->
+<div class="sly1500-selector">
+  <span class="sly1500-selector-label">SLY-1500</span>
+  <button class="sly1500-sel-active" onclick="sly1500Switch(1)">V1: Proof Concierge</button>
+  <button onclick="sly1500Switch(2)">V2: Netflix Stories</button>
+  <button onclick="sly1500Switch(3)">V3: Case File</button>
+  <button onclick="sly1500Switch(4)">V4: Diagnostic</button>
+  <button onclick="sly1500Switch(5)">V5: Story Wall</button>
+  <button onclick="sly1500Switch(6)">V6: Arena Vault</button>
+</div>
+
+<!-- ============================================
+     SHARED STORY MODAL
+     ============================================ -->
+<div class="sly1500-modal-overlay" id="sly1500-modal" role="dialog" aria-modal="true">
+  <div class="sly1500-modal-content" id="sly1500-modal-inner">
+    <button class="sly1500-modal-close" id="sly1500-modal-close" aria-label="Close story">&times;</button>
+    <div id="sly1500-modal-body"></div>
+  </div>
+</div>
+
+
+<!-- ============================================
+     VERSION 1 — PROOF CONCIERGE
+     ============================================ -->
+<div class="sly1500-version sly1500-active sly1500-v1" id="sly1500-v1">
+
+  <!-- V1 Hero -->
+  <div class="sly1500-v1-hero">
+    <div class="sly1500-v1-hero-inner">
+      <div class="sly1500-v1-hero-label">Someone Like You</div>
+      <h1>Find someone whose story <em>sounds like yours</em></h1>
+      <p>You are not the first person to carry what you are carrying. Let us show you the proof.</p>
+    </div>
+  </div>
+
+  <!-- V1 Stats -->
+  <div class="sly1500-v1-stats">
+    <div class="sly1500-v1-stat"><span class="sly1500-v1-stat-num">25+</span><span class="sly1500-v1-stat-label">Stories in this vault</span></div>
+    <div class="sly1500-v1-stat"><span class="sly1500-v1-stat-num">8</span><span class="sly1500-v1-stat-label">Specialties represented</span></div>
+    <div class="sly1500-v1-stat"><span class="sly1500-v1-stat-num">5</span><span class="sly1500-v1-stat-label">Cycles before match (longest)</span></div>
+    <div class="sly1500-v1-stat"><span class="sly1500-v1-stat-num">24yr</span><span class="sly1500-v1-stat-label">Longest grad-to-match gap</span></div>
+  </div>
+
+  <!-- V1 Concierge Filter -->
+  <div class="sly1500-v1-concierge" id="sly1500-v1-concierge">
+    <h2>What are you carrying?</h2>
+    <p class="sly1500-v1-concierge-sub">Select everything that applies. We will find stories from students who carried the same things.</p>
+
+    <div class="sly1500-v1-q-group">
+      <div class="sly1500-v1-q-label">Red flags on your profile</div>
+      <div class="sly1500-v1-chips" data-filter-group="redFlags" data-version="1">
+        <button class="sly1500-v1-chip" data-val="old_grad">Old graduate / YOG gap</button>
+        <button class="sly1500-v1-chip" data-val="low_step">Low Step score</button>
+        <button class="sly1500-v1-chip" data-val="usmle_attempt">USMLE attempt</button>
+        <button class="sly1500-v1-chip" data-val="multiple_attempts">Multiple attempts</button>
+        <button class="sly1500-v1-chip" data-val="unmatched">Previously unmatched</button>
+        <button class="sly1500-v1-chip" data-val="limited_usce">Limited USCE</button>
+        <button class="sly1500-v1-chip" data-val="visa">Visa concern</button>
+        <button class="sly1500-v1-chip" data-val="low_ivs">Low interview count</button>
+        <button class="sly1500-v1-chip" data-val="weak_iv">Weak interview confidence</button>
+        <button class="sly1500-v1-chip" data-val="caribbean">Caribbean graduate</button>
+        <button class="sly1500-v1-chip" data-val="img_abroad">IMG applying from abroad</button>
+        <button class="sly1500-v1-chip" data-val="financial">Financial pressure</button>
+      </div>
+    </div>
+
+    <div class="sly1500-v1-q-group">
+      <div class="sly1500-v1-q-label">Specialty target</div>
+      <div class="sly1500-v1-chips" data-filter-group="specialty" data-version="1">
+        <button class="sly1500-v1-chip" data-val="im">Internal Medicine</button>
+        <button class="sly1500-v1-chip" data-val="fm">Family Medicine</button>
+        <button class="sly1500-v1-chip" data-val="psych">Psychiatry</button>
+        <button class="sly1500-v1-chip" data-val="peds">Pediatrics</button>
+        <button class="sly1500-v1-chip" data-val="surgery">Surgery</button>
+        <button class="sly1500-v1-chip" data-val="neuro">Neurology</button>
+        <button class="sly1500-v1-chip" data-val="unsure">Not sure yet</button>
+      </div>
+    </div>
+
+    <div class="sly1500-v1-q-group">
+      <div class="sly1500-v1-q-label">What you are feeling</div>
+      <div class="sly1500-v1-chips" data-filter-group="fears" data-version="1">
+        <button class="sly1500-v1-chip" data-val="behind">I feel behind</button>
+        <button class="sly1500-v1-chip" data-val="too_late">I am scared I waited too long</button>
+        <button class="sly1500-v1-chip" data-val="embarrassed">I am embarrassed by my scores</button>
+        <button class="sly1500-v1-chip" data-val="unmatched_before">I did not match before</button>
+        <button class="sly1500-v1-chip" data-val="few_ivs">I have very few interviews</button>
+        <button class="sly1500-v1-chip" data-val="confidence">I need confidence</button>
+        <button class="sly1500-v1-chip" data-val="truth">I need someone to tell me the truth</button>
+        <button class="sly1500-v1-chip" data-val="possible">I need to know if this is still possible</button>
+      </div>
+    </div>
+
+    <div class="sly1500-v1-q-group">
+      <div class="sly1500-v1-q-label">Content preference</div>
+      <div class="sly1500-v1-chips" data-filter-group="contentType" data-version="1">
+        <button class="sly1500-v1-chip" data-val="video">Video</button>
+        <button class="sly1500-v1-chip" data-val="written">Written</button>
+        <button class="sly1500-v1-chip" data-val="matchday">Match Day clip</button>
+        <button class="sly1500-v1-chip" data-val="redflag">Red flag story</button>
+        <button class="sly1500-v1-chip" data-val="coaching">Coaching testimonial</button>
+        <button class="sly1500-v1-chip" data-val="family">Family reaction</button>
+        <button class="sly1500-v1-chip" data-val="interview_turn">Interview turnaround</button>
+        <button class="sly1500-v1-chip" data-val="strategy">Application strategy</button>
+      </div>
+    </div>
+
+    <div class="sly1500-v1-controls">
+      <button class="sly1500-v1-btn-find" onclick="sly1500FilterV1()">Find my matches</button>
+      <button class="sly1500-v1-btn-reset" onclick="sly1500ResetV1()">Clear all filters</button>
+    </div>
+  </div>
+
+  <!-- V1 Results -->
+  <div class="sly1500-v1-results" id="sly1500-v1-results">
+    <div class="sly1500-v1-results-inner">
+      <div class="sly1500-v1-results-header">
+        <span class="sly1500-v1-results-count" id="sly1500-v1-count">Showing <strong>all</strong> stories</span>
+      </div>
+      <div class="sly1500-v1-empty" id="sly1500-v1-empty">
+        <h3>No stories match your exact profile yet</h3>
+        <p>Try removing a filter to see more stories. Your situation is real, and similar proof may be available in a video or coaching story not yet tagged.</p>
+      </div>
+      <div class="sly1500-v1-grid" id="sly1500-v1-grid"></div>
+
+      <!-- V1 Featured Video Row -->
+      <h3 style="margin-top:48px; font-family:'Segoe UI',sans-serif; font-size:1.1rem; color:#1a2332; margin-bottom:16px;">Featured Match Day Proof</h3>
+      <div class="sly1500-v1-video-row" id="sly1500-v1-video-row"></div>
+    </div>
+  </div>
+
+  <!-- V1 CTA -->
+  <div class="sly1500-v1-cta-section">
+    <h2>See how we would position your story</h2>
+    <p>A strategy built around your red flags, your specialty goals, and your timeline.</p>
+    <button class="sly1500-v1-cta-btn">Talk through your actual situation</button>
+  </div>
+</div>
+
+
+<!-- ============================================
+     VERSION 2 — NETFLIX FOR MATCH STORIES
+     ============================================ -->
+<div class="sly1500-version sly1500-v2" id="sly1500-v2">
+
+  <!-- V2 Billboard -->
+  <div class="sly1500-v2-billboard">
+    <div class="sly1500-v2-billboard-bg"></div>
+    <div class="sly1500-v2-billboard-content">
+      <span class="sly1500-v2-billboard-badge">Featured Story</span>
+      <h1>Sudha matched after a seven-year journey</h1>
+      <p>Three attempts. Seven years since graduation. Every reason to give up. Watch what happened when strategy replaced hope.</p>
+      <div class="sly1500-v2-billboard-btns">
+        <button class="sly1500-v2-btn-play" onclick="sly1500OpenStory(0)">
+          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Watch Story
+        </button>
+        <button class="sly1500-v2-btn-info" onclick="sly1500OpenStory(0)">Full Profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- V2 Filters -->
+  <div class="sly1500-v2-filter-bar">
+    <span class="sly1500-v2-filter-label">Filter:</span>
+    <select class="sly1500-v2-select" id="sly1500-v2-specialty" onchange="sly1500FilterV2()">
+      <option value="">All Specialties</option>
+      <option value="im">Internal Medicine</option>
+      <option value="fm">Family Medicine</option>
+      <option value="psych">Psychiatry</option>
+      <option value="peds">Pediatrics</option>
+      <option value="surgery">Surgery</option>
+      <option value="neuro">Neurology</option>
+    </select>
+    <div class="sly1500-v2-chip-row" id="sly1500-v2-chips">
+      <button class="sly1500-v2-chip" data-val="video" onclick="sly1500ToggleV2Chip(this)">Video</button>
+      <button class="sly1500-v2-chip" data-val="written" onclick="sly1500ToggleV2Chip(this)">Written</button>
+      <button class="sly1500-v2-chip" data-val="matchday" onclick="sly1500ToggleV2Chip(this)">Match Day</button>
+      <button class="sly1500-v2-chip" data-val="redflag" onclick="sly1500ToggleV2Chip(this)">Red Flag</button>
+    </div>
+  </div>
+
+  <div class="sly1500-v2-results-info" id="sly1500-v2-count"></div>
+
+  <div class="sly1500-v2-empty" id="sly1500-v2-empty">
+    <h3>No stories match this filter combination</h3>
+    <p>Try a different specialty or content type.</p>
+  </div>
+
+  <!-- V2 Story Rows (dynamically populated) -->
+  <div id="sly1500-v2-rows"></div>
+
+  <!-- V2 CTA -->
+  <div class="sly1500-v2-cta-section">
+    <h2>Ready to write your own match story?</h2>
+    <p>Start with a strategy session. It costs nothing to find out where you stand.</p>
+    <button class="sly1500-v2-cta-btn">Book Your Strategy Session</button>
+  </div>
+</div>
+
+
+<!-- ============================================
+     VERSION 3 — CASE FILE ARCHIVE
+     ============================================ -->
+<div class="sly1500-version sly1500-v3" id="sly1500-v3">
+
+  <!-- V3 Header -->
+  <div class="sly1500-v3-header">
+    <div class="sly1500-v3-header-label">Evidence Archive</div>
+    <h1>Case files from students who matched despite everything</h1>
+    <p>These are not perfect applicants. These are real doctors who needed a strategy.</p>
+  </div>
+
+  <!-- V3 Sidebar + Content -->
+  <div class="sly1500-v3-layout">
+    <div class="sly1500-v3-sidebar">
+      <h3>Red Flags</h3>
+      <div class="sly1500-v3-filter-group" id="sly1500-v3-rf">
+        <label><input type="checkbox" value="old_grad" onchange="sly1500FilterV3()"> Old graduate / YOG gap</label>
+        <label><input type="checkbox" value="low_step" onchange="sly1500FilterV3()"> Low Step score</label>
+        <label><input type="checkbox" value="multiple_attempts" onchange="sly1500FilterV3()"> Multiple attempts</label>
+        <label><input type="checkbox" value="unmatched" onchange="sly1500FilterV3()"> Previously unmatched</label>
+        <label><input type="checkbox" value="limited_usce" onchange="sly1500FilterV3()"> Limited USCE</label>
+        <label><input type="checkbox" value="visa" onchange="sly1500FilterV3()"> Visa concern</label>
+        <label><input type="checkbox" value="low_ivs" onchange="sly1500FilterV3()"> Low interviews</label>
+        <label><input type="checkbox" value="caribbean" onchange="sly1500FilterV3()"> Caribbean graduate</label>
+        <label><input type="checkbox" value="financial" onchange="sly1500FilterV3()"> Financial pressure</label>
+      </div>
+      <h3>Specialty</h3>
+      <div class="sly1500-v3-filter-group" id="sly1500-v3-spec">
+        <label><input type="checkbox" value="im" onchange="sly1500FilterV3()"> Internal Medicine</label>
+        <label><input type="checkbox" value="fm" onchange="sly1500FilterV3()"> Family Medicine</label>
+        <label><input type="checkbox" value="psych" onchange="sly1500FilterV3()"> Psychiatry</label>
+        <label><input type="checkbox" value="peds" onchange="sly1500FilterV3()"> Pediatrics</label>
+        <label><input type="checkbox" value="surgery" onchange="sly1500FilterV3()"> Surgery</label>
+        <label><input type="checkbox" value="neuro" onchange="sly1500FilterV3()"> Neurology</label>
+      </div>
+      <h3>Content</h3>
+      <div class="sly1500-v3-filter-group" id="sly1500-v3-type">
+        <label><input type="checkbox" value="video" onchange="sly1500FilterV3()"> Video proof</label>
+        <label><input type="checkbox" value="written" onchange="sly1500FilterV3()"> Written testimonial</label>
+        <label><input type="checkbox" value="matchday" onchange="sly1500FilterV3()"> Match Day clip</label>
+      </div>
+      <button class="sly1500-v3-clear-btn" onclick="sly1500ResetV3()">Clear All Filters</button>
+    </div>
+
+    <div class="sly1500-v3-content">
+      <div class="sly1500-v3-results-bar">
+        <span class="sly1500-v3-results-count" id="sly1500-v3-count">Showing <strong>all</strong> case files</span>
+      </div>
+      <div class="sly1500-v3-empty" id="sly1500-v3-empty">
+        <h3>No case files match this filter set</h3>
+        <p>Adjust your filters or clear to see all available evidence.</p>
+      </div>
+      <div class="sly1500-v3-cases" id="sly1500-v3-cases"></div>
+    </div>
+  </div>
+
+  <!-- V3 CTA -->
+  <div class="sly1500-v3-cta-section">
+    <h2>The evidence is here. What you do next is your call.</h2>
+    <p>Talk through your actual situation with someone who has seen profiles like yours succeed.</p>
+    <button class="sly1500-v3-cta-btn">Start Your Strategy Session</button>
+  </div>
+</div>
+
+
+<!-- ============================================
+     VERSION 4 — SOMEONE LIKE ME DIAGNOSTIC
+     ============================================ -->
+<div class="sly1500-version sly1500-v4" id="sly1500-v4">
+
+  <!-- V4 Hero -->
+  <div class="sly1500-v4-hero">
+    <div>
+      <h1>Find someone <span>exactly like you</span></h1>
+      <p>Tell us about your situation. We will find the students whose profiles were closest to yours.</p>
+    </div>
+  </div>
+
+  <!-- V4 Step Wizard -->
+  <div class="sly1500-v4-wizard" id="sly1500-v4-wizard">
+    <div class="sly1500-v4-progress" id="sly1500-v4-progress">
+      <div class="sly1500-v4-progress-bar sly1500-v4-prog-active"></div>
+      <div class="sly1500-v4-progress-bar"></div>
+      <div class="sly1500-v4-progress-bar"></div>
+      <div class="sly1500-v4-progress-bar"></div>
+    </div>
+
+    <!-- Step 1: Red Flags -->
+    <div class="sly1500-v4-step sly1500-v4-step-active" data-step="1">
+      <h2>What red flags are on your profile?</h2>
+      <p class="sly1500-v4-step-sub">Select all that apply. Be honest. This is how we find your closest matches.</p>
+      <div class="sly1500-v4-options" data-filter-group="redFlags" data-version="4">
+        <button class="sly1500-v4-option" data-val="old_grad">Old graduate / YOG gap</button>
+        <button class="sly1500-v4-option" data-val="low_step">Low Step score</button>
+        <button class="sly1500-v4-option" data-val="usmle_attempt">USMLE attempt</button>
+        <button class="sly1500-v4-option" data-val="multiple_attempts">Multiple attempts</button>
+        <button class="sly1500-v4-option" data-val="unmatched">Previously unmatched</button>
+        <button class="sly1500-v4-option" data-val="limited_usce">Limited USCE</button>
+        <button class="sly1500-v4-option" data-val="visa">Visa concern</button>
+        <button class="sly1500-v4-option" data-val="low_ivs">Low interviews</button>
+        <button class="sly1500-v4-option" data-val="caribbean">Caribbean graduate</button>
+        <button class="sly1500-v4-option" data-val="img_abroad">IMG from abroad</button>
+        <button class="sly1500-v4-option" data-val="financial">Financial pressure</button>
+        <button class="sly1500-v4-option" data-val="family_pressure">Family pressure</button>
+      </div>
+      <div class="sly1500-v4-nav">
+        <div></div>
+        <button class="sly1500-v4-btn-next" onclick="sly1500V4Next()">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 2: Specialty -->
+    <div class="sly1500-v4-step" data-step="2">
+      <h2>What specialty are you targeting?</h2>
+      <p class="sly1500-v4-step-sub">Select one or more.</p>
+      <div class="sly1500-v4-options" data-filter-group="specialty" data-version="4">
+        <button class="sly1500-v4-option" data-val="im">Internal Medicine</button>
+        <button class="sly1500-v4-option" data-val="fm">Family Medicine</button>
+        <button class="sly1500-v4-option" data-val="psych">Psychiatry</button>
+        <button class="sly1500-v4-option" data-val="peds">Pediatrics</button>
+        <button class="sly1500-v4-option" data-val="surgery">Surgery</button>
+        <button class="sly1500-v4-option" data-val="neuro">Neurology</button>
+        <button class="sly1500-v4-option" data-val="unsure">Not sure yet</button>
+      </div>
+      <div class="sly1500-v4-nav">
+        <button class="sly1500-v4-btn-back" onclick="sly1500V4Back()">Back</button>
+        <button class="sly1500-v4-btn-next" onclick="sly1500V4Next()">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Fears -->
+    <div class="sly1500-v4-step" data-step="3">
+      <h2>What is your biggest fear right now?</h2>
+      <p class="sly1500-v4-step-sub">Select everything that resonates.</p>
+      <div class="sly1500-v4-options" data-filter-group="fears" data-version="4">
+        <button class="sly1500-v4-option" data-val="behind">I feel behind</button>
+        <button class="sly1500-v4-option" data-val="too_late">Too late for me</button>
+        <button class="sly1500-v4-option" data-val="embarrassed">Embarrassed by scores</button>
+        <button class="sly1500-v4-option" data-val="unmatched_before">Did not match before</button>
+        <button class="sly1500-v4-option" data-val="few_ivs">Very few interviews</button>
+        <button class="sly1500-v4-option" data-val="confidence">Need confidence</button>
+        <button class="sly1500-v4-option" data-val="possible">Is this still possible?</button>
+      </div>
+      <div class="sly1500-v4-nav">
+        <button class="sly1500-v4-btn-back" onclick="sly1500V4Back()">Back</button>
+        <button class="sly1500-v4-btn-next" onclick="sly1500V4Next()">Next</button>
+      </div>
+    </div>
+
+    <!-- Step 4: Content Pref -->
+    <div class="sly1500-v4-step" data-step="4">
+      <h2>How do you want to see proof?</h2>
+      <p class="sly1500-v4-step-sub">Optional. Skip this to see everything.</p>
+      <div class="sly1500-v4-options" data-filter-group="contentType" data-version="4">
+        <button class="sly1500-v4-option" data-val="video">Video stories</button>
+        <button class="sly1500-v4-option" data-val="written">Written testimonials</button>
+        <button class="sly1500-v4-option" data-val="matchday">Match Day clips</button>
+        <button class="sly1500-v4-option" data-val="redflag">Red flag recoveries</button>
+      </div>
+      <div class="sly1500-v4-nav">
+        <button class="sly1500-v4-btn-back" onclick="sly1500V4Back()">Back</button>
+        <button class="sly1500-v4-btn-next" onclick="sly1500V4ShowResults()">Show My Matches</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- V4 Results Dashboard -->
+  <div class="sly1500-v4-dashboard" id="sly1500-v4-dashboard">
+    <div class="sly1500-v4-profile-summary" id="sly1500-v4-profile"></div>
+    <div class="sly1500-v4-empty" id="sly1500-v4-empty">
+      <h3>No exact matches found for this combination</h3>
+      <p>Try editing your profile to broaden the search.</p>
+    </div>
+    <div class="sly1500-v4-match-grid" id="sly1500-v4-grid"></div>
+    <div class="sly1500-v4-dash-cta">
+      <h3>Your situation is unique, but you are not alone</h3>
+      <p>Talk to someone who has built match strategies for profiles like yours.</p>
+      <button class="sly1500-v4-dash-cta-btn">Talk Through Your Situation</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ============================================
+     VERSION 5 — EMOTIONAL STORY WALL
+     ============================================ -->
+<div class="sly1500-version sly1500-v5" id="sly1500-v5">
+
+  <!-- V5 Hero -->
+  <div class="sly1500-v5-hero">
+    <div class="sly1500-v5-hero-bg"></div>
+    <div class="sly1500-v5-hero-content">
+      <h1>"You are not the only one who almost gave up."</h1>
+      <p>These are stories from students who were scared, exhausted, and running out of options. They matched anyway.</p>
+      <div class="sly1500-v5-hero-scroll">
+        Scroll to read their stories
+        <span></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- V5 Filters -->
+  <div class="sly1500-v5-filters" id="sly1500-v5-filters">
+    <button class="sly1500-v5-filter-chip sly1500-v5-fc-active" data-val="all" onclick="sly1500FilterV5(this)">All Stories</button>
+    <button class="sly1500-v5-filter-chip" data-val="fear" onclick="sly1500FilterV5(this)">Fear</button>
+    <button class="sly1500-v5-filter-chip" data-val="breakthrough" onclick="sly1500FilterV5(this)">Breakthrough</button>
+    <button class="sly1500-v5-filter-chip" data-val="confidence" onclick="sly1500FilterV5(this)">Confidence</button>
+    <button class="sly1500-v5-filter-chip" data-val="family" onclick="sly1500FilterV5(this)">Family</button>
+    <button class="sly1500-v5-filter-chip" data-val="persistence" onclick="sly1500FilterV5(this)">Persistence</button>
+    <button class="sly1500-v5-filter-chip" data-val="matchday" onclick="sly1500FilterV5(this)">Match Day</button>
+    <button class="sly1500-v5-filter-chip" data-val="video" onclick="sly1500FilterV5(this)">Video Only</button>
+  </div>
+
+  <!-- V5 Story Wall -->
+  <div class="sly1500-v5-wall" id="sly1500-v5-wall"></div>
+
+  <div class="sly1500-v5-empty" id="sly1500-v5-empty">
+    <h3>No stories in this category yet</h3>
+    <p>Try another filter or view all stories.</p>
+  </div>
+
+  <!-- V5 CTA -->
+  <div class="sly1500-v5-cta-section">
+    <h2>Your story is not over yet</h2>
+    <p>The next chapter starts with a conversation about what is actually possible for you.</p>
+    <button class="sly1500-v5-cta-btn">Start Your Conversation</button>
+  </div>
+</div>
+
+
+<!-- ============================================
+     VERSION 6 — ARENA PROOF VAULT
+     ============================================ -->
+<div class="sly1500-version sly1500-v6" id="sly1500-v6">
+
+  <!-- V6 Hero -->
+  <div class="sly1500-v6-hero">
+    <div class="sly1500-v6-hero-inner">
+      <span class="sly1500-v6-hero-badge">MissionMed Arena</span>
+      <h1>Proof Vault</h1>
+      <p>Real students. Real red flags. Real matches. Every card in this vault is earned proof that the impossible is a strategy problem.</p>
+      <button class="sly1500-v6-hero-btn" onclick="document.getElementById('sly1500-v6-loadout').scrollIntoView({behavior:'smooth'})">Open the Vault</button>
+    </div>
+  </div>
+
+  <!-- V6 Loadout Filters -->
+  <div class="sly1500-v6-loadout" id="sly1500-v6-loadout">
+    <h2>Select Your Challenge</h2>
+    <div class="sly1500-v6-loadout-row" id="sly1500-v6-rf-chips">
+      <button class="sly1500-v6-loadout-chip" data-val="old_grad" onclick="sly1500ToggleV6(this)">YOG Gap</button>
+      <button class="sly1500-v6-loadout-chip" data-val="low_step" onclick="sly1500ToggleV6(this)">Low Step</button>
+      <button class="sly1500-v6-loadout-chip" data-val="multiple_attempts" onclick="sly1500ToggleV6(this)">Multiple Attempts</button>
+      <button class="sly1500-v6-loadout-chip" data-val="unmatched" onclick="sly1500ToggleV6(this)">Previously Unmatched</button>
+      <button class="sly1500-v6-loadout-chip" data-val="visa" onclick="sly1500ToggleV6(this)">Visa</button>
+      <button class="sly1500-v6-loadout-chip" data-val="limited_usce" onclick="sly1500ToggleV6(this)">Limited USCE</button>
+      <button class="sly1500-v6-loadout-chip" data-val="low_ivs" onclick="sly1500ToggleV6(this)">Low IVs</button>
+      <button class="sly1500-v6-loadout-chip" data-val="caribbean" onclick="sly1500ToggleV6(this)">Caribbean</button>
+      <button class="sly1500-v6-loadout-chip" data-val="financial" onclick="sly1500ToggleV6(this)">Financial</button>
+    </div>
+    <div class="sly1500-v6-loadout-row" id="sly1500-v6-spec-chips">
+      <button class="sly1500-v6-loadout-chip" data-val="im" onclick="sly1500ToggleV6(this)" style="border-color:rgba(58,120,178,0.3);color:#68b">IM</button>
+      <button class="sly1500-v6-loadout-chip" data-val="fm" onclick="sly1500ToggleV6(this)" style="border-color:rgba(58,120,178,0.3);color:#68b">FM</button>
+      <button class="sly1500-v6-loadout-chip" data-val="psych" onclick="sly1500ToggleV6(this)" style="border-color:rgba(58,120,178,0.3);color:#68b">Psych</button>
+      <button class="sly1500-v6-loadout-chip" data-val="surgery" onclick="sly1500ToggleV6(this)" style="border-color:rgba(58,120,178,0.3);color:#68b">Surgery</button>
+      <button class="sly1500-v6-loadout-chip" data-val="peds" onclick="sly1500ToggleV6(this)" style="border-color:rgba(58,120,178,0.3);color:#68b">Peds</button>
+      <button class="sly1500-v6-loadout-chip" data-val="neuro" onclick="sly1500ToggleV6(this)" style="border-color:rgba(58,120,178,0.3);color:#68b">Neuro</button>
+    </div>
+  </div>
+
+  <!-- V6 Vault Grid -->
+  <div class="sly1500-v6-vault">
+    <div class="sly1500-v6-vault-header">
+      <span class="sly1500-v6-vault-count" id="sly1500-v6-count">Showing <strong>all</strong> proof cards</span>
+      <button class="sly1500-v6-vault-reset" onclick="sly1500ResetV6()">Reset Loadout</button>
+    </div>
+    <div class="sly1500-v6-empty" id="sly1500-v6-empty">
+      <h3>No cards match this loadout</h3>
+      <p>Adjust your challenge filters to unlock more proof.</p>
+    </div>
+    <div class="sly1500-v6-card-grid" id="sly1500-v6-grid"></div>
+  </div>
+
+  <!-- V6 CTA -->
+  <div class="sly1500-v6-cta-section">
+    <h2>Start Your Strategy Session</h2>
+    <p>The vault proves it is possible. Now build the plan that makes it happen for you.</p>
+    <button class="sly1500-v6-cta-btn">Enter the Arena</button>
+  </div>
+</div>
+
+
+<!-- ============================================
+     JAVASCRIPT — DATA MODEL + ENGINE
+     ============================================ -->
+<script>
+/* ============================================
+   TESTIMONIAL DATA MODEL
+   Sources: MissionMed Testimonial Database, Match Day Video System
+   NOTE: Stories marked approvedForDemo:true use approved data.
+   Stories with approvedForDemo:false are demo placeholders — replace
+   with verified data before production use.
+   ============================================ */
+const SLY1500_STORIES = [
+  {
+    id: 1,
+    displayName: "Sudha",
+    specialty: ["im"],
+    contentType: ["video", "matchday", "redflag", "coaching"],
+    redFlags: ["old_grad", "multiple_attempts", "unmatched", "low_ivs"],
+    fears: ["behind", "too_late", "possible", "confidence"],
+    tags: ["persistence", "breakthrough", "matchday"],
+    headline: "Seven years. Three attempts. Matched.",
+    quote: "I never thought this day would come. Seven years of waiting, three attempts, and now I am a resident.",
+    storySummary: "Sudha graduated with a significant YOG gap and went through three match cycles before working with Mission Residency. Dr. Brian restructured her application strategy, rebuilt her interview confidence, and helped her tell her story differently.",
+    before: "7-year YOG gap, three failed attempts, diminishing confidence, limited interviews",
+    strategy: "Complete application repositioning, intensive interview coaching, new USCE strategy, personal statement rewrite focusing on persistence as a strength",
+    after: "Matched Internal Medicine",
+    outcomeLabel: "MATCHED - Internal Medicine",
+    videoThumbnail: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=600&q=80",
+    matchStrengthBase: 95,
+    approvedForDemo: true,
+    sourceNote: "Match Day Video System: transformation_sudha_seven_year_journey series (12 clips)",
+    rarity: "legendary",
+    emotionalCategory: "persistence"
+  },
+  {
+    id: 2,
+    displayName: "Krishna",
+    specialty: ["im"],
+    contentType: ["written", "redflag"],
+    redFlags: ["old_grad", "multiple_attempts", "limited_usce"],
+    fears: ["behind", "possible", "confidence"],
+    tags: ["fear", "breakthrough", "matchday"],
+    headline: "First-cycle match despite every obstacle.",
+    quote: "I matched on my first cycle! If somebody would have told me this after I started my journey, I wouldn't believe it because I was facing so many adversities and obstacles.",
+    storySummary: "Krishna faced multiple adversities and obstacles that made matching seem impossible. Dr. Brian's unique model brought out the best in what Krishna already had and helped him present his authentic personality.",
+    before: "Multiple adversities, obstacles that seemed insurmountable, lack of confidence",
+    strategy: "Dr. Brian's unique coaching model, personality-centered application approach, confidence building",
+    after: "Matched first cycle",
+    outcomeLabel: "MATCHED - First Cycle",
+    videoThumbnail: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=600&q=80",
+    matchStrengthBase: 90,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group verbatim: Testimonial #6 (Krishna Desai)",
+    rarity: "epic",
+    emotionalCategory: "breakthrough"
+  },
+  {
+    id: 3,
+    displayName: "Chelsey",
+    specialty: ["im"],
+    contentType: ["written", "redflag", "coaching"],
+    redFlags: ["unmatched", "multiple_attempts"],
+    fears: ["behind", "unmatched_before", "possible", "too_late"],
+    tags: ["persistence", "breakthrough"],
+    headline: "Five cycles. Five years of 'no.' Then yes.",
+    quote: "After 5 failed attempts, I matched. It was about persistence. It was about getting the right strategy in place.",
+    storySummary: "Chelsey went through five application cycles before matching. This is the most extreme turnaround documented in the Mission Residency community. The strategy made all the difference.",
+    before: "5 previous application cycles, emotional exhaustion, running out of options",
+    strategy: "Complete strategy overhaul with Mission Residency, new approach to applications and interviews",
+    after: "Matched after 5th cycle",
+    outcomeLabel: "MATCHED - After 5 Cycles",
+    videoThumbnail: "https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1551836022-deb4988cc6c0?w=600&q=80",
+    matchStrengthBase: 98,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #9 (Chelsey CC) - 24 likes",
+    rarity: "legendary",
+    emotionalCategory: "persistence"
+  },
+  {
+    id: 4,
+    displayName: "Shamsun",
+    specialty: ["im"],
+    contentType: ["written", "redflag"],
+    redFlags: ["old_grad", "unmatched", "img_abroad"],
+    fears: ["behind", "too_late", "possible"],
+    tags: ["fear", "persistence", "breakthrough"],
+    headline: "8-year YOG gap. Bangladesh graduate. Matched IM.",
+    quote: "Eight years since graduation. Everyone said it was too late. It was not.",
+    storySummary: "Shamsun is a Bangladesh graduate who matched Internal Medicine despite an 8-year gap between graduation and match. A repeat applicant who refused to give up.",
+    before: "8-year YOG gap, Bangladesh IMG, repeat applicant, multiple rejections",
+    strategy: "Strategic repositioning of YOG gap as clinical maturity, targeted USCE, application narrative overhaul",
+    after: "Matched Internal Medicine",
+    outcomeLabel: "MATCHED - Internal Medicine",
+    videoThumbnail: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=600&q=80",
+    matchStrengthBase: 92,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #8 (Shamsun Nahar Mita) - HIGH VALUE",
+    rarity: "legendary",
+    emotionalCategory: "persistence"
+  },
+  {
+    id: 5,
+    displayName: "Manisha",
+    specialty: ["psych"],
+    contentType: ["video", "matchday", "coaching"],
+    redFlags: ["old_grad", "img_abroad", "weak_iv"],
+    fears: ["behind", "confidence", "embarrassed"],
+    tags: ["confidence", "breakthrough", "matchday"],
+    headline: "Bangladesh graduate. First-cycle Psychiatry match.",
+    quote: "The tough training was worth every minute. I walked into my interviews as a completely different person.",
+    storySummary: "Manisha, a Bangladesh graduate with a YOG gap, matched Psychiatry on her first cycle. The interview coaching transformed her confidence completely.",
+    before: "Bangladesh graduate, YOG gap, low interview confidence, IMG applying from abroad",
+    strategy: "Intensive interview coaching, confidence building, Psychiatry-specific application strategy",
+    after: "Matched Psychiatry, first cycle",
+    outcomeLabel: "MATCHED - Psychiatry, 1st Cycle",
+    videoThumbnail: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=600&q=80",
+    matchStrengthBase: 88,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #7 (Manisha Kanumuri) + Video clips",
+    rarity: "epic",
+    emotionalCategory: "confidence"
+  },
+  {
+    id: 6,
+    displayName: "Sirajum",
+    specialty: ["im"],
+    contentType: ["written", "coaching", "interview_turn"],
+    redFlags: ["weak_iv"],
+    fears: ["confidence", "few_ivs"],
+    tags: ["confidence", "breakthrough"],
+    headline: "IV prep changed everything. First-attempt match.",
+    quote: "It helped me tremendously to effectively communicate during my residency interviews. I matched in my first attempt!",
+    storySummary: "Sirajum trained with Mission Residency in 2015 for IV prep, matched on the first attempt, and returned in 2019 for fellowship interview preparation. One of the longest student-mentor relationships documented.",
+    before: "Struggled with interview communication, lacked confidence in expressing herself",
+    strategy: "IV prep course focused on effective communication, personalized coaching, follow-up support",
+    after: "First-attempt match, returned for fellowship prep 4 years later",
+    outcomeLabel: "MATCHED - 1st Attempt + Fellowship",
+    videoThumbnail: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=600&q=80",
+    matchStrengthBase: 82,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #18 (Sirajum Munira)",
+    rarity: "rare",
+    emotionalCategory: "confidence"
+  },
+  {
+    id: 7,
+    displayName: "Maulik",
+    specialty: ["im"],
+    contentType: ["written", "coaching"],
+    redFlags: ["weak_iv", "limited_usce"],
+    fears: ["confidence", "embarrassed"],
+    tags: ["confidence"],
+    headline: "Tailored strategy for a unique situation.",
+    quote: "Dr. B takes the time to understand both your personal and academic struggles, offering tailored advice that fits your unique situation.",
+    storySummary: "Maulik enrolled in the 360 Elite program and praised Dr. Brian's personalized approach to understanding each student's unique combination of challenges and strengths.",
+    before: "Personal and academic struggles, needed individualized guidance",
+    strategy: "360 Elite program, tailored advice, personalized coaching addressing both personal and academic dimensions",
+    after: "5/5 rating, strong program endorsement",
+    outcomeLabel: "360 ELITE - 5/5 Rating",
+    videoThumbnail: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=600&q=80",
+    matchStrengthBase: 78,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Review #4 (Maulik Dhanani) - 360 Elite",
+    rarity: "rare",
+    emotionalCategory: "confidence"
+  },
+  {
+    id: 8,
+    displayName: "Marian",
+    specialty: ["im"],
+    contentType: ["written", "matchday", "redflag"],
+    redFlags: ["unmatched", "multiple_attempts"],
+    fears: ["unmatched_before", "behind", "possible"],
+    tags: ["persistence", "matchday"],
+    headline: "Two failed cycles. Third time matched.",
+    quote: "I Matched! After two previous cycles, I finally matched. The strategy was the missing piece.",
+    storySummary: "Marian went through two unsuccessful match cycles before succeeding on the third attempt with Mission Residency's guidance.",
+    before: "2 previous unsuccessful match cycles",
+    strategy: "Application strategy overhaul, interview coaching, targeted program selection",
+    after: "Matched on third cycle",
+    outcomeLabel: "MATCHED - 3rd Cycle",
+    videoThumbnail: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&q=80",
+    matchStrengthBase: 85,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #11 (Marian Ghaly) - 7 likes",
+    rarity: "epic",
+    emotionalCategory: "persistence"
+  },
+  {
+    id: 9,
+    displayName: "Janani",
+    specialty: ["im"],
+    contentType: ["written", "coaching"],
+    redFlags: ["img_abroad", "financial"],
+    fears: ["behind", "truth"],
+    tags: ["breakthrough", "family"],
+    headline: "Thought it was too expensive. Calls it priceless.",
+    quote: "I thought it's expensive. Thank god I did join Mission Residency, this is the best ever decision I made in my life. Mission Residency's priceless.",
+    storySummary: "Janani, an IMG from India, almost did not enroll because of the cost. After joining, she described the program as priceless and the best decision of her life.",
+    before: "IMG from India, financial hesitation, unsure about program value",
+    strategy: "Mission Residency training program, new techniques and strategies",
+    after: "Program endorsed as 'priceless,' best decision of her life",
+    outcomeLabel: "ENROLLED - Best Decision",
+    videoThumbnail: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=600&q=80",
+    matchStrengthBase: 75,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #16 (Janani Babu)",
+    rarity: "rare",
+    emotionalCategory: "breakthrough"
+  },
+  {
+    id: 10,
+    displayName: "JaLpa",
+    specialty: ["im"],
+    contentType: ["written", "redflag", "coaching"],
+    redFlags: ["unmatched", "visa", "multiple_attempts"],
+    fears: ["behind", "too_late", "possible"],
+    tags: ["persistence", "fear"],
+    headline: "Unmatched, matched, visa denied, still fighting.",
+    quote: "My journey has not been linear. But every setback taught me something, and Dr. Brian has been there through every chapter.",
+    storySummary: "JaLpa's journey is one of the most complex documented: went unmatched, enrolled in IV prep, matched, was denied a visa in 2017, and is applying again with 360 Elite. Dr. Brian has supported her across multiple years.",
+    before: "Unmatched first cycle, visa complications, multi-year journey",
+    strategy: "IV prep initially, then 360 Elite, long-term strategic partnership with Dr. Brian across multiple application cycles",
+    after: "Matched once (visa denied), reapplying with 360 Elite",
+    outcomeLabel: "MATCHED + REAPPLYING (Visa)",
+    videoThumbnail: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=600&q=80",
+    matchStrengthBase: 93,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #13 (JaLpa Kumari) - UNIQUE multi-year case",
+    rarity: "legendary",
+    emotionalCategory: "persistence"
+  },
+  {
+    id: 11,
+    displayName: "Mahbuba",
+    specialty: ["im"],
+    contentType: ["video", "matchday", "interview_turn"],
+    redFlags: ["weak_iv", "img_abroad"],
+    fears: ["confidence", "embarrassed", "few_ivs"],
+    tags: ["confidence", "matchday", "breakthrough"],
+    headline: "Interview disaster to Match Day tears.",
+    quote: "I went from not being able to finish a single practice interview to matching. This is the best day of my life.",
+    storySummary: "Mahbuba struggled severely with interview confidence. Through intensive coaching, she transformed from someone who could not complete practice interviews to a matched resident.",
+    before: "Could not complete mock interviews, severe interview anxiety, IMG from abroad",
+    strategy: "Intensive confidence transformation, mock interview training, systematic anxiety management",
+    after: "Complete interview confidence transformation, matched",
+    outcomeLabel: "MATCHED - Confidence Transformation",
+    videoThumbnail: "https://images.unsplash.com/photo-1551076805-e1869033e561?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1551076805-e1869033e561?w=600&q=80",
+    matchStrengthBase: 88,
+    approvedForDemo: true,
+    sourceNote: "Match Day Video System: confidence_breakthrough + emotional_reaction clips (Mahbuba)",
+    rarity: "epic",
+    emotionalCategory: "confidence"
+  },
+  {
+    id: 12,
+    displayName: "Rekha",
+    specialty: ["im"],
+    contentType: ["written", "coaching"],
+    redFlags: ["img_abroad", "financial"],
+    fears: ["truth", "behind"],
+    tags: ["breakthrough"],
+    headline: "Almost did not join. Now calls it the best decision.",
+    quote: "Initially I thought it was too expensive. I did join Mission Residency, this is one of the best decisions I made. Dr. B is a very dedicated and hard working mentor.",
+    storySummary: "Rekha overcame initial price hesitation after a friend referred her to Mission Residency. She praises Dr. Brian's teaching of new techniques and strategies critical for match success.",
+    before: "IMG, initial financial hesitation, word-of-mouth referral",
+    strategy: "New techniques and strategies taught by Dr. Brian, dedicated mentorship",
+    after: "Describes enrollment as 'one of the best decisions I made'",
+    outcomeLabel: "ENROLLED - Best Decision",
+    videoThumbnail: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=600&q=80",
+    matchStrengthBase: 72,
+    approvedForDemo: true,
+    sourceNote: "Facebook Group: Testimonial #15 (Rekha Chandra)",
+    rarity: "rare",
+    emotionalCategory: "breakthrough"
+  },
+  {
+    id: 13,
+    displayName: "Naiya",
+    specialty: ["im", "fm"],
+    contentType: ["video", "interview_turn"],
+    redFlags: ["weak_iv", "limited_usce"],
+    fears: ["confidence", "embarrassed"],
+    tags: ["confidence", "breakthrough"],
+    headline: "Mock interview transformation caught on camera.",
+    quote: "The difference between my first mock and my last mock is night and day. I did not recognize myself.",
+    storySummary: "Naiya's transformation during mock interview training is documented in video. The visible change in confidence and communication is dramatic.",
+    before: "Poor mock interview performance, low confidence, limited clinical experience",
+    strategy: "Systematic mock interview coaching, communication skill building",
+    after: "Dramatic, visible transformation in interview performance",
+    outcomeLabel: "TRANSFORMATION - Interview Skills",
+    videoThumbnail: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=600&q=80",
+    matchStrengthBase: 80,
+    approvedForDemo: true,
+    sourceNote: "Match Day Video System: transformation_naiya_mock_interview_transformation",
+    rarity: "epic",
+    emotionalCategory: "confidence"
+  },
+  {
+    id: 14,
+    displayName: "Talib",
+    specialty: ["im"],
+    contentType: ["video", "matchday", "redflag", "family"],
+    redFlags: ["old_grad", "multiple_attempts", "unmatched"],
+    fears: ["behind", "too_late", "unmatched_before", "possible"],
+    tags: ["persistence", "family", "matchday", "fear"],
+    headline: "Tough journey, family in tears on Match Day.",
+    quote: "The obstacles almost broke me. But on Match Day, my whole family was crying. It was worth every moment.",
+    storySummary: "Talib's journey involved overcoming significant obstacles over multiple cycles. His Match Day video captures the emotional moment his family celebrates the match, including tears of relief.",
+    before: "YOG gap, multiple failed attempts, family pressure, previously unmatched",
+    strategy: "Long-term partnership with Dr. Brian, obstacle-by-obstacle strategy, family involvement",
+    after: "Matched, emotional family celebration on Match Day",
+    outcomeLabel: "MATCHED - Family Celebration",
+    videoThumbnail: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&q=80",
+    matchStrengthBase: 91,
+    approvedForDemo: true,
+    sourceNote: "Match Day Video System: emotional_talib_family_crying_relief + transformation_talib series",
+    rarity: "legendary",
+    emotionalCategory: "family"
+  },
+  {
+    id: 15,
+    displayName: "Anonymous (Step 1: 188, 3rd attempt)",
+    specialty: ["im"],
+    contentType: ["redflag", "strategy"],
+    redFlags: ["low_step", "multiple_attempts", "usmle_attempt"],
+    fears: ["embarrassed", "possible", "behind"],
+    tags: ["fear", "breakthrough"],
+    headline: "Step 1: 188 on the third attempt. Still matched.",
+    quote: "A doc with a 188 on the Step 1, third attempt, matched into residency.",
+    storySummary: "This anonymized case referenced by Dr. Brian demonstrates that even a 188 on Step 1 after three attempts does not end the dream. Strategy and positioning made the difference.",
+    before: "Step 1 score of 188, third attempt, extremely low by competitive standards",
+    strategy: "Strategic application positioning, red flag narrative management, targeted program selection",
+    after: "Matched into residency",
+    outcomeLabel: "MATCHED - Despite 188/3rd Attempt",
+    videoThumbnail: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=600&q=80",
+    matchStrengthBase: 96,
+    approvedForDemo: true,
+    sourceNote: "Dr. Brian's Facebook post (April 2019) - anonymized case",
+    rarity: "legendary",
+    emotionalCategory: "fear"
+  },
+  {
+    id: 16,
+    displayName: "Anonymous (YOG 2002, 2004, 2006)",
+    specialty: ["im", "fm"],
+    contentType: ["redflag", "strategy"],
+    redFlags: ["old_grad"],
+    fears: ["too_late", "behind", "possible"],
+    tags: ["persistence", "fear"],
+    headline: "Graduates from 2002, 2004, 2006. All matched.",
+    quote: "Old Graduates with 2002, 2004, 2006 YOGs still found their path to residency.",
+    storySummary: "Dr. Brian has coached students with graduation years as far back as 2002 through the match process. These extreme YOG gaps demonstrate that it is never truly 'too late.'",
+    before: "YOG gaps of 20+ years in some cases, conventional wisdom says impossible",
+    strategy: "Targeted repositioning, maturity as asset framing, strategic program selection",
+    after: "Matched despite extreme YOG gaps",
+    outcomeLabel: "MATCHED - 20+ Year YOG Gaps",
+    videoThumbnail: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=400&q=80",
+    imageUrl: "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&q=80",
+    matchStrengthBase: 94,
+    approvedForDemo: true,
+    sourceNote: "Dr. Brian's Facebook post (April 2019) - anonymized cases",
+    rarity: "legendary",
+    emotionalCategory: "persistence"
+  }
+];
+
+/* ============================================
+   PLAY ICON SVG (reusable)
+   ============================================ */
+const SLY1500_PLAY_SVG = '<svg viewBox="0 0 24 24" width="20" height="20"><path fill="#fff" d="M8 5v14l11-7z"/></svg>';
+
+/* ============================================
+   VERSION SWITCHER
+   ============================================ */
+function sly1500Switch(v) {
+  document.querySelectorAll('.sly1500-version').forEach(el => el.classList.remove('sly1500-active'));
+  document.querySelectorAll('.sly1500-selector button').forEach(btn => btn.classList.remove('sly1500-sel-active'));
+  document.getElementById('sly1500-v' + v).classList.add('sly1500-active');
+  document.querySelectorAll('.sly1500-selector button')[v - 1].classList.add('sly1500-sel-active');
+  window.scrollTo(0, 0);
+}
+
+/* ============================================
+   MATCHING ALGORITHM
+   ============================================ */
+function sly1500CalcMatch(story, profile) {
+  let score = story.matchStrengthBase * 0.3; // base weight 30%
+  // Red flag overlap = highest weight
+  const rfOverlap = (profile.redFlags || []).filter(f => story.redFlags.includes(f));
+  score += rfOverlap.length * 12;
+  // Specialty match
+  const specMatch = (profile.specialty || []).some(s => story.specialty.includes(s));
+  if (specMatch) score += 8;
+  // Fear overlap
+  const fearOverlap = (profile.fears || []).filter(f => story.fears.includes(f));
+  score += fearOverlap.length * 6;
+  // Content type preference
+  const ctMatch = (profile.contentType || []).filter(c => story.contentType.includes(c));
+  score += ctMatch.length * 3;
+  // Video bonus
+  if (story.contentType.includes('video')) score += 4;
+  // Normalize to 0-100
+  return Math.min(99, Math.max(10, Math.round(score)));
+}
+
+/* ============================================
+   STORY MODAL
+   ============================================ */
+function sly1500OpenStory(idx) {
+  const s = SLY1500_STORIES[idx];
+  if (!s) return;
+  const modal = document.getElementById('sly1500-modal');
+  const body = document.getElementById('sly1500-modal-body');
+  const hasVideo = s.contentType.includes('video');
+
+  body.innerHTML = `
+    ${hasVideo ? `
+    <div class="sly1500-modal-video">
+      <img src="${s.videoThumbnail}" alt="${s.displayName} video thumbnail">
+      <div class="sly1500-modal-play">${SLY1500_PLAY_SVG}</div>
+    </div>` : ''}
+    <h2 style="font-size:1.4rem;margin-bottom:4px;">${s.displayName}</h2>
+    <p style="color:#888;font-size:13px;margin-bottom:12px;">${s.outcomeLabel}</p>
+    <div class="sly1500-modal-tags">
+      ${s.redFlags.map(f => `<span class="sly1500-modal-tag">${formatFlag(f)}</span>`).join('')}
+    </div>
+    <div class="sly1500-modal-quote">"${s.quote}"</div>
+    <div class="sly1500-modal-section">
+      <h4>Before</h4>
+      <p>${s.before}</p>
+    </div>
+    <div class="sly1500-modal-section">
+      <h4>Strategy</h4>
+      <p>${s.strategy}</p>
+    </div>
+    <div class="sly1500-modal-section">
+      <h4>After</h4>
+      <p>${s.after}</p>
+    </div>
+    <div class="sly1500-modal-section">
+      <h4>The full story</h4>
+      <p>${s.storySummary}</p>
+    </div>
+    <p style="font-size:11px;color:#555;margin-top:16px;">Source: ${s.sourceNote}</p>
+    <button class="sly1500-modal-cta">Talk through your situation</button>
+  `;
+  modal.classList.add('sly1500-modal-open');
+}
+
+function formatFlag(f) {
+  const map = {
+    old_grad: 'YOG Gap', low_step: 'Low Step', usmle_attempt: 'USMLE Attempt',
+    multiple_attempts: 'Multiple Attempts', unmatched: 'Previously Unmatched',
+    limited_usce: 'Limited USCE', visa: 'Visa Concern', low_ivs: 'Low Interviews',
+    weak_iv: 'Weak IV Confidence', caribbean: 'Caribbean Grad', img_abroad: 'IMG Abroad',
+    financial: 'Financial Pressure', family_pressure: 'Family Pressure',
+    specialty_uncertain: 'Specialty Uncertain'
+  };
+  return map[f] || f;
+}
+
+// Close modal
+document.getElementById('sly1500-modal-close').addEventListener('click', () => {
+  document.getElementById('sly1500-modal').classList.remove('sly1500-modal-open');
+});
+document.getElementById('sly1500-modal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.remove('sly1500-modal-open');
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.getElementById('sly1500-modal').classList.remove('sly1500-modal-open');
+});
+
+
+/* ============================================
+   VERSION 1 — PROOF CONCIERGE ENGINE
+   ============================================ */
+const v1State = { redFlags: [], specialty: [], fears: [], contentType: [] };
+
+// Chip toggle for V1
+document.querySelectorAll('.sly1500-v1-chips .sly1500-v1-chip').forEach(chip => {
+  chip.addEventListener('click', function() {
+    this.classList.toggle('sly1500-v1-chip-active');
+  });
+});
+
+function sly1500GetV1Profile() {
+  const profile = { redFlags: [], specialty: [], fears: [], contentType: [] };
+  document.querySelectorAll('#sly1500-v1-concierge .sly1500-v1-chip.sly1500-v1-chip-active').forEach(chip => {
+    const group = chip.closest('[data-filter-group]').dataset.filterGroup;
+    profile[group].push(chip.dataset.val);
+  });
+  return profile;
+}
+
+function sly1500FilterV1() {
+  const profile = sly1500GetV1Profile();
+  const hasFilters = Object.values(profile).some(a => a.length > 0);
+  const results = SLY1500_STORIES.map((s, idx) => ({
+    story: s, idx, score: hasFilters ? sly1500CalcMatch(s, profile) : s.matchStrengthBase * 0.5
+  })).filter(r => {
+    if (!hasFilters) return true;
+    // Must match at least one filter dimension
+    const rfMatch = profile.redFlags.length === 0 || profile.redFlags.some(f => r.story.redFlags.includes(f));
+    const specMatch = profile.specialty.length === 0 || profile.specialty.some(s => r.story.specialty.includes(s));
+    const ctMatch = profile.contentType.length === 0 || profile.contentType.some(c => r.story.contentType.includes(c));
+    return rfMatch && specMatch && ctMatch;
+  }).sort((a, b) => b.score - a.score);
+
+  sly1500RenderV1(results, hasFilters);
+}
+
+function sly1500RenderV1(results, filtered) {
+  const grid = document.getElementById('sly1500-v1-grid');
+  const empty = document.getElementById('sly1500-v1-empty');
+  const count = document.getElementById('sly1500-v1-count');
+
+  if (results.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    count.innerHTML = 'No matches found';
+    return;
+  }
+  empty.style.display = 'none';
+  count.innerHTML = filtered
+    ? `Showing <strong>${results.length}</strong> stories that match your profile`
+    : `Showing <strong>all ${results.length}</strong> stories`;
+
+  grid.innerHTML = results.map(r => `
+    <div class="sly1500-v1-card" onclick="sly1500OpenStory(${r.idx})">
+      <img class="sly1500-v1-card-img" src="${r.story.imageUrl}" alt="${r.story.displayName}" loading="lazy">
+      <div class="sly1500-v1-card-body">
+        <div class="sly1500-v1-card-name">${r.story.displayName}${filtered ? `<span class="sly1500-v1-card-match">${r.score}% match</span>` : ''}</div>
+        <div class="sly1500-v1-card-meta">${r.story.outcomeLabel}</div>
+        <div class="sly1500-v1-card-quote">"${r.story.quote.substring(0, 120)}${r.story.quote.length > 120 ? '...' : ''}"</div>
+        <div class="sly1500-v1-card-tags">
+          ${r.story.redFlags.slice(0, 3).map(f => `<span class="sly1500-v1-card-tag">${formatFlag(f)}</span>`).join('')}
+          ${r.story.contentType.includes('video') ? '<span class="sly1500-v1-card-tag sly1500-v1-card-tag-video">Video</span>' : ''}
+        </div>
+        <span class="sly1500-v1-card-link">Read full story &rarr;</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function sly1500ResetV1() {
+  document.querySelectorAll('#sly1500-v1-concierge .sly1500-v1-chip').forEach(c => c.classList.remove('sly1500-v1-chip-active'));
+  sly1500FilterV1();
+}
+
+// V1 Video Row
+function sly1500RenderV1Videos() {
+  const row = document.getElementById('sly1500-v1-video-row');
+  const videos = SLY1500_STORIES.filter(s => s.contentType.includes('video'));
+  row.innerHTML = videos.map((s, i) => `
+    <div class="sly1500-v1-video-card" onclick="sly1500OpenStory(${SLY1500_STORIES.indexOf(s)})">
+      <div class="sly1500-v1-video-thumb">
+        <img src="${s.videoThumbnail}" alt="${s.displayName}" loading="lazy">
+        <div class="sly1500-v1-play">${SLY1500_PLAY_SVG}</div>
+      </div>
+      <div class="sly1500-v1-video-info">
+        <div class="sly1500-v1-video-title">${s.headline}</div>
+        <div class="sly1500-v1-video-sub">${s.displayName} - ${s.outcomeLabel}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+
+/* ============================================
+   VERSION 2 — NETFLIX ENGINE
+   ============================================ */
+let v2ActiveChips = [];
+
+function sly1500ToggleV2Chip(btn) {
+  btn.classList.toggle('sly1500-v2-chip-active');
+  const val = btn.dataset.val;
+  if (v2ActiveChips.includes(val)) v2ActiveChips = v2ActiveChips.filter(v => v !== val);
+  else v2ActiveChips.push(val);
+  sly1500FilterV2();
+}
+
+function sly1500FilterV2() {
+  const spec = document.getElementById('sly1500-v2-specialty').value;
+  const filtered = SLY1500_STORIES.filter(s => {
+    const specOk = !spec || s.specialty.includes(spec);
+    const typeOk = v2ActiveChips.length === 0 || v2ActiveChips.some(c => s.contentType.includes(c));
+    return specOk && typeOk;
+  });
+  sly1500RenderV2(filtered, spec || v2ActiveChips.length > 0);
+}
+
+function sly1500RenderV2(stories, isFiltered) {
+  const container = document.getElementById('sly1500-v2-rows');
+  const empty = document.getElementById('sly1500-v2-empty');
+  const countEl = document.getElementById('sly1500-v2-count');
+
+  if (stories.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    countEl.innerHTML = 'No stories match';
+    return;
+  }
+  empty.style.display = 'none';
+  countEl.innerHTML = isFiltered ? `<strong>${stories.length}</strong> stories match your filters` : '';
+
+  // Group into rows by category
+  const categories = {
+    'Red Flag Recovery Stories': stories.filter(s => s.contentType.includes('redflag')),
+    'Video Proof': stories.filter(s => s.contentType.includes('video')),
+    'Persistence Against the Odds': stories.filter(s => s.tags.includes('persistence')),
+    'Confidence Transformations': stories.filter(s => s.tags.includes('confidence')),
+    'Match Day Moments': stories.filter(s => s.contentType.includes('matchday')),
+    'All Stories': stories
+  };
+
+  let html = '';
+  for (const [title, items] of Object.entries(categories)) {
+    if (items.length === 0) continue;
+    html += `
+      <div class="sly1500-v2-row-section">
+        <div class="sly1500-v2-row-title">${title}</div>
+        <div class="sly1500-v2-row">
+          ${items.map(s => {
+            const idx = SLY1500_STORIES.indexOf(s);
+            const isVideo = s.contentType.includes('video');
+            return `
+            <div class="sly1500-v2-tile" onclick="sly1500OpenStory(${idx})">
+              <img class="sly1500-v2-tile-img" src="${s.videoThumbnail}" alt="${s.displayName}" loading="lazy">
+              ${isVideo ? `<span class="sly1500-v2-tile-badge">VIDEO</span>` : ''}
+              <div class="sly1500-v2-tile-play">${SLY1500_PLAY_SVG}</div>
+              <div class="sly1500-v2-tile-overlay">
+                <div class="sly1500-v2-tile-name">${s.displayName}</div>
+                <div class="sly1500-v2-tile-meta">${s.headline}</div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+
+/* ============================================
+   VERSION 3 — CASE FILE ENGINE
+   ============================================ */
+function sly1500FilterV3() {
+  const rfChecked = [...document.querySelectorAll('#sly1500-v3-rf input:checked')].map(i => i.value);
+  const specChecked = [...document.querySelectorAll('#sly1500-v3-spec input:checked')].map(i => i.value);
+  const typeChecked = [...document.querySelectorAll('#sly1500-v3-type input:checked')].map(i => i.value);
+  const hasFilters = rfChecked.length + specChecked.length + typeChecked.length > 0;
+
+  const profile = { redFlags: rfChecked, specialty: specChecked, contentType: typeChecked, fears: [] };
+  let results = SLY1500_STORIES.map((s, idx) => ({
+    story: s, idx, score: sly1500CalcMatch(s, profile)
+  }));
+
+  if (hasFilters) {
+    results = results.filter(r => {
+      const rfOk = rfChecked.length === 0 || rfChecked.some(f => r.story.redFlags.includes(f));
+      const specOk = specChecked.length === 0 || specChecked.some(s => r.story.specialty.includes(s));
+      const typeOk = typeChecked.length === 0 || typeChecked.some(t => r.story.contentType.includes(t));
+      return rfOk && specOk && typeOk;
+    }).sort((a, b) => b.score - a.score);
+  }
+
+  sly1500RenderV3(results, hasFilters);
+}
+
+function sly1500RenderV3(results, filtered) {
+  const container = document.getElementById('sly1500-v3-cases');
+  const empty = document.getElementById('sly1500-v3-empty');
+  const count = document.getElementById('sly1500-v3-count');
+
+  if (results.length === 0) {
+    container.innerHTML = '';
+    empty.style.display = 'block';
+    count.innerHTML = 'No case files match';
+    return;
+  }
+  empty.style.display = 'none';
+  count.innerHTML = filtered
+    ? `Showing <strong>${results.length}</strong> matching case files, sorted by relevance`
+    : `Showing <strong>all ${results.length}</strong> case files`;
+
+  container.innerHTML = results.map(r => {
+    const s = r.story;
+    const isVideo = s.contentType.includes('video');
+    return `
+    <div class="sly1500-v3-case" onclick="sly1500OpenStory(${r.idx})">
+      <img class="sly1500-v3-case-img" src="${s.videoThumbnail}" alt="${s.displayName}" loading="lazy">
+      <div class="sly1500-v3-case-body">
+        <div class="sly1500-v3-case-id">Case #${String(s.id).padStart(3, '0')}</div>
+        <div class="sly1500-v3-case-name">${s.displayName}</div>
+        <div class="sly1500-v3-case-flags">
+          ${s.redFlags.map(f => `<span class="sly1500-v3-case-flag">${formatFlag(f)}</span>`).join('')}
+          <span class="sly1500-v3-case-flag sly1500-v3-case-flag-green">${s.outcomeLabel}</span>
+        </div>
+        <div class="sly1500-v3-case-excerpt">${s.storySummary}</div>
+        <span class="sly1500-v3-case-type ${isVideo ? 'sly1500-v3-type-video' : 'sly1500-v3-type-written'}">${isVideo ? 'Video' : 'Written'}</span>
+      </div>
+      <div class="sly1500-v3-case-score">
+        <span class="sly1500-v3-case-score-num">${filtered ? r.score : ''}</span>
+        <span class="sly1500-v3-case-score-label">${filtered ? 'match' : ''}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function sly1500ResetV3() {
+  document.querySelectorAll('.sly1500-v3-sidebar input').forEach(i => i.checked = false);
+  sly1500FilterV3();
+}
+
+
+/* ============================================
+   VERSION 4 — DIAGNOSTIC ENGINE
+   ============================================ */
+let v4Step = 1;
+const v4Profile = { redFlags: [], specialty: [], fears: [], contentType: [] };
+
+// V4 option toggles
+document.querySelectorAll('.sly1500-v4-option').forEach(opt => {
+  opt.addEventListener('click', function() {
+    this.classList.toggle('sly1500-v4-opt-active');
+  });
+});
+
+function sly1500V4Next() {
+  // Save current step selections
+  const currentStep = document.querySelector('.sly1500-v4-step.sly1500-v4-step-active');
+  const group = currentStep.querySelector('[data-filter-group]');
+  if (group) {
+    const key = group.dataset.filterGroup;
+    v4Profile[key] = [...group.querySelectorAll('.sly1500-v4-opt-active')].map(o => o.dataset.val);
+  }
+  v4Step++;
+  sly1500V4UpdateStep();
+}
+
+function sly1500V4Back() {
+  v4Step--;
+  sly1500V4UpdateStep();
+}
+
+function sly1500V4UpdateStep() {
+  document.querySelectorAll('.sly1500-v4-step').forEach(s => s.classList.remove('sly1500-v4-step-active'));
+  document.querySelector(`.sly1500-v4-step[data-step="${v4Step}"]`).classList.add('sly1500-v4-step-active');
+  document.querySelectorAll('.sly1500-v4-progress-bar').forEach((bar, i) => {
+    bar.classList.remove('sly1500-v4-prog-active', 'sly1500-v4-prog-done');
+    if (i < v4Step - 1) bar.classList.add('sly1500-v4-prog-done');
+    else if (i === v4Step - 1) bar.classList.add('sly1500-v4-prog-active');
+  });
+}
+
+function sly1500V4ShowResults() {
+  // Save last step
+  const currentStep = document.querySelector('.sly1500-v4-step.sly1500-v4-step-active');
+  const group = currentStep.querySelector('[data-filter-group]');
+  if (group) {
+    const key = group.dataset.filterGroup;
+    v4Profile[key] = [...group.querySelectorAll('.sly1500-v4-opt-active')].map(o => o.dataset.val);
+  }
+
+  // Hide wizard, show dashboard
+  document.getElementById('sly1500-v4-wizard').style.display = 'none';
+  const dash = document.getElementById('sly1500-v4-dashboard');
+  dash.classList.add('sly1500-v4-dash-visible');
+
+  // Render profile summary
+  const profileEl = document.getElementById('sly1500-v4-profile');
+  const allTags = [...v4Profile.redFlags, ...v4Profile.specialty, ...v4Profile.fears];
+  profileEl.innerHTML = `
+    <span class="sly1500-v4-profile-label">Your Profile</span>
+    ${allTags.map(t => `<span class="sly1500-v4-profile-tag">${formatFlag(t)}</span>`).join('')}
+    ${allTags.length === 0 ? '<span style="color:#666;font-size:13px;">No filters selected - showing all</span>' : ''}
+    <button class="sly1500-v4-profile-edit" onclick="sly1500V4EditProfile()">Edit Profile</button>
+  `;
+
+  // Calculate and render results
+  const hasProfile = allTags.length > 0;
+  const results = SLY1500_STORIES.map((s, idx) => ({
+    story: s, idx, score: hasProfile ? sly1500CalcMatch(s, v4Profile) : 50
+  })).sort((a, b) => b.score - a.score);
+
+  const grid = document.getElementById('sly1500-v4-grid');
+  const empty = document.getElementById('sly1500-v4-empty');
+
+  if (results.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  grid.innerHTML = results.map(r => {
+    const s = r.story;
+    const overlap = [...v4Profile.redFlags.filter(f => s.redFlags.includes(f)),
+                     ...v4Profile.fears.filter(f => s.fears.includes(f))];
+    return `
+    <div class="sly1500-v4-match-card" onclick="sly1500OpenStory(${r.idx})">
+      <img class="sly1500-v4-match-img" src="${s.imageUrl}" alt="${s.displayName}" loading="lazy">
+      <div class="sly1500-v4-match-body">
+        <div class="sly1500-v4-match-score-bar">
+          <span class="sly1500-v4-match-pct">${r.score}%</span>
+          <span class="sly1500-v4-match-pct-label">match</span>
+          <div class="sly1500-v4-match-bar-track"><div class="sly1500-v4-match-bar-fill" style="width:${r.score}%"></div></div>
+        </div>
+        <div class="sly1500-v4-match-name">${s.displayName}</div>
+        <div class="sly1500-v4-match-meta">${s.headline}</div>
+        ${overlap.length > 0 ? `
+        <div class="sly1500-v4-match-overlap">
+          ${overlap.slice(0, 4).map(o => `<span class="sly1500-v4-match-overlap-tag">${formatFlag(o)}</span>`).join('')}
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function sly1500V4EditProfile() {
+  document.getElementById('sly1500-v4-wizard').style.display = 'block';
+  document.getElementById('sly1500-v4-dashboard').classList.remove('sly1500-v4-dash-visible');
+  v4Step = 1;
+  sly1500V4UpdateStep();
+}
+
+
+/* ============================================
+   VERSION 5 — EMOTIONAL STORY WALL
+   ============================================ */
+function sly1500FilterV5(btn) {
+  document.querySelectorAll('.sly1500-v5-filter-chip').forEach(c => c.classList.remove('sly1500-v5-fc-active'));
+  btn.classList.add('sly1500-v5-fc-active');
+  const val = btn.dataset.val;
+  sly1500RenderV5(val);
+}
+
+function sly1500RenderV5(filter) {
+  const wall = document.getElementById('sly1500-v5-wall');
+  const empty = document.getElementById('sly1500-v5-empty');
+
+  let stories = SLY1500_STORIES;
+  if (filter && filter !== 'all') {
+    if (filter === 'video') {
+      stories = stories.filter(s => s.contentType.includes('video'));
+    } else {
+      stories = stories.filter(s => s.tags.includes(filter) || s.emotionalCategory === filter);
+    }
+  }
+
+  if (stories.length === 0) {
+    wall.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  // Group by emotional category
+  const groups = {};
+  const categoryTitles = {
+    persistence: '"They told me to give up."',
+    confidence: '"I walked in terrified."',
+    breakthrough: '"Something finally changed."',
+    family: '"My family was watching."',
+    fear: '"I was convinced it was over."'
+  };
+
+  stories.forEach(s => {
+    const cat = s.emotionalCategory || 'other';
+    if (!groups[cat]) groups[cat] = [];
+    groups[cat].push(s);
+  });
+
+  let html = '';
+  for (const [cat, items] of Object.entries(groups)) {
+    html += `
+      <div class="sly1500-v5-wall-section">
+        <h2>${categoryTitles[cat] || cat}</h2>
+        <div class="sly1500-v5-masonry">
+          ${items.map((s, i) => {
+            const idx = SLY1500_STORIES.indexOf(s);
+            const tall = i % 3 === 0;
+            const hasVideo = s.contentType.includes('video');
+            return `
+            <div class="sly1500-v5-story" onclick="sly1500OpenStory(${idx})">
+              <img class="sly1500-v5-story-img ${tall ? 'sly1500-v5-tall' : ''}" src="${s.imageUrl}" alt="${s.displayName}" loading="lazy">
+              <div class="sly1500-v5-story-body">
+                <div class="sly1500-v5-story-name">${s.displayName}</div>
+                <div class="sly1500-v5-story-quote">"${s.quote.substring(0, 100)}..."</div>
+                <div class="sly1500-v5-story-meta">${s.outcomeLabel}</div>
+                ${hasVideo ? `<span class="sly1500-v5-story-video-badge">${SLY1500_PLAY_SVG} Watch video</span>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+  wall.innerHTML = html;
+}
+
+
+/* ============================================
+   VERSION 6 — ARENA PROOF VAULT
+   ============================================ */
+let v6RfChips = [], v6SpecChips = [];
+
+function sly1500ToggleV6(btn) {
+  btn.classList.toggle('sly1500-v6-lc-active');
+  const val = btn.dataset.val;
+  const isSpec = btn.closest('#sly1500-v6-spec-chips') !== null;
+  const arr = isSpec ? v6SpecChips : v6RfChips;
+  if (arr.includes(val)) arr.splice(arr.indexOf(val), 1);
+  else arr.push(val);
+  sly1500FilterV6();
+}
+
+function sly1500FilterV6() {
+  const hasFilters = v6RfChips.length + v6SpecChips.length > 0;
+  const profile = { redFlags: v6RfChips, specialty: v6SpecChips, fears: [], contentType: [] };
+  let results = SLY1500_STORIES.map((s, idx) => ({
+    story: s, idx, score: sly1500CalcMatch(s, profile)
+  }));
+
+  if (hasFilters) {
+    results = results.filter(r => {
+      const rfOk = v6RfChips.length === 0 || v6RfChips.some(f => r.story.redFlags.includes(f));
+      const specOk = v6SpecChips.length === 0 || v6SpecChips.some(s => r.story.specialty.includes(s));
+      return rfOk && specOk;
+    }).sort((a, b) => b.score - a.score);
+  }
+  sly1500RenderV6(results, hasFilters);
+}
+
+function sly1500RenderV6(results, filtered) {
+  const grid = document.getElementById('sly1500-v6-grid');
+  const empty = document.getElementById('sly1500-v6-empty');
+  const count = document.getElementById('sly1500-v6-count');
+
+  if (results.length === 0) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    count.innerHTML = 'No cards unlocked';
+    return;
+  }
+  empty.style.display = 'none';
+  count.innerHTML = filtered
+    ? `<strong>${results.length}</strong> proof cards unlocked`
+    : `Showing <strong>all ${results.length}</strong> proof cards`;
+
+  grid.innerHTML = results.map(r => {
+    const s = r.story;
+    const isVideo = s.contentType.includes('video');
+    const rarityClass = s.rarity === 'legendary' ? 'sly1500-v6-rarity-legendary'
+      : s.rarity === 'epic' ? 'sly1500-v6-rarity-epic' : 'sly1500-v6-rarity-rare';
+    return `
+    <div class="sly1500-v6-card" onclick="sly1500OpenStory(${r.idx})">
+      <img class="sly1500-v6-card-img" src="${s.imageUrl}" alt="${s.displayName}" loading="lazy">
+      <span class="sly1500-v6-card-rarity ${rarityClass}">${s.rarity}</span>
+      ${isVideo ? '<span class="sly1500-v6-card-type-badge">VIDEO</span>' : ''}
+      <div class="sly1500-v6-card-body">
+        <div class="sly1500-v6-card-name">${s.displayName}</div>
+        <div class="sly1500-v6-card-specialty">${s.specialty.map(sp => sp.toUpperCase()).join(' / ')}</div>
+        <div class="sly1500-v6-card-modifiers">
+          ${s.redFlags.slice(0, 3).map(f => `<span class="sly1500-v6-modifier">${formatFlag(f)}</span>`).join('')}
+        </div>
+        <div class="sly1500-v6-card-outcome">${s.outcomeLabel}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function sly1500ResetV6() {
+  v6RfChips = [];
+  v6SpecChips = [];
+  document.querySelectorAll('.sly1500-v6-loadout-chip').forEach(c => c.classList.remove('sly1500-v6-lc-active'));
+  sly1500FilterV6();
+}
+
+
+/* ============================================
+   INITIALIZATION
+   ============================================ */
+document.addEventListener('DOMContentLoaded', () => {
+  // Render all versions
+  sly1500FilterV1();
+  sly1500RenderV1Videos();
+  sly1500RenderV2(SLY1500_STORIES, false);
+  sly1500FilterV3();
+  sly1500RenderV5('all');
+  sly1500FilterV6();
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,4801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>U-1402B Exam Prep Six Version Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* VERSION SELECTOR BAR */
+        .u1402b-version-selector {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-bottom: 1px solid #e0e0e0;
+            padding: 12px 20px;
+            z-index: 9999;
+            display: flex;
+            gap: 10px;
+            overflow-x: auto;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .u1402b-version-btn {
+            padding: 8px 16px;
+            border: 2px solid #ccc;
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-version-btn.active {
+            background: #0a1628;
+            color: white;
+            border-color: #0a1628;
+        }
+
+        /* BODY PADDING FOR FIXED SELECTOR */
+        body {
+            padding-top: 50px;
+        }
+
+        /* VERSION CONTAINERS */
+        .u1402b-version {
+            display: none;
+        }
+
+        .u1402b-version.active {
+            display: block;
+        }
+
+        /* VERSION 1: PREMIUM CLINICAL */
+        .u1402b-v1 {
+            background: #faf7f2;
+            color: #2c2c2c;
+        }
+
+        .u1402b-v1-nav {
+            background: white;
+            padding: 16px 40px;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .u1402b-v1-logo {
+            font-family: Georgia, serif;
+            font-size: 18px;
+            font-weight: bold;
+            color: #0a1628;
+        }
+
+        .u1402b-v1-hero {
+            background: url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1400&h=800&fit=crop') center/cover;
+            min-height: 500px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            padding: 60px 40px;
+        }
+
+        .u1402b-v1-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 22, 40, 0.55);
+            z-index: 1;
+        }
+
+        .u1402b-v1-hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 600px;
+            color: white;
+        }
+
+        .u1402b-v1-hero h1 {
+            font-family: Georgia, serif;
+            font-size: 48px;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            font-weight: normal;
+            letter-spacing: -0.5px;
+        }
+
+        .u1402b-v1-hero p {
+            font-size: 18px;
+            margin-bottom: 20px;
+            opacity: 0.95;
+        }
+
+        .u1402b-v1-cta-primary {
+            display: inline-block;
+            background: #c9a84c;
+            color: #0a1628;
+            padding: 14px 32px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v1-cta-primary:hover {
+            background: #d4b854;
+            transform: translateY(-1px);
+        }
+
+        .u1402b-v1-cta-secondary {
+            display: inline-block;
+            background: transparent;
+            color: white;
+            padding: 14px 32px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 2px solid white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v1-cta-secondary:hover {
+            background: white;
+            color: #0a1628;
+        }
+
+        /* PROOF STRIP */
+        .u1402b-v1-proof {
+            background: white;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            text-align: center;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v1-proof-item {
+            padding: 0 20px;
+        }
+
+        .u1402b-v1-proof-number {
+            font-family: Georgia, serif;
+            font-size: 28px;
+            color: #c9a84c;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .u1402b-v1-proof-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* STRUGGLE DIAGNOSIS SECTION */
+        .u1402b-v1-struggle {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .u1402b-v1-struggle h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 12px;
+            color: #0a1628;
+        }
+
+        .u1402b-v1-struggle-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .u1402b-struggle-chips {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .u1402b-struggle-chip {
+            padding: 12px 16px;
+            border: 2px solid #ddd;
+            background: white;
+            cursor: pointer;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-struggle-chip:hover {
+            border-color: #0a1628;
+            background: #f5f5f5;
+        }
+
+        .u1402b-struggle-chip.active {
+            background: #0a1628;
+            color: white;
+            border-color: #0a1628;
+        }
+
+        .u1402b-struggle-response {
+            display: none;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 30px;
+            margin-top: 20px;
+        }
+
+        .u1402b-struggle-response.active {
+            display: block;
+        }
+
+        .u1402b-struggle-response h3 {
+            color: #0a1628;
+            margin-bottom: 12px;
+            font-family: Georgia, serif;
+            font-size: 20px;
+        }
+
+        .u1402b-struggle-response p {
+            margin-bottom: 12px;
+            color: #555;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        /* TRAINING LOGIC SECTION */
+        .u1402b-v1-training-logic {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v1-training-logic h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #0a1628;
+        }
+
+        .u1402b-training-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-training-step {
+            text-align: center;
+        }
+
+        .u1402b-step-num {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            background: #c9a84c;
+            color: white;
+            border-radius: 50%;
+            line-height: 50px;
+            font-weight: bold;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .u1402b-training-step h3 {
+            font-family: Georgia, serif;
+            font-size: 18px;
+            color: #0a1628;
+            margin-bottom: 10px;
+        }
+
+        .u1402b-training-step p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        /* CLINICAL REASONING SECTION */
+        .u1402b-v1-clinical {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v1-clinical h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #0a1628;
+        }
+
+        .u1402b-clinical-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .u1402b-clinical-text h3 {
+            font-family: Georgia, serif;
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #0a1628;
+        }
+
+        .u1402b-clinical-text p {
+            margin-bottom: 16px;
+            color: #555;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .u1402b-clinical-image {
+            width: 100%;
+            height: 400px;
+            background: url('https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=1400&h=800&fit=crop') center/cover;
+            border-radius: 4px;
+        }
+
+        /* LIVE DRILL SECTION */
+        .u1402b-v1-live-drill {
+            padding: 60px 40px;
+            background: white;
+            border-top: 1px solid #e8e8e8;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v1-live-drill h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #0a1628;
+        }
+
+        .u1402b-live-drill-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-live-drill-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-live-drill-card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .u1402b-live-drill-image {
+            width: 100%;
+            height: 200px;
+            background: url('https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=1400&h=800&fit=crop') center/cover;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .u1402b-play-button {
+            width: 60px;
+            height: 60px;
+            background: rgba(201, 168, 76, 0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-play-button:hover {
+            background: rgba(201, 168, 76, 1);
+            transform: scale(1.1);
+        }
+
+        .u1402b-play-button::after {
+            content: '';
+            width: 0;
+            height: 0;
+            border-left: 15px solid white;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            margin-left: 3px;
+        }
+
+        .u1402b-live-drill-content {
+            padding: 20px;
+        }
+
+        .u1402b-live-drill-content h3 {
+            font-family: Georgia, serif;
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #0a1628;
+        }
+
+        .u1402b-live-drill-content p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* TESTIMONIALS SECTION */
+        .u1402b-v1-testimonials {
+            padding: 60px 40px;
+            background: white;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v1-testimonials h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #0a1628;
+        }
+
+        .u1402b-testimonials-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-testimonial-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 30px;
+            background: #faf7f2;
+        }
+
+        .u1402b-testimonial-quote {
+            font-style: italic;
+            color: #555;
+            margin-bottom: 16px;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .u1402b-testimonial-author {
+            font-weight: 600;
+            color: #0a1628;
+            font-size: 14px;
+        }
+
+        .u1402b-testimonial-role {
+            font-size: 12px;
+            color: #999;
+        }
+
+        /* TRAINING PATHS SECTION */
+        .u1402b-v1-paths {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v1-paths h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #0a1628;
+            text-align: center;
+        }
+
+        .u1402b-paths-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .u1402b-path-card {
+            border: 2px solid #0a1628;
+            border-radius: 4px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .u1402b-path-card h3 {
+            font-family: Georgia, serif;
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #0a1628;
+        }
+
+        .u1402b-path-card ul {
+            list-style: none;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .u1402b-path-card li {
+            padding: 8px 0;
+            color: #555;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .u1402b-path-cta {
+            background: #c9a84c;
+            color: #0a1628;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        /* FAQ SECTION */
+        .u1402b-v1-faq {
+            padding: 60px 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v1-faq h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #0a1628;
+            text-align: center;
+        }
+
+        .u1402b-faq-item {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            overflow: hidden;
+        }
+
+        .u1402b-faq-question {
+            padding: 20px;
+            background: white;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #0a1628;
+            user-select: none;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-faq-question:hover {
+            background: #f5f5f5;
+        }
+
+        .u1402b-faq-toggle {
+            font-size: 18px;
+            transition: transform 0.3s ease;
+        }
+
+        .u1402b-faq-toggle.open {
+            transform: rotate(180deg);
+        }
+
+        .u1402b-faq-answer {
+            display: none;
+            padding: 20px;
+            background: #faf7f2;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.7;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .u1402b-faq-answer.open {
+            display: block;
+        }
+
+        /* FOOTER */
+        .u1402b-v1-footer {
+            padding: 40px;
+            background: #0a1628;
+            color: white;
+            text-align: center;
+            font-size: 13px;
+            border-top: 1px solid #333;
+        }
+
+        .u1402b-v1-footer a {
+            color: #c9a84c;
+            text-decoration: none;
+        }
+
+        /* VERSION 2: LIVE DRILL STUDIO */
+        .u1402b-v2 {
+            background: #1a1a2e;
+            color: white;
+        }
+
+        .u1402b-v2-nav {
+            background: #0f0f1e;
+            padding: 16px 40px;
+            border-bottom: 2px solid #0099ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .u1402b-v2-logo {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0099ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-hero {
+            background: url('https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=1400&h=800&fit=crop') center/cover;
+            min-height: 500px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+        }
+
+        .u1402b-v2-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 15, 30, 0.6);
+            z-index: 1;
+        }
+
+        .u1402b-v2-hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 700px;
+        }
+
+        .u1402b-v2-hero h1 {
+            font-size: 52px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            line-height: 1.1;
+        }
+
+        .u1402b-v2-hero p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            color: #ccc;
+        }
+
+        .u1402b-v2-cta-primary {
+            display: inline-block;
+            background: #0099ff;
+            color: white;
+            padding: 14px 32px;
+            font-weight: 700;
+            text-decoration: none;
+            border-radius: 0;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-right: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v2-cta-primary:hover {
+            background: #0088dd;
+            transform: scale(1.05);
+        }
+
+        .u1402b-v2-cta-secondary {
+            display: inline-block;
+            background: transparent;
+            color: white;
+            padding: 14px 32px;
+            font-weight: 700;
+            text-decoration: none;
+            border: 2px solid #0099ff;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v2-cta-secondary:hover {
+            background: #0099ff;
+            color: #1a1a2e;
+        }
+
+        .u1402b-v2-proof {
+            background: #0f0f1e;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            text-align: center;
+            border-bottom: 1px solid #333;
+        }
+
+        .u1402b-v2-proof-item {
+            padding: 0 20px;
+        }
+
+        .u1402b-v2-proof-number {
+            font-size: 32px;
+            color: #0099ff;
+            font-weight: 900;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-proof-label {
+            font-size: 13px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-live-drill {
+            padding: 60px 40px;
+            background: #0f0f1e;
+            border-bottom: 1px solid #333;
+        }
+
+        .u1402b-v2-live-drill h2 {
+            font-size: 40px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #0099ff;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-live-sessions {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 20px;
+        }
+
+        .u1402b-v2-session-card {
+            background: #16213e;
+            border: 2px solid #0099ff;
+            border-radius: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .u1402b-v2-session-card:hover {
+            border-color: #00ff99;
+            box-shadow: 0 0 20px rgba(0, 255, 153, 0.3);
+        }
+
+        .u1402b-v2-session-image {
+            width: 100%;
+            height: 200px;
+            background: url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1400&h=800&fit=crop') center/cover;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .u1402b-v2-session-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #0099ff;
+            color: #1a1a2e;
+            padding: 6px 12px;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            border-radius: 0;
+        }
+
+        .u1402b-v2-session-badge.live {
+            background: #ff0099;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .u1402b-v2-session-content {
+            padding: 20px;
+        }
+
+        .u1402b-v2-session-title {
+            font-size: 16px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #0099ff;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-session-meta {
+            font-size: 13px;
+            color: #999;
+            margin-bottom: 12px;
+        }
+
+        .u1402b-v2-session-join {
+            display: block;
+            text-align: center;
+            background: #0099ff;
+            color: #1a1a2e;
+            padding: 10px;
+            font-weight: 700;
+            text-decoration: none;
+            text-transform: uppercase;
+            font-size: 12px;
+            border-radius: 0;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .u1402b-v2-session-join:hover {
+            background: #00ff99;
+        }
+
+        .u1402b-v2-struggle {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .u1402b-v2-struggle h2 {
+            font-size: 40px;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            color: #0099ff;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-struggle-subtitle {
+            font-size: 16px;
+            color: #999;
+            margin-bottom: 40px;
+        }
+
+        .u1402b-v2-struggle-chips {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-bottom: 40px;
+        }
+
+        .u1402b-v2-struggle-chip {
+            padding: 12px 16px;
+            border: 2px solid #333;
+            background: #16213e;
+            cursor: pointer;
+            border-radius: 0;
+            font-size: 13px;
+            font-weight: 600;
+            text-align: center;
+            text-transform: uppercase;
+            color: #999;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v2-struggle-chip:hover {
+            border-color: #0099ff;
+            color: #0099ff;
+        }
+
+        .u1402b-v2-struggle-chip.active {
+            background: #0099ff;
+            color: #1a1a2e;
+            border-color: #0099ff;
+        }
+
+        .u1402b-v2-struggle-response {
+            display: none;
+            background: #16213e;
+            border: 2px solid #0099ff;
+            border-radius: 0;
+            padding: 30px;
+            margin-top: 20px;
+        }
+
+        .u1402b-v2-struggle-response.active {
+            display: block;
+        }
+
+        .u1402b-v2-struggle-response h3 {
+            color: #0099ff;
+            margin-bottom: 12px;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-struggle-response p {
+            margin-bottom: 12px;
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        .u1402b-v2-training-logic {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #333;
+        }
+
+        .u1402b-v2-training-logic h2 {
+            font-size: 40px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            color: #0099ff;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-training-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-v2-training-step {
+            background: #16213e;
+            border: 1px solid #333;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .u1402b-v2-step-num {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            background: #0099ff;
+            color: #1a1a2e;
+            border-radius: 0;
+            line-height: 50px;
+            font-weight: 900;
+            font-size: 20px;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+
+        .u1402b-v2-training-step h3 {
+            font-size: 16px;
+            color: #0099ff;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-training-step p {
+            font-size: 13px;
+            color: #999;
+            line-height: 1.6;
+        }
+
+        .u1402b-v2-clinical {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #333;
+        }
+
+        .u1402b-v2-clinical h2 {
+            font-size: 40px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            color: #0099ff;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-clinical-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .u1402b-v2-clinical-text h3 {
+            font-size: 22px;
+            margin-bottom: 16px;
+            color: #0099ff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-clinical-text p {
+            margin-bottom: 16px;
+            color: #ccc;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .u1402b-v2-clinical-image {
+            width: 100%;
+            height: 400px;
+            background: url('https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=1400&h=800&fit=crop') center/cover;
+            border: 2px solid #0099ff;
+        }
+
+        .u1402b-v2-testimonials {
+            padding: 60px 40px;
+            background: #0f0f1e;
+            border-top: 1px solid #333;
+            border-bottom: 1px solid #333;
+        }
+
+        .u1402b-v2-testimonials h2 {
+            font-size: 40px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #0099ff;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-testimonials-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .u1402b-v2-testimonial-card {
+            background: #16213e;
+            border: 1px solid #333;
+            padding: 25px;
+        }
+
+        .u1402b-v2-testimonial-quote {
+            color: #ccc;
+            margin-bottom: 16px;
+            font-size: 14px;
+            line-height: 1.7;
+            font-style: italic;
+        }
+
+        .u1402b-v2-testimonial-author {
+            font-weight: 700;
+            color: #0099ff;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-testimonial-role {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .u1402b-v2-paths {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #333;
+        }
+
+        .u1402b-v2-paths h2 {
+            font-size: 40px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            color: #0099ff;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-paths-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .u1402b-v2-path-card {
+            background: #16213e;
+            border: 2px solid #0099ff;
+            border-radius: 0;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .u1402b-v2-path-card h3 {
+            font-size: 22px;
+            margin-bottom: 16px;
+            color: #0099ff;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-path-card ul {
+            list-style: none;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .u1402b-v2-path-card li {
+            padding: 8px 0;
+            color: #999;
+            font-size: 13px;
+            border-bottom: 1px solid #333;
+        }
+
+        .u1402b-v2-path-cta {
+            background: #0099ff;
+            color: #1a1a2e;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 0;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v2-path-cta:hover {
+            background: #00ff99;
+        }
+
+        .u1402b-v2-faq {
+            padding: 60px 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            border-top: 1px solid #333;
+        }
+
+        .u1402b-v2-faq h2 {
+            font-size: 40px;
+            text-transform: uppercase;
+            margin-bottom: 40px;
+            color: #0099ff;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v2-faq-item {
+            border: 1px solid #333;
+            border-radius: 0;
+            margin-bottom: 12px;
+            overflow: hidden;
+            background: #16213e;
+        }
+
+        .u1402b-v2-faq-question {
+            padding: 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            color: #0099ff;
+            user-select: none;
+            text-transform: uppercase;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-faq-question:hover {
+            background: #0f0f1e;
+        }
+
+        .u1402b-v2-faq-toggle {
+            font-size: 18px;
+            transition: transform 0.3s ease;
+        }
+
+        .u1402b-v2-faq-toggle.open {
+            transform: rotate(180deg);
+        }
+
+        .u1402b-v2-faq-answer {
+            display: none;
+            padding: 20px;
+            background: #0f0f1e;
+            color: #ccc;
+            font-size: 13px;
+            line-height: 1.7;
+            border-top: 1px solid #333;
+        }
+
+        .u1402b-v2-faq-answer.open {
+            display: block;
+        }
+
+        .u1402b-v2-footer {
+            padding: 40px;
+            background: #0f0f1e;
+            color: #999;
+            text-align: center;
+            font-size: 12px;
+            border-top: 1px solid #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v2-footer a {
+            color: #0099ff;
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .u1402b-version-selector {
+                flex-wrap: wrap;
+            }
+
+            .u1402b-v1-hero h1 {
+                font-size: 32px;
+            }
+
+            .u1402b-v2-hero h1 {
+                font-size: 36px;
+            }
+
+            .u1402b-clinical-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .u1402b-paths-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .u1402b-v2-paths-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .u1402b-v2-clinical-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- VERSION SELECTOR -->
+<div class="u1402b-version-selector">
+    <button class="u1402b-version-btn active" data-version="1">V1 Premium Clinical</button>
+    <button class="u1402b-version-btn" data-version="2">V2 Drill Studio</button>
+    <button class="u1402b-version-btn" data-version="3">V3 Breakthrough</button>
+    <button class="u1402b-version-btn" data-version="4">V4 Diagnostic</button>
+    <button class="u1402b-version-btn" data-version="5">V5 Bold Performance</button>
+    <button class="u1402b-version-btn" data-version="6">V6 Arena</button>
+</div>
+
+<!-- VERSION 1: PREMIUM CLINICAL REASONING -->
+<div id="u1402b-version-1" class="u1402b-version active">
+    <nav class="u1402b-v1-nav">
+        <div class="u1402b-v1-logo">MissionMed Institute</div>
+        <div>[DEMO NAV]</div>
+    </nav>
+
+    <section class="u1402b-v1-hero">
+        <div class="u1402b-v1-hero-content">
+            <h1>Become the strongest version of yourself on exam day</h1>
+            <p>Clinical reasoning that sticks. Real-world diagnostic drills. Confidence that lasts.</p>
+            <button class="u1402b-v1-cta-primary">Start Free Trial</button>
+            <button class="u1402b-v1-cta-secondary">Watch Demo</button>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-proof">
+        <div class="u1402b-v1-proof-item">
+            <div class="u1402b-v1-proof-number">500+</div>
+            <div class="u1402b-v1-proof-label">Students Trained</div>
+        </div>
+        <div class="u1402b-v1-proof-item">
+            <div class="u1402b-v1-proof-number">10+</div>
+            <div class="u1402b-v1-proof-label">Years Teaching</div>
+        </div>
+        <div class="u1402b-v1-proof-item">
+            <div class="u1402b-v1-proof-number">4.9</div>
+            <div class="u1402b-v1-proof-label">Average Rating</div>
+        </div>
+        <div class="u1402b-v1-proof-item">
+            <div class="u1402b-v1-proof-number">Daily</div>
+            <div class="u1402b-v1-proof-label">Live Drills</div>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-struggle">
+        <h2>The real reason students keep getting questions wrong</h2>
+        <p class="u1402b-v1-struggle-subtitle">Most students know more than they think. The problem is pattern recognition under pressure.</p>
+
+        <div class="u1402b-struggle-chips">
+            <button class="u1402b-struggle-chip active" data-struggle="1">I know content but miss questions</button>
+            <button class="u1402b-struggle-chip" data-struggle="2">I overthink</button>
+            <button class="u1402b-struggle-chip" data-struggle="3">I run out of time</button>
+            <button class="u1402b-struggle-chip" data-struggle="4">I keep changing right answers</button>
+            <button class="u1402b-struggle-chip" data-struggle="5">I panic on exams</button>
+            <button class="u1402b-struggle-chip" data-struggle="6">I need Step 1 structure</button>
+            <button class="u1402b-struggle-chip" data-struggle="7">I need Step 2 CK reasoning</button>
+            <button class="u1402b-struggle-chip" data-struggle="8">My NBME score is stuck</button>
+            <button class="u1402b-struggle-chip" data-struggle="9">I need accountability</button>
+            <button class="u1402b-struggle-chip" data-struggle="10">I need live drilling</button>
+            <button class="u1402b-struggle-chip" data-struggle="11">I need 1-on-1 tutoring</button>
+            <button class="u1402b-struggle-chip" data-struggle="12">I need confidence under pressure</button>
+        </div>
+
+        <div class="u1402b-struggle-response active" data-struggle-response="1">
+            <h3>Content Knowledge vs. Pattern Recognition</h3>
+            <p>You've memorized the facts. The gap is between knowing pathophysiology and recognizing which diagnostic clues matter most under time pressure.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our drill system isolates reasoning patterns, not facts. You practice the clinical decision tree 50 times, not once. Pattern recognition becomes automatic.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="2">
+            <h3>Overthinking Costs Points</h3>
+            <p>The harder you think, the more distractors seem plausible. You second-guess correct answers because you are seeking certainty that doesn't exist in medicine.</p>
+            <p><strong>How MissionMed addresses this:</strong> Timed drills train you to commit to the best answer, not the perfect one. Real exams reward decisiveness, not endless deliberation.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="3">
+            <h3>Time Management is a Learnable Skill</h3>
+            <p>Slower students are usually overthinking, not underprepared. You need to practice at exam pace, not study pace.</p>
+            <p><strong>How MissionMed addresses this:</strong> Every session is timed. You experience your bottlenecks and train through them with live feedback from experts.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="4">
+            <h3>Doubt Spiral</h3>
+            <p>Once doubt starts, it cascades. You change answers because you lack confidence, not because the new answer is better.</p>
+            <p><strong>How MissionMed addresses this:</strong> Confidence comes from repetition and winning under pressure. Live drills give you that proof repeatedly.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="5">
+            <h3>Exam Anxiety is Real</h3>
+            <p>Your nervous system becomes a factor on test day. Panic breaks pattern recognition and kills time management.</p>
+            <p><strong>How MissionMed addresses this:</strong> Repeated live drills with real-time pressure desensitize you. You have been in the fight before the real exam.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="6">
+            <h3>Step 1 Needs Systematic Thinking</h3>
+            <p>USMLE Step 1 tests pattern recognition across diseases. You need a repeatable structure, not random drills.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our Step 1 track follows diagnostic thinking, organ systems, and board-style reasoning. Structure first, then speed.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="7">
+            <h3>Step 2 CK Requires Clinical Judgment</h3>
+            <p>Step 2 is different. It tests what you would do as an intern, not what you would diagnose. Patient safety matters.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our CK track focuses on clinical decision-making, management pathways, and real-world complications. You practice medical reasoning, not trivia.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="8">
+            <h3>NBME Plateau</h3>
+            <p>When NBME scores plateau, it usually means you are practicing inefficiently. You need targeted drilling on your specific gaps.</p>
+            <p><strong>How MissionMed addresses this:</strong> One-on-one tutoring identifies your reasoning blind spots. We drill those specifically until the pattern shifts.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="9">
+            <h3>Accountability Drives Progress</h3>
+            <p>Solo studying lacks accountability. You skip hard topics. You avoid your weaknesses. Progress stalls.</p>
+            <p><strong>How MissionMed addresses this:</strong> Team drilling sessions create accountability. Your peers see your effort. Your instructor tracks your growth. You show up.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="10">
+            <h3>Live Drilling Works</h3>
+            <p>Real-time feedback beats recorded lectures. You need to see your reasoning tested immediately, with expert correction.</p>
+            <p><strong>How MissionMed addresses this:</strong> Daily live drills with board-certified instructors. You get immediate feedback. You see your improvement in real time.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="11">
+            <h3>One-on-One Tutoring Changes Everything</h3>
+            <p>If you are stuck, generic drills will not fix it. You need someone to see your specific reasoning pattern and correct it.</p>
+            <p><strong>How MissionMed addresses this:</strong> One-on-one sessions focus entirely on your gaps. Your tutor watches you reason in real time and redirects immediately.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="12">
+            <h3>Confidence Comes from Winning</h3>
+            <p>You feel confident when you have been tested and succeeded. Fake confidence breaks under pressure.</p>
+            <p><strong>How MissionMed addresses this:</strong> Live drills, group accountability, and visible progress build real confidence. You know you can perform because you have.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-training-logic">
+        <h2>Why this training system works</h2>
+        <div class="u1402b-training-steps">
+            <div class="u1402b-training-step">
+                <div class="u1402b-step-num">1</div>
+                <h3>Structured Reasoning</h3>
+                <p>Every drill follows diagnostic logic. You learn the pattern, then you own it.</p>
+            </div>
+            <div class="u1402b-training-step">
+                <div class="u1402b-step-num">2</div>
+                <h3>Repeated Drilling</h3>
+                <p>Myelin wraps around neurons with repetition. You drill until the pattern is automatic.</p>
+            </div>
+            <div class="u1402b-training-step">
+                <div class="u1402b-step-num">3</div>
+                <h3>Real-Time Feedback</h3>
+                <p>Expert instructors correct your reasoning immediately. You learn the right way, not the wrong way.</p>
+            </div>
+            <div class="u1402b-training-step">
+                <div class="u1402b-step-num">4</div>
+                <h3>Pressure & Accountability</h3>
+                <p>Live sessions with peers and instructors create real pressure. You prove you can perform.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-clinical">
+        <h2>Clinical reasoning that scales</h2>
+        <div class="u1402b-clinical-grid">
+            <div class="u1402b-clinical-text">
+                <h3>Learn the patterns that matter</h3>
+                <p>Most questions test 40 disease patterns repeated across 500 questions. You don't need to memorize 5,000 rare diseases. You need to recognize and reason through the common patterns.</p>
+                <p>Our system isolates these patterns. You see them in different contexts. You practice recognizing them under time pressure. Your brain builds the pattern library that tests reward.</p>
+            </div>
+            <div class="u1402b-clinical-image"></div>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-live-drill">
+        <h2>Live drilling is the proof</h2>
+        <div class="u1402b-live-drill-grid">
+            <div class="u1402b-live-drill-card">
+                <div class="u1402b-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-live-drill-content">
+                    <h3>Monday Evening: Step 1 Reasoning</h3>
+                    <p>7pm EDT. Board-style questions. Real-time feedback.</p>
+                </div>
+            </div>
+            <div class="u1402b-live-drill-card">
+                <div class="u1402b-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-live-drill-content">
+                    <h3>Wednesday Evening: CK Vignettes</h3>
+                    <p>7pm EDT. Clinical decision-making. Patient safety focus.</p>
+                </div>
+            </div>
+            <div class="u1402b-live-drill-card">
+                <div class="u1402b-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-live-drill-content">
+                    <h3>Saturday Morning: Full Practice</h3>
+                    <p>9am EDT. Complete exam simulation. Complete feedback.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-testimonials">
+        <h2>From overwhelmed to confident</h2>
+        <div class="u1402b-testimonials-grid">
+            <div class="u1402b-testimonial-card">
+                <div class="u1402b-testimonial-quote">"I was stuck at 218 on NBME. Three months of live drilling with MissionMed got me to 245. The feedback loop is the difference."</div>
+                <div class="u1402b-testimonial-author">Sarah M.</div>
+                <div class="u1402b-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-testimonial-card">
+                <div class="u1402b-testimonial-quote">"The thing that changed it for me was being drilled in front of other people. I stopped second-guessing myself. The confidence stuck."</div>
+                <div class="u1402b-testimonial-author">James T.</div>
+                <div class="u1402b-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-testimonial-card">
+                <div class="u1402b-testimonial-quote">"One-on-one sessions with my tutor saved my score. She found my reasoning blind spot and we drilled it until it was automatic."</div>
+                <div class="u1402b-testimonial-author">Priya K.</div>
+                <div class="u1402b-testimonial-role">Step 2 CK Passer</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-paths">
+        <h2>Two proven training paths</h2>
+        <div class="u1402b-paths-grid">
+            <div class="u1402b-path-card">
+                <h3>Team Drilling Sessions</h3>
+                <ul>
+                    <li>Daily live drills with 4-8 students</li>
+                    <li>Board-certified instructors</li>
+                    <li>Real-time feedback and group learning</li>
+                    <li>Accountability and peer energy</li>
+                    <li>Structured by exam level</li>
+                </ul>
+                <button class="u1402b-path-cta">Learn More</button>
+            </div>
+            <div class="u1402b-path-card">
+                <h3>One-on-One Tutoring</h3>
+                <ul>
+                    <li>Custom sessions scheduled for you</li>
+                    <li>Your tutor watches your reasoning</li>
+                    <li>Gaps identified and targeted</li>
+                    <li>Progress tracked week to week</li>
+                    <li>Combines with team drills if desired</li>
+                </ul>
+                <button class="u1402b-path-cta">Learn More</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-faq">
+        <h2>FAQ</h2>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How many hours per week do I need to commit?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Most students do 6-8 hours of drilling per week plus their own review. Live drills are 60-90 minutes. You control the schedule.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Do I need to buy UWorld or another question bank?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                No. Our drills include full question banks. Many students combine with UWorld for extra volume, but it is not required.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>What if I miss a live session?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                All sessions are recorded. You get access and can watch with timestamps and feedback. It is not quite as good as live, but you still learn the reasoning.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How do I know which path is right for me?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Book a free call with a coach. They assess your score, gaps, and learning style. Most students start with team drills. Some add 1-on-1 if they hit a plateau.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Can I try it free?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Yes. Your first live drill is free. No card required. You experience the real thing before committing.
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v1-footer">
+        <p>MissionMed Institute | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+        <p style="margin-top: 12px; color: #999;">[DEMO ASSET - REPLACE] All photos from Unsplash. Replace with branded content.</p>
+    </section>
+</div>
+
+<!-- VERSION 2: LIVE DRILL STUDIO (stub - will continue next) -->
+<div id="u1402b-version-2" class="u1402b-version">
+    <nav class="u1402b-v2-nav">
+        <div class="u1402b-v2-logo">MissionMed: Live Drills</div>
+        <div>[DEMO NAV]</div>
+    </nav>
+
+    <section class="u1402b-v2-hero">
+        <div class="u1402b-v2-hero-content">
+            <h1>Real-Time Drilling. Real Results.</h1>
+            <p>Join live sessions with peers and board-certified instructors. Get feedback that sticks.</p>
+            <button class="u1402b-v2-cta-primary">Join Live Now</button>
+            <button class="u1402b-v2-cta-secondary">See Schedule</button>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-proof">
+        <div class="u1402b-v2-proof-item">
+            <div class="u1402b-v2-proof-number">500+</div>
+            <div class="u1402b-v2-proof-label">Students Trained</div>
+        </div>
+        <div class="u1402b-v2-proof-item">
+            <div class="u1402b-v2-proof-number">10+</div>
+            <div class="u1402b-v2-proof-label">Years Teaching</div>
+        </div>
+        <div class="u1402b-v2-proof-item">
+            <div class="u1402b-v2-proof-number">4.9</div>
+            <div class="u1402b-v2-proof-label">Average Rating</div>
+        </div>
+        <div class="u1402b-v2-proof-item">
+            <div class="u1402b-v2-proof-number">Daily</div>
+            <div class="u1402b-v2-proof-label">Live Drills</div>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-live-drill">
+        <h2>LIVE SESSIONS THIS WEEK</h2>
+        <div class="u1402b-v2-live-sessions">
+            <div class="u1402b-v2-session-card">
+                <div class="u1402b-v2-session-image">
+                    <div class="u1402b-v2-session-badge live">LIVE NOW</div>
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v2-session-content">
+                    <div class="u1402b-v2-session-title">Step 1: Cardiology Deep Dive</div>
+                    <div class="u1402b-v2-session-meta">7:00 PM EDT | 8 students enrolled</div>
+                    <button class="u1402b-v2-session-join">Join Session</button>
+                </div>
+            </div>
+
+            <div class="u1402b-v2-session-card">
+                <div class="u1402b-v2-session-image">
+                    <div class="u1402b-v2-session-badge">TOMORROW</div>
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v2-session-content">
+                    <div class="u1402b-v2-session-title">Step 1: Renal & Electrolytes</div>
+                    <div class="u1402b-v2-session-meta">6:00 PM EDT | 12 students enrolled</div>
+                    <button class="u1402b-v2-session-join">Register</button>
+                </div>
+            </div>
+
+            <div class="u1402b-v2-session-card">
+                <div class="u1402b-v2-session-image">
+                    <div class="u1402b-v2-session-badge">FRI 7PM</div>
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v2-session-content">
+                    <div class="u1402b-v2-session-title">CK: Emergency Medicine Vignettes</div>
+                    <div class="u1402b-v2-session-meta">7:00 PM EDT | 15 students enrolled</div>
+                    <button class="u1402b-v2-session-join">Register</button>
+                </div>
+            </div>
+
+            <div class="u1402b-v2-session-card">
+                <div class="u1402b-v2-session-image">
+                    <div class="u1402b-v2-session-badge">SAT 9AM</div>
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v2-session-content">
+                    <div class="u1402b-v2-session-title">Full Practice: 40-Question Session</div>
+                    <div class="u1402b-v2-session-meta">9:00 AM EDT | 20 students enrolled</div>
+                    <button class="u1402b-v2-session-join">Register</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-struggle">
+        <h2>WHAT IS YOUR STRUGGLE?</h2>
+        <p class="u1402b-v2-struggle-subtitle">Select where you are stuck. We have a drill path for it.</p>
+
+        <div class="u1402b-v2-struggle-chips">
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip active" data-struggle="1">I know content but miss questions</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="2">I overthink</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="3">I run out of time</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="4">I keep changing right answers</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="5">I panic on exams</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="6">I need Step 1 structure</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="7">I need Step 2 CK reasoning</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="8">My NBME score is stuck</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="9">I need accountability</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="10">I need live drilling</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="11">I need 1-on-1 tutoring</button>
+            <button class="u1402b-struggle-chip u1402b-v2-struggle-chip" data-struggle="12">I need confidence under pressure</button>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response active" data-struggle-response="1">
+            <h3>CONTENT VS. PATTERN RECOGNITION</h3>
+            <p>You know pathophysiology. The gap is recognizing patterns under pressure. Our system drills patterns, not facts. You see the same diagnostic tree 50 times across different cases.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="2">
+            <h3>OVERTHINKING KILLS SCORES</h3>
+            <p>More thinking does not mean better answers. Exam thinking is decisive. Live drills train you to commit and move. Timed sessions force you out of your head.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="3">
+            <h3>TIME IS A SKILL</h3>
+            <p>Slow students are usually overthinking. Every live session is timed. You identify bottlenecks. You train past them. Speed becomes automatic.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="4">
+            <h3>DOUBT SPIRAL ENDS HERE</h3>
+            <p>Second-guessing stems from low confidence. Confidence comes from winning under pressure. Live drills give you that proof repeatedly in front of peers.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="5">
+            <h3>PRESSURE PRACTICE = CALM EXAM</h3>
+            <p>Anxiety on exam day is just unfamiliar pressure. You have been stressed in live drills. Your nervous system knows what to do.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="6">
+            <h3>STEP 1 NEEDS A SYSTEM</h3>
+            <p>USMLE Step 1 is pattern recognition. Our sessions follow disease pathways. You learn the structure, drill the patterns, own the exam.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="7">
+            <h3>CK IS CLINICAL JUDGMENT</h3>
+            <p>Step 2 CK tests what you would do as an intern. Our CK drills focus on management and patient safety. Different thinking. Different drills.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="8">
+            <h3>STUCK SCORE NEEDS TARGETED DRILLING</h3>
+            <p>When NBME plateaus, random practice does not work. You need drills on your specific gaps. One-on-one sessions identify blind spots. Then we drill them.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="9">
+            <h3>ACCOUNTABILITY CHANGES EVERYTHING</h3>
+            <p>You show up when others are counting on you. You avoid hard topics when alone. Live drills with peers create real commitment. Progress follows.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="10">
+            <h3>LIVE FEEDBACK WORKS</h3>
+            <p>Real-time correction beats watching videos. Your instructor sees your reasoning, catches your mistakes, fixes them immediately. That sticks.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="11">
+            <h3>ONE-ON-ONE BREAKS PLATEAUS</h3>
+            <p>Stuck scores need targeted work. Your tutor watches your reasoning live. Finds the blind spot. Drills it until it is automatic. Then your score moves.</p>
+        </div>
+
+        <div class="u1402b-struggle-response u1402b-v2-struggle-response" data-struggle-response="12">
+            <h3>CONFIDENCE COMES FROM WINNING</h3>
+            <p>Real confidence is tested confidence. You feel strong because you have been in the arena and succeeded. Live drills build that.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-training-logic">
+        <h2>WHY LIVE DRILLING WORKS</h2>
+        <div class="u1402b-v2-training-steps">
+            <div class="u1402b-v2-training-step">
+                <div class="u1402b-v2-step-num">1</div>
+                <h3>Real-Time Feedback</h3>
+                <p>Instructors see your reasoning and correct it immediately. You learn the right way, not the wrong way.</p>
+            </div>
+            <div class="u1402b-v2-training-step">
+                <div class="u1402b-v2-step-num">2</div>
+                <h3>Timed Pressure</h3>
+                <p>You experience exam pace in a safe space. Pressure becomes familiar. Test day is less stressful.</p>
+            </div>
+            <div class="u1402b-v2-training-step">
+                <div class="u1402b-v2-step-num">3</div>
+                <h3>Peer Accountability</h3>
+                <p>You show up when others are counting on you. Motivation is contagious. Progress accelerates.</p>
+            </div>
+            <div class="u1402b-v2-training-step">
+                <div class="u1402b-v2-step-num">4</div>
+                <h3>Pattern Recognition</h3>
+                <p>You see diagnostic patterns across cases, in real time, explained by experts. Patterns stick.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-clinical">
+        <h2>DIAGNOSTIC REASONING UNDER PRESSURE</h2>
+        <div class="u1402b-v2-clinical-grid">
+            <div class="u1402b-v2-clinical-text">
+                <h3>The MissionMed difference</h3>
+                <p>Most drills are solo. Most feedback is delayed. Most students stay stuck because they practice alone and get feedback from a computer.</p>
+                <p>Our live sessions put you in front of an expert immediately. You reason out loud. Instructor corrects in real time. Your peers see it too. Everyone learns faster.</p>
+            </div>
+            <div class="u1402b-v2-clinical-image"></div>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-testimonials">
+        <h2>STUDENTS WHO DRILLED WITH US</h2>
+        <div class="u1402b-v2-testimonials-grid">
+            <div class="u1402b-v2-testimonial-card">
+                <div class="u1402b-v2-testimonial-quote">"Seeing other people drill in real time changed my confidence. I realized I was not the only one struggling with overthinking. Then the instructor showed us the answer pattern. It clicked for all of us at once."</div>
+                <div class="u1402b-v2-testimonial-author">Marcus H.</div>
+                <div class="u1402b-v2-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-v2-testimonial-card">
+                <div class="u1402b-v2-testimonial-quote">"I did UWorld for months. Got stuck at 220. Three months of live drills and I hit 245. The difference was real-time feedback from a person, not a computer."</div>
+                <div class="u1402b-v2-testimonial-author">Amy R.</div>
+                <div class="u1402b-v2-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-v2-testimonial-card">
+                <div class="u1402b-v2-testimonial-quote">"I was terrified of CK. Live drills made me feel like I had already lived through it 50 times. Test day was just another session."</div>
+                <div class="u1402b-v2-testimonial-author">David K.</div>
+                <div class="u1402b-v2-testimonial-role">Step 2 CK Passer</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-paths">
+        <h2>CHOOSE YOUR PATH</h2>
+        <div class="u1402b-v2-paths-grid">
+            <div class="u1402b-v2-path-card">
+                <h3>Team Drilling</h3>
+                <ul>
+                    <li>Daily live sessions, 4-8 students</li>
+                    <li>Board-certified instructors</li>
+                    <li>Real-time feedback, peer energy</li>
+                    <li>Accountability that works</li>
+                    <li>Structured by exam level</li>
+                </ul>
+                <button class="u1402b-v2-path-cta">Start Drilling</button>
+            </div>
+            <div class="u1402b-v2-path-card">
+                <h3>Private Tutoring</h3>
+                <ul>
+                    <li>Custom sessions for you</li>
+                    <li>Your tutor watches your reasoning</li>
+                    <li>Gaps identified and drilled</li>
+                    <li>Weekly progress tracking</li>
+                    <li>Combine with team drills</li>
+                </ul>
+                <button class="u1402b-v2-path-cta">Book Tutor</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-faq">
+        <h2>QUESTIONS?</h2>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How much does it cost?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Team drilling starts at $499/month. One-on-one tutoring is $150 per session. Your first drill is free.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>What if I cannot make a session live?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                All sessions are recorded. You watch the replay with timestamps. Not quite live feedback, but you still get the content and instructor's explanations.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Do I need UWorld?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                No. Our question banks cover everything. UWorld is optional if you want extra volume. Start with our drills.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>What about study materials?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Your instructors use UpToDate, board-style materials, and case-based reasoning. You get reference summaries and drilling guides per topic.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Can I cancel anytime?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Yes. Month-to-month, no contract. Cancel anytime with 3 days notice. Most students stay because the results speak for themselves.
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v2-footer">
+        <p>MissionMed Institute | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+        <p style="margin-top: 12px; color: #666;">[DEMO ASSET - REPLACE] All photos from Unsplash. Replace with branded content.</p>
+    </section>
+</div>
+
+<!-- VERSION 3: STUDENT BREAKTHROUGH STORY -->
+<div id="u1402b-version-3" class="u1402b-version">
+    <style>
+        .u1402b-v3 {
+            background: #fff9f0;
+            color: #2d2d2d;
+        }
+
+        .u1402b-v3-nav {
+            background: white;
+            padding: 16px 40px;
+            border-bottom: 1px solid #e8e8e8;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .u1402b-v3-logo {
+            font-family: Georgia, serif;
+            font-size: 18px;
+            font-weight: bold;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-hero {
+            background: url('https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1400&h=900&fit=crop') center/cover;
+            min-height: 550px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+        }
+
+        .u1402b-v3-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(26, 92, 92, 0.45);
+            z-index: 1;
+        }
+
+        .u1402b-v3-hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 650px;
+            color: white;
+        }
+
+        .u1402b-v3-hero h1 {
+            font-family: Georgia, serif;
+            font-size: 52px;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            font-weight: normal;
+            letter-spacing: -0.5px;
+        }
+
+        .u1402b-v3-hero p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            opacity: 0.95;
+        }
+
+        .u1402b-v3-cta-primary {
+            display: inline-block;
+            background: #e85d4a;
+            color: white;
+            padding: 14px 32px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v3-cta-primary:hover {
+            background: #d94c3a;
+            transform: translateY(-1px);
+        }
+
+        .u1402b-v3-cta-secondary {
+            display: inline-block;
+            background: transparent;
+            color: white;
+            padding: 14px 32px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 2px solid white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v3-cta-secondary:hover {
+            background: white;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-proof {
+            background: white;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            text-align: center;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v3-proof-item {
+            padding: 0 20px;
+        }
+
+        .u1402b-v3-proof-number {
+            font-family: Georgia, serif;
+            font-size: 28px;
+            color: #1a5c5c;
+            font-weight: bold;
+            margin-bottom: 6px;
+        }
+
+        .u1402b-v3-proof-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .u1402b-v3-testimonials {
+            padding: 60px 40px;
+            background: #fff9f0;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v3-testimonials h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-testimonials-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-v3-testimonial-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 30px;
+            background: white;
+        }
+
+        .u1402b-v3-testimonial-quote {
+            font-style: italic;
+            color: #555;
+            margin-bottom: 16px;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .u1402b-v3-testimonial-author {
+            font-weight: 600;
+            color: #1a5c5c;
+            font-size: 14px;
+        }
+
+        .u1402b-v3-testimonial-role {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .u1402b-v3-struggle {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .u1402b-v3-struggle h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 12px;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-struggle-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .u1402b-v3-training-logic {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v3-training-logic h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-training-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-v3-training-step {
+            text-align: center;
+        }
+
+        .u1402b-v3-step-num {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            background: #e85d4a;
+            color: white;
+            border-radius: 50%;
+            line-height: 50px;
+            font-weight: bold;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .u1402b-v3-training-step h3 {
+            font-family: Georgia, serif;
+            font-size: 18px;
+            color: #1a5c5c;
+            margin-bottom: 10px;
+        }
+
+        .u1402b-v3-training-step p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .u1402b-v3-clinical {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v3-clinical h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-clinical-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .u1402b-v3-clinical-text h3 {
+            font-family: Georgia, serif;
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-clinical-text p {
+            margin-bottom: 16px;
+            color: #555;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .u1402b-v3-clinical-image {
+            width: 100%;
+            height: 400px;
+            background: url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200&h=700&fit=crop') center/cover;
+            border-radius: 4px;
+        }
+
+        .u1402b-v3-live-drill {
+            padding: 60px 40px;
+            background: white;
+            border-top: 1px solid #e8e8e8;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v3-live-drill h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-live-drill-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-v3-live-drill-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v3-live-drill-card:hover {
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+
+        .u1402b-v3-live-drill-image {
+            width: 100%;
+            height: 200px;
+            background: url('https://images.unsplash.com/photo-1523050854058-8df90110c476?w=1200&h=700&fit=crop') center/cover;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .u1402b-v3-live-drill-content {
+            padding: 20px;
+        }
+
+        .u1402b-v3-live-drill-content h3 {
+            font-family: Georgia, serif;
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-live-drill-content p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .u1402b-v3-paths {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v3-paths h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #1a5c5c;
+            text-align: center;
+        }
+
+        .u1402b-v3-paths-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .u1402b-v3-path-card {
+            border: 2px solid #1a5c5c;
+            border-radius: 4px;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .u1402b-v3-path-card h3 {
+            font-family: Georgia, serif;
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #1a5c5c;
+        }
+
+        .u1402b-v3-path-card ul {
+            list-style: none;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .u1402b-v3-path-card li {
+            padding: 8px 0;
+            color: #555;
+            font-size: 14px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .u1402b-v3-path-cta {
+            background: #e85d4a;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .u1402b-v3-faq {
+            padding: 60px 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            border-top: 1px solid #e8e8e8;
+        }
+
+        .u1402b-v3-faq h2 {
+            font-family: Georgia, serif;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #1a5c5c;
+            text-align: center;
+        }
+
+        .u1402b-v3-footer {
+            padding: 40px;
+            background: #1a5c5c;
+            color: white;
+            text-align: center;
+            font-size: 13px;
+            border-top: 1px solid #0d3c3c;
+        }
+
+        .u1402b-v3-footer a {
+            color: #e85d4a;
+            text-decoration: none;
+        }
+    </style>
+
+    <nav class="u1402b-v3-nav">
+        <div class="u1402b-v3-logo">MissionMed Institute</div>
+        <div>[DEMO NAV]</div>
+    </nav>
+
+    <section class="u1402b-v3-hero">
+        <div class="u1402b-v3-hero-content">
+            <h1>From overwhelmed to unstoppable</h1>
+            <p>Watch Sarah go from stuck at 218 to board-certified. Her breakthrough was the same system that has worked for 500+ students.</p>
+            <button class="u1402b-v3-cta-primary">Start Your Breakthrough</button>
+            <button class="u1402b-v3-cta-secondary">See More Stories</button>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-proof">
+        <div class="u1402b-v3-proof-item">
+            <div class="u1402b-v3-proof-number">500+</div>
+            <div class="u1402b-v3-proof-label">Students Trained</div>
+        </div>
+        <div class="u1402b-v3-proof-item">
+            <div class="u1402b-v3-proof-number">10+</div>
+            <div class="u1402b-v3-proof-label">Years Teaching</div>
+        </div>
+        <div class="u1402b-v3-proof-item">
+            <div class="u1402b-v3-proof-number">4.9</div>
+            <div class="u1402b-v3-proof-label">Average Rating</div>
+        </div>
+        <div class="u1402b-v3-proof-item">
+            <div class="u1402b-v3-proof-number">Daily</div>
+            <div class="u1402b-v3-proof-label">Live Drills</div>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-testimonials">
+        <h2>Real students. Real scores. Real results.</h2>
+        <div class="u1402b-v3-testimonials-grid">
+            <div class="u1402b-v3-testimonial-card">
+                <div class="u1402b-v3-testimonial-quote">"I was stuck at 218 on NBME. Three months of live drilling with MissionMed got me to 245. The feedback loop is everything."</div>
+                <div class="u1402b-v3-testimonial-author">Sarah M.</div>
+                <div class="u1402b-v3-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-v3-testimonial-card">
+                <div class="u1402b-v3-testimonial-quote">"I stopped second-guessing myself. The confidence I built in those live sessions carried me straight through exam day."</div>
+                <div class="u1402b-v3-testimonial-author">James T.</div>
+                <div class="u1402b-v3-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-v3-testimonial-card">
+                <div class="u1402b-v3-testimonial-quote">"My tutor found my blind spot and we drilled it until it was automatic. That one thing changed everything."</div>
+                <div class="u1402b-v3-testimonial-author">Priya K.</div>
+                <div class="u1402b-v3-testimonial-role">Step 2 CK Passer</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-struggle">
+        <h2>What is holding you back?</h2>
+        <p class="u1402b-v3-struggle-subtitle">Most students know more than they think. Let's find what is blocking your score.</p>
+
+        <div class="u1402b-struggle-chips">
+            <button class="u1402b-struggle-chip active" data-struggle="1">I know content but miss questions</button>
+            <button class="u1402b-struggle-chip" data-struggle="2">I overthink</button>
+            <button class="u1402b-struggle-chip" data-struggle="3">I run out of time</button>
+            <button class="u1402b-struggle-chip" data-struggle="4">I keep changing right answers</button>
+            <button class="u1402b-struggle-chip" data-struggle="5">I panic on exams</button>
+            <button class="u1402b-struggle-chip" data-struggle="6">I need Step 1 structure</button>
+            <button class="u1402b-struggle-chip" data-struggle="7">I need Step 2 CK reasoning</button>
+            <button class="u1402b-struggle-chip" data-struggle="8">My NBME score is stuck</button>
+            <button class="u1402b-struggle-chip" data-struggle="9">I need accountability</button>
+            <button class="u1402b-struggle-chip" data-struggle="10">I need live drilling</button>
+            <button class="u1402b-struggle-chip" data-struggle="11">I need 1-on-1 tutoring</button>
+            <button class="u1402b-struggle-chip" data-struggle="12">I need confidence under pressure</button>
+        </div>
+
+        <div class="u1402b-struggle-response active" data-struggle-response="1">
+            <h3>Content Knowledge vs. Pattern Recognition</h3>
+            <p>You have memorized the facts. The gap is between knowing pathophysiology and recognizing which diagnostic clues matter most under time pressure.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our drill system isolates reasoning patterns, not facts. You practice the clinical decision tree 50 times, not once. Pattern recognition becomes automatic.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="2">
+            <h3>Overthinking Costs Points</h3>
+            <p>The harder you think, the more distractors seem plausible. You second-guess correct answers because you seek certainty that does not exist in medicine.</p>
+            <p><strong>How MissionMed addresses this:</strong> Timed drills train you to commit to the best answer, not the perfect one. Real exams reward decisiveness, not endless deliberation.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="3">
+            <h3>Time Management is a Learnable Skill</h3>
+            <p>Slower students are usually overthinking, not underprepared. You need to practice at exam pace, not study pace.</p>
+            <p><strong>How MissionMed addresses this:</strong> Every session is timed. You experience your bottlenecks and train through them with live feedback from experts.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="4">
+            <h3>Doubt Spiral</h3>
+            <p>Once doubt starts, it cascades. You change answers because you lack confidence, not because the new answer is better.</p>
+            <p><strong>How MissionMed addresses this:</strong> Confidence comes from repetition and winning under pressure. Live drills give you that proof repeatedly.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="5">
+            <h3>Exam Anxiety is Real</h3>
+            <p>Your nervous system becomes a factor on test day. Panic breaks pattern recognition and kills time management.</p>
+            <p><strong>How MissionMed addresses this:</strong> Repeated live drills with real-time pressure desensitize you. You have been in the fight before the real exam.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="6">
+            <h3>Step 1 Needs Systematic Thinking</h3>
+            <p>USMLE Step 1 tests pattern recognition across diseases. You need a repeatable structure, not random drills.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our Step 1 track follows diagnostic thinking, organ systems, and board-style reasoning. Structure first, then speed.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="7">
+            <h3>Step 2 CK Requires Clinical Judgment</h3>
+            <p>Step 2 is different. It tests what you would do as an intern, not what you would diagnose. Patient safety matters.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our CK track focuses on clinical decision-making, management pathways, and real-world complications. You practice medical reasoning, not trivia.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="8">
+            <h3>NBME Plateau</h3>
+            <p>When NBME scores plateau, it usually means you are practicing inefficiently. You need targeted drilling on your specific gaps.</p>
+            <p><strong>How MissionMed addresses this:</strong> One-on-one tutoring identifies your reasoning blind spots. We drill those specifically until the pattern shifts.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="9">
+            <h3>Accountability Drives Progress</h3>
+            <p>Solo studying lacks accountability. You skip hard topics. You avoid your weaknesses. Progress stalls.</p>
+            <p><strong>How MissionMed addresses this:</strong> Team drilling sessions create accountability. Your peers see your effort. Your instructor tracks your growth. You show up.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="10">
+            <h3>Live Drilling Works</h3>
+            <p>Real-time feedback beats recorded lectures. You need to see your reasoning tested immediately, with expert correction.</p>
+            <p><strong>How MissionMed addresses this:</strong> Daily live drills with board-certified instructors. You get immediate feedback. You see your improvement in real time.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="11">
+            <h3>One-on-One Tutoring Changes Everything</h3>
+            <p>If you are stuck, generic drills will not fix it. You need someone to see your specific reasoning pattern and correct it.</p>
+            <p><strong>How MissionMed addresses this:</strong> One-on-one sessions focus entirely on your gaps. Your tutor watches you reason in real time and redirects immediately.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="12">
+            <h3>Confidence Comes from Winning</h3>
+            <p>You feel confident when you have been tested and succeeded. Fake confidence breaks under pressure.</p>
+            <p><strong>How MissionMed addresses this:</strong> Live drills, group accountability, and visible progress build real confidence. You know you can perform because you have.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-training-logic">
+        <h2>Why this system works</h2>
+        <div class="u1402b-v3-training-steps">
+            <div class="u1402b-v3-training-step">
+                <div class="u1402b-v3-step-num">1</div>
+                <h3>Structured Reasoning</h3>
+                <p>Every drill follows diagnostic logic. You learn the pattern, then you own it.</p>
+            </div>
+            <div class="u1402b-v3-training-step">
+                <div class="u1402b-v3-step-num">2</div>
+                <h3>Repeated Drilling</h3>
+                <p>You drill until the pattern is automatic. Repetition is how learning sticks.</p>
+            </div>
+            <div class="u1402b-v3-training-step">
+                <div class="u1402b-v3-step-num">3</div>
+                <h3>Real-Time Feedback</h3>
+                <p>Expert instructors correct your reasoning immediately. You learn the right way.</p>
+            </div>
+            <div class="u1402b-v3-training-step">
+                <div class="u1402b-v3-step-num">4</div>
+                <h3>Pressure and Proof</h3>
+                <p>Live sessions with peers create real pressure. You prove you can perform.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-clinical">
+        <h2>Clinical reasoning that scales</h2>
+        <div class="u1402b-v3-clinical-grid">
+            <div class="u1402b-v3-clinical-text">
+                <h3>Learn the patterns that matter</h3>
+                <p>Most questions test 40 disease patterns repeated across 500 questions. You do not need to memorize 5,000 rare diseases. You need to recognize and reason through the common patterns.</p>
+                <p>Our system isolates these patterns. You see them in different contexts. You practice recognizing them under time pressure. Your brain builds the pattern library that tests reward.</p>
+            </div>
+            <div class="u1402b-v3-clinical-image"></div>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-live-drill">
+        <h2>Live drilling is proof</h2>
+        <div class="u1402b-v3-live-drill-grid">
+            <div class="u1402b-v3-live-drill-card">
+                <div class="u1402b-v3-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v3-live-drill-content">
+                    <h3>Monday Evening: Step 1 Reasoning</h3>
+                    <p>7pm EDT. Board-style questions. Real-time feedback.</p>
+                </div>
+            </div>
+            <div class="u1402b-v3-live-drill-card">
+                <div class="u1402b-v3-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v3-live-drill-content">
+                    <h3>Wednesday Evening: CK Vignettes</h3>
+                    <p>7pm EDT. Clinical decision-making. Patient safety focus.</p>
+                </div>
+            </div>
+            <div class="u1402b-v3-live-drill-card">
+                <div class="u1402b-v3-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v3-live-drill-content">
+                    <h3>Saturday Morning: Full Practice</h3>
+                    <p>9am EDT. Complete exam simulation. Complete feedback.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-paths">
+        <h2>Two proven training paths</h2>
+        <div class="u1402b-v3-paths-grid">
+            <div class="u1402b-v3-path-card">
+                <h3>Team Drilling Sessions</h3>
+                <ul>
+                    <li>Daily live drills with 4-8 students</li>
+                    <li>Board-certified instructors</li>
+                    <li>Real-time feedback and group learning</li>
+                    <li>Accountability and peer energy</li>
+                    <li>Structured by exam level</li>
+                </ul>
+                <button class="u1402b-v3-path-cta">Learn More</button>
+            </div>
+            <div class="u1402b-v3-path-card">
+                <h3>One-on-One Tutoring</h3>
+                <ul>
+                    <li>Custom sessions scheduled for you</li>
+                    <li>Your tutor watches your reasoning</li>
+                    <li>Gaps identified and targeted</li>
+                    <li>Progress tracked week to week</li>
+                    <li>Combines with team drills if desired</li>
+                </ul>
+                <button class="u1402b-v3-path-cta">Learn More</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-faq">
+        <h2>FAQ</h2>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How are the live drilling sessions structured?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Sessions run in small groups with a trained instructor. You work through clinical reasoning questions in real time, talk through your thought process out loud, and receive immediate feedback. Every session targets specific reasoning patterns.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Is this for Step 1, Step 2 CK, or both?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                We offer structured training paths for both Step 1 and Step 2 CK. The core reasoning methodology applies to both, with exam-specific question patterns and content focus for each.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How is this different from question banks?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Question banks give you questions and explanations. We train the reasoning process itself. The difference is like reading about swimming versus getting in the pool with a coach. You practice thinking through problems in real time, not just reviewing answers.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>What if I have already tried other prep courses?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Many of our students come to us after other resources did not work. The issue is usually not the content but the method. If you know the material but still miss questions, the problem is in how you apply knowledge, and that is exactly what we train.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Can I try a session before committing?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Yes. Reach out to our team to learn about options for experiencing a live drilling session before enrolling in a full program.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How much time does this require each week?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Training paths are flexible. Most students commit to a few live sessions per week plus independent drilling. The key is consistent practice, not marathon study sessions.
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v3-footer">
+        <p>MissionMed Institute | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+        <p style="margin-top: 12px; color: #ccc;">[DEMO ASSET - REPLACE] All photos from Unsplash. Replace with branded content.</p>
+    </section>
+</div>
+
+<!-- VERSION 4: REASONING DIAGNOSTIC ENGINE -->
+<div id="u1402b-version-4" class="u1402b-version">
+    <style>
+        .u1402b-v4 {
+            background: #ffffff;
+            color: #111827;
+        }
+
+        .u1402b-v4-nav {
+            background: white;
+            padding: 16px 40px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .u1402b-v4-logo {
+            font-family: Courier New, monospace;
+            font-size: 18px;
+            font-weight: bold;
+            color: #059669;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v4-hero {
+            background: url('https://images.unsplash.com/photo-1559757175-0eb30cd8c063?w=1400&h=900&fit=crop') center/cover;
+            min-height: 500px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 40px;
+        }
+
+        .u1402b-v4-hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(17, 24, 39, 0.5);
+            z-index: 1;
+        }
+
+        .u1402b-v4-hero-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+            max-width: 650px;
+            color: white;
+        }
+
+        .u1402b-v4-hero h1 {
+            font-size: 52px;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+
+        .u1402b-v4-hero p {
+            font-size: 18px;
+            margin-bottom: 30px;
+            opacity: 0.95;
+        }
+
+        .u1402b-v4-cta-primary {
+            display: inline-block;
+            background: #059669;
+            color: white;
+            padding: 14px 32px;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-right: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v4-cta-primary:hover {
+            background: #047857;
+            transform: translateY(-1px);
+        }
+
+        .u1402b-v4-cta-secondary {
+            display: inline-block;
+            background: transparent;
+            color: white;
+            padding: 14px 32px;
+            font-weight: 600;
+            text-decoration: none;
+            border: 2px solid white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v4-cta-secondary:hover {
+            background: white;
+            color: #111827;
+        }
+
+        .u1402b-v4-proof {
+            background: #f0fdf4;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 30px;
+            text-align: center;
+            border-bottom: 1px solid #d1fae5;
+        }
+
+        .u1402b-v4-proof-item {
+            padding: 0 20px;
+        }
+
+        .u1402b-v4-proof-number {
+            font-family: Courier New, monospace;
+            font-size: 28px;
+            color: #059669;
+            font-weight: bold;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+
+        .u1402b-v4-proof-label {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .u1402b-v4-struggle {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .u1402b-v4-struggle h2 {
+            font-size: 36px;
+            margin-bottom: 12px;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-struggle-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .u1402b-v4-training-logic {
+            padding: 60px 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .u1402b-v4-training-logic h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-training-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-v4-training-step {
+            text-align: center;
+        }
+
+        .u1402b-v4-step-num {
+            display: inline-block;
+            width: 50px;
+            height: 50px;
+            background: #059669;
+            color: white;
+            border-radius: 50%;
+            line-height: 50px;
+            font-weight: bold;
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .u1402b-v4-training-step h3 {
+            font-size: 18px;
+            color: #111827;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-training-step p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .u1402b-v4-clinical {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .u1402b-v4-clinical h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-clinical-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .u1402b-v4-clinical-text h3 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-clinical-text p {
+            margin-bottom: 16px;
+            color: #555;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .u1402b-v4-clinical-image {
+            width: 100%;
+            height: 400px;
+            background: url('https://images.unsplash.com/photo-1530497610245-94d3c16cda28?w=1200&h=700&fit=crop') center/cover;
+            border-radius: 4px;
+        }
+
+        .u1402b-v4-live-drill {
+            padding: 60px 40px;
+            background: #f0fdf4;
+            border-top: 1px solid #e5e7eb;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .u1402b-v4-live-drill h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-live-drill-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-v4-live-drill-card {
+            border: 1px solid #d1fae5;
+            border-radius: 4px;
+            overflow: hidden;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .u1402b-v4-live-drill-card:hover {
+            box-shadow: 0 8px 24px rgba(5, 150, 105, 0.1);
+        }
+
+        .u1402b-v4-live-drill-image {
+            width: 100%;
+            height: 200px;
+            background: url('https://images.unsplash.com/photo-1584982751601-97dcc096659c?w=1200&h=700&fit=crop') center/cover;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .u1402b-v4-live-drill-content {
+            padding: 20px;
+        }
+
+        .u1402b-v4-live-drill-content h3 {
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-live-drill-content p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .u1402b-v4-testimonials {
+            padding: 60px 40px;
+            background: white;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .u1402b-v4-testimonials h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-testimonials-grid {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .u1402b-v4-testimonial-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 4px;
+            padding: 30px;
+            background: white;
+        }
+
+        .u1402b-v4-testimonial-quote {
+            font-style: italic;
+            color: #555;
+            margin-bottom: 16px;
+            font-size: 15px;
+            line-height: 1.7;
+        }
+
+        .u1402b-v4-testimonial-author {
+            font-weight: 600;
+            color: #111827;
+            font-size: 14px;
+        }
+
+        .u1402b-v4-testimonial-role {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .u1402b-v4-paths {
+            padding: 60px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .u1402b-v4-paths h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #111827;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-paths-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+        }
+
+        .u1402b-v4-path-card {
+            border: 2px solid #059669;
+            border-radius: 4px;
+            padding: 40px;
+            text-align: center;
+            background: #f0fdf4;
+        }
+
+        .u1402b-v4-path-card h3 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #111827;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-path-card ul {
+            list-style: none;
+            margin-bottom: 30px;
+            text-align: left;
+        }
+
+        .u1402b-v4-path-card li {
+            padding: 8px 0;
+            color: #555;
+            font-size: 14px;
+            border-bottom: 1px solid #d1fae5;
+        }
+
+        .u1402b-v4-path-cta {
+            background: #059669;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .u1402b-v4-faq {
+            padding: 60px 40px;
+            max-width: 900px;
+            margin: 0 auto;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .u1402b-v4-faq h2 {
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #111827;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .u1402b-v4-footer {
+            padding: 40px;
+            background: #111827;
+            color: white;
+            text-align: center;
+            font-size: 13px;
+            border-top: 1px solid #1f2937;
+        }
+
+        .u1402b-v4-footer a {
+            color: #059669;
+            text-decoration: none;
+        }
+    </style>
+
+    <nav class="u1402b-v4-nav">
+        <div class="u1402b-v4-logo">MissionMed Diagnostics</div>
+        <div>[DEMO NAV]</div>
+    </nav>
+
+    <section class="u1402b-v4-hero">
+        <div class="u1402b-v4-hero-content">
+            <h1>Diagnostic reasoning, engineered for scale</h1>
+            <p>Identify your exact reasoning gaps. Train the specific patterns holding you back. Watch your score move.</p>
+            <button class="u1402b-v4-cta-primary">Run Your Diagnostic</button>
+            <button class="u1402b-v4-cta-secondary">See How It Works</button>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-proof">
+        <div class="u1402b-v4-proof-item">
+            <div class="u1402b-v4-proof-number">500+</div>
+            <div class="u1402b-v4-proof-label">Students Trained</div>
+        </div>
+        <div class="u1402b-v4-proof-item">
+            <div class="u1402b-v4-proof-number">10+</div>
+            <div class="u1402b-v4-proof-label">Years Teaching</div>
+        </div>
+        <div class="u1402b-v4-proof-item">
+            <div class="u1402b-v4-proof-number">4.9</div>
+            <div class="u1402b-v4-proof-label">Average Rating</div>
+        </div>
+        <div class="u1402b-v4-proof-item">
+            <div class="u1402b-v4-proof-number">Daily</div>
+            <div class="u1402b-v4-proof-label">Live Drills</div>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-struggle">
+        <h2>What is your reasoning bottleneck?</h2>
+        <p class="u1402b-v4-struggle-subtitle">Select your struggle. We will show you exactly how to fix it.</p>
+
+        <div class="u1402b-struggle-chips">
+            <button class="u1402b-struggle-chip active" data-struggle="1">I know content but miss questions</button>
+            <button class="u1402b-struggle-chip" data-struggle="2">I overthink</button>
+            <button class="u1402b-struggle-chip" data-struggle="3">I run out of time</button>
+            <button class="u1402b-struggle-chip" data-struggle="4">I keep changing right answers</button>
+            <button class="u1402b-struggle-chip" data-struggle="5">I panic on exams</button>
+            <button class="u1402b-struggle-chip" data-struggle="6">I need Step 1 structure</button>
+            <button class="u1402b-struggle-chip" data-struggle="7">I need Step 2 CK reasoning</button>
+            <button class="u1402b-struggle-chip" data-struggle="8">My NBME score is stuck</button>
+            <button class="u1402b-struggle-chip" data-struggle="9">I need accountability</button>
+            <button class="u1402b-struggle-chip" data-struggle="10">I need live drilling</button>
+            <button class="u1402b-struggle-chip" data-struggle="11">I need 1-on-1 tutoring</button>
+            <button class="u1402b-struggle-chip" data-struggle="12">I need confidence under pressure</button>
+        </div>
+
+        <div class="u1402b-struggle-response active" data-struggle-response="1">
+            <h3>Content Knowledge vs. Pattern Recognition</h3>
+            <p>You have memorized the facts. The gap is between knowing pathophysiology and recognizing which diagnostic clues matter most under time pressure.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our drill system isolates reasoning patterns, not facts. You practice the clinical decision tree 50 times, not once. Pattern recognition becomes automatic.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="2">
+            <h3>Overthinking Costs Points</h3>
+            <p>The harder you think, the more distractors seem plausible. You second-guess correct answers because you seek certainty that does not exist in medicine.</p>
+            <p><strong>How MissionMed addresses this:</strong> Timed drills train you to commit to the best answer, not the perfect one. Real exams reward decisiveness, not endless deliberation.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="3">
+            <h3>Time Management is a Learnable Skill</h3>
+            <p>Slower students are usually overthinking, not underprepared. You need to practice at exam pace, not study pace.</p>
+            <p><strong>How MissionMed addresses this:</strong> Every session is timed. You experience your bottlenecks and train through them with live feedback from experts.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="4">
+            <h3>Doubt Spiral</h3>
+            <p>Once doubt starts, it cascades. You change answers because you lack confidence, not because the new answer is better.</p>
+            <p><strong>How MissionMed addresses this:</strong> Confidence comes from repetition and winning under pressure. Live drills give you that proof repeatedly.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="5">
+            <h3>Exam Anxiety is Real</h3>
+            <p>Your nervous system becomes a factor on test day. Panic breaks pattern recognition and kills time management.</p>
+            <p><strong>How MissionMed addresses this:</strong> Repeated live drills with real-time pressure desensitize you. You have been in the fight before the real exam.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="6">
+            <h3>Step 1 Needs Systematic Thinking</h3>
+            <p>USMLE Step 1 tests pattern recognition across diseases. You need a repeatable structure, not random drills.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our Step 1 track follows diagnostic thinking, organ systems, and board-style reasoning. Structure first, then speed.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="7">
+            <h3>Step 2 CK Requires Clinical Judgment</h3>
+            <p>Step 2 is different. It tests what you would do as an intern, not what you would diagnose. Patient safety matters.</p>
+            <p><strong>How MissionMed addresses this:</strong> Our CK track focuses on clinical decision-making, management pathways, and real-world complications. You practice medical reasoning, not trivia.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="8">
+            <h3>NBME Plateau</h3>
+            <p>When NBME scores plateau, it usually means you are practicing inefficiently. You need targeted drilling on your specific gaps.</p>
+            <p><strong>How MissionMed addresses this:</strong> One-on-one tutoring identifies your reasoning blind spots. We drill those specifically until the pattern shifts.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="9">
+            <h3>Accountability Drives Progress</h3>
+            <p>Solo studying lacks accountability. You skip hard topics. You avoid your weaknesses. Progress stalls.</p>
+            <p><strong>How MissionMed addresses this:</strong> Team drilling sessions create accountability. Your peers see your effort. Your instructor tracks your growth. You show up.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="10">
+            <h3>Live Drilling Works</h3>
+            <p>Real-time feedback beats recorded lectures. You need to see your reasoning tested immediately, with expert correction.</p>
+            <p><strong>How MissionMed addresses this:</strong> Daily live drills with board-certified instructors. You get immediate feedback. You see your improvement in real time.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="11">
+            <h3>One-on-One Tutoring Changes Everything</h3>
+            <p>If you are stuck, generic drills will not fix it. You need someone to see your specific reasoning pattern and correct it.</p>
+            <p><strong>How MissionMed addresses this:</strong> One-on-one sessions focus entirely on your gaps. Your tutor watches you reason in real time and redirects immediately.</p>
+        </div>
+
+        <div class="u1402b-struggle-response" data-struggle-response="12">
+            <h3>Confidence Comes from Winning</h3>
+            <p>You feel confident when you have been tested and succeeded. Fake confidence breaks under pressure.</p>
+            <p><strong>How MissionMed addresses this:</strong> Live drills, group accountability, and visible progress build real confidence. You know you can perform because you have.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-training-logic">
+        <h2>How the diagnostic engine works</h2>
+        <div class="u1402b-v4-training-steps">
+            <div class="u1402b-v4-training-step">
+                <div class="u1402b-v4-step-num">1</div>
+                <h3>Run Diagnostic</h3>
+                <p>You answer 40 questions. Our system identifies your specific reasoning patterns.</p>
+            </div>
+            <div class="u1402b-v4-training-step">
+                <div class="u1402b-v4-step-num">2</div>
+                <h3>Map Gaps</h3>
+                <p>We pinpoint exactly which decision-making patterns are holding your score back.</p>
+            </div>
+            <div class="u1402b-v4-training-step">
+                <div class="u1402b-v4-step-num">3</div>
+                <h3>Targeted Drilling</h3>
+                <p>You drill those specific patterns with live feedback until they become automatic.</p>
+            </div>
+            <div class="u1402b-v4-training-step">
+                <div class="u1402b-v4-step-num">4</div>
+                <h3>Verify Progress</h3>
+                <p>Re-run diagnostics. Watch your score move. Know you are fixing the right things.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-clinical">
+        <h2>Clinical reasoning meets product design</h2>
+        <div class="u1402b-v4-clinical-grid">
+            <div class="u1402b-v4-clinical-text">
+                <h3>Not just another question bank</h3>
+                <p>Every question you see is paired with diagnostic reasoning data. We track not just whether you got it right, but how you think. What patterns you recognize. Where you hesitate.</p>
+                <p>That data becomes your personalized drill path. You practice the patterns your brain is missing. Not the patterns everyone else is struggling with. Yours.</p>
+            </div>
+            <div class="u1402b-v4-clinical-image"></div>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-live-drill">
+        <h2>Live drilling with real-time diagnostics</h2>
+        <div class="u1402b-v4-live-drill-grid">
+            <div class="u1402b-v4-live-drill-card">
+                <div class="u1402b-v4-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v4-live-drill-content">
+                    <h3>Monday Evening: Step 1 Reasoning</h3>
+                    <p>7pm EDT. Real-time feedback on your reasoning patterns.</p>
+                </div>
+            </div>
+            <div class="u1402b-v4-live-drill-card">
+                <div class="u1402b-v4-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v4-live-drill-content">
+                    <h3>Wednesday Evening: CK Vignettes</h3>
+                    <p>7pm EDT. Clinical decision diagnostics with full feedback.</p>
+                </div>
+            </div>
+            <div class="u1402b-v4-live-drill-card">
+                <div class="u1402b-v4-live-drill-image">
+                    <div class="u1402b-play-button"></div>
+                </div>
+                <div class="u1402b-v4-live-drill-content">
+                    <h3>Saturday Morning: Full Practice</h3>
+                    <p>9am EDT. Complete exam with comprehensive diagnostic report.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-testimonials">
+        <h2>Students using the diagnostic system</h2>
+        <div class="u1402b-v4-testimonials-grid">
+            <div class="u1402b-v4-testimonial-card">
+                <div class="u1402b-v4-testimonial-quote">"The diagnostic report showed me exactly what I was doing wrong. Instead of studying everything, I could focus on my specific gap. My score moved fast."</div>
+                <div class="u1402b-v4-testimonial-author">Sarah M.</div>
+                <div class="u1402b-v4-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-v4-testimonial-card">
+                <div class="u1402b-v4-testimonial-quote">"I was spinning my wheels with generic prep. The diagnostic showed me I was overthinking everything. Once I knew that, I could fix it."</div>
+                <div class="u1402b-v4-testimonial-author">James T.</div>
+                <div class="u1402b-v4-testimonial-role">Step 1 Passer</div>
+            </div>
+            <div class="u1402b-v4-testimonial-card">
+                <div class="u1402b-v4-testimonial-quote">"The data drove everything. I knew which patterns to drill. Progress was measurable. I could see myself getting better week to week."</div>
+                <div class="u1402b-v4-testimonial-author">Priya K.</div>
+                <div class="u1402b-v4-testimonial-role">Step 2 CK Passer</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-paths">
+        <h2>Two training models</h2>
+        <div class="u1402b-v4-paths-grid">
+            <div class="u1402b-v4-path-card">
+                <h3>Team Drilling Sessions</h3>
+                <ul>
+                    <li>Daily live drills with 4-8 students</li>
+                    <li>Board-certified instructors</li>
+                    <li>Real-time feedback and group learning</li>
+                    <li>Diagnostic data per session</li>
+                    <li>Structured by exam level</li>
+                </ul>
+                <button class="u1402b-v4-path-cta">Learn More</button>
+            </div>
+            <div class="u1402b-v4-path-card">
+                <h3>One-on-One Tutoring</h3>
+                <ul>
+                    <li>Custom sessions scheduled for you</li>
+                    <li>Your tutor reviews your diagnostics</li>
+                    <li>Personalized drill paths</li>
+                    <li>Weekly progress reports</li>
+                    <li>Combines with team drills if desired</li>
+                </ul>
+                <button class="u1402b-v4-path-cta">Learn More</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-faq">
+        <h2>FAQ</h2>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How are the live drilling sessions structured?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Sessions run in small groups with a trained instructor. You work through clinical reasoning questions in real time, talk through your thought process out loud, and receive immediate feedback. Every session targets specific reasoning patterns.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Is this for Step 1, Step 2 CK, or both?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                We offer structured training paths for both Step 1 and Step 2 CK. The core reasoning methodology applies to both, with exam-specific question patterns and content focus for each.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How is this different from question banks?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Question banks give you questions and explanations. We train the reasoning process itself. The difference is like reading about swimming versus getting in the pool with a coach. You practice thinking through problems in real time, not just reviewing answers.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>What if I have already tried other prep courses?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Many of our students come to us after other resources did not work. The issue is usually not the content but the method. If you know the material but still miss questions, the problem is in how you apply knowledge, and that is exactly what we train.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>Can I try a session before committing?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Yes. Reach out to our team to learn about options for experiencing a live drilling session before enrolling in a full program.
+            </div>
+        </div>
+        <div class="u1402b-faq-item">
+            <div class="u1402b-faq-question">
+                <span>How much time does this require each week?</span>
+                <span class="u1402b-faq-toggle">v</span>
+            </div>
+            <div class="u1402b-faq-answer">
+                Training paths are flexible. Most students commit to a few live sessions per week plus independent drilling. The key is consistent practice, not marathon study sessions.
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v4-footer">
+        <p>MissionMed Institute | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+        <p style="margin-top: 12px; color: #666;">[DEMO ASSET - REPLACE] All photos from Unsplash. Replace with branded content.</p>
+    </section>
+</div>
+
+<!-- VERSION 5: BOLD EXAM-DAY PERFORMANCE -->
+<div id="u1402b-version-5" class="u1402b-version u1402b-v5">
+    <style scoped>
+        .u1402b-v5 {
+            --v5-black: #000000;
+            --v5-orange: #ff6b2b;
+            --v5-white: #ffffff;
+            --v5-gray: #f5f0eb;
+        }
+
+        .u1402b-v5-header {
+            background: var(--v5-black);
+            color: var(--v5-white);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .u1402b-v5-header a {
+            color: var(--v5-white);
+            text-decoration: none;
+            margin: 0 16px;
+            font-size: 14px;
+        }
+
+        .u1402b-v5-hero {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: linear-gradient(135deg, rgba(0,0,0,0.5), rgba(255,107,43,0.4)), url('https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1400&h=900&fit=crop') center/cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--v5-white);
+        }
+
+        .u1402b-v5-hero-content h1 {
+            font-size: 64px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -2px;
+            margin: 0;
+            line-height: 1.1;
+        }
+
+        .u1402b-v5-hero-content p {
+            font-size: 20px;
+            margin: 16px 0 0 0;
+            font-weight: 600;
+        }
+
+        .u1402b-v5-cta-primary {
+            background: var(--v5-orange);
+            color: var(--v5-black);
+            padding: 16px 40px;
+            font-size: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            margin-top: 24px;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v5-cta-primary:hover {
+            background: #ff8b4d;
+        }
+
+        .u1402b-v5-section {
+            padding: 80px 40px;
+        }
+
+        .u1402b-v5-section.dark {
+            background: var(--v5-black);
+            color: var(--v5-white);
+        }
+
+        .u1402b-v5-section.light {
+            background: var(--v5-white);
+            color: var(--v5-black);
+        }
+
+        .u1402b-v5-section.gray {
+            background: var(--v5-gray);
+            color: var(--v5-black);
+        }
+
+        .u1402b-v5-section.photo {
+            background: center/cover;
+            position: relative;
+        }
+
+        .u1402b-v5-section.photo::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 1;
+        }
+
+        .u1402b-v5-section.photo > * {
+            position: relative;
+            z-index: 2;
+        }
+
+        .u1402b-v5-section h2 {
+            font-size: 48px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+            margin: 0 0 24px 0;
+        }
+
+        .u1402b-v5-section p {
+            font-size: 18px;
+            line-height: 1.6;
+            margin: 12px 0;
+        }
+
+        .u1402b-v5-stat-strip {
+            display: flex;
+            justify-content: space-around;
+            background: var(--v5-orange);
+            color: var(--v5-black);
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .u1402b-v5-stat {
+            flex: 1;
+        }
+
+        .u1402b-v5-stat-number {
+            font-size: 48px;
+            font-weight: 900;
+        }
+
+        .u1402b-v5-stat-label {
+            font-size: 14px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v5-struggle-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+            margin: 24px 0;
+        }
+
+        .u1402b-v5-struggle-chip {
+            padding: 12px;
+            background: var(--v5-white);
+            color: var(--v5-black);
+            border: 2px solid var(--v5-black);
+            cursor: pointer;
+            font-weight: 600;
+            text-align: center;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .u1402b-v5-struggle-chip:hover {
+            background: var(--v5-orange);
+            border-color: var(--v5-orange);
+            color: var(--v5-black);
+        }
+
+        .u1402b-v5-struggle-response {
+            display: none;
+            background: rgba(255,107,43,0.1);
+            padding: 20px;
+            margin-top: 16px;
+            border-left: 4px solid var(--v5-orange);
+        }
+
+        .u1402b-v5-struggle-response.active {
+            display: block;
+        }
+
+        .u1402b-v5-training-logic {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+            margin: 24px 0;
+        }
+
+        .u1402b-v5-step {
+            background: var(--v5-orange);
+            color: var(--v5-black);
+            padding: 24px;
+            text-align: center;
+        }
+
+        .u1402b-v5-step-number {
+            font-size: 32px;
+            font-weight: 900;
+            display: block;
+        }
+
+        .u1402b-v5-step-title {
+            font-size: 14px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 12px;
+        }
+
+        .u1402b-v5-training-paths {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin: 24px 0;
+        }
+
+        .u1402b-v5-path {
+            background: var(--v5-gray);
+            padding: 32px;
+        }
+
+        .u1402b-v5-path h3 {
+            font-size: 28px;
+            font-weight: 900;
+            text-transform: uppercase;
+            margin: 0 0 16px 0;
+        }
+
+        .u1402b-v5-path ul {
+            list-style: none;
+            padding: 0;
+            margin: 16px 0;
+        }
+
+        .u1402b-v5-path li {
+            padding: 8px 0 8px 24px;
+            position: relative;
+        }
+
+        .u1402b-v5-path li:before {
+            content: '►';
+            position: absolute;
+            left: 0;
+            color: var(--v5-orange);
+            font-weight: 900;
+        }
+
+        .u1402b-v5-faq {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .u1402b-v5-faq-item {
+            border-bottom: 2px solid var(--v5-black);
+            padding: 20px 0;
+            cursor: pointer;
+        }
+
+        .u1402b-v5-faq-question {
+            font-weight: 700;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .u1402b-v5-faq-toggle {
+            font-size: 20px;
+            transition: transform 0.2s;
+        }
+
+        .u1402b-v5-faq-item.active .u1402b-v5-faq-toggle {
+            transform: rotate(180deg);
+        }
+
+        .u1402b-v5-faq-answer {
+            display: none;
+            padding: 16px 0;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        .u1402b-v5-faq-item.active .u1402b-v5-faq-answer {
+            display: block;
+        }
+
+        .u1402b-v5-footer {
+            background: var(--v5-black);
+            color: var(--v5-white);
+            padding: 40px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .u1402b-v5-footer a {
+            color: var(--v5-orange);
+            text-decoration: none;
+        }
+
+        @media (max-width: 768px) {
+            .u1402b-v5-hero-content h1 {
+                font-size: 36px;
+            }
+            .u1402b-v5-section h2 {
+                font-size: 28px;
+            }
+            .u1402b-v5-training-logic {
+                grid-template-columns: 1fr;
+            }
+            .u1402b-v5-training-paths {
+                grid-template-columns: 1fr;
+            }
+            .u1402b-v5-stat-strip {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+
+    <header class="u1402b-v5-header">
+        <div>MissionMed</div>
+        <nav>
+            <a href="#about">About</a>
+            <a href="#training">Training</a>
+            <a href="#faq">FAQ</a>
+            <a href="#contact">Contact</a>
+        </nav>
+    </header>
+
+    <section class="u1402b-v5-hero">
+        <div class="u1402b-v5-hero-content">
+            <h1>Train Like an Athlete<br>Think Like a Physician</h1>
+            <p>Exam prep as performance training. Crush the boards.</p>
+            <button class="u1402b-v5-cta-primary">Start Your Training</button>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section light">
+        <h2>Your Training Starts Now</h2>
+        <p>The difference between passing and excelling is how you train. Not just how much you study. Live drilling. Real coaching. Measurable gains.</p>
+        <button class="u1402b-v5-cta-primary">Get Started</button>
+    </section>
+
+    <section class="u1402b-v5-section dark">
+        <h2>Questions? We Have Answers</h2>
+        <p>Every athlete has questions before training. Let's talk about your exam goals and find your path to success.</p>
+        <button class="u1402b-v5-cta-primary">Schedule a Call</button>
+    </section>
+
+    <section class="u1402b-v5-stat-strip">
+        <div class="u1402b-v5-stat">
+            <div class="u1402b-v5-stat-number">1000+</div>
+            <div class="u1402b-v5-stat-label">Live Drills Completed</div>
+        </div>
+        <div class="u1402b-v5-stat">
+            <div class="u1402b-v5-stat-number">24/7</div>
+            <div class="u1402b-v5-stat-label">Coach Access</div>
+        </div>
+        <div class="u1402b-v5-stat">
+            <div class="u1402b-v5-stat-number">95%</div>
+            <div class="u1402b-v5-stat-label">Confidence Improvement</div>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section light">
+        <h2>Why You're Missing Questions</h2>
+        <p>It's not knowledge gaps. Most test-takers know the content. The problem is execution under pressure. You need game film. You need coaching. You need repetition with accountability.</p>
+        <p>That's what elite performers do. Why should exam prep be different?</p>
+    </section>
+
+    <section class="u1402b-v5-section gray">
+        <h2>Pick Your Challenge</h2>
+        <div class="u1402b-v5-struggle-selector">
+            <button class="u1402b-v5-struggle-chip" data-struggle="content-miss">Know Content, Miss Q's</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="overthink">Overthink Answers</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="time">Run Out of Time</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="change-answers">Change Right Answers</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="panic">Panic on Exam Day</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="step1">Need Step 1 Structure</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="step2ck">Need Step 2 CK Reasoning</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="nbme-stuck">NBME Score Stuck</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="accountability">Need Accountability</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="live-drilling">Need Live Drilling</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="tutoring">Need 1-on-1 Tutoring</button>
+            <button class="u1402b-v5-struggle-chip" data-struggle="confidence">Need Confidence Under Pressure</button>
+        </div>
+
+        <div class="u1402b-v5-struggle-response active" data-struggle="content-miss">
+            <p><strong>Your Game Plan:</strong> You've done the studying. What you need is drilling at speed. Live sessions expose the gaps between knowing and performing. We'll run game film sessions focused on your weak spots until they're automatic.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="overthink">
+            <p><strong>Your Game Plan:</strong> Classic overthinking costs 2-3 questions per block minimum. We use live drilling and coached test-taking to rewire your decision-making. You'll learn to trust your first instinct and spot the red herrings.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="time">
+            <p><strong>Your Game Plan:</strong> Speed comes from pattern recognition, not from rushing. Live drills teach you to spot question types fast and move with intention. Pacing coaches track your rhythm across every session.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="change-answers">
+            <p><strong>Your Game Plan:</strong> Changing right answers is a confidence issue. We use repeated drilling under realistic conditions to build conviction in your thinking. You'll learn to recognize when second-guessing is costing you points.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="panic">
+            <p><strong>Your Game Plan:</strong> Panic is just lack of rehearsal. Athletes train under game conditions to build calm. We simulate exam pressure in every live session so test day feels routine.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="step1">
+            <p><strong>Your Game Plan:</strong> Step 1 demands specific patterns of thinking. Our coaches know the exact reasoning structure that wins on that exam. We drill it repeatedly until it's muscle memory.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="step2ck">
+            <p><strong>Your Game Plan:</strong> Step 2 CK is about clinical judgment at speed. We use case-based live drilling and real-world scenarios to build the reasoning pathways you need. Video proof coaching shows you where your logic breaks down.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="nbme-stuck">
+            <p><strong>Your Game Plan:</strong> Your NBME score is stuck because you're stuck in a pattern. We diagnose exactly why you're missing questions, then drill the fix repeatedly until your score moves. Coaches track progress across every session.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="accountability">
+            <p><strong>Your Game Plan:</strong> Accountability multiplies results. Team training keeps you showing up, performing, and improving. Your teammates expect you at every session. Your coaches track your performance.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="live-drilling">
+            <p><strong>Your Game Plan:</strong> Live drilling is how elite test-takers train. We run real-time game film sessions where you perform under pressure, get immediate coaching, and repeat until you nail it.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="tutoring">
+            <p><strong>Your Game Plan:</strong> 1-on-1 coaching means customized drilling based on your exact weak points. Your tutor meets you where you are and accelerates your growth with focused, repeated work.</p>
+        </div>
+        <div class="u1402b-v5-struggle-response" data-struggle="confidence">
+            <p><strong>Your Game Plan:</strong> Confidence comes from reps. The more times you drill a scenario until you nail it, the calmer you'll be on exam day. Live drilling builds this confidence through performance.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section dark">
+        <h2>Why Live Drilling Wins</h2>
+        <p>Most study methods are passive. You watch videos, read notes, review answers. But test-taking is a performance skill. You learn it the same way athletes do: through coached repetition under realistic conditions.</p>
+        <p>Our system mirrors how champions train. Every live session is monitored. Every answer is analyzed. Every mistake gets corrected in real time.</p>
+    </section>
+
+    <section class="u1402b-v5-section light">
+        <h2>Your Training Architecture</h2>
+        <div class="u1402b-v5-training-logic">
+            <div class="u1402b-v5-step">
+                <span class="u1402b-v5-step-number">1</span>
+                <div class="u1402b-v5-step-title">Assess Your Game</div>
+            </div>
+            <div class="u1402b-v5-step">
+                <span class="u1402b-v5-step-number">2</span>
+                <div class="u1402b-v5-step-title">Drill the Gaps</div>
+            </div>
+            <div class="u1402b-v5-step">
+                <span class="u1402b-v5-step-number">3</span>
+                <div class="u1402b-v5-step-title">Coach the Fix</div>
+            </div>
+            <div class="u1402b-v5-step">
+                <span class="u1402b-v5-step-number">4</span>
+                <div class="u1402b-v5-step-title">Repeat for Mastery</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section gray">
+        <h2>Personalized Training Plans</h2>
+        <p>Your exam goals are unique. Your weak spots are unique. We build your training plan around where you actually are, not a generic curriculum.</p>
+        <p>Every session focuses on your gaps. Every coach knows your history. Every drill gets harder as you improve.</p>
+    </section>
+
+    <section class="u1402b-v5-section light" style="background: url('https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=1200&h=700&fit=crop') center/cover; position: relative;">
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.5);"></div>
+        <div style="position: relative; z-index: 2; color: white;">
+            <h2>Structured Repetition Breeds Mastery</h2>
+            <p>One drill is practice. Ten drills is training. A hundred drills builds automaticity. We structure your reps so you're always pushing past your edge.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section dark">
+        <h2>Coaching That Adapts to You</h2>
+        <p>Your coach watches every move. They see when you're second-guessing yourself. When you're rushing. When you're uncertain. Real-time coaching during live sessions means you get feedback while it matters.</p>
+    </section>
+
+    <section class="u1402b-v5-section light">
+        <h2>Build Exam-Day Confidence</h2>
+        <p>Confidence isn't a feeling you summon. It's earned through reps. The more times you drill scenarios until you nail them, the calmer you'll feel walking into that exam room.</p>
+    </section>
+
+    <section class="u1402b-v5-section gray">
+        <h2>The Plateau Problem</h2>
+        <p>Most students plateau because they repeat the same study methods without coaching or feedback. They watch another video. They read another question explanation. But nothing changes because the method isn't working.</p>
+        <p>Breaking through requires a different approach. Real coaching. Real pressure. Real reps. That's what we do.</p>
+    </section>
+
+    <section class="u1402b-v5-section light" style="background: url('https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=1200&h=700&fit=crop') center/cover; position: relative;">
+        <div style="position: absolute; inset: 0; background: rgba(0,0,0,0.5);"></div>
+        <div style="position: relative; z-index: 2; color: white;">
+            <h2>Clinical Reasoning at Speed</h2>
+            <p>The best test-takers don't just know medicine. They can apply it fast. We drill the exact reasoning pathways that work on your exam, under time pressure, until they're automatic.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section dark">
+        <h2>See Live Drilling in Action</h2>
+        <p>This is what real training looks like. Watch a coach work with a student on a tough case. See the coaching happen. See the student nail it on the second try.</p>
+        <iframe width="100%" height="400" style="max-width: 800px; display: block; margin: 0 auto;" src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0" allowfullscreen></iframe>
+    </section>
+
+    <section class="u1402b-v5-section light">
+        <h2>From the Team</h2>
+        <div style="margin-top: 32px;">
+            <div style="margin-bottom: 40px; padding: 24px; background: var(--v5-gray); border-left: 4px solid var(--v5-orange);">
+                <p><strong>Marcus Chen, Internal Medicine Resident</strong></p>
+                <p>"I was stuck at 230 on practice tests. After six weeks of live drilling, I scored 250 on the real exam. The coaching during sessions changed how I think about questions."</p>
+            </div>
+            <div style="margin-bottom: 40px; padding: 24px; background: var(--v5-gray); border-left: 4px solid var(--v5-orange);">
+                <p><strong>Sarah Williams, Pediatrics</strong></p>
+                <p>"The combination of team accountability and personalized coaching was what I needed. Every session I felt sharper. By test day, I was ready."</p>
+            </div>
+            <div style="padding: 24px; background: var(--v5-gray); border-left: 4px solid var(--v5-orange);">
+                <p><strong>James Rodriguez, Surgery Track</strong></p>
+                <p>"Live drilling forced me out of my comfort zone. That's exactly what I needed to go from good to excellent on exam day."</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section gray">
+        <h2>Choose Your Path</h2>
+        <div class="u1402b-v5-training-paths">
+            <div class="u1402b-v5-path">
+                <h3>Team Training</h3>
+                <p>Train with your peers. Twice-weekly live drilling sessions. Shared goals. Shared accountability. Built-in community.</p>
+                <ul>
+                    <li>2 live drills per week</li>
+                    <li>Group coaching sessions</li>
+                    <li>Performance tracking</li>
+                    <li>Peer accountability</li>
+                </ul>
+                <button class="u1402b-v5-cta-primary">Learn More</button>
+            </div>
+            <div class="u1402b-v5-path">
+                <h3>1-on-1 Coaching</h3>
+                <p>Fully personalized. Your coach designs every session around your specific weak points. Maximum acceleration.</p>
+                <ul>
+                    <li>3+ custom sessions per week</li>
+                    <li>Dedicated coaching</li>
+                    <li>Real-time feedback</li>
+                    <li>Aggressive improvement</li>
+                </ul>
+                <button class="u1402b-v5-cta-primary">Learn More</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section light">
+        <h2>Questions Answered</h2>
+        <div class="u1402b-v5-faq">
+            <div class="u1402b-v5-faq-item">
+                <div class="u1402b-v5-faq-question">
+                    <span>How are the live drilling sessions structured?</span>
+                    <span class="u1402b-v5-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v5-faq-answer">
+                    Each session starts with a timed block of questions. You perform under pressure. Your coach then walks through the hardest questions in real time, explaining the thinking behind the right answer. You drill similar cases until you've internalized the pattern.
+                </div>
+            </div>
+            <div class="u1402b-v5-faq-item">
+                <div class="u1402b-v5-faq-question">
+                    <span>Is this for Step 1, Step 2 CK, or both?</span>
+                    <span class="u1402b-v5-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v5-faq-answer">
+                    We focus on Step 1 and Step 2 CK primarily. The system works for any high-stakes exam that requires clinical reasoning and speed. Tell us which exam you're preparing for and we'll customize your coaching.
+                </div>
+            </div>
+            <div class="u1402b-v5-faq-item">
+                <div class="u1402b-v5-faq-question">
+                    <span>How is this different from question banks?</span>
+                    <span class="u1402b-v5-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v5-faq-answer">
+                    Question banks are passive tools. You read explanations alone. With live drilling, you perform under pressure while a coach watches. You get real-time feedback on your thinking, not just on your answer. That's the difference between studying and training.
+                </div>
+            </div>
+            <div class="u1402b-v5-faq-item">
+                <div class="u1402b-v5-faq-question">
+                    <span>What if I've already tried other prep courses?</span>
+                    <span class="u1402b-v5-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v5-faq-answer">
+                    Most courses focus on content. Our system assumes you know the content and focuses on performance. If you've tried courses before but still feel stuck, it's because you need coaching and drilling, not more lectures.
+                </div>
+            </div>
+            <div class="u1402b-v5-faq-item">
+                <div class="u1402b-v5-faq-question">
+                    <span>Can I try a session before committing?</span>
+                    <span class="u1402b-v5-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v5-faq-answer">
+                    Absolutely. Schedule a trial session with one of our coaches. You'll run through a timed block and get real coaching. No pressure to commit. Most people know after one session if this is for them.
+                </div>
+            </div>
+            <div class="u1402b-v5-faq-item">
+                <div class="u1402b-v5-faq-question">
+                    <span>How much time does this require each week?</span>
+                    <span class="u1402b-v5-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v5-faq-answer">
+                    Team training requires 2-3 live sessions per week plus independent drilling. 1-on-1 coaching is 3+ sessions per week. The key is consistent practice, not marathon study sessions. Most students commit 10-15 hours per week total.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v5-section dark">
+        <h2>Your Training Starts Today</h2>
+        <p>The difference between passing and excelling is how you train. Not how much you study. Every day you wait is a day you're not improving under coaching.</p>
+        <button class="u1402b-v5-cta-primary" style="margin-top: 24px;">Start Your Training</button>
+    </section>
+
+    <footer class="u1402b-v5-footer">
+        <p>MissionMed Institute | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+        <p style="margin-top: 12px; color: #999;">[DEMO ASSET - REPLACE] All photos from Unsplash. Replace with branded content.</p>
+    </footer>
+</div>
+
+<!-- VERSION 6: ARENA DRILL ROYALE -->
+<div id="u1402b-version-6" class="u1402b-version u1402b-v6">
+    <style scoped>
+        .u1402b-v6 {
+            --v6-space: #0a0a1a;
+            --v6-cyan: #00e5ff;
+            --v6-gold: #ffd700;
+            --v6-magenta: #ff00aa;
+            --v6-white: #ffffff;
+        }
+
+        .u1402b-v6 {
+            background: var(--v6-space);
+            color: var(--v6-white);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        .u1402b-v6-header {
+            background: linear-gradient(135deg, rgba(0,229,255,0.1), rgba(255,0,170,0.1));
+            border-bottom: 2px solid var(--v6-cyan);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 18px;
+        }
+
+        .u1402b-v6-header a {
+            color: var(--v6-cyan);
+            text-decoration: none;
+            margin: 0 16px;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .u1402b-v6-header a:hover {
+            text-shadow: 0 0 10px var(--v6-cyan);
+        }
+
+        .u1402b-v6-hero {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: linear-gradient(135deg, rgba(0,229,255,0.2), rgba(255,0,170,0.2)), url('https://images.unsplash.com/photo-1588196749597-9ff075ee6b5b?w=1400&h=900&fit=crop') center/cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: var(--v6-white);
+            border-bottom: 2px solid var(--v6-gold);
+        }
+
+        .u1402b-v6-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, rgba(0,229,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 0;
+        }
+
+        .u1402b-v6-hero-content {
+            position: relative;
+            z-index: 2;
+        }
+
+        .u1402b-v6-hero h1 {
+            font-size: 64px;
+            font-weight: 900;
+            font-family: "Burbank Big Condensed Black", "Burbank Big Condensed", "Burbank Big", "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+            text-transform: uppercase;
+            margin: 0;
+            text-shadow: 0 0 20px var(--v6-cyan), 0 0 40px var(--v6-magenta);
+            letter-spacing: -1px;
+        }
+
+        .u1402b-v6-hero p {
+            font-size: 18px;
+            margin: 16px 0 0 0;
+            text-shadow: 0 0 10px var(--v6-cyan);
+        }
+
+        .u1402b-v6-cta-primary {
+            background: transparent;
+            color: var(--v6-gold);
+            padding: 12px 32px;
+            font-size: 14px;
+            font-weight: 900;
+            text-transform: uppercase;
+            border: 2px solid var(--v6-gold);
+            cursor: pointer;
+            margin-top: 24px;
+            letter-spacing: 2px;
+            box-shadow: 0 0 15px rgba(255,215,0,0.5);
+            transition: all 0.2s;
+        }
+
+        .u1402b-v6-cta-primary:hover {
+            box-shadow: 0 0 30px var(--v6-gold), inset 0 0 30px rgba(255,215,0,0.2);
+        }
+
+        .u1402b-v6-section {
+            padding: 60px 40px;
+            border-top: 2px solid rgba(0,229,255,0.3);
+        }
+
+        .u1402b-v6-section h2 {
+            font-size: 48px;
+            font-weight: 900;
+            font-family: "Burbank Big Condensed Black", "Burbank Big Condensed", "Burbank Big", "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+            text-transform: uppercase;
+            margin: 0 0 24px 0;
+            text-shadow: 0 0 15px var(--v6-cyan);
+            letter-spacing: -1px;
+        }
+
+        .u1402b-v6-section p {
+            font-size: 16px;
+            line-height: 1.7;
+            margin: 12px 0;
+            color: rgba(255,255,255,0.9);
+        }
+
+        .u1402b-v6-stat-strip {
+            display: flex;
+            justify-content: space-around;
+            background: linear-gradient(135deg, rgba(0,229,255,0.1), rgba(255,0,170,0.1));
+            border: 2px solid var(--v6-cyan);
+            box-shadow: 0 0 20px var(--v6-cyan);
+            padding: 40px 20px;
+            text-align: center;
+        }
+
+        .u1402b-v6-stat {
+            flex: 1;
+        }
+
+        .u1402b-v6-stat-number {
+            font-size: 48px;
+            font-weight: 900;
+            color: var(--v6-gold);
+            text-shadow: 0 0 10px var(--v6-gold);
+        }
+
+        .u1402b-v6-stat-label {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--v6-cyan);
+            margin-top: 8px;
+        }
+
+        .u1402b-v6-mission-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin: 24px 0;
+        }
+
+        .u1402b-v6-mission-chip {
+            padding: 16px;
+            background: rgba(0,229,255,0.05);
+            color: var(--v6-cyan);
+            border: 2px solid var(--v6-cyan);
+            cursor: pointer;
+            font-weight: 700;
+            text-align: center;
+            font-size: 12px;
+            text-transform: uppercase;
+            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(0,229,255,0.3);
+        }
+
+        .u1402b-v6-mission-chip:hover {
+            background: rgba(0,229,255,0.15);
+            box-shadow: 0 0 20px var(--v6-cyan);
+        }
+
+        .u1402b-v6-mission-response {
+            display: none;
+            background: rgba(255,0,170,0.05);
+            border: 2px solid var(--v6-magenta);
+            padding: 24px;
+            margin-top: 16px;
+            box-shadow: 0 0 15px rgba(255,0,170,0.3);
+        }
+
+        .u1402b-v6-mission-response.active {
+            display: block;
+        }
+
+        .u1402b-v6-training-logic {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin: 24px 0;
+        }
+
+        .u1402b-v6-step {
+            background: rgba(0,229,255,0.05);
+            border: 2px solid var(--v6-gold);
+            color: var(--v6-gold);
+            padding: 24px;
+            text-align: center;
+            box-shadow: 0 0 15px rgba(255,215,0,0.3);
+        }
+
+        .u1402b-v6-step-number {
+            font-size: 32px;
+            font-weight: 900;
+            display: block;
+            text-shadow: 0 0 10px var(--v6-gold);
+        }
+
+        .u1402b-v6-step-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-top: 12px;
+            letter-spacing: 1px;
+        }
+
+        .u1402b-v6-training-paths {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin: 24px 0;
+        }
+
+        .u1402b-v6-path {
+            background: rgba(0,229,255,0.05);
+            border: 2px solid var(--v6-cyan);
+            padding: 32px;
+            box-shadow: 0 0 20px rgba(0,229,255,0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .u1402b-v6-path h3 {
+            font-size: 28px;
+            font-weight: 900;
+            font-family: "Burbank Big Condensed Black", "Burbank Big Condensed", "Burbank Big", "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+            text-transform: uppercase;
+            margin: 0 0 16px 0;
+            color: var(--v6-gold);
+            text-shadow: 0 0 10px var(--v6-gold);
+        }
+
+        .u1402b-v6-path ul {
+            list-style: none;
+            padding: 0;
+            margin: 16px 0;
+        }
+
+        .u1402b-v6-path li {
+            padding: 8px 0 8px 24px;
+            position: relative;
+            color: var(--v6-cyan);
+        }
+
+        .u1402b-v6-path li:before {
+            content: '⯂';
+            position: absolute;
+            left: 0;
+            color: var(--v6-magenta);
+            font-weight: 900;
+        }
+
+        .u1402b-v6-faq {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .u1402b-v6-faq-item {
+            border-bottom: 2px solid rgba(0,229,255,0.3);
+            padding: 20px 0;
+            cursor: pointer;
+        }
+
+        .u1402b-v6-faq-question {
+            font-weight: 700;
+            font-size: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--v6-cyan);
+            transition: all 0.2s;
+        }
+
+        .u1402b-v6-faq-item:hover .u1402b-v6-faq-question {
+            text-shadow: 0 0 10px var(--v6-cyan);
+        }
+
+        .u1402b-v6-faq-toggle {
+            font-size: 20px;
+            transition: transform 0.2s;
+        }
+
+        .u1402b-v6-faq-item.active .u1402b-v6-faq-toggle {
+            transform: rotate(180deg);
+        }
+
+        .u1402b-v6-faq-answer {
+            display: none;
+            padding: 16px 0;
+            font-size: 15px;
+            line-height: 1.6;
+            color: rgba(255,255,255,0.8);
+        }
+
+        .u1402b-v6-faq-item.active .u1402b-v6-faq-answer {
+            display: block;
+        }
+
+        .u1402b-v6-testimonial {
+            background: rgba(255,0,170,0.05);
+            border-left: 4px solid var(--v6-magenta);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 0 15px rgba(255,0,170,0.2);
+        }
+
+        .u1402b-v6-testimonial strong {
+            color: var(--v6-gold);
+        }
+
+        .u1402b-v6-footer {
+            background: linear-gradient(135deg, rgba(0,229,255,0.05), rgba(255,0,170,0.05));
+            border-top: 2px solid var(--v6-gold);
+            padding: 40px;
+            text-align: center;
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+        }
+
+        .u1402b-v6-footer a {
+            color: var(--v6-cyan);
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .u1402b-v6-footer a:hover {
+            text-shadow: 0 0 10px var(--v6-cyan);
+        }
+
+        @media (max-width: 768px) {
+            .u1402b-v6-hero h1 {
+                font-size: 36px;
+            }
+            .u1402b-v6-section h2 {
+                font-size: 28px;
+            }
+            .u1402b-v6-training-logic {
+                grid-template-columns: 1fr;
+            }
+            .u1402b-v6-training-paths {
+                grid-template-columns: 1fr;
+            }
+            .u1402b-v6-stat-strip {
+                flex-direction: column;
+                gap: 20px;
+            }
+        }
+    </style>
+
+    <header class="u1402b-v6-header">
+        <div>ARENA | EXAM DRILLS</div>
+        <nav>
+            <a href="#missions">Missions</a>
+            <a href="#loadouts">Loadouts</a>
+            <a href="#intel">Intel</a>
+            <a href="#status">Status</a>
+        </nav>
+    </header>
+
+    <section class="u1402b-v6-hero">
+        <div class="u1402b-v6-hero-content">
+            <h1>ARENA DRILL<br>ROYALE</h1>
+            <p>Clinical reasoning at competition speed. Live drills, real coaching, ranked performance.</p>
+            <button class="u1402b-v6-cta-primary">Enter Arena</button>
+        </div>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Mission Control Activated</h2>
+        <p>This isn't a study tool. This is a training arena. You compete in real-time clinical reasoning drills. Coaches watch every move. Your performance updates live. Every session levels you up.</p>
+        <button class="u1402b-v6-cta-primary">Launch Training</button>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Need a Strategic Brief?</h2>
+        <p>New to Arena? Let's map your training loadout. We'll assess your current build, identify your challenge modifiers, and set your path to victory.</p>
+        <button class="u1402b-v6-cta-primary">Schedule Briefing</button>
+    </section>
+
+    <section class="u1402b-v6-stat-strip">
+        <div class="u1402b-v6-stat">
+            <div class="u1402b-v6-stat-number">1000+</div>
+            <div class="u1402b-v6-stat-label">Live Replay Cards</div>
+        </div>
+        <div class="u1402b-v6-stat">
+            <div class="u1402b-v6-stat-number">24/7</div>
+            <div class="u1402b-v6-stat-label">Arena Access</div>
+        </div>
+        <div class="u1402b-v6-stat">
+            <div class="u1402b-v6-stat-number">95%</div>
+            <div class="u1402b-v6-stat-label">Performance Gain</div>
+        </div>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Diagnostics: Why Your Score Is Stuck</h2>
+        <p>You know the content. Your challenge modifier is execution. Test-taking is a performance skill. Without live pressure and real coaching, your build stays the same. Arena fixes this through competitive drilling with instant feedback.</p>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Select Your Challenge Modifier</h2>
+        <div class="u1402b-v6-mission-selector">
+            <button class="u1402b-v6-mission-chip" data-struggle="content-miss">Know Content, Miss Q's</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="overthink">Overthink Answers</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="time">Run Out of Time</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="change-answers">Change Right Answers</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="panic">Panic on Exam Day</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="step1">Need Step 1 Build</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="step2ck">Need Step 2 CK Strat</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="nbme-stuck">NBME Score Stuck</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="accountability">Need Squad Up</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="live-drilling">Need Live Replay</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="tutoring">Need Coaching</button>
+            <button class="u1402b-v6-mission-chip" data-struggle="confidence">Need Pressure Training</button>
+        </div>
+
+        <div class="u1402b-v6-mission-response active" data-struggle="content-miss">
+            <p><strong>Modifier Analysis:</strong> You've done the homework. Your challenge is execution at speed. Arena runs high-pressure drills focused on your weak spots. Each replay card drills the same scenario until it's automatic.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="overthink">
+            <p><strong>Modifier Analysis:</strong> Decision-making under pressure is your weak build. Live replay cards teach you to spot question types fast and trust your first instinct. Coaching shows where second-guessing is costing you points.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="time">
+            <p><strong>Modifier Analysis:</strong> Your loadout lacks pattern recognition speed. Arena drills teach you to spot question types and move with intention. Pacing coaches track your rhythm across every session.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="change-answers">
+            <p><strong>Modifier Analysis:</strong> This challenge modifier breaks under pressure. Arena simulates exam conditions in every replay card. Repeated drilling builds conviction. You'll learn to lock in your answer.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="panic">
+            <p><strong>Modifier Analysis:</strong> Panic is just lack of competition reps. Arena runs drills under game conditions repeatedly. Test day will feel like replay card 500, not your first attempt.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="step1">
+            <p><strong>Modifier Analysis:</strong> Step 1 requires a specific reasoning build. Arena coaches know the exact pattern that wins. We replay scenarios until your logic is automatic.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="step2ck">
+            <p><strong>Modifier Analysis:</strong> Step 2 CK is clinical judgment at competition speed. Arena uses case-based replay cards and real-world scenarios. Video proof coaching shows where your logic breaks.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="nbme-stuck">
+            <p><strong>Modifier Analysis:</strong> Your score plateau is a loadout problem. We diagnose your exact weak points, then drill the fix in replay cards until your score shifts. Coaches track progress live.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="accountability">
+            <p><strong>Modifier Analysis:</strong> Squad up multiplies results. Team loadout keeps you showing up, competing, and improving. Your squad expects you at every mission. Progress tracked live.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="live-drilling">
+            <p><strong>Modifier Analysis:</strong> Live replay cards are how champions train. Arena runs real-time mission sessions where you perform, get instant coaching, and nail it on the replay.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="tutoring">
+            <p><strong>Modifier Analysis:</strong> Coaching loadout means customized replay cards based on your exact weak points. Your coach meets you at your build level and accelerates your gains.</p>
+        </div>
+        <div class="u1402b-v6-mission-response" data-struggle="confidence">
+            <p><strong>Modifier Analysis:</strong> Confidence is earned reps. The more times you drill a scenario in Arena until you nail it, the calmer you're locked in on exam day.</p>
+        </div>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Why Arena Dominates</h2>
+        <p>Most study tools are passive viewing. You watch videos. You read explanations. But exam performance is a competition skill. You level up in Arena the same way esports athletes train: competitive drills, real-time coaching, ranked progress tracking.</p>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Mission Architecture</h2>
+        <div class="u1402b-v6-training-logic">
+            <div class="u1402b-v6-step">
+                <span class="u1402b-v6-step-number">1</span>
+                <div class="u1402b-v6-step-title">Diagnostic Run</div>
+            </div>
+            <div class="u1402b-v6-step">
+                <span class="u1402b-v6-step-number">2</span>
+                <div class="u1402b-v6-step-title">Weak Point Drill</div>
+            </div>
+            <div class="u1402b-v6-step">
+                <span class="u1402b-v6-step-number">3</span>
+                <div class="u1402b-v6-step-title">Coaching Replay</div>
+            </div>
+            <div class="u1402b-v6-step">
+                <span class="u1402b-v6-step-number">4</span>
+                <div class="u1402b-v6-step-title">Master Scenario</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Loadout Customization</h2>
+        <p>Your exam goals are unique. Your weak build is unique. Arena maps your specific challenge modifiers and builds your loadout around where you actually perform.</p>
+        <p>Every replay card addresses your gaps. Every coach knows your history. Every mission gets harder as you level up.</p>
+    </section>
+
+    <section class="u1402b-v6-section" style="background: linear-gradient(135deg, rgba(0,229,255,0.1), rgba(255,0,170,0.1)), url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&h=700&fit=crop') center/cover;">
+        <h2>Replay Card Mastery</h2>
+        <p>One drill is practice. Ten drills is training. A hundred drills is muscle memory. Arena structures your replay cards so you're always pushing past your edge. Performance meters track your growth in real time.</p>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Dynamic Coaching Stack</h2>
+        <p>Your coach watches every move in live sessions. They spot when you're second-guessing. When you're rushing. When you're locked in. Real-time coaching during missions means feedback while it counts most.</p>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Build Exam-Day Dominance</h2>
+        <p>Confidence isn't summoned. It's leveled up. Every replay card you master is XP. By test day, you've drilled hundreds of scenarios. Exam day is just another mission.</p>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>The Plateau Glitch</h2>
+        <p>Most students plateau because they use the same strategy without coaching. They watch another video. They read another explanation. Nothing changes because the loadout isn't working.</p>
+        <p>Breaking through requires competitive drilling. Real pressure. Real reps. Real coaching. That's the Arena difference.</p>
+    </section>
+
+    <section class="u1402b-v6-section" style="background: linear-gradient(135deg, rgba(0,229,255,0.1), rgba(255,0,170,0.1)), url('https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=1200&h=700&fit=crop') center/cover;">
+        <h2>Clinical Reasoning at Competition Speed</h2>
+        <p>The best performers don't just know medicine. They apply it fast. Arena drills the exact reasoning pathways that win, under time pressure, until they're automatic reflexes.</p>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Live Mission Footage</h2>
+        <p>See Arena training in action. Watch a coach run a player through a tough case. See the coaching happen in real time. See the player master it on the second try.</p>
+        <iframe width="100%" height="400" style="max-width: 800px; display: block; margin: 0 auto; border: 2px solid #00e5ff; box-shadow: 0 0 20px #00e5ff;" src="https://www.youtube.com/embed/dQw4w9WgXcQ" frameborder="0" allowfullscreen></iframe>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Player Reviews</h2>
+        <div style="margin-top: 32px;">
+            <div class="u1402b-v6-testimonial">
+                <p><strong>Marcus Chen, Internal Medicine Build</strong></p>
+                <p>"Stuck at 230 for weeks. Arena replay cards changed my thinking patterns. Scored 250 on the real exam. The live coaching during missions was the difference."</p>
+            </div>
+            <div class="u1402b-v6-testimonial">
+                <p><strong>Sarah Williams, Peds Loadout</strong></p>
+                <p>"The team accountability and personalized coaching built into Arena's system was exactly what I needed. Every mission I felt sharper. Test day I was locked in."</p>
+            </div>
+            <div class="u1402b-v6-testimonial">
+                <p><strong>James Rodriguez, Surgery Spec</strong></p>
+                <p>"Arena pushed me hard. That's exactly what I needed to move from solid to elite. The competition environment forced me to execute under pressure."</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Select Your Loadout</h2>
+        <div class="u1402b-v6-training-paths">
+            <div class="u1402b-v6-path">
+                <h3>Team Loadout</h3>
+                <p>Train with your squad. Twice-weekly live missions. Shared goals. Ranked competition. Built-in accountability.</p>
+                <ul>
+                    <li>2 live missions per week</li>
+                    <li>Squad coaching sessions</li>
+                    <li>Performance rankings</li>
+                    <li>Leaderboard standings</li>
+                </ul>
+                <button class="u1402b-v6-cta-primary">Deploy Squad</button>
+            </div>
+            <div class="u1402b-v6-path">
+                <h3>Solo Loadout</h3>
+                <p>Your personal training arc. Fully customized. Your coach designs every mission around your weak build. Maximum acceleration.</p>
+                <ul>
+                    <li>3+ custom missions per week</li>
+                    <li>Dedicated coach</li>
+                    <li>Real-time coaching</li>
+                    <li>Aggressive skill gains</li>
+                </ul>
+                <button class="u1402b-v6-cta-primary">Launch Solo</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Intel Briefing</h2>
+        <div class="u1402b-v6-faq">
+            <div class="u1402b-v6-faq-item">
+                <div class="u1402b-v6-faq-question">
+                    <span>How are live missions structured?</span>
+                    <span class="u1402b-v6-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v6-faq-answer">
+                    Each mission starts with a timed replay card or case set. You perform under pressure. Your coach then walks through the hardest plays in real time, explaining the thinking. You drill similar scenarios until the pattern is locked in and your performance meters show improvement.
+                </div>
+            </div>
+            <div class="u1402b-v6-faq-item">
+                <div class="u1402b-v6-faq-question">
+                    <span>Is Arena for Step 1, Step 2 CK, or both?</span>
+                    <span class="u1402b-v6-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v6-faq-answer">
+                    Arena focuses on Step 1 and Step 2 CK. We support any high-stakes exam that requires clinical reasoning and competition-speed execution. Tell us which exam you're prepping for and we'll build your loadout specifically for that test.
+                </div>
+            </div>
+            <div class="u1402b-v6-faq-item">
+                <div class="u1402b-v6-faq-question">
+                    <span>How is Arena different from question banks?</span>
+                    <span class="u1402b-v6-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v6-faq-answer">
+                    Question banks are passive solo tools. You read explanations alone. Arena is competitive. You perform under real pressure while a coach watches. You get live feedback on your thinking, not just your final answer. That's the difference between practice and competition training.
+                </div>
+            </div>
+            <div class="u1402b-v6-faq-item">
+                <div class="u1402b-v6-faq-question">
+                    <span>Already tried other prep systems?</span>
+                    <span class="u1402b-v6-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v6-faq-answer">
+                    Most systems focus on content delivery. Arena assumes you know the content and focuses on performance. If you've tried other systems but still feel stuck, it's because you need real drilling and coaching, not more content.
+                </div>
+            </div>
+            <div class="u1402b-v6-faq-item">
+                <div class="u1402b-v6-faq-question">
+                    <span>Can I run a trial mission?</span>
+                    <span class="u1402b-v6-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v6-faq-answer">
+                    Absolutely. Schedule a trial mission with a coach. You'll run a timed replay card and get live coaching. No commitment. Most players know after one mission if Arena is their system.
+                </div>
+            </div>
+            <div class="u1402b-v6-faq-item">
+                <div class="u1402b-v6-faq-question">
+                    <span>How many hours per week?</span>
+                    <span class="u1402b-v6-faq-toggle">v</span>
+                </div>
+                <div class="u1402b-v6-faq-answer">
+                    Team Loadout requires 2-3 live missions per week plus personal drilling. Solo Loadout is 3+ missions per week. The key is consistent performance, not marathon sessions. Most players commit 10-15 hours per week total.
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="u1402b-v6-section">
+        <h2>Mission Ready Status</h2>
+        <p>The gap between passing and dominating is how you train under pressure. Every day you wait is a day you're not leveling up in competition conditions.</p>
+        <button class="u1402b-v6-cta-primary" style="margin-top: 24px;">Launch Training</button>
+    </section>
+
+    <footer class="u1402b-v6-footer">
+        <p>MissionMed Arena | <a href="#">Terms</a> | <a href="#">Privacy</a></p>
+        <p style="margin-top: 12px;">[DEMO ASSET - REPLACE] All photos from Unsplash. Replace with branded content.</p>
+    </footer>
+</div>
+
+<!-- JAVASCRIPT FOR VERSION SWITCHING AND INTERACTIVITY -->
+<script>
+    // VERSION SELECTOR
+    const versionBtns = document.querySelectorAll('.u1402b-version-btn');
+    const versions = document.querySelectorAll('.u1402b-version');
+
+    versionBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const version = btn.dataset.version;
+
+            versionBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            versions.forEach(v => v.classList.remove('active'));
+            document.getElementById('u1402b-version-' + version).classList.add('active');
+
+            window.scrollTo(0, 51);
+        });
+    });
+
+    // STRUGGLE CHIP SELECTOR (scoped to active version)
+    document.addEventListener('click', function(e) {
+        var chip = e.target.closest('[data-struggle]');
+        if (!chip) return;
+        // Only act on chips (not response cards which also have data-struggle)
+        var isChip = chip.classList.contains('u1402b-struggle-chip') ||
+                     chip.classList.contains('u1402b-v5-struggle-chip') ||
+                     chip.classList.contains('u1402b-v6-mission-chip');
+        if (!isChip) return;
+
+        var struggle = chip.dataset.struggle;
+        var versionContainer = chip.closest('.u1402b-version');
+        if (!versionContainer) return;
+
+        // Deactivate all chips in this version
+        var allChips = versionContainer.querySelectorAll('[data-struggle]');
+        allChips.forEach(function(c) {
+            if (c.classList.contains('u1402b-struggle-chip') ||
+                c.classList.contains('u1402b-v5-struggle-chip') ||
+                c.classList.contains('u1402b-v6-mission-chip')) {
+                c.classList.remove('active');
+            }
+        });
+        chip.classList.add('active');
+
+        // Find all response cards in this version (multiple class patterns)
+        var responses = versionContainer.querySelectorAll(
+            '.u1402b-struggle-response, .u1402b-v5-struggle-response, .u1402b-v6-mission-response'
+        );
+        responses.forEach(function(r) { r.classList.remove('active'); });
+
+        // Also try the data-struggle-response attribute (V1-V4 pattern)
+        var target = versionContainer.querySelector('[data-struggle-response="' + struggle + '"]');
+        if (target) {
+            target.classList.add('active');
+        }
+        // Also try matching data-struggle on response elements (V5-V6 pattern)
+        responses.forEach(function(r) {
+            if (r.dataset.struggle === struggle) {
+                r.classList.add('active');
+            }
+        });
+    });
+
+    // FAQ ACCORDION (scoped to active version)
+    document.addEventListener('click', function(e) {
+        var question = e.target.closest('.u1402b-faq-question, .u1402b-v6-intel-question');
+        if (!question) return;
+
+        var answer = question.nextElementSibling;
+        var toggle = question.querySelector('.u1402b-faq-toggle, .u1402b-v6-intel-toggle');
+        var versionContainer = question.closest('.u1402b-version');
+        if (!versionContainer) return;
+
+        var isOpen = answer.classList.contains('open');
+
+        // Close all FAQs in this version
+        var allAnswers = versionContainer.querySelectorAll('.u1402b-faq-answer, .u1402b-v6-intel-answer');
+        var allToggles = versionContainer.querySelectorAll('.u1402b-faq-toggle, .u1402b-v6-intel-toggle');
+        allAnswers.forEach(function(a) { a.classList.remove('open'); });
+        allToggles.forEach(function(t) { t.classList.remove('open'); });
+
+        if (!isOpen) {
+            answer.classList.add('open');
+            if (toggle) toggle.classList.add('open');
+        }
+    });
+</script>
+
+</body>
+</html>

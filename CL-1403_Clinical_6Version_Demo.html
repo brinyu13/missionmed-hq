@@ -1,0 +1,5431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MissionMed Clinical - 6 Version Design Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            color: #2A2A2A;
+            line-height: 1.6;
+        }
+
+        /* VERSION SELECTOR BAR */
+        .cl1403-version-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: #0F2A44;
+            padding: 12px 20px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            z-index: 10000;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+
+        .cl1403-version-btn {
+            padding: 8px 14px;
+            border: none;
+            background: rgba(255,255,255,0.15);
+            color: #F0F4F8;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-version-btn:hover {
+            background: rgba(255,255,255,0.25);
+        }
+
+        .cl1403-version-btn.active {
+            background: #FFB800;
+            color: #0F2A44;
+            box-shadow: 0 0 12px rgba(255,184,0,0.4);
+        }
+
+        /* VERSION CONTAINERS */
+        .cl1403-version {
+            display: none;
+            padding-top: 60px;
+        }
+
+        .cl1403-version.active {
+            display: block;
+        }
+
+        /* ====== VERSION 1: PRESTIGE ====== */
+        /* VERSION 1 / HEADER */
+        .cl1403-v1-header {
+            background: #FFFFFF;
+            padding: 24px 20px;
+            text-align: center;
+            border-bottom: 1px solid #E0E0E0;
+        }
+
+        .cl1403-v1-logo {
+            height: 50px;
+            object-fit: contain;
+        }
+
+        /* VERSION 1 / HERO */
+        .cl1403-v1-hero {
+            background: linear-gradient(135deg, #0F2A44 0%, #1B2F4A 100%);
+            color: #FFFFFF;
+            padding: 80px 20px;
+            text-align: center;
+        }
+
+        .cl1403-v1-hero h1 {
+            font-size: 48px;
+            line-height: 1.2;
+            margin-bottom: 24px;
+            font-weight: 700;
+            font-family: Georgia, serif;
+            letter-spacing: -0.5px;
+        }
+
+        .cl1403-v1-hero p {
+            font-size: 18px;
+            margin-bottom: 32px;
+            opacity: 0.95;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v1-cta {
+            display: inline-block;
+            padding: 14px 40px;
+            background: #FFB800;
+            color: #0F2A44;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            border: 2px solid #FFB800;
+        }
+
+        .cl1403-v1-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(255,184,0,0.3);
+        }
+
+        /* VERSION 1 / PROOF STRIP */
+        .cl1403-v1-proof {
+            background: #F4F6F8;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            text-align: center;
+        }
+
+        .cl1403-v1-proof-item h3 {
+            font-size: 32px;
+            color: #0F2A44;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .cl1403-v1-proof-item p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* VERSION 1 / MISCONCEPTIONS */
+        .cl1403-v1-misconceptions {
+            padding: 60px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v1-misconceptions h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-v1-misconceptions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v1-misconception-card {
+            border: 1px solid #E0E0E0;
+            padding: 32px;
+            border-radius: 6px;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v1-misconception-card:hover {
+            border-color: #FFB800;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+
+        .cl1403-v1-misconception-card h3 {
+            font-size: 18px;
+            color: #B23A3A;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .cl1403-v1-misconception-card p {
+            font-size: 15px;
+            color: #666;
+        }
+
+        /* VERSION 1 / USCE TYPES */
+        .cl1403-v1-usce-types {
+            background: #F4F6F8;
+            padding: 60px 20px;
+        }
+
+        .cl1403-v1-usce-types h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-v1-usce-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v1-usce-card {
+            background: #FFFFFF;
+            padding: 32px;
+            border-radius: 6px;
+            border-left: 4px solid #0F2A44;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v1-usce-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        .cl1403-v1-usce-card h3 {
+            font-size: 18px;
+            color: #0F2A44;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .cl1403-v1-usce-card .match-value {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 8px 12px;
+            background: #F4F6F8;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #0F2A44;
+        }
+
+        /* VERSION 1 / PROGRAM DIRECTOR */
+        .cl1403-v1-program-director {
+            padding: 60px 20px;
+            background: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v1-program-director h2 {
+            font-size: 36px;
+            margin-bottom: 24px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-v1-program-director p {
+            font-size: 16px;
+            max-width: 700px;
+            margin: 0 auto 24px;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        /* VERSION 1 / PROOF ENGINE */
+        .cl1403-v1-proof-engine {
+            padding: 60px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v1-proof-engine h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 32px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-v1-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 40px;
+            justify-content: center;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-chip {
+            padding: 10px 18px;
+            border: 2px solid #0F2A44;
+            background: #FFFFFF;
+            color: #0F2A44;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-chip:hover {
+            background: #0F2A44;
+            color: #FFFFFF;
+        }
+
+        .cl1403-chip.active {
+            background: #0F2A44;
+            color: #FFFFFF;
+        }
+
+        .cl1403-proof-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-proof-card {
+            background: #FFFFFF;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .cl1403-proof-card.visible {
+            display: block;
+        }
+
+        .cl1403-proof-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+        }
+
+        .cl1403-proof-thumbnail {
+            position: relative;
+            background: #E0E0E0;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 14px;
+            overflow: hidden;
+        }
+
+        .cl1403-play-btn {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-proof-thumbnail:hover .cl1403-play-btn {
+            background: #FFFFFF;
+            transform: scale(1.1);
+        }
+
+        .cl1403-proof-content {
+            padding: 24px;
+        }
+
+        .cl1403-proof-tags {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .cl1403-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 600;
+            border-radius: 12px;
+            background: #F4F6F8;
+            color: #0F2A44;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-proof-quote {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 16px;
+            line-height: 1.6;
+            font-style: italic;
+        }
+
+        .cl1403-proof-cta {
+            color: #0F2A44;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-proof-cta:hover {
+            color: #FFB800;
+        }
+
+        /* VERSION 1 / PATHWAY */
+        .cl1403-v1-pathway {
+            padding: 60px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v1-pathway h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-pathway-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-step {
+            text-align: center;
+        }
+
+        .cl1403-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: #0F2A44;
+            color: #FFFFFF;
+            border-radius: 50%;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .cl1403-step h3 {
+            font-size: 18px;
+            color: #0F2A44;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .cl1403-step p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* VERSION 1 / ROTATIONS */
+        .cl1403-v1-rotations {
+            padding: 60px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v1-rotations h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-rotations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-rotation-item {
+            background: #FFFFFF;
+            padding: 24px;
+            border-radius: 6px;
+            text-align: center;
+            border: 1px solid #E0E0E0;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-rotation-item:hover {
+            border-color: #FFB800;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .cl1403-rotation-item h3 {
+            font-size: 16px;
+            color: #0F2A44;
+            font-weight: 700;
+        }
+
+        /* VERSION 1 / PRICING */
+        .cl1403-v1-pricing {
+            padding: 60px 20px;
+            background: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v1-pricing h2 {
+            font-size: 40px;
+            margin-bottom: 32px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-pricing-content {
+            max-width: 700px;
+            margin: 0 auto;
+            background: #F4F6F8;
+            padding: 40px;
+            border-radius: 8px;
+        }
+
+        .cl1403-pricing-content p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 16px;
+            line-height: 1.8;
+        }
+
+        /* VERSION 1 / FAQ */
+        .cl1403-v1-faq {
+            padding: 60px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v1-faq h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .cl1403-faq-item {
+            margin-bottom: 24px;
+            background: #FFFFFF;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #E0E0E0;
+        }
+
+        .cl1403-faq-question {
+            padding: 20px;
+            background: #FFFFFF;
+            cursor: pointer;
+            font-weight: 600;
+            color: #0F2A44;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-faq-question:hover {
+            background: #F4F6F8;
+        }
+
+        .cl1403-faq-toggle {
+            font-size: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .cl1403-faq-item.open .cl1403-faq-toggle {
+            transform: rotate(180deg);
+        }
+
+        .cl1403-faq-answer {
+            display: none;
+            padding: 20px;
+            background: #F4F6F8;
+            border-top: 1px solid #E0E0E0;
+            color: #666;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .cl1403-faq-item.open .cl1403-faq-answer {
+            display: block;
+        }
+
+        /* VERSION 1 / FORM */
+        .cl1403-v1-form {
+            padding: 60px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v1-form h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 40px;
+            color: #0F2A44;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-form-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .cl1403-form-group {
+            margin-bottom: 20px;
+        }
+
+        .cl1403-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #0F2A44;
+            font-size: 14px;
+        }
+
+        .cl1403-form-group input,
+        .cl1403-form-group textarea,
+        .cl1403-form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #E0E0E0;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        .cl1403-form-group input:focus,
+        .cl1403-form-group textarea:focus,
+        .cl1403-form-group select:focus {
+            outline: none;
+            border-color: #0F2A44;
+            box-shadow: 0 0 0 3px rgba(15,42,68,0.1);
+        }
+
+        .cl1403-form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .cl1403-form-submit {
+            padding: 14px 40px;
+            background: #0F2A44;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .cl1403-form-submit:hover {
+            background: #1B2F4A;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(15,42,68,0.3);
+        }
+
+        /* VERSION 1 / FINAL CTA */
+        .cl1403-v1-final-cta {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, #0F2A44 0%, #1B2F4A 100%);
+            color: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v1-final-cta h2 {
+            font-size: 44px;
+            margin-bottom: 24px;
+            font-family: Georgia, serif;
+        }
+
+        .cl1403-v1-final-cta p {
+            font-size: 18px;
+            margin-bottom: 32px;
+            opacity: 0.95;
+        }
+
+        .cl1403-v1-final-cta-btn {
+            display: inline-block;
+            padding: 16px 48px;
+            background: #FFB800;
+            color: #0F2A44;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            border: 2px solid #FFB800;
+        }
+
+        .cl1403-v1-final-cta-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(255,184,0,0.3);
+        }
+
+        /* ====== VERSION 2: HOSPITAL TRUST ====== */
+        .cl1403-v2-header {
+            background: #FFFFFF;
+            padding: 24px 20px;
+            border-bottom: 3px solid #1B2F4A;
+        }
+
+        .cl1403-v2-logo {
+            height: 50px;
+            object-fit: contain;
+        }
+
+        .cl1403-v2-hero {
+            background: #FFFFFF;
+            padding: 60px 20px;
+            border-bottom: 8px solid #1B2F4A;
+        }
+
+        .cl1403-v2-hero-content {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-hero h1 {
+            font-size: 44px;
+            line-height: 1.2;
+            margin-bottom: 24px;
+            color: #1B2F4A;
+            font-weight: 700;
+        }
+
+        .cl1403-v2-hero p {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 32px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v2-cta {
+            display: inline-block;
+            padding: 14px 40px;
+            background: #1B2F4A;
+            color: #FFFFFF;
+            text-decoration: none;
+            border-radius: 0;
+            font-weight: 700;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border: 2px solid #1B2F4A;
+        }
+
+        .cl1403-v2-cta:hover {
+            background: #FFFFFF;
+            color: #1B2F4A;
+        }
+
+        .cl1403-v2-proof {
+            background: #F4F6F8;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 40px;
+            text-align: center;
+            border-top: 4px solid #1B2F4A;
+            border-bottom: 4px solid #1B2F4A;
+        }
+
+        .cl1403-v2-proof-item {
+            background: #FFFFFF;
+            padding: 24px;
+            border-radius: 0;
+            border-left: 4px solid #1B2F4A;
+        }
+
+        .cl1403-v2-proof-item h3 {
+            font-size: 28px;
+            color: #1B2F4A;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .cl1403-v2-proof-item p {
+            font-size: 13px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+
+        .cl1403-v2-misconceptions {
+            padding: 60px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v2-misconceptions h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 48px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-misconceptions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-misconception-card {
+            border: 2px solid #1B2F4A;
+            padding: 32px;
+            border-radius: 0;
+            background: #FFFFFF;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v2-misconception-card:hover {
+            background: #F4F6F8;
+            transform: translateY(-2px);
+        }
+
+        .cl1403-v2-misconception-card h3 {
+            font-size: 16px;
+            color: #1B2F4A;
+            margin-bottom: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v2-misconception-card p {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.7;
+        }
+
+        .cl1403-v2-usce-types {
+            background: #F4F6F8;
+            padding: 60px 20px;
+        }
+
+        .cl1403-v2-usce-types h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 48px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-usce-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-usce-card {
+            background: #FFFFFF;
+            padding: 32px;
+            border-radius: 0;
+            border: 2px solid #1B2F4A;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v2-usce-card:hover {
+            background: #1B2F4A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v2-usce-card:hover h3,
+        .cl1403-v2-usce-card:hover .match-value {
+            color: #FFFFFF;
+        }
+
+        .cl1403-v2-usce-card h3 {
+            font-size: 16px;
+            color: #1B2F4A;
+            margin-bottom: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v2-usce-card p {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 12px;
+            line-height: 1.7;
+        }
+
+        .cl1403-v2-usce-card:hover p {
+            color: rgba(255,255,255,0.9);
+        }
+
+        .cl1403-v2-usce-card .match-value {
+            display: inline-block;
+            margin-top: 12px;
+            padding: 6px 10px;
+            background: #F4F6F8;
+            border-radius: 0;
+            font-size: 11px;
+            font-weight: 700;
+            color: #1B2F4A;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v2-program-director {
+            padding: 60px 20px;
+            background: #FFFFFF;
+            border-top: 4px solid #1B2F4A;
+            border-bottom: 4px solid #1B2F4A;
+        }
+
+        .cl1403-v2-program-director h2 {
+            text-align: center;
+            font-size: 32px;
+            margin-bottom: 32px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-program-director p {
+            font-size: 15px;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #666;
+            line-height: 1.8;
+            text-align: center;
+        }
+
+        .cl1403-v2-proof-engine {
+            padding: 60px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v2-proof-engine h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 32px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 40px;
+            justify-content: center;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v2-chip {
+            padding: 8px 16px;
+            border: 2px solid #1B2F4A;
+            background: #FFFFFF;
+            color: #1B2F4A;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v2-chip:hover {
+            background: #1B2F4A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v2-chip.active {
+            background: #1B2F4A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v2-proof-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-proof-card {
+            background: #FFFFFF;
+            border-radius: 0;
+            overflow: hidden;
+            border: 2px solid #1B2F4A;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .cl1403-v2-proof-card.visible {
+            display: block;
+        }
+
+        .cl1403-v2-proof-card:hover {
+            box-shadow: 0 8px 20px rgba(27,47,74,0.2);
+            transform: translateY(-2px);
+        }
+
+        .cl1403-v2-pathway {
+            padding: 60px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v2-pathway h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 48px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-pathway-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-step {
+            text-align: center;
+            background: #F4F6F8;
+            padding: 24px;
+            border: 2px solid #1B2F4A;
+            border-radius: 0;
+        }
+
+        .cl1403-v2-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            background: #1B2F4A;
+            color: #FFFFFF;
+            border-radius: 0;
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .cl1403-v2-step h3 {
+            font-size: 15px;
+            color: #1B2F4A;
+            margin-bottom: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v2-step p {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .cl1403-v2-rotations {
+            padding: 60px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v2-rotations h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 48px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-rotations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-rotation-item {
+            background: #FFFFFF;
+            padding: 20px;
+            border-radius: 0;
+            text-align: center;
+            border: 2px solid #1B2F4A;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v2-rotation-item:hover {
+            background: #1B2F4A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v2-rotation-item h3 {
+            font-size: 14px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v2-rotation-item:hover h3 {
+            color: #FFFFFF;
+        }
+
+        .cl1403-v2-pricing {
+            padding: 60px 20px;
+            background: #FFFFFF;
+            text-align: center;
+            border-top: 4px solid #1B2F4A;
+            border-bottom: 4px solid #1B2F4A;
+        }
+
+        .cl1403-v2-pricing h2 {
+            font-size: 36px;
+            margin-bottom: 32px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-pricing-content {
+            max-width: 700px;
+            margin: 0 auto;
+            background: #FFFFFF;
+            padding: 0;
+        }
+
+        .cl1403-v2-pricing-content p {
+            font-size: 15px;
+            color: #666;
+            margin-bottom: 16px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v2-faq {
+            padding: 60px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v2-faq h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 48px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-faq-item {
+            margin-bottom: 16px;
+            background: #FFFFFF;
+            border-radius: 0;
+            overflow: hidden;
+            border: 2px solid #1B2F4A;
+        }
+
+        .cl1403-v2-faq-question {
+            padding: 18px;
+            background: #FFFFFF;
+            cursor: pointer;
+            font-weight: 700;
+            color: #1B2F4A;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            font-size: 13px;
+        }
+
+        .cl1403-v2-faq-question:hover {
+            background: #F4F6F8;
+        }
+
+        .cl1403-v2-faq-answer {
+            display: none;
+            padding: 18px;
+            background: #F4F6F8;
+            border-top: 2px solid #1B2F4A;
+            color: #666;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v2-faq-item.open .cl1403-v2-faq-answer {
+            display: block;
+        }
+
+        .cl1403-v2-form {
+            padding: 60px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v2-form h2 {
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 40px;
+            color: #1B2F4A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-form-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v2-form-group {
+            margin-bottom: 18px;
+        }
+
+        .cl1403-v2-form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 700;
+            color: #1B2F4A;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v2-form-group input,
+        .cl1403-v2-form-group textarea,
+        .cl1403-v2-form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #1B2F4A;
+            border-radius: 0;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v2-form-group input:focus,
+        .cl1403-v2-form-group textarea:focus,
+        .cl1403-v2-form-group select:focus {
+            outline: none;
+            background: #F4F6F8;
+            border-color: #1B2F4A;
+        }
+
+        .cl1403-v2-form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .cl1403-v2-form-submit {
+            padding: 14px 40px;
+            background: #1B2F4A;
+            color: #FFFFFF;
+            border: 2px solid #1B2F4A;
+            border-radius: 0;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-form-submit:hover {
+            background: #FFFFFF;
+            color: #1B2F4A;
+        }
+
+        .cl1403-v2-final-cta {
+            padding: 80px 20px;
+            background: #1B2F4A;
+            color: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v2-final-cta h2 {
+            font-size: 40px;
+            margin-bottom: 24px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v2-final-cta p {
+            font-size: 16px;
+            margin-bottom: 32px;
+            opacity: 0.95;
+        }
+
+        .cl1403-v2-final-cta-btn {
+            display: inline-block;
+            padding: 14px 40px;
+            background: #FFFFFF;
+            color: #1B2F4A;
+            text-decoration: none;
+            border-radius: 0;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border: 2px solid #FFFFFF;
+        }
+
+        .cl1403-v2-final-cta-btn:hover {
+            background: #1B2F4A;
+            color: #FFFFFF;
+            border-color: #1B2F4A;
+        }
+
+        /* ====== VERSION 3: CINEMATIC IMG PATHWAY ====== */
+        .cl1403-v3-header {
+            background: #2A2A2A;
+            padding: 24px 20px;
+        }
+
+        .cl1403-v3-logo {
+            height: 50px;
+            object-fit: contain;
+            filter: invert(1);
+        }
+
+        .cl1403-v3-hero {
+            position: relative;
+            padding: 120px 20px;
+            background: linear-gradient(rgba(42,42,42,0.6), rgba(42,42,42,0.7)),
+                        url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600"><rect fill="%23666" width="1200" height="600"/></svg>');
+            background-size: cover;
+            background-position: center;
+            color: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v3-hero h1 {
+            font-size: 52px;
+            line-height: 1.2;
+            margin-bottom: 24px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v3-hero p {
+            font-size: 18px;
+            margin-bottom: 32px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.95;
+            line-height: 1.8;
+        }
+
+        .cl1403-v3-cta {
+            display: inline-block;
+            padding: 16px 44px;
+            background: #FFB800;
+            color: #2A2A2A;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            border: 2px solid #FFB800;
+        }
+
+        .cl1403-v3-cta:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 28px rgba(255,184,0,0.4);
+        }
+
+        .cl1403-v3-proof {
+            background: #FFFFFF;
+            padding: 50px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 40px;
+            text-align: center;
+            border-bottom: 6px solid #FFB800;
+        }
+
+        .cl1403-v3-proof-item h3 {
+            font-size: 36px;
+            color: #FFB800;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .cl1403-v3-proof-item p {
+            font-size: 14px;
+            color: #666;
+            font-weight: 600;
+        }
+
+        .cl1403-v3-misconceptions {
+            padding: 80px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v3-misconceptions h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #2A2A2A;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .cl1403-v3-misconceptions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 48px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v3-misconception-card {
+            border: none;
+            padding: 0;
+            border-radius: 0;
+            border-left: 6px solid #FFB800;
+            padding-left: 32px;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v3-misconception-card h3 {
+            font-size: 24px;
+            color: #2A2A2A;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-misconception-card p {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .cl1403-v3-usce-types {
+            background: #F4F6F8;
+            padding: 80px 20px;
+        }
+
+        .cl1403-v3-usce-types h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-usce-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v3-usce-card {
+            background: #FFFFFF;
+            padding: 40px;
+            border-radius: 0;
+            border: none;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            transition: all 0.4s ease;
+            position: relative;
+        }
+
+        .cl1403-v3-usce-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: #FFB800;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .cl1403-v3-usce-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+        }
+
+        .cl1403-v3-usce-card:hover::before {
+            opacity: 1;
+        }
+
+        .cl1403-v3-usce-card h3 {
+            font-size: 20px;
+            color: #2A2A2A;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-usce-card p {
+            font-size: 15px;
+            color: #666;
+            line-height: 1.7;
+            margin-bottom: 16px;
+        }
+
+        .cl1403-v3-usce-card .match-value {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 8px 14px;
+            background: #FFB800;
+            border-radius: 0;
+            font-size: 12px;
+            font-weight: 700;
+            color: #2A2A2A;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v3-program-director {
+            padding: 80px 20px;
+            background: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v3-program-director h2 {
+            font-size: 44px;
+            margin-bottom: 32px;
+            color: #2A2A2A;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .cl1403-v3-program-director p {
+            font-size: 17px;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #666;
+            line-height: 1.9;
+        }
+
+        .cl1403-v3-proof-engine {
+            padding: 80px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v3-proof-engine h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 40px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 50px;
+            justify-content: center;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v3-chip {
+            padding: 12px 20px;
+            border: 2px solid #2A2A2A;
+            background: #FFFFFF;
+            color: #2A2A2A;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v3-chip:hover {
+            background: #2A2A2A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v3-chip.active {
+            background: #FFB800;
+            color: #2A2A2A;
+            border-color: #FFB800;
+        }
+
+        .cl1403-v3-proof-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v3-proof-card {
+            background: #FFFFFF;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .cl1403-v3-proof-card.visible {
+            display: block;
+        }
+
+        .cl1403-v3-proof-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+        }
+
+        .cl1403-v3-pathway {
+            padding: 80px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v3-pathway h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-pathway-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 40px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v3-step {
+            text-align: center;
+        }
+
+        .cl1403-v3-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            background: #FFB800;
+            color: #2A2A2A;
+            border-radius: 50%;
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .cl1403-v3-step h3 {
+            font-size: 18px;
+            color: #2A2A2A;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-step p {
+            font-size: 15px;
+            color: #666;
+            line-height: 1.7;
+        }
+
+        .cl1403-v3-rotations {
+            padding: 80px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v3-rotations h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-rotations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v3-rotation-item {
+            background: #FFFFFF;
+            padding: 28px;
+            border-radius: 6px;
+            text-align: center;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v3-rotation-item:hover {
+            border-top: 4px solid #FFB800;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+        }
+
+        .cl1403-v3-rotation-item h3 {
+            font-size: 16px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-pricing {
+            padding: 80px 20px;
+            background: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v3-pricing h2 {
+            font-size: 48px;
+            margin-bottom: 40px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-pricing-content {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #F4F6F8;
+            padding: 48px;
+            border-radius: 6px;
+            border-left: 6px solid #FFB800;
+        }
+
+        .cl1403-v3-pricing-content p {
+            font-size: 17px;
+            color: #666;
+            margin-bottom: 16px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v3-faq {
+            padding: 80px 20px;
+            background: #F4F6F8;
+        }
+
+        .cl1403-v3-faq h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-faq-list {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v3-faq-item {
+            margin-bottom: 24px;
+            background: #FFFFFF;
+            border-radius: 6px;
+            overflow: hidden;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .cl1403-v3-faq-question {
+            padding: 24px;
+            background: #FFFFFF;
+            cursor: pointer;
+            font-weight: 600;
+            color: #2A2A2A;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            font-size: 16px;
+        }
+
+        .cl1403-v3-faq-question:hover {
+            background: #F4F6F8;
+            padding-left: 28px;
+        }
+
+        .cl1403-v3-faq-answer {
+            display: none;
+            padding: 24px;
+            background: #F4F6F8;
+            border-top: 2px solid #FFB800;
+            color: #666;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v3-faq-item.open .cl1403-v3-faq-answer {
+            display: block;
+        }
+
+        .cl1403-v3-form {
+            padding: 80px 20px;
+            background: #FFFFFF;
+        }
+
+        .cl1403-v3-form h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 48px;
+            color: #2A2A2A;
+            font-weight: 700;
+        }
+
+        .cl1403-v3-form-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v3-form-group {
+            margin-bottom: 24px;
+        }
+
+        .cl1403-v3-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2A2A2A;
+            font-size: 14px;
+        }
+
+        .cl1403-v3-form-group input,
+        .cl1403-v3-form-group textarea,
+        .cl1403-v3-form-group select {
+            width: 100%;
+            padding: 13px;
+            border: 1px solid #DDD;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v3-form-group input:focus,
+        .cl1403-v3-form-group textarea:focus,
+        .cl1403-v3-form-group select:focus {
+            outline: none;
+            border-color: #FFB800;
+            box-shadow: 0 0 0 3px rgba(255,184,0,0.1);
+        }
+
+        .cl1403-v3-form-group textarea {
+            resize: vertical;
+            min-height: 130px;
+        }
+
+        .cl1403-v3-form-submit {
+            padding: 16px 48px;
+            background: #2A2A2A;
+            color: #FFFFFF;
+            border: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .cl1403-v3-form-submit:hover {
+            background: #FFB800;
+            color: #2A2A2A;
+            transform: translateY(-2px);
+        }
+
+        .cl1403-v3-final-cta {
+            padding: 100px 20px;
+            background: linear-gradient(135deg, #2A2A2A 0%, #1B1B1B 100%);
+            color: #FFFFFF;
+            text-align: center;
+        }
+
+        .cl1403-v3-final-cta h2 {
+            font-size: 52px;
+            margin-bottom: 28px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .cl1403-v3-final-cta p {
+            font-size: 19px;
+            margin-bottom: 40px;
+            opacity: 0.95;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v3-final-cta-btn {
+            display: inline-block;
+            padding: 16px 48px;
+            background: #FFB800;
+            color: #2A2A2A;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            border: 2px solid #FFB800;
+        }
+
+        .cl1403-v3-final-cta-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 16px 32px rgba(255,184,0,0.3);
+        }
+
+        /* ====== VERSION 4: PLACEMENT COMMAND CENTER ====== */
+        .cl1403-v4-header {
+            background: #0A0F1A;
+            padding: 24px 20px;
+            border-bottom: 2px solid #00D4FF;
+        }
+
+        .cl1403-v4-logo {
+            height: 50px;
+            object-fit: contain;
+            filter: brightness(1.2);
+        }
+
+        .cl1403-v4-hero {
+            background: linear-gradient(135deg, #0A0F1A 0%, #141B2E 100%);
+            color: #F0F4F8;
+            padding: 80px 20px;
+            border-bottom: 4px solid #00D4FF;
+            text-align: center;
+        }
+
+        .cl1403-v4-hero h1 {
+            font-size: 48px;
+            line-height: 1.2;
+            margin-bottom: 24px;
+            font-weight: 700;
+            color: #00D4FF;
+        }
+
+        .cl1403-v4-hero p {
+            font-size: 16px;
+            margin-bottom: 32px;
+            max-width: 700px;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.9;
+        }
+
+        .cl1403-v4-cta {
+            display: inline-block;
+            padding: 14px 40px;
+            background: #00D4FF;
+            color: #0A0F1A;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 15px;
+            transition: all 0.3s ease;
+            border: 2px solid #00D4FF;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-cta:hover {
+            background: transparent;
+            color: #00D4FF;
+            box-shadow: 0 0 20px rgba(0,212,255,0.4);
+        }
+
+        .cl1403-v4-proof {
+            background: #0F1620;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 40px;
+            text-align: center;
+            border-bottom: 4px solid #00D4FF;
+        }
+
+        .cl1403-v4-proof-item h3 {
+            font-size: 32px;
+            color: #00D4FF;
+            font-weight: 700;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-proof-item p {
+            font-size: 13px;
+            color: #8B9DB7;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v4-misconceptions {
+            padding: 60px 20px;
+            background: #0A0F1A;
+        }
+
+        .cl1403-v4-misconceptions h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-misconceptions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v4-misconception-card {
+            border: 2px solid #00D4FF;
+            padding: 32px;
+            border-radius: 4px;
+            background: #0F1620;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v4-misconception-card:hover {
+            background: #141B2E;
+            box-shadow: 0 0 20px rgba(0,212,255,0.2);
+        }
+
+        .cl1403-v4-misconception-card h3 {
+            font-size: 18px;
+            color: #00D4FF;
+            margin-bottom: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v4-misconception-card p {
+            font-size: 15px;
+            color: #8B9DB7;
+            line-height: 1.7;
+        }
+
+        .cl1403-v4-usce-types {
+            background: #0F1620;
+            padding: 60px 20px;
+        }
+
+        .cl1403-v4-usce-types h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-usce-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v4-usce-card {
+            background: #0A0F1A;
+            padding: 32px;
+            border-radius: 4px;
+            border: 2px solid #00D4FF;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v4-usce-card:hover {
+            background: #141B2E;
+            box-shadow: 0 0 24px rgba(0,212,255,0.3);
+        }
+
+        .cl1403-v4-usce-card h3 {
+            font-size: 18px;
+            color: #00D4FF;
+            margin-bottom: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v4-usce-card p {
+            font-size: 15px;
+            color: #8B9DB7;
+            margin-bottom: 16px;
+            line-height: 1.7;
+        }
+
+        .cl1403-v4-usce-card .match-value {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 8px 12px;
+            background: rgba(0,212,255,0.1);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #00D4FF;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v4-program-director {
+            padding: 60px 20px;
+            background: #0A0F1A;
+            text-align: center;
+            border-top: 4px solid #00D4FF;
+            border-bottom: 4px solid #00D4FF;
+        }
+
+        .cl1403-v4-program-director h2 {
+            font-size: 36px;
+            margin-bottom: 32px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-program-director p {
+            font-size: 16px;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #8B9DB7;
+            line-height: 1.8;
+        }
+
+        .cl1403-v4-proof-engine {
+            padding: 60px 20px;
+            background: #0F1620;
+        }
+
+        .cl1403-v4-proof-engine h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 32px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 40px;
+            justify-content: center;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v4-chip {
+            padding: 10px 18px;
+            border: 2px solid #00D4FF;
+            background: transparent;
+            color: #00D4FF;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v4-chip:hover {
+            background: rgba(0,212,255,0.1);
+            box-shadow: 0 0 12px rgba(0,212,255,0.3);
+        }
+
+        .cl1403-v4-chip.active {
+            background: #00D4FF;
+            color: #0A0F1A;
+        }
+
+        .cl1403-v4-proof-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v4-proof-card {
+            background: #0A0F1A;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 2px solid #00D4FF;
+            transition: all 0.3s ease;
+            display: none;
+        }
+
+        .cl1403-v4-proof-card.visible {
+            display: block;
+        }
+
+        .cl1403-v4-proof-card:hover {
+            box-shadow: 0 0 24px rgba(0,212,255,0.3);
+        }
+
+        .cl1403-v4-pathway {
+            padding: 60px 20px;
+            background: #0A0F1A;
+        }
+
+        .cl1403-v4-pathway h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-pathway-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v4-step {
+            text-align: center;
+            border: 2px solid #00D4FF;
+            padding: 32px;
+            background: #0F1620;
+            border-radius: 4px;
+        }
+
+        .cl1403-v4-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            background: transparent;
+            color: #00D4FF;
+            border: 2px solid #00D4FF;
+            border-radius: 4px;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-transform: uppercase;
+        }
+
+        .cl1403-v4-step h3 {
+            font-size: 16px;
+            color: #00D4FF;
+            margin-bottom: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v4-step p {
+            font-size: 14px;
+            color: #8B9DB7;
+            line-height: 1.6;
+        }
+
+        .cl1403-v4-rotations {
+            padding: 60px 20px;
+            background: #0F1620;
+        }
+
+        .cl1403-v4-rotations h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-rotations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v4-rotation-item {
+            background: #0A0F1A;
+            padding: 24px;
+            border-radius: 4px;
+            text-align: center;
+            border: 2px solid #00D4FF;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v4-rotation-item:hover {
+            background: #141B2E;
+            box-shadow: 0 0 16px rgba(0,212,255,0.3);
+        }
+
+        .cl1403-v4-rotation-item h3 {
+            font-size: 15px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v4-pricing {
+            padding: 60px 20px;
+            background: #0A0F1A;
+            text-align: center;
+            border-top: 4px solid #00D4FF;
+            border-bottom: 4px solid #00D4FF;
+        }
+
+        .cl1403-v4-pricing h2 {
+            font-size: 40px;
+            margin-bottom: 32px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-pricing-content {
+            max-width: 700px;
+            margin: 0 auto;
+            background: #0F1620;
+            padding: 40px;
+            border-radius: 4px;
+            border: 2px solid #00D4FF;
+        }
+
+        .cl1403-v4-pricing-content p {
+            font-size: 16px;
+            color: #8B9DB7;
+            margin-bottom: 16px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v4-faq {
+            padding: 60px 20px;
+            background: #0F1620;
+        }
+
+        .cl1403-v4-faq h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 48px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-faq-list {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v4-faq-item {
+            margin-bottom: 24px;
+            background: #0A0F1A;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 2px solid #00D4FF;
+        }
+
+        .cl1403-v4-faq-question {
+            padding: 20px;
+            background: #0A0F1A;
+            cursor: pointer;
+            font-weight: 700;
+            color: #00D4FF;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v4-faq-question:hover {
+            background: #0F1620;
+        }
+
+        .cl1403-v4-faq-answer {
+            display: none;
+            padding: 20px;
+            background: #0F1620;
+            border-top: 2px solid #00D4FF;
+            color: #8B9DB7;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v4-faq-item.open .cl1403-v4-faq-answer {
+            display: block;
+        }
+
+        .cl1403-v4-form {
+            padding: 60px 20px;
+            background: #0A0F1A;
+        }
+
+        .cl1403-v4-form h2 {
+            text-align: center;
+            font-size: 40px;
+            margin-bottom: 40px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-form-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v4-form-group {
+            margin-bottom: 20px;
+        }
+
+        .cl1403-v4-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 700;
+            color: #00D4FF;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .cl1403-v4-form-group input,
+        .cl1403-v4-form-group textarea,
+        .cl1403-v4-form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #00D4FF;
+            border-radius: 4px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #0F1620;
+            color: #F0F4F8;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v4-form-group input:focus,
+        .cl1403-v4-form-group textarea:focus,
+        .cl1403-v4-form-group select:focus {
+            outline: none;
+            border-color: #FFB800;
+            box-shadow: 0 0 0 3px rgba(0,212,255,0.1);
+        }
+
+        .cl1403-v4-form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .cl1403-v4-form-submit {
+            padding: 14px 40px;
+            background: transparent;
+            color: #00D4FF;
+            border: 2px solid #00D4FF;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-form-submit:hover {
+            background: #00D4FF;
+            color: #0A0F1A;
+        }
+
+        .cl1403-v4-final-cta {
+            padding: 80px 20px;
+            background: #0A0F1A;
+            color: #F0F4F8;
+            text-align: center;
+            border-top: 4px solid #00D4FF;
+        }
+
+        .cl1403-v4-final-cta h2 {
+            font-size: 44px;
+            margin-bottom: 24px;
+            font-weight: 700;
+            color: #00D4FF;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v4-final-cta p {
+            font-size: 16px;
+            margin-bottom: 32px;
+            color: #8B9DB7;
+        }
+
+        .cl1403-v4-final-cta-btn {
+            display: inline-block;
+            padding: 14px 40px;
+            background: #00D4FF;
+            color: #0A0F1A;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border: 2px solid #00D4FF;
+        }
+
+        .cl1403-v4-final-cta-btn:hover {
+            background: transparent;
+            color: #00D4FF;
+            box-shadow: 0 0 20px rgba(0,212,255,0.4);
+        }
+
+        /* ====== VERSION 5: EXTREME CLINICAL STRATEGY ====== */
+        .cl1403-v5-header {
+            background: #0A0A0A;
+            padding: 24px 20px;
+            border-bottom: 4px solid #D946EF;
+        }
+
+        .cl1403-v5-logo {
+            height: 50px;
+            object-fit: contain;
+            filter: brightness(1.1);
+        }
+
+        .cl1403-v5-hero {
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0F2E 100%);
+            color: #FFFFFF;
+            padding: 100px 20px;
+            text-align: center;
+        }
+
+        .cl1403-v5-hero h1 {
+            font-size: 64px;
+            line-height: 1.1;
+            margin-bottom: 32px;
+            font-weight: 900;
+            letter-spacing: -2px;
+            color: #D946EF;
+            text-transform: uppercase;
+        }
+
+        .cl1403-v5-hero p {
+            font-size: 20px;
+            margin-bottom: 48px;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.95;
+            line-height: 1.6;
+        }
+
+        .cl1403-v5-cta {
+            display: inline-block;
+            padding: 18px 48px;
+            background: #D946EF;
+            color: #0A0A0A;
+            text-decoration: none;
+            border-radius: 0;
+            font-weight: 900;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            border: 3px solid #D946EF;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v5-cta:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 40px rgba(217,70,239,0.4);
+        }
+
+        .cl1403-v5-proof {
+            background: #F0F4F8;
+            padding: 60px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 40px;
+            text-align: center;
+            border-top: 6px solid #D946EF;
+            border-bottom: 6px solid #D946EF;
+        }
+
+        .cl1403-v5-proof-item h3 {
+            font-size: 48px;
+            color: #D946EF;
+            font-weight: 900;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v5-proof-item p {
+            font-size: 14px;
+            color: #2A2A2A;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v5-misconceptions {
+            padding: 80px 20px;
+            background: #0A0A0A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v5-misconceptions h2 {
+            text-align: center;
+            font-size: 56px;
+            margin-bottom: 60px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-misconceptions-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 48px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v5-misconception-card {
+            border: none;
+            padding: 0;
+            border-radius: 0;
+            border-left: 8px solid #D946EF;
+            padding-left: 40px;
+        }
+
+        .cl1403-v5-misconception-card h3 {
+            font-size: 32px;
+            color: #D946EF;
+            margin-bottom: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+        }
+
+        .cl1403-v5-misconception-card p {
+            font-size: 18px;
+            color: #CCC;
+            line-height: 1.8;
+        }
+
+        .cl1403-v5-usce-types {
+            background: #F0F4F8;
+            padding: 80px 20px;
+        }
+
+        .cl1403-v5-usce-types h2 {
+            text-align: center;
+            font-size: 56px;
+            margin-bottom: 60px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-usce-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 48px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v5-usce-card {
+            background: #0A0A0A;
+            padding: 48px;
+            border-radius: 0;
+            border: none;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v5-usce-card:hover {
+            transform: translateY(-12px);
+            box-shadow: 0 20px 60px rgba(217,70,239,0.2);
+        }
+
+        .cl1403-v5-usce-card h3 {
+            font-size: 28px;
+            color: #D946EF;
+            margin-bottom: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+        }
+
+        .cl1403-v5-usce-card p {
+            font-size: 16px;
+            color: #AAA;
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .cl1403-v5-usce-card .match-value {
+            display: inline-block;
+            margin-top: 20px;
+            padding: 12px 16px;
+            background: #D946EF;
+            border-radius: 0;
+            font-size: 13px;
+            font-weight: 900;
+            color: #0A0A0A;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v5-program-director {
+            padding: 80px 20px;
+            background: #0A0A0A;
+            text-align: center;
+            color: #FFFFFF;
+            border-top: 6px solid #D946EF;
+            border-bottom: 6px solid #D946EF;
+        }
+
+        .cl1403-v5-program-director h2 {
+            font-size: 48px;
+            margin-bottom: 32px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-program-director p {
+            font-size: 18px;
+            max-width: 900px;
+            margin: 0 auto;
+            color: #BBB;
+            line-height: 1.9;
+        }
+
+        .cl1403-v5-proof-engine {
+            padding: 80px 20px;
+            background: #F0F4F8;
+        }
+
+        .cl1403-v5-proof-engine h2 {
+            text-align: center;
+            font-size: 56px;
+            margin-bottom: 48px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 60px;
+            justify-content: center;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v5-chip {
+            padding: 12px 24px;
+            border: 3px solid #D946EF;
+            background: #FFFFFF;
+            color: #D946EF;
+            border-radius: 0;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v5-chip:hover {
+            background: #D946EF;
+            color: #FFFFFF;
+            transform: translateY(-2px);
+        }
+
+        .cl1403-v5-chip.active {
+            background: #D946EF;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v5-proof-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v5-proof-card {
+            background: #FFFFFF;
+            border-radius: 0;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            display: none;
+            border: 3px solid #D946EF;
+        }
+
+        .cl1403-v5-proof-card.visible {
+            display: block;
+        }
+
+        .cl1403-v5-proof-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 24px 60px rgba(217,70,239,0.25);
+        }
+
+        .cl1403-v5-pathway {
+            padding: 80px 20px;
+            background: #0A0A0A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v5-pathway h2 {
+            text-align: center;
+            font-size: 56px;
+            margin-bottom: 60px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-pathway-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 48px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v5-step {
+            text-align: center;
+        }
+
+        .cl1403-v5-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 64px;
+            height: 64px;
+            background: #D946EF;
+            color: #0A0A0A;
+            border-radius: 0;
+            font-size: 32px;
+            font-weight: 900;
+            margin-bottom: 24px;
+            text-transform: uppercase;
+        }
+
+        .cl1403-v5-step h3 {
+            font-size: 24px;
+            color: #D946EF;
+            margin-bottom: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+        }
+
+        .cl1403-v5-step p {
+            font-size: 16px;
+            color: #AAA;
+            line-height: 1.7;
+        }
+
+        .cl1403-v5-rotations {
+            padding: 80px 20px;
+            background: #F0F4F8;
+        }
+
+        .cl1403-v5-rotations h2 {
+            text-align: center;
+            font-size: 56px;
+            margin-bottom: 60px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-rotations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 32px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v5-rotation-item {
+            background: #0A0A0A;
+            padding: 36px;
+            border-radius: 0;
+            text-align: center;
+            border: 3px solid #D946EF;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v5-rotation-item:hover {
+            background: #D946EF;
+        }
+
+        .cl1403-v5-rotation-item h3 {
+            font-size: 18px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v5-rotation-item:hover h3 {
+            color: #0A0A0A;
+        }
+
+        .cl1403-v5-pricing {
+            padding: 80px 20px;
+            background: #0A0A0A;
+            text-align: center;
+            color: #FFFFFF;
+            border-top: 6px solid #D946EF;
+            border-bottom: 6px solid #D946EF;
+        }
+
+        .cl1403-v5-pricing h2 {
+            font-size: 56px;
+            margin-bottom: 40px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-pricing-content {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #F0F4F8;
+            padding: 60px;
+            border-radius: 0;
+            border: 4px solid #D946EF;
+        }
+
+        .cl1403-v5-pricing-content p {
+            font-size: 18px;
+            color: #2A2A2A;
+            margin-bottom: 16px;
+            line-height: 1.8;
+            font-weight: 600;
+        }
+
+        .cl1403-v5-faq {
+            padding: 80px 20px;
+            background: #F0F4F8;
+        }
+
+        .cl1403-v5-faq h2 {
+            text-align: center;
+            font-size: 56px;
+            margin-bottom: 60px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-faq-list {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v5-faq-item {
+            margin-bottom: 24px;
+            background: #0A0A0A;
+            border-radius: 0;
+            overflow: hidden;
+            border: 3px solid #D946EF;
+        }
+
+        .cl1403-v5-faq-question {
+            padding: 28px;
+            background: #0A0A0A;
+            cursor: pointer;
+            font-weight: 900;
+            color: #D946EF;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .cl1403-v5-faq-question:hover {
+            background: #1A0F2E;
+        }
+
+        .cl1403-v5-faq-answer {
+            display: none;
+            padding: 28px;
+            background: #F0F4F8;
+            border-top: 3px solid #D946EF;
+            color: #2A2A2A;
+            font-size: 16px;
+            line-height: 1.8;
+            font-weight: 600;
+        }
+
+        .cl1403-v5-faq-item.open .cl1403-v5-faq-answer {
+            display: block;
+        }
+
+        .cl1403-v5-form {
+            padding: 80px 20px;
+            background: #0A0A0A;
+            color: #FFFFFF;
+        }
+
+        .cl1403-v5-form h2 {
+            text-align: center;
+            font-size: 56px;
+            margin-bottom: 48px;
+            color: #D946EF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-form-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v5-form-group {
+            margin-bottom: 28px;
+        }
+
+        .cl1403-v5-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 900;
+            color: #D946EF;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v5-form-group input,
+        .cl1403-v5-form-group textarea,
+        .cl1403-v5-form-group select {
+            width: 100%;
+            padding: 14px;
+            border: 3px solid #D946EF;
+            border-radius: 0;
+            font-size: 15px;
+            font-family: inherit;
+            background: #1A0F2E;
+            color: #FFFFFF;
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v5-form-group input:focus,
+        .cl1403-v5-form-group textarea:focus,
+        .cl1403-v5-form-group select:focus {
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(217,70,239,0.2);
+        }
+
+        .cl1403-v5-form-group textarea {
+            resize: vertical;
+            min-height: 130px;
+        }
+
+        .cl1403-v5-form-submit {
+            padding: 18px 48px;
+            background: #D946EF;
+            color: #0A0A0A;
+            border: 3px solid #D946EF;
+            border-radius: 0;
+            font-weight: 900;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v5-form-submit:hover {
+            background: transparent;
+            color: #D946EF;
+            transform: translateY(-3px);
+        }
+
+        .cl1403-v5-final-cta {
+            padding: 100px 20px;
+            background: linear-gradient(135deg, #0A0A0A 0%, #1A0F2E 100%);
+            color: #FFFFFF;
+            text-align: center;
+            border-top: 6px solid #D946EF;
+        }
+
+        .cl1403-v5-final-cta h2 {
+            font-size: 60px;
+            margin-bottom: 32px;
+            font-weight: 900;
+            color: #D946EF;
+            text-transform: uppercase;
+            letter-spacing: -1px;
+        }
+
+        .cl1403-v5-final-cta p {
+            font-size: 20px;
+            margin-bottom: 48px;
+            color: #AAA;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v5-final-cta-btn {
+            display: inline-block;
+            padding: 18px 48px;
+            background: #D946EF;
+            color: #0A0A0A;
+            text-decoration: none;
+            border-radius: 0;
+            font-weight: 900;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            border: 3px solid #D946EF;
+        }
+
+        .cl1403-v5-final-cta-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 24px 48px rgba(217,70,239,0.4);
+        }
+
+        /* ====== VERSION 6: ARENA ROTATION ROYALE ====== */
+        /*
+        VERSION 6 TYPOGRAPHY:
+        Preferred Fortnite-style display font: Burbank Big Condensed Black.
+        Use only if MissionMed legally owns/licenses the font.
+        Do not embed or distribute proprietary font files in this demo.
+        Fallbacks are provided for visual approximation.
+        */
+
+        .cl1403-v6-header {
+            background: #0A0F1A;
+            padding: 20px;
+            border-bottom: 4px solid #FFB800;
+            box-shadow: 0 0 20px rgba(255,184,0,0.3);
+        }
+
+        .cl1403-v6-logo {
+            height: 50px;
+            object-fit: contain;
+            filter: drop-shadow(0 0 8px rgba(255,184,0,0.4));
+        }
+
+        .cl1403-v6-hero {
+            background: linear-gradient(135deg, #0A0F1A 0%, #0A1628 100%),
+                        radial-gradient(circle at 20% 50%, rgba(0,212,255,0.1) 0%, transparent 50%),
+                        radial-gradient(circle at 80% 80%, rgba(255,184,0,0.05) 0%, transparent 50%);
+            color: #F0F4F8;
+            padding: 120px 20px;
+            text-align: center;
+            border-bottom: 6px solid;
+            border-image: linear-gradient(90deg, #00D4FF 0%, #FFB800 100%) 1;
+        }
+
+        .cl1403-v6-hero h1 {
+            font-size: 56px;
+            line-height: 1.1;
+            margin-bottom: 24px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+            background: linear-gradient(90deg, #00D4FF 0%, #FFB800 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(0,212,255,0.3);
+        }
+
+        .cl1403-v6-hero p {
+            font-size: 18px;
+            margin-bottom: 40px;
+            max-width: 750px;
+            margin-left: auto;
+            margin-right: auto;
+            color: #8B9DB7;
+            line-height: 1.7;
+        }
+
+        .cl1403-v6-cta {
+            display: inline-block;
+            padding: 16px 44px;
+            background: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%);
+            color: #0A0F1A;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 900;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+            box-shadow: 0 0 20px rgba(0,212,255,0.5);
+        }
+
+        .cl1403-v6-cta:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 0 40px rgba(0,212,255,0.8), 0 12px 24px rgba(255,184,0,0.4);
+        }
+
+        .cl1403-v6-proof {
+            background: #0A0F1A;
+            padding: 50px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 40px;
+            text-align: center;
+            border-bottom: 4px solid #FFB800;
+        }
+
+        .cl1403-v6-proof-item h3 {
+            font-size: 44px;
+            color: #FFB800;
+            font-weight: 900;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+            text-shadow: 0 0 12px rgba(255,184,0,0.4);
+        }
+
+        .cl1403-v6-proof-item p {
+            font-size: 14px;
+            color: #00D4FF;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v6-misconceptions {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, #0A0F1A 0%, #0F1A2E 100%);
+            color: #F0F4F8;
+        }
+
+        .cl1403-v6-misconceptions h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #00D4FF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-misconceptions-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 40px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v6-misconception-card {
+            border: 3px solid;
+            border-image: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%) 1;
+            padding: 40px;
+            border-radius: 8px;
+            background: rgba(10,15,26,0.8);
+            backdrop-filter: blur(10px);
+            padding: 40px;
+        }
+
+        .cl1403-v6-misconception-card h3 {
+            font-size: 28px;
+            color: #00D4FF;
+            margin-bottom: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-misconception-card p {
+            font-size: 16px;
+            color: #8B9DB7;
+            line-height: 1.8;
+        }
+
+        .cl1403-v6-usce-types {
+            background: #0A0F1A;
+            padding: 80px 20px;
+        }
+
+        .cl1403-v6-usce-types h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-usce-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v6-usce-card {
+            background: linear-gradient(135deg, rgba(10,15,26,0.9) 0%, rgba(15,22,46,0.9) 100%);
+            padding: 40px;
+            border-radius: 8px;
+            border: 2px solid;
+            border-image: linear-gradient(135deg, #00D4FF 50%, #FFB800 100%) 1;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 20px rgba(0,212,255,0.2);
+            transition: all 0.3s ease;
+        }
+
+        .cl1403-v6-usce-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 0 40px rgba(0,212,255,0.4), 0 0 20px rgba(255,184,0,0.2);
+        }
+
+        .cl1403-v6-usce-card h3 {
+            font-size: 24px;
+            color: #FFB800;
+            margin-bottom: 16px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-usce-card p {
+            font-size: 15px;
+            color: #8B9DB7;
+            line-height: 1.7;
+            margin-bottom: 20px;
+        }
+
+        .cl1403-v6-usce-card .match-value {
+            display: inline-block;
+            margin-top: 16px;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%);
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 900;
+            color: #0A0F1A;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 12px rgba(0,212,255,0.4);
+        }
+
+        .cl1403-v6-program-director {
+            padding: 80px 20px;
+            background: linear-gradient(135deg, #0A0F1A 0%, #0F1A2E 100%);
+            text-align: center;
+            color: #F0F4F8;
+            border-top: 4px solid #00D4FF;
+            border-bottom: 4px solid #FFB800;
+        }
+
+        .cl1403-v6-program-director h2 {
+            font-size: 40px;
+            margin-bottom: 32px;
+            color: #00D4FF;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-program-director p {
+            font-size: 16px;
+            max-width: 800px;
+            margin: 0 auto;
+            color: #8B9DB7;
+            line-height: 1.9;
+        }
+
+        .cl1403-v6-proof-engine {
+            padding: 80px 20px;
+            background: #0F1A2E;
+        }
+
+        .cl1403-v6-proof-engine h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 40px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 50px;
+            justify-content: center;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v6-chip {
+            padding: 12px 20px;
+            border: 2px solid #00D4FF;
+            background: transparent;
+            color: #00D4FF;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 8px rgba(0,212,255,0.2);
+        }
+
+        .cl1403-v6-chip:hover {
+            background: #00D4FF;
+            color: #0A0F1A;
+            box-shadow: 0 0 16px rgba(0,212,255,0.6);
+        }
+
+        .cl1403-v6-chip.active {
+            background: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%);
+            color: #0A0F1A;
+            border-color: #FFB800;
+            box-shadow: 0 0 20px rgba(0,212,255,0.6);
+        }
+
+        .cl1403-v6-proof-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 32px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v6-proof-card {
+            background: linear-gradient(135deg, rgba(10,15,26,0.95) 0%, rgba(15,22,46,0.95) 100%);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #00D4FF;
+            transition: all 0.3s ease;
+            display: none;
+            box-shadow: 0 0 20px rgba(0,212,255,0.2);
+        }
+
+        .cl1403-v6-proof-card.visible {
+            display: block;
+        }
+
+        .cl1403-v6-proof-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 0 40px rgba(0,212,255,0.4), 0 0 20px rgba(255,184,0,0.2);
+        }
+
+        .cl1403-v6-pathway {
+            padding: 80px 20px;
+            background: #0A0F1A;
+        }
+
+        .cl1403-v6-pathway h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-pathway-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 40px;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v6-step {
+            text-align: center;
+            background: rgba(10,15,26,0.8);
+            padding: 40px;
+            border: 2px solid;
+            border-image: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%) 1;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .cl1403-v6-step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%);
+            color: #0A0F1A;
+            border-radius: 4px;
+            font-size: 24px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+            box-shadow: 0 0 16px rgba(0,212,255,0.4);
+        }
+
+        .cl1403-v6-step h3 {
+            font-size: 20px;
+            color: #00D4FF;
+            margin-bottom: 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v6-step p {
+            font-size: 15px;
+            color: #8B9DB7;
+            line-height: 1.7;
+        }
+
+        .cl1403-v6-rotations {
+            padding: 80px 20px;
+            background: #0F1A2E;
+        }
+
+        .cl1403-v6-rotations h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-rotations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 24px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v6-rotation-item {
+            background: linear-gradient(135deg, rgba(10,15,26,0.9) 0%, rgba(15,22,46,0.9) 100%);
+            padding: 28px;
+            border-radius: 6px;
+            text-align: center;
+            border: 2px solid #00D4FF;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 12px rgba(0,212,255,0.2);
+        }
+
+        .cl1403-v6-rotation-item:hover {
+            border-color: #FFB800;
+            box-shadow: 0 0 24px rgba(255,184,0,0.4);
+        }
+
+        .cl1403-v6-rotation-item h3 {
+            font-size: 16px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-pricing {
+            padding: 80px 20px;
+            background: #0A0F1A;
+            text-align: center;
+            border-top: 4px solid #00D4FF;
+            border-bottom: 4px solid #FFB800;
+        }
+
+        .cl1403-v6-pricing h2 {
+            font-size: 48px;
+            margin-bottom: 40px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-pricing-content {
+            max-width: 800px;
+            margin: 0 auto;
+            background: linear-gradient(135deg, rgba(10,15,26,0.9) 0%, rgba(15,22,46,0.9) 100%);
+            padding: 48px;
+            border-radius: 8px;
+            border: 2px solid #00D4FF;
+            box-shadow: 0 0 24px rgba(0,212,255,0.2);
+        }
+
+        .cl1403-v6-pricing-content p {
+            font-size: 16px;
+            color: #8B9DB7;
+            margin-bottom: 16px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v6-faq {
+            padding: 80px 20px;
+            background: #0F1A2E;
+        }
+
+        .cl1403-v6-faq h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 60px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-faq-list {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v6-faq-item {
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, rgba(10,15,26,0.9) 0%, rgba(15,22,46,0.9) 100%);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 2px solid #00D4FF;
+            box-shadow: 0 0 12px rgba(0,212,255,0.2);
+        }
+
+        .cl1403-v6-faq-question {
+            padding: 24px;
+            background: linear-gradient(135deg, rgba(10,15,26,0.9) 0%, rgba(15,22,46,0.9) 100%);
+            cursor: pointer;
+            font-weight: 900;
+            color: #FFB800;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 15px;
+            letter-spacing: 1px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-faq-question:hover {
+            background: rgba(15,22,46,0.95);
+            color: #00D4FF;
+        }
+
+        .cl1403-v6-faq-answer {
+            display: none;
+            padding: 24px;
+            background: rgba(15,22,46,0.8);
+            border-top: 2px solid #FFB800;
+            color: #8B9DB7;
+            font-size: 15px;
+            line-height: 1.8;
+        }
+
+        .cl1403-v6-faq-item.open .cl1403-v6-faq-answer {
+            display: block;
+        }
+
+        .cl1403-v6-form {
+            padding: 80px 20px;
+            background: #0A0F1A;
+        }
+
+        .cl1403-v6-form h2 {
+            text-align: center;
+            font-size: 48px;
+            margin-bottom: 48px;
+            color: #FFB800;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-form-container {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .cl1403-v6-form-group {
+            margin-bottom: 24px;
+        }
+
+        .cl1403-v6-form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 900;
+            color: #00D4FF;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .cl1403-v6-form-group input,
+        .cl1403-v6-form-group textarea,
+        .cl1403-v6-form-group select {
+            width: 100%;
+            padding: 13px;
+            border: 2px solid #00D4FF;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            background: #0F1A2E;
+            color: #F0F4F8;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 8px rgba(0,212,255,0.1);
+        }
+
+        .cl1403-v6-form-group input:focus,
+        .cl1403-v6-form-group textarea:focus,
+        .cl1403-v6-form-group select:focus {
+            outline: none;
+            border-color: #FFB800;
+            box-shadow: 0 0 16px rgba(0,212,255,0.3);
+        }
+
+        .cl1403-v6-form-group textarea {
+            resize: vertical;
+            min-height: 130px;
+        }
+
+        .cl1403-v6-form-submit {
+            padding: 16px 44px;
+            background: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%);
+            color: #0A0F1A;
+            border: 2px solid transparent;
+            border-radius: 6px;
+            font-weight: 900;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 0 16px rgba(0,212,255,0.4);
+        }
+
+        .cl1403-v6-form-submit:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 32px rgba(0,212,255,0.6), 0 8px 16px rgba(255,184,0,0.3);
+        }
+
+        .cl1403-v6-final-cta {
+            padding: 100px 20px;
+            background: linear-gradient(135deg, #0A0F1A 0%, #0F1A2E 100%);
+            color: #F0F4F8;
+            text-align: center;
+            border-top: 6px;
+            border-image: linear-gradient(90deg, #00D4FF 0%, #FFB800 100%) 1;
+        }
+
+        .cl1403-v6-final-cta h2 {
+            font-size: 52px;
+            margin-bottom: 28px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+            background: linear-gradient(90deg, #00D4FF 0%, #FFB800 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .cl1403-v6-final-cta p {
+            font-size: 18px;
+            margin-bottom: 40px;
+            color: #8B9DB7;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cl1403-v6-final-cta-btn {
+            display: inline-block;
+            padding: 16px 48px;
+            background: linear-gradient(135deg, #00D4FF 0%, #FFB800 100%);
+            color: #0A0F1A;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 900;
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+            border: 3px solid transparent;
+            box-shadow: 0 0 24px rgba(0,212,255,0.5);
+            font-family: "Luckiest Guy", "Anton", "Impact", "Arial Black", sans-serif;
+        }
+
+        .cl1403-v6-final-cta-btn:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 0 48px rgba(0,212,255,0.8), 0 12px 28px rgba(255,184,0,0.4);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .cl1403-version-bar {
+                flex-direction: column;
+            }
+
+            .cl1403-v1-hero h1,
+            .cl1403-v2-hero h1,
+            .cl1403-v3-hero h1 {
+                font-size: 32px;
+            }
+
+            .cl1403-v1-misconceptions h2,
+            .cl1403-v2-misconceptions h2,
+            .cl1403-v3-misconceptions h2,
+            .cl1403-v1-usce-types h2,
+            .cl1403-v2-usce-types h2,
+            .cl1403-v3-usce-types h2 {
+                font-size: 28px;
+            }
+
+            .cl1403-v1-proof,
+            .cl1403-v2-proof,
+            .cl1403-v3-proof {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- VERSION SELECTOR BAR -->
+<div class="cl1403-version-bar">
+    <button class="cl1403-version-btn active" data-version="v1">MissionMed Clinical Prestige</button>
+    <button class="cl1403-version-btn" data-version="v2">Hospital Trust System</button>
+    <button class="cl1403-version-btn" data-version="v3">Cinematic IMG Pathway</button>
+    <button class="cl1403-version-btn" data-version="v4">Placement Command Center</button>
+    <button class="cl1403-version-btn" data-version="v5">Extreme Clinical Strategy</button>
+    <button class="cl1403-version-btn" data-version="v6">Arena Rotation Royale</button>
+</div>
+
+<!-- ========== VERSION 1: PRESTIGE ========== -->
+<div class="cl1403-version active" id="version-v1">
+
+    <!-- VERSION 1 / HEADER -->
+    <header class="cl1403-v1-header">
+        <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="cl1403-v1-logo">
+    </header>
+
+    <!-- VERSION 1 / HERO -->
+    <section class="cl1403-v1-hero">
+        <h1>The wrong clinical rotation will not just waste your money. It will cost you the Match.</h1>
+        <p>The type of USCE you pursue matters more than you think. Hospital-based clinical rotations are what program directors actually value.</p>
+        <a href="#form" class="cl1403-v1-cta">Request Your Placement</a>
+    </section>
+
+    <!-- VERSION 1 / PROOF STRIP -->
+    <section class="cl1403-v1-proof">
+        <div class="cl1403-v1-proof-item">
+            <h3>3,000+</h3>
+            <p>IMGs Trained</p>
+        </div>
+        <div class="cl1403-v1-proof-item">
+            <h3>89.1%</h3>
+            <p>Match Rate</p>
+        </div>
+        <div class="cl1403-v1-proof-item">
+            <h3>30+</h3>
+            <p>Countries</p>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / MISCONCEPTIONS -->
+    <section class="cl1403-v1-misconceptions">
+        <h2>What Students Get Wrong About USCE</h2>
+        <div class="cl1403-v1-misconceptions-grid">
+            <div class="cl1403-v1-misconception-card">
+                <h3>Myth 1: Any U.S. Clinical Experience Counts the Same</h3>
+                <p>Program directors distinguish between observerships, externships, hands-on rotations, and research experiences. Not all experiences carry equal weight in your application.</p>
+            </div>
+            <div class="cl1403-v1-misconception-card">
+                <h3>Myth 2: Observerships Are Enough</h3>
+                <p>Observerships show interest in the U.S. system but rarely demonstrate clinical competence. Program directors value hands-on patient care experience above all.</p>
+            </div>
+            <div class="cl1403-v1-misconception-card">
+                <h3>Myth 3: Timing Doesn't Matter</h3>
+                <p>Recent experience within 12-18 months of application carries significantly more weight. Stale clinical experience sends the wrong signal about your preparation.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / USCE TYPES -->
+    <section class="cl1403-v1-usce-types">
+        <h2>Four Types of USCE: How Program Directors Actually Evaluate Them</h2>
+        <div class="cl1403-v1-usce-grid">
+            <div class="cl1403-v1-usce-card">
+                <h3>Observership</h3>
+                <p>Watching, no patient contact, limited applicant value. Shows interest but does not demonstrate clinical capability.</p>
+                <span class="match-value">Limited Match Value</span>
+            </div>
+            <div class="cl1403-v1-usce-card">
+                <h3>Externship</h3>
+                <p>Some involvement, quality varies widely. Moderate applicant value if you contribute meaningfully to patient care.</p>
+                <span class="match-value">Moderate Match Value</span>
+            </div>
+            <div class="cl1403-v1-usce-card">
+                <h3>Hands-on Clinical Rotation</h3>
+                <p>Direct patient care, supervised, structured workflow. High applicant value because you demonstrate real clinical judgment.</p>
+                <span class="match-value">High Match Value</span>
+            </div>
+            <div class="cl1403-v1-usce-card">
+                <h3>Research Experience</h3>
+                <p>Academic contribution, different evaluation pathway. Value depends on publication status and specialty relevance.</p>
+                <span class="match-value">Specialty Dependent</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / PROGRAM DIRECTOR -->
+    <section class="cl1403-v1-program-director">
+        <h2>The Program Director Perspective</h2>
+        <p>When we see a hands-on clinical rotation at a teaching hospital, we know you can work alongside physicians in real patient care settings. You understand the workflow. You have earned trust. That's what separates a strong IMG candidate from the rest. Your Match depends on it.</p>
+    </section>
+
+    <!-- VERSION 1 / PROOF ENGINE -->
+    <section class="cl1403-v1-proof-engine">
+        <h2>Student Proof: Real Stories, Real Placements</h2>
+        <div class="cl1403-v1-chips-container">
+            <div class="cl1403-chip active" data-filter="all">All Stories</div>
+            <div class="cl1403-chip" data-filter="recent-usce">I need recent USCE</div>
+            <div class="cl1403-chip" data-filter="hospital-based">I need hospital-based experience</div>
+            <div class="cl1403-chip" data-filter="strong-lor">I need stronger LORs</div>
+            <div class="cl1403-chip" data-filter="img-applying">I'm an IMG applying soon</div>
+            <div class="cl1403-chip" data-filter="no-experience">I have no U.S. experience</div>
+        </div>
+        <div class="cl1403-proof-cards" id="proof-cards-v1"></div>
+    </section>
+
+    <!-- VERSION 1 / PATHWAY -->
+    <section class="cl1403-v1-pathway">
+        <h2>The MissionMed Clinical Pathway</h2>
+        <div class="cl1403-pathway-steps">
+            <div class="cl1403-step">
+                <div class="cl1403-step-number">1</div>
+                <h3>Submit Your Request</h3>
+                <p>Tell us your specialty interest, timeline, and goals. We assess your profile and application strategy.</p>
+            </div>
+            <div class="cl1403-step">
+                <div class="cl1403-step-number">2</div>
+                <h3>We Check Availability</h3>
+                <p>Clinical placements are cycle-based, not on-demand. We confirm rotation availability for your target date.</p>
+            </div>
+            <div class="cl1403-step">
+                <div class="cl1403-step-number">3</div>
+                <h3>Match Your Placement</h3>
+                <p>We match your rotation to your application strategy. Specialty, location, and timing all factor in.</p>
+            </div>
+            <div class="cl1403-step">
+                <div class="cl1403-step-number">4</div>
+                <h3>Secure Your Spot</h3>
+                <p>Confirm your placement and prepare for your clinical experience. We support you through onboarding.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / ROTATIONS -->
+    <section class="cl1403-v1-rotations">
+        <h2>Available Rotations</h2>
+        <div class="cl1403-rotations-grid">
+            <div class="cl1403-rotation-item">
+                <h3>Internal Medicine</h3>
+            </div>
+            <div class="cl1403-rotation-item">
+                <h3>Family Medicine</h3>
+            </div>
+            <div class="cl1403-rotation-item">
+                <h3>Psychiatry</h3>
+            </div>
+            <div class="cl1403-rotation-item">
+                <h3>Pediatrics</h3>
+            </div>
+            <div class="cl1403-rotation-item">
+                <h3>Surgery</h3>
+            </div>
+            <div class="cl1403-rotation-item">
+                <h3>OB/GYN</h3>
+            </div>
+            <div class="cl1403-rotation-item">
+                <h3>Emergency Medicine</h3>
+            </div>
+            <div class="cl1403-rotation-item">
+                <h3>Neurology</h3>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / PRICING -->
+    <section class="cl1403-v1-pricing">
+        <h2>Pricing</h2>
+        <div class="cl1403-pricing-content">
+            <p>Pricing varies by specialty, duration, and location. Contact us for current availability and pricing.</p>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / FAQ -->
+    <section class="cl1403-v1-faq">
+        <h2>Frequently Asked Questions</h2>
+        <div class="cl1403-faq-list">
+            <div class="cl1403-faq-item">
+                <div class="cl1403-faq-question">
+                    Is this a hands-on rotation or observership?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-faq-answer">MissionMed Clinical focuses on hands-on clinical rotations at teaching hospitals. These are supervised patient-care experiences, not observerships. You will work alongside physicians in real clinical settings.</div>
+            </div>
+            <div class="cl1403-faq-item">
+                <div class="cl1403-faq-question">
+                    How far in advance should I apply?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-faq-answer">Apply as early as possible. Placements are cycle-based and spots fill quickly. We recommend starting at least 3 to 6 months before your target start date.</div>
+            </div>
+            <div class="cl1403-faq-item">
+                <div class="cl1403-faq-question">
+                    Will I get a letter of recommendation?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-faq-answer">Many rotations provide the opportunity to earn a letter of recommendation, though this depends on your performance and the supervising physician. It is never guaranteed.</div>
+            </div>
+            <div class="cl1403-faq-item">
+                <div class="cl1403-faq-question">
+                    How is this different from other rotation providers?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-faq-answer">MissionMed Clinical places students in hospital-based rotations where you work alongside physicians in real clinical settings. We focus on the kind of experience that program directors actually value.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / FORM -->
+    <section class="cl1403-v1-form" id="form">
+        <h2>Request Your Placement</h2>
+        <div class="cl1403-form-container">
+            <form>
+                <div class="cl1403-form-group">
+                    <label for="v1-name">Full Name</label>
+                    <input type="text" id="v1-name" name="name" required>
+                </div>
+                <div class="cl1403-form-group">
+                    <label for="v1-email">Email</label>
+                    <input type="email" id="v1-email" name="email" required>
+                </div>
+                <div class="cl1403-form-group">
+                    <label for="v1-specialty">Target Specialty</label>
+                    <select id="v1-specialty" name="specialty" required>
+                        <option value="">Select a specialty</option>
+                        <option value="internal-medicine">Internal Medicine</option>
+                        <option value="family-medicine">Family Medicine</option>
+                        <option value="psychiatry">Psychiatry</option>
+                        <option value="pediatrics">Pediatrics</option>
+                        <option value="surgery">Surgery</option>
+                        <option value="ob-gyn">OB/GYN</option>
+                        <option value="emergency-medicine">Emergency Medicine</option>
+                        <option value="neurology">Neurology</option>
+                    </select>
+                </div>
+                <div class="cl1403-form-group">
+                    <label for="v1-timeline">Target Start Date</label>
+                    <input type="month" id="v1-timeline" name="timeline" required>
+                </div>
+                <div class="cl1403-form-group">
+                    <label for="v1-message">Tell us about your situation</label>
+                    <textarea id="v1-message" name="message" placeholder="What are your goals for this rotation?" required></textarea>
+                </div>
+                <button type="submit" class="cl1403-form-submit">Submit Your Request</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- VERSION 1 / FINAL CTA -->
+    <section class="cl1403-v1-final-cta">
+        <h2>Your Match Depends on the Rotation You Choose</h2>
+        <p>Start your placement request today. MissionMed Clinical connects you with hospital-based clinical experiences that program directors value.</p>
+        <a href="#form" class="cl1403-v1-final-cta-btn">Begin Your Journey</a>
+    </section>
+
+</div>
+
+<!-- ========== VERSION 2: HOSPITAL TRUST ========== -->
+<div class="cl1403-version" id="version-v2">
+
+    <!-- VERSION 2 / HEADER -->
+    <header class="cl1403-v2-header">
+        <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="cl1403-v2-logo">
+    </header>
+
+    <!-- VERSION 2 / HERO -->
+    <section class="cl1403-v2-hero">
+        <div class="cl1403-v2-hero-content">
+            <h1>Clinical experience is not optional. The type of experience you choose is what matters.</h1>
+            <p>Program directors distinguish between different kinds of U.S. clinical experience. Hospital-based hands-on rotations carry more weight in your application. Our placements connect you with institutions where you can demonstrate real clinical competence.</p>
+            <a href="#form" class="cl1403-v2-cta">Request Placement</a>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / PROOF STRIP -->
+    <section class="cl1403-v2-proof">
+        <div class="cl1403-v2-proof-item">
+            <h3>3,000+</h3>
+            <p>IMGs Trained</p>
+        </div>
+        <div class="cl1403-v2-proof-item">
+            <h3>89.1%</h3>
+            <p>Match Rate</p>
+        </div>
+        <div class="cl1403-v2-proof-item">
+            <h3>30+</h3>
+            <p>Countries</p>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / MISCONCEPTIONS -->
+    <section class="cl1403-v2-misconceptions">
+        <h2>Common Misconceptions About USCE</h2>
+        <div class="cl1403-v2-misconceptions-grid">
+            <div class="cl1403-v2-misconception-card">
+                <h3>Myth 1: All Clinical Experience Is Equal</h3>
+                <p>Program directors evaluate observerships, externships, and hands-on rotations differently. The type of experience matters.</p>
+            </div>
+            <div class="cl1403-v2-misconception-card">
+                <h3>Myth 2: Observerships Demonstrate Competence</h3>
+                <p>Observerships signal interest but not clinical capability. Hands-on patient care is what program directors value.</p>
+            </div>
+            <div class="cl1403-v2-misconception-card">
+                <h3>Myth 3: Old Experience Still Counts</h3>
+                <p>Recent clinical experience within 12-18 months of application is weighted more heavily than older rotations.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / USCE TYPES -->
+    <section class="cl1403-v2-usce-types">
+        <h2>Types of USCE and Program Director Evaluation</h2>
+        <div class="cl1403-v2-usce-grid">
+            <div class="cl1403-v2-usce-card">
+                <h3>Observership</h3>
+                <p>Shadowing physicians without direct patient involvement. Shows interest in the U.S. system.</p>
+                <span class="match-value">Limited Value</span>
+            </div>
+            <div class="cl1403-v2-usce-card">
+                <h3>Externship</h3>
+                <p>Structured rotation with varying degrees of clinical responsibility. Quality depends on institution and specialty.</p>
+                <span class="match-value">Moderate Value</span>
+            </div>
+            <div class="cl1403-v2-usce-card">
+                <h3>Hands-on Rotation</h3>
+                <p>Direct patient care under supervision. You demonstrate clinical judgment and readiness for residency training.</p>
+                <span class="match-value">High Value</span>
+            </div>
+            <div class="cl1403-v2-usce-card">
+                <h3>Research Experience</h3>
+                <p>Academic contribution to clinical research. Value varies by publication status and specialty alignment.</p>
+                <span class="match-value">Variable Value</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / PROGRAM DIRECTOR -->
+    <section class="cl1403-v2-program-director">
+        <h2>What Program Directors Look For</h2>
+        <p>Hospital-based clinical rotations give program directors confidence that you can work within U.S. healthcare systems. You understand the clinical workflow. You have been trusted with patient care. That evidence of competence is what differentiates your application.</p>
+    </section>
+
+    <!-- VERSION 2 / PROOF ENGINE -->
+    <section class="cl1403-v2-proof-engine">
+        <h2>Student Placements and Outcomes</h2>
+        <div class="cl1403-v2-chips-container">
+            <div class="cl1403-chip active" data-filter="all">All</div>
+            <div class="cl1403-chip" data-filter="recent-usce">Recent USCE</div>
+            <div class="cl1403-chip" data-filter="hospital-based">Hospital Based</div>
+            <div class="cl1403-chip" data-filter="strong-lor">LOR Focused</div>
+            <div class="cl1403-chip" data-filter="img-applying">IMG Applying</div>
+            <div class="cl1403-chip" data-filter="no-experience">First Experience</div>
+        </div>
+        <div class="cl1403-proof-cards" id="proof-cards-v2"></div>
+    </section>
+
+    <!-- VERSION 2 / PATHWAY -->
+    <section class="cl1403-v2-pathway">
+        <h2>Placement Pathway</h2>
+        <div class="cl1403-v2-pathway-steps">
+            <div class="cl1403-v2-step">
+                <div class="cl1403-v2-step-number">1</div>
+                <h3>Submit Request</h3>
+                <p>Provide your specialty interest, timeline, and goals.</p>
+            </div>
+            <div class="cl1403-v2-step">
+                <div class="cl1403-v2-step-number">2</div>
+                <h3>Availability Check</h3>
+                <p>We confirm rotation availability for your target date.</p>
+            </div>
+            <div class="cl1403-v2-step">
+                <div class="cl1403-v2-step-number">3</div>
+                <h3>Match Placement</h3>
+                <p>We align your rotation with your application strategy.</p>
+            </div>
+            <div class="cl1403-v2-step">
+                <div class="cl1403-v2-step-number">4</div>
+                <h3>Confirm Spot</h3>
+                <p>Finalize and prepare for your clinical experience.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / ROTATIONS -->
+    <section class="cl1403-v2-rotations">
+        <h2>Available Specialties</h2>
+        <div class="cl1403-v2-rotations-grid">
+            <div class="cl1403-v2-rotation-item">Internal Medicine</div>
+            <div class="cl1403-v2-rotation-item">Family Medicine</div>
+            <div class="cl1403-v2-rotation-item">Psychiatry</div>
+            <div class="cl1403-v2-rotation-item">Pediatrics</div>
+            <div class="cl1403-v2-rotation-item">Surgery</div>
+            <div class="cl1403-v2-rotation-item">OB/GYN</div>
+            <div class="cl1403-v2-rotation-item">Emergency Medicine</div>
+            <div class="cl1403-v2-rotation-item">Neurology</div>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / PRICING -->
+    <section class="cl1403-v2-pricing">
+        <h2>Pricing</h2>
+        <div class="cl1403-v2-pricing-content">
+            <p>Pricing varies by specialty, duration, and location. Contact us for current availability and pricing.</p>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / FAQ -->
+    <section class="cl1403-v2-faq">
+        <h2>Questions</h2>
+        <div class="cl1403-v2-faq-list">
+            <div class="cl1403-v2-faq-item">
+                <div class="cl1403-faq-question">
+                    Is this a hands-on rotation or observership?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v2-faq-answer">MissionMed Clinical focuses on hands-on clinical rotations at teaching hospitals. These are supervised patient-care experiences, not observerships. You will work alongside physicians in real clinical settings.</div>
+            </div>
+            <div class="cl1403-v2-faq-item">
+                <div class="cl1403-faq-question">
+                    How far in advance should I apply?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v2-faq-answer">Apply as early as possible. Placements are cycle-based and spots fill quickly. We recommend starting at least 3 to 6 months before your target start date.</div>
+            </div>
+            <div class="cl1403-v2-faq-item">
+                <div class="cl1403-faq-question">
+                    Will I get a letter of recommendation?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v2-faq-answer">Many rotations provide the opportunity to earn a letter of recommendation, though this depends on your performance and the supervising physician. It is never guaranteed.</div>
+            </div>
+            <div class="cl1403-v2-faq-item">
+                <div class="cl1403-faq-question">
+                    How is this different from other rotation providers?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v2-faq-answer">MissionMed Clinical places students in hospital-based rotations where you work alongside physicians in real clinical settings. We focus on the kind of experience that program directors actually value.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / FORM -->
+    <section class="cl1403-v2-form" id="form">
+        <h2>Request Your Placement</h2>
+        <div class="cl1403-v2-form-container">
+            <form>
+                <div class="cl1403-v2-form-group">
+                    <label for="v2-name">Name</label>
+                    <input type="text" id="v2-name" name="name" required>
+                </div>
+                <div class="cl1403-v2-form-group">
+                    <label for="v2-email">Email</label>
+                    <input type="email" id="v2-email" name="email" required>
+                </div>
+                <div class="cl1403-v2-form-group">
+                    <label for="v2-specialty">Specialty</label>
+                    <select id="v2-specialty" name="specialty" required>
+                        <option value="">Select</option>
+                        <option value="internal-medicine">Internal Medicine</option>
+                        <option value="family-medicine">Family Medicine</option>
+                        <option value="psychiatry">Psychiatry</option>
+                        <option value="pediatrics">Pediatrics</option>
+                        <option value="surgery">Surgery</option>
+                        <option value="ob-gyn">OB/GYN</option>
+                        <option value="emergency-medicine">Emergency Medicine</option>
+                        <option value="neurology">Neurology</option>
+                    </select>
+                </div>
+                <div class="cl1403-v2-form-group">
+                    <label for="v2-timeline">Start Date</label>
+                    <input type="month" id="v2-timeline" name="timeline" required>
+                </div>
+                <div class="cl1403-v2-form-group">
+                    <label for="v2-message">Your Situation</label>
+                    <textarea id="v2-message" name="message" placeholder="Tell us about your goals" required></textarea>
+                </div>
+                <button type="submit" class="cl1403-v2-form-submit">Submit Request</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- VERSION 2 / FINAL CTA -->
+    <section class="cl1403-v2-final-cta">
+        <h2>Clinical experience is the foundation of your Match</h2>
+        <p>Request your hospital-based clinical placement today.</p>
+        <a href="#form" class="cl1403-v2-final-cta-btn">Start Now</a>
+    </section>
+
+</div>
+
+<!-- ========== VERSION 3: CINEMATIC IMG PATHWAY ========== -->
+<div class="cl1403-version" id="version-v3">
+
+    <!-- VERSION 3 / HEADER -->
+    <header class="cl1403-v3-header">
+        <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="cl1403-v3-logo">
+    </header>
+
+    <!-- VERSION 3 / ARENA HERO -->
+    <section class="cl1403-v3-hero">
+        <h1>You worked too hard to let the wrong rotation cost you everything.</h1>
+        <p>The clinical experience you choose determines whether you match or not. Hospital-based hands-on rotations are what program directors actually trust.</p>
+        <a href="#form" class="cl1403-v3-cta">Request Your Placement</a>
+    </section>
+
+    <!-- VERSION 3 / PROOF STRIP -->
+    <section class="cl1403-v3-proof">
+        <div class="cl1403-v3-proof-item">
+            <h3>3,000+</h3>
+            <p>IMGs Trained</p>
+        </div>
+        <div class="cl1403-v3-proof-item">
+            <h3>89.1%</h3>
+            <p>Match Rate</p>
+        </div>
+        <div class="cl1403-v3-proof-item">
+            <h3>30+</h3>
+            <p>Countries</p>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / MISCONCEPTIONS -->
+    <section class="cl1403-v3-misconceptions">
+        <h2>Three Wrong Assumptions About USCE</h2>
+        <div class="cl1403-v3-misconceptions-grid">
+            <div class="cl1403-v3-misconception-card">
+                <h3>Assumption 1: All U.S. Clinical Experience Counts Equally</h3>
+                <p>Wrong. Program directors have distinct preferences for observerships, externships, hands-on rotations, and research experiences. The type of experience you pursue sends a signal about your preparation and confidence.</p>
+            </div>
+            <div class="cl1403-v3-misconception-card">
+                <h3>Assumption 2: Observerships Are Sufficient</h3>
+                <p>Wrong. Observerships show you want to understand the U.S. system, but they do not demonstrate that you can perform in a clinical setting. Program directors value hands-on patient care above all.</p>
+            </div>
+            <div class="cl1403-v3-misconception-card">
+                <h3>Assumption 3: Timing Is Irrelevant</h3>
+                <p>Wrong. Clinical experience completed within 12-18 months of your application date is weighted more heavily than older rotations. Stale experience is a red flag.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / USCE TYPES -->
+    <section class="cl1403-v3-usce-types">
+        <h2>How Program Directors Evaluate Four Types of USCE</h2>
+        <div class="cl1403-v3-usce-grid">
+            <div class="cl1403-v3-usce-card">
+                <h3>Observership</h3>
+                <p>You shadow physicians. No patient contact. No direct responsibility. Shows interest but does not demonstrate clinical competence.</p>
+                <span class="match-value">Limited Match Value</span>
+            </div>
+            <div class="cl1403-v3-usce-card">
+                <h3>Externship</h3>
+                <p>Structured rotation with varying involvement levels. Quality depends on the institution and your engagement. Moderate weight if you contribute meaningfully.</p>
+                <span class="match-value">Moderate Match Value</span>
+            </div>
+            <div class="cl1403-v3-usce-card">
+                <h3>Hands-on Clinical Rotation</h3>
+                <p>Direct patient care. You make decisions under supervision. You learn the workflow. This is what program directors want to see, because it proves readiness.</p>
+                <span class="match-value">High Match Value</span>
+            </div>
+            <div class="cl1403-v3-usce-card">
+                <h3>Research Experience</h3>
+                <p>Academic contribution, not clinical demonstration. Value is publication-dependent and specialty-specific. Different pathway, different evaluation.</p>
+                <span class="match-value">Specialty Dependent</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / PROGRAM DIRECTOR -->
+    <section class="cl1403-v3-program-director">
+        <h2>From the Program Director Desk</h2>
+        <p>When I see a strong hands-on clinical rotation on an IMG application, it tells me something important. This candidate has worked in a U.S. hospital. They understand our workflow. They have been trusted with patient care. That's the evidence we look for. That's how we know they are ready.</p>
+    </section>
+
+    <!-- VERSION 3 / PROOF ENGINE -->
+    <section class="cl1403-v3-proof-engine">
+        <h2>Student Stories: The Proof That Matters</h2>
+        <div class="cl1403-v3-chips-container">
+            <div class="cl1403-chip active" data-filter="all">View All</div>
+            <div class="cl1403-chip" data-filter="recent-usce">Need Recent USCE</div>
+            <div class="cl1403-chip" data-filter="hospital-based">Hospital Experience</div>
+            <div class="cl1403-chip" data-filter="strong-lor">Want Strong LOR</div>
+            <div class="cl1403-chip" data-filter="img-applying">Applying This Cycle</div>
+            <div class="cl1403-chip" data-filter="no-experience">No US Experience Yet</div>
+        </div>
+        <div class="cl1403-proof-cards" id="proof-cards-v3"></div>
+    </section>
+
+    <!-- VERSION 3 / PATHWAY -->
+    <section class="cl1403-v3-pathway">
+        <h2>Your Placement Journey in Four Steps</h2>
+        <div class="cl1403-v3-pathway-steps">
+            <div class="cl1403-v3-step">
+                <div class="cl1403-v3-step-number">1</div>
+                <h3>Request</h3>
+                <p>Submit your specialty interest, timeline, and application goals. We get to know your strategy.</p>
+            </div>
+            <div class="cl1403-v3-step">
+                <div class="cl1403-v3-step-number">2</div>
+                <h3>Check</h3>
+                <p>We confirm rotation availability for your target start date. Cycle-based, not on-demand.</p>
+            </div>
+            <div class="cl1403-v3-step">
+                <div class="cl1403-v3-step-number">3</div>
+                <h3>Match</h3>
+                <p>We align your placement with your application strategy. Specialty, location, timing all matter.</p>
+            </div>
+            <div class="cl1403-v3-step">
+                <div class="cl1403-v3-step-number">4</div>
+                <h3>Secure</h3>
+                <p>Confirm your spot and prepare for clinical experience. We support you through onboarding.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / ROTATIONS -->
+    <section class="cl1403-v3-rotations">
+        <h2>Specialties Available</h2>
+        <div class="cl1403-v3-rotations-grid">
+            <div class="cl1403-v3-rotation-item">
+                <h3>Internal Medicine</h3>
+            </div>
+            <div class="cl1403-v3-rotation-item">
+                <h3>Family Medicine</h3>
+            </div>
+            <div class="cl1403-v3-rotation-item">
+                <h3>Psychiatry</h3>
+            </div>
+            <div class="cl1403-v3-rotation-item">
+                <h3>Pediatrics</h3>
+            </div>
+            <div class="cl1403-v3-rotation-item">
+                <h3>Surgery</h3>
+            </div>
+            <div class="cl1403-v3-rotation-item">
+                <h3>OB/GYN</h3>
+            </div>
+            <div class="cl1403-v3-rotation-item">
+                <h3>Emergency Medicine</h3>
+            </div>
+            <div class="cl1403-v3-rotation-item">
+                <h3>Neurology</h3>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / PRICING -->
+    <section class="cl1403-v3-pricing">
+        <h2>Pricing Information</h2>
+        <div class="cl1403-v3-pricing-content">
+            <p>Pricing varies by specialty, duration, and location. Contact us for current availability and pricing.</p>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / FAQ -->
+    <section class="cl1403-v3-faq">
+        <h2>Questions We Get Asked</h2>
+        <div class="cl1403-v3-faq-list">
+            <div class="cl1403-v3-faq-item">
+                <div class="cl1403-faq-question">
+                    Is this a hands-on rotation or observership?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v3-faq-answer">MissionMed Clinical focuses on hands-on clinical rotations at teaching hospitals. These are supervised patient-care experiences, not observerships. You will work alongside physicians in real clinical settings.</div>
+            </div>
+            <div class="cl1403-v3-faq-item">
+                <div class="cl1403-faq-question">
+                    How far in advance should I apply?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v3-faq-answer">Apply as early as possible. Placements are cycle-based and spots fill quickly. We recommend starting at least 3 to 6 months before your target start date.</div>
+            </div>
+            <div class="cl1403-v3-faq-item">
+                <div class="cl1403-faq-question">
+                    Will I get a letter of recommendation?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v3-faq-answer">Many rotations provide the opportunity to earn a letter of recommendation, though this depends on your performance and the supervising physician. It is never guaranteed.</div>
+            </div>
+            <div class="cl1403-v3-faq-item">
+                <div class="cl1403-faq-question">
+                    How is this different from other rotation providers?
+                    <span class="cl1403-faq-toggle">+</span>
+                </div>
+                <div class="cl1403-v3-faq-answer">MissionMed Clinical places students in hospital-based rotations where you work alongside physicians in real clinical settings. We focus on the kind of experience that program directors actually value.</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / FORM -->
+    <section class="cl1403-v3-form" id="form">
+        <h2>Request Your Placement</h2>
+        <div class="cl1403-v3-form-container">
+            <form>
+                <div class="cl1403-v3-form-group">
+                    <label for="v3-name">Full Name</label>
+                    <input type="text" id="v3-name" name="name" required>
+                </div>
+                <div class="cl1403-v3-form-group">
+                    <label for="v3-email">Email Address</label>
+                    <input type="email" id="v3-email" name="email" required>
+                </div>
+                <div class="cl1403-v3-form-group">
+                    <label for="v3-specialty">Target Specialty</label>
+                    <select id="v3-specialty" name="specialty" required>
+                        <option value="">Select a specialty</option>
+                        <option value="internal-medicine">Internal Medicine</option>
+                        <option value="family-medicine">Family Medicine</option>
+                        <option value="psychiatry">Psychiatry</option>
+                        <option value="pediatrics">Pediatrics</option>
+                        <option value="surgery">Surgery</option>
+                        <option value="ob-gyn">OB/GYN</option>
+                        <option value="emergency-medicine">Emergency Medicine</option>
+                        <option value="neurology">Neurology</option>
+                    </select>
+                </div>
+                <div class="cl1403-v3-form-group">
+                    <label for="v3-timeline">Target Start Date</label>
+                    <input type="month" id="v3-timeline" name="timeline" required>
+                </div>
+                <div class="cl1403-v3-form-group">
+                    <label for="v3-message">Tell Us About Your Goals</label>
+                    <textarea id="v3-message" name="message" placeholder="What do you want to achieve with this rotation?" required></textarea>
+                </div>
+                <button type="submit" class="cl1403-v3-form-submit">Submit Request</button>
+            </form>
+        </div>
+    </section>
+
+    <!-- VERSION 3 / FINAL CTA -->
+    <section class="cl1403-v3-final-cta">
+        <h2>The Right Clinical Experience Changes Everything</h2>
+        <p>Start your placement request now. Connect with hospital-based clinical rotations that match your strategy and timeline.</p>
+        <a href="#form" class="cl1403-v3-final-cta-btn">Begin Now</a>
+    </section>
+
+</div>
+
+<!-- ========== VERSION 4: PLACEMENT COMMAND CENTER ========== -->
+<div class="cl1403-version" id="version-v4">
+    <header class="cl1403-v4-header">
+        <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="cl1403-v4-logo">
+    </header>
+
+    <section class="cl1403-v4-hero">
+        <h1>Your rotation strategy starts here. Every placement decision affects your Match.</h1>
+        <p>Strategic clinical placement is not luck. It is calculated positioning. The right rotation at the right time in the right location demonstrates readiness to program directors.</p>
+        <a href="#form" class="cl1403-v4-cta">Begin Placement Strategy</a>
+    </section>
+
+    <section class="cl1403-v4-proof">
+        <div class="cl1403-v4-proof-item">
+            <h3>3,000+</h3>
+            <p>IMGs Trained</p>
+        </div>
+        <div class="cl1403-v4-proof-item">
+            <h3>89.1%</h3>
+            <p>Match Rate</p>
+        </div>
+        <div class="cl1403-v4-proof-item">
+            <h3>30+</h3>
+            <p>Countries</p>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-misconceptions">
+        <h2>Strategic Myths About USCE</h2>
+        <div class="cl1403-v4-misconceptions-grid">
+            <div class="cl1403-v4-misconception-card">
+                <h3>Myth 1: All Clinical Experience Has Equal Strategic Value</h3>
+                <p>Program directors evaluate observerships, externships, and hands-on rotations through different strategic lenses. Your placement type signals confidence in your competence.</p>
+            </div>
+            <div class="cl1403-v4-misconception-card">
+                <h3>Myth 2: Observerships Build Clinical Credibility</h3>
+                <p>Observerships demonstrate interest. They do not demonstrate clinical readiness. Hands-on patient care is the strategic differentiator.</p>
+            </div>
+            <div class="cl1403-v4-misconception-card">
+                <h3>Myth 3: Timing Is A Secondary Factor</h3>
+                <p>Experience within 12-18 months of application is strategically weighted higher. Recent experience signals active clinical engagement.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-usce-types">
+        <h2>Four Rotation Types and Their Strategic Value</h2>
+        <div class="cl1403-v4-usce-grid">
+            <div class="cl1403-v4-usce-card">
+                <h3>Observership</h3>
+                <p>Shadowing role. No patient responsibility. Strategic signal of interest only. Limited match advantage.</p>
+                <span class="match-value">Limited Strategic Value</span>
+            </div>
+            <div class="cl1403-v4-usce-card">
+                <h3>Externship</h3>
+                <p>Structured participation. Variable clinical involvement. Moderate strategic value if you demonstrate engagement.</p>
+                <span class="match-value">Moderate Strategic Value</span>
+            </div>
+            <div class="cl1403-v4-usce-card">
+                <h3>Hands-on Rotation</h3>
+                <p>Direct patient care. You own clinical decisions under supervision. Maximum strategic value because it proves readiness.</p>
+                <span class="match-value">High Strategic Value</span>
+            </div>
+            <div class="cl1403-v4-usce-card">
+                <h3>Research Experience</h3>
+                <p>Academic contribution. Different strategic pathway. Value tied to publication and specialty fit.</p>
+                <span class="match-value">Specialty Strategic Value</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-program-director">
+        <h2>Strategic Program Director Perspective</h2>
+        <p>When an IMG has completed a hospital-based clinical rotation, we see strategic positioning. They understood the U.S. system. They earned physician trust. They demonstrated readiness. That strategic positioning is what separates competitive candidates from those who struggle in the Match.</p>
+    </section>
+
+    <section class="cl1403-v4-proof-engine">
+        <h2>Strategic Placement Stories</h2>
+        <div class="cl1403-v4-chips-container">
+            <div class="cl1403-chip active" data-filter="all">All Placements</div>
+            <div class="cl1403-chip" data-filter="recent-usce">Recent USCE</div>
+            <div class="cl1403-chip" data-filter="hospital-based">Hospital Based</div>
+            <div class="cl1403-chip" data-filter="strong-lor">LOR Strength</div>
+            <div class="cl1403-chip" data-filter="img-applying">IMG Cycle</div>
+            <div class="cl1403-chip" data-filter="no-experience">First US</div>
+        </div>
+        <div class="cl1403-proof-cards" id="proof-cards-v4"></div>
+    </section>
+
+    <section class="cl1403-v4-pathway">
+        <h2>Strategic Placement Pathway</h2>
+        <div class="cl1403-v4-pathway-steps">
+            <div class="cl1403-v4-step">
+                <div class="cl1403-v4-step-number">1</div>
+                <h3>Strategy Assessment</h3>
+                <p>Submit your specialty, timeline, and goals for strategic review.</p>
+            </div>
+            <div class="cl1403-v4-step">
+                <div class="cl1403-v4-step-number">2</div>
+                <h3>Availability Scan</h3>
+                <p>We scan rotation availability aligned with your strategic window.</p>
+            </div>
+            <div class="cl1403-v4-step">
+                <div class="cl1403-v4-step-number">3</div>
+                <h3>Strategic Match</h3>
+                <p>We align placement to your application strategy and timeline.</p>
+            </div>
+            <div class="cl1403-v4-step">
+                <div class="cl1403-v4-step-number">4</div>
+                <h3>Secure Launch</h3>
+                <p>Confirm placement and launch your strategic clinical experience.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-rotations">
+        <h2>Strategic Rotation Menu</h2>
+        <div class="cl1403-v4-rotations-grid">
+            <div class="cl1403-v4-rotation-item"><h3>Internal Medicine</h3></div>
+            <div class="cl1403-v4-rotation-item"><h3>Family Medicine</h3></div>
+            <div class="cl1403-v4-rotation-item"><h3>Psychiatry</h3></div>
+            <div class="cl1403-v4-rotation-item"><h3>Pediatrics</h3></div>
+            <div class="cl1403-v4-rotation-item"><h3>Surgery</h3></div>
+            <div class="cl1403-v4-rotation-item"><h3>OB/GYN</h3></div>
+            <div class="cl1403-v4-rotation-item"><h3>Emergency Medicine</h3></div>
+            <div class="cl1403-v4-rotation-item"><h3>Neurology</h3></div>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-pricing">
+        <h2>Strategic Pricing</h2>
+        <div class="cl1403-v4-pricing-content">
+            <p>Pricing varies by specialty, duration, and location. Contact us for current availability and pricing.</p>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-faq">
+        <h2>Strategic Questions</h2>
+        <div class="cl1403-v4-faq-list">
+            <div class="cl1403-v4-faq-item">
+                <div class="cl1403-faq-question">Is this a hands-on rotation or observership? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v4-faq-answer">MissionMed Clinical focuses on hands-on clinical rotations at teaching hospitals. These are supervised patient-care experiences, not observerships. You will work alongside physicians in real clinical settings.</div>
+            </div>
+            <div class="cl1403-v4-faq-item">
+                <div class="cl1403-faq-question">How far in advance should I apply? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v4-faq-answer">Apply as early as possible. Placements are cycle-based and spots fill quickly. We recommend starting at least 3 to 6 months before your target start date.</div>
+            </div>
+            <div class="cl1403-v4-faq-item">
+                <div class="cl1403-faq-question">Will I get a letter of recommendation? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v4-faq-answer">Many rotations provide the opportunity to earn a letter of recommendation, though this depends on your performance and the supervising physician. It is never guaranteed.</div>
+            </div>
+            <div class="cl1403-v4-faq-item">
+                <div class="cl1403-faq-question">How is this different from other rotation providers? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v4-faq-answer">MissionMed Clinical places students in hospital-based rotations where you work alongside physicians in real clinical settings. We focus on the kind of experience that program directors actually value.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-form" id="form">
+        <h2>Submit Your Strategy</h2>
+        <div class="cl1403-v4-form-container">
+            <form>
+                <div class="cl1403-v4-form-group">
+                    <label for="v4-name">Name</label>
+                    <input type="text" id="v4-name" name="name" required>
+                </div>
+                <div class="cl1403-v4-form-group">
+                    <label for="v4-email">Email</label>
+                    <input type="email" id="v4-email" name="email" required>
+                </div>
+                <div class="cl1403-v4-form-group">
+                    <label for="v4-specialty">Specialty</label>
+                    <select id="v4-specialty" name="specialty" required>
+                        <option value="">Select</option>
+                        <option value="internal-medicine">Internal Medicine</option>
+                        <option value="family-medicine">Family Medicine</option>
+                        <option value="psychiatry">Psychiatry</option>
+                        <option value="pediatrics">Pediatrics</option>
+                        <option value="surgery">Surgery</option>
+                        <option value="ob-gyn">OB/GYN</option>
+                        <option value="emergency-medicine">Emergency Medicine</option>
+                        <option value="neurology">Neurology</option>
+                    </select>
+                </div>
+                <div class="cl1403-v4-form-group">
+                    <label for="v4-timeline">Start Date</label>
+                    <input type="month" id="v4-timeline" name="timeline" required>
+                </div>
+                <div class="cl1403-v4-form-group">
+                    <label for="v4-message">Your Strategy</label>
+                    <textarea id="v4-message" name="message" placeholder="Describe your strategic goals" required></textarea>
+                </div>
+                <button type="submit" class="cl1403-v4-form-submit">Submit Strategy</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="cl1403-v4-final-cta">
+        <h2>Strategic Placement Wins Matches</h2>
+        <p>Request your strategic clinical placement and position yourself for Match success.</p>
+        <a href="#form" class="cl1403-v4-final-cta-btn">Start Strategy</a>
+    </section>
+</div>
+
+<!-- ========== VERSION 5: EXTREME CLINICAL STRATEGY ========== -->
+<div class="cl1403-version" id="version-v5">
+    <header class="cl1403-v5-header">
+        <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="cl1403-v5-logo">
+    </header>
+
+    <section class="cl1403-v5-hero">
+        <h1>USCE IS NOT A CHECKBOX. IT IS THE DIFFERENCE BETWEEN A STRONG APPLICATION AND A WEAK ONE.</h1>
+        <p>Every clinical rotation you choose is a statement about your commitment. Hospital-based hands-on experiences are the only type that program directors trust.</p>
+        <a href="#form" class="cl1403-v5-cta">Demand Excellence</a>
+    </section>
+
+    <section class="cl1403-v5-proof">
+        <div class="cl1403-v5-proof-item">
+            <h3>3,000+</h3>
+            <p>IMGs Trained</p>
+        </div>
+        <div class="cl1403-v5-proof-item">
+            <h3>89.1%</h3>
+            <p>Match Rate</p>
+        </div>
+        <div class="cl1403-v5-proof-item">
+            <h3>30+</h3>
+            <p>Countries</p>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-misconceptions">
+        <h2>Three Dangerous Assumptions</h2>
+        <div class="cl1403-v5-misconceptions-grid">
+            <div class="cl1403-v5-misconception-card">
+                <h3>ASSUMPTION 1: ALL U.S. EXPERIENCE COUNTS EQUALLY</h3>
+                <p>This is false. Program directors distinguish sharply between observerships, externships, and hands-on rotations. Your choice signals either confidence or uncertainty about your clinical readiness.</p>
+            </div>
+            <div class="cl1403-v5-misconception-card">
+                <h3>ASSUMPTION 2: OBSERVERSHIPS DEMONSTRATE COMPETENCE</h3>
+                <p>This is false. Observerships are passive. Program directors want to see you making decisions, owning patient care, and learning in real clinical environments. Hands-on is non-negotiable.</p>
+            </div>
+            <div class="cl1403-v5-misconception-card">
+                <h3>ASSUMPTION 3: CLINICAL EXPERIENCE NEVER BECOMES STALE</h3>
+                <p>This is false. Experience from 12-18 months before your application carries substantially more weight. Old rotations look like you have not stayed current with U.S. practice.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-usce-types">
+        <h2>Four Types of USCE. Four Levels of Impact.</h2>
+        <div class="cl1403-v5-usce-grid">
+            <div class="cl1403-v5-usce-card">
+                <h3>OBSERVERSHIP</h3>
+                <p>You watch. No decisions. No responsibility. Minimal impact on program director perception. Shows interest only.</p>
+                <span class="match-value">Minimal Impact</span>
+            </div>
+            <div class="cl1403-v5-usce-card">
+                <h3>EXTERNSHIP</h3>
+                <p>Structured involvement. Variable responsibility. Moderate impact if you demonstrate real engagement with patient care.</p>
+                <span class="match-value">Moderate Impact</span>
+            </div>
+            <div class="cl1403-v5-usce-card">
+                <h3>HANDS-ON ROTATION</h3>
+                <p>Direct patient care. You own decisions under supervision. Maximum impact because program directors see clinical readiness firsthand.</p>
+                <span class="match-value">Maximum Impact</span>
+            </div>
+            <div class="cl1403-v5-usce-card">
+                <h3>RESEARCH EXPERIENCE</h3>
+                <p>Academic contribution. Different evaluation. Impact depends on publication and specialty relevance.</p>
+                <span class="match-value">Conditional Impact</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-program-director">
+        <h2>From the Program Director: The Truth</h2>
+        <p>When an IMG walks into my program after completing a hands-on hospital rotation, I know something important. They have worked in a U.S. healthcare system. They have earned physician trust. They have demonstrated clinical judgment under supervision. That is evidence. That is what separates the candidates I trust from those I question. That is how Matches are decided.</p>
+    </section>
+
+    <section class="cl1403-v5-proof-engine">
+        <h2>Extreme Clinical Proof</h2>
+        <div class="cl1403-v5-chips-container">
+            <div class="cl1403-chip active" data-filter="all">All Stories</div>
+            <div class="cl1403-chip" data-filter="recent-usce">Recent USCE</div>
+            <div class="cl1403-chip" data-filter="hospital-based">Hospital Based</div>
+            <div class="cl1403-chip" data-filter="strong-lor">Strong LOR</div>
+            <div class="cl1403-chip" data-filter="img-applying">IMG Applying</div>
+            <div class="cl1403-chip" data-filter="no-experience">First US</div>
+        </div>
+        <div class="cl1403-proof-cards" id="proof-cards-v5"></div>
+    </section>
+
+    <section class="cl1403-v5-pathway">
+        <h2>The Extreme Pathway</h2>
+        <div class="cl1403-v5-pathway-steps">
+            <div class="cl1403-v5-step">
+                <div class="cl1403-v5-step-number">1</div>
+                <h3>SUBMIT</h3>
+                <p>Tell us your specialty, timeline, and commitment level.</p>
+            </div>
+            <div class="cl1403-v5-step">
+                <div class="cl1403-v5-step-number">2</div>
+                <h3>VERIFY</h3>
+                <p>We confirm availability for your target rotation window.</p>
+            </div>
+            <div class="cl1403-v5-step">
+                <div class="cl1403-v5-step-number">3</div>
+                <h3>MATCH</h3>
+                <p>We match you to a high-impact rotation that strengthens your candidacy.</p>
+            </div>
+            <div class="cl1403-v5-step">
+                <div class="cl1403-v5-step-number">4</div>
+                <h3>EXECUTE</h3>
+                <p>You secure the placement and execute your clinical strategy.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-rotations">
+        <h2>Extreme Rotation Options</h2>
+        <div class="cl1403-v5-rotations-grid">
+            <div class="cl1403-v5-rotation-item"><h3>Internal Medicine</h3></div>
+            <div class="cl1403-v5-rotation-item"><h3>Family Medicine</h3></div>
+            <div class="cl1403-v5-rotation-item"><h3>Psychiatry</h3></div>
+            <div class="cl1403-v5-rotation-item"><h3>Pediatrics</h3></div>
+            <div class="cl1403-v5-rotation-item"><h3>Surgery</h3></div>
+            <div class="cl1403-v5-rotation-item"><h3>OB/GYN</h3></div>
+            <div class="cl1403-v5-rotation-item"><h3>Emergency Medicine</h3></div>
+            <div class="cl1403-v5-rotation-item"><h3>Neurology</h3></div>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-pricing">
+        <h2>INVESTMENT</h2>
+        <div class="cl1403-v5-pricing-content">
+            <p>Pricing varies by specialty, duration, and location. Contact us for current availability and pricing.</p>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-faq">
+        <h2>Critical Questions</h2>
+        <div class="cl1403-v5-faq-list">
+            <div class="cl1403-v5-faq-item">
+                <div class="cl1403-faq-question">Is this a hands-on rotation or observership? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v5-faq-answer">MissionMed Clinical focuses on hands-on clinical rotations at teaching hospitals. These are supervised patient-care experiences, not observerships. You will work alongside physicians in real clinical settings.</div>
+            </div>
+            <div class="cl1403-v5-faq-item">
+                <div class="cl1403-faq-question">How far in advance should I apply? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v5-faq-answer">Apply as early as possible. Placements are cycle-based and spots fill quickly. We recommend starting at least 3 to 6 months before your target start date.</div>
+            </div>
+            <div class="cl1403-v5-faq-item">
+                <div class="cl1403-faq-question">Will I get a letter of recommendation? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v5-faq-answer">Many rotations provide the opportunity to earn a letter of recommendation, though this depends on your performance and the supervising physician. It is never guaranteed.</div>
+            </div>
+            <div class="cl1403-v5-faq-item">
+                <div class="cl1403-faq-question">How is this different from other rotation providers? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v5-faq-answer">MissionMed Clinical places students in hospital-based rotations where you work alongside physicians in real clinical settings. We focus on the kind of experience that program directors actually value.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-form" id="form">
+        <h2>Demand Your Excellence</h2>
+        <div class="cl1403-v5-form-container">
+            <form>
+                <div class="cl1403-v5-form-group">
+                    <label for="v5-name">Full Name</label>
+                    <input type="text" id="v5-name" name="name" required>
+                </div>
+                <div class="cl1403-v5-form-group">
+                    <label for="v5-email">Email</label>
+                    <input type="email" id="v5-email" name="email" required>
+                </div>
+                <div class="cl1403-v5-form-group">
+                    <label for="v5-specialty">Specialty</label>
+                    <select id="v5-specialty" name="specialty" required>
+                        <option value="">Select</option>
+                        <option value="internal-medicine">Internal Medicine</option>
+                        <option value="family-medicine">Family Medicine</option>
+                        <option value="psychiatry">Psychiatry</option>
+                        <option value="pediatrics">Pediatrics</option>
+                        <option value="surgery">Surgery</option>
+                        <option value="ob-gyn">OB/GYN</option>
+                        <option value="emergency-medicine">Emergency Medicine</option>
+                        <option value="neurology">Neurology</option>
+                    </select>
+                </div>
+                <div class="cl1403-v5-form-group">
+                    <label for="v5-timeline">Start Date</label>
+                    <input type="month" id="v5-timeline" name="timeline" required>
+                </div>
+                <div class="cl1403-v5-form-group">
+                    <label for="v5-message">Your Extreme Goals</label>
+                    <textarea id="v5-message" name="message" placeholder="What does excellence look like for you?" required></textarea>
+                </div>
+                <button type="submit" class="cl1403-v5-form-submit">Submit Demand</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="cl1403-v5-final-cta">
+        <h2>EXCELLENCE DEMANDS ACTION</h2>
+        <p>Your rotation is not a checkbox. It is the foundation of your Match. Request your placement now.</p>
+        <a href="#form" class="cl1403-v5-final-cta-btn">Demand Excellence</a>
+    </section>
+</div>
+
+<!-- ========== VERSION 6: ARENA ROTATION ROYALE ========== -->
+<div class="cl1403-version" id="version-v6">
+    <header class="cl1403-v6-header">
+        <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" class="cl1403-v6-logo">
+    </header>
+
+    <section class="cl1403-v6-hero">
+        <h1>CHOOSE YOUR ROTATION. SECURE YOUR SPOT. OWN YOUR MATCH STRATEGY.</h1>
+        <p>This is the arena. Hospital-based clinical rotations are your battleground. Hospital-based hands-on patient care is the only experience that secures your spot in the Match.</p>
+        <a href="#form" class="cl1403-v6-cta">Enter the Arena</a>
+    </section>
+
+    <section class="cl1403-v6-proof">
+        <div class="cl1403-v6-proof-item">
+            <h3>3,000+</h3>
+            <p>IMGs Trained</p>
+        </div>
+        <div class="cl1403-v6-proof-item">
+            <h3>89.1%</h3>
+            <p>Match Rate</p>
+        </div>
+        <div class="cl1403-v6-proof-item">
+            <h3>30+</h3>
+            <p>Countries</p>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-misconceptions">
+        <h2>Three Myths That Cost Matches</h2>
+        <div class="cl1403-v6-misconceptions-grid">
+            <div class="cl1403-v6-misconception-card">
+                <h3>Myth 1: All U.S. Clinical Experience Counts the Same</h3>
+                <p>FALSE. Program directors evaluate observerships, externships, and hands-on rotations differently. Your rotation type signals competence or inexperience.</p>
+            </div>
+            <div class="cl1403-v6-misconception-card">
+                <h3>Myth 2: Observerships Prove You Can Handle Patient Care</h3>
+                <p>FALSE. Observerships are spectator mode. Program directors want to see you making decisions and owning patient outcomes. Hands-on rotations prove you are ready.</p>
+            </div>
+            <div class="cl1403-v6-misconception-card">
+                <h3>Myth 3: Clinical Experience Is Timeless</h3>
+                <p>FALSE. Experience within 12-18 months of application is weighted significantly higher. Stale rotations look like you fell out of the U.S. system.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-usce-types">
+        <h2>Mission Rotation System: Four Types</h2>
+        <div class="cl1403-v6-usce-grid">
+            <div class="cl1403-v6-usce-card">
+                <h3>Observership</h3>
+                <p>Shadowing. No ownership. Limited arena impact. You see the game but do not play.</p>
+                <span class="match-value">Low Tier</span>
+            </div>
+            <div class="cl1403-v6-usce-card">
+                <h3>Externship</h3>
+                <p>Structured entry point. Variable involvement. Medium arena impact if you engage hard.</p>
+                <span class="match-value">Mid Tier</span>
+            </div>
+            <div class="cl1403-v6-usce-card">
+                <h3>Hands-on Rotation</h3>
+                <p>Direct patient care. You own outcomes. Maximum arena impact. Program directors see you perform under pressure.</p>
+                <span class="match-value">Elite Tier</span>
+            </div>
+            <div class="cl1403-v6-usce-card">
+                <h3>Research Experience</h3>
+                <p>Academic path. Different arena. Value depends on publication and specialty fit.</p>
+                <span class="match-value">Specialty Tier</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-program-director">
+        <h2>Program Director Battle Report</h2>
+        <p>When I see a hands-on hospital rotation on an IMG application, I know they earned their spot in my program. They worked the system. They proved they could perform. That is the evidence of readiness. That is what wins in the arena.</p>
+    </section>
+
+    <section class="cl1403-v6-proof-engine">
+        <h2>Arena Victory Stories</h2>
+        <div class="cl1403-v6-chips-container">
+            <div class="cl1403-chip active" data-filter="all">All Victories</div>
+            <div class="cl1403-chip" data-filter="recent-usce">Recent USCE</div>
+            <div class="cl1403-chip" data-filter="hospital-based">Hospital Based</div>
+            <div class="cl1403-chip" data-filter="strong-lor">Strong LOR</div>
+            <div class="cl1403-chip" data-filter="img-applying">IMG Cycle</div>
+            <div class="cl1403-chip" data-filter="no-experience">First Arena</div>
+        </div>
+        <div class="cl1403-proof-cards" id="proof-cards-v6"></div>
+    </section>
+
+    <section class="cl1403-v6-pathway">
+        <h2>Arena Entry Strategy: Four Steps</h2>
+        <div class="cl1403-v6-pathway-steps">
+            <div class="cl1403-v6-step">
+                <div class="cl1403-v6-step-number">1</div>
+                <h3>Deploy</h3>
+                <p>Submit your specialty and timeline for arena deployment.</p>
+            </div>
+            <div class="cl1403-v6-step">
+                <div class="cl1403-v6-step-number">2</div>
+                <h3>Scan</h3>
+                <p>We scan arena availability for your rotation window.</p>
+            </div>
+            <div class="cl1403-v6-step">
+                <div class="cl1403-v6-step-number">3</div>
+                <h3>Lockdown</h3>
+                <p>We match you to an elite arena rotation that powers your Match.</p>
+            </div>
+            <div class="cl1403-v6-step">
+                <div class="cl1403-v6-step-number">4</div>
+                <h3>Execute</h3>
+                <p>You own your arena performance and secure your spot.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-rotations">
+        <h2>Arena Rotation Map</h2>
+        <div class="cl1403-v6-rotations-grid">
+            <div class="cl1403-v6-rotation-item"><h3>Internal Medicine</h3></div>
+            <div class="cl1403-v6-rotation-item"><h3>Family Medicine</h3></div>
+            <div class="cl1403-v6-rotation-item"><h3>Psychiatry</h3></div>
+            <div class="cl1403-v6-rotation-item"><h3>Pediatrics</h3></div>
+            <div class="cl1403-v6-rotation-item"><h3>Surgery</h3></div>
+            <div class="cl1403-v6-rotation-item"><h3>OB/GYN</h3></div>
+            <div class="cl1403-v6-rotation-item"><h3>Emergency Medicine</h3></div>
+            <div class="cl1403-v6-rotation-item"><h3>Neurology</h3></div>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-pricing">
+        <h2>Arena Pricing</h2>
+        <div class="cl1403-v6-pricing-content">
+            <p>Pricing varies by specialty, duration, and location. Contact us for current availability and pricing.</p>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-faq">
+        <h2>Arena FAQ</h2>
+        <div class="cl1403-v6-faq-list">
+            <div class="cl1403-v6-faq-item">
+                <div class="cl1403-faq-question">Is this a hands-on rotation or observership? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v6-faq-answer">MissionMed Clinical focuses on hands-on clinical rotations at teaching hospitals. These are supervised patient-care experiences, not observerships. You will work alongside physicians in real clinical settings.</div>
+            </div>
+            <div class="cl1403-v6-faq-item">
+                <div class="cl1403-faq-question">How far in advance should I apply? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v6-faq-answer">Apply as early as possible. Placements are cycle-based and spots fill quickly. We recommend starting at least 3 to 6 months before your target start date.</div>
+            </div>
+            <div class="cl1403-v6-faq-item">
+                <div class="cl1403-faq-question">Will I get a letter of recommendation? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v6-faq-answer">Many rotations provide the opportunity to earn a letter of recommendation, though this depends on your performance and the supervising physician. It is never guaranteed.</div>
+            </div>
+            <div class="cl1403-v6-faq-item">
+                <div class="cl1403-faq-question">How is this different from other rotation providers? <span class="cl1403-faq-toggle">+</span></div>
+                <div class="cl1403-v6-faq-answer">MissionMed Clinical places students in hospital-based rotations where you work alongside physicians in real clinical settings. We focus on the kind of experience that program directors actually value.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-form" id="form">
+        <h2>Enter the Arena Now</h2>
+        <div class="cl1403-v6-form-container">
+            <form>
+                <div class="cl1403-v6-form-group">
+                    <label for="v6-name">Name</label>
+                    <input type="text" id="v6-name" name="name" required>
+                </div>
+                <div class="cl1403-v6-form-group">
+                    <label for="v6-email">Email</label>
+                    <input type="email" id="v6-email" name="email" required>
+                </div>
+                <div class="cl1403-v6-form-group">
+                    <label for="v6-specialty">Arena Specialty</label>
+                    <select id="v6-specialty" name="specialty" required>
+                        <option value="">Select</option>
+                        <option value="internal-medicine">Internal Medicine</option>
+                        <option value="family-medicine">Family Medicine</option>
+                        <option value="psychiatry">Psychiatry</option>
+                        <option value="pediatrics">Pediatrics</option>
+                        <option value="surgery">Surgery</option>
+                        <option value="ob-gyn">OB/GYN</option>
+                        <option value="emergency-medicine">Emergency Medicine</option>
+                        <option value="neurology">Neurology</option>
+                    </select>
+                </div>
+                <div class="cl1403-v6-form-group">
+                    <label for="v6-timeline">Launch Date</label>
+                    <input type="month" id="v6-timeline" name="timeline" required>
+                </div>
+                <div class="cl1403-v6-form-group">
+                    <label for="v6-message">Arena Mission</label>
+                    <textarea id="v6-message" name="message" placeholder="What is your Match strategy?" required></textarea>
+                </div>
+                <button type="submit" class="cl1403-v6-form-submit">Deploy Now</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="cl1403-v6-final-cta">
+        <h2>Own Your Match. Win the Arena.</h2>
+        <p>Your rotation is your weapon. Hospital-based clinical experience is your strategy. Enter the arena and secure your spot.</p>
+        <a href="#form" class="cl1403-v6-final-cta-btn">Enter Now</a>
+    </section>
+</div>
+
+<script>
+// Proof data with situation filters
+const proofData = [
+    {
+        id: 1,
+        situations: ['all', 'recent-usce', 'hospital-based'],
+        quote: 'Student testimonial placeholder: My hands-on rotation showed program directors I could work in a U.S. hospital.',
+        type: 'Hands-on Rotation',
+        watchLink: '#'
+    },
+    {
+        id: 2,
+        situations: ['all', 'strong-lor', 'img-applying'],
+        quote: 'Student testimonial placeholder: The supervising physician wrote me a strong letter based on my clinical work.',
+        type: 'Hands-on Rotation',
+        watchLink: '#'
+    },
+    {
+        id: 3,
+        situations: ['all', 'no-experience', 'hospital-based'],
+        quote: 'Student testimonial placeholder: This was my first U.S. clinical experience and it set my entire application apart.',
+        type: 'Hands-on Rotation',
+        watchLink: '#'
+    },
+    {
+        id: 4,
+        situations: ['all', 'img-applying', 'recent-usce'],
+        quote: 'Student testimonial placeholder: Recent clinical experience made a huge difference in my Match success.',
+        type: 'Hands-on Rotation',
+        watchLink: '#'
+    },
+    {
+        id: 5,
+        situations: ['all', 'strong-lor', 'hospital-based'],
+        quote: 'Student testimonial placeholder: Working alongside physicians gave me confidence and credibility in my application.',
+        type: 'Hands-on Rotation',
+        watchLink: '#'
+    },
+    {
+        id: 6,
+        situations: ['all', 'no-experience', 'img-applying'],
+        quote: 'Student testimonial placeholder: Video placeholder: Real student shares their placement experience.',
+        type: 'Video Proof',
+        watchLink: '#'
+    }
+];
+
+// Initialize proof sections for each version
+function initProofEngine() {
+    const versions = ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'];
+
+    versions.forEach(version => {
+        const cardsContainer = document.getElementById(`proof-cards-${version}`);
+        if (!cardsContainer) return;
+
+        const cardClass = version === 'v1' ? 'cl1403-proof-card' :
+                         version === 'v2' ? 'cl1403-v2-proof-card' :
+                         version === 'v3' ? 'cl1403-proof-card' :
+                         version === 'v4' ? 'cl1403-v4-proof-card' :
+                         version === 'v5' ? 'cl1403-v5-proof-card' :
+                         'cl1403-v6-proof-card';
+
+        cardsContainer.innerHTML = proofData.map((item, idx) => `
+            <div class="${cardClass} visible" data-filter='${JSON.stringify(item.situations)}' data-id="${item.id}">
+                <div class="cl1403-proof-thumbnail">
+                    Video placeholder
+                    <div class="cl1403-play-btn">▶</div>
+                </div>
+                <div class="cl1403-proof-content">
+                    <div class="cl1403-proof-tags">
+                        <span class="cl1403-tag">${item.situations[1]?.replace('-', ' ') || 'Placement'}</span>
+                        <span class="cl1403-tag">${item.type}</span>
+                    </div>
+                    <p class="cl1403-proof-quote">"${item.quote}"</p>
+                    <a href="${item.watchLink}" class="cl1403-proof-cta">Watch Story →</a>
+                </div>
+            </div>
+        `).join('');
+    });
+
+    // Chip filtering
+    document.querySelectorAll('.cl1403-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const versionSection = chip.closest('.cl1403-version');
+            const filterValue = chip.getAttribute('data-filter');
+            const isActive = chip.classList.contains('active');
+
+            // Toggle active state
+            versionSection.querySelectorAll('.cl1403-chip').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+
+            // Filter cards
+            const cards = versionSection.querySelectorAll('.cl1403-proof-card');
+            cards.forEach(card => {
+                const situations = JSON.parse(card.getAttribute('data-filter'));
+                if (filterValue === 'all' || situations.includes(filterValue)) {
+                    card.classList.add('visible');
+                } else {
+                    card.classList.remove('visible');
+                }
+            });
+        });
+    });
+}
+
+// Version switching
+document.querySelectorAll('.cl1403-version-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        const version = btn.getAttribute('data-version');
+
+        document.querySelectorAll('.cl1403-version-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        document.querySelectorAll('.cl1403-version').forEach(v => v.classList.remove('active'));
+        document.getElementById(`version-${version}`).classList.add('active');
+
+        window.scrollTo(0, 0);
+    });
+});
+
+// FAQ toggle
+document.querySelectorAll('.cl1403-faq-question').forEach(question => {
+    question.addEventListener('click', () => {
+        const item = question.closest('.cl1403-faq-item') ||
+                    question.closest('.cl1403-v2-faq-item') ||
+                    question.closest('.cl1403-v3-faq-item') ||
+                    question.closest('.cl1403-v4-faq-item') ||
+                    question.closest('.cl1403-v5-faq-item') ||
+                    question.closest('.cl1403-v6-faq-item');
+        if (item) {
+            item.classList.toggle('open');
+        }
+    });
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initProofEngine);
+</script>
+
+</body>
+</html>
