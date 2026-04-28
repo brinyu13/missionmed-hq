@@ -80,3 +80,9 @@
 - Scope: STAT human async duel contract repair apply/validate/deploy preparation in clean isolated context.
 - Files: LIVE/stat.html, supabase/migrations/20260427131000_mr_stat_human_async_duel_contract_repair_035.sql, VALIDATION/stat_async_duel_contract_035.sql
 - Notes: Applied scoped MR-035 migration to RankListIQ (`fglyvdykwgbuivikqoah`) via isolated Supabase workdir, aligned frontend human duel pack activation to canonical sealed pack path, normalized submit payload to `choice_index`, aligned incoming challenge detection to `duel_challenges` query path with roster fallback, and added rollback-safe SQL harness for two-user async contract validation.
+
+## [2026-04-28 14:35 UTC]
+- PROMPT: (E8)-STAT+Async-codex-high-500-j
+- Scope: Runtime-vs-HQ auth separation for STAT exchange/bootstrap without changing HQ admin token policy.
+- Files: missionmed-hq/server.mjs, LIVE/stat.html
+- Notes: Added runtime audience/session tagging for `/api/auth/exchange`, preserved admin-only HQ token semantics, blocked runtime sessions from protected `/api/hq/*` APIs, and removed STAT runtime fallback to `/wp-json/missionmed-command-center/v1/auth/token` so STAT uses runtime exchange/bootstrap flow only.

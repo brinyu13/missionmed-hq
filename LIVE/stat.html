@@ -2930,8 +2930,11 @@ const WP_LOGOUT_URL = '/wp-login.php?action=logout';
 const STAT_LOGIN_REDIRECT = '/stat';
 const AUTH_EXCHANGE_URL = '/api/auth/exchange';
 const AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';
-const WORDPRESS_AUTH_TOKEN_PATH = '/wp-json/missionmed-command-center/v1/auth/token/';
-const DEFAULT_WORDPRESS_ORIGIN = 'https://missionmedinstitute.com';
+const RUNTIME_AUTH_EXCHANGE_PAYLOAD = Object.freeze({
+  audience: 'runtime',
+  surface: 'stat',
+  session_type: 'runtime'
+});
 const STAT_QUERY_PARAMS = (() => {
   try { return new URLSearchParams(window.location.search || ''); }
   catch (_error) { return new URLSearchParams(); }
@@ -3263,57 +3266,6 @@ function resolveDuelDatasetVersion() {
   return value || null;
 }
 
-function normalizeAbsoluteUrl(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  try { return new URL(raw, window.location.origin).toString(); }
-  catch (_error) { return ''; }
-}
-
-function normalizeApiBase(value) {
-  const full = normalizeAbsoluteUrl(value);
-  return full ? full.replace(/\/+$/, '') : '';
-}
-
-function pushUnique(list, value) {
-  const safe = String(value || '').trim();
-  if (!safe) return;
-  if (!list.includes(safe)) list.push(safe);
-}
-
-function resolveCanonicalWordPressOrigin() {
-  const authCfg = window.mmArenaAuth && typeof window.mmArenaAuth === 'object'
-    ? window.mmArenaAuth
-    : null;
-  return (
-    normalizeApiBase(window.MISSIONMED_WORDPRESS_ORIGIN || window.MISSIONMED_WP_ORIGIN || '') ||
-    normalizeApiBase(authCfg && (authCfg.wordpress_origin || authCfg.wp_origin || authCfg.site_origin || authCfg.site_url || '')) ||
-    normalizeApiBase(DEFAULT_WORDPRESS_ORIGIN) ||
-    normalizeApiBase(window.location.origin)
-  );
-}
-
-function collectWordPressOrigins() {
-  const authCfg = window.mmArenaAuth && typeof window.mmArenaAuth === 'object'
-    ? window.mmArenaAuth
-    : null;
-  const origins = [];
-  pushUnique(origins, resolveCanonicalWordPressOrigin());
-  pushUnique(origins, normalizeApiBase(window.MISSIONMED_WORDPRESS_ORIGIN || window.MISSIONMED_WP_ORIGIN || ''));
-  if (authCfg) {
-    pushUnique(origins, normalizeApiBase(authCfg.wordpress_origin || authCfg.wp_origin || authCfg.site_origin || authCfg.site_url || ''));
-  }
-  pushUnique(origins, normalizeApiBase(DEFAULT_WORDPRESS_ORIGIN));
-  pushUnique(origins, normalizeApiBase(window.location.origin));
-  return origins;
-}
-
-function buildWordPressTokenEndpointCandidates() {
-  const urls = [];
-  collectWordPressOrigins().forEach((origin) => pushUnique(urls, `${origin}${WORDPRESS_AUTH_TOKEN_PATH}`));
-  return urls;
-}
-
 function getSupabaseSessionTokens(payload) {
   const root = payload || {};
   const data = root.data || {};
@@ -3336,18 +3288,6 @@ function getExchangeCsrfToken(payload) {
   const root = payload || {};
   const data = root.data || {};
   return String(root.csrfToken || root.csrf_token || data.csrfToken || data.csrf_token || '').trim();
-}
-
-function getResponseErrorMessage(payload) {
-  if (!payload || typeof payload !== 'object') return '';
-  return String(payload.message || payload.detail || payload.error_description || '').trim();
-}
-
-function requiresWordPressToken(result) {
-  if (!result || result.ok) return false;
-  const message = getResponseErrorMessage(result.payload).toLowerCase();
-  if (result.status === 400 && /signed|token/.test(message)) return true;
-  return result.status === 401;
 }
 
 function resolveCredentialsMode(url, forcedMode) {
@@ -3375,29 +3315,9 @@ async function postJson(url, body, extraHeaders = {}, credentialsMode = '') {
   return { ok: response.ok, status: response.status, payload };
 }
 
-async function fetchWordPressExchangeToken() {
-  const candidates = buildWordPressTokenEndpointCandidates();
-  let lastReason = 'wp_token_unavailable';
-  for (const endpoint of candidates) {
-    try {
-      const result = await postJson(endpoint, {}, {}, 'include');
-      if (!result.ok) {
-        lastReason = `wp_token_http_${result.status}`;
-        continue;
-      }
-      const token = getExchangeAccessToken(result.payload);
-      if (token) return { ok: true, token, endpoint };
-      lastReason = 'wp_token_missing';
-    } catch (_tokenError) {
-      lastReason = 'wp_token_request_failed';
-    }
-  }
-  return { ok: false, reason: lastReason };
-}
-
 async function runAuthExchange() {
   try {
-    const direct = await postJson(AUTH_EXCHANGE_URL, {}, {}, 'include');
+    const direct = await postJson(AUTH_EXCHANGE_URL, RUNTIME_AUTH_EXCHANGE_PAYLOAD, {}, 'include');
     if (direct.ok) {
       return {
         ok: true,
@@ -3407,23 +3327,9 @@ async function runAuthExchange() {
         source: 'exchange_cookie'
       };
     }
-
-    if (requiresWordPressToken(direct)) {
-      const tokenResult = await fetchWordPressExchangeToken();
-      if (tokenResult.ok && tokenResult.token) {
-        const tokenExchange = await postJson(AUTH_EXCHANGE_URL, { token: tokenResult.token }, {}, 'include');
-        if (tokenExchange.ok) {
-          return {
-            ok: true,
-            endpoint: AUTH_EXCHANGE_URL,
-            accessToken: getExchangeAccessToken(tokenExchange.payload),
-            csrfToken: getExchangeCsrfToken(tokenExchange.payload),
-            source: 'exchange_wp_token'
-          };
-        }
-        return { ok: false, reason: `auth_exchange_token_http_${tokenExchange.status}` };
-      }
-      return { ok: false, reason: tokenResult.reason || 'wp_token_unavailable' };
+    const apiError = String((direct && direct.payload && direct.payload.error) || '').trim();
+    if (apiError) {
+      return { ok: false, reason: apiError };
     }
     return { ok: false, reason: `auth_exchange_http_${direct.status}` };
   } catch (_exchangeError) {
@@ -3663,12 +3569,9 @@ async function buildAuthFailureDetails(reasonHint) {
   const supabaseSessionDetected = await getSupabaseSessionDetected();
   let wpLoginDetected = null;
   try {
-    const direct = await postJson(AUTH_EXCHANGE_URL, {}, {}, 'include');
+    const direct = await postJson(AUTH_EXCHANGE_URL, RUNTIME_AUTH_EXCHANGE_PAYLOAD, {}, 'include');
     if (direct.ok) {
       wpLoginDetected = true;
-    } else if (requiresWordPressToken(direct)) {
-      const tokenCheck = await fetchWordPressExchangeToken();
-      wpLoginDetected = !!(tokenCheck && tokenCheck.ok && tokenCheck.token);
     } else if (direct.status === 401 || direct.status === 403) {
       wpLoginDetected = false;
     }

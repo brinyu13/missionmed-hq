@@ -124,6 +124,8 @@ const AUTH_ALLOWED_SUPABASE_PROJECT = 'fglyvdykwgbuivikqoah';
 const AUTH_FORBIDDEN_SUPABASE_PROJECT = 'plgndqcplokwiuimwhzh';
 const AUTH_BOOTSTRAP_PASSWORD_SALT = String(envValue('MMHQ_SUPABASE_PASSWORD_SALT', 'missionmed-bootstrap-salt')).trim() || 'missionmed-bootstrap-salt';
 const AUTH_WORDPRESS_COOKIE_PREFIXES = ['wordpress_logged_in_', 'wordpress_sec_'];
+const AUTH_RUNTIME_AUDIENCES = new Set(['runtime', 'arena', 'stat', 'daily', 'drills']);
+const AUTH_HQ_AUDIENCES = new Set(['hq', 'admin', 'command-center', 'missionmed-hq']);
 
 const HQ_CACHE = new Map();
 const HQ_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -939,6 +941,9 @@ function createSessionRecord(user, authContext = {}, authSource) {
     expiresAt: expiresAt.toISOString(),
     csrfToken: base64UrlEncode(randomBytes(18)),
     authSource,
+    authAudience: String(authContext.authAudience || '').trim().toLowerCase() || 'hq',
+    authSurface: String(authContext.authSurface || '').trim().toLowerCase() || '',
+    sessionType: String(authContext.sessionType || '').trim().toLowerCase() || 'hq',
     wpAuthorization: String(authContext.wpAuthorization || '').trim(),
     user,
   };
@@ -1053,6 +1058,8 @@ function buildSessionPayload(session = null, request = null) {
       roles: session.user.roles,
       scope: session.user.scope,
       authSource: session.authSource,
+      authAudience: session.authAudience || 'hq',
+      sessionType: session.sessionType || 'hq',
     },
     accessToken,
     authMode: buildAuthDebugSnapshot(session, request),
@@ -1633,6 +1640,27 @@ function requireAuthenticatedApiSession(request, response, session) {
   return true;
 }
 
+function requireHqAdminSession(request, response, session) {
+  if (!session || !session.user) {
+    sendJson(response, 401, {
+      error: 'authentication_required',
+      message: 'MissionMed HQ requires a valid authenticated session.',
+      login: getLoginHints(request),
+    });
+    return false;
+  }
+
+  if (isRuntimeAuthSession(session) || !isAuthorizedWordPressUser(session.user || {})) {
+    sendJson(response, 403, {
+      error: 'hq_admin_required',
+      message: 'MissionMed HQ access is limited to authorized administrators.',
+    });
+    return false;
+  }
+
+  return true;
+}
+
 function handleServerError(response, error) {
   sendJson(response, 500, {
     error: 'internal_error',
@@ -2024,6 +2052,10 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (!requireAuthenticatedApiSession(request, response, session)) {
+    return;
+  }
+
+  if (pathname.startsWith('/api/hq/') && !requireHqAdminSession(request, response, session)) {
     return;
   }
 
@@ -6411,7 +6443,8 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
     }
 
     const wpUser = normalizeWordPressIdentityUser(cookieValidation.user || {});
-    if (!isAuthorizedWordPressUser(wpUser)) {
+    const authTarget = resolveAuthTarget(payload, wpUser, { hasWpToken: false });
+    if (authTarget.mode === 'hq' && !isAuthorizedWordPressUser(wpUser)) {
       return {
         ok: false,
         status: 403,
@@ -6429,12 +6462,18 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
           displayName: wpUser.displayName,
           email: wpUser.email,
           roles: wpUser.roles,
-          scope: wpUser.scope || resolveOperatorScope(wpUser),
+          capabilities: wpUser.capabilities || {},
+          scope: authTarget.mode === 'hq'
+            ? (wpUser.scope || resolveOperatorScope(wpUser))
+            : resolveRuntimeScope(wpUser),
         },
         {
           wpAuthorization: getWordPressServiceAuthorization(),
+          authAudience: authTarget.audience,
+          authSurface: authTarget.surface,
+          sessionType: authTarget.mode,
         },
-        'wordpress-cookie',
+        authTarget.mode === 'runtime' ? 'wordpress-cookie-runtime' : 'wordpress-cookie',
       ),
     };
   }
@@ -6491,7 +6530,8 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   }
 
   const wpUser = normalizeWordPressUser(exchange.data?.user || {});
-  if (!isAuthorizedWordPressUser(wpUser)) {
+  const authTarget = resolveAuthTarget(payload, wpUser, { hasWpToken: true });
+  if (authTarget.mode === 'hq' && !isAuthorizedWordPressUser(wpUser)) {
     return {
       ok: false,
       status: 403,
@@ -6509,12 +6549,18 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
         displayName: wpUser.displayName,
         email: wpUser.email,
         roles: wpUser.roles,
-        scope: wpUser.scope || resolveOperatorScope(wpUser),
+        capabilities: wpUser.capabilities || {},
+        scope: authTarget.mode === 'hq'
+          ? (wpUser.scope || resolveOperatorScope(wpUser))
+          : resolveRuntimeScope(wpUser),
       },
       {
         wpAuthorization: `Bearer ${issuedToken}`,
+        authAudience: authTarget.audience,
+        authSurface: authTarget.surface,
+        sessionType: authTarget.mode,
       },
-      'wordpress-token',
+      authTarget.mode === 'runtime' ? 'wordpress-token-runtime' : 'wordpress-token',
     ),
   };
 }
@@ -6538,6 +6584,78 @@ function isAuthorizedWordPressUser(user) {
   }
 
   return Boolean(user.capabilities?.manage_options);
+}
+
+function normalizeAuthAudienceValue(value = '') {
+  return String(value || '').trim().toLowerCase();
+}
+
+function resolveAuthTarget(payload = {}, wpUser = {}, options = {}) {
+  const hasWpToken = Boolean(options?.hasWpToken);
+  const audience = normalizeAuthAudienceValue(
+    payload?.audience ||
+    payload?.auth_audience ||
+    payload?.session_type ||
+    payload?.sessionType ||
+    payload?.surface ||
+    payload?.app ||
+    payload?.client,
+  );
+  const surface = normalizeAuthAudienceValue(payload?.surface || payload?.app || payload?.client || audience);
+
+  if (AUTH_RUNTIME_AUDIENCES.has(audience) || AUTH_RUNTIME_AUDIENCES.has(surface)) {
+    return {
+      mode: 'runtime',
+      audience: audience || 'runtime',
+      surface: surface || 'runtime',
+    };
+  }
+
+  if (AUTH_HQ_AUDIENCES.has(audience)) {
+    return {
+      mode: 'hq',
+      audience: audience || 'hq',
+      surface: surface || 'hq',
+    };
+  }
+
+  // Token exchange defaults to HQ/admin semantics unless explicitly runtime-tagged.
+  if (hasWpToken) {
+    return {
+      mode: 'hq',
+      audience: audience || 'hq',
+      surface: surface || 'hq',
+    };
+  }
+
+  // Cookie-based exchange allows runtime users by default when they are non-admin.
+  const isAdmin = isAuthorizedWordPressUser(wpUser);
+  return {
+    mode: isAdmin ? 'hq' : 'runtime',
+    audience: audience || (isAdmin ? 'hq' : 'runtime'),
+    surface: surface || (isAdmin ? 'hq' : 'runtime'),
+  };
+}
+
+function isRuntimeAuthSession(session = null) {
+  if (!session) return false;
+  const sessionType = normalizeAuthAudienceValue(session.sessionType || '');
+  if (sessionType === 'runtime') {
+    return true;
+  }
+  const audience = normalizeAuthAudienceValue(session.authAudience || '');
+  return AUTH_RUNTIME_AUDIENCES.has(audience);
+}
+
+function resolveRuntimeScope(user) {
+  return {
+    operator: 'runtime',
+    assignee: 'runtime',
+    owner_name: user.displayName || 'Runtime User',
+    division: 'runtime',
+    division_label: 'Runtime',
+    is_all: false,
+  };
 }
 
 function resolveOperatorScope(user) {
