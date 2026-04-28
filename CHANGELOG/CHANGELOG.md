@@ -62,3 +62,9 @@
 - Validation: `validate_deploy PASS`, `validate_runtime LIVE PASS`, `/arena|/stat|/drills|/daily = 200`, required mirrored LIVE assets = `7/7 200`
 - Rollback Instructions: `GOLD_BUILDS/2026-04-27_MR-GOLD-STABLE-BUILD-LOCK-032/ROLLBACK.md`
 - E3 Status: outbox remains internal-only and default OFF; replay/avatar bridge remains blocked (not enabled).
+
+## [2026-04-27 20:45 UTC]
+- PROMPT: (E8)-STAT+Async-codex-high-500-b
+- Scope: STAT human async duel contract repair apply/validate/deploy preparation in clean isolated context.
+- Files: LIVE/stat.html, supabase/migrations/20260427131000_mr_stat_human_async_duel_contract_repair_035.sql, VALIDATION/stat_async_duel_contract_035.sql
+- Notes: Applied scoped MR-035 migration to RankListIQ (`fglyvdykwgbuivikqoah`) via isolated Supabase workdir, aligned frontend human duel pack activation to canonical sealed pack path, normalized submit payload to `choice_index`, aligned incoming challenge detection to `duel_challenges` query path with roster fallback, and added rollback-safe SQL harness for two-user async contract validation.
