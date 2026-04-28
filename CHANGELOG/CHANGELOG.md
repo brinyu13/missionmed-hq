@@ -86,3 +86,9 @@
 - Scope: Runtime-vs-HQ auth separation for STAT exchange/bootstrap without changing HQ admin token policy.
 - Files: missionmed-hq/server.mjs, LIVE/stat.html
 - Notes: Added runtime audience/session tagging for `/api/auth/exchange`, preserved admin-only HQ token semantics, blocked runtime sessions from protected `/api/hq/*` APIs, and removed STAT runtime fallback to `/wp-json/missionmed-command-center/v1/auth/token` so STAT uses runtime exchange/bootstrap flow only.
+
+## [2026-04-28 22:50 UTC]
+- PROMPT: (E8)-STAT+Async-codex-high-500-k
+- Scope: Confirm production Railway target ownership and perform scoped backend/CDN deployment validation for STAT runtime auth separation.
+- Files: CHANGELOG/CHANGELOG.md
+- Notes: Confirmed Railway production mapping for `missionmed-hq-production.up.railway.app` to service `missionmed-hq` in project `missionmed-hq-fix005`, deployed backend to that service, and prepared 500-k deploy validation + manual subscriber/admin browser verification steps.
