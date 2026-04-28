@@ -2,6 +2,124 @@
 
 ---
 
+## 2026-04-28 | CL-1403B | Clinicals Visual Reset + Photo-First 6-Version Demo (Hard Reset)
+
+**Prompt ID:** CL-1403B  
+**Task:** Hard-reset redesign of the MissionMed Clinicals page demo. CL-1403 failed (no real photos, gradient-only heroes, same layout recolored, generic template feel). CL-1403B starts from zero with photo-first architecture, full-width imagery, and 5 genuinely distinct public website candidates + 1 Arena-only version.  
+**Files Modified:**  
+- `CL-1403B_Clinical_PhotoFirst_6Version_Demo.html` (CREATED, 2375 lines, 192K chars, self-contained HTML/CSS/JS)  
+
+**Key Changes vs CL-1403:**  
+- 51 real Unsplash photo URLs (21 unique photos) replacing zero photos in CL-1403  
+- Full-width/edge-to-edge photo sections throughout every version  
+- Each version is architecturally distinct (split-hero, magazine editorial, story timeline, diagnostic-first, luxury minimal, game-grade)  
+- Situation selector with 14 filter options + mapped proof cards in every version  
+- Premium-treated request placement forms integrated into each version's design language  
+- V4 includes interactive clinical experience diagnostic with checkbox assessment  
+- V6 uses Arena visual language with mission map tiles, tier classification, neon palette  
+- No em-dashes, no AI cliches, no fake hospitals, no fake Match guarantees  
+- Responsive design with 2 breakpoint tiers (900px, 600px)  
+- All class prefixes use cl1403b- namespace  
+
+**Versions Created:**  
+1. Clinical Strategy Flagship (split-hero, navy/gold, editorial grid)  
+2. Teaching Hospital Editorial (full-bleed magazine, dropcap, photo breaks)  
+3. IMG Rotation Journey (story timeline, emotional, journey metaphor)  
+4. Placement Intelligence System (diagnostic-first, matrix, productized)  
+5. Premium Clinical Access (luxury minimal, black/white/gold, sparse)  
+6. Arena Rotation Royale (dark game UI, neon green, mission tiles, tier system)  
+
+**Knowledge Files Loaded:**  
+- PRIMER_CORE.md, PRIMER_EXT_VISUAL.md  
+- USCE_UX_UI_FULL_SYSTEM_AUDIT.md  
+- KNOWLEDGE_INDEX.md  
+- CL-1403_Clinical_6Version_Demo.html (studied for anti-patterns)  
+- Memory: feedback_design_restraint.md, feedback_no_emdashes_ai_cliches.md, project_naming_canon.md  
+
+**Result:** Complete photo-first 6-version Clinicals demo delivered  
+**Status:** COMPLETE
+
+---
+
+## 2026-04-28 | CL-1403 | MissionMed Clinical Elementor Page Audit + 6-Version Premium Demo
+
+**Prompt ID:** CL-1403  
+**Task:** Audit current live MissionMed Clinical/Clinicals page (screenshot-based), then create a six-version premium design demo showing different visual/design directions for the USCE/clinical rotations page. Each version includes all 13 required sections: header, hero, stat strip, USCE misconceptions, four types of USCE comparison, program director/Match value framing, interactive student-situation proof engine with filter chips + video proof cards + written testimonials, MissionMed Clinical 4-step pathway, available rotations, pricing, FAQ, request placement form, and final CTA. Versions range from on-brand (V1 Prestige, V2 Hospital Trust System) to cinematic (V3 IMG Pathway) to dashboard (V4 Placement Command Center) to extreme Awwwards-level (V5 Extreme Clinical Strategy) to game-grade Arena (V6 Arena Rotation Royale with Fortnite-inspired typography and MissionMed Arena visual language).  
+**Files Modified:**  
+- `CL-1403_Clinical_6Version_Demo.html` (CREATED, 5432 lines, self-contained HTML/CSS/JS)  
+
+**Key Features:**  
+- Fixed version selector with 6 toggle buttons  
+- Interactive proof engine: 8 student-situation chips per version filter video + written testimonial cards  
+- FAQ accordion toggle system  
+- Responsive design (desktop/tablet/mobile)  
+- Elementor-compatible section comments and scoped CSS class prefixes (cl1403-)  
+- Honest placeholders for all testimonial/video content (no fake names, hospitals, stats, or outcomes)  
+- No external dependencies, no frameworks, no Tailwind  
+- V6 uses Arena color system (deep space/cyan/gold), glass-morphism components, Fortnite-style font stack with legal fallbacks  
+- All copy follows no-em-dash rule, no AI cliches, warm/direct/personal tone  
+- MissionMed logo referenced via official URL  
+- USCE type comparison visualized differently per version  
+- Video proof cards with thumbnail area, play button, situation tags, rotation type tags  
+
+**Knowledge Files Loaded:**  
+- USCE_UX_UI_FULL_SYSTEM_AUDIT.md  
+- NAMING_CANON.md  
+- PRIMER_EXT_VISUAL.md  
+- Memory: feedback_design_restraint.md, feedback_no_emdashes_ai_cliches.md  
+
+**Result:** Complete 6-version Clinical demo delivered as single HTML file  
+**Status:** COMPLETE
+
+---
+
+## 2026-04-28 | U-1402 | Exam Prep Elementor Page Audit + 6-Version Premium Demo
+
+**Prompt ID:** U-1402  
+**Task:** Audit current live MissionMed Exam Prep page (screenshot-based), then create a six-version premium design demo showing different visual/design directions. Each version includes: hero, stat strip, student struggle diagnosis, clinical reasoning section, four-step training system, training-built-around-you section, interactive struggle-based proof module with filter chips, video proof cards and written testimonials, live drill video section, training path selector (Team Drilling + 1-on-1 Tutoring), FAQ, and final CTA. Versions range from on-brand (V1 Prestige, V2 Clinical Reasoning Lab) to cinematic (V3) to dashboard (V4 Command Center) to extreme Awwwards-level (V5) to game-grade Arena (V6 Arena Drill Royale with Fortnite-inspired typography and MissionMed Arena visual language).  
+**Files Modified:**  
+- `U1402_ExamPrep_6Version_Demo.html` (CREATED, 1551 lines, 110K chars, self-contained HTML/CSS/JS)  
+
+**Key Features:**  
+- Fixed version selector with 6 toggle buttons  
+- Interactive struggle proof filter: 7 struggle chips per version filter video + written testimonial cards with animation  
+- FAQ accordion toggle system  
+- V6 Arena progress bar animation on version switch  
+- Responsive design (desktop/tablet/mobile)  
+- Elementor-compatible section comments and scoped CSS class prefixes (u1402-)  
+- Honest placeholders for all testimonial/video content (no fake scores, names, or statistics)  
+- No external dependencies, no frameworks, no Tailwind  
+- V6 uses Arena color system (navy/gold/cyan/purple), glass-panel components, Fortnite-style font stack with legal fallbacks  
+- All copy follows no-em-dash rule, no AI cliches, warm/direct/personal tone  
+- MissionMed logo referenced via official URL  
+
+**Result:** Complete 6-version Exam Prep demo delivered as single HTML file  
+**Status:** COMPLETE
+
+---
+
+## 2026-04-28 | MR-1401B | Mission Residency Elementor Page Audit + 6-Version Premium Demo
+
+**Prompt ID:** MR-1401B  
+**Task:** Audit current live Mission Residency page, then create a six-version premium design demo showing different visual/design directions for the page. Each version includes: hero, enrollment strip, stats, NRMP Gate 1/Gate 2 framework, NRMP data bars, interactive red-flag/situation testimonial proof engine with filter chips, video and written proof cards, how-it-works process section, Dr. Brian authority section, program tier comparison (Foundation/Complete/360), investment framing, FAQ, and final CTA. Versions range from on-brand (V1 Prestige, V2 Executive Clinical) to moderate departure (V3 Cinematic Stories) to medium departure (V4 Command Center) to extreme (V5 Future-Match) to game-grade Arena (V6 Arena Match Royale with Fortnite-inspired typography).  
+**Files Modified:**  
+- `MR-1401B_Mission_Residency_6Version_Demo.html` (CREATED, 2471 lines, 191K chars, self-contained HTML/CSS/JS)  
+
+**Key Features:**  
+- Fixed version selector with 6 toggle buttons  
+- Interactive proof filter system: 15 red-flag/situation chips filter 12 testimonial cards per version (72 total across all versions)  
+- NRMP data bar animations on version switch  
+- Responsive design (desktop/tablet/mobile)  
+- Elementor-compatible section comments and scoped CSS class prefixes (mr1401-)  
+- Approved testimonial excerpts from knowledge files (Sana, Kriti, Sudha, Yamina, Pratham, Milan, Marianne, Gunjan)  
+- No external dependencies, no frameworks  
+- V6 uses Fortnite-style font stack with legal fallbacks, Arena neon cyan/gold/magenta color system  
+
+**Result:** Complete 6-version demo delivered as single HTML file  
+**Status:** COMPLETE
+
+---
+
 ## 2026-04-27 | MMOS-DASHBOARD-OS-01-VISION | Full Product Vision Enhancement Report
 
 **Prompt ID:** (Z)-MMOS-DASHBOARD-claude-ultra-901B  
@@ -386,3 +504,86 @@
 - `npm run typecheck` showed TypeScript help (no tsconfig)
 
 **Status:** COMPLETE (pending live Railway smoke recheck)
+
+## 2026-04-28 | A8-ARENA-LOGIN-FINETUNE-001-k | Arena auth decoupled from HQ token fallback path
+
+**Prompt ID:** (A8)-ARENA LOGIN+Finetune-codex-high-001-k  
+**Task:** Separate Arena student auth recovery from HQ admin token endpoint usage and keep HQ protections intact.
+
+**Root Cause (confirmed):**
+- Arena frontend fallback treated exchange 401 as a trigger to call `/wp-json/missionmed-command-center/v1/auth/token/`.
+- That route is HQ-oriented and can return admin-gated `mmac_forbidden` for subscriber/customer users.
+- Result: subscriber login could loop at Arena despite successful wp-login redirect.
+
+**Changes (narrow scope):**
+- `LIVE/arena.html`
+- `UPLOAD ENGINE_Arena+Drills+Mode_HTML/arena.html`
+
+**Behavior updates:**
+1. Disabled HQ-token fallback trigger in Arena (`requiresWordPressToken` now always false for Arena flow).
+2. Added post-login exchange retry plan (`getArenaAuthExchangeRetryDelays`) to handle cookie/session settle timing.
+3. Added direct Arena bridge attempt via `/wp-json/missionmed/v1/supabase-session` before exchange/bootstrap fallback (`runWordPressSupabaseBridge`), then `supabase.auth.setSession(...)` + `getUser()` verification.
+4. Preserved exchange/bootstrap chain as fallback when bridge does not return session tokens.
+
+**Production deploy:**
+- CDN runtime object updated only:
+  - `html-system/LIVE/arena.html`
+- Backups created in non-runtime backup path:
+  - `html-system/_backups/arena/arena_BACKUP_20260428T104421Z_A8-ARENA_LOGIN-Finetune-codex-high-001-k.html`
+  - `html-system/_backups/arena/arena_BACKUP_20260428T104504Z_A8-ARENA_LOGIN-Finetune-codex-high-001-k.html`
+
+**Validation (this run):**
+- `https://missionmedinstitute.com/arena` -> `200`, `x-missionmed-route: arena-proxy`, `x-missionmed-arena-auth-config: injected`.
+- Live response contains new markers: `runWordPressSupabaseBridge`, `identity.ensure_session.bridge_set_session`, `getArenaAuthExchangeRetryDelays`.
+- Logged-out endpoint checks:
+  - `POST /wp-json/missionmed/v1/supabase-session` -> `401 mm_bridge_not_authenticated`.
+  - `POST /api/auth/exchange` -> `400 auth_exchange_failed` (expected unauth probe).
+  - `POST /wp-json/missionmed-command-center/v1/auth/token` -> `401 mmac_not_authenticated` (HQ token route remains protected when logged out).
+- Surface smoke:
+  - `/stat` -> `200` (`x-missionmed-route: stat-proxy`)
+  - `/drills` -> `200` (`x-missionmed-route: drills-proxy`)
+  - `/daily` -> `200` (no worse observed)
+
+**Open validation gap:**
+- Subscriber credentialed browser E2E must still be re-run manually to confirm: exchange success, bootstrap success, hydrated lobby, and logout session destruction in real user flow.
+
+**Status:** PARTIAL (code/deploy complete; credentialed browser proof pending)
+
+## 2026-04-28 | A8-ARENA-LOGIN-FINETUNE-001-l | Remove nonce bridge + add Arena audience exchange gate
+
+**Prompt ID:** (A8)-ARENA LOGIN+Finetune-codex-high-001-l  
+**Task:** Persistent auth-flow repair to remove legacy nonce bridge from Arena runtime and separate Arena exchange audience from HQ-only role gate.
+
+**Files Modified:**
+- `LIVE/arena.html`
+- `UPLOAD ENGINE_Arena+Drills+Mode_HTML/arena.html`
+- `missionmed-hq/server.mjs`
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md`
+
+**Deployments Performed:**
+- Railway service deploy:
+  - project: `missionmed-hq-fix005`
+  - service: `missionmed-hq`
+  - environment: `production`
+  - deployment id: `041c1649-0640-49c3-9008-0e3ae920a506`
+- CDN runtime deploy (single file only):
+  - uploaded key: `html-system/LIVE/arena.html`
+  - backup key: `html-system/_backups/arena/arena_BACKUP_20260428T115221Z_A8-ARENA_LOGIN-Finetune-codex-high-001-l.html`
+
+**Behavior Changes:**
+- Arena frontend no longer calls `/wp-json/missionmed/v1/supabase-session` in its auth boot path.
+- Arena frontend no longer attempts HQ token fallback in exchange flow.
+- Arena frontend now calls exchange with `audience: 'arena'`.
+- Railway exchange now distinguishes Arena audience from HQ audience and allows logged-in WordPress session exchange for Arena audience without broadening HQ-default role gate.
+
+**Validation (non-secret):**
+- `/arena` returns 200 with `x-missionmed-route: arena-proxy` and injected auth config.
+- Live `/arena` JS contains `postJson(AUTH_EXCHANGE_URL, { audience: 'arena' }, ...)`.
+- Live `/arena` no longer contains `missionmed/v1/supabase-session` string.
+- `/api/auth/bootstrap` unauthenticated returns expected `401 wordpress_session_missing`.
+- `/stat`, `/daily`, `/drills` remain 200.
+
+**Remaining blocker:**
+- Full subscriber credentialed E2E (exchange success -> bootstrap success -> Supabase session -> hydrated lobby -> real logout destruction) still requires a valid non-admin browser credential that can be used from this environment.
+
+**Status:** PARTIAL

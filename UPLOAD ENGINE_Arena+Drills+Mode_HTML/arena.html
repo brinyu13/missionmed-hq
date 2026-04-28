@@ -5414,9 +5414,14 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   var DRILL_API_BASE   = String(window.MISSIONMED_API_BASE || 'https://mmvs-backend-production.up.railway.app').replace(/\/+$/, '');
   var AUTH_EXCHANGE_URL = '/api/auth/exchange';
   var AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';
-  var WORDPRESS_AUTH_TOKEN_PATH = '/wp-json/missionmed-command-center/v1/auth/token/';
+  var MM_ARENA_AUTH_MODE = String(
+    window.MM_ARENA_AUTH_MODE ||
+    (window.MM_ARENA_AUTH_CONFIG && window.MM_ARENA_AUTH_CONFIG.authMode) ||
+    'wp_default_login'
+  ).trim().toLowerCase();
+  var WORDPRESS_AUTH_TOKEN_PATH = '';
   var DEFAULT_WORDPRESS_ORIGIN = 'https://missionmedinstitute.com';
-  var WP_SUPABASE_SESSION_URL = 'https://missionmedinstitute.com/wp-json/missionmed/v1/supabase-session';
+  var WP_SUPABASE_SESSION_URL = '';
   var SUPABASE_IDENTITY_RPC = 'resolve_supabase_user_uuid';
 
   const AVATAR_API_ENDPOINT = `${API_BASE}${API_SEGMENT}/avatar`;
@@ -5957,7 +5962,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return window.location.origin + '/wp-login.php?action=logout&redirect_to=' + encodeURIComponent(window.location.origin + '/arena?logged_out=1');
   }
 
+  function isArenaWpDefaultLoginMode(){
+    return MM_ARENA_AUTH_MODE === 'wp_default_login';
+  }
+
   function getArenaLoginFormHtml(){
+    if(isArenaWpDefaultLoginMode()) return '';
     var authCfg = getArenaAuthConfig();
     if(!authCfg || typeof authCfg.loginFormHtml !== 'string') return '';
     return String(authCfg.loginFormHtml || '');
@@ -6606,9 +6616,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
   function requiresWordPressToken(result){
     if(!result || result.ok) return false;
-    var message = getResponseErrorMessage(result.payload).toLowerCase();
-    if(result.status === 400 && /signed|token/.test(message)) return true;
-    return result.status === 401;
+    // Arena auth must not rely on HQ admin token routes.
+    return false;
   }
 
   function resolveCredentialsMode(url, forcedMode){
@@ -6660,36 +6669,50 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return { ok: false, reason: lastReason };
   }
 
-  async function runAuthExchange(){
+  function getArenaAuthExchangeRetryDelays(){
+    var delays = [0];
+    var authCfg = getArenaAuthConfig();
+    var loginHint = !!(authCfg && authCfg.just_logged_in);
+
     try{
-      var direct = await postJson(AUTH_EXCHANGE_URL, {}, null, 'include');
-      if(direct.ok){
-        return {
-          ok: true,
-          endpoint: AUTH_EXCHANGE_URL,
-          accessToken: getExchangeAccessToken(direct.payload),
-          csrfToken: getExchangeCsrfToken(direct.payload),
-          source: 'exchange_cookie'
-        };
+      var search = new URLSearchParams(window.location.search || '');
+      if(search.get('redirected') === '1') loginHint = true;
+    } catch(_searchErr){}
+
+    try{
+      if(!loginHint && document.referrer){
+        loginHint = /\/my-account\/?/i.test(String(document.referrer));
       }
-      if(requiresWordPressToken(direct)){
-        var tokenResult = await fetchWordPressExchangeToken();
-        if(tokenResult.ok && tokenResult.token){
-          var tokenExchange = await postJson(AUTH_EXCHANGE_URL, { token: tokenResult.token }, null, 'include');
-          if(tokenExchange.ok){
-            return {
-              ok: true,
-              endpoint: AUTH_EXCHANGE_URL,
-              accessToken: getExchangeAccessToken(tokenExchange.payload),
-              csrfToken: getExchangeCsrfToken(tokenExchange.payload),
-              source: 'exchange_wp_token'
-            };
-          }
-          return { ok: false, reason: 'auth_exchange_token_http_' + tokenExchange.status };
+    } catch(_refErr){}
+
+    if(loginHint){
+      delays = [0, 150, 350, 700, 1200, 2000];
+    }
+
+    return delays;
+  }
+
+  async function runAuthExchange(){
+    var lastDirect = null;
+    var delays = getArenaAuthExchangeRetryDelays();
+    try{
+      for(var i = 0; i < delays.length; i++){
+        if(delays[i] > 0){
+          await new Promise(function(resolve){ setTimeout(resolve, delays[i]); });
         }
-        return { ok: false, reason: tokenResult.reason || 'wp_token_unavailable' };
+        var direct = await postJson(AUTH_EXCHANGE_URL, { audience: 'arena' }, null, 'include');
+        lastDirect = direct;
+        if(direct.ok){
+          return {
+            ok: true,
+            endpoint: AUTH_EXCHANGE_URL,
+            accessToken: getExchangeAccessToken(direct.payload),
+            csrfToken: getExchangeCsrfToken(direct.payload),
+            source: 'exchange_cookie'
+          };
+        }
       }
-      return { ok: false, reason: 'auth_exchange_http_' + direct.status };
+      return { ok: false, reason: 'auth_exchange_http_' + ((lastDirect && lastDirect.status) || 0) };
     } catch(_exchangeErr){
       return { ok: false, reason: 'auth_exchange_request_failed' };
     }
@@ -6720,7 +6743,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(!arenaSupabase || !arenaSupabase.auth || typeof arenaSupabase.auth.setSession !== 'function'){
       logAvatarSupabase(
         'identity.ensure_session.precheck',
-        { bridge_url: WP_SUPABASE_SESSION_URL },
+        { exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
         null,
         new Error('supabase_auth_unavailable'),
         'error'
@@ -6731,7 +6754,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       var current = await arenaSupabase.auth.getUser();
       logAvatarSupabase(
         'identity.ensure_session.current',
-        { bridge_url: WP_SUPABASE_SESSION_URL, exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
+        { exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
         current ? current.data : null,
         current ? current.error : null
       );
@@ -6739,7 +6762,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     } catch(_sessionReadErr){
       logAvatarSupabase(
         'identity.ensure_session.current.exception',
-        { bridge_url: WP_SUPABASE_SESSION_URL, exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
+        { exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
         null,
         _sessionReadErr,
         'warn'
@@ -6790,8 +6813,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       return !!(verifiedUser && verifiedUser.id);
     } catch(bridgeError){
       logAvatarSupabase(
-        'identity.ensure_session.bridge_exception',
-        { bridge_url: WP_SUPABASE_SESSION_URL, exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
+        'identity.ensure_session.auth_exception',
+        { exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
         null,
         bridgeError,
         'error'
@@ -9220,22 +9243,31 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
   function renderArenaAuthFormIntoPanel(){
     if(!entryAuthPanel) return false;
+    var wpDefaultLoginMode = isArenaWpDefaultLoginMode();
     var loginUrl = buildArenaLoginUrl();
     var registerUrl = buildArenaRegisterUrl();
     var returnUrl = buildArenaLoginReturnUrl();
     var loginFormHtml = getArenaLoginFormHtml();
+    var hasEmbeddedLoginForm = !!loginFormHtml;
+    var authTitle = entryAuthPanel.querySelector('.entry-auth-title');
+    if(authTitle && wpDefaultLoginMode){
+      authTitle.textContent = 'Sign in required';
+    }
 
     if(entryAuthLoginLink){
       entryAuthLoginLink.href = loginUrl;
-      entryAuthLoginLink.textContent = loginFormHtml ? 'Use full account page' : 'Continue to Arena';
+      entryAuthLoginLink.textContent = wpDefaultLoginMode
+        ? 'Sign in with MissionMed'
+        : (hasEmbeddedLoginForm ? 'Use full account page' : 'Continue to Arena');
     }
     if(entryAuthRegisterLink){
       entryAuthRegisterLink.href = registerUrl;
+      entryAuthRegisterLink.style.display = wpDefaultLoginMode ? 'none' : '';
     }
 
     if(entryAuthForm){
       entryAuthForm.innerHTML = '';
-      if(loginFormHtml){
+      if(!wpDefaultLoginMode && loginFormHtml){
         entryAuthForm.innerHTML = loginFormHtml;
         var formEl = entryAuthForm.querySelector('form');
         if(formEl){
@@ -9255,15 +9287,15 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(entryAuthLinks){
       entryAuthLinks.style.display = 'flex';
     }
-    return !!(loginFormHtml && entryAuthForm && entryAuthForm.querySelector('form'));
+    return !!(!wpDefaultLoginMode && loginFormHtml && entryAuthForm && entryAuthForm.querySelector('form'));
   }
   function showArenaAuthRequiredState(opts){
     var options = opts || {};
     var loggedOut = !!options.loggedOut;
     var intro = loggedOut
-      ? 'You signed out. Sign in to re-enter the Arena.'
-      : 'Sign in to enter the Arena.';
-    var detail = 'Your drills, stats, rank, and duels are tied to your MissionMed account.';
+      ? 'You signed out. Sign in with MissionMed to re-enter the Arena.'
+      : 'Sign in with MissionMed to enter the Arena.';
+    var detail = 'Use your MissionMed account to continue. You will return to Arena after sign-in.';
 
     ArenaUser.authenticated = false;
     ArenaUser.id = null;
