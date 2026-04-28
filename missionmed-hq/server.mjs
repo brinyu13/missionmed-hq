@@ -1633,6 +1633,107 @@ function requireAuthenticatedApiSession(request, response, session) {
   return true;
 }
 
+const USCE_KNOWN_ROUTE_PATTERNS = [
+  /^\/api\/usce\/requests$/u,
+  /^\/api\/usce\/requests\/search$/u,
+  /^\/api\/usce\/requests\/[^/]+$/u,
+  /^\/api\/usce\/requests\/[^/]+\/claim$/u,
+  /^\/api\/usce\/requests\/[^/]+\/notes$/u,
+  /^\/api\/usce\/offers$/u,
+  /^\/api\/usce\/offers\/[^/]+\/preview$/u,
+  /^\/api\/usce\/offers\/[^/]+\/approve$/u,
+  /^\/api\/usce\/offers\/[^/]+\/send$/u,
+  /^\/api\/usce\/offers\/[^/]+\/revoke$/u,
+  /^\/api\/usce\/offers\/[^/]+\/onboard$/u,
+  /^\/api\/usce\/programs$/u,
+  /^\/api\/usce\/programs\/[^/]+$/u,
+  /^\/api\/usce\/portal\/[^/]+$/u,
+  /^\/api\/usce\/portal\/[^/]+\/respond$/u,
+  /^\/api\/usce\/portal\/[^/]+\/retry-payment$/u,
+  /^\/api\/usce\/admin\/override$/u,
+  /^\/api\/usce\/confirmations\/[^/]+\/refund$/u,
+  /^\/api\/usce\/cron\/sla$/u,
+  /^\/api\/usce\/cron\/payment-timeout$/u,
+  /^\/api\/usce\/cron\/coordinator-sla$/u,
+  /^\/api\/usce\/cron\/archive-terminal$/u,
+  /^\/api\/usce\/webhook\/stripe$/u,
+  /^\/api\/usce\/webhook\/inbound$/u,
+  /^\/api\/usce\/webhook\/postmark-delivery$/u,
+  /^\/api\/usce\/health$/u,
+  /^\/api\/usce\/analytics\/summary$/u,
+];
+
+function isKnownUsceRoute(pathname) {
+  return USCE_KNOWN_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
+}
+
+function isUsceSystemRoute(pathname) {
+  return pathname === '/api/usce/health'
+    || pathname.startsWith('/api/usce/cron/')
+    || pathname.startsWith('/api/usce/webhook/')
+    || pathname.startsWith('/api/usce/analytics/');
+}
+
+function requireUsceUserSession(request, response, session, authHeaders) {
+  if (!session) {
+    sendJson(response, 401, {
+      error: 'authentication_required',
+      message: 'USCE routes require an authenticated HQ session.',
+      login: getLoginHints(request),
+    }, authHeaders);
+    return false;
+  }
+
+  if (isMutationMethod(request.method) && !validateCsrf(request, session)) {
+    sendJson(response, 403, {
+      error: 'csrf_validation_failed',
+      message: 'Missing or invalid CSRF token.',
+    }, authHeaders);
+    return false;
+  }
+
+  return true;
+}
+
+async function handleUsceRoute(request, response, url, context) {
+  const { pathname } = url;
+  const { session, authHeaders } = context;
+
+  if (!isKnownUsceRoute(pathname)) {
+    return false;
+  }
+
+  if (isUsceSystemRoute(pathname)) {
+    sendJson(response, 501, {
+      error: 'usce_system_route_not_implemented',
+      message: 'USCE system route is recognized but not yet wired in missionmed-hq runtime.',
+      path: pathname,
+      method: request.method,
+    }, authHeaders);
+    return true;
+  }
+
+  if (!requireUsceUserSession(request, response, session, authHeaders)) {
+    return true;
+  }
+
+  if (pathname.startsWith('/api/usce/portal/')) {
+    sendJson(response, 404, {
+      error: 'portal_offer_not_found',
+      message: 'Portal offer token was not found.',
+    }, authHeaders);
+    return true;
+  }
+
+  sendJson(response, 501, {
+    error: 'usce_route_not_implemented',
+    message: 'USCE route is recognized but not yet wired in missionmed-hq runtime.',
+    path: pathname,
+    method: request.method,
+  }, authHeaders);
+  return true;
+}
+
 function handleServerError(response, error) {
   sendJson(response, 500, {
     error: 'internal_error',
@@ -1966,6 +2067,13 @@ async function handleApiRoute(request, response, url, context) {
   if (pathname === '/api/hq/medmail' || pathname === '/api/hq/emails') {
     sendRoutePayload(response, await getHqMedMail(session));
     return;
+  }
+
+  if (pathname.startsWith('/api/usce/')) {
+    const handled = await handleUsceRoute(request, response, url, { session, authHeaders });
+    if (handled) {
+      return;
+    }
   }
 
   if (!requireAuthenticatedApiSession(request, response, session)) {

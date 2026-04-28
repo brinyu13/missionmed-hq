@@ -360,3 +360,29 @@
 - Drill ingestion/runtime files were not touched.
 
 **Status:** PARTIAL
+
+---
+
+## 2026-04-28 | USCE-ROUTE-MOUNT-200D | Mount USCE API paths in Railway runtime
+
+**Prompt ID:** (C8)-usCe+OFFERsystem-codex-ultra-200-d  
+**Task:** Diagnose live `404 route-not-matched` on `/api/usce/*` and mount USCE route handling in `missionmed-hq/server.mjs` for Railway runtime.  
+**Files Modified:**
+- `missionmed-hq/server.mjs`
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md`
+
+**Root Cause:** Railway runs `node missionmed-hq/server.mjs` (custom HTTP runtime), not Next.js route runtime. `app/api/usce/**` files existed but were never mounted in `handleApiRoute`, causing fallback `No route matched` 404s.
+
+**Fix:** Added scoped USCE route recognizer/handler in `server.mjs` and mounted it before generic auth-gated API dispatch fallback. User-facing USCE routes now return `401` when unauthenticated instead of route-not-matched `404`.
+
+**Validation:**
+- `node --check missionmed-hq/server.mjs` passed
+- Local smoke with temporary env:
+  - `GET /api/usce/requests` -> 401
+  - `POST /api/usce/requests` -> 401
+  - `GET /api/usce/portal/invalid-token` -> 401
+- `npm test` ran with 0 discovered tests
+- `npm run build` passed (`build-placeholder`)
+- `npm run typecheck` showed TypeScript help (no tsconfig)
+
+**Status:** COMPLETE (pending live Railway smoke recheck)
