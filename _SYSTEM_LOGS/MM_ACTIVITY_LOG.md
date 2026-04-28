@@ -312,3 +312,51 @@
 **Fixes:** None required for demo scope. Noted for system maintenance.  
 **Verification:** 15-point automated quality checklist: line count, version comment, all 6 tabs, ghost blocks, drag/drop, timer widget, calendar modal, progress rings, XP system, toast system, responsive media queries, zero em-dashes, zero AI cliches, zero external dependencies, function count.  
 **Status:** COMPLETE
+
+---
+
+## 2026-04-28 | USCE-AUTH-PERMANENTIZE-200A | Permanentize Railway auth handoff fix + USCE live smoke
+
+**Prompt ID:** (C8)-usCe+OFFERsystem-codex-ultra-200-a  
+**Task:** Reconcile local auth fix commit against remote main safely, preserve scoped WordPress to Railway auth handoff logic in source control, validate syntax/tests, and run safe live USCE smoke checks without destructive production mutation.  
+**Files Modified:**  
+- `missionmed-hq/server.mjs` (from cherry-picked auth fix commit)  
+- `wp-content/mu-plugins/missionmed-login-flow-restore.php` (from cherry-picked auth host allowlist fix)  
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` (this entry)
+
+**Git Reconciliation:**
+- Created backup branch: `backup/C8-usce-auth-200a-before-reconcile-20260428-042257`
+- Created clean worktree from `origin/main`
+- Created branch: `c8-usce-auth-permanentize-200a`
+- Cherry-picked commit: `dafea51` -> new commit `ee949c7`
+- Scoped diff confirmed to 2 auth files only
+
+**Validation Commands:**
+- `node --check missionmed-hq/server.mjs` -> PASS
+- `php -l wp-content/mu-plugins/missionmed-login-flow-restore.php` -> PASS
+- `npm run typecheck` -> tooling gap (no `tsconfig.json`, TypeScript help output)
+- `npm test` -> runs, `0 tests discovered`
+- `npm run build` -> PASS (`build-placeholder`)
+
+**Live Checks (Railway production):**
+- `GET /api/auth/start` -> 302 redirect to WP handoff with `return_to=/api/auth/session`
+- `GET /api/usce/requests` unauth -> 401 expected
+- `POST /api/usce/requests` unauth -> 401 expected
+- `GET /api/usce/offers` unauth -> 401 expected
+- `GET /api/usce/portal/invalid-token` unauth -> 401 expected
+- `POST /api/usce/portal/invalid-token/respond` unauth -> 401 expected
+
+**Security / Compliance:**
+- No `service_role` or `createServiceRoleClient` usage found in user-facing routes under:
+  - `app/api/usce/requests/**`
+  - `app/api/usce/offers/**`
+  - `app/api/usce/programs/**`
+  - `app/api/usce/search/**`
+  - `app/api/usce/portal/**`
+- Service-role usage remains in system routes only (`cron`, `webhook`, `health`) as expected.
+
+**Notes:**
+- Source-controlled `missionmed-command-center/includes/class-mmac-command-center-rest.php` was not present in this repository snapshot; permanentization of that WordPress plugin file requires external plugin source sync if maintained outside this repo.
+- Drill ingestion/runtime files were not touched.
+
+**Status:** PARTIAL
