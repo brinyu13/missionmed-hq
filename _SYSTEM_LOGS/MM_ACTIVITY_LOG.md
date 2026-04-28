@@ -360,3 +360,68 @@
 - Drill ingestion/runtime files were not touched.
 
 **Status:** PARTIAL
+
+---
+
+## 2026-04-28 | A8-ARENA-LOGIN-FINETUNE-001-e | Bootstrap 502 stabilization in auth proxy shim
+
+**Prompt ID:** (A8)-ARENA LOGIN+Finetune-codex-high-001-e
+**Task:** Diagnose post-login `/api/auth/bootstrap` 502 loop and apply narrow fix without auth architecture redesign.
+
+**Evidence:**
+- Logged-out probes (browser/CLI) reproducible and expected: `/api/auth/exchange` 400, `/wp-json/missionmed-command-center/v1/auth/token/` 401, `/api/auth/bootstrap` 401.
+- Intermittent proxy transport failure reproduced before fix: same-origin `/api/auth/bootstrap` sporadically returned `502 {"error":"upstream_unreachable"}` while direct Railway `/api/auth/bootstrap` remained stable (401 for invalid bearer).
+- This isolates the instability to WordPress same-origin proxy transport, not Railway endpoint shape.
+
+**Repair deployed (single file):**
+- `wp-content/mu-plugins/missionmed-hq-proxy.php`
+- Added narrow retry wrapper around `wp_remote_request` (transport errors + transient 5xx), increased timeout 20s -> 30s, emitted `X-MissionMed-Auth-Proxy-Attempts` for diagnostics.
+
+**Critical incident + recovery in-run:**
+- Initial backup was saved as `.php` directly in `mu-plugins`, which WordPress autoloaded and caused function redeclare fatals (`500`).
+- Immediate recovery executed by moving backup file to `mu-plugins/_backup_disabled/` (non-autoloaded location).
+- Service restored to normal auth-proxy responses after move.
+
+**Backups created (non-autoloaded authoritative):**
+- `/www/theresidencyacademy_209/public/wp-content/mu-plugins/_backup_disabled/missionmed-hq-proxy_BACKUP_20260428_053931_A8-ARENA_LOGIN-Finetune-codex-high-001-e.php`
+- `/www/theresidencyacademy_209/public/wp-content/mu-plugins/_backup_disabled/missionmed-hq-proxy_BACKUP_20260428_054108_A8-ARENA_LOGIN-Finetune-codex-high-001-e.php`
+
+**Post-fix verification:**
+- Same-origin auth endpoints healthy: `/api/auth/exchange` -> 400, `/api/auth/bootstrap` -> 401 with `x-missionmed-route: auth-proxy`.
+- Bootstrap stress test (80 same-origin requests, invalid bearer): `total_500=0`, `total_502=0`.
+- Arena auth injection markers remain present on `/arena`.
+- `/stat`, `/drills`, `/daily` remained 200 with expected proxy headers.
+
+**Status:** PARTIAL
+- Remaining blocker: no valid WordPress browser-login credential available in this run to confirm full successful login -> exchange -> bootstrap -> Supabase session -> hydrated arena -> logout cycle.
+
+## 2026-04-28 | A8-ARENA-LOGIN-FINETUNE-001-i | Non-admin exchange identity follow-up (access-blocked E2E)
+
+**Prompt ID:** (A8)-ARENA LOGIN+Finetune-codex-high-001-i  
+**Task:** Continue root-cause repair for non-admin `/api/auth/exchange` failure after successful embedded WP form login.  
+
+**Preflight / Scope:**
+- Branch verified: `main`
+- Dirty files at start: `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md`, `wp-content/mu-plugins/missionmed-hq-proxy.php`
+- No forbidden code files modified in this run.
+
+**Runtime Findings:**
+- Railway CLI is authenticated and tied to production service `missionmed-hq`.
+- Production `exchange` unauth probe remains `400` (expected for logged-out probes).
+- Existing backend code still defaults `MMHQ_ALLOWED_WP_ROLES` to `administrator` when env is unset.
+- Confirmed environment lacked an explicit non-admin allowlist before this run.
+
+**Change Applied (Production Config):**
+- Set Railway env var:
+  - `MMHQ_ALLOWED_WP_ROLES=administrator,subscriber,customer`
+- Result:
+  - New production deployment triggered and reached `SUCCESS`.
+
+**External Blockers Encountered:**
+- Direct SSH/WP-CLI path to production host unavailable in this environment (no SSH identities loaded).
+- Cloudflare blocked automated WordPress REST user-creation/login attempts from this environment (HTTP 403 Access denied), preventing temporary low-privilege credential generation and scripted browser-login simulation.
+
+**Validation Limits:**
+- Could not complete credentialed non-admin login -> exchange -> bootstrap -> logout proof in this environment due access/security controls above.
+
+**Status:** PARTIAL / BLOCKED FOR FINAL E2E PROOF

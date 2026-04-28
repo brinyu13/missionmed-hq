@@ -48,6 +48,46 @@ function missionmed_hq_proxy_get_incoming_headers() {
 }
 
 /**
+ * Forward auth requests to Railway with narrow transport retries.
+ *
+ * Retries only on transport-layer WP errors or transient 5xx upstream statuses.
+ *
+ * @param string                $target_url Railway target URL.
+ * @param array<string, mixed>  $args       wp_remote_request args.
+ * @return array{response:array|WP_Error,attempts:int}
+ */
+function missionmed_hq_proxy_forward_with_retry( $target_url, $args ) {
+	$attempt     = 0;
+	$max_attempt = 3;
+	$response    = null;
+
+	while ( $attempt < $max_attempt ) {
+		$attempt++;
+		$response = wp_remote_request( $target_url, $args );
+
+		if ( is_wp_error( $response ) ) {
+			if ( $attempt < $max_attempt ) {
+				usleep( 175000 * $attempt );
+				continue;
+			}
+			break;
+		}
+
+		$status_code = (int) wp_remote_retrieve_response_code( $response );
+		if ( $status_code >= 500 && $status_code <= 504 && $attempt < $max_attempt ) {
+			usleep( 175000 * $attempt );
+			continue;
+		}
+		break;
+	}
+
+	return array(
+		'response' => $response,
+		'attempts' => $attempt,
+	);
+}
+
+/**
  * Proxy only /api/auth/* requests to Railway.
  *
  * @return void
@@ -109,18 +149,21 @@ function missionmed_hq_proxy_api_auth_requests() {
 		'method'      => $method,
 		'headers'     => $filtered_headers,
 		'body'        => $body,
-		'timeout'     => 20,
+		'timeout'     => 30,
 		'redirection' => 3,
 		'blocking'    => true,
 	);
 
-	$response = wp_remote_request($target_url, $args);
+	$forward = missionmed_hq_proxy_forward_with_retry( $target_url, $args );
+	$response = $forward['response'];
+	$attempts = isset( $forward['attempts'] ) ? (int) $forward['attempts'] : 1;
 
 	if (is_wp_error($response)) {
 		if (!headers_sent()) {
 			status_header(502);
 			header('Content-Type: application/json; charset=utf-8');
 			header('X-MissionMed-Route: auth-proxy');
+			header('X-MissionMed-Auth-Proxy-Attempts: ' . max( 1, $attempts ));
 		}
 		echo wp_json_encode(
 			array(
@@ -174,6 +217,7 @@ function missionmed_hq_proxy_api_auth_requests() {
 		}
 
 		status_header($status_code);
+		header('X-MissionMed-Auth-Proxy-Attempts: ' . max( 1, $attempts ));
 		header('Content-Length: ' . strlen($response_body));
 	}
 
