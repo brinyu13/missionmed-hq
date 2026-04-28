@@ -103,9 +103,14 @@ const CONFIG = {
   stripeConnectScope: String(envValue('MMHQ_STRIPE_CONNECT_SCOPE', 'read_write')).trim() || 'read_write',
   supabaseUrl: sanitizeServiceUrl(envValue('MMHQ_SUPABASE_URL', '')),
   supabaseKey: String(envValue('MMHQ_SUPABASE_KEY', '')).trim(),
-  supabaseAnonKey: envValue('MMHQ_SUPABASE_ANON_KEY', ''),
-  supabaseServiceRoleKey: envValue('MMHQ_SUPABASE_SERVICE_ROLE_KEY', ''),
-  supabaseLegacyKeysPresent: hasConfiguredEnv('MMHQ_SUPABASE_SERVICE_ROLE_KEY') || hasConfiguredEnv('MMHQ_SUPABASE_ANON_KEY'),
+  supabaseAnonKey: envValue('MMHQ_SUPABASE_ANON_KEY', '') || envValue('SUPABASE_ANON_KEY', '') || envValue('NEXT_PUBLIC_SUPABASE_ANON_KEY', ''),
+  supabaseServiceRoleKey: envValue('MMHQ_SUPABASE_SERVICE_ROLE_KEY', '') || envValue('SUPABASE_SERVICE_ROLE_KEY', ''),
+  supabaseLegacyKeysPresent:
+    hasConfiguredEnv('MMHQ_SUPABASE_SERVICE_ROLE_KEY')
+    || hasConfiguredEnv('MMHQ_SUPABASE_ANON_KEY')
+    || hasConfiguredEnv('SUPABASE_SERVICE_ROLE_KEY')
+    || hasConfiguredEnv('SUPABASE_ANON_KEY')
+    || hasConfiguredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
   cieBase: sanitizeServiceUrl(envValue('MMHQ_CIE_BASE', '')),
   mediaUploadBase: sanitizeServiceUrl(envValue('MMHQ_MEDIA_UPLOAD_BASE', '')) || sanitizeServiceUrl(envValue('MMHQ_CIE_BASE', '')),
   mediaPipelineBase: sanitizeServiceUrl(envValue('MMHQ_MEDIA_PIPELINE_BASE', 'http://127.0.0.1:8001')),
