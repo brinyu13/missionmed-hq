@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-28 11:32 UTC]
+- PROMPT: (E8)-STAT+Async-codex-high-500-d
+- Scope: Verification and deploy pass for STAT human opponent lookup + friend challenge UX to STAGING/LIVE.
+- Files: LIVE/stat.html, CHANGELOG/CHANGELOG.md
+- Notes: Re-validated RPC presence through Supabase REST schema/permission responses, validated STAT deploy gate, and completed clean-pipeline STAGING→LIVE deployment/runtime verification for friend-mode opponent email/user-id challenge UX.
+
 ## [2026-04-28 10:40 UTC]
 - PROMPT: (E8)-STAT+Async-codex-high-500-c
 - Scope: STAT human challenge UX/auth identity stabilization for live two-user async duel testing.
