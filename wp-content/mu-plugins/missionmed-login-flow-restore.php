@@ -46,6 +46,10 @@ if ( ! function_exists( 'mm_auth_redirect_fix_host_is_allowed' ) ) {
 			return true;
 		}
 
+		if ( 'missionmed-hq-production.up.railway.app' === $host ) {
+			return true;
+		}
+
 		if ( 'missionmedinstitute.com' === $host || 'www.missionmedinstitute.com' === $host ) {
 			return true;
 		}
@@ -58,6 +62,19 @@ if ( ! function_exists( 'mm_auth_redirect_fix_host_is_allowed' ) ) {
 		}
 
 		return false;
+	}
+}
+
+if ( ! function_exists( 'mm_auth_redirect_fix_allowed_redirect_hosts' ) ) {
+	/**
+	 * Extend core safe-redirect host allowlist with approved HQ domain.
+	 *
+	 * @param array<int, string> $hosts Allowed hosts.
+	 * @return array<int, string>
+	 */
+	function mm_auth_redirect_fix_allowed_redirect_hosts( $hosts ) {
+		$hosts[] = 'missionmed-hq-production.up.railway.app';
+		return array_values( array_unique( array_map( 'strtolower', array_filter( (array) $hosts ) ) ) );
 	}
 }
 
@@ -187,6 +204,7 @@ if ( ! function_exists( 'mm_auth_redirect_fix_has_redirect_sentinel' ) ) {
 
 add_filter( 'login_redirect', 'mm_auth_redirect_fix_login_redirect', PHP_INT_MAX, 3 );
 add_filter( 'woocommerce_login_redirect', 'mm_auth_redirect_fix_woocommerce_login_redirect', PHP_INT_MAX, 2 );
+add_filter( 'allowed_redirect_hosts', 'mm_auth_redirect_fix_allowed_redirect_hosts', PHP_INT_MAX );
 
 add_action(
 	'template_redirect',
