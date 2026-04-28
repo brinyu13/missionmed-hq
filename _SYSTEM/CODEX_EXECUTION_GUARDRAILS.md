@@ -535,3 +535,56 @@ Every Codex prompt that touches the MissionMed system MUST reference this docume
 ---
 
 END OF CODEX EXECUTION GUARDRAILS
+
+---
+
+## 8. GIT WORKSPACE HYGIENE (MR-G8)
+
+These rules are mandatory for MissionMed Git safety and apply to every Codex execution.
+
+### 8.1 Pre-Edit Command Preamble (always run first)
+
+Before any file edits, print and verify:
+
+```bash
+pwd
+git branch --show-current
+bash _SYSTEM/scripts/mm-preflight.sh
+```
+
+### 8.2 Hard Refusals
+
+Codex must refuse edits when any condition below is true:
+
+- Current branch is `main`
+- Current path is `/Users/brianb/MissionMed`
+- Git status is dirty (tracked or untracked non-ignored files)
+- Task mixes unrelated workstreams without explicit scope
+
+### 8.3 Scope Declaration Before Editing
+
+Before editing, state exact target files and task scope.
+If requested edits expand beyond scope, stop and re-confirm scope.
+
+### 8.4 Production Runtime Safety
+
+Do not edit production runtime files unless explicitly scoped by prompt:
+
+- `LIVE/`
+- `wp-content/mu-plugins/`
+- `missionmed-hq/server.mjs`
+- `supabase/migrations/`
+
+### 8.5 Demo/Scratch Output Location
+
+Store demos, reports, screenshots, and scratch output outside repo root:
+
+- `/Users/brianb/MissionMed_AI_Sandbox/`
+
+When relevant, also copy latest deliverables to:
+
+- `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`
+
+### 8.6 No Workstream Mixing
+
+Do not combine unrelated projects (USCE, Arena, STAT, Dashboard, IV, WordPress runtime) in one edit cycle unless prompt explicitly requires coordinated changes.

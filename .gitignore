@@ -28,3 +28,17 @@ _SYSTEM/r2.env
 *.xlsx
 _CACHE/
 BACKUPS/
+
+# MissionMed workspace hygiene guardrails (G8)
+# Keep transient Supabase local CLI state out of commits.
+supabase/.temp/gotrue-version
+supabase/.temp/pooler-url
+supabase/.temp/postgres-version
+supabase/.temp/project-ref
+supabase/.temp/rest-version
+supabase/.temp/storage-migration
+supabase/.temp/storage-version
+
+# Keep rescue artifact dumps out of normal feature commits.
+_SYSTEM_LOGS/git_rescue/
+_SYSTEM_LOGS/auth_backups/
