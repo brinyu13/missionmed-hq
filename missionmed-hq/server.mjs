@@ -1700,7 +1700,13 @@ async function handleUsceRoute(request, response, url, context) {
   const { session, authHeaders } = context;
 
   if (!isKnownUsceRoute(pathname)) {
-    return false;
+    sendJson(response, 404, {
+      error: 'usce_route_not_found',
+      message: `No USCE route matched ${pathname}.`,
+      path: pathname,
+      method: request.method,
+    }, authHeaders);
+    return true;
   }
 
   if (isUsceSystemRoute(pathname)) {
@@ -1713,25 +1719,765 @@ async function handleUsceRoute(request, response, url, context) {
     return true;
   }
 
+  const requestsRoot = /^\/api\/usce\/requests$/u;
+  const requestById = /^\/api\/usce\/requests\/([0-9a-f-]{36})$/iu;
+  const offersRoot = /^\/api\/usce\/offers$/u;
+  const programsRoot = /^\/api\/usce\/programs$/u;
+  const portalRoot = /^\/api\/usce\/portal\/([^/]+)$/u;
+  const portalRespond = /^\/api\/usce\/portal\/([^/]+)\/respond$/u;
+
+  const portalRootMatch = pathname.match(portalRoot);
+  const portalRespondMatch = pathname.match(portalRespond);
+  const requiresPortalTokenCheck = Boolean(portalRootMatch || portalRespondMatch);
+
+  if (requiresPortalTokenCheck) {
+    const tokenValue = decodeURIComponent((portalRootMatch || portalRespondMatch)?.[1] || '').trim();
+    if (!/^[A-Za-z0-9_-]{20,200}$/u.test(tokenValue)) {
+      sendJson(response, 401, {
+        code: 'INVALID_TOKEN',
+        error: 'INVALID_TOKEN',
+        message: 'Portal token is malformed.',
+      }, authHeaders);
+      return true;
+    }
+  }
+
   if (!requireUsceUserSession(request, response, session, authHeaders)) {
     return true;
   }
 
-  if (pathname.startsWith('/api/usce/portal/')) {
-    sendJson(response, 404, {
-      error: 'portal_offer_not_found',
-      message: 'Portal offer token was not found.',
+  const authContext = await resolveUsceUserContext(session);
+  if (!authContext.ok) {
+    sendJson(response, authContext.status || 502, {
+      error: authContext.error || 'supabase_bootstrap_failed',
+      message: authContext.message || 'Supabase bootstrap failed for USCE runtime.',
     }, authHeaders);
     return true;
   }
 
-  sendJson(response, 501, {
-    error: 'usce_route_not_implemented',
-    message: 'USCE route is recognized but not yet wired in missionmed-hq runtime.',
-    path: pathname,
-    method: request.method,
+  const { accessToken, user } = authContext;
+
+  if (requestsRoot.test(pathname)) {
+    if (request.method === 'GET') {
+      const listResult = await usceRestQuery(
+        `usce_requests?select=*&assigned_coordinator_id=eq.${encodeURIComponent(user.id)}&order=created_at.desc`,
+        accessToken
+      );
+      if (!listResult.ok) {
+        return sendUsceSupabaseError(response, listResult, authHeaders, 'Failed to list requests.');
+      }
+
+      sendJson(response, 200, { requests: Array.isArray(listResult.data) ? listResult.data : [] }, authHeaders);
+      return true;
+    }
+
+    if (request.method === 'POST') {
+      let payload;
+      try {
+        payload = await readJsonBody(request);
+      } catch (error) {
+        sendJson(response, 400, {
+          code: 'INVALID_JSON',
+          error: 'INVALID_JSON',
+          message: error instanceof Error ? error.message : 'Request body must be valid JSON.',
+        }, authHeaders);
+        return true;
+      }
+
+      const applicantName = String(payload?.applicant_name || '').trim();
+      const applicantEmail = String(payload?.applicant_email || '').trim().toLowerCase();
+      const programSeatId = String(payload?.program_seat_id || '').trim();
+      if (!applicantName || !applicantEmail || !programSeatId) {
+        sendJson(response, 400, {
+          code: 'VALIDATION_FAILED',
+          error: 'VALIDATION_FAILED',
+          message: 'applicant_name, applicant_email, and program_seat_id are required.',
+        }, authHeaders);
+        return true;
+      }
+
+      const seatLookup = await usceRestQuery(
+        `usce_program_seats?select=id,program_name,active&id=eq.${encodeURIComponent(programSeatId)}&active=eq.true&limit=1`,
+        accessToken
+      );
+      if (!seatLookup.ok) {
+        return sendUsceSupabaseError(response, seatLookup, authHeaders, 'Failed to resolve program seat.');
+      }
+
+      const programSeat = Array.isArray(seatLookup.data) ? seatLookup.data[0] : null;
+      if (!programSeat) {
+        sendJson(response, 409, {
+          code: 'INVALID_PROGRAM_SEAT',
+          error: 'INVALID_PROGRAM_SEAT',
+          message: 'Program seat does not exist or is not active.',
+        }, authHeaders);
+        return true;
+      }
+
+      const insertRow = {
+        applicant_name: applicantName,
+        applicant_email: applicantEmail,
+        applicant_phone_e164: payload?.applicant_phone_e164 || null,
+        program_name: programSeat.program_name || null,
+        program_seat_id: programSeatId,
+        preferred_specialties: Array.isArray(payload?.preferred_specialties) ? payload.preferred_specialties : [],
+        preferred_locations: Array.isArray(payload?.preferred_locations) ? payload.preferred_locations : [],
+        preferred_months: Array.isArray(payload?.preferred_months) ? payload.preferred_months : [],
+        preference_rankings: isPlainObject(payload?.preference_rankings) ? payload.preference_rankings : {},
+        source: 'manual_coordinator',
+        intake_payload: isPlainObject(payload?.intake_payload) ? payload.intake_payload : {},
+      };
+
+      const createResult = await usceRestMutation(
+        'usce_requests?select=*',
+        accessToken,
+        'POST',
+        insertRow
+      );
+      if (!createResult.ok) {
+        return sendUsceSupabaseError(response, createResult, authHeaders, 'Failed to create request.');
+      }
+
+      const createdRequest = Array.isArray(createResult.data) ? createResult.data[0] : createResult.data;
+      sendJson(response, 201, {
+        request: createdRequest || null,
+        request_id: createdRequest?.id || null,
+      }, authHeaders);
+      return true;
+    }
+
+    sendMethodNotAllowed(response, ['GET', 'POST']);
+    return true;
+  }
+
+  const requestByIdMatch = pathname.match(requestById);
+  if (requestByIdMatch) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    const requestId = decodeURIComponent(requestByIdMatch[1] || '').trim();
+    const requestLookup = await usceRestQuery(
+      `usce_requests?select=*&id=eq.${encodeURIComponent(requestId)}&limit=1`,
+      accessToken
+    );
+    if (!requestLookup.ok) {
+      return sendUsceSupabaseError(response, requestLookup, authHeaders, 'Failed to load request.');
+    }
+
+    const requestRow = Array.isArray(requestLookup.data) ? requestLookup.data[0] : null;
+    if (!requestRow) {
+      sendJson(response, 404, {
+        code: 'NOT_FOUND',
+        error: 'NOT_FOUND',
+        message: 'Request not found.',
+      }, authHeaders);
+      return true;
+    }
+
+    const [offersResult, commsResult, auditResult] = await Promise.all([
+      usceRestQuery(
+        `usce_offers?select=*&request_id=eq.${encodeURIComponent(requestId)}&order=created_at.desc`,
+        accessToken
+      ),
+      usceRestQuery(
+        `usce_comms?select=*&thread_id=eq.${encodeURIComponent(requestId)}&order=created_at.desc`,
+        accessToken
+      ),
+      usceRestQuery(
+        `usce_audit?select=*&entity_id=eq.${encodeURIComponent(requestId)}&order=created_at.desc`,
+        accessToken
+      ),
+    ]);
+
+    if (!offersResult.ok) {
+      return sendUsceSupabaseError(response, offersResult, authHeaders, 'Failed to load offers.');
+    }
+    if (!commsResult.ok) {
+      return sendUsceSupabaseError(response, commsResult, authHeaders, 'Failed to load communications.');
+    }
+    if (!auditResult.ok) {
+      return sendUsceSupabaseError(response, auditResult, authHeaders, 'Failed to load audit history.');
+    }
+
+    const commsRows = Array.isArray(commsResult.data) ? commsResult.data : [];
+    sendJson(response, 200, {
+      request: requestRow,
+      offers: Array.isArray(offersResult.data) ? offersResult.data : [],
+      comms_external: commsRows.filter((row) => row?.is_internal_note === false),
+      comms_internal_notes: commsRows.filter((row) => row?.is_internal_note === true),
+      audit: Array.isArray(auditResult.data) ? auditResult.data : [],
+    }, authHeaders);
+    return true;
+  }
+
+  if (offersRoot.test(pathname)) {
+    if (request.method !== 'POST') {
+      sendMethodNotAllowed(response, ['POST']);
+      return true;
+    }
+
+    let payload;
+    try {
+      payload = await readJsonBody(request);
+    } catch (error) {
+      sendJson(response, 400, {
+        code: 'INVALID_JSON',
+        error: 'INVALID_JSON',
+        message: error instanceof Error ? error.message : 'Request body must be valid JSON.',
+      }, authHeaders);
+      return true;
+    }
+
+    const requestId = String(payload?.request_id || '').trim();
+    const programSeatId = String(payload?.program_seat_id || '').trim();
+    const amountCents = Number(payload?.amount_cents || 0);
+    const subject = String(payload?.subject || '');
+    const htmlBody = String(payload?.html_body || '');
+    const textBody = String(payload?.text_body || '');
+
+    if (!requestId || !programSeatId || !Number.isInteger(amountCents) || amountCents <= 0 || !subject || !htmlBody || !textBody) {
+      sendJson(response, 422, {
+        code: 'VALIDATION_FAILED',
+        error: 'VALIDATION_FAILED',
+        message: 'request_id, program_seat_id, amount_cents, subject, html_body, and text_body are required.',
+      }, authHeaders);
+      return true;
+    }
+
+    const requestLookup = await usceRestQuery(
+      `usce_requests?select=id,status,assigned_coordinator_id,applicant_email,intake_payload&id=eq.${encodeURIComponent(requestId)}&limit=1`,
+      accessToken
+    );
+    if (!requestLookup.ok) {
+      return sendUsceSupabaseError(response, requestLookup, authHeaders, 'Failed to load request.');
+    }
+    const requestRow = Array.isArray(requestLookup.data) ? requestLookup.data[0] : null;
+    if (!requestRow) {
+      sendJson(response, 404, {
+        code: 'NOT_FOUND',
+        error: 'NOT_FOUND',
+        message: 'Request not found.',
+      }, authHeaders);
+      return true;
+    }
+
+    if (String(requestRow.assigned_coordinator_id || '') !== user.id) {
+      sendJson(response, 403, {
+        code: 'FORBIDDEN',
+        error: 'FORBIDDEN',
+        message: 'Only the assigned coordinator can create offers for this request.',
+      }, authHeaders);
+      return true;
+    }
+
+    if (!['IN_REVIEW', 'OFFERED'].includes(String(requestRow.status || ''))) {
+      sendJson(response, 409, {
+        code: 'INVALID_TRANSITION',
+        error: 'INVALID_TRANSITION',
+        message: 'Offers can only be created while request status is IN_REVIEW or OFFERED.',
+      }, authHeaders);
+      return true;
+    }
+
+    const seatLookup = await usceRestQuery(
+      `usce_program_seats?select=id,seats_total,seats_held_soft,seats_held_hard,seats_filled,active&id=eq.${encodeURIComponent(programSeatId)}&active=eq.true&limit=1`,
+      accessToken
+    );
+    if (!seatLookup.ok) {
+      return sendUsceSupabaseError(response, seatLookup, authHeaders, 'Failed to validate program seat.');
+    }
+
+    const seatRow = Array.isArray(seatLookup.data) ? seatLookup.data[0] : null;
+    if (!seatRow) {
+      sendJson(response, 409, {
+        code: 'INVALID_TRANSITION',
+        error: 'INVALID_TRANSITION',
+        message: 'Program seat does not exist or is inactive.',
+      }, authHeaders);
+      return true;
+    }
+
+    const seatsAvailable =
+      Number(seatRow.seats_total || 0) -
+      Number(seatRow.seats_held_soft || 0) -
+      Number(seatRow.seats_held_hard || 0) -
+      Number(seatRow.seats_filled || 0);
+    if (seatsAvailable < 1) {
+      sendJson(response, 409, {
+        code: 'NO_SEATS',
+        error: 'NO_SEATS',
+        message: 'No seats available for the selected program seat.',
+      }, authHeaders);
+      return true;
+    }
+
+    let applicantUserId = '';
+    const candidate = String(requestRow?.intake_payload?.applicant_user_id || '').trim();
+    if (/^[0-9a-f]{8}-[0-9a-f-]{27}$/iu.test(candidate)) {
+      applicantUserId = candidate;
+    } else {
+      const requestEmail = String(requestRow.applicant_email || '').toLowerCase();
+      const callerEmail = String(user.email || '').toLowerCase();
+      if (requestEmail && callerEmail && requestEmail === callerEmail) {
+        applicantUserId = user.id;
+      }
+    }
+
+    if (!applicantUserId) {
+      sendJson(response, 422, {
+        code: 'APPLICANT_USER_UNRESOLVED',
+        error: 'APPLICANT_USER_UNRESOLVED',
+        message: 'Unable to resolve applicant user identity for offer creation.',
+      }, authHeaders);
+      return true;
+    }
+
+    const rawPortalToken = base64UrlEncode(randomBytes(32));
+    const portalTokenHash = createHash('sha256').update(rawPortalToken, 'utf8').digest('hex');
+
+    const insertResult = await usceRestMutation(
+      'usce_offers?select=id,status',
+      accessToken,
+      'POST',
+      {
+        request_id: requestId,
+        applicant_user_id: applicantUserId,
+        program_seat_id: programSeatId,
+        amount_cents: amountCents,
+        currency: 'USD',
+        status: 'DRAFT',
+        subject,
+        html_body: htmlBody,
+        text_body: textBody,
+        portal_token_hash: portalTokenHash,
+        portal_token_expires_at: null,
+        portal_token_encrypted: null,
+      }
+    );
+
+    if (!insertResult.ok) {
+      return sendUsceSupabaseError(response, insertResult, authHeaders, 'Failed to create offer.');
+    }
+
+    const createdOffer = Array.isArray(insertResult.data) ? insertResult.data[0] : insertResult.data;
+    sendJson(response, 201, {
+      id: createdOffer?.id || null,
+      status: createdOffer?.status || 'DRAFT',
+      raw_portal_token: rawPortalToken,
+    }, authHeaders);
+    return true;
+  }
+
+  if (programsRoot.test(pathname)) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    const activeParam = String(url.searchParams.get('active') || 'true').toLowerCase();
+    const active = activeParam !== 'false';
+    const specialty = String(url.searchParams.get('specialty') || '').trim();
+    const location = String(url.searchParams.get('location') || '').trim();
+    const limitRaw = Number(url.searchParams.get('limit') || '50');
+    const limit = Number.isInteger(limitRaw) ? Math.max(1, Math.min(200, limitRaw)) : 50;
+
+    const query = new URLSearchParams();
+    query.set('select', '*');
+    query.set('active', `eq.${active}`);
+    query.set('order', 'created_at.desc');
+    query.set('limit', String(limit));
+    if (specialty) {
+      query.set('specialty', `ilike.*${specialty.replace(/[%*]/gu, '')}*`);
+    }
+    if (location) {
+      query.set('location', `ilike.*${location.replace(/[%*]/gu, '')}*`);
+    }
+
+    const programsResult = await usceRestQuery(`usce_program_seats?${query.toString()}`, accessToken);
+    if (!programsResult.ok) {
+      return sendUsceSupabaseError(response, programsResult, authHeaders, 'Failed to list programs.');
+    }
+
+    const items = (Array.isArray(programsResult.data) ? programsResult.data : []).map((row) => ({
+      ...row,
+      seats_available:
+        Number(row?.seats_total || 0) -
+        Number(row?.seats_held_soft || 0) -
+        Number(row?.seats_held_hard || 0) -
+        Number(row?.seats_filled || 0),
+    }));
+
+    sendJson(response, 200, { items, next_cursor: null }, authHeaders);
+    return true;
+  }
+
+  if (portalRootMatch) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    const token = decodeURIComponent(portalRootMatch[1] || '').trim();
+    const tokenHash = createHash('sha256').update(token, 'utf8').digest('hex');
+
+    const offerResult = await usceRestQuery(
+      `usce_offers?select=*&portal_token_hash=eq.${encodeURIComponent(tokenHash)}&limit=1`,
+      accessToken
+    );
+    if (!offerResult.ok) {
+      return sendUsceSupabaseError(response, offerResult, authHeaders, 'Failed to resolve portal offer.');
+    }
+
+    const offer = Array.isArray(offerResult.data) ? offerResult.data[0] : null;
+    if (!offer) {
+      sendJson(response, 401, {
+        code: 'INVALID_TOKEN',
+        error: 'INVALID_TOKEN',
+        message: 'Portal token is invalid.',
+      }, authHeaders);
+      return true;
+    }
+
+    if (String(offer.applicant_user_id || '') !== user.id) {
+      sendJson(response, 403, {
+        code: 'IDENTITY_OFFER_MISMATCH',
+        error: 'IDENTITY_OFFER_MISMATCH',
+        message: 'Authenticated user does not match this offer.',
+      }, authHeaders);
+      return true;
+    }
+
+    const expiresAt = offer.portal_token_expires_at ? new Date(offer.portal_token_expires_at) : null;
+    if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      sendJson(response, 410, {
+        code: 'EXPIRED',
+        error: 'EXPIRED',
+        message: 'This portal token has expired.',
+      }, authHeaders);
+      return true;
+    }
+
+    const confirmationResult = await usceRestQuery(
+      `usce_confirmations?select=*&offer_id=eq.${encodeURIComponent(String(offer.id || ''))}&order=created_at.desc&limit=1`,
+      accessToken
+    );
+    if (!confirmationResult.ok) {
+      return sendUsceSupabaseError(response, confirmationResult, authHeaders, 'Failed to load confirmation state.');
+    }
+
+    const confirmation = Array.isArray(confirmationResult.data) ? confirmationResult.data[0] || null : null;
+    const uiState = resolveUscePortalUiState({
+      offerStatus: String(offer.status || ''),
+      confirmationStatus: confirmation ? String(confirmation.status || '') : null,
+      retryCount: Number(offer.retry_count || 0),
+      isTokenExpired: false,
+    });
+
+    sendJson(response, 200, {
+      offer,
+      confirmation,
+      ui_state: uiState,
+    }, authHeaders);
+    return true;
+  }
+
+  if (portalRespondMatch) {
+    if (request.method !== 'POST') {
+      sendMethodNotAllowed(response, ['POST']);
+      return true;
+    }
+
+    let payload;
+    try {
+      payload = await readJsonBody(request);
+    } catch (error) {
+      sendJson(response, 400, {
+        code: 'INVALID_JSON',
+        error: 'INVALID_JSON',
+        message: error instanceof Error ? error.message : 'Request body must be valid JSON.',
+      }, authHeaders);
+      return true;
+    }
+
+    const action = String(payload?.action || '').toUpperCase();
+    if (!['ACCEPT', 'DECLINE'].includes(action)) {
+      sendJson(response, 422, {
+        code: 'VALIDATION_FAILED',
+        error: 'VALIDATION_FAILED',
+        message: 'action must be ACCEPT or DECLINE.',
+      }, authHeaders);
+      return true;
+    }
+
+    const token = decodeURIComponent(portalRespondMatch[1] || '').trim();
+    const tokenHash = createHash('sha256').update(token, 'utf8').digest('hex');
+    const paymentIntentId =
+      action === 'ACCEPT'
+        ? `pi_stub_${tokenHash.slice(0, 24)}_${Date.now().toString(36)}`
+        : null;
+
+    const rpcResult = await usceRpcMutation(
+      'usce_portal_respond',
+      accessToken,
+      {
+        p_portal_token_hash: tokenHash,
+        p_action: action,
+        p_payment_intent_id: paymentIntentId,
+        p_caller_user_id: user.id,
+      }
+    );
+
+    if (!rpcResult.ok) {
+      const rpcMessage = String(rpcResult.error || rpcResult.data?.message || '').toUpperCase();
+      if (rpcMessage.includes('IDENTITY_OFFER_MISMATCH')) {
+        sendJson(response, 403, {
+          code: 'IDENTITY_OFFER_MISMATCH',
+          error: 'IDENTITY_OFFER_MISMATCH',
+          message: 'Authenticated user does not match this offer.',
+        }, authHeaders);
+        return true;
+      }
+      if (rpcMessage.includes('INVALID_TOKEN')) {
+        sendJson(response, 401, {
+          code: 'INVALID_TOKEN',
+          error: 'INVALID_TOKEN',
+          message: 'Portal token is invalid.',
+        }, authHeaders);
+        return true;
+      }
+      if (rpcMessage.includes('EXPIRED')) {
+        sendJson(response, 410, {
+          code: 'EXPIRED',
+          error: 'EXPIRED',
+          message: 'Portal token has expired.',
+        }, authHeaders);
+        return true;
+      }
+      if (
+        rpcMessage.includes('NO_SEATS') ||
+        rpcMessage.includes('ALREADY_ACCEPTED') ||
+        rpcMessage.includes('INVALID_TRANSITION')
+      ) {
+        sendJson(response, 409, {
+          code: 'INVALID_TRANSITION',
+          error: 'INVALID_TRANSITION',
+          message: 'Portal response cannot be processed in the current state.',
+        }, authHeaders);
+        return true;
+      }
+      return sendUsceSupabaseError(response, rpcResult, authHeaders, 'Failed to execute portal response RPC.');
+    }
+
+    const rpcData = isPlainObject(rpcResult.data) ? rpcResult.data : {};
+    const status = String(rpcData.status || '').toUpperCase();
+    if (status === 'DECLINED') {
+      sendJson(response, 200, {
+        status: 'DECLINED',
+        offer_id: rpcData.offer_id || null,
+        request_id: rpcData.request_id || null,
+      }, authHeaders);
+      return true;
+    }
+
+    const confirmationId = rpcData.confirmation_id || null;
+    sendJson(response, 200, {
+      status: 'ACCEPTED',
+      redirect_to: `/usce/portal/${encodeURIComponent(token)}/pay`,
+      stripe_client_secret: `cs_stub_${String(confirmationId || 'pending')}`,
+      confirmation_id: confirmationId,
+      payment_intent_id: rpcData.payment_intent_id || paymentIntentId,
+    }, authHeaders);
+    return true;
+  }
+
+  if (pathname.startsWith('/api/usce/')) {
+    sendJson(response, 404, {
+      error: 'usce_route_not_found',
+      message: `No USCE route matched ${pathname}.`,
+      path: pathname,
+      method: request.method,
+    }, authHeaders);
+    return true;
+  }
+
+  return false;
+}
+
+function isPlainObject(value) {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function usceRestHeaders(accessToken, { includeContentType = false, schema = 'command_center', prefer = '' } = {}) {
+  const apiKey = CONFIG.supabaseAnonKey || CONFIG.supabaseKey || CONFIG.supabaseServiceRoleKey;
+  const headers = {
+    Accept: 'application/json',
+    apikey: apiKey,
+    Authorization: `Bearer ${accessToken}`,
+    'Accept-Profile': schema,
+  };
+
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json';
+    headers['Content-Profile'] = schema;
+  }
+
+  if (prefer) {
+    headers.Prefer = prefer;
+  }
+
+  return headers;
+}
+
+async function resolveUsceUserContext(session) {
+  if (!session) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'authentication_required',
+      message: 'USCE routes require an authenticated HQ session.',
+    };
+  }
+
+  const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(session);
+  if (!bootstrap?.ok || !bootstrap?.payload?.access_token) {
+    return {
+      ok: false,
+      status: bootstrap?.status || 502,
+      error: bootstrap?.error || 'supabase_bootstrap_failed',
+      message: bootstrap?.message || 'Supabase bootstrap failed.',
+    };
+  }
+
+  const accessToken = String(bootstrap.payload.access_token || '').trim();
+  const apiKey = CONFIG.supabaseAnonKey || CONFIG.supabaseKey || CONFIG.supabaseServiceRoleKey;
+  if (!CONFIG.supabaseUrl || !apiKey || !accessToken) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'supabase_not_configured',
+      message: 'Supabase runtime credentials are not configured for USCE routes.',
+    };
+  }
+
+  const userLookup = await fetchJson(`${CONFIG.supabaseUrl}/auth/v1/user`, {
+    headers: {
+      Accept: 'application/json',
+      apikey: apiKey,
+      Authorization: `Bearer ${accessToken}`,
+    },
+    timeoutMs: 7000,
+  });
+
+  if (!userLookup.ok || !userLookup.data?.id) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'AUTH_SESSION_INVALID',
+      message: userLookup?.error || 'Authenticated user session is required.',
+    };
+  }
+
+  return {
+    ok: true,
+    accessToken,
+    user: userLookup.data,
+  };
+}
+
+async function usceRestQuery(path, accessToken) {
+  return fetchJson(`${CONFIG.supabaseUrl}/rest/v1/${path}`, {
+    headers: usceRestHeaders(accessToken, { schema: 'command_center' }),
+    timeoutMs: 9000,
+  });
+}
+
+async function usceRestMutation(path, accessToken, method, payload) {
+  return fetchJson(`${CONFIG.supabaseUrl}/rest/v1/${path}`, {
+    method,
+    headers: usceRestHeaders(accessToken, {
+      includeContentType: true,
+      schema: 'command_center',
+      prefer: 'return=representation',
+    }),
+    body: JSON.stringify(payload),
+    timeoutMs: 9000,
+  });
+}
+
+async function usceRpcMutation(functionName, accessToken, payload) {
+  return fetchJson(`${CONFIG.supabaseUrl}/rest/v1/rpc/${functionName}`, {
+    method: 'POST',
+    headers: usceRestHeaders(accessToken, {
+      includeContentType: true,
+      schema: 'command_center',
+    }),
+    body: JSON.stringify(payload),
+    timeoutMs: 9000,
+  });
+}
+
+function sendUsceSupabaseError(response, supabaseResult, authHeaders, fallbackMessage) {
+  const details = supabaseResult?.data || {};
+  const statusCode = Number(supabaseResult?.status || 500);
+  const code = String(details.code || '').trim();
+  const message = String(details.message || supabaseResult?.error || fallbackMessage || 'USCE runtime query failed.').trim();
+
+  if (statusCode === 401) {
+    sendJson(response, 401, {
+      code: 'AUTH_SESSION_INVALID',
+      error: 'AUTH_SESSION_INVALID',
+      message,
+    }, authHeaders);
+    return true;
+  }
+
+  if (statusCode === 403 || code === '42501') {
+    sendJson(response, 403, {
+      code: 'FORBIDDEN',
+      error: 'FORBIDDEN',
+      message: 'Operation blocked by RLS policy.',
+      details: { supabase: message },
+    }, authHeaders);
+    return true;
+  }
+
+  if (statusCode === 409 || code === '23505') {
+    sendJson(response, 409, {
+      code: 'CONFLICT',
+      error: 'CONFLICT',
+      message,
+    }, authHeaders);
+    return true;
+  }
+
+  sendJson(response, 500, {
+    code: 'USCE_DB_ERROR',
+    error: 'USCE_DB_ERROR',
+    message: fallbackMessage || 'USCE runtime query failed.',
+    details: { supabase: message },
   }, authHeaders);
   return true;
+}
+
+function resolveUscePortalUiState({ offerStatus, confirmationStatus, retryCount, isTokenExpired }) {
+  if (isTokenExpired || offerStatus === 'EXPIRED') return 'EXPIRED';
+  if (offerStatus === 'REVOKED') return 'REVOKED';
+  if (offerStatus === 'INVALIDATED') return 'INVALIDATED';
+  if (offerStatus === 'DECLINED') return 'DECLINED_CONFIRMED';
+  if (
+    offerStatus === 'PENDING_PAYMENT'
+    && (confirmationStatus === 'PENDING_PAYMENT' || confirmationStatus === 'PAYMENT_AUTHORIZED')
+  ) {
+    return 'PAYMENT_REQUIRED';
+  }
+  if (offerStatus === 'FAILED_PAYMENT') {
+    return Number(retryCount || 0) >= 2 ? 'RETRY_EXHAUSTED' : 'PAYMENT_FAILED';
+  }
+  if (confirmationStatus === 'ENROLLED') return 'ENROLLED';
+  if (confirmationStatus === 'PAYMENT_CAPTURED') return 'ACCEPTED_PROCESSING';
+  return 'VIEWING_OFFER';
 }
 
 function handleServerError(response, error) {
