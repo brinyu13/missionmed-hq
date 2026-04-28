@@ -7014,10 +7014,10 @@ async function findSupabaseAuthUserByEmail(email, adminToken) {
   }
 
   const perPage = 200;
-  const maxPages = 5;
+  const maxPages = 8;
 
   for (let page = 1; page <= maxPages; page += 1) {
-    const query = `page=${page}&per_page=${perPage}&email=${encodeURIComponent(normalizedEmail)}`;
+    const query = `page=${page}&per_page=${perPage}`;
     const listUsers = await fetchJson(`${CONFIG.supabaseUrl}/auth/v1/admin/users?${query}`, {
       method: 'GET',
       headers: {
