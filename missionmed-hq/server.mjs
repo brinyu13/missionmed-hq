@@ -6061,7 +6061,9 @@ function normalizeWordPressBridgeUser(bridgeData = null) {
   });
 }
 
-async function fetchWordPressUserFromCookieHeader(cookieHeader = '', wpRestNonce = '') {
+async function fetchWordPressUserFromCookieHeader(cookieHeader = '', wpRestNonce = '', options = {}) {
+  const preferBridge = Boolean(options && options.preferBridge === true);
+
   if (!CONFIG.wpBase) {
     return {
       ok: false,
@@ -6080,40 +6082,41 @@ async function fetchWordPressUserFromCookieHeader(cookieHeader = '', wpRestNonce
     };
   }
 
-  // Prefer MissionMed bridge route for runtime cookie validation:
-  // it is explicitly configured server-side to bypass REST nonce checks for this flow.
-  const bridgeSession = await fetchJson(`${CONFIG.wpBase}/wp-json/missionmed/v1/supabase-session`, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      Cookie: cookieHeader,
-      ...(wpRestNonce ? { 'X-WP-Nonce': wpRestNonce } : {}),
-    },
-    body: JSON.stringify({}),
-    timeoutMs: 8_000,
-  });
+  if (preferBridge) {
+    // STAT-only bridge probe. Arena should remain on the A8 handoff/session path.
+    const bridgeSession = await fetchJson(`${CONFIG.wpBase}/wp-json/missionmed/v1/supabase-session`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Cookie: cookieHeader,
+        ...(wpRestNonce ? { 'X-WP-Nonce': wpRestNonce } : {}),
+      },
+      body: JSON.stringify({}),
+      timeoutMs: 8_000,
+    });
 
-  if (bridgeSession.ok) {
-    const bridgeUser = normalizeWordPressBridgeUser(bridgeSession.data || {});
-    if (bridgeUser && Number(bridgeUser.id || 0)) {
-      return {
-        ok: true,
-        status: 200,
-        user: bridgeUser,
-      };
+    if (bridgeSession.ok) {
+      const bridgeUser = normalizeWordPressBridgeUser(bridgeSession.data || {});
+      if (bridgeUser && Number(bridgeUser.id || 0)) {
+        return {
+          ok: true,
+          status: 200,
+          user: bridgeUser,
+        };
+      }
     }
-  }
 
-  if (!bridgeSession.ok) {
-    const bridgeStatus = Number(bridgeSession.status || 0);
-    if (bridgeStatus === 401 || bridgeStatus === 403) {
-      return {
-        ok: false,
-        status: bridgeStatus,
-        error: bridgeStatus === 403 ? 'wordpress_session_forbidden' : 'wordpress_session_invalid',
-        detail: bridgeSession.error || 'WordPress session validation failed.',
-      };
+    if (!bridgeSession.ok) {
+      const bridgeStatus = Number(bridgeSession.status || 0);
+      if (bridgeStatus === 401 || bridgeStatus === 403) {
+        return {
+          ok: false,
+          status: bridgeStatus,
+          error: bridgeStatus === 403 ? 'wordpress_session_forbidden' : 'wordpress_session_invalid',
+          detail: bridgeSession.error || 'WordPress session validation failed.',
+        };
+      }
     }
   }
 
@@ -6520,9 +6523,12 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   const wpRestNonce = getRequestWordPressNonce(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
   const requestedTarget = resolveAuthTarget(payload, {}, { hasWpToken: false });
+  const useCookieBridge = shouldUseWordPressCookieBridgeForRequest(payload, request);
 
   if (!wpToken && hasWordPressSessionCookie(cookieHeader)) {
-    const cookieValidation = await fetchWordPressUserFromCookieHeader(cookieHeader, wpRestNonce);
+    const cookieValidation = await fetchWordPressUserFromCookieHeader(cookieHeader, wpRestNonce, {
+      preferBridge: useCookieBridge,
+    });
     if (!cookieValidation.ok) {
       return {
         ok: false,
@@ -6732,6 +6738,39 @@ function resolveAuthTarget(payload = {}, wpUser = {}, options = {}) {
     audience: audience || (isAdmin ? 'hq' : 'runtime'),
     surface: surface || (isAdmin ? 'hq' : 'runtime'),
   };
+}
+
+function inferRequestSurfaceFromReferer(request = null) {
+  const raw = String(request?.headers?.referer || request?.headers?.referrer || '').trim();
+  if (!raw) return '';
+
+  try {
+    const path = String(new URL(raw).pathname || '').toLowerCase();
+    if (path.startsWith('/stat')) return 'stat';
+    if (path.startsWith('/arena')) return 'arena';
+  } catch {
+    // ignore malformed referer
+  }
+
+  return '';
+}
+
+function shouldUseWordPressCookieBridgeForRequest(payload = {}, request = null) {
+  const audience = normalizeAuthAudienceValue(
+    payload?.audience ||
+    payload?.auth_audience ||
+    payload?.session_type ||
+    payload?.sessionType ||
+    payload?.surface ||
+    payload?.app ||
+    payload?.client,
+  );
+  const surface = normalizeAuthAudienceValue(payload?.surface || payload?.app || payload?.client || audience);
+  const refererSurface = inferRequestSurfaceFromReferer(request);
+
+  if (audience === 'stat' || surface === 'stat') return true;
+  if (refererSurface === 'stat') return true;
+  return false;
 }
 
 function isRuntimeAuthSession(session = null) {

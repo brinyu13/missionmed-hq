@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 09:32 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-r
+- Scope: Narrow Arena regression repair by scoping STAT nonce bridge behavior to STAT-origin exchange traffic only.
+- Files: missionmed-hq/server.mjs
+- Notes: Constrained `/wp-json/missionmed/v1/supabase-session` bridge probing to STAT-targeted exchange requests (payload/referer), while preserving nonce-forwarding support for STAT and restoring Arena exchange to the legacy non-bridge A8 path (`/wp/v2/users/me` + handoff/session fallback behavior).
+
 ## [2026-04-29 01:26 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-q
 - Scope: Runtime nonce handoff repair for STAT exchange path across stat proxy, frontend exchange call, and Railway bridge forwarding.
