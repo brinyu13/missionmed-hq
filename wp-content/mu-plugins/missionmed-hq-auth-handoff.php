@@ -2,18 +2,21 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.0
+ * Version: 1.0.1
  */
 
 if (!defined('ABSPATH')) {
     exit;
 }
 
-const MMHQ_HANDOFF_ACTION = 'mmac_hq_auth_redirect';
-const MMHQ_HANDOFF_TTL_SECONDS = 60;
+if (!defined('MMHQ_HANDOFF_ACTION')) {
+    define('MMHQ_HANDOFF_ACTION', 'mmac_hq_auth_redirect');
+}
+if (!defined('MMHQ_HANDOFF_TTL_SECONDS')) {
+    define('MMHQ_HANDOFF_TTL_SECONDS', 60);
+}
 
-function mmhq_handoff_secret(): string
-{
+function mmhq_handoff_secret() {
     $env = trim((string) getenv('MMHQ_HANDOFF_SECRET'));
     if ($env !== '') {
         return $env;
@@ -27,35 +30,32 @@ function mmhq_handoff_secret(): string
     return '';
 }
 
-function mmhq_handoff_default_final(): string
-{
+function mmhq_handoff_default_final() {
     return home_url('/arena?just_logged_in=1');
 }
 
-function mmhq_handoff_login_url(string $requestUri): string
-{
+function mmhq_handoff_login_url($request_uri) {
     return add_query_arg(
         'redirect_to',
-        rawurlencode($requestUri),
+        rawurlencode((string) $request_uri),
         home_url('/my-account/')
     );
 }
 
-function mmhq_handoff_allowed_return_hosts(): array
-{
-    $hosts = ['missionmed-hq-production.up.railway.app'];
-    $wpHost = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
-    if ($wpHost !== '') {
-        $hosts[] = $wpHost;
+function mmhq_handoff_allowed_return_hosts() {
+    $hosts = array('missionmed-hq-production.up.railway.app');
+    $wp_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+    if ($wp_host !== '') {
+        $hosts[] = $wp_host;
     }
-    if ($wpHost === 'missionmedinstitute.com') {
+    if ($wp_host === 'missionmedinstitute.com') {
         $hosts[] = 'www.missionmedinstitute.com';
     }
     return array_values(array_unique(array_filter($hosts)));
 }
 
-function mmhq_handoff_is_allowed_return_url(string $url): bool
-{
+function mmhq_handoff_is_allowed_return_url($url) {
+    $url = (string) $url;
     if ($url === '') {
         return false;
     }
@@ -66,45 +66,62 @@ function mmhq_handoff_is_allowed_return_url(string $url): bool
     return in_array($host, mmhq_handoff_allowed_return_hosts(), true);
 }
 
-function mmhq_handoff_allowed_final_hosts(): array
-{
-    $hosts = ['missionmedinstitute.com', 'www.missionmedinstitute.com'];
-    $wpHost = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
-    if ($wpHost !== '') {
-        $hosts[] = $wpHost;
+function mmhq_handoff_allowed_final_hosts() {
+    $hosts = array('missionmedinstitute.com', 'www.missionmedinstitute.com');
+    $wp_host = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+    if ($wp_host !== '') {
+        $hosts[] = $wp_host;
     }
     return array_values(array_unique(array_filter($hosts)));
 }
 
-function mmhq_handoff_normalize_final(string $rawFinal): string
-{
+function mmhq_handoff_starts_with_slash($value) {
+    $value = (string) $value;
+    return isset($value[0]) && $value[0] === '/';
+}
+
+function mmhq_handoff_normalize_final($raw_final) {
     $fallback = mmhq_handoff_default_final();
-    $rawFinal = trim($rawFinal);
-    if ($rawFinal === '') {
+    $raw_final = trim((string) $raw_final);
+    if ($raw_final === '') {
         return $fallback;
     }
 
-    if (str_starts_with($rawFinal, '/')) {
-        return home_url($rawFinal);
+    if (mmhq_handoff_starts_with_slash($raw_final)) {
+        return home_url($raw_final);
     }
 
-    $candidate = esc_url_raw($rawFinal);
+    $candidate = esc_url_raw($raw_final);
     if ($candidate === '') {
         return $fallback;
     }
+
     $host = strtolower((string) wp_parse_url($candidate, PHP_URL_HOST));
     if ($host === '' || !in_array($host, mmhq_handoff_allowed_final_hosts(), true)) {
         return $fallback;
     }
+
     return $candidate;
 }
 
-function mmhq_handoff_handle(): void
-{
-    $requestUri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
+function mmhq_handoff_build_token_payload($wp_user) {
+    return array(
+        'wp_user_id' => (int) $wp_user->ID,
+        'email' => (string) $wp_user->user_email,
+        'username' => (string) $wp_user->user_login,
+        'display_name' => (string) $wp_user->display_name,
+        'roles' => array_values((array) $wp_user->roles),
+        'iat' => time(),
+        'exp' => time() + (int) MMHQ_HANDOFF_TTL_SECONDS,
+        'nonce' => wp_generate_uuid4(),
+    );
+}
+
+function mmhq_handoff_handle() {
+    $request_uri = isset($_SERVER['REQUEST_URI']) ? (string) wp_unslash($_SERVER['REQUEST_URI']) : '';
 
     if (!is_user_logged_in()) {
-        wp_safe_redirect(mmhq_handoff_login_url($requestUri));
+        wp_safe_redirect(mmhq_handoff_login_url($request_uri));
         exit;
     }
 
@@ -114,44 +131,34 @@ function mmhq_handoff_handle(): void
         wp_die('MissionMed handoff secret is not configured.');
     }
 
-    $returnToRaw = isset($_GET['return_to']) ? (string) wp_unslash($_GET['return_to']) : '';
-    $returnTo = esc_url_raw($returnToRaw);
-    if (!mmhq_handoff_is_allowed_return_url($returnTo)) {
+    $return_to_raw = isset($_GET['return_to']) ? (string) wp_unslash($_GET['return_to']) : '';
+    $return_to = esc_url_raw($return_to_raw);
+    if (!mmhq_handoff_is_allowed_return_url($return_to)) {
         status_header(400);
         wp_die('Invalid return_to target.');
     }
 
-    $finalRaw = isset($_GET['final']) ? (string) wp_unslash($_GET['final']) : '';
-    $final = mmhq_handoff_normalize_final($finalRaw);
+    $final_raw = isset($_GET['final']) ? (string) wp_unslash($_GET['final']) : '';
+    $final = mmhq_handoff_normalize_final($final_raw);
 
-    $wpUser = wp_get_current_user();
-    $payload = [
-        'wp_user_id' => (int) $wpUser->ID,
-        'email' => (string) $wpUser->user_email,
-        'username' => (string) $wpUser->user_login,
-        'display_name' => (string) $wpUser->display_name,
-        'roles' => array_values((array) $wpUser->roles),
-        'iat' => time(),
-        'exp' => time() + MMHQ_HANDOFF_TTL_SECONDS,
-        'nonce' => wp_generate_uuid4(),
-    ];
-
-    $payloadJson = wp_json_encode($payload);
-    if (!is_string($payloadJson) || $payloadJson === '') {
+    $wp_user = wp_get_current_user();
+    $payload = mmhq_handoff_build_token_payload($wp_user);
+    $payload_json = wp_json_encode($payload);
+    if (!is_string($payload_json) || $payload_json === '') {
         status_header(500);
         wp_die('Failed to encode handoff payload.');
     }
 
-    $body = rtrim(strtr(base64_encode($payloadJson), '+/', '-_'), '=');
+    $body = rtrim(strtr(base64_encode($payload_json), '+/', '-_'), '=');
     $signature = hash_hmac('sha256', $body, $secret);
     $token = $body . '.' . $signature;
 
     $target = add_query_arg(
-        [
+        array(
             'token' => $token,
             'final' => $final,
-        ],
-        $returnTo
+        ),
+        $return_to
     );
 
     wp_safe_redirect($target);
