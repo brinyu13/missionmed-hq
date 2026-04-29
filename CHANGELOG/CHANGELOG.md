@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 11:03 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-t
+- Scope: Deterministic Arena logout/session clearing to remove sticky runtime identity contamination between auth tests.
+- Files: LIVE/arena.html
+- Notes: Routed top-right Arena logout menu through `window.arenaLogout`, added robust logout cleanup path (Supabase sign-out, same-origin `/api/auth/logout` best-effort with exchange-derived CSRF/bearer headers, and targeted local/session storage auth key purge), and added `?logged_out=1` boot handling that clears runtime auth state before any rehydration attempt.
+
 ## [2026-04-29 10:32 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-s
 - Scope: Restore A8 Supabase auth user-resolution resilience after nonce regression cleanup.

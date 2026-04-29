@@ -5967,6 +5967,92 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return window.location.origin + '/wp-login.php?action=logout&redirect_to=' + encodeURIComponent(window.location.origin + '/arena?logged_out=1');
   }
 
+  function isArenaAuthStorageKey(key){
+    var safeKey = String(key || '').trim();
+    if(!safeKey) return false;
+    var lower = safeKey.toLowerCase();
+    if(
+      lower === 'mm_user' ||
+      lower === 'mm_auth' ||
+      lower === 'mmhq_session' ||
+      lower === 'mmhq_token' ||
+      lower === 'supabase.auth.token' ||
+      lower === 'mm_selected_drill'
+    ){
+      return true;
+    }
+    if(lower.indexOf('mm_qstat_') === 0) return true;
+    if(lower.indexOf('mm_arena_') === 0) return true;
+    if(lower.indexOf('mm_auth_') === 0) return true;
+    if(lower.indexOf('arena_avatar') === 0) return true;
+    if(lower.indexOf('avatar_attempts') === 0) return true;
+    if(lower.indexOf('sb-') === 0 && lower.indexOf('auth-token') !== -1) return true;
+    if(lower.indexOf('supabase') !== -1 && lower.indexOf('auth') !== -1 && lower.indexOf('token') !== -1) return true;
+    return false;
+  }
+
+  function clearArenaAuthStorageBucket(storage){
+    if(!storage) return;
+    var keys = [];
+    try{
+      for(var i = 0; i < storage.length; i++){
+        var key = storage.key(i);
+        if(key != null) keys.push(String(key));
+      }
+    } catch(_keyErr){}
+    for(var j = 0; j < keys.length; j++){
+      var candidate = keys[j];
+      if(!isArenaAuthStorageKey(candidate)) continue;
+      try { storage.removeItem(candidate); } catch(_removeErr){}
+    }
+  }
+
+  function clearArenaAuthStorageState(){
+    try { clearQStatSessionState(); } catch(_qstatErr){}
+    clearArenaAuthStorageBucket(window.localStorage);
+    clearArenaAuthStorageBucket(window.sessionStorage);
+  }
+
+  async function clearArenaSupabaseSessionState(){
+    var clients = [];
+    if(arenaSupabase && clients.indexOf(arenaSupabase) === -1){
+      clients.push(arenaSupabase);
+    }
+    if(window.arenaSupabase && clients.indexOf(window.arenaSupabase) === -1){
+      clients.push(window.arenaSupabase);
+    }
+    for(var i = 0; i < clients.length; i++){
+      var client = clients[i];
+      if(!client || !client.auth || typeof client.auth.signOut !== 'function') continue;
+      try { await client.auth.signOut(); } catch(_signOutErr){}
+    }
+  }
+
+  async function clearArenaBackendSessionState(){
+    var headers = null;
+    try{
+      var exchange = await postJson(AUTH_EXCHANGE_URL, {}, null, 'include');
+      if(exchange && exchange.ok){
+        var bearer = getExchangeAccessToken(exchange.payload);
+        var csrf = getExchangeCsrfToken(exchange.payload);
+        if(bearer || csrf){
+          headers = {};
+          if(bearer) headers.Authorization = 'Bearer ' + bearer;
+          if(csrf) headers['X-MMHQ-CSRF'] = csrf;
+        }
+      }
+    } catch(_exchangeReadErr){}
+    try{
+      await postJson('/api/auth/logout', {}, headers, 'include');
+    } catch(_logoutErr){}
+  }
+
+  async function performArenaLogoutCleanup(){
+    try { await clearArenaSupabaseSessionState(); } catch(_supabaseClearErr){}
+    try { await clearArenaBackendSessionState(); } catch(_backendClearErr){}
+    clearArenaAuthStorageState();
+  }
+
   function getArenaLoginFormHtml(){
     var authCfg = getArenaAuthConfig();
     if(!authCfg || typeof authCfg.loginFormHtml !== 'string') return '';
@@ -9391,6 +9477,14 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
      ========================================================================== */
   (async function boot(){
     try{
+      var authCfg = getArenaAuthConfig();
+      if(authCfg && authCfg.loggedOutParam){
+        await performArenaLogoutCleanup();
+        try { window.MM_AUTH = null; } catch(_mmAuthClearErr){}
+        hideLoading();
+        showArenaAuthRequiredState({ loggedOut: true, reason: 'logout' });
+        return;
+      }
       loadingText.textContent = 'Connecting to Arena...';
       var isAuthenticated = await enforceAuthOrRedirect();
       if(!isAuthenticated) return;
@@ -9406,7 +9500,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         entryWelcome.textContent = 'Welcome back, ' + ArenaUser.displayName;
         entryWelcome.classList.add('visible');
         showEntry();
-        var authCfg = getArenaAuthConfig();
+        authCfg = getArenaAuthConfig();
         if(authCfg && authCfg.auto_enter){
           applyIdentityToArena();
           setTimeout(function(){
@@ -12202,13 +12296,15 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   window.getArenaUser = function(){
     return { authenticated:ArenaUser.authenticated, id:ArenaUser.id, username:ArenaUser.username, displayName:ArenaUser.displayName, email:ArenaUser.email, wpAvatarUrl:ArenaUser.wpAvatarUrl, color:ArenaUser.color, roles:ArenaUser.roles, arenaAvatarFull:ArenaUser.arenaAvatarFull, arenaAvatarFace:ArenaUser.arenaAvatarFace };
   };
-  window.arenaLogout = function(){
+  window.arenaLogout = async function(){
     ArenaUser.authenticated = false; ArenaUser.id = null;
     ArenaUser.username = ArenaUser.displayName = ArenaUser.email = ArenaUser.wpAvatarUrl = '';
     ArenaUser.roles = []; ArenaUser.color = '#00BFFF'; window.MM_USER = null;
     clearAvatarStorage(); lobbyRoot.classList.remove('active'); lobbyInitialized = false;
     returnToEntry();
     showArenaAuthRequiredState({ loggedOut: true, reason: 'logout' });
+    try { await performArenaLogoutCleanup(); } catch(_logoutCleanupErr){}
+    try { window.MM_AUTH = null; } catch(_mmAuthClearErr){}
     var logoutUrl = buildArenaLogoutUrl();
     if(logoutUrl){
       window.location.href = logoutUrl;
@@ -18786,7 +18882,7 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
       + '<div class="h4-arena-auth-profile" id="h4ArenaAuthProfile">'
       + '  <button type="button" class="h4-arena-auth-circle" aria-label="Open account menu" aria-expanded="false">' + initial + '</button>'
       + '  <div class="h4-arena-auth-menu">'
-      + '    <a href="' + LOGOUT_URL + '">Logout</a>'
+      + '    <a href="' + LOGOUT_URL + '" data-action="arena-logout">Logout</a>'
       + '  </div>'
       + '</div>';
 
@@ -18814,6 +18910,24 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
         setMenuOpen(profile, trigger, false);
       }
     });
+
+    var logoutLink = profile.querySelector('a[data-action="arena-logout"]');
+    if(logoutLink){
+      logoutLink.addEventListener('click', function(ev){
+        ev.preventDefault();
+        ev.stopPropagation();
+        try{
+          if(typeof window.arenaLogout === 'function'){
+            var logoutResult = window.arenaLogout();
+            if(logoutResult && typeof logoutResult.then === 'function'){
+              logoutResult.catch(function(){ window.location.href = LOGOUT_URL; });
+            }
+            return;
+          }
+        } catch(_logoutErr){}
+        window.location.href = LOGOUT_URL;
+      });
+    }
   }
 
   function renderArenaAuthUi(force){
