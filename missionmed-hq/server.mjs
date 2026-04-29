@@ -90,6 +90,7 @@ const CONFIG = {
   sessionTtlSeconds: Math.max(600, Number(envValue('MMHQ_SESSION_TTL_SECONDS', '28800'))),
   sessionSecret: SESSION_SECRET,
   sessionSecretConfigured: Boolean(SESSION_SECRET),
+  handoffSecret: String(envValue('MMHQ_HANDOFF_SECRET', '')).trim(),
   wpBase: sanitizeServiceUrl(envValue('MMHQ_WP_BASE', 'https://missionmedinstitute.com')),
   wpNamespace: String(envValue('MMHQ_WP_NAMESPACE', 'missionmed-command-center/v1')).replace(/^\/+|\/+$/gu, ''),
   wpUsername: envValue('MMHQ_WP_USERNAME', ''),
@@ -974,11 +975,12 @@ function readSessionFromRequest(request) {
 }
 
 function buildSessionCookie(request, session) {
+  const sameSite = isRuntimeAuthSession(session) ? 'None' : 'Lax';
   return serializeCookie(CONFIG.sessionCookieName, createEncryptedSession(session), {
     httpOnly: true,
     maxAge: CONFIG.sessionTtlSeconds,
     path: '/',
-    sameSite: 'Lax',
+    sameSite,
     secure: shouldUseSecureCookies(request),
   });
 }
@@ -988,12 +990,12 @@ function clearSessionCookie(request) {
     httpOnly: true,
     maxAge: 0,
     path: '/',
-    sameSite: 'Lax',
+    sameSite: 'None',
     secure: shouldUseSecureCookies(request),
   });
 }
 
-function buildWordPressAuthRedirectUrl(returnTo = '') {
+function buildWordPressAuthRedirectUrl(returnTo = '', finalTo = '') {
   if (!CONFIG.wpBase) {
     return '';
   }
@@ -1004,13 +1006,112 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
   if (returnTo) {
     target.searchParams.set('return_to', returnTo);
   }
+  if (finalTo) {
+    target.searchParams.set('final', finalTo);
+  }
 
   return target.toString();
+}
+
+function getDefaultArenaFinalUrl() {
+  try {
+    if (CONFIG.wpBase) {
+      return new URL('/arena?just_logged_in=1', CONFIG.wpBase).toString();
+    }
+  } catch (_err) {}
+  return 'https://missionmedinstitute.com/arena?just_logged_in=1';
+}
+
+function normalizeHandoffFinalUrl(rawValue = '') {
+  const fallback = getDefaultArenaFinalUrl();
+  const value = String(rawValue || '').trim();
+  if (!value) return fallback;
+
+  let candidate = null;
+  try {
+    candidate = new URL(value, fallback);
+  } catch (_err) {
+    return fallback;
+  }
+
+  if (!['http:', 'https:'].includes(candidate.protocol)) {
+    return fallback;
+  }
+
+  const allowedHosts = new Set(['missionmedinstitute.com', 'www.missionmedinstitute.com']);
+  try {
+    if (CONFIG.wpBase) {
+      allowedHosts.add(new URL(CONFIG.wpBase).hostname.toLowerCase());
+    }
+  } catch (_err) {}
+
+  const hostname = String(candidate.hostname || '').toLowerCase();
+  if (!allowedHosts.has(hostname)) {
+    return fallback;
+  }
+
+  return candidate.toString();
+}
+
+function timingSafeEqualStrings(a = '', b = '') {
+  const left = Buffer.from(String(a || ''), 'utf8');
+  const right = Buffer.from(String(b || ''), 'utf8');
+  if (left.length !== right.length) return false;
+  try {
+    return crypto.timingSafeEqual(left, right);
+  } catch (_err) {
+    return false;
+  }
+}
+
+function decodeWordPressHandoffToken(token = '') {
+  const handoffSecret = String(CONFIG.handoffSecret || '').trim();
+  if (!handoffSecret) {
+    return { ok: false, error: 'handoff_not_configured', status: 503 };
+  }
+
+  const rawToken = String(token || '').trim();
+  const dotIndex = rawToken.lastIndexOf('.');
+  if (dotIndex <= 0 || dotIndex >= rawToken.length - 1) {
+    return { ok: false, error: 'invalid_handoff_token', status: 400 };
+  }
+
+  const bodyPart = rawToken.slice(0, dotIndex);
+  const sigPart = rawToken.slice(dotIndex + 1);
+  const expectedSig = crypto.createHmac('sha256', handoffSecret).update(bodyPart).digest('hex');
+  if (!timingSafeEqualStrings(sigPart, expectedSig)) {
+    return { ok: false, error: 'invalid_handoff_signature', status: 401 };
+  }
+
+  let payload = null;
+  try {
+    payload = JSON.parse(base64UrlDecode(bodyPart).toString('utf8'));
+  } catch (_err) {
+    return { ok: false, error: 'invalid_handoff_payload', status: 400 };
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return { ok: false, error: 'invalid_handoff_payload', status: 400 };
+  }
+
+  const wpUserId = Number(payload.wp_user_id || 0);
+  const email = String(payload.email || '').trim().toLowerCase();
+  const exp = Number(payload.exp || 0);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  if (!Number.isFinite(exp) || exp <= nowSeconds) {
+    return { ok: false, error: 'handoff_token_expired', status: 401 };
+  }
+  if (!wpUserId || !email) {
+    return { ok: false, error: 'handoff_identity_missing', status: 400 };
+  }
+
+  return { ok: true, payload };
 }
 
 function getLoginHints(request = null) {
   const hqBase = getHqBaseForRequest(request);
   const hqEntryUrl = hqBase ? new URL('/api/auth/session', hqBase).toString() : '';
+  const arenaFinalUrl = getDefaultArenaFinalUrl();
   const sessionPersistence = Boolean(SESSION_SECRET) ? 'persistent' : 'missing-env-secret';
 
   return {
@@ -1019,7 +1120,7 @@ function getLoginHints(request = null) {
     session_persistence: sessionPersistence,
     auth_start_url: '/api/auth/start',
     wordpress_login_url: CONFIG.wpBase ? `${CONFIG.wpBase}${WP_LOGIN_PATH}` : '',
-    wordpress_handoff_url: buildWordPressAuthRedirectUrl(hqEntryUrl),
+    wordpress_handoff_url: buildWordPressAuthRedirectUrl(hqEntryUrl, arenaFinalUrl),
     wordpress_hq_entry_url: hqEntryUrl,
     wordpress_token_exchange_url: resolveWordPressAuthEndpoint(),
     app_password_exchange_available: Boolean(CONFIG.wpBase),
@@ -1696,7 +1797,7 @@ async function handleApiRoute(request, response, url, context) {
 
     const hqBase = getHqBaseForRequest(request);
     const hqEntryUrl = hqBase ? new URL('/api/auth/session', hqBase).toString() : '';
-    const redirectUrl = buildWordPressAuthRedirectUrl(hqEntryUrl);
+    const redirectUrl = buildWordPressAuthRedirectUrl(hqEntryUrl, getDefaultArenaFinalUrl());
 
     if (!redirectUrl) {
       sendJson(response, 503, {
@@ -1725,6 +1826,49 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (pathname === '/api/auth/session') {
+    if (request.method === 'GET') {
+      const handoffToken = String(searchParams.get('token') || '').trim();
+      if (handoffToken) {
+        const decoded = decodeWordPressHandoffToken(handoffToken);
+        if (!decoded.ok) {
+          sendJson(response, decoded.status || 401, {
+            error: decoded.error || 'invalid_handoff_token',
+            message: 'WordPress handoff token is invalid or expired.',
+          }, authHeaders);
+          return;
+        }
+
+        const payload = decoded.payload || {};
+        const email = String(payload.email || '').trim();
+        const wpUserId = Number(payload.wp_user_id || 0);
+        const usernameFromEmail = email.includes('@') ? email.split('@')[0] : email;
+        const wpUser = normalizeWordPressIdentityUser({
+          id: wpUserId,
+          email,
+          username: String(payload.username || usernameFromEmail || `wp_${wpUserId}`).trim(),
+          display_name: String(payload.display_name || payload.name || usernameFromEmail || `User ${wpUserId}`).trim(),
+          roles: Array.isArray(payload.roles) ? payload.roles : [],
+          capabilities: payload.capabilities && typeof payload.capabilities === 'object' ? payload.capabilities : {},
+        });
+
+        const finalUrl = normalizeHandoffFinalUrl(searchParams.get('final'));
+        const handoffSession = createSessionRecord(
+          wpUser,
+          {
+            authAudience: 'arena',
+            authSurface: 'arena',
+            sessionType: 'runtime',
+          },
+          'wordpress-handoff',
+        );
+
+        sendRedirect(response, finalUrl, 302, {
+          ...authHeaders,
+          'Set-Cookie': buildSessionCookie(request, handoffSession),
+        });
+        return;
+      }
+    }
     sendJson(response, 200, buildSessionPayload(session, request), authHeaders);
     return;
   }

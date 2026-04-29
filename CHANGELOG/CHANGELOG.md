@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 15:22 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-ad
+- Scope: Repair Arena runtime WordPress->Railway handoff bridge by adding missing WP admin-post handler, enabling tokenized Railway session landing, and fixing frontend handoff navigation behavior.
+- Files: missionmed-hq/server.mjs, LIVE/arena.html, wp-content/mu-plugins/missionmed-hq-auth-handoff.php, CHANGELOG/CHANGELOG.md
+- Notes: Added signed one-time handoff token verification on `/api/auth/session` (runtime audience session set-cookie + safe final redirect), added WordPress MU handoff action `mmac_hq_auth_redirect` to mint/redirect token payloads, switched Arena handoff from manual-fetch redirect to top-level navigation, and updated runtime session cookie policy to `SameSite=None` for runtime cross-origin exchange calls.
+
 ## [2026-04-29 15:05 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-ac
 - Scope: Enforce locked WordPress-entry → Railway exchange/bootstrap runtime for Arena and auto-redirect unauthenticated `/arena` traffic to WordPress login.

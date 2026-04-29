@@ -6810,26 +6810,15 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(!handoffUrl){
       return { ok: false, reason: 'auth_handoff_url_missing' };
     }
+    if(hasAttemptedArenaAuthHandoff()){
+      return { ok: false, reason: 'auth_handoff_already_attempted', handoffUrl: handoffUrl };
+    }
     markArenaAuthHandoffAttempted();
     try{
-      var handoffResponse = await fetch(handoffUrl, {
-        method: 'GET',
-        credentials: 'include',
-        cache: 'no-store',
-        redirect: 'manual'
-      });
-      var status = Number(handoffResponse && handoffResponse.status ? handoffResponse.status : 0);
-      var responseType = String(handoffResponse && handoffResponse.type ? handoffResponse.type : '');
-      if(
-        (handoffResponse && handoffResponse.ok) ||
-        (status >= 300 && status < 400) ||
-        responseType === 'opaqueredirect'
-      ){
-        return { ok: true, handoffUrl: handoffUrl, status: status, type: responseType };
-      }
-      return { ok: false, reason: 'auth_handoff_http_' + status, handoffUrl: handoffUrl };
+      window.location.href = handoffUrl;
+      return { ok: true, navigating: true, handoffUrl: handoffUrl };
     } catch(_handoffErr){
-      return { ok: false, reason: 'auth_handoff_request_failed', handoffUrl: handoffUrl };
+      return { ok: false, reason: 'auth_handoff_navigation_failed', handoffUrl: handoffUrl };
     }
   }
 
@@ -6858,6 +6847,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       if(shouldAttemptArenaAuthHandoff(lastDirect)){
         var handoff = await attemptArenaAuthHandoff(lastDirect);
         if(handoff && handoff.ok){
+          if(handoff.navigating){
+            return { ok: false, reason: 'auth_handoff_navigation_started' };
+          }
           var retryDelays = [150, 350, 700, 1200, 2000];
           for(var j = 0; j < retryDelays.length; j++){
             if(retryDelays[j] > 0){
