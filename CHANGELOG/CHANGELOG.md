@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 01:26 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-q
+- Scope: Runtime nonce handoff repair for STAT exchange path across stat proxy, frontend exchange call, and Railway bridge forwarding.
+- Files: LIVE/stat.html, missionmed-hq/server.mjs, wp-content/mu-plugins/stat-route-proxy.php
+- Notes: Added server-side STAT auth config injection with `wp_rest` nonce for logged-in sessions, updated STAT exchange/debug exchange requests to attach `X-WP-Nonce` when available, and updated Railway runtime cookie-validation bridge calls to forward incoming `X-WP-Nonce` to `/wp-json/missionmed/v1/supabase-session` and `/wp/v2/users/me` fallback checks.
+
 ## [2026-04-29 01:21 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-p
 - Scope: Runtime cookie-auth bridge alignment for `/api/auth/exchange` subscriber flow.

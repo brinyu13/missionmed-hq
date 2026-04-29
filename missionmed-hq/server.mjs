@@ -6007,6 +6007,11 @@ function getRequestCookieHeader(request = null) {
   return String(raw || '').trim();
 }
 
+function getRequestWordPressNonce(request = null) {
+  const raw = request?.headers?.['x-wp-nonce'] || request?.headers?.['X-WP-Nonce'] || '';
+  return String(raw || '').trim();
+}
+
 function hasWordPressSessionCookie(cookieHeader = '') {
   const normalized = String(cookieHeader || '');
   return AUTH_WORDPRESS_COOKIE_PREFIXES.some((prefix) => normalized.includes(prefix));
@@ -6056,7 +6061,7 @@ function normalizeWordPressBridgeUser(bridgeData = null) {
   });
 }
 
-async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
+async function fetchWordPressUserFromCookieHeader(cookieHeader = '', wpRestNonce = '') {
   if (!CONFIG.wpBase) {
     return {
       ok: false,
@@ -6083,6 +6088,7 @@ async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
       Accept: 'application/json',
       'Content-Type': 'application/json',
       Cookie: cookieHeader,
+      ...(wpRestNonce ? { 'X-WP-Nonce': wpRestNonce } : {}),
     },
     body: JSON.stringify({}),
     timeoutMs: 8_000,
@@ -6116,6 +6122,7 @@ async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
     headers: {
       Accept: 'application/json',
       Cookie: cookieHeader,
+      ...(wpRestNonce ? { 'X-WP-Nonce': wpRestNonce } : {}),
     },
     timeoutMs: 8_000,
   });
@@ -6510,11 +6517,12 @@ async function ensureSupabaseAuthUser(email, password, session = null) {
 
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
+  const wpRestNonce = getRequestWordPressNonce(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
   const requestedTarget = resolveAuthTarget(payload, {}, { hasWpToken: false });
 
   if (!wpToken && hasWordPressSessionCookie(cookieHeader)) {
-    const cookieValidation = await fetchWordPressUserFromCookieHeader(cookieHeader);
+    const cookieValidation = await fetchWordPressUserFromCookieHeader(cookieHeader, wpRestNonce);
     if (!cookieValidation.ok) {
       return {
         ok: false,

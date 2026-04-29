@@ -161,6 +161,64 @@ if ( ! function_exists( 'mm_stat_route_proxy_handle_request' ) ) {
 	}
 
 	/**
+	 * Build server-side STAT auth config payload.
+	 *
+	 * @return array<string,mixed>
+	 */
+	function mm_stat_route_proxy_build_auth_config() {
+		$is_logged_in = is_user_logged_in();
+		$wp_rest_nonce = '';
+
+		if ( $is_logged_in && function_exists( 'wp_create_nonce' ) ) {
+			$wp_rest_nonce = (string) wp_create_nonce( 'wp_rest' );
+		}
+
+		return array(
+			'isLoggedIn'  => $is_logged_in,
+			'nonce'       => $wp_rest_nonce,
+			'wpRestNonce' => $wp_rest_nonce,
+			'siteOrigin'  => esc_url_raw( home_url() ),
+		);
+	}
+
+	/**
+	 * Inject MM_STAT_AUTH_CONFIG into proxied STAT HTML.
+	 *
+	 * @param string              $html        Upstream HTML body.
+	 * @param array<string,mixed> $auth_config Auth config payload.
+	 * @return string
+	 */
+	function mm_stat_route_proxy_inject_auth_config( $html, $auth_config ) {
+		$body = (string) $html;
+		if ( '' === $body ) {
+			return $body;
+		}
+
+		if ( 1 === preg_match( '/window\.MM_STAT_AUTH_CONFIG\s*=\s*\{/', $body ) ) {
+			return $body;
+		}
+
+		$payload = wp_json_encode( $auth_config, JSON_UNESCAPED_SLASHES );
+		if ( ! is_string( $payload ) || '' === trim( $payload ) ) {
+			return $body;
+		}
+
+		$script = '<script>window.MM_STAT_AUTH_CONFIG=' . $payload . ';window.mmStatAuth=window.mmStatAuth||window.MM_STAT_AUTH_CONFIG;</script>';
+		$count  = 0;
+		$body   = preg_replace( '/<\/head>/i', $script . '</head>', $body, 1, $count );
+
+		if ( 0 === (int) $count ) {
+			$body = preg_replace( '/<body([^>]*)>/i', '<body$1>' . $script, $body, 1, $count );
+		}
+
+		if ( 0 === (int) $count ) {
+			$body = $script . $body;
+		}
+
+		return $body;
+	}
+
+	/**
 	 * Serve /stat from upstream STAT artifact.
 	 *
 	 * This executes early enough to bypass WordPress 404 templates and
@@ -217,6 +275,11 @@ if ( ! function_exists( 'mm_stat_route_proxy_handle_request' ) ) {
 		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 			define( 'DONOTCACHEPAGE', true );
 		}
+
+		$body = mm_stat_route_proxy_inject_auth_config(
+			$body,
+			mm_stat_route_proxy_build_auth_config()
+		);
 
 		status_header( 200 );
 		nocache_headers();
