@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MissionMed USCE Offer System</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --gold: #d4af37;
+      --danger: #ef4444;
+      --ok: #22c55e;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at top, #1e293b, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+
+    .app {
+      width: min(960px, 100%);
+      border: 1px solid #334155;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .brand b { color: var(--gold); }
+
+    .status {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0 16px;
+    }
+
+    button, a.btn {
+      border: 1px solid #475569;
+      background: #111827;
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button.primary {
+      border-color: #8b6b17;
+      background: #2e2305;
+      color: #f7e9b2;
+    }
+
+    .line {
+      border-top: 1px solid #334155;
+      margin: 14px 0;
+    }
+
+    .kpi {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .card {
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      background: rgba(15, 23, 42, 0.5);
+    }
+
+    .card h3 {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .card p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    pre {
+      margin: 0;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #334155;
+      background: #020617;
+      color: #d1fae5;
+      overflow: auto;
+      min-height: 220px;
+      font-family: var(--mono);
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .ok { color: var(--ok); }
+    .bad { color: var(--danger); }
+    .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <div class="top">
+      <div class="brand">MissionMed <b>USCE Offer System</b></div>
+      <div id="status" class="status">Initializing...</div>
+    </div>
+
+    <div class="kpi">
+      <div class="card">
+        <h3>Auth State</h3>
+        <p id="authState">Unknown</p>
+      </div>
+      <div class="card">
+        <h3>User</h3>
+        <p id="userState">Unknown</p>
+      </div>
+      <div class="card">
+        <h3>Requests API</h3>
+        <p id="requestState">Not called</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="refreshBtn" class="primary" type="button">Refresh Session + Requests</button>
+      <a id="loginBtn" class="btn" href="/api/auth/start" style="display:none">Log in via WordPress</a>
+    </div>
+
+    <div class="line"></div>
+    <pre id="output">{ "boot": "pending" }</pre>
+  </main>
+
+  <script>
+    (function () {
+      var state = {
+        accessToken: '',
+        csrfToken: '',
+        session: null,
+      };
+
+      var statusEl = document.getElementById('status');
+      var authStateEl = document.getElementById('authState');
+      var userStateEl = document.getElementById('userState');
+      var requestStateEl = document.getElementById('requestState');
+      var outputEl = document.getElementById('output');
+      var loginBtn = document.getElementById('loginBtn');
+      var refreshBtn = document.getElementById('refreshBtn');
+
+      function setStatus(text) {
+        statusEl.textContent = text;
+      }
+
+      function setOutput(payload) {
+        outputEl.textContent = JSON.stringify(payload, null, 2);
+      }
+
+      function setAuthUI(sessionPayload) {
+        var authenticated = Boolean(sessionPayload && sessionPayload.authenticated);
+        authStateEl.textContent = authenticated ? 'Authenticated' : 'Unauthenticated';
+        authStateEl.className = authenticated ? 'ok' : 'bad';
+
+        if (authenticated && sessionPayload.user) {
+          var user = sessionPayload.user;
+          userStateEl.textContent = String(user.displayName || user.login || user.email || user.id || 'Unknown');
+        } else {
+          userStateEl.textContent = 'Not signed in';
+        }
+
+        var startPath = sessionPayload && sessionPayload.login && sessionPayload.login.auth_start_url
+          ? String(sessionPayload.login.auth_start_url)
+          : '/api/auth/start';
+        loginBtn.href = startPath;
+        loginBtn.style.display = authenticated ? 'none' : 'inline-block';
+      }
+
+      async function fetchJson(path, options) {
+        var res = await fetch(path, Object.assign({ cache: 'no-store', credentials: 'include' }, options || {}));
+        var body = null;
+        try { body = await res.json(); } catch (_err) { body = { parse_error: true }; }
+        return { ok: res.ok, status: res.status, body: body };
+      }
+
+      async function loadSession() {
+        setStatus('Loading session...');
+        var sessionRes = await fetchJson('/api/auth/session', { method: 'GET' });
+        state.session = sessionRes.body || {};
+        state.accessToken = String(state.session.accessToken || '').trim();
+        state.csrfToken = String(state.session.csrfToken || '').trim();
+        setAuthUI(state.session);
+        return sessionRes;
+      }
+
+      async function loadRequestsWithBearer() {
+        requestStateEl.textContent = 'Calling /api/usce/requests...';
+        if (!state.accessToken) {
+          requestStateEl.textContent = 'No access token in session payload';
+          requestStateEl.className = 'bad';
+          return { ok: false, status: 401, body: { error: 'missing_access_token' } };
+        }
+
+        var headers = { Authorization: 'Bearer ' + state.accessToken };
+        var res = await fetchJson('/api/usce/requests', { method: 'GET', headers: headers });
+
+        requestStateEl.textContent = res.ok ? ('HTTP ' + res.status) : ('HTTP ' + res.status);
+        requestStateEl.className = res.ok ? 'ok' : 'bad';
+        return res;
+      }
+
+      async function boot() {
+        try {
+          var sessionRes = await loadSession();
+          if (!sessionRes.ok || !sessionRes.body || !sessionRes.body.authenticated) {
+            setStatus('Sign in required');
+            setOutput({
+              session: sessionRes.body || {},
+              hint: 'Use the login button, then refresh.',
+            });
+            return;
+          }
+
+          setStatus('Authenticated. Loading USCE requests...');
+          var requestsRes = await loadRequestsWithBearer();
+          setStatus(requestsRes.ok ? 'USCE runtime reachable' : 'USCE request failed');
+          setOutput({
+            session: {
+              authenticated: true,
+              user: sessionRes.body.user || null,
+              session_transport: sessionRes.body.login ? sessionRes.body.login.session_transport : null,
+            },
+            requests: requestsRes.body,
+            httpStatus: requestsRes.status,
+          });
+        } catch (error) {
+          setStatus('Runtime error');
+          authStateEl.textContent = 'Error';
+          authStateEl.className = 'bad';
+          requestStateEl.textContent = 'Error';
+          requestStateEl.className = 'bad';
+          setOutput({
+            error: 'usce_shell_runtime_error',
+            message: error && error.message ? error.message : String(error),
+          });
+        }
+      }
+
+      refreshBtn.addEventListener('click', function () { void boot(); });
+      void boot();
+    }());
+  </script>
+</body>
+</html>
