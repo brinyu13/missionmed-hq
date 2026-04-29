@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 11:37 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-v
+- Scope: Restore A8 Arena frontend exchange/handoff flow while preserving 500-t logout cleanup.
+- Files: LIVE/arena.html
+- Notes: Restored Arena exchange payload to `audience: "arena"`, reintroduced login-context exchange retry cadence, added one-time `wordpress_handoff_url` consumption (`shouldAttemptArenaAuthHandoff` / `attemptArenaAuthHandoff`) with post-handoff exchange retry (`exchange_cookie_post_handoff`), and kept HQ token fallback disabled for Arena auth while retaining 500-t logout/session purge behavior.
+
 ## [2026-04-29 11:03 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-t
 - Scope: Deterministic Arena logout/session clearing to remove sticky runtime identity contamination between auth tests.

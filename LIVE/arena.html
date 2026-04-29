@@ -6702,9 +6702,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
   function requiresWordPressToken(result){
     if(!result || result.ok) return false;
-    var message = getResponseErrorMessage(result.payload).toLowerCase();
-    if(result.status === 400 && /signed|token/.test(message)) return true;
-    return result.status === 401;
+    // Arena auth must not rely on HQ admin token routes.
+    return false;
   }
 
   function resolveCredentialsMode(url, forcedMode){
@@ -6756,19 +6755,141 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return { ok: false, reason: lastReason };
   }
 
-  async function runAuthExchange(){
+  var ARENA_AUTH_HANDOFF_ONCE_KEY = 'mm_arena_auth_handoff_attempted';
+
+  function getArenaAuthExchangeRetryDelays(){
+    var delays = [0];
+    var authCfg = getArenaAuthConfig();
+    var loginHint = !!(authCfg && authCfg.just_logged_in);
+
     try{
-      var direct = await postJson(AUTH_EXCHANGE_URL, {}, null, 'include');
-      if(direct.ok){
-        return {
-          ok: true,
-          endpoint: AUTH_EXCHANGE_URL,
-          accessToken: getExchangeAccessToken(direct.payload),
-          csrfToken: getExchangeCsrfToken(direct.payload),
-          source: 'exchange_cookie'
-        };
+      var search = new URLSearchParams(window.location.search || '');
+      if(search.get('redirected') === '1') loginHint = true;
+    } catch(_searchErr){}
+
+    try{
+      if(!loginHint && document.referrer){
+        loginHint = /\/my-account\/?|\/wp-login\.php/i.test(String(document.referrer));
       }
-      if(requiresWordPressToken(direct)){
+    } catch(_refErr){}
+
+    if(loginHint){
+      delays = [0, 150, 350, 700, 1200, 2000];
+    }
+
+    return delays;
+  }
+
+  function getArenaExchangeLoginHints(result){
+    if(!result || !result.payload || typeof result.payload !== 'object') return null;
+    var login = result.payload.login;
+    return (login && typeof login === 'object') ? login : null;
+  }
+
+  function getArenaWordPressHandoffUrl(result){
+    var loginHints = getArenaExchangeLoginHints(result);
+    if(!loginHints) return '';
+    var raw = String(loginHints.wordpress_handoff_url || '').trim();
+    if(!raw) return '';
+    return normalizeArenaSameOriginUrl(raw);
+  }
+
+  function hasAttemptedArenaAuthHandoff(){
+    try { return sessionStorage.getItem(ARENA_AUTH_HANDOFF_ONCE_KEY) === '1'; }
+    catch(_readErr){ return false; }
+  }
+
+  function markArenaAuthHandoffAttempted(){
+    try { sessionStorage.setItem(ARENA_AUTH_HANDOFF_ONCE_KEY, '1'); } catch(_setErr){}
+  }
+
+  function clearArenaAuthHandoffAttempted(){
+    try { sessionStorage.removeItem(ARENA_AUTH_HANDOFF_ONCE_KEY); } catch(_clearErr){}
+  }
+
+  function shouldAttemptArenaAuthHandoff(result){
+    if(!result || result.ok) return false;
+    if(hasAttemptedArenaAuthHandoff()) return false;
+    return !!getArenaWordPressHandoffUrl(result);
+  }
+
+  async function attemptArenaAuthHandoff(result){
+    var handoffUrl = getArenaWordPressHandoffUrl(result);
+    if(!handoffUrl){
+      return { ok: false, reason: 'auth_handoff_url_missing' };
+    }
+    markArenaAuthHandoffAttempted();
+    try{
+      var handoffResponse = await fetch(handoffUrl, {
+        method: 'GET',
+        credentials: 'include',
+        cache: 'no-store',
+        redirect: 'manual'
+      });
+      var status = Number(handoffResponse && handoffResponse.status ? handoffResponse.status : 0);
+      var responseType = String(handoffResponse && handoffResponse.type ? handoffResponse.type : '');
+      if(
+        (handoffResponse && handoffResponse.ok) ||
+        (status >= 300 && status < 400) ||
+        responseType === 'opaqueredirect'
+      ){
+        return { ok: true, handoffUrl: handoffUrl, status: status, type: responseType };
+      }
+      return { ok: false, reason: 'auth_handoff_http_' + status, handoffUrl: handoffUrl };
+    } catch(_handoffErr){
+      return { ok: false, reason: 'auth_handoff_request_failed', handoffUrl: handoffUrl };
+    }
+  }
+
+  async function runAuthExchange(){
+    var lastDirect = null;
+    var delays = getArenaAuthExchangeRetryDelays();
+    try{
+      for(var i = 0; i < delays.length; i++){
+        if(delays[i] > 0){
+          await new Promise(function(resolve){ setTimeout(resolve, delays[i]); });
+        }
+        var direct = await postJson(AUTH_EXCHANGE_URL, { audience: 'arena' }, null, 'include');
+        lastDirect = direct;
+        if(direct.ok){
+          clearArenaAuthHandoffAttempted();
+          return {
+            ok: true,
+            endpoint: AUTH_EXCHANGE_URL,
+            accessToken: getExchangeAccessToken(direct.payload),
+            csrfToken: getExchangeCsrfToken(direct.payload),
+            source: 'exchange_cookie'
+          };
+        }
+      }
+
+      if(shouldAttemptArenaAuthHandoff(lastDirect)){
+        var handoff = await attemptArenaAuthHandoff(lastDirect);
+        if(handoff && handoff.ok){
+          var retryDelays = [150, 350, 700, 1200, 2000];
+          for(var j = 0; j < retryDelays.length; j++){
+            if(retryDelays[j] > 0){
+              await new Promise(function(resolve){ setTimeout(resolve, retryDelays[j]); });
+            }
+            var postHandoffExchange = await postJson(AUTH_EXCHANGE_URL, { audience: 'arena' }, null, 'include');
+            lastDirect = postHandoffExchange;
+            if(postHandoffExchange.ok){
+              clearArenaAuthHandoffAttempted();
+              return {
+                ok: true,
+                endpoint: AUTH_EXCHANGE_URL,
+                accessToken: getExchangeAccessToken(postHandoffExchange.payload),
+                csrfToken: getExchangeCsrfToken(postHandoffExchange.payload),
+                source: 'exchange_cookie_post_handoff'
+              };
+            }
+          }
+        } else {
+          return { ok: false, reason: (handoff && handoff.reason) || 'auth_handoff_failed' };
+        }
+      }
+
+      if(requiresWordPressToken(lastDirect)){
         var tokenResult = await fetchWordPressExchangeToken();
         if(tokenResult.ok && tokenResult.token){
           var tokenExchange = await postJson(AUTH_EXCHANGE_URL, { token: tokenResult.token }, null, 'include');
@@ -6785,7 +6906,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         }
         return { ok: false, reason: tokenResult.reason || 'wp_token_unavailable' };
       }
-      return { ok: false, reason: 'auth_exchange_http_' + direct.status };
+      return { ok: false, reason: 'auth_exchange_http_' + ((lastDirect && lastDirect.status) || 0) };
     } catch(_exchangeErr){
       return { ok: false, reason: 'auth_exchange_request_failed' };
     }
