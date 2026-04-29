@@ -6012,6 +6012,50 @@ function hasWordPressSessionCookie(cookieHeader = '') {
   return AUTH_WORDPRESS_COOKIE_PREFIXES.some((prefix) => normalized.includes(prefix));
 }
 
+function normalizeWordPressBridgeUser(bridgeData = null) {
+  if (!bridgeData || typeof bridgeData !== 'object') return null;
+
+  const directUser = (
+    (bridgeData.user && typeof bridgeData.user === 'object' && !Array.isArray(bridgeData.user) ? bridgeData.user : null) ||
+    (bridgeData.wp_user && typeof bridgeData.wp_user === 'object' && !Array.isArray(bridgeData.wp_user) ? bridgeData.wp_user : null) ||
+    (bridgeData.wordpress_user && typeof bridgeData.wordpress_user === 'object' && !Array.isArray(bridgeData.wordpress_user) ? bridgeData.wordpress_user : null) ||
+    (bridgeData.current_user && typeof bridgeData.current_user === 'object' && !Array.isArray(bridgeData.current_user) ? bridgeData.current_user : null) ||
+    (bridgeData.data && typeof bridgeData.data === 'object' && bridgeData.data.user && typeof bridgeData.data.user === 'object' ? bridgeData.data.user : null)
+  );
+
+  if (directUser) {
+    const normalizedDirect = normalizeWordPressUser(directUser);
+    if (Number(normalizedDirect.id || 0)) {
+      return normalizedDirect;
+    }
+  }
+
+  const inferredId = Number(
+    bridgeData.wp_user_id ??
+    bridgeData.user_id ??
+    bridgeData.id ??
+    bridgeData.wpUserId ??
+    bridgeData.wpUserID ??
+    0,
+  );
+  if (!Number.isFinite(inferredId) || inferredId <= 0) {
+    return null;
+  }
+
+  const inferredRoles = Array.isArray(bridgeData.roles)
+    ? bridgeData.roles
+    : (Array.isArray(bridgeData.user_roles) ? bridgeData.user_roles : []);
+
+  return normalizeWordPressUser({
+    id: inferredId,
+    login: bridgeData.login || bridgeData.user_login || bridgeData.username || '',
+    display_name: bridgeData.display_name || bridgeData.displayName || bridgeData.name || '',
+    email: bridgeData.email || bridgeData.user_email || '',
+    roles: inferredRoles,
+    capabilities: bridgeData.capabilities || bridgeData.extra_capabilities || {},
+  });
+}
+
 async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
   if (!CONFIG.wpBase) {
     return {
@@ -6029,6 +6073,42 @@ async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
       error: 'wordpress_session_missing',
       detail: 'WordPress session cookie is missing.',
     };
+  }
+
+  // Prefer MissionMed bridge route for runtime cookie validation:
+  // it is explicitly configured server-side to bypass REST nonce checks for this flow.
+  const bridgeSession = await fetchJson(`${CONFIG.wpBase}/wp-json/missionmed/v1/supabase-session`, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Cookie: cookieHeader,
+    },
+    body: JSON.stringify({}),
+    timeoutMs: 8_000,
+  });
+
+  if (bridgeSession.ok) {
+    const bridgeUser = normalizeWordPressBridgeUser(bridgeSession.data || {});
+    if (bridgeUser && Number(bridgeUser.id || 0)) {
+      return {
+        ok: true,
+        status: 200,
+        user: bridgeUser,
+      };
+    }
+  }
+
+  if (!bridgeSession.ok) {
+    const bridgeStatus = Number(bridgeSession.status || 0);
+    if (bridgeStatus === 401 || bridgeStatus === 403) {
+      return {
+        ok: false,
+        status: bridgeStatus,
+        error: bridgeStatus === 403 ? 'wordpress_session_forbidden' : 'wordpress_session_invalid',
+        detail: bridgeSession.error || 'WordPress session validation failed.',
+      };
+    }
   }
 
   const wpUser = await fetchJson(`${CONFIG.wpBase}/wp-json/wp/v2/users/me`, {
@@ -6431,6 +6511,7 @@ async function ensureSupabaseAuthUser(email, password, session = null) {
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
+  const requestedTarget = resolveAuthTarget(payload, {}, { hasWpToken: false });
 
   if (!wpToken && hasWordPressSessionCookie(cookieHeader)) {
     const cookieValidation = await fetchWordPressUserFromCookieHeader(cookieHeader);
@@ -6475,6 +6556,14 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
         },
         authTarget.mode === 'runtime' ? 'wordpress-cookie-runtime' : 'wordpress-cookie',
       ),
+    };
+  }
+
+  if (!wpToken && requestedTarget.mode === 'runtime') {
+    return {
+      ok: false,
+      status: 401,
+      error: 'WordPress session cookie is missing. Please log in through MissionMed and retry.',
     };
   }
 

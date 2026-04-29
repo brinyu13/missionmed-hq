@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 01:21 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-p
+- Scope: Runtime cookie-auth bridge alignment for `/api/auth/exchange` subscriber flow.
+- Files: missionmed-hq/server.mjs
+- Notes: Updated Railway exchange cookie validation to use the dedicated WordPress bridge endpoint (`/wp-json/missionmed/v1/supabase-session`) before legacy `wp/v2/users/me`, normalized bridge user-shape parsing, and changed runtime no-cookie exchange failure to explicit cookie-missing guidance instead of HQ token-handoff messaging. Deployed to `missionmed-hq-production.up.railway.app` (Railway deployment `d110f55d-5448-4925-814b-84e9d0f4744c` SUCCESS).
+
 ## [2026-04-29 01:10 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-p
 - Scope: End-to-end STAT runtime auth bridge repair pass with live MU parity preservation and guest-identity fallback cleanup.
