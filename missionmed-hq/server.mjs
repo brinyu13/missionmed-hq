@@ -837,6 +837,10 @@ function serializeCookie(name, value, options = {}) {
     parts.push('Secure');
   }
 
+  if (options.partitioned) {
+    parts.push('Partitioned');
+  }
+
   return parts.join('; ');
 }
 
@@ -976,12 +980,14 @@ function readSessionFromRequest(request) {
 
 function buildSessionCookie(request, session) {
   const sameSite = isRuntimeAuthSession(session) ? 'None' : 'Lax';
+  const partitioned = isRuntimeAuthSession(session);
   return serializeCookie(CONFIG.sessionCookieName, createEncryptedSession(session), {
     httpOnly: true,
     maxAge: CONFIG.sessionTtlSeconds,
     path: '/',
     sameSite,
     secure: shouldUseSecureCookies(request),
+    partitioned,
   });
 }
 
@@ -992,6 +998,7 @@ function clearSessionCookie(request) {
     path: '/',
     sameSite: 'None',
     secure: shouldUseSecureCookies(request),
+    partitioned: true,
   });
 }
 
