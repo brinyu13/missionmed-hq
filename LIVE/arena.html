@@ -6745,6 +6745,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   var ARENA_AUTH_HANDOFF_ONCE_KEY = 'mm_arena_auth_handoff_attempted';
+  var ARENA_AUTH_HANDOFF_CYCLE_RESET_KEY = 'mm_arena_auth_handoff_cycle_reset';
 
   function getArenaAuthExchangeRetryDelays(){
     var delays = [0];
@@ -6794,6 +6795,32 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
   function clearArenaAuthHandoffAttempted(){
     try { sessionStorage.removeItem(ARENA_AUTH_HANDOFF_ONCE_KEY); } catch(_clearErr){}
+    try { sessionStorage.removeItem(ARENA_AUTH_HANDOFF_CYCLE_RESET_KEY); } catch(_clearCycleErr){}
+  }
+
+  function maybeResetArenaAuthHandoffForLoginReturn(){
+    var shouldReset = false;
+    try{
+      var search = new URLSearchParams(window.location.search || '');
+      if(search.get('redirected') === '1' || search.get('just_logged_in') === '1'){
+        shouldReset = true;
+      }
+    } catch(_searchErr){}
+
+    try{
+      if(!shouldReset && document.referrer){
+        shouldReset = /\/my-account\/?|\/wp-login\.php/i.test(String(document.referrer));
+      }
+    } catch(_refErr){}
+
+    if(!shouldReset) return;
+    try{
+      if(sessionStorage.getItem(ARENA_AUTH_HANDOFF_CYCLE_RESET_KEY) === '1'){
+        return;
+      }
+      sessionStorage.setItem(ARENA_AUTH_HANDOFF_CYCLE_RESET_KEY, '1');
+    } catch(_cycleKeyErr){}
+    clearArenaAuthHandoffAttempted();
   }
 
   function shouldAttemptArenaAuthHandoff(result){
@@ -6821,6 +6848,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
   async function runAuthExchange(){
     var lastDirect = null;
+    maybeResetArenaAuthHandoffForLoginReturn();
     var delays = getArenaAuthExchangeRetryDelays();
     try{
       for(var i = 0; i < delays.length; i++){
