@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MissionMed USCE Admin</title>
+<style>
+:root{--n:#0F2A44;--n2:#173755;--g:#C9A24B;--ink:#0b1c2e;--paper:#f7f5f0;--line:rgba(15,42,68,.14);--ok:#1f8a5a;--bad:#b23a3a;--muted:#5e6b7a}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:linear-gradient(180deg,#fbfaf6,#f2eee6);padding:20px}
+.app{max-width:1200px;margin:0 auto;display:grid;gap:14px}.card{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 8px 24px rgba(15,42,68,.08)}
+.h{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:center}.h h1,.h h2{margin:0}.h h1{font-size:20px}.h small{color:var(--muted)}
+.b{padding:14px 16px}.row{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:10px}.col-4{grid-column:span 4}.col-6{grid-column:span 6}.col-8{grid-column:span 8}.col-12{grid-column:span 12}
+label{display:block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px;color:var(--n)}
+input,select,textarea{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:#fff}textarea{min-height:96px}
+button,a.btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--n);border-radius:10px;padding:10px 12px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-block}
+button.primary{background:linear-gradient(135deg,var(--n),var(--n2));color:#fff;border-color:#233b58}button.good{background:#ecf8f1;color:var(--ok);border-color:#b8e1ca}
+.tag{font-size:11px;padding:4px 8px;border-radius:999px;border:1px solid var(--line);font-weight:700}.ok{color:var(--ok)}.bad{color:var(--bad)}
+.list{border:1px solid var(--line);border-radius:10px;overflow:hidden}.item{padding:10px 12px;border-bottom:1px solid var(--line);display:grid;grid-template-columns:1.2fr 1fr .8fr;gap:10px;cursor:pointer}.item:last-child{border-bottom:0}.item:hover{background:#faf8f3}.item.active{background:#f2efe6}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;white-space:pre-wrap;background:#0f172a;color:#d1fae5;border-radius:10px;padding:10px;border:1px solid #1e293b}
+@media(max-width:900px){.col-4,.col-6,.col-8,.col-12{grid-column:span 12}.item{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="app">
+  <section class="card">
+    <div class="h">
+      <div>
+        <h1>MissionMed USCE Admin</h1>
+        <small>Coordinator offer workflow (production runtime)</small>
+      </div>
+      <div>
+        <span id="authState" class="tag">checking auth...</span>
+      </div>
+    </div>
+    <div class="b row">
+      <div class="col-12" id="authMsg"></div>
+      <div class="col-12">
+        <button id="btnConnect" class="primary" type="button">Connect Auth Session</button>
+        <a class="btn" href="/api/auth/start">Login via WordPress</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="h"><h2>Requests</h2><button id="btnRefresh" type="button">Refresh</button></div>
+    <div class="b row">
+      <div class="col-6">
+        <div id="requestList" class="list"></div>
+      </div>
+      <div class="col-6">
+        <div id="requestDetail" class="mono">Select a request to load details.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="h"><h2>Create Request</h2></div>
+    <div class="b row">
+      <div class="col-4"><label>Applicant Name</label><input id="rqName" /></div>
+      <div class="col-4"><label>Applicant Email</label><input id="rqEmail" type="email" /></div>
+      <div class="col-4"><label>Phone (E.164)</label><input id="rqPhone" placeholder="+15551234567" /></div>
+      <div class="col-4"><label>Program Seat</label><select id="rqSeat"></select></div>
+      <div class="col-4"><label>Preferred Specialties (comma)</label><input id="rqSpecs" placeholder="Internal Medicine, Pediatrics" /></div>
+      <div class="col-4"><label>Preferred Locations (comma)</label><input id="rqLocs" placeholder="New York, NY, Chicago, IL" /></div>
+      <div class="col-12"><button id="btnCreateReq" class="primary" type="button">Create Request</button></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="h"><h2>Create Offer</h2><small>Requires selected request ID</small></div>
+    <div class="b row">
+      <div class="col-4"><label>Request ID</label><input id="ofRequestId" /></div>
+      <div class="col-4"><label>Program Seat</label><select id="ofSeat"></select></div>
+      <div class="col-4"><label>Amount Cents</label><input id="ofAmount" type="number" value="250000" /></div>
+      <div class="col-12"><label>Subject</label><input id="ofSubject" value="Your MissionMed USCE Offer" /></div>
+      <div class="col-6"><label>HTML Body</label><textarea id="ofHtml"><p>Your offer is ready.</p></textarea></div>
+      <div class="col-6"><label>Text Body</label><textarea id="ofText">Your offer is ready.</textarea></div>
+      <div class="col-12"><button id="btnCreateOffer" class="good" type="button">Create Offer + Portal Token</button></div>
+      <div class="col-12"><div id="offerOut" class="mono">No offer created yet.</div></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+  const state = { accessToken:'', csrfToken:'', connected:false, requests:[], selectedRequestId:'', programs:[] };
+
+  const el = {
+    authState: document.getElementById('authState'), authMsg: document.getElementById('authMsg'),
+    requestList: document.getElementById('requestList'), requestDetail: document.getElementById('requestDetail'),
+    rqName: document.getElementById('rqName'), rqEmail: document.getElementById('rqEmail'), rqPhone: document.getElementById('rqPhone'),
+    rqSeat: document.getElementById('rqSeat'), rqSpecs: document.getElementById('rqSpecs'), rqLocs: document.getElementById('rqLocs'),
+    ofRequestId: document.getElementById('ofRequestId'), ofSeat: document.getElementById('ofSeat'), ofAmount: document.getElementById('ofAmount'),
+    ofSubject: document.getElementById('ofSubject'), ofHtml: document.getElementById('ofHtml'), ofText: document.getElementById('ofText'),
+    offerOut: document.getElementById('offerOut')
+  };
+
+  function status(ok, txt){ el.authState.textContent = txt; el.authState.className = 'tag ' + (ok ? 'ok' : 'bad'); }
+  function listCsv(v){ return String(v||'').split(',').map(s=>s.trim()).filter(Boolean); }
+
+  async function api(path, opts={}){
+    const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
+    if (state.accessToken) headers.Authorization = 'Bearer ' + state.accessToken;
+    if (opts.method && opts.method !== 'GET' && state.csrfToken) headers['X-MMHQ-CSRF'] = state.csrfToken;
+    const res = await fetch(path, { method: opts.method || 'GET', cache:'no-store', credentials:'include', headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
+    let data = null; try { data = await res.json(); } catch(_e) { data = { parse_error:true }; }
+    return { ok: res.ok, status: res.status, data };
+  }
+
+  function fillSeatSelects(){
+    const opts = ['<option value="">Select program seat</option>'].concat(state.programs.map(p => `<option value="${p.id}">${p.program_name || p.id} (${p.seats_available ?? '?' } seats)</option>`));
+    el.rqSeat.innerHTML = opts.join('');
+    el.ofSeat.innerHTML = opts.join('');
+  }
+
+  function renderRequests(){
+    if (!state.requests.length){ el.requestList.innerHTML = '<div class="item"><div>No requests</div><div></div><div></div></div>'; return; }
+    el.requestList.innerHTML = state.requests.map(r => {
+      const active = state.selectedRequestId === r.id ? ' active' : '';
+      return `<div class="item${active}" data-id="${r.id}"><div><strong>${r.applicant_name || r.id}</strong><div>${r.applicant_email || ''}</div></div><div>${r.status || 'UNKNOWN'}</div><div>${r.created_at || ''}</div></div>`;
+    }).join('');
+    el.requestList.querySelectorAll('.item[data-id]').forEach(node => node.addEventListener('click', async () => {
+      const id = node.getAttribute('data-id');
+      state.selectedRequestId = id;
+      el.ofRequestId.value = id;
+      renderRequests();
+      const d = await api('/api/usce/requests/' + encodeURIComponent(id));
+      el.requestDetail.textContent = JSON.stringify(d.data, null, 2);
+    }));
+  }
+
+  async function connect(){
+    const s = await api('/api/auth/session');
+    if (!s.ok){ status(false, 'session error'); el.authMsg.textContent = 'Could not load /api/auth/session'; return; }
+    const body = s.data || {};
+    state.accessToken = String(body.accessToken || '').trim();
+    state.csrfToken = String(body.csrfToken || '').trim();
+    state.connected = Boolean(body.authenticated && state.accessToken);
+    if (!state.connected){ status(false, 'not authenticated'); el.authMsg.textContent = 'Authenticate via WordPress login, then reconnect.'; return; }
+    status(true, 'authenticated');
+    const who = body.user && (body.user.displayName || body.user.email || body.user.id) ? (body.user.displayName || body.user.email || body.user.id) : 'user';
+    el.authMsg.textContent = `Connected as ${who}. session_transport=${body.login && body.login.session_transport ? body.login.session_transport : 'unknown'}`;
+    await loadPrograms();
+    await refreshRequests();
+  }
+
+  async function loadPrograms(){
+    const p = await api('/api/usce/programs?active=true&limit=100');
+    if (!p.ok){ el.authMsg.textContent = 'Failed to load programs: HTTP ' + p.status; return; }
+    state.programs = Array.isArray(p.data && p.data.items) ? p.data.items : [];
+    fillSeatSelects();
+  }
+
+  async function refreshRequests(){
+    const r = await api('/api/usce/requests');
+    if (!r.ok){ el.requestList.innerHTML = '<div class="item"><div>Request load failed HTTP ' + r.status + '</div></div>'; return; }
+    state.requests = Array.isArray(r.data && r.data.requests) ? r.data.requests : [];
+    renderRequests();
+  }
+
+  async function createRequest(){
+    const payload = {
+      applicant_name: el.rqName.value.trim(), applicant_email: el.rqEmail.value.trim().toLowerCase(), applicant_phone_e164: el.rqPhone.value.trim() || null,
+      program_seat_id: el.rqSeat.value, preferred_specialties: listCsv(el.rqSpecs.value), preferred_locations: listCsv(el.rqLocs.value), preferred_months: [],
+      preference_rankings: {}, intake_payload: {}
+    };
+    const r = await api('/api/usce/requests', { method: 'POST', body: payload });
+    if (!r.ok){ el.requestDetail.textContent = JSON.stringify(r.data, null, 2); return; }
+    el.requestDetail.textContent = JSON.stringify(r.data, null, 2);
+    await refreshRequests();
+  }
+
+  async function createOffer(){
+    const payload = {
+      request_id: el.ofRequestId.value.trim(), program_seat_id: el.ofSeat.value, amount_cents: Number(el.ofAmount.value || 0),
+      subject: el.ofSubject.value.trim(), html_body: el.ofHtml.value, text_body: el.ofText.value
+    };
+    const r = await api('/api/usce/offers', { method: 'POST', body: payload });
+    el.offerOut.textContent = JSON.stringify(r.data, null, 2);
+  }
+
+  document.getElementById('btnConnect').addEventListener('click', connect);
+  document.getElementById('btnRefresh').addEventListener('click', refreshRequests);
+  document.getElementById('btnCreateReq').addEventListener('click', createRequest);
+  document.getElementById('btnCreateOffer').addEventListener('click', createOffer);
+
+  connect();
+})();
+</script>
+</body>
+</html>
