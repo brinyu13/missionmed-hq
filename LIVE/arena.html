@@ -5941,9 +5941,6 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   function buildArenaLoginUrl(){
-    var authCfg = getArenaAuthConfig();
-    var configured = normalizeArenaSameOriginUrl(authCfg && authCfg.loginUrl ? authCfg.loginUrl : '');
-    if(configured) return configured;
     return window.location.origin + '/my-account/?redirect_to=' + encodeURIComponent(buildArenaLoginReturnUrl());
   }
 
@@ -6873,23 +6870,6 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         }
       }
 
-      if(requiresWordPressToken(lastDirect)){
-        var tokenResult = await fetchWordPressExchangeToken();
-        if(tokenResult.ok && tokenResult.token){
-          var tokenExchange = await postJson(AUTH_EXCHANGE_URL, { token: tokenResult.token }, null, 'include');
-          if(tokenExchange.ok){
-            return {
-              ok: true,
-              endpoint: AUTH_EXCHANGE_URL,
-              accessToken: getExchangeAccessToken(tokenExchange.payload),
-              csrfToken: getExchangeCsrfToken(tokenExchange.payload),
-              source: 'exchange_wp_token'
-            };
-          }
-          return { ok: false, reason: 'auth_exchange_token_http_' + tokenExchange.status };
-        }
-        return { ok: false, reason: tokenResult.reason || 'wp_token_unavailable' };
-      }
       return { ok: false, reason: 'auth_exchange_http_' + ((lastDirect && lastDirect.status) || 0) };
     } catch(_exchangeErr){
       return { ok: false, reason: 'auth_exchange_request_failed' };
@@ -7480,11 +7460,24 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     } catch(_supaIdentityErr){}
     var authCfg = getArenaAuthConfig();
     var loggedOut = !!(authCfg && authCfg.loggedOutParam);
+    var redirectedAfterLogin = false;
+    try{
+      var searchParams = new URLSearchParams(window.location.search || '');
+      redirectedAfterLogin = searchParams.get('redirected') === '1' || searchParams.get('just_logged_in') === '1';
+    } catch(_searchErr){}
 
     if(loggedOut){
       showArenaAuthRequiredState({
         loggedOut: true,
         reason: 'logout'
+      });
+      return false;
+    }
+
+    if(redirectedAfterLogin){
+      showArenaAuthRequiredState({
+        loggedOut: false,
+        reason: 'post_login_auth_failed'
       });
       return false;
     }

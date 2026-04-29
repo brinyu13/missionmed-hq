@@ -164,3 +164,9 @@
 - Scope: Temporarily disable embedded Arena login form and force unauthenticated users through WordPress `/my-account` return flow back to `/arena` before exchange/bootstrap.
 - Files: LIVE/arena.html, CHANGELOG/CHANGELOG.md
 - Notes: Removed embedded login-form injection from Arena auth panel, preserved login/register links with `/my-account` redirect flow, and added unauth redirect trigger so Arena always routes through WordPress login prior to runtime exchange/bootstrap. Preserved 500-t logout cleanup behavior.
+
+## [2026-04-29 17:35 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-ab
+- Scope: Stabilize Arena WordPress-entry runtime auth handoff and eliminate HQ-token fallback loop.
+- Files: missionmed-hq/server.mjs, LIVE/arena.html, CHANGELOG/CHANGELOG.md
+- Notes: Updated `/api/auth/exchange` to accept and refresh existing runtime session cookies established by WordPress handoff (`/api/auth/session`), preserved HQ authorization restrictions, removed Arena runtime fallback to WP HQ token exchange, enforced canonical `/my-account/?redirect_to=/arena?redirected=1` login redirect construction, and added post-login failure guard to prevent infinite redirect cycling.

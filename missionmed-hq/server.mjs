@@ -6679,6 +6679,56 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
   const requestedTarget = resolveAuthTarget(payload, {}, { hasWpToken: false });
   const useCookieBridge = shouldUseWordPressCookieBridgeForRequest(payload, request);
+  const existingSession = request ? readSessionFromRequest(request) : null;
+
+  if (!wpToken && existingSession && existingSession.user) {
+    const existingUser = normalizeWordPressIdentityUser(existingSession.user || {});
+    const authTarget = resolveAuthTarget(payload, existingUser, { hasWpToken: false });
+    const existingSessionMode = isRuntimeAuthSession(existingSession) ? 'runtime' : 'hq';
+
+    if (authTarget.mode === 'hq') {
+      if (!isAuthorizedWordPressUser(existingUser)) {
+        return {
+          ok: false,
+          status: 403,
+          error: 'This WordPress account is not authorized for MissionMed HQ.',
+        };
+      }
+
+      if (existingSessionMode !== 'hq') {
+        return {
+          ok: false,
+          status: 401,
+          error: 'A signed WordPress HQ token is required. Start from the WordPress login handoff to continue.',
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      session: createSessionRecord(
+        {
+          id: existingUser.id,
+          login: existingUser.login,
+          displayName: existingUser.displayName,
+          email: existingUser.email,
+          roles: existingUser.roles,
+          capabilities: existingUser.capabilities || {},
+          scope: authTarget.mode === 'hq'
+            ? (existingUser.scope || resolveOperatorScope(existingUser))
+            : resolveRuntimeScope(existingUser),
+        },
+        {
+          wpAuthorization: String(existingSession.wpAuthorization || getWordPressServiceAuthorization() || '').trim(),
+          authAudience: authTarget.audience,
+          authSurface: authTarget.surface,
+          sessionType: authTarget.mode,
+        },
+        authTarget.mode === 'runtime' ? 'runtime-session' : 'hq-session',
+      ),
+    };
+  }
 
   if (!wpToken && hasWordPressSessionCookie(cookieHeader)) {
     const cookieValidation = await fetchWordPressUserFromCookieHeader(cookieHeader, wpRestNonce, {
