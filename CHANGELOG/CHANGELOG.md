@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 15:05 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-ac
+- Scope: Enforce locked WordPress-entry → Railway exchange/bootstrap runtime for Arena and auto-redirect unauthenticated `/arena` traffic to WordPress login.
+- Files: LIVE/arena.html, CHANGELOG/CHANGELOG.md
+- Notes: Set Arena auth endpoints to `https://missionmed-hq-production.up.railway.app/api/auth/{exchange,bootstrap}`, preserved Supabase session hydration checks, removed redirected-query auth stop-screen branch, and enforced automatic unauthenticated redirect back to MissionMed `/my-account` login flow for Arena entry.
+
 ## [2026-04-29 14:53 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-ab
 - Scope: Remove Arena-native login surface and enforce WordPress `/my-account` entry flow with stable post-redirect auth failure handling.

@@ -5420,8 +5420,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   const API_BASE       = String(window.MISSIONMED_AVATAR_API_BASE || "https://noble-harmony-production.up.railway.app").replace(/\/+$/, '');
   const API_SEGMENT    = '/api';
   var DRILL_API_BASE   = String(window.MISSIONMED_API_BASE || 'https://mmvs-backend-production.up.railway.app').replace(/\/+$/, '');
-  var AUTH_EXCHANGE_URL = '/api/auth/exchange';
-  var AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';
+  var AUTH_BACKEND_ORIGIN = 'https://missionmed-hq-production.up.railway.app';
+  var AUTH_EXCHANGE_URL = AUTH_BACKEND_ORIGIN + '/api/auth/exchange';
+  var AUTH_BOOTSTRAP_URL = AUTH_BACKEND_ORIGIN + '/api/auth/bootstrap';
   var WORDPRESS_AUTH_TOKEN_PATH = '/wp-json/missionmed-command-center/v1/auth/token/';
   var DEFAULT_WORDPRESS_ORIGIN = 'https://missionmedinstitute.com';
   var WP_SUPABASE_SESSION_URL = 'https://missionmedinstitute.com/wp-json/missionmed/v1/supabase-session';
@@ -7486,25 +7487,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       }
     } catch(_supaIdentityErr){}
     var authCfg = getArenaAuthConfig();
-    var redirected = false;
-    try{
-      var search = new URLSearchParams(window.location.search || '');
-      redirected = search.get('redirected') === '1';
-    } catch(_searchErr){}
     var loggedOut = !!(authCfg && authCfg.loggedOutParam);
 
     if(loggedOut){
       showArenaAuthRequiredState({
         loggedOut: true,
         reason: 'logout'
-      });
-      return false;
-    }
-
-    if(redirected){
-      showArenaAuthRequiredState({
-        loggedOut: false,
-        reason: 'post_login_auth_failed'
       });
       return false;
     }
