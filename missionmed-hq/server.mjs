@@ -1064,9 +1064,46 @@ function timingSafeEqualStrings(a = '', b = '') {
   }
 }
 
+function normalizeSharedSecretCandidate(value = '') {
+  let secret = String(value || '').trim();
+  if (!secret) return '';
+
+  const quotePairs = [
+    ['"', '"'],
+    ["'", "'"],
+    ['\u201c', '\u201d'],
+    ['\u2018', '\u2019'],
+  ];
+
+  for (const [open, close] of quotePairs) {
+    if (secret.length >= 2 && secret.startsWith(open) && secret.endsWith(close)) {
+      secret = secret.slice(open.length, secret.length - close.length).trim();
+      break;
+    }
+  }
+
+  return secret;
+}
+
+function getHandoffSecretCandidates() {
+  const rawCandidates = [
+    String(CONFIG.handoffSecret || '').trim(),
+    String(SESSION_SECRET || '').trim(),
+  ];
+
+  const candidates = [];
+  for (const raw of rawCandidates) {
+    const normalized = normalizeSharedSecretCandidate(raw);
+    if (raw && !candidates.includes(raw)) candidates.push(raw);
+    if (normalized && !candidates.includes(normalized)) candidates.push(normalized);
+  }
+
+  return candidates.filter(Boolean);
+}
+
 function decodeWordPressHandoffToken(token = '') {
-  const handoffSecret = String(CONFIG.handoffSecret || '').trim();
-  if (!handoffSecret) {
+  const handoffSecretCandidates = getHandoffSecretCandidates();
+  if (!handoffSecretCandidates.length) {
     return { ok: false, error: 'handoff_not_configured', status: 503 };
   }
 
@@ -1078,8 +1115,17 @@ function decodeWordPressHandoffToken(token = '') {
 
   const bodyPart = rawToken.slice(0, dotIndex);
   const sigPart = rawToken.slice(dotIndex + 1);
-  const expectedSig = crypto.createHmac('sha256', handoffSecret).update(bodyPart).digest('hex');
-  if (!timingSafeEqualStrings(sigPart, expectedSig)) {
+
+  let signatureValid = false;
+  for (const secret of handoffSecretCandidates) {
+    const expectedSig = crypto.createHmac('sha256', secret).update(bodyPart).digest('hex');
+    if (timingSafeEqualStrings(sigPart, expectedSig)) {
+      signatureValid = true;
+      break;
+    }
+  }
+
+  if (!signatureValid) {
     return { ok: false, error: 'invalid_handoff_signature', status: 401 };
   }
 

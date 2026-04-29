@@ -170,3 +170,9 @@
 - Scope: Stabilize Arena WordPress-entry runtime auth handoff and eliminate HQ-token fallback loop.
 - Files: missionmed-hq/server.mjs, LIVE/arena.html, CHANGELOG/CHANGELOG.md
 - Notes: Updated `/api/auth/exchange` to accept and refresh existing runtime session cookies established by WordPress handoff (`/api/auth/session`), preserved HQ authorization restrictions, removed Arena runtime fallback to WP HQ token exchange, enforced canonical `/my-account/?redirect_to=/arena?redirected=1` login redirect construction, and added post-login failure guard to prevent infinite redirect cycling.
+
+## [2026-04-29 20:20 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-ab
+- Scope: Resolve handoff signature mismatch and race-window loops observed during live Arena auth.
+- Files: missionmed-hq/server.mjs, LIVE/arena.html, wp-content/mu-plugins/missionmed-hq-auth-handoff.php, CHANGELOG/CHANGELOG.md
+- Notes: Set MU handoff hook priority to `1` so canonical runtime handoff executes before legacy plugin handlers, added Arena in-flight handoff navigation lock to prevent same-cycle fallback redirects, and hardened Railway handoff token verification against normalized shared-secret variants (`MMHQ_HANDOFF_SECRET` quoting/legacy mismatch safety) while preserving locked exchange/bootstrap runtime architecture.

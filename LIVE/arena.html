@@ -6839,9 +6839,17 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     }
     markArenaAuthHandoffAttempted();
     try{
+      // Set window-level navigation lock so any later same-tick redirect
+      // calls (e.g. enforceAuthOrRedirect -> redirectToWordPressArenaLogin)
+      // can short-circuit and let this top-level navigation commit cleanly.
+      // Without this lock, the LAST window.location.href assignment in the
+      // current task wins, and the user lands on /my-account instead of the
+      // WP -> Railway handoff URL.
+      try { window.__MM_ARENA_HANDOFF_NAVIGATING = true; } catch(_lockErr){}
       window.location.href = handoffUrl;
       return { ok: true, navigating: true, handoffUrl: handoffUrl };
     } catch(_handoffErr){
+      try { window.__MM_ARENA_HANDOFF_NAVIGATING = false; } catch(_lockClrErr){}
       return { ok: false, reason: 'auth_handoff_navigation_failed', handoffUrl: handoffUrl };
     }
   }
@@ -7514,7 +7522,15 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       loggedOut: false,
       reason: 'auth_required'
     });
-    redirectToWordPressArenaLogin();
+    // If a WP -> Railway handoff navigation is already in flight, do not
+    // race it with a /my-account redirect. The handoff path is the only
+    // one that lands the Railway-domain mmhq_session cookie required for
+    // the next exchange to succeed.
+    var handoffInFlight = false;
+    try { handoffInFlight = window.__MM_ARENA_HANDOFF_NAVIGATING === true; } catch(_lockReadErr){}
+    if(!handoffInFlight){
+      redirectToWordPressArenaLogin();
+    }
     return false;
   }
 

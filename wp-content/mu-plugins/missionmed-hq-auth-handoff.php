@@ -165,5 +165,11 @@ function mmhq_handoff_handle() {
     exit;
 }
 
-add_action('admin_post_' . MMHQ_HANDOFF_ACTION, 'mmhq_handoff_handle');
-add_action('admin_post_nopriv_' . MMHQ_HANDOFF_ACTION, 'mmhq_handoff_handle');
+// Priority 1: must run before MissionMed Command Center plugin's
+// handle_hq_auth_redirect handler (registered at default priority 10).
+// Our handler issues wp_safe_redirect() + exit so the Command Center
+// handler is bypassed, which is intentional. The Command Center handler
+// signs with wp_salt('auth') which Railway cannot reproduce; this plugin
+// signs with MMHQ_HANDOFF_SECRET which Railway shares.
+add_action('admin_post_' . MMHQ_HANDOFF_ACTION, 'mmhq_handoff_handle', 1);
+add_action('admin_post_nopriv_' . MMHQ_HANDOFF_ACTION, 'mmhq_handoff_handle', 1);
