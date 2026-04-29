@@ -1,5 +1,17 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 01:10 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-p
+- Scope: End-to-end STAT runtime auth bridge repair pass with live MU parity preservation and guest-identity fallback cleanup.
+- Files: wp-content/mu-plugins/missionmed-hq-proxy.php, LIVE/stat.html, CHANGELOG/CHANGELOG.md
+- Notes: Rebased local HQ auth proxy to live-hotfix parity, added robust cookie forwarding fallback (`HTTP_COOKIE` + `$_COOKIE`) without weakening auth boundaries, added non-secret diagnostic response header `X-MissionMed-Auth-Cookie-Source`, and replaced misleading STAT default player identity placeholders from `Dr. Brian` to neutral `Guest` so unauthenticated runtime cannot be misread as authenticated identity.
+
+## [2026-04-28 23:10 UTC]
+- PROMPT: (E8)-STAT+Async-codex-high-500-l
+- Scope: Re-home STAT async auth deploy continuation into dedicated worktree with hygiene preflight gates and production deploy verification.
+- Files: missionmed-hq/server.mjs, LIVE/stat.html, CHANGELOG/CHANGELOG.md
+- Notes: Confirmed dedicated worktree safety gates, verified scoped branch diff only, validated Railway production mapping for `missionmed-hq-production.up.railway.app`, deployed backend from worktree branch `e8-stat-async-auth-500h`, and executed STAGING→LIVE deploy pipeline plus live route smoke.
+
 ## [2026-04-28 11:32 UTC]
 - PROMPT: (E8)-STAT+Async-codex-high-500-d
 - Scope: Verification and deploy pass for STAT human opponent lookup + friend challenge UX to STAGING/LIVE.

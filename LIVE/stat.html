@@ -2506,7 +2506,7 @@
         <div class="rank-row">
           <div class="rank-badge">19</div>
           <div class="rank-meta">
-            <h3>Dr. Brian</h3>
+            <h3>Guest</h3>
             <p>Rank 19 • 2,780 XP to Rank 20</p>
           </div>
         </div>
@@ -2633,7 +2633,7 @@
         <div class="versus-row">
           <div class="duelist">
             <div class="duelist-avatar" id="player-matchup-avatar">🧠</div>
-            <div class="duelist-name" id="player-matchup-name">Dr. Brian</div>
+            <div class="duelist-name" id="player-matchup-name">Guest</div>
             <div class="duelist-meta">Rank 19 • You • Left Lane</div>
           </div>
           <div class="vs-text">VS</div>
@@ -2673,7 +2673,7 @@
       <div class="countdown-card">
         <div class="countdown-title">Round Start</div>
         <div class="countdown-num" id="countdown-num">3</div>
-        <div class="countdown-sub" id="countdown-sub">Dr. Brian vs Dr. Maya Khan</div>
+        <div class="countdown-sub" id="countdown-sub">Guest vs Dr. Maya Khan</div>
       </div>
     </div>
   </section>
@@ -2700,7 +2700,7 @@
         <div class="hud-head">
           <div class="hud-avatar" id="player-hud-avatar">🧠</div>
           <div>
-            <div class="hud-name" id="player-hud-name">Dr. Brian</div>
+            <div class="hud-name" id="player-hud-name">Guest</div>
             <div class="hud-tag">You • Left Lane</div>
           </div>
         </div>
@@ -2806,7 +2806,7 @@
 
       <div class="result-cards" id="result-cards">
         <div class="result-card player">
-          <h3>Dr. Brian</h3>
+          <h3>Guest</h3>
           <div class="result-score" id="r-p-score">0</div>
           <div class="result-row"><span>Accuracy</span><strong id="r-p-acc">0%</strong></div>
           <div class="result-row"><span>Avg Response</span><strong id="r-p-avg">0.0s</strong></div>
@@ -5847,8 +5847,8 @@ let resolvedFriendOpponent = null;
 let lastAuthFailureReason = '';
 
 const PLAYER = {
-  name: 'Dr. Brian',
-  initials: 'DB',
+  name: 'Guest',
+  initials: 'GU',
   avatar: '🧠',
   rank: 19
 };
@@ -5865,10 +5865,10 @@ function statPickString(candidates) {
 
 function statInitialsFromName(name) {
   const safe = String(name || '').trim();
-  if (!safe) return 'DB';
+  if (!safe) return 'GU';
   const parts = safe.split(/\s+/).slice(0, 2);
   const initials = parts.map((part) => part.charAt(0).toUpperCase()).join('');
-  return initials || 'DB';
+  return initials || 'GU';
 }
 
 function statCssUrl(value) {
@@ -5992,7 +5992,7 @@ function syncIdentityFromSupabaseUser(user) {
     window.MM_USER.full_name
   ]);
   const fallback = PLAYER && PLAYER.name ? String(PLAYER.name).trim() : '';
-  const shouldReplace = !current || (fallback && current === fallback) || current === 'Dr. Brian';
+  const shouldReplace = !current || (fallback && current === fallback) || current === 'Guest' || current === 'Dr. Brian';
   if (shouldReplace) {
     window.MM_USER.display_name = nextName;
     applyStatPlayerIdentity();
