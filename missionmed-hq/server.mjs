@@ -1945,14 +1945,22 @@ async function handleApiRoute(request, response, url, context) {
       if (shouldEnsureUser) {
         const ensureUser = await ensureSupabaseAuthUser(email, password, authSession);
         if (!ensureUser.ok) {
-          sendJson(response, 502, {
-            error: 'supabase_user_unresolved',
-            message: ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.',
-          }, authHeaders);
-          return;
+          const magicLinkSession = await mintSupabaseSessionViaAdminMagicLink(email);
+          if (magicLinkSession.ok) {
+            signInResult = magicLinkSession;
+          } else {
+            const ensureDetail = ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.';
+            const magicDetail = magicLinkSession.detail || magicLinkSession.error || '';
+            const combinedDetail = magicDetail ? `${ensureDetail} | ${magicDetail}` : ensureDetail;
+            sendJson(response, 502, {
+              error: 'supabase_user_unresolved',
+              message: combinedDetail,
+            }, authHeaders);
+            return;
+          }
+        } else {
+          signInResult = await signInSupabaseAuthUser(email, password);
         }
-
-        signInResult = await signInSupabaseAuthUser(email, password);
       }
     }
 
@@ -6340,7 +6348,10 @@ async function findSupabaseAuthUserByEmail(email, adminToken) {
   const maxPages = 5;
 
   for (let page = 1; page <= maxPages; page += 1) {
-    const query = `page=${page}&per_page=${perPage}&email=${encodeURIComponent(normalizedEmail)}`;
+    // Do not depend on provider-side email query filtering; some environments
+    // have intermittently returned "Database error finding users" for that
+    // filter path. List pages and match locally for deterministic behavior.
+    const query = `page=${page}&per_page=${perPage}`;
     const listUsers = await fetchJson(`${CONFIG.supabaseUrl}/auth/v1/admin/users?${query}`, {
       method: 'GET',
       headers: {

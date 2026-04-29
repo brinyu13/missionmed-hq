@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 10:32 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-s
+- Scope: Restore A8 Supabase auth user-resolution resilience after nonce regression cleanup.
+- Files: missionmed-hq/server.mjs
+- Notes: Removed Supabase admin `email=` filter dependency from auth-user lookup in bootstrap flow (page/per_page list + local normalized email match), and restored magic-link fallback when ensure-user fails so runtime bootstrap does not hard-fail with `supabase_user_unresolved` before fallback is attempted.
+
 ## [2026-04-29 09:32 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-r
 - Scope: Narrow Arena regression repair by scoping STAT nonce bridge behavior to STAT-origin exchange traffic only.
