@@ -7491,30 +7491,39 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       if(supabaseIdentity && supabaseIdentity.ok && supabaseIdentity.user){
         window.MM_USER = supabaseIdentity.user;
         try{ document.body.setAttribute('data-arena-auth-state', 'authenticated'); } catch(_authStateSetErr){}
+        try { sessionStorage.removeItem('mm_arena_auth_redirect_guard'); } catch(_guardClearErr){}
         return true;
       }
     } catch(_supaIdentityErr){}
     var authCfg = getArenaAuthConfig();
     var loggedOut = !!(authCfg && authCfg.loggedOutParam);
     var redirectedAfterLogin = false;
+    var returnedFromWordPress = false;
     try{
       var searchParams = new URLSearchParams(window.location.search || '');
       redirectedAfterLogin = searchParams.get('redirected') === '1' || searchParams.get('just_logged_in') === '1';
     } catch(_searchErr){}
+    try{
+      if(document.referrer){
+        returnedFromWordPress = /\/my-account\/?|\/wp-login\.php|\/wp-admin\/admin-post\.php/i.test(String(document.referrer));
+      }
+    } catch(_refErr){}
 
     if(loggedOut){
       showArenaAuthRequiredState({
         loggedOut: true,
         reason: 'logout'
       });
+      try { sessionStorage.removeItem('mm_arena_auth_redirect_guard'); } catch(_guardClearLogoutErr){}
       return false;
     }
 
-    if(redirectedAfterLogin){
+    if(redirectedAfterLogin || returnedFromWordPress){
       showArenaAuthRequiredState({
         loggedOut: false,
         reason: 'post_login_auth_failed'
       });
+      try { sessionStorage.setItem('mm_arena_auth_redirect_guard', '1'); } catch(_guardSetErr){}
       return false;
     }
 
@@ -7528,8 +7537,16 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     // the next exchange to succeed.
     var handoffInFlight = false;
     try { handoffInFlight = window.__MM_ARENA_HANDOFF_NAVIGATING === true; } catch(_lockReadErr){}
-    if(!handoffInFlight){
+    var redirectGuardActive = false;
+    try { redirectGuardActive = sessionStorage.getItem('mm_arena_auth_redirect_guard') === '1'; } catch(_guardReadErr){}
+    if(!handoffInFlight && !redirectGuardActive){
+      try { sessionStorage.setItem('mm_arena_auth_redirect_guard', '1'); } catch(_guardWriteErr){}
       redirectToWordPressArenaLogin();
+    } else if(redirectGuardActive){
+      showArenaAuthRequiredState({
+        loggedOut: false,
+        reason: 'post_login_auth_failed'
+      });
     }
     return false;
   }
