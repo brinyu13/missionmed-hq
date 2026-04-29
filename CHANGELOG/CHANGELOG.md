@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-04-29 14:53 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-ab
+- Scope: Remove Arena-native login surface and enforce WordPress `/my-account` entry flow with stable post-redirect auth failure handling.
+- Files: LIVE/arena.html, CHANGELOG/CHANGELOG.md
+- Notes: Disabled embedded Arena login-form surface (sanitized injected `loginFormHtml` + removed entry form container), enforced deterministic WordPress return target `/arena?redirected=1`, blocked repeat login redirect when `redirected=1` or `logged_out=1`, converted unauth state to single MissionMed sign-in link, and removed top-nav guest Login/Register controls while preserving A8 exchange/bootstrap/handoff markers.
+
 ## [2026-04-29 11:37 UTC]
 - PROMPT: (E8)-STAT+Async-codex-extra-high-500-v
 - Scope: Restore A8 Arena frontend exchange/handoff flow while preserving 500-t logout cleanup.

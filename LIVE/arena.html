@@ -4728,10 +4728,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       <div class="entry-auth-panel" id="entryAuthPanel" hidden>
         <p class="entry-auth-title">Sign in to enter the Arena</p>
         <p class="entry-auth-copy" id="entryAuthCopy">Your drills, stats, rank, and duels are tied to your MissionMed account.</p>
-        <div class="entry-auth-form" id="entryAuthForm"></div>
         <div class="entry-auth-links" id="entryAuthLinks">
-          <a class="entry-auth-link entry-auth-login" id="entryAuthLoginLink" href="/my-account/">Open Login</a>
-          <a class="entry-auth-link entry-auth-register" id="entryAuthRegisterLink" href="/my-account/?action=register">Create account</a>
+          <a class="entry-auth-link entry-auth-login" id="entryAuthLoginLink" href="/my-account/">Sign in through MissionMed</a>
         </div>
       </div>
     </div>
@@ -5836,6 +5834,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   function getArenaAuthConfig(){
+    function sanitizeArenaAuthConfig(cfg){
+      if(!cfg || typeof cfg !== 'object') return null;
+      try { cfg.loginFormHtml = ''; } catch(_cfgErr){}
+      return cfg;
+    }
     var direct = null;
     if(window.MM_ARENA_AUTH_CONFIG && typeof window.MM_ARENA_AUTH_CONFIG === 'object'){
       direct = window.MM_ARENA_AUTH_CONFIG;
@@ -5843,6 +5846,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       direct = window.mmArenaAuth;
     }
     if(direct){
+      direct = sanitizeArenaAuthConfig(direct);
       window.MM_ARENA_AUTH_CONFIG = direct;
       window.mmArenaAuth = direct;
       return direct;
@@ -5856,6 +5860,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
           topCfg = window.top.mmArenaAuth;
         }
         if(topCfg){
+          topCfg = sanitizeArenaAuthConfig(topCfg);
           window.MM_ARENA_AUTH_CONFIG = topCfg;
           window.mmArenaAuth = topCfg;
           return topCfg;
@@ -5931,19 +5936,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   function buildArenaLoginReturnUrl(){
-    var authCfg = getArenaAuthConfig();
-    var configured = normalizeArenaSameOriginUrl(authCfg && authCfg.loginReturnUrl ? authCfg.loginReturnUrl : '');
-    if(configured) return configured;
-
-    var params = null;
-    try { params = new URLSearchParams(window.location.search || ''); } catch(_paramsErr){}
-    if(params){
-      params.delete('logged_out');
-      params.delete('redirected');
-      params.delete('just_logged_in');
-    }
-    var query = params ? params.toString() : '';
-    return window.location.origin + '/arena' + (query ? ('?' + query) : '');
+    return window.location.origin + '/arena?redirected=1';
   }
 
   function buildArenaLoginUrl(){
@@ -6054,9 +6047,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   function getArenaLoginFormHtml(){
-    var authCfg = getArenaAuthConfig();
-    if(!authCfg || typeof authCfg.loginFormHtml !== 'string') return '';
-    return String(authCfg.loginFormHtml || '');
+    return '';
   }
 
   function normalizeApiBase(value){
@@ -7495,8 +7486,31 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       }
     } catch(_supaIdentityErr){}
     var authCfg = getArenaAuthConfig();
+    var redirected = false;
+    try{
+      var search = new URLSearchParams(window.location.search || '');
+      redirected = search.get('redirected') === '1';
+    } catch(_searchErr){}
+    var loggedOut = !!(authCfg && authCfg.loggedOutParam);
+
+    if(loggedOut){
+      showArenaAuthRequiredState({
+        loggedOut: true,
+        reason: 'logout'
+      });
+      return false;
+    }
+
+    if(redirected){
+      showArenaAuthRequiredState({
+        loggedOut: false,
+        reason: 'post_login_auth_failed'
+      });
+      return false;
+    }
+
     showArenaAuthRequiredState({
-      loggedOut: !!(authCfg && authCfg.loggedOutParam),
+      loggedOut: false,
       reason: 'auth_required'
     });
     redirectToWordPressArenaLogin();
@@ -9439,14 +9453,15 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   function renderArenaAuthFormIntoPanel(){
     if(!entryAuthPanel) return false;
     var loginUrl = buildArenaLoginUrl();
-    var registerUrl = buildArenaRegisterUrl();
 
     if(entryAuthLoginLink){
       entryAuthLoginLink.href = loginUrl;
-      entryAuthLoginLink.textContent = 'Continue to Arena Login';
+      entryAuthLoginLink.textContent = 'Sign in through MissionMed';
     }
     if(entryAuthRegisterLink){
-      entryAuthRegisterLink.href = registerUrl;
+      entryAuthRegisterLink.href = '';
+      entryAuthRegisterLink.hidden = true;
+      entryAuthRegisterLink.style.display = 'none';
     }
 
     if(entryAuthForm){
@@ -9472,10 +9487,15 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   function showArenaAuthRequiredState(opts){
     var options = opts || {};
     var loggedOut = !!options.loggedOut;
-    var intro = loggedOut
-      ? 'You signed out. Sign in to re-enter the Arena.'
-      : 'Sign in to enter the Arena.';
+    var reason = String(options.reason || '').trim();
+    var intro = 'Sign in to enter the Arena.';
     var detail = 'Your drills, stats, rank, and duels are tied to your MissionMed account.';
+    if(loggedOut){
+      intro = 'You signed out. Sign in to re-enter the Arena.';
+    } else if(reason === 'post_login_auth_failed'){
+      intro = 'MissionMed login did not complete Arena authentication.';
+      detail = 'Please sign in again through MissionMed My Account and return to Arena.';
+    }
 
     ArenaUser.authenticated = false;
     ArenaUser.id = null;
@@ -18987,9 +19007,8 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
   }
 
   function buildGuestUi(root){
-    root.innerHTML = ''
-      + '<a class="h4-arena-auth-link h4-login" href="' + LOGIN_URL + '">Login</a>'
-      + '<a class="h4-arena-auth-link h4-register" href="' + REGISTER_URL + '">Register</a>';
+    root.innerHTML = '';
+    root.style.display = 'none';
   }
 
   function buildAuthedUi(root, user){
@@ -19076,6 +19095,7 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     }
 
     if (user) {
+      root.style.display = '';
       buildAuthedUi(root, user);
     } else {
       buildGuestUi(root);
