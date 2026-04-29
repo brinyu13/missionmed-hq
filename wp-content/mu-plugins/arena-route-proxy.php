@@ -10,10 +10,10 @@
 
 if ( ! function_exists( 'mm_arena_route_proxy_force_same_origin_auth' ) ) {
 	/**
-	 * Enforce same-origin auth endpoints in proxied Arena HTML.
+ * Preserve upstream auth endpoint wiring in proxied Arena HTML.
 	 *
-	 * Some upstream Arena builds hardcode direct Railway auth origins. Arena must
-	 * use first-party /api/auth/* paths so browser cookies stay on the WP origin.
+ * Current locked runtime requires direct Railway auth endpoints
+ * (missionmed-hq-production.up.railway.app). Do not rewrite auth hosts here.
 	 *
 	 * @param string $html Upstream HTML body.
 	 * @return string
@@ -23,26 +23,6 @@ if ( ! function_exists( 'mm_arena_route_proxy_force_same_origin_auth' ) ) {
 		if ( '' === $body ) {
 			return $body;
 		}
-
-		$search  = array(
-			"const AUTH_BASE = 'https://missionmed-hq-production.up.railway.app';",
-			'const AUTH_BASE = "https://missionmed-hq-production.up.railway.app";',
-			"const AUTH_EXCHANGE_URL = 'https://missionmed-hq-production.up.railway.app/api/auth/exchange';",
-			'const AUTH_EXCHANGE_URL = "https://missionmed-hq-production.up.railway.app/api/auth/exchange";',
-			"const AUTH_BOOTSTRAP_URL = 'https://missionmed-hq-production.up.railway.app/api/auth/bootstrap';",
-			'const AUTH_BOOTSTRAP_URL = "https://missionmed-hq-production.up.railway.app/api/auth/bootstrap";',
-		);
-		$replace = array(
-			"const AUTH_BASE = '';",
-			"const AUTH_BASE = '';",
-			"const AUTH_EXCHANGE_URL = '/api/auth/exchange';",
-			"const AUTH_EXCHANGE_URL = '/api/auth/exchange';",
-			"const AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';",
-			"const AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';",
-		);
-
-		$body = str_replace( $search, $replace, $body );
-
 		return $body;
 	}
 }
@@ -116,24 +96,11 @@ if ( ! function_exists( 'mm_arena_route_proxy_build_auth_config' ) ) {
 			$logged_out_param = '1' === (string) $query_args['logged_out'];
 		}
 
-		if ( ! is_user_logged_in() && function_exists( 'wp_login_form' ) ) {
-			ob_start();
-			wp_login_form(
-				array(
-					'echo'           => true,
-					'remember'       => true,
-					'redirect'       => $login_return_url,
-					'label_username' => __( 'Email or Username' ),
-					'label_password' => __( 'Password' ),
-					'label_remember' => __( 'Remember Me' ),
-					'label_log_in'   => __( 'Enter Arena' ),
-				)
-			);
-			$login_form_html = (string) ob_get_clean();
-			if ( '' !== $login_form_html ) {
-				$login_form_html .= '<p class="login-lost-password"><a href="' . esc_url( $forgot_url ) . '">Forgot password?</a></p>';
-			}
-		}
+		/*
+		 * Arena is not a native login surface. Runtime login must begin from
+		 * WordPress account pages and return to /arena for exchange/bootstrap.
+		 */
+		$login_form_html = '';
 
 		return array(
 			'loginUrl'       => esc_url_raw( $login_url ),
@@ -360,6 +327,17 @@ if ( ! function_exists( 'mm_arena_route_proxy_handle_request' ) ) {
 	function mm_arena_route_proxy_handle_request() {
 		if ( ! mm_arena_route_proxy_is_target_request() ) {
 			return;
+		}
+
+		$path = mm_arena_route_proxy_request_path();
+		if ( '/arena/' === $path ) {
+			$query_string = isset( $_SERVER['QUERY_STRING'] ) ? trim( (string) $_SERVER['QUERY_STRING'] ) : '';
+			$target_url   = home_url( '/arena' );
+			if ( '' !== $query_string ) {
+				$target_url .= '?' . $query_string;
+			}
+			wp_safe_redirect( $target_url, 302 );
+			exit;
 		}
 
 		$upstream_base = 'https://cdn.missionmedinstitute.com/html-system/LIVE/arena.html';
