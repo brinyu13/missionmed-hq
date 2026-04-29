@@ -7499,6 +7499,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       loggedOut: !!(authCfg && authCfg.loggedOutParam),
       reason: 'auth_required'
     });
+    redirectToWordPressArenaLogin();
     return false;
   }
 
@@ -9439,12 +9440,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(!entryAuthPanel) return false;
     var loginUrl = buildArenaLoginUrl();
     var registerUrl = buildArenaRegisterUrl();
-    var returnUrl = buildArenaLoginReturnUrl();
-    var loginFormHtml = getArenaLoginFormHtml();
 
     if(entryAuthLoginLink){
       entryAuthLoginLink.href = loginUrl;
-      entryAuthLoginLink.textContent = loginFormHtml ? 'Use full account page' : 'Continue to Arena';
+      entryAuthLoginLink.textContent = 'Continue to Arena Login';
     }
     if(entryAuthRegisterLink){
       entryAuthRegisterLink.href = registerUrl;
@@ -9452,27 +9451,23 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
     if(entryAuthForm){
       entryAuthForm.innerHTML = '';
-      if(loginFormHtml){
-        entryAuthForm.innerHTML = loginFormHtml;
-        var formEl = entryAuthForm.querySelector('form');
-        if(formEl){
-          var redirectInput = formEl.querySelector('input[name="redirect_to"]');
-          if(!redirectInput){
-            redirectInput = document.createElement('input');
-            redirectInput.type = 'hidden';
-            redirectInput.name = 'redirect_to';
-            formEl.appendChild(redirectInput);
-          }
-          redirectInput.value = returnUrl;
-          formEl.setAttribute('data-mm-auth-form', 'wp-login-form');
-        }
-      }
     }
 
     if(entryAuthLinks){
       entryAuthLinks.style.display = 'flex';
     }
-    return !!(loginFormHtml && entryAuthForm && entryAuthForm.querySelector('form'));
+    return true;
+  }
+
+  function redirectToWordPressArenaLogin(){
+    var loginUrl = buildArenaLoginUrl();
+    if(!loginUrl) return false;
+    try{
+      window.location.href = loginUrl;
+      return true;
+    } catch(_loginRedirectErr){
+      return false;
+    }
   }
   function showArenaAuthRequiredState(opts){
     var options = opts || {};

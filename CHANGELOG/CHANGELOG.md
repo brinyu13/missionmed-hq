@@ -140,3 +140,9 @@
 - Scope: Confirm production Railway target ownership and perform scoped backend/CDN deployment validation for STAT runtime auth separation.
 - Files: CHANGELOG/CHANGELOG.md
 - Notes: Confirmed Railway production mapping for `missionmed-hq-production.up.railway.app` to service `missionmed-hq` in project `missionmed-hq-fix005`, deployed backend to that service, and prepared 500-k deploy validation + manual subscriber/admin browser verification steps.
+
+## [2026-04-29 14:30 UTC]
+- PROMPT: (E8)-STAT+Async-codex-extra-high-500-z
+- Scope: Temporarily disable embedded Arena login form and force unauthenticated users through WordPress `/my-account` return flow back to `/arena` before exchange/bootstrap.
+- Files: LIVE/arena.html, CHANGELOG/CHANGELOG.md
+- Notes: Removed embedded login-form injection from Arena auth panel, preserved login/register links with `/my-account` redirect flow, and added unauth redirect trigger so Arena always routes through WordPress login prior to runtime exchange/bootstrap. Preserved 500-t logout cleanup behavior.
