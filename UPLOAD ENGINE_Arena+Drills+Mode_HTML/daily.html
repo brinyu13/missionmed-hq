@@ -573,11 +573,15 @@ html,body{
 .session-history{
   display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;
 }
+.session-history.session-source-meta{gap:12px 16px}
 .session-stat{
   font-size:11px;font-weight:600;color:var(--text-dim);
   letter-spacing:1px;text-transform:uppercase;
 }
 .session-stat-val{color:var(--text-secondary)}
+.session-stat-val.source-name{
+  display:inline-block;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;
+}
 .session-arrow{
   flex-shrink:0;width:24px;height:24px;
   display:flex;align-items:center;justify-content:center;
@@ -3408,6 +3412,46 @@ html.admin-bar{margin-top:0!important}
     return step + ' • ' + type;
   }
 
+  function hasRuntimeDrillMetadata(session) {
+    if (!session) return false;
+    return !!(
+      session.video_id ||
+      session.playback_url ||
+      session.nodes_url ||
+      session.transcript_url ||
+      getSessionMeta(session, 'created_at', '') ||
+      getSessionMeta(session, 'original_filename', '') ||
+      getSessionMeta(session, 'filename', '')
+    );
+  }
+
+  function formatDrillUploadedLabel(session) {
+    var rawDate = String(
+      getSessionMeta(session, 'created_at', '') ||
+      getSessionMeta(session, 'zoom_session_iso', '') ||
+      getSessionMeta(session, 'zoom_session_date', '')
+    ).trim();
+    if (!rawDate) return 'Unknown';
+    return formatSessionDateLabel(rawDate);
+  }
+
+  function formatDrillSourceName(session) {
+    var source = String(
+      getSessionMeta(session, 'original_filename', '') ||
+      getSessionMeta(session, 'filename', '') ||
+      session.title ||
+      session.video_id ||
+      ''
+    ).trim();
+    return cleanFilenameFallback(source) || 'Runtime drill';
+  }
+
+  function formatShortVideoId(session) {
+    var videoId = String(session && session.video_id || '').trim();
+    if (!videoId) return 'Unknown';
+    return videoId.length > 22 ? videoId.slice(0, 22) + '...' : videoId;
+  }
+
   function hideSessionIntelPanel() {
     var panelEl = document.getElementById('sessionIntelPanel');
     if (!panelEl) return;
@@ -3527,7 +3571,13 @@ html.admin-bar{margin-top:0!important}
       var sessionSubtitle = formatDrillSubtitle(session);
 
       var historyHtml = '';
-      if(history.watched){
+      if (hasRuntimeDrillMetadata(session)) {
+        historyHtml = '<div class="session-history session-source-meta">' +
+          '<span class="session-stat">Uploaded: <span class="session-stat-val">' + escapeHtml(formatDrillUploadedLabel(session)) + '</span></span>' +
+          '<span class="session-stat">Source: <span class="session-stat-val source-name">' + escapeHtml(formatDrillSourceName(session)) + '</span></span>' +
+          '<span class="session-stat">Video ID: <span class="session-stat-val">' + escapeHtml(formatShortVideoId(session)) + '</span></span>' +
+        '</div>';
+      } else if(history.watched){
         historyHtml = '<div class="session-history">' +
           '<span class="session-stat">Watched: <span class="session-stat-val">' + history.timesWatched + 'x</span></span>' +
           '<span class="session-stat">Last: <span class="session-stat-val">' + history.lastWatched + '</span></span>' +
