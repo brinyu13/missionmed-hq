@@ -6504,6 +6504,7 @@ async function ensureSupabaseAuthUser(email, password, session = null) {
 }
 
 function parseWordPressHandoffToken(wpToken = '') {
+  // WordPress handoff tokens are signed payloads, not bearer tokens from /auth/token.
   const rawToken = String(wpToken || '').trim();
   const parts = rawToken.match(/^([A-Za-z0-9_-]+)\.([a-fA-F0-9]{64})$/u);
 
