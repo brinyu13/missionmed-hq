@@ -26,14 +26,13 @@ if ! git -C "$PROTECTED_MAIN_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>
   exit 1
 fi
 
-# Refuse to proceed if protected main root has dirty state.
+# Dirty protected main root is no longer an automatic blocker.
 if [[ -n "$(git -C "$PROTECTED_MAIN_ROOT" status --porcelain)" ]]; then
-  echo "[FAIL] Protected main root is dirty. Resolve/snapshot first."
+  echo "[WARN] Protected main root is dirty. Run dirty-state triage before editing."
   git -C "$PROTECTED_MAIN_ROOT" status --short
-  exit 1
+else
+  echo "[PASS] Protected main root is clean."
 fi
-
-echo "[PASS] Protected main root is clean."
 
 mkdir -p "$WORKTREE_PARENT"
 
@@ -54,9 +53,15 @@ fi
 
 if git -C "$PROTECTED_MAIN_ROOT" rev-parse --verify --quiet "$branch" >/dev/null; then
   echo "[INFO] Branch already exists locally: $branch"
-  git -C "$PROTECTED_MAIN_ROOT" worktree add "$worktree_path" "$branch"
+  if ! git -C "$PROTECTED_MAIN_ROOT" worktree add "$worktree_path" "$branch"; then
+    echo "[FAIL] Could not create worktree. Branch checkout is blocked by current repo state."
+    exit 1
+  fi
 else
-  git -C "$PROTECTED_MAIN_ROOT" worktree add -b "$branch" "$worktree_path" "$base_ref"
+  if ! git -C "$PROTECTED_MAIN_ROOT" worktree add -b "$branch" "$worktree_path" "$base_ref"; then
+    echo "[FAIL] Could not create worktree branch. Branch checkout is blocked by current repo state."
+    exit 1
+  fi
 fi
 
 echo "[PASS] Worktree created."

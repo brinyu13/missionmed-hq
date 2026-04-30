@@ -45,19 +45,32 @@ if [[ "$repo_root" != "$PROTECTED_MAIN_ROOT" || "$cwd" != "$PROTECTED_MAIN_ROOT"
 fi
 
 if [[ -n "$(git status --porcelain)" ]]; then
-  fail "Repository is dirty. Resolve or preserve state before creating/switching branches."
+  info "Repository is dirty. This is allowed for branch switching when no checkout conflict exists."
   git status --short
-  exit 1
 fi
 
 branch="work/${ticket_id}-${short_slug}"
 
+switch_err="$(mktemp)"
 if git rev-parse --verify --quiet "$branch" >/dev/null; then
-  git switch "$branch"
-  pass "Switched to existing branch: $branch"
+  if git switch "$branch" 2>"$switch_err"; then
+    pass "Switched to existing branch: $branch"
+  else
+    fail "Could not switch to existing branch due to checkout conflict or blocking tracked changes."
+    cat "$switch_err"
+    rm -f "$switch_err"
+    exit 1
+  fi
 else
-  git switch -c "$branch"
-  pass "Created and switched to branch: $branch"
+  if git switch -c "$branch" 2>"$switch_err"; then
+    pass "Created and switched to branch: $branch"
+  else
+    fail "Could not create/switch branch due to checkout conflict or blocking tracked changes."
+    cat "$switch_err"
+    rm -f "$switch_err"
+    exit 1
+  fi
 fi
 
+rm -f "$switch_err"
 info "No deploy, push, merge, reset, or clean actions were performed."

@@ -29,35 +29,44 @@ If ANY missing → STOP. REPORT. DO NOT PROCEED. `/Users/brianb/MissionMed/` is 
 
 This section is mandatory and overrides any older conflicting logging/workspace behavior in this file.
 
+### MISSIONMED DIRTY-STATE TRIAGE — CURRENT DEFAULT
+
+1. Dirty repo status is not an automatic blocker.
+2. Dirty repo status requires inspection and classification.
+3. AI must identify dirty tracked files and untracked files before editing.
+4. AI may continue only if dirty files do not overlap the intended task and no destructive cleanup is required.
+5. AI must stop if dirty files overlap intended edits or touch production-sensitive areas outside the task scope.
+6. AI must never reset, clean, delete, stash, force checkout, pull, rebase, merge, push, or deploy unless explicitly authorized.
+7. Codex must stage only intended files.
+8. Claude planning/demo/design may continue if outputs stay outside the repo.
+9. Routine AI outputs/logs must stay outside the repo.
+10. Worktrees are optional advanced tools, not default workflow.
+11. New threads must load PRIMER_CORE.md, KNOWLEDGE_INDEX.md, and MISSIONMED_MASTER_KNOWLEDGE.md.
+12. SESSION_PRIMER_V2.md is deprecated for new threads and must not be used as the active primer.
+
+Additional MissionMed defaults:
+
 1. `/Users/brianb/MissionMed` is the primary local repo.
-2. `main` should stay clean.
-3. For implementation work, use a normal Git branch inside `/Users/brianb/MissionMed`.
-4. Before editing, run:
-   - `git status --short`
-   - `git branch --show-current`
-5. If on `main`, create or switch to a task branch before editing.
-6. If the repo is dirty from unrelated work, stop and report.
-7. Do not use `git reset`, `git clean`, destructive cleanup, deploy, push, pull, rebase, or merge unless explicitly authorized.
-8. Claude/demo/scratch/report outputs must stay outside the repo in `/Users/brianb/MissionMed_AI_Sandbox/`.
-9. Newest AI outputs go to `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`.
-10. Routine AI logs go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`.
-11. The repo `MM_ACTIVITY_LOG.md` is curated only and should not be updated by routine demo/planning tasks.
-12. Worktrees are optional advanced recovery tools, not the default workflow.
-13. Do not broadly ignore production folders.
-14. Do not touch Drill ingestion/runtime unless explicitly scoped.
-15. If unsure where to work or save output, stop and ask.
+2. `main` is protected for routine edits; use a scoped task branch unless explicitly authorized.
+3. Before editing, run `git branch --show-current` and `git status --short`.
+4. Claude/demo/scratch/report outputs must stay outside the repo in `/Users/brianb/MissionMed_AI_Sandbox/`.
+5. Newest AI outputs go to `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`.
+6. Routine AI logs go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`.
+7. The repo `MM_ACTIVITY_LOG.md` is curated only and should not be updated by routine demo/planning tasks.
+8. Do not broadly ignore production folders.
+9. Do not touch Drill ingestion/runtime unless explicitly scoped.
+10. If unsure where to work or save output, stop and ask.
 
 ### Future Prompt Requirement Block (Copy/Paste)
 
 ```text
 Load _SYSTEM/PRIMER_CORE.md and apply all rules.
-Use the MissionMed simple Git workflow defaults.
-Use /Users/brianb/MissionMed as the primary repo and keep main clean.
-For implementation work, create/switch to a normal task branch in /Users/brianb/MissionMed.
-Run bash _SYSTEM/scripts/mm-preflight.sh before editing.
-If preflight fails, stop and report.
-If currently on main and edits are planned, switch to a non-main branch first.
-If repo is dirty from unrelated work, stop and report.
+Load KNOWLEDGE_INDEX.md and MISSIONMED_MASTER_KNOWLEDGE.md for MissionMed knowledge routing.
+Use /Users/brianb/MissionMed as the primary repo and follow the MissionMed simple Git workflow.
+Run bash _SYSTEM/scripts/mm-preflight.sh before editing and apply dirty-state triage results.
+Dirty repo does not mean automatic stop; inspect, classify, and proceed only when scope is safe and non-overlapping.
+If currently on main and edits are planned, create/switch to a scoped task branch first unless explicitly authorized.
+Do not use SESSION_PRIMER_V2.md as the active primer for new threads.
 For Claude demos, reports, standalone HTML, mockups, screenshots, scratch files, backups, generated outputs, and routine logs, do not save inside /Users/brianb/MissionMed.
 Save outputs to /Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/ and save routine logs to /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/.
 Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes and commit that curated summary with related work.
