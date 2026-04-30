@@ -6322,10 +6322,14 @@ async function findSupabaseAuthUserByEmail(email, adminToken) {
   }
 
   const perPage = 200;
-  const maxPages = 5;
+  const maxPages = 10;
 
   for (let page = 1; page <= maxPages; page += 1) {
-    const query = `page=${page}&per_page=${perPage}&email=${encodeURIComponent(normalizedEmail)}`;
+    // Compatibility note:
+    // Some Supabase Auth builds return "Database error finding users" when
+    // the admin users endpoint is queried with an email filter parameter.
+    // Use plain pagination and match the email in-process instead.
+    const query = `page=${page}&per_page=${perPage}`;
     const listUsers = await fetchJson(`${CONFIG.supabaseUrl}/auth/v1/admin/users?${query}`, {
       method: 'GET',
       headers: {
@@ -6345,7 +6349,9 @@ async function findSupabaseAuthUserByEmail(email, adminToken) {
       };
     }
 
-    const users = Array.isArray(listUsers.data?.users) ? listUsers.data.users : [];
+    const users = Array.isArray(listUsers.data?.users)
+      ? listUsers.data.users
+      : (Array.isArray(listUsers.data) ? listUsers.data : []);
     const matched = users.find((entry) => String(entry?.email || '').trim().toLowerCase() === normalizedEmail) || null;
     if (matched) {
       return { ok: true, status: 200, user: matched };
