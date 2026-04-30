@@ -6226,7 +6226,14 @@ async function signInSupabaseAuthUser(email, password) {
   };
 }
 
-async function mintSupabaseSessionViaAdminMagicLink(email) {
+async function mintSupabaseSessionViaAdminGeneratedLink(
+  email,
+  {
+    linkType = 'magiclink',
+    verifyType = 'magiclink',
+    password = '',
+  } = {},
+) {
   const adminToken = CONFIG.supabaseServiceRoleKey || CONFIG.supabaseKey;
   const authApiKey = CONFIG.supabaseAnonKey || CONFIG.supabaseKey || CONFIG.supabaseServiceRoleKey;
 
@@ -6234,9 +6241,17 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: 503,
-      error: 'supabase_magiclink_not_configured',
-      detail: 'Supabase magic-link bootstrap is not configured.',
+      error: 'supabase_admin_link_not_configured',
+      detail: 'Supabase admin link bootstrap is not configured.',
     };
+  }
+
+  const generateBody = {
+    type: String(linkType || 'magiclink').trim().toLowerCase(),
+    email,
+  };
+  if (String(password || '').trim()) {
+    generateBody.password = String(password);
   }
 
   const generate = await fetchJson(`${CONFIG.supabaseUrl}/auth/v1/admin/generate_link`, {
@@ -6247,10 +6262,7 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
       apikey: adminToken,
       Authorization: `Bearer ${adminToken}`,
     },
-    body: JSON.stringify({
-      type: 'magiclink',
-      email,
-    }),
+    body: JSON.stringify(generateBody),
     timeoutMs: 9_000,
   });
 
@@ -6258,8 +6270,8 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: generate.status || 502,
-      error: 'supabase_magiclink_generate_failed',
-      detail: generate.error || 'Supabase magic-link generation failed.',
+      error: 'supabase_admin_link_generate_failed',
+      detail: generate.error || `Supabase ${generateBody.type} link generation failed.`,
     };
   }
 
@@ -6268,8 +6280,8 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: 502,
-      error: 'supabase_magiclink_token_missing',
-      detail: 'Supabase magic-link response did not include token_hash.',
+      error: 'supabase_admin_link_token_missing',
+      detail: `Supabase ${generateBody.type} link response did not include token_hash.`,
     };
   }
 
@@ -6281,7 +6293,7 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
       apikey: authApiKey,
     },
     body: JSON.stringify({
-      type: 'magiclink',
+      type: String(verifyType || generateBody.type || 'magiclink').trim().toLowerCase(),
       token_hash: tokenHash,
     }),
     timeoutMs: 9_000,
@@ -6291,8 +6303,8 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: verify.status || 502,
-      error: 'supabase_magiclink_verify_failed',
-      detail: verify.error || 'Supabase magic-link verification failed.',
+      error: 'supabase_admin_link_verify_failed',
+      detail: verify.error || `Supabase ${generateBody.type} link verification failed.`,
     };
   }
 
@@ -6302,17 +6314,32 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: 502,
-      error: 'supabase_magiclink_tokens_missing',
-      detail: 'Supabase magic-link verification succeeded but no session tokens were returned.',
+      error: 'supabase_admin_link_tokens_missing',
+      detail: `Supabase ${generateBody.type} link verification succeeded but no session tokens were returned.`,
     };
   }
 
   return {
     ok: true,
     status: 200,
-    source: 'auth_bootstrap_magiclink',
+    source: `auth_bootstrap_${generateBody.type}`,
     session: verify.data,
   };
+}
+
+async function mintSupabaseSessionViaAdminMagicLink(email) {
+  return mintSupabaseSessionViaAdminGeneratedLink(email, {
+    linkType: 'magiclink',
+    verifyType: 'magiclink',
+  });
+}
+
+async function mintSupabaseSessionViaAdminSignupLink(email, password) {
+  return mintSupabaseSessionViaAdminGeneratedLink(email, {
+    linkType: 'signup',
+    verifyType: 'signup',
+    password,
+  });
 }
 
 async function findSupabaseAuthUserByEmail(email, adminToken) {
@@ -6814,6 +6841,8 @@ async function bootstrapSupabaseSessionFromWordPressSession(authSession = null) 
 
   const password = deriveAuthBootstrapPassword(wpUser.id, email);
   let signInResult = await signInSupabaseAuthUser(email, password);
+  let ensureUserFailure = null;
+  const bootstrapFallbackErrors = [];
   if (!signInResult.ok) {
     const reason = String(signInResult.detail || signInResult.error || '').toLowerCase();
     const shouldEnsureUser =
@@ -6827,40 +6856,54 @@ async function bootstrapSupabaseSessionFromWordPressSession(authSession = null) 
     if (shouldEnsureUser) {
       const ensureUser = await ensureSupabaseAuthUser(email, password, authSession);
       if (!ensureUser.ok) {
-        return {
-          ok: false,
-          status: 502,
-          error: 'supabase_user_unresolved',
-          message: ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.',
-        };
-      }
-
-      signInResult = await signInSupabaseAuthUser(email, password);
-    }
-  }
-
-  if (!signInResult.ok) {
-    if (isSupabaseEmailProviderDisabled(signInResult.detail || signInResult.error)) {
-      const magicLinkSession = await mintSupabaseSessionViaAdminMagicLink(email);
-      if (magicLinkSession.ok) {
-        signInResult = magicLinkSession;
+        ensureUserFailure = ensureUser;
+        bootstrapFallbackErrors.push(ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.');
       } else {
-        signInResult = {
-          ok: false,
-          status: magicLinkSession.status || signInResult.status || 502,
-          error: magicLinkSession.error || signInResult.error || 'supabase_bootstrap_failed',
-          detail: magicLinkSession.detail || signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
-        };
+        signInResult = await signInSupabaseAuthUser(email, password);
       }
     }
   }
 
   if (!signInResult.ok) {
+    const magicLinkSession = await mintSupabaseSessionViaAdminMagicLink(email);
+    if (magicLinkSession.ok) {
+      signInResult = magicLinkSession;
+    } else {
+      bootstrapFallbackErrors.push(magicLinkSession.detail || magicLinkSession.error || 'Supabase admin magic-link bootstrap failed.');
+    }
+  }
+
+  if (!signInResult.ok) {
+    const signupLinkSession = await mintSupabaseSessionViaAdminSignupLink(email, password);
+    if (signupLinkSession.ok) {
+      signInResult = signupLinkSession;
+    } else {
+      bootstrapFallbackErrors.push(signupLinkSession.detail || signupLinkSession.error || 'Supabase admin signup-link bootstrap failed.');
+    }
+  }
+
+  if (!signInResult.ok) {
+    const reason = String(signInResult.detail || signInResult.error || '').toLowerCase();
+    if (isSupabaseEmailProviderDisabled(reason)) {
+      bootstrapFallbackErrors.push('Supabase email auth provider is disabled.');
+    }
+
+    const composedMessage = [
+      signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
+      ...bootstrapFallbackErrors,
+      ensureUserFailure?.detail || ensureUserFailure?.error || '',
+    ]
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean)
+      .filter((entry, idx, arr) => arr.indexOf(entry) === idx)
+      .slice(0, 4)
+      .join(' | ');
+
     return {
       ok: false,
       status: 502,
       error: 'supabase_bootstrap_failed',
-      message: signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
+      message: composedMessage || 'Supabase bootstrap failed.',
     };
   }
 
