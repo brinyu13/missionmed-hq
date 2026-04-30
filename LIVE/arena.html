@@ -6,8 +6,8 @@ CHANGE: (G4)-Avatar-codex-high-604 Avatar persistence+selection fail-loud fix wi
 <!-- VERSION: MR-254_AVATAR_SYSTEM_FINAL -->
 <!--
 SYSTEM: ARENA
-VERSION: 2026-04-22 19:32
-CHANGE: Avatar persistence and selection fail-loud hardening (prompt 604): strict Supabase UUID gating, detailed identity/save/load/select logging, probe write diagnostics, and refetch-first UI synchronization.
+VERSION: 2026-04-30 18:48 game-mode-card-images-final-pngs
+CHANGE: Installed authoritative provided Arena lobby game-mode card PNGs from R2/CDN for Daily Rounds, STAT Duels, IV On-Call, STAT TournaMed, and USCE On-Call.
 AUTHORITY: MM-HTML-DEPLOYMENT-SYSTEM-LOCK-001
 SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 DEPLOYMENT: Cloudflare R2/CDN. Do NOT upload to WordPress Media Library.
@@ -3964,9 +3964,12 @@ html,body{
   position:absolute;inset:0;z-index:0;background-size:cover;background-position:center;
   opacity:.9;
 }
-.fn-card-bg.card-drills{background:linear-gradient(135deg,#3d2b6b 0%,#5c2b8a 55%,#8b1b3d 100%)}
+.fn-card-bg.card-drills{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_DRILLS-Daily-Rounds_2026-04-30_lobby-16x9-1920x1080.png')}
+.fn-card-bg.card-stat-duels{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png')}
+.fn-card-bg.card-iv-on-call{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_IV-On-Call_2026-04-30_lobby-16x9-1920x1080.png')}
+.fn-card-bg.card-tournamed{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-TournaMed_2026-04-30_lobby-16x9-1920x1080.png')}
+.fn-card-bg.card-usce-on-call{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_USCE-On-Call-Pimpin-Rounds_2026-04-30_lobby-16x9-1920x1080.png')}
 .fn-card-bg.card-gauntlet{background:linear-gradient(135deg,#6b4a14 0%,#b37a1a 50%,#d9a53a 100%)}
-.fn-card-bg.card-iv-on-call{background:linear-gradient(135deg,#3a0b59 0%,#9c137c 58%,#f3c14f 100%)}
 .fn-card-bg.card-survival{background:linear-gradient(135deg,#14421e 0%,#1e6b2d 55%,#3aa85b 100%)}
 .fn-card-bg.card-interview{background:linear-gradient(135deg,#18365a 0%,#2160a0 55%,#3ba0e0 100%)}
 .fn-card-bg.card-team{background:linear-gradient(135deg,#2b1650 0%,#5a2a9c 55%,#8a3dd4 100%)}
@@ -5291,10 +5294,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
           </div>
         </div>
         <div class="mode-card fn-mode-card" data-mode="drills" data-arena-mode="stat">
-          <div class="mode-card-bg fn-card-bg card-gauntlet"></div>
+          <div class="mode-card-bg fn-card-bg card-stat-duels"></div>
           <div class="fn-card-badge">NEW</div>
           <div class="mode-card-content fn-card-content">
-            <div class="mode-card-label fn-card-label">STAT!</div>
+            <div class="mode-card-label fn-card-label">STAT! DUELS</div>
             <div class="mode-card-desc fn-card-players">HEAD-TO-HEAD DUEL</div>
           </div>
         </div>
@@ -5307,39 +5310,23 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
             <div class="mode-card-desc fn-card-players">TRAIN LIKE IT MATTERS</div>
           </div>
         </div>
-        <div class="mode-card fn-mode-card locked" data-mode="survival">
-          <div class="mode-card-bg fn-card-bg card-survival"></div>
+        <div class="mode-card fn-mode-card locked" data-mode="tournamed" data-arena-mode="tournamed" data-locked-mode="true">
+          <div class="mode-card-bg fn-card-bg card-tournamed"></div>
+          <div class="fn-card-badge">SOON</div>
           <div class="mode-card-content fn-card-content">
-            <div class="mode-card-label fn-card-label">SURVIVAL</div>
-            <div class="mode-card-desc fn-card-players">36.4K</div>
+            <div class="mode-card-label fn-card-label">STAT! TOURNAMED</div>
+            <div class="mode-card-desc fn-card-players">TOURNAMENT BRACKET</div>
           </div>
-          <div class="mode-card-lock">LOCKED</div>
+          <div class="mode-card-lock">PRO MEMBERS ONLY</div>
         </div>
-        <div class="mode-card fn-mode-card locked" data-mode="interview">
-          <div class="mode-card-bg fn-card-bg card-interview"></div>
+        <div class="mode-card fn-mode-card locked" data-mode="usce_on_call" data-arena-mode="usce_on_call" data-locked-mode="true">
+          <div class="mode-card-bg fn-card-bg card-usce-on-call"></div>
+          <div class="fn-card-badge">SOON</div>
           <div class="mode-card-content fn-card-content">
-            <div class="mode-card-label fn-card-label">INTERVIEW ARENA</div>
-            <div class="mode-card-desc fn-card-players">14.9K</div>
+            <div class="mode-card-label fn-card-label">USCE ON-CALL: PIMPIN&rsquo; ROUNDS</div>
+            <div class="mode-card-desc fn-card-players">CLINICAL ROUNDS</div>
           </div>
-          <div class="mode-card-lock">LOCKED</div>
-        </div>
-        <div class="mode-card fn-mode-card locked" data-mode="team">
-          <div class="mode-card-bg fn-card-bg card-team"></div>
-          <div class="fn-card-badge">NEW</div>
-          <div class="mode-card-content fn-card-content">
-            <div class="mode-card-label fn-card-label">TEAM MODE</div>
-            <div class="mode-card-desc fn-card-players">7.9K</div>
-          </div>
-          <div class="mode-card-lock">LOCKED</div>
-        </div>
-        <div class="mode-card fn-mode-card locked" data-mode="battles">
-          <div class="mode-card-bg fn-card-bg card-battles"></div>
-          <div class="fn-card-badge">NEW</div>
-          <div class="mode-card-content fn-card-content">
-            <div class="mode-card-label fn-card-label">LIVE BATTLES</div>
-            <div class="mode-card-desc fn-card-players">5.3K</div>
-          </div>
-          <div class="mode-card-lock">LOCKED</div>
+          <div class="mode-card-lock">PRO MEMBERS ONLY</div>
         </div>
       </div>
       <button class="fn-carousel-arrow fn-carousel-arrow-right" id="fnCarouselRight" aria-label="Scroll right">&#8250;</button>
@@ -18122,15 +18109,27 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
   const MODE_CONFIG = {
     drills: {
       name: 'DRILLS: Daily Rounds',
-      image: 'https://cdn.missionmedinstitute.com/html-system/LIVE/Shared/assets/MODE%20LOBBY%20IMAGES/Mode_Lobby_Imagecard_DRILLS_dailyrounds.JPG'
+      image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_DRILLS-Daily-Rounds_2026-04-30_lobby-16x9-1920x1080.png'
     },
     stat: {
       name: 'STAT! Duels',
-      image: 'https://cdn.missionmedinstitute.com/html-system/LIVE/Shared/assets/MODE%20LOBBY%20IMAGES/Mode_Lobby_Imagecard_STAT!_Duels.JPG'
+      image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png'
     },
     iv_on_call: {
       name: 'IV On-Call',
-      image: 'data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1200 675%22><defs><linearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22><stop offset=%220%25%22 stop-color=%22%233a0b59%22/><stop offset=%2258%25%22 stop-color=%22%239c137c%22/><stop offset=%22100%25%22 stop-color=%22%23f3c14f%22/></linearGradient><radialGradient id=%22r1%22 cx=%220.2%22 cy=%220.2%22 r=%220.6%22><stop offset=%220%25%22 stop-color=%22%23ffffff%22 stop-opacity=%220.38%22/><stop offset=%22100%25%22 stop-color=%22%23ffffff%22 stop-opacity=%220%22/></radialGradient><radialGradient id=%22r2%22 cx=%220.82%22 cy=%220.78%22 r=%220.58%22><stop offset=%220%25%22 stop-color=%22%23ffd65a%22 stop-opacity=%220.45%22/><stop offset=%22100%25%22 stop-color=%22%23ffd65a%22 stop-opacity=%220%22/></radialGradient></defs><rect width=%221200%22 height=%22675%22 fill=%22url(%23g)%22/><rect width=%221200%22 height=%22675%22 fill=%22url(%23r1)%22/><rect width=%221200%22 height=%22675%22 fill=%22url(%23r2)%22/></svg>'
+      image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_IV-On-Call_2026-04-30_lobby-16x9-1920x1080.png'
+    },
+    tournamed: {
+      name: 'STAT! TournaMed',
+      image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-TournaMed_2026-04-30_lobby-16x9-1920x1080.png',
+      locked: true,
+      sub: 'TOURNAMENT BRACKET'
+    },
+    usce_on_call: {
+      name: 'USCE On-Call: Pimpin’ Rounds',
+      image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_USCE-On-Call-Pimpin-Rounds_2026-04-30_lobby-16x9-1920x1080.png',
+      locked: true,
+      sub: 'CLINICAL ROUNDS'
     }
   };
   window.MODE_CONFIG = MODE_CONFIG;
@@ -18148,6 +18147,8 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     if (safe === 'daily_rounds' || safe === 'drills') return 'drills';
     if (safe === 'stat' || safe === 'qstat') return 'stat';
     if (safe === 'iv_on_call' || safe === 'iv-on-call' || safe === 'ivoncall') return 'iv_on_call';
+    if (safe === 'tournamed' || safe === 'stat_tournamed' || safe === 'stat-tournamed') return 'tournamed';
+    if (safe === 'usce_on_call' || safe === 'usce-on-call' || safe === 'usceoncall') return 'usce_on_call';
     return '';
   }
   function ensureAudioDefaults(){
@@ -18417,26 +18418,40 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     }
     if (isIvOnCall) wireIvPremiumParallax(card);
   }
-  function renderLockedCard(card){
+  function renderLockedCard(card, key){
+    var cfg = key ? MODE_CONFIG[key] : null;
     var labelEl = card.querySelector('.mode-card-label') || card.querySelector('.fn-card-label');
-    var label = labelEl ? labelEl.textContent.trim() : 'Locked Mode';
+    var label = cfg && cfg.name ? cfg.name : (labelEl ? labelEl.textContent.trim() : 'Locked Mode');
+    var sub = cfg && cfg.sub ? cfg.sub : 'PRO MEMBERS ONLY';
     card.classList.add('locked');
-    card.classList.remove('playable');
-    card.removeAttribute('data-mode-key');
+    card.classList.remove('playable', 'iv-premium-card');
+    if (key) card.setAttribute('data-mode-key', key);
+    else card.removeAttribute('data-mode-key');
     card.innerHTML = ''
+      + (cfg && cfg.image ? '<img class="mode-bg" src="' + cfg.image + '" alt="' + escapeHtml(label) + '">' : '')
       + '<div class="mode-overlay">'
       + '<h3>' + escapeHtml(label) + '</h3>'
-      + '<p>PRO MEMBERS ONLY</p>'
+      + '<p>' + escapeHtml(sub) + '</p>'
       + '</div>'
       + '<div class="mode-card-lock">&#128274; PRO MEMBERS ONLY</div>';
+    var img = card.querySelector('.mode-bg');
+    if (img) {
+      img.addEventListener('error', function(){
+        card.classList.add('image-fallback');
+      }, { once: true });
+      img.addEventListener('load', function(){
+        card.classList.remove('image-fallback');
+      }, { once: true });
+    }
   }
   function upgradeModeCards(){
     var cards = document.querySelectorAll('#fnCarouselTrack .fn-mode-card');
     if (!cards.length) return;
     cards.forEach(function(card){
       var key = modeKey(card.getAttribute('data-arena-mode'));
-      if (key) renderPlayableCard(card, key);
-      else renderLockedCard(card);
+      var cfg = key ? MODE_CONFIG[key] : null;
+      if (key && !(cfg && cfg.locked) && card.getAttribute('data-locked-mode') !== 'true') renderPlayableCard(card, key);
+      else renderLockedCard(card, key);
       if (card.classList.contains('locked')) {
         card.setAttribute('aria-disabled', 'true');
         card.setAttribute('tabindex', '-1');
