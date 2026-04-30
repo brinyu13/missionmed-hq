@@ -2863,9 +2863,10 @@ console.log('STAT RPC:', STAT_MODE === 'v5' ? 'get_duel_pack_v5' : 'get_duel_pac
 const WP_LOGIN_URL = '/my-account/';
 const WP_LOGOUT_URL = '/wp-login.php?action=logout';
 const STAT_LOGIN_REDIRECT = '/stat';
-const AUTH_EXCHANGE_URL = '/api/auth/exchange';
-const AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';
-const WORDPRESS_AUTH_TOKEN_PATH = '/wp-json/missionmed-command-center/v1/auth/token/';
+const AUTH_BACKEND_ORIGIN = 'https://missionmed-hq-production.up.railway.app';
+const AUTH_EXCHANGE_URL = AUTH_BACKEND_ORIGIN + '/api/auth/exchange';
+const AUTH_BOOTSTRAP_URL = AUTH_BACKEND_ORIGIN + '/api/auth/bootstrap';
+const WORDPRESS_AUTH_TOKEN_PATH = '';
 const DEFAULT_WORDPRESS_ORIGIN = 'https://missionmedinstitute.com';
 let ensureSupabaseSessionPromise = null;
 let authBootstrapComplete = false;
@@ -3231,9 +3232,8 @@ function collectWordPressOrigins() {
 }
 
 function buildWordPressTokenEndpointCandidates() {
-  const urls = [];
-  collectWordPressOrigins().forEach((origin) => pushUnique(urls, `${origin}${WORDPRESS_AUTH_TOKEN_PATH}`));
-  return urls;
+  // Runtime auth must not rely on HQ admin token routes.
+  return [];
 }
 
 function getSupabaseSessionTokens(payload) {
@@ -3267,9 +3267,8 @@ function getResponseErrorMessage(payload) {
 
 function requiresWordPressToken(result) {
   if (!result || result.ok) return false;
-  const message = getResponseErrorMessage(result.payload).toLowerCase();
-  if (result.status === 400 && /signed|token/.test(message)) return true;
-  return result.status === 401;
+  // Arena/STAT runtime must not fall back to WordPress Command Center token routes.
+  return false;
 }
 
 function resolveCredentialsMode(url, forcedMode) {
@@ -3319,7 +3318,7 @@ async function fetchWordPressExchangeToken() {
 
 async function runAuthExchange() {
   try {
-    const direct = await postJson(AUTH_EXCHANGE_URL, {}, {}, 'include');
+    const direct = await postJson(AUTH_EXCHANGE_URL, { audience: 'arena' }, {}, 'include');
     if (direct.ok) {
       return {
         ok: true,
@@ -3382,6 +3381,19 @@ async function ensureSupabaseSession() {
   }
 
   ensureSupabaseSessionPromise = (async () => {
+    const preExisting = await supabaseClient.auth.getUser();
+    const preExistingUser = preExisting && preExisting.data ? preExisting.data.user : null;
+    const preExistingUserId = preExistingUser && preExistingUser.id ? String(preExistingUser.id).trim() : '';
+    if (preExistingUserId) {
+      if (verifiedAuthUserId && preExistingUserId !== verifiedAuthUserId) {
+        return { ok: false, reason: 'identity_mismatch' };
+      }
+      verifiedAuthUserId = preExistingUserId;
+      backendUserId = preExistingUserId;
+      authBootstrapComplete = true;
+      return { ok: true, source: 'existing_session', user: preExistingUser };
+    }
+
     if (authBootstrapComplete) {
       const existing = await supabaseClient.auth.getUser();
       const existingUser = existing && existing.data ? existing.data.user : null;
