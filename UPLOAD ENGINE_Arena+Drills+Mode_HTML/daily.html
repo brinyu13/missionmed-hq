@@ -2211,6 +2211,7 @@ html.admin-bar{margin-top:0!important}
     '2026-04-07': ['renal_gu_electrolytes_step23'],
     '2026-04-08': ['repro_gyn_ob_step1', 'gyn_step23']
   };
+  var DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS = ['mixed_review_step1', 'mixed_review_step23'];
 
   var drTopicVideoMapEffective = null;
 
@@ -2255,12 +2256,40 @@ html.admin-bar{margin-top:0!important}
     return map;
   }
 
+  function parseDrillCreatedAtMs(drill) {
+    var raw = String(drill && drill.created_at || '').trim();
+    if (!raw) return 0;
+    var ms = Date.parse(raw);
+    return isNaN(ms) ? 0 : ms;
+  }
+
+  function parseZoomStampMsFromDrill(drill) {
+    var stamp = parseZoomStampFromDrill(drill);
+    if (!stamp) return 0;
+    var ms = Date.parse(stamp.date + 'T' + stamp.time + 'Z');
+    return isNaN(ms) ? 0 : ms;
+  }
+
+  function isDrillEligibleForUnscheduledFallback(drill, mappedById) {
+    var videoId = String(drill && drill.video_id || '').trim();
+    if (!videoId || mappedById[videoId]) return false;
+    if (!/^usmle_/i.test(videoId)) return false;
+    if (!String(drill.playback_url || '').trim()) return false;
+    if (!String(drill.nodes_url || '').trim()) return false;
+    if (!String(drill.transcript_url || '').trim()) return false;
+
+    var stamp = parseZoomStampFromDrill(drill);
+    if (stamp && DR_ZOOM_SCHEDULE_SLOTS[stamp.date]) return false;
+    return true;
+  }
+
   function buildEffectiveTopicVideoMap(drills) {
     var map = buildTopicVideoMapFromMetadata(drills);
+    var safeDrills = Array.isArray(drills) ? drills : [];
     var availableById = {};
     (Array.isArray(drills) ? drills : []).forEach(function(drill) {
       var videoId = String(drill && drill.video_id || '').trim();
-      if (videoId) availableById[videoId] = true;
+      if (videoId) availableById[videoId] = drill;
     });
     Object.keys(DR_TOPIC_VIDEO_FALLBACK_MAP).forEach(function(topicId) {
       if (!map[topicId]) map[topicId] = [];
@@ -2269,6 +2298,45 @@ html.admin-bar{margin-top:0!important}
         if (availableById[videoId] && map[topicId].indexOf(videoId) === -1) map[topicId].push(videoId);
       });
     });
+
+    var mappedById = {};
+    Object.keys(map).forEach(function(topicId) {
+      (map[topicId] || []).forEach(function(videoId) {
+        if (videoId) mappedById[videoId] = true;
+      });
+    });
+
+    var unscheduled = safeDrills
+      .filter(function(drill) { return isDrillEligibleForUnscheduledFallback(drill, mappedById); })
+      .sort(function(a, b) {
+        var zoomDelta = parseZoomStampMsFromDrill(b) - parseZoomStampMsFromDrill(a);
+        if (zoomDelta !== 0) return zoomDelta;
+
+        var createdDelta = parseDrillCreatedAtMs(b) - parseDrillCreatedAtMs(a);
+        if (createdDelta !== 0) return createdDelta;
+
+        var aId = String(a && a.video_id || '').trim();
+        var bId = String(b && b.video_id || '').trim();
+        if (aId < bId) return -1;
+        if (aId > bId) return 1;
+        return 0;
+      });
+
+    var fallbackSlots = Array.isArray(DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS) ? DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS : [];
+    if (fallbackSlots.length > 0) {
+      unscheduled.forEach(function(drill, index) {
+        var videoId = String(drill && drill.video_id || '').trim();
+        if (!videoId || mappedById[videoId]) return;
+        var topicId = fallbackSlots[index % fallbackSlots.length];
+        if (!topicId) return;
+        if (!map[topicId]) map[topicId] = [];
+        if (map[topicId].indexOf(videoId) === -1) {
+          map[topicId].push(videoId);
+          mappedById[videoId] = true;
+        }
+      });
+    }
+
     return map;
   }
 
