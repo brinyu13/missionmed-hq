@@ -68,3 +68,9 @@
 - Scope: STAT human async duel contract repair apply/validate/deploy preparation in clean isolated context.
 - Files: LIVE/stat.html, supabase/migrations/20260427131000_mr_stat_human_async_duel_contract_repair_035.sql, VALIDATION/stat_async_duel_contract_035.sql
 - Notes: Applied scoped MR-035 migration to RankListIQ (`fglyvdykwgbuivikqoah`) via isolated Supabase workdir, aligned frontend human duel pack activation to canonical sealed pack path, normalized submit payload to `choice_index`, aligned incoming challenge detection to `duel_challenges` query path with roster fallback, and added rollback-safe SQL harness for two-user async contract validation.
+
+## [2026-04-30 14:26 UTC]
+- PROMPT: E8_STAT_ASYNC_DUEL_600
+- Scope: Arena lobby STAT launch routing fix without auth-flow changes.
+- Files: LIVE/arena.html
+- Notes: Corrected STAT mode card metadata from `data-mode="drills"` to `data-mode="stat"` to keep legacy + modern mode listeners aligned, and added STAT copy in legacy modeData fallback to prevent stale Drills-only mode descriptions during mixed-handler execution.
