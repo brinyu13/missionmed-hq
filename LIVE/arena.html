@@ -6743,6 +6743,60 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
   var ARENA_AUTH_HANDOFF_ONCE_KEY = 'mm_arena_auth_handoff_attempted';
   var ARENA_AUTH_HANDOFF_CYCLE_RESET_KEY = 'mm_arena_auth_handoff_cycle_reset';
+  var ARENA_AUTH_HANDOFF_TOKEN_KEY = 'mm_arena_handoff_token';
+
+  function readArenaHandoffTokenFromHash(){
+    try{
+      var rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if(!rawHash) return '';
+      var params = new URLSearchParams(rawHash);
+      var token = String(params.get('mmhq_handoff_token') || '').trim();
+      return token;
+    } catch(_hashReadErr){
+      return '';
+    }
+  }
+
+  function clearArenaHandoffTokenFromHash(){
+    try{
+      var rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if(!rawHash) return;
+      var params = new URLSearchParams(rawHash);
+      if(!params.has('mmhq_handoff_token')) return;
+      params.delete('mmhq_handoff_token');
+      var nextHash = params.toString();
+      var nextUrl = window.location.pathname + window.location.search + (nextHash ? ('#' + nextHash) : '');
+      window.history.replaceState({}, '', nextUrl);
+    } catch(_hashClearErr){}
+  }
+
+  function readStoredArenaHandoffToken(){
+    try { return String(sessionStorage.getItem(ARENA_AUTH_HANDOFF_TOKEN_KEY) || '').trim(); }
+    catch(_storeReadErr){ return ''; }
+  }
+
+  function writeStoredArenaHandoffToken(token){
+    var safe = String(token || '').trim();
+    try{
+      if(safe){
+        sessionStorage.setItem(ARENA_AUTH_HANDOFF_TOKEN_KEY, safe);
+      } else {
+        sessionStorage.removeItem(ARENA_AUTH_HANDOFF_TOKEN_KEY);
+      }
+    } catch(_storeWriteErr){}
+  }
+
+  function resolveArenaHandoffToken(){
+    var stored = readStoredArenaHandoffToken();
+    if(stored) return stored;
+    var hashToken = readArenaHandoffTokenFromHash();
+    if(hashToken){
+      writeStoredArenaHandoffToken(hashToken);
+      clearArenaHandoffTokenFromHash();
+      return hashToken;
+    }
+    return '';
+  }
 
   function getArenaAuthExchangeRetryDelays(){
     var delays = [0];
@@ -6853,7 +6907,32 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
   async function runAuthExchange(){
     var lastDirect = null;
+    var handoffToken = '';
     maybeResetArenaAuthHandoffForLoginReturn();
+    handoffToken = resolveArenaHandoffToken();
+
+    if(handoffToken){
+      try{
+        var tokenExchange = await postJson(
+          AUTH_EXCHANGE_URL,
+          { audience: 'arena', token: handoffToken },
+          null,
+          'include'
+        );
+        if(tokenExchange && tokenExchange.ok){
+          writeStoredArenaHandoffToken('');
+          clearArenaAuthHandoffAttempted();
+          return {
+            ok: true,
+            endpoint: AUTH_EXCHANGE_URL,
+            accessToken: getExchangeAccessToken(tokenExchange.payload),
+            csrfToken: getExchangeCsrfToken(tokenExchange.payload),
+            source: 'exchange_handoff_token'
+          };
+        }
+      } catch(_tokenExchangeErr){}
+    }
+
     var delays = getArenaAuthExchangeRetryDelays();
     try{
       for(var i = 0; i < delays.length; i++){
@@ -6888,6 +6967,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
             var postHandoffExchange = await postJson(AUTH_EXCHANGE_URL, { audience: 'arena' }, null, 'include');
             lastDirect = postHandoffExchange;
             if(postHandoffExchange.ok){
+              writeStoredArenaHandoffToken('');
               clearArenaAuthHandoffAttempted();
               return {
                 ok: true,

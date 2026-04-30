@@ -911,6 +911,26 @@ function resolveAuthSessionFinalRedirect(rawFinal = '', request = null) {
   }
 }
 
+function withAuthSessionHandoffFragment(finalRedirect = '', handoffToken = '') {
+  const base = String(finalRedirect || '').trim();
+  const token = String(handoffToken || '').trim();
+  if (!base || !token) {
+    return base;
+  }
+
+  try {
+    const target = new URL(base);
+    const hash = String(target.hash || '').replace(/^#/u, '');
+    const params = new URLSearchParams(hash);
+    params.set('mmhq_handoff_token', token);
+    const nextHash = params.toString();
+    target.hash = nextHash ? `#${nextHash}` : '';
+    return target.toString();
+  } catch {
+    return base;
+  }
+}
+
 function isLocalhostHostname(hostname = '') {
   return LOCALHOST_HOSTNAMES.has(String(hostname || '').trim().toLowerCase());
 }
@@ -1014,22 +1034,28 @@ function readSessionFromRequest(request) {
 }
 
 function buildSessionCookie(request, session) {
+  const secureCookie = shouldUseSecureCookies(request);
+  const sameSitePolicy = secureCookie ? 'None' : 'Lax';
+
   return serializeCookie(CONFIG.sessionCookieName, createEncryptedSession(session), {
     httpOnly: true,
     maxAge: CONFIG.sessionTtlSeconds,
     path: '/',
-    sameSite: 'Lax',
-    secure: shouldUseSecureCookies(request),
+    sameSite: sameSitePolicy,
+    secure: secureCookie,
   });
 }
 
 function clearSessionCookie(request) {
+  const secureCookie = shouldUseSecureCookies(request);
+  const sameSitePolicy = secureCookie ? 'None' : 'Lax';
+
   return serializeCookie(CONFIG.sessionCookieName, '', {
     httpOnly: true,
     maxAge: 0,
     path: '/',
-    sameSite: 'Lax',
-    secure: shouldUseSecureCookies(request),
+    sameSite: sameSitePolicy,
+    secure: secureCookie,
   });
 }
 
@@ -1873,7 +1899,8 @@ async function handleApiRoute(request, response, url, context) {
       };
 
       if (finalRedirect) {
-        sendRedirect(response, finalRedirect, 302, responseHeaders);
+        const redirectWithToken = withAuthSessionHandoffFragment(finalRedirect, handoffToken);
+        sendRedirect(response, redirectWithToken, 302, responseHeaders);
         return;
       }
 
