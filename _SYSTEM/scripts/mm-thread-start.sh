@@ -18,6 +18,9 @@ short_slug="$2"
 branch="work/${ticket_id}-${short_slug}"
 worktree_path="${WORKTREE_PARENT}/${ticket_id}-${short_slug}"
 
+echo "[INFO] Legacy optional helper: worktrees are no longer the default workflow."
+echo "[INFO] Default workflow: use bash _SYSTEM/scripts/mm-branch-start.sh <ticket_id> <short_slug> from /Users/brianb/MissionMed."
+
 if ! git -C "$PROTECTED_MAIN_ROOT" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "[FAIL] Protected main root is not a git repository: $PROTECTED_MAIN_ROOT"
   exit 1

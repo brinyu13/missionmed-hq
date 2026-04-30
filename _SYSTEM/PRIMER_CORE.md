@@ -13,7 +13,7 @@ Validate these 3 files exist before task work begins:
 - `/Users/brianb/MissionMed/08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md`
 - `/Users/brianb/MissionMed/_SYSTEM_LOGS/LEARNINGS_LOG.jsonl`
 
-If ANY missing → STOP. REPORT. DO NOT PROCEED. `/Users/brianb/MissionMed/` is the protected canonical MissionMed root; active implementation edits may run from linked worktrees under `/Users/brianb/MissionMed_worktrees/`. Any non-canonical root reference outside this layout is invalid and must be corrected before execution.
+If ANY missing → STOP. REPORT. DO NOT PROCEED. `/Users/brianb/MissionMed/` is the canonical MissionMed root for normal branch-based work. Worktrees are optional advanced recovery tools only. Any non-canonical root reference outside this layout is invalid and must be corrected before execution.
 
 ---
 
@@ -25,44 +25,44 @@ If ANY missing → STOP. REPORT. DO NOT PROCEED. `/Users/brianb/MissionMed/` is 
 
 ---
 
-## MISSIONMED GIT WORKSPACE HYGIENE + AI LOGGING - MANDATORY FOR EVERY THREAD
+## MISSIONMED SIMPLE GIT WORKFLOW + AI LOGGING - MANDATORY FOR EVERY THREAD
 
 This section is mandatory and overrides any older conflicting logging/workspace behavior in this file.
 
-1. `/Users/brianb/MissionMed` is protected main/integration-only.
-2. Codex must not edit directly on `main`.
-3. Every Codex implementation thread must use a dedicated worktree under `/Users/brianb/MissionMed_worktrees/`.
-4. Before editing, Codex must run `bash _SYSTEM/scripts/mm-preflight.sh`.
-5. If preflight fails, Codex must stop and report.
-6. Codex must not run reset, `git clean`, destructive cleanup, deploy, push, or branch merges unless explicitly authorized.
-7. Claude may use the MissionMed project/folder for context, reading, planning, and design discussion.
-8. Claude must not create, save, modify, or overwrite files inside `/Users/brianb/MissionMed` unless explicitly authorized for a repo-editing task.
-9. Claude/Codex demos, reports, standalone HTML files, mockups, screenshots, scratch files, backups, generated outputs, and routine activity logs must go outside the repo.
-10. Newest/easiest-to-find outputs should go to `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`.
-11. Routine AI activity logs should go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`.
-12. Claude logs should go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CLAUDE/`.
-13. Codex logs should go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/`.
-14. ChatGPT orchestration notes, if exported, should go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CHATGPT/`.
-15. Repo log `/Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` is curated and versioned. Update only intentionally during real repo implementation work in the proper worktree/branch, and commit with related implementation.
-16. Claude planning/demo/design tasks must not append repo `MM_ACTIVITY_LOG.md` by default.
-17. Codex audit-only tasks must not append repo `MM_ACTIVITY_LOG.md` by default.
-18. Do not broadly ignore production folders.
-19. Do not touch Drill ingestion/runtime unless explicitly scoped.
-20. Do not mix unrelated workstreams in one branch/worktree.
-21. If unsure where to work or save output, stop and ask.
+1. `/Users/brianb/MissionMed` is the primary local repo.
+2. `main` should stay clean.
+3. For implementation work, use a normal Git branch inside `/Users/brianb/MissionMed`.
+4. Before editing, run:
+   - `git status --short`
+   - `git branch --show-current`
+5. If on `main`, create or switch to a task branch before editing.
+6. If the repo is dirty from unrelated work, stop and report.
+7. Do not use `git reset`, `git clean`, destructive cleanup, deploy, push, pull, rebase, or merge unless explicitly authorized.
+8. Claude/demo/scratch/report outputs must stay outside the repo in `/Users/brianb/MissionMed_AI_Sandbox/`.
+9. Newest AI outputs go to `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`.
+10. Routine AI logs go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`.
+11. The repo `MM_ACTIVITY_LOG.md` is curated only and should not be updated by routine demo/planning tasks.
+12. Worktrees are optional advanced recovery tools, not the default workflow.
+13. Do not broadly ignore production folders.
+14. Do not touch Drill ingestion/runtime unless explicitly scoped.
+15. If unsure where to work or save output, stop and ask.
 
 ### Future Prompt Requirement Block (Copy/Paste)
 
 ```text
-Load SESSION_PRIMER_V2.md and apply all rules.
-Load the MissionMed primer/startup protocol and follow the Git workspace hygiene + AI logging guardrails.
-Do not edit /Users/brianb/MissionMed directly on main.
-For Codex implementation work, use a dedicated worktree under /Users/brianb/MissionMed_worktrees/ and run bash _SYSTEM/scripts/mm-preflight.sh before editing.
+Load _SYSTEM/PRIMER_CORE.md and apply all rules.
+Use the MissionMed simple Git workflow defaults.
+Use /Users/brianb/MissionMed as the primary repo and keep main clean.
+For implementation work, create/switch to a normal task branch in /Users/brianb/MissionMed.
+Run bash _SYSTEM/scripts/mm-preflight.sh before editing.
 If preflight fails, stop and report.
-For Claude demos, reports, standalone HTML, mockups, screenshots, scratch files, backups, generated outputs, and routine activity logs, do not save inside /Users/brianb/MissionMed.
+If currently on main and edits are planned, switch to a non-main branch first.
+If repo is dirty from unrelated work, stop and report.
+For Claude demos, reports, standalone HTML, mockups, screenshots, scratch files, backups, generated outputs, and routine logs, do not save inside /Users/brianb/MissionMed.
 Save outputs to /Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/ and save routine logs to /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/.
-Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes in the proper worktree, and commit that curated summary with the related work.
-Do not run reset, git clean, destructive cleanup, deploy, push, or merge unless explicitly authorized.
+Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes and commit that curated summary with related work.
+Worktrees are optional tools, not the default.
+Do not run reset, git clean, destructive cleanup, deploy, push, pull, rebase, or merge unless explicitly authorized.
 ```
 
 ---
