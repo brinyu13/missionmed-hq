@@ -9029,27 +9029,25 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         }
       }
 
-      var primaryUploadSource = file;
       if(remoteAvatarUrl){
-        try{
-          primaryUploadSource = await fetchAvatarBlobFromUrl(remoteAvatarUrl);
-        } catch(remoteFetchErr){
-          remoteError = remoteError || (remoteFetchErr && remoteFetchErr.message ? remoteFetchErr.message : String(remoteFetchErr));
-          console.warn('[AVATAR_REMOTE_FETCH_FAILED_USING_ORIGINAL_FILE]', remoteError);
-          primaryUploadSource = file;
-        }
-      }
-
-      var uploadedPrimary = await uploadAvatarAssetToR2ViaBackend(primaryUploadSource, {
-        avatarId: remoteAvatarId
-      });
-      if(uploadedPrimary && uploadedPrimary.avatar_url){
-        remoteAvatarUrl = String(uploadedPrimary.avatar_url || '').trim();
-        remoteAvatarId = isUuid(uploadedPrimary.avatar_id) ? String(uploadedPrimary.avatar_id) : remoteAvatarId;
-        remoteThumbnailUrl = remoteAvatarUrl;
+        remoteThumbnailUrl = remoteThumbnailUrl || remoteAvatarUrl;
+        console.info('[AVATAR_REMOTE_URL_ACCEPTED]', {
+          user_id: String(ArenaUser.id || ''),
+          avatar_id: remoteAvatarId,
+          has_avatar_url: !!remoteAvatarUrl
+        });
       } else {
-        remoteError = remoteError || 'upload_failed';
-        remoteAvatarUrl = '';
+        var uploadedPrimary = await uploadAvatarAssetToR2ViaBackend(file, {
+          avatarId: remoteAvatarId
+        });
+        if(uploadedPrimary && uploadedPrimary.avatar_url){
+          remoteAvatarUrl = String(uploadedPrimary.avatar_url || '').trim();
+          remoteAvatarId = isUuid(uploadedPrimary.avatar_id) ? String(uploadedPrimary.avatar_id) : remoteAvatarId;
+          remoteThumbnailUrl = remoteAvatarUrl;
+        } else {
+          remoteError = remoteError || 'upload_failed';
+          remoteAvatarUrl = '';
+        }
       }
 
       if(remoteAvatarUrl){
