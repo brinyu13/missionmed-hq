@@ -2753,7 +2753,7 @@
               <button class="friend-tab" type="button" data-tab="search">Search</button>
             </div>
             <div class="friend-search" id="friend-search-wrap">
-              <input id="friend-search-input" type="text" placeholder="screen name, handle, email, or UUID" autocomplete="off" spellcheck="false" />
+              <input id="friend-search-input" type="text" placeholder="first name, last name, username, email, or UUID" autocomplete="off" spellcheck="false" />
               <button id="friend-search-btn" type="button">Find</button>
             </div>
             <div class="friend-status" id="friend-status">Loading players...</div>
@@ -6308,6 +6308,41 @@ function statSafeEmailLabel(value) {
   return raw.toLowerCase();
 }
 
+function statEmailLocalPart(value) {
+  const email = statSafeEmailLabel(value);
+  return email ? email.split('@')[0] : '';
+}
+
+function statMaskedEmailLabel(value) {
+  const email = statSafeEmailLabel(value);
+  if (!email) return '';
+  const at = email.indexOf('@');
+  const local = email.slice(0, at);
+  const domain = email.slice(at + 1);
+  if (!local || !domain) return '';
+  const safeLocal = local.length <= 2
+    ? local.charAt(0) + '*'
+    : local.slice(0, 2) + '...' + local.slice(-1);
+  return safeLocal + '@' + domain;
+}
+
+function statTitleNamePart(value) {
+  const raw = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!raw) return '';
+  return raw.split(' ').map((part) => (
+    part ? part.charAt(0).toUpperCase() + part.slice(1).toLowerCase() : ''
+  )).join(' ');
+}
+
+function statFirstLastInitialName(firstName, lastName) {
+  const first = statTitleNamePart(firstName);
+  const last = statTitleNamePart(lastName);
+  if (first && last) return first + ' ' + last.charAt(0).toUpperCase() + '.';
+  if (first) return first;
+  if (last) return last;
+  return '';
+}
+
 function statUserIdFromHint(source) {
   const obj = source && typeof source === 'object' ? source : {};
   return String(obj.id || obj.user_id || obj.player_id || obj.auth_user_id || '').trim();
@@ -6522,7 +6557,7 @@ async function hydrateStatPlayerIdentity() {
   const mmUserMatches = !statUserIdFromHint(mmUser) || statUserIdFromHint(mmUser) === userId;
   const safeHint = mmUserMatches ? mmUser : {};
   const authProfileName = statPickString([
-    authProfile && authProfile.first_name && authProfile.last_name ? authProfile.first_name + ' ' + authProfile.last_name : '',
+    authProfile && statFirstLastInitialName(authProfile.first_name, authProfile.last_name),
     authProfile && authProfile.first_name,
     authProfile && authProfile.last_name
   ]);
@@ -6798,7 +6833,7 @@ function opponentMetaLine(player) {
 
 function opponentSafeIdentifier(player) {
   const p = player && typeof player === 'object' ? player : {};
-  return statPickString([p.screen_name, p.handle, p.safe_identifier, p.email, p.username]) || shortUid(p.id || p.player_id || p.user_id || '');
+  return statPickString([p.screen_name, p.handle, p.safe_identifier, p.username, p.email_masked]) || shortUid(p.id || p.player_id || p.user_id || '');
 }
 
 function opponentActivityLabel(value) {
@@ -6814,25 +6849,62 @@ function opponentActivityLabel(value) {
   return 'Recent';
 }
 
+function opponentCanonicalUserId(row) {
+  const raw = row && typeof row === 'object' ? row : {};
+  return String(
+    raw.user_id ||
+    raw.player_id ||
+    raw.auth_user_id ||
+    raw.opponent_id ||
+    raw.challenger_id ||
+    raw.created_by ||
+    raw.id ||
+    ''
+  ).trim();
+}
+
+function opponentPublicDisplayName(row, id) {
+  const raw = row && typeof row === 'object' ? row : {};
+  const firstLast = statFirstLastInitialName(raw.first_name, raw.last_name);
+  const emailLocal = statEmailLocalPart(raw.email);
+  return normalizeOpponentDisplayName(statPickString([
+    raw.public_display_name,
+    firstLast,
+    raw.display_name,
+    raw.full_name,
+    raw.name,
+    raw.label,
+    raw.screen_name,
+    raw.handle,
+    raw.username,
+    emailLocal
+  ])) || stableStudentLabelFromId(id);
+}
+
 function normalizeOpponentPlayer(row, source) {
   const raw = row && typeof row === 'object' ? row : {};
-  const id = String(raw.player_id || raw.user_id || raw.id || raw.opponent_id || raw.challenger_id || raw.created_by || '').trim();
+  const id = opponentCanonicalUserId(raw);
   if (!id) return null;
   if (backendUserId && id === backendUserId) return null;
   const avatar = statAvatarFromSource(raw.avatar_snapshot || raw);
-  const displayName = normalizeOpponentDisplayName(
-    raw.display_name || raw.full_name || raw.name || raw.label || raw.screen_name || raw.handle || raw.username || raw.email || ''
-  ) || stableStudentLabelFromId(id);
-  const safeIdentifier = statPickString([raw.screen_name, raw.handle, raw.email, raw.username, raw.safe_identifier]) || shortUid(id);
-  const statusLabel = opponentActivityLabel(raw.last_active_at || raw.created_at || raw.updated_at);
+  const displayName = opponentPublicDisplayName(raw, id);
+  const email = statSafeEmailLabel(raw.email || '');
+  const emailMasked = statMaskedEmailLabel(email);
+  const username = statPickString([raw.username, raw.user_name, raw.wp_login, statEmailLocalPart(email)]);
+  const safeIdentifier = statPickString([raw.screen_name, raw.handle, raw.safe_identifier, raw.safe_label, username, emailMasked]) || shortUid(id);
+  const statusLabel = statPickString([raw.status_label]) || opponentActivityLabel(raw.last_active_at || raw.created_at || raw.updated_at);
   const player = {
     id: id,
     player_id: id,
+    profile_id: raw.profile_id || (raw.id && raw.id !== id ? raw.id : ''),
     display_name: displayName,
+    first_name: statPickString([raw.first_name]),
+    last_name: statPickString([raw.last_name]),
     screen_name: statPickString([raw.screen_name]),
     handle: statPickString([raw.handle]),
-    email: statSafeEmailLabel(raw.email || ''),
-    username: statPickString([raw.username]),
+    email: email,
+    email_masked: emailMasked,
+    username: username,
     safe_identifier: safeIdentifier,
     rating: raw.rating,
     wins: raw.wins,
@@ -6846,22 +6918,79 @@ function normalizeOpponentPlayer(row, source) {
   player.search_text = [
     player.id,
     player.display_name,
+    player.first_name,
+    player.last_name,
     player.screen_name,
     player.handle,
     player.email,
+    player.email_masked,
     player.username,
     player.safe_identifier
   ].join(' ').toLowerCase();
   return player;
 }
 
+function refreshOpponentSearchText(player) {
+  if (!player || typeof player !== 'object') return player;
+  player.search_text = [
+    player.id,
+    player.display_name,
+    player.first_name,
+    player.last_name,
+    player.screen_name,
+    player.handle,
+    player.email,
+    player.email_masked,
+    player.username,
+    player.safe_identifier
+  ].join(' ').toLowerCase();
+  return player;
+}
+
+function mergeOpponentPlayerData(existing, patch) {
+  if (!existing || !patch) return existing || patch || null;
+  [
+    'profile_id',
+    'first_name',
+    'last_name',
+    'screen_name',
+    'handle',
+    'email',
+    'email_masked',
+    'username',
+    'safe_identifier',
+    'last_active_at',
+    'status_label',
+    'avatar_url',
+    'avatar_thumbnail_url'
+  ].forEach((key) => {
+    if (patch[key] !== undefined && patch[key] !== null && String(patch[key]).trim() !== '') {
+      existing[key] = patch[key];
+    }
+  });
+  ['rating', 'wins', 'losses'].forEach((key) => {
+    if (patch[key] !== undefined && patch[key] !== null && String(patch[key]).trim() !== '') {
+      existing[key] = patch[key];
+    }
+  });
+  if ((patch.first_name || patch.last_name || !existing.display_name || /^Student\s/i.test(existing.display_name)) && patch.display_name) {
+    existing.display_name = patch.display_name;
+  }
+  if (patch.source === 'search') existing.source = 'search';
+  return refreshOpponentSearchText(existing);
+}
+
 function uniqueOpponentPlayers(rows) {
   const out = [];
-  const seen = new Set();
+  const seen = new Map();
   (Array.isArray(rows) ? rows : []).forEach((row) => {
     const player = row && row.id ? row : normalizeOpponentPlayer(row, 'roster');
-    if (!player || !player.id || seen.has(player.id)) return;
-    seen.add(player.id);
+    if (!player || !player.id) return;
+    if (seen.has(player.id)) {
+      mergeOpponentPlayerData(seen.get(player.id), player);
+      return;
+    }
+    seen.set(player.id, player);
     out.push(player);
   });
   return out;
@@ -6871,12 +7000,134 @@ async function fetchOpponentRoster(query) {
   if (!supabaseClient || typeof supabaseClient.rpc !== 'function') return [];
   const session = await ensureSupabaseSession();
   if (!session.ok) throw new Error(session.reason || 'auth_required');
-  const args = { p_limit: 60 };
   const safeQuery = String(query || '').trim();
+  const chunks = [];
+
+  const statSearchRows = await fetchStatPlayerSearch(safeQuery);
+  if (statSearchRows.length) chunks.push(statSearchRows);
+
+  const rosterRows = await fetchDuelRoster(safeQuery);
+  if (rosterRows.length) chunks.push(rosterRows);
+  const rosterProfileRows = await fetchProfileOpponentCardsByUserIds(rosterRows.map((row) => row.id));
+  if (rosterProfileRows.length) chunks.push(rosterProfileRows);
+
+  if (safeQuery) {
+    const profileRows = await fetchProfileOpponentSearch(safeQuery);
+    if (profileRows.length) chunks.push(profileRows);
+  }
+
+  return uniqueOpponentPlayers([].concat.apply([], chunks));
+}
+
+async function fetchDuelRoster(query) {
+  const safeQuery = String(query || '').trim();
+  const args = { p_limit: 60 };
   if (safeQuery) args.p_search = safeQuery;
   const envelope = await rpcCallSafe('duel_roster', args);
   if (!envelope.ok) throw new Error(String(envelope.error || 'duel_roster_failed'));
   return uniqueOpponentPlayers(rosterFromEnvelope(envelope).map((row) => normalizeOpponentPlayer(row, safeQuery ? 'search' : 'active')));
+}
+
+async function fetchStatPlayerSearch(query) {
+  const safeQuery = String(query || '').trim();
+  const envelope = await rpcCallSafe('stat_player_search', {
+    p_query: safeQuery,
+    p_limit: safeQuery ? 30 : 60
+  });
+  if (!envelope.ok) return [];
+  return uniqueOpponentPlayers(rosterFromEnvelope(envelope).map((row) => normalizeOpponentPlayer(row, safeQuery ? 'search' : 'active')));
+}
+
+function profileSearchTerms(query) {
+  const raw = String(query || '').trim();
+  if (!raw) return [];
+  if (isUuidish(raw)) return [raw];
+  const cleaned = raw
+    .replace(/[^a-zA-Z0-9@._+\-\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80);
+  if (!cleaned) return [];
+  if (cleaned.length < 2) return [];
+  const terms = [cleaned];
+  cleaned.split(' ').forEach((part) => {
+    const safe = part.trim();
+    if (safe.length >= 2) terms.push(safe);
+  });
+  return Array.from(new Set(terms)).slice(0, 4);
+}
+
+function profileRowToOpponent(row, query) {
+  const raw = row && typeof row === 'object' ? row : {};
+  const userId = String(raw.auth_user_id || raw.id || '').trim();
+  if (!isUuidish(userId)) return null;
+  const email = statSafeEmailLabel(raw.email || '');
+  const firstLast = statFirstLastInitialName(raw.first_name, raw.last_name);
+  const localPart = statEmailLocalPart(email);
+  return normalizeOpponentPlayer({
+    user_id: userId,
+    profile_id: raw.id,
+    email: email,
+    email_masked: statMaskedEmailLabel(email),
+    first_name: raw.first_name,
+    last_name: raw.last_name,
+    username: localPart,
+    safe_identifier: localPart || statMaskedEmailLabel(email),
+    public_display_name: firstLast || localPart,
+    avatar_url: raw.avatar_url,
+    avatar_thumbnail_url: raw.avatar_url,
+    status_label: query ? 'Profile match' : ''
+  }, query ? 'search' : 'profile');
+}
+
+async function fetchProfileOpponentSearch(query) {
+  if (!supabaseClient || typeof supabaseClient.from !== 'function') return [];
+  const terms = profileSearchTerms(query);
+  if (!terms.length) return [];
+  const rows = [];
+  for (const term of terms) {
+    try {
+      let builder = supabaseClient
+        .from('profiles')
+        .select('id,auth_user_id,email,first_name,last_name,avatar_url')
+        .limit(25);
+      if (isUuidish(term)) {
+        builder = builder.or('id.eq.' + term + ',auth_user_id.eq.' + term);
+      } else {
+        builder = builder.or([
+          'first_name.ilike.%' + term + '%',
+          'last_name.ilike.%' + term + '%',
+          'email.ilike.%' + term + '%'
+        ].join(','));
+      }
+      const res = await builder;
+      if (res && !res.error && Array.isArray(res.data)) {
+        rows.push.apply(rows, res.data);
+      }
+    } catch (_err) {}
+  }
+  return uniqueOpponentPlayers(rows.map((row) => profileRowToOpponent(row, query)).filter(Boolean));
+}
+
+async function fetchProfileOpponentCardsByUserIds(ids) {
+  if (!supabaseClient || typeof supabaseClient.from !== 'function') return [];
+  const safeIds = Array.from(new Set((Array.isArray(ids) ? ids : [])
+    .map((id) => String(id || '').trim())
+    .filter((id) => isUuidish(id) && (!backendUserId || id !== backendUserId))))
+    .slice(0, 60);
+  if (!safeIds.length) return [];
+  try {
+    const idList = safeIds.join(',');
+    const res = await supabaseClient
+      .from('profiles')
+      .select('id,auth_user_id,email,first_name,last_name,avatar_url')
+      .or('id.in.(' + idList + '),auth_user_id.in.(' + idList + ')')
+      .limit(60);
+    if (res && !res.error && Array.isArray(res.data)) {
+      return uniqueOpponentPlayers(res.data.map((row) => profileRowToOpponent(row, '')).filter(Boolean));
+    }
+  } catch (_err) {}
+  return [];
 }
 
 async function fetchRecentOpponents(activeRows) {
