@@ -6748,6 +6748,27 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         return { errors: errors, warnings: warnings };
       }
 
+      function isAllowedReturnUrl(parsed) {
+        if (!parsed) return false;
+        const sameOrigin = parsed.origin === window.location.origin;
+        const fileName = (parsed.pathname.split("/").pop() || "").trim();
+        const allowArena = /^arena_v[\w.-]*\.html$/i.test(fileName);
+        const allowMode = /^mode_[\w.-]*\.html$/i.test(fileName);
+        if (sameOrigin && (allowArena || allowMode)) return true;
+
+        const normalizedPath = String(parsed.pathname || "")
+          .replace(/\/+$/, "")
+          .toLowerCase() || "/";
+        const allowMissionDaily =
+          parsed.origin === "https://missionmedinstitute.com" &&
+          (normalizedPath === "/daily" || normalizedPath === "/daily.html");
+        const allowCdnDaily =
+          parsed.origin === "https://cdn.missionmedinstitute.com" &&
+          normalizedPath === "/html-system/live/daily.html";
+
+        return allowMissionDaily || allowCdnDaily;
+      }
+
       function safeReturnUrl(rawUrl, meta) {
         const fallback = defaultReturnUrl();
         const candidate = String(rawUrl || "").trim();
@@ -6755,12 +6776,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 
         try {
           const parsed = new URL(candidate, window.location.href);
-          const sameOrigin = parsed.origin === window.location.origin;
-          const fileName = (parsed.pathname.split("/").pop() || "").trim();
-          const allowArena = /^arena_v[\w.-]*\.html$/i.test(fileName);
-          const allowMode = /^mode_[\w.-]*\.html$/i.test(fileName);
 
-          if (sameOrigin && (allowArena || allowMode)) {
+          if (isAllowedReturnUrl(parsed)) {
             return parsed.toString();
           }
 
@@ -6768,7 +6785,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           const context = {
             return_url: candidate,
             resolved_path: parsed.pathname,
-            same_origin: sameOrigin,
+            same_origin: parsed.origin === window.location.origin,
             source: meta && meta.source ? meta.source : null
           };
           setFailureBannerVisible(reason);
