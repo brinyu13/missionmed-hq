@@ -6313,6 +6313,18 @@ function statEmailLocalPart(value) {
   return email ? email.split('@')[0] : '';
 }
 
+function statPrettifiedEmailLocalName(value) {
+  const local = statEmailLocalPart(value);
+  if (!local) return '';
+  return local
+    .replace(/[._+\-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(' ')
+    .map((part) => (/^[a-z]+$/i.test(part) ? statTitleNamePart(part) : part))
+    .join(' ');
+}
+
 function statMaskedEmailLabel(value) {
   const email = statSafeEmailLabel(value);
   if (!email) return '';
@@ -6341,6 +6353,15 @@ function statFirstLastInitialName(firstName, lastName) {
   if (first) return first;
   if (last) return last;
   return '';
+}
+
+function statCleanDisplayLabel(value) {
+  const label = normalizeOpponentDisplayName(value);
+  if (!label) return '';
+  if (statSafeEmailLabel(label)) return '';
+  if (isUuidish(label)) return '';
+  if (/^[0-9a-fA-F-]{12,}$/.test(label)) return '';
+  return label;
 }
 
 function statUserIdFromHint(source) {
@@ -6390,14 +6411,15 @@ function resolveStatPlayerIdentity() {
   const safeHint = hintMatchesUser ? mmUser : {};
   const emailFallback = statSafeEmailLabel(safeHint.email || safeHint.user_email || safeHint.username || '');
   const name = statPickString([
-    emailFallback,
-    safeHint.display_name,
-    safeHint.displayName,
-    safeHint.full_name,
-    safeHint.fullName,
-    safeHint.screen_name,
-    safeHint.handle,
-    PLAYER.name
+    statCleanDisplayLabel(safeHint.display_name),
+    statCleanDisplayLabel(safeHint.displayName),
+    statCleanDisplayLabel(safeHint.full_name),
+    statCleanDisplayLabel(safeHint.fullName),
+    statCleanDisplayLabel(safeHint.screen_name),
+    statCleanDisplayLabel(safeHint.handle),
+    statCleanDisplayLabel(safeHint.username),
+    statPrettifiedEmailLocalName(emailFallback),
+    statCleanDisplayLabel(PLAYER.name)
   ]) || 'Player';
   const avatar = statAvatarFromSource(safeHint);
   return {
@@ -6569,16 +6591,16 @@ async function hydrateStatPlayerIdentity() {
     active_avatar_id: avatarRow && avatarRow.id
   });
   const displayName = statPickString([
-    profile && profile.display_name,
     authProfileName,
-    userEmail,
-    authProfileEmail,
-    safeHint.display_name,
-    safeHint.displayName,
-    safeHint.full_name,
-    safeHint.fullName,
-    safeHint.screen_name,
-    safeHint.handle
+    statCleanDisplayLabel(profile && profile.display_name),
+    statCleanDisplayLabel(safeHint.display_name),
+    statCleanDisplayLabel(safeHint.displayName),
+    statCleanDisplayLabel(safeHint.full_name),
+    statCleanDisplayLabel(safeHint.fullName),
+    statCleanDisplayLabel(safeHint.screen_name),
+    statCleanDisplayLabel(safeHint.handle),
+    statCleanDisplayLabel(safeHint.username),
+    statPrettifiedEmailLocalName(userEmail || authProfileEmail)
   ]) || 'Player';
   currentStatPlayerIdentity = {
     id: userId,
@@ -6866,17 +6888,17 @@ function opponentCanonicalUserId(row) {
 function opponentPublicDisplayName(row, id) {
   const raw = row && typeof row === 'object' ? row : {};
   const firstLast = statFirstLastInitialName(raw.first_name, raw.last_name);
-  const emailLocal = statEmailLocalPart(raw.email);
+  const emailLocal = statPrettifiedEmailLocalName(raw.email || raw.user_email || raw.username);
   return normalizeOpponentDisplayName(statPickString([
-    raw.public_display_name,
     firstLast,
-    raw.display_name,
-    raw.full_name,
-    raw.name,
-    raw.label,
-    raw.screen_name,
-    raw.handle,
-    raw.username,
+    statCleanDisplayLabel(raw.public_display_name),
+    statCleanDisplayLabel(raw.display_name),
+    statCleanDisplayLabel(raw.full_name),
+    statCleanDisplayLabel(raw.name),
+    statCleanDisplayLabel(raw.label),
+    statCleanDisplayLabel(raw.screen_name),
+    statCleanDisplayLabel(raw.handle),
+    statCleanDisplayLabel(raw.username),
     emailLocal
   ])) || stableStudentLabelFromId(id);
 }
@@ -7064,6 +7086,7 @@ function profileRowToOpponent(row, query) {
   const email = statSafeEmailLabel(raw.email || '');
   const firstLast = statFirstLastInitialName(raw.first_name, raw.last_name);
   const localPart = statEmailLocalPart(email);
+  const displayFallback = statPrettifiedEmailLocalName(email) || localPart;
   return normalizeOpponentPlayer({
     user_id: userId,
     profile_id: raw.id,
@@ -7073,7 +7096,7 @@ function profileRowToOpponent(row, query) {
     last_name: raw.last_name,
     username: localPart,
     safe_identifier: localPart || statMaskedEmailLabel(email),
-    public_display_name: firstLast || localPart,
+    public_display_name: firstLast || displayFallback,
     avatar_url: raw.avatar_url,
     avatar_thumbnail_url: raw.avatar_url,
     status_label: query ? 'Profile match' : ''
@@ -9364,6 +9387,9 @@ function parseBackendResult(fetchEnvelope, localSummary) {
 
 function buildResultStatusMessage(verdict, yourScore, oppScore, previousRun) {
   const delta = oppScore == null ? null : Math.abs(Number(yourScore || 0) - Number(oppScore || 0));
+  if (delta === 0) {
+    return 'Dead even. Both players finished with the same score.';
+  }
   if (verdict === 'win') {
     if (delta != null) {
       if (!previousRun) return 'You beat opponent by ' + delta + '. First victory logged.';
@@ -9835,9 +9861,12 @@ function paintFinalResults(parsed, summary, statusMessage) {
   const wager = Number(setupConfig.wager || 0);
   const yourScore = numberOrNull(parsed.yourScore) ?? safeSummary.score;
   const oppScore = numberOrNull(parsed.oppScore);
-  const verdict = parsed.verdict === 'pending'
+  const scoresAreEqual = oppScore != null && Number(yourScore) === Number(oppScore);
+  const verdict = scoresAreEqual
+    ? 'tie'
+    : (parsed.verdict === 'pending'
     ? (oppScore == null ? 'win' : (yourScore > oppScore ? 'win' : (yourScore < oppScore ? 'loss' : 'tie')))
-    : parsed.verdict;
+    : parsed.verdict);
 
   const yourTotalQ = numberOrNull(parsed.yourTotalQ) ?? safeSummary.totalQ;
   const yourCorrect = numberOrNull(parsed.yourCorrect) ?? safeSummary.correct;
@@ -9892,7 +9921,7 @@ function paintFinalResults(parsed, summary, statusMessage) {
     verdict: verdict,
     wrapClass: isTie ? 'draw' : (isLoss ? 'defeat' : 'victory'),
     goodFight: isLoss,
-    bannerText: isTie ? 'EPIC DRAW' : (isLoss ? 'GOOD FIGHT' : 'VICTORY'),
+    bannerText: isTie ? 'DRAW' : (isLoss ? 'GOOD FIGHT' : 'VICTORY'),
     tone: isTie ? 'draw' : (isLoss ? 'loss' : 'win'),
     yourScore: yourScore,
     yourAccText: runMetrics.accuracyPct + '%',
