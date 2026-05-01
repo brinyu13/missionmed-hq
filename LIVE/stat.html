@@ -3265,7 +3265,7 @@ function pulseResultDelta() {
 
 function showWaitingForOpponent(message) {
   const opponentName = resolveCurrentOpponentName('opponent');
-  setResultStatus(message || ('Waiting for ' + opponentName + ' to submit. We will keep checking automatically.'), 'info');
+  setResultStatus(message || ('Your attempt is submitted. Waiting for ' + opponentName + ' to submit; the result will unlock automatically.'), 'info');
   const banner = document.getElementById('result-banner');
   if (banner) {
     banner.textContent = 'WAITING...';
@@ -3948,11 +3948,14 @@ async function fetchResultsRpc(duelId) {
   const out = await rpcCall('fetch_results', payload);
   const payloadData = out && out.data && typeof out.data === 'object' ? out.data : {};
   const attempts = Array.isArray(payloadData.attempts) ? payloadData.attempts : [];
+  const resultState = payloadData.duel && (payloadData.duel.state || payloadData.duel.status)
+    ? (payloadData.duel.state || payloadData.duel.status)
+    : payloadData.status;
   recordStatAsyncHealth(out && out.ok ? 'fetch_results:ok' : 'fetch_results:error', {
     duel_id: safeDuelId,
     ok: !!(out && out.ok),
-    state: payloadData.duel && (payloadData.duel.state || payloadData.duel.status) ? (payloadData.duel.state || payloadData.duel.status) : payloadData.status,
-    finalized: !!(payloadData.result || payloadData.finalized || payloadData.finalized_at),
+    state: resultState,
+    finalized: !!(payloadData.result || payloadData.finalized || payloadData.finalized_at || isTerminalDuelState(resultState)),
     attempt_count: attempts.length,
     error: out && out.error ? out.error : ''
   });
@@ -7707,6 +7710,27 @@ function parseBooleanish(value) {
   return null;
 }
 
+function isTerminalDuelState(value) {
+  const stateName = String(value || '').trim().toLowerCase();
+  return stateName === 'completed'
+    || stateName === 'finalized'
+    || stateName === 'settled'
+    || stateName === 'expired';
+}
+
+function extractAttemptStats(attempt) {
+  const source = attempt && typeof attempt === 'object' ? attempt : {};
+  const score = numberOrNull(source.correct_count) ?? numberOrNull(source.score) ?? numberOrNull(source.score_raw) ?? numberOrNull(source.points);
+  const correct = numberOrNull(source.correct_count) ?? numberOrNull(source.correct);
+  const totalQ = numberOrNull(source.total_questions) ?? numberOrNull(source.total_count) ?? numberOrNull(source.pack_question_count);
+  const timeMs = numberOrNull(source.total_time_ms) ?? numberOrNull(source.time_ms) ?? numberOrNull(source.elapsed_ms);
+  return { score, correct, totalQ, timeMs };
+}
+
+function currentUserMatches(id) {
+  return !!(backendUserId && id && String(id) === String(backendUserId));
+}
+
 function detectBotSignalFromObject(obj) {
   if (!obj || typeof obj !== 'object') return null;
 
@@ -7894,7 +7918,7 @@ function paintPendingResults(summary, message) {
     banner.classList.remove('loss', 'good-fight');
   }
   const opponentName = resolveCurrentOpponentName(activeOpponent.name);
-  setResultStatus(message || ('Waiting for ' + opponentName + ' to submit. We will keep checking automatically.'), 'info');
+  setResultStatus(message || ('Your attempt is submitted. Waiting for ' + opponentName + ' to submit; the result will unlock automatically.'), 'info');
   setResultDeltaState('Score gap pending until both students submit...', 'pending');
 
   document.getElementById('r-p-score').textContent = String(safeSummary.score);
@@ -8051,68 +8075,138 @@ function parseBackendResult(fetchEnvelope, localSummary) {
 
   parsed.opponentName = resolveOpponentNameFromPayload(payload, parsed.opponentName);
 
-  if (payload.duel || payload.result || payload.attempt_self || payload.attempt_opponent) {
-    const duel = payload.duel || null;
-    const result = payload.result || null;
-    const selfAttempt = payload.attempt_self || null;
-    const oppAttempt = payload.attempt_opponent || null;
+  const finalizePayload = payload.finalize && typeof payload.finalize === 'object'
+    ? (payload.finalize.data && typeof payload.finalize.data === 'object' ? payload.finalize.data : payload.finalize)
+    : null;
+  const duel = payload.duel || (finalizePayload && finalizePayload.duel) || null;
+  const result = payload.result || (finalizePayload && finalizePayload.result) || null;
+  const rootState = payload.state || payload.status || payload.result_state || '';
+  const duelState = duel && (duel.state || duel.status || duel.result_state) ? (duel.state || duel.status || duel.result_state) : '';
+  const finalizeState = finalizePayload && (finalizePayload.state || finalizePayload.status || finalizePayload.result_state)
+    ? (finalizePayload.state || finalizePayload.status || finalizePayload.result_state)
+    : '';
+  const explicitlyFinalized = payload.finalized === true
+    || !!payload.finalized_at
+    || !!(duel && (duel.finalized_at || duel.completed_at))
+    || !!(result && (result.id || result.duel_id || result.finalized_at))
+    || !!(finalizePayload && (finalizePayload.finalized === true || finalizePayload.finalized_at || finalizePayload.result));
+  const terminalState = isTerminalDuelState(rootState) || isTerminalDuelState(duelState) || isTerminalDuelState(finalizeState);
+
+  if (duel || result || payload.attempt || payload.attempt_self || payload.attempt_opponent || payload.challenger_attempt || payload.opponent_attempt || finalizePayload) {
+    const challengerAttempt = payload.challenger_attempt || (finalizePayload && finalizePayload.challenger_attempt) || null;
+    const namedOpponentAttempt = payload.opponent_attempt || (finalizePayload && finalizePayload.opponent_attempt) || null;
+    const userIsChallenger = duel && currentUserMatches(duel.challenger_id);
+    const userIsOpponent = duel && currentUserMatches(duel.opponent_id);
+    let selfAttempt = payload.attempt_self || payload.attempt || (finalizePayload && (finalizePayload.attempt_self || finalizePayload.attempt)) || null;
+    let oppAttempt = payload.attempt_opponent || (finalizePayload && finalizePayload.attempt_opponent) || null;
+    if (!selfAttempt && (challengerAttempt || namedOpponentAttempt)) {
+      if (userIsOpponent) selfAttempt = namedOpponentAttempt || selfAttempt;
+      else selfAttempt = challengerAttempt || selfAttempt;
+    }
+    if (!oppAttempt && (challengerAttempt || namedOpponentAttempt)) {
+      if (userIsOpponent) oppAttempt = challengerAttempt || oppAttempt;
+      else oppAttempt = namedOpponentAttempt || oppAttempt;
+    }
 
     if (selfAttempt) {
-      parsed.yourScore = numberOrNull(selfAttempt.correct_count) ?? numberOrNull(selfAttempt.score) ?? parsed.yourScore;
-      parsed.yourCorrect = numberOrNull(selfAttempt.correct_count) ?? parsed.yourCorrect;
-      parsed.yourTotalQ = numberOrNull(selfAttempt.total_questions) ?? parsed.yourTotalQ;
-      parsed.yourTimeMs = numberOrNull(selfAttempt.total_time_ms) ?? numberOrNull(selfAttempt.time_ms) ?? parsed.yourTimeMs;
+      const stats = extractAttemptStats(selfAttempt);
+      parsed.yourScore = stats.score ?? parsed.yourScore;
+      parsed.yourCorrect = stats.correct ?? parsed.yourCorrect;
+      parsed.yourTotalQ = stats.totalQ ?? parsed.yourTotalQ;
+      parsed.yourTimeMs = stats.timeMs ?? parsed.yourTimeMs;
     }
     if (oppAttempt) {
-      parsed.oppScore = numberOrNull(oppAttempt.correct_count) ?? numberOrNull(oppAttempt.score);
-      parsed.oppCorrect = numberOrNull(oppAttempt.correct_count);
-      parsed.oppTotalQ = numberOrNull(oppAttempt.total_questions);
-      parsed.oppTimeMs = numberOrNull(oppAttempt.total_time_ms) ?? numberOrNull(oppAttempt.time_ms);
+      const stats = extractAttemptStats(oppAttempt);
+      parsed.oppScore = stats.score;
+      parsed.oppCorrect = stats.correct;
+      parsed.oppTotalQ = stats.totalQ;
+      parsed.oppTimeMs = stats.timeMs;
       parsed.finalized = true;
     }
     if (result) {
       parsed.finalized = true;
-      if (String(result.outcome || '').toLowerCase() === 'tie') {
+      const outcome = String(result.outcome || result.result || '').toLowerCase();
+      const winnerIds = [result.winner_player_id, result.winner_user_id, result.winner_id].filter(Boolean);
+      const loserIds = [result.loser_player_id, result.loser_user_id, result.loser_id].filter(Boolean);
+      if (outcome === 'tie' || outcome === 'draw') {
         parsed.verdict = 'tie';
-      } else if (result.winner_player_id && backendUserId && String(result.winner_player_id) === String(backendUserId)) {
+      } else if (winnerIds.some(currentUserMatches)) {
         parsed.verdict = 'win';
-      } else if (result.winner_player_id && backendUserId && String(result.winner_player_id) !== String(backendUserId)) {
+      } else if (loserIds.some(currentUserMatches)) {
+        parsed.verdict = 'loss';
+      } else if (winnerIds.length && backendUserId) {
         parsed.verdict = 'loss';
       } else if (result.winner_bot_id) {
         parsed.verdict = 'loss';
       }
-      parsed.oppScore = numberOrNull(result.loser_score) != null && parsed.verdict === 'win'
-        ? numberOrNull(result.loser_score)
-        : (numberOrNull(result.winner_score) != null && parsed.verdict === 'loss' ? numberOrNull(result.winner_score) : parsed.oppScore);
-      parsed.oppTimeMs = numberOrNull(result.loser_time_ms) != null && parsed.verdict === 'win'
-        ? numberOrNull(result.loser_time_ms)
-        : (numberOrNull(result.winner_time_ms) != null && parsed.verdict === 'loss' ? numberOrNull(result.winner_time_ms) : parsed.oppTimeMs);
+
+      const metadata = result.metadata && typeof result.metadata === 'object' ? result.metadata : {};
+      const winnerScore = numberOrNull(result.winner_score);
+      const loserScore = numberOrNull(result.loser_score);
+      const winnerTime = numberOrNull(result.winner_time_ms);
+      const loserTime = numberOrNull(result.loser_time_ms);
+      const challengerScore = numberOrNull(metadata.challenger_correct) ?? numberOrNull(payload.challenger_score);
+      const opponentScore = numberOrNull(metadata.opponent_correct) ?? numberOrNull(payload.opponent_score);
+      const challengerTime = numberOrNull(metadata.challenger_time_ms) ?? numberOrNull(payload.challenger_time_ms);
+      const opponentTime = numberOrNull(metadata.opponent_time_ms) ?? numberOrNull(payload.opponent_time_ms);
+
+      if (parsed.verdict === 'win') {
+        parsed.yourScore = winnerScore ?? parsed.yourScore;
+        parsed.oppScore = loserScore ?? parsed.oppScore;
+        parsed.yourTimeMs = winnerTime ?? parsed.yourTimeMs;
+        parsed.oppTimeMs = loserTime ?? parsed.oppTimeMs;
+      } else if (parsed.verdict === 'loss') {
+        parsed.yourScore = loserScore ?? parsed.yourScore;
+        parsed.oppScore = winnerScore ?? parsed.oppScore;
+        parsed.yourTimeMs = loserTime ?? parsed.yourTimeMs;
+        parsed.oppTimeMs = winnerTime ?? parsed.oppTimeMs;
+      } else if (parsed.verdict === 'tie') {
+        if (userIsOpponent) {
+          parsed.yourScore = opponentScore ?? loserScore ?? parsed.yourScore;
+          parsed.oppScore = challengerScore ?? winnerScore ?? parsed.oppScore;
+          parsed.yourTimeMs = opponentTime ?? loserTime ?? parsed.yourTimeMs;
+          parsed.oppTimeMs = challengerTime ?? winnerTime ?? parsed.oppTimeMs;
+        } else {
+          parsed.yourScore = challengerScore ?? winnerScore ?? parsed.yourScore;
+          parsed.oppScore = opponentScore ?? loserScore ?? parsed.oppScore;
+          parsed.yourTimeMs = challengerTime ?? winnerTime ?? parsed.yourTimeMs;
+          parsed.oppTimeMs = opponentTime ?? loserTime ?? parsed.oppTimeMs;
+        }
+      }
     }
-    if (duel && (String(duel.state || '').toLowerCase() === 'completed' || String(duel.status || '').toLowerCase() === 'completed') && parsed.verdict === 'pending') {
+    if ((terminalState || explicitlyFinalized) && parsed.verdict === 'pending') {
       parsed.verdict = parsed.oppScore == null ? 'win' : (parsed.yourScore > parsed.oppScore ? 'win' : (parsed.yourScore < parsed.oppScore ? 'loss' : 'tie'));
     }
+    if (terminalState || explicitlyFinalized) parsed.finalized = true;
     return parsed;
   }
 
   const status = String(payload.status || '').toLowerCase();
   const attempts = Array.isArray(payload.attempts) ? payload.attempts : [];
-  const selfAttempt = attempts.find((a) => backendUserId && String(a.user_id || '') === String(backendUserId)) || attempts[0] || null;
+  const selfAttempt = attempts.find((a) => backendUserId && (String(a.user_id || '') === String(backendUserId) || String(a.player_id || '') === String(backendUserId))) || attempts[0] || null;
   const oppAttempt = attempts.find((a) => a !== selfAttempt) || null;
 
   if (selfAttempt) {
-    parsed.yourScore = numberOrNull(selfAttempt.score) ?? parsed.yourScore;
-    parsed.yourTimeMs = numberOrNull(selfAttempt.time_ms) ?? parsed.yourTimeMs;
+    const stats = extractAttemptStats(selfAttempt);
+    parsed.yourScore = stats.score ?? parsed.yourScore;
+    parsed.yourCorrect = stats.correct ?? parsed.yourCorrect;
+    parsed.yourTotalQ = stats.totalQ ?? parsed.yourTotalQ;
+    parsed.yourTimeMs = stats.timeMs ?? parsed.yourTimeMs;
   }
   if (oppAttempt) {
-    parsed.oppScore = numberOrNull(oppAttempt.score);
-    parsed.oppTimeMs = numberOrNull(oppAttempt.time_ms);
+    const stats = extractAttemptStats(oppAttempt);
+    parsed.oppScore = stats.score;
+    parsed.oppCorrect = stats.correct;
+    parsed.oppTotalQ = stats.totalQ;
+    parsed.oppTimeMs = stats.timeMs;
     parsed.finalized = true;
   }
-  if (status === 'completed' || status === 'expired') parsed.finalized = true;
+  if (isTerminalDuelState(status) || payload.finalized === true || payload.finalized_at) parsed.finalized = true;
 
   if (parsed.finalized) {
-    if (payload.winner_id) {
-      parsed.verdict = backendUserId && String(payload.winner_id) === String(backendUserId) ? 'win' : 'loss';
+    const winnerId = payload.winner_id || payload.winner_user_id || payload.winner_player_id;
+    if (winnerId) {
+      parsed.verdict = currentUserMatches(winnerId) ? 'win' : 'loss';
     } else {
       parsed.verdict = parsed.oppScore == null ? 'win' : (parsed.yourScore > parsed.oppScore ? 'win' : (parsed.yourScore < parsed.oppScore ? 'loss' : 'tie'));
     }
@@ -8879,6 +8973,19 @@ async function finalizeResults() {
     const submitted = await submitAttemptRpc(activeDuelId, summary.totalTimeMs, summary.answersJson);
     if (!submitted.ok) throw new Error(String(submitted.error || 'submit_attempt_failed'));
     e3RecordMatchComplete();
+    const submittedResult = parseBackendResult(submitted, summary);
+    if (!isBotFlow && submittedResult.finalized) {
+      stopResultPolling();
+      writeStoredRuntime({
+        duel_id: activeDuelId,
+        duel_is_bot: submittedResult.isBotDuel === true,
+        stage: 'result_ready',
+        local_summary: summary,
+        opponent_name: submittedResult.opponentName || resolveCurrentOpponentName(activeOpponent.name)
+      });
+      paintFinalResults(submittedResult, summary, 'Result finalized from submit response.');
+      return;
+    }
   } catch (submitErr) {
     duelRpcFailedNoLocalFallback(submitErr, 'Unable to submit duel attempt. Please retry.');
     setResultStatus('Unable to submit duel attempt. Please retry.', 'error');
