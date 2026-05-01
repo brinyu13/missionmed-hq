@@ -2885,6 +2885,8 @@ const supabaseClient = (() => {
 let backendUserId = '';
 let activeDuelId = '';
 let activeDuelIsBot = null;
+let activeHumanOpponentId = '';
+let activeHumanOpponentName = '';
 let resultPollTimer = null;
 let resultPollingActive = false;
 let statAppStarted = false;
@@ -3094,6 +3096,119 @@ function writeStoredRuntime(patch) {
   return next;
 }
 
+function isUuidish(value) {
+  const s = String(value || '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
+}
+
+function stableStudentLabelFromId(value) {
+  const id = String(value || '').trim();
+  return id ? ('Student ' + shortUid(id)) : 'Opponent';
+}
+
+function normalizeOpponentDisplayName(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw || /^(undefined|null|nan)$/i.test(raw)) return '';
+  if (isUuidish(raw) || /^[0-9a-fA-F-]{12,}$/.test(raw)) return stableStudentLabelFromId(raw);
+  return raw;
+}
+
+function rememberHumanOpponent(meta) {
+  const source = meta && typeof meta === 'object' ? meta : {};
+  const id = String(source.id || source.user_id || source.player_id || source.opponent_id || source.created_by || source.challenger_id || '').trim();
+  const displayName = normalizeOpponentDisplayName(
+    source.name || source.display_name || source.full_name || source.label || source.username || ''
+  ) || stableStudentLabelFromId(id);
+  if (id) activeHumanOpponentId = id;
+  if (displayName) activeHumanOpponentName = displayName;
+  return activeHumanOpponentName || 'Opponent';
+}
+
+function resolveCurrentOpponentName(fallback) {
+  if (activeDuelId && activeDuelIsBot !== true) {
+    const stored = readStoredRuntime();
+    const storedName = normalizeOpponentDisplayName(stored.opponent_name);
+    if (storedName) {
+      activeHumanOpponentName = storedName;
+      if (stored.opponent_id) activeHumanOpponentId = String(stored.opponent_id || '').trim();
+      return storedName;
+    }
+    if (activeHumanOpponentName) return activeHumanOpponentName;
+    if (activeHumanOpponentId) return stableStudentLabelFromId(activeHumanOpponentId);
+    return normalizeOpponentDisplayName(fallback) || 'Opponent';
+  }
+  return normalizeOpponentDisplayName(fallback) || (activeOpponent && activeOpponent.name) || 'Opponent';
+}
+
+function findOpponentIdFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return '';
+  const candidates = [];
+  const duel = payload.duel && typeof payload.duel === 'object' ? payload.duel : null;
+  const oppAttempt = payload.attempt_opponent && typeof payload.attempt_opponent === 'object' ? payload.attempt_opponent : null;
+  const result = payload.result && typeof payload.result === 'object' ? payload.result : null;
+  const attempts = Array.isArray(payload.attempts) ? payload.attempts : [];
+  [oppAttempt, result, duel, payload].forEach((obj) => {
+    if (!obj || typeof obj !== 'object') return;
+    ['opponent_id', 'opponent_user_id', 'player_id', 'user_id', 'created_by', 'challenger_id', 'creator_id', 'player_a', 'player_b', 'player1_id', 'player2_id', 'winner_player_id', 'loser_player_id'].forEach((key) => {
+      if (obj[key]) candidates.push(String(obj[key]).trim());
+    });
+  });
+  attempts.forEach((attempt) => {
+    if (!attempt || typeof attempt !== 'object') return;
+    ['user_id', 'player_id', 'opponent_id'].forEach((key) => {
+      if (attempt[key]) candidates.push(String(attempt[key]).trim());
+    });
+  });
+  return candidates.find((id) => id && (!backendUserId || String(id) !== String(backendUserId))) || '';
+}
+
+function resolveOpponentNameFromPayload(payload, fallback) {
+  const directObjects = [];
+  if (payload && typeof payload === 'object') {
+    ['opponent', 'player_opponent', 'opponent_profile', 'attempt_opponent', 'duel', 'result'].forEach((key) => {
+      if (payload[key] && typeof payload[key] === 'object') directObjects.push(payload[key]);
+    });
+    directObjects.push(payload);
+  }
+  for (let i = 0; i < directObjects.length; i += 1) {
+    const obj = directObjects[i];
+    const name = normalizeOpponentDisplayName(obj.display_name || obj.full_name || obj.name || obj.username || obj.label || '');
+    if (name) return rememberHumanOpponent({ name: name, id: findOpponentIdFromPayload(payload) });
+  }
+  const id = findOpponentIdFromPayload(payload) || activeHumanOpponentId;
+  if (id) return rememberHumanOpponent({ id: id });
+  return resolveCurrentOpponentName(fallback);
+}
+
+const STAT_ASYNC_HEALTH_MAX = 60;
+window.__STAT_ASYNC_HEALTH = Array.isArray(window.__STAT_ASYNC_HEALTH) ? window.__STAT_ASYNC_HEALTH : [];
+
+function recordStatAsyncHealth(eventName, details) {
+  const source = details && typeof details === 'object' ? details : {};
+  const safe = {
+    event: String(eventName || 'event'),
+    at: new Date().toISOString()
+  };
+  ['duel_id', 'stage', 'state', 'status', 'role', 'source', 'error'].forEach((key) => {
+    if (source[key] != null && source[key] !== '') safe[key] = String(source[key]).slice(0, 120);
+  });
+  ['ok', 'finalized', 'is_bot_match', 'is_bot'].forEach((key) => {
+    if (typeof source[key] === 'boolean') safe[key] = source[key];
+  });
+  ['question_count', 'question_ids_count', 'attempt_count'].forEach((key) => {
+    const value = Number(source[key]);
+    if (Number.isFinite(value)) safe[key] = value;
+  });
+  try {
+    window.__STAT_ASYNC_HEALTH.push(safe);
+    if (window.__STAT_ASYNC_HEALTH.length > STAT_ASYNC_HEALTH_MAX) {
+      window.__STAT_ASYNC_HEALTH.splice(0, window.__STAT_ASYNC_HEALTH.length - STAT_ASYNC_HEALTH_MAX);
+    }
+  } catch (_err) {}
+  try { console.info('[STAT_ASYNC_HEALTH]', safe); } catch (_err) {}
+  return safe;
+}
+
 function clearStoredRuntime() {
   try { localStorage.removeItem(STAT_STORAGE_KEY); } catch (_error) {}
 }
@@ -3104,11 +3219,21 @@ function hydrateDuelIdFromQuery() {
   activeDuelId = inboundDuelId;
   activeDuelIsBot = null;
   persistSessionDuelId(inboundDuelId);
-  writeStoredRuntime({
+  const stored = readStoredRuntime();
+  const sameDuel = String(stored.duel_id || '').trim() === String(inboundDuelId);
+  const opponentId = sameDuel ? String(stored.opponent_id || '').trim() : '';
+  const opponentName = sameDuel
+    ? resolveCurrentOpponentName(stored.opponent_name || (opponentId ? stableStudentLabelFromId(opponentId) : 'Opponent'))
+    : 'Opponent';
+  const runtimePatch = {
     duel_id: inboundDuelId,
     stage: 'duel_created',
-    opponent_name: activeOpponent.name
-  });
+    opponent_id: opponentId || undefined,
+    opponent_name: opponentName
+  };
+  const storedBotSignal = sameDuel ? parseBooleanish(stored.duel_is_bot) : null;
+  if (storedBotSignal !== null) runtimePatch.duel_is_bot = storedBotSignal;
+  writeStoredRuntime(runtimePatch);
   return inboundDuelId;
 }
 
@@ -3139,13 +3264,14 @@ function pulseResultDelta() {
 }
 
 function showWaitingForOpponent(message) {
-  setResultStatus(message || 'Waiting for opponent...', 'info');
+  const opponentName = resolveCurrentOpponentName('opponent');
+  setResultStatus(message || ('Waiting for ' + opponentName + ' to submit. We will keep checking automatically.'), 'info');
   const banner = document.getElementById('result-banner');
   if (banner) {
     banner.textContent = 'WAITING...';
     banner.classList.remove('loss', 'good-fight');
   }
-  setResultDeltaState('Score gap pending...', 'pending');
+  setResultDeltaState('Score gap pending until both students submit...', 'pending');
 }
 
 function duelRpcFailedNoLocalFallback(err, userMessage) {
@@ -3550,6 +3676,9 @@ function normalizeDuelPackForProbe(rawEnvelope) {
   const duel = data && data.duel && typeof data.duel === 'object' ? data.duel : null;
   const questions = data && Array.isArray(data.questions) ? data.questions : [];
   if (!duel) return null;
+  const normalizedQuestions = questions
+    .map((row, idx) => normalizeDuelPackQuestionRow(row, idx))
+    .filter(Boolean);
   const pack = {
     duel_id: String(duel.id || ''),
     is_bot_match: parseBooleanish(duel.is_bot_match) === true,
@@ -3559,12 +3688,77 @@ function normalizeDuelPackForProbe(rawEnvelope) {
     content_hash: String(duel.content_hash || ''),
     sealed_at: duel.sealed_at || null,
     finalized_at: duel.finalized_at || duel.completed_at || duel.sealed_at || null,
-    questions: questions
+    questions: normalizedQuestions.length ? normalizedQuestions : questions
   };
   Object.freeze(pack.question_ids);
   Object.freeze(pack.choices_order);
   Object.freeze(pack);
   return pack;
+}
+
+function normalizeDuelPackQuestionRow(row, idx) {
+  if (!row || typeof row !== 'object') return null;
+  const id = String(row.question_id || row.id || row.qid || '').trim();
+  const prompt = String(row.prompt || row.question || '').trim();
+  if (!id || !prompt) return null;
+
+  const choiceArray = Array.isArray(row.choices) ? row.choices : null;
+  const choiceMap = row.choices && typeof row.choices === 'object' && !Array.isArray(row.choices) ? row.choices : null;
+  const rawChoices = ['A', 'B', 'C', 'D'].map((label, choiceIdx) => {
+    const snakeKey = 'choice_' + label.toLowerCase();
+    if (row[snakeKey] != null) return row[snakeKey];
+    if (row[label] != null) return row[label];
+    if (choiceMap && choiceMap[label] != null) return choiceMap[label];
+    if (choiceArray && choiceArray[choiceIdx] != null) return choiceArray[choiceIdx];
+    return '';
+  });
+  if (rawChoices.some((choice) => !String(choice || '').trim())) return null;
+
+  return {
+    id: id,
+    prompt: prompt,
+    choices: rawChoices.map((choice, choiceIdx) => normalizeChoiceText(choice, choiceIdx)),
+    correctIndex: -1,
+    correctAnswerKey: '',
+    correctAnswerSealed: true,
+    answerSealed: true,
+    quality_tier: normalizeQualityTier(row.quality_tier || row.tier || 'B'),
+    subject: String(row.subject || row.system || 'General').trim() || 'General',
+    subtopic: row.subtopic == null ? null : String(row.subtopic),
+    question_type: String(row.question_type || row.type || 'mixed').trim() || 'mixed',
+    step_level: String(row.step_level || row.step || 'Step 2').trim() || 'Step 2',
+    drill_link: row.drill_link == null ? null : String(row.drill_link),
+    review_nugget: row.review_nugget || null,
+    difficulty: normalizeQuestionDifficulty(row.difficulty || inferDifficultyFromTierAndStep(normalizeQualityTier(row.quality_tier || row.tier || 'B'), row.step_level || row.step || 'Step 2')),
+    display_order: row.display_order || null,
+    pack_index: Number.isFinite(Number(idx)) ? Number(idx) : null,
+    source: 'duel_pack'
+  };
+}
+
+function hydrateDuelPackQuestionRuntime(pack) {
+  if (!pack || !Array.isArray(pack.questions) || !pack.questions.length) return 0;
+  let hydrated = 0;
+  pack.questions.forEach((question) => {
+    if (!question || typeof question !== 'object') return;
+    const id = String(question.id || question.question_id || '').trim();
+    if (!id || !question.prompt || !Array.isArray(question.choices)) return;
+    const normalized = question.id ? question : normalizeDuelPackQuestionRow(question, hydrated);
+    if (!normalized || !normalized.id) return;
+    statRuntimeMap[String(normalized.id)] = normalized;
+    if (!QUESTION_INDEX.byId[String(normalized.id)]) {
+      QUESTION_INDEX.byId[String(normalized.id)] = normalized;
+      QUESTION_INDEX.all.push(normalized);
+      const tier = normalizeQualityTier(normalized.quality_tier);
+      if (!Array.isArray(QUESTION_INDEX.byTier[tier])) QUESTION_INDEX.byTier[tier] = [];
+      QUESTION_INDEX.byTier[tier].push(normalized);
+      indexPush(QUESTION_INDEX.bySubject, normalized.subject || 'General', normalized);
+      indexPush(QUESTION_INDEX.byQuestionType, normalized.question_type || 'mixed', normalized);
+      indexPush(QUESTION_INDEX.byStepLevel, normalized.step_level || 'step2', normalized);
+    }
+    hydrated += 1;
+  });
+  return hydrated;
 }
 
 async function sha256Hex(inputText) {
@@ -3627,22 +3821,36 @@ window.api.createBotDuel = async function createBotDuel(options) {
 window.api.getDuelPack = async function getDuelPack(duelId) {
   const id = String(duelId || '').trim();
   if (!id) throw new Error('duel_id_required');
+  recordStatAsyncHealth('get_duel_pack:start', { duel_id: id });
   const duelPack = await fetchDuelPackSafe(id);
   if (STAT_MODE === 'v5' && !duelPack) {
+    recordStatAsyncHealth('get_duel_pack:error', { duel_id: id, error: 'missing_pack_v5' });
     throw new Error('v5 mode requires valid duel pack — aborting');
   }
-  if (!duelPack) return null;
+  if (!duelPack) {
+    recordStatAsyncHealth('get_duel_pack:empty', { duel_id: id });
+    return null;
+  }
   const packEnvelope = { data: duelPack };
   const normalized = normalizeDuelPackForProbe(packEnvelope);
   if (!normalized) {
     if (STAT_MODE === 'v5') {
+      recordStatAsyncHealth('get_duel_pack:error', { duel_id: id, error: 'invalid_pack_v5' });
       throw new Error('v5 mode requires valid duel pack — aborting');
     }
+    recordStatAsyncHealth('get_duel_pack:invalid', { duel_id: id });
     return null;
   }
   window.MM_DUEL = window.MM_DUEL || {};
   window.MM_DUEL.CURRENT_PACK = normalized;
   trackActiveDuelBotSignal(normalized.is_bot_match === true);
+  recordStatAsyncHealth('get_duel_pack:ok', {
+    duel_id: id,
+    is_bot_match: normalized.is_bot_match === true,
+    question_ids_count: Array.isArray(normalized.question_ids) ? normalized.question_ids.length : 0,
+    question_count: Array.isArray(normalized.questions) ? normalized.questions.length : 0,
+    status: normalized.content_hash ? 'hash_present' : 'hash_missing'
+  });
   return normalized;
 };
 
@@ -3703,6 +3911,11 @@ async function submitAttemptRpc(duelId, timeMs, answersJson) {
     p_total_time_ms: safeTimeMs
   };
   payload.p_idempotency_key = idempotencyKey('submit');
+  recordStatAsyncHealth('submit_attempt:start', {
+    duel_id: safeDuelId,
+    question_count: canonicalAnswers.length,
+    is_bot: activeDuelIsBot === true
+  });
   console.log('[STAT] submit_attempt', payload);
   const out = await rpcCall('submit_attempt', payload);
   if (!out.ok) {
@@ -3711,6 +3924,7 @@ async function submitAttemptRpc(duelId, timeMs, answersJson) {
     const state = String(detail.state || '').toLowerCase();
     if (activeDuelIsBot === true && code === 'duel_not_ready_for_attempt' && state === 'active') {
       console.warn('[STAT] submit_attempt soft-accepted for bot duel in active state');
+      recordStatAsyncHealth('submit_attempt:soft_ok', { duel_id: safeDuelId, state: state, is_bot: true });
       return {
         ok: true,
         error: null,
@@ -3719,6 +3933,11 @@ async function submitAttemptRpc(duelId, timeMs, answersJson) {
       };
     }
   }
+  recordStatAsyncHealth(out && out.ok ? 'submit_attempt:ok' : 'submit_attempt:error', {
+    duel_id: safeDuelId,
+    ok: !!(out && out.ok),
+    error: out && out.error ? out.error : ''
+  });
   console.log('[STAT] submit_attempt response', out);
   return out;
 }
@@ -3727,6 +3946,16 @@ async function fetchResultsRpc(duelId) {
   const safeDuelId = String(duelId || '').trim();
   const payload = { p_duel_id: safeDuelId };
   const out = await rpcCall('fetch_results', payload);
+  const payloadData = out && out.data && typeof out.data === 'object' ? out.data : {};
+  const attempts = Array.isArray(payloadData.attempts) ? payloadData.attempts : [];
+  recordStatAsyncHealth(out && out.ok ? 'fetch_results:ok' : 'fetch_results:error', {
+    duel_id: safeDuelId,
+    ok: !!(out && out.ok),
+    state: payloadData.duel && (payloadData.duel.state || payloadData.duel.status) ? (payloadData.duel.state || payloadData.duel.status) : payloadData.status,
+    finalized: !!(payloadData.result || payloadData.finalized || payloadData.finalized_at),
+    attempt_count: attempts.length,
+    error: out && out.error ? out.error : ''
+  });
   console.log('[STAT] fetch_results', out);
   return out;
 }
@@ -4709,16 +4938,44 @@ function e3OutboxReconcile() {
     });
 }
 
+function e3TelemetryVerbose() {
+  try {
+    const params = new URLSearchParams(window.location.search || '');
+    if (params.get('e3_verbose') === '1') return true;
+  } catch (_err) {}
+  try {
+    if (localStorage.getItem('STAT_E3_VERBOSE') === '1') return true;
+  } catch (_err) {}
+  return window.__STAT_E3_VERBOSE === true;
+}
+
+function e3NoteNonBlocking(label, errorText) {
+  const entry = {
+    label: String(label || 'e3_rpc'),
+    error: String(errorText || 'unknown_error').slice(0, 180),
+    at: new Date().toISOString()
+  };
+  try { window.__STAT_E3_LAST_NONBLOCKING = entry; } catch (_err) {}
+  if (e3TelemetryVerbose()) {
+    console.warn('[E3_STAT]', entry.label, 'non-blocking', entry.error);
+  }
+  return entry;
+}
+
+function shouldSkipLegacyE3ForAsyncDuel() {
+  return !!activeDuelId && activeDuelIsBot !== true;
+}
+
 async function e3RpcNonBlocking(name, args, label) {
   try {
     const out = await rpcCall(name, args || {});
     if (!out || !out.ok) {
-      console.warn('[E3_STAT]', label || name, 'rpc returned non-ok', out && out.error ? out.error : 'unknown_error');
+      e3NoteNonBlocking(label || name, out && out.error ? out.error : 'unknown_error');
       return out || { ok: false, error: 'rpc_non_ok' };
     }
     return out;
   } catch (err) {
-    console.warn('[E3_STAT]', label || name, 'rpc failed (non-blocking)', err && err.message ? err.message : err);
+    e3NoteNonBlocking(label || name, err && err.message ? err.message : err);
     return { ok: false, error: String((err && err.message) || err || 'rpc_failed') };
   }
 }
@@ -4792,6 +5049,7 @@ function e3RecordSessionEnd(reason) {
 
 function e3RecordQuestionPresented(question, qIndex) {
   if (!activeDuelId || !question) return;
+  if (shouldSkipLegacyE3ForAsyncDuel()) return;
   const meta = e3PackMeta();
   const questionId = e3ResolveQuestionId(question, qIndex);
   if (!questionId || !meta.dataset_version || !meta.content_hash) {
@@ -4823,6 +5081,7 @@ function e3RecordQuestionPresented(question, qIndex) {
 
 function e3RecordQuestionAnswered(question, qIndex, selectedIndex, elapsedMs, timedOut) {
   if (!activeDuelId || !question) return;
+  if (shouldSkipLegacyE3ForAsyncDuel()) return;
   const meta = e3PackMeta();
   const questionId = e3ResolveQuestionId(question, qIndex);
   if (!questionId || !meta.dataset_version || !meta.content_hash) {
@@ -4860,6 +5119,7 @@ function e3RecordQuestionAnswered(question, qIndex, selectedIndex, elapsedMs, ti
 
 function e3RecordMatchComplete() {
   if (!activeDuelId) return;
+  if (shouldSkipLegacyE3ForAsyncDuel()) return;
   const args = { p_match_id: String(activeDuelId) };
   if (!e3OutboxQueue('match_complete', String(activeDuelId), e3SessionId || null, null, args)) {
     const fire = (attempt) => {
@@ -4960,6 +5220,7 @@ async function ensureCanonicalDuelPackForActiveDuel() {
   }
 
   await window.api.verifyPackHash(pack);
+  hydrateDuelPackQuestionRuntime(pack);
 
   const missingIds = pack.question_ids.filter((qid) => {
     const id = String(qid || '').trim();
@@ -5213,11 +5474,14 @@ function createRoundQuestionVariant(baseQuestion, roundIndex) {
 
   const correctAnswerKey = resolveCorrectAnswerKey(baseQuestion.correctAnswerKey);
   const correctIndex = entries.findIndex((entry) => entry.key === correctAnswerKey);
-  if (correctIndex < 0) return null;
+  const answerSealed = !!(baseQuestion.correctAnswerSealed || baseQuestion.answerSealed);
+  if (correctIndex < 0 && !(duelMode && answerSealed)) return null;
 
   return Object.assign({}, baseQuestion, {
     choices: entries.map((entry) => entry.text),
-    correctIndex: correctIndex
+    correctIndex: correctIndex,
+    correctAnswerSealed: answerSealed && correctIndex < 0,
+    answerSealed: answerSealed && correctIndex < 0
   });
 }
 
@@ -6058,14 +6322,17 @@ function toSetup() {
 function toMatchup() {
   applyStatPlayerIdentity();
   activeOpponent = pickOpponentPersona();
+  const isHumanDuel = !!activeDuelId && activeDuelIsBot !== true;
+  const opponentName = resolveCurrentOpponentName(activeOpponent.name);
+  const opponentAvatar = isHumanDuel && activeHumanOpponentId ? initialsFromUid(activeHumanOpponentId) : activeOpponent.avatar;
   const oppTypeMap = {
     similar: 'Similar Rank',
     open: 'Open Pool',
     friend: 'Friend Match'
   };
 
-  document.getElementById('opp-avatar').textContent = activeOpponent.avatar;
-  document.getElementById('opp-name').textContent = activeOpponent.name;
+  document.getElementById('opp-avatar').textContent = opponentAvatar;
+  document.getElementById('opp-name').textContent = opponentName;
   document.getElementById('opp-meta').textContent = 'Rank ' + activeOpponent.rank + ' • ' + oppTypeMap[setupConfig.opponent] + ' • Right Lane';
 
   const diffMap = { step1:'Step 1', step2:'Step 2', mixed:'Mixed' };
@@ -6089,7 +6356,7 @@ function runCountdownScreen(onComplete) {
   renderScreen('countdown');
   const numEl = document.getElementById('countdown-num');
   const subEl = document.getElementById('countdown-sub');
-  subEl.textContent = PLAYER.name + ' (Left) vs ' + activeOpponent.name + ' (Right)';
+  subEl.textContent = PLAYER.name + ' (Left) vs ' + resolveCurrentOpponentName(activeOpponent.name) + ' (Right)';
 
   const sequence = ['3', '2', '1', 'GO'];
   let i = 0;
@@ -6214,9 +6481,12 @@ function startDuel() {
   }
 
   document.getElementById('q-tot').textContent = state.totalQ;
-  document.getElementById('g-name').textContent = activeOpponent.name;
-  document.getElementById('g-init').textContent = activeOpponent.avatar;
-  document.getElementById('cursor-avatar').textContent = activeOpponent.avatar;
+  const isHumanDuel = !!activeDuelId && activeDuelIsBot !== true;
+  const opponentName = resolveCurrentOpponentName(activeOpponent.name);
+  const opponentAvatar = isHumanDuel && activeHumanOpponentId ? initialsFromUid(activeHumanOpponentId) : activeOpponent.avatar;
+  document.getElementById('g-name').textContent = opponentName;
+  document.getElementById('g-init').textContent = opponentAvatar;
+  document.getElementById('cursor-avatar').textContent = opponentAvatar;
   document.getElementById('play-press-chip').textContent = 'PRESSURE: NEUTRAL';
   document.getElementById('g-score').textContent = '0';
   document.getElementById('g-correct').textContent = '0';
@@ -6883,9 +7153,10 @@ function scheduleOpponentDecision() {
   const confidence = clamp(base + momentumBoost + anxietyPenalty + fatiguePenalty + noise, 0.15, 0.94);
   state.opponentConfidence = confidence;
 
-  const willCorrect = Math.random() < confidence;
-  const errorInfo = willCorrect ? null : selectWrongAnswer(q.correctIndex, mode, confidence);
-  const pickedIdx = willCorrect ? q.correctIndex : errorInfo.idx;
+  const answerSealed = !!(q.correctAnswerSealed || q.answerSealed || !Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex > 3);
+  const willCorrect = !answerSealed && Math.random() < confidence;
+  const errorInfo = (!answerSealed && !willCorrect) ? selectWrongAnswer(q.correctIndex, mode, confidence) : null;
+  const pickedIdx = answerSealed ? Math.floor(Math.random() * 4) : (willCorrect ? q.correctIndex : errorInfo.idx);
   state.opponentDecisionPick = pickedIdx;
 
   const center = { easy: 2.8, medium: 4.5, hard: 7.2 }[difficulty] || 4.5;
@@ -7057,10 +7328,19 @@ function validatePlayerSelection(question, idx, timedOut) {
   const safeQuestion = question && typeof question === 'object' ? question : null;
   const selectedIndex = Number.isInteger(idx) && idx >= 0 && idx <= 3 ? idx : null;
   const safeCorrectIndex = safeQuestion && Number.isInteger(safeQuestion.correctIndex) ? safeQuestion.correctIndex : -1;
+  const answerSealed = !!(safeQuestion && (safeQuestion.correctAnswerSealed || safeQuestion.answerSealed || (safeCorrectIndex < 0 && window.MM_DUEL_ACTIVE)));
+  if (answerSealed) {
+    return {
+      correct: false,
+      selectedIndex: selectedIndex,
+      sealed: true
+    };
+  }
   const correct = !timedOut && selectedIndex != null && selectedIndex === safeCorrectIndex;
   return {
     correct: correct,
-    selectedIndex: selectedIndex
+    selectedIndex: selectedIndex,
+    sealed: false
   };
 }
 
@@ -7081,6 +7361,7 @@ function handlePlayerAnswer(idx, timedOut = false) {
   }
   const verdict = validatePlayerSelection(q, idx, timedOut);
   const correct = !!verdict.correct;
+  const sealedAnswer = !!verdict.sealed;
   const elapsedMs = Math.round(elapsedSec * 1000);
 
   state.playerPickedIdx = idx;
@@ -7122,13 +7403,15 @@ function handlePlayerAnswer(idx, timedOut = false) {
   const choiceEls = document.querySelectorAll('.choice');
   if (idx >= 0 && choiceEls[idx]) {
     choiceEls[idx].classList.add('player-picked');
-    if (correct) choiceEls[idx].classList.add('correct');
-    else choiceEls[idx].classList.add('wrong');
+    if (!sealedAnswer) {
+      if (correct) choiceEls[idx].classList.add('correct');
+      else choiceEls[idx].classList.add('wrong');
+    }
   }
 
   document.getElementById('player-hud').classList.add('locked');
 
-  const pts = calculateScore(elapsedSec, correct);
+  const pts = sealedAnswer ? 0 : calculateScore(elapsedSec, correct);
   const paceBand = answerPaceBand(elapsedSec);
   state.pScore += pts;
 
@@ -7147,10 +7430,10 @@ function handlePlayerAnswer(idx, timedOut = false) {
     timedOut: !!timedOut
   };
 
-  playSelectTone(correct);
+  playSelectTone(sealedAnswer ? true : correct);
   if (correct && pts > 0) animateScorePop('player-hud', '+' + pts, true, paceBand);
   updatePointDecayDisplay(pts, true);
-  updatePlayerHUD(correct, timedOut, pts, elapsedSec, paceBand);
+  updatePlayerHUD(correct, timedOut, pts, elapsedSec, paceBand, sealedAnswer);
   applyLivePressureState();
   checkAdvance();
 }
@@ -7178,9 +7461,10 @@ function resolveOpponentAnswer(payload) {
   }
   const timedOut = payload == null ? true : !!data.timedOut;
   let pickedIdx = Number.isInteger(data.pickedIdx) ? data.pickedIdx : null;
+  const answerSealed = !!(q.correctAnswerSealed || q.answerSealed || !Number.isInteger(q.correctIndex) || q.correctIndex < 0 || q.correctIndex > 3);
   if (timedOut) pickedIdx = null;
   if (!timedOut && (pickedIdx == null || pickedIdx < 0 || pickedIdx > 3)) {
-    pickedIdx = randomWrongChoice(q.correctIndex);
+    pickedIdx = answerSealed ? Math.floor(Math.random() * 4) : randomWrongChoice(q.correctIndex);
   }
   const fallbackMs = Math.round(Math.min((performance.now() - state.qStart), state.pressureSec * 1000));
   const answerMs = clamp(
@@ -7189,8 +7473,8 @@ function resolveOpponentAnswer(payload) {
     state.pressureSec * 1000
   );
   const answerSec = answerMs / 1000;
-  const correct = !timedOut && pickedIdx === q.correctIndex;
-  const pts = calculateScore(answerSec, correct);
+  const correct = !answerSealed && !timedOut && pickedIdx === q.correctIndex;
+  const pts = answerSealed ? 0 : calculateScore(answerSec, correct);
 
   state.gScore += pts;
   state.gTimes.push(answerSec);
@@ -7210,7 +7494,8 @@ function resolveOpponentAnswer(payload) {
     timeMs: answerMs,
     timedOut: !!timedOut,
     pickedIdx: pickedIdx,
-    mode: data.mode || (ghostPsych && ghostPsych.mode) || 'steady'
+    mode: data.mode || (ghostPsych && ghostPsych.mode) || 'steady',
+    sealed: answerSealed
   };
 
   state.ghostPickedIdx = pickedIdx;
@@ -7226,7 +7511,7 @@ function resolveOpponentAnswer(payload) {
   ghostHud.classList.add('locked');
   ghostHud.classList.add('lock-pulse');
   setTimeout(() => ghostHud.classList.remove('lock-pulse'), 460);
-  playOpponentScoreTone(correct);
+  playOpponentScoreTone(answerSealed ? true : correct);
   if (pts > 0) animateScorePop('ghost-hud', '+' + pts, true, answerPaceBand(answerSec));
   setOpponentActivity('idle');
   updateOpponentProgressHUD(true);
@@ -7239,7 +7524,7 @@ function resolveOpponentAnswer(payload) {
 /* =========================================================
    HUD UPDATES
    ========================================================= */
-function updatePlayerHUD(correct, timedOut, points, elapsedSec, paceBand) {
+function updatePlayerHUD(correct, timedOut, points, elapsedSec, paceBand, sealedAnswer) {
   const scoreEl = document.getElementById('p-score');
   scoreEl.textContent = state.pScore;
   scoreEl.classList.add('pop');
@@ -7259,9 +7544,12 @@ function updatePlayerHUD(correct, timedOut, points, elapsedSec, paceBand) {
   streakEl.classList.toggle('surge', state.pStreak >= 3);
 
   const ev = document.getElementById('p-event');
-  ev.className = 'answer-event ' + (correct ? 'correct' : 'wrong');
+  ev.className = 'answer-event ' + (sealedAnswer ? '' : (correct ? 'correct' : 'wrong'));
   const status = document.getElementById('q-status');
-  if (timedOut) {
+  if (sealedAnswer) {
+    ev.textContent = timedOut ? 'TIMEOUT · SERVER SCORING' : 'ANSWER LOCKED · SERVER SCORING';
+    if (status) status.textContent = 'Answer sealed. Results reveal after both students submit.';
+  } else if (timedOut) {
     ev.textContent = 'TIMEOUT · +0';
     if (status) status.textContent = 'Time expired. No points this round.';
   } else if (!correct) {
@@ -7277,13 +7565,14 @@ function updatePlayerHUD(correct, timedOut, points, elapsedSec, paceBand) {
     ev.textContent = 'LOCKED IN ✓ +' + points;
     if (status) status.textContent = 'Solid timing. Keep pressure on.';
   }
-  applyMomentumEffects(correct);
+  if (!sealedAnswer) applyMomentumEffects(correct);
 }
 
 function updateGhostHUD(result) {
   const summary = result || { timedOut: false, correct: false, points: 0 };
   const timedOut = !!summary.timedOut;
   const correct = !!summary.correct;
+  const sealedAnswer = !!summary.sealed;
 
   const scoreEl = document.getElementById('g-score');
   scoreEl.textContent = state.gScore;
@@ -7307,8 +7596,10 @@ function updateGhostHUD(result) {
   streakEl.classList.toggle('surge', state.gStreak >= 3);
 
   const ev = document.getElementById('g-event');
-  ev.className = 'answer-event ' + (correct ? 'correct' : 'wrong');
-  if (timedOut) {
+  ev.className = 'answer-event ' + (sealedAnswer ? '' : (correct ? 'correct' : 'wrong'));
+  if (sealedAnswer) {
+    ev.textContent = timedOut ? 'OPPONENT TIMEOUT' : 'OPPONENT LOCKED IN';
+  } else if (timedOut) {
     ev.textContent = 'OPPONENT TIMEOUT';
   } else if (correct) {
     ev.textContent = 'OPPONENT LOCKED IN +' + summary.points;
@@ -7370,7 +7661,9 @@ function checkAdvance() {
 
   const q = state.currentQuestion || getNextQuestionForRound(state.qIndex, state.totalQ);
   const choiceEls = document.querySelectorAll('.choice');
-  if (q && choiceEls[q.correctIndex]) choiceEls[q.correctIndex].classList.add('correct');
+  if (q && Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && choiceEls[q.correctIndex]) {
+    choiceEls[q.correctIndex].classList.add('correct');
+  }
 
   document.getElementById('q-status').textContent = 'Resolving…';
 
@@ -7495,7 +7788,7 @@ function buildForcedBotResult(localSummary, parsedFromBackend) {
     oppCorrect: oppCorrect,
     oppTotalQ: oppTotalQ,
     oppTimeMs: oppTimeMs,
-    opponentName: parsed.opponentName || activeOpponent.name
+    opponentName: parsed.opponentName || resolveCurrentOpponentName(activeOpponent.name)
   };
 }
 
@@ -7565,7 +7858,7 @@ function paintSyncingResults(summary, message) {
   document.getElementById('r-p-avg').textContent = safeSummary.avgLabel;
   document.getElementById('r-p-streak').textContent = String(safeSummary.streak);
 
-  document.getElementById('r-g-name').textContent = activeOpponent.name;
+  document.getElementById('r-g-name').textContent = resolveCurrentOpponentName(activeOpponent.name);
   document.getElementById('r-g-score').textContent = '—';
   document.getElementById('r-g-acc').textContent = '—';
   document.getElementById('r-g-avg').textContent = '—';
@@ -7600,15 +7893,16 @@ function paintPendingResults(summary, message) {
     banner.textContent = 'WAITING...';
     banner.classList.remove('loss', 'good-fight');
   }
-  setResultStatus(message || 'Waiting for opponent...', 'info');
-  setResultDeltaState('Waiting for opponent score...', 'pending');
+  const opponentName = resolveCurrentOpponentName(activeOpponent.name);
+  setResultStatus(message || ('Waiting for ' + opponentName + ' to submit. We will keep checking automatically.'), 'info');
+  setResultDeltaState('Score gap pending until both students submit...', 'pending');
 
   document.getElementById('r-p-score').textContent = String(safeSummary.score);
   document.getElementById('r-p-acc').textContent = safeSummary.accuracyPct + '%';
   document.getElementById('r-p-avg').textContent = safeSummary.avgLabel;
   document.getElementById('r-p-streak').textContent = String(safeSummary.streak);
 
-  document.getElementById('r-g-name').textContent = activeOpponent.name;
+  document.getElementById('r-g-name').textContent = opponentName;
   document.getElementById('r-g-score').textContent = '—';
   document.getElementById('r-g-acc').textContent = '—';
   document.getElementById('r-g-avg').textContent = '—';
@@ -7619,7 +7913,7 @@ function paintPendingResults(summary, message) {
     xpChip.textContent = 'Pending XP';
   }
   if (mpChip) {
-    mpChip.textContent = 'Waiting for opponent...';
+    mpChip.textContent = 'Waiting for submission...';
     mpChip.classList.remove('loss');
   }
   renderScreen('results');
@@ -7748,12 +8042,14 @@ function parseBackendResult(fetchEnvelope, localSummary) {
     oppCorrect: null,
     oppTotalQ: null,
     oppTimeMs: null,
-    opponentName: activeOpponent.name
+    opponentName: resolveCurrentOpponentName(activeOpponent.name)
   };
   if (detectedBotSignal === true) parsed.isBotDuel = true;
   if (detectedBotSignal === false) parsed.isBotDuel = false;
 
   if (!payload || typeof payload !== 'object') return parsed;
+
+  parsed.opponentName = resolveOpponentNameFromPayload(payload, parsed.opponentName);
 
   if (payload.duel || payload.result || payload.attempt_self || payload.attempt_opponent) {
     const duel = payload.duel || null;
@@ -8334,7 +8630,7 @@ function paintFinalResults(parsed, summary, statusMessage) {
     avgResponseSec: runMetrics.avgSec,
     longestStreak: runMetrics.streak,
     xpEarned: xp,
-    opponentName: parsed.opponentName || activeOpponent.name,
+    opponentName: parsed.opponentName || resolveCurrentOpponentName(activeOpponent.name),
     opponentScore: oppScore
   });
 
@@ -8360,7 +8656,7 @@ function paintFinalResults(parsed, summary, statusMessage) {
     yourAccText: runMetrics.accuracyPct + '%',
     yourAvgText: formatMsLabel(parsed.yourTimeMs),
     yourStreak: safeSummary.streak,
-    opponentName: parsed.opponentName || activeOpponent.name,
+    opponentName: parsed.opponentName || resolveCurrentOpponentName(activeOpponent.name),
     oppHasScore: oppScore != null,
     oppScoreValue: oppScore == null ? 0 : oppScore,
     oppScoreText: oppScore == null ? '—' : String(oppScore),
@@ -8411,11 +8707,11 @@ async function pollForResults(localSummary) {
             duel_is_bot: true,
             stage: 'result_ready',
             local_summary: summary,
-            opponent_name: activeOpponent.name
+            opponent_name: resolveCurrentOpponentName(activeOpponent.name)
           });
           paintFinalResults(forced, summary, 'Bot duel finalized instantly.');
         } else {
-          showWaitingForOpponent('Waiting for opponent...');
+          showWaitingForOpponent();
         }
         requestInFlight = false;
         return;
@@ -8430,7 +8726,7 @@ async function pollForResults(localSummary) {
           duel_is_bot: parsed.isBotDuel === true,
           stage: 'result_ready',
           local_summary: summary,
-          opponent_name: activeOpponent.name
+          opponent_name: parsed.opponentName || resolveCurrentOpponentName(activeOpponent.name)
         });
         paintFinalResults(parsed, summary, 'Result synced from backend.');
       } else if (activeDuelIsBot === true || parsed.isBotDuel === true) {
@@ -8441,17 +8737,17 @@ async function pollForResults(localSummary) {
           duel_is_bot: true,
           stage: 'result_ready',
           local_summary: summary,
-          opponent_name: activeOpponent.name
+          opponent_name: forced.opponentName || resolveCurrentOpponentName(activeOpponent.name)
         });
         paintFinalResults(forced, summary, 'Bot duel finalized instantly.');
       } else {
-        showWaitingForOpponent('Waiting for opponent...');
+        showWaitingForOpponent();
         writeStoredRuntime({
           duel_id: activeDuelId,
           duel_is_bot: false,
           stage: 'waiting_for_opponent',
           local_summary: summary,
-          opponent_name: activeOpponent.name
+          opponent_name: parsed.opponentName || resolveCurrentOpponentName(activeOpponent.name)
         });
       }
     } catch (_error) {
@@ -8463,11 +8759,11 @@ async function pollForResults(localSummary) {
           duel_is_bot: true,
           stage: 'result_ready',
           local_summary: summary,
-          opponent_name: activeOpponent.name
+          opponent_name: forced.opponentName || resolveCurrentOpponentName(activeOpponent.name)
         });
         paintFinalResults(forced, summary, 'Bot duel finalized instantly.');
       } else {
-        showWaitingForOpponent('Waiting for opponent...');
+        showWaitingForOpponent();
       }
     } finally {
       requestInFlight = false;
@@ -8516,7 +8812,7 @@ async function ensureActiveDuel() {
     duel_id: activeDuelId,
     duel_is_bot: activeDuelIsBot === true,
     stage: 'duel_created',
-    opponent_name: activeOpponent.name
+    opponent_name: resolveCurrentOpponentName(activeOpponent.name)
   });
   return activeDuelId;
 }
@@ -8564,7 +8860,7 @@ async function finalizeResults() {
       const forced = buildForcedBotResult(summary, null);
       paintFinalResults(forced, summary, 'Bot duel finalized instantly.');
     } else {
-      showWaitingForOpponent('Waiting for opponent...');
+      showWaitingForOpponent();
     }
     return;
   }
@@ -8574,7 +8870,7 @@ async function finalizeResults() {
     duel_is_bot: isBotFlow,
     stage: 'submitting_attempt',
     local_summary: summary,
-    opponent_name: activeOpponent.name
+    opponent_name: resolveCurrentOpponentName(activeOpponent.name)
   });
 
   try {
@@ -8600,7 +8896,7 @@ async function finalizeResults() {
           duel_is_bot: true,
           stage: 'result_ready',
           local_summary: summary,
-          opponent_name: activeOpponent.name
+          opponent_name: finalParsed.opponentName || resolveCurrentOpponentName(activeOpponent.name)
         });
         paintFinalResults(finalParsed, summary, parsed.finalized ? 'Result synced from backend.' : 'Bot duel finalized instantly.');
         return;
@@ -8614,7 +8910,7 @@ async function finalizeResults() {
       duel_is_bot: true,
       stage: 'result_ready',
       local_summary: summary,
-      opponent_name: activeOpponent.name
+      opponent_name: forced.opponentName || resolveCurrentOpponentName(activeOpponent.name)
     });
     paintFinalResults(forced, summary, 'Bot duel finalized instantly.');
     return;
@@ -8642,8 +8938,12 @@ async function recoverStoredDuelState() {
   activeDuelId = duelId;
   const storedBotSignal = parseBooleanish(stored.duel_is_bot);
   trackActiveDuelBotSignal(storedBotSignal);
-  if (stored.opponent_name) {
-    document.getElementById('r-g-name').textContent = String(stored.opponent_name);
+  if (stored.opponent_id || stored.opponent_name) {
+    rememberHumanOpponent({ id: stored.opponent_id || '', name: stored.opponent_name || '' });
+  }
+  const storedOpponentName = resolveCurrentOpponentName(stored.opponent_name || 'Opponent');
+  if (storedOpponentName) {
+    document.getElementById('r-g-name').textContent = storedOpponentName;
   }
 
   const storedSummary = stored.local_summary && typeof stored.local_summary === 'object'
@@ -8663,7 +8963,7 @@ async function recoverStoredDuelState() {
         const forced = buildForcedBotResult(storedSummary || buildPlayerSummary(), null);
         paintFinalResults(forced, storedSummary || buildPlayerSummary(), 'Bot duel finalized instantly.');
       } else {
-        paintPendingResults(storedSummary, 'Waiting for opponent...');
+        paintPendingResults(storedSummary);
       }
     }
     return;
@@ -8690,7 +8990,7 @@ async function recoverStoredDuelState() {
       const forced = buildForcedBotResult(storedSummary || buildPlayerSummary(), null);
       paintFinalResults(forced, storedSummary || buildPlayerSummary(), 'Bot duel finalized instantly.');
     } else {
-      paintPendingResults(storedSummary, 'Waiting for opponent...');
+      paintPendingResults(storedSummary);
       await pollForResults(storedSummary || buildPlayerSummary());
     }
     return;
@@ -8942,6 +9242,7 @@ let challengePollTimer = null;
 let challengeModalOpen = false;
 let incomingModalOpen = false;
 let incomingModalDuelId = '';
+let incomingModalOpponentId = '';
 let challengePollBusy = false;
 
 function loadIgnoredChallenges() {
@@ -9018,8 +9319,13 @@ async function createDuelWithOpponent(opponentId) {
     p_source: 'stat_human_challenge',
     p_dataset_version: datasetVersion
   };
+  recordStatAsyncHealth('create_duel:start', { source: 'stat_human_challenge', is_bot: false });
   const primary = await rpcCallSafe('create_duel', payload);
-  if (primary.ok) return primary;
+  if (primary.ok) {
+    const newDuelId = primary.data && (primary.data.duel_id || (primary.data.duel && primary.data.duel.id));
+    recordStatAsyncHealth('create_duel:ok', { duel_id: newDuelId || '', ok: true, is_bot: false });
+    return primary;
+  }
   const msg = String(primary.error || '');
   if (/opponent_id|argument|parameter|function|42883|PGRST/i.test(msg)) {
     const fallbackPayload = {
@@ -9030,8 +9336,16 @@ async function createDuelWithOpponent(opponentId) {
       p_dataset_version: datasetVersion
     };
     const fallback = await rpcCallSafe('create_duel', fallbackPayload);
+    const fallbackDuelId = fallback.data && (fallback.data.duel_id || (fallback.data.duel && fallback.data.duel.id));
+    recordStatAsyncHealth(fallback.ok ? 'create_duel:fallback_ok' : 'create_duel:fallback_error', {
+      duel_id: fallbackDuelId || '',
+      ok: !!fallback.ok,
+      error: fallback.error || '',
+      is_bot: false
+    });
     return fallback;
   }
+  recordStatAsyncHealth('create_duel:error', { ok: false, error: primary.error || '', is_bot: false });
   return primary;
 }
 
@@ -9039,21 +9353,33 @@ async function createDuelWithOpponent(opponentId) {
  * accept_duel uses deployed `p_duel_id` arg. Falls back to `duel_id` if needed.
  */
 async function acceptDuelById(duelId) {
+  const safeDuelId = String(duelId || '').trim();
   const payload = {
-    p_duel_id: duelId,
+    p_duel_id: safeDuelId,
     p_idempotency_key: idempotencyKey('accept')
   };
+  recordStatAsyncHealth('accept_duel:start', { duel_id: safeDuelId, is_bot: false });
   const primary = await rpcCallSafe('accept_duel', payload);
-  if (primary.ok) return primary;
+  if (primary.ok) {
+    recordStatAsyncHealth('accept_duel:ok', { duel_id: safeDuelId, ok: true, is_bot: false });
+    return primary;
+  }
   const msg = String(primary.error || '');
   if (/duel_id|argument|parameter|function|42883|PGRST/i.test(msg)) {
     const fallbackPayload = {
-      duel_id: duelId,
+      duel_id: safeDuelId,
       p_idempotency_key: idempotencyKey('accept')
     };
     const fallback = await rpcCallSafe('accept_duel', fallbackPayload);
+    recordStatAsyncHealth(fallback.ok ? 'accept_duel:fallback_ok' : 'accept_duel:fallback_error', {
+      duel_id: safeDuelId,
+      ok: !!fallback.ok,
+      error: fallback.error || '',
+      is_bot: false
+    });
     return fallback;
   }
+  recordStatAsyncHealth('accept_duel:error', { duel_id: safeDuelId, ok: false, error: primary.error || '', is_bot: false });
   return primary;
 }
 
@@ -9237,6 +9563,7 @@ async function handleRowChallenge(rowEl, opponentUid) {
   showToast('Challenge sent');
   console.log('[STAT_V7] create_duel ok', { duel_id: newDuelId, opponent: opponentUid });
   if (newDuelId) {
+    const opponentName = rememberHumanOpponent({ id: opponentUid });
     activeDuelId = String(newDuelId);
     trackActiveDuelBotSignal(false);
     persistSessionDuelId(activeDuelId);
@@ -9244,7 +9571,8 @@ async function handleRowChallenge(rowEl, opponentUid) {
       duel_id: activeDuelId,
       duel_is_bot: false,
       stage: 'duel_created',
-      opponent_name: activeOpponent.name
+      opponent_id: String(opponentUid || '').trim(),
+      opponent_name: opponentName
     });
   }
   try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
@@ -9292,6 +9620,7 @@ async function handleManualSend() {
   msg.textContent = 'Challenge sent. Duel ID: ' + shortUid(newDuelId);
   showToast('Challenge sent');
   if (newDuelId) {
+    const opponentName = rememberHumanOpponent({ id: raw });
     activeDuelId = String(newDuelId);
     trackActiveDuelBotSignal(false);
     persistSessionDuelId(activeDuelId);
@@ -9299,7 +9628,8 @@ async function handleManualSend() {
       duel_id: activeDuelId,
       duel_is_bot: false,
       stage: 'duel_created',
-      opponent_name: activeOpponent.name
+      opponent_id: String(raw || '').trim(),
+      opponent_name: opponentName
     });
   }
   try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
@@ -9314,10 +9644,17 @@ function showIncomingModal(duel) {
   const title = document.getElementById('inc-title');
   const sub = document.getElementById('inc-sub');
   const challengerUid = String(duel.created_by || '');
+  incomingModalOpponentId = challengerUid;
+  const challengerLabel = rememberHumanOpponent({ id: challengerUid });
   title.textContent = challengerUid
-    ? 'Dr. ' + shortUid(challengerUid) + ' challenged you'
+    ? challengerLabel + ' challenged you'
     : 'A player challenged you';
-  sub.textContent = 'Duel ID: ' + shortUid(incomingModalDuelId) + ' • Challenger: ' + (challengerUid || '—');
+  sub.textContent = 'Duel ID: ' + shortUid(incomingModalDuelId) + ' • Challenger: ' + (challengerUid ? shortUid(challengerUid) : '—');
+  recordStatAsyncHealth('incoming_challenge:shown', {
+    duel_id: incomingModalDuelId,
+    state: duel.state || 'pending',
+    is_bot: false
+  });
   document.getElementById('inc-overlay').classList.add('active');
   incomingModalOpen = true;
 }
@@ -9326,6 +9663,7 @@ function hideIncomingModal() {
   document.getElementById('inc-overlay').classList.remove('active');
   incomingModalOpen = false;
   incomingModalDuelId = '';
+  incomingModalOpponentId = '';
 }
 
 async function handleAcceptIncoming() {
@@ -9358,6 +9696,17 @@ async function handleAcceptIncoming() {
   }
 
   console.log('[STAT_V7] accept_duel ok, redirecting to duel_id=' + duelId);
+  const opponentName = rememberHumanOpponent({ id: incomingModalOpponentId });
+  activeDuelId = duelId;
+  trackActiveDuelBotSignal(false);
+  persistSessionDuelId(duelId);
+  writeStoredRuntime({
+    duel_id: duelId,
+    duel_is_bot: false,
+    stage: 'duel_created',
+    opponent_id: incomingModalOpponentId || undefined,
+    opponent_name: opponentName
+  });
   // Redirect to self with duel_id so existing hydrateDuelIdFromQuery + recover flow takes over.
   const url = new URL(window.location.href);
   url.searchParams.set('duel_id', duelId);
@@ -9438,7 +9787,12 @@ async function pollIncomingChallenges() {
       }
     }
 
-    if (incoming && incoming.duel_id) {
+	    if (incoming && incoming.duel_id) {
+      recordStatAsyncHealth('incoming_challenge:found', {
+        duel_id: incoming.duel_id,
+        state: incoming.state || 'pending',
+        is_bot: false
+      });
       showIncomingModal(incoming);
     }
   } catch (err) {
