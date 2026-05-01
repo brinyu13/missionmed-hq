@@ -6,8 +6,8 @@ CHANGE: (G4)-Avatar-codex-high-604 Avatar persistence+selection fail-loud fix wi
 <!-- VERSION: MR-254_AVATAR_SYSTEM_FINAL -->
 <!--
 SYSTEM: ARENA
-VERSION: 2026-04-30 19:18 lobby-card-sizing-exact
-CHANGE: Resized Arena lobby play module to half width and 70% height target, enlarged mode cards, and removed card image overlays.
+VERSION: 2026-04-30 23:44 arena-ui-avatar-system-fix-918
+CHANGE: E9-918 fixes STAT play handoff logging/state, 16:9 mode cards, floor-anchored avatar scaling, avatar upload normalization, and locker preview-confirm flow.
 AUTHORITY: MM-HTML-DEPLOYMENT-SYSTEM-LOCK-001
 SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 DEPLOYMENT: Cloudflare R2/CDN. Do NOT upload to WordPress Media Library.
@@ -4020,8 +4020,8 @@ html,body{
   .fn-featured-title{font-size:16px}
   .fn-hero-title{left:22px;bottom:160px;max-width:320px}
   .fn-hero-name{font-size:22px}
-  .fn-carousel{padding:0 16px}
-  .fn-mode-card{width:170px;height:96px}
+  .fn-carousel{height:220px;padding:0 20px}
+  .fn-mode-card{width:300px;height:169px}
 }
 @media (max-width:720px){
   .fn-currency{padding:5px 10px 5px 5px}
@@ -4030,6 +4030,7 @@ html,body{
   .fn-featured-card{width:180px;padding:10px 12px}
   .fn-featured-title{font-size:14px}
   .fn-carousel-arrow{width:30px;height:30px;font-size:18px}
+  .fn-mode-card{width:260px;height:146px}
 }
 /* ====================================================================
    END FORTNITE LOBBY CLONE — CSS OVERRIDES
@@ -4904,7 +4905,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         <button class="char-back-btn" id="charBack">Back</button>
         <button class="char-upload-btn" id="avatarUploadBtn" type="button">Upload Your Photo</button>
       </div>
-      <button class="char-save-btn" id="charSave">Save</button>
+      <button class="char-save-btn" id="charSave">Set as Active Avatar</button>
     </div>
   </div>
 </div>
@@ -5107,22 +5108,23 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   <div id="arenaCommunityBackdrop" aria-hidden="true"></div>
 
   <!-- LAYER 2 — CHARACTER STAGE -->
+  <div id="arenaAvatarStageAnchor" aria-label="Arena avatar floor">
   <!-- Student avatar (centerpiece hero) -->
-  <div id="arena-character-stage" data-squad-label="YOU">
-    <div id="arena-avatar">
-      <div class="avatar-placeholder" id="avatarPlaceholder">
-        <div class="silhouette-body">
-          <div class="silhouette-head"></div>
-          <div class="silhouette-coat"></div>
+    <div id="arena-character-stage" data-squad-label="YOU">
+      <div id="arena-avatar">
+        <div class="avatar-placeholder" id="avatarPlaceholder">
+          <div class="silhouette-body">
+            <div class="silhouette-head"></div>
+            <div class="silhouette-coat"></div>
+          </div>
         </div>
       </div>
+      <div class="platform">
+        <div class="platform-ellipse"></div>
+        <div class="platform-ring"></div>
+      </div>
+      <button id="arenaCenterAvatarCta" type="button" aria-label="Create your Arena avatar">Create Your Avatar</button>
     </div>
-    <div class="platform">
-      <div class="platform-ellipse"></div>
-      <div class="platform-ring"></div>
-    </div>
-    <button id="arenaCenterAvatarCta" type="button" aria-label="Create your Arena avatar">Create Your Avatar</button>
-  </div>
 
   <!-- START CHARACTER STAGING -->
   <!-- Dr J (right mentor) -->
@@ -5155,6 +5157,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       <div class="fn-squad-platform-ellipse"></div>
       <div class="fn-squad-platform-ring"></div>
     </div>
+  </div>
   </div>
   <!-- END CHARACTER STAGING -->
 
@@ -6294,11 +6297,36 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   /* --- CUSTOM AVATAR URL (resolved once, used by character menu + lobby) --- */
   var DEFAULT_AVATAR = 'https://missionmedinstitute.com/wp-content/uploads/2026/04/avatar_drbrian.png';
   var _userAvatarUrl = '';
-  /* Supabase active avatar is the only authority. */
-  function resolveUserAvatarUrl(){
-    _userAvatarUrl = String(ArenaUser.arenaAvatarFull || '').trim();
-    return _userAvatarUrl;
-  }
+	  /* Supabase active avatar is the only authority. */
+	  function updateMMUserAvatarObject(record){
+	    if(!window.MM_USER) return null;
+	    if(!record){
+	      window.MM_USER.avatar = null;
+	      window.MM_USER.avatar_url = '';
+	      window.MM_USER.avatar_thumbnail_url = '';
+	      window.MM_USER.active_avatar_id = '';
+	      return null;
+	    }
+	    var avatarObject = {
+	      id: String(record.id || '').trim(),
+	      avatar_url: String(record.avatar_url || '').trim(),
+	      thumbnail_url: String(record.thumbnail_url || record.avatar_url || '').trim(),
+	      gender: normalizeAvatarGender(record.gender || 'female'),
+	      source: 'supabase'
+	    };
+	    window.MM_USER.avatar = avatarObject;
+	    window.MM_USER.avatar_url = avatarObject.avatar_url;
+	    window.MM_USER.avatar_thumbnail_url = avatarObject.thumbnail_url;
+	    window.MM_USER.active_avatar_id = avatarObject.id;
+	    return avatarObject;
+	  }
+	  function resolveUserAvatarUrl(){
+	    var mmAvatar = window.MM_USER && window.MM_USER.avatar && typeof window.MM_USER.avatar === 'object'
+	      ? String(window.MM_USER.avatar.avatar_url || '').trim()
+	      : '';
+	    _userAvatarUrl = String(mmAvatar || ArenaUser.arenaAvatarFull || '').trim();
+	    return _userAvatarUrl;
+	  }
   function extractAvatarUrlFromPayload(payload){
     if(!payload || typeof payload !== 'object') return '';
     return String(
@@ -6336,11 +6364,41 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     var normalized = stripAvatarUrl(value);
     return !!normalized && normalized === stripAvatarUrl(DEFAULT_AVATAR);
   }
+  function getMMUserAvatarRecord(){
+    var mmUser = window.MM_USER && typeof window.MM_USER === 'object' ? window.MM_USER : null;
+    var avatar = mmUser && mmUser.avatar && typeof mmUser.avatar === 'object' ? mmUser.avatar : null;
+    if(!avatar) return null;
+    var avatarUrl = String(avatar.avatar_url || '').trim();
+    var thumbUrl = String(avatar.thumbnail_url || avatarUrl).trim();
+    var avatarId = String(avatar.id || mmUser.active_avatar_id || '').trim();
+    if(!avatarUrl || isDefaultAvatarUrl(avatarUrl)) return null;
+    return {
+      id: avatarId,
+      avatar_url: avatarUrl,
+      thumbnail_url: thumbUrl || avatarUrl
+    };
+  }
+  function getCanonicalMMAvatarUrl(preferredKey){
+    var avatar = getMMUserAvatarRecord();
+    if(!avatar) return '';
+    return String(preferredKey === 'thumbnail' ? (avatar.thumbnail_url || avatar.avatar_url) : avatar.avatar_url).trim();
+  }
+  function isValidAvatarRenderUrl(value){
+    var raw = String(value || '').trim();
+    if(!raw || raw === 'default' || isDefaultAvatarUrl(raw)) return false;
+    try{
+      var parsed = new URL(raw, window.location.href);
+      return parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'data:' || parsed.protocol === 'blob:';
+    } catch(_err){
+      return false;
+    }
+  }
   function getCenterpieceAvatarUrl(candidate){
+    var canonical = getCanonicalMMAvatarUrl('avatar');
+    if(canonical) return canonical;
     var forced = String(candidate || '').trim();
-    if(forced && !isDefaultAvatarUrl(forced)) return forced;
-    var resolved = String(ArenaUser.arenaAvatarFull || '').trim();
-    return resolved && !isDefaultAvatarUrl(resolved) ? resolved : '';
+    if(forced && isValidAvatarRenderUrl(forced) && window.MM_USER && window.MM_USER.avatar) return forced;
+    return '';
   }
 
   /* ==========================================================================
@@ -7463,12 +7521,18 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     /* ARENA-003: Set lobby centerpiece avatar — only user-owned avatar_url values */
     resolveUserAvatarUrl();
     var lobbyAvatarUrl = getCenterpieceAvatarUrl(_userAvatarUrl);
-    if(typeof syncCenterpieceAvatarState === 'function'){
-      syncCenterpieceAvatarState(lobbyAvatarUrl);
-    } else {
-      window.setAvatar(lobbyAvatarUrl || null);
-    }
-    console.log('[AVATAR_LOBBY_RENDERED]', lobbyAvatarUrl || 'placeholder');
+	    if(typeof syncCenterpieceAvatarState === 'function'){
+	      syncCenterpieceAvatarState(lobbyAvatarUrl);
+	    } else {
+	      window.setAvatar(lobbyAvatarUrl || null);
+	    }
+	    console.log('[AVATAR_LOBBY_RENDER]', {
+	      user_id: String((ArenaUser && ArenaUser.id) || ''),
+	      active_avatar_id: String((window.MM_USER && window.MM_USER.active_avatar_id) || ArenaUser.activeAvatarId || ''),
+	      avatar_url: lobbyAvatarUrl || '',
+	      source: window.MM_USER && window.MM_USER.avatar ? 'MM_USER.avatar' : 'empty'
+	    });
+	    console.log('[AVATAR_LOBBY_RENDERED]', lobbyAvatarUrl || 'placeholder');
     if(typeof refreshArenaAvatarFeatureCard === 'function') refreshArenaAvatarFeatureCard();
   }
 
@@ -7479,13 +7543,20 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       window.setAvatar(full);
     }
     var nav = document.getElementById('navAvatar');
-    if(face){
-      nav.innerHTML = '<img src="' + face + '" alt="' + (ArenaUser.displayName || 'Avatar') + '">';
-      nav.style.borderColor = ArenaUser.color;
-      nav.style.background  = '';
-      nav.style.boxShadow   = '0 0 12px ' + ArenaUser.color + '66';
-    }
-  }
+	    if(face){
+	      nav.innerHTML = '<img src="' + face + '" alt="' + (ArenaUser.displayName || 'Avatar') + '">';
+	      nav.style.borderColor = ArenaUser.color;
+	      nav.style.background  = '';
+	      nav.style.boxShadow   = '0 0 12px ' + ArenaUser.color + '66';
+	    }
+	    console.log('[AVATAR_LOBBY_RENDER]', {
+	      user_id: String((ArenaUser && ArenaUser.id) || ''),
+	      active_avatar_id: String((window.MM_USER && window.MM_USER.active_avatar_id) || ArenaUser.activeAvatarId || ''),
+	      avatar_url: full || '',
+	      thumbnail_url: face || '',
+	      source: window.MM_USER && window.MM_USER.avatar ? 'MM_USER.avatar' : 'runtime'
+	    });
+	  }
 
   /* ==========================================================================
      TOAST
@@ -7582,6 +7653,45 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       layer.appendChild(ghost);
     }
   }
+  function clearCenterpieceAvatarRender(reason){
+    var stage = document.getElementById('arena-character-stage');
+    var avatarEl = document.getElementById('arena-avatar');
+    var placeholder = document.getElementById('avatarPlaceholder');
+    if(avatarEl){
+      avatarEl.style.backgroundImage = '';
+      avatarEl.removeAttribute('data-avatar-url');
+      avatarEl.classList.remove('arena-avatar-reveal');
+    }
+    if(placeholder) placeholder.classList.remove('hidden');
+    if(stage){
+      stage.classList.remove('avatar-loaded');
+      stage.classList.add('centerpiece-empty');
+    }
+    console.log('[AVATAR_RENDER_BLOCKED_PRE_HYDRATION]', {
+      reason: String(reason || 'no_mm_user_avatar'),
+      has_mm_user: !!window.MM_USER,
+      has_mm_avatar: !!(window.MM_USER && window.MM_USER.avatar)
+    });
+  }
+  function renderCenterpieceAvatarFromMMUser(preferredUrl, source){
+    var avatarUrl = getCenterpieceAvatarUrl(preferredUrl);
+    if(!window.MM_USER || !window.MM_USER.avatar || !avatarUrl){
+      clearCenterpieceAvatarRender(source || 'render_gate');
+      return '';
+    }
+    if(typeof window.setAvatar === 'function'){
+      window.setAvatar(avatarUrl);
+    } else {
+      var avatarEl = document.getElementById('arena-avatar');
+      var placeholder = document.getElementById('avatarPlaceholder');
+      if(avatarEl){
+        avatarEl.style.backgroundImage = 'url(' + avatarUrl + ')';
+        avatarEl.setAttribute('data-avatar-url', avatarUrl);
+        if(placeholder) placeholder.classList.add('hidden');
+      }
+    }
+    return avatarUrl;
+  }
   function syncCenterpieceAvatarState(preferredUrl){
     var stage = document.getElementById('arena-character-stage');
     var cta = document.getElementById('arenaCenterAvatarCta');
@@ -7597,23 +7707,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     }
 
     if(hasAvatar){
-      if(typeof window.setAvatar === 'function'){
-        window.setAvatar(avatarUrl);
-      } else if(avatarEl){
-        avatarEl.style.backgroundImage = 'url(' + avatarUrl + ')';
-        if(placeholder) placeholder.classList.add('hidden');
-      }
+      avatarUrl = renderCenterpieceAvatarFromMMUser(avatarUrl, 'syncCenterpieceAvatarState');
       markCenterpieceAvatarLoaded();
     } else {
-      if(typeof window.setAvatar === 'function'){
-        window.setAvatar(null);
-      } else if(avatarEl){
-        avatarEl.style.backgroundImage = '';
-        avatarEl.removeAttribute('data-avatar-url');
-        if(placeholder) placeholder.classList.remove('hidden');
-      }
-      if(stage) stage.classList.remove('avatar-loaded');
-      if(avatarEl) avatarEl.classList.remove('arena-avatar-reveal');
+      clearCenterpieceAvatarRender('syncCenterpieceAvatarState');
     }
     renderCommunityBackdrop();
   }
@@ -7689,11 +7786,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       ArenaUser.arenaAvatarFace = '';
       _userAvatarUrl = '';
       saveAvatarToStorage('', '');
-      if(window.MM_USER){
-        window.MM_USER.avatar_url = '';
-        window.MM_USER.avatar_thumbnail_url = '';
-        window.MM_USER.active_avatar_id = '';
-      }
+	      if(window.MM_USER){
+	        updateMMUserAvatarObject(null);
+	      }
       if(!suppressUiSync){
         applyAvatarUrls('', '');
         if(typeof refreshArenaAvatarFeatureCard === 'function') refreshArenaAvatarFeatureCard();
@@ -7720,12 +7815,14 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       ArenaUser.activeAvatarThumb = active.thumbnail_url || active.avatar_url;
       ArenaUser.arenaAvatarFull = active.avatar_url;
       ArenaUser.arenaAvatarFace = active.thumbnail_url || active.avatar_url;
-      saveAvatarToStorage(ArenaUser.arenaAvatarFull, ArenaUser.arenaAvatarFace);
-      if(window.MM_USER){
-        window.MM_USER.avatar_url = ArenaUser.arenaAvatarFull;
-        window.MM_USER.avatar_thumbnail_url = ArenaUser.arenaAvatarFace;
-        window.MM_USER.active_avatar_id = ArenaUser.activeAvatarId;
-      }
+	      saveAvatarToStorage(ArenaUser.arenaAvatarFull, ArenaUser.arenaAvatarFace);
+	      updateMMUserAvatarObject(active);
+	      console.log('[AVATAR_ACTIVE_APPLIED]', {
+	        user_id: String((ArenaUser && ArenaUser.id) || ''),
+	        active_avatar_id: ArenaUser.activeAvatarId,
+	        avatar_url: ArenaUser.arenaAvatarFull,
+	        source: 'supabase'
+	      });
       resolveUserAvatarUrl();
       if(!suppressUiSync){
         applyAvatarUrls(ArenaUser.arenaAvatarFull, ArenaUser.arenaAvatarFace);
@@ -7844,11 +7941,19 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       setAvatarLockerRecords(normalizedRows, { activeId: activeId });
       avatarLockerLoaded = true;
 
-      var active = getActiveAvatarRecord();
-      console.log('[AVATAR_ACTIVE_ID]', active ? active.id : null);
-      console.log('[AVATAR_COUNT]', normalizedRows.length);
-      console.log('[AVATAR_HYDRATE_SUCCESS]', {
-        user_id: activeUserId,
+	      var active = getActiveAvatarRecord();
+	      console.log('[AVATAR_ACTIVE_ID]', active ? active.id : null);
+	      console.log('[AVATAR_COUNT]', normalizedRows.length);
+	      if(active && profileActiveId && profileActiveId === active.id){
+	        console.log('[AVATAR_DB_VERIFIED]', {
+	          user_id: activeUserId,
+	          active_avatar_id: active.id,
+	          avatar_count: normalizedRows.length,
+	          player_profiles_active_avatar_id: profileActiveId
+	        });
+	      }
+	      console.log('[AVATAR_HYDRATE_SUCCESS]', {
+	        user_id: activeUserId,
         active_avatar_id: active ? active.id : null,
         avatar_count: normalizedRows.length,
         source: String(opts.source || 'hydrateAvatarState')
@@ -8035,8 +8140,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     }
     var payload = { user_id: activeUserId, avatar_id: safeAvatarId };
 
-    try{
-      var rpc = await arenaSupabase.rpc('set_active_user_avatar', { p_avatar_id: safeAvatarId });
+	    try{
+	      console.log('[AVATAR_SELECT_CLICK]', {
+	        user_id: activeUserId,
+	        avatar_id: safeAvatarId
+	      });
+	      var rpc = await arenaSupabase.rpc('set_active_user_avatar', { p_avatar_id: safeAvatarId });
       logAvatarSupabase(
         'avatar.selection.rpc_set_active_user_avatar',
         payload,
@@ -8119,12 +8228,16 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(!verifiedActive){
       return false;
     }
-    console.log('[AVATAR_SELECTION_COMMIT]', {
-      user_id: activeUserId,
-      avatar_id: safeAvatarId
-    });
-    return true;
-  }
+	    console.log('[AVATAR_SELECTION_COMMIT]', {
+	      user_id: activeUserId,
+	      avatar_id: safeAvatarId
+	    });
+	    console.log('[AVATAR_SELECT_SUCCESS]', {
+	      user_id: activeUserId,
+	      avatar_id: safeAvatarId
+	    });
+	    return true;
+	  }
 
   async function captureMatchAvatarSnapshot(matchId){
     var safeMatchId = String(matchId || '').trim();
@@ -8277,6 +8390,47 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(value < (1024 * 1024)) return (value / 1024).toFixed(1) + ' KB';
     return (value / (1024 * 1024)).toFixed(2) + ' MB';
   }
+  function sanitizeAvatarFilename(name, fallbackExt){
+    var raw = String(name || 'avatar').trim() || 'avatar';
+    var ext = String(fallbackExt || '').trim().replace(/^\./, '');
+    var base = raw.replace(/\.[^.]*$/, '').replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if(!base) base = 'avatar';
+    return base.slice(0, 80) + (ext ? ('.' + ext) : '');
+  }
+  function inferAvatarMime(file){
+    var type = String(file && file.type || '').trim().toLowerCase();
+    if(type === 'image/jpg') type = 'image/jpeg';
+    if(type === 'image/jpeg' || type === 'image/png' || type === 'image/webp') return type;
+    var name = String(file && file.name || '').toLowerCase();
+    if(/\.png$/.test(name)) return 'image/png';
+    if(/\.webp$/.test(name)) return 'image/webp';
+    if(/\.(jpe?g|jfif)$/.test(name)) return 'image/jpeg';
+    return 'image/jpeg';
+  }
+  function extensionForAvatarMime(mime){
+    if(mime === 'image/png') return 'png';
+    if(mime === 'image/webp') return 'webp';
+    return 'jpg';
+  }
+  function normalizeAvatarUploadInput(source, context){
+    if(!source || !(source instanceof Blob)) return null;
+    if(Number(source.size || 0) <= 0) throw new Error('AVATAR_UPLOAD_EMPTY_FILE');
+    var mime = inferAvatarMime(source);
+    var ext = extensionForAvatarMime(mime);
+    var safeName = sanitizeAvatarFilename(source.name || 'avatar', ext);
+    var normalized = source instanceof File && source.type === mime && source.name === safeName
+      ? source
+      : new File([source], safeName, { type: mime, lastModified: Date.now() });
+    console.log('[AVATAR_UPLOAD_NORMALIZED]', {
+      context: String(context || 'avatar_upload'),
+      original_type: String(source.type || ''),
+      normalized_type: mime,
+      original_name: String(source.name || ''),
+      normalized_name: safeName,
+      size_bytes: Number(source.size || 0)
+    });
+    return normalized;
+  }
   function loadImageElementFromFile(file){
     return new Promise(function(resolve, reject){
       var objectUrl = URL.createObjectURL(file);
@@ -8311,6 +8465,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return { x: x, y: y, size: size };
   }
   async function preprocessAvatarFile(file){
+    file = normalizeAvatarUploadInput(file, 'preprocess_input') || file;
     var image = await loadImageElementFromFile(file);
     var crop = computeCenterWeightedCrop(image.width, image.height);
     var outputSize = Math.min(AVATAR_MAX_DIMENSION, crop.size);
@@ -8353,6 +8508,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       type: 'image/jpeg',
       lastModified: Date.now()
     });
+    outputFile = normalizeAvatarUploadInput(outputFile, 'preprocess_output') || outputFile;
     return {
       file: outputFile,
       width: canvas.width,
@@ -8433,14 +8589,16 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     var fileBlob = source instanceof Blob ? source : null;
     if(!fileBlob) return null;
 
-    var filename = safeAvatarId + '.png';
-    var file = source instanceof File
-      ? source
-      : new File([fileBlob], filename, { type: fileBlob.type || 'image/png', lastModified: Date.now() });
-    var formData = new FormData();
-    formData.append('image', file);
-    formData.append('file', file);
-    formData.append('user_id', userId);
+    var normalizedSource = normalizeAvatarUploadInput(source, 'r2_upload_input') || source;
+    fileBlob = normalizedSource instanceof Blob ? normalizedSource : fileBlob;
+    var filename = safeAvatarId + '.' + extensionForAvatarMime(inferAvatarMime(fileBlob));
+    var file = normalizedSource instanceof File
+      ? normalizedSource
+      : new File([fileBlob], filename, { type: inferAvatarMime(fileBlob), lastModified: Date.now() });
+    file = normalizeAvatarUploadInput(file, 'r2_upload_formdata') || file;
+	    var formData = new FormData();
+	    formData.append('image', file);
+	    formData.append('user_id', userId);
 
     console.info('[AVATAR_UPLOAD_START]', {
       endpoint: AVATAR_UPLOAD_ENDPOINT,
@@ -8463,7 +8621,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       }
 
       var uploadedUrl = extractAvatarUrlFromPayload(payload);
-      var uploadedAvatarId = extractAvatarIdFromPayload(payload);
+	      var uploadedAvatarId = extractAvatarIdFromPayload(payload);
       if(!uploadedUrl){
         throw new Error('No avatar_url returned from avatar upload response');
       }
@@ -8519,12 +8677,13 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     saveAvatarToStorage(resolved, resolvedThumb);
     saveAvatarGenderPreference(normalizeAvatarGender(avatarState.gender));
     incrementAvatarAttempts();
-    if(window.MM_USER){
-      window.MM_USER.avatar_url = resolved;
-      window.MM_USER.avatar_thumbnail_url = resolvedThumb;
-      if(config.avatarId) window.MM_USER.active_avatar_id = String(config.avatarId);
-      window.MM_USER.avatar_gender = normalizeAvatarGender(avatarState.gender);
-    }
+	    updateMMUserAvatarObject({
+	      id: String(config.avatarId || ArenaUser.activeAvatarId || '').trim(),
+	      avatar_url: resolved,
+	      thumbnail_url: resolvedThumb,
+	      gender: normalizeAvatarGender(avatarState.gender)
+	    });
+	    if(window.MM_USER) window.MM_USER.avatar_gender = normalizeAvatarGender(avatarState.gender);
     ArenaUser.activeAvatarId = String(config.avatarId || ArenaUser.activeAvatarId || '').trim();
     ArenaUser.activeAvatarThumb = resolvedThumb;
     resolveUserAvatarUrl();
@@ -8710,13 +8869,17 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
     var avatarCount = Array.isArray(avatarLockerRecords) ? avatarLockerRecords.length : 0;
     var active = getActiveAvatarRecord();
-    if(avatarCount > 0){
-      meta.textContent = avatarCount + (avatarCount === 1 ? ' avatar saved' : ' avatars saved') + ' · Active ready';
-      meta.classList.add('is-member');
-    } else {
-      meta.textContent = 'No avatars saved yet';
-      meta.classList.remove('is-member');
-    }
+	    if(avatarCount > 0){
+	      meta.textContent = avatarCount + (avatarCount === 1 ? ' avatar saved' : ' avatars saved') + ' · Active ready';
+	      meta.classList.add('is-member');
+	    } else {
+	      meta.textContent = 'No avatars saved yet';
+	      meta.classList.remove('is-member');
+	    }
+	    var featureCta = document.getElementById('arenaAvatarFeatureCta');
+	    if(featureCta){
+	      featureCta.textContent = avatarCount > 0 ? 'Open Locker' : 'Create Avatar';
+	    }
 
     if(previewWrap && previewImg){
       var previewUrl = active && active.thumbnail_url ? active.thumbnail_url : getAvatarFeaturePreviewUrl();
@@ -8814,6 +8977,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   async function uploadArenaAvatar(file){
     if(!file) throw new Error('No file');
     if(!lockAvatarRequestLock()) throw new Error('Duplicate avatar request blocked');
+    file = normalizeAvatarUploadInput(file, 'uploadArenaAvatar_entry') || file;
 
     try{
       setAvatarStep('generating');
@@ -9155,9 +9319,24 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   var arenaCenterAvatarCta = document.getElementById('arenaCenterAvatarCta');
   var avatarGenderToggle = document.getElementById('arenaAvatarGenderToggle');
 
-  function onAvatarClick(){
-    openArenaAvatarModal();
-  }
+	  function onAvatarClick(){
+	    openArenaAvatarModal();
+	  }
+	  function openAvatarFeatureAction(){
+	    var avatarCount = Array.isArray(avatarLockerRecords) ? avatarLockerRecords.length : 0;
+	    if(avatarCount > 0 && typeof openCharacterScreen === 'function'){
+	      console.log('[AVATAR_LOCKER_OPEN_CLICK]', {
+	        user_id: String((ArenaUser && ArenaUser.id) || ''),
+	        avatar_count: avatarCount
+	      });
+	      Promise.resolve(openCharacterScreen()).catch(function(lockerErr){
+	        console.error('[AVATAR_LOCKER_OPEN_FAILED]', lockerErr);
+	        openArenaAvatarModal();
+	      });
+	      return;
+	    }
+	    openArenaAvatarModal();
+	  }
   if(navAvatarEl){
     navAvatarEl.addEventListener('click', onAvatarClick);
     navAvatarEl.addEventListener('keydown', function(e){
@@ -9172,9 +9351,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       setAvatarResult(null);
       if(avatarModal && !avatarModal.classList.contains('visible')) openArenaAvatarModal();
       setAvatarModalStatus('Optimizing photo for fast generation...', '');
-      var selectedFile = file;
+      var selectedFile = normalizeAvatarUploadInput(file, 'file_input_change') || file;
       try{
-        var processed = await preprocessAvatarFile(file);
+        var processed = await preprocessAvatarFile(selectedFile);
         selectedFile = processed.file;
         setAvatarModalStatus(
           'Photo optimized to ' + processed.width + 'x' + processed.height + ' (' + formatAvatarFileSize(processed.size) + '). Confirm if this looks good.',
@@ -9182,30 +9361,31 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         );
       } catch(preprocessErr){
         console.warn('[AVATAR_PREPROCESS_FAILED_USING_SOURCE]', preprocessErr);
+        selectedFile = normalizeAvatarUploadInput(file, 'file_input_fallback') || file;
         setAvatarModalStatus('Photo loaded. Confirm if this looks good.', '');
       }
       setPendingAvatarFile(selectedFile);
       setAvatarStep('preview');
     });
   }
-  if(avatarFeatureCard){
-    avatarFeatureCard.addEventListener('click', function(){
-      openArenaAvatarModal();
-    });
-    avatarFeatureCard.addEventListener('keydown', function(e){
-      if(e.key === 'Enter' || e.key === ' '){
-        e.preventDefault();
-        openArenaAvatarModal();
-      }
-    });
-  }
-  if(avatarFeatureCta){
-    avatarFeatureCta.addEventListener('click', function(e){
-      e.preventDefault();
-      e.stopPropagation();
-      openArenaAvatarModal();
-    });
-  }
+	  if(avatarFeatureCard){
+	    avatarFeatureCard.addEventListener('click', function(){
+	      openAvatarFeatureAction();
+	    });
+	    avatarFeatureCard.addEventListener('keydown', function(e){
+	      if(e.key === 'Enter' || e.key === ' '){
+	        e.preventDefault();
+	        openAvatarFeatureAction();
+	      }
+	    });
+	  }
+	  if(avatarFeatureCta){
+	    avatarFeatureCta.addEventListener('click', function(e){
+	      e.preventDefault();
+	      e.stopPropagation();
+	      openAvatarFeatureAction();
+	    });
+	  }
   if(arenaCenterAvatarCta){
     arenaCenterAvatarCta.addEventListener('click', function(e){
       e.preventDefault();
@@ -11987,6 +12167,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   var charPrevStyle = document.getElementById('charPreviewStyle');
   var avatarUploadBtn = document.getElementById('avatarUploadBtn');
   var charSelected  = null;
+  var avatarLockerUiState = {
+    selected_avatar_id: '',
+    active_avatar_id: ''
+  };
+  window.ARENA_AVATAR_LOCKER_STATE = avatarLockerUiState;
   if(avatarUploadBtn){
     avatarUploadBtn.onclick = function(){
       console.log('[POSSIBLE TRIGGER]', 'avatarUploadBtn click -> triggerAvatarUpload(character_screen)');
@@ -12021,45 +12206,55 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     charPrevName.textContent = item && item.name ? item.name : 'No Avatar';
     charPrevStyle.textContent = item && item.style ? item.style : 'Upload a photo to create your first avatar';
   }
+  function syncCharacterGridSelection(){
+    if(!charGrid) return;
+    charGrid.querySelectorAll('.char-card[data-char-id]').forEach(function(tile){
+      var id = String(tile.getAttribute('data-char-id') || '').trim();
+      var isPreview = !!avatarLockerUiState.selected_avatar_id && id === avatarLockerUiState.selected_avatar_id;
+      var isActive = !!avatarLockerUiState.active_avatar_id && id === avatarLockerUiState.active_avatar_id;
+      tile.classList.toggle('selected', isPreview);
+      tile.classList.toggle('preview-avatar', isPreview);
+      tile.classList.toggle('active-avatar', isActive);
+    });
+  }
 
   function buildCharGrid(){
     charGrid.innerHTML = '';
     var lockerChars = getLockerCharacters();
+    var activeChar = lockerChars.find(function(item){ return item.isActive; }) || null;
+    avatarLockerUiState.active_avatar_id = activeChar && activeChar.id ? String(activeChar.id) : '';
+    if(!avatarLockerUiState.selected_avatar_id || !lockerChars.some(function(item){ return item.id === avatarLockerUiState.selected_avatar_id; })){
+      avatarLockerUiState.selected_avatar_id = avatarLockerUiState.active_avatar_id;
+    }
     lockerChars.forEach(function(ch){
       var card = document.createElement('div');
-      card.className = 'char-card' + (ch.isActive ? ' selected' : '');
-      card.dataset.charId = ch.id;
-      card.innerHTML = '<img class="char-card-img" src="' + ch.thumb + '" alt="' + ch.name + '" onerror="this.style.display=\'none\'">';
-      card.addEventListener('click', async function(){
-        if(!isUuid(ch.id)){
-          showToast('Invalid avatar selection. Please retry.', 'error');
-          return;
-        }
-        logAvatarSupabase(
-          'avatar.selection.ui_pick',
-          { user_id: String((ArenaUser && ArenaUser.id) || ''), avatar_id: ch.id, avatar_name: ch.name },
-          null,
-          null,
-          'warn'
-        );
-        try{
-          var committed = await persistActiveAvatarSelection(ch.id);
-          if(!committed){
-            showToast('Unable to save active avatar. Please retry.', 'error');
-            return;
-          }
-          await hydrateAvatarState({ force: true, source: 'character_tile_click' });
-          buildCharGrid();
-          var latestLocker = getLockerCharacters();
-          var latestActive = latestLocker.find(function(item){ return item.isActive; }) || null;
-          charSelected = latestActive;
-          applyCharacterPreview(latestActive);
-          showToast('Active avatar updated!', 'success');
-        } catch(tileSelectionErr){
-          console.error('[AVATAR_SELECTION_TILE_COMMIT_FAILED]', tileSelectionErr);
-          showToast('Unable to save active avatar. Please retry.', 'error');
-        }
-      });
+      var isPreview = !!avatarLockerUiState.selected_avatar_id && ch.id === avatarLockerUiState.selected_avatar_id;
+      card.className = 'char-card' + (ch.isActive ? ' active-avatar' : '') + (isPreview ? ' selected preview-avatar' : '');
+	      card.dataset.charId = ch.id;
+	      card.innerHTML = '<img class="char-card-img" src="' + ch.thumb + '" alt="' + ch.name + '" onerror="this.style.display=\'none\'">';
+	      card.addEventListener('click', function(){
+	        if(!isUuid(ch.id)){
+	          showToast('Invalid avatar selection. Please retry.', 'error');
+	          return;
+	        }
+	        logAvatarSupabase(
+	          'avatar.selection.ui_preview',
+	          { user_id: String((ArenaUser && ArenaUser.id) || ''), avatar_id: ch.id, avatar_name: ch.name },
+	          null,
+	          null,
+	          'warn'
+	        );
+	        charSelected = ch;
+	        avatarLockerUiState.selected_avatar_id = ch.id;
+	        syncCharacterGridSelection();
+	        applyCharacterPreview(ch);
+	        console.log('[AVATAR_PREVIEW_ONLY]', {
+	          user_id: String((ArenaUser && ArenaUser.id) || ''),
+	          selected_avatar_id: ch.id,
+	          active_avatar_id: avatarLockerUiState.active_avatar_id || ''
+	        });
+	        showToast('Preview selected. Click Set as Active Avatar to apply.', 'info');
+	      });
       charGrid.appendChild(card);
     });
 
@@ -12091,6 +12286,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       var lockerChars = getLockerCharacters();
       var activeChar = lockerChars.find(function(ch){ return ch.isActive; }) || lockerChars[0] || null;
       charSelected = activeChar;
+      avatarLockerUiState.active_avatar_id = activeChar && activeChar.isActive ? String(activeChar.id) : '';
+      avatarLockerUiState.selected_avatar_id = activeChar && activeChar.id ? String(activeChar.id) : '';
+      syncCharacterGridSelection();
       applyCharacterPreview(activeChar);
       charScreen.classList.add('visible');
     } catch(openErr){
@@ -12114,6 +12312,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         'warn'
       );
       try{
+        console.log('[AVATAR_APPLY_CONFIRMED]', {
+          user_id: String((ArenaUser && ArenaUser.id) || ''),
+          selected_avatar_id: charSelected.id,
+          previous_active_avatar_id: avatarLockerUiState.active_avatar_id || ''
+        });
         var saved = await persistActiveAvatarSelection(charSelected.id);
         if(!saved){
           showToast('Unable to save active avatar. Please retry.', 'error');
@@ -12129,6 +12332,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       var refreshedLocker = getLockerCharacters();
       var refreshedActive = refreshedLocker.find(function(ch){ return ch.isActive; }) || null;
       charSelected = refreshedActive;
+      avatarLockerUiState.active_avatar_id = refreshedActive && refreshedActive.id ? String(refreshedActive.id) : '';
+      avatarLockerUiState.selected_avatar_id = avatarLockerUiState.active_avatar_id;
+      syncCharacterGridSelection();
       applyCharacterPreview(refreshedActive);
       showToast('Active avatar updated!', 'success');
     } else {
@@ -12211,9 +12417,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return null;
   }
 
-  function _renderAvatarInto(el, url){
-    if(!el || !url) return;
-    /* Hide placeholder silhouette */
+	  function _renderAvatarInto(el, url){
+	    if(!el || !url || !window.MM_USER || !window.MM_USER.avatar) return;
+	    /* Hide placeholder silhouette */
     var ph = el.querySelector('.avatar-placeholder') || document.getElementById('avatarPlaceholder');
     if(ph) ph.classList.add('hidden');
     /* DRL-UI/UX-731: Single render via background-image only (removes duplicate <img> overlay) */
@@ -12260,32 +12466,32 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     });
   }
 
-  window.setAvatar = function(url){
-    console.log('[SET_AVATAR_CALLED]', url);
-    var requestedUrl = (url || '').trim();
-    _lastAvatarUrl = requestedUrl;
-    _avatarReinjectCount = 0;
-    _avatarRenderToken += 1;
-    var renderToken = _avatarRenderToken;
+	  window.setAvatar = function(url){
+	    console.log('[SET_AVATAR_CALLED]', url);
+	    var requestedUrl = (url || '').trim();
+	    if(!requestedUrl || !window.MM_USER || !window.MM_USER.avatar || !isValidAvatarRenderUrl(requestedUrl)){
+	      clearCenterpieceAvatarRender(!requestedUrl ? 'empty_url' : 'invalid_or_pre_hydration_url');
+	      _lastAvatarUrl = '';
+	      _avatarReinjectCount = 0;
+	      _avatarRenderToken += 1;
+	      if(_avatarObserver){ _avatarObserver.disconnect(); _avatarObserver = null; }
+	      if(_avatarFallbackEl){ _avatarFallbackEl.style.display = 'none'; }
+	      return;
+	    }
+	    requestedUrl = getCenterpieceAvatarUrl(requestedUrl);
+	    if(!requestedUrl){
+	      clearCenterpieceAvatarRender('no_canonical_mm_user_avatar');
+	      return;
+	    }
+	    _lastAvatarUrl = requestedUrl;
+	    _avatarReinjectCount = 0;
+	    _avatarRenderToken += 1;
+	    var renderToken = _avatarRenderToken;
     /* Clear state */
     if(_avatarObserver){ _avatarObserver.disconnect(); _avatarObserver = null; }
     if(_avatarFallbackEl){ _avatarFallbackEl.style.display = 'none'; }
 
-    if(!requestedUrl){
-      var clearEl = _findAvatarTarget();
-      if(clearEl){
-        clearEl.style.backgroundImage = '';
-        clearEl.removeAttribute('data-avatar-url');
-        var ph = clearEl.querySelector('.avatar-placeholder') || document.getElementById('avatarPlaceholder');
-        if(ph) ph.classList.remove('hidden');
-        clearEl.classList.remove('arena-avatar-reveal');
-        var stage = document.getElementById('arena-character-stage');
-        if(stage) stage.classList.remove('avatar-loaded');
-      }
-      return;
-    }
-
-    var target = _findAvatarTarget();
+	    var target = _findAvatarTarget();
     if(target){
       _applyAvatarValidated(target, requestedUrl, renderToken);
       /* DRL-UI/UX-731: MutationObserver checks background-image (single render, no <img> child) */
@@ -12368,14 +12574,20 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     /* AVATAR-DOM-DIAGNOSE-AND-FIX-005: Render avatar after brief DOM settle delay */
     setTimeout(function(){
       var initAvatarUrl = getCenterpieceAvatarUrl(_userAvatarUrl || ArenaUser.arenaAvatarFull || '');
-      if(typeof syncCenterpieceAvatarState === 'function'){
-        syncCenterpieceAvatarState(initAvatarUrl);
-      } else {
-        window.setAvatar(initAvatarUrl || null);
-      }
-      console.log('[AVATAR_LOBBY_RENDERED]', initAvatarUrl || 'placeholder');
-    }, 500);
-  }
+	      if(typeof syncCenterpieceAvatarState === 'function'){
+	        syncCenterpieceAvatarState(initAvatarUrl);
+	      } else {
+	        window.setAvatar(initAvatarUrl || null);
+	      }
+	      console.log('[AVATAR_LOBBY_RENDER]', {
+	        user_id: String((ArenaUser && ArenaUser.id) || ''),
+	        active_avatar_id: String((window.MM_USER && window.MM_USER.active_avatar_id) || ArenaUser.activeAvatarId || ''),
+	        avatar_url: initAvatarUrl || '',
+	        source: window.MM_USER && window.MM_USER.avatar ? 'MM_USER.avatar' : 'empty'
+	      });
+	      console.log('[AVATAR_LOBBY_RENDERED]', initAvatarUrl || 'placeholder');
+	    }, 500);
+	  }
 
   function initLobbyCore(){
     var pc = document.getElementById('bgParticles');
@@ -12797,13 +13009,6 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
 })();
 </script>
-
-<!-- AVATAR-DOM-DIAGNOSE-AND-FIX-005: Test button — remove after verified in production -->
-<button
-  onclick="window.setAvatar('https://missionmedinstitute.com/wp-content/uploads/2026/04/avatar_drbrian.png')"
-  style="position:fixed;bottom:20px;right:20px;z-index:99999;background:#F5C518;color:#000;font-weight:bold;font-size:14px;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,0.5);">
-  TEST AVATAR
-</button>
 
 <!-- ====================================================================
      START GAUNTLET UI :: JS WIRING
@@ -13257,6 +13462,21 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     var mode = String(arenaGameState.selectedMode || '').toLowerCase();
     return mode === 'qstat' ? 'stat' : mode;
   }
+  function normalizeArenaMode(mode){
+    var safe = String(mode || '').trim().toLowerCase();
+    if(safe === 'qstat') return 'stat';
+    if(safe === 'drills') return 'daily_rounds';
+    if(safe === 'iv-on-call' || safe === 'ivoncall') return 'iv_on_call';
+    return safe;
+  }
+  function resolveSelectedModeFromDom(){
+    var active = document.querySelector('#fnCarouselTrack .fn-mode-card.arena-mode-active[data-arena-mode], #fnCarouselTrack .fn-mode-card.active[data-arena-mode], #fnCarouselTrack .fn-mode-card.playable.active[data-arena-mode]');
+    if(!active) return '';
+    return normalizeArenaMode(active.getAttribute('data-arena-mode') || active.getAttribute('data-mode-key') || '');
+  }
+  function getResolvedSelectedMode(){
+    return normalizeArenaMode(arenaGameState.selectedMode || resolveSelectedModeFromDom());
+  }
 
   // ---------------------------------------------------------------------
   // 1) PERSISTENT TOP NAV: reparent .top-nav.fn-top-nav to body so it
@@ -13490,8 +13710,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   function setSelectedMode(mode, activeCard){
-    var selectedMode = String(mode || '').toLowerCase();
-    if(selectedMode === 'qstat') selectedMode = 'stat';
+    var selectedMode = normalizeArenaMode(mode);
     arenaGameState.selectedMode = selectedMode || null;
     if(activeCard) applyModeTileSelection(activeCard);
     syncLegacyModeSelection(arenaGameState.selectedMode);
@@ -13532,7 +13751,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   function updatePlayButtonState(){
     var btn = document.getElementById('lus-play-btn');
     if(!btn) return;
-    if(!arenaGameState.selectedMode){
+    var resolvedMode = getResolvedSelectedMode();
+    if(resolvedMode && !arenaGameState.selectedMode){
+      arenaGameState.selectedMode = resolvedMode;
+    }
+    if(!resolvedMode){
       btn.disabled = true;
       btn.setAttribute('aria-disabled','true');
       return;
@@ -13829,6 +14052,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(!btn){ console.warn('[TRACE] wirePlayButton: #lus-play-btn NOT FOUND'); return; }
     console.log('[TRACE] wirePlayButton: wiring click handler on #lus-play-btn');
     btn.addEventListener('click', async function(event){
+      updatePlayButtonState();
       if(btn.disabled){
         console.log('[TRACE] wirePlayButton: btn.disabled=true, ignoring click');
         return;
@@ -13841,7 +14065,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         timestamp: Date.now()
       });
       log('PLAY clicked, mode=', arenaGameState.selectedMode);
-      const mode = String(arenaGameState.selectedMode || '').toLowerCase();
+      const mode = getResolvedSelectedMode();
       console.log('[STAT PLAY CLICK]', mode);
       if(!mode){
         showLockedToast('Select a mode first');
@@ -13858,6 +14082,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         return;
       }
       if(mode === 'stat'){
+        console.log('[STAT_PLAY_CLICK_WORKING]', {
+          selectedMode: mode,
+          btnDisabled: !!btn.disabled,
+          route: STAT_CANONICAL_ROUTE
+        });
         launchSTAT();
         return;
       }
@@ -14777,20 +15006,20 @@ body.llf-ready .llf-play-box #lus-play-btn{
 
 /* ---- Responsive ---------------------------------------------------- */
 @media (max-width:1200px){
-  .llf-play-box{left:32px;bottom:152px;min-width:280px}
-  .llf-play-title{font-size:26px}
-  .llf-play-desc{max-width:280px;font-size:16px}
-  .llf-play-box #lus-play-btn{min-width:280px !important;height:68px !important;font-size:22px !important}
+  .llf-play-box{left:28px;bottom:244px;min-width:190px}
+  .llf-play-title{font-size:18px}
+  .llf-play-desc{max-width:190px;font-size:12px}
+  .llf-play-box #lus-play-btn{min-width:0 !important;height:48px !important;font-size:16px !important}
   #llf-audio-panel{right:18px;bottom:160px}
   .llf-fs-btn{width:42px;height:42px;font-size:20px}
 }
 @media (max-width:900px){
-  .llf-play-box{left:20px;bottom:150px;min-width:240px;gap:8px}
-  .llf-play-title{font-size:22px;letter-spacing:1.6px}
-  .llf-play-subtitle{font-size:11px}
-  .llf-play-desc{max-width:240px;font-size:15px}
-  .llf-play-selector{height:36px;font-size:10px;padding:0 14px}
-  .llf-play-box #lus-play-btn{min-width:240px !important;height:58px !important;font-size:18px !important;letter-spacing:4px !important}
+  .llf-play-box{left:16px;bottom:222px;min-width:180px;gap:5px}
+  .llf-play-title{font-size:17px;letter-spacing:1.2px}
+  .llf-play-subtitle{font-size:9px}
+  .llf-play-desc{max-width:180px;font-size:12px}
+  .llf-play-selector{height:30px;font-size:9px;padding:0 10px}
+  .llf-play-box #lus-play-btn{min-width:0 !important;height:44px !important;font-size:15px !important;letter-spacing:2.4px !important}
   .llf-audio-btn{min-width:40px;height:30px;font-size:9px;padding:0 8px}
   #llf-audio-panel{right:12px;bottom:150px;padding:6px 8px;gap:4px}
 }
@@ -17371,11 +17600,11 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     },
     afterInit: function(OS){
       if (!OS.state.hasEnteredArena) return;
-      function bootstrapLobby(){
-        try{ if (typeof window.initLobbyCore === 'function') window.initLobbyCore(); }catch(_){}
-        try{ if (typeof window.setTeamBlue === 'function') window.setTeamBlue(); }catch(_){}
-        try{ if (typeof window.setAvatar === 'function') window.setAvatar('default'); }catch(_){}
-        var entry = document.getElementById('arena-entry');
+	      function bootstrapLobby(){
+	        try{ if (typeof window.initLobbyCore === 'function') window.initLobbyCore(); }catch(_){}
+	        try{ if (typeof window.setTeamBlue === 'function') window.setTeamBlue(); }catch(_){}
+	        try{ if (typeof window.syncCenterpieceAvatarState === 'function') window.syncCenterpieceAvatarState(''); }catch(_){}
+	        var entry = document.getElementById('arena-entry');
         if (entry){ entry.classList.add('hidden'); entry.classList.remove('visible'); }
         var lobby = document.getElementById('arena-lobby-root');
         if (lobby){ lobby.classList.add('active'); lobby.style.visibility = 'visible'; }
@@ -17615,7 +17844,144 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     transform:translateX(-50%) scale(.76) !important;
   }
 }
+
+/* E9-918: one floor-anchored avatar stage. The wrapper scales the whole
+   trio together, while every avatar remains bottom anchored to the platform. */
+#arenaAvatarStageAnchor{
+  --arena-stage-scale:.94;
+  position:fixed;
+  left:50%;
+  bottom:76px;
+  width:1040px;
+  height:500px;
+  transform:translateX(-50%) scale(var(--arena-stage-scale));
+  transform-origin:bottom center;
+  z-index:6;
+  pointer-events:none;
+}
+body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .25s ease;
+}
+#arenaAvatarStageAnchor #arena-character-stage,
+#arenaAvatarStageAnchor #fnSquadCenter,
+#arenaAvatarStageAnchor #fnSquadPhil{
+  position:absolute !important;
+  top:auto !important;
+  bottom:0 !important;
+  transform-origin:bottom center !important;
+  max-height:none !important;
+  animation:none !important;
+}
+#arenaAvatarStageAnchor #arena-character-stage{
+  left:50% !important;
+  width:340px !important;
+  height:460px !important;
+  transform:translateX(-50%) scale(1.28) !important;
+  z-index:8 !important;
+  opacity:1 !important;
+  filter:drop-shadow(0 20px 38px rgba(0,0,0,.62)) drop-shadow(0 0 22px rgba(0,191,255,.32)) !important;
+}
+#arenaAvatarStageAnchor #arena-character-stage::before{
+  bottom:42px !important;
+}
+#arenaAvatarStageAnchor #arena-character-stage::after{
+  bottom:58px !important;
+  z-index:12 !important;
+}
+#arenaAvatarStageAnchor #arena-avatar{
+  width:200px !important;
+  height:360px !important;
+  transform-origin:bottom center !important;
+}
+#arenaAvatarStageAnchor #arena-character-stage .platform{
+  width:280px !important;
+  height:32px !important;
+}
+#arenaAvatarStageAnchor #fnSquadPhil{
+  left:20% !important;
+  width:300px !important;
+  transform:translateX(-50%) scale(1) !important;
+  z-index:4 !important;
+  opacity:.9 !important;
+}
+#arenaAvatarStageAnchor #fnSquadCenter{
+  left:80% !important;
+  width:300px !important;
+  transform:translateX(-50%) scale(1) !important;
+  z-index:4 !important;
+  opacity:.9 !important;
+}
+#arenaAvatarStageAnchor #fnSquadCenter .fn-squad-avatar,
+#arenaAvatarStageAnchor #fnSquadPhil .fn-squad-avatar{
+  width:180px !important;
+  height:320px !important;
+}
+#arenaAvatarStageAnchor #fnSquadCenter .fn-squad-platform,
+#arenaAvatarStageAnchor #fnSquadPhil .fn-squad-platform{
+  width:235px !important;
+}
+#arenaAvatarStageAnchor #arenaCenterAvatarCta{
+  top:110px !important;
+}
+@media(max-width:900px){
+  #arenaAvatarStageAnchor{
+    bottom:82px;
+  }
+}
+
+/* E9-918: all lobby mode cards are explicit 16:9 surfaces. */
+#fnCarouselTrack .fn-mode-card,
+.fn-mode-card{
+  aspect-ratio:16 / 9 !important;
+  height:auto !important;
+}
+#fnCarouselTrack .fn-mode-card .mode-bg,
+#fnCarouselTrack .fn-mode-card img.mode-bg,
+.fn-mode-card .fn-card-bg,
+.mode-card-bg.fn-card-bg{
+  width:100% !important;
+  height:100% !important;
+  object-fit:cover !important;
+  background-size:cover !important;
+  background-position:center center !important;
+}
+
+.char-card.active-avatar{
+  border-color:rgba(255,224,102,.92);
+  box-shadow:0 0 18px rgba(255,224,102,.36),0 4px 16px rgba(0,0,0,.35);
+}
+.char-card.preview-avatar{
+  border-color:var(--accent-cyan);
+  box-shadow:0 0 24px rgba(0,229,255,.4),0 0 40px rgba(0,229,255,.15),0 4px 16px rgba(0,0,0,.3);
+}
 </style>
+
+<script nonce="Mzg5NDAwMzc2OCw0MjYyOTM4OA==">
+(function(){
+  'use strict';
+  function syncArenaAvatarStageScale(){
+    var stage = document.getElementById('arenaAvatarStageAnchor');
+    if(!stage) return;
+    var viewportW = Math.max(320, window.innerWidth || document.documentElement.clientWidth || 1024);
+    var viewportH = Math.max(420, window.innerHeight || document.documentElement.clientHeight || 720);
+    var widthScale = Math.min(1, (viewportW - 32) / 1040);
+    var heightScale = Math.min(1, (viewportH - 178) / 500);
+    var scale = Math.max(0.58, Math.min(widthScale, heightScale));
+    stage.style.setProperty('--arena-stage-scale', scale.toFixed(3));
+  }
+  window.syncArenaAvatarStageScale = syncArenaAvatarStageScale;
+  window.addEventListener('resize', syncArenaAvatarStageScale, { passive:true });
+  window.addEventListener('orientationchange', function(){ setTimeout(syncArenaAvatarStageScale, 80); }, { passive:true });
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', syncArenaAvatarStageScale, { once:true });
+  } else {
+    syncArenaAvatarStageScale();
+  }
+  setTimeout(syncArenaAvatarStageScale, 350);
+})();
+</script>
 
 <style id="mmos-unified-topbar-arena">
 /* Unified control ownership in Arena top nav */
@@ -18043,9 +18409,9 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
 @media (max-width: 900px) {
   #llf-play-box {
     left: 16px;
-    right: 16px;
-    width: auto;
-    bottom: 126px;
+    right: auto;
+    width: min(190px, calc(100vw - 32px));
+    bottom: 232px;
   }
 }
 </style>
@@ -18642,6 +19008,20 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     cursor: pointer;
     box-shadow: 0 6px 16px rgba(0,0,0,.45), 0 0 14px rgba(0,191,255,.18);
     transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+    overflow: hidden;
+  }
+
+  .h4-arena-auth-circle.has-avatar {
+    padding: 0;
+    background: rgba(8,18,34,.92);
+    border-color: rgba(0,191,255,.72);
+  }
+
+  .h4-arena-auth-circle.has-avatar img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
   }
 
   .h4-arena-auth-circle:hover,
@@ -18795,7 +19175,7 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     if (!user) return 'out';
     var id = user.id || user.wp_user_id || '';
     var name = user.username || user.user_login || user.slug || user.email || '';
-    return 'in|' + String(id) + '|' + String(name);
+    return 'in|' + String(id) + '|' + String(name) + '|avatar:' + getAuthAvatarUrl(user);
   }
 
   function getInitial(user){
@@ -18803,6 +19183,20 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     var match = String(seed).trim().match(/[A-Za-z0-9]/);
     return match ? match[0].toUpperCase() : 'U';
   }
+
+  function escapeAuthHtml(value){
+    return String(value || '').replace(/[&<>"']/g, function(ch){
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+    });
+  }
+
+	  function getAuthAvatarUrl(user){
+	    var mmUser = window.MM_USER && typeof window.MM_USER === 'object' ? window.MM_USER : null;
+	    var mmAvatar = mmUser && mmUser.avatar && typeof mmUser.avatar === 'object' ? mmUser.avatar : null;
+	    if(!mmAvatar) return '';
+	    var candidate = mmAvatar.thumbnail_url || mmAvatar.avatar_url || '';
+	    return String(candidate || '').trim();
+	  }
 
   function setMenuOpen(profile, trigger, nextOpen){
     if (!profile || !trigger) return;
@@ -18847,9 +19241,14 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
 
   function buildAuthedUi(root, user){
     var initial = getInitial(user);
+    var avatarUrl = getAuthAvatarUrl(user);
+    var triggerClass = 'h4-arena-auth-circle' + (avatarUrl ? ' has-avatar' : '');
+    var triggerContent = avatarUrl
+      ? '<img src="' + escapeAuthHtml(avatarUrl) + '" alt="Arena avatar">'
+      : escapeAuthHtml(initial);
     root.innerHTML = ''
       + '<div class="h4-arena-auth-profile" id="h4ArenaAuthProfile">'
-      + '  <button type="button" class="h4-arena-auth-circle" aria-label="Open account menu" aria-expanded="false">' + initial + '</button>'
+      + '  <button type="button" class="' + triggerClass + '" aria-label="Open account menu" aria-expanded="false">' + triggerContent + '</button>'
       + '  <div class="h4-arena-auth-menu">'
       + '    <a href="' + LOGOUT_URL + '" data-action="arena-logout">Logout</a>'
       + '  </div>'
@@ -18858,6 +19257,18 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
     var profile = root.querySelector('#h4ArenaAuthProfile');
     var trigger = profile ? profile.querySelector('.h4-arena-auth-circle') : null;
     if (!profile || !trigger) return;
+
+    var avatarImg = trigger.querySelector('img');
+    if (avatarImg) {
+      avatarImg.addEventListener('error', function(){
+        trigger.classList.remove('has-avatar');
+        trigger.textContent = initial;
+      });
+      console.log('[AVATAR_TOP_RIGHT_APPLIED]', {
+        avatar_url: avatarUrl,
+        active_avatar_id: String((window.MM_USER && window.MM_USER.active_avatar_id) || '')
+      });
+    }
 
     bindGlobalCloseHandlers();
 
@@ -19625,5 +20036,394 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
 </script>
 <!-- END MMOS-CAREER-HUD-INTEGRATION-532 -->
 
+<!-- ====================================================================
+     START ARENA RESPONSIVE STAGE COMPOSITION UPGRADE 900F
+     Prompt: (E9)-STAT-FINAL-codex-extra-high-900-f
+     Purpose: Treat Arena lobby as responsive game-stage zones so desktop
+       resizing keeps nav, avatars, selected/play panel, right HUD, profile,
+       currency, and bottom carousel in stable relative positions.
+     Reversibility: delete this block to restore the prior lobby layout layer.
+     ==================================================================== -->
+<style id="arena-responsive-stage-composition-900f">
+:root{
+  --arena-nav-height:64px;
+  --arena-edge-x:clamp(18px,3vw,48px);
+  --arena-carousel-height:clamp(184px,21vh,220px);
+  --arena-carousel-gap:clamp(8px,1.25vh,18px);
+  --arena-stage-bottom:calc(var(--arena-carousel-height) + var(--arena-carousel-gap));
+  --arena-side-avatar-height:clamp(340px,47vh,430px);
+  --arena-user-avatar-height:calc(var(--arena-side-avatar-height) * 1.25);
+  --arena-side-avatar-width:calc(var(--arena-side-avatar-height) * .56);
+  --arena-user-avatar-width:calc(var(--arena-user-avatar-height) * .56);
+  --arena-side-offset:clamp(270px,28vw,440px);
+  --arena-mode-card-width:clamp(260px,22vw,320px);
+  --arena-mode-card-height:calc(var(--arena-mode-card-width) * .5625);
+  --arena-hud-width:clamp(260px,22vw,330px);
+  --arena-play-panel-width:clamp(198px,15vw,230px);
+}
+
+#arena-root,
+#arena-lobby-root,
+#arena-ui{
+  min-height:100dvh;
+  height:100dvh;
+  overflow:hidden !important;
+}
+
+#arenaCommunityBackdrop{
+  inset:var(--arena-nav-height) 0 var(--arena-carousel-height) 0 !important;
+}
+
+/* Current Arena owner has an avatar-stage wrapper; keep the DOM but remove its transform containing block so 900F fixed positioning remains viewport-relative. */
+#arenaAvatarStageAnchor{
+  position:static !important;
+  left:auto !important;
+  bottom:auto !important;
+  width:auto !important;
+  height:auto !important;
+  transform:none !important;
+  z-index:auto !important;
+  pointer-events:none !important;
+}
+
+.top-nav.fn-top-nav{
+  height:var(--arena-nav-height) !important;
+  padding-inline:var(--arena-edge-x) !important;
+}
+.top-nav.fn-top-nav .nav-right{
+  margin-left:auto !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:flex-end !important;
+  gap:clamp(8px,1vw,14px) !important;
+}
+.top-nav.fn-top-nav #navLevel{display:none !important}
+.top-nav.fn-top-nav .fn-profile-wrap{
+  order:90;
+  flex:0 0 auto;
+}
+.top-nav.fn-top-nav .fn-profile-avatar{
+  width:clamp(38px,3vw,48px) !important;
+  height:clamp(38px,3vw,48px) !important;
+}
+
+/* Lobby panel removal only: avatar modal/profile/locker logic stays intact. */
+body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
+#arenaAvatarFeatureCard{
+  display:none !important;
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+
+/* Right-side HUD now owns level, XP, streak, last-match, and currency. */
+#alu-progress{
+  position:fixed !important;
+  top:calc(var(--arena-nav-height) + clamp(14px,2vh,28px)) !important;
+  right:var(--arena-edge-x) !important;
+  bottom:auto !important;
+  left:auto !important;
+  width:var(--arena-hud-width) !important;
+  max-width:calc(100vw - (var(--arena-edge-x) * 2)) !important;
+  z-index:88 !important;
+  gap:8px !important;
+  padding:clamp(10px,1.15vw,15px) clamp(12px,1.3vw,17px) !important;
+}
+#arenaHudCurrencySlot{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  min-height:32px;
+  margin-bottom:2px;
+}
+#arenaHudCurrencySlot .fn-currency.nav-xp{
+  display:inline-flex !important;
+  align-items:center !important;
+  gap:8px !important;
+  min-height:32px !important;
+  padding:4px 10px 4px 5px !important;
+  border-radius:999px !important;
+  background:linear-gradient(180deg,rgba(14,36,24,.95) 0%,rgba(8,22,14,.98) 100%) !important;
+  border:1.5px solid rgba(42,210,110,.58) !important;
+  box-shadow:0 4px 14px rgba(0,0,0,.45),0 0 18px rgba(42,210,110,.22) !important;
+  color:#E8FFEE !important;
+}
+#arenaHudCurrencySlot .fn-currency-icon{
+  display:inline-flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  width:24px !important;
+  height:24px !important;
+  border-radius:50% !important;
+  background:radial-gradient(circle at 32% 30%,#5CFFA0 0%,#1FB463 48%,#0A6E3B 100%) !important;
+  border:1.5px solid #8DFFBA !important;
+  color:#05200F !important;
+  font-family:'Orbitron',sans-serif !important;
+  font-size:12px !important;
+  font-weight:900 !important;
+  line-height:1 !important;
+}
+#arenaHudCurrencySlot .fn-currency-value{
+  color:#C8FFD9 !important;
+  font-family:'Orbitron',sans-serif !important;
+  font-size:13px !important;
+  font-weight:800 !important;
+}
+#alu-progress .alu-last{
+  margin-top:0 !important;
+}
+
+/* Left selected-mode/play panel stays compact and inside its own stage zone. */
+#llf-play-box{
+  position:fixed !important;
+  left:var(--arena-edge-x) !important;
+  bottom:calc(var(--arena-carousel-height) + clamp(18px,3vh,42px)) !important;
+  width:var(--arena-play-panel-width) !important;
+  min-width:0 !important;
+  min-height:clamp(132px,17vh,160px) !important;
+  max-height:calc(100dvh - var(--arena-nav-height) - var(--arena-carousel-height) - 44px) !important;
+  z-index:86 !important;
+}
+#llf-play-box .llf-play-title{font-size:clamp(15px,1.5vw,18px) !important}
+#llf-play-box .llf-play-desc{
+  max-width:100% !important;
+  font-size:clamp(11px,1.05vw,13px) !important;
+}
+#llf-play-box #lus-play-btn{
+  height:clamp(44px,6vh,54px) !important;
+  font-size:clamp(15px,1.45vw,18px) !important;
+}
+
+/* Avatar stage: side mentors equal, user avatar exactly 25% taller. */
+#arena-character-stage{
+  position:fixed !important;
+  left:50% !important;
+  bottom:var(--arena-stage-bottom) !important;
+  width:var(--arena-user-avatar-width) !important;
+  height:var(--arena-user-avatar-height) !important;
+  transform:translateX(-50%) !important;
+  transform-origin:center bottom !important;
+  z-index:8 !important;
+}
+#arena-avatar{
+  width:var(--arena-user-avatar-width) !important;
+  height:var(--arena-user-avatar-height) !important;
+  background-size:contain !important;
+  background-position:center bottom !important;
+}
+#arena-character-stage .platform{
+  width:calc(var(--arena-user-avatar-width) * 1.12) !important;
+}
+#arena-character-stage::before{
+  bottom:calc(var(--arena-user-avatar-height) * .08) !important;
+  width:calc(var(--arena-user-avatar-width) * 1.1) !important;
+  height:calc(var(--arena-user-avatar-width) * 1.1) !important;
+}
+#arena-character-stage::after{
+  bottom:calc(var(--arena-user-avatar-height) + 12px) !important;
+  top:auto !important;
+  z-index:12 !important;
+}
+#arenaCenterAvatarCta{
+  top:clamp(96px,22%,126px) !important;
+  bottom:auto !important;
+  z-index:13 !important;
+}
+#fnSquadPhil,
+#fnSquadCenter{
+  position:fixed !important;
+  bottom:var(--arena-stage-bottom) !important;
+  width:var(--arena-side-avatar-width) !important;
+  transform:translateX(-50%) !important;
+  transform-origin:center bottom !important;
+  z-index:6 !important;
+  opacity:.96 !important;
+}
+#fnSquadPhil{left:calc(50% - var(--arena-side-offset)) !important}
+#fnSquadCenter{left:calc(50% + var(--arena-side-offset)) !important}
+#fnSquadPhil .fn-squad-avatar,
+#fnSquadCenter .fn-squad-avatar{
+  width:var(--arena-side-avatar-width) !important;
+  height:var(--arena-side-avatar-height) !important;
+  background-size:contain !important;
+  background-position:center bottom !important;
+  filter:drop-shadow(0 10px 22px rgba(0,0,0,.55)) brightness(.94) saturate(.96) !important;
+}
+#fnSquadPhil .fn-squad-platform,
+#fnSquadCenter .fn-squad-platform{
+  width:calc(var(--arena-side-avatar-width) * 1.16) !important;
+}
+#fnSquadPhil .fn-squad-label,
+#fnSquadCenter .fn-squad-label{
+  top:auto !important;
+  bottom:calc(100% + 10px) !important;
+  z-index:12 !important;
+}
+
+/* Bottom carousel: protected zone, true 16:9 cards, bright unobstructed art. */
+.fn-carousel{
+  height:var(--arena-carousel-height) !important;
+  padding:0 max(44px,var(--arena-edge-x)) !important;
+  gap:clamp(12px,1.2vw,18px) !important;
+  z-index:72 !important;
+}
+.fn-carousel-track{
+  max-width:min(1440px,calc(100vw - (var(--arena-edge-x) * 2) - 88px)) !important;
+  gap:clamp(14px,1.3vw,20px) !important;
+  padding:clamp(12px,1.3vh,18px) 4px clamp(16px,1.8vh,22px) !important;
+}
+.fn-mode-card,
+.mode-card.fn-mode-card,
+#fnCarouselTrack .fn-mode-card,
+#fnCarouselTrack .fn-mode-card.iv-premium-card{
+  flex:0 0 var(--arena-mode-card-width) !important;
+  width:var(--arena-mode-card-width) !important;
+  min-width:var(--arena-mode-card-width) !important;
+  height:var(--arena-mode-card-height) !important;
+  aspect-ratio:16 / 9 !important;
+  border-radius:12px !important;
+  opacity:1 !important;
+  filter:none !important;
+}
+.fn-mode-card .fn-card-bg,
+.fn-mode-card .mode-card-bg,
+#fnCarouselTrack .fn-mode-card .mode-bg{
+  position:absolute !important;
+  inset:0 !important;
+  width:100% !important;
+  height:100% !important;
+  background-size:cover !important;
+  background-position:center center !important;
+  background-repeat:no-repeat !important;
+  object-fit:cover !important;
+  opacity:1 !important;
+  filter:none !important;
+  transform:none !important;
+}
+.fn-mode-card .fn-card-content,
+.fn-mode-card .mode-card-content,
+.fn-mode-card .fn-card-badge,
+.fn-mode-card .mode-card-lock,
+#fnCarouselTrack .fn-mode-card .mode-overlay,
+#fnCarouselTrack .fn-mode-card .iv-brand-badge,
+#fnCarouselTrack .fn-mode-card.playable .mode-overlay::after,
+#fnCarouselTrack .fn-mode-card.locked::before,
+#fnCarouselTrack .fn-mode-card.locked::after{
+  display:none !important;
+}
+#fnCarouselTrack .fn-mode-card.locked{
+  pointer-events:auto !important;
+  cursor:not-allowed !important;
+  opacity:1 !important;
+  filter:none !important;
+  animation:none !important;
+}
+#fnCarouselTrack .fn-mode-card.locked .mode-bg,
+#fnCarouselTrack .fn-mode-card.locked .fn-card-bg,
+#fnCarouselTrack .fn-mode-card.locked .mode-card-bg{
+  opacity:1 !important;
+  filter:none !important;
+}
+
+@media (max-width:1180px){
+  :root{
+    --arena-edge-x:clamp(16px,2.4vw,32px);
+    --arena-side-offset:clamp(238px,28vw,330px);
+    --arena-side-avatar-height:clamp(300px,43vh,380px);
+    --arena-mode-card-width:clamp(248px,25vw,300px);
+    --arena-hud-width:clamp(250px,26vw,300px);
+  }
+  #alu-progress .alu-last{display:none !important}
+}
+@media (max-width:980px){
+  :root{
+    --arena-carousel-height:clamp(170px,20vh,196px);
+    --arena-side-avatar-height:clamp(270px,39vh,330px);
+    --arena-side-offset:clamp(205px,27vw,270px);
+    --arena-mode-card-width:clamp(230px,29vw,276px);
+    --arena-play-panel-width:clamp(180px,22vw,210px);
+    --arena-hud-width:clamp(230px,30vw,270px);
+  }
+  #alu-progress{padding:10px 12px !important}
+  #alu-progress .alu-streak{display:none !important}
+  .top-nav.fn-top-nav .nav-username{display:none !important}
+}
+@media (max-height:760px){
+  :root{
+    --arena-carousel-height:180px;
+    --arena-side-avatar-height:clamp(270px,38vh,320px);
+    --arena-mode-card-width:clamp(236px,21vw,292px);
+  }
+  #alu-progress .alu-last{display:none !important}
+  #llf-play-box{min-height:128px !important}
+}
+@media (max-width:760px){
+  /* Future mobile pass can replace this; for now avoid desktop fixes causing hard overlap. */
+  :root{
+    --arena-carousel-height:160px;
+    --arena-side-avatar-height:240px;
+    --arena-side-offset:170px;
+    --arena-mode-card-width:220px;
+  }
+  #alu-progress{display:none !important}
+}
+</style>
+<script id="arena-responsive-stage-composition-900f-script" nonce="Mzg5NDAwMzc2OCw0MjYyOTM4OA==">
+(function(){
+  'use strict';
+  if(window.__ARENA_RESPONSIVE_STAGE_900F__) return;
+  window.__ARENA_RESPONSIVE_STAGE_900F__ = true;
+
+  function moveCurrencyIntoHud(){
+    var hud = document.getElementById('alu-progress');
+    var currency = document.getElementById('navXp');
+    if(!hud || !currency) return;
+    var slot = document.getElementById('arenaHudCurrencySlot');
+    if(!slot){
+      slot = document.createElement('div');
+      slot.id = 'arenaHudCurrencySlot';
+      slot.className = 'alu-currency-slot';
+      hud.insertBefore(slot, hud.firstChild);
+    }
+    if(currency.parentElement !== slot){
+      slot.appendChild(currency);
+    }
+    currency.classList.add('arena-hud-currency');
+    currency.setAttribute('title','MatchBucks balance');
+    var icon = currency.querySelector('.fn-currency-icon');
+    if(icon && icon.textContent.trim() !== 'M') icon.textContent = 'M';
+  }
+
+  function markStageReady(){
+    document.body.classList.add('arena-responsive-stage-ready');
+    moveCurrencyIntoHud();
+  }
+
+  function keepCurrencyInHud(){
+    moveCurrencyIntoHud();
+    var attempts = 0;
+    var timer = window.setInterval(function(){
+      attempts += 1;
+      moveCurrencyIntoHud();
+      if(attempts >= 30) window.clearInterval(timer);
+    }, 250);
+    if(window.MutationObserver){
+      var observer = new MutationObserver(function(){
+        moveCurrencyIntoHud();
+      });
+      observer.observe(document.body, { childList:true, subtree:true });
+    }
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', markStageReady, { once:true });
+  } else {
+    markStageReady();
+  }
+  window.addEventListener('load', keepCurrencyInHud, { once:true });
+})();
+</script>
+<!-- ====================================================================
+     END ARENA RESPONSIVE STAGE COMPOSITION UPGRADE (900F)
+     ==================================================================== -->
 </body>
 </html>
