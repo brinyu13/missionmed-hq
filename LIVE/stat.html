@@ -438,6 +438,245 @@
 
   @keyframes shimmer { 50%,100% { transform: translateX(100%); } }
 
+  .friend-selector {
+    display: none;
+    grid-template-columns: minmax(190px, 260px) minmax(0, 1fr);
+    gap: 14px;
+    margin: -6px 0 24px;
+    padding: 14px;
+    border: 1px solid rgba(47,231,176,0.18);
+    border-radius: 16px;
+    background: linear-gradient(160deg, rgba(47,231,176,0.08), rgba(31,168,255,0.04));
+  }
+
+  .friend-selector.active { display: grid; }
+
+  .friend-preview {
+    min-height: 272px;
+    padding: 18px;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    background: rgba(5,16,30,0.34);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 14px;
+  }
+
+  .friend-preview-avatar {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-height: 188px;
+    border-radius: 14px;
+    background: linear-gradient(135deg,#1FA8FF,#2FE7B0);
+    display: grid;
+    place-items: center;
+    color: #062031;
+    font-size: 42px;
+    font-weight: 900;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.16), 0 18px 42px rgba(31,168,255,0.14);
+  }
+
+  .friend-preview-kicker {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #2FE7B0;
+    font-weight: 800;
+    margin-bottom: 5px;
+  }
+
+  .friend-preview h3 {
+    font-size: 20px;
+    line-height: 1.1;
+    margin-bottom: 5px;
+  }
+
+  .friend-preview p {
+    color:#8EA7C7;
+    font-size: 12px;
+    line-height: 1.35;
+  }
+
+  .friend-panel {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .friend-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+  }
+
+  .friend-tab {
+    padding: 8px 10px;
+    border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.03);
+    color: #8EA7C7;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all .18s ease;
+  }
+
+  .friend-tab:hover {
+    border-color: rgba(47,231,176,0.34);
+    color:#E6F0FB;
+  }
+
+  .friend-tab.active {
+    color: #062031;
+    border-color: transparent;
+    background: linear-gradient(135deg,#2FE7B0,#1FA8FF);
+  }
+
+  .friend-search {
+    display: none;
+    gap: 8px;
+  }
+
+  .friend-search.active { display: flex; }
+
+  .friend-search input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border-radius: 9px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.22);
+    color:#E6F0FB;
+    font-size: 12px;
+    outline: none;
+  }
+
+  .friend-search input:focus { border-color: rgba(47,231,176,0.52); }
+
+  .friend-search button {
+    padding: 10px 13px;
+    border-radius: 9px;
+    border: 1px solid rgba(47,231,176,0.38);
+    background: rgba(47,231,176,0.12);
+    color:#2FE7B0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .friend-status {
+    min-height: 16px;
+    font-size: 12px;
+    color:#8EA7C7;
+  }
+
+  .friend-status.err { color:#FF9AAE; }
+  .friend-status.ok { color:#8DF2C8; }
+
+  .friend-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 9px;
+    max-height: 318px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+
+  .friend-card {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.07);
+    background: rgba(255,255,255,0.03);
+    cursor: pointer;
+    transition: transform .16s ease, border-color .16s ease, background .16s ease;
+    min-width: 0;
+  }
+
+  .friend-card:hover,
+  .friend-card.selected {
+    transform: translateY(-1px);
+    border-color: rgba(47,231,176,0.42);
+    background: rgba(47,231,176,0.09);
+  }
+
+  .friend-card-avatar,
+  .selected-opponent-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 11px;
+    background: linear-gradient(135deg,#1FA8FF,#2FE7B0);
+    color:#062031;
+    display:grid;
+    place-items:center;
+    font-size: 14px;
+    font-weight: 900;
+    overflow:hidden;
+    flex-shrink: 0;
+  }
+
+  .friend-card-name {
+    font-size: 13px;
+    font-weight: 800;
+    color:#E6F0FB;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .friend-card-id,
+  .friend-card-meta {
+    margin-top: 2px;
+    font-size: 11px;
+    color:#8EA7C7;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .friend-card-meta { color:#6F86A8; }
+
+  .selected-opponent-summary {
+    display: none;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    margin: 10px 0 2px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid rgba(47,231,176,0.26);
+    background: rgba(47,231,176,0.08);
+  }
+
+  .selected-opponent-summary.active { display: grid; }
+
+  .selected-opponent-summary strong,
+  .selected-opponent-summary span {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .selected-opponent-summary strong {
+    color:#E6F0FB;
+    font-size: 13px;
+  }
+
+  .selected-opponent-summary span {
+    color:#8EA7C7;
+    font-size: 11px;
+    margin-top: 2px;
+  }
+
   /* ===== SCREEN 3: MATCHUP ===== */
   .pending-wrap {
     flex:1;
@@ -1852,6 +2091,9 @@
     .play-wrap { grid-template-columns: 1fr; grid-template-rows: auto auto auto; }
     .setup-wrap { flex-direction: column; }
     .setup-side { width:100%; }
+    .friend-selector { grid-template-columns: 1fr; }
+    .friend-preview { min-height: 0; }
+    .friend-preview-avatar { max-height: 160px; }
     .q-head-right { gap: 8px; }
     .point-decay-chip { min-width: 90px; padding: 7px 8px; }
     .point-decay-chip .val { font-size: 18px; }
@@ -2449,10 +2691,10 @@
       <aside class="version-side">
         <h4>Player Profile</h4>
         <div class="rank-row">
-          <div class="rank-badge">19</div>
+          <div class="rank-badge" id="version-player-avatar">ST</div>
           <div class="rank-meta">
-            <h3>Dr. Brian</h3>
-            <p>Rank 19 • 2,780 XP to Rank 20</p>
+            <h3 id="version-player-name">Player</h3>
+            <p id="version-player-meta">Authenticating...</p>
           </div>
         </div>
         <div class="rank-xp-track"><div class="rank-xp-fill"></div></div>
@@ -2491,6 +2733,31 @@
             <button class="opt selected" data-val="similar">Random <span class="k">Similar Rank</span></button>
             <button class="opt" data-val="open">Random <span class="k">Open Pool</span></button>
             <button class="opt" data-val="friend">Friend <span class="k">Invite Style</span></button>
+          </div>
+        </div>
+
+        <div class="friend-selector" id="friend-selector" aria-live="polite">
+          <div class="friend-preview">
+            <div class="friend-preview-avatar" id="friend-preview-avatar">ST</div>
+            <div class="friend-preview-copy">
+              <div class="friend-preview-kicker" id="friend-preview-kicker">Opponent</div>
+              <h3 id="friend-preview-name">Select a player</h3>
+              <p id="friend-preview-meta">No opponent locked</p>
+            </div>
+          </div>
+          <div class="friend-panel">
+            <div class="friend-tabs" role="tablist" aria-label="Opponent sources">
+              <button class="friend-tab active" type="button" data-tab="friends">Friends</button>
+              <button class="friend-tab" type="button" data-tab="active">Active Users</button>
+              <button class="friend-tab" type="button" data-tab="recent">Recent Challengers</button>
+              <button class="friend-tab" type="button" data-tab="search">Search</button>
+            </div>
+            <div class="friend-search" id="friend-search-wrap">
+              <input id="friend-search-input" type="text" placeholder="screen name, handle, email, or UUID" autocomplete="off" spellcheck="false" />
+              <button id="friend-search-btn" type="button">Find</button>
+            </div>
+            <div class="friend-status" id="friend-status">Loading players...</div>
+            <div class="friend-list" id="friend-list"></div>
           </div>
         </div>
 
@@ -2535,6 +2802,13 @@
         <div class="stakes-card">
           <h4>Match Summary</h4>
           <div class="stakes-line"><span>Opponent</span><span class="v" id="sum-opp">Random (Similar Rank)</span></div>
+          <div class="selected-opponent-summary" id="sum-selected-opponent">
+            <div class="selected-opponent-avatar" id="sum-selected-avatar">ST</div>
+            <div>
+              <strong id="sum-selected-name">No opponent selected</strong>
+              <span id="sum-selected-meta">Friend match</span>
+            </div>
+          </div>
           <div class="stakes-line"><span>Difficulty</span><span class="v" id="sum-diff">Step 2</span></div>
           <div class="stakes-line"><span>Questions</span><span class="v" id="sum-count">40</span></div>
           <div class="stakes-line"><span>Timer</span><span class="v">15s / question</span></div>
@@ -2568,8 +2842,8 @@
 
         <div class="versus-row">
           <div class="duelist">
-            <div class="duelist-avatar" id="player-matchup-avatar">🧠</div>
-            <div class="duelist-name" id="player-matchup-name">Dr. Brian</div>
+            <div class="duelist-avatar" id="player-matchup-avatar">ST</div>
+            <div class="duelist-name" id="player-matchup-name">Player</div>
             <div class="duelist-meta">Rank 19 • You • Left Lane</div>
           </div>
           <div class="vs-text">VS</div>
@@ -2609,7 +2883,7 @@
       <div class="countdown-card">
         <div class="countdown-title">Round Start</div>
         <div class="countdown-num" id="countdown-num">3</div>
-        <div class="countdown-sub" id="countdown-sub">Dr. Brian vs Dr. Maya Khan</div>
+        <div class="countdown-sub" id="countdown-sub">Player vs Opponent</div>
       </div>
     </div>
   </section>
@@ -2634,9 +2908,9 @@
       <!-- PLAYER HUD -->
       <aside class="hud player" id="player-hud">
         <div class="hud-head">
-          <div class="hud-avatar" id="player-hud-avatar">🧠</div>
+          <div class="hud-avatar" id="player-hud-avatar">ST</div>
           <div>
-            <div class="hud-name" id="player-hud-name">Dr. Brian</div>
+            <div class="hud-name" id="player-hud-name">Player</div>
             <div class="hud-tag">You • Left Lane</div>
           </div>
         </div>
@@ -2742,7 +3016,7 @@
 
       <div class="result-cards" id="result-cards">
         <div class="result-card player">
-          <h3>Dr. Brian</h3>
+          <h3 id="r-p-name">Player</h3>
           <div class="result-score" id="r-p-score">0</div>
           <div class="result-row"><span>Accuracy</span><strong id="r-p-acc">0%</strong></div>
           <div class="result-row"><span>Avg Response</span><strong id="r-p-avg">0.0s</strong></div>
@@ -2803,7 +3077,7 @@
       <div class="ch-header">
         <div>
           <h2>Challenge a Player</h2>
-          <p>Pick a known opponent or enter a user ID</p>
+          <p>Find an opponent from setup search</p>
         </div>
         <button class="ch-close" id="ch-close">&#x2715;</button>
       </div>
@@ -2811,9 +3085,9 @@
         <div class="ch-state loading" id="ch-state-msg">Loading roster...</div>
         <div class="ch-list" id="ch-list" style="display:none"></div>
         <div class="ch-manual">
-          <label>Enter Opponent User ID</label>
+          <label>Find Opponent</label>
           <div class="ch-manual-row">
-            <input id="ch-manual-input" type="text" placeholder="uuid of opponent" autocomplete="off" spellcheck="false" />
+            <input id="ch-manual-input" type="text" placeholder="screen name, handle, email, or UUID" autocomplete="off" spellcheck="false" />
             <button id="ch-manual-send">Send</button>
           </div>
           <div class="ch-manual-msg" id="ch-manual-msg"></div>
@@ -2887,6 +3161,7 @@ let activeDuelId = '';
 let activeDuelIsBot = null;
 let activeHumanOpponentId = '';
 let activeHumanOpponentName = '';
+let activeHumanOpponentAvatarUrl = '';
 let resultPollTimer = null;
 let resultPollingActive = false;
 let statAppStarted = false;
@@ -3117,10 +3392,12 @@ function rememberHumanOpponent(meta) {
   const source = meta && typeof meta === 'object' ? meta : {};
   const id = String(source.id || source.user_id || source.player_id || source.opponent_id || source.created_by || source.challenger_id || '').trim();
   const displayName = normalizeOpponentDisplayName(
-    source.name || source.display_name || source.full_name || source.label || source.username || ''
+    source.name || source.display_name || source.full_name || source.label || source.username || source.screen_name || source.handle || ''
   ) || stableStudentLabelFromId(id);
+  const avatar = statAvatarFromSource(source);
   if (id) activeHumanOpponentId = id;
   if (displayName) activeHumanOpponentName = displayName;
+  if (avatar.avatar_url || avatar.avatar_thumbnail_url) activeHumanOpponentAvatarUrl = avatar.avatar_url || avatar.avatar_thumbnail_url;
   return activeHumanOpponentName || 'Opponent';
 }
 
@@ -3131,6 +3408,7 @@ function resolveCurrentOpponentName(fallback) {
     if (storedName) {
       activeHumanOpponentName = storedName;
       if (stored.opponent_id) activeHumanOpponentId = String(stored.opponent_id || '').trim();
+      if (stored.opponent_avatar_url) activeHumanOpponentAvatarUrl = String(stored.opponent_avatar_url || '').trim();
       return storedName;
     }
     if (activeHumanOpponentName) return activeHumanOpponentName;
@@ -3138,6 +3416,19 @@ function resolveCurrentOpponentName(fallback) {
     return normalizeOpponentDisplayName(fallback) || 'Opponent';
   }
   return normalizeOpponentDisplayName(fallback) || (activeOpponent && activeOpponent.name) || 'Opponent';
+}
+
+function resolveCurrentOpponentAvatarUrl() {
+  if (activeDuelId && activeDuelIsBot !== true) {
+    const stored = readStoredRuntime();
+    const storedAvatar = String(stored.opponent_avatar_url || '').trim();
+    if (storedAvatar) {
+      activeHumanOpponentAvatarUrl = storedAvatar;
+      return storedAvatar;
+    }
+    return activeHumanOpponentAvatarUrl || '';
+  }
+  return '';
 }
 
 function findOpponentIdFromPayload(payload) {
@@ -3222,6 +3513,7 @@ function hydrateDuelIdFromQuery() {
   const stored = readStoredRuntime();
   const sameDuel = String(stored.duel_id || '').trim() === String(inboundDuelId);
   const opponentId = sameDuel ? String(stored.opponent_id || '').trim() : '';
+  const opponentAvatarUrl = sameDuel ? String(stored.opponent_avatar_url || '').trim() : '';
   const opponentName = sameDuel
     ? resolveCurrentOpponentName(stored.opponent_name || (opponentId ? stableStudentLabelFromId(opponentId) : 'Opponent'))
     : 'Opponent';
@@ -3229,7 +3521,8 @@ function hydrateDuelIdFromQuery() {
     duel_id: inboundDuelId,
     stage: 'duel_created',
     opponent_id: opponentId || undefined,
-    opponent_name: opponentName
+    opponent_name: opponentName,
+    opponent_avatar_url: opponentAvatarUrl || undefined
   };
   const storedBotSignal = sameDuel ? parseBooleanish(stored.duel_is_bot) : null;
   if (storedBotSignal !== null) runtimePatch.duel_is_bot = storedBotSignal;
@@ -5977,11 +6270,14 @@ const setupConfig = {
 };
 
 const PLAYER = {
-  name: 'Dr. Brian',
-  initials: 'DB',
-  avatar: '🧠',
+  name: 'Player',
+  initials: 'ST',
+  avatar: 'ST',
   rank: 19
 };
+
+let currentStatPlayerIdentity = null;
+let currentStatPlayerProfile = null;
 
 function statPickString(candidates) {
   const list = Array.isArray(candidates) ? candidates : [];
@@ -5995,50 +6291,91 @@ function statPickString(candidates) {
 
 function statInitialsFromName(name) {
   const safe = String(name || '').trim();
-  if (!safe) return 'DB';
-  const parts = safe.split(/\s+/).slice(0, 2);
+  if (!safe) return 'ST';
+  const source = safe.includes('@') ? safe.split('@')[0] : safe;
+  const parts = source.replace(/[_\-.]+/g, ' ').split(/\s+/).filter(Boolean).slice(0, 2);
   const initials = parts.map((part) => part.charAt(0).toUpperCase()).join('');
-  return initials || 'DB';
+  return initials || 'ST';
 }
 
 function statCssUrl(value) {
   return String(value || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 }
 
-function resolveStatPlayerIdentity() {
-  const mmUser = (window.MM_USER && typeof window.MM_USER === 'object') ? window.MM_USER : {};
-  const avatarSnapshot = (mmUser.avatar_snapshot && typeof mmUser.avatar_snapshot === 'object') ? mmUser.avatar_snapshot : {};
-  const avatarObject = (mmUser.avatar && typeof mmUser.avatar === 'object') ? mmUser.avatar : {};
-  const name = statPickString([
-    mmUser.display_name,
-    mmUser.displayName,
-    mmUser.full_name,
-    mmUser.fullName,
-    mmUser.username,
-    PLAYER.name
-  ]) || PLAYER.name;
+function statSafeEmailLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw || !raw.includes('@')) return '';
+  return raw.toLowerCase();
+}
+
+function statUserIdFromHint(source) {
+  const obj = source && typeof source === 'object' ? source : {};
+  return String(obj.id || obj.user_id || obj.player_id || obj.auth_user_id || '').trim();
+}
+
+function statAvatarFromSource(source) {
+  const obj = source && typeof source === 'object' ? source : {};
+  const avatarSnapshot = (obj.avatar_snapshot && typeof obj.avatar_snapshot === 'object') ? obj.avatar_snapshot : {};
+  const avatarObject = (obj.avatar && typeof obj.avatar === 'object') ? obj.avatar : {};
   const avatarThumbnailUrl = statPickString([
-    mmUser.avatar_thumbnail_url,
+    obj.avatar_thumbnail_url,
+    obj.thumbnail_url,
     avatarSnapshot.avatar_thumbnail_url,
+    avatarSnapshot.thumbnail_url,
     avatarObject.thumbnail_url
   ]);
   const avatarUrl = statPickString([
-    mmUser.avatar_url,
+    obj.avatar_url,
     avatarSnapshot.avatar_url,
     avatarObject.avatar_url,
     avatarObject.url,
     avatarThumbnailUrl
   ]);
   const activeAvatarId = statPickString([
-    mmUser.active_avatar_id,
-    avatarSnapshot.active_avatar_id
+    obj.active_avatar_id,
+    obj.avatar_id,
+    avatarSnapshot.active_avatar_id,
+    avatarSnapshot.avatar_id
   ]);
   return {
-    name,
-    initials: statInitialsFromName(name),
     avatar_url: avatarUrl,
     avatar_thumbnail_url: avatarThumbnailUrl,
     active_avatar_id: activeAvatarId
+  };
+}
+
+function resolveStatPlayerIdentity() {
+  if (currentStatPlayerIdentity && typeof currentStatPlayerIdentity === 'object') {
+    return currentStatPlayerIdentity;
+  }
+  const mmUser = (window.MM_USER && typeof window.MM_USER === 'object') ? window.MM_USER : {};
+  const authoritativeUserId = String(verifiedAuthUserId || backendUserId || '').trim();
+  const hintedUserId = statUserIdFromHint(mmUser);
+  const hintMatchesUser = !authoritativeUserId || !hintedUserId || hintedUserId === authoritativeUserId;
+  const safeHint = hintMatchesUser ? mmUser : {};
+  const emailFallback = statSafeEmailLabel(safeHint.email || safeHint.user_email || safeHint.username || '');
+  const name = statPickString([
+    emailFallback,
+    safeHint.display_name,
+    safeHint.displayName,
+    safeHint.full_name,
+    safeHint.fullName,
+    safeHint.screen_name,
+    safeHint.handle,
+    PLAYER.name
+  ]) || 'Player';
+  const avatar = statAvatarFromSource(safeHint);
+  return {
+    id: authoritativeUserId || hintedUserId || '',
+    email: emailFallback,
+    name,
+    initials: statInitialsFromName(name),
+    rating: null,
+    wins: null,
+    losses: null,
+    avatar_url: avatar.avatar_url,
+    avatar_thumbnail_url: avatar.avatar_thumbnail_url,
+    active_avatar_id: avatar.active_avatar_id
   };
 }
 
@@ -6065,12 +6402,19 @@ function setStatAvatarElement(target, avatarUrl, fallbackText) {
 
 function applyStatPlayerIdentity() {
   const identity = resolveStatPlayerIdentity();
-  PLAYER.name = identity.name || PLAYER.name;
-  PLAYER.initials = identity.initials || PLAYER.initials;
+  PLAYER.name = identity.name || 'Player';
+  PLAYER.initials = identity.initials || 'ST';
   if (identity.avatar_url) PLAYER.avatar = PLAYER.initials;
 
   if (!window.MM_USER || typeof window.MM_USER !== 'object') window.MM_USER = {};
-  if (!window.MM_USER.display_name && PLAYER.name) window.MM_USER.display_name = PLAYER.name;
+  const activeUserId = String(identity.id || '').trim();
+  const hintedUserId = statUserIdFromHint(window.MM_USER);
+  if (activeUserId && hintedUserId && activeUserId !== hintedUserId) {
+    window.MM_USER = { id: activeUserId };
+  }
+  if (activeUserId) window.MM_USER.id = activeUserId;
+  if (identity.email) window.MM_USER.username = identity.email;
+  if (PLAYER.name) window.MM_USER.display_name = PLAYER.name;
   if (identity.avatar_url) window.MM_USER.avatar_url = identity.avatar_url;
   if (identity.avatar_thumbnail_url) window.MM_USER.avatar_thumbnail_url = identity.avatar_thumbnail_url;
   if (identity.active_avatar_id) window.MM_USER.active_avatar_id = identity.active_avatar_id;
@@ -6082,13 +6426,139 @@ function applyStatPlayerIdentity() {
   }
 
   const playerName = PLAYER.name || 'Player';
-  const playerToken = identity.avatar_url ? PLAYER.initials : (PLAYER.avatar || PLAYER.initials || '🧠');
+  const playerToken = PLAYER.initials || 'ST';
+  const profileMeta = document.getElementById('version-player-meta');
+  const profileName = document.getElementById('version-player-name');
+  if (profileName) profileName.textContent = playerName;
+  if (profileMeta) {
+    const rating = Number(identity.rating);
+    const wins = Number(identity.wins);
+    const losses = Number(identity.losses);
+    const parts = [];
+    if (Number.isFinite(rating) && rating > 0) parts.push('Rating ' + Math.round(rating));
+    if (Number.isFinite(wins) || Number.isFinite(losses)) parts.push(String(Number.isFinite(wins) ? wins : 0) + '-' + String(Number.isFinite(losses) ? losses : 0));
+    if (!parts.length && identity.email) parts.push(identity.email);
+    profileMeta.textContent = parts.join(' • ') || 'Profile loading...';
+  }
   const matchupName = document.getElementById('player-matchup-name');
   if (matchupName) matchupName.textContent = playerName;
   const hudName = document.getElementById('player-hud-name');
   if (hudName) hudName.textContent = playerName;
+  const resultName = document.getElementById('r-p-name');
+  if (resultName) resultName.textContent = playerName;
+  setStatAvatarElement('version-player-avatar', identity.avatar_url, playerToken);
   setStatAvatarElement('player-matchup-avatar', identity.avatar_url, playerToken);
   setStatAvatarElement('player-hud-avatar', identity.avatar_url, playerToken);
+}
+
+async function hydrateStatPlayerIdentity() {
+  const sessionState = await ensureSupabaseSession();
+  if (!sessionState || !sessionState.ok || !sessionState.user) {
+    applyStatPlayerIdentity();
+    return null;
+  }
+
+  const authUser = sessionState.user;
+  const userId = String(authUser.id || '').trim();
+  const userEmail = statSafeEmailLabel(authUser.email || '');
+  let profile = null;
+  let authProfile = null;
+  let avatarRow = null;
+
+  try {
+    if (supabaseClient && typeof supabaseClient.from === 'function' && userId) {
+      const profileRes = await supabaseClient
+        .from('player_profiles')
+        .select('player_id,display_name,rating,wins,losses,active_avatar_id,last_active_at')
+        .eq('player_id', userId)
+        .maybeSingle();
+      if (profileRes && !profileRes.error) profile = profileRes.data || null;
+    }
+  } catch (err) {
+    console.warn('[STAT] player profile hydrate failed', err && err.message ? err.message : err);
+  }
+
+  try {
+    if (supabaseClient && typeof supabaseClient.from === 'function' && userId) {
+      const ownProfileRes = await supabaseClient
+        .from('profiles')
+        .select('id,email,first_name,last_name,avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+      if (ownProfileRes && !ownProfileRes.error && ownProfileRes.data) {
+        authProfile = ownProfileRes.data;
+      } else {
+        const linkedProfileRes = await supabaseClient
+          .from('profiles')
+          .select('id,email,first_name,last_name,avatar_url')
+          .eq('auth_user_id', userId)
+          .limit(1)
+          .maybeSingle();
+        if (linkedProfileRes && !linkedProfileRes.error) authProfile = linkedProfileRes.data || null;
+      }
+    }
+  } catch (err) {
+    console.warn('[STAT] auth profile fallback hydrate failed', err && err.message ? err.message : err);
+  }
+
+  try {
+    if (supabaseClient && typeof supabaseClient.from === 'function' && userId) {
+      const avatarRes = await supabaseClient
+        .from('user_avatars')
+        .select('id,avatar_url,thumbnail_url,is_active,created_at')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (avatarRes && !avatarRes.error) avatarRow = avatarRes.data || null;
+    }
+  } catch (err) {
+    console.warn('[STAT] active avatar hydrate failed', err && err.message ? err.message : err);
+  }
+
+  currentStatPlayerProfile = profile || null;
+  const mmUser = (window.MM_USER && typeof window.MM_USER === 'object') ? window.MM_USER : {};
+  const mmUserMatches = !statUserIdFromHint(mmUser) || statUserIdFromHint(mmUser) === userId;
+  const safeHint = mmUserMatches ? mmUser : {};
+  const authProfileName = statPickString([
+    authProfile && authProfile.first_name && authProfile.last_name ? authProfile.first_name + ' ' + authProfile.last_name : '',
+    authProfile && authProfile.first_name,
+    authProfile && authProfile.last_name
+  ]);
+  const authProfileEmail = statSafeEmailLabel(authProfile && authProfile.email);
+  const hintAvatar = statAvatarFromSource(safeHint);
+  const activeAvatar = statAvatarFromSource({
+    avatar_url: avatarRow && avatarRow.avatar_url,
+    avatar_thumbnail_url: avatarRow && avatarRow.thumbnail_url,
+    active_avatar_id: avatarRow && avatarRow.id
+  });
+  const displayName = statPickString([
+    profile && profile.display_name,
+    authProfileName,
+    userEmail,
+    authProfileEmail,
+    safeHint.display_name,
+    safeHint.displayName,
+    safeHint.full_name,
+    safeHint.fullName,
+    safeHint.screen_name,
+    safeHint.handle
+  ]) || 'Player';
+  currentStatPlayerIdentity = {
+    id: userId,
+    email: userEmail || authProfileEmail,
+    name: displayName,
+    initials: statInitialsFromName(displayName),
+    rating: profile && profile.rating,
+    wins: profile && profile.wins,
+    losses: profile && profile.losses,
+    active_avatar_id: activeAvatar.active_avatar_id || (profile && profile.active_avatar_id) || hintAvatar.active_avatar_id,
+    avatar_thumbnail_url: activeAvatar.avatar_thumbnail_url || hintAvatar.avatar_thumbnail_url,
+    avatar_url: activeAvatar.avatar_url || hintAvatar.avatar_url || (authProfile && authProfile.avatar_url)
+  };
+  applyStatPlayerIdentity();
+  return currentStatPlayerIdentity;
 }
 
 let activeOpponent = PERSONAS[0];
@@ -6264,10 +6734,12 @@ function initSetup() {
         btn.classList.add('selected');
         setupConfig[key] = btn.dataset.val;
         updateSummary();
+        if (key === 'opponent') syncFriendSelectorVisibility(true);
       });
     });
   });
   updateSummary();
+  syncFriendSelectorVisibility(false);
 }
 
 function updateSummary() {
@@ -6287,12 +6759,433 @@ function updateSummary() {
     aggressive: 'Aggressive'
   };
 
-  document.getElementById('sum-opp').textContent = oppMap[setupConfig.opponent];
+  const selectedOpponent = selectedFriendOpponent;
+  document.getElementById('sum-opp').textContent = setupConfig.opponent === 'friend' && selectedOpponent
+    ? selectedOpponent.display_name
+    : oppMap[setupConfig.opponent];
   document.getElementById('sum-diff').textContent = diffMap[setupConfig.difficulty];
   document.getElementById('sum-count').textContent = setupConfig.count;
   document.getElementById('sum-pace').textContent = paceMap[setupConfig.pace];
   document.getElementById('sum-wager').textContent = setupConfig.wager + ' MP';
   document.getElementById('sum-reward').textContent = '+' + (Number(setupConfig.wager) * 2) + ' MP';
+  renderSelectedOpponentSummary();
+}
+
+let selectedFriendOpponent = null;
+let friendSearchTimer = null;
+const friendSelectorState = {
+  activeTab: 'active',
+  loaded: false,
+  loading: false,
+  friends: [],
+  active: [],
+  recent: [],
+  search: [],
+  lastSearch: ''
+};
+
+function opponentMetaLine(player) {
+  const p = player && typeof player === 'object' ? player : {};
+  const parts = [];
+  const rating = Number(p.rating);
+  const wins = Number(p.wins);
+  const losses = Number(p.losses);
+  if (Number.isFinite(rating) && rating > 0) parts.push('Rating ' + Math.round(rating));
+  if (Number.isFinite(wins) || Number.isFinite(losses)) parts.push(String(Number.isFinite(wins) ? wins : 0) + '-' + String(Number.isFinite(losses) ? losses : 0));
+  if (p.status_label) parts.push(p.status_label);
+  return parts.join(' • ') || 'Available opponent';
+}
+
+function opponentSafeIdentifier(player) {
+  const p = player && typeof player === 'object' ? player : {};
+  return statPickString([p.screen_name, p.handle, p.safe_identifier, p.email, p.username]) || shortUid(p.id || p.player_id || p.user_id || '');
+}
+
+function opponentActivityLabel(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const ts = Date.parse(raw);
+  if (!Number.isFinite(ts)) return '';
+  const ageMs = Date.now() - ts;
+  if (ageMs < 0) return 'Recently active';
+  if (ageMs <= 10 * 60 * 1000) return 'Online now';
+  if (ageMs <= 24 * 60 * 60 * 1000) return 'Active today';
+  if (ageMs <= 7 * 24 * 60 * 60 * 1000) return 'Active this week';
+  return 'Recent';
+}
+
+function normalizeOpponentPlayer(row, source) {
+  const raw = row && typeof row === 'object' ? row : {};
+  const id = String(raw.player_id || raw.user_id || raw.id || raw.opponent_id || raw.challenger_id || raw.created_by || '').trim();
+  if (!id) return null;
+  if (backendUserId && id === backendUserId) return null;
+  const avatar = statAvatarFromSource(raw.avatar_snapshot || raw);
+  const displayName = normalizeOpponentDisplayName(
+    raw.display_name || raw.full_name || raw.name || raw.label || raw.screen_name || raw.handle || raw.username || raw.email || ''
+  ) || stableStudentLabelFromId(id);
+  const safeIdentifier = statPickString([raw.screen_name, raw.handle, raw.email, raw.username, raw.safe_identifier]) || shortUid(id);
+  const statusLabel = opponentActivityLabel(raw.last_active_at || raw.created_at || raw.updated_at);
+  const player = {
+    id: id,
+    player_id: id,
+    display_name: displayName,
+    screen_name: statPickString([raw.screen_name]),
+    handle: statPickString([raw.handle]),
+    email: statSafeEmailLabel(raw.email || ''),
+    username: statPickString([raw.username]),
+    safe_identifier: safeIdentifier,
+    rating: raw.rating,
+    wins: raw.wins,
+    losses: raw.losses,
+    last_active_at: raw.last_active_at || raw.created_at || '',
+    status_label: statusLabel,
+    avatar_url: avatar.avatar_url || avatar.avatar_thumbnail_url,
+    avatar_thumbnail_url: avatar.avatar_thumbnail_url,
+    source: source || raw.source || 'roster'
+  };
+  player.search_text = [
+    player.id,
+    player.display_name,
+    player.screen_name,
+    player.handle,
+    player.email,
+    player.username,
+    player.safe_identifier
+  ].join(' ').toLowerCase();
+  return player;
+}
+
+function uniqueOpponentPlayers(rows) {
+  const out = [];
+  const seen = new Set();
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const player = row && row.id ? row : normalizeOpponentPlayer(row, 'roster');
+    if (!player || !player.id || seen.has(player.id)) return;
+    seen.add(player.id);
+    out.push(player);
+  });
+  return out;
+}
+
+async function fetchOpponentRoster(query) {
+  if (!supabaseClient || typeof supabaseClient.rpc !== 'function') return [];
+  const session = await ensureSupabaseSession();
+  if (!session.ok) throw new Error(session.reason || 'auth_required');
+  const args = { p_limit: 60 };
+  const safeQuery = String(query || '').trim();
+  if (safeQuery) args.p_search = safeQuery;
+  const envelope = await rpcCallSafe('duel_roster', args);
+  if (!envelope.ok) throw new Error(String(envelope.error || 'duel_roster_failed'));
+  return uniqueOpponentPlayers(rosterFromEnvelope(envelope).map((row) => normalizeOpponentPlayer(row, safeQuery ? 'search' : 'active')));
+}
+
+async function fetchRecentOpponents(activeRows) {
+  if (!supabaseClient || typeof supabaseClient.from !== 'function' || !backendUserId) return [];
+  try {
+    const baseMap = new Map();
+    uniqueOpponentPlayers(activeRows).forEach((player) => baseMap.set(player.id, player));
+    const res = await supabaseClient
+      .from('duel_challenges')
+      .select('id, challenger_id, opponent_id, state, is_bot_match, created_at, updated_at, challenge_expires_at')
+      .eq('is_bot_match', false)
+      .or('challenger_id.eq.' + backendUserId + ',opponent_id.eq.' + backendUserId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (res && res.error) return [];
+    const rows = Array.isArray(res && res.data) ? res.data : [];
+    return uniqueOpponentPlayers(rows.map((row) => {
+      const peerId = String(row.challenger_id || '') === String(backendUserId)
+        ? String(row.opponent_id || '')
+        : String(row.challenger_id || '');
+      if (!peerId) return null;
+      const known = baseMap.get(peerId) || {};
+      return normalizeOpponentPlayer(Object.assign({}, known, {
+        player_id: peerId,
+        created_at: row.created_at,
+        last_active_at: known.last_active_at || row.updated_at || row.created_at,
+        source: 'recent'
+      }), 'recent');
+    }).filter(Boolean));
+  } catch (_err) {
+    return [];
+  }
+}
+
+function setFriendStatus(message, tone) {
+  const el = document.getElementById('friend-status');
+  if (!el) return;
+  el.textContent = String(message || '');
+  el.classList.remove('err', 'ok');
+  if (tone === 'err') el.classList.add('err');
+  if (tone === 'ok') el.classList.add('ok');
+}
+
+function friendRowsForActiveTab() {
+  const tab = friendSelectorState.activeTab;
+  if (tab === 'friends') return friendSelectorState.friends;
+  if (tab === 'recent') return friendSelectorState.recent;
+  if (tab === 'search') return friendSelectorState.search;
+  return friendSelectorState.active;
+}
+
+function renderFriendSelector() {
+  const selector = document.getElementById('friend-selector');
+  if (!selector) return;
+  const isFriendMode = setupConfig.opponent === 'friend';
+  selector.classList.toggle('active', isFriendMode);
+  document.querySelectorAll('.friend-tab').forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.tab === friendSelectorState.activeTab);
+  });
+  const searchWrap = document.getElementById('friend-search-wrap');
+  if (searchWrap) searchWrap.classList.toggle('active', friendSelectorState.activeTab === 'search');
+
+  const list = document.getElementById('friend-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!isFriendMode) return;
+
+  const rows = friendRowsForActiveTab();
+  if (friendSelectorState.loading) {
+    setFriendStatus('Loading players...');
+    return;
+  }
+  if (!rows.length) {
+    const emptyByTab = {
+      friends: 'No friends found.',
+      active: 'No active users found.',
+      recent: 'No recent challengers found.',
+      search: friendSelectorState.lastSearch ? 'No matching player found.' : 'Enter a player label to search.'
+    };
+    setFriendStatus(emptyByTab[friendSelectorState.activeTab] || 'No players found.', friendSelectorState.activeTab === 'search' && friendSelectorState.lastSearch ? 'err' : '');
+    previewFriendOpponent(selectedFriendOpponent, true);
+    return;
+  }
+
+  setFriendStatus(rows.length + ' player' + (rows.length === 1 ? '' : 's') + ' available', 'ok');
+  rows.forEach((player) => {
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'friend-card';
+    if (selectedFriendOpponent && selectedFriendOpponent.id === player.id) card.classList.add('selected');
+    card.dataset.uid = player.id;
+
+    const avatar = document.createElement('div');
+    avatar.className = 'friend-card-avatar';
+    card.appendChild(avatar);
+
+    const meta = document.createElement('div');
+    meta.className = 'friend-card-copy';
+    const name = document.createElement('div');
+    name.className = 'friend-card-name';
+    name.textContent = player.display_name;
+    const idLine = document.createElement('div');
+    idLine.className = 'friend-card-id';
+    idLine.textContent = opponentSafeIdentifier(player);
+    const metaLine = document.createElement('div');
+    metaLine.className = 'friend-card-meta';
+    metaLine.textContent = opponentMetaLine(player);
+    meta.appendChild(name);
+    meta.appendChild(idLine);
+    meta.appendChild(metaLine);
+    card.appendChild(meta);
+
+    setStatAvatarElement(avatar, player.avatar_url || player.avatar_thumbnail_url, statInitialsFromName(player.display_name));
+    card.addEventListener('mouseenter', () => previewFriendOpponent(player, false));
+    card.addEventListener('focus', () => previewFriendOpponent(player, false));
+    card.addEventListener('click', () => selectFriendOpponent(player));
+    list.appendChild(card);
+  });
+
+  previewFriendOpponent(selectedFriendOpponent || rows[0], !!selectedFriendOpponent);
+}
+
+function previewFriendOpponent(player, selected) {
+  const p = player && typeof player === 'object' ? player : null;
+  const avatar = document.getElementById('friend-preview-avatar');
+  const kicker = document.getElementById('friend-preview-kicker');
+  const name = document.getElementById('friend-preview-name');
+  const meta = document.getElementById('friend-preview-meta');
+  if (!avatar || !kicker || !name || !meta) return;
+  if (!p) {
+    setStatAvatarElement(avatar, '', 'ST');
+    kicker.textContent = 'Opponent';
+    name.textContent = 'Select a player';
+    meta.textContent = 'No opponent locked';
+    return;
+  }
+  setStatAvatarElement(avatar, p.avatar_url || p.avatar_thumbnail_url, statInitialsFromName(p.display_name));
+  kicker.textContent = selected ? 'Selected Opponent' : (p.source === 'recent' ? 'Recent Challenger' : (p.source === 'search' ? 'Search Result' : 'Active User'));
+  name.textContent = p.display_name;
+  meta.textContent = [opponentSafeIdentifier(p), opponentMetaLine(p)].filter(Boolean).join(' • ');
+}
+
+function selectFriendOpponent(player) {
+  if (!player || !player.id) return;
+  selectedFriendOpponent = player;
+  rememberHumanOpponent(player);
+  updateSummary();
+  renderFriendSelector();
+}
+
+function renderSelectedOpponentSummary() {
+  const wrap = document.getElementById('sum-selected-opponent');
+  if (!wrap) return;
+  const player = setupConfig.opponent === 'friend' ? selectedFriendOpponent : null;
+  wrap.classList.toggle('active', !!player);
+  if (!player) return;
+  const name = document.getElementById('sum-selected-name');
+  const meta = document.getElementById('sum-selected-meta');
+  const avatar = document.getElementById('sum-selected-avatar');
+  if (name) name.textContent = player.display_name;
+  if (meta) meta.textContent = [opponentSafeIdentifier(player), opponentMetaLine(player)].filter(Boolean).join(' • ');
+  setStatAvatarElement(avatar, player.avatar_url || player.avatar_thumbnail_url, statInitialsFromName(player.display_name));
+}
+
+async function loadFriendSelectorData(force) {
+  if (friendSelectorState.loading) return;
+  if (friendSelectorState.loaded && !force) {
+    renderFriendSelector();
+    return;
+  }
+  friendSelectorState.loading = true;
+  renderFriendSelector();
+  try {
+    const activeRows = await fetchOpponentRoster('');
+    const recentRows = await fetchRecentOpponents(activeRows);
+    friendSelectorState.active = activeRows;
+    friendSelectorState.recent = recentRows;
+    friendSelectorState.friends = activeRows.filter((row) => row.source === 'friend' || row.relationship === 'friend');
+    friendSelectorState.loaded = true;
+  } catch (err) {
+    setFriendStatus('Could not load players: ' + String(err && err.message ? err.message : err), 'err');
+  } finally {
+    friendSelectorState.loading = false;
+    renderFriendSelector();
+  }
+}
+
+function syncFriendSelectorVisibility(loadRoster) {
+  renderFriendSelector();
+  if (setupConfig.opponent === 'friend' && loadRoster) {
+    loadFriendSelectorData(false).catch((err) => {
+      setFriendStatus('Could not load players: ' + String(err && err.message ? err.message : err), 'err');
+    });
+  }
+}
+
+function setFriendTab(tab) {
+  friendSelectorState.activeTab = tab || 'active';
+  renderFriendSelector();
+}
+
+function localOpponentMatches(query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return [];
+  const allRows = uniqueOpponentPlayers([].concat(
+    friendSelectorState.active,
+    friendSelectorState.recent,
+    friendSelectorState.friends,
+    friendSelectorState.search
+  ));
+  return allRows.filter((player) => player.search_text && player.search_text.includes(q));
+}
+
+function findKnownOpponentById(id) {
+  const safeId = String(id || '').trim();
+  if (!safeId) return null;
+  return uniqueOpponentPlayers([].concat(
+    friendSelectorState.active,
+    friendSelectorState.recent,
+    friendSelectorState.friends,
+    friendSelectorState.search,
+    selectedFriendOpponent ? [selectedFriendOpponent] : []
+  )).find((player) => player.id === safeId) || null;
+}
+
+async function runFriendSearch(query, selectUnique) {
+  const raw = String(query || '').trim();
+  friendSelectorState.activeTab = 'search';
+  friendSelectorState.lastSearch = raw;
+  if (!raw) {
+    friendSelectorState.search = [];
+    renderFriendSelector();
+    return [];
+  }
+  setFriendStatus('Searching...');
+  let remote = [];
+  try {
+    remote = await fetchOpponentRoster(raw);
+  } catch (_err) {
+    remote = [];
+  }
+  const exactUuid = isUuidish(raw);
+  const local = localOpponentMatches(raw);
+  const directUuid = exactUuid ? [normalizeOpponentPlayer({ player_id: raw }, 'search')] : [];
+  const matches = uniqueOpponentPlayers([].concat(remote, local, directUuid).filter(Boolean));
+  friendSelectorState.search = matches;
+  renderFriendSelector();
+  if (selectUnique && matches.length === 1) selectFriendOpponent(matches[0]);
+  return matches;
+}
+
+async function resolveOpponentQuery(query) {
+  const raw = String(query || '').trim();
+  if (!raw) return { status: 'empty', matches: [] };
+  const matches = await runFriendSearch(raw, false);
+  const exact = matches.filter((player) => {
+    const q = raw.toLowerCase();
+    return [
+      player.id,
+      player.display_name,
+      player.screen_name,
+      player.handle,
+      player.email,
+      player.username,
+      player.safe_identifier
+    ].some((value) => String(value || '').trim().toLowerCase() === q);
+  });
+  const pool = exact.length ? exact : matches;
+  if (pool.length === 1) return { status: 'single', player: pool[0], matches: pool };
+  if (pool.length > 1) return { status: 'multiple', matches: pool };
+  if (isUuidish(raw)) return { status: 'single', player: normalizeOpponentPlayer({ player_id: raw }, 'manual'), matches: [] };
+  return { status: 'none', matches: [] };
+}
+
+function bindFriendSelectorUI() {
+  document.querySelectorAll('.friend-tab').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      playUiClick();
+      setFriendTab(btn.dataset.tab || 'active');
+    });
+  });
+  const searchInput = document.getElementById('friend-search-input');
+  const searchBtn = document.getElementById('friend-search-btn');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      clearTimeout(friendSearchTimer);
+      friendSearchTimer = setTimeout(() => {
+        runFriendSearch(searchInput.value, false).catch((_err) => {
+          setFriendStatus('No matching player found.', 'err');
+        });
+      }, 260);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        runFriendSearch(searchInput.value, true).catch((_err) => {
+          setFriendStatus('No matching player found.', 'err');
+        });
+      }
+    });
+  }
+  if (searchBtn) {
+    searchBtn.addEventListener('click', () => {
+      playUiClick();
+      runFriendSearch(searchInput ? searchInput.value : '', true).catch((_err) => {
+        setFriendStatus('No matching player found.', 'err');
+      });
+    });
+  }
 }
 
 /* =========================================================
@@ -6327,16 +7220,19 @@ function toMatchup() {
   activeOpponent = pickOpponentPersona();
   const isHumanDuel = !!activeDuelId && activeDuelIsBot !== true;
   const opponentName = resolveCurrentOpponentName(activeOpponent.name);
-  const opponentAvatar = isHumanDuel && activeHumanOpponentId ? initialsFromUid(activeHumanOpponentId) : activeOpponent.avatar;
+  const opponentAvatar = isHumanDuel && activeHumanOpponentId ? statInitialsFromName(opponentName) : activeOpponent.avatar;
+  const opponentAvatarUrl = isHumanDuel ? resolveCurrentOpponentAvatarUrl() : '';
   const oppTypeMap = {
     similar: 'Similar Rank',
     open: 'Open Pool',
     friend: 'Friend Match'
   };
 
-  document.getElementById('opp-avatar').textContent = opponentAvatar;
+  setStatAvatarElement('opp-avatar', opponentAvatarUrl, opponentAvatar);
   document.getElementById('opp-name').textContent = opponentName;
-  document.getElementById('opp-meta').textContent = 'Rank ' + activeOpponent.rank + ' • ' + oppTypeMap[setupConfig.opponent] + ' • Right Lane';
+  const rating = selectedFriendOpponent && Number(selectedFriendOpponent.rating);
+  const rankText = isHumanDuel && Number.isFinite(rating) && rating > 0 ? ('Rating ' + Math.round(rating)) : ('Rank ' + activeOpponent.rank);
+  document.getElementById('opp-meta').textContent = rankText + ' • ' + oppTypeMap[setupConfig.opponent] + ' • Right Lane';
 
   const diffMap = { step1:'Step 1', step2:'Step 2', mixed:'Mixed' };
   document.getElementById('pend-count').textContent = mapConfiguredCountToLiveCount(setupConfig.count);
@@ -6486,10 +7382,11 @@ function startDuel() {
   document.getElementById('q-tot').textContent = state.totalQ;
   const isHumanDuel = !!activeDuelId && activeDuelIsBot !== true;
   const opponentName = resolveCurrentOpponentName(activeOpponent.name);
-  const opponentAvatar = isHumanDuel && activeHumanOpponentId ? initialsFromUid(activeHumanOpponentId) : activeOpponent.avatar;
+  const opponentAvatar = isHumanDuel && activeHumanOpponentId ? statInitialsFromName(opponentName) : activeOpponent.avatar;
+  const opponentAvatarUrl = isHumanDuel ? resolveCurrentOpponentAvatarUrl() : '';
   document.getElementById('g-name').textContent = opponentName;
-  document.getElementById('g-init').textContent = opponentAvatar;
-  document.getElementById('cursor-avatar').textContent = opponentAvatar;
+  setStatAvatarElement('g-init', opponentAvatarUrl, opponentAvatar);
+  setStatAvatarElement('cursor-avatar', opponentAvatarUrl, opponentAvatar);
   document.getElementById('play-press-chip').textContent = 'PRESSURE: NEUTRAL';
   document.getElementById('g-score').textContent = '0';
   document.getElementById('g-correct').textContent = '0';
@@ -9173,8 +10070,12 @@ document.querySelectorAll('[data-back]').forEach((btn) => {
   });
 });
 
-document.getElementById('send-challenge').addEventListener('click', () => {
+document.getElementById('send-challenge').addEventListener('click', async () => {
   playUiClick();
+  if (setupConfig.opponent === 'friend') {
+    await lockSelectedFriendMatchup();
+    return;
+  }
   toMatchup();
 });
 
@@ -9456,6 +10357,73 @@ async function createDuelWithOpponent(opponentId) {
   return primary;
 }
 
+async function sendChallengeToOpponent(opponentMeta) {
+  const opponent = opponentMeta && typeof opponentMeta === 'object'
+    ? opponentMeta
+    : normalizeOpponentPlayer({ player_id: opponentMeta }, 'manual');
+  const opponentId = String(opponent && (opponent.id || opponent.player_id || opponent.user_id) || '').trim();
+  if (!opponentId) return { ok: false, error: 'opponent_id_required', data: null };
+  const session = await ensureSupabaseSession();
+  if (!session.ok) return { ok: false, error: session.reason || 'auth_required', data: null };
+  if (backendUserId && opponentId === backendUserId) {
+    return { ok: false, error: 'cannot_challenge_self', data: null };
+  }
+  const res = await createDuelWithOpponent(opponentId);
+  if (!res.ok) return res;
+  const newDuelId = (res.data && (res.data.duel_id || (res.data.duel && res.data.duel.id))) || '';
+  if (newDuelId) {
+    const opponentName = rememberHumanOpponent(Object.assign({}, opponent, { id: opponentId }));
+    activeDuelId = String(newDuelId);
+    trackActiveDuelBotSignal(false);
+    persistSessionDuelId(activeDuelId);
+    writeStoredRuntime({
+      duel_id: activeDuelId,
+      duel_is_bot: false,
+      stage: 'duel_created',
+      opponent_id: opponentId,
+      opponent_name: opponentName,
+      opponent_avatar_url: opponent.avatar_url || opponent.avatar_thumbnail_url || activeHumanOpponentAvatarUrl || undefined
+    });
+  }
+  try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
+  return res;
+}
+
+async function lockSelectedFriendMatchup() {
+  syncFriendSelectorVisibility(true);
+  if (!selectedFriendOpponent || !selectedFriendOpponent.id) {
+    setFriendStatus('Select an opponent before locking the matchup.', 'err');
+    return false;
+  }
+  const btn = document.getElementById('send-challenge');
+  const previous = btn ? btn.textContent : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Sending...';
+  }
+  try {
+    const res = await sendChallengeToOpponent(selectedFriendOpponent);
+    if (!res.ok) {
+      const err = String(res.error || 'challenge_failed');
+      setFriendStatus(err === 'cannot_challenge_self' ? 'You cannot challenge yourself.' : 'Challenge failed: ' + err, 'err');
+      showToast('Challenge failed: ' + err, 'err');
+      console.error('[STAT_V7] create_duel failed', res);
+      return false;
+    }
+    const newDuelId = (res.data && (res.data.duel_id || (res.data.duel && res.data.duel.id))) || '';
+    setFriendStatus('Challenge sent: ' + shortUid(newDuelId), 'ok');
+    showToast('Challenge sent');
+    console.log('[STAT_V7] create_duel ok', { duel_id: newDuelId, opponent: selectedFriendOpponent.id });
+    toMatchup();
+    return true;
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = previous || 'Lock Matchup';
+    }
+  }
+}
+
 /**
  * accept_duel uses deployed `p_duel_id` arg. Falls back to `duel_id` if needed.
  */
@@ -9558,14 +10526,7 @@ function normalizeIncomingChallengeRow(row) {
 }
 
 function openChallengeRoster() {
-  const overlay = document.getElementById('ch-overlay');
-  if (!overlay) return;
-  overlay.classList.add('active');
-  challengeModalOpen = true;
-  document.getElementById('ch-manual-input').value = '';
-  document.getElementById('ch-manual-msg').textContent = '';
-  document.getElementById('ch-manual-msg').className = 'ch-manual-msg';
-  loadChallengeRoster();
+  openIntegratedChallengeFlow();
 }
 
 function closeChallengeRoster() {
@@ -9646,15 +10607,8 @@ async function handleRowChallenge(rowEl, opponentUid) {
   const btn = rowEl.querySelector('.ch-row-btn');
   if (btn) btn.textContent = 'Sending…';
 
-  const session = await ensureSupabaseSession();
-  if (!session.ok) {
-    rowEl.classList.remove('sending');
-    if (btn) btn.textContent = 'Challenge';
-    showToast('Sign-in required', 'err');
-    return;
-  }
-
-  const res = await createDuelWithOpponent(opponentUid);
+  const opponent = findKnownOpponentById(opponentUid) || normalizeOpponentPlayer({ player_id: opponentUid }, 'manual');
+  const res = await sendChallengeToOpponent(opponent);
   rowEl.classList.remove('sending');
   if (!res.ok) {
     if (btn) btn.textContent = 'Challenge';
@@ -9669,20 +10623,6 @@ async function handleRowChallenge(rowEl, opponentUid) {
   if (btn) btn.textContent = 'Sent ✓';
   showToast('Challenge sent');
   console.log('[STAT_V7] create_duel ok', { duel_id: newDuelId, opponent: opponentUid });
-  if (newDuelId) {
-    const opponentName = rememberHumanOpponent({ id: opponentUid });
-    activeDuelId = String(newDuelId);
-    trackActiveDuelBotSignal(false);
-    persistSessionDuelId(activeDuelId);
-    writeStoredRuntime({
-      duel_id: activeDuelId,
-      duel_is_bot: false,
-      stage: 'duel_created',
-      opponent_id: String(opponentUid || '').trim(),
-      opponent_name: opponentName
-    });
-  }
-  try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
 }
 
 async function handleManualSend() {
@@ -9692,31 +10632,44 @@ async function handleManualSend() {
   msg.className = 'ch-manual-msg';
   if (!raw) {
     msg.classList.add('err');
-    msg.textContent = 'Enter an opponent user ID.';
+    msg.textContent = 'Enter a player label, email, or UUID.';
     return;
   }
-  const uuidLike = /^[0-9a-fA-F-]{8,}$/.test(raw);
-  if (!uuidLike) {
+  playUiClick();
+  msg.textContent = 'Searching...';
+
+  let resolved = null;
+  try {
+    resolved = await resolveOpponentQuery(raw);
+  } catch (err) {
     msg.classList.add('err');
-    msg.textContent = 'That does not look like a valid user ID.';
+    msg.textContent = 'No matching player found.';
     return;
   }
-  if (backendUserId && raw === backendUserId) {
+  if (!resolved || resolved.status === 'none') {
+    msg.classList.add('err');
+    msg.textContent = 'No matching player found.';
+    return;
+  }
+  if (resolved.status === 'multiple') {
+    msg.classList.add('err');
+    msg.textContent = 'Multiple matches found. Select one from Search.';
+    return;
+  }
+  const opponent = resolved.player;
+  if (!opponent || !opponent.id) {
+    msg.classList.add('err');
+    msg.textContent = 'No matching player found.';
+    return;
+  }
+  if (backendUserId && opponent.id === backendUserId) {
     msg.classList.add('err');
     msg.textContent = 'You cannot challenge yourself.';
     return;
   }
-  playUiClick();
-  msg.textContent = 'Sending…';
+  msg.textContent = 'Sending...';
 
-  const session = await ensureSupabaseSession();
-  if (!session.ok) {
-    msg.classList.add('err');
-    msg.textContent = 'Sign-in required.';
-    return;
-  }
-
-  const res = await createDuelWithOpponent(raw);
+  const res = await sendChallengeToOpponent(opponent);
   if (!res.ok) {
     msg.classList.add('err');
     msg.textContent = 'Failed: ' + String(res.error || 'unknown');
@@ -9726,20 +10679,6 @@ async function handleManualSend() {
   msg.classList.add('ok');
   msg.textContent = 'Challenge sent. Duel ID: ' + shortUid(newDuelId);
   showToast('Challenge sent');
-  if (newDuelId) {
-    const opponentName = rememberHumanOpponent({ id: raw });
-    activeDuelId = String(newDuelId);
-    trackActiveDuelBotSignal(false);
-    persistSessionDuelId(activeDuelId);
-    writeStoredRuntime({
-      duel_id: activeDuelId,
-      duel_is_bot: false,
-      stage: 'duel_created',
-      opponent_id: String(raw || '').trim(),
-      opponent_name: opponentName
-    });
-  }
-  try { sessionStorage.setItem('stat_v7_last_sent_duel_id', String(newDuelId || '')); } catch (_e) {}
 }
 
 /* --------- Incoming challenge detection + modal --------- */
@@ -9825,6 +10764,23 @@ function handleIgnoreIncoming() {
   playUiClick();
   addIgnoredChallenge(incomingModalDuelId);
   hideIncomingModal();
+}
+
+function syncSetupOptionButtons(key) {
+  const group = document.querySelector('#screen-setup .config-group[data-key="' + key + '"]');
+  if (!group) return;
+  group.querySelectorAll('.opt').forEach((btn) => {
+    btn.classList.toggle('selected', btn.dataset.val === setupConfig[key]);
+  });
+}
+
+function openIntegratedChallengeFlow() {
+  selectedVersion = 'v2';
+  setupConfig.opponent = 'friend';
+  syncSetupOptionButtons('opponent');
+  updateSummary();
+  renderScreen('setup');
+  syncFriendSelectorVisibility(true);
 }
 
 function isSafeToPromptChallenge() {
@@ -9926,7 +10882,7 @@ function stopChallengePolling() {
   if (openBtn) {
     openBtn.addEventListener('click', () => {
       playUiClick();
-      openChallengeRoster();
+      openIntegratedChallengeFlow();
     });
   }
 
@@ -9977,6 +10933,11 @@ function startSTATApp() {
   setTimeout(bindTopbarUtilityButtons, 0);
   bindResultSkipActions();
   initSetup();
+  bindFriendSelectorUI();
+  hydrateStatPlayerIdentity().catch((err) => {
+    console.warn('[STAT] identity hydrate failed', err && err.message ? err.message : err);
+    applyStatPlayerIdentity();
+  });
   const hydratedDuelId = hydrateDuelIdFromQuery();
   if (e3OutboxEnabled() && hydratedDuelId) {
     e3OutboxReconcile();
