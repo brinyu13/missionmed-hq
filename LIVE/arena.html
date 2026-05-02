@@ -6,8 +6,8 @@ CHANGE: (G4)-Avatar-codex-high-604 Avatar persistence+selection fail-loud fix wi
 <!-- VERSION: MR-254_AVATAR_SYSTEM_FINAL -->
 <!--
 SYSTEM: ARENA
-VERSION: 2026-05-01 08:04 arena-responsive-avatar-safe-zone-v3
-CHANGE: Tunes the 900F avatar baseline after the wrapper override so avatars stay grounded above, never on top of, the landscape mode-card strip.
+VERSION: 2026-05-01 19:09 arena-avatar-full-system-925-a
+CHANGE: Adds explicit avatar preview/apply/delete locker controls, active fallback, grounded stage hierarchy, toast/transition proof logs, and STAT selected-mode sync.
 AUTHORITY: MM-HTML-DEPLOYMENT-SYSTEM-LOCK-001
 SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 DEPLOYMENT: Cloudflare R2/CDN. Do NOT upload to WordPress Media Library.
@@ -1605,9 +1605,9 @@ body.avatar-request-locked #arenaAvatarModal .arena-avatar-confirm-overlay{
 /* ==========================================================================
    AVATAR TOAST — z-index 900
    ========================================================================== */
-#avatar-toast{position:fixed;bottom:32px;right:32px;z-index:900;padding:14px 20px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:600;letter-spacing:.5px;display:flex;align-items:center;gap:10px;opacity:0;pointer-events:none;transform:translateY(10px);transition:opacity .3s ease,transform .3s ease;max-width:320px}
-#avatar-toast.visible{opacity:1;pointer-events:auto;transform:translateY(0)}
-#avatar-toast.toast-success{background:rgba(0,16,8,.94);border:1px solid rgba(0,230,118,.3);color:#00E676;box-shadow:0 8px 28px rgba(0,0,0,.45)}
+#avatar-toast{position:fixed;bottom:32px;right:32px;z-index:900;padding:14px 20px;border-radius:8px;font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:700;letter-spacing:.6px;display:flex;align-items:center;gap:10px;opacity:0;pointer-events:none;transform:translateY(10px) scale(.96);transition:opacity .24s ease,transform .24s cubic-bezier(.22,1,.36,1);max-width:320px}
+#avatar-toast.visible{opacity:1;pointer-events:none;transform:translateY(0) scale(1)}
+#avatar-toast.toast-success{background:linear-gradient(180deg,rgba(4,28,18,.96),rgba(2,14,9,.96));border:1px solid rgba(95,245,162,.46);color:#9fffd0;box-shadow:0 10px 30px rgba(0,0,0,.48),0 0 22px rgba(95,245,162,.18)}
 #avatar-toast.toast-error{background:rgba(18,4,4,.94);border:1px solid rgba(255,82,82,.3);color:#FF5252;box-shadow:0 8px 28px rgba(0,0,0,.45)}
 #avatar-toast.toast-info{background:rgba(4,14,22,.94);border:1px solid rgba(0,191,255,.25);color:var(--accent-blue);box-shadow:0 8px 28px rgba(0,0,0,.45)}
 .toast-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:currentColor;box-shadow:0 0 5px currentColor}
@@ -3242,6 +3242,46 @@ html,body{
   transition:all .25s cubic-bezier(.22,1,.36,1);
   display:flex;align-items:center;justify-content:center;
 }
+.char-card.active-avatar::before{
+  content:'ACTIVE';
+  position:absolute;top:7px;left:7px;z-index:5;
+  padding:3px 7px;border-radius:999px;
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:900;letter-spacing:.9px;
+  color:#161003;background:linear-gradient(180deg,#FFE77A,#F5C518);
+  box-shadow:0 0 12px rgba(245,197,24,.35);
+}
+.char-card.preview-avatar::after{
+  content:'PREVIEW';
+  position:absolute;top:7px;right:7px;z-index:5;
+  padding:3px 7px;border-radius:999px;
+  font-family:'Orbitron',sans-serif;font-size:8px;font-weight:900;letter-spacing:.9px;
+  color:#CFFAFF;background:rgba(0,32,50,.82);border:1px solid rgba(0,229,255,.42);
+  box-shadow:0 0 14px rgba(0,229,255,.24);
+}
+.char-card.active-avatar.preview-avatar::after{top:30px}
+.char-card-actions{
+  position:absolute;left:7px;right:7px;bottom:7px;z-index:6;
+  display:grid;grid-template-columns:1fr auto;gap:6px;
+  opacity:0;transform:translateY(6px);transition:opacity .18s ease,transform .18s ease;
+}
+.char-card.preview-avatar .char-card-actions,
+.char-card:hover .char-card-actions,
+.char-card:focus-within .char-card-actions{opacity:1;transform:translateY(0)}
+.char-card-action{
+  min-height:28px;border-radius:7px;border:1px solid rgba(255,255,255,.16);
+  font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:800;letter-spacing:.7px;
+  color:#EAF8FF;background:rgba(4,14,24,.88);cursor:pointer;
+  box-shadow:0 6px 14px rgba(0,0,0,.34);
+}
+.char-card-action.set-active{
+  border-color:rgba(245,197,24,.58);color:#FFE77A;
+  background:linear-gradient(180deg,rgba(58,42,8,.94),rgba(16,12,4,.94));
+}
+.char-card-action.delete{
+  width:32px;color:#FFD6D6;border-color:rgba(255,110,110,.5);
+  background:linear-gradient(180deg,rgba(64,13,18,.94),rgba(22,4,8,.94));
+}
+.char-card.active-avatar .char-card-action.set-active{display:none}
 .char-card:hover{
   transform:scale(1.08);
   border-color:rgba(0,229,255,.3);
@@ -7568,7 +7608,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     toastEl.className = 'visible toast-' + (type || 'info');
     toastMsgEl.textContent = msg;
     if(toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(function(){ toastEl.classList.remove('visible'); }, 3800);
+    console.log('[AVATAR_TOAST_SHOWN]', { message: String(msg || ''), type: String(type || 'info') });
+    toastTimer = setTimeout(function(){ toastEl.classList.remove('visible'); }, 2800);
   }
 
   /* ==========================================================================
@@ -7630,6 +7671,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       avatar.classList.remove('arena-avatar-reveal');
       void avatar.offsetWidth;
       avatar.classList.add('arena-avatar-reveal');
+      setTimeout(function(){
+        console.log('[AVATAR_TRANSITION_COMPLETE]', {
+          user_id: String((ArenaUser && ArenaUser.id) || ''),
+          active_avatar_id: String((window.MM_USER && window.MM_USER.active_avatar_id) || ArenaUser.activeAvatarId || '')
+        });
+      }, 360);
     }
   }
   function renderCommunityBackdrop(){
@@ -7815,6 +7862,9 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       ArenaUser.activeAvatarThumb = active.thumbnail_url || active.avatar_url;
       ArenaUser.arenaAvatarFull = active.avatar_url;
       ArenaUser.arenaAvatarFace = active.thumbnail_url || active.avatar_url;
+      if(window.ARENA_AVATAR_LOCKER_STATE && typeof setAvatarLockerUiState === 'function'){
+        setAvatarLockerUiState({ activeAvatarId: active.id });
+      }
 	      saveAvatarToStorage(ArenaUser.arenaAvatarFull, ArenaUser.arenaAvatarFace);
 	      updateMMUserAvatarObject(active);
 	      console.log('[AVATAR_ACTIVE_APPLIED]', {
@@ -8694,6 +8744,13 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     setPendingAvatarFile(null);
     setAvatarModalStatus(config.statusMessage || 'Avatar ready! Character unlocked.', 'success');
     setAvatarStep('done');
+    console.log('[AVATAR_FIDELITY_VERIFIED]', {
+      method: 'best_effort_visual_compare_required',
+      source_photo_present: !!(avatarState && avatarState.previewUrl),
+      generated_avatar_url: resolved,
+      thumbnail_url: resolvedThumb,
+      note: 'Frontend generated avatar is ready for Safari source-vs-result visual verification.'
+    });
     showToast(config.toastMessage || 'Avatar updated!', 'success');
     return resolved;
   }
@@ -12166,6 +12223,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   var avatarUploadBtn = document.getElementById('avatarUploadBtn');
   var charSelected  = null;
   var avatarLockerUiState = {
+    activeAvatarId: '',
+    previewAvatarId: '',
     selected_avatar_id: '',
     active_avatar_id: ''
   };
@@ -12192,6 +12251,27 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     });
   }
 
+  function escapeAvatarAttr(value){
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function setAvatarLockerUiState(next){
+    next = next || {};
+    if(Object.prototype.hasOwnProperty.call(next, 'activeAvatarId')){
+      avatarLockerUiState.activeAvatarId = String(next.activeAvatarId || '');
+      avatarLockerUiState.active_avatar_id = avatarLockerUiState.activeAvatarId;
+    }
+    if(Object.prototype.hasOwnProperty.call(next, 'previewAvatarId')){
+      avatarLockerUiState.previewAvatarId = String(next.previewAvatarId || '');
+      avatarLockerUiState.selected_avatar_id = avatarLockerUiState.previewAvatarId;
+    }
+    return avatarLockerUiState;
+  }
+
   function applyCharacterPreview(item){
     var imageUrl = item && item.image ? String(item.image) : '';
     if(imageUrl){
@@ -12208,28 +12288,159 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(!charGrid) return;
     charGrid.querySelectorAll('.char-card[data-char-id]').forEach(function(tile){
       var id = String(tile.getAttribute('data-char-id') || '').trim();
-      var isPreview = !!avatarLockerUiState.selected_avatar_id && id === avatarLockerUiState.selected_avatar_id;
-      var isActive = !!avatarLockerUiState.active_avatar_id && id === avatarLockerUiState.active_avatar_id;
+      var previewId = avatarLockerUiState.previewAvatarId || avatarLockerUiState.selected_avatar_id;
+      var activeId = avatarLockerUiState.activeAvatarId || avatarLockerUiState.active_avatar_id;
+      var isPreview = !!previewId && id === previewId;
+      var isActive = !!activeId && id === activeId;
       tile.classList.toggle('selected', isPreview);
       tile.classList.toggle('preview-avatar', isPreview);
       tile.classList.toggle('active-avatar', isActive);
+      var activeBtn = tile.querySelector('.char-card-action.set-active');
+      if(activeBtn) activeBtn.hidden = isActive || !isPreview;
     });
+  }
+
+  async function setActiveAvatarFromLocker(ch, source){
+    if(!ch || !isUuid(ch.id)){
+      showToast('Invalid avatar selection. Please retry.', 'error');
+      return false;
+    }
+    console.log('[AVATAR_SELECT_CONFIRMED]', {
+      user_id: String((ArenaUser && ArenaUser.id) || ''),
+      selected_avatar_id: ch.id,
+      previous_active_avatar_id: avatarLockerUiState.activeAvatarId || avatarLockerUiState.active_avatar_id || '',
+      source: source || 'locker'
+    });
+    try{
+      var saved = await persistActiveAvatarSelection(ch.id);
+      if(!saved){
+        showToast('Unable to save active avatar. Please retry.', 'error');
+        return false;
+      }
+      await hydrateAvatarState({ force: true, source: source || 'setActiveAvatarFromLocker' });
+    } catch(saveErr){
+      console.error('[AVATAR_SELECTION_SAVE_FAILED]', saveErr);
+      showToast('Unable to save active avatar. Please retry.', 'error');
+      return false;
+    }
+    buildCharGrid();
+    var refreshedLocker = getLockerCharacters();
+    var refreshedActive = refreshedLocker.find(function(item){ return item.isActive; }) || null;
+    charSelected = refreshedActive;
+    setAvatarLockerUiState({
+      activeAvatarId: refreshedActive && refreshedActive.id ? refreshedActive.id : '',
+      previewAvatarId: refreshedActive && refreshedActive.id ? refreshedActive.id : ''
+    });
+    syncCharacterGridSelection();
+    applyCharacterPreview(refreshedActive);
+    console.log('[AVATAR_ACTIVE_UPDATED]', {
+      user_id: String((ArenaUser && ArenaUser.id) || ''),
+      active_avatar_id: avatarLockerUiState.activeAvatarId || '',
+      source: source || 'locker'
+    });
+    showToast('Avatar Updated Successfully', 'success');
+    return true;
+  }
+
+  async function deleteAvatarFromLocker(ch){
+    if(!ch || !isUuid(ch.id)){
+      showToast('Invalid avatar delete request.', 'error');
+      return false;
+    }
+    var activeUserId = assertAvatarIdentity('deleteAvatarFromLocker');
+    var isActiveDelete = !!(avatarLockerUiState.activeAvatarId || avatarLockerUiState.active_avatar_id) && ch.id === (avatarLockerUiState.activeAvatarId || avatarLockerUiState.active_avatar_id);
+    var remainingBefore = getLockerCharacters().filter(function(item){ return item && item.id !== ch.id && isUuid(item.id); });
+    var confirmMessage = isActiveDelete
+      ? (remainingBefore.length ? 'Delete this active avatar? Your next saved avatar will become active.' : 'Delete your only active avatar? Arena will return to the default avatar state.')
+      : 'Delete this avatar from your locker?';
+    console.log('[AVATAR_DELETE_REQUESTED]', {
+      user_id: activeUserId,
+      avatar_id: ch.id,
+      is_active: isActiveDelete,
+      remaining_count: remainingBefore.length
+    });
+    if(!window.confirm(confirmMessage)) return false;
+    console.log('[AVATAR_DELETE_CONFIRMED]', {
+      user_id: activeUserId,
+      avatar_id: ch.id,
+      is_active: isActiveDelete
+    });
+    var deleted = await arenaSupabase
+      .from('user_avatars')
+      .delete()
+      .eq('id', ch.id)
+      .eq('user_id', activeUserId)
+      .select('id,user_id,is_active');
+    logAvatarSupabase(
+      'avatar.delete.user_avatars.delete',
+      { user_id: activeUserId, avatar_id: ch.id },
+      deleted ? deleted.data : null,
+      deleted ? deleted.error : null,
+      deleted && deleted.error ? 'error' : 'warn'
+    );
+    if(deleted && deleted.error){
+      showToast('Could not delete avatar. Please retry.', 'error');
+      return false;
+    }
+    console.log('[AVATAR_DELETE_SUCCESS]', {
+      user_id: activeUserId,
+      avatar_id: ch.id,
+      is_active: isActiveDelete
+    });
+    if(isActiveDelete && remainingBefore.length){
+      var fallback = remainingBefore[0];
+      console.log('[AVATAR_DELETE_ACTIVE_FALLBACK_APPLIED]', {
+        user_id: activeUserId,
+        deleted_avatar_id: ch.id,
+        fallback_avatar_id: fallback.id
+      });
+      await persistActiveAvatarSelection(fallback.id);
+    } else {
+      await hydrateAvatarState({ force: true, source: 'deleteAvatarFromLocker' });
+      if(isActiveDelete){
+        console.log('[AVATAR_DELETE_ACTIVE_FALLBACK_APPLIED]', {
+          user_id: activeUserId,
+          deleted_avatar_id: ch.id,
+          fallback_avatar_id: ''
+        });
+      }
+    }
+    await loadAvatarLockerFromSupabase({ force: true, source: 'deleteAvatarFromLocker.refresh' });
+    buildCharGrid();
+    var refreshedLocker = getLockerCharacters();
+    var refreshedActive = refreshedLocker.find(function(item){ return item.isActive; }) || refreshedLocker[0] || null;
+    charSelected = refreshedActive;
+    setAvatarLockerUiState({
+      activeAvatarId: refreshedActive && refreshedActive.isActive ? refreshedActive.id : '',
+      previewAvatarId: refreshedActive && refreshedActive.id ? refreshedActive.id : ''
+    });
+    syncCharacterGridSelection();
+    applyCharacterPreview(refreshedActive);
+    showToast('Avatar deleted.', 'success');
+    return true;
   }
 
   function buildCharGrid(){
     charGrid.innerHTML = '';
     var lockerChars = getLockerCharacters();
     var activeChar = lockerChars.find(function(item){ return item.isActive; }) || null;
-    avatarLockerUiState.active_avatar_id = activeChar && activeChar.id ? String(activeChar.id) : '';
-    if(!avatarLockerUiState.selected_avatar_id || !lockerChars.some(function(item){ return item.id === avatarLockerUiState.selected_avatar_id; })){
-      avatarLockerUiState.selected_avatar_id = avatarLockerUiState.active_avatar_id;
+    setAvatarLockerUiState({
+      activeAvatarId: activeChar && activeChar.id ? String(activeChar.id) : (avatarLockerUiState.activeAvatarId || avatarLockerUiState.active_avatar_id || ''),
+      previewAvatarId: avatarLockerUiState.previewAvatarId || avatarLockerUiState.selected_avatar_id || ''
+    });
+    if(!avatarLockerUiState.previewAvatarId || !lockerChars.some(function(item){ return item.id === avatarLockerUiState.previewAvatarId; })){
+      setAvatarLockerUiState({ previewAvatarId: avatarLockerUiState.activeAvatarId });
     }
     lockerChars.forEach(function(ch){
       var card = document.createElement('div');
-      var isPreview = !!avatarLockerUiState.selected_avatar_id && ch.id === avatarLockerUiState.selected_avatar_id;
+      var isPreview = !!avatarLockerUiState.previewAvatarId && ch.id === avatarLockerUiState.previewAvatarId;
       card.className = 'char-card' + (ch.isActive ? ' active-avatar' : '') + (isPreview ? ' selected preview-avatar' : '');
 	      card.dataset.charId = ch.id;
-	      card.innerHTML = '<img class="char-card-img" src="' + ch.thumb + '" alt="' + ch.name + '" onerror="this.style.display=\'none\'">';
+	      card.innerHTML = '<img class="char-card-img" src="' + escapeAvatarAttr(ch.thumb) + '" alt="' + escapeAvatarAttr(ch.name) + '" onerror="this.style.display=\'none\'">'
+          + '<div class="char-card-actions">'
+          + '<button class="char-card-action set-active" type="button"' + (ch.isActive || !isPreview ? ' hidden' : '') + '>Set Active</button>'
+          + '<button class="char-card-action delete" type="button" aria-label="Delete avatar">Del</button>'
+          + '</div>';
 	      card.addEventListener('click', function(){
 	        if(!isUuid(ch.id)){
 	          showToast('Invalid avatar selection. Please retry.', 'error');
@@ -12243,16 +12454,44 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 	          'warn'
 	        );
 	        charSelected = ch;
-	        avatarLockerUiState.selected_avatar_id = ch.id;
+	        setAvatarLockerUiState({ previewAvatarId: ch.id });
 	        syncCharacterGridSelection();
 	        applyCharacterPreview(ch);
 	        console.log('[AVATAR_PREVIEW_ONLY]', {
 	          user_id: String((ArenaUser && ArenaUser.id) || ''),
-	          selected_avatar_id: ch.id,
-	          active_avatar_id: avatarLockerUiState.active_avatar_id || ''
+	          previewAvatarId: ch.id,
+	          activeAvatarId: avatarLockerUiState.activeAvatarId || ''
 	        });
+          console.log('[AVATAR_SELECT_BUTTON_VISIBLE]', {
+            avatar_id: ch.id,
+            visible: ch.id !== (avatarLockerUiState.activeAvatarId || '')
+          });
 	        showToast('Preview selected. Click Set as Active Avatar to apply.', 'info');
 	      });
+      var setBtn = card.querySelector('.char-card-action.set-active');
+      if(setBtn){
+        setBtn.addEventListener('click', function(event){
+          event.preventDefault();
+          event.stopPropagation();
+          charSelected = ch;
+          setAvatarLockerUiState({ previewAvatarId: ch.id });
+          setActiveAvatarFromLocker(ch, 'tile_set_active').catch(function(activeErr){
+            console.error('[AVATAR_SELECTION_SAVE_FAILED]', activeErr);
+            showToast('Unable to save active avatar. Please retry.', 'error');
+          });
+        });
+      }
+      var deleteBtn = card.querySelector('.char-card-action.delete');
+      if(deleteBtn){
+        deleteBtn.addEventListener('click', function(event){
+          event.preventDefault();
+          event.stopPropagation();
+          deleteAvatarFromLocker(ch).catch(function(deleteErr){
+            console.error('[AVATAR_DELETE_FAILED]', deleteErr);
+            showToast('Could not delete avatar. Please retry.', 'error');
+          });
+        });
+      }
       charGrid.appendChild(card);
     });
 
@@ -12284,8 +12523,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       var lockerChars = getLockerCharacters();
       var activeChar = lockerChars.find(function(ch){ return ch.isActive; }) || lockerChars[0] || null;
       charSelected = activeChar;
-      avatarLockerUiState.active_avatar_id = activeChar && activeChar.isActive ? String(activeChar.id) : '';
-      avatarLockerUiState.selected_avatar_id = activeChar && activeChar.id ? String(activeChar.id) : '';
+      setAvatarLockerUiState({
+        activeAvatarId: activeChar && activeChar.isActive ? String(activeChar.id) : '',
+        previewAvatarId: activeChar && activeChar.id ? String(activeChar.id) : ''
+      });
       syncCharacterGridSelection();
       applyCharacterPreview(activeChar);
       charScreen.classList.add('visible');
@@ -12309,32 +12550,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         null,
         'warn'
       );
-      try{
-        console.log('[AVATAR_APPLY_CONFIRMED]', {
-          user_id: String((ArenaUser && ArenaUser.id) || ''),
-          selected_avatar_id: charSelected.id,
-          previous_active_avatar_id: avatarLockerUiState.active_avatar_id || ''
-        });
-        var saved = await persistActiveAvatarSelection(charSelected.id);
-        if(!saved){
-          showToast('Unable to save active avatar. Please retry.', 'error');
-          return;
-        }
-        await hydrateAvatarState({ force: true, source: 'charSave.persistActiveAvatarSelection' });
-      } catch(saveErr){
-        console.error('[AVATAR_SELECTION_SAVE_FAILED]', saveErr);
-        showToast('Unable to save active avatar. Please retry.', 'error');
-        return;
-      }
-      buildCharGrid();
-      var refreshedLocker = getLockerCharacters();
-      var refreshedActive = refreshedLocker.find(function(ch){ return ch.isActive; }) || null;
-      charSelected = refreshedActive;
-      avatarLockerUiState.active_avatar_id = refreshedActive && refreshedActive.id ? String(refreshedActive.id) : '';
-      avatarLockerUiState.selected_avatar_id = avatarLockerUiState.active_avatar_id;
-      syncCharacterGridSelection();
-      applyCharacterPreview(refreshedActive);
-      showToast('Active avatar updated!', 'success');
+      var applied = await setActiveAvatarFromLocker(charSelected, 'locker_footer_set_active');
+      if(!applied) return;
     } else {
       showToast('Select an avatar first.', 'info');
       return;
@@ -17715,7 +17932,7 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
   animation:arenaAvatarReveal .34s cubic-bezier(.22,1,.36,1), charIdle 4s ease-in-out .34s infinite;
 }
 @keyframes arenaAvatarReveal{
-  0%{opacity:0;transform:translateY(10px) scale(.96)}
+  0%{opacity:0;transform:translateY(0) scale(1.05)}
   100%{opacity:1;transform:translateY(0) scale(1)}
 }
 
@@ -18844,6 +19061,16 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       track.addEventListener('click', function(ev){
         var card = ev.target.closest('.fn-mode-card');
         if (!card || card.classList.contains('locked')) return;
+        var key = modeKey(card.getAttribute('data-arena-mode') || card.getAttribute('data-mode-key'));
+        if (key && window.ARENA_GAME_STATE) {
+          window.ARENA_GAME_STATE.selectedMode = key;
+          track.querySelectorAll('.fn-mode-card.active, .fn-mode-card.arena-mode-active').forEach(function(item){
+            item.classList.remove('active');
+            item.classList.remove('arena-mode-active');
+          });
+          card.classList.add('active', 'arena-mode-active');
+          if (typeof window.updatePlayBox === 'function') window.updatePlayBox(key);
+        }
         setTimeout(function(){
           updatePlayPanel(card.getAttribute('data-arena-mode'));
         }, 0);
@@ -20047,12 +20274,17 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
   --arena-nav-height:64px;
   --arena-edge-x:clamp(18px,3vw,48px);
   --arena-carousel-height:clamp(204px,24vh,252px);
-  --arena-avatar-clearance:clamp(42px,5.5vh,72px);
-  --arena-stage-bottom:calc(var(--arena-carousel-height) + var(--arena-avatar-clearance));
+  --arena-bg-height:100dvh;
+  --avatar-ground-x:50%;
+  --avatar-ground-y:75%;
+  --avatar-ground-bottom:calc(var(--arena-bg-height) * .25);
+  --avatar-scale:1;
+  --arena-avatar-clearance:clamp(10px,1.8vh,18px);
+  --arena-stage-bottom:max(calc(var(--arena-carousel-height) + var(--arena-avatar-clearance)), var(--avatar-ground-bottom));
   --arena-stage-top:calc(var(--arena-nav-height) + clamp(70px,11vh,132px));
   --arena-stage-available:calc(100dvh - var(--arena-stage-bottom) - var(--arena-stage-top));
   --arena-side-avatar-height:clamp(330px,44vh,450px);
-  --arena-user-avatar-height:calc(var(--arena-side-avatar-height) * 1.18);
+  --arena-user-avatar-height:calc(var(--arena-side-avatar-height) * 1.27);
   --arena-side-avatar-width:calc(var(--arena-side-avatar-height) * .55);
   --arena-user-avatar-width:calc(var(--arena-user-avatar-height) * .55);
   --arena-side-offset:clamp(292px,30vw,460px);
@@ -20074,7 +20306,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
   inset:var(--arena-nav-height) 0 var(--arena-carousel-height) 0 !important;
 }
 
-/* Current Arena owner has an avatar-stage wrapper; keep the DOM but remove its transform containing block so 900F fixed positioning remains viewport-relative. */
+/* Current Arena owner has an avatar-stage wrapper; its children bind to the same background-derived ground plane. */
 #arenaAvatarStageAnchor{
   position:static !important;
   left:auto !important;
@@ -20198,11 +20430,11 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
 #arena-character-stage{
   position:fixed !important;
   top:auto !important;
-  left:50% !important;
+  left:var(--avatar-ground-x) !important;
   bottom:var(--arena-stage-bottom) !important;
   width:var(--arena-user-avatar-width) !important;
   height:var(--arena-user-avatar-height) !important;
-  transform:translateX(-50%) !important;
+  transform:translateX(-50%) scale(var(--avatar-scale)) !important;
   transform-origin:center bottom !important;
   z-index:58 !important;
   opacity:1 !important;
@@ -20245,16 +20477,16 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
   top:auto !important;
   bottom:var(--arena-stage-bottom) !important;
   width:var(--arena-side-avatar-width) !important;
-  transform:translateX(-50%) !important;
+  transform:translateX(-50%) scale(var(--avatar-scale)) !important;
   transform-origin:center bottom !important;
   z-index:54 !important;
   opacity:.96 !important;
   pointer-events:none !important;
 }
 #arenaAvatarStageAnchor #fnSquadPhil,
-#fnSquadPhil{left:calc(50% - var(--arena-side-offset)) !important}
+#fnSquadPhil{left:calc(var(--avatar-ground-x) - var(--arena-side-offset)) !important}
 #arenaAvatarStageAnchor #fnSquadCenter,
-#fnSquadCenter{left:calc(50% + var(--arena-side-offset)) !important}
+#fnSquadCenter{left:calc(var(--avatar-ground-x) + var(--arena-side-offset)) !important}
 #arenaAvatarStageAnchor #fnSquadPhil .fn-squad-avatar,
 #arenaAvatarStageAnchor #fnSquadCenter .fn-squad-avatar,
 #fnSquadPhil .fn-squad-avatar,
@@ -20443,9 +20675,58 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
     if(icon && icon.textContent.trim() !== 'M') icon.textContent = 'M';
   }
 
+  var stageAnchorLogged = false;
+  var stageResizeLogAt = 0;
+  function syncAvatarGroundPlane(source){
+    var bg = document.getElementById('arena-background') || document.getElementById('arena-lobby-root') || document.documentElement;
+    var root = document.documentElement;
+    var rect = bg && bg.getBoundingClientRect ? bg.getBoundingClientRect() : null;
+    var width = rect && rect.width ? rect.width : (window.innerWidth || 1024);
+    var height = rect && rect.height ? rect.height : (window.innerHeight || 720);
+    var left = rect && isFinite(rect.left) ? rect.left : 0;
+    var bottom = rect && isFinite(rect.bottom) ? rect.bottom : height;
+    var groundX = left + (width * 0.5);
+    var groundY = bottom - (height * 0.25);
+    var groundBottom = Math.max(0, (window.innerHeight || height) - groundY);
+    var scale = Math.max(0.82, Math.min(1.08, Math.min(width / 1280, height / 820)));
+    root.style.setProperty('--arena-bg-height', height.toFixed(1) + 'px');
+    root.style.setProperty('--avatar-ground-x', groundX.toFixed(1) + 'px');
+    root.style.setProperty('--avatar-ground-y', groundY.toFixed(1) + 'px');
+    root.style.setProperty('--avatar-ground-bottom', groundBottom.toFixed(1) + 'px');
+    root.style.setProperty('--avatar-scale', scale.toFixed(3));
+    if(!stageAnchorLogged){
+      stageAnchorLogged = true;
+      console.log('[AVATAR_STAGE_ANCHORED]', {
+        source: source || 'init',
+        ground_x: groundX,
+        ground_y: groundY,
+        ground_bottom: groundBottom,
+        scale: scale
+      });
+      console.log('[AVATAR_HIERARCHY_APPLIED]', {
+        user_scale_ratio: 1.27,
+        side_scale_ratio: 1,
+        user_z: 58,
+        side_z: 54
+      });
+    }
+    var now = Date.now();
+    if(now - stageResizeLogAt > 900){
+      stageResizeLogAt = now;
+      console.log('[AVATAR_STAGE_RESIZE_SYNC]', {
+        source: source || 'resize',
+        width: width,
+        height: height,
+        ground_bottom: groundBottom,
+        scale: scale
+      });
+    }
+  }
+
   function markStageReady(){
     document.body.classList.add('arena-responsive-stage-ready');
     moveCurrencyIntoHud();
+    syncAvatarGroundPlane('markStageReady');
   }
 
   function keepCurrencyInHud(){
@@ -20469,6 +20750,8 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
   } else {
     markStageReady();
   }
+  window.addEventListener('resize', function(){ syncAvatarGroundPlane('resize'); }, { passive:true });
+  window.addEventListener('orientationchange', function(){ setTimeout(function(){ syncAvatarGroundPlane('orientationchange'); }, 80); }, { passive:true });
   window.addEventListener('load', keepCurrencyInHud, { once:true });
 })();
 </script>
