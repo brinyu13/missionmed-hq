@@ -2225,6 +2225,28 @@ html.admin-bar{margin-top:0!important}
     '2026-05-01': ['mixed_review_step1', 'mixed_review_step23']
   };
   var DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS = ['mixed_review_step1', 'mixed_review_step23'];
+  var DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS = {
+    'usmle_3ac83d870348': 'mixed_review_step1',
+    'usmle_31cd0d939397': 'surgery_step23',
+    'usmle_aecf7be312b1': 'psych_ethics_step23',
+    'usmle_d97b0096855e': 'git_hep_step23',
+    'usmle_3c48cfcdd346': 'inf_disease_step23',
+    'usmle_1e8ceeaa580c': 'mixed_review_step1',
+    'usmle_2d45081a1808': 'mixed_review_step23',
+    'usmle_d9ef08b93e96': 'psych_ethics_step1',
+    'usmle_473aad16ff51': 'git_hep_step1',
+    'usmle_e40f7cd7f1b2': 'micro_inf_disease_step1',
+    'usmle_beb8b86cb3d5': 'mixed_review_step23',
+    'usmle_d68c6a58c6fd': 'mixed_review_step23',
+    'usmle_581a9f5e406a': 'er_medicine_step1',
+    'usmle_841da92f6b03': 'er_medicine_step23',
+    'usmle_479bf224f2af': 'renal_gu_electrolytes_step23',
+    'usmle_793a0df25114': 'renal_gu_step1',
+    'usmle_4a0c1ea32975': 'biochem_genetics_step1',
+    'usmle_6e2058b09d29': 'peds_step23',
+    'usmle_b9bbfa4e055d': 'repro_gyn_ob_step1',
+    'usmle_5418da136f32': 'gyn_step23'
+  };
 
   var drTopicVideoMapEffective = null;
 
@@ -2249,6 +2271,13 @@ html.admin-bar{margin-top:0!important}
     topicIds.forEach(function(topicId) {
       if (!topicId || !map[topicId]) return;
       if (map[topicId].indexOf(videoId) === -1) map[topicId].push(videoId);
+    });
+  }
+
+  function assignExactVideoTopicAssignments(map, availableById) {
+    Object.keys(DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS).forEach(function(videoId) {
+      if (!availableById[videoId]) return;
+      assignScheduledSessionToTopicMap(map, DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS[videoId], videoId);
     });
   }
 
@@ -2318,6 +2347,8 @@ html.admin-bar{margin-top:0!important}
         if (availableById[videoId] && map[topicId].indexOf(videoId) === -1) map[topicId].push(videoId);
       });
     });
+
+    assignExactVideoTopicAssignments(map, availableById);
 
     var mappedById = {};
     Object.keys(map).forEach(function(topicId) {
