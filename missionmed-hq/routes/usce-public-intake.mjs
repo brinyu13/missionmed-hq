@@ -2,10 +2,12 @@ import crypto from 'node:crypto';
 
 const PUBLIC_INTAKE_PATH = '/api/usce/public/requests';
 const PUBLIC_CONFIG_PATH = '/api/usce/public/config';
+const ADMIN_PUBLIC_INTAKE_LIST_PATH = '/api/usce/admin/public-intake-requests';
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const IP_LIMIT = 3;
 const EMAIL_LIMIT = 1;
+const ADMIN_LIST_MAX_LIMIT = 100;
 const RECIPIENTS = ['clinicals@missionmedinstitute.com', 'philperri@gmail.com'];
 const INTAKE_ENABLED_FLAGS = ['MM_USCE_PUBLIC_INTAKE_ENABLED', 'USCE_PUBLIC_INTAKE_ENABLED'];
 const NOTIFY_DRY_RUN_FLAGS = ['MM_USCE_PUBLIC_INTAKE_NOTIFY_DRY_RUN', 'USCE_PUBLIC_INTAKE_NOTIFY_DRY_RUN'];
@@ -16,6 +18,7 @@ const SUPABASE_SERVICE_KEY_FLAGS = ['MMHQ_SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_
 const CANONICAL_SUPABASE_PROJECT_REF = 'fglyvdykwgbuivikqoah';
 const PUBLIC_INTAKE_TABLE = 'command_center.usce_public_intake_requests';
 const PUBLIC_INTAKE_RPC = 'create_usce_public_intake_request';
+const ADMIN_PUBLIC_INTAKE_LIST_RPC = 'list_usce_public_intake_requests';
 const CANONICAL_PAYMENT_PRODUCT_URL = 'https://missionmedinstitute.com/product/usce-clinical-rotations/';
 const CANONICAL_LEARNDASH_COURSE_URL = 'https://missionmedinstitute.com/courses/mmi-clinicals/';
 const ALLOWED_ORIGINS = new Set([
@@ -85,6 +88,56 @@ export async function handleUscePublicRoute(request, response, url) {
     message: 'Clinical rotation request route was not found.',
   }, corsHeaders);
   return true;
+}
+
+export function isUsceAdminPublicIntakeListPath(pathname) {
+  return normalizePathname(pathname) === ADMIN_PUBLIC_INTAKE_LIST_PATH;
+}
+
+export async function getUscePublicIntakeAdminList(searchParams = new URLSearchParams()) {
+  const config = getSupabasePublicIntakeConfig();
+  if (!config.ok) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      error: 'usce_public_intake_admin_storage_not_configured',
+      message: 'USCE public intake admin read storage is not configured.',
+      storage_target: PUBLIC_INTAKE_TABLE,
+      storage_adapter: `rpc:${ADMIN_PUBLIC_INTAKE_LIST_RPC}`,
+      reason: config.reason,
+    };
+  }
+
+  const params = normalizeAdminListParams(searchParams);
+  const rpcResult = await listSupabasePublicIntakeViaRpc(config, params);
+  if (!rpcResult.ok) {
+    return {
+      ok: false,
+      httpStatus: rpcResult.statusCode || 503,
+      error: 'usce_public_intake_admin_read_failed',
+      message: 'USCE public intake requests could not be loaded.',
+      storage_target: PUBLIC_INTAKE_TABLE,
+      storage_adapter: `rpc:${ADMIN_PUBLIC_INTAKE_LIST_RPC}`,
+      reason: rpcResult.reason,
+    };
+  }
+
+  return {
+    ok: true,
+    mode: 'live',
+    storage_target: PUBLIC_INTAKE_TABLE,
+    storage_adapter: `rpc:${ADMIN_PUBLIC_INTAKE_LIST_RPC}`,
+    items: Array.isArray(rpcResult.payload.items) ? rpcResult.payload.items : [],
+    pagination: {
+      limit: params.limit,
+      offset: params.offset,
+      count: Number(rpcResult.payload.count || 0),
+    },
+    filters: {
+      status: params.status || null,
+      search: params.search || null,
+    },
+  };
 }
 
 async function handlePublicRequestCreate(request, response, corsHeaders) {
@@ -424,6 +477,51 @@ async function createSupabasePublicIntakeViaRpc(config, record) {
     ok: false,
     reason: safeSupabaseErrorReason(payload),
   };
+}
+
+async function listSupabasePublicIntakeViaRpc(config, params) {
+  const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${ADMIN_PUBLIC_INTAKE_LIST_RPC}`, {
+    method: 'POST',
+    headers: buildSupabaseHeaders(config.serviceKey, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify({
+      p_limit: params.limit,
+      p_offset: params.offset,
+      p_status: params.status || null,
+      p_search: params.search || null,
+    }),
+  });
+
+  const payload = await readSupabaseJson(response);
+  if (response.ok && payload && typeof payload === 'object') {
+    return { ok: true, payload };
+  }
+
+  return {
+    ok: false,
+    statusCode: response.status === 400 ? 400 : 503,
+    reason: safeSupabaseErrorReason(payload),
+  };
+}
+
+function normalizeAdminListParams(searchParams) {
+  const rawLimit = Number(searchParams.get('limit') || 50);
+  const rawOffset = Number(searchParams.get('offset') || 0);
+  const status = sanitizeText(searchParams.get('status'), 40).toLowerCase();
+  const search = sanitizeText(searchParams.get('search'), 120);
+
+  return {
+    limit: clampInteger(rawLimit, 1, ADMIN_LIST_MAX_LIMIT, 50),
+    offset: clampInteger(rawOffset, 0, 10_000, 0),
+    status: status || '',
+    search: search || '',
+  };
+}
+
+function clampInteger(value, min, max, fallback) {
+  if (!Number.isInteger(value)) return fallback;
+  return Math.min(max, Math.max(min, value));
 }
 
 function buildSupabaseHeaders(serviceKey, extraHeaders = {}) {

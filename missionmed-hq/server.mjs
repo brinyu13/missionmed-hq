@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
-import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
+import { getUscePublicIntakeAdminList, handleUscePublicRoute, isUsceAdminPublicIntakeListPath } from './routes/usce-public-intake.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -1691,6 +1691,7 @@ const USCE_KNOWN_ROUTE_PATTERNS = [
   /^\/api\/usce\/offers\/[^/]+\/send$/u,
   /^\/api\/usce\/offers\/[^/]+\/revoke$/u,
   /^\/api\/usce\/offers\/[^/]+\/onboard$/u,
+  /^\/api\/usce\/admin\/public-intake-requests$/u,
   /^\/api\/usce\/programs$/u,
   /^\/api\/usce\/programs\/[^/]+$/u,
   /^\/api\/usce\/portal\/[^/]+$/u,
@@ -1741,6 +1742,35 @@ function requireUsceUserSession(request, response, session, authHeaders) {
   return true;
 }
 
+function isUsceAdminReadSession(session = null) {
+  if (!session?.user) {
+    return false;
+  }
+
+  const roles = Array.isArray(session.user.roles)
+    ? session.user.roles.map((role) => String(role || '').toLowerCase())
+    : [];
+  if (roles.includes('administrator') || session.user.capabilities?.manage_options) {
+    return true;
+  }
+
+  const scope = getSessionScope(session);
+  return Boolean(scope?.is_all) || ['brian', 'phil'].includes(String(scope?.operator || '').toLowerCase());
+}
+
+function requireUsceAdminReadSession(request, response, session, authHeaders) {
+  if (!isUsceAdminReadSession(session)) {
+    sendJson(response, 403, {
+      error: 'admin_authorization_required',
+      message: 'USCE public intake admin reads require an authorized MissionMed HQ admin session.',
+      login: getLoginHints(request),
+    }, authHeaders);
+    return false;
+  }
+
+  return true;
+}
+
 async function handleUsceRoute(request, response, url, context) {
   const { pathname } = url;
   const { session, authHeaders } = context;
@@ -1760,6 +1790,20 @@ async function handleUsceRoute(request, response, url, context) {
   }
 
   if (!requireUsceUserSession(request, response, session, authHeaders)) {
+    return true;
+  }
+
+  if (isUsceAdminPublicIntakeListPath(pathname)) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    if (!requireUsceAdminReadSession(request, response, session, authHeaders)) {
+      return true;
+    }
+
+    sendRoutePayload(response, await getUscePublicIntakeAdminList(url.searchParams), authHeaders);
     return true;
   }
 
