@@ -1,0 +1,1357 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>MissionMed Daily + Drills Unified Lab</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <style>
+    #mmDailyDrillsLab {
+      --mm-dd-lab-bg: #07111f;
+      --mm-dd-lab-panel: rgba(13, 27, 48, 0.88);
+      --mm-dd-lab-panel-strong: rgba(18, 38, 68, 0.96);
+      --mm-dd-lab-line: rgba(159, 188, 232, 0.22);
+      --mm-dd-lab-text: #eef6ff;
+      --mm-dd-lab-muted: #9db1cb;
+      --mm-dd-lab-cyan: #59e7ff;
+      --mm-dd-lab-gold: #f6c75b;
+      --mm-dd-lab-green: #67f5ac;
+      --mm-dd-lab-red: #ff6b7c;
+      --mm-dd-lab-shadow: 0 28px 80px rgba(0, 0, 0, 0.38);
+      min-height: 100vh;
+      color: var(--mm-dd-lab-text);
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 10% 10%, rgba(89, 231, 255, 0.20), transparent 30%),
+        radial-gradient(circle at 88% 16%, rgba(246, 199, 91, 0.14), transparent 34%),
+        linear-gradient(145deg, #06101d 0%, #091a31 44%, #050812 100%);
+    }
+
+    #mmDailyDrillsLab * { box-sizing: border-box; }
+
+    #mmDailyDrillsLab button,
+    #mmDailyDrillsLab select {
+      font: inherit;
+    }
+
+    .mm-dd-lab-shell {
+      width: min(1440px, calc(100vw - 28px));
+      margin: 0 auto;
+      padding: 24px 0 34px;
+    }
+
+    .mm-dd-lab-topbar {
+      display: flex;
+      gap: 16px;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 18px;
+      border: 1px solid var(--mm-dd-lab-line);
+      border-radius: 24px;
+      background: rgba(8, 18, 32, 0.78);
+      box-shadow: var(--mm-dd-lab-shadow);
+      backdrop-filter: blur(18px);
+    }
+
+    .mm-dd-lab-kicker {
+      color: var(--mm-dd-lab-gold);
+      font-size: 12px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 900;
+    }
+
+    .mm-dd-lab-title {
+      margin: 4px 0 0;
+      font-size: clamp(26px, 4vw, 48px);
+      line-height: 0.95;
+      letter-spacing: -0.045em;
+    }
+
+    .mm-dd-lab-subtitle {
+      margin: 8px 0 0;
+      color: var(--mm-dd-lab-muted);
+      max-width: 760px;
+      line-height: 1.5;
+    }
+
+    .mm-dd-lab-badge-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .mm-dd-lab-badge {
+      border: 1px solid var(--mm-dd-lab-line);
+      border-radius: 999px;
+      padding: 8px 11px;
+      color: #cfe8ff;
+      background: rgba(255, 255, 255, 0.06);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      white-space: nowrap;
+    }
+
+    .mm-dd-lab-layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 0.9fr) minmax(420px, 1.35fr);
+      gap: 18px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .mm-dd-lab-card {
+      border: 1px solid var(--mm-dd-lab-line);
+      border-radius: 26px;
+      background: var(--mm-dd-lab-panel);
+      box-shadow: var(--mm-dd-lab-shadow);
+      overflow: hidden;
+    }
+
+    .mm-dd-lab-card-pad { padding: 18px; }
+
+    .mm-dd-lab-card-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 14px;
+    }
+
+    .mm-dd-lab-section-title {
+      margin: 0;
+      font-size: 20px;
+      letter-spacing: -0.03em;
+    }
+
+    .mm-dd-lab-small {
+      margin: 4px 0 0;
+      color: var(--mm-dd-lab-muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .mm-dd-lab-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--mm-dd-lab-muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .mm-dd-lab-status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--mm-dd-lab-gold);
+      box-shadow: 0 0 20px rgba(246, 199, 91, 0.5);
+    }
+
+    .mm-dd-lab-status-dot.is-ready { background: var(--mm-dd-lab-green); }
+    .mm-dd-lab-status-dot.is-error { background: var(--mm-dd-lab-red); }
+
+    .mm-dd-lab-pill-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .mm-dd-lab-btn,
+    .mm-dd-lab-pill,
+    .mm-dd-lab-topic,
+    .mm-dd-lab-session {
+      border: 1px solid var(--mm-dd-lab-line);
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--mm-dd-lab-text);
+      border-radius: 18px;
+      cursor: pointer;
+      transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+
+    .mm-dd-lab-btn:hover,
+    .mm-dd-lab-pill:hover,
+    .mm-dd-lab-topic:hover,
+    .mm-dd-lab-session:hover {
+      transform: translateY(-1px);
+      border-color: rgba(89, 231, 255, 0.5);
+      background: rgba(89, 231, 255, 0.08);
+    }
+
+    .mm-dd-lab-pill {
+      padding: 14px;
+      text-align: left;
+    }
+
+    .mm-dd-lab-pill.is-active,
+    .mm-dd-lab-topic.is-active,
+    .mm-dd-lab-session.is-active {
+      border-color: rgba(246, 199, 91, 0.78);
+      box-shadow: 0 0 0 1px rgba(246, 199, 91, 0.25), 0 14px 36px rgba(246, 199, 91, 0.12);
+    }
+
+    .mm-dd-lab-pill strong,
+    .mm-dd-lab-topic strong,
+    .mm-dd-lab-session strong {
+      display: block;
+      font-size: 15px;
+      letter-spacing: -0.015em;
+    }
+
+    .mm-dd-lab-pill span,
+    .mm-dd-lab-topic span,
+    .mm-dd-lab-session span {
+      display: block;
+      color: var(--mm-dd-lab-muted);
+      font-size: 12px;
+      margin-top: 5px;
+      line-height: 1.4;
+    }
+
+    .mm-dd-lab-topic-list,
+    .mm-dd-lab-session-list {
+      display: grid;
+      gap: 10px;
+      max-height: 360px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .mm-dd-lab-topic,
+    .mm-dd-lab-session { padding: 13px; text-align: left; width: 100%; }
+
+    .mm-dd-lab-session-meta {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .mm-dd-lab-chip {
+      display: inline-flex;
+      border: 1px solid rgba(159, 188, 232, 0.16);
+      border-radius: 999px;
+      padding: 4px 8px;
+      color: #bcd1ee;
+      background: rgba(255,255,255,0.045);
+      font-size: 11px;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .mm-dd-lab-player-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .mm-dd-lab-video-frame {
+      position: relative;
+      min-height: 320px;
+      border-radius: 22px;
+      overflow: hidden;
+      border: 1px solid var(--mm-dd-lab-line);
+      background: #020713;
+    }
+
+    .mm-dd-lab-video,
+    .mm-dd-lab-iframe {
+      width: 100%;
+      height: 100%;
+      min-height: 320px;
+      display: block;
+      background: #020713;
+    }
+
+    .mm-dd-lab-iframe { border: 0; display: none; }
+
+    .mm-dd-lab-video-overlay {
+      position: absolute;
+      inset: auto 12px 12px 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .mm-dd-lab-video-state {
+      border-radius: 999px;
+      padding: 8px 10px;
+      background: rgba(2, 7, 19, 0.72);
+      border: 1px solid rgba(255,255,255,0.16);
+      color: #dff6ff;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .mm-dd-lab-controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .mm-dd-lab-btn {
+      padding: 11px 14px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .mm-dd-lab-btn.primary {
+      color: #10131c;
+      border-color: rgba(246, 199, 91, 0.9);
+      background: linear-gradient(135deg, #ffe18a, #f2b84a);
+    }
+
+    .mm-dd-lab-btn.danger {
+      color: #fff;
+      border-color: rgba(255, 107, 124, 0.48);
+      background: rgba(255, 107, 124, 0.14);
+    }
+
+    .mm-dd-lab-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .mm-dd-lab-side-stack {
+      display: grid;
+      gap: 12px;
+    }
+
+    .mm-dd-lab-meter {
+      padding: 13px;
+      border-radius: 18px;
+      border: 1px solid var(--mm-dd-lab-line);
+      background: rgba(255,255,255,0.05);
+    }
+
+    .mm-dd-lab-meter strong {
+      display: block;
+      font-size: 12px;
+      color: var(--mm-dd-lab-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .mm-dd-lab-meter span {
+      display: block;
+      margin-top: 5px;
+      font-size: 24px;
+      font-weight: 950;
+      letter-spacing: -0.04em;
+    }
+
+    .mm-dd-lab-alert {
+      display: none;
+      margin: 12px 0;
+      padding: 12px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(255, 107, 124, 0.45);
+      background: rgba(255, 107, 124, 0.12);
+      color: #ffd8dd;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .mm-dd-lab-alert.is-visible { display: block; }
+
+    .mm-dd-lab-log {
+      min-height: 120px;
+      max-height: 230px;
+      overflow: auto;
+      padding: 13px;
+      border-radius: 18px;
+      border: 1px solid var(--mm-dd-lab-line);
+      background: rgba(0,0,0,0.18);
+      color: #cfe0f4;
+      font-size: 12px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+    }
+
+    .mm-dd-lab-empty {
+      padding: 14px;
+      border-radius: 18px;
+      border: 1px dashed rgba(159,188,232,0.26);
+      color: var(--mm-dd-lab-muted);
+      background: rgba(255,255,255,0.035);
+      line-height: 1.5;
+    }
+
+    .mm-dd-lab-footer-note {
+      margin-top: 14px;
+      color: rgba(238,246,255,0.66);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 1080px) {
+      .mm-dd-lab-layout,
+      .mm-dd-lab-player-grid { grid-template-columns: 1fr; }
+      .mm-dd-lab-badge-row { justify-content: flex-start; }
+      .mm-dd-lab-topbar { align-items: flex-start; flex-direction: column; }
+    }
+
+    @media (max-width: 680px) {
+      .mm-dd-lab-shell { width: min(100vw - 16px, 1440px); padding-top: 8px; }
+      .mm-dd-lab-card-pad { padding: 14px; }
+      .mm-dd-lab-pill-grid { grid-template-columns: 1fr; }
+      .mm-dd-lab-video,
+      .mm-dd-lab-iframe,
+      .mm-dd-lab-video-frame { min-height: 230px; }
+    }
+  </style>
+</head>
+<body id="mmDailyDrillsLab">
+  <main class="mm-dd-lab-shell" aria-labelledby="md-dd-lab-title">
+    <header class="mm-dd-lab-topbar">
+      <div>
+        <div class="mm-dd-lab-kicker">Lab / Not Production</div>
+        <h1 id="md-dd-lab-title" class="mm-dd-lab-title">Daily + Drills Unified Lab</h1>
+        <p class="mm-dd-lab-subtitle">A parallel MD merger artifact that keeps live Daily and live Drills untouched while testing an internal Daily gateway to Drills player handoff.</p>
+      </div>
+      <div class="mm-dd-lab-badge-row" aria-label="Lab safety summary">
+        <span class="mm-dd-lab-badge">LIVE routes untouched</span>
+        <span class="mm-dd-lab-badge">No production writes</span>
+        <span class="mm-dd-lab-badge">Cache only</span>
+      </div>
+    </header>
+
+    <section class="mm-dd-lab-layout" aria-label="Unified Daily and Drills lab">
+      <section class="mm-dd-lab-card" aria-label="Daily gateway lab">
+        <div class="mm-dd-lab-card-pad">
+          <div class="mm-dd-lab-card-header">
+            <div>
+              <h2 class="mm-dd-lab-section-title">Daily Gateway</h2>
+              <p class="mm-dd-lab-small">Choose level, topic, and one hydrated session. The launch stays inside this lab file.</p>
+            </div>
+            <div class="mm-dd-lab-status" id="md-dd-lab-roster-status"><span class="mm-dd-lab-status-dot"></span><span>Loading</span></div>
+          </div>
+
+          <div class="mm-dd-lab-pill-grid" role="group" aria-label="Level selector">
+            <button type="button" class="mm-dd-lab-pill is-active" data-md-dd-lab-level="Step 1"><strong>Step 1</strong><span>Basic science and Level 1 pool</span></button>
+            <button type="button" class="mm-dd-lab-pill" data-md-dd-lab-level="Step 2/3"><strong>Step 2/3</strong><span>Clinical and Level 2/3 pool</span></button>
+          </div>
+
+          <div class="mm-dd-lab-card-header">
+            <div>
+              <h3 class="mm-dd-lab-section-title">Topics</h3>
+              <p class="mm-dd-lab-small" id="md-dd-lab-topic-summary">Waiting for roster.</p>
+            </div>
+          </div>
+          <div id="md-dd-lab-topic-list" class="mm-dd-lab-topic-list" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section class="mm-dd-lab-card" aria-label="Session and player lab">
+        <div class="mm-dd-lab-card-pad">
+          <div class="mm-dd-lab-card-header">
+            <div>
+              <h2 class="mm-dd-lab-section-title">Session + Player</h2>
+              <p class="mm-dd-lab-small" id="md-dd-lab-selected-topic-label">Select a topic to show sessions.</p>
+            </div>
+            <button type="button" class="mm-dd-lab-btn" id="md-dd-lab-return-btn">Return to Daily</button>
+          </div>
+
+          <div id="md-dd-lab-return-alert" class="mm-dd-lab-alert" role="alert"></div>
+          <div id="md-dd-lab-session-list" class="mm-dd-lab-session-list" aria-live="polite"></div>
+
+          <div class="mm-dd-lab-player-grid" style="margin-top:14px;">
+            <div>
+              <div class="mm-dd-lab-video-frame">
+                <video id="md-dd-lab-video" class="mm-dd-lab-video" playsinline preload="metadata" controls muted></video>
+                <iframe id="md-dd-lab-cf-iframe" class="mm-dd-lab-iframe" title="Cloudflare Stream lab player" allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+                <div class="mm-dd-lab-video-overlay">
+                  <span id="md-dd-lab-video-state" class="mm-dd-lab-video-state">VIDEO: IDLE</span>
+                  <span id="md-dd-lab-active-video" class="mm-dd-lab-video-state">NO VIDEO</span>
+                </div>
+              </div>
+              <div class="mm-dd-lab-controls">
+                <button type="button" id="md-dd-lab-start-btn" class="mm-dd-lab-btn primary" disabled>Start Drill</button>
+                <button type="button" id="md-dd-lab-mute-btn" class="mm-dd-lab-btn">Muted</button>
+                <button type="button" id="md-dd-lab-reset-btn" class="mm-dd-lab-btn danger">Reset Lab State</button>
+              </div>
+              <p class="mm-dd-lab-footer-note">The player chooses native MP4 for direct .mp4 URLs, Cloudflare iframe for iframe URLs, and HLS/HLS.js for stream manifests. START remains click-gated.</p>
+            </div>
+
+            <aside class="mm-dd-lab-side-stack" aria-label="Lab player telemetry">
+              <div class="mm-dd-lab-meter"><strong>Questions</strong><span id="md-dd-lab-question-count">0</span></div>
+              <div class="mm-dd-lab-meter"><strong>Transcript</strong><span id="md-dd-lab-transcript-state">Idle</span></div>
+              <div class="mm-dd-lab-meter"><strong>Adapter</strong><span id="md-dd-lab-adapter-state">None</span></div>
+              <div id="md-dd-lab-runtime-log" class="mm-dd-lab-log" aria-live="polite">Lab runtime ready. No production writes are performed.</div>
+            </aside>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      var LAB = window.MDDailyDrillsLab = {
+        version: 'MD-MERGER-DAILY-DRILLS-LAB-915-2026-05-02',
+        labOnly: true,
+        eventEmitterEnabled: false,
+        events: []
+      };
+
+      var API_DRILLS_ENDPOINT = 'https://mmvs-backend-production.up.railway.app/api/drills';
+      var STORAGE_PREFIX = 'md_daily_drills_lab_';
+      var STORAGE_KEYS = {
+        launch: STORAGE_PREFIX + 'launch',
+        settings: STORAGE_PREFIX + 'settings',
+        history: STORAGE_PREFIX + 'history',
+        state: STORAGE_PREFIX + 'state',
+        notes: STORAGE_PREFIX + 'notes'
+      };
+
+      var DR_CURRICULUM_TOPICS = [
+        { id: 'cardio_step1', name: 'Cardio', system: 'CARDIOVASCULAR', level: 'Step 1' },
+        { id: 'cardio_step23', name: 'Cardio', system: 'CARDIOVASCULAR', level: 'Step 2/3' },
+        { id: 'pulmonary_step1', name: 'Pulmonary', system: 'PULMONARY', level: 'Step 1' },
+        { id: 'pulmonary_step23', name: 'Pulmonary', system: 'PULMONARY', level: 'Step 2/3' },
+        { id: 'renal_gu_step1', name: 'Renal / GU', system: 'RENAL / GU', level: 'Step 1' },
+        { id: 'renal_gu_electrolytes_step23', name: 'Electrolytes / Renal / GU', system: 'RENAL / GU', level: 'Step 2/3' },
+        { id: 'git_hep_step1', name: 'GIT / HEP', system: 'GI / HEPATOLOGY', level: 'Step 1' },
+        { id: 'git_hep_step23', name: 'GIT / HEP', system: 'GI / HEPATOLOGY', level: 'Step 2/3' },
+        { id: 'endocrine_step1', name: 'Endocrine', system: 'ENDOCRINE', level: 'Step 1' },
+        { id: 'endocrine_step23', name: 'Endocrine', system: 'ENDOCRINE', level: 'Step 2/3' },
+        { id: 'neuro_step1', name: 'Neurology', system: 'NEUROLOGY', level: 'Step 1' },
+        { id: 'neuro_step23', name: 'Neurology', system: 'NEUROLOGY', level: 'Step 2/3' },
+        { id: 'micro_inf_disease_step1', name: 'Micro / Infectious Disease', system: 'MICRO / INFECTIOUS', level: 'Step 1' },
+        { id: 'inf_disease_step23', name: 'Infectious Disease', system: 'MICRO / INFECTIOUS', level: 'Step 2/3' },
+        { id: 'viruses_protozoa_step1', name: 'Viruses / Protozoa', system: 'MICRO / INFECTIOUS', level: 'Step 1' },
+        { id: 'immuno_step1', name: 'Immunology', system: 'IMMUNOLOGY', level: 'Step 1' },
+        { id: 'muscle_rheum_step1', name: 'Muscle / Rheum', system: 'MSK / RHEUM', level: 'Step 1' },
+        { id: 'rheum_step23', name: 'Rheum', system: 'MSK / RHEUM', level: 'Step 2/3' },
+        { id: 'heme_onc_step1', name: 'Heme / Onc', system: 'HEMATOLOGY / ONCOLOGY', level: 'Step 1' },
+        { id: 'heme_onc_step23', name: 'Heme / Onc', system: 'HEMATOLOGY / ONCOLOGY', level: 'Step 2/3' },
+        { id: 'onc_by_systems_step1', name: 'Onc by Systems', system: 'HEMATOLOGY / ONCOLOGY', level: 'Step 1' },
+        { id: 'repro_gyn_ob_step1', name: 'Repro / GYN / OB', system: 'REPRODUCTIVE', level: 'Step 1' },
+        { id: 'biochem_genetics_step1', name: 'Biochem / Vitamins / Genetics', system: 'BIOCHEM / GENETICS', level: 'Step 1' },
+        { id: 'ob_step23', name: 'OB / GYN', system: 'OBGYN', level: 'Step 2/3' },
+        { id: 'gyn_step23', name: 'GYN', system: 'OBGYN', level: 'Step 2/3' },
+        { id: 'peds_step23', name: 'Peds', system: 'PEDIATRICS', level: 'Step 2/3' },
+        { id: 'psych_ethics_step1', name: 'Psych / Ethics', system: 'PSYCH / ETHICS', level: 'Step 1' },
+        { id: 'psych_ethics_step23', name: 'Psych / Ethics', system: 'PSYCH / ETHICS', level: 'Step 2/3' },
+        { id: 'biostats_step1', name: 'Biostats / Public Safety', system: 'BIOSTATS / PUBLIC HEALTH', level: 'Step 1' },
+        { id: 'biostats_step23', name: 'Biostats / Public Safety', system: 'BIOSTATS / PUBLIC HEALTH', level: 'Step 2/3' },
+        { id: 'er_medicine_step1', name: 'ER Medicine / Toxicology', system: 'EMERGENCY MEDICINE', level: 'Step 1' },
+        { id: 'er_medicine_step23', name: 'ER Medicine / Toxicology', system: 'EMERGENCY MEDICINE', level: 'Step 2/3' },
+        { id: 'surgery_step23', name: 'Trauma / Surgery', system: 'SURGERY', level: 'Step 2/3' },
+        { id: 'mixed_review_step1', name: 'Mixed Review', system: 'MIXED REVIEW', level: 'Step 1' },
+        { id: 'mixed_review_step23', name: 'Mixed Review', system: 'MIXED REVIEW', level: 'Step 2/3' }
+      ];
+
+      var DR_TOPIC_VIDEO_FALLBACK_MAP = {
+        cardio_step1: [], cardio_step23: [], pulmonary_step1: [], pulmonary_step23: [],
+        renal_gu_step1: ['usmle_a9f197375f58'], renal_gu_electrolytes_step23: ['usmle_9bb715fd9450'],
+        git_hep_step1: [], git_hep_step23: [], endocrine_step1: ['usmle_ba6cdb0dfb09'], endocrine_step23: [],
+        neuro_step1: [], neuro_step23: [], micro_inf_disease_step1: [], inf_disease_step23: ['usmle_123f84e5d3a3'],
+        viruses_protozoa_step1: [], immuno_step1: [], muscle_rheum_step1: ['usmle_26135f4dd388'],
+        rheum_step23: ['usmle_d501fed2f17d'], heme_onc_step1: [], heme_onc_step23: [], onc_by_systems_step1: [],
+        repro_gyn_ob_step1: ['usmle_747c8ad59b3e'], biochem_genetics_step1: ['usmle_a3420e5c757f'],
+        ob_step23: [], gyn_step23: ['usmle_ccb6e3eeb228'], peds_step23: ['usmle_16acb174c754'],
+        psych_ethics_step1: [], psych_ethics_step23: [], biostats_step1: [], biostats_step23: [],
+        er_medicine_step1: [], er_medicine_step23: [], surgery_step23: [], mixed_review_step1: [], mixed_review_step23: []
+      };
+
+      var DR_ZOOM_SCHEDULE_SLOTS = {
+        '2026-03-23': ['muscle_rheum_step1', 'rheum_step23'],
+        '2026-03-24': ['endocrine_step1'],
+        '2026-03-30': ['inf_disease_step23'],
+        '2026-04-06': ['biochem_genetics_step1', 'peds_step23'],
+        '2026-04-07': ['renal_gu_electrolytes_step23'],
+        '2026-04-08': ['repro_gyn_ob_step1', 'gyn_step23'],
+        '2026-04-21': ['repro_gyn_ob_step1', 'gyn_step23'],
+        '2026-04-22': ['biochem_genetics_step1', 'peds_step23'],
+        '2026-04-23': ['renal_gu_step1', 'renal_gu_electrolytes_step23'],
+        '2026-04-24': ['er_medicine_step1', 'er_medicine_step23'],
+        '2026-04-27': ['heme_onc_step1', 'heme_onc_step23'],
+        '2026-04-28': ['cardio_step1', 'cardio_step23'],
+        '2026-04-29': ['onc_by_systems_step1', ['biostats_step1', 'biostats_step23']],
+        '2026-04-30': ['pulmonary_step1', 'pulmonary_step23'],
+        '2026-05-01': ['mixed_review_step1', 'mixed_review_step23']
+      };
+
+      var DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS = ['mixed_review_step1', 'mixed_review_step23'];
+      var DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS = {
+        usmle_3ac83d870348: 'mixed_review_step1',
+        usmle_31cd0d939397: 'surgery_step23',
+        usmle_aecf7be312b1: 'psych_ethics_step23',
+        usmle_d97b0096855e: 'git_hep_step23',
+        usmle_3c48cfcdd346: 'inf_disease_step23',
+        usmle_1e8ceeaa580c: 'mixed_review_step1',
+        usmle_2d45081a1808: 'surgery_step23',
+        usmle_d9ef08b93e96: 'psych_ethics_step1',
+        usmle_473aad16ff51: 'git_hep_step1',
+        usmle_e40f7cd7f1b2: 'micro_inf_disease_step1',
+        usmle_beb8b86cb3d5: 'mixed_review_step23',
+        usmle_d68c6a58c6fd: 'mixed_review_step23',
+        usmle_581a9f5e406a: 'er_medicine_step1',
+        usmle_841da92f6b03: 'er_medicine_step23',
+        usmle_479bf224f2af: 'renal_gu_electrolytes_step23',
+        usmle_793a0df25114: 'renal_gu_step1',
+        usmle_4a0c1ea32975: 'biochem_genetics_step1',
+        usmle_6e2058b09d29: 'peds_step23',
+        usmle_b9bbfa4e055d: 'repro_gyn_ob_step1',
+        usmle_5418da136f32: 'gyn_step23'
+      };
+
+      var state = {
+        level: 'Step 1',
+        topicId: '',
+        selectedVideoId: '',
+        drills: [],
+        byId: {},
+        map: {},
+        currentAdapter: null,
+        currentNodes: [],
+        currentTranscript: null,
+        muted: true,
+        started: false
+      };
+
+      var els = {};
+
+      function $(id) { return document.getElementById(id); }
+      function escapeHtml(value) {
+        return String(value == null ? '' : value).replace(/[&<>'"]/g, function (ch) {
+          return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[ch];
+        });
+      }
+      function safeString(value) { return String(value == null ? '' : value).trim(); }
+      function clampText(value, fallback) { return safeString(value) || fallback || ''; }
+
+      function log(message, detail) {
+        var line = '[' + new Date().toLocaleTimeString() + '] ' + message;
+        if (detail !== undefined) {
+          try { line += ' ' + JSON.stringify(detail); } catch (_error) { line += ' ' + String(detail); }
+        }
+        if (els.log) els.log.textContent = line + '\n' + els.log.textContent;
+        if (window.console && console.log) console.log('[MD_DAILY_DRILLS_LAB]', message, detail || '');
+      }
+
+      function emitLabEvent(type, payload) {
+        var event = {
+          event_id: 'md_lab_' + Date.now() + '_' + Math.random().toString(16).slice(2),
+          source_mode: 'daily_drills_lab',
+          event_type: type,
+          lab_only: true,
+          client_ts: new Date().toISOString(),
+          payload: payload || {}
+        };
+        LAB.events.push(event);
+        if (LAB.eventEmitterEnabled) console.log('[MD_LAB_EVENT]', event);
+        return event;
+      }
+
+      function setRosterStatus(label, mode) {
+        if (!els.rosterStatus) return;
+        var dot = els.rosterStatus.querySelector('.mm-dd-lab-status-dot');
+        var text = els.rosterStatus.querySelector('span:last-child');
+        if (text) text.textContent = label;
+        if (dot) {
+          dot.classList.toggle('is-ready', mode === 'ready');
+          dot.classList.toggle('is-error', mode === 'error');
+        }
+      }
+
+      function setVideoState(label) { if (els.videoState) els.videoState.textContent = label; }
+      function setAdapterState(label) { if (els.adapterState) els.adapterState.textContent = label; }
+      function setTranscriptState(label) { if (els.transcriptState) els.transcriptState.textContent = label; }
+      function setQuestionCount(value) { if (els.questionCount) els.questionCount.textContent = String(value || 0); }
+
+      function parseZoomStampFromDrill(drill) {
+        var filename = safeString(drill && drill.original_filename);
+        var match = filename.match(/GMT(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/);
+        if (!match) return null;
+        var date = match[1] + '-' + match[2] + '-' + match[3];
+        var time = match[4] + ':' + match[5] + ':' + match[6];
+        var seconds = parseInt(match[4], 10) * 3600 + parseInt(match[5], 10) * 60 + parseInt(match[6], 10);
+        return { date: date, time: time, seconds: seconds };
+      }
+
+      function makeEmptyTopicVideoMap() {
+        var map = {};
+        DR_CURRICULUM_TOPICS.forEach(function (topic) { map[topic.id] = []; });
+        return map;
+      }
+
+      function assignTopic(map, topicSlot, videoId) {
+        var slots = Array.isArray(topicSlot) ? topicSlot : [topicSlot];
+        slots.forEach(function (topicId) {
+          if (!topicId || !map[topicId] || !videoId) return;
+          if (map[topicId].indexOf(videoId) === -1) map[topicId].push(videoId);
+        });
+      }
+
+      function parseCreatedAtMs(drill) {
+        var ms = Date.parse(safeString(drill && drill.created_at));
+        return isNaN(ms) ? 0 : ms;
+      }
+
+      function parseZoomMs(drill) {
+        var stamp = parseZoomStampFromDrill(drill);
+        if (!stamp) return 0;
+        var ms = Date.parse(stamp.date + 'T' + stamp.time + 'Z');
+        return isNaN(ms) ? 0 : ms;
+      }
+
+      function validDrill(drill) {
+        return /^usmle_/i.test(safeString(drill && drill.video_id)) &&
+          !!safeString(drill && drill.playback_url) &&
+          !!safeString(drill && drill.nodes_url);
+      }
+
+      function buildTopicVideoMapFromMetadata(drills) {
+        var map = makeEmptyTopicVideoMap();
+        var byDate = {};
+        drills.forEach(function (drill) {
+          var videoId = safeString(drill && drill.video_id);
+          var stamp = parseZoomStampFromDrill(drill);
+          if (!validDrill(drill) || !stamp || !DR_ZOOM_SCHEDULE_SLOTS[stamp.date]) return;
+          if (!byDate[stamp.date]) byDate[stamp.date] = [];
+          byDate[stamp.date].push({ video_id: videoId, seconds: stamp.seconds, time: stamp.time });
+        });
+        Object.keys(byDate).forEach(function (dateKey) {
+          var slots = DR_ZOOM_SCHEDULE_SLOTS[dateKey] || [];
+          var sessions = byDate[dateKey].slice().sort(function (a, b) { return a.seconds - b.seconds; });
+          sessions.forEach(function (session, index) {
+            assignTopic(map, slots[Math.min(index, slots.length - 1)], session.video_id);
+          });
+        });
+        return map;
+      }
+
+      function buildEffectiveTopicVideoMap(drills) {
+        var map = buildTopicVideoMapFromMetadata(drills);
+        var byId = {};
+        drills.forEach(function (drill) {
+          var videoId = safeString(drill && drill.video_id);
+          if (videoId) byId[videoId] = drill;
+        });
+
+        Object.keys(DR_TOPIC_VIDEO_FALLBACK_MAP).forEach(function (topicId) {
+          (DR_TOPIC_VIDEO_FALLBACK_MAP[topicId] || []).forEach(function (videoId) {
+            if (byId[videoId]) assignTopic(map, topicId, videoId);
+          });
+        });
+
+        Object.keys(DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS).forEach(function (videoId) {
+          if (byId[videoId]) assignTopic(map, DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS[videoId], videoId);
+        });
+
+        var mapped = {};
+        Object.keys(map).forEach(function (topicId) {
+          (map[topicId] || []).forEach(function (videoId) { mapped[videoId] = true; });
+        });
+
+        var unscheduled = drills.filter(function (drill) {
+          var videoId = safeString(drill && drill.video_id);
+          var stamp = parseZoomStampFromDrill(drill);
+          return validDrill(drill) && !mapped[videoId] && !(stamp && DR_ZOOM_SCHEDULE_SLOTS[stamp.date]);
+        }).sort(function (a, b) {
+          var zoomDelta = parseZoomMs(b) - parseZoomMs(a);
+          if (zoomDelta) return zoomDelta;
+          var createdDelta = parseCreatedAtMs(b) - parseCreatedAtMs(a);
+          if (createdDelta) return createdDelta;
+          return safeString(a && a.video_id).localeCompare(safeString(b && b.video_id));
+        });
+
+        unscheduled.forEach(function (drill, index) {
+          var slot = DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS[index % DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS.length];
+          assignTopic(map, slot, safeString(drill && drill.video_id));
+        });
+        return map;
+      }
+
+      function topicById(topicId) {
+        for (var i = 0; i < DR_CURRICULUM_TOPICS.length; i += 1) {
+          if (DR_CURRICULUM_TOPICS[i].id === topicId) return DR_CURRICULUM_TOPICS[i];
+        }
+        return null;
+      }
+
+      function normalizeDrill(drill) {
+        var streamId = safeString(drill && drill.stream_id);
+        var playbackUrl = safeString(drill && drill.playback_url);
+        if (!playbackUrl && streamId) playbackUrl = 'https://iframe.videodelivery.net/' + encodeURIComponent(streamId);
+        return {
+          video_id: safeString(drill && drill.video_id),
+          title: clampText(drill && drill.title, safeString(drill && drill.video_id) || 'Untitled drill'),
+          original_filename: safeString(drill && drill.original_filename),
+          created_at: safeString(drill && drill.created_at),
+          playback_url: playbackUrl,
+          stream_id: streamId,
+          nodes_url: safeString(drill && drill.nodes_url),
+          transcript_url: safeString(drill && drill.transcript_url),
+          subcategory: safeString(drill && drill.subcategory),
+          division: safeString(drill && drill.division),
+          status: safeString(drill && drill.status),
+          content_type: safeString(drill && drill.content_type),
+          raw: drill
+        };
+      }
+
+      async function fetchDrills() {
+        setRosterStatus('Loading', 'loading');
+        try {
+          var response = await fetch(API_DRILLS_ENDPOINT, { method: 'GET', credentials: 'omit', headers: { Accept: 'application/json' } });
+          if (!response.ok) throw new Error('Roster request failed with HTTP ' + response.status);
+          var data = await response.json();
+          if (!Array.isArray(data)) throw new Error('Roster response was not a JSON array');
+          state.drills = data.map(normalizeDrill).filter(function (drill) { return safeString(drill.video_id); });
+          state.byId = {};
+          state.drills.forEach(function (drill) { state.byId[drill.video_id] = drill; });
+          state.map = buildEffectiveTopicVideoMap(state.drills);
+          setRosterStatus('Ready', 'ready');
+          log('Roster hydrated', { count: state.drills.length });
+          emitLabEvent('roster_hydrated', { count: state.drills.length });
+        } catch (error) {
+          state.drills = [];
+          state.byId = {};
+          state.map = makeEmptyTopicVideoMap();
+          setRosterStatus('Error', 'error');
+          log('Roster hydration failed gracefully', { error: error && error.message ? error.message : String(error) });
+        }
+        renderTopics();
+      }
+
+      function drillDisplayTitle(drill, topic) {
+        var source = safeString(drill && drill.original_filename);
+        if (source) return source.replace(/[_-]+/g, ' ').replace(/\.mp4$/i, '').trim();
+        return clampText(drill && drill.title, topic && topic.name ? topic.name + ' session' : 'Daily session');
+      }
+
+      function drillSourceLabel(drill) {
+        return safeString(drill && drill.original_filename) || 'source unavailable';
+      }
+
+      function uploadedLabel(drill) {
+        var raw = safeString(drill && drill.created_at);
+        if (!raw) return 'unknown';
+        var date = new Date(raw);
+        if (isNaN(date.getTime())) return raw;
+        return date.toLocaleString();
+      }
+
+      function renderTopics() {
+        var topics = DR_CURRICULUM_TOPICS.filter(function (topic) { return topic.level === state.level; });
+        var totalMapped = 0;
+        topics.forEach(function (topic) { totalMapped += (state.map[topic.id] || []).length; });
+        els.topicSummary.textContent = totalMapped ? totalMapped + ' mapped sessions in ' + state.level + '.' : 'No hydrated sessions yet; roster may still be loading or unavailable.';
+        els.topicList.innerHTML = '';
+        topics.forEach(function (topic) {
+          var count = (state.map[topic.id] || []).length;
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'mm-dd-lab-topic' + (topic.id === state.topicId ? ' is-active' : '');
+          button.setAttribute('data-md-dd-lab-topic', topic.id);
+          button.innerHTML = '<strong>' + escapeHtml(topic.name) + '</strong><span>' + escapeHtml(topic.system + ' / ' + topic.level + ' / ' + count + ' session' + (count === 1 ? '' : 's')) + '</span>';
+          button.addEventListener('click', function () {
+            state.topicId = topic.id;
+            state.selectedVideoId = '';
+            renderTopics();
+            renderSessions();
+          });
+          els.topicList.appendChild(button);
+        });
+        var currentTopic = topicById(state.topicId);
+        var currentCount = currentTopic ? (state.map[currentTopic.id] || []).length : 0;
+        if (!state.topicId || !currentTopic || currentTopic.level !== state.level || currentCount === 0) {
+          var firstWithSessions = topics.find(function (topic) { return (state.map[topic.id] || []).length > 0; });
+          state.topicId = firstWithSessions ? firstWithSessions.id : (topics[0] && topics[0].id || '');
+        }
+        renderSessions();
+      }
+
+      function renderSessions() {
+        var topic = topicById(state.topicId);
+        var ids = topic ? (state.map[topic.id] || []) : [];
+        els.selectedTopicLabel.textContent = topic ? topic.name + ' / ' + topic.level : 'Select a topic to show sessions.';
+        els.sessionList.innerHTML = '';
+        if (!topic) {
+          els.sessionList.innerHTML = '<div class="mm-dd-lab-empty">Choose a level and topic to hydrate sessions.</div>';
+          return;
+        }
+        if (!ids.length) {
+          els.sessionList.innerHTML = '<div class="mm-dd-lab-empty">No sessions are currently mapped for ' + escapeHtml(topic.name) + '. Unknown valid sessions remain protected by mixed-review fallback when available.</div>';
+          return;
+        }
+        ids.forEach(function (videoId, index) {
+          var drill = state.byId[videoId];
+          if (!drill) return;
+          var button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'mm-dd-lab-session' + (state.selectedVideoId === videoId ? ' is-active' : '');
+          button.setAttribute('data-md-dd-lab-video-id', videoId);
+          button.innerHTML = [
+            '<strong>' + escapeHtml(index === 0 ? topic.name + ' Most Recent' : drillDisplayTitle(drill, topic)) + '</strong>',
+            '<span>' + escapeHtml(drillDisplayTitle(drill, topic)) + '</span>',
+            '<div class="mm-dd-lab-session-meta">',
+            '<span class="mm-dd-lab-chip">' + escapeHtml(videoId) + '</span>',
+            '<span class="mm-dd-lab-chip">Uploaded: ' + escapeHtml(uploadedLabel(drill)) + '</span>',
+            '<span class="mm-dd-lab-chip">Source: ' + escapeHtml(drillSourceLabel(drill)) + '</span>',
+            '<span class="mm-dd-lab-chip">Adapter: ' + escapeHtml(predictedAdapter(drill.playback_url)) + '</span>',
+            '</div>'
+          ].join('');
+          button.addEventListener('click', function () { selectSession(videoId); });
+          els.sessionList.appendChild(button);
+        });
+      }
+
+      function predictedAdapter(url) {
+        if (isCfIframePlaybackUrl(url)) return 'Cloudflare iframe';
+        if (isDirectMp4PlaybackUrl(url)) return 'Native MP4';
+        return 'HLS';
+      }
+
+      function selectSession(videoId) {
+        var drill = state.byId[videoId];
+        var topic = topicById(state.topicId);
+        if (!drill || !topic) return;
+        state.selectedVideoId = videoId;
+        state.started = false;
+        teardownAdapter();
+        setVideoState('VIDEO: SELECTED');
+        setAdapterState(predictedAdapter(drill.playback_url));
+        setQuestionCount(0);
+        setTranscriptState('Idle');
+        els.activeVideo.textContent = videoId;
+        els.startBtn.disabled = false;
+        renderSessions();
+        var payload = buildLaunchPayload(drill, topic);
+        try {
+          sessionStorage.setItem(STORAGE_KEYS.launch, JSON.stringify(payload));
+          sessionStorage.setItem(STORAGE_KEYS.settings, JSON.stringify(payload.settings));
+        } catch (_error) {}
+        log('Internal Daily to Drills handoff prepared', { video_id: videoId, topic_key: topic.id, muted: state.muted });
+        emitLabEvent('daily_to_drills_handoff', { video_id: videoId, topic_key: topic.id });
+      }
+
+      function buildLaunchPayload(drill, topic) {
+        return {
+          video_id: drill.video_id,
+          title: drill.title,
+          playback_url: drill.playback_url,
+          nodes_url: drill.nodes_url,
+          transcript_url: drill.transcript_url,
+          stream_id: drill.stream_id,
+          topic_key: topic.id,
+          topic_label: topic.name,
+          origin_mode: 'daily_rounds_lab',
+          return_url: 'lab:daily',
+          launched_at: new Date().toISOString(),
+          settings: { muted: state.muted ? 'on' : 'off', volume: state.muted ? 0 : 0.7 },
+          lab_only: true
+        };
+      }
+
+      function isAllowedReturnUrl(value) {
+        var raw = safeString(value);
+        if (!raw) return true;
+        if (raw === 'lab:daily' || raw === '#daily') return true;
+        try {
+          var parsed = new URL(raw, window.location.href);
+          var normalizedPath = safeString(parsed.pathname).replace(/\/+$/, '').toLowerCase() || '/';
+          var sameOrigin = parsed.origin === window.location.origin;
+          var missionDaily = parsed.origin === 'https://missionmedinstitute.com' && (normalizedPath === '/daily' || normalizedPath === '/daily.html');
+          var cdnDaily = parsed.origin === 'https://cdn.missionmedinstitute.com' && normalizedPath === '/html-system/live/daily.html';
+          var labLocal = sameOrigin && /daily_drills_unified_lab\.html$/i.test(normalizedPath);
+          return missionDaily || cdnDaily || labLocal;
+        } catch (_error) {
+          return false;
+        }
+      }
+
+      function safeReturnUrl(rawUrl) {
+        if (isAllowedReturnUrl(rawUrl)) {
+          hideReturnBanner();
+          return safeString(rawUrl) || 'lab:daily';
+        }
+        showReturnBanner('Invalid return_url detected; using internal lab Daily fallback.');
+        return 'lab:daily';
+      }
+
+      function showReturnBanner(message) {
+        els.returnAlert.textContent = message;
+        els.returnAlert.classList.add('is-visible');
+      }
+
+      function hideReturnBanner() {
+        els.returnAlert.textContent = '';
+        els.returnAlert.classList.remove('is-visible');
+      }
+
+      function routeBackToDaily() {
+        var rawReturn = 'lab:daily';
+        try {
+          var payload = JSON.parse(sessionStorage.getItem(STORAGE_KEYS.launch) || '{}');
+          rawReturn = payload.return_url || rawReturn;
+        } catch (_error) {}
+        var safe = safeReturnUrl(rawReturn);
+        if (safe === 'lab:daily' || safe === '#daily') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          log('Returned to internal Daily gateway', { return_url: safe });
+          return;
+        }
+        log('Safe external Daily return recognized but lab stayed in-place', { return_url: safe });
+      }
+
+      function isAllowedAbsoluteUrl(value) {
+        var raw = safeString(value);
+        if (!raw) return false;
+        try {
+          var parsed = new URL(raw, window.location.href);
+          return parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'file:';
+        } catch (_error) {
+          return false;
+        }
+      }
+
+      function isCfIframePlaybackUrl(urlValue) {
+        return safeString(urlValue).indexOf('iframe.videodelivery.net/') >= 0;
+      }
+
+      function isDirectMp4PlaybackUrl(urlValue) {
+        var raw = safeString(urlValue);
+        if (!raw) return false;
+        try {
+          var parsed = new URL(raw, window.location.href);
+          return /\.mp4$/i.test(parsed.pathname || '');
+        } catch (_error) {
+          return /\.mp4(?:$|[?#])/i.test(raw);
+        }
+      }
+
+      function deriveHlsUrlFromPlaybackUrl(urlValue) {
+        var raw = safeString(urlValue);
+        if (!raw) return '';
+        try {
+          var parsed = new URL(raw, window.location.href);
+          if (parsed.hostname === 'iframe.videodelivery.net') {
+            var streamId = parsed.pathname.replace(/^\/+/, '').split('/')[0];
+            return streamId ? 'https://videodelivery.net/' + streamId + '/manifest/video.m3u8' : '';
+          }
+          return parsed.toString();
+        } catch (_error) {
+          return raw;
+        }
+      }
+
+      function teardownAdapter() {
+        if (state.currentAdapter && typeof state.currentAdapter.destroy === 'function') {
+          try { state.currentAdapter.destroy(); } catch (_error) {}
+        }
+        state.currentAdapter = null;
+        if (els.cfIframe) {
+          els.cfIframe.style.display = 'none';
+          els.cfIframe.removeAttribute('src');
+        }
+        if (els.video) {
+          els.video.style.display = 'block';
+          els.video.removeAttribute('src');
+          els.video.muted = state.muted;
+          try { els.video.load(); } catch (_error) {}
+        }
+      }
+
+      function NativeMp4Adapter(video, url) {
+        this.video = video;
+        this.url = url;
+      }
+      NativeMp4Adapter.prototype.init = function () {
+        var self = this;
+        return new Promise(function (resolve, reject) {
+          var timeout = window.setTimeout(function () { cleanup(); reject(new Error('Timed out waiting for direct MP4 readiness')); }, 30000);
+          function cleanup() {
+            window.clearTimeout(timeout);
+            self.video.removeEventListener('canplay', ready);
+            self.video.removeEventListener('loadedmetadata', maybeReady);
+            self.video.removeEventListener('error', fail);
+          }
+          function ready() { cleanup(); resolve(); }
+          function maybeReady() { if (self.video.readyState >= 1) ready(); }
+          function fail() { cleanup(); reject(new Error('Direct MP4 video element error')); }
+          self.video.style.display = 'block';
+          self.video.muted = state.muted;
+          self.video.playsInline = true;
+          self.video.addEventListener('canplay', ready);
+          self.video.addEventListener('loadedmetadata', maybeReady);
+          self.video.addEventListener('error', fail);
+          self.video.src = self.url;
+          self.video.load();
+          if (self.video.readyState >= 1) ready();
+        });
+      };
+      NativeMp4Adapter.prototype.play = function () { return this.video.play(); };
+      NativeMp4Adapter.prototype.destroy = function () { try { this.video.pause(); } catch (_error) {} };
+
+      function HlsAdapter(video, url) {
+        this.video = video;
+        this.url = url;
+        this.hls = null;
+      }
+      HlsAdapter.prototype.init = function () {
+        var self = this;
+        return new Promise(function (resolve, reject) {
+          var timeout = window.setTimeout(function () { cleanup(); reject(new Error('Timed out waiting for HLS readiness')); }, 30000);
+          function cleanup() {
+            window.clearTimeout(timeout);
+            self.video.removeEventListener('canplay', ready);
+            self.video.removeEventListener('loadedmetadata', ready);
+            self.video.removeEventListener('error', fail);
+          }
+          function ready() { cleanup(); resolve(); }
+          function fail() { cleanup(); reject(new Error('HLS video element error')); }
+          self.video.style.display = 'block';
+          self.video.muted = state.muted;
+          self.video.addEventListener('canplay', ready);
+          self.video.addEventListener('loadedmetadata', ready);
+          self.video.addEventListener('error', fail);
+          if (window.Hls && typeof window.Hls.isSupported === 'function' && window.Hls.isSupported()) {
+            self.hls = new window.Hls({ enableWorker: true, lowLatencyMode: false });
+            self.hls.attachMedia(self.video);
+            self.hls.on(window.Hls.Events.MEDIA_ATTACHED, function () { self.hls.loadSource(self.url); });
+            self.hls.on(window.Hls.Events.ERROR, function (_event, data) {
+              if (data && data.fatal) fail();
+            });
+            return;
+          }
+          if (self.video.canPlayType('application/vnd.apple.mpegurl')) {
+            self.video.src = self.url;
+            self.video.load();
+            return;
+          }
+          cleanup();
+          reject(new Error('HLS unsupported in this browser'));
+        });
+      };
+      HlsAdapter.prototype.play = function () { return this.video.play(); };
+      HlsAdapter.prototype.destroy = function () {
+        try { this.video.pause(); } catch (_error) {}
+        if (this.hls && typeof this.hls.destroy === 'function') this.hls.destroy();
+        this.hls = null;
+      };
+
+      function CloudflareIframeAdapter(iframe, video, url) {
+        this.iframe = iframe;
+        this.video = video;
+        this.url = url;
+      }
+      CloudflareIframeAdapter.prototype.init = function () {
+        var self = this;
+        return new Promise(function (resolve) {
+          var settled = false;
+          function finish(reason) {
+            if (settled) return;
+            settled = true;
+            log('Cloudflare iframe adapter marked ready', { reason: reason || 'load' });
+            resolve();
+          }
+          var fallback = window.setTimeout(function () { finish('local_iframe_load_fallback'); }, 2500);
+          self.video.style.display = 'none';
+          self.iframe.style.display = 'block';
+          self.iframe.addEventListener('load', function onLoad() {
+            self.iframe.removeEventListener('load', onLoad);
+            window.clearTimeout(fallback);
+            finish('iframe_load');
+          });
+          self.iframe.src = self.url;
+        });
+      };
+      CloudflareIframeAdapter.prototype.play = function () { return Promise.resolve(); };
+      CloudflareIframeAdapter.prototype.destroy = function () { this.iframe.removeAttribute('src'); this.iframe.style.display = 'none'; };
+
+      async function initializeVideo(drill) {
+        teardownAdapter();
+        if (!isAllowedAbsoluteUrl(drill.playback_url)) throw new Error('Invalid playback_url');
+        var adapterLabel = predictedAdapter(drill.playback_url);
+        setAdapterState(adapterLabel);
+        setVideoState('VIDEO: LOADING');
+        if (isCfIframePlaybackUrl(drill.playback_url)) {
+          state.currentAdapter = new CloudflareIframeAdapter(els.cfIframe, els.video, drill.playback_url);
+        } else if (isDirectMp4PlaybackUrl(drill.playback_url)) {
+          state.currentAdapter = new NativeMp4Adapter(els.video, drill.playback_url);
+        } else {
+          state.currentAdapter = new HlsAdapter(els.video, deriveHlsUrlFromPlaybackUrl(drill.playback_url));
+        }
+        await state.currentAdapter.init();
+        setVideoState('VIDEO: READY');
+        return adapterLabel;
+      }
+
+      function normalizeNodesPayload(payload) {
+        if (Array.isArray(payload)) return payload;
+        if (payload && Array.isArray(payload.nodes)) return payload.nodes;
+        if (payload && Array.isArray(payload.drill_nodes)) return payload.drill_nodes;
+        if (payload && Array.isArray(payload.drillNodes)) return payload.drillNodes;
+        if (payload && payload.data && Array.isArray(payload.data.nodes)) return payload.data.nodes;
+        return [];
+      }
+
+      async function loadJson(url, label) {
+        if (!url) return null;
+        if (!isAllowedAbsoluteUrl(url)) throw new Error(label + ' URL is not allowed');
+        var response = await fetch(url, { method: 'GET', credentials: 'omit', headers: { Accept: 'application/json,text/plain,*/*' } });
+        if (!response.ok) throw new Error(label + ' request failed with HTTP ' + response.status);
+        return response.json();
+      }
+
+      async function startSelectedDrill() {
+        var drill = state.byId[state.selectedVideoId];
+        if (!drill) {
+          log('Start blocked: no selected drill');
+          return;
+        }
+        els.startBtn.disabled = true;
+        hideReturnBanner();
+        state.started = true;
+        emitLabEvent('session_start', { video_id: drill.video_id, topic_key: state.topicId });
+        try {
+          var adapter = await initializeVideo(drill);
+          var nodesPayload = await loadJson(drill.nodes_url, 'nodes_url');
+          state.currentNodes = normalizeNodesPayload(nodesPayload);
+          setQuestionCount(state.currentNodes.length);
+          log('Nodes loaded', { video_id: drill.video_id, count: state.currentNodes.length });
+          if (drill.transcript_url) {
+            try {
+              state.currentTranscript = await loadJson(drill.transcript_url, 'transcript_url');
+              setTranscriptState('Loaded');
+              log('Transcript loaded', { video_id: drill.video_id });
+            } catch (transcriptError) {
+              setTranscriptState('Graceful fail');
+              log('Transcript failed gracefully', { error: transcriptError.message });
+            }
+          } else {
+            setTranscriptState('Missing');
+          }
+          if (state.currentAdapter && !state.muted && typeof state.currentAdapter.play === 'function') {
+            try { await state.currentAdapter.play(); } catch (_playError) { log('Autoplay blocked safely; START still initialized session'); }
+          }
+          setVideoState('VIDEO: READY');
+          setAdapterState(adapter);
+          emitLabEvent('question_flow_ready', { video_id: drill.video_id, question_count: state.currentNodes.length });
+          try {
+            localStorage.setItem(STORAGE_KEYS.state, JSON.stringify({ video_id: drill.video_id, question_count: state.currentNodes.length, updated_at: new Date().toISOString() }));
+          } catch (_error) {}
+        } catch (error) {
+          setVideoState('VIDEO: ERROR');
+          log('Drill start failed gracefully', { error: error && error.message ? error.message : String(error) });
+        } finally {
+          els.startBtn.disabled = false;
+        }
+      }
+
+      function setMuted(nextMuted) {
+        state.muted = Boolean(nextMuted);
+        if (els.video) els.video.muted = state.muted;
+        els.muteBtn.textContent = state.muted ? 'Muted' : 'Sound On';
+        els.muteBtn.classList.toggle('primary', state.muted);
+        try { localStorage.setItem(STORAGE_KEYS.settings, JSON.stringify({ muted: state.muted ? 'on' : 'off' })); } catch (_error) {}
+        log('Mute handoff state updated', { muted: state.muted });
+      }
+
+      function resetLabState() {
+        teardownAdapter();
+        Object.keys(STORAGE_KEYS).forEach(function (key) {
+          try { localStorage.removeItem(STORAGE_KEYS[key]); sessionStorage.removeItem(STORAGE_KEYS[key]); } catch (_error) {}
+        });
+        state.selectedVideoId = '';
+        state.started = false;
+        state.currentNodes = [];
+        state.currentTranscript = null;
+        setQuestionCount(0);
+        setTranscriptState('Idle');
+        setAdapterState('None');
+        setVideoState('VIDEO: IDLE');
+        els.activeVideo.textContent = 'NO VIDEO';
+        els.startBtn.disabled = true;
+        hideReturnBanner();
+        renderSessions();
+        log('Lab cache reset. Production storage keys untouched.');
+      }
+
+      function bindEvents() {
+        document.querySelectorAll('[data-md-dd-lab-level]').forEach(function (button) {
+          button.addEventListener('click', function () {
+            document.querySelectorAll('[data-md-dd-lab-level]').forEach(function (item) { item.classList.remove('is-active'); });
+            button.classList.add('is-active');
+            state.level = button.getAttribute('data-md-dd-lab-level') || 'Step 1';
+            state.topicId = '';
+            state.selectedVideoId = '';
+            renderTopics();
+          });
+        });
+        els.startBtn.addEventListener('click', startSelectedDrill);
+        els.muteBtn.addEventListener('click', function () { setMuted(!state.muted); });
+        els.returnBtn.addEventListener('click', routeBackToDaily);
+        els.resetBtn.addEventListener('click', resetLabState);
+      }
+
+      function cacheElements() {
+        els.rosterStatus = $('md-dd-lab-roster-status');
+        els.topicSummary = $('md-dd-lab-topic-summary');
+        els.topicList = $('md-dd-lab-topic-list');
+        els.selectedTopicLabel = $('md-dd-lab-selected-topic-label');
+        els.sessionList = $('md-dd-lab-session-list');
+        els.returnAlert = $('md-dd-lab-return-alert');
+        els.returnBtn = $('md-dd-lab-return-btn');
+        els.video = $('md-dd-lab-video');
+        els.cfIframe = $('md-dd-lab-cf-iframe');
+        els.videoState = $('md-dd-lab-video-state');
+        els.activeVideo = $('md-dd-lab-active-video');
+        els.startBtn = $('md-dd-lab-start-btn');
+        els.muteBtn = $('md-dd-lab-mute-btn');
+        els.resetBtn = $('md-dd-lab-reset-btn');
+        els.questionCount = $('md-dd-lab-question-count');
+        els.transcriptState = $('md-dd-lab-transcript-state');
+        els.adapterState = $('md-dd-lab-adapter-state');
+        els.log = $('md-dd-lab-runtime-log');
+      }
+
+      function init() {
+        cacheElements();
+        bindEvents();
+        setMuted(true);
+        setRosterStatus('Loading', 'loading');
+        setVideoState('VIDEO: IDLE');
+        setAdapterState('None');
+        setQuestionCount(0);
+        setTranscriptState('Idle');
+        renderTopics();
+        fetchDrills();
+        LAB.state = state;
+        LAB.storageKeys = Object.assign({}, STORAGE_KEYS);
+        LAB.safeReturnUrl = safeReturnUrl;
+        LAB.reset = resetLabState;
+      }
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init, { once: true });
+      } else {
+        init();
+      }
+    }());
+  </script>
+</body>
+</html>

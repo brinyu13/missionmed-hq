@@ -573,11 +573,15 @@ html,body{
 .session-history{
   display:flex;gap:16px;flex-wrap:wrap;margin-top:8px;
 }
+.session-history.session-source-meta{gap:12px 16px}
 .session-stat{
   font-size:11px;font-weight:600;color:var(--text-dim);
   letter-spacing:1px;text-transform:uppercase;
 }
 .session-stat-val{color:var(--text-secondary)}
+.session-stat-val.source-name{
+  display:inline-block;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;
+}
 .session-arrow{
   flex-shrink:0;width:24px;height:24px;
   display:flex;align-items:center;justify-content:center;
@@ -2209,7 +2213,39 @@ html.admin-bar{margin-top:0!important}
     '2026-03-30': ['inf_disease_step23'],
     '2026-04-06': ['biochem_genetics_step1', 'peds_step23'],
     '2026-04-07': ['renal_gu_electrolytes_step23'],
-    '2026-04-08': ['repro_gyn_ob_step1', 'gyn_step23']
+    '2026-04-08': ['repro_gyn_ob_step1', 'gyn_step23'],
+    '2026-04-21': ['repro_gyn_ob_step1', 'gyn_step23'],
+    '2026-04-22': ['biochem_genetics_step1', 'peds_step23'],
+    '2026-04-23': ['renal_gu_step1', 'renal_gu_electrolytes_step23'],
+    '2026-04-24': ['er_medicine_step1', 'er_medicine_step23'],
+    '2026-04-27': ['heme_onc_step1', 'heme_onc_step23'],
+    '2026-04-28': ['cardio_step1', 'cardio_step23'],
+    '2026-04-29': ['onc_by_systems_step1', ['biostats_step1', 'biostats_step23']],
+    '2026-04-30': ['pulmonary_step1', 'pulmonary_step23'],
+    '2026-05-01': ['mixed_review_step1', 'mixed_review_step23']
+  };
+  var DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS = ['mixed_review_step1', 'mixed_review_step23'];
+  var DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS = {
+    'usmle_3ac83d870348': 'mixed_review_step1',
+    'usmle_31cd0d939397': 'surgery_step23',
+    'usmle_aecf7be312b1': 'psych_ethics_step23',
+    'usmle_d97b0096855e': 'git_hep_step23',
+    'usmle_3c48cfcdd346': 'inf_disease_step23',
+    'usmle_1e8ceeaa580c': 'mixed_review_step1',
+    'usmle_2d45081a1808': 'surgery_step23',
+    'usmle_d9ef08b93e96': 'psych_ethics_step1',
+    'usmle_473aad16ff51': 'git_hep_step1',
+    'usmle_e40f7cd7f1b2': 'micro_inf_disease_step1',
+    'usmle_beb8b86cb3d5': 'mixed_review_step23',
+    'usmle_d68c6a58c6fd': 'mixed_review_step23',
+    'usmle_581a9f5e406a': 'er_medicine_step1',
+    'usmle_841da92f6b03': 'er_medicine_step23',
+    'usmle_479bf224f2af': 'renal_gu_electrolytes_step23',
+    'usmle_793a0df25114': 'renal_gu_step1',
+    'usmle_4a0c1ea32975': 'biochem_genetics_step1',
+    'usmle_6e2058b09d29': 'peds_step23',
+    'usmle_b9bbfa4e055d': 'repro_gyn_ob_step1',
+    'usmle_5418da136f32': 'gyn_step23'
   };
 
   var drTopicVideoMapEffective = null;
@@ -2230,6 +2266,21 @@ html.admin-bar{margin-top:0!important}
     return { date: date, time: m[4]+':'+m[5]+':'+m[6], seconds: seconds };
   }
 
+  function assignScheduledSessionToTopicMap(map, topicSlot, videoId) {
+    var topicIds = Array.isArray(topicSlot) ? topicSlot : [topicSlot];
+    topicIds.forEach(function(topicId) {
+      if (!topicId || !map[topicId]) return;
+      if (map[topicId].indexOf(videoId) === -1) map[topicId].push(videoId);
+    });
+  }
+
+  function assignExactVideoTopicAssignments(map, availableById) {
+    Object.keys(DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS).forEach(function(videoId) {
+      if (!availableById[videoId]) return;
+      assignScheduledSessionToTopicMap(map, DR_EXACT_VIDEO_TOPIC_ASSIGNMENTS[videoId], videoId);
+    });
+  }
+
   function buildTopicVideoMapFromMetadata(drills) {
     var map = makeEmptyTopicVideoMap();
     var byDate = {};
@@ -2247,20 +2298,47 @@ html.admin-bar{margin-top:0!important}
       if (!slots.length) return;
       var sessions = byDate[dateKey].slice().sort(function(a,b){ return a.seconds - b.seconds; });
       sessions.forEach(function(session, index) {
-        var topicId = slots[Math.min(index, slots.length - 1)];
-        if (!topicId || !map[topicId]) return;
-        if (map[topicId].indexOf(session.video_id) === -1) map[topicId].push(session.video_id);
+        var topicSlot = slots[Math.min(index, slots.length - 1)];
+        assignScheduledSessionToTopicMap(map, topicSlot, session.video_id);
       });
     });
     return map;
   }
 
+  function parseDrillCreatedAtMs(drill) {
+    var raw = String(drill && drill.created_at || '').trim();
+    if (!raw) return 0;
+    var ms = Date.parse(raw);
+    return isNaN(ms) ? 0 : ms;
+  }
+
+  function parseZoomStampMsFromDrill(drill) {
+    var stamp = parseZoomStampFromDrill(drill);
+    if (!stamp) return 0;
+    var ms = Date.parse(stamp.date + 'T' + stamp.time + 'Z');
+    return isNaN(ms) ? 0 : ms;
+  }
+
+  function isDrillEligibleForUnscheduledFallback(drill, mappedById) {
+    var videoId = String(drill && drill.video_id || '').trim();
+    if (!videoId || mappedById[videoId]) return false;
+    if (!/^usmle_/i.test(videoId)) return false;
+    if (!String(drill.playback_url || '').trim()) return false;
+    if (!String(drill.nodes_url || '').trim()) return false;
+    if (!String(drill.transcript_url || '').trim()) return false;
+
+    var stamp = parseZoomStampFromDrill(drill);
+    if (stamp && DR_ZOOM_SCHEDULE_SLOTS[stamp.date]) return false;
+    return true;
+  }
+
   function buildEffectiveTopicVideoMap(drills) {
     var map = buildTopicVideoMapFromMetadata(drills);
+    var safeDrills = Array.isArray(drills) ? drills : [];
     var availableById = {};
     (Array.isArray(drills) ? drills : []).forEach(function(drill) {
       var videoId = String(drill && drill.video_id || '').trim();
-      if (videoId) availableById[videoId] = true;
+      if (videoId) availableById[videoId] = drill;
     });
     Object.keys(DR_TOPIC_VIDEO_FALLBACK_MAP).forEach(function(topicId) {
       if (!map[topicId]) map[topicId] = [];
@@ -2269,6 +2347,47 @@ html.admin-bar{margin-top:0!important}
         if (availableById[videoId] && map[topicId].indexOf(videoId) === -1) map[topicId].push(videoId);
       });
     });
+
+    assignExactVideoTopicAssignments(map, availableById);
+
+    var mappedById = {};
+    Object.keys(map).forEach(function(topicId) {
+      (map[topicId] || []).forEach(function(videoId) {
+        if (videoId) mappedById[videoId] = true;
+      });
+    });
+
+    var unscheduled = safeDrills
+      .filter(function(drill) { return isDrillEligibleForUnscheduledFallback(drill, mappedById); })
+      .sort(function(a, b) {
+        var zoomDelta = parseZoomStampMsFromDrill(b) - parseZoomStampMsFromDrill(a);
+        if (zoomDelta !== 0) return zoomDelta;
+
+        var createdDelta = parseDrillCreatedAtMs(b) - parseDrillCreatedAtMs(a);
+        if (createdDelta !== 0) return createdDelta;
+
+        var aId = String(a && a.video_id || '').trim();
+        var bId = String(b && b.video_id || '').trim();
+        if (aId < bId) return -1;
+        if (aId > bId) return 1;
+        return 0;
+      });
+
+    var fallbackSlots = Array.isArray(DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS) ? DR_ZOOM_UNSCHEDULED_FALLBACK_SLOTS : [];
+    if (fallbackSlots.length > 0) {
+      unscheduled.forEach(function(drill, index) {
+        var videoId = String(drill && drill.video_id || '').trim();
+        if (!videoId || mappedById[videoId]) return;
+        var topicId = fallbackSlots[index % fallbackSlots.length];
+        if (!topicId) return;
+        if (!map[topicId]) map[topicId] = [];
+        if (map[topicId].indexOf(videoId) === -1) {
+          map[topicId].push(videoId);
+          mappedById[videoId] = true;
+        }
+      });
+    }
+
     return map;
   }
 
@@ -3340,6 +3459,46 @@ html.admin-bar{margin-top:0!important}
     return step + ' • ' + type;
   }
 
+  function hasRuntimeDrillMetadata(session) {
+    if (!session) return false;
+    return !!(
+      session.video_id ||
+      session.playback_url ||
+      session.nodes_url ||
+      session.transcript_url ||
+      getSessionMeta(session, 'created_at', '') ||
+      getSessionMeta(session, 'original_filename', '') ||
+      getSessionMeta(session, 'filename', '')
+    );
+  }
+
+  function formatDrillUploadedLabel(session) {
+    var rawDate = String(
+      getSessionMeta(session, 'created_at', '') ||
+      getSessionMeta(session, 'zoom_session_iso', '') ||
+      getSessionMeta(session, 'zoom_session_date', '')
+    ).trim();
+    if (!rawDate) return 'Unknown';
+    return formatSessionDateLabel(rawDate);
+  }
+
+  function formatDrillSourceName(session) {
+    var source = String(
+      getSessionMeta(session, 'original_filename', '') ||
+      getSessionMeta(session, 'filename', '') ||
+      session.title ||
+      session.video_id ||
+      ''
+    ).trim();
+    return cleanFilenameFallback(source) || 'Runtime drill';
+  }
+
+  function formatShortVideoId(session) {
+    var videoId = String(session && session.video_id || '').trim();
+    if (!videoId) return 'Unknown';
+    return videoId.length > 22 ? videoId.slice(0, 22) + '...' : videoId;
+  }
+
   function hideSessionIntelPanel() {
     var panelEl = document.getElementById('sessionIntelPanel');
     if (!panelEl) return;
@@ -3459,7 +3618,13 @@ html.admin-bar{margin-top:0!important}
       var sessionSubtitle = formatDrillSubtitle(session);
 
       var historyHtml = '';
-      if(history.watched){
+      if (hasRuntimeDrillMetadata(session)) {
+        historyHtml = '<div class="session-history session-source-meta">' +
+          '<span class="session-stat">Uploaded: <span class="session-stat-val">' + escapeHtml(formatDrillUploadedLabel(session)) + '</span></span>' +
+          '<span class="session-stat">Source: <span class="session-stat-val source-name">' + escapeHtml(formatDrillSourceName(session)) + '</span></span>' +
+          '<span class="session-stat">Video ID: <span class="session-stat-val">' + escapeHtml(formatShortVideoId(session)) + '</span></span>' +
+        '</div>';
+      } else if(history.watched){
         historyHtml = '<div class="session-history">' +
           '<span class="session-stat">Watched: <span class="session-stat-val">' + history.timesWatched + 'x</span></span>' +
           '<span class="session-stat">Last: <span class="session-stat-val">' + history.lastWatched + '</span></span>' +

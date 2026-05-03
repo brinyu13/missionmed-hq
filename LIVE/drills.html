@@ -4285,6 +4285,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       const MM_LAUNCH_STORAGE_KEY = "mm.launch";
       const MM_RESULT_STORAGE_KEY = "mm.result";
       const ARENA_HANDOFF_STORAGE_KEY = "mm_selected_drill";
+      const DAILY_DRILL_SETTINGS_STORAGE_KEY = "mm_drill_settings";
       const DEFAULT_MODE_RETURN_PATH = "daily.html";
       const EXPLORE_PROGRAMS_URL = "https://missionmedinstitute.com/programs/";
       const MISSIONMED_HOME_URL = "https://missionmedinstitute.com/";
@@ -4482,6 +4483,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       let isMuted = false;
       let currentVolumeLevel = "low";
       let feedbackEnabled = true;
+      let launchForcesMuted = false;
       let isActiveParticipant = true;
       let activeAudioElement = null;
       let audioPlayToken = 0;
@@ -6082,6 +6084,71 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         setFeedbackEnabled(feedbackEnabled, { persist: false });
       }
 
+      function parseJsonStorageValue(storageKey) {
+        try {
+          const raw = sessionStorage.getItem(storageKey);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+        } catch (_error) {
+          return null;
+        }
+      }
+
+      function extractLaunchSettings(source) {
+        if (!source || typeof source !== "object") return null;
+        if (source.settings && typeof source.settings === "object") return source.settings;
+        if (source.metadata && source.metadata.settings && typeof source.metadata.settings === "object") {
+          return source.metadata.settings;
+        }
+        if (source.drill_metadata && source.drill_metadata.settings && typeof source.drill_metadata.settings === "object") {
+          return source.drill_metadata.settings;
+        }
+        return null;
+      }
+
+      function getStoredLaunchSettings() {
+        const directSettings = parseJsonStorageValue(DAILY_DRILL_SETTINGS_STORAGE_KEY);
+        if (directSettings && Object.prototype.hasOwnProperty.call(directSettings, "volume")) return directSettings;
+
+        const launchPayload = parseJsonStorageValue(MM_LAUNCH_STORAGE_KEY);
+        const launchSettings = extractLaunchSettings(launchPayload);
+        if (launchSettings) return launchSettings;
+
+        const dailyPayload = parseJsonStorageValue(ARENA_HANDOFF_STORAGE_KEY);
+        return extractLaunchSettings(dailyPayload);
+      }
+
+      function getLaunchSettingsFromDrill(drill) {
+        const storedSettings = getStoredLaunchSettings();
+        if (storedSettings) return storedSettings;
+        const sources = [
+          drill,
+          drill && drill.metadata,
+          drill && drill.drill_metadata,
+          drill && drill.metadata && drill.metadata.metadata,
+          drill && drill.metadata && drill.metadata.drill_metadata
+        ];
+        for (let i = 0; i < sources.length; i += 1) {
+          const source = sources[i];
+          if (source && typeof source === "object" && source.settings && typeof source.settings === "object") {
+            return source.settings;
+          }
+        }
+        return null;
+      }
+
+      function applyLaunchMuteSetting(drill) {
+        const settings = getLaunchSettingsFromDrill(drill);
+        if (!settings) return;
+        const mutedValue = String(settings.muted || settings.audio_muted || "").toLowerCase();
+        const launchVolume = Number(settings.volume);
+        if ((Number.isFinite(launchVolume) && launchVolume <= 0) || mutedValue === "true" || mutedValue === "on" || mutedValue === "mute") {
+          launchForcesMuted = true;
+          setMuted(true, { persist: false });
+        }
+      }
+
       function getAudioContext() {
         if (isMuted) return null;
         if (!audioContext) {
@@ -6681,6 +6748,27 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         return { errors: errors, warnings: warnings };
       }
 
+      function isAllowedReturnUrl(parsed) {
+        if (!parsed) return false;
+        const sameOrigin = parsed.origin === window.location.origin;
+        const fileName = (parsed.pathname.split("/").pop() || "").trim();
+        const allowArena = /^arena_v[\w.-]*\.html$/i.test(fileName);
+        const allowMode = /^mode_[\w.-]*\.html$/i.test(fileName);
+        if (sameOrigin && (allowArena || allowMode)) return true;
+
+        const normalizedPath = String(parsed.pathname || "")
+          .replace(/\/+$/, "")
+          .toLowerCase() || "/";
+        const allowMissionDaily =
+          parsed.origin === "https://missionmedinstitute.com" &&
+          (normalizedPath === "/daily" || normalizedPath === "/daily.html");
+        const allowCdnDaily =
+          parsed.origin === "https://cdn.missionmedinstitute.com" &&
+          normalizedPath === "/html-system/live/daily.html";
+
+        return allowMissionDaily || allowCdnDaily;
+      }
+
       function safeReturnUrl(rawUrl, meta) {
         const fallback = defaultReturnUrl();
         const candidate = String(rawUrl || "").trim();
@@ -6688,12 +6776,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 
         try {
           const parsed = new URL(candidate, window.location.href);
-          const sameOrigin = parsed.origin === window.location.origin;
-          const fileName = (parsed.pathname.split("/").pop() || "").trim();
-          const allowArena = /^arena_v[\w.-]*\.html$/i.test(fileName);
-          const allowMode = /^mode_[\w.-]*\.html$/i.test(fileName);
 
-          if (sameOrigin && (allowArena || allowMode)) {
+          if (isAllowedReturnUrl(parsed)) {
             return parsed.toString();
           }
 
@@ -6701,7 +6785,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           const context = {
             return_url: candidate,
             resolved_path: parsed.pathname,
-            same_origin: sameOrigin,
+            same_origin: parsed.origin === window.location.origin,
             source: meta && meta.source ? meta.source : null
           };
           setFailureBannerVisible(reason);
@@ -6852,6 +6936,10 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
               failures.push(sourceLabel + ": missing");
               return null;
             }
+            if (selectedVideoIdParam && candidate.video_id && String(candidate.video_id || "").trim() !== selectedVideoIdParam) {
+              failures.push(sourceLabel + ": stale video_id " + String(candidate.video_id || "").trim() + " ignored for query video_id " + selectedVideoIdParam);
+              return null;
+            }
             const resolved = await resolveCandidate(candidate, sourceLabel);
             activeLaunchId = resolved.launch_id;
             activeSelectionSource = sourceLabel;
@@ -6920,6 +7008,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 
         const drill = await fetchReadyDrillFromRegistry();
         activeDrillRecord = drill;
+        applyLaunchMuteSetting(drill);
         if (!activeLaunchId) activeLaunchId = ensureLaunchId(drill.launch_id);
         if (!activeReturnUrl) activeReturnUrl = defaultReturnUrl();
         resetSessionTrace("load_drill");
@@ -7266,15 +7355,19 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
             try { videoAdapter.seek(startTime); } catch (_seekErr) {}
           }
           await waitForSeekComplete(startTime, 0.15, 3000);
-          if (video) {
-            video.muted = false;
-            video.volume = 1.0;
+          if (isMuted) {
+            applyMuteState();
+          } else {
+            if (video) {
+              video.muted = false;
+              video.volume = 1.0;
+            }
+            if (videoAdapter && videoAdapter._player && typeof videoAdapter._player === "object") {
+              try { videoAdapter._player.muted = false; } catch (_muteErr) {}
+              try { videoAdapter._player.volume = 1.0; } catch (_volErr) {}
+            }
+            setVolume("high", { persist: false, syncMMOS: false });
           }
-          if (videoAdapter && videoAdapter._player && typeof videoAdapter._player === "object") {
-            try { videoAdapter._player.muted = false; } catch (_muteErr) {}
-            try { videoAdapter._player.volume = 1.0; } catch (_volErr) {}
-          }
-          setVolume("high", { persist: false, syncMMOS: false });
           await videoAdapter.play();
         } catch (outerErr) {
           console.warn("[L-9060] startDrillSession start-sequence failed", outerErr);
@@ -7410,6 +7503,107 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
             }
 
             fail(new Error("HLS is unsupported in this browser (no HLS.js and no native HLS)."));
+          });
+        }
+      }
+
+      class DirectMp4PlayerAdapter {
+        constructor(videoElement, sourceUrl) {
+          this.video = videoElement;
+          this.sourceUrl = sourceUrl;
+          this.ready = false;
+        }
+
+        on(eventName, handler) { this.video.addEventListener(eventName, handler); }
+        off(eventName, handler) { this.video.removeEventListener(eventName, handler); }
+        play() { return this.video.play(); }
+        pause() { this.video.pause(); }
+
+        seek(time) {
+          const nextTime = Number(time);
+          if (!Number.isFinite(nextTime)) return;
+          this.video.currentTime = Math.max(0, nextTime);
+        }
+
+        getCurrentTime() { return this.video.currentTime || 0; }
+        setMuted(isMuted) { this.video.muted = Boolean(isMuted); }
+        setVolume(volume) {
+          const nextVolume = Number(volume);
+          if (!Number.isFinite(nextVolume)) return;
+          this.video.volume = Math.max(0, Math.min(1, nextVolume));
+        }
+
+        destroy() {
+          try { this.pause(); } catch (_error) {}
+          this.ready = false;
+          try { this.video.removeAttribute("src"); } catch (_error) {}
+          try { this.video.load(); } catch (_error) {}
+        }
+
+        init() {
+          const self = this;
+          return new Promise(function (resolve, reject) {
+            if (!self.sourceUrl) {
+              reject(new Error("Missing direct MP4 source URL"));
+              return;
+            }
+
+            let settled = false;
+            const timeout = setTimeout(function () {
+              fail(new Error("Timed out waiting for direct MP4 canplay readiness"));
+            }, 30000);
+
+            const cleanup = function () {
+              clearTimeout(timeout);
+              self.video.removeEventListener("canplay", onReady);
+              self.video.removeEventListener("loadedmetadata", onMetadata);
+              self.video.removeEventListener("error", onError);
+            };
+
+            const finish = function () {
+              if (settled) return;
+              settled = true;
+              self.ready = true;
+              cleanup();
+              resolve();
+            };
+
+            const fail = function (error) {
+              if (settled) return;
+              settled = true;
+              self.ready = false;
+              cleanup();
+              reject(error);
+            };
+
+            function onReady() { finish(); }
+            function onMetadata() {
+              if (self.video.readyState >= 3) finish();
+            }
+            function onError() {
+              const mediaError = self.video.error;
+              const code = mediaError && typeof mediaError.code === "number" ? mediaError.code : "unknown";
+              fail(new Error("Direct MP4 video element error while loading source (code: " + code + ")"));
+            }
+
+            try {
+              if (cfIframe) {
+                cfIframe.style.display = "none";
+                cfIframe.removeAttribute("src");
+              }
+              self.video.style.display = "block";
+              self.video.preload = "auto";
+              self.video.setAttribute("playsinline", "");
+              self.video.setAttribute("webkit-playsinline", "");
+              self.video.addEventListener("canplay", onReady);
+              self.video.addEventListener("loadedmetadata", onMetadata);
+              self.video.addEventListener("error", onError);
+              self.video.src = self.sourceUrl;
+              self.video.load();
+              if (self.video.readyState >= 3) finish();
+            } catch (error) {
+              fail(error);
+            }
           });
         }
       }
@@ -7584,6 +7778,17 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         return String(urlValue || "").indexOf("iframe.videodelivery.net/") >= 0;
       }
 
+      function isDirectMp4PlaybackUrl(urlValue) {
+        const raw = String(urlValue || "").trim();
+        if (!raw) return false;
+        try {
+          const parsed = new URL(raw, window.location.origin);
+          return /\.mp4$/i.test(parsed.pathname || "");
+        } catch (_error) {
+          return /\.mp4(?:$|[?#])/i.test(raw);
+        }
+      }
+
       function deriveHlsUrlFromPlaybackUrl(playbackUrl) {
         const raw = String(playbackUrl || "").trim();
         if (!raw) return "";
@@ -7616,6 +7821,9 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         if (useCfIframe) {
           console.log("[MASTER-B-102][setVideoSource] CF iframe path:", video_url);
           videoAdapter = new CfStreamIframeAdapter(cfIframe, video_url);
+        } else if (isDirectMp4PlaybackUrl(video_url)) {
+          console.log("[MASTER-B-102][setVideoSource] direct MP4 path:", video_url);
+          videoAdapter = new DirectMp4PlayerAdapter(video, video_url);
         } else {
           const hlsUrl = deriveHlsUrlFromPlaybackUrl(video_url);
           if (!hlsUrl) {
@@ -9673,6 +9881,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           } else {
             try { applyMmosAudioLevel(sessionStorage.getItem("mmos.audio.level")); } catch (_error) {}
           }
+          if (launchForcesMuted) setMuted(true, { persist: false });
           applySceneVisibility(scene);
           return { initialScene: scene };
         })().catch(function (error) {
