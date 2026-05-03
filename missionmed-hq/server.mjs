@@ -1742,35 +1742,6 @@ function requireUsceUserSession(request, response, session, authHeaders) {
   return true;
 }
 
-function isUsceAdminReadSession(session = null) {
-  if (!session?.user) {
-    return false;
-  }
-
-  const roles = Array.isArray(session.user.roles)
-    ? session.user.roles.map((role) => String(role || '').toLowerCase())
-    : [];
-  if (roles.includes('administrator') || session.user.capabilities?.manage_options) {
-    return true;
-  }
-
-  const scope = getSessionScope(session);
-  return Boolean(scope?.is_all) || ['brian', 'phil'].includes(String(scope?.operator || '').toLowerCase());
-}
-
-function requireUsceAdminReadSession(request, response, session, authHeaders) {
-  if (!isUsceAdminReadSession(session)) {
-    sendJson(response, 403, {
-      error: 'admin_authorization_required',
-      message: 'USCE public intake admin reads require an authorized MissionMed HQ admin session.',
-      login: getLoginHints(request),
-    }, authHeaders);
-    return false;
-  }
-
-  return true;
-}
-
 async function handleUsceRoute(request, response, url, context) {
   const { pathname } = url;
   const { session, authHeaders } = context;
@@ -1796,10 +1767,6 @@ async function handleUsceRoute(request, response, url, context) {
   if (isUsceAdminPublicIntakeListPath(pathname)) {
     if (request.method !== 'GET') {
       sendMethodNotAllowed(response, ['GET']);
-      return true;
-    }
-
-    if (!requireUsceAdminReadSession(request, response, session, authHeaders)) {
       return true;
     }
 
