@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
+import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -1798,6 +1799,13 @@ async function handleApiRoute(request, response, url, context) {
       timestamp: new Date().toISOString(),
     });
     return;
+  }
+
+  if (pathname.startsWith('/api/usce/public/')) {
+    const handled = await handleUscePublicRoute(request, response, url);
+    if (handled) {
+      return;
+    }
   }
 
   if (request.method === 'OPTIONS') {
