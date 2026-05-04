@@ -1,1861 +1,813 @@
 <!DOCTYPE html>
+<!--
+  CX-OFFER-312-WIRING-PREP
+  MissionMed USCE Admin Offer Engine Shell
+  Static R2-ready admin product shell. Demo-first, protected live adapter optional.
+  Status/note backend actions are Wiring Authority prepared; no email sends, no payment actions, no direct Supabase browser access.
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MissionMed Clinicals HQ - Offer System v500</title>
+<meta name="missionmed-app" content="usce-admin-offer-engine">
+<meta name="missionmed-version" content="CX-OFFER-312-WIRING-PREP">
+<title>MissionMed Clinicals Command Center | USCE Offer Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
-.mm-cx, .mm-cx *, .mm-cx *::before, .mm-cx *::after { box-sizing: border-box; }
-.mm-cx {
-  --mm-navy: #0F2A44; --mm-navy-2: #173755; --mm-navy-3: #1f456a;
-  --mm-gold: #C9A24B; --mm-gold-2: #dcb866; --mm-gold-soft: rgba(201,162,75,0.12);
-  --mm-ink: #0b1c2e; --mm-paper: #f7f5f0; --mm-paper-2: #efece4;
-  --mm-line: rgba(15,42,68,0.08); --mm-line-2: rgba(15,42,68,0.14);
-  --mm-success: #1f8a5a; --mm-danger: #b23a3a; --mm-warn: #c47a1a; --mm-muted: #5e6b7a;
-  --mm-radius: 18px; --mm-radius-sm: 10px;
-  --mm-shadow: 0 10px 30px rgba(15,42,68,0.10), 0 2px 6px rgba(15,42,68,0.06);
-  --mm-shadow-lg: 0 24px 60px rgba(15,42,68,0.18), 0 8px 18px rgba(15,42,68,0.08);
-  --mm-ease: cubic-bezier(.2,.8,.2,1);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  color: var(--mm-ink);
-  background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(201,162,75,0.10), transparent 60%),
-    radial-gradient(1000px 500px at 100% 110%, rgba(15,42,68,0.08), transparent 60%),
-    linear-gradient(180deg, #fbfaf6 0%, #f3efe7 100%);
-  min-height: 100vh; padding: 22px clamp(16px, 3vw, 40px) 80px;
-  line-height: 1.5; -webkit-font-smoothing: antialiased;
+:root{
+  --ink:#101827;--navy:#071a2f;--navy2:#102b49;--blue:#204966;--teal:#477a78;--gold:#c5a45d;--gold2:#dec57f;
+  --cream:#f7f2e8;--paper:#fbfaf6;--white:#fff;--line:rgba(16,24,39,.13);--line2:rgba(197,164,93,.34);
+  --muted:#687384;--green:#237455;--amber:#a96f13;--red:#a64242;--violet:#52628a;
+  --shadow:0 22px 70px rgba(7,26,47,.14),0 2px 12px rgba(7,26,47,.06);--shadow2:0 12px 34px rgba(7,26,47,.12);
+  --radius:24px;--radius2:16px;--ease:cubic-bezier(.2,.8,.2,1);--sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--serif:"Fraunces",Georgia,serif;
 }
-
-.mm-cx .mm-topbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; margin-bottom: 18px; flex-wrap: wrap; }
-.mm-cx .mm-brand { display: flex; align-items: center; gap: 12px; font-weight: 700; color: var(--mm-navy); }
-.mm-cx .mm-brand-mark { width: 38px; height: 38px; border-radius: 10px;
-  background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-3) 100%);
-  display: grid; place-items: center; color: var(--mm-gold); font-weight: 800; box-shadow: var(--mm-shadow); }
-.mm-cx .mm-brand-text small { display: block; font-size: 11px; font-weight: 500; color: var(--mm-muted); letter-spacing: 0.8px; text-transform: uppercase; }
-.mm-cx .mm-viewswitch { display: inline-flex; background: #fff; border: 1px solid var(--mm-line); border-radius: 999px; padding: 4px; box-shadow: var(--mm-shadow); }
-.mm-cx .mm-viewswitch button { appearance: none; border: 0; background: transparent; cursor: pointer;
-  padding: 9px 16px; border-radius: 999px; font-weight: 600; font-size: 13px; color: var(--mm-navy);
-  transition: all .22s var(--mm-ease); display: inline-flex; align-items: center; gap: 8px; font-family: inherit; }
-.mm-cx .mm-viewswitch button:hover { background: var(--mm-paper); }
-.mm-cx .mm-viewswitch button.is-active { background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-3) 100%); color: #fff; box-shadow: 0 6px 14px rgba(15,42,68,0.25); }
-.mm-cx .mm-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mm-gold); box-shadow: 0 0 0 3px rgba(201,162,75,0.18); }
-.mm-cx[data-mode="admin"] .mm-viewswitch button[data-view="student"],
-.mm-cx[data-mode="admin"] .mm-viewswitch button[data-view="portal"] { display: none; }
-.mm-cx[data-mode="admin"] [data-panel="student"],
-.mm-cx[data-mode="admin"] [data-panel="portal"] { display: none !important; }
-
-.mm-cx .mm-runtime {
-  margin-bottom: 14px; background: #fff; border: 1px solid var(--mm-line); border-radius: 12px;
-  padding: 10px 12px; box-shadow: var(--mm-shadow);
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-}
-.mm-cx .mm-runtime-left { display: grid; gap: 2px; }
-.mm-cx .mm-runtime-title { font-size: 12px; font-weight: 700; color: var(--mm-navy); letter-spacing: .06em; text-transform: uppercase; }
-.mm-cx .mm-runtime-status { font-size: 13px; font-weight: 600; color: var(--mm-ink); }
-.mm-cx .mm-runtime-meta { font-size: 11px; color: var(--mm-muted); }
-.mm-cx .mm-runtime-actions { display: inline-flex; gap: 8px; flex-wrap: wrap; }
-.mm-cx .mm-btn.mm-btn-sm { padding: 7px 10px; font-size: 12px; border-radius: 9px; }
-
-.mm-cx .mm-panel { display: none; animation: mm-fade .4s var(--mm-ease) both; }
-.mm-cx .mm-panel.is-active { display: block; }
-@keyframes mm-fade { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:translateY(0);} }
-
-.mm-cx .mm-card { background: #fff; border: 1px solid var(--mm-line); border-radius: var(--mm-radius); box-shadow: var(--mm-shadow); }
-.mm-cx .mm-card-pad { padding: clamp(18px, 2.2vw, 28px); }
-
-.mm-cx .mm-hero {
-  background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-2) 60%, var(--mm-navy-3) 100%);
-  color: #fff; border-radius: var(--mm-radius); padding: 22px 28px; margin-bottom: 18px;
-  box-shadow: var(--mm-shadow-lg); position: relative; overflow: hidden;
-}
-.mm-cx .mm-hero::after { content:""; position:absolute; inset:0;
-  background: radial-gradient(600px 200px at 90% -20%, rgba(201,162,75,0.25), transparent 60%); pointer-events:none; }
-.mm-cx .mm-hero h1 { margin: 0 0 4px; font-size: clamp(19px, 2vw, 24px); font-weight: 700; }
-.mm-cx .mm-hero p { margin: 0; color: rgba(255,255,255,0.78); font-size: 13px; }
-.mm-cx .mm-eyebrow { display: inline-block; padding: 4px 10px; border-radius: 999px;
-  background: var(--mm-gold-soft); color: var(--mm-gold-2);
-  font-size: 11px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 8px; }
-
-/* Intake form */
-.mm-cx .mm-form-wrap { max-width: 860px; margin: 0 auto; }
-.mm-cx .mm-stepper { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
-.mm-cx .mm-step { flex: 1 1 140px; display: flex; align-items: center; gap: 10px;
-  padding: 10px 12px; border-radius: var(--mm-radius-sm); background: #fff; border: 1px solid var(--mm-line);
-  transition: all .3s var(--mm-ease); min-width: 0; }
-.mm-cx .mm-step.is-active { border-color: var(--mm-gold); box-shadow: 0 0 0 3px var(--mm-gold-soft); }
-.mm-cx .mm-step.is-done { background: var(--mm-paper); }
-.mm-cx .mm-step-num { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
-  font-size: 12px; font-weight: 700; background: var(--mm-paper-2); color: var(--mm-navy); flex: 0 0 26px; }
-.mm-cx .mm-step.is-active .mm-step-num { background: linear-gradient(135deg, var(--mm-gold) 0%, var(--mm-gold-2) 100%); color: #fff; }
-.mm-cx .mm-step.is-done .mm-step-num { background: var(--mm-navy); color: #fff; }
-.mm-cx .mm-step-label { font-size: 12px; font-weight: 600; color: var(--mm-navy); overflow: hidden; }
-.mm-cx .mm-step small { display: block; color: var(--mm-muted); font-weight: 500; font-size: 11px; }
-.mm-cx .mm-form-step { display: none; }
-.mm-cx .mm-form-step.is-active { display: block; animation: mm-fade .35s var(--mm-ease) both; }
-
-.mm-cx .mm-field { margin-bottom: 14px; }
-.mm-cx .mm-label { display: block; font-size: 12px; font-weight: 700; color: var(--mm-navy); letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 6px; }
-.mm-cx .mm-hint { font-size: 12px; color: var(--mm-muted); margin-top: 6px; }
-.mm-cx .mm-input, .mm-cx .mm-select, .mm-cx .mm-textarea {
-  width: 100%; border: 1px solid var(--mm-line-2); background: #fff; border-radius: var(--mm-radius-sm);
-  padding: 11px 13px; font-size: 14px; color: var(--mm-ink); font-family: inherit; transition: border-color .2s, box-shadow .2s;
-}
-.mm-cx .mm-input:focus, .mm-cx .mm-select:focus, .mm-cx .mm-textarea:focus { outline: 0; border-color: var(--mm-gold); box-shadow: 0 0 0 3px var(--mm-gold-soft); }
-.mm-cx .mm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 640px) { .mm-cx .mm-row { grid-template-columns: 1fr; } }
-
-.mm-cx .mm-rank-group { display: flex; flex-direction: column; gap: 10px; }
-.mm-cx .mm-rank { display: grid; grid-template-columns: 44px 1fr auto; gap: 12px;
-  align-items: center; padding: 12px; border: 1px solid var(--mm-line);
-  border-radius: var(--mm-radius-sm); background: #fff; transition: box-shadow .22s; }
-.mm-cx .mm-rank:hover { box-shadow: var(--mm-shadow); }
-.mm-cx .mm-rank-badge { width: 36px; height: 36px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-3) 100%);
-  color: var(--mm-gold); font-weight: 800; font-size: 13px; display: grid; place-items: center; }
-.mm-cx .mm-rank label { font-size: 10px; font-weight: 700; color: var(--mm-muted); letter-spacing: 0.08em; text-transform: uppercase; display: block; margin-bottom: 4px; }
-.mm-cx .mm-rank-remove { appearance:none; border:0; background:transparent; cursor:pointer; width:32px; height:32px; border-radius:8px; color:var(--mm-muted); font-size:18px; font-family:inherit; transition:all .2s; }
-.mm-cx .mm-rank-remove:hover { background: rgba(178,58,58,0.08); color: var(--mm-danger); }
-.mm-cx .mm-add-row { appearance:none; border:1px dashed var(--mm-line-2); background: #fff; color: var(--mm-navy);
-  padding: 10px 14px; border-radius: var(--mm-radius-sm); font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: all .2s; font-family: inherit; display:inline-flex; align-items:center; gap:6px; }
-.mm-cx .mm-add-row:hover { border-color: var(--mm-gold); background: var(--mm-gold-soft); }
-.mm-cx .mm-add-row:disabled { opacity: .4; cursor: not-allowed; }
-
-.mm-cx .mm-month-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; }
-.mm-cx .mm-month { position: relative; padding: 12px 14px; border: 1px solid var(--mm-line-2);
-  border-radius: 12px; background: #fff; cursor: pointer; transition: all .2s var(--mm-ease); font-weight: 600; color: var(--mm-navy); font-size: 13px; user-select: none; display:flex; justify-content:space-between; align-items:center; gap:8px; font-family: inherit; }
-.mm-cx .mm-month:hover { border-color: var(--mm-gold); }
-.mm-cx .mm-month.is-on { background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-3) 100%); color: #fff; border-color: transparent; box-shadow: 0 4px 12px rgba(15,42,68,0.25); }
-.mm-cx .mm-month.is-preferred { border-color: var(--mm-gold); box-shadow: inset 0 0 0 1px var(--mm-gold); }
-.mm-cx .mm-month.is-preferred.is-on { box-shadow: 0 4px 12px rgba(15,42,68,0.25), inset 0 0 0 1px var(--mm-gold); }
-.mm-cx .mm-month .mm-prio { font-size: 10px; font-weight: 800; background: rgba(255,255,255,0.18); color: var(--mm-gold-2); padding: 2px 7px; border-radius: 999px; display:none; }
-.mm-cx .mm-month.is-on .mm-prio { display: inline-block; }
-.mm-cx .mm-month .mm-pref-tag { font-size: 9px; font-weight: 800; background: var(--mm-gold-soft); color: #8c6d1f; padding: 2px 6px; border-radius: 999px; letter-spacing: 0.06em; }
-.mm-cx .mm-month.is-on .mm-pref-tag { background: rgba(255,255,255,0.2); color: var(--mm-gold-2); }
-
-.mm-cx .mm-btn { appearance: none; border: 0; cursor: pointer; font-family: inherit;
-  font-weight: 700; font-size: 14px; padding: 11px 18px; border-radius: var(--mm-radius-sm);
-  transition: all .22s var(--mm-ease); display: inline-flex; align-items: center; gap: 8px; letter-spacing: 0.02em; }
-.mm-cx .mm-btn-primary { background: linear-gradient(135deg, var(--mm-gold) 0%, var(--mm-gold-2) 100%);
-  color: var(--mm-navy); box-shadow: 0 6px 16px rgba(201,162,75,0.32); }
-.mm-cx .mm-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(201,162,75,0.4); }
-.mm-cx .mm-btn-dark { background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-3) 100%); color: #fff; box-shadow: 0 6px 16px rgba(15,42,68,0.3); }
-.mm-cx .mm-btn-dark:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(15,42,68,0.4); }
-.mm-cx .mm-btn-ghost { background: transparent; color: var(--mm-navy); border: 1px solid var(--mm-line-2); }
-.mm-cx .mm-btn-ghost:hover { background: var(--mm-paper); border-color: var(--mm-navy); }
-.mm-cx .mm-btn-danger { background: #fff; color: var(--mm-danger); border: 1px solid rgba(178,58,58,0.3); }
-.mm-cx .mm-btn-danger:hover { background: rgba(178,58,58,0.06); }
-.mm-cx .mm-btn-success { background: linear-gradient(135deg, #1f8a5a 0%, #27a870 100%); color: #fff; box-shadow: 0 6px 16px rgba(31,138,90,0.3); }
-.mm-cx .mm-btn-success:hover { transform: translateY(-1px); box-shadow: 0 10px 22px rgba(31,138,90,0.4); }
-.mm-cx .mm-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
-.mm-cx .mm-btn-sm { padding: 7px 11px; font-size: 12px; border-radius: 8px; }
-
-.mm-cx .mm-form-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--mm-line); flex-wrap: wrap; }
-
-/* HQ Grid */
-.mm-cx .mm-hq-grid { display: grid; grid-template-columns: minmax(340px, 400px) 1fr; gap: 18px; align-items: start; }
-@media (max-width: 1000px) { .mm-cx .mm-hq-grid { grid-template-columns: 1fr; } }
-
-.mm-cx .mm-hq-toolbar { display: flex; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--mm-line); align-items: center; flex-wrap: wrap; }
-.mm-cx .mm-hq-toolbar input, .mm-cx .mm-hq-toolbar select { padding: 7px 10px; font-size: 12px; border: 1px solid var(--mm-line-2); border-radius: 8px; background: #fff; font-family: inherit; color: var(--mm-ink); }
-.mm-cx .mm-hq-toolbar input { flex: 1; min-width: 120px; }
-
-.mm-cx .mm-hq-list-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--mm-line); }
-.mm-cx .mm-hq-list-header h3 { margin: 0; font-size: 13px; color: var(--mm-navy); font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-.mm-cx .mm-count-pill { background: var(--mm-gold-soft); color: var(--mm-navy); font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
-
-.mm-cx .mm-req-list { max-height: 720px; overflow-y: auto; padding: 8px; }
-.mm-cx .mm-req-list::-webkit-scrollbar { width: 6px; }
-.mm-cx .mm-req-list::-webkit-scrollbar-thumb { background: var(--mm-line-2); border-radius: 10px; }
-.mm-cx .mm-req-item { padding: 12px 14px; border-radius: 12px; cursor: pointer; border: 1px solid transparent; transition: all .22s var(--mm-ease); margin-bottom: 6px; position: relative; }
-.mm-cx .mm-req-item:hover { background: var(--mm-paper); }
-.mm-cx .mm-req-item.is-active { background: linear-gradient(135deg, rgba(15,42,68,0.05), rgba(201,162,75,0.07)); border-color: var(--mm-gold); }
-.mm-cx .mm-req-item-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 2px; }
-.mm-cx .mm-req-name { font-weight: 700; color: var(--mm-navy); font-size: 14px; display: flex; align-items: center; gap: 8px; }
-.mm-cx .mm-sla-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 8px; }
-.mm-cx .mm-sla-green { background: var(--mm-success); box-shadow: 0 0 0 3px rgba(31,138,90,0.12); }
-.mm-cx .mm-sla-amber { background: var(--mm-warn); box-shadow: 0 0 0 3px rgba(196,122,26,0.12); }
-.mm-cx .mm-sla-red { background: var(--mm-danger); box-shadow: 0 0 0 3px rgba(178,58,58,0.14); }
-.mm-cx .mm-req-meta { font-size: 12px; color: var(--mm-muted); line-height: 1.4; }
-.mm-cx .mm-req-time { font-size: 11px; color: var(--mm-muted); margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
-.mm-cx .mm-req-time b { color: var(--mm-navy); font-weight: 600; }
-
-.mm-cx .mm-status-badge { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
-.mm-cx .mm-status-new { background: rgba(201,162,75,0.18); color: #8c6d1f; }
-.mm-cx .mm-status-in_progress { background: rgba(31,69,106,0.14); color: var(--mm-navy-3); }
-.mm-cx .mm-status-offered { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
-.mm-cx .mm-status-accepted { background: rgba(31,138,90,0.14); color: var(--mm-success); }
-.mm-cx .mm-status-declined { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
-.mm-cx .mm-status-draft { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
-.mm-cx .mm-status-expired { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
-.mm-cx .mm-status-retained { background: rgba(201,162,75,0.18); color: #8c6d1f; }
-
-.mm-cx .mm-detail { min-height: 640px; display: flex; flex-direction: column; }
-.mm-cx .mm-detail-empty { flex: 1; display: grid; place-items: center; color: var(--mm-muted); text-align: center; padding: 40px; }
-.mm-cx .mm-empty-ring { width: 56px; height: 56px; border-radius: 50%; background: var(--mm-gold-soft); color: var(--mm-gold-2); display: grid; place-items: center; margin: 0 auto 14px; font-size: 22px; font-weight: 800; }
-.mm-cx .mm-detail-head { padding: 20px 22px; border-bottom: 1px solid var(--mm-line); display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
-.mm-cx .mm-detail-head h2 { margin: 0 0 4px; font-size: 19px; color: var(--mm-navy); }
-.mm-cx .mm-detail-head small { color: var(--mm-muted); font-size: 12px; }
-.mm-cx .mm-detail-body { padding: 18px 22px 24px; display: grid; gap: 16px; }
-
-.mm-cx .mm-tabs { display: inline-flex; padding: 4px; background: var(--mm-paper); border-radius: 10px; border: 1px solid var(--mm-line); gap: 2px; flex-wrap: wrap; }
-.mm-cx .mm-tabs button { appearance: none; border: 0; background: transparent; cursor: pointer; font-family: inherit; padding: 7px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--mm-muted); letter-spacing: .04em; text-transform: uppercase; transition: all .22s var(--mm-ease); }
-.mm-cx .mm-tabs button:hover { color: var(--mm-navy); }
-.mm-cx .mm-tabs button.is-active { background: #fff; color: var(--mm-navy); box-shadow: 0 2px 6px rgba(15,42,68,0.08); }
-.mm-cx .mm-tabpane { display: none; animation: mm-fade .3s var(--mm-ease) both; }
-.mm-cx .mm-tabpane.is-active { display: block; }
-
-.mm-cx .mm-prefs-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-@media (max-width: 820px) { .mm-cx .mm-prefs-grid { grid-template-columns: 1fr; } }
-.mm-cx .mm-pref-card { padding: 14px; border-radius: 12px; background: var(--mm-paper); border: 1px solid var(--mm-line); }
-.mm-cx .mm-pref-card small { display: block; font-size: 10px; font-weight: 800; letter-spacing: 0.1em; color: var(--mm-muted); text-transform: uppercase; margin-bottom: 6px; }
-.mm-cx .mm-pref-list { font-size: 13px; color: var(--mm-navy); font-weight: 600; display: flex; flex-direction: column; gap: 4px; }
-.mm-cx .mm-pref-list .mm-ranked-item { display: flex; align-items: center; gap: 8px; }
-.mm-cx .mm-pref-list .mm-pill-num { display: inline-flex; width: 20px; height: 20px; border-radius: 50%; background: var(--mm-navy); color: var(--mm-gold); align-items: center; justify-content: center; font-size: 10px; font-weight: 800; flex: 0 0 20px; }
-
-.mm-cx .mm-quickact { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px 0 6px; }
-
-/* Timeline / comms */
-.mm-cx .mm-timeline { position: relative; padding: 4px 0; }
-.mm-cx .mm-timeline::before { content:""; position:absolute; left:13px; top:6px; bottom:6px; width:2px; background: var(--mm-line-2); }
-.mm-cx .mm-tl-item { position: relative; padding: 0 0 14px 38px; }
-.mm-cx .mm-tl-item::before { content:""; position:absolute; left:8px; top:4px; width:12px; height:12px; border-radius: 50%; background: var(--mm-gold); border: 2px solid #fff; box-shadow: 0 0 0 2px var(--mm-gold-soft); }
-.mm-cx .mm-tl-item.is-in::before { background: var(--mm-navy); box-shadow: 0 0 0 2px rgba(15,42,68,0.15); }
-.mm-cx .mm-tl-item.is-sys::before { background: var(--mm-muted); box-shadow: 0 0 0 2px rgba(94,107,122,0.15); }
-.mm-cx .mm-tl-item.is-call::before { background: var(--mm-warn); box-shadow: 0 0 0 2px rgba(196,122,26,0.18); }
-.mm-cx .mm-tl-item.is-note::before { background: #7a5dc7; box-shadow: 0 0 0 2px rgba(122,93,199,0.18); }
-.mm-cx .mm-tl-head { display:flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-.mm-cx .mm-tl-title { font-weight: 700; color: var(--mm-navy); font-size: 13px; }
-.mm-cx .mm-tl-time { font-size: 11px; color: var(--mm-muted); }
-.mm-cx .mm-tl-body { font-size: 13px; color: var(--mm-ink); margin-top: 4px; background: var(--mm-paper); border-radius: 10px; padding: 8px 10px; border: 1px solid var(--mm-line); white-space: pre-wrap; }
-.mm-cx .mm-tl-dir { display: inline-block; font-size: 9px; font-weight: 800; letter-spacing: .1em; padding: 2px 6px; border-radius: 999px; margin-right: 6px; text-transform: uppercase; vertical-align: middle; }
-.mm-cx .mm-tl-dir.out { background: var(--mm-gold-soft); color: #8c6d1f; }
-.mm-cx .mm-tl-dir.in { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
-.mm-cx .mm-tl-dir.sys { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
-.mm-cx .mm-tl-dir.call { background: rgba(196,122,26,0.14); color: var(--mm-warn); }
-.mm-cx .mm-tl-dir.note { background: rgba(122,93,199,0.14); color: #5c41a8; }
-
-/* Composer */
-.mm-cx .mm-composer { border: 1px dashed var(--mm-line-2); border-radius: 12px; padding: 14px; background: #fff; margin-top: 14px; display: none; }
-.mm-cx .mm-composer.is-open { display: block; animation: mm-fade .25s var(--mm-ease) both; }
-.mm-cx .mm-composer .mm-label { margin-bottom: 4px; }
-.mm-cx .mm-composer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
-
-/* Builder */
-.mm-cx .mm-builder { background: linear-gradient(180deg, var(--mm-paper) 0%, #fff 100%);
-  border: 1px solid var(--mm-line); border-radius: var(--mm-radius); padding: 18px; }
-.mm-cx .mm-builder h4 { margin: 0 0 12px; font-size: 12px; font-weight: 800; letter-spacing: 0.08em;
-  color: var(--mm-navy); text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
-.mm-cx .mm-builder h4::before { content:""; width: 6px; height: 14px; border-radius: 3px;
-  background: linear-gradient(180deg, var(--mm-gold), var(--mm-gold-2)); }
-.mm-cx .mm-builder-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-@media (max-width: 720px) { .mm-cx .mm-builder-grid { grid-template-columns: 1fr; } }
-
-.mm-cx .mm-legend { display: flex; gap: 10px; flex-wrap: wrap; font-size: 11px; color: var(--mm-muted); margin-top: 6px; }
-.mm-cx .mm-legend span { display: inline-flex; align-items: center; gap: 5px; }
-.mm-cx .mm-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-.mm-cx .mm-legend .l-pref { background: var(--mm-gold-soft); border: 1px solid var(--mm-gold); }
-
-/* Modal */
-.mm-cx .mm-modal-scrim { position: fixed; inset: 0; background: rgba(11,28,46,0.55); backdrop-filter: blur(4px); z-index: 99990; display: none; animation: mm-fade .22s var(--mm-ease) both; }
-.mm-cx .mm-modal-scrim.is-open { display: grid; place-items: center; padding: 20px; }
-.mm-cx .mm-modal { width: min(780px, 100%); max-height: 92vh; overflow: hidden; background: #fff; border-radius: var(--mm-radius); box-shadow: 0 40px 80px rgba(0,0,0,0.4); display: flex; flex-direction: column; }
-.mm-cx .mm-modal-head { padding: 16px 20px; border-bottom: 1px solid var(--mm-line); display: flex; justify-content: space-between; align-items: center; }
-.mm-cx .mm-modal-head h3 { margin: 0; font-size: 15px; color: var(--mm-navy); font-weight: 700; }
-.mm-cx .mm-modal-body { padding: 20px; overflow-y: auto; }
-.mm-cx .mm-modal-foot { padding: 14px 20px; border-top: 1px solid var(--mm-line); display: flex; justify-content: space-between; align-items: center; gap: 10px; background: var(--mm-paper); flex-wrap: wrap; }
-.mm-cx .mm-modal-close { appearance: none; border: 0; background: transparent; cursor: pointer; font-size: 22px; color: var(--mm-muted); line-height: 1; padding: 4px 10px; border-radius: 8px; font-family: inherit; }
-.mm-cx .mm-modal-close:hover { background: var(--mm-paper); color: var(--mm-navy); }
-
-.mm-cx .mm-email { border: 1px solid var(--mm-line); border-radius: 12px; overflow: hidden; background: #fff; }
-.mm-cx .mm-email-head { padding: 12px 16px; border-bottom: 1px solid var(--mm-line); background: var(--mm-paper); font-size: 13px; color: var(--mm-navy); display: grid; grid-template-columns: 60px 1fr; gap: 4px 10px; }
-.mm-cx .mm-email-head span { color: var(--mm-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding-top: 2px; }
-.mm-cx .mm-email-body { padding: 16px; font-size: 14px; color: var(--mm-ink); white-space: pre-wrap; line-height: 1.6; min-height: 240px; outline: none; }
-.mm-cx .mm-email-body[contenteditable="true"] { background: #fffbe9; border-top: 2px dashed var(--mm-gold); }
-.mm-cx .mm-email-subject { font-weight: 700; font-size: 15px; padding: 10px 16px; border-bottom: 1px solid var(--mm-line); color: var(--mm-navy); outline: none; }
-.mm-cx .mm-email-subject[contenteditable="true"] { background: #fffbe9; }
-
-.mm-cx .mm-approve-bar { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--mm-navy); }
-.mm-cx .mm-approve-bar .mm-check { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--mm-line-2); background:#fff; display:grid; place-items:center; transition: all .2s; }
-.mm-cx .mm-approve-bar.is-approved .mm-check { background: var(--mm-success); border-color: var(--mm-success); color: #fff; }
-.mm-cx .mm-approve-bar.is-approved .mm-check::after { content:"\2713"; font-weight: 900; }
-
-/* Preflight checklist */
-.mm-cx .mm-preflight { background: var(--mm-paper); border: 1px solid var(--mm-line); border-radius: 10px; padding: 10px 12px; font-size: 12px; margin-top: 12px; }
-.mm-cx .mm-preflight ul { margin: 4px 0 0; padding-left: 18px; color: var(--mm-muted); }
-.mm-cx .mm-preflight li.ok { color: var(--mm-success); list-style: "\2713  "; }
-.mm-cx .mm-preflight li.warn { color: var(--mm-warn); list-style: "!  "; }
-
-/* Portal */
-.mm-cx .mm-portal { max-width: 680px; margin: 0 auto; }
-.mm-cx .mm-offer-card { position: relative; overflow: hidden; background: #fff; border: 1px solid var(--mm-line); border-radius: var(--mm-radius); box-shadow: var(--mm-shadow-lg); padding: 26px; }
-.mm-cx .mm-offer-card::before { content:""; position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, var(--mm-gold), var(--mm-gold-2), var(--mm-gold)); }
-.mm-cx .mm-offer-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
-.mm-cx .mm-offer-head h2 { margin: 6px 0 2px; color: var(--mm-navy); font-size: 22px; }
-.mm-cx .mm-offer-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
-@media (max-width: 520px) { .mm-cx .mm-offer-fields { grid-template-columns: 1fr; } }
-.mm-cx .mm-offer-field { padding: 12px 14px; border-radius: 12px; background: var(--mm-paper); border: 1px solid var(--mm-line); }
-.mm-cx .mm-offer-field small { display: block; font-size: 10px; letter-spacing: 0.1em; font-weight: 800; color: var(--mm-muted); text-transform: uppercase; margin-bottom: 4px; }
-.mm-cx .mm-offer-field b { color: var(--mm-navy); font-size: 15px; font-weight: 700; }
-
-.mm-cx .mm-countdown { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; background: linear-gradient(135deg, var(--mm-navy) 0%, var(--mm-navy-3) 100%); color: #fff; border-radius: 12px; margin-bottom: 18px; flex-wrap: wrap; }
-.mm-cx .mm-countdown small { color: rgba(255,255,255,0.7); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 700; }
-.mm-cx .mm-countdown-clock { display: flex; gap: 8px; }
-.mm-cx .mm-clock-cell { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); padding: 6px 10px; border-radius: 8px; min-width: 54px; text-align: center; }
-.mm-cx .mm-clock-cell b { font-size: 18px; font-variant-numeric: tabular-nums; color: var(--mm-gold-2); }
-.mm-cx .mm-clock-cell span { display: block; font-size: 9px; letter-spacing: 0.1em; text-transform: uppercase; color: rgba(255,255,255,0.7); }
-.mm-cx .mm-offer-cta { display: flex; gap: 12px; flex-wrap: wrap; }
-.mm-cx .mm-offer-cta .mm-btn { flex: 1; min-width: 140px; justify-content: center; padding: 14px 18px; }
-
-.mm-cx .mm-next-steps { background: var(--mm-paper); border: 1px solid var(--mm-line); border-radius: 12px; padding: 14px 16px; margin-top: 14px; }
-.mm-cx .mm-next-steps h4 { margin: 0 0 8px; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--mm-navy); }
-.mm-cx .mm-next-steps ol { margin: 0; padding-left: 18px; font-size: 13px; color: var(--mm-ink); }
-.mm-cx .mm-next-steps ol li { margin: 4px 0; }
-
-.mm-cx .mm-retain { margin-top: 16px; padding: 20px; border-radius: var(--mm-radius); background: linear-gradient(180deg, #fff 0%, var(--mm-paper) 100%); border: 1px solid var(--mm-line); box-shadow: var(--mm-shadow); }
-.mm-cx .mm-retain h3 { margin: 0 0 6px; color: var(--mm-navy); font-size: 16px; }
-.mm-cx .mm-retain p { margin: 0 0 14px; color: var(--mm-muted); font-size: 13px; }
-.mm-cx .mm-retain-options { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-.mm-cx .mm-retain-opt { flex: 1; min-width: 120px; padding: 12px; border-radius: 12px; border: 1px solid var(--mm-line-2); background: #fff; cursor: pointer; font-weight: 700; color: var(--mm-navy); font-size: 13px; text-align: center; transition: all .22s var(--mm-ease); display: flex; flex-direction: column; align-items: center; gap: 4px; font-family: inherit; }
-.mm-cx .mm-retain-opt small { font-weight: 500; color: var(--mm-muted); font-size: 11px; }
-.mm-cx .mm-retain-opt:hover { border-color: var(--mm-gold); transform: translateY(-1px); }
-.mm-cx .mm-retain-opt.is-on { border-color: var(--mm-gold); background: linear-gradient(135deg, var(--mm-gold-soft) 0%, #fff 100%); box-shadow: 0 0 0 3px var(--mm-gold-soft); }
-
-.mm-cx .mm-success-card { text-align: center; padding: 36px 26px; background: linear-gradient(180deg, #fff 0%, var(--mm-paper) 100%); border: 1px solid var(--mm-line); border-radius: var(--mm-radius); box-shadow: var(--mm-shadow); }
-.mm-cx .mm-success-ring { width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, var(--mm-gold) 0%, var(--mm-gold-2) 100%); display: grid; place-items: center; margin: 0 auto 14px; color: #fff; font-size: 30px; font-weight: 900; box-shadow: 0 12px 28px rgba(201,162,75,0.4); animation: mm-pop .5s var(--mm-ease) both; }
-@keyframes mm-pop { 0%{transform:scale(0.4);opacity:0;} 60%{transform:scale(1.08);opacity:1;} 100%{transform:scale(1);} }
-
-.mm-cx .mm-toast-wrap { position: fixed; top: 20px; right: 20px; z-index: 99999; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
-.mm-cx .mm-toast { background: var(--mm-navy); color: #fff; padding: 11px 15px; border-radius: 12px; box-shadow: var(--mm-shadow-lg); font-size: 13px; border-left: 3px solid var(--mm-gold); animation: mm-tin .3s var(--mm-ease) both; max-width: 320px; }
-@keyframes mm-tin { from{transform:translateX(20px);opacity:0;} to{transform:translateX(0);opacity:1;} }
-
-.mm-cx .mm-kv { display: grid; grid-template-columns: 140px 1fr; gap: 6px 12px; font-size: 13px; }
-.mm-cx .mm-kv dt { color: var(--mm-muted); font-weight: 600; }
-.mm-cx .mm-kv dd { margin: 0; color: var(--mm-navy); font-weight: 600; }
-.mm-cx .mm-sep { height: 1px; background: var(--mm-line); margin: 6px 0; border: 0; }
-.mm-cx .mm-inline-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--mm-navy); font-weight: 600; padding: 8px 12px; background: #fff; border: 1px solid var(--mm-line-2); border-radius: 10px; cursor: pointer; }
-.mm-cx .mm-inline-check input { accent-color: var(--mm-navy); }
-.mm-cx .mm-mini-meta { display: flex; gap: 10px; color: var(--mm-muted); font-size: 12px; margin-top: 4px; flex-wrap: wrap; }
-.mm-cx .mm-mini-meta span::before { content:"\2022"; color: var(--mm-gold); margin-right: 6px; }
-
-.mm-cx .mm-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--mm-line); }
-@media (max-width: 600px) { .mm-cx .mm-stats { grid-template-columns: repeat(2, 1fr); } }
-.mm-cx .mm-stat { padding: 8px 10px; border-radius: 10px; background: var(--mm-paper); border: 1px solid var(--mm-line); }
-.mm-cx .mm-stat b { display: block; font-size: 18px; color: var(--mm-navy); font-weight: 800; line-height: 1.1; }
-.mm-cx .mm-stat small { display: block; font-size: 10px; color: var(--mm-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-top: 2px; }
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--navy);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.52}.mm-shell{min-height:100vh;background:radial-gradient(900px 520px at 12% -8%,rgba(197,164,93,.18),transparent 64%),radial-gradient(780px 460px at 92% 10%,rgba(71,122,120,.2),transparent 62%),linear-gradient(180deg,#071a2f 0%,#102b49 38%,#f5efe3 38%,#fbfaf6 100%)}
+.mm-top{max-width:1500px;margin:0 auto;padding:22px clamp(18px,3vw,34px) 14px;color:#fff}.mm-topline{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}.mm-brand{display:flex;align-items:center;gap:13px}.mm-mark{width:42px;height:42px;border-radius:14px;border:1px solid rgba(222,197,127,.46);display:grid;place-items:center;font:700 18px var(--serif);color:var(--gold2);background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.03));box-shadow:inset 0 1px 0 rgba(255,255,255,.16)}.mm-brand strong{display:block;font-weight:800;letter-spacing:.07em;text-transform:uppercase}.mm-brand span{display:block;color:rgba(255,255,255,.64);font-size:12px;letter-spacing:.08em;text-transform:uppercase}.mm-runtime{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.mm-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:rgba(255,255,255,.82);padding:8px 11px;border-radius:999px;font-size:12px;font-weight:800}.mm-dot{width:8px;height:8px;border-radius:50%;background:var(--gold2);box-shadow:0 0 0 4px rgba(197,164,93,.18)}.mm-dot.green{background:#55bf8a}.mm-dot.red{background:#d46a6a}.mm-hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(290px,420px);gap:24px;align-items:end;padding:38px 0 30px}.mm-eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--gold2);font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;border:1px solid rgba(222,197,127,.36);border-radius:999px;padding:8px 13px;background:rgba(7,26,47,.34)}h1{font-family:var(--serif);font-size:clamp(37px,5.8vw,78px);line-height:.96;margin:18px 0 12px;letter-spacing:-.05em;max-width:850px}.mm-sub{max-width:760px;color:rgba(255,255,255,.72);font-size:16px;line-height:1.75;margin:0}.mm-hero-card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:24px;padding:18px;box-shadow:0 22px 60px rgba(0,0,0,.14);backdrop-filter:blur(18px)}.mm-hero-card h2{font-size:13px;text-transform:uppercase;letter-spacing:.1em;margin:0 0 11px;color:var(--gold2)}.mm-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.mm-kpi{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:12px}.mm-kpi b{display:block;font-size:23px;color:#fff;line-height:1}.mm-kpi span{display:block;margin-top:5px;color:rgba(255,255,255,.62);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.07em}.mm-notice{margin-top:12px;padding:12px 13px;border-radius:16px;background:rgba(197,164,93,.14);border:1px solid rgba(197,164,93,.28);color:rgba(255,255,255,.78);font-size:12px;line-height:1.55}.mm-notice b{color:var(--gold2)}
+.mm-app{max-width:1500px;margin:0 auto;padding:0 clamp(14px,2.6vw,34px) 70px}.mm-command{display:grid;grid-template-columns:340px minmax(0,1fr) 360px;gap:16px;align-items:start}.mm-card{background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}.mm-card-head{padding:17px 18px;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;justify-content:space-between;gap:12px;background:linear-gradient(180deg,#fff,#fbfaf7)}.mm-card-head h3{margin:0;color:var(--navy);font-size:13px;text-transform:uppercase;letter-spacing:.1em}.mm-card-head p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.5}.mm-controls{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;gap:9px}.mm-control-row{display:flex;gap:8px}.mm-input,.mm-select,.mm-textarea{width:100%;border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:13px;padding:11px 12px;outline:none;transition:border-color .18s,box-shadow .18s}.mm-input:focus,.mm-select:focus,.mm-textarea:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(197,164,93,.16)}.mm-textarea{min-height:98px;resize:vertical}.mm-small{font-size:12px;color:var(--muted);line-height:1.55}.mm-queue{max-height:760px;overflow:auto;padding:9px}.mm-queue::-webkit-scrollbar{width:8px}.mm-queue::-webkit-scrollbar-thumb{background:rgba(16,24,39,.14);border-radius:999px}.mm-request{width:100%;text-align:left;background:#fff;border:1px solid transparent;border-radius:18px;padding:13px 13px 12px;margin:0 0 8px;transition:all .2s var(--ease);box-shadow:0 2px 0 rgba(16,24,39,.02)}.mm-request:hover{border-color:var(--line2);transform:translateY(-1px)}.mm-request.active{background:linear-gradient(135deg,rgba(7,26,47,.055),rgba(197,164,93,.1));border-color:var(--gold);box-shadow:0 10px 24px rgba(7,26,47,.09)}.mm-r-top{display:flex;align-items:start;justify-content:space-between;gap:10px}.mm-r-name{font-weight:900;color:var(--navy);font-size:14px}.mm-r-meta{font-size:12px;color:var(--muted);line-height:1.5;margin-top:4px}.mm-r-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:5px 8px;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap}.badge.new{background:rgba(197,164,93,.18);color:#76591a}.badge.reviewed,.badge.in_progress{background:rgba(32,73,102,.13);color:var(--blue)}.badge.offer_ready{background:rgba(82,98,138,.15);color:var(--violet)}.badge.promoted,.badge.accepted{background:rgba(35,116,85,.14);color:var(--green)}.badge.declined,.badge.archived{background:rgba(166,66,66,.12);color:var(--red)}.sla{font-size:11px;color:var(--muted);font-weight:800}.mm-empty{padding:26px;text-align:center;color:var(--muted)}
+.mm-detail{min-height:760px}.mm-detail-main{padding:19px}.mm-student-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;flex-wrap:wrap;padding:19px;border-bottom:1px solid var(--line);background:linear-gradient(135deg,#fff,#faf6ed)}.mm-student-head h2{font-family:var(--serif);font-size:31px;letter-spacing:-.04em;color:var(--navy);line-height:1.08;margin:0 0 6px}.mm-student-head p{margin:0;color:var(--muted);font-size:13px;line-height:1.55}.mm-actions{display:flex;gap:8px;flex-wrap:wrap}.btn{appearance:none;border:0;border-radius:999px;padding:10px 13px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;transition:transform .18s,box-shadow .18s,background .18s}.btn:not(:disabled):hover{transform:translateY(-1px)}.btn.primary{background:var(--gold);color:var(--navy);box-shadow:0 10px 20px rgba(197,164,93,.25)}.btn.dark{background:var(--navy);color:#fff;box-shadow:0 10px 20px rgba(7,26,47,.18)}.btn.ghost{background:#fff;color:var(--navy);border:1px solid var(--line)}.btn.warn{background:rgba(169,111,19,.11);color:var(--amber);border:1px solid rgba(169,111,19,.24)}.btn.disabled-note{background:#f3eee5;color:#7d725f;border:1px dashed rgba(125,114,95,.35)}.mm-tabs{display:flex;gap:7px;overflow:auto;padding:12px 14px;border-bottom:1px solid var(--line);background:rgba(247,242,232,.68)}.tab{white-space:nowrap;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:999px;padding:9px 12px;font-size:11px;font-weight:900;letter-spacing:.08em;text-transform:uppercase}.tab.active{background:#fff;border-color:var(--line);color:var(--navy);box-shadow:0 4px 13px rgba(7,26,47,.06)}.pane{display:none}.pane.active{display:block;animation:fade .22s var(--ease) both}@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}.mm-grid2{display:grid;grid-template-columns:1fr 1fr;gap:13px}.mm-grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}.info{border:1px solid var(--line);border-radius:18px;background:#fff;padding:14px}.info small{display:block;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.11em;text-transform:uppercase;margin-bottom:6px}.info b{display:block;color:var(--navy);font-size:14px;line-height:1.45}.chips{display:flex;flex-wrap:wrap;gap:8px}.chip{display:inline-flex;align-items:center;gap:6px;padding:7px 9px;border-radius:999px;background:var(--cream);border:1px solid var(--line);font-size:12px;font-weight:800;color:var(--navy)}.chip.rank:before{content:attr(data-rank);display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--navy);color:var(--gold2);font-size:10px}.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:900;margin:20px 0 10px}.timeline{position:relative;display:grid;gap:10px;margin-top:6px}.event{display:grid;grid-template-columns:34px 1fr;gap:11px}.event-dot{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:var(--gold2);font-size:12px;font-weight:900;box-shadow:0 0 0 5px rgba(7,26,47,.06)}.event-card{border:1px solid var(--line);border-radius:16px;background:#fff;padding:12px}.event-card b{display:block;color:var(--navy);font-size:13px}.event-card span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.match-score{display:grid;grid-template-columns:150px 1fr;gap:18px;align-items:center}.score-ring{width:136px;height:136px;border-radius:50%;display:grid;place-items:center;background:conic-gradient(var(--gold) calc(var(--score)*1%),rgba(197,164,93,.16) 0);position:relative;margin:auto}.score-ring:after{content:"";position:absolute;inset:12px;background:#fff;border-radius:50%;box-shadow:inset 0 0 0 1px var(--line)}.score-ring b{position:relative;z-index:1;font:700 32px var(--serif);color:var(--navy)}.match-bars{display:grid;gap:10px}.bar{display:grid;gap:5px}.bar-label{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;font-weight:800}.bar-track{height:9px;border-radius:999px;background:#ede8df;overflow:hidden}.bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--teal),var(--gold))}.note-list{display:grid;gap:10px;margin-top:12px}.note{border:1px solid var(--line);border-radius:16px;padding:12px;background:#fff}.note b{font-size:12px;color:var(--navy)}.note p{margin:6px 0 0;color:var(--muted);font-size:13px;line-height:1.55}.offer-form{display:grid;gap:12px}.offer-preview{background:linear-gradient(180deg,#fff,#faf7ef);border:1px solid var(--line2);border-radius:18px;padding:16px;min-height:260px;white-space:pre-wrap;color:var(--ink);line-height:1.62}.mail-head{font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:12px}.lockout{border:1px dashed rgba(169,111,19,.38);background:rgba(169,111,19,.08);border-radius:16px;padding:13px;color:#6f4b13;font-size:12px;line-height:1.55}.lockout b{color:var(--navy)}.right-panel{display:grid;gap:16px}.right-panel .mm-card{overflow:visible}.action-pad{padding:16px;display:grid;gap:12px}.meter{display:grid;gap:9px}.meter-row{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12px;color:var(--muted);font-weight:800}.meter-row b{color:var(--navy)}.wiring-list{display:grid;gap:8px}.wire{display:flex;align-items:flex-start;gap:9px;padding:10px;border-radius:14px;border:1px solid var(--line);background:#fff}.wire .state{width:20px;height:20px;border-radius:50%;flex:0 0 20px;display:grid;place-items:center;font-size:11px;font-weight:900}.wire.live .state{background:rgba(35,116,85,.14);color:var(--green)}.wire.required .state{background:rgba(169,111,19,.13);color:var(--amber)}.wire.stub .state{background:rgba(104,115,132,.13);color:var(--muted)}.wire b{display:block;color:var(--navy);font-size:12px}.wire span{display:block;color:var(--muted);font-size:11px;line-height:1.45;margin-top:2px}.adapter-panel{padding:14px;border-bottom:1px solid var(--line);display:grid;gap:9px;background:#fff}.switch-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.switch-row label{font-size:12px;font-weight:900;color:var(--navy);text-transform:uppercase;letter-spacing:.08em}.toggle{position:relative;width:48px;height:26px;border-radius:999px;background:#d9d4cb;border:0;transition:background .18s}.toggle:before{content:"";position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;left:3px;top:3px;box-shadow:0 2px 8px rgba(0,0,0,.2);transition:left .18s}.toggle.on{background:var(--green)}.toggle.on:before{left:25px}.status-line{font-size:12px;color:var(--muted);line-height:1.45}.status-line strong{color:var(--navy)}.footer-note{max-width:1500px;margin:18px auto 0;padding:0 clamp(14px,2.6vw,34px) 40px;color:#6d6a61;font-size:12px;line-height:1.7}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:1280px){.mm-command{grid-template-columns:310px 1fr}.right-panel{grid-column:1/-1;grid-template-columns:repeat(3,1fr)}.right-panel .mm-card{min-width:0}.mm-hero{grid-template-columns:1fr}}
+@media(max-width:900px){.mm-command,.right-panel{grid-template-columns:1fr}.mm-grid2,.mm-grid3,.match-score{grid-template-columns:1fr}.mm-hero{padding-top:25px}.mm-kpis{grid-template-columns:1fr 1fr 1fr}.mm-topline{align-items:flex-start}}
+@media(max-width:560px){.mm-top{padding-left:14px;padding-right:14px}h1{font-size:38px}.mm-kpis{grid-template-columns:1fr}.mm-student-head h2{font-size:26px}.mm-actions,.mm-control-row{display:grid}.btn{width:100%}.mm-tabs{padding-bottom:9px}.mm-detail-main{padding:14px}.mm-student-head{padding:15px}}
 </style>
 </head>
 <body>
-
-<div class="mm-cx" id="mmCx" data-mode="admin">
-
-  <div class="mm-topbar">
-    <div class="mm-brand">
-      <div class="mm-brand-mark">M</div>
-      <div class="mm-brand-text">
-        MissionMed Clinicals HQ
-        <small>Internal Offer System v500</small>
+<div class="mm-shell" id="app">
+  <header class="mm-top">
+    <div class="mm-topline">
+      <div class="mm-brand" aria-label="MissionMed Clinicals Command Center">
+        <div class="mm-mark">MM</div>
+        <div><strong>MissionMed Clinicals</strong><span>USCE Offer Engine</span></div>
+      </div>
+      <div class="mm-runtime" aria-live="polite">
+        <span class="mm-pill"><span class="mm-dot green"></span><span id="modePill">Demo mode</span></span>
+        <span class="mm-pill"><span class="mm-dot"></span>CX-OFFER-312-WIRING-PREP</span>
+        <span class="mm-pill">No writes. No sends. No payments.</span>
       </div>
     </div>
-    <div class="mm-viewswitch" role="tablist" aria-label="Switch view">
-      <button type="button" data-view="student"><span class="mm-dot"></span>Student Intake</button>
-      <button type="button" data-view="hq" class="is-active"><span class="mm-dot"></span>HQ Dashboard</button>
-      <button type="button" data-view="portal"><span class="mm-dot"></span>Student Portal</button>
-    </div>
-  </div>
-
-  <div class="mm-runtime" id="mmRuntime">
-    <div class="mm-runtime-left">
-      <div class="mm-runtime-title">Runtime Bridge</div>
-      <div class="mm-runtime-status" id="mmRtStatus">Demo mode active. Layout and flows are live.</div>
-      <div class="mm-runtime-meta" id="mmRtMeta">Use Connect Live only when served from Railway host.</div>
-    </div>
-    <div class="mm-runtime-actions">
-      <button type="button" class="mm-btn mm-btn-sm mm-btn-dark" id="mmRtConnect">Connect Live Auth</button>
-      <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="mmRtLoad" disabled>Load Live Requests</button>
-      <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmRtReset">Reset Demo Data</button>
-    </div>
-  </div>
-
-  <!-- ============== STUDENT INTAKE ============== -->
-  <section class="mm-panel" data-panel="student">
-    <div class="mm-hero">
-      <span class="mm-eyebrow">Step 1 of the Match</span>
-      <h1>Request your Clinical Rotation</h1>
-      <p>Rank your specialty, location, and month preferences. If your top choice is unavailable, we match to your next ranked option.</p>
-    </div>
-
-    <div class="mm-form-wrap">
-      <div class="mm-stepper" id="mmStepper">
-        <div class="mm-step is-active" data-step="1"><div class="mm-step-num">1</div><div class="mm-step-label">Profile<small>Who you are</small></div></div>
-        <div class="mm-step" data-step="2"><div class="mm-step-num">2</div><div class="mm-step-label">Preferences<small>Specialty &amp; location</small></div></div>
-        <div class="mm-step" data-step="3"><div class="mm-step-num">3</div><div class="mm-step-label">Timing<small>Months &amp; duration</small></div></div>
-        <div class="mm-step" data-step="4"><div class="mm-step-num">4</div><div class="mm-step-label">Review<small>Confirm &amp; submit</small></div></div>
+    <section class="mm-hero">
+      <div>
+        <div class="mm-eyebrow">Request-first placement operations</div>
+        <h1>Clinicals offer engine for availability-first requests.</h1>
+        <p class="mm-sub">A polished admin command center for reviewing public intake, shaping rotation matches, drafting offers, and tracking the future payment and paperwork path. Protected writes, email sending, payment handoff, and CDN promotion are intentionally reserved for Wiring Authority.</p>
       </div>
-
-      <div class="mm-card mm-card-pad" id="mmFormCard">
-        <div class="mm-form-step is-active" data-formstep="1">
-          <div class="mm-row">
-            <div class="mm-field"><label class="mm-label">Full name</label><input class="mm-input" id="f_name" placeholder="Jane Applicant"></div>
-            <div class="mm-field"><label class="mm-label">Email</label><input class="mm-input" id="f_email" type="email" placeholder="jane@example.com"></div>
-          </div>
-          <div class="mm-row">
-            <div class="mm-field"><label class="mm-label">Phone</label><input class="mm-input" id="f_phone" type="tel" placeholder="(555) 555-5555"></div>
-            <div class="mm-field"><label class="mm-label">Program level</label>
-              <select class="mm-select" id="f_program">
-                <option value="MS3">MS3</option><option value="MS4">MS4</option>
-                <option value="IMG">International Medical Graduate</option>
-                <option value="PA">PA Student</option><option value="Resident">Resident</option>
-              </select></div>
-          </div>
-          <div class="mm-field"><label class="mm-label">Medical school / institution</label>
-            <input class="mm-input" id="f_school" placeholder="e.g. Caribbean Medical School"></div>
+      <aside class="mm-hero-card">
+        <h2>Operational snapshot</h2>
+        <div class="mm-kpis">
+          <div class="mm-kpi"><b id="kpiNew">0</b><span>New</span></div>
+          <div class="mm-kpi"><b id="kpiOffer">0</b><span>Offer ready</span></div>
+          <div class="mm-kpi"><b id="kpiWire">8</b><span>Wiring gates</span></div>
         </div>
+        <div class="mm-notice"><b>Safety lane:</b> live reads may use the audited admin endpoint. Status and internal-note writes now have protected backend contracts, but browser activation still requires the follow-up live validation gate. Offer sends, Postmark, payment, paperwork, and CDN promotion remain disabled.</div>
+      </aside>
+    </section>
+  </header>
 
-        <div class="mm-form-step" data-formstep="2">
-          <p class="mm-hint" style="margin:0 0 14px;">Rank 2-3 specialties and 2-3 locations. Your #1 is tried first; if unavailable we try #2, then #3.</p>
-
-          <div class="mm-field">
-            <label class="mm-label">Specialty preferences (ranked)</label>
-            <div class="mm-rank-group" data-rank-group="spec"></div>
-            <button type="button" class="mm-add-row" data-rank-add="spec"><span>+</span> Add another specialty</button>
+  <main class="mm-app">
+    <section class="mm-command" aria-label="USCE admin offer engine">
+      <aside class="mm-card" aria-label="Intake request queue">
+        <div class="mm-card-head">
+          <div><h3>Intake Queue</h3><p>Request-first submissions waiting for review.</p></div>
+          <span class="badge new" id="queueCount">0</span>
+        </div>
+        <div class="adapter-panel">
+          <div class="switch-row">
+            <label for="liveToggle">Read live endpoint</label>
+            <button id="liveToggle" class="toggle" type="button" role="switch" aria-checked="false" aria-label="Toggle live read adapter"></button>
           </div>
-
-          <div class="mm-field">
-            <label class="mm-label">Location preferences (ranked)</label>
-            <div class="mm-rank-group" data-rank-group="loc"></div>
-            <button type="button" class="mm-add-row" data-rank-add="loc"><span>+</span> Add another location</button>
+          <div class="status-line" id="adapterStatus"><strong>Demo adapter active.</strong> No production API calls are made by default.</div>
+          <div class="mm-actions">
+            <button class="btn ghost" type="button" id="refreshBtn">Refresh queue</button>
+            <button class="btn disabled-note" type="button" disabled>Live writes require validation gate</button>
           </div>
         </div>
-
-        <div class="mm-form-step" data-formstep="3">
-          <div class="mm-field">
-            <label class="mm-label">Select and rank the months you can rotate</label>
-            <div class="mm-month-grid" id="f_months"></div>
-            <div class="mm-hint">Click to select; the number shows your priority order. Click again to deselect.</div>
-          </div>
-          <div class="mm-row">
-            <div class="mm-field"><label class="mm-label">Rotation length</label>
-              <select class="mm-select" id="f_length">
-                <option>2 weeks</option><option selected>4 weeks</option>
-                <option>6 weeks</option><option>8 weeks</option>
-              </select></div>
-            <div class="mm-field"><label class="mm-label">Earliest start</label>
-              <input class="mm-input" id="f_start" type="date"></div>
-          </div>
-          <div class="mm-field"><label class="mm-label">Notes for the coordinator (optional)</label>
-            <textarea class="mm-textarea" id="f_notes" rows="3" placeholder="Anything we should know?"></textarea></div>
-        </div>
-
-        <div class="mm-form-step" data-formstep="4">
-          <div class="mm-card" style="border: 1px dashed var(--mm-line-2); box-shadow: none;">
-            <div class="mm-card-pad"><dl class="mm-kv" id="f_review"></dl></div>
-          </div>
-          <p class="mm-hint" style="margin-top:12px;">By submitting you authorize MissionMed to contact you about this request by email and phone.</p>
-        </div>
-
-        <div class="mm-form-actions">
-          <button type="button" class="mm-btn mm-btn-ghost" id="mmBack">Back</button>
-          <button type="button" class="mm-btn mm-btn-primary" id="mmNext">Continue</button>
-        </div>
-      </div>
-
-      <div id="mmIntakeDone" style="display:none; margin-top: 20px;">
-        <div class="mm-success-card">
-          <div class="mm-success-ring">&#10003;</div>
-          <h2>Request received</h2>
-          <p id="mmIntakeEcho">A MissionMed coordinator will review your preferences and return an offer shortly.</p>
-          <div style="display:flex; gap:10px; justify-content:center; flex-wrap: wrap;">
-            <button type="button" class="mm-btn mm-btn-dark" data-goto="hq">View in HQ (demo)</button>
-            <button type="button" class="mm-btn mm-btn-ghost" data-goto="portal">See student portal (demo)</button>
+        <div class="mm-controls">
+          <input class="mm-input" id="searchInput" placeholder="Search name, email, phone" autocomplete="off">
+          <div class="mm-control-row">
+            <select class="mm-select" id="statusFilter" aria-label="Filter status">
+              <option value="all">All statuses</option>
+              <option value="new">New</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="in_progress">In progress</option>
+              <option value="offer_ready">Offer ready</option>
+              <option value="promoted">Promoted</option>
+              <option value="declined">Declined</option>
+              <option value="archived">Archived</option>
+            </select>
+            <select class="mm-select" id="sortSelect" aria-label="Sort queue">
+              <option value="newest">Newest first</option>
+              <option value="match">Best match</option>
+              <option value="sla">SLA urgency</option>
+            </select>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
+        <div class="mm-queue" id="queueList"></div>
+      </aside>
 
-  <!-- ============== HQ DASHBOARD ============== -->
-  <section class="mm-panel is-active" data-panel="hq">
-    <div class="mm-hero">
-      <span class="mm-eyebrow">HQ Coordinator Workspace</span>
-      <h1>Inbound Clinical Requests</h1>
-      <p>Review preferences, log outreach, track the thread, build the offer, and send with coordinator approval.</p>
-    </div>
-
-    <div class="mm-hq-grid">
-      <div class="mm-card">
-        <div class="mm-stats" id="mmStats">
-          <div class="mm-stat"><b id="st_new">0</b><small>New</small></div>
-          <div class="mm-stat"><b id="st_progress">0</b><small>In Progress</small></div>
-          <div class="mm-stat"><b id="st_offered">0</b><small>Offered</small></div>
-          <div class="mm-stat"><b id="st_accepted">0</b><small>Accepted</small></div>
-        </div>
-        <div class="mm-hq-toolbar">
-          <input type="search" id="mmSearch" placeholder="Search name, email, specialty...">
-          <select id="mmFilter" title="Filter by status">
-            <option value="all">All</option>
-            <option value="NEW">New</option>
-            <option value="IN_PROGRESS">In Progress</option>
-            <option value="OFFERED">Offered</option>
-            <option value="ACCEPTED">Accepted</option>
-            <option value="DECLINED">Declined</option>
-            <option value="RETAINED">Retained</option>
-          </select>
-          <select id="mmSort" title="Sort">
-            <option value="urgent">Most Urgent</option>
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest</option>
-          </select>
-        </div>
-        <div class="mm-hq-list-header">
-          <h3>Requests</h3>
-          <span class="mm-count-pill" id="mmReqCount">0</span>
-        </div>
-        <div class="mm-req-list" id="mmReqList"></div>
-      </div>
-
-      <div class="mm-card mm-detail" id="mmDetailCard">
-        <div class="mm-detail-empty" id="mmDetailEmpty">
+      <section class="mm-card mm-detail" aria-label="Request detail workspace">
+        <div class="mm-student-head">
           <div>
-            <div class="mm-empty-ring">&#8594;</div>
-            <div style="font-weight:700; color:var(--mm-navy);">Select a request</div>
-            <div style="font-size:13px; margin-top:4px;">Pick a student on the left to review preferences and build an offer.</div>
+            <span class="badge new" id="detailStatus">New</span>
+            <h2 id="detailName">Select a request</h2>
+            <p id="detailMeta">Choose an intake request from the queue to review preferences, draft an offer, and inspect wiring readiness.</p>
+          </div>
+          <div class="mm-actions">
+            <button class="btn ghost" type="button" id="copySummaryBtn">Copy summary</button>
+            <button class="btn warn" type="button" id="markReviewedBtn">Mark reviewed locally</button>
+            <button class="btn disabled-note" type="button" disabled>Save activation pending</button>
           </div>
         </div>
-
-        <div id="mmDetailContent" style="display:none;">
-          <div class="mm-detail-head">
-            <div>
-              <h2 id="mmDetName">-</h2>
-              <small id="mmDetMeta">-</small>
-              <div class="mm-mini-meta" id="mmDetMini"></div>
+        <nav class="mm-tabs" aria-label="Admin workspace tabs">
+          <button class="tab active" type="button" data-tab="detail">Request Detail</button>
+          <button class="tab" type="button" data-tab="match">Matching Review</button>
+          <button class="tab" type="button" data-tab="offer">Offer Draft</button>
+          <button class="tab" type="button" data-tab="comms">Communications</button>
+          <button class="tab" type="button" data-tab="paperwork">Payment/Paperwork</button>
+          <button class="tab" type="button" data-tab="wiring">Wiring Status</button>
+        </nav>
+        <div class="mm-detail-main">
+          <div class="pane active" data-pane="detail">
+            <div class="mm-grid3" id="profileGrid"></div>
+            <div class="section-title">Preference summary</div>
+            <div class="mm-grid3">
+              <div class="info"><small>Specialties</small><div class="chips" id="specialtyChips"></div></div>
+              <div class="info"><small>Locations</small><div class="chips" id="locationChips"></div></div>
+              <div class="info"><small>Timing</small><div class="chips" id="monthChips"></div></div>
             </div>
-            <div style="display:flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-              <span class="mm-status-badge mm-status-new" id="mmDetStatus">NEW</span>
-              <div class="mm-tabs" id="mmDetTabs">
-                <button type="button" data-tab="overview" class="is-active">Overview</button>
-                <button type="button" data-tab="comms">Communication</button>
-                <button type="button" data-tab="offer">Offer</button>
-                <button type="button" data-tab="audit">Audit</button>
+            <div class="section-title">Request notes</div>
+            <div class="info"><small>Student context</small><b id="requestNotes">No notes supplied.</b></div>
+            <div class="section-title">Status timeline</div>
+            <div class="timeline" id="statusTimeline"></div>
+          </div>
+
+          <div class="pane" data-pane="match">
+            <div class="match-score">
+              <div class="score-ring" id="scoreRing" style="--score:84"><b id="scoreValue">84</b></div>
+              <div>
+                <div class="section-title">Match review</div>
+                <div class="match-bars" id="matchBars"></div>
+                <div class="lockout" style="margin-top:14px"><b>Protected wiring required:</b> real seat inventory, program seats, coordinator assignment, and availability checks need Wiring Authority endpoints/RPCs. This panel uses local scoring only.</div>
               </div>
+            </div>
+            <div class="section-title">Coordinator review notes</div>
+            <textarea class="mm-textarea" id="noteInput" placeholder="Add an internal note for this review. Demo mode stores notes in memory only."></textarea>
+            <div class="mm-actions" style="margin-top:10px">
+              <button class="btn primary" type="button" id="addNoteBtn">Add demo note</button>
+              <button class="btn disabled-note" type="button" disabled>Persist note activation pending</button>
+            </div>
+            <div class="note-list" id="noteList"></div>
+          </div>
+
+          <div class="pane" data-pane="offer">
+            <div class="mm-grid2">
+              <form class="offer-form" id="offerForm">
+                <div class="mm-grid2">
+                  <label><span class="section-title">Specialty</span><input class="mm-input" name="specialty" id="offerSpecialty"></label>
+                  <label><span class="section-title">Location</span><input class="mm-input" name="location" id="offerLocation"></label>
+                </div>
+                <div class="mm-grid2">
+                  <label><span class="section-title">Timing/month</span><input class="mm-input" name="timing" id="offerTiming"></label>
+                  <label><span class="section-title">Duration</span><input class="mm-input" name="duration" id="offerDuration"></label>
+                </div>
+                <label><span class="section-title">Seat or rotation reference</span><input class="mm-input" name="seat" id="offerSeat" placeholder="Future protected inventory reference"></label>
+                <div class="mm-grid2">
+                  <label><span class="section-title">Offer expiration</span><input class="mm-input" type="date" name="expires" id="offerExpires"></label>
+                  <label><span class="section-title">Alternate option</span><input class="mm-input" name="alternate" id="offerAlternate" placeholder="Optional alternate month/location"></label>
+                </div>
+                <label><span class="section-title">Deposit/payment note</span><input class="mm-input" name="payment" id="offerPayment" value="Payment is only requested after the student accepts the confirmed offer."></label>
+                <label><span class="section-title">Paperwork note</span><input class="mm-input" name="paperwork" id="offerPaperwork" value="Onboarding paperwork follows acceptance and payment confirmation."></label>
+                <label><span class="section-title">Student-facing message</span><textarea class="mm-textarea" name="message" id="offerMessage"></textarea></label>
+                <label><span class="section-title">Internal note</span><textarea class="mm-textarea" name="internal" id="offerInternal" placeholder="Internal coordinator note. Not included in student preview."></textarea></label>
+                <div class="mm-actions">
+                  <button class="btn primary" type="button" id="buildOfferBtn">Preview draft</button>
+                  <button class="btn disabled-note" type="button" disabled>Save Draft requires Wiring Authority</button>
+                  <button class="btn disabled-note" type="button" disabled>Send Offer requires Postmark gate</button>
+                </div>
+              </form>
+              <aside>
+                <div class="section-title">Student-facing offer preview</div>
+                <div class="offer-preview" id="offerPreview"></div>
+              </aside>
             </div>
           </div>
 
-          <div class="mm-detail-body">
-            <!-- Overview -->
-            <div class="mm-tabpane is-active" data-pane="overview">
-              <div class="mm-prefs-grid">
-                <div class="mm-pref-card"><small>Specialty (ranked)</small><div class="mm-pref-list" id="mmDetSpecs"></div></div>
-                <div class="mm-pref-card"><small>Location (ranked)</small><div class="mm-pref-list" id="mmDetLocs"></div></div>
-                <div class="mm-pref-card"><small>Months (ranked)</small><div class="mm-pref-list" id="mmDetMonths"></div></div>
-              </div>
-              <div class="mm-pref-card" style="margin-top:14px;">
-                <small>Student notes</small>
-                <div id="mmDetNotes" style="font-size:13px; color: var(--mm-ink); font-weight: 500;">-</div>
-              </div>
-              <div class="mm-quickact">
-                <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActCall">&#128222; Log call to site</button>
-                <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActNote">&#128221; Add internal note</button>
-                <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActStatus">&#8635; Mark In Progress</button>
-                <button type="button" class="mm-btn mm-btn-sm mm-btn-dark" id="mmActGotoOffer">&rarr; Build offer</button>
-              </div>
+          <div class="pane" data-pane="comms">
+            <div class="lockout"><b>No live Postmark:</b> communications are preview-only in this shell. Real internal notifications, offer emails, delivery events, and duplicate-send prevention require Wiring Authority and Postmark dry-run-to-live gates.</div>
+            <div class="section-title">Communications timeline shell</div>
+            <div class="timeline" id="commsTimeline"></div>
+          </div>
+
+          <div class="pane" data-pane="paperwork">
+            <div class="mm-grid2">
+              <div class="info"><small>Canonical payment product</small><b><a href="https://missionmedinstitute.com/product/usce-clinical-rotations/" target="_blank" rel="noopener">MissionMed USCE Clinical Rotations product</a></b></div>
+              <div class="info"><small>Canonical LearnDash course</small><b><a href="https://missionmedinstitute.com/courses/mmi-clinicals/" target="_blank" rel="noopener">MMI Clinicals course</a></b></div>
             </div>
+            <div class="section-title">Payment and paperwork readiness</div>
+            <div class="wiring-list" id="paperworkList"></div>
+          </div>
 
-            <!-- Comms -->
-            <div class="mm-tabpane" data-pane="comms">
-              <div class="mm-pref-card">
-                <small>Thread with student + internal log</small>
-                <div class="mm-timeline" id="mmDetTimeline" style="margin-top: 10px;"></div>
-                <div class="mm-quickact">
-                  <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActMessage">&#9993; Compose message to student</button>
-                  <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActReminder">&#9200; Send reminder</button>
-                  <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActSimReply">&#8617; Simulate student reply</button>
-                </div>
-                <div class="mm-composer" id="mmComposer">
-                  <div class="mm-field" style="margin-bottom: 8px;">
-                    <label class="mm-label">Subject</label>
-                    <input class="mm-input" id="cmpSubject">
-                  </div>
-                  <div class="mm-field" style="margin-bottom: 0;">
-                    <label class="mm-label">Body</label>
-                    <textarea class="mm-textarea" id="cmpBody" rows="5"></textarea>
-                  </div>
-                  <div class="mm-composer-actions">
-                    <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="cmpCancel">Cancel</button>
-                    <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="cmpSend">Send message</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Offer builder -->
-            <div class="mm-tabpane" data-pane="offer">
-              <div class="mm-builder">
-                <h4>Offer Builder</h4>
-                <div class="mm-builder-grid">
-                  <div class="mm-field" style="margin:0;">
-                    <label class="mm-label">Program</label>
-                    <select class="mm-select" id="mmOfProgram">
-                      <option>Core Rotation Access</option>
-                      <option>Elective Rotation Access</option>
-                      <option>Sub-Internship Access</option>
-                      <option>Observership</option>
-                    </select>
-                  </div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Specialty</label>
-                    <select class="mm-select" id="mmOfSpecialty"></select></div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Location</label>
-                    <select class="mm-select" id="mmOfLocation"></select></div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Rotation length</label>
-                    <select class="mm-select" id="mmOfLength">
-                      <option>2 weeks</option><option selected>4 weeks</option>
-                      <option>6 weeks</option><option>8 weeks</option>
-                    </select></div>
-                </div>
-
-                <div class="mm-field" style="margin-top:14px;">
-                  <label class="mm-label">Offered months (select one or more)</label>
-                  <div class="mm-month-grid" id="mmOfMonths"></div>
-                  <div class="mm-legend"><span><i class="l-pref"></i> Student ranked this month</span><span>Tap to include in offer</span></div>
-                </div>
-
-                <div class="mm-builder-grid" style="margin-top: 6px;">
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Offer expires in</label>
-                    <select class="mm-select" id="mmOfExpire">
-                      <option value="24">24 hours</option>
-                      <option value="48" selected>48 hours</option>
-                      <option value="72">72 hours</option>
-                      <option value="120">5 days</option>
-                    </select></div>
-                  <div class="mm-field" style="margin:0;"><label class="mm-label">Start date</label>
-                    <input class="mm-input" id="mmOfStart" type="date"></div>
-                </div>
-
-                <div class="mm-field" style="margin-top: 10px;">
-                  <label class="mm-label">Student-facing instructions / next steps</label>
-                  <textarea class="mm-textarea" id="mmOfInstructions" rows="2" placeholder="e.g. Please confirm within 48 hours. Orientation packet will follow."></textarea>
-                </div>
-
-                <div class="mm-field" style="margin-top: 6px;">
-                  <label class="mm-label">Internal notes (not sent to student)</label>
-                  <textarea class="mm-textarea" id="mmOfInternal" rows="2" placeholder="Coordinator-only notes about this offer, site contact, prerequisites, etc."></textarea>
-                </div>
-
-                <div class="mm-preflight" id="mmPreflight"></div>
-
-                <div class="mm-form-actions" style="margin-top:10px; border-top: 1px dashed var(--mm-line-2); padding-top: 14px;">
-                  <button type="button" class="mm-btn mm-btn-ghost" id="mmDetBack">Back to list</button>
-                  <div style="display:flex; gap:10px; flex-wrap: wrap;">
-                    <button type="button" class="mm-btn mm-btn-ghost" id="mmSaveDraft">Save as draft</button>
-                    <button type="button" class="mm-btn mm-btn-primary" id="mmPreviewEmail">Preview Email &rarr;</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Audit -->
-            <div class="mm-tabpane" data-pane="audit">
-              <div class="mm-pref-card">
-                <small>Status change audit trail</small>
-                <div class="mm-timeline" id="mmDetAudit" style="margin-top: 10px;"></div>
-              </div>
-            </div>
+          <div class="pane" data-pane="wiring">
+            <div class="lockout"><b>Authority boundary:</b> this UI is R2-ready but not promoted in this run. Status and internal-note endpoints have protected backend contracts; live browser activation, Postmark send, payment handoff, LearnDash sync, and CDN promotion remain behind the validation gate.</div>
+            <div class="section-title">Adapter contract</div>
+            <div class="wiring-list" id="adapterContractList"></div>
           </div>
         </div>
-      </div>
-    </div>
-  </section>
+      </section>
 
-  <!-- ============== STUDENT PORTAL ============== -->
-  <section class="mm-panel" data-panel="portal">
-    <div class="mm-hero">
-      <span class="mm-eyebrow">Your Offer</span>
-      <h1>A clinical rotation slot is reserved for you</h1>
-      <p>Review the details below and accept before the window closes.</p>
-    </div>
-    <div class="mm-portal" id="mmPortalWrap"></div>
-  </section>
-
-  <!-- ============== EMAIL PREVIEW MODAL ============== -->
-  <div class="mm-modal-scrim" id="mmModalScrim" aria-hidden="true">
-    <div class="mm-modal" role="dialog" aria-modal="true" aria-labelledby="mmModalTitle">
-      <div class="mm-modal-head">
-        <div>
-          <h3 id="mmModalTitle">Offer Email - Preview</h3>
-          <small style="color:var(--mm-muted); font-size: 12px;">Review. Edit. Approve. Send.</small>
-        </div>
-        <button type="button" class="mm-modal-close" id="mmModalClose" aria-label="Close">&times;</button>
-      </div>
-      <div class="mm-modal-body">
-        <div class="mm-email">
-          <div class="mm-email-head">
-            <span>From</span><div id="emFrom">MissionMed Clinicals &lt;clinicals@missionmedinstitute.com&gt;</div>
-            <span>To</span><div id="emTo">-</div>
-            <span>Subject</span><div class="mm-email-subject" id="emSubject"></div>
+      <aside class="right-panel" aria-label="Action and wiring panels">
+        <section class="mm-card">
+          <div class="mm-card-head"><div><h3>Action panel</h3><p>Local state only until protected endpoints exist.</p></div></div>
+          <div class="action-pad">
+            <div class="meter">
+              <div class="meter-row"><span>Review status</span><b id="sideStatus">New</b></div>
+              <div class="meter-row"><span>Offer draft</span><b id="sideOffer">Preview only</b></div>
+              <div class="meter-row"><span>Payment handoff</span><b>Not wired</b></div>
+              <div class="meter-row"><span>Postmark</span><b>Dry-run only</b></div>
+            </div>
+            <button class="btn dark" type="button" id="jumpOfferBtn">Build offer preview</button>
+            <button class="btn disabled-note" type="button" disabled>Send / notify disabled</button>
           </div>
-          <div class="mm-email-body" id="emBody"></div>
-        </div>
-        <div class="mm-approve-bar" id="mmApproveBar" style="margin-top: 14px;">
-          <span class="mm-check"></span>
-          <span id="mmApproveText">Approve final version before sending</span>
-        </div>
-      </div>
-      <div class="mm-modal-foot">
-        <button type="button" class="mm-btn mm-btn-ghost" id="mmEmailCancel">Cancel</button>
-        <div style="display:flex; gap:10px; flex-wrap: wrap;">
-          <button type="button" class="mm-btn mm-btn-ghost" id="mmEmailEdit">Edit</button>
-          <button type="button" class="mm-btn mm-btn-dark" id="mmEmailApprove">Approve</button>
-          <button type="button" class="mm-btn mm-btn-success" id="mmEmailSend" disabled>Send Offer</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ============== GENERIC PROMPT MODAL ============== -->
-  <div class="mm-modal-scrim" id="mmPromptScrim" aria-hidden="true">
-    <div class="mm-modal" style="width:min(520px,100%);" role="dialog" aria-modal="true">
-      <div class="mm-modal-head">
-        <h3 id="mmPromptTitle">Action</h3>
-        <button type="button" class="mm-modal-close" id="mmPromptClose">&times;</button>
-      </div>
-      <div class="mm-modal-body">
-        <div class="mm-field"><label class="mm-label" id="mmPromptLabel">Notes</label>
-          <textarea class="mm-textarea" id="mmPromptText" rows="4"></textarea></div>
-      </div>
-      <div class="mm-modal-foot">
-        <button type="button" class="mm-btn mm-btn-ghost" id="mmPromptCancel">Cancel</button>
-        <button type="button" class="mm-btn mm-btn-primary" id="mmPromptOk">Save</button>
-      </div>
-    </div>
-  </div>
-
-  <div class="mm-toast-wrap" id="mmToasts" aria-live="polite"></div>
+        </section>
+        <section class="mm-card">
+          <div class="mm-card-head"><div><h3>Wiring gates</h3><p>What must move to Wiring Authority.</p></div></div>
+          <div class="action-pad wiring-list" id="wiringList"></div>
+        </section>
+        <section class="mm-card">
+          <div class="mm-card-head"><div><h3>Operator guidance</h3><p>Request-first flow guardrails.</p></div></div>
+          <div class="action-pad mm-small">
+            <p><b>No student payment before availability.</b> Admin confirms availability or alternate before any payment link is used.</p>
+            <p><b>No private partner names in student-facing preview.</b> Keep offer language general until a confirmed placement workflow exists.</p>
+            <p><b>No live sends from this shell.</b> Postmark and notifications remain off until explicitly gated.</p>
+          </div>
+        </section>
+      </aside>
+    </section>
+  </main>
+  <p class="footer-note">CX-OFFER-312-WIRING-PREP static shell. This file is safe for local/R2 preview but was not promoted to CDN in this run. Live admin reads and protected status/note endpoints route through Railway only and never call Supabase directly from the browser.</p>
 </div>
-
 <script>
 (function(){
-  "use strict";
-  const root = document.getElementById('mmCx');
-  if (!root || root.dataset.mmInit === '1') return;
-  root.dataset.mmInit = '1';
+  'use strict';
 
-  /* ---- Catalogs ---- */
-  const SPECIALTIES = ["Internal Medicine","Family Medicine","Pediatrics","Emergency Medicine","Surgery","Psychiatry","OB/GYN","Cardiology","Neurology","Radiology","Anesthesiology","Dermatology"];
-  const LOCATIONS = ["New York, NY","Miami, FL","Chicago, IL","Los Angeles, CA","Houston, TX","Atlanta, GA","Boston, MA","Philadelphia, PA","Dallas, TX","Phoenix, AZ"];
-  const MONTHS = ["May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026","Jan 2027","Feb 2027"];
-  const COORDINATOR = "Phil";
-  const SLA_AMBER_HRS = 24, SLA_RED_HRS = 48;
-  const RUNTIME_BASE = /^https?:$/i.test(window.location.protocol) ? "" : "https://missionmed-hq-production.up.railway.app";
-
-  /* ---- State ---- */
-  const state = {
-    view: 'hq', step: 1, totalSteps: 4,
-    requests: [],
-    offers: [],
-    selectedRequestId: null,
-    currentUser: null,
-    currentOfferId: null,
-    draftEmail: null,
-    activeTab: 'overview',
-    retentionChoice: null,
-    timers: {},
-    filter: 'all', sort: 'urgent', query: '',
-    runtime: {
-      connected: false,
-      authenticated: false,
-      accessToken: "",
-      csrfToken: "",
-      host: RUNTIME_BASE || window.location.origin
-    }
-  };
-
-  function seed(){
-    const r1 = mkReq("Amelia Ortiz","MS4","Caribbean Medical School","amelia.ortiz@example.com","(212) 555-0148",
-      ["Internal Medicine","Cardiology","Family Medicine"],
-      ["New York, NY","Boston, MA","Philadelphia, PA"],
-      ["Jun 2026","Jul 2026","Aug 2026"], "4 weeks", hoursAgo(6),
-      "Ideally looking for academic sites; open to community hospitals if needed.");
-    seedComms(r1);
-    const r2 = mkReq("Rahul Shah","IMG","St. George's University","rahul.shah@example.com","(305) 555-0112",
-      ["Emergency Medicine","Internal Medicine","Surgery"],
-      ["Miami, FL","Atlanta, GA"],
-      ["May 2026","Jun 2026"], "4 weeks", hoursAgo(26),
-      "USCE required for Match. Can start as early as May 12.");
-    seedComms(r2);
-    r2.status = 'IN_PROGRESS';
-    r2.comms.push({ dir:'call', kind:'Call to Miami site', at: hoursAgo(18), subject:'IM coordinator', body:'Left VM with Dr. Rivera re: May 19 Internal Medicine block. Callback expected tomorrow AM.' });
-    pushAudit(r2, 'NEW', 'IN_PROGRESS', 'Outreach started');
-    const r3 = mkReq("Priya Patel","MS3","AUC","priya.patel@example.com","(312) 555-0139",
-      ["Pediatrics","OB/GYN","Family Medicine"],
-      ["Chicago, IL","Dallas, TX","Phoenix, AZ"],
-      ["Jul 2026","Aug 2026"], "6 weeks", hoursAgo(50), "");
-    seedComms(r3);
-    state.requests = [r1, r2, r3];
-  }
-
-  function hoursAgo(h){ return Date.now() - h*3600*1000; }
-
-  function mkReq(name, program, school, email, phone, specs, locs, months, length, submittedAt, notes){
-    return {
-      id: 'R-'+Math.random().toString(36).slice(2,8).toUpperCase(),
-      name, program, school, email, phone: phone || '',
-      specialties: specs, locations: locs, months, length,
-      notes: notes || "", status: 'NEW',
-      submittedAt: submittedAt || Date.now(),
-      offerId: null, offerHistory: [],
-      comms: [], audit: []
-    };
-  }
-  function seedComms(r){
-    r.comms.push({ dir:'in', kind:'Request received', at: r.submittedAt,
-      subject:'New Clinical Rotation Request', body: r.name + ' submitted a request for ' + (r.specialties[0]||'a rotation') + ' in ' + (r.locations[0]||'their preferred city') + '.' });
-    r.comms.push({ dir:'out', kind:'Auto-confirmation sent', at: r.submittedAt + 60*1000,
-      subject:'We received your request - MissionMed', body: 'Hi ' + r.name.split(' ')[0] + ', thanks for reaching out. A coordinator will review your preferences and respond within 48 hours.' });
-    pushAudit(r, null, 'NEW', 'Request submitted');
-  }
-  function pushAudit(r, from, to, reason){
-    r.audit = r.audit || [];
-    r.audit.push({ at: Date.now(), from: from, to: to, reason: reason || '' });
-  }
-
-  /* ---- Utilities ---- */
-  function $(s, c){ return (c||root).querySelector(s); }
-  function $$(s, c){ return Array.from((c||root).querySelectorAll(s)); }
-  function pad(n){ return String(n).padStart(2,'0'); }
-  function fmtAgo(ts){
-    const m = Math.floor((Date.now()-ts)/60000);
-    if (m < 1) return "just now";
-    if (m < 60) return m+" min ago";
-    if (m < 1440) return Math.floor(m/60)+" hr ago";
-    return Math.floor(m/1440)+"d ago";
-  }
-  function fmtDateTime(ts){
-    const d = new Date(ts);
-    return d.toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
-  }
-  function slaLevel(r){
-    if (['ACCEPTED','DECLINED','RETAINED','OFFERED'].indexOf(r.status) > -1) return 'green';
-    const hrs = (Date.now() - r.submittedAt) / 3600000;
-    if (hrs >= SLA_RED_HRS) return 'red';
-    if (hrs >= SLA_AMBER_HRS) return 'amber';
-    return 'green';
-  }
-  function toast(msg){
-    const wrap = $('#mmToasts');
-    const t = document.createElement('div'); t.className='mm-toast'; t.textContent = msg; wrap.appendChild(t);
-    setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(12px)'; t.style.transition='all .25s'; setTimeout(()=>t.remove(), 260); }, 2600);
-  }
-
-  function setRuntimeStatus(primary, meta){
-    const st = $('#mmRtStatus');
-    const mt = $('#mmRtMeta');
-    if (st) st.textContent = primary || '';
-    if (mt) mt.textContent = meta || '';
-  }
-
-  async function runtimeFetchJson(path, options){
-    const url = state.runtime.host.replace(/\/+$/,'') + path;
-    const response = await fetch(url, Object.assign({ method: 'GET', credentials: 'include', cache: 'no-store' }, options || {}));
-    let payload = null;
-    try { payload = await response.json(); } catch(_jsonErr) { payload = null; }
-    return { ok: response.ok, status: response.status, payload };
-  }
-
-  async function connectRuntimeAuth(){
-    if (window.location.protocol === 'file:') {
-      setRuntimeStatus(
-        'Demo mode from local file. Live auth requires hosted page context.',
-        'Open this same file via https://missionmed-hq-production.up.railway.app/usce.html to reuse session cookies.'
-      );
-    }
-    setRuntimeStatus('Connecting to /api/auth/session ...', state.runtime.host + '/api/auth/session');
-    try {
-      const sessionRes = await runtimeFetchJson('/api/auth/session');
-      const session = sessionRes.payload || {};
-      const token = String(session.accessToken || '').trim();
-      const csrf = String(session.csrfToken || '').trim();
-      state.runtime.connected = true;
-      state.runtime.authenticated = Boolean(session.authenticated && token);
-      state.runtime.accessToken = token;
-      state.runtime.csrfToken = csrf;
-
-      if (state.runtime.authenticated) {
-        $('#mmRtLoad').disabled = false;
-        const who = session.user && (session.user.displayName || session.user.login || session.user.email || session.user.id) ? (session.user.displayName || session.user.login || session.user.email || session.user.id) : 'Authenticated user';
-        setRuntimeStatus('Live auth connected as ' + who + '.', 'Bearer token in memory only. Ready to load /api/usce/requests.');
-        toast('Live auth connected');
-        return true;
-      }
-
-      $('#mmRtLoad').disabled = true;
-      setRuntimeStatus('Session reachable but not authenticated.', 'Use /api/auth/start on hosted domain, then Connect Live Auth again.');
-      toast('Not authenticated yet');
-      return false;
-    } catch (error) {
-      $('#mmRtLoad').disabled = true;
-      setRuntimeStatus('Live auth connection failed.', String(error && error.message ? error.message : error));
-      toast('Live auth failed');
-      return false;
-    }
-  }
-
-  function switchView(v){
-    state.view = v;
-    $$('.mm-viewswitch button').forEach(b => b.classList.toggle('is-active', b.dataset.view === v));
-    $$('.mm-panel').forEach(p => p.classList.toggle('is-active', p.getAttribute('data-panel') === v));
-    if (v === 'hq') renderRequestList();
-    if (v === 'portal') renderPortal();
-  }
-  $$('.mm-viewswitch button').forEach(b => b.addEventListener('click', ()=> switchView(b.dataset.view)));
-  $$('[data-goto]').forEach(b => b.addEventListener('click', ()=> switchView(b.dataset.goto)));
-
-  /* =========================================================
-     INTAKE FORM
-     ========================================================= */
-  const rankedMax = 3, rankedMin = 2;
-  const formRanks = { spec: [], loc: [] };
-
-  function fillSelectEl(sel, items, placeholder){
-    sel.innerHTML = '';
-    if (placeholder) { const o=document.createElement('option'); o.value=''; o.textContent=placeholder; sel.appendChild(o); }
-    items.forEach(i => { const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); });
-  }
-  function renderRankGroup(kind){
-    const group = $('[data-rank-group="'+kind+'"]');
-    const items = formRanks[kind];
-    group.innerHTML = '';
-    items.forEach((val, idx) => {
-      const row = document.createElement('div');
-      row.className = 'mm-rank';
-      row.innerHTML = '<div class="mm-rank-badge">'+(idx+1)+'</div>' +
-        '<div><label>' + (idx===0?'Top choice':(idx===1?'Second choice':'Third choice')) + '</label>' +
-        '<select class="mm-select"></select></div>' +
-        '<button type="button" class="mm-rank-remove" title="Remove">&times;</button>';
-      const sel = row.querySelector('select');
-      const list = kind==='spec' ? SPECIALTIES : LOCATIONS;
-      fillSelectEl(sel, list, '- Select -');
-      sel.value = val || '';
-      sel.addEventListener('change', ()=> { formRanks[kind][idx] = sel.value; });
-      const rm = row.querySelector('.mm-rank-remove');
-      rm.style.visibility = items.length > rankedMin ? 'visible' : 'hidden';
-      rm.addEventListener('click', ()=> { formRanks[kind].splice(idx,1); renderRankGroup(kind); });
-      group.appendChild(row);
-    });
-    const addBtn = $('[data-rank-add="'+kind+'"]');
-    addBtn.disabled = items.length >= rankedMax;
-    addBtn.textContent = items.length >= rankedMax ? 'Max 3 selections' : '+ Add another ' + (kind==='spec'?'specialty':'location');
-  }
-  function initRankGroups(){
-    formRanks.spec = ['',''];
-    formRanks.loc = ['',''];
-    renderRankGroup('spec'); renderRankGroup('loc');
-  }
-  $$('[data-rank-add]').forEach(b => b.addEventListener('click', ()=> {
-    const kind = b.dataset.rankAdd;
-    if (formRanks[kind].length < rankedMax) { formRanks[kind].push(''); renderRankGroup(kind); }
-  }));
-  initRankGroups();
-
-  /* Ranked months */
-  const monthOrder = [];
-  const monthGrid = $('#f_months');
-  function renderMonthGrid(){
-    monthGrid.innerHTML = '';
-    MONTHS.forEach(m => {
-      const b = document.createElement('button');
-      b.type='button'; b.className='mm-month'; b.dataset.val=m;
-      const idx = monthOrder.indexOf(m);
-      if (idx > -1) b.classList.add('is-on');
-      b.innerHTML = '<span>'+m+'</span>' + (idx > -1 ? '<span class="mm-prio">#'+(idx+1)+'</span>' : '');
-      b.addEventListener('click', ()=> {
-        const i = monthOrder.indexOf(m);
-        if (i > -1) monthOrder.splice(i,1); else monthOrder.push(m);
-        renderMonthGrid();
-      });
-      monthGrid.appendChild(b);
-    });
-  }
-  renderMonthGrid();
-
-  function setStep(n){
-    state.step = n;
-    $$('.mm-step').forEach(s => {
-      const sn = parseInt(s.dataset.step,10);
-      s.classList.toggle('is-active', sn === n);
-      s.classList.toggle('is-done', sn < n);
-    });
-    $$('.mm-form-step').forEach(fs => fs.classList.toggle('is-active', parseInt(fs.dataset.formstep,10) === n));
-    $('#mmBack').disabled = n === 1;
-    $('#mmNext').textContent = n === state.totalSteps ? 'Submit Request' : 'Continue';
-    if (n === 4) renderReview();
-  }
-  function renderReview(){
-    const specs = formRanks.spec.filter(Boolean);
-    const locs = formRanks.loc.filter(Boolean);
-    const months = monthOrder.slice();
-    const kv = $('#f_review'); kv.innerHTML = '';
-    const add = (k,v) => { const dt=document.createElement('dt'); dt.textContent=k; const dd=document.createElement('dd'); dd.textContent=v||'-'; kv.appendChild(dt); kv.appendChild(dd); };
-    add('Name', $('#f_name').value);
-    add('Email', $('#f_email').value);
-    add('Phone', $('#f_phone').value);
-    add('Program', $('#f_program').value);
-    add('Institution', $('#f_school').value);
-    add('Specialties', specs.map((s,i)=>'#'+(i+1)+' '+s).join('  >  ') || '-');
-    add('Locations', locs.map((s,i)=>'#'+(i+1)+' '+s).join('  >  ') || '-');
-    add('Months (ranked)', months.map((m,i)=>'#'+(i+1)+' '+m).join(', ') || '-');
-    add('Length', $('#f_length').value);
-    add('Earliest start', $('#f_start').value || '-');
-    add('Notes', $('#f_notes').value || '-');
-  }
-  function validate(n){
-    if (n===1) {
-      if (!$('#f_name').value.trim()) { toast('Enter your full name'); return false; }
-      if (!/@/.test($('#f_email').value)) { toast('Enter a valid email'); return false; }
-    }
-    if (n===2) {
-      const s = formRanks.spec.filter(Boolean); const l = formRanks.loc.filter(Boolean);
-      if (s.length < 2) { toast('Add at least 2 specialty preferences'); return false; }
-      if (l.length < 2) { toast('Add at least 2 location preferences'); return false; }
-    }
-    if (n===3) {
-      if (monthOrder.length < 1) { toast('Select at least one month'); return false; }
-    }
-    return true;
-  }
-  $('#mmBack').addEventListener('click', ()=> { if (state.step > 1) setStep(state.step-1); });
-  $('#mmNext').addEventListener('click', ()=> {
-    if (!validate(state.step)) return;
-    if (state.step < state.totalSteps) setStep(state.step+1); else submitRequest();
+  window.__MISSIONMED_USCE_ADMIN_CONFIG = Object.freeze({
+    version: 'CX-OFFER-312-WIRING-PREP',
+    mode: 'demo',
+    liveReadEnabledByDefault: false,
+    apiBase: 'https://missionmed-hq-production.up.railway.app',
+    adminReadEndpoint: '/api/usce/admin/public-intake-requests',
+    adminStatusEndpoint: '/api/usce/admin/public-intake-requests/{id}/status',
+    adminNoteEndpoint: '/api/usce/admin/public-intake-requests/{id}/admin-note',
+    paymentProductUrl: 'https://missionmedinstitute.com/product/usce-clinical-rotations/',
+    learndashCourseUrl: 'https://missionmedinstitute.com/courses/mmi-clinicals/',
+    storageTarget: 'command_center.usce_public_intake_requests',
+    protectedWiringOwner: 'Codex Wiring Authority'
   });
 
-  function submitRequest(){
-    const r = mkReq(
-      $('#f_name').value.trim(), $('#f_program').value, $('#f_school').value.trim(), $('#f_email').value.trim(), $('#f_phone').value.trim(),
-      formRanks.spec.filter(Boolean), formRanks.loc.filter(Boolean), monthOrder.slice(),
-      $('#f_length').value, Date.now(), $('#f_notes').value.trim()
-    );
-    seedComms(r);
-    state.requests.unshift(r);
-    state.currentUser = { name: r.name, email: r.email, requestId: r.id };
-    $('#mmFormCard').style.display = 'none';
-    $('#mmStepper').style.display = 'none';
-    $('#mmIntakeEcho').textContent = 'Hi ' + r.name.split(' ')[0] + ', we received your request at ' + fmtDateTime(r.submittedAt) + '. A MissionMed coordinator will respond with a concrete offer within 48 hours.';
-    $('#mmIntakeDone').style.display = 'block';
-    toast('Request submitted');
-  }
+  const CONFIG = window.__MISSIONMED_USCE_ADMIN_CONFIG;
+  const els = {};
+  const state = {
+    adapter: 'demo',
+    requests: [],
+    selectedId: '',
+    activeTab: 'detail',
+    search: '',
+    status: 'all',
+    sort: 'newest',
+    localNotes: {},
+    localStatuses: {},
+    lastOfferPreview: ''
+  };
 
-  /* =========================================================
-     HQ DASHBOARD
-     ========================================================= */
-  function refreshStats(){
-    const by = (s) => state.requests.filter(r => r.status === s).length;
-    $('#st_new').textContent = by('NEW');
-    $('#st_progress').textContent = by('IN_PROGRESS');
-    $('#st_offered').textContent = by('OFFERED');
-    $('#st_accepted').textContent = by('ACCEPTED');
-  }
+  const adapterContract = [
+    { name: 'listIntakeRequests()', state: 'live existing', detail: 'Read-only live adapter may call audited GET /api/usce/admin/public-intake-requests with credentials included.' },
+    { name: 'getIntakeRequest(id)', state: 'demo/stub', detail: 'Resolved client-side from the loaded list. Detail endpoint would require Wiring Authority.' },
+    { name: 'updateIntakeStatus(id, status)', state: 'protected endpoint prepared', detail: 'PATCH '+CONFIG.adminStatusEndpoint+' requires privileged WordPress authority, CSRF, and browser validation before activation.' },
+    { name: 'saveInternalNote(id, note)', state: 'protected endpoint prepared', detail: 'PATCH '+CONFIG.adminNoteEndpoint+' writes admin_notes only after privileged WordPress authority, CSRF, and browser validation.' },
+    { name: 'createOfferDraft(id, offerPayload)', state: 'requires Wiring Authority', detail: 'Needs offer draft persistence, seat/program reference validation, and safe rollback.' },
+    { name: 'previewOfferEmail(id, offerPayload)', state: 'stub/demo', detail: 'Preview is generated in-browser from local form state only.' },
+    { name: 'sendOffer(id)', state: 'requires Wiring Authority', detail: 'Needs Postmark dry-run-to-live gate, duplicate prevention, usce_comms logging, and admin audit.' },
+    { name: 'getCommsTimeline(id)', state: 'stub/demo', detail: 'Timeline shell uses local/system events until comms endpoint exists.' },
+    { name: 'getPaymentPaperworkState(id)', state: 'future phase', detail: 'Requires WooCommerce/Stripe sync, paperwork state, and LearnDash downstream checks.' }
+  ];
 
-  function filteredRequests(){
-    let list = state.requests.slice();
-    if (state.filter !== 'all') list = list.filter(r => r.status === state.filter);
-    if (state.query) {
-      const q = state.query.toLowerCase();
-      list = list.filter(r => (r.name+' '+r.email+' '+(r.specialties||[]).join(' ')+' '+(r.locations||[]).join(' ')).toLowerCase().indexOf(q) > -1);
+  const wiringItems = [
+    { label: 'Admin list read', status: 'live', detail: 'Existing audited endpoint, privileged WordPress authority required after 310K wiring fix.' },
+    { label: 'Status update endpoint', status: 'live existing', detail: 'Protected backend contract prepared; terminal unauth gate verified, live admin browser validation pending.' },
+    { label: 'Internal notes endpoint', status: 'live existing', detail: 'Protected backend contract prepared; terminal unauth gate verified, live admin browser validation pending.' },
+    { label: 'Offer draft persistence', status: 'required', detail: 'Draft table/RPC and promotion path to formal USCE request state.' },
+    { label: 'Offer send/Postmark', status: 'required', detail: 'Postmark template, dry-run-to-live gate, duplicate-send lock, usce_comms logging.' },
+    { label: 'Student offer portal', status: 'required', detail: 'Tokenized student response path for accept/decline/alternate.' },
+    { label: 'Payment handoff', status: 'required', detail: 'Only after offer acceptance; canonical WooCommerce product remains untouched here.' },
+    { label: 'Paperwork/LearnDash sync', status: 'stub', detail: 'Future downstream state, no enrollment or course changes in this shell.' },
+    { label: 'R2/CDN admin shell promotion', status: 'required', detail: 'CDN promotion is reserved for Wiring Authority release gate.' }
+  ];
+
+  const demoRequests = [
+    {
+      id: '31ebf02b-45f1-4c69-96f3-671d3fce87fb',
+      created_at: '2026-05-03T17:36:00Z',
+      updated_at: '2026-05-03T17:36:00Z',
+      status: 'new',
+      student_name: 'CX310J R2 Form Persistence Test',
+      email: 'test+cx310j-r2@missionmedinstitute.com',
+      phone: '555-555-5555',
+      training_level_or_school: 'CX-OFFER validation',
+      preferred_specialties: ['Internal Medicine', 'Family Medicine'],
+      preferred_locations: ['New York', 'New Jersey'],
+      preferred_months_or_dates: ['July 2026', 'August 2026'],
+      duration_weeks: 4,
+      flexibility: 'Flexible if nearby month is better',
+      notes: 'SAFE R2 FORM PERSISTENCE TEST FROM CX-OFFER-310J. OK TO DELETE LATER.',
+      source: 'r2_usce_request',
+      source_url: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html?cx310j_chrome_r2=1',
+      promoted_usce_request_id: null,
+      promoted_at: null,
+      admin_notes: null,
+      metadata: { validation: 'controlled_r2_form_write' }
+    },
+    {
+      id: '1c436a39-39f1-4751-a153-fb8b1437f778',
+      created_at: '2026-05-03T17:20:00Z',
+      updated_at: '2026-05-03T17:20:00Z',
+      status: 'new',
+      student_name: 'CX310J Controlled Supabase Write Test',
+      email: 'test+cx310j@missionmedinstitute.com',
+      phone: '555-555-5555',
+      training_level_or_school: 'CX-OFFER validation',
+      preferred_specialties: ['Internal Medicine'],
+      preferred_locations: ['New York'],
+      preferred_months_or_dates: ['July 2026'],
+      duration_weeks: 4,
+      flexibility: 'Flexible if nearby month is better',
+      notes: 'SAFE CONTROLLED TEST WRITE FROM CX-OFFER-310J. OK TO DELETE LATER.',
+      source: 'cx_offer_310j_controlled_direct_test',
+      source_url: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html',
+      promoted_usce_request_id: null,
+      promoted_at: null,
+      admin_notes: null,
+      metadata: { idempotency_key: 'cx-offer-310j-direct-test' }
+    },
+    {
+      id: 'demo-request-2026-07-img-001',
+      created_at: '2026-05-04T10:00:00Z',
+      updated_at: '2026-05-04T10:00:00Z',
+      status: 'reviewed',
+      student_name: 'Demo Clinical Rotation Applicant',
+      email: 'demo.usce.applicant@example.com',
+      phone: '555-010-2244',
+      training_level_or_school: 'MS4 / IMG pathway',
+      preferred_specialties: ['Pediatrics', 'Internal Medicine', 'Psychiatry'],
+      preferred_locations: ['Chicago', 'New York / New Jersey', 'Open to best available'],
+      preferred_months_or_dates: ['September 2026', 'October 2026'],
+      duration_weeks: 6,
+      flexibility: 'Can adjust by two weeks if a stronger placement option opens.',
+      notes: 'Interested in outpatient exposure and a structured letter opportunity if available.',
+      source: 'demo_seed',
+      source_url: 'local_static_demo',
+      promoted_usce_request_id: null,
+      promoted_at: null,
+      admin_notes: 'Demo note: verify school paperwork timeline before offer.',
+      metadata: { demo: true }
     }
-    if (state.sort === 'newest') list.sort((a,b)=>b.submittedAt-a.submittedAt);
-    else if (state.sort === 'oldest') list.sort((a,b)=>a.submittedAt-b.submittedAt);
-    else if (state.sort === 'urgent') list.sort((a,b)=>{
-      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','DECLINED','RETAINED','ACCEPTED'].indexOf(r.status);
-      const ra = rank(a), rb = rank(b);
-      if (ra !== rb) return ra - rb;
-      return a.submittedAt - b.submittedAt;
-    });
-    return list;
+  ];
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init(){
+    cacheEls();
+    state.requests = cloneRequests(demoRequests);
+    state.selectedId = state.requests[0] ? state.requests[0].id : '';
+    bindEvents();
+    renderAll();
   }
 
-  function normalizeLiveStatus(raw){
-    const s = String(raw || '').trim().toUpperCase();
-    if (!s) return 'NEW';
-    if (s.indexOf('ACCEPT') > -1 || s === 'PAID') return 'ACCEPTED';
-    if (s.indexOf('DECLIN') > -1 || s.indexOf('REVOK') > -1) return 'DECLINED';
-    if (s.indexOf('RETAIN') > -1) return 'RETAINED';
-    if (s.indexOf('IN_PROGRESS') > -1 || s.indexOf('CLAIM') > -1) return 'IN_PROGRESS';
-    if (s.indexOf('OFFER') > -1 || s.indexOf('SENT') > -1 || s.indexOf('APPROV') > -1 || s.indexOf('REMIND') > -1 || s.indexOf('PENDING_PAYMENT') > -1) return 'OFFERED';
-    return 'NEW';
+  function cacheEls(){
+    ['modePill','kpiNew','kpiOffer','kpiWire','queueCount','liveToggle','adapterStatus','refreshBtn','searchInput','statusFilter','sortSelect','queueList','detailStatus','detailName','detailMeta','profileGrid','specialtyChips','locationChips','monthChips','requestNotes','statusTimeline','scoreRing','scoreValue','matchBars','noteInput','addNoteBtn','noteList','offerSpecialty','offerLocation','offerTiming','offerDuration','offerSeat','offerExpires','offerAlternate','offerPayment','offerPaperwork','offerMessage','offerInternal','buildOfferBtn','offerPreview','commsTimeline','paperworkList','adapterContractList','sideStatus','sideOffer','jumpOfferBtn','wiringList','copySummaryBtn','markReviewedBtn'].forEach(id => { els[id] = document.getElementById(id); });
   }
 
-  function coerceMonths(value){
-    if (Array.isArray(value)) return value.filter(Boolean).map(v => String(v));
-    const s = String(value || '').trim();
-    if (!s) return [];
-    if (s.indexOf(',') > -1) return s.split(',').map(v => v.trim()).filter(Boolean);
-    return [s];
+  function bindEvents(){
+    els.liveToggle.addEventListener('click', toggleLiveAdapter);
+    els.refreshBtn.addEventListener('click', refreshQueue);
+    els.searchInput.addEventListener('input', () => { state.search = els.searchInput.value.trim(); renderQueue(); });
+    els.statusFilter.addEventListener('change', () => { state.status = els.statusFilter.value; renderQueue(); });
+    els.sortSelect.addEventListener('change', () => { state.sort = els.sortSelect.value; renderQueue(); });
+    document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
+    els.addNoteBtn.addEventListener('click', addDemoNote);
+    els.buildOfferBtn.addEventListener('click', renderOfferPreview);
+    ['offerSpecialty','offerLocation','offerTiming','offerDuration','offerSeat','offerExpires','offerAlternate','offerPayment','offerPaperwork','offerMessage'].forEach(id => els[id].addEventListener('input', renderOfferPreview));
+    els.jumpOfferBtn.addEventListener('click', () => setTab('offer'));
+    els.markReviewedBtn.addEventListener('click', markReviewedLocal);
+    els.copySummaryBtn.addEventListener('click', copySummary);
   }
 
-  function mapLiveRequestToDemoShape(row, idx){
-    const createdAt = Date.parse(String(row.created_at || row.submitted_at || ''));
-    const normalizedStatus = normalizeLiveStatus(row.status);
-    const submittedAt = Number.isFinite(createdAt) ? createdAt : (Date.now() - (idx * 45 * 60000));
-    const specialties = coerceMonths(row.specialty_preferences || row.specialties);
-    const locations = coerceMonths(row.location_preferences || row.locations);
-    const months = coerceMonths(row.preferred_months || row.months);
-    const specialty = String(row.specialty || specialties[0] || row.track || 'USCE').trim();
-    const location = String(row.location_city || row.location || locations[0] || 'TBD').trim();
-    const request = {
-      id: String(row.id || ('R-LIVE-' + (idx + 1))),
-      name: String(row.applicant_name || row.student_name || row.full_name || row.email || ('Applicant ' + (idx + 1))).trim(),
-      program: String(row.program_level || row.program || 'USCE').trim(),
-      school: String(row.school || row.medical_school || '').trim(),
-      email: String(row.applicant_email || row.email || ('unknown+' + idx + '@example.com')).trim(),
-      phone: String(row.phone || '').trim(),
-      specialties: specialties.length ? specialties : [specialty],
-      locations: locations.length ? locations : [location],
-      months: months.length ? months : ['TBD'],
-      length: String(row.rotation_length || row.length || '4 weeks').trim(),
-      notes: String(row.notes || row.student_notes || '').trim(),
-      status: normalizedStatus,
-      submittedAt,
-      offerId: null,
-      offerHistory: [],
-      comms: [],
-      audit: []
-    };
-    request.comms.push({
-      dir: 'sys',
-      kind: 'Imported from live runtime',
-      at: Date.now(),
-      subject: 'USCE request sync',
-      body: 'Loaded from /api/usce/requests for UI preview.'
-    });
-    pushAudit(request, null, normalizedStatus, 'Live request imported');
-    return request;
-  }
-
-  async function loadLiveRequestsIntoDashboard(){
-    if (!state.runtime.authenticated || !state.runtime.accessToken) {
-      const connected = await connectRuntimeAuth();
-      if (!connected) return;
-    }
-    setRuntimeStatus('Loading /api/usce/requests ...', state.runtime.host + '/api/usce/requests');
-    try {
-      const liveRes = await runtimeFetchJson('/api/usce/requests', {
-        headers: { Authorization: 'Bearer ' + state.runtime.accessToken }
-      });
-      if (!liveRes.ok) {
-        setRuntimeStatus('Live requests call failed (HTTP ' + liveRes.status + ').', 'Keeping demo dataset active.');
-        toast('Live requests failed');
-        return;
-      }
-      const rows = Array.isArray(liveRes.payload && liveRes.payload.requests) ? liveRes.payload.requests : [];
-      state.requests = rows.map(mapLiveRequestToDemoShape);
-      state.selectedRequestId = null;
-      state.currentOfferId = null;
-      state.query = '';
-      state.filter = 'all';
-      state.sort = 'urgent';
-      $('#mmSearch').value = '';
-      $('#mmFilter').value = 'all';
-      $('#mmSort').value = 'urgent';
-      renderRequestList();
-      switchView('hq');
-      setRuntimeStatus('Live requests loaded: ' + rows.length + ' item(s).', 'HQ Dashboard now reflects runtime API payload mapped to demo UI.');
-      toast('Live requests loaded');
-    } catch (error) {
-      setRuntimeStatus('Live requests load failed.', String(error && error.message ? error.message : error));
-      toast('Live load error');
+  async function toggleLiveAdapter(){
+    const nextLive = state.adapter !== 'live';
+    if(nextLive){
+      state.adapter = 'live';
+      els.liveToggle.classList.add('on');
+      els.liveToggle.setAttribute('aria-checked','true');
+      setAdapterStatus('Live read adapter enabled. Requesting audited admin endpoint with browser credentials.', 'pending');
+      await refreshQueue();
+    } else {
+      state.adapter = 'demo';
+      els.liveToggle.classList.remove('on');
+      els.liveToggle.setAttribute('aria-checked','false');
+      state.requests = cloneRequests(demoRequests);
+      state.selectedId = state.requests[0] ? state.requests[0].id : '';
+      setAdapterStatus('Demo adapter active. No production API calls are made by default.', 'demo');
+      renderAll();
     }
   }
 
-  function renderRequestList(){
-    refreshStats();
-    const list = $('#mmReqList'); list.innerHTML = '';
-    const filtered = filteredRequests();
-    $('#mmReqCount').textContent = filtered.length;
-    if (!filtered.length) {
-      list.innerHTML = '<div style="padding: 30px 12px; text-align:center; color: var(--mm-muted); font-size: 13px;">No requests match the current filter.</div>';
-      if (state.selectedRequestId) renderDetail();
+  async function refreshQueue(){
+    if(state.adapter !== 'live'){
+      state.requests = cloneRequests(demoRequests);
+      if(!state.requests.some(r => r.id === state.selectedId)) state.selectedId = state.requests[0] ? state.requests[0].id : '';
+      setAdapterStatus('Demo data refreshed locally. No production API call made.', 'demo');
+      renderAll();
       return;
     }
-    filtered.forEach(r => {
-      const item = document.createElement('div');
-      item.className = 'mm-req-item' + (state.selectedRequestId===r.id ? ' is-active' : '');
-      item.dataset.id = r.id;
-      const sla = slaLevel(r);
-      item.innerHTML =
-        '<div class="mm-req-item-top">' +
-          '<span class="mm-req-name"><span class="mm-sla-dot mm-sla-'+sla+'" title="SLA: '+sla+'"></span><span class="mm-nm-txt"></span></span>' +
-          '<span class="mm-status-badge mm-status-' + r.status.toLowerCase() + '">' + r.status.replace('_',' ') + '</span>' +
-        '</div>' +
-        '<div class="mm-req-meta"></div>' +
-        '<div class="mm-req-time"><span></span><b></b></div>';
-      item.querySelector('.mm-nm-txt').textContent = r.name;
-      item.querySelector('.mm-req-meta').textContent = r.program + ' \u00B7 ' + (r.specialties[0] || '-') + ' \u00B7 ' + (r.locations[0] || '-');
-      item.querySelector('.mm-req-time span').textContent = fmtDateTime(r.submittedAt);
-      item.querySelector('.mm-req-time b').textContent = fmtAgo(r.submittedAt);
-      item.addEventListener('click', ()=> selectRequest(r.id));
-      list.appendChild(item);
-    });
-    if (state.selectedRequestId) renderDetail();
+    try{
+      setAdapterStatus('Loading live read-only queue from audited admin endpoint...', 'pending');
+      const url = new URL(CONFIG.adminReadEndpoint, CONFIG.apiBase);
+      url.searchParams.set('limit','50');
+      if(state.search) url.searchParams.set('search', state.search);
+      if(state.status && state.status !== 'all') url.searchParams.set('status', state.status);
+      const response = await fetch(url.toString(), { method:'GET', credentials:'include', headers:{ 'Accept':'application/json' } });
+      const payload = await safeJson(response);
+      if(response.status === 401){
+        state.requests = [];
+        setAdapterStatus('Admin login required. The endpoint blocked unauthenticated access as expected.', 'blocked');
+        renderAll();
+        return;
+      }
+      if(response.status === 403){
+        state.requests = [];
+        setAdapterStatus('Privileged WordPress authority required. Learner sessions are blocked by the 310K wiring fix.', 'blocked');
+        renderAll();
+        return;
+      }
+      if(!response.ok || !payload || payload.ok !== true){
+        throw new Error(payload && payload.message ? payload.message : 'Live adapter read failed.');
+      }
+      state.requests = normalizeLiveRows(payload.items || []);
+      state.selectedId = state.requests[0] ? state.requests[0].id : '';
+      setAdapterStatus('Live read-only queue loaded. No write actions are available in this shell.', 'live');
+      renderAll();
+    } catch(error){
+      state.requests = cloneRequests(demoRequests);
+      state.selectedId = state.requests[0] ? state.requests[0].id : '';
+      state.adapter = 'demo';
+      els.liveToggle.classList.remove('on');
+      els.liveToggle.setAttribute('aria-checked','false');
+      setAdapterStatus('Live read failed safely and the shell returned to demo mode: ' + error.message, 'blocked');
+      renderAll();
+    }
   }
 
-  $('#mmSearch').addEventListener('input', (e)=> { state.query = e.target.value.trim(); renderRequestList(); });
-  $('#mmFilter').addEventListener('change', (e)=> { state.filter = e.target.value; renderRequestList(); });
-  $('#mmSort').addEventListener('change', (e)=> { state.sort = e.target.value; renderRequestList(); });
-
-  function selectRequest(id){
-    state.selectedRequestId = id;
-    state.activeTab = 'overview';
-    $$('.mm-req-item').forEach(i => i.classList.toggle('is-active', i.dataset.id === id));
+  function renderAll(){
+    renderKpis();
+    renderQueue();
     renderDetail();
-    switchTab('overview');
+    renderWiringPanels();
+  }
+
+  function renderKpis(){
+    const requests = state.requests;
+    els.kpiNew.textContent = String(requests.filter(r => getStatus(r) === 'new').length);
+    els.kpiOffer.textContent = String(requests.filter(r => getStatus(r) === 'offer_ready').length);
+    els.kpiWire.textContent = String(wiringItems.filter(w => w.status !== 'live').length);
+    els.queueCount.textContent = String(getFilteredRequests().length);
+    els.modePill.textContent = state.adapter === 'live' ? 'Live read-only' : 'Demo mode';
+  }
+
+  function renderQueue(){
+    const rows = getFilteredRequests();
+    els.queueCount.textContent = String(rows.length);
+    if(!rows.length){
+      els.queueList.innerHTML = '<div class="mm-empty"><b>No requests visible.</b><br><span>Try demo mode, clear filters, or log in with privileged admin access for live reads.</span></div>';
+      renderDetail();
+      return;
+    }
+    if(!rows.some(r => r.id === state.selectedId)) state.selectedId = rows[0].id;
+    els.queueList.innerHTML = rows.map(row => {
+      const status = getStatus(row);
+      const match = computeMatch(row);
+      return '<button class="mm-request '+(row.id===state.selectedId?'active':'')+'" type="button" data-id="'+esc(row.id)+'">'
+        + '<span class="mm-r-top"><span><span class="mm-r-name">'+esc(row.student_name || 'Unnamed request')+'</span><span class="mm-r-meta">'+esc(row.email || 'No email')+'<br>'+esc(summaryLine(row))+'</span></span><span class="badge '+statusClass(status)+'">'+esc(labelStatus(status))+'</span></span>'
+        + '<span class="mm-r-foot"><span class="sla">'+esc(relativeDate(row.created_at))+'</span><span class="sla">Match '+match.score+'%</span></span>'
+        + '</button>';
+    }).join('');
+    els.queueList.querySelectorAll('.mm-request').forEach(btn => btn.addEventListener('click', () => { state.selectedId = btn.dataset.id; renderAll(); }));
+    renderDetail();
   }
 
   function renderDetail(){
-    const r = state.requests.find(x => x.id === state.selectedRequestId);
-    if (!r) { $('#mmDetailEmpty').style.display='grid'; $('#mmDetailContent').style.display='none'; return; }
-    $('#mmDetailEmpty').style.display='none';
-    $('#mmDetailContent').style.display='block';
-    $('#mmDetName').textContent = r.name;
-    $('#mmDetMeta').textContent = r.program + ' \u00B7 ' + (r.school || 'Institution n/a') + ' \u00B7 ' + r.email + (r.phone ? ' \u00B7 ' + r.phone : '');
-
-    const mini = $('#mmDetMini'); mini.innerHTML = '';
-    const s1 = document.createElement('span'); s1.textContent = 'Submitted ' + fmtDateTime(r.submittedAt);
-    const s2 = document.createElement('span'); s2.textContent = fmtAgo(r.submittedAt);
-    const s3 = document.createElement('span'); s3.textContent = 'Length: ' + r.length;
-    const s4 = document.createElement('span'); s4.textContent = 'ID ' + r.id;
-    mini.appendChild(s1); mini.appendChild(s2); mini.appendChild(s3); mini.appendChild(s4);
-
-    const badge = $('#mmDetStatus');
-    badge.className = 'mm-status-badge mm-status-' + r.status.toLowerCase();
-    badge.textContent = r.status.replace('_',' ');
-
-    renderRankedList($('#mmDetSpecs'), r.specialties);
-    renderRankedList($('#mmDetLocs'), r.locations);
-    renderRankedList($('#mmDetMonths'), r.months);
-    $('#mmDetNotes').textContent = r.notes || '(no student notes)';
-
-    renderTimeline(r);
-    renderAudit(r);
-    renderOfferBuilder(r);
-
-    const statusBtn = $('#mmActStatus');
-    if (r.status === 'NEW') { statusBtn.style.display=''; statusBtn.textContent = '\u21BB Mark In Progress'; }
-    else if (r.status === 'IN_PROGRESS') { statusBtn.style.display=''; statusBtn.textContent = '\u21BB Back to New'; }
-    else { statusBtn.style.display='none'; }
-  }
-  function renderRankedList(container, arr){
-    container.innerHTML = '';
-    if (!arr || !arr.length) { container.innerHTML = '<span style="color:var(--mm-muted); font-weight:500;">(none)</span>'; return; }
-    arr.forEach((v,i) => {
-      const row = document.createElement('div'); row.className = 'mm-ranked-item';
-      row.innerHTML = '<span class="mm-pill-num">'+(i+1)+'</span><span></span>';
-      row.querySelector('span:last-child').textContent = v;
-      container.appendChild(row);
-    });
-  }
-  function renderTimeline(r){
-    const tl = $('#mmDetTimeline'); tl.innerHTML = '';
-    const sorted = r.comms.slice().sort((a,b)=>a.at-b.at);
-    sorted.forEach(c => {
-      const item = document.createElement('div');
-      let cls = '';
-      if (c.dir==='in') cls='is-in';
-      else if (c.dir==='sys') cls='is-sys';
-      else if (c.dir==='call') cls='is-call';
-      else if (c.dir==='note') cls='is-note';
-      item.className = 'mm-tl-item ' + cls;
-      const label = { in:'Inbound', out:'Outbound', sys:'System', call:'Phone Call', note:'Internal Note' }[c.dir] || 'Event';
-      const dirCls = { in:'in', out:'out', sys:'sys', call:'call', note:'note' }[c.dir] || 'sys';
-      item.innerHTML =
-        '<div class="mm-tl-head"><div class="mm-tl-title"><span class="mm-tl-dir '+dirCls+'">'+label+'</span> <span></span></div><div class="mm-tl-time"></div></div>' +
-        '<div class="mm-tl-body"></div>';
-      item.querySelector('.mm-tl-title span:last-child').textContent = c.kind + (c.subject ? ' - ' + c.subject : '');
-      item.querySelector('.mm-tl-time').textContent = fmtDateTime(c.at);
-      item.querySelector('.mm-tl-body').textContent = c.body || '';
-      tl.appendChild(item);
-    });
-  }
-  function renderAudit(r){
-    const tl = $('#mmDetAudit'); tl.innerHTML = '';
-    (r.audit||[]).forEach(a => {
-      const item = document.createElement('div');
-      item.className = 'mm-tl-item is-sys';
-      item.innerHTML =
-        '<div class="mm-tl-head"><div class="mm-tl-title"><span class="mm-tl-dir sys">Status</span> <span></span></div><div class="mm-tl-time"></div></div>' +
-        '<div class="mm-tl-body"></div>';
-      item.querySelector('.mm-tl-title span:last-child').textContent = (a.from ? (a.from + ' \u2192 ') : '') + a.to;
-      item.querySelector('.mm-tl-time').textContent = fmtDateTime(a.at);
-      item.querySelector('.mm-tl-body').textContent = a.reason || '';
-      tl.appendChild(item);
-    });
-    if (!(r.audit||[]).length) tl.innerHTML = '<div style="color:var(--mm-muted); font-size:13px;">(no status changes yet)</div>';
-  }
-
-  /* Tabs */
-  function switchTab(t){
-    state.activeTab = t;
-    $$('#mmDetTabs button').forEach(b => b.classList.toggle('is-active', b.dataset.tab === t));
-    $$('.mm-tabpane').forEach(p => p.classList.toggle('is-active', p.dataset.pane === t));
-  }
-  $$('#mmDetTabs button').forEach(b => b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
-  $('#mmDetBack').addEventListener('click', ()=> {
-    state.selectedRequestId = null; renderRequestList();
-    $('#mmDetailEmpty').style.display='grid'; $('#mmDetailContent').style.display='none';
-  });
-
-  /* Quick actions - overview */
-  $('#mmActGotoOffer').addEventListener('click', ()=> switchTab('offer'));
-  $('#mmActStatus').addEventListener('click', ()=> {
-    const r = currentReq(); if (!r) return;
-    const from = r.status;
-    if (r.status === 'NEW') r.status = 'IN_PROGRESS';
-    else if (r.status === 'IN_PROGRESS') r.status = 'NEW';
-    pushAudit(r, from, r.status, COORDINATOR + ' updated status');
-    renderRequestList(); renderDetail();
-    toast('Status: ' + r.status.replace('_',' '));
-  });
-  $('#mmActCall').addEventListener('click', ()=> openPrompt('Log call to site', 'Call notes (who, outcome, next step)', (v)=> {
-    const r = currentReq(); if (!r || !v.trim()) return;
-    r.comms.push({ dir:'call', kind: COORDINATOR + ' called program', at: Date.now(), subject: 'Phone outreach', body: v.trim() });
-    if (r.status === 'NEW') { pushAudit(r,'NEW','IN_PROGRESS','First outreach logged'); r.status='IN_PROGRESS'; }
-    renderRequestList(); renderDetail(); switchTab('comms');
-    toast('Call logged');
-  }));
-  $('#mmActNote').addEventListener('click', ()=> openPrompt('Add internal note', 'Internal note (not sent to student)', (v)=> {
-    const r = currentReq(); if (!r || !v.trim()) return;
-    r.comms.push({ dir:'note', kind: 'Internal note by ' + COORDINATOR, at: Date.now(), subject: '', body: v.trim() });
-    renderDetail(); switchTab('comms');
-    toast('Note saved');
-  }));
-
-  /* Quick actions - comms */
-  $('#mmActMessage').addEventListener('click', ()=> {
-    const r = currentReq(); if (!r) return;
-    $('#cmpSubject').value = 'Update on your MissionMed request';
-    $('#cmpBody').value = 'Hi ' + r.name.split(' ')[0] + ',\n\nQuick update: we are actively working on matching you. ';
-    $('#mmComposer').classList.add('is-open');
-    $('#cmpSubject').focus();
-  });
-  $('#cmpCancel').addEventListener('click', ()=> $('#mmComposer').classList.remove('is-open'));
-  $('#cmpSend').addEventListener('click', ()=> {
-    const r = currentReq(); if (!r) return;
-    const subj = $('#cmpSubject').value.trim(); const body = $('#cmpBody').value.trim();
-    if (!subj || !body) { toast('Subject and body required'); return; }
-    r.comms.push({ dir:'out', kind:'Message from ' + COORDINATOR, at: Date.now(), subject: subj, body: body });
-    $('#mmComposer').classList.remove('is-open');
-    renderDetail();
-    toast('Message sent');
-  });
-  $('#mmActReminder').addEventListener('click', ()=> {
-    const r = currentReq(); if (!r) return;
-    const offer = state.offers.find(o => o.id === r.offerId);
-    if (!offer) { toast('No offer on file'); return; }
-    const body = 'Hi ' + r.name.split(' ')[0] + ', a friendly reminder that your offer for ' + offer.specialty + ' in ' + offer.location + ' expires ' + fmtDateTime(offer.expiresAt) + '. Log in to accept.';
-    r.comms.push({ dir:'out', kind:'Reminder sent', at: Date.now(), subject: 'Reminder: your MissionMed offer expires soon', body: body });
-    renderDetail(); toast('Reminder sent');
-  });
-  $('#mmActSimReply').addEventListener('click', ()=> openPrompt('Simulate student reply', 'Reply content', (v)=> {
-    const r = currentReq(); if (!r || !v.trim()) return;
-    r.comms.push({ dir:'in', kind:'Student reply', at: Date.now(), subject: 'Re: MissionMed', body: v.trim() });
-    renderDetail();
-    toast('Reply ingested');
-  }));
-
-  function currentReq(){ return state.requests.find(x => x.id === state.selectedRequestId); }
-
-  /* Offer builder */
-  function renderOfferBuilder(r){
-    const specSel = $('#mmOfSpecialty');
-    const specPool = (r.specialties || []).concat(SPECIALTIES.filter(s => (r.specialties||[]).indexOf(s)<0));
-    fillSelectEl(specSel, specPool);
-    specSel.value = (r.specialties && r.specialties[0]) || specPool[0] || '';
-
-    const locSel = $('#mmOfLocation');
-    const locPool = (r.locations || []).concat(LOCATIONS.filter(l => (r.locations||[]).indexOf(l)<0));
-    fillSelectEl(locSel, locPool);
-    locSel.value = (r.locations && r.locations[0]) || locPool[0] || '';
-
-    $('#mmOfLength').value = r.length || '4 weeks';
-
-    const ofMonths = $('#mmOfMonths'); ofMonths.innerHTML='';
-    const studentMonths = r.months || [];
-    const pool = studentMonths.concat(MONTHS.filter(m => studentMonths.indexOf(m)<0));
-    const preselected = new Set(studentMonths[0] ? [studentMonths[0]] : []);
-    pool.forEach(m => {
-      const b = document.createElement('button');
-      b.type='button'; b.className='mm-month'; b.dataset.val=m;
-      const prefIdx = studentMonths.indexOf(m);
-      const prefTag = prefIdx > -1 ? '<span class="mm-pref-tag">#'+(prefIdx+1)+'</span>' : '';
-      b.innerHTML = '<span>'+m+'</span>' + prefTag;
-      if (prefIdx > -1) b.classList.add('is-preferred');
-      if (preselected.has(m)) b.classList.add('is-on');
-      b.addEventListener('click', ()=> { b.classList.toggle('is-on'); updatePreflight(); });
-      ofMonths.appendChild(b);
-    });
-
-    $('#mmOfInternal').value = '';
-    $('#mmOfInstructions').value = 'Please confirm within the expiration window. After acceptance, our onboarding team will email you the site coordinator contact, orientation packet, and required documentation within one business day.';
-    $('#mmOfExpire').value = '48';
-    $('#mmOfStart').value = '';
-
-    ['#mmOfProgram','#mmOfSpecialty','#mmOfLocation','#mmOfLength','#mmOfExpire','#mmOfStart'].forEach(sel => {
-      const el = $(sel); el.oninput = updatePreflight; el.onchange = updatePreflight;
-    });
-    updatePreflight();
-  }
-
-  function updatePreflight(){
-    const r = currentReq(); if (!r) return;
-    const pf = $('#mmPreflight');
-    const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
-    const spec = $('#mmOfSpecialty').value;
-    const loc = $('#mmOfLocation').value;
-    const items = [];
-    items.push({ ok: !!spec, msg: spec ? 'Specialty set: ' + spec : 'Specialty required' });
-    items.push({ ok: !!loc, msg: loc ? 'Location set: ' + loc : 'Location required' });
-    items.push({ ok: months.length > 0, msg: months.length ? 'Months offered: ' + months.join(', ') : 'Pick at least one month' });
-    const specRank = r.specialties.indexOf(spec);
-    const locRank = r.locations.indexOf(loc);
-    items.push({ ok: specRank > -1, msg: specRank > -1 ? ('Matches student preference #' + (specRank+1) + ' for specialty') : 'Specialty is OUTSIDE student ranked list', warn: specRank < 0 });
-    items.push({ ok: locRank > -1, msg: locRank > -1 ? ('Matches student preference #' + (locRank+1) + ' for location') : 'Location is OUTSIDE student ranked list', warn: locRank < 0 });
-    const monthMatch = months.some(m => (r.months||[]).indexOf(m) > -1);
-    items.push({ ok: monthMatch, msg: monthMatch ? 'At least one offered month matches student preference' : 'No offered month matches student preference', warn: months.length && !monthMatch });
-    pf.innerHTML = '<b style="font-size:11px; color:var(--mm-navy); text-transform:uppercase; letter-spacing:0.08em;">Pre-flight checks</b><ul>' +
-      items.map(i => '<li class="'+(i.ok?'ok':'warn')+'">'+i.msg+'</li>').join('') + '</ul>';
-  }
-
-  function readOfferForm(){
-    const r = currentReq(); if (!r) return null;
-    const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
-    if (!$('#mmOfSpecialty').value || !$('#mmOfLocation').value) { toast('Set specialty and location'); return null; }
-    if (!months.length) { toast('Pick at least one offered month'); return null; }
-    const expireHrs = parseInt($('#mmOfExpire').value, 10);
-    return {
-      id: 'O-'+Math.random().toString(36).slice(2,8).toUpperCase(),
-      requestId: r.id,
-      student: { name: r.name, email: r.email, phone: r.phone },
-      program: $('#mmOfProgram').value,
-      specialty: $('#mmOfSpecialty').value,
-      location: $('#mmOfLocation').value,
-      length: $('#mmOfLength').value,
-      months,
-      start: $('#mmOfStart').value,
-      instructions: $('#mmOfInstructions').value.trim(),
-      internalNotes: $('#mmOfInternal').value.trim(),
-      createdAt: Date.now(),
-      expiresAt: Date.now() + expireHrs*3600*1000,
-      status: 'DRAFT',
-      approved: false,
-      createdBy: COORDINATOR
-    };
-  }
-
-  $('#mmSaveDraft').addEventListener('click', ()=> {
-    const offer = readOfferForm(); if (!offer) return;
-    offer.status = 'DRAFT';
-    state.offers.unshift(offer);
-    const r = currentReq(); r.offerId = offer.id; r.offerHistory.push({ id: offer.id, status: 'DRAFT', at: Date.now() });
-    const prev = r.status;
-    if (r.status === 'NEW') { r.status = 'IN_PROGRESS'; pushAudit(r, prev, 'IN_PROGRESS', 'Offer drafted'); }
-    r.comms.push({ dir:'sys', kind:'Offer drafted', at: Date.now(), subject: offer.specialty + ' / ' + offer.location, body: 'Coordinator saved an offer draft. Months: ' + offer.months.join(', ') + '. Expires ' + fmtDateTime(offer.expiresAt) + '.' });
-    renderRequestList(); renderDetail();
-    toast('Draft saved');
-  });
-
-  /* Email preview */
-  function openEmailPreview(){
-    const offer = readOfferForm(); if (!offer) return;
-    state.draftEmail = buildDraftEmail(offer);
-    state.draftEmail.offer = offer;
-    renderEmailModal();
-    $('#mmModalScrim').classList.add('is-open');
-    $('#mmModalScrim').setAttribute('aria-hidden','false');
-  }
-  $('#mmPreviewEmail').addEventListener('click', openEmailPreview);
-
-  function buildDraftEmail(offer){
-    const r = state.requests.find(x => x.id === offer.requestId);
-    const first = r.name.split(' ')[0];
-    const months = offer.months.join(' or ');
-    const start = offer.start ? ('\nProposed start: ' + new Date(offer.start).toLocaleDateString()) : '';
-    const subject = 'Your MissionMed Offer: ' + offer.specialty + ' in ' + offer.location;
-    const instructions = offer.instructions ? ('\n\nNext steps:\n' + offer.instructions) : '';
-    const body =
-'Hi ' + first + ',\n\n' +
-'Great news - we have a confirmed slot for you.\n\n' +
-'Program: ' + offer.program + '\n' +
-'Specialty: ' + offer.specialty + '\n' +
-'Location: ' + offer.location + '\n' +
-'Length: ' + offer.length + '\n' +
-'Month(s) offered: ' + months + start + '\n' +
-'Offer expires: ' + fmtDateTime(offer.expiresAt) +
-instructions + '\n\n' +
-'To secure this rotation, click Accept in your MissionMed portal before the expiration. If these dates or site do not work, decline and we will attempt your next-ranked preference.\n\n' +
-'Any questions - reply to this email and a coordinator will respond within one business day.\n\n' +
-'Best,\n' +
-COORDINATOR + '\n' +
-'MissionMed Clinicals Team\n' +
-'clinicals@missionmedinstitute.com';
-    return { to: r.email, subject, body, approved: false };
-  }
-
-  function renderEmailModal(){
-    const d = state.draftEmail;
-    $('#emTo').textContent = d.to;
-    $('#emSubject').textContent = d.subject;
-    $('#emBody').textContent = d.body;
-    $('#emSubject').setAttribute('contenteditable', 'false');
-    $('#emBody').setAttribute('contenteditable', 'false');
-    const bar = $('#mmApproveBar');
-    bar.classList.toggle('is-approved', !!d.approved);
-    $('#mmApproveText').textContent = d.approved ? 'Approved - ready to send' : 'Approve final version before sending';
-    $('#mmEmailSend').disabled = !d.approved;
-    $('#mmEmailEdit').textContent = 'Edit';
-  }
-  function editOfferEmail(){
-    const editing = $('#emBody').getAttribute('contenteditable') === 'true';
-    if (!editing) {
-      $('#emBody').setAttribute('contenteditable','true');
-      $('#emSubject').setAttribute('contenteditable','true');
-      $('#emBody').focus();
-      $('#mmEmailEdit').textContent = 'Done editing';
-      state.draftEmail.approved = false;
-      $('#mmApproveBar').classList.remove('is-approved');
-      $('#mmApproveText').textContent = 'Approve final version before sending';
-      $('#mmEmailSend').disabled = true;
-      toast('Editing enabled');
-    } else {
-      state.draftEmail.subject = $('#emSubject').textContent.trim();
-      state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
-      toast('Edits captured');
-    }
-  }
-  $('#mmEmailEdit').addEventListener('click', editOfferEmail);
-
-  function approveOfferEmail(){
-    if ($('#emBody').getAttribute('contenteditable') === 'true') {
-      state.draftEmail.subject = $('#emSubject').textContent.trim();
-      state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
-    }
-    state.draftEmail.approved = true;
-    $('#mmApproveBar').classList.add('is-approved');
-    $('#mmApproveText').textContent = 'Approved - ready to send';
-    $('#mmEmailSend').disabled = false;
-    toast('Offer email approved');
-  }
-  $('#mmEmailApprove').addEventListener('click', approveOfferEmail);
-
-  function sendOfferEmail(){
-    if (!state.draftEmail || !state.draftEmail.approved) { toast('Approve first'); return; }
-    const offer = state.draftEmail.offer;
-    offer.status = 'SENT';
-    offer.subject = state.draftEmail.subject;
-    offer.body = state.draftEmail.body;
-    offer.sentAt = Date.now();
-    if (!state.offers.find(o => o.id === offer.id)) state.offers.unshift(offer);
-    else { const idx = state.offers.findIndex(o => o.id === offer.id); state.offers[idx] = offer; }
-    const r = state.requests.find(x => x.id === offer.requestId);
-    r.offerId = offer.id;
-    const prev = r.status;
-    r.status = 'OFFERED';
-    pushAudit(r, prev, 'OFFERED', 'Offer sent by ' + COORDINATOR);
-    r.comms.push({ dir:'out', kind:'Offer email sent', at: Date.now(), subject: offer.subject, body: offer.body });
-    r.offerHistory.push({ id: offer.id, status: 'SENT', at: Date.now() });
-    state.currentOfferId = offer.id;
-    closeModal();
-    renderRequestList();
-    renderDetail();
-    toast('Offer sent to ' + r.name);
-    setTimeout(()=> switchView('portal'), 700);
-  }
-  $('#mmEmailSend').addEventListener('click', sendOfferEmail);
-
-  function closeModal(){
-    $('#mmModalScrim').classList.remove('is-open');
-    $('#mmModalScrim').setAttribute('aria-hidden','true');
-  }
-  $('#mmModalClose').addEventListener('click', closeModal);
-  $('#mmEmailCancel').addEventListener('click', closeModal);
-  $('#mmModalScrim').addEventListener('click', (e)=> { if (e.target === $('#mmModalScrim')) closeModal(); });
-
-  /* Generic prompt modal */
-  let promptCb = null;
-  function openPrompt(title, label, cb){
-    $('#mmPromptTitle').textContent = title;
-    $('#mmPromptLabel').textContent = label;
-    $('#mmPromptText').value = '';
-    promptCb = cb;
-    $('#mmPromptScrim').classList.add('is-open');
-    setTimeout(()=> $('#mmPromptText').focus(), 80);
-  }
-  function closePrompt(){ $('#mmPromptScrim').classList.remove('is-open'); promptCb = null; }
-  $('#mmPromptClose').addEventListener('click', closePrompt);
-  $('#mmPromptCancel').addEventListener('click', closePrompt);
-  $('#mmPromptOk').addEventListener('click', ()=> { const v = $('#mmPromptText').value; const cb = promptCb; closePrompt(); if (cb) cb(v); });
-  $('#mmPromptScrim').addEventListener('click', (e)=> { if (e.target === $('#mmPromptScrim')) closePrompt(); });
-
-  /* =========================================================
-     STUDENT PORTAL
-     ========================================================= */
-  function viewOffer(){
-    let offer = null;
-    if (state.currentOfferId) offer = state.offers.find(o => o.id === state.currentOfferId);
-    if (!offer) offer = state.offers.find(o => o.status === 'SENT') || state.offers[0];
-    return offer;
-  }
-
-  function renderPortal(){
-    const wrap = $('#mmPortalWrap');
-    const offer = viewOffer();
-    if (!offer) {
-      wrap.innerHTML = '<div class="mm-success-card"><div class="mm-empty-ring">\u23F1</div><h2>No offer yet</h2><p>When a MissionMed coordinator sends your offer, it will appear here.</p><button type="button" class="mm-btn mm-btn-dark" data-goto="hq">Go to HQ demo</button></div>';
-      wrap.querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
+    const row = getSelectedRequest();
+    if(!row){
+      els.detailName.textContent = 'No request selected';
+      els.detailMeta.textContent = 'No matching queue item is available.';
+      els.profileGrid.innerHTML = '';
+      els.specialtyChips.innerHTML = '';
+      els.locationChips.innerHTML = '';
+      els.monthChips.innerHTML = '';
+      els.requestNotes.textContent = 'No notes supplied.';
+      els.statusTimeline.innerHTML = '';
       return;
     }
-    if (offer.status === 'ACCEPTED') return renderAccepted(offer);
-    if (offer.status === 'DECLINED') return renderDeclined(offer);
-
-    const instructions = offer.instructions ? offer.instructions : 'A coordinator will follow up with orientation details after acceptance.';
-    wrap.innerHTML =
-      '<div class="mm-offer-card">' +
-        '<div class="mm-offer-head"><div>' +
-          '<span class="mm-eyebrow">Clinical Rotation Offer</span>' +
-          '<h2 id="pOfferTitle"></h2>' +
-          '<small style="color:var(--mm-muted);">Offer ' + offer.id + ' \u00B7 For ' + offer.student.name + '</small>' +
-        '</div><span class="mm-status-badge mm-status-offered">SENT</span></div>' +
-        '<div class="mm-offer-fields">' +
-          '<div class="mm-offer-field"><small>Program</small><b id="pProgram"></b></div>' +
-          '<div class="mm-offer-field"><small>Specialty</small><b id="pSpec"></b></div>' +
-          '<div class="mm-offer-field"><small>Location</small><b id="pLoc"></b></div>' +
-          '<div class="mm-offer-field"><small>Offered months</small><b id="pMonths"></b></div>' +
-          '<div class="mm-offer-field"><small>Length</small><b id="pLen"></b></div>' +
-          '<div class="mm-offer-field"><small>Proposed start</small><b id="pStart"></b></div>' +
-        '</div>' +
-        '<div class="mm-countdown"><div><small>Respond before</small><div style="font-weight:700; font-size:15px;" id="pExpiryLabel"></div></div>' +
-          '<div class="mm-countdown-clock" id="pClock">' +
-            '<div class="mm-clock-cell"><b data-c="d">0</b><span>days</span></div>' +
-            '<div class="mm-clock-cell"><b data-c="h">0</b><span>hrs</span></div>' +
-            '<div class="mm-clock-cell"><b data-c="m">0</b><span>min</span></div>' +
-            '<div class="mm-clock-cell"><b data-c="s">0</b><span>sec</span></div>' +
-          '</div></div>' +
-        '<div class="mm-offer-cta">' +
-          '<button type="button" class="mm-btn mm-btn-primary" id="pAccept">Accept Offer</button>' +
-          '<button type="button" class="mm-btn mm-btn-ghost" id="pDecline">Decline</button>' +
-          '<button type="button" class="mm-btn mm-btn-ghost" id="pAsk">Question? Reply</button>' +
-        '</div>' +
-        '<div class="mm-next-steps"><h4>What happens next</h4><ol>' +
-          '<li>Accept the offer before expiration to lock this slot.</li>' +
-          '<li>Our onboarding team emails site contact and orientation within one business day.</li>' +
-          '<li>Submit required documentation before start date.</li>' +
-          '<li>' + instructions.replace(/\n/g,' ') + '</li>' +
-        '</ol></div>' +
-      '</div>';
-
-    $('#pOfferTitle').textContent = offer.specialty + ' in ' + offer.location;
-    $('#pProgram').textContent = offer.program;
-    $('#pSpec').textContent = offer.specialty;
-    $('#pLoc').textContent = offer.location;
-    $('#pMonths').textContent = (offer.months || []).join(' or ');
-    $('#pLen').textContent = offer.length;
-    $('#pStart').textContent = offer.start ? new Date(offer.start).toLocaleDateString() : 'Flexible';
-    $('#pExpiryLabel').textContent = fmtDateTime(offer.expiresAt);
-    startCountdown(offer);
-    $('#pAccept').addEventListener('click', ()=> acceptOffer(offer.id));
-    $('#pDecline').addEventListener('click', ()=> declineOffer(offer.id));
-    $('#pAsk').addEventListener('click', ()=> {
-      const r = state.requests.find(x => x.id === offer.requestId);
-      if (!r) return;
-      const v = window.prompt('Your question for the coordinator:');
-      if (v && v.trim()) {
-        r.comms.push({ dir:'in', kind:'Student reply', at: Date.now(), subject:'Re: ' + offer.subject, body: v.trim() });
-        toast('Message sent to coordinator');
-      }
-    });
+    const status = getStatus(row);
+    els.detailStatus.className = 'badge ' + statusClass(status);
+    els.detailStatus.textContent = labelStatus(status);
+    els.detailName.textContent = row.student_name || 'Unnamed request';
+    els.detailMeta.textContent = [row.email, row.phone, row.training_level_or_school].filter(Boolean).join(' | ');
+    els.sideStatus.textContent = labelStatus(status);
+    renderProfile(row);
+    renderChips(row);
+    renderTimeline(row);
+    renderMatch(row);
+    renderNotes(row);
+    seedOffer(row);
+    renderOfferPreview();
+    renderComms(row);
+    renderPaperwork(row);
   }
-  function startCountdown(offer){
-    if (state.timers.portal) clearInterval(state.timers.portal);
-    function tick(){
-      const ms = offer.expiresAt - Date.now();
-      const clk = $('#pClock'); if (!clk) { clearInterval(state.timers.portal); return; }
-      if (ms <= 0) { clk.querySelectorAll('b').forEach(el => el.textContent = '0'); clearInterval(state.timers.portal); return; }
-      const d = Math.floor(ms/86400000), h = Math.floor(ms%86400000/3600000), m = Math.floor(ms%3600000/60000), s = Math.floor(ms%60000/1000);
-      clk.querySelector('[data-c="d"]').textContent = String(d);
-      clk.querySelector('[data-c="h"]').textContent = pad(h);
-      clk.querySelector('[data-c="m"]').textContent = pad(m);
-      clk.querySelector('[data-c="s"]').textContent = pad(s);
+
+  function renderProfile(row){
+    const items = [
+      ['Email', row.email || 'Not provided'],
+      ['Phone', row.phone || 'Not provided'],
+      ['Training / school', row.training_level_or_school || 'Not provided'],
+      ['Duration', durationLabel(row.duration_weeks)],
+      ['Flexibility', row.flexibility || 'Not provided'],
+      ['Source', row.source || 'Unknown']
+    ];
+    els.profileGrid.innerHTML = items.map(([label,value]) => '<div class="info"><small>'+esc(label)+'</small><b>'+esc(value)+'</b></div>').join('');
+    els.requestNotes.textContent = row.notes || 'No notes supplied.';
+  }
+
+  function renderChips(row){
+    els.specialtyChips.innerHTML = rankedChips(toArray(row.preferred_specialties));
+    els.locationChips.innerHTML = rankedChips(toArray(row.preferred_locations));
+    els.monthChips.innerHTML = rankedChips(toArray(row.preferred_months_or_dates));
+  }
+
+  function rankedChips(values){
+    if(!values.length) return '<span class="chip">None provided</span>';
+    return values.map((value, idx) => '<span class="chip rank" data-rank="'+(idx+1)+'">'+esc(value)+'</span>').join('');
+  }
+
+  function renderTimeline(row){
+    const events = [
+      ['Request received', 'Request-first intake record created from '+(row.source || 'public intake')+'.'],
+      ['Admin visibility', state.adapter === 'live' ? 'Visible through audited privileged admin endpoint.' : 'Visible in demo shell using local adapter data.'],
+      ['Availability review', 'Coordinator checks specialty, location, month, and duration fit. Protected inventory wiring required.'],
+      ['Offer draft', 'Draft can be previewed here. Save/send is disabled until Wiring Authority completes protected endpoints.']
+    ];
+    els.statusTimeline.innerHTML = events.map((event, idx) => eventHtml(idx+1, event[0], event[1])).join('');
+  }
+
+  function renderMatch(row){
+    const match = computeMatch(row);
+    els.scoreRing.style.setProperty('--score', String(match.score));
+    els.scoreValue.textContent = String(match.score);
+    els.matchBars.innerHTML = match.parts.map(part => '<div class="bar"><div class="bar-label"><span>'+esc(part.label)+'</span><span>'+part.value+'%</span></div><div class="bar-track"><div class="bar-fill" style="width:'+part.value+'%"></div></div></div>').join('');
+  }
+
+  function renderNotes(row){
+    const notes = [];
+    if(row.admin_notes) notes.push({ who:'Existing admin note', text: row.admin_notes });
+    (state.localNotes[row.id] || []).forEach(text => notes.push({ who:'Demo local note', text }));
+    if(!notes.length){
+      els.noteList.innerHTML = '<div class="mm-empty">No internal notes yet. Demo notes stay in memory only.</div>';
+      return;
     }
-    tick(); state.timers.portal = setInterval(tick, 1000);
+    els.noteList.innerHTML = notes.map(note => '<div class="note"><b>'+esc(note.who)+'</b><p>'+esc(note.text)+'</p></div>').join('');
   }
 
-  function acceptOffer(id){
-    const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'ACCEPTED';
-    const r = state.requests.find(x => x.id === offer.requestId);
-    if (r) {
-      const prev = r.status; r.status = 'ACCEPTED';
-      pushAudit(r, prev, 'ACCEPTED', 'Student accepted');
-      r.comms.push({ dir:'in', kind:'Student accepted', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' accepted the offer for ' + offer.specialty + ' in ' + offer.location + '.' });
+  function seedOffer(row){
+    const firstSpecialty = toArray(row.preferred_specialties)[0] || '';
+    const firstLocation = toArray(row.preferred_locations)[0] || '';
+    const firstMonth = toArray(row.preferred_months_or_dates)[0] || '';
+    if(document.activeElement && document.activeElement.closest('#offerForm')) return;
+    els.offerSpecialty.value = firstSpecialty;
+    els.offerLocation.value = firstLocation;
+    els.offerTiming.value = firstMonth;
+    els.offerDuration.value = durationLabel(row.duration_weeks);
+    els.offerSeat.value = '';
+    els.offerAlternate.value = toArray(row.preferred_months_or_dates)[1] || '';
+    els.offerMessage.value = 'Thank you for submitting your MissionMed Clinicals request. Based on your preferences, we are preparing an availability option for review. Please confirm whether this timing and specialty direction still works for you before any payment step is requested.';
+    els.offerInternal.value = '';
+    if(!els.offerExpires.value){
+      const d = new Date();
+      d.setDate(d.getDate()+7);
+      els.offerExpires.value = d.toISOString().slice(0,10);
     }
-    toast('Offer accepted'); renderAccepted(offer);
-  }
-  function renderAccepted(offer){
-    $('#mmPortalWrap').innerHTML =
-      '<div class="mm-success-card"><div class="mm-success-ring">\u2713</div>' +
-      '<h2>You are in.</h2>' +
-      '<p><b>' + offer.specialty + '</b> \u00B7 ' + offer.location + ' \u00B7 ' + (offer.months||[]).join(' or ') + ' (' + offer.length + ')</p>' +
-      '<p style="margin-top:-6px;">A coordinator will email you confirmation and onboarding documents within one business day.</p>' +
-      '<div class="mm-next-steps" style="text-align:left; margin-top: 16px;"><h4>Onboarding checklist</h4><ol>' +
-        '<li>Watch for onboarding email (site contact + orientation).</li>' +
-        '<li>Upload required documents (ID, immunization, CV).</li>' +
-        '<li>Complete orientation module before start date.</li>' +
-        '<li>Confirm housing/travel plans with coordinator.</li>' +
-      '</ol></div>' +
-      '<div style="margin-top: 16px;"><button type="button" class="mm-btn mm-btn-dark" data-goto="hq">Return to HQ (demo)</button></div></div>';
-    $('#mmPortalWrap').querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
   }
 
-  function declineOffer(id){
-    const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'DECLINED';
-    const r = state.requests.find(x => x.id === offer.requestId);
-    if (r) {
-      const prev = r.status; r.status = 'DECLINED';
-      pushAudit(r, prev, 'DECLINED', 'Student declined');
-      r.comms.push({ dir:'in', kind:'Student declined', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' declined the offer.' });
+  function renderOfferPreview(){
+    const row = getSelectedRequest();
+    if(!row) return;
+    const lines = [
+      'Subject: MissionMed Clinicals availability option for your review',
+      '',
+      'Hello '+(firstName(row.student_name) || 'there')+',',
+      '',
+      els.offerMessage.value || 'Thank you for submitting your MissionMed Clinicals request. We are preparing an availability option for review.',
+      '',
+      'Proposed option:',
+      '- Specialty: '+(els.offerSpecialty.value || 'To be confirmed'),
+      '- Location: '+(els.offerLocation.value || 'To be confirmed'),
+      '- Timing: '+(els.offerTiming.value || 'To be confirmed'),
+      '- Duration: '+(els.offerDuration.value || 'To be confirmed'),
+      els.offerAlternate.value ? '- Alternate option: '+els.offerAlternate.value : '',
+      '',
+      'Payment note: '+(els.offerPayment.value || 'Payment is only requested after you accept a confirmed offer.'),
+      'Paperwork note: '+(els.offerPaperwork.value || 'Onboarding paperwork follows acceptance and payment confirmation.'),
+      '',
+      'Next step: reply to confirm whether you would like to accept, decline, or request an alternate option.',
+      '',
+      'MissionMed Clinicals'
+    ].filter(line => line !== null).join('\n');
+    els.offerPreview.innerHTML = '<div class="mail-head">Preview only - no email will be sent from this shell.</div>'+esc(lines);
+    state.lastOfferPreview = lines;
+    els.sideOffer.textContent = 'Preview ready';
+  }
+
+  function renderComms(row){
+    const items = [
+      ['Inbound request received', 'Public intake captured the student request.'],
+      ['Internal notification', 'Future Postmark/internal notification event. Currently disabled.'],
+      ['Offer draft created', 'Future system event when draft is persisted. Demo preview only right now.'],
+      ['Offer sent', 'Future outbound email and usce_comms row after Postmark gate.'],
+      ['Student response', 'Future accept/decline/alternate portal event.'],
+      ['Payment and paperwork', 'Future WooCommerce and onboarding sync states.']
+    ];
+    els.commsTimeline.innerHTML = items.map((item, idx) => eventHtml(idx+1, item[0], item[1])).join('');
+  }
+
+  function renderPaperwork(row){
+    const states = [
+      ['Payment product identified', 'live', 'Canonical product link is displayed for admin context only. No redirect or order creation.'],
+      ['Offer accepted', 'stub', 'Awaiting future student offer portal response.'],
+      ['Payment status', 'required', 'Requires WooCommerce/Stripe sync after acceptance.'],
+      ['Paperwork checklist', 'required', 'Requires onboarding packet/status endpoint.'],
+      ['LearnDash course access', 'stub', 'Future downstream relation only; no course edits or enrollment.']
+    ];
+    els.paperworkList.innerHTML = states.map(wireHtml).join('');
+  }
+
+  function renderWiringPanels(){
+    els.wiringList.innerHTML = wiringItems.map(wireHtml).join('');
+    els.adapterContractList.innerHTML = adapterContract.map(item => wireHtml([item.name, stateToClass(item.state), item.state + ': ' + item.detail])).join('');
+  }
+
+  function wireHtml(item){
+    const label = item.label || item[0];
+    const status = item.status || item[1];
+    const detail = item.detail || item[2];
+    const cls = status === 'live' || status === 'live existing' ? 'live' : status === 'required' || status === 'requires Wiring Authority' ? 'required' : 'stub';
+    const glyph = cls === 'live' ? 'L' : cls === 'required' ? 'W' : 'D';
+    return '<div class="wire '+cls+'"><span class="state">'+glyph+'</span><span><b>'+esc(label)+'</b><span>'+esc(detail)+'</span></span></div>';
+  }
+
+  function eventHtml(idx, title, body){
+    return '<div class="event"><div class="event-dot">'+idx+'</div><div class="event-card"><b>'+esc(title)+'</b><span>'+esc(body)+'</span></div></div>';
+  }
+
+  function setTab(tab){
+    state.activeTab = tab;
+    document.querySelectorAll('.tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+    document.querySelectorAll('.pane').forEach(pane => pane.classList.toggle('active', pane.dataset.pane === tab));
+    if(tab === 'offer') renderOfferPreview();
+  }
+
+  function addDemoNote(){
+    const row = getSelectedRequest();
+    const text = els.noteInput.value.trim();
+    if(!row || !text) return;
+    state.localNotes[row.id] = state.localNotes[row.id] || [];
+    state.localNotes[row.id].unshift(text);
+    els.noteInput.value = '';
+    renderNotes(row);
+  }
+
+  function markReviewedLocal(){
+    const row = getSelectedRequest();
+    if(!row) return;
+    state.localStatuses[row.id] = getStatus(row) === 'reviewed' ? 'new' : 'reviewed';
+    renderAll();
+  }
+
+  async function copySummary(){
+    const row = getSelectedRequest();
+    if(!row) return;
+    const summary = [
+      'USCE Intake Summary',
+      'Name: '+(row.student_name || ''),
+      'Email: '+(row.email || ''),
+      'Training: '+(row.training_level_or_school || ''),
+      'Specialties: '+toArray(row.preferred_specialties).join(', '),
+      'Locations: '+toArray(row.preferred_locations).join(', '),
+      'Timing: '+toArray(row.preferred_months_or_dates).join(', '),
+      'Duration: '+durationLabel(row.duration_weeks),
+      'Notes: '+(row.notes || '')
+    ].join('\n');
+    try{
+      await navigator.clipboard.writeText(summary);
+      setAdapterStatus('Summary copied locally. No backend write occurred.', 'demo');
+    } catch(_error){
+      setAdapterStatus('Clipboard was unavailable. Summary remains visible in the UI.', 'blocked');
     }
-    toast('Offer declined'); renderDeclined(offer);
-  }
-  function renderDeclined(offer){
-    const wrap = $('#mmPortalWrap');
-    wrap.innerHTML =
-      '<div class="mm-offer-card"><div class="mm-offer-head"><div>' +
-        '<span class="mm-eyebrow">Offer Declined</span>' +
-        '<h2>No worries. We have other slots.</h2>' +
-        '<small style="color:var(--mm-muted);">Offer ' + offer.id + ' declined just now.</small>' +
-      '</div><span class="mm-status-badge mm-status-declined">DECLINED</span></div></div>' +
-      '<div class="mm-retain"><h3>Stay on the matching list</h3>' +
-      '<p>Update your preferences and we will ping you the moment a matching slot opens.</p>' +
-      '<div class="mm-field"><label class="mm-label">Updated specialty preference</label>' +
-        '<select class="mm-select" id="retSpec"></select></div>' +
-      '<div class="mm-field"><label class="mm-label">Updated location preference</label>' +
-        '<select class="mm-select" id="retLoc"></select></div>' +
-      '<div class="mm-field"><label class="mm-label">Updated month(s) - ranked</label>' +
-        '<div class="mm-month-grid" id="retMonths"></div></div>' +
-      '<div class="mm-field"><label class="mm-label">How should we notify you?</label>' +
-      '<div class="mm-retain-options" id="pRetainOpts">' +
-        '<button type="button" class="mm-retain-opt" data-val="email">Email<small>Fastest for docs</small></button>' +
-        '<button type="button" class="mm-retain-opt" data-val="sms">SMS<small>Instant alert</small></button>' +
-        '<button type="button" class="mm-retain-opt" data-val="both">Both<small>Recommended</small></button>' +
-      '</div></div>' +
-      '<label class="mm-inline-check" style="margin-right:8px;"><input type="checkbox" id="pRetOpen"> Open to different locations</label>' +
-      '<label class="mm-inline-check"><input type="checkbox" id="pRetFlex"> Flexible on months</label>' +
-      '<div class="mm-form-actions" style="margin-top:14px;"><button type="button" class="mm-btn mm-btn-ghost" id="pRetainSkip">No thanks</button>' +
-      '<button type="button" class="mm-btn mm-btn-primary" id="pRetainSave">Save preferences</button></div></div>';
-
-    const r = state.requests.find(x => x.id === offer.requestId);
-    fillSelectEl($('#retSpec'), SPECIALTIES);
-    $('#retSpec').value = (r && r.specialties[0]) || offer.specialty;
-    fillSelectEl($('#retLoc'), LOCATIONS);
-    $('#retLoc').value = (r && r.locations[0]) || offer.location;
-    const retOrder = (r && r.months) ? r.months.slice() : [];
-    const retGrid = $('#retMonths');
-    function renderRet(){
-      retGrid.innerHTML = '';
-      MONTHS.forEach(m => {
-        const b = document.createElement('button'); b.type='button'; b.className='mm-month'; b.dataset.val=m;
-        const i = retOrder.indexOf(m); if (i > -1) b.classList.add('is-on');
-        b.innerHTML = '<span>'+m+'</span>' + (i > -1 ? '<span class="mm-prio">#'+(i+1)+'</span>' : '');
-        b.addEventListener('click', ()=> { const j=retOrder.indexOf(m); if (j>-1) retOrder.splice(j,1); else retOrder.push(m); renderRet(); });
-        retGrid.appendChild(b);
-      });
-    }
-    renderRet();
-
-    wrap.querySelectorAll('#pRetainOpts .mm-retain-opt').forEach(b => {
-      b.addEventListener('click', ()=> {
-        wrap.querySelectorAll('.mm-retain-opt').forEach(x => x.classList.remove('is-on'));
-        b.classList.add('is-on'); state.retentionChoice = b.dataset.val;
-      });
-    });
-    $('#pRetainSkip').addEventListener('click', ()=> {
-      wrap.innerHTML = '<div class="mm-success-card"><div class="mm-success-ring">\u2713</div><h2>Got it.</h2><p>You can submit a new request anytime.</p><button type="button" class="mm-btn mm-btn-dark" data-goto="student">New request</button></div>';
-      wrap.querySelector('[data-goto]').addEventListener('click', ()=> switchView('student'));
-    });
-    $('#pRetainSave').addEventListener('click', ()=> {
-      if (!state.retentionChoice) { toast('Pick a notification channel'); return; }
-      const label = { email:'email', sms:'SMS', both:'email and SMS' }[state.retentionChoice];
-      if (r) {
-        r.specialties = [$('#retSpec').value].concat(r.specialties.filter(s => s !== $('#retSpec').value));
-        r.locations = [$('#retLoc').value].concat(r.locations.filter(s => s !== $('#retLoc').value));
-        if (retOrder.length) r.months = retOrder.slice();
-        r.retention = {
-          channel: state.retentionChoice,
-          openToLocation: $('#pRetOpen').checked,
-          flexibleMonths: $('#pRetFlex').checked,
-          savedAt: Date.now()
-        };
-        const prev = r.status; r.status = 'RETAINED';
-        pushAudit(r, prev, 'RETAINED', 'Student enrolled in retention (' + label + ')');
-        r.comms.push({ dir:'sys', kind:'Retention enrolled', at: Date.now(), subject:'Matching-list opt-in', body: 'Channel: ' + label + '. Updated preferences captured for future matching.' });
-      }
-      wrap.innerHTML = '<div class="mm-success-card"><div class="mm-success-ring">\u2713</div><h2>We will keep you posted</h2><p>You will be notified by ' + label + ' the moment a similar slot opens.</p><button type="button" class="mm-btn mm-btn-dark" data-goto="student">Submit another request</button></div>';
-      wrap.querySelector('[data-goto]').addEventListener('click', ()=> switchView('student'));
-      toast('Retention preferences saved');
-    });
   }
 
-  function resetDemoData(){
-    state.requests = [];
-    state.offers = [];
-    state.selectedRequestId = null;
-    state.currentOfferId = null;
-    state.draftEmail = null;
-    state.retentionChoice = null;
-    state.query = '';
-    state.filter = 'all';
-    state.sort = 'urgent';
-    $('#mmSearch').value = '';
-    $('#mmFilter').value = 'all';
-    $('#mmSort').value = 'urgent';
-    monthOrder.length = 0;
-    renderMonthGrid();
-    initRankGroups();
-    $('#mmFormCard').style.display = '';
-    $('#mmStepper').style.display = '';
-    $('#mmIntakeDone').style.display = 'none';
-    seed();
-    setStep(1);
-    renderRequestList();
-    switchView('hq');
-    setRuntimeStatus('Demo dataset restored.', 'You are viewing the refined v500 demo flow with working interactions.');
-    toast('Demo reset');
+  function getFilteredRequests(){
+    const search = state.search.toLowerCase();
+    let rows = state.requests.filter(row => {
+      const status = getStatus(row);
+      const blob = [row.student_name,row.email,row.phone,row.training_level_or_school,toArray(row.preferred_specialties).join(' '),toArray(row.preferred_locations).join(' ')].join(' ').toLowerCase();
+      return (state.status === 'all' || status === state.status) && (!search || blob.includes(search));
+    });
+    rows = rows.slice().sort((a,b) => {
+      if(state.sort === 'match') return computeMatch(b).score - computeMatch(a).score;
+      if(state.sort === 'sla') return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+      return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+    });
+    return rows;
   }
 
-  /* ---- Init ---- */
-  $('#mmRtConnect').addEventListener('click', connectRuntimeAuth);
-  $('#mmRtLoad').addEventListener('click', loadLiveRequestsIntoDashboard);
-  $('#mmRtReset').addEventListener('click', resetDemoData);
+  function getSelectedRequest(){ return state.requests.find(r => r.id === state.selectedId) || getFilteredRequests()[0] || null; }
+  function getStatus(row){ return state.localStatuses[row.id] || row.status || 'new'; }
 
-  seed();
-  setStep(1);
-  renderRequestList();
-  switchView('hq');
-  setRuntimeStatus(
-    'Demo mode active. Layout and flows are live.',
-    /^https?:$/i.test(window.location.protocol)
-      ? 'Hosted context detected. Use Connect Live Auth to pull real API data.'
-      : 'Local file context detected. Demo flows are fully interactive; live auth may require hosted context.'
-  );
+  function normalizeLiveRows(items){
+    return items.map(item => ({
+      id: String(item.id || ''),
+      created_at: item.created_at || '',
+      updated_at: item.updated_at || item.created_at || '',
+      status: item.status || 'new',
+      student_name: item.student_name || '',
+      email: item.email || '',
+      phone: item.phone || '',
+      training_level_or_school: item.training_level_or_school || '',
+      preferred_specialties: toArray(item.preferred_specialties),
+      preferred_locations: toArray(item.preferred_locations),
+      preferred_months_or_dates: toArray(item.preferred_months_or_dates),
+      duration_weeks: item.duration_weeks || '',
+      flexibility: item.flexibility || '',
+      notes: item.notes || '',
+      source: item.source || '',
+      source_url: item.source_url || '',
+      promoted_usce_request_id: item.promoted_usce_request_id || null,
+      promoted_at: item.promoted_at || null,
+      admin_notes: item.admin_notes || '',
+      metadata: item.metadata || {}
+    })).filter(row => row.id);
+  }
 
-  /* Refresh relative timestamps and SLA every 60s */
-  setInterval(()=> { if (state.view === 'hq') renderRequestList(); }, 60000);
+  function computeMatch(row){
+    const specialties = toArray(row.preferred_specialties).length;
+    const locations = toArray(row.preferred_locations).length;
+    const months = toArray(row.preferred_months_or_dates).length;
+    const flex = row.flexibility ? 1 : 0;
+    const specialtyScore = Math.min(100, 62 + specialties * 12);
+    const locationScore = Math.min(100, 58 + locations * 11);
+    const timingScore = Math.min(100, 54 + months * 10 + flex * 10);
+    const paperworkScore = row.training_level_or_school ? 78 : 52;
+    const score = Math.round((specialtyScore + locationScore + timingScore + paperworkScore) / 4);
+    return { score, parts:[
+      { label:'Specialty fit', value:specialtyScore },
+      { label:'Location fit', value:locationScore },
+      { label:'Timing flexibility', value:timingScore },
+      { label:'Profile completeness', value:paperworkScore }
+    ] };
+  }
 
+  function setAdapterStatus(text, kind){
+    els.adapterStatus.innerHTML = '<strong>'+esc(kind === 'live' ? 'Live read-only.' : kind === 'blocked' ? 'Blocked safely.' : kind === 'pending' ? 'Checking.' : 'Demo adapter active.')+'</strong> '+esc(text);
+  }
+
+  async function safeJson(response){
+    try{ return await response.json(); } catch(_error){ return null; }
+  }
+
+  function cloneRequests(rows){ return rows.map(row => JSON.parse(JSON.stringify(row))); }
+  function toArray(value){ return Array.isArray(value) ? value.filter(Boolean).map(String) : value ? [String(value)] : []; }
+  function statusClass(status){ return String(status || 'new').replace(/[^a-z0-9_]/g,'_'); }
+  function labelStatus(status){ return String(status || 'new').replace(/_/g,' ').replace(/\b\w/g, c => c.toUpperCase()); }
+  function durationLabel(value){ return value ? String(value) + ' weeks' : 'Not provided'; }
+  function summaryLine(row){ return [toArray(row.preferred_specialties)[0], toArray(row.preferred_locations)[0], durationLabel(row.duration_weeks)].filter(Boolean).join(' / '); }
+  function relativeDate(value){
+    if(!value) return 'Date unknown';
+    const d = new Date(value);
+    if(Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
+  }
+  function firstName(value){ return String(value || '').trim().split(/\s+/)[0] || ''; }
+  function stateToClass(value){ return value === 'live existing' ? 'live' : value === 'requires Wiring Authority' ? 'required' : 'stub'; }
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  }
 })();
 </script>
 </body>

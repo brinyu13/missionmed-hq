@@ -3,11 +3,13 @@ import crypto from 'node:crypto';
 const PUBLIC_INTAKE_PATH = '/api/usce/public/requests';
 const PUBLIC_CONFIG_PATH = '/api/usce/public/config';
 const ADMIN_PUBLIC_INTAKE_LIST_PATH = '/api/usce/admin/public-intake-requests';
+const ADMIN_PUBLIC_INTAKE_ACTION_PREFIX = `${ADMIN_PUBLIC_INTAKE_LIST_PATH}/`;
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
 const IP_LIMIT = 3;
 const EMAIL_LIMIT = 1;
 const ADMIN_LIST_MAX_LIMIT = 100;
+const ADMIN_NOTE_MAX_LENGTH = 4000;
 const RECIPIENTS = ['clinicals@missionmedinstitute.com', 'philperri@gmail.com'];
 const INTAKE_ENABLED_FLAGS = ['MM_USCE_PUBLIC_INTAKE_ENABLED', 'USCE_PUBLIC_INTAKE_ENABLED'];
 const NOTIFY_DRY_RUN_FLAGS = ['MM_USCE_PUBLIC_INTAKE_NOTIFY_DRY_RUN', 'USCE_PUBLIC_INTAKE_NOTIFY_DRY_RUN'];
@@ -19,6 +21,9 @@ const CANONICAL_SUPABASE_PROJECT_REF = 'fglyvdykwgbuivikqoah';
 const PUBLIC_INTAKE_TABLE = 'command_center.usce_public_intake_requests';
 const PUBLIC_INTAKE_RPC = 'create_usce_public_intake_request';
 const ADMIN_PUBLIC_INTAKE_LIST_RPC = 'list_usce_public_intake_requests';
+const ADMIN_PUBLIC_INTAKE_STATUS_RPC = 'update_usce_public_intake_request_status';
+const ADMIN_PUBLIC_INTAKE_NOTE_RPC = 'update_usce_public_intake_request_admin_note';
+const ADMIN_STATUS_VALUES = new Set(['new', 'reviewed', 'in_progress', 'offer_ready', 'archived']);
 const CANONICAL_PAYMENT_PRODUCT_URL = 'https://missionmedinstitute.com/product/usce-clinical-rotations/';
 const CANONICAL_LEARNDASH_COURSE_URL = 'https://missionmedinstitute.com/courses/mmi-clinicals/';
 const ALLOWED_ORIGINS = new Set([
@@ -94,6 +99,25 @@ export function isUsceAdminPublicIntakeListPath(pathname) {
   return normalizePathname(pathname) === ADMIN_PUBLIC_INTAKE_LIST_PATH;
 }
 
+export function getUsceAdminPublicIntakeAction(pathname) {
+  const normalized = normalizePathname(pathname);
+  if (!normalized.startsWith(ADMIN_PUBLIC_INTAKE_ACTION_PREFIX)) {
+    return null;
+  }
+
+  const parts = normalized.slice(ADMIN_PUBLIC_INTAKE_ACTION_PREFIX.length).split('/');
+  if (parts.length !== 2) {
+    return null;
+  }
+
+  const [requestId, action] = parts;
+  if (!isUuid(requestId) || !['status', 'admin-note'].includes(action)) {
+    return null;
+  }
+
+  return { requestId, action };
+}
+
 export async function getUscePublicIntakeAdminList(searchParams = new URLSearchParams()) {
   const config = getSupabasePublicIntakeConfig();
   if (!config.ok) {
@@ -138,6 +162,67 @@ export async function getUscePublicIntakeAdminList(searchParams = new URLSearchP
       search: params.search || null,
     },
   };
+}
+
+export async function updateUscePublicIntakeAdminStatus(requestId, payload = {}) {
+  if (!isUuid(requestId)) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'invalid_public_intake_request_id',
+      message: 'USCE public intake request id must be a UUID.',
+    };
+  }
+
+  const status = sanitizeText(payload?.status, 40).toLowerCase();
+  if (!ADMIN_STATUS_VALUES.has(status)) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'invalid_usce_public_intake_status',
+      message: 'USCE public intake status is not allowed.',
+      allowed_statuses: Array.from(ADMIN_STATUS_VALUES),
+    };
+  }
+
+  return callSupabasePublicIntakeAdminRpc({
+    rpcName: ADMIN_PUBLIC_INTAKE_STATUS_RPC,
+    body: {
+      p_request_id: requestId,
+      p_status: status,
+    },
+    action: 'status_update',
+  });
+}
+
+export async function updateUscePublicIntakeAdminNote(requestId, payload = {}) {
+  if (!isUuid(requestId)) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'invalid_public_intake_request_id',
+      message: 'USCE public intake request id must be a UUID.',
+    };
+  }
+
+  const note = sanitizeText(payload?.admin_note ?? payload?.admin_notes ?? payload?.note, ADMIN_NOTE_MAX_LENGTH);
+  if (!note) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'invalid_usce_public_intake_admin_note',
+      message: 'USCE public intake admin note cannot be empty.',
+    };
+  }
+
+  return callSupabasePublicIntakeAdminRpc({
+    rpcName: ADMIN_PUBLIC_INTAKE_NOTE_RPC,
+    body: {
+      p_request_id: requestId,
+      p_admin_note: note,
+    },
+    action: 'admin_note_update',
+  });
 }
 
 async function handlePublicRequestCreate(request, response, corsHeaders) {
@@ -505,6 +590,76 @@ async function listSupabasePublicIntakeViaRpc(config, params) {
   };
 }
 
+async function callSupabasePublicIntakeAdminRpc({ rpcName, body, action }) {
+  const config = getSupabasePublicIntakeConfig();
+  if (!config.ok) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      error: 'usce_public_intake_admin_storage_not_configured',
+      message: 'USCE public intake admin write storage is not configured.',
+      storage_target: PUBLIC_INTAKE_TABLE,
+      storage_adapter: `rpc:${rpcName}`,
+      reason: config.reason,
+    };
+  }
+
+  const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${rpcName}`, {
+    method: 'POST',
+    headers: buildSupabaseHeaders(config.serviceKey, {
+      'Content-Type': 'application/json',
+    }),
+    body: JSON.stringify(body),
+  });
+
+  const payload = await readSupabaseJson(response);
+  if (response.ok && payload && typeof payload === 'object') {
+    if (payload.ok === false && payload.error === 'not_found') {
+      return {
+        ok: false,
+        httpStatus: 404,
+        error: 'usce_public_intake_request_not_found',
+        message: 'USCE public intake request was not found.',
+      };
+    }
+
+    if (payload.ok !== true || !payload.item || typeof payload.item !== 'object') {
+      return {
+        ok: false,
+        httpStatus: 503,
+        error: 'usce_public_intake_admin_write_failed',
+        message: 'USCE public intake request update returned an invalid response.',
+        storage_target: PUBLIC_INTAKE_TABLE,
+        storage_adapter: `rpc:${rpcName}`,
+      };
+    }
+
+    return {
+      ok: true,
+      mode: 'live',
+      action,
+      storage_target: PUBLIC_INTAKE_TABLE,
+      storage_adapter: `rpc:${rpcName}`,
+      item: {
+        id: payload.item.id,
+        status: payload.item.status || null,
+        admin_notes: payload.item.admin_notes || null,
+        updated_at: payload.item.updated_at || null,
+      },
+    };
+  }
+
+  return {
+    ok: false,
+    httpStatus: response.status === 400 ? 400 : 503,
+    error: 'usce_public_intake_admin_write_failed',
+    message: 'USCE public intake request could not be updated.',
+    storage_target: PUBLIC_INTAKE_TABLE,
+    storage_adapter: `rpc:${rpcName}`,
+    reason: safeSupabaseErrorReason(payload),
+  };
+}
+
 function normalizeAdminListParams(searchParams) {
   const rawLimit = Number(searchParams.get('limit') || 50);
   const rawOffset = Number(searchParams.get('offset') || 0);
@@ -517,6 +672,10 @@ function normalizeAdminListParams(searchParams) {
     status: status || '',
     search: search || '',
   };
+}
+
+function isUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(String(value || '').trim());
 }
 
 function clampInteger(value, min, max, fallback) {

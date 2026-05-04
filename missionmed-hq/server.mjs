@@ -10,7 +10,14 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
-import { getUscePublicIntakeAdminList, handleUscePublicRoute, isUsceAdminPublicIntakeListPath } from './routes/usce-public-intake.mjs';
+import {
+  getUsceAdminPublicIntakeAction,
+  getUscePublicIntakeAdminList,
+  handleUscePublicRoute,
+  isUsceAdminPublicIntakeListPath,
+  updateUscePublicIntakeAdminNote,
+  updateUscePublicIntakeAdminStatus,
+} from './routes/usce-public-intake.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -1751,6 +1758,8 @@ const USCE_KNOWN_ROUTE_PATTERNS = [
   /^\/api\/usce\/offers\/[^/]+\/revoke$/u,
   /^\/api\/usce\/offers\/[^/]+\/onboard$/u,
   /^\/api\/usce\/admin\/public-intake-requests$/u,
+  /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/status$/u,
+  /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/admin-note$/u,
   /^\/api\/usce\/programs$/u,
   /^\/api\/usce\/programs\/[^/]+$/u,
   /^\/api\/usce\/portal\/[^/]+$/u,
@@ -1838,6 +1847,30 @@ async function handleUsceRoute(request, response, url, context) {
     }
 
     sendRoutePayload(response, await getUscePublicIntakeAdminList(url.searchParams), authHeaders);
+    return true;
+  }
+
+  const adminPublicIntakeAction = getUsceAdminPublicIntakeAction(pathname);
+  if (adminPublicIntakeAction) {
+    if (request.method !== 'PATCH') {
+      sendMethodNotAllowed(response, ['PATCH']);
+      return true;
+    }
+
+    const payload = await readJsonBody(request);
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      sendJson(response, 400, {
+        error: 'invalid_json',
+        message: 'USCE admin action requires a JSON object payload.',
+      }, authHeaders);
+      return true;
+    }
+
+    const result = adminPublicIntakeAction.action === 'status'
+      ? await updateUscePublicIntakeAdminStatus(adminPublicIntakeAction.requestId, payload)
+      : await updateUscePublicIntakeAdminNote(adminPublicIntakeAction.requestId, payload);
+
+    sendRoutePayload(response, result, authHeaders);
     return true;
   }
 
