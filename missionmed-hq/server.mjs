@@ -6849,7 +6849,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   if (!wpToken) {
     return {
       ok: false,
-      status: 400,
+      status: 401,
       error: 'A signed WordPress HQ token is required. Start from the WordPress login handoff to continue.',
     };
   }
