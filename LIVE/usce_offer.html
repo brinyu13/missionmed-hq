@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<!--
+  CX-OFFER-315-WIRING-READY
+  MissionMed USCE Student Offer Portal Shell
+  Standalone R2-ready public offer-response shell. Demo-first, token-aware, no protected wiring.
+  No Supabase from browser, no service-role data, no email sends, no payment trigger,
+  no WooCommerce redirect before acceptance. Live adapter is opt-in and disabled by default.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="missionmed-app" content="usce-student-offer-portal">
+<meta name="missionmed-version" content="CX-OFFER-315-WIRING-READY">
+<meta name="robots" content="noindex,nofollow">
+<title>Your MissionMed Clinicals Offer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#101827;--navy:#071a2f;--navy2:#102b49;--blue:#204966;--teal:#477a78;
+  --gold:#c5a45d;--gold2:#dec57f;--cream:#f7f2e8;--paper:#fbfaf6;--white:#fff;
+  --line:rgba(16,24,39,.13);--line2:rgba(197,164,93,.34);--muted:#687384;
+  --green:#237455;--green2:#2f9069;--amber:#a96f13;--red:#a64242;--violet:#52628a;
+  --shadow:0 22px 70px rgba(7,26,47,.14),0 2px 12px rgba(7,26,47,.06);
+  --shadow2:0 12px 34px rgba(7,26,47,.12);
+  --radius:24px;--radius2:18px;--ease:cubic-bezier(.2,.8,.2,1);
+  --sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --serif:"Fraunces",Georgia,serif;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--navy);color:var(--ink);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+button:disabled{cursor:not-allowed;opacity:.55}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
+.mm-shell{min-height:100vh;background:
+  radial-gradient(900px 520px at 12% -8%,rgba(197,164,93,.18),transparent 64%),
+  radial-gradient(780px 460px at 92% 10%,rgba(71,122,120,.2),transparent 62%),
+  linear-gradient(180deg,#071a2f 0%,#102b49 32%,#f5efe3 32%,#fbfaf6 100%)}
+
+.mm-top{max-width:1080px;margin:0 auto;padding:22px clamp(18px,3vw,34px) 14px;color:#fff}
+.mm-topline{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.mm-brand{display:flex;align-items:center;gap:13px}
+.mm-mark{width:42px;height:42px;border-radius:14px;border:1px solid rgba(222,197,127,.46);
+  display:grid;place-items:center;font:700 18px var(--serif);color:var(--gold2);
+  background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.03));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.16)}
+.mm-brand strong{display:block;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.mm-brand span{display:block;color:rgba(255,255,255,.64);font-size:12px;letter-spacing:.08em;text-transform:uppercase}
+.mm-runtime{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.mm-pill{display:inline-flex;align-items:center;gap:7px;border:1px solid rgba(255,255,255,.18);
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.82);
+  padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800}
+.mm-dot{width:8px;height:8px;border-radius:50%;background:var(--gold2);box-shadow:0 0 0 4px rgba(197,164,93,.18)}
+.mm-dot.green{background:#55bf8a}
+.mm-dot.amber{background:#e3b257}
+.mm-dot.red{background:#d46a6a}
+
+.mm-hero{padding:36px 0 26px}
+.mm-eyebrow{display:inline-flex;align-items:center;gap:10px;color:var(--gold2);
+  font-size:11px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;
+  border:1px solid rgba(222,197,127,.36);border-radius:999px;padding:7px 13px;background:rgba(7,26,47,.34)}
+h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margin:18px 0 12px;letter-spacing:-.04em;max-width:780px}
+.mm-sub{max-width:680px;color:rgba(255,255,255,.74);font-size:16px;line-height:1.7;margin:0}
+
+.mm-app{max-width:1080px;margin:0 auto;padding:0 clamp(14px,2.6vw,34px) 70px}
+.mm-card{background:rgba(255,255,255,.97);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);overflow:hidden}
+.mm-card+.mm-card{margin-top:16px}
+.mm-card-head{padding:18px 22px;border-bottom:1px solid var(--line);
+  display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+  background:linear-gradient(180deg,#fff,#fbfaf7)}
+.mm-card-head h2{margin:0;color:var(--navy);font-family:var(--serif);font-size:24px;letter-spacing:-.02em;line-height:1.15}
+.mm-card-head p{margin:5px 0 0;color:var(--muted);font-size:13px;line-height:1.55;max-width:560px}
+.mm-card-body{padding:22px}
+
+.badge{display:inline-flex;align-items:center;gap:6px;border-radius:999px;
+  padding:5px 9px;font-size:10px;font-weight:900;letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+.badge.pending{background:rgba(197,164,93,.18);color:#76591a}
+.badge.accepted{background:rgba(35,116,85,.14);color:var(--green)}
+.badge.declined{background:rgba(166,66,66,.12);color:var(--red)}
+.badge.alt{background:rgba(82,98,138,.16);color:var(--violet)}
+.badge.expired{background:rgba(104,115,132,.16);color:var(--muted)}
+
+.mm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.mm-grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.info{border:1px solid var(--line);border-radius:var(--radius2);background:#fff;padding:14px 15px}
+.info small{display:block;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.11em;text-transform:uppercase;margin-bottom:6px}
+.info b{display:block;color:var(--navy);font-size:15px;line-height:1.45;font-weight:700}
+.info span.note{display:block;color:var(--muted);font-size:12px;margin-top:4px;line-height:1.5}
+
+.section-title{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:900;margin:22px 0 10px}
+
+.deadline{display:flex;gap:14px;align-items:center;padding:14px 16px;
+  background:linear-gradient(135deg,rgba(197,164,93,.14),rgba(71,122,120,.08));
+  border:1px solid var(--line2);border-radius:var(--radius2)}
+.deadline .icon{width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid var(--line2);
+  display:grid;place-items:center;color:var(--navy);font:700 18px var(--serif)}
+.deadline b{display:block;color:var(--navy);font-size:14px}
+.deadline span{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.5}
+.deadline.expired{background:rgba(104,115,132,.12);border-color:rgba(104,115,132,.3)}
+
+.message{background:linear-gradient(180deg,#fff,#faf6ed);border:1px solid var(--line2);
+  border-radius:var(--radius2);padding:18px 20px;line-height:1.7;color:var(--ink);
+  white-space:pre-wrap;font-size:15px}
+.message .from{font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px}
+
+.actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:6px}
+.btn{appearance:none;border:0;border-radius:999px;padding:14px 16px;
+  font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;
+  transition:transform .18s,box-shadow .18s,background .18s,color .18s,border-color .18s;
+  font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn:not(:disabled):hover{transform:translateY(-1px)}
+.btn.accept{background:var(--green);color:#fff;box-shadow:0 12px 24px rgba(35,116,85,.25)}
+.btn.accept:not(:disabled):hover{background:var(--green2)}
+.btn.decline{background:#fff;color:var(--red);border:1px solid rgba(166,66,66,.32)}
+.btn.alternate{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.btn.primary{background:var(--gold);color:var(--navy);box-shadow:0 12px 24px rgba(197,164,93,.28)}
+.btn.dark{background:var(--navy);color:#fff;box-shadow:0 12px 24px rgba(7,26,47,.2)}
+.btn.ghost{background:transparent;color:var(--navy);border:1px solid var(--line)}
+.btn.full{width:100%}
+
+.alt-form{margin-top:14px;border:1px dashed var(--line2);border-radius:var(--radius2);padding:14px;
+  background:rgba(247,242,232,.6);display:none}
+.alt-form.open{display:block;animation:fade .22s var(--ease) both}
+.alt-form label{display:block;font-size:11px;font-weight:900;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.alt-form textarea{width:100%;min-height:110px;border:1px solid var(--line);background:#fff;
+  border-radius:14px;padding:12px;color:var(--ink);outline:none;resize:vertical}
+.alt-form textarea:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(197,164,93,.16)}
+.alt-form .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.state-panel{display:none;animation:fade .26s var(--ease) both}
+.state-panel.active{display:block}
+
+.confirm{display:grid;grid-template-columns:64px 1fr;gap:16px;align-items:center;
+  padding:18px 20px;border-radius:var(--radius2);border:1px solid var(--line2)}
+.confirm.accepted{background:linear-gradient(135deg,rgba(35,116,85,.1),rgba(255,255,255,.96));border-color:rgba(35,116,85,.28)}
+.confirm.declined{background:linear-gradient(135deg,rgba(166,66,66,.08),rgba(255,255,255,.96));border-color:rgba(166,66,66,.24)}
+.confirm.alt{background:linear-gradient(135deg,rgba(82,98,138,.1),rgba(255,255,255,.96));border-color:rgba(82,98,138,.3)}
+.confirm-icon{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;
+  background:#fff;border:1px solid var(--line2);font:700 26px var(--serif);color:var(--navy)}
+.confirm.accepted .confirm-icon{color:var(--green)}
+.confirm.declined .confirm-icon{color:var(--red)}
+.confirm.alt .confirm-icon{color:var(--violet)}
+.confirm h3{margin:0 0 4px;font-family:var(--serif);font-size:22px;color:var(--navy);letter-spacing:-.02em}
+.confirm p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
+
+.next-steps{margin-top:18px;display:grid;gap:10px}
+.step{display:grid;grid-template-columns:30px 1fr;gap:11px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.step .num{width:24px;height:24px;border-radius:50%;background:var(--navy);color:var(--gold2);
+  font:800 12px var(--sans);display:grid;place-items:center}
+.step b{display:block;color:var(--navy);font-size:13px}
+.step span{display:block;color:var(--muted);font-size:12px;margin-top:3px;line-height:1.5}
+
+.payment-cta{margin-top:18px;padding:20px;border-radius:var(--radius2);
+  background:linear-gradient(135deg,#071a2f,#102b49);color:#fff;
+  display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;box-shadow:var(--shadow2)}
+.payment-cta h3{margin:0 0 6px;font-family:var(--serif);font-size:22px;letter-spacing:-.02em}
+.payment-cta p{margin:0;color:rgba(255,255,255,.74);font-size:13px;line-height:1.55;max-width:520px}
+.payment-cta .btn.primary{white-space:nowrap}
+
+.guard{margin-top:14px;padding:13px 14px;border-radius:14px;
+  background:rgba(7,26,47,.06);border:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.6}
+.guard b{color:var(--navy)}
+
+.adapter-strip{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px 14px;border-bottom:1px solid var(--line);background:#fff;flex-wrap:wrap}
+.adapter-strip .status-line{font-size:12px;color:var(--muted)}
+.adapter-strip .status-line strong{color:var(--navy)}
+.adapter-strip .right{display:flex;align-items:center;gap:10px}
+
+.demo-banner{margin:12px 0 0;padding:10px 13px;border-radius:12px;font-size:12px;
+  background:rgba(197,164,93,.14);border:1px solid rgba(197,164,93,.34);color:#6a4f10;line-height:1.5}
+
+.footer-note{max-width:1080px;margin:18px auto 0;
+  padding:0 clamp(14px,2.6vw,34px) 40px;color:#6d6a61;font-size:12px;line-height:1.7}
+
+@media(max-width:760px){
+  .mm-grid,.mm-grid.cols-3{grid-template-columns:1fr}
+  .actions{grid-template-columns:1fr}
+  .payment-cta{grid-template-columns:1fr}
+  .confirm{grid-template-columns:1fr;text-align:center;justify-items:center}
+  h1{font-size:34px}
+}
+</style>
+</head>
+<body>
+<div class="mm-shell" id="app">
+  <header class="mm-top">
+    <div class="mm-topline">
+      <div class="mm-brand" aria-label="MissionMed Clinicals offer portal">
+        <div class="mm-mark" aria-hidden="true">MM</div>
+        <div><strong>MissionMed Clinicals</strong><span>Offer Portal</span></div>
+      </div>
+      <div class="mm-runtime" aria-live="polite">
+        <span class="mm-pill"><span class="mm-dot" id="modeDot"></span><span id="modePill">Demo offer</span></span>
+        <span class="mm-pill">CX-OFFER-315-WIRING-READY</span>
+      </div>
+    </div>
+    <section class="mm-hero">
+      <div class="mm-eyebrow">Availability option ready for your review</div>
+      <h1 id="heroTitle">Your MissionMed Clinicals offer.</h1>
+      <p class="mm-sub" id="heroSub">Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.</p>
+    </section>
+  </header>
+
+  <main class="mm-app">
+    <article class="mm-card" aria-label="Offer summary">
+      <div class="adapter-strip" role="region" aria-label="Adapter status">
+        <div class="status-line" id="adapterStatus"><strong>Demo adapter active.</strong> No production data is loaded by default.</div>
+        <div class="right">
+          <span class="badge pending" id="offerStateBadge">Pending</span>
+        </div>
+      </div>
+
+      <div class="mm-card-head">
+        <div>
+          <h2 id="offerHeadline">Proposed rotation option</h2>
+          <p id="offerSubhead">A MissionMed Clinicals coordinator prepared the option below based on your intake preferences.</p>
+        </div>
+      </div>
+
+      <div class="mm-card-body">
+        <div class="mm-grid cols-3" id="offerGrid">
+          <div class="info"><small>Specialty</small><b id="offerSpecialty">Internal Medicine</b></div>
+          <div class="info"><small>Location</small><b id="offerLocation">Major US metro area</b></div>
+          <div class="info"><small>Timing / month</small><b id="offerTiming">August 2026</b></div>
+          <div class="info"><small>Duration</small><b id="offerDuration">4 weeks</b></div>
+          <div class="info"><small>Format</small><b id="offerFormat">In-person clinical exposure</b></div>
+          <div class="info"><small>Reference</small><b id="offerReference">Confirmed at acceptance</b></div>
+        </div>
+
+        <div class="section-title">Response deadline</div>
+        <div class="deadline" id="deadlineBox">
+          <div class="icon" aria-hidden="true">!</div>
+          <div>
+            <b id="deadlineLabel">Please respond by August 1, 2026.</b>
+            <span id="deadlineDetail">This offer expires automatically after the deadline. After expiration, your coordinator will reach out about a new option.</span>
+          </div>
+        </div>
+
+        <div class="section-title">Message from your coordinator</div>
+        <div class="message" id="messageBox">
+          <div class="from">MissionMed Clinicals coordinator</div>
+          <div id="messageBody">Thank you for your USCE rotation request. Based on your preferences, we have prepared the option above. Please confirm whether this timing and specialty direction works for you. Payment and onboarding paperwork are only requested after you accept a confirmed offer.</div>
+        </div>
+
+        <div class="section-title">Your response</div>
+        <div class="actions" id="actionRow">
+          <button class="btn accept" type="button" id="acceptBtn">Accept this offer</button>
+          <button class="btn alternate" type="button" id="alternateBtn">Request an alternate</button>
+          <button class="btn decline" type="button" id="declineBtn">Decline</button>
+        </div>
+
+        <form class="alt-form" id="altForm" autocomplete="off" novalidate>
+          <label for="altInput">What would work better?</label>
+          <textarea id="altInput" placeholder="Optional — let your coordinator know which specialty, location, or month would be a better fit. They will follow up with a new option."></textarea>
+          <div class="row">
+            <button class="btn primary" type="button" id="altSubmitBtn">Send alternate request</button>
+            <button class="btn ghost" type="button" id="altCancelBtn">Cancel</button>
+          </div>
+        </form>
+
+        <div class="guard">
+          <b>How this works:</b> nothing is finalized until your coordinator confirms your response. No payment, paperwork, or course access is triggered by a click on this page. You will receive a follow-up from the MissionMed Clinicals team after your response is recorded.
+        </div>
+      </div>
+    </article>
+
+    <!-- Accepted state -->
+    <section class="mm-card state-panel" id="stateAccepted" aria-label="Acceptance confirmation" hidden>
+      <div class="mm-card-body">
+        <div class="confirm accepted">
+          <div class="confirm-icon" aria-hidden="true">&#10003;</div>
+          <div>
+            <h3>Offer accepted. Thank you.</h3>
+            <p>Your acceptance has been recorded. A MissionMed Clinicals coordinator will follow up to confirm payment and onboarding paperwork. Final placement is confirmed only after the coordinator completes both steps.</p>
+          </div>
+        </div>
+
+        <div class="section-title">What happens next</div>
+        <div class="next-steps">
+          <div class="step"><div class="num">1</div><div><b>Coordinator confirmation</b><span>Your coordinator reviews the acceptance and confirms availability before any payment step.</span></div></div>
+          <div class="step"><div class="num">2</div><div><b>Payment</b><span>The MissionMed USCE Clinical Rotations product handles the payment step. The link below opens a new tab — payment is only requested after acceptance, never before.</span></div></div>
+          <div class="step"><div class="num">3</div><div><b>Onboarding paperwork</b><span>After payment is confirmed, onboarding paperwork is sent for completion.</span></div></div>
+          <div class="step"><div class="num">4</div><div><b>Course access</b><span>Course access is enabled after onboarding paperwork is complete.</span></div></div>
+        </div>
+
+        <div class="payment-cta" role="region" aria-label="Payment call to action">
+          <div>
+            <h3>Continue to payment</h3>
+            <p>Open the MissionMed USCE Clinical Rotations product to complete payment. This is the canonical product page — no information from this portal is required to begin.</p>
+          </div>
+          <a class="btn primary" id="paymentCta" href="https://missionmedinstitute.com/product/usce-clinical-rotations/" target="_blank" rel="noopener noreferrer">Go to payment &rarr;</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Declined state -->
+    <section class="mm-card state-panel" id="stateDeclined" aria-label="Decline confirmation" hidden>
+      <div class="mm-card-body">
+        <div class="confirm declined">
+          <div class="confirm-icon" aria-hidden="true">&times;</div>
+          <div>
+            <h3>Offer declined. Thank you for letting us know.</h3>
+            <p>Your decision has been recorded. No payment or paperwork will be requested for this option. If you would like a different option in the future, your coordinator can prepare a new one.</p>
+          </div>
+        </div>
+        <div class="next-steps">
+          <div class="step"><div class="num">1</div><div><b>Recorded locally</b><span>Your decline response is captured for the coordinator to review.</span></div></div>
+          <div class="step"><div class="num">2</div><div><b>Optional follow-up</b><span>If you change your mind or want a different option, reply to your original coordinator email or submit a new MissionMed Clinicals request.</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Alternate requested state -->
+    <section class="mm-card state-panel" id="stateAlternate" aria-label="Alternate request confirmation" hidden>
+      <div class="mm-card-body">
+        <div class="confirm alt">
+          <div class="confirm-icon" aria-hidden="true">&#8634;</div>
+          <div>
+            <h3>Alternate request sent.</h3>
+            <p>Your coordinator has been notified that this option does not work and will prepare a new option to review. No payment is required at this step.</p>
+          </div>
+        </div>
+        <div class="info" style="margin-top:14px"><small>Your note to the coordinator</small><b id="altEcho">No additional details provided.</b></div>
+        <div class="next-steps">
+          <div class="step"><div class="num">1</div><div><b>Coordinator review</b><span>Your coordinator reviews the request and looks for an option that matches better.</span></div></div>
+          <div class="step"><div class="num">2</div><div><b>New offer</b><span>You will receive a new offer link by email when a fresh option is ready.</span></div></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer-note">CX-OFFER-315 wiring-ready offer-portal shell. This page does not contact Supabase from the browser, does not expose service-role data, and does not trigger payment or email on its own. Live response actions remain disabled by default until a separate live validation gate enables the adapter.</p>
+  </main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  window.__MISSIONMED_USCE_OFFER_CONFIG = {
+    version: 'CX-OFFER-315-WIRING-READY',
+    mode: 'shell_only_wiring_ready',
+    apiBase: 'https://missionmed-hq-production.up.railway.app',
+    offerTokenParam: 'offer',
+    readEndpoint: '/api/usce/offer/:token',
+    respondEndpoint: '/api/usce/offer/:token/respond',
+    liveAdapterEnabled: false
+  };
+
+  var CONFIG = window.__MISSIONMED_USCE_OFFER_CONFIG;
+  var WOO_URL = 'https://missionmedinstitute.com/product/usce-clinical-rotations/';
+
+  var els = {};
+  var state = {
+    token: '',
+    offer: null,
+    response: 'pending',
+    locked: false
+  };
+
+  document.addEventListener('DOMContentLoaded', init);
+
+  function init(){
+    cacheEls();
+    state.token = readToken();
+    bindEvents();
+    loadOffer();
+  }
+
+  function cacheEls(){
+    [
+      'modeDot','modePill','heroTitle','heroSub','adapterStatus','offerStateBadge',
+      'offerHeadline','offerSubhead','offerSpecialty','offerLocation','offerTiming',
+      'offerDuration','offerFormat','offerReference','deadlineBox','deadlineLabel',
+      'deadlineDetail','messageBody','acceptBtn','alternateBtn','declineBtn','altForm',
+      'altInput','altSubmitBtn','altCancelBtn','stateAccepted','stateDeclined',
+      'stateAlternate','altEcho','paymentCta','actionRow'
+    ].forEach(function(id){ els[id] = document.getElementById(id); });
+  }
+
+  function bindEvents(){
+    els.acceptBtn.addEventListener('click', function(){ respond('accepted'); });
+    els.declineBtn.addEventListener('click', function(){ respond('declined'); });
+    els.alternateBtn.addEventListener('click', openAltForm);
+    els.altCancelBtn.addEventListener('click', closeAltForm);
+    els.altSubmitBtn.addEventListener('click', function(){ respond('alternate_requested'); });
+  }
+
+  function readToken(){
+    try {
+      var url = new URL(window.location.href);
+      var raw = url.searchParams.get(CONFIG.offerTokenParam) || '';
+      return String(raw).trim().slice(0, 256);
+    } catch (_e) {
+      return '';
+    }
+  }
+
+  function loadOffer(){
+    if (CONFIG.liveAdapterEnabled === true && state.token) {
+      // Adapter stub. Disabled by default. Live activation requires a Wiring Authority gate;
+      // would call GET /api/usce/offer/:token and receive a redacted offer payload
+      // with student-safe fields only. No Supabase calls from the browser.
+      adapterStubGetOffer(state.token).then(applyOffer).catch(function(err){
+        setAdapterStatus('Offer load failed safely; showing demo preview. ' + (err && err.message ? err.message : ''), 'demo');
+        applyOffer(buildDemoOffer(state.token));
+      });
+      return;
+    }
+    if (state.token) {
+      setAdapterStatus('Token detected, but live adapter is disabled. Showing demo preview only.', 'demo');
+    } else {
+      setAdapterStatus('No offer token in URL. Showing demo preview only.', 'demo');
+    }
+    applyOffer(buildDemoOffer(state.token));
+  }
+
+  function applyOffer(offer){
+    state.offer = offer;
+    renderOffer();
+  }
+
+  function renderOffer(){
+    var o = state.offer || {};
+    setText(els.offerSpecialty, o.specialty || 'To be confirmed');
+    setText(els.offerLocation, o.location || 'To be confirmed');
+    setText(els.offerTiming, o.timing || 'To be confirmed');
+    setText(els.offerDuration, o.duration || 'To be confirmed');
+    setText(els.offerFormat, o.format || 'In-person clinical exposure');
+    setText(els.offerReference, o.reference || 'Confirmed at acceptance');
+    setText(els.deadlineLabel, o.deadlineLabel || 'Response deadline will be confirmed by your coordinator.');
+    setText(els.deadlineDetail, o.deadlineDetail || 'After the deadline this offer expires automatically and a new option may be prepared.');
+    setText(els.messageBody, o.message || els.messageBody.textContent);
+    setText(els.heroTitle, o.heroTitle || 'Your MissionMed Clinicals offer.');
+    setText(els.heroSub, o.heroSub || 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.');
+
+    var expired = isExpired(o);
+    if (expired) {
+      els.deadlineBox.classList.add('expired');
+      lockActions('expired');
+      setBadge('Expired', 'expired');
+    } else {
+      setBadge('Pending', 'pending');
+    }
+  }
+
+  function buildDemoOffer(token){
+    return {
+      specialty: 'Internal Medicine',
+      location: 'Major US metro area',
+      timing: 'August 2026',
+      duration: '4 weeks',
+      format: 'In-person clinical exposure',
+      reference: token ? 'Reference confirmed at acceptance' : 'Demo preview reference',
+      deadlineLabel: 'Please respond by August 1, 2026.',
+      deadlineDetail: 'This offer expires automatically after the deadline. Your coordinator will reach out about a new option after expiration.',
+      message: 'Thank you for your USCE rotation request. Based on your preferences, we have prepared the option above. Please confirm whether this timing and specialty direction works for you. Payment and onboarding paperwork are only requested after you accept a confirmed offer.',
+      heroTitle: 'Your MissionMed Clinicals offer.',
+      heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.',
+      expiresAt: null
+    };
+  }
+
+  function isExpired(offer){
+    if (!offer || !offer.expiresAt) return false;
+    var t = Date.parse(offer.expiresAt);
+    if (isNaN(t)) return false;
+    return t < Date.now();
+  }
+
+  function openAltForm(){
+    if (state.locked) return;
+    els.altForm.classList.add('open');
+    els.altInput.focus();
+  }
+
+  function closeAltForm(){
+    els.altForm.classList.remove('open');
+    els.altInput.value = '';
+  }
+
+  function respond(action){
+    if (state.locked) return;
+    var note = '';
+    if (action === 'alternate_requested') {
+      note = String(els.altInput.value || '').trim().slice(0, 1000);
+    }
+    state.response = action;
+    state.locked = true;
+
+    // Adapter stub. Disabled by default.
+    // Live activation requires a Wiring Authority gate — would POST to a tokenized public
+    // response endpoint POST /api/usce/offer/:token/respond with action+note and
+    // would update offer state server-side. This shell never sends email, never creates
+    // payment, never touches Supabase from the browser, and never names private partners.
+    if (CONFIG.liveAdapterEnabled === true && state.token) {
+      adapterStubRespond(state.token, action, note).then(function(){
+        showState(action, note);
+      }).catch(function(err){
+        setAdapterStatus('Live response stub returned safely without writing. ' + (err && err.message ? err.message : ''), 'demo');
+        showState(action, note);
+      });
+    } else {
+      setAdapterStatus('Response captured locally. Live adapter is disabled — no production write occurred.', 'demo');
+      showState(action, note);
+    }
+  }
+
+  function showState(action, note){
+    lockActions(action);
+    hideAll([els.stateAccepted, els.stateDeclined, els.stateAlternate]);
+    if (action === 'accepted') {
+      show(els.stateAccepted);
+      setBadge('Accepted', 'accepted');
+    } else if (action === 'declined') {
+      show(els.stateDeclined);
+      setBadge('Declined', 'declined');
+    } else if (action === 'alternate_requested') {
+      setText(els.altEcho, note || 'No additional details provided.');
+      show(els.stateAlternate);
+      setBadge('Alternate requested', 'alt');
+    }
+    if (els.stateAccepted && !els.stateAccepted.hasAttribute('hidden')) {
+      try { els.stateAccepted.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
+    } else if (action === 'declined') {
+      try { els.stateDeclined.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
+    } else if (action === 'alternate_requested') {
+      try { els.stateAlternate.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
+    }
+  }
+
+  function lockActions(reason){
+    state.locked = true;
+    els.acceptBtn.disabled = true;
+    els.declineBtn.disabled = true;
+    els.alternateBtn.disabled = true;
+    els.altSubmitBtn.disabled = true;
+    els.altInput.disabled = true;
+    els.altForm.classList.remove('open');
+    if (reason === 'expired') {
+      els.acceptBtn.textContent = 'Offer expired';
+    }
+  }
+
+  function setBadge(text, kind){
+    els.offerStateBadge.textContent = text;
+    els.offerStateBadge.className = 'badge ' + kind;
+  }
+
+  function setAdapterStatus(text, kind){
+    var label = kind === 'live' ? 'Live read.' : kind === 'pending' ? 'Checking.' : 'Demo adapter active.';
+    els.adapterStatus.innerHTML = '<strong>' + esc(label) + '</strong> ' + esc(text);
+    if (els.modeDot && els.modePill) {
+      els.modeDot.className = 'mm-dot' + (kind === 'live' ? ' green' : kind === 'pending' ? ' amber' : '');
+      els.modePill.textContent = kind === 'live' ? 'Live offer' : 'Demo offer';
+    }
+  }
+
+  // ---- Adapter stubs (disabled by default) ----------------------------------
+  // These functions exist as a contract reference. They never execute network
+  // calls while liveAdapterEnabled === false. When the protected route exists,
+  // they will be replaced with a tokenized public-response endpoint contract.
+
+  function adapterStubGetOffer(_token){
+    return Promise.reject(new Error('Live adapter disabled by config (CX-OFFER-315).'));
+  }
+
+  function adapterStubRespond(_token, _action, _note){
+    return Promise.reject(new Error('Live adapter disabled by config (CX-OFFER-315).'));
+  }
+
+  // ---- Tiny helpers ---------------------------------------------------------
+
+  function setText(el, value){ if (el) el.textContent = value == null ? '' : String(value); }
+  function show(el){ if (el) { el.hidden = false; el.classList.add('active'); } }
+  function hideAll(list){ list.forEach(function(el){ if (el) { el.hidden = true; el.classList.remove('active'); } }); }
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>'"]/g, function(ch){
+      return ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' })[ch];
+    });
+  }
+})();
+</script>
+</body>
+</html>

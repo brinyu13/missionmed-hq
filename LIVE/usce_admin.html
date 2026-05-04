@@ -195,6 +195,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 
           <div class="pane" data-pane="comms">
             <div class="lockout"><b>No live Postmark:</b> communications are preview-only in this shell. Real internal notifications, offer emails, delivery events, and duplicate-send prevention require Wiring Authority and Postmark dry-run-to-live gates.</div>
+            <div class="section-title">Student offer portal preview</div>
+            <div class="info"><small>CX-OFFER-315 student portal shell</small><b><a href="usce_offer.html" target="_blank" rel="noopener">Open USCE student offer portal preview &rarr;</a></b><span style="display:block;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.55">Preview-only in this admin UI. Token mint, tokenized read, and accept/decline/alternate endpoints are Wiring Authority source-wired, but browser live adapter activation and CDN promotion require a separate validation gate. The portal page never calls Supabase from the browser, never exposes service-role data, and never redirects to WooCommerce before the student accepts.</span></div>
             <div class="section-title">Communications timeline shell</div>
             <div class="timeline" id="commsTimeline"></div>
           </div>
@@ -289,6 +291,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     { name: 'previewOfferEmail(id, offerPayload)', state: 'stub/demo', detail: 'Preview is generated in-browser from local form state only.' },
     { name: 'sendOffer(id)', state: 'requires Wiring Authority', detail: 'Needs Postmark dry-run-to-live gate, duplicate prevention, usce_comms logging, and admin audit.' },
     { name: 'getCommsTimeline(id)', state: 'stub/demo', detail: 'Timeline shell uses local/system events until comms endpoint exists.' },
+    { name: 'studentOfferPortalLink(id)', state: 'source-wired / disabled', detail: 'CX-OFFER-315 adds protected admin token mint plus tokenized student read/respond endpoint source. This admin shell still does not mint/send links from the browser; live activation requires a separate validation gate.' },
     { name: 'getPaymentPaperworkState(id)', state: 'future phase', detail: 'Requires WooCommerce/Stripe sync, paperwork state, and LearnDash downstream checks.' }
   ];
 

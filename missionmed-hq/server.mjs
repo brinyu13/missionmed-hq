@@ -18,6 +18,11 @@ import {
   updateUscePublicIntakeAdminNote,
   updateUscePublicIntakeAdminStatus,
 } from './routes/usce-public-intake.mjs';
+import {
+  handleUsceAdminOfferRoute,
+  handleUsceOfferPortalPublicRoute,
+  isUsceAdminOfferPath,
+} from './routes/usce-offer-portal.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -1760,6 +1765,9 @@ const USCE_KNOWN_ROUTE_PATTERNS = [
   /^\/api\/usce\/admin\/public-intake-requests$/u,
   /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/status$/u,
   /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/admin-note$/u,
+  /^\/api\/usce\/admin\/intake-requests\/[^/]+\/offer-draft$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/token$/u,
   /^\/api\/usce\/programs$/u,
   /^\/api\/usce\/programs\/[^/]+$/u,
   /^\/api\/usce\/portal\/[^/]+$/u,
@@ -1840,6 +1848,10 @@ async function handleUsceRoute(request, response, url, context) {
     return true;
   }
 
+  if (isUsceAdminOfferPath(pathname)) {
+    return handleUsceAdminOfferRoute(request, response, url, { session, authHeaders });
+  }
+
   if (isUsceAdminPublicIntakeListPath(pathname)) {
     if (request.method !== 'GET') {
       sendMethodNotAllowed(response, ['GET']);
@@ -1914,6 +1926,13 @@ async function handleApiRoute(request, response, url, context) {
 
   if (pathname.startsWith('/api/usce/public/')) {
     const handled = await handleUscePublicRoute(request, response, url);
+    if (handled) {
+      return;
+    }
+  }
+
+  if (pathname.startsWith('/api/usce/offer/')) {
+    const handled = await handleUsceOfferPortalPublicRoute(request, response, url);
     if (handled) {
       return;
     }
