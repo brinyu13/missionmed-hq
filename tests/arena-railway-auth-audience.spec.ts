@@ -40,6 +40,7 @@ test('Railway handoff preserves Arena audience and learner sessions cannot enter
   const exchange = functionBodyFrom(hqServer, 'exchangeWordPressAuth');
   const parseHandoff = functionBodyFrom(hqServer, 'parseWordPressHandoffToken');
   const requireSession = functionBodyFrom(hqServer, 'requireAuthenticatedApiSession');
+  const privilegedUser = functionBodyFrom(hqServer, 'isPrivilegedWordPressUser');
   const sessionCookie = functionBodyFrom(hqServer, 'buildSessionCookie');
 
   assert.match(hqServer, /AUTH_LEARNER_AUDIENCES\s*=\s*new Set\(\['arena', 'stat', 'daily', 'drills'\]\)/);
@@ -52,7 +53,10 @@ test('Railway handoff preserves Arena audience and learner sessions cannot enter
   assert.match(exchange, /isAuthorizedForAuthAudience\(wpUser,\s*authAudience\)/);
   assert.match(exchange, /authAudience,/);
   assert.doesNotMatch(parseHandoff, /isAuthorizedWordPressUser/);
+  assert.match(requireSession, /isPrivilegedWordPressUser\(normalizeWordPressIdentityUser\(session\.user \|\| \{\}\)\)/);
   assert.match(requireSession, /hq_role_required/);
+  assert.match(privilegedUser, /administrator/);
+  assert.match(privilegedUser, /manage_options/);
   assert.match(sessionCookie, /sameSitePolicy\s*=\s*secureCookie\s*\?\s*'None'\s*:\s*'Lax'/);
 });
 
@@ -61,7 +65,7 @@ test('USCE protected routes reject learner auth sessions before admin RPC access
   const handleUsceRoute = functionBodyFrom(hqServer, 'handleUsceRoute');
 
   assert.match(requireUsceSession, /authentication_required/);
-  assert.match(requireUsceSession, /isAuthorizedWordPressUser\(normalizeWordPressIdentityUser\(session\.user \|\| \{\}\)\)/);
+  assert.match(requireUsceSession, /isPrivilegedWordPressUser\(normalizeWordPressIdentityUser\(session\.user \|\| \{\}\)\)/);
   assert.match(requireUsceSession, /hq_role_required/);
 
   assert.ok(

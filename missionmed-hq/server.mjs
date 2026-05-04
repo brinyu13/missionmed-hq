@@ -1719,7 +1719,7 @@ function requireAuthenticatedApiSession(request, response, session) {
     return false;
   }
 
-  if (CONFIG.authRequired && session && !isAuthorizedWordPressUser(normalizeWordPressIdentityUser(session.user || {}))) {
+  if (CONFIG.authRequired && session && !isPrivilegedWordPressUser(normalizeWordPressIdentityUser(session.user || {}))) {
     sendJson(response, 403, {
       error: 'hq_role_required',
       message: 'This Railway session is valid for learner auth bootstrap but is not authorized for protected MissionMed HQ APIs.',
@@ -1790,7 +1790,7 @@ function requireUsceUserSession(request, response, session, authHeaders) {
     return false;
   }
 
-  if (CONFIG.authRequired && !isAuthorizedWordPressUser(normalizeWordPressIdentityUser(session.user || {}))) {
+  if (CONFIG.authRequired && !isPrivilegedWordPressUser(normalizeWordPressIdentityUser(session.user || {}))) {
     sendJson(response, 403, {
       error: 'hq_role_required',
       message: 'This Railway session is valid for learner auth bootstrap but is not authorized for protected USCE APIs.',
@@ -7078,6 +7078,12 @@ function isAuthorizedWordPressUser(user) {
   }
 
   return Boolean(user.capabilities?.manage_options);
+}
+
+function isPrivilegedWordPressUser(user) {
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  return roles.some((role) => String(role).toLowerCase() === 'administrator')
+    || Boolean(user.capabilities?.manage_options);
 }
 
 function isValidLearnerWordPressUser(user) {
