@@ -1790,6 +1790,14 @@ function requireUsceUserSession(request, response, session, authHeaders) {
     return false;
   }
 
+  if (CONFIG.authRequired && !isAuthorizedWordPressUser(normalizeWordPressIdentityUser(session.user || {}))) {
+    sendJson(response, 403, {
+      error: 'hq_role_required',
+      message: 'This Railway session is valid for learner auth bootstrap but is not authorized for protected USCE APIs.',
+    }, authHeaders);
+    return false;
+  }
+
   if (isMutationMethod(request.method) && !validateCsrf(request, session)) {
     sendJson(response, 403, {
       error: 'csrf_validation_failed',

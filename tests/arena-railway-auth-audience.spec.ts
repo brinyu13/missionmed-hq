@@ -56,6 +56,20 @@ test('Railway handoff preserves Arena audience and learner sessions cannot enter
   assert.match(sessionCookie, /sameSitePolicy\s*=\s*secureCookie\s*\?\s*'None'\s*:\s*'Lax'/);
 });
 
+test('USCE protected routes reject learner auth sessions before admin RPC access', () => {
+  const requireUsceSession = functionBodyFrom(hqServer, 'requireUsceUserSession');
+  const handleUsceRoute = functionBodyFrom(hqServer, 'handleUsceRoute');
+
+  assert.match(requireUsceSession, /authentication_required/);
+  assert.match(requireUsceSession, /isAuthorizedWordPressUser\(normalizeWordPressIdentityUser\(session\.user \|\| \{\}\)\)/);
+  assert.match(requireUsceSession, /hq_role_required/);
+
+  assert.ok(
+    handleUsceRoute.indexOf('requireUsceUserSession') < handleUsceRoute.indexOf('getUscePublicIntakeAdminList'),
+    'Expected USCE admin intake list to run only after the protected USCE session gate',
+  );
+});
+
 test('Supabase bootstrap syncs the auth user before sign-in and avoids rate-limit loops', () => {
   const bootstrap = functionBodyFrom(hqServer, 'bootstrapSupabaseSessionFromWordPressSession');
   const lookup = functionBodyFrom(hqServer, 'findSupabaseAuthUserByEmail');
