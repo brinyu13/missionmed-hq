@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  CX-OFFER-312-WIRING-PREP
+  CX-OFFER-313-LIVE-VALIDATED
   MissionMed USCE Admin Offer Engine Shell
   Static R2-ready admin product shell. Demo-first, protected live adapter optional.
   Status/note backend actions are Wiring Authority prepared; no email sends, no payment actions, no direct Supabase browser access.
@@ -10,7 +10,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="missionmed-app" content="usce-admin-offer-engine">
-<meta name="missionmed-version" content="CX-OFFER-312-WIRING-PREP">
+<meta name="missionmed-version" content="CX-OFFER-313-LIVE-VALIDATED">
 <title>MissionMed Clinicals Command Center | USCE Offer Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,7 +43,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
       </div>
       <div class="mm-runtime" aria-live="polite">
         <span class="mm-pill"><span class="mm-dot green"></span><span id="modePill">Demo mode</span></span>
-        <span class="mm-pill"><span class="mm-dot"></span>CX-OFFER-312-WIRING-PREP</span>
+        <span class="mm-pill"><span class="mm-dot"></span>CX-OFFER-313-LIVE-VALIDATED</span>
         <span class="mm-pill">No writes. No sends. No payments.</span>
       </div>
     </div>
@@ -60,7 +60,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
           <div class="mm-kpi"><b id="kpiOffer">0</b><span>Offer ready</span></div>
           <div class="mm-kpi"><b id="kpiWire">8</b><span>Wiring gates</span></div>
         </div>
-        <div class="mm-notice"><b>Safety lane:</b> live reads may use the audited admin endpoint. Status and internal-note writes now have protected backend contracts, but browser activation still requires the follow-up live validation gate. Offer sends, Postmark, payment, paperwork, and CDN promotion remain disabled.</div>
+        <div class="mm-notice"><b>Safety lane:</b> live reads use the audited admin endpoint. Status and internal-note writes passed the protected live validation gate, but this shell keeps browser write controls disabled until a product workflow explicitly enables them. Offer sends, Postmark, payment, and paperwork remain disabled.</div>
       </aside>
     </section>
   </header>
@@ -209,7 +209,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
           </div>
 
           <div class="pane" data-pane="wiring">
-            <div class="lockout"><b>Authority boundary:</b> this UI is R2-ready but not promoted in this run. Status and internal-note endpoints have protected backend contracts; live browser activation, Postmark send, payment handoff, LearnDash sync, and CDN promotion remain behind the validation gate.</div>
+            <div class="lockout"><b>Authority boundary:</b> this UI is R2-ready after the CX-OFFER-313 protected live gate. Status and internal-note endpoints are validated on controlled test rows; browser write controls, Postmark send, payment handoff, and LearnDash sync remain behind future Wiring Authority gates.</div>
             <div class="section-title">Adapter contract</div>
             <div class="wiring-list" id="adapterContractList"></div>
           </div>
@@ -245,14 +245,14 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
       </aside>
     </section>
   </main>
-  <p class="footer-note">CX-OFFER-312-WIRING-PREP static shell. This file is safe for local/R2 preview but was not promoted to CDN in this run. Live admin reads and protected status/note endpoints route through Railway only and never call Supabase directly from the browser.</p>
+  <p class="footer-note">CX-OFFER-313-LIVE-VALIDATED static shell. Live admin reads and protected status/note endpoints route through Railway only and never call Supabase directly from the browser. Browser write controls, offer send, payment, and LearnDash actions remain disabled.</p>
 </div>
 <script>
 (function(){
   'use strict';
 
   window.__MISSIONMED_USCE_ADMIN_CONFIG = Object.freeze({
-    version: 'CX-OFFER-312-WIRING-PREP',
+    version: 'CX-OFFER-313-LIVE-VALIDATED',
     mode: 'demo',
     liveReadEnabledByDefault: false,
     apiBase: 'https://missionmed-hq-production.up.railway.app',
@@ -294,8 +294,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 
   const wiringItems = [
     { label: 'Admin list read', status: 'live', detail: 'Existing audited endpoint, privileged WordPress authority required after 310K wiring fix.' },
-    { label: 'Status update endpoint', status: 'live existing', detail: 'Protected backend contract prepared; terminal unauth gate verified, live admin browser validation pending.' },
-    { label: 'Internal notes endpoint', status: 'live existing', detail: 'Protected backend contract prepared; terminal unauth gate verified, live admin browser validation pending.' },
+    { label: 'Status update endpoint', status: 'live existing', detail: 'Protected backend contract validated by privileged admin browser test; UI write control remains intentionally disabled.' },
+    { label: 'Internal notes endpoint', status: 'live existing', detail: 'Protected backend contract validated by privileged admin browser test; UI write control remains intentionally disabled.' },
     { label: 'Offer draft persistence', status: 'required', detail: 'Draft table/RPC and promotion path to formal USCE request state.' },
     { label: 'Offer send/Postmark', status: 'required', detail: 'Postmark template, dry-run-to-live gate, duplicate-send lock, usce_comms logging.' },
     { label: 'Student offer portal', status: 'required', detail: 'Tokenized student response path for accept/decline/alternate.' },
