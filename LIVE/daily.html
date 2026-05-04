@@ -7,7 +7,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 -->
 <!-- MissionMed Arena — daily.html -->
 <!-- Production build: standalone Daily Rounds mode + drills_v1 launch -->
-<!-- Auth:     WordPress cookie -> /api/auth/exchange -> /api/auth/bootstrap -> supabase.auth.getUser() -->
+<!-- Auth:     WordPress cookie -> Railway /api/auth/exchange -> /api/auth/bootstrap -> supabase.auth.getUser() -->
 <!-- Identity: window.MM_USER = { id, username } -->
 <!-- Drills:   /drills?video_id=<id> -->
 <!-- Layer 0:  #arena-loading    z-index 800 -->
@@ -582,6 +582,28 @@ html,body{
 .session-stat-val.source-name{
   display:inline-block;max-width:280px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;vertical-align:bottom;
 }
+.session-card.daily-result-complete{
+  border-left-color:var(--accent-green);
+  box-shadow:0 0 24px rgba(34,197,94,.18),inset 0 0 18px rgba(34,197,94,.05);
+}
+.daily-result-history{
+  padding:8px 10px;
+  border:1px solid rgba(34,197,94,.22);
+  background:rgba(13,68,42,.22);
+}
+.daily-result-history .session-stat-val{color:var(--accent-green)}
+.daily-result-title{
+  flex-basis:100%;
+  color:var(--text-secondary);
+}
+.daily-result-title .session-stat-val{
+  display:inline-block;
+  max-width:min(520px,100%);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  vertical-align:bottom;
+}
 .session-arrow{
   flex-shrink:0;width:24px;height:24px;
   display:flex;align-items:center;justify-content:center;
@@ -722,6 +744,34 @@ html,body{
 .session-intel-meta-value.good{color:var(--accent-green)}
 .session-intel-meta-value.warn{color:var(--accent-gold)}
 .session-intel-meta-value.none{color:var(--text-dim)}
+.daily-result-banner{
+  margin-top:16px;
+  padding:14px 16px;
+  border:1px solid rgba(34,197,94,.28);
+  border-left:4px solid var(--accent-green);
+  background:rgba(13,68,42,.22);
+  color:var(--text-secondary);
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+.daily-result-banner strong{
+  display:block;
+  margin-bottom:6px;
+  color:var(--accent-green);
+  font-family:'Orbitron',sans-serif;
+  font-size:15px;
+  letter-spacing:1.4px;
+}
+.daily-result-banner .daily-result-context{
+  display:block;
+  margin-top:6px;
+  color:var(--text-secondary);
+  line-height:1.55;
+  text-transform:none;
+  letter-spacing:.4px;
+}
 
 /* ============================================================
    STEP 3: MISSION INTEL
@@ -1039,6 +1089,23 @@ html.admin-bar{margin-top:0!important}
   .fn-start-btn{padding:16px 40px;font-size:16px}
   .step-crumb-label{padding:4px 10px;font-size:9px}
 }
+@media(max-width:480px){
+  .session-list{max-height:calc(100vh - 230px)}
+  .session-card{
+    align-items:flex-start;
+    gap:10px;
+    padding:12px 14px;
+    clip-path:none;
+  }
+  .session-badge{padding:5px 9px;font-size:9px}
+  .session-title{white-space:normal;font-size:15px;line-height:1.25}
+  .session-history{gap:8px 12px}
+  .session-stat{font-size:10px;letter-spacing:.7px}
+  .session-arrow{display:none}
+  .daily-result-history{width:100%}
+  .daily-result-title .session-stat-val{max-width:100%;white-space:normal}
+  .daily-result-banner{font-size:11px;line-height:1.5}
+}
 </style>
 </head>
 <body data-lobby-state="loading">
@@ -1062,7 +1129,7 @@ html.admin-bar{margin-top:0!important}
   <div class="arena-auth-card">
     <h1 class="arena-auth-title">LOGIN REQUIRED</h1>
     <p class="arena-auth-copy">You must be logged in to enter the Arena.</p>
-    <a id="arenaAuthLoginBtn" class="arena-auth-login" href="/my-account/?redirect_to=/drills">LOG IN</a>
+    <a id="arenaAuthLoginBtn" class="arena-auth-login" href="/my-account/?redirect_to=/daily">LOG IN</a>
   </div>
 </div>
 
@@ -1376,12 +1443,26 @@ html.admin-bar{margin-top:0!important}
     try { return new URL(filename, window.location.href).toString(); }
     catch(_e){ return filename; }
   }
+  function resolveDailyReturnUrl(){
+    try {
+      var current = new URL(window.location.href);
+      if (current.origin === 'https://missionmedinstitute.com') {
+        return new URL('/daily', current.origin).toString();
+      }
+      return new URL('daily.html', current.href).toString();
+    } catch(_e) {
+      return '/daily';
+    }
+  }
   var DRILLS_URL       = '/drills';
   var ARENA_SHELL_URL  = '/arena';
-  var LOGIN_REDIRECT   = '/drills';
+  var LOGIN_REDIRECT   = '/daily';
+  var DAILY_DRILL_RESULT_KEY = 'mm_daily_drill_result';
+  var DAILY_DRILL_RESULT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
   var DRILL_API_BASE   = String(window.MISSIONMED_API_BASE || 'https://mmvs-backend-production.up.railway.app').replace(/\/+$/, '');
-  const AUTH_EXCHANGE_URL = '/api/auth/exchange';
-  const AUTH_BOOTSTRAP_URL = '/api/auth/bootstrap';
+  const AUTH_BACKEND_ORIGIN = 'https://missionmed-hq-production.up.railway.app';
+  const AUTH_EXCHANGE_URL = AUTH_BACKEND_ORIGIN + '/api/auth/exchange';
+  const AUTH_BOOTSTRAP_URL = AUTH_BACKEND_ORIGIN + '/api/auth/bootstrap';
   var WORDPRESS_AUTH_TOKEN_PATH = '/wp-json/missionmed-command-center/v1/auth/token/';
   var DEFAULT_WORDPRESS_ORIGIN = 'https://missionmedinstitute.com';
   var AVATAR_API_BASE  = '';
@@ -1821,9 +1902,8 @@ html.admin-bar{margin-top:0!important}
 
   function requiresWordPressToken(result){
     if(!result || result.ok) return false;
-    var message = getResponseErrorMessage(result.payload).toLowerCase();
-    if(result.status === 400 && /signed|token/.test(message)) return true;
-    return result.status === 401;
+    // Locked runtime: Daily must use Railway exchange/bootstrap, not Command Center tokens.
+    return false;
   }
 
   function deriveArenaIdentityFromSupabaseUser(user){
@@ -1972,40 +2052,300 @@ html.admin-bar{margin-top:0!important}
     return { ok: false, reason: lastReason };
   }
 
+  var DAILY_AUTH_HANDOFF_ONCE_KEY = 'mm_daily_auth_handoff_attempted';
+  var DAILY_AUTH_HANDOFF_CYCLE_RESET_KEY = 'mm_daily_auth_handoff_cycle_reset';
+  var DAILY_AUTH_HANDOFF_TOKEN_KEY = 'mm_daily_handoff_token';
+
+  function normalizeDailySameOriginUrl(raw){
+    var safe = String(raw || '').trim();
+    if(!safe) return '';
+    try{
+      var parsed = new URL(safe, window.location.origin);
+      if(parsed.origin !== window.location.origin) return '';
+      return parsed.pathname + parsed.search + parsed.hash;
+    } catch(_urlErr){
+      return '';
+    }
+  }
+
+  function readDailyHandoffTokenFromHash(){
+    try{
+      var rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if(!rawHash) return '';
+      var params = new URLSearchParams(rawHash);
+      return String(params.get('mmhq_handoff_token') || '').trim();
+    } catch(_hashErr){
+      return '';
+    }
+  }
+
+  function clearDailyHandoffTokenFromHash(){
+    try{
+      var rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if(!rawHash) return;
+      var params = new URLSearchParams(rawHash);
+      if(!params.has('mmhq_handoff_token')) return;
+      params.delete('mmhq_handoff_token');
+      var nextHash = params.toString();
+      var nextUrl = window.location.pathname + window.location.search + (nextHash ? ('#' + nextHash) : '');
+      window.history.replaceState({}, '', nextUrl);
+    } catch(_hashClearErr){}
+  }
+
+  function readStoredDailyHandoffToken(){
+    try{ return String(sessionStorage.getItem(DAILY_AUTH_HANDOFF_TOKEN_KEY) || '').trim(); }
+    catch(_storeErr){ return ''; }
+  }
+
+  function writeStoredDailyHandoffToken(token){
+    var safe = String(token || '').trim();
+    try{
+      if(safe) sessionStorage.setItem(DAILY_AUTH_HANDOFF_TOKEN_KEY, safe);
+      else sessionStorage.removeItem(DAILY_AUTH_HANDOFF_TOKEN_KEY);
+    } catch(_storeErr){}
+  }
+
+  function resolveDailyHandoffToken(){
+    var stored = readStoredDailyHandoffToken();
+    if(stored) return stored;
+    var hashToken = readDailyHandoffTokenFromHash();
+    if(hashToken){
+      writeStoredDailyHandoffToken(hashToken);
+      clearDailyHandoffTokenFromHash();
+      return hashToken;
+    }
+    return '';
+  }
+
+  function getDailyAuthExchangeRetryDelays(){
+    var delays = [0];
+    var authCfg = getArenaAuthConfig();
+    var loginHint = !!(authCfg && authCfg.just_logged_in);
+
+    try{
+      var search = new URLSearchParams(window.location.search || '');
+      if(search.get('redirected') === '1' || search.get('just_logged_in') === '1') loginHint = true;
+    } catch(_searchErr){}
+
+    try{
+      if(!loginHint && document.referrer){
+        loginHint = /\/my-account\/?|\/wp-login\.php/i.test(String(document.referrer));
+      }
+    } catch(_refErr){}
+
+    return loginHint ? [0, 150, 350, 700, 1200, 2000] : delays;
+  }
+
+  function getDailyExchangeLoginHints(result){
+    if(!result || !result.payload || typeof result.payload !== 'object') return null;
+    var login = result.payload.login;
+    return login && typeof login === 'object' ? login : null;
+  }
+
+  function resolveDailyAuthFinalUrl(){
+    try{
+      var finalUrl = new URL('/daily', window.location.origin);
+      finalUrl.searchParams.set('just_logged_in', '1');
+      return finalUrl.toString();
+    } catch(_finalErr){
+      return 'https://missionmedinstitute.com/daily?just_logged_in=1';
+    }
+  }
+
+  function withDailyAuthFinalReturn(rawHandoffUrl){
+    var safe = String(rawHandoffUrl || '').trim();
+    if(!safe) return '';
+    try{
+      var handoffUrl = new URL(safe, window.location.origin);
+      var finalUrl = resolveDailyAuthFinalUrl();
+      handoffUrl.searchParams.set('final', finalUrl);
+      var returnTo = String(handoffUrl.searchParams.get('return_to') || '').trim();
+      if(returnTo){
+        var returnUrl = new URL(returnTo);
+        if(returnUrl.origin === AUTH_BACKEND_ORIGIN && returnUrl.pathname === '/api/auth/session'){
+          returnUrl.searchParams.set('audience', 'daily');
+          returnUrl.searchParams.set('final', finalUrl);
+          handoffUrl.searchParams.set('return_to', returnUrl.toString());
+        }
+      }
+      return handoffUrl.toString();
+    } catch(_handoffUrlErr){
+      return safe;
+    }
+  }
+
+  function getDailyWordPressHandoffUrl(result){
+    var loginHints = getDailyExchangeLoginHints(result);
+    if(!loginHints) return '';
+    var raw = String(loginHints.wordpress_handoff_url || '').trim();
+    if(!raw) return '';
+    return normalizeDailySameOriginUrl(withDailyAuthFinalReturn(raw));
+  }
+
+  function hasAttemptedDailyAuthHandoff(){
+    try{ return sessionStorage.getItem(DAILY_AUTH_HANDOFF_ONCE_KEY) === '1'; }
+    catch(_readErr){ return false; }
+  }
+
+  function markDailyAuthHandoffAttempted(){
+    try{ sessionStorage.setItem(DAILY_AUTH_HANDOFF_ONCE_KEY, '1'); } catch(_setErr){}
+  }
+
+  function clearDailyAuthHandoffAttempted(){
+    try{ sessionStorage.removeItem(DAILY_AUTH_HANDOFF_ONCE_KEY); } catch(_clearErr){}
+    try{ sessionStorage.removeItem(DAILY_AUTH_HANDOFF_CYCLE_RESET_KEY); } catch(_clearCycleErr){}
+  }
+
+  function maybeResetDailyAuthHandoffForLoginReturn(){
+    var shouldReset = false;
+    try{
+      var search = new URLSearchParams(window.location.search || '');
+      if(search.get('redirected') === '1' || search.get('just_logged_in') === '1') shouldReset = true;
+    } catch(_searchErr){}
+
+    try{
+      if(!shouldReset && document.referrer){
+        shouldReset = /\/my-account\/?|\/wp-login\.php/i.test(String(document.referrer));
+      }
+    } catch(_refErr){}
+
+    if(!shouldReset) return;
+    try{
+      if(sessionStorage.getItem(DAILY_AUTH_HANDOFF_CYCLE_RESET_KEY) === '1') return;
+      sessionStorage.setItem(DAILY_AUTH_HANDOFF_CYCLE_RESET_KEY, '1');
+    } catch(_cycleErr){}
+    clearDailyAuthHandoffAttempted();
+  }
+
+  function shouldAttemptDailyAuthHandoff(result){
+    if(!result || result.ok) return false;
+    if(hasAttemptedDailyAuthHandoff()) return false;
+    if(!getDailyWordPressHandoffUrl(result)) return false;
+
+    var authCfg = getArenaAuthConfig();
+    if(authCfg && authCfg.isLoggedIn === true) return true;
+    if(authCfg && authCfg.just_logged_in === true) return true;
+
+    try{
+      var search = new URLSearchParams(window.location.search || '');
+      if(search.get('redirected') === '1' || search.get('just_logged_in') === '1') return true;
+    } catch(_searchErr){}
+
+    try{
+      if(document.referrer && /\/my-account\/?|\/wp-login\.php|\/wp-admin\/admin-post\.php/i.test(String(document.referrer))) return true;
+    } catch(_refErr){}
+
+    try{
+      // This is only a handoff trigger hint. Railway still validates the signed
+      // WordPress handoff before issuing any session or Supabase tokens.
+      if(/(?:^|;\s*)mm_wp_rest_nonce=/.test(String(document.cookie || ''))) return true;
+    } catch(_cookieErr){}
+
+    return false;
+  }
+
+  async function attemptDailyAuthHandoff(result){
+    var handoffUrl = getDailyWordPressHandoffUrl(result);
+    if(!handoffUrl) return { ok: false, reason: 'auth_handoff_url_missing' };
+    if(hasAttemptedDailyAuthHandoff()) return { ok: false, reason: 'auth_handoff_already_attempted', handoffUrl: handoffUrl };
+    markDailyAuthHandoffAttempted();
+    try{
+      window.location.href = handoffUrl;
+      return { ok: true, navigating: true, handoffUrl: handoffUrl };
+    } catch(_navErr){
+      return { ok: false, reason: 'auth_handoff_navigation_failed', handoffUrl: handoffUrl };
+    }
+  }
+
   async function runAuthExchange(){
     if (DEMO_MODE) {
       return { ok: false, reason: 'demo_mode_auth_skipped' };
     }
     var endpoint = AUTH_EXCHANGE_URL;
+    var lastDirect = null;
+    maybeResetDailyAuthHandoffForLoginReturn();
+
+    var handoffToken = resolveDailyHandoffToken();
+    if(handoffToken){
+      try{
+        var tokenExchange = await postJson(endpoint, { audience: 'daily', token: handoffToken }, null, 'include');
+        if(tokenExchange && tokenExchange.ok){
+          writeStoredDailyHandoffToken('');
+          clearDailyAuthHandoffAttempted();
+          return {
+            ok: true,
+            endpoint: endpoint,
+            accessToken: getExchangeAccessToken(tokenExchange.payload),
+            csrfToken: getExchangeCsrfToken(tokenExchange.payload),
+            source: 'exchange_handoff_token'
+          };
+        }
+      } catch(_tokenExchangeErr){}
+    }
+
     try{
-      var direct = await postJson(endpoint, {}, null, 'include');
-      if(direct.ok){
-        return {
-          ok: true,
-          endpoint: endpoint,
-          accessToken: getExchangeAccessToken(direct.payload),
-          csrfToken: getExchangeCsrfToken(direct.payload),
-          source: 'exchange_cookie'
-        };
+      var delays = getDailyAuthExchangeRetryDelays();
+      for(var i = 0; i < delays.length; i += 1){
+        if(delays[i] > 0) await new Promise(function(resolve){ setTimeout(resolve, delays[i]); });
+        var direct = await postJson(endpoint, { audience: 'daily' }, null, 'include');
+        lastDirect = direct;
+        if(direct.ok){
+          writeStoredDailyHandoffToken('');
+          clearDailyAuthHandoffAttempted();
+          return {
+            ok: true,
+            endpoint: endpoint,
+            accessToken: getExchangeAccessToken(direct.payload),
+            csrfToken: getExchangeCsrfToken(direct.payload),
+            source: 'exchange_cookie'
+          };
+        }
       }
-      if(requiresWordPressToken(direct)){
+
+      if(shouldAttemptDailyAuthHandoff(lastDirect)){
+        var handoff = await attemptDailyAuthHandoff(lastDirect);
+        if(handoff && handoff.ok){
+          if(handoff.navigating) return { ok: false, reason: 'auth_handoff_navigation_started' };
+          var retryDelays = [150, 350, 700, 1200, 2000];
+          for(var j = 0; j < retryDelays.length; j += 1){
+            if(retryDelays[j] > 0) await new Promise(function(resolve){ setTimeout(resolve, retryDelays[j]); });
+            var postHandoffExchange = await postJson(endpoint, { audience: 'daily' }, null, 'include');
+            lastDirect = postHandoffExchange;
+            if(postHandoffExchange.ok){
+              writeStoredDailyHandoffToken('');
+              clearDailyAuthHandoffAttempted();
+              return {
+                ok: true,
+                endpoint: endpoint,
+                accessToken: getExchangeAccessToken(postHandoffExchange.payload),
+                csrfToken: getExchangeCsrfToken(postHandoffExchange.payload),
+                source: 'exchange_cookie_post_handoff'
+              };
+            }
+          }
+        } else {
+          return { ok: false, reason: (handoff && handoff.reason) || 'auth_handoff_failed' };
+        }
+      }
+
+      if(requiresWordPressToken(lastDirect)){
         var tokenResult = await fetchWordPressExchangeToken();
         if(tokenResult.ok && tokenResult.token){
-          var tokenExchange = await postJson(endpoint, { token: tokenResult.token }, null, 'include');
-          if(tokenExchange.ok){
+          var legacyTokenExchange = await postJson(endpoint, { audience: 'daily', token: tokenResult.token }, null, 'include');
+          if(legacyTokenExchange.ok){
             return {
               ok: true,
               endpoint: endpoint,
-              accessToken: getExchangeAccessToken(tokenExchange.payload),
-              csrfToken: getExchangeCsrfToken(tokenExchange.payload),
+              accessToken: getExchangeAccessToken(legacyTokenExchange.payload),
+              csrfToken: getExchangeCsrfToken(legacyTokenExchange.payload),
               source: 'exchange_wp_token'
             };
           }
-          return { ok: false, reason: 'auth_exchange_token_http_' + tokenExchange.status };
+          return { ok: false, reason: 'auth_exchange_token_http_' + legacyTokenExchange.status };
         }
         return { ok: false, reason: tokenResult.reason || 'wp_token_unavailable' };
       }
-      return { ok: false, reason: 'auth_exchange_http_' + direct.status };
+      return { ok: false, reason: 'auth_exchange_http_' + ((lastDirect && lastDirect.status) || 0) };
     } catch(_exchangeErr){
       return { ok: false, reason: 'auth_exchange_request_failed' };
     }
@@ -2423,6 +2763,7 @@ html.admin-bar{margin-top:0!important}
   var currentStep = 'level';
   var stepPostRenderTimer = null;
   var STEP_TRANSITION_MS = 460;
+  var dailyResultAppliedKey = '';
 
   var pgState = { topic: null, drillId: null, drillTitle: null, selectedDrill: null, selectedVideoId: '' };
 
@@ -2764,7 +3105,7 @@ html.admin-bar{margin-top:0!important}
       topic_key: String(getSessionMeta(stateSession, 'topic_key', arenaState.selectedSubject || '')).trim(),
       topic_label: String(getSessionMeta(stateSession, 'topic_label', pgState.drillTitle || selectedTopic.name || '')).trim(),
       origin_mode: 'daily_rounds',
-      return_url: appendDemoModeParam(resolveSiblingUrl('daily.html')),
+      return_url: appendDemoModeParam(resolveDailyReturnUrl()),
       arena_shell_url: appendDemoModeParam(ARENA_SHELL_URL),
       launched_at: new Date().toISOString(),
       settings: buildSettingsSnapshot(),
@@ -3241,11 +3582,12 @@ html.admin-bar{margin-top:0!important}
           console.log("[INTEL_RENDER_TRIGGERED]", arenaState.session);
           requestAnimationFrame(function() {
             if (currentStep !== 'session') return;
+            var selectedIndex = getSessionIndexForVideo(arenaState.selectedSubject, arenaState.session.video_id);
             renderSessionIntelPanel(
               arenaState.session,
               drTopicById[arenaState.selectedSubject],
-              0,
-              getSessionHistoryByIndex(0),
+              selectedIndex,
+              buildDailyResultHistory(arenaState.session, selectedIndex),
               true
             );
           });
@@ -3425,6 +3767,185 @@ html.admin-bar{margin-top:0!important}
     };
   }
 
+  function toFiniteNumber(value) {
+    var parsed = Number(value);
+    return isFinite(parsed) ? parsed : null;
+  }
+
+  function normalizeDailyDrillResultPayload(payload) {
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    if (String(payload.source || '').trim() !== 'daily_rounds') return null;
+    var videoId = String(payload.video_id || payload.drill_id || '').trim();
+    if (!videoId) return null;
+    var completedAt = String(payload.completed_at || payload.recorded_at || '').trim();
+    var completedMs = Date.parse(completedAt);
+    if (!completedAt || isNaN(completedMs)) return null;
+    if (Date.now() - completedMs > DAILY_DRILL_RESULT_MAX_AGE_MS) {
+      try { sessionStorage.removeItem(DAILY_DRILL_RESULT_KEY); } catch (_error) {}
+      console.info('[DAILY_RESULT_STALE_IGNORED]', { video_id: videoId, completed_at: completedAt });
+      return null;
+    }
+
+    var correctCount = toFiniteNumber(payload.correct_count != null ? payload.correct_count : payload.correctCount);
+    var totalCount = toFiniteNumber(payload.total_count != null ? payload.total_count : payload.totalCount);
+    var score = toFiniteNumber(payload.score);
+    if (score == null && correctCount != null && totalCount && totalCount > 0) {
+      score = (correctCount / totalCount) * 100;
+    }
+    return {
+      source: 'daily_rounds',
+      video_id: videoId,
+      drill_id: String(payload.drill_id || videoId).trim(),
+      title: String(payload.title || 'Daily drill').trim(),
+      score: score,
+      correct_count: correctCount,
+      total_count: totalCount,
+      completed_at: completedAt,
+      launch_id: String(payload.launch_id || '').trim(),
+      persistence: String(payload.persistence || 'session_only').trim() || 'session_only'
+    };
+  }
+
+  function readDailyDrillResult() {
+    try {
+      var raw = sessionStorage.getItem(DAILY_DRILL_RESULT_KEY);
+      if (!raw) return null;
+      var parsed = JSON.parse(raw);
+      var normalized = normalizeDailyDrillResultPayload(parsed);
+      if (!normalized) {
+        sessionStorage.removeItem(DAILY_DRILL_RESULT_KEY);
+        console.warn('[DAILY_RESULT_INVALID_IGNORED]');
+      }
+      return normalized;
+    } catch (error) {
+      try { sessionStorage.removeItem(DAILY_DRILL_RESULT_KEY); } catch (_removeError) {}
+      console.warn('[DAILY_RESULT_READ_FAILED]', error && error.message ? error.message : String(error));
+      return null;
+    }
+  }
+
+  function dailyResultKey(result) {
+    return result ? String(result.video_id || '') + '|' + String(result.completed_at || '') : '';
+  }
+
+  function getDailyResultForVideo(videoId) {
+    var result = readDailyDrillResult();
+    if (!result) return null;
+    return String(result.video_id || '').trim() === String(videoId || '').trim() ? result : null;
+  }
+
+  function formatDailyResultScore(result) {
+    if (result && typeof result.score === 'number' && isFinite(result.score)) return Math.round(result.score) + '%';
+    if (result && result.correct_count != null && result.total_count != null) return result.correct_count + '/' + result.total_count;
+    return '--';
+  }
+
+  function formatDailyResultCorrect(result) {
+    if (result && result.correct_count != null && result.total_count != null) return result.correct_count + ' / ' + result.total_count;
+    return '--';
+  }
+
+  function buildDailyResultHistory(session, index) {
+    var base = getSessionHistoryByIndex(index);
+    var result = getDailyResultForVideo(session && session.video_id);
+    if (!result) return base;
+    return Object.assign({}, base, {
+      watched: true,
+      timesWatched: Math.max(1, Number(base.timesWatched || 0)),
+      lastWatched: result.completed_at,
+      lastScore: formatDailyResultScore(result),
+      completion: 'Completed this session',
+      trend: 'Session result saved for this lab flow.'
+    });
+  }
+
+  function renderDailyResultHistoryHtml(result) {
+    return '<div class="session-history daily-result-history" aria-label="Session result saved for this lab flow">' +
+      '<span class="session-stat daily-result-title">Drill: <span class="session-stat-val">' + escapeHtml(result && result.title ? result.title : 'Daily drill') + '</span></span>' +
+      '<span class="session-stat">Session Result: <span class="session-stat-val">' + escapeHtml(formatDailyResultScore(result)) + '</span></span>' +
+      '<span class="session-stat">Correct: <span class="session-stat-val">' + escapeHtml(formatDailyResultCorrect(result)) + '</span></span>' +
+      '<span class="session-stat">Saved: <span class="session-stat-val">Session Only</span></span>' +
+    '</div>';
+  }
+
+  function renderDailyResultBannerHtml(result) {
+    if (!result) return '';
+    return '<div class="daily-result-banner" aria-live="polite">' +
+      '<strong>Session result saved for this lab flow.</strong>' +
+      'Drill ' + escapeHtml(result.title || 'Daily drill') +
+      ' • ' +
+      'Score ' + escapeHtml(formatDailyResultScore(result)) +
+      ' • Correct ' + escapeHtml(formatDailyResultCorrect(result)) +
+      ' • Persistence: session only' +
+      '<span class="daily-result-context">Next: pick another Daily drill, repeat this one, or return to Arena. This is not permanent progress until wiring authority adds durable persistence.</span>' +
+    '</div>';
+  }
+
+  function getSessionIndexForVideo(topicId, videoId) {
+    var sessions = getSessionsForTopic(topicId);
+    for (var i = 0; i < sessions.length; i += 1) {
+      if (String(sessions[i] && sessions[i].video_id || '').trim() === String(videoId || '').trim()) return i;
+    }
+    return 0;
+  }
+
+  function findDailyResultSession(result) {
+    if (!result || !result.video_id) return null;
+    var topicIds = Object.keys(arenaState.topicAssignments || {});
+    for (var t = 0; t < topicIds.length; t += 1) {
+      var topicId = topicIds[t];
+      var sessions = getSessionsForTopic(topicId);
+      for (var i = 0; i < sessions.length; i += 1) {
+        if (String(sessions[i] && sessions[i].video_id || '').trim() === result.video_id) {
+          return { topicId: topicId, topic: drTopicById[topicId], session: sessions[i], index: i };
+        }
+      }
+    }
+    return null;
+  }
+
+  function showDailyResultSessionIfAvailable() {
+    var result = readDailyDrillResult();
+    if (!result) return false;
+    var key = dailyResultKey(result);
+    if (dailyResultAppliedKey === key) return true;
+    var match = findDailyResultSession(result);
+    if (!match || !match.topic || !match.session) {
+      showToast('SESSION RESULT SAVED');
+      dailyResultAppliedKey = key;
+      return false;
+    }
+
+    arenaState.selectedLevel = match.topic.level || arenaState.selectedLevel;
+    arenaState.selectedSubject = match.topicId;
+    arenaState.session = match.session;
+    syncSelectionStateFromSession(match.topicId, match.topic, match.session);
+    renderSessionList(match.topicId);
+    highlightSelectedSession(match.session.video_id);
+    renderSessionIntelPanel(match.session, match.topic, match.index, buildDailyResultHistory(match.session, match.index), true);
+    showToast('SESSION RESULT SAVED FOR THIS LAB FLOW');
+    dailyResultAppliedKey = key;
+    showStep('session');
+    return true;
+  }
+
+  function refreshDailyResultIfVisible() {
+    var result = readDailyDrillResult();
+    if (!result || currentStep !== 'session' || !arenaState.selectedSubject) return;
+    renderSessionList(arenaState.selectedSubject);
+    if (arenaState.session && arenaState.session.video_id) {
+      var idx = getSessionIndexForVideo(arenaState.selectedSubject, arenaState.session.video_id);
+      highlightSelectedSession(arenaState.session.video_id);
+      renderSessionIntelPanel(
+        arenaState.session,
+        drTopicById[arenaState.selectedSubject],
+        idx,
+        buildDailyResultHistory(arenaState.session, idx),
+        false
+      );
+    }
+  }
+
   function formatSessionDateLabel(rawDate) {
     var text = String(rawDate || '').trim();
     if (!text) return 'Unknown date';
@@ -3522,7 +4043,8 @@ html.admin-bar{margin-top:0!important}
     }
     if (!session) return;
 
-    var safeHistory = history || getSessionHistoryByIndex(idx);
+    var safeHistory = history || buildDailyResultHistory(session, idx);
+    var dailyResult = getDailyResultForVideo(session && session.video_id);
     var scoreValue = safeHistory.lastScore || '--';
     var avgTimeValue = safeHistory.avgTime || '--';
     var watchedValue = safeHistory.watched ? String(safeHistory.timesWatched || 0) + 'x' : '0x';
@@ -3564,7 +4086,8 @@ html.admin-bar{margin-top:0!important}
             '<div class="session-intel-meta-value">' + escapeHtml(trendValue) + '</div>' +
           '</div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      renderDailyResultBannerHtml(dailyResult);
 
     panelEl.classList.remove('hidden');
     panelEl.classList.add('visible');
@@ -3602,10 +4125,12 @@ html.admin-bar{margin-top:0!important}
       card.setAttribute('data-video-id', session.video_id);
       card.setAttribute('data-session-index', String(idx));
 
-      var history = getSessionHistoryByIndex(idx);
+      var history = buildDailyResultHistory(session, idx);
+      var dailyResult = getDailyResultForVideo(session.video_id);
       var selectedVideoId = arenaState.session && arenaState.session.video_id ? arenaState.session.video_id : '';
       var isSelected = String(selectedVideoId || '') === String(session.video_id || '');
       if (isSelected) card.classList.add('selected');
+      if (dailyResult) card.classList.add('daily-result-complete');
 
       var badgeHtml = '';
       if(getSessionMeta(session, 'label', '') === 'MOST RECENT'){
@@ -3618,7 +4143,9 @@ html.admin-bar{margin-top:0!important}
       var sessionSubtitle = formatDrillSubtitle(session);
 
       var historyHtml = '';
-      if (hasRuntimeDrillMetadata(session)) {
+      if (dailyResult) {
+        historyHtml = renderDailyResultHistoryHtml(dailyResult);
+      } else if (hasRuntimeDrillMetadata(session)) {
         historyHtml = '<div class="session-history session-source-meta">' +
           '<span class="session-stat">Uploaded: <span class="session-stat-val">' + escapeHtml(formatDrillUploadedLabel(session)) + '</span></span>' +
           '<span class="session-stat">Source: <span class="session-stat-val source-name">' + escapeHtml(formatDrillSourceName(session)) + '</span></span>' +
@@ -3764,7 +4291,13 @@ html.admin-bar{margin-top:0!important}
 
     document.body.setAttribute('data-lobby-state', 'lobby');
     console.log('[BOOT] Arena ready. Topics mapped, UI active.');
+    showDailyResultSessionIfAvailable();
   }
+
+  window.addEventListener('focus', refreshDailyResultIfVisible);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') refreshDailyResultIfVisible();
+  });
 
   /* Expose for external use */
   window.openPregameModal = function(){ showStep('level'); };

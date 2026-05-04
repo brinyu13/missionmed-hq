@@ -25,3 +25,15 @@ This directory is for MD Daily + Drills lab evidence only.
 Do not promote this artifact to `LIVE/*.html`. Do not wire it into `/arena`,
 `/daily`, `/drills`, `/stat`, or CDN production paths without a separate
 Control Tower-approved implementation prompt.
+
+## Operator Console
+
+`daily_drills_admin_console.html`
+
+- Lab-only operator/admin reference surface
+- Documents Contract B runtime files, learner-flow checklist, result payload
+  shape, session-only persistence status, and future wiring needs
+- Performs no backend writes
+- Performs no Supabase writes
+- Does not modify auth, WordPress, Railway, R2/CDN, or deploy behavior
+- Not tester-facing unless separately approved by Control Tower

@@ -824,6 +824,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
     }
     .mm-drill .next-actions button:hover { transform: translateY(-1px); filter: brightness(1.04); }
     .mm-drill .next-actions button:active { transform: translateY(1px) scale(0.99); }
+    .mm-drill .daily-return-action[hidden] { display: none !important; }
     .mm-drill .actions .restart { width: 100%; justify-self: stretch; text-align: center; }
     .mm-drill .right-panel {
       grid-column: 3;
@@ -1910,6 +1911,26 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
     .mm-drill .run-it-again-btn:active {
       transform: translateY(1px) scale(0.99);
     }
+    .mm-drill .daily-return-action {
+      border-color: rgba(61, 220, 151, 0.9) !important;
+      background: linear-gradient(180deg, #76f7bf 0%, #22c55e 58%, #15803d 100%) !important;
+      color: #04130b !important;
+      box-shadow: 0 0 0 1px rgba(61, 220, 151, 0.42), 0 0 26px rgba(34, 197, 94, 0.34), 0 10px 20px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.52) !important;
+    }
+    .mm-drill .daily-return-note {
+      margin: -2px 0 0;
+      padding: 10px 12px;
+      border: 1px solid rgba(61, 220, 151, 0.28);
+      border-radius: 10px;
+      background: rgba(5, 30, 20, 0.66);
+      color: #c9f6dd;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.45;
+    }
+    .mm-drill .daily-return-note[hidden] {
+      display: none !important;
+    }
     /* [MR-268-011] Mobile-first responsive */
     @media (max-width: 1000px) {
       .mm-drill .app { grid-template-columns: 1fr; }
@@ -1929,6 +1950,15 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       .mm-drill .notes-actions { grid-template-columns: 1fr; }
       .mm-drill .setting-row { grid-template-columns: 1fr; }
       .mm-drill .session-summary-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .mm-drill .stats-block { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .mm-drill .next-actions { grid-template-columns: 1fr; }
+      .mm-drill .next-actions button { min-height: 46px; }
+    }
+    @media (max-width: 430px) {
+      .mm-drill .completion-screen { padding: 14px; }
+      .mm-drill .completion-screen h1 { font-size: 22px; line-height: 1.15; }
+      .mm-drill .stats-block { grid-template-columns: 1fr; }
+      .mm-drill .daily-return-note { font-size: 12px; }
     }
     @keyframes mmDrillTimerPulse { 0% { transform: scale(1); } 50% { transform: scale(1.015); } 100% { transform: scale(1); } }
     @keyframes mmDrillPulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
@@ -4140,8 +4170,10 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           <div id="completionStats" class="stats-block"></div>
           <div id="performanceInsight" class="insight-box"></div>
           <div id="nextSteps" class="next-steps"></div>
+          <p id="dailyReturnHint" class="daily-return-note" hidden>Return to Daily writes a session-only result for this lab flow. Durable learner progress still requires wiring authority.</p>
           <div id="notesSummary" class="notes-summary"></div>
           <div class="next-actions">
+            <button id="returnDailyBtn" class="daily-return-action" type="button" hidden>Return to Daily</button>
             <button id="repeatDrillBtn" type="button">RUN IT AGAIN</button>
             <button id="focusWeakBtn" type="button">Focus Weak Areas</button>
             <button id="watchModeBtn" type="button">Watch Without Interruptions</button>
@@ -4251,6 +4283,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         <div id="sessionSummaryStats" class="session-summary-stats"></div>
         <p id="sessionSummaryMeta" class="session-summary-meta"></p>
         <p id="sessionReinforcementMessage" class="session-summary-reinforcement"></p>
+        <p id="summaryDailyReturnHint" class="daily-return-note" hidden>Return to Daily saves this result for the current browser session only.</p>
+        <button id="summaryReturnDailyBtn" class="run-it-again-btn daily-return-action" type="button" hidden>RETURN TO DAILY</button>
         <button id="runItAgainBtn" class="run-it-again-btn" type="button">RUN IT AGAIN</button>
       </div>
     </div>
@@ -4278,12 +4312,14 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       ───────────────────────────────────────────────────────────────────── */
       const _urlParams = new URLSearchParams(window.location.search);
       const selectedVideoIdParam = String(_urlParams.get("video_id") || "").trim();
+      const originModeParam = String(_urlParams.get("origin_mode") || "").trim();
       const PLAYER_TRACE_TAG = "[PLAYER TRACE]";
       const API_DRILLS_ENDPOINT =
         String(window.MISSIONMED_API_BASE || "https://mmvs-backend-production.up.railway.app")
           .replace(/\/+$/, "") + "/api/drills";
       const MM_LAUNCH_STORAGE_KEY = "mm.launch";
       const MM_RESULT_STORAGE_KEY = "mm.result";
+      const DAILY_DRILL_RESULT_STORAGE_KEY = "mm_daily_drill_result";
       const ARENA_HANDOFF_STORAGE_KEY = "mm_selected_drill";
       const DAILY_DRILL_SETTINGS_STORAGE_KEY = "mm_drill_settings";
       const DEFAULT_MODE_RETURN_PATH = "daily.html";
@@ -4336,6 +4372,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       let activeLaunchId = "";
       let activeSelectionSource = "unresolved";
       let activeReturnUrl = "";
+      let activeOriginMode = originModeParam === "daily_rounds" ? "daily_rounds" : "";
       const TIMER_DURATION = 10.0;
       /* [Q-9009] PRESSURE MODE TIMER MAP — controls answer window per pressure level */
       const PRESSURE_TIME_MAP = {
@@ -4381,6 +4418,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       const performanceInsight = document.getElementById("performanceInsight");
       const nextSteps = document.getElementById("nextSteps");
       const notesSummary = document.getElementById("notesSummary");
+      const returnDailyBtn = document.getElementById("returnDailyBtn");
+      const dailyReturnHint = document.getElementById("dailyReturnHint");
       const repeatDrillBtn = document.getElementById("repeatDrillBtn");
       const focusWeakBtn = document.getElementById("focusWeakBtn");
       const watchModeBtn = document.getElementById("watchModeBtn");
@@ -4449,6 +4488,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       const sessionSummaryStats = document.getElementById("sessionSummaryStats");
       const sessionSummaryMeta = document.getElementById("sessionSummaryMeta");
       const sessionReinforcementMessage = document.getElementById("sessionReinforcementMessage");
+      const summaryReturnDailyBtn = document.getElementById("summaryReturnDailyBtn");
+      const summaryDailyReturnHint = document.getElementById("summaryDailyReturnHint");
       const runItAgainBtn = document.getElementById("runItAgainBtn");
       const sessionSummaryCloseBtn = document.getElementById("sessionSummaryCloseBtn");
       const drillNavChrome = document.getElementById("drillNavChrome");
@@ -6282,8 +6323,93 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
       }
 
       function defaultReturnUrl() {
-        try { return new URL(DEFAULT_MODE_RETURN_PATH, window.location.href).toString(); }
+        try {
+          const current = new URL(window.location.href);
+          if (current.origin === "https://missionmedinstitute.com") {
+            return new URL("/daily", current.origin).toString();
+          }
+          return new URL(DEFAULT_MODE_RETURN_PATH, window.location.href).toString();
+        }
         catch (_e) { return DEFAULT_MODE_RETURN_PATH; }
+      }
+
+      function isDailyRoundsLaunch() {
+        return activeOriginMode === "daily_rounds" || originModeParam === "daily_rounds";
+      }
+
+      function setDailyReturnActionsVisible(visible) {
+        [returnDailyBtn, summaryReturnDailyBtn].forEach(function (btn) {
+          if (!btn) return;
+          btn.hidden = !visible;
+          btn.setAttribute("aria-hidden", visible ? "false" : "true");
+        });
+        [dailyReturnHint, summaryDailyReturnHint].forEach(function (hint) {
+          if (!hint) return;
+          hint.hidden = !visible;
+          hint.setAttribute("aria-hidden", visible ? "false" : "true");
+        });
+      }
+
+      function finiteNumber(value, fallback) {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+      }
+
+      function buildDailyDrillResultPayload(status, extra) {
+        const metrics = extra && extra.metrics && typeof extra.metrics === "object" ? extra.metrics : {};
+        const correctCount = finiteNumber(extra && extra.correct_count, finiteNumber(metrics.correctCount, null));
+        const totalCount = finiteNumber(extra && extra.total_count, finiteNumber(metrics.totalQuestions, null));
+        let score = finiteNumber(extra && extra.score, finiteNumber(metrics.accuracy, null));
+        if (!Number.isFinite(score) && Number.isFinite(correctCount) && Number.isFinite(totalCount) && totalCount > 0) {
+          score = (correctCount / totalCount) * 100;
+        }
+        const title = String(
+          (activeDrillRecord && (activeDrillRecord.title || activeDrillRecord.topic)) ||
+          (extra && extra.title) ||
+          "Daily drill"
+        ).trim();
+        return {
+          source: "daily_rounds",
+          status: String(status || "unknown"),
+          video_id: activeDrillRecord && activeDrillRecord.video_id ? String(activeDrillRecord.video_id) : getSessionVideoId(),
+          drill_id: activeDrillRecord && activeDrillRecord.video_id ? String(activeDrillRecord.video_id) : getSessionVideoId(),
+          title: title || "Daily drill",
+          score: Number.isFinite(score) ? Number(score.toFixed(2)) : null,
+          correct_count: Number.isFinite(correctCount) ? correctCount : null,
+          total_count: Number.isFinite(totalCount) ? totalCount : null,
+          completed_at: new Date().toISOString(),
+          launch_id: activeLaunchId || null,
+          return_url: activeReturnUrl || defaultReturnUrl(),
+          persistence: "session_only"
+        };
+      }
+
+      function writeDailyDrillResult(status, extra) {
+        if (!isDailyRoundsLaunch() || String(status || "") !== "completed") return;
+        const payload = buildDailyDrillResultPayload(status, extra || {});
+        try {
+          sessionStorage.setItem(DAILY_DRILL_RESULT_STORAGE_KEY, JSON.stringify(payload));
+          tracePlayerField("daily_result_storage:", {
+            key: DAILY_DRILL_RESULT_STORAGE_KEY,
+            video_id: payload.video_id,
+            persistence: payload.persistence
+          });
+        } catch (storageError) {
+          logStructuredError("DAILY_RESULT_WRITE_FAILED", "Unable to write mm_daily_drill_result", { payload: payload }, storageError);
+        }
+      }
+
+      function returnToDailyRounds() {
+        if (!isDailyRoundsLaunch()) return;
+        writeDailyDrillResult("completed", {
+          launch_id: activeLaunchId,
+          source: activeSelectionSource,
+          video_id: getSessionVideoId(),
+          metrics: getSessionMetrics()
+        });
+        setSessionSummaryOpen(false);
+        const destination = activeReturnUrl || defaultReturnUrl();
+        window.location.assign(destination);
       }
 
       function ensureLaunchId(candidate) {
@@ -6337,6 +6463,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         const _trace = window.__MM_PLAYER_TRACE__ || {};
         _trace.result_status = payload.status;
         _trace.result_storage = storageStatus;
+        writeDailyDrillResult(payload.status, payload);
       }
 
       function setBootError(message, error) {
@@ -6680,6 +6807,9 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           : payload.selected_drill && typeof payload.selected_drill === "object" ? payload.selected_drill
           : payload.launch && typeof payload.launch === "object" ? payload.launch
           : payload;
+        const nestedMeta = payload.metadata && typeof payload.metadata === "object" ? payload.metadata
+          : nestedDrill && nestedDrill.metadata && typeof nestedDrill.metadata === "object" ? nestedDrill.metadata
+          : null;
 
         const videoId = pickString(nestedDrill, ["video_id", "videoId"]) ||
           pickString(payload, ["video_id", "videoId"]);
@@ -6696,7 +6826,11 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           transcript_url: pickString(nestedDrill, ["transcript_url", "transcriptUrl"]) || pickString(payload, ["transcript_url", "transcriptUrl"]),
           drill_metadata: nestedDrill && typeof nestedDrill === "object" ? nestedDrill : null,
           metadata: payload && typeof payload === "object" ? payload : null,
-          return_url: pickString(payload, ["return_url", "returnUrl"]),
+          origin_mode: pickString(nestedDrill, ["origin_mode", "originMode"]) ||
+            pickString(payload, ["origin_mode", "originMode"]) ||
+            pickString(nestedMeta, ["origin_mode", "originMode"]),
+          return_url: pickString(payload, ["return_url", "returnUrl"]) ||
+            pickString(nestedMeta, ["return_url", "returnUrl"]),
           launch_id: pickString(payload, ["launch_id", "launchId"]) ||
             (payload.meta && typeof payload.meta === "object" ? pickString(payload.meta, ["launch_id", "launchId"]) : "")
         };
@@ -6781,7 +6915,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
             return parsed.toString();
           }
 
-          const reason = "Invalid return_url detected; using fallback daily.html";
+          const reason = "Invalid return_url detected; using Daily fallback";
           const context = {
             return_url: candidate,
             resolved_path: parsed.pathname,
@@ -6795,7 +6929,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           }
           return fallback;
         } catch (error) {
-          const reason = "Malformed return_url detected; using fallback daily.html";
+          const reason = "Malformed return_url detected; using Daily fallback";
           setFailureBannerVisible(reason);
           logStructuredError("INVALID_RETURN_URL", reason, { return_url: candidate, source: meta && meta.source ? meta.source : null }, error);
           if (window.__MM_PLAYER_TRACE__) {
@@ -6905,6 +7039,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         if (!resolved.date && candidate.date) resolved.date = candidate.date;
         if (!resolved.drill_metadata && candidate.drill_metadata) resolved.drill_metadata = candidate.drill_metadata;
         if (!resolved.metadata && candidate.metadata) resolved.metadata = candidate.metadata;
+        resolved.origin_mode = String(candidate.origin_mode || originModeParam || "").trim();
         resolved.launch_id = ensureLaunchId(candidate.launch_id);
         resolved.return_url = safeReturnUrl(candidate.return_url, { source: sourceLabel });
 
@@ -6944,6 +7079,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
             activeLaunchId = resolved.launch_id;
             activeSelectionSource = sourceLabel;
             activeReturnUrl = resolved.return_url || defaultReturnUrl();
+            activeOriginMode = resolved.origin_mode === "daily_rounds" ? "daily_rounds" : "";
+            setDailyReturnActionsVisible(isDailyRoundsLaunch());
             applyResolvedContractToTrace(resolved, sourceLabel);
             return resolved;
           } catch (error) {
@@ -6973,6 +7110,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           return {
             source: "query.video_id",
             video_id: selectedVideoIdParam,
+            origin_mode: originModeParam,
             return_url: "",
             launch_id: ""
           };
@@ -8831,7 +8969,9 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           '<div class="completion-stat"><strong>' + countResponses("got_it") + '</strong><span>Correct</span></div>' +
           '<div class="completion-stat"><strong>' + countResponses("missed_it") + '</strong><span>Missed</span></div>';
         performanceInsight.textContent = generatePerformanceInsight();
-        nextSteps.innerHTML = '<ul><li>Rewatch key segments where you hesitated</li><li>Focus on missed concepts from this session</li><li>Repeat this drill to reinforce timing and recall</li></ul>';
+        nextSteps.innerHTML = isDailyRoundsLaunch()
+          ? '<ul><li>Return to Daily to see this session-only result on the selected drill.</li><li>Repeat this drill if the score feels unstable.</li><li>Pick another Daily drill when you are ready.</li></ul>'
+          : '<ul><li>Rewatch key segments where you hesitated</li><li>Focus on missed concepts from this session</li><li>Repeat this drill to reinforce timing and recall</li></ul>';
         const noteCount = getSessionNoteCount();
         notesSummary.textContent = noteCount > 0 ? "You created " + noteCount + " notes during this session" : "";
       }
@@ -8859,6 +8999,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
           video_id: getSessionVideoId(),
           metrics: metrics
         });
+        setDailyReturnActionsVisible(isDailyRoundsLaunch());
       }
 
       function resetDrill() {
@@ -9198,6 +9339,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 
       repeatDrillBtn.onclick = resetDrill;
       if (runItAgainBtn) runItAgainBtn.onclick = resetDrill;
+      if (returnDailyBtn) returnDailyBtn.onclick = returnToDailyRounds;
+      if (summaryReturnDailyBtn) summaryReturnDailyBtn.onclick = returnToDailyRounds;
       focusWeakBtn.onclick = function () { sessionStatus.textContent = "Focus Weak Areas mode ready"; };
       watchModeBtn.onclick = function () {
         isActiveParticipant = false;
@@ -9534,6 +9677,8 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 
       addPressFeedback(repeatDrillBtn, 110);
       if (runItAgainBtn) addPressFeedback(runItAgainBtn, 110);
+      if (returnDailyBtn) addPressFeedback(returnDailyBtn, 110);
+      if (summaryReturnDailyBtn) addPressFeedback(summaryReturnDailyBtn, 110);
       addPressFeedback(focusWeakBtn, 110);
       addPressFeedback(watchModeBtn, 110);
       addPressFeedback(saveNoteBtn, 110);

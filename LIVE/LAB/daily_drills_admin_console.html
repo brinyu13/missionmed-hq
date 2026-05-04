@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Daily + Drills Operator Console - LAB Only</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071014;
+      --panel: #0d1f27;
+      --panel-2: #102b34;
+      --line: rgba(120, 220, 210, .24);
+      --text: #e8f7f4;
+      --muted: #9fc1bc;
+      --cyan: #5eead4;
+      --green: #86efac;
+      --gold: #facc15;
+      --warn: #fb7185;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    main {
+      width: min(1180px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 28px 0 44px;
+    }
+    header {
+      display: grid;
+      gap: 10px;
+      padding: 20px 0 22px;
+      border-bottom: 1px solid var(--line);
+    }
+    h1, h2, h3, p { margin: 0; }
+    h1 {
+      font-size: clamp(28px, 4vw, 44px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+    .subhead {
+      max-width: 880px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.55;
+    }
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .pill.ok { color: var(--green); border-color: rgba(134, 239, 172, .36); }
+    .pill.warn { color: var(--gold); border-color: rgba(250, 204, 21, .4); }
+    .pill.stop { color: var(--warn); border-color: rgba(251, 113, 133, .4); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    section {
+      grid-column: span 6;
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(16, 43, 52, .88), rgba(13, 31, 39, .94));
+    }
+    section.wide { grid-column: 1 / -1; }
+    h2 {
+      font-size: 16px;
+      letter-spacing: .03em;
+      text-transform: uppercase;
+    }
+    h3 {
+      margin-top: 14px;
+      color: var(--cyan);
+      font-size: 13px;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    ul {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    li strong { color: var(--text); }
+    code {
+      padding: 1px 5px;
+      border-radius: 5px;
+      background: rgba(0, 0, 0, .3);
+      color: var(--cyan);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .92em;
+    }
+    table {
+      width: 100%;
+      margin-top: 12px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(120, 220, 210, .14);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--cyan);
+      font-size: 11px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .note {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid rgba(250, 204, 21, .28);
+      border-radius: 8px;
+      background: rgba(75, 60, 12, .22);
+      color: #fde68a;
+      line-height: 1.5;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .checklist li {
+      list-style: none;
+      position: relative;
+    }
+    .checklist li::before {
+      content: "";
+      position: absolute;
+      left: -18px;
+      top: .55em;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--cyan);
+    }
+    @media (max-width: 780px) {
+      main { width: min(100% - 20px, 1180px); padding-top: 18px; }
+      section { grid-column: 1 / -1; padding: 14px; }
+      table { font-size: 12px; }
+      th, td { padding: 8px 6px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Daily + Drills Operator Console</h1>
+      <p class="subhead">LAB-only control surface for the MD Daily Rounds and Drills merge. This page documents runtime assumptions, QA checks, result handoff shape, and wiring needs. It does not write backend data, change auth, deploy to CDN, or modify Supabase.</p>
+      <div class="status-row" aria-label="Console status">
+        <span class="pill warn">LAB Only</span>
+        <span class="pill ok">Contract B Runtime</span>
+        <span class="pill warn">Session Result Only</span>
+        <span class="pill stop">No Deploy Hooks</span>
+      </div>
+    </header>
+
+    <div class="grid">
+      <section>
+        <h2>Runtime Files</h2>
+        <table>
+          <thead>
+            <tr><th>Surface</th><th>Path</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Daily</td><td><code>LIVE/daily.html</code></td><td>Active Contract B runtime</td></tr>
+            <tr><td>Drills</td><td><code>LIVE/drills.html</code></td><td>Active Contract B runtime</td></tr>
+            <tr><td>Arena</td><td><code>LIVE/arena.html</code></td><td>Out of scope for this console</td></tr>
+            <tr><td>STAT</td><td><code>LIVE/stat.html</code></td><td>Protected, not touched</td></tr>
+          </tbody>
+        </table>
+        <p class="note">Do not promote LAB files to runtime. Wiring authority owns R2/CDN promotion and final browser validation.</p>
+      </section>
+
+      <section>
+        <h2>Learner Flow</h2>
+        <ul class="checklist">
+          <li><strong>Daily menu:</strong> learner chooses a topic and drill session.</li>
+          <li><strong>Launch:</strong> Daily passes <code>video_id</code>, <code>origin_mode: daily_rounds</code>, and Daily return URL.</li>
+          <li><strong>Drills engine:</strong> learner completes questions and sees completion state.</li>
+          <li><strong>Return:</strong> Daily-origin completion exposes Return to Daily.</li>
+          <li><strong>Result:</strong> Daily reads <code>mm_daily_drill_result</code> and shows session-only completion.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Result Payload Contract</h2>
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Expected Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>source</code></td><td>Must be <code>daily_rounds</code>.</td></tr>
+            <tr><td><code>video_id</code> / <code>drill_id</code></td><td>Selected drill identity.</td></tr>
+            <tr><td><code>title</code></td><td>Human-readable drill title.</td></tr>
+            <tr><td><code>score</code></td><td>Percent score when available.</td></tr>
+            <tr><td><code>correct_count</code> / <code>total_count</code></td><td>Question-level outcome counts when available.</td></tr>
+            <tr><td><code>completed_at</code></td><td>ISO timestamp used for stale-result checks.</td></tr>
+            <tr><td><code>persistence</code></td><td>Currently <code>session_only</code>.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Operator Boundaries</h2>
+        <ul>
+          <li>Can inspect Daily/Drills runtime filenames and the session handoff contract.</li>
+          <li>Can run manual QA using the checklist on this page.</li>
+          <li>Cannot save durable learner progress from this LAB console.</li>
+          <li>Cannot alter drill registry, Supabase rows, RLS, auth, WordPress redirects, Railway endpoints, or CDN objects.</li>
+          <li>Backend/admin save actions must be routed to MissionMed wiring authority.</li>
+        </ul>
+      </section>
+
+      <section class="wide">
+        <h2>Manual QA Checklist</h2>
+        <table>
+          <thead>
+            <tr><th>Check</th><th>Expected Result</th><th>Owner</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Daily load</td><td>Authenticated learner sees Daily menu; unauthenticated visitor sees locked login state.</td><td>Wiring authority for auth; feature thread for UI.</td></tr>
+            <tr><td>Select drill</td><td>Daily highlights selected drill and launches Drills with Daily origin.</td><td>Feature thread.</td></tr>
+            <tr><td>Complete drill</td><td>Completion screen shows stats, next steps, and Return to Daily when Daily-origin.</td><td>Feature thread.</td></tr>
+            <tr><td>Return to Daily</td><td>Daily displays drill title, score/correct/total, and session-only language.</td><td>Feature thread plus wiring authority browser smoke.</td></tr>
+            <tr><td>Mobile 375/390</td><td>Result banner and Return to Daily controls remain visible without horizontal trap.</td><td>Feature thread local QA.</td></tr>
+            <tr><td>Deploy parity</td><td>R2/CDN hashes match approved source files.</td><td>Wiring authority only.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="wide">
+        <h2>Future Wiring Needs</h2>
+        <ul>
+          <li>Durable Daily/Drills attempt persistence with authenticated Supabase session and RLS-safe writes.</li>
+          <li>Admin/operator controls for registry/category updates, if Control Tower wants runtime editing instead of code-managed configuration.</li>
+          <li>Direct Drills access hardening if Drills should support authenticated standalone entry beyond Daily-origin launches.</li>
+          <li>Final auth/session/Railway/Supabase/R2/CDN audit and deploy validation after any feature-thread HTML change.</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
