@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 const PUBLIC_INTAKE_PATH = '/api/usce/public/requests';
 const PUBLIC_CONFIG_PATH = '/api/usce/public/config';
 const ADMIN_PUBLIC_INTAKE_LIST_PATH = '/api/usce/admin/public-intake-requests';
+const ADMIN_PUBLIC_INTAKE_CONTROLLED_TEST_PATH = `${ADMIN_PUBLIC_INTAKE_LIST_PATH}/controlled-test`;
 const ADMIN_PUBLIC_INTAKE_ACTION_PREFIX = `${ADMIN_PUBLIC_INTAKE_LIST_PATH}/`;
 const MAX_BODY_BYTES = 16 * 1024;
 const RATE_WINDOW_MS = 60 * 60 * 1000;
@@ -97,6 +98,10 @@ export async function handleUscePublicRoute(request, response, url) {
 
 export function isUsceAdminPublicIntakeListPath(pathname) {
   return normalizePathname(pathname) === ADMIN_PUBLIC_INTAKE_LIST_PATH;
+}
+
+export function isUsceAdminPublicIntakeControlledTestPath(pathname) {
+  return normalizePathname(pathname) === ADMIN_PUBLIC_INTAKE_CONTROLLED_TEST_PATH;
 }
 
 export function getUsceAdminPublicIntakeAction(pathname) {
@@ -419,6 +424,68 @@ function buildPublicConfig() {
   };
 }
 
+export async function createUscePublicIntakeAdminControlledTest(request, payload = {}) {
+  if (!isControlledAdminTestPayload(payload)) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'controlled_test_payload_required',
+      message: 'Controlled intake test rows require an explicit safe test payload.',
+    };
+  }
+
+  const validation = validateIntakePayload(payload);
+  if (!validation.ok) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'validation_failed',
+      message: 'Controlled intake test row is missing required information.',
+      details: validation.errors,
+    };
+  }
+
+  const requestId = crypto.randomUUID();
+  const idempotencyKey = normalizeIdempotencyKey(
+    payload.idempotency_key || `admin-controlled-test:${requestId}`,
+    validation.data,
+  );
+  const persistence = await persistSupabasePublicIntake({
+    data: validation.data,
+    request,
+    requestId,
+    idempotencyKey,
+  });
+
+  if (!persistence.ok) {
+    return {
+      ok: false,
+      httpStatus: persistence.statusCode || 503,
+      error: persistence.publicError || 'usce_public_intake_storage_unavailable',
+      message: 'Controlled intake test row could not be stored right now.',
+      reason: persistence.reason,
+      storage_target: PUBLIC_INTAKE_TABLE,
+      storage_adapter: `rpc:${PUBLIC_INTAKE_RPC}`,
+    };
+  }
+
+  logSafeEvent('admin_controlled_test_intake_created', {
+    requestId: persistence.requestId,
+    emailHash: hashForLog(validation.data.email.toLowerCase()),
+  });
+
+  return {
+    ok: true,
+    httpStatus: persistence.wasExisting ? 200 : 201,
+    request_id: persistence.requestId,
+    status: persistence.status || 'new',
+    dry_run: false,
+    controlled_test: true,
+    storage_target: PUBLIC_INTAKE_TABLE,
+    storage_adapter: `rpc:${PUBLIC_INTAKE_RPC}`,
+  };
+}
+
 function validateIntakePayload(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return { ok: false, errors: ['payload_object_required'] };
@@ -453,6 +520,19 @@ function validateIntakePayload(payload) {
   if (!data.consent) errors.push('consent_required');
 
   return errors.length ? { ok: false, errors } : { ok: true, data };
+}
+
+function isControlledAdminTestPayload(payload) {
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    return false;
+  }
+
+  const email = sanitizeEmail(payload.email).toLowerCase();
+  const notes = sanitizeText(payload.notes, 2000).toUpperCase();
+  return payload.controlled_test === true
+    && email.startsWith('test+cx')
+    && email.endsWith('@missionmedinstitute.com')
+    && notes.includes('SAFE CONTROLLED TEST ROW');
 }
 
 async function persistSupabasePublicIntake({ data, request, requestId, idempotencyKey }) {

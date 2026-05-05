@@ -13,7 +13,9 @@ import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMe
 import {
   getUsceAdminPublicIntakeAction,
   getUscePublicIntakeAdminList,
+  createUscePublicIntakeAdminControlledTest,
   handleUscePublicRoute,
+  isUsceAdminPublicIntakeControlledTestPath,
   isUsceAdminPublicIntakeListPath,
   updateUscePublicIntakeAdminNote,
   updateUscePublicIntakeAdminStatus,
@@ -1763,6 +1765,7 @@ const USCE_KNOWN_ROUTE_PATTERNS = [
   /^\/api\/usce\/offers\/[^/]+\/revoke$/u,
   /^\/api\/usce\/offers\/[^/]+\/onboard$/u,
   /^\/api\/usce\/admin\/public-intake-requests$/u,
+  /^\/api\/usce\/admin\/public-intake-requests\/controlled-test$/u,
   /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/status$/u,
   /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/admin-note$/u,
   /^\/api\/usce\/admin\/intake-requests\/[^/]+\/offer-draft$/u,
@@ -1859,6 +1862,25 @@ async function handleUsceRoute(request, response, url, context) {
     }
 
     sendRoutePayload(response, await getUscePublicIntakeAdminList(url.searchParams), authHeaders);
+    return true;
+  }
+
+  if (isUsceAdminPublicIntakeControlledTestPath(pathname)) {
+    if (request.method !== 'POST') {
+      sendMethodNotAllowed(response, ['POST']);
+      return true;
+    }
+
+    const payload = await readJsonBody(request);
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      sendJson(response, 400, {
+        error: 'invalid_json',
+        message: 'USCE controlled intake test creation requires a JSON object payload.',
+      }, authHeaders);
+      return true;
+    }
+
+    sendRoutePayload(response, await createUscePublicIntakeAdminControlledTest(request, payload), authHeaders);
     return true;
   }
 
