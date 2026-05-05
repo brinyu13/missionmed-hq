@@ -25,6 +25,10 @@ import {
   handleUsceOfferPortalPublicRoute,
   isUsceAdminOfferPath,
 } from './routes/usce-offer-portal.mjs';
+import {
+  handleGmailMetadataProofRoute,
+  isGmailMetadataProofPath,
+} from './routes/gmail-metadata-proof.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -2300,6 +2304,11 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (!requireAuthenticatedApiSession(request, response, session)) {
+    return;
+  }
+
+  if (isGmailMetadataProofPath(pathname)) {
+    await handleGmailMetadataProofRoute(request, response, url, { session, authHeaders });
     return;
   }
 
