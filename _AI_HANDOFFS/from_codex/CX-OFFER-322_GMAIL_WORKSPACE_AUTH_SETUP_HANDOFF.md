@@ -6,35 +6,45 @@ Branch: `codex/cx-offer-322-gmail-auth-setup`
 
 ## Summary
 
-Codex inspected the latest CX-OFFER-321/322 comms reports and the live Google Workspace Admin Console. The safest architecture remains Postmark-first for app email, Gmail as human mailbox visibility, and future Gmail API sync only after Google auth is configured with strict mailbox allowlisting.
+Codex inspected the current Postmark/Gmail coordination state, verified MissionMed Google Workspace Admin access, created the dedicated Google Cloud project, enabled Gmail API, and created the service account needed for future Gmail API sync. The final Workspace Domain-wide Delegation authorization is pending Brian's passkey / Touch ID approval.
+
+## Completed Google Setup
+
+- Google Cloud project:
+  - Name: `MissionMed Communications Sync`
+  - Project ID: `missionmed-communications-sync`
+  - Project number: `43059686118`
+- Gmail API:
+  - Enabled
+- Service account:
+  - Name: `MissionMed Gmail Sync`
+  - Email: `missionmed-gmail-sync@missionmed-communications-sync.iam.gserviceaccount.com`
+  - OAuth 2 Client ID / Unique ID: `106640946052586220628`
+  - Keys: none created
 
 ## Verified Workspace Mailboxes
-
-Active users observed:
 
 - `clinicals@missionmedinstitute.com`
 - `drj@missionmedinstitute.com`
 - `drbrian@missionmedinstitute.com`
 - `info@missionmedinstitute.com`
 
-## Admin API Controls
+## Pending Workspace Admin Action
 
-Observed:
+After Brian completes passkey / Touch ID for `brianbolantenj@gmail.com`, add a Google Workspace Domain-wide Delegation API client:
 
-- API Controls page accessible.
-- Domain-wide Delegation page accessible.
-- No existing DWD API client rows visible.
+- Client ID: `106640946052586220628`
+- OAuth scope: `https://www.googleapis.com/auth/gmail.readonly`
 
-## Blocker
-
-Google Cloud Console required password re-auth for `info@missionmedinstitute.com`. Codex did not enter a password and did not proceed.
+Do not authorize broader scopes yet.
 
 ## Auth Model Recommendation
 
 Use phased approach:
 
 1. Current: Postmark + Gmail visibility, no Gmail API sync.
-2. Future: domain-wide delegation with only `gmail.readonly` initially, plus app-side mailbox allowlist.
+2. Next: DWD with `gmail.readonly`, app-side mailbox allowlist, dry-run metadata-only proof.
+3. Later: message body ingestion and Gmail-only thread sync only after a privacy/compliance gate.
 
 Allowlisted future mailboxes:
 
@@ -47,10 +57,10 @@ Allowlisted future mailboxes:
 - No live emails were sent.
 - No Gmail messages were read.
 - No secrets were viewed, copied, stored, or reported.
+- No service account private key was created or downloaded.
 - No source/runtime auth changes were made.
 - No Railway/Supabase/Postmark/WooCommerce/LearnDash/WordPress/Arena/STAT/Daily/Drills changes were made.
 
 ## Next Step
 
-Brian should complete Google Cloud re-auth manually, then run `CX-OFFER-323-GMAIL-CLOUD-REAUTH-CONTINUE`.
-
+Run `CX-OFFER-323-GMAIL-DWD-FINISH-AND-DRY-RUN-PROOF` after Brian is ready to complete the passkey prompt.
