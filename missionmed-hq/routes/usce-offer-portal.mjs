@@ -110,12 +110,20 @@ export async function handleUsceAdminOfferRoute(request, response, url, context 
   if (!route) return false;
 
   const authHeaders = context.authHeaders || {};
-  if (route.action === 'get') {
-    if (request.method !== 'GET') {
-      sendMethodNotAllowed(response, ['GET'], authHeaders);
+  if (route.action === 'offer') {
+    if (request.method === 'GET') {
+      sendRoutePayload(response, await getAdminOfferDraft(route.offerId), authHeaders);
       return true;
     }
-    sendRoutePayload(response, await getAdminOfferDraft(route.offerId), authHeaders);
+
+    if (request.method === 'PATCH') {
+      const payload = await readAdminJsonPayload(request, response, authHeaders);
+      if (!payload.ok) return true;
+      sendRoutePayload(response, await updateAdminOfferDraft(route.offerId, payload.body, context.session), authHeaders);
+      return true;
+    }
+
+    sendMethodNotAllowed(response, ['GET', 'PATCH'], authHeaders);
     return true;
   }
 
@@ -127,17 +135,6 @@ export async function handleUsceAdminOfferRoute(request, response, url, context 
     const payload = await readAdminJsonPayload(request, response, authHeaders);
     if (!payload.ok) return true;
     sendRoutePayload(response, await saveAdminOfferDraft(route.intakeRequestId, payload.body, context.session), authHeaders);
-    return true;
-  }
-
-  if (route.action === 'update') {
-    if (request.method !== 'PATCH') {
-      sendMethodNotAllowed(response, ['PATCH'], authHeaders);
-      return true;
-    }
-    const payload = await readAdminJsonPayload(request, response, authHeaders);
-    if (!payload.ok) return true;
-    sendRoutePayload(response, await updateAdminOfferDraft(route.offerId, payload.body, context.session), authHeaders);
     return true;
   }
 
@@ -500,7 +497,7 @@ function getAdminOfferRoute(pathname) {
 
   match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)$/u);
   if (match) {
-    return { action: 'get', offerId: match[1] };
+    return { action: 'offer', offerId: match[1] };
   }
 
   match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/token$/u);
