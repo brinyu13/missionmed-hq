@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <!--
-  CX-OFFER-313-LIVE-VALIDATED
+  CX-OFFER-320-FULL-ENGINE-MEGA
   MissionMed USCE Admin Offer Engine Shell
   Static R2-ready admin product shell. Demo-first, protected live adapter optional.
-  Status/note backend actions are Wiring Authority prepared; no email sends, no payment actions, no direct Supabase browser access.
+  Full-engine UI surface: message intelligence, Postmark dry-run gate,
+  communications timeline, payment/paperwork/LearnDash readiness.
+  No direct Supabase browser access, no service-role exposure, no payment processing.
 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="missionmed-app" content="usce-admin-offer-engine">
-<meta name="missionmed-version" content="CX-OFFER-313-LIVE-VALIDATED">
+<meta name="missionmed-version" content="CX-OFFER-320-FULL-ENGINE-MEGA">
 <title>MissionMed Clinicals Command Center | USCE Offer Engine</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -43,15 +45,15 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
       </div>
       <div class="mm-runtime" aria-live="polite">
         <span class="mm-pill"><span class="mm-dot green"></span><span id="modePill">Demo mode</span></span>
-        <span class="mm-pill"><span class="mm-dot"></span>CX-OFFER-313-LIVE-VALIDATED</span>
-        <span class="mm-pill">No writes. No sends. No payments.</span>
+        <span class="mm-pill"><span class="mm-dot"></span>CX-OFFER-320</span>
+        <span class="mm-pill">Dry-run sends. No payments. No enrollments.</span>
       </div>
     </div>
     <section class="mm-hero">
       <div>
         <div class="mm-eyebrow">Request-first placement operations</div>
         <h1>Clinicals offer engine for availability-first requests.</h1>
-        <p class="mm-sub">A polished admin command center for reviewing public intake, shaping rotation matches, drafting offers, and tracking the future payment and paperwork path. Protected writes, email sending, payment handoff, and CDN promotion are intentionally reserved for Wiring Authority.</p>
+        <p class="mm-sub">A polished admin command center for reviewing public intake, shaping rotation matches, selecting student-ready messages, staging offer communications, and tracking payment, paperwork, and access readiness without unsafe browser-side data access.</p>
       </div>
       <aside class="mm-hero-card">
         <h2>Operational snapshot</h2>
@@ -60,7 +62,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
           <div class="mm-kpi"><b id="kpiOffer">0</b><span>Offer ready</span></div>
           <div class="mm-kpi"><b id="kpiWire">8</b><span>Wiring gates</span></div>
         </div>
-        <div class="mm-notice"><b>Safety lane:</b> live reads use the audited admin endpoint. Status and internal-note writes passed the protected live validation gate, but this shell keeps browser write controls disabled until a product workflow explicitly enables them. Offer sends, Postmark, payment, and paperwork remain disabled.</div>
+        <div class="mm-notice"><b>Safety lane:</b> live reads use the audited admin endpoint. Message previews, Postmark dry-runs, comms logging, payment state, paperwork state, and LearnDash readiness now have protected server contracts, but this R2 shell remains demo-first and never calls Supabase directly.</div>
       </aside>
     </section>
   </header>
@@ -176,14 +178,34 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
                   <label><span class="section-title">Offer expiration</span><input class="mm-input" type="date" name="expires" id="offerExpires"></label>
                   <label><span class="section-title">Alternate option</span><input class="mm-input" name="alternate" id="offerAlternate" placeholder="Optional alternate month/location"></label>
                 </div>
+                <div class="mm-grid2">
+                  <label><span class="section-title">Message category</span><select class="mm-select" name="messageCategory" id="messageCategory">
+                    <option value="request_received">Request received</option>
+                    <option value="availability_confirmed">Availability confirmed</option>
+                    <option value="alternate_option_recommended">Alternate option recommended</option>
+                    <option value="offer_ready" selected>Offer ready</option>
+                    <option value="offer_reminder">Offer reminder</option>
+                    <option value="accepted_offer_next_steps">Accepted offer next steps</option>
+                    <option value="declined_response">Declined response</option>
+                    <option value="alternate_requested_response">Alternate requested response</option>
+                    <option value="payment_reminder">Payment reminder</option>
+                  </select></label>
+                  <label><span class="section-title">Tone / archetype</span><select class="mm-select" name="messageVariant" id="messageVariant">
+                    <option value="coordinator_clear" selected>Coordinator clear</option>
+                    <option value="warm_guidance">Warm guidance</option>
+                    <option value="concise_operations">Concise operations</option>
+                  </select></label>
+                </div>
+                <label><span class="section-title">Email subject</span><input class="mm-input" name="subject" id="messageSubject" value="MissionMed Clinicals availability option for your review"></label>
                 <label><span class="section-title">Deposit/payment note</span><input class="mm-input" name="payment" id="offerPayment" value="Payment is only requested after the student accepts the confirmed offer."></label>
                 <label><span class="section-title">Paperwork note</span><input class="mm-input" name="paperwork" id="offerPaperwork" value="Onboarding paperwork follows acceptance and payment confirmation."></label>
                 <label><span class="section-title">Student-facing message</span><textarea class="mm-textarea" name="message" id="offerMessage"></textarea></label>
                 <label><span class="section-title">Internal note</span><textarea class="mm-textarea" name="internal" id="offerInternal" placeholder="Internal coordinator note. Not included in student preview."></textarea></label>
                 <div class="mm-actions">
                   <button class="btn primary" type="button" id="buildOfferBtn">Preview draft</button>
-                  <button class="btn disabled-note" type="button" disabled>Save Draft requires Wiring Authority</button>
-                  <button class="btn disabled-note" type="button" disabled>Send Offer requires Postmark gate</button>
+                  <button class="btn ghost" type="button" id="copyEmailBtn">Copy email</button>
+                  <button class="btn warn" type="button" id="dryRunSendBtn">Record dry-run locally</button>
+                  <button class="btn disabled-note" type="button" disabled>Live send requires explicit Postmark gate</button>
                 </div>
               </form>
               <aside>
@@ -194,9 +216,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
           </div>
 
           <div class="pane" data-pane="comms">
-            <div class="lockout"><b>No live Postmark:</b> communications are preview-only in this shell. Real internal notifications, offer emails, delivery events, and duplicate-send prevention require Wiring Authority and Postmark dry-run-to-live gates.</div>
+            <div class="lockout"><b>Postmark gate:</b> message preview and dry-run logging are now modeled for protected admin APIs. Live email remains blocked unless server env gates and explicit admin approval are both present.</div>
             <div class="section-title">Student offer portal preview</div>
-            <div class="info"><small>CX-OFFER-315 student portal shell</small><b><a href="usce_offer.html" target="_blank" rel="noopener">Open USCE student offer portal preview &rarr;</a></b><span style="display:block;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.55">Preview-only in this admin UI. Token mint, tokenized read, and accept/decline/alternate endpoints are Wiring Authority source-wired, but browser live adapter activation and CDN promotion require a separate validation gate. The portal page never calls Supabase from the browser, never exposes service-role data, and never redirects to WooCommerce before the student accepts.</span></div>
+            <div class="info"><small>Tokenized student portal</small><b><a href="usce_offer.html" target="_blank" rel="noopener">Open USCE student offer portal preview &rarr;</a></b><span style="display:block;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.55">Tokenized read and accept/decline/alternate response are live-adapter ready. The portal never calls Supabase from the browser, never exposes service-role data, and never shows WooCommerce payment before acceptance.</span></div>
             <div class="section-title">Communications timeline shell</div>
             <div class="timeline" id="commsTimeline"></div>
           </div>
@@ -211,7 +233,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
           </div>
 
           <div class="pane" data-pane="wiring">
-            <div class="lockout"><b>Authority boundary:</b> this UI is R2-ready after the CX-OFFER-313 protected live gate. Status and internal-note endpoints are validated on controlled test rows; browser write controls, Postmark send, payment handoff, and LearnDash sync remain behind future Wiring Authority gates.</div>
+            <div class="lockout"><b>Authority boundary:</b> protected Railway endpoints remain privileged-admin only and use server-side service-role RPCs. This browser shell only calls audited Railway routes with credentials and never stores secrets.</div>
             <div class="section-title">Adapter contract</div>
             <div class="wiring-list" id="adapterContractList"></div>
           </div>
@@ -220,13 +242,13 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
 
       <aside class="right-panel" aria-label="Action and wiring panels">
         <section class="mm-card">
-          <div class="mm-card-head"><div><h3>Action panel</h3><p>Local state only until protected endpoints exist.</p></div></div>
+          <div class="mm-card-head"><div><h3>Action panel</h3><p>Offer engine readiness without unsafe sends.</p></div></div>
           <div class="action-pad">
             <div class="meter">
               <div class="meter-row"><span>Review status</span><b id="sideStatus">New</b></div>
               <div class="meter-row"><span>Offer draft</span><b id="sideOffer">Preview only</b></div>
-              <div class="meter-row"><span>Payment handoff</span><b>Not wired</b></div>
-              <div class="meter-row"><span>Postmark</span><b>Dry-run only</b></div>
+              <div class="meter-row"><span>Payment handoff</span><b>After accept only</b></div>
+              <div class="meter-row"><span>Postmark</span><b>Dry-run gate</b></div>
             </div>
             <button class="btn dark" type="button" id="jumpOfferBtn">Build offer preview</button>
             <button class="btn disabled-note" type="button" disabled>Send / notify disabled</button>
@@ -247,20 +269,28 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
       </aside>
     </section>
   </main>
-  <p class="footer-note">CX-OFFER-313-LIVE-VALIDATED static shell. Live admin reads and protected status/note endpoints route through Railway only and never call Supabase directly from the browser. Browser write controls, offer send, payment, and LearnDash actions remain disabled.</p>
+  <p class="footer-note">CX-OFFER-320 full-engine shell. Admin reads and future protected actions route through Railway only and never call Supabase directly from the browser. Postmark live send, WooCommerce payment status, paperwork, and LearnDash enrollment remain gated and auditable.</p>
 </div>
 <script>
 (function(){
   'use strict';
 
   window.__MISSIONMED_USCE_ADMIN_CONFIG = Object.freeze({
-    version: 'CX-OFFER-313-LIVE-VALIDATED',
+    version: 'CX-OFFER-320-FULL-ENGINE-MEGA',
     mode: 'demo',
     liveReadEnabledByDefault: false,
     apiBase: 'https://missionmed-hq-production.up.railway.app',
     adminReadEndpoint: '/api/usce/admin/public-intake-requests',
     adminStatusEndpoint: '/api/usce/admin/public-intake-requests/{id}/status',
     adminNoteEndpoint: '/api/usce/admin/public-intake-requests/{id}/admin-note',
+    offerDraftEndpoint: '/api/usce/admin/intake-requests/{id}/offer-draft',
+    offerReadEndpoint: '/api/usce/admin/offers/{offerId}',
+    offerMessagePreviewEndpoint: '/api/usce/admin/offers/{offerId}/message-preview',
+    offerSendEndpoint: '/api/usce/admin/offers/{offerId}/send',
+    offerCommsEndpoint: '/api/usce/admin/offers/{offerId}/comms',
+    offerPaymentEndpoint: '/api/usce/admin/offers/{offerId}/payment',
+    offerPaperworkEndpoint: '/api/usce/admin/offers/{offerId}/paperwork',
+    offerLearndashEndpoint: '/api/usce/admin/offers/{offerId}/learndash',
     paymentProductUrl: 'https://missionmedinstitute.com/product/usce-clinical-rotations/',
     learndashCourseUrl: 'https://missionmedinstitute.com/courses/mmi-clinicals/',
     storageTarget: 'command_center.usce_public_intake_requests',
@@ -279,7 +309,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     sort: 'newest',
     localNotes: {},
     localStatuses: {},
-    lastOfferPreview: ''
+    lastOfferPreview: '',
+    localComms: {}
   };
 
   const adapterContract = [
@@ -287,25 +318,82 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     { name: 'getIntakeRequest(id)', state: 'demo/stub', detail: 'Resolved client-side from the loaded list. Detail endpoint would require Wiring Authority.' },
     { name: 'updateIntakeStatus(id, status)', state: 'protected endpoint prepared', detail: 'PATCH '+CONFIG.adminStatusEndpoint+' requires privileged WordPress authority, CSRF, and browser validation before activation.' },
     { name: 'saveInternalNote(id, note)', state: 'protected endpoint prepared', detail: 'PATCH '+CONFIG.adminNoteEndpoint+' writes admin_notes only after privileged WordPress authority, CSRF, and browser validation.' },
-    { name: 'createOfferDraft(id, offerPayload)', state: 'requires Wiring Authority', detail: 'Needs offer draft persistence, seat/program reference validation, and safe rollback.' },
-    { name: 'previewOfferEmail(id, offerPayload)', state: 'stub/demo', detail: 'Preview is generated in-browser from local form state only.' },
-    { name: 'sendOffer(id)', state: 'requires Wiring Authority', detail: 'Needs Postmark dry-run-to-live gate, duplicate prevention, usce_comms logging, and admin audit.' },
-    { name: 'getCommsTimeline(id)', state: 'stub/demo', detail: 'Timeline shell uses local/system events until comms endpoint exists.' },
-    { name: 'studentOfferPortalLink(id)', state: 'source-wired / disabled', detail: 'CX-OFFER-315 adds protected admin token mint plus tokenized student read/respond endpoint source. This admin shell still does not mint/send links from the browser; live activation requires a separate validation gate.' },
-    { name: 'getPaymentPaperworkState(id)', state: 'future phase', detail: 'Requires WooCommerce/Stripe sync, paperwork state, and LearnDash downstream checks.' }
+    { name: 'createOfferDraft(id, offerPayload)', state: 'live existing', detail: 'Protected Railway endpoint persists request-first offer drafts through service-only RPC.' },
+    { name: 'previewOfferEmail(id, offerPayload)', state: 'live existing', detail: 'Protected Railway endpoint logs message previews to usce_comms; browser preview remains local by default.' },
+    { name: 'sendOffer(id)', state: 'protected dry-run', detail: 'Protected endpoint records Postmark dry-runs with idempotency. Live send requires server env gates plus explicit admin approval.' },
+    { name: 'getCommsTimeline(id)', state: 'live existing', detail: 'Protected endpoint reads service-only usce_comms timeline for the selected offer.' },
+    { name: 'studentOfferPortalLink(id)', state: 'live existing', detail: 'Tokenized portal read/respond is source-wired; raw token is returned once and SHA-256 hash is stored.' },
+    { name: 'getPaymentPaperworkState(id)', state: 'protected manual state', detail: 'Payment, paperwork, and LearnDash readiness are admin state fields. No Woo order, payment, upload, or enrollment is created.' }
   ];
 
   const wiringItems = [
     { label: 'Admin list read', status: 'live', detail: 'Existing audited endpoint, privileged WordPress authority required after 310K wiring fix.' },
     { label: 'Status update endpoint', status: 'live existing', detail: 'Protected backend contract validated by privileged admin browser test; UI write control remains intentionally disabled.' },
     { label: 'Internal notes endpoint', status: 'live existing', detail: 'Protected backend contract validated by privileged admin browser test; UI write control remains intentionally disabled.' },
-    { label: 'Offer draft persistence', status: 'required', detail: 'Draft table/RPC and promotion path to formal USCE request state.' },
-    { label: 'Offer send/Postmark', status: 'required', detail: 'Postmark template, dry-run-to-live gate, duplicate-send lock, usce_comms logging.' },
-    { label: 'Student offer portal', status: 'required', detail: 'Tokenized student response path for accept/decline/alternate.' },
-    { label: 'Payment handoff', status: 'required', detail: 'Only after offer acceptance; canonical WooCommerce product remains untouched here.' },
-    { label: 'Paperwork/LearnDash sync', status: 'stub', detail: 'Future downstream state, no enrollment or course changes in this shell.' },
-    { label: 'R2/CDN admin shell promotion', status: 'required', detail: 'CDN promotion is reserved for Wiring Authority release gate.' }
+    { label: 'Offer draft persistence', status: 'live existing', detail: 'Request-first offer draft table/RPC is protected server-side only.' },
+    { label: 'Offer send/Postmark', status: 'live existing', detail: 'Dry-run send logging and duplicate-send lock are protected. Live send remains gated.' },
+    { label: 'Student offer portal', status: 'live existing', detail: 'Tokenized student response path supports accept/decline/alternate.' },
+    { label: 'Payment handoff', status: 'live existing', detail: 'WooCommerce handoff appears only after acceptance; no orders are created by this shell.' },
+    { label: 'Paperwork/LearnDash sync', status: 'stub', detail: 'Manual readiness states are modeled; automated upload/enrollment remains future gated.' },
+    { label: 'R2/CDN admin shell promotion', status: 'required', detail: 'CDN promotion remains a release gate after local and backend validation.' }
   ];
+
+  const messageTemplates = {
+    request_received: {
+      subject: 'MissionMed Clinicals request received',
+      coordinator_clear: 'Thank you for submitting your MissionMed Clinicals request. Our team is reviewing your specialty, location, timing, and duration preferences before any payment step is requested.',
+      warm_guidance: 'Thank you for reaching out to MissionMed Clinicals. We have your request and will review availability carefully so the next step fits your training goals.',
+      concise_operations: 'We received your MissionMed Clinicals request and are reviewing availability. No payment is due while availability is being checked.'
+    },
+    availability_confirmed: {
+      subject: 'MissionMed Clinicals availability confirmed for your review',
+      coordinator_clear: 'Good news: we have an availability option that appears aligned with your request. Please review the offer details and confirm whether this timing and specialty direction works for you.',
+      warm_guidance: 'We found an option that looks aligned with your goals. Please review the details below and let us know if this is the path you would like to move forward with.',
+      concise_operations: 'Availability is confirmed for the option below. Please review and respond from your offer link.'
+    },
+    alternate_option_recommended: {
+      subject: 'MissionMed Clinicals alternate option recommended',
+      coordinator_clear: 'Your original preference is still under review, but this alternate may be a stronger fit based on timing and availability. Please review the option and tell us whether it works for you.',
+      warm_guidance: 'We want to keep your placement moving. The alternate below may offer a better path while staying close to your goals.',
+      concise_operations: 'An alternate option is available for review. Please accept, decline, or request another alternate from your offer link.'
+    },
+    offer_ready: {
+      subject: 'MissionMed Clinicals availability option for your review',
+      coordinator_clear: 'Thank you for submitting your MissionMed Clinicals request. Based on your preferences, we prepared an availability option for review. Please confirm whether this timing and specialty direction still works before any payment step is requested.',
+      warm_guidance: 'We reviewed your request and prepared a clinical rotation option for you to consider. Please take a look and choose the response that best matches your plans.',
+      concise_operations: 'Your MissionMed Clinicals offer is ready for review. Please respond using the secure offer link.'
+    },
+    offer_reminder: {
+      subject: 'Reminder: MissionMed Clinicals offer awaiting your response',
+      coordinator_clear: 'This is a reminder that your MissionMed Clinicals offer is still awaiting your response. Please review the option and let us know whether you would like to accept, decline, or request an alternate.',
+      warm_guidance: 'Just a friendly reminder that your offer is ready when you are. If the timing does not work, you can request an alternate option.',
+      concise_operations: 'Reminder: your USCE offer is pending response. Please respond before the listed deadline.'
+    },
+    accepted_offer_next_steps: {
+      subject: 'MissionMed Clinicals next steps after acceptance',
+      coordinator_clear: 'Your acceptance has been recorded. The next steps are coordinator confirmation, payment handoff, onboarding paperwork, and course access only after downstream approval gates are complete.',
+      warm_guidance: 'Thank you for accepting your offer. We will guide you through payment, paperwork, and onboarding in the proper order.',
+      concise_operations: 'Acceptance recorded. Payment and paperwork next steps follow coordinator confirmation.'
+    },
+    declined_response: {
+      subject: 'MissionMed Clinicals response recorded',
+      coordinator_clear: 'Your decision has been recorded. No payment or paperwork will be requested for this option. If your plans change, you can submit a new request or ask for another option.',
+      warm_guidance: 'Thank you for letting us know. We will keep the process clean and will not request payment or paperwork for this declined option.',
+      concise_operations: 'Decline recorded. No payment or paperwork action is required.'
+    },
+    alternate_requested_response: {
+      subject: 'MissionMed Clinicals alternate request received',
+      coordinator_clear: 'Your alternate request has been recorded. A coordinator will review whether a better timing, specialty, or location option is available.',
+      warm_guidance: 'Thanks for the update. We will review alternate options and follow up with the best next path.',
+      concise_operations: 'Alternate request recorded. Coordinator review is pending.'
+    },
+    payment_reminder: {
+      subject: 'MissionMed Clinicals payment step reminder',
+      coordinator_clear: 'Your offer has been accepted and the payment handoff is available. Please use the official MissionMed USCE Clinical Rotations product page when you are ready to complete payment.',
+      warm_guidance: 'You are at the payment step now. Please use the official MissionMed product page, and our team will continue with paperwork after payment readiness is confirmed.',
+      concise_operations: 'Payment step is pending after acceptance. Use the official MissionMed product page to continue.'
+    }
+  };
 
   const demoRequests = [
     {
@@ -387,7 +475,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
   }
 
   function cacheEls(){
-    ['modePill','kpiNew','kpiOffer','kpiWire','queueCount','liveToggle','adapterStatus','refreshBtn','searchInput','statusFilter','sortSelect','queueList','detailStatus','detailName','detailMeta','profileGrid','specialtyChips','locationChips','monthChips','requestNotes','statusTimeline','scoreRing','scoreValue','matchBars','noteInput','addNoteBtn','noteList','offerSpecialty','offerLocation','offerTiming','offerDuration','offerSeat','offerExpires','offerAlternate','offerPayment','offerPaperwork','offerMessage','offerInternal','buildOfferBtn','offerPreview','commsTimeline','paperworkList','adapterContractList','sideStatus','sideOffer','jumpOfferBtn','wiringList','copySummaryBtn','markReviewedBtn'].forEach(id => { els[id] = document.getElementById(id); });
+    ['modePill','kpiNew','kpiOffer','kpiWire','queueCount','liveToggle','adapterStatus','refreshBtn','searchInput','statusFilter','sortSelect','queueList','detailStatus','detailName','detailMeta','profileGrid','specialtyChips','locationChips','monthChips','requestNotes','statusTimeline','scoreRing','scoreValue','matchBars','noteInput','addNoteBtn','noteList','offerSpecialty','offerLocation','offerTiming','offerDuration','offerSeat','offerExpires','offerAlternate','messageCategory','messageVariant','messageSubject','offerPayment','offerPaperwork','offerMessage','offerInternal','buildOfferBtn','copyEmailBtn','dryRunSendBtn','offerPreview','commsTimeline','paperworkList','adapterContractList','sideStatus','sideOffer','jumpOfferBtn','wiringList','copySummaryBtn','markReviewedBtn'].forEach(id => { els[id] = document.getElementById(id); });
   }
 
   function bindEvents(){
@@ -399,7 +487,11 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
     els.addNoteBtn.addEventListener('click', addDemoNote);
     els.buildOfferBtn.addEventListener('click', renderOfferPreview);
-    ['offerSpecialty','offerLocation','offerTiming','offerDuration','offerSeat','offerExpires','offerAlternate','offerPayment','offerPaperwork','offerMessage'].forEach(id => els[id].addEventListener('input', renderOfferPreview));
+    els.messageCategory.addEventListener('change', applyMessageTemplate);
+    els.messageVariant.addEventListener('change', applyMessageTemplate);
+    els.copyEmailBtn.addEventListener('click', copyOfferEmail);
+    els.dryRunSendBtn.addEventListener('click', recordDryRunLocally);
+    ['offerSpecialty','offerLocation','offerTiming','offerDuration','offerSeat','offerExpires','offerAlternate','messageSubject','offerPayment','offerPaperwork','offerMessage'].forEach(id => els[id].addEventListener('input', renderOfferPreview));
     els.jumpOfferBtn.addEventListener('click', () => setTab('offer'));
     els.markReviewedBtn.addEventListener('click', markReviewedLocal);
     els.copySummaryBtn.addEventListener('click', copySummary);
@@ -600,7 +692,11 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     els.offerDuration.value = durationLabel(row.duration_weeks);
     els.offerSeat.value = '';
     els.offerAlternate.value = toArray(row.preferred_months_or_dates)[1] || '';
-    els.offerMessage.value = 'Thank you for submitting your MissionMed Clinicals request. Based on your preferences, we are preparing an availability option for review. Please confirm whether this timing and specialty direction still works for you before any payment step is requested.';
+    if(!els.messageCategory.value) els.messageCategory.value = 'offer_ready';
+    if(!els.messageVariant.value) els.messageVariant.value = 'coordinator_clear';
+    const template = getSelectedMessageTemplate();
+    els.messageSubject.value = template.subject;
+    els.offerMessage.value = template.body;
     els.offerInternal.value = '';
     if(!els.offerExpires.value){
       const d = new Date();
@@ -613,7 +709,8 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     const row = getSelectedRequest();
     if(!row) return;
     const lines = [
-      'Subject: MissionMed Clinicals availability option for your review',
+      'Subject: '+(els.messageSubject.value || 'MissionMed Clinicals availability option for your review'),
+      'Message category: '+labelStatus(els.messageCategory.value || 'offer_ready')+' / '+labelStatus(els.messageVariant.value || 'coordinator_clear'),
       '',
       'Hello '+(firstName(row.student_name) || 'there')+',',
       '',
@@ -638,25 +735,73 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     els.sideOffer.textContent = 'Preview ready';
   }
 
+  function getSelectedMessageTemplate(){
+    const category = els.messageCategory ? els.messageCategory.value : 'offer_ready';
+    const variant = els.messageVariant ? els.messageVariant.value : 'coordinator_clear';
+    const group = messageTemplates[category] || messageTemplates.offer_ready;
+    return {
+      subject: group.subject || messageTemplates.offer_ready.subject,
+      body: group[variant] || group.coordinator_clear || messageTemplates.offer_ready.coordinator_clear
+    };
+  }
+
+  function applyMessageTemplate(){
+    const template = getSelectedMessageTemplate();
+    els.messageSubject.value = template.subject;
+    els.offerMessage.value = template.body;
+    renderOfferPreview();
+    setAdapterStatus('Message intelligence template applied locally. No email was sent.', 'demo');
+  }
+
+  async function copyOfferEmail(){
+    renderOfferPreview();
+    try{
+      await navigator.clipboard.writeText(state.lastOfferPreview || '');
+      setAdapterStatus('Offer email preview copied. This is manual-send safe and no backend call occurred.', 'demo');
+    } catch(_error){
+      setAdapterStatus('Clipboard unavailable. The email preview remains visible for manual review.', 'blocked');
+    }
+  }
+
+  function recordDryRunLocally(){
+    const row = getSelectedRequest();
+    if(!row) return;
+    renderOfferPreview();
+    const event = {
+      title: 'Postmark dry-run staged',
+      body: 'Local dry-run record only. Protected endpoint '+CONFIG.offerSendEndpoint+' is available after an offer id, privileged session, CSRF, and explicit send gate validation.',
+      at: new Date().toISOString()
+    };
+    state.localComms[row.id] = state.localComms[row.id] || [];
+    state.localComms[row.id].unshift(event);
+    renderComms(row);
+    setAdapterStatus('Dry-run send staged locally. No live email, notification, payment, or Supabase browser write occurred.', 'demo');
+  }
+
   function renderComms(row){
     const items = [
       ['Inbound request received', 'Public intake captured the student request.'],
-      ['Internal notification', 'Future Postmark/internal notification event. Currently disabled.'],
-      ['Offer draft created', 'Future system event when draft is persisted. Demo preview only right now.'],
-      ['Offer sent', 'Future outbound email and usce_comms row after Postmark gate.'],
-      ['Student response', 'Future accept/decline/alternate portal event.'],
-      ['Payment and paperwork', 'Future WooCommerce and onboarding sync states.']
+      ['Message intelligence', 'Category '+labelStatus(els.messageCategory.value || 'offer_ready')+' selected with '+labelStatus(els.messageVariant.value || 'coordinator_clear')+' tone.'],
+      ['Offer draft created', 'Protected offer draft RPC persists request-first offer drafts when invoked by a privileged admin session.'],
+      ['Postmark dry-run gate', 'Protected send endpoint records dry-run/idempotency into usce_comms before any live send is possible.'],
+      ['Student response', 'Tokenized portal records accept/decline/alternate and logs request-first comms events.'],
+      ['Payment and paperwork', 'Accepted offers show Woo handoff only; payment status, paperwork, and LearnDash access remain explicit downstream gates.']
     ];
-    els.commsTimeline.innerHTML = items.map((item, idx) => eventHtml(idx+1, item[0], item[1])).join('');
+    const local = (state.localComms[row.id] || []).map(item => [item.title, item.body]);
+    els.commsTimeline.innerHTML = local.concat(items).map((item, idx) => eventHtml(idx+1, item[0], item[1])).join('');
   }
 
   function renderPaperwork(row){
+    const meta = row.metadata || {};
+    const paymentStatus = meta.payment_status || row.payment_status || 'pending';
+    const paperworkStatus = meta.paperwork_status || row.paperwork_status || 'not_started';
+    const learndashStatus = meta.learndash_status || row.learndash_status || 'locked';
     const states = [
       ['Payment product identified', 'live', 'Canonical product link is displayed for admin context only. No redirect or order creation.'],
-      ['Offer accepted', 'stub', 'Awaiting future student offer portal response.'],
-      ['Payment status', 'required', 'Requires WooCommerce/Stripe sync after acceptance.'],
-      ['Paperwork checklist', 'required', 'Requires onboarding packet/status endpoint.'],
-      ['LearnDash course access', 'stub', 'Future downstream relation only; no course edits or enrollment.']
+      ['Offer accepted', 'stub', 'Tokenized portal controls acceptance. Payment CTA remains hidden until accept.'],
+      ['Payment status: '+labelStatus(paymentStatus), paymentStatus === 'paid' ? 'live' : 'stub', 'WooCommerce sync remains read/status-only. No order or charge is created here.'],
+      ['Paperwork status: '+labelStatus(paperworkStatus), paperworkStatus === 'approved' ? 'live' : 'stub', 'Lightweight paperwork state is modeled; uploads remain future gated.'],
+      ['LearnDash access: '+labelStatus(learndashStatus), learndashStatus === 'enabled' ? 'live' : 'stub', 'Course access should require payment/paperwork approval. No enrollment is triggered by this shell.']
     ];
     els.paperworkList.innerHTML = states.map(wireHtml).join('');
   }
@@ -670,7 +815,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     const label = item.label || item[0];
     const status = item.status || item[1];
     const detail = item.detail || item[2];
-    const cls = status === 'live' || status === 'live existing' ? 'live' : status === 'required' || status === 'requires Wiring Authority' ? 'required' : 'stub';
+    const cls = status === 'live' || status === 'live existing' || status === 'protected dry-run' || status === 'protected manual state' ? 'live' : status === 'required' || status === 'requires Wiring Authority' ? 'required' : 'stub';
     const glyph = cls === 'live' ? 'L' : cls === 'required' ? 'W' : 'D';
     return '<div class="wire '+cls+'"><span class="state">'+glyph+'</span><span><b>'+esc(label)+'</b><span>'+esc(detail)+'</span></span></div>';
   }
@@ -764,6 +909,9 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
       promoted_usce_request_id: item.promoted_usce_request_id || null,
       promoted_at: item.promoted_at || null,
       admin_notes: item.admin_notes || '',
+      payment_status: item.payment_status || '',
+      paperwork_status: item.paperwork_status || '',
+      learndash_status: item.learndash_status || '',
       metadata: item.metadata || {}
     })).filter(row => row.id);
   }
@@ -807,7 +955,7 @@ button,input,select,textarea{font:inherit}button{cursor:pointer}button:disabled{
     return d.toLocaleDateString(undefined,{month:'short',day:'numeric',year:'numeric'});
   }
   function firstName(value){ return String(value || '').trim().split(/\s+/)[0] || ''; }
-  function stateToClass(value){ return value === 'live existing' ? 'live' : value === 'requires Wiring Authority' ? 'required' : 'stub'; }
+  function stateToClass(value){ return value === 'live existing' || value === 'protected dry-run' || value === 'protected manual state' ? 'live' : value === 'requires Wiring Authority' ? 'required' : 'stub'; }
   function esc(value){
     return String(value == null ? '' : value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
   }

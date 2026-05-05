@@ -395,6 +395,12 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
           <div class="step"><div class="num">3</div><div><b>Onboarding paperwork</b><span>After payment is confirmed, onboarding paperwork is sent for completion.</span></div></div>
           <div class="step"><div class="num">4</div><div><b>Course access</b><span>Course access is enabled after onboarding paperwork is complete.</span></div></div>
         </div>
+        <div class="section-title">Readiness status</div>
+        <div class="next-steps" id="readinessSteps">
+          <div class="step"><div class="num">P</div><div><b>Payment</b><span id="paymentStatusText">Pending coordinator confirmation.</span></div></div>
+          <div class="step"><div class="num">W</div><div><b>Paperwork</b><span id="paperworkStatusText">Not started until payment readiness is confirmed.</span></div></div>
+          <div class="step"><div class="num">L</div><div><b>Course access</b><span id="learndashStatusText">Locked until downstream approval gates are complete.</span></div></div>
+        </div>
 
         <div class="payment-cta" role="region" aria-label="Payment call to action">
           <div>
@@ -531,6 +537,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       'deadlineDetail','messageBody','acceptBtn','alternateBtn','declineBtn','altForm',
       'altInput','altSubmitBtn','altCancelBtn','stateAccepted','stateDeclined',
       'stateAlternate','stateExpired','altEcho','paymentCta','actionRow',
+      'paymentStatusText','paperworkStatusText','learndashStatusText',
       'demoBanner','offerCard','acceptConfirm','declineConfirm',
       'acceptConfirmBtn','acceptCancelBtn','declineConfirmBtn','declineCancelBtn',
       'altCharCount','responseTitle',
@@ -640,7 +647,10 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       heroTitle: 'Your MissionMed Clinicals offer.',
       heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.',
       responseStatus: data.response_status || data.student_response || data.status || payload.response_status || payload.student_response || null,
-      paymentUrl: payload.payment_handoff_url || data.payment_handoff_url || data.payment_url || null
+      paymentUrl: payload.payment_handoff_url || data.payment_handoff_url || data.payment_url || null,
+      paymentStatus: data.payment_status || null,
+      paperworkStatus: data.paperwork_status || null,
+      learndashStatus: data.learndash_status || null
     };
   }
 
@@ -650,6 +660,22 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       if (isNaN(d.getTime())) return null;
       return 'Please respond by ' + d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + '.';
     } catch(_e) { return null; }
+  }
+
+  function readinessLabel(type, status) {
+    var value = String(status || '').replace(/_/g, ' ').trim();
+    if (type === 'payment') {
+      if (!value || value === 'pending') return 'Pending coordinator confirmation. No order or payment is created by this page.';
+      if (value === 'handoff shown') return 'Payment handoff is available after acceptance. Complete payment only on missionmedinstitute.com.';
+      if (value === 'paid') return 'Payment is marked paid by downstream MissionMed review.';
+      return 'Payment status: ' + value + '.';
+    }
+    if (type === 'paperwork') {
+      if (!value || value === 'not started') return 'Not started until payment readiness is confirmed.';
+      return 'Paperwork status: ' + value + '.';
+    }
+    if (!value || value === 'locked') return 'Locked until payment and paperwork gates are complete.';
+    return 'Course access status: ' + value + '.';
   }
 
   // ---- View state management -------------------------------------------------
@@ -758,6 +784,9 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     setText(els.messageBody, o.message || els.messageBody.textContent);
     setText(els.heroTitle, o.heroTitle || 'Your MissionMed Clinicals offer.');
     setText(els.heroSub, o.heroSub || 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.');
+    setText(els.paymentStatusText, readinessLabel('payment', o.paymentStatus));
+    setText(els.paperworkStatusText, readinessLabel('paperwork', o.paperworkStatus));
+    setText(els.learndashStatusText, readinessLabel('learndash', o.learndashStatus));
     if (isExpired(o)) {
       showExpired();
     } else {
@@ -778,7 +807,10 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       message: 'Thank you for your USCE rotation request. Based on your preferences, we have prepared the option above. Please confirm whether this timing and specialty direction works for you. Payment and onboarding paperwork are only requested after you accept a confirmed offer.',
       heroTitle: 'Your MissionMed Clinicals offer.',
       heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.',
-      expiresAt: null
+      expiresAt: null,
+      paymentStatus: 'pending',
+      paperworkStatus: 'not_started',
+      learndashStatus: 'locked'
     };
   }
 
@@ -867,6 +899,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       respondToOffer(state.token, normalized, note).then(function(data) {
         if (data.ok === true) {
           setAdapterStatus('Response recorded.', 'live');
+          state.offer = mapApiOfferToView(data);
+          renderOffer();
           if (normalized === 'accept') {
             var payUrl = createPaymentHandoff(data);
             if (payUrl && els.paymentCta) els.paymentCta.href = payUrl;

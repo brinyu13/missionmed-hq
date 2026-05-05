@@ -17,7 +17,32 @@ const ADMIN_GET_RPC = 'get_usce_offer_draft_admin';
 const ADMIN_TOKEN_RPC = 'mint_usce_offer_token';
 const STUDENT_READ_RPC = 'get_usce_offer_by_token_hash';
 const STUDENT_RESPOND_RPC = 'respond_usce_offer_by_token_hash';
+const ADMIN_MESSAGE_PREVIEW_RPC = 'update_usce_offer_message_preview';
+const ADMIN_POSTMARK_SEND_RPC = 'record_usce_offer_postmark_send';
+const ADMIN_COMMS_RPC = 'list_usce_offer_comms';
+const ADMIN_OPERATIONS_STATE_RPC = 'update_usce_offer_operations_state';
 const ADMIN_STATUSES = new Set(['draft', 'ready', 'archived']);
+const MESSAGE_CATEGORIES = new Set([
+  'request_received',
+  'availability_confirmed',
+  'alternate_option_recommended',
+  'offer_ready',
+  'offer_reminder',
+  'accepted_offer_next_steps',
+  'declined_response',
+  'alternate_requested_response',
+  'payment_reminder',
+]);
+const PAYMENT_STATUSES = new Set(['pending', 'handoff_shown', 'paid', 'failed', 'refunded', 'manual_review']);
+const PAPERWORK_STATUSES = new Set(['not_started', 'requested', 'received', 'approved', 'blocked']);
+const LEARNDASH_STATUSES = new Set(['locked', 'ready', 'enabled', 'blocked']);
+const POSTMARK_ENABLED_FLAGS = ['USCE_POSTMARK_ENABLED', 'MM_USCE_POSTMARK_ENABLED'];
+const POSTMARK_DRY_RUN_FLAGS = ['USCE_POSTMARK_DRY_RUN', 'MM_USCE_POSTMARK_DRY_RUN', 'MM_USCE_PUBLIC_INTAKE_NOTIFY_DRY_RUN'];
+const POSTMARK_LIVE_SEND_FLAGS = ['USCE_POSTMARK_LIVE_SEND_ENABLED', 'MM_USCE_POSTMARK_LIVE_SEND_ENABLED'];
+const POSTMARK_TOKEN_FLAGS = ['POSTMARK_SERVER_TOKEN', 'USCE_POSTMARK_SERVER_TOKEN', 'MMHQ_POSTMARK_SERVER_TOKEN'];
+const POSTMARK_FROM_FLAGS = ['USCE_POSTMARK_FROM_EMAIL', 'POSTMARK_FROM_EMAIL', 'MMHQ_POSTMARK_FROM_EMAIL'];
+const POSTMARK_API_URL = 'https://api.postmarkapp.com/email';
+const DEFAULT_POSTMARK_FROM = 'clinicals@missionmedinstitute.com';
 const STUDENT_ACTIONS = new Map([
   ['accept', 'accept'],
   ['accepted', 'accept'],
@@ -110,6 +135,39 @@ export async function handleUsceAdminOfferRoute(request, response, url, context 
   if (!route) return false;
 
   const authHeaders = context.authHeaders || {};
+  if (route.action === 'comms') {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET'], authHeaders);
+      return true;
+    }
+    sendRoutePayload(response, await getAdminOfferComms(route.offerId, url.searchParams), authHeaders);
+    return true;
+  }
+
+  if (route.action === 'message_preview' || route.action === 'send' || route.action === 'payment' || route.action === 'paperwork' || route.action === 'learndash') {
+    const allowedMethod = route.action === 'message_preview' || route.action === 'send' ? 'POST' : 'PATCH';
+    if (request.method !== allowedMethod) {
+      sendMethodNotAllowed(response, [allowedMethod], authHeaders);
+      return true;
+    }
+
+    const payload = await readAdminJsonPayload(request, response, authHeaders, route.action === 'comms');
+    if (!payload.ok) return true;
+
+    if (route.action === 'message_preview') {
+      sendRoutePayload(response, await saveAdminMessagePreview(route.offerId, payload.body, context.session), authHeaders);
+      return true;
+    }
+
+    if (route.action === 'send') {
+      sendRoutePayload(response, await sendAdminOfferMessage(route.offerId, payload.body, context.session, request), authHeaders);
+      return true;
+    }
+
+    sendRoutePayload(response, await updateAdminOperationsState(route.offerId, route.action, payload.body, context.session), authHeaders);
+    return true;
+  }
+
   if (route.action === 'offer') {
     if (request.method === 'GET') {
       sendRoutePayload(response, await getAdminOfferDraft(route.offerId), authHeaders);
@@ -274,6 +332,146 @@ async function mintAdminOfferToken(offerId, payload, session) {
   };
 }
 
+async function saveAdminMessagePreview(offerId, payload, session) {
+  if (!isUuid(offerId)) {
+    return badRequest('invalid_offer_id', 'USCE offer id must be a UUID.');
+  }
+
+  const message = normalizeOfferMessagePayload(payload);
+  if (!message.ok) return message;
+
+  return callOfferRpc({
+    rpcName: ADMIN_MESSAGE_PREVIEW_RPC,
+    body: {
+      p_offer_id: offerId,
+      p_message: message.data,
+      p_admin_identity: buildAdminIdentity(session),
+    },
+    action: 'offer_message_preview',
+  });
+}
+
+async function sendAdminOfferMessage(offerId, payload, session, request) {
+  if (!isUuid(offerId)) {
+    return badRequest('invalid_offer_id', 'USCE offer id must be a UUID.');
+  }
+
+  const message = normalizeOfferMessagePayload(payload);
+  if (!message.ok) return message;
+
+  const postmarkConfig = getPostmarkConfig();
+  const idempotencyKey = sanitizeTokenPart(
+    request.headers['x-mm-usce-idempotency-key']
+      || request.headers['idempotency-key']
+      || payload?.idempotency_key
+      || `${offerId}-${message.data.category}-${message.data.variant}`,
+    160,
+  );
+  const liveApproval = payload?.approve_live_send === true;
+
+  if (!postmarkConfig.liveSend || !liveApproval) {
+    return recordOfferSend({
+      offerId,
+      message: message.data,
+      mode: 'dry_run',
+      idempotencyKey,
+      postmarkMessageId: null,
+      session,
+      action: 'offer_postmark_dry_run',
+      extra: {
+        postmark_enabled: postmarkConfig.enabled,
+        postmark_dry_run: postmarkConfig.dryRun,
+        live_send_enabled: postmarkConfig.liveSend,
+        live_send_approval: liveApproval,
+      },
+    });
+  }
+
+  if (!postmarkConfig.ok) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      error: 'postmark_not_configured',
+      message: 'USCE Postmark live send is gated but server configuration is incomplete.',
+      dry_run: false,
+      reason: postmarkConfig.reason,
+    };
+  }
+
+  const liveResult = await sendPostmarkEmail({
+    token: postmarkConfig.token,
+    fromEmail: postmarkConfig.fromEmail,
+    toEmail: message.data.to_email,
+    subject: message.data.subject,
+    body: message.data.body,
+  });
+
+  if (!liveResult.ok) {
+    return liveResult;
+  }
+
+  return recordOfferSend({
+    offerId,
+    message: { ...message.data, from_email: postmarkConfig.fromEmail },
+    mode: 'live',
+    idempotencyKey,
+    postmarkMessageId: liveResult.message_id,
+    session,
+    action: 'offer_postmark_live_send',
+    extra: { postmark_enabled: true, postmark_dry_run: false, live_send_enabled: true },
+  });
+}
+
+async function recordOfferSend({ offerId, message, mode, idempotencyKey, postmarkMessageId, session, action, extra = {} }) {
+  return callOfferRpc({
+    rpcName: ADMIN_POSTMARK_SEND_RPC,
+    body: {
+      p_offer_id: offerId,
+      p_message: { ...message, ...extra },
+      p_mode: mode,
+      p_idempotency_key: idempotencyKey || null,
+      p_postmark_message_id: postmarkMessageId || null,
+      p_admin_identity: buildAdminIdentity(session),
+    },
+    action,
+  });
+}
+
+async function getAdminOfferComms(offerId, searchParams) {
+  if (!isUuid(offerId)) {
+    return badRequest('invalid_offer_id', 'USCE offer id must be a UUID.');
+  }
+
+  const limit = normalizeLimit(searchParams?.get?.('limit'), 50, 100);
+  return callOfferRpc({
+    rpcName: ADMIN_COMMS_RPC,
+    body: {
+      p_offer_id: offerId,
+      p_limit: limit,
+    },
+    action: 'offer_comms_read',
+  });
+}
+
+async function updateAdminOperationsState(offerId, action, payload, session) {
+  if (!isUuid(offerId)) {
+    return badRequest('invalid_offer_id', 'USCE offer id must be a UUID.');
+  }
+
+  const patch = normalizeOperationsPatch(action, payload);
+  if (!patch.ok) return patch;
+
+  return callOfferRpc({
+    rpcName: ADMIN_OPERATIONS_STATE_RPC,
+    body: {
+      p_offer_id: offerId,
+      p_patch: patch.data,
+      p_admin_identity: buildAdminIdentity(session),
+    },
+    action: `offer_${action}_state_update`,
+  });
+}
+
 async function getStudentOfferByToken(rawToken) {
   return callOfferRpc({
     rpcName: STUDENT_READ_RPC,
@@ -341,6 +539,77 @@ function normalizeAdminOfferPayload(payload, { requireDraftFields }) {
   }
 
   return { ok: true, data };
+}
+
+function normalizeOfferMessagePayload(payload) {
+  const category = sanitizeTokenPart(payload?.category || 'offer_ready', 80).toLowerCase();
+  const variant = sanitizeTokenPart(payload?.variant || 'coordinator_clear', 80).toLowerCase();
+  const subject = sanitizeText(payload?.subject, 240);
+  const body = sanitizeMultilineText(payload?.body ?? payload?.body_text ?? payload?.message, 6000);
+  const toEmail = sanitizeEmail(payload?.to_email || payload?.email);
+
+  const missing = [];
+  if (!MESSAGE_CATEGORIES.has(category)) missing.push('category');
+  if (!subject) missing.push('subject');
+  if (!body) missing.push('body');
+
+  if (missing.length) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'missing_message_fields',
+      message: 'USCE offer message preview is missing required fields.',
+      fields: missing,
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      category,
+      variant: variant || 'coordinator_clear',
+      subject,
+      body,
+      to_email: toEmail || null,
+    },
+  };
+}
+
+function normalizeOperationsPatch(action, payload) {
+  const note = sanitizeMultilineText(payload?.note, 1000);
+  const data = {};
+
+  if (action === 'payment') {
+    const paymentStatus = sanitizeTokenPart(payload?.payment_status || payload?.status, 40).toLowerCase();
+    if (!PAYMENT_STATUSES.has(paymentStatus)) {
+      return badRequest('invalid_payment_status', 'Payment status must be pending, handoff_shown, paid, failed, refunded, or manual_review.');
+    }
+    data.payment_status = paymentStatus;
+    data.payment_reference = sanitizeText(payload?.payment_reference || payload?.reference, 240) || null;
+  } else if (action === 'paperwork') {
+    const paperworkStatus = sanitizeTokenPart(payload?.paperwork_status || payload?.status, 40).toLowerCase();
+    if (!PAPERWORK_STATUSES.has(paperworkStatus)) {
+      return badRequest('invalid_paperwork_status', 'Paperwork status must be not_started, requested, received, approved, or blocked.');
+    }
+    data.paperwork_status = paperworkStatus;
+  } else if (action === 'learndash') {
+    const learndashStatus = sanitizeTokenPart(payload?.learndash_status || payload?.status, 40).toLowerCase();
+    if (!LEARNDASH_STATUSES.has(learndashStatus)) {
+      return badRequest('invalid_learndash_status', 'LearnDash status must be locked, ready, enabled, or blocked.');
+    }
+    data.learndash_status = learndashStatus;
+  } else {
+    return badRequest('invalid_operations_action', 'USCE operations state action is not supported.');
+  }
+
+  if (note) data.note = note;
+  return { ok: true, data };
+}
+
+function normalizeLimit(value, fallback, max) {
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric)) return fallback;
+  return Math.max(1, Math.min(max, numeric));
 }
 
 function normalizeDurationWeeks(value) {
@@ -500,6 +769,36 @@ function getAdminOfferRoute(pathname) {
     return { action: 'offer', offerId: match[1] };
   }
 
+  match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/message-preview$/u);
+  if (match) {
+    return { action: 'message_preview', offerId: match[1] };
+  }
+
+  match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/send$/u);
+  if (match) {
+    return { action: 'send', offerId: match[1] };
+  }
+
+  match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/comms$/u);
+  if (match) {
+    return { action: 'comms', offerId: match[1] };
+  }
+
+  match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/payment$/u);
+  if (match) {
+    return { action: 'payment', offerId: match[1] };
+  }
+
+  match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/paperwork$/u);
+  if (match) {
+    return { action: 'paperwork', offerId: match[1] };
+  }
+
+  match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/learndash$/u);
+  if (match) {
+    return { action: 'learndash', offerId: match[1] };
+  }
+
   match = normalized.match(/^\/api\/usce\/admin\/offers\/([^/]+)\/token$/u);
   if (match) {
     return { action: 'token', offerId: match[1] };
@@ -656,6 +955,12 @@ function sanitizeText(value, maxLength) {
     .slice(0, maxLength);
 }
 
+function sanitizeEmail(value) {
+  const raw = sanitizeText(value, 320).toLowerCase();
+  if (!raw || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u.test(raw)) return '';
+  return raw;
+}
+
 function sanitizeTokenPart(value, maxLength) {
   return String(value || '')
     .replace(/[^A-Za-z0-9_-]/gu, '')
@@ -683,6 +988,73 @@ function envValueAny(names, fallback = '') {
     if (raw) return raw;
   }
   return String(fallback);
+}
+
+function envFlagAny(names, defaultValue = false) {
+  const raw = envValueAny(names, '');
+  if (!raw) return Boolean(defaultValue);
+  return ['1', 'true', 'yes', 'on', 'enabled'].includes(raw.toLowerCase());
+}
+
+function getPostmarkConfig() {
+  const enabled = envFlagAny(POSTMARK_ENABLED_FLAGS, false);
+  const dryRun = envFlagAny(POSTMARK_DRY_RUN_FLAGS, true);
+  const liveSend = enabled && !dryRun && envFlagAny(POSTMARK_LIVE_SEND_FLAGS, false);
+  const token = envValueAny(POSTMARK_TOKEN_FLAGS, '');
+  const fromEmail = sanitizeEmail(envValueAny(POSTMARK_FROM_FLAGS, DEFAULT_POSTMARK_FROM)) || DEFAULT_POSTMARK_FROM;
+
+  if (!liveSend) {
+    return { ok: true, enabled, dryRun: true, liveSend: false, fromEmail };
+  }
+
+  if (!token) {
+    return { ok: false, enabled, dryRun, liveSend, fromEmail, reason: 'postmark_token_missing' };
+  }
+
+  return { ok: true, enabled, dryRun, liveSend, token, fromEmail };
+}
+
+async function sendPostmarkEmail({ token, fromEmail, toEmail, subject, body }) {
+  if (!sanitizeEmail(toEmail)) {
+    return {
+      ok: false,
+      httpStatus: 400,
+      error: 'missing_recipient_email',
+      message: 'A live USCE offer email requires an explicit valid recipient email.',
+    };
+  }
+
+  const response = await fetch(POSTMARK_API_URL, {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      'X-Postmark-Server-Token': token,
+    },
+    body: JSON.stringify({
+      From: fromEmail,
+      To: toEmail,
+      Subject: subject,
+      TextBody: body,
+      MessageStream: 'outbound',
+    }),
+  });
+
+  const payload = await readSupabaseJson(response);
+  if (!response.ok) {
+    return {
+      ok: false,
+      httpStatus: 502,
+      error: 'postmark_send_failed',
+      message: 'Postmark rejected the USCE offer email.',
+      reason: sanitizeText(payload?.ErrorCode || payload?.Message || response.status, 160),
+    };
+  }
+
+  return {
+    ok: true,
+    message_id: sanitizeText(payload?.MessageID || payload?.MessageId || '', 180),
+  };
 }
 
 function normalizePathname(pathname) {
