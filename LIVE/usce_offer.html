@@ -1,17 +1,18 @@
 <!DOCTYPE html>
 <!--
-  CX-OFFER-315-WIRING-READY
-  MissionMed USCE Student Offer Portal Shell
-  Standalone R2-ready public offer-response shell. Demo-first, token-aware, no protected wiring.
-  No Supabase from browser, no service-role data, no email sends, no payment trigger,
-  no WooCommerce redirect before acceptance. Live adapter is opt-in and disabled by default.
+  CX-OFFER-318
+  MissionMed USCE Student Offer Portal — Live Adapter Ready
+  Standalone R2-ready public offer-response shell with real fetch adapter for Railway
+  token endpoints. No Supabase from browser, no service-role data, no email sends,
+  no payment trigger, no WooCommerce redirect before acceptance.
+  liveAdapterEnabled defaults to false. Codex flips to true during deploy validation.
 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="missionmed-app" content="usce-student-offer-portal">
-<meta name="missionmed-version" content="CX-OFFER-315-WIRING-READY">
+<meta name="missionmed-version" content="CX-OFFER-318">
 <meta name="robots" content="noindex,nofollow">
 <title>Your MissionMed Clinicals Offer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -25,6 +26,7 @@
   --green:#237455;--green2:#2f9069;--amber:#a96f13;--red:#a64242;--violet:#52628a;
   --shadow:0 22px 70px rgba(7,26,47,.14),0 2px 12px rgba(7,26,47,.06);
   --shadow2:0 12px 34px rgba(7,26,47,.12);
+  --shadow-lift:0 28px 80px rgba(7,26,47,.18),0 4px 16px rgba(7,26,47,.08);
   --radius:24px;--radius2:18px;--ease:cubic-bezier(.2,.8,.2,1);
   --sans:"Manrope",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   --serif:"Fraunces",Georgia,serif;
@@ -35,6 +37,7 @@ body{margin:0;background:var(--navy);color:var(--ink);font-family:var(--sans);-w
 button,input,select,textarea{font:inherit}
 button{cursor:pointer}
 button:disabled{cursor:not-allowed;opacity:.55}
+a{color:inherit}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 
 .mm-shell{min-height:100vh;background:
@@ -88,7 +91,9 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 
 .mm-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
 .mm-grid.cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}
-.info{border:1px solid var(--line);border-radius:var(--radius2);background:#fff;padding:14px 15px}
+.info{border:1px solid var(--line);border-radius:var(--radius2);background:#fff;padding:14px 15px;
+  transition:box-shadow .2s var(--ease),transform .2s var(--ease)}
+.info:hover{box-shadow:0 8px 20px rgba(7,26,47,.08);transform:translateY(-1px)}
 .info small{display:block;color:var(--muted);font-size:10px;font-weight:900;letter-spacing:.11em;text-transform:uppercase;margin-bottom:6px}
 .info b{display:block;color:var(--navy);font-size:15px;line-height:1.45;font-weight:700}
 .info span.note{display:block;color:var(--muted);font-size:12px;margin-top:4px;line-height:1.5}
@@ -99,31 +104,48 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   background:linear-gradient(135deg,rgba(197,164,93,.14),rgba(71,122,120,.08));
   border:1px solid var(--line2);border-radius:var(--radius2)}
 .deadline .icon{width:40px;height:40px;border-radius:50%;background:#fff;border:1px solid var(--line2);
-  display:grid;place-items:center;color:var(--navy);font:700 18px var(--serif)}
+  display:grid;place-items:center;color:var(--navy);font:700 18px var(--serif);flex-shrink:0}
 .deadline b{display:block;color:var(--navy);font-size:14px}
 .deadline span{display:block;color:var(--muted);font-size:12px;margin-top:2px;line-height:1.5}
 .deadline.expired{background:rgba(104,115,132,.12);border-color:rgba(104,115,132,.3)}
+.deadline.expired .icon{background:rgba(104,115,132,.1);border-color:rgba(104,115,132,.3);color:var(--muted)}
 
 .message{background:linear-gradient(180deg,#fff,#faf6ed);border:1px solid var(--line2);
   border-radius:var(--radius2);padding:18px 20px;line-height:1.7;color:var(--ink);
   white-space:pre-wrap;font-size:15px}
 .message .from{font-size:11px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
-  color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px}
+  color:var(--muted);border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.message .from::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--teal);flex-shrink:0}
 
 .actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:6px}
 .btn{appearance:none;border:0;border-radius:999px;padding:14px 16px;
   font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;
   transition:transform .18s,box-shadow .18s,background .18s,color .18s,border-color .18s;
-  font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+  font-family:inherit;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  text-decoration:none;position:relative}
 .btn:not(:disabled):hover{transform:translateY(-1px)}
+.btn:not(:disabled):active{transform:translateY(0)}
 .btn.accept{background:var(--green);color:#fff;box-shadow:0 12px 24px rgba(35,116,85,.25)}
-.btn.accept:not(:disabled):hover{background:var(--green2)}
+.btn.accept:not(:disabled):hover{background:var(--green2);box-shadow:0 16px 30px rgba(35,116,85,.3)}
 .btn.decline{background:#fff;color:var(--red);border:1px solid rgba(166,66,66,.32)}
+.btn.decline:not(:disabled):hover{background:rgba(166,66,66,.06)}
 .btn.alternate{background:#fff;color:var(--navy);border:1px solid var(--line)}
+.btn.alternate:not(:disabled):hover{background:rgba(7,26,47,.04);border-color:var(--line2)}
 .btn.primary{background:var(--gold);color:var(--navy);box-shadow:0 12px 24px rgba(197,164,93,.28)}
+.btn.primary:not(:disabled):hover{box-shadow:0 16px 30px rgba(197,164,93,.34)}
 .btn.dark{background:var(--navy);color:#fff;box-shadow:0 12px 24px rgba(7,26,47,.2)}
 .btn.ghost{background:transparent;color:var(--navy);border:1px solid var(--line)}
 .btn.full{width:100%}
+.btn.locked{background:#e9e5dd;color:#8a8274;border:1px dashed rgba(138,130,116,.35)}
+
+.confirm-bar{margin-top:12px;padding:14px;border-radius:var(--radius2);display:none;
+  animation:fade .2s var(--ease) both}
+.confirm-bar.open{display:block}
+.confirm-bar.accept-confirm{background:rgba(35,116,85,.08);border:1px solid rgba(35,116,85,.2)}
+.confirm-bar.decline-confirm{background:rgba(166,66,66,.06);border:1px solid rgba(166,66,66,.18)}
+.confirm-bar p{margin:0 0 10px;color:var(--ink);font-size:14px;line-height:1.6}
+.confirm-bar p b{color:var(--navy)}
+.confirm-bar .row{display:flex;gap:8px;flex-wrap:wrap}
 
 .alt-form{margin-top:14px;border:1px dashed var(--line2);border-radius:var(--radius2);padding:14px;
   background:rgba(247,242,232,.6);display:none}
@@ -133,8 +155,12 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 .alt-form textarea{width:100%;min-height:110px;border:1px solid var(--line);background:#fff;
   border-radius:14px;padding:12px;color:var(--ink);outline:none;resize:vertical}
 .alt-form textarea:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(197,164,93,.16)}
-.alt-form .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.alt-form .row{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.alt-form .char-count{margin-left:auto;font-size:11px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
+.alt-form .char-count.near{color:var(--amber)}
+.alt-form .char-count.full{color:var(--red)}
 @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 
 .state-panel{display:none;animation:fade .26s var(--ease) both}
 .state-panel.active{display:block}
@@ -144,27 +170,38 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 .confirm.accepted{background:linear-gradient(135deg,rgba(35,116,85,.1),rgba(255,255,255,.96));border-color:rgba(35,116,85,.28)}
 .confirm.declined{background:linear-gradient(135deg,rgba(166,66,66,.08),rgba(255,255,255,.96));border-color:rgba(166,66,66,.24)}
 .confirm.alt{background:linear-gradient(135deg,rgba(82,98,138,.1),rgba(255,255,255,.96));border-color:rgba(82,98,138,.3)}
+.confirm.expired-state{background:linear-gradient(135deg,rgba(104,115,132,.08),rgba(255,255,255,.96));border-color:rgba(104,115,132,.26)}
 .confirm-icon{width:60px;height:60px;border-radius:50%;display:grid;place-items:center;
-  background:#fff;border:1px solid var(--line2);font:700 26px var(--serif);color:var(--navy)}
-.confirm.accepted .confirm-icon{color:var(--green)}
-.confirm.declined .confirm-icon{color:var(--red)}
-.confirm.alt .confirm-icon{color:var(--violet)}
+  background:#fff;border:1px solid var(--line2);font:700 26px var(--serif);color:var(--navy);
+  box-shadow:0 8px 20px rgba(7,26,47,.06)}
+.confirm.accepted .confirm-icon{color:var(--green);box-shadow:0 8px 20px rgba(35,116,85,.12)}
+.confirm.declined .confirm-icon{color:var(--red);box-shadow:0 8px 20px rgba(166,66,66,.1)}
+.confirm.alt .confirm-icon{color:var(--violet);box-shadow:0 8px 20px rgba(82,98,138,.1)}
+.confirm.expired-state .confirm-icon{color:var(--muted)}
 .confirm h3{margin:0 0 4px;font-family:var(--serif);font-size:22px;color:var(--navy);letter-spacing:-.02em}
 .confirm p{margin:0;color:var(--muted);font-size:14px;line-height:1.6}
 
 .next-steps{margin-top:18px;display:grid;gap:10px}
-.step{display:grid;grid-template-columns:30px 1fr;gap:11px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff}
+.step{display:grid;grid-template-columns:30px 1fr;gap:11px;padding:12px 14px;border:1px solid var(--line);border-radius:14px;background:#fff;
+  transition:box-shadow .2s var(--ease)}
+.step:hover{box-shadow:0 4px 12px rgba(7,26,47,.06)}
 .step .num{width:24px;height:24px;border-radius:50%;background:var(--navy);color:var(--gold2);
   font:800 12px var(--sans);display:grid;place-items:center}
 .step b{display:block;color:var(--navy);font-size:13px}
 .step span{display:block;color:var(--muted);font-size:12px;margin-top:3px;line-height:1.5}
 
-.payment-cta{margin-top:18px;padding:20px;border-radius:var(--radius2);
-  background:linear-gradient(135deg,#071a2f,#102b49);color:#fff;
-  display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;box-shadow:var(--shadow2)}
-.payment-cta h3{margin:0 0 6px;font-family:var(--serif);font-size:22px;letter-spacing:-.02em}
-.payment-cta p{margin:0;color:rgba(255,255,255,.74);font-size:13px;line-height:1.55;max-width:520px}
-.payment-cta .btn.primary{white-space:nowrap}
+.payment-cta{margin-top:18px;padding:22px 24px;border-radius:var(--radius2);
+  background:linear-gradient(135deg,#071a2f,#102b49 60%,#173755);color:#fff;
+  display:grid;grid-template-columns:1fr auto;gap:20px;align-items:center;
+  box-shadow:var(--shadow-lift);position:relative;overflow:hidden}
+.payment-cta::before{content:"";position:absolute;inset:0;
+  background:radial-gradient(400px 180px at 100% -20%,rgba(197,164,93,.2),transparent 60%);pointer-events:none}
+.payment-cta h3{margin:0 0 6px;font-family:var(--serif);font-size:22px;letter-spacing:-.02em;position:relative}
+.payment-cta p{margin:0;color:rgba(255,255,255,.74);font-size:13px;line-height:1.55;max-width:520px;position:relative}
+.payment-cta .btn.primary{white-space:nowrap;position:relative}
+.payment-trust{display:flex;align-items:center;gap:8px;margin-top:10px;color:rgba(255,255,255,.56);font-size:11px;font-weight:700;letter-spacing:.04em;position:relative}
+.payment-trust::before{content:"";width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-radius:4px;
+  display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 
 .guard{margin-top:14px;padding:13px 14px;border-radius:14px;
   background:rgba(7,26,47,.06);border:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.6}
@@ -176,18 +213,45 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 .adapter-strip .status-line strong{color:var(--navy)}
 .adapter-strip .right{display:flex;align-items:center;gap:10px}
 
-.demo-banner{margin:12px 0 0;padding:10px 13px;border-radius:12px;font-size:12px;
-  background:rgba(197,164,93,.14);border:1px solid rgba(197,164,93,.34);color:#6a4f10;line-height:1.5}
+.demo-banner{margin:0 0 16px;padding:12px 15px;border-radius:var(--radius2);font-size:13px;
+  background:linear-gradient(135deg,rgba(197,164,93,.14),rgba(197,164,93,.08));
+  border:1px solid rgba(197,164,93,.34);color:#5c4310;line-height:1.55;display:none}
+.demo-banner.visible{display:block;animation:fade .22s var(--ease) both}
+.demo-banner b{color:var(--navy)}
+.demo-banner .demo-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--gold);margin-right:6px}
+
+.expired-panel{display:none}
+.expired-panel.active{display:block;animation:fade .26s var(--ease) both}
 
 .footer-note{max-width:1080px;margin:18px auto 0;
   padding:0 clamp(14px,2.6vw,34px) 40px;color:#6d6a61;font-size:12px;line-height:1.7}
 
 @media(max-width:760px){
-  .mm-grid,.mm-grid.cols-3{grid-template-columns:1fr}
+  .mm-grid,.mm-grid.cols-3{grid-template-columns:1fr 1fr}
   .actions{grid-template-columns:1fr}
-  .payment-cta{grid-template-columns:1fr}
+  .payment-cta{grid-template-columns:1fr;text-align:center}
+  .payment-cta .btn.primary{justify-self:stretch}
   .confirm{grid-template-columns:1fr;text-align:center;justify-items:center}
   h1{font-size:34px}
+  .confirm-bar .row{flex-direction:column}
+  .confirm-bar .row .btn{width:100%}
+}
+@media(max-width:480px){
+  .mm-grid,.mm-grid.cols-3{grid-template-columns:1fr}
+  .mm-card-head{padding:14px 16px}
+  .mm-card-body{padding:16px}
+  .mm-card-head h2{font-size:21px}
+  .mm-top{padding:16px clamp(14px,3vw,34px) 10px}
+  .mm-hero{padding:24px 0 18px}
+  h1{font-size:28px}
+  .mm-sub{font-size:14px}
+  .message{padding:14px 16px;font-size:14px}
+  .deadline{padding:12px;gap:10px}
+  .deadline .icon{width:34px;height:34px;font-size:15px}
+  .confirm h3{font-size:19px}
+  .payment-cta{padding:16px}
+  .payment-cta h3{font-size:19px}
+  .step{padding:10px 12px}
 }
 </style>
 </head>
@@ -201,7 +265,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       </div>
       <div class="mm-runtime" aria-live="polite">
         <span class="mm-pill"><span class="mm-dot" id="modeDot"></span><span id="modePill">Demo offer</span></span>
-        <span class="mm-pill">CX-OFFER-315-WIRING-READY</span>
+        <span class="mm-pill">CX-OFFER-318</span>
       </div>
     </div>
     <section class="mm-hero">
@@ -212,7 +276,12 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   </header>
 
   <main class="mm-app">
-    <article class="mm-card" aria-label="Offer summary">
+    <div class="demo-banner" id="demoBanner" role="status">
+      <span class="demo-dot" aria-hidden="true"></span>
+      <b>Demo preview.</b> This is a sample offer for demonstration purposes. When a live offer is sent by a MissionMed coordinator, it will appear here with your specific rotation details and a unique link.
+    </div>
+
+    <article class="mm-card" id="offerCard" aria-label="Offer summary">
       <div class="adapter-strip" role="region" aria-label="Adapter status">
         <div class="status-line" id="adapterStatus"><strong>Demo adapter active.</strong> No production data is loaded by default.</div>
         <div class="right">
@@ -252,19 +321,36 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
           <div id="messageBody">Thank you for your USCE rotation request. Based on your preferences, we have prepared the option above. Please confirm whether this timing and specialty direction works for you. Payment and onboarding paperwork are only requested after you accept a confirmed offer.</div>
         </div>
 
-        <div class="section-title">Your response</div>
+        <div class="section-title" id="responseTitle">Your response</div>
         <div class="actions" id="actionRow">
           <button class="btn accept" type="button" id="acceptBtn">Accept this offer</button>
           <button class="btn alternate" type="button" id="alternateBtn">Request an alternate</button>
           <button class="btn decline" type="button" id="declineBtn">Decline</button>
         </div>
 
+        <div class="confirm-bar accept-confirm" id="acceptConfirm">
+          <p><b>Confirm acceptance.</b> You are accepting the rotation option above. Your coordinator will follow up with payment and onboarding details. You can still discuss adjustments with your coordinator after accepting.</p>
+          <div class="row">
+            <button class="btn accept" type="button" id="acceptConfirmBtn">Yes, accept this offer</button>
+            <button class="btn ghost" type="button" id="acceptCancelBtn">Go back</button>
+          </div>
+        </div>
+
+        <div class="confirm-bar decline-confirm" id="declineConfirm">
+          <p><b>Confirm decline.</b> You are declining this rotation option. No payment or paperwork will be requested. You can always submit a new request or ask your coordinator for a different option later.</p>
+          <div class="row">
+            <button class="btn decline" type="button" id="declineConfirmBtn">Yes, decline this offer</button>
+            <button class="btn ghost" type="button" id="declineCancelBtn">Go back</button>
+          </div>
+        </div>
+
         <form class="alt-form" id="altForm" autocomplete="off" novalidate>
           <label for="altInput">What would work better?</label>
-          <textarea id="altInput" placeholder="Optional — let your coordinator know which specialty, location, or month would be a better fit. They will follow up with a new option."></textarea>
+          <textarea id="altInput" placeholder="Optional — let your coordinator know which specialty, location, or month would be a better fit. They will follow up with a new option." maxlength="1000"></textarea>
           <div class="row">
             <button class="btn primary" type="button" id="altSubmitBtn">Send alternate request</button>
             <button class="btn ghost" type="button" id="altCancelBtn">Cancel</button>
+            <span class="char-count" id="altCharCount" aria-live="polite">0 / 1,000</span>
           </div>
         </form>
 
@@ -273,6 +359,23 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         </div>
       </div>
     </article>
+
+    <!-- Expired state -->
+    <section class="mm-card expired-panel" id="stateExpired" aria-label="Offer expired" hidden>
+      <div class="mm-card-body">
+        <div class="confirm expired-state">
+          <div class="confirm-icon" aria-hidden="true">&#8987;</div>
+          <div>
+            <h3>This offer has expired.</h3>
+            <p>The response deadline has passed and this offer is no longer available. Your coordinator may reach out with a new option, or you can submit a new rotation request.</p>
+          </div>
+        </div>
+        <div class="next-steps">
+          <div class="step"><div class="num">1</div><div><b>Coordinator follow-up</b><span>Your coordinator may prepare a new offer based on current availability.</span></div></div>
+          <div class="step"><div class="num">2</div><div><b>New request</b><span>You can also submit a new MissionMed Clinicals rotation request at any time.</span></div></div>
+        </div>
+      </div>
+    </section>
 
     <!-- Accepted state -->
     <section class="mm-card state-panel" id="stateAccepted" aria-label="Acceptance confirmation" hidden>
@@ -296,9 +399,10 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
         <div class="payment-cta" role="region" aria-label="Payment call to action">
           <div>
             <h3>Continue to payment</h3>
-            <p>Open the MissionMed USCE Clinical Rotations product to complete payment. This is the canonical product page — no information from this portal is required to begin.</p>
+            <p>Open the MissionMed USCE Clinical Rotations product page to complete payment. This is the official product page and opens in a new tab.</p>
+            <div class="payment-trust">Opens securely on missionmedinstitute.com in a new tab</div>
           </div>
-          <a class="btn primary" id="paymentCta" href="https://missionmedinstitute.com/product/usce-clinical-rotations/" target="_blank" rel="noopener noreferrer">Go to payment &rarr;</a>
+          <a class="btn primary" id="paymentCta" href="https://missionmedinstitute.com/product/usce-clinical-rotations/" target="_blank" rel="noopener noreferrer">Go to payment &#8594;</a>
         </div>
       </div>
     </section>
@@ -314,7 +418,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
           </div>
         </div>
         <div class="next-steps">
-          <div class="step"><div class="num">1</div><div><b>Recorded locally</b><span>Your decline response is captured for the coordinator to review.</span></div></div>
+          <div class="step"><div class="num">1</div><div><b>Response recorded</b><span>Your decline has been captured for your coordinator to review.</span></div></div>
           <div class="step"><div class="num">2</div><div><b>Optional follow-up</b><span>If you change your mind or want a different option, reply to your original coordinator email or submit a new MissionMed Clinicals request.</span></div></div>
         </div>
       </div>
@@ -338,7 +442,45 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       </div>
     </section>
 
-    <p class="footer-note">CX-OFFER-315 wiring-ready offer-portal shell. This page does not contact Supabase from the browser, does not expose service-role data, and does not trigger payment or email on its own. Live response actions remain disabled by default until a separate live validation gate enables the adapter.</p>
+    <!-- Loading state (live adapter only) -->
+    <section class="mm-card state-panel" id="stateLoading" aria-label="Loading offer" hidden>
+      <div class="mm-card-body" style="text-align:center;padding:44px 22px">
+        <div class="confirm-icon" aria-hidden="true" style="margin:0 auto 16px;animation:pulse 1.4s ease-in-out infinite">&#8987;</div>
+        <h3 style="font-family:var(--serif);font-size:22px;color:var(--navy);margin:0 0 8px">Loading your offer&hellip;</h3>
+        <p style="color:var(--muted);font-size:14px;margin:0;line-height:1.6">Securely retrieving your rotation details.</p>
+      </div>
+    </section>
+
+    <!-- Not found / invalid token state -->
+    <section class="mm-card state-panel" id="stateNotFound" aria-label="Offer not found" hidden>
+      <div class="mm-card-body">
+        <div class="confirm expired-state">
+          <div class="confirm-icon" aria-hidden="true">?</div>
+          <div>
+            <h3>Offer not found.</h3>
+            <p id="notFoundMessage">This offer link is not valid or has expired. If you received this link from a MissionMed coordinator, please contact them for an updated link.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Backend error state -->
+    <section class="mm-card state-panel" id="stateError" aria-label="Error loading offer" hidden>
+      <div class="mm-card-body">
+        <div class="confirm expired-state">
+          <div class="confirm-icon" aria-hidden="true">!</div>
+          <div>
+            <h3>Something went wrong.</h3>
+            <p id="errorMessage">We could not load your offer right now. This is usually temporary. Please try again in a moment or contact your MissionMed coordinator.</p>
+          </div>
+        </div>
+        <div class="next-steps" style="margin-top:14px">
+          <button class="btn primary full" type="button" id="retryBtn">Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <p class="footer-note">CX-OFFER-318 offer-portal shell with live adapter. This page does not contact Supabase from the browser, does not expose service-role data, and does not trigger payment or email on its own. Live adapter is disabled by default (liveAdapterEnabled: false). Codex enables it during deploy validation (CX-OFFER-318B).</p>
   </main>
 </div>
 
@@ -346,25 +488,31 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 (function(){
   'use strict';
 
+  // CX-OFFER-318: Live adapter ready. Default off — Codex flips liveAdapterEnabled
+  // to true during deploy validation (CX-OFFER-318B). No Supabase from browser,
+  // no service-role data, no email sends, no payment trigger before acceptance.
   window.__MISSIONMED_USCE_OFFER_CONFIG = {
-    version: 'CX-OFFER-315-WIRING-READY',
-    mode: 'shell_only_wiring_ready',
+    version: 'CX-OFFER-318',
+    mode: 'live_adapter_ready',
     apiBase: 'https://missionmed-hq-production.up.railway.app',
     offerTokenParam: 'offer',
     readEndpoint: '/api/usce/offer/:token',
     respondEndpoint: '/api/usce/offer/:token/respond',
+    // Codex: set to true after deploy validation (CX-OFFER-318B)
     liveAdapterEnabled: false
   };
 
   var CONFIG = window.__MISSIONMED_USCE_OFFER_CONFIG;
   var WOO_URL = 'https://missionmedinstitute.com/product/usce-clinical-rotations/';
+  var ALT_MAX = 1000;
 
   var els = {};
   var state = {
     token: '',
     offer: null,
     response: 'pending',
-    locked: false
+    locked: false,
+    confirmPending: ''
   };
 
   document.addEventListener('DOMContentLoaded', init);
@@ -383,16 +531,26 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       'offerDuration','offerFormat','offerReference','deadlineBox','deadlineLabel',
       'deadlineDetail','messageBody','acceptBtn','alternateBtn','declineBtn','altForm',
       'altInput','altSubmitBtn','altCancelBtn','stateAccepted','stateDeclined',
-      'stateAlternate','altEcho','paymentCta','actionRow'
+      'stateAlternate','stateExpired','altEcho','paymentCta','actionRow',
+      'demoBanner','offerCard','acceptConfirm','declineConfirm',
+      'acceptConfirmBtn','acceptCancelBtn','declineConfirmBtn','declineCancelBtn',
+      'altCharCount','responseTitle',
+      'stateLoading','stateNotFound','stateError','retryBtn','notFoundMessage','errorMessage'
     ].forEach(function(id){ els[id] = document.getElementById(id); });
   }
 
   function bindEvents(){
-    els.acceptBtn.addEventListener('click', function(){ respond('accepted'); });
-    els.declineBtn.addEventListener('click', function(){ respond('declined'); });
+    els.acceptBtn.addEventListener('click', function(){ showConfirmBar('accepted'); });
+    els.declineBtn.addEventListener('click', function(){ showConfirmBar('declined'); });
+    els.acceptConfirmBtn.addEventListener('click', function(){ respond('accepted'); });
+    els.declineConfirmBtn.addEventListener('click', function(){ respond('declined'); });
+    els.acceptCancelBtn.addEventListener('click', hideConfirmBars);
+    els.declineCancelBtn.addEventListener('click', hideConfirmBars);
     els.alternateBtn.addEventListener('click', openAltForm);
     els.altCancelBtn.addEventListener('click', closeAltForm);
     els.altSubmitBtn.addEventListener('click', function(){ respond('alternate_requested'); });
+    els.altInput.addEventListener('input', updateCharCount);
+    if (els.retryBtn) els.retryBtn.addEventListener('click', function(){ loadOffer(); });
   }
 
   function readToken(){
@@ -405,15 +563,115 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     }
   }
 
+  // ---- Live adapter functions ------------------------------------------------
+  // Real fetch calls to CX-OFFER-315/317 validated Railway token endpoints.
+  // Gated by liveAdapterEnabled — no fetch fires when false.
+  // No Supabase from browser. No service-role tokens. Credentials omitted.
+
+  function getOfferByToken(token) {
+    var url = CONFIG.apiBase + '/api/usce/offer/' + encodeURIComponent(token);
+    return fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'omit'
+    }).then(function(resp) {
+      return resp.json().then(function(data) {
+        data._httpStatus = resp.status;
+        return data;
+      }, function() {
+        return { ok: false, _httpStatus: resp.status, error: 'parse_error', message: 'Could not read server response.' };
+      });
+    });
+  }
+
+  function respondToOffer(token, action, note) {
+    var url = CONFIG.apiBase + '/api/usce/offer/' + encodeURIComponent(token) + '/respond';
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'omit',
+      body: JSON.stringify({ action: action, note: note || null, consent: true })
+    }).then(function(resp) {
+      return resp.json().then(function(data) {
+        data._httpStatus = resp.status;
+        return data;
+      }, function() {
+        return { ok: false, _httpStatus: resp.status, error: 'parse_error', message: 'Could not read server response.' };
+      });
+    });
+  }
+
+  function acceptOffer(token) {
+    return respondToOffer(token, 'accept', null);
+  }
+
+  function declineOffer(token, reason) {
+    return respondToOffer(token, 'decline', reason);
+  }
+
+  function requestAlternate(token, payload) {
+    var note = (payload && typeof payload === 'object') ? (payload.note || '') : String(payload || '');
+    return respondToOffer(token, 'request_alternate', note);
+  }
+
+  function createPaymentHandoff(responseData) {
+    return (responseData && responseData.payment_handoff_url) || WOO_URL;
+  }
+
+  function getOfferComms(_token) {
+    return Promise.resolve({ ok: false, reason: 'comms_endpoint_not_wired' });
+  }
+
+  function mapApiOfferToView(data) {
+    var dw = data.duration_weeks || data.durationWeeks;
+    var durationStr = dw ? dw + ' week' + (Number(dw) !== 1 ? 's' : '') : null;
+    var exp = data.expires_at || data.expiresAt || data.token_expires_at;
+    return {
+      specialty: data.specialty || null,
+      location: data.location || null,
+      timing: data.timing || null,
+      duration: durationStr || data.duration || null,
+      format: data.format || 'In-person clinical exposure',
+      reference: 'Confirmed at acceptance',
+      message: data.admin_message || data.message || data.coordinator_message || null,
+      expiresAt: exp || null,
+      deadlineLabel: exp ? formatDeadlineLabel(exp) : null,
+      deadlineDetail: 'This offer expires automatically after the deadline. Your coordinator will reach out about a new option after expiration.',
+      heroTitle: 'Your MissionMed Clinicals offer.',
+      heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.',
+      responseStatus: data.response_status || data.student_response || null,
+      paymentUrl: data.payment_handoff_url || data.payment_url || null
+    };
+  }
+
+  function formatDeadlineLabel(isoDate) {
+    try {
+      var d = new Date(isoDate);
+      if (isNaN(d.getTime())) return null;
+      return 'Please respond by ' + d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) + '.';
+    } catch(_e) { return null; }
+  }
+
+  // ---- View state management -------------------------------------------------
+
+  function showViewState(which) {
+    if (els.offerCard) els.offerCard.style.display = which === 'offer' ? '' : 'none';
+    togglePanel(els.stateLoading, which === 'loading');
+    togglePanel(els.stateNotFound, which === 'notfound');
+    togglePanel(els.stateError, which === 'error');
+  }
+
+  function togglePanel(el, on) {
+    if (!el) return;
+    el.hidden = !on;
+    el.classList.toggle('active', on);
+  }
+
+  // ---- Offer loading ---------------------------------------------------------
+
   function loadOffer(){
     if (CONFIG.liveAdapterEnabled === true && state.token) {
-      // Adapter stub. Disabled by default. Live activation requires a Wiring Authority gate;
-      // would call GET /api/usce/offer/:token and receive a redacted offer payload
-      // with student-safe fields only. No Supabase calls from the browser.
-      adapterStubGetOffer(state.token).then(applyOffer).catch(function(err){
-        setAdapterStatus('Offer load failed safely; showing demo preview. ' + (err && err.message ? err.message : ''), 'demo');
-        applyOffer(buildDemoOffer(state.token));
-      });
+      loadLiveOffer();
       return;
     }
     if (state.token) {
@@ -422,7 +680,65 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       setAdapterStatus('No offer token in URL. Showing demo preview only.', 'demo');
     }
     applyOffer(buildDemoOffer(state.token));
+    showDemoBanner();
   }
+
+  function loadLiveOffer(){
+    showViewState('loading');
+    setAdapterStatus('Loading offer...', 'pending');
+
+    getOfferByToken(state.token).then(function(data) {
+      if (data.ok === true) {
+        var view = mapApiOfferToView(data);
+        setAdapterStatus('Live offer loaded.', 'live');
+        showViewState('offer');
+        applyOffer(view);
+        if (view.responseStatus) handlePreExistingResponse(view);
+        return;
+      }
+      var err = data.error || '';
+      if (err === 'expired' || data._httpStatus === 410) {
+        setAdapterStatus('This offer has expired.', 'live');
+        showViewState('offer');
+        applyOffer(mapApiOfferToView(data));
+        showExpired();
+        return;
+      }
+      if (err === 'invalid_token' || data._httpStatus === 404) {
+        setAdapterStatus('Offer not found.', 'live');
+        setText(els.notFoundMessage, data.message || 'This offer link is not valid or has expired. Please contact your MissionMed coordinator for an updated link.');
+        showViewState('notfound');
+        return;
+      }
+      setAdapterStatus('Could not load offer.', 'demo');
+      setText(els.errorMessage, data.message || 'We could not load your offer right now. Please try again in a moment or contact your MissionMed coordinator.');
+      showViewState('error');
+    }).catch(function() {
+      setAdapterStatus('Network error.', 'demo');
+      setText(els.errorMessage, 'We could not connect to the server. Please check your internet connection and try again.');
+      showViewState('error');
+    });
+  }
+
+  function handlePreExistingResponse(view) {
+    var rs = String(view.responseStatus).toLowerCase();
+    if (rs === 'accepted' || rs === 'accept') {
+      lockActions('accepted');
+      setBadge('Accepted', 'accepted');
+      show(els.stateAccepted);
+      if (view.paymentUrl && els.paymentCta) els.paymentCta.href = view.paymentUrl;
+    } else if (rs === 'declined' || rs === 'decline') {
+      lockActions('declined');
+      setBadge('Declined', 'declined');
+      show(els.stateDeclined);
+    } else if (rs === 'request_alternate' || rs === 'alternate_requested') {
+      lockActions('alternate_requested');
+      setBadge('Alternate requested', 'alt');
+      show(els.stateAlternate);
+    }
+  }
+
+  // ---- Offer rendering -------------------------------------------------------
 
   function applyOffer(offer){
     state.offer = offer;
@@ -442,12 +758,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     setText(els.messageBody, o.message || els.messageBody.textContent);
     setText(els.heroTitle, o.heroTitle || 'Your MissionMed Clinicals offer.');
     setText(els.heroSub, o.heroSub || 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.');
-
-    var expired = isExpired(o);
-    if (expired) {
-      els.deadlineBox.classList.add('expired');
-      lockActions('expired');
-      setBadge('Expired', 'expired');
+    if (isExpired(o)) {
+      showExpired();
     } else {
       setBadge('Pending', 'pending');
     }
@@ -477,37 +789,103 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     return t < Date.now();
   }
 
+  function showDemoBanner(){
+    if (els.demoBanner) els.demoBanner.classList.add('visible');
+  }
+
+  // ---- User interaction handlers ---------------------------------------------
+
+  function showConfirmBar(action){
+    if (state.locked) return;
+    hideConfirmBars();
+    closeAltForm();
+    state.confirmPending = action;
+    if (action === 'accepted' && els.acceptConfirm) {
+      els.acceptConfirm.classList.add('open');
+      try { els.acceptConfirm.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(_e){}
+    } else if (action === 'declined' && els.declineConfirm) {
+      els.declineConfirm.classList.add('open');
+      try { els.declineConfirm.scrollIntoView({ behavior:'smooth', block:'nearest' }); } catch(_e){}
+    }
+  }
+
+  function hideConfirmBars(){
+    state.confirmPending = '';
+    if (els.acceptConfirm) els.acceptConfirm.classList.remove('open');
+    if (els.declineConfirm) els.declineConfirm.classList.remove('open');
+  }
+
   function openAltForm(){
     if (state.locked) return;
+    hideConfirmBars();
     els.altForm.classList.add('open');
     els.altInput.focus();
+    updateCharCount();
   }
 
   function closeAltForm(){
     els.altForm.classList.remove('open');
     els.altInput.value = '';
+    updateCharCount();
+  }
+
+  function updateCharCount(){
+    var len = (els.altInput.value || '').length;
+    var display = len.toLocaleString() + ' / 1,000';
+    setText(els.altCharCount, display);
+    els.altCharCount.className = 'char-count' + (len >= ALT_MAX ? ' full' : len >= 800 ? ' near' : '');
+  }
+
+  function showExpired(){
+    els.deadlineBox.classList.add('expired');
+    lockActions('expired');
+    setBadge('Expired', 'expired');
+    if (els.stateExpired) {
+      els.stateExpired.hidden = false;
+      els.stateExpired.classList.add('active');
+      try { els.stateExpired.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
+    }
   }
 
   function respond(action){
     if (state.locked) return;
     var note = '';
     if (action === 'alternate_requested') {
-      note = String(els.altInput.value || '').trim().slice(0, 1000);
+      note = String(els.altInput.value || '').trim().slice(0, ALT_MAX);
     }
     state.response = action;
     state.locked = true;
+    hideConfirmBars();
 
-    // Adapter stub. Disabled by default.
-    // Live activation requires a Wiring Authority gate — would POST to a tokenized public
-    // response endpoint POST /api/usce/offer/:token/respond with action+note and
-    // would update offer state server-side. This shell never sends email, never creates
-    // payment, never touches Supabase from the browser, and never names private partners.
     if (CONFIG.liveAdapterEnabled === true && state.token) {
-      adapterStubRespond(state.token, action, note).then(function(){
-        showState(action, note);
-      }).catch(function(err){
-        setAdapterStatus('Live response stub returned safely without writing. ' + (err && err.message ? err.message : ''), 'demo');
-        showState(action, note);
+      var normalized = action === 'accepted' ? 'accept'
+        : action === 'declined' ? 'decline'
+        : action === 'alternate_requested' ? 'request_alternate'
+        : action;
+
+      setAdapterStatus('Submitting response...', 'pending');
+      respondToOffer(state.token, normalized, note).then(function(data) {
+        if (data.ok === true) {
+          setAdapterStatus('Response recorded.', 'live');
+          if (normalized === 'accept') {
+            var payUrl = createPaymentHandoff(data);
+            if (payUrl && els.paymentCta) els.paymentCta.href = payUrl;
+          }
+          showState(action, note);
+          return;
+        }
+        if (data.error === 'already_responded' || data._httpStatus === 409) {
+          setAdapterStatus('This offer already has a recorded response.', 'live');
+          showState(action, note);
+          return;
+        }
+        state.locked = false;
+        setAdapterStatus('Response could not be saved: ' + (data.message || 'Please try again.'), 'demo');
+        unlockButtons();
+      }).catch(function() {
+        state.locked = false;
+        setAdapterStatus('Network error submitting response. Please try again.', 'demo');
+        unlockButtons();
       });
     } else {
       setAdapterStatus('Response captured locally. Live adapter is disabled — no production write occurred.', 'demo');
@@ -515,26 +893,34 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     }
   }
 
+  function unlockButtons(){
+    els.acceptBtn.disabled = false;
+    els.declineBtn.disabled = false;
+    els.alternateBtn.disabled = false;
+    els.altSubmitBtn.disabled = false;
+    els.altInput.disabled = false;
+  }
+
   function showState(action, note){
     lockActions(action);
     hideAll([els.stateAccepted, els.stateDeclined, els.stateAlternate]);
+    var target = null;
     if (action === 'accepted') {
       show(els.stateAccepted);
       setBadge('Accepted', 'accepted');
+      target = els.stateAccepted;
     } else if (action === 'declined') {
       show(els.stateDeclined);
       setBadge('Declined', 'declined');
+      target = els.stateDeclined;
     } else if (action === 'alternate_requested') {
       setText(els.altEcho, note || 'No additional details provided.');
       show(els.stateAlternate);
       setBadge('Alternate requested', 'alt');
+      target = els.stateAlternate;
     }
-    if (els.stateAccepted && !els.stateAccepted.hasAttribute('hidden')) {
-      try { els.stateAccepted.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
-    } else if (action === 'declined') {
-      try { els.stateDeclined.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
-    } else if (action === 'alternate_requested') {
-      try { els.stateAlternate.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
+    if (target) {
+      try { target.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
     }
   }
 
@@ -546,8 +932,35 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     els.altSubmitBtn.disabled = true;
     els.altInput.disabled = true;
     els.altForm.classList.remove('open');
+    hideConfirmBars();
     if (reason === 'expired') {
       els.acceptBtn.textContent = 'Offer expired';
+      els.acceptBtn.className = 'btn locked';
+      els.declineBtn.textContent = 'Offer expired';
+      els.declineBtn.className = 'btn locked';
+      els.alternateBtn.textContent = 'Offer expired';
+      els.alternateBtn.className = 'btn locked';
+    } else if (reason === 'accepted') {
+      els.acceptBtn.textContent = 'Accepted';
+      els.acceptBtn.className = 'btn locked';
+      els.declineBtn.textContent = 'Response submitted';
+      els.declineBtn.className = 'btn locked';
+      els.alternateBtn.textContent = 'Response submitted';
+      els.alternateBtn.className = 'btn locked';
+    } else if (reason === 'declined') {
+      els.acceptBtn.textContent = 'Response submitted';
+      els.acceptBtn.className = 'btn locked';
+      els.declineBtn.textContent = 'Declined';
+      els.declineBtn.className = 'btn locked';
+      els.alternateBtn.textContent = 'Response submitted';
+      els.alternateBtn.className = 'btn locked';
+    } else if (reason === 'alternate_requested') {
+      els.acceptBtn.textContent = 'Response submitted';
+      els.acceptBtn.className = 'btn locked';
+      els.declineBtn.textContent = 'Response submitted';
+      els.declineBtn.className = 'btn locked';
+      els.alternateBtn.textContent = 'Alternate requested';
+      els.alternateBtn.className = 'btn locked';
     }
   }
 
@@ -557,25 +970,12 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   }
 
   function setAdapterStatus(text, kind){
-    var label = kind === 'live' ? 'Live read.' : kind === 'pending' ? 'Checking.' : 'Demo adapter active.';
+    var label = kind === 'live' ? 'Live.' : kind === 'pending' ? 'Checking.' : 'Demo adapter active.';
     els.adapterStatus.innerHTML = '<strong>' + esc(label) + '</strong> ' + esc(text);
     if (els.modeDot && els.modePill) {
       els.modeDot.className = 'mm-dot' + (kind === 'live' ? ' green' : kind === 'pending' ? ' amber' : '');
-      els.modePill.textContent = kind === 'live' ? 'Live offer' : 'Demo offer';
+      els.modePill.textContent = kind === 'live' ? 'Live offer' : kind === 'pending' ? 'Loading...' : 'Demo offer';
     }
-  }
-
-  // ---- Adapter stubs (disabled by default) ----------------------------------
-  // These functions exist as a contract reference. They never execute network
-  // calls while liveAdapterEnabled === false. When the protected route exists,
-  // they will be replaced with a tokenized public-response endpoint contract.
-
-  function adapterStubGetOffer(_token){
-    return Promise.reject(new Error('Live adapter disabled by config (CX-OFFER-315).'));
-  }
-
-  function adapterStubRespond(_token, _action, _note){
-    return Promise.reject(new Error('Live adapter disabled by config (CX-OFFER-315).'));
   }
 
   // ---- Tiny helpers ---------------------------------------------------------
