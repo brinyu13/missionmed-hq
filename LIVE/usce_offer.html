@@ -621,7 +621,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     return Promise.resolve({ ok: false, reason: 'comms_endpoint_not_wired' });
   }
 
-  function mapApiOfferToView(data) {
+  function mapApiOfferToView(payload) {
+    var data = payload && payload.offer && typeof payload.offer === 'object' ? payload.offer : (payload || {});
     var dw = data.duration_weeks || data.durationWeeks;
     var durationStr = dw ? dw + ' week' + (Number(dw) !== 1 ? 's' : '') : null;
     var exp = data.expires_at || data.expiresAt || data.token_expires_at;
@@ -638,8 +639,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       deadlineDetail: 'This offer expires automatically after the deadline. Your coordinator will reach out about a new option after expiration.',
       heroTitle: 'Your MissionMed Clinicals offer.',
       heroSub: 'Review the proposed rotation below and choose accept, decline, or request an alternate. No payment is required to make a choice.',
-      responseStatus: data.response_status || data.student_response || null,
-      paymentUrl: data.payment_handoff_url || data.payment_url || null
+      responseStatus: data.response_status || data.student_response || data.status || payload.response_status || payload.student_response || null,
+      paymentUrl: payload.payment_handoff_url || data.payment_handoff_url || data.payment_url || null
     };
   }
 
