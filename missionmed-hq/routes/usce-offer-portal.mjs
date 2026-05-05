@@ -41,8 +41,11 @@ const POSTMARK_DRY_RUN_FLAGS = ['USCE_POSTMARK_DRY_RUN', 'MM_USCE_POSTMARK_DRY_R
 const POSTMARK_LIVE_SEND_FLAGS = ['USCE_POSTMARK_LIVE_SEND_ENABLED', 'MM_USCE_POSTMARK_LIVE_SEND_ENABLED'];
 const POSTMARK_TOKEN_FLAGS = ['POSTMARK_SERVER_TOKEN', 'USCE_POSTMARK_SERVER_TOKEN', 'MMHQ_POSTMARK_SERVER_TOKEN'];
 const POSTMARK_FROM_FLAGS = ['USCE_POSTMARK_FROM_EMAIL', 'POSTMARK_FROM_EMAIL', 'MMHQ_POSTMARK_FROM_EMAIL'];
+const POSTMARK_REPLY_TO_FLAGS = ['USCE_POSTMARK_REPLY_TO_EMAIL', 'MM_USCE_POSTMARK_REPLY_TO_EMAIL'];
+const POSTMARK_INBOUND_REPLY_TO_FLAGS = ['USCE_POSTMARK_INBOUND_REPLY_TO_EMAIL', 'MM_USCE_POSTMARK_INBOUND_REPLY_TO_EMAIL'];
 const POSTMARK_API_URL = 'https://api.postmarkapp.com/email';
 const DEFAULT_POSTMARK_FROM = 'clinicals@missionmedinstitute.com';
+const USCE_INTERNAL_COMMS_RECIPIENTS = ['clinicals@missionmedinstitute.com', 'philperri@gmail.com'];
 const STUDENT_ACTIONS = new Map([
   ['accept', 'accept'],
   ['accepted', 'accept'],
@@ -368,11 +371,17 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
     160,
   );
   const liveApproval = payload?.approve_live_send === true;
+  const routingPolicy = buildPostmarkRoutingPolicy({
+    offerId,
+    message: message.data,
+    idempotencyKey,
+    postmarkConfig,
+  });
 
   if (!postmarkConfig.liveSend || !liveApproval) {
     return recordOfferSend({
       offerId,
-      message: message.data,
+      message: { ...message.data, ...routingPolicy.messageFields },
       mode: 'dry_run',
       idempotencyKey,
       postmarkMessageId: null,
@@ -383,6 +392,7 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
         postmark_dry_run: postmarkConfig.dryRun,
         live_send_enabled: postmarkConfig.liveSend,
         live_send_approval: liveApproval,
+        comms_routing: routingPolicy.logSafe,
       },
     });
   }
@@ -404,6 +414,7 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
     toEmail: message.data.to_email,
     subject: message.data.subject,
     body: message.data.body,
+    routingPolicy,
   });
 
   if (!liveResult.ok) {
@@ -412,13 +423,18 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
 
   return recordOfferSend({
     offerId,
-    message: { ...message.data, from_email: postmarkConfig.fromEmail },
+    message: { ...message.data, ...routingPolicy.messageFields },
     mode: 'live',
     idempotencyKey,
     postmarkMessageId: liveResult.message_id,
     session,
     action: 'offer_postmark_live_send',
-    extra: { postmark_enabled: true, postmark_dry_run: false, live_send_enabled: true },
+    extra: {
+      postmark_enabled: true,
+      postmark_dry_run: false,
+      live_send_enabled: true,
+      comms_routing: routingPolicy.logSafe,
+    },
   });
 }
 
@@ -1002,19 +1018,88 @@ function getPostmarkConfig() {
   const liveSend = enabled && !dryRun && envFlagAny(POSTMARK_LIVE_SEND_FLAGS, false);
   const token = envValueAny(POSTMARK_TOKEN_FLAGS, '');
   const fromEmail = sanitizeEmail(envValueAny(POSTMARK_FROM_FLAGS, DEFAULT_POSTMARK_FROM)) || DEFAULT_POSTMARK_FROM;
+  const replyToEmail = sanitizeEmail(envValueAny(POSTMARK_REPLY_TO_FLAGS, fromEmail)) || fromEmail;
+  const inboundReplyToEmail = sanitizeEmail(envValueAny(POSTMARK_INBOUND_REPLY_TO_FLAGS, replyToEmail)) || replyToEmail;
+  const internalCopyRecipients = USCE_INTERNAL_COMMS_RECIPIENTS
+    .map((recipient) => sanitizeEmail(recipient))
+    .filter(Boolean);
+  const baseConfig = {
+    enabled,
+    dryRun,
+    liveSend,
+    fromEmail,
+    replyToEmail,
+    inboundReplyToEmail,
+    internalCopyRecipients,
+  };
 
   if (!liveSend) {
-    return { ok: true, enabled, dryRun: true, liveSend: false, fromEmail };
+    return { ok: true, ...baseConfig, dryRun: true, liveSend: false };
   }
 
   if (!token) {
-    return { ok: false, enabled, dryRun, liveSend, fromEmail, reason: 'postmark_token_missing' };
+    return { ok: false, ...baseConfig, reason: 'postmark_token_missing' };
   }
 
-  return { ok: true, enabled, dryRun, liveSend, token, fromEmail };
+  return { ok: true, ...baseConfig, token };
 }
 
-async function sendPostmarkEmail({ token, fromEmail, toEmail, subject, body }) {
+function buildPostmarkRoutingPolicy({ offerId, message, idempotencyKey, postmarkConfig }) {
+  const replyToEmail = postmarkConfig.inboundReplyToEmail || postmarkConfig.replyToEmail || postmarkConfig.fromEmail;
+  const internalCopyRecipients = Array.isArray(postmarkConfig.internalCopyRecipients)
+    ? postmarkConfig.internalCopyRecipients.filter(Boolean).slice(0, 5)
+    : [];
+  const headers = [
+    { Name: 'X-USCE-Offer-Draft-Id', Value: offerId },
+    { Name: 'X-USCE-Message-Category', Value: message.category },
+    { Name: 'X-USCE-Message-Variant', Value: message.variant },
+    { Name: 'X-USCE-Idempotency-Key', Value: idempotencyKey || '' },
+  ].filter((header) => header.Value);
+  const metadata = {
+    usce_offer_draft_id: offerId,
+    usce_message_category: message.category,
+    usce_message_variant: message.variant,
+    usce_idempotency_key: idempotencyKey || '',
+    usce_comms_strategy: 'postmark_first_gmail_visible',
+  };
+  const gmailVisibility = {
+    human_mailbox: DEFAULT_POSTMARK_FROM,
+    internal_notification_recipients: internalCopyRecipients,
+    student_facing_internal_recipients: false,
+  };
+  const inboundCapture = {
+    preferred_strategy: 'postmark_inbound_webhook',
+    reply_to_email: replyToEmail,
+    gmail_forwarding_required_if_reply_to_stays_gmail: true,
+    runtime_status: 'policy_defined_webhook_not_yet_mounted',
+  };
+
+  return {
+    replyToEmail,
+    internalCopyRecipients,
+    headers,
+    metadata,
+    tag: 'usce-offer-engine',
+    messageFields: {
+      from_email: postmarkConfig.fromEmail,
+      reply_to_email: replyToEmail,
+      internal_copy_recipients: internalCopyRecipients,
+      gmail_visibility: gmailVisibility,
+      inbound_capture: inboundCapture,
+    },
+    logSafe: {
+      reply_to_email: replyToEmail,
+      internal_copy_recipients: internalCopyRecipients,
+      gmail_visibility: gmailVisibility,
+      inbound_capture: inboundCapture,
+      postmark_tag: 'usce-offer-engine',
+      postmark_headers: headers.map((header) => header.Name),
+      postmark_metadata_keys: Object.keys(metadata),
+    },
+  };
+}
+
+async function sendPostmarkEmail({ token, fromEmail, toEmail, subject, body, routingPolicy }) {
   if (!sanitizeEmail(toEmail)) {
     return {
       ok: false,
@@ -1024,6 +1109,21 @@ async function sendPostmarkEmail({ token, fromEmail, toEmail, subject, body }) {
     };
   }
 
+  const postmarkPayload = {
+    From: fromEmail,
+    To: toEmail,
+    Subject: subject,
+    TextBody: body,
+    MessageStream: 'outbound',
+  };
+  if (routingPolicy?.replyToEmail) postmarkPayload.ReplyTo = routingPolicy.replyToEmail;
+  if (routingPolicy?.internalCopyRecipients?.length) {
+    postmarkPayload.Bcc = routingPolicy.internalCopyRecipients.join(',');
+  }
+  if (routingPolicy?.headers?.length) postmarkPayload.Headers = routingPolicy.headers;
+  if (routingPolicy?.metadata) postmarkPayload.Metadata = routingPolicy.metadata;
+  if (routingPolicy?.tag) postmarkPayload.Tag = routingPolicy.tag;
+
   const response = await fetch(POSTMARK_API_URL, {
     method: 'POST',
     headers: {
@@ -1031,13 +1131,7 @@ async function sendPostmarkEmail({ token, fromEmail, toEmail, subject, body }) {
       'Content-Type': 'application/json',
       'X-Postmark-Server-Token': token,
     },
-    body: JSON.stringify({
-      From: fromEmail,
-      To: toEmail,
-      Subject: subject,
-      TextBody: body,
-      MessageStream: 'outbound',
-    }),
+    body: JSON.stringify(postmarkPayload),
   });
 
   const payload = await readSupabaseJson(response);
