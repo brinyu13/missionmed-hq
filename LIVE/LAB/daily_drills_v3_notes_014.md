@@ -39,3 +39,23 @@ Prepared LAB-only snippet:
 No auth, Railway, Supabase, WordPress, STAT, R2/CDN, deploy, package, payment, email, LearnDash, WooCommerce, USCE, Clinicals, or Offer files were modified.
 
 No deploy or promotion was performed.
+
+## MD-MERGER-017 Hydration Correction
+
+The v3 candidate previously exposed T-16 demo subject/session data in normal mode. That created fake counts and allowed a prompt-only drill to start when real media or nodes were missing.
+
+Normal v3 mode now uses the legacy Daily/Drills registry endpoint as the first source of truth:
+
+- `https://mmvs-backend-production.up.railway.app/api/drills`
+
+Normal v3 mode should prefer:
+
+- `sessionStorage.mm_selected_drill`
+- `sessionStorage.mm.launch`
+- `video_id` query parameter matched against the real registry
+- real registry rows with `video_id`, `playback_url` or `stream_id`, and `nodes_url`
+- real `nodes_url` prompt extraction
+
+T-16 demo subjects, fake Neurology/Cardiology sessions, and fallback prompts are LAB-only behind `?lab=1` or `#lab`. The normal live route should show real registry data or an honest empty/error state. It should not start a fake drill when media or nodes are unavailable.
+
+No deployment or CDN promotion was performed for the MD-MERGER-017 hydration correction.

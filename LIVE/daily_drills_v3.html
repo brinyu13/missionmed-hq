@@ -680,6 +680,9 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 }
 .daily-result-notice strong{display:block;color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.08em;margin-bottom:4px}
 .daily-result-notice span{color:var(--mut)}
+.data-empty{padding:18px;border:1px dashed rgba(140,170,220,.28);border-radius:14px;background:rgba(6,9,26,.34);color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;line-height:1.55}
+.data-empty strong{display:block;color:var(--txt);font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.08em;margin-bottom:4px}
+.data-empty.warn{border-color:rgba(252,211,77,.36);background:rgba(252,211,77,.06)}
 .summary-cta{grid-template-columns:repeat(3,minmax(0,1fr));}
 @media(max-width:760px){.summary-cta{grid-template-columns:1fr}.daily-result-notice{font-size:12px}.topbar{padding:12px 16px}.brand .name{font-size:19px}}
 
@@ -706,8 +709,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
         <button class="active" data-version="legacy" role="tab"><span class="num">1</span>DAILY MENU</button>
         <button data-version="mobile" role="tab"><span class="num">2</span>MOBILE PREVIEW</button>
       </div>
-      <div class="coin-pill">2,840</div>
-      <div class="user-chip"><div class="avatar"></div><span>DANIEL B</span></div>
+      <div class="coin-pill">--</div>
+      <div class="user-chip"><div class="avatar"></div><span>SESSION USER</span></div>
     </div>
   </header>
 
@@ -751,16 +754,16 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <p class="lead">Self-report timed recall. Reveal when ready &mdash; mark how you did. Session results stay in this browser session until durable persistence is wired.</p>
           <div id="dailyResultNotice" class="daily-result-notice" hidden></div>
         </div>
-        <div class="streak-orb"><div><div class="num">12</div><div class="lab">DAY STREAK</div></div></div>
+        <div class="streak-orb"><div><div class="num">--</div><div class="lab">SESSION ONLY</div></div></div>
       </div>
 
       <div class="dash-grid">
         <div class="dash-left">
           <div class="stat-row">
-            <div class="stat"><div class="v">12</div><div class="l">Day Streak</div></div>
-            <div class="stat cyan"><div class="v">8</div><div class="l">Drills Today</div></div>
-            <div class="stat"><div class="v">142</div><div class="l">Season Rank</div></div>
-            <div class="stat green"><div class="v">87%</div><div class="l">Daily Accuracy</div></div>
+            <div class="stat"><div class="v">--</div><div class="l">Day Streak</div></div>
+            <div class="stat cyan"><div class="v">--</div><div class="l">Drills Today</div></div>
+            <div class="stat"><div class="v">--</div><div class="l">Season Rank</div></div>
+            <div class="stat green"><div class="v">--</div><div class="l">Daily Accuracy</div></div>
           </div>
 
           <!-- MOST RECENTLY ADDED card &mdash; latest video uploaded -->
@@ -768,13 +771,13 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
             <div class="row">
               <div>
                 <div class="chip gold">MOST RECENTLY ADDED</div>
-                <h2>NEUROLOGY 07</h2>
-                <div class="sub">NEUROLOGY &middot; STEP 2/3 &middot; UPLOADED 04 MAY 2026</div>
+                <h2>LOADING REAL DRILLS</h2>
+                <div class="sub">REAL REGISTRY &middot; SESSION-ONLY MODE</div>
                 <div class="meta">
-                  <span class="chip">Q 8</span>
-                  <span class="chip">5:12</span>
-                  <span class="chip cyan">NEURO-07</span>
-                  <span class="chip">DR J &middot; HIGH-YIELD</span>
+                  <span class="chip">API-FIRST</span>
+                  <span class="chip">MEDIA REQUIRED</span>
+                  <span class="chip cyan">NODES REQUIRED</span>
+                  <span class="chip">NO DEMO DATA</span>
                 </div>
                 <button class="btn lg" data-go-step="2">START DRILL</button>
               </div>
@@ -786,16 +789,14 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
         <aside class="right-rail">
           <div class="profile-card">
             <div class="av"></div>
-            <div class="nm">DANIEL B</div>
-            <div class="rk">RANK 142 &middot; LEGENDARY</div>
+            <div class="nm">SESSION USER</div>
+            <div class="rk">AUTH CONTEXT OWNED BY WIRING</div>
           </div>
           <div class="recent-list">
             <h4>RECENT RESULTS</h4>
             <div class="recent-rows">
-              <div class="r"><div class="pill g"></div><div class="nm">NEURO &middot; <b>Neurology 06</b></div><div class="sc">88</div></div>
-              <div class="r"><div class="pill g"></div><div class="nm">CARDIO &middot; <b>Cardio 12</b></div><div class="sc">92</div></div>
-              <div class="r"><div class="pill y"></div><div class="nm">PULM &middot; <b>Pulm 04</b></div><div class="sc">76</div></div>
-              <div class="r"><div class="pill r"></div><div class="nm">ENDO &middot; <b>Endo 09</b></div><div class="sc">54</div></div>
+              <div class="r"><div class="pill y"></div><div class="nm">REAL REGISTRY &middot; <b>Loading</b></div><div class="sc">--</div></div>
+              <div class="r"><div class="pill g"></div><div class="nm">SESSION RESULT &middot; <b>Browser only</b></div><div class="sc">--</div></div>
             </div>
           </div>
           <button class="btn ghost" data-back-arena>BACK TO ARENA</button>
@@ -819,8 +820,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <h2>FOUNDATIONAL<br>SCIENCES</h2>
           <p class="desc">Anatomy, biochem, micro, pharm, path, physio &mdash; pre-clinical recall.</p>
           <div class="pills">
-            <span class="chip">15 SUBJECTS</span>
-            <span class="chip">428 DRILLS</span>
+            <span class="chip">REAL DATA</span>
+            <span class="chip">API-FIRST</span>
             <span class="chip cyan">DAY-1 READY</span>
           </div>
           <span class="pick-cta">PICK STEP 1</span>
@@ -830,8 +831,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <h2>CLINICAL<br>SCIENCES</h2>
           <p class="desc">IM, surgery, peds, OB/GYN, psych, family med &mdash; clerkship and shelf-aligned.</p>
           <div class="pills">
-            <span class="chip">17 SUBJECTS</span>
-            <span class="chip">612 DRILLS</span>
+            <span class="chip">REAL DATA</span>
+            <span class="chip">API-FIRST</span>
             <span class="chip gold">RECOMMENDED</span>
           </div>
           <span class="pick-cta">PICK STEP 2/3</span>
@@ -866,14 +867,14 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <h2 class="h2">PICK A <span style="color:var(--gold)">VIDEO.</span></h2>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
-          <span id="sessTopicChip" class="chip gold" style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.10em;padding:8px 14px">NEUROLOGY &middot; STEP 2/3</span>
+          <span id="sessTopicChip" class="chip gold" style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.10em;padding:8px 14px">REAL REGISTRY &middot; LOADING</span>
           <button class="btn-back" data-go-step="3">BACK TO TOPICS</button>
         </div>
       </div>
 
       <div class="sess-shell">
         <div class="sess-list" id="sessList">
-          <!-- populated by JS &mdash; NEURO-01 through NEURO-07 -->
+          <!-- populated by JS from the real Daily/Drills registry -->
         </div>
         <aside class="sess-side">
           <div class="chart-card-mini">
@@ -901,8 +902,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 
         <div class="summary-row">
           <div class="b"><div class="l">LEVEL</div><div class="v">STEP 2/3</div></div>
-          <div class="b"><div class="l">TOPIC</div><div class="v" id="readyTopic">NEUROLOGY</div></div>
-          <div class="b"><div class="l">SESSION</div><div class="v" id="readySession">NEUROLOGY 07 &middot; 04 MAY</div></div>
+          <div class="b"><div class="l">TOPIC</div><div class="v" id="readyTopic">SELECT A REAL DRILL</div></div>
+          <div class="b"><div class="l">SESSION</div><div class="v" id="readySession">MEDIA + NODES REQUIRED</div></div>
         </div>
 
         <div class="controls">
@@ -960,8 +961,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 
         <div class="m-top">
           <div class="av"></div>
-          <div class="who">DANIEL B</div>
-          <div class="streak">12 DAY STREAK</div>
+          <div class="who">SESSION USER</div>
+          <div class="streak">SESSION ONLY</div>
         </div>
 
         <div class="m-steps" id="mSteps">
@@ -978,25 +979,25 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <div class="m-sub">Self-report &middot; timed recall</div>
 
           <div class="m-stat-row">
-            <div class="m-stat"><div class="v">8</div><div class="l">Drills Today</div></div>
-            <div class="m-stat"><div class="v">87%</div><div class="l">Daily Acc</div></div>
+            <div class="m-stat"><div class="v">--</div><div class="l">Drills Today</div></div>
+            <div class="m-stat"><div class="v">--</div><div class="l">Daily Acc</div></div>
           </div>
           <div class="m-stat-row" style="grid-template-columns:1fr 1fr 1fr">
-            <div class="m-stat"><div class="v">142</div><div class="l">Rank</div></div>
-            <div class="m-stat"><div class="v">13.4s</div><div class="l">Avg</div></div>
-            <div class="m-stat"><div class="v">9</div><div class="l">Best Run</div></div>
+            <div class="m-stat"><div class="v">--</div><div class="l">Rank</div></div>
+            <div class="m-stat"><div class="v">--</div><div class="l">Avg</div></div>
+            <div class="m-stat"><div class="v">--</div><div class="l">Best Run</div></div>
           </div>
 
           <div class="m-card recent" data-go-step="2" style="cursor:pointer">
             <span class="chip gold" style="font-size:8px;padding:4px 8px">MOST RECENTLY ADDED</span>
-            <div class="nm" style="margin-top:8px;font-size:22px">NEUROLOGY 07</div>
-            <div class="sub">NEUROLOGY &middot; STEP 2/3 &middot; Q8 &middot; 5:12</div>
+            <div class="nm" style="margin-top:8px;font-size:22px">LOADING REAL DRILLS</div>
+            <div class="sub">REAL REGISTRY &middot; SESSION-ONLY MODE</div>
           </div>
 
           <div class="m-card" data-go-step="2" style="cursor:pointer">
-            <div class="sub">LAST DRILL</div>
-            <div class="nm">Neurology 06 &middot; 88%</div>
-            <div class="sub">NEUROLOGY &middot; 13.1s avg</div>
+            <div class="sub">RESULT STATE</div>
+            <div class="nm">Session-only</div>
+            <div class="sub">Durable persistence requires wiring authority</div>
           </div>
 
           <button class="btn" style="width:100%;margin-top:14px" data-go-step="2">CONTINUE &rarr;</button>
@@ -1008,12 +1009,12 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <div class="m-card recent" data-level="step1" style="cursor:pointer">
             <span class="chip">STEP 1</span>
             <div class="nm" style="margin-top:6px">Foundational</div>
-            <div class="sub">15 subjects &middot; 428 drills</div>
+            <div class="sub">Loads real registry records</div>
           </div>
           <div class="m-card recent" data-level="step23" style="cursor:pointer;margin-top:8px">
             <span class="chip gold" style="font-size:8px;padding:4px 8px">RECOMMENDED</span>
             <div class="nm" style="margin-top:6px">Clinical (Step 2/3)</div>
-            <div class="sub">17 subjects &middot; 612 drills</div>
+            <div class="sub">Loads real registry records</div>
           </div>
           <button class="btn ghost" style="width:100%;margin-top:14px" data-go-step="1">BACK</button>
         </div>
@@ -1039,8 +1040,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 
           <div class="m-card">
             <div class="sub">DRILL</div>
-            <div class="nm">NEUROLOGY 07</div>
-            <div class="sub">NEURO-07 &middot; UPLOADED 04 MAY</div>
+            <div class="nm">SELECT A REAL DRILL</div>
+            <div class="sub">Media and nodes required</div>
           </div>
 
           <div class="kbd-hint" style="margin-top:14px">
@@ -1069,8 +1070,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
     <aside class="rt-rail" id="rtRail">
       <button class="rt-nav-btn" data-nav="arena"><span class="ic">&larr;</span><span>BACK TO<br>ARENA LOBBY</span></button>
       <button class="rt-nav-btn drills" data-nav="drills"><span class="ic">&larr;</span><span>BACK TO<br>DAILY MENU</span></button>
-      <div class="blk"><h5>ACTIVE STUDENT</h5><div class="v">DANIEL B <small>RANK 142</small></div></div>
-      <div class="blk"><h5>DRILL CONTEXT</h5><div class="v" id="rtCtx">NEUROLOGY 07</div><div class="kv" style="border:0;padding:6px 0"><span>VIDEO</span><b id="rtSes">NEURO-07</b></div></div>
+      <div class="blk"><h5>ACTIVE STUDENT</h5><div class="v">SESSION USER <small>AUTH BY WIRING</small></div></div>
+      <div class="blk"><h5>DRILL CONTEXT</h5><div class="v" id="rtCtx">DAILY DRILL</div><div class="kv" style="border:0;padding:6px 0"><span>VIDEO</span><b id="rtSes">AWAITING MEDIA</b></div></div>
       <div class="blk"><h5>LIVE STATUS</h5><div class="v"><span class="live-dot"></span> SELF-REPORT</div></div>
       <div class="blk"><h5>SESSION MODE</h5><div class="seg-tab"><button class="on">DRILL</button><button>REVIEW</button></div></div>
       <div class="blk"><h5>AUDIO</h5><div class="seg-tab"><button>MUTE</button><button>LOW</button><button class="on">MED</button><button>HIGH</button></div></div>
@@ -1088,8 +1089,8 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <div class="quad"><div class="ovl t"><span>STUDENT B</span><span>04:21</span></div></div>
           <div class="quad"><div class="ovl t"><span>BOARD</span><span>04:21</span></div></div>
         </div>
-        <div class="media-fallback" id="rtMediaFallback"><div><strong>Media not loaded</strong><span>Continue with prompts only. Session result remains browser-session only.</span></div></div>
-        <div class="ovl b" style="position:absolute;left:0;right:0;bottom:0"><span id="rtMediaLabel">NEURO-07 &middot; PROMPT MODE</span><span>SOUND MED</span></div>
+        <div class="media-fallback" id="rtMediaFallback"><div><strong>Media not loaded</strong><span>Real media is required before starting a live v3 drill.</span></div></div>
+        <div class="ovl b" style="position:absolute;left:0;right:0;bottom:0"><span id="rtMediaLabel">AWAITING REAL MEDIA</span><span>SOUND MED</span></div>
       </div>
 
       <div class="rt-timer">
@@ -1187,14 +1188,10 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
     </div>
 
     <div class="summary-notes">
-      <h4>DR J NOTES &middot; NEUROLOGY 07</h4>
+      <h4>SESSION NOTES</h4>
       <div class="ses">
-        <div class="hd"><b>HIGH-YIELD</b><span>04 MAY 2026</span></div>
-        <p>Acute stroke window: tPA up to 4.5h from last-known-well, mechanical thrombectomy up to 24h with imaging-confirmed large-vessel occlusion + favorable penumbra. NIHSS &ge; 6 lowers thrombectomy threshold. Don&rsquo;t skip CTA &mdash; LVO changes the plan immediately.</p>
-      </div>
-      <div class="ses">
-        <div class="hd"><b>EXAM TRAP</b><span>04 MAY 2026</span></div>
-        <p>BP rules differ for tPA candidates vs not. tPA candidate: must lower to <185/110 before bolus. Non-candidate: permissive HTN up to <220/120. Lowering BP aggressively in non-candidates worsens penumbra perfusion.</p>
+        <div class="hd"><b>SELF-REPORTED RESULT</b><span>SESSION ONLY</span></div>
+        <p>This v3 comparison mode records only the browser-session result payload. Durable dashboard progress and backend-validated grading require later wiring authority validation.</p>
       </div>
     </div>
 
@@ -1233,10 +1230,14 @@ const ROUTE_ENTRY = String(URL_PARAMS.get('entry') || '').trim();
 const ROUTE_VIDEO_ID = String(URL_PARAMS.get('video_id') || '').trim();
 const ROUTE_ORIGIN_MODE = String(URL_PARAMS.get('origin_mode') || '').trim();
 const LAB_TOOLS_ENABLED = URL_PARAMS.get('lab') === '1' || window.location.hash === '#lab';
+const USE_DEMO_DATA = LAB_TOOLS_ENABLED;
+const MISSIONMED_API_BASE = String(window.MISSIONMED_API_BASE || 'https://mmvs-backend-production.up.railway.app').replace(/\/+$/, '');
+const API_DRILLS_ENDPOINT = MISSIONMED_API_BASE + '/api/drills';
 document.body.classList.toggle('lab-tools', LAB_TOOLS_ENABLED);
 document.documentElement.dataset.entry = ROUTE_ENTRY || '';
 document.documentElement.dataset.videoId = ROUTE_VIDEO_ID || '';
 document.documentElement.dataset.originMode = ROUTE_ORIGIN_MODE || '';
+document.documentElement.dataset.dataMode = USE_DEMO_DATA ? 'lab-demo' : 'real-registry';
 
 function safeText(value, fallback){
   const out = String(value == null ? '' : value).trim();
@@ -1290,9 +1291,10 @@ function normalizeDrillRecord(input, fallback){
   const id = safeText(src.video_id || src.videoId || src.id || src.drill_id || src.drillId, fallback && (fallback.video_id || fallback.id) || ROUTE_VIDEO_ID || 'daily-drill-fallback');
   const title = safeText(src.title || src.drill_title || src.topic || src.topic_label || meta.topic_label, fallback && fallback.title || 'Daily drill');
   const level = safeText(src.step || meta.step || src.level, fallback && fallback.level || 'Step 2/3');
-  const topic = safeText(src.topic || src.topic_label || meta.topic_label || src.subject, fallback && fallback.topic || title);
+  const topic = safeText(src.topic || src.topic_label || meta.topic_label || src.subject || src.subcategory || src.category, fallback && fallback.topic || title);
   const uploaded = safeText(src.uploaded || src.created_at || meta.created_at || src.date, fallback && fallback.uploaded || 'Runtime');
-  const qCount = Number(src.q || src.question_count || src.total_count || src.totalQuestions || (Array.isArray(src.nodes) ? src.nodes.length : 0) || (fallback && fallback.q) || FALLBACK_PROMPTS.length || 1);
+  const promptSeed = Array.isArray(src.prompts) ? src.prompts : (Array.isArray(src.questions) ? src.questions : (Array.isArray(src.nodes) ? src.nodes : []));
+  const qCount = Number(src.q || src.question_count || src.total_count || src.totalQuestions || promptSeed.length || (USE_DEMO_DATA && fallback && fallback.q) || (USE_DEMO_DATA ? FALLBACK_PROMPTS.length : 0));
   const streamId = safeText(src.stream_id || src.streamId || meta.stream_id || meta.streamId || deriveStreamIdFromPlaybackUrl(src.playback_url || src.playbackUrl), '');
   const playbackUrl = safeText(src.playback_url || src.playbackUrl, streamId ? 'https://iframe.videodelivery.net/' + encodeURIComponent(streamId) : '');
   return Object.assign({}, fallback || {}, src, {
@@ -1305,7 +1307,7 @@ function normalizeDrillRecord(input, fallback){
     topic,
     uploaded,
     source: safeText(src.source || src.original_filename || meta.original_filename || meta.filename, 'Runtime registry'),
-    q: Number.isFinite(qCount) && qCount > 0 ? qCount : FALLBACK_PROMPTS.length,
+    q: Number.isFinite(qCount) && qCount > 0 ? qCount : 0,
     len: safeText(src.len || src.duration_label || src.duration, fallback && fallback.len || 'Timed'),
     watched: Number(src.watched || src.timesWatched || 0),
     last: safeText(src.last || src.lastWatched, src.watched ? 'Previous' : 'NEW'),
@@ -1318,11 +1320,77 @@ function normalizeDrillRecord(input, fallback){
     media_timecode: safeText(src.media_timecode || src.timecode || src.timestamp || meta.media_timecode, ''),
     nodes_url: safeText(src.nodes_url || src.nodesUrl, ''),
     transcript_url: safeText(src.transcript_url || src.transcriptUrl, ''),
-    prompts: Array.isArray(src.prompts) ? src.prompts : (Array.isArray(src.questions) ? src.questions : (Array.isArray(src.nodes) ? src.nodes : [])),
+    prompts: promptSeed,
     return_url: safeText(src.return_url || src.returnUrl, ''),
     origin_mode: safeText(src.origin_mode || src.originMode, ROUTE_ORIGIN_MODE),
     launch_id: safeText(src.launch_id || src.launchId, '')
   });
+}
+function hasUsableMedia(session){
+  return !!(session && (safeText(session.playback_url, '') || safeText(session.stream_id, '')));
+}
+function hasUsableNodeSource(session){
+  return !!(session && safeText(session.nodes_url, ''));
+}
+function hasInlinePrompts(session){
+  return !!(session && Array.isArray(session.prompts) && session.prompts.length);
+}
+function hasRealRuntimeContract(session){
+  return !!(session && safeText(session.video_id || session.id, '') && hasUsableMedia(session) && (hasUsableNodeSource(session) || hasInlinePrompts(session)));
+}
+function uniqueByVideoId(rows){
+  const seen = new Set();
+  const out = [];
+  rows.forEach(row => {
+    const id = safeText(row && (row.video_id || row.id || row.drill_id), '');
+    if(!id || seen.has(id)) return;
+    seen.add(id);
+    out.push(row);
+  });
+  return out;
+}
+function deriveSubjectsFromSessions(track){
+  const buckets = new Map();
+  SESSIONS.forEach(session => {
+    const level = safeText(session.level || session.step, '').toLowerCase();
+    const isStep1 = /step\s*1|level\s*1|comlex\s*1/.test(level);
+    if(track === 'step1' && level && !isStep1) return;
+    if(track !== 'step1' && isStep1) return;
+    const name = safeText(session.subcategory || session.category || session.subject || session.topic, 'GENERAL').toUpperCase();
+    const existing = buckets.get(name) || { nm:name, ic:name.replace(/[^A-Z]/g, '').slice(0,2) || 'DR', ses:0, acc:'--' };
+    existing.ses += 1;
+    buckets.set(name, existing);
+  });
+  return Array.from(buckets.values()).sort((a,b) => a.nm.localeCompare(b.nm));
+}
+async function fetchRealDrillRegistry(){
+  const res = await fetch(API_DRILLS_ENDPOINT, { credentials:'include', cache:'no-store' });
+  if(!res.ok) throw new Error('Registry HTTP ' + res.status);
+  const data = await res.json();
+  if(!Array.isArray(data)) throw new Error('Registry response was not an array');
+  return data;
+}
+function applyRegistryRows(rows){
+  const normalized = uniqueByVideoId(rows)
+    .map((row, index) => Object.assign(normalizeDrillRecord(row, null), {
+      _real_registry: true,
+      n: index + 1,
+      badge: safeText(row && row.badge, ''),
+      watched: Number(row && row.watched || 0),
+      last: safeText(row && row.last, row && row.created_at ? 'Registry' : 'NEW')
+    }))
+    .filter(row => row.video_id && (hasUsableMedia(row) || hasUsableNodeSource(row) || hasInlinePrompts(row)));
+  SESSIONS = normalized;
+  REAL_REGISTRY_LOADED = true;
+  HYDRATION_ERROR = '';
+  const selected = STORE.getSel();
+  const selectedId = selected && safeText(selected.video_id || selected.id || selected.drill_id, '');
+  const targetId = ROUTE_VIDEO_ID || selectedId;
+  if(targetId){
+    const match = SESSIONS.find(item => item.video_id === targetId);
+    if(match) STATE.session = match;
+  }
+  if(!STATE.session && SESSIONS.length) STATE.session = SESSIONS[0];
 }
 function initializeRuntimeData(){
   const injected = readInjectedArray(['MISSIONMED_DAILY_DRILLS_REGISTRY','MMDailyDrillsRegistry','MM_DAILY_DRILLS_REGISTRY']);
@@ -1335,8 +1403,8 @@ function initializeRuntimeData(){
   if(ROUTE_VIDEO_ID && !rows.some(row => safeText(row && (row.video_id || row.id || row.drill_id), '') === ROUTE_VIDEO_ID)){
     rows.push({ video_id: ROUTE_VIDEO_ID, id: ROUTE_VIDEO_ID, title: 'Daily drill ' + ROUTE_VIDEO_ID, origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' });
   }
-  SESSIONS = (rows.length ? rows : FALLBACK_SESSIONS).map((row, index) => normalizeDrillRecord(row, FALLBACK_SESSIONS[index] || FALLBACK_SESSIONS[0]));
-  if(!SESSIONS.length) SESSIONS = FALLBACK_SESSIONS.map((row, index) => normalizeDrillRecord(row, FALLBACK_SESSIONS[index]));
+  const sourceRows = rows.length ? rows : (USE_DEMO_DATA ? FALLBACK_SESSIONS : []);
+  SESSIONS = sourceRows.map((row, index) => normalizeDrillRecord(row, USE_DEMO_DATA ? (FALLBACK_SESSIONS[index] || FALLBACK_SESSIONS[0]) : null));
   const selectedId = selected && safeText(selected.video_id || selected.id || selected.drill_id, '');
   if(selectedId){
     const match = SESSIONS.find(item => item.video_id === selectedId);
@@ -1347,6 +1415,136 @@ function initializeRuntimeData(){
     STATE.session = match;
     if(!SESSIONS.some(item => item.video_id === match.video_id)) SESSIONS.unshift(match);
   }
+}
+async function hydrateRuntimeData(){
+  initializeRuntimeData();
+  try{
+    const rows = await fetchRealDrillRegistry();
+    applyRegistryRows(rows);
+    log('real_registry_loaded', { count: SESSIONS.length, endpoint: API_DRILLS_ENDPOINT });
+  }catch(error){
+    HYDRATION_ERROR = String(error && error.message ? error.message : error);
+    REAL_REGISTRY_LOADED = false;
+    if(!USE_DEMO_DATA){
+      SESSIONS = SESSIONS.filter(hasRealRuntimeContract);
+      if(ROUTE_VIDEO_ID && !SESSIONS.some(item => item.video_id === ROUTE_VIDEO_ID)){
+        STATE.session = normalizeDrillRecord({ video_id: ROUTE_VIDEO_ID, title: 'Daily drill ' + ROUTE_VIDEO_ID });
+        SESSIONS.unshift(STATE.session);
+      }
+    }
+    log('real_registry_load_failed', { endpoint: API_DRILLS_ENDPOINT, message: HYDRATION_ERROR });
+  }
+}
+function normalizeNodeEntry(node, index){
+  if(!node || typeof node !== 'object' || Array.isArray(node)) return null;
+  const startTime = Number(node.start_time);
+  const endTime = Number(node.end_time);
+  const text = safeText(node.text || node.question || node.prompt, '');
+  if(!text) return null;
+  return {
+    id: Number(node.node_id || node.id || index + 1),
+    pause_time: Number.isFinite(startTime) ? startTime : Number(node.pause_time || node.pauseTime || 0),
+    pauseTime: Number.isFinite(startTime) ? startTime : Number(node.pause_time || node.pauseTime || 0),
+    question_start_time: Number.isFinite(startTime) ? startTime : Number(node.question_start_time || 0),
+    end_time: Number.isFinite(endTime) ? endTime : (Number.isFinite(startTime) ? startTime : 0),
+    text,
+    question: safeText(node.question || node.prompt, text),
+    topic_name: safeText(node.topic_name, ''),
+    topic_label: safeText(node.topic_label, ''),
+    topic: safeText(node.topic || node.segment_id, 'Question ' + (index + 1)),
+    student: safeText(node.student || node.speaker, 'Student')
+  };
+}
+function mergeSegmentsIntoTurns(segments){
+  const turns = [];
+  let current = null;
+  segments.forEach(seg => {
+    const speaker = safeText(seg.student, 'Student');
+    if(current && current.speaker === speaker){
+      current.end_time = seg.end_time;
+      current.text += ' ' + seg.text;
+      current.segmentCount += 1;
+      return;
+    }
+    if(current) turns.push(current);
+    current = {
+      id: seg.id,
+      speaker,
+      start_time: seg.pauseTime,
+      end_time: seg.end_time,
+      text: seg.text,
+      topic_name: seg.topic_name || '',
+      topic_label: seg.topic_label || '',
+      topic: seg.topic,
+      segmentCount: 1
+    };
+  });
+  if(current) turns.push(current);
+  return turns;
+}
+function isFillerTurn(turn){
+  const t = safeText(turn && turn.text, '').toLowerCase();
+  if(!t) return true;
+  if(/jumping in|jump in|can you hear|are you there|are you with us|attendance|recording/.test(t)) return true;
+  const words = t.trim().split(/\s+/).filter(Boolean);
+  if(words.length <= 3) return true;
+  const stripped = t
+    .replace(/okay[.,?!]?/g, '')
+    .replace(/very good[.,?!]?/g, '')
+    .replace(/good[.,?!]?/g, '')
+    .replace(/alright[.,?!]?/g, '')
+    .replace(/yeah[.,?!]?/g, '')
+    .replace(/right[.,?!]?/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return stripped.split(/\s+/).filter(word => word.length > 1).length < 4;
+}
+function filterTurnsToPauseBoundaries(turns){
+  const pauseNodes = [];
+  let lastPauseTime = -999;
+  turns.forEach((turn, index) => {
+    const nextTurn = turns[index + 1];
+    if(!nextTurn) return;
+    const speaker = safeText(turn.speaker, '').toLowerCase();
+    const nextSpeaker = safeText(nextTurn.speaker, '').toLowerCase();
+    if(speaker.indexOf('dr') === -1) return;
+    if(nextSpeaker.indexOf('dr') !== -1 || nextSpeaker === speaker) return;
+    if(isFillerTurn(turn)) return;
+    const boundaryTime = Number.isFinite(turn.end_time) ? turn.end_time : turn.start_time;
+    if(boundaryTime - lastPauseTime < 5) return;
+    lastPauseTime = boundaryTime;
+    pauseNodes.push({
+      id: pauseNodes.length + 1,
+      pause_time: boundaryTime,
+      pauseTime: boundaryTime,
+      question_start_time: Number.isFinite(turn.start_time) ? turn.start_time : boundaryTime,
+      end_time: boundaryTime,
+      time: boundaryTime,
+      text: turn.text,
+      question: turn.text,
+      topic_name: turn.topic_name || '',
+      topic_label: turn.topic_label || '',
+      topic: turn.topic || ('Question ' + (pauseNodes.length + 1)),
+      student: nextTurn.speaker || 'Student'
+    });
+  });
+  return pauseNodes;
+}
+function normalizeRuntimeNodesPayload(payload){
+  if(Array.isArray(payload)) return payload;
+  const inner = payload && payload.data && typeof payload.data === 'object' ? payload.data : payload;
+  if(!inner || typeof inner !== 'object') return [];
+  if(Array.isArray(inner.drill_nodes)) return inner.drill_nodes;
+  if(Array.isArray(inner.drillNodes)) return inner.drillNodes;
+  if(Array.isArray(inner.prompts)) return inner.prompts;
+  if(Array.isArray(inner.questions)) return inner.questions;
+  if(Array.isArray(inner.items)) return inner.items;
+  if(Array.isArray(inner.nodes)){
+    const segments = inner.nodes.map(normalizeNodeEntry).filter(Boolean);
+    const turns = mergeSegmentsIntoTurns(segments);
+    return filterTurnsToPauseBoundaries(turns);
+  }
+  return [];
 }
 function normalizePrompt(item, index){
   const src = item && typeof item === 'object' ? item : {};
@@ -1361,19 +1559,18 @@ async function loadRuntimePromptsForSession(session){
   if(nodesUrl){
     if(!isAllowedRuntimeAssetUrl(nodesUrl)){
       log('nodes_prompt_url_rejected', { nodes_url: nodesUrl });
-      return FALLBACK_PROMPTS.map(normalizePrompt);
+      return USE_DEMO_DATA ? FALLBACK_PROMPTS.map(normalizePrompt) : [];
     }
     try{
       const res = await fetch(nodesUrl, { credentials:'omit', cache:'no-store' });
       if(res.ok){
         const data = await res.json();
-        const inner = data && data.data && typeof data.data === 'object' ? data.data : data;
-        const list = Array.isArray(inner) ? inner : (Array.isArray(inner.nodes) ? inner.nodes : (Array.isArray(inner.prompts) ? inner.prompts : (Array.isArray(inner.questions) ? inner.questions : (Array.isArray(inner.items) ? inner.items : []))));
+        const list = normalizeRuntimeNodesPayload(data);
         if(list.length) return list.map(normalizePrompt);
       }
     }catch(error){ log('nodes_prompt_load_failed', { message: String(error && error.message ? error.message : error) }); }
   }
-  return FALLBACK_PROMPTS.map(normalizePrompt);
+  return USE_DEMO_DATA ? FALLBACK_PROMPTS.map(normalizePrompt) : [];
 }
 function normalizeDailyResult(result){
   const r = result && typeof result === 'object' ? result : {};
@@ -1437,7 +1634,7 @@ function paintRuntimeMedia(session){
     video.load();
   }
   if(fallback){
-    fallback.innerHTML = '<div><strong>Media not loaded</strong><span>Continue with prompts only. Session result remains browser-session only.</span></div>';
+    fallback.innerHTML = '<div><strong>Media not loaded</strong><span>Real media is required before starting a normal v3 drill.</span></div>';
   }
   if(source.url){
     if(source.type === 'iframe'){
@@ -1454,13 +1651,13 @@ function paintRuntimeMedia(session){
   if(media.r2_url || media.stream_uid){
     stage.classList.add('media-missing');
     if(fallback){
-      fallback.innerHTML = '<div><strong>Media blocked</strong><span>Approved HTTPS media URL required. Continue with prompt-only recall.</span></div>';
+      fallback.innerHTML = '<div><strong>Media blocked</strong><span>Approved HTTPS media URL required. Choose another real drill or return to menu.</span></div>';
     }
     if(label) label.textContent = safeText(media.video_id, 'Daily drill') + ' · MEDIA UNAVAILABLE';
     log('runtime_media_unavailable', { video_id: media.video_id, has_stream: !!media.stream_uid, has_url: !!media.r2_url });
     return;
   }
-  if(label) label.textContent = safeText(session && (session.title || session.video_id || session.id), 'Daily drill') + ' · PROMPT MODE';
+  if(label) label.textContent = safeText(session && (session.title || session.video_id || session.id), 'Daily drill') + ' · MEDIA REQUIRED';
 }
 function paintDailyResultNotice(){
   const el = document.getElementById('dailyResultNotice');
@@ -1488,10 +1685,14 @@ function bootFromRoute(){
   if(ROUTE_VIDEO_ID){
     setVersion('legacy');
     const selected = STATE.session || SESSIONS.find(item => item.video_id === ROUTE_VIDEO_ID) || SESSIONS[0];
+    if(!selected){
+      showRuntimeDataError('No real drill data loaded for video_id ' + ROUTE_VIDEO_ID + '.');
+      return;
+    }
     STATE.session = selected;
     Bridge.setSelectedDrill(Object.assign({}, selected, { origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' }));
     const t=document.getElementById('readyTopic'); if(t) t.textContent=safeText(selected.topic, 'Daily');
-    const s=document.getElementById('readySession'); if(s) s.textContent=safeText(selected.title, 'Daily drill') + ' &middot; ' + safeText(selected.uploaded, 'Runtime');
+    const s=document.getElementById('readySession'); if(s) s.textContent=safeText(selected.title, 'Daily drill') + ' · ' + safeText(selected.uploaded, 'Runtime');
     setStep(5);
     openRuntime();
     return;
@@ -1505,7 +1706,7 @@ function bootFromRoute(){
 
 
 /* =========================================================
-   ADAPTER-FIRST FALLBACK DATA - subjects for Step 1 vs Step 2/3
+   LAB-ONLY FALLBACK DATA - exposed only with ?lab=1 / #lab
    ========================================================= */
 const SUBJECTS_STEP1 = [
   {nm:'BIOCHEMISTRY',ic:'BC',ses:18,acc:74},
@@ -1541,7 +1742,7 @@ const SUBJECTS_STEP23 = [
   {nm:'ETHICS / EBM',ic:'ET',ses:8,acc:0,locked:true}
 ];
 
-/* Fallback sessions only. Real runtime candidates come first from mm_selected_drill, URL video_id, or injected registry arrays. */
+/* Lab-only fallback sessions. Normal v3 uses real registry rows or an honest empty/error state. */
 const FALLBACK_SESSIONS = [
   {id:'NEURO-07',n:7,title:'NEUROLOGY 07',sub:'NEUROLOGY &middot; STEP 2/3',uploaded:'04 MAY 2026',source:'WEBEX 2026-04-29',q:8,len:'5:12',watched:0,last:'NEW',avgRecall:null,best:null,badge:'NEW'},
   {id:'NEURO-06',n:6,title:'NEUROLOGY 06',sub:'NEUROLOGY &middot; STEP 2/3',uploaded:'21 APR 2026',source:'WEBEX 2026-04-15',q:6,len:'4:08',watched:2,last:'5d ago',avgRecall:13.1,best:88},
@@ -1552,7 +1753,9 @@ const FALLBACK_SESSIONS = [
   {id:'NEURO-01',n:1,title:'NEUROLOGY 01',sub:'NEUROLOGY &middot; STEP 2/3',uploaded:'10 FEB 2026',source:'WEBEX 2026-02-04',q:8,len:'5:18',watched:6,last:'42d ago',avgRecall:16.8,best:62}
 ];
 
-let SESSIONS = FALLBACK_SESSIONS.slice();
+let SESSIONS = USE_DEMO_DATA ? FALLBACK_SESSIONS.slice() : [];
+let REAL_REGISTRY_LOADED = false;
+let HYDRATION_ERROR = '';
 
 const FALLBACK_PROMPTS = [
   {topic:'STROKE',cue:'A 68-year-old with sudden right-sided weakness and aphasia. Symptom onset 90 minutes ago. NIHSS 14. Non-contrast CT shows no hemorrhage. Best next step?',ans:'IV alteplase (tPA) within 4.5h window once hemorrhage is excluded. Then consider mechanical thrombectomy if large-vessel occlusion on CTA.'},
@@ -1565,7 +1768,7 @@ const FALLBACK_PROMPTS = [
   {topic:'MOVEMENT',cue:'Rest tremor + bradykinesia + rigidity, asymmetric onset, age 65, no other findings. Diagnosis?',ans:'Idiopathic Parkinson disease. Diagnosis is clinical. DAT-SPECT can support if uncertain. Trial of levodopa with response confirms.'}
 ];
 
-let PROMPTS = FALLBACK_PROMPTS.slice();
+let PROMPTS = USE_DEMO_DATA ? FALLBACK_PROMPTS.slice() : [];
 
 /* =========================================================
    STATE + BRIDGE
@@ -1589,9 +1792,14 @@ const STORE={
 };
 
 const Bridge={
-  getUserContext:()=>({id:'daniel.b',name:'DANIEL B',rank:142,tier:'LEGENDARY',streak:12}),
+  getUserContext:()=>({id:'session_user',name:'SESSION USER',rank:null,tier:'session_only',streak:null}),
   getExamTracks:()=>([{id:'step1',name:'STEP 1 / COMLEX 1'},{id:'step23',name:'STEP 2/3 / COMLEX 2/3'}]),
-  getSubjects(track){return track==='step1'?SUBJECTS_STEP1:SUBJECTS_STEP23;},
+  getSubjects(track){
+    if(!USE_DEMO_DATA){
+      return deriveSubjectsFromSessions(track);
+    }
+    return track==='step1'?SUBJECTS_STEP1:SUBJECTS_STEP23;
+  },
   getDrills(){return SESSIONS;},
   getDailyRecommendation:()=>SESSIONS[0],
   getSelectedDrill:()=>STORE.getSel(),
@@ -1698,6 +1906,13 @@ document.body.addEventListener('click',e=>{
 /* =========================================================
    SUBJECT GROUP FILTER + TOPIC GRID
    ========================================================= */
+function dataEmptyHTML(title, message, warn){
+  return `<div class="data-empty ${warn?'warn':''}"><strong>${title}</strong><span>${message}</span></div>`;
+}
+function metricText(value, suffix){
+  if(value === '--' || value == null || value === '') return '--';
+  return String(value) + (suffix || '');
+}
 function paintTopics(){
   // Sub-areas for richer detail; not on every entry, only those that have them
   const subAreas={
@@ -1733,25 +1948,30 @@ function paintTopics(){
 
   // Paint split list
   const list=document.getElementById('splitList');
+  const noSubjectsMessage = HYDRATION_ERROR ? 'Real drill registry could not be loaded: ' + HYDRATION_ERROR : 'No real Daily/Drills registry records are available for this level yet.';
   if(list){
-    list.innerHTML=subjects.map((s,i)=>`
+    if(!subjects.length){
+      list.innerHTML = dataEmptyHTML('No real subjects loaded', noSubjectsMessage, true);
+    }else{
+      list.innerHTML=subjects.map((s,i)=>`
       <div class="split-row ${i===STATE.topicIdx?'on':''} ${s.locked?'locked':''}" data-idx="${i}">
         <div class="ic">${s.ic}</div>
         <div class="nm">${s.nm}</div>
-        <div class="acc">${s.locked?'PRO':s.acc+'%'}</div>
+        <div class="acc">${s.locked?'PRO':metricText(s.acc, '%')}</div>
       </div>`).join('');
-    list.querySelectorAll('.split-row').forEach(r=>r.addEventListener('click',()=>{
-      if(r.classList.contains('locked'))return;
-      STATE.topicIdx=+r.dataset.idx;
-      list.querySelectorAll('.split-row').forEach(x=>x.classList.toggle('on',x===r));
-      paintSplitDetail();
-    }));
+      list.querySelectorAll('.split-row').forEach(r=>r.addEventListener('click',()=>{
+        if(r.classList.contains('locked'))return;
+        STATE.topicIdx=+r.dataset.idx;
+        list.querySelectorAll('.split-row').forEach(x=>x.classList.toggle('on',x===r));
+        paintSplitDetail();
+      }));
+    }
   }
   paintSplitDetail();
 
   // Mobile fallback grid
   const mobileGrid=document.getElementById('mTopicGrid');
-  if(mobileGrid) mobileGrid.innerHTML=subjects.slice(0,10).map(s=>mTopicHTML(s)).join('');
+  if(mobileGrid) mobileGrid.innerHTML=subjects.length ? subjects.slice(0,10).map(s=>mTopicHTML(s)).join('') : dataEmptyHTML('No real subjects loaded', noSubjectsMessage, true);
   document.querySelectorAll('.m-topic').forEach(c=>{
     c.addEventListener('click',()=>{
       if(c.classList.contains('locked')) return;
@@ -1762,23 +1982,35 @@ function paintTopics(){
 function paintSplitDetail(){
   const subjects=Bridge.getSubjects(STATE.level);
   const s=subjects[STATE.topicIdx]||subjects[0];
-  STATE.topic=s.nm;
-  const subs=(STATE._subAreas&&STATE._subAreas[s.nm])||[];
   const det=document.getElementById('splitDetail');
   if(!det)return;
+  if(!s){
+    STATE.topic = null;
+    det.innerHTML = dataEmptyHTML(
+      'No real drill data loaded for this route.',
+      HYDRATION_ERROR ? 'Registry fetch failed: ' + HYDRATION_ERROR : 'Choose another route after Wiring Authority confirms registry access, or use ?lab=1 for demo-only inspection.',
+      true
+    );
+    return;
+  }
+  STATE.topic=s.nm;
+  const subs=(STATE._subAreas&&STATE._subAreas[s.nm])||[];
+  const detailCopy = USE_DEMO_DATA
+    ? `Drill the full ${s.nm} library with adaptive pacing. ${s.ses} videos available, last viewed 5 days ago. Cohort accuracy ${s.acc}%; your last run averaged 13.4s recall.`
+    : `Real registry records only. ${s.ses} video${s.ses===1?'':'s'} available for this subject in v3; session results remain browser-session only.`;
   det.innerHTML=`
     <div class="sub">${STATE.level==='step1'?'STEP 1 · FOUNDATIONAL':'STEP 2/3 · CLINICAL'}</div>
     <h2>${s.nm.split(' / ')[0]}<br><span class="accent">${s.ses} VIDEOS</span></h2>
-    <p>Drill the full ${s.nm} library with adaptive pacing. ${s.ses} videos available, last viewed 5 days ago. Cohort accuracy ${s.acc}%; your last run averaged 13.4s recall.</p>
+    <p>${detailCopy}</p>
     <div class="split-stat-row">
       <div class="split-stat"><div class="v">${s.ses}</div><div class="l">Videos</div></div>
-      <div class="split-stat"><div class="v">${s.acc}%</div><div class="l">Cohort Acc</div></div>
-      <div class="split-stat"><div class="v">13.4s</div><div class="l">Avg Recall</div></div>
+      <div class="split-stat"><div class="v">${metricText(s.acc, '%')}</div><div class="l">Cohort Acc</div></div>
+      <div class="split-stat"><div class="v">${USE_DEMO_DATA?'13.4s':'--'}</div><div class="l">Avg Recall</div></div>
       <div class="split-stat"><div class="v">${subs.length||0}</div><div class="l">Sub-areas</div></div>
     </div>
     <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;margin-top:6px">SUB-AREAS</div>
     <div class="subarea-chips">
-      ${subs.length?subs.slice(0,8).map(sa=>`<span class="sc">${sa}</span>`).join(''):'<span class="sc">PRO REQUIRED</span>'}
+      ${subs.length?subs.slice(0,8).map(sa=>`<span class="sc">${sa}</span>`).join(''):'<span class="sc">REAL REGISTRY</span>'}
     </div>
     <div class="pick">
       <button class="btn" data-pick-topic>SEE VIDEOS &mdash; ${s.nm.split(' / ')[0]} &rarr;</button>
@@ -1791,30 +2023,42 @@ function paintSplitDetail(){
 function mTopicHTML(s){
   return `<div class="m-topic ${s.locked?'locked':''}" data-topic="${s.nm}">
     <div><div class="ic">${s.ic}</div><div class="nm">${s.nm}</div></div>
-    <div class="sub" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--mut);text-transform:uppercase">${s.locked?'PRO':s.acc+'%'}</div>
+    <div class="sub" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--mut);text-transform:uppercase">${s.locked?'PRO':metricText(s.acc, '%')}</div>
   </div>`;
 }
 
 /* =========================================================
    SESSIONS LIST
    ========================================================= */
+function currentTopicSessions(){
+  const topic = safeText(STATE.topic, '').toUpperCase();
+  if(!topic) return SESSIONS;
+  return SESSIONS.filter(session => {
+    const subject = safeText(session.subcategory || session.category || session.subject || session.topic, '').toUpperCase();
+    return subject === topic;
+  });
+}
 function paintSessions(){
   const list=document.getElementById('sessList');
   const listM=document.getElementById('mSessList');
-  const html=SESSIONS.map(s=>sessHTML(s)).join('');
+  const visibleSessions = currentTopicSessions();
+  STATE._visibleSessions = visibleSessions;
+  const emptyMessage = HYDRATION_ERROR ? 'Registry fetch failed: ' + HYDRATION_ERROR : 'No real drill videos were found for this subject. Normal v3 does not substitute demo sessions.';
+  const html=visibleSessions.length ? visibleSessions.map(s=>sessHTML(s)).join('') : dataEmptyHTML('No real drill videos loaded', emptyMessage, true);
   if(list) list.innerHTML=html;
-  if(listM) listM.innerHTML=SESSIONS.map(s=>mSessHTML(s)).join('');
+  if(listM) listM.innerHTML=visibleSessions.length ? visibleSessions.map(s=>mSessHTML(s)).join('') : dataEmptyHTML('No real drill videos loaded', emptyMessage, true);
   // Update topic chip
   const sChip=document.getElementById('sessTopicChip');
-  if(sChip) sChip.textContent=`${(STATE.topic||'NEUROLOGY').toUpperCase()} · ${STATE.level==='step1'?'STEP 1':'STEP 2/3'}`;
+  if(sChip) sChip.textContent=`${(STATE.topic||'REAL REGISTRY').toUpperCase()} · ${visibleSessions.length} REAL VIDEO${visibleSessions.length===1?'':'S'}`;
   // Wire row clicks
   document.querySelectorAll('.sess,.m-card[data-sess]').forEach(el=>{
     el.addEventListener('click',()=>{
       const sid=el.dataset.sess;
-      STATE.session=SESSIONS.find(s=>s.id===sid)||SESSIONS[0];
+      STATE.session=visibleSessions.find(s=>s.id===sid)||visibleSessions[0]||SESSIONS[0];
+      if(!STATE.session) return;
       Bridge.setSelectedDrill(STATE.session);
-      const t=document.getElementById('readyTopic');if(t)t.textContent=(STATE.topic||'NEUROLOGY').toUpperCase();
-      const s=document.getElementById('readySession');if(s)s.textContent=STATE.session.title+' &middot; '+STATE.session.uploaded;
+      const t=document.getElementById('readyTopic');if(t)t.textContent=(STATE.topic||STATE.session.topic||'DAILY').toUpperCase();
+      const s=document.getElementById('readySession');if(s)s.textContent=STATE.session.title+' · '+STATE.session.uploaded;
       setStep(5);
     });
   });
@@ -1823,10 +2067,15 @@ function paintSessions(){
 }
 function paintSessChart(){
   const svg=document.getElementById('sessChart');if(!svg)return;
-  const ordered=[...SESSIONS].reverse(); // oldest left → newest right
+  const chartSessions = STATE._visibleSessions || SESSIONS;
+  if(!chartSessions.length){
+    svg.innerHTML = '<text class="lbl" x="160" y="92" text-anchor="middle">NO REAL DRILL DATA</text>';
+    return;
+  }
+  const ordered=[...chartSessions].reverse(); // oldest left → newest right
   const W=320,H=180,P={t:18,r:14,b:30,l:30};
   const innerW=W-P.l-P.r,innerH=H-P.t-P.b;
-  const xs=ordered.map((_,i)=>P.l+(i/(ordered.length-1))*innerW);
+  const xs=ordered.map((_,i)=>P.l+(ordered.length===1?0.5:(i/(ordered.length-1)))*innerW);
   const yAcc=v=>P.t+(1-(v/100))*innerH;
   const sMin=8,sMax=18;
   const ySpd=v=>P.t+((v-sMin)/(sMax-sMin))*innerH;
@@ -1870,14 +2119,21 @@ function paintSessChart(){
 }
 function paintSessSide(idx){
   // featured = most recent (idx 0 in SESSIONS = newest)
-  const s=SESSIONS[idx]||SESSIONS[0];
+  const sideSessions = STATE._visibleSessions || SESSIONS;
+  const s=sideSessions[idx]||sideSessions[0];
   const fs=document.getElementById('featuredSess');
+  if(!s){
+    if(fs) fs.innerHTML = dataEmptyHTML('No selected drill', 'Real media and nodes must load before v3 can start a session.', true);
+    const dsEmpty=document.getElementById('deltaSess');
+    if(dsEmpty) dsEmpty.innerHTML = dataEmptyHTML('Registry required', 'No fake score, count, or progress data is shown in normal v3 mode.', true);
+    return;
+  }
   if(fs){fs.innerHTML=`
     <div class="sub">${s.badge==='NEW'?'MOST RECENT':'SELECTED'}</div>
     <h4>${s.title}</h4>
     <div class="kv"><span>Uploaded</span><b>${s.uploaded}</b></div>
     <div class="kv"><span>Length</span><b>${s.len}</b></div>
-    <div class="kv"><span>Q</span><b>${s.q}</b></div>
+    <div class="kv"><span>Prompt Source</span><b>${s.q ? s.q + ' Q' : 'Nodes URL'}</b></div>
     <div class="kv"><span>Watched</span><b>${s.watched}&times;</b></div>
     <div class="kv"><span>Avg Recall</span><b>${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</b></div>
     <div class="kv"><span>Best Score</span><b>${s.best?s.best+'%':'&mdash;'}</b></div>
@@ -1885,14 +2141,14 @@ function paintSessSide(idx){
   `;
   fs.querySelector('[data-pick-sess]')?.addEventListener('click',()=>{
     STATE.session=s;Bridge.setSelectedDrill(s);
-    const t=document.getElementById('readyTopic');if(t)t.textContent=(STATE.topic||'NEUROLOGY').toUpperCase();
-    const ss=document.getElementById('readySession');if(ss)ss.textContent=s.title+' &middot; '+s.uploaded;
+    const t=document.getElementById('readyTopic');if(t)t.textContent=(STATE.topic||s.topic||'DAILY').toUpperCase();
+    const ss=document.getElementById('readySession');if(ss)ss.textContent=s.title+' · '+s.uploaded;
     setStep(5);
   });
   }
   // Delta vs prev run
   // Use NEURO-06 -> NEURO-05 etc. Prev = next in SESSIONS array (since SESSIONS is newest-first).
-  const prev=SESSIONS[idx+1];
+  const prev=sideSessions[idx+1];
   const accDelta=(s.best&&prev&&prev.best)?(s.best-prev.best):0;
   const spdDelta=(s.avgRecall&&prev&&prev.avgRecall)?(s.avgRecall-prev.avgRecall):0;
   const ds=document.getElementById('deltaSess');
@@ -1900,13 +2156,14 @@ function paintSessSide(idx){
     <div class="sub">DELTA vs PREV RUN</div>
     <div class="kv"><span>Accuracy</span><b style="color:${accDelta>=0?'var(--green)':'var(--red)'}">${accDelta?(accDelta>0?'+':'')+accDelta+'%':'&mdash;'}</b></div>
     <div class="kv"><span>Recall Time</span><b style="color:${spdDelta<=0?'var(--green)':'var(--red)'}">${spdDelta?(spdDelta>0?'+':'')+spdDelta.toFixed(1)+'s':'&mdash;'}</b></div>
-    <div class="kv"><span>Total Reviews</span><b>${SESSIONS.reduce((a,b)=>a+b.watched,0)}&times;</b></div>
-    <div class="kv"><span>Speed Trend</span><b style="color:var(--green)">&minus;3.7s vs run 1</b></div>
+    <div class="kv"><span>Total Reviews</span><b>${sideSessions.reduce((a,b)=>a+b.watched,0)}&times;</b></div>
+    <div class="kv"><span>Speed Trend</span><b>--</b></div>
   `;}
 }
 function sessHTML(s){
   const recent=s.badge==='NEW'?'most-recent':'';
   const badge=s.badge?`<div class="badge">${s.badge}</div>`:'';
+  const qLabel = s.q ? 'Q ' + s.q : 'NODES';
   return `<div class="sess ${recent}" data-sess="${s.id}">
     <div class="thumb">${badge}<div class="play"><span>&#9654;</span></div></div>
     <div class="info">
@@ -1916,6 +2173,7 @@ function sessHTML(s){
         <span>UPLOADED <b>${s.uploaded}</b></span>
         <span>WATCHED <b>${s.watched}&times;</b></span>
         <span>LAST <b>${s.last}</b></span>
+        <span><b>${qLabel}</b></span>
         <span>AVG <b>${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</b></span>
         <span>BEST <b>${s.best?s.best+'%':'&mdash;'}</b></span>
       </div>
@@ -1926,10 +2184,11 @@ function sessHTML(s){
   </div>`;
 }
 function mSessHTML(s){
+  const qLabel = s.q ? s.q + 'Q' : 'NODES';
   return `<div class="m-card ${s.badge==='NEW'?'recent':''}" data-sess="${s.id}" style="cursor:pointer">
     ${s.badge?`<span class="chip gold" style="font-size:8px;padding:4px 8px">${s.badge}</span>`:''}
     <div class="nm" style="margin-top:6px">${s.title}</div>
-    <div class="sub">${s.q}Q &middot; ${s.len} &middot; ${s.watched}&times; watched</div>
+    <div class="sub">${qLabel} &middot; ${s.len} &middot; ${s.watched}&times; watched</div>
     <div class="sub">${s.best?s.best+'%':'NEW'} &middot; AVG ${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</div>
   </div>`;
 }
@@ -1950,10 +2209,40 @@ document.body.addEventListener('click',e=>{
 const PACE_SEC={aggressive:8,recommended:12,warmup:18};
 function paceSeconds(){return PACE_SEC[STATE.pace]||12;}
 
+function showRuntimeDataError(message){
+  closeRuntime();
+  const msg = safeText(message, 'No real drill data loaded for this route.');
+  const t=document.getElementById('readyTopic');if(t)t.textContent='REAL DATA REQUIRED';
+  const s=document.getElementById('readySession');if(s)s.textContent=msg;
+  setStep(5);
+  log('runtime_blocked_missing_real_data', { message: msg, video_id: STATE.session && STATE.session.video_id, endpoint: API_DRILLS_ENDPOINT });
+}
 async function openRuntime(){
   STATE.session=STATE.session||SESSIONS[0];
-  Bridge.launchDrill(STATE.session,{seconds:paceSeconds(),pace:STATE.pace,origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds'});
+  if(!STATE.session){
+    showRuntimeDataError('No real drill data loaded for this route.');
+    return;
+  }
+  if(!USE_DEMO_DATA && !hasUsableMedia(STATE.session)){
+    showRuntimeDataError('Media unavailable for this real drill. Choose another drill or return to menu.');
+    return;
+  }
+  if(!USE_DEMO_DATA && !hasUsableNodeSource(STATE.session) && !hasInlinePrompts(STATE.session)){
+    showRuntimeDataError('Prompt nodes unavailable for this real drill. Choose another drill or return to menu.');
+    return;
+  }
   PROMPTS = await loadRuntimePromptsForSession(STATE.session);
+  if(!PROMPTS.length){
+    showRuntimeDataError('No real prompts or nodes loaded for this drill. v3 will not start a fake drill.');
+    return;
+  }
+  const mediaSource = runtimeMediaSource(STATE.session);
+  if(!USE_DEMO_DATA && !mediaSource.url){
+    paintRuntimeMedia(STATE.session);
+    showRuntimeDataError('Real media could not be loaded from the selected drill record.');
+    return;
+  }
+  Bridge.launchDrill(STATE.session,{seconds:paceSeconds(),pace:STATE.pace,origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds'});
   // reset
   STATE.rt={idx:0,reveals:false,timer:null,t0:0,locked:false,
             correct:0,miss:0,oot:0,streak:0,bestStreak:0,
@@ -2070,7 +2359,7 @@ function pauseToggle(){
 function finishSession(){
   if(STATE.rt.timer){cancelAnimationFrame(STATE.rt.timer);STATE.rt.timer=null;}
   const total=PROMPTS.length;
-  const pct=Math.round((STATE.rt.correct/total)*100);
+  const pct=total ? Math.round((STATE.rt.correct/total)*100) : 0;
   const avg=STATE.rt.times.length?(STATE.rt.times.reduce((a,b)=>a+b,0)/STATE.rt.times.length/1000):0;
   const fast=STATE.rt.times.length?Math.min(...STATE.rt.times)/1000:0;
   const result={
@@ -2097,8 +2386,12 @@ function finishSession(){
   log('summary_opened',{pct});
 }
 function openSummary(){
-  // statebar shortcut: open with mock result if not present
-  const r=STORE.getRes()||{correct:7,miss:1,oot:0,avg_response_s:12.4,fastest_s:9.8,best_streak:5,score_pct:88,flagged:[{idx:2,topic:'MS',cue:'Most specific MRI feature of multiple sclerosis on T2/FLAIR?'},{idx:5,topic:'HEADACHE',cue:'Red flags requiring urgent imaging in headache workup?'}]};
+  const fallbackResult = USE_DEMO_DATA ? {correct:7,miss:1,oot:0,avg_response_s:12.4,fastest_s:9.8,best_streak:5,score_pct:88,flagged:[{idx:2,topic:'MS',cue:'Most specific MRI feature of multiple sclerosis on T2/FLAIR?'},{idx:5,topic:'HEADACHE',cue:'Red flags requiring urgent imaging in headache workup?'}]} : null;
+  const r=STORE.getRes()||fallbackResult;
+  if(!r){
+    showRuntimeDataError('No session result exists yet. Complete a real drill before opening the result summary.');
+    return;
+  }
   populateSummary(r);
   document.getElementById('summaryOverlay').classList.add('live');
 }
@@ -2170,13 +2463,22 @@ document.getElementById('opPanel').querySelector('header').addEventListener('cli
 /* =========================================================
    INIT
    ========================================================= */
-initializeRuntimeData();
-paintTopics();
-paintSessions();
-setVersion('legacy');
-bootFromRoute();
-log('boot',{version:STATE.version,step:STATE.step,entry:ROUTE_ENTRY,video_id:ROUTE_VIDEO_ID});
-log('daily_viewed');
+async function bootApp(){
+  await hydrateRuntimeData();
+  paintTopics();
+  paintSessions();
+  setVersion('legacy');
+  bootFromRoute();
+  log('boot',{version:STATE.version,step:STATE.step,entry:ROUTE_ENTRY,video_id:ROUTE_VIDEO_ID,data_mode:document.documentElement.dataset.dataMode,real_registry_loaded:REAL_REGISTRY_LOADED});
+  log('daily_viewed');
+}
+bootApp().catch(error => {
+  HYDRATION_ERROR = String(error && error.message ? error.message : error);
+  paintTopics();
+  paintSessions();
+  setVersion('legacy');
+  log('boot_failed', { message: HYDRATION_ERROR });
+});
 
 })();
 </script>
