@@ -1,0 +1,1182 @@
+<!--
+  LIVE/stat_v3.html
+  STAT V3 wiring-ready twin | Non-deployed parallel preview.
+  This file adapts the T-11 STAT V3 UI shell without replacing LIVE/stat.html.
+  It preserves the existing screen IDs (#screen-version, #screen-setup,
+  #screen-matchup, #screen-countdown, #screen-play, #screen-results).
+
+  ============================================================
+  WIRING AUTHORITY NOTES
+  ============================================================
+  1. This is not live and not production-ready.
+  2. Current /stat and LIVE/stat.html remain the wiring authority.
+  3. Player, opponent, avatar, sealed pack, submit, and result data are read
+     only through adapter inputs supplied by a future private route.
+  4. Gameplay is blocked when live adapter inputs are unavailable.
+  5. Theme persistence remains localStorage key 'mm_stat_theme'.
+
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>STAT! | MissionMed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bungee&family=Bungee+Inline&family=Russo+One&family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&display=swap" rel="stylesheet" />
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px;-webkit-font-smoothing:antialiased}
+body{font-family:'Inter',system-ui,sans-serif;color:var(--fg);background:var(--bg);min-height:100vh;overflow-x:hidden;transition:background-color .4s ease,color .4s ease}
+button{cursor:pointer;font-family:inherit;border:none;background:none;color:inherit}
+img{display:block;max-width:100%}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--scrollbar);border-radius:5px}
+
+:root{
+  --f-bebas:'Bebas Neue',sans-serif;
+  --f-bungee:'Bungee',sans-serif;
+  --f-bungee-i:'Bungee Inline',sans-serif;
+  --f-russo:'Russo One',sans-serif;
+  --f-inter:'Inter',sans-serif;
+  --f-cinzel:'Cinzel',serif;
+  --f-playfair:'Playfair Display',serif;
+}
+
+/* ============================================================
+   THEME SYSTEM | Dark Side (default) + Light Side
+   Auto resolves to one of these two via prefers-color-scheme
+   ============================================================ */
+[data-theme="dark"]{
+  --bg:#05070d;
+  --bg-grad:radial-gradient(ellipse at 50% 0%,rgba(33,201,255,.18),transparent 60%),linear-gradient(180deg,#021024 0%,#04122a 50%,#021024 100%);
+  --fg:#ffffff;
+  --fg-muted:rgba(255,255,255,.65);
+  --fg-soft:rgba(255,255,255,.45);
+  --accent:#21c9ff;
+  --accent-2:#fcd34d;
+  --rim:#21c9ff;
+  --opp-rim:#ef4444;
+  --opp-accent:#ef4444;
+  --card-bg:linear-gradient(180deg,rgba(33,201,255,.06),rgba(0,0,0,.4));
+  --card-border:rgba(33,201,255,.3);
+  --card-bg-elev:rgba(0,0,0,.45);
+  --topbar-bg:rgba(8,10,18,.94);
+  --topbar-border:rgba(255,255,255,.08);
+  --tab-bg:rgba(255,255,255,.04);
+  --tab-border:rgba(255,255,255,.08);
+  --tab-color:rgba(255,255,255,.65);
+  --pill-bg:rgba(255,255,255,.06);
+  --shadow-soft:0 8px 30px rgba(0,0,0,.4);
+  --shadow-hero:0 18px 50px rgba(0,0,0,.45);
+  --scrollbar:rgba(255,255,255,.2);
+  --podium-pulse-rgb:33,201,255;
+  --logo-bg:linear-gradient(135deg,#0F2A44,#1B4870);
+  --logo-mark:#D4A843;
+  --logo-l1:#fff;
+  --logo-l2:#D4A843;
+  --display-font:var(--f-bungee-i);
+  --display-letter:1px;
+  --display-italic:normal;
+}
+
+[data-theme="light"]{
+  --bg:#fbfaf6;
+  --bg-grad:radial-gradient(ellipse at 50% 0%,rgba(212,168,67,.22),transparent 55%),linear-gradient(180deg,#fbfaf6 0%,#eef2f7 50%,#fbfaf6 100%);
+  --fg:#0F2A44;
+  --fg-muted:rgba(15,42,68,.7);
+  --fg-soft:rgba(15,42,68,.5);
+  --accent:#0F2A44;
+  --accent-2:#D4A843;
+  --rim:#0F2A44;
+  --opp-rim:#A41E22;
+  --opp-accent:#A41E22;
+  --card-bg:#ffffff;
+  --card-border:rgba(15,42,68,.12);
+  --card-bg-elev:#ffffff;
+  --topbar-bg:rgba(255,255,255,.95);
+  --topbar-border:rgba(15,42,68,.08);
+  --tab-bg:#fbfaf6;
+  --tab-border:rgba(15,42,68,.12);
+  --tab-color:rgba(15,42,68,.65);
+  --pill-bg:rgba(15,42,68,.06);
+  --shadow-soft:0 8px 28px rgba(15,42,68,.08);
+  --shadow-hero:0 18px 48px rgba(15,42,68,.1);
+  --scrollbar:rgba(15,42,68,.18);
+  --podium-pulse-rgb:212,168,67;
+  --logo-bg:linear-gradient(135deg,#0F2A44,#1B4870);
+  --logo-mark:#D4A843;
+  --logo-l1:#0F2A44;
+  --logo-l2:#D4A843;
+  --display-font:var(--f-playfair);
+  --display-letter:-1px;
+  --display-italic:italic;
+}
+
+/* fallback for browsers without theme attr */
+:root{color-scheme:dark light}
+
+/* ============================================================
+   APP SHELL
+   ============================================================ */
+.mm-shell{position:relative;min-height:100vh;display:flex;flex-direction:column;background:var(--bg);transition:background .4s ease}
+.mm-shell::before{content:'';position:absolute;inset:0;background:var(--bg-grad);pointer-events:none;z-index:0}
+
+.mm-topbar{position:sticky;top:0;z-index:200;display:flex;align-items:center;gap:18px;padding:14px 26px;background:var(--topbar-bg);backdrop-filter:blur(14px);border-bottom:2px solid var(--topbar-border)}
+.mm-logo{display:flex;align-items:center;gap:12px;flex-shrink:0}
+.mm-logo-mark{width:46px;height:46px;border-radius:11px;background:var(--logo-bg);display:grid;place-items:center;font-family:var(--f-bungee);font-size:24px;color:var(--logo-mark);box-shadow:0 0 0 2px var(--logo-mark),0 6px 18px rgba(0,0,0,.3);letter-spacing:-1px}
+.mm-logo-text{display:flex;flex-direction:column;line-height:1}
+.mm-logo-text .l1{font-family:var(--f-bebas);font-size:18px;letter-spacing:3px;color:var(--logo-l1)}
+.mm-logo-text .l2{font-family:var(--f-bebas);font-size:12px;letter-spacing:5px;color:var(--logo-l2);margin-top:2px}
+
+.mm-topbar-spacer{flex:1}
+
+/* Dark / Light / Auto theme switcher */
+.mm-theme{display:flex;gap:5px;background:var(--tab-bg);padding:5px;border-radius:10px;border:2px solid var(--tab-border)}
+.mm-theme-btn{display:flex;align-items:center;gap:7px;padding:9px 13px;font-family:var(--f-bebas);font-size:13px;letter-spacing:2px;color:var(--tab-color);border-radius:7px;transition:all .2s ease}
+.mm-theme-btn:hover{color:var(--fg)}
+.mm-theme-btn.active{background:var(--accent-2);color:#0F2A44;box-shadow:0 0 0 1px rgba(212,168,67,.5),0 4px 14px rgba(212,168,67,.2)}
+.mm-theme-btn .ico{width:14px;height:14px;display:grid;place-items:center}
+.mm-theme-btn[data-mode="dark"] .ico::before{content:'';width:10px;height:10px;border-radius:50%;background:#fcd34d;box-shadow:inset -3px -1px 0 currentColor;color:#04122a}
+.mm-theme-btn[data-mode="light"] .ico::before{content:'';width:10px;height:10px;border-radius:50%;background:#fcd34d;box-shadow:0 0 4px #fcd34d,0 0 8px rgba(252,211,77,.5)}
+.mm-theme-btn[data-mode="auto"] .ico::before{content:'';width:10px;height:10px;border-radius:50%;background:linear-gradient(90deg,#04122a 50%,#fcd34d 50%);border:1px solid currentColor}
+
+/* [CODEX] dev-only scenario toggle | REMOVE for production */
+.mm-scenario{display:flex;gap:5px;background:var(--tab-bg);padding:5px;border-radius:10px;border:2px solid var(--tab-border)}
+.mm-scn{padding:8px 11px;font-family:var(--f-bebas);font-size:12px;letter-spacing:2px;color:var(--tab-color);border-radius:6px;transition:all .2s}
+.mm-scn:hover{color:var(--fg)}
+.mm-scn[data-scn="win"].active{background:#22C55E;color:#fff}
+.mm-scn[data-scn="lose"].active{background:#EF4444;color:#fff}
+.mm-scn[data-scn="wait"].active{background:#F59E0B;color:#0F2A44}
+.mm-scn[data-scn="review"].active{background:#8B5CF6;color:#fff}
+.mm-scn-label{font-family:var(--f-bebas);font-size:10px;letter-spacing:2px;color:var(--fg-soft);align-self:center;padding:0 4px}
+
+/* step bar */
+.mm-stepbar{display:flex;align-items:stretch;gap:0;padding:18px 26px;position:relative;z-index:10}
+.mm-step{flex:1;position:relative;display:flex;align-items:center;gap:11px;padding:11px 9px;cursor:pointer;transition:all .25s ease}
+.mm-step:not(:last-child)::after{content:'';position:absolute;right:-1px;top:50%;transform:translateY(-50%);width:22px;height:2px;background:var(--card-border)}
+.mm-step .step-num{flex-shrink:0;width:46px;height:46px;border-radius:12px;background:var(--tab-bg);border:2px solid var(--tab-border);display:grid;place-items:center;font-family:var(--f-bungee);font-size:21px;color:var(--fg-soft);transition:all .3s ease}
+.mm-step .step-info{display:flex;flex-direction:column;line-height:1.1;min-width:0}
+.mm-step .step-label{font-family:var(--f-bebas);font-size:11px;letter-spacing:2px;color:var(--fg-soft)}
+.mm-step .step-name{font-family:var(--f-russo);font-size:13px;color:var(--fg-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mm-step:hover .step-num{background:var(--pill-bg);color:var(--fg);transform:scale(1.05)}
+.mm-step:hover .step-name{color:var(--fg)}
+.mm-step.active .step-num{background:linear-gradient(135deg,var(--accent-2),#F5C84B);color:#0F2A44;border-color:var(--fg);box-shadow:0 0 0 4px rgba(212,168,67,.25),0 10px 26px rgba(212,168,67,.45);transform:scale(1.06)}
+.mm-step.active .step-name{color:var(--fg)}
+.mm-step.active .step-label{color:var(--accent-2)}
+.mm-step.done .step-num{background:rgba(34,197,94,.18);border-color:#22C55E;color:#22C55E}
+
+/* stage / screen */
+.mm-stage{flex:1;position:relative;min-height:calc(100vh - 200px);z-index:1}
+.screen{display:none;position:relative;min-height:calc(100vh - 200px);padding:0 26px 50px}
+.screen.active{display:block;animation:screenIn .55s cubic-bezier(.2,.8,.2,1)}
+@keyframes screenIn{0%{opacity:0;transform:translateY(20px) scale(.992);filter:blur(4px)}65%{filter:blur(0)}100%{opacity:1;transform:none;filter:blur(0)}}
+
+@keyframes pulse-glow{0%,100%{filter:brightness(1)}50%{filter:brightness(1.25)}}
+@keyframes float-y{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes spin-slow{to{transform:rotate(360deg)}}
+@keyframes bg-shift{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+@keyframes flash{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes ticker{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+@keyframes podium-pulse{0%,100%{box-shadow:0 0 60px 10px rgba(var(--rim-rgb,33 201 255),.6),0 0 0 2px rgba(255,255,255,.25)}50%{box-shadow:0 0 90px 14px rgba(var(--rim-rgb,33 201 255),.7),0 0 0 3px rgba(255,255,255,.5)}}
+@keyframes holo-spin{to{transform:rotate(360deg)}}
+@keyframes particle-float{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(0,-30px,0)}}
+
+/* animated bg (always present, themed) */
+.bg-canvas{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.bg-particles{position:absolute;inset:0}
+.bg-particles span{position:absolute;border-radius:50%;background:rgba(var(--podium-pulse-rgb),.4);opacity:.45;animation:particle-float 8s ease-in-out infinite}
+
+/* ============================================================
+   FORTNITE-SKIN AVATAR PODIUM
+   ============================================================ */
+.fb-podium{position:relative;display:inline-grid;place-items:end center;width:var(--fb-w,260px);height:var(--fb-h,300px)}
+.fb-podium .pod{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:80%;height:42px;border-radius:50%;background:radial-gradient(ellipse at center,var(--rarity-color,var(--rim)) 0%,rgba(0,0,0,0) 65%);filter:blur(7px);opacity:.9}
+.fb-podium .ring{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);width:68%;height:14px;border-radius:50%;border:3px solid var(--rarity-color,var(--rim));background:radial-gradient(ellipse at center,rgba(255,255,255,.4) 0%,transparent 50%);opacity:.95;animation:podium-pulse 2.4s ease-in-out infinite}
+.fb-podium .glow{position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:90%;height:65%;border-radius:50% 50% 0 0/100% 100% 0 0;background:radial-gradient(ellipse at center bottom,var(--rarity-color,var(--rim)) 0%,transparent 70%);filter:blur(22px);opacity:.7;pointer-events:none}
+.fb-podium .holo{position:absolute;inset:8% 8% 18% 8%;border-radius:50% 50% 14% 14%/65% 65% 8% 8%;background:conic-gradient(from 0deg,transparent 0deg,rgba(var(--podium-pulse-rgb),.3) 60deg,transparent 120deg,rgba(252,211,77,.3) 180deg,transparent 240deg,rgba(var(--podium-pulse-rgb),.3) 300deg,transparent 360deg);filter:blur(24px);opacity:.55;animation:holo-spin 12s linear infinite;mix-blend-mode:screen}
+.fb-podium .spotlight{position:absolute;top:-10%;left:50%;width:60%;height:60%;background:linear-gradient(180deg,rgba(255,255,255,.18) 0%,transparent 100%);transform:translateX(-50%) skewY(-15deg);filter:blur(8px);opacity:.6;mix-blend-mode:overlay;pointer-events:none}
+.fb-podium .char{position:relative;z-index:2;width:100%;height:calc(100% - 20px);display:grid;place-items:end center}
+.fb-podium .char img{height:100%;width:auto;filter:drop-shadow(0 20px 28px rgba(0,0,0,.6)) drop-shadow(0 0 24px var(--rarity-color,var(--rim))) saturate(1.08) contrast(1.05)}
+.fb-podium .skin-plate{position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.85);border:1px solid var(--rarity-color,var(--rim));padding:6px 14px;font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;color:var(--rarity-color,var(--rim));white-space:nowrap;border-radius:6px;box-shadow:0 0 14px rgba(0,0,0,.4);z-index:3}
+.fb-podium .skin-plate strong{color:var(--accent-2);margin-right:6px}
+.fb-podium.legendary{--rarity-color:#fcd34d}
+.fb-podium.epic{--rarity-color:#c084fc}
+.fb-podium.rare{--rarity-color:#60a5fa}
+.fb-podium.common{--rarity-color:rgba(255,255,255,.6)}
+.fb-podium.opp{--rarity-color:var(--opp-rim)}
+.fb-podium.small{--fb-w:140px;--fb-h:170px}
+.fb-podium.small .pod{height:24px;filter:blur(5px)}
+.fb-podium.small .ring{bottom:9px;height:9px;border-width:2px}
+.fb-podium.small .skin-plate{bottom:-16px;font-size:9px;padding:4px 10px;letter-spacing:2px}
+.fb-podium.tiny{--fb-w:90px;--fb-h:120px}
+.fb-podium.tiny .pod{height:14px;filter:blur(3px)}
+.fb-podium.tiny .ring{bottom:5px;height:6px;border-width:1.5px}
+.fb-podium.tiny .skin-plate{display:none}
+.fb-podium.tiny .holo{display:none}
+.fb-podium.large{--fb-w:340px;--fb-h:380px}
+
+/* enhanced headshot helper */
+.fb-head{position:relative;width:var(--head-size,40px);height:var(--head-size,40px);border-radius:50%;overflow:hidden;flex-shrink:0;background:rgba(0,0,0,.4);border:2px solid var(--rarity-color,var(--rim));box-shadow:0 0 0 1px rgba(255,255,255,.18),0 0 14px rgba(var(--podium-pulse-rgb),.35)}
+.fb-head img{width:100%;height:100%;object-fit:cover;filter:saturate(1.05)}
+.fb-head.legendary{--rarity-color:#fcd34d}
+.fb-head.epic{--rarity-color:#c084fc}
+.fb-head.rare{--rarity-color:#60a5fa}
+.fb-head.opp{--rarity-color:var(--opp-rim)}
+.fb-head.lg{--head-size:60px}
+.fb-head.xl{--head-size:80px}
+
+.trust-pill{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:24px;background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.4);font-family:var(--f-bebas);font-size:12px;letter-spacing:2px;color:#15803d}
+[data-theme="dark"] .trust-pill{color:#86efac}
+.trust-pill::before{content:'';width:7px;height:7px;border-radius:50%;background:#22C55E;box-shadow:0 0 9px #22C55E}
+
+/* ============================================================
+   STAT BATTLE component (used in #screen-play)
+   ============================================================ */
+.stat-arena{position:relative;display:grid;grid-template-columns:340px 1fr 340px;gap:18px;min-height:660px}
+.stat-lane{position:relative;background:var(--card-bg);border:1px solid var(--card-border);border-radius:18px;padding:20px 18px 0;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-soft)}
+.stat-lane.opp{--rim:var(--opp-rim);background:var(--card-bg-opp,linear-gradient(180deg,rgba(239,68,68,.06),rgba(0,0,0,.4)));border-color:rgba(239,68,68,.3)}
+[data-theme="light"] .stat-lane.opp{background:linear-gradient(180deg,rgba(164,30,34,.05),#fff);border-color:rgba(164,30,34,.2)}
+.stat-lane-head{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.stat-lane-tag{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--rim);background:var(--pill-bg);padding:4px 10px;border-radius:5px;border:1px solid var(--rim)}
+.stat-lane-name{font-family:var(--f-bungee);font-size:22px;color:var(--fg);letter-spacing:.5px;line-height:1}
+[data-theme="light"] .stat-lane-name{font-family:var(--f-cinzel);font-weight:900}
+.stat-lane-school{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--rim);margin-top:3px}
+.stat-lane-score{font-family:var(--f-bungee);font-size:78px;color:var(--rim);line-height:1;margin-top:10px;text-shadow:0 0 32px rgba(var(--podium-pulse-rgb),.6)}
+[data-theme="light"] .stat-lane-score{font-family:var(--f-cinzel);font-weight:900}
+.stat-lane.opp .stat-lane-score{text-shadow:0 0 32px rgba(239,68,68,.5)}
+.stat-lane-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stat-lane-stat{background:var(--card-bg-elev);border:1px solid var(--card-border);border-radius:10px;padding:9px 6px;text-align:center}
+.stat-lane-stat .v{font-family:var(--f-bungee);font-size:22px;color:var(--fg)}
+[data-theme="light"] .stat-lane-stat .v{font-family:var(--f-cinzel);font-weight:900}
+.stat-lane-stat .l{font-family:var(--f-bebas);font-size:10px;letter-spacing:2px;color:var(--fg-soft);margin-top:2px}
+.stat-lane-status{margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--pill-bg);border:1px dashed var(--card-border);font-family:var(--f-bebas);font-size:13px;letter-spacing:2px;color:var(--fg-muted);text-align:center}
+.stat-lane-status.locked{background:rgba(34,197,94,.12);border-color:#22c55e;color:#15803d}
+[data-theme="dark"] .stat-lane-status.locked{color:#86efac}
+.stat-lane-status.thinking{background:rgba(245,158,11,.12);border-color:#f59e0b;color:#7a5e1c;animation:flash 1.6s infinite}
+[data-theme="dark"] .stat-lane-status.thinking{color:#fcd34d}
+.stat-lane-status.live{background:rgba(239,68,68,.12);border-color:#ef4444;color:#dc2626}
+[data-theme="dark"] .stat-lane-status.live{color:#fca5a5}
+.stat-lane-podium{flex:1;display:grid;place-items:end center;margin-top:8px;min-height:200px;padding-bottom:24px}
+
+.stat-center{position:relative;background:var(--card-bg);border:1px solid var(--card-border);border-radius:18px;padding:20px;display:flex;flex-direction:column;overflow:hidden;box-shadow:var(--shadow-soft)}
+.stat-center::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(var(--podium-pulse-rgb),.16) 0%,transparent 60%);pointer-events:none}
+.stat-center-head{position:relative;display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;z-index:2}
+.stat-center-title{display:flex;flex-direction:column;line-height:1}
+.stat-center-title .h{font-family:var(--f-bungee);font-size:22px;color:var(--fg);letter-spacing:.5px}
+[data-theme="light"] .stat-center-title .h{font-family:var(--f-cinzel);font-weight:900}
+.stat-center-title .s{font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;color:var(--accent);margin-top:3px}
+[data-theme="light"] .stat-center-title .s{color:var(--accent-2)}
+.stat-pressure{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:30px;font-family:var(--f-bebas);font-size:12px;letter-spacing:2px;border:1px solid currentColor}
+.stat-pressure.neutral{color:#7a5e1c;background:rgba(245,158,11,.12)}
+[data-theme="dark"] .stat-pressure.neutral{color:#fcd34d}
+.stat-pressure.danger{color:#dc2626;background:rgba(239,68,68,.15);animation:flash 1.4s infinite}
+[data-theme="dark"] .stat-pressure.danger{color:#fca5a5}
+.stat-pressure.calm{color:#15803d;background:rgba(34,197,94,.12)}
+[data-theme="dark"] .stat-pressure.calm{color:#86efac}
+.stat-pressure::before{content:'';width:7px;height:7px;border-radius:50%;background:currentColor}
+
+.stat-q-stage{position:relative;display:grid;grid-template-columns:1fr 160px;gap:18px;align-items:start;background:var(--card-bg-elev);border:1px solid var(--card-border);border-radius:14px;padding:18px;margin-bottom:14px;z-index:2}
+.stat-q-topic{display:inline-flex;align-items:center;gap:8px;padding:5px 11px;background:var(--pill-bg);border:1px solid var(--card-border);border-radius:30px;font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;color:var(--accent);width:fit-content;margin-bottom:8px}
+[data-theme="light"] .stat-q-topic{color:var(--accent-2)}
+.stat-q-text{font-family:var(--f-inter);font-size:18px;font-weight:600;color:var(--fg);line-height:1.35;margin-bottom:14px}
+.stat-q-choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-q-choice{display:grid;grid-template-columns:24px 1fr;gap:10px;padding:11px 12px;background:var(--pill-bg);border:1px solid var(--card-border);border-radius:10px;cursor:pointer;transition:all .2s;text-align:left}
+.stat-q-choice:hover{border-color:var(--accent);background:var(--card-bg-elev)}
+.stat-q-choice.selected{border-color:var(--accent);background:rgba(var(--podium-pulse-rgb),.1);box-shadow:0 0 0 2px rgba(var(--podium-pulse-rgb),.18)}
+.stat-q-choice.correct{border-color:#22c55e;background:rgba(34,197,94,.08)}
+.stat-q-choice.wrong{border-color:#ef4444;background:rgba(239,68,68,.06)}
+.stat-q-choice .k{font-family:var(--f-bungee);font-size:14px;color:var(--accent);text-align:center;width:24px;height:24px;border-radius:6px;background:var(--card-bg-elev);display:grid;place-items:center}
+.stat-q-choice .t{font-family:var(--f-inter);font-size:13px;color:var(--fg);font-weight:500;line-height:1.3}
+.stat-q-meta{display:flex;flex-direction:column;align-items:center;gap:14px}
+.stat-q-counter{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--fg-soft);text-align:center}
+.stat-q-counter .n{display:block;font-family:var(--f-bungee);font-size:24px;color:var(--fg);letter-spacing:0;line-height:1}
+[data-theme="light"] .stat-q-counter .n{font-family:var(--f-cinzel);font-weight:900}
+.stat-q-ring{position:relative;width:120px;height:120px}
+.stat-q-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.stat-q-ring .track{fill:none;stroke:var(--card-border);stroke-width:8}
+.stat-q-ring .bar{fill:none;stroke:url(#statRingGrad);stroke-width:8;stroke-linecap:round;stroke-dasharray:283;stroke-dashoffset:0;transition:stroke-dashoffset .8s linear}
+.stat-q-ring .label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.stat-q-ring .label .v{font-family:var(--f-bungee);font-size:34px;color:var(--fg);text-shadow:0 0 22px rgba(var(--podium-pulse-rgb),.5)}
+[data-theme="light"] .stat-q-ring .label .v{font-family:var(--f-cinzel);font-weight:900}
+.stat-q-ring .label .l{font-family:var(--f-bebas);font-size:10px;letter-spacing:3px;color:var(--fg-soft);margin-top:2px}
+
+.stat-q-history{position:relative;background:var(--card-bg-elev);border:1px solid var(--card-border);border-radius:14px;padding:12px;z-index:2}
+.stat-q-history h4{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--fg-soft);margin-bottom:8px}
+.stat-q-history-row{display:grid;grid-template-columns:24px 90px 1fr auto auto;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px dashed var(--card-border);font-family:var(--f-inter);font-size:13px;color:var(--fg)}
+.stat-q-history-row:last-child{border-bottom:none}
+.stat-q-history-row .qn{font-family:var(--f-bungee);font-size:14px;color:var(--fg-soft);text-align:center}
+[data-theme="light"] .stat-q-history-row .qn{font-family:var(--f-cinzel);font-weight:900}
+.stat-q-history-row.correct .qn{color:#15803d}
+[data-theme="dark"] .stat-q-history-row.correct .qn{color:#86efac}
+.stat-q-history-row.wrong .qn{color:#dc2626}
+[data-theme="dark"] .stat-q-history-row.wrong .qn{color:#fca5a5}
+.stat-q-history-row .topic{font-family:var(--f-bebas);font-size:10px;letter-spacing:2px;color:var(--accent)}
+[data-theme="light"] .stat-q-history-row .topic{color:var(--accent-2)}
+.stat-q-history-row .qtxt{font-family:var(--f-inter);font-size:12px;color:var(--fg-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-q-history-row .qtime{font-family:var(--f-bungee);font-size:13px;color:var(--fg-muted)}
+.stat-q-history-row .qpts{font-family:var(--f-bungee);font-size:14px;color:var(--accent-2);min-width:50px;text-align:right}
+.stat-q-history-row.correct .qpts{color:#15803d}
+[data-theme="dark"] .stat-q-history-row.correct .qpts{color:#86efac}
+.stat-q-history-row.wrong .qpts{color:#dc2626}
+[data-theme="dark"] .stat-q-history-row.wrong .qpts{color:#fca5a5}
+
+.stat-ticker{margin-top:auto;padding-top:14px;border-top:1px dashed var(--card-border);font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--fg-soft);overflow:hidden;display:flex;gap:30px;white-space:nowrap;position:relative;z-index:2}
+.stat-ticker-track{display:flex;gap:40px;animation:ticker 24s linear infinite;flex-shrink:0}
+.stat-ticker-item{display:inline-flex;align-items:center;gap:8px}
+.stat-ticker-item::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent-2)}
+
+@media (max-width:1100px){.stat-arena{grid-template-columns:1fr}.stat-q-stage{grid-template-columns:1fr}.stat-q-meta{flex-direction:row;justify-content:center}}
+@media (max-width:980px){.mm-stepbar{flex-wrap:wrap}.mm-step{flex:1 1 calc(33% - 4px)}}
+
+/* ============================================================
+   SCREEN: VERSION SELECT (#screen-version)
+   ============================================================ */
+.s-version{display:grid;grid-template-columns:1fr 360px;gap:20px;min-height:660px}
+.s-version-main{display:flex;flex-direction:column;gap:18px}
+.s-version-head{display:flex;flex-direction:column;gap:6px;flex-wrap:wrap}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-bebas);font-size:12px;letter-spacing:5px;color:var(--accent);width:fit-content}
+.eyebrow::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--accent-2);box-shadow:0 0 10px var(--accent-2);animation:pulse-glow 1.6s infinite}
+.s-version-head h1{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;font-size:54px;line-height:.95;letter-spacing:var(--display-letter);color:var(--fg)}
+.s-version-head h1 .acc{color:var(--accent-2)}
+.s-version-head .sub{font-family:var(--f-bebas);font-size:13px;letter-spacing:4px;color:var(--fg-soft);margin-top:4px}
+
+.modes-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mode-card{position:relative;background:var(--card-bg);border:2px solid var(--card-border);border-radius:14px;padding:20px;cursor:pointer;transition:all .25s ease;overflow:hidden}
+.mode-card:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:var(--shadow-hero)}
+.mode-card.current{border-color:var(--accent-2);background:linear-gradient(180deg,rgba(252,211,77,.1),var(--card-bg-elev));box-shadow:0 0 0 2px rgba(212,168,67,.25),var(--shadow-hero)}
+.mode-card.current::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,transparent,var(--accent-2),transparent);background-size:200% 100%;animation:bg-shift 2.4s linear infinite}
+.mode-status{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:30px;font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;background:rgba(34,197,94,.12);border:1px solid #22c55e;color:#15803d;margin-bottom:10px}
+[data-theme="dark"] .mode-status{color:#86efac}
+.mode-status::before{content:'';width:6px;height:6px;border-radius:50%;background:currentColor}
+.mode-card.current .mode-status{background:rgba(252,211,77,.15);border-color:var(--accent-2);color:#7a5e1c}
+[data-theme="dark"] .mode-card.current .mode-status{color:var(--accent-2)}
+.mode-card.coming .mode-status{background:var(--pill-bg);border-color:var(--card-border);color:var(--fg-soft)}
+.mode-title{font-family:var(--f-bungee);font-size:24px;color:var(--fg);letter-spacing:.5px;line-height:1}
+[data-theme="light"] .mode-title{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;letter-spacing:-.5px}
+.mode-tag{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--accent);margin-top:4px}
+[data-theme="light"] .mode-tag{color:var(--accent-2)}
+.mode-desc{font-family:var(--f-inter);font-size:13px;color:var(--fg-muted);line-height:1.4;margin-top:10px}
+.mode-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.mode-stat{background:var(--card-bg-elev);border:1px solid var(--card-border);border-left:3px solid var(--accent);padding:7px 10px;border-radius:0 6px 6px 0}
+.mode-stat .v{font-family:var(--f-bungee);font-size:18px;color:var(--accent-2)}
+[data-theme="light"] .mode-stat .v{font-family:var(--f-cinzel);font-weight:900;color:var(--fg)}
+.mode-stat .l{font-family:var(--f-bebas);font-size:10px;letter-spacing:2px;color:var(--fg-soft);margin-top:2px}
+.mode-cta{margin-top:14px;padding:12px 18px;font-family:var(--f-bungee);font-size:14px;letter-spacing:2px;background:linear-gradient(135deg,var(--accent),#0099ff);color:#fff;border-radius:8px;width:100%;text-align:center;transition:transform .15s ease}
+[data-theme="light"] .mode-cta{background:var(--accent);color:var(--accent-2);font-family:var(--f-cinzel);font-weight:900;letter-spacing:3px;text-transform:uppercase}
+.mode-cta:hover{transform:translateY(-2px)}
+.mode-card.coming .mode-cta{background:var(--pill-bg);color:var(--fg-soft);cursor:not-allowed}
+
+.s-version-side{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden;box-shadow:var(--shadow-soft)}
+.s-version-side::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2),var(--accent));background-size:200% 100%;animation:bg-shift 3s linear infinite}
+.s-version-side h3{font-family:var(--f-bungee);font-size:18px;color:var(--fg);letter-spacing:1px}
+[data-theme="light"] .s-version-side h3{font-family:var(--f-cinzel);font-weight:900}
+.profile-pod-wrap{position:relative;width:100%;height:300px;display:grid;place-items:end center;padding-bottom:30px}
+.profile-info{text-align:center;padding-top:8px;border-top:1px dashed var(--card-border)}
+.profile-info .nm{font-family:var(--f-bungee);font-size:24px;color:var(--fg);letter-spacing:.5px}
+[data-theme="light"] .profile-info .nm{font-family:var(--f-cinzel);font-weight:900}
+.profile-info .sub{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--accent-2);margin-top:3px}
+.profile-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:6px}
+.profile-stat{background:var(--card-bg-elev);border-left:3px solid var(--accent-2);padding:9px 11px}
+.profile-stat .v{font-family:var(--f-bungee);font-size:18px;color:var(--accent-2)}
+[data-theme="light"] .profile-stat .v{font-family:var(--f-cinzel);font-weight:900;color:var(--fg)}
+.profile-stat .l{font-family:var(--f-bebas);font-size:10px;letter-spacing:2px;color:var(--fg-soft);margin-top:2px}
+.profile-rank{padding:14px;background:linear-gradient(135deg,rgba(252,211,77,.18),rgba(var(--podium-pulse-rgb),.08));border:1px solid rgba(252,211,77,.4);border-radius:12px}
+.profile-rank-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;color:var(--fg-soft)}
+.profile-rank-head .v{font-family:var(--f-bungee);font-size:20px;color:var(--accent-2)}
+[data-theme="light"] .profile-rank-head .v{font-family:var(--f-cinzel);font-weight:900}
+.profile-rank-bar{height:8px;background:var(--pill-bg);border-radius:5px;overflow:hidden;position:relative}
+.profile-rank-bar .fill{position:absolute;inset:0;width:62%;background:linear-gradient(90deg,var(--accent),var(--accent-2))}
+
+@media (max-width:1100px){.s-version{grid-template-columns:1fr}.modes-grid{grid-template-columns:1fr}}
+
+/* ============================================================
+   SCREEN: SETUP (#screen-setup)
+   ============================================================ */
+.s-setup{display:grid;grid-template-columns:1fr 360px;gap:20px;min-height:660px}
+.s-setup-main{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:32px;box-shadow:var(--shadow-soft)}
+.s-setup-head{margin-bottom:24px}
+.s-setup-head h2{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;font-size:38px;color:var(--fg);line-height:1;letter-spacing:var(--display-letter)}
+.s-setup-head h2 .acc{color:var(--accent-2)}
+.s-setup-head .sub{font-family:var(--f-inter);font-size:13px;color:var(--fg-muted);line-height:1.5;margin-top:8px;max-width:560px}
+.cfg-group{margin-bottom:20px}
+.cfg-label{font-family:var(--f-bebas);font-size:11px;letter-spacing:5px;color:var(--accent);margin-bottom:10px}
+[data-theme="light"] .cfg-label{color:var(--accent-2);font-family:var(--f-cinzel);font-weight:900}
+.cfg-options{display:flex;gap:8px;flex-wrap:wrap}
+.cfg-opt{padding:11px 18px;font-family:var(--f-bebas);font-size:14px;letter-spacing:2px;background:var(--pill-bg);border:2px solid var(--card-border);border-radius:10px;color:var(--fg-muted);cursor:pointer;transition:all .2s ease;display:flex;flex-direction:column;align-items:flex-start;line-height:1}
+.cfg-opt:hover{border-color:var(--accent);color:var(--fg)}
+.cfg-opt.active{background:var(--card-bg-elev);border-color:var(--accent);color:var(--fg);box-shadow:0 0 0 1px rgba(var(--podium-pulse-rgb),.18)}
+[data-theme="light"] .cfg-opt.active{border-color:var(--fg);box-shadow:0 4px 14px rgba(15,42,68,.1)}
+.cfg-opt .h{font-size:14px}
+[data-theme="light"] .cfg-opt .h{font-family:var(--f-cinzel);font-weight:900}
+.cfg-opt .s{font-family:var(--f-inter);font-size:11px;font-weight:500;color:var(--fg-soft);margin-top:3px;letter-spacing:0;text-transform:none}
+.cfg-opt.active .s{color:var(--accent-2)}
+
+.s-setup-side{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:22px;display:flex;flex-direction:column;gap:14px;position:sticky;top:200px;align-self:flex-start;overflow:hidden;box-shadow:var(--shadow-soft)}
+.s-setup-side::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--accent),var(--accent-2),var(--accent));background-size:200% 100%;animation:bg-shift 3s linear infinite}
+.summary-tag{font-family:var(--f-bebas);font-size:11px;letter-spacing:5px;color:var(--accent)}
+[data-theme="light"] .summary-tag{color:var(--accent-2)}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px dashed var(--card-border);font-family:var(--f-inter);font-size:13px;color:var(--fg)}
+.summary-row .v{font-family:var(--f-bungee);font-size:13px;color:var(--accent-2)}
+[data-theme="light"] .summary-row .v{font-family:var(--f-cinzel);font-weight:900;color:var(--fg)}
+.summary-row.big{padding:12px 0}
+.summary-row.big .v{font-size:18px}
+.summary-cta{margin-top:6px;padding:16px 20px;font-family:var(--f-bungee);font-size:18px;letter-spacing:3px;background:linear-gradient(135deg,var(--accent-2),#F5C84B);color:#0F2A44;border-radius:10px;box-shadow:0 0 0 3px rgba(212,168,67,.15),0 10px 26px rgba(212,168,67,.4);text-align:center;width:100%;text-transform:uppercase}
+[data-theme="light"] .summary-cta{font-family:var(--f-cinzel);font-weight:900}
+.summary-cta:hover{transform:translateY(-2px)}
+
+@media (max-width:1100px){.s-setup{grid-template-columns:1fr}}
+
+/* ============================================================
+   SCREEN: MATCHUP (#screen-matchup) | Tale of the Tape
+   ============================================================ */
+.s-matchup{position:relative;background:var(--card-bg);border:2px solid var(--accent-2);border-radius:18px;min-height:640px;overflow:hidden;padding:30px;box-shadow:0 0 0 5px var(--bg),0 0 0 6px rgba(212,168,67,.3)}
+.s-matchup::before{content:'';position:absolute;top:0;bottom:0;left:0;width:5px;background:linear-gradient(180deg,var(--accent-2),#a78640);box-shadow:0 0 18px rgba(212,168,67,.5)}
+.s-matchup::after{content:'';position:absolute;top:0;bottom:0;right:0;width:5px;background:linear-gradient(180deg,var(--accent-2),#a78640);box-shadow:0 0 18px rgba(212,168,67,.5)}
+.s-matchup-head{text-align:center;margin-bottom:22px;position:relative;z-index:2}
+.opp-found{display:inline-flex;align-items:center;gap:8px;font-family:var(--f-bebas);font-size:13px;letter-spacing:5px;color:#15803d;background:rgba(34,197,94,.12);padding:7px 16px;border:1px solid #16a34a;border-radius:30px;margin-bottom:10px}
+[data-theme="dark"] .opp-found{color:#86efac}
+.opp-found::before{content:'';width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse-glow 1.4s infinite}
+.s-matchup-head h2{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;font-size:48px;color:var(--fg);letter-spacing:var(--display-letter)}
+.s-matchup-head h2 .acc{color:var(--accent-2)}
+.s-matchup-head .sub{font-family:var(--f-inter);font-size:14px;color:var(--fg-muted);max-width:560px;margin:8px auto 0;line-height:1.45}
+.tape{display:grid;grid-template-columns:1fr auto 1fr;gap:0;background:var(--card-bg-elev);border:1px solid rgba(212,168,67,.4);border-radius:14px;overflow:hidden;position:relative;z-index:2}
+.tape-side{position:relative;padding:24px 26px;display:flex;flex-direction:column;gap:14px}
+.tape-side.you{background:linear-gradient(135deg,rgba(var(--podium-pulse-rgb),.18),var(--card-bg))}
+[data-theme="light"] .tape-side.you{background:linear-gradient(135deg,rgba(15,42,68,.06),var(--card-bg))}
+.tape-side.opp{background:linear-gradient(135deg,rgba(239,68,68,.16),var(--card-bg));text-align:right;align-items:flex-end}
+[data-theme="light"] .tape-side.opp{background:linear-gradient(135deg,rgba(164,30,34,.06),var(--card-bg))}
+.tape-corner{font-family:var(--f-bebas);font-size:13px;letter-spacing:5px;background:var(--accent);color:#fff;padding:6px 14px;border-radius:5px;display:inline-block;width:fit-content;position:relative;z-index:2}
+[data-theme="light"] .tape-corner{background:var(--accent);color:var(--accent-2)}
+.tape-side.opp .tape-corner{background:var(--opp-accent);color:#fff}
+.tape-portrait{width:240px;height:300px;align-self:center;position:relative;z-index:2;padding-bottom:24px}
+.tape-name{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;font-size:38px;color:var(--fg);letter-spacing:var(--display-letter);line-height:.95;position:relative;z-index:2}
+.tape-school{font-family:var(--f-bebas);font-size:12px;letter-spacing:4px;color:var(--accent-2);position:relative;z-index:2}
+.tape-rank{font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;color:var(--fg-soft);position:relative;z-index:2;margin-top:-6px}
+.tape-mid{display:grid;grid-auto-rows:1fr;background:var(--card-bg);border-left:1px solid var(--accent-2);border-right:1px solid var(--accent-2);min-width:220px}
+.tape-row{display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:13px 18px;border-bottom:1px solid rgba(212,168,67,.18)}
+.tape-row:last-child{border-bottom:none}
+.tape-row .v{font-family:var(--f-bungee);font-size:20px;color:var(--fg);letter-spacing:1px}
+[data-theme="light"] .tape-row .v{font-family:var(--f-cinzel);font-weight:900}
+.tape-row .v.you{color:var(--accent)}
+[data-theme="light"] .tape-row .v.you{color:var(--fg)}
+.tape-row .v.opp{color:var(--opp-accent)}
+.tape-row .l{font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;color:var(--accent-2);text-align:center}
+.s-matchup-cta-row{display:flex;justify-content:center;gap:12px;margin-top:22px;position:relative;z-index:2}
+.cta-primary{padding:18px 40px;font-family:var(--f-bungee);font-size:20px;letter-spacing:3px;background:linear-gradient(135deg,var(--accent-2),#f5a623);color:#0F2A44;border-radius:10px;box-shadow:0 0 0 3px var(--bg),0 10px 26px rgba(212,168,67,.5);text-transform:uppercase}
+[data-theme="light"] .cta-primary{font-family:var(--f-cinzel);font-weight:900}
+.cta-secondary{padding:18px 30px;font-family:var(--f-bungee);font-size:16px;letter-spacing:3px;background:transparent;color:var(--fg);border:2px solid var(--card-border);border-radius:10px;text-transform:uppercase}
+[data-theme="light"] .cta-secondary{font-family:var(--f-cinzel);font-weight:900}
+.cta-primary:hover,.cta-secondary:hover{transform:translateY(-3px)}
+
+@media (max-width:1100px){.tape{grid-template-columns:1fr}.tape-side.opp{text-align:left;align-items:flex-start}.tape-mid{order:3}}
+
+/* ============================================================
+   SCREEN: COUNTDOWN (#screen-countdown)
+   ============================================================ */
+.s-countdown{position:relative;display:grid;grid-template-columns:1fr auto 1fr;gap:0;min-height:660px;background:var(--card-bg);border:1px solid var(--accent-2);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-hero)}
+.cd-corner{position:relative;padding:36px;display:flex;flex-direction:column;justify-content:flex-end;background:linear-gradient(180deg,rgba(var(--podium-pulse-rgb),.18),var(--card-bg))}
+[data-theme="light"] .cd-corner{background:linear-gradient(180deg,rgba(15,42,68,.06),var(--card-bg))}
+.cd-corner.opp{background:linear-gradient(180deg,rgba(239,68,68,.18),var(--card-bg));text-align:right;align-items:flex-end}
+[data-theme="light"] .cd-corner.opp{background:linear-gradient(180deg,rgba(164,30,34,.06),var(--card-bg))}
+.cd-podium{position:absolute;top:30px;left:50%;transform:translateX(-50%);width:280px;height:340px}
+.cd-corner-tag{font-family:var(--f-bebas);font-size:13px;letter-spacing:5px;background:var(--accent);color:#fff;padding:6px 14px;border-radius:5px;display:inline-block;width:fit-content;position:relative;z-index:2}
+[data-theme="light"] .cd-corner-tag{color:var(--accent-2)}
+.cd-corner.opp .cd-corner-tag{background:var(--opp-accent);color:#fff}
+.cd-corner-name{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;font-size:40px;color:var(--fg);letter-spacing:var(--display-letter);line-height:.95;margin-top:10px;position:relative;z-index:2}
+.cd-corner-meta{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--accent-2);margin-top:6px;position:relative;z-index:2}
+.cd-mid{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 30px;background:linear-gradient(180deg,#021024,#04122a);color:#fff;border-left:1px solid var(--accent-2);border-right:1px solid var(--accent-2)}
+.cd-mid::before{content:'';position:absolute;inset:0;background:repeating-conic-gradient(from 0deg at 50% 50%,rgba(252,211,77,.06) 0deg 4deg,transparent 4deg 12deg);animation:spin-slow 24s linear infinite}
+.cd-tag{font-family:var(--f-bebas);font-size:13px;letter-spacing:6px;color:var(--accent-2);background:rgba(252,211,77,.12);padding:6px 14px;border:1px solid var(--accent-2);border-radius:30px;position:relative;z-index:2}
+.cd-num{font-family:var(--f-bungee);font-size:200px;color:var(--accent-2);line-height:.9;text-shadow:0 0 80px var(--accent-2);margin-top:18px;position:relative;z-index:2;animation:pulse-glow 1.6s infinite}
+[data-theme="light"] .cd-num{font-family:var(--f-cinzel);font-weight:900}
+.cd-vs{font-family:var(--f-bungee);font-size:60px;color:#fff;text-shadow:0 0 28px var(--accent);margin-top:14px;position:relative;z-index:2}
+[data-theme="light"] .cd-vs{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900}
+.cd-rules{display:flex;gap:8px;margin-top:22px;flex-wrap:wrap;justify-content:center;position:relative;z-index:2}
+.cd-rule{padding:7px 13px;font-family:var(--f-bebas);font-size:11px;letter-spacing:2px;color:var(--accent-2);background:rgba(252,211,77,.1);border:1px solid var(--accent-2);border-radius:6px}
+
+@media (max-width:1100px){.s-countdown{grid-template-columns:1fr}.cd-podium{position:relative;top:auto;left:auto;transform:none;margin:0 auto}}
+
+/* ============================================================
+   SCREEN: RESULTS (#screen-results)
+   ============================================================ */
+.s-results{position:relative;padding:0;display:grid;grid-template-columns:1fr 1fr;gap:24px;min-height:660px}
+.result-card{position:relative;background:var(--card-bg);border:3px solid var(--accent-2);border-radius:18px;padding:30px;overflow:hidden;text-align:center;box-shadow:var(--shadow-hero)}
+.result-card::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 30%,rgba(252,211,77,.18),transparent 60%);pointer-events:none}
+.result-card::after{content:'';position:absolute;inset:0;background:repeating-conic-gradient(from 0deg at 50% 30%,rgba(252,211,77,.06) 0deg 4deg,transparent 4deg 12deg);animation:spin-slow 24s linear infinite;pointer-events:none}
+.result-card > *{position:relative;z-index:2}
+.result-tag{font-family:var(--f-bebas);font-size:13px;letter-spacing:6px;color:var(--accent-2);background:rgba(252,211,77,.12);padding:6px 16px;border:1px solid var(--accent-2);border-radius:30px;display:inline-block}
+.result-title{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;font-size:64px;color:var(--fg);line-height:.95;letter-spacing:var(--display-letter);margin-top:14px;text-shadow:0 0 30px rgba(var(--podium-pulse-rgb),.4)}
+.result-title .acc{color:var(--accent-2)}
+.result-podium{width:280px;height:340px;margin:14px auto;position:relative}
+.result-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.result-stat{background:var(--card-bg-elev);border-left:4px solid var(--accent-2);padding:14px}
+.result-stat .v{font-family:var(--f-bungee);font-size:30px;color:var(--accent-2)}
+[data-theme="light"] .result-stat .v{font-family:var(--f-cinzel);font-weight:900;color:var(--fg)}
+.result-stat .l{font-family:var(--f-bebas);font-size:11px;letter-spacing:2px;color:var(--fg-soft);margin-top:3px}
+.result-elo{display:flex;align-items:center;justify-content:center;gap:14px;margin-top:18px;padding:14px;background:var(--card-bg-elev);border:1px solid rgba(212,168,67,.4);border-radius:12px}
+.result-elo .l{font-family:var(--f-bebas);font-size:11px;letter-spacing:3px;color:var(--fg-soft)}
+.result-elo .v{font-family:var(--f-bungee);font-size:32px}
+[data-theme="light"] .result-elo .v{font-family:var(--f-cinzel);font-weight:900}
+.result-elo .v.up{color:#15803d}
+[data-theme="dark"] .result-elo .v.up{color:#86efac}
+.result-elo .v.down{color:#dc2626}
+[data-theme="dark"] .result-elo .v.down{color:#fca5a5}
+
+.result-side{display:flex;flex-direction:column;gap:18px}
+.replay-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:20px;box-shadow:var(--shadow-soft)}
+.replay-card h3{font-family:var(--f-bungee);font-size:18px;color:var(--fg);letter-spacing:1px;margin-bottom:14px}
+[data-theme="light"] .replay-card h3{font-family:var(--f-cinzel);font-weight:900}
+.replay-row{display:grid;grid-template-columns:24px 90px 1fr auto auto;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px dashed var(--card-border);font-family:var(--f-inter);font-size:13px;color:var(--fg)}
+.replay-row:last-child{border-bottom:none}
+.replay-row .qn{font-family:var(--f-bungee);font-size:14px;text-align:center;color:var(--fg-soft)}
+[data-theme="light"] .replay-row .qn{font-family:var(--f-cinzel);font-weight:900}
+.replay-row.correct .qn{color:#15803d}
+[data-theme="dark"] .replay-row.correct .qn{color:#86efac}
+.replay-row.wrong .qn{color:#dc2626}
+[data-theme="dark"] .replay-row.wrong .qn{color:#fca5a5}
+.replay-row .topic{font-family:var(--f-bebas);font-size:10px;letter-spacing:2px;color:var(--accent)}
+[data-theme="light"] .replay-row .topic{color:var(--accent-2)}
+.replay-row .qtxt{font-family:var(--f-inter);font-size:12px;color:var(--fg-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.replay-row .qtime{font-family:var(--f-bungee);font-size:13px;color:var(--fg-muted)}
+.replay-row .qpts{font-family:var(--f-bungee);font-size:14px;min-width:50px;text-align:right;color:var(--accent-2)}
+.replay-row.correct .qpts{color:#15803d}
+[data-theme="dark"] .replay-row.correct .qpts{color:#86efac}
+.replay-row.wrong .qpts{color:#dc2626}
+[data-theme="dark"] .replay-row.wrong .qpts{color:#fca5a5}
+.result-cta-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.result-cta{padding:14px;font-family:var(--f-bungee);font-size:14px;letter-spacing:2px;background:linear-gradient(135deg,var(--accent),#0099ff);color:#fff;border-radius:10px;text-align:center}
+[data-theme="light"] .result-cta{background:var(--accent);color:var(--accent-2);font-family:var(--f-cinzel);font-weight:900}
+.result-cta.alt{background:var(--pill-bg);color:var(--fg);border:1px solid var(--card-border)}
+.result-cta:hover{transform:translateY(-2px)}
+.highlights-card{background:linear-gradient(135deg,rgba(252,211,77,.14),var(--card-bg-elev));border:1px solid rgba(212,168,67,.4);border-radius:14px;padding:18px}
+.highlights-card h3{font-family:var(--f-bungee);font-size:15px;color:var(--accent-2);letter-spacing:2px;margin-bottom:10px}
+[data-theme="light"] .highlights-card h3{font-family:var(--f-cinzel);font-weight:900}
+.highlights-card .row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px dashed var(--card-border);font-family:var(--f-inter);font-size:13px;color:var(--fg)}
+.highlights-card .row:last-child{border-bottom:none}
+.highlights-card .row .v{font-family:var(--f-bungee);font-size:15px;color:var(--accent-2)}
+[data-theme="light"] .highlights-card .row .v{font-family:var(--f-cinzel);font-weight:900}
+.stat-v3-placeholder{width:100%;height:100%;display:grid;place-items:center;text-align:center;font-family:var(--f-bungee);font-size:clamp(18px,4vw,48px);color:var(--fg-soft);background:linear-gradient(135deg,rgba(33,201,255,.08),rgba(252,211,77,.08));border:1px dashed var(--card-border);border-radius:inherit}
+.stat-v3-blocked{min-height:420px;display:grid;place-items:center;padding:32px;background:var(--card-bg);border:2px dashed var(--card-border);border-radius:16px;text-align:center;box-shadow:var(--shadow-soft)}
+.stat-v3-blocked h3{font-family:var(--display-font);font-style:var(--display-italic);font-weight:900;font-size:clamp(32px,5vw,64px);line-height:.95;color:var(--fg);letter-spacing:var(--display-letter);margin-bottom:14px}
+.stat-v3-blocked p{font-family:var(--f-inter);font-size:15px;line-height:1.6;color:var(--fg-muted);max-width:680px;margin:0 auto}
+.stat-v3-status-list{display:grid;gap:8px;margin:18px auto 0;max-width:620px;text-align:left}
+.stat-v3-status-list li{list-style:none;font-family:var(--f-inter);font-size:13px;color:var(--fg-muted);padding:9px 12px;background:var(--pill-bg);border:1px solid var(--card-border);border-radius:10px}
+.stat-v3-live-status{margin-top:12px;font-family:var(--f-inter);font-size:13px;color:var(--fg-muted);text-align:center}
+
+@media (max-width:1100px){.s-results{grid-template-columns:1fr}}
+</style>
+</head>
+<body data-theme="dark">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="statRingGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#21c9ff"/>
+      <stop offset="50%" stop-color="#fcd34d"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+<div class="mm-shell" id="shell" data-step="1" data-wiring-state="preview">
+  <div class="bg-canvas"><div class="bg-particles" id="bg-particles"></div></div>
+
+  <header class="mm-topbar">
+    <div class="mm-logo">
+      <div class="mm-logo-mark">M</div>
+      <div class="mm-logo-text">
+        <div class="l1">MISSIONMED</div>
+        <div class="l2">STAT!</div>
+      </div>
+    </div>
+    <div class="mm-topbar-spacer"></div>
+
+    <div class="mm-theme" id="theme-toggle">
+      <button class="mm-theme-btn" data-mode="dark"><span class="ico"></span>DARK SIDE</button>
+      <button class="mm-theme-btn" data-mode="light"><span class="ico"></span>LIGHT SIDE</button>
+      <button class="mm-theme-btn active" data-mode="auto"><span class="ico"></span>AUTO</button>
+    </div>
+
+    <div class="mm-scenario" id="scenarios" title="Non-deployed STAT V3 wiring preview">
+      <span class="mm-scn-label">V3 LAB</span>
+      <span class="mm-scn active" aria-disabled="true">WIRING PREVIEW</span>
+    </div>
+  </header>
+
+  <div class="mm-stepbar" id="stepbar">
+    <div class="mm-step active" data-step="1"><div class="step-num">1</div><div class="step-info"><div class="step-label">STEP 01</div><div class="step-name">VERSION SELECT</div></div></div>
+    <div class="mm-step" data-step="2"><div class="step-num">2</div><div class="step-info"><div class="step-label">STEP 02</div><div class="step-name">SETTINGS</div></div></div>
+    <div class="mm-step" data-step="3"><div class="step-num">3</div><div class="step-info"><div class="step-label">STEP 03</div><div class="step-name">MATCH LOCKED</div></div></div>
+    <div class="mm-step" data-step="4"><div class="step-num">4</div><div class="step-info"><div class="step-label">STEP 04</div><div class="step-name">COUNTDOWN</div></div></div>
+    <div class="mm-step" data-step="5"><div class="step-num">5</div><div class="step-info"><div class="step-label">STEP 05</div><div class="step-name">ASYNC DUEL</div></div></div>
+    <div class="mm-step" data-step="6"><div class="step-num">6</div><div class="step-info"><div class="step-label">STEP 06</div><div class="step-name">RESULT</div></div></div>
+  </div>
+
+  <main class="mm-stage" id="stage">
+    <section class="screen active" id="screen-version"></section>
+    <section class="screen" id="screen-setup"></section>
+    <section class="screen" id="screen-matchup"></section>
+    <section class="screen" id="screen-countdown"></section>
+    <section class="screen" id="screen-play"></section>
+    <section class="screen" id="screen-results"></section>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   LIVE CONTRACT ADAPTERS | no local gameplay authority
+   ============================================================ */
+const STAT_V3_AUTH_CONTRACT=Object.freeze({
+  supabaseProjectHost:'https://fglyvdykwgbuivikqoah.supabase.co',
+  railwayAuthHost:'https://missionmed-hq-production.up.railway.app',
+  exchangePath:'/api/auth/exchange',
+  bootstrapPath:'/api/auth/bootstrap',
+  sessionPath:'/api/auth/session'
+});
+
+const EMPTY_STATS=Object.freeze({win:'-',acc:'-',spd:'-',streak:'-',ovr:'-',rank:'-'});
+const FALLBACK_YOU=Object.freeze({id:'',name:'Live player pending',school:'',schoolName:'MissionMed',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Avatar pending',stats:EMPTY_STATS});
+const FALLBACK_OPP=Object.freeze({id:'',name:'Matched opponent pending',school:'',schoolName:'STAT async queue',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Opponent pending',stats:EMPTY_STATS});
+const LETTERS=['A','B','C','D'];
+
+function safeObj(value){return value&&typeof value==='object'?value:{};}
+function pickText(values){
+  const list=Array.isArray(values)?values:[];
+  for(const value of list){
+    if(typeof value==='string'&&value.trim())return value.trim();
+    if(typeof value==='number'&&Number.isFinite(value))return String(value);
+  }
+  return '';
+}
+function statInitials(name){
+  const safe=String(name||'').trim();
+  if(!safe)return 'MM';
+  return safe.split(/\s+/).slice(0,2).map(part=>part.charAt(0).toUpperCase()).join('')||'MM';
+}
+function liveContext(){return safeObj(window.MM_STAT_V3_CONTEXT);}
+function liveDuelPack(){
+  const ctx=liveContext();
+  const duel=safeObj(window.MM_DUEL);
+  return safeObj(ctx.sealedQuestionPack||ctx.questionPack||ctx.currentPack||duel.CURRENT_PACK);
+}
+function normalizePlayer(input,fallback){
+  const source=safeObj(input);
+  const avatarObj=safeObj(source.avatar);
+  const avatarSnapshot=safeObj(source.avatar_snapshot||source.avatarSnapshot||avatarObj.snapshot);
+  const stats=Object.assign({},EMPTY_STATS,safeObj(fallback.stats),safeObj(source.stats));
+  const name=pickText([source.display_name,source.displayName,source.full_name,source.fullName,source.name,source.username,fallback.name]);
+  const headshot=pickText([source.headshot_url,source.avatar_thumbnail_url,avatarSnapshot.avatar_thumbnail_url,avatarObj.thumbnail_url,source.avatar_url,avatarSnapshot.avatar_url,avatarObj.avatar_url]);
+  const fullbody=pickText([source.fullbody_url,source.full_body_url,source.avatar_url,avatarSnapshot.avatar_url,avatarObj.avatar_url,avatarObj.url,headshot]);
+  return {
+    id:pickText([source.id,source.user_id,source.uid,source.player_id,fallback.id]),
+    name,
+    school:pickText([source.school,source.school_code,fallback.school]),
+    schoolName:pickText([source.schoolName,source.school_name,source.institution,fallback.schoolName]),
+    headshot_url:headshot,
+    fullbody_url:fullbody,
+    rarity:pickText([source.rarity,fallback.rarity])||'rare',
+    skin_name:pickText([source.skin_name,source.avatar_name,fallback.skin_name])||'Avatar pending',
+    stats:{
+      win:pickText([stats.win,stats.win_rate,source.win_rate]),
+      acc:pickText([stats.acc,stats.accuracy,source.accuracy]),
+      spd:pickText([stats.spd,stats.avg_time,source.avg_time]),
+      streak:pickText([stats.streak,source.streak]),
+      ovr:pickText([stats.ovr,stats.rating,source.rating]),
+      rank:pickText([stats.rank,source.rank])
+    }
+  };
+}
+function readCurrentUser(){
+  const ctx=liveContext();
+  return normalizePlayer(ctx.currentUser||ctx.user||ctx.player||safeObj(window.MM_USER),FALLBACK_YOU);
+}
+function readMatchedOpponent(){
+  const ctx=liveContext();
+  return normalizePlayer(ctx.matchedOpponent||ctx.opponent||ctx.activeOpponent,FALLBACK_OPP);
+}
+function normalizeChoices(rawChoices){
+  if(Array.isArray(rawChoices)){
+    return rawChoices.slice(0,4).map((choice,index)=>{
+      const source=safeObj(choice);
+      const text=typeof choice==='string'?choice:pickText([source.t,source.text,source.label,source.value]);
+      return {k:pickText([source.k,source.key,source.letter,LETTERS[index]])||LETTERS[index],t:String(text||'').trim()};
+    }).filter(choice=>choice.t);
+  }
+  const obj=safeObj(rawChoices);
+  return LETTERS.map(letter=>({k:letter,t:String(obj[letter]||obj[letter.toLowerCase()]||'').trim()})).filter(choice=>choice.t);
+}
+function normalizeQuestion(row,index){
+  const source=safeObj(row);
+  const choices=normalizeChoices(source.choices||source.options||source.answers);
+  const prompt=pickText([source.q,source.prompt,source.question,source.stem,source.text]);
+  if(!prompt||choices.length<2)return null;
+  return {
+    id:pickText([source.id,source.question_id,source.qid,index+1]),
+    topic:pickText([source.topic,source.subject,source.system,'SEALED PACK']),
+    q:prompt,
+    choices,
+    ans:pickText([source.ans,source.correctAnswerKey,source.correct_answer]),
+    time:source.time==null?null:source.time,
+    pts:source.pts==null?null:source.pts,
+    live:true
+  };
+}
+function readLiveQuestions(){
+  const ctx=liveContext();
+  const pack=liveDuelPack();
+  const raw=Array.isArray(ctx.questions)?ctx.questions:(Array.isArray(pack.questions)?pack.questions:[]);
+  return raw.map(normalizeQuestion).filter(Boolean);
+}
+function readLiveResult(){
+  const ctx=liveContext();
+  return safeObj(ctx.resultPayload||ctx.result||window.MM_STAT_V3_RESULT);
+}
+function hasSubmitHandler(){
+  const ctx=liveContext();
+  return typeof ctx.submitChoice==='function'||typeof ctx.onSubmitChoice==='function'||typeof window.MM_STAT_V3_SUBMIT_CHOICE==='function';
+}
+function readinessReasons(){
+  const reasons=[];
+  if(!YOU.id)reasons.push('Live currentUser was not supplied to the V3 adapter.');
+  if(!OPP.id)reasons.push('Live matchedOpponent was not supplied to the V3 adapter.');
+  if(!QUESTIONS.length)reasons.push('No sealed STAT question pack is available to this twin.');
+  if(!hasSubmitHandler())reasons.push('No live answer submit handler is attached.');
+  return reasons;
+}
+function wiringIsReady(){return readinessReasons().length===0;}
+
+const YOU=readCurrentUser();
+const OPP=readMatchedOpponent();
+const QUESTIONS=readLiveQuestions();
+const LIVE_RESULT=readLiveResult();
+const STAT_V3_ADAPTER={
+  authContract:STAT_V3_AUTH_CONTRACT,
+  currentUser:YOU,
+  matchedOpponent:OPP,
+  questions:QUESTIONS,
+  resultPayload:LIVE_RESULT,
+  isReady:wiringIsReady,
+  submitChoice(payload){
+    const ctx=liveContext();
+    const handler=ctx.submitChoice||ctx.onSubmitChoice||window.MM_STAT_V3_SUBMIT_CHOICE;
+    if(typeof handler!=='function'){
+      return Promise.resolve({ok:false,reason:'live_submit_handler_unavailable'});
+    }
+    return Promise.resolve(handler(Object.assign({source:'stat_v3_wiring_preview'},safeObj(payload))));
+  }
+};
+window.MM_STAT_V3_ADAPTER=STAT_V3_ADAPTER;
+
+const MODES=[
+  {id:'stat-v3',title:'STAT V3 Lab',tag:'NON-DEPLOYED TWIN',desc:'A wiring-ready shell that waits for live STAT auth, identity, avatar, sealed-pack, submit, and result adapters before gameplay is allowed.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'0',l:'LIVE QUESTIONS'},{v:YOU.id?'READY':'WAITING',l:'USER'},{v:OPP.id?'READY':'WAITING',l:'OPPONENT'}],cta:'OPEN PREVIEW'},
+  {id:'stat-live',title:'Current STAT',tag:'LEGACY LIVE AUTHORITY',desc:'The existing /stat runtime remains untouched and is still the only deployed student STAT experience.',status:'legacy',stats:[{v:'/stat',l:'LIVE ROUTE'},{v:'LOCKED',l:'AUTH'},{v:'SAFE',l:'ROLLBACK'}],cta:'UNCHANGED'}
+];
+
+/* ============================================================
+   THEME RESOLVER | Dark / Light / Auto (system or time-of-day)
+   ============================================================ */
+const THEME_KEY='mm_stat_theme';
+function resolveAuto(){
+  /* [CODEX] auto resolution policy:
+     1) if user system prefers-color-scheme: dark | light, honor it
+     2) otherwise fall back to time-of-day: 6am-6pm = light, else dark */
+  if(window.matchMedia){
+    const m=window.matchMedia('(prefers-color-scheme: dark)');
+    if(m.media!=='not all'){return m.matches?'dark':'light';}
+  }
+  const h=new Date().getHours();
+  return (h>=6&&h<18)?'light':'dark';
+}
+function applyTheme(mode){
+  const resolved=mode==='auto'?resolveAuto():mode;
+  document.body.setAttribute('data-theme',resolved);
+  document.querySelectorAll('.mm-theme-btn').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  try{localStorage.setItem(THEME_KEY,mode);}catch(e){}
+}
+function initTheme(){
+  let saved='auto';
+  try{saved=localStorage.getItem(THEME_KEY)||'auto';}catch(e){}
+  applyTheme(saved);
+  if(window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{
+      const cur=(localStorage.getItem(THEME_KEY)||'auto');
+      if(cur==='auto')applyTheme('auto');
+    });
+  }
+}
+document.getElementById('theme-toggle').addEventListener('click',e=>{const b=e.target.closest('.mm-theme-btn');if(b)applyTheme(b.dataset.mode);});
+
+/* ============================================================
+   STATE + NAV (matches existing renderScreen pattern in stat.html)
+   ============================================================ */
+const shell=document.getElementById('shell');
+const steps=document.getElementById('stepbar');
+
+/* V3 keeps the same screen IDs used by current LIVE/stat.html renderScreen(name). */
+const SCREEN_MAP={'1':'screen-version','2':'screen-setup','3':'screen-matchup','4':'screen-countdown','5':'screen-play','6':'screen-results'};
+function setStep(n){
+  shell.dataset.step=String(n);
+  document.querySelectorAll('.mm-step').forEach(t=>{const v=Number(t.dataset.step);t.classList.toggle('active',String(v)===String(n));t.classList.toggle('done',v<Number(n));});
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const active=document.getElementById(SCREEN_MAP[String(n)]);
+  if(active){active.classList.add('active');renderActive();}
+}
+steps.addEventListener('click',e=>{const b=e.target.closest('.mm-step');if(b)setStep(b.dataset.step);});
+
+/* particles */
+function spawnParticles(rootId,n,sizeMin,sizeMax){const root=document.getElementById(rootId);if(!root||root.dataset.spawned==='1')return;root.dataset.spawned='1';const frag=document.createDocumentFragment();for(let i=0;i<n;i++){const s=document.createElement('span');const sz=sizeMin+Math.random()*(sizeMax-sizeMin);s.style.width=sz+'px';s.style.height=sz+'px';s.style.left=(Math.random()*100)+'%';s.style.top=(Math.random()*100)+'%';s.style.animationDuration=(6+Math.random()*8)+'s';s.style.animationDelay=(-Math.random()*8)+'s';s.style.opacity=(.25+Math.random()*.55).toFixed(2);frag.appendChild(s);}root.appendChild(frag);}
+spawnParticles('bg-particles',32,2,5);
+
+/* ============================================================
+   FORTNITE-SKIN AVATAR HELPERS
+   ============================================================ */
+/* fbPodium(player, size, options) -> renders full-body podium with rarity treatment + skin name */
+function fbPodium(player,size,opts){
+  opts=opts||{};
+  const cls=size==='small'?'small':size==='tiny'?'tiny':size==='large'?'large':'';
+  const rarity=opts.rarity||player.rarity||'rare';
+  const opp=opts.opp?'opp':'';
+  const skinName=opts.skinName||player.skin_name||'LANE GUARDIAN';
+  const showPlate=opts.showPlate!==false;
+  const image=player.fullbody_url
+    ? `<img src="${player.fullbody_url}" alt="${player.name}"/>`
+    : `<div class="stat-v3-placeholder">${statInitials(player.name)}</div>`;
+  return `<div class="fb-podium ${cls} ${rarity} ${opp}">
+    <div class="glow"></div>
+    <div class="holo"></div>
+    <div class="pod"></div>
+    <div class="ring"></div>
+    <div class="spotlight"></div>
+    <div class="char">${image}</div>
+    ${showPlate?`<div class="skin-plate"><strong>${rarity.toUpperCase()}</strong>${skinName}</div>`:''}
+  </div>`;
+}
+
+/* fbHead(player, size, options) -> circular head crop with rarity ring */
+function fbHead(player,size,opts){
+  opts=opts||{};
+  const sz=size||'';
+  const rarity=opts.rarity||player.rarity||'rare';
+  const opp=opts.opp?'opp':'';
+  const image=player.headshot_url
+    ? `<img src="${player.headshot_url}" alt="${player.name}"/>`
+    : `<div class="stat-v3-placeholder">${statInitials(player.name)}</div>`;
+  return `<div class="fb-head ${sz} ${rarity} ${opp}">${image}</div>`;
+}
+
+function statQuestionRing(points){const safe=Number.isFinite(Number(points))?Number(points):0;const dash=283;const offset=dash*(1-Math.max(0,Math.min(1,safe/100)));return `<div class="stat-q-ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="45"/><circle class="bar" cx="50" cy="50" r="45" style="stroke-dashoffset:${offset}"/></svg><div class="label"><div class="v">${safe||'-'}</div><div class="l">PTS</div></div></div>`;}
+
+function statStatusItems(items){return `<ul class="stat-v3-status-list">${items.map(item=>`<li>${item}</li>`).join('')}</ul>`;}
+function wiringBlockedPanel(title,items){
+  const list=Array.isArray(items)&&items.length?items:readinessReasons();
+  return `<div class="stat-v3-blocked"><div><h3>${title}</h3><p>This STAT V3 twin is intentionally blocked from local gameplay until the live STAT adapter supplies identity, opponent, sealed pack, submit, and result contracts.</p>${statStatusItems(list)}</div></div>`;
+}
+
+function statHistory(upTo){
+  if(!QUESTIONS.length)return `<div class="stat-q-history-row live"><div class="qn">-</div><div class="topic">WAITING</div><div class="qtxt">No sealed live STAT pack connected.</div><div class="qtime">-</div><div class="qpts">-</div></div>`;
+  return QUESTIONS.slice(0,upTo).map((q,i)=>`<div class="stat-q-history-row live"><div class="qn">${i+1}</div><div class="topic">${q.topic}</div><div class="qtxt">${q.q}</div><div class="qtime">${q.time==null?'-':q.time+'s'}</div><div class="qpts">${q.pts==null?'-':q.pts}</div></div>`).join('');
+}
+
+function statLane(player,opts){const o=Object.assign({tag:'YOU',score:'-',correct:'-',avg:'-',streak:'-',statusLabel:'Awaiting live adapter',statusCls:'thinking'},opts);return `<div class="stat-lane ${o.opp?'opp':''}"><div class="stat-lane-head"><span class="stat-lane-tag">${o.tag}</span></div><div><div class="stat-lane-name">${player.name.toUpperCase()}</div><div class="stat-lane-school">${player.schoolName.toUpperCase()} | ${o.lane||(o.opp?'RIGHT LANE':'LEFT LANE')}</div></div><div class="stat-lane-score">${o.score}</div><div class="stat-lane-stats"><div class="stat-lane-stat"><div class="v">${o.correct}</div><div class="l">CORRECT</div></div><div class="stat-lane-stat"><div class="v">${o.avg}</div><div class="l">AVG TIME</div></div><div class="stat-lane-stat"><div class="v">${o.streak}</div><div class="l">STREAK</div></div></div>${o.statusLabel?`<div class="stat-lane-status ${o.statusCls}">${o.statusLabel}</div>`:''}<div class="stat-lane-podium">${fbPodium(player,'small',{opp:o.opp})}</div></div>`;}
+
+function statCenter(qIndex){
+  if(!QUESTIONS.length)return wiringBlockedPanel('Pack not connected',readinessReasons());
+  const q=QUESTIONS[qIndex]||QUESTIONS[0];
+  const choices=q.choices.map((c,index)=>`<button class="stat-q-choice" data-choice-index="${index}" data-question-id="${q.id}" ${hasSubmitHandler()?'':'disabled'}><div class="k">${c.k}</div><div class="t">${c.t}</div></button>`).join('');
+  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">ASYNC DUEL</div><div class="s">SEALED LIVE PACK | V3 UI TWIN</div></div><div class="stat-pressure neutral">LIVE ADAPTER REQUIRED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${q.topic}</span><div class="stat-q-text">${q.q}</div><div class="stat-q-choices">${choices}</div><div class="stat-v3-live-status" id="stat-v3-live-status">${hasSubmitHandler()?'Ready to call live submit handler.':'Submit blocked: no live handler attached.'}</div></div><div class="stat-q-meta"><div class="stat-q-counter"><span class="n">${qIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}</div></div><div class="stat-q-history"><h4>QUESTION LOG</h4>${statHistory(qIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span><span class="stat-ticker-item">NO LOCAL SCORING</span><span class="stat-ticker-item">V3 TWIN IS NOT LIVE</span><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span></div></div></div>`;
+}
+
+document.addEventListener('click',async(event)=>{
+  const button=event.target.closest('.stat-q-choice');
+  if(!button)return;
+  event.preventDefault();
+  if(button.disabled)return;
+  const index=Number(button.dataset.choiceIndex);
+  const question=QUESTIONS.find(q=>String(q.id)===String(button.dataset.questionId))||QUESTIONS[0];
+  document.querySelectorAll('.stat-q-choice').forEach(item=>item.classList.remove('selected'));
+  button.classList.add('selected');
+  const status=document.getElementById('stat-v3-live-status');
+  if(status)status.textContent='Calling live STAT submit adapter...';
+  const result=await STAT_V3_ADAPTER.submitChoice({choice_index:index,question});
+  if(status)status.textContent=result&&result.ok?'Live adapter accepted the selection.':'Blocked: live STAT submit adapter unavailable or rejected this selection.';
+});
+
+function statValue(value,suffix){
+  const safe=String(value==null?'-':value).trim()||'-';
+  return safe==='-'?safe:safe+(suffix||'');
+}
+function resultValue(payload,keys,fallback){
+  const source=safeObj(payload);
+  for(const key of keys){
+    if(source[key]!=null&&String(source[key]).trim())return String(source[key]).trim();
+  }
+  return fallback||'-';
+}
+function normalizeResultPayload(payload){
+  const result=safeObj(payload);
+  if(!Object.keys(result).length)return null;
+  const verdict=String(result.verdict||result.outcome||result.status||'result').toUpperCase();
+  const total=resultValue(result,['total','totalQ','yourTotalQ'],'-');
+  const correct=resultValue(result,['correct','yourCorrect'],'-');
+  const score=resultValue(result,['score','yourScore','finalScore'],'-');
+  const avg=resultValue(result,['avgTime','avg_time','yourAvgText','avgLabel'],'-');
+  const streak=resultValue(result,['streak','bestStreak','yourStreak'],'-');
+  const elo=resultValue(result,['eloChange','elo_delta','rankDelta'],'');
+  const rank=resultValue(result,['rankText','rank','newRank'],'');
+  const rows=Array.isArray(result.replayRows)?result.replayRows:(Array.isArray(result.reviewLog)?result.reviewLog:[]);
+  return {verdict,total,correct,score,avg,streak,elo,rank,rows};
+}
+
+/* ============================================================
+   SCREEN RENDERERS
+   ============================================================ */
+function renderActive(){
+  const n=shell.dataset.step;
+  const fn=RENDERERS[n];
+  if(fn)fn();
+}
+const RENDERERS={};
+
+RENDERERS['1']=function(){
+  const root=document.getElementById('screen-version');
+  const modes=MODES.map(m=>{
+    const cls=m.status==='current'?'current':m.status==='coming'?'coming':'';
+    const statusLabel=m.status==='current'?'CURRENT':m.status==='legacy'?'LEGACY':'COMING SOON';
+    const statsRow=m.stats.map(s=>`<div class="mode-stat"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
+    return `<div class="mode-card ${cls}" data-mode="${m.id}"><span class="mode-status">${statusLabel}</span><div class="mode-title">${m.title}</div><div class="mode-tag">${m.tag}</div><div class="mode-desc">${m.desc}</div><div class="mode-stats">${statsRow}</div><button class="mode-cta">${m.cta}</button></div>`;
+  }).join('');
+  root.innerHTML=`
+    <div class="s-version">
+      <div class="s-version-main">
+        <div class="s-version-head">
+          <span class="eyebrow">STAT V3 LAB | NON-DEPLOYED TWIN</span>
+          <h1>Wire the <span class="acc">future</span>.</h1>
+          <div class="sub">LIVE CONTRACTS REQUIRED | CURRENT /STAT UNTOUCHED | NO LOCAL SCORING</div>
+        </div>
+        <div class="modes-grid">${modes}</div>
+      </div>
+      <aside class="s-version-side">
+        <h3>YOUR PROFILE</h3>
+        <div class="profile-pod-wrap">${fbPodium(YOU)}</div>
+        <div class="profile-info">
+          <div class="nm">${YOU.name.toUpperCase()}</div>
+          <div class="sub">${YOU.schoolName.toUpperCase()} | RANK ${YOU.stats.rank}</div>
+        </div>
+        <div class="profile-stats">
+          <div class="profile-stat"><div class="v">${statValue(YOU.stats.win,'%')}</div><div class="l">WIN RATE</div></div>
+          <div class="profile-stat"><div class="v">${statValue(YOU.stats.acc,'%')}</div><div class="l">ACCURACY</div></div>
+          <div class="profile-stat"><div class="v">${statValue(YOU.stats.spd,'s')}</div><div class="l">AVG TIME</div></div>
+          <div class="profile-stat"><div class="v">${YOU.stats.streak}</div><div class="l">STREAK</div></div>
+        </div>
+        <div class="profile-rank">
+          <div class="profile-rank-head"><span>LIVE ADAPTER STATUS</span><span class="v">${wiringIsReady()?'READY':'BLOCKED'}</span></div>
+          <div class="profile-rank-bar"><div class="fill" style="width:${wiringIsReady()?'100':'18'}%"></div></div>
+        </div>
+        ${statStatusItems(readinessReasons())}
+      </aside>
+    </div>`;
+};
+
+RENDERERS['2']=function(){
+  const root=document.getElementById('screen-setup');
+  const opt=(active,h,s)=>`<button class="cfg-opt ${active?'active':''}" disabled><div class="h">${h}</div><div class="s">${s}</div></button>`;
+  root.innerHTML=`
+    <div class="s-setup">
+      <div class="s-setup-main">
+        <div class="s-setup-head">
+          <h2>Connect live <span class="acc">wiring.</span></h2>
+          <div class="sub">This twin does not create matches locally. A future private route must provide the same live STAT identity, opponent, sealed pack, submit, and result contracts used by /stat.</div>
+        </div>
+        <div class="cfg-group">
+          <div class="cfg-label">OPPONENT POOL</div>
+          <div class="cfg-options">
+            ${opt(!!OPP.id,'Live Opponent',OPP.id?'Connected':'Waiting')}
+            ${opt(false,'Queue',OPP.id?'Available':'Blocked')}
+            ${opt(false,'Challenge',OPP.id?'Available':'Blocked')}
+          </div>
+        </div>
+        <div class="cfg-group">
+          <div class="cfg-label">DIFFICULTY</div>
+          <div class="cfg-options">
+            ${opt(false,'Step 1','High-yield basics')}
+            ${opt(true,'Step 2','Clinical reasoning')}
+            ${opt(false,'Mixed','Adaptive blend')}
+          </div>
+        </div>
+        <div class="cfg-group">
+          <div class="cfg-label">QUESTION COUNT</div>
+          <div class="cfg-options">
+            ${opt(!!QUESTIONS.length,String(QUESTIONS.length||0),'Sealed live pack')}
+            ${opt(false,'Local','Disabled')}
+            ${opt(false,'Fallback','Disabled')}
+          </div>
+        </div>
+        <div class="cfg-group">
+          <div class="cfg-label">OPPONENT TEMPO</div>
+          <div class="cfg-options">
+            ${opt(false,'Live Payload','Required')}
+            ${opt(false,'Server Result','Required')}
+            ${opt(false,'Local Result','Disabled')}
+          </div>
+        </div>
+        <div class="cfg-group">
+          <div class="cfg-label">MATCH POINTS WAGER</div>
+          <div class="cfg-options">
+            ${opt(false,'ELO','Payload only')}
+            ${opt(false,'Rank','Payload only')}
+            ${opt(false,'MP','Payload only')}
+          </div>
+        </div>
+      </div>
+      <aside class="s-setup-side">
+        <div class="summary-tag">MATCH SUMMARY</div>
+        <div class="summary-row"><span>USER</span><span class="v">${YOU.id?'CONNECTED':'WAITING'}</span></div>
+        <div class="summary-row"><span>OPPONENT</span><span class="v">${OPP.id?'CONNECTED':'WAITING'}</span></div>
+        <div class="summary-row"><span>QUESTIONS</span><span class="v">${QUESTIONS.length}</span></div>
+        <div class="summary-row"><span>SUBMIT HANDLER</span><span class="v">${hasSubmitHandler()?'CONNECTED':'WAITING'}</span></div>
+        <div class="summary-row big"><span>GAMEPLAY</span><span class="v">${wiringIsReady()?'READY':'BLOCKED'}</span></div>
+        <button class="summary-cta" disabled>PRIVATE ROUTE REQUIRED</button>
+        <div class="trust-pill" style="margin:0 auto">CURRENT /STAT UNTOUCHED</div>
+      </aside>
+    </div>`;
+};
+
+RENDERERS['3']=function(){
+  const root=document.getElementById('screen-matchup');
+  root.innerHTML=`
+    <div class="s-matchup">
+      <div class="s-matchup-head">
+        <span class="opp-found">${OPP.id?'OPPONENT CONNECTED':'OPPONENT WAITING'}</span>
+        <h2>The twin <span class="acc">is isolated.</span></h2>
+        <div class="sub">This screen can render live matchup data when supplied, but it does not create or accept duels by itself.</div>
+      </div>
+      <div class="tape">
+        <div class="tape-side you">
+          <span class="tape-corner">YOUR LANE</span>
+          <div class="tape-portrait">${fbPodium(YOU)}</div>
+          <div class="tape-name">${YOU.name}</div>
+          <div class="tape-school">${YOU.schoolName.toUpperCase()}</div>
+          <div class="tape-rank">RANK ${YOU.stats.rank} | SEASON 1</div>
+        </div>
+        <div class="tape-mid">
+          <div class="tape-row"><div class="v you">${YOU.stats.rank}</div><div class="l">RANK</div><div class="v opp">${OPP.stats.rank}</div></div>
+          <div class="tape-row"><div class="v you">${statValue(YOU.stats.win,'%')}</div><div class="l">WIN RATE</div><div class="v opp">${statValue(OPP.stats.win,'%')}</div></div>
+          <div class="tape-row"><div class="v you">${statValue(YOU.stats.acc,'%')}</div><div class="l">ACCURACY</div><div class="v opp">${statValue(OPP.stats.acc,'%')}</div></div>
+          <div class="tape-row"><div class="v you">${statValue(YOU.stats.spd,'s')}</div><div class="l">AVG TIME</div><div class="v opp">${statValue(OPP.stats.spd,'s')}</div></div>
+          <div class="tape-row"><div class="v you">${YOU.stats.streak}</div><div class="l">STREAK</div><div class="v opp">${OPP.stats.streak}</div></div>
+          <div class="tape-row"><div class="v you">${YOU.stats.ovr}</div><div class="l">OVR</div><div class="v opp">${OPP.stats.ovr}</div></div>
+        </div>
+        <div class="tape-side opp">
+          <span class="tape-corner">RIVAL</span>
+          <div class="tape-portrait">${fbPodium(OPP,'',{opp:true,rarity:OPP.rarity})}</div>
+          <div class="tape-name">${OPP.name}</div>
+          <div class="tape-school">${OPP.schoolName.toUpperCase()}</div>
+          <div class="tape-rank">RANK ${OPP.stats.rank} | SEASON 1</div>
+        </div>
+      </div>
+      <div class="s-matchup-cta-row">
+        <button class="cta-primary" ${wiringIsReady()?'':'disabled'}>${wiringIsReady()?'ENTER PREVIEW':'WIRING BLOCKED'}</button>
+        <button class="cta-secondary">VIEW CONTRACTS</button>
+      </div>
+    </div>`;
+};
+
+RENDERERS['4']=function(){
+  const root=document.getElementById('screen-countdown');
+  if(!wiringIsReady()){
+    root.innerHTML=wiringBlockedPanel('Countdown blocked',readinessReasons());
+    return;
+  }
+  root.innerHTML=`
+    <div class="s-countdown">
+      <div class="cd-corner">
+        <div class="cd-podium">${fbPodium(YOU)}</div>
+        <span class="cd-corner-tag">YOUR LANE</span>
+        <div class="cd-corner-name">${YOU.name}</div>
+        <div class="cd-corner-meta">${YOU.schoolName.toUpperCase()} | RANK ${YOU.stats.rank}</div>
+      </div>
+      <div class="cd-mid">
+        <span class="cd-tag">PACK SEALED | WINDOW OPENS</span>
+        <div class="cd-num">GO</div>
+        <div class="cd-vs">${YOU.name.split(' ')[0]} vs ${OPP.name.split(' ')[0]}</div>
+        <div class="cd-rules">
+          <span class="cd-rule">${QUESTIONS.length} QUESTIONS</span>
+          <span class="cd-rule">LIVE CLOCK</span>
+          <span class="cd-rule">PAYLOAD ONLY</span>
+          <span class="cd-rule">SERVER LOCKED</span>
+        </div>
+      </div>
+      <div class="cd-corner opp">
+        <div class="cd-podium">${fbPodium(OPP,'',{opp:true,rarity:OPP.rarity})}</div>
+        <span class="cd-corner-tag">RIVAL</span>
+        <div class="cd-corner-name">${OPP.name}</div>
+        <div class="cd-corner-meta">${OPP.schoolName.toUpperCase()} | RANK ${OPP.stats.rank}</div>
+      </div>
+    </div>`;
+};
+
+RENDERERS['5']=function(){
+  const root=document.getElementById('screen-play');
+  root.innerHTML=`
+    <div class="stat-arena">
+      ${statLane(YOU,{tag:'YOU',score:'-',correct:'-',avg:'-',streak:'-',statusLabel:YOU.id?'Live identity connected':'Identity waiting',statusCls:YOU.id?'locked':'thinking',lane:'LEFT LANE'})}
+      ${statCenter(0)}
+      ${statLane(OPP,{tag:'OPPONENT',opp:true,score:'-',correct:'-',avg:'-',streak:'-',statusLabel:OPP.id?'Opponent connected':'Opponent waiting',statusCls:OPP.id?'locked':'thinking',lane:'RIGHT LANE'})}
+    </div>`;
+};
+
+RENDERERS['6']=function(){
+  const root=document.getElementById('screen-results');
+  const parsed=normalizeResultPayload(LIVE_RESULT);
+  if(!parsed){
+    root.innerHTML=wiringBlockedPanel('Result payload required',['No live duel result payload was supplied to MM_STAT_V3_CONTEXT.resultPayload or window.MM_STAT_V3_RESULT.','V3 will not render local victory, loss, ELO, rank, or replay claims.']);
+    return;
+  }
+  const replay=parsed.rows.length
+    ? parsed.rows.map((row,i)=>{const r=safeObj(row);return `<div class="replay-row live"><div class="qn">${i+1}</div><div class="topic">${pickText([r.topic,r.subject,'LIVE'])}</div><div class="qtxt">${pickText([r.q,r.prompt,r.question,r.question_id,'Live answer row'])}</div><div class="qtime">${pickText([r.time,r.time_ms,r.elapsed,'-'])}</div><div class="qpts">${pickText([r.pts,r.points,r.score,'-'])}</div></div>`;}).join('')
+    : '<div class="replay-row live"><div class="qn">-</div><div class="topic">LIVE</div><div class="qtxt">Result payload did not include replay rows.</div><div class="qtime">-</div><div class="qpts">-</div></div>';
+  const eloRow=parsed.elo?`<div class="result-elo"><div class="l">ELO CHANGE</div><div class="v ${parsed.elo.charAt(0)==='-'?'down':'up'}">${parsed.elo}</div><div class="l">${parsed.rank||'RANK PAYLOAD'}</div></div>`:'';
+  root.innerHTML=`
+    <div class="s-results">
+      <div class="result-card">
+        <span class="result-tag">${parsed.verdict}</span>
+        <div class="result-title">Server result <span class="acc">received.</span></div>
+        <div class="result-podium">${fbPodium(YOU,'',{rarity:'legendary'})}</div>
+        <div class="result-stats">
+          <div class="result-stat"><div class="v">${parsed.score}</div><div class="l">FINAL SCORE</div></div>
+          <div class="result-stat"><div class="v">${parsed.correct}/${parsed.total}</div><div class="l">CORRECT</div></div>
+          <div class="result-stat"><div class="v">${parsed.avg}</div><div class="l">AVG TIME</div></div>
+          <div class="result-stat"><div class="v">${parsed.streak}</div><div class="l">BEST STREAK</div></div>
+        </div>
+        ${eloRow}
+      </div>
+      <div class="result-side">
+        <div class="replay-card">
+          <h3>QUESTION REPLAY</h3>
+          ${replay}
+        </div>
+        <div class="highlights-card">
+          <h3>RESULT SOURCE</h3>
+          <div class="row"><span>Payload</span><span class="v">LIVE ADAPTER</span></div>
+          <div class="row"><span>Local scoring</span><span class="v">DISABLED</span></div>
+          <div class="row"><span>ELO</span><span class="v">${parsed.elo?'PAYLOAD':'HIDDEN'}</span></div>
+          <div class="row"><span>Replay rows</span><span class="v">${parsed.rows.length}</span></div>
+        </div>
+        <div class="result-cta-row">
+          <button class="result-cta" disabled>LIVE REMATCH REQUIRED</button>
+          <button class="result-cta alt" disabled>NEXT OPPONENT DISABLED</button>
+        </div>
+      </div>
+    </div>`;
+};
+
+initTheme();
+window.addEventListener('load',()=>{setTimeout(renderActive,40);});
+renderActive();
+</script>
+
+</body>
+</html>
