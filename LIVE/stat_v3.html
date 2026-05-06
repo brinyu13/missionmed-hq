@@ -750,9 +750,31 @@ const STAT_V3_LIVE_BOOTSTRAP={
   error:'',
   question_count:0
 };
+const STAT_V3_HUMAN={
+  mode:'human_async',
+  status:'idle',
+  message:'Create or join a human async duel to load a sealed pack.',
+  error:'',
+  duelId:'',
+  inviteUrl:'',
+  roster:[],
+  selectedOpponent:null,
+  qIndex:0,
+  selections:{},
+  questionStartedAt:{},
+  submitted:false,
+  submitStatus:'idle',
+  resultEnvelope:null
+};
+window.MM_STAT_V3_HUMAN=STAT_V3_HUMAN;
 function updateLiveBootstrap(patch){
   Object.assign(STAT_V3_LIVE_BOOTSTRAP,safeObj(patch));
   window.MM_STAT_V3_LIVE_BOOTSTRAP=Object.assign({},STAT_V3_LIVE_BOOTSTRAP);
+}
+function updateHumanState(patch){
+  Object.assign(STAT_V3_HUMAN,safeObj(patch));
+  window.MM_STAT_V3_HUMAN=STAT_V3_HUMAN;
+  if(typeof renderActive==='function')renderActive();
 }
 function statV3Supabase(){
   if(statV3SupabaseClient)return statV3SupabaseClient;
@@ -946,6 +968,293 @@ function buildStatV3BotOpponent(pack){
     stats:EMPTY_STATS
   };
 }
+function shortStatV3Id(value){
+  const safe=String(value||'').trim();
+  return safe.length>14?safe.slice(0,8)+'...'+safe.slice(-4):(safe||'-');
+}
+function statV3DuelFromPayload(payload){
+  const root=safeObj(payload);
+  const data=safeObj(root.data||root);
+  return safeObj(data.duel||root.duel);
+}
+function statV3RpcError(envelope,fallback){
+  const data=safeObj(envelope&&envelope.data);
+  return pickText([envelope&&envelope.error,data.code,data.error,data.message,fallback||'rpc_failed']);
+}
+function statV3PackDuel(rawPack){
+  const source=unwrapPackPayload(rawPack);
+  return safeObj(source.duel||source);
+}
+function statV3CurrentUserId(){
+  return pickText([statV3VerifiedUserId,YOU&&YOU.id,readCurrentUser().id]);
+}
+function statV3OpponentIdFromDuel(duel){
+  const source=safeObj(duel);
+  const userId=statV3CurrentUserId();
+  const challenger=pickText([source.challenger_id,source.created_by,source.player1_id]);
+  const opponent=pickText([source.opponent_id,source.player2_id]);
+  if(userId&&challenger&&userId===challenger)return opponent;
+  if(userId&&opponent&&userId===opponent)return challenger;
+  return opponent||challenger||'';
+}
+function normalizeStatV3RosterPlayer(row,sourceLabel){
+  const source=safeObj(row);
+  const id=pickText([source.player_id,source.id,source.user_id]);
+  const wins=Number(source.wins);
+  const losses=Number(source.losses);
+  return normalizePlayer({
+    id,
+    name:pickText([source.display_name,source.screen_name,source.username,id?shortStatV3Id(id):'Opponent']),
+    rating:source.rating,
+    rank:source.rank,
+    stats:{
+      ovr:pickText([source.rating]),
+      rank:pickText([source.rank,source.rating]),
+      win:Number.isFinite(wins)&&Number.isFinite(losses)&&wins+losses>0?String(Math.round((wins/(wins+losses))*100)):'',
+      acc:'',
+      spd:'',
+      streak:''
+    }
+  },FALLBACK_OPP,sourceLabel||'duel_roster');
+}
+function rememberStatV3Opponent(opponent,sourceLabel){
+  const normalized=normalizePlayer(opponent,FALLBACK_OPP,sourceLabel||'human_duel');
+  if(!normalized.id)return normalized;
+  STAT_V3_HUMAN.selectedOpponent=normalized;
+  const ctx=Object.assign({},liveContext(),{matchedOpponent:normalized,opponent:normalized});
+  window.MM_STAT_V3_CONTEXT=ctx;
+  OPP=normalized;
+  STAT_V3_ADAPTER.matchedOpponent=OPP;
+  STAT_V3_ADAPTER.sourceState.matchedOpponent=OPP.source||sourceLabel||'human_duel';
+  return normalized;
+}
+function buildStatV3HumanOpponentFromDuel(duel){
+  const opponentId=statV3OpponentIdFromDuel(duel);
+  if(!opponentId)return FALLBACK_OPP;
+  const known=STAT_V3_HUMAN.selectedOpponent&&STAT_V3_HUMAN.selectedOpponent.id===opponentId
+    ? STAT_V3_HUMAN.selectedOpponent
+    : null;
+  if(known)return normalizePlayer(known,FALLBACK_OPP,known.source||'human_duel');
+  return normalizePlayer({
+    id:opponentId,
+    name:'Player '+shortStatV3Id(opponentId),
+    schoolName:'Human async duel',
+    stats:EMPTY_STATS
+  },FALLBACK_OPP,'duel.participant');
+}
+function statV3InviteUrl(duelId){
+  const safe=pickText([duelId]);
+  return safe?'https://missionmedinstitute.com/stat-v3?duel_id='+encodeURIComponent(safe):'';
+}
+async function statV3FetchRoster(query){
+  const args={p_limit:25};
+  const safe=String(query||'').trim();
+  if(safe)args.p_search=safe;
+  const envelope=await statV3RpcCall('duel_roster',args);
+  const data=safeObj(envelope.data||envelope.raw||envelope);
+  const rows=Array.isArray(data.roster)?data.roster:(Array.isArray(data.items)?data.items:(Array.isArray(data)?data:[]));
+  const currentId=statV3CurrentUserId();
+  return rows
+    .map(row=>normalizeStatV3RosterPlayer(row,'duel_roster'))
+    .filter(row=>row.id&&row.id!==currentId);
+}
+async function statV3CreateHumanDuel(opponent){
+  const target=normalizePlayer(opponent,FALLBACK_OPP,'duel_roster.selected');
+  if(!target.id)throw new Error('opponent_required');
+  if(target.id===statV3CurrentUserId())throw new Error('cannot_challenge_self');
+  const created=await statV3RpcCall('create_duel',{
+    p_opponent_id:target.id,
+    p_question_set:null,
+    p_idempotency_key:statV3IdempotencyKey('stat_v3_human_create'),
+    p_is_bot_match:false,
+    p_bot_profile_id:null,
+    p_source:'stat_v3_human_internal_test',
+    p_dataset_version:'v4'
+  });
+  if(!created.ok)throw new Error(statV3RpcError(created,'create_duel_failed'));
+  const duel=statV3DuelFromPayload(created);
+  const duelId=extractDuelIdFromPayload(created);
+  if(!duelId)throw new Error('duel_id_missing');
+  rememberStatV3DuelId(duelId);
+  rememberStatV3Opponent(target,'human_challenge');
+  updateHumanState({
+    status:'challenge_created',
+    message:'Human challenge created. Share or open the invite with the second test user, then refresh this page after acceptance.',
+    error:'',
+    duelId,
+    inviteUrl:statV3InviteUrl(duelId),
+    selectedOpponent:target
+  });
+  updateLiveBootstrap({
+    status:'waiting',
+    source:'liveRpc.create_duel',
+    duel_id:duelId,
+    message:'Human duel created; waiting for opponent acceptance before submit is allowed.',
+    error:'',
+    question_count:0
+  });
+  try{
+    const rawPack=await fetchStatV3DuelPack(duelId);
+    installStatV3LivePack(rawPack,'liveRpc.create_duel.get_duel_pack');
+    rememberStatV3Opponent(buildStatV3HumanOpponentFromDuel(statV3PackDuel(rawPack)||duel),'duel.participant');
+  }catch(e){
+    updateLiveBootstrap({
+      status:'waiting',
+      source:'liveRpc.create_duel',
+      duel_id:duelId,
+      message:'Challenge exists, but the sealed pack is not readable yet: '+String(e&&e.message?e.message:e).slice(0,120),
+      error:String(e&&e.message?e.message:e).slice(0,160),
+      question_count:0
+    });
+  }
+  return {duelId,duel,created};
+}
+async function statV3AcceptDuel(duelId){
+  const safe=pickText([duelId]);
+  if(!safe)throw new Error('duel_id_required');
+  const accepted=await statV3RpcCall('accept_duel',{
+    p_duel_id:safe,
+    p_idempotency_key:statV3IdempotencyKey('stat_v3_accept')
+  });
+  const err=String(accepted&&accepted.error||'');
+  if(!accepted.ok&&!/not_duel_opponent|already_terminal|duel_not_ready_for_attempt/i.test(statV3RpcError(accepted,'')))throw new Error(statV3RpcError(accepted,'accept_duel_failed'));
+  rememberStatV3DuelId(safe);
+  updateHumanState({
+    status:'challenge_accepted',
+    message:'Human duel accepted or already available. Loading sealed pack.',
+    error:'',
+    duelId:safe,
+    inviteUrl:statV3InviteUrl(safe)
+  });
+  return accepted;
+}
+async function statV3FetchResults(duelId){
+  const safe=pickText([duelId]);
+  if(!safe)throw new Error('duel_id_required');
+  return statV3RpcCall('fetch_results',{p_duel_id:safe});
+}
+function statV3ResultFromFetch(envelope){
+  const data=safeObj(envelope&&envelope.data?envelope.data:envelope);
+  const result=safeObj(data.result);
+  const self=safeObj(data.attempt_self);
+  const duel=safeObj(data.duel);
+  const userId=statV3CurrentUserId();
+  const finalized=objectHasKeys(result);
+  const winner=pickText([result.winner_player_id,result.winner_user_id]);
+  const loser=pickText([result.loser_player_id,result.loser_user_id]);
+  const metadata=safeObj(result.metadata);
+  const total=pickText([self.total_questions,metadata.total_questions,QUESTIONS.length]);
+  const correct=pickText([self.correct_count]);
+  const score=correct||'-';
+  const totalTime=Number(self.total_time_ms||0);
+  const avg=Number.isFinite(totalTime)&&Number(total)>0?(Math.round((totalTime/Number(total))/100)/10)+'s':'-';
+  let verdict='WAITING';
+  if(finalized){
+    if(winner&&winner===userId)verdict='WIN';
+    else if(loser&&loser===userId)verdict='LOSS';
+    else verdict=String(result.outcome||'RESULT').toUpperCase();
+  }else if(objectHasKeys(self)){
+    verdict='WAITING FOR OPPONENT';
+  }
+  return {
+    verdict,
+    total:total||String(QUESTIONS.length||'-'),
+    correct:correct||'-',
+    score,
+    avg,
+    streak:'-',
+    elo:finalized?pickText([winner===userId?result.rating_delta_winner:result.rating_delta_loser]):'',
+    rank:'',
+    replayRows:QUESTIONS.map((q,index)=>({
+      topic:q.topic,
+      q:q.q,
+      time:STAT_V3_HUMAN.selections[q.id]?((STAT_V3_HUMAN.selections[q.id].time_ms||0)/1000).toFixed(1)+'s':'-',
+      score:index+1
+    })),
+    duel_state:pickText([duel.state,data.status]),
+    finalized
+  };
+}
+function statV3AllQuestionsAnswered(){
+  if(!QUESTIONS.length)return false;
+  return QUESTIONS.every(q=>STAT_V3_HUMAN.selections[q.id]&&Number.isInteger(STAT_V3_HUMAN.selections[q.id].choice_index));
+}
+function statV3CanonicalAnswers(){
+  return QUESTIONS.map((q,index)=>{
+    const selected=STAT_V3_HUMAN.selections[q.id]||{};
+    return {
+      question_id:String(q.id||SEALED_PACK.question_ids[index]||''),
+      choice_index:Number.isInteger(selected.choice_index)?selected.choice_index:-1,
+      time_ms:Math.max(0,Math.round(Number(selected.time_ms||0)))
+    };
+  });
+}
+async function statV3SubmitAttempt(){
+  if(!statV3ActiveDuelId)throw new Error('duel_id_required');
+  if(!QUESTIONS.length)throw new Error('question_pack_required');
+  if(!statV3AllQuestionsAnswered())throw new Error('answer_all_questions_before_submit');
+  const answers=statV3CanonicalAnswers();
+  const totalMs=answers.reduce((sum,row)=>sum+Math.max(0,Number(row.time_ms||0)),0);
+  updateHumanState({submitStatus:'submitting',message:'Submitting attempt to STAT backend. No local scoring is used.',error:''});
+  const submitted=await statV3RpcCall('submit_attempt',{
+    p_duel_id:statV3ActiveDuelId,
+    p_answers:answers,
+    p_total_time_ms:Math.max(1,totalMs),
+    p_idempotency_key:statV3IdempotencyKey('stat_v3_submit')
+  });
+  if(!submitted.ok)throw new Error(statV3RpcError(submitted,'submit_attempt_failed'));
+  const fetched=await statV3FetchResults(statV3ActiveDuelId);
+  const resultPayload=statV3ResultFromFetch(fetched);
+  const ctx=Object.assign({},liveContext(),{resultPayload});
+  window.MM_STAT_V3_CONTEXT=ctx;
+  window.MM_STAT_V3_RESULT=resultPayload;
+  LIVE_RESULT=resultPayload;
+  STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+  updateHumanState({
+    submitted:true,
+    submitStatus:resultPayload.finalized?'finalized':'waiting',
+    message:resultPayload.finalized?'Server finalized the duel result.':'Attempt persisted. Waiting for the other human player before final result.',
+    error:'',
+    resultEnvelope:fetched
+  });
+  return {submitted,fetched,resultPayload};
+}
+async function statV3LoadHumanDuel(duelId,tryAccept){
+  const safe=pickText([duelId]);
+  if(!safe)throw new Error('duel_id_required');
+  rememberStatV3DuelId(safe);
+  if(tryAccept){
+    try{await statV3AcceptDuel(safe);}catch(e){
+      const msg=String(e&&e.message?e.message:e);
+      if(!/not_duel_opponent|already_terminal|duel_not_ready_for_attempt/i.test(msg))throw e;
+    }
+  }
+  const rawPack=await fetchStatV3DuelPack(safe);
+  const pack=installStatV3LivePack(rawPack,'liveRpc.human_duel.get_duel_pack');
+  const duel=statV3PackDuel(rawPack);
+  rememberStatV3Opponent(buildStatV3HumanOpponentFromDuel(duel),'duel.participant');
+  let fetched=null;
+  try{
+    fetched=await statV3FetchResults(safe);
+    const payload=safeObj(fetched.data);
+    if(payload.attempt_self||payload.result){
+      const resultPayload=statV3ResultFromFetch(fetched);
+      const ctx=Object.assign({},liveContext(),{resultPayload});
+      window.MM_STAT_V3_CONTEXT=ctx;
+      window.MM_STAT_V3_RESULT=resultPayload;
+      LIVE_RESULT=resultPayload;
+      STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+    }
+  }catch(e){}
+  updateHumanState({
+    status:'duel_loaded',
+    message:'Human async duel loaded from sealed backend pack.',
+    error:'',
+    duelId:safe,
+    inviteUrl:statV3InviteUrl(safe)
+  });
+  return {pack,fetched};
+}
 function refreshStatV3AdapterState(){
   YOU=readCurrentUser();
   OPP=readMatchedOpponent();
@@ -970,7 +1279,11 @@ function installStatV3LivePack(rawPack,sourceLabel){
   ctx.currentPack=rawPack;
   ctx.sealedPack=rawPack;
   ctx.questionPack=rawPack;
-  if(!objectHasKeys(ctx.matchedOpponent))ctx.matchedOpponent=buildStatV3BotOpponent(pack);
+  const packDuel=statV3PackDuel(rawPack);
+  const botSignal=String(packDuel.is_bot_match||packDuel.duel_is_bot||'').toLowerCase()==='true'||packDuel.is_bot_match===true;
+  if(!objectHasKeys(ctx.matchedOpponent)){
+    ctx.matchedOpponent=botSignal?buildStatV3BotOpponent(pack):buildStatV3HumanOpponentFromDuel(packDuel);
+  }
   window.MM_STAT_V3_CONTEXT=ctx;
   window.MM_DUEL=window.MM_DUEL||{};
   window.MM_DUEL.CURRENT_PACK=rawPack;
@@ -1000,14 +1313,27 @@ async function bootstrapStatV3LivePack(){
     let duelId=readRequestedDuelId();
     let sourceLabel='liveRpc.get_duel_pack';
     if(!duelId){
-      const created=await createStatV3BotDuel();
-      duelId=created.duelId;
-      sourceLabel='liveRpc.create_duel.get_duel_pack';
+      updateLiveBootstrap({
+        status:'waiting',
+        source:'human_async_required',
+        duel_id:'',
+        message:'Create or join a human async duel to hydrate a sealed STAT pack. V3 no longer auto-creates a bot match as the normal path.',
+        error:'human_duel_required',
+        question_count:0
+      });
+      updateHumanState({status:'ready_for_human_duel',message:'Search for a test opponent or open a /stat-v3?duel_id=... invite.',error:''});
+      return;
     }else{
       rememberStatV3DuelId(duelId);
+      sourceLabel='liveRpc.human_duel.get_duel_pack';
+      try{await statV3AcceptDuel(duelId);}catch(e){
+        const msg=String(e&&e.message?e.message:e);
+        if(!/not_duel_opponent|already_terminal|duel_not_ready_for_attempt/i.test(msg))throw e;
+      }
     }
     const rawPack=await fetchStatV3DuelPack(duelId);
     const normalized=installStatV3LivePack(rawPack,sourceLabel);
+    rememberStatV3Opponent(buildStatV3HumanOpponentFromDuel(statV3PackDuel(rawPack)),'duel.participant');
     try{console.info('[STAT V3] live sealed pack ready',{duel_id:normalized.duel_id,question_count:normalized.questions.length,source:sourceLabel});}catch(e){}
   }catch(e){
     updateLiveBootstrap({
@@ -1217,7 +1543,8 @@ function hasSubmitHandler(){
 }
 function liveSubmitEnabled(){
   const ctx=liveContext();
-  return (ctx.enableLiveSubmit===true||window.MM_STAT_V3_ENABLE_SUBMIT===true)&&hasSubmitHandler();
+  if((ctx.enableLiveSubmit===true||window.MM_STAT_V3_ENABLE_SUBMIT===true)&&hasSubmitHandler())return true;
+  return !!(statV3ActiveDuelId&&QUESTIONS.length&&currentRouteCanReadArenaSessionStorage());
 }
 function hasResultPayload(){
   return objectHasKeys(LIVE_RESULT);
@@ -1231,12 +1558,12 @@ function readinessReasons(){
     else if(STAT_V3_LIVE_BOOTSTRAP.error)reasons.push('No sealed STAT question pack is available: '+STAT_V3_LIVE_BOOTSTRAP.error+'.');
     else reasons.push('No sealed STAT question pack is available to this twin.');
   }
-  if(!liveSubmitEnabled())reasons.push('Live answer submit is disabled for this read-only V3 adapter.');
-  if(!hasResultPayload())reasons.push('No live result payload is attached.');
+  if(!liveSubmitEnabled())reasons.push('Live answer submit is waiting for a first-party human duel and sealed pack.');
+  if(!hasResultPayload())reasons.push('No live result payload is attached yet; it appears after a server submit/fetch_results cycle.');
   if(!launchEnvelopeSource()&&!currentRouteCanReadArenaSessionStorage())reasons.push('Current CDN route cannot read first-party Arena sessionStorage; use a first-party adapter route for identity handoff.');
   return reasons;
 }
-function wiringIsReady(){return readinessReasons().length===0;}
+function wiringIsReady(){return !!(YOU.id&&OPP.id&&QUESTIONS.length&&statV3ActiveDuelId);}
 
 let YOU=readCurrentUser();
 let OPP=readMatchedOpponent();
@@ -1275,7 +1602,7 @@ window.MM_STAT_V3_ADAPTER=STAT_V3_ADAPTER;
 
 function getModes(){
   return [
-    {id:'stat-v3',title:'STAT V3 Lab',tag:'INTERNAL TEST',desc:'A wiring-aware shell that can hydrate a server sealed STAT pack for preview-safe selection while submit and result remain blocked.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'0',l:'LIVE QUESTIONS'},{v:YOU.id?'READY':'WAITING',l:'USER'},{v:OPP.id?'READY':'WAITING',l:'OPPONENT'}],cta:'OPEN PREVIEW'},
+    {id:'stat-v3',title:'STAT V3 Lab',tag:'INTERNAL TEST',desc:'A first-party internal test shell for human async duels using live STAT RPCs. Scores and results remain server-authoritative.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'0',l:'LIVE QUESTIONS'},{v:YOU.id?'READY':'WAITING',l:'USER'},{v:OPP.id?'READY':'WAITING',l:'OPPONENT'}],cta:'OPEN TEST'},
     {id:'stat-live',title:'Current STAT',tag:'LEGACY LIVE AUTHORITY',desc:'The existing /stat runtime remains untouched and is still the only deployed student STAT experience.',status:'legacy',stats:[{v:'/stat',l:'LIVE ROUTE'},{v:'LOCKED',l:'AUTH'},{v:'SAFE',l:'ROLLBACK'}],cta:'UNCHANGED'}
   ];
 }
@@ -1393,31 +1720,130 @@ function statLane(player,opts){
 
 function statCenter(qIndex){
   if(!QUESTIONS.length)return wiringBlockedPanel('Pack not connected',readinessReasons());
-  const q=QUESTIONS[qIndex]||QUESTIONS[0];
-  const choices=q.choices.map((c,index)=>`<button class="stat-q-choice" type="button" data-choice-index="${index}" data-question-id="${escapeHtml(q.id)}"><div class="k">${escapeHtml(c.k)}</div><div class="t">${escapeHtml(c.t)}</div></button>`).join('');
+  const safeIndex=Math.max(0,Math.min(QUESTIONS.length-1,Number(qIndex||0)));
+  const q=QUESTIONS[safeIndex]||QUESTIONS[0];
+  if(q&&!STAT_V3_HUMAN.questionStartedAt[q.id])STAT_V3_HUMAN.questionStartedAt[q.id]=Date.now();
+  const choices=q.choices.map((c,index)=>{
+    const selected=STAT_V3_HUMAN.selections[q.id]&&STAT_V3_HUMAN.selections[q.id].choice_index===index;
+    return `<button class="stat-q-choice ${selected?'selected':''}" type="button" data-choice-index="${index}" data-question-id="${escapeHtml(q.id)}"><div class="k">${escapeHtml(c.k)}</div><div class="t">${escapeHtml(c.t)}</div></button>`;
+  }).join('');
   const source=SEALED_PACK.source||'adapter';
-  const status=liveSubmitEnabled()
-    ? 'Live submit adapter explicitly enabled.'
-    : 'Sealed pack detected from '+source+'. Read-only preview. Preview selection only. Not submitted.';
-  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">ASYNC DUEL</div><div class="s">SEALED PACK DETECTED | READ-ONLY V3 TWIN</div></div><div class="stat-pressure calm">READ-ONLY PREVIEW</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div><div class="stat-v3-live-status" id="stat-v3-live-status">${escapeHtml(status)}</div></div><div class="stat-q-meta"><div class="stat-q-counter"><span class="n">${qIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}</div></div><div class="stat-q-history"><h4>QUESTION LOG</h4>${statHistory(qIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">READ-ONLY PREVIEW</span><span class="stat-ticker-item">NO LOCAL SCORING</span><span class="stat-ticker-item">SUBMIT BLOCKED</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span><span class="stat-ticker-item">V3 TWIN IS NOT LIVE</span></div></div></div>`;
+  const answeredCount=QUESTIONS.filter(item=>STAT_V3_HUMAN.selections[item.id]).length;
+  const allAnswered=statV3AllQuestionsAnswered();
+  const status=STAT_V3_HUMAN.submitStatus==='submitting'
+    ? 'Submitting to backend...'
+    : (allAnswered?'All questions selected. Submit sends only question_id, choice_index, and time_ms to STAT backend.':'Sealed pack detected from '+source+'. Select each answer; no local scoring is performed.');
+  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">ASYNC DUEL</div><div class="s">SEALED PACK DETECTED | HUMAN V3 TEST</div></div><div class="stat-pressure calm">${answeredCount}/${QUESTIONS.length} SELECTED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div><div class="stat-v3-live-status" id="stat-v3-live-status">${escapeHtml(status)}</div><div style="display:grid;grid-template-columns:auto auto 1fr auto;gap:10px;margin-top:14px"><button class="result-cta alt" type="button" id="stat-v3-prev-q" ${safeIndex===0?'disabled':''}>Prev</button><button class="result-cta alt" type="button" id="stat-v3-next-q" ${safeIndex>=QUESTIONS.length-1?'disabled':''}>Next</button><div></div><button class="result-cta" type="button" id="stat-v3-submit-attempt" ${allAnswered&&statV3ActiveDuelId&&!STAT_V3_HUMAN.submitted?'':'disabled'}>Submit Attempt</button></div></div><div class="stat-q-meta"><div class="stat-q-counter"><span class="n">${safeIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}</div></div><div class="stat-q-history"><h4>QUESTION LOG</h4>${statHistory(safeIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER SUBMIT</span><span class="stat-ticker-item">NO LOCAL SCORING</span><span class="stat-ticker-item">RESULT FROM FETCH_RESULTS</span><span class="stat-ticker-item">LEGACY /STAT UNTOUCHED</span></div></div></div>`;
 }
 
 document.addEventListener('click',async(event)=>{
+  const modeCard=event.target.closest('.mode-card.current,.mode-card[data-mode="stat-v3"],.mode-cta');
+  if(modeCard&&event.target.closest('#screen-version')){
+    event.preventDefault();
+    setStep('2');
+    return;
+  }
+  const summaryCta=event.target.closest('.summary-cta');
+  if(summaryCta&&!summaryCta.disabled){
+    event.preventDefault();
+    setStep('3');
+    return;
+  }
+  const primaryCta=event.target.closest('.cta-primary');
+  if(primaryCta&&!primaryCta.disabled){
+    event.preventDefault();
+    setStep(shell.dataset.step==='3'?'4':'5');
+    return;
+  }
+  const rosterPick=event.target.closest('.stat-v3-roster-pick');
+  if(rosterPick){
+    event.preventDefault();
+    const id=String(rosterPick.dataset.opponentId||'').trim();
+    const player=STAT_V3_HUMAN.roster.find(row=>row.id===id);
+    if(player){
+      rememberStatV3Opponent(player,'duel_roster.selected');
+      updateHumanState({selectedOpponent:player,status:'opponent_selected',message:'Opponent selected. Create a human duel when ready.',error:''});
+    }
+    return;
+  }
+  const loadRoster=event.target.closest('#stat-v3-load-roster');
+  if(loadRoster){
+    event.preventDefault();
+    const input=document.getElementById('stat-v3-opponent-query');
+    const query=input?input.value:'';
+    try{
+      updateHumanState({status:'loading_roster',message:'Loading live opponent roster...',error:''});
+      const roster=await statV3FetchRoster(query);
+      updateHumanState({roster,status:'roster_loaded',message:roster.length?'Select an opponent, then create a human duel.':'No matching opponent found.',error:''});
+    }catch(e){
+      updateHumanState({status:'blocked',message:'Could not load roster.',error:String(e&&e.message?e.message:e).slice(0,160)});
+    }
+    return;
+  }
+  const createHuman=event.target.closest('#stat-v3-create-human');
+  if(createHuman){
+    event.preventDefault();
+    try{
+      updateHumanState({status:'creating_duel',message:'Creating human async duel...',error:''});
+      await statV3CreateHumanDuel(STAT_V3_HUMAN.selectedOpponent);
+    }catch(e){
+      updateHumanState({status:'blocked',message:'Could not create human duel.',error:String(e&&e.message?e.message:e).slice(0,160)});
+    }
+    return;
+  }
+  const joinHuman=event.target.closest('#stat-v3-join-human');
+  if(joinHuman){
+    event.preventDefault();
+    const input=document.getElementById('stat-v3-duel-id-input');
+    const duelId=input?input.value:statV3ActiveDuelId;
+    try{
+      updateHumanState({status:'loading_duel',message:'Loading human duel...',error:''});
+      await statV3LoadHumanDuel(duelId,true);
+    }catch(e){
+      updateHumanState({status:'blocked',message:'Could not load human duel.',error:String(e&&e.message?e.message:e).slice(0,160)});
+    }
+    return;
+  }
+  const prev=event.target.closest('#stat-v3-prev-q');
+  if(prev){
+    event.preventDefault();
+    updateHumanState({qIndex:Math.max(0,STAT_V3_HUMAN.qIndex-1)});
+    return;
+  }
+  const next=event.target.closest('#stat-v3-next-q');
+  if(next){
+    event.preventDefault();
+    updateHumanState({qIndex:Math.min(Math.max(0,QUESTIONS.length-1),STAT_V3_HUMAN.qIndex+1)});
+    return;
+  }
+  const submit=event.target.closest('#stat-v3-submit-attempt');
+  if(submit){
+    event.preventDefault();
+    try{
+      await statV3SubmitAttempt();
+      setStep('6');
+    }catch(e){
+      updateHumanState({submitStatus:'blocked',message:'Submit blocked.',error:String(e&&e.message?e.message:e).slice(0,160)});
+      const status=document.getElementById('stat-v3-live-status');
+      if(status)status.textContent='Submit blocked: '+String(e&&e.message?e.message:e).slice(0,140);
+    }
+    return;
+  }
   const button=event.target.closest('.stat-q-choice');
   if(!button)return;
   event.preventDefault();
   const index=Number(button.dataset.choiceIndex);
   const question=QUESTIONS.find(q=>String(q.id)===String(button.dataset.questionId))||QUESTIONS[0];
+  const started=STAT_V3_HUMAN.questionStartedAt[question.id]||Date.now();
+  STAT_V3_HUMAN.selections[question.id]={
+    choice_index:index,
+    time_ms:Math.max(250,Date.now()-started)
+  };
   document.querySelectorAll('.stat-q-choice').forEach(item=>item.classList.remove('selected'));
   button.classList.add('selected');
   const status=document.getElementById('stat-v3-live-status');
-  if(!liveSubmitEnabled()){
-    if(status)status.textContent='Preview selection only. Not submitted. Submit/result adapters remain blocked.';
-    return;
-  }
-  if(status)status.textContent='Calling explicitly enabled live STAT submit adapter...';
-  const result=await STAT_V3_ADAPTER.submitChoice({choice_index:index,question});
-  if(status)status.textContent=result&&result.ok?'Live adapter accepted the selection.':'Blocked: live STAT submit adapter unavailable or rejected this selection.';
+  if(status)status.textContent='Selection captured locally for backend submit. No score calculated here.';
+  renderActive();
 });
 
 function statValue(value,suffix){
@@ -1444,6 +1870,37 @@ function normalizeResultPayload(payload){
   const rank=resultValue(result,['rankText','rank','newRank'],'');
   const rows=Array.isArray(result.replayRows)?result.replayRows:(Array.isArray(result.reviewLog)?result.reviewLog:[]);
   return {verdict,total,correct,score,avg,streak,elo,rank,rows};
+}
+function statV3HumanPanel(){
+  const roster=STAT_V3_HUMAN.roster.length
+    ? STAT_V3_HUMAN.roster.map(player=>`<button class="cfg-opt stat-v3-roster-pick ${STAT_V3_HUMAN.selectedOpponent&&STAT_V3_HUMAN.selectedOpponent.id===player.id?'active':''}" type="button" data-opponent-id="${escapeHtml(player.id)}"><div class="h">${escapeHtml(player.name)}</div><div class="s">${escapeHtml(shortStatV3Id(player.id))}</div></button>`).join('')
+    : '<div class="summary-row"><span>ROSTER</span><span class="v">Search or load</span></div>';
+  const invite=STAT_V3_HUMAN.inviteUrl
+    ? `<div class="summary-row"><span>INVITE</span><span class="v">${escapeHtml(STAT_V3_HUMAN.inviteUrl)}</span></div>`
+    : '';
+  const selected=STAT_V3_HUMAN.selectedOpponent
+    ? `<div class="summary-row"><span>SELECTED</span><span class="v">${escapeHtml(STAT_V3_HUMAN.selectedOpponent.name)}</span></div>`
+    : '';
+  return `
+    <div class="cfg-group stat-v3-human-panel">
+      <div class="cfg-label">HUMAN ASYNC INTERNAL TEST</div>
+      <div class="summary-row"><span>STATUS</span><span class="v">${escapeHtml(STAT_V3_HUMAN.status||'idle')}</span></div>
+      <div class="summary-row"><span>DUEL</span><span class="v">${escapeHtml(shortStatV3Id(STAT_V3_HUMAN.duelId||statV3ActiveDuelId))}</span></div>
+      ${selected}
+      ${invite}
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;margin:12px 0">
+        <input id="stat-v3-opponent-query" value="" placeholder="Opponent email, name, or UUID" style="min-width:0;border:1px solid var(--card-border);border-radius:10px;background:var(--pill-bg);color:var(--fg);padding:12px;font-family:var(--f-bebas);letter-spacing:1px">
+        <button class="result-cta alt" type="button" id="stat-v3-load-roster">Search</button>
+        <button class="result-cta" type="button" id="stat-v3-create-human" ${STAT_V3_HUMAN.selectedOpponent?'':'disabled'}>Create Duel</button>
+      </div>
+      <div class="cfg-options">${roster}</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px">
+        <input id="stat-v3-duel-id-input" value="${escapeHtml(STAT_V3_HUMAN.duelId||statV3ActiveDuelId)}" placeholder="duel_id invite" style="min-width:0;border:1px solid var(--card-border);border-radius:10px;background:var(--pill-bg);color:var(--fg);padding:12px;font-family:var(--f-bebas);letter-spacing:1px">
+        <button class="result-cta alt" type="button" id="stat-v3-join-human">Join / Refresh</button>
+      </div>
+      <div class="stat-v3-live-status">${escapeHtml(STAT_V3_HUMAN.message||'')}</div>
+      ${STAT_V3_HUMAN.error?`<div class="stat-v3-live-status">Blocked: ${escapeHtml(STAT_V3_HUMAN.error)}</div>`:''}
+    </div>`;
 }
 
 /* ============================================================
@@ -1506,14 +1963,15 @@ RENDERERS['2']=function(){
       <div class="s-setup-main">
         <div class="s-setup-head">
           <h2>Connect live <span class="acc">wiring.</span></h2>
-          <div class="sub">This twin does not create matches locally. It can consume explicit MM_STAT_V3_CONTEXT data, a fresh same-origin Arena launch envelope, and a supplied sealed STAT pack for read-only review while submit/result stay blocked.</div>
+          <div class="sub">Create or join a human async duel through the existing STAT RPC contract. V3 renders the sealed pack and submits selected answers to the backend; it does not score locally.</div>
         </div>
+        ${statV3HumanPanel()}
         <div class="cfg-group">
           <div class="cfg-label">OPPONENT POOL</div>
           <div class="cfg-options">
             ${opt(!!OPP.id,'Live Opponent',OPP.id?'Connected':'Waiting')}
-            ${opt(false,'Queue',OPP.id?'Available':'Blocked')}
-            ${opt(false,'Challenge',OPP.id?'Available':'Blocked')}
+            ${opt(true,'Challenge','Live RPC')}
+            ${opt(false,'Bot Default','Disabled')}
           </div>
         </div>
         <div class="cfg-group">
@@ -1558,7 +2016,7 @@ RENDERERS['2']=function(){
         <div class="summary-row"><span>SUBMIT HANDLER</span><span class="v">${hasSubmitHandler()?'CONNECTED':'WAITING'}</span></div>
         <div class="summary-row"><span>ROUTE HANDOFF</span><span class="v">${currentRouteCanReadArenaSessionStorage()?'SAME ORIGIN':'CDN BLOCKED'}</span></div>
         <div class="summary-row big"><span>GAMEPLAY</span><span class="v">${wiringIsReady()?'READY':'BLOCKED'}</span></div>
-        <button class="summary-cta" disabled>${QUESTIONS.length?'READ-ONLY PREVIEW':'PACK REQUIRED'}</button>
+        <button class="summary-cta" ${wiringIsReady()?'':'disabled'}>${wiringIsReady()?'READY TO PLAY':'PACK REQUIRED'}</button>
         <div class="trust-pill" style="margin:0 auto">CURRENT /STAT UNTOUCHED</div>
       </aside>
     </div>`;
@@ -1570,8 +2028,8 @@ RENDERERS['3']=function(){
     <div class="s-matchup">
       <div class="s-matchup-head">
         <span class="opp-found">${OPP.id?'OPPONENT CONNECTED':'OPPONENT WAITING'}</span>
-        <h2>The twin <span class="acc">is isolated.</span></h2>
-        <div class="sub">This screen can render live matchup data when supplied, but it does not create or accept duels by itself.</div>
+        <h2>The duel <span class="acc">is sealed.</span></h2>
+        <div class="sub">Both players use the same backend question order. Submit/result stay server-authoritative through the legacy STAT RPC contract.</div>
       </div>
       <div class="tape">
         <div class="tape-side you">
@@ -1643,7 +2101,7 @@ RENDERERS['5']=function(){
   root.innerHTML=`
     <div class="stat-arena">
       ${statLane(YOU,{tag:'YOU',score:'-',correct:'-',avg:'-',streak:'-',statusLabel:YOU.id?'Live identity connected':'Identity waiting',statusCls:YOU.id?'locked':'thinking',lane:'LEFT LANE'})}
-      ${statCenter(0)}
+      ${statCenter(STAT_V3_HUMAN.qIndex)}
       ${statLane(OPP,{tag:'OPPONENT',opp:true,score:'-',correct:'-',avg:'-',streak:'-',statusLabel:OPP.id?'Opponent connected':'Opponent waiting',statusCls:OPP.id?'locked':'thinking',lane:'RIGHT LANE'})}
     </div>`;
 };
