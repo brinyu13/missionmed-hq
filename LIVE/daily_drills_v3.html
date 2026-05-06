@@ -733,7 +733,121 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 .data-empty strong{display:block;color:var(--txt);font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.08em;margin-bottom:4px}
 .data-empty.warn{border-color:rgba(252,211,77,.36);background:rgba(252,211,77,.06)}
 .summary-cta{grid-template-columns:repeat(3,minmax(0,1fr));}
+
+/* MD-MERGER-027: Safari paint hardening for the v3 step body.
+   The prior build could expose active content to accessibility while Safari
+   visually clipped the flex body below the top chrome. */
+html{
+  min-height:100%;
+  height:auto;
+  overflow-x:hidden;
+  overflow-y:auto;
+  background:var(--navy-0);
+}
+body{
+  min-height:100vh;
+  min-height:100dvh;
+  height:auto;
+  overflow-x:hidden;
+  overflow-y:auto;
+  background:var(--navy-0);
+}
+.shell{
+  min-height:100vh;
+  min-height:100dvh;
+  height:auto;
+  overflow:visible;
+  isolation:isolate;
+}
+.tab-content.active{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  transform:none !important;
+  min-height:calc(100vh - 86px);
+  min-height:calc(100dvh - 86px);
+  overflow:visible;
+  position:relative;
+  z-index:3;
+  contain:none;
+  content-visibility:visible;
+}
+main.tab-content.active .state.active{
+  display:flex !important;
+  visibility:visible !important;
+  opacity:1 !important;
+  transform:none !important;
+  min-height:420px;
+  overflow:visible;
+  position:relative;
+  z-index:4;
+  contain:none;
+  content-visibility:visible;
+  -webkit-transform:translateZ(0);
+  backface-visibility:hidden;
+}
+main.tab-content.active .state.active > *{
+  visibility:visible;
+  opacity:1;
+}
+main.tab-content.active .state[data-state="1"].active .dash-grid,
+main.tab-content.active .state[data-state="3"].active .split-stage,
+main.tab-content.active .state[data-state="4"].active .ready-card,
+main.tab-content.active .state[data-state="5"].active .flow-summary-card{
+  min-height:320px;
+}
+.paint-fallback{
+  width:100%;
+  margin:12px 0;
+  padding:22px;
+  border:1px dashed rgba(252,211,77,.42);
+  border-radius:16px;
+  background:rgba(252,211,77,.07);
+  color:var(--txt);
+  font-family:'JetBrains Mono',monospace;
+  font-size:12px;
+  letter-spacing:.10em;
+  line-height:1.55;
+  text-transform:uppercase;
+}
+.paint-fallback strong{
+  display:block;
+  color:var(--gold);
+  font-family:'Bebas Neue',sans-serif;
+  font-size:28px;
+  letter-spacing:.08em;
+  margin-bottom:6px;
+}
+.paint-fallback span{color:var(--mut)}
+@supports (-webkit-touch-callout:none){
+  .topbar,
+  #statebar,
+  .summary-overlay,
+  .countdown-overlay{
+    -webkit-backdrop-filter:none;
+    backdrop-filter:none;
+  }
+  .tab-content.active,
+  .state.active{
+    animation:none !important;
+  }
+  .bg-grid{
+    -webkit-mask-image:none;
+    mask-image:none;
+  }
+}
 @media(max-width:760px){.summary-cta{grid-template-columns:1fr}.daily-result-notice{font-size:12px}.topbar{padding:12px 16px}.brand .name{font-size:19px}}
+@media(max-width:760px){
+  .shell{overflow:visible}
+  .tab-content.active{padding:12px 14px;overflow:visible;min-height:calc(100vh - 74px);min-height:calc(100dvh - 74px)}
+  main.tab-content.active .state.active{min-height:360px;overflow:visible}
+  .steps-rail{display:flex;overflow-x:auto;padding-bottom:4px}
+  .steps-rail .step{min-width:168px}
+  .dash-grid,
+  .split-stage,
+  .sess-shell,
+  .topic-shell{overflow:visible}
+}
 
 </style>
 </head>
@@ -2243,13 +2357,87 @@ function log(name,payload){
   el.prepend(row);while(el.children.length>40)el.lastChild.remove();
 }
 
+function forceVisibleBox(el, active, display){
+  if(!el) return;
+  const visible = !!active;
+  el.classList.toggle('active', visible);
+  el.hidden = !visible;
+  el.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  el.style.display = visible ? (display || 'flex') : 'none';
+  el.style.visibility = visible ? 'visible' : 'hidden';
+  el.style.opacity = visible ? '1' : '0';
+  el.style.transform = visible ? 'none' : '';
+  el.style.overflow = visible ? 'visible' : 'hidden';
+  if(visible){
+    el.style.minHeight = el.classList.contains('state') ? '420px' : 'calc(100vh - 86px)';
+    el.style.position = 'relative';
+  }else{
+    el.style.minHeight = '';
+  }
+}
+
+function visiblePanelText(el){
+  return String(el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
+}
+
+function renderPaintFallback(panel, title, message){
+  if(!panel || panel.querySelector('.paint-fallback')) return;
+  const fallback = document.createElement('div');
+  fallback.className = 'paint-fallback';
+  const heading = document.createElement('strong');
+  const copy = document.createElement('span');
+  heading.textContent = title;
+  copy.textContent = message;
+  fallback.appendChild(heading);
+  fallback.appendChild(copy);
+  panel.appendChild(fallback);
+}
+
+function ensureActivePanelVisible(){
+  try{
+    const activeTab = document.querySelector(`main.tab-content[data-tab="${STATE.version}"]`) || document.querySelector('main.tab-content.active');
+    if(!activeTab) return;
+    document.querySelectorAll('main.tab-content').forEach(tab => {
+      forceVisibleBox(tab, tab === activeTab, 'flex');
+    });
+    let activePanel = activeTab.querySelector(`.state[data-state="${STATE.step}"]`);
+    if(!activePanel) return;
+    activeTab.querySelectorAll('.state').forEach(panel => {
+      forceVisibleBox(panel, panel === activePanel, 'flex');
+    });
+    if(STATE.step === 3) ensureSubjectStepVisible();
+    if(!visiblePanelText(activePanel)){
+      const titles = {
+        1:'Daily + Drills is loading',
+        2:'Choose Exam is loading',
+        3:'Choose Subject is loading',
+        4:'Ready & Run is loading',
+        5:'Summary + Feedback is loading'
+      };
+      renderPaintFallback(activePanel, titles[STATE.step] || 'Daily + Drills is loading', 'The active step is visible, but its data is still preparing. Refresh if this state persists.');
+    }
+    requestAnimationFrame(() => {
+      const computed = window.getComputedStyle(activePanel);
+      const hiddenPaint = activePanel.offsetHeight < 40 || computed.visibility === 'hidden' || computed.opacity === '0' || computed.display === 'none';
+      if(hiddenPaint){
+        forceVisibleBox(activeTab, true, 'flex');
+        forceVisibleBox(activePanel, true, 'flex');
+        renderPaintFallback(activePanel, 'Daily + Drills visual recovery', 'Safari reported an active step with no visible paint. This recovery panel keeps the learner body visible for validation.');
+        log('active_panel_visual_recovered', { step:STATE.step, height:activePanel.offsetHeight, display:computed.display });
+      }
+    });
+  }catch(error){
+    log('active_panel_visibility_error', { message:String(error && error.message ? error.message : error) });
+  }
+}
+
 /* =========================================================
    ROUTING / TABS / STEPS
    ========================================================= */
 function setVersion(v){
   STATE.version=v;
   document.querySelectorAll('#versionTabs button').forEach(b=>b.classList.toggle('active',b.dataset.version===v));
-  document.querySelectorAll('main.tab-content').forEach(m=>m.classList.toggle('active',m.dataset.tab===v));
+  document.querySelectorAll('main.tab-content').forEach(m=>forceVisibleBox(m, m.dataset.tab===v, 'flex'));
   document.getElementById('opVer').textContent=v;
   setStep(STATE.step);log('version_changed',{version:v});
 }
@@ -2274,13 +2462,11 @@ function setStep(n){
   // Show / hide states within active tab
   document.querySelectorAll('main.tab-content.active .state').forEach(s=>{
     const active = +s.dataset.state===n;
-    s.classList.toggle('active', active);
-    s.hidden = !active;
-    s.style.display = active ? 'flex' : 'none';
-    s.setAttribute('aria-hidden', active ? 'false' : 'true');
+    forceVisibleBox(s, active, 'flex');
   });
   document.getElementById('opState').textContent=n;
   repairActiveStep(n);
+  ensureActivePanelVisible();
   log('step_changed',{step:n,version:STATE.version});
 }
 
@@ -2312,6 +2498,8 @@ function repairActiveStep(n){
 
 function renderStepRecovery(n, error){
   const message = error && error.message ? error.message : String(error || 'Unknown render error');
+  const activePanel = document.querySelector(`main.tab-content.active .state[data-state="${n}"]`);
+  if(activePanel) renderPaintFallback(activePanel, 'Daily + Drills render recovery', 'This step hit a safe render recovery path instead of leaving the learner body blank. Error: ' + message);
   if(n===3){
     const list=document.getElementById('splitList');
     const sessions=document.getElementById('sessList');
@@ -3053,6 +3241,7 @@ async function bootApp(){
   setVersion('legacy');
   applyDashboardAvatar();
   bootFromRoute();
+  ensureActivePanelVisible();
   log('boot',{version:STATE.version,step:STATE.step,entry:ROUTE_ENTRY,video_id:ROUTE_VIDEO_ID,data_mode:document.documentElement.dataset.dataMode,real_registry_loaded:REAL_REGISTRY_LOADED});
   log('daily_viewed');
 }
@@ -3062,6 +3251,7 @@ bootApp().catch(error => {
   paintSessions();
   setVersion('legacy');
   applyDashboardAvatar();
+  ensureActivePanelVisible();
   log('boot_failed', { message: HYDRATION_ERROR });
 });
 
