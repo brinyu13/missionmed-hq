@@ -1,0 +1,36 @@
+<!--
+MD-MERGER-014 proposed Arena v3 card snippet.
+
+Purpose:
+- Add a separate Arena game-mode card for the Daily + Drills v3 comparison route.
+- Keep legacy /daily and /drills cards/routes intact.
+
+Suggested insertion:
+- Inside LIVE/arena.html, in #fnCarouselTrack after the current legacy Daily/Drills card.
+
+Future route:
+- /daily-drills-v3
+
+Runtime file:
+- LIVE/daily_drills_v3.html
+
+Notes:
+- This snippet is LAB-only. It does not wire the Play button, WordPress route, CDN object, auth, or proxy behavior.
+- Arena currently has multiple mode-card renderers and Play-button controllers, so Wiring Authority should add the card and route in one controlled pass.
+-->
+<div
+  class="mode-card fn-mode-card"
+  data-mode="daily_drills_v3"
+  data-arena-mode="daily_drills_v3"
+  data-mode-key="daily_drills_v3"
+  data-target-route="/daily-drills-v3"
+  data-runtime-file="daily_drills_v3.html"
+  aria-label="Daily plus Drills v3 unified timed recall mode"
+>
+  <div class="mode-card-bg fn-card-bg card-drills"></div>
+  <div class="mode-card-content">
+    <div class="mode-card-label">Daily + Drills v3</div>
+    <div class="mode-card-desc">Unified timed recall mode</div>
+    <div class="fn-card-badge">Play v3</div>
+  </div>
+</div>
