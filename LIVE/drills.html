@@ -439,12 +439,23 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .pause-btn::before{content:"";width:14px;height:18px;border-left:5px solid var(--gold);border-right:5px solid var(--gold);border-radius:1px}
 
 .rt-stage{display:flex;flex-direction:column;padding:22px;gap:16px;overflow:hidden}
-.rt-video{position:relative;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px;height:240px;background:#06091a;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:inset 0 2px 8px rgba(0,0,0,.7)}
+.rt-video{position:relative;display:block;height:240px;background:#06091a;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:inset 0 2px 8px rgba(0,0,0,.7)}
+.rt-video .quad-grid{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px}
 .rt-video .quad{background:radial-gradient(circle at 50% 40%,#1c2c52,#06091a);display:grid;place-items:center;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;position:relative}
 .rt-video .quad::after{content:"";width:48px;height:48px;border-radius:50%;background:radial-gradient(circle,rgba(140,170,220,.16),transparent 70%)}
 .rt-video .ovl{position:absolute;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt);letter-spacing:.16em}
 .rt-video .ovl.t{top:0;left:0;right:0;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent)}
 .rt-video .ovl.b{bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent)}
+.rt-video .media-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#03050d;display:none}
+.rt-video .media-video{position:absolute;inset:0;width:100%;height:100%;background:#03050d;display:none;object-fit:contain}
+.rt-video .media-fallback{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:22px;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;background:radial-gradient(circle at 50% 40%,rgba(34,211,238,.08),rgba(6,9,26,.98))}
+.rt-video .media-fallback strong{display:block;color:var(--txt);font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.10em;margin-bottom:6px}
+.rt-video.has-media .media-frame{display:block}
+.rt-video.has-video .media-video{display:block}
+.rt-video.has-media .quad-grid{display:none}
+.rt-video.has-video .quad-grid{display:none}
+.rt-video.media-missing .quad-grid{display:none}
+.rt-video.media-missing .media-fallback{display:grid}
 
 .rt-timer{position:relative;padding:14px 18px;background:var(--inset-grad);border:1px solid var(--line);border-radius:12px;display:flex;align-items:center;gap:18px;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
 .rt-timer .bar{flex:1;height:18px;border-radius:9px;background:#04060f;border:1px solid var(--line);box-shadow:inset 0 2px 4px rgba(0,0,0,.7);overflow:hidden;position:relative}
@@ -1064,12 +1075,17 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 
     <!-- CENTER STAGE -->
     <section class="rt-stage">
-      <div class="rt-video">
-        <div class="quad"><div class="ovl t"><span>DR J</span><span>04:21</span></div></div>
-        <div class="quad"><div class="ovl t"><span>STUDENT A</span><span>04:21</span></div></div>
-        <div class="quad"><div class="ovl t"><span>STUDENT B</span><span>04:21</span></div></div>
-        <div class="quad"><div class="ovl t"><span>BOARD</span><span>04:21</span></div></div>
-        <div class="ovl b" style="position:absolute;left:0;right:0;bottom:0"><span>NEURO-07 &middot; PAUSED AT 04:21</span><span>SOUND MED</span></div>
+      <div class="rt-video" id="rtVideoStage">
+        <iframe class="media-frame" id="rtMediaFrame" title="Daily drill media" loading="lazy" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        <video class="media-video" id="rtMediaVideo" controls playsinline preload="metadata"></video>
+        <div class="quad-grid" id="rtFallbackGrid">
+          <div class="quad"><div class="ovl t"><span>DR J</span><span>04:21</span></div></div>
+          <div class="quad"><div class="ovl t"><span>STUDENT A</span><span>04:21</span></div></div>
+          <div class="quad"><div class="ovl t"><span>STUDENT B</span><span>04:21</span></div></div>
+          <div class="quad"><div class="ovl t"><span>BOARD</span><span>04:21</span></div></div>
+        </div>
+        <div class="media-fallback" id="rtMediaFallback"><div><strong>Media not loaded</strong><span>Continue with prompts only. Session result remains browser-session only.</span></div></div>
+        <div class="ovl b" style="position:absolute;left:0;right:0;bottom:0"><span id="rtMediaLabel">NEURO-07 &middot; PROMPT MODE</span><span>SOUND MED</span></div>
       </div>
 
       <div class="rt-timer">
@@ -1385,6 +1401,62 @@ function updateDrillsUrl(params){
     Object.keys(params || {}).forEach(key => next.searchParams.set(key, params[key]));
     window.history.replaceState({}, '', next.toString());
   }catch(_error){}
+}
+function runtimeMediaSource(session){
+  const media = Bridge.getMediaSource(session || {});
+  const direct = safeText(media.r2_url, '');
+  if(direct && isAllowedRuntimeAssetUrl(direct)){
+    const iframeLike = /iframe\.videodelivery\.net/i.test(direct);
+    return { type: iframeLike ? 'iframe' : 'video', url: direct, media };
+  }
+  const streamId = safeText(media.stream_uid, '');
+  if(streamId){
+    const streamUrl = 'https://iframe.videodelivery.net/' + encodeURIComponent(streamId);
+    if(isAllowedRuntimeAssetUrl(streamUrl)) return { type: 'iframe', url: streamUrl, media };
+  }
+  return { type: '', url: '', media };
+}
+function paintRuntimeMedia(session){
+  const stage = document.getElementById('rtVideoStage');
+  const frame = document.getElementById('rtMediaFrame');
+  const video = document.getElementById('rtMediaVideo');
+  const fallback = document.getElementById('rtMediaFallback');
+  const label = document.getElementById('rtMediaLabel');
+  if(!stage || !frame) return;
+  const source = runtimeMediaSource(session);
+  const media = source.media || Bridge.getMediaSource(session || {});
+  stage.classList.remove('has-media','has-video','media-missing');
+  frame.removeAttribute('src');
+  if(video){
+    video.pause();
+    video.removeAttribute('src');
+    video.load();
+  }
+  if(fallback){
+    fallback.innerHTML = '<div><strong>Media not loaded</strong><span>Continue with prompts only. Session result remains browser-session only.</span></div>';
+  }
+  if(source.url){
+    if(source.type === 'iframe'){
+      frame.src = source.url;
+      stage.classList.add('has-media');
+    }else if(video){
+      video.src = source.url;
+      stage.classList.add('has-video');
+    }
+    if(label) label.textContent = safeText(session && (session.title || session.video_id || session.id), 'Daily drill') + ' · MEDIA LOADED';
+    log('runtime_media_loaded', { video_id: media.video_id, media_type: source.type, has_stream: !!media.stream_uid, has_url: !!media.r2_url });
+    return;
+  }
+  if(media.r2_url || media.stream_uid){
+    stage.classList.add('media-missing');
+    if(fallback){
+      fallback.innerHTML = '<div><strong>Media blocked</strong><span>Approved HTTPS media URL required. Continue with prompt-only recall.</span></div>';
+    }
+    if(label) label.textContent = safeText(media.video_id, 'Daily drill') + ' · MEDIA UNAVAILABLE';
+    log('runtime_media_unavailable', { video_id: media.video_id, has_stream: !!media.stream_uid, has_url: !!media.r2_url });
+    return;
+  }
+  if(label) label.textContent = safeText(session && (session.title || session.video_id || session.id), 'Daily drill') + ' · PROMPT MODE';
 }
 function paintDailyResultNotice(){
   const el = document.getElementById('dailyResultNotice');
@@ -1884,6 +1956,7 @@ async function openRuntime(){
             times:[],flagged:[],paused:false};
   document.getElementById('rtCtx').textContent=(STATE.session.sub||'CARDIO').toUpperCase();
   document.getElementById('rtSes').textContent=STATE.session.id;
+  paintRuntimeMedia(STATE.session);
   document.getElementById('runtimeShell').classList.add('live');
   document.getElementById('opRt').textContent='running';
   paintQuestion();log('runtime_opened');

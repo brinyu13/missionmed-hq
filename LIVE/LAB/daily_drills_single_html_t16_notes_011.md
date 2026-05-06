@@ -77,3 +77,17 @@ The follow-up parity pass kept the single-file T-16 shell and added small non-wi
 - Normalizes the visible summary card from the bridge payload so `score`, `correct_count`, `missed_count`, and `out_of_time_count` display correctly.
 
 Remaining limit: the prior large Drills video/media runtime was not fully reintroduced. This candidate is now stronger for bridge/runtime parity, but media playback and production registry validation still require Wiring Authority review before deploy or promotion.
+
+## Essential Engine Add-Back 013 Notes
+
+The 013 pass classified full legacy player/MMOS parity as too broad for this non-wiring thread, but added the smallest essential media support needed for real single-file Drills use:
+
+- Runtime now renders an approved media embed when the selected drill supplies `playback_url` or `stream_id`.
+- Cloudflare Stream IDs are converted to `https://iframe.videodelivery.net/...` embeds.
+- Direct approved media URLs use a native browser video element with controls.
+- Existing HTTPS runtime asset allowlist is reused before loading media.
+- If no media is available, the existing prompt-only visual fallback remains visible.
+- If media metadata exists but is not on an approved URL, the runtime shows an honest blocked-media fallback and continues prompt-only.
+- No backend registry fetch, auth, Supabase, Railway, WordPress, R2/CDN, STAT, Arena, or deploy behavior was changed.
+
+Remaining limit: legacy `/api/drills` hydration, MMOS/topbar behavior, rich player timing/seek controls, notes review, and audio polish remain deferred or Wiring Authority dependent. This candidate should still be browser-validated by Wiring Authority before any promotion.
