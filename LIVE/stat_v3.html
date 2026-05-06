@@ -1,6 +1,6 @@
 <!--
   LIVE/stat_v3.html
-  STAT V3 wiring-ready twin | Non-deployed parallel preview.
+  STAT V3 wiring-ready twin | Internal parallel preview.
   This file adapts the T-11 STAT V3 UI shell without replacing LIVE/stat.html.
   It preserves the existing screen IDs (#screen-version, #screen-setup,
   #screen-matchup, #screen-countdown, #screen-play, #screen-results).
@@ -8,10 +8,10 @@
   ============================================================
   WIRING AUTHORITY NOTES
   ============================================================
-  1. This is not live and not production-ready.
+  1. This is not the production STAT route and not production-ready.
   2. Current /stat and LIVE/stat.html remain the wiring authority.
   3. Player, opponent, avatar, sealed pack, submit, and result data are read
-     only through adapter inputs supplied by a future private route.
+     only through adapter inputs supplied by a future live adapter route.
   4. Gameplay is blocked when live adapter inputs are unavailable.
   5. Theme persistence remains localStorage key 'mm_stat_theme'.
 
@@ -21,7 +21,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-<title>STAT! | MissionMed</title>
+<title>STAT V3 Lab | MissionMed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bungee&family=Bungee+Inline&family=Russo+One&family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&display=swap" rel="stylesheet" />
@@ -142,6 +142,8 @@ img{display:block;max-width:100%}
 .mm-theme-btn[data-mode="dark"] .ico::before{content:'';width:10px;height:10px;border-radius:50%;background:#fcd34d;box-shadow:inset -3px -1px 0 currentColor;color:#04122a}
 .mm-theme-btn[data-mode="light"] .ico::before{content:'';width:10px;height:10px;border-radius:50%;background:#fcd34d;box-shadow:0 0 4px #fcd34d,0 0 8px rgba(252,211,77,.5)}
 .mm-theme-btn[data-mode="auto"] .ico::before{content:'';width:10px;height:10px;border-radius:50%;background:linear-gradient(90deg,#04122a 50%,#fcd34d 50%);border:1px solid currentColor}
+.mm-arena-link{display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;font-family:var(--f-bebas);font-size:13px;letter-spacing:2px;color:var(--fg);background:var(--tab-bg);border:2px solid var(--tab-border);border-radius:10px;text-transform:uppercase;white-space:nowrap}
+.mm-arena-link:hover{border-color:var(--accent-2);color:var(--accent-2)}
 
 /* [CODEX] dev-only scenario toggle | REMOVE for production */
 .mm-scenario{display:flex;gap:5px;background:var(--tab-bg);padding:5px;border-radius:10px;border:2px solid var(--tab-border)}
@@ -593,6 +595,7 @@ img{display:block;max-width:100%}
       </div>
     </div>
     <div class="mm-topbar-spacer"></div>
+    <a class="mm-arena-link" id="back-arena" href="https://missionmedinstitute.com/arena">Back to Arena</a>
 
     <div class="mm-theme" id="theme-toggle">
       <button class="mm-theme-btn" data-mode="dark"><span class="ico"></span>DARK SIDE</button>
@@ -600,7 +603,7 @@ img{display:block;max-width:100%}
       <button class="mm-theme-btn active" data-mode="auto"><span class="ico"></span>AUTO</button>
     </div>
 
-    <div class="mm-scenario" id="scenarios" title="Non-deployed STAT V3 wiring preview">
+    <div class="mm-scenario" id="scenarios" title="STAT V3 wiring preview">
       <span class="mm-scn-label">V3 LAB</span>
       <span class="mm-scn active" aria-disabled="true">WIRING PREVIEW</span>
     </div>
@@ -636,6 +639,11 @@ const STAT_V3_AUTH_CONTRACT=Object.freeze({
   bootstrapPath:'/api/auth/bootstrap',
   sessionPath:'/api/auth/session'
 });
+const STAT_V3_BACK_TO_ARENA_URL='https://missionmedinstitute.com/arena';
+const STAT_V3_LAB_LAUNCH_ENVELOPE_KEY='mm.stat.v3.lab.launch.v1';
+const STAT_LEGACY_LAUNCH_ENVELOPE_KEY='mm.stat.launch.v1';
+const STAT_V3_LAUNCH_ENVELOPE_VERSION='v1';
+const STAT_V3_LAUNCH_ENVELOPE_TTL_MS=5*60*1000;
 
 const EMPTY_STATS=Object.freeze({win:'-',acc:'-',spd:'-',streak:'-',ovr:'-',rank:'-'});
 const FALLBACK_YOU=Object.freeze({id:'',name:'Live player pending',school:'',schoolName:'MissionMed',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Avatar pending',stats:EMPTY_STATS});
@@ -656,13 +664,80 @@ function statInitials(name){
   if(!safe)return 'MM';
   return safe.split(/\s+/).slice(0,2).map(part=>part.charAt(0).toUpperCase()).join('')||'MM';
 }
+function escapeHtml(value){
+  return String(value==null?'':value).replace(/[&<>"']/g,ch=>({
+    '&':'&amp;',
+    '<':'&lt;',
+    '>':'&gt;',
+    '"':'&quot;',
+    "'":'&#39;'
+  }[ch]));
+}
+function safeClassToken(value,fallback){
+  const safe=String(value||fallback||'').toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  return safe||fallback||'rare';
+}
 function liveContext(){return safeObj(window.MM_STAT_V3_CONTEXT);}
+function objectHasKeys(value){return !!(value&&typeof value==='object'&&Object.keys(value).length);}
+function safeJsonParse(raw){
+  if(typeof raw!=='string'||!raw.trim())return {};
+  try{return safeObj(JSON.parse(raw));}catch(e){return {};}
+}
+function readSessionJson(key){
+  try{return safeJsonParse(sessionStorage.getItem(key)||'');}catch(e){return {};}
+}
+function isFreshArenaLaunchEnvelope(payload){
+  const source=safeObj(payload);
+  const version=String(source.version||'').trim();
+  const origin=String(source.source||'').trim().toLowerCase();
+  const launchedAt=String(source.launched_at||'').trim();
+  const launchedMs=Date.parse(launchedAt);
+  return version===STAT_V3_LAUNCH_ENVELOPE_VERSION
+    && origin==='arena'
+    && Number.isFinite(launchedMs)
+    && Date.now()-launchedMs>=0
+    && Date.now()-launchedMs<=STAT_V3_LAUNCH_ENVELOPE_TTL_MS;
+}
+function firstObjectCandidate(candidates){
+  for(const item of candidates){
+    const value=safeObj(item&&item.value);
+    if(objectHasKeys(value))return {value,source:String(item.source||'adapter')};
+  }
+  return {value:{},source:''};
+}
+function readLaunchEnvelopeCandidate(){
+  const ctx=liveContext();
+  const explicit=firstObjectCandidate([
+    {value:ctx.launchEnvelope,source:'MM_STAT_V3_CONTEXT.launchEnvelope'},
+    {value:ctx.launch,source:'MM_STAT_V3_CONTEXT.launch'},
+    {value:window.MM_STAT_V3_LAUNCH_ENVELOPE,source:'window.MM_STAT_V3_LAUNCH_ENVELOPE'},
+    {value:window.MM_STAT_V3_LAUNCH,source:'window.MM_STAT_V3_LAUNCH'}
+  ]);
+  if(explicit.source)return explicit;
+
+  const v3Launch=readSessionJson(STAT_V3_LAB_LAUNCH_ENVELOPE_KEY);
+  if(isFreshArenaLaunchEnvelope(v3Launch))return {value:v3Launch,source:STAT_V3_LAB_LAUNCH_ENVELOPE_KEY};
+
+  const legacyLaunch=readSessionJson(STAT_LEGACY_LAUNCH_ENVELOPE_KEY);
+  if(isFreshArenaLaunchEnvelope(legacyLaunch))return {value:legacyLaunch,source:STAT_LEGACY_LAUNCH_ENVELOPE_KEY};
+
+  return {value:{},source:''};
+}
+const STAT_V3_LAUNCH_CONTEXT=readLaunchEnvelopeCandidate();
+function launchEnvelope(){return safeObj(STAT_V3_LAUNCH_CONTEXT.value);}
+function launchEnvelopeSource(){return STAT_V3_LAUNCH_CONTEXT.source||'';}
+function currentRouteCanReadArenaSessionStorage(){
+  try{
+    const host=String(window.location.hostname||'').toLowerCase();
+    return host==='missionmedinstitute.com'||host==='www.missionmedinstitute.com'||host==='localhost'||host==='127.0.0.1';
+  }catch(e){return false;}
+}
 function liveDuelPack(){
   const ctx=liveContext();
   const duel=safeObj(window.MM_DUEL);
   return safeObj(ctx.sealedQuestionPack||ctx.questionPack||ctx.currentPack||duel.CURRENT_PACK);
 }
-function normalizePlayer(input,fallback){
+function normalizePlayer(input,fallback,sourceLabel){
   const source=safeObj(input);
   const avatarObj=safeObj(source.avatar);
   const avatarSnapshot=safeObj(source.avatar_snapshot||source.avatarSnapshot||avatarObj.snapshot);
@@ -677,8 +752,9 @@ function normalizePlayer(input,fallback){
     schoolName:pickText([source.schoolName,source.school_name,source.institution,fallback.schoolName]),
     headshot_url:headshot,
     fullbody_url:fullbody,
-    rarity:pickText([source.rarity,fallback.rarity])||'rare',
+    rarity:safeClassToken(pickText([source.rarity,fallback.rarity]),'rare'),
     skin_name:pickText([source.skin_name,source.avatar_name,fallback.skin_name])||'Avatar pending',
+    source:sourceLabel||'',
     stats:{
       win:pickText([stats.win,stats.win_rate,source.win_rate]),
       acc:pickText([stats.acc,stats.accuracy,source.accuracy]),
@@ -689,13 +765,36 @@ function normalizePlayer(input,fallback){
     }
   };
 }
-function readCurrentUser(){
+function readCurrentUserCandidate(){
   const ctx=liveContext();
-  return normalizePlayer(ctx.currentUser||ctx.user||ctx.player||safeObj(window.MM_USER),FALLBACK_YOU);
+  const launch=launchEnvelope();
+  return firstObjectCandidate([
+    {value:ctx.currentUser,source:'MM_STAT_V3_CONTEXT.currentUser'},
+    {value:ctx.user,source:'MM_STAT_V3_CONTEXT.user'},
+    {value:ctx.player,source:'MM_STAT_V3_CONTEXT.player'},
+    {value:launch.currentUser,source:'launchEnvelope.currentUser'},
+    {value:launch.user,source:'launchEnvelope.user'},
+    {value:launch.user_hint,source:'launchEnvelope.user_hint'}
+  ]);
+}
+function readMatchedOpponentCandidate(){
+  const ctx=liveContext();
+  const launch=launchEnvelope();
+  return firstObjectCandidate([
+    {value:ctx.matchedOpponent,source:'MM_STAT_V3_CONTEXT.matchedOpponent'},
+    {value:ctx.opponent,source:'MM_STAT_V3_CONTEXT.opponent'},
+    {value:ctx.activeOpponent,source:'MM_STAT_V3_CONTEXT.activeOpponent'},
+    {value:launch.matchedOpponent,source:'launchEnvelope.matchedOpponent'},
+    {value:launch.opponent,source:'launchEnvelope.opponent'}
+  ]);
+}
+function readCurrentUser(){
+  const candidate=readCurrentUserCandidate();
+  return normalizePlayer(candidate.value,FALLBACK_YOU,candidate.source);
 }
 function readMatchedOpponent(){
-  const ctx=liveContext();
-  return normalizePlayer(ctx.matchedOpponent||ctx.opponent||ctx.activeOpponent,FALLBACK_OPP);
+  const candidate=readMatchedOpponentCandidate();
+  return normalizePlayer(candidate.value,FALLBACK_OPP,candidate.source);
 }
 function normalizeChoices(rawChoices){
   if(Array.isArray(rawChoices)){
@@ -740,10 +839,11 @@ function hasSubmitHandler(){
 }
 function readinessReasons(){
   const reasons=[];
-  if(!YOU.id)reasons.push('Live currentUser was not supplied to the V3 adapter.');
+  if(!YOU.id)reasons.push('Live currentUser was not supplied through MM_STAT_V3_CONTEXT or a fresh same-origin Arena launch envelope.');
   if(!OPP.id)reasons.push('Live matchedOpponent was not supplied to the V3 adapter.');
   if(!QUESTIONS.length)reasons.push('No sealed STAT question pack is available to this twin.');
   if(!hasSubmitHandler())reasons.push('No live answer submit handler is attached.');
+  if(!launchEnvelopeSource()&&!currentRouteCanReadArenaSessionStorage())reasons.push('Current CDN route cannot read first-party Arena sessionStorage; use a first-party adapter route for identity handoff.');
   return reasons;
 }
 function wiringIsReady(){return readinessReasons().length===0;}
@@ -754,10 +854,17 @@ const QUESTIONS=readLiveQuestions();
 const LIVE_RESULT=readLiveResult();
 const STAT_V3_ADAPTER={
   authContract:STAT_V3_AUTH_CONTRACT,
+  backToArenaUrl:STAT_V3_BACK_TO_ARENA_URL,
   currentUser:YOU,
   matchedOpponent:OPP,
   questions:QUESTIONS,
   resultPayload:LIVE_RESULT,
+  sourceState:{
+    launchEnvelope:launchEnvelopeSource()||'waiting',
+    currentUser:YOU.source||'waiting',
+    matchedOpponent:OPP.source||'waiting',
+    routeCanReadArenaSessionStorage:currentRouteCanReadArenaSessionStorage()
+  },
   isReady:wiringIsReady,
   submitChoice(payload){
     const ctx=liveContext();
@@ -771,7 +878,7 @@ const STAT_V3_ADAPTER={
 window.MM_STAT_V3_ADAPTER=STAT_V3_ADAPTER;
 
 const MODES=[
-  {id:'stat-v3',title:'STAT V3 Lab',tag:'NON-DEPLOYED TWIN',desc:'A wiring-ready shell that waits for live STAT auth, identity, avatar, sealed-pack, submit, and result adapters before gameplay is allowed.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'0',l:'LIVE QUESTIONS'},{v:YOU.id?'READY':'WAITING',l:'USER'},{v:OPP.id?'READY':'WAITING',l:'OPPONENT'}],cta:'OPEN PREVIEW'},
+  {id:'stat-v3',title:'STAT V3 Lab',tag:'INTERNAL PREVIEW',desc:'A wiring-ready shell that waits for live STAT auth, identity, avatar, sealed-pack, submit, and result adapters before gameplay is allowed.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'0',l:'LIVE QUESTIONS'},{v:YOU.id?'READY':'WAITING',l:'USER'},{v:OPP.id?'READY':'WAITING',l:'OPPONENT'}],cta:'OPEN PREVIEW'},
   {id:'stat-live',title:'Current STAT',tag:'LEGACY LIVE AUTHORITY',desc:'The existing /stat runtime remains untouched and is still the only deployed student STAT experience.',status:'legacy',stats:[{v:'/stat',l:'LIVE ROUTE'},{v:'LOCKED',l:'AUTH'},{v:'SAFE',l:'ROLLBACK'}],cta:'UNCHANGED'}
 ];
 
@@ -837,13 +944,13 @@ spawnParticles('bg-particles',32,2,5);
 function fbPodium(player,size,opts){
   opts=opts||{};
   const cls=size==='small'?'small':size==='tiny'?'tiny':size==='large'?'large':'';
-  const rarity=opts.rarity||player.rarity||'rare';
+  const rarity=safeClassToken(opts.rarity||player.rarity,'rare');
   const opp=opts.opp?'opp':'';
   const skinName=opts.skinName||player.skin_name||'LANE GUARDIAN';
   const showPlate=opts.showPlate!==false;
   const image=player.fullbody_url
-    ? `<img src="${player.fullbody_url}" alt="${player.name}"/>`
-    : `<div class="stat-v3-placeholder">${statInitials(player.name)}</div>`;
+    ? `<img src="${escapeHtml(player.fullbody_url)}" alt="${escapeHtml(player.name)}"/>`
+    : `<div class="stat-v3-placeholder">${escapeHtml(statInitials(player.name))}</div>`;
   return `<div class="fb-podium ${cls} ${rarity} ${opp}">
     <div class="glow"></div>
     <div class="holo"></div>
@@ -851,7 +958,7 @@ function fbPodium(player,size,opts){
     <div class="ring"></div>
     <div class="spotlight"></div>
     <div class="char">${image}</div>
-    ${showPlate?`<div class="skin-plate"><strong>${rarity.toUpperCase()}</strong>${skinName}</div>`:''}
+    ${showPlate?`<div class="skin-plate"><strong>${escapeHtml(rarity.toUpperCase())}</strong>${escapeHtml(skinName)}</div>`:''}
   </div>`;
 }
 
@@ -859,34 +966,38 @@ function fbPodium(player,size,opts){
 function fbHead(player,size,opts){
   opts=opts||{};
   const sz=size||'';
-  const rarity=opts.rarity||player.rarity||'rare';
+  const rarity=safeClassToken(opts.rarity||player.rarity,'rare');
   const opp=opts.opp?'opp':'';
   const image=player.headshot_url
-    ? `<img src="${player.headshot_url}" alt="${player.name}"/>`
-    : `<div class="stat-v3-placeholder">${statInitials(player.name)}</div>`;
+    ? `<img src="${escapeHtml(player.headshot_url)}" alt="${escapeHtml(player.name)}"/>`
+    : `<div class="stat-v3-placeholder">${escapeHtml(statInitials(player.name))}</div>`;
   return `<div class="fb-head ${sz} ${rarity} ${opp}">${image}</div>`;
 }
 
 function statQuestionRing(points){const safe=Number.isFinite(Number(points))?Number(points):0;const dash=283;const offset=dash*(1-Math.max(0,Math.min(1,safe/100)));return `<div class="stat-q-ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="45"/><circle class="bar" cx="50" cy="50" r="45" style="stroke-dashoffset:${offset}"/></svg><div class="label"><div class="v">${safe||'-'}</div><div class="l">PTS</div></div></div>`;}
 
-function statStatusItems(items){return `<ul class="stat-v3-status-list">${items.map(item=>`<li>${item}</li>`).join('')}</ul>`;}
+function statStatusItems(items){return `<ul class="stat-v3-status-list">${items.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>`;}
 function wiringBlockedPanel(title,items){
   const list=Array.isArray(items)&&items.length?items:readinessReasons();
-  return `<div class="stat-v3-blocked"><div><h3>${title}</h3><p>This STAT V3 twin is intentionally blocked from local gameplay until the live STAT adapter supplies identity, opponent, sealed pack, submit, and result contracts.</p>${statStatusItems(list)}</div></div>`;
+  return `<div class="stat-v3-blocked"><div><h3>${title}</h3><p>This STAT V3 twin is intentionally blocked from local gameplay until the live STAT adapter supplies identity, opponent, sealed pack, submit, and result contracts.</p>${statStatusItems(list)}<p style="margin-top:18px"><a class="result-cta alt" href="${STAT_V3_BACK_TO_ARENA_URL}">Back to Arena</a></p></div></div>`;
 }
 
 function statHistory(upTo){
   if(!QUESTIONS.length)return `<div class="stat-q-history-row live"><div class="qn">-</div><div class="topic">WAITING</div><div class="qtxt">No sealed live STAT pack connected.</div><div class="qtime">-</div><div class="qpts">-</div></div>`;
-  return QUESTIONS.slice(0,upTo).map((q,i)=>`<div class="stat-q-history-row live"><div class="qn">${i+1}</div><div class="topic">${q.topic}</div><div class="qtxt">${q.q}</div><div class="qtime">${q.time==null?'-':q.time+'s'}</div><div class="qpts">${q.pts==null?'-':q.pts}</div></div>`).join('');
+  return QUESTIONS.slice(0,upTo).map((q,i)=>`<div class="stat-q-history-row live"><div class="qn">${i+1}</div><div class="topic">${escapeHtml(q.topic)}</div><div class="qtxt">${escapeHtml(q.q)}</div><div class="qtime">${escapeHtml(q.time==null?'-':q.time+'s')}</div><div class="qpts">${escapeHtml(q.pts==null?'-':q.pts)}</div></div>`).join('');
 }
 
-function statLane(player,opts){const o=Object.assign({tag:'YOU',score:'-',correct:'-',avg:'-',streak:'-',statusLabel:'Awaiting live adapter',statusCls:'thinking'},opts);return `<div class="stat-lane ${o.opp?'opp':''}"><div class="stat-lane-head"><span class="stat-lane-tag">${o.tag}</span></div><div><div class="stat-lane-name">${player.name.toUpperCase()}</div><div class="stat-lane-school">${player.schoolName.toUpperCase()} | ${o.lane||(o.opp?'RIGHT LANE':'LEFT LANE')}</div></div><div class="stat-lane-score">${o.score}</div><div class="stat-lane-stats"><div class="stat-lane-stat"><div class="v">${o.correct}</div><div class="l">CORRECT</div></div><div class="stat-lane-stat"><div class="v">${o.avg}</div><div class="l">AVG TIME</div></div><div class="stat-lane-stat"><div class="v">${o.streak}</div><div class="l">STREAK</div></div></div>${o.statusLabel?`<div class="stat-lane-status ${o.statusCls}">${o.statusLabel}</div>`:''}<div class="stat-lane-podium">${fbPodium(player,'small',{opp:o.opp})}</div></div>`;}
+function statLane(player,opts){
+  const o=Object.assign({tag:'YOU',score:'-',correct:'-',avg:'-',streak:'-',statusLabel:'Awaiting live adapter',statusCls:'thinking'},opts);
+  const statusCls=safeClassToken(o.statusCls,'thinking');
+  return `<div class="stat-lane ${o.opp?'opp':''}"><div class="stat-lane-head"><span class="stat-lane-tag">${escapeHtml(o.tag)}</span></div><div><div class="stat-lane-name">${escapeHtml(String(player.name||'').toUpperCase())}</div><div class="stat-lane-school">${escapeHtml(String(player.schoolName||'').toUpperCase())} | ${escapeHtml(o.lane||(o.opp?'RIGHT LANE':'LEFT LANE'))}</div></div><div class="stat-lane-score">${escapeHtml(o.score)}</div><div class="stat-lane-stats"><div class="stat-lane-stat"><div class="v">${escapeHtml(o.correct)}</div><div class="l">CORRECT</div></div><div class="stat-lane-stat"><div class="v">${escapeHtml(o.avg)}</div><div class="l">AVG TIME</div></div><div class="stat-lane-stat"><div class="v">${escapeHtml(o.streak)}</div><div class="l">STREAK</div></div></div>${o.statusLabel?`<div class="stat-lane-status ${statusCls}">${escapeHtml(o.statusLabel)}</div>`:''}<div class="stat-lane-podium">${fbPodium(player,'small',{opp:o.opp})}</div></div>`;
+}
 
 function statCenter(qIndex){
   if(!QUESTIONS.length)return wiringBlockedPanel('Pack not connected',readinessReasons());
   const q=QUESTIONS[qIndex]||QUESTIONS[0];
-  const choices=q.choices.map((c,index)=>`<button class="stat-q-choice" data-choice-index="${index}" data-question-id="${q.id}" ${hasSubmitHandler()?'':'disabled'}><div class="k">${c.k}</div><div class="t">${c.t}</div></button>`).join('');
-  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">ASYNC DUEL</div><div class="s">SEALED LIVE PACK | V3 UI TWIN</div></div><div class="stat-pressure neutral">LIVE ADAPTER REQUIRED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${q.topic}</span><div class="stat-q-text">${q.q}</div><div class="stat-q-choices">${choices}</div><div class="stat-v3-live-status" id="stat-v3-live-status">${hasSubmitHandler()?'Ready to call live submit handler.':'Submit blocked: no live handler attached.'}</div></div><div class="stat-q-meta"><div class="stat-q-counter"><span class="n">${qIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}</div></div><div class="stat-q-history"><h4>QUESTION LOG</h4>${statHistory(qIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span><span class="stat-ticker-item">NO LOCAL SCORING</span><span class="stat-ticker-item">V3 TWIN IS NOT LIVE</span><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span></div></div></div>`;
+  const choices=q.choices.map((c,index)=>`<button class="stat-q-choice" data-choice-index="${index}" data-question-id="${escapeHtml(q.id)}" ${hasSubmitHandler()?'':'disabled'}><div class="k">${escapeHtml(c.k)}</div><div class="t">${escapeHtml(c.t)}</div></button>`).join('');
+  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">ASYNC DUEL</div><div class="s">SEALED LIVE PACK | V3 UI TWIN</div></div><div class="stat-pressure neutral">LIVE ADAPTER REQUIRED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div><div class="stat-v3-live-status" id="stat-v3-live-status">${hasSubmitHandler()?'Ready to call live submit handler.':'Submit blocked: no live handler attached.'}</div></div><div class="stat-q-meta"><div class="stat-q-counter"><span class="n">${qIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}</div></div><div class="stat-q-history"><h4>QUESTION LOG</h4>${statHistory(qIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span><span class="stat-ticker-item">NO LOCAL SCORING</span><span class="stat-ticker-item">V3 TWIN IS NOT LIVE</span><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span></div></div></div>`;
 }
 
 document.addEventListener('click',async(event)=>{
@@ -906,7 +1017,7 @@ document.addEventListener('click',async(event)=>{
 
 function statValue(value,suffix){
   const safe=String(value==null?'-':value).trim()||'-';
-  return safe==='-'?safe:safe+(suffix||'');
+  return escapeHtml(safe==='-'?safe:safe+(suffix||''));
 }
 function resultValue(payload,keys,fallback){
   const source=safeObj(payload);
@@ -952,7 +1063,7 @@ RENDERERS['1']=function(){
     <div class="s-version">
       <div class="s-version-main">
         <div class="s-version-head">
-          <span class="eyebrow">STAT V3 LAB | NON-DEPLOYED TWIN</span>
+          <span class="eyebrow">STAT V3 LAB | INTERNAL PREVIEW</span>
           <h1>Wire the <span class="acc">future</span>.</h1>
           <div class="sub">LIVE CONTRACTS REQUIRED | CURRENT /STAT UNTOUCHED | NO LOCAL SCORING</div>
         </div>
@@ -962,8 +1073,8 @@ RENDERERS['1']=function(){
         <h3>YOUR PROFILE</h3>
         <div class="profile-pod-wrap">${fbPodium(YOU)}</div>
         <div class="profile-info">
-          <div class="nm">${YOU.name.toUpperCase()}</div>
-          <div class="sub">${YOU.schoolName.toUpperCase()} | RANK ${YOU.stats.rank}</div>
+          <div class="nm">${escapeHtml(String(YOU.name||'').toUpperCase())}</div>
+          <div class="sub">${escapeHtml(String(YOU.schoolName||'').toUpperCase())} | RANK ${escapeHtml(YOU.stats.rank)}</div>
         </div>
         <div class="profile-stats">
           <div class="profile-stat"><div class="v">${statValue(YOU.stats.win,'%')}</div><div class="l">WIN RATE</div></div>
@@ -975,6 +1086,8 @@ RENDERERS['1']=function(){
           <div class="profile-rank-head"><span>LIVE ADAPTER STATUS</span><span class="v">${wiringIsReady()?'READY':'BLOCKED'}</span></div>
           <div class="profile-rank-bar"><div class="fill" style="width:${wiringIsReady()?'100':'18'}%"></div></div>
         </div>
+        <div class="summary-row"><span>USER SOURCE</span><span class="v">${escapeHtml(YOU.source||'WAITING')}</span></div>
+        <div class="summary-row"><span>LAUNCH SOURCE</span><span class="v">${escapeHtml(launchEnvelopeSource()||'WAITING')}</span></div>
         ${statStatusItems(readinessReasons())}
       </aside>
     </div>`;
@@ -988,7 +1101,7 @@ RENDERERS['2']=function(){
       <div class="s-setup-main">
         <div class="s-setup-head">
           <h2>Connect live <span class="acc">wiring.</span></h2>
-          <div class="sub">This twin does not create matches locally. A future private route must provide the same live STAT identity, opponent, sealed pack, submit, and result contracts used by /stat.</div>
+          <div class="sub">This twin does not create matches locally. It can consume explicit MM_STAT_V3_CONTEXT data or a fresh same-origin Arena launch envelope, then waits for the same live STAT opponent, sealed pack, submit, and result contracts used by /stat.</div>
         </div>
         <div class="cfg-group">
           <div class="cfg-label">OPPONENT POOL</div>
@@ -1037,6 +1150,7 @@ RENDERERS['2']=function(){
         <div class="summary-row"><span>OPPONENT</span><span class="v">${OPP.id?'CONNECTED':'WAITING'}</span></div>
         <div class="summary-row"><span>QUESTIONS</span><span class="v">${QUESTIONS.length}</span></div>
         <div class="summary-row"><span>SUBMIT HANDLER</span><span class="v">${hasSubmitHandler()?'CONNECTED':'WAITING'}</span></div>
+        <div class="summary-row"><span>ROUTE HANDOFF</span><span class="v">${currentRouteCanReadArenaSessionStorage()?'SAME ORIGIN':'CDN BLOCKED'}</span></div>
         <div class="summary-row big"><span>GAMEPLAY</span><span class="v">${wiringIsReady()?'READY':'BLOCKED'}</span></div>
         <button class="summary-cta" disabled>PRIVATE ROUTE REQUIRED</button>
         <div class="trust-pill" style="margin:0 auto">CURRENT /STAT UNTOUCHED</div>
@@ -1057,24 +1171,24 @@ RENDERERS['3']=function(){
         <div class="tape-side you">
           <span class="tape-corner">YOUR LANE</span>
           <div class="tape-portrait">${fbPodium(YOU)}</div>
-          <div class="tape-name">${YOU.name}</div>
-          <div class="tape-school">${YOU.schoolName.toUpperCase()}</div>
-          <div class="tape-rank">RANK ${YOU.stats.rank} | SEASON 1</div>
+          <div class="tape-name">${escapeHtml(YOU.name)}</div>
+          <div class="tape-school">${escapeHtml(String(YOU.schoolName||'').toUpperCase())}</div>
+          <div class="tape-rank">RANK ${escapeHtml(YOU.stats.rank)} | SEASON 1</div>
         </div>
         <div class="tape-mid">
-          <div class="tape-row"><div class="v you">${YOU.stats.rank}</div><div class="l">RANK</div><div class="v opp">${OPP.stats.rank}</div></div>
+          <div class="tape-row"><div class="v you">${escapeHtml(YOU.stats.rank)}</div><div class="l">RANK</div><div class="v opp">${escapeHtml(OPP.stats.rank)}</div></div>
           <div class="tape-row"><div class="v you">${statValue(YOU.stats.win,'%')}</div><div class="l">WIN RATE</div><div class="v opp">${statValue(OPP.stats.win,'%')}</div></div>
           <div class="tape-row"><div class="v you">${statValue(YOU.stats.acc,'%')}</div><div class="l">ACCURACY</div><div class="v opp">${statValue(OPP.stats.acc,'%')}</div></div>
           <div class="tape-row"><div class="v you">${statValue(YOU.stats.spd,'s')}</div><div class="l">AVG TIME</div><div class="v opp">${statValue(OPP.stats.spd,'s')}</div></div>
-          <div class="tape-row"><div class="v you">${YOU.stats.streak}</div><div class="l">STREAK</div><div class="v opp">${OPP.stats.streak}</div></div>
-          <div class="tape-row"><div class="v you">${YOU.stats.ovr}</div><div class="l">OVR</div><div class="v opp">${OPP.stats.ovr}</div></div>
+          <div class="tape-row"><div class="v you">${escapeHtml(YOU.stats.streak)}</div><div class="l">STREAK</div><div class="v opp">${escapeHtml(OPP.stats.streak)}</div></div>
+          <div class="tape-row"><div class="v you">${escapeHtml(YOU.stats.ovr)}</div><div class="l">OVR</div><div class="v opp">${escapeHtml(OPP.stats.ovr)}</div></div>
         </div>
         <div class="tape-side opp">
           <span class="tape-corner">RIVAL</span>
           <div class="tape-portrait">${fbPodium(OPP,'',{opp:true,rarity:OPP.rarity})}</div>
-          <div class="tape-name">${OPP.name}</div>
-          <div class="tape-school">${OPP.schoolName.toUpperCase()}</div>
-          <div class="tape-rank">RANK ${OPP.stats.rank} | SEASON 1</div>
+          <div class="tape-name">${escapeHtml(OPP.name)}</div>
+          <div class="tape-school">${escapeHtml(String(OPP.schoolName||'').toUpperCase())}</div>
+          <div class="tape-rank">RANK ${escapeHtml(OPP.stats.rank)} | SEASON 1</div>
         </div>
       </div>
       <div class="s-matchup-cta-row">
@@ -1095,13 +1209,13 @@ RENDERERS['4']=function(){
       <div class="cd-corner">
         <div class="cd-podium">${fbPodium(YOU)}</div>
         <span class="cd-corner-tag">YOUR LANE</span>
-        <div class="cd-corner-name">${YOU.name}</div>
-        <div class="cd-corner-meta">${YOU.schoolName.toUpperCase()} | RANK ${YOU.stats.rank}</div>
+        <div class="cd-corner-name">${escapeHtml(YOU.name)}</div>
+        <div class="cd-corner-meta">${escapeHtml(String(YOU.schoolName||'').toUpperCase())} | RANK ${escapeHtml(YOU.stats.rank)}</div>
       </div>
       <div class="cd-mid">
         <span class="cd-tag">PACK SEALED | WINDOW OPENS</span>
         <div class="cd-num">GO</div>
-        <div class="cd-vs">${YOU.name.split(' ')[0]} vs ${OPP.name.split(' ')[0]}</div>
+        <div class="cd-vs">${escapeHtml(String(YOU.name||'').split(' ')[0])} vs ${escapeHtml(String(OPP.name||'').split(' ')[0])}</div>
         <div class="cd-rules">
           <span class="cd-rule">${QUESTIONS.length} QUESTIONS</span>
           <span class="cd-rule">LIVE CLOCK</span>
@@ -1112,8 +1226,8 @@ RENDERERS['4']=function(){
       <div class="cd-corner opp">
         <div class="cd-podium">${fbPodium(OPP,'',{opp:true,rarity:OPP.rarity})}</div>
         <span class="cd-corner-tag">RIVAL</span>
-        <div class="cd-corner-name">${OPP.name}</div>
-        <div class="cd-corner-meta">${OPP.schoolName.toUpperCase()} | RANK ${OPP.stats.rank}</div>
+        <div class="cd-corner-name">${escapeHtml(OPP.name)}</div>
+        <div class="cd-corner-meta">${escapeHtml(String(OPP.schoolName||'').toUpperCase())} | RANK ${escapeHtml(OPP.stats.rank)}</div>
       </div>
     </div>`;
 };
@@ -1136,20 +1250,20 @@ RENDERERS['6']=function(){
     return;
   }
   const replay=parsed.rows.length
-    ? parsed.rows.map((row,i)=>{const r=safeObj(row);return `<div class="replay-row live"><div class="qn">${i+1}</div><div class="topic">${pickText([r.topic,r.subject,'LIVE'])}</div><div class="qtxt">${pickText([r.q,r.prompt,r.question,r.question_id,'Live answer row'])}</div><div class="qtime">${pickText([r.time,r.time_ms,r.elapsed,'-'])}</div><div class="qpts">${pickText([r.pts,r.points,r.score,'-'])}</div></div>`;}).join('')
+    ? parsed.rows.map((row,i)=>{const r=safeObj(row);return `<div class="replay-row live"><div class="qn">${i+1}</div><div class="topic">${escapeHtml(pickText([r.topic,r.subject,'LIVE']))}</div><div class="qtxt">${escapeHtml(pickText([r.q,r.prompt,r.question,r.question_id,'Live answer row']))}</div><div class="qtime">${escapeHtml(pickText([r.time,r.time_ms,r.elapsed,'-']))}</div><div class="qpts">${escapeHtml(pickText([r.pts,r.points,r.score,'-']))}</div></div>`;}).join('')
     : '<div class="replay-row live"><div class="qn">-</div><div class="topic">LIVE</div><div class="qtxt">Result payload did not include replay rows.</div><div class="qtime">-</div><div class="qpts">-</div></div>';
-  const eloRow=parsed.elo?`<div class="result-elo"><div class="l">ELO CHANGE</div><div class="v ${parsed.elo.charAt(0)==='-'?'down':'up'}">${parsed.elo}</div><div class="l">${parsed.rank||'RANK PAYLOAD'}</div></div>`:'';
+  const eloRow=parsed.elo?`<div class="result-elo"><div class="l">ELO CHANGE</div><div class="v ${parsed.elo.charAt(0)==='-'?'down':'up'}">${escapeHtml(parsed.elo)}</div><div class="l">${escapeHtml(parsed.rank||'RANK PAYLOAD')}</div></div>`:'';
   root.innerHTML=`
     <div class="s-results">
       <div class="result-card">
-        <span class="result-tag">${parsed.verdict}</span>
+        <span class="result-tag">${escapeHtml(parsed.verdict)}</span>
         <div class="result-title">Server result <span class="acc">received.</span></div>
         <div class="result-podium">${fbPodium(YOU,'',{rarity:'legendary'})}</div>
         <div class="result-stats">
-          <div class="result-stat"><div class="v">${parsed.score}</div><div class="l">FINAL SCORE</div></div>
-          <div class="result-stat"><div class="v">${parsed.correct}/${parsed.total}</div><div class="l">CORRECT</div></div>
-          <div class="result-stat"><div class="v">${parsed.avg}</div><div class="l">AVG TIME</div></div>
-          <div class="result-stat"><div class="v">${parsed.streak}</div><div class="l">BEST STREAK</div></div>
+          <div class="result-stat"><div class="v">${escapeHtml(parsed.score)}</div><div class="l">FINAL SCORE</div></div>
+          <div class="result-stat"><div class="v">${escapeHtml(parsed.correct)}/${escapeHtml(parsed.total)}</div><div class="l">CORRECT</div></div>
+          <div class="result-stat"><div class="v">${escapeHtml(parsed.avg)}</div><div class="l">AVG TIME</div></div>
+          <div class="result-stat"><div class="v">${escapeHtml(parsed.streak)}</div><div class="l">BEST STREAK</div></div>
         </div>
         ${eloRow}
       </div>
@@ -1174,6 +1288,8 @@ RENDERERS['6']=function(){
 };
 
 initTheme();
+const backArena=document.getElementById('back-arena');
+if(backArena)backArena.href=STAT_V3_BACK_TO_ARENA_URL;
 window.addEventListener('load',()=>{setTimeout(renderActive,40);});
 renderActive();
 </script>
