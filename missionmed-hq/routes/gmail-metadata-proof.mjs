@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
 
 const METADATA_PROOF_PATH = '/api/integrations/gmail/metadata-proof';
-const GMAIL_READONLY_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+export const GMAIL_READONLY_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const GMAIL_API_ROOT = 'https://gmail.googleapis.com/gmail/v1';
+export const GMAIL_API_ROOT = 'https://gmail.googleapis.com/gmail/v1';
 const EXPECTED_SERVICE_ACCOUNT_EMAIL = 'missionmed-gmail-sync@missionmed-communications-sync.iam.gserviceaccount.com';
 const REQUEST_TIMEOUT_MS = 8_000;
 
@@ -106,7 +106,7 @@ export async function handleGmailMetadataProofRoute(request, response, url, cont
   return true;
 }
 
-function readGmailDwdConfig() {
+export function readGmailDwdConfig() {
   const invalid = [];
   const missing = [];
 
@@ -216,7 +216,7 @@ async function runMetadataProof({ mailbox, credentials, scopes }) {
   };
 }
 
-async function mintDelegatedAccessToken({ mailbox, credentials, scopes }) {
+export async function mintDelegatedAccessToken({ mailbox, credentials, scopes }) {
   const issuedAt = Math.floor(Date.now() / 1000);
   const claims = {
     iss: credentials.clientEmail,
@@ -286,7 +286,7 @@ async function postFormJson(url, body) {
   }
 }
 
-async function googleGetJson(url, accessToken) {
+export async function googleGetJson(url, accessToken) {
   try {
     const response = await fetchWithTimeout(url, {
       method: 'GET',
@@ -331,7 +331,7 @@ function providerError(status, data, fallbackError) {
   };
 }
 
-function getConfiguredAllowedMailboxes() {
+export function getConfiguredAllowedMailboxes() {
   const configured = String(process.env.MISSIONMED_GMAIL_ALLOWED_MAILBOXES || '')
     .split(',')
     .map(normalizeMailbox)
@@ -351,7 +351,7 @@ function normalizePath(value) {
   return String(value || '').replace(/\/+$/u, '') || '/';
 }
 
-function normalizeMailbox(value) {
+export function normalizeMailbox(value) {
   return String(value || '').trim().toLowerCase();
 }
 
@@ -379,7 +379,7 @@ function safeErrorMessage(error) {
   return sanitizeProviderMessage(error instanceof Error ? error.message : String(error || 'unknown_error'));
 }
 
-function sendJson(response, statusCode, payload, extraHeaders = {}) {
+export function sendJson(response, statusCode, payload, extraHeaders = {}) {
   response.writeHead(statusCode, {
     'Cache-Control': 'no-store',
     'Content-Type': 'application/json; charset=utf-8',
