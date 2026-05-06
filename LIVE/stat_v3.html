@@ -25,6 +25,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Bungee&family=Bungee+Inline&family=Russo+One&family=Cinzel:wght@500;700;900&family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700;1,900&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px;-webkit-font-smoothing:antialiased}
@@ -644,6 +645,11 @@ const STAT_V3_LAB_LAUNCH_ENVELOPE_KEY='mm.stat.v3.lab.launch.v1';
 const STAT_LEGACY_LAUNCH_ENVELOPE_KEY='mm.stat.launch.v1';
 const STAT_V3_LAUNCH_ENVELOPE_VERSION='v1';
 const STAT_V3_LAUNCH_ENVELOPE_TTL_MS=5*60*1000;
+const STAT_V3_SUPABASE_URL='https://fglyvdykwgbuivikqoah.supabase.co';
+const STAT_V3_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZnbHl2ZHlrd2didWl2aWtxb2FoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMDYzMDgsImV4cCI6MjA4NjU4MjMwOH0.0YHIImoZWhZiyuAjnf-A8-GbfZKIyscZ3rcGN8FeM3E';
+const STAT_V3_AUTH_EXCHANGE_URL=STAT_V3_AUTH_CONTRACT.railwayAuthHost+STAT_V3_AUTH_CONTRACT.exchangePath;
+const STAT_V3_AUTH_BOOTSTRAP_URL=STAT_V3_AUTH_CONTRACT.railwayAuthHost+STAT_V3_AUTH_CONTRACT.bootstrapPath;
+const STAT_V3_SESSION_DUEL_KEY='mm.stat.v3.lab.duel_id';
 
 const EMPTY_STATS=Object.freeze({win:'-',acc:'-',spd:'-',streak:'-',ovr:'-',rank:'-'});
 const FALLBACK_YOU=Object.freeze({id:'',name:'Live player pending',school:'',schoolName:'MissionMed',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Avatar pending',stats:EMPTY_STATS});
@@ -732,10 +738,327 @@ function currentRouteCanReadArenaSessionStorage(){
     return host==='missionmedinstitute.com'||host==='www.missionmedinstitute.com'||host==='localhost'||host==='127.0.0.1';
   }catch(e){return false;}
 }
-function liveDuelPack(){
+let statV3SupabaseClient=null;
+let statV3SessionPromise=null;
+let statV3VerifiedUserId='';
+let statV3ActiveDuelId='';
+const STAT_V3_LIVE_BOOTSTRAP={
+  status:'idle',
+  source:'',
+  duel_id:'',
+  message:'Live sealed-pack bootstrap has not started.',
+  error:'',
+  question_count:0
+};
+function updateLiveBootstrap(patch){
+  Object.assign(STAT_V3_LIVE_BOOTSTRAP,safeObj(patch));
+  window.MM_STAT_V3_LIVE_BOOTSTRAP=Object.assign({},STAT_V3_LIVE_BOOTSTRAP);
+}
+function statV3Supabase(){
+  if(statV3SupabaseClient)return statV3SupabaseClient;
+  if(!window.supabase||typeof window.supabase.createClient!=='function')return null;
+  try{
+    statV3SupabaseClient=window.supabase.createClient(STAT_V3_SUPABASE_URL,STAT_V3_SUPABASE_ANON_KEY);
+    return statV3SupabaseClient;
+  }catch(e){
+    updateLiveBootstrap({status:'blocked',error:'supabase_client_init_failed',message:'Supabase browser client could not initialize.'});
+    return null;
+  }
+}
+function getSupabaseSessionTokens(payload){
+  const root=safeObj(payload);
+  const data=safeObj(root.data);
+  const session=safeObj(root.session||data.session);
+  return {
+    access_token:pickText([root.access_token,data.access_token,session.access_token]),
+    refresh_token:pickText([root.refresh_token,data.refresh_token,session.refresh_token])
+  };
+}
+function getExchangeAccessToken(payload){
+  const root=safeObj(payload);
+  const data=safeObj(root.data);
+  return pickText([root.accessToken,root.token,data.accessToken,data.token]);
+}
+function getExchangeCsrfToken(payload){
+  const root=safeObj(payload);
+  const data=safeObj(root.data);
+  return pickText([root.csrfToken,root.csrf_token,data.csrfToken,data.csrf_token]);
+}
+function statV3IdempotencyKey(prefix){
+  const label=String(prefix||'stat_v3').trim()||'stat_v3';
+  if(window.crypto&&typeof window.crypto.randomUUID==='function')return label+':'+window.crypto.randomUUID();
+  return label+':'+Date.now()+':'+Math.random().toString(36).slice(2);
+}
+async function postJson(url,body,extraHeaders,credentialsMode){
+  const response=await fetch(url,{
+    method:'POST',
+    credentials:credentialsMode||'include',
+    cache:'no-store',
+    headers:Object.assign({'Content-Type':'application/json'},safeObj(extraHeaders)),
+    body:JSON.stringify(body||{})
+  });
+  let payload=null;
+  try{payload=await response.json();}catch(e){payload=null;}
+  return {ok:response.ok,status:response.status,payload};
+}
+async function runStatV3AuthExchange(){
+  try{
+    const exchange=await postJson(STAT_V3_AUTH_EXCHANGE_URL,{audience:'arena'},null,'include');
+    if(!exchange.ok)return {ok:false,reason:'auth_exchange_http_'+exchange.status};
+    return {
+      ok:true,
+      accessToken:getExchangeAccessToken(exchange.payload),
+      csrfToken:getExchangeCsrfToken(exchange.payload)
+    };
+  }catch(e){
+    return {ok:false,reason:'auth_exchange_request_failed'};
+  }
+}
+async function runStatV3Bootstrap(exchangeResult){
+  const headers={};
+  const bearer=pickText([exchangeResult&&exchangeResult.accessToken]);
+  const csrfToken=pickText([exchangeResult&&exchangeResult.csrfToken]);
+  if(bearer)headers.Authorization='Bearer '+bearer;
+  if(csrfToken)headers['X-MMHQ-CSRF']=csrfToken;
+  try{
+    const bootstrap=await postJson(STAT_V3_AUTH_BOOTSTRAP_URL,{},headers,'include');
+    if(!bootstrap.ok)return {ok:false,reason:'auth_bootstrap_http_'+bootstrap.status};
+    const tokens=getSupabaseSessionTokens(bootstrap.payload);
+    if(tokens.access_token&&tokens.refresh_token)return {ok:true,tokens};
+    return {ok:false,reason:'auth_bootstrap_tokens_missing'};
+  }catch(e){
+    return {ok:false,reason:'auth_bootstrap_request_failed'};
+  }
+}
+async function ensureStatV3SupabaseSession(){
+  const client=statV3Supabase();
+  if(!client||!client.auth||typeof client.auth.getUser!=='function')return {ok:false,reason:'supabase_client_unavailable'};
+  if(statV3SessionPromise)return statV3SessionPromise;
+  statV3SessionPromise=(async()=>{
+    const preExisting=await client.auth.getUser();
+    const preUser=preExisting&&preExisting.data?preExisting.data.user:null;
+    const preUserId=pickText([preUser&&preUser.id]);
+    if(preUserId){
+      statV3VerifiedUserId=preUserId;
+      return {ok:true,source:'existing_session',user:preUser};
+    }
+    const exchange=await runStatV3AuthExchange();
+    if(!exchange.ok)return {ok:false,reason:exchange.reason||'auth_exchange_failed'};
+    const bootstrap=await runStatV3Bootstrap(exchange);
+    if(!bootstrap.ok)return {ok:false,reason:bootstrap.reason||'auth_bootstrap_failed'};
+    if(typeof client.auth.setSession!=='function')return {ok:false,reason:'supabase_set_session_unavailable'};
+    const setResult=await client.auth.setSession({
+      access_token:bootstrap.tokens.access_token,
+      refresh_token:bootstrap.tokens.refresh_token
+    });
+    if(setResult&&setResult.error)return {ok:false,reason:String(setResult.error.message||'set_session_failed')};
+    const verified=await client.auth.getUser();
+    const verifiedUser=verified&&verified.data?verified.data.user:null;
+    const verifiedUserId=pickText([verifiedUser&&verifiedUser.id]);
+    if(!verifiedUserId)return {ok:false,reason:'supabase_user_missing'};
+    statV3VerifiedUserId=verifiedUserId;
+    return {ok:true,source:'bootstrap',user:verifiedUser};
+  })();
+  try{return await statV3SessionPromise;}finally{statV3SessionPromise=null;}
+}
+function normalizeRpcEnvelope(raw){
+  if(!raw||typeof raw!=='object')return {ok:false,error:'empty_rpc_response',data:null,raw};
+  if(Object.prototype.hasOwnProperty.call(raw,'ok')){
+    return {ok:!!raw.ok,error:raw.ok?null:String(raw.error||'rpc_error'),data:raw.data||null,raw};
+  }
+  if(Object.prototype.hasOwnProperty.call(raw,'status')){
+    const status=String(raw.status||'').toLowerCase();
+    return {ok:status==='ok'||status==='exists',error:status==='error'?String(raw.code||raw.message||'rpc_error'):null,data:raw,raw};
+  }
+  return {ok:true,error:null,data:raw,raw};
+}
+async function statV3RpcCall(name,args){
+  const session=await ensureStatV3SupabaseSession();
+  if(!session.ok)throw new Error(session.reason||'auth_required');
+  const client=statV3Supabase();
+  if(!client||typeof client.rpc!=='function')throw new Error('supabase_rpc_unavailable');
+  const result=await client.rpc(name,args||{});
+  if(result&&result.error)throw new Error(String(result.error.message||result.error.code||'rpc_failed'));
+  return normalizeRpcEnvelope(result?result.data:null);
+}
+function extractDuelIdFromPayload(payload){
+  const root=safeObj(payload);
+  const data=safeObj(root.data||root);
+  const duel=safeObj(data.duel||root.duel);
+  return pickText([duel.id,data.duel_id,data.id,root.duel_id,root.id]);
+}
+function readRequestedDuelId(){
   const ctx=liveContext();
+  const launch=launchEnvelope();
+  try{
+    const params=new URLSearchParams(window.location.search||'');
+    const fromQuery=pickText([params.get('duel_id'),params.get('duel')]);
+    if(fromQuery)return fromQuery;
+  }catch(e){}
+  const fromContext=pickText([ctx.duel_id,ctx.duelId,ctx.match_id,launch.duel_id,launch.duelId,launch.match_id]);
+  if(fromContext)return fromContext;
+  try{return pickText([sessionStorage.getItem(STAT_V3_SESSION_DUEL_KEY)]);}catch(e){return '';}
+}
+function rememberStatV3DuelId(duelId){
+  const safe=pickText([duelId]);
+  if(!safe)return;
+  statV3ActiveDuelId=safe;
+  try{sessionStorage.setItem(STAT_V3_SESSION_DUEL_KEY,safe);}catch(e){}
+}
+async function createStatV3BotDuel(){
+  const created=await statV3RpcCall('create_duel',{
+    p_opponent_id:null,
+    p_question_set:null,
+    p_idempotency_key:statV3IdempotencyKey('stat_v3_create'),
+    p_is_bot_match:true,
+    p_bot_profile_id:null,
+    p_source:'stat_v3_internal_test',
+    p_dataset_version:'v4'
+  });
+  const duelId=extractDuelIdFromPayload(created);
+  if(!duelId)throw new Error('duel_id_missing');
+  rememberStatV3DuelId(duelId);
+  return {duelId,created};
+}
+function packPayloadFromRpc(raw){
+  const envelope=normalizeRpcEnvelope(raw);
+  const data=safeObj(envelope.data);
+  if(objectHasKeys(data))return data;
+  return safeObj(envelope.raw);
+}
+async function fetchStatV3DuelPack(duelId){
+  const safeDuelId=pickText([duelId]);
+  if(!safeDuelId)throw new Error('duel_id_required');
+  const client=statV3Supabase();
+  if(!client||typeof client.rpc!=='function')throw new Error('supabase_rpc_unavailable');
+  const result=await client.rpc('get_duel_pack',{p_duel_id:safeDuelId});
+  if(result&&result.error)throw new Error(String(result.error.message||result.error.code||'get_duel_pack_failed'));
+  return packPayloadFromRpc(result?result.data:null);
+}
+function buildStatV3BotOpponent(pack){
+  const duelId=pickText([pack&&pack.duel_id,statV3ActiveDuelId]);
+  return {
+    id:duelId?'stat_v3_bot_'+duelId:'stat_v3_bot',
+    name:'STAT Practice Bot',
+    schoolName:'Server-created bot duel',
+    rarity:'rare',
+    skin_name:'Practice opponent',
+    stats:EMPTY_STATS
+  };
+}
+function refreshStatV3AdapterState(){
+  YOU=readCurrentUser();
+  OPP=readMatchedOpponent();
+  SEALED_PACK=normalizeSealedPack(STAT_V3_PACK_INPUT.value,STAT_V3_PACK_INPUT.source);
+  QUESTIONS=readLiveQuestions();
+  LIVE_RESULT=readLiveResult();
+  STAT_V3_ADAPTER.currentUser=YOU;
+  STAT_V3_ADAPTER.matchedOpponent=OPP;
+  STAT_V3_ADAPTER.sealedPack=SEALED_PACK;
+  STAT_V3_ADAPTER.questions=QUESTIONS;
+  STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+  STAT_V3_ADAPTER.sourceState.currentUser=YOU.source||'waiting';
+  STAT_V3_ADAPTER.sourceState.matchedOpponent=OPP.source||'waiting';
+  STAT_V3_ADAPTER.sourceState.sealedPack=SEALED_PACK.source||'waiting';
+  STAT_V3_ADAPTER.readOnlyPreview=QUESTIONS.length>0&&!liveSubmitEnabled();
+  if(typeof renderActive==='function')renderActive();
+}
+function installStatV3LivePack(rawPack,sourceLabel){
+  const pack=normalizeSealedPack(rawPack,sourceLabel);
+  if(!pack.questions.length)throw new Error('live_pack_questions_missing');
+  const ctx=Object.assign({},liveContext());
+  ctx.currentPack=rawPack;
+  ctx.sealedPack=rawPack;
+  ctx.questionPack=rawPack;
+  if(!objectHasKeys(ctx.matchedOpponent))ctx.matchedOpponent=buildStatV3BotOpponent(pack);
+  window.MM_STAT_V3_CONTEXT=ctx;
+  window.MM_DUEL=window.MM_DUEL||{};
+  window.MM_DUEL.CURRENT_PACK=rawPack;
+  STAT_V3_PACK_INPUT.value=rawPack;
+  STAT_V3_PACK_INPUT.source=sourceLabel;
+  updateLiveBootstrap({
+    status:'ready',
+    source:sourceLabel,
+    duel_id:pack.duel_id||statV3ActiveDuelId,
+    message:'Live sealed STAT pack hydrated for read-only V3 play.',
+    error:'',
+    question_count:pack.questions.length
+  });
+  refreshStatV3AdapterState();
+  return pack;
+}
+async function bootstrapStatV3LivePack(){
+  if(QUESTIONS.length)return;
+  if(!currentRouteCanReadArenaSessionStorage()){
+    updateLiveBootstrap({status:'blocked',error:'first_party_route_required',message:'STAT V3 must run first-party before live pack bootstrap.'});
+    return;
+  }
+  updateLiveBootstrap({status:'loading',message:'Authenticating through Railway and requesting a sealed STAT pack.',error:''});
+  try{
+    const session=await ensureStatV3SupabaseSession();
+    if(!session.ok)throw new Error(session.reason||'auth_required');
+    let duelId=readRequestedDuelId();
+    let sourceLabel='liveRpc.get_duel_pack';
+    if(!duelId){
+      const created=await createStatV3BotDuel();
+      duelId=created.duelId;
+      sourceLabel='liveRpc.create_duel.get_duel_pack';
+    }else{
+      rememberStatV3DuelId(duelId);
+    }
+    const rawPack=await fetchStatV3DuelPack(duelId);
+    const normalized=installStatV3LivePack(rawPack,sourceLabel);
+    try{console.info('[STAT V3] live sealed pack ready',{duel_id:normalized.duel_id,question_count:normalized.questions.length,source:sourceLabel});}catch(e){}
+  }catch(e){
+    updateLiveBootstrap({
+      status:'blocked',
+      error:String(e&&e.message?e.message:e||'live_pack_bootstrap_failed').slice(0,160),
+      message:'Live pack bootstrap failed; V3 will stay blocked rather than use fake questions.'
+    });
+    if(typeof renderActive==='function')renderActive();
+  }
+}
+function readPackSourceCandidate(){
+  const ctx=liveContext();
+  const launch=launchEnvelope();
   const duel=safeObj(window.MM_DUEL);
-  return safeObj(ctx.sealedQuestionPack||ctx.questionPack||ctx.currentPack||duel.CURRENT_PACK);
+  return firstObjectCandidate([
+    {value:ctx.sealedPack,source:'MM_STAT_V3_CONTEXT.sealedPack'},
+    {value:ctx.sealedQuestionPack,source:'MM_STAT_V3_CONTEXT.sealedQuestionPack'},
+    {value:ctx.questionPack,source:'MM_STAT_V3_CONTEXT.questionPack'},
+    {value:ctx.currentPack,source:'MM_STAT_V3_CONTEXT.currentPack'},
+    {value:window.MM_STAT_V3_SEALED_PACK,source:'window.MM_STAT_V3_SEALED_PACK'},
+    {value:window.MM_STAT_V3_QUESTION_PACK,source:'window.MM_STAT_V3_QUESTION_PACK'},
+    {value:launch.sealedPack,source:'launchEnvelope.sealedPack'},
+    {value:launch.sealedQuestionPack,source:'launchEnvelope.sealedQuestionPack'},
+    {value:launch.questionPack,source:'launchEnvelope.questionPack'},
+    {value:launch.currentPack,source:'launchEnvelope.currentPack'},
+    {value:launch.duelPack,source:'launchEnvelope.duelPack'},
+    {value:duel.CURRENT_PACK,source:'window.MM_DUEL.CURRENT_PACK'}
+  ]);
+}
+function unwrapPackPayload(input){
+  if(Array.isArray(input))return {questions:input};
+  const source=safeObj(input);
+  if(!objectHasKeys(source))return {};
+  if(Array.isArray(source.questions)||Array.isArray(source.question_ids))return source;
+  const data=safeObj(source.data);
+  if(Array.isArray(data.questions)||objectHasKeys(data.duel)){
+    return Object.assign({},safeObj(data.duel),{questions:Array.isArray(data.questions)?data.questions:[]});
+  }
+  const nested=[
+    source.pack,
+    source.duelPack,
+    source.sealedPack,
+    source.sealedQuestionPack,
+    source.questionPack,
+    source.currentPack
+  ];
+  for(const item of nested){
+    const value=unwrapPackPayload(item);
+    if(objectHasKeys(value))return value;
+  }
+  return source;
 }
 function normalizePlayer(input,fallback,sourceLabel){
   const source=safeObj(input);
@@ -796,20 +1119,56 @@ function readMatchedOpponent(){
   const candidate=readMatchedOpponentCandidate();
   return normalizePlayer(candidate.value,FALLBACK_OPP,candidate.source);
 }
-function normalizeChoices(rawChoices){
+function normalizeChoiceOrder(order){
+  if(!Array.isArray(order)||order.length!==4)return [];
+  const normalized=order.map(item=>String(item||'').trim().toUpperCase());
+  const valid=normalized.every(item=>LETTERS.includes(item))&&(new Set(normalized)).size===4;
+  return valid?normalized:[];
+}
+function normalizeChoiceIndexOrder(order){
+  if(!Array.isArray(order)||order.length!==4)return [];
+  const normalized=order.map(item=>Number(item));
+  const valid=normalized.every(item=>Number.isInteger(item)&&item>=0&&item<4)&&(new Set(normalized)).size===4;
+  return valid?normalized:[];
+}
+function normalizeChoices(rawChoices,choiceOrder){
   if(Array.isArray(rawChoices)){
-    return rawChoices.slice(0,4).map((choice,index)=>{
+    const choices=rawChoices.slice(0,4).map((choice,index)=>{
       const source=safeObj(choice);
       const text=typeof choice==='string'?choice:pickText([source.t,source.text,source.label,source.value]);
       return {k:pickText([source.k,source.key,source.letter,LETTERS[index]])||LETTERS[index],t:String(text||'').trim()};
     }).filter(choice=>choice.t);
+    const indexOrder=normalizeChoiceIndexOrder(choiceOrder);
+    if(indexOrder.length){
+      const ordered=indexOrder.map(item=>choices[item]).filter(Boolean);
+      if(ordered.length===choices.length)return ordered;
+    }
+    const order=normalizeChoiceOrder(choiceOrder);
+    if(order.length){
+      const byKey={};
+      choices.forEach(choice=>{byKey[String(choice.k||'').trim().toUpperCase()]=choice;});
+      const ordered=order.map(key=>byKey[key]).filter(Boolean);
+      if(ordered.length===choices.length)return ordered;
+    }
+    return choices;
   }
   const obj=safeObj(rawChoices);
-  return LETTERS.map(letter=>({k:letter,t:String(obj[letter]||obj[letter.toLowerCase()]||'').trim()})).filter(choice=>choice.t);
+  const order=normalizeChoiceOrder(choiceOrder);
+  const labels=order.length?order:LETTERS;
+  return labels.map(letter=>({k:letter,t:String(obj[letter]||obj[letter.toLowerCase()]||'').trim()})).filter(choice=>choice.t);
 }
-function normalizeQuestion(row,index){
+function normalizeQuestion(row,index,choiceOrder){
   const source=safeObj(row);
-  const choices=normalizeChoices(source.choices||source.options||source.answers);
+  let rawChoices=source.choices||source.options||source.answers;
+  if(!rawChoices){
+    rawChoices={
+      A:source.choice_a||source.A,
+      B:source.choice_b||source.B,
+      C:source.choice_c||source.C,
+      D:source.choice_d||source.D
+    };
+  }
+  const choices=normalizeChoices(rawChoices,choiceOrder);
   const prompt=pickText([source.q,source.prompt,source.question,source.stem,source.text]);
   if(!prompt||choices.length<2)return null;
   return {
@@ -817,17 +1176,36 @@ function normalizeQuestion(row,index){
     topic:pickText([source.topic,source.subject,source.system,'SEALED PACK']),
     q:prompt,
     choices,
-    ans:pickText([source.ans,source.correctAnswerKey,source.correct_answer]),
     time:source.time==null?null:source.time,
     pts:source.pts==null?null:source.pts,
+    answerSealed:true,
+    correctAnswerSealed:true,
     live:true
   };
 }
+function normalizeSealedPack(input,sourceLabel){
+  const source=unwrapPackPayload(input);
+  const rawQuestions=Array.isArray(source.questions)?source.questions:[];
+  const choiceOrders=Array.isArray(source.choices_order)?source.choices_order:[];
+  const questions=rawQuestions.map((row,index)=>normalizeQuestion(row,index,choiceOrders[index])).filter(Boolean);
+  const questionIds=Array.isArray(source.question_ids)
+    ? source.question_ids.map(id=>String(id||'').trim()).filter(Boolean)
+    : questions.map(q=>String(q.id||'').trim()).filter(Boolean);
+  if(!questions.length)return {source:sourceLabel||'',questions:[],question_ids:[],choices_order:[],duel_id:'',content_hash:'',dataset_version:''};
+  return {
+    source:sourceLabel||'adapter',
+    duel_id:pickText([source.duel_id,source.id,source.match_id]),
+    content_hash:pickText([source.content_hash,source.pack_hash,source.hash]),
+    dataset_version:pickText([source.dataset_version,source.version]),
+    question_ids:questionIds,
+    choices_order:choiceOrders.filter(Array.isArray).map(order=>normalizeChoiceOrder(order)).filter(order=>order.length===4),
+    questions
+  };
+}
+const STAT_V3_PACK_INPUT=readPackSourceCandidate();
+let SEALED_PACK=normalizeSealedPack(STAT_V3_PACK_INPUT.value,STAT_V3_PACK_INPUT.source);
 function readLiveQuestions(){
-  const ctx=liveContext();
-  const pack=liveDuelPack();
-  const raw=Array.isArray(ctx.questions)?ctx.questions:(Array.isArray(pack.questions)?pack.questions:[]);
-  return raw.map(normalizeQuestion).filter(Boolean);
+  return Array.isArray(SEALED_PACK.questions)?SEALED_PACK.questions:[];
 }
 function readLiveResult(){
   const ctx=liveContext();
@@ -837,36 +1215,54 @@ function hasSubmitHandler(){
   const ctx=liveContext();
   return typeof ctx.submitChoice==='function'||typeof ctx.onSubmitChoice==='function'||typeof window.MM_STAT_V3_SUBMIT_CHOICE==='function';
 }
+function liveSubmitEnabled(){
+  const ctx=liveContext();
+  return (ctx.enableLiveSubmit===true||window.MM_STAT_V3_ENABLE_SUBMIT===true)&&hasSubmitHandler();
+}
+function hasResultPayload(){
+  return objectHasKeys(LIVE_RESULT);
+}
 function readinessReasons(){
   const reasons=[];
   if(!YOU.id)reasons.push('Live currentUser was not supplied through MM_STAT_V3_CONTEXT or a fresh same-origin Arena launch envelope.');
   if(!OPP.id)reasons.push('Live matchedOpponent was not supplied to the V3 adapter.');
-  if(!QUESTIONS.length)reasons.push('No sealed STAT question pack is available to this twin.');
-  if(!hasSubmitHandler())reasons.push('No live answer submit handler is attached.');
+  if(!QUESTIONS.length){
+    if(STAT_V3_LIVE_BOOTSTRAP.status==='loading')reasons.push('Live sealed STAT pack bootstrap is in progress through the authenticated legacy STAT contract.');
+    else if(STAT_V3_LIVE_BOOTSTRAP.error)reasons.push('No sealed STAT question pack is available: '+STAT_V3_LIVE_BOOTSTRAP.error+'.');
+    else reasons.push('No sealed STAT question pack is available to this twin.');
+  }
+  if(!liveSubmitEnabled())reasons.push('Live answer submit is disabled for this read-only V3 adapter.');
+  if(!hasResultPayload())reasons.push('No live result payload is attached.');
   if(!launchEnvelopeSource()&&!currentRouteCanReadArenaSessionStorage())reasons.push('Current CDN route cannot read first-party Arena sessionStorage; use a first-party adapter route for identity handoff.');
   return reasons;
 }
 function wiringIsReady(){return readinessReasons().length===0;}
 
-const YOU=readCurrentUser();
-const OPP=readMatchedOpponent();
-const QUESTIONS=readLiveQuestions();
-const LIVE_RESULT=readLiveResult();
+let YOU=readCurrentUser();
+let OPP=readMatchedOpponent();
+let QUESTIONS=readLiveQuestions();
+let LIVE_RESULT=readLiveResult();
 const STAT_V3_ADAPTER={
   authContract:STAT_V3_AUTH_CONTRACT,
   backToArenaUrl:STAT_V3_BACK_TO_ARENA_URL,
   currentUser:YOU,
   matchedOpponent:OPP,
+  sealedPack:SEALED_PACK,
   questions:QUESTIONS,
   resultPayload:LIVE_RESULT,
   sourceState:{
     launchEnvelope:launchEnvelopeSource()||'waiting',
     currentUser:YOU.source||'waiting',
     matchedOpponent:OPP.source||'waiting',
+    sealedPack:SEALED_PACK.source||'waiting',
     routeCanReadArenaSessionStorage:currentRouteCanReadArenaSessionStorage()
   },
+  readOnlyPreview:QUESTIONS.length>0&&!liveSubmitEnabled(),
   isReady:wiringIsReady,
   submitChoice(payload){
+    if(!liveSubmitEnabled()){
+      return Promise.resolve({ok:false,reason:'read_only_preview_no_submit'});
+    }
     const ctx=liveContext();
     const handler=ctx.submitChoice||ctx.onSubmitChoice||window.MM_STAT_V3_SUBMIT_CHOICE;
     if(typeof handler!=='function'){
@@ -877,10 +1273,12 @@ const STAT_V3_ADAPTER={
 };
 window.MM_STAT_V3_ADAPTER=STAT_V3_ADAPTER;
 
-const MODES=[
-  {id:'stat-v3',title:'STAT V3 Lab',tag:'INTERNAL PREVIEW',desc:'A wiring-ready shell that waits for live STAT auth, identity, avatar, sealed-pack, submit, and result adapters before gameplay is allowed.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'0',l:'LIVE QUESTIONS'},{v:YOU.id?'READY':'WAITING',l:'USER'},{v:OPP.id?'READY':'WAITING',l:'OPPONENT'}],cta:'OPEN PREVIEW'},
-  {id:'stat-live',title:'Current STAT',tag:'LEGACY LIVE AUTHORITY',desc:'The existing /stat runtime remains untouched and is still the only deployed student STAT experience.',status:'legacy',stats:[{v:'/stat',l:'LIVE ROUTE'},{v:'LOCKED',l:'AUTH'},{v:'SAFE',l:'ROLLBACK'}],cta:'UNCHANGED'}
-];
+function getModes(){
+  return [
+    {id:'stat-v3',title:'STAT V3 Lab',tag:'INTERNAL TEST',desc:'A wiring-aware shell that can hydrate a server sealed STAT pack for preview-safe selection while submit and result remain blocked.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'0',l:'LIVE QUESTIONS'},{v:YOU.id?'READY':'WAITING',l:'USER'},{v:OPP.id?'READY':'WAITING',l:'OPPONENT'}],cta:'OPEN PREVIEW'},
+    {id:'stat-live',title:'Current STAT',tag:'LEGACY LIVE AUTHORITY',desc:'The existing /stat runtime remains untouched and is still the only deployed student STAT experience.',status:'legacy',stats:[{v:'/stat',l:'LIVE ROUTE'},{v:'LOCKED',l:'AUTH'},{v:'SAFE',l:'ROLLBACK'}],cta:'UNCHANGED'}
+  ];
+}
 
 /* ============================================================
    THEME RESOLVER | Dark / Light / Auto (system or time-of-day)
@@ -996,21 +1394,28 @@ function statLane(player,opts){
 function statCenter(qIndex){
   if(!QUESTIONS.length)return wiringBlockedPanel('Pack not connected',readinessReasons());
   const q=QUESTIONS[qIndex]||QUESTIONS[0];
-  const choices=q.choices.map((c,index)=>`<button class="stat-q-choice" data-choice-index="${index}" data-question-id="${escapeHtml(q.id)}" ${hasSubmitHandler()?'':'disabled'}><div class="k">${escapeHtml(c.k)}</div><div class="t">${escapeHtml(c.t)}</div></button>`).join('');
-  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">ASYNC DUEL</div><div class="s">SEALED LIVE PACK | V3 UI TWIN</div></div><div class="stat-pressure neutral">LIVE ADAPTER REQUIRED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div><div class="stat-v3-live-status" id="stat-v3-live-status">${hasSubmitHandler()?'Ready to call live submit handler.':'Submit blocked: no live handler attached.'}</div></div><div class="stat-q-meta"><div class="stat-q-counter"><span class="n">${qIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}</div></div><div class="stat-q-history"><h4>QUESTION LOG</h4>${statHistory(qIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span><span class="stat-ticker-item">NO LOCAL SCORING</span><span class="stat-ticker-item">V3 TWIN IS NOT LIVE</span><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span></div></div></div>`;
+  const choices=q.choices.map((c,index)=>`<button class="stat-q-choice" type="button" data-choice-index="${index}" data-question-id="${escapeHtml(q.id)}"><div class="k">${escapeHtml(c.k)}</div><div class="t">${escapeHtml(c.t)}</div></button>`).join('');
+  const source=SEALED_PACK.source||'adapter';
+  const status=liveSubmitEnabled()
+    ? 'Live submit adapter explicitly enabled.'
+    : 'Sealed pack detected from '+source+'. Read-only preview. Preview selection only. Not submitted.';
+  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">ASYNC DUEL</div><div class="s">SEALED PACK DETECTED | READ-ONLY V3 TWIN</div></div><div class="stat-pressure calm">READ-ONLY PREVIEW</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div><div class="stat-v3-live-status" id="stat-v3-live-status">${escapeHtml(status)}</div></div><div class="stat-q-meta"><div class="stat-q-counter"><span class="n">${qIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}</div></div><div class="stat-q-history"><h4>QUESTION LOG</h4>${statHistory(qIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">SEALED PACK ONLY</span><span class="stat-ticker-item">READ-ONLY PREVIEW</span><span class="stat-ticker-item">NO LOCAL SCORING</span><span class="stat-ticker-item">SUBMIT BLOCKED</span><span class="stat-ticker-item">SERVER RESULT REQUIRED</span><span class="stat-ticker-item">V3 TWIN IS NOT LIVE</span></div></div></div>`;
 }
 
 document.addEventListener('click',async(event)=>{
   const button=event.target.closest('.stat-q-choice');
   if(!button)return;
   event.preventDefault();
-  if(button.disabled)return;
   const index=Number(button.dataset.choiceIndex);
   const question=QUESTIONS.find(q=>String(q.id)===String(button.dataset.questionId))||QUESTIONS[0];
   document.querySelectorAll('.stat-q-choice').forEach(item=>item.classList.remove('selected'));
   button.classList.add('selected');
   const status=document.getElementById('stat-v3-live-status');
-  if(status)status.textContent='Calling live STAT submit adapter...';
+  if(!liveSubmitEnabled()){
+    if(status)status.textContent='Preview selection only. Not submitted. Submit/result adapters remain blocked.';
+    return;
+  }
+  if(status)status.textContent='Calling explicitly enabled live STAT submit adapter...';
   const result=await STAT_V3_ADAPTER.submitChoice({choice_index:index,question});
   if(status)status.textContent=result&&result.ok?'Live adapter accepted the selection.':'Blocked: live STAT submit adapter unavailable or rejected this selection.';
 });
@@ -1053,7 +1458,7 @@ const RENDERERS={};
 
 RENDERERS['1']=function(){
   const root=document.getElementById('screen-version');
-  const modes=MODES.map(m=>{
+  const modes=getModes().map(m=>{
     const cls=m.status==='current'?'current':m.status==='coming'?'coming':'';
     const statusLabel=m.status==='current'?'CURRENT':m.status==='legacy'?'LEGACY':'COMING SOON';
     const statsRow=m.stats.map(s=>`<div class="mode-stat"><div class="v">${s.v}</div><div class="l">${s.l}</div></div>`).join('');
@@ -1101,7 +1506,7 @@ RENDERERS['2']=function(){
       <div class="s-setup-main">
         <div class="s-setup-head">
           <h2>Connect live <span class="acc">wiring.</span></h2>
-          <div class="sub">This twin does not create matches locally. It can consume explicit MM_STAT_V3_CONTEXT data or a fresh same-origin Arena launch envelope, then waits for the same live STAT opponent, sealed pack, submit, and result contracts used by /stat.</div>
+          <div class="sub">This twin does not create matches locally. It can consume explicit MM_STAT_V3_CONTEXT data, a fresh same-origin Arena launch envelope, and a supplied sealed STAT pack for read-only review while submit/result stay blocked.</div>
         </div>
         <div class="cfg-group">
           <div class="cfg-label">OPPONENT POOL</div>
@@ -1149,10 +1554,11 @@ RENDERERS['2']=function(){
         <div class="summary-row"><span>USER</span><span class="v">${YOU.id?'CONNECTED':'WAITING'}</span></div>
         <div class="summary-row"><span>OPPONENT</span><span class="v">${OPP.id?'CONNECTED':'WAITING'}</span></div>
         <div class="summary-row"><span>QUESTIONS</span><span class="v">${QUESTIONS.length}</span></div>
+        <div class="summary-row"><span>PACK SOURCE</span><span class="v">${escapeHtml(SEALED_PACK.source||'WAITING')}</span></div>
         <div class="summary-row"><span>SUBMIT HANDLER</span><span class="v">${hasSubmitHandler()?'CONNECTED':'WAITING'}</span></div>
         <div class="summary-row"><span>ROUTE HANDOFF</span><span class="v">${currentRouteCanReadArenaSessionStorage()?'SAME ORIGIN':'CDN BLOCKED'}</span></div>
         <div class="summary-row big"><span>GAMEPLAY</span><span class="v">${wiringIsReady()?'READY':'BLOCKED'}</span></div>
-        <button class="summary-cta" disabled>PRIVATE ROUTE REQUIRED</button>
+        <button class="summary-cta" disabled>${QUESTIONS.length?'READ-ONLY PREVIEW':'PACK REQUIRED'}</button>
         <div class="trust-pill" style="margin:0 auto">CURRENT /STAT UNTOUCHED</div>
       </aside>
     </div>`;
@@ -1292,6 +1698,7 @@ const backArena=document.getElementById('back-arena');
 if(backArena)backArena.href=STAT_V3_BACK_TO_ARENA_URL;
 window.addEventListener('load',()=>{setTimeout(renderActive,40);});
 renderActive();
+bootstrapStatV3LivePack();
 </script>
 
 </body>
