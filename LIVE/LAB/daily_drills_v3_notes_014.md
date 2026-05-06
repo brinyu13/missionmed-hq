@@ -59,3 +59,21 @@ Normal v3 mode should prefer:
 T-16 demo subjects, fake Neurology/Cardiology sessions, and fallback prompts are LAB-only behind `?lab=1` or `#lab`. The normal live route should show real registry data or an honest empty/error state. It should not start a fake drill when media or nodes are unavailable.
 
 No deployment or CDN promotion was performed for the MD-MERGER-017 hydration correction.
+
+## MD-MERGER-020 Flow / Labels / Subject Browser / Avatar Correction
+
+The v3 frontend now uses the intended learner flow labels:
+
+- Step 1: Dashboard
+- Step 2: Choose Exam
+- Step 3: Choose Subject
+- Step 4: Ready & Run
+- Step 5: Summary + Feedback
+
+Step 3 is the combined subject and real-video selection screen. Subject counts and video cards are derived from the real registry data loaded by the v3 hydration layer. If metadata only supports a broad group such as `DRJ_DRILLS`, v3 displays that honestly instead of inventing Cardio/Pulm/Renal categories.
+
+Video/drill titles now pass through a display-title normalization layer. Raw Zoom/GMT/recording/resolution filenames are treated as technical metadata and are not used as the main learner-facing title unless no safer derived label exists.
+
+The dashboard now includes an adapter-friendly full-body avatar area. The hook is `window.MMDailyDrillsBridge.getUserAvatar?.()`. If no avatar URL is available, v3 shows a clear placeholder and does not query backend/profile systems.
+
+No deployment or CDN promotion was performed for the MD-MERGER-020 UI flow correction.
