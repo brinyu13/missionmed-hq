@@ -1,9 +1,9 @@
 <?php
 /**
- * Route /drills and /daily to canonical HTML artifacts while keeping first-party origin.
+ * Route /drills, /daily, and /daily-drills-v3 to canonical HTML artifacts while keeping first-party origin.
  *
  * Architecture contract:
- * - Browser route stays on missionmedinstitute.com (/drills, /daily)
+ * - Browser route stays on missionmedinstitute.com (/drills, /daily, /daily-drills-v3)
  * - HTML artifact is served from CDN via server-side proxy
  * - Query parameters are preserved for drill/session launch state
  * - WordPress theme/header/footer never render for this route
@@ -156,7 +156,7 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 	}
 
 	/**
-	 * Determine whether the current request should be served by /drills or /daily proxy.
+	 * Determine whether the current request should be served by /drills, /daily, or /daily-drills-v3 proxy.
 	 */
 	function mm_drills_route_proxy_is_target_request() {
 		$path = mm_drills_route_proxy_request_path();
@@ -164,7 +164,7 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 			return false;
 		}
 
-		return 1 === preg_match( '#^/(?:drills|daily)(?:/|$)#', $path );
+		return 1 === preg_match( '#^/(?:drills|daily|daily-drills-v3)(?:/|$)#', $path );
 	}
 
 	/**
@@ -179,6 +179,20 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 		}
 
 		return 1 === preg_match( '#^/daily(?:/|$)#', $path );
+	}
+
+	/**
+	 * Determine whether request targets the separate Daily + Drills v3 comparison route.
+	 *
+	 * @return bool
+	 */
+	function mm_drills_route_proxy_is_v3_request() {
+		$path = mm_drills_route_proxy_request_path();
+		if ( '' === $path ) {
+			return false;
+		}
+
+		return 1 === preg_match( '#^/daily-drills-v3(?:/|$)#', $path );
 	}
 
 	/**
@@ -275,18 +289,26 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 			return;
 		}
 
-		$is_daily_alias  = mm_drills_route_proxy_is_daily_alias_request();
-		$launch_signal   = $is_daily_alias
+		$is_v3_request   = mm_drills_route_proxy_is_v3_request();
+		$is_daily_alias  = ! $is_v3_request && mm_drills_route_proxy_is_daily_alias_request();
+		$launch_signal   = $is_v3_request
+			? array(
+				'is_engine_launch' => false,
+				'signal'           => 'v3.side_by_side',
+			)
+			: ( $is_daily_alias
 			? array(
 				'is_engine_launch' => false,
 				'signal'           => 'menu.daily_alias',
 			)
-			: mm_drills_route_proxy_resolve_launch_signal();
+			: mm_drills_route_proxy_resolve_launch_signal() );
 		$is_engine_launch = ! empty( $launch_signal['is_engine_launch'] );
 		$mode_signal      = isset( $launch_signal['signal'] ) ? (string) $launch_signal['signal'] : 'unknown';
-		$upstream_base    = $is_engine_launch
+		$upstream_base    = $is_v3_request
+			? 'https://cdn.missionmedinstitute.com/html-system/LIVE/daily_drills_v3.html'
+			: ( $is_engine_launch
 			? 'https://cdn.missionmedinstitute.com/html-system/LIVE/drills.html'
-			: 'https://cdn.missionmedinstitute.com/html-system/LIVE/daily.html';
+			: 'https://cdn.missionmedinstitute.com/html-system/LIVE/daily.html' );
 		$query_string  = isset( $_SERVER['QUERY_STRING'] ) ? trim( (string) $_SERVER['QUERY_STRING'] ) : '';
 		$upstream_url  = $upstream_base;
 
@@ -310,8 +332,9 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 			header( 'Content-Type: text/plain; charset=' . get_bloginfo( 'charset' ) );
 				header( 'X-MissionMed-Route: drills-proxy' );
 				header( 'X-MissionMed-Drills-Intercept: true' );
-				header( 'X-MissionMed-Drills-Mode: ' . ( $is_engine_launch ? 'engine' : 'menu' ) );
+				header( 'X-MissionMed-Drills-Mode: ' . ( $is_v3_request ? 'v3' : ( $is_engine_launch ? 'engine' : 'menu' ) ) );
 				header( 'X-MissionMed-Drills-Signal: ' . $mode_signal );
+				header( 'X-MissionMed-Drills-V3: ' . ( $is_v3_request ? 'true' : 'false' ) );
 				header( 'X-MissionMed-Upstream-Transport: ' . $via );
 				header( 'X-MissionMed-Upstream-Status: ' . (string) $status );
 				header( 'X-MissionMed-Upstream-Error: ' . $safe_error );
@@ -328,8 +351,9 @@ if ( ! function_exists( 'mm_drills_route_proxy_handle_request' ) ) {
 		header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
 			header( 'X-MissionMed-Route: drills-proxy' );
 			header( 'X-MissionMed-Drills-Intercept: true' );
-			header( 'X-MissionMed-Drills-Mode: ' . ( $is_engine_launch ? 'engine' : 'menu' ) );
+			header( 'X-MissionMed-Drills-Mode: ' . ( $is_v3_request ? 'v3' : ( $is_engine_launch ? 'engine' : 'menu' ) ) );
 			header( 'X-MissionMed-Drills-Signal: ' . $mode_signal );
+			header( 'X-MissionMed-Drills-V3: ' . ( $is_v3_request ? 'true' : 'false' ) );
 			header( 'X-MissionMed-Upstream-Transport: ' . $via );
 			header( 'X-MissionMed-Upstream-Status: ' . (string) $status );
 			echo $body;
