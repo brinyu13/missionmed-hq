@@ -33,6 +33,10 @@ import {
   handleGmailSyncPreviewRoute,
   isGmailSyncPreviewPath,
 } from './routes/gmail-sync-preview.mjs';
+import {
+  handleGmailCommsReviewWriteRoute,
+  isGmailCommsReviewWritePath,
+} from './routes/gmail-comms-review-write.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -2318,6 +2322,11 @@ async function handleApiRoute(request, response, url, context) {
 
   if (isGmailSyncPreviewPath(pathname)) {
     await handleGmailSyncPreviewRoute(request, response, url, { session, authHeaders });
+    return;
+  }
+
+  if (isGmailCommsReviewWritePath(pathname)) {
+    await handleGmailCommsReviewWriteRoute(request, response, url, { session, authHeaders });
     return;
   }
 
