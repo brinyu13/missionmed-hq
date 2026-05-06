@@ -61,5 +61,19 @@ The statebar, operator panel, and mobile preview tabs are hidden from normal run
 - This is a single-file frontend candidate, not a final live artifact.
 - Browser validation has not been run in this thread.
 - Real media playback from the prior Drills engine was not fully ported into this T-16 shell.
-- Durable progress is not implemented.
+- Dashboard sync is not implemented.
 - Wiring authority must review and validate before any promotion.
+
+## Parity Patch 012 Notes
+
+The follow-up parity pass kept the single-file T-16 shell and added small non-wiring compatibility hardening in `LIVE/drills.html`:
+
+- Reads legacy `sessionStorage.mm.launch` payloads in addition to `mm_selected_drill`.
+- Unwraps nested selected-drill/launch payloads while preserving `origin_mode`, `return_url`, `launch_id`, and metadata.
+- Preserves media metadata fields such as `stream_id`, `playback_url`, `poster_url`, `media_timecode`, and `nodes_url` for Wiring Authority/media validation.
+- Adds a safe HTTPS allowlist before fetching `nodes_url` prompt data.
+- Expands prompt normalization for common node fields such as `topic_hint`, `answer_text`, and `expected`.
+- Emits completion results with both T-16 fields and the existing Daily bridge fields.
+- Normalizes the visible summary card from the bridge payload so `score`, `correct_count`, `missed_count`, and `out_of_time_count` display correctly.
+
+Remaining limit: the prior large Drills video/media runtime was not fully reintroduced. This candidate is now stronger for bridge/runtime parity, but media playback and production registry validation still require Wiring Authority review before deploy or promotion.

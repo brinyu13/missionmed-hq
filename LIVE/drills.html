@@ -1144,7 +1144,7 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
       <div>
         <div class="eyebrow"><span class="dot"></span>SESSION COMPLETE</div>
         <h1>NICE <span class="accent">RECALL.</span></h1>
-        <p class="lead" style="margin-top:8px">Session-only result &middot; durable progress requires wiring authority</p>
+        <p class="lead" style="margin-top:8px">Session-only result &middot; dashboard sync requires wiring authority</p>
       </div>
       <div class="pct" id="sumPct">88%</div>
     </div>
@@ -1229,8 +1229,43 @@ function readInjectedArray(names){
   }
   return [];
 }
-function normalizeDrillRecord(input, fallback){
+function unwrapDrillPayload(input){
   const src = input && typeof input === 'object' ? input : {};
+  const nested = src.drill || src.selected_drill || src.selectedDrill || src.session || src.launch;
+  if(nested && typeof nested === 'object'){
+    return Object.assign({}, nested, {
+      metadata: Object.assign({}, nested.metadata || {}, src.metadata || {}),
+      origin_mode: src.origin_mode || src.originMode || nested.origin_mode || nested.originMode,
+      return_url: src.return_url || src.returnUrl || nested.return_url || nested.returnUrl,
+      launch_id: src.launch_id || src.launchId || nested.launch_id || nested.launchId
+    });
+  }
+  return src;
+}
+function deriveStreamIdFromPlaybackUrl(value){
+  const raw = safeText(value, '');
+  const match = raw.match(/videodelivery\.net\/([^/?#]+)/i);
+  return match ? decodeURIComponent(match[1]) : '';
+}
+function isAllowedRuntimeAssetUrl(value){
+  const raw = safeText(value, '');
+  if(!raw) return false;
+  try{
+    const parsed = new URL(raw, window.location.href);
+    const host = parsed.hostname.toLowerCase();
+    if(parsed.protocol !== 'https:') return false;
+    return host === 'cdn.missionmedinstitute.com' ||
+      host === 'missionmedinstitute.com' ||
+      host === 'www.missionmedinstitute.com' ||
+      host === 'iframe.videodelivery.net' ||
+      host.endsWith('.r2.dev') ||
+      host.endsWith('.cloudflarestream.com');
+  }catch(_error){
+    return false;
+  }
+}
+function normalizeDrillRecord(input, fallback){
+  const src = unwrapDrillPayload(input);
   const meta = src.metadata && typeof src.metadata === 'object' ? src.metadata : {};
   const id = safeText(src.video_id || src.videoId || src.id || src.drill_id || src.drillId, fallback && (fallback.video_id || fallback.id) || ROUTE_VIDEO_ID || 'daily-drill-fallback');
   const title = safeText(src.title || src.drill_title || src.topic || src.topic_label || meta.topic_label, fallback && fallback.title || 'Daily drill');
@@ -1238,6 +1273,8 @@ function normalizeDrillRecord(input, fallback){
   const topic = safeText(src.topic || src.topic_label || meta.topic_label || src.subject, fallback && fallback.topic || title);
   const uploaded = safeText(src.uploaded || src.created_at || meta.created_at || src.date, fallback && fallback.uploaded || 'Runtime');
   const qCount = Number(src.q || src.question_count || src.total_count || src.totalQuestions || (Array.isArray(src.nodes) ? src.nodes.length : 0) || (fallback && fallback.q) || FALLBACK_PROMPTS.length || 1);
+  const streamId = safeText(src.stream_id || src.streamId || meta.stream_id || meta.streamId || deriveStreamIdFromPlaybackUrl(src.playback_url || src.playbackUrl), '');
+  const playbackUrl = safeText(src.playback_url || src.playbackUrl, streamId ? 'https://iframe.videodelivery.net/' + encodeURIComponent(streamId) : '');
   return Object.assign({}, fallback || {}, src, {
     id,
     video_id: id,
@@ -1255,7 +1292,10 @@ function normalizeDrillRecord(input, fallback){
     avgRecall: Number.isFinite(Number(src.avgRecall || src.avg_response_s)) ? Number(src.avgRecall || src.avg_response_s) : null,
     best: Number.isFinite(Number(src.best || src.score_pct || src.best_score)) ? Number(src.best || src.score_pct || src.best_score) : null,
     badge: safeText(src.badge, src.watched ? '' : 'NEW'),
-    playback_url: safeText(src.playback_url || src.playbackUrl, ''),
+    stream_id: streamId,
+    playback_url: playbackUrl,
+    poster_url: safeText(src.poster_url || src.posterUrl || meta.poster_url, ''),
+    media_timecode: safeText(src.media_timecode || src.timecode || src.timestamp || meta.media_timecode, ''),
     nodes_url: safeText(src.nodes_url || src.nodesUrl, ''),
     transcript_url: safeText(src.transcript_url || src.transcriptUrl, ''),
     prompts: Array.isArray(src.prompts) ? src.prompts : (Array.isArray(src.questions) ? src.questions : (Array.isArray(src.nodes) ? src.nodes : [])),
@@ -1267,8 +1307,10 @@ function normalizeDrillRecord(input, fallback){
 function initializeRuntimeData(){
   const injected = readInjectedArray(['MISSIONMED_DAILY_DRILLS_REGISTRY','MMDailyDrillsRegistry','MM_DAILY_DRILLS_REGISTRY']);
   const selected = STORE.getSel();
+  const launch = STORE.getLaunch();
   const rows = [];
-  if(selected && typeof selected === 'object') rows.push(selected);
+  if(launch && typeof launch === 'object') rows.push(unwrapDrillPayload(launch));
+  if(selected && typeof selected === 'object') rows.push(unwrapDrillPayload(selected));
   injected.forEach(item => rows.push(item));
   if(ROUTE_VIDEO_ID && !rows.some(row => safeText(row && (row.video_id || row.id || row.drill_id), '') === ROUTE_VIDEO_ID)){
     rows.push({ video_id: ROUTE_VIDEO_ID, id: ROUTE_VIDEO_ID, title: 'Daily drill ' + ROUTE_VIDEO_ID, origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' });
@@ -1288,20 +1330,25 @@ function initializeRuntimeData(){
 }
 function normalizePrompt(item, index){
   const src = item && typeof item === 'object' ? item : {};
-  const topic = safeText(src.topic || src.label || src.node_type || src.category, 'Prompt ' + (index + 1));
-  const cue = safeText(src.cue || src.prompt || src.question || src.question_text || src.text || src.title || src.stem, 'Recall the key teaching point for this segment.');
-  const ans = safeText(src.ans || src.answer || src.explanation || src.summary || src.teaching_point || src.expected_answer, 'Self-check your recall against the lecture/video segment.');
+  const topic = safeText(src.topic || src.topic_hint || src.label || src.node_type || src.category, 'Prompt ' + (index + 1));
+  const cue = safeText(src.cue || src.prompt || src.question || src.question_text || src.text || src.title || src.stem || src.summary, 'Recall the key teaching point for this segment.');
+  const ans = safeText(src.ans || src.answer || src.answer_text || src.explanation || src.teaching_point || src.expected_answer || src.expected || src.summary, 'Self-check your recall against the lecture/video segment.');
   return { topic, cue, ans };
 }
 async function loadRuntimePromptsForSession(session){
   if(session && Array.isArray(session.prompts) && session.prompts.length) return session.prompts.map(normalizePrompt);
   const nodesUrl = safeText(session && session.nodes_url, '');
   if(nodesUrl){
+    if(!isAllowedRuntimeAssetUrl(nodesUrl)){
+      log('nodes_prompt_url_rejected', { nodes_url: nodesUrl });
+      return FALLBACK_PROMPTS.map(normalizePrompt);
+    }
     try{
       const res = await fetch(nodesUrl, { credentials:'omit', cache:'no-store' });
       if(res.ok){
         const data = await res.json();
-        const list = Array.isArray(data) ? data : (Array.isArray(data.nodes) ? data.nodes : (Array.isArray(data.prompts) ? data.prompts : (Array.isArray(data.questions) ? data.questions : [])));
+        const inner = data && data.data && typeof data.data === 'object' ? data.data : data;
+        const list = Array.isArray(inner) ? inner : (Array.isArray(inner.nodes) ? inner.nodes : (Array.isArray(inner.prompts) ? inner.prompts : (Array.isArray(inner.questions) ? inner.questions : (Array.isArray(inner.items) ? inner.items : []))));
         if(list.length) return list.map(normalizePrompt);
       }
     }catch(error){ log('nodes_prompt_load_failed', { message: String(error && error.message ? error.message : error) }); }
@@ -1456,9 +1503,10 @@ const STATE={
 };
 
 const STORE={
-  K_SEL:'mm_selected_drill',K_RES:'mm_daily_drill_result',
+  K_SEL:'mm_selected_drill',K_RES:'mm_daily_drill_result',K_LAUNCH:'mm.launch',
   setSel(d){try{sessionStorage.setItem(this.K_SEL,JSON.stringify(d));}catch(e){}},
   getSel(){try{const v=sessionStorage.getItem(this.K_SEL);return v?JSON.parse(v):null;}catch(e){return null;}},
+  getLaunch(){try{const v=sessionStorage.getItem(this.K_LAUNCH);return v?JSON.parse(v):null;}catch(e){return null;}},
   setRes(r){try{sessionStorage.setItem(this.K_RES,JSON.stringify(r));}catch(e){}},
   getRes(){try{const v=sessionStorage.getItem(this.K_RES);return v?JSON.parse(v):null;}catch(e){return null;}},
   clearRes(){try{sessionStorage.removeItem(this.K_RES);}catch(e){}}
@@ -1480,7 +1528,14 @@ const Bridge={
   clearSessionResult(){STORE.clearRes();log('result_cleared');},
   returnToDaily(){showDailyMenuAfterReturn();return STORE.getRes();},
   returnToArena(){log('back_to_arena');},
-  getMediaSource(d){return{stream_uid:d.id,r2_url:null,poster_url:null,video_id:d.id,media_timecode:null};},
+  getMediaSource(d){return{
+    stream_uid:safeText(d && (d.stream_id || d.streamId), ''),
+    r2_url:safeText(d && (d.playback_url || d.playbackUrl), ''),
+    poster_url:safeText(d && (d.poster_url || d.posterUrl), ''),
+    video_id:safeText(d && (d.video_id || d.id || d.drill_id), ''),
+    media_timecode:safeText(d && (d.media_timecode || d.timecode), ''),
+    nodes_url:safeText(d && (d.nodes_url || d.nodesUrl), '')
+  };},
   reportEvent(name,payload){log(name,payload);}
 };
 window.MMDailyDrillsBridge=Bridge;
@@ -1942,10 +1997,21 @@ function finishSession(){
   const avg=STATE.rt.times.length?(STATE.rt.times.reduce((a,b)=>a+b,0)/STATE.rt.times.length/1000):0;
   const fast=STATE.rt.times.length?Math.min(...STATE.rt.times)/1000:0;
   const result={
-    drill_id:STATE.session?.id,topic:STATE.session?.title,
+    source:'daily_rounds',
+    video_id:STATE.session?.video_id || STATE.session?.id,
+    drill_id:STATE.session?.drill_id || STATE.session?.id,
+    title:STATE.session?.title,
+    topic:STATE.session?.title,
     correct:STATE.rt.correct,miss:STATE.rt.miss,oot:STATE.rt.oot,
+    correct_count:STATE.rt.correct,
+    missed_count:STATE.rt.miss,
+    out_of_time_count:STATE.rt.oot,
+    total_count:total,
     avg_response_s:+avg.toFixed(1),fastest_s:+fast.toFixed(1),
-    best_streak:STATE.rt.bestStreak,flagged:STATE.rt.flagged,score_pct:pct
+    best_streak:STATE.rt.bestStreak,flagged:STATE.rt.flagged,score_pct:pct,
+    launch_id:STATE.session?.launch_id,
+    completed_at:new Date().toISOString(),
+    persistence:'session_only'
   };
   const savedResult = Bridge.saveSessionResult(result);
   closeRuntime();
@@ -1960,16 +2026,18 @@ function openSummary(){
   document.getElementById('summaryOverlay').classList.add('live');
 }
 function populateSummary(r){
-  document.getElementById('sumPct').textContent=(r.score_pct||0)+'%';
-  document.getElementById('sumCorrect').textContent=r.correct||0;
-  document.getElementById('sumMiss').textContent=r.miss||0;
-  document.getElementById('sumOOT').textContent=r.oot||0;
-  document.getElementById('sumAvg').textContent=(r.avg_response_s||0)+'s';
-  document.getElementById('sumFast').textContent=(r.fastest_s||0)+'s';
-  document.getElementById('sumStreak').textContent=r.best_streak||0;
+  const out = normalizeDailyResult(r);
+  const pct = Number.isFinite(Number(out.score_pct)) ? Number(out.score_pct) : Number(out.score || 0);
+  document.getElementById('sumPct').textContent=Math.round(pct)+'%';
+  document.getElementById('sumCorrect').textContent=out.correct_count||0;
+  document.getElementById('sumMiss').textContent=out.missed_count||0;
+  document.getElementById('sumOOT').textContent=out.out_of_time_count||0;
+  document.getElementById('sumAvg').textContent=(out.avg_response_s||0)+'s';
+  document.getElementById('sumFast').textContent=(out.fastest_s||0)+'s';
+  document.getElementById('sumStreak').textContent=out.best_streak||0;
   const list=document.getElementById('flagList');
-  if(!r.flagged||!r.flagged.length){list.innerHTML='<div class="empty">NO QUESTIONS FLAGGED</div>';}
-  else{list.innerHTML=r.flagged.map(f=>`<div class="it"><span class="nm">Q${(f.idx||0)+1} &middot; ${f.topic||''}</span><span style="color:var(--txt);font-size:13px">${f.cue||''}</span></div>`).join('');}
+  if(!out.flagged||!out.flagged.length){list.innerHTML='<div class="empty">NO QUESTIONS FLAGGED</div>';}
+  else{list.innerHTML=out.flagged.map(f=>`<div class="it"><span class="nm">Q${(f.idx||0)+1} &middot; ${f.topic||''}</span><span style="color:var(--txt);font-size:13px">${f.cue||''}</span></div>`).join('');}
 }
 
 /* =========================================================
