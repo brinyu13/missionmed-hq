@@ -10,6 +10,7 @@ const MAX_BODY_BYTES = 16 * 1024;
 const CANONICAL_SUPABASE_PROJECT_REF = 'fglyvdykwgbuivikqoah';
 const SUPABASE_URL_FLAGS = ['MMHQ_SUPABASE_URL', 'SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL'];
 const SUPABASE_SERVICE_KEY_FLAGS = ['MMHQ_SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'MMHQ_SUPABASE_KEY'];
+const REVIEW_WRITE_RPC = 'review_write_gmail_metadata_comms';
 const ALLOWED_DIRECTIONS = new Set(['IN', 'OUT', 'SYS']);
 const ALLOWED_REVIEW_STATUSES = new Set(['approved', 'needs_review']);
 
@@ -91,39 +92,27 @@ export async function handleGmailCommsReviewWriteRoute(request, response, url, c
 }
 
 async function processReviewWrite(config, data) {
-  const target = await resolveTarget(config, data);
-  if (!target.ok) {
+  const result = await callReviewWriteRpc(config, data);
+  if (!result.ok) {
     return {
       ok: false,
-      httpStatus: target.httpStatus || 400,
-      error: target.error,
-      message: target.message,
+      httpStatus: mapRpcErrorStatus(result.error),
+      error: result.error,
+      message: result.message || 'Reviewed Gmail metadata event could not be processed.',
       dry_run: data.dryRun,
       supabase_writes: false,
     };
   }
 
-  const dedupe = await findExistingCommsEvent(config, data);
-  if (!dedupe.ok) {
-    return {
-      ok: false,
-      httpStatus: 503,
-      error: 'gmail_comms_dedupe_check_failed',
-      message: 'Gmail comms dedupe check failed before write.',
-      dry_run: data.dryRun,
-      supabase_writes: false,
-    };
-  }
-
-  if (dedupe.existingId) {
+  if (result.idempotent) {
     return {
       ok: true,
       idempotent: true,
       dry_run: data.dryRun,
       would_write: false,
       written: false,
-      comms_id: dedupe.existingId,
-      target: target.publicTarget,
+      comms_id: result.comms_id,
+      target: result.target,
       dedupe_key: data.dedupeKey,
       supabase_writes: false,
     };
@@ -135,23 +124,9 @@ async function processReviewWrite(config, data) {
       dry_run: true,
       would_write: true,
       written: false,
-      target: target.publicTarget,
+      target: result.target,
       dedupe_key: data.dedupeKey,
-      comms_preview: buildCommsInsert(data, target, { preview: true }),
-      supabase_writes: false,
-    };
-  }
-
-  const insert = buildCommsInsert(data, target);
-  const inserted = await insertCommsEvent(config, insert);
-  if (!inserted.ok) {
-    return {
-      ok: false,
-      httpStatus: 503,
-      error: inserted.error,
-      message: 'Reviewed Gmail metadata event could not be written to comms.',
-      dry_run: false,
-      written: false,
+      comms_preview: result.comms_preview || buildCommsPreview(data, result.target),
       supabase_writes: false,
     };
   }
@@ -161,8 +136,8 @@ async function processReviewWrite(config, data) {
     dry_run: false,
     would_write: false,
     written: true,
-    comms_id: inserted.id,
-    target: target.publicTarget,
+    comms_id: result.comms_id,
+    target: result.target,
     dedupe_key: data.dedupeKey,
     supabase_writes: true,
   };
@@ -252,74 +227,39 @@ function normalizeReviewWritePayload(payload, session) {
   };
 }
 
-async function resolveTarget(config, data) {
-  if (data.offerId) {
-    const response = await supabaseSelect(config, 'command_center.usce_offer_drafts', {
-      select: 'id,intake_request_id,status',
-      id: `eq.${data.offerId}`,
-      limit: '1',
+async function callReviewWriteRpc(config, data) {
+  try {
+    const response = await fetch(`${config.supabaseUrl}/rest/v1/rpc/${REVIEW_WRITE_RPC}`, {
+      method: 'POST',
+      headers: buildSupabaseHeaders(config.serviceKey, {
+        'Content-Type': 'application/json',
+      }),
+      body: JSON.stringify({
+        p_payload: buildRpcPayload(data),
+      }),
     });
-    if (!response.ok) return response;
-    const offer = response.rows[0];
-    if (!offer) {
-      return { ok: false, httpStatus: 404, error: 'offer_not_found', message: 'Offer target was not found.' };
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      return { ok: false, error: `supabase_rpc_${response.status}` };
     }
-    if (data.intakeRequestId && data.intakeRequestId !== normalizeUuid(offer.intake_request_id)) {
-      return { ok: false, httpStatus: 400, error: 'target_mismatch', message: 'intake_request_id does not match the supplied offer_id.' };
-    }
-    return {
-      ok: true,
-      intakeRequestId: normalizeUuid(offer.intake_request_id),
-      offerId: data.offerId,
-      publicTarget: {
-        intake_request_id: normalizeUuid(offer.intake_request_id),
-        offer_id: data.offerId,
-      },
-    };
+    return payload && typeof payload === 'object' ? payload : { ok: false, error: 'invalid_rpc_response' };
+  } catch {
+    return { ok: false, error: 'supabase_rpc_request_failed' };
   }
+}
 
-  const response = await supabaseSelect(config, 'command_center.usce_public_intake_requests', {
-    select: 'id,status',
-    id: `eq.${data.intakeRequestId}`,
-    limit: '1',
-  });
-  if (!response.ok) return response;
-  if (!response.rows[0]) {
-    return { ok: false, httpStatus: 404, error: 'intake_not_found', message: 'Intake target was not found.' };
-  }
+function buildRpcPayload(data) {
   return {
-    ok: true,
-    intakeRequestId: data.intakeRequestId,
-    offerId: null,
-    publicTarget: {
-      intake_request_id: data.intakeRequestId,
-      offer_id: null,
-    },
-  };
-}
-
-async function findExistingCommsEvent(config, data) {
-  const response = await supabaseSelect(config, 'command_center.usce_comms', {
-    select: 'id',
-    'raw_json->>source': 'eq.gmail_metadata_review_write',
-    'raw_json->>mailbox': `eq.${data.mailbox}`,
-    'raw_json->>gmail_message_id': `eq.${data.gmailMessageId}`,
-    limit: '1',
-  });
-  if (!response.ok) return response;
-  return { ok: true, existingId: response.rows[0]?.id || null };
-}
-
-function buildCommsInsert(data, target, options = {}) {
-  const rawJson = {
-    source: 'gmail_metadata_review_write',
-    schema_version: 'CX-OFFER-326',
     mailbox: data.mailbox,
     gmail_message_id: data.gmailMessageId,
     gmail_thread_id: data.gmailThreadId,
     dedupe_key: data.dedupeKey,
-    offer_draft_id: target.offerId,
-    subject_redacted: true,
+    intake_request_id: data.intakeRequestId || null,
+    offer_draft_id: data.offerId || null,
+    direction: data.direction,
+    review_status: data.reviewStatus,
+    from_email: data.from[0] || null,
+    to_email: data.toCc[0] || null,
     subject_hash: data.subjectHash || null,
     message_id_hash: data.messageIdHash || null,
     in_reply_to_hash: data.inReplyToHash || null,
@@ -328,88 +268,38 @@ function buildCommsInsert(data, target, options = {}) {
     header_date: data.headerDate || null,
     match_confidence: data.matchConfidence,
     match_reasons: data.matchReasons,
-    review_status: data.reviewStatus,
     reviewed_by: data.adminIdentity,
+    dry_run: data.dryRun,
     body_stored: false,
     snippet_stored: false,
     gmail_writes: false,
-    dry_run: Boolean(options.preview),
   };
+}
 
+function buildCommsPreview(data, target = {}) {
   return {
-    intake_request_id: target.intakeRequestId,
+    intake_request_id: target.intake_request_id || data.intakeRequestId || null,
+    offer_id: target.offer_id || data.offerId || null,
     direction: data.direction,
-    is_internal_note: data.direction === 'SYS',
     message_status: data.direction === 'IN' ? 'replied' : 'sent',
-    from_email: data.from[0] || null,
-    to_email: data.toCc[0] || null,
-    subject: 'Gmail metadata event (subject redacted)',
+    from_email_present: Boolean(data.from[0]),
+    to_email_present: Boolean(data.toCc[0]),
+    subject_redacted: true,
     body_text: null,
-    raw_json: rawJson,
     needs_triage: data.matchConfidence !== 'high',
   };
 }
 
-async function insertCommsEvent(config, insert) {
-  try {
-    const restTarget = buildSupabaseRestTarget(config, 'command_center.usce_comms');
-    const response = await fetch(`${restTarget.url}?select=id`, {
-      method: 'POST',
-      headers: buildSupabaseHeaders(config.serviceKey, {
-        ...restTarget.headers,
-        Prefer: 'return=representation',
-        'Content-Type': 'application/json',
-      }),
-      body: JSON.stringify(insert),
-    });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) {
-      return { ok: false, error: `supabase_insert_${response.status}` };
-    }
-    return { ok: true, id: Array.isArray(payload) ? payload[0]?.id : payload?.id };
-  } catch {
-    return { ok: false, error: 'supabase_insert_request_failed' };
-  }
-}
-
-async function supabaseSelect(config, table, params) {
-  try {
-    const restTarget = buildSupabaseRestTarget(config, table);
-    const url = new URL(restTarget.url);
-    for (const [key, value] of Object.entries(params)) {
-      if (value !== null && value !== undefined && String(value) !== '') {
-        url.searchParams.set(key, String(value));
-      }
-    }
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: buildSupabaseHeaders(config.serviceKey, restTarget.headers),
-    });
-    const rows = await response.json().catch(() => []);
-    if (!response.ok) {
-      return { ok: false, error: `supabase_select_${response.status}`, rows: [] };
-    }
-    return { ok: true, rows: Array.isArray(rows) ? rows : [] };
-  } catch {
-    return { ok: false, error: 'supabase_select_request_failed', rows: [] };
-  }
-}
-
-function buildSupabaseRestTarget(config, relation) {
-  const [schema, table] = String(relation || '').split('.');
-  if (schema && table) {
-    return {
-      url: `${config.supabaseUrl}/rest/v1/${encodeURIComponent(table)}`,
-      headers: {
-        'Accept-Profile': schema,
-        'Content-Profile': schema,
-      },
-    };
-  }
-  return {
-    url: `${config.supabaseUrl}/rest/v1/${encodeURIComponent(String(relation || ''))}`,
-    headers: {},
+function mapRpcErrorStatus(error) {
+  const statusMap = {
+    intake_not_found: 404,
+    offer_not_found: 404,
+    target_mismatch: 400,
+    gmail_body_or_snippet_not_allowed: 400,
+    gmail_private_content_not_allowed: 400,
+    gmail_mailbox_not_allowed: 403,
   };
+  return statusMap[error] || (String(error || '').startsWith('supabase_rpc_') ? 503 : 400);
 }
 
 function getSupabaseConfig() {
