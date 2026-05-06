@@ -1,13 +1,8 @@
-<!--
-<!-- CANARY: MR-SYSTEM-IMPLEMENTATION-HANDOFF-005 comment-only verification change -->
-VERSION: 2026-04-22 19:32
-CHANGE: (G4)-Avatar-codex-high-604 Avatar persistence+selection fail-loud fix with strict Supabase UUID identity, write/load/select diagnostics, and mandatory post-write refetch sync
--->
 <!-- VERSION: MR-254_AVATAR_SYSTEM_FINAL -->
 <!--
 SYSTEM: ARENA
-VERSION: 2026-05-01 19:09 arena-avatar-full-system-925-a
-CHANGE: Adds explicit avatar preview/apply/delete locker controls, active fallback, grounded stage hierarchy, toast/transition proof logs, and STAT selected-mode sync.
+VERSION: 2026-05-03 21:58
+CHANGE: ARENA-LOGIN-RECOVERY-001: guard STAT launch handoff against missing avatar record while preserving verified Arena identity
 AUTHORITY: MM-HTML-DEPLOYMENT-SYSTEM-LOCK-001
 SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
 DEPLOYMENT: Cloudflare R2/CDN. Do NOT upload to WordPress Media Library.
@@ -4006,6 +4001,7 @@ html,body{
 }
 .fn-card-bg.card-drills{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_DRILLS-Daily-Rounds_2026-04-30_lobby-16x9-1920x1080.png')}
 .fn-card-bg.card-stat-duels{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png')}
+.fn-card-bg.card-stat-v3-lab{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png')}
 .fn-card-bg.card-iv-on-call{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_IV-On-Call_2026-04-30_lobby-16x9-1920x1080.png')}
 .fn-card-bg.card-tournamed{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-TournaMed_2026-04-30_lobby-16x9-1920x1080.png')}
 .fn-card-bg.card-usce-on-call{background-image:url('https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_USCE-On-Call-Pimpin-Rounds_2026-04-30_lobby-16x9-1920x1080.png')}
@@ -5328,12 +5324,28 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
             <div class="mode-card-desc fn-card-players">TODAY'S CHALLENGE</div>
           </div>
         </div>
+        <div class="mode-card fn-mode-card daily-drills-v3-card" data-mode="daily_drills_v3" data-arena-mode="daily_drills_v3" data-target-route="/daily-drills-v3" data-runtime-file="daily_drills_v3.html" aria-label="Daily plus Drills v3 unified timed recall mode">
+          <div class="mode-card-bg fn-card-bg card-drills"></div>
+          <div class="fn-card-badge">PLAY V3</div>
+          <div class="mode-card-content fn-card-content">
+            <div class="mode-card-label fn-card-label">Daily + Drills V3</div>
+            <div class="mode-card-desc fn-card-players">UNIFIED TIMED RECALL</div>
+          </div>
+        </div>
         <div class="mode-card fn-mode-card" data-mode="drills" data-arena-mode="stat">
           <div class="mode-card-bg fn-card-bg card-stat-duels"></div>
           <div class="fn-card-badge">NEW</div>
           <div class="mode-card-content fn-card-content">
             <div class="mode-card-label fn-card-label">STAT! DUELS</div>
             <div class="mode-card-desc fn-card-players">HEAD-TO-HEAD DUEL</div>
+          </div>
+        </div>
+        <div class="mode-card fn-mode-card stat-v3-lab-card" data-mode="stat_v3_lab" data-arena-mode="stat_v3_lab" data-target-route="https://cdn.missionmedinstitute.com/html-system/LIVE/stat_v3.html" data-runtime-file="stat_v3.html" aria-label="STAT V3 Lab internal preview">
+          <div class="mode-card-bg fn-card-bg card-stat-v3-lab"></div>
+          <div class="fn-card-badge">INTERNAL PREVIEW</div>
+          <div class="mode-card-content fn-card-content">
+            <div class="mode-card-label fn-card-label">STAT V3 Lab</div>
+            <div class="mode-card-desc fn-card-players">ADVANCED DUEL PREVIEW</div>
           </div>
         </div>
         <div class="mode-card fn-mode-card iv-premium-card" data-mode="interview" data-arena-mode="iv_on_call">
@@ -5437,7 +5449,6 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   /* ==========================================================================
      CONFIGURATION
      ========================================================================== */
-  var WP_REST_USERS_ME = '';
   var DRILLS_URL       = '/drills'; /* Canonical first-party drills route */
   const API_BASE       = String(window.MISSIONMED_AVATAR_API_BASE || "https://noble-harmony-production.up.railway.app").replace(/\/+$/, '');
   const API_SEGMENT    = '/api';
@@ -5445,6 +5456,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   var AUTH_BACKEND_ORIGIN = 'https://missionmed-hq-production.up.railway.app';
   var AUTH_EXCHANGE_URL = AUTH_BACKEND_ORIGIN + '/api/auth/exchange';
   var AUTH_BOOTSTRAP_URL = AUTH_BACKEND_ORIGIN + '/api/auth/bootstrap';
+  var ARENA_AUTH_CONTRACT = {
+    mode: 'arena',
+    requiresAuth: true,
+    requiresSupabase: true,
+    requiresProfile: false
+  };
   var WORDPRESS_AUTH_TOKEN_PATH = '';
   var DEFAULT_WORDPRESS_ORIGIN = 'https://missionmedinstitute.com';
   var WP_SUPABASE_SESSION_URL = '';
@@ -5959,18 +5976,24 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   function buildArenaLoginReturnUrl(){
-    return window.location.origin + '/arena?redirected=1';
+    var authCfg = getArenaAuthConfig();
+    var configured = normalizeAbsoluteUrl(authCfg && authCfg.loginReturnUrl ? authCfg.loginReturnUrl : '');
+    if(configured) return configured;
+    return resolveCanonicalWordPressOrigin().replace(/\/+$/, '') + '/arena?redirected=1';
   }
 
   function buildArenaLoginUrl(){
-    return window.location.origin + '/my-account/?redirect_to=' + encodeURIComponent(buildArenaLoginReturnUrl());
+    var authCfg = getArenaAuthConfig();
+    var configured = normalizeAbsoluteUrl(authCfg && authCfg.loginUrl ? authCfg.loginUrl : '');
+    if(configured) return configured;
+    return resolveCanonicalWordPressOrigin().replace(/\/+$/, '') + '/my-account/?redirect_to=' + encodeURIComponent(buildArenaLoginReturnUrl());
   }
 
   function buildArenaRegisterUrl(){
     var authCfg = getArenaAuthConfig();
-    var configured = normalizeArenaSameOriginUrl(authCfg && authCfg.registerUrl ? authCfg.registerUrl : '');
+    var configured = normalizeAbsoluteUrl(authCfg && authCfg.registerUrl ? authCfg.registerUrl : '');
     if(configured) return configured;
-    return window.location.origin + '/my-account/?action=register&redirect_to=' + encodeURIComponent(buildArenaLoginReturnUrl());
+    return resolveCanonicalWordPressOrigin().replace(/\/+$/, '') + '/my-account/?action=register&redirect_to=' + encodeURIComponent(buildArenaLoginReturnUrl());
   }
 
   function buildArenaLogoutUrl(){
@@ -6113,6 +6136,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
      GLOBAL USER OBJECT
      ========================================================================== */
   window.MM_USER = null;
+  window.ARENA_AUTH_GATE_READY = false;
 
   var ArenaUser = {
     authenticated: false, id: null, username: '', displayName: '',
@@ -6195,6 +6219,58 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       stopAvatarExecution('ACTIVE_USER_UUID_MISSING', { context: safeContext, user_id: userId || null });
     }
     return userId;
+  }
+  function applyResolvedSupabaseIdentity(resolvedId){
+    var safeId = String(resolvedId || '').trim();
+    if(!isUuid(safeId)) return '';
+    ArenaUser.supabaseUserId = safeId;
+    ArenaUser.id = safeId;
+    if(window.MM_USER){
+      window.MM_USER.supabase_user_id = safeId;
+      window.MM_USER.arena_user_id = safeId;
+    }
+    console.log('ACTIVE USER UUID:', safeId);
+    return safeId;
+  }
+  async function ensureAvatarSupabaseIdentity(context){
+    var safeContext = String(context || 'avatar_feature').trim() || 'avatar_feature';
+    var existingId = String((ArenaUser && ArenaUser.supabaseUserId) || '').trim();
+    if(isUuid(existingId)){
+      ArenaUser.id = existingId;
+      return existingId;
+    }
+    if(!arenaSupabase || !arenaSupabase.auth){
+      logAvatarSupabase(
+        'identity.avatar_feature.precheck',
+        { context: safeContext, wp_user_id: String((ArenaUser && ArenaUser.wpUserId) || '') },
+        null,
+        new Error('supabase_auth_unavailable'),
+        'warn'
+      );
+      return '';
+    }
+    try{
+      var resolved = await resolveSupabaseIdentityFromWordPress(ArenaUser.wpUserId, ArenaUser.email);
+      if(isUuid(resolved)){
+        return applyResolvedSupabaseIdentity(resolved);
+      }
+    } catch(resolveErr){
+      logAvatarSupabase(
+        'identity.avatar_feature.resolve_failed',
+        { context: safeContext, wp_user_id: String((ArenaUser && ArenaUser.wpUserId) || '') },
+        null,
+        resolveErr,
+        'warn'
+      );
+    }
+    logAvatarSupabase(
+      'identity.avatar_feature.unavailable',
+      { context: safeContext, wp_user_id: String((ArenaUser && ArenaUser.wpUserId) || '') },
+      null,
+      new Error('supabase_identity_unavailable'),
+      'warn'
+    );
+    return '';
   }
   async function runAvatarWriteProbe(userId){
     var safeUserId = String(userId || '').trim();
@@ -6891,6 +6967,13 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       }
     } catch(_refErr){}
 
+    try{
+      if(!loginHint){
+        var loginSearch = new URLSearchParams(window.location.search || '');
+        if(loginSearch.get('just_logged_in') === '1') loginHint = true;
+      }
+    } catch(_loginSearchErr){}
+
     if(loginHint){
       delays = [0, 150, 350, 700, 1200, 2000];
     }
@@ -6954,7 +7037,24 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   function shouldAttemptArenaAuthHandoff(result){
     if(!result || result.ok) return false;
     if(hasAttemptedArenaAuthHandoff()) return false;
-    return !!getArenaWordPressHandoffUrl(result);
+    if(!getArenaWordPressHandoffUrl(result)) return false;
+
+    var authCfg = getArenaAuthConfig();
+    if(authCfg && authCfg.isLoggedIn === true) return true;
+    if(authCfg && authCfg.just_logged_in === true) return true;
+
+    try{
+      var search = new URLSearchParams(window.location.search || '');
+      if(search.get('redirected') === '1' || search.get('just_logged_in') === '1') return true;
+    } catch(_searchErr){}
+
+    try{
+      if(document.referrer && /\/my-account\/?|\/wp-login\.php|\/wp-admin\/admin-post\.php/i.test(String(document.referrer))){
+        return true;
+      }
+    } catch(_refErr){}
+
+    return false;
   }
 
   async function attemptArenaAuthHandoff(result){
@@ -7019,6 +7119,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         var direct = await postJson(AUTH_EXCHANGE_URL, { audience: 'arena' }, null, 'include');
         lastDirect = direct;
         if(direct.ok){
+          writeStoredArenaHandoffToken('');
           clearArenaAuthHandoffAttempted();
           return {
             ok: true,
@@ -7087,6 +7188,28 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     }
   }
 
+  var arenaSupabaseSessionPromise = null;
+
+  async function verifyExistingArenaSupabaseSession(context){
+    if(!arenaSupabase || !arenaSupabase.auth || typeof arenaSupabase.auth.getUser !== 'function'){
+      return false;
+    }
+    try{
+      var existing = await arenaSupabase.auth.getUser();
+      var existingUser = existing && existing.data && existing.data.user ? existing.data.user : null;
+      logAvatarSupabase(
+        'identity.ensure_session.existing_' + (String(context || 'precheck').replace(/[^a-z0-9_]+/gi, '_') || 'precheck'),
+        {},
+        existing ? existing.data : null,
+        existing ? existing.error : null,
+        existing && existing.error ? 'warn' : 'warn'
+      );
+      return !!(existingUser && isUuid(existingUser.id));
+    } catch(_existingErr){
+      return false;
+    }
+  }
+
   async function ensureSupabaseSessionViaWordPress(){
     if(!arenaSupabase || !arenaSupabase.auth || typeof arenaSupabase.auth.setSession !== 'function'){
       logAvatarSupabase(
@@ -7098,26 +7221,25 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       );
       return false;
     }
-    try{
-      var current = await arenaSupabase.auth.getUser();
-      logAvatarSupabase(
-        'identity.ensure_session.current',
-        { bridge_url: WP_SUPABASE_SESSION_URL, exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
-        current ? current.data : null,
-        current ? current.error : null
-      );
-      if(current && current.data && current.data.user && current.data.user.id) return true;
-    } catch(_sessionReadErr){
-      logAvatarSupabase(
-        'identity.ensure_session.current.exception',
-        { bridge_url: WP_SUPABASE_SESSION_URL, exchange_url: AUTH_EXCHANGE_URL, bootstrap_url: AUTH_BOOTSTRAP_URL },
-        null,
-        _sessionReadErr,
-        'warn'
-      );
+
+    if(await verifyExistingArenaSupabaseSession('preflight')){
+      writeStoredArenaHandoffToken('');
+      clearArenaAuthHandoffAttempted();
+      return true;
     }
 
+    if(arenaSupabaseSessionPromise){
+      return arenaSupabaseSessionPromise;
+    }
+
+    arenaSupabaseSessionPromise = (async function(){
     try{
+      if(await verifyExistingArenaSupabaseSession('single_flight_preflight')){
+        writeStoredArenaHandoffToken('');
+        clearArenaAuthHandoffAttempted();
+        return true;
+      }
+
       var exchange = await runAuthExchange();
       logAvatarSupabase(
         'identity.ensure_session.exchange',
@@ -7158,7 +7280,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
       var verified = await arenaSupabase.auth.getUser();
       var verifiedUser = verified && verified.data && verified.data.user ? verified.data.user : null;
-      return !!(verifiedUser && verifiedUser.id);
+      var ok = !!(verifiedUser && isUuid(verifiedUser.id));
+      if(ok){
+        writeStoredArenaHandoffToken('');
+        clearArenaAuthHandoffAttempted();
+      }
+      return ok;
     } catch(bridgeError){
       logAvatarSupabase(
         'identity.ensure_session.bridge_exception',
@@ -7168,7 +7295,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         'error'
       );
       return false;
+    } finally {
+      arenaSupabaseSessionPromise = null;
     }
+    })();
+
+    return arenaSupabaseSessionPromise;
   }
 
   function normalizeSupabaseRpcUserId(payload){
@@ -7204,31 +7336,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       return '';
     }
 
-    try{
-      var directUser = await arenaSupabase.auth.getUser();
-      var direct = directUser && directUser.data && directUser.data.user ? directUser.data.user : null;
-      logAvatarSupabase(
-        'identity.resolve.auth_get_user_direct',
-        { wp_user_id: String(wpUserId || ''), email: String(email || '') },
-        directUser ? directUser.data : null,
-        directUser ? directUser.error : null,
-        directUser && directUser.error ? 'error' : 'warn'
-      );
-      if(direct && isUuid(direct.id)){
-        console.log('ACTIVE USER UUID:', direct.id);
-        return String(direct.id);
-      }
-    } catch(_authDirectErr){
-      logAvatarSupabase(
-        'identity.resolve.auth_get_user_direct.exception',
-        { wp_user_id: String(wpUserId || ''), email: String(email || '') },
-        null,
-        _authDirectErr,
-        'error'
-      );
+    var sessionReady = await ensureSupabaseSessionViaWordPress();
+    if(!sessionReady){
+      return '';
     }
-
-    await ensureSupabaseSessionViaWordPress();
 
     try{
       var bridgedUser = await arenaSupabase.auth.getUser();
@@ -7312,9 +7423,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         username: ArenaUser.username
       });
     }
-    console.log('ACTIVE USER UUID:', finalSupabaseUserId);
-    ArenaUser.supabaseUserId = finalSupabaseUserId;
-    ArenaUser.id = finalSupabaseUserId;
+    applyResolvedSupabaseIdentity(finalSupabaseUserId);
 
     ArenaUser.arenaAvatarFull = '';
     ArenaUser.arenaAvatarFace = '';
@@ -7324,26 +7433,23 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       id: ArenaUser.id || '',
       wp_user_id: ArenaUser.wpUserId || '',
       username: ArenaUser.username,
+      name: ArenaUser.displayName,
+      displayName: ArenaUser.displayName,
+      display_name: ArenaUser.displayName,
+      email: ArenaUser.email,
+      roles: ArenaUser.roles.slice(),
+      supabase_user_id: finalSupabaseUserId,
+      arena_user_id: finalSupabaseUserId,
       avatar_url: '',
       avatar_thumbnail_url: '',
-      active_avatar_id: ''
+      active_avatar_id: '',
+      avatar_urls: avatarUrl ? { '24': avatarUrl, '48': avatarUrl, '96': avatarUrl } : {}
     };
     if(typeof avatarState === 'object' && avatarState){
       avatarState.gender = loadAvatarGenderPreference(ArenaUser.id || '');
       if(typeof renderAvatarGenderToggle === 'function') renderAvatarGenderToggle();
     }
-    if(typeof runAvatarWriteProbe === 'function'){
-      var writeProbe = await runAvatarWriteProbe(finalSupabaseUserId);
-      if(!writeProbe || !writeProbe.success){
-        stopAvatarExecution('AVATAR_WRITE_PROBE_FAILED', {
-          user_id: finalSupabaseUserId,
-          probe_error: writeProbe && writeProbe.error ? writeProbe.error : 'unknown_probe_error'
-        });
-      }
-    }
-    if(typeof hydrateAvatarState === 'function'){
-      await hydrateAvatarState({ force: true, source: 'populateUserFromData' });
-    }
+
     console.log(
       '%c[Arena Auth] Verified: ' + ArenaUser.displayName + ' (@' + ArenaUser.username + ') wp=' + ArenaUser.wpUserId + ' supabase=' + (ArenaUser.id || 'unresolved'),
       'color:#00E676;font-weight:bold'
@@ -7455,6 +7561,24 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   }
 
   async function enforceAuthOrRedirect() {
+    var authCfg = getArenaAuthConfig();
+    var explicitlyLoggedOutByWordPress = false;
+    try{
+      var earlySearchParams = new URLSearchParams(window.location.search || '');
+      var earlyLoginReturn = earlySearchParams.get('redirected') === '1' || earlySearchParams.get('just_logged_in') === '1';
+      explicitlyLoggedOutByWordPress = !!(authCfg && authCfg.isLoggedIn === false && authCfg.just_logged_in !== true && !earlyLoginReturn);
+    } catch(_earlySearchErr){
+      explicitlyLoggedOutByWordPress = !!(authCfg && authCfg.isLoggedIn === false && authCfg.just_logged_in !== true);
+    }
+
+    if(explicitlyLoggedOutByWordPress){
+      showArenaAuthRequiredState({
+        loggedOut: false,
+        reason: 'auth_required'
+      });
+      return false;
+    }
+
     try{
       var supabaseIdentity = await readSupabaseUserViaExchangeBootstrap();
       if(supabaseIdentity && supabaseIdentity.ok && supabaseIdentity.user){
@@ -7464,7 +7588,6 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         return true;
       }
     } catch(_supaIdentityErr){}
-    var authCfg = getArenaAuthConfig();
     var loggedOut = !!(authCfg && authCfg.loggedOutParam);
     var redirectedAfterLogin = false;
     var returnedFromWordPress = false;
@@ -7500,23 +7623,6 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       loggedOut: false,
       reason: 'auth_required'
     });
-    // If a WP -> Railway handoff navigation is already in flight, do not
-    // race it with a /my-account redirect. The handoff path is the only
-    // one that lands the Railway-domain mmhq_session cookie required for
-    // the next exchange to succeed.
-    var handoffInFlight = false;
-    try { handoffInFlight = window.__MM_ARENA_HANDOFF_NAVIGATING === true; } catch(_lockReadErr){}
-    var redirectGuardActive = false;
-    try { redirectGuardActive = sessionStorage.getItem('mm_arena_auth_redirect_guard') === '1'; } catch(_guardReadErr){}
-    if(!handoffInFlight && !redirectGuardActive){
-      try { sessionStorage.setItem('mm_arena_auth_redirect_guard', '1'); } catch(_guardWriteErr){}
-      redirectToWordPressArenaLogin();
-    } else if(redirectGuardActive){
-      showArenaAuthRequiredState({
-        loggedOut: false,
-        reason: 'post_login_auth_failed'
-      });
-    }
     return false;
   }
 
@@ -7887,9 +7993,19 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     var opts = options || {};
     if(!opts.force && avatarHydrationPromise) return avatarHydrationPromise;
     if(!arenaSupabase){
-      stopAvatarExecution('AVATAR_SUPABASE_CLIENT_MISSING', { context: String(opts.source || 'hydrateAvatarState') });
+      logAvatarSupabase(
+        'avatar.hydrate.precheck',
+        { context: String(opts.source || 'hydrateAvatarState') },
+        null,
+        new Error('supabase_unavailable'),
+        'warn'
+      );
+      return { rows: avatarLockerRecords, skipped: true, reason: 'supabase_unavailable' };
     }
-    var activeUserId = assertAvatarIdentity('hydrateAvatarState');
+    var activeUserId = await ensureAvatarSupabaseIdentity('hydrateAvatarState');
+    if(!activeUserId){
+      return { rows: avatarLockerRecords, skipped: true, reason: 'supabase_identity_unavailable' };
+    }
 
     avatarHydrationPromise = (async function(){
       console.log('[AVATAR_HYDRATE_START]', {
@@ -8039,7 +8155,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     var avatarUrl = String(input.avatar_url || '').trim();
     var thumbnailUrl = String(input.thumbnail_url || avatarUrl).trim() || avatarUrl;
     var gender = normalizeAvatarGender(input.gender || avatarState.gender || 'female');
-    var activeUserId = assertAvatarIdentity('persistAvatarRecord');
+    var activeUserId = await ensureAvatarSupabaseIdentity('persistAvatarRecord');
+    if(!activeUserId){
+      return { success: false, record: null, error: 'supabase_identity_unavailable' };
+    }
     if(!arenaSupabase){
       logAvatarSupabase(
         'avatar.save.precheck',
@@ -8177,7 +8296,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       );
       return false;
     }
-    var activeUserId = assertAvatarIdentity('persistActiveAvatarSelection');
+    var activeUserId = await ensureAvatarSupabaseIdentity('persistActiveAvatarSelection');
+    if(!activeUserId){
+      return false;
+    }
     if(!arenaSupabase){
       logAvatarSupabase(
         'avatar.selection.precheck',
@@ -9496,15 +9618,17 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       key.indexOf('arena_avatar_uid_') === 0 ||
       key.indexOf('arena_avatar_gender_uid_') === 0;
     if(touchesAvatar){
-      hydrateAvatarState({ force: true, source: 'storage_event' }).catch(function(storageErr){
-        logAvatarSupabase(
-          'avatar.storage_event.hydrate_failed',
-          { user_id: String((ArenaUser && ArenaUser.id) || ''), key: key },
-          null,
-          storageErr,
-          'error'
-        );
-      });
+      if(isUuid(String((ArenaUser && ArenaUser.supabaseUserId) || '').trim())){
+        hydrateAvatarState({ force: true, source: 'storage_event' }).catch(function(storageErr){
+          logAvatarSupabase(
+            'avatar.storage_event.hydrate_failed',
+            { user_id: String((ArenaUser && ArenaUser.id) || ''), key: key },
+            null,
+            storageErr,
+            'error'
+          );
+        });
+      }
       renderAvatarGenderToggle();
     }
   });
@@ -9588,7 +9712,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       entryWelcome.classList.remove('visible');
       entryWelcome.textContent = '';
     }
-    try{ document.body.removeAttribute('data-arena-auth-state'); } catch(_authAttrErr){}
+    try{
+      if(document.body.getAttribute('data-arena-auth-state') !== 'authenticated'){
+        document.body.removeAttribute('data-arena-auth-state');
+      }
+    } catch(_authAttrErr){}
   }
   function renderArenaAuthFormIntoPanel(){
     if(!entryAuthPanel) return false;
@@ -9628,8 +9756,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     var options = opts || {};
     var loggedOut = !!options.loggedOut;
     var reason = String(options.reason || '').trim();
-    var intro = 'Sign in to enter the Arena.';
-    var detail = 'Your drills, stats, rank, and duels are tied to your MissionMed account.';
+    var intro = 'LOGIN REQUIRED';
+    var detail = 'Sign in through MissionMed My Account to enter the Arena.';
     if(loggedOut){
       intro = 'You signed out. Sign in to re-enter the Arena.';
     } else if(reason === 'post_login_auth_failed'){
@@ -9641,6 +9769,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     ArenaUser.id = null;
     ArenaUser.supabaseUserId = '';
     window.MM_USER = null;
+    window.ARENA_AUTH_GATE_READY = false;
 
     if(entryAuthCopy){
       entryAuthCopy.textContent = detail;
@@ -9766,7 +9895,21 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       if(!isAuthenticated) return;
       resetArenaEntryAuthState();
       await hydrateArenaUserFromAuthenticatedContext();
-      await hydrateAvatarState({ force: true, source: 'boot_sequence' });
+      window.ARENA_AUTH_GATE_READY = true;
+      try{
+        document.dispatchEvent(new CustomEvent('arena:auth-gate-ready', {
+          detail: {
+            user_id: String(ArenaUser.wpUserId || ''),
+            supabase_user_id: String(ArenaUser.supabaseUserId || ''),
+            contract: ARENA_AUTH_CONTRACT
+          }
+        }));
+      } catch(_authGateEventErr){}
+      if(isUuid(ArenaUser.supabaseUserId || '')){
+        hydrateAvatarState({ force: true, source: 'boot_sequence_optional' }).catch(function(avatarHydrateErr){
+          console.warn('[Arena Auth] Optional avatar hydration skipped after login.', avatarHydrateErr);
+        });
+      }
       initQStatIntegration().catch(function(err){
         console.warn('[QSTAT] init failed during boot', err);
       });
@@ -12347,7 +12490,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       showToast('Invalid avatar delete request.', 'error');
       return false;
     }
-    var activeUserId = assertAvatarIdentity('deleteAvatarFromLocker');
+    var activeUserId = await ensureAvatarSupabaseIdentity('deleteAvatarFromLocker');
+    if(!activeUserId){
+      showToast('Avatar storage is unavailable. Please retry after refreshing Arena.', 'error');
+      return false;
+    }
     var isActiveDelete = !!(avatarLockerUiState.activeAvatarId || avatarLockerUiState.active_avatar_id) && ch.id === (avatarLockerUiState.activeAvatarId || avatarLockerUiState.active_avatar_id);
     var remainingBefore = getLockerCharacters().filter(function(item){ return item && item.id !== ch.id && isUuid(item.id); });
     var confirmMessage = isActiveDelete
@@ -13606,10 +13753,20 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       <div class="lus-mode-card-sub">Today's challenge</div>
       <div class="lus-mode-card-tag">LIVE</div>
     </div>
+    <div class="lus-mode-card" data-lus-mode="daily_drills_v3" role="button" tabindex="0">
+      <div class="lus-mode-card-name">Daily + Drills V3</div>
+      <div class="lus-mode-card-sub">Unified timed recall</div>
+      <div class="lus-mode-card-tag">PREVIEW</div>
+    </div>
     <div class="lus-mode-card" data-lus-mode="stat" role="button" tabindex="0">
       <div class="lus-mode-card-name">STAT!</div>
       <div class="lus-mode-card-sub">Head-to-head duel</div>
       <div class="lus-mode-card-tag">DUEL</div>
+    </div>
+    <div class="lus-mode-card" data-lus-mode="stat_v3_lab" role="button" tabindex="0">
+      <div class="lus-mode-card-name">STAT V3 Lab</div>
+      <div class="lus-mode-card-sub">Advanced duel preview</div>
+      <div class="lus-mode-card-tag">INTERNAL</div>
     </div>
   </div>
 </div>
@@ -13681,6 +13838,8 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     var safe = String(mode || '').trim().toLowerCase();
     if(safe === 'qstat') return 'stat';
     if(safe === 'drills') return 'daily_rounds';
+    if(safe === 'daily-drills-v3' || safe === 'daily_drills' || safe === 'daily_drills_v3') return 'daily_drills_v3';
+    if(safe === 'stat_v3_lab' || safe === 'stat-v3-lab' || safe === 'statv3') return 'stat_v3_lab';
     if(safe === 'iv-on-call' || safe === 'ivoncall') return 'iv_on_call';
     return safe;
   }
@@ -13900,9 +14059,15 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(selectedMode === 'daily_rounds'){
       title = 'DRILLS: Daily Rounds';
       desc = "Compete in today's challenge";
+    } else if(selectedMode === 'daily_drills_v3'){
+      title = 'Daily + Drills V3';
+      desc = 'Unified timed recall mode';
     } else if(selectedMode === 'stat'){
       title = 'STAT!';
       desc = 'Head-to-head duel mode';
+    } else if(selectedMode === 'stat_v3_lab'){
+      title = 'STAT V3 Lab';
+      desc = 'Advanced duel experience preview';
     } else if(selectedMode === 'iv_on_call'){
       title = 'DR BRIAN: IV ON-CALL';
       desc = 'Train like it matters';
@@ -13911,7 +14076,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     if(subtitleEl) subtitleEl.textContent = 'Selected Mode';
     if(titleEl) titleEl.textContent = title;
     if(descEl) descEl.textContent = desc;
-    if(btn) btn.classList.toggle('arena-mode-ready', !!selectedMode);
+    if(btn) {
+      btn.innerHTML = '<span class="lus-play-arrow">&#9654;</span>' + ((selectedMode === 'daily_drills_v3' || selectedMode === 'stat_v3_lab') ? 'PLAY V3' : 'PLAY');
+      btn.classList.toggle('arena-mode-ready', !!selectedMode);
+    }
   }
   window.updatePlayBox = updatePlayBox;
 
@@ -13982,7 +14150,10 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
   // VERSION: STAT_TOP_LEVEL_LAUNCH_706B
   var STAT_RUNTIME_KEY = 'stat_latest_async_duel_state';
   var STAT_CANONICAL_ROUTE = '/stat';
+  var STAT_V3_LAB_ROUTE = 'https://cdn.missionmedinstitute.com/html-system/LIVE/stat_v3.html';
+  var DAILY_DRILLS_V3_ROUTE = '/daily-drills-v3';
   var STAT_LAUNCH_ENVELOPE_KEY = 'mm.stat.launch.v1';
+  var STAT_V3_LAB_LAUNCH_ENVELOPE_KEY = 'mm.stat.v3.lab.launch.v1';
   var STAT_LAUNCH_ENVELOPE_VERSION = 'v1';
   var IV_ON_CALL_CANONICAL_ROUTE = '/dboc_interview_v1.html';
   var IV_ON_CALL_LAUNCH_KEY = 'mm.iv_on_call.launch.v1';
@@ -13991,6 +14162,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
 
   function navigateToStatRoute() {
     window.location.href = STAT_CANONICAL_ROUTE;
+    return true;
+  }
+
+  function navigateToStatV3LabRoute() {
+    window.location.href = STAT_V3_LAB_ROUTE;
     return true;
   }
 
@@ -14116,7 +14292,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     }
     if (!activeThumb) activeThumb = String((arenaUser && arenaUser.arenaAvatarFace) || (window.MM_USER && window.MM_USER.avatar_thumbnail_url) || '').trim();
     if (!activeFull) activeFull = String((arenaUser && arenaUser.arenaAvatarFull) || (window.MM_USER && window.MM_USER.avatar_url) || '').trim();
-    if (!activeAvatarId) activeAvatarId = String((window.MM_USER && window.MM_USER.active_avatar_id) || ArenaUser.activeAvatarId || '').trim();
+    if (!activeAvatarId) activeAvatarId = String((window.MM_USER && window.MM_USER.active_avatar_id) || (arenaUser && arenaUser.activeAvatarId) || '').trim();
     if (activeAvatarId) payload.active_avatar_id = activeAvatarId;
     if(activeThumb) payload.avatar_thumbnail_url = activeThumb;
     if(activeFull) payload.avatar_url = activeFull;
@@ -14145,6 +14321,26 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return navigateToStatRoute();
   }
   window.MMLaunchSTAT = launchSTAT;
+
+  function launchSTATV3Lab(source) {
+    var launchEnvelope = {
+      version: STAT_LAUNCH_ENVELOPE_VERSION,
+      source: 'arena',
+      mode: 'stat_v3_lab',
+      entry_source: source || 'arena_mode_box',
+      route: STAT_V3_LAB_ROUTE,
+      launched_at: new Date().toISOString()
+    };
+    var userHint = getStatIdentityPayload();
+    if (userHint) launchEnvelope.user_hint = userHint;
+    try {
+      sessionStorage.setItem(STAT_V3_LAB_LAUNCH_ENVELOPE_KEY, JSON.stringify(launchEnvelope));
+    } catch (storeError) {
+      console.warn('[STAT V3 LAB HANDOFF] failed to persist launch envelope', storeError);
+    }
+    return navigateToStatV3LabRoute();
+  }
+  window.MMLaunchSTATV3Lab = launchSTATV3Lab;
 
   function extractStatDuelIdFromPayload(payload) {
     if (!payload || typeof payload !== 'object') return '';
@@ -14296,6 +14492,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
         }
         return;
       }
+      if(mode === 'daily_drills_v3'){
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.href = DAILY_DRILLS_V3_ROUTE;
+        return;
+      }
       if(mode === 'stat'){
         console.log('[STAT_PLAY_CLICK_WORKING]', {
           selectedMode: mode,
@@ -14303,6 +14505,12 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
           route: STAT_CANONICAL_ROUTE
         });
         launchSTAT();
+        return;
+      }
+      if(mode === 'stat_v3_lab'){
+        event.preventDefault();
+        event.stopPropagation();
+        launchSTATV3Lab('arena_mode_system_008_play_button');
         return;
       }
       if(mode === 'iv_on_call'){
@@ -17774,6 +17982,9 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
   'use strict';
   if (!window.MMOS) return;
   var SESSION_FLAG = 'mm.arena.entered';
+  function startArenaMMOSBindings(){
+    if(startArenaMMOSBindings.started) return;
+    startArenaMMOSBindings.started = true;
 
   /* Register internal scenes for the arena host. These modes currently have
      no async init; they preserve the PASS-003 synchronous entry path. The
@@ -17858,6 +18069,12 @@ button[onclick*="setAvatar"][style*="bottom:20px"]{display:none !important}
   if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', markInitialScene);
   } else { markInitialScene(); }
+  }
+  if(window.ARENA_AUTH_GATE_READY === true){
+    startArenaMMOSBindings();
+  } else {
+    document.addEventListener('arena:auth-gate-ready', startArenaMMOSBindings, { once: true });
+  }
 })();
 </script>
 <!-- END MARENA-OS-MMOS-READINESS-GATE-004 -->
@@ -18646,9 +18863,21 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       name: 'DRILLS: Daily Rounds',
       image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_DRILLS-Daily-Rounds_2026-04-30_lobby-16x9-1920x1080.png'
     },
+    daily_drills_v3: {
+      name: 'Daily + Drills V3',
+      image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_DRILLS-Daily-Rounds_2026-04-30_lobby-16x9-1920x1080.png',
+      sub: 'UNIFIED TIMED RECALL',
+      route: '/daily-drills-v3'
+    },
     stat: {
       name: 'STAT! Duels',
       image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png'
+    },
+    stat_v3_lab: {
+      name: 'STAT V3 Lab',
+      image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png',
+      sub: 'INTERNAL PREVIEW',
+      route: 'https://cdn.missionmedinstitute.com/html-system/LIVE/stat_v3.html'
     },
     iv_on_call: {
       name: 'IV On-Call',
@@ -18680,7 +18909,9 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
   function modeKey(raw){
     var safe = String(raw || '').toLowerCase();
     if (safe === 'daily_rounds' || safe === 'drills') return 'drills';
+    if (safe === 'daily_drills_v3' || safe === 'daily-drills-v3' || safe === 'daily_drills') return 'daily_drills_v3';
     if (safe === 'stat' || safe === 'qstat') return 'stat';
+    if (safe === 'stat_v3_lab' || safe === 'stat-v3-lab' || safe === 'statv3') return 'stat_v3_lab';
     if (safe === 'iv_on_call' || safe === 'iv-on-call' || safe === 'ivoncall') return 'iv_on_call';
     if (safe === 'tournamed' || safe === 'stat_tournamed' || safe === 'stat-tournamed') return 'tournamed';
     if (safe === 'usce_on_call' || safe === 'usce-on-call' || safe === 'usceoncall') return 'usce_on_call';
@@ -19023,9 +19254,15 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     if (key === 'drills') {
       desc.textContent = 'Daily clinical rounds ready to launch';
       meta.textContent = 'Playable Mode • DRILLS';
+    } else if (key === 'daily_drills_v3') {
+      desc.textContent = 'Choose exam level, subject, and drill, then train speed with timed self-report recall';
+      meta.textContent = 'Playable Mode • Play V3';
     } else if (key === 'stat') {
       desc.textContent = 'Head-to-head duel mode is live';
       meta.textContent = 'Playable Mode • STAT';
+    } else if (key === 'stat_v3_lab') {
+      desc.textContent = 'Advanced duel experience preview';
+      meta.textContent = 'Internal Preview • STAT V3';
     } else {
       desc.textContent = 'Interview training arena is live';
       meta.textContent = 'Playable Mode • IV ON-CALL';
@@ -20575,6 +20812,54 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
 #fnCarouselTrack .fn-mode-card.locked::before,
 #fnCarouselTrack .fn-mode-card.locked::after{
   display:none !important;
+}
+#fnCarouselTrack .fn-mode-card.daily-drills-v3-card::before,
+#fnCarouselTrack .fn-mode-card.stat-v3-lab-card::before{
+  position:absolute;
+  top:10px;
+  left:12px;
+  z-index:4;
+  display:block !important;
+  padding:4px 8px;
+  border-radius:4px;
+  border:1px solid rgba(255,225,74,.58);
+  background:rgba(5,12,22,.82);
+  color:#FFE14A;
+  font-family:'Orbitron',sans-serif;
+  font-size:10px;
+  font-weight:900;
+  letter-spacing:1px;
+  text-transform:uppercase;
+}
+#fnCarouselTrack .fn-mode-card.daily-drills-v3-card::before{
+  content:'Play v3';
+}
+#fnCarouselTrack .fn-mode-card.stat-v3-lab-card::before{
+  content:'Internal Preview';
+}
+#fnCarouselTrack .fn-mode-card.daily-drills-v3-card::after,
+#fnCarouselTrack .fn-mode-card.stat-v3-lab-card::after{
+  position:absolute;
+  left:14px;
+  right:14px;
+  bottom:14px;
+  z-index:4;
+  display:block !important;
+  white-space:pre-line;
+  color:#FFFFFF;
+  font-family:'Orbitron',sans-serif;
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:1px;
+  line-height:1.22;
+  text-shadow:0 2px 10px rgba(0,0,0,.84);
+  text-transform:uppercase;
+}
+#fnCarouselTrack .fn-mode-card.daily-drills-v3-card::after{
+  content:'Daily + Drills V3\A Unified timed recall';
+}
+#fnCarouselTrack .fn-mode-card.stat-v3-lab-card::after{
+  content:'STAT V3 Lab\A Advanced duel preview';
 }
 #fnCarouselTrack .fn-mode-card.locked{
   pointer-events:auto !important;
