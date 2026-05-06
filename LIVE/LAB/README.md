@@ -37,3 +37,20 @@ Control Tower-approved implementation prompt.
 - Performs no Supabase writes
 - Does not modify auth, WordPress, Railway, R2/CDN, or deploy behavior
 - Not tester-facing unless separately approved by Control Tower
+
+## Single HTML T16 Candidate
+
+`daily_drills_single_html_t16_candidate_011.html`
+
+- Lab mirror of the T-16 single-file `LIVE/drills.html` candidate
+- Supports `/drills?entry=daily_rounds` menu state and
+  `/drills?video_id=...&origin_mode=daily_rounds` runtime state
+- Preserves `mm_selected_drill`, `mm_daily_drill_result`, and
+  `window.MMDailyDrillsBridge`
+- Keeps T-16 demo data as fallback only
+- Not deployed, not promoted, and not proof of production readiness
+
+`daily_drills_single_html_t16_notes_011.md`
+
+- Integration notes, data source expectations, route behavior, and candidate
+  limitations for wiring authority review
