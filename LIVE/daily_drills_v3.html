@@ -362,9 +362,9 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .subarea-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .subarea-chips .sc{padding:6px 12px;border-radius:8px;background:linear-gradient(180deg,#1d2a4d,#0a1228);border:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase}
 .split-detail .pick{margin-top:14px;display:flex;gap:10px}
-.subject-video-panel{min-height:0;display:flex;flex-direction:column;gap:12px;overflow:hidden}
-.subject-video-panel .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.subject-video-panel .panel-head h3{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:.04em;margin:0;color:var(--gold)}
+.subject-video-panel{min-height:0;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:10px;background:var(--panel-grad);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-panel)}
+.subject-video-panel .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 6px 8px}
+.subject-video-panel .panel-head .subject-col-title{padding:0}
 .subject-video-panel .panel-head .sub{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--mut);text-transform:uppercase}
 .subject-video-panel .sess-shell{grid-template-columns:1fr;gap:10px}
 .subject-video-panel .sess-list{overflow:auto;padding-right:4px}
@@ -471,7 +471,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 /* RUNTIME &mdash; full screen overlay */
 .runtime-shell{position:fixed;inset:0;z-index:200;display:none;background:radial-gradient(ellipse at 30% 20%,#0e1733 0%,#03050d 70%);overflow:hidden}
 .runtime-shell.live{display:grid}
-.rt-grid{display:grid;grid-template-columns:240px 1fr 320px;height:100vh}
+.rt-grid{display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(240px,300px);height:100vh}
 .rt-rail{padding:18px;background:linear-gradient(180deg,rgba(13,21,45,.85),rgba(8,13,30,.85));border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;overflow:auto}
 .rt-nav-btn{appearance:none;border:0;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 14px;border-radius:12px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:13px;line-height:1.05;text-align:left;border:1px solid var(--line-bright);box-shadow:0 5px 0 #050a18,0 8px 14px -4px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)}
 .rt-nav-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #050a18,inset 0 1px 0 rgba(255,255,255,.10)}
@@ -489,18 +489,21 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .pause-btn:active{transform:translateY(3px);box-shadow:0 3px 0 #050a18,0 5px 8px -2px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.10)}
 .pause-btn::before{content:"";width:14px;height:18px;border-left:5px solid var(--gold);border-right:5px solid var(--gold);border-radius:1px}
 
-.rt-stage{display:flex;flex-direction:column;padding:22px;gap:16px;overflow:hidden}
-.rt-video{position:relative;display:block;height:240px;background:#06091a;border-radius:14px;overflow:hidden;border:1px solid var(--line);box-shadow:inset 0 2px 8px rgba(0,0,0,.7)}
+.rt-stage{display:flex;flex-direction:column;padding:16px;gap:12px;overflow:hidden}
+.rt-video{position:relative;display:block;flex:0 0 clamp(320px,44vh,520px);height:clamp(320px,44vh,520px);background:#06091a;border-radius:16px;overflow:hidden;border:1px solid var(--line-bright);box-shadow:0 20px 50px -22px rgba(0,0,0,.9),inset 0 2px 8px rgba(0,0,0,.7)}
 .rt-video .quad-grid{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px}
 .rt-video .quad{background:radial-gradient(circle at 50% 40%,#1c2c52,#06091a);display:grid;place-items:center;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;position:relative}
 .rt-video .quad::after{content:"";width:48px;height:48px;border-radius:50%;background:radial-gradient(circle,rgba(140,170,220,.16),transparent 70%)}
 .rt-video .ovl{position:absolute;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt);letter-spacing:.16em}
 .rt-video .ovl.t{top:0;left:0;right:0;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent)}
 .rt-video .ovl.b{bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent)}
-.rt-video .media-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#03050d;display:none}
-.rt-video .media-video{position:absolute;inset:0;width:100%;height:100%;background:#03050d;display:none;object-fit:contain}
+.rt-video .media-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#03050d;display:none;pointer-events:none}
+.rt-video .media-video{position:absolute;inset:0;width:100%;height:100%;background:#03050d;display:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-select:none;touch-action:none}
 .rt-video .media-fallback{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:22px;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;background:radial-gradient(circle at 50% 40%,rgba(34,211,238,.08),rgba(6,9,26,.98))}
 .rt-video .media-fallback strong{display:block;color:var(--txt);font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.10em;margin-bottom:6px}
+.rt-video .media-guard{position:absolute;inset:0;z-index:7;display:none;cursor:default;background:transparent}
+.rt-video.has-media .media-guard,
+.rt-video.has-video .media-guard{display:block}
 .rt-video.has-media .media-frame{display:block}
 .rt-video.has-video .media-video{display:block}
 .rt-video.has-media .quad-grid{display:none}
@@ -732,7 +735,7 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 .data-empty{padding:18px;border:1px dashed rgba(140,170,220,.28);border-radius:14px;background:rgba(6,9,26,.34);color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;line-height:1.55}
 .data-empty strong{display:block;color:var(--txt);font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:.08em;margin-bottom:4px}
 .data-empty.warn{border-color:rgba(252,211,77,.36);background:rgba(252,211,77,.06)}
-.summary-cta{grid-template-columns:repeat(3,minmax(0,1fr));}
+.summary-cta{grid-template-columns:repeat(2,minmax(0,1fr));}
 
 /* MD-MERGER-027: Safari paint hardening for the v3 step body.
    The prior build could expose active content to accessibility while Safari
@@ -847,6 +850,11 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
   .split-stage,
   .sess-shell,
   .topic-shell{overflow:visible}
+}
+@media(max-width:1080px){
+  .rt-grid{grid-template-columns:minmax(160px,190px) minmax(0,1fr) minmax(210px,260px)}
+  .rt-video{flex-basis:clamp(280px,42vh,460px);height:clamp(280px,42vh,460px)}
+  .rt-question{padding:18px 20px}
 }
 
 </style>
@@ -1027,8 +1035,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <section class="subject-video-panel">
           <div class="panel-head">
             <div>
-              <div class="sub">REAL VIDEOS FOR SELECTED SUBJECT</div>
-              <h3>Pick a Video Drill</h3>
+              <div class="subject-col-title">Select Your Video</div>
             </div>
             <span id="sessTopicChip" class="chip gold" style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.10em;padding:8px 14px">REAL REGISTRY &middot; LOADING</span>
           </div>
@@ -1059,9 +1066,9 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <div>
             <div class="seg-l">TIMER INTENSITY</div>
             <div class="seg" data-seg="pace">
-              <button data-val="warmup">RELAXED 18s</button>
-              <button class="on" data-val="recommended">STANDARD 12s</button>
-              <button data-val="aggressive">AGGRESSIVE 8s</button>
+              <button data-val="warmup">RELAXED 10s</button>
+              <button class="on" data-val="recommended">STANDARD 6s</button>
+              <button data-val="aggressive">AGGRESSIVE 3s</button>
             </div>
           </div>
           <div>
@@ -1130,9 +1137,8 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           </div>
         </div>
         <div class="summary-cta">
-          <button class="btn green lg" data-summary="another">PICK ANOTHER SUBJECT</button>
-          <button class="btn lg" data-go-step="4">REPEAT DRILL</button>
-          <button class="btn ghost lg" data-go-step="1">RETURN TO DASHBOARD</button>
+          <button class="btn green lg" data-summary="another">DO ANOTHER DRILL</button>
+          <button class="btn ghost lg" data-summary="arena">RETURN TO ARENA LOBBY</button>
         </div>
       </div>
     </div>
@@ -1223,7 +1229,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <!-- M STATE 4: Ready Gate / Runtime -->
         <div class="state" data-state="4">
           <div class="m-h1">READY TO <span class="accent">JUMP IN.</span></div>
-          <div class="m-sub">8 questions &middot; standard 12s</div>
+          <div class="m-sub">8 questions &middot; standard 6s</div>
 
           <div class="m-card">
             <div class="sub" id="mReadyLevel">STEP/LEVEL 2 &amp; 3</div>
@@ -1255,8 +1261,8 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
             <div class="nm">How did this drill feel?</div>
             <div class="sub">Too easy · right pace · too hard</div>
           </div>
-          <button class="btn" style="width:100%;margin-top:14px" data-go-step="3">PICK ANOTHER SUBJECT</button>
-          <button class="btn ghost" style="width:100%;margin-top:10px" data-go-step="1">DASHBOARD</button>
+          <button class="btn" style="width:100%;margin-top:14px" data-summary="another">DO ANOTHER DRILL</button>
+          <button class="btn ghost" style="width:100%;margin-top:10px" data-summary="arena">RETURN TO ARENA LOBBY</button>
         </div>
 
       </div>
@@ -1286,7 +1292,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
     <section class="rt-stage">
       <div class="rt-video" id="rtVideoStage">
         <iframe class="media-frame" id="rtMediaFrame" title="Daily drill media" loading="lazy" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-        <video class="media-video" id="rtMediaVideo" controls playsinline preload="metadata"></video>
+        <video class="media-video" id="rtMediaVideo" playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback"></video>
         <div class="quad-grid" id="rtFallbackGrid">
           <div class="quad"><div class="ovl t"><span>DR J</span><span>04:21</span></div></div>
           <div class="quad"><div class="ovl t"><span>STUDENT A</span><span>04:21</span></div></div>
@@ -1294,13 +1300,14 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <div class="quad"><div class="ovl t"><span>BOARD</span><span>04:21</span></div></div>
         </div>
         <div class="media-fallback" id="rtMediaFallback"><div><strong>Media not loaded</strong><span>Real media is required before starting a live v3 drill.</span></div></div>
+        <div class="media-guard" id="rtMediaGuard" aria-hidden="true" title="Media is controlled by the Daily + Drills runtime."></div>
         <div class="ovl b" style="position:absolute;left:0;right:0;bottom:0"><span id="rtMediaLabel">AWAITING REAL MEDIA</span><span>SOUND MED</span></div>
       </div>
 
       <div class="rt-timer">
         <span class="chip">PROMPT <b id="rtPidx" style="color:var(--gold)">1 / 8</b></span>
         <div class="bar" id="rtBar"><div class="fill" id="rtFill" style="width:100%"></div></div>
-        <div class="num" id="rtNum">12.0s</div>
+        <div class="num" id="rtNum">6.0s</div>
       </div>
 
       <div class="rt-question" id="rtQuestion">
@@ -1407,9 +1414,8 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
     </div>
 
     <div class="summary-cta">
-      <button class="btn green lg" data-summary="daily">RETURN TO DAILY</button>
-      <button class="btn ghost lg" data-summary="arena">BACK TO MAIN ARENA</button>
-      <button class="btn lg" data-summary="another">ANOTHER DRILL &rarr;</button>
+      <button class="btn green lg" data-summary="another">DO ANOTHER DRILL</button>
+      <button class="btn ghost lg" data-summary="arena">RETURN TO ARENA LOBBY</button>
     </div>
   </div>
 </div>
@@ -2108,6 +2114,46 @@ function runtimeMediaSource(session){
   }
   return { type: '', url: '', media };
 }
+function runtimeIframeUrl(url){
+  try{
+    const next = new URL(url);
+    next.searchParams.set('controls', 'false');
+    next.searchParams.set('autoplay', 'true');
+    next.searchParams.set('preload', 'true');
+    next.searchParams.set('muted', 'false');
+    next.searchParams.set('startTime', '0');
+    return next.toString();
+  }catch(_error){
+    return url;
+  }
+}
+function lockRuntimeMediaControls(){
+  const frame = document.getElementById('rtMediaFrame');
+  const video = document.getElementById('rtMediaVideo');
+  if(frame){
+    frame.setAttribute('tabindex', '-1');
+    frame.setAttribute('aria-label', 'Daily drill media controlled by the runtime');
+  }
+  if(video){
+    video.controls = false;
+    video.setAttribute('tabindex', '-1');
+    video.setAttribute('disablepictureinpicture', '');
+    video.setAttribute('controlslist', 'nodownload noplaybackrate noremoteplayback');
+  }
+}
+async function startRuntimeMediaPlayback(){
+  const video = document.getElementById('rtMediaVideo');
+  if(!video || !video.src) return;
+  try{
+    video.pause();
+    video.currentTime = 0;
+    video.controls = false;
+    await video.play();
+    log('runtime_direct_video_started', { from_start: true });
+  }catch(error){
+    log('runtime_direct_video_start_blocked', { message: String(error && error.message ? error.message : error) });
+  }
+}
 function paintRuntimeMedia(session){
   const stage = document.getElementById('rtVideoStage');
   const frame = document.getElementById('rtMediaFrame');
@@ -2127,14 +2173,17 @@ function paintRuntimeMedia(session){
   if(fallback){
     fallback.innerHTML = '<div><strong>Media not loaded</strong><span>Real media is required before starting a normal v3 drill.</span></div>';
   }
+  lockRuntimeMediaControls();
   if(source.url){
     if(source.type === 'iframe'){
-      frame.src = source.url;
+      frame.src = runtimeIframeUrl(source.url);
       stage.classList.add('has-media');
     }else if(video){
+      video.controls = false;
       video.src = source.url;
       stage.classList.add('has-video');
     }
+    lockRuntimeMediaControls();
     if(label) label.textContent = safeText(session && (session.title || session.video_id || session.id), 'Daily drill') + ' · MEDIA LOADED';
     log('runtime_media_loaded', { video_id: media.video_id, media_type: source.type, has_stream: !!media.stream_uid, has_url: !!media.r2_url });
     return;
@@ -2506,8 +2555,8 @@ function renderStepRecovery(n, error){
     const detail=document.getElementById('splitDetail');
     const safeMessage = 'The subject browser could not render from the current registry shape. Choose another route after Wiring Authority validates the data source.';
     if(list) list.innerHTML = '<div class="subject-col-title">Pick Your Subject</div>' + dataEmptyHTML('Subject browser unavailable', safeMessage, true);
-    if(sessions) sessions.innerHTML = dataEmptyHTML('Pick a Video Drill', 'No selected-subject video list could be rendered from the current data shape.', true);
-    if(detail) detail.innerHTML = dataEmptyHTML('Subject history unavailable', 'Session trend appears here when history is available. Error: ' + message, true);
+    if(sessions) sessions.innerHTML = dataEmptyHTML('Select Your Video', 'No selected-subject video list could be rendered from the current data shape.', true);
+    if(detail) detail.innerHTML = '<div class="subject-col-title">Review Your Stats</div>' + dataEmptyHTML('Subject history unavailable', 'Session trend appears here when history is available. Error: ' + message, true);
   }
   log('step_render_recovered', { step:n, message });
 }
@@ -2559,10 +2608,10 @@ function ensureSubjectStepVisible(){
     list.innerHTML = '<div class="subject-col-title">Pick Your Subject</div>' + dataEmptyHTML('No real subjects loaded', noRegistry, true);
   }
   if(sessions && !sessions.textContent.trim()){
-    sessions.innerHTML = dataEmptyHTML('Pick a Video Drill', 'Select a subject to see real video drills. Normal v3 does not substitute demo sessions.', true);
+    sessions.innerHTML = dataEmptyHTML('Select Your Video', 'Select a subject to see real video drills. Normal v3 does not substitute demo sessions.', true);
   }
   if(detail && !detail.textContent.trim()){
-    detail.innerHTML = dataEmptyHTML('Subject history', 'Session trend appears here when history is available. History is session-only / browser-only until durable wiring exists.', false);
+    detail.innerHTML = '<div class="subject-col-title">Review Your Stats</div>' + dataEmptyHTML('Subject history', 'Session trend appears here when history is available. History is session-only / browser-only until durable wiring exists.', false);
   }
 }
 function metricText(value, suffix){
@@ -2665,6 +2714,7 @@ function paintSplitDetail(){
     ? `Drill the full ${s.nm} library with adaptive pacing. ${s.ses} videos available, last viewed 5 days ago. Cohort accuracy ${s.acc}%; your last run averaged 13.4s recall.`
     : `${s.uncertain?'Metadata is limited for this subject bucket.':'Real curriculum mapping from the legacy Daily menu.'} ${s.ses} video${s.ses===1?'':'s'} available for this subject in v3; history remains session-only / browser-only until durable wiring exists.`;
   det.innerHTML=`
+    <div class="subject-col-title">Review Your Stats</div>
     <div class="sub">${STATE.level==='step1'?'STEP 1 · FOUNDATIONAL':'STEP 2/3 · CLINICAL'} · SUBJECT HISTORY</div>
     <h2>${s.nm.split(' / ')[0]}<br><span class="accent">${s.ses} VIDEOS</span></h2>
     <p>${detailCopy}</p>
@@ -2900,8 +2950,8 @@ document.body.addEventListener('click',e=>{
 /* =========================================================
    RUNTIME ENGINE
    ========================================================= */
-const PACE_SEC={aggressive:8,recommended:12,warmup:18};
-function paceSeconds(){return PACE_SEC[STATE.pace]||12;}
+const PACE_SEC={aggressive:3,recommended:6,warmup:10};
+function paceSeconds(){return PACE_SEC[STATE.pace]||6;}
 
 function showRuntimeDataError(message){
   closeRuntime();
@@ -2999,8 +3049,9 @@ async function openRuntime(){
             times:[],flagged:[],paused:false};
   document.getElementById('rtCtx').textContent=(STATE.session.sub||'CARDIO').toUpperCase();
   document.getElementById('rtSes').textContent=STATE.session.id;
-  paintRuntimeMedia(STATE.session);
   document.getElementById('runtimeShell').classList.add('live');
+  paintRuntimeMedia(STATE.session);
+  await startRuntimeMediaPlayback();
   document.getElementById('opRt').textContent='running';
   paintQuestion();log('runtime_opened');
 }
