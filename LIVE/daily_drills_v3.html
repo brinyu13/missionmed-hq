@@ -226,6 +226,10 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 
 .state{display:none;flex:1;min-height:0;overflow:hidden}
 .state.active{display:flex;flex-direction:column;animation:fadeIn .3s ease-out}
+.state[data-state="3"].active,
+.state[data-state="4"].active,
+.state[data-state="5"].active{visibility:visible;opacity:1}
+.state[data-state="3"].active .split-stage{min-height:320px}
 
 /* =========================================================
    STATE 1 &mdash; DASHBOARD (legacy true) &mdash; viewport-locked
@@ -2251,6 +2255,7 @@ function setVersion(v){
 }
 
 function setStep(n){
+  n = Math.max(1, Math.min(5, Number(n) || 1));
   STATE.step=n;
   // Highlight statebar pills
   document.querySelectorAll('#statebar .step-pill').forEach(p=>{
@@ -2268,10 +2273,55 @@ function setStep(n){
   }
   // Show / hide states within active tab
   document.querySelectorAll('main.tab-content.active .state').forEach(s=>{
-    s.classList.toggle('active',+s.dataset.state===n);
+    const active = +s.dataset.state===n;
+    s.classList.toggle('active', active);
+    s.hidden = !active;
+    s.style.display = active ? 'flex' : 'none';
+    s.setAttribute('aria-hidden', active ? 'false' : 'true');
   });
   document.getElementById('opState').textContent=n;
+  repairActiveStep(n);
   log('step_changed',{step:n,version:STATE.version});
+}
+
+function repairActiveStep(n){
+  try{
+    if(n===1){
+      paintDailyResultNotice();
+      applyDashboardAvatar();
+      return;
+    }
+    if(n===3){
+      paintTopics();
+      paintSessions();
+      ensureSubjectStepVisible();
+      return;
+    }
+    if(n===4){
+      updateReadySelection(STATE.session);
+      return;
+    }
+    if(n===5){
+      const result = STORE.getRes();
+      if(result) populateSummary(result);
+    }
+  }catch(error){
+    renderStepRecovery(n, error);
+  }
+}
+
+function renderStepRecovery(n, error){
+  const message = error && error.message ? error.message : String(error || 'Unknown render error');
+  if(n===3){
+    const list=document.getElementById('splitList');
+    const sessions=document.getElementById('sessList');
+    const detail=document.getElementById('splitDetail');
+    const safeMessage = 'The subject browser could not render from the current registry shape. Choose another route after Wiring Authority validates the data source.';
+    if(list) list.innerHTML = '<div class="subject-col-title">Pick Your Subject</div>' + dataEmptyHTML('Subject browser unavailable', safeMessage, true);
+    if(sessions) sessions.innerHTML = dataEmptyHTML('Pick a Video Drill', 'No selected-subject video list could be rendered from the current data shape.', true);
+    if(detail) detail.innerHTML = dataEmptyHTML('Subject history unavailable', 'Session trend appears here when history is available. Error: ' + message, true);
+  }
+  log('step_render_recovered', { step:n, message });
 }
 
 document.getElementById('versionTabs').addEventListener('click',e=>{
@@ -2311,6 +2361,21 @@ document.body.addEventListener('click',e=>{
    ========================================================= */
 function dataEmptyHTML(title, message, warn){
   return `<div class="data-empty ${warn?'warn':''}"><strong>${title}</strong><span>${message}</span></div>`;
+}
+function ensureSubjectStepVisible(){
+  const list=document.getElementById('splitList');
+  const sessions=document.getElementById('sessList');
+  const detail=document.getElementById('splitDetail');
+  const noRegistry = HYDRATION_ERROR ? 'Real drill registry could not be loaded: ' + HYDRATION_ERROR : 'No real Daily/Drills registry records are available yet.';
+  if(list && !list.textContent.trim()){
+    list.innerHTML = '<div class="subject-col-title">Pick Your Subject</div>' + dataEmptyHTML('No real subjects loaded', noRegistry, true);
+  }
+  if(sessions && !sessions.textContent.trim()){
+    sessions.innerHTML = dataEmptyHTML('Pick a Video Drill', 'Select a subject to see real video drills. Normal v3 does not substitute demo sessions.', true);
+  }
+  if(detail && !detail.textContent.trim()){
+    detail.innerHTML = dataEmptyHTML('Subject history', 'Session trend appears here when history is available. History is session-only / browser-only until durable wiring exists.', false);
+  }
 }
 function metricText(value, suffix){
   if(value === '--' || value == null || value === '') return '--';
