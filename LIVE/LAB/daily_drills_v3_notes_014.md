@@ -77,3 +77,15 @@ Video/drill titles now pass through a display-title normalization layer. Raw Zoo
 The dashboard now includes an adapter-friendly full-body avatar area. The hook is `window.MMDailyDrillsBridge.getUserAvatar?.()`. If no avatar URL is available, v3 shows a clear placeholder and does not query backend/profile systems.
 
 No deployment or CDN promotion was performed for the MD-MERGER-020 UI flow correction.
+
+## MD-MERGER-022 Tab 3 / Tab 4 UX Correction
+
+Tab 3 now treats the far-left column as the subject selector with the visible title `Pick Your Subject`. Normal v3 mode maps real registry rows through the legacy Daily curriculum assignment model so learner-facing subjects can show as Cardio, Pulm, Renal, GI, Neuro, ID, Endo, Heme, OB/GYN, Psych, Surgery, Peds, and related real curriculum labels where the source data supports it.
+
+The immediately adjacent column is now the video drill picker for only the selected subject. Video cards select and highlight the drill but do not start runtime. The main Start action remains in Tab 4.
+
+The right-side Tab 3 panel is the subject history/stats area. It shows selected subject, available drill count, session-only accuracy/recall placeholders, flagged/review state placeholders, and an honest note that durable history is not wired here.
+
+Tab 4 remains the Ready & Run screen and now launches through a frontend-only animated countdown: `3`, `2`, `1`, `GO`. The countdown validates that real media and nodes are available before it appears, then starts the existing timed recall/self-report runtime.
+
+No auth, WordPress, Railway, Supabase, R2/CDN, STAT, Arena, legacy Daily, or legacy Drills files were modified. No deployment or CDN promotion was performed for MD-MERGER-022.

@@ -332,10 +332,11 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 /* =========================================================
    STATE 3 &mdash; SPLIT BROWSE (Brian's pick)
    ========================================================= */
-.split-stage{flex:1;min-height:0;display:grid;grid-template-columns:260px minmax(290px,.85fr) minmax(420px,1.15fr);gap:16px;overflow:hidden}
+.split-stage{flex:1;min-height:0;display:grid;grid-template-columns:260px minmax(430px,1.15fr) minmax(300px,.85fr);gap:16px;overflow:hidden}
 .split-list{padding:10px;background:var(--panel-grad);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-panel);overflow:auto;display:flex;flex-direction:column;gap:5px}
 .split-list::-webkit-scrollbar{width:6px}
 .split-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.subject-col-title{padding:4px 6px 8px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--gold);text-transform:uppercase}
 .split-row{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:10px;cursor:pointer;border:1px solid transparent;transition:all .12s}
 .split-row:hover{background:rgba(255,255,255,.03)}
 .split-row.on{background:linear-gradient(180deg,rgba(252,211,77,.16),rgba(252,211,77,.04));border-color:rgba(252,211,77,.30);box-shadow:0 2px 6px -1px rgba(0,0,0,.4)}
@@ -344,7 +345,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .split-row .acc{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:.12em}
 .split-row.locked{opacity:.55}
 .split-row.locked .acc::before{content:"\1F512  "}
-.split-detail{padding:24px;background:linear-gradient(180deg,#1f2e58 0%,#0c142b 100%);border:1px solid rgba(252,211,77,.25);border-radius:14px;box-shadow:var(--shadow-float);display:flex;flex-direction:column;gap:14px;overflow:hidden;position:relative}
+.split-detail{padding:24px;background:linear-gradient(180deg,#1f2e58 0%,#0c142b 100%);border:1px solid rgba(252,211,77,.25);border-radius:14px;box-shadow:var(--shadow-float);display:flex;flex-direction:column;gap:14px;overflow:auto;position:relative}
 .split-detail::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.05) 50%,transparent 70%);transform:translateX(-100%);animation:shimmer 7s ease-in-out infinite;pointer-events:none}
 .split-detail h2{font-family:'Bebas Neue',sans-serif;font-size:54px;letter-spacing:.04em;line-height:.95;margin:0}
 .split-detail h2 .accent{color:var(--gold)}
@@ -447,6 +448,14 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .start-orb:active{transform:scale(.97)}
 .start-orb::after{content:"";position:absolute;inset:14px;border-radius:50%;border:1px dashed rgba(0,0,0,.18);pointer-events:none}
 .start-orb .arrow{font-size:46px;line-height:.7}
+.countdown-overlay{position:fixed;inset:0;z-index:380;display:none;place-items:center;background:radial-gradient(circle at 50% 44%,rgba(252,211,77,.18),rgba(3,5,13,.94) 58%,rgba(3,5,13,.98));backdrop-filter:blur(6px)}
+.countdown-overlay.live{display:grid}
+.countdown-value{font-family:'Bebas Neue',sans-serif;font-size:clamp(120px,24vw,300px);line-height:.8;color:var(--gold);letter-spacing:.06em;text-shadow:0 18px 48px rgba(0,0,0,.72),0 0 48px rgba(252,211,77,.40);animation:countdownPop .62s cubic-bezier(.17,.84,.44,1)}
+.countdown-value.go{color:var(--cyan);text-shadow:0 18px 48px rgba(0,0,0,.72),0 0 52px rgba(103,232,249,.50)}
+@keyframes countdownPop{0%{transform:scale(.58);opacity:0}45%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion: reduce){
+  .countdown-value{animation:none}
+}
 .flow-summary-card{width:min(1040px,100%);margin:0 auto;padding:28px;border-radius:22px;background:linear-gradient(180deg,#1f2e58,#0c142b);border:1px solid rgba(252,211,77,.30);box-shadow:var(--shadow-float);display:flex;flex-direction:column;gap:20px;overflow:auto}
 .flow-summary-card h1{font-family:'Bebas Neue',sans-serif;font-size:72px;letter-spacing:.03em;line-height:.9;margin:0}
 .flow-summary-card .accent{color:var(--gold)}
@@ -897,12 +906,11 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
 
       <div class="split-stage">
         <aside class="split-list" id="splitList"></aside>
-        <section class="split-detail" id="splitDetail"></section>
         <section class="subject-video-panel">
           <div class="panel-head">
             <div>
               <div class="sub">REAL VIDEOS FOR SELECTED SUBJECT</div>
-              <h3>Pick a video drill</h3>
+              <h3>Pick a Video Drill</h3>
             </div>
             <span id="sessTopicChip" class="chip gold" style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.10em;padding:8px 14px">REAL REGISTRY &middot; LOADING</span>
           </div>
@@ -910,22 +918,9 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
             <div class="sess-list" id="sessList">
               <!-- populated by JS from the real Daily/Drills registry -->
             </div>
-            <aside class="sess-side">
-              <div class="chart-card-mini">
-                <div class="chart-head-mini">
-                  <h3>SUBJECT PACE + RESULT</h3>
-                  <div class="chart-legend-mini">
-                    <span class="lg acc">SESSION</span>
-                    <span class="lg spd">RECALL</span>
-                  </div>
-                </div>
-                <svg class="chart-svg-mini" id="sessChart" viewBox="0 0 320 180" preserveAspectRatio="none"></svg>
-              </div>
-              <div class="side-card-mini featured" id="featuredSess"></div>
-              <div class="side-card-mini" id="deltaSess"></div>
-            </aside>
           </div>
         </section>
+        <section class="split-detail" id="splitDetail"></section>
       </div>
     </div>
 
@@ -1113,9 +1108,9 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
           <div class="m-sub">8 questions &middot; standard 12s</div>
 
           <div class="m-card">
-            <div class="sub">DRILL</div>
-            <div class="nm">SELECT A REAL DRILL</div>
-            <div class="sub">Media and nodes required</div>
+            <div class="sub" id="mReadyLevel">STEP/LEVEL 2 &amp; 3</div>
+            <div class="nm" id="mReadySession">SELECT A REAL DRILL</div>
+            <div class="sub" id="mReadyTopic">Media and nodes required</div>
           </div>
 
           <div class="kbd-hint" style="margin-top:14px">
@@ -1245,6 +1240,13 @@ body:not(.lab-tools) .tabs-wrap { margin-left:auto; }
       <div class="honesty">SESSION-ONLY &middot; SELF-REPORTED &middot; YOU MARK YOUR OWN RECALL</div>
     </aside>
   </div>
+</div>
+
+<!-- =====================================
+     START COUNTDOWN
+     ===================================== -->
+<div class="countdown-overlay" id="countdownOverlay" aria-live="assertive" aria-modal="true" role="status">
+  <div class="countdown-value" id="countdownValue">3</div>
 </div>
 
 <!-- =====================================
@@ -1494,19 +1496,244 @@ function uniqueByVideoId(rows){
   });
   return out;
 }
+const CURRICULUM_TOPICS = [
+  { id:'cardio_step1', name:'Cardio', system:'CARDIOVASCULAR', level:'Step 1' },
+  { id:'cardio_step23', name:'Cardio', system:'CARDIOVASCULAR', level:'Step 2/3' },
+  { id:'pulmonary_step1', name:'Pulm', system:'PULMONARY', level:'Step 1' },
+  { id:'pulmonary_step23', name:'Pulm', system:'PULMONARY', level:'Step 2/3' },
+  { id:'renal_gu_step1', name:'Renal', system:'RENAL / GU', level:'Step 1' },
+  { id:'renal_gu_electrolytes_step23', name:'Renal', system:'RENAL / GU / ELECTROLYTES', level:'Step 2/3' },
+  { id:'git_hep_step1', name:'GI', system:'GI / HEPATOLOGY', level:'Step 1' },
+  { id:'git_hep_step23', name:'GI', system:'GI / HEPATOLOGY', level:'Step 2/3' },
+  { id:'endocrine_step1', name:'Endo', system:'ENDOCRINE', level:'Step 1' },
+  { id:'endocrine_step23', name:'Endo', system:'ENDOCRINE', level:'Step 2/3' },
+  { id:'neuro_step1', name:'Neuro', system:'NEUROLOGY', level:'Step 1' },
+  { id:'neuro_step23', name:'Neuro', system:'NEUROLOGY', level:'Step 2/3' },
+  { id:'derm_ophtho_step1', name:'Derm / Ophtho', system:'DERM / OPHTHO', level:'Step 1' },
+  { id:'derm_ophtho_step23', name:'Derm / Ophtho', system:'DERM / OPHTHO', level:'Step 2/3' },
+  { id:'micro_inf_disease_step1', name:'ID', system:'MICRO / INFECTIOUS', level:'Step 1' },
+  { id:'inf_disease_step23', name:'ID', system:'MICRO / INFECTIOUS', level:'Step 2/3' },
+  { id:'viruses_protozoa_step1', name:'ID', system:'MICRO / INFECTIOUS', level:'Step 1' },
+  { id:'immuno_step1', name:'Immunology', system:'IMMUNOLOGY', level:'Step 1' },
+  { id:'muscle_rheum_step1', name:'MSK / Rheum', system:'IMMUNOLOGY', level:'Step 1' },
+  { id:'rheum_step23', name:'MSK / Rheum', system:'IMMUNOLOGY', level:'Step 2/3' },
+  { id:'preventative_step23', name:'Preventative', system:'IMMUNOLOGY', level:'Step 2/3' },
+  { id:'heme_onc_step1', name:'Heme', system:'HEMATOLOGY / ONCOLOGY', level:'Step 1' },
+  { id:'heme_onc_step23', name:'Heme', system:'HEMATOLOGY / ONCOLOGY', level:'Step 2/3' },
+  { id:'onc_by_systems_step1', name:'Heme / Onc', system:'HEMATOLOGY / ONCOLOGY', level:'Step 1' },
+  { id:'repro_gyn_ob_step1', name:'OB/GYN', system:'REPRODUCTIVE', level:'Step 1' },
+  { id:'biochem_genetics_step1', name:'Biochem / Genetics', system:'REPRODUCTIVE', level:'Step 1' },
+  { id:'ob_step23', name:'OB/GYN', system:'OBGYN', level:'Step 2/3' },
+  { id:'gyn_step23', name:'OB/GYN', system:'OBGYN', level:'Step 2/3' },
+  { id:'peds_step23', name:'Peds', system:'PEDIATRICS', level:'Step 2/3' },
+  { id:'psych_ethics_step1', name:'Psych', system:'PSYCH / ETHICS', level:'Step 1' },
+  { id:'psych_ethics_step23', name:'Psych', system:'PSYCH / ETHICS', level:'Step 2/3' },
+  { id:'biostats_step1', name:'Biostats', system:'BIOSTATS / PUBLIC HEALTH', level:'Step 1' },
+  { id:'biostats_step23', name:'Biostats', system:'BIOSTATS / PUBLIC HEALTH', level:'Step 2/3' },
+  { id:'er_medicine_step1', name:'Emergency', system:'EMERGENCY MEDICINE', level:'Step 1' },
+  { id:'er_medicine_step23', name:'Emergency', system:'EMERGENCY MEDICINE', level:'Step 2/3' },
+  { id:'surgery_step23', name:'Surgery', system:'SURGERY', level:'Step 2/3' },
+  { id:'mixed_review_step1', name:'Mixed Review', system:'MIXED REVIEW', level:'Step 1' },
+  { id:'mixed_review_step23', name:'Mixed Review', system:'MIXED REVIEW', level:'Step 2/3' }
+];
+const CURRICULUM_TOPIC_BY_ID = CURRICULUM_TOPICS.reduce((acc, topic) => {
+  acc[topic.id] = topic;
+  return acc;
+}, {});
+const TOPIC_VIDEO_FALLBACK_MAP = {
+  renal_gu_step1:['usmle_a9f197375f58'],
+  renal_gu_electrolytes_step23:['usmle_9bb715fd9450'],
+  endocrine_step1:['usmle_ba6cdb0dfb09'],
+  inf_disease_step23:['usmle_123f84e5d3a3'],
+  muscle_rheum_step1:['usmle_26135f4dd388'],
+  rheum_step23:['usmle_d501fed2f17d'],
+  repro_gyn_ob_step1:['usmle_747c8ad59b3e'],
+  biochem_genetics_step1:['usmle_a3420e5c757f'],
+  gyn_step23:['usmle_ccb6e3eeb228'],
+  peds_step23:['usmle_16acb174c754']
+};
+const ZOOM_SCHEDULE_SLOTS = {
+  '2026-03-23':['muscle_rheum_step1','rheum_step23'],
+  '2026-03-24':['endocrine_step1'],
+  '2026-03-30':['inf_disease_step23'],
+  '2026-04-06':['biochem_genetics_step1','peds_step23'],
+  '2026-04-07':['renal_gu_electrolytes_step23'],
+  '2026-04-08':['repro_gyn_ob_step1','gyn_step23'],
+  '2026-04-21':['repro_gyn_ob_step1','gyn_step23'],
+  '2026-04-22':['biochem_genetics_step1','peds_step23'],
+  '2026-04-23':['renal_gu_step1','renal_gu_electrolytes_step23'],
+  '2026-04-24':['er_medicine_step1','er_medicine_step23'],
+  '2026-04-27':['heme_onc_step1','heme_onc_step23'],
+  '2026-04-28':['cardio_step1','cardio_step23'],
+  '2026-04-29':['onc_by_systems_step1',['biostats_step1','biostats_step23']],
+  '2026-04-30':['pulmonary_step1','pulmonary_step23'],
+  '2026-05-01':['mixed_review_step1','mixed_review_step23']
+};
+const EXACT_VIDEO_TOPIC_ASSIGNMENTS = {
+  usmle_3ac83d870348:'mixed_review_step1',
+  usmle_31cd0d939397:'surgery_step23',
+  usmle_aecf7be312b1:'psych_ethics_step23',
+  usmle_d97b0096855e:'git_hep_step23',
+  usmle_3c48cfcdd346:'inf_disease_step23',
+  usmle_1e8ceeaa580c:'mixed_review_step1',
+  usmle_2d45081a1808:'surgery_step23',
+  usmle_d9ef08b93e96:'psych_ethics_step1',
+  usmle_473aad16ff51:'git_hep_step1',
+  usmle_e40f7cd7f1b2:'micro_inf_disease_step1',
+  usmle_beb8b86cb3d5:'mixed_review_step23',
+  usmle_d68c6a58c6fd:'mixed_review_step23',
+  usmle_581a9f5e406a:'er_medicine_step1',
+  usmle_841da92f6b03:'er_medicine_step23',
+  usmle_479bf224f2af:'renal_gu_electrolytes_step23',
+  usmle_793a0df25114:'renal_gu_step1',
+  usmle_4a0c1ea32975:'biochem_genetics_step1',
+  usmle_6e2058b09d29:'peds_step23',
+  usmle_b9bbfa4e055d:'repro_gyn_ob_step1',
+  usmle_5418da136f32:'gyn_step23'
+};
+const UNSCHEDULED_FALLBACK_SLOTS = ['mixed_review_step1','mixed_review_step23'];
+function makeEmptyTopicVideoMap(){
+  return CURRICULUM_TOPICS.reduce((acc, topic) => {
+    acc[topic.id] = [];
+    return acc;
+  }, {});
+}
+function parseZoomStampFromDrill(drill){
+  const filename = safeText(drill && (drill.original_filename || drill.filename || drill.raw_title || drill.title), '');
+  const match = filename.match(/GMT\s*(\d{4})(\d{2})(\d{2})[\s_-]*(\d{2})(\d{2})(\d{2})/i);
+  if(!match) return null;
+  return {
+    date: `${match[1]}-${match[2]}-${match[3]}`,
+    time: `${match[4]}:${match[5]}:${match[6]}`,
+    seconds: Number(match[4]) * 3600 + Number(match[5]) * 60 + Number(match[6])
+  };
+}
+function assignTopicVideo(map, topicSlot, videoId){
+  const ids = Array.isArray(topicSlot) ? topicSlot : [topicSlot];
+  ids.forEach(topicId => {
+    if(!topicId || !map[topicId] || !videoId) return;
+    if(!map[topicId].includes(videoId)) map[topicId].push(videoId);
+  });
+}
+function buildTopicVideoMapFromMetadata(rows){
+  const map = makeEmptyTopicVideoMap();
+  const byDate = {};
+  rows.forEach(row => {
+    const videoId = safeText(row && (row.video_id || row.id || row.drill_id), '');
+    if(!videoId || !/^usmle_/i.test(videoId)) return;
+    const stamp = parseZoomStampFromDrill(row);
+    if(!stamp || !ZOOM_SCHEDULE_SLOTS[stamp.date]) return;
+    byDate[stamp.date] = byDate[stamp.date] || [];
+    byDate[stamp.date].push({ video_id: videoId, seconds: stamp.seconds });
+  });
+  Object.keys(byDate).forEach(dateKey => {
+    const slots = ZOOM_SCHEDULE_SLOTS[dateKey] || [];
+    byDate[dateKey].sort((a,b) => a.seconds - b.seconds).forEach((session, index) => {
+      assignTopicVideo(map, slots[Math.min(index, slots.length - 1)], session.video_id);
+    });
+  });
+  return map;
+}
+function buildEffectiveTopicVideoMap(rows){
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const map = buildTopicVideoMapFromMetadata(safeRows);
+  const byId = {};
+  safeRows.forEach(row => {
+    const id = safeText(row && (row.video_id || row.id || row.drill_id), '');
+    if(id) byId[id] = row;
+  });
+  Object.keys(TOPIC_VIDEO_FALLBACK_MAP).forEach(topicId => {
+    map[topicId] = map[topicId] || [];
+    if(map[topicId].length) return;
+    (TOPIC_VIDEO_FALLBACK_MAP[topicId] || []).forEach(videoId => {
+      if(byId[videoId]) assignTopicVideo(map, topicId, videoId);
+    });
+  });
+  Object.keys(EXACT_VIDEO_TOPIC_ASSIGNMENTS).forEach(videoId => {
+    if(byId[videoId]) assignTopicVideo(map, EXACT_VIDEO_TOPIC_ASSIGNMENTS[videoId], videoId);
+  });
+  const mapped = new Set();
+  Object.keys(map).forEach(topicId => (map[topicId] || []).forEach(videoId => mapped.add(videoId)));
+  const unscheduled = safeRows
+    .filter(row => {
+      const id = safeText(row && (row.video_id || row.id || row.drill_id), '');
+      return id && /^usmle_/i.test(id) && !mapped.has(id) && hasUsableMedia(row) && (hasUsableNodeSource(row) || hasInlinePrompts(row));
+    })
+    .sort((a,b) => {
+      const aStamp = parseZoomStampFromDrill(a);
+      const bStamp = parseZoomStampFromDrill(b);
+      const aMs = aStamp ? Date.parse(aStamp.date + 'T' + aStamp.time + 'Z') : Date.parse(a.created_at || '') || 0;
+      const bMs = bStamp ? Date.parse(bStamp.date + 'T' + bStamp.time + 'Z') : Date.parse(b.created_at || '') || 0;
+      return bMs - aMs;
+    });
+  unscheduled.forEach((row, index) => {
+    const id = safeText(row && (row.video_id || row.id || row.drill_id), '');
+    const topicId = UNSCHEDULED_FALLBACK_SLOTS[index % UNSCHEDULED_FALLBACK_SLOTS.length];
+    if(id && topicId && !mapped.has(id)){
+      assignTopicVideo(map, topicId, id);
+      mapped.add(id);
+    }
+  });
+  return map;
+}
+function enrichSessionsWithCurriculumSubjects(rows){
+  const safeRows = Array.isArray(rows) ? rows : [];
+  const map = buildEffectiveTopicVideoMap(safeRows);
+  const byId = {};
+  Object.keys(map).forEach(topicId => {
+    (map[topicId] || []).forEach(videoId => {
+      if(videoId && !byId[videoId]) byId[videoId] = topicId;
+    });
+  });
+  return safeRows.map(row => {
+    const id = safeText(row && (row.video_id || row.id || row.drill_id), '');
+    const topicId = byId[id];
+    const topic = topicId && CURRICULUM_TOPIC_BY_ID[topicId];
+    if(topic){
+      return Object.assign({}, row, {
+        subject_key: topic.id,
+        subject_name: topic.name,
+        subject_system: topic.system,
+        curriculum_level: topic.level,
+        topic: topic.name,
+        level: topic.level,
+        sub: topic.name + ' &middot; ' + topic.level,
+        subject_uncertain: false
+      });
+    }
+    const raw = safeText(row.subject || row.topic_label || row.topic || row.category || row.subcategory, '');
+    const isRawBucket = /^DRJ[_\s-]*DRILLS$/i.test(raw);
+    return Object.assign({}, row, {
+      subject_key: raw && !isRawBucket ? raw.toLowerCase().replace(/[^a-z0-9]+/g, '_') : 'metadata_pending',
+      subject_name: raw && !isRawBucket ? humanizeSubjectLabel(raw) : 'Metadata pending',
+      subject_system: raw && !isRawBucket ? humanizeSubjectLabel(raw).toUpperCase() : 'METADATA LIMITED',
+      subject_uncertain: true
+    });
+  });
+}
 function deriveSubjectsFromSessions(track){
   const buckets = new Map();
   SESSIONS.forEach(session => {
-    const level = safeText(session.level || session.step, '').toLowerCase();
+    const level = safeText(session.curriculum_level || session.level || session.step, '').toLowerCase();
     const isStep1 = /step\s*1|level\s*1|comlex\s*1/.test(level);
     if(track === 'step1' && level && !isStep1) return;
     if(track !== 'step1' && isStep1) return;
-    const name = safeText(session.subcategory || session.category || session.subject || session.topic, 'GENERAL').toUpperCase();
-    const existing = buckets.get(name) || { nm:name, ic:name.replace(/[^A-Z]/g, '').slice(0,2) || 'DR', ses:0, acc:'--' };
+    const key = safeText(session.subject_key, safeText(session.subject_name || session.topic, 'metadata_pending'));
+    const name = safeText(session.subject_name || session.topic, 'Metadata pending');
+    const icon = name.replace(/[^A-Za-z]/g, '').slice(0,2).toUpperCase() || 'MD';
+    const existing = buckets.get(key) || { key, nm:name, ic:icon, ses:0, acc:'--', system:safeText(session.subject_system, ''), uncertain:!!session.subject_uncertain };
     existing.ses += 1;
-    buckets.set(name, existing);
+    existing.uncertain = existing.uncertain || !!session.subject_uncertain;
+    buckets.set(key, existing);
   });
-  return Array.from(buckets.values()).sort((a,b) => a.nm.localeCompare(b.nm));
+  return Array.from(buckets.values()).sort((a,b) => {
+    const aIdx = CURRICULUM_TOPICS.findIndex(topic => topic.id === a.key);
+    const bIdx = CURRICULUM_TOPICS.findIndex(topic => topic.id === b.key);
+    if(aIdx >= 0 && bIdx >= 0) return aIdx - bIdx;
+    if(aIdx >= 0) return -1;
+    if(bIdx >= 0) return 1;
+    return a.nm.localeCompare(b.nm);
+  });
 }
 async function fetchRealDrillRegistry(){
   const res = await fetch(API_DRILLS_ENDPOINT, { credentials:'include', cache:'no-store' });
@@ -1525,7 +1752,7 @@ function applyRegistryRows(rows){
       last: safeText(row && row.last, row && row.created_at ? 'Registry' : 'NEW')
     }))
     .filter(row => row.video_id && (hasUsableMedia(row) || hasUsableNodeSource(row) || hasInlinePrompts(row)));
-  SESSIONS = normalized;
+  SESSIONS = enrichSessionsWithCurriculumSubjects(normalized);
   REAL_REGISTRY_LOADED = true;
   HYDRATION_ERROR = '';
   const selected = STORE.getSel();
@@ -1549,7 +1776,8 @@ function initializeRuntimeData(){
     rows.push({ video_id: ROUTE_VIDEO_ID, id: ROUTE_VIDEO_ID, title: 'Daily drill ' + ROUTE_VIDEO_ID, origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' });
   }
   const sourceRows = rows.length ? rows : (USE_DEMO_DATA ? FALLBACK_SESSIONS : []);
-  SESSIONS = sourceRows.map((row, index) => normalizeDrillRecord(row, USE_DEMO_DATA ? (FALLBACK_SESSIONS[index] || FALLBACK_SESSIONS[0]) : null));
+  const normalizedSource = sourceRows.map((row, index) => normalizeDrillRecord(row, USE_DEMO_DATA ? (FALLBACK_SESSIONS[index] || FALLBACK_SESSIONS[0]) : null));
+  SESSIONS = USE_DEMO_DATA ? normalizedSource : enrichSessionsWithCurriculumSubjects(normalizedSource);
   const selectedId = selected && safeText(selected.video_id || selected.id || selected.drill_id, '');
   if(selectedId){
     const match = SESSIONS.find(item => item.video_id === selectedId);
@@ -1836,9 +2064,7 @@ function bootFromRoute(){
     }
     STATE.session = selected;
     Bridge.setSelectedDrill(Object.assign({}, selected, { origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' }));
-    const lvl=document.getElementById('readyLevel'); if(lvl) lvl.textContent=examLabel();
-    const t=document.getElementById('readyTopic'); if(t) t.textContent=safeText(selected.topic, 'Daily');
-    const s=document.getElementById('readySession'); if(s) s.textContent=safeText(selected.title, 'Daily drill') + ' · ' + safeText(selected.uploaded, 'Runtime');
+    updateReadySelection(selected);
     setStep(4);
     openRuntime();
     return;
@@ -1921,7 +2147,7 @@ let PROMPTS = USE_DEMO_DATA ? FALLBACK_PROMPTS.slice() : [];
    ========================================================= */
 const STATE={
   version:'legacy', step:1, scenario:'default',
-  level:'step1', topic:null, topicIdx:0, session:null, pace:'recommended',
+  level:'step1', topic:null, topicKey:null, topicIdx:0, session:null, pace:'recommended',
   rt:{idx:0,reveals:false,timer:null,t0:0,locked:false,
       correct:0,miss:0,oot:0,streak:0,bestStreak:0,
       times:[],flagged:[],paused:false}
@@ -2057,7 +2283,7 @@ document.getElementById('statebar').addEventListener('click',e=>{
   if(p){setStep(+p.dataset.step);return;}
   const a=e.target.closest('[data-action]');
   if(a){
-    if(a.dataset.action==='runtime') openRuntime();
+    if(a.dataset.action==='runtime') startRuntimeWithCountdown();
     if(a.dataset.action==='summary') openSummary();
     return;
   }
@@ -2075,7 +2301,7 @@ document.body.addEventListener('click',e=>{
   const railStep=e.target.closest('main.tab-content.active .steps-rail .step');
   if(railStep&&railStep.dataset.step){setStep(+railStep.dataset.step);return;}
   const lvl=e.target.closest('[data-level]');
-  if(lvl){STATE.level=lvl.dataset.level;STATE.topicIdx=0;paintTopics();paintSessions();setStep(3);return;}
+  if(lvl){STATE.level=lvl.dataset.level;STATE.topicIdx=0;STATE.topic=null;STATE.topicKey=null;paintTopics();paintSessions();setStep(3);return;}
   const back=e.target.closest('[data-back-arena]');
   if(back){Bridge.returnToArena();alert('Returning to Main Arena Lobby&hellip;');return;}
 });
@@ -2119,6 +2345,11 @@ function paintTopics(){
   STATE._subAreas=subAreas;
 
   const subjects=Bridge.getSubjects(STATE.level);
+  if(subjects.length && (!STATE.topicKey || !subjects.some(item => item.key === STATE.topicKey))){
+    STATE.topicIdx = Math.min(STATE.topicIdx, subjects.length - 1);
+    STATE.topic = subjects[STATE.topicIdx].nm;
+    STATE.topicKey = subjects[STATE.topicIdx].key || subjects[STATE.topicIdx].nm;
+  }
   // Update level chip
   const chip=document.getElementById('topicLevelChip');
   if(chip) chip.textContent=STATE.level==='step1'?'STEP 1 · FOUNDATIONAL':'STEP 2/3 · CLINICAL';
@@ -2130,15 +2361,16 @@ function paintTopics(){
     if(!subjects.length){
       list.innerHTML = dataEmptyHTML('No real subjects loaded', noSubjectsMessage, true);
     }else{
-      list.innerHTML=subjects.map((s,i)=>`
-      <div class="split-row ${i===STATE.topicIdx?'on':''} ${s.locked?'locked':''}" data-idx="${i}">
+      list.innerHTML='<div class="subject-col-title">Pick Your Subject</div>' + subjects.map((s,i)=>`
+      <div class="split-row ${i===STATE.topicIdx?'on':''} ${s.locked?'locked':''}" data-idx="${i}" data-key="${s.key || s.nm}">
         <div class="ic">${s.ic}</div>
         <div class="nm">${s.nm}</div>
-        <div class="acc">${s.locked?'PRO':metricText(s.acc, '%')}</div>
+        <div class="acc">${s.locked?'PRO':(s.uncertain?'PENDING':metricText(s.ses, ''))}</div>
       </div>`).join('');
       list.querySelectorAll('.split-row').forEach(r=>r.addEventListener('click',()=>{
         if(r.classList.contains('locked'))return;
       STATE.topicIdx=+r.dataset.idx;
+      STATE.topicKey=r.dataset.key;
       list.querySelectorAll('.split-row').forEach(x=>x.classList.toggle('on',x===r));
       paintSplitDetail();
       paintSessions();
@@ -2153,7 +2385,9 @@ function paintTopics(){
   document.querySelectorAll('.m-topic').forEach(c=>{
     c.addEventListener('click',()=>{
       if(c.classList.contains('locked')) return;
-      STATE.topic=c.dataset.topic;paintSessions();
+      STATE.topic=c.dataset.topic;
+      STATE.topicKey=c.dataset.key || c.dataset.topic;
+      paintSessions();
     });
   });
 }
@@ -2172,36 +2406,51 @@ function paintSplitDetail(){
     return;
   }
   STATE.topic=s.nm;
+  STATE.topicKey=s.key || s.nm;
   const subs=(STATE._subAreas&&STATE._subAreas[s.nm])||[];
   const detailCopy = USE_DEMO_DATA
     ? `Drill the full ${s.nm} library with adaptive pacing. ${s.ses} videos available, last viewed 5 days ago. Cohort accuracy ${s.acc}%; your last run averaged 13.4s recall.`
-    : `Real registry records only. ${s.ses} video${s.ses===1?'':'s'} available for this subject in v3; session results remain browser-session only.`;
+    : `${s.uncertain?'Metadata is limited for this subject bucket.':'Real curriculum mapping from the legacy Daily menu.'} ${s.ses} video${s.ses===1?'':'s'} available for this subject in v3; history remains session-only / browser-only until durable wiring exists.`;
   det.innerHTML=`
-    <div class="sub">${STATE.level==='step1'?'STEP 1 · FOUNDATIONAL':'STEP 2/3 · CLINICAL'}</div>
+    <div class="sub">${STATE.level==='step1'?'STEP 1 · FOUNDATIONAL':'STEP 2/3 · CLINICAL'} · SUBJECT HISTORY</div>
     <h2>${s.nm.split(' / ')[0]}<br><span class="accent">${s.ses} VIDEOS</span></h2>
     <p>${detailCopy}</p>
     <div class="split-stat-row">
       <div class="split-stat"><div class="v">${s.ses}</div><div class="l">Videos</div></div>
-      <div class="split-stat"><div class="v">${metricText(s.acc, '%')}</div><div class="l">Cohort Acc</div></div>
+      <div class="split-stat"><div class="v">${USE_DEMO_DATA?metricText(s.acc, '%'):'--'}</div><div class="l">Session Acc</div></div>
       <div class="split-stat"><div class="v">${USE_DEMO_DATA?'13.4s':'--'}</div><div class="l">Avg Recall</div></div>
-      <div class="split-stat"><div class="v">${subs.length||0}</div><div class="l">Sub-areas</div></div>
+      <div class="split-stat"><div class="v">${STATE._visibleSessions&&STATE._visibleSessions.some(x=>x.flagged)?'YES':'--'}</div><div class="l">Flagged</div></div>
     </div>
-    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;margin-top:6px">SUB-AREAS</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;margin-top:6px">TREND</div>
     <div class="subarea-chips">
-      ${subs.length?subs.slice(0,8).map(sa=>`<span class="sc">${sa}</span>`).join(''):'<span class="sc">REAL REGISTRY</span>'}
+      ${subs.length?subs.slice(0,8).map(sa=>`<span class="sc">${sa}</span>`).join(''):'<span class="sc">Session trend appears here when history is available.</span>'}
     </div>
+    <div class="chart-card-mini">
+      <div class="chart-head-mini">
+        <h3>SUBJECT PACE + RESULT</h3>
+        <div class="chart-legend-mini">
+          <span class="lg acc">SESSION</span>
+          <span class="lg spd">RECALL</span>
+        </div>
+      </div>
+      <svg class="chart-svg-mini" id="sessChart" viewBox="0 0 320 180" preserveAspectRatio="none"></svg>
+    </div>
+    <div class="side-card-mini featured" id="featuredSess"></div>
+    <div class="side-card-mini" id="deltaSess"></div>
     <div class="pick">
-      <button class="btn" data-pick-topic>SEE VIDEOS &mdash; ${s.nm.split(' / ')[0]} &rarr;</button>
+      <button class="btn" data-pick-topic>SHOW VIDEO DRILLS &mdash; ${s.nm.split(' / ')[0]} &rarr;</button>
     </div>
   `;
   det.querySelector('[data-pick-topic]')?.addEventListener('click',()=>{
-    STATE.topic=s.nm;paintSessions();
+    STATE.topic=s.nm;
+    STATE.topicKey=s.key || s.nm;
+    paintSessions();
   });
 }
 function mTopicHTML(s){
-  return `<div class="m-topic ${s.locked?'locked':''}" data-topic="${s.nm}">
+  return `<div class="m-topic ${s.locked?'locked':''}" data-topic="${s.nm}" data-key="${s.key || s.nm}">
     <div><div class="ic">${s.ic}</div><div class="nm">${s.nm}</div></div>
-    <div class="sub" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--mut);text-transform:uppercase">${s.locked?'PRO':metricText(s.acc, '%')}</div>
+    <div class="sub" style="font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--mut);text-transform:uppercase">${s.locked?'PRO':metricText(s.ses, '')+' VIDEOS'}</div>
   </div>`;
 }
 
@@ -2209,15 +2458,28 @@ function mTopicHTML(s){
    SUBJECT VIDEO LIST
    ========================================================= */
 function currentTopicSessions(){
+  const topicKey = safeText(STATE.topicKey, '');
   const topic = safeText(STATE.topic, '').toUpperCase();
   if(!topic) return SESSIONS;
   return SESSIONS.filter(session => {
-    const subject = safeText(session.subcategory || session.category || session.subject || session.topic, '').toUpperCase();
-    return subject === topic;
+    const subjectKey = safeText(session.subject_key, '');
+    const subject = safeText(session.subject_name || session.subcategory || session.category || session.subject || session.topic, '').toUpperCase();
+    return (topicKey && subjectKey === topicKey) || subject === topic;
   });
 }
 function examLabel(){
   return STATE.level === 'step1' ? 'STEP/LEVEL 1' : 'STEP/LEVEL 2 & 3';
+}
+function updateReadySelection(session){
+  const selected = session || STATE.session || {};
+  const subject = safeText(STATE.topic || selected.subject_name || selected.topic, 'SELECT A SUBJECT');
+  const sessionTitle = selected.title ? selected.title + ' · ' + safeText(selected.uploaded, 'Runtime') : 'SELECT A REAL DRILL';
+  const lvl=document.getElementById('readyLevel');if(lvl)lvl.textContent=examLabel();
+  const t=document.getElementById('readyTopic');if(t)t.textContent=subject.toUpperCase();
+  const s=document.getElementById('readySession');if(s)s.textContent=sessionTitle;
+  const ml=document.getElementById('mReadyLevel');if(ml)ml.textContent=examLabel();
+  const mt=document.getElementById('mReadyTopic');if(mt)mt.textContent=subject + ' · media and nodes required';
+  const ms=document.getElementById('mReadySession');if(ms)ms.textContent=selected.title || 'SELECT A REAL DRILL';
 }
 function paintSessions(){
   const list=document.getElementById('sessList');
@@ -2238,9 +2500,7 @@ function paintSessions(){
       STATE.session=visibleSessions.find(s=>s.id===sid)||visibleSessions[0]||SESSIONS[0];
       if(!STATE.session) return;
       Bridge.setSelectedDrill(STATE.session);
-      const lvl=document.getElementById('readyLevel');if(lvl)lvl.textContent=examLabel();
-      const t=document.getElementById('readyTopic');if(t)t.textContent=(STATE.topic||STATE.session.topic||'DAILY').toUpperCase();
-      const s=document.getElementById('readySession');if(s)s.textContent=STATE.session.title+' · '+STATE.session.uploaded;
+      updateReadySelection(STATE.session);
       setStep(4);
     });
   });
@@ -2319,13 +2579,11 @@ function paintSessSide(idx){
     <div class="kv"><span>Watched</span><b>${s.watched}&times;</b></div>
     <div class="kv"><span>Avg Recall</span><b>${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</b></div>
     <div class="kv"><span>Best Score</span><b>${s.best?s.best+'%':'&mdash;'}</b></div>
-    <button class="btn" data-pick-sess="${s.id}">${s.watched?'REPLAY':'START'} &rarr;</button>
+    <button class="btn" data-pick-sess="${s.id}">PREPARE IN TAB 4 &rarr;</button>
   `;
   fs.querySelector('[data-pick-sess]')?.addEventListener('click',()=>{
     STATE.session=s;Bridge.setSelectedDrill(s);
-    const lvl=document.getElementById('readyLevel');if(lvl)lvl.textContent=examLabel();
-    const t=document.getElementById('readyTopic');if(t)t.textContent=(STATE.topic||s.topic||'DAILY').toUpperCase();
-    const ss=document.getElementById('readySession');if(ss)ss.textContent=s.title+' · '+s.uploaded;
+    updateReadySelection(s);
     setStep(4);
   });
   }
@@ -2362,7 +2620,7 @@ function sessHTML(s){
       </div>
     </div>
     <div class="stats-mini">
-      <div><div class="v">${s.watched?'REPLAY':'START'}</div><div class="l">&rarr;</div></div>
+      <div><div class="v">${STATE.session&&STATE.session.id===s.id?'SELECTED':'SELECT'}</div><div class="l">&rarr;</div></div>
     </div>
   </div>`;
 }
@@ -2399,6 +2657,62 @@ function showRuntimeDataError(message){
   const s=document.getElementById('readySession');if(s)s.textContent=msg;
   setStep(4);
   log('runtime_blocked_missing_real_data', { message: msg, video_id: STATE.session && STATE.session.video_id, endpoint: API_DRILLS_ENDPOINT });
+}
+function canAttemptRuntimeStart(){
+  STATE.session=STATE.session||SESSIONS[0];
+  if(!STATE.session){
+    showRuntimeDataError('No real drill data loaded for this route.');
+    return false;
+  }
+  if(!USE_DEMO_DATA && !hasUsableMedia(STATE.session)){
+    showRuntimeDataError('Media unavailable for this real drill. Choose another drill or return to menu.');
+    return false;
+  }
+  if(!USE_DEMO_DATA && !hasUsableNodeSource(STATE.session) && !hasInlinePrompts(STATE.session)){
+    showRuntimeDataError('Prompt nodes unavailable for this real drill. Choose another drill or return to menu.');
+    return false;
+  }
+  return true;
+}
+let COUNTDOWN_ACTIVE = false;
+function runStartCountdown(){
+  return new Promise(resolve => {
+    const overlay=document.getElementById('countdownOverlay');
+    const value=document.getElementById('countdownValue');
+    if(!overlay || !value){ resolve(); return; }
+    const labels=['3','2','1','GO'];
+    const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const interval = reduceMotion ? 260 : 650;
+    let idx=0;
+    COUNTDOWN_ACTIVE = true;
+    overlay.classList.add('live');
+    function paint(){
+      const label=labels[idx];
+      value.textContent=label;
+      value.classList.toggle('go', label === 'GO');
+      value.style.animation='none';
+      value.offsetHeight;
+      value.style.animation='';
+      idx++;
+      if(idx >= labels.length){
+        setTimeout(() => {
+          overlay.classList.remove('live');
+          value.classList.remove('go');
+          COUNTDOWN_ACTIVE = false;
+          resolve();
+        }, interval);
+        return;
+      }
+      setTimeout(paint, interval);
+    }
+    paint();
+  });
+}
+async function startRuntimeWithCountdown(){
+  if(COUNTDOWN_ACTIVE) return;
+  if(!canAttemptRuntimeStart()) return;
+  await runStartCountdown();
+  await openRuntime();
 }
 async function openRuntime(){
   STATE.session=STATE.session||SESSIONS[0];
@@ -2618,7 +2932,7 @@ document.getElementById('flagBtn').addEventListener('click',flagToggle);
 document.getElementById('pauseBtn').addEventListener('click',pauseToggle);
 document.getElementById('outcomeRow').addEventListener('click',e=>{const b=e.target.closest('[data-out]');if(b)recordOutcome(b.dataset.out);});
 
-document.querySelectorAll('#startOrb,#startOrbMobile').forEach(o=>o.addEventListener('click',openRuntime));
+document.querySelectorAll('#startOrb,#startOrbMobile').forEach(o=>o.addEventListener('click',startRuntimeWithCountdown));
 
 document.querySelectorAll('[data-summary]').forEach(b=>b.addEventListener('click',()=>{
   document.getElementById('summaryOverlay').classList.remove('live');
