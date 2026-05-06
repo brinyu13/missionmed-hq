@@ -1,9 +1,9 @@
 <?php
 /**
- * Route /stat to the canonical STAT HTML artifact while keeping first-party origin.
+ * Route /stat and /stat-v3 to canonical STAT HTML artifacts while keeping first-party origin.
  *
  * Long-term routing model:
- * - MissionMed shell routes live on missionmedinstitute.com (/arena, /stat, ...)
+ * - MissionMed shell routes live on missionmedinstitute.com (/arena, /stat, /stat-v3, ...)
  * - Runtime HTML artifacts can remain on CDN and be proxied server-side
  * - Browser stays on first-party origin so sessionStorage/auth continuity holds
  */
@@ -147,31 +147,58 @@ if ( ! function_exists( 'mm_stat_route_proxy_handle_request' ) ) {
 	}
 
 	/**
-	 * Determine whether the current request should be served by /stat proxy.
+	 * Resolve the STAT proxy route for the current request.
+	 *
+	 * @return array{route:string,upstream_base:string,variant:string}|null
+	 */
+	function mm_stat_route_proxy_resolve_route() {
+		$path = mm_stat_route_proxy_request_path();
+		if ( '' === $path ) {
+			return null;
+		}
+
+		if ( 1 === preg_match( '#^/stat-v3(?:/|$)#', $path ) ) {
+			return array(
+				'route'         => '/stat-v3',
+				'upstream_base' => 'https://cdn.missionmedinstitute.com/html-system/LIVE/stat_v3.html',
+				'variant'       => 'v3',
+			);
+		}
+
+		if ( 1 === preg_match( '#^/stat(?:/|$)#', $path ) ) {
+			return array(
+				'route'         => '/stat',
+				'upstream_base' => 'https://cdn.missionmedinstitute.com/html-system/LIVE/stat.html',
+				'variant'       => 'legacy',
+			);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Determine whether the current request should be served by STAT proxy.
 	 *
 	 * @return bool
 	 */
 	function mm_stat_route_proxy_is_target_request() {
-		$path = mm_stat_route_proxy_request_path();
-		if ( '' === $path ) {
-			return false;
-		}
-
-		return 1 === preg_match( '#^/stat(?:/|$)#', $path );
+		return null !== mm_stat_route_proxy_resolve_route();
 	}
 
 	/**
-	 * Serve /stat from upstream STAT artifact.
+	 * Serve /stat and /stat-v3 from upstream STAT artifacts.
 	 *
 	 * This executes early enough to bypass WordPress 404 templates and
-	 * returns HTML directly for /stat and /stat/.
+	 * returns HTML directly for /stat, /stat/, /stat-v3, and /stat-v3/.
 	 */
 	function mm_stat_route_proxy_handle_request() {
-		if ( ! mm_stat_route_proxy_is_target_request() ) {
+		$route_config = mm_stat_route_proxy_resolve_route();
+		if ( null === $route_config ) {
 			return;
 		}
 
-		$upstream_base = 'https://cdn.missionmedinstitute.com/html-system/LIVE/stat.html';
+		$upstream_base = (string) $route_config['upstream_base'];
+		$route_variant = (string) $route_config['variant'];
 		$query_string  = isset( $_SERVER['QUERY_STRING'] ) ? trim( (string) $_SERVER['QUERY_STRING'] ) : '';
 		$upstream_url  = $upstream_base;
 
@@ -186,6 +213,7 @@ if ( ! function_exists( 'mm_stat_route_proxy_handle_request' ) ) {
 			header( 'Content-Type: text/plain; charset=' . get_bloginfo( 'charset' ) );
 			header( 'X-MissionMed-Route: stat-proxy' );
 			header( 'X-MissionMed-Stat-Intercept: true' );
+			header( 'X-MissionMed-Stat-Variant: ' . $route_variant );
 			header( 'X-MissionMed-Upstream-Error: request_failed' );
 			if ( ! empty( $fetch_result['transport'] ) ) {
 				header( 'X-MissionMed-Upstream-Transport: ' . (string) $fetch_result['transport'] );
@@ -206,6 +234,7 @@ if ( ! function_exists( 'mm_stat_route_proxy_handle_request' ) ) {
 			header( 'Content-Type: text/plain; charset=' . get_bloginfo( 'charset' ) );
 			header( 'X-MissionMed-Route: stat-proxy' );
 			header( 'X-MissionMed-Stat-Intercept: true' );
+			header( 'X-MissionMed-Stat-Variant: ' . $route_variant );
 			header( 'X-MissionMed-Upstream-Status: ' . (string) $status_code );
 			if ( ! empty( $fetch_result['transport'] ) ) {
 				header( 'X-MissionMed-Upstream-Transport: ' . (string) $fetch_result['transport'] );
@@ -224,6 +253,7 @@ if ( ! function_exists( 'mm_stat_route_proxy_handle_request' ) ) {
 		header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
 		header( 'X-MissionMed-Route: stat-proxy' );
 		header( 'X-MissionMed-Stat-Intercept: true' );
+		header( 'X-MissionMed-Stat-Variant: ' . $route_variant );
 		header( 'X-MissionMed-Upstream-Status: ' . (string) $status_code );
 		header( 'X-MissionMed-Upstream-Transport: ' . (string) $fetch_result['transport'] );
 		echo $body;
