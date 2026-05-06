@@ -471,7 +471,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 /* RUNTIME &mdash; full screen overlay */
 .runtime-shell{position:fixed;inset:0;z-index:200;display:none;background:radial-gradient(ellipse at 30% 20%,#0e1733 0%,#03050d 70%);overflow:hidden}
 .runtime-shell.live{display:grid}
-.rt-grid{display:grid;grid-template-columns:minmax(180px,220px) minmax(0,1fr) minmax(240px,300px);height:100vh}
+.rt-grid{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr) minmax(210px,260px);height:100vh}
 .rt-rail{padding:18px;background:linear-gradient(180deg,rgba(13,21,45,.85),rgba(8,13,30,.85));border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;overflow:auto}
 .rt-nav-btn{appearance:none;border:0;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 14px;border-radius:12px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:13px;line-height:1.05;text-align:left;border:1px solid var(--line-bright);box-shadow:0 5px 0 #050a18,0 8px 14px -4px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)}
 .rt-nav-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #050a18,inset 0 1px 0 rgba(255,255,255,.10)}
@@ -489,19 +489,19 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .pause-btn:active{transform:translateY(3px);box-shadow:0 3px 0 #050a18,0 5px 8px -2px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.10)}
 .pause-btn::before{content:"";width:14px;height:18px;border-left:5px solid var(--gold);border-right:5px solid var(--gold);border-radius:1px}
 
-.rt-stage{display:flex;flex-direction:column;padding:16px;gap:12px;overflow:hidden}
-.rt-video{position:relative;display:block;flex:0 0 clamp(320px,44vh,520px);height:clamp(320px,44vh,520px);background:#06091a;border-radius:16px;overflow:hidden;border:1px solid var(--line-bright);box-shadow:0 20px 50px -22px rgba(0,0,0,.9),inset 0 2px 8px rgba(0,0,0,.7)}
+.rt-stage{display:flex;flex-direction:column;padding:12px;gap:10px;overflow:hidden}
+.rt-video{position:relative;display:block;flex:0 0 clamp(420px,58vh,720px);height:clamp(420px,58vh,720px);background:#06091a;border-radius:16px;overflow:hidden;border:1px solid var(--line-bright);box-shadow:0 20px 50px -22px rgba(0,0,0,.9),inset 0 2px 8px rgba(0,0,0,.7)}
 .rt-video .quad-grid{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px}
 .rt-video .quad{background:radial-gradient(circle at 50% 40%,#1c2c52,#06091a);display:grid;place-items:center;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;position:relative}
 .rt-video .quad::after{content:"";width:48px;height:48px;border-radius:50%;background:radial-gradient(circle,rgba(140,170,220,.16),transparent 70%)}
 .rt-video .ovl{position:absolute;display:flex;justify-content:space-between;align-items:center;padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt);letter-spacing:.16em}
 .rt-video .ovl.t{top:0;left:0;right:0;background:linear-gradient(180deg,rgba(0,0,0,.7),transparent)}
 .rt-video .ovl.b{bottom:0;left:0;right:0;background:linear-gradient(0deg,rgba(0,0,0,.7),transparent)}
-.rt-video .media-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#03050d;display:none;pointer-events:none}
-.rt-video .media-video{position:absolute;inset:0;width:100%;height:100%;background:#03050d;display:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-select:none;touch-action:none}
+.rt-video .media-frame{position:absolute;inset:0;z-index:2;width:100%;height:100%;border:0;background:#03050d;display:none;pointer-events:none}
+.rt-video .media-video{position:absolute;inset:0;z-index:2;width:100%;height:100%;background:#03050d;display:none;object-fit:contain;pointer-events:none;user-select:none;-webkit-user-select:none;touch-action:none}
 .rt-video .media-fallback{position:absolute;inset:0;display:none;place-items:center;text-align:center;padding:22px;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;background:radial-gradient(circle at 50% 40%,rgba(34,211,238,.08),rgba(6,9,26,.98))}
 .rt-video .media-fallback strong{display:block;color:var(--txt);font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.10em;margin-bottom:6px}
-.rt-video .media-guard{position:absolute;inset:0;z-index:7;display:none;cursor:default;background:transparent}
+.rt-video .media-guard{position:absolute;inset:0;z-index:12;display:none;cursor:not-allowed;background:transparent}
 .rt-video.has-media .media-guard,
 .rt-video.has-video .media-guard{display:block}
 .rt-video.has-media .media-frame{display:block}
@@ -850,6 +850,19 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
   .split-stage,
   .sess-shell,
   .topic-shell{overflow:visible}
+  .runtime-shell{overflow:auto}
+  .runtime-shell.live{display:block}
+  .rt-grid{display:flex;flex-direction:column;min-height:100vh;height:auto}
+  .rt-rail{order:1;display:flex;flex-direction:row;gap:10px;overflow-x:auto;padding:10px;border-right:0;border-bottom:1px solid var(--line)}
+  .rt-rail .blk{min-width:150px}
+  .rt-nav-btn{min-width:126px;padding:12px}
+  .pause-btn{min-width:132px;margin-top:0}
+  .rt-stage{order:2;padding:10px;overflow:visible}
+  .rt-video{flex:0 0 auto;height:clamp(220px,38vh,320px)}
+  .rt-question{padding:16px;min-height:210px}
+  .rt-actions,.outcome-row{flex-direction:column}
+  .lock-btn{font-size:24px;padding:20px}
+  .rt-side{order:3;padding:10px;border-left:0;border-top:1px solid var(--line);overflow:visible}
 }
 @media(max-width:1080px){
   .rt-grid{grid-template-columns:minmax(160px,190px) minmax(0,1fr) minmax(210px,260px)}
@@ -1294,10 +1307,10 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <iframe class="media-frame" id="rtMediaFrame" title="Daily drill media" loading="lazy" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
         <video class="media-video" id="rtMediaVideo" playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback"></video>
         <div class="quad-grid" id="rtFallbackGrid">
-          <div class="quad"><div class="ovl t"><span>DR J</span><span>04:21</span></div></div>
-          <div class="quad"><div class="ovl t"><span>STUDENT A</span><span>04:21</span></div></div>
-          <div class="quad"><div class="ovl t"><span>STUDENT B</span><span>04:21</span></div></div>
-          <div class="quad"><div class="ovl t"><span>BOARD</span><span>04:21</span></div></div>
+          <div class="quad"><div class="ovl t"><span>REAL MEDIA</span><span>LOADING</span></div></div>
+          <div class="quad"><div class="ovl t"><span>NODE PAUSES</span><span>QUEUED</span></div></div>
+          <div class="quad"><div class="ovl t"><span>SELF REPORT</span><span>READY</span></div></div>
+          <div class="quad"><div class="ovl t"><span>SESSION ONLY</span><span>LOCAL</span></div></div>
         </div>
         <div class="media-fallback" id="rtMediaFallback"><div><strong>Media not loaded</strong><span>Real media is required before starting a live v3 drill.</span></div></div>
         <div class="media-guard" id="rtMediaGuard" aria-hidden="true" title="Media is controlled by the Daily + Drills runtime."></div>
@@ -1314,12 +1327,12 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <div class="meta">
           <span class="chip">CUE</span>
           <span class="chip cyan">SELF-REPORT</span>
-          <span class="chip" id="rtTopic">STROKE</span>
-        </div>
-        <h2 id="rtCue">A 68-year-old with sudden right-sided weakness and aphasia. Symptom onset 90 minutes ago. NIHSS 14. Non-contrast CT shows no hemorrhage. What is the best next step?</h2>
+        <span class="chip" id="rtTopic">REAL NODE</span>
+      </div>
+        <h2 id="rtCue">Start a real registry drill to load the first node-driven pause cue.</h2>
         <div class="reveal" id="rtReveal">
           <h4>ANSWER</h4>
-          <div id="rtAnswer">IV alteplase (tPA) within the 4.5-hour window once hemorrhage is excluded. Then consider mechanical thrombectomy if large-vessel occlusion is confirmed on CTA.</div>
+          <div id="rtAnswer">Real answer guidance appears only after the selected drill's nodes load.</div>
         </div>
       </div>
 
@@ -2043,15 +2056,46 @@ function normalizeRuntimeNodesPayload(payload){
   }
   return [];
 }
+const MAX_RUNTIME_PROMPTS = 8;
+function finiteNodeTime(value){
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
 function normalizePrompt(item, index){
   const src = item && typeof item === 'object' ? item : {};
   const topic = safeText(src.topic || src.topic_hint || src.label || src.node_type || src.category, 'Prompt ' + (index + 1));
   const cue = safeText(src.cue || src.prompt || src.question || src.question_text || src.text || src.title || src.stem || src.summary, 'Recall the key teaching point for this segment.');
   const ans = safeText(src.ans || src.answer || src.answer_text || src.explanation || src.teaching_point || src.expected_answer || src.expected || src.summary, 'Self-check your recall against the lecture/video segment.');
-  return { topic, cue, ans };
+  return {
+    id: safeText(src.id || src.node_id || src.nodeId, 'node-' + (index + 1)),
+    topic,
+    cue,
+    ans,
+    pauseTime: finiteNodeTime(src.pause_time != null ? src.pause_time : (src.pauseTime != null ? src.pauseTime : src.time)),
+    questionStartTime: finiteNodeTime(src.question_start_time != null ? src.question_start_time : (src.questionStartTime != null ? src.questionStartTime : src.start_time)),
+    endTime: finiteNodeTime(src.end_time != null ? src.end_time : src.endTime)
+  };
+}
+function prepareRuntimePrompts(list){
+  const normalized = (Array.isArray(list) ? list : [])
+    .map(normalizePrompt)
+    .filter(prompt => safeText(prompt.cue, '') && safeText(prompt.ans, ''));
+  const timed = normalized
+    .filter(prompt => Number.isFinite(Number(prompt.pauseTime)))
+    .sort((a,b) => Number(a.pauseTime) - Number(b.pauseTime));
+  return (timed.length ? timed : normalized).slice(0, MAX_RUNTIME_PROMPTS);
+}
+function hasTimedRuntimePrompts(list){
+  return Array.isArray(list) && list.length && list.every(prompt => Number.isFinite(Number(prompt.pauseTime)));
+}
+function formatRuntimeClock(seconds){
+  const n = Math.max(0, Number(seconds) || 0);
+  const m = Math.floor(n / 60);
+  const s = Math.floor(n % 60);
+  return m + ':' + String(s).padStart(2, '0');
 }
 async function loadRuntimePromptsForSession(session){
-  if(session && Array.isArray(session.prompts) && session.prompts.length) return session.prompts.map(normalizePrompt);
+  if(session && Array.isArray(session.prompts) && session.prompts.length) return prepareRuntimePrompts(session.prompts);
   const nodesUrl = safeText(session && session.nodes_url, '');
   if(nodesUrl){
     if(!isAllowedRuntimeAssetUrl(nodesUrl)){
@@ -2063,11 +2107,11 @@ async function loadRuntimePromptsForSession(session){
       if(res.ok){
         const data = await res.json();
         const list = normalizeRuntimeNodesPayload(data);
-        if(list.length) return list.map(normalizePrompt);
+        if(list.length) return prepareRuntimePrompts(list);
       }
     }catch(error){ log('nodes_prompt_load_failed', { message: String(error && error.message ? error.message : error) }); }
   }
-  return USE_DEMO_DATA ? FALLBACK_PROMPTS.map(normalizePrompt) : [];
+  return USE_DEMO_DATA ? prepareRuntimePrompts(FALLBACK_PROMPTS) : [];
 }
 function normalizeDailyResult(result){
   const r = result && typeof result === 'object' ? result : {};
@@ -2136,22 +2180,39 @@ function lockRuntimeMediaControls(){
   }
   if(video){
     video.controls = false;
+    video.removeAttribute('controls');
     video.setAttribute('tabindex', '-1');
     video.setAttribute('disablepictureinpicture', '');
     video.setAttribute('controlslist', 'nodownload noplaybackrate noremoteplayback');
   }
 }
-async function startRuntimeMediaPlayback(){
+async function startRuntimeMediaPlayback(options){
+  const opts = options || {};
+  const reset = opts.reset !== false;
   const video = document.getElementById('rtMediaVideo');
-  if(!video || !video.src) return;
+  if(!video || !video.src) return false;
   try{
-    video.pause();
-    video.currentTime = 0;
+    if(reset){
+      video.pause();
+      video.currentTime = 0;
+    }
     video.controls = false;
-    await video.play();
-    log('runtime_direct_video_started', { from_start: true });
+    video.removeAttribute('controls');
+    video.muted = false;
+    video.volume = 0.65;
+    try{
+      await video.play();
+    }catch(firstError){
+      video.muted = true;
+      await video.play();
+      log('runtime_direct_video_started_muted_fallback', { from_start: !!reset, message: String(firstError && firstError.message ? firstError.message : firstError) });
+      return true;
+    }
+    log('runtime_direct_video_started', { from_start: !!reset, muted: !!video.muted });
+    return true;
   }catch(error){
     log('runtime_direct_video_start_blocked', { message: String(error && error.message ? error.message : error) });
+    return false;
   }
 }
 function paintRuntimeMedia(session){
@@ -2180,6 +2241,7 @@ function paintRuntimeMedia(session){
       stage.classList.add('has-media');
     }else if(video){
       video.controls = false;
+      video.removeAttribute('controls');
       video.src = source.url;
       stage.classList.add('has-video');
     }
@@ -2198,6 +2260,15 @@ function paintRuntimeMedia(session){
     return;
   }
   if(label) label.textContent = safeText(session && (session.title || session.video_id || session.id), 'Daily drill') + ' · MEDIA REQUIRED';
+}
+function getRuntimeVideoElement(){
+  return document.getElementById('rtMediaVideo');
+}
+function stopRuntimeNodeMonitor(){
+  if(STATE.rt && STATE.rt.mediaLoop){
+    cancelAnimationFrame(STATE.rt.mediaLoop);
+    STATE.rt.mediaLoop = null;
+  }
 }
 function paintDailyResultNotice(){
   const el = document.getElementById('dailyResultNotice');
@@ -2233,7 +2304,7 @@ function bootFromRoute(){
     Bridge.setSelectedDrill(Object.assign({}, selected, { origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' }));
     updateReadySelection(selected);
     setStep(4);
-    openRuntime();
+    log('video_route_ready_gate_loaded', { video_id: ROUTE_VIDEO_ID, origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' });
     return;
   }
   if(ROUTE_ENTRY === 'daily_rounds'){
@@ -2315,7 +2386,8 @@ let PROMPTS = USE_DEMO_DATA ? FALLBACK_PROMPTS.slice() : [];
 const STATE={
   version:'legacy', step:1, scenario:'default',
   level:'step1', topic:null, topicKey:null, topicIdx:0, session:null, pace:'recommended',
-  rt:{idx:0,reveals:false,timer:null,t0:0,locked:false,
+  rt:{idx:0,reveals:false,timer:null,mediaLoop:null,t0:0,locked:false,
+      mediaDriven:false,waitingForNode:false,mediaStarted:false,
       correct:0,miss:0,oot:0,streak:0,bestStreak:0,
       times:[],flagged:[],paused:false}
 };
@@ -2953,6 +3025,102 @@ document.body.addEventListener('click',e=>{
 const PACE_SEC={aggressive:3,recommended:6,warmup:10};
 function paceSeconds(){return PACE_SEC[STATE.pace]||6;}
 
+function resetRuntimeQuestionUI(){
+  const reveal=document.getElementById('rtReveal');
+  const outcome=document.getElementById('outcomeRow');
+  const lock=document.getElementById('lockBtn');
+  if(reveal) reveal.classList.remove('live');
+  if(outcome) outcome.classList.remove('live');
+  if(lock){
+    lock.classList.add('dim');
+    lock.disabled = true;
+    lock.innerHTML = 'WAITING FOR PAUSE CUE';
+  }
+}
+function paintWaitingForPauseCue(){
+  const next = PROMPTS[STATE.rt.idx];
+  const topic=document.getElementById('rtTopic');
+  const cue=document.getElementById('rtCue');
+  const answer=document.getElementById('rtAnswer');
+  const idx=document.getElementById('rtPidx');
+  if(idx) idx.textContent = next ? `${STATE.rt.idx + 1} / ${PROMPTS.length}` : `${PROMPTS.length} / ${PROMPTS.length}`;
+  if(topic) topic.textContent = 'VIDEO RUNNING';
+  if(cue){
+    cue.textContent = next
+      ? 'The selected video is running from the beginning. The next recall pause is queued at ' + formatRuntimeClock(next.pauseTime) + '.'
+      : 'No more node pauses are queued for this drill.';
+  }
+  if(answer) answer.textContent = 'The runtime controls video pause/resume. Native video controls are intentionally locked.';
+  resetRuntimeQuestionUI();
+  const num=document.getElementById('rtNum');if(num) num.textContent='--';
+  const fill=document.getElementById('rtFill');if(fill) fill.style.width='100%';
+  const bar=document.getElementById('rtBar');if(bar) bar.classList.remove('warn');
+}
+function paintMediaStartBlocked(){
+  const stage=document.getElementById('rtVideoStage');
+  const fallback=document.getElementById('rtMediaFallback');
+  if(stage) stage.classList.add('media-missing');
+  if(fallback){
+    fallback.innerHTML = '<div><strong>Media start blocked</strong><span>Use the main Start button again or choose another real MP4-backed drill. V3 will not run fake prompts without controlled media playback.</span></div>';
+  }
+}
+function resumeRuntimeMediaUntilNextNode(){
+  if(!STATE.rt.mediaDriven) return;
+  stopRuntimeNodeMonitor();
+  STATE.rt.waitingForNode = true;
+  STATE.rt.locked = true;
+  paintWaitingForPauseCue();
+  startRuntimeMediaPlayback({ reset:false }).then(started => {
+    if(!started){
+      paintMediaStartBlocked();
+      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a fake prompt-only drill.');
+      return;
+    }
+    startRuntimeNodeMonitor();
+  });
+}
+function triggerRuntimeNodePrompt(prompt){
+  const video = getRuntimeVideoElement();
+  stopRuntimeNodeMonitor();
+  if(video){
+    try{ video.pause(); }catch(_error){}
+    video.controls = false;
+    video.removeAttribute('controls');
+  }
+  STATE.rt.waitingForNode = false;
+  log('runtime_node_pause_triggered', { idx:STATE.rt.idx, pause_time: prompt && prompt.pauseTime, topic: prompt && prompt.topic });
+  paintQuestion();
+}
+function startRuntimeNodeMonitor(){
+  stopRuntimeNodeMonitor();
+  const video = getRuntimeVideoElement();
+  if(!video || !STATE.rt.mediaDriven) return;
+  const tick = () => {
+    if(!document.getElementById('runtimeShell').classList.contains('live') || !STATE.rt.mediaDriven) return;
+    if(STATE.rt.paused){
+      STATE.rt.mediaLoop = requestAnimationFrame(tick);
+      return;
+    }
+    const next = PROMPTS[STATE.rt.idx];
+    if(!next){
+      finishSession();
+      return;
+    }
+    const currentTime = Number(video.currentTime || 0);
+    const pauseTime = Number(next.pauseTime);
+    if(Number.isFinite(pauseTime) && currentTime >= Math.max(0, pauseTime - 0.08)){
+      triggerRuntimeNodePrompt(next);
+      return;
+    }
+    if(video.ended){
+      if(STATE.rt.idx >= PROMPTS.length) finishSession();
+      else showRuntimeDataError('The selected media ended before all queued node pauses fired. Choose another drill or validate nodes/media timing.');
+      return;
+    }
+    STATE.rt.mediaLoop = requestAnimationFrame(tick);
+  };
+  STATE.rt.mediaLoop = requestAnimationFrame(tick);
+}
 function showRuntimeDataError(message){
   closeRuntime();
   const msg = safeText(message, 'No real drill data loaded for this route.');
@@ -3044,21 +3212,48 @@ async function openRuntime(){
   }
   Bridge.launchDrill(STATE.session,{seconds:paceSeconds(),pace:STATE.pace,origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds'});
   // reset
-  STATE.rt={idx:0,reveals:false,timer:null,t0:0,locked:false,
+  const mediaDriven = !USE_DEMO_DATA && mediaSource.type === 'video' && hasTimedRuntimePrompts(PROMPTS);
+  if(!USE_DEMO_DATA && !mediaDriven){
+    showRuntimeDataError('This drill has media and nodes, but v3 requires a direct MP4 video plus timed nodes for controlled pause playback.');
+    return;
+  }
+  STATE.rt={idx:0,reveals:false,timer:null,mediaLoop:null,t0:0,locked:false,
+            mediaDriven,waitingForNode:false,mediaStarted:false,
             correct:0,miss:0,oot:0,streak:0,bestStreak:0,
             times:[],flagged:[],paused:false};
   document.getElementById('rtCtx').textContent=(STATE.session.sub||'CARDIO').toUpperCase();
   document.getElementById('rtSes').textContent=STATE.session.id;
   document.getElementById('runtimeShell').classList.add('live');
   paintRuntimeMedia(STATE.session);
-  await startRuntimeMediaPlayback();
   document.getElementById('opRt').textContent='running';
+  if(mediaDriven){
+    paintWaitingForPauseCue();
+    const started = await startRuntimeMediaPlayback({ reset:true });
+    if(!started){
+      paintMediaStartBlocked();
+      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a fake prompt-only drill.');
+      return;
+    }
+    STATE.rt.mediaStarted = true;
+    STATE.rt.waitingForNode = true;
+    startRuntimeNodeMonitor();
+    log('runtime_node_driven_opened', { prompts:PROMPTS.length, video_id:STATE.session.video_id || STATE.session.id });
+    return;
+  }
+  await startRuntimeMediaPlayback({ reset:true });
   paintQuestion();log('runtime_opened');
 }
 function closeRuntime(){
+  stopRuntimeNodeMonitor();
   document.getElementById('runtimeShell').classList.remove('live');
   document.getElementById('opRt').textContent='idle';
   if(STATE.rt.timer){cancelAnimationFrame(STATE.rt.timer);STATE.rt.timer=null;}
+  const video = getRuntimeVideoElement();
+  if(video){
+    try{ video.pause(); }catch(_error){}
+    video.controls = false;
+    video.removeAttribute('controls');
+  }
 }
 function paintQuestion(){
   const i=STATE.rt.idx;const p=PROMPTS[i];
@@ -3069,7 +3264,10 @@ function paintQuestion(){
   document.getElementById('rtAnswer').textContent=p.ans;
   document.getElementById('rtReveal').classList.remove('live');
   document.getElementById('outcomeRow').classList.remove('live');
-  document.getElementById('lockBtn').classList.remove('dim');
+  const lock=document.getElementById('lockBtn');
+  lock.classList.remove('dim');
+  lock.disabled = false;
+  lock.innerHTML = 'ANSWER LOCK IN <kbd style="color:#0a1228;background:rgba(0,0,0,.18);border-color:transparent">SPACE</kbd>';
   const fb=document.getElementById('flagBtn');if(fb)fb.classList.remove('on');
   STATE.rt.locked=false;STATE.rt.t0=performance.now();
   startTimer();
@@ -3134,6 +3332,10 @@ function recordOutcome(out){
 function advance(){
   STATE.rt.idx++;
   if(STATE.rt.idx>=PROMPTS.length){finishSession();return;}
+  if(STATE.rt.mediaDriven){
+    resumeRuntimeMediaUntilNextNode();
+    return;
+  }
   paintQuestion();
 }
 function flagToggle(){
@@ -3155,7 +3357,17 @@ function pauseToggle(){
   b.style.color=STATE.rt.paused?'#04201a':'var(--gold)';
   b.firstChild&&(b.firstChild.textContent='');
   b.textContent=STATE.rt.paused?'RESUME':'TAKE A BREAK';
-  if(!STATE.rt.paused) startTimer();
+  const video = getRuntimeVideoElement();
+  if(STATE.rt.paused){
+    if(video) try{ video.pause(); }catch(_error){}
+    if(STATE.rt.timer){cancelAnimationFrame(STATE.rt.timer);STATE.rt.timer=null;}
+    return;
+  }
+  if(STATE.rt.waitingForNode){
+    if(video) startRuntimeMediaPlayback({ reset:false }).then(() => startRuntimeNodeMonitor());
+  }else{
+    startTimer();
+  }
 }
 function finishSession(){
   if(STATE.rt.timer){cancelAnimationFrame(STATE.rt.timer);STATE.rt.timer=null;}
