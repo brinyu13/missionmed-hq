@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  CX-OFFER-328D
+  CX-OFFER-330
   Refined USCE offer template wired to existing Railway protected USCE contracts.
   Browser code uses only Railway endpoints with credentials/CSRF; no direct Supabase,
   no service-role exposure, no WooCommerce order creation, no LearnDash enrollment,
@@ -11,7 +11,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="missionmed-app" content="usce-admin-offer-engine">
-<meta name="missionmed-version" content="CX-OFFER-328D">
+<meta name="missionmed-version" content="CX-OFFER-330">
 <title>MissionMed Clinicals HQ - Offer System</title>
 <style>
 .mm-cx, .mm-cx *, .mm-cx *::before, .mm-cx *::after { box-sizing: border-box; }
@@ -349,6 +349,26 @@
 .mm-cx .mm-stat b { display: block; font-size: 18px; color: var(--mm-navy); font-weight: 800; line-height: 1.1; }
 .mm-cx .mm-stat small { display: block; font-size: 10px; color: var(--mm-muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700; margin-top: 2px; }
 </style>
+<style>
+.mm-cx .mm-admin-tracker{margin-top:14px;border:1px solid var(--mm-line-2);border-radius:16px;overflow:hidden;background:#fff}
+.mm-cx .mm-admin-tracker-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;padding:15px 16px;background:linear-gradient(135deg,rgba(15,42,68,.06),rgba(201,162,75,.1));border-bottom:1px solid var(--mm-line)}
+.mm-cx .mm-admin-tracker-head b{display:block;color:var(--mm-navy);font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.mm-cx .mm-admin-tracker-head span{display:block;color:var(--mm-muted);font-size:12px;margin-top:3px;line-height:1.45}
+.mm-cx .mm-admin-waiting{white-space:nowrap;border-radius:999px;padding:6px 10px;background:var(--mm-gold-soft);color:#8c6d1f;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.mm-cx .mm-admin-stage-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:7px;padding:14px;background:#0f2a44}
+.mm-cx .mm-admin-stage{min-width:0;text-align:center;color:rgba(255,255,255,.62);font-size:10px;line-height:1.3;font-weight:800;text-transform:uppercase;letter-spacing:.03em}
+.mm-cx .mm-admin-dot{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;margin:0 auto 7px;background:#29445f;border:1px solid rgba(255,255,255,.22);color:rgba(255,255,255,.7)}
+.mm-cx .mm-admin-stage.complete .mm-admin-dot{background:var(--mm-success);color:#fff;border-color:rgba(255,255,255,.5)}
+.mm-cx .mm-admin-stage.active .mm-admin-dot{background:var(--mm-gold);color:var(--mm-navy);border-color:#fff}
+.mm-cx .mm-admin-stage.issue .mm-admin-dot{background:var(--mm-danger);color:#fff;border-color:#fff}
+.mm-cx .mm-admin-stage.complete,.mm-cx .mm-admin-stage.active,.mm-cx .mm-admin-stage.issue{color:#fff}
+.mm-cx .mm-admin-tracker-body{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:14px}
+.mm-cx .mm-admin-next{border:1px solid var(--mm-line);border-radius:12px;background:var(--mm-paper);padding:12px}
+.mm-cx .mm-admin-next small{display:block;color:var(--mm-muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+.mm-cx .mm-admin-next b{display:block;color:var(--mm-navy);font-size:14px;line-height:1.35}
+.mm-cx .mm-admin-next span{display:block;color:var(--mm-muted);font-size:12px;line-height:1.45;margin-top:4px}
+@media(max-width:820px){.mm-cx .mm-admin-stage-grid{grid-template-columns:repeat(4,1fr)}.mm-cx .mm-admin-tracker-body{grid-template-columns:1fr}.mm-cx .mm-admin-tracker-head{display:block}.mm-cx .mm-admin-waiting{display:inline-block;margin-top:8px}}
+</style>
 </head>
 <body>
 
@@ -551,6 +571,7 @@
                 <small>Student notes</small>
                 <div id="mmDetNotes" style="font-size:13px; color: var(--mm-ink); font-weight: 500;">-</div>
               </div>
+              <div class="mm-admin-tracker" id="mmAdminTracker"></div>
               <div class="mm-quickact">
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActCall">&#128222; Log call to site</button>
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActNote">&#128221; Add internal note</button>
@@ -792,7 +813,7 @@
   function exampleMail(local){ return local + '@' + EXAMPLE_MAIL_DOMAIN; }
 
   window.__MISSIONMED_USCE_ADMIN_CONFIG = Object.freeze({
-    version: 'CX-OFFER-328D',
+    version: 'CX-OFFER-330',
     apiBase: 'https://missionmed-hq-production.up.railway.app',
     wpBase: 'https://missionmedinstitute.com',
     liveReadEnabledByDefault: true,
@@ -813,6 +834,7 @@
     authRelayEndpoint: '/api/usce/admin/auth/relay',
     authAudience: 'usce_admin',
     adminPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html',
+    statusTrackerUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html',
     offerPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html',
     requestPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html',
     paymentProductUrl: 'https://missionmedinstitute.com/product/usce-clinical-rotations/',
@@ -1495,12 +1517,137 @@
     renderTimeline(r);
     renderAudit(r);
     renderOfferBuilder(r);
+    renderAdminTracker(r);
 
     const statusBtn = $('#mmActStatus');
     if (r.status === 'NEW') { statusBtn.style.display=''; statusBtn.textContent = '\u21BB Mark In Progress'; }
     else if (r.status === 'IN_PROGRESS') { statusBtn.style.display=''; statusBtn.textContent = '\u21BB Back to New'; }
     else { statusBtn.style.display='none'; }
   }
+
+  function renderAdminTracker(r){
+    const box = $('#mmAdminTracker');
+    if (!box || !r) return;
+    const offer = getOfferForRequest(r);
+    const tracker = computeAdminTracker(r, offer);
+    const stagesHtml = tracker.stages.map((stage, idx) =>
+      '<div class="mm-admin-stage ' + esc(stage.state) + '">' +
+        '<span class="mm-admin-dot">' + (stage.state === 'complete' ? '&#10003;' : (idx + 1)) + '</span>' +
+        '<span>' + esc(stage.label) + '</span>' +
+      '</div>'
+    ).join('');
+    const statusLine = offer
+      ? 'Offer ' + esc(offer.status || 'DRAFT') + ' | payment ' + esc(offer.paymentStatus || 'pending') + ' | paperwork ' + esc(offer.paperworkStatus || 'not_started') + ' | course ' + esc(offer.learndashStatus || 'locked')
+      : 'No offer draft has been saved yet.';
+    box.innerHTML =
+      '<div class="mm-admin-tracker-head">' +
+        '<div><b>Student journey tracker</b><span>' + esc(tracker.summary) + '</span></div>' +
+        '<span class="mm-admin-waiting">Waiting on ' + esc(tracker.waitingOn) + '</span>' +
+      '</div>' +
+      '<div class="mm-admin-stage-grid">' + stagesHtml + '</div>' +
+      '<div class="mm-admin-tracker-body">' +
+        '<div class="mm-admin-next"><small>Phil next action</small><b>' + esc(tracker.adminAction) + '</b><span>' + esc(tracker.adminDetail) + '</span></div>' +
+        '<div class="mm-admin-next"><small>Student-facing state</small><b>' + esc(tracker.studentState) + '</b><span>' + statusLine + '</span></div>' +
+      '</div>';
+  }
+
+  function computeAdminTracker(r, offer){
+    const stages = [
+      { key:'request_submitted', label:'Request' },
+      { key:'under_review', label:'Review' },
+      { key:'options_preparing', label:'Options' },
+      { key:'offer_ready', label:'Offer' },
+      { key:'student_decision', label:'Decision' },
+      { key:'payment', label:'Payment' },
+      { key:'paperwork', label:'Paperwork' },
+      { key:'rotation_finalized', label:'Finalized' }
+    ];
+    let index = 0;
+    let waitingOn = 'Phil';
+    let adminAction = 'Review request';
+    let adminDetail = 'Confirm specialty, location, timing, and whether a partner/site needs outreach.';
+    let studentState = 'Request received';
+    const status = String(r.status || 'NEW').toUpperCase();
+    const offerStatus = String(offer && offer.status || '').toUpperCase();
+
+    if (status === 'IN_PROGRESS') {
+      index = 1;
+      adminAction = 'Prepare rotation options';
+      adminDetail = 'Pick the most realistic month, specialty, and location combination for this student.';
+      studentState = 'Under review';
+    }
+    if (offer) {
+      index = 2;
+      adminAction = 'Send offer message';
+      adminDetail = offer.portalUrl ? 'Preview or log the message so the student has the secure offer link.' : 'Generate the student link, then preview/log the offer message.';
+      studentState = 'Options being prepared';
+    }
+    if (offer && (offer.portalUrl || offer.hasToken || ['READY','SENT','VIEWED'].includes(offerStatus) || status === 'OFFERED')) {
+      index = 3;
+      waitingOn = 'Student';
+      adminAction = 'Watch decision';
+      adminDetail = 'Monitor comms, Gmail metadata, and whether the student accepts, declines, or requests an alternate.';
+      studentState = 'Offer ready';
+    }
+    if (status === 'ACCEPTED' || offerStatus === 'ACCEPTED') {
+      index = 5;
+      waitingOn = 'Student';
+      adminAction = 'Check payment handoff';
+      adminDetail = 'Payment handoff is now appropriate. Do not create an order manually from this tracker.';
+      studentState = 'Offer accepted';
+    } else if (status === 'DECLINED' || offerStatus === 'DECLINED') {
+      index = 4;
+      waitingOn = 'Complete';
+      adminAction = 'Close or restart';
+      adminDetail = 'No payment CTA should appear. Prepare a new request only if the student asks.';
+      studentState = 'Declined safely';
+    } else if (status === 'RETAINED' || offerStatus === 'ALTERNATE_REQUESTED') {
+      index = 4;
+      waitingOn = 'Phil';
+      adminAction = 'Prepare alternate option';
+      adminDetail = 'No payment CTA should appear while alternate options are being prepared.';
+      studentState = 'Alternate requested';
+    }
+    if (offer && offer.paymentStatus === 'paid') {
+      index = 6;
+      waitingOn = 'Phil';
+      adminAction = 'Request or verify paperwork';
+      adminDetail = 'Confirm onboarding packet status before course access is moved forward.';
+      studentState = 'Payment recorded';
+    }
+    if (offer && ['requested','received','approved'].includes(offer.paperworkStatus)) {
+      index = 6;
+      waitingOn = offer.paperworkStatus === 'approved' ? 'Phil' : 'Student';
+      adminAction = offer.paperworkStatus === 'approved' ? 'Prepare course access' : 'Follow up on paperwork';
+      adminDetail = 'Paperwork state is tracked here only; this page does not store uploads.';
+      studentState = 'Paperwork ' + labelizeLocal(offer.paperworkStatus);
+    }
+    if (offer && ['ready','enabled'].includes(offer.learndashStatus)) {
+      index = 7;
+      waitingOn = offer.learndashStatus === 'enabled' ? 'Complete' : 'Phil';
+      adminAction = offer.learndashStatus === 'enabled' ? 'Final review' : 'Grant course access when approved';
+      adminDetail = 'Course state is visibility only unless a separate approved enrollment gate is run.';
+      studentState = offer.learndashStatus === 'enabled' ? 'Rotation finalized' : 'Course access ready';
+    }
+
+    return {
+      waitingOn,
+      adminAction,
+      adminDetail,
+      studentState,
+      summary: 'Same eight-stage journey shown to the student, with admin-only next-action context.',
+      stages: stages.map((stage, idx) => {
+        let state = idx < index ? 'complete' : idx === index ? 'active' : 'waiting';
+        if ((status === 'DECLINED' || offerStatus === 'DECLINED') && idx === 4) state = 'issue';
+        return { ...stage, state };
+      })
+    };
+  }
+
+  function labelizeLocal(value){
+    return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, ch => ch.toUpperCase());
+  }
+
   function renderRankedList(container, arr){
     container.innerHTML = '';
     if (!arr || !arr.length) { container.innerHTML = '<span style="color:var(--mm-muted); font-weight:500;">(none)</span>'; return; }

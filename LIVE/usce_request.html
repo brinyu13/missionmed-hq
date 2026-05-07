@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!--
-  CX-OFFER-309A
+  CX-OFFER-330
   MissionMed Clinicals Request App
   Request-first availability intake. Standalone R2/CDN shell.
 -->
@@ -9,7 +9,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="missionmed-app" content="usce-request">
-<meta name="missionmed-version" content="CX-OFFER-309A">
+<meta name="missionmed-version" content="CX-OFFER-330">
 <title>Request a Clinical Rotation | MissionMed</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -17,6 +17,12 @@
 <style>
 :root{--navy:#0a1628;--navy2:#102844;--navy3:#173655;--gold:#c8a84e;--gold2:#d8bc68;--cream:#faf8f1;--cream2:#eee6d5;--white:#fff;--ink:#111827;--muted:#657184;--line:rgba(10,22,40,.16);--line2:rgba(200,168,78,.38);--danger:#b83232;--success:#1f7a4f;--warn:#a46a00;--shadow:0 22px 70px rgba(3,12,28,.22);--serif:Georgia,"Times New Roman",serif;--sans:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--navy);font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}.mm-app{min-height:100vh;background:linear-gradient(180deg,rgba(10,22,40,.18),rgba(10,22,40,.76)),url('https://images.unsplash.com/photo-1551190822-a9ce113ac100?w=1920&q=80') center/cover fixed}.mm-topbar{position:sticky;top:0;z-index:20;background:rgba(250,248,241,.96);border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.mm-top-inner{max-width:1180px;margin:0 auto;padding:14px 22px;display:flex;justify-content:space-between;gap:18px;align-items:center}.mm-brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--navy)}.mm-mark{width:38px;height:38px;border:1px solid var(--line2);display:grid;place-items:center;border-radius:50%;font-family:var(--serif);font-weight:700;color:var(--gold);background:var(--navy)}.mm-brand strong{display:block;font-size:15px;letter-spacing:.05em;text-transform:uppercase}.mm-brand span{display:block;font-size:11px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}.mm-runtime{font-size:11px;color:var(--muted);text-align:right}.mm-runtime b{display:block;color:var(--navy);font-size:12px}.mm-hero{max-width:1180px;margin:0 auto;padding:64px 22px 28px;color:#fff;text-align:center}.mm-eyebrow{display:inline-flex;gap:9px;align-items:center;border:1px solid rgba(200,168,78,.55);color:var(--gold2);padding:7px 14px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;background:rgba(10,22,40,.38)}.mm-hero h1{font-family:var(--serif);font-size:clamp(34px,6vw,68px);font-weight:600;line-height:1.02;margin:20px auto 14px;max-width:900px;text-shadow:0 8px 40px rgba(0,0,0,.42)}.mm-hero p{max-width:720px;margin:0 auto;color:rgba(255,255,255,.82);font-size:clamp(15px,2vw,18px);line-height:1.7}.mm-flow{max-width:980px;margin:28px auto 0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;text-align:left}.mm-flow-card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.16);padding:14px;border-radius:16px;backdrop-filter:blur(12px)}.mm-flow-card b{display:block;color:var(--gold2);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}.mm-flow-card span{font-size:12px;line-height:1.5;color:rgba(255,255,255,.78)}.mm-shell{max-width:1000px;margin:0 auto;padding:28px 22px 78px}.mm-panel{background:rgba(255,255,255,.97);border:1px solid rgba(200,168,78,.28);box-shadow:var(--shadow);border-radius:24px;overflow:hidden}.mm-panel-head{padding:28px 32px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;align-items:flex-start;background:linear-gradient(135deg,#fff,var(--cream))}.mm-panel-head h2{font-family:var(--serif);font-size:30px;line-height:1.12;margin:0 0 8px;color:var(--navy)}.mm-panel-head p{margin:0;color:var(--muted);line-height:1.6;font-size:14px}.mm-badge{white-space:nowrap;border:1px solid var(--line2);background:rgba(200,168,78,.12);color:var(--navy);font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:8px 12px;border-radius:999px}.mm-stepper{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-bottom:1px solid var(--line);background:var(--cream)}.mm-step{padding:15px 12px;text-align:center;border-right:1px solid var(--line);color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.mm-step:last-child{border-right:0}.mm-step.is-active{background:#fff;color:var(--navy);box-shadow:inset 0 -3px 0 var(--gold)}.mm-step.is-done{color:var(--success)}.mm-form{padding:32px}.mm-section{display:none}.mm-section.is-active{display:block;animation:mmIn .25s ease both}@keyframes mmIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}.mm-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.mm-field{margin-bottom:18px}.mm-field label{display:block;font-size:11px;font-weight:800;color:var(--navy);letter-spacing:.08em;text-transform:uppercase;margin-bottom:7px}.mm-field input,.mm-field select,.mm-field textarea{width:100%;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:500 14px/1.4 var(--sans);padding:13px 14px;outline:none;transition:border .18s,box-shadow .18s}.mm-field textarea{min-height:110px;resize:vertical}.mm-field input:focus,.mm-field select:focus,.mm-field textarea:focus{border-color:var(--gold);box-shadow:0 0 0 4px rgba(200,168,78,.15)}.mm-help{font-size:12px;color:var(--muted);line-height:1.6;margin:6px 0 0}.mm-rank-list{display:grid;gap:10px}.mm-rank{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center}.mm-rank-num{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:var(--gold);font-family:var(--serif);font-weight:700}.mm-remove,.mm-add{appearance:none;border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--muted);font-weight:800;cursor:pointer}.mm-remove{width:36px;height:36px}.mm-remove:hover{border-color:var(--danger);color:var(--danger)}.mm-add{padding:10px 13px;color:var(--navy);border-style:dashed}.mm-months{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}.mm-month{appearance:none;border:1px solid var(--line);background:#fff;border-radius:13px;cursor:pointer;padding:13px;text-align:left;font:700 13px var(--sans);color:var(--ink);display:flex;justify-content:space-between;gap:8px}.mm-month.is-on{background:var(--navy);color:#fff;border-color:var(--navy)}.mm-month em{font-style:normal;font-size:10px;color:var(--gold);display:none}.mm-month.is-on em{display:inline}.mm-note{border:1px solid var(--line2);background:rgba(200,168,78,.12);border-radius:14px;padding:14px 16px;color:var(--navy);font-size:13px;line-height:1.6;margin:0 0 18px}.mm-review{display:grid;grid-template-columns:170px 1fr;gap:0;border:1px solid var(--line);border-radius:16px;overflow:hidden}.mm-review dt,.mm-review dd{padding:13px 15px;border-bottom:1px solid var(--line);margin:0}.mm-review dt{background:var(--cream);font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}.mm-review dd{font-size:14px}.mm-review dt:last-of-type,.mm-review dd:last-of-type{border-bottom:0}.mm-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:24px;padding-top:20px;border-top:1px solid var(--line);flex-wrap:wrap}.mm-btn{appearance:none;border:0;border-radius:999px;padding:13px 19px;font:800 12px var(--sans);letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:transform .18s,box-shadow .18s,opacity .18s}.mm-btn:disabled{opacity:.48;cursor:not-allowed}.mm-btn:not(:disabled):hover{transform:translateY(-1px)}.mm-primary{background:var(--gold);color:var(--navy);box-shadow:0 12px 22px rgba(200,168,78,.28)}.mm-dark{background:var(--navy);color:#fff;box-shadow:0 12px 22px rgba(10,22,40,.22)}.mm-ghost{background:#fff;border:1px solid var(--line);color:var(--navy)}.mm-alert{display:none;margin:0 0 18px;border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.6}.mm-alert.is-on{display:block}.mm-alert.error{background:#fff1f1;border:1px solid rgba(184,50,50,.25);color:#7c2020}.mm-alert.info{background:#eef5ff;border:1px solid rgba(23,54,85,.18);color:var(--navy)}.mm-alert.success{background:#eefaf4;border:1px solid rgba(31,122,79,.25);color:#155338}.mm-success{display:none;text-align:center;padding:46px 30px}.mm-success.is-on{display:block}.mm-success-ring{width:74px;height:74px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;background:var(--success);color:#fff;font-size:38px;font-family:var(--serif)}.mm-success h2{font-family:var(--serif);font-size:34px;color:var(--navy);margin:0 0 10px}.mm-success p{max-width:620px;margin:0 auto 18px;color:var(--muted);line-height:1.7}.mm-ref{display:inline-block;background:var(--cream);border:1px solid var(--line);border-radius:12px;padding:10px 14px;font-size:13px;color:var(--navy)}.mm-hidden-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;overflow:hidden}.mm-foot{max-width:920px;margin:22px auto 0;text-align:center;color:rgba(255,255,255,.72);font-size:12px;line-height:1.7}.mm-foot a{color:var(--gold2)}@media(max-width:800px){.mm-flow{grid-template-columns:1fr 1fr}.mm-grid,.mm-stepper{grid-template-columns:1fr}.mm-step{border-right:0}.mm-panel-head{display:block}.mm-badge{display:inline-block;margin-top:14px}.mm-form{padding:24px}.mm-review{grid-template-columns:1fr}.mm-review dt{border-bottom:0;padding-bottom:4px}.mm-review dd{padding-top:4px}.mm-top-inner{align-items:flex-start}.mm-runtime{text-align:left}.mm-app{background-attachment:scroll}}@media(max-width:520px){.mm-flow{grid-template-columns:1fr}.mm-hero{padding-top:42px}.mm-panel{border-radius:18px}.mm-rank{grid-template-columns:30px 1fr}.mm-remove{grid-column:2;width:auto}.mm-actions{display:grid}.mm-btn{width:100%}}
+</style>
+<style>
+.mm-success-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:22px}
+.mm-login-note{max-width:700px;margin:18px auto 0;padding:15px 16px;border:1px solid var(--line2);border-radius:16px;background:rgba(200,168,78,.12);color:var(--navy);font-size:13px;line-height:1.65;text-align:left}
+.mm-login-note b{display:block;margin-bottom:4px}
+@media(max-width:520px){.mm-success-actions{display:grid}.mm-login-note{text-align:center}}
 </style>
 </head>
 <body>
@@ -116,9 +122,17 @@
       <section id="successState" class="mm-success">
         <div class="mm-success-ring">&#10003;</div>
         <h2>Request received</h2>
-        <p>Thanks. The MissionMed Clinicals team will review your preferences and contact you with availability or alternate options. After accepting an offer, you&apos;ll be directed to the official MissionMed Clinicals payment page.</p>
+        <p id="successCopy">Thanks. The MissionMed Clinicals team will review your preferences and contact you with availability or alternate options. After accepting an offer, you&apos;ll be directed to the official MissionMed Clinicals payment page.</p>
         <div class="mm-ref">Reference: <strong id="requestRef">Pending</strong></div>
-        <div style="margin-top:22px"><button class="mm-btn mm-dark" type="button" id="newRequestBtn">Submit another request</button></div>
+        <div class="mm-login-note">
+          <b>Your request is in. Track every step from your MissionMed account.</b>
+          Create or log in to MissionMed using the same email you used for this USCE request. We will send you back to the tracker after account access is complete.
+        </div>
+        <div class="mm-success-actions">
+          <a class="mm-btn mm-primary" id="trackerBtn" href="#">Open tracker</a>
+          <a class="mm-btn mm-dark" id="accountBtn" href="#">Create / login to account</a>
+          <button class="mm-btn mm-ghost" type="button" id="newRequestBtn">Submit another request</button>
+        </div>
       </section>
     </section>
     <p class="mm-foot">Need help? Return to <a href="https://missionmedinstitute.com/usce/">MissionMed USCE</a>. This page only requests availability; after accepting an offer, you&apos;ll be directed to the official MissionMed Clinicals payment page.</p>
@@ -130,8 +144,10 @@
   window.__MISSIONMED_USCE_CONFIG = Object.freeze({
     apiBase: String(window.MM_USCE_API_BASE || 'https://missionmed-hq-production.up.railway.app').replace(/\/+$/,''),
     requestEndpoint: '/api/usce/public/requests',
+    trackerPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html',
+    wpAccountUrl: 'https://missionmedinstitute.com/my-account/',
     source: 'usce_request_r2',
-    version: 'CX-OFFER-309A',
+    version: 'CX-OFFER-330',
     mode: 'request_first_no_payment'
   });
   const CONFIG = window.__MISSIONMED_USCE_CONFIG;
@@ -278,10 +294,15 @@
         throw new Error(msg);
       }
       $('#requestRef').textContent = data.request_id || payload.idempotency_key;
+      persistSubmittedRequestHint(payload, data);
+      wireTrackerSuccessLinks(payload, data);
       $('#requestForm').style.display = 'none';
       $('#stepper').style.display = 'none';
       $('#successState').classList.add('is-on');
       $('#apiStatus').textContent = data.dry_run ? 'Request accepted by dry-run intake' : 'Request accepted';
+      window.setTimeout(() => {
+        window.location.href = buildTrackerUrl(data.request_id || payload.idempotency_key, true);
+      }, 1600);
     } catch (err) {
       showAlert(err && err.message ? err.message : 'Clinical rotation request intake is unavailable.', 'error');
     } finally {
@@ -289,6 +310,37 @@
       $('#nextBtn').disabled = false;
       $('#backBtn').disabled = state.step === 1;
     }
+  }
+
+  function buildTrackerUrl(requestRef, submitted){
+    const url = new URL(CONFIG.trackerPageUrl);
+    if (submitted) url.searchParams.set('request_submitted', '1');
+    if (requestRef) url.searchParams.set('ref', String(requestRef).slice(0, 80));
+    return url.toString();
+  }
+
+  function buildAccountUrl(){
+    const url = new URL(CONFIG.wpAccountUrl);
+    url.searchParams.set('redirect_to', CONFIG.trackerPageUrl);
+    return url.toString();
+  }
+
+  function persistSubmittedRequestHint(payload, data){
+    try {
+      sessionStorage.setItem('mm_usce_last_request_hint', JSON.stringify({
+        request_id: data.request_id || '',
+        email: payload.email || '',
+        student_name: payload.student_name || '',
+        submitted_at: new Date().toISOString()
+      }));
+    } catch (_) {}
+  }
+
+  function wireTrackerSuccessLinks(payload, data){
+    const ref = data.request_id || payload.idempotency_key || '';
+    $('#trackerBtn').href = buildTrackerUrl(ref, true);
+    $('#accountBtn').href = buildAccountUrl();
+    $('#successCopy').textContent = 'Your request is in. We are opening your secure status tracker next. If you are not logged in yet, create or log in to your MissionMed account using ' + (payload.email || 'the same email') + '.';
   }
 
   function showAlert(message, type, on=true){
@@ -327,6 +379,8 @@
     if (state.step < state.maxStep) setStep(state.step + 1); else submitRequest();
   });
   $('#newRequestBtn').addEventListener('click', () => window.location.reload());
+  $('#trackerBtn').href = CONFIG.trackerPageUrl;
+  $('#accountBtn').href = buildAccountUrl();
   renderRanks('specialty');
   renderRanks('location');
   renderMonths();

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<!--
+  CX-OFFER-330
+  MissionMed USCE student status tracker. Standalone R2/CDN page.
+  Uses Railway bearer-session handoff; no browser database client.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="missionmed-app" content="usce-status-tracker">
+<meta name="missionmed-version" content="CX-OFFER-330">
+<title>USCE Request Tracker | MissionMed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#071426;--navy2:#0d2239;--navy3:#143354;--ink:#0c1524;--paper:#f7f3e8;--card:#fffdf7;--muted:#708095;--line:rgba(224,198,126,.26);--line2:rgba(255,255,255,.14);--gold:#d7b85f;--gold2:#f2d978;--green:#3fc17b;--blue:#67a9ff;--red:#d95c5c;--orange:#e7a43f;--shadow:0 26px 80px rgba(0,0,0,.32);--serif:Georgia,"Times New Roman",serif;--sans:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--navy);color:#fff;font-family:var(--sans);-webkit-font-smoothing:antialiased}.mm-track{min-height:100vh;background:radial-gradient(circle at 18% 0%,rgba(215,184,95,.18),transparent 28%),linear-gradient(180deg,#071426 0%,#0a1d31 52%,#06111f 100%)}.mm-top{position:sticky;top:0;z-index:5;background:rgba(7,20,38,.9);border-bottom:1px solid var(--line2);backdrop-filter:blur(18px)}.mm-top-inner{max-width:1160px;margin:0 auto;padding:15px 20px;display:flex;align-items:center;justify-content:space-between;gap:18px}.mm-brand{display:flex;align-items:center;gap:12px;text-decoration:none;color:#fff}.mm-mark{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--gold);color:var(--navy);font-family:var(--serif);font-weight:700}.mm-brand strong{display:block;font-size:15px;letter-spacing:.08em;text-transform:uppercase}.mm-brand span{display:block;color:rgba(255,255,255,.66);font-size:11px;text-transform:uppercase;letter-spacing:.1em}.mm-runtime{text-align:right;font-size:11px;color:rgba(255,255,255,.62)}.mm-runtime b{display:block;color:var(--gold2);font-size:12px}.mm-shell{max-width:1160px;margin:0 auto;padding:46px 20px 80px}.mm-hero{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:28px;align-items:end;margin-bottom:26px}.mm-eyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border:1px solid var(--line);border-radius:999px;color:var(--gold2);font-size:11px;text-transform:uppercase;letter-spacing:.16em;font-weight:800;background:rgba(255,255,255,.06)}.mm-hero h1{font-family:var(--serif);font-weight:600;line-height:1.02;font-size:clamp(38px,6vw,74px);margin:16px 0 12px}.mm-hero p{max-width:720px;color:rgba(255,255,255,.76);font-size:16px;line-height:1.75;margin:0}.mm-card{background:linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,243,232,.98));color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:20px;overflow:hidden}.mm-status-summary{padding:22px;border-top:6px solid var(--gold)}.mm-status-summary small{display:block;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-size:10px;font-weight:800;margin-bottom:6px}.mm-status-summary b{display:block;color:var(--navy);font-size:28px;line-height:1.08;font-family:var(--serif);font-weight:600}.mm-status-summary span{display:block;color:var(--muted);font-size:13px;line-height:1.55;margin-top:8px}.mm-gate,.mm-empty{padding:30px;display:none}.mm-gate.is-on,.mm-empty.is-on{display:block}.mm-gate h2,.mm-empty h2{font-family:var(--serif);font-size:32px;font-weight:600;color:var(--navy);margin:0 0 10px}.mm-gate p,.mm-empty p{color:var(--muted);line-height:1.7;margin:0 0 18px}.mm-note{border:1px solid rgba(215,184,95,.5);background:rgba(215,184,95,.13);border-radius:16px;padding:14px 16px;color:var(--navy);font-size:13px;line-height:1.65;margin:16px 0}.mm-actions{display:flex;gap:12px;flex-wrap:wrap;align-items:center}.mm-btn{appearance:none;border:0;text-decoration:none;border-radius:999px;padding:13px 18px;font:800 12px var(--sans);letter-spacing:.07em;text-transform:uppercase;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:transform .18s,box-shadow .18s,opacity .18s}.mm-btn:hover{transform:translateY(-1px)}.mm-btn-primary{background:var(--gold);color:var(--navy);box-shadow:0 12px 24px rgba(215,184,95,.24)}.mm-btn-dark{background:var(--navy);color:#fff}.mm-btn-ghost{background:#fff;border:1px solid rgba(7,20,38,.16);color:var(--navy)}.mm-tracker{display:none}.mm-tracker.is-on{display:grid;gap:18px}.mm-tracker-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;padding:24px 26px;border-bottom:1px solid rgba(7,20,38,.12);background:#fff}.mm-tracker-head h2{margin:0 0 5px;color:var(--navy);font-size:24px;font-family:var(--serif);font-weight:600}.mm-tracker-head p{margin:0;color:var(--muted);font-size:13px;line-height:1.6}.mm-pill{display:inline-flex;border-radius:999px;padding:7px 11px;background:rgba(63,193,123,.14);color:#1d7c4a;font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;white-space:nowrap}.mm-rail-wrap{padding:24px 24px 20px;background:linear-gradient(180deg,#102946,#0b1c31);border-bottom:1px solid var(--line)}.mm-rail{position:relative;display:grid;grid-template-columns:repeat(8,1fr);gap:8px;list-style:none;margin:0;padding:0}.mm-rail::before{content:"";position:absolute;left:5%;right:5%;top:34px;height:10px;border-radius:999px;background:rgba(255,255,255,.18);box-shadow:inset 0 2px 8px rgba(0,0,0,.25)}.mm-stage{position:relative;min-width:0;text-align:center}.mm-stage-num{position:relative;z-index:1;width:58px;height:58px;margin:0 auto 10px;border-radius:50%;display:grid;place-items:center;background:#23374e;border:2px solid rgba(255,255,255,.28);color:rgba(255,255,255,.62);font-weight:800;box-shadow:0 8px 24px rgba(0,0,0,.24)}.mm-stage.complete .mm-stage-num{background:var(--green);color:var(--navy);border-color:#9ff0c0}.mm-stage.active .mm-stage-num{background:var(--gold);color:var(--navy);border-color:#fff2aa;transform:scale(1.06)}.mm-stage.issue .mm-stage-num{background:var(--red);color:#fff;border-color:#ffd5d5}.mm-stage-label{display:block;color:rgba(255,255,255,.9);font-size:11px;line-height:1.3;font-weight:800;text-transform:uppercase;letter-spacing:.04em;min-height:31px}.mm-stage-desc{display:block;color:rgba(255,255,255,.56);font-size:10px;line-height:1.4;margin-top:5px}.mm-detail-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.mm-panel{padding:22px}.mm-panel h3{margin:0 0 13px;color:var(--navy);font-size:12px;text-transform:uppercase;letter-spacing:.1em}.mm-next{display:grid;gap:12px}.mm-next-main{border-radius:18px;padding:18px;background:linear-gradient(135deg,rgba(215,184,95,.18),rgba(103,169,255,.1));border:1px solid rgba(215,184,95,.38)}.mm-next-main small{display:block;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-size:10px;font-weight:800;margin-bottom:6px}.mm-next-main b{display:block;color:var(--navy);font-size:22px;line-height:1.2}.mm-next-main span{display:block;color:var(--muted);font-size:13px;line-height:1.6;margin-top:8px}.mm-facts{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.mm-fact{border:1px solid rgba(7,20,38,.12);background:#fff;border-radius:14px;padding:12px}.mm-fact small{display:block;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);font-size:9px;font-weight:800;margin-bottom:4px}.mm-fact b{display:block;color:var(--navy);font-size:14px;line-height:1.35}.mm-timeline{display:grid;gap:10px}.mm-event{border-left:4px solid var(--gold);padding:9px 10px;background:#fff;border-radius:0 12px 12px 0;border-top:1px solid rgba(7,20,38,.08);border-right:1px solid rgba(7,20,38,.08);border-bottom:1px solid rgba(7,20,38,.08)}.mm-event b{display:block;color:var(--navy);font-size:13px}.mm-event span{display:block;color:var(--muted);font-size:12px;margin-top:3px}.mm-foot{margin-top:22px;color:rgba(255,255,255,.62);font-size:12px;line-height:1.7;text-align:center}.mm-foot a{color:var(--gold2)}[hidden]{display:none!important}@media(max-width:900px){.mm-hero,.mm-detail-grid{grid-template-columns:1fr}.mm-rail{grid-template-columns:repeat(4,1fr);gap:16px 8px}.mm-rail::before{display:none}.mm-status-summary{max-width:none}.mm-tracker-head{display:block}.mm-pill{margin-top:12px}}@media(max-width:540px){.mm-top-inner{align-items:flex-start}.mm-runtime{text-align:left}.mm-shell{padding-top:32px}.mm-rail{grid-template-columns:1fr}.mm-stage{display:grid;grid-template-columns:58px 1fr;gap:12px;text-align:left;align-items:center}.mm-stage-num{margin:0}.mm-stage-label{min-height:0}.mm-stage-desc{margin-top:2px}.mm-facts{grid-template-columns:1fr}.mm-actions{display:grid}.mm-btn{width:100%}.mm-hero h1{font-size:38px}}
+</style>
+</head>
+<body>
+<div class="mm-track" id="mmTracker">
+  <header class="mm-top">
+    <div class="mm-top-inner">
+      <a class="mm-brand" href="https://missionmedinstitute.com/usce/" aria-label="MissionMed USCE">
+        <span class="mm-mark">MM</span>
+        <span><strong>MissionMed</strong><span>Clinical rotations</span></span>
+      </a>
+      <div class="mm-runtime"><b id="runtimeTitle">Secure tracker</b><span id="runtimeText">Checking account connection</span></div>
+    </div>
+  </header>
+
+  <main class="mm-shell">
+    <section class="mm-hero">
+      <div>
+        <span class="mm-eyebrow">USCE request tracker</span>
+        <h1>Your clinical rotation request is moving forward.</h1>
+        <p>Track the same journey Phil and the Clinicals team use internally: request review, offer preparation, your decision, payment, paperwork, and final rotation access.</p>
+      </div>
+      <aside class="mm-card mm-status-summary">
+        <small>Current status</small>
+        <b id="summaryStage">Account check</b>
+        <span id="summaryText">Log in with the MissionMed account using the same email as your USCE request.</span>
+      </aside>
+    </section>
+
+    <section class="mm-card mm-gate" id="authGate">
+      <h2>Create or log in to your MissionMed account.</h2>
+      <p>For privacy, request status is not looked up by public email alone. Use the same email you submitted with your USCE request so the tracker can show only your own status.</p>
+      <div class="mm-note" id="lastRequestHint" hidden></div>
+      <div class="mm-actions">
+        <a class="mm-btn mm-btn-primary" id="accountLink" href="#">Create / login to account</a>
+        <button class="mm-btn mm-btn-dark" type="button" id="connectTracker">Connect secure tracker</button>
+        <a class="mm-btn mm-btn-ghost" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html">Submit a request</a>
+      </div>
+    </section>
+
+    <section class="mm-card mm-empty" id="emptyState">
+      <h2>No linked USCE request yet.</h2>
+      <p id="emptyCopy">We could not find a USCE request connected to this MissionMed account. If you just submitted, make sure the account email matches your request email.</p>
+      <div class="mm-actions">
+        <a class="mm-btn mm-btn-primary" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html">Start request</a>
+        <a class="mm-btn mm-btn-dark" id="emptyAccountLink" href="#">Switch account</a>
+      </div>
+    </section>
+
+    <section class="mm-tracker" id="trackerShell">
+      <div class="mm-card">
+        <div class="mm-tracker-head">
+          <div>
+            <h2 id="requestTitle">USCE request</h2>
+            <p id="requestMeta">Student-safe request details load here.</p>
+          </div>
+          <span class="mm-pill" id="waitingPill">Waiting on MissionMed</span>
+        </div>
+        <div class="mm-rail-wrap">
+          <ol class="mm-rail" id="stageRail"></ol>
+        </div>
+      </div>
+
+      <div class="mm-detail-grid">
+        <section class="mm-card mm-panel">
+          <h3>Next step</h3>
+          <div class="mm-next">
+            <div class="mm-next-main">
+              <small id="nextSmall">Current stage</small>
+              <b id="nextTitle">Request submitted</b>
+              <span id="nextText">We received your request.</span>
+            </div>
+            <div class="mm-actions" id="actionList"></div>
+          </div>
+        </section>
+
+        <section class="mm-card mm-panel">
+          <h3>Status details</h3>
+          <div class="mm-facts" id="factGrid"></div>
+        </section>
+      </div>
+
+      <section class="mm-card mm-panel">
+        <h3>Communication milestones</h3>
+        <div class="mm-timeline" id="eventList"></div>
+      </section>
+    </section>
+
+    <p class="mm-foot">This tracker does not create payments, orders, emails, or course enrollment. Payment appears only after an accepted offer. Need help? Return to <a href="https://missionmedinstitute.com/usce/">MissionMed USCE</a>.</p>
+  </main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  window.__MISSIONMED_USCE_STATUS_CONFIG = Object.freeze({
+    version: 'CX-OFFER-330',
+    apiBase: String(window.MM_USCE_API_BASE || 'https://missionmed-hq-production.up.railway.app').replace(/\/+$/,''),
+    statusEndpoint: '/api/usce/student/status',
+    authRelayEndpoint: '/api/usce/student/auth/relay',
+    authAudience: 'usce_student',
+    trackerPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html',
+    requestPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html',
+    wpAccountUrl: 'https://missionmedinstitute.com/my-account/'
+  });
+
+  const CONFIG = window.__MISSIONMED_USCE_STATUS_CONFIG;
+  const AUTH_BEARER_KEY = 'mm_usce_student_bearer_session';
+  const HANDOFF_HASH_KEY = 'mmhq_handoff_token';
+  const $ = (sel) => document.querySelector(sel);
+
+  function setRuntime(title, text){
+    $('#runtimeTitle').textContent = title;
+    $('#runtimeText').textContent = text;
+  }
+
+  function buildAccountUrl(){
+    const url = new URL(CONFIG.wpAccountUrl);
+    url.searchParams.set('redirect_to', CONFIG.trackerPageUrl);
+    return url.toString();
+  }
+
+  function buildRelayUrl(){
+    const url = new URL(CONFIG.authRelayEndpoint, CONFIG.apiBase);
+    url.searchParams.set('target', CONFIG.trackerPageUrl);
+    return url.toString();
+  }
+
+  function setSummary(stage, text){
+    $('#summaryStage').textContent = stage;
+    $('#summaryText').textContent = text;
+  }
+
+  function readAccessToken(){
+    try { return sessionStorage.getItem(AUTH_BEARER_KEY) || ''; } catch (_) { return ''; }
+  }
+
+  function writeAccessToken(token){
+    try {
+      if (token) sessionStorage.setItem(AUTH_BEARER_KEY, token);
+      else sessionStorage.removeItem(AUTH_BEARER_KEY);
+    } catch (_) {}
+  }
+
+  function readLastRequestHint(){
+    try {
+      const raw = sessionStorage.getItem('mm_usce_last_request_hint');
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  async function exchangeHandoffToken(token){
+    const url = new URL('/api/auth/session', CONFIG.apiBase);
+    url.searchParams.set('audience', CONFIG.authAudience);
+    url.searchParams.set('token', token);
+    const res = await fetch(url.toString(), { method:'GET', credentials:'omit' });
+    let data = {};
+    try { data = await res.json(); } catch (_) {}
+    if (!res.ok || !data.authenticated || !data.accessToken) throw new Error(data.message || 'MissionMed account connection failed.');
+    writeAccessToken(data.accessToken);
+    return data;
+  }
+
+  async function handleHandoffFragment(){
+    const hash = String(window.location.hash || '').replace(/^#/,'');
+    if (!hash) return false;
+    const params = new URLSearchParams(hash);
+    const token = params.get(HANDOFF_HASH_KEY);
+    if (!token) return false;
+    window.history.replaceState(null, document.title, window.location.pathname + window.location.search);
+    setRuntime('Connecting', 'Exchanging secure handoff');
+    await exchangeHandoffToken(token);
+    return true;
+  }
+
+  async function loadStatus(){
+    const token = readAccessToken();
+    if (!token) {
+      showAuthGate();
+      return;
+    }
+    setRuntime('Secure tracker', 'Loading status');
+    setSummary('Loading', 'Reading student-safe USCE status from Railway.');
+    try {
+      const res = await fetch(CONFIG.apiBase + CONFIG.statusEndpoint, {
+        method:'GET',
+        headers:{ Authorization:'Bearer ' + token, Accept:'application/json' },
+        credentials:'omit'
+      });
+      let data = {};
+      try { data = await res.json(); } catch (_) {}
+      if (res.status === 401 || res.status === 403) {
+        writeAccessToken('');
+        showAuthGate(data && data.message ? data.message : '');
+        return;
+      }
+      if (!res.ok || !data.ok) throw new Error(data.message || 'Status unavailable.');
+      renderStatus(data);
+    } catch (err) {
+      setRuntime('Status unavailable', 'Safe failure');
+      setSummary('Check back soon', err && err.message ? err.message : 'Status could not load.');
+      showAuthGate('The tracker could not load status yet. Reconnect your MissionMed account or check back soon.');
+    }
+  }
+
+  function showAuthGate(message){
+    $('#authGate').classList.add('is-on');
+    $('#trackerShell').classList.remove('is-on');
+    $('#emptyState').classList.remove('is-on');
+    setRuntime('Login needed', 'Student-safe account gate');
+    setSummary('Account login needed', message || 'Create or log in with the same email used for your USCE request.');
+    const hint = readLastRequestHint();
+    if (hint && (hint.email || hint.request_id)) {
+      $('#lastRequestHint').hidden = false;
+      $('#lastRequestHint').innerHTML = '<b>Recent request saved on this device</b>Use the MissionMed account for ' + esc(hint.email || 'the same email') + (hint.request_id ? '. Reference: ' + esc(hint.request_id) : '') + '.';
+    }
+  }
+
+  function showEmpty(data){
+    $('#authGate').classList.remove('is-on');
+    $('#trackerShell').classList.remove('is-on');
+    $('#emptyState').classList.add('is-on');
+    setRuntime('No linked request', 'Account connected');
+    setSummary('No request linked', 'Use the same email for your account and request.');
+    if (data && data.empty_state && data.empty_state.next_step) $('#emptyCopy').textContent = data.empty_state.next_step;
+  }
+
+  function renderStatus(data){
+    const item = data.current;
+    if (!item) {
+      showEmpty(data);
+      return;
+    }
+    $('#authGate').classList.remove('is-on');
+    $('#emptyState').classList.remove('is-on');
+    $('#trackerShell').classList.add('is-on');
+    setRuntime('Live protected', 'Account connected');
+    setSummary(item.tracker.current_stage_label, item.tracker.next_step);
+    $('#requestTitle').textContent = item.request.reference + ' - ' + item.tracker.current_stage_label;
+    $('#requestMeta').textContent = [
+      item.request.student_name,
+      item.request.training_level_or_school,
+      item.request.submitted_at ? 'Submitted ' + fmtDate(item.request.submitted_at) : ''
+    ].filter(Boolean).join(' | ');
+    $('#waitingPill').textContent = 'Waiting on ' + item.tracker.waiting_on;
+    renderRail(item.tracker.stages);
+    $('#nextSmall').textContent = item.tracker.current_stage_label;
+    $('#nextTitle').textContent = item.tracker.next_step;
+    $('#nextText').textContent = stageDetail(item);
+    renderActions(item.actions || []);
+    renderFacts(item);
+    renderEvents(item);
+  }
+
+  function renderRail(stages){
+    $('#stageRail').innerHTML = stages.map((stage, idx) =>
+      '<li class="mm-stage ' + esc(stage.state) + '">' +
+        '<span class="mm-stage-num">' + (stage.state === 'complete' ? '&#10003;' : (idx + 1)) + '</span>' +
+        '<span class="mm-stage-label">' + esc(stage.label) + '</span>' +
+        '<span class="mm-stage-desc">' + esc(stage.description) + '</span>' +
+      '</li>'
+    ).join('');
+  }
+
+  function renderActions(actions){
+    $('#actionList').innerHTML = actions.map((action) =>
+      '<a class="mm-btn ' + (action.primary ? 'mm-btn-primary' : 'mm-btn-ghost') + '" href="' + esc(action.url || '#') + '">' + esc(action.label) + '</a>'
+    ).join('');
+  }
+
+  function renderFacts(item){
+    const offerLabel = item.offer ? [item.offer.specialty, item.offer.location, item.offer.timing].filter(Boolean).join(' | ') : 'Options not ready yet';
+    const facts = [
+      ['Request', labelize(item.request.status)],
+      ['Offer', item.offer ? labelize(item.offer.status) : 'Preparing'],
+      ['Decision', labelize(item.decision.status)],
+      ['Payment', labelize(item.payment.status)],
+      ['Paperwork', labelize(item.paperwork.status)],
+      ['Course access', labelize(item.course_access.status)],
+      ['Offer details', offerLabel],
+      ['Last update', item.request.updated_at ? fmtDate(item.request.updated_at) : 'Pending']
+    ];
+    $('#factGrid').innerHTML = facts.map(([k,v]) => '<div class="mm-fact"><small>' + esc(k) + '</small><b>' + esc(v) + '</b></div>').join('');
+  }
+
+  function renderEvents(item){
+    const events = [];
+    events.push(['Request received', item.request.submitted_at ? fmtDate(item.request.submitted_at) : 'Your request is in the MissionMed queue.']);
+    if (item.offer) events.push(['Offer work started', [item.offer.specialty, item.offer.location].filter(Boolean).join(' | ') || 'Clinical options are being prepared.']);
+    if (item.communication.message_previewed) events.push(['Message previewed', 'Coordinator message was prepared through the safe communications path.']);
+    if (item.communication.message_sent) events.push(['Message logged', 'Offer communication milestone is recorded.']);
+    if (item.communication.latest_event) events.push(['Latest communication status', labelize(item.communication.latest_event)]);
+    if (!events.length) events.push(['Tracker ready', 'Communication milestones will appear as the Clinicals team works your request.']);
+    $('#eventList').innerHTML = events.map(([title, text]) => '<div class="mm-event"><b>' + esc(title) + '</b><span>' + esc(text) + '</span></div>').join('');
+  }
+
+  function stageDetail(item){
+    if (item.decision.status === 'accepted') return 'Payment is available only because you accepted the offer. No order is created by this tracker.';
+    if (item.decision.status === 'declined') return 'This option is closed and there is no payment step for the declined offer.';
+    if (item.decision.status === 'alternate_requested') return 'Clinical rotation options are being revised. There is no payment step for an alternate request.';
+    if (item.offer) return item.offer.offer_link_note || 'Review your secure offer link when the Clinicals team shares it.';
+    return 'We received your request and are reviewing fit, timing, and clinical availability.';
+  }
+
+  function fmtDate(value){
+    const parsed = Date.parse(value || '');
+    if (!Number.isFinite(parsed)) return '';
+    return new Date(parsed).toLocaleString([], { month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit' });
+  }
+
+  function labelize(value){
+    return String(value || '').replace(/_/g,' ').replace(/\b\w/g, ch => ch.toUpperCase());
+  }
+
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  }
+
+  $('#accountLink').href = buildAccountUrl();
+  $('#emptyAccountLink').href = buildAccountUrl();
+  $('#connectTracker').addEventListener('click', () => { window.location.href = buildRelayUrl(); });
+
+  (async function boot(){
+    try {
+      await handleHandoffFragment();
+      await loadStatus();
+    } catch (err) {
+      writeAccessToken('');
+      showAuthGate(err && err.message ? err.message : '');
+    }
+  })();
+})();
+</script>
+</body>
+</html>

@@ -26,6 +26,10 @@ import {
   isUsceAdminOfferPath,
 } from './routes/usce-offer-portal.mjs';
 import {
+  handleUsceStudentStatusRoute,
+  isUsceStudentStatusPath,
+} from './routes/usce-status-tracker.mjs';
+import {
   handleGmailMetadataProofRoute,
   isGmailMetadataProofPath,
 } from './routes/gmail-metadata-proof.mjs';
@@ -52,6 +56,9 @@ const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
 const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
 const USCE_ADMIN_AUTH_AUDIENCE = 'usce_admin';
 const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
+const USCE_STUDENT_AUTH_RELAY_PATH = '/api/usce/student/auth/relay';
+const USCE_STUDENT_AUTH_AUDIENCE = 'usce_student';
+const USCE_STATUS_TRACKER_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html';
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
 const IS_PRODUCTION = RUNTIME_ENV === 'production';
 
@@ -1106,8 +1113,7 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
   return target.toString();
 }
 
-function resolveUsceAdminAuthTarget(rawTarget = '') {
-  const fallback = USCE_ADMIN_CDN_URL;
+function resolveExactCdnTarget(rawTarget = '', fallback = '') {
   const candidate = String(rawTarget || '').trim() || fallback;
 
   try {
@@ -1123,6 +1129,14 @@ function resolveUsceAdminAuthTarget(rawTarget = '') {
   }
 }
 
+function resolveUsceAdminAuthTarget(rawTarget = '') {
+  return resolveExactCdnTarget(rawTarget, USCE_ADMIN_CDN_URL);
+}
+
+function resolveUsceStudentAuthTarget(rawTarget = '') {
+  return resolveExactCdnTarget(rawTarget, USCE_STATUS_TRACKER_CDN_URL);
+}
+
 function buildUsceAdminAuthRelayUrl(request = null, target = '') {
   const hqBase = getHqBaseForRequest(request);
   if (!hqBase) {
@@ -1131,6 +1145,17 @@ function buildUsceAdminAuthRelayUrl(request = null, target = '') {
 
   const relay = new URL(USCE_ADMIN_AUTH_RELAY_PATH, hqBase);
   relay.searchParams.set('target', resolveUsceAdminAuthTarget(target));
+  return relay.toString();
+}
+
+function buildUsceStudentAuthRelayUrl(request = null, target = '') {
+  const hqBase = getHqBaseForRequest(request);
+  if (!hqBase) {
+    return '';
+  }
+
+  const relay = new URL(USCE_STUDENT_AUTH_RELAY_PATH, hqBase);
+  relay.searchParams.set('target', resolveUsceStudentAuthTarget(target));
   return relay.toString();
 }
 
@@ -2045,6 +2070,36 @@ async function handleApiRoute(request, response, url, context) {
     return;
   }
 
+  if (pathname === USCE_STUDENT_AUTH_RELAY_PATH) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return;
+    }
+
+    const relayTarget = resolveUsceStudentAuthTarget(searchParams.get('target'));
+    const handoffToken = String(searchParams.get('token') || '').trim();
+
+    if (!handoffToken) {
+      const relayReturnTo = buildUsceStudentAuthRelayUrl(request, relayTarget);
+      const redirectUrl = buildWordPressAuthRedirectUrl(relayReturnTo);
+
+      if (!redirectUrl) {
+        sendJson(response, 503, {
+          error: 'wordpress_login_not_configured',
+          message: 'WordPress login redirect is not configured yet. Set MMHQ_WP_BASE.',
+          login: getLoginHints(request, USCE_STUDENT_AUTH_AUDIENCE),
+        }, authHeaders);
+        return;
+      }
+
+      sendRedirect(response, redirectUrl);
+      return;
+    }
+
+    sendRedirect(response, withAuthSessionHandoffFragment(relayTarget, handoffToken));
+    return;
+  }
+
   if (pathname === '/api/auth/start') {
     if (request.method !== 'GET') {
       sendMethodNotAllowed(response, ['GET']);
@@ -2366,6 +2421,15 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (pathname.startsWith('/api/usce/')) {
+    if (isUsceStudentStatusPath(pathname)) {
+      await handleUsceStudentStatusRoute(request, response, url, {
+        session,
+        authHeaders,
+        login: getLoginHints(request, USCE_STUDENT_AUTH_AUDIENCE),
+      });
+      return;
+    }
+
     const handled = await handleUsceRoute(request, response, url, { session, authHeaders });
     if (handled) {
       return;
@@ -7261,6 +7325,9 @@ function isValidLearnerWordPressUser(user) {
 function isAuthorizedForAuthAudience(user, audience = '') {
   if (isAuthorizedWordPressUser(user)) {
     return true;
+  }
+  if (normalizeAuthAudience(audience) === USCE_STUDENT_AUTH_AUDIENCE) {
+    return isValidLearnerWordPressUser(user);
   }
   if (isLearnerAuthAudience(audience)) {
     return isValidLearnerWordPressUser(user);
