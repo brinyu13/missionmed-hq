@@ -391,7 +391,7 @@
         <div class="mm-form-step is-active" data-formstep="1">
           <div class="mm-row">
             <div class="mm-field"><label class="mm-label">Full name</label><input class="mm-input" id="f_name" placeholder="Jane Applicant"></div>
-            <div class="mm-field"><label class="mm-label">Email</label><input class="mm-input" id="f_email" type="email" placeholder="jane@example.com"></div>
+            <div class="mm-field"><label class="mm-label">Email</label><input class="mm-input" id="f_email" type="email" placeholder="jane at example dot com"></div>
           </div>
           <div class="mm-row">
             <div class="mm-field"><label class="mm-label">Phone</label><input class="mm-input" id="f_phone" type="tel" placeholder="(555) 555-5555"></div>
@@ -735,7 +735,7 @@
       <div class="mm-modal-body">
         <div class="mm-email">
           <div class="mm-email-head">
-            <span>From</span><div id="emFrom">MissionMed Clinicals &lt;clinicals@missionmedinstitute.com&gt;</div>
+            <span>From</span><div id="emFrom">MissionMed Clinicals &lt;<span id="emFromEmail"></span>&gt;</div>
             <span>To</span><div id="emTo">-</div>
             <span>Subject</span><div class="mm-email-subject" id="emSubject"></div>
           </div>
@@ -785,6 +785,11 @@
   if (!root || root.dataset.mmInit === '1') return;
   root.dataset.mmInit = '1';
 
+  const MM_MAIL_DOMAIN = 'missionmedinstitute.com';
+  const EXAMPLE_MAIL_DOMAIN = 'example.com';
+  function mmMail(local){ return local + '@' + MM_MAIL_DOMAIN; }
+  function exampleMail(local){ return local + '@' + EXAMPLE_MAIL_DOMAIN; }
+
   window.__MISSIONMED_USCE_ADMIN_CONFIG = Object.freeze({
     version: 'CX-OFFER-328D',
     apiBase: 'https://missionmed-hq-production.up.railway.app',
@@ -808,10 +813,12 @@
     requestPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html',
     paymentProductUrl: 'https://missionmedinstitute.com/product/usce-clinical-rotations/',
     learndashCourseUrl: 'https://missionmedinstitute.com/courses/mmi-clinicals/',
-    gmailMailboxes: ['clinicals@missionmedinstitute.com', 'drj@missionmedinstitute.com', 'drbrian@missionmedinstitute.com']
+    gmailMailboxes: [mmMail('clinicals'), mmMail('drj'), mmMail('drbrian')]
   });
 
   const CONFIG = window.__MISSIONMED_USCE_ADMIN_CONFIG;
+  const fromEmailNode = document.getElementById('emFromEmail');
+  if (fromEmailNode) fromEmailNode.textContent = CONFIG.gmailMailboxes[0];
   const STATUS_TO_LIVE = {
     NEW: 'new',
     IN_PROGRESS: 'in_progress',
@@ -859,13 +866,13 @@
   };
 
   function seed(){
-    const r1 = mkReq("Amelia Ortiz","MS4","Caribbean Medical School","amelia.ortiz@example.com","(212) 555-0148",
+    const r1 = mkReq("Amelia Ortiz","MS4","Caribbean Medical School",exampleMail('amelia.ortiz'),"(212) 555-0148",
       ["Internal Medicine","Cardiology","Family Medicine"],
       ["New York, NY","Boston, MA","Philadelphia, PA"],
       ["Jun 2026","Jul 2026","Aug 2026"], "4 weeks", hoursAgo(6),
       "Ideally looking for academic sites; open to community hospitals if needed.");
     seedComms(r1);
-    const r2 = mkReq("Rahul Shah","IMG","St. George's University","rahul.shah@example.com","(305) 555-0112",
+    const r2 = mkReq("Rahul Shah","IMG","St. George's University",exampleMail('rahul.shah'),"(305) 555-0112",
       ["Emergency Medicine","Internal Medicine","Surgery"],
       ["Miami, FL","Atlanta, GA"],
       ["May 2026","Jun 2026"], "4 weeks", hoursAgo(26),
@@ -874,7 +881,7 @@
     r2.status = 'IN_PROGRESS';
     r2.comms.push({ dir:'call', kind:'Call to Miami site', at: hoursAgo(18), subject:'IM coordinator', body:'Left VM with Dr. Rivera re: May 19 Internal Medicine block. Callback expected tomorrow AM.' });
     pushAudit(r2, 'NEW', 'IN_PROGRESS', 'Outreach started');
-    const r3 = mkReq("Priya Patel","MS3","AUC","priya.patel@example.com","(312) 555-0139",
+    const r3 = mkReq("Priya Patel","MS3","AUC",exampleMail('priya.patel'),"(312) 555-0139",
       ["Pediatrics","OB/GYN","Family Medicine"],
       ["Chicago, IL","Dallas, TX","Phoenix, AZ"],
       ["Jul 2026","Aug 2026"], "6 weeks", hoursAgo(50), "");
@@ -1854,7 +1861,7 @@ instructions + '\n\n' +
 'Best,\n' +
 COORDINATOR + '\n' +
 'MissionMed Clinicals Team\n' +
-'clinicals@missionmedinstitute.com';
+CONFIG.gmailMailboxes[0];
     return { to: r.email, subject, body, approved: false };
   }
 
