@@ -1064,7 +1064,7 @@
     const payload = await parseJson(response);
     if (!response.ok || !payload || payload.authenticated !== true || !payload.accessToken) {
       const err = new Error(payload && payload.message ? payload.message : 'Admin handoff exchange failed.');
-      err.status = response.status || 401;
+      err.status = response.status === 200 ? 401 : (response.status || 401);
       err.payload = payload;
       throw err;
     }
@@ -1094,12 +1094,12 @@
     });
     const payload = await parseJson(response);
     if (!response.ok || !payload || payload.authenticated !== true) {
-      if (response.status === 401) {
+      if (response.status === 401 || (response.ok && payload && payload.authenticated === false)) {
         writeStoredBearer('');
         state.accessToken = '';
       }
       const err = new Error(payload && payload.message ? payload.message : 'Admin session required.');
-      err.status = response.status || 401;
+      err.status = response.status === 200 ? 401 : (response.status || 401);
       err.payload = payload;
       throw err;
     }
