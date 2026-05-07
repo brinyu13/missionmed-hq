@@ -20073,6 +20073,40 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     font-size:13px;
     color:#D6E7FA;
   }
+  #mmos-career-root .career-stat-grid{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:8px;
+    margin-top:10px;
+  }
+  #mmos-career-root .career-stat-tile{
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:10px;
+    background:rgba(4,12,24,.58);
+    padding:10px;
+    min-width:0;
+  }
+  #mmos-career-root .career-stat-value{
+    font-family:'Orbitron',sans-serif;
+    font-size:20px;
+    font-weight:900;
+    letter-spacing:.6px;
+    color:#FFD562;
+    white-space:nowrap;
+  }
+  #mmos-career-root .career-stat-label{
+    margin-top:3px;
+    font-size:11px;
+    letter-spacing:.8px;
+    text-transform:uppercase;
+    color:#B8D1EA;
+  }
+  #mmos-career-root .career-stat-foot{
+    margin-top:10px;
+    font-size:12px;
+    line-height:1.35;
+    color:#CAE0F6;
+  }
   #mmos-career-root .career-empty{
     border:1px dashed rgba(255,255,255,.22);
     border-radius:10px;
@@ -20085,13 +20119,14 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     #mmos-career-root .career-grid{ grid-template-columns:1fr; }
     #mmos-career-root .career-title{ font-size:18px; }
     #mmos-career-root .career-timer-value{ font-size:28px; }
+    #mmos-career-root .career-stat-grid{ grid-template-columns:1fr; }
   }
 </style>
 <script id="mmos-career-hud-script" nonce="Mzg5NDAwMzc2OCw0MjYyOTM4OA==">
 (function(){
   'use strict';
 
-  if(window.MMOSCareerHUD && window.MMOSCareerHUD.__version === 'career-532'){
+  if(window.MMOSCareerHUD && window.MMOSCareerHUD.__version === 'career-533'){
     return;
   }
 
@@ -20103,6 +20138,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     user: null,
     profile: null,
     diagnostic: null,
+    statDuelMetrics: null,
     tasks: [],
     timerTaskId: null,
     timerEndAt: 0,
@@ -20196,6 +20232,69 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     };
   }
 
+  function emptyStatDuelMetrics(error){
+    return {
+      total: 0,
+      correct: 0,
+      avgMs: null,
+      lastAnsweredAt: null,
+      sourceType: 'duel_attempt',
+      error: error || ''
+    };
+  }
+
+  function normalizeStatDuelMetrics(rows){
+    if(!Array.isArray(rows) || !rows.length) return emptyStatDuelMetrics('');
+    var total = 0;
+    var correct = 0;
+    var timedCount = 0;
+    var totalMs = 0;
+    var latest = 0;
+
+    rows.forEach(function(row){
+      if(!row || typeof row !== 'object') return;
+      total += 1;
+      if(row.is_correct === true) correct += 1;
+      var ms = Number(row.response_ms);
+      if(isFinite(ms) && ms > 0){
+        timedCount += 1;
+        totalMs += ms;
+      }
+      var answeredAt = row.answered_at ? new Date(row.answered_at).getTime() : 0;
+      if(isFinite(answeredAt) && answeredAt > latest) latest = answeredAt;
+    });
+
+    return {
+      total: total,
+      correct: correct,
+      avgMs: timedCount ? Math.round(totalMs / timedCount) : null,
+      lastAnsweredAt: latest ? new Date(latest).toISOString() : null,
+      sourceType: 'duel_attempt',
+      error: ''
+    };
+  }
+
+  async function loadStatDuelMetrics(client, userId){
+    if(!client || !userId) return emptyStatDuelMetrics('missing_session');
+    try{
+      var res = await client
+        .from('qstat_answers_v1')
+        .select('question_id,is_correct,response_ms,answered_at,source_type')
+        .eq('user_id', userId)
+        .eq('source_type', 'duel_attempt')
+        .order('answered_at', { ascending: false })
+        .limit(500);
+      if(res && res.error){
+        log('STAT duel metrics query failed', res.error);
+        return emptyStatDuelMetrics(String(res.error.message || res.error.code || 'qstat_query_failed'));
+      }
+      return normalizeStatDuelMetrics(res && res.data ? res.data : []);
+    }catch(err){
+      log('STAT duel metrics query threw', err && (err.message || err));
+      return emptyStatDuelMetrics(String(err && err.message ? err.message : 'qstat_query_failed'));
+    }
+  }
+
   function pickDiagnostic(rows){
     if(!Array.isArray(rows) || !rows.length) return null;
     var current = rows.filter(function(r){ return r && r.is_current === true; });
@@ -20212,6 +20311,11 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
 
   function deriveUiState(snapshot){
     if(!snapshot.user) return 'auth';
+    var statDuel = snapshot.statDuelMetrics || {};
+    var statTotal = Number(statDuel.total || 0);
+    if(!snapshot.diagnostic && statTotal > 0 && (!snapshot.tasks || !snapshot.tasks.length)){
+      return statTotal >= 20 ? 'stat-data' : 'low-data';
+    }
     if(!snapshot.diagnostic && (!snapshot.tasks || !snapshot.tasks.length)) return 'empty';
     var confidence = String((snapshot.diagnostic && snapshot.diagnostic.confidence) || '').toLowerCase();
     if(confidence === 'insufficient' || confidence === 'low') return 'low-data';
@@ -20219,14 +20323,62 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     return 'full';
   }
 
-  function missionCopy(uiState, diagnostic, tasks){
+  function missionCopy(uiState, diagnostic, tasks, statDuel){
+    statDuel = statDuel || {};
+    var statTotal = Number(statDuel.total || 0);
     if(uiState === 'auth') return 'Session not ready. Re-open Arena sign-in to load Career Intel.';
     if(uiState === 'empty') return 'No analyzable sessions yet. Complete one STAT or Drill round to unlock recommendations.';
+    if(uiState === 'stat-data') return 'STAT duel answers are flowing into the Arena Intel answer stream. Narrative insights still require the diagnostic snapshot pipeline.';
+    if(uiState === 'low-data' && statTotal > 0) return 'STAT duel data is live: ' + statTotal + '/20 answers toward full dashboard confidence.';
     if(uiState === 'low-data') return 'Data is still sparse. Keep practicing to improve confidence before trusting weak-topic recommendations.';
     if(uiState === 'stale') return 'Enrollment or analytics state is stale. Last verified data is shown while sync retries in the background.';
     var focus = diagnostic && diagnostic.focus_topic ? String(diagnostic.focus_topic) : 'your next topic';
     var pending = (tasks || []).filter(function(t){ return !t.done; }).length;
     return 'Primary objective: ' + focus + '. Pending tasks: ' + pending + '. Execute one focused block now.';
+  }
+
+  function fmtPercent(correct, total){
+    var c = Number(correct);
+    var t = Number(total);
+    if(!isFinite(c) || !isFinite(t) || t <= 0) return '--';
+    return String(Math.round((c / t) * 100)) + '%';
+  }
+
+  function fmtResponseTime(ms){
+    var n = Number(ms);
+    if(!isFinite(n) || n <= 0) return '--';
+    return (Math.round((n / 1000) * 10) / 10).toFixed(1) + 's';
+  }
+
+  function fmtDateStamp(value){
+    if(!value) return 'No answered timestamp yet';
+    var d = new Date(value);
+    if(isNaN(d.getTime())) return 'Timestamp unavailable';
+    return 'Last answer ' + d.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function renderStatDuelMetricsCard(metrics){
+    metrics = metrics || emptyStatDuelMetrics('');
+    var total = Number(metrics.total || 0);
+    var correct = Number(metrics.correct || 0);
+    var accuracyText = total >= 10 ? fmtPercent(correct, total) : (total > 0 ? (correct + '/' + total) : '--');
+    var confidenceText = total >= 20
+      ? 'Dashboard confidence threshold reached for STAT duel answers.'
+      : (total > 0 ? ((20 - total) + ' more STAT duel answers unlock full-confidence Arena Intel copy.') : 'Complete a STAT duel to populate this card.');
+    if(metrics.error){
+      confidenceText = 'STAT answer stream could not be read from qstat_answers_v1. Existing Career HUD data remains available.';
+    }
+    return ''
+      + '<section class="career-card" data-career-card="stat-duel-metrics">'
+      +   '<h3>STAT Duel Stream</h3>'
+      +   '<div class="career-stat-grid">'
+      +     '<div class="career-stat-tile"><div class="career-stat-value">' + escapeHtml(total || '--') + '</div><div class="career-stat-label">Answers</div></div>'
+      +     '<div class="career-stat-tile"><div class="career-stat-value">' + escapeHtml(accuracyText) + '</div><div class="career-stat-label">Accuracy</div></div>'
+      +     '<div class="career-stat-tile"><div class="career-stat-value">' + escapeHtml(fmtResponseTime(metrics.avgMs)) + '</div><div class="career-stat-label">Avg Time</div></div>'
+      +   '</div>'
+      +   '<div class="career-stat-foot">' + escapeHtml(confidenceText) + '</div>'
+      +   '<div class="career-state">' + escapeHtml(metrics.error ? ('qstat status: ' + metrics.error) : fmtDateStamp(metrics.lastAnsweredAt)) + '</div>'
+      + '</section>';
   }
 
   function render(snapshot){
@@ -20236,6 +20388,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     var uiState = deriveUiState(snapshot);
     var diagnostic = snapshot.diagnostic || {};
     var tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks.slice() : [];
+    var statDuel = snapshot.statDuelMetrics || emptyStatDuelMetrics('');
     var tiers = getTier(snapshot.profile);
     var freeOnly = tiers.length === 1 && tiers[0] === 'free';
     var maxVisible = freeOnly ? 3 : 5;
@@ -20243,7 +20396,15 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
 
     var focusTopic = diagnostic.focus_topic || 'Build baseline data';
     var focusReason = diagnostic.focus_reason || 'Complete additional rounds to unlock stronger focus recommendations.';
+    if(uiState === 'stat-data'){
+      focusTopic = 'STAT data ready';
+      focusReason = 'STAT V3 duel answers are visible in qstat_answers_v1. The next dashboard layer is the diagnostic snapshot/job pipeline.';
+    } else if(uiState === 'low-data' && Number(statDuel.total || 0) > 0 && !diagnostic.focus_topic){
+      focusTopic = 'Build STAT signal';
+      focusReason = String(statDuel.total) + '/20 STAT duel answers captured for Arena Intel.';
+    }
     var confidence = String(diagnostic.confidence || 'insufficient').toUpperCase();
+    if(uiState === 'stat-data') confidence = 'STAT RAW DATA';
 
     var taskHtml = '';
     if(!visibleTasks.length){
@@ -20285,13 +20446,14 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       +     '</section>'
       +     '<section class="career-card">'
       +       '<h3>Mission Intel</h3>'
-      +       '<div class="career-mission-copy">' + escapeHtml(missionCopy(uiState, diagnostic, tasks)) + '</div>'
+      +       '<div class="career-mission-copy">' + escapeHtml(missionCopy(uiState, diagnostic, tasks, statDuel)) + '</div>'
       +       '<div class="career-state">State: ' + escapeHtml(uiState) + '</div>'
       +       '<div class="career-inline-actions" style="margin-top:10px;">'
       +         '<button class="career-btn" data-action="refresh-hud">Refresh</button>'
       +         '<button class="career-btn" data-action="complete-task" ' + (state.timerTaskId ? 'data-task-id="' + String(state.timerTaskId) + '"' : 'disabled') + '>Complete Active Task</button>'
       +       '</div>'
       +     '</section>'
+      +     renderStatDuelMetricsCard(statDuel)
       +     '<section class="career-card">'
       +       '<h3>Today Plan</h3>'
       +       taskHtml
@@ -20390,6 +20552,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
         state.user = null;
         state.profile = null;
         state.diagnostic = null;
+        state.statDuelMetrics = null;
         state.tasks = [];
         render(state);
         return;
@@ -20401,6 +20564,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
         state.user = null;
         state.profile = null;
         state.diagnostic = null;
+        state.statDuelMetrics = null;
         state.tasks = [];
         render(state);
         return;
@@ -20410,15 +20574,18 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       var queries = await Promise.all([
         client.from('student_profiles').select('*').eq('user_id', user.id).limit(1).maybeSingle(),
         client.from('diagnostic_reports').select('*').eq('user_id', user.id).limit(10),
-        client.from('study_tasks').select('*').eq('user_id', user.id).limit(120)
+        client.from('study_tasks').select('*').eq('user_id', user.id).limit(120),
+        loadStatDuelMetrics(client, user.id)
       ]);
 
       var profileRes = queries[0];
       var diagRes = queries[1];
       var taskRes = queries[2];
+      var statDuelRes = queries[3];
 
       state.profile = profileRes && !profileRes.error ? (profileRes.data || null) : null;
       state.diagnostic = diagRes && !diagRes.error ? pickDiagnostic(diagRes.data || []) : null;
+      state.statDuelMetrics = statDuelRes || emptyStatDuelMetrics('');
       state.tasks = taskRes && !taskRes.error
         ? filterTodayTasks((taskRes.data || []).map(normalizeTask).filter(Boolean))
         : [];
@@ -20427,6 +20594,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       log('loadHUD failed', err && (err.message || err));
       state.profile = null;
       state.diagnostic = null;
+      state.statDuelMetrics = emptyStatDuelMetrics('career_hud_load_failed');
       state.tasks = [];
       render(state);
     }finally{
@@ -20481,7 +20649,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
   }
 
   window.MMOSCareerHUD = {
-    __version: 'career-532',
+    __version: 'career-533',
     loadHUD: loadHUD,
     mount: mount
   };
