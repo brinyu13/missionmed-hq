@@ -471,9 +471,9 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 /* RUNTIME &mdash; full screen overlay */
 .runtime-shell{position:fixed;inset:0;z-index:200;display:none;background:radial-gradient(ellipse at 30% 20%,#0e1733 0%,#03050d 70%);overflow:hidden}
 .runtime-shell.live{display:grid}
-.rt-grid{display:grid;grid-template-columns:minmax(150px,190px) minmax(0,1fr) minmax(210px,260px);height:100vh}
+.rt-grid{display:grid;grid-template-columns:minmax(190px,230px) minmax(0,1fr) minmax(250px,310px);height:100vh}
 .rt-rail{padding:18px;background:linear-gradient(180deg,rgba(13,21,45,.85),rgba(8,13,30,.85));border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px;overflow:auto}
-.rt-nav-btn{appearance:none;border:0;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 14px;border-radius:12px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:13px;line-height:1.05;text-align:left;border:1px solid var(--line-bright);box-shadow:0 5px 0 #050a18,0 8px 14px -4px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)}
+.rt-nav-btn{appearance:none;border:0;cursor:pointer;display:flex;align-items:center;gap:10px;padding:15px 15px;border-radius:12px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:15px;line-height:1.05;text-align:left;border:1px solid var(--line-bright);box-shadow:0 5px 0 #050a18,0 8px 14px -4px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)}
 .rt-nav-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #050a18,inset 0 1px 0 rgba(255,255,255,.10)}
 .rt-nav-btn .ic{font-size:18px;color:var(--gold);width:24px;display:grid;place-items:center}
 .rt-nav-btn.drills{color:var(--cyan);border-color:rgba(103,232,249,.30)}
@@ -483,14 +483,15 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .rt-rail .seg-tab button.on{color:#0a1228;background:linear-gradient(180deg,#fde68a,#f5a90c);box-shadow:0 2px 0 #8a5300}
 .rt-rail .blk{padding:12px 14px;background:var(--panel-grad);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-soft)}
 .rt-rail .blk h5{margin:0 0 8px;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.20em;color:var(--mut);text-transform:uppercase}
-.rt-rail .blk .v{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.06em}
+.rt-rail .blk .v{font-family:'Bebas Neue',sans-serif;font-size:21px;letter-spacing:.06em}
 .rt-rail .blk .v small{font-size:11px;color:var(--mut)}
-.pause-btn{appearance:none;border:0;cursor:pointer;padding:18px 16px;border-radius:14px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:16px;box-shadow:0 6px 0 #050a18,0 10px 18px -6px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10);border:1px solid var(--line-bright);display:flex;align-items:center;justify-content:center;gap:10px;margin-top:auto}
+.pause-btn{appearance:none;border:0;cursor:pointer;padding:20px 16px;border-radius:14px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:18px;box-shadow:0 6px 0 #050a18,0 10px 18px -6px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10);border:1px solid var(--line-bright);display:flex;align-items:center;justify-content:center;gap:10px;margin-top:auto}
+.pause-btn:disabled{opacity:.55;cursor:not-allowed;filter:saturate(.75)}
 .pause-btn:active{transform:translateY(3px);box-shadow:0 3px 0 #050a18,0 5px 8px -2px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.10)}
 .pause-btn::before{content:"";width:14px;height:18px;border-left:5px solid var(--gold);border-right:5px solid var(--gold);border-radius:1px}
 
 .rt-stage{display:flex;flex-direction:column;padding:12px;gap:10px;overflow:hidden}
-.rt-video{position:relative;display:block;flex:0 0 clamp(420px,58vh,720px);height:clamp(420px,58vh,720px);background:#06091a;border-radius:16px;overflow:hidden;border:1px solid var(--line-bright);box-shadow:0 20px 50px -22px rgba(0,0,0,.9),inset 0 2px 8px rgba(0,0,0,.7)}
+.rt-video{position:relative;display:block;flex:0 0 clamp(340px,48vh,620px);height:clamp(340px,48vh,620px);background:#06091a;border-radius:16px;overflow:hidden;border:1px solid var(--line-bright);box-shadow:0 20px 50px -22px rgba(0,0,0,.9),inset 0 2px 8px rgba(0,0,0,.7)}
 .rt-video .quad-grid{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:6px}
 .rt-video .quad{background:radial-gradient(circle at 50% 40%,#1c2c52,#06091a);display:grid;place-items:center;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;text-transform:uppercase;position:relative}
 .rt-video .quad::after{content:"";width:48px;height:48px;border-radius:50%;background:radial-gradient(circle,rgba(140,170,220,.16),transparent 70%)}
@@ -519,7 +520,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 
 .rt-question{flex:1;padding:24px 28px;border-radius:18px;background:linear-gradient(180deg,#1d2a4d,#0c142b);border:1px solid var(--line-bright);box-shadow:var(--shadow-float);display:flex;flex-direction:column;gap:14px;overflow:auto;position:relative}
 .rt-question .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.rt-question h2{margin:0;font-family:'Inter',sans-serif;font-size:22px;line-height:1.35;font-weight:600}
+.rt-question h2{margin:0;font-family:'Inter',sans-serif;font-size:28px;line-height:1.32;font-weight:800}
 .rt-question .reveal{padding:14px 16px;border-radius:12px;background:linear-gradient(180deg,rgba(34,211,238,.10),rgba(34,211,238,.02));border:1px solid rgba(34,211,238,.30);font-size:14px;color:var(--txt);display:none}
 .rt-question .reveal.live{display:block;animation:fadeIn .25s}
 .rt-question .reveal h4{margin:0 0 6px;font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:.10em;color:var(--cyan)}
@@ -529,7 +530,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .lock-btn::before{content:"\1F512";font-size:22px}
 .lock-btn:active{transform:translateY(4px);box-shadow:var(--shadow-3d-gold-press)}
 .lock-btn.dim{opacity:.5;cursor:not-allowed}
-.flag-rail-btn{appearance:none;border:0;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:14px 16px;border-radius:14px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:16px;border:1px solid var(--line-bright);box-shadow:0 5px 0 #050a18,0 10px 18px -4px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)}
+.flag-rail-btn{appearance:none;border:0;cursor:pointer;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;padding:16px 18px;border-radius:14px;background:linear-gradient(180deg,#243355,#101a36);color:var(--gold);font-family:'Bebas Neue',sans-serif;letter-spacing:.16em;font-size:18px;border:1px solid var(--line-bright);box-shadow:0 5px 0 #050a18,0 10px 18px -4px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.10)}
 .flag-rail-btn:active{transform:translateY(3px);box-shadow:0 2px 0 #050a18,inset 0 1px 0 rgba(255,255,255,.10)}
 .flag-rail-btn .ic{font-size:22px;color:var(--gold)}
 .flag-rail-btn .lbl{text-align:left}
@@ -558,6 +559,14 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .score-row .b.miss .v{color:var(--red)}
 .score-row .b.oot .v{color:var(--amber)}
 .score-row .b.streak .v{color:var(--gold)}
+.streak-box{position:relative;overflow:hidden}
+.streak-box .flames{display:flex;gap:2px;margin-bottom:4px;font-size:22px;filter:drop-shadow(0 0 8px rgba(245,169,12,.55));opacity:.35;transition:opacity .18s,transform .18s}
+.streak-box.hot .flames{opacity:1;transform:translateY(-1px) scale(1.05)}
+.streak-box.fire .flames{opacity:1;animation:streakFlare .9s ease-in-out infinite alternate}
+@keyframes streakFlare{from{filter:drop-shadow(0 0 8px rgba(245,169,12,.55));transform:scale(1)}to{filter:drop-shadow(0 0 16px rgba(252,211,77,.9));transform:scale(1.08)}}
+.streak-toast{position:fixed;left:50%;bottom:34px;z-index:420;transform:translate(-50%,24px) scale(.96);opacity:0;pointer-events:none;padding:18px 28px;border-radius:18px;background:linear-gradient(180deg,#fde68a,#f5a90c);color:#0a1228;font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:.08em;box-shadow:0 10px 0 #8a5300,0 24px 40px -14px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.55);transition:opacity .18s,transform .18s;text-align:center}
+.streak-toast.live{opacity:1;transform:translate(-50%,0) scale(1)}
+.runtime-shell.is-fullscreen .rt-grid{height:100vh}
 .notes-blk{padding:14px;background:var(--panel-grad);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-soft)}
 .notes-blk h5{margin:0 0 8px;font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:.10em;color:var(--gold)}
 .notes-blk textarea{width:100%;min-height:84px;background:#04060f;border:1px solid var(--line);border-radius:8px;color:var(--txt);padding:8px;font-family:'JetBrains Mono',monospace;font-size:11px;resize:vertical;box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
@@ -858,15 +867,16 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
   .rt-nav-btn{min-width:126px;padding:12px}
   .pause-btn{min-width:132px;margin-top:0}
   .rt-stage{order:2;padding:10px;overflow:visible}
-  .rt-video{flex:0 0 auto;height:clamp(220px,38vh,320px)}
+  .rt-video{flex:0 0 auto;height:clamp(200px,34vh,300px)}
   .rt-question{padding:16px;min-height:210px}
+  .rt-question h2{font-size:22px}
   .rt-actions,.outcome-row{flex-direction:column}
   .lock-btn{font-size:24px;padding:20px}
   .rt-side{order:3;padding:10px;border-left:0;border-top:1px solid var(--line);overflow:visible}
 }
 @media(max-width:1080px){
-  .rt-grid{grid-template-columns:minmax(160px,190px) minmax(0,1fr) minmax(210px,260px)}
-  .rt-video{flex-basis:clamp(280px,42vh,460px);height:clamp(280px,42vh,460px)}
+  .rt-grid{grid-template-columns:minmax(175px,205px) minmax(0,1fr) minmax(230px,280px)}
+  .rt-video{flex-basis:clamp(260px,38vh,430px);height:clamp(260px,38vh,430px)}
   .rt-question{padding:18px 20px}
 }
 
@@ -1293,12 +1303,13 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
     <aside class="rt-rail" id="rtRail">
       <button class="rt-nav-btn" data-nav="arena"><span class="ic">&larr;</span><span>BACK TO<br>ARENA LOBBY</span></button>
       <button class="rt-nav-btn drills" data-nav="drills"><span class="ic">&larr;</span><span>BACK TO<br>DAILY MENU</span></button>
+      <button class="rt-nav-btn" id="fullscreenBtn" type="button"><span class="ic">&#9974;</span><span id="fullscreenLabel">FULL<br>SCREEN</span></button>
       <div class="blk"><h5>ACTIVE STUDENT</h5><div class="v">SESSION USER <small>AUTH BY WIRING</small></div></div>
       <div class="blk"><h5>DRILL CONTEXT</h5><div class="v" id="rtCtx">DAILY DRILL</div><div class="kv" style="border:0;padding:6px 0"><span>VIDEO</span><b id="rtSes">AWAITING MEDIA</b></div></div>
       <div class="blk"><h5>LIVE STATUS</h5><div class="v"><span class="live-dot"></span> SELF-REPORT</div></div>
       <div class="blk"><h5>SESSION MODE</h5><div class="seg-tab"><button class="on">DRILL</button><button>REVIEW</button></div></div>
       <div class="blk"><h5>AUDIO</h5><div class="seg-tab"><button>MUTE</button><button>LOW</button><button class="on">MED</button><button>HIGH</button></div></div>
-      <button class="pause-btn" id="pauseBtn">TAKE A BREAK</button>
+      <button class="pause-btn" id="pauseBtn">TAKE A BREAK (3 LEFT)</button>
     </aside>
 
     <!-- CENTER STAGE -->
@@ -1318,6 +1329,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
       </div>
 
       <div class="rt-timer">
+        <span class="chip question-counter" id="rtQuestionCount">Question 1 of 8</span>
         <span class="chip">PROMPT <b id="rtPidx" style="color:var(--gold)">1 / 8</b></span>
         <div class="bar" id="rtBar"><div class="fill" id="rtFill" style="width:100%"></div></div>
         <div class="num" id="rtNum">6.0s</div>
@@ -1346,13 +1358,8 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
       </div>
     </section>
 
-    <!-- RIGHT RAIL &mdash; flag at top, scoreboard, notes -->
+    <!-- RIGHT RAIL &mdash; scoreboard, notes, lower flag action -->
     <aside class="rt-side">
-      <button class="flag-rail-btn" id="flagBtn">
-        <span class="ic">&#9873;</span>
-        <span class="lbl">FLAG QUESTION</span>
-        <kbd>F</kbd>
-      </button>
       <div class="scoreboard">
         <h5>SCOREBOARD</h5>
         <div class="score-row">
@@ -1361,7 +1368,11 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         </div>
         <div class="score-row">
           <div class="b oot"><div class="v" id="scOOT">0</div><div class="l">Out of Time</div></div>
-          <div class="b streak"><div class="v" id="scStreak">0</div><div class="l">Streak</div></div>
+          <div class="b streak streak-box" id="streakBox">
+            <div class="flames" aria-hidden="true"><span>&#128293;</span><span>&#128293;</span><span>&#128293;</span></div>
+            <div class="v" id="scStreak">0</div>
+            <div class="l">Streak</div>
+          </div>
         </div>
         <div class="kv"><span>Avg Response</span><b id="scAvg">&mdash;</b></div>
         <div class="kv"><span>Fastest</span><b id="scFast">&mdash;</b></div>
@@ -1375,10 +1386,17 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <div class="row" style="margin-top:6px"><button>SAVE NOTE</button><button>EXPORT</button></div>
       </div>
 
+      <button class="flag-rail-btn" id="flagBtn">
+        <span class="ic">&#9873;</span>
+        <span class="lbl">FLAG QUESTION</span>
+        <kbd>F</kbd>
+      </button>
+
       <div class="honesty">SESSION-ONLY &middot; SELF-REPORTED &middot; YOU MARK YOUR OWN RECALL</div>
     </aside>
   </div>
 </div>
+<div class="streak-toast" id="streakToast" role="status" aria-live="polite"></div>
 
 <!-- =====================================
      START COUNTDOWN
@@ -2056,10 +2074,49 @@ function normalizeRuntimeNodesPayload(payload){
   }
   return [];
 }
-const MAX_RUNTIME_PROMPTS = 8;
+const MAX_RUNTIME_PROMPTS = Number.POSITIVE_INFINITY;
 function finiteNodeTime(value){
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
+}
+function normalizeHeuristicText(value){
+  return safeText(value, '')
+    .toLowerCase()
+    .replace(/[\u2019']/g, "'")
+    .replace(/[^a-z0-9?'\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function hasQuestionStructureSignal(src){
+  if(!src || typeof src !== 'object') return false;
+  if(src.is_question === true || src.question_flag === true) return true;
+  const structuralFields = [src.node_type, src.type, src.kind, src.mode, src.segment_type, src.label];
+  return structuralFields.some(value => /(question|prompt|qa|qna|drill_question)/i.test(safeText(value, '')));
+}
+function isExplicitFillerText(text){
+  if(!text) return true;
+  return /\b(jumping in|jump in|can you hear me|are you there|can everyone hear|let's move on|moving on|quick housekeeping|hold on (a )?second|good morning|good afternoon|good evening|all right everybody|thanks everyone|attendance|recording)\b/.test(text);
+}
+function computeQuestionSignal(src){
+  const text = normalizeHeuristicText(src && (src.cue || src.prompt || src.question || src.question_text || src.text || src.title || src.stem || src.summary));
+  const words = text ? text.split(/\s+/).filter(Boolean) : [];
+  const structureSignal = hasQuestionStructureSignal(src);
+  const fillerSignal = isExplicitFillerText(text);
+  let score = 0;
+  if(structureSignal) score += 3;
+  if(/\bnext question\b/.test(text)) score += 2;
+  if(/\b(what|which|who|where|when|why|how)\b/.test(text)) score += 2;
+  if(/\?/.test(text)) score += 1;
+  if(/\b(diagnosis|most likely|best next step|next best step|management|treatment|etiology|risk factor|workup|interpret|finding|cause|complication|contraindication|drug of choice|test of choice)\b/.test(text)) score += 1;
+  if(/\b(tell me|walk me through|explain|identify|name)\b/.test(text)) score += 1;
+  if(words.length >= 8) score += 1;
+  return { text, score, structureSignal, fillerSignal, words:words.length };
+}
+function isRuntimeQuestionPrompt(src){
+  const signal = computeQuestionSignal(src);
+  if(signal.structureSignal) return true;
+  if(signal.fillerSignal && signal.score < 3) return false;
+  return signal.score >= 2;
 }
 function normalizePrompt(item, index){
   const src = item && typeof item === 'object' ? item : {};
@@ -2077,16 +2134,30 @@ function normalizePrompt(item, index){
   };
 }
 function prepareRuntimePrompts(list){
-  const normalized = (Array.isArray(list) ? list : [])
-    .map(normalizePrompt)
+  const source = Array.isArray(list) ? list : [];
+  const normalized = source
+    .map((item, index) => Object.assign(normalizePrompt(item, index), { _source: item && typeof item === 'object' ? item : {} }))
     .filter(prompt => safeText(prompt.cue, '') && safeText(prompt.ans, ''));
   const timed = normalized
     .filter(prompt => Number.isFinite(Number(prompt.pauseTime)))
     .sort((a,b) => Number(a.pauseTime) - Number(b.pauseTime));
-  return (timed.length ? timed : normalized).slice(0, MAX_RUNTIME_PROMPTS);
+  const base = timed.length ? timed : normalized;
+  const questionFiltered = base.filter(prompt => isRuntimeQuestionPrompt(Object.assign({}, prompt._source, prompt)));
+  const chosen = questionFiltered.length ? questionFiltered : base;
+  return chosen.slice(0, MAX_RUNTIME_PROMPTS).map(({_source, ...prompt}) => prompt);
 }
 function hasTimedRuntimePrompts(list){
   return Array.isArray(list) && list.length && list.every(prompt => Number.isFinite(Number(prompt.pauseTime)));
+}
+function firstQuestionStartTime(list){
+  const first = Array.isArray(list) && list.length ? list[0] : null;
+  if(!first) return 0;
+  const questionStart = finiteNodeTime(first.questionStartTime);
+  const pauseTime = finiteNodeTime(first.pauseTime);
+  if(questionStart != null && pauseTime != null) return Math.max(0, Math.min(questionStart, pauseTime));
+  if(questionStart != null) return Math.max(0, questionStart);
+  if(pauseTime != null) return Math.max(0, pauseTime - 0.4);
+  return 0;
 }
 function formatRuntimeClock(seconds){
   const n = Math.max(0, Number(seconds) || 0);
@@ -2194,7 +2265,11 @@ async function startRuntimeMediaPlayback(options){
   try{
     if(reset){
       video.pause();
-      video.currentTime = 0;
+      await waitForRuntimeVideoMetadata(video);
+      const startAt = finiteNodeTime(opts.startAt);
+      const maxStart = Number.isFinite(Number(video.duration)) && Number(video.duration) > 1 ? Number(video.duration) - 0.5 : null;
+      const safeStart = Math.max(0, startAt != null ? startAt : 0);
+      video.currentTime = maxStart != null ? Math.min(safeStart, maxStart) : safeStart;
     }
     video.controls = false;
     video.removeAttribute('controls');
@@ -2214,6 +2289,24 @@ async function startRuntimeMediaPlayback(options){
     log('runtime_direct_video_start_blocked', { message: String(error && error.message ? error.message : error) });
     return false;
   }
+}
+function waitForRuntimeVideoMetadata(video){
+  if(!video) return Promise.resolve(false);
+  if(video.readyState >= 1) return Promise.resolve(true);
+  return new Promise(resolve => {
+    let done = false;
+    const finish = value => {
+      if(done) return;
+      done = true;
+      video.removeEventListener('loadedmetadata', onReady);
+      video.removeEventListener('canplay', onReady);
+      resolve(value);
+    };
+    const onReady = () => finish(true);
+    video.addEventListener('loadedmetadata', onReady, { once:true });
+    video.addEventListener('canplay', onReady, { once:true });
+    setTimeout(() => finish(false), 1400);
+  });
 }
 function paintRuntimeMedia(session){
   const stage = document.getElementById('rtVideoStage');
@@ -2300,10 +2393,7 @@ function bootFromRoute(){
       showRuntimeDataError('No real drill data loaded for video_id ' + ROUTE_VIDEO_ID + '.');
       return;
     }
-    STATE.session = selected;
-    Bridge.setSelectedDrill(Object.assign({}, selected, { origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' }));
-    updateReadySelection(selected);
-    setStep(4);
+    prepareSessionForReady(Object.assign({}, selected, { origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' }));
     log('video_route_ready_gate_loaded', { video_id: ROUTE_VIDEO_ID, origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds' });
     return;
   }
@@ -2389,7 +2479,7 @@ const STATE={
   rt:{idx:0,reveals:false,timer:null,mediaLoop:null,t0:0,locked:false,
       mediaDriven:false,waitingForNode:false,mediaStarted:false,
       correct:0,miss:0,oot:0,streak:0,bestStreak:0,
-      times:[],flagged:[],paused:false}
+      times:[],flagged:[],paused:false,breaksRemaining:3,streakToastTimer:null}
 };
 
 const STORE={
@@ -2872,11 +2962,9 @@ function paintSessions(){
   document.querySelectorAll('.sess,.m-card[data-sess]').forEach(el=>{
     el.addEventListener('click',()=>{
       const sid=el.dataset.sess;
-      STATE.session=visibleSessions.find(s=>s.id===sid)||visibleSessions[0]||SESSIONS[0];
-      if(!STATE.session) return;
-      Bridge.setSelectedDrill(STATE.session);
-      updateReadySelection(STATE.session);
-      setStep(4);
+      const nextSession=visibleSessions.find(s=>s.id===sid)||visibleSessions[0]||SESSIONS[0];
+      if(!nextSession) return;
+      prepareSessionForReady(nextSession);
     });
   });
   paintSessChart();
@@ -2957,9 +3045,7 @@ function paintSessSide(idx){
     <button class="btn" data-pick-sess="${s.id}">PREPARE IN TAB 4 &rarr;</button>
   `;
   fs.querySelector('[data-pick-sess]')?.addEventListener('click',()=>{
-    STATE.session=s;Bridge.setSelectedDrill(s);
-    updateReadySelection(s);
-    setStep(4);
+    prepareSessionForReady(s);
   });
   }
   // Delta vs prev run
@@ -3023,7 +3109,72 @@ document.body.addEventListener('click',e=>{
    RUNTIME ENGINE
    ========================================================= */
 const PACE_SEC={aggressive:3,recommended:6,warmup:10};
+const BREAK_LIMIT = 3;
+const STREAK_MESSAGES = {
+  2: "You’re on a roll",
+  3: "You’re heating up",
+  5: "You’re on fire!",
+  7: "You’re cookin, good lookin",
+  10: "Very good, VERRRRY GOOOD"
+};
 function paceSeconds(){return PACE_SEC[STATE.pace]||6;}
+function updateQuestionCounter(){
+  const current = Math.min((STATE.rt.idx || 0) + 1, Math.max(PROMPTS.length, 1));
+  const total = PROMPTS.length || 0;
+  const compact = total ? `${current} / ${total}` : '0 / 0';
+  const full = total ? `Question ${current} of ${total}` : 'Question 0 of 0';
+  const idx=document.getElementById('rtPidx');if(idx) idx.textContent=compact;
+  const qc=document.getElementById('rtQuestionCount');if(qc) qc.textContent=full;
+}
+function updateBreakButton(){
+  const b=document.getElementById('pauseBtn');
+  if(!b) return;
+  const left = Math.max(0, Number(STATE.rt.breaksRemaining ?? BREAK_LIMIT));
+  b.disabled = left <= 0 && !STATE.rt.paused;
+  b.textContent = STATE.rt.paused ? `RESUME (${left} LEFT)` : `TAKE A BREAK (${left} LEFT)`;
+}
+function updateStreakUI(){
+  const streak = Number(STATE.rt.streak || 0);
+  const sc=document.getElementById('scStreak');if(sc) sc.textContent=streak;
+  const best=document.getElementById('scBest');if(best) best.textContent=STATE.rt.bestStreak || 0;
+  const box=document.getElementById('streakBox');
+  if(box){
+    box.classList.toggle('hot', streak >= 2);
+    box.classList.toggle('fire', streak >= 5);
+  }
+}
+function showStreakMotivation(){
+  const streak = Number(STATE.rt.streak || 0);
+  const message = STREAK_MESSAGES[streak];
+  if(!message) return;
+  const toast=document.getElementById('streakToast');
+  if(!toast) return;
+  if(STATE.rt.streakToastTimer) clearTimeout(STATE.rt.streakToastTimer);
+  toast.textContent = message;
+  toast.classList.add('live');
+  STATE.rt.streakToastTimer = setTimeout(() => toast.classList.remove('live'), 1400);
+}
+function resetRuntimeTransientState(){
+  stopRuntimeNodeMonitor();
+  if(STATE.rt.timer){cancelAnimationFrame(STATE.rt.timer);STATE.rt.timer=null;}
+  const toast=document.getElementById('streakToast');
+  if(toast) toast.classList.remove('live');
+  STATE.rt={idx:0,reveals:false,timer:null,mediaLoop:null,t0:0,locked:false,
+            mediaDriven:false,waitingForNode:false,mediaStarted:false,
+            correct:0,miss:0,oot:0,streak:0,bestStreak:0,
+            times:[],flagged:[],paused:false,breaksRemaining:BREAK_LIMIT,streakToastTimer:null};
+  updateQuestionCounter();
+  updateBreakButton();
+  updateStreakUI();
+}
+function prepareSessionForReady(session){
+  if(!session) return;
+  resetRuntimeTransientState();
+  STATE.session=session;
+  Bridge.setSelectedDrill(session);
+  updateReadySelection(session);
+  setStep(4);
+}
 
 function resetRuntimeQuestionUI(){
   const reveal=document.getElementById('rtReveal');
@@ -3042,12 +3193,12 @@ function paintWaitingForPauseCue(){
   const topic=document.getElementById('rtTopic');
   const cue=document.getElementById('rtCue');
   const answer=document.getElementById('rtAnswer');
-  const idx=document.getElementById('rtPidx');
-  if(idx) idx.textContent = next ? `${STATE.rt.idx + 1} / ${PROMPTS.length}` : `${PROMPTS.length} / ${PROMPTS.length}`;
+  updateQuestionCounter();
   if(topic) topic.textContent = 'VIDEO RUNNING';
   if(cue){
+    const startAt = firstQuestionStartTime(PROMPTS);
     cue.textContent = next
-      ? 'The selected video is running from the beginning. The next recall pause is queued at ' + formatRuntimeClock(next.pauseTime) + '.'
+      ? 'Intro skipped when node data supports it. Next recall pause is queued at ' + formatRuntimeClock(next.pauseTime) + (startAt ? ' after starting near ' + formatRuntimeClock(startAt) + '.' : '.')
       : 'No more node pauses are queued for this drill.';
   }
   if(answer) answer.textContent = 'The runtime controls video pause/resume. Native video controls are intentionally locked.';
@@ -3182,11 +3333,12 @@ function runStartCountdown(){
 async function startRuntimeWithCountdown(){
   if(COUNTDOWN_ACTIVE) return;
   if(!canAttemptRuntimeStart()) return;
+  const launchSession = STATE.session;
   await runStartCountdown();
-  await openRuntime();
+  await openRuntime(launchSession);
 }
-async function openRuntime(){
-  STATE.session=STATE.session||SESSIONS[0];
+async function openRuntime(sessionOverride){
+  STATE.session=sessionOverride||STATE.session||SESSIONS[0];
   if(!STATE.session){
     showRuntimeDataError('No real drill data loaded for this route.');
     return;
@@ -3199,6 +3351,7 @@ async function openRuntime(){
     showRuntimeDataError('Prompt nodes unavailable for this real drill. Choose another drill or return to menu.');
     return;
   }
+  resetRuntimeTransientState();
   PROMPTS = await loadRuntimePromptsForSession(STATE.session);
   if(!PROMPTS.length){
     showRuntimeDataError('No real prompts or nodes loaded for this drill. v3 will not start a fake drill.');
@@ -3220,7 +3373,7 @@ async function openRuntime(){
   STATE.rt={idx:0,reveals:false,timer:null,mediaLoop:null,t0:0,locked:false,
             mediaDriven,waitingForNode:false,mediaStarted:false,
             correct:0,miss:0,oot:0,streak:0,bestStreak:0,
-            times:[],flagged:[],paused:false};
+            times:[],flagged:[],paused:false,breaksRemaining:BREAK_LIMIT,streakToastTimer:null};
   document.getElementById('rtCtx').textContent=(STATE.session.sub||'CARDIO').toUpperCase();
   document.getElementById('rtSes').textContent=STATE.session.id;
   document.getElementById('runtimeShell').classList.add('live');
@@ -3228,7 +3381,7 @@ async function openRuntime(){
   document.getElementById('opRt').textContent='running';
   if(mediaDriven){
     paintWaitingForPauseCue();
-    const started = await startRuntimeMediaPlayback({ reset:true });
+    const started = await startRuntimeMediaPlayback({ reset:true, startAt:firstQuestionStartTime(PROMPTS) });
     if(!started){
       paintMediaStartBlocked();
       showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a fake prompt-only drill.');
@@ -3240,12 +3393,19 @@ async function openRuntime(){
     log('runtime_node_driven_opened', { prompts:PROMPTS.length, video_id:STATE.session.video_id || STATE.session.id });
     return;
   }
-  await startRuntimeMediaPlayback({ reset:true });
+  await startRuntimeMediaPlayback({ reset:true, startAt:firstQuestionStartTime(PROMPTS) });
   paintQuestion();log('runtime_opened');
 }
 function closeRuntime(){
   stopRuntimeNodeMonitor();
+  if(runtimeIsFullscreen()){
+    try{
+      if(document.exitFullscreen) document.exitFullscreen();
+      else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }catch(_error){}
+  }
   document.getElementById('runtimeShell').classList.remove('live');
+  document.getElementById('runtimeShell').classList.remove('is-fullscreen');
   document.getElementById('opRt').textContent='idle';
   if(STATE.rt.timer){cancelAnimationFrame(STATE.rt.timer);STATE.rt.timer=null;}
   const video = getRuntimeVideoElement();
@@ -3255,10 +3415,43 @@ function closeRuntime(){
     video.removeAttribute('controls');
   }
 }
+function fullscreenElement(){
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+function runtimeIsFullscreen(){
+  const shell=document.getElementById('runtimeShell');
+  return !!(shell && fullscreenElement() === shell);
+}
+function updateFullscreenButton(){
+  const label=document.getElementById('fullscreenLabel');
+  const shell=document.getElementById('runtimeShell');
+  const active = runtimeIsFullscreen();
+  if(label) label.innerHTML = active ? 'EXIT<br>FULL SCREEN' : 'FULL<br>SCREEN';
+  if(shell) shell.classList.toggle('is-fullscreen', active);
+}
+async function toggleRuntimeFullscreen(){
+  const shell=document.getElementById('runtimeShell');
+  if(!shell) return;
+  try{
+    if(runtimeIsFullscreen()){
+      if(document.exitFullscreen) await document.exitFullscreen();
+      else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }else if(shell.requestFullscreen){
+      await shell.requestFullscreen();
+    }else if(shell.webkitRequestFullscreen){
+      shell.webkitRequestFullscreen();
+    }else{
+      log('runtime_fullscreen_unavailable');
+    }
+  }catch(error){
+    log('runtime_fullscreen_error', { message:String(error && error.message ? error.message : error) });
+  }
+  updateFullscreenButton();
+}
 function paintQuestion(){
   const i=STATE.rt.idx;const p=PROMPTS[i];
   if(!p){finishSession();return;}
-  document.getElementById('rtPidx').textContent=`${i+1} / ${PROMPTS.length}`;
+  updateQuestionCounter();
   document.getElementById('rtTopic').textContent=p.topic;
   document.getElementById('rtCue').textContent=p.cue;
   document.getElementById('rtAnswer').textContent=p.ans;
@@ -3270,6 +3463,8 @@ function paintQuestion(){
   lock.innerHTML = 'ANSWER LOCK IN <kbd style="color:#0a1228;background:rgba(0,0,0,.18);border-color:transparent">SPACE</kbd>';
   const fb=document.getElementById('flagBtn');if(fb)fb.classList.remove('on');
   STATE.rt.locked=false;STATE.rt.t0=performance.now();
+  updateBreakButton();
+  updateStreakUI();
   startTimer();
 }
 function startTimer(){
@@ -3293,6 +3488,7 @@ function timeout(){
   document.getElementById('scOOT').textContent=STATE.rt.oot;
   // Auto-record as miss-equivalent for streak purposes? per Brian: OOT = system marks as out of time, NOT counted as correct or miss; streak resets like a miss
   STATE.rt.streak=0;
+  updateStreakUI();
   Bridge.recordSelfReport({prompt_idx:STATE.rt.idx,outcome:'oot',response_time_ms:paceSeconds()*1000});
   reveal(true);
 }
@@ -3319,8 +3515,8 @@ function recordOutcome(out){
   Bridge.recordSelfReport({prompt_idx:STATE.rt.idx,outcome:out,response_time_ms:Math.round(dt)});
   document.getElementById('scCorrect').textContent=STATE.rt.correct;
   document.getElementById('scMiss').textContent=STATE.rt.miss;
-  document.getElementById('scStreak').textContent=STATE.rt.streak;
-  document.getElementById('scBest').textContent=STATE.rt.bestStreak;
+  updateStreakUI();
+  if(out==='correct') showStreakMotivation();
   if(STATE.rt.times.length){
     const avg=STATE.rt.times.reduce((a,b)=>a+b,0)/STATE.rt.times.length/1000;
     const fast=Math.min(...STATE.rt.times)/1000;
@@ -3351,12 +3547,17 @@ function rtNav(target){
 }
 document.querySelectorAll('.rt-nav-btn').forEach(b=>b.addEventListener('click',()=>rtNav(b.dataset.nav)));
 function pauseToggle(){
+  if(!STATE.rt.paused && Number(STATE.rt.breaksRemaining || 0) <= 0){
+    updateBreakButton();
+    return;
+  }
+  const enteringBreak = !STATE.rt.paused;
   STATE.rt.paused=!STATE.rt.paused;
+  if(enteringBreak) STATE.rt.breaksRemaining = Math.max(0, Number(STATE.rt.breaksRemaining || 0) - 1);
   const b=document.getElementById('pauseBtn');
   b.style.background=STATE.rt.paused?'linear-gradient(180deg,#86efac,#16a34a)':'linear-gradient(180deg,#243355,#101a36)';
   b.style.color=STATE.rt.paused?'#04201a':'var(--gold)';
-  b.firstChild&&(b.firstChild.textContent='');
-  b.textContent=STATE.rt.paused?'RESUME':'TAKE A BREAK';
+  updateBreakButton();
   const video = getRuntimeVideoElement();
   if(STATE.rt.paused){
     if(video) try{ video.pause(); }catch(_error){}
@@ -3446,7 +3647,10 @@ function updateFlowSummary(out, pct){
 document.getElementById('lockBtn').addEventListener('click',()=>{if(!STATE.rt.locked)reveal(false);});
 document.getElementById('flagBtn').addEventListener('click',flagToggle);
 document.getElementById('pauseBtn').addEventListener('click',pauseToggle);
+document.getElementById('fullscreenBtn').addEventListener('click',toggleRuntimeFullscreen);
 document.getElementById('outcomeRow').addEventListener('click',e=>{const b=e.target.closest('[data-out]');if(b)recordOutcome(b.dataset.out);});
+document.addEventListener('fullscreenchange', updateFullscreenButton);
+document.addEventListener('webkitfullscreenchange', updateFullscreenButton);
 
 document.querySelectorAll('#startOrb,#startOrbMobile').forEach(o=>o.addEventListener('click',startRuntimeWithCountdown));
 
