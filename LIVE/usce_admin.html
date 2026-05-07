@@ -76,6 +76,7 @@
 .mm-cx .mm-adapter-banner strong { color:var(--mm-navy); }
 .mm-cx .mm-adapter-banner.is-live { border-color:rgba(31,138,90,.24); background:rgba(31,138,90,.06); }
 .mm-cx .mm-adapter-banner.is-blocked { border-color:rgba(178,58,58,.22); background:rgba(178,58,58,.06); }
+.mm-cx .mm-adapter-actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
 
 /* Intake form */
 .mm-cx .mm-form-wrap { max-width: 860px; margin: 0 auto; }
@@ -809,6 +810,9 @@
     offerLearndashEndpoint: '/api/usce/admin/offers/{offerId}/learndash',
     offerTokenEndpoint: '/api/usce/admin/offers/{offerId}/token',
     gmailSyncPreviewEndpoint: '/api/integrations/gmail/sync-preview',
+    authRelayEndpoint: '/api/usce/admin/auth/relay',
+    authAudience: 'usce_admin',
+    adminPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html',
     offerPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html',
     requestPageUrl: 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html',
     paymentProductUrl: 'https://missionmedinstitute.com/product/usce-clinical-rotations/',
@@ -842,6 +846,8 @@
   const MONTHS = ["May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026","Jan 2027","Feb 2027"];
   const COORDINATOR = "Phil";
   const SLA_AMBER_HRS = 24, SLA_RED_HRS = 48;
+  const AUTH_BEARER_KEY = 'mm_usce_admin_bearer_session';
+  const AUTH_HANDOFF_HASH_KEY = 'mmhq_handoff_token';
 
   /* ---- State ---- */
   const state = {
@@ -853,6 +859,7 @@
     currentUser: null,
     currentOfferId: null,
     csrfToken: '',
+    accessToken: '',
     adapter: 'booting',
     liveSession: null,
     liveOffersByRequest: {},
@@ -972,30 +979,144 @@
   async function parseJson(response){
     try { return await response.json(); } catch (_error) { return null; }
   }
-  async function ensureSession(){
-    if (state.csrfToken && state.liveSession) return state.liveSession;
-    const response = await fetch(apiUrl('/api/auth/session'), {
+  function readStoredBearer(){
+    try { return String(sessionStorage.getItem(AUTH_BEARER_KEY) || '').trim(); }
+    catch (_error) { return ''; }
+  }
+  function writeStoredBearer(token){
+    const safe = String(token || '').trim();
+    try {
+      if (safe) sessionStorage.setItem(AUTH_BEARER_KEY, safe);
+      else sessionStorage.removeItem(AUTH_BEARER_KEY);
+    } catch (_error) {}
+  }
+  function readHandoffTokenFromHash(){
+    try {
+      const rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if (!rawHash) return '';
+      const params = new URLSearchParams(rawHash);
+      return String(params.get(AUTH_HANDOFF_HASH_KEY) || '').trim();
+    } catch (_error) {
+      return '';
+    }
+  }
+  function clearHandoffTokenFromHash(){
+    try {
+      const rawHash = String(window.location.hash || '').replace(/^#/, '').trim();
+      if (!rawHash) return;
+      const params = new URLSearchParams(rawHash);
+      if (!params.has(AUTH_HANDOFF_HASH_KEY)) return;
+      params.delete(AUTH_HANDOFF_HASH_KEY);
+      const nextHash = params.toString();
+      const nextUrl = window.location.pathname + window.location.search + (nextHash ? ('#' + nextHash) : '');
+      window.history.replaceState({}, '', nextUrl);
+    } catch (_error) {}
+  }
+  function resolveAdminFinalUrl(){
+    try {
+      const current = new URL(window.location.href);
+      const canonical = new URL(CONFIG.adminPageUrl);
+      if (current.origin === canonical.origin && current.pathname === canonical.pathname) {
+        current.hash = '';
+        return current.toString();
+      }
+    } catch (_error) {}
+    return CONFIG.adminPageUrl;
+  }
+  function adminAuthRelayUrl(){
+    const relay = new URL(CONFIG.authRelayEndpoint, CONFIG.apiBase);
+    relay.searchParams.set('target', resolveAdminFinalUrl());
+    return relay.toString();
+  }
+  function beginAdminAuthRelay(){
+    writeStoredBearer('');
+    state.accessToken = '';
+    state.csrfToken = '';
+    state.liveSession = null;
+    window.location.href = adminAuthRelayUrl();
+  }
+  function showAuthConnectAction(){
+    const banner = $('#mmAdapterBanner');
+    if (!banner) return;
+    const actions = document.createElement('div');
+    actions.className = 'mm-adapter-actions';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'mm-btn mm-btn-sm mm-btn-primary';
+    button.textContent = 'Connect admin session';
+    button.addEventListener('click', beginAdminAuthRelay);
+    actions.appendChild(button);
+    banner.appendChild(actions);
+  }
+  async function exchangeHandoffToken(handoffToken){
+    const safeToken = String(handoffToken || '').trim();
+    if (!safeToken) return null;
+    clearHandoffTokenFromHash();
+    const url = new URL(apiUrl('/api/auth/session'));
+    url.searchParams.set('audience', CONFIG.authAudience || 'usce_admin');
+    url.searchParams.set('token', safeToken);
+    const response = await fetch(url.toString(), {
       method: 'GET',
       credentials: 'include',
+      cache: 'no-store',
       headers: { Accept: 'application/json' }
     });
     const payload = await parseJson(response);
+    if (!response.ok || !payload || payload.authenticated !== true || !payload.accessToken) {
+      const err = new Error(payload && payload.message ? payload.message : 'Admin handoff exchange failed.');
+      err.status = response.status || 401;
+      err.payload = payload;
+      throw err;
+    }
+    state.accessToken = String(payload.accessToken || '').trim();
+    state.csrfToken = payload.csrfToken || '';
+    state.liveSession = payload;
+    writeStoredBearer(state.accessToken);
+    return payload;
+  }
+  async function ensureSession(){
+    if (state.csrfToken && state.liveSession && state.accessToken) return state.liveSession;
+
+    const handoffToken = readHandoffTokenFromHash();
+    if (handoffToken) {
+      return exchangeHandoffToken(handoffToken);
+    }
+
+    const storedBearer = state.accessToken || readStoredBearer();
+    if (storedBearer) state.accessToken = storedBearer;
+    const headers = { Accept: 'application/json' };
+    if (state.accessToken) headers.Authorization = 'Bearer ' + state.accessToken;
+    const response = await fetch(apiUrl('/api/auth/session'), {
+      method: 'GET',
+      credentials: 'include',
+      cache: 'no-store',
+      headers
+    });
+    const payload = await parseJson(response);
     if (!response.ok || !payload || payload.authenticated !== true) {
+      if (response.status === 401) {
+        writeStoredBearer('');
+        state.accessToken = '';
+      }
       const err = new Error(payload && payload.message ? payload.message : 'Admin session required.');
       err.status = response.status || 401;
       err.payload = payload;
       throw err;
     }
     state.csrfToken = payload.csrfToken || '';
+    state.accessToken = String(payload.accessToken || state.accessToken || '').trim();
     state.liveSession = payload;
+    if (state.accessToken) writeStoredBearer(state.accessToken);
     return payload;
   }
   async function adminFetch(path, vars, options){
     const method = String((options && options.method) || 'GET').toUpperCase();
     const isMutation = ['POST','PATCH','PUT','DELETE'].indexOf(method) > -1;
     const headers = { Accept: 'application/json' };
+    const session = await ensureSession();
+    const bearer = String(state.accessToken || session.accessToken || '').trim();
+    if (bearer) headers.Authorization = 'Bearer ' + bearer;
     if (isMutation) {
-      const session = await ensureSession();
       headers['Content-Type'] = 'application/json';
       headers['X-MMHQ-CSRF'] = session.csrfToken || state.csrfToken || '';
     }
@@ -1015,7 +1136,7 @@
     return payload || {};
   }
   function errorSummary(error){
-    if (error && error.status === 401) return 'Admin login required. The protected endpoint did not expose data.';
+    if (error && error.status === 401) return 'Admin session required. Connect WordPress admin authority through the protected Railway relay.';
     if (error && error.status === 403) return 'Privileged WordPress authority required. Learner sessions are blocked.';
     return error && error.message ? error.message : 'Operation failed safely.';
   }
@@ -1091,6 +1212,7 @@
       state.adapter = 'blocked';
       setRuntime(error && error.status === 401 ? 'Login required' : 'Admin blocked', 'blocked');
       setAdapterBanner(errorSummary(error), 'blocked');
+      if (error && error.status === 401) showAuthConnectAction();
       renderRequestList();
     }
   }
