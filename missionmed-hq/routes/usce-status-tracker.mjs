@@ -14,6 +14,8 @@ const INTAKE_TABLE = 'usce_public_intake_requests';
 const OFFER_TABLE = 'usce_offer_drafts';
 const COMMS_TABLE = 'usce_comms';
 const ADMIN_LIST_RPC = 'list_usce_public_intake_requests';
+const STUDENT_STATUS_OFFERS_RPC = 'list_usce_student_status_offer_summaries';
+const STUDENT_STATUS_COMMS_RPC = 'list_usce_student_status_comms_summaries';
 
 export function isUsceStudentStatusPath(pathname) {
   return normalizePathname(pathname) === STUDENT_STATUS_PATH;
@@ -220,11 +222,24 @@ async function fetchOffersForRequests(config, requestIds) {
   });
 
   if (!result.ok) {
+    const rpc = await postRpc(config, STUDENT_STATUS_OFFERS_RPC, {
+      p_request_ids: requestIds,
+    });
+
+    if (rpc.ok) {
+      const rows = Array.isArray(rpc.payload?.items) ? rpc.payload.items : [];
+      return {
+        ok: true,
+        adapter: `rpc:${STUDENT_STATUS_OFFERS_RPC}`,
+        items: rows.map(sanitizeOffer).filter(Boolean),
+      };
+    }
+
     return {
       ok: false,
       adapter: `rest:${OFFER_TABLE}`,
-      reason: result.reason,
-      httpStatus: result.httpStatus || 503,
+      reason: rpc.reason || result.reason,
+      httpStatus: rpc.httpStatus || result.httpStatus || 503,
       items: [],
     };
   }
@@ -257,11 +272,24 @@ async function fetchCommsForRequests(config, requestIds) {
   });
 
   if (!result.ok) {
+    const rpc = await postRpc(config, STUDENT_STATUS_COMMS_RPC, {
+      p_request_ids: requestIds,
+    });
+
+    if (rpc.ok) {
+      const rows = Array.isArray(rpc.payload?.items) ? rpc.payload.items : [];
+      return {
+        ok: true,
+        adapter: `rpc:${STUDENT_STATUS_COMMS_RPC}`,
+        items: rows.map(sanitizeCommsEvent).filter(Boolean),
+      };
+    }
+
     return {
       ok: false,
       adapter: `rest:${COMMS_TABLE}`,
-      reason: result.reason,
-      httpStatus: result.httpStatus || 503,
+      reason: rpc.reason || result.reason,
+      httpStatus: rpc.httpStatus || result.httpStatus || 503,
       items: [],
     };
   }
