@@ -1002,9 +1002,13 @@ function normalizeStatV3RosterPlayer(row,sourceLabel){
   const id=pickText([source.player_id,source.id,source.user_id]);
   const wins=Number(source.wins);
   const losses=Number(source.losses);
+  const shortId=id?shortStatV3Id(id):'';
+  const fallbackName=shortId?'Player '+shortId:'Live opponent';
+  const recordLabel=Number.isFinite(wins)&&Number.isFinite(losses)?wins+'-'+losses+' W-L':'';
   return normalizePlayer({
     id,
-    name:pickText([source.display_name,source.screen_name,source.username,id?shortStatV3Id(id):'Opponent']),
+    name:pickText([source.display_name,source.screen_name,source.username,fallbackName]),
+    schoolName:recordLabel,
     rating:source.rating,
     rank:source.rank,
     stats:{
@@ -1057,6 +1061,29 @@ async function statV3FetchRoster(query){
   return rows
     .map(row=>normalizeStatV3RosterPlayer(row,'duel_roster'))
     .filter(row=>row.id&&row.id!==currentId);
+}
+function statV3RosterMessage(query,roster){
+  const safeQuery=String(query||'').trim();
+  if(Array.isArray(roster)&&roster.length){
+    return safeQuery
+      ? 'Select an opponent, then create a human duel.'
+      : 'Loaded the live opponent roster. Some internal test profiles currently expose short IDs instead of friendly names.';
+  }
+  return safeQuery
+    ? 'No matching opponent found. Leave the field blank and search to load the full live roster; some profiles currently expose short IDs only.'
+    : 'No eligible live opponents are available right now.';
+}
+async function statV3LoadRoster(query){
+  const safeQuery=String(query||'').trim();
+  updateHumanState({status:'loading_roster',message:'Loading live opponent roster...',error:''});
+  const roster=await statV3FetchRoster(safeQuery);
+  updateHumanState({
+    roster,
+    status:'roster_loaded',
+    message:statV3RosterMessage(safeQuery,roster),
+    error:''
+  });
+  return roster;
 }
 async function statV3CreateHumanDuel(opponent){
   const target=normalizePlayer(opponent,FALLBACK_OPP,'duel_roster.selected');
@@ -1321,7 +1348,10 @@ async function bootstrapStatV3LivePack(){
         error:'human_duel_required',
         question_count:0
       });
-      updateHumanState({status:'ready_for_human_duel',message:'Search for a test opponent or open a /stat-v3?duel_id=... invite.',error:''});
+      updateHumanState({status:'ready_for_human_duel',message:'Leave the field blank to load the live roster, or open a /stat-v3?duel_id=... invite.',error:''});
+      if(!STAT_V3_HUMAN.roster.length){
+        try{await statV3LoadRoster('');}catch(e){}
+      }
       return;
     }else{
       rememberStatV3DuelId(duelId);
@@ -1772,9 +1802,7 @@ document.addEventListener('click',async(event)=>{
     const input=document.getElementById('stat-v3-opponent-query');
     const query=input?input.value:'';
     try{
-      updateHumanState({status:'loading_roster',message:'Loading live opponent roster...',error:''});
-      const roster=await statV3FetchRoster(query);
-      updateHumanState({roster,status:'roster_loaded',message:roster.length?'Select an opponent, then create a human duel.':'No matching opponent found.',error:''});
+      await statV3LoadRoster(query);
     }catch(e){
       updateHumanState({status:'blocked',message:'Could not load roster.',error:String(e&&e.message?e.message:e).slice(0,160)});
     }
@@ -1873,7 +1901,14 @@ function normalizeResultPayload(payload){
 }
 function statV3HumanPanel(){
   const roster=STAT_V3_HUMAN.roster.length
-    ? STAT_V3_HUMAN.roster.map(player=>`<button class="cfg-opt stat-v3-roster-pick ${STAT_V3_HUMAN.selectedOpponent&&STAT_V3_HUMAN.selectedOpponent.id===player.id?'active':''}" type="button" data-opponent-id="${escapeHtml(player.id)}"><div class="h">${escapeHtml(player.name)}</div><div class="s">${escapeHtml(shortStatV3Id(player.id))}</div></button>`).join('')
+    ? STAT_V3_HUMAN.roster.map(player=>{
+      const shortId=shortStatV3Id(player.id);
+      const metaBits=[];
+      if(shortId&&shortId!=='-')metaBits.push(shortId);
+      if(player.schoolName)metaBits.push(player.schoolName);
+      if(player.stats&&player.stats.ovr)metaBits.push('Rating '+player.stats.ovr);
+      return `<button class="cfg-opt stat-v3-roster-pick ${STAT_V3_HUMAN.selectedOpponent&&STAT_V3_HUMAN.selectedOpponent.id===player.id?'active':''}" type="button" data-opponent-id="${escapeHtml(player.id)}"><div class="h">${escapeHtml(player.name)}</div><div class="s">${escapeHtml(metaBits.join(' • ')||'Live roster')}</div></button>`;
+    }).join('')
     : '<div class="summary-row"><span>ROSTER</span><span class="v">Search or load</span></div>';
   const invite=STAT_V3_HUMAN.inviteUrl
     ? `<div class="summary-row"><span>INVITE</span><span class="v">${escapeHtml(STAT_V3_HUMAN.inviteUrl)}</span></div>`
@@ -1889,7 +1924,7 @@ function statV3HumanPanel(){
       ${selected}
       ${invite}
       <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;margin:12px 0">
-        <input id="stat-v3-opponent-query" value="" placeholder="Opponent email, name, or UUID" style="min-width:0;border:1px solid var(--card-border);border-radius:10px;background:var(--pill-bg);color:var(--fg);padding:12px;font-family:var(--f-bebas);letter-spacing:1px">
+        <input id="stat-v3-opponent-query" value="" placeholder="Name or UUID, or leave blank to load roster" style="min-width:0;border:1px solid var(--card-border);border-radius:10px;background:var(--pill-bg);color:var(--fg);padding:12px;font-family:var(--f-bebas);letter-spacing:1px">
         <button class="result-cta alt" type="button" id="stat-v3-load-roster">Search</button>
         <button class="result-cta" type="button" id="stat-v3-create-human" ${STAT_V3_HUMAN.selectedOpponent?'':'disabled'}>Create Duel</button>
       </div>
@@ -2085,6 +2120,9 @@ RENDERERS['4']=function(){
           <span class="cd-rule">LIVE CLOCK</span>
           <span class="cd-rule">PAYLOAD ONLY</span>
           <span class="cd-rule">SERVER LOCKED</span>
+        </div>
+        <div class="s-matchup-cta-row" style="margin-top:26px">
+          <button class="cta-primary" type="button">START MATCH</button>
         </div>
       </div>
       <div class="cd-corner opp">
