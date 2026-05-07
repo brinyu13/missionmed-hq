@@ -20107,6 +20107,76 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     line-height:1.35;
     color:#CAE0F6;
   }
+  #mmos-career-root .career-chart-card{
+    grid-column:1 / -1;
+  }
+  #mmos-career-root .career-chart-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:8px;
+  }
+  #mmos-career-root .career-chart-legend{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    font-size:11px;
+    color:#B8D1EA;
+    text-transform:uppercase;
+    letter-spacing:.6px;
+  }
+  #mmos-career-root .career-chart-legend span{
+    display:inline-flex;
+    align-items:center;
+    gap:5px;
+  }
+  #mmos-career-root .career-chart-legend span:before{
+    content:"";
+    width:12px;
+    height:3px;
+    border-radius:99px;
+    background:#65D8FF;
+  }
+  #mmos-career-root .career-chart-legend .is-speed:before{
+    background:#FFD562;
+  }
+  #mmos-career-root .career-chart-svg{
+    width:100%;
+    height:132px;
+    display:block;
+    border:1px solid rgba(255,255,255,.10);
+    border-radius:10px;
+    background:rgba(4,12,24,.42);
+  }
+  #mmos-career-root .career-chart-axis{
+    stroke:rgba(255,255,255,.16);
+    stroke-width:1;
+  }
+  #mmos-career-root .career-chart-acc{
+    fill:none;
+    stroke:#65D8FF;
+    stroke-width:3;
+  }
+  #mmos-career-root .career-chart-speed{
+    fill:none;
+    stroke:#FFD562;
+    stroke-width:3;
+    stroke-dasharray:5 4;
+  }
+  #mmos-career-root .career-chart-point{
+    fill:#071529;
+    stroke:#65D8FF;
+    stroke-width:2;
+  }
+  #mmos-career-root .career-chart-labels{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    margin-top:7px;
+    color:#AFC8E3;
+    font-size:11px;
+  }
   #mmos-career-root .career-empty{
     border:1px dashed rgba(255,255,255,.22);
     border-radius:10px;
@@ -20126,7 +20196,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
 (function(){
   'use strict';
 
-  if(window.MMOSCareerHUD && window.MMOSCareerHUD.__version === 'career-533'){
+  if(window.MMOSCareerHUD && window.MMOSCareerHUD.__version === 'career-534'){
     return;
   }
 
@@ -20239,7 +20309,127 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       avgMs: null,
       lastAnsweredAt: null,
       sourceType: 'duel_attempt',
+      rows: [],
+      graphSeries: [],
+      diagnosticSnapshot: null,
       error: error || ''
+    };
+  }
+
+  function getAttemptKey(row, fallbackIndex){
+    var source = String((row && row.source_event_id) || '').trim();
+    var parts = source.split(':');
+    if(parts.length >= 2 && parts[0] === 'duel_attempt' && parts[1]){
+      return parts[0] + ':' + parts[1];
+    }
+    return source || ('answer:' + fallbackIndex);
+  }
+
+  function buildStatGraphSeries(rows){
+    if(!Array.isArray(rows) || !rows.length) return [];
+    var groups = {};
+    rows.forEach(function(row, index){
+      if(!row || typeof row !== 'object') return;
+      var key = getAttemptKey(row, index);
+      if(!groups[key]){
+        groups[key] = {
+          key: key,
+          total: 0,
+          correct: 0,
+          timedCount: 0,
+          totalMs: 0,
+          latest: 0
+        };
+      }
+      var group = groups[key];
+      group.total += 1;
+      if(row.is_correct === true) group.correct += 1;
+      var ms = Number(row.response_ms);
+      if(isFinite(ms) && ms > 0){
+        group.timedCount += 1;
+        group.totalMs += ms;
+      }
+      var answeredAt = row.answered_at ? new Date(row.answered_at).getTime() : 0;
+      if(isFinite(answeredAt) && answeredAt > group.latest) group.latest = answeredAt;
+    });
+    return Object.keys(groups).map(function(key){
+      var group = groups[key];
+      var accuracyPct = group.total ? Math.round((group.correct / group.total) * 100) : null;
+      return {
+        key: group.key,
+        total: group.total,
+        correct: group.correct,
+        accuracyPct: accuracyPct,
+        avgMs: group.timedCount ? Math.round(group.totalMs / group.timedCount) : null,
+        answeredAt: group.latest ? new Date(group.latest).toISOString() : null
+      };
+    }).sort(function(a, b){
+      return new Date(a.answeredAt || 0).getTime() - new Date(b.answeredAt || 0).getTime();
+    }).slice(-10);
+  }
+
+  function buildStatDiagnosticSnapshot(metrics){
+    metrics = metrics || emptyStatDuelMetrics('');
+    var total = Number(metrics.total != null ? metrics.total : (metrics.totalAnswers || 0));
+    var correct = Number(metrics.correct != null ? metrics.correct : (metrics.correctAnswers || 0));
+    var accuracy = total ? Math.round((correct / total) * 100) : null;
+    var series = Array.isArray(metrics.graphSeries) ? metrics.graphSeries : [];
+    var recent = series.slice(-3);
+    var prior = series.slice(-6, -3);
+    function avgAccuracy(items){
+      if(!items.length) return null;
+      var sum = 0;
+      var count = 0;
+      items.forEach(function(item){
+        var n = Number(item.accuracyPct);
+        if(isFinite(n)){
+          sum += n;
+          count += 1;
+        }
+      });
+      return count ? Math.round(sum / count) : null;
+    }
+    var recentAcc = avgAccuracy(recent);
+    var priorAcc = avgAccuracy(prior);
+    var trend = 'baseline';
+    if(recentAcc != null && priorAcc != null){
+      if(recentAcc >= priorAcc + 5) trend = 'improving';
+      else if(recentAcc <= priorAcc - 5) trend = 'slipping';
+      else trend = 'stable';
+    }
+
+    var confidence = total >= 50 ? 'high' : (total >= 20 ? 'medium' : (total > 0 ? 'low' : 'insufficient'));
+    var focusTopic = 'Build STAT sample size';
+    var focusReason = 'Complete more STAT V3 duels to make the diagnostic signal reliable.';
+    if(total >= 20){
+      if(accuracy != null && accuracy < 60){
+        focusTopic = 'STAT remediation';
+        focusReason = 'Accuracy is below 60%. Review missed duel items before increasing speed.';
+      } else if(metrics.avgMs && metrics.avgMs > 80000){
+        focusTopic = 'STAT pacing';
+        focusReason = 'Accuracy signal is usable, but average answer time is slow enough to deserve pacing work.';
+      } else {
+        focusTopic = 'Maintain STAT accuracy';
+        focusReason = 'STAT V3 duel answers are sufficient for dashboard trend tracking.';
+      }
+    }
+
+    var narrative = total
+      ? ('STAT V3 has ' + total + ' dashboard-readable duel answers at ' + fmtPercent(correct, total) + ' accuracy. Trend: ' + trend + '.')
+      : 'No STAT V3 duel answers are available for diagnostic synthesis yet.';
+
+    return {
+      source: 'qstat_answers_v1.duel_attempt',
+      generatedAt: new Date().toISOString(),
+      confidence: confidence,
+      focus_topic: focusTopic,
+      focus_reason: focusReason,
+      narrative: narrative,
+      accuracyPct: accuracy,
+      trend: trend,
+      graphReady: series.length > 0,
+      graphSeries: series,
+      limitation: 'Topic-level diagnosis requires question taxonomy in the downstream diagnostic job.'
     };
   }
 
@@ -20250,6 +20440,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     var timedCount = 0;
     var totalMs = 0;
     var latest = 0;
+    var cleanRows = [];
 
     rows.forEach(function(row){
       if(!row || typeof row !== 'object') return;
@@ -20262,16 +20453,22 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       }
       var answeredAt = row.answered_at ? new Date(row.answered_at).getTime() : 0;
       if(isFinite(answeredAt) && answeredAt > latest) latest = answeredAt;
+      cleanRows.push(row);
     });
 
-    return {
+    var metrics = {
       total: total,
       correct: correct,
       avgMs: timedCount ? Math.round(totalMs / timedCount) : null,
       lastAnsweredAt: latest ? new Date(latest).toISOString() : null,
       sourceType: 'duel_attempt',
+      rows: cleanRows,
+      graphSeries: buildStatGraphSeries(cleanRows),
+      diagnosticSnapshot: null,
       error: ''
     };
+    metrics.diagnosticSnapshot = buildStatDiagnosticSnapshot(metrics);
+    return metrics;
   }
 
   async function loadStatDuelMetrics(client, userId){
@@ -20279,7 +20476,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     try{
       var res = await client
         .from('qstat_answers_v1')
-        .select('question_id,is_correct,response_ms,answered_at,source_type')
+        .select('question_id,is_correct,response_ms,answered_at,source_type,source_event_id')
         .eq('user_id', userId)
         .eq('source_type', 'duel_attempt')
         .order('answered_at', { ascending: false })
@@ -20328,6 +20525,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     var statTotal = Number(statDuel.total || 0);
     if(uiState === 'auth') return 'Session not ready. Re-open Arena sign-in to load Career Intel.';
     if(uiState === 'empty') return 'No analyzable sessions yet. Complete one STAT or Drill round to unlock recommendations.';
+    if(uiState === 'stat-data' && statDuel.diagnosticSnapshot && statDuel.diagnosticSnapshot.narrative) return statDuel.diagnosticSnapshot.narrative;
     if(uiState === 'stat-data') return 'STAT duel answers are flowing into the Arena Intel answer stream. Narrative insights still require the diagnostic snapshot pipeline.';
     if(uiState === 'low-data' && statTotal > 0) return 'STAT duel data is live: ' + statTotal + '/20 answers toward full dashboard confidence.';
     if(uiState === 'low-data') return 'Data is still sparse. Keep practicing to improve confidence before trusting weak-topic recommendations.';
@@ -20381,14 +20579,82 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       + '</section>';
   }
 
+  function renderStatDiagnosticCard(metrics){
+    metrics = metrics || emptyStatDuelMetrics('');
+    var diag = metrics.diagnosticSnapshot || buildStatDiagnosticSnapshot(metrics);
+    return ''
+      + '<section class="career-card" data-career-card="stat-diagnostic-snapshot">'
+      +   '<h3>STAT Diagnostic Snapshot</h3>'
+      +   '<div class="career-focus-topic">' + escapeHtml(diag.focus_topic || 'Build STAT sample size') + '</div>'
+      +   '<div class="career-focus-reason">' + escapeHtml(diag.focus_reason || 'Complete more STAT V3 duels to improve signal quality.') + '</div>'
+      +   '<div class="career-stat-foot">' + escapeHtml(diag.narrative || '') + '</div>'
+      +   '<div class="career-state">Snapshot source: ' + escapeHtml(diag.source || 'qstat_answers_v1') + ' · Confidence: ' + escapeHtml(String(diag.confidence || 'insufficient').toUpperCase()) + '</div>'
+      +   '<div class="career-state">' + escapeHtml(diag.limitation || '') + '</div>'
+      + '</section>';
+  }
+
+  function chartPointX(index, count){
+    if(count <= 1) return 28;
+    return 28 + ((264 / (count - 1)) * index);
+  }
+
+  function renderStatGraphCard(metrics){
+    metrics = metrics || emptyStatDuelMetrics('');
+    var series = Array.isArray(metrics.graphSeries) ? metrics.graphSeries : [];
+    var body = '';
+    if(!series.length){
+      body = '<div class="career-empty">No graph-ready STAT duel attempt series yet.</div>';
+    } else {
+      var maxMs = 0;
+      series.forEach(function(item){
+        var n = Number(item.avgMs);
+        if(isFinite(n) && n > maxMs) maxMs = n;
+      });
+      if(maxMs <= 0) maxMs = 1;
+      var accPoints = series.map(function(item, index){
+        var x = chartPointX(index, series.length);
+        var y = 112 - ((Math.max(0, Math.min(100, Number(item.accuracyPct) || 0)) / 100) * 88);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ');
+      var speedPoints = series.map(function(item, index){
+        var x = chartPointX(index, series.length);
+        var ratio = Math.max(0, Math.min(1, Number(item.avgMs || 0) / maxMs));
+        var y = 112 - (ratio * 88);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ');
+      var pointHtml = series.map(function(item, index){
+        var x = chartPointX(index, series.length);
+        var y = 112 - ((Math.max(0, Math.min(100, Number(item.accuracyPct) || 0)) / 100) * 88);
+        return '<circle class="career-chart-point" cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="4"></circle>';
+      }).join('');
+      var first = series[0] && series[0].answeredAt ? fmtDateStamp(series[0].answeredAt).replace(/^Last answer /, '') : 'First attempt';
+      var last = series[series.length - 1] && series[series.length - 1].answeredAt ? fmtDateStamp(series[series.length - 1].answeredAt).replace(/^Last answer /, '') : 'Latest attempt';
+      body = ''
+        + '<svg class="career-chart-svg" viewBox="0 0 320 132" preserveAspectRatio="none" aria-label="STAT duel accuracy and speed trend">'
+        +   '<line class="career-chart-axis" x1="24" y1="112" x2="300" y2="112"></line>'
+        +   '<line class="career-chart-axis" x1="24" y1="24" x2="24" y2="112"></line>'
+        +   '<polyline class="career-chart-speed" points="' + escapeHtml(speedPoints) + '"></polyline>'
+        +   '<polyline class="career-chart-acc" points="' + escapeHtml(accPoints) + '"></polyline>'
+        +   pointHtml
+        + '</svg>'
+        + '<div class="career-chart-labels"><span>' + escapeHtml(first) + '</span><span>' + escapeHtml(last) + '</span></div>';
+    }
+    return ''
+      + '<section class="career-card career-chart-card" data-career-card="stat-graph-ready">'
+      +   '<div class="career-chart-head"><h3>Graph Ready Trend</h3><div class="career-chart-legend"><span>Accuracy</span><span class="is-speed">Avg time</span></div></div>'
+      +   body
+      +   '<div class="career-state">Read-only graph artifact derived from authenticated qstat_answers_v1 duel_attempt rows.</div>'
+      + '</section>';
+  }
+
   function render(snapshot){
     var root = getRoot();
     if(!root) return;
 
     var uiState = deriveUiState(snapshot);
-    var diagnostic = snapshot.diagnostic || {};
     var tasks = Array.isArray(snapshot.tasks) ? snapshot.tasks.slice() : [];
     var statDuel = snapshot.statDuelMetrics || emptyStatDuelMetrics('');
+    var diagnostic = snapshot.diagnostic || statDuel.diagnosticSnapshot || {};
     var tiers = getTier(snapshot.profile);
     var freeOnly = tiers.length === 1 && tiers[0] === 'free';
     var maxVisible = freeOnly ? 3 : 5;
@@ -20454,6 +20720,8 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       +       '</div>'
       +     '</section>'
       +     renderStatDuelMetricsCard(statDuel)
+      +     renderStatDiagnosticCard(statDuel)
+      +     renderStatGraphCard(statDuel)
       +     '<section class="career-card">'
       +       '<h3>Today Plan</h3>'
       +       taskHtml
@@ -20649,7 +20917,9 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
   }
 
   window.MMOSCareerHUD = {
-    __version: 'career-533',
+    __version: 'career-534',
+    buildStatDiagnosticSnapshot: buildStatDiagnosticSnapshot,
+    buildStatGraphSeries: buildStatGraphSeries,
     loadHUD: loadHUD,
     mount: mount
   };
