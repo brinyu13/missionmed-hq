@@ -57,8 +57,11 @@ const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
 const USCE_ADMIN_AUTH_AUDIENCE = 'usce_admin';
 const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
 const USCE_STUDENT_AUTH_RELAY_PATH = '/api/usce/student/auth/relay';
+const USCE_STUDENT_AUTH_CODE_PATH = '/api/usce/student/auth/code';
 const USCE_STUDENT_AUTH_AUDIENCE = 'usce_student';
 const USCE_STATUS_TRACKER_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html';
+const USCE_STUDENT_AUTH_CODE_TTL_MS = 2 * 60 * 1000;
+const usceStudentAuthCodes = new Map();
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
 const IS_PRODUCTION = RUNTIME_ENV === 'production';
 
@@ -967,6 +970,118 @@ function withAuthSessionHandoffFragment(finalRedirect = '', handoffToken = '') {
   } catch {
     return base;
   }
+}
+
+function withUsceStudentAuthCodeFragment(finalRedirect = '', code = '') {
+  const base = String(finalRedirect || '').trim();
+  const safeCode = String(code || '').trim();
+  if (!base || !safeCode) {
+    return base;
+  }
+
+  try {
+    const target = new URL(base);
+    const hash = String(target.hash || '').replace(/^#/u, '');
+    const params = new URLSearchParams(hash);
+    params.set('mmhq_handoff_code', safeCode);
+    const nextHash = params.toString();
+    target.hash = nextHash ? `#${nextHash}` : '';
+    return target.toString();
+  } catch {
+    return base;
+  }
+}
+
+function withUsceStudentAuthCodeQuery(finalRedirect = '', code = '') {
+  const base = String(finalRedirect || '').trim();
+  const safeCode = String(code || '').trim();
+  if (!base || !safeCode) {
+    return base;
+  }
+
+  try {
+    const target = new URL(base);
+    target.hash = '';
+    target.searchParams.set('mmhq_handoff_code', safeCode);
+    return target.toString();
+  } catch {
+    return base;
+  }
+}
+
+function cleanupUsceStudentAuthCodes(now = Date.now()) {
+  for (const [code, record] of usceStudentAuthCodes.entries()) {
+    if (!record?.expiresAt || record.expiresAt <= now) {
+      usceStudentAuthCodes.delete(code);
+    }
+  }
+}
+
+function createUsceStudentAuthCode(accessToken = '') {
+  const token = String(accessToken || '').trim();
+  if (!token) {
+    return '';
+  }
+
+  cleanupUsceStudentAuthCodes();
+  const code = base64UrlEncode(randomBytes(18));
+  usceStudentAuthCodes.set(code, {
+    accessToken: token,
+    expiresAt: Date.now() + USCE_STUDENT_AUTH_CODE_TTL_MS,
+  });
+  return code;
+}
+
+function consumeUsceStudentAuthCode(code = '') {
+  const safeCode = String(code || '').trim();
+  if (!safeCode || !/^[A-Za-z0-9_-]{16,80}$/u.test(safeCode)) {
+    return null;
+  }
+
+  cleanupUsceStudentAuthCodes();
+  const record = usceStudentAuthCodes.get(safeCode) || null;
+  usceStudentAuthCodes.delete(safeCode);
+
+  if (!record || record.expiresAt <= Date.now() || !record.accessToken) {
+    return null;
+  }
+
+  return record.accessToken;
+}
+
+function escapeHtmlAttribute(value = '') {
+  return String(value || '').replace(/[&<>"']/gu, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  })[char] || '');
+}
+
+function sendUsceStudentAuthBridge(response, trackerUrl = '') {
+  const target = String(trackerUrl || USCE_STATUS_TRACKER_CDN_URL).trim() || USCE_STATUS_TRACKER_CDN_URL;
+  const targetJson = JSON.stringify(target);
+  response.writeHead(200, {
+    'Cache-Control': 'no-store',
+    'Content-Type': 'text/html; charset=utf-8',
+  });
+  response.end(`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Opening MissionMed tracker</title>
+</head>
+<body>
+<p>Opening your MissionMed USCE tracker.</p>
+<p><a id="continueLink" href="${escapeHtmlAttribute(target)}">Continue to tracker</a></p>
+<script>
+window.location.replace(${targetJson});
+</script>
+</body>
+</html>`);
 }
 
 function isLocalhostHostname(hostname = '') {
@@ -2040,6 +2155,33 @@ async function handleApiRoute(request, response, url, context) {
     return;
   }
 
+  if (pathname === USCE_STUDENT_AUTH_CODE_PATH) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET'], authHeaders);
+      return;
+    }
+
+    const accessToken = consumeUsceStudentAuthCode(searchParams.get('code'));
+    if (!accessToken) {
+      sendJson(response, 401, {
+        ok: false,
+        error: 'student_auth_code_invalid',
+        message: 'MissionMed tracker connection expired. Reconnect your MissionMed account.',
+        login: getLoginHints(request, USCE_STUDENT_AUTH_AUDIENCE),
+      }, authHeaders);
+      return;
+    }
+
+    sendJson(response, 200, {
+      ok: true,
+      authenticated: true,
+      accessToken,
+      sessionTransport: 'bearer-token',
+      audience: USCE_STUDENT_AUTH_AUDIENCE,
+    }, authHeaders);
+    return;
+  }
+
   if (pathname === USCE_ADMIN_AUTH_RELAY_PATH) {
     if (request.method !== 'GET') {
       sendMethodNotAllowed(response, ['GET']);
@@ -2096,7 +2238,36 @@ async function handleApiRoute(request, response, url, context) {
       return;
     }
 
-    sendRedirect(response, withAuthSessionHandoffFragment(relayTarget, handoffToken));
+    const exchange = await exchangeWordPressAuth({ token: handoffToken, audience: USCE_STUDENT_AUTH_AUDIENCE }, request);
+    if (!exchange.ok || !exchange.session) {
+      sendJson(response, exchange.status || 401, {
+        error: 'auth_exchange_failed',
+        message: exchange.error || 'WordPress authentication failed.',
+        login: getLoginHints(request, USCE_STUDENT_AUTH_AUDIENCE),
+      }, authHeaders);
+      return;
+    }
+
+    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(exchange.session);
+    if (!bootstrap.ok) {
+      sendJson(response, bootstrap.status || 502, {
+        error: bootstrap.error || 'supabase_bootstrap_failed',
+        message: bootstrap.message || 'Supabase bootstrap failed.',
+      }, authHeaders);
+      return;
+    }
+
+    const hydratedSession = bootstrap.session || exchange.session;
+    const code = createUsceStudentAuthCode(createEncryptedSession(hydratedSession));
+    if (!code) {
+      sendJson(response, 503, {
+        error: 'student_auth_code_unavailable',
+        message: 'MissionMed tracker connection could not be prepared.',
+      }, authHeaders);
+      return;
+    }
+
+    sendUsceStudentAuthBridge(response, withUsceStudentAuthCodeQuery(relayTarget, code));
     return;
   }
 
