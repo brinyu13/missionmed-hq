@@ -104,7 +104,7 @@
       <div class="mm-card mm-resource">
         <b>Malpractice insurance checklist</b>
         <span>Ask the hospital or coordinator whether coverage is included, whether proof is required, and what minimum limits are expected before onboarding.</span>
-        <a href="mailto:clinicals@missionmedinstitute.com?subject=USCE%20malpractice%20insurance%20question">Ask Clinicals</a>
+        <a id="malpracticeContactLink" href="#">Ask Clinicals</a>
       </div>
       <div class="mm-card mm-resource">
         <b>Rotation readiness tips</b>
@@ -118,7 +118,7 @@
       </div>
     </section>
 
-    <p class="mm-foot">This tracker does not create payments, orders, emails, or course enrollment. Payment appears only after an accepted offer. Need help? <a href="mailto:clinicals@missionmedinstitute.com">Contact MissionMed Clinicals</a>.</p>
+    <p class="mm-foot">This tracker does not create payments, orders, emails, or course enrollment. Payment appears only after an accepted offer. Need help? <a id="footerContactLink" href="#">Contact MissionMed Clinicals</a>.</p>
   </main>
 </div>
 
@@ -465,7 +465,7 @@
     const actions = [];
     if (item.payment?.handoff_url) actions.push({ label:'Complete tuition', url:item.payment.handoff_url, primary:true });
     actions.push({ label:'MissionMed dashboard', url:'https://missionmedinstitute.com/my-account/', primary:false });
-    actions.push({ label:'Contact Clinicals', url:'mailto:clinicals@missionmedinstitute.com?subject=USCE%20tracker%20question', primary:false });
+    actions.push({ label:'Contact Clinicals', url:clinicalContactHref('USCE tracker question'), primary:false });
     $('#actionList').innerHTML = actions.map(action =>
       '<a class="mm-btn ' + (action.primary ? 'mm-btn-primary' : 'mm-btn-ghost') + '" href="' + esc(action.url) + '">' + esc(action.label) + '</a>'
     ).join('');
@@ -482,6 +482,19 @@
       $('#accountLink').textContent = 'Create / sign in to track';
       $('#connectTracker').hidden = false;
     }
+  }
+
+  function clinicalContactHref(subject){
+    const email = ['clinicals','missionmedinstitute.com'].join(String.fromCharCode(64));
+    const suffix = subject ? '?subject=' + encodeURIComponent(subject) : '';
+    return 'mailto:' + email + suffix;
+  }
+
+  function wireContactLinks(){
+    const malpractice = $('#malpracticeContactLink');
+    const footer = $('#footerContactLink');
+    if (malpractice) malpractice.href = clinicalContactHref('USCE malpractice insurance question');
+    if (footer) footer.href = clinicalContactHref('');
   }
 
   function fmtDate(value){
@@ -508,6 +521,7 @@
   $('#requestLink').href = CONFIG.requestPageUrl;
   $('#accountLink').href = buildAccountUrl();
   $('#accountInlineLink').href = buildAccountUrl();
+  wireContactLinks();
   $('#connectTracker').addEventListener('click', () => { window.location.href = buildRelayUrl(); });
 
   (async function boot(){
