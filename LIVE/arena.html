@@ -20213,7 +20213,9 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     timerTaskId: null,
     timerEndAt: 0,
     timerTick: null,
-    mounted: false
+    mounted: false,
+    snapshotRefreshStatus: '',
+    snapshotRefreshMessage: ''
   };
 
   function getRoot(){
@@ -20492,6 +20494,46 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     }
   }
 
+  async function refreshDiagnosticSnapshot(client, userId){
+    if(!client || !userId){
+      return { ok: false, message: 'missing_authenticated_session' };
+    }
+    try{
+      var res = await client.rpc('refresh_stat_diagnostic_snapshot', {
+        p_user_id: userId,
+        p_limit: 500
+      });
+      if(res && res.error){
+        log('refresh_stat_diagnostic_snapshot RPC error', res.error);
+        return {
+          ok: false,
+          message: String(res.error.message || res.error.code || 'snapshot_refresh_failed')
+        };
+      }
+      var payload = Array.isArray(res && res.data) ? res.data[0] : (res && res.data ? res.data : null);
+      var metricsTotal = null;
+      ['metrics_total', 'metricsTotal', 'total_answers', 'totalAnswers', 'answer_count', 'answerCount'].some(function(key){
+        if(!payload || payload[key] == null) return false;
+        var n = Number(payload[key]);
+        if(!Number.isFinite(n)) return false;
+        metricsTotal = n;
+        return true;
+      });
+      return {
+        ok: true,
+        message: metricsTotal !== null
+          ? ('Diagnostic snapshot refreshed from ' + metricsTotal + ' STAT answers.')
+          : 'Diagnostic snapshot refresh completed.'
+      };
+    }catch(err){
+      log('refresh_stat_diagnostic_snapshot RPC threw', err && (err.message || err));
+      return {
+        ok: false,
+        message: String(err && err.message ? err.message : 'snapshot_refresh_failed')
+      };
+    }
+  }
+
   function pickDiagnostic(rows){
     if(!Array.isArray(rows) || !rows.length) return null;
     var current = rows.filter(function(r){ return r && r.is_current === true; });
@@ -20697,6 +20739,12 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     var timerTask = tasks.filter(function(t){ return String(t.id) === String(state.timerTaskId); })[0] || null;
     var timerLabel = timerTask ? timerTask.title : 'No active task';
     var countdown = state.timerEndAt > 0 ? fmtCountdown(state.timerEndAt - Date.now()) : '00:00';
+    var refreshRunning = state.snapshotRefreshStatus === 'running';
+    var refreshLabel = refreshRunning ? 'Refreshing...' : 'Refresh';
+    var refreshDisabled = refreshRunning ? ' disabled' : '';
+    var refreshMessage = state.snapshotRefreshMessage
+      ? '<div class="career-state">Diagnostic refresh: ' + escapeHtml(state.snapshotRefreshMessage) + '</div>'
+      : '';
 
     root.innerHTML = ''
       + '<div class="career-shell">'
@@ -20715,9 +20763,10 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       +       '<div class="career-mission-copy">' + escapeHtml(missionCopy(uiState, diagnostic, tasks, statDuel)) + '</div>'
       +       '<div class="career-state">State: ' + escapeHtml(uiState) + '</div>'
       +       '<div class="career-inline-actions" style="margin-top:10px;">'
-      +         '<button class="career-btn" data-action="refresh-hud">Refresh</button>'
+      +         '<button class="career-btn" data-action="refresh-hud"' + refreshDisabled + '>' + escapeHtml(refreshLabel) + '</button>'
       +         '<button class="career-btn" data-action="complete-task" ' + (state.timerTaskId ? 'data-task-id="' + String(state.timerTaskId) + '"' : 'disabled') + '>Complete Active Task</button>'
       +       '</div>'
+      +       refreshMessage
       +     '</section>'
       +     renderStatDuelMetricsCard(statDuel)
       +     renderStatDiagnosticCard(statDuel)
@@ -20807,16 +20856,27 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     });
   }
 
-  async function loadHUD(){
+  async function loadHUD(options){
+    options = options || {};
     if(state.loading) return;
     var root = getRoot();
     if(!root) return;
     state.loading = true;
-    root.innerHTML = '<div class="career-shell"><div class="career-title">Loading Career Intel...</div></div>';
+    if(options.refreshDiagnosticSnapshot){
+      state.snapshotRefreshStatus = 'running';
+      state.snapshotRefreshMessage = 'Refreshing STAT diagnostic snapshot...';
+      root.innerHTML = '<div class="career-shell"><div class="career-title">Refreshing STAT diagnostic snapshot...</div></div>';
+    } else {
+      root.innerHTML = '<div class="career-shell"><div class="career-title">Loading Career Intel...</div></div>';
+    }
 
     try{
       var client = getSupabaseClient();
       if(!client){
+        if(options.refreshDiagnosticSnapshot){
+          state.snapshotRefreshStatus = 'error';
+          state.snapshotRefreshMessage = 'No authenticated Arena Supabase session is available.';
+        }
         state.user = null;
         state.profile = null;
         state.diagnostic = null;
@@ -20829,6 +20889,10 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       var auth = await client.auth.getUser();
       var user = auth && auth.data && auth.data.user ? auth.data.user : null;
       if(!user || !user.id){
+        if(options.refreshDiagnosticSnapshot){
+          state.snapshotRefreshStatus = 'error';
+          state.snapshotRefreshMessage = 'No authenticated Arena user is available.';
+        }
         state.user = null;
         state.profile = null;
         state.diagnostic = null;
@@ -20838,6 +20902,12 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
         return;
       }
       state.user = user;
+
+      if(options.refreshDiagnosticSnapshot){
+        var refreshResult = await refreshDiagnosticSnapshot(client, user.id);
+        state.snapshotRefreshStatus = refreshResult.ok ? 'ok' : 'error';
+        state.snapshotRefreshMessage = refreshResult.message || (refreshResult.ok ? 'Diagnostic snapshot refresh completed.' : 'Diagnostic snapshot refresh failed.');
+      }
 
       var queries = await Promise.all([
         client.from('student_profiles').select('*').eq('user_id', user.id).limit(1).maybeSingle(),
@@ -20860,6 +20930,10 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       render(state);
     }catch(err){
       log('loadHUD failed', err && (err.message || err));
+      if(options.refreshDiagnosticSnapshot){
+        state.snapshotRefreshStatus = 'error';
+        state.snapshotRefreshMessage = String(err && err.message ? err.message : 'career_hud_refresh_failed');
+      }
       state.profile = null;
       state.diagnostic = null;
       state.statDuelMetrics = emptyStatDuelMetrics('career_hud_load_failed');
@@ -20877,7 +20951,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     var taskId = btn.getAttribute('data-task-id');
     if(action === 'refresh-hud'){
       ev.preventDefault();
-      loadHUD();
+      loadHUD({ refreshDiagnosticSnapshot: true });
       return;
     }
     if(action === 'start-task'){
@@ -20920,6 +20994,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
     __version: 'career-534',
     buildStatDiagnosticSnapshot: buildStatDiagnosticSnapshot,
     buildStatGraphSeries: buildStatGraphSeries,
+    refreshDiagnosticSnapshot: refreshDiagnosticSnapshot,
     loadHUD: loadHUD,
     mount: mount
   };
