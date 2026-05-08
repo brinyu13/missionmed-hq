@@ -332,8 +332,8 @@ button,input,select,textarea{font-family:inherit}
         <p id="successCopy">Thanks. The MissionMed Clinicals team will review your preferences and contact you with availability or alternate options. After accepting an offer, you&apos;ll be directed to the official MissionMed Clinicals payment page.</p>
         <div class="mm-ref">Reference: <strong id="requestRef">Pending</strong></div>
         <div class="mm-login-note">
-          <b>Your request is in. Track every step from your MissionMed account.</b>
-          Your tracker is already open next. Create or sign in to MissionMed using the same email you used for this USCE request when you want to follow updates from any device.
+          <b>Your request is in. We are taking you to your tracker now.</b>
+          You will land on a standalone MissionMed tracker page next, not inside this request page. Once it opens, bookmark it or sign in with the same email you used for this USCE request so you can follow updates from any device.
         </div>
         <div class="mm-mini-tracker" aria-label="Submitted request tracker preview">
           <b>Tracker started</b>
@@ -641,7 +641,7 @@ button,input,select,textarea{font-family:inherit}
       setApiStatus(data.dry_run ? 'Request accepted by dry-run intake' : 'Request accepted');
       queueEmbedHeight();
       window.setTimeout(() => {
-        window.location.href = buildTrackerUrl(data.request_id || payload.idempotency_key, true);
+        openTrackerPage(buildTrackerUrl(data.request_id || payload.idempotency_key, true));
       }, 700);
     } catch (err) {
       showAlert(err && err.message ? err.message : 'Clinical rotation request intake is unavailable.', 'error');
@@ -657,6 +657,21 @@ button,input,select,textarea{font-family:inherit}
     if (submitted) url.searchParams.set('request_submitted', '1');
     if (requestRef) url.searchParams.set('ref', String(requestRef).slice(0, 80));
     return url.toString();
+  }
+
+  function openTrackerPage(url){
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type:'missionmed-usce-open-tracker', url }, '*');
+      }
+    } catch (_) {}
+    try {
+      if (window.top && window.top !== window) {
+        window.top.location.href = url;
+        return;
+      }
+    } catch (_) {}
+    window.location.href = url;
   }
 
   function buildAccountUrl(target){
@@ -680,7 +695,9 @@ button,input,select,textarea{font-family:inherit}
     const ref = data.request_id || payload.idempotency_key || '';
     const trackerUrl = buildTrackerUrl(ref, true);
     $('#trackerBtn').href = trackerUrl;
+    $('#trackerBtn').target = '_top';
     $('#accountBtn').href = buildAccountUrl(trackerUrl);
+    $('#accountBtn').target = '_top';
     $('#successCopy').textContent = 'Your request is in. We are opening your secure status tracker next. If you are not logged in yet, create or log in to your MissionMed account using ' + (payload.email || 'the same email') + '.';
   }
 

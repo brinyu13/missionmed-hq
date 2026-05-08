@@ -80,8 +80,11 @@
       <div class="mm-actions">
         <a class="mm-btn mm-btn-primary" id="accountLink" href="#">Create / sign in to track</a>
         <button class="mm-btn mm-btn-dark" type="button" id="connectTracker">I already have an account</button>
+        <button class="mm-btn mm-btn-ghost" type="button" id="bookmarkTracker">Bookmark this page</button>
+        <button class="mm-btn mm-btn-ghost" type="button" id="copyTrackerLink">Copy tracker link</button>
         <a class="mm-btn mm-btn-ghost" id="requestLink" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_request.html">Submit a request</a>
       </div>
+      <p id="bookmarkHelp" style="margin:12px 0 0;color:var(--muted);font-size:12px;line-height:1.6;">Save this standalone tracker in your browser so you can come back quickly from any device after you sign in with the same email.</p>
     </section>
 
     <section class="mm-detail">
@@ -170,6 +173,28 @@
     const url = new URL(CONFIG.authRelayEndpoint, CONFIG.apiBase);
     url.searchParams.set('target', currentTrackerUrl());
     return url.toString();
+  }
+
+  function showBookmarkMessage(message){
+    const el = $('#bookmarkHelp');
+    if (!el) return;
+    el.textContent = message;
+  }
+
+  async function copyTrackerLink(){
+    const url = currentTrackerUrl(readSubmittedContext());
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(url);
+        showBookmarkMessage('Tracker link copied. You can also bookmark this page in your browser.');
+        return;
+      }
+    } catch (_) {}
+    showBookmarkMessage('Copy the URL in your browser address bar to save this tracker page.');
+  }
+
+  function bookmarkTracker(){
+    showBookmarkMessage('Use your browser bookmark or star button now to save this tracker page.');
   }
 
   function readAccessToken(){
@@ -523,6 +548,8 @@
   $('#accountInlineLink').href = buildAccountUrl();
   wireContactLinks();
   $('#connectTracker').addEventListener('click', () => { window.location.href = buildRelayUrl(); });
+  $('#bookmarkTracker').addEventListener('click', bookmarkTracker);
+  $('#copyTrackerLink').addEventListener('click', () => { copyTrackerLink(); });
 
   (async function boot(){
     try {
