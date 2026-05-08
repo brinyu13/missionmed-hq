@@ -13529,6 +13529,14 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       else showToast('Avatar upload not yet available.', 'info');
     });
     charGrid.appendChild(upCard);
+
+    if(AVATAR_V3_ENABLED){
+      var studioCard = document.createElement('div');
+      studioCard.className = 'char-card avatar-v3-grid-card';
+      studioCard.innerHTML = '<div class="char-card-upload"><div class="char-card-upload-icon">★</div>Avatar Studio</div>';
+      studioCard.addEventListener('click', openAvatarV3Studio);
+      charGrid.appendChild(studioCard);
+    }
     console.log('[AVATAR_MENU_INJECTED]');
   }
 
