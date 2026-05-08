@@ -3400,9 +3400,8 @@ function paintWaitingForPauseCue(){
   updateQuestionCounter();
   if(topic) topic.textContent = 'VIDEO RUNNING';
   if(cue){
-    const startAt = firstQuestionStartTime(PROMPTS);
     cue.textContent = next
-      ? 'Intro skipped when node data supports it. Next recall pause is queued at ' + formatRuntimeClock(next.pauseTime) + (startAt ? ' after starting near ' + formatRuntimeClock(startAt) + '.' : '.')
+      ? 'Video is running from the beginning. Next recall pause is queued at ' + formatRuntimeClock(next.pauseTime) + '.'
       : 'No more node pauses are queued for this drill.';
   }
   if(answer) answer.textContent = 'The runtime controls video pause/resume. Native video controls are intentionally locked.';
@@ -3612,7 +3611,7 @@ async function openRuntime(sessionOverride){
   document.getElementById('opRt').textContent='running';
   if(mediaDriven){
     paintWaitingForPauseCue();
-    const started = await startRuntimeMediaPlayback({ reset:true, startAt:firstQuestionStartTime(PROMPTS) });
+    const started = await startRuntimeMediaPlayback({ reset:true });
     if(!started){
       paintMediaStartBlocked();
       showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a sample prompt-only drill.');
@@ -3624,7 +3623,7 @@ async function openRuntime(sessionOverride){
     log('runtime_node_driven_opened', { prompts:PROMPTS.length, video_id:STATE.session.video_id || STATE.session.id });
     return;
   }
-  await startRuntimeMediaPlayback({ reset:true, startAt:firstQuestionStartTime(PROMPTS) });
+  await startRuntimeMediaPlayback({ reset:true });
   paintQuestion();log('runtime_opened');
 }
 function closeRuntime(){
