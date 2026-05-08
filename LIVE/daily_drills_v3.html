@@ -237,8 +237,8 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .dash-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:18px;flex:1;min-height:0;overflow:hidden}
 .dash-left{display:flex;flex-direction:column;gap:14px;min-height:0;overflow:hidden}
 .hero-row{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-shrink:0}
-.hero-row .h1{font-size:64px}
-.streak-orb{position:relative;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fde68a 0%,#f5a90c 55%,#8a5300 100%);box-shadow:0 22px 44px -10px rgba(0,0,0,.7),inset 0 4px 8px rgba(255,255,255,.55),inset 0 -10px 24px rgba(0,0,0,.45),0 0 0 6px rgba(252,211,77,.10),0 0 0 12px rgba(252,211,77,.06);display:grid;place-items:center;color:#0a1228;font-family:'Bebas Neue',sans-serif;flex-shrink:0}
+.hero-row .h1{font-size:56px}
+.streak-orb{position:relative;width:132px;height:132px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fde68a 0%,#f5a90c 55%,#8a5300 100%);box-shadow:0 22px 44px -10px rgba(0,0,0,.7),inset 0 4px 8px rgba(255,255,255,.55),inset 0 -10px 24px rgba(0,0,0,.45),0 0 0 6px rgba(252,211,77,.10),0 0 0 12px rgba(252,211,77,.06);display:grid;place-items:center;color:#0a1228;font-family:'Bebas Neue',sans-serif;flex-shrink:0}
 .streak-orb .num{font-size:74px;line-height:.85}
 .streak-orb .lab{font-size:11px;letter-spacing:.22em;margin-top:-4px}
 .streak-orb::after{content:"";position:absolute;inset:14px;border-radius:50%;border:1px dashed rgba(0,0,0,.18);pointer-events:none}
@@ -253,7 +253,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .last-card{padding:16px 18px;border-radius:16px;background:linear-gradient(180deg,#1f2e58 0%,#0d1530 100%);border:1px solid rgba(252,211,77,.25);box-shadow:var(--shadow-float),0 0 36px -12px rgba(252,211,77,.45);position:relative;overflow:hidden;flex:1;min-height:0;display:flex;flex-direction:column}
 .last-card::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.08) 50%,transparent 70%);transform:translateX(-100%);animation:shimmer 6s ease-in-out infinite;pointer-events:none}
 .last-card .row{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;flex:1;min-height:0}
-.last-card h2{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:.02em;margin:6px 0 0}
+.last-card h2{font-family:'Bebas Neue',sans-serif;font-size:32px;letter-spacing:.02em;margin:4px 0 0}
 .last-card .sub{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mut);letter-spacing:.18em;text-transform:uppercase;margin:3px 0 10px}
 .last-card .meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
 .last-card .video{width:160px;height:100px;border-radius:14px;background:radial-gradient(circle at 50% 50%,#1c2c52,#06091a);border:1px solid var(--line);display:grid;place-items:center;box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
@@ -263,7 +263,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .profile-card{padding:14px;background:var(--panel-grad);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-panel);text-align:center;flex-shrink:0}
 .profile-card.avatar-card{padding:14px 14px 16px}
 .profile-card .av{width:80px;height:80px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fde68a,#b88a13);margin:0 auto 10px;box-shadow:0 12px 28px -6px rgba(0,0,0,.55),inset 0 4px 8px rgba(255,255,255,.55),inset 0 -8px 18px rgba(0,0,0,.45)}
-.avatar-full{position:relative;width:min(190px,100%);height:260px;margin:0 auto 12px;border-radius:14px;background:radial-gradient(circle at 50% 18%,rgba(252,211,77,.14),rgba(13,21,48,.95) 58%,rgba(6,9,26,.98));border:1px solid rgba(252,211,77,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 18px 34px -16px rgba(0,0,0,.75);display:grid;place-items:center;overflow:hidden}
+.avatar-full{position:relative;width:min(150px,100%);height:194px;margin:0 auto 10px;border-radius:14px;background:radial-gradient(circle at 50% 18%,rgba(252,211,77,.14),rgba(13,21,48,.95) 58%,rgba(6,9,26,.98));border:1px solid rgba(252,211,77,.24);box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 18px 34px -16px rgba(0,0,0,.75);display:grid;place-items:center;overflow:hidden}
 .avatar-full img{max-width:100%;max-height:100%;object-fit:contain;display:none}
 .avatar-full.has-img img{display:block}
 .avatar-full.has-img .avatar-placeholder{display:none}
@@ -336,7 +336,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 /* =========================================================
    STATE 3 &mdash; SPLIT BROWSE (Brian's pick)
    ========================================================= */
-.split-stage{flex:1;min-height:0;display:grid;grid-template-columns:260px minmax(430px,1.15fr) minmax(300px,.85fr);gap:16px;overflow:hidden}
+.split-stage{flex:1;min-height:0;display:grid;grid-template-columns:240px minmax(410px,1.15fr) minmax(300px,.85fr);gap:14px;overflow:hidden;max-height:calc(100vh - 190px)}
 .split-list{padding:10px;background:var(--panel-grad);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-panel);overflow:auto;display:flex;flex-direction:column;gap:5px}
 .split-list::-webkit-scrollbar{width:6px}
 .split-list::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
@@ -349,19 +349,22 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .split-row .acc{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--gold);letter-spacing:.12em}
 .split-row.locked{opacity:.55}
 .split-row.locked .acc::before{content:"\1F512  "}
-.split-detail{padding:24px;background:linear-gradient(180deg,#1f2e58 0%,#0c142b 100%);border:1px solid rgba(252,211,77,.25);border-radius:14px;box-shadow:var(--shadow-float);display:flex;flex-direction:column;gap:14px;overflow:auto;position:relative}
+.split-detail{padding:18px;background:linear-gradient(180deg,#1f2e58 0%,#0c142b 100%);border:1px solid rgba(252,211,77,.25);border-radius:14px;box-shadow:var(--shadow-float);display:flex;flex-direction:column;gap:12px;overflow:hidden;position:relative;min-height:0}
 .split-detail::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.05) 50%,transparent 70%);transform:translateX(-100%);animation:shimmer 7s ease-in-out infinite;pointer-events:none}
-.split-detail h2{font-family:'Bebas Neue',sans-serif;font-size:54px;letter-spacing:.04em;line-height:.95;margin:0}
+.split-detail h2{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:.04em;line-height:.95;margin:0}
 .split-detail h2 .accent{color:var(--gold)}
 .split-detail .sub{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase}
 .split-detail p{margin:0;font-size:14px;color:var(--mut);line-height:1.55;max-width:64ch}
-.split-stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.split-stat{padding:14px 16px;background:var(--inset-grad);border:1px solid var(--line);border-radius:11px;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
-.split-stat .v{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--gold);line-height:1}
+.split-stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.split-stat{padding:10px 12px;background:var(--inset-grad);border:1px solid var(--line);border-radius:11px;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+.split-stat .v{font-family:'Bebas Neue',sans-serif;font-size:24px;color:var(--gold);line-height:1}
 .split-stat .l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;color:var(--mut);text-transform:uppercase;margin-top:4px}
 .subarea-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
 .subarea-chips .sc{padding:6px 12px;border-radius:8px;background:linear-gradient(180deg,#1d2a4d,#0a1228);border:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase}
-.split-detail .pick{margin-top:14px;display:flex;gap:10px}
+.split-detail .detail-scroll{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:12px;padding-right:2px}
+.split-detail .detail-scroll::-webkit-scrollbar{width:6px}
+.split-detail .detail-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.split-detail .pick{margin-top:auto;display:flex;gap:10px;position:sticky;bottom:0;padding-top:10px;background:linear-gradient(180deg,rgba(12,20,43,0),#0c142b 32%)}
 .subject-video-panel{min-height:0;display:flex;flex-direction:column;gap:5px;overflow:hidden;padding:10px;background:var(--panel-grad);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-panel)}
 .subject-video-panel .panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 6px 8px}
 .subject-video-panel .panel-head .subject-col-title{padding:0}
@@ -410,6 +413,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .sess{display:grid;grid-template-columns:120px 1fr auto;gap:14px;padding:10px;border-radius:12px;background:var(--panel-grad);border:1px solid var(--line);box-shadow:var(--shadow-panel);cursor:pointer;align-items:center;transition:all .15s;flex-shrink:0}
 .sess:hover{border-color:var(--line-bright);transform:translateX(3px)}
 .sess.most-recent{border-color:rgba(252,211,77,.45);box-shadow:var(--shadow-panel),0 0 30px -10px rgba(252,211,77,.4)}
+.sess.on{border-color:rgba(252,211,77,.74);box-shadow:var(--shadow-panel),0 0 0 1px rgba(252,211,77,.30),0 0 28px -10px rgba(252,211,77,.7)}
 .sess .thumb{position:relative;width:120px;height:74px;border-radius:12px;overflow:hidden;background:radial-gradient(circle at 50% 50%,#1c2c52,#06091a);box-shadow:inset 0 2px 6px rgba(0,0,0,.6)}
 .sess .thumb .play{position:absolute;inset:0;display:grid;place-items:center}
 .sess .thumb .play span{width:42px;height:42px;border-radius:50%;background:linear-gradient(180deg,#fde68a,#f5a90c);box-shadow:0 4px 0 #8a5300,0 8px 14px -4px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.45);display:grid;place-items:center;color:#0a1228;font-size:14px}
@@ -433,21 +437,22 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 /* =========================================================
    STATE 4 &mdash; READY GATE / RUNTIME
    ========================================================= */
-.ready-card{position:relative;padding:48px;border-radius:24px;background:linear-gradient(180deg,#1f2e58 0%,#0c142b 100%);border:1px solid rgba(252,211,77,.30);box-shadow:var(--shadow-float),0 0 50px -10px rgba(252,211,77,.40);text-align:center;overflow:hidden;max-width:920px;margin:0 auto}
+.ready-card{position:relative;padding:28px 34px;border-radius:24px;background:linear-gradient(180deg,#1f2e58 0%,#0c142b 100%);border:1px solid rgba(252,211,77,.30);box-shadow:var(--shadow-float),0 0 50px -10px rgba(252,211,77,.40);text-align:center;overflow:hidden;max-width:920px;margin:0 auto;max-height:calc(100vh - 150px)}
 .ready-card::before{content:"";position:absolute;inset:-1px;border-radius:24px;background:radial-gradient(circle at 50% 0%,rgba(252,211,77,.25),transparent 60%);pointer-events:none}
 .ready-card::after{content:"";position:absolute;inset:0;background:linear-gradient(120deg,transparent 30%,rgba(255,255,255,.06) 50%,transparent 70%);transform:translateX(-100%);animation:shimmer 5s ease-in-out infinite}
-.ready-card h1{font-family:'Bebas Neue',sans-serif;font-size:96px;letter-spacing:.02em;line-height:.9;margin:14px 0 4px}
+.ready-card h1{font-family:'Bebas Neue',sans-serif;font-size:56px;letter-spacing:.02em;line-height:.9;margin:8px 0 4px}
 .ready-card .accent{color:var(--gold)}
-.ready-card .summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:28px 0}
-.ready-card .summary-row .b{padding:14px 16px;background:var(--inset-grad);border:1px solid var(--line);border-radius:12px;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+.ready-card .summary-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+.ready-card .summary-row .b{padding:10px 12px;background:var(--inset-grad);border:1px solid var(--line);border-radius:12px;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
 .ready-card .summary-row .l{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;margin-bottom:6px}
 .ready-card .summary-row .v{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:.04em;color:var(--txt)}
-.ready-card .controls{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:0 0 26px}
+.ready-card .controls{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0 0 14px}
 .ready-card .seg{display:flex;background:var(--inset-grad);border:1px solid var(--line);border-radius:12px;padding:5px;box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
 .ready-card .seg button{flex:1;appearance:none;border:0;background:transparent;color:var(--mut);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;padding:9px;border-radius:8px;cursor:pointer;text-transform:uppercase}
 .ready-card .seg button.on{color:#0a1228;background:linear-gradient(180deg,#fde68a,#f5a90c);box-shadow:0 2px 0 #8a5300,inset 0 1px 0 rgba(255,255,255,.45)}
 .ready-card .seg-l{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;text-align:center;margin-bottom:6px}
-.start-orb{position:relative;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fde68a 0%,#f5a90c 60%,#8a5300 100%);box-shadow:0 16px 40px -8px rgba(252,211,77,.55),0 28px 56px -12px rgba(0,0,0,.7),inset 0 4px 8px rgba(255,255,255,.55),inset 0 -10px 24px rgba(0,0,0,.45),0 0 0 6px rgba(252,211,77,.10);display:grid;place-items:center;color:#0a1228;font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:.10em;cursor:pointer;margin:0 auto;border:0;transition:transform .1s}
+.controls-hint summary{cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;color:var(--gold);text-transform:uppercase}
+.start-orb{position:relative;width:150px;height:150px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fde68a 0%,#f5a90c 60%,#8a5300 100%);box-shadow:0 16px 40px -8px rgba(252,211,77,.55),0 28px 56px -12px rgba(0,0,0,.7),inset 0 4px 8px rgba(255,255,255,.55),inset 0 -10px 24px rgba(0,0,0,.45),0 0 0 6px rgba(252,211,77,.10);display:grid;place-items:center;color:#0a1228;font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:.10em;cursor:pointer;margin:0 auto;border:0;transition:transform .1s}
 .start-orb:hover{transform:scale(1.04)}
 .start-orb:active{transform:scale(.97)}
 .start-orb:disabled,.start-orb.is-loading{cursor:wait;filter:saturate(.82);transform:none;opacity:.82}
@@ -584,13 +589,13 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .summary-head .accent{color:var(--gold)}
 .summary-head .pct{font-family:'Bebas Neue',sans-serif;font-size:96px;color:var(--gold);line-height:.85;text-align:right;letter-spacing:.04em}
 .summary-row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-.summary-row-3 .b{padding:18px;border-radius:14px;background:var(--inset-grad);border:1px solid var(--line);box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
-.summary-row-3 .b .v{font-family:'Bebas Neue',sans-serif;font-size:42px;line-height:.95}
+.summary-row-3 .b{padding:12px 14px;border-radius:14px;background:var(--inset-grad);border:1px solid var(--line);box-shadow:inset 0 2px 4px rgba(0,0,0,.5)}
+.summary-row-3 .b .v{font-family:'Bebas Neue',sans-serif;font-size:32px;line-height:.95}
 .summary-row-3 .b .l{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;margin-top:6px}
 .summary-row-3 .b.correct .v{color:var(--green)}
 .summary-row-3 .b.miss .v{color:var(--red)}
 .summary-row-3 .b.oot .v{color:var(--amber)}
-.summary-flag{padding:18px;border-radius:14px;background:linear-gradient(180deg,rgba(239,68,68,.10),rgba(239,68,68,.02));border:1px solid rgba(239,68,68,.30);box-shadow:var(--shadow-soft)}
+.summary-flag{padding:12px 14px;border-radius:14px;background:linear-gradient(180deg,rgba(239,68,68,.10),rgba(239,68,68,.02));border:1px solid rgba(239,68,68,.30);box-shadow:var(--shadow-soft)}
 .summary-flag h4{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.10em;margin:0 0 10px;color:var(--red);display:flex;align-items:center;gap:8px}
 .summary-flag h4::before{content:"\2691"}
 .summary-flag .list{display:flex;flex-direction:column;gap:8px}
@@ -653,6 +658,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .m-card .nm{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:.06em}
 .m-card .sub{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;color:var(--mut);margin-top:3px}
 .m-card.recent{background:linear-gradient(180deg,#1f2e58,#0d1530);border-color:rgba(252,211,77,.36);box-shadow:var(--shadow-panel),0 0 30px -10px rgba(252,211,77,.4)}
+.m-card.on{border-color:rgba(252,211,77,.74);box-shadow:var(--shadow-panel),0 0 0 1px rgba(252,211,77,.30),0 0 28px -12px rgba(252,211,77,.65)}
 
 .m-topics{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .m-topic{padding:12px;border-radius:12px;background:linear-gradient(180deg,#16213f,#0c142b);border:1px solid var(--line);box-shadow:var(--shadow-soft);min-height:84px;display:flex;flex-direction:column;justify-content:space-between}
@@ -933,11 +939,11 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
   <main class="tab-content active" data-tab="legacy">
 
     <div class="steps-rail" data-rail="legacy">
-      <div class="step cur" data-step="1"><div class="n">1</div><div class="lab"><span class="top">STATE 01</span><span class="nm">DASHBOARD</span></div></div>
-      <div class="step" data-step="2"><div class="n">2</div><div class="lab"><span class="top">STATE 02</span><span class="nm">CHOOSE EXAM</span></div></div>
-      <div class="step" data-step="3"><div class="n">3</div><div class="lab"><span class="top">STATE 03</span><span class="nm">CHOOSE SUBJECT</span></div></div>
-      <div class="step" data-step="4"><div class="n">4</div><div class="lab"><span class="top">STATE 04</span><span class="nm">READY &amp; RUN</span></div></div>
-      <div class="step" data-step="5"><div class="n">5</div><div class="lab"><span class="top">STATE 05</span><span class="nm">SUMMARY + FEEDBACK</span></div></div>
+      <div class="step cur" data-step="1"><div class="n">1</div><div class="lab"><span class="top">STEP 1</span><span class="nm">DASHBOARD</span></div></div>
+      <div class="step" data-step="2"><div class="n">2</div><div class="lab"><span class="top">STEP 2</span><span class="nm">CHOOSE EXAM</span></div></div>
+      <div class="step" data-step="3"><div class="n">3</div><div class="lab"><span class="top">STEP 3</span><span class="nm">CHOOSE SUBJECT</span></div></div>
+      <div class="step" data-step="4"><div class="n">4</div><div class="lab"><span class="top">STEP 4</span><span class="nm">READY &amp; RUN</span></div></div>
+      <div class="step" data-step="5"><div class="n">5</div><div class="lab"><span class="top">STEP 5</span><span class="nm">SUMMARY + FEEDBACK</span></div></div>
     </div>
 
     <!-- STATE 1: DASHBOARD -->
@@ -946,7 +952,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <div>
           <div class="eyebrow"><span class="dot"></span>DAILY ROUNDS &middot; DAY 47</div>
           <h1 class="h1">TODAY&rsquo;S <span class="accent">MISSION.</span></h1>
-          <p class="lead">Self-report timed recall. Reveal when ready &mdash; mark how you did. Session results stay in this browser session until durable persistence is wired.</p>
+          <p class="lead">Timed recall practice. Reveal the answer when you are ready, then mark how you did. Results stay in this browser for now.</p>
           <div id="dailyResultNotice" class="daily-result-notice" hidden></div>
         </div>
         <div class="streak-orb"><div><div class="num">--</div><div class="lab">SESSION ONLY</div></div></div>
@@ -966,13 +972,12 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
             <div class="row">
               <div>
                 <div class="chip gold">MOST RECENTLY ADDED</div>
-                <h2>LOADING REAL DRILLS</h2>
-                <div class="sub">REAL REGISTRY &middot; SESSION-ONLY MODE</div>
+                <h2>TODAY&rsquo;S DRILLS</h2>
+                <div class="sub">Video drills and recall prompts</div>
                 <div class="meta">
-                  <span class="chip">API-FIRST</span>
-                  <span class="chip">MEDIA REQUIRED</span>
-                  <span class="chip cyan">NODES REQUIRED</span>
-                  <span class="chip">NO DEMO DATA</span>
+                  <span class="chip cyan">VIDEO READY</span>
+                  <span class="chip gold">PROMPTS READY</span>
+                  <span class="chip">SESSION RESULTS</span>
                 </div>
                 <button class="btn lg" data-go-step="2">START DRILL</button>
               </div>
@@ -990,14 +995,14 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
               </div>
             </div>
             <div class="nm">SESSION USER</div>
-            <div class="rk">AUTH CONTEXT OWNED BY WIRING</div>
-            <div class="avatar-copy">Avatar loads from MissionMed profile when available.</div>
+            <div class="rk">Practice session</div>
+            <div class="avatar-copy">Your MissionMed avatar appears here when available.</div>
           </div>
           <div class="recent-list">
             <h4>RECENT RESULTS</h4>
             <div class="recent-rows">
-              <div class="r"><div class="pill y"></div><div class="nm">REAL REGISTRY &middot; <b>Loading</b></div><div class="sc">--</div></div>
-              <div class="r"><div class="pill g"></div><div class="nm">SESSION RESULT &middot; <b>Browser only</b></div><div class="sc">--</div></div>
+              <div class="r"><div class="pill y"></div><div class="nm">DRILLS &middot; <b>Loading</b></div><div class="sc">--</div></div>
+              <div class="r"><div class="pill g"></div><div class="nm">SESSION RESULT &middot; <b>This browser</b></div><div class="sc">--</div></div>
             </div>
           </div>
           <button class="btn ghost" data-back-arena>BACK TO ARENA</button>
@@ -1009,7 +1014,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
     <div class="state" data-state="2">
       <div class="section-head">
         <div>
-          <div class="eyebrow"><span class="dot"></span>STATE 02 &middot; CHOOSE EXAM</div>
+          <div class="eyebrow"><span class="dot"></span>CHOOSE EXAM</div>
           <h2 class="h2">WHICH BOARDS ARE YOU TRAINING FOR?</h2>
         </div>
         <button class="btn-back" data-go-step="1">BACK TO DASHBOARD</button>
@@ -1021,8 +1026,6 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <h2>STEP/LEVEL<br>1</h2>
           <p class="desc">Foundational sciences: anatomy, biochem, micro, pharm, path, physio, and pre-clinical recall.</p>
           <div class="pills">
-            <span class="chip">REAL DATA</span>
-            <span class="chip">API-FIRST</span>
             <span class="chip cyan">DAY-1 READY</span>
           </div>
           <span class="pick-cta">PICK STEP 1</span>
@@ -1032,8 +1035,6 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <h2>STEP/LEVEL<br>2 &amp; 3</h2>
           <p class="desc">Clinical sciences: IM, surgery, peds, OB/GYN, psych, family med, clerkship, and shelf-aligned recall.</p>
           <div class="pills">
-            <span class="chip">REAL DATA</span>
-            <span class="chip">API-FIRST</span>
             <span class="chip gold">RECOMMENDED</span>
           </div>
           <span class="pick-cta">PICK STEP 2/3</span>
@@ -1045,7 +1046,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
     <div class="state" data-state="3">
       <div class="section-head">
         <div>
-          <div class="eyebrow"><span class="dot"></span>STATE 03 &middot; CHOOSE SUBJECT</div>
+          <div class="eyebrow"><span class="dot"></span>CHOOSE SUBJECT</div>
           <h2 class="h2">PICK YOUR <span style="color:var(--gold)">SUBJECT.</span></h2>
         </div>
         <div style="display:flex;align-items:center;gap:12px">
@@ -1059,13 +1060,13 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <section class="subject-video-panel">
           <div class="panel-head">
             <div>
-              <div class="subject-col-title">Select Your Video</div>
+              <div class="subject-col-title">Pick a Video Drill</div>
             </div>
-            <span id="sessTopicChip" class="chip gold" style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.10em;padding:8px 14px">REAL REGISTRY &middot; LOADING</span>
+            <span id="sessTopicChip" class="chip gold" style="font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:.10em;padding:8px 14px">DRILLS &middot; LOADING</span>
           </div>
           <div class="sess-shell">
             <div class="sess-list" id="sessList">
-              <!-- populated by JS from the real Daily/Drills registry -->
+              <!-- populated by JS from the Daily/Drills drill list -->
             </div>
           </div>
         </section>
@@ -1076,14 +1077,14 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
     <!-- STATE 4: READY GATE -->
     <div class="state" data-state="4">
       <div class="ready-card">
-        <div class="eyebrow"><span class="dot"></span>STATE 04 &middot; READY TO JUMP IN?</div>
+        <div class="eyebrow"><span class="dot"></span>READY TO JUMP IN?</div>
         <h1>READY TO <span class="accent">JUMP IN.</span></h1>
         <p class="lead" style="margin:14px auto 0;text-align:center">8 questions &middot; 5-minute drill &middot; self-report timed recall</p>
 
         <div class="summary-row">
           <div class="b"><div class="l">EXAM</div><div class="v" id="readyLevel">STEP/LEVEL 2 &amp; 3</div></div>
           <div class="b"><div class="l">SUBJECT</div><div class="v" id="readyTopic">SELECT A REAL DRILL</div></div>
-          <div class="b"><div class="l">VIDEO / DRILL</div><div class="v" id="readySession">MEDIA + NODES REQUIRED</div></div>
+          <div class="b"><div class="l">DRILL</div><div class="v" id="readySession">CHOOSE A DRILL</div></div>
         </div>
 
         <div class="controls">
@@ -1113,19 +1114,22 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           </div>
         </div>
 
-        <div class="kbd-hint" style="margin-bottom:22px">
+        <details class="controls-hint" style="margin-bottom:12px">
+          <summary>Controls</summary>
+          <div class="kbd-hint" style="margin-top:10px">
           <span><kbd>SPACE</kbd> Lock In Answer</span>
           <span><kbd>C</kbd> Correct</span>
           <span><kbd>M</kbd> Missed</span>
           <span><kbd>F</kbd> Flag</span>
           <span><kbd>P</kbd> Pause</span>
-        </div>
+          </div>
+        </details>
 
         <button class="start-orb" id="startOrb" type="button"><span><div>START</div><div class="arrow">&darr;</div></span></button>
 
         <div class="row-cta" style="margin-top:30px">
           <button class="btn-back" data-go-step="3">CHANGE SUBJECT / VIDEO</button>
-          <span class="chip">OUT-OF-TIME = AUTO MISS &middot; NO ALMOST</span>
+          <span class="chip">Answer before time runs out</span>
         </div>
       </div>
     </div>
@@ -1134,9 +1138,9 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
     <div class="state" data-state="5">
       <div class="flow-summary-card">
         <div>
-          <div class="eyebrow"><span class="dot"></span>STATE 05 &middot; SUMMARY + FEEDBACK</div>
+          <div class="eyebrow"><span class="dot"></span>SUMMARY + FEEDBACK</div>
           <h1>SESSION <span class="accent">RECAP.</span></h1>
-          <p class="lead" style="margin-top:8px">Session-only result. Durable dashboard progress requires wiring authority.</p>
+          <p class="lead" style="margin-top:8px">Results stay in this browser for now.</p>
         </div>
         <div class="summary-row-3">
           <div class="b correct"><div class="v" id="flowSumCorrect">--</div><div class="l">Correct</div></div>
@@ -1213,14 +1217,14 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
 
           <div class="m-card recent" data-go-step="2" style="cursor:pointer">
             <span class="chip gold" style="font-size:8px;padding:4px 8px">MOST RECENTLY ADDED</span>
-            <div class="nm" style="margin-top:8px;font-size:22px">LOADING REAL DRILLS</div>
-            <div class="sub">REAL REGISTRY &middot; SESSION-ONLY MODE</div>
+            <div class="nm" style="margin-top:8px;font-size:22px">LOADING DRILLS</div>
+            <div class="sub">VIDEO DRILLS &middot; SESSION-ONLY MODE</div>
           </div>
 
           <div class="m-card" data-go-step="2" style="cursor:pointer">
             <div class="sub">RESULT STATE</div>
             <div class="nm">Session-only</div>
-            <div class="sub">Durable persistence requires wiring authority</div>
+            <div class="sub">History appears after completed sessions</div>
           </div>
 
           <button class="btn" style="width:100%;margin-top:14px" data-go-step="2">CONTINUE &rarr;</button>
@@ -1232,12 +1236,12 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <div class="m-card recent" data-level="step1" style="cursor:pointer">
             <span class="chip">STEP 1</span>
             <div class="nm" style="margin-top:6px">Step/Level 1</div>
-            <div class="sub">Foundational sciences · real registry records</div>
+            <div class="sub">Foundational sciences · video drills</div>
           </div>
           <div class="m-card recent" data-level="step23" style="cursor:pointer;margin-top:8px">
             <span class="chip gold" style="font-size:8px;padding:4px 8px">RECOMMENDED</span>
             <div class="nm" style="margin-top:6px">Step/Level 2 &amp; 3</div>
-            <div class="sub">Clinical sciences · real registry records</div>
+            <div class="sub">Clinical sciences · video drills</div>
           </div>
           <button class="btn ghost" style="width:100%;margin-top:14px" data-go-step="1">BACK</button>
         </div>
@@ -1247,6 +1251,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <div class="m-h1">PICK <span class="accent">SUBJECT</span></div>
           <div class="m-topics" id="mTopicGrid"></div>
           <div id="mSessList"></div>
+          <button class="btn" id="mContinueReady" style="width:100%;margin-top:14px;display:none">CONTINUE TO READY &amp; RUN &rarr;</button>
           <button class="btn ghost" style="width:100%;margin-top:14px" data-go-step="2">BACK</button>
         </div>
 
@@ -1257,8 +1262,8 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
 
           <div class="m-card">
             <div class="sub" id="mReadyLevel">STEP/LEVEL 2 &amp; 3</div>
-            <div class="nm" id="mReadySession">SELECT A REAL DRILL</div>
-            <div class="sub" id="mReadyTopic">Media and nodes required</div>
+            <div class="nm" id="mReadySession">CHOOSE A DRILL</div>
+            <div class="sub" id="mReadyTopic">Video and prompts ready</div>
           </div>
 
           <div class="kbd-hint" style="margin-top:14px">
@@ -1305,7 +1310,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
       <button class="rt-nav-btn" data-nav="arena"><span class="ic">&larr;</span><span>BACK TO<br>ARENA LOBBY</span></button>
       <button class="rt-nav-btn drills" data-nav="drills"><span class="ic">&larr;</span><span>BACK TO<br>DAILY MENU</span></button>
       <button class="rt-nav-btn" id="fullscreenBtn" type="button"><span class="ic">&#9974;</span><span id="fullscreenLabel">FULL<br>SCREEN</span></button>
-      <div class="blk"><h5>ACTIVE STUDENT</h5><div class="v">SESSION USER <small>AUTH BY WIRING</small></div></div>
+      <div class="blk"><h5>ACTIVE STUDENT</h5><div class="v">SESSION USER <small>BROWSER SESSION</small></div></div>
       <div class="blk"><h5>DRILL CONTEXT</h5><div class="v" id="rtCtx">DAILY DRILL</div><div class="kv" style="border:0;padding:6px 0"><span>VIDEO</span><b id="rtSes">AWAITING MEDIA</b></div></div>
       <div class="blk"><h5>LIVE STATUS</h5><div class="v"><span class="live-dot"></span> SELF-REPORT</div></div>
       <div class="blk"><h5>SESSION MODE</h5><div class="seg-tab"><button class="on">DRILL</button><button>REVIEW</button></div></div>
@@ -1415,7 +1420,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
       <div>
         <div class="eyebrow"><span class="dot"></span>SESSION COMPLETE</div>
         <h1>NICE <span class="accent">RECALL.</span></h1>
-        <p class="lead" style="margin-top:8px">Session-only result &middot; durable dashboard progress requires wiring authority</p>
+        <p class="lead" style="margin-top:8px">Session-only result &middot; dashboard history appears after completed sessions</p>
       </div>
       <div class="pct" id="sumPct">88%</div>
     </div>
@@ -1441,7 +1446,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
       <h4>SESSION NOTES</h4>
       <div class="ses">
         <div class="hd"><b>SELF-REPORTED RESULT</b><span>SESSION ONLY</span></div>
-        <p>This v3 comparison mode records only the browser-session result payload. Durable dashboard progress and backend-validated grading require later wiring authority validation.</p>
+        <p>This practice run records only the browser-session result. It does not claim permanent progress or server-verified scoring.</p>
       </div>
     </div>
 
@@ -1540,6 +1545,7 @@ function titleCaseWords(value){
 function looksLikeRawRecordingTitle(value){
   const raw = safeText(value, '');
   return /^gmt\d{8}/i.test(raw.replace(/[\s_-]+/g, '')) ||
+    /^agmt\d{8}/i.test(raw.replace(/[\s_-]+/g, '')) ||
     /recording/i.test(raw) ||
     /\b(?:gvo|gv0|1280x720|1920x1080|mp4|webm|mov)\b/i.test(raw);
 }
@@ -1547,6 +1553,7 @@ function cleanRecordingTitle(value){
   let raw = safeText(value, '');
   raw = raw.replace(/\.[a-z0-9]{2,5}$/i, '');
   raw = raw.replace(/[_-]+/g, ' ');
+  raw = raw.replace(/\bAGMT\s*\d{8}\b/ig, '');
   raw = raw.replace(/\bGMT\s*\d{8}\s*\d{6}\b/ig, '');
   raw = raw.replace(/\bGMT\d{8}\s*\d{6}\b/ig, '');
   raw = raw.replace(/\bGMT\d{8}\b/ig, '');
@@ -1564,6 +1571,25 @@ function formatRegistryDate(value){
   const date = new Date(raw);
   if(Number.isNaN(date.getTime())) return raw;
   return date.toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+}
+function humanDate(value, fallback){
+  return formatRegistryDate(value) || safeText(fallback, 'Not yet attempted');
+}
+function videoAttemptText(session){
+  const watched = Number(session && session.watched || 0);
+  if(!watched) return 'Not yet attempted';
+  return watched + (watched === 1 ? ' attempt' : ' attempts');
+}
+function videoQuestionText(session){
+  const q = Number(session && session.q || 0);
+  if(q > 0) return q + (q === 1 ? ' prompt' : ' prompts');
+  return hasUsableNodeSource(session) ? 'Prompts ready' : 'Prompt check needed';
+}
+function mediaStatusText(session){
+  return hasUsableMedia(session) ? 'Video ready' : 'Media unavailable';
+}
+function nodesStatusText(session){
+  return (hasUsableNodeSource(session) || hasInlinePrompts(session)) ? 'Prompts ready' : 'Prompts unavailable';
 }
 function humanizeSubjectLabel(value){
   const raw = safeText(value, 'DRJ_DRILLS').replace(/[_-]+/g, ' ');
@@ -1595,6 +1621,7 @@ function normalizeDrillRecord(input, fallback){
   const level = safeText(src.step || meta.step || src.level, fallback && fallback.level || 'Step 2/3');
   const topic = safeText(src.topic || src.topic_label || meta.topic_label || src.subject || src.subcategory || src.category, fallback && fallback.topic || title);
   const uploaded = safeText(src.uploaded || src.created_at || meta.created_at || src.date, fallback && fallback.uploaded || 'Runtime');
+  const uploadedLabel = humanDate(uploaded, 'Recently added');
   const promptSeed = Array.isArray(src.prompts) ? src.prompts : (Array.isArray(src.questions) ? src.questions : (Array.isArray(src.nodes) ? src.nodes : []));
   const qCount = Number(src.q || src.question_count || src.total_count || src.totalQuestions || promptSeed.length || (USE_DEMO_DATA && fallback && fallback.q) || (USE_DEMO_DATA ? FALLBACK_PROMPTS.length : 0));
   const streamId = safeText(src.stream_id || src.streamId || meta.stream_id || meta.streamId || deriveStreamIdFromPlaybackUrl(src.playback_url || src.playbackUrl), '');
@@ -1605,9 +1632,11 @@ function normalizeDrillRecord(input, fallback){
     drill_id: id,
     n: Number(src.n || (fallback && fallback.n) || 1),
     title,
+    display_title: title,
     sub: safeText(src.sub || src.subtitle, topic + ' &middot; ' + level),
     topic,
     uploaded,
+    uploaded_label: uploadedLabel,
     source: safeText(src.source || src.original_filename || meta.original_filename || meta.filename, 'Runtime registry'),
     raw_title: safeText(src.title || src.original_filename || meta.original_filename || meta.filename, ''),
     q: Number.isFinite(qCount) && qCount > 0 ? qCount : 0,
@@ -1860,9 +1889,9 @@ function enrichSessionsWithCurriculumSubjects(rows){
     const raw = safeText(row.subject || row.topic_label || row.topic || row.category || row.subcategory, '');
     const isRawBucket = /^DRJ[_\s-]*DRILLS$/i.test(raw);
     return Object.assign({}, row, {
-      subject_key: raw && !isRawBucket ? raw.toLowerCase().replace(/[^a-z0-9]+/g, '_') : 'metadata_pending',
-      subject_name: raw && !isRawBucket ? humanizeSubjectLabel(raw) : 'Metadata pending',
-      subject_system: raw && !isRawBucket ? humanizeSubjectLabel(raw).toUpperCase() : 'METADATA LIMITED',
+      subject_key: raw && !isRawBucket ? raw.toLowerCase().replace(/[^a-z0-9]+/g, '_') : 'other',
+      subject_name: raw && !isRawBucket ? humanizeSubjectLabel(raw) : 'Other',
+      subject_system: raw && !isRawBucket ? humanizeSubjectLabel(raw).toUpperCase() : 'Additional drills',
       subject_uncertain: true
     });
   });
@@ -2373,8 +2402,8 @@ function paintDailyResultNotice(){
   const correct = r.correct_count != null ? r.correct_count : (r.correct != null ? r.correct : '--');
   const total = r.total_count != null ? r.total_count : ((Number(r.correct || 0) + Number(r.miss || 0) + Number(r.oot || 0)) || '--');
   el.hidden = false;
-  el.innerHTML = '<strong>Session result saved for this lab flow.</strong>' +
-    '<span>' + safeText(r.title || r.topic, 'Daily drill') + ' &middot; Score ' + score + ' &middot; Correct ' + correct + ' / ' + total + ' &middot; Persistence: session only. Durable progress requires wiring authority.</span>';
+  el.innerHTML = '<strong>Session result available in this browser.</strong>' +
+    '<span>' + safeText(r.title || r.topic, 'Daily drill') + ' &middot; Score ' + score + ' &middot; Correct ' + correct + ' / ' + total + ' &middot; Results stay in this browser for now.</span>';
 }
 function showDailyMenuAfterReturn(){
   closeRuntime();
@@ -2476,12 +2505,65 @@ let PROMPTS = USE_DEMO_DATA ? FALLBACK_PROMPTS.slice() : [];
    ========================================================= */
 const STATE={
   version:'legacy', step:1, scenario:'default',
-  level:'step1', topic:null, topicKey:null, topicIdx:0, session:null, pace:'recommended',
+  level:'step1', topic:null, topicKey:null, topicIdx:0, session:null, pace:'recommended', sound:'med',
   rt:{idx:0,reveals:false,timer:null,mediaLoop:null,t0:0,locked:false,
       mediaDriven:false,waitingForNode:false,mediaStarted:false,
       correct:0,miss:0,oot:0,streak:0,bestStreak:0,
       times:[],flagged:[],paused:false,breaksRemaining:3,streakToastTimer:null}
 };
+
+const MENU_AUDIO={
+  ctx:null,
+  unlocked:false,
+  levels:{mute:0,low:.035,med:.065,high:.10},
+  events:{
+    tab:[440,520],
+    exam:[520,660],
+    subject:[460,620],
+    video:[620,780],
+    ready:[660,880],
+    tick:[360],
+    go:[760,980],
+    correct:[660,880,1040],
+    miss:[220,180],
+    streak:[780,980,1180],
+    summary:[520,660,820]
+  }
+};
+function initMenuAudio(){
+  if(MENU_AUDIO.ctx) return MENU_AUDIO.ctx;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if(!AudioCtx) return null;
+  try{
+    MENU_AUDIO.ctx = new AudioCtx();
+    MENU_AUDIO.unlocked = true;
+  }catch(_error){
+    MENU_AUDIO.ctx = null;
+  }
+  return MENU_AUDIO.ctx;
+}
+function playMenuSound(name){
+  const volume = MENU_AUDIO.levels[STATE.sound] || 0;
+  if(!volume) return;
+  if(!MENU_AUDIO.unlocked && window.navigator && navigator.userActivation && !navigator.userActivation.hasBeenActive) return;
+  const ctx = initMenuAudio();
+  if(!ctx) return;
+  if(ctx.state === 'suspended') ctx.resume().catch(()=>{});
+  const notes = MENU_AUDIO.events[name] || MENU_AUDIO.events.tab;
+  const start = ctx.currentTime + .01;
+  notes.forEach((freq, index) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, start + index * .055);
+    gain.gain.setValueAtTime(0.0001, start + index * .055);
+    gain.gain.exponentialRampToValueAtTime(volume, start + index * .055 + .018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + index * .055 + .16);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(start + index * .055);
+    osc.stop(start + index * .055 + .18);
+  });
+}
 
 const STORE={
   K_SEL:'mm_selected_drill',K_RES:'mm_daily_drill_result',K_LAUNCH:'mm.launch',
@@ -2679,6 +2761,7 @@ function setStep(n){
   document.getElementById('opState').textContent=n;
   repairActiveStep(n);
   ensureActivePanelVisible();
+  playMenuSound('tab');
   log('step_changed',{step:n,version:STATE.version});
 }
 
@@ -2716,10 +2799,10 @@ function renderStepRecovery(n, error){
     const list=document.getElementById('splitList');
     const sessions=document.getElementById('sessList');
     const detail=document.getElementById('splitDetail');
-    const safeMessage = 'The subject browser could not render from the current registry shape. Choose another route after Wiring Authority validates the data source.';
+    const safeMessage = 'The subject browser could not render the current drill list. Try another subject or come back after the drill list is refreshed.';
     if(list) list.innerHTML = '<div class="subject-col-title">Pick Your Subject</div>' + dataEmptyHTML('Subject browser unavailable', safeMessage, true);
     if(sessions) sessions.innerHTML = dataEmptyHTML('Select Your Video', 'No selected-subject video list could be rendered from the current data shape.', true);
-    if(detail) detail.innerHTML = '<div class="subject-col-title">Review Your Stats</div>' + dataEmptyHTML('Subject history unavailable', 'Session trend appears here when history is available. Error: ' + message, true);
+    if(detail) detail.innerHTML = '<div class="subject-col-title">Review Your Stats</div>' + dataEmptyHTML('Subject history unavailable', 'History appears here after completed sessions. Error: ' + message, true);
   }
   log('step_render_recovered', { step:n, message });
 }
@@ -2751,7 +2834,9 @@ document.body.addEventListener('click',e=>{
   const railStep=e.target.closest('main.tab-content.active .steps-rail .step');
   if(railStep&&railStep.dataset.step){setStep(+railStep.dataset.step);return;}
   const lvl=e.target.closest('[data-level]');
-  if(lvl){STATE.level=lvl.dataset.level;STATE.topicIdx=0;STATE.topic=null;STATE.topicKey=null;paintTopics();paintSessions();setStep(3);return;}
+  if(lvl){STATE.level=lvl.dataset.level;STATE.topicIdx=0;STATE.topic=null;STATE.topicKey=null;playMenuSound('exam');paintTopics();paintSessions();setStep(3);return;}
+  const mobileReady=e.target.closest('#mContinueReady');
+  if(mobileReady){const selected=selectedSessionForCurrentTopic();if(selected) prepareSessionForReady(selected);return;}
   const back=e.target.closest('[data-back-arena]');
   if(back){Bridge.returnToArena();alert('Returning to Main Arena Lobby&hellip;');return;}
 });
@@ -2766,15 +2851,15 @@ function ensureSubjectStepVisible(){
   const list=document.getElementById('splitList');
   const sessions=document.getElementById('sessList');
   const detail=document.getElementById('splitDetail');
-  const noRegistry = HYDRATION_ERROR ? 'Real drill registry could not be loaded: ' + HYDRATION_ERROR : 'No real Daily/Drills registry records are available yet.';
+  const noRegistry = HYDRATION_ERROR ? 'Drills could not be loaded: ' + HYDRATION_ERROR : 'No Daily/Drills records are available yet.';
   if(list && !list.textContent.trim()){
     list.innerHTML = '<div class="subject-col-title">Pick Your Subject</div>' + dataEmptyHTML('No real subjects loaded', noRegistry, true);
   }
   if(sessions && !sessions.textContent.trim()){
-    sessions.innerHTML = dataEmptyHTML('Select Your Video', 'Select a subject to see real video drills. Normal v3 does not substitute demo sessions.', true);
+    sessions.innerHTML = dataEmptyHTML('Select Your Video', 'Select a subject to see video drills. This view does not substitute sample drills.', true);
   }
   if(detail && !detail.textContent.trim()){
-    detail.innerHTML = '<div class="subject-col-title">Review Your Stats</div>' + dataEmptyHTML('Subject history', 'Session trend appears here when history is available. History is session-only / browser-only until durable wiring exists.', false);
+    detail.innerHTML = '<div class="subject-col-title">Review Your Stats</div>' + dataEmptyHTML('Subject history', 'History appears here after completed sessions. Results stay in this browser for now.', false);
   }
 }
 function metricText(value, suffix){
@@ -2821,10 +2906,10 @@ function paintTopics(){
 
   // Paint split list
   const list=document.getElementById('splitList');
-  const noSubjectsMessage = HYDRATION_ERROR ? 'Real drill registry could not be loaded: ' + HYDRATION_ERROR : 'No real Daily/Drills registry records are available for this level yet.';
+  const noSubjectsMessage = HYDRATION_ERROR ? 'Drills could not be loaded: ' + HYDRATION_ERROR : 'No Daily/Drills records are available for this level yet.';
   if(list){
     if(!subjects.length){
-      list.innerHTML = dataEmptyHTML('No real subjects loaded', noSubjectsMessage, true);
+      list.innerHTML = dataEmptyHTML('No subjects loaded', noSubjectsMessage, true);
     }else{
       list.innerHTML='<div class="subject-col-title">Pick Your Subject</div>' + subjects.map((s,i)=>`
       <div class="split-row ${i===STATE.topicIdx?'on':''} ${s.locked?'locked':''}" data-idx="${i}" data-key="${s.key || s.nm}">
@@ -2837,6 +2922,7 @@ function paintTopics(){
       STATE.topicIdx=+r.dataset.idx;
       STATE.topicKey=r.dataset.key;
       list.querySelectorAll('.split-row').forEach(x=>x.classList.toggle('on',x===r));
+      playMenuSound('subject');
       paintSplitDetail();
       paintSessions();
       }));
@@ -2846,12 +2932,13 @@ function paintTopics(){
 
   // Mobile fallback grid
   const mobileGrid=document.getElementById('mTopicGrid');
-  if(mobileGrid) mobileGrid.innerHTML=subjects.length ? subjects.slice(0,10).map(s=>mTopicHTML(s)).join('') : dataEmptyHTML('No real subjects loaded', noSubjectsMessage, true);
+  if(mobileGrid) mobileGrid.innerHTML=subjects.length ? subjects.slice(0,10).map(s=>mTopicHTML(s)).join('') : dataEmptyHTML('No subjects loaded', noSubjectsMessage, true);
   document.querySelectorAll('.m-topic').forEach(c=>{
     c.addEventListener('click',()=>{
       if(c.classList.contains('locked')) return;
       STATE.topic=c.dataset.topic;
       STATE.topicKey=c.dataset.key || c.dataset.topic;
+      playMenuSound('subject');
       paintSessions();
     });
   });
@@ -2864,45 +2951,62 @@ function paintSplitDetail(){
   if(!s){
     STATE.topic = null;
     det.innerHTML = dataEmptyHTML(
-      'No real drill data loaded for this route.',
-      HYDRATION_ERROR ? 'Registry fetch failed: ' + HYDRATION_ERROR : 'Choose another route after Wiring Authority confirms registry access, or use ?lab=1 for demo-only inspection.',
+      'No drill data loaded for this route.',
+      HYDRATION_ERROR ? 'Drills could not be loaded: ' + HYDRATION_ERROR : 'Choose another route after the drill list is available.',
       true
     );
     return;
   }
   STATE.topic=s.nm;
   STATE.topicKey=s.key || s.nm;
+  const selected = selectedSessionForCurrentTopic();
+  if(selected){
+    paintVideoDetail(selected);
+    return;
+  }
+  paintSubjectSummary(s);
+}
+function selectedSessionForCurrentTopic(){
+  if(!STATE.session) return null;
+  const visible = currentTopicSessions();
+  return visible.find(item => item.id === STATE.session.id || item.video_id === STATE.session.video_id) || null;
+}
+function paintSubjectSummary(s){
+  const det=document.getElementById('splitDetail');
+  if(!det || !s) return;
   const subs=(STATE._subAreas&&STATE._subAreas[s.nm])||[];
   const detailCopy = USE_DEMO_DATA
     ? `Drill the full ${s.nm} library with adaptive pacing. ${s.ses} videos available, last viewed 5 days ago. Cohort accuracy ${s.acc}%; your last run averaged 13.4s recall.`
-    : `${s.uncertain?'Metadata is limited for this subject bucket.':'Real curriculum mapping from the legacy Daily menu.'} ${s.ses} video${s.ses===1?'':'s'} available for this subject in v3; history remains session-only / browser-only until durable wiring exists.`;
+    : `${s.ses} video${s.ses===1?'':'s'} available for this subject. Select a drill to inspect details before you continue. Session history appears here after completed drills.`;
   det.innerHTML=`
-    <div class="subject-col-title">Review Your Stats</div>
+    <div class="subject-col-title">Subject Summary</div>
     <div class="sub">${STATE.level==='step1'?'STEP 1 · FOUNDATIONAL':'STEP 2/3 · CLINICAL'} · SUBJECT HISTORY</div>
-    <h2>${s.nm.split(' / ')[0]}<br><span class="accent">${s.ses} VIDEOS</span></h2>
-    <p>${detailCopy}</p>
-    <div class="split-stat-row">
-      <div class="split-stat"><div class="v">${s.ses}</div><div class="l">Videos</div></div>
-      <div class="split-stat"><div class="v">${USE_DEMO_DATA?metricText(s.acc, '%'):'--'}</div><div class="l">Session Acc</div></div>
-      <div class="split-stat"><div class="v">${USE_DEMO_DATA?'13.4s':'--'}</div><div class="l">Avg Recall</div></div>
-      <div class="split-stat"><div class="v">${STATE._visibleSessions&&STATE._visibleSessions.some(x=>x.flagged)?'YES':'--'}</div><div class="l">Flagged</div></div>
-    </div>
-    <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;margin-top:6px">TREND</div>
-    <div class="subarea-chips">
-      ${subs.length?subs.slice(0,8).map(sa=>`<span class="sc">${sa}</span>`).join(''):'<span class="sc">Session trend appears here when history is available.</span>'}
-    </div>
-    <div class="chart-card-mini">
-      <div class="chart-head-mini">
-        <h3>SUBJECT PACE + RESULT</h3>
-        <div class="chart-legend-mini">
-          <span class="lg acc">SESSION</span>
-          <span class="lg spd">RECALL</span>
-        </div>
+    <div class="detail-scroll">
+      <h2>${s.nm.split(' / ')[0]}<br><span class="accent">${s.ses} VIDEO${s.ses===1?'':'S'}</span></h2>
+      <p>${detailCopy}</p>
+      <div class="split-stat-row">
+        <div class="split-stat"><div class="v">${s.ses}</div><div class="l">Videos</div></div>
+        <div class="split-stat"><div class="v">${USE_DEMO_DATA?metricText(s.acc, '%'):'--'}</div><div class="l">Session Acc</div></div>
+        <div class="split-stat"><div class="v">${USE_DEMO_DATA?'13.4s':'--'}</div><div class="l">Avg Recall</div></div>
+        <div class="split-stat"><div class="v">${STATE._visibleSessions&&STATE._visibleSessions.some(x=>x.flagged)?'YES':'--'}</div><div class="l">Flagged</div></div>
       </div>
-      <svg class="chart-svg-mini" id="sessChart" viewBox="0 0 320 180" preserveAspectRatio="none"></svg>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.18em;color:var(--mut);text-transform:uppercase;margin-top:6px">TREND</div>
+      <div class="subarea-chips">
+        ${subs.length?subs.slice(0,8).map(sa=>`<span class="sc">${sa}</span>`).join(''):'<span class="sc">History appears here after completed sessions.</span>'}
+      </div>
+      <div class="chart-card-mini">
+        <div class="chart-head-mini">
+          <h3>SUBJECT PACE + RESULT</h3>
+          <div class="chart-legend-mini">
+            <span class="lg acc">SESSION</span>
+            <span class="lg spd">RECALL</span>
+          </div>
+        </div>
+        <svg class="chart-svg-mini" id="sessChart" viewBox="0 0 320 180" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="side-card-mini featured" id="featuredSess"></div>
+      <div class="side-card-mini" id="deltaSess"></div>
     </div>
-    <div class="side-card-mini featured" id="featuredSess"></div>
-    <div class="side-card-mini" id="deltaSess"></div>
     <div class="pick">
       <button class="btn" data-pick-topic>SHOW VIDEO DRILLS &mdash; ${s.nm.split(' / ')[0]} &rarr;</button>
     </div>
@@ -2910,7 +3014,57 @@ function paintSplitDetail(){
   det.querySelector('[data-pick-topic]')?.addEventListener('click',()=>{
     STATE.topic=s.nm;
     STATE.topicKey=s.key || s.nm;
+    playMenuSound('subject');
     paintSessions();
+  });
+}
+function paintVideoDetail(session){
+  const det=document.getElementById('splitDetail');
+  if(!det || !session) return;
+  const title = safeText(session.display_title || session.title, 'Metadata pending');
+  const subject = safeText(session.subject_name || STATE.topic || session.topic, 'Selected subject');
+  const level = safeText(session.curriculum_level || session.level || examLabel(), examLabel());
+  const added = humanDate(session.uploaded || session.created_at || session.date, 'Recently added');
+  const last = safeText(session.lastCompleted || session.last_completed_at || session.last, '');
+  const lastText = /new|registry/i.test(last) ? 'Not yet attempted' : humanDate(last, 'Not yet attempted');
+  const best = Number.isFinite(Number(session.best)) ? Number(session.best) + '%' : 'History appears here after completed sessions';
+  const avg = Number.isFinite(Number(session.avgRecall)) ? Number(session.avgRecall).toFixed(1) + 's' : 'History appears here after completed sessions';
+  const streak = Number(session.bestStreak || session.best_streak || 0);
+  const flagged = Number(session.flagged_count || session.flaggedCount || (Array.isArray(session.flagged) ? session.flagged.length : 0));
+  det.innerHTML = `
+    <div class="subject-col-title">Drill Details</div>
+    <div class="sub">${subject.toUpperCase()} · ${level.toUpperCase()}</div>
+    <div class="detail-scroll">
+      <h2>${title}<br><span class="accent">${videoQuestionText(session).toUpperCase()}</span></h2>
+      <p>Inspect this drill before you continue. Results stay in this browser for now; saved dashboard progress is not claimed here.</p>
+      <div class="split-stat-row">
+        <div class="split-stat"><div class="v">${session.len || 'Timed'}</div><div class="l">Duration</div></div>
+        <div class="split-stat"><div class="v">${mediaStatusText(session)}</div><div class="l">Video</div></div>
+        <div class="split-stat"><div class="v">${nodesStatusText(session)}</div><div class="l">Prompts</div></div>
+        <div class="split-stat"><div class="v">${videoAttemptText(session)}</div><div class="l">Attempts</div></div>
+      </div>
+      <div class="side-card-mini featured">
+        <div class="sub">Selected Drill</div>
+        <h4>${title}</h4>
+        <div class="kv"><span>Subject</span><b>${subject}</b></div>
+        <div class="kv"><span>Exam</span><b>${level}</b></div>
+        <div class="kv"><span>Added</span><b>${added}</b></div>
+        <div class="kv"><span>Last completed</span><b>${lastText}</b></div>
+      </div>
+      <div class="side-card-mini">
+        <div class="sub">Session History</div>
+        <div class="kv"><span>Average response</span><b>${avg}</b></div>
+        <div class="kv"><span>High score</span><b>${best}</b></div>
+        <div class="kv"><span>Best streak</span><b>${streak || 'Not yet attempted'}</b></div>
+        <div class="kv"><span>Flagged review</span><b>${flagged || 'None this session'}</b></div>
+      </div>
+    </div>
+    <div class="pick">
+      <button class="btn" data-continue-ready>CONTINUE TO READY &amp; RUN &rarr;</button>
+    </div>
+  `;
+  det.querySelector('[data-continue-ready]')?.addEventListener('click',()=>{
+    prepareSessionForReady(STATE.session || session);
   });
 }
 function mTopicHTML(s){
@@ -2939,37 +3093,71 @@ function examLabel(){
 function updateReadySelection(session){
   const selected = session || STATE.session || {};
   const subject = safeText(STATE.topic || selected.subject_name || selected.topic, 'SELECT A SUBJECT');
-  const sessionTitle = selected.title ? selected.title + ' · ' + safeText(selected.uploaded, 'Runtime') : 'SELECT A REAL DRILL';
+  const sessionTitle = selected.title ? selected.title + ' · ' + humanDate(selected.uploaded || selected.created_at || selected.date, 'Ready') : 'CHOOSE A DRILL';
   const lvl=document.getElementById('readyLevel');if(lvl)lvl.textContent=examLabel();
   const t=document.getElementById('readyTopic');if(t)t.textContent=subject.toUpperCase();
   const s=document.getElementById('readySession');if(s)s.textContent=sessionTitle;
   const ml=document.getElementById('mReadyLevel');if(ml)ml.textContent=examLabel();
-  const mt=document.getElementById('mReadyTopic');if(mt)mt.textContent=subject + ' · media and nodes required';
-  const ms=document.getElementById('mReadySession');if(ms)ms.textContent=selected.title || 'SELECT A REAL DRILL';
+  const mt=document.getElementById('mReadyTopic');if(mt)mt.textContent=subject + ' · ' + mediaStatusText(selected) + ' · ' + nodesStatusText(selected);
+  const ms=document.getElementById('mReadySession');if(ms)ms.textContent=selected.title || 'CHOOSE A DRILL';
 }
 function paintSessions(){
   const list=document.getElementById('sessList');
   const listM=document.getElementById('mSessList');
   const visibleSessions = currentTopicSessions();
   STATE._visibleSessions = visibleSessions;
-  const emptyMessage = HYDRATION_ERROR ? 'Registry fetch failed: ' + HYDRATION_ERROR : 'No real drill videos were found for this subject. Normal v3 does not substitute demo sessions.';
-  const html=visibleSessions.length ? visibleSessions.map(s=>sessHTML(s)).join('') : dataEmptyHTML('No real drill videos loaded', emptyMessage, true);
+  const emptyMessage = HYDRATION_ERROR ? 'Drills could not be loaded: ' + HYDRATION_ERROR : 'No drill videos were found for this subject. This view does not substitute sample drills.';
+  const html=visibleSessions.length ? visibleSessions.map(s=>sessHTML(s)).join('') : dataEmptyHTML('No drill videos loaded', emptyMessage, true);
   if(list) list.innerHTML=html;
-  if(listM) listM.innerHTML=visibleSessions.length ? visibleSessions.map(s=>mSessHTML(s)).join('') : dataEmptyHTML('No real drill videos loaded', emptyMessage, true);
+  if(listM) listM.innerHTML=visibleSessions.length ? visibleSessions.map(s=>mSessHTML(s)).join('') : dataEmptyHTML('No drill videos loaded', emptyMessage, true);
+  updateMobileContinueReady();
   // Update topic chip
   const sChip=document.getElementById('sessTopicChip');
-  if(sChip) sChip.textContent=`${(STATE.topic||'REAL REGISTRY').toUpperCase()} · ${visibleSessions.length} REAL VIDEO${visibleSessions.length===1?'':'S'}`;
+  if(sChip) sChip.textContent=`${(STATE.topic||'DRILLS').toUpperCase()} · ${visibleSessions.length} VIDEO${visibleSessions.length===1?'':'S'}`;
   // Wire row clicks
   document.querySelectorAll('.sess,.m-card[data-sess]').forEach(el=>{
     el.addEventListener('click',()=>{
       const sid=el.dataset.sess;
       const nextSession=visibleSessions.find(s=>s.id===sid)||visibleSessions[0]||SESSIONS[0];
       if(!nextSession) return;
-      prepareSessionForReady(nextSession);
+      selectVideoForInspection(nextSession);
     });
   });
-  paintSessChart();
-  paintSessSide(0);
+  highlightSelectedVideo(STATE.session && STATE.session.id);
+  const selected = selectedSessionForCurrentTopic();
+  if(selected) paintVideoDetail(selected);
+  else {
+    paintSessChart();
+    paintSessSide(0);
+  }
+}
+function selectVideoForInspection(session){
+  if(!session) return;
+  STATE.session=session;
+  Bridge.setSelectedDrill(session);
+  updateReadySelection(session);
+  highlightSelectedVideo(session.id);
+  paintVideoDetail(session);
+  updateMobileContinueReady();
+  playMenuSound('video');
+  log('drill_inspected', { video_id: session.video_id || session.id, title: session.title, step: STATE.step });
+}
+function highlightSelectedVideo(id){
+  const selectedId = safeText(id || (STATE.session && STATE.session.id), '');
+  document.querySelectorAll('.sess,.m-card[data-sess]').forEach(el=>{
+    const on = selectedId && el.dataset.sess === selectedId;
+    el.classList.toggle('on', !!on);
+    const label = el.querySelector('.stats-mini .v');
+    if(label) label.textContent = on ? 'SELECTED' : 'SELECT';
+  });
+}
+function updateMobileContinueReady(){
+  const btn=document.getElementById('mContinueReady');
+  if(!btn) return;
+  const selected = selectedSessionForCurrentTopic();
+  btn.style.display = selected ? 'block' : 'none';
+  btn.disabled = !selected;
+  btn.textContent = selected ? 'CONTINUE TO READY & RUN →' : 'CHOOSE A DRILL FIRST';
 }
 function paintSessChart(){
   const svg=document.getElementById('sessChart');if(!svg)return;
@@ -3031,21 +3219,22 @@ function paintSessSide(idx){
   if(!s){
     if(fs) fs.innerHTML = dataEmptyHTML('No selected drill', 'Real media and nodes must load before v3 can start a session.', true);
     const dsEmpty=document.getElementById('deltaSess');
-    if(dsEmpty) dsEmpty.innerHTML = dataEmptyHTML('Registry required', 'No fake score, count, or progress data is shown in normal v3 mode.', true);
+    if(dsEmpty) dsEmpty.innerHTML = dataEmptyHTML('Drill list required', 'No sample score, count, or progress data is shown here.', true);
     return;
   }
   if(fs){fs.innerHTML=`
     <div class="sub">${s.badge==='NEW'?'MOST RECENT':'SELECTED'}</div>
     <h4>${s.title}</h4>
-    <div class="kv"><span>Uploaded</span><b>${s.uploaded}</b></div>
+    <div class="kv"><span>Added</span><b>${humanDate(s.uploaded || s.created_at || s.date, 'Recently added')}</b></div>
     <div class="kv"><span>Length</span><b>${s.len}</b></div>
-    <div class="kv"><span>Prompt Source</span><b>${s.q ? s.q + ' Q' : 'Nodes URL'}</b></div>
-    <div class="kv"><span>Watched</span><b>${s.watched}&times;</b></div>
+    <div class="kv"><span>Prompts</span><b>${videoQuestionText(s)}</b></div>
+    <div class="kv"><span>Attempts</span><b>${videoAttemptText(s)}</b></div>
     <div class="kv"><span>Avg Recall</span><b>${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</b></div>
     <div class="kv"><span>Best Score</span><b>${s.best?s.best+'%':'&mdash;'}</b></div>
-    <button class="btn" data-pick-sess="${s.id}">PREPARE IN TAB 4 &rarr;</button>
+    <button class="btn" data-pick-sess="${s.id}">CONTINUE TO READY &amp; RUN &rarr;</button>
   `;
   fs.querySelector('[data-pick-sess]')?.addEventListener('click',()=>{
+    selectVideoForInspection(s);
     prepareSessionForReady(s);
   });
   }
@@ -3059,40 +3248,40 @@ function paintSessSide(idx){
     <div class="sub">DELTA vs PREV RUN</div>
     <div class="kv"><span>Accuracy</span><b style="color:${accDelta>=0?'var(--green)':'var(--red)'}">${accDelta?(accDelta>0?'+':'')+accDelta+'%':'&mdash;'}</b></div>
     <div class="kv"><span>Recall Time</span><b style="color:${spdDelta<=0?'var(--green)':'var(--red)'}">${spdDelta?(spdDelta>0?'+':'')+spdDelta.toFixed(1)+'s':'&mdash;'}</b></div>
-    <div class="kv"><span>Total Reviews</span><b>${sideSessions.reduce((a,b)=>a+b.watched,0)}&times;</b></div>
+    <div class="kv"><span>Total Reviews</span><b>${sideSessions.reduce((a,b)=>a+b.watched,0) || 'Session-only'}</b></div>
     <div class="kv"><span>Speed Trend</span><b>--</b></div>
   `;}
 }
 function sessHTML(s){
   const recent=s.badge==='NEW'?'most-recent':'';
   const badge=s.badge?`<div class="badge">${s.badge}</div>`:'';
-  const qLabel = s.q ? 'Q ' + s.q : 'NODES';
-  return `<div class="sess ${recent}" data-sess="${s.id}">
+  const qLabel = videoQuestionText(s);
+  const selected = STATE.session && STATE.session.id === s.id;
+  return `<div class="sess ${recent} ${selected?'on':''}" data-sess="${s.id}">
     <div class="thumb">${badge}<div class="play"><span>&#9654;</span></div></div>
     <div class="info">
       <h3>${s.title}</h3>
       <div class="sub">${s.sub} &middot; ${s.len}</div>
       <div class="meta">
-        <span>UPLOADED <b>${s.uploaded}</b></span>
-        <span>WATCHED <b>${s.watched}&times;</b></span>
-        <span>LAST <b>${s.last}</b></span>
+        <span>Added <b>${humanDate(s.uploaded || s.created_at || s.date, 'Recently added')}</b></span>
+        <span><b>${videoAttemptText(s)}</b></span>
         <span><b>${qLabel}</b></span>
-        <span>AVG <b>${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</b></span>
-        <span>BEST <b>${s.best?s.best+'%':'&mdash;'}</b></span>
+        <span>Avg <b>${s.avgRecall?s.avgRecall.toFixed(1)+'s':'After first run'}</b></span>
+        <span>Best <b>${s.best?s.best+'%':'After first run'}</b></span>
       </div>
     </div>
     <div class="stats-mini">
-      <div><div class="v">${STATE.session&&STATE.session.id===s.id?'SELECTED':'SELECT'}</div><div class="l">&rarr;</div></div>
+      <div><div class="v">${selected?'SELECTED':'SELECT'}</div><div class="l">&rarr;</div></div>
     </div>
   </div>`;
 }
 function mSessHTML(s){
-  const qLabel = s.q ? s.q + 'Q' : 'NODES';
+  const qLabel = videoQuestionText(s);
   return `<div class="m-card ${s.badge==='NEW'?'recent':''}" data-sess="${s.id}" style="cursor:pointer">
     ${s.badge?`<span class="chip gold" style="font-size:8px;padding:4px 8px">${s.badge}</span>`:''}
     <div class="nm" style="margin-top:6px">${s.title}</div>
-    <div class="sub">${qLabel} &middot; ${s.len} &middot; ${s.watched}&times; watched</div>
-    <div class="sub">${s.best?s.best+'%':'NEW'} &middot; AVG ${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</div>
+    <div class="sub">${qLabel} &middot; ${s.len} &middot; ${videoAttemptText(s)}</div>
+    <div class="sub">${s.best?s.best+'%':'After first run'} &middot; AVG ${s.avgRecall?s.avgRecall.toFixed(1)+'s':'After first run'}</div>
   </div>`;
 }
 
@@ -3104,6 +3293,8 @@ document.body.addEventListener('click',e=>{
   if(!b) return;
   const seg=b.closest('.seg');seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
   if(seg.dataset.seg==='pace') STATE.pace=b.dataset.val;
+  if(seg.dataset.seg==='sound'){STATE.sound=b.dataset.val;playMenuSound('tab');}
+  if(seg.dataset.seg==='mode') playMenuSound('tab');
 });
 
 /* =========================================================
@@ -3159,6 +3350,7 @@ function showStreakMotivation(){
   if(!message) return;
   const toast=document.getElementById('streakToast');
   if(!toast) return;
+  playMenuSound('streak');
   if(STATE.rt.streakToastTimer) clearTimeout(STATE.rt.streakToastTimer);
   toast.textContent = message;
   toast.classList.add('live');
@@ -3184,6 +3376,7 @@ function prepareSessionForReady(session){
   STATE.session=session;
   Bridge.setSelectedDrill(session);
   updateReadySelection(session);
+  playMenuSound('ready');
   setStep(4);
 }
 
@@ -3223,7 +3416,7 @@ function paintMediaStartBlocked(){
   const fallback=document.getElementById('rtMediaFallback');
   if(stage) stage.classList.add('media-missing');
   if(fallback){
-    fallback.innerHTML = '<div><strong>Media start blocked</strong><span>Use the main Start button again or choose another real MP4-backed drill. V3 will not run fake prompts without controlled media playback.</span></div>';
+    fallback.innerHTML = '<div><strong>Media start blocked</strong><span>Use the main Start button again or choose another MP4-backed drill. V3 will not run sample prompts without controlled media playback.</span></div>';
   }
 }
 function resumeRuntimeMediaUntilNextNode(){
@@ -3235,7 +3428,7 @@ function resumeRuntimeMediaUntilNextNode(){
   startRuntimeMediaPlayback({ reset:false }).then(started => {
     if(!started){
       paintMediaStartBlocked();
-      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a fake prompt-only drill.');
+      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a sample prompt-only drill.');
       return;
     }
     startRuntimeNodeMonitor();
@@ -3322,7 +3515,7 @@ function setStartOrbLoading(loading){
 function paintRuntimeLaunchPending(){
   const session = STATE.session || {};
   const s=document.getElementById('readySession');
-  if(s) s.textContent='LOADING REAL MEDIA + NODE PAUSES';
+  if(s) s.textContent='LOADING VIDEO + PROMPT PAUSES';
   const t=document.getElementById('readyTopic');
   if(t) t.textContent=safeText(session.sub || STATE.topicName, 'REAL DRILL').toUpperCase();
 }
@@ -3341,6 +3534,7 @@ function runStartCountdown(){
       const label=labels[idx];
       value.textContent=label;
       value.classList.toggle('go', label === 'GO');
+      playMenuSound(label === 'GO' ? 'go' : 'tick');
       value.style.animation='none';
       value.offsetHeight;
       value.style.animation='';
@@ -3389,7 +3583,7 @@ async function openRuntime(sessionOverride){
   resetRuntimeTransientState();
   PROMPTS = await loadRuntimePromptsForSession(STATE.session);
   if(!PROMPTS.length){
-    showRuntimeDataError('No real prompts or nodes loaded for this drill. v3 will not start a fake drill.');
+    showRuntimeDataError('No prompts or nodes loaded for this drill. v3 will not start a sample drill.');
     return;
   }
   const mediaSource = runtimeMediaSource(STATE.session);
@@ -3421,7 +3615,7 @@ async function openRuntime(sessionOverride){
     const started = await startRuntimeMediaPlayback({ reset:true, startAt:firstQuestionStartTime(PROMPTS) });
     if(!started){
       paintMediaStartBlocked();
-      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a fake prompt-only drill.');
+      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a sample prompt-only drill.');
       return;
     }
     STATE.rt.mediaStarted = true;
@@ -3550,6 +3744,7 @@ function recordOutcome(out){
   STATE.rt.times.push(dt);
   if(out==='correct'){STATE.rt.correct++;STATE.rt.streak++;if(STATE.rt.streak>STATE.rt.bestStreak)STATE.rt.bestStreak=STATE.rt.streak;}
   if(out==='miss'){STATE.rt.miss++;STATE.rt.streak=0;}
+  playMenuSound(out==='correct' ? 'correct' : 'miss');
   Bridge.recordSelfReport({prompt_idx:STATE.rt.idx,outcome:out,response_time_ms:Math.round(dt)});
   document.getElementById('scCorrect').textContent=STATE.rt.correct;
   document.getElementById('scMiss').textContent=STATE.rt.miss;
@@ -3635,6 +3830,7 @@ function finishSession(){
   closeRuntime();
   populateSummary(savedResult);
   setStep(5);
+  playMenuSound('summary');
   document.getElementById('summaryOverlay').classList.add('live');
   log('summary_opened',{pct});
 }
@@ -3646,6 +3842,7 @@ function openSummary(){
     return;
   }
   populateSummary(r);
+  playMenuSound('summary');
   document.getElementById('summaryOverlay').classList.add('live');
 }
 function populateSummary(r){
