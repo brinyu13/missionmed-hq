@@ -1,5 +1,11 @@
 # MissionMed Arena Changelog
 
+## [2026-05-08 10:42 UTC]
+- PROMPT: AV3-002-f
+- Scope: Controlled Avatar Studio v3 production deployment gate for Profile Locker.
+- Files: LIVE/arena.html
+- Notes: Deploy Avatar Studio v3 parallel UI already committed in `2c87fba`, preserving Avatar v2 locker/upload behavior and locked Arena auth runtime. Backend v3 route deployed separately to Railway `mmvs-avatar-production` / `noble-harmony`; Supabase metadata migration remains pending until a safe single-migration DB apply path is available.
+
 ## [2026-04-26 02:33 UTC] MR-SYSTEM-IMPLEMENTATION-HANDOFF-005
 
 **Files Modified:** System structure
