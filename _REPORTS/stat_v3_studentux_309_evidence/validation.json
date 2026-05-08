@@ -1,0 +1,66 @@
+{
+  "urls": {
+    "statV3": "https://missionmedinstitute.com/stat-v3",
+    "arena": "https://missionmedinstitute.com/arena"
+  },
+  "screenshots": {
+    "01-stat-v3-mode": "/Users/brianb/MissionMed/_REPORTS/stat_v3_studentux_309_evidence/01-stat-v3-mode.png",
+    "02-stat-v3-settings": "/Users/brianb/MissionMed/_REPORTS/stat_v3_studentux_309_evidence/02-stat-v3-settings.png",
+    "03-stat-v3-flow": "/Users/brianb/MissionMed/_REPORTS/stat_v3_studentux_309_evidence/03-stat-v3-flow.png",
+    "04-arena": "/Users/brianb/MissionMed/_REPORTS/stat_v3_studentux_309_evidence/04-arena.png"
+  },
+  "visibleChecks": {
+    "statV3Initial": {
+      "contains": {
+        "statV3": true,
+        "playStatV3": true,
+        "legacyStat": true,
+        "chooseMode": true
+      },
+      "bannedVisible": [],
+      "viewport": {
+        "innerHeight": 900,
+        "scrollHeight": 906,
+        "bodyScrollHeight": 906
+      }
+    },
+    "statV3Settings": {
+      "contains": {
+        "matchSettings": true,
+        "q10": true,
+        "q20": true,
+        "q40": true,
+        "humanAsync": true,
+        "next": true,
+        "back": true
+      },
+      "bannedVisible": [],
+      "viewport": {
+        "innerHeight": 900,
+        "scrollHeight": 906,
+        "bodyScrollHeight": 906
+      }
+    },
+    "statV3Flow": {
+      "contains": {
+        "findOpponent": true,
+        "inviteLink": false,
+        "readyCheck": true,
+        "startCountdown": false,
+        "countdownWord": false
+      },
+      "bannedVisible": []
+    },
+    "arena": {
+      "contains": {
+        "statV3": false,
+        "playStatV3": false,
+        "competitiveDuel": false
+      },
+      "oldVisible": []
+    }
+  },
+  "interactions": [
+    "Clicked Play STAT V3"
+  ]
+}
