@@ -52,6 +52,7 @@
 .mm-cx .mm-runtime-pill { display:inline-flex; align-items:center; gap:7px; border:1px solid var(--mm-line-2); background:#fff; color:var(--mm-navy); border-radius:999px; padding:8px 11px; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; box-shadow:var(--mm-shadow); }
 .mm-cx .mm-runtime-pill.is-live .mm-dot { background:var(--mm-success); }
 .mm-cx .mm-runtime-pill.is-blocked .mm-dot { background:var(--mm-danger); }
+.mm-cx .mm-runtime .mm-viewswitch { display:none; }
 
 .mm-cx .mm-panel { display: none; animation: mm-fade .4s var(--mm-ease) both; }
 .mm-cx .mm-panel.is-active { display: block; }
@@ -181,6 +182,10 @@
 .mm-cx .mm-req-meta { font-size: 12px; color: var(--mm-muted); line-height: 1.4; }
 .mm-cx .mm-req-time { font-size: 11px; color: var(--mm-muted); margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; }
 .mm-cx .mm-req-time b { color: var(--mm-navy); font-weight: 600; }
+.mm-cx .mm-queue-actions { display:flex; gap:6px; align-items:center; margin-top:8px; }
+.mm-cx .mm-queue-status { flex:1; min-width:0; border:1px solid var(--mm-line); border-radius:8px; background:#fff; color:var(--mm-navy); font:800 10px/1.2 var(--mm-sans); text-transform:uppercase; letter-spacing:.04em; padding:7px 8px; }
+.mm-cx .mm-queue-delete { appearance:none; border:1px solid rgba(178,58,58,.28); background:#fff; color:var(--mm-danger); border-radius:8px; cursor:pointer; font:800 10px/1.2 var(--mm-sans); text-transform:uppercase; letter-spacing:.04em; padding:7px 8px; }
+.mm-cx .mm-queue-delete:hover { background:rgba(178,58,58,.07); }
 
 .mm-cx .mm-status-badge { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
 .mm-cx .mm-status-new { background: rgba(201,162,75,0.18); color: #8c6d1f; }
@@ -191,6 +196,7 @@
 .mm-cx .mm-status-draft { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-expired { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-retained { background: rgba(201,162,75,0.18); color: #8c6d1f; }
+.mm-cx .mm-status-archived { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 
 .mm-cx .mm-detail { min-height: 640px; display: flex; flex-direction: column; }
 .mm-cx .mm-detail-empty { flex: 1; display: grid; place-items: center; color: var(--mm-muted); text-align: center; padding: 40px; }
@@ -198,6 +204,10 @@
 .mm-cx .mm-detail-head { padding: 20px 22px; border-bottom: 1px solid var(--mm-line); display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
 .mm-cx .mm-detail-head h2 { margin: 0 0 4px; font-size: 19px; color: var(--mm-navy); }
 .mm-cx .mm-detail-head small { color: var(--mm-muted); font-size: 12px; }
+.mm-cx .mm-detail-actions { display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:220px; }
+.mm-cx .mm-detail-actions-row { display:flex; gap:8px; align-items:center; justify-content:flex-end; flex-wrap:wrap; }
+.mm-cx .mm-build-offer-top { min-width:170px; justify-content:center; padding:12px 18px; font-size:13px; }
+.mm-cx .mm-detail-status-select { border:1px solid var(--mm-line); border-radius:9px; background:#fff; color:var(--mm-navy); font:800 11px/1.2 var(--mm-sans); text-transform:uppercase; letter-spacing:.05em; padding:9px 10px; }
 .mm-cx .mm-detail-body { padding: 18px 22px 24px; display: grid; gap: 16px; }
 
 .mm-cx .mm-tabs { display: inline-flex; padding: 4px; background: var(--mm-paper); border-radius: 10px; border: 1px solid var(--mm-line); gap: 2px; flex-wrap: wrap; }
@@ -289,6 +299,8 @@
 .mm-cx .mm-preflight li.warn { color: var(--mm-warn); list-style: "!  "; }
 .mm-cx .mm-live-link { width:100%; border:1px solid var(--mm-line-2); border-radius:10px; padding:10px 12px; background:#fff; color:var(--mm-navy); font-size:12px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; overflow:auto; white-space:nowrap; }
 .mm-cx .mm-ops-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+.mm-cx .mm-other-field { display:none; margin-top:8px; }
+.mm-cx .mm-other-field.is-visible { display:block; }
 @media (max-width: 720px) { .mm-cx .mm-ops-grid { grid-template-columns:1fr; } }
 
 /* Portal */
@@ -385,11 +397,6 @@
       </div>
     </div>
     <div class="mm-runtime">
-      <div class="mm-viewswitch" role="tablist" aria-label="Switch view">
-        <button type="button" data-view="student"><span class="mm-dot"></span>Student Intake</button>
-        <button type="button" data-view="hq" class="is-active"><span class="mm-dot"></span>HQ Workspace</button>
-        <button type="button" data-view="portal"><span class="mm-dot"></span>Student Portal</button>
-      </div>
       <span class="mm-runtime-pill" id="mmRuntimePill"><span class="mm-dot"></span><span id="mmRuntimeText">Checking session</span></span>
     </div>
   </div>
@@ -520,6 +527,7 @@
             <option value="ACCEPTED">Accepted</option>
             <option value="DECLINED">Declined</option>
             <option value="RETAINED">Retained</option>
+            <option value="ARCHIVED">Archived</option>
           </select>
           <select id="mmSort" title="Sort">
             <option value="urgent">Most Urgent</option>
@@ -550,8 +558,15 @@
               <small id="mmDetMeta">-</small>
               <div class="mm-mini-meta" id="mmDetMini"></div>
             </div>
-            <div style="display:flex; flex-direction: column; align-items: flex-end; gap: 8px;">
-              <span class="mm-status-badge mm-status-new" id="mmDetStatus">NEW</span>
+            <div class="mm-detail-actions">
+              <div class="mm-detail-actions-row">
+                <button type="button" class="mm-btn mm-btn-primary mm-build-offer-top" id="mmActGotoOffer">Build offer</button>
+                <span class="mm-status-badge mm-status-new" id="mmDetStatus">NEW</span>
+              </div>
+              <div class="mm-detail-actions-row">
+                <select class="mm-detail-status-select" id="mmDetailStatusSelect" title="Change request status"></select>
+                <button type="button" class="mm-btn mm-btn-sm mm-btn-danger" id="mmActDelete">Delete request</button>
+              </div>
               <div class="mm-tabs" id="mmDetTabs">
                 <button type="button" data-tab="overview" class="is-active">Overview</button>
                 <button type="button" data-tab="comms">Communication</button>
@@ -564,6 +579,7 @@
           <div class="mm-detail-body">
             <!-- Overview -->
             <div class="mm-tabpane is-active" data-pane="overview">
+              <div class="mm-admin-tracker" id="mmAdminTracker"></div>
               <div class="mm-prefs-grid">
                 <div class="mm-pref-card"><small>Specialty (ranked)</small><div class="mm-pref-list" id="mmDetSpecs"></div></div>
                 <div class="mm-pref-card"><small>Location (ranked)</small><div class="mm-pref-list" id="mmDetLocs"></div></div>
@@ -573,12 +589,10 @@
                 <small>Student notes</small>
                 <div id="mmDetNotes" style="font-size:13px; color: var(--mm-ink); font-weight: 500;">-</div>
               </div>
-              <div class="mm-admin-tracker" id="mmAdminTracker"></div>
               <div class="mm-quickact">
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActCall">&#128222; Log call to site</button>
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActNote">&#128221; Add internal note</button>
                 <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="mmActStatus">&#8635; Mark In Progress</button>
-                <button type="button" class="mm-btn mm-btn-sm mm-btn-dark" id="mmActGotoOffer">&rarr; Build offer</button>
               </div>
             </div>
 
@@ -603,7 +617,7 @@
                   </div>
                   <div class="mm-composer-actions">
                     <button type="button" class="mm-btn mm-btn-sm mm-btn-ghost" id="cmpCancel">Cancel</button>
-                    <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="cmpSend">Send message</button>
+                    <button type="button" class="mm-btn mm-btn-sm mm-btn-primary" id="cmpSend">Log message</button>
                   </div>
                 </div>
               </div>
@@ -624,9 +638,11 @@
                     </select>
                   </div>
                   <div class="mm-field" style="margin:0;"><label class="mm-label">Specialty</label>
-                    <select class="mm-select" id="mmOfSpecialty"></select></div>
+                    <select class="mm-select" id="mmOfSpecialty"></select>
+                    <input class="mm-input mm-other-field" id="mmOfSpecialtyOther" placeholder="Type the specialty or rotation"></div>
                   <div class="mm-field" style="margin:0;"><label class="mm-label">Location</label>
-                    <select class="mm-select" id="mmOfLocation"></select></div>
+                    <select class="mm-select" id="mmOfLocation"></select>
+                    <input class="mm-input mm-other-field" id="mmOfLocationOther" placeholder="Type the city, state, or preferred region"></div>
                   <div class="mm-field" style="margin:0;"><label class="mm-label">Rotation length</label>
                     <select class="mm-select" id="mmOfLength">
                       <option>2 weeks</option><option selected>4 weeks</option>
@@ -752,7 +768,7 @@
       <div class="mm-modal-head">
         <div>
           <h3 id="mmModalTitle">Offer Email - Preview</h3>
-          <small style="color:var(--mm-muted); font-size: 12px;">Review. Edit. Approve. Send.</small>
+          <small style="color:var(--mm-muted); font-size: 12px;">Review. Edit. Approve. Log dry-run until live send is enabled.</small>
         </div>
         <button type="button" class="mm-modal-close" id="mmModalClose" aria-label="Close">&times;</button>
       </div>
@@ -767,7 +783,7 @@
         </div>
         <div class="mm-approve-bar" id="mmApproveBar" style="margin-top: 14px;">
           <span class="mm-check"></span>
-          <span id="mmApproveText">Approve final version before sending</span>
+          <span id="mmApproveText">Approve final version before dry-run logging</span>
         </div>
       </div>
       <div class="mm-modal-foot">
@@ -775,7 +791,7 @@
         <div style="display:flex; gap:10px; flex-wrap: wrap;">
           <button type="button" class="mm-btn mm-btn-ghost" id="mmEmailEdit">Edit</button>
           <button type="button" class="mm-btn mm-btn-dark" id="mmEmailApprove">Approve</button>
-          <button type="button" class="mm-btn mm-btn-success" id="mmEmailSend" disabled>Send Offer</button>
+          <button type="button" class="mm-btn mm-btn-success" id="mmEmailSend" disabled>Log Dry-Run Offer</button>
         </div>
       </div>
     </div>
@@ -854,6 +870,7 @@
     ACCEPTED: 'offer_ready',
     DECLINED: 'archived',
     RETAINED: 'reviewed',
+    ARCHIVED: 'archived',
     DRAFT: 'in_progress'
   };
   const LIVE_TO_STATUS = {
@@ -861,12 +878,22 @@
     reviewed: 'IN_PROGRESS',
     in_progress: 'IN_PROGRESS',
     offer_ready: 'OFFERED',
-    archived: 'DECLINED'
+    archived: 'ARCHIVED'
   };
 
   /* ---- Catalogs ---- */
-  const SPECIALTIES = ["Internal Medicine","Family Medicine","Pediatrics","Emergency Medicine","Surgery","Psychiatry","OB/GYN","Cardiology","Neurology","Radiology","Anesthesiology","Dermatology"];
-  const LOCATIONS = ["New York, NY","Miami, FL","Chicago, IL","Los Angeles, CA","Houston, TX","Atlanta, GA","Boston, MA","Philadelphia, PA","Dallas, TX","Phoenix, AZ"];
+  const OTHER_OPTION = "Other / custom";
+  const INTAKE_STATUS_OPTIONS = [
+    { value: "NEW", label: "New" },
+    { value: "IN_PROGRESS", label: "In progress" },
+    { value: "OFFERED", label: "Offered" },
+    { value: "ACCEPTED", label: "Accepted" },
+    { value: "DECLINED", label: "Declined" },
+    { value: "RETAINED", label: "Retained" },
+    { value: "ARCHIVED", label: "Archived" }
+  ];
+  const SPECIALTIES = ["Internal Medicine","Family Medicine","Pediatrics","Emergency Medicine","Surgery","Psychiatry","OB/GYN","Cardiology","Neurology","Radiology","Anesthesiology","Dermatology",OTHER_OPTION];
+  const LOCATIONS = ["Chicago","Miami","Texas","Arizona","California",OTHER_OPTION];
   const MONTHS = ["May 2026","Jun 2026","Jul 2026","Aug 2026","Sep 2026","Oct 2026","Nov 2026","Dec 2026","Jan 2027","Feb 2027"];
   const COORDINATOR = "Phil";
   const SLA_AMBER_HRS = 24, SLA_RED_HRS = 48;
@@ -962,7 +989,7 @@
     return d.toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
   }
   function slaLevel(r){
-    if (['ACCEPTED','DECLINED','RETAINED','OFFERED'].indexOf(r.status) > -1) return 'green';
+    if (['ACCEPTED','DECLINED','RETAINED','OFFERED','ARCHIVED'].indexOf(r.status) > -1) return 'green';
     const hrs = (Date.now() - r.submittedAt) / 3600000;
     if (hrs >= SLA_RED_HRS) return 'red';
     if (hrs >= SLA_AMBER_HRS) return 'amber';
@@ -1422,6 +1449,17 @@
   /* =========================================================
      HQ DASHBOARD
      ========================================================= */
+  function statusLabel(value){
+    const found = INTAKE_STATUS_OPTIONS.find(option => option.value === value);
+    return found ? found.label : String(value || '').replace(/_/g, ' ');
+  }
+
+  function statusOptionHtml(selected){
+    return INTAKE_STATUS_OPTIONS.map(option =>
+      '<option value="' + esc(option.value) + '"' + (option.value === selected ? ' selected' : '') + '>' + esc(option.label) + '</option>'
+    ).join('');
+  }
+
   function refreshStats(){
     const by = (s) => state.requests.filter(r => r.status === s).length;
     $('#st_new').textContent = by('NEW');
@@ -1432,7 +1470,8 @@
 
   function filteredRequests(){
     let list = state.requests.slice();
-    if (state.filter !== 'all') list = list.filter(r => r.status === state.filter);
+    if (state.filter === 'all') list = list.filter(r => r.status !== 'ARCHIVED');
+    else list = list.filter(r => r.status === state.filter);
     if (state.query) {
       const q = state.query.toLowerCase();
       list = list.filter(r => (r.name+' '+r.email+' '+(r.specialties||[]).join(' ')+' '+(r.locations||[]).join(' ')).toLowerCase().indexOf(q) > -1);
@@ -1440,7 +1479,7 @@
     if (state.sort === 'newest') list.sort((a,b)=>b.submittedAt-a.submittedAt);
     else if (state.sort === 'oldest') list.sort((a,b)=>a.submittedAt-b.submittedAt);
     else if (state.sort === 'urgent') list.sort((a,b)=>{
-      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','DECLINED','RETAINED','ACCEPTED'].indexOf(r.status);
+      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','DECLINED','RETAINED','ACCEPTED','ARCHIVED'].indexOf(r.status);
       const ra = rank(a), rb = rank(b);
       if (ra !== rb) return ra - rb;
       return a.submittedAt - b.submittedAt;
@@ -1466,15 +1505,29 @@
       item.innerHTML =
         '<div class="mm-req-item-top">' +
           '<span class="mm-req-name"><span class="mm-sla-dot mm-sla-'+sla+'" title="SLA: '+sla+'"></span><span class="mm-nm-txt"></span></span>' +
-          '<span class="mm-status-badge mm-status-' + r.status.toLowerCase() + '">' + r.status.replace('_',' ') + '</span>' +
+          '<span class="mm-status-badge mm-status-' + r.status.toLowerCase() + '">' + esc(statusLabel(r.status)) + '</span>' +
         '</div>' +
         '<div class="mm-req-meta"></div>' +
-        '<div class="mm-req-time"><span></span><b></b></div>';
+        '<div class="mm-req-time"><span></span><b></b></div>' +
+        '<div class="mm-queue-actions">' +
+          '<select class="mm-queue-status" title="Change status">' + statusOptionHtml(r.status) + '</select>' +
+          '<button type="button" class="mm-queue-delete" title="Archive this request">Delete</button>' +
+        '</div>';
       item.querySelector('.mm-nm-txt').textContent = r.name;
       item.querySelector('.mm-req-meta').textContent = r.program + ' \u00B7 ' + (r.specialties[0] || '-') + ' \u00B7 ' + (r.locations[0] || '-');
       item.querySelector('.mm-req-time span').textContent = fmtDateTime(r.submittedAt);
       item.querySelector('.mm-req-time b').textContent = fmtAgo(r.submittedAt);
       item.addEventListener('click', ()=> selectRequest(r.id));
+      const statusSelect = item.querySelector('.mm-queue-status');
+      statusSelect.addEventListener('click', (event)=> event.stopPropagation());
+      statusSelect.addEventListener('change', (event)=> {
+        event.stopPropagation();
+        updateRequestStatus(r, event.target.value);
+      });
+      item.querySelector('.mm-queue-delete').addEventListener('click', (event)=> {
+        event.stopPropagation();
+        archiveRequest(r);
+      });
       list.appendChild(item);
     });
     if (state.selectedRequestId) renderDetail();
@@ -1509,7 +1562,12 @@
 
     const badge = $('#mmDetStatus');
     badge.className = 'mm-status-badge mm-status-' + r.status.toLowerCase();
-    badge.textContent = r.status.replace('_',' ');
+    badge.textContent = statusLabel(r.status);
+    const detailStatus = $('#mmDetailStatusSelect');
+    if (detailStatus) {
+      detailStatus.innerHTML = statusOptionHtml(r.status);
+      detailStatus.value = r.status;
+    }
 
     renderRankedList($('#mmDetSpecs'), r.specialties);
     renderRankedList($('#mmDetLocs'), r.locations);
@@ -1608,6 +1666,12 @@
       adminAction = 'Prepare alternate option';
       adminDetail = 'No tuition CTA should appear while alternate options are being prepared.';
       studentState = 'Alternate requested';
+    } else if (status === 'ARCHIVED') {
+      index = 3;
+      waitingOn = 'Complete';
+      adminAction = 'Archived from active queue';
+      adminDetail = 'This request is hidden from the default queue but preserved for audit history.';
+      studentState = 'Closed by coordinator';
     }
     if (offer && offer.paymentStatus === 'paid') {
       index = 4;
@@ -1717,11 +1781,9 @@
   });
 
   /* Quick actions - overview */
-  $('#mmActGotoOffer').addEventListener('click', ()=> switchTab('offer'));
-  $('#mmActStatus').addEventListener('click', async ()=> {
-    const r = currentReq(); if (!r) return;
+  async function updateRequestStatus(r, next, options = {}){
+    if (!r || !next || r.status === next) return;
     const from = r.status;
-    const next = r.status === 'NEW' ? 'IN_PROGRESS' : 'NEW';
     try {
       if (state.adapter === 'live') {
         await adminFetch(CONFIG.adminStatusEndpoint, { id: r.sourceId || r.id }, {
@@ -1731,13 +1793,40 @@
         setAdapterBanner('intake status updated through protected Railway endpoint.', 'live');
       }
       r.status = next;
-      pushAudit(r, from, r.status, COORDINATOR + ' updated status');
-      renderRequestList(); renderDetail();
-      toast('Status: ' + r.status.replace('_',' '));
+      pushAudit(r, from, r.status, options.reason || (COORDINATOR + ' updated status'));
+      if (next === 'ARCHIVED' && state.selectedRequestId === r.id) state.selectedRequestId = null;
+      renderRequestList();
+      if (state.selectedRequestId) renderDetail();
+      else { $('#mmDetailEmpty').style.display='grid'; $('#mmDetailContent').style.display='none'; }
+      toast(options.toast || ('Status: ' + statusLabel(r.status)));
     } catch (error) {
       setAdapterBanner('status update blocked safely: ' + errorSummary(error), 'blocked');
       toast('Status update blocked safely');
+      renderRequestList();
+      if (state.selectedRequestId) renderDetail();
     }
+  }
+
+  function archiveRequest(r){
+    if (!r) return;
+    const label = r.name ? ('Delete ' + r.name + ' from the active queue?') : 'Delete this request from the active queue?';
+    if (!window.confirm(label + '\n\nThis archives the request; it does not destroy database history.')) return;
+    updateRequestStatus(r, 'ARCHIVED', {
+      reason: COORDINATOR + ' archived request from active queue',
+      toast: 'Request removed from active queue'
+    });
+  }
+
+  $('#mmActGotoOffer').addEventListener('click', ()=> switchTab('offer'));
+  $('#mmDetailStatusSelect').addEventListener('change', (event)=> {
+    const r = currentReq(); if (!r) return;
+    updateRequestStatus(r, event.target.value);
+  });
+  $('#mmActDelete').addEventListener('click', ()=> archiveRequest(currentReq()));
+  $('#mmActStatus').addEventListener('click', ()=> {
+    const r = currentReq(); if (!r) return;
+    const next = r.status === 'NEW' ? 'IN_PROGRESS' : 'NEW';
+    updateRequestStatus(r, next);
   });
   $('#mmActCall').addEventListener('click', ()=> openPrompt('Log call to site', 'Call notes (who, outcome, next step)', (v)=> {
     const r = currentReq(); if (!r || !v.trim()) return;
@@ -1863,17 +1952,41 @@
   }
 
   /* Offer builder */
+  function showOtherOfferFields(){
+    const specOther = $('#mmOfSpecialtyOther');
+    const locOther = $('#mmOfLocationOther');
+    if (specOther) specOther.classList.toggle('is-visible', $('#mmOfSpecialty').value === OTHER_OPTION);
+    if (locOther) locOther.classList.toggle('is-visible', $('#mmOfLocation').value === OTHER_OPTION);
+  }
+
+  function offerSpecialtyValue(){
+    const value = $('#mmOfSpecialty').value;
+    if (value !== OTHER_OPTION) return value;
+    const custom = $('#mmOfSpecialtyOther').value.trim();
+    return custom ? 'Other: ' + custom : '';
+  }
+
+  function offerLocationValue(){
+    const value = $('#mmOfLocation').value;
+    if (value !== OTHER_OPTION) return value;
+    const custom = $('#mmOfLocationOther').value.trim();
+    return custom ? 'Other: ' + custom : '';
+  }
+
   function renderOfferBuilder(r){
     const existing = getOfferForRequest(r);
     const specSel = $('#mmOfSpecialty');
     const specPool = (r.specialties || []).concat(SPECIALTIES.filter(s => (r.specialties||[]).indexOf(s)<0));
     fillSelectEl(specSel, specPool);
     specSel.value = (existing && existing.specialty) || (r.specialties && r.specialties[0]) || specPool[0] || '';
+    $('#mmOfSpecialtyOther').value = '';
 
     const locSel = $('#mmOfLocation');
-    const locPool = (r.locations || []).concat(LOCATIONS.filter(l => (r.locations||[]).indexOf(l)<0));
+    const locPool = LOCATIONS.slice();
     fillSelectEl(locSel, locPool);
-    locSel.value = (existing && existing.location) || (r.locations && r.locations[0]) || locPool[0] || '';
+    locSel.value = (existing && LOCATIONS.indexOf(existing.location) > -1 && existing.location) || locPool[0] || '';
+    $('#mmOfLocationOther').value = existing && LOCATIONS.indexOf(existing.location) < 0 ? String(existing.location || '').replace(/^Other:\s*/i, '') : '';
+    if (existing && existing.location && LOCATIONS.indexOf(existing.location) < 0) locSel.value = OTHER_OPTION;
 
     $('#mmOfLength').value = (existing && existing.length) || r.length || '4 weeks';
 
@@ -1902,7 +2015,8 @@
     $('#mmOpsLearndash').value = (existing && existing.learndashStatus) || 'locked';
     renderLiveOfferBox(r);
 
-    ['#mmOfProgram','#mmOfSpecialty','#mmOfLocation','#mmOfLength','#mmOfExpire','#mmOfStart','#mmMessageChoice'].forEach(sel => {
+    showOtherOfferFields();
+    ['#mmOfProgram','#mmOfSpecialty','#mmOfLocation','#mmOfLength','#mmOfExpire','#mmOfStart','#mmMessageChoice','#mmOfSpecialtyOther','#mmOfLocationOther'].forEach(sel => {
       const el = $(sel); el.oninput = updatePreflight; el.onchange = updatePreflight;
     });
     updatePreflight();
@@ -1932,8 +2046,9 @@
     const r = currentReq(); if (!r) return;
     const pf = $('#mmPreflight');
     const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
-    const spec = $('#mmOfSpecialty').value;
-    const loc = $('#mmOfLocation').value;
+    showOtherOfferFields();
+    const spec = offerSpecialtyValue();
+    const loc = offerLocationValue();
     const items = [];
     items.push({ ok: !!spec, msg: spec ? 'Specialty set: ' + spec : 'Specialty required' });
     items.push({ ok: !!loc, msg: loc ? 'Location set: ' + loc : 'Location required' });
@@ -1951,7 +2066,9 @@
   function readOfferForm(){
     const r = currentReq(); if (!r) return null;
     const months = $$('#mmOfMonths .mm-month.is-on').map(b => b.dataset.val);
-    if (!$('#mmOfSpecialty').value || !$('#mmOfLocation').value) { toast('Set specialty and location'); return null; }
+    const specialty = offerSpecialtyValue();
+    const location = offerLocationValue();
+    if (!specialty || !location) { toast('Set specialty and location'); return null; }
     if (!months.length) { toast('Pick at least one offered month'); return null; }
     const expireHrs = parseInt($('#mmOfExpire').value, 10);
     return {
@@ -1959,8 +2076,8 @@
       requestId: r.id,
       student: { name: r.name, email: r.email, phone: r.phone },
       program: $('#mmOfProgram').value,
-      specialty: $('#mmOfSpecialty').value,
-      location: $('#mmOfLocation').value,
+      specialty,
+      location,
       length: $('#mmOfLength').value,
       months,
       start: $('#mmOfStart').value,
@@ -2145,7 +2262,7 @@ CONFIG.gmailMailboxes[0];
     $('#emBody').setAttribute('contenteditable', 'false');
     const bar = $('#mmApproveBar');
     bar.classList.toggle('is-approved', !!d.approved);
-    $('#mmApproveText').textContent = d.approved ? 'Approved - ready to send' : 'Approve final version before sending';
+    $('#mmApproveText').textContent = d.approved ? 'Approved - ready to log dry-run' : 'Approve final version before dry-run logging';
     $('#mmEmailSend').disabled = !d.approved;
     $('#mmEmailEdit').textContent = 'Edit';
   }
@@ -2158,7 +2275,7 @@ CONFIG.gmailMailboxes[0];
       $('#mmEmailEdit').textContent = 'Done editing';
       state.draftEmail.approved = false;
       $('#mmApproveBar').classList.remove('is-approved');
-      $('#mmApproveText').textContent = 'Approve final version before sending';
+      $('#mmApproveText').textContent = 'Approve final version before dry-run logging';
       $('#mmEmailSend').disabled = true;
       toast('Editing enabled');
     } else {
@@ -2182,7 +2299,7 @@ CONFIG.gmailMailboxes[0];
     }
     state.draftEmail.approved = true;
     $('#mmApproveBar').classList.add('is-approved');
-    $('#mmApproveText').textContent = 'Approved - ready to send';
+    $('#mmApproveText').textContent = 'Approved - ready to log dry-run';
     $('#mmEmailSend').disabled = false;
     toast('Offer email approved');
   }
