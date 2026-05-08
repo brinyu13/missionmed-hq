@@ -450,6 +450,7 @@ kbd{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--txt);backg
 .start-orb{position:relative;width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fde68a 0%,#f5a90c 60%,#8a5300 100%);box-shadow:0 16px 40px -8px rgba(252,211,77,.55),0 28px 56px -12px rgba(0,0,0,.7),inset 0 4px 8px rgba(255,255,255,.55),inset 0 -10px 24px rgba(0,0,0,.45),0 0 0 6px rgba(252,211,77,.10);display:grid;place-items:center;color:#0a1228;font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:.10em;cursor:pointer;margin:0 auto;border:0;transition:transform .1s}
 .start-orb:hover{transform:scale(1.04)}
 .start-orb:active{transform:scale(.97)}
+.start-orb:disabled,.start-orb.is-loading{cursor:wait;filter:saturate(.82);transform:none;opacity:.82}
 .start-orb::after{content:"";position:absolute;inset:14px;border-radius:50%;border:1px dashed rgba(0,0,0,.18);pointer-events:none}
 .start-orb .arrow{font-size:46px;line-height:.7}
 .countdown-overlay{position:fixed;inset:0;z-index:380;display:none;place-items:center;background:radial-gradient(circle at 50% 44%,rgba(252,211,77,.18),rgba(3,5,13,.94) 58%,rgba(3,5,13,.98));backdrop-filter:blur(6px)}
@@ -3133,6 +3134,15 @@ function updateBreakButton(){
   b.disabled = left <= 0 && !STATE.rt.paused;
   b.textContent = STATE.rt.paused ? `RESUME (${left} LEFT)` : `TAKE A BREAK (${left} LEFT)`;
 }
+function resetRuntimeScoreboardUI(){
+  const set = (id, value) => { const el=document.getElementById(id); if(el) el.textContent=value; };
+  set('scCorrect', '0');
+  set('scMiss', '0');
+  set('scOOT', '0');
+  set('scAvg', '—');
+  set('scFast', '—');
+  set('scBest', '0');
+}
 function updateStreakUI(){
   const streak = Number(STATE.rt.streak || 0);
   const sc=document.getElementById('scStreak');if(sc) sc.textContent=streak;
@@ -3163,6 +3173,7 @@ function resetRuntimeTransientState(){
             mediaDriven:false,waitingForNode:false,mediaStarted:false,
             correct:0,miss:0,oot:0,streak:0,bestStreak:0,
             times:[],flagged:[],paused:false,breaksRemaining:BREAK_LIMIT,streakToastTimer:null};
+  resetRuntimeScoreboardUI();
   updateQuestionCounter();
   updateBreakButton();
   updateStreakUI();
@@ -3297,6 +3308,24 @@ function canAttemptRuntimeStart(){
   return true;
 }
 let COUNTDOWN_ACTIVE = false;
+function setStartOrbLoading(loading){
+  document.querySelectorAll('#startOrb,#startOrbMobile').forEach(orb => {
+    if(!orb) return;
+    orb.disabled = !!loading;
+    orb.classList.toggle('is-loading', !!loading);
+    const text = orb.querySelector('span div:first-child');
+    const arrow = orb.querySelector('.arrow');
+    if(text) text.textContent = loading ? 'LOADING' : 'START';
+    if(arrow) arrow.textContent = loading ? '...' : '↓';
+  });
+}
+function paintRuntimeLaunchPending(){
+  const session = STATE.session || {};
+  const s=document.getElementById('readySession');
+  if(s) s.textContent='LOADING REAL MEDIA + NODE PAUSES';
+  const t=document.getElementById('readyTopic');
+  if(t) t.textContent=safeText(session.sub || STATE.topicName, 'REAL DRILL').toUpperCase();
+}
 function runStartCountdown(){
   return new Promise(resolve => {
     const overlay=document.getElementById('countdownOverlay');
@@ -3334,8 +3363,14 @@ async function startRuntimeWithCountdown(){
   if(COUNTDOWN_ACTIVE) return;
   if(!canAttemptRuntimeStart()) return;
   const launchSession = STATE.session;
-  await runStartCountdown();
-  await openRuntime(launchSession);
+  setStartOrbLoading(true);
+  try{
+    await runStartCountdown();
+    paintRuntimeLaunchPending();
+    await openRuntime(launchSession);
+  }finally{
+    setStartOrbLoading(false);
+  }
 }
 async function openRuntime(sessionOverride){
   STATE.session=sessionOverride||STATE.session||SESSIONS[0];
@@ -3374,6 +3409,8 @@ async function openRuntime(sessionOverride){
             mediaDriven,waitingForNode:false,mediaStarted:false,
             correct:0,miss:0,oot:0,streak:0,bestStreak:0,
             times:[],flagged:[],paused:false,breaksRemaining:BREAK_LIMIT,streakToastTimer:null};
+  resetRuntimeScoreboardUI();
+  updateStreakUI();
   document.getElementById('rtCtx').textContent=(STATE.session.sub||'CARDIO').toUpperCase();
   document.getElementById('rtSes').textContent=STATE.session.id;
   document.getElementById('runtimeShell').classList.add('live');
@@ -3406,6 +3443,7 @@ function closeRuntime(){
   }
   document.getElementById('runtimeShell').classList.remove('live');
   document.getElementById('runtimeShell').classList.remove('is-fullscreen');
+  setStartOrbLoading(false);
   document.getElementById('opRt').textContent='idle';
   if(STATE.rt.timer){cancelAnimationFrame(STATE.rt.timer);STATE.rt.timer=null;}
   const video = getRuntimeVideoElement();
