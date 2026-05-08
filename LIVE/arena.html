@@ -5340,11 +5340,11 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
             <div class="mode-card-desc fn-card-players">HEAD-TO-HEAD DUEL</div>
           </div>
         </div>
-        <div class="mode-card fn-mode-card stat-v3-lab-card" data-mode="stat_v3_lab" data-arena-mode="stat_v3_lab" data-target-route="/stat-v3" data-runtime-file="stat_v3.html" aria-label="STAT V3 Lab internal preview">
+        <div class="mode-card fn-mode-card stat-v3-lab-card" data-mode="stat_v3_lab" data-arena-mode="stat_v3_lab" data-target-route="/stat-v3" data-runtime-file="stat_v3.html" aria-label="STAT V3">
           <div class="mode-card-bg fn-card-bg card-stat-v3-lab"></div>
           <div class="fn-card-badge">INTERNAL PREVIEW</div>
           <div class="mode-card-content fn-card-content">
-            <div class="mode-card-label fn-card-label">STAT V3 Lab</div>
+            <div class="mode-card-label fn-card-label">STAT V3</div>
             <div class="mode-card-desc fn-card-players">ADVANCED DUEL PREVIEW</div>
           </div>
         </div>
@@ -13764,7 +13764,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       <div class="lus-mode-card-tag">DUEL</div>
     </div>
     <div class="lus-mode-card" data-lus-mode="stat_v3_lab" role="button" tabindex="0">
-      <div class="lus-mode-card-name">STAT V3 Lab</div>
+      <div class="lus-mode-card-name">STAT V3</div>
       <div class="lus-mode-card-sub">Advanced duel preview</div>
       <div class="lus-mode-card-tag">INTERNAL</div>
     </div>
@@ -14066,7 +14066,7 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
       title = 'STAT!';
       desc = 'Head-to-head duel mode';
     } else if(selectedMode === 'stat_v3_lab'){
-      title = 'STAT V3 Lab';
+      title = 'STAT V3';
       desc = 'Advanced duel experience preview';
     } else if(selectedMode === 'iv_on_call'){
       title = 'DR BRIAN: IV ON-CALL';
@@ -18874,7 +18874,7 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png'
     },
     stat_v3_lab: {
-      name: 'STAT V3 Lab',
+      name: 'STAT V3',
       image: 'https://cdn.missionmedinstitute.com/arena/assets/game-mode-cards/2026-04-30-final/MM-ARENA-GameMode_STAT-Duels_2026-04-30_lobby-16x9-1920x1080.png',
       sub: 'INTERNAL PREVIEW',
       route: '/stat-v3'
@@ -19256,13 +19256,13 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
       meta.textContent = 'Playable Mode • DRILLS';
     } else if (key === 'daily_drills_v3') {
       desc.textContent = 'Choose exam level, subject, and drill, then train speed with timed self-report recall';
-      meta.textContent = 'Playable Mode • Play V3';
+      meta.textContent = 'Playable Mode • Play STAT V3';
     } else if (key === 'stat') {
       desc.textContent = 'Head-to-head duel mode is live';
       meta.textContent = 'Playable Mode • STAT';
     } else if (key === 'stat_v3_lab') {
       desc.textContent = 'Advanced duel experience preview';
-      meta.textContent = 'Internal Preview • STAT V3';
+      meta.textContent = 'Competitive Duel • STAT V3';
     } else {
       desc.textContent = 'Interview training arena is live';
       meta.textContent = 'Playable Mode • IV ON-CALL';
@@ -21348,7 +21348,7 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
   content:'Play v3';
 }
 #fnCarouselTrack .fn-mode-card.stat-v3-lab-card::before{
-  content:'Internal Preview';
+  content:'Play STAT V3';
 }
 #fnCarouselTrack .fn-mode-card.daily-drills-v3-card::after,
 #fnCarouselTrack .fn-mode-card.stat-v3-lab-card::after{
@@ -21372,7 +21372,7 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
   content:'Daily + Drills V3\A Unified timed recall';
 }
 #fnCarouselTrack .fn-mode-card.stat-v3-lab-card::after{
-  content:'STAT V3 Lab\A Advanced duel preview';
+  content:'STAT V3\A Advanced duel mode';
 }
 #fnCarouselTrack .fn-mode-card.locked{
   pointer-events:auto !important;
