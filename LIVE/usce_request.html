@@ -22,6 +22,15 @@
 .mm-success-actions{display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin-top:22px}
 .mm-login-note{max-width:700px;margin:18px auto 0;padding:15px 16px;border:1px solid var(--line2);border-radius:16px;background:rgba(200,168,78,.12);color:var(--navy);font-size:13px;line-height:1.65;text-align:left}
 .mm-login-note b{display:block;margin-bottom:4px}
+.mm-mini-tracker{max-width:740px;margin:20px auto 0;border:1px solid rgba(10,22,40,.12);border-radius:12px;background:linear-gradient(180deg,#0e75a8,#0b4f7b);padding:14px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);color:#fff;text-align:left}
+.mm-mini-tracker b{display:block;text-transform:uppercase;letter-spacing:.1em;font-size:12px;color:var(--gold2);margin-bottom:8px}
+.mm-mini-bar{display:grid;grid-template-columns:repeat(5,1fr);gap:0;border:2px solid rgba(255,255,255,.72);border-radius:999px;overflow:hidden;background:#6c7d8d}
+.mm-mini-seg{min-height:42px;display:grid;place-items:center;background:linear-gradient(180deg,#97a7b5,#687988);font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:rgba(255,255,255,.64);clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%,11px 50%)}
+.mm-mini-seg:first-child{clip-path:polygon(0 0,calc(100% - 11px) 0,100% 50%,calc(100% - 11px) 100%,0 100%)}
+.mm-mini-seg:last-child{clip-path:polygon(0 0,100% 0,100% 100%,0 100%,11px 50%)}
+.mm-mini-seg.active{background:linear-gradient(180deg,#ff8a37,#f06b2f);color:#fff;animation:mmMiniBlink 1.08s ease-in-out infinite}
+@keyframes mmMiniBlink{0%,100%{filter:brightness(1)}50%{filter:brightness(1.32)}}
+.mm-mini-tracker span{display:block;margin-top:9px;font-size:13px;line-height:1.55;color:rgba(255,255,255,.82)}
 @media(max-width:520px){.mm-success-actions{display:grid}.mm-login-note{text-align:center}}
 </style>
 </head>
@@ -126,7 +135,18 @@
         <div class="mm-ref">Reference: <strong id="requestRef">Pending</strong></div>
         <div class="mm-login-note">
           <b>Your request is in. Track every step from your MissionMed account.</b>
-          Create or log in to MissionMed using the same email you used for this USCE request. We will send you back to the tracker after account access is complete.
+          Your tracker is already open next. Create or sign in to MissionMed using the same email you used for this USCE request when you want to follow updates from any device.
+        </div>
+        <div class="mm-mini-tracker" aria-label="Submitted request tracker preview">
+          <b>Tracker started</b>
+          <div class="mm-mini-bar">
+            <div class="mm-mini-seg active">Received</div>
+            <div class="mm-mini-seg">Review</div>
+            <div class="mm-mini-seg">Available</div>
+            <div class="mm-mini-seg">Offer</div>
+            <div class="mm-mini-seg">Secured</div>
+          </div>
+          <span>Current status: request received, waiting for review. The tracker automatically moves to Under Review one hour after submission.</span>
         </div>
         <div class="mm-success-actions">
           <a class="mm-btn mm-primary" id="trackerBtn" href="#">Open tracker</a>
@@ -302,7 +322,7 @@
       $('#apiStatus').textContent = data.dry_run ? 'Request accepted by dry-run intake' : 'Request accepted';
       window.setTimeout(() => {
         window.location.href = buildTrackerUrl(data.request_id || payload.idempotency_key, true);
-      }, 1600);
+      }, 700);
     } catch (err) {
       showAlert(err && err.message ? err.message : 'Clinical rotation request intake is unavailable.', 'error');
     } finally {
@@ -319,9 +339,9 @@
     return url.toString();
   }
 
-  function buildAccountUrl(){
+  function buildAccountUrl(target){
     const url = new URL(CONFIG.wpAccountUrl);
-    url.searchParams.set('redirect_to', CONFIG.trackerPageUrl);
+    url.searchParams.set('redirect_to', target || CONFIG.trackerPageUrl);
     return url.toString();
   }
 
@@ -338,8 +358,9 @@
 
   function wireTrackerSuccessLinks(payload, data){
     const ref = data.request_id || payload.idempotency_key || '';
-    $('#trackerBtn').href = buildTrackerUrl(ref, true);
-    $('#accountBtn').href = buildAccountUrl();
+    const trackerUrl = buildTrackerUrl(ref, true);
+    $('#trackerBtn').href = trackerUrl;
+    $('#accountBtn').href = buildAccountUrl(trackerUrl);
     $('#successCopy').textContent = 'Your request is in. We are opening your secure status tracker next. If you are not logged in yet, create or log in to your MissionMed account using ' + (payload.email || 'the same email') + '.';
   }
 
