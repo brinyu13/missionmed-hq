@@ -1,6 +1,6 @@
 <!--
   LIVE/stat_v3.html
-  STAT V3 wiring-ready twin | Internal parallel preview.
+  STAT V3 side-route runtime.
   This file adapts the T-11 STAT V3 UI shell without replacing LIVE/stat.html.
   It preserves the existing screen IDs (#screen-version, #screen-setup,
   #screen-matchup, #screen-countdown, #screen-play, #screen-results).
@@ -8,11 +8,11 @@
   ============================================================
   WIRING AUTHORITY NOTES
   ============================================================
-  1. This is not the production STAT route and not production-ready.
-  2. Current /stat and LIVE/stat.html remain the wiring authority.
-  3. Player, opponent, avatar, sealed pack, submit, and result data are read
-     only through adapter inputs supplied by a future live adapter route.
-  4. Gameplay is blocked when live adapter inputs are unavailable.
+  1. Current /stat and LIVE/stat.html remain the legacy gameplay authority.
+  2. Player, opponent, avatar, sealed pack, submit, and result data are read
+     through the live adapter when supplied.
+  3. When live adapter inputs are unavailable, the route can run a local
+     practice-rival match so the STAT V3 gameplay contract remains testable.
   5. Theme persistence remains localStorage key 'mm_stat_theme'.
 
 -->
@@ -292,6 +292,8 @@ body:not(.stat-v3-lab-mode) .mm-scenario{display:none}
 .stat-q-choice.selected{border-color:var(--accent);background:rgba(var(--podium-pulse-rgb),.1);box-shadow:0 0 0 2px rgba(var(--podium-pulse-rgb),.18)}
 .stat-q-choice.correct{border-color:#22c55e;background:rgba(34,197,94,.08)}
 .stat-q-choice.wrong{border-color:#ef4444;background:rgba(239,68,68,.06)}
+.stat-q-choice.revealed{cursor:default}
+.stat-q-choice:disabled{opacity:.96;cursor:default}
 .stat-q-choice .k{font-family:var(--f-bungee);font-size:15px;color:var(--accent);text-align:center;width:32px;height:32px;border-radius:8px;background:var(--card-bg-elev);display:grid;place-items:center}
 .stat-q-choice .t{font-family:var(--f-inter);font-size:15px;color:var(--fg);font-weight:700;line-height:1.35}
 .stat-q-choice.locked{border-color:var(--accent-2);background:rgba(252,211,77,.12);box-shadow:0 0 0 2px rgba(252,211,77,.18)}
@@ -337,6 +339,9 @@ body:not(.stat-v3-lab-mode) .stat-q-history.dev-only,
 body:not(.stat-v3-lab-mode) .stat-v3-debug{display:none!important}
 .stat-game-status{margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.35);font-family:var(--f-inter);font-size:14px;color:var(--fg-muted);text-align:center}
 .stat-game-status.warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.45)}
+.stat-answer-feedback{margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--pill-bg);border:1px solid var(--card-border);font-family:var(--f-bebas);letter-spacing:2px;color:var(--fg-muted)}
+.stat-answer-feedback.correct{background:rgba(34,197,94,.12);border-color:#22c55e;color:#15803d}
+.stat-answer-feedback.wrong{background:rgba(239,68,68,.1);border-color:#ef4444;color:#dc2626}
 .stat-play-actions{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
 .stat-auto-submit{padding:14px 18px;border-radius:12px;background:linear-gradient(135deg,var(--accent-2),#F5C84B);color:#0F2A44;font-family:var(--f-bungee);font-size:14px;letter-spacing:2px;text-transform:uppercase}
 .stat-auto-submit[disabled]{opacity:.45;cursor:not-allowed}
@@ -672,12 +677,24 @@ const STAT_V3_AUTH_EXCHANGE_URL=STAT_V3_AUTH_CONTRACT.railwayAuthHost+STAT_V3_AU
 const STAT_V3_AUTH_BOOTSTRAP_URL=STAT_V3_AUTH_CONTRACT.railwayAuthHost+STAT_V3_AUTH_CONTRACT.bootstrapPath;
 const STAT_V3_SESSION_DUEL_KEY='mm.stat.v3.lab.duel_id';
 const STAT_V3_LAB_MODE=/[?&]lab=1(?:&|$)/.test(window.location.search||'')||String(window.location.hash||'').toLowerCase()==='#lab';
-const STAT_V3_QUESTION_SECONDS=30;
+const STAT_V3_QUESTION_SECONDS=15;
+const STAT_V3_POINT_DECAY_MAX=100;
+const STAT_V3_POINT_DECAY_MIN=30;
+const STAT_V3_POINT_DECAY_RANGE=STAT_V3_POINT_DECAY_MAX-STAT_V3_POINT_DECAY_MIN;
 document.body.classList.toggle('stat-v3-lab-mode',STAT_V3_LAB_MODE);
 
 const EMPTY_STATS=Object.freeze({win:'-',acc:'-',spd:'-',streak:'-',ovr:'-',rank:'-'});
 const FALLBACK_YOU=Object.freeze({id:'',name:'Live player pending',school:'',schoolName:'MissionMed',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Avatar pending',stats:EMPTY_STATS});
 const FALLBACK_OPP=Object.freeze({id:'',name:'Matched opponent pending',school:'',schoolName:'STAT async queue',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Opponent pending',stats:EMPTY_STATS});
+const STAT_V3_PRACTICE_YOU=Object.freeze({id:'stat-v3-local-player',name:'You',schoolName:'MissionMed',rarity:'rare',skin_name:'STAT Trainee',stats:{win:'-',acc:'-',spd:'-',streak:'-',ovr:'76',rank:'Practice'}});
+const STAT_V3_PRACTICE_OPP=Object.freeze({id:'stat-v3-practice-rival',name:'Practice Rival',schoolName:'STAT Arena',rarity:'epic',skin_name:'Pressure Ghost',stats:{win:'64',acc:'78',spd:'4.2',streak:'5',ovr:'82',rank:'Practice'}});
+const STAT_V3_PRACTICE_QUESTION_ROWS=Object.freeze([
+  {id:'stat-v3-practice-1',topic:'CARDIO',question:'A patient has crushing substernal chest pain and ST elevation in II, III, and aVF. Which coronary artery is most likely involved?',choices:{A:'Left anterior descending artery',B:'Right coronary artery',C:'Left circumflex artery',D:'Posterior descending branch only'},correct_answer:'B'},
+  {id:'stat-v3-practice-2',topic:'PHARM',question:'Which medication class is most associated with a persistent dry cough?',choices:{A:'Calcium channel blockers',B:'ACE inhibitors',C:'Loop diuretics',D:'Beta blockers'},correct_answer:'B'},
+  {id:'stat-v3-practice-3',topic:'PULM',question:'A patient with obstructive lung disease has decreased FEV1/FVC. Which diagnosis best fits this pattern?',choices:{A:'Pulmonary fibrosis',B:'Myasthenia gravis',C:'COPD',D:'Kyphoscoliosis'},correct_answer:'C'},
+  {id:'stat-v3-practice-4',topic:'RENAL',question:'Which electrolyte abnormality most directly increases risk for torsades de pointes?',choices:{A:'Hypernatremia',B:'Hypocalcemia',C:'Hypomagnesemia',D:'Hyperchloremia'},correct_answer:'C'},
+  {id:'stat-v3-practice-5',topic:'NEURO',question:'Loss of pain and temperature sensation on one side of the face suggests involvement of which structure?',choices:{A:'Spinothalamic tract',B:'Trigeminal sensory pathway',C:'Dorsal columns',D:'Facial motor nucleus'},correct_answer:'B'}
+]);
 const LETTERS=['A','B','C','D'];
 
 function safeObj(value){return value&&typeof value==='object'?value:{};}
@@ -790,6 +807,8 @@ const STAT_V3_HUMAN={
   submitStatus:'idle',
   resultEnvelope:null
 };
+let STAT_V3_PRACTICE_MODE=false;
+let statV3AdvanceTimer=null;
 window.MM_STAT_V3_HUMAN=STAT_V3_HUMAN;
 function updateLiveBootstrap(patch){
   Object.assign(STAT_V3_LIVE_BOOTSTRAP,safeObj(patch));
@@ -1254,6 +1273,9 @@ async function statV3SubmitAttempt(){
   if(!statV3ActiveDuelId)throw new Error('duel_id_required');
   if(!QUESTIONS.length)throw new Error('question_pack_required');
   if(!statV3AllQuestionsAnswered())throw new Error('answer_all_questions_before_submit');
+  if(STAT_V3_PRACTICE_MODE||String(statV3ActiveDuelId||'')==='stat-v3-practice'){
+    return statV3FinishLocalAttempt();
+  }
   const answers=statV3CanonicalAnswers();
   const totalMs=answers.reduce((sum,row)=>sum+Math.max(0,Number(row.time_ms||0)),0);
   updateHumanState({submitStatus:'submitting',message:'Finishing your duel...',error:''});
@@ -1336,6 +1358,7 @@ function refreshStatV3AdapterState(){
 function installStatV3LivePack(rawPack,sourceLabel){
   const pack=normalizeSealedPack(rawPack,sourceLabel);
   if(!pack.questions.length)throw new Error('live_pack_questions_missing');
+  STAT_V3_PRACTICE_MODE=false;
   const ctx=Object.assign({},liveContext());
   ctx.currentPack=rawPack;
   ctx.sealedPack=rawPack;
@@ -1547,6 +1570,40 @@ function normalizeChoices(rawChoices,choiceOrder){
   const labels=order.length?order:LETTERS;
   return labels.map(letter=>({k:letter,t:String(obj[letter]||obj[letter.toLowerCase()]||'').trim()})).filter(choice=>choice.t);
 }
+function normalizeStatV3AnswerKey(value){
+  const raw=String(value==null?'':value).trim().toUpperCase();
+  if(!raw)return '';
+  if(LETTERS.includes(raw))return raw;
+  if(/^[1-4]$/.test(raw))return LETTERS[Number(raw)-1];
+  return '';
+}
+function normalizeStatV3CorrectIndex(source,choices){
+  const directKeys=['correctIndex','correct_index','answerIndex','answer_index','correctChoiceIndex','correct_choice_index'];
+  for(const key of directKeys){
+    const value=Number(source[key]);
+    if(Number.isInteger(value)){
+      if(value>=0&&value<choices.length)return value;
+      if(value>=1&&value<=choices.length)return value-1;
+    }
+  }
+  const key=normalizeStatV3AnswerKey(pickText([
+    source.correct_answer,
+    source.correctAnswer,
+    source.correct_choice,
+    source.correctChoice,
+    source.answer_key,
+    source.answerKey,
+    source.correct_key,
+    source.correctKey
+  ]));
+  if(key){
+    const keyedIndex=choices.findIndex(choice=>String(choice.k||'').trim().toUpperCase()===key);
+    if(keyedIndex>=0)return keyedIndex;
+    const fallbackIndex=LETTERS.indexOf(key);
+    if(fallbackIndex>=0&&fallbackIndex<choices.length)return fallbackIndex;
+  }
+  return -1;
+}
 function normalizeQuestion(row,index,choiceOrder){
   const source=safeObj(row);
   let rawChoices=source.choices||source.options||source.answers;
@@ -1561,6 +1618,8 @@ function normalizeQuestion(row,index,choiceOrder){
   const choices=normalizeChoices(rawChoices,choiceOrder);
   const prompt=pickText([source.q,source.prompt,source.question,source.stem,source.text]);
   if(!prompt||choices.length<2)return null;
+  const correctIndex=normalizeStatV3CorrectIndex(source,choices);
+  const answerSealed=correctIndex<0||source.answerSealed===true||source.correctAnswerSealed===true;
   return {
     id:pickText([source.id,source.question_id,source.qid,index+1]),
     topic:pickText([source.topic,source.subject,source.system,'SEALED PACK']),
@@ -1568,8 +1627,10 @@ function normalizeQuestion(row,index,choiceOrder){
     choices,
     time:source.time==null?null:source.time,
     pts:source.pts==null?null:source.pts,
-    answerSealed:true,
-    correctAnswerSealed:true,
+    correctIndex,
+    correctAnswerKey:correctIndex>=0&&choices[correctIndex]?String(choices[correctIndex].k||LETTERS[correctIndex]||''):'',
+    answerSealed,
+    correctAnswerSealed:answerSealed,
     live:true
   };
 }
@@ -1768,6 +1829,90 @@ function fbHead(player,size,opts){
 }
 
 function statQuestionRing(points){const safe=Number.isFinite(Number(points))?Number(points):0;const dash=283;const offset=dash*(1-Math.max(0,Math.min(1,safe/100)));return `<div class="stat-q-ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="45"/><circle class="bar" cx="50" cy="50" r="45" style="stroke-dashoffset:${offset}"/></svg><div class="label"><div class="v">${safe||'-'}</div><div class="l">PTS</div></div></div>`;}
+function statV3PointsAtElapsedMs(elapsedMs){
+  const safeElapsed=Math.max(0,Number(elapsedMs||0));
+  const ratio=Math.max(0,Math.min(1,safeElapsed/(STAT_V3_QUESTION_SECONDS*1000)));
+  return Math.max(STAT_V3_POINT_DECAY_MIN,Math.round(STAT_V3_POINT_DECAY_MAX-(STAT_V3_POINT_DECAY_RANGE*ratio)));
+}
+function statV3PaceBand(elapsedMs){
+  const safeElapsed=Math.max(0,Number(elapsedMs||0));
+  const windowMs=STAT_V3_QUESTION_SECONDS*1000;
+  if(safeElapsed<=windowMs*.34)return 'fast';
+  if(safeElapsed>=windowMs*.72)return 'slow';
+  return 'mid';
+}
+function statV3CanScoreQuestion(q){
+  return !!(q&&!q.answerSealed&&Number.isInteger(q.correctIndex)&&q.correctIndex>=0&&Array.isArray(q.choices)&&q.correctIndex<q.choices.length);
+}
+function statV3Selection(q){
+  return q&&STAT_V3_HUMAN.selections?STAT_V3_HUMAN.selections[q.id]:null;
+}
+function statV3QuestionElapsedMs(q){
+  if(!q)return 0;
+  const started=Number(STAT_V3_HUMAN.questionStartedAt[q.id]||Date.now());
+  return Math.max(0,Date.now()-started);
+}
+function statV3LiveQuestionPoints(q){
+  const selected=statV3Selection(q);
+  if(selected&&Number.isFinite(Number(selected.points)))return Math.max(0,Math.round(Number(selected.points)));
+  return statV3PointsAtElapsedMs(statV3QuestionElapsedMs(q));
+}
+function statV3PracticeQuestions(){
+  return STAT_V3_PRACTICE_QUESTION_ROWS.map((row,index)=>normalizeQuestion(row,index,LETTERS)).filter(Boolean);
+}
+function statV3BuildPracticePack(){
+  const questions=statV3PracticeQuestions();
+  return {
+    source:'stat_v3.practice_contract',
+    duel_id:'stat-v3-practice',
+    content_hash:'local-practice',
+    dataset_version:'legacy-stat-contract',
+    question_ids:questions.map(q=>q.id),
+    choices_order:questions.map(()=>LETTERS.slice()),
+    questions
+  };
+}
+function activateStatV3PracticeMatch(){
+  const pack=statV3BuildPracticePack();
+  STAT_V3_PRACTICE_MODE=true;
+  statV3ActiveDuelId='stat-v3-practice';
+  SEALED_PACK=pack;
+  QUESTIONS=pack.questions.slice();
+  YOU=normalizePlayer(STAT_V3_PRACTICE_YOU,FALLBACK_YOU,'stat_v3.practice');
+  OPP=normalizePlayer(STAT_V3_PRACTICE_OPP,FALLBACK_OPP,'stat_v3.practice');
+  STAT_V3_PACK_INPUT.value=pack;
+  STAT_V3_PACK_INPUT.source=pack.source;
+  STAT_V3_HUMAN.mode='practice_rival';
+  STAT_V3_HUMAN.status='practice_ready';
+  STAT_V3_HUMAN.message='Practice rival ready. Same STAT rules: 15-second clock, faster correct answers score more.';
+  STAT_V3_HUMAN.error='';
+  STAT_V3_HUMAN.duelId=pack.duel_id;
+  STAT_V3_HUMAN.inviteUrl='';
+  STAT_V3_HUMAN.selectedOpponent=OPP;
+  STAT_V3_HUMAN.qIndex=0;
+  STAT_V3_HUMAN.selections={};
+  STAT_V3_HUMAN.questionStartedAt={};
+  STAT_V3_HUMAN.submitted=false;
+  STAT_V3_HUMAN.submitStatus='idle';
+  STAT_V3_HUMAN.resultEnvelope=null;
+  LIVE_RESULT={};
+  window.MM_STAT_V3_CONTEXT=Object.assign({},liveContext(),{
+    currentUser:YOU,
+    matchedOpponent:OPP,
+    sealedPack:pack,
+    questionPack:pack,
+    resultPayload:{}
+  });
+  window.MM_STAT_V3_RESULT={};
+  STAT_V3_ADAPTER.currentUser=YOU;
+  STAT_V3_ADAPTER.matchedOpponent=OPP;
+  STAT_V3_ADAPTER.sealedPack=pack;
+  STAT_V3_ADAPTER.questions=QUESTIONS;
+  STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+  STAT_V3_ADAPTER.readOnlyPreview=false;
+  window.MM_STAT_V3_HUMAN=STAT_V3_HUMAN;
+  renderActive();
+}
 
 function statStatusItems(items){return `<ul class="stat-v3-status-list">${items.map(item=>`<li>${escapeHtml(item)}</li>`).join('')}</ul>`;}
 function flowNav(backStep,nextStep,nextLabel,opts){
@@ -1775,6 +1920,7 @@ function flowNav(backStep,nextStep,nextLabel,opts){
   return `<div class="stat-flow-nav">${backStep?`<button class="flow-btn nav-back" type="button" data-step-target="${escapeHtml(backStep)}">${escapeHtml(o.backLabel)}</button>`:'<span class="flow-spacer"></span>'}<span class="flow-spacer"></span>${o.extra||''}${nextStep?`<button class="flow-btn primary nav-next" type="button" data-step-target="${escapeHtml(nextStep)}" ${o.nextDisabled?'disabled':''}>${escapeHtml(nextLabel||'Next')}</button>`:''}</div>`;
 }
 function playerReadyLabel(){
+  if(STAT_V3_PRACTICE_MODE)return 'Practice ready';
   if(wiringIsReady())return 'Ready';
   if(!YOU.id)return 'Sign in needed';
   if(!OPP.id)return 'Find opponent';
@@ -1792,7 +1938,7 @@ function statHistory(upTo){
 }
 
 function statLane(player,opts){
-  const o=Object.assign({tag:'YOU',score:'-',correct:'-',avg:'-',streak:'-',statusLabel:'Awaiting live adapter',statusCls:'thinking'},opts);
+  const o=Object.assign({tag:'YOU',score:'-',correct:'-',avg:'-',streak:'-',statusLabel:'Waiting',statusCls:'thinking'},opts);
   const statusCls=safeClassToken(o.statusCls,'thinking');
   return `<div class="stat-lane ${o.opp?'opp':''}"><div class="stat-lane-head"><span class="stat-lane-tag">${escapeHtml(o.tag)}</span></div><div><div class="stat-lane-name">${escapeHtml(String(player.name||'').toUpperCase())}</div><div class="stat-lane-school">${escapeHtml(String(player.schoolName||'').toUpperCase())} | ${escapeHtml(o.lane||(o.opp?'RIGHT LANE':'LEFT LANE'))}</div></div><div class="stat-lane-score">${escapeHtml(o.score)}</div><div class="stat-lane-stats"><div class="stat-lane-stat"><div class="v">${escapeHtml(o.correct)}</div><div class="l">CORRECT</div></div><div class="stat-lane-stat"><div class="v">${escapeHtml(o.avg)}</div><div class="l">AVG TIME</div></div><div class="stat-lane-stat"><div class="v">${escapeHtml(o.streak)}</div><div class="l">STREAK</div></div></div>${o.statusLabel?`<div class="stat-lane-status ${statusCls}">${escapeHtml(o.statusLabel)}</div>`:''}<div class="stat-lane-podium">${fbPodium(player,'large',{opp:o.opp})}</div></div>`;
 }
@@ -1849,6 +1995,7 @@ function stopStatV3PlayTicker(){
 function startStatV3PlayTicker(){
   stopStatV3PlayTicker();
   statV3PlayTicker=setInterval(()=>{
+    statV3HandleTimeoutIfNeeded();
     if(String(shell.dataset.step)==='5')renderActive();
   },1000);
 }
@@ -1857,25 +2004,205 @@ function statV3QuestionSecondsRemaining(questionId){
   const elapsed=Math.floor((Date.now()-started)/1000);
   return Math.max(0,STAT_V3_QUESTION_SECONDS-elapsed);
 }
+function statV3ComputeStats(limit){
+  const cap=Number.isFinite(Number(limit))?Math.max(0,Math.min(QUESTIONS.length,Number(limit))):QUESTIONS.length;
+  let score=0;
+  let correct=0;
+  let totalMs=0;
+  let answered=0;
+  let streak=0;
+  let bestStreak=0;
+  QUESTIONS.slice(0,cap).forEach(q=>{
+    const selected=statV3Selection(q);
+    if(!selected)return;
+    answered+=1;
+    score+=Math.max(0,Number(selected.points||0));
+    totalMs+=Math.max(0,Number(selected.time_ms||0));
+    if(selected.correct){
+      correct+=1;
+      streak+=1;
+      bestStreak=Math.max(bestStreak,streak);
+    }else{
+      streak=0;
+    }
+  });
+  return {
+    score,
+    correct,
+    answered,
+    total:cap,
+    avgMs:answered?Math.round(totalMs/answered):0,
+    avg:answered?(totalMs/answered/1000).toFixed(1)+'s':'-',
+    streak,
+    bestStreak
+  };
+}
+function statV3OpponentStats(answeredCount){
+  const count=Math.max(0,Math.min(QUESTIONS.length,Number(answeredCount||0)));
+  const pattern=[true,true,false,true,true,false,true,true,true,false];
+  const times=[4200,5600,7400,6300,3800,9100,5100,6900,4700,10300];
+  let score=0;
+  let correct=0;
+  let totalMs=0;
+  let streak=0;
+  let bestStreak=0;
+  for(let i=0;i<count;i+=1){
+    const ok=pattern[i%pattern.length];
+    const ms=times[i%times.length];
+    totalMs+=ms;
+    if(ok){
+      correct+=1;
+      streak+=1;
+      bestStreak=Math.max(bestStreak,streak);
+      score+=statV3PointsAtElapsedMs(ms);
+    }else{
+      streak=0;
+    }
+  }
+  return {
+    score,
+    correct,
+    answered:count,
+    avg:count?(totalMs/count/1000).toFixed(1)+'s':'-',
+    streak,
+    bestStreak
+  };
+}
+function statV3SelectionMessage(q,selected){
+  if(!selected)return 'Choose your answer before the 15-second clock runs down.';
+  if(selected.timedOut)return 'Time expired. Correct answer highlighted. Next question coming up.';
+  if(selected.sealed)return 'Answer locked. Server scoring will reveal final correctness.';
+  if(selected.correct){
+    const pace=statV3PaceBand(selected.time_ms);
+    if(pace==='fast')return 'Correct. Fast lock bonus: +'+selected.points+'. Next question coming up.';
+    if(pace==='slow')return 'Correct, but late: +'+selected.points+'. Faster answers score more.';
+    return 'Correct: +'+selected.points+'. Next question coming up.';
+  }
+  return 'Incorrect: +0. Correct answer highlighted. Next question coming up.';
+}
+function statV3BuildLocalResult(){
+  const stats=statV3ComputeStats();
+  const opp=statV3OpponentStats(QUESTIONS.length);
+  const verdict=stats.score>opp.score?'WIN':(stats.score<opp.score?'LOSS':'DRAW');
+  return {
+    verdict,
+    total:String(QUESTIONS.length),
+    correct:String(stats.correct),
+    score:String(stats.score),
+    avg:stats.avg,
+    streak:String(stats.bestStreak),
+    elo:'',
+    rank:'Practice Match',
+    opponentScore:String(opp.score),
+    replayRows:QUESTIONS.map((q,index)=>{
+      const selected=statV3Selection(q)||{};
+      const picked=Number.isInteger(selected.choice_index)&&selected.choice_index>=0&&q.choices[selected.choice_index]
+        ? q.choices[selected.choice_index].k
+        : 'TIME';
+      const correctKey=statV3CanScoreQuestion(q)&&q.choices[q.correctIndex]?q.choices[q.correctIndex].k:'SERVER';
+      return {
+        topic:q.topic,
+        q:q.q,
+        time:selected.time_ms?(Number(selected.time_ms)/1000).toFixed(1)+'s':'-',
+        points:String(selected.points||0),
+        selected:picked,
+        correct:correctKey,
+        isCorrect:selected.correct===true
+      };
+    }),
+    finalized:true,
+    local:true
+  };
+}
+function statV3FinishLocalAttempt(){
+  const resultPayload=statV3BuildLocalResult();
+  LIVE_RESULT=resultPayload;
+  window.MM_STAT_V3_RESULT=resultPayload;
+  window.MM_STAT_V3_CONTEXT=Object.assign({},liveContext(),{resultPayload});
+  STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+  updateHumanState({
+    submitted:true,
+    submitStatus:'finalized',
+    message:'Practice match complete. Results are ready.',
+    error:'',
+    resultEnvelope:{ok:true,local:true}
+  });
+  return {submitted:{ok:true,local:true},fetched:{ok:true,local:true},resultPayload};
+}
+function scheduleStatV3Advance(){
+  if(statV3AdvanceTimer)clearTimeout(statV3AdvanceTimer);
+  statV3AdvanceTimer=setTimeout(()=>{
+    statV3AdvanceTimer=null;
+    const lastQuestion=STAT_V3_HUMAN.qIndex>=QUESTIONS.length-1;
+    if(lastQuestion&&statV3AllQuestionsAnswered()&&!STAT_V3_HUMAN.submitted){
+      STAT_V3_HUMAN.submitStatus='queued';
+      Promise.resolve(statV3SubmitAttempt()).then(()=>setStep('6')).catch(e=>{
+        updateHumanState({submitStatus:'blocked',message:'Could not finish duel yet.',error:String(e&&e.message?e.message:e).slice(0,160)});
+      });
+      return;
+    }
+    if(!lastQuestion){
+      updateHumanState({qIndex:Math.min(Math.max(0,QUESTIONS.length-1),STAT_V3_HUMAN.qIndex+1)});
+    }
+  },1200);
+}
+function statV3RecordAnswer(question,index,timedOut){
+  if(!question||STAT_V3_HUMAN.selections[question.id])return;
+  const started=STAT_V3_HUMAN.questionStartedAt[question.id]||Date.now();
+  const elapsedMs=timedOut?STAT_V3_QUESTION_SECONDS*1000:Math.min(STAT_V3_QUESTION_SECONDS*1000,Math.max(250,Date.now()-started));
+  const canScore=statV3CanScoreQuestion(question);
+  const correct=canScore&&!timedOut&&Number(index)===question.correctIndex;
+  const points=canScore&&correct?statV3PointsAtElapsedMs(elapsedMs):0;
+  STAT_V3_HUMAN.selections[question.id]={
+    choice_index:Number.isInteger(Number(index))?Number(index):-1,
+    time_ms:Math.max(0,Math.round(elapsedMs)),
+    correct,
+    points,
+    timedOut:!!timedOut,
+    sealed:!canScore
+  };
+  statV3AudioCue(correct?'go':'answer');
+  renderActive();
+  scheduleStatV3Advance();
+}
+function statV3HandleTimeoutIfNeeded(){
+  if(String(shell.dataset.step)!=='5'||!QUESTIONS.length)return;
+  const q=QUESTIONS[Math.max(0,Math.min(QUESTIONS.length-1,Number(STAT_V3_HUMAN.qIndex||0)))]||QUESTIONS[0];
+  if(!q||STAT_V3_HUMAN.selections[q.id])return;
+  if(statV3QuestionSecondsRemaining(q.id)<=0)statV3RecordAnswer(q,-1,true);
+}
 
 function statCenter(qIndex){
   if(!QUESTIONS.length)return wiringBlockedPanel('Pack not connected',readinessReasons());
   const safeIndex=Math.max(0,Math.min(QUESTIONS.length-1,Number(qIndex||0)));
   const q=QUESTIONS[safeIndex]||QUESTIONS[0];
   if(q&&!STAT_V3_HUMAN.questionStartedAt[q.id])STAT_V3_HUMAN.questionStartedAt[q.id]=Date.now();
+  const selected=statV3Selection(q);
+  const canScore=statV3CanScoreQuestion(q);
   const choices=q.choices.map((c,index)=>{
-    const selected=STAT_V3_HUMAN.selections[q.id]&&STAT_V3_HUMAN.selections[q.id].choice_index===index;
-    return `<button class="stat-q-choice ${selected?'selected locked':''}" type="button" data-choice-index="${index}" data-question-id="${escapeHtml(q.id)}"><div class="k">${escapeHtml(c.k)}</div><div class="t">${escapeHtml(c.t)}</div></button>`;
+    const picked=selected&&selected.choice_index===index;
+    const isCorrect=selected&&canScore&&index===q.correctIndex;
+    const isWrong=picked&&selected&&!selected.correct&&!selected.timedOut&&canScore;
+    const cls=[
+      picked?'selected locked':'',
+      isCorrect?'correct':'',
+      isWrong?'wrong':'',
+      selected?'revealed':''
+    ].filter(Boolean).join(' ');
+    return `<button class="stat-q-choice ${cls}" type="button" data-choice-index="${index}" data-question-id="${escapeHtml(q.id)}" ${selected?'disabled':''}><div class="k">${escapeHtml(c.k)}</div><div class="t">${escapeHtml(c.t)}</div></button>`;
   }).join('');
   const answeredCount=QUESTIONS.filter(item=>STAT_V3_HUMAN.selections[item.id]).length;
   const allAnswered=statV3AllQuestionsAnswered();
-  const selected=!!STAT_V3_HUMAN.selections[q.id];
   const remaining=statV3QuestionSecondsRemaining(q.id);
+  const livePoints=statV3LiveQuestionPoints(q);
   const finishing=STAT_V3_HUMAN.submitStatus==='queued'||STAT_V3_HUMAN.submitStatus==='submitting';
   const status=STAT_V3_HUMAN.submitStatus==='submitting'
     ? 'Locking in your duel...'
-    : (finishing?'Finishing your duel...':(allAnswered?'All answers locked. Finishing your duel now.':(selected?'Answer locked. Next question coming up.':'Choose your answer before the clock runs down.')));
-  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">STAT DUEL</div><div class="s">Question ${safeIndex+1} of ${QUESTIONS.length}</div></div><div class="stat-pressure ${remaining<=8?'danger':'calm'}">${answeredCount}/${QUESTIONS.length} LOCKED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div><div class="stat-game-status ${remaining<=8?'warn':''}" id="stat-v3-live-status">${escapeHtml(status)}</div><div class="stat-play-actions">${allAnswered&&!STAT_V3_HUMAN.submitted&&!finishing?`<button class="stat-auto-submit" type="button" id="stat-v3-submit-attempt" ${statV3ActiveDuelId?'':'disabled'}>Finish Duel</button>`:''}</div></div><div class="stat-q-meta"><div class="stat-timer"><div><div class="time">${remaining}</div><div class="label">SECONDS</div></div></div><div class="stat-q-counter"><span class="n">${safeIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(q.pts)}<div class="stat-progress-mini">Streak ${answeredCount}</div></div></div><div class="stat-q-history dev-only"><h4>Question log</h4>${statHistory(safeIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">Live questions</span><span class="stat-ticker-item">Answers saved when the duel finishes</span><span class="stat-ticker-item">Results come from the match server</span></div></div></div>`;
+    : (finishing?'Finishing your duel...':(allAnswered?'All answers locked. Finishing your duel now.':statV3SelectionMessage(q,selected)));
+  const feedback=selected&&canScore
+    ? `<div class="stat-answer-feedback ${selected.correct?'correct':'wrong'}">${selected.correct?'Correct':'Incorrect'} • +${escapeHtml(selected.points||0)} • ${escapeHtml((Number(selected.time_ms||0)/1000).toFixed(1))}s</div>`
+    : (selected?'<div class="stat-answer-feedback">Answer locked for server scoring.</div>':'');
+  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">STAT DUEL</div><div class="s">Question ${safeIndex+1} of ${QUESTIONS.length}</div></div><div class="stat-pressure ${remaining<=5&&!selected?'danger':selected?'calm':'neutral'}">${answeredCount}/${QUESTIONS.length} LOCKED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div>${feedback}<div class="stat-game-status ${remaining<=5&&!selected?'warn':''}" id="stat-v3-live-status">${escapeHtml(status)}</div><div class="stat-play-actions">${allAnswered&&!STAT_V3_HUMAN.submitted&&!finishing?`<button class="stat-auto-submit" type="button" id="stat-v3-submit-attempt" ${statV3ActiveDuelId?'':'disabled'}>Finish Duel</button>`:''}</div></div><div class="stat-q-meta"><div class="stat-timer"><div><div class="time">${remaining}</div><div class="label">SECONDS</div></div></div><div class="stat-q-counter"><span class="n">${safeIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(livePoints)}<div class="stat-progress-mini">Score ${statV3ComputeStats().score}</div></div></div><div class="stat-q-history dev-only"><h4>Question log</h4>${statHistory(safeIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">15-second clock</span><span class="stat-ticker-item">Fast correct answers score more</span><span class="stat-ticker-item">Correct answer reveals after lock</span></div></div></div>`;
 }
 
 document.addEventListener('click',async(event)=>{
@@ -1943,6 +2270,13 @@ document.addEventListener('click',async(event)=>{
     }
     return;
   }
+  const practiceStart=event.target.closest('#stat-v3-start-practice');
+  if(practiceStart){
+    event.preventDefault();
+    activateStatV3PracticeMatch();
+    setStep('4');
+    return;
+  }
   const createHuman=event.target.closest('#stat-v3-create-human');
   if(createHuman){
     event.preventDefault();
@@ -1985,36 +2319,7 @@ document.addEventListener('click',async(event)=>{
   event.preventDefault();
   const index=Number(button.dataset.choiceIndex);
   const question=QUESTIONS.find(q=>String(q.id)===String(button.dataset.questionId))||QUESTIONS[0];
-  const started=STAT_V3_HUMAN.questionStartedAt[question.id]||Date.now();
-  STAT_V3_HUMAN.selections[question.id]={
-    choice_index:index,
-    time_ms:Math.max(250,Date.now()-started)
-  };
-  document.querySelectorAll('.stat-q-choice').forEach(item=>item.classList.remove('selected'));
-  button.classList.add('selected');
-  statV3AudioCue('answer');
-  const status=document.getElementById('stat-v3-live-status');
-  if(status)status.textContent='Answer locked. Next question coming up.';
-  const lastQuestion=STAT_V3_HUMAN.qIndex>=QUESTIONS.length-1;
-  const shouldFinish=lastQuestion&&statV3AllQuestionsAnswered()&&!STAT_V3_HUMAN.submitted;
-  if(shouldFinish)STAT_V3_HUMAN.submitStatus='queued';
-  renderActive();
-  if(shouldFinish){
-    setTimeout(async()=>{
-      try{
-        await statV3SubmitAttempt();
-        setStep('6');
-      }catch(e){
-        updateHumanState({submitStatus:'blocked',message:'Could not finish duel yet.',error:String(e&&e.message?e.message:e).slice(0,160)});
-      }
-    },650);
-    return;
-  }
-  if(!lastQuestion){
-    setTimeout(()=>{
-      updateHumanState({qIndex:Math.min(Math.max(0,QUESTIONS.length-1),STAT_V3_HUMAN.qIndex+1)});
-    },650);
-  }
+  statV3RecordAnswer(question,index,false);
 });
 
 function statValue(value,suffix){
@@ -2039,8 +2344,9 @@ function normalizeResultPayload(payload){
   const streak=resultValue(result,['streak','bestStreak','yourStreak'],'-');
   const elo=resultValue(result,['eloChange','elo_delta','rankDelta'],'');
   const rank=resultValue(result,['rankText','rank','newRank'],'');
+  const opponentScore=resultValue(result,['opponentScore','oppScore','rivalScore'],'');
   const rows=Array.isArray(result.replayRows)?result.replayRows:(Array.isArray(result.reviewLog)?result.reviewLog:[]);
-  return {verdict,total,correct,score,avg,streak,elo,rank,rows};
+  return {verdict,total,correct,score,avg,streak,elo,rank,opponentScore,rows};
 }
 function statV3HumanPanel(){
   const roster=STAT_V3_HUMAN.roster.length
@@ -2060,9 +2366,14 @@ function statV3HumanPanel(){
   return `
     <div class="cfg-group stat-v3-human-panel">
       <div class="cfg-label">FIND OPPONENT</div>
+      <div class="summary-row"><span>How to start</span><span class="v">${STAT_V3_PRACTICE_MODE?'Practice rival locked':'Search roster, join invite, or start practice'}</span></div>
       <div class="summary-row"><span>Opponent Status</span><span class="v">${escapeHtml(playerReadyLabel())}</span></div>
       ${selected}
       ${invite}
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;margin:12px 0;padding:12px;border:1px solid var(--card-border);border-radius:12px;background:var(--card-bg-elev)">
+        <div><strong style="font-family:var(--f-bebas);letter-spacing:2px">Practice Rival</strong><p style="margin-top:4px;color:var(--fg-muted);font-size:13px;line-height:1.35">Start immediately with the legacy STAT timing, scoring, and feedback contract while human async wiring stays available.</p></div>
+        <button class="result-cta" type="button" id="stat-v3-start-practice">${STAT_V3_PRACTICE_MODE?'Practice Ready':'Start Practice'}</button>
+      </div>
       <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;margin:12px 0">
         <input id="stat-v3-opponent-query" value="" placeholder="Search by name or email" style="min-width:0;border:1px solid var(--card-border);border-radius:10px;background:var(--pill-bg);color:var(--fg);padding:14px;font-family:var(--f-bebas);letter-spacing:1px">
         <button class="result-cta alt" type="button" id="stat-v3-load-roster">Find Opponent</button>
@@ -2235,11 +2546,13 @@ RENDERERS['4']=function(){
 RENDERERS['5']=function(){
   const root=document.getElementById('screen-play');
   const answered=QUESTIONS.filter(item=>STAT_V3_HUMAN.selections[item.id]).length;
+  const playerStats=statV3ComputeStats();
+  const oppStats=statV3OpponentStats(answered);
   root.innerHTML=`
     <div class="stat-arena">
-      ${statLane(YOU,{tag:'YOU',score:String(answered),correct:String(answered),avg:'-',streak:String(answered),statusLabel:YOU.id?'Ready':'Sign in needed',statusCls:YOU.id?'locked':'thinking',lane:'LEFT LANE'})}
+      ${statLane(YOU,{tag:'YOU',score:String(playerStats.score),correct:String(playerStats.correct),avg:playerStats.avg,streak:String(playerStats.streak),statusLabel:YOU.id?'In match':'Sign in needed',statusCls:YOU.id?'live':'thinking',lane:'LEFT LANE'})}
       ${statCenter(STAT_V3_HUMAN.qIndex)}
-      ${statLane(OPP,{tag:'RIVAL',opp:true,score:'-',correct:'-',avg:'-',streak:'-',statusLabel:OPP.id?'Ready':'Waiting',statusCls:OPP.id?'locked':'thinking',lane:'RIGHT LANE'})}
+      ${statLane(OPP,{tag:'RIVAL',opp:true,score:String(oppStats.score),correct:String(oppStats.correct),avg:oppStats.avg,streak:String(oppStats.streak),statusLabel:OPP.id?'Applying pressure':'Waiting',statusCls:OPP.id?'live':'thinking',lane:'RIGHT LANE'})}
     </div>`;
 };
 
@@ -2251,7 +2564,7 @@ RENDERERS['6']=function(){
     return;
   }
   const replay=parsed.rows.length
-    ? parsed.rows.map((row,i)=>{const r=safeObj(row);return `<div class="replay-row live"><div class="qn">${i+1}</div><div class="topic">${escapeHtml(pickText([r.topic,r.subject,'LIVE']))}</div><div class="qtxt">${escapeHtml(pickText([r.q,r.prompt,r.question,r.question_id,'Live answer row']))}</div><div class="qtime">${escapeHtml(pickText([r.time,r.time_ms,r.elapsed,'-']))}</div><div class="qpts">${escapeHtml(pickText([r.pts,r.points,r.score,'-']))}</div></div>`;}).join('')
+    ? parsed.rows.map((row,i)=>{const r=safeObj(row);const cls=r.isCorrect===true?'correct':(r.isCorrect===false?'wrong':'live');const picked=r.selected?` • Picked ${escapeHtml(r.selected)}`:'';const correct=r.correct?` • Correct ${escapeHtml(r.correct)}`:'';return `<div class="replay-row ${cls}"><div class="qn">${i+1}</div><div class="topic">${escapeHtml(pickText([r.topic,r.subject,'LIVE']))}</div><div class="qtxt">${escapeHtml(pickText([r.q,r.prompt,r.question,r.question_id,'Live answer row']))}${picked}${correct}</div><div class="qtime">${escapeHtml(pickText([r.time,r.time_ms,r.elapsed,'-']))}</div><div class="qpts">${escapeHtml(pickText([r.pts,r.points,r.score,'-']))}</div></div>`;}).join('')
     : '<div class="replay-row live"><div class="qn">-</div><div class="topic">REVIEW</div><div class="qtxt">No review rows available yet.</div><div class="qtime">-</div><div class="qpts">-</div></div>';
   const eloRow=parsed.elo?`<div class="result-elo"><div class="l">RANK CHANGE</div><div class="v ${parsed.elo.charAt(0)==='-'?'down':'up'}">${escapeHtml(parsed.elo)}</div><div class="l">${escapeHtml(parsed.rank||'MATCH RATING')}</div></div>`:'';
   root.innerHTML=`
@@ -2277,6 +2590,7 @@ RENDERERS['6']=function(){
           <h3>MATCH HIGHLIGHTS</h3>
           <div class="row"><span>Questions played</span><span class="v">${escapeHtml(parsed.total)}</span></div>
           <div class="row"><span>Correct answers</span><span class="v">${escapeHtml(parsed.correct)}</span></div>
+          ${parsed.opponentScore?`<div class="row"><span>Rival score</span><span class="v">${escapeHtml(parsed.opponentScore)}</span></div>`:''}
           <div class="row"><span>Rank change</span><span class="v">${parsed.elo?escapeHtml(parsed.elo):'Pending'}</span></div>
           <div class="row"><span>Review items</span><span class="v">${parsed.rows.length}</span></div>
         </div>
