@@ -506,7 +506,7 @@
       <p>Review preferences, log outreach, track the thread, build the offer, and send with coordinator approval.</p>
     </div>
     <div class="mm-adapter-banner" id="mmAdapterBanner">
-      <strong>Railway adapter:</strong> loading protected request queue from the canonical MissionMed HQ backend.
+      <strong>Secure admin access:</strong> loading the protected USCE request queue for authorized MissionMed administrators.
     </div>
 
     <div class="mm-hq-grid">
@@ -1012,7 +1012,7 @@
   function setAdapterBanner(text, mode){
     const banner = $('#mmAdapterBanner');
     if (!banner) return;
-    banner.innerHTML = '<strong>Railway adapter:</strong> ' + esc(text);
+    banner.innerHTML = '<strong>Secure admin access:</strong> ' + esc(text);
     banner.classList.toggle('is-live', mode === 'live');
     banner.classList.toggle('is-blocked', mode === 'blocked');
   }
@@ -1094,7 +1094,7 @@
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'mm-btn mm-btn-sm mm-btn-primary';
-    button.textContent = 'Connect admin session';
+    button.textContent = 'Admin Login';
     button.addEventListener('click', beginAdminAuthRelay);
     actions.appendChild(button);
     banner.appendChild(actions);
@@ -1149,7 +1149,7 @@
         writeStoredBearer('');
         state.accessToken = '';
       }
-      const err = new Error(payload && payload.message ? payload.message : 'Admin session required.');
+      const err = new Error(payload && payload.message ? payload.message : 'Administrator login required.');
       err.status = response.status === 200 ? 401 : (response.status || 401);
       err.payload = payload;
       throw err;
@@ -1187,8 +1187,8 @@
     return payload || {};
   }
   function errorSummary(error){
-    if (error && error.status === 401) return 'Admin session required. Connect WordPress admin authority through the protected Railway relay.';
-    if (error && error.status === 403) return 'Privileged WordPress authority required. Learner sessions are blocked.';
+    if (error && error.status === 401) return 'Administrator-level login required. This page is only available to secure MissionMed admins like Phil, Brian, or Dr. J.';
+    if (error && error.status === 403) return 'Administrator-level access is required. Student and learner accounts cannot view this page.';
     return error && error.message ? error.message : 'Operation failed safely.';
   }
   function switchView(v){
@@ -1244,7 +1244,7 @@
   async function loadLiveQueue(){
     state.adapter = 'live';
     setRuntime('Live protected', 'live');
-    setAdapterBanner('checking privileged admin session and loading intake requests...', 'live');
+    setAdapterBanner('checking administrator login and loading the protected request queue...', 'live');
     try {
       const params = new URLSearchParams({ limit: '75' });
       if (state.filter !== 'all') params.set('status', STATUS_TO_LIVE[state.filter] || state.filter.toLowerCase());
@@ -1254,7 +1254,7 @@
       const items = Array.isArray(payload.items) ? payload.items : [];
       state.requests = items.map(normalizeLiveRequest).filter(r => r.id);
       state.selectedRequestId = state.requests[0] ? state.requests[0].id : null;
-      setAdapterBanner('live queue loaded through Railway. Browser has no Supabase service role and no direct database access.', 'live');
+      setAdapterBanner('request queue loaded securely. This browser has no database admin keys or direct database access.', 'live');
       setRuntime('Live protected', 'live');
       renderRequestList();
     } catch (error) {
@@ -1790,7 +1790,7 @@
           method: 'PATCH',
           body: { status: STATUS_TO_LIVE[next] || 'in_progress' }
         });
-        setAdapterBanner('intake status updated through protected Railway endpoint.', 'live');
+        setAdapterBanner('intake status updated through the secure admin service.', 'live');
       }
       r.status = next;
       pushAudit(r, from, r.status, options.reason || (COORDINATOR + ' updated status'));
@@ -1844,7 +1844,7 @@
           body: { admin_note: v.trim() }
         });
         r.adminNotes = v.trim();
-        setAdapterBanner('admin note saved through protected Railway endpoint.', 'live');
+        setAdapterBanner('admin note saved through the secure admin service.', 'live');
       }
       r.comms.push({ dir:'note', kind: 'Internal note by ' + COORDINATOR, at: Date.now(), subject: '', body: v.trim() });
       renderDetail(); switchTab('comms');
@@ -2117,7 +2117,7 @@
       if (!r.offerHistory.some(h => h.id === liveOffer.id)) {
         r.offerHistory.push({ id: liveOffer.id, status: liveOffer.status || 'DRAFT', at: Date.now() });
       }
-      r.comms.push({ dir:'sys', kind:'Offer draft saved', at: Date.now(), subject: liveOffer.specialty + ' / ' + liveOffer.location, body:'Protected Railway endpoint saved or updated the offer draft. No browser Supabase write occurred.' });
+      r.comms.push({ dir:'sys', kind:'Offer draft saved', at: Date.now(), subject: liveOffer.specialty + ' / ' + liveOffer.location, body:'The secure admin service saved or updated the offer draft. No browser database admin write occurred.' });
       state.currentOfferId = liveOffer.id;
       return liveOffer;
     }
@@ -2143,7 +2143,7 @@
     try {
       if (state.adapter === 'live') {
         await persistLiveOfferDraft(offer);
-        setAdapterBanner('offer draft saved through protected Railway endpoint.', 'live');
+        setAdapterBanner('offer draft saved through the secure admin service.', 'live');
         toast('Live draft saved');
       } else {
         persistLocalOfferDraft(offer);
@@ -2442,11 +2442,11 @@ CONFIG.gmailMailboxes[0];
         const payload = await adminFetch(path, { offerId: offer.id }, { method: 'PATCH', body });
         const item = payload.item || payload.offer || payload;
         const liveOffer = mergeLiveOffer(item, r.id) || offer;
-        r.comms.push({ dir:'sys', kind:'Operations state updated', at: Date.now(), subject: action, body:'Protected Railway endpoint updated ' + action + ' readiness. No WooCommerce order, payment, upload, or LearnDash enrollment was triggered.' });
+        r.comms.push({ dir:'sys', kind:'Operations state updated', at: Date.now(), subject: action, body:'The secure admin service updated ' + action + ' readiness. No WooCommerce order, payment, upload, or LearnDash enrollment was triggered.' });
         renderLiveOfferBox(r);
         renderTimeline(r);
         renderAudit(r);
-        setAdapterBanner(action + ' readiness updated through protected Railway endpoint.', 'live');
+        setAdapterBanner(action + ' readiness updated through the secure admin service.', 'live');
         toast('State saved: ' + action);
         if (liveOffer) renderDetail();
       } catch (error) {
