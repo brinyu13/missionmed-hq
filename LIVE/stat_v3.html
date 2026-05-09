@@ -699,6 +699,9 @@ const STAT_V3_SUPABASE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOi
 const STAT_V3_AUTH_EXCHANGE_URL=STAT_V3_AUTH_CONTRACT.railwayAuthHost+STAT_V3_AUTH_CONTRACT.exchangePath;
 const STAT_V3_AUTH_BOOTSTRAP_URL=STAT_V3_AUTH_CONTRACT.railwayAuthHost+STAT_V3_AUTH_CONTRACT.bootstrapPath;
 const STAT_V3_SESSION_DUEL_KEY='mm.stat.v3.lab.duel_id';
+const STAT_V3_AUTH_HANDOFF_ONCE_KEY='mm.stat.v3.auth_handoff_attempted';
+const STAT_V3_AUTH_HANDOFF_CYCLE_RESET_KEY='mm.stat.v3.auth_handoff_cycle_reset';
+const STAT_V3_AUTH_HANDOFF_TOKEN_KEY='mm.stat.v3.handoff_token';
 const STAT_V3_LAB_MODE=/[?&]lab=1(?:&|$)/.test(window.location.search||'')||String(window.location.hash||'').toLowerCase()==='#lab';
 const STAT_V3_QUESTION_SECONDS=15;
 const STAT_V3_POINT_DECAY_MAX=100;
@@ -917,15 +920,209 @@ async function postJson(url,body,extraHeaders,credentialsMode){
   try{payload=await response.json();}catch(e){payload=null;}
   return {ok:response.ok,status:response.status,payload};
 }
-async function runStatV3AuthExchange(){
+function statV3ReadHandoffTokenFromHash(){
   try{
-    const exchange=await postJson(STAT_V3_AUTH_EXCHANGE_URL,{audience:'arena'},null,'include');
-    if(!exchange.ok)return {ok:false,reason:'auth_exchange_http_'+exchange.status};
-    return {
-      ok:true,
-      accessToken:getExchangeAccessToken(exchange.payload),
-      csrfToken:getExchangeCsrfToken(exchange.payload)
-    };
+    const raw=String(window.location.hash||'').replace(/^#/,'').trim();
+    if(!raw)return '';
+    const params=new URLSearchParams(raw);
+    return String(params.get('mmhq_handoff_token')||'').trim();
+  }catch(e){return '';}
+}
+function statV3ClearHandoffTokenFromHash(){
+  try{
+    const raw=String(window.location.hash||'').replace(/^#/,'').trim();
+    if(!raw)return;
+    const params=new URLSearchParams(raw);
+    if(!params.has('mmhq_handoff_token'))return;
+    params.delete('mmhq_handoff_token');
+    const nextHash=params.toString();
+    const nextUrl=window.location.pathname+window.location.search+(nextHash?('#'+nextHash):'');
+    window.history.replaceState({},'',nextUrl);
+  }catch(e){}
+}
+function statV3ReadStoredHandoffToken(){
+  try{return String(sessionStorage.getItem(STAT_V3_AUTH_HANDOFF_TOKEN_KEY)||'').trim();}
+  catch(e){return '';}
+}
+function statV3WriteStoredHandoffToken(token){
+  const safe=String(token||'').trim();
+  try{
+    if(safe)sessionStorage.setItem(STAT_V3_AUTH_HANDOFF_TOKEN_KEY,safe);
+    else sessionStorage.removeItem(STAT_V3_AUTH_HANDOFF_TOKEN_KEY);
+  }catch(e){}
+}
+function statV3ResolveHandoffToken(){
+  const stored=statV3ReadStoredHandoffToken();
+  if(stored)return stored;
+  const hashToken=statV3ReadHandoffTokenFromHash();
+  if(hashToken){
+    statV3WriteStoredHandoffToken(hashToken);
+    statV3ClearHandoffTokenFromHash();
+    return hashToken;
+  }
+  return '';
+}
+function statV3AuthRetryDelays(){
+  let loginHint=false;
+  try{
+    const params=new URLSearchParams(window.location.search||'');
+    loginHint=params.get('redirected')==='1'||params.get('just_logged_in')==='1';
+  }catch(e){}
+  try{
+    if(!loginHint&&document.referrer){
+      loginHint=/\/my-account\/?|\/wp-login\.php|\/wp-admin\/admin-post\.php/i.test(String(document.referrer));
+    }
+  }catch(e){}
+  return loginHint?[0,150,350,700,1200,2000]:[0];
+}
+function statV3AuthLoginHints(result){
+  const payload=safeObj(result&&result.payload);
+  const login=safeObj(payload.login);
+  return objectHasKeys(login)?login:null;
+}
+function statV3AuthFinalUrl(){
+  try{
+    const onLocal=/^(localhost|127\.0\.0\.1|::1)$/i.test(String(window.location.hostname||''));
+    const url=new URL(onLocal?'https://missionmedinstitute.com/stat-v3':'/stat-v3',onLocal?'https://missionmedinstitute.com':window.location.origin);
+    url.searchParams.set('just_logged_in','1');
+    const duelId=readRequestedDuelId();
+    if(duelId)url.searchParams.set('duel_id',duelId);
+    return url.toString();
+  }catch(e){
+    return 'https://missionmedinstitute.com/stat-v3?just_logged_in=1';
+  }
+}
+function statV3WithAuthFinalReturn(rawHandoffUrl){
+  const safe=String(rawHandoffUrl||'').trim();
+  if(!safe)return '';
+  try{
+    const handoffUrl=new URL(safe,window.location.origin);
+    const finalUrl=statV3AuthFinalUrl();
+    handoffUrl.searchParams.set('final',finalUrl);
+    const returnTo=String(handoffUrl.searchParams.get('return_to')||'').trim();
+    if(returnTo){
+      const returnUrl=new URL(returnTo);
+      if(returnUrl.origin===STAT_V3_AUTH_CONTRACT.railwayAuthHost&&returnUrl.pathname===STAT_V3_AUTH_CONTRACT.sessionPath){
+        returnUrl.searchParams.set('audience','arena');
+        returnUrl.searchParams.set('final',finalUrl);
+        handoffUrl.searchParams.set('return_to',returnUrl.toString());
+      }
+    }
+    return handoffUrl.toString();
+  }catch(e){return safe;}
+}
+function statV3WordPressHandoffUrl(result){
+  const hints=statV3AuthLoginHints(result);
+  const raw=String(hints&&hints.wordpress_handoff_url||'').trim();
+  if(!raw)return '';
+  const withFinal=statV3WithAuthFinalReturn(raw);
+  try{
+    const parsed=new URL(withFinal,window.location.origin);
+    if(parsed.hostname!=='missionmedinstitute.com'&&parsed.hostname!=='www.missionmedinstitute.com')return '';
+    return parsed.toString();
+  }catch(e){return '';}
+}
+function statV3HasAttemptedAuthHandoff(){
+  try{return sessionStorage.getItem(STAT_V3_AUTH_HANDOFF_ONCE_KEY)==='1';}
+  catch(e){return false;}
+}
+function statV3MarkAuthHandoffAttempted(){
+  try{sessionStorage.setItem(STAT_V3_AUTH_HANDOFF_ONCE_KEY,'1');}catch(e){}
+}
+function statV3ClearAuthHandoffAttempted(){
+  try{sessionStorage.removeItem(STAT_V3_AUTH_HANDOFF_ONCE_KEY);}catch(e){}
+  try{sessionStorage.removeItem(STAT_V3_AUTH_HANDOFF_CYCLE_RESET_KEY);}catch(e){}
+}
+function statV3MaybeResetAuthHandoffForReturn(){
+  let shouldReset=false;
+  try{
+    const params=new URLSearchParams(window.location.search||'');
+    shouldReset=params.get('redirected')==='1'||params.get('just_logged_in')==='1';
+  }catch(e){}
+  try{
+    if(!shouldReset&&document.referrer){
+      shouldReset=/\/my-account\/?|\/wp-login\.php|\/wp-admin\/admin-post\.php/i.test(String(document.referrer));
+    }
+  }catch(e){}
+  if(!shouldReset)return;
+  try{
+    if(sessionStorage.getItem(STAT_V3_AUTH_HANDOFF_CYCLE_RESET_KEY)==='1')return;
+    sessionStorage.setItem(STAT_V3_AUTH_HANDOFF_CYCLE_RESET_KEY,'1');
+  }catch(e){}
+  statV3ClearAuthHandoffAttempted();
+}
+function statV3ShouldAttemptAuthHandoff(result){
+  if(!result||result.ok)return false;
+  if(statV3HasAttemptedAuthHandoff())return false;
+  if(!statV3WordPressHandoffUrl(result))return false;
+  try{
+    const params=new URLSearchParams(window.location.search||'');
+    if(params.get('redirected')==='1'||params.get('just_logged_in')==='1')return true;
+  }catch(e){}
+  try{
+    if(document.referrer&&/\/my-account\/?|\/wp-login\.php|\/wp-admin\/admin-post\.php/i.test(String(document.referrer)))return true;
+  }catch(e){}
+  try{
+    if(/(?:^|;\s*)mm_wp_rest_nonce=/.test(String(document.cookie||'')))return true;
+  }catch(e){}
+  return true;
+}
+async function statV3AttemptAuthHandoff(result){
+  const handoffUrl=statV3WordPressHandoffUrl(result);
+  if(!handoffUrl)return {ok:false,reason:'auth_handoff_url_missing'};
+  if(statV3HasAttemptedAuthHandoff())return {ok:false,reason:'auth_handoff_already_attempted'};
+  statV3MarkAuthHandoffAttempted();
+  try{
+    window.location.href=handoffUrl;
+    return {ok:true,navigating:true,handoffUrl};
+  }catch(e){
+    return {ok:false,reason:'auth_handoff_navigation_failed'};
+  }
+}
+async function runStatV3AuthExchange(){
+  statV3MaybeResetAuthHandoffForReturn();
+  const handoffToken=statV3ResolveHandoffToken();
+  if(handoffToken){
+    try{
+      const tokenExchange=await postJson(STAT_V3_AUTH_EXCHANGE_URL,{audience:'arena',token:handoffToken},null,'include');
+      if(tokenExchange.ok){
+        statV3WriteStoredHandoffToken('');
+        statV3ClearAuthHandoffAttempted();
+        return {
+          ok:true,
+          accessToken:getExchangeAccessToken(tokenExchange.payload),
+          csrfToken:getExchangeCsrfToken(tokenExchange.payload),
+          source:'exchange_handoff_token'
+        };
+      }
+    }catch(e){}
+  }
+  let lastExchange=null;
+  try{
+    const delays=statV3AuthRetryDelays();
+    for(let i=0;i<delays.length;i+=1){
+      if(delays[i]>0)await new Promise(resolve=>setTimeout(resolve,delays[i]));
+      const exchange=await postJson(STAT_V3_AUTH_EXCHANGE_URL,{audience:'arena'},null,'include');
+      lastExchange=exchange;
+      if(exchange.ok){
+        statV3WriteStoredHandoffToken('');
+        statV3ClearAuthHandoffAttempted();
+        return {
+          ok:true,
+          accessToken:getExchangeAccessToken(exchange.payload),
+          csrfToken:getExchangeCsrfToken(exchange.payload),
+          source:'exchange_cookie'
+        };
+      }
+    }
+    if(statV3ShouldAttemptAuthHandoff(lastExchange)){
+      const handoff=await statV3AttemptAuthHandoff(lastExchange);
+      if(handoff&&handoff.ok&&handoff.navigating){
+        return {ok:false,reason:'auth_handoff_navigation_started'};
+      }
+      return {ok:false,reason:(handoff&&handoff.reason)||'auth_handoff_failed'};
+    }
+    return {ok:false,reason:'auth_exchange_http_'+((lastExchange&&lastExchange.status)||0)};
   }catch(e){
     return {ok:false,reason:'auth_exchange_request_failed'};
   }
@@ -946,6 +1143,33 @@ async function runStatV3Bootstrap(exchangeResult){
     return {ok:false,reason:'auth_bootstrap_request_failed'};
   }
 }
+function statV3ApplyVerifiedUser(user,sourceLabel){
+  const source=safeObj(user);
+  const id=pickText([source.id]);
+  if(!id)return null;
+  const meta=safeObj(source.user_metadata);
+  const email=pickText([source.email,meta.email]);
+  const emailName=email&&email.includes('@')?email.split('@')[0].replace(/[._+\-]+/g,' '):'';
+  const player=normalizePlayer({
+    id,
+    user_id:id,
+    email,
+    display_name:pickText([meta.full_name,meta.name,meta.display_name,meta.username,emailName,'You']),
+    public_display_name:pickText([meta.full_name,meta.name,meta.display_name,meta.username,emailName,'You']),
+    avatar_url:pickText([meta.avatar_url,meta.picture]),
+    avatar_thumbnail_url:pickText([meta.avatar_url,meta.picture]),
+    school_name:pickText([meta.school_name,meta.institution,'MissionMed']),
+    stats:EMPTY_STATS
+  },FALLBACK_YOU,sourceLabel||'supabase.auth');
+  YOU=player;
+  const ctx=Object.assign({},liveContext(),{currentUser:player,user:player});
+  window.MM_STAT_V3_CONTEXT=ctx;
+  if(window.MM_STAT_V3_ADAPTER){
+    window.MM_STAT_V3_ADAPTER.currentUser=player;
+    window.MM_STAT_V3_ADAPTER.sourceState=Object.assign({},safeObj(window.MM_STAT_V3_ADAPTER.sourceState),{currentUser:player.source||sourceLabel||'supabase.auth'});
+  }
+  return player;
+}
 async function ensureStatV3SupabaseSession(){
   const client=statV3Supabase();
   if(!client||!client.auth||typeof client.auth.getUser!=='function')return {ok:false,reason:'supabase_client_unavailable'};
@@ -956,6 +1180,7 @@ async function ensureStatV3SupabaseSession(){
     const preUserId=pickText([preUser&&preUser.id]);
     if(preUserId){
       statV3VerifiedUserId=preUserId;
+      statV3ApplyVerifiedUser(preUser,'supabase.existing_session');
       return {ok:true,source:'existing_session',user:preUser};
     }
     const exchange=await runStatV3AuthExchange();
@@ -973,6 +1198,7 @@ async function ensureStatV3SupabaseSession(){
     const verifiedUserId=pickText([verifiedUser&&verifiedUser.id]);
     if(!verifiedUserId)return {ok:false,reason:'supabase_user_missing'};
     statV3VerifiedUserId=verifiedUserId;
+    statV3ApplyVerifiedUser(verifiedUser,'supabase.bootstrap');
     return {ok:true,source:'bootstrap',user:verifiedUser};
   })();
   try{return await statV3SessionPromise;}finally{statV3SessionPromise=null;}
