@@ -687,8 +687,8 @@ document.body.classList.toggle('stat-v3-lab-mode',STAT_V3_LAB_MODE);
 const EMPTY_STATS=Object.freeze({win:'-',acc:'-',spd:'-',streak:'-',ovr:'-',rank:'-'});
 const FALLBACK_YOU=Object.freeze({id:'',name:'Live player pending',school:'',schoolName:'MissionMed',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Avatar pending',stats:EMPTY_STATS});
 const FALLBACK_OPP=Object.freeze({id:'',name:'Matched opponent pending',school:'',schoolName:'STAT async queue',headshot_url:'',fullbody_url:'',rarity:'rare',skin_name:'Opponent pending',stats:EMPTY_STATS});
-const STAT_V3_PRACTICE_YOU=Object.freeze({id:'stat-v3-local-player',name:'You',schoolName:'MissionMed',rarity:'rare',skin_name:'STAT Trainee',stats:{win:'-',acc:'-',spd:'-',streak:'-',ovr:'76',rank:'Practice'}});
-const STAT_V3_PRACTICE_OPP=Object.freeze({id:'stat-v3-practice-rival',name:'Practice Rival',schoolName:'STAT Arena',rarity:'epic',skin_name:'Pressure Ghost',stats:{win:'64',acc:'78',spd:'4.2',streak:'5',ovr:'82',rank:'Practice'}});
+const STAT_V3_PRACTICE_YOU=Object.freeze({id:'stat-v3-local-player',name:'You',schoolName:'MissionMed',rarity:'rare',skin_name:'STAT Trainee',stats:{win:'-',acc:'-',spd:'-',streak:'-',ovr:'76',rank:'Ready'}});
+const STAT_V3_PRACTICE_OPP=Object.freeze({id:'stat-v3-random-rival',name:'Random Rival',schoolName:'STAT Arena',rarity:'epic',skin_name:'Pressure Rival',stats:{win:'64',acc:'78',spd:'4.2',streak:'5',ovr:'82',rank:'Bot'}});
 const STAT_V3_PRACTICE_QUESTION_ROWS=Object.freeze([
   {id:'stat-v3-practice-1',topic:'CARDIO',question:'A patient has crushing substernal chest pain and ST elevation in II, III, and aVF. Which coronary artery is most likely involved?',choices:{A:'Left anterior descending artery',B:'Right coronary artery',C:'Left circumflex artery',D:'Posterior descending branch only'},correct_answer:'B'},
   {id:'stat-v3-practice-2',topic:'PHARM',question:'Which medication class is most associated with a persistent dry cough?',choices:{A:'Calcium channel blockers',B:'ACE inhibitors',C:'Loop diuretics',D:'Beta blockers'},correct_answer:'B'},
@@ -1014,10 +1014,10 @@ function buildStatV3BotOpponent(pack){
   const duelId=pickText([pack&&pack.duel_id,statV3ActiveDuelId]);
   return {
     id:duelId?'stat_v3_bot_'+duelId:'stat_v3_bot',
-    name:'STAT Practice Bot',
-    schoolName:'Server-created bot duel',
+    name:'Random Rival',
+    schoolName:'STAT Arena',
     rarity:'rare',
-    skin_name:'Practice opponent',
+    skin_name:'Pressure Rival',
     stats:EMPTY_STATS
   };
 }
@@ -1956,9 +1956,9 @@ function activateStatV3PracticeMatch(){
   OPP=normalizePlayer(STAT_V3_PRACTICE_OPP,FALLBACK_OPP,'stat_v3.practice');
   STAT_V3_PACK_INPUT.value=pack;
   STAT_V3_PACK_INPUT.source=pack.source;
-  STAT_V3_HUMAN.mode='practice_rival';
-  STAT_V3_HUMAN.status='practice_ready';
-  STAT_V3_HUMAN.message='Practice rival ready. Same STAT rules: 15-second clock, faster correct answers score more.';
+  STAT_V3_HUMAN.mode='random_rival';
+  STAT_V3_HUMAN.status='random_rival_ready';
+  STAT_V3_HUMAN.message='Random rival ready. Same STAT rules: 15-second clock, faster correct answers score more.';
   STAT_V3_HUMAN.error='';
   STAT_V3_HUMAN.duelId=pack.duel_id;
   STAT_V3_HUMAN.inviteUrl='';
@@ -1993,7 +1993,7 @@ function clearStatV3DuelId(){
 }
 function statV3IsPracticeOrBotOpponent(player){
   const id=String(player&&player.id||'');
-  return !id||id.indexOf('stat-v3-practice')===0||id.indexOf('stat_v3_bot')===0;
+  return !id||id.indexOf('stat-v3-practice')===0||id.indexOf('stat-v3-random')===0||id.indexOf('stat_v3_bot')===0;
 }
 function statV3ResetAttemptState(opts){
   const options=Object.assign({clearDuel:false,clearOpponent:false,clearPack:false},opts||{});
@@ -2051,6 +2051,20 @@ async function statV3StartBotDuelFromSetup(){
   });
   return created.duelId;
 }
+async function statV3StartRandomOpponentMatch(){
+  try{
+    await statV3StartBotDuelFromSetup();
+  }catch(e){
+    activateStatV3PracticeMatch();
+    updateHumanState({
+      mode:'random_rival',
+      status:'local_random_ready',
+      message:'Random rival ready. Same STAT rules: 15-second clock, faster correct answers score more.',
+      error:''
+    });
+  }
+  setStep('4');
+}
 async function statV3AdvanceFromSetup(){
   if(STAT_V3_SETUP.opponent==='friend'){
     setStep('3');
@@ -2062,8 +2076,7 @@ async function statV3AdvanceFromSetup(){
     return;
   }
   try{
-    await statV3StartBotDuelFromSetup();
-    setStep('4');
+    await statV3StartRandomOpponentMatch();
   }catch(e){
     updateHumanState({status:'blocked',message:'Could not start this STAT match yet. Choose Friend/Search or retry.',error:String(e&&e.message?e.message:e).slice(0,160)});
     setStep('3');
@@ -2081,8 +2094,7 @@ async function statV3Rematch(){
       else setStep('3');
       return;
     }
-    await statV3StartBotDuelFromSetup();
-    setStep('4');
+    await statV3StartRandomOpponentMatch();
   }catch(e){
     updateHumanState({status:'blocked',message:'Could not start rematch yet.',error:String(e&&e.message?e.message:e).slice(0,160)});
     setStep(humanRematch?'3':'2');
@@ -2100,7 +2112,7 @@ function flowNav(backStep,nextStep,nextLabel,opts){
   return `<div class="stat-flow-nav">${backStep?`<button class="flow-btn nav-back" type="button" data-step-target="${escapeHtml(backStep)}">${escapeHtml(o.backLabel)}</button>`:'<span class="flow-spacer"></span>'}<span class="flow-spacer"></span>${o.extra||''}${nextStep?`<button class="flow-btn primary nav-next" type="button" data-step-target="${escapeHtml(nextStep)}" ${o.nextDisabled?'disabled':''}>${escapeHtml(nextLabel||'Next')}</button>`:''}</div>`;
 }
 function playerReadyLabel(){
-  if(STAT_V3_PRACTICE_MODE)return 'Practice ready';
+  if(STAT_V3_PRACTICE_MODE)return 'Random rival ready';
   if(wiringIsReady())return 'Ready';
   if(!YOU.id)return 'Sign in needed';
   if(!OPP.id)return 'Find opponent';
@@ -2272,7 +2284,7 @@ function statV3BuildLocalResult(){
     avg:stats.avg,
     streak:String(stats.bestStreak),
     elo:'',
-    rank:'Practice Match',
+    rank:'STAT Match',
     opponentScore:String(opp.score),
     replayRows:QUESTIONS.map((q,index)=>{
       const selected=statV3Selection(q)||{};
@@ -2303,7 +2315,7 @@ function statV3FinishLocalAttempt(){
   updateHumanState({
     submitted:true,
     submitStatus:'finalized',
-    message:'Practice match complete. Results are ready.',
+    message:'Match complete. Results are ready.',
     error:'',
     resultEnvelope:{ok:true,local:true}
   });
@@ -2416,6 +2428,10 @@ document.addEventListener('click',async(event)=>{
       await statV3AdvanceFromSetup();
       return;
     }
+    if(String(shell.dataset.step)==='3'&&target==='4'&&!wiringIsReady()){
+      await statV3StartRandomOpponentMatch();
+      return;
+    }
     setStep(target);
     return;
   }
@@ -2482,6 +2498,12 @@ document.addEventListener('click',async(event)=>{
     event.preventDefault();
     activateStatV3PracticeMatch();
     setStep('4');
+    return;
+  }
+  const startRandom=event.target.closest('#stat-v3-start-random');
+  if(startRandom&&!startRandom.disabled){
+    event.preventDefault();
+    await statV3StartRandomOpponentMatch();
     return;
   }
   const createHuman=event.target.closest('#stat-v3-create-human');
@@ -2602,10 +2624,17 @@ function statV3HumanPanel(){
   return `
     <div class="cfg-group stat-v3-human-panel">
       <div class="cfg-label">FIND OPPONENT</div>
-      <div class="summary-row"><span>How to start</span><span class="v">Search, select, then create match</span></div>
+      <div class="summary-row"><span>How to start</span><span class="v">Search human or start random</span></div>
       <div class="summary-row"><span>Opponent Status</span><span class="v">${escapeHtml(playerReadyLabel())}</span></div>
       ${selected}
       ${invite}
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;margin:12px 0;padding:14px;border:1px solid var(--card-border);border-radius:12px;background:var(--card-bg-elev)">
+        <div>
+          <div class="summary-tag" style="margin-bottom:6px">RANDOM OPPONENT</div>
+          <div style="font-family:var(--f-inter);font-size:13px;line-height:1.45;color:var(--fg-muted)">No classmate selected? Start a STAT match now with an assigned rival.</div>
+        </div>
+        <button class="result-cta" type="button" id="stat-v3-start-random">Start Random Match</button>
+      </div>
       <div style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;margin:12px 0">
         <input id="stat-v3-opponent-query" value="${escapeHtml(STAT_V3_HUMAN.searchQuery||'')}" placeholder="Search by name, email, or UUID" style="min-width:0;border:1px solid var(--card-border);border-radius:10px;background:var(--pill-bg);color:var(--fg);padding:14px;font-family:var(--f-bebas);letter-spacing:1px">
         <button class="result-cta alt" type="button" id="stat-v3-load-roster">Find Opponent</button>
@@ -2744,6 +2773,7 @@ RENDERERS['2']=function(){
 
 RENDERERS['3']=function(){
   const root=document.getElementById('screen-matchup');
+  const readyLabel=wiringIsReady()?'Ready Check':'Start Random Match';
   root.innerHTML=`
     <div class="s-setup">
       <div class="s-setup-main">
@@ -2752,7 +2782,7 @@ RENDERERS['3']=function(){
           <div class="sub">Invite a classmate or join an invite. Both players get the same questions in the same order.</div>
         </div>
         ${statV3HumanPanel()}
-        ${flowNav('2','4','Ready Check',{nextDisabled:!wiringIsReady(),extra:STAT_V3_HUMAN.inviteUrl?`<button class="flow-btn" type="button" id="stat-v3-copy-invite">Copy Invite</button>`:''})}
+        ${flowNav('2','4',readyLabel,{nextDisabled:false,extra:STAT_V3_HUMAN.inviteUrl?`<button class="flow-btn" type="button" id="stat-v3-copy-invite">Copy Invite</button>`:''})}
       </div>
       <aside class="s-setup-side">
         <div class="summary-tag">OPPONENT STATUS</div>
