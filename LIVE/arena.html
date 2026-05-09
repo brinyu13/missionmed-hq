@@ -13509,6 +13509,67 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     return normalized;
   }
 
+  function isAvatarV3NativeEndpoint(endpoint){
+    return String(endpoint || '').indexOf('/avatar/v3/generate') !== -1;
+  }
+
+  function getAvatarV3GenerationEndpoints(){
+    var endpoints = [];
+    [AVATAR_API_ENDPOINT, AVATAR_V3_API_ENDPOINT].forEach(function(endpoint){
+      var safeEndpoint = String(endpoint || '').trim();
+      if(safeEndpoint && endpoints.indexOf(safeEndpoint) === -1) endpoints.push(safeEndpoint);
+    });
+    return endpoints;
+  }
+
+  function extractAvatarV3PayloadValue(payload, keys){
+    if(!payload || typeof payload !== 'object') return '';
+    var data = payload.data && typeof payload.data === 'object' ? payload.data : null;
+    for(var i = 0; i < keys.length; i++){
+      var key = keys[i];
+      var value = payload[key] || (data ? data[key] : '');
+      if(value) return String(value).trim();
+    }
+    return '';
+  }
+
+  function extractAvatarV3UrlFromPayload(payload){
+    return extractAvatarUrlFromPayload(payload) || extractAvatarV3PayloadValue(payload, [
+      'image_url',
+      'generated_url',
+      'output_url'
+    ]);
+  }
+
+  function buildAvatarV3GenerationFormData(file, avatarId, mode, activeUserId){
+    var formData = new FormData();
+    formData.append('gender', avatarV3State.gender);
+    formData.append('body_type', avatarV3State.body_type);
+    formData.append('style', avatarV3State.style);
+    formData.append('photo', file, file.name || 'avatar-studio-photo.png');
+
+    if(mode === 'legacy'){
+      formData.append('user_id', String(activeUserId || ArenaUser.id || ''));
+      formData.append('wp_user_id', String(ArenaUser.wpUserId || ''));
+      formData.append('username', String(ArenaUser.username || ''));
+      formData.append('display_name', String(ArenaUser.displayName || ''));
+      formData.append('avatar_id', avatarId);
+      formData.append('source', 'arena_v3');
+      formData.append('avatar_version', 'v3');
+    }
+    return formData;
+  }
+
+  async function readAvatarV3ApiPayload(response){
+    var rawText = '';
+    var payload = null;
+    try{ rawText = await response.text(); }catch(_textErr){ rawText = ''; }
+    if(rawText){
+      try{ payload = JSON.parse(rawText); }catch(_jsonErr){ payload = null; }
+    }
+    return { payload: payload, rawText: rawText };
+  }
+
   async function submitAvatarV3Generation(){
     if(!isAvatarV3Ready()){
       setAvatarV3Status('Complete every step before generating.', 'error');
@@ -13519,44 +13580,90 @@ body:not([data-lobby-state="lobby"]) #lus-mode-select{
     setAvatarV3Status('', '');
     startAvatarV3Progress();
     try{
-      var formData = new FormData();
-      formData.append('gender', avatarV3State.gender);
-      formData.append('body_type', avatarV3State.body_type);
-      formData.append('style', avatarV3State.style);
-      formData.append('photo', avatarV3State.file, avatarV3State.file.name || 'avatar-studio-photo.png');
-      var response = await fetch(AVATAR_V3_API_ENDPOINT, {
-        method: 'POST',
-        body: formData
-      });
-      var payload = null;
-      try{ payload = await response.json(); }catch(_jsonErr){ payload = null; }
-      if(!response.ok || !payload || payload.success === false){
-        throw new Error(payload && payload.message ? payload.message : 'Avatar Studio generation failed.');
+      var activeUserId = await ensureAvatarSupabaseIdentity('avatar_v3_generation');
+      if(!activeUserId){
+        throw new Error('Avatar Studio needs a verified MissionMed login before it can save.');
       }
-      var avatarUrl = extractAvatarUrlFromPayload(payload);
-      if(!avatarUrl) throw new Error('Avatar Studio did not return an avatar URL.');
-      var avatarId = extractAvatarIdFromPayload(payload) || createAvatarUuid();
+      var uploadFile = avatarV3State.file;
+      var uploadType = String(uploadFile && uploadFile.type || '').toLowerCase();
+      if(uploadType.indexOf('heic') === -1 && uploadType.indexOf('heif') === -1){
+        uploadFile = normalizeAvatarUploadInput(uploadFile, 'avatar_v3_generation') || uploadFile;
+      }
+      var avatarId = createAvatarUuid();
+      var endpoints = getAvatarV3GenerationEndpoints();
+      var payload = null;
+      var avatarUrl = '';
+      var lastGenerationError = null;
+
+      for(var i = 0; i < endpoints.length; i++){
+        var endpoint = endpoints[i];
+        var mode = isAvatarV3NativeEndpoint(endpoint) ? 'v3' : 'legacy';
+        try{
+          var response = await fetch(endpoint, {
+            method: 'POST',
+            body: buildAvatarV3GenerationFormData(uploadFile, avatarId, mode, activeUserId)
+          });
+          var parsed = await readAvatarV3ApiPayload(response);
+          payload = parsed.payload;
+          if(!response.ok || !payload || payload.success === false){
+            var message = payload && (payload.message || payload.error)
+              ? String(payload.message || payload.error)
+              : (parsed.rawText ? parsed.rawText.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '');
+            var endpointMissing = response.status === 404 || /Cannot\s+POST/i.test(message);
+            if(endpointMissing && i < endpoints.length - 1){
+              console.warn('[AVATAR_V3_ENDPOINT_FALLBACK]', {
+                endpoint: endpoint,
+                status: response.status,
+                fallback_endpoint: endpoints[i + 1]
+              });
+              lastGenerationError = new Error(message || 'Avatar Studio endpoint unavailable.');
+              continue;
+            }
+            throw new Error(message || 'Avatar Studio generation failed.');
+          }
+          avatarUrl = extractAvatarV3UrlFromPayload(payload);
+          if(!avatarUrl) throw new Error('Avatar Studio did not return an avatar URL.');
+          break;
+        } catch(endpointErr){
+          lastGenerationError = endpointErr;
+          if(i < endpoints.length - 1){
+            console.warn('[AVATAR_V3_GENERATION_FALLBACK]', {
+              endpoint: endpoint,
+              message: endpointErr && endpointErr.message ? endpointErr.message : String(endpointErr)
+            });
+            continue;
+          }
+        }
+      }
+      if(!avatarUrl){
+        if(lastGenerationError) throw lastGenerationError;
+        throw new Error('Avatar Studio did not return an avatar URL.');
+      }
+      avatarId = extractAvatarIdFromPayload(payload) || avatarId;
+      if(lastGenerationError && !payload){
+        console.warn('[AVATAR_V3_GENERATION_RECOVERED_AFTER_FALLBACK]', lastGenerationError);
+      }
       var persistResult = await persistAvatarV3Record({
         id: avatarId,
         avatar_url: avatarUrl,
-        thumbnail_url: payload.thumbnail_url || avatarUrl,
+        thumbnail_url: extractAvatarV3PayloadValue(payload, ['thumbnail_url', 'avatar_thumbnail_url']) || avatarUrl,
         gender: payload.gender || avatarV3State.gender,
         body_type: payload.body_type || avatarV3State.body_type,
         style: payload.style || avatarV3State.style,
-        prompt_set_id: payload.prompt_set_id || '',
-        source_photo_id: payload.source_photo_id || ''
+        prompt_set_id: extractAvatarV3PayloadValue(payload, ['prompt_set_id', 'prompt_set_key']) || '',
+        source_photo_id: extractAvatarV3PayloadValue(payload, ['source_photo_id']) || ''
       });
       var savedRecord = persistResult && persistResult.record ? persistResult.record : normalizeAvatarLockerRecord({
         id: avatarId,
         avatar_url: avatarUrl,
-        thumbnail_url: payload.thumbnail_url || avatarUrl,
+        thumbnail_url: extractAvatarV3PayloadValue(payload, ['thumbnail_url', 'avatar_thumbnail_url']) || avatarUrl,
         gender: avatarV3State.gender,
         avatar_version: 'v3',
         body_type: avatarV3State.body_type,
         style: avatarV3State.style,
-        prompt_set_id: payload.prompt_set_id || '',
+        prompt_set_id: extractAvatarV3PayloadValue(payload, ['prompt_set_id', 'prompt_set_key']) || '',
         generation_source: 'avatar_v3',
-        source_photo_id: payload.source_photo_id || '',
+        source_photo_id: extractAvatarV3PayloadValue(payload, ['source_photo_id']) || '',
         created_at: new Date().toISOString()
       });
       var lockerRecord = addAvatarV3RecordToLocker(savedRecord);
