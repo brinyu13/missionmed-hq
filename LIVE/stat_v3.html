@@ -288,16 +288,38 @@ body:not(.stat-v3-lab-mode) .mm-scenario{display:none}
 [data-theme="light"] .stat-q-topic{color:var(--accent-2)}
 .stat-q-text{font-family:var(--f-inter);font-size:18px;font-weight:600;color:var(--fg);line-height:1.35;margin-bottom:14px}
 .stat-q-choices{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.stat-q-choice{display:grid;grid-template-columns:32px 1fr;gap:12px;padding:17px 16px;background:var(--pill-bg);border:1px solid var(--card-border);border-radius:12px;cursor:pointer;transition:all .2s;text-align:left;min-height:72px}
+.stat-q-choice{position:relative;display:grid;grid-template-columns:32px 1fr;gap:12px;padding:17px 16px;background:var(--pill-bg);border:1px solid var(--card-border);border-radius:12px;cursor:pointer;transition:all .2s;text-align:left;min-height:72px}
 .stat-q-choice:hover{border-color:var(--accent);background:var(--card-bg-elev)}
 .stat-q-choice.selected{border-color:var(--accent);background:rgba(var(--podium-pulse-rgb),.1);box-shadow:0 0 0 2px rgba(var(--podium-pulse-rgb),.18)}
 .stat-q-choice.correct{border-color:#22c55e;background:rgba(34,197,94,.08)}
 .stat-q-choice.wrong{border-color:#ef4444;background:rgba(239,68,68,.06)}
+.stat-q-choice.ghost-picked{border-color:rgba(239,68,68,.7);box-shadow:0 0 0 2px rgba(239,68,68,.16)}
+.stat-q-choice.ghost-picked::after{content:'';position:absolute;inset:0;border-radius:inherit;border:2px solid rgba(239,68,68,.88);animation:statGhostRing .9s ease;pointer-events:none}
+.stat-q-choice.opponent-lock::before{content:'';position:absolute;inset:-2px;border-radius:inherit;border:1px solid rgba(252,211,77,.78);animation:statOpponentLock .55s ease;pointer-events:none}
 .stat-q-choice.revealed{cursor:default}
 .stat-q-choice:disabled{opacity:.96;cursor:default}
 .stat-q-choice .k{font-family:var(--f-bungee);font-size:15px;color:var(--accent);text-align:center;width:32px;height:32px;border-radius:8px;background:var(--card-bg-elev);display:grid;place-items:center}
 .stat-q-choice .t{font-family:var(--f-inter);font-size:15px;color:var(--fg);font-weight:700;line-height:1.35}
 .stat-q-choice.locked{border-color:var(--accent-2);background:rgba(252,211,77,.12);box-shadow:0 0 0 2px rgba(252,211,77,.18)}
+@keyframes statGhostRing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.72)}100%{box-shadow:0 0 0 22px rgba(239,68,68,0)}}
+@keyframes statOpponentLock{0%{opacity:.95;transform:scale(.96)}100%{opacity:0;transform:scale(1.08)}}
+.stat-opponent-cursor{position:absolute;top:0;left:0;width:28px;height:28px;transform:translate(-999px,-999px);transition:opacity .18s ease;pointer-events:none;z-index:8;opacity:0}
+.stat-opponent-cursor.active{opacity:1}
+.stat-opponent-cursor .cursor-shell{position:absolute;inset:0}
+.stat-opponent-cursor .cursor-shell.hovering{animation:statCursorJitter .17s steps(2,end) infinite}
+.stat-opponent-cursor .cursor-ring{position:absolute;inset:0;border-radius:50%;border:2px solid rgba(239,68,68,.92);box-shadow:0 0 16px rgba(239,68,68,.45);animation:statCursorPulse 1s ease-in-out infinite}
+.stat-opponent-cursor .cursor-avatar{position:absolute;right:-9px;top:-11px;width:20px;height:20px;border-radius:50%;background:#ef4444;color:#fff;font-family:var(--f-bungee);font-size:10px;display:grid;place-items:center;box-shadow:0 0 12px rgba(239,68,68,.52)}
+@keyframes statCursorJitter{0%{transform:translate(0,0)}25%{transform:translate(1px,-1px)}50%{transform:translate(-1px,0)}75%{transform:translate(0,1px)}100%{transform:translate(0,0)}}
+@keyframes statCursorPulse{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.08);opacity:1}}
+.stat-ghost-presence{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:9px 11px;border-radius:10px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.26);font-family:var(--f-bebas);font-size:11px;letter-spacing:2px;color:#dc2626}
+[data-theme="dark"] .stat-ghost-presence{color:#fca5a5}
+.stat-ghost-presence .label{display:inline-flex;align-items:center;gap:7px}
+.stat-ghost-presence .dot{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 10px currentColor}
+.stat-ghost-presence.hovering .dot{animation:statCursorPulse .7s ease-in-out infinite}
+.stat-ghost-presence.locking{background:rgba(252,211,77,.12);border-color:rgba(252,211,77,.44);color:#a16207}
+[data-theme="dark"] .stat-ghost-presence.locking{color:#fcd34d}
+.stat-ghost-presence.locked{background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.34);color:#15803d}
+[data-theme="dark"] .stat-ghost-presence.locked{color:#86efac}
 .stat-q-meta{display:flex;flex-direction:column;align-items:center;gap:14px}
 .stat-q-counter{font-family:var(--f-bebas);font-size:12px;letter-spacing:3px;color:var(--fg-soft);text-align:center}
 .stat-q-counter .n{display:block;font-family:var(--f-bungee);font-size:24px;color:var(--fg);letter-spacing:0;line-height:1}
@@ -804,9 +826,11 @@ const STAT_V3_HUMAN={
   selectedOpponent:null,
   qIndex:0,
   selections:{},
+  ghostSelections:{},
   questionStartedAt:{},
   submitted:false,
   submitStatus:'idle',
+  resultTonePlayed:false,
   resultEnvelope:null
 };
 const STAT_V3_SETUP={
@@ -818,6 +842,16 @@ const STAT_V3_SETUP={
 };
 let STAT_V3_PRACTICE_MODE=false;
 let statV3AdvanceTimer=null;
+const STAT_V3_GHOST={
+  activeQuestionId:'',
+  timers:[],
+  forceQuestionId:'',
+  cursor:{x:-999,y:-999},
+  status:'idle',
+  label:'Waiting',
+  hover:false,
+  motion:null
+};
 window.MM_STAT_V3_HUMAN=STAT_V3_HUMAN;
 window.MM_STAT_V3_SETUP=STAT_V3_SETUP;
 function updateLiveBootstrap(patch){
@@ -1921,6 +1955,254 @@ function statV3CanScoreQuestion(q){
 function statV3Selection(q){
   return q&&STAT_V3_HUMAN.selections?STAT_V3_HUMAN.selections[q.id]:null;
 }
+function statV3GhostSelection(q){
+  return q&&STAT_V3_HUMAN.ghostSelections?STAT_V3_HUMAN.ghostSelections[q.id]:null;
+}
+function statV3Clamp(value,min,max){
+  return Math.max(min,Math.min(max,value));
+}
+function statV3Rand(min,max){
+  return min+(Math.random()*(max-min));
+}
+function statV3RandomWrongChoice(correctIndex){
+  const wrongs=[0,1,2,3].filter(index=>index!==correctIndex);
+  return wrongs[Math.floor(Math.random()*wrongs.length)]||0;
+}
+function statV3Shuffle(list){
+  const out=Array.isArray(list)?list.slice():[];
+  for(let i=out.length-1;i>0;i-=1){
+    const j=Math.floor(Math.random()*(i+1));
+    const tmp=out[i];
+    out[i]=out[j];
+    out[j]=tmp;
+  }
+  return out;
+}
+function statV3ClearGhostPlan(resetActive){
+  STAT_V3_GHOST.timers.forEach(timer=>clearTimeout(timer));
+  STAT_V3_GHOST.timers=[];
+  STAT_V3_GHOST.forceQuestionId='';
+  if(STAT_V3_GHOST.motion&&typeof STAT_V3_GHOST.motion.cancel==='function')STAT_V3_GHOST.motion.cancel();
+  STAT_V3_GHOST.motion=null;
+  STAT_V3_GHOST.hover=false;
+  if(resetActive){
+    STAT_V3_GHOST.activeQuestionId='';
+    STAT_V3_GHOST.cursor={x:-999,y:-999};
+    STAT_V3_GHOST.status='idle';
+    STAT_V3_GHOST.label='Waiting';
+  }
+}
+function statV3QueueGhost(delayMs,fn){
+  const timer=setTimeout(()=>{
+    STAT_V3_GHOST.timers=STAT_V3_GHOST.timers.filter(item=>item!==timer);
+    fn();
+  },Math.max(0,Number(delayMs||0)));
+  STAT_V3_GHOST.timers.push(timer);
+  return timer;
+}
+function statV3SetGhostStatus(status,label){
+  STAT_V3_GHOST.status=status||'idle';
+  STAT_V3_GHOST.label=label||'Waiting';
+  const strip=document.getElementById('stat-v3-ghost-presence');
+  const action=document.getElementById('stat-v3-ghost-action');
+  const shellEl=document.getElementById('stat-v3-cursor-shell');
+  if(strip){
+    strip.classList.remove('thinking','hovering','locking','locked');
+    if(status)strip.classList.add(status);
+  }
+  if(action)action.textContent=STAT_V3_GHOST.label;
+  if(shellEl)shellEl.classList.toggle('hovering',STAT_V3_GHOST.hover);
+}
+function statV3ChoiceCenter(index){
+  const stage=document.querySelector('#screen-play.active .stat-q-stage');
+  const choiceEls=document.querySelectorAll('#screen-play.active .stat-q-choice');
+  if(!stage||!choiceEls[index])return null;
+  const stageRect=stage.getBoundingClientRect();
+  const rect=choiceEls[index].getBoundingClientRect();
+  return {
+    x:rect.left-stageRect.left+(rect.width/2)-14,
+    y:rect.top-stageRect.top+(rect.height/2)-14
+  };
+}
+function statV3MoveGhostCursorTo(x,y,durationMs,opts){
+  const cursor=document.getElementById('stat-v3-opponent-cursor');
+  if(!cursor)return;
+  const options=opts||{};
+  cursor.classList.add('active');
+  if(STAT_V3_GHOST.motion&&typeof STAT_V3_GHOST.motion.cancel==='function')STAT_V3_GHOST.motion.cancel();
+  STAT_V3_GHOST.hover=false;
+  statV3SetGhostStatus(STAT_V3_GHOST.status,STAT_V3_GHOST.label);
+  const start=Object.assign({x:-999,y:-999},STAT_V3_GHOST.cursor);
+  const end={x:Number(x),y:Number(y)};
+  const dx=end.x-start.x;
+  const dy=end.y-start.y;
+  const dist=Math.hypot(dx,dy);
+  if(!Number.isFinite(dist)||dist<3){
+    cursor.style.transform='translate('+end.x+'px,'+end.y+'px)';
+    STAT_V3_GHOST.cursor=end;
+    STAT_V3_GHOST.hover=!!options.hoverAfter;
+    statV3SetGhostStatus(STAT_V3_GHOST.status,STAT_V3_GHOST.label);
+    return;
+  }
+  const curve=statV3Clamp(dist*statV3Rand(.06,.16),8,34)*(Math.random()<.5?-1:1);
+  const frames=[
+    {transform:'translate('+start.x+'px,'+start.y+'px)'},
+    {transform:'translate('+(start.x+(dx*.34)+curve)+'px,'+(start.y+(dy*.28)-curve*.45)+'px)'},
+    {transform:'translate('+(start.x+(dx*.72)-curve*.55)+'px,'+(start.y+(dy*.7)+curve*.25)+'px)'}
+  ];
+  if(options.overshoot){
+    frames.push({transform:'translate('+(end.x+(dx*.04))+'px,'+(end.y+(dy*.04))+'px)'});
+  }
+  frames.push({transform:'translate('+end.x+'px,'+end.y+'px)'});
+  STAT_V3_GHOST.motion=cursor.animate(frames,{
+    duration:Math.max(120,Number(durationMs||260)),
+    easing:options.easing||'cubic-bezier(.22,.61,.36,1)',
+    fill:'forwards'
+  });
+  STAT_V3_GHOST.motion.onfinish=()=>{
+    cursor.style.transform='translate('+end.x+'px,'+end.y+'px)';
+    STAT_V3_GHOST.cursor=end;
+    STAT_V3_GHOST.hover=!!options.hoverAfter;
+    statV3SetGhostStatus(STAT_V3_GHOST.status,STAT_V3_GHOST.label);
+  };
+}
+function statV3MoveGhostCursorToChoice(index,durationMs,opts){
+  const center=statV3ChoiceCenter(index);
+  if(!center)return;
+  statV3MoveGhostCursorTo(center.x,center.y,durationMs,opts);
+}
+function statV3ResetGhostCursor(){
+  const stage=document.querySelector('#screen-play.active .stat-q-stage');
+  const cursor=document.getElementById('stat-v3-opponent-cursor');
+  if(!stage||!cursor)return;
+  const x=Math.max(18,stage.clientWidth-50);
+  const y=54;
+  cursor.classList.add('active');
+  cursor.style.transform='translate('+x+'px,'+y+'px)';
+  STAT_V3_GHOST.cursor={x,y};
+  STAT_V3_GHOST.hover=false;
+  statV3SetGhostStatus('thinking','Reading stem...');
+}
+function statV3PickGhostPlan(q,index){
+  const canScore=statV3CanScoreQuestion(q);
+  const setupPace=STAT_V3_SETUP.pace||'balanced';
+  const paceBias={steady:.08,balanced:0,aggressive:-.08}[setupPace]||0;
+  const answered=Object.keys(STAT_V3_HUMAN.ghostSelections||{}).length;
+  const pattern=[true,true,false,true,true,false,true,true,true,false];
+  const patternCorrect=pattern[answered%pattern.length];
+  const confidence=statV3Clamp(.76+paceBias+statV3Rand(-.12,.11),.42,.93);
+  const willCorrect=canScore&&(patternCorrect||Math.random()<confidence);
+  const correctIndex=canScore?q.correctIndex:Math.floor(Math.random()*4);
+  let pickedIndex=willCorrect?correctIndex:statV3RandomWrongChoice(correctIndex);
+  const trickType=!willCorrect&&Math.random()<.5?'hover-correct-then-switch':(Math.random()<.35?'long-hover-multiple':'scan-then-lock');
+  const baseMs={steady:6200,balanced:4700,aggressive:3400}[setupPace]||4700;
+  const answerMs=Math.round(statV3Clamp(baseMs+statV3Rand(-1600,2600)+(index%3)*260,1250,STAT_V3_QUESTION_SECONDS*1000-250));
+  return {canScore,correctIndex,pickedIndex,willCorrect,trickType,answerMs};
+}
+function statV3RecordGhostAnswer(q,plan){
+  if(!q||statV3GhostSelection(q))return;
+  const data=plan||statV3PickGhostPlan(q,STAT_V3_HUMAN.qIndex);
+  const timedOut=data.timedOut===true;
+  const canScore=statV3CanScoreQuestion(q);
+  const pickedIndex=timedOut?-1:Number(data.pickedIndex);
+  const correct=canScore&&!timedOut&&pickedIndex===q.correctIndex;
+  const answerMs=Math.max(0,Math.min(STAT_V3_QUESTION_SECONDS*1000,Math.round(Number(data.answerMs||STAT_V3_QUESTION_SECONDS*1000))));
+  const points=canScore&&correct?statV3PointsAtElapsedMs(answerMs):0;
+  STAT_V3_HUMAN.ghostSelections[q.id]={
+    choice_index:Number.isInteger(pickedIndex)?pickedIndex:-1,
+    correct,
+    points,
+    time_ms:answerMs,
+    timedOut,
+    sealed:!canScore
+  };
+  window.MM_STAT_V3_HUMAN=STAT_V3_HUMAN;
+  statV3AudioCue(correct||!canScore?'ghost-correct':'ghost-wrong');
+  statV3SetGhostStatus('locked',timedOut?'Rival timed out':'Rival locked');
+  statV3ApplyGhostDomState(q);
+  renderActive();
+}
+function statV3GhostActivityText(phase){
+  const pools={
+    reading:['Reading stem...','Scanning question...','Parsing clue...'],
+    scanning:['Checking choices...','Comparing options...','Moving between answers...'],
+    deciding:['Narrowing down...','Second-guessing...','Almost there...'],
+    locking:['Locking answer...','Committing...','Final answer...']
+  };
+  const list=pools[phase]||pools.deciding;
+  return list[Math.floor(Math.random()*list.length)];
+}
+function statV3ScheduleGhostPlan(q,index){
+  if(!q||statV3GhostSelection(q)||STAT_V3_HUMAN.submitted)return;
+  if(STAT_V3_GHOST.activeQuestionId===q.id)return;
+  statV3ClearGhostPlan(false);
+  STAT_V3_GHOST.activeQuestionId=q.id;
+  const plan=statV3PickGhostPlan(q,index);
+  statV3QueueGhost(80,statV3ResetGhostCursor);
+  const scanOrder=statV3Shuffle([0,1,2,3]).slice(0,plan.trickType==='long-hover-multiple'?4:3);
+  scanOrder.forEach((choiceIndex,scanIndex)=>{
+    statV3QueueGhost(420+(scanIndex*430),()=>{
+      statV3SetGhostStatus(scanIndex===0?'thinking':'hovering',statV3GhostActivityText(scanIndex===0?'reading':'scanning'));
+      statV3AudioCue('hover');
+      statV3MoveGhostCursorToChoice(choiceIndex,Math.round(statV3Rand(230,520)),{overshoot:true,hoverAfter:true});
+    });
+  });
+  if(plan.canScore&&!plan.willCorrect&&plan.trickType==='hover-correct-then-switch'){
+    statV3QueueGhost(Math.max(900,plan.answerMs-1550),()=>{
+      statV3SetGhostStatus('hovering','Hovering on the right answer...');
+      statV3MoveGhostCursorToChoice(plan.correctIndex,420,{overshoot:true,hoverAfter:true});
+    });
+    statV3QueueGhost(Math.max(1100,plan.answerMs-760),()=>{
+      statV3SetGhostStatus('locking','Switching late...');
+      statV3AudioCue('lock');
+      statV3MoveGhostCursorToChoice(plan.pickedIndex,520,{overshoot:true,hoverAfter:true,easing:'cubic-bezier(.29,.56,.43,1)'});
+    });
+  }else if(plan.canScore&&plan.willCorrect&&Math.random()<.55){
+    const decoy=statV3RandomWrongChoice(plan.correctIndex);
+    statV3QueueGhost(Math.max(900,plan.answerMs-1500),()=>{
+      statV3SetGhostStatus('hovering','Testing a decoy...');
+      statV3MoveGhostCursorToChoice(decoy,380,{overshoot:true,hoverAfter:true});
+    });
+    statV3QueueGhost(Math.max(1100,plan.answerMs-740),()=>{
+      statV3SetGhostStatus('locking',statV3GhostActivityText('locking'));
+      statV3AudioCue('lock');
+      statV3MoveGhostCursorToChoice(plan.pickedIndex,500,{overshoot:true,hoverAfter:true,easing:'cubic-bezier(.18,.8,.2,1)'});
+    });
+  }else{
+    statV3QueueGhost(Math.max(850,plan.answerMs-720),()=>{
+      statV3SetGhostStatus('locking',statV3GhostActivityText('locking'));
+      statV3AudioCue('lock');
+      statV3MoveGhostCursorToChoice(plan.pickedIndex,Math.round(statV3Rand(340,720)),{overshoot:true,hoverAfter:true});
+    });
+  }
+  statV3QueueGhost(plan.answerMs,()=>statV3RecordGhostAnswer(q,plan));
+}
+function statV3ForceGhostSoon(q){
+  if(!q||statV3GhostSelection(q)||STAT_V3_GHOST.forceQuestionId===q.id)return;
+  STAT_V3_GHOST.forceQuestionId=q.id;
+  const plan=statV3PickGhostPlan(q,STAT_V3_HUMAN.qIndex);
+  plan.answerMs=Math.min(plan.answerMs,Math.max(800,statV3QuestionElapsedMs(q)+450));
+  statV3SetGhostStatus('locking','Rival locking...');
+  statV3MoveGhostCursorToChoice(plan.pickedIndex,320,{overshoot:true,hoverAfter:true});
+  statV3QueueGhost(460,()=>statV3RecordGhostAnswer(q,plan));
+}
+function statV3ApplyGhostDomState(q){
+  const cursor=document.getElementById('stat-v3-opponent-cursor');
+  const shellEl=document.getElementById('stat-v3-cursor-shell');
+  if(cursor){
+    cursor.classList.toggle('active',STAT_V3_GHOST.activeQuestionId===String(q&&q.id||'')&&String(shell.dataset.step)==='5');
+    cursor.style.transform='translate('+STAT_V3_GHOST.cursor.x+'px,'+STAT_V3_GHOST.cursor.y+'px)';
+  }
+  if(shellEl)shellEl.classList.toggle('hovering',STAT_V3_GHOST.hover);
+  statV3SetGhostStatus(STAT_V3_GHOST.status,STAT_V3_GHOST.label);
+}
+function statV3AfterPlayRender(){
+  if(String(shell.dataset.step)!=='5'||!QUESTIONS.length)return;
+  const index=Math.max(0,Math.min(QUESTIONS.length-1,Number(STAT_V3_HUMAN.qIndex||0)));
+  const q=QUESTIONS[index]||QUESTIONS[0];
+  statV3ApplyGhostDomState(q);
+  statV3ScheduleGhostPlan(q,index);
+}
 function statV3QuestionElapsedMs(q){
   if(!q)return 0;
   const started=Number(STAT_V3_HUMAN.questionStartedAt[q.id]||Date.now());
@@ -1965,10 +2247,13 @@ function activateStatV3PracticeMatch(){
   STAT_V3_HUMAN.selectedOpponent=OPP;
   STAT_V3_HUMAN.qIndex=0;
   STAT_V3_HUMAN.selections={};
+  STAT_V3_HUMAN.ghostSelections={};
   STAT_V3_HUMAN.questionStartedAt={};
   STAT_V3_HUMAN.submitted=false;
   STAT_V3_HUMAN.submitStatus='idle';
+  STAT_V3_HUMAN.resultTonePlayed=false;
   STAT_V3_HUMAN.resultEnvelope=null;
+  statV3ClearGhostPlan(true);
   LIVE_RESULT={};
   window.MM_STAT_V3_CONTEXT=Object.assign({},liveContext(),{
     currentUser:YOU,
@@ -2002,10 +2287,13 @@ function statV3ResetAttemptState(opts){
   if(statV3AdvanceTimer){clearTimeout(statV3AdvanceTimer);statV3AdvanceTimer=null;}
   STAT_V3_HUMAN.qIndex=0;
   STAT_V3_HUMAN.selections={};
+  STAT_V3_HUMAN.ghostSelections={};
   STAT_V3_HUMAN.questionStartedAt={};
   STAT_V3_HUMAN.submitted=false;
   STAT_V3_HUMAN.submitStatus='idle';
+  STAT_V3_HUMAN.resultTonePlayed=false;
   STAT_V3_HUMAN.resultEnvelope=null;
+  statV3ClearGhostPlan(true);
   LIVE_RESULT={};
   window.MM_STAT_V3_RESULT={};
   STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
@@ -2138,26 +2426,62 @@ function statLane(player,opts){
 let statV3CountdownTimer=null;
 let statV3PlayTicker=null;
 let statV3AudioContext=null;
-function statV3AudioCue(kind){
+function statV3EnsureAudioReady(){
   try{
     const Ctx=window.AudioContext||window.webkitAudioContext;
-    if(!Ctx)return;
+    if(!Ctx)return null;
     statV3AudioContext=statV3AudioContext||new Ctx();
-    const ctx=statV3AudioContext;
-    const osc=ctx.createOscillator();
-    const gain=ctx.createGain();
-    const now=ctx.currentTime;
-    const freq=kind==='answer'?660:kind==='go'?880:440;
-    osc.type='sine';
-    osc.frequency.setValueAtTime(freq,now);
-    gain.gain.setValueAtTime(.0001,now);
-    gain.gain.exponentialRampToValueAtTime(.08,now+.02);
-    gain.gain.exponentialRampToValueAtTime(.0001,now+.16);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(now);
-    osc.stop(now+.18);
-  }catch(e){}
+    if(statV3AudioContext&&statV3AudioContext.state==='suspended')statV3AudioContext.resume();
+    return statV3AudioContext;
+  }catch(e){
+    return null;
+  }
+}
+function statV3PlayTone(freq,duration,type,gain){
+  const ctx=statV3EnsureAudioReady();
+  if(!ctx)return;
+  const osc=ctx.createOscillator();
+  const node=ctx.createGain();
+  const now=ctx.currentTime;
+  osc.type=type||'sine';
+  osc.frequency.setValueAtTime(freq,now);
+  node.gain.setValueAtTime(.0001,now);
+  node.gain.exponentialRampToValueAtTime(Math.max(.0001,Number(gain||.045)),now+.018);
+  node.gain.exponentialRampToValueAtTime(.0001,now+Math.max(.04,Number(duration||.1)));
+  osc.connect(node);
+  node.connect(ctx.destination);
+  osc.start(now);
+  osc.stop(now+Math.max(.04,Number(duration||.1)));
+}
+function statV3AudioCue(kind){
+  if(kind==='go'){
+    statV3PlayTone(720,.16,'triangle',.055);
+    setTimeout(()=>statV3PlayTone(980,.2,'triangle',.045),70);
+    return;
+  }
+  if(kind==='tick'){statV3PlayTone(460,.12,'sine',.04);return;}
+  if(kind==='ui'){statV3PlayTone(530,.05,'square',.018);return;}
+  if(kind==='correct'){
+    statV3PlayTone(660,.1,'triangle',.05);
+    setTimeout(()=>statV3PlayTone(820,.12,'triangle',.043),70);
+    return;
+  }
+  if(kind==='wrong'){statV3PlayTone(220,.14,'sawtooth',.032);return;}
+  if(kind==='ghost-correct'){
+    statV3PlayTone(420,.08,'triangle',.028);
+    setTimeout(()=>statV3PlayTone(520,.1,'triangle',.026),48);
+    return;
+  }
+  if(kind==='ghost-wrong'){statV3PlayTone(180,.09,'sine',.02);return;}
+  if(kind==='hover'){statV3PlayTone(360,.045,'sine',.014);return;}
+  if(kind==='lock'){statV3PlayTone(600,.06,'square',.02);return;}
+  if(kind==='result-win'){
+    statV3PlayTone(600,.14,'triangle',.05);
+    setTimeout(()=>statV3PlayTone(760,.16,'triangle',.045),80);
+    return;
+  }
+  if(kind==='result-loss'){statV3PlayTone(240,.16,'sawtooth',.03);return;}
+  statV3PlayTone(440,.1,'sine',.035);
 }
 function stopStatV3Countdown(){
   if(statV3CountdownTimer){clearInterval(statV3CountdownTimer);statV3CountdownTimer=null;}
@@ -2183,6 +2507,7 @@ function startStatV3Countdown(){
 }
 function stopStatV3PlayTicker(){
   if(statV3PlayTicker){clearInterval(statV3PlayTicker);statV3PlayTicker=null;}
+  if(String(shell.dataset.step)!=='5')statV3ClearGhostPlan(true);
 }
 function startStatV3PlayTicker(){
   stopStatV3PlayTicker();
@@ -2231,22 +2556,26 @@ function statV3ComputeStats(limit){
 }
 function statV3OpponentStats(answeredCount){
   const count=Math.max(0,Math.min(QUESTIONS.length,Number(answeredCount||0)));
-  const pattern=[true,true,false,true,true,false,true,true,true,false];
-  const times=[4200,5600,7400,6300,3800,9100,5100,6900,4700,10300];
   let score=0;
   let correct=0;
   let totalMs=0;
   let streak=0;
   let bestStreak=0;
+  let ghostAnswered=0;
   for(let i=0;i<count;i+=1){
-    const ok=pattern[i%pattern.length];
-    const ms=times[i%times.length];
+    const q=QUESTIONS[i];
+    const ghost=q?statV3GhostSelection(q):null;
+    if(!ghost)continue;
+    const ok=ghost.correct===true;
+    const ms=Math.max(0,Number(ghost.time_ms||0));
+    const points=Math.max(0,Number(ghost.points||0));
+    ghostAnswered+=1;
     totalMs+=ms;
     if(ok){
       correct+=1;
       streak+=1;
       bestStreak=Math.max(bestStreak,streak);
-      score+=statV3PointsAtElapsedMs(ms);
+      score+=points;
     }else{
       streak=0;
     }
@@ -2254,8 +2583,8 @@ function statV3OpponentStats(answeredCount){
   return {
     score,
     correct,
-    answered:count,
-    avg:count?(totalMs/count/1000).toFixed(1)+'s':'-',
+    answered:ghostAnswered,
+    avg:ghostAnswered?(totalMs/ghostAnswered/1000).toFixed(1)+'s':'-',
     streak,
     bestStreak
   };
@@ -2325,6 +2654,12 @@ function scheduleStatV3Advance(){
   if(statV3AdvanceTimer)clearTimeout(statV3AdvanceTimer);
   statV3AdvanceTimer=setTimeout(()=>{
     statV3AdvanceTimer=null;
+    const current=QUESTIONS[Math.max(0,Math.min(QUESTIONS.length-1,Number(STAT_V3_HUMAN.qIndex||0)))]||QUESTIONS[0];
+    if(current&&!statV3GhostSelection(current)){
+      statV3ForceGhostSoon(current);
+      scheduleStatV3Advance();
+      return;
+    }
     const lastQuestion=STAT_V3_HUMAN.qIndex>=QUESTIONS.length-1;
     if(lastQuestion&&statV3AllQuestionsAnswered()&&!STAT_V3_HUMAN.submitted){
       STAT_V3_HUMAN.submitStatus='queued';
@@ -2353,7 +2688,7 @@ function statV3RecordAnswer(question,index,timedOut){
     timedOut:!!timedOut,
     sealed:!canScore
   };
-  statV3AudioCue(correct?'go':'answer');
+  statV3AudioCue(canScore?(correct?'correct':'wrong'):'correct');
   renderActive();
   scheduleStatV3Advance();
 }
@@ -2370,13 +2705,16 @@ function statCenter(qIndex){
   const q=QUESTIONS[safeIndex]||QUESTIONS[0];
   if(q&&!STAT_V3_HUMAN.questionStartedAt[q.id])STAT_V3_HUMAN.questionStartedAt[q.id]=Date.now();
   const selected=statV3Selection(q);
+  const ghostSelected=statV3GhostSelection(q);
   const canScore=statV3CanScoreQuestion(q);
   const choices=q.choices.map((c,index)=>{
     const picked=selected&&selected.choice_index===index;
+    const ghostPicked=ghostSelected&&ghostSelected.choice_index===index&&!ghostSelected.timedOut;
     const isCorrect=selected&&canScore&&index===q.correctIndex;
     const isWrong=picked&&selected&&!selected.correct&&!selected.timedOut&&canScore;
     const cls=[
       picked?'selected locked':'',
+      ghostPicked?'ghost-picked opponent-lock':'',
       isCorrect?'correct':'',
       isWrong?'wrong':'',
       selected?'revealed':''
@@ -2388,16 +2726,21 @@ function statCenter(qIndex){
   const remaining=statV3QuestionSecondsRemaining(q.id);
   const livePoints=statV3LiveQuestionPoints(q);
   const finishing=STAT_V3_HUMAN.submitStatus==='queued'||STAT_V3_HUMAN.submitStatus==='submitting';
+  const waitingForGhost=selected&&!ghostSelected&&!finishing;
   const status=STAT_V3_HUMAN.submitStatus==='submitting'
     ? 'Locking in your duel...'
-    : (finishing?'Finishing your duel...':(allAnswered?'All answers locked. Finishing your duel now.':statV3SelectionMessage(q,selected)));
+    : (finishing?'Finishing your duel...':(waitingForGhost?'Answer locked. Rival is still choosing...':(allAnswered?'All answers locked. Finishing your duel now.':statV3SelectionMessage(q,selected))));
   const feedback=selected&&canScore
     ? `<div class="stat-answer-feedback ${selected.correct?'correct':'wrong'}">${selected.correct?'Correct':'Incorrect'} • +${escapeHtml(selected.points||0)} • ${escapeHtml((Number(selected.time_ms||0)/1000).toFixed(1))}s</div>`
     : (selected?'<div class="stat-answer-feedback">Answer locked for server scoring.</div>':'');
-  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">STAT DUEL</div><div class="s">Question ${safeIndex+1} of ${QUESTIONS.length}</div></div><div class="stat-pressure ${remaining<=5&&!selected?'danger':selected?'calm':'neutral'}">${answeredCount}/${QUESTIONS.length} LOCKED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div>${feedback}<div class="stat-game-status ${remaining<=5&&!selected?'warn':''}" id="stat-v3-live-status">${escapeHtml(status)}</div><div class="stat-play-actions">${allAnswered&&!STAT_V3_HUMAN.submitted&&!finishing?`<button class="stat-auto-submit" type="button" id="stat-v3-submit-attempt" ${statV3ActiveDuelId?'':'disabled'}>Finish Duel</button>`:''}</div></div><div class="stat-q-meta"><div class="stat-timer"><div><div class="time">${remaining}</div><div class="label">SECONDS</div></div></div><div class="stat-q-counter"><span class="n">${safeIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(livePoints)}<div class="stat-progress-mini">Score ${statV3ComputeStats().score}</div></div></div><div class="stat-q-history dev-only"><h4>Question log</h4>${statHistory(safeIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">15-second clock</span><span class="stat-ticker-item">Fast correct answers score more</span><span class="stat-ticker-item">Correct answer reveals after lock</span></div></div></div>`;
+  const ghostPresenceCls=ghostSelected?'locked':(STAT_V3_GHOST.status||'thinking');
+  const ghostPresenceLabel=ghostSelected?(ghostSelected.timedOut?'Rival timed out':'Rival locked'):(STAT_V3_GHOST.label||'Reading stem...');
+  return `<div class="stat-center"><div class="stat-center-head"><div class="stat-center-title"><div class="h">STAT DUEL</div><div class="s">Question ${safeIndex+1} of ${QUESTIONS.length}</div></div><div class="stat-pressure ${remaining<=5&&!selected?'danger':selected?'calm':'neutral'}">${answeredCount}/${QUESTIONS.length} LOCKED</div></div><div class="stat-q-stage"><div><span class="stat-q-topic">${escapeHtml(q.topic)}</span><div class="stat-q-text">${escapeHtml(q.q)}</div><div class="stat-q-choices">${choices}</div><div class="stat-ghost-presence ${escapeHtml(ghostPresenceCls)}" id="stat-v3-ghost-presence"><span class="label"><span class="dot"></span>Rival Cursor</span><span id="stat-v3-ghost-action">${escapeHtml(ghostPresenceLabel)}</span></div>${feedback}<div class="stat-game-status ${remaining<=5&&!selected?'warn':''}" id="stat-v3-live-status">${escapeHtml(status)}</div><div class="stat-play-actions">${allAnswered&&!STAT_V3_HUMAN.submitted&&!finishing?`<button class="stat-auto-submit" type="button" id="stat-v3-submit-attempt" ${statV3ActiveDuelId?'':'disabled'}>Finish Duel</button>`:''}</div></div><div class="stat-q-meta"><div class="stat-timer"><div><div class="time">${remaining}</div><div class="label">SECONDS</div></div></div><div class="stat-q-counter"><span class="n">${safeIndex+1} / ${QUESTIONS.length}</span>QUESTION</div>${statQuestionRing(livePoints)}<div class="stat-progress-mini">Score ${statV3ComputeStats().score}</div></div><div class="stat-opponent-cursor" id="stat-v3-opponent-cursor" aria-hidden="true"><div class="cursor-shell" id="stat-v3-cursor-shell"><div class="cursor-ring"></div><div class="cursor-avatar">R</div></div></div></div><div class="stat-q-history dev-only"><h4>Question log</h4>${statHistory(safeIndex+1)}</div><div class="stat-ticker"><div class="stat-ticker-track"><span class="stat-ticker-item">15-second clock</span><span class="stat-ticker-item">Rival cursor pressures answers</span><span class="stat-ticker-item">Fast correct answers score more</span><span class="stat-ticker-item">Correct answer reveals after lock</span></div></div></div>`;
 }
 
 document.addEventListener('click',async(event)=>{
+  const audibleControl=event.target.closest('button,.mode-card,.cfg-opt,a.result-cta');
+  if(audibleControl&&!audibleControl.disabled&&!event.target.closest('.stat-q-choice'))statV3AudioCue('ui');
   const setupOpt=event.target.closest('.cfg-opt[data-setup-key]');
   if(setupOpt&&!setupOpt.disabled){
     event.preventDefault();
@@ -2839,6 +3182,7 @@ RENDERERS['5']=function(){
       ${statCenter(STAT_V3_HUMAN.qIndex)}
       ${statLane(OPP,{tag:'RIVAL',opp:true,score:String(oppStats.score),correct:String(oppStats.correct),avg:oppStats.avg,streak:String(oppStats.streak),statusLabel:OPP.id?'Applying pressure':'Waiting',statusCls:OPP.id?'live':'thinking',lane:'RIGHT LANE'})}
     </div>`;
+  statV3AfterPlayRender();
 };
 
 RENDERERS['6']=function(){
@@ -2886,6 +3230,11 @@ RENDERERS['6']=function(){
         </div>
       </div>
     </div>`;
+  if(!STAT_V3_HUMAN.resultTonePlayed){
+    STAT_V3_HUMAN.resultTonePlayed=true;
+    const verdict=String(parsed.verdict||'').toLowerCase();
+    statV3AudioCue(verdict.includes('win')?'result-win':(verdict.includes('loss')?'result-loss':'go'));
+  }
 };
 
 initTheme();
