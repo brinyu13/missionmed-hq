@@ -22464,12 +22464,14 @@ body:not([data-lobby-state="lobby"]) #arenaAvatarStageAnchor{
   --avatar-ground-y:75%;
   --avatar-ground-bottom:calc(var(--arena-bg-height) * .25);
   --avatar-scale:1;
+  --arena-mode-card-top-bottom:calc(var(--arena-carousel-height) - clamp(10px,1.3vh,18px));
+  --arena-mentor-foot-bottom:var(--arena-mode-card-top-bottom);
   --arena-avatar-clearance:clamp(10px,1.8vh,18px);
   --arena-stage-bottom:max(calc(var(--arena-carousel-height) + var(--arena-avatar-clearance)), var(--avatar-ground-bottom));
   --arena-stage-top:calc(var(--arena-nav-height) + clamp(70px,11vh,132px));
   --arena-stage-available:calc(100dvh - var(--arena-stage-bottom) - var(--arena-stage-top));
   --arena-side-avatar-height:clamp(330px,44vh,450px);
-  --arena-user-avatar-height:calc(var(--arena-side-avatar-height) * 1.27);
+  --arena-user-avatar-height:min(calc(var(--arena-side-avatar-height) * 3), calc(100dvh - clamp(20px,3vh,44px)));
   --arena-side-avatar-width:calc(var(--arena-side-avatar-height) * .55);
   --arena-user-avatar-width:calc(var(--arena-user-avatar-height) * .55);
   --arena-side-offset:clamp(292px,30vw,460px);
@@ -22610,32 +22612,43 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
   font-size:clamp(15px,1.45vw,18px) !important;
 }
 
-/* Avatar stage: side mentors equal, user avatar exactly 25% taller. */
+/* Avatar stage: user avatar is the bottom-anchored hero; mentors stand on the mode-card top edge. */
 #arenaAvatarStageAnchor #arena-character-stage,
 #arena-character-stage{
   position:fixed !important;
   top:auto !important;
   left:var(--avatar-ground-x) !important;
-  bottom:var(--arena-stage-bottom) !important;
+  bottom:0 !important;
   width:var(--arena-user-avatar-width) !important;
   height:var(--arena-user-avatar-height) !important;
   transform:translateX(-50%) scale(var(--avatar-scale)) !important;
   transform-origin:center bottom !important;
-  z-index:58 !important;
+  z-index:146 !important;
   opacity:1 !important;
   pointer-events:none !important;
 }
 #arenaAvatarStageAnchor #arena-avatar,
 #arena-avatar{
+  position:absolute !important;
+  left:50% !important;
+  bottom:0 !important;
+  margin-left:calc(var(--arena-user-avatar-width) * -.5) !important;
   width:var(--arena-user-avatar-width) !important;
   height:var(--arena-user-avatar-height) !important;
   background-size:contain !important;
   background-position:center bottom !important;
   transform-origin:bottom center !important;
+  animation:none !important;
+  z-index:2 !important;
 }
 #arenaAvatarStageAnchor #arena-character-stage .platform,
 #arena-character-stage .platform{
+  position:absolute !important;
+  left:50% !important;
+  bottom:0 !important;
+  transform:translateX(-50%) !important;
   width:calc(var(--arena-user-avatar-width) * 1.12) !important;
+  z-index:1 !important;
 }
 #arenaAvatarStageAnchor #arena-character-stage::before,
 #arena-character-stage::before{
@@ -22660,7 +22673,7 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
 #fnSquadCenter{
   position:fixed !important;
   top:auto !important;
-  bottom:var(--arena-stage-bottom) !important;
+  bottom:var(--arena-mentor-foot-bottom) !important;
   width:var(--arena-side-avatar-width) !important;
   transform:translateX(-50%) scale(var(--avatar-scale)) !important;
   transform-origin:center bottom !important;
@@ -22866,6 +22879,7 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
     --arena-avatar-clearance:42px;
     --arena-stage-top:calc(var(--arena-nav-height) + 48px);
     --arena-side-avatar-height:290px;
+    --arena-user-avatar-height:min(calc(var(--arena-side-avatar-height) * 3), calc(100dvh - 18px));
     --arena-side-offset:clamp(162px,27vw,196px);
     --arena-mode-card-width:236px;
   }
@@ -22877,6 +22891,7 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
     --arena-avatar-clearance:34px;
     --arena-stage-top:calc(var(--arena-nav-height) + 36px);
     --arena-side-avatar-height:250px;
+    --arena-user-avatar-height:min(calc(var(--arena-side-avatar-height) * 3), calc(100dvh - 14px));
     --arena-mode-card-width:224px;
   }
   #alu-progress{display:none !important}
@@ -22921,11 +22936,23 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
     var groundX = left + (width * 0.5);
     var groundY = bottom - (height * 0.25);
     var groundBottom = Math.max(0, (window.innerHeight || height) - groundY);
-    var scale = Math.max(0.82, Math.min(1.08, Math.min(width / 1280, height / 820)));
+    var modeCardTopBottom = 0;
+    var modeCard = document.querySelector('#fnCarouselTrack .fn-mode-card');
+    if(modeCard && modeCard.getBoundingClientRect){
+      var modeCardRect = modeCard.getBoundingClientRect();
+      if(modeCardRect && isFinite(modeCardRect.top)){
+        modeCardTopBottom = Math.max(0, (window.innerHeight || height) - modeCardRect.top);
+      }
+    }
+    if(!modeCardTopBottom){
+      modeCardTopBottom = Math.max(0, Math.min(height, height * 0.24 - 12));
+    }
+    var scale = Math.max(0.82, Math.min(1, Math.min(width / 1280, height / 820)));
     root.style.setProperty('--arena-bg-height', height.toFixed(1) + 'px');
     root.style.setProperty('--avatar-ground-x', groundX.toFixed(1) + 'px');
     root.style.setProperty('--avatar-ground-y', groundY.toFixed(1) + 'px');
     root.style.setProperty('--avatar-ground-bottom', groundBottom.toFixed(1) + 'px');
+    root.style.setProperty('--arena-mode-card-top-bottom', modeCardTopBottom.toFixed(1) + 'px');
     root.style.setProperty('--avatar-scale', scale.toFixed(3));
     if(!stageAnchorLogged){
       stageAnchorLogged = true;
@@ -22934,12 +22961,13 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
         ground_x: groundX,
         ground_y: groundY,
         ground_bottom: groundBottom,
+        mode_card_top_bottom: modeCardTopBottom,
         scale: scale
       });
       console.log('[AVATAR_HIERARCHY_APPLIED]', {
-        user_scale_ratio: 1.27,
+        user_scale_ratio: 3,
         side_scale_ratio: 1,
-        user_z: 58,
+        user_z: 146,
         side_z: 54
       });
     }
@@ -22951,6 +22979,7 @@ body[data-lobby-state="lobby"] #arenaAvatarFeatureCard,
         width: width,
         height: height,
         ground_bottom: groundBottom,
+        mode_card_top_bottom: modeCardTopBottom,
         scale: scale
       });
     }
