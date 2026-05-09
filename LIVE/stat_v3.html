@@ -806,6 +806,8 @@ let statV3SupabaseClient=null;
 let statV3SessionPromise=null;
 let statV3VerifiedUserId='';
 let statV3ActiveDuelId='';
+const STAT_V3_CHALLENGE_POLL_INTERVAL_MS=5000;
+const STAT_V3_IGNORED_CHALLENGES_KEY='mm.stat.v3.ignored_challenges.v1';
 const STAT_V3_LIVE_BOOTSTRAP={
   status:'idle',
   source:'',
@@ -831,7 +833,8 @@ const STAT_V3_HUMAN={
   submitted:false,
   submitStatus:'idle',
   resultTonePlayed:false,
-  resultEnvelope:null
+  resultEnvelope:null,
+  incomingChallenge:null
 };
 const STAT_V3_SETUP={
   opponent:'friend',
@@ -842,6 +845,10 @@ const STAT_V3_SETUP={
 };
 let STAT_V3_PRACTICE_MODE=false;
 let statV3AdvanceTimer=null;
+let statV3ResultPollTimer=null;
+let statV3ResultPollBusy=false;
+let statV3IncomingPollTimer=null;
+let statV3IncomingPollBusy=false;
 const STAT_V3_GHOST={
   activeQuestionId:'',
   timers:[],
@@ -989,6 +996,13 @@ async function statV3RpcCall(name,args){
   const result=await client.rpc(name,args||{});
   if(result&&result.error)throw new Error(String(result.error.message||result.error.code||'rpc_failed'));
   return normalizeRpcEnvelope(result?result.data:null);
+}
+async function statV3RpcCallSafe(name,args){
+  try{return await statV3RpcCall(name,args||{});}
+  catch(e){return {ok:false,error:String(e&&e.message?e.message:e),data:null,raw:null};}
+}
+function statV3RpcNeedsSignatureFallback(errorText){
+  return /argument|parameter|function|42883|PGRST|opponent_id|duel_id/i.test(String(errorText||''));
 }
 function extractDuelIdFromPayload(payload){
   const root=safeObj(payload);
@@ -1138,6 +1152,11 @@ function statV3InviteUrl(duelId){
   const safe=pickText([duelId]);
   return safe?'https://missionmedinstitute.com/stat-v3?duel_id='+encodeURIComponent(safe):'';
 }
+function statV3LegacyStatUrl(){
+  const host=String(window.location.hostname||'').toLowerCase();
+  if((host==='localhost'||host==='127.0.0.1'||host==='::1')&&String(window.location.pathname||'').indexOf('/LIVE/')===0)return '/LIVE/stat.html';
+  return '/stat';
+}
 function statV3DuelIdFromInviteText(value){
   const raw=String(value||'').trim();
   if(!raw)return '';
@@ -1182,8 +1201,89 @@ function statV3UniqueRoster(rows){
   });
   return out;
 }
+function statV3ProfileSearchTerms(query){
+  const raw=String(query||'').trim();
+  if(!raw)return [];
+  if(statV3LooksUuid(raw))return [raw];
+  const cleaned=raw
+    .replace(/[^a-zA-Z0-9@._+\-\s]/g,' ')
+    .replace(/\s+/g,' ')
+    .trim()
+    .slice(0,80);
+  if(cleaned.length<2)return [];
+  const terms=[cleaned];
+  cleaned.split(' ').forEach(part=>{
+    const safe=part.trim();
+    if(safe.length>=2)terms.push(safe);
+  });
+  return Array.from(new Set(terms)).slice(0,4);
+}
+function statV3ProfileRowToOpponent(row,query){
+  const source=safeObj(row);
+  const userId=pickText([source.auth_user_id,source.id]);
+  if(!statV3LooksUuid(userId))return null;
+  return normalizeStatV3RosterPlayer({
+    user_id:userId,
+    profile_id:source.id,
+    email:source.email,
+    first_name:source.first_name,
+    last_name:source.last_name,
+    avatar_url:source.avatar_url,
+    avatar_thumbnail_url:source.avatar_url,
+    status_label:query?'Profile match':'Profile'
+  },query?'profile.search':'profile');
+}
+async function statV3FetchProfileOpponentSearch(query){
+  const client=statV3Supabase();
+  if(!client||typeof client.from!=='function')return [];
+  const terms=statV3ProfileSearchTerms(query);
+  if(!terms.length)return [];
+  const rows=[];
+  for(const term of terms){
+    try{
+      let builder=client
+        .from('profiles')
+        .select('id,auth_user_id,email,first_name,last_name,avatar_url')
+        .limit(25);
+      if(statV3LooksUuid(term)){
+        builder=builder.or('id.eq.'+term+',auth_user_id.eq.'+term);
+      }else{
+        builder=builder.or([
+          'first_name.ilike.%'+term+'%',
+          'last_name.ilike.%'+term+'%',
+          'email.ilike.%'+term+'%'
+        ].join(','));
+      }
+      const res=await builder;
+      if(res&&!res.error&&Array.isArray(res.data))rows.push.apply(rows,res.data);
+    }catch(e){}
+  }
+  return statV3UniqueRoster(rows.map(row=>statV3ProfileRowToOpponent(row,query)).filter(Boolean));
+}
+async function statV3FetchProfileOpponentCardsByUserIds(ids){
+  const client=statV3Supabase();
+  if(!client||typeof client.from!=='function')return [];
+  const currentId=statV3CurrentUserId();
+  const safeIds=Array.from(new Set((Array.isArray(ids)?ids:[])
+    .map(id=>String(id||'').trim())
+    .filter(id=>statV3LooksUuid(id)&&id!==currentId)))
+    .slice(0,60);
+  if(!safeIds.length)return [];
+  try{
+    const idList=safeIds.join(',');
+    const res=await client
+      .from('profiles')
+      .select('id,auth_user_id,email,first_name,last_name,avatar_url')
+      .or('id.in.('+idList+'),auth_user_id.in.('+idList+')')
+      .limit(60);
+    if(res&&!res.error&&Array.isArray(res.data)){
+      return statV3UniqueRoster(res.data.map(row=>statV3ProfileRowToOpponent(row,'')).filter(Boolean));
+    }
+  }catch(e){}
+  return [];
+}
 async function statV3FetchRoster(query){
-  const args={p_limit:25};
+  const args={p_limit:60};
   const safe=String(query||'').trim();
   if(safe)args.p_search=safe;
   let rows=[];
@@ -1194,12 +1294,16 @@ async function statV3FetchRoster(query){
   }catch(e){
     if(!safe)throw e;
   }
+  const profileCards=await statV3FetchProfileOpponentCardsByUserIds(rows.map(row=>pickText([row.player_id,row.user_id,row.auth_user_id,row.opponent_id,row.id])));
+  if(profileCards.length)rows=rows.concat(profileCards);
   if(safe){
     try{
       const search=await statV3RpcCall('stat_player_search',{p_query:safe,p_limit:30});
       const data=safeObj(search.data||search.raw||search);
       rows=rows.concat(Array.isArray(data.roster)?data.roster:(Array.isArray(data.items)?data.items:(Array.isArray(data)?data:[])));
     }catch(e){}
+    const profileRows=await statV3FetchProfileOpponentSearch(safe);
+    if(profileRows.length)rows=rows.concat(profileRows);
     if(statV3LooksUuid(safe))rows.push({player_id:safe,id:safe,display_name:'Player '+shortStatV3Id(safe)});
   }
   const currentId=statV3CurrentUserId();
@@ -1231,19 +1335,177 @@ async function statV3LoadRoster(query){
   });
   return roster;
 }
-async function statV3CreateHumanDuel(opponent){
-  const target=normalizePlayer(opponent,FALLBACK_OPP,'duel_roster.selected');
-  if(!target.id)throw new Error('opponent_required');
-  if(target.id===statV3CurrentUserId())throw new Error('cannot_challenge_self');
-  const created=await statV3RpcCall('create_duel',{
-    p_opponent_id:target.id,
+function statV3ParseBooleanish(value){
+  if(value===true||value===1)return true;
+  const safe=String(value||'').trim().toLowerCase();
+  return safe==='true'||safe==='1'||safe==='yes';
+}
+function statV3LoadIgnoredChallenges(){
+  try{
+    const raw=sessionStorage.getItem(STAT_V3_IGNORED_CHALLENGES_KEY);
+    if(!raw)return new Set();
+    const parsed=JSON.parse(raw);
+    return new Set(Array.isArray(parsed)?parsed:[]);
+  }catch(e){return new Set();}
+}
+function statV3PersistIgnoredChallenges(setRef){
+  try{sessionStorage.setItem(STAT_V3_IGNORED_CHALLENGES_KEY,JSON.stringify(Array.from(setRef||[])));}catch(e){}
+}
+function statV3IgnoredChallenges(){
+  if(!statV3IgnoredChallenges._set)statV3IgnoredChallenges._set=statV3LoadIgnoredChallenges();
+  return statV3IgnoredChallenges._set;
+}
+function statV3AddIgnoredChallenge(duelId){
+  const safe=pickText([duelId]);
+  if(!safe)return;
+  const ignored=statV3IgnoredChallenges();
+  ignored.add(safe);
+  statV3PersistIgnoredChallenges(ignored);
+}
+function statV3RosterFromEnvelope(envelope){
+  if(!envelope||!envelope.data)return [];
+  const data=envelope.data;
+  if(Array.isArray(data))return data;
+  if(Array.isArray(data.roster))return data.roster;
+  if(Array.isArray(data.items))return data.items;
+  if(data&&typeof data==='object'){
+    const key=Object.keys(data).find(item=>Array.isArray(data[item]));
+    if(key)return data[key];
+  }
+  return [];
+}
+function normalizeStatV3IncomingChallengeRow(row){
+  const source=safeObj(row);
+  const duelId=pickText([source.duel_id,source.duelId,source.id,source.challenge_id]);
+  const state=String(pickText([source.status,source.state])||'').trim().toLowerCase();
+  const challenger=pickText([source.created_by,source.challenger_id,source.player1_id,source.user_id]);
+  const opponent=pickText([source.opponent_id,source.player2_id]);
+  const expiryRaw=pickText([source.challenge_expires_at,source.expires_at]);
+  const expiryMs=expiryRaw?Date.parse(expiryRaw):NaN;
+  return {
+    duel_id:duelId,
+    state:state||'pending',
+    created_by:challenger,
+    opponent_id:opponent,
+    name:statV3DisplayNameFromRow(source,challenger)||('Player '+shortStatV3Id(challenger)),
+    is_bot:statV3ParseBooleanish(source.is_bot)||statV3ParseBooleanish(source.is_bot_match),
+    expired:Number.isFinite(expiryMs)?expiryMs<=Date.now():false
+  };
+}
+function statV3IncomingCandidate(rows,userId,ignored){
+  return (Array.isArray(rows)?rows:[])
+    .map(normalizeStatV3IncomingChallengeRow)
+    .find(row=>row
+      && row.duel_id
+      && !row.is_bot
+      && !row.expired
+      && ['pending','created','player1_complete'].includes(row.state)
+      && (!userId||!row.opponent_id||String(row.opponent_id)===String(userId))
+      && !ignored.has(String(row.duel_id)))||null;
+}
+async function statV3PollIncomingChallenges(){
+  if(statV3IncomingPollBusy)return;
+  if(statV3ActiveDuelId||STAT_V3_HUMAN.submitted)return;
+  const client=statV3Supabase();
+  if(!client||!client.auth||typeof client.auth.getSession!=='function')return;
+  statV3IncomingPollBusy=true;
+  try{
+    const sessionCheck=await client.auth.getSession();
+    const user=safeObj(sessionCheck&&sessionCheck.data&&sessionCheck.data.session&&sessionCheck.data.session.user);
+    const userId=pickText([user.id,statV3VerifiedUserId]);
+    if(!userId)return;
+    statV3VerifiedUserId=userId;
+    const ignored=statV3IgnoredChallenges();
+    let incoming=null;
+    if(typeof client.from==='function'){
+      const query=client
+        .from('duel_challenges')
+        .select('id, challenger_id, opponent_id, is_bot_match, state, challenge_expires_at, created_at')
+        .eq('is_bot_match',false)
+        .eq('opponent_id',userId)
+        .in('state',['pending','created','player1_complete'])
+        .order('created_at',{ascending:false})
+        .limit(20);
+      const queryRes=await query;
+      if(queryRes&&!queryRes.error&&Array.isArray(queryRes.data)){
+        incoming=statV3IncomingCandidate(queryRes.data,userId,ignored);
+      }
+    }
+    if(!incoming){
+      const envelope=await statV3RpcCallSafe('duel_roster',{});
+      if(envelope.ok)incoming=statV3IncomingCandidate(statV3RosterFromEnvelope(envelope),userId,ignored);
+    }
+    if(incoming&&incoming.duel_id){
+      updateHumanState({
+        incomingChallenge:incoming,
+        status:'incoming_challenge',
+        message:'Incoming STAT challenge from '+(incoming.name||'a classmate')+'. Accept when ready.',
+        error:''
+      });
+    }
+  }catch(e){}finally{
+    statV3IncomingPollBusy=false;
+  }
+}
+function startStatV3IncomingChallengePolling(){
+  if(statV3IncomingPollTimer)return;
+  statV3IncomingPollTimer=setInterval(statV3PollIncomingChallenges,STAT_V3_CHALLENGE_POLL_INTERVAL_MS);
+  setTimeout(statV3PollIncomingChallenges,1200);
+}
+function stopStatV3IncomingChallengePolling(){
+  if(statV3IncomingPollTimer){clearInterval(statV3IncomingPollTimer);statV3IncomingPollTimer=null;}
+  statV3IncomingPollBusy=false;
+}
+async function statV3CreateDuelWithOpponent(opponentId){
+  const safeOpponentId=pickText([opponentId]);
+  if(!safeOpponentId)return {ok:false,error:'opponent_id_required_for_human_duel',data:null,raw:null};
+  const createKey=statV3IdempotencyKey('stat_v3_human_create');
+  const payload={
+    p_opponent_id:safeOpponentId,
     p_question_set:null,
-    p_idempotency_key:statV3IdempotencyKey('stat_v3_human_create'),
+    p_idempotency_key:createKey,
     p_is_bot_match:false,
     p_bot_profile_id:null,
     p_source:'stat_v3_human_challenge',
     p_dataset_version:'v4'
+  };
+  const primary=await statV3RpcCallSafe('create_duel',payload);
+  if(primary.ok)return primary;
+  const primaryError=statV3RpcError(primary,primary.error||'create_duel_failed');
+  if(statV3RpcNeedsSignatureFallback(primaryError)){
+    return statV3RpcCallSafe('create_duel',{
+      opponent_id:safeOpponentId,
+      p_idempotency_key:createKey,
+      p_is_bot_match:false,
+      p_source:'stat_v3_human_challenge',
+      p_dataset_version:'v4'
+    });
+  }
+  return primary;
+}
+async function statV3AcceptDuelById(duelId){
+  const safe=pickText([duelId]);
+  if(!safe)return {ok:false,error:'duel_id_required',data:null,raw:null};
+  const acceptKey=statV3IdempotencyKey('stat_v3_accept');
+  const primary=await statV3RpcCallSafe('accept_duel',{
+    p_duel_id:safe,
+    p_idempotency_key:acceptKey
   });
+  if(primary.ok)return primary;
+  const primaryError=statV3RpcError(primary,primary.error||'accept_duel_failed');
+  if(statV3RpcNeedsSignatureFallback(primaryError)){
+    return statV3RpcCallSafe('accept_duel',{
+      duel_id:safe,
+      p_idempotency_key:acceptKey
+    });
+  }
+  return primary;
+}
+async function statV3CreateHumanDuel(opponent){
+  const target=normalizePlayer(opponent,FALLBACK_OPP,'duel_roster.selected');
+  if(!target.id)throw new Error('opponent_required');
+  if(target.id===statV3CurrentUserId())throw new Error('cannot_challenge_self');
+  const created=await statV3CreateDuelWithOpponent(target.id);
   if(!created.ok)throw new Error(statV3RpcError(created,'create_duel_failed'));
   const duel=statV3DuelFromPayload(created);
   const duelId=extractDuelIdFromPayload(created);
@@ -1285,10 +1547,7 @@ async function statV3CreateHumanDuel(opponent){
 async function statV3AcceptDuel(duelId){
   const safe=pickText([duelId]);
   if(!safe)throw new Error('duel_id_required');
-  const accepted=await statV3RpcCall('accept_duel',{
-    p_duel_id:safe,
-    p_idempotency_key:statV3IdempotencyKey('stat_v3_accept')
-  });
+  const accepted=await statV3AcceptDuelById(safe);
   const err=String(accepted&&accepted.error||'');
   if(!accepted.ok&&!/not_duel_opponent|already_terminal|duel_not_ready_for_attempt/i.test(statV3RpcError(accepted,'')))throw new Error(statV3RpcError(accepted,'accept_duel_failed'));
   rememberStatV3DuelId(safe);
@@ -1348,6 +1607,48 @@ function statV3ResultFromFetch(envelope){
     finalized
   };
 }
+function statV3ApplyResultEnvelope(fetched){
+  const resultPayload=statV3ResultFromFetch(fetched);
+  const ctx=Object.assign({},liveContext(),{resultPayload});
+  window.MM_STAT_V3_CONTEXT=ctx;
+  window.MM_STAT_V3_RESULT=resultPayload;
+  LIVE_RESULT=resultPayload;
+  STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+  return resultPayload;
+}
+function stopStatV3ResultPolling(){
+  if(statV3ResultPollTimer){clearInterval(statV3ResultPollTimer);statV3ResultPollTimer=null;}
+  statV3ResultPollBusy=false;
+}
+function startStatV3ResultPolling(duelId){
+  const safe=pickText([duelId,statV3ActiveDuelId]);
+  if(!safe||statV3ResultPollTimer)return;
+  statV3ResultPollTimer=setInterval(async()=>{
+    if(statV3ResultPollBusy)return;
+    statV3ResultPollBusy=true;
+    try{
+      const fetched=await statV3FetchResults(safe);
+      const resultPayload=statV3ApplyResultEnvelope(fetched);
+      updateHumanState({
+        submitted:true,
+        submitStatus:resultPayload.finalized?'finalized':'waiting',
+        message:resultPayload.finalized?'Final result is ready.':'Answers saved. Waiting for your opponent to finish.',
+        error:'',
+        resultEnvelope:fetched
+      });
+      if(resultPayload.finalized)stopStatV3ResultPolling();
+    }catch(e){
+      updateHumanState({
+        submitted:true,
+        submitStatus:'waiting',
+        message:'Answers saved. Waiting for your opponent to finish.',
+        error:''
+      });
+    }finally{
+      statV3ResultPollBusy=false;
+    }
+  },3000);
+}
 function statV3AllQuestionsAnswered(){
   if(!QUESTIONS.length)return false;
   return QUESTIONS.every(q=>STAT_V3_HUMAN.selections[q.id]&&Number.isInteger(STAT_V3_HUMAN.selections[q.id].choice_index));
@@ -1380,12 +1681,7 @@ async function statV3SubmitAttempt(){
   });
   if(!submitted.ok)throw new Error(statV3RpcError(submitted,'submit_attempt_failed'));
   const fetched=await statV3FetchResults(statV3ActiveDuelId);
-  const resultPayload=statV3ResultFromFetch(fetched);
-  const ctx=Object.assign({},liveContext(),{resultPayload});
-  window.MM_STAT_V3_CONTEXT=ctx;
-  window.MM_STAT_V3_RESULT=resultPayload;
-  LIVE_RESULT=resultPayload;
-  STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+  const resultPayload=statV3ApplyResultEnvelope(fetched);
   updateHumanState({
     submitted:true,
     submitStatus:resultPayload.finalized?'finalized':'waiting',
@@ -1393,6 +1689,8 @@ async function statV3SubmitAttempt(){
     error:'',
     resultEnvelope:fetched
   });
+  if(resultPayload.finalized)stopStatV3ResultPolling();
+  else startStatV3ResultPolling(statV3ActiveDuelId);
   return {submitted,fetched,resultPayload};
 }
 async function statV3LoadHumanDuel(duelId,tryAccept){
@@ -1414,12 +1712,9 @@ async function statV3LoadHumanDuel(duelId,tryAccept){
     fetched=await statV3FetchResults(safe);
     const payload=safeObj(fetched.data);
     if(payload.attempt_self||payload.result){
-      const resultPayload=statV3ResultFromFetch(fetched);
-      const ctx=Object.assign({},liveContext(),{resultPayload});
-      window.MM_STAT_V3_CONTEXT=ctx;
-      window.MM_STAT_V3_RESULT=resultPayload;
-      LIVE_RESULT=resultPayload;
-      STAT_V3_ADAPTER.resultPayload=LIVE_RESULT;
+      const resultPayload=statV3ApplyResultEnvelope(fetched);
+      if(resultPayload.finalized)stopStatV3ResultPolling();
+      else if(payload.attempt_self)startStatV3ResultPolling(safe);
     }
   }catch(e){}
   updateHumanState({
@@ -1502,6 +1797,7 @@ async function bootstrapStatV3LivePack(){
       if(!STAT_V3_HUMAN.roster.length){
         try{await statV3LoadRoster('');}catch(e){}
       }
+      startStatV3IncomingChallengePolling();
       return;
     }else{
       rememberStatV3DuelId(duelId);
@@ -1514,6 +1810,15 @@ async function bootstrapStatV3LivePack(){
     const rawPack=await fetchStatV3DuelPack(duelId);
     const normalized=installStatV3LivePack(rawPack,sourceLabel);
     rememberStatV3Opponent(buildStatV3HumanOpponentFromDuel(statV3PackDuel(rawPack)),'duel.participant');
+    try{
+      const fetched=await statV3FetchResults(duelId);
+      const payload=safeObj(fetched.data);
+      if(payload.attempt_self||payload.result){
+        const resultPayload=statV3ApplyResultEnvelope(fetched);
+        if(resultPayload.finalized)stopStatV3ResultPolling();
+        else if(payload.attempt_self)startStatV3ResultPolling(duelId);
+      }
+    }catch(e){}
     try{console.info('[STAT V3] live sealed pack ready',{duel_id:normalized.duel_id,question_count:normalized.questions.length,source:sourceLabel});}catch(e){}
   }catch(e){
     updateLiveBootstrap({
@@ -1821,7 +2126,7 @@ window.MM_STAT_V3_ADAPTER=STAT_V3_ADAPTER;
 function getModes(){
   return [
     {id:'stat-v3',title:'STAT V3',tag:'Competitive medical knowledge duels',desc:'Challenge another MissionMed player, answer the same questions, and see who wins.',status:'current',stats:[{v:QUESTIONS.length?String(QUESTIONS.length):'10',l:'QUESTIONS'},{v:YOU.id?'READY':'SIGN IN',l:'PLAYER'},{v:OPP.id?'READY':'FIND',l:'OPPONENT'}],cta:'PLAY STAT V3'},
-    {id:'stat-live',title:'Legacy STAT',tag:'Classic timed challenge',desc:'Play the original STAT experience in a separate page.',status:'legacy',href:'/stat',stats:[{v:'CLASSIC',l:'MODE'},{v:'TIMED',l:'PLAY'},{v:'LIVE',l:'STATUS'}],cta:'OPEN LEGACY STAT'}
+    {id:'stat-live',title:'Legacy STAT',tag:'Classic timed challenge',desc:'Play the original STAT experience in a separate page.',status:'legacy',href:statV3LegacyStatUrl(),stats:[{v:'CLASSIC',l:'MODE'},{v:'TIMED',l:'PLAY'},{v:'LIVE',l:'STATUS'}],cta:'OPEN LEGACY STAT'}
   ];
 }
 
@@ -2284,6 +2589,7 @@ function statV3ResetAttemptState(opts){
   const options=Object.assign({clearDuel:false,clearOpponent:false,clearPack:false},opts||{});
   stopStatV3Countdown();
   stopStatV3PlayTicker();
+  stopStatV3ResultPolling();
   if(statV3AdvanceTimer){clearTimeout(statV3AdvanceTimer);statV3AdvanceTimer=null;}
   STAT_V3_HUMAN.qIndex=0;
   STAT_V3_HUMAN.selections={};
@@ -2795,7 +3101,7 @@ document.addEventListener('click',async(event)=>{
     event.preventDefault();
     const card=modeCard.classList&&modeCard.classList.contains('mode-card')?modeCard:modeCard.closest('.mode-card');
     if(card&&card.dataset.mode==='stat-live'){
-      window.location.href='/stat';
+      window.location.href=statV3LegacyStatUrl();
       return;
     }
     setStep('2');
@@ -2859,6 +3165,31 @@ document.addEventListener('click',async(event)=>{
     }catch(e){
       updateHumanState({status:'blocked',message:'Could not create human duel.',error:String(e&&e.message?e.message:e).slice(0,160)});
     }
+    return;
+  }
+  const acceptIncoming=event.target.closest('#stat-v3-accept-incoming');
+  if(acceptIncoming&&!acceptIncoming.disabled){
+    event.preventDefault();
+    const incoming=safeObj(STAT_V3_HUMAN.incomingChallenge);
+    const duelId=pickText([incoming.duel_id]);
+    try{
+      if(!duelId)throw new Error('duel_id_required');
+      updateHumanState({status:'loading_duel',message:'Accepting incoming STAT challenge...',error:''});
+      await statV3LoadHumanDuel(duelId,true);
+      updateHumanState({incomingChallenge:null,message:'Challenge accepted. Questions are ready.',error:''});
+      if(wiringIsReady())setStep('4');
+      else setStep('3');
+    }catch(e){
+      updateHumanState({status:'blocked',message:'Could not accept incoming challenge.',error:String(e&&e.message?e.message:e).slice(0,160)});
+    }
+    return;
+  }
+  const ignoreIncoming=event.target.closest('#stat-v3-ignore-incoming');
+  if(ignoreIncoming){
+    event.preventDefault();
+    const incoming=safeObj(STAT_V3_HUMAN.incomingChallenge);
+    statV3AddIgnoredChallenge(incoming.duel_id);
+    updateHumanState({incomingChallenge:null,message:'Challenge ignored for this session.',error:''});
     return;
   }
   const rematch=event.target.closest('#stat-v3-rematch');
@@ -2933,6 +3264,21 @@ function resultValue(payload,keys,fallback){
   }
   return fallback||'-';
 }
+function statV3IncomingChallengeBanner(){
+  const incoming=safeObj(STAT_V3_HUMAN.incomingChallenge);
+  const duelId=pickText([incoming.duel_id]);
+  if(!duelId)return '';
+  const challenger=pickText([incoming.name])||('Player '+shortStatV3Id(incoming.created_by));
+  return `
+    <div class="stat-v3-live-status" style="display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:14px;border:1px solid var(--accent);background:rgba(86,214,201,.12)">
+      <div>
+        <div class="summary-tag">INCOMING STAT CHALLENGE</div>
+        <div>${escapeHtml(challenger)} challenged you. Accept to play the same async duel now; use Rematch after results to keep the set going.</div>
+      </div>
+      <button class="result-cta" type="button" id="stat-v3-accept-incoming">Accept</button>
+      <button class="result-cta alt" type="button" id="stat-v3-ignore-incoming">Ignore</button>
+    </div>`;
+}
 function normalizeResultPayload(payload){
   const result=safeObj(payload);
   if(!Object.keys(result).length)return null;
@@ -2946,7 +3292,8 @@ function normalizeResultPayload(payload){
   const rank=resultValue(result,['rankText','rank','newRank'],'');
   const opponentScore=resultValue(result,['opponentScore','oppScore','rivalScore'],'');
   const rows=Array.isArray(result.replayRows)?result.replayRows:(Array.isArray(result.reviewLog)?result.reviewLog:[]);
-  return {verdict,total,correct,score,avg,streak,elo,rank,opponentScore,rows};
+  const finalized=result.finalized===false?false:!/waiting/i.test(verdict);
+  return {verdict,total,correct,score,avg,streak,elo,rank,opponentScore,rows,finalized};
 }
 function statV3HumanPanel(){
   const selectedIsHuman=STAT_V3_HUMAN.selectedOpponent&&!statV3IsPracticeOrBotOpponent(STAT_V3_HUMAN.selectedOpponent);
@@ -2967,6 +3314,7 @@ function statV3HumanPanel(){
   return `
     <div class="cfg-group stat-v3-human-panel">
       <div class="cfg-label">FIND OPPONENT</div>
+      ${statV3IncomingChallengeBanner()}
       <div class="summary-row"><span>How to start</span><span class="v">Search human or start random</span></div>
       <div class="summary-row"><span>Opponent Status</span><span class="v">${escapeHtml(playerReadyLabel())}</span></div>
       ${selected}
@@ -3019,6 +3367,7 @@ RENDERERS['1']=function(){
           <h1>STAT <span class="acc">V3</span></h1>
           <div class="sub">Competitive medical knowledge duels built for fast, focused play.</div>
         </div>
+        ${statV3IncomingChallengeBanner()}
         <div class="modes-grid">${modes}</div>
         ${flowNav('', '2', 'Next: Match Settings')}
       </div>
@@ -3190,6 +3539,17 @@ RENDERERS['6']=function(){
   const parsed=normalizeResultPayload(LIVE_RESULT);
   if(!parsed){
     root.innerHTML=wiringBlockedPanel('Results waiting',['Finish the duel, then results will appear here.','STAT V3 waits for the match result instead of showing placeholder wins or losses.']);
+    return;
+  }
+  if(parsed.finalized===false){
+    root.innerHTML=`
+      <div class="stat-v3-blocked">
+        <div>
+          <h3>Waiting for opponent</h3>
+          <p>Your attempt is saved. STAT V3 will keep checking for your opponent, then show the final result when both attempts are in.</p>
+          <p style="margin-top:18px"><button class="result-cta alt" type="button" id="stat-v3-new-match">New Match</button></p>
+        </div>
+      </div>`;
     return;
   }
   const replay=parsed.rows.length
