@@ -1735,8 +1735,8 @@ const CURRICULUM_TOPICS = [
   { id:'muscle_rheum_step1', name:'MSK / Rheum', system:'IMMUNOLOGY', level:'Step 1' },
   { id:'rheum_step23', name:'MSK / Rheum', system:'IMMUNOLOGY', level:'Step 2/3' },
   { id:'preventative_step23', name:'Preventative', system:'IMMUNOLOGY', level:'Step 2/3' },
-  { id:'heme_onc_step1', name:'Heme', system:'HEMATOLOGY / ONCOLOGY', level:'Step 1' },
-  { id:'heme_onc_step23', name:'Heme', system:'HEMATOLOGY / ONCOLOGY', level:'Step 2/3' },
+  { id:'heme_onc_step1', name:'Heme / Onc', system:'HEMATOLOGY / ONCOLOGY', level:'Step 1' },
+  { id:'heme_onc_step23', name:'Heme / Onc', system:'HEMATOLOGY / ONCOLOGY', level:'Step 2/3' },
   { id:'onc_by_systems_step1', name:'Heme / Onc', system:'HEMATOLOGY / ONCOLOGY', level:'Step 1' },
   { id:'repro_gyn_ob_step1', name:'OB/GYN', system:'REPRODUCTIVE', level:'Step 1' },
   { id:'biochem_genetics_step1', name:'Biochem / Genetics', system:'REPRODUCTIVE', level:'Step 1' },
@@ -1784,7 +1784,12 @@ const ZOOM_SCHEDULE_SLOTS = {
   '2026-04-28':['cardio_step1','cardio_step23'],
   '2026-04-29':['onc_by_systems_step1',['biostats_step1','biostats_step23']],
   '2026-04-30':['pulmonary_step1','pulmonary_step23'],
-  '2026-05-01':['mixed_review_step1','mixed_review_step23']
+  '2026-05-01':['mixed_review_step1','mixed_review_step23'],
+  '2026-05-04':['heme_onc_step1','heme_onc_step23'],
+  '2026-05-05':['cardio_step1','cardio_step23'],
+  '2026-05-06':['onc_by_systems_step1','biostats_step23'],
+  '2026-05-07':['pulmonary_step1','pulmonary_step23'],
+  '2026-05-08':['mixed_review_step1','mixed_review_step23']
 };
 const EXACT_VIDEO_TOPIC_ASSIGNMENTS = {
   usmle_3ac83d870348:'mixed_review_step1',
@@ -1942,8 +1947,8 @@ function sessionMatchesTrack(session, track){
   const text = sessionTrackText(session);
   const isStep23 = /\bstep\s*2\b|\bstep\s*3\b|\bstep\s*2\s*\/\s*3\b|\b2\s*\/\s*3\b|\blevel\s*2\b|\blevel\s*3\b|\bcomlex\s*2\b|\bcomlex\s*3\b|_step23\b|\bclinical\b/.test(text);
   const isStep1 = /\bstep\s*1\b|\blevel\s*1\b|\bcomlex\s*1\b|_step1\b|\bfoundational\b/.test(text);
-  if(target === 'step1') return !isStep23;
-  return !isStep1;
+  if(target === 'step1') return isStep1;
+  return isStep23;
 }
 function deriveSubjectsFromSessions(track){
   const buckets = new Map();
