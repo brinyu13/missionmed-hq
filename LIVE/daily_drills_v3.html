@@ -856,6 +856,36 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
   }
 }
 @media(max-width:760px){.summary-cta{grid-template-columns:1fr}.daily-result-notice{font-size:12px}.topbar{padding:12px 16px}.brand .name{font-size:19px}}
+
+/* DRILLS-V3-READABILITY-001: larger student-facing type on browse/ready screens */
+.step .lab .top{font-size:12px}
+.step .lab .nm{font-size:19px}
+.chip{font-size:12px;padding:6px 12px}
+.subject-col-title{font-size:13px}
+.subject-video-panel .panel-head .sub{font-size:13px}
+.split-row{grid-template-columns:36px 1fr auto;padding:11px 12px}
+.split-row .ic{width:34px;height:34px;font-size:14px}
+.split-row .nm{font-size:32px}
+.split-row .acc{font-size:12px}
+.split-detail h2{font-size:48px}
+.split-detail .sub{font-size:13px}
+.split-detail p{font-size:16px;line-height:1.55}
+.split-stat .v{font-size:28px}
+.split-stat .l{font-size:11px}
+.side-card-mini h4{font-size:24px}
+.side-card-mini .sub{font-size:12px}
+.side-card-mini .kv{font-size:12px;line-height:1.35}
+.chart-head-mini h3{font-size:16px}
+.chart-legend-mini{font-size:10px}
+.sess{grid-template-columns:120px 1fr 132px;padding:12px}
+.sess .info h3{font-size:24px}
+.sess .info .sub{font-size:12px;line-height:1.35}
+.sess .info .meta{font-size:12px;line-height:1.45;gap:14px}
+.sess .stats-mini .v{font-size:26px}
+.sess .stats-mini .l{font-size:10px}
+.ready-card .summary-row .l{font-size:11px}
+.ready-card .summary-row .v{font-size:25px}
+
 @media(max-width:760px){
   .shell{overflow:visible}
   .tab-content.active{padding:12px 14px;overflow:visible;min-height:calc(100vh - 74px);min-height:calc(100dvh - 74px)}
@@ -973,7 +1003,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
               <div>
                 <div class="chip gold">MOST RECENTLY ADDED</div>
                 <h2>TODAY&rsquo;S DRILLS</h2>
-                <div class="sub">Video drills and recall prompts</div>
+                <div class="sub">Video drills and recall questions</div>
                 <div class="meta">
                   <span class="chip cyan">VIDEO READY</span>
                   <span class="chip gold">PROMPTS READY</span>
@@ -1121,7 +1151,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <span><kbd>C</kbd> Correct</span>
           <span><kbd>M</kbd> Missed</span>
           <span><kbd>F</kbd> Flag</span>
-          <span><kbd>P</kbd> Pause</span>
+          <span><kbd>P</kbd> Break</span>
           </div>
         </details>
 
@@ -1263,7 +1293,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
           <div class="m-card">
             <div class="sub" id="mReadyLevel">STEP/LEVEL 2 &amp; 3</div>
             <div class="nm" id="mReadySession">CHOOSE A DRILL</div>
-            <div class="sub" id="mReadyTopic">Video and prompts ready</div>
+            <div class="sub" id="mReadyTopic">Video and questions ready</div>
           </div>
 
           <div class="kbd-hint" style="margin-top:14px">
@@ -1325,7 +1355,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <video class="media-video" id="rtMediaVideo" playsinline preload="metadata" disablepictureinpicture controlslist="nodownload noplaybackrate noremoteplayback"></video>
         <div class="quad-grid" id="rtFallbackGrid">
           <div class="quad"><div class="ovl t"><span>REAL MEDIA</span><span>LOADING</span></div></div>
-          <div class="quad"><div class="ovl t"><span>NODE PAUSES</span><span>QUEUED</span></div></div>
+          <div class="quad"><div class="ovl t"><span>QUESTIONS</span><span>READY</span></div></div>
           <div class="quad"><div class="ovl t"><span>SELF REPORT</span><span>READY</span></div></div>
           <div class="quad"><div class="ovl t"><span>SESSION ONLY</span><span>LOCAL</span></div></div>
         </div>
@@ -1345,12 +1375,12 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
         <div class="meta">
           <span class="chip">CUE</span>
           <span class="chip cyan">SELF-REPORT</span>
-        <span class="chip" id="rtTopic">REAL NODE</span>
+        <span class="chip" id="rtTopic">QUESTION</span>
       </div>
-        <h2 id="rtCue">Start a real registry drill to load the first node-driven pause cue.</h2>
+        <h2 id="rtCue">Choose a drill and press Start to begin the first recall question.</h2>
         <div class="reveal" id="rtReveal">
           <h4>ANSWER</h4>
-          <div id="rtAnswer">Real answer guidance appears only after the selected drill's nodes load.</div>
+          <div id="rtAnswer">Real answer guidance appears after the selected drill's question data loads.</div>
         </div>
       </div>
 
@@ -1475,6 +1505,7 @@ main.tab-content.active .state[data-state="5"].active .flow-summary-card{
 <!-- =====================================
      ADAPTER + APP
      ===================================== -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script>
 (function(){
 'use strict';
@@ -1533,6 +1564,7 @@ function isAllowedRuntimeAssetUrl(value){
       host === 'missionmedinstitute.com' ||
       host === 'www.missionmedinstitute.com' ||
       host === 'iframe.videodelivery.net' ||
+      host === 'videodelivery.net' ||
       host.endsWith('.r2.dev') ||
       host.endsWith('.cloudflarestream.com');
   }catch(_error){
@@ -1582,14 +1614,14 @@ function videoAttemptText(session){
 }
 function videoQuestionText(session){
   const q = Number(session && session.q || 0);
-  if(q > 0) return q + (q === 1 ? ' prompt' : ' prompts');
-  return hasUsableNodeSource(session) ? 'Prompts ready' : 'Prompt check needed';
+  if(q > 0) return q + (q === 1 ? ' question' : ' questions');
+  return hasUsableNodeSource(session) ? 'Questions ready' : 'Question check needed';
 }
 function mediaStatusText(session){
   return hasUsableMedia(session) ? 'Video ready' : 'Media unavailable';
 }
 function nodesStatusText(session){
-  return (hasUsableNodeSource(session) || hasInlinePrompts(session)) ? 'Prompts ready' : 'Prompts unavailable';
+  return (hasUsableNodeSource(session) || hasInlinePrompts(session)) ? 'Questions ready' : 'Questions unavailable';
 }
 function humanizeSubjectLabel(value){
   const raw = safeText(value, 'DRJ_DRILLS').replace(/[_-]+/g, ' ');
@@ -1896,13 +1928,27 @@ function enrichSessionsWithCurriculumSubjects(rows){
     });
   });
 }
+function sessionTrackText(session){
+  return [
+    session && session.curriculum_level,
+    session && session.level,
+    session && session.step,
+    session && session.sub,
+    session && session.subject_key
+  ].map(value => safeText(value, '').toLowerCase()).join(' ');
+}
+function sessionMatchesTrack(session, track){
+  const target = track === 'step1' ? 'step1' : 'step23';
+  const text = sessionTrackText(session);
+  const isStep23 = /\bstep\s*2\b|\bstep\s*3\b|\bstep\s*2\s*\/\s*3\b|\b2\s*\/\s*3\b|\blevel\s*2\b|\blevel\s*3\b|\bcomlex\s*2\b|\bcomlex\s*3\b|_step23\b|\bclinical\b/.test(text);
+  const isStep1 = /\bstep\s*1\b|\blevel\s*1\b|\bcomlex\s*1\b|_step1\b|\bfoundational\b/.test(text);
+  if(target === 'step1') return !isStep23;
+  return !isStep1;
+}
 function deriveSubjectsFromSessions(track){
   const buckets = new Map();
   SESSIONS.forEach(session => {
-    const level = safeText(session.curriculum_level || session.level || session.step, '').toLowerCase();
-    const isStep1 = /step\s*1|level\s*1|comlex\s*1/.test(level);
-    if(track === 'step1' && level && !isStep1) return;
-    if(track !== 'step1' && isStep1) return;
+    if(!sessionMatchesTrack(session, track)) return;
     const key = safeText(session.subject_key, safeText(session.subject_name || session.topic, 'metadata_pending'));
     const name = safeText(session.subject_name || session.topic, 'Metadata pending');
     const icon = name.replace(/[^A-Za-z]/g, '').slice(0,2).toUpperCase() || 'MD';
@@ -2052,14 +2098,20 @@ function isFillerTurn(turn){
     .replace(/good[.,?!]?/g, '')
     .replace(/alright[.,?!]?/g, '')
     .replace(/yeah[.,?!]?/g, '')
+    .replace(/yep[.,?!]?/g, '')
     .replace(/right[.,?!]?/g, '')
+    .replace(/hold on[.,?!]?/g, '')
+    .replace(/let me know[.,?!]?/g, '')
+    .replace(/moving on[.,?!]?/g, '')
     .replace(/\s+/g, ' ')
     .trim();
   return stripped.split(/\s+/).filter(word => word.length > 1).length < 4;
 }
+const MINIMUM_PAUSE_GAP_SECONDS = 5.0;
 function filterTurnsToPauseBoundaries(turns){
   const pauseNodes = [];
   let lastPauseTime = -999;
+  let questionCounter = 0;
   turns.forEach((turn, index) => {
     const nextTurn = turns[index + 1];
     if(!nextTurn) return;
@@ -2069,10 +2121,11 @@ function filterTurnsToPauseBoundaries(turns){
     if(nextSpeaker.indexOf('dr') !== -1 || nextSpeaker === speaker) return;
     if(isFillerTurn(turn)) return;
     const boundaryTime = Number.isFinite(turn.end_time) ? turn.end_time : turn.start_time;
-    if(boundaryTime - lastPauseTime < 5) return;
+    if(boundaryTime - lastPauseTime < MINIMUM_PAUSE_GAP_SECONDS) return;
     lastPauseTime = boundaryTime;
+    questionCounter += 1;
     pauseNodes.push({
-      id: pauseNodes.length + 1,
+      id: questionCounter,
       pause_time: boundaryTime,
       pauseTime: boundaryTime,
       question_start_time: Number.isFinite(turn.start_time) ? turn.start_time : boundaryTime,
@@ -2082,10 +2135,11 @@ function filterTurnsToPauseBoundaries(turns){
       question: turn.text,
       topic_name: turn.topic_name || '',
       topic_label: turn.topic_label || '',
-      topic: turn.topic || ('Question ' + (pauseNodes.length + 1)),
+      topic: turn.topic || ('Question ' + questionCounter),
       student: nextTurn.speaker || 'Student'
     });
   });
+  log('runtime_pause_boundaries_filtered', { total_turns: turns.length, pause_nodes: pauseNodes.length, min_gap: MINIMUM_PAUSE_GAP_SECONDS });
   return pauseNodes;
 }
 function normalizeRuntimeNodesPayload(payload){
@@ -2105,6 +2159,9 @@ function normalizeRuntimeNodesPayload(payload){
   return [];
 }
 const MAX_RUNTIME_PROMPTS = Number.POSITIVE_INFINITY;
+const MODE_A_START_DATE = '2026-04-14';
+const LEGACY_START_LOOKBACK_SECONDS = 20;
+let RUNTIME_HLS_INSTANCE = null;
 function finiteNodeTime(value){
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? n : null;
@@ -2173,7 +2230,7 @@ function prepareRuntimePrompts(list){
     .sort((a,b) => Number(a.pauseTime) - Number(b.pauseTime));
   const base = timed.length ? timed : normalized;
   const questionFiltered = base.filter(prompt => isRuntimeQuestionPrompt(Object.assign({}, prompt._source, prompt)));
-  const chosen = questionFiltered.length ? questionFiltered : base;
+  const chosen = questionFiltered.length ? questionFiltered : (USE_DEMO_DATA ? base : []);
   return chosen.slice(0, MAX_RUNTIME_PROMPTS).map(({_source, ...prompt}) => prompt);
 }
 function hasTimedRuntimePrompts(list){
@@ -2188,6 +2245,63 @@ function firstQuestionStartTime(list){
   if(questionStart != null) return Math.max(0, questionStart);
   if(pauseTime != null) return Math.max(0, pauseTime - 0.4);
   return 0;
+}
+function normalizeDateKey(value){
+  const raw = safeText(value, '');
+  if(!raw) return '';
+  const match = raw.match(/(\d{4}-\d{2}-\d{2})/);
+  return match && match[1] ? match[1] : '';
+}
+function runtimeSessionDate(session){
+  const src = session && typeof session === 'object' ? session : {};
+  const meta = src.metadata && typeof src.metadata === 'object' ? src.metadata : {};
+  const stamp = parseZoomStampFromDrill(src);
+  const candidates = [
+    src.zoom_session_date,
+    src.zoom_session_iso,
+    src.session_date,
+    src.date,
+    src.created_at,
+    meta.zoom_session_date,
+    meta.zoom_session_iso,
+    meta.session_date,
+    meta.date,
+    meta.created_at,
+    stamp && stamp.date
+  ];
+  for(const value of candidates){
+    const key = normalizeDateKey(value);
+    if(key) return key;
+  }
+  return '';
+}
+function isBeforeDeterministicStartDate(videoDate){
+  const key = normalizeDateKey(videoDate);
+  if(!key) return true;
+  return key < MODE_A_START_DATE;
+}
+function runtimeStartPosition(list, session){
+  const first = Array.isArray(list) && list.length ? list[0] : null;
+  if(!first) return { startTime:0, mode:'no_nodes', firstPauseTime:null, firstQuestionStartTime:null, videoDate:runtimeSessionDate(session) };
+  const firstPauseTime = finiteNodeTime(first.pauseTime);
+  const firstQuestionStart = finiteNodeTime(first.questionStartTime);
+  const videoDate = runtimeSessionDate(session);
+  let startTime = Math.max(0, (firstPauseTime != null ? firstPauseTime : 0) - LEGACY_START_LOOKBACK_SECONDS);
+  let mode = 'legacy_minus_20';
+  if(!isBeforeDeterministicStartDate(videoDate) && firstQuestionStart != null){
+    startTime = Math.max(0, firstQuestionStart);
+    mode = 'question_start_time';
+  }else if(firstQuestionStart != null && firstPauseTime == null){
+    startTime = Math.max(0, firstQuestionStart);
+    mode = 'question_start_time_no_pause';
+  }
+  return {
+    startTime,
+    mode,
+    firstPauseTime,
+    firstQuestionStartTime:firstQuestionStart,
+    videoDate
+  };
 }
 function formatRuntimeClock(seconds){
   const n = Math.max(0, Number(seconds) || 0);
@@ -2245,17 +2359,70 @@ function updateDrillsUrl(params){
     window.history.replaceState({}, '', next.toString());
   }catch(_error){}
 }
+function deriveHlsUrlFromRuntimePlaybackUrl(value){
+  const raw = safeText(value, '');
+  if(!raw) return '';
+  try{
+    const parsed = new URL(raw, window.location.href);
+    const host = parsed.hostname.toLowerCase();
+    if(/\.m3u8$/i.test(parsed.pathname || '')) return parsed.toString();
+    if(host === 'iframe.videodelivery.net'){
+      const streamId = parsed.pathname.replace(/^\/+/, '').split('/')[0];
+      return streamId ? 'https://videodelivery.net/' + encodeURIComponent(streamId) + '/manifest/video.m3u8' : '';
+    }
+    if(host === 'videodelivery.net'){
+      const parts = parsed.pathname.replace(/^\/+/, '').split('/');
+      const streamId = parts[0] || '';
+      return streamId ? 'https://videodelivery.net/' + encodeURIComponent(streamId) + '/manifest/video.m3u8' : '';
+    }
+  }catch(_error){
+    const streamId = deriveStreamIdFromPlaybackUrl(raw);
+    return streamId ? 'https://videodelivery.net/' + encodeURIComponent(streamId) + '/manifest/video.m3u8' : '';
+  }
+  return '';
+}
+function destroyRuntimeHls(){
+  if(!RUNTIME_HLS_INSTANCE) return;
+  try{ RUNTIME_HLS_INSTANCE.destroy(); }catch(_error){}
+  RUNTIME_HLS_INSTANCE = null;
+}
+function attachRuntimeVideoSource(video, source){
+  if(!video || !source || !source.url) return;
+  destroyRuntimeHls();
+  video.removeAttribute('src');
+  if(source.type === 'hls' && window.Hls && typeof window.Hls.isSupported === 'function' && window.Hls.isSupported()){
+    RUNTIME_HLS_INSTANCE = new window.Hls({ enableWorker:true, lowLatencyMode:false });
+    RUNTIME_HLS_INSTANCE.attachMedia(video);
+    RUNTIME_HLS_INSTANCE.on(window.Hls.Events.MEDIA_ATTACHED, () => {
+      if(RUNTIME_HLS_INSTANCE) RUNTIME_HLS_INSTANCE.loadSource(source.url);
+    });
+    RUNTIME_HLS_INSTANCE.on(window.Hls.Events.ERROR, (_event, data) => {
+      log('runtime_hls_error', {
+        type:data && data.type,
+        details:data && data.details,
+        fatal:!!(data && data.fatal)
+      });
+    });
+  }else{
+    video.src = source.url;
+  }
+  video.load();
+}
 function runtimeMediaSource(session){
   const media = Bridge.getMediaSource(session || {});
   const direct = safeText(media.r2_url, '');
   if(direct && isAllowedRuntimeAssetUrl(direct)){
+    const hlsUrl = deriveHlsUrlFromRuntimePlaybackUrl(direct);
+    if(hlsUrl && isAllowedRuntimeAssetUrl(hlsUrl)) return { type:'hls', url:hlsUrl, media };
     const iframeLike = /iframe\.videodelivery\.net/i.test(direct);
     return { type: iframeLike ? 'iframe' : 'video', url: direct, media };
   }
   const streamId = safeText(media.stream_uid, '');
   if(streamId){
+    const hlsUrl = 'https://videodelivery.net/' + encodeURIComponent(streamId) + '/manifest/video.m3u8';
+    if(isAllowedRuntimeAssetUrl(hlsUrl)) return { type:'hls', url:hlsUrl, media };
     const streamUrl = 'https://iframe.videodelivery.net/' + encodeURIComponent(streamId);
-    if(isAllowedRuntimeAssetUrl(streamUrl)) return { type: 'iframe', url: streamUrl, media };
+    if(isAllowedRuntimeAssetUrl(streamUrl)) return { type:'iframe', url: streamUrl, media };
   }
   return { type: '', url: '', media };
 }
@@ -2310,10 +2477,10 @@ async function startRuntimeMediaPlayback(options){
     }catch(firstError){
       video.muted = true;
       await video.play();
-      log('runtime_direct_video_started_muted_fallback', { from_start: !!reset, message: String(firstError && firstError.message ? firstError.message : firstError) });
+      log('runtime_direct_video_started_muted_fallback', { from_start: !!reset, start_at: reset ? Number(video.currentTime || 0) : null, message: String(firstError && firstError.message ? firstError.message : firstError) });
       return true;
     }
-    log('runtime_direct_video_started', { from_start: !!reset, muted: !!video.muted });
+    log('runtime_direct_video_started', { from_start: !!reset, muted: !!video.muted, start_at: reset ? Number(video.currentTime || 0) : null });
     return true;
   }catch(error){
     log('runtime_direct_video_start_blocked', { message: String(error && error.message ? error.message : error) });
@@ -2335,7 +2502,7 @@ function waitForRuntimeVideoMetadata(video){
     const onReady = () => finish(true);
     video.addEventListener('loadedmetadata', onReady, { once:true });
     video.addEventListener('canplay', onReady, { once:true });
-    setTimeout(() => finish(false), 1400);
+    setTimeout(() => finish(false), 6000);
   });
 }
 function paintRuntimeMedia(session){
@@ -2351,6 +2518,7 @@ function paintRuntimeMedia(session){
   frame.removeAttribute('src');
   if(video){
     video.pause();
+    destroyRuntimeHls();
     video.removeAttribute('src');
     video.load();
   }
@@ -2365,7 +2533,7 @@ function paintRuntimeMedia(session){
     }else if(video){
       video.controls = false;
       video.removeAttribute('controls');
-      video.src = source.url;
+      attachRuntimeVideoSource(video, source);
       stage.classList.add('has-video');
     }
     lockRuntimeMediaControls();
@@ -3040,7 +3208,7 @@ function paintVideoDetail(session){
       <div class="split-stat-row">
         <div class="split-stat"><div class="v">${session.len || 'Timed'}</div><div class="l">Duration</div></div>
         <div class="split-stat"><div class="v">${mediaStatusText(session)}</div><div class="l">Video</div></div>
-        <div class="split-stat"><div class="v">${nodesStatusText(session)}</div><div class="l">Prompts</div></div>
+        <div class="split-stat"><div class="v">${nodesStatusText(session)}</div><div class="l">Questions</div></div>
         <div class="split-stat"><div class="v">${videoAttemptText(session)}</div><div class="l">Attempts</div></div>
       </div>
       <div class="side-card-mini featured">
@@ -3080,8 +3248,9 @@ function mTopicHTML(s){
 function currentTopicSessions(){
   const topicKey = safeText(STATE.topicKey, '');
   const topic = safeText(STATE.topic, '').toUpperCase();
-  if(!topic) return SESSIONS;
-  return SESSIONS.filter(session => {
+  const trackSessions = SESSIONS.filter(session => sessionMatchesTrack(session, STATE.level));
+  if(!topic) return trackSessions;
+  return trackSessions.filter(session => {
     const subjectKey = safeText(session.subject_key, '');
     const subject = safeText(session.subject_name || session.subcategory || session.category || session.subject || session.topic, '').toUpperCase();
     return (topicKey && subjectKey === topicKey) || subject === topic;
@@ -3227,7 +3396,7 @@ function paintSessSide(idx){
     <h4>${s.title}</h4>
     <div class="kv"><span>Added</span><b>${humanDate(s.uploaded || s.created_at || s.date, 'Recently added')}</b></div>
     <div class="kv"><span>Length</span><b>${s.len}</b></div>
-    <div class="kv"><span>Prompts</span><b>${videoQuestionText(s)}</b></div>
+    <div class="kv"><span>Questions</span><b>${videoQuestionText(s)}</b></div>
     <div class="kv"><span>Attempts</span><b>${videoAttemptText(s)}</b></div>
     <div class="kv"><span>Avg Recall</span><b>${s.avgRecall?s.avgRecall.toFixed(1)+'s':'&mdash;'}</b></div>
     <div class="kv"><span>Best Score</span><b>${s.best?s.best+'%':'&mdash;'}</b></div>
@@ -3389,10 +3558,11 @@ function resetRuntimeQuestionUI(){
   if(lock){
     lock.classList.add('dim');
     lock.disabled = true;
-    lock.innerHTML = 'WAITING FOR PAUSE CUE';
+    lock.innerHTML = 'GET READY';
   }
 }
-function paintWaitingForPauseCue(){
+function paintWaitingForPauseCue(startInfo){
+  const info = startInfo || (STATE.rt && STATE.rt.startPosition) || runtimeStartPosition(PROMPTS, STATE.session);
   const next = PROMPTS[STATE.rt.idx];
   const topic=document.getElementById('rtTopic');
   const cue=document.getElementById('rtCue');
@@ -3400,11 +3570,16 @@ function paintWaitingForPauseCue(){
   updateQuestionCounter();
   if(topic) topic.textContent = 'VIDEO RUNNING';
   if(cue){
+    const startLabel = info && info.mode === 'question_start_time'
+      ? 'Video is starting at the first recall question.'
+      : (info && info.mode === 'legacy_minus_20'
+          ? 'Video is playing into the first recall question.'
+          : 'Video is running.');
     cue.textContent = next
-      ? 'Video is running from the beginning. Next recall pause is queued at ' + formatRuntimeClock(next.pauseTime) + '.'
-      : 'No more node pauses are queued for this drill.';
+      ? startLabel + ' Get ready to answer.'
+      : 'You have completed the question set.';
   }
-  if(answer) answer.textContent = 'The runtime controls video pause/resume. Native video controls are intentionally locked.';
+  if(answer) answer.textContent = 'Watch the video. Your recall question will appear automatically.';
   resetRuntimeQuestionUI();
   const num=document.getElementById('rtNum');if(num) num.textContent='--';
   const fill=document.getElementById('rtFill');if(fill) fill.style.width='100%';
@@ -3415,7 +3590,7 @@ function paintMediaStartBlocked(){
   const fallback=document.getElementById('rtMediaFallback');
   if(stage) stage.classList.add('media-missing');
   if(fallback){
-    fallback.innerHTML = '<div><strong>Media start blocked</strong><span>Use the main Start button again or choose another MP4-backed drill. V3 will not run sample prompts without controlled media playback.</span></div>';
+    fallback.innerHTML = '<div><strong>Media start blocked</strong><span>Use the main Start button again or choose another video-backed drill. This session needs controlled video playback.</span></div>';
   }
 }
 function resumeRuntimeMediaUntilNextNode(){
@@ -3427,7 +3602,7 @@ function resumeRuntimeMediaUntilNextNode(){
   startRuntimeMediaPlayback({ reset:false }).then(started => {
     if(!started){
       paintMediaStartBlocked();
-      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a sample prompt-only drill.');
+      showRuntimeDataError('Browser blocked controlled media playback. Start again or choose another video-backed drill.');
       return;
     }
     startRuntimeNodeMonitor();
@@ -3468,7 +3643,7 @@ function startRuntimeNodeMonitor(){
     }
     if(video.ended){
       if(STATE.rt.idx >= PROMPTS.length) finishSession();
-      else showRuntimeDataError('The selected media ended before all queued node pauses fired. Choose another drill or validate nodes/media timing.');
+      else showRuntimeDataError('The selected video ended before all questions were reached. Choose another drill or validate the video timing.');
       return;
     }
     STATE.rt.mediaLoop = requestAnimationFrame(tick);
@@ -3494,7 +3669,7 @@ function canAttemptRuntimeStart(){
     return false;
   }
   if(!USE_DEMO_DATA && !hasUsableNodeSource(STATE.session) && !hasInlinePrompts(STATE.session)){
-    showRuntimeDataError('Prompt nodes unavailable for this real drill. Choose another drill or return to menu.');
+    showRuntimeDataError('Question data unavailable for this real drill. Choose another drill or return to menu.');
     return false;
   }
   return true;
@@ -3514,7 +3689,7 @@ function setStartOrbLoading(loading){
 function paintRuntimeLaunchPending(){
   const session = STATE.session || {};
   const s=document.getElementById('readySession');
-  if(s) s.textContent='LOADING VIDEO + PROMPT PAUSES';
+  if(s) s.textContent='LOADING VIDEO + QUESTIONS';
   const t=document.getElementById('readyTopic');
   if(t) t.textContent=safeText(session.sub || STATE.topicName, 'REAL DRILL').toUpperCase();
 }
@@ -3576,13 +3751,13 @@ async function openRuntime(sessionOverride){
     return;
   }
   if(!USE_DEMO_DATA && !hasUsableNodeSource(STATE.session) && !hasInlinePrompts(STATE.session)){
-    showRuntimeDataError('Prompt nodes unavailable for this real drill. Choose another drill or return to menu.');
+    showRuntimeDataError('Question data unavailable for this real drill. Choose another drill or return to menu.');
     return;
   }
   resetRuntimeTransientState();
   PROMPTS = await loadRuntimePromptsForSession(STATE.session);
   if(!PROMPTS.length){
-    showRuntimeDataError('No prompts or nodes loaded for this drill. v3 will not start a sample drill.');
+    showRuntimeDataError('No question data loaded for this drill. Choose another drill or return to menu.');
     return;
   }
   const mediaSource = runtimeMediaSource(STATE.session);
@@ -3593,13 +3768,14 @@ async function openRuntime(sessionOverride){
   }
   Bridge.launchDrill(STATE.session,{seconds:paceSeconds(),pace:STATE.pace,origin_mode: ROUTE_ORIGIN_MODE || 'daily_rounds'});
   // reset
-  const mediaDriven = !USE_DEMO_DATA && mediaSource.type === 'video' && hasTimedRuntimePrompts(PROMPTS);
+  const mediaDriven = !USE_DEMO_DATA && (mediaSource.type === 'video' || mediaSource.type === 'hls') && hasTimedRuntimePrompts(PROMPTS);
   if(!USE_DEMO_DATA && !mediaDriven){
-    showRuntimeDataError('This drill has media and nodes, but v3 requires a direct MP4 video plus timed nodes for controlled pause playback.');
+    showRuntimeDataError('This drill needs controllable video and timed question data before it can start.');
     return;
   }
+  const startInfo = runtimeStartPosition(PROMPTS, STATE.session);
   STATE.rt={idx:0,reveals:false,timer:null,mediaLoop:null,t0:0,locked:false,
-            mediaDriven,waitingForNode:false,mediaStarted:false,
+            mediaDriven,waitingForNode:false,mediaStarted:false,startPosition:startInfo,
             correct:0,miss:0,oot:0,streak:0,bestStreak:0,
             times:[],flagged:[],paused:false,breaksRemaining:BREAK_LIMIT,streakToastTimer:null};
   resetRuntimeScoreboardUI();
@@ -3610,17 +3786,24 @@ async function openRuntime(sessionOverride){
   paintRuntimeMedia(STATE.session);
   document.getElementById('opRt').textContent='running';
   if(mediaDriven){
-    paintWaitingForPauseCue();
-    const started = await startRuntimeMediaPlayback({ reset:true });
+    paintWaitingForPauseCue(startInfo);
+    log('runtime_start_position_selected', {
+      mode:startInfo.mode,
+      start_time:+Number(startInfo.startTime || 0).toFixed(3),
+      first_pause_time:startInfo.firstPauseTime,
+      first_question_start_time:startInfo.firstQuestionStartTime,
+      video_date:startInfo.videoDate || null
+    });
+    const started = await startRuntimeMediaPlayback({ reset:true, startAt:startInfo.startTime });
     if(!started){
       paintMediaStartBlocked();
-      showRuntimeDataError('Browser blocked controlled media playback. V3 did not run a sample prompt-only drill.');
+      showRuntimeDataError('Browser blocked controlled media playback. Start again or choose another video-backed drill.');
       return;
     }
     STATE.rt.mediaStarted = true;
     STATE.rt.waitingForNode = true;
     startRuntimeNodeMonitor();
-    log('runtime_node_driven_opened', { prompts:PROMPTS.length, video_id:STATE.session.video_id || STATE.session.id });
+    log('runtime_node_driven_opened', { prompts:PROMPTS.length, video_id:STATE.session.video_id || STATE.session.id, media_type:mediaSource.type, start_mode:startInfo.mode });
     return;
   }
   await startRuntimeMediaPlayback({ reset:true });
