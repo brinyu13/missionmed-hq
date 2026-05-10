@@ -6786,6 +6786,92 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         return "";
       }
 
+      const DAILY_ROUNDS_SCHEDULE_TOPIC_SLOTS = {
+        "2026-05-04": [
+          { topic_key: "heme_onc_step1", topic_label: "Heme / Onc", step: "Step 1" },
+          { topic_key: "heme_onc_step23", topic_label: "Heme / Onc", step: "Step 2/3" }
+        ],
+        "2026-05-05": [
+          { topic_key: "cardio_step1", topic_label: "Cardiology", step: "Step 1" },
+          { topic_key: "cardio_step23", topic_label: "Cardiology", step: "Step 2/3" }
+        ],
+        "2026-05-06": [
+          { topic_key: "onc_by_systems_step1", topic_label: "Oncology by Systems", step: "Step 1" },
+          { topic_key: "biostats_step23", topic_label: "Biostats / Public Health", step: "Step 2/3" }
+        ],
+        "2026-05-07": [
+          { topic_key: "pulmonary_step1", topic_label: "Pulmonary", step: "Step 1" },
+          { topic_key: "pulmonary_step23", topic_label: "Pulmonary", step: "Step 2/3" }
+        ],
+        "2026-05-08": [
+          { topic_key: "mixed_review_step1", topic_label: "Mixed Review", step: "Step 1" },
+          { topic_key: "mixed_review_step23", topic_label: "Mixed Review", step: "Step 2/3" }
+        ]
+      };
+
+      function parseScheduledZoomStamp(drill) {
+        if (!drill || typeof drill !== "object") return null;
+        const candidates = [
+          drill.original_filename,
+          drill.filename,
+          drill.source_name,
+          drill.title
+        ];
+        if (drill.metadata && typeof drill.metadata === "object") {
+          candidates.push(drill.metadata.original_filename, drill.metadata.filename, drill.metadata.source_name, drill.metadata.title);
+        }
+        if (drill.drill_metadata && typeof drill.drill_metadata === "object") {
+          candidates.push(drill.drill_metadata.original_filename, drill.drill_metadata.filename, drill.drill_metadata.source_name, drill.drill_metadata.title);
+        }
+        for (let i = 0; i < candidates.length; i += 1) {
+          const raw = String(candidates[i] || "").trim();
+          const match = raw.match(/GMT(\d{4})(\d{2})(\d{2})[-_ ]?(\d{2})(\d{2})(\d{2})/i);
+          if (match) {
+            return {
+              date: match[1] + "-" + match[2] + "-" + match[3],
+              time: match[4] + ":" + match[5] + ":" + match[6],
+              seconds: (parseInt(match[4], 10) * 3600) + (parseInt(match[5], 10) * 60) + parseInt(match[6], 10)
+            };
+          }
+        }
+        const date = pickString(drill, ["zoom_session_date", "date", "video_date", "recorded_at"]);
+        const time = pickString(drill, ["zoom_session_time"]);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          const timeMatch = String(time || "00:00:00").match(/^(\d{2}):(\d{2})(?::(\d{2}))?/);
+          const hh = timeMatch ? parseInt(timeMatch[1], 10) : 0;
+          const mm = timeMatch ? parseInt(timeMatch[2], 10) : 0;
+          const ss = timeMatch && timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+          return { date: date, time: time || "00:00:00", seconds: (hh * 3600) + (mm * 60) + ss };
+        }
+        return null;
+      }
+
+      function inferScheduledTopicMeta(drill, registryDrills) {
+        const stamp = parseScheduledZoomStamp(drill);
+        if (!stamp || !DAILY_ROUNDS_SCHEDULE_TOPIC_SLOTS[stamp.date]) return null;
+        const slots = DAILY_ROUNDS_SCHEDULE_TOPIC_SLOTS[stamp.date];
+        const videoId = String(drill && drill.video_id || "").trim();
+        let slotIndex = 0;
+        if (Array.isArray(registryDrills) && registryDrills.length) {
+          const sessions = registryDrills
+            .map(function (row) {
+              const rowStamp = parseScheduledZoomStamp(row);
+              const rowVideoId = String(row && row.video_id || "").trim();
+              if (!rowStamp || rowStamp.date !== stamp.date || !rowVideoId) return null;
+              return { video_id: rowVideoId, seconds: rowStamp.seconds };
+            })
+            .filter(Boolean)
+            .sort(function (a, b) {
+              if (a.seconds !== b.seconds) return a.seconds - b.seconds;
+              return a.video_id < b.video_id ? -1 : (a.video_id > b.video_id ? 1 : 0);
+            });
+          const foundIndex = sessions.findIndex(function (row) { return row.video_id === videoId; });
+          if (foundIndex >= 0) slotIndex = foundIndex;
+        }
+        const slot = slots[Math.min(slotIndex, slots.length - 1)];
+        return slot ? Object.assign({ zoom_session_date: stamp.date, zoom_session_time: stamp.time }, slot) : null;
+      }
+
       function readSessionJson(storageKey) {
         const raw = sessionStorage.getItem(storageKey);
         if (!raw) return null;
@@ -6836,27 +6922,43 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         };
       }
 
-      function toCanonicalDrill(drill) {
+      function toCanonicalDrill(drill, registryDrills) {
         const streamId = String(drill && drill.stream_id || "").trim();
         let playbackUrl = String(drill && drill.playback_url || "").trim();
         if (!playbackUrl && streamId) {
           playbackUrl = "https://iframe.videodelivery.net/" + streamId;
         }
         const derivedStreamId = streamId || deriveStreamIdFromPlaybackUrl(playbackUrl);
+        const scheduledMeta = inferScheduledTopicMeta(drill, registryDrills);
+        const sourceMetadata = drill && typeof drill === "object"
+          ? (drill.drill_metadata && typeof drill.drill_metadata === "object"
+              ? drill.drill_metadata
+              : (drill.metadata && typeof drill.metadata === "object" ? drill.metadata : drill))
+          : null;
+        const drillMetadata = sourceMetadata && typeof sourceMetadata === "object" ? Object.assign({}, sourceMetadata) : null;
+        if (scheduledMeta && drillMetadata) {
+          if (!drillMetadata.topic_key) drillMetadata.topic_key = scheduledMeta.topic_key;
+          if (!drillMetadata.topic_label) drillMetadata.topic_label = scheduledMeta.topic_label;
+          if (!drillMetadata.topic) drillMetadata.topic = scheduledMeta.topic_label;
+          if (!drillMetadata.topic_name) drillMetadata.topic_name = scheduledMeta.topic_label;
+          if (!drillMetadata.step) drillMetadata.step = scheduledMeta.step;
+          if (!drillMetadata.zoom_session_date) drillMetadata.zoom_session_date = scheduledMeta.zoom_session_date;
+          if (!drillMetadata.zoom_session_time) drillMetadata.zoom_session_time = scheduledMeta.zoom_session_time;
+        }
         return {
           video_id: String(drill && drill.video_id || "").trim(),
           title: String(drill && drill.title || "").trim(),
-          topic: String(drill && drill.topic || "").trim(),
-          date: String(drill && drill.date || "").trim(),
+          topic: pickString(drill, ["topic", "topic_name", "topic_label"]) || (scheduledMeta ? scheduledMeta.topic_label : ""),
+          topic_name: pickString(drill, ["topic_name", "topic_label", "topic"]) || (scheduledMeta ? scheduledMeta.topic_label : ""),
+          topic_label: pickString(drill, ["topic_label", "topic_name", "topic"]) || (scheduledMeta ? scheduledMeta.topic_label : ""),
+          topic_key: pickString(drill, ["topic_key"]) || (scheduledMeta ? scheduledMeta.topic_key : ""),
+          step: pickString(drill, ["step"]) || (scheduledMeta ? scheduledMeta.step : ""),
+          date: String(drill && drill.date || (scheduledMeta && scheduledMeta.zoom_session_date) || "").trim(),
           stream_id: derivedStreamId,
           playback_url: playbackUrl,
           nodes_url: String(drill && drill.nodes_url || "").trim(),
           transcript_url: String(drill && drill.transcript_url || "").trim(),
-          drill_metadata: drill && typeof drill === "object"
-            ? (drill.drill_metadata && typeof drill.drill_metadata === "object"
-                ? drill.drill_metadata
-                : (drill.metadata && typeof drill.metadata === "object" ? drill.metadata : drill))
-            : null,
+          drill_metadata: drillMetadata,
           metadata: drill && typeof drill === "object" ? drill : null
         };
       }
@@ -6994,7 +7096,7 @@ SOURCE OF TRUTH: This file. Do NOT edit in Elementor or WordPress.
         if (!selected) {
           throw new Error("Selected drill not found in /api/drills for video_id=" + safeVideoId);
         }
-        return toCanonicalDrill(selected);
+        return toCanonicalDrill(selected, drills);
       }
 
       function applyResolvedContractToTrace(drill, sourceLabel) {
