@@ -3,6 +3,8 @@ import crypto from 'node:crypto';
 const OFFER_TABLE = 'command_center.usce_offer_drafts';
 const PAYMENT_URL = 'https://missionmedinstitute.com/product/usce-clinical-rotations/';
 const OFFER_PAGE_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html';
+const TRACKER_PAGE_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html';
+const ACCOUNT_URL = 'https://missionmedinstitute.com/my-account/';
 const MAX_BODY_BYTES = 16 * 1024;
 const MAX_NOTE_LENGTH = 1000;
 const MAX_ADMIN_MESSAGE_LENGTH = 2400;
@@ -37,12 +39,16 @@ const PAYMENT_STATUSES = new Set(['pending', 'handoff_shown', 'paid', 'failed', 
 const PAPERWORK_STATUSES = new Set(['not_started', 'requested', 'received', 'approved', 'blocked']);
 const LEARNDASH_STATUSES = new Set(['locked', 'ready', 'enabled', 'blocked']);
 const POSTMARK_ENABLED_FLAGS = ['USCE_POSTMARK_ENABLED', 'MM_USCE_POSTMARK_ENABLED'];
-const POSTMARK_DRY_RUN_FLAGS = ['USCE_POSTMARK_DRY_RUN', 'MM_USCE_POSTMARK_DRY_RUN', 'MM_USCE_PUBLIC_INTAKE_NOTIFY_DRY_RUN'];
+const POSTMARK_DRY_RUN_FLAGS = ['USCE_POSTMARK_DRY_RUN', 'MM_USCE_POSTMARK_DRY_RUN'];
 const POSTMARK_LIVE_SEND_FLAGS = ['USCE_POSTMARK_LIVE_SEND_ENABLED', 'MM_USCE_POSTMARK_LIVE_SEND_ENABLED'];
 const POSTMARK_TOKEN_FLAGS = ['POSTMARK_SERVER_TOKEN', 'USCE_POSTMARK_SERVER_TOKEN', 'MMHQ_POSTMARK_SERVER_TOKEN'];
 const POSTMARK_FROM_FLAGS = ['USCE_POSTMARK_FROM_EMAIL', 'POSTMARK_FROM_EMAIL', 'MMHQ_POSTMARK_FROM_EMAIL'];
+const POSTMARK_REPLY_TO_FLAGS = ['USCE_POSTMARK_REPLY_TO_EMAIL', 'POSTMARK_REPLY_TO_EMAIL', 'MMHQ_POSTMARK_REPLY_TO_EMAIL'];
 const POSTMARK_API_URL = 'https://api.postmarkapp.com/email';
 const DEFAULT_POSTMARK_FROM = 'clinicals@missionmedinstitute.com';
+const DEFAULT_POSTMARK_REPLY_TO = 'clinicals@missionmedinstitute.com';
+const POSTMARK_MAX_ATTEMPTS = 3;
+const POSTMARK_RETRY_BASE_MS = 400;
 const STUDENT_ACTIONS = new Map([
   ['accept', 'accept'],
   ['accepted', 'accept'],
@@ -220,7 +226,7 @@ export function isSafeOfferToken(value) {
 }
 
 export function buildPaymentHandoffForAction(action) {
-  return normalizeStudentResponseAction(action) === 'accept' ? PAYMENT_URL : null;
+  return normalizeStudentResponseAction(action) === 'accept' ? buildPaymentUrl() : null;
 }
 
 async function readAdminJsonPayload(request, response, headers, allowEmpty = false) {
@@ -369,7 +375,18 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
   );
   const liveApproval = payload?.approve_live_send === true;
 
-  if (!postmarkConfig.liveSend || !liveApproval) {
+  if (liveApproval && !postmarkConfig.liveSend) {
+    return {
+      ok: false,
+      httpStatus: 503,
+      error: 'postmark_live_send_not_configured',
+      message: 'USCE offer email live send is not configured. No email was sent.',
+      dry_run: false,
+      reason: postmarkConfig.reason || 'postmark_live_send_disabled',
+    };
+  }
+
+  if (!liveApproval) {
     return recordOfferSend({
       offerId,
       message: message.data,
@@ -398,12 +415,15 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
     };
   }
 
-  const liveResult = await sendPostmarkEmail({
+  const renderedMessage = buildOfferEmailPresentation({ offerId, message: message.data });
+  const liveResult = await sendPostmarkEmailWithRetry({
     token: postmarkConfig.token,
     fromEmail: postmarkConfig.fromEmail,
+    replyTo: postmarkConfig.replyTo,
     toEmail: message.data.to_email,
     subject: message.data.subject,
-    body: message.data.body,
+    body: renderedMessage.textBody,
+    htmlBody: renderedMessage.htmlBody,
   });
 
   if (!liveResult.ok) {
@@ -997,48 +1017,201 @@ function envFlagAny(names, defaultValue = false) {
 }
 
 function getPostmarkConfig() {
-  const enabled = envFlagAny(POSTMARK_ENABLED_FLAGS, false);
-  const dryRun = envFlagAny(POSTMARK_DRY_RUN_FLAGS, true);
-  const liveSend = enabled && !dryRun && envFlagAny(POSTMARK_LIVE_SEND_FLAGS, false);
   const token = envValueAny(POSTMARK_TOKEN_FLAGS, '');
+  const enabled = envFlagAny(POSTMARK_ENABLED_FLAGS, Boolean(token));
+  const dryRun = envFlagAny(POSTMARK_DRY_RUN_FLAGS, false);
+  const liveSend = enabled && !dryRun && envFlagAny(POSTMARK_LIVE_SEND_FLAGS, true);
   const fromEmail = sanitizeEmail(envValueAny(POSTMARK_FROM_FLAGS, DEFAULT_POSTMARK_FROM)) || DEFAULT_POSTMARK_FROM;
+  const replyTo = sanitizeEmail(envValueAny(POSTMARK_REPLY_TO_FLAGS, DEFAULT_POSTMARK_REPLY_TO)) || DEFAULT_POSTMARK_REPLY_TO;
+
+  if (!token && !dryRun) {
+    return { ok: false, enabled, dryRun: false, liveSend: false, fromEmail, replyTo, reason: 'postmark_token_missing' };
+  }
 
   if (!liveSend) {
-    return { ok: true, enabled, dryRun: true, liveSend: false, fromEmail };
+    return {
+      ok: true,
+      enabled,
+      dryRun: true,
+      liveSend: false,
+      fromEmail,
+      replyTo,
+      reason: dryRun ? 'postmark_dry_run_enabled' : 'postmark_live_send_disabled',
+    };
   }
 
   if (!token) {
-    return { ok: false, enabled, dryRun, liveSend, fromEmail, reason: 'postmark_token_missing' };
+    return { ok: false, enabled, dryRun, liveSend, fromEmail, replyTo, reason: 'postmark_token_missing' };
   }
 
-  return { ok: true, enabled, dryRun, liveSend, token, fromEmail };
+  return { ok: true, enabled, dryRun, liveSend, token, fromEmail, replyTo };
 }
 
-async function sendPostmarkEmail({ token, fromEmail, toEmail, subject, body }) {
+function buildOfferEmailPresentation({ offerId, message }) {
+  const category = String(message?.category || 'offer_ready').toLowerCase();
+  const body = String(message?.body || '');
+  const offerUrl = extractUrl(body, 'usce_offer.html') || OFFER_PAGE_URL;
+  const status = offerEmailStatus(category);
+  const actions = [
+    { label: status.primaryActionLabel, url: status.includePayment ? buildPaymentUrl() : offerUrl, primary: true },
+    { label: 'Open tracker', url: TRACKER_PAGE_URL, primary: false },
+    { label: 'Sign in', url: buildAccountUrl(TRACKER_PAGE_URL), primary: false },
+  ];
+  if (!status.includePayment) actions.push({ label: 'Contact Clinicals', url: 'mailto:clinicals@missionmedinstitute.com', primary: false });
+
+  const textActions = actions.map((action) => `${action.label}: ${action.url}`).join('\n');
+  const textBody = `${offerEmailHeading(category)}\n\n${body}\n\nCurrent tracker step: ${status.stageLabel} - ${status.stageText}\n\nActions\n${textActions}\n\nMissionMed Clinicals`;
+  const paragraphs = body
+    .split(/\n{2,}/u)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => `<p style="margin:0 0 12px;color:#d9e7f1;font-size:15px;line-height:1.65;">${escapeHtml(part)}</p>`)
+    .join('');
+  const stages = ['Received', 'Review', 'Available', 'Offer', 'Secured'];
+  const stageCells = stages.map((stage, index) => {
+    const done = index < status.activeIndex;
+    const active = index === status.activeIndex;
+    const background = done ? '#1f9d62' : active ? '#ff7f35' : '#7b8b99';
+    const color = done || active ? '#ffffff' : '#dce5ec';
+    return `<td style="width:20%;padding:0 3px;"><div style="background:${background};color:${color};border-radius:8px;padding:13px 7px;text-align:center;font-size:12px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;">${escapeHtml(stage)}</div></td>`;
+  }).join('');
+  const htmlActions = actions.map((action) => {
+    const background = action.primary ? '#f4c84d' : '#ffffff';
+    const border = action.primary ? '#f4c84d' : '#d7dee8';
+    return `<a href="${escapeHtml(action.url)}" style="display:inline-block;margin:0 8px 10px 0;padding:13px 18px;border-radius:999px;background:${background};border:1px solid ${border};color:#08233d;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;text-decoration:none;">${escapeHtml(action.label)}</a>`;
+  }).join('');
+  const htmlBody = [
+    '<!doctype html><html><body style="margin:0;padding:0;background:#071627;">',
+    `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(status.preheader)}</div>`,
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071627;padding:26px 12px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;"><tr><td align="center">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;border-collapse:collapse;">',
+    '<tr><td style="padding:18px 20px;background:#051524;border:1px solid #244760;border-bottom:0;border-radius:16px 16px 0 0;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td><div style="display:inline-block;width:42px;height:42px;border-radius:50%;background:#f4c84d;color:#08233d;text-align:center;line-height:42px;font-family:Georgia,serif;font-weight:900;">MM</div></td><td align="right" style="color:#f4d36a;font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">MissionMed Clinicals</td></tr></table>',
+    '</td></tr>',
+    '<tr><td style="padding:28px 24px;background:linear-gradient(180deg,#0b4770,#0a5687);border-left:1px solid #244760;border-right:1px solid #244760;">',
+    `<div style="display:inline-block;border:1px solid rgba(255,255,255,.32);border-radius:999px;padding:7px 12px;color:#f4d36a;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">${escapeHtml(status.eyebrow)}</div>`,
+    `<h1 style="margin:18px 0 10px;color:#ffffff;font-family:Georgia,serif;font-size:38px;line-height:1.05;font-weight:700;">${escapeHtml(offerEmailHeading(category))}</h1>`,
+    paragraphs,
+    '</td></tr>',
+    '<tr><td style="padding:18px;background:#0b78a8;border-left:1px solid #244760;border-right:1px solid #244760;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="color:#ffffff;font-size:26px;line-height:1;font-weight:900;text-transform:uppercase;">USCE<br><span style="color:#f4d36a;">Tracker</span></td>',
+    `<td align="right" style="color:#d9e7f1;font-size:13px;line-height:1.5;">Active now: <b style="color:#ffffff;">${escapeHtml(status.stageLabel)}</b><br>${escapeHtml(status.stageText)}</td></tr></table>`,
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px;"><tr>',
+    stageCells,
+    '</tr></table>',
+    '</td></tr>',
+    '<tr><td style="padding:20px 22px;background:#ffffff;border-left:1px solid #244760;border-right:1px solid #244760;color:#08233d;">',
+    htmlActions,
+    `<p style="margin:10px 0 0;color:#5e6b7c;font-size:13px;line-height:1.6;">Reference: ${escapeHtml(offerId || 'pending')}. Payment is only requested after an accepted offer.</p>`,
+    '</td></tr>',
+    '<tr><td style="padding:18px 22px;background:#051524;border:1px solid #244760;border-top:0;border-radius:0 0 16px 16px;color:#9fb0bf;font-size:12px;line-height:1.6;">MissionMed Clinicals<br>This email does not create a payment or enrollment by itself.</td></tr>',
+    '</table>',
+    '</td></tr></table>',
+    '</body></html>',
+  ].join('');
+
+  return { textBody, htmlBody };
+}
+
+function offerEmailHeading(category) {
+  if (category === 'accepted_offer_next_steps') return 'Your MissionMed Clinicals next steps are ready';
+  if (category === 'payment_reminder') return 'Secure your MissionMed rotation seat';
+  if (category === 'declined_response') return 'Your MissionMed Clinicals response was recorded';
+  if (category === 'alternate_requested_response') return 'We received your alternate request';
+  if (category === 'availability_confirmed') return 'MissionMed Clinicals found a possible rotation path';
+  return 'Your MissionMed Clinicals offer is ready';
+}
+
+function offerEmailStatus(category) {
+  if (category === 'accepted_offer_next_steps' || category === 'payment_reminder') {
+    return { eyebrow: 'Offer accepted', preheader: 'Secure your approved rotation seat and complete enrollment.', stageLabel: 'Tuition next', stageText: 'Secure your approved seat', activeIndex: 4, primaryActionLabel: 'Secure seat', includePayment: true };
+  }
+  if (category === 'declined_response') {
+    return { eyebrow: 'Response recorded', preheader: 'Your decline was recorded and no payment is needed.', stageLabel: 'Offer declined', stageText: 'No tuition handoff opened', activeIndex: 3, primaryActionLabel: 'View tracker', includePayment: false };
+  }
+  if (category === 'alternate_requested_response') {
+    return { eyebrow: 'Alternate requested', preheader: 'MissionMed Clinicals is preparing a better-fit option.', stageLabel: 'Alternate requested', stageText: 'Clinical team reviewing', activeIndex: 2, primaryActionLabel: 'View tracker', includePayment: false };
+  }
+  if (category === 'availability_confirmed') {
+    return { eyebrow: 'Availability confirmed', preheader: 'A possible rotation path is being prepared.', stageLabel: 'Availability confirmed', stageText: 'Preparing offer', activeIndex: 2, primaryActionLabel: 'View tracker', includePayment: false };
+  }
+  return { eyebrow: 'Offer ready', preheader: 'Approve, decline, or request an alternate MissionMed Clinicals offer.', stageLabel: 'Offer sent', stageText: 'Waiting for your approval', activeIndex: 3, primaryActionLabel: 'Review offer', includePayment: false };
+}
+
+function buildPaymentUrl() {
+  const url = new URL(PAYMENT_URL);
+  url.searchParams.set('usce_offer_approved', '1');
+  url.searchParams.set('secure_window', '48h');
+  return url.toString();
+}
+
+function buildAccountUrl(target) {
+  const url = new URL(ACCOUNT_URL);
+  url.searchParams.set('redirect_to', target || TRACKER_PAGE_URL);
+  return url.toString();
+}
+
+function extractUrl(body, contains) {
+  const candidates = String(body || '').match(/https?:\/\/[^\s<>"')]+/gu) || [];
+  const found = candidates.find((url) => !contains || url.includes(contains));
+  return found || candidates[0] || '';
+}
+
+async function sendPostmarkEmailWithRetry(message) {
+  let lastResult = { ok: false, reason: 'postmark_not_attempted', retryable: true };
+
+  for (let attempt = 1; attempt <= POSTMARK_MAX_ATTEMPTS; attempt += 1) {
+    lastResult = await sendPostmarkEmail(message);
+    if (lastResult.ok || !lastResult.retryable || attempt === POSTMARK_MAX_ATTEMPTS) {
+      return { ...lastResult, attempts: attempt };
+    }
+    await sleep(POSTMARK_RETRY_BASE_MS * attempt);
+  }
+
+  return { ...lastResult, attempts: POSTMARK_MAX_ATTEMPTS };
+}
+
+async function sendPostmarkEmail({ token, fromEmail, replyTo, toEmail, subject, body, htmlBody }) {
   if (!sanitizeEmail(toEmail)) {
     return {
       ok: false,
       httpStatus: 400,
       error: 'missing_recipient_email',
       message: 'A live USCE offer email requires an explicit valid recipient email.',
+      retryable: false,
     };
   }
 
-  const response = await fetch(POSTMARK_API_URL, {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-      'X-Postmark-Server-Token': token,
-    },
-    body: JSON.stringify({
-      From: fromEmail,
-      To: toEmail,
-      Subject: subject,
-      TextBody: body,
-      MessageStream: 'outbound',
-    }),
-  });
+  let response;
+  try {
+    response = await fetch(POSTMARK_API_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Postmark-Server-Token': token,
+      },
+      body: JSON.stringify({
+        From: fromEmail,
+        To: toEmail,
+        ReplyTo: replyTo || DEFAULT_POSTMARK_REPLY_TO,
+        Subject: subject,
+        TextBody: body,
+        HtmlBody: htmlBody || textToHtml(body),
+        MessageStream: 'outbound',
+        Tag: 'usce-offer',
+      }),
+    });
+  } catch {
+    return {
+      ok: false,
+      httpStatus: 502,
+      error: 'postmark_network_error',
+      message: 'Postmark could not be reached for the USCE offer email.',
+      reason: 'postmark_network_error',
+      retryable: true,
+    };
+  }
 
   const payload = await readSupabaseJson(response);
   if (!response.ok) {
@@ -1048,13 +1221,33 @@ async function sendPostmarkEmail({ token, fromEmail, toEmail, subject, body }) {
       error: 'postmark_send_failed',
       message: 'Postmark rejected the USCE offer email.',
       reason: sanitizeText(payload?.ErrorCode || payload?.Message || response.status, 160),
+      retryable: response.status === 429 || response.status >= 500,
+      statusCode: response.status,
     };
   }
 
   return {
     ok: true,
     message_id: sanitizeText(payload?.MessageID || payload?.MessageId || '', 180),
+    retryable: false,
   };
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function textToHtml(value) {
+  return `<div style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;color:#0f172a;max-width:680px;white-space:pre-wrap;">${escapeHtml(value)}</div>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/gu, '&amp;')
+    .replace(/</gu, '&lt;')
+    .replace(/>/gu, '&gt;')
+    .replace(/"/gu, '&quot;')
+    .replace(/'/gu, '&#39;');
 }
 
 function normalizePathname(pathname) {

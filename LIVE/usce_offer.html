@@ -203,6 +203,31 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 .payment-trust::before{content:"";width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-radius:4px;
   display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
 
+.payment-modal[hidden]{display:none}
+.payment-modal{position:fixed;inset:0;z-index:80;display:grid;place-items:center;
+  padding:22px;background:rgba(7,26,47,.72);backdrop-filter:blur(9px);
+  animation:fade .18s var(--ease) both}
+.payment-modal-card{width:min(560px,100%);border-radius:28px;overflow:hidden;
+  background:linear-gradient(180deg,#fff,#f7f2e8);box-shadow:0 34px 90px rgba(7,26,47,.34);
+  border:1px solid rgba(222,197,127,.5)}
+.payment-modal-top{padding:22px 24px 18px;background:linear-gradient(135deg,#071a2f,#123454);color:#fff}
+.payment-modal-kicker{display:inline-flex;align-items:center;gap:8px;color:var(--gold2);
+  font-size:10px;font-weight:900;letter-spacing:.16em;text-transform:uppercase}
+.payment-modal-kicker::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold2);
+  box-shadow:0 0 0 5px rgba(222,197,127,.16)}
+.payment-modal h3{margin:12px 0 8px;font-family:var(--serif);font-size:32px;line-height:1.05;letter-spacing:-.03em}
+.payment-modal p{margin:0;color:rgba(255,255,255,.76);font-size:15px;line-height:1.65}
+.payment-modal-body{padding:22px 24px 24px}
+.payment-modal-steps{display:grid;gap:10px;margin:0 0 18px}
+.payment-modal-step{display:grid;grid-template-columns:32px 1fr;gap:12px;align-items:start;
+  border:1px solid var(--line);border-radius:16px;background:#fff;padding:12px 14px}
+.payment-modal-step b{display:block;color:var(--navy);font-size:13px}
+.payment-modal-step span{display:block;color:var(--muted);font-size:12px;line-height:1.5;margin-top:3px}
+.payment-modal-step .num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  background:var(--navy);color:var(--gold2);font-weight:900;font-size:12px}
+.payment-modal-actions{display:flex;gap:10px;flex-wrap:wrap}
+.payment-modal-actions .btn{flex:1 1 190px}
+
 .guard{margin-top:14px;padding:13px 14px;border-radius:14px;
   background:rgba(7,26,47,.06);border:1px solid var(--line);color:var(--muted);font-size:12px;line-height:1.6}
 .guard b{color:var(--navy)}
@@ -413,6 +438,27 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       </div>
     </section>
 
+    <div class="payment-modal" id="paymentInstructionModal" role="dialog" aria-modal="true" aria-labelledby="paymentInstructionTitle" hidden>
+      <div class="payment-modal-card">
+        <div class="payment-modal-top">
+          <div class="payment-modal-kicker">Rotation seat approved</div>
+          <h3 id="paymentInstructionTitle">Congrats! You've got a rotation seat approved.</h3>
+          <p>You now have 48 hours to secure it before it is released. Select the location and specialty you were approved for, then complete enrollment on the MissionMed product page.</p>
+        </div>
+        <div class="payment-modal-body">
+          <div class="payment-modal-steps" aria-label="How to secure your approved seat">
+            <div class="payment-modal-step"><div class="num">1</div><div><b>Open the official product page</b><span>The button below opens MissionMed Clinical Rotations checkout in a new tab.</span></div></div>
+            <div class="payment-modal-step"><div class="num">2</div><div><b>Pick your approved location and specialty</b><span>Match the product choices to the offer your coordinator approved.</span></div></div>
+            <div class="payment-modal-step"><div class="num">3</div><div><b>Complete enrollment within 48 hours</b><span>Your seat is not secured until payment and follow-up onboarding are complete.</span></div></div>
+          </div>
+          <div class="payment-modal-actions">
+            <a class="btn primary" id="paymentInstructionCta" href="https://missionmedinstitute.com/product/usce-clinical-rotations/" target="_blank" rel="noopener noreferrer">Secure my seat</a>
+            <button class="btn ghost" type="button" id="paymentInstructionClose">Review details first</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Declined state -->
     <section class="mm-card state-panel" id="stateDeclined" aria-label="Decline confirmation" hidden>
       <div class="mm-card-body">
@@ -540,7 +586,8 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
       'paymentStatusText','paperworkStatusText','learndashStatusText',
       'demoBanner','offerCard','acceptConfirm','declineConfirm',
       'acceptConfirmBtn','acceptCancelBtn','declineConfirmBtn','declineCancelBtn',
-      'altCharCount','responseTitle',
+      'altCharCount','responseTitle','paymentInstructionModal','paymentInstructionCta',
+      'paymentInstructionClose',
       'stateLoading','stateNotFound','stateError','retryBtn','notFoundMessage','errorMessage'
     ].forEach(function(id){ els[id] = document.getElementById(id); });
   }
@@ -557,6 +604,14 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     els.altSubmitBtn.addEventListener('click', function(){ respond('alternate_requested'); });
     els.altInput.addEventListener('input', updateCharCount);
     if (els.retryBtn) els.retryBtn.addEventListener('click', function(){ loadOffer(); });
+    if (els.paymentInstructionClose) {
+      els.paymentInstructionClose.addEventListener('click', hidePaymentInstructionModal);
+    }
+    if (els.paymentInstructionModal) {
+      els.paymentInstructionModal.addEventListener('click', function(evt){
+        if (evt.target === els.paymentInstructionModal) hidePaymentInstructionModal();
+      });
+    }
   }
 
   function readToken(){
@@ -621,7 +676,19 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   }
 
   function createPaymentHandoff(responseData) {
-    return (responseData && responseData.payment_handoff_url) || WOO_URL;
+    var raw = (responseData && responseData.payment_handoff_url) || WOO_URL;
+    return addSeatInstructionParams(raw);
+  }
+
+  function addSeatInstructionParams(raw) {
+    try {
+      var next = new URL(raw, window.location.href);
+      next.searchParams.set('usce_offer_approved', '1');
+      next.searchParams.set('secure_window', '48h');
+      return next.toString();
+    } catch (_e) {
+      return raw || WOO_URL;
+    }
   }
 
   function getOfferComms(_token) {
@@ -940,9 +1007,12 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     hideAll([els.stateAccepted, els.stateDeclined, els.stateAlternate]);
     var target = null;
     if (action === 'accepted') {
+      if (els.paymentCta && !els.paymentCta.href) els.paymentCta.href = addSeatInstructionParams(WOO_URL);
+      if (els.paymentCta) els.paymentCta.href = addSeatInstructionParams(els.paymentCta.href || WOO_URL);
       show(els.stateAccepted);
       setBadge('Accepted', 'accepted');
       target = els.stateAccepted;
+      showPaymentInstructionModal();
     } else if (action === 'declined') {
       show(els.stateDeclined);
       setBadge('Declined', 'declined');
@@ -956,6 +1026,19 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     if (target) {
       try { target.scrollIntoView({ behavior:'smooth', block:'start' }); } catch(_e){}
     }
+  }
+
+  function showPaymentInstructionModal(){
+    if (!els.paymentInstructionModal) return;
+    var href = addSeatInstructionParams((els.paymentCta && els.paymentCta.href) || WOO_URL);
+    if (els.paymentCta) els.paymentCta.href = href;
+    if (els.paymentInstructionCta) els.paymentInstructionCta.href = href;
+    els.paymentInstructionModal.hidden = false;
+    try { (els.paymentInstructionCta || els.paymentInstructionClose).focus({ preventScroll:true }); } catch(_e){}
+  }
+
+  function hidePaymentInstructionModal(){
+    if (els.paymentInstructionModal) els.paymentInstructionModal.hidden = true;
   }
 
   function lockActions(reason){

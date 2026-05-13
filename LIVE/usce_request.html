@@ -117,6 +117,10 @@ button,input,select,textarea{font-family:inherit}
 .mm-flow-card:hover::after,.mm-flow-card:focus-within::after{opacity:1}
 .mm-flow-card b{position:relative;z-index:1;display:block;color:var(--gold2);font-size:12px;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
 .mm-flow-card span{position:relative;z-index:1;font-size:12px;line-height:1.55;color:rgba(255,255,255,.92)}
+.mm-track-cta{width:min(100% - 44px,980px);margin:0 auto 4px;border:1px solid rgba(216,188,104,.42);border-radius:18px;background:linear-gradient(135deg,rgba(8,18,33,.9),rgba(20,56,86,.78));box-shadow:0 18px 46px rgba(3,12,28,.34),inset 0 1px 0 rgba(255,255,255,.14);color:#fff;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:18px;backdrop-filter:blur(16px)}
+.mm-track-cta b{display:block;font-size:17px;line-height:1.25;color:#fff}
+.mm-track-cta span{display:block;margin-top:4px;color:rgba(255,255,255,.78);font-size:13px;line-height:1.5}
+.mm-track-cta a{flex:0 0 auto;text-decoration:none;border-radius:999px;padding:13px 18px;background:linear-gradient(135deg,var(--gold),var(--gold2));color:var(--navy);font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 12px 24px rgba(216,188,104,.24)}
 .mm-shell{width:min(100%,1120px);margin:0 auto;padding:30px 22px 82px}
 .mm-panel{
   position:relative;
@@ -189,6 +193,18 @@ button,input,select,textarea{font-family:inherit}
 .mm-review dt{background:var(--cream);font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 .mm-review dd{font-size:14px}
 .mm-review dt:last-of-type,.mm-review dd:last-of-type{border-bottom:0}
+.mm-confirm-card{margin-top:18px;border:2px solid rgba(31,122,79,.34);background:linear-gradient(135deg,rgba(238,250,244,.98),rgba(255,255,255,.98));border-radius:18px;padding:15px 16px;box-shadow:0 14px 34px rgba(31,122,79,.12);transition:border-color .18s,box-shadow .18s,background .18s,transform .18s}
+.mm-confirm-card.is-attention{border-color:#25b46b;background:linear-gradient(135deg,#e5fff0,#f7fff9);box-shadow:0 0 0 4px rgba(37,180,107,.16),0 0 38px rgba(37,180,107,.34);animation:mmConsentPulse 1s ease-in-out 3}
+@keyframes mmConsentPulse{0%,100%{transform:none}50%{transform:translateY(-2px)}}
+.mm-confirm-label{display:grid;grid-template-columns:auto 1fr;gap:13px;align-items:flex-start;margin:0!important;color:var(--navy)!important;text-transform:none!important;letter-spacing:0!important;font-size:14px!important;line-height:1.55!important;cursor:pointer}
+.mm-confirm-label input{position:absolute;opacity:0;pointer-events:none}
+.mm-check-visual{width:30px;height:30px;border-radius:9px;border:2px solid rgba(31,122,79,.42);background:#fff;display:grid;place-items:center;color:transparent;font-weight:900;line-height:1;box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
+.mm-confirm-label input:focus-visible + .mm-check-visual{outline:3px solid rgba(37,180,107,.25);outline-offset:2px}
+.mm-confirm-label input:checked + .mm-check-visual{background:#25b46b;border-color:#25b46b;color:#fff}
+.mm-confirm-label strong{display:block;color:var(--navy);font-size:15px;line-height:1.3}
+.mm-confirm-label small{display:block;margin-top:4px;color:var(--muted);font-size:12px;line-height:1.55;text-transform:none;letter-spacing:0;font-weight:600}
+.mm-consent-hint{display:none;margin:12px 0 0;padding:10px 12px;border-radius:12px;background:#dffbea;color:#155338;font-size:13px;font-weight:800;line-height:1.45}
+.mm-confirm-card.is-attention .mm-consent-hint{display:block}
 .mm-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:24px;padding-top:20px;border-top:1px solid var(--line);flex-wrap:wrap}
 .mm-btn{appearance:none;border:0;border-radius:999px;padding:13px 19px;font:800 12px var(--sans);letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:transform .18s,box-shadow .18s,opacity .18s,filter .18s}
 .mm-btn:disabled{opacity:.48;cursor:not-allowed}
@@ -227,6 +243,8 @@ button,input,select,textarea{font-family:inherit}
 .mm-foot a{color:var(--gold2)}
 @media(max-width:800px){
   .mm-flow{grid-template-columns:1fr 1fr}
+  .mm-track-cta{display:block;text-align:center}
+  .mm-track-cta a{margin-top:14px;display:inline-flex}
   .mm-grid,.mm-stepper{grid-template-columns:1fr}
   .mm-step{border-right:0}
   .mm-panel-head{display:block}
@@ -238,6 +256,7 @@ button,input,select,textarea{font-family:inherit}
 }
 @media(max-width:520px){
   .mm-flow{grid-template-columns:1fr}
+  .mm-track-cta{width:calc(100% - 28px);padding:16px}
   .mm-hero{padding:48px 18px 24px}
   .mm-shell{padding:22px 14px 68px}
   .mm-panel{border-radius:18px}
@@ -260,6 +279,14 @@ button,input,select,textarea{font-family:inherit}
       <div class="mm-flow-card"><b>3. Offer</b><span>If there is a match, we send placement details and next steps.</span></div>
       <div class="mm-flow-card"><b>4. Decide</b><span>Payment only happens after MissionMed Clinicals confirms an available offer and you accept it.</span></div>
     </div>
+  </section>
+
+  <section class="mm-track-cta" aria-label="Track an existing USCE request">
+    <div>
+      <b>Already applied for rotations?</b>
+      <span>Track your USCE request status with the same MissionMed login and email you used on the request form.</span>
+    </div>
+    <a href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html" target="_top" rel="noopener">Track your status</a>
   </section>
 
   <main class="mm-shell">
@@ -323,7 +350,17 @@ button,input,select,textarea{font-family:inherit}
         <section class="mm-section" data-step="4">
           <div class="mm-note">By submitting this request, you authorize MissionMed to contact you by email and phone about clinical rotation availability. This request is free and does not require payment.</div>
           <dl class="mm-review" id="reviewList"></dl>
-          <div class="mm-field" style="margin-top:18px"><label><input id="consent" type="checkbox" required> I confirm this request is accurate and I agree to be contacted by MissionMed about placement availability.</label></div>
+          <div class="mm-confirm-card" id="consentCard">
+            <label class="mm-confirm-label" for="consent">
+              <input id="consent" type="checkbox" required>
+              <span class="mm-check-visual" aria-hidden="true">&#10003;</span>
+              <span>
+                <strong>I confirm this request is accurate.</strong>
+                <small>I agree that MissionMed may contact me by email and phone about clinical placement availability and status updates.</small>
+              </span>
+            </label>
+            <div class="mm-consent-hint" id="consentHint">Almost done: check this confirmation box, then submit your request.</div>
+          </div>
         </section>
 
         <div class="mm-actions">
@@ -684,9 +721,36 @@ button,input,select,textarea{font-family:inherit}
     $('#reviewList').innerHTML = rows.map(([k,v]) => '<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('');
   }
 
+  function clearConsentAttention(){
+    const card = $('#consentCard');
+    if (card) card.classList.remove('is-attention');
+  }
+
+  function flagConsentAttention(){
+    const card = $('#consentCard');
+    if (card) {
+      card.classList.remove('is-attention');
+      void card.offsetWidth;
+      card.classList.add('is-attention');
+      try { card.scrollIntoView({ behavior:'smooth', block:'center' }); } catch (_) {}
+    }
+    const checkbox = $('#consent');
+    if (checkbox) {
+      window.setTimeout(() => {
+        try { checkbox.focus({ preventScroll:true }); } catch (_) { checkbox.focus(); }
+      }, 260);
+    }
+    showAlert('Almost done: check the green confirmation box, then submit your request.', 'success');
+  }
+
   async function submitRequest(){
     const message = validateStep(4);
-    if (message) { showAlert(message, 'error'); return; }
+    if (message) {
+      if (!$('#consent').checked) flagConsentAttention();
+      else showAlert(message, 'error');
+      return;
+    }
+    clearConsentAttention();
     state.submitting = true;
     $('#nextBtn').disabled = true;
     $('#backBtn').disabled = true;
@@ -807,9 +871,14 @@ button,input,select,textarea{font-family:inherit}
   $('#backBtn').addEventListener('click', () => setStep(state.step - 1));
   $('#nextBtn').addEventListener('click', () => {
     const message = validateStep(state.step);
-    if (message) { showAlert(message, 'error'); return; }
+    if (message) {
+      if (state.step === 4 && !$('#consent').checked) flagConsentAttention();
+      else showAlert(message, 'error');
+      return;
+    }
     if (state.step < state.maxStep) setStep(state.step + 1); else submitRequest();
   });
+  $('#consent').addEventListener('change', clearConsentAttention);
   $('#newRequestBtn').addEventListener('click', () => window.location.reload());
   $$('.mm-step').forEach(step => {
     step.addEventListener('click', () => goToStep(step.dataset.stepLabel));
