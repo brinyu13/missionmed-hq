@@ -45,6 +45,7 @@ const POSTMARK_TOKEN_FLAGS = ['POSTMARK_SERVER_TOKEN', 'USCE_POSTMARK_SERVER_TOK
 const POSTMARK_FROM_FLAGS = ['USCE_POSTMARK_FROM_EMAIL', 'POSTMARK_FROM_EMAIL', 'MMHQ_POSTMARK_FROM_EMAIL'];
 const POSTMARK_REPLY_TO_FLAGS = ['USCE_POSTMARK_REPLY_TO_EMAIL', 'POSTMARK_REPLY_TO_EMAIL', 'MMHQ_POSTMARK_REPLY_TO_EMAIL'];
 const POSTMARK_API_URL = 'https://api.postmarkapp.com/email';
+const POSTMARK_FROM_NAME = 'MMI Clinical Rotations';
 const DEFAULT_POSTMARK_FROM = 'clinicals@missionmedinstitute.com';
 const DEFAULT_POSTMARK_REPLY_TO = 'clinicals@missionmedinstitute.com';
 const POSTMARK_MAX_ATTEMPTS = 3;
@@ -981,6 +982,11 @@ function sanitizeEmail(value) {
   return raw;
 }
 
+function formatPostmarkFromHeader(value) {
+  const email = sanitizeEmail(value) || DEFAULT_POSTMARK_FROM;
+  return `${POSTMARK_FROM_NAME} <${email}>`;
+}
+
 function sanitizeTokenPart(value, maxLength) {
   return String(value || '')
     .replace(/[^A-Za-z0-9_-]/gu, '')
@@ -1061,56 +1067,113 @@ function buildOfferEmailPresentation({ offerId, message }) {
 
   const textActions = actions.map((action) => `${action.label}: ${action.url}`).join('\n');
   const textBody = `${offerEmailHeading(category)}\n\n${body}\n\nCurrent tracker step: ${status.stageLabel} - ${status.stageText}\n\nActions\n${textActions}\n\nMissionMed Clinicals`;
-  const paragraphs = body
+  const stages = ['Received', 'Review', 'Available', 'Offer', 'Secured'];
+  const htmlBody = buildOfferTrackerEmailHtml({
+    preheader: status.preheader,
+    eyebrow: status.eyebrow,
+    heading: offerEmailHeading(category),
+    intro: body,
+    statusLabel: status.stageLabel,
+    statusText: status.stageText,
+    activeIndex: status.activeIndex,
+    offerId,
+    actions,
+    stages,
+    primaryUrl: status.includePayment ? buildPaymentUrl() : offerUrl,
+  });
+
+  return { textBody, htmlBody };
+}
+
+function buildOfferTrackerEmailHtml({
+  preheader,
+  eyebrow,
+  heading,
+  intro,
+  statusLabel,
+  statusText,
+  activeIndex,
+  offerId,
+  actions,
+  stages,
+  primaryUrl,
+}) {
+  const safeActiveIndex = Math.max(0, Math.min(stages.length - 1, Number(activeIndex) || 0));
+  const paragraphs = String(intro || '')
     .split(/\n{2,}/u)
     .map((part) => part.trim())
     .filter(Boolean)
     .map((part) => `<p style="margin:0 0 12px;color:#d9e7f1;font-size:15px;line-height:1.65;">${escapeHtml(part)}</p>`)
     .join('');
-  const stages = ['Received', 'Review', 'Available', 'Offer', 'Secured'];
-  const stageCells = stages.map((stage, index) => {
-    const done = index < status.activeIndex;
-    const active = index === status.activeIndex;
-    const background = done ? '#1f9d62' : active ? '#ff7f35' : '#7b8b99';
+  const labels = stages.map((stage) => `<td align="center" style="padding:0 3px 7px;color:#ffffff;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(stage)}</td>`).join('');
+  const segments = stages.map((stage, index) => {
+    const done = index < safeActiveIndex;
+    const active = index === safeActiveIndex;
+    const background = done ? '#32bf72' : active ? '#ff7f35' : '#8d9ba6';
     const color = done || active ? '#ffffff' : '#dce5ec';
-    return `<td style="width:20%;padding:0 3px;"><div style="background:${background};color:${color};border-radius:8px;padding:13px 7px;text-align:center;font-size:12px;font-weight:900;letter-spacing:.05em;text-transform:uppercase;">${escapeHtml(stage)}</div></td>`;
+    const radius = index === 0 ? '999px 0 0 999px' : index === stages.length - 1 ? '0 999px 999px 0' : '0';
+    return `<td width="20%" align="center" style="padding:0;"><div style="min-height:64px;line-height:64px;background:${background};border-right:3px solid #6f8291;border-radius:${radius};color:${color};font-size:28px;font-weight:900;text-shadow:0 2px 7px rgba(0,0,0,.26);">${index + 1}</div></td>`;
   }).join('');
-  const htmlActions = actions.map((action) => {
-    const background = action.primary ? '#f4c84d' : '#ffffff';
-    const border = action.primary ? '#f4c84d' : '#d7dee8';
-    return `<a href="${escapeHtml(action.url)}" style="display:inline-block;margin:0 8px 10px 0;padding:13px 18px;border-radius:999px;background:${background};border:1px solid ${border};color:#08233d;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;text-decoration:none;">${escapeHtml(action.label)}</a>`;
+  const actionButtons = actions.map((action) => {
+    const background = action.primary ? '#f3cf61' : '#ffffff';
+    const border = action.primary ? '#f3cf61' : '#d7dee8';
+    return `<a href="${escapeHtml(action.url)}" style="display:inline-block;margin:0 8px 10px 0;padding:13px 18px;border-radius:999px;background:${background};border:1px solid ${border};color:#071627;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;text-decoration:none;">${escapeHtml(action.label)}</a>`;
   }).join('');
-  const htmlBody = [
+
+  return [
     '<!doctype html><html><body style="margin:0;padding:0;background:#071627;">',
-    `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(status.preheader)}</div>`,
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071627;padding:26px 12px;font-family:Arial,Helvetica,sans-serif;color:#ffffff;"><tr><td align="center">',
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;border-collapse:collapse;">',
-    '<tr><td style="padding:18px 20px;background:#051524;border:1px solid #244760;border-bottom:0;border-radius:16px 16px 0 0;">',
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td><div style="display:inline-block;width:42px;height:42px;border-radius:50%;background:#f4c84d;color:#08233d;text-align:center;line-height:42px;font-family:Georgia,serif;font-weight:900;">MM</div></td><td align="right" style="color:#f4d36a;font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">MissionMed Clinicals</td></tr></table>',
-    '</td></tr>',
-    '<tr><td style="padding:28px 24px;background:linear-gradient(180deg,#0b4770,#0a5687);border-left:1px solid #244760;border-right:1px solid #244760;">',
-    `<div style="display:inline-block;border:1px solid rgba(255,255,255,.32);border-radius:999px;padding:7px 12px;color:#f4d36a;font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">${escapeHtml(status.eyebrow)}</div>`,
-    `<h1 style="margin:18px 0 10px;color:#ffffff;font-family:Georgia,serif;font-size:38px;line-height:1.05;font-weight:700;">${escapeHtml(offerEmailHeading(category))}</h1>`,
-    paragraphs,
-    '</td></tr>',
-    '<tr><td style="padding:18px;background:#0b78a8;border-left:1px solid #244760;border-right:1px solid #244760;">',
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="color:#ffffff;font-size:26px;line-height:1;font-weight:900;text-transform:uppercase;">USCE<br><span style="color:#f4d36a;">Tracker</span></td>',
-    `<td align="right" style="color:#d9e7f1;font-size:13px;line-height:1.5;">Active now: <b style="color:#ffffff;">${escapeHtml(status.stageLabel)}</b><br>${escapeHtml(status.stageText)}</td></tr></table>`,
-    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px;"><tr>',
-    stageCells,
+    `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader || '')}</div>`,
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071627;font-family:Poppins,Arial,Helvetica,sans-serif;color:#ffffff;"><tr><td align="center">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:1180px;border-collapse:collapse;">',
+    '<tr><td style="padding:14px 20px;background:#051524;border-bottom:1px solid rgba(255,255,255,.18);">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
+    '<td width="64" valign="middle"><div style="width:42px;height:42px;border-radius:50%;background:#f3cf61;color:#071627;text-align:center;line-height:42px;font-family:Georgia,serif;font-size:18px;font-weight:900;">MM</div></td>',
+    '<td valign="middle"><div style="color:#ffffff;font-size:15px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">MissionMed</div><div style="color:#a9b9c8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;">Clinical rotations</div></td>',
+    '<td align="right" valign="middle"><div style="color:#f3cf61;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Request Tracker</div><div style="color:#a9b9c8;font-size:11px;">Secure offer update</div></td>',
     '</tr></table>',
     '</td></tr>',
-    '<tr><td style="padding:20px 22px;background:#ffffff;border-left:1px solid #244760;border-right:1px solid #244760;color:#08233d;">',
-    htmlActions,
-    `<p style="margin:10px 0 0;color:#5e6b7c;font-size:13px;line-height:1.6;">Reference: ${escapeHtml(offerId || 'pending')}. Payment is only requested after an accepted offer.</p>`,
+    '<tr><td style="padding:34px 20px 16px;background:#0b4770;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
+    '<td valign="bottom" style="padding-right:24px;">',
+    `<div style="display:inline-block;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:8px 13px;color:#f3cf61;background:rgba(255,255,255,.08);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">${escapeHtml(eyebrow || 'USCE request tracker')}</div>`,
+    `<h1 style="margin:18px 0 12px;color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:58px;line-height:.98;font-weight:700;">${escapeHtml(heading)}</h1>`,
+    paragraphs,
+    '</td>',
+    '<td width="330" valign="bottom"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffaf0;color:#071627;border-radius:8px;border-top:6px solid #d9b85b;box-shadow:0 20px 60px rgba(0,0,0,.24);"><tr><td style="padding:18px;">',
+    '<div style="color:#627287;font-size:10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;">Current status</div>',
+    `<div style="margin-top:6px;color:#071627;font-family:Georgia,'Times New Roman',serif;font-size:27px;line-height:1.1;font-weight:900;">${escapeHtml(statusLabel)}</div>`,
+    `<div style="margin-top:8px;color:#627287;font-size:13px;line-height:1.55;">${escapeHtml(statusText)}</div>`,
+    '</td></tr></table></td>',
+    '</tr></table>',
     '</td></tr>',
-    '<tr><td style="padding:18px 22px;background:#051524;border:1px solid #244760;border-top:0;border-radius:0 0 16px 16px;color:#9fb0bf;font-size:12px;line-height:1.6;">MissionMed Clinicals<br>This email does not create a payment or enrollment by itself.</td></tr>',
-    '</table>',
-    '</td></tr></table>',
-    '</body></html>',
+    '<tr><td style="padding:0 20px 16px;background:linear-gradient(180deg,#0b4770 0%,#0b4770 50%,#071627 50%,#071627 100%);">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#0b78a8;border:1px solid rgba(255,255,255,.22);border-radius:12px;box-shadow:0 26px 80px rgba(0,0,0,.34);"><tr><td style="padding:16px;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td style="color:#ffffff;font-size:28px;line-height:1;font-weight:900;text-transform:uppercase;">USCE<br><span style="color:#f3cf61;">Tracker</span></td>',
+    `<td align="right" style="color:#d9e7f1;font-size:12px;line-height:1.55;">Active now: <b style="color:#ffffff;">${escapeHtml(statusLabel)}</b>. Completed segments turn green; the current segment blinks.</td></tr></table>`,
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:16px;background:#073c5a;border:1px solid rgba(255,255,255,.16);border-radius:6px;"><tr><td style="padding:16px;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>' + labels + '</tr></table>',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:3px solid rgba(255,255,255,.72);border-radius:999px;overflow:hidden;background:#637689;"><tr>' + segments + '</tr></table>',
+    `<div style="margin:16px 0 0;text-align:center;color:#ffffff;font-size:17px;line-height:1.35;font-weight:900;text-transform:uppercase;">${escapeHtml(statusLabel)} - <span style="color:#f3cf61;">${escapeHtml(statusText)}</span></div>`,
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px;"><tr>',
+    `<td width="33.33%" valign="top" style="padding:0 5px;"><div style="min-height:80px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);border-radius:4px;padding:13px;"><b style="display:block;color:#ffffff;font-size:12px;letter-spacing:.08em;text-transform:uppercase;">Your request</b><span style="display:block;margin-top:7px;color:rgba(255,255,255,.78);font-size:12px;line-height:1.55;">Offer reference ${escapeHtml(offerId || 'pending')}</span></div></td>`,
+    `<td width="33.33%" valign="top" style="padding:0 5px;"><div style="min-height:80px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);border-radius:4px;padding:13px;"><b style="display:block;color:#ffffff;font-size:12px;letter-spacing:.08em;text-transform:uppercase;">Current step</b><span style="display:block;margin-top:7px;color:rgba(255,255,255,.78);font-size:12px;line-height:1.55;">${escapeHtml(statusText)}</span></div></td>`,
+    `<td width="33.33%" valign="top" style="padding:0 5px;"><div style="min-height:80px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);border-radius:4px;padding:13px;"><b style="display:block;color:#ffffff;font-size:12px;letter-spacing:.08em;text-transform:uppercase;">Follow tracking</b><span style="display:block;margin-top:7px;color:rgba(255,255,255,.78);font-size:12px;line-height:1.55;">Use the tracker to review this update.</span><a href="${escapeHtml(TRACKER_PAGE_URL)}" style="color:#f3cf61;font-size:12px;font-weight:900;text-decoration:none;">Open tracker</a></div></td>`,
+    '</tr></table></td></tr></table></td></tr></table>',
+    '</td></tr>',
+    '<tr><td style="padding:0 20px 16px;background:#071627;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;"><tr><td style="padding:20px;">',
+    '<div style="font-family:Georgia,serif;font-size:28px;font-weight:900;color:#071627;">Want to follow every update?</div>',
+    '<p style="margin:8px 0 14px;color:#627287;font-size:13px;line-height:1.65;">Open the tracker or sign in with the same email to follow your request securely from any device.</p>',
+    actionButtons,
+    `<p style="margin:2px 0 0;color:#627287;font-size:12px;line-height:1.6;">Primary action: ${escapeHtml(primaryUrl || TRACKER_PAGE_URL)}</p>`,
+    '</td></tr></table></td></tr>',
+    '<tr><td style="padding:0 20px 20px;background:#071627;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
+    '<td width="56%" valign="top" style="padding-right:8px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;"><tr><td style="padding:20px;"><div style="font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">What happens next</div><div style="margin-top:12px;border:1px solid rgba(217,184,91,.38);background:#fffaf0;border-radius:8px;padding:17px;"><small style="display:block;color:#627287;font-size:10px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">Current step</small><b style="display:block;margin-top:5px;color:#071627;font-family:Georgia,serif;font-size:25px;line-height:1.15;">' + escapeHtml(statusLabel) + '</b><span style="display:block;margin-top:8px;color:#627287;font-size:13px;line-height:1.65;">' + escapeHtml(statusText) + '</span></div></td></tr></table></td>',
+    '<td width="44%" valign="top" style="padding-left:8px;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;"><tr><td style="padding:20px;"><div style="font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;">Status details</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:12px;"><tr><td style="padding:0 5px 9px 0;"><div style="border:1px solid #d7dee8;border-radius:8px;background:#ffffff;padding:11px;"><small style="display:block;color:#627287;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Offer</small><b style="display:block;margin-top:4px;color:#071627;font-size:13px;line-height:1.35;">' + escapeHtml(statusLabel) + '</b></div></td><td style="padding:0 0 9px 5px;"><div style="border:1px solid #d7dee8;border-radius:8px;background:#ffffff;padding:11px;"><small style="display:block;color:#627287;font-size:9px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Tuition</small><b style="display:block;margin-top:4px;color:#071627;font-size:13px;line-height:1.35;">Pending</b></div></td></tr></table></td></tr></table></td>',
+    '</tr></table>',
+    '<p style="margin:20px 0 0;text-align:center;color:rgba(255,255,255,.66);font-size:12px;line-height:1.65;">This tracker does not create payments, orders, emails, or course enrollment. Payment appears only after an accepted offer.</p>',
+    '</td></tr></table></td></tr></table></body></html>',
   ].join('');
-
-  return { textBody, htmlBody };
 }
 
 function offerEmailHeading(category) {
@@ -1192,7 +1255,7 @@ async function sendPostmarkEmail({ token, fromEmail, replyTo, toEmail, subject, 
         'X-Postmark-Server-Token': token,
       },
       body: JSON.stringify({
-        From: fromEmail,
+        From: formatPostmarkFromHeader(fromEmail),
         To: toEmail,
         ReplyTo: replyTo || DEFAULT_POSTMARK_REPLY_TO,
         Subject: subject,
