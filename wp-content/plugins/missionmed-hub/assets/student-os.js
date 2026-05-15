@@ -682,7 +682,7 @@
 		refs.content.innerHTML = [
 			'<section class="sos-page sos-ranklist-page">',
 			app.components.pageHeader("Match Prep", "RankList IQ", "A live Matrix summary of your existing RankListIQ strategy board."),
-			!configured || !linked ? '<div class="sos-banner">' + escapeHTML(data.message || "RankListIQ is waiting for account connection.") + "</div>" : "",
+			!configured || !linked ? accountLinkBanner(data, "RankListIQ") : "",
 			'<div class="sos-grid sos-grid-stats">',
 			app.components.statCard(getNumber(counts.total, programs.length), "Programs", "var(--gold2)", "Total tracked"),
 			app.components.statCard(getNumber(counts.ranked, 0), "Ranked", "var(--green)", "With rank position"),
@@ -703,6 +703,8 @@
 			"</div>",
 			"</section>"
 		].join("");
+
+		bindSupabaseRelink("ranklist");
 	}
 
 	function rankProgramCard(program, index) {
@@ -734,7 +736,7 @@
 		refs.content.innerHTML = [
 			'<section class="sos-page sos-arena-page">',
 			app.components.pageHeader("Training", "Arena", "A read-only Matrix view of your live Arena performance."),
-			!configured || !linked ? '<div class="sos-banner">' + escapeHTML(data.message || "Arena is waiting for account connection.") + "</div>" : "",
+			!configured || !linked ? accountLinkBanner(data, "Arena") : "",
 			'<div class="sos-grid sos-grid-stats">',
 			app.components.statCard(player.rank ? "#" + player.rank : "-", "Arena Rank", "var(--gold2)", player.rank ? "Leaderboard position" : "Not ranked yet"),
 			app.components.statCard(getNumber(player.total_score, 0).toLocaleString(), "Score", "var(--blue2)", "Arena rating"),
@@ -759,6 +761,41 @@
 			"</div>",
 			"</section>"
 		].join("");
+
+		bindSupabaseRelink("arena");
+	}
+
+	function accountLinkBanner(data, label) {
+		var canRetry = data && data.relink_available !== false && data.configured !== false;
+		var message = data && data.message ? data.message : label + " is waiting for account connection.";
+
+		return [
+			'<div class="sos-banner sos-link-banner">',
+			'<span>' + escapeHTML(message) + "</span>",
+			canRetry ? '<button type="button" class="sos-btn sos-btn-secondary" data-supabase-relink>Retry Link</button>' : "",
+			"</div>"
+		].join("");
+	}
+
+	function bindSupabaseRelink(route) {
+		refs.content.querySelectorAll("[data-supabase-relink]").forEach(function (button) {
+			button.addEventListener("click", function () {
+				button.disabled = true;
+				button.textContent = "Checking...";
+
+				app.api.post("/user/relink-supabase", {}).then(function () {
+					if (route === "arena") {
+						app.render.arena();
+					} else {
+						app.render.ranklist();
+					}
+				}).catch(function (error) {
+					button.disabled = false;
+					button.textContent = "Retry Link";
+					showError(error);
+				});
+			});
+		});
 	}
 
 	function renderLOR() {

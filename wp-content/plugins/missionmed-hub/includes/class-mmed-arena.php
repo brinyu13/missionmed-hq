@@ -41,11 +41,21 @@ class MMED_Arena {
 		}
 
 		$supabase_uuid = self::get_supabase_uuid( $user_id );
-		if ( '' === $supabase_uuid ) {
+		if ( 'none' === $supabase_uuid ) {
+			return self::empty_response(
+				'No linked Supabase account found for this WordPress email.',
+				true,
+				false,
+				'not_found'
+			);
+		}
+
+		if ( ! self::valid_uuid( $supabase_uuid ) ) {
 			return self::empty_response(
 				'Link your Arena account to Matrix to show your live training stats here.',
 				true,
-				false
+				false,
+				'pending'
 			);
 		}
 
@@ -92,10 +102,7 @@ class MMED_Arena {
 	 * @return bool
 	 */
 	protected static function configured() {
-		return defined( 'MMED_SUPABASE_URL' )
-			&& defined( 'MMED_SUPABASE_SERVICE_KEY' )
-			&& '' !== trim( (string) MMED_SUPABASE_URL )
-			&& '' !== trim( (string) MMED_SUPABASE_SERVICE_KEY );
+		return class_exists( 'MMED_Supabase_Bridge' ) && MMED_Supabase_Bridge::configured();
 	}
 
 	/**
@@ -105,7 +112,19 @@ class MMED_Arena {
 	 * @return string
 	 */
 	protected static function get_supabase_uuid( $user_id ) {
-		return sanitize_text_field( get_user_meta( $user_id, '_mmed_supabase_uuid', true ) );
+		return class_exists( 'MMED_Supabase_Bridge' )
+			? MMED_Supabase_Bridge::get_supabase_uuid( $user_id )
+			: '';
+	}
+
+	/**
+	 * Whether a value is a Supabase UUID.
+	 *
+	 * @param string $value Candidate value.
+	 * @return bool
+	 */
+	protected static function valid_uuid( $value ) {
+		return class_exists( 'MMED_Supabase_Bridge' ) && MMED_Supabase_Bridge::is_valid_uuid( $value );
 	}
 
 	/**
@@ -383,16 +402,17 @@ class MMED_Arena {
 	protected static function supabase_get( $table, $params ) {
 		$base = untrailingslashit( (string) MMED_SUPABASE_URL );
 		$url  = add_query_arg( $params, $base . '/rest/v1/' . rawurlencode( sanitize_key( $table ) ) );
+		$headers = class_exists( 'MMED_Supabase_Bridge' ) ? MMED_Supabase_Bridge::get_supabase_client_headers() : array();
+
+		if ( empty( $headers ) ) {
+			return new WP_Error( 'mmed_arena_supabase_not_configured', 'Arena is not configured yet.' );
+		}
 
 		$response = wp_remote_get(
 			$url,
 			array(
 				'timeout' => 12,
-				'headers' => array(
-					'apikey'        => (string) MMED_SUPABASE_SERVICE_KEY,
-					'Authorization' => 'Bearer ' . (string) MMED_SUPABASE_SERVICE_KEY,
-					'Accept'        => 'application/json',
-				),
+				'headers' => $headers,
 			)
 		);
 
@@ -467,9 +487,10 @@ class MMED_Arena {
 	 * @param string $message    User-facing message.
 	 * @param bool   $configured Whether Supabase is configured.
 	 * @param bool   $connected  Whether a Supabase request was attempted.
+	 * @param string $link_status Link status.
 	 * @return array
 	 */
-	protected static function empty_response( $message, $configured, $connected ) {
+	protected static function empty_response( $message, $configured, $connected, $link_status = 'pending' ) {
 		return array(
 			'player'             => array(
 				'rank'           => 0,
@@ -490,6 +511,8 @@ class MMED_Arena {
 			'supabase_connected' => (bool) $connected,
 			'configured'         => (bool) $configured,
 			'linked'             => false,
+			'link_status'        => sanitize_key( $link_status ),
+			'relink_available'   => (bool) $configured,
 			'message'            => $message,
 			'last_updated'       => '',
 			'standalone_url'     => self::standalone_url(),

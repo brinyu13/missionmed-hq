@@ -96,6 +96,10 @@ class MMED_Student_OS {
 	public static function get_initial_data( $user_id ) {
 		$user_id = absint( $user_id );
 
+		if ( class_exists( 'MMED_Supabase_Bridge' ) ) {
+			MMED_Supabase_Bridge::get_supabase_uuid( $user_id );
+		}
+
 		return array(
 			'profile' => self::get_profile_data( $user_id ),
 			'stats'   => self::get_shell_stats( $user_id ),

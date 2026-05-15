@@ -117,6 +117,7 @@ if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-calendar-engine.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-file-vault.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-study-schedule.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-supabase-bridge.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-ranklist.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-lor-writer.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-arena.php';
@@ -189,6 +190,9 @@ if ( class_exists( 'MMED_File_Vault' ) ) {
 }
 if ( class_exists( 'MMED_Study_Schedule' ) ) {
     add_action( 'init', array( 'MMED_Study_Schedule', 'init' ) );
+}
+if ( class_exists( 'MMED_Supabase_Bridge' ) ) {
+    add_action( 'init', array( 'MMED_Supabase_Bridge', 'init' ) );
 }
 if ( class_exists( 'MMED_Ranklist' ) ) {
     add_action( 'init', array( 'MMED_Ranklist', 'init' ) );
@@ -589,6 +593,21 @@ function mmed_hub_settings_page() {
         return;
     }
 
+    $supabase_sync_result = null;
+
+    // Run Matrix Supabase account linking without touching other Hub settings.
+    if ( isset( $_POST['mmed_supabase_sync_nonce'] ) && wp_verify_nonce( $_POST['mmed_supabase_sync_nonce'], 'mmed_supabase_sync_users' ) ) {
+        if ( class_exists( 'MMED_Supabase_Bridge' ) ) {
+            $supabase_sync_result = MMED_Supabase_Bridge::sync_all_users();
+            echo '<div class="notice notice-success"><p>' . esc_html( $supabase_sync_result['message'] ?? 'Supabase account sync complete.' ) . '</p></div>';
+        } else {
+            $supabase_sync_result = array(
+                'message' => 'Enable Matrix and reload this settings page before running Supabase account linking.',
+            );
+            echo '<div class="notice notice-warning"><p>' . esc_html( $supabase_sync_result['message'] ) . '</p></div>';
+        }
+    }
+
     // Save settings.
     if ( isset( $_POST['mmed_settings_nonce'] ) && wp_verify_nonce( $_POST['mmed_settings_nonce'], 'mmed_save_settings' ) ) {
         update_option( 'mmed_calendly_url',             sanitize_url( $_POST['mmed_calendly_url'] ?? '' ) );
@@ -643,6 +662,11 @@ function mmed_hub_settings_page() {
     $ssa_status         = class_exists( 'MMED_SSA_Adapter' ) ? MMED_SSA_Adapter::status() : array(
         'active'  => false,
         'message' => 'Matrix must be enabled before the SSA adapter can load.',
+    );
+    $supabase_rows      = class_exists( 'MMED_Supabase_Bridge' ) ? MMED_Supabase_Bridge::get_admin_link_rows() : array();
+    $supabase_counts    = class_exists( 'MMED_Supabase_Bridge' ) ? MMED_Supabase_Bridge::get_admin_link_counts( $supabase_rows ) : array(
+        'linked' => 0,
+        'total'  => 0,
     );
 
     // Get admin/editor users for reviewer dropdowns.
@@ -781,7 +805,54 @@ function mmed_hub_settings_page() {
             </table>
             <?php submit_button( 'Save Settings' ); ?>
         </form>
+        <?php mmed_hub_render_supabase_linking_section( $student_os_enabled, $supabase_rows, $supabase_counts, $supabase_sync_result ); ?>
     </div>
+    <?php
+}
+
+function mmed_hub_render_supabase_linking_section( $student_os_enabled, $rows, $counts, $sync_result = null ) {
+    ?>
+    <hr>
+    <h2>Supabase Account Linking</h2>
+    <p class="description">Matrix links WordPress users to Supabase Auth users by email. The service key stays server-side; this table only reads Auth user identities and stores the matched Supabase UUID in WordPress user meta.</p>
+    <?php if ( ! $student_os_enabled || ! class_exists( 'MMED_Supabase_Bridge' ) ) : ?>
+        <p><strong>Matrix must be enabled and this page reloaded before Supabase account linking can run.</strong></p>
+    <?php else : ?>
+        <p><strong><?php echo esc_html( (int) ( $counts['linked'] ?? 0 ) ); ?> of <?php echo esc_html( (int) ( $counts['total'] ?? 0 ) ); ?> users linked.</strong></p>
+        <?php if ( is_array( $sync_result ) && isset( $sync_result['not_found'] ) ) : ?>
+            <p class="description"><?php echo esc_html( (int) $sync_result['not_found'] ); ?> not found, <?php echo esc_html( (int) $sync_result['pending'] ); ?> pending.</p>
+        <?php endif; ?>
+        <form method="post" style="margin: 1em 0;">
+            <?php wp_nonce_field( 'mmed_supabase_sync_users', 'mmed_supabase_sync_nonce' ); ?>
+            <?php submit_button( 'Sync All Users', 'secondary', 'mmed_supabase_sync_submit', false ); ?>
+        </form>
+        <table class="widefat striped">
+            <thead>
+                <tr>
+                    <th>WordPress user</th>
+                    <th>Email</th>
+                    <th>Supabase UUID</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ( empty( $rows ) ) : ?>
+                    <tr>
+                        <td colspan="4">No subscriber/student users found.</td>
+                    </tr>
+                <?php else : ?>
+                    <?php foreach ( $rows as $row ) : ?>
+                        <tr>
+                            <td><?php echo esc_html( $row['display_name'] ?? '' ); ?> (ID: <?php echo esc_html( (int) ( $row['id'] ?? 0 ) ); ?>)</td>
+                            <td><?php echo esc_html( $row['email'] ?? '' ); ?></td>
+                            <td><code><?php echo esc_html( $row['uuid'] ?? '' ); ?></code></td>
+                            <td><?php echo esc_html( $row['status'] ?? 'pending' ); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    <?php endif; ?>
     <?php
 }
 

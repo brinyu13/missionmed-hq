@@ -56,6 +56,16 @@ class MMED_REST_API {
 
 		register_rest_route(
 			self::NAMESPACE,
+			'/user/relink-supabase',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'relink_supabase' ),
+				'permission_callback' => array( __CLASS__, 'can_access' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
 			'/courses',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -372,6 +382,35 @@ class MMED_REST_API {
 					'total_phases'  => 0,
 					'phases'        => array(),
 				),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Clear and retry the current user's Supabase account link.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public static function relink_supabase() {
+		if ( ! class_exists( 'MMED_Supabase_Bridge' ) ) {
+			return new WP_REST_Response(
+				array(
+					'linked'  => false,
+					'status'  => 'not_configured',
+					'message' => 'Supabase account linking is not available.',
+				),
+				200
+			);
+		}
+
+		$result = MMED_Supabase_Bridge::relink_user( get_current_user_id() );
+
+		return new WP_REST_Response(
+			array(
+				'linked'  => ! empty( $result['linked'] ),
+				'status'  => sanitize_key( $result['status'] ?? 'pending' ),
+				'message' => sanitize_text_field( $result['message'] ?? '' ),
 			),
 			200
 		);
