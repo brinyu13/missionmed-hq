@@ -1,0 +1,1514 @@
+/**
+ * MissionMed Matrix Calendar v4 Styles
+ * Integrates into student-os.css design system
+ * Uses sos-cal4-* namespace to avoid collisions
+ */
+
+/* ===== ADDITIONAL CSS VARS (supplements student-os.css root) ===== */
+:root {
+	--cal4-purple: #8b5cf6;
+	--cal4-purple2: #a78bfa;
+	--cal4-teal: #0b78a8;
+	--cal4-teal2: #0a5687;
+	--cal4-red2: #e87474;
+	--cal4-radius: 8px;
+	--cal4-radius-lg: 12px;
+	--cal4-shadow-card: 0 4px 8px rgba(0,0,0,0.3), 0 16px 48px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
+	--cal4-transition: 0.24s ease;
+	--cal4-panel-w: 270px;
+	--cal4-panel-collapsed-w: 48px;
+}
+
+/* ===== PAGE SHELL ===== */
+.sos-cal4-page {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+}
+
+.sos-cal4-shell {
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.sos-cal4-main {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	padding: 16px 22px;
+	min-width: 0;
+}
+
+.sos-cal4-body {
+	flex: 1;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+/* ===== TRACKER ===== */
+.sos-cal4-tracker {
+	margin-bottom: 12px;
+	background: linear-gradient(180deg, var(--cal4-teal), var(--cal4-teal2));
+	border: 1px solid rgba(255,255,255,0.22);
+	border-radius: var(--cal4-radius-lg);
+	box-shadow: inset 0 0 0 2px rgba(255,255,255,0.08), 0 12px 40px rgba(0,0,0,0.34);
+	padding: 10px 16px;
+	display: flex;
+	gap: 0;
+	overflow: hidden;
+	border-width: 3px;
+	border-color: rgba(255,255,255,0.72);
+	border-style: solid;
+	border-radius: 999px;
+	filter: drop-shadow(0 8px 14px rgba(0,0,0,0.34));
+}
+
+.sos-cal4-phase {
+	flex: 1;
+	height: 38px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	font-family: var(--matrix-heading);
+	font-size: 10px;
+	font-weight: 800;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: rgba(255,255,255,0.9);
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	position: relative;
+	background: linear-gradient(180deg, #8ca0b2, #5d7285);
+	clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+}
+
+.sos-cal4-phase:first-child {
+	clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+}
+
+.sos-cal4-phase:last-child {
+	clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+}
+
+.sos-cal4-phase.is-done {
+	background: linear-gradient(180deg, #31c46f, #159a56);
+}
+
+.sos-cal4-phase.is-active {
+	background: linear-gradient(180deg, var(--orange2), var(--orange));
+	animation: cal4TrackerPulse 1.08s ease-in-out infinite;
+}
+
+@keyframes cal4TrackerPulse {
+	0%, 100% { filter: brightness(1); }
+	50% { filter: brightness(1.34); box-shadow: inset 0 0 24px rgba(255,244,180,0.62); }
+}
+
+.sos-cal4-phase:hover {
+	filter: brightness(1.15);
+}
+
+.sos-cal4-phase-icon {
+	font-size: 14px;
+}
+
+.sos-cal4-phase-label {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/* ===== LEFT PANEL ===== */
+.sos-cal4-panel {
+	width: var(--cal4-panel-w);
+	flex-shrink: 0;
+	background: linear-gradient(180deg, #0b3049, #072236);
+	border-right: 1px solid rgba(23,163,207,0.15);
+	display: flex;
+	flex-direction: column;
+	transition: width 0.3s ease;
+	position: relative;
+	z-index: 50;
+	overflow: hidden;
+}
+
+.sos-cal4-panel.is-collapsed {
+	width: var(--cal4-panel-collapsed-w);
+}
+
+.sos-cal4-panel.is-collapsed .sos-cal4-panel-content {
+	display: none;
+}
+
+.sos-cal4-panel.is-collapsed .sos-cal4-tabs-collapsed {
+	display: flex;
+}
+
+.sos-cal4-collapse-btn {
+	position: absolute;
+	top: 14px;
+	right: 10px;
+	width: 30px;
+	height: 30px;
+	background: linear-gradient(180deg, var(--cal4-teal), var(--cal4-teal2));
+	border: 1px solid rgba(255,255,255,0.25);
+	border-radius: 8px;
+	color: #fff;
+	font-size: 14px;
+	display: grid;
+	place-items: center;
+	cursor: pointer;
+	z-index: 60;
+	transition: var(--cal4-transition);
+	box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.sos-cal4-collapse-btn:hover {
+	background: linear-gradient(180deg, var(--blue2), var(--cal4-teal));
+	transform: scale(1.08);
+}
+
+/* Collapsed vertical tabs */
+.sos-cal4-tabs-collapsed {
+	display: none;
+	flex-direction: column;
+	gap: 0;
+	margin-top: 54px;
+}
+
+.sos-cal4-ptab {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--cal4-panel-collapsed-w);
+	height: 56px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	position: relative;
+	border-left: 3px solid transparent;
+}
+
+.sos-cal4-ptab:hover {
+	background: rgba(255,255,255,0.04);
+}
+
+.sos-cal4-ptab-icon {
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	display: grid;
+	place-items: center;
+	font-size: 16px;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-badge {
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	min-width: 16px;
+	height: 16px;
+	border-radius: 999px;
+	background: var(--red);
+	color: #fff;
+	font-family: var(--matrix-heading);
+	font-size: 9px;
+	font-weight: 800;
+	display: grid;
+	place-items: center;
+	padding: 0 4px;
+}
+
+/* Panel expanded content */
+.sos-cal4-panel-content {
+	flex: 1;
+	overflow-y: auto;
+	overflow-x: hidden;
+	display: flex;
+	flex-direction: column;
+	padding-top: 50px;
+}
+
+/* ===== SECTIONS (category filters, todo, notifs) ===== */
+.sos-cal4-section {
+	padding: 12px 14px;
+	border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.sos-cal4-section-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	margin-bottom: 10px;
+}
+
+.sos-cal4-section-title {
+	font-family: var(--matrix-heading);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: rgba(255,255,255,0.4);
+}
+
+.sos-cal4-count {
+	background: var(--cal4-teal);
+	color: #fff;
+	font-size: 10px;
+	padding: 2px 8px;
+	border-radius: 999px;
+	font-weight: 800;
+}
+
+.sos-cal4-toggle-all {
+	background: none;
+	border: none;
+	color: rgba(255,255,255,0.35);
+	font-size: 11px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	font-family: var(--matrix-heading);
+}
+
+.sos-cal4-toggle-all:hover {
+	color: rgba(255,255,255,0.7);
+}
+
+/* ===== FILTER CHIPS ===== */
+.sos-cal4-filter-chip {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 10px;
+	border-radius: var(--cal4-radius);
+	font-size: 13px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	border: 1px solid transparent;
+	user-select: none;
+	margin-bottom: 3px;
+}
+
+.sos-cal4-filter-chip.is-on {
+	background: rgba(255,255,255,0.04);
+	border-color: rgba(255,255,255,0.06);
+}
+
+.sos-cal4-filter-chip.is-off {
+	opacity: 0.35;
+}
+
+.sos-cal4-filter-chip:hover {
+	opacity: 1;
+	background: rgba(255,255,255,0.05);
+}
+
+.sos-cal4-filter-dot {
+	width: 12px;
+	height: 12px;
+	border-radius: 50%;
+	flex-shrink: 0;
+	transition: var(--cal4-transition);
+	position: relative;
+	box-shadow: 0 0 6px currentColor;
+}
+
+.sos-cal4-filter-chip.is-off .sos-cal4-filter-dot {
+	background: rgba(255,255,255,0.2) !important;
+	box-shadow: none;
+}
+
+.sos-cal4-filter-chip.is-on .sos-cal4-filter-dot::after {
+	content: '';
+	position: absolute;
+	inset: -3px;
+	border-radius: 50%;
+	border: 1.5px solid currentColor;
+	opacity: 0.35;
+}
+
+.sos-cal4-add-cat-btn {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 7px 10px;
+	border-radius: var(--cal4-radius);
+	font-size: 12px;
+	font-weight: 500;
+	cursor: pointer;
+	color: rgba(255,255,255,0.3);
+	border: 1px dashed rgba(255,255,255,0.12);
+	background: transparent;
+	transition: var(--cal4-transition);
+	margin-top: 4px;
+	width: 100%;
+	font-family: var(--matrix-body);
+}
+
+.sos-cal4-add-cat-btn:hover {
+	color: rgba(255,255,255,0.6);
+	border-color: rgba(255,255,255,0.25);
+	background: rgba(255,255,255,0.02);
+}
+
+/* ===== TODO LIST ===== */
+.sos-cal4-todo-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 8px;
+	padding: 9px 10px;
+	margin-bottom: 3px;
+	border-radius: var(--cal4-radius);
+	background: rgba(255,255,255,0.02);
+	border: 1px solid rgba(255,255,255,0.03);
+	transition: var(--cal4-transition);
+	cursor: pointer;
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+.sos-cal4-todo-item:hover {
+	background: rgba(255,255,255,0.06);
+	border-color: rgba(255,255,255,0.08);
+}
+
+.sos-cal4-todo-item.is-done {
+	opacity: 0.3;
+}
+
+.sos-cal4-todo-item.is-done .sos-cal4-todo-title {
+	text-decoration: line-through;
+}
+
+.sos-cal4-todo-item input[type="checkbox"] {
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	min-width: 18px;
+	border: 2px solid rgba(255,255,255,0.2);
+	border-radius: 5px;
+	background: transparent;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	display: grid;
+	place-items: center;
+	margin-top: 1px;
+}
+
+.sos-cal4-todo-item input[type="checkbox"]:checked {
+	background: var(--green);
+	border-color: var(--green);
+}
+
+.sos-cal4-todo-item input[type="checkbox"]:checked::after {
+	content: '\2713';
+	color: #fff;
+	font-size: 11px;
+	font-weight: 800;
+}
+
+.sos-cal4-todo-title {
+	flex: 1;
+	min-width: 0;
+}
+
+.sos-cal4-todo-pri {
+	font-size: 9px;
+	font-weight: 800;
+	padding: 2px 6px;
+	border-radius: 999px;
+	letter-spacing: 0.04em;
+	flex-shrink: 0;
+	margin-top: 2px;
+	color: #fff;
+}
+
+.sos-cal4-todo-done-label {
+	font-size: 11px;
+	color: rgba(255,255,255,0.25);
+	padding: 6px 10px 2px;
+	font-weight: 600;
+}
+
+.sos-cal4-todo-add {
+	display: flex;
+	gap: 6px;
+	padding: 10px 12px;
+	border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.sos-cal4-todo-add input[type="text"] {
+	flex: 1;
+	background: rgba(255,255,255,0.05);
+	border: 1px solid rgba(255,255,255,0.1);
+	border-radius: var(--cal4-radius);
+	color: #fff;
+	font-family: var(--matrix-body);
+	font-size: 13px;
+	padding: 8px 10px;
+	outline: none;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-todo-add input[type="text"]:focus {
+	border-color: var(--blue2);
+}
+
+.sos-cal4-todo-add input[type="text"]::placeholder {
+	color: rgba(255,255,255,0.25);
+}
+
+.sos-cal4-todo-add button {
+	background: linear-gradient(180deg, var(--green), var(--green2));
+	color: #fff;
+	border: none;
+	border-radius: var(--cal4-radius);
+	font-size: 18px;
+	font-weight: 700;
+	width: 36px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-todo-add button:hover {
+	transform: scale(1.08);
+}
+
+/* ===== JOIN BADGE (shared) ===== */
+.sos-cal4-join-badge,
+.sos-cal4-join-sm {
+	display: inline-flex;
+	align-items: center;
+	gap: 3px;
+	background: linear-gradient(135deg, var(--blue), var(--cal4-teal));
+	color: #fff;
+	font-size: 9px;
+	font-weight: 700;
+	padding: 2px 7px;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	text-decoration: none;
+}
+
+.sos-cal4-join-badge:hover,
+.sos-cal4-join-sm:hover {
+	transform: scale(1.05);
+	box-shadow: 0 2px 8px rgba(14,117,168,0.4);
+}
+
+.sos-cal4-join-btn {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: linear-gradient(180deg, var(--blue), var(--cal4-teal2));
+	color: #fff;
+	border: none;
+	border-radius: 999px;
+	font-family: var(--matrix-heading);
+	font-size: 11px;
+	font-weight: 700;
+	padding: 6px 14px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	text-decoration: none;
+}
+
+.sos-cal4-join-btn:hover {
+	transform: scale(1.05);
+}
+
+/* ===== TOOLBAR ===== */
+.sos-cal4-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 10px;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.sos-cal4-views {
+	display: flex;
+	gap: 3px;
+	background: linear-gradient(180deg, #0d3a56, #082a3f);
+	border: 1px solid rgba(23,163,207,0.12);
+	border-radius: var(--cal4-radius-lg);
+	padding: 4px;
+	box-shadow: var(--cal4-shadow-card);
+}
+
+.sos-cal4-view-btn {
+	background: transparent;
+	border: none;
+	color: rgba(255,255,255,0.5);
+	font-family: var(--matrix-heading);
+	font-size: 13px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	padding: 7px 14px;
+	border-radius: var(--cal4-radius);
+	cursor: pointer;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-view-btn:hover {
+	color: #fff;
+	background: rgba(255,255,255,0.05);
+}
+
+.sos-cal4-view-btn.is-active {
+	background: linear-gradient(180deg, var(--cal4-teal), var(--cal4-teal2));
+	color: #fff;
+}
+
+.sos-cal4-nav {
+	display: flex;
+	align-items: center;
+	gap: 7px;
+}
+
+.sos-cal4-nav-btn {
+	width: 34px;
+	height: 34px;
+	border-radius: 50%;
+	border: 1px solid rgba(255,255,255,0.12);
+	background: rgba(255,255,255,0.04);
+	color: #fff;
+	font-size: 15px;
+	cursor: pointer;
+	display: grid;
+	place-items: center;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-nav-btn:hover {
+	background: rgba(255,255,255,0.1);
+	transform: scale(1.08);
+}
+
+.sos-cal4-today-btn {
+	width: auto;
+	border-radius: 999px;
+	background: linear-gradient(180deg, var(--gold), var(--gold2));
+	color: var(--navy);
+	border: none;
+	font-family: var(--matrix-heading);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	padding: 7px 16px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-today-btn:hover {
+	transform: translateY(-2px);
+}
+
+.sos-cal4-month-label {
+	font-family: var(--matrix-heading);
+	font-size: 20px;
+	font-weight: 700;
+	min-width: 200px;
+}
+
+.sos-cal4-actions {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.sos-cal4-new-btn {
+	background: linear-gradient(180deg, var(--green), var(--green2));
+	color: #fff;
+	border: none;
+	font-family: var(--matrix-heading);
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+	padding: 8px 18px;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.sos-cal4-new-btn:hover {
+	transform: translateY(-2px);
+}
+
+.sos-cal4-mute-btn {
+	background: rgba(255,255,255,0.05);
+	border: 1px solid rgba(255,255,255,0.1);
+	color: rgba(255,255,255,0.6);
+	font-size: 16px;
+	padding: 6px 10px;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-mute-btn:hover {
+	background: rgba(255,255,255,0.1);
+	color: #fff;
+}
+
+/* ===== MONTH VIEW ===== */
+.sos-cal4-month {
+	background: linear-gradient(180deg, #0d3a56, #082a3f);
+	border: 1px solid rgba(23,163,207,0.12);
+	border-radius: var(--cal4-radius-lg);
+	box-shadow: var(--cal4-shadow-card);
+	overflow: hidden;
+}
+
+.sos-cal4-weekdays {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+	background: linear-gradient(180deg, var(--cal4-teal), var(--cal4-teal2));
+	border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.sos-cal4-weekdays span {
+	padding: 10px;
+	text-align: center;
+	font-family: var(--matrix-heading);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: rgba(255,255,255,0.85);
+}
+
+.sos-cal4-grid {
+	display: grid;
+	grid-template-columns: repeat(7, 1fr);
+}
+
+.sos-cal4-day {
+	min-height: 110px;
+	border-right: 1px solid rgba(255,255,255,0.03);
+	border-bottom: 1px solid rgba(255,255,255,0.03);
+	padding: 5px;
+	transition: var(--cal4-transition);
+	cursor: pointer;
+	position: relative;
+}
+
+.sos-cal4-day:nth-child(7n) {
+	border-right: none;
+}
+
+.sos-cal4-day:hover {
+	background: rgba(255,255,255,0.025);
+}
+
+.sos-cal4-day.is-muted {
+	opacity: 0.25;
+}
+
+.sos-cal4-day.is-today {
+	background: rgba(14,117,168,0.12);
+}
+
+.sos-cal4-day.is-today::before {
+	content: '';
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 9px;
+	height: 9px;
+	border-radius: 50%;
+	background: var(--orange2);
+	box-shadow: 0 0 8px var(--orange2), 0 0 20px rgba(255,138,55,0.4);
+	animation: cal4TodayDiode 2s ease-in-out infinite;
+}
+
+@keyframes cal4TodayDiode {
+	0%, 100% { opacity: 0.7; box-shadow: 0 0 6px var(--orange2); }
+	50% { opacity: 1; box-shadow: 0 0 12px var(--orange2), 0 0 30px rgba(255,138,55,0.5); }
+}
+
+.sos-cal4-day.is-today .sos-cal4-day-num {
+	background: linear-gradient(180deg, var(--orange2), var(--orange));
+	color: #fff;
+}
+
+.sos-cal4-day.is-selected {
+	background: rgba(217,184,91,0.07);
+	box-shadow: inset 0 0 0 2px rgba(217,184,91,0.25);
+}
+
+.sos-cal4-day-num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	font-family: var(--matrix-heading);
+	font-size: 13px;
+	font-weight: 600;
+	margin-bottom: 3px;
+}
+
+.sos-cal4-day-events {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+/* Event chips (month view) */
+.sos-cal4-chip {
+	padding: 3px 6px;
+	border-radius: 4px;
+	font-size: 11px;
+	font-weight: 500;
+	line-height: 1.3;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	background: rgba(255,255,255,0.05);
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.sos-cal4-chip:hover {
+	background: rgba(255,255,255,0.1);
+	transform: translateX(2px);
+}
+
+.sos-cal4-chip-title {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	flex: 1;
+	min-width: 0;
+}
+
+.sos-cal4-more {
+	font-size: 10px;
+	color: var(--blue2);
+	font-weight: 600;
+	padding: 2px 6px;
+	cursor: pointer;
+}
+
+/* Drag-over state for day cells */
+.sos-cal4-day.drag-over {
+	background: rgba(217,184,91,0.1) !important;
+	box-shadow: inset 0 0 0 2px var(--gold);
+}
+
+/* ===== WEEK VIEW ===== */
+.sos-cal4-week {
+	background: linear-gradient(180deg, #0d3a56, #082a3f);
+	border: 1px solid rgba(23,163,207,0.12);
+	border-radius: var(--cal4-radius-lg);
+	box-shadow: var(--cal4-shadow-card);
+	overflow: hidden;
+}
+
+.sos-cal4-week-header {
+	display: grid;
+	grid-template-columns: 56px repeat(7, 1fr);
+	background: linear-gradient(180deg, var(--cal4-teal), var(--cal4-teal2));
+	border-bottom: 2px solid rgba(255,255,255,0.1);
+}
+
+.sos-cal4-week-col-head {
+	padding: 8px 4px;
+	text-align: center;
+	font-family: var(--matrix-heading);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	position: relative;
+}
+
+.sos-cal4-week-col-head.is-today {
+	color: var(--gold2);
+}
+
+.sos-cal4-week-col-head.is-today::after {
+	content: '';
+	position: absolute;
+	top: 6px;
+	right: 6px;
+	width: 7px;
+	height: 7px;
+	border-radius: 50%;
+	background: var(--orange2);
+	box-shadow: 0 0 8px var(--orange2);
+	animation: cal4TodayDiode 2s ease-in-out infinite;
+}
+
+.sos-cal4-week-body {
+	display: grid;
+	grid-template-columns: 56px repeat(7, 1fr);
+	max-height: 540px;
+	overflow-y: auto;
+}
+
+.sos-cal4-time-gutter {
+	/* shared between week and day views */
+}
+
+.sos-cal4-time-label {
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	font-family: var(--matrix-heading);
+	font-size: 10px;
+	font-weight: 600;
+	color: rgba(255,255,255,0.35);
+	padding-top: 4px;
+	border-bottom: 1px solid rgba(255,255,255,0.025);
+}
+
+.sos-cal4-week-col {
+	position: relative;
+	border-left: 1px solid rgba(255,255,255,0.03);
+}
+
+.sos-cal4-hour-slot {
+	height: 60px;
+	border-bottom: 1px solid rgba(255,255,255,0.025);
+	cursor: pointer;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-hour-slot:hover {
+	background: rgba(255,255,255,0.025);
+}
+
+/* Week event block */
+.sos-cal4-week-event {
+	position: absolute;
+	left: 2px;
+	right: 2px;
+	border-radius: 6px;
+	padding: 4px 7px;
+	font-size: 11px;
+	font-weight: 500;
+	overflow: hidden;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	z-index: 2;
+}
+
+.sos-cal4-week-event:hover {
+	transform: scale(1.02);
+	z-index: 10;
+	box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.sos-cal4-week-event-title {
+	font-weight: 600;
+	line-height: 1.2;
+	font-size: 11px;
+}
+
+.sos-cal4-week-event-time {
+	font-size: 10px;
+	opacity: 0.65;
+	margin-top: 1px;
+}
+
+/* Resize handle */
+.sos-cal4-resize-handle {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 10px;
+	cursor: ns-resize;
+	border-radius: 0 0 6px 6px;
+	background: transparent;
+}
+
+.sos-cal4-resize-handle::after {
+	content: '';
+	position: absolute;
+	bottom: 3px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 24px;
+	height: 3px;
+	border-radius: 2px;
+	background: rgba(255,255,255,0.12);
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-week-event:hover .sos-cal4-resize-handle::after,
+.sos-cal4-day-event:hover .sos-cal4-resize-handle::after {
+	background: rgba(255,255,255,0.4);
+}
+
+/* ===== DAY VIEW ===== */
+.sos-cal4-dayview {
+	background: linear-gradient(180deg, #0d3a56, #082a3f);
+	border: 1px solid rgba(23,163,207,0.12);
+	border-radius: var(--cal4-radius-lg);
+	box-shadow: var(--cal4-shadow-card);
+	overflow: hidden;
+}
+
+.sos-cal4-dayview-header {
+	background: linear-gradient(180deg, var(--cal4-teal), var(--cal4-teal2));
+	padding: 14px 22px;
+	text-align: center;
+	font-family: var(--matrix-heading);
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.sos-cal4-day-count {
+	font-size: 12px;
+	font-weight: 600;
+	color: rgba(255,255,255,0.5);
+	margin-left: 8px;
+}
+
+.sos-cal4-dayview-body {
+	display: grid;
+	grid-template-columns: 64px 1fr;
+	max-height: 540px;
+	overflow-y: auto;
+}
+
+.sos-cal4-dayview-col {
+	position: relative;
+}
+
+.sos-cal4-day-event {
+	position: absolute;
+	left: 4px;
+	right: 4px;
+	border-radius: 8px;
+	padding: 8px 12px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	z-index: 2;
+}
+
+.sos-cal4-day-event:hover {
+	transform: scale(1.01);
+	z-index: 10;
+	box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.sos-cal4-day-event-title {
+	font-weight: 700;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.sos-cal4-day-event-time {
+	font-size: 12px;
+	opacity: 0.65;
+	margin-top: 2px;
+}
+
+.sos-cal4-day-event-desc {
+	font-size: 12px;
+	opacity: 0.45;
+	margin-top: 3px;
+}
+
+/* ===== AGENDA VIEW ===== */
+.sos-cal4-agenda {
+	display: grid;
+	grid-template-columns: 1fr 340px;
+	gap: 14px;
+	min-height: 400px;
+}
+
+@media (max-width: 900px) {
+	.sos-cal4-agenda {
+		grid-template-columns: 1fr;
+	}
+}
+
+.sos-cal4-agenda-events {
+	background: linear-gradient(180deg, #0d3a56, #082a3f);
+	border: 1px solid rgba(23,163,207,0.12);
+	border-radius: var(--cal4-radius-lg);
+	box-shadow: var(--cal4-shadow-card);
+	padding: 18px;
+	overflow-y: auto;
+	max-height: 600px;
+}
+
+.sos-cal4-empty {
+	text-align: center;
+	color: rgba(255,255,255,0.3);
+	font-size: 14px;
+	padding: 40px 20px;
+}
+
+.sos-cal4-agenda-day {
+	margin-bottom: 16px;
+}
+
+.sos-cal4-agenda-day-head {
+	font-family: var(--matrix-heading);
+	font-size: 14px;
+	font-weight: 700;
+	text-transform: uppercase;
+	color: var(--gold2);
+	padding-bottom: 6px;
+	margin-bottom: 8px;
+	border-bottom: 1px solid rgba(255,255,255,0.06);
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.sos-cal4-agenda-item {
+	display: flex;
+	gap: 12px;
+	padding: 10px 14px;
+	margin-bottom: 4px;
+	border-radius: var(--cal4-radius);
+	background: rgba(255,255,255,0.025);
+	border: 1px solid rgba(255,255,255,0.03);
+	transition: var(--cal4-transition);
+	cursor: pointer;
+	align-items: center;
+	font-size: 13px;
+}
+
+.sos-cal4-agenda-item:hover {
+	background: rgba(255,255,255,0.05);
+	transform: translateY(-1px);
+}
+
+.sos-cal4-agenda-color {
+	width: 3px;
+	min-height: 30px;
+	border-radius: 2px;
+	flex-shrink: 0;
+	align-self: stretch;
+}
+
+.sos-cal4-agenda-info {
+	flex: 1;
+	min-width: 0;
+}
+
+.sos-cal4-agenda-title {
+	font-weight: 600;
+	font-size: 14px;
+	display: flex;
+	align-items: center;
+	gap: 5px;
+}
+
+.sos-cal4-agenda-time {
+	font-size: 11px;
+	color: rgba(255,255,255,0.35);
+	margin-top: 2px;
+}
+
+.sos-cal4-agenda-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+/* ===== NOTIFICATIONS ===== */
+.sos-cal4-notif {
+	display: flex;
+	gap: 10px;
+	padding: 9px;
+	margin-bottom: 4px;
+	border-radius: var(--cal4-radius);
+	background: rgba(255,255,255,0.02);
+	border: 1px solid rgba(255,255,255,0.03);
+	transition: var(--cal4-transition);
+	cursor: pointer;
+	align-items: flex-start;
+	font-size: 13px;
+}
+
+.sos-cal4-notif:hover {
+	background: rgba(255,255,255,0.05);
+}
+
+.sos-cal4-notif.is-unread {
+	border-left: 3px solid var(--blue2);
+}
+
+.sos-cal4-notif-dot {
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	display: grid;
+	place-items: center;
+	font-size: 15px;
+	flex-shrink: 0;
+}
+
+.sos-cal4-notif-body {
+	flex: 1;
+	min-width: 0;
+	font-size: 12px;
+	line-height: 1.3;
+}
+
+.sos-cal4-notif-time {
+	font-size: 10px;
+	color: rgba(255,255,255,0.3);
+	margin-top: 2px;
+}
+
+/* ===== OVERLAYS + MODALS ===== */
+.sos-cal4-overlay {
+	position: fixed;
+	inset: 0;
+	background: rgba(6,23,39,0.85);
+	backdrop-filter: blur(8px);
+	z-index: 1000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.sos-cal4-modal {
+	background: linear-gradient(180deg, #0d3a56, #082a3f);
+	border: 1px solid rgba(23,163,207,0.2);
+	border-radius: var(--cal4-radius-lg);
+	box-shadow: 0 40px 120px rgba(0,0,0,0.6);
+	width: 92%;
+	max-width: 520px;
+	padding: 24px;
+	max-height: 90vh;
+	overflow-y: auto;
+	animation: cal4ModalIn 0.25s ease;
+	position: relative;
+	color: #fff;
+}
+
+@keyframes cal4ModalIn {
+	from { transform: translateY(16px); opacity: 0; }
+	to { transform: translateY(0); opacity: 1; }
+}
+
+.sos-cal4-modal-close {
+	position: absolute;
+	top: 14px;
+	right: 14px;
+	background: none;
+	border: none;
+	color: rgba(255,255,255,0.4);
+	font-size: 22px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-modal-close:hover {
+	color: #fff;
+	transform: scale(1.15);
+}
+
+.sos-cal4-modal-bar {
+	height: 4px;
+	border-radius: 2px;
+	margin-bottom: 16px;
+}
+
+.sos-cal4-modal h3 {
+	font-family: var(--matrix-heading);
+	font-size: 18px;
+	font-weight: 700;
+	margin-bottom: 18px;
+}
+
+.sos-cal4-modal-meta {
+	font-size: 13px;
+	color: rgba(255,255,255,0.5);
+	margin-bottom: 14px;
+}
+
+.sos-cal4-modal-actions {
+	display: flex;
+	gap: 10px;
+	margin-top: 16px;
+}
+
+/* Meeting link field in modals */
+.sos-cal4-meeting-field {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	background: rgba(14,117,168,0.1);
+	border: 1px solid rgba(14,117,168,0.2);
+	border-radius: var(--cal4-radius);
+	padding: 10px 14px;
+	margin-bottom: 12px;
+}
+
+.sos-cal4-meeting-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: var(--blue2);
+	flex: 1;
+}
+
+/* ===== FORM ELEMENTS ===== */
+.sos-cal4-modal label {
+	display: block;
+	font-family: var(--matrix-heading);
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: rgba(255,255,255,0.45);
+	margin-bottom: 5px;
+}
+
+.sos-cal4-modal input[type="text"],
+.sos-cal4-modal input[type="date"],
+.sos-cal4-modal input[type="time"],
+.sos-cal4-modal input[type="url"],
+.sos-cal4-modal select,
+.sos-cal4-modal textarea {
+	width: 100%;
+	background: rgba(255,255,255,0.05);
+	border: 1px solid rgba(255,255,255,0.1);
+	border-radius: var(--cal4-radius);
+	color: #fff;
+	font-family: var(--matrix-body);
+	font-size: 14px;
+	padding: 10px 12px;
+	outline: none;
+	transition: var(--cal4-transition);
+	margin-bottom: 12px;
+}
+
+.sos-cal4-modal input:focus,
+.sos-cal4-modal select:focus,
+.sos-cal4-modal textarea:focus {
+	border-color: var(--blue2);
+	box-shadow: 0 0 0 3px rgba(23,163,207,0.12);
+}
+
+.sos-cal4-modal select option {
+	background: var(--navy2);
+}
+
+.sos-cal4-modal textarea {
+	resize: vertical;
+	min-height: 70px;
+}
+
+.sos-cal4-form-row {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 10px;
+}
+
+.sos-cal4-submit-btn {
+	background: linear-gradient(180deg, var(--green), var(--green2));
+	color: #fff;
+	border: none;
+	font-family: var(--matrix-heading);
+	font-size: 13px;
+	font-weight: 700;
+	text-transform: uppercase;
+	padding: 10px 24px;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	width: 100%;
+	margin-top: 6px;
+}
+
+.sos-cal4-submit-btn:hover {
+	transform: translateY(-2px);
+}
+
+.sos-cal4-btn-danger {
+	background: linear-gradient(180deg, var(--red), #b94444);
+	color: #fff;
+	border: none;
+	font-family: var(--matrix-heading);
+	font-size: 13px;
+	font-weight: 700;
+	text-transform: uppercase;
+	padding: 10px 24px;
+	border-radius: 999px;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-btn-danger:hover {
+	transform: translateY(-2px);
+}
+
+.sos-cal4-checkbox-label {
+	display: flex !important;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	font-size: 13px;
+	text-transform: none !important;
+	letter-spacing: 0 !important;
+	color: rgba(255,255,255,0.7) !important;
+	margin-bottom: 8px;
+}
+
+.sos-cal4-checkbox-label input[type="checkbox"] {
+	appearance: none;
+	width: 18px;
+	height: 18px;
+	min-width: 18px;
+	border: 2px solid rgba(255,255,255,0.2);
+	border-radius: 4px;
+	background: transparent;
+	cursor: pointer;
+	transition: var(--cal4-transition);
+	display: grid;
+	place-items: center;
+	margin-bottom: 0;
+}
+
+.sos-cal4-checkbox-label input[type="checkbox"]:checked {
+	background: var(--gold2);
+	border-color: var(--gold2);
+}
+
+.sos-cal4-checkbox-label input[type="checkbox"]:checked::after {
+	content: '\2713';
+	color: var(--navy);
+	font-size: 12px;
+	font-weight: 800;
+}
+
+/* Category selector in new event form */
+.sos-cal4-modal .cat-selector-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-bottom: 12px;
+}
+
+.sos-cal4-modal .cat-selector-grid label {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 5px 10px;
+	border-radius: 999px;
+	border: 1px solid rgba(255,255,255,0.1);
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 500;
+	text-transform: none;
+	letter-spacing: 0;
+	color: rgba(255,255,255,0.6);
+	margin-bottom: 0;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-modal .cat-selector-grid label:has(input:checked) {
+	border-color: rgba(255,255,255,0.3);
+	background: rgba(255,255,255,0.06);
+	color: #fff;
+}
+
+.sos-cal4-modal .cat-selector-grid input[type="radio"] {
+	display: none;
+}
+
+/* Color picker in add category modal */
+.sos-cal4-color-picker {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 14px;
+}
+
+.sos-cal4-color-dot {
+	cursor: pointer;
+}
+
+.sos-cal4-color-dot input[type="radio"] {
+	display: none;
+}
+
+.sos-cal4-color-dot span {
+	display: block;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: 2px solid transparent;
+	transition: var(--cal4-transition);
+}
+
+.sos-cal4-color-dot:has(input:checked) span {
+	border-color: #fff;
+	box-shadow: 0 0 10px rgba(255,255,255,0.3);
+	transform: scale(1.15);
+}
+
+.sos-cal4-color-dot span:hover {
+	transform: scale(1.1);
+}
+
+/* Tip text */
+.sos-cal4-tip {
+	font-size: 11px;
+	color: rgba(255,255,255,0.3);
+	margin-top: 10px;
+	font-style: italic;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+	.sos-cal4-panel {
+		position: fixed;
+		left: 0;
+		top: 0;
+		height: 100vh;
+		z-index: 100;
+	}
+
+	.sos-cal4-toolbar {
+		flex-direction: column;
+		align-items: flex-start;
+	}
+
+	.sos-cal4-month-label {
+		min-width: auto;
+		font-size: 16px;
+	}
+
+	.sos-cal4-day {
+		min-height: 80px;
+	}
+
+	.sos-cal4-agenda {
+		grid-template-columns: 1fr;
+	}
+}

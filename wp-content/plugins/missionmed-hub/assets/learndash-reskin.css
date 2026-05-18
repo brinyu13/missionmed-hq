@@ -1,0 +1,845 @@
+:root {
+	--navy: #061727;
+	--navy2: #09243d;
+	--navy3: #0e3559;
+	--blue: #0e75a8;
+	--blue2: #17a3cf;
+	--gold: #d9b85b;
+	--gold2: #f3d576;
+	--paper: #f7f2e5;
+	--orange: #f06b2f;
+	--orange2: #ff8a37;
+	--green: #36c071;
+	--green2: #2ea85f;
+	--red: #d95c5c;
+	--matrix-heading: "Space Grotesk", "Poppins", sans-serif;
+	--matrix-body: "Poppins", sans-serif;
+}
+
+body.ld-in-focus-mode,
+body.single-sfwd-courses,
+body.single-sfwd-lessons,
+body.single-sfwd-topic,
+body.single-sfwd-quiz {
+	background: var(--navy);
+	color: #fff;
+	font-family: var(--matrix-body);
+	-webkit-font-smoothing: antialiased;
+}
+
+body.ld-in-focus-mode .site,
+body.ld-in-focus-mode .site-content,
+body.ld-in-focus-mode .content-area,
+body.ld-in-focus-mode .ast-container,
+body.single-sfwd-courses .site-content,
+body.single-sfwd-courses .content-area,
+body.single-sfwd-courses .ast-container,
+body.single-sfwd-lessons .site-content,
+body.single-sfwd-topic .site-content,
+body.single-sfwd-quiz .site-content {
+	background: radial-gradient(circle at 75% 0%, rgba(23, 163, 207, 0.18), transparent 34%),
+		linear-gradient(180deg, var(--navy2) 0%, var(--navy) 42%, #030b14 100%) !important;
+	color: #fff;
+}
+
+body.ld-in-focus-mode a,
+body.single-sfwd-courses a,
+body.single-sfwd-lessons a,
+body.single-sfwd-topic a,
+body.single-sfwd-quiz a {
+	color: var(--blue2);
+	text-decoration: none;
+	transition: color 0.18s ease, opacity 0.18s ease, background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+body.ld-in-focus-mode a:hover,
+body.single-sfwd-courses a:hover,
+body.single-sfwd-lessons a:hover,
+body.single-sfwd-topic a:hover,
+body.single-sfwd-quiz a:hover {
+	color: var(--gold2);
+}
+
+body.ld-in-focus-mode h1,
+body.ld-in-focus-mode h2,
+body.ld-in-focus-mode h3,
+body.ld-in-focus-mode h4,
+body.single-sfwd-courses h1,
+body.single-sfwd-courses h2,
+body.single-sfwd-courses h3,
+body.single-sfwd-lessons h1,
+body.single-sfwd-topic h1,
+body.single-sfwd-quiz h1 {
+	color: #fff;
+	font-family: var(--matrix-heading);
+	font-weight: 800;
+	letter-spacing: 0;
+}
+
+/* Focus Mode shell */
+body.ld-in-focus-mode .ld-focus {
+	background: var(--navy) !important;
+	color: #fff;
+	font-family: var(--matrix-body);
+}
+
+body.ld-in-focus-mode .ld-focus-header {
+	background: linear-gradient(180deg, var(--navy2), var(--navy)) !important;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+	color: #fff;
+	font-family: var(--matrix-body);
+}
+
+body.ld-in-focus-mode .ld-focus-header *,
+body.ld-in-focus-mode .ld-focus-header .ld-focus-mode-course-heading,
+body.ld-in-focus-mode .ld-focus-header .ld-focus-mode-course-heading a {
+	color: #fff;
+	font-family: var(--matrix-body);
+}
+
+body.ld-in-focus-mode .ld-brand-logo {
+	filter: none;
+}
+
+body.ld-in-focus-mode .ld-focus-mode-course-heading-wrapper,
+body.ld-in-focus-mode .ld-focus-mode-course-heading {
+	color: #fff !important;
+	font-family: var(--matrix-heading);
+	font-size: 16px;
+	font-weight: 700;
+	letter-spacing: 0;
+}
+
+body.ld-in-focus-mode .ld-focus-header .ld-progress,
+body.ld-in-focus-mode .ld-focus-header .ld-progress-bar {
+	background: rgba(255, 255, 255, 0.1) !important;
+	border-radius: 999px;
+	overflow: hidden;
+}
+
+body.ld-in-focus-mode .ld-focus-header .ld-progress-bar .ld-progress-bar-percentage,
+body.ld-in-focus-mode .ld-focus-header .ld-progress-bar-percentage,
+body.ld-in-focus-mode .learndash-wrapper .ld-progress .ld-progress-bar .ld-progress-bar-percentage {
+	background: linear-gradient(90deg, var(--green), var(--green2)) !important;
+	border-radius: 999px;
+}
+
+body.ld-in-focus-mode .ld-focus-header .ld-progress-percentage,
+body.ld-in-focus-mode .ld-focus-header .ld-progress-steps {
+	color: var(--gold) !important;
+	font-family: var(--matrix-heading);
+	font-size: 14px;
+	font-weight: 700;
+}
+
+/* Focus Mode sidebar */
+body.ld-in-focus-mode .ld-focus-sidebar-wrapper,
+body.ld-in-focus-mode .ld-focus-sidebar {
+	background: var(--navy2) !important;
+	border-right: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 16px 0 48px rgba(0, 0, 0, 0.26);
+	color: #fff;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-course-navigation-heading,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-course-navigation-heading h3,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-course-navigation-heading a {
+	color: rgba(255, 255, 255, 0.45) !important;
+	font-family: var(--matrix-heading);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+
+body.ld-in-focus-mode .ld-course-navigation,
+body.ld-in-focus-mode .ld-course-navigation-list,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-course-navigation .ld-lesson-item,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-course-navigation .ld-topic-list,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-course-navigation .ld-quiz-list {
+	background: transparent !important;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-lesson-item,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-quiz-item,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-list-item {
+	background: transparent;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	color: #fff;
+	transition: background 0.18s ease, border-color 0.18s ease, opacity 0.18s ease;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-lesson-item-preview,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-quiz-item-preview,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-list-item-preview {
+	padding: 12px 16px;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-lesson-item:hover,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-quiz-item:hover,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-list-item:hover {
+	background: rgba(255, 255, 255, 0.04) !important;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-is-current-lesson,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-is-current-item,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-list-item.learndash-current-menu-item,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-lesson-item.learndash-current-menu-item {
+	background: rgba(14, 117, 168, 0.15) !important;
+	border-left: 3px solid var(--blue);
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-lesson-title,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-title,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-quiz-title,
+body.ld-in-focus-mode .ld-focus-sidebar a {
+	color: #fff !important;
+	font-family: var(--matrix-body);
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.45;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-list-item {
+	padding-left: 16px;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-list-item .ld-topic-title,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-list-item a {
+	font-size: 13px;
+	color: rgba(255, 255, 255, 0.72) !important;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-complete + .ld-lesson-title,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-complete ~ .ld-lesson-title,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-complete + a,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-complete ~ a {
+	color: rgba(255, 255, 255, 0.5) !important;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-complete,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-complete .ld-icon,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-icon.ld-status-complete,
+body.ld-in-focus-mode .learndash-wrapper .ld-status-complete {
+	background: var(--green) !important;
+	border-color: var(--green) !important;
+	color: var(--navy) !important;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-incomplete,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-status-icon.ld-status-incomplete {
+	background: transparent !important;
+	border-color: rgba(255, 255, 255, 0.25) !important;
+	color: rgba(255, 255, 255, 0.45) !important;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar .ld-expand-button,
+body.ld-in-focus-mode .ld-focus-sidebar .ld-expand-button .ld-icon,
+body.ld-in-focus-mode .ld-focus-sidebar-trigger,
+body.ld-in-focus-mode .ld-focus-sidebar-trigger .ld-icon {
+	background: transparent !important;
+	border: 0;
+	color: #fff !important;
+}
+
+body.ld-in-focus-mode .ld-focus-sidebar-trigger {
+	background: var(--navy2) !important;
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+}
+
+body.ld-in-focus-mode .ld-icon,
+body.ld-in-focus-mode .ld-icon svg,
+body.ld-in-focus-mode .learndash-wrapper .ld-status-icon svg {
+	color: currentColor;
+	fill: currentColor;
+}
+
+/* Focus Mode content */
+body.ld-in-focus-mode .ld-focus-content,
+body.ld-in-focus-mode .ld-focus-main {
+	background: var(--navy) !important;
+	color: #fff;
+	font-family: var(--matrix-body);
+}
+
+body.ld-in-focus-mode .ld-focus-content {
+	background-image: radial-gradient(circle at 80% 0%, rgba(23, 163, 207, 0.2), transparent 32%),
+		linear-gradient(180deg, var(--navy2) 0%, var(--navy) 48%, #030b14 100%) !important;
+}
+
+body.ld-in-focus-mode .ld-focus-main {
+	max-width: 1100px;
+	padding-top: 40px;
+}
+
+body.ld-in-focus-mode .ld-focus-main .entry-content {
+	color: rgba(255, 255, 255, 0.85);
+	font-family: var(--matrix-body);
+}
+
+body.ld-in-focus-mode .ld-focus-main .entry-content > :not(.elementor) {
+	color: rgba(255, 255, 255, 0.85);
+}
+
+body.ld-in-focus-mode .ld-focus-main .entry-content > p:not(.elementor),
+body.single-sfwd-lessons .entry-content > p:not(.elementor),
+body.single-sfwd-topic .entry-content > p:not(.elementor),
+body.single-sfwd-quiz .entry-content > p:not(.elementor) {
+	color: rgba(255, 255, 255, 0.85);
+	font-family: var(--matrix-body);
+	font-size: 15px;
+	line-height: 1.7;
+}
+
+body.ld-in-focus-mode .entry-content > h1:not(.elementor),
+body.ld-in-focus-mode .entry-content > h2:not(.elementor),
+body.ld-in-focus-mode .entry-content > h3:not(.elementor),
+body.ld-in-focus-mode .entry-content > h4:not(.elementor) {
+	color: #fff;
+	font-family: var(--matrix-heading);
+	font-weight: 800;
+}
+
+body.ld-in-focus-mode .entry-content > ul:not(.elementor),
+body.ld-in-focus-mode .entry-content > ol:not(.elementor),
+body.single-sfwd-lessons .entry-content > ul:not(.elementor),
+body.single-sfwd-lessons .entry-content > ol:not(.elementor),
+body.single-sfwd-topic .entry-content > ul:not(.elementor),
+body.single-sfwd-topic .entry-content > ol:not(.elementor),
+body.single-sfwd-quiz .entry-content > ul:not(.elementor),
+body.single-sfwd-quiz .entry-content > ol:not(.elementor) {
+	color: rgba(255, 255, 255, 0.8);
+	line-height: 1.7;
+	margin-bottom: 1.4em;
+	padding-left: 1.3em;
+}
+
+body.ld-in-focus-mode .entry-content > a:not(.elementor),
+body.ld-in-focus-mode .entry-content > p a,
+body.single-sfwd-courses .entry-content > p a {
+	color: var(--blue2);
+}
+
+body.ld-in-focus-mode .entry-content > p a:hover,
+body.single-sfwd-courses .entry-content > p a:hover {
+	text-decoration: underline;
+}
+
+body.ld-in-focus-mode .entry-content img,
+body.single-sfwd-courses .entry-content img,
+body.single-sfwd-lessons .entry-content img,
+body.single-sfwd-topic .entry-content img,
+body.single-sfwd-quiz .entry-content img {
+	border-radius: 8px;
+	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+}
+
+body.ld-in-focus-mode .entry-content table,
+body.single-sfwd-courses .entry-content table,
+body.single-sfwd-lessons .entry-content table,
+body.single-sfwd-topic .entry-content table,
+body.single-sfwd-quiz .entry-content table {
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-collapse: collapse;
+	color: rgba(255, 255, 255, 0.82);
+	overflow: hidden;
+}
+
+body.ld-in-focus-mode .entry-content th,
+body.single-sfwd-courses .entry-content th,
+body.single-sfwd-lessons .entry-content th,
+body.single-sfwd-topic .entry-content th,
+body.single-sfwd-quiz .entry-content th {
+	background: rgba(6, 23, 39, 0.92);
+	color: #fff;
+	font-family: var(--matrix-heading);
+	font-weight: 700;
+}
+
+body.ld-in-focus-mode .entry-content td,
+body.ld-in-focus-mode .entry-content th,
+body.single-sfwd-courses .entry-content td,
+body.single-sfwd-courses .entry-content th,
+body.single-sfwd-lessons .entry-content td,
+body.single-sfwd-lessons .entry-content th,
+body.single-sfwd-topic .entry-content td,
+body.single-sfwd-topic .entry-content th,
+body.single-sfwd-quiz .entry-content td,
+body.single-sfwd-quiz .entry-content th {
+	border-color: rgba(255, 255, 255, 0.08);
+	padding: 12px;
+}
+
+body.ld-in-focus-mode .entry-content tr:nth-child(even) td,
+body.single-sfwd-courses .entry-content tr:nth-child(even) td,
+body.single-sfwd-lessons .entry-content tr:nth-child(even) td,
+body.single-sfwd-topic .entry-content tr:nth-child(even) td,
+body.single-sfwd-quiz .entry-content tr:nth-child(even) td {
+	background: rgba(255, 255, 255, 0.03);
+}
+
+/* Breadcrumbs */
+body.ld-in-focus-mode .ld-breadcrumbs,
+body.single-sfwd-courses .ld-breadcrumbs,
+body.single-sfwd-lessons .ld-breadcrumbs,
+body.single-sfwd-topic .ld-breadcrumbs,
+body.single-sfwd-quiz .ld-breadcrumbs {
+	background: transparent !important;
+	color: rgba(255, 255, 255, 0.6);
+	font-family: var(--matrix-body);
+	font-size: 13px;
+	margin-bottom: 22px;
+}
+
+body.ld-in-focus-mode .ld-breadcrumbs a,
+body.single-sfwd-courses .ld-breadcrumbs a,
+body.single-sfwd-lessons .ld-breadcrumbs a,
+body.single-sfwd-topic .ld-breadcrumbs a,
+body.single-sfwd-quiz .ld-breadcrumbs a {
+	color: var(--blue2) !important;
+}
+
+body.ld-in-focus-mode .ld-breadcrumbs .ld-breadcrumbs-segments,
+body.single-sfwd-courses .ld-breadcrumbs .ld-breadcrumbs-segments {
+	color: rgba(255, 255, 255, 0.3);
+}
+
+/* LearnDash buttons and content actions */
+body.ld-in-focus-mode .ld-content-actions,
+body.single-sfwd-lessons .ld-content-actions,
+body.single-sfwd-topic .ld-content-actions,
+body.single-sfwd-quiz .ld-content-actions {
+	background: var(--navy2) !important;
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
+	box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.2);
+	color: #fff;
+	margin-top: 44px;
+	padding: 22px;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-button,
+body.single-sfwd-courses .learndash-wrapper .ld-button,
+body.single-sfwd-lessons .learndash-wrapper .ld-button,
+body.single-sfwd-topic .learndash-wrapper .ld-button,
+body.single-sfwd-quiz .learndash-wrapper .ld-button,
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_button,
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_button {
+	align-items: center;
+	background: linear-gradient(135deg, var(--gold), var(--gold2)) !important;
+	border: 0 !important;
+	border-radius: 6px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+	color: var(--navy) !important;
+	display: inline-flex;
+	font-family: var(--matrix-heading);
+	font-size: 14px;
+	font-weight: 700;
+	justify-content: center;
+	letter-spacing: 0;
+	min-height: 42px;
+	padding: 10px 18px;
+	text-transform: none;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-button:hover,
+body.single-sfwd-courses .learndash-wrapper .ld-button:hover,
+body.single-sfwd-lessons .learndash-wrapper .ld-button:hover,
+body.single-sfwd-topic .learndash-wrapper .ld-button:hover,
+body.single-sfwd-quiz .learndash-wrapper .ld-button:hover,
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_button:hover,
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_button:hover {
+	box-shadow: 0 10px 28px rgba(243, 213, 118, 0.24);
+	color: var(--navy) !important;
+	transform: translateY(-1px);
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-button-alternate,
+body.single-sfwd-courses .learndash-wrapper .ld-button-alternate,
+body.single-sfwd-lessons .learndash-wrapper .ld-button-alternate,
+body.single-sfwd-topic .learndash-wrapper .ld-button-alternate,
+body.single-sfwd-quiz .learndash-wrapper .ld-button-alternate {
+	background: rgba(255, 255, 255, 0.08) !important;
+	border: 1px solid rgba(255, 255, 255, 0.2) !important;
+	color: #fff !important;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-button-alternate:hover,
+body.single-sfwd-courses .learndash-wrapper .ld-button-alternate:hover,
+body.single-sfwd-lessons .learndash-wrapper .ld-button-alternate:hover,
+body.single-sfwd-topic .learndash-wrapper .ld-button-alternate:hover,
+body.single-sfwd-quiz .learndash-wrapper .ld-button-alternate:hover {
+	background: rgba(255, 255, 255, 0.12) !important;
+	color: #fff !important;
+}
+
+/* Progress elements */
+body.ld-in-focus-mode .learndash-wrapper .ld-progress,
+body.single-sfwd-courses .learndash-wrapper .ld-progress,
+body.single-sfwd-lessons .learndash-wrapper .ld-progress,
+body.single-sfwd-topic .learndash-wrapper .ld-progress,
+body.single-sfwd-quiz .learndash-wrapper .ld-progress {
+	background: transparent;
+	color: rgba(255, 255, 255, 0.5);
+	font-family: var(--matrix-body);
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-progress-bar,
+body.single-sfwd-courses .learndash-wrapper .ld-progress-bar,
+body.single-sfwd-lessons .learndash-wrapper .ld-progress-bar,
+body.single-sfwd-topic .learndash-wrapper .ld-progress-bar,
+body.single-sfwd-quiz .learndash-wrapper .ld-progress-bar {
+	background: rgba(255, 255, 255, 0.08) !important;
+	border-radius: 999px;
+	height: 8px;
+	overflow: hidden;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-progress-steps,
+body.single-sfwd-courses .learndash-wrapper .ld-progress-steps,
+body.single-sfwd-lessons .learndash-wrapper .ld-progress-steps,
+body.single-sfwd-topic .learndash-wrapper .ld-progress-steps,
+body.single-sfwd-quiz .learndash-wrapper .ld-progress-steps {
+	color: rgba(255, 255, 255, 0.5);
+	font-family: var(--matrix-body);
+	font-size: 12px;
+	font-weight: 600;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-progress-percentage,
+body.single-sfwd-courses .learndash-wrapper .ld-progress-percentage,
+body.single-sfwd-lessons .learndash-wrapper .ld-progress-percentage,
+body.single-sfwd-topic .learndash-wrapper .ld-progress-percentage,
+body.single-sfwd-quiz .learndash-wrapper .ld-progress-percentage {
+	color: var(--gold) !important;
+	font-family: var(--matrix-heading);
+	font-weight: 700;
+}
+
+/* Course overview pages */
+body.single-sfwd-courses .site-main,
+body.single-sfwd-courses article,
+body.single-sfwd-courses .entry-content,
+body.single-sfwd-courses .learndash-wrapper {
+	color: #fff;
+	font-family: var(--matrix-body);
+}
+
+body.single-sfwd-courses .entry-title,
+body.single-sfwd-courses .page-title,
+body.single-sfwd-courses .learndash-wrapper .ld-course-status h2 {
+	color: #fff;
+	font-family: var(--matrix-heading);
+	font-size: 32px;
+	font-weight: 800;
+	letter-spacing: 0;
+}
+
+body.single-sfwd-courses .learndash-wrapper .ld-course-status,
+body.single-sfwd-courses .learndash-wrapper .ld-item-list,
+body.single-sfwd-courses .learndash-wrapper .ld-table-list,
+body.single-sfwd-courses .learndash-wrapper .ld-topic-list,
+body.single-sfwd-courses .learndash-wrapper .ld-lesson-list {
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+	color: #fff;
+}
+
+body.single-sfwd-courses .learndash-wrapper .ld-item-list .ld-item-list-item,
+body.single-sfwd-courses .learndash-wrapper .ld-table-list .ld-table-list-item,
+body.single-sfwd-courses .learndash-wrapper .ld-lesson-item,
+body.single-sfwd-courses .learndash-wrapper .ld-topic-list-item,
+body.single-sfwd-lessons .learndash-wrapper .ld-item-list .ld-item-list-item,
+body.single-sfwd-topic .learndash-wrapper .ld-item-list .ld-item-list-item {
+	background: rgba(255, 255, 255, 0.04) !important;
+	border: 1px solid rgba(255, 255, 255, 0.08) !important;
+	border-radius: 8px;
+	color: #fff;
+	margin-bottom: 10px;
+}
+
+body.single-sfwd-courses .learndash-wrapper .ld-item-list .ld-item-list-item:hover,
+body.single-sfwd-courses .learndash-wrapper .ld-table-list .ld-table-list-item:hover {
+	background: rgba(255, 255, 255, 0.06) !important;
+	border-color: rgba(23, 163, 207, 0.35) !important;
+}
+
+body.single-sfwd-courses .learndash-wrapper .ld-item-title,
+body.single-sfwd-courses .learndash-wrapper .ld-lesson-title,
+body.single-sfwd-courses .learndash-wrapper .ld-topic-title {
+	color: #fff !important;
+	font-family: var(--matrix-heading);
+	font-size: 16px;
+	font-weight: 700;
+}
+
+body.single-sfwd-courses .learndash-wrapper .ld-item-details,
+body.single-sfwd-courses .learndash-wrapper .ld-course-status .ld-status,
+body.single-sfwd-courses .learndash-wrapper .ld-course-status .ld-course-status-content {
+	color: rgba(255, 255, 255, 0.65);
+	font-family: var(--matrix-body);
+}
+
+body.single-sfwd-courses .learndash-wrapper .ld-table-list-header {
+	background: linear-gradient(180deg, var(--navy2), var(--navy)) !important;
+	border-radius: 8px 8px 0 0;
+	color: #fff;
+	font-family: var(--matrix-heading);
+}
+
+/* Quiz styling */
+body.ld-in-focus-mode .wpProQuiz_content,
+body.single-sfwd-quiz .wpProQuiz_content {
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
+	color: #fff;
+	font-family: var(--matrix-body);
+	padding: 24px;
+}
+
+body.ld-in-focus-mode .wpProQuiz_content h2,
+body.ld-in-focus-mode .wpProQuiz_content h3,
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_question_text,
+body.single-sfwd-quiz .wpProQuiz_content h2,
+body.single-sfwd-quiz .wpProQuiz_content h3,
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_question_text {
+	color: #fff;
+	font-family: var(--matrix-heading);
+	font-weight: 700;
+}
+
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_questionListItem,
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_questionListItem {
+	background: rgba(255, 255, 255, 0.04);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	color: rgba(255, 255, 255, 0.85);
+	margin-bottom: 10px;
+	padding: 12px 14px;
+}
+
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_questionListItem.wpProQuiz_answerCorrect,
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_questionListItem.wpProQuiz_answerCorrect {
+	border-color: var(--green) !important;
+	box-shadow: inset 3px 0 0 var(--green);
+}
+
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_questionListItem.wpProQuiz_answerIncorrect,
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_questionListItem.wpProQuiz_answerIncorrect {
+	border-color: var(--red) !important;
+	box-shadow: inset 3px 0 0 var(--red);
+}
+
+body.ld-in-focus-mode .wpProQuiz_content input:checked + label,
+body.single-sfwd-quiz .wpProQuiz_content input:checked + label {
+	color: #fff;
+}
+
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_questionListItem:has(input:checked),
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_questionListItem:has(input:checked) {
+	border-color: var(--blue) !important;
+}
+
+body.ld-in-focus-mode .wpProQuiz_content .wpProQuiz_response,
+body.single-sfwd-quiz .wpProQuiz_content .wpProQuiz_response {
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 8px;
+	color: rgba(255, 255, 255, 0.85);
+}
+
+/* Status labels, notices, and cards */
+body.ld-in-focus-mode .learndash-wrapper .ld-status,
+body.single-sfwd-courses .learndash-wrapper .ld-status,
+body.single-sfwd-lessons .learndash-wrapper .ld-status,
+body.single-sfwd-topic .learndash-wrapper .ld-status,
+body.single-sfwd-quiz .learndash-wrapper .ld-status {
+	border-radius: 999px;
+	font-family: var(--matrix-heading);
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 1px;
+	text-transform: uppercase;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-status.ld-status-complete,
+body.single-sfwd-courses .learndash-wrapper .ld-status.ld-status-complete,
+body.single-sfwd-lessons .learndash-wrapper .ld-status.ld-status-complete,
+body.single-sfwd-topic .learndash-wrapper .ld-status.ld-status-complete,
+body.single-sfwd-quiz .learndash-wrapper .ld-status.ld-status-complete {
+	background: var(--green) !important;
+	color: var(--navy) !important;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-status.ld-status-in-progress,
+body.single-sfwd-courses .learndash-wrapper .ld-status.ld-status-in-progress,
+body.single-sfwd-lessons .learndash-wrapper .ld-status.ld-status-in-progress,
+body.single-sfwd-topic .learndash-wrapper .ld-status.ld-status-in-progress,
+body.single-sfwd-quiz .learndash-wrapper .ld-status.ld-status-in-progress {
+	background: var(--orange) !important;
+	color: #fff !important;
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-alert,
+body.single-sfwd-courses .learndash-wrapper .ld-alert,
+body.single-sfwd-lessons .learndash-wrapper .ld-alert,
+body.single-sfwd-topic .learndash-wrapper .ld-alert,
+body.single-sfwd-quiz .learndash-wrapper .ld-alert {
+	background: rgba(255, 255, 255, 0.05) !important;
+	border: 1px solid rgba(255, 255, 255, 0.1) !important;
+	border-radius: 8px;
+	color: rgba(255, 255, 255, 0.85);
+}
+
+body.ld-in-focus-mode .learndash-wrapper .ld-alert-success,
+body.single-sfwd-courses .learndash-wrapper .ld-alert-success,
+body.single-sfwd-lessons .learndash-wrapper .ld-alert-success,
+body.single-sfwd-topic .learndash-wrapper .ld-alert-success,
+body.single-sfwd-quiz .learndash-wrapper .ld-alert-success {
+	border-color: rgba(54, 192, 113, 0.35) !important;
+}
+
+/* Back to Matrix */
+.mmed-back-to-matrix {
+	display: none;
+}
+
+body.ld-in-focus-mode .mmed-back-to-matrix,
+body.single-sfwd-courses .mmed-back-to-matrix,
+body.single-sfwd-lessons .mmed-back-to-matrix,
+body.single-sfwd-topic .mmed-back-to-matrix,
+body.single-sfwd-quiz .mmed-back-to-matrix {
+	align-items: center;
+	background: linear-gradient(135deg, var(--blue), var(--blue2));
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 999px;
+	bottom: 24px;
+	box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+	color: #fff !important;
+	display: inline-flex;
+	font-family: var(--matrix-heading);
+	font-size: 13px;
+	font-weight: 700;
+	gap: 0;
+	letter-spacing: 0;
+	line-height: 1;
+	padding: 10px 20px;
+	position: fixed;
+	right: 24px;
+	text-decoration: none;
+	transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+	z-index: 99990;
+}
+
+body.ld-in-focus-mode .mmed-back-to-matrix::before,
+body.single-sfwd-courses .mmed-back-to-matrix::before,
+body.single-sfwd-lessons .mmed-back-to-matrix::before,
+body.single-sfwd-topic .mmed-back-to-matrix::before,
+body.single-sfwd-quiz .mmed-back-to-matrix::before {
+	content: "\2190\00a0";
+}
+
+body.ld-in-focus-mode .mmed-back-to-matrix:hover,
+body.single-sfwd-courses .mmed-back-to-matrix:hover,
+body.single-sfwd-lessons .mmed-back-to-matrix:hover,
+body.single-sfwd-topic .mmed-back-to-matrix:hover,
+body.single-sfwd-quiz .mmed-back-to-matrix:hover {
+	box-shadow: 0 12px 30px rgba(23, 163, 207, 0.28), 0 8px 24px rgba(0, 0, 0, 0.4);
+	color: #fff !important;
+	filter: brightness(1.08);
+	transform: scale(1.05);
+}
+
+body.ld-in-focus-mode .mmed-btm-arrow,
+body.single-sfwd-courses .mmed-btm-arrow,
+body.single-sfwd-lessons .mmed-btm-arrow,
+body.single-sfwd-topic .mmed-btm-arrow,
+body.single-sfwd-quiz .mmed-btm-arrow {
+	display: none;
+}
+
+/* Elementor protection: keep custom lesson interiors in charge of themselves. */
+body.ld-in-focus-mode .entry-content > .elementor,
+body.single-sfwd-lessons .entry-content > .elementor,
+body.single-sfwd-topic .entry-content > .elementor,
+body.single-sfwd-quiz .entry-content > .elementor {
+	border-radius: 0;
+	box-shadow: none;
+}
+
+body.ld-in-focus-mode .entry-content > .elementor img,
+body.single-sfwd-lessons .entry-content > .elementor img,
+body.single-sfwd-topic .entry-content > .elementor img,
+body.single-sfwd-quiz .entry-content > .elementor img {
+	border-radius: inherit;
+	box-shadow: inherit;
+}
+
+@media (max-width: 768px) {
+	body.ld-in-focus-mode .ld-focus-main {
+		padding: 28px 18px 88px;
+	}
+
+	body.ld-in-focus-mode .ld-focus-sidebar-wrapper {
+		box-shadow: 12px 0 32px rgba(0, 0, 0, 0.32);
+	}
+
+	body.ld-in-focus-mode .ld-content-actions,
+	body.single-sfwd-lessons .ld-content-actions,
+	body.single-sfwd-topic .ld-content-actions,
+	body.single-sfwd-quiz .ld-content-actions {
+		padding: 18px;
+	}
+
+	body.ld-in-focus-mode .learndash-wrapper .ld-button,
+	body.single-sfwd-courses .learndash-wrapper .ld-button,
+	body.single-sfwd-lessons .learndash-wrapper .ld-button,
+	body.single-sfwd-topic .learndash-wrapper .ld-button,
+	body.single-sfwd-quiz .learndash-wrapper .ld-button {
+		min-height: 40px;
+		padding: 10px 14px;
+	}
+
+	body.ld-in-focus-mode .mmed-back-to-matrix,
+	body.single-sfwd-courses .mmed-back-to-matrix,
+	body.single-sfwd-lessons .mmed-back-to-matrix,
+	body.single-sfwd-topic .mmed-back-to-matrix,
+	body.single-sfwd-quiz .mmed-back-to-matrix {
+		bottom: 18px;
+		right: 18px;
+	}
+}
+
+@media (max-width: 480px) {
+	body.ld-in-focus-mode h1,
+	body.single-sfwd-courses .entry-title,
+	body.single-sfwd-courses .page-title {
+		font-size: 24px;
+	}
+
+	body.ld-in-focus-mode .ld-focus-mode-course-heading-wrapper,
+	body.ld-in-focus-mode .ld-focus-mode-course-heading {
+		font-size: 14px;
+	}
+
+	body.ld-in-focus-mode .ld-focus-sidebar .ld-lesson-title,
+	body.ld-in-focus-mode .ld-focus-sidebar .ld-topic-title,
+	body.ld-in-focus-mode .ld-focus-sidebar .ld-quiz-title {
+		font-size: 13px;
+	}
+
+	body.ld-in-focus-mode .mmed-back-to-matrix,
+	body.single-sfwd-courses .mmed-back-to-matrix,
+	body.single-sfwd-lessons .mmed-back-to-matrix,
+	body.single-sfwd-topic .mmed-back-to-matrix,
+	body.single-sfwd-quiz .mmed-back-to-matrix {
+		font-size: 12px;
+		padding: 10px 16px;
+	}
+}

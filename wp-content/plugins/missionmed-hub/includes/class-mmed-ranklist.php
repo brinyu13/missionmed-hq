@@ -217,18 +217,56 @@ class MMED_Ranklist {
 	 * @return array|WP_Error
 	 */
 	protected static function latest_version( $ranklist_id ) {
+		// Fetch the latest version with real snapshot data using PostgREST jsonb filter.
+		$versions = self::supabase_get(
+			'ranklist_versions',
+			array(
+				'ranklist_id'     => 'eq.' . $ranklist_id,
+				'snapshot->>kind' => 'not.is.null',
+				'select'          => '*',
+				'order'           => 'created_at.desc',
+				'limit'           => '1',
+			)
+		);
+
+		if ( is_wp_error( $versions ) ) {
+			return $versions;
+		}
+
+		if ( ! empty( $versions[0] ) && is_array( $versions[0] ) ) {
+			return $versions[0];
+		}
+
+		// Fallback: fetch recent versions and iterate to find real data.
 		$versions = self::supabase_get(
 			'ranklist_versions',
 			array(
 				'ranklist_id' => 'eq.' . $ranklist_id,
 				'select'      => '*',
 				'order'       => 'created_at.desc',
-				'limit'       => '1',
+				'limit'       => '200',
 			)
 		);
 
 		if ( is_wp_error( $versions ) ) {
 			return $versions;
+		}
+
+		foreach ( $versions as $version ) {
+			if ( ! is_array( $version ) ) {
+				continue;
+			}
+
+			$snap = isset( $version['snapshot'] ) ? self::decode_maybe_json( $version['snapshot'] ) : array();
+			if ( ! is_array( $snap ) ) {
+				continue;
+			}
+
+			// Real snapshots have keys like 'kind', 'snapshot', 'schemaVersion'.
+			// Marker snapshots only have 'profile_link' or 'source'.
+			if ( isset( $snap['kind'] ) || isset( $snap['snapshot'] ) || isset( $snap['state'] ) || isset( $snap['programs'] ) ) {
+				return $version;
+			}
 		}
 
 		return ! empty( $versions[0] ) && is_array( $versions[0] ) ? $versions[0] : array();
@@ -243,6 +281,7 @@ class MMED_Ranklist {
 	 */
 	protected static function programs_from_payload( $ranklist, $version ) {
 		$candidates = array();
+		$scores_map = array();
 
 		foreach ( array( $version, $ranklist ) as $row ) {
 			if ( empty( $row ) || is_wp_error( $row ) ) {
@@ -259,8 +298,45 @@ class MMED_Ranklist {
 					$candidates = array_merge( $candidates, $value );
 				} elseif ( is_array( $value ) && self::is_program_list( $value['programs'] ?? array() ) ) {
 					$candidates = array_merge( $candidates, $value['programs'] );
+				} elseif ( is_array( $value ) && isset( $value['state'] ) && is_array( $value['state'] ) ) {
+					// RankListIQ nested: snapshot contains {state: {programs, scores}}.
+					$state = $value['state'];
+					if ( self::is_program_list( $state['programs'] ?? array() ) ) {
+						$candidates = array_merge( $candidates, $state['programs'] );
+					}
+					if ( isset( $state['scores'] ) && is_array( $state['scores'] ) ) {
+						foreach ( $state['scores'] as $prog_id => $criteria ) {
+							if ( is_array( $criteria ) ) {
+								$scores_map[ $prog_id ] = (int) array_sum( array_map( 'absint', $criteria ) );
+							}
+						}
+					}
+				} elseif ( is_array( $value ) && isset( $value['snapshot']['state'] ) && is_array( $value['snapshot']['state'] ) ) {
+					// RankListIQ double-nested: snapshot.snapshot.state path.
+					$state = $value['snapshot']['state'];
+					if ( self::is_program_list( $state['programs'] ?? array() ) ) {
+						$candidates = array_merge( $candidates, $state['programs'] );
+					}
+					if ( isset( $state['scores'] ) && is_array( $state['scores'] ) ) {
+						foreach ( $state['scores'] as $prog_id => $criteria ) {
+							if ( is_array( $criteria ) ) {
+								$scores_map[ $prog_id ] = (int) array_sum( array_map( 'absint', $criteria ) );
+							}
+						}
+					}
 				}
 			}
+		}
+
+		// Merge computed scores into candidates.
+		if ( ! empty( $scores_map ) ) {
+			foreach ( $candidates as &$candidate ) {
+				$cid = $candidate['id'] ?? '';
+				if ( $cid && isset( $scores_map[ $cid ] ) && empty( $candidate['score'] ) ) {
+					$candidate['score'] = $scores_map[ $cid ];
+				}
+			}
+			unset( $candidate );
 		}
 
 		if ( empty( $candidates ) && self::looks_like_program( $ranklist ) ) {

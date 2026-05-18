@@ -66,6 +66,16 @@ class MMED_REST_API {
 
 		register_rest_route(
 			self::NAMESPACE,
+			'/debug/supabase-link',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'debug_supabase_link' ),
+				'permission_callback' => array( __CLASS__, 'can_access' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
 			'/courses',
 			array(
 				'methods'             => WP_REST_Server::READABLE,
@@ -300,6 +310,119 @@ class MMED_REST_API {
 			)
 		);
 
+		/* ── Todos ───────────────────────────────────────────────── */
+		register_rest_route(
+			self::NAMESPACE,
+			'/todos',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'get_todos' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( __CLASS__, 'create_todo' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/todos/(?P<id>\d+)',
+			array(
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( __CLASS__, 'update_todo' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+					'args'                => self::id_args(),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( __CLASS__, 'delete_todo' ),
+					'permission_callback' => array( __CLASS__, 'can_access' ),
+					'args'                => self::id_args(),
+				),
+			)
+		);
+
+		/* -- Live Sessions (admin) -- */
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/sessions',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( 'MMED_Session_Manager', 'get_groups' ),
+					'permission_callback' => array( __CLASS__, 'can_manage' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( 'MMED_Session_Manager', 'create_group' ),
+					'permission_callback' => array( __CLASS__, 'can_manage' ),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/sessions/(?P<id>\d+)',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( 'MMED_Session_Manager', 'get_group' ),
+					'permission_callback' => array( __CLASS__, 'can_manage' ),
+					'args'                => self::id_args(),
+				),
+				array(
+					'methods'             => WP_REST_Server::EDITABLE,
+					'callback'            => array( 'MMED_Session_Manager', 'update_group' ),
+					'permission_callback' => array( __CLASS__, 'can_manage' ),
+					'args'                => self::id_args(),
+				),
+				array(
+					'methods'             => WP_REST_Server::DELETABLE,
+					'callback'            => array( 'MMED_Session_Manager', 'delete_group' ),
+					'permission_callback' => array( __CLASS__, 'can_manage' ),
+					'args'                => self::id_args(),
+				),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/sessions/(?P<id>\d+)/propagate',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( 'MMED_Session_Manager', 'propagate_meeting_url' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => self::id_args(),
+			)
+		);
+
+		/* ── Bulk Events (admin) ─────────────────────────────────── */
+		register_rest_route(
+			self::NAMESPACE,
+			'/events/bulk',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( __CLASS__, 'bulk_create_events' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+			)
+		);
+
+		/* ── Calendar Categories ─────────────────────────────────── */
+		register_rest_route(
+			self::NAMESPACE,
+			'/calendar/categories',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( __CLASS__, 'get_calendar_categories' ),
+				'permission_callback' => array( __CLASS__, 'can_access' ),
+			)
+		);
+
 		register_rest_route(
 			self::NAMESPACE,
 			'/study-blocks',
@@ -336,6 +459,66 @@ class MMED_REST_API {
 				),
 			)
 		);
+	}
+
+	/**
+	 * Temporary diagnostic endpoint for Supabase link debugging.
+	 *
+	 * @return WP_REST_Response
+	 */
+	public static function debug_supabase_link() {
+		$user_id = get_current_user_id();
+		$user    = get_user_by( 'id', $user_id );
+		$diag    = array(
+			'wp_user_id'    => $user_id,
+			'wp_email'      => $user ? $user->user_email : '',
+			'bridge_exists' => class_exists( 'MMED_Supabase_Bridge' ),
+			'configured'    => false,
+			'cached_uuid'   => '',
+			'api_test'      => null,
+		);
+
+		if ( ! class_exists( 'MMED_Supabase_Bridge' ) ) {
+			return new WP_REST_Response( $diag, 200 );
+		}
+
+		$diag['configured'] = MMED_Supabase_Bridge::configured();
+		$diag['cached_uuid'] = get_user_meta( $user_id, '_mmed_supabase_uuid', true );
+
+		if ( ! $diag['configured'] ) {
+			$diag['api_test'] = 'skipped_not_configured';
+			return new WP_REST_Response( $diag, 200 );
+		}
+
+		$headers = MMED_Supabase_Bridge::get_supabase_client_headers();
+		$diag['has_headers'] = ! empty( $headers );
+		$diag['url_defined'] = defined( 'MMED_SUPABASE_URL' );
+		$diag['url_prefix']  = defined( 'MMED_SUPABASE_URL' ) ? substr( (string) MMED_SUPABASE_URL, 0, 30 ) . '...' : '';
+
+		$test_url = untrailingslashit( (string) MMED_SUPABASE_URL ) . '/auth/v1/admin/users?page=1&per_page=1';
+		$response = wp_remote_get( $test_url, array( 'timeout' => 15, 'headers' => $headers ) );
+
+		if ( is_wp_error( $response ) ) {
+			$diag['api_test'] = array(
+				'status'  => 'wp_error',
+				'code'    => $response->get_error_code(),
+				'message' => $response->get_error_message(),
+			);
+		} else {
+			$code = (int) wp_remote_retrieve_response_code( $response );
+			$body = (string) wp_remote_retrieve_body( $response );
+			$decoded = json_decode( $body, true );
+			$diag['api_test'] = array(
+				'status'     => 'http_' . $code,
+				'http_code'  => $code,
+				'user_count' => is_array( $decoded ) && isset( $decoded['users'] ) ? count( $decoded['users'] ) : null,
+				'total'      => $decoded['total'] ?? null,
+				'error'      => $decoded['error'] ?? $decoded['message'] ?? $decoded['msg'] ?? null,
+				'body_len'   => strlen( $body ),
+			);
+		}
+
+		return new WP_REST_Response( $diag, 200 );
 	}
 
 	/**
@@ -937,6 +1120,56 @@ class MMED_REST_API {
 		}
 
 		return new WP_REST_Response( array( 'messages' => $messages ), 200 );
+	}
+
+	/* ── Todo Endpoints ──────────────────────────────────────────────── */
+
+	public static function get_todos( $request ) {
+		return class_exists( 'MMED_Todo_Engine' )
+			? MMED_Todo_Engine::get_todos( $request )
+			: new WP_REST_Response( array( 'todos' => array() ), 200 );
+	}
+
+	public static function create_todo( $request ) {
+		return class_exists( 'MMED_Todo_Engine' )
+			? MMED_Todo_Engine::create_todo( $request )
+			: new WP_Error( 'mmed_todo_missing', 'Todo engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	public static function update_todo( $request ) {
+		return class_exists( 'MMED_Todo_Engine' )
+			? MMED_Todo_Engine::update_todo( $request )
+			: new WP_Error( 'mmed_todo_missing', 'Todo engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	public static function delete_todo( $request ) {
+		return class_exists( 'MMED_Todo_Engine' )
+			? MMED_Todo_Engine::delete_todo( $request )
+			: new WP_Error( 'mmed_todo_missing', 'Todo engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	/* ── Bulk Events / Calendar Categories ───────────────────────────── */
+
+	public static function bulk_create_events( $request ) {
+		return class_exists( 'MMED_Calendar_Engine' )
+			? MMED_Calendar_Engine::bulk_create_events( $request )
+			: new WP_Error( 'mmed_calendar_missing', 'Calendar engine is unavailable.', array( 'status' => 500 ) );
+	}
+
+	public static function get_calendar_categories() {
+		$config = class_exists( 'MMED_Calendar_Engine' ) ? MMED_Calendar_Engine::category_config() : array();
+
+		return new WP_REST_Response(
+			array( 'categories' => $config ),
+			200
+		);
+	}
+
+	/**
+	 * Admin-level permission callback.
+	 */
+	public static function can_manage() {
+		return current_user_can( 'manage_options' );
 	}
 
 	/**

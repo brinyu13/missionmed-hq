@@ -85,9 +85,32 @@ class MMED_Supabase_Bridge {
 		}
 
 		delete_user_meta( $wp_user_id, self::USER_META_UUID );
-		$uuid = self::get_supabase_uuid( $wp_user_id, true );
+		delete_transient( self::USERS_TRANSIENT );
 
-		if ( self::is_valid_uuid( $uuid ) ) {
+		$users = self::get_supabase_users( true );
+		if ( is_wp_error( $users ) ) {
+			return array(
+				'linked'      => false,
+				'status'      => 'api_error',
+				'message'     => 'Supabase API call failed: ' . $users->get_error_message(),
+				'error_code'  => $users->get_error_code(),
+				'error_data'  => $users->get_error_data(),
+			);
+		}
+
+		$user = get_user_by( 'id', $wp_user_id );
+		if ( ! $user || empty( $user->user_email ) ) {
+			update_user_meta( $wp_user_id, self::USER_META_UUID, self::NONE_VALUE );
+			return array(
+				'linked'  => false,
+				'status'  => 'no_wp_email',
+				'message' => 'WordPress user has no email address.',
+			);
+		}
+
+		$match = self::find_user_by_email( $user->user_email, $users );
+		if ( $match && ! empty( $match['id'] ) && self::is_valid_uuid( $match['id'] ) ) {
+			update_user_meta( $wp_user_id, self::USER_META_UUID, $match['id'] );
 			return array(
 				'linked'  => true,
 				'status'  => 'linked',
@@ -95,18 +118,12 @@ class MMED_Supabase_Bridge {
 			);
 		}
 
-		if ( self::NONE_VALUE === $uuid ) {
-			return array(
-				'linked'  => false,
-				'status'  => 'not_found',
-				'message' => 'No linked Supabase account found for this WordPress email.',
-			);
-		}
-
+		update_user_meta( $wp_user_id, self::USER_META_UUID, self::NONE_VALUE );
 		return array(
-			'linked'  => false,
-			'status'  => 'pending',
-			'message' => 'Supabase account lookup could not be completed right now.',
+			'linked'           => false,
+			'status'           => 'not_found',
+			'message'          => 'No Supabase account found for ' . $user->user_email,
+			'supabase_users'   => count( $users ),
 		);
 	}
 

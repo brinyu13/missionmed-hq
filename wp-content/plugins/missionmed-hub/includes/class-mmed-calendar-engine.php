@@ -17,7 +17,7 @@ class MMED_Calendar_Engine {
 	/**
 	 * Calendar table schema version.
 	 */
-	const DB_VERSION = '20260514.1';
+	const DB_VERSION = '20260517.1';
 
 	/**
 	 * Initialize runtime checks.
@@ -55,6 +55,11 @@ class MMED_Calendar_Engine {
 			end_at datetime NULL,
 			all_day tinyint(1) DEFAULT 0,
 			location varchar(255) NULL,
+			meeting_url varchar(500) NULL,
+			meeting_platform varchar(30) NULL,
+			recurrence varchar(100) NULL,
+			recurrence_end date NULL,
+			parent_event_id bigint(20) unsigned NULL,
 			source varchar(30) DEFAULT 'manual',
 			source_id varchar(100) NULL,
 			category varchar(50) NULL,
@@ -316,22 +321,27 @@ class MMED_Calendar_Engine {
 		}
 
 		return array(
-			'id'          => (int) $row->id,
-			'event_type'  => (string) $row->event_type,
-			'title'       => (string) $row->title,
-			'description' => (string) $row->description,
-			'start_at'    => self::format_datetime( $row->start_at ),
-			'end_at'      => $row->end_at ? self::format_datetime( $row->end_at ) : null,
-			'all_day'     => (bool) $row->all_day,
-			'location'    => (string) $row->location,
-			'source'      => (string) $row->source,
-			'source_id'   => (string) $row->source_id,
-			'category'    => (string) $row->category,
-			'priority'    => (int) $row->priority,
-			'status'      => (string) $row->status,
-			'meta'        => $meta,
-			'created_at'  => self::format_datetime( $row->created_at ),
-			'updated_at'  => self::format_datetime( $row->updated_at ),
+			'id'               => (int) $row->id,
+			'event_type'       => (string) $row->event_type,
+			'title'            => (string) $row->title,
+			'description'      => (string) $row->description,
+			'start_at'         => self::format_datetime( $row->start_at ),
+			'end_at'           => $row->end_at ? self::format_datetime( $row->end_at ) : null,
+			'all_day'          => (bool) $row->all_day,
+			'location'         => (string) $row->location,
+			'meeting_url'      => (string) ( $row->meeting_url ?? '' ),
+			'meeting_platform' => (string) ( $row->meeting_platform ?? '' ),
+			'recurrence'       => (string) ( $row->recurrence ?? '' ),
+			'recurrence_end'   => ! empty( $row->recurrence_end ) ? (string) $row->recurrence_end : null,
+			'parent_event_id'  => ! empty( $row->parent_event_id ) ? (int) $row->parent_event_id : null,
+			'source'           => (string) $row->source,
+			'source_id'        => (string) $row->source_id,
+			'category'         => (string) $row->category,
+			'priority'         => (int) $row->priority,
+			'status'           => (string) $row->status,
+			'meta'             => $meta,
+			'created_at'       => self::format_datetime( $row->created_at ),
+			'updated_at'       => self::format_datetime( $row->updated_at ),
 		);
 	}
 
@@ -374,6 +384,30 @@ class MMED_Calendar_Engine {
 
 		if ( array_key_exists( 'location', $raw ) ) {
 			$payload['location'] = sanitize_text_field( $raw['location'] );
+		}
+
+		if ( array_key_exists( 'meeting_url', $raw ) ) {
+			$payload['meeting_url'] = esc_url_raw( $raw['meeting_url'] );
+		}
+
+		if ( array_key_exists( 'meeting_platform', $raw ) ) {
+			$payload['meeting_platform'] = self::sanitize_enum(
+				$raw['meeting_platform'],
+				array( 'webex', 'zoom', 'google_meet', 'teams', '' ),
+				''
+			);
+		}
+
+		if ( array_key_exists( 'recurrence', $raw ) ) {
+			$payload['recurrence'] = sanitize_text_field( $raw['recurrence'] );
+		}
+
+		if ( array_key_exists( 'recurrence_end', $raw ) ) {
+			$payload['recurrence_end'] = self::sanitize_datetime( $raw['recurrence_end'], false );
+		}
+
+		if ( array_key_exists( 'parent_event_id', $raw ) ) {
+			$payload['parent_event_id'] = absint( $raw['parent_event_id'] ) ?: null;
 		}
 
 		if ( array_key_exists( 'source', $raw ) ) {
@@ -533,7 +567,7 @@ class MMED_Calendar_Engine {
 	 * @return array
 	 */
 	protected static function event_types() {
-		return array( 'appointment', 'deadline', 'study_block', 'milestone', 'exam', 'interview', 'general' );
+		return array( 'appointment', 'deadline', 'study_block', 'milestone', 'exam', 'interview', 'general', 'drill_step1', 'drill_step23', 'mr_session', 'mock_interview', 'nrmp_date', 'rotation', 'arena_event', 'custom' );
 	}
 
 	/**
@@ -542,7 +576,7 @@ class MMED_Calendar_Engine {
 	 * @return array
 	 */
 	protected static function sources() {
-		return array( 'manual', 'ssa', 'learndash', 'system', 'advisor' );
+		return array( 'manual', 'ssa', 'learndash', 'system', 'advisor', 'enrollment', 'admin' );
 	}
 
 	/**
@@ -552,5 +586,57 @@ class MMED_Calendar_Engine {
 	 */
 	protected static function statuses() {
 		return array( 'active', 'completed', 'cancelled' );
+	}
+
+	/**
+	 * Built-in category config with colors and icons.
+	 *
+	 * @return array
+	 */
+	public static function category_config() {
+		return array(
+			'drill_step1'    => array( 'label' => "Dr. J's Drills (Step/Level 1)", 'color' => '#0e75a8', 'icon' => 'microscope' ),
+			'drill_step23'   => array( 'label' => "Dr. J's Drills (Step/Level 2/3)", 'color' => '#17a3cf', 'icon' => 'stethoscope' ),
+			'mr_session'     => array( 'label' => 'Mission Residency Sessions', 'color' => '#d9b85b', 'icon' => 'target' ),
+			'mock_interview' => array( 'label' => 'Mock Interviews', 'color' => '#f06b2f', 'icon' => 'microphone' ),
+			'nrmp_date'      => array( 'label' => 'NRMP / Application Dates', 'color' => '#d95c5c', 'icon' => 'clipboard' ),
+			'rotation'       => array( 'label' => 'Rotations / Clinicals', 'color' => '#36c071', 'icon' => 'hospital' ),
+			'arena_event'    => array( 'label' => 'Arena Events', 'color' => '#8b5cf6', 'icon' => 'lightning' ),
+			'study_block'    => array( 'label' => 'Study Blocks', 'color' => '#4a6a82', 'icon' => 'book' ),
+			'appointment'    => array( 'label' => 'Appointments', 'color' => '#f7f2e5', 'icon' => 'calendar' ),
+			'general'        => array( 'label' => 'General', 'color' => '#8ca0b2', 'icon' => 'dot' ),
+		);
+	}
+
+	/**
+	 * Bulk create events (admin use).
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function bulk_create_events( $request ) {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			return new WP_Error( 'mmed_forbidden', 'Admin access required.', array( 'status' => 403 ) );
+		}
+
+		$items   = $request->get_param( 'events' );
+		$created = array();
+
+		if ( ! is_array( $items ) ) {
+			return new WP_Error( 'mmed_invalid_payload', 'Events array required.', array( 'status' => 400 ) );
+		}
+
+		foreach ( $items as $item ) {
+			$sub_request = new WP_REST_Request( 'POST', '/mmed/v1/events' );
+			$sub_request->set_body_params( is_array( $item ) ? $item : array() );
+			$result = self::create_event( $sub_request );
+
+			if ( ! is_wp_error( $result ) ) {
+				$data      = $result->get_data();
+				$created[] = $data;
+			}
+		}
+
+		return new WP_REST_Response( array( 'created' => count( $created ), 'events' => $created ), 201 );
 	}
 }

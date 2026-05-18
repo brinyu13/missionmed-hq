@@ -1,6 +1,6 @@
 <?php
 /**
- * MissionMed Hub Page Handler — Multi-Division LearnDash Command Center.
+ * MissionMed Hub Page Handler - Multi-Division LearnDash Command Center.
  *
  * @package MissionMed_Hub
  */
@@ -2613,13 +2613,13 @@ class MMED_Hub_Page {
 		$base      = wp_date( 'M d, Y', $timestamp );
 
 		if ( $days_left < 0 ) {
-			return $base . ' — overdue by ' . abs( $days_left ) . ' day' . ( abs( $days_left ) === 1 ? '' : 's' );
+			return $base . ' - overdue by ' . abs( $days_left ) . ' day' . ( abs( $days_left ) === 1 ? '' : 's' );
 		}
 		if ( 0 === $days_left ) {
-			return $base . ' — due today';
+			return $base . ' - due today';
 		}
 		if ( $days_left <= 5 ) {
-			return $base . ' — due in ' . $days_left . ' day' . ( 1 === $days_left ? '' : 's' );
+			return $base . ' - due in ' . $days_left . ' day' . ( 1 === $days_left ? '' : 's' );
 		}
 
 		return $base;

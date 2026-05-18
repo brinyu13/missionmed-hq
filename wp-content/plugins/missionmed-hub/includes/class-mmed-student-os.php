@@ -64,6 +64,25 @@ class MMED_Student_OS {
 			file_exists( $js_path ) ? (string) filemtime( $js_path ) : MMED_HUB_VERSION,
 			true
 		);
+
+		/* Calendar v4 override (loads after student-os.js) */
+		$cal4_css = MMED_HUB_PATH . 'assets/student-os-calendar-v4.css';
+		$cal4_js  = MMED_HUB_PATH . 'assets/student-os-calendar-v4.js';
+
+		wp_enqueue_style(
+			'mmed-student-os-cal4-css',
+			MMED_HUB_URL . 'assets/student-os-calendar-v4.css',
+			array( 'mmed-student-os-css' ),
+			file_exists( $cal4_css ) ? (string) filemtime( $cal4_css ) : MMED_HUB_VERSION
+		);
+
+		wp_enqueue_script(
+			'mmed-student-os-cal4-js',
+			MMED_HUB_URL . 'assets/student-os-calendar-v4.js',
+			array( 'mmed-student-os-js' ),
+			file_exists( $cal4_js ) ? (string) filemtime( $cal4_js ) : MMED_HUB_VERSION,
+			true
+		);
 	}
 
 	/**
@@ -104,6 +123,13 @@ class MMED_Student_OS {
 			'profile' => self::get_profile_data( $user_id ),
 			'stats'   => self::get_shell_stats( $user_id ),
 			'modules' => self::get_active_modules(),
+			'access'  => class_exists( 'MMED_Access_Gate' ) ? MMED_Access_Gate::get_access_payload( $user_id ) : array(
+				'tier'          => 'enrolled',
+				'free_modules'  => array( 'dashboard', 'arena' ),
+				'is_enrolled'   => true,
+				'enrolled_courses' => array(),
+				'promo_courses' => array(),
+			),
 			'ssa'     => class_exists( 'MMED_SSA_Adapter' ) ? MMED_SSA_Adapter::status() : array(
 				'active'      => false,
 				'enabled'     => false,

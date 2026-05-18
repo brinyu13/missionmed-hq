@@ -1,0 +1,276 @@
+.mmed-session-admin {
+	max-width: 1320px;
+	position: relative;
+}
+
+.mmed-session-header {
+	align-items: center;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	display: flex;
+	justify-content: space-between;
+	margin: 20px 0;
+	padding: 22px 24px;
+}
+
+.mmed-session-header h1 {
+	font-size: 28px;
+	line-height: 1.2;
+	margin: 0 0 6px;
+}
+
+.mmed-session-header p {
+	color: #50575e;
+	font-size: 14px;
+	margin: 0;
+}
+
+.mmed-session-eyebrow {
+	color: #2271b1 !important;
+	font-size: 11px !important;
+	font-weight: 700;
+	letter-spacing: 0;
+	margin-bottom: 6px !important;
+	text-transform: uppercase;
+}
+
+.mmed-session-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+	overflow: hidden;
+}
+
+.mmed-session-card-head {
+	align-items: center;
+	border-bottom: 1px solid #dcdcde;
+	display: flex;
+	justify-content: space-between;
+	padding: 16px 18px;
+}
+
+.mmed-session-card-head h2 {
+	font-size: 18px;
+	margin: 0;
+}
+
+.mmed-session-table-wrap {
+	overflow-x: auto;
+}
+
+.mmed-session-table th,
+.mmed-session-table td {
+	vertical-align: middle;
+}
+
+.mmed-session-table td {
+	padding-bottom: 14px;
+	padding-top: 14px;
+}
+
+.mmed-session-sub {
+	color: #646970;
+	display: block;
+	font-size: 12px;
+	margin-top: 4px;
+}
+
+.mmed-session-platform {
+	background: #f0f6fc;
+	border: 1px solid #c5d9ed;
+	border-radius: 999px;
+	color: #0a4b78;
+	display: inline-block;
+	font-size: 12px;
+	font-weight: 600;
+	padding: 3px 9px;
+}
+
+.mmed-session-url {
+	display: inline-block;
+	font-family: Consolas, Monaco, monospace;
+	max-width: 280px;
+	vertical-align: middle;
+}
+
+.mmed-session-copy {
+	margin-left: 8px;
+}
+
+.mmed-session-toggle {
+	font-weight: 700;
+}
+
+.mmed-session-toggle.is-active {
+	color: #008a20;
+}
+
+.mmed-session-toggle.is-inactive {
+	color: #8c8f94;
+}
+
+.mmed-session-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.mmed-session-loading,
+.mmed-session-empty {
+	color: #646970;
+	padding: 28px;
+}
+
+.mmed-session-loading .spinner {
+	float: none;
+	margin: 0 8px 0 0;
+	vertical-align: middle;
+}
+
+.mmed-session-modal {
+	bottom: 0;
+	left: 0;
+	position: fixed;
+	right: 0;
+	top: 0;
+	z-index: 100000;
+}
+
+.mmed-session-backdrop {
+	background: rgba(0, 0, 0, 0.42);
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	right: 0;
+	top: 0;
+}
+
+.mmed-session-dialog {
+	background: #fff;
+	border-left: 1px solid #c3c4c7;
+	bottom: 0;
+	box-shadow: -8px 0 30px rgba(0, 0, 0, 0.18);
+	display: flex;
+	flex-direction: column;
+	max-width: 720px;
+	position: absolute;
+	right: 0;
+	top: 0;
+	width: min(720px, 100%);
+}
+
+.mmed-session-dialog-head {
+	align-items: center;
+	border-bottom: 1px solid #dcdcde;
+	display: flex;
+	justify-content: space-between;
+	padding: 18px 22px;
+}
+
+.mmed-session-dialog-head h2 {
+	font-size: 20px;
+	margin: 0;
+}
+
+.mmed-session-form-grid {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	overflow: auto;
+	padding: 22px;
+}
+
+.mmed-session-form-grid label {
+	color: #1d2327;
+	display: flex;
+	flex-direction: column;
+	font-weight: 600;
+	gap: 6px;
+}
+
+.mmed-session-form-grid input,
+.mmed-session-form-grid select,
+.mmed-session-form-grid textarea {
+	max-width: none;
+	width: 100%;
+}
+
+.mmed-session-span {
+	grid-column: 1 / -1;
+}
+
+.mmed-session-inline-field {
+	display: flex;
+	gap: 8px;
+}
+
+.mmed-session-inline-field input {
+	flex: 1;
+}
+
+.mmed-session-check {
+	align-items: center;
+	flex-direction: row !important;
+	gap: 8px !important;
+}
+
+.mmed-session-check input {
+	width: auto;
+}
+
+.mmed-session-dialog-actions {
+	align-items: center;
+	border-top: 1px solid #dcdcde;
+	display: flex;
+	justify-content: space-between;
+	margin-top: auto;
+	padding: 16px 22px;
+}
+
+.mmed-session-toast-tray {
+	position: fixed;
+	right: 24px;
+	top: 48px;
+	z-index: 100001;
+}
+
+.mmed-session-toast {
+	background: #fff;
+	border-left: 4px solid #00a32a;
+	box-shadow: 0 3px 18px rgba(0, 0, 0, 0.16);
+	color: #1d2327;
+	margin-bottom: 10px;
+	min-width: 260px;
+	padding: 12px 14px;
+	transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.mmed-session-toast.is-error {
+	border-left-color: #d63638;
+}
+
+.mmed-session-toast.is-hiding {
+	opacity: 0;
+	transform: translateY(-6px);
+}
+
+@media (max-width: 782px) {
+	.mmed-session-header,
+	.mmed-session-card-head,
+	.mmed-session-dialog-actions {
+		align-items: stretch;
+		flex-direction: column;
+		gap: 12px;
+	}
+
+	.mmed-session-form-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.mmed-session-inline-field {
+		flex-direction: column;
+	}
+}

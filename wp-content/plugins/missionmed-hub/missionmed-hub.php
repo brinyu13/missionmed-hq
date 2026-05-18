@@ -110,6 +110,8 @@ require_once MMED_HUB_PATH . 'includes/class-mmed-file-upload.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-user-meta.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-notifications.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-access-audit.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-access-gate.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-session-manager.php';
 
 if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-student-os.php';
@@ -122,9 +124,12 @@ if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-lor-writer.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-arena.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-ssa-adapter.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-todo-engine.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-calendar-enrollment.php';
 }
 
 MMED_Access_Audit::init();
+MMED_Access_Gate::init();
 
 /* ── Activation ───────────────────────────────────────────────────── */
 register_activation_hook( __FILE__, 'mmed_hub_activate' );
@@ -185,6 +190,9 @@ if ( class_exists( 'MMED_Student_OS' ) ) {
 if ( class_exists( 'MMED_Calendar_Engine' ) ) {
     add_action( 'init', array( 'MMED_Calendar_Engine', 'init' ) );
 }
+if ( class_exists( 'MMED_Session_Manager' ) ) {
+    add_action( 'init', array( 'MMED_Session_Manager', 'init' ) );
+}
 if ( class_exists( 'MMED_File_Vault' ) ) {
     add_action( 'init', array( 'MMED_File_Vault', 'init' ) );
 }
@@ -205,6 +213,10 @@ if ( class_exists( 'MMED_Arena' ) ) {
 }
 if ( class_exists( 'MMED_SSA_Adapter' ) ) {
     add_action( 'init', array( 'MMED_SSA_Adapter', 'init' ) );
+}
+if ( class_exists( 'MMED_Todo_Engine' ) ) {
+    add_action( 'init', array( 'MMED_Todo_Engine', 'init' ) );
+    add_action( 'init', array( 'MMED_Calendar_Enrollment', 'init' ) );
 }
 if ( class_exists( 'MMED_REST_API' ) ) {
     MMED_REST_API::init();
@@ -236,7 +248,7 @@ add_action( 'wp_ajax_mmed_quick_status',  array( 'MMED_Task_CPT',    'ajax_quick
 /* Enrollment automation hook */
 add_action( 'mmed_enrollment_complete', array( 'MMED_Templates', 'on_enrollment_complete' ), 10, 2 );
 
-/* WooCommerce order hook — fallback if Automator not available */
+/* WooCommerce order hook - fallback if Automator not available */
 add_action( 'woocommerce_order_status_completed',  'mmed_woo_order_complete' );
 add_action( 'woocommerce_order_status_processing', 'mmed_woo_order_complete' );
 
@@ -579,6 +591,34 @@ function mmed_woo_order_complete( $order_id ) {
 
 /* ── Settings Page ────────────────────────────────────────────────── */
 function mmed_hub_admin_menu() {
+    add_menu_page(
+        'MissionMed Hub',
+        'MissionMed Hub',
+        'manage_options',
+        'missionmed-hub',
+        'mmed_hub_settings_page',
+        'dashicons-heart',
+        58
+    );
+
+    add_submenu_page(
+        'missionmed-hub',
+        'MissionMed Hub Settings',
+        'Settings',
+        'manage_options',
+        'missionmed-hub',
+        'mmed_hub_settings_page'
+    );
+
+    add_submenu_page(
+        'missionmed-hub',
+        'Session Manager',
+        'Live Sessions',
+        'manage_options',
+        'mmed-sessions',
+        'mmed_render_session_admin'
+    );
+
     add_options_page(
         'MissionMed Hub Settings',
         'MissionMed Hub',
@@ -586,6 +626,64 @@ function mmed_hub_admin_menu() {
         'mmed-hub-settings',
         'mmed_hub_settings_page'
     );
+}
+
+function mmed_render_session_admin() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    wp_enqueue_script(
+        'mmed-session-manager',
+        MMED_HUB_URL . 'assets/admin-session-manager.js',
+        array( 'jquery', 'wp-api-fetch' ),
+        MMED_HUB_VERSION,
+        true
+    );
+
+    wp_enqueue_style(
+        'mmed-session-manager',
+        MMED_HUB_URL . 'assets/admin-session-manager.css',
+        array(),
+        MMED_HUB_VERSION
+    );
+
+    wp_localize_script(
+        'mmed-session-manager',
+        'mmedSessionAdmin',
+        array(
+            'restUrl'     => rest_url( 'mmed/v1/admin/sessions' ),
+            'nonce'       => wp_create_nonce( 'wp_rest' ),
+            'instructors' => mmed_session_admin_instructors(),
+            'days'        => array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ),
+            'platforms'   => array( 'webex', 'zoom', 'google_meet', 'teams' ),
+            'eventTypes'  => array( 'mr_session', 'drill_step1', 'drill_step23', 'mock_interview', 'study_block', 'general', 'custom' ),
+        )
+    );
+
+    echo '<div class="wrap"><div id="mmed-session-manager-root"></div></div>';
+}
+
+function mmed_session_admin_instructors() {
+    $instructors = array();
+    $users       = get_users(
+        array(
+            'orderby' => 'display_name',
+            'order'   => 'ASC',
+        )
+    );
+
+    foreach ( $users as $user ) {
+        if ( user_can( $user, 'manage_options' ) ) {
+            $instructors[] = array(
+                'id'    => (int) $user->ID,
+                'name'  => $user->display_name,
+                'email' => $user->user_email,
+            );
+        }
+    }
+
+    return $instructors;
 }
 
 function mmed_hub_settings_page() {
@@ -718,7 +816,7 @@ function mmed_hub_settings_page() {
                     <th><label for="mmed_reviewer_residency">Default Reviewer (Residency)</label></th>
                     <td>
                         <select id="mmed_reviewer_residency" name="mmed_reviewer_residency">
-                            <option value="0">— Select —</option>
+                            <option value="0">- Select -</option>
                             <?php foreach ( $reviewers as $u ) : ?>
                                 <option value="<?php echo esc_attr( $u->ID ); ?>" <?php selected( $rev_res, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?> (ID: <?php echo esc_html( $u->ID ); ?>)</option>
                             <?php endforeach; ?>
@@ -729,7 +827,7 @@ function mmed_hub_settings_page() {
                     <th><label for="mmed_reviewer_clinicals">Default Reviewer (Clinicals)</label></th>
                     <td>
                         <select id="mmed_reviewer_clinicals" name="mmed_reviewer_clinicals">
-                            <option value="0">— Select —</option>
+                            <option value="0">- Select -</option>
                             <?php foreach ( $reviewers as $u ) : ?>
                                 <option value="<?php echo esc_attr( $u->ID ); ?>" <?php selected( $rev_clin, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?> (ID: <?php echo esc_html( $u->ID ); ?>)</option>
                             <?php endforeach; ?>
@@ -740,7 +838,7 @@ function mmed_hub_settings_page() {
                     <th><label for="mmed_reviewer_usmle">Default Reviewer (USMLE)</label></th>
                     <td>
                         <select id="mmed_reviewer_usmle" name="mmed_reviewer_usmle">
-                            <option value="0">— Select —</option>
+                            <option value="0">- Select -</option>
                             <?php foreach ( $reviewers as $u ) : ?>
                                 <option value="<?php echo esc_attr( $u->ID ); ?>" <?php selected( $rev_usmle, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?> (ID: <?php echo esc_html( $u->ID ); ?>)</option>
                             <?php endforeach; ?>
