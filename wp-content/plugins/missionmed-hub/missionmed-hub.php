@@ -112,6 +112,7 @@ require_once MMED_HUB_PATH . 'includes/class-mmed-notifications.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-access-audit.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-access-gate.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-session-manager.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-webex-client.php';
 
 if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-student-os.php';
@@ -165,6 +166,15 @@ function mmed_hub_activate() {
             update_option( $option_key, mmed_hub_default_option_value( $option_key ) );
         }
     }
+
+    if ( class_exists( 'MMED_Session_Manager' ) ) {
+        MMED_Session_Manager::maybe_install();
+        MMED_Session_Manager::seed_defaults();
+    }
+
+    if ( class_exists( 'MMED_Webex_Client' ) ) {
+        MMED_Webex_Client::seed_default_credentials();
+    }
 }
 
 /* ── Deactivation ─────────────────────────────────────────────────── */
@@ -192,6 +202,9 @@ if ( class_exists( 'MMED_Calendar_Engine' ) ) {
 }
 if ( class_exists( 'MMED_Session_Manager' ) ) {
     add_action( 'init', array( 'MMED_Session_Manager', 'init' ) );
+}
+if ( class_exists( 'MMED_Webex_Client' ) ) {
+    add_action( 'init', array( 'MMED_Webex_Client', 'init' ) );
 }
 if ( class_exists( 'MMED_File_Vault' ) ) {
     add_action( 'init', array( 'MMED_File_Vault', 'init' ) );
@@ -653,11 +666,13 @@ function mmed_render_session_admin() {
         'mmedSessionAdmin',
         array(
             'restUrl'     => rest_url( 'mmed/v1/admin/sessions' ),
+            'webexRestUrl' => rest_url( 'mmed/v1/admin/webex' ),
             'nonce'       => wp_create_nonce( 'wp_rest' ),
             'instructors' => mmed_session_admin_instructors(),
             'days'        => array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ),
             'platforms'   => array( 'webex', 'zoom', 'google_meet', 'teams' ),
             'eventTypes'  => array( 'mr_session', 'drill_step1', 'drill_step23', 'mock_interview', 'study_block', 'general', 'custom' ),
+            'webexSettings' => class_exists( 'MMED_Webex_Client' ) ? MMED_Webex_Client::get_admin_settings() : array(),
         )
     );
 

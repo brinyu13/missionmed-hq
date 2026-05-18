@@ -554,6 +554,222 @@ class MMED_Session_Manager {
 	}
 
 	/**
+	 * Auto-create a Webex meeting for a session group.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function auto_create_webex_meeting( $request ) {
+		if ( ! class_exists( 'MMED_Webex_Client' ) ) {
+			return new WP_Error( 'webex_missing', 'Webex client is not available.', array( 'status' => 500 ) );
+		}
+
+		$group_id = absint( $request['id'] );
+		$group    = self::get_group_by_id( $group_id );
+
+		if ( ! $group || 'webex' !== $group->meeting_platform ) {
+			return new WP_Error( 'invalid_group', 'Session group not found or not using Webex.', array( 'status' => 400 ) );
+		}
+
+		$recurrence = self::build_rrule( $group );
+		$dates      = self::get_weekly_dates( $group->day_of_week, $group->recurrence_start, $group->recurrence_end );
+		$first_date = ! empty( $dates[0] ) ? $dates[0] : $group->recurrence_start;
+
+		$start_datetime = $first_date . 'T' . $group->start_time;
+		$end_datetime   = $first_date . 'T' . $group->end_time;
+
+		$meeting = MMED_Webex_Client::create_meeting(
+			array(
+				'title'      => $group->group_name,
+				'start'      => $start_datetime,
+				'end'        => $end_datetime,
+				'timezone'   => 'America/New_York',
+				'recurrence' => $recurrence,
+			)
+		);
+
+		if ( is_wp_error( $meeting ) ) {
+			return $meeting;
+		}
+
+		global $wpdb;
+
+		$meta = self::decode_meta( $group->meta_json );
+		if ( ! empty( $meeting['sipAddress'] ) ) {
+			$meta['sip_address'] = sanitize_text_field( $meeting['sipAddress'] );
+		}
+		if ( ! empty( $meeting['meetingNumber'] ) ) {
+			$meta['meeting_number'] = sanitize_text_field( $meeting['meetingNumber'] );
+		}
+		if ( ! empty( $meeting['webLink'] ) ) {
+			$meta['web_link'] = esc_url_raw( $meeting['webLink'] );
+		}
+
+		$wpdb->update(
+			self::table_name(),
+			array(
+				'webex_meeting_id' => sanitize_text_field( $meeting['id'] ?? '' ),
+				'meeting_url'      => esc_url_raw( $meeting['webLink'] ?? '' ),
+				'meta_json'        => wp_json_encode( self::sanitize_meta( $meta ) ),
+				'updated_at'       => current_time( 'mysql' ),
+			),
+			array( 'id' => $group_id ),
+			array( '%s', '%s', '%s', '%s' ),
+			array( '%d' )
+		);
+
+		$propagated = self::do_propagate( $group_id );
+
+		return new WP_REST_Response(
+			array(
+				'meeting_id' => $meeting['id'] ?? '',
+				'join_url'   => $meeting['webLink'] ?? '',
+				'sip'        => $meeting['sipAddress'] ?? '',
+				'propagated' => $propagated,
+			),
+			201
+		);
+	}
+
+	/**
+	 * Invite all enrolled students to a session group's Webex meeting.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function invite_enrolled_students( $request ) {
+		if ( ! class_exists( 'MMED_Webex_Client' ) ) {
+			return new WP_Error( 'webex_missing', 'Webex client is not available.', array( 'status' => 500 ) );
+		}
+
+		$group_id = absint( $request['id'] );
+		$group    = self::get_group_by_id( $group_id );
+
+		if ( ! $group || empty( $group->webex_meeting_id ) ) {
+			return new WP_Error( 'no_meeting', 'No Webex meeting exists for this group.', array( 'status' => 400 ) );
+		}
+
+		$students = self::get_enrolled_students( $group->enrollment_template );
+
+		if ( empty( $students ) ) {
+			return new WP_REST_Response(
+				array(
+					'invited' => 0,
+					'errors'  => array(),
+					'total'   => 0,
+					'message' => 'No enrolled students found for this template.',
+				),
+				200
+			);
+		}
+
+		$attendees = array();
+		foreach ( $students as $student ) {
+			$attendees[] = array(
+				'email'       => $student->user_email,
+				'displayName' => $student->display_name,
+			);
+		}
+
+		$results = MMED_Webex_Client::invite_attendees_batch( $group->webex_meeting_id, $attendees );
+
+		return new WP_REST_Response(
+			array(
+				'invited' => $results['invited'],
+				'errors'  => $results['errors'],
+				'total'   => count( $students ),
+			),
+			200
+		);
+	}
+
+	/**
+	 * Get join info for a student viewing a calendar event.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public static function get_join_info( $request ) {
+		$event_id = absint( $request['event_id'] );
+
+		if ( ! class_exists( 'MMED_Calendar_Engine' ) ) {
+			return new WP_Error( 'no_engine', 'Calendar engine not available.', array( 'status' => 500 ) );
+		}
+
+		global $wpdb;
+
+		$table = MMED_Calendar_Engine::table_name();
+		$event = $wpdb->get_row(
+			$wpdb->prepare(
+				"SELECT * FROM {$table} WHERE id = %d AND user_id = %d",
+				$event_id,
+				get_current_user_id()
+			)
+		);
+
+		if ( ! $event ) {
+			return new WP_Error( 'not_found', 'Event not found.', array( 'status' => 404 ) );
+		}
+
+		$now       = current_time( 'timestamp' );
+		$start_ts  = strtotime( $event->start_at );
+		$end_ts    = ! empty( $event->end_at ) ? strtotime( $event->end_at ) : $start_ts + HOUR_IN_SECONDS;
+		$can_join  = ( $now >= $start_ts - 15 * MINUTE_IN_SECONDS ) && ( $now <= $end_ts );
+		$starts_in = max( 0, round( ( $start_ts - $now ) / 60 ) );
+
+		$widget_enabled = ! empty( get_option( 'mmed_webex_service_app_id', '' ) )
+			&& ! empty( get_option( 'mmed_webex_service_app_secret', '' ) );
+
+		$meta = json_decode( $event->meta_json ?? '{}', true );
+		$meta = is_array( $meta ) ? $meta : array();
+		$sip  = $meta['sip_address'] ?? '';
+
+		if ( empty( $sip ) ) {
+			$group = self::get_group_by_event( $event->event_type, $event->title );
+			if ( $group ) {
+				$group_meta = self::decode_meta( $group->meta_json );
+				$sip        = $group_meta['sip_address'] ?? '';
+			}
+		}
+
+		return new WP_REST_Response(
+			array(
+				'event_id'          => (int) $event->id,
+				'title'             => $event->title,
+				'description'       => $event->description,
+				'start_at'          => $event->start_at,
+				'end_at'            => $event->end_at,
+				'meeting_url'       => $event->meeting_url,
+				'meeting_platform'  => $event->meeting_platform,
+				'sip_address'       => $sip,
+				'can_join'          => $can_join,
+				'starts_in_minutes' => (int) $starts_in,
+				'widget_enabled'    => $widget_enabled && 'webex' === $event->meeting_platform,
+			),
+			200
+		);
+	}
+
+	/**
+	 * Find a session group by event type and title.
+	 *
+	 * @param string $event_type Event type.
+	 * @param string $title      Event title.
+	 * @return object|null
+	 */
+	private static function get_group_by_event( $event_type, $title ) {
+		global $wpdb;
+
+		return $wpdb->get_row(
+			$wpdb->prepare(
+				'SELECT * FROM ' . self::table_name() . ' WHERE event_type = %s AND group_name = %s ORDER BY id ASC LIMIT 1',
+				sanitize_key( $event_type ),
+				sanitize_text_field( $title )
+			)
+		);
+	}
+
+	/**
 	 * Read JSON or form body parameters.
 	 *
 	 * @param WP_REST_Request $request REST request.

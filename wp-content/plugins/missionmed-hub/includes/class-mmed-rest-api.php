@@ -401,6 +401,98 @@ class MMED_REST_API {
 			)
 		);
 
+		/* -- Webex Integration (admin) -- */
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/webex/auth-url',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( 'MMED_Webex_Client', 'get_auth_url' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/webex/callback',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( 'MMED_Webex_Client', 'handle_oauth_callback' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/webex/status',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( 'MMED_Webex_Client', 'get_status' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/webex/settings',
+			array(
+				array(
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( 'MMED_Webex_Client', 'get_settings' ),
+					'permission_callback' => array( __CLASS__, 'can_manage' ),
+				),
+				array(
+					'methods'             => WP_REST_Server::CREATABLE,
+					'callback'            => array( 'MMED_Webex_Client', 'save_settings' ),
+					'permission_callback' => array( __CLASS__, 'can_manage' ),
+				),
+			)
+		);
+
+		/* -- Session Webex Actions (admin) -- */
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/sessions/(?P<id>\d+)/create-meeting',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( 'MMED_Session_Manager', 'auto_create_webex_meeting' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => self::id_args(),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/admin/sessions/(?P<id>\d+)/invite-students',
+			array(
+				'methods'             => WP_REST_Server::CREATABLE,
+				'callback'            => array( 'MMED_Session_Manager', 'invite_enrolled_students' ),
+				'permission_callback' => array( __CLASS__, 'can_manage' ),
+				'args'                => self::id_args(),
+			)
+		);
+
+		/* -- Webex Student Endpoints -- */
+		register_rest_route(
+			self::NAMESPACE,
+			'/webex/guest-token',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( 'MMED_Webex_Client', 'generate_guest_token' ),
+				'permission_callback' => array( __CLASS__, 'can_access' ),
+			)
+		);
+
+		register_rest_route(
+			self::NAMESPACE,
+			'/meetings/(?P<event_id>\d+)/join',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( 'MMED_Session_Manager', 'get_join_info' ),
+				'permission_callback' => array( __CLASS__, 'can_access' ),
+			)
+		);
+
 		/* ── Bulk Events (admin) ─────────────────────────────────── */
 		register_rest_route(
 			self::NAMESPACE,

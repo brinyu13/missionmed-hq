@@ -6,7 +6,11 @@
 	var state = {
 		groups: [],
 		loading: false,
-		editing: null
+		editing: null,
+		webexStatus: {
+			status: "checking",
+			host_email: ""
+		}
 	};
 
 	if (!root) {
@@ -33,7 +37,11 @@
 		return String(config.restUrl || "").replace(/\/$/, "");
 	}
 
-	function api(path, options) {
+	function webexBaseUrl() {
+		return String(config.webexRestUrl || "").replace(/\/$/, "");
+	}
+
+	function requestUrl(url, path, options) {
 		options = options || {};
 		options.credentials = "same-origin";
 		options.headers = options.headers || {};
@@ -44,7 +52,7 @@
 			options.body = JSON.stringify(options.body);
 		}
 
-		return fetch(baseUrl() + path, options).then(function (response) {
+		return fetch(url + path, options).then(function (response) {
 			return response.json().then(function (payload) {
 				if (!response.ok) {
 					throw new Error(payload && payload.message ? payload.message : "Request failed");
@@ -53,6 +61,14 @@
 				return payload;
 			});
 		});
+	}
+
+	function api(path, options) {
+		return requestUrl(baseUrl(), path, options);
+	}
+
+	function webexApi(path, options) {
+		return requestUrl(webexBaseUrl(), path, options);
 	}
 
 	function toast(message, type) {
@@ -169,6 +185,7 @@
 			"</div>",
 			'<button type="button" class="button button-primary" data-add-group>Add Session Group</button>',
 			"</div>",
+			renderWebexPanel(),
 			'<div class="mmed-session-card">',
 			'<div class="mmed-session-card-head">',
 			'<h2>Session Groups</h2>',
@@ -184,6 +201,38 @@
 		bind();
 	}
 
+	function renderWebexPanel() {
+		var settings = config.webexSettings || {};
+		var status = state.webexStatus.status || "checking";
+		var statusLabel = status === "connected" ? "Connected" : (status === "checking" ? "Checking" : "Disconnected");
+		var statusClass = status === "connected" ? "is-connected" : (status === "checking" ? "is-checking" : "is-disconnected");
+		var host = state.webexStatus.host_email || settings.host_email || "";
+
+		return [
+			'<div class="mmed-session-card mmed-webex-card">',
+			'<div class="mmed-session-card-head">',
+			"<div>",
+			"<h2>Webex Settings</h2>",
+			'<p class="mmed-session-muted">Integration credentials are pre-populated. Connect the Webex host account before generating meetings.</p>',
+			"</div>",
+			'<span class="mmed-webex-status ' + statusClass + '">' + esc(statusLabel) + (host ? ": " + esc(host) : "") + "</span>",
+			"</div>",
+			'<form class="mmed-webex-settings" data-webex-settings-form>',
+			'<label>Integration Client ID<input name="mmed_webex_client_id" value="' + attr(settings.mmed_webex_client_id) + '"></label>',
+			'<label>Integration Client Secret<input name="mmed_webex_client_secret" value="' + attr(settings.mmed_webex_client_secret) + '"></label>',
+			'<label>Service App Client ID<input name="mmed_webex_service_app_id" value="' + attr(settings.mmed_webex_service_app_id) + '"></label>',
+			'<label>Service App Client Secret<input name="mmed_webex_service_app_secret" value="' + attr(settings.mmed_webex_service_app_secret) + '"></label>',
+			'<label class="mmed-webex-wide">OAuth Redirect URI<input value="' + attr(settings.redirect_uri) + '" readonly></label>',
+			'<div class="mmed-webex-actions">',
+			'<button type="submit" class="button button-primary">Save Settings</button>',
+			'<button type="button" class="button" data-connect-webex>Connect Webex Account</button>',
+			'<button type="button" class="button" data-refresh-webex-status>Refresh Status</button>',
+			"</div>",
+			"</form>",
+			"</div>"
+		].join("");
+	}
+
 	function renderTable() {
 		if (state.loading) {
 			return '<div class="mmed-session-loading"><span class="spinner is-active"></span> Loading session groups...</div>';
@@ -196,6 +245,20 @@
 		var rows = state.groups.map(function (group) {
 			var url = group.meeting_url || "";
 			var statusClass = group.is_active ? "is-active" : "is-inactive";
+			var webexConnected = state.webexStatus.status === "connected";
+			var isWebex = group.meeting_platform === "webex";
+			var hasMeeting = !!group.webex_meeting_id;
+			var webexActions = "";
+
+			if (isWebex && webexConnected && !hasMeeting) {
+				webexActions += '<button type="button" class="button button-primary" data-create-meeting="' + group.id + '">Generate Webex Meeting</button>';
+				webexActions += '<button type="button" class="button" data-create-invite="' + group.id + '">Create + Invite</button>';
+			}
+
+			if (isWebex && hasMeeting) {
+				webexActions += '<button type="button" class="button" data-invite-students="' + group.id + '">Invite All Students</button>';
+			}
+
 			return [
 				'<tr class="' + statusClass + '">',
 				'<td><strong>' + esc(group.group_name) + '</strong><span class="mmed-session-sub">' + esc(group.group_slug) + '</span></td>',
@@ -207,6 +270,7 @@
 				'<td class="mmed-session-actions">',
 				'<button type="button" class="button" data-edit-group="' + group.id + '">Edit</button>',
 				'<button type="button" class="button" data-propagate-group="' + group.id + '">Propagate</button>',
+				webexActions,
 				"</td>",
 				"</tr>"
 			].join("");
@@ -245,6 +309,21 @@
 			refresh.addEventListener("click", loadGroups);
 		}
 
+		var webexForm = root.querySelector("[data-webex-settings-form]");
+		if (webexForm) {
+			webexForm.addEventListener("submit", saveWebexSettings);
+		}
+
+		var connect = root.querySelector("[data-connect-webex]");
+		if (connect) {
+			connect.addEventListener("click", connectWebex);
+		}
+
+		var refreshWebex = root.querySelector("[data-refresh-webex-status]");
+		if (refreshWebex) {
+			refreshWebex.addEventListener("click", loadWebexStatus);
+		}
+
 		root.querySelectorAll("[data-edit-group]").forEach(function (button) {
 			button.addEventListener("click", function () {
 				openModal(findGroup(button.getAttribute("data-edit-group")));
@@ -260,6 +339,24 @@
 		root.querySelectorAll("[data-propagate-group]").forEach(function (button) {
 			button.addEventListener("click", function () {
 				propagate(button.getAttribute("data-propagate-group"));
+			});
+		});
+
+		root.querySelectorAll("[data-create-meeting]").forEach(function (button) {
+			button.addEventListener("click", function () {
+				createMeeting(button.getAttribute("data-create-meeting"));
+			});
+		});
+
+		root.querySelectorAll("[data-invite-students]").forEach(function (button) {
+			button.addEventListener("click", function () {
+				inviteStudents(button.getAttribute("data-invite-students"));
+			});
+		});
+
+		root.querySelectorAll("[data-create-invite]").forEach(function (button) {
+			button.addEventListener("click", function () {
+				createAndInvite(button.getAttribute("data-create-invite"));
 			});
 		});
 
@@ -282,6 +379,65 @@
 			state.loading = false;
 			render();
 			toast(error.message || "Could not load session groups.", "error");
+		});
+	}
+
+	function loadWebexStatus() {
+		state.webexStatus = {
+			status: "checking",
+			host_email: state.webexStatus.host_email || ""
+		};
+		render();
+
+		webexApi("/status", { method: "GET" }).then(function (payload) {
+			state.webexStatus = payload || { status: "disconnected", host_email: "" };
+			render();
+		}).catch(function () {
+			state.webexStatus = { status: "disconnected", host_email: "" };
+			render();
+		});
+	}
+
+	function saveWebexSettings(event) {
+		event.preventDefault();
+		var form = event.currentTarget;
+		var submit = form.querySelector('[type="submit"]');
+		var data = new FormData(form);
+		var payload = {
+			mmed_webex_client_id: data.get("mmed_webex_client_id"),
+			mmed_webex_client_secret: data.get("mmed_webex_client_secret"),
+			mmed_webex_service_app_id: data.get("mmed_webex_service_app_id"),
+			mmed_webex_service_app_secret: data.get("mmed_webex_service_app_secret")
+		};
+
+		if (submit) {
+			submit.disabled = true;
+			submit.textContent = "Saving...";
+		}
+
+		webexApi("/settings", { method: "POST", body: payload }).then(function (result) {
+			config.webexSettings = result.settings || config.webexSettings || {};
+			toast("Webex settings saved.");
+			loadWebexStatus();
+		}).catch(function (error) {
+			toast(error.message || "Could not save Webex settings.", "error");
+		}).finally(function () {
+			if (submit) {
+				submit.disabled = false;
+				submit.textContent = "Save Settings";
+			}
+		});
+	}
+
+	function connectWebex() {
+		webexApi("/auth-url", { method: "GET" }).then(function (payload) {
+			if (payload && payload.auth_url) {
+				window.location.href = payload.auth_url;
+				return;
+			}
+			toast("No Webex authorization URL returned.", "error");
+		}).catch(function (error) {
+			toast(error.message || "Could not start Webex connection.", "error");
 		});
 	}
 
@@ -455,6 +611,64 @@
 		});
 	}
 
+	function setButtonLoading(selector, text) {
+		var button = root.querySelector(selector);
+		if (button) {
+			button.dataset.originalText = button.dataset.originalText || button.textContent;
+			button.disabled = true;
+			button.textContent = text;
+		}
+		return button;
+	}
+
+	function clearButtonLoading(button) {
+		if (button) {
+			button.disabled = false;
+			button.textContent = button.dataset.originalText || "Done";
+		}
+	}
+
+	function createMeeting(id) {
+		var button = setButtonLoading('[data-create-meeting="' + id + '"]', "Generating...");
+
+		return api("/" + id + "/create-meeting", { method: "POST", body: {} }).then(function (payload) {
+			toast("Webex meeting generated. Updated " + parseInt(payload.propagated || 0, 10) + " student calendar events.");
+			loadGroups();
+			return payload;
+		}).catch(function (error) {
+			toast(error.message || "Could not generate Webex meeting.", "error");
+			throw error;
+		}).finally(function () {
+			clearButtonLoading(button);
+		});
+	}
+
+	function inviteStudents(id) {
+		var button = setButtonLoading('[data-invite-students="' + id + '"]', "Inviting...");
+
+		return api("/" + id + "/invite-students", { method: "POST", body: {} }).then(function (payload) {
+			toast("Invited " + parseInt(payload.invited || 0, 10) + " of " + parseInt(payload.total || 0, 10) + " students.");
+			return payload;
+		}).catch(function (error) {
+			toast(error.message || "Could not invite students.", "error");
+			throw error;
+		}).finally(function () {
+			clearButtonLoading(button);
+		});
+	}
+
+	function createAndInvite(id) {
+		var button = setButtonLoading('[data-create-invite="' + id + '"]', "Working...");
+
+		createMeeting(id).then(function () {
+			return inviteStudents(id);
+		}).catch(function () {
+			/* Errors are already shown by the individual step. */
+		}).finally(function () {
+			clearButtonLoading(button);
+		});
+	}
+
 	function copyText(text) {
 		if (navigator.clipboard && navigator.clipboard.writeText) {
 			navigator.clipboard.writeText(text).then(function () {
@@ -470,4 +684,5 @@
 
 	render();
 	loadGroups();
+	loadWebexStatus();
 })();

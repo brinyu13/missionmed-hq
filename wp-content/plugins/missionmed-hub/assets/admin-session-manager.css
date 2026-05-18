@@ -44,6 +44,10 @@
 	overflow: hidden;
 }
 
+.mmed-webex-card {
+	margin-bottom: 20px;
+}
+
 .mmed-session-card-head {
 	align-items: center;
 	border-bottom: 1px solid #dcdcde;
@@ -55,6 +59,65 @@
 .mmed-session-card-head h2 {
 	font-size: 18px;
 	margin: 0;
+}
+
+.mmed-session-muted {
+	color: #646970;
+	margin: 6px 0 0;
+}
+
+.mmed-webex-status {
+	border-radius: 999px;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 700;
+	padding: 5px 10px;
+	white-space: nowrap;
+}
+
+.mmed-webex-status.is-connected {
+	background: #edfaef;
+	color: #008a20;
+}
+
+.mmed-webex-status.is-disconnected {
+	background: #fcf0f1;
+	color: #b32d2e;
+}
+
+.mmed-webex-status.is-checking {
+	background: #f6f7f7;
+	color: #50575e;
+}
+
+.mmed-webex-settings {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	padding: 18px;
+}
+
+.mmed-webex-settings label {
+	display: flex;
+	flex-direction: column;
+	font-weight: 600;
+	gap: 6px;
+}
+
+.mmed-webex-settings input {
+	max-width: none;
+	width: 100%;
+}
+
+.mmed-webex-wide,
+.mmed-webex-actions {
+	grid-column: 1 / -1;
+}
+
+.mmed-webex-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
 }
 
 .mmed-session-table-wrap {
@@ -267,6 +330,10 @@
 	}
 
 	.mmed-session-form-grid {
+		grid-template-columns: 1fr;
+	}
+
+	.mmed-webex-settings {
 		grid-template-columns: 1fr;
 	}
 
