@@ -59,6 +59,32 @@
   function fmtDate(dt) { if (!dt) return ""; var d = new Date(dt); return d.toLocaleDateString(undefined, {weekday:"short",month:"short",day:"numeric"}); }
   function fmtTimeRange(s, e) { return fmtTime(s) + (e ? " - " + fmtTime(e) : ""); }
   function daysBetween(a, b) { return Math.round((new Date(b) - new Date(a)) / 86400000); }
+  function meetingState(e) {
+    if (!e || !e.meeting_url || !e.meeting_platform || !e.start_at) return {state:"none", minutes:0};
+    var now = Date.now();
+    var start = new Date(e.start_at).getTime();
+    var end = e.end_at ? new Date(e.end_at).getTime() : start + 3600000;
+    if (!start || isNaN(start)) return {state:"none", minutes:0};
+    if (now >= start - 15 * 60000 && now <= end) return {state:"live", minutes:0};
+    if (now < start) {
+      var mins = Math.max(1, Math.ceil((start - now) / 60000));
+      return {state:mins <= 60 ? "soon" : "later", minutes:mins};
+    }
+    return {state:"past", minutes:0};
+  }
+  function renderMeetingCue(e, compact) {
+    var info = meetingState(e);
+    if (info.state === "live") {
+      return '<button type="button" class="mmed-event-join-live' + (compact ? " is-compact" : "") + '" data-live-event-id="' + e.id + '">Join Live</button>';
+    }
+    if (info.state === "soon") {
+      return '<span class="mmed-event-starts-soon' + (compact ? " is-compact" : "") + '">Starts in ' + info.minutes + ' min</span>';
+    }
+    if (info.state === "past") {
+      return '<span class="mmed-event-ended' + (compact ? " is-compact" : "") + '">Session Ended</span>';
+    }
+    return "";
+  }
 
   function loadCustomCategories() {
     try {
@@ -106,6 +132,46 @@
 
     /* Override render */
     app.render.calendar = function () { renderCalendarV4(app); };
+    installLiveSessionRoute(app);
+  }
+
+  function installLiveSessionRoute(app) {
+    if (!app || !app.router || app.router._mmedLiveSessionPatched) return;
+
+    var originalRoute = app.router.route.bind(app.router);
+    app.router._mmedLiveSessionPatched = true;
+
+    app.router.route = function () {
+      var raw = window.location.hash.replace(/^#\/?/, "") || "dashboard";
+      var match = raw.match(/^live-session\/(\d+)$/);
+
+      if (match) {
+        if (window.mmedLiveSessionView && typeof window.mmedLiveSessionView.destroy === "function") {
+          window.mmedLiveSessionView.destroy();
+        }
+
+        app.state.route = raw;
+        app.render.sidebar();
+
+        if (!window.LiveSessionView) {
+          var content = document.getElementById("sos-content");
+          if (content) content.innerHTML = '<section class="mmed-live-session-container"><div class="mmed-live-loading">Loading live session...</div></section>';
+          window.setTimeout(app.router.route.bind(app.router), 80);
+          return;
+        }
+
+        window.mmedLiveSessionView = new window.LiveSessionView(app);
+        window.mmedLiveSessionView.init(match[1]);
+        return;
+      }
+
+      if (window.mmedLiveSessionView && typeof window.mmedLiveSessionView.destroy === "function") {
+        window.mmedLiveSessionView.destroy();
+        window.mmedLiveSessionView = null;
+      }
+
+      originalRoute();
+    };
   }
 
   /* ── Main Render ───────────────────────────────────────────────── */
@@ -325,7 +391,7 @@
         var color = catColor(e.category || e.event_type);
         html += '<div class="sos-cal4-chip" data-event-id="' + e.id + '" style="border-left:3px solid ' + color + '">';
         html += '<span class="sos-cal4-chip-title">' + esc(e.title) + '</span>';
-        if (e.meeting_url) html += '<span class="sos-cal4-join-sm" data-join-url="' + escA(e.meeting_url) + '">Join</span>';
+        html += renderMeetingCue(e, true);
         html += '</div>';
       });
       if (dayEvents.length > 3) html += '<span class="sos-cal4-more">+' + (dayEvents.length - 3) + ' more</span>';
@@ -381,7 +447,7 @@
         html += '<div class="sos-cal4-week-event" data-event-id="' + e.id + '" style="top:' + top + 'px;height:' + durMin + 'px;border-left:3px solid ' + color + ';background:' + color + '18">';
         html += '<div class="sos-cal4-week-event-title">' + esc(e.title) + '</div>';
         html += '<div class="sos-cal4-week-event-time">' + fmtTimeRange(e.start_at, e.end_at) + '</div>';
-        if (e.meeting_url) html += '<span class="sos-cal4-join-sm" data-join-url="' + escA(e.meeting_url) + '">Join</span>';
+        html += renderMeetingCue(e, true);
         html += '<div class="sos-cal4-resize-handle" data-resize-event="' + e.id + '"></div>';
         html += '</div>';
       });
@@ -421,7 +487,7 @@
       html += '<div class="sos-cal4-day-event-title">' + catIcon(e.category || e.event_type) + ' ' + esc(e.title) + '</div>';
       html += '<div class="sos-cal4-day-event-time">' + fmtTimeRange(e.start_at, e.end_at) + '</div>';
       if (e.description) html += '<div class="sos-cal4-day-event-desc">' + esc(e.description) + '</div>';
-      if (e.meeting_url) html += '<a class="sos-cal4-join-btn" href="' + escA(e.meeting_url) + '" target="_blank" rel="noopener">Join ' + esc(e.meeting_platform || "Meeting") + '</a>';
+      html += renderMeetingCue(e, false);
       html += '<div class="sos-cal4-resize-handle" data-resize-event="' + e.id + '"></div>';
       html += '</div>';
     });
@@ -460,7 +526,7 @@
         html += '<div class="sos-cal4-agenda-info">';
         html += '<div class="sos-cal4-agenda-title">' + catIcon(e.category || e.event_type) + ' ' + esc(e.title) + '</div>';
         html += '<div class="sos-cal4-agenda-time">' + (e.all_day ? "All day" : fmtTimeRange(e.start_at, e.end_at)) + '</div>';
-        if (e.meeting_url) html += '<a class="sos-cal4-join-btn" href="' + escA(e.meeting_url) + '" target="_blank" rel="noopener">Join</a>';
+        html += renderMeetingCue(e, false);
         html += '</div></div>';
       });
       html += '</div>';
@@ -506,7 +572,7 @@
       '<h3>' + catIcon(ev.category || ev.event_type) + ' ' + esc(ev.title) + '</h3>',
       '<div class="sos-cal4-modal-meta">' + fmtDate(ev.start_at) + ' &middot; ' + fmtTimeRange(ev.start_at, ev.end_at) + '</div>',
       ev.description ? '<p>' + esc(ev.description) + '</p>' : '',
-      ev.meeting_url ? '<div class="sos-cal4-meeting-field"><span class="sos-cal4-meeting-label">' + esc(ev.meeting_platform || "Meeting") + ' Link</span><a class="sos-cal4-join-btn" href="' + escA(ev.meeting_url) + '" target="_blank" rel="noopener">Join Now</a></div>' : '',
+      ev.meeting_url ? '<div class="sos-cal4-meeting-field"><span class="sos-cal4-meeting-label">' + esc(ev.meeting_platform || "Meeting") + ' Link</span>' + renderMeetingCue(ev, false) + '</div>' : '',
       '<div class="sos-cal4-modal-actions">',
       '<button class="sos-cal4-btn-danger" data-delete-event="' + ev.id + '">Delete</button>',
       '</div>',
@@ -516,6 +582,14 @@
     document.body.appendChild(overlay);
     overlay.querySelector("[data-close]").addEventListener("click", function () { overlay.remove(); });
     overlay.addEventListener("click", function (e) { if (e.target === overlay) overlay.remove(); });
+    overlay.querySelectorAll("[data-live-event-id]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        overlay.remove();
+        window.location.hash = "#/live-session/" + btn.getAttribute("data-live-event-id");
+      });
+    });
 
     var delBtn = overlay.querySelector("[data-delete-event]");
     if (delBtn) {
@@ -772,7 +846,7 @@
     /* Day clicks (month view) */
     content.querySelectorAll(".sos-cal4-day").forEach(function (dayEl) {
       dayEl.addEventListener("click", function (e) {
-        if (e.target.closest("[data-event-id]") || e.target.closest("[data-join-url]")) return;
+        if (e.target.closest("[data-event-id]") || e.target.closest("[data-join-url]") || e.target.closest("[data-live-event-id]")) return;
         app.state.calendar.selectedDate = dayEl.getAttribute("data-date");
         app.render.calendar();
         CalAudio.play("click");
@@ -785,9 +859,19 @@
     /* Event chips click */
     content.querySelectorAll("[data-event-id]").forEach(function (chip) {
       chip.addEventListener("click", function (e) {
-        if (e.target.closest("[data-join-url]")) return;
+        if (e.target.closest("[data-join-url]") || e.target.closest("[data-live-event-id]")) return;
         var id = parseInt(chip.getAttribute("data-event-id"), 10);
         if (id) showEventDetail(app, id);
+      });
+    });
+
+    /* Live session buttons */
+    content.querySelectorAll("[data-live-event-id]").forEach(function (btn) {
+      btn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        var id = parseInt(btn.getAttribute("data-live-event-id"), 10);
+        if (id) window.location.hash = "#/live-session/" + id;
       });
     });
 

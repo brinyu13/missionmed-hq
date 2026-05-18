@@ -1,0 +1,303 @@
+.mmed-live-session-container {
+	background: #0a0e17;
+	color: #e2e8f0;
+	display: flex;
+	flex-direction: column;
+	min-height: calc(100vh - 32px);
+}
+
+.mmed-live-session-header {
+	align-items: center;
+	background: rgba(15, 23, 42, 0.96);
+	border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+	display: grid;
+	gap: 16px;
+	grid-template-columns: auto minmax(0, 1fr) auto auto;
+	min-height: 72px;
+	padding: 14px 18px;
+	position: sticky;
+	top: 0;
+	z-index: 20;
+}
+
+.mmed-live-back,
+.mmed-live-leave,
+.mmed-live-primary,
+.mmed-live-secondary {
+	border: 0;
+	cursor: pointer;
+	font-weight: 800;
+	text-decoration: none;
+}
+
+.mmed-live-back {
+	align-items: center;
+	background: rgba(255, 255, 255, 0.06);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-radius: 8px;
+	color: #e2e8f0;
+	display: inline-flex;
+	font-size: 32px;
+	height: 42px;
+	justify-content: center;
+	line-height: 1;
+	width: 42px;
+}
+
+.mmed-live-title-wrap {
+	min-width: 0;
+}
+
+.mmed-live-title-row {
+	align-items: center;
+	display: flex;
+	gap: 12px;
+	min-width: 0;
+}
+
+.mmed-live-title-row h1 {
+	color: #e2e8f0;
+	font-size: 20px;
+	line-height: 1.2;
+	margin: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mmed-live-title-wrap p {
+	color: #94a3b8;
+	margin: 4px 0 0;
+}
+
+.mmed-live-pill {
+	align-items: center;
+	background: rgba(239, 68, 68, 0.14);
+	border: 1px solid rgba(239, 68, 68, 0.32);
+	border-radius: 999px;
+	color: #fecaca;
+	display: inline-flex;
+	font-size: 11px;
+	font-weight: 900;
+	gap: 7px;
+	padding: 5px 9px;
+}
+
+.mmed-live-indicator {
+	animation: mmedLivePulse 1.2s ease-in-out infinite;
+	background: #ef4444;
+	border-radius: 50%;
+	box-shadow: 0 0 0 rgba(239, 68, 68, 0.55);
+	display: inline-block;
+	height: 8px;
+	width: 8px;
+}
+
+.mmed-live-time-badge {
+	background: rgba(217, 184, 91, 0.12);
+	border: 1px solid rgba(217, 184, 91, 0.35);
+	border-radius: 8px;
+	color: #f8e7a4;
+	font-variant-numeric: tabular-nums;
+	font-weight: 800;
+	padding: 8px 10px;
+	white-space: nowrap;
+}
+
+.mmed-live-leave {
+	background: rgba(239, 68, 68, 0.12);
+	border: 1px solid rgba(239, 68, 68, 0.32);
+	border-radius: 8px;
+	color: #fecaca;
+	padding: 10px 12px;
+}
+
+.mmed-live-loading,
+.mmed-waiting-room,
+.mmed-live-fallback,
+.mmed-live-error {
+	align-items: center;
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	justify-content: center;
+	padding: 48px 24px;
+	text-align: center;
+}
+
+.mmed-live-loading {
+	color: #94a3b8;
+	font-size: 16px;
+}
+
+.mmed-waiting-kicker {
+	color: #d9b85b;
+	font-size: 12px;
+	font-weight: 900;
+	letter-spacing: 0;
+	text-transform: uppercase;
+}
+
+.mmed-waiting-room h2,
+.mmed-live-fallback h2,
+.mmed-live-error h2 {
+	color: #e2e8f0;
+	font-size: 30px;
+	line-height: 1.15;
+	margin: 12px 0;
+	max-width: 760px;
+}
+
+.mmed-waiting-room p,
+.mmed-live-fallback p,
+.mmed-live-error p,
+.mmed-waiting-note {
+	color: #94a3b8;
+	font-size: 15px;
+	max-width: 720px;
+}
+
+.mmed-countdown {
+	color: #d9b85b;
+	font-size: clamp(48px, 9vw, 104px);
+	font-variant-numeric: tabular-nums;
+	font-weight: 900;
+	letter-spacing: 0;
+	line-height: 1;
+	margin: 28px 0 14px;
+}
+
+.mmed-webex-stage {
+	display: flex;
+	flex: 1;
+	min-height: 600px;
+}
+
+#webex-meeting-widget {
+	background: #0a0e17;
+	flex: 1;
+	min-height: 600px;
+	width: 100%;
+}
+
+.mmed-live-fallback-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	justify-content: center;
+	margin-top: 22px;
+}
+
+.mmed-live-primary,
+.mmed-live-secondary {
+	border-radius: 8px;
+	display: inline-flex;
+	justify-content: center;
+	min-width: 150px;
+	padding: 12px 16px;
+}
+
+.mmed-live-primary {
+	background: linear-gradient(135deg, #10b981, #059669);
+	box-shadow: 0 12px 34px rgba(16, 185, 129, 0.24);
+	color: #ecfdf5;
+}
+
+.mmed-live-secondary {
+	background: rgba(255, 255, 255, 0.07);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	color: #e2e8f0;
+}
+
+.mmed-event-join-live {
+	animation: mmedJoinGlow 1.5s ease-in-out infinite;
+	background: linear-gradient(135deg, #10b981, #059669);
+	border: 0;
+	border-radius: 8px;
+	box-shadow: 0 10px 24px rgba(16, 185, 129, 0.24);
+	color: #ecfdf5;
+	cursor: pointer;
+	display: inline-flex;
+	font-size: 13px;
+	font-weight: 900;
+	justify-content: center;
+	line-height: 1;
+	margin-top: 8px;
+	padding: 9px 12px;
+}
+
+.mmed-event-join-live.is-compact {
+	border-radius: 7px;
+	font-size: 11px;
+	margin-top: 5px;
+	padding: 6px 8px;
+}
+
+.mmed-event-starts-soon,
+.mmed-event-ended {
+	border-radius: 999px;
+	display: inline-flex;
+	font-size: 12px;
+	font-weight: 800;
+	margin-top: 7px;
+	padding: 5px 9px;
+}
+
+.mmed-event-starts-soon {
+	background: rgba(148, 163, 184, 0.12);
+	color: #cbd5e1;
+}
+
+.mmed-event-ended {
+	color: #94a3b8;
+}
+
+.mmed-event-starts-soon.is-compact,
+.mmed-event-ended.is-compact {
+	font-size: 10px;
+	margin-top: 4px;
+	padding: 4px 7px;
+}
+
+@keyframes mmedLivePulse {
+	0% {
+		box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55);
+	}
+	70% {
+		box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+	}
+	100% {
+		box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+	}
+}
+
+@keyframes mmedJoinGlow {
+	0%, 100% {
+		filter: brightness(1);
+	}
+	50% {
+		filter: brightness(1.12);
+	}
+}
+
+@media (max-width: 860px) {
+	.mmed-live-session-header {
+		grid-template-columns: auto minmax(0, 1fr);
+	}
+
+	.mmed-live-time-badge,
+	.mmed-live-leave {
+		grid-column: 2;
+		justify-self: start;
+	}
+
+	.mmed-live-title-row {
+		align-items: flex-start;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.mmed-live-title-row h1 {
+		white-space: normal;
+	}
+}

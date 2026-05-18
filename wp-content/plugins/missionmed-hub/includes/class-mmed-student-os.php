@@ -83,6 +83,33 @@ class MMED_Student_OS {
 			file_exists( $cal4_js ) ? (string) filemtime( $cal4_js ) : MMED_HUB_VERSION,
 			true
 		);
+
+		$live_css = MMED_HUB_PATH . 'assets/student-os-live-session.css';
+		$live_js  = MMED_HUB_PATH . 'assets/student-os-live-session.js';
+
+		// TODO: Verify Webex Widget CDN URL. Current Webex docs describe the Meetings Widget as NPM-only.
+		wp_register_script(
+			'webex-meetings-widget',
+			'https://binaries.webex.com/static-content-pipeline/webex-embedded-app/v1/webex-embedded-app-sdk.js',
+			array(),
+			null,
+			true
+		);
+
+		wp_enqueue_script(
+			'mmed-student-os-live-session-js',
+			MMED_HUB_URL . 'assets/student-os-live-session.js',
+			array( 'mmed-student-os-cal4-js', 'webex-meetings-widget' ),
+			file_exists( $live_js ) ? (string) filemtime( $live_js ) : MMED_HUB_VERSION,
+			true
+		);
+
+		wp_enqueue_style(
+			'mmed-student-os-live-session-css',
+			MMED_HUB_URL . 'assets/student-os-live-session.css',
+			array( 'mmed-student-os-cal4-css' ),
+			file_exists( $live_css ) ? (string) filemtime( $live_css ) : MMED_HUB_VERSION
+		);
 	}
 
 	/**
