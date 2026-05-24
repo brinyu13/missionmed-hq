@@ -90,3 +90,35 @@
 - deployed: NO
 - cache_purged: NO
 - pushed: NO
+
+## 2026-05-24 08:28:42 EDT | MR-BRAND-TRANSITION-003
+- prompt_id: MR-BRAND-TRANSITION-003
+- files_changed:
+  - /Users/brianb/MissionMed_worktrees/MR-BRAND-TRANSITION-002-legacy-popup/CHANGELOG/CHANGELOG_MASTER.md
+  - /Users/brianb/MissionMed_worktrees/MR-BRAND-TRANSITION-002-legacy-popup/_AI_HANDOFFS/from_codex/MR-BRAND-TRANSITION-003_legacy_popup_live_deploy_report.md
+- files_deployed_live:
+  - /www/theresidencyacademy_209/public/wp-content/mu-plugins/missionmed-mr-legacy-popup.php
+- backups_created:
+  - /Users/brianb/MissionMed_worktrees/MR-BRAND-TRANSITION-002-legacy-popup/CHANGELOG/CHANGELOG_MASTER_BACKUP_20260524T122842Z_MR-BRAND-TRANSITION-003.md
+- implementation_commit: c2cf7f4
+- deployment:
+  - pushed branch origin/feature/mr-brand-transition-002-legacy-popup
+  - uploaded MU-plugin to Kinsta via SSH/SCP through /tmp staging file
+  - remote PHP lint: PASS
+  - remote SHA-256 matched local committed file: 1d9513b72b532cb7daaf74106d9aba9472f27304e2d794015d3e24f9b2f7020f
+- cache_purge:
+  - exact single-path Kinsta immediate purge used for missionmedinstitute.com/mission-residency/
+  - response_code: 200
+  - broad site/CDN purge: NOT USED
+- live_validation:
+  - trigger URL /mission-residency/?legacy_source=missionresidency: PASS desktop modal
+  - no-param /mission-residency/: PASS no popup/banner
+  - unrelated /about/: PASS no popup/banner and no popup runtime version
+  - suppression after dismissal and reload: PASS via localStorage and cookie
+  - mobile viewport under 600px: PASS banner wrapper instead of modal
+  - CTA: PASS scroll to #programs
+  - console: PASS, 0 captured errors in tested scenarios
+- result: WORKED
+- deployed: YES
+- cache_purged: YES, exact single path only
+- pushed: YES
