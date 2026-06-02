@@ -1,0 +1,3324 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MissionMed HQ Scheduler</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+    :root {
+      --navy: #061727;
+      --navy2: #0b2033;
+      --navy3: #102b46;
+      --blue: #3bb7ff;
+      --blue2: #78d4ff;
+      --gold: #ffcc4d;
+      --gold2: #ffe08a;
+      --orange: #ff8a3d;
+      --orange2: #ffb27a;
+      --green: #3dff9a;
+      --green2: #9cffc7;
+      --red: #ff5c7a;
+      --purple: #9d7bff;
+      --text: #f4f8fb;
+      --muted: rgba(244, 248, 251, 0.68);
+      --faint: rgba(244, 248, 251, 0.48);
+      --line: rgba(255, 255, 255, 0.12);
+      --line-strong: rgba(255, 255, 255, 0.2);
+      --glass: rgba(8, 24, 40, 0.72);
+      --glass2: rgba(8, 24, 40, 0.5);
+      --shadow: 0 18px 60px rgba(0, 0, 0, 0.38);
+      --radius: 8px;
+      --sidebar-w: 276px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background: var(--navy);
+    }
+
+    body {
+      min-height: 100%;
+      margin: 0;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 16% 12%, rgba(59, 183, 255, 0.14), transparent 32%),
+        radial-gradient(circle at 82% 4%, rgba(255, 204, 77, 0.12), transparent 30%),
+        var(--navy);
+      font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+      letter-spacing: 0;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    #scheduler-admin-root,
+    .sos-admin-app {
+      min-height: 100vh;
+    }
+
+    .sos-admin-app {
+      position: relative;
+      display: flex;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 20%, rgba(59, 183, 255, 0.1), transparent 34%),
+        radial-gradient(circle at 86% 10%, rgba(255, 204, 77, 0.1), transparent 32%),
+        var(--navy);
+    }
+
+    .sos-admin-app[data-mode="embedded"] {
+      display: block;
+      min-height: auto;
+      overflow: visible;
+      background: transparent;
+    }
+
+    .sos-bg-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 0;
+    }
+
+    .sos-bg-layer span {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(48px);
+      opacity: 0.46;
+      transform: translate3d(0, 0, 0);
+    }
+
+    .sos-bg-a {
+      width: 42vw;
+      height: 42vw;
+      min-width: 360px;
+      min-height: 360px;
+      top: -12%;
+      left: 7%;
+      background: rgba(59, 183, 255, 0.22);
+      animation: sos-aurora-a 18s ease-in-out infinite alternate;
+    }
+
+    .sos-bg-b {
+      width: 36vw;
+      height: 36vw;
+      min-width: 320px;
+      min-height: 320px;
+      right: -8%;
+      top: 18%;
+      background: rgba(255, 204, 77, 0.18);
+      animation: sos-aurora-b 22s ease-in-out infinite alternate;
+    }
+
+    .sos-bg-c {
+      width: 34vw;
+      height: 34vw;
+      min-width: 300px;
+      min-height: 300px;
+      left: 28%;
+      bottom: -18%;
+      background: rgba(61, 255, 154, 0.16);
+      animation: sos-aurora-c 20s ease-in-out infinite alternate;
+    }
+
+    .sos-sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 5;
+      width: var(--sidebar-w);
+      padding: 22px 18px;
+      border-right: 1px solid var(--line);
+      background: rgba(6, 23, 39, 0.86);
+      backdrop-filter: blur(18px);
+      box-shadow: 18px 0 46px rgba(0, 0, 0, 0.28);
+      overflow-y: auto;
+    }
+
+    .sos-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .sos-brand-mark {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      border: 1px solid rgba(255, 204, 77, 0.38);
+      border-radius: 10px;
+      background:
+        linear-gradient(135deg, rgba(255, 204, 77, 0.24), rgba(59, 183, 255, 0.16)),
+        rgba(255, 255, 255, 0.05);
+      color: var(--gold);
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 12px 34px rgba(255, 204, 77, 0.14);
+    }
+
+    .sos-brand-title {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 18px;
+      line-height: 1.08;
+    }
+
+    .sos-brand-kicker {
+      margin-top: 3px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sos-nav {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .sos-nav-btn {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      width: 100%;
+      min-height: 46px;
+      padding: 10px 12px;
+      border: 1px solid transparent;
+      border-radius: var(--radius);
+      background: transparent;
+      color: rgba(244, 248, 251, 0.78);
+      text-align: left;
+      transition: transform 0.18s ease, background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+    }
+
+    .sos-nav-btn:hover,
+    .sos-nav-btn:focus-visible {
+      transform: translateX(2px);
+      border-color: rgba(59, 183, 255, 0.24);
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--text);
+      outline: none;
+    }
+
+    .sos-nav-btn[aria-current="true"] {
+      border-color: rgba(255, 204, 77, 0.36);
+      background: linear-gradient(135deg, rgba(255, 204, 77, 0.15), rgba(59, 183, 255, 0.08));
+      color: var(--text);
+      box-shadow: inset 3px 0 0 var(--gold);
+    }
+
+    .sos-nav-icon {
+      display: grid;
+      place-items: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--gold);
+      font-family: "Space Grotesk", sans-serif;
+      font-weight: 700;
+      font-size: 12px;
+    }
+
+    .sos-sidebar-panel {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .sos-sidebar-panel strong {
+      display: block;
+      color: var(--text);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+
+    .sos-sidebar-panel span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .sos-main {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      min-height: 100vh;
+      margin-left: var(--sidebar-w);
+      padding: 32px;
+    }
+
+    .sos-admin-app[data-mode="embedded"] .sos-main {
+      min-height: auto;
+      margin-left: 0;
+      padding: 0;
+    }
+
+    .sos-shell {
+      width: min(1320px, 100%);
+      margin: 0 auto;
+    }
+
+    .sos-page-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .sos-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 26px;
+      padding: 4px 9px;
+      border: 1px solid rgba(255, 204, 77, 0.32);
+      border-radius: 999px;
+      color: var(--gold2);
+      background: rgba(255, 204, 77, 0.08);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .sos-page-title {
+      margin: 12px 0 6px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: clamp(32px, 4vw, 56px);
+      line-height: 0.96;
+    }
+
+    .sos-page-copy {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.7;
+    }
+
+    .sos-head-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 10px;
+      padding-top: 8px;
+    }
+
+    .sos-grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .sos-grid.cols-2 {
+      grid-template-columns: minmax(300px, 0.8fr) minmax(0, 1.2fr);
+    }
+
+    .sos-grid.cols-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .sos-grid.cols-4 {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .sos-card {
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.035)),
+        rgba(6, 23, 39, 0.76);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(18px);
+      overflow: hidden;
+      animation: sos-slide-up 0.42s ease both;
+    }
+
+    .sos-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sos-card-title {
+      margin: 0;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 18px;
+      line-height: 1.2;
+    }
+
+    .sos-card-copy {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .sos-card-body {
+      display: grid;
+      gap: 12px;
+      padding: 16px;
+    }
+
+    .sos-stat {
+      position: relative;
+      min-height: 118px;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.055);
+      overflow: hidden;
+    }
+
+    .sos-stat::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(59, 183, 255, 0.12), transparent 48%, rgba(255, 204, 77, 0.1));
+      opacity: 0.74;
+      pointer-events: none;
+    }
+
+    .sos-stat > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .sos-stat-label {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .sos-stat-value {
+      display: block;
+      margin-top: 10px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .sos-stat-note {
+      margin: 10px 0 0;
+      color: var(--faint);
+      font-size: 12px;
+    }
+
+    .sos-tracker {
+      margin: 18px 0 22px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.045);
+      box-shadow: 0 10px 34px rgba(0, 0, 0, 0.22);
+      overflow-x: auto;
+    }
+
+    .sos-tracker-track {
+      display: flex;
+      min-width: 660px;
+    }
+
+    .sos-tracker-segment {
+      position: relative;
+      flex: 1;
+      min-height: 56px;
+      padding: 10px 18px 10px 26px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--muted);
+      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 18px 50%);
+      margin-left: -12px;
+      transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    .sos-tracker-segment:first-child {
+      margin-left: 0;
+      clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+      border-radius: 8px 0 0 8px;
+    }
+
+    .sos-tracker-segment:last-child {
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 18px 50%);
+      border-radius: 0 8px 8px 0;
+    }
+
+    .sos-tracker-segment.is-complete {
+      background: linear-gradient(135deg, rgba(61, 255, 154, 0.2), rgba(59, 183, 255, 0.1));
+      color: var(--green2);
+    }
+
+    .sos-tracker-segment.is-active {
+      background: linear-gradient(135deg, rgba(255, 204, 77, 0.28), rgba(255, 138, 61, 0.14));
+      color: var(--text);
+      box-shadow: 0 0 28px rgba(255, 204, 77, 0.16);
+      animation: sos-tracker-pulse 2.4s ease-in-out infinite;
+    }
+
+    .sos-tracker-label {
+      display: block;
+      color: inherit;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sos-tracker-title {
+      display: block;
+      margin-top: 3px;
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 14px;
+      line-height: 1.15;
+    }
+
+    .sos-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .sos-tab {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 40px;
+      padding: 9px 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+
+    .sos-tab:hover,
+    .sos-tab:focus-visible,
+    .sos-tab[aria-selected="true"] {
+      transform: translateY(-1px);
+      border-color: rgba(255, 204, 77, 0.36);
+      background: rgba(255, 204, 77, 0.1);
+      color: var(--text);
+      outline: none;
+    }
+
+    .sos-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 42px;
+      padding: 10px 14px;
+      border: 1px solid var(--line-strong);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .sos-btn:hover,
+    .sos-btn:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(59, 183, 255, 0.46);
+      background: rgba(255, 255, 255, 0.09);
+      outline: none;
+    }
+
+    .sos-btn-primary {
+      border-color: rgba(255, 204, 77, 0.58);
+      background: linear-gradient(135deg, var(--gold), var(--orange));
+      color: #071727;
+      box-shadow: 0 12px 30px rgba(255, 204, 77, 0.16);
+    }
+
+    .sos-btn-primary:hover,
+    .sos-btn-primary:focus-visible {
+      box-shadow: 0 16px 36px rgba(255, 204, 77, 0.22);
+    }
+
+    .sos-btn-quiet {
+      background: transparent;
+    }
+
+    .sos-field {
+      display: grid;
+      gap: 7px;
+    }
+
+    .sos-label {
+      color: rgba(244, 248, 251, 0.82);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sos-input,
+    .sos-select,
+    .sos-textarea {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(6, 23, 39, 0.72);
+      color: var(--text);
+      padding: 10px 12px;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    }
+
+    .sos-textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+
+    .sos-input:focus,
+    .sos-select:focus,
+    .sos-textarea:focus {
+      border-color: rgba(59, 183, 255, 0.58);
+      box-shadow: 0 0 0 3px rgba(59, 183, 255, 0.14);
+      outline: none;
+    }
+
+    .sos-row {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .sos-table-wrap {
+      overflow-x: auto;
+    }
+
+    .sos-table {
+      width: 100%;
+      min-width: 720px;
+      border-collapse: collapse;
+    }
+
+    .sos-table th,
+    .sos-table td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      font-size: 13px;
+    }
+
+    .sos-table th {
+      color: var(--faint);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sos-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .sos-item {
+      display: grid;
+      gap: 6px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .sos-item strong {
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 15px;
+    }
+
+    .sos-item span {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .sos-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 26px;
+      width: fit-content;
+      padding: 4px 9px;
+      border: 1px solid rgba(59, 183, 255, 0.24);
+      border-radius: 999px;
+      background: rgba(59, 183, 255, 0.1);
+      color: var(--blue2);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sos-pill.good {
+      border-color: rgba(61, 255, 154, 0.24);
+      background: rgba(61, 255, 154, 0.09);
+      color: var(--green2);
+    }
+
+    .sos-pill.warn {
+      border-color: rgba(255, 204, 77, 0.3);
+      background: rgba(255, 204, 77, 0.1);
+      color: var(--gold2);
+    }
+
+    .sos-pill.bad {
+      border-color: rgba(255, 92, 122, 0.28);
+      background: rgba(255, 92, 122, 0.1);
+      color: #ff9aad;
+    }
+
+    .sos-notice {
+      display: grid;
+      gap: 6px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255, 204, 77, 0.3);
+      border-radius: var(--radius);
+      background: rgba(255, 204, 77, 0.08);
+      color: rgba(255, 242, 202, 0.96);
+      line-height: 1.55;
+    }
+
+    .sos-notice.error {
+      border-color: rgba(255, 92, 122, 0.32);
+      background: rgba(255, 92, 122, 0.1);
+      color: #ffd8df;
+    }
+
+    .sos-empty {
+      display: grid;
+      place-items: center;
+      min-height: 150px;
+      padding: 18px;
+      border: 1px dashed rgba(255, 255, 255, 0.18);
+      border-radius: var(--radius);
+      color: var(--muted);
+      text-align: center;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .sos-provider-switcher {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 16px;
+    }
+
+    .sos-ops-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sos-schedule-board {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(150px, 1fr));
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+
+    .sos-day-column {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+      min-height: 280px;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .sos-day-column > strong {
+      color: var(--text);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 15px;
+    }
+
+    .sos-day-column > span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sos-board-block,
+    .sos-board-empty,
+    .sos-slot-row {
+      display: grid;
+      gap: 4px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    .sos-board-block strong,
+    .sos-slot-row strong {
+      color: var(--text);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 13px;
+    }
+
+    .sos-board-block span,
+    .sos-board-empty,
+    .sos-slot-row span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sos-board-block.is-booked {
+      border-color: rgba(61, 255, 154, 0.24);
+      background: rgba(61, 255, 154, 0.08);
+    }
+
+    .sos-board-block.is-draft {
+      border-color: rgba(255, 204, 77, 0.3);
+      background: rgba(255, 204, 77, 0.08);
+    }
+
+    .sos-board-block.is-conflict {
+      border-color: rgba(255, 92, 122, 0.3);
+      background: rgba(255, 92, 122, 0.09);
+    }
+
+    .sos-slot-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .sos-slot-row {
+      grid-template-columns: 1fr auto;
+      align-items: center;
+    }
+
+    .sos-action-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .sos-action-row .sos-btn {
+      min-height: 34px;
+      padding: 7px 9px;
+      font-size: 11px;
+    }
+
+    .sos-builder-shell {
+      display: grid;
+      gap: 14px;
+    }
+
+    .sos-builder-section {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid rgba(23, 163, 207, 0.12);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.04);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    }
+
+    .sos-builder-section h4 {
+      margin: 0;
+      color: var(--gold2);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 18px;
+    }
+
+    .sos-builder-section p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .sos-toggle-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .sos-toggle-item {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 10px;
+      align-items: center;
+      min-height: 42px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .sos-toggle-item input {
+      accent-color: var(--gold);
+    }
+
+    .sos-availability-matrix {
+      display: grid;
+      grid-template-columns: 68px repeat(7, minmax(88px, 1fr));
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 0 8px;
+    }
+
+    .sos-time-label,
+    .sos-grid-cell {
+      min-height: 34px;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      font-size: 11px;
+    }
+
+    .sos-time-label {
+      color: var(--faint);
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .sos-grid-cell {
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.62);
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .sos-grid-cell.is-open {
+      border-color: rgba(61, 255, 154, 0.26);
+      background: rgba(61, 255, 154, 0.1);
+      color: var(--green2);
+    }
+
+    .sos-grid-cell.is-start {
+      border-color: rgba(255, 204, 77, 0.36);
+      background: rgba(255, 204, 77, 0.1);
+      color: var(--gold2);
+    }
+
+    .sos-grid-cell.is-blackout {
+      border-color: rgba(255, 92, 122, 0.3);
+      background: rgba(255, 92, 122, 0.09);
+      color: var(--red);
+    }
+
+    .sos-grid-cell.is-buffer {
+      border-style: dashed;
+      color: var(--orange2);
+    }
+
+    .sos-admin-board {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .sos-admin-board-main,
+    .sos-admin-side-panel,
+    .sos-save-dock {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background:
+        linear-gradient(180deg, rgba(59, 183, 255, 0.09), rgba(6, 23, 39, 0.2)),
+        rgba(8, 24, 40, 0.68);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .sos-admin-toolbar {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+      padding: 18px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .sos-admin-toolbar-row,
+    .sos-admin-week-row,
+    .sos-slot-action-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .sos-admin-toolbar-title {
+      margin: 0;
+      color: var(--text);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 24px;
+      line-height: 1.15;
+    }
+
+    .sos-admin-toolbar-copy {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .sos-chip-select {
+      min-width: min(100%, 340px);
+      height: 42px;
+      padding: 0 38px 0 14px;
+      border: 1px solid rgba(120, 212, 255, 0.24);
+      border-radius: 8px;
+      background: rgba(6, 23, 39, 0.68);
+      color: var(--text);
+      outline: none;
+    }
+
+    .sos-admin-provider-tabs {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
+    .sos-admin-grid-wrap {
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .sos-admin-calendar-grid {
+      display: grid;
+      grid-template-columns: 84px repeat(7, minmax(116px, 1fr));
+      gap: 8px;
+      min-width: 920px;
+    }
+
+    .sos-admin-grid-head,
+    .sos-admin-time-head {
+      min-height: 44px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sos-admin-grid-head strong {
+      display: block;
+      color: var(--text);
+      font-size: 13px;
+      text-transform: none;
+    }
+
+    .sos-admin-time-head {
+      display: grid;
+      place-items: center start;
+    }
+
+    .sos-admin-slot-cell {
+      position: relative;
+      display: grid;
+      min-height: 52px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.045);
+      color: var(--muted);
+      text-align: left;
+      overflow: hidden;
+      transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+    }
+
+    .sos-admin-slot-cell:hover,
+    .sos-admin-slot-cell:focus-visible {
+      transform: translateY(-1px);
+      border-color: rgba(120, 212, 255, 0.42);
+      outline: none;
+    }
+
+    .sos-admin-slot-cell span {
+      position: relative;
+      z-index: 1;
+      display: block;
+    }
+
+    .sos-admin-slot-cell .sos-cell-status {
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .sos-admin-slot-cell .sos-cell-time {
+      color: rgba(244, 248, 251, 0.58);
+      font-size: 11px;
+    }
+
+    .sos-admin-slot-cell.is-open {
+      border-color: rgba(61, 255, 154, 0.34);
+      background: linear-gradient(135deg, rgba(61, 255, 154, 0.16), rgba(61, 255, 154, 0.07));
+      color: var(--green2);
+    }
+
+    .sos-admin-slot-cell.is-closed {
+      color: rgba(244, 248, 251, 0.46);
+      background: rgba(255, 255, 255, 0.028);
+    }
+
+    .sos-admin-slot-cell.is-reserved {
+      border-color: rgba(255, 138, 61, 0.34);
+      background: rgba(255, 138, 61, 0.12);
+      color: var(--orange2);
+    }
+
+    .sos-admin-slot-cell.is-blackout {
+      border-color: rgba(255, 92, 122, 0.36);
+      background: rgba(255, 92, 122, 0.12);
+      color: var(--red);
+    }
+
+    .sos-admin-slot-cell.is-booked {
+      border-color: rgba(157, 123, 255, 0.38);
+      background: rgba(157, 123, 255, 0.14);
+      color: #d9ceff;
+    }
+
+    .sos-admin-slot-cell.is-pending::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border: 1px solid rgba(255, 204, 77, 0.52);
+      border-radius: inherit;
+      background: rgba(255, 204, 77, 0.09);
+      pointer-events: none;
+    }
+
+    .sos-action-chip {
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(244, 248, 251, 0.78);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .sos-action-chip[aria-pressed="true"] {
+      border-color: rgba(255, 204, 77, 0.48);
+      background: rgba(255, 204, 77, 0.14);
+      color: var(--gold2);
+    }
+
+    .sos-admin-side-panel {
+      position: sticky;
+      top: 18px;
+    }
+
+    .sos-side-panel-head,
+    .sos-side-panel-body,
+    .sos-save-dock {
+      padding: 16px;
+    }
+
+    .sos-side-panel-head {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .sos-side-panel-head h3 {
+      margin: 0;
+      color: var(--text);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 20px;
+    }
+
+    .sos-side-panel-head p,
+    .sos-side-panel-body p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .sos-detail-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .sos-detail-item {
+      display: grid;
+      gap: 3px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .sos-detail-item span {
+      color: var(--faint);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .sos-detail-item strong {
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .sos-save-dock {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-top: 14px;
+      border-color: rgba(255, 204, 77, 0.22);
+    }
+
+    .sos-admin-loading {
+      display: grid;
+      place-items: center;
+      min-height: 360px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .sos-admin-empty {
+      padding: 42px 18px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    .sos-muted {
+      color: var(--muted);
+    }
+
+    .sos-hidden {
+      display: none !important;
+    }
+
+    .sos-admin-app.is-simple-board {
+      display: block;
+      overflow: visible;
+      background:
+        radial-gradient(circle at 18% 8%, rgba(45, 212, 191, 0.14), transparent 30%),
+        radial-gradient(circle at 84% 0%, rgba(255, 204, 77, 0.1), transparent 28%),
+        linear-gradient(135deg, #061727 0%, #0d253a 46%, #081b2e 100%);
+    }
+
+    .sos-admin-app.is-simple-board .sos-main {
+      margin-left: 0;
+      padding: 28px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-shell {
+      width: min(1180px, 100%);
+    }
+
+    .sos-admin-app.is-simple-board .sos-page-head {
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-page-title {
+      margin-top: 10px;
+      font-size: clamp(34px, 4vw, 48px);
+    }
+
+    .sos-admin-app.is-simple-board .sos-page-copy {
+      max-width: 680px;
+      font-size: 15px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-board {
+      display: block;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-board-main {
+      border-color: rgba(120, 212, 255, 0.18);
+      background:
+        linear-gradient(180deg, rgba(59, 183, 255, 0.08), rgba(6, 23, 39, 0.16)),
+        rgba(8, 24, 40, 0.72);
+      box-shadow: 0 18px 54px rgba(0, 0, 0, 0.3);
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-toolbar {
+      gap: 16px;
+      padding: 18px;
+      border-bottom-color: rgba(120, 212, 255, 0.16);
+      background: rgba(255, 255, 255, 0.032);
+    }
+
+    .sos-admin-title-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-toolbar-title {
+      font-size: 28px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-toolbar-copy {
+      max-width: 640px;
+      color: rgba(244, 248, 251, 0.72);
+    }
+
+    .sos-admin-controls {
+      display: grid;
+      grid-template-columns: minmax(220px, 1.1fr) minmax(260px, 1.4fr);
+      gap: 12px;
+      align-items: end;
+    }
+
+    .sos-admin-control {
+      display: grid;
+      gap: 7px;
+    }
+
+    .sos-admin-control span {
+      color: var(--faint);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .sos-paint-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.035);
+    }
+
+    .sos-paint-label {
+      color: rgba(244, 248, 251, 0.66);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .sos-paint-state {
+      margin-left: auto;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 204, 77, 0.28);
+      background: rgba(255, 204, 77, 0.1);
+      color: var(--gold2);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .sos-repeat-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 10px 12px;
+      border: 1px solid rgba(120, 222, 255, 0.16);
+      border-radius: 8px;
+      background: rgba(120, 222, 255, 0.055);
+      color: rgba(244, 248, 251, 0.86);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .sos-repeat-control input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      accent-color: var(--teal);
+    }
+
+    .sos-repeat-control input[type="date"] {
+      min-height: 34px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 8px;
+      background: rgba(1, 16, 31, 0.72);
+      color: var(--text);
+      padding: 6px 9px;
+      font: inherit;
+    }
+
+    .sos-repeat-hint {
+      color: rgba(244, 248, 251, 0.58);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .sos-action-chip[data-slot-action="open"] {
+      border-color: rgba(61, 255, 154, 0.26);
+      color: var(--green2);
+    }
+
+    .sos-action-chip[data-slot-action="reserve"] {
+      border-color: rgba(255, 138, 61, 0.3);
+      color: var(--orange2);
+    }
+
+    .sos-action-chip[data-slot-action="clear"] {
+      color: rgba(244, 248, 251, 0.72);
+    }
+
+    .sos-action-chip[data-slot-action="blackout"] {
+      border-color: rgba(255, 92, 122, 0.32);
+      color: #ff9aaa;
+    }
+
+    .sos-action-chip[aria-pressed="true"] {
+      transform: translateY(-1px);
+      box-shadow: 0 0 0 1px rgba(255, 204, 77, 0.16), 0 12px 28px rgba(0, 0, 0, 0.24);
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-week-row {
+      justify-content: space-between;
+      padding-top: 2px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-grid-wrap {
+      padding: 16px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-calendar-grid {
+      grid-template-columns: 72px repeat(7, minmax(94px, 1fr));
+      gap: 7px;
+      min-width: 860px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-grid-head,
+    .sos-admin-app.is-simple-board .sos-admin-time-head {
+      min-height: 38px;
+      padding: 8px;
+      border-color: rgba(255, 255, 255, 0.09);
+      background: rgba(255, 255, 255, 0.035);
+      font-size: 11px;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-slot-cell {
+      min-height: 44px;
+      padding: 8px;
+      text-align: center;
+      place-items: center;
+    }
+
+    .sos-admin-app.is-simple-board .sos-admin-slot-cell .sos-cell-time {
+      display: none;
+    }
+
+    .sos-admin-slot-cell.is-clear {
+      color: rgba(244, 248, 251, 0.48);
+      background: rgba(255, 255, 255, 0.025);
+    }
+
+    .sos-simple-strip,
+    .sos-simple-appointments {
+      margin: 0 16px 16px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.032);
+    }
+
+    .sos-simple-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .sos-simple-legend {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .sos-legend-dot {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sos-legend-dot::before {
+      content: "";
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: rgba(244, 248, 251, 0.38);
+    }
+
+    .sos-legend-dot.is-open::before { background: var(--green); }
+    .sos-legend-dot.is-reserved::before { background: var(--orange); }
+    .sos-legend-dot.is-blackout::before { background: var(--red); }
+    .sos-legend-dot.is-booked::before { background: var(--purple); }
+
+    .sos-simple-appointments h3 {
+      margin: 0 0 8px;
+      color: var(--text);
+      font-family: "Space Grotesk", sans-serif;
+      font-size: 16px;
+    }
+
+    .sos-appointment-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .sos-appointment-chip {
+      max-width: 100%;
+      padding: 8px 10px;
+      border: 1px solid rgba(157, 123, 255, 0.24);
+      border-radius: 999px;
+      background: rgba(157, 123, 255, 0.09);
+      color: rgba(244, 248, 251, 0.82);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .sos-admin-app.is-simple-board .sos-save-dock {
+      margin: 0 16px 16px;
+      background: rgba(255, 204, 77, 0.09);
+    }
+
+    .sos-admin-side-panel {
+      display: none;
+    }
+
+    @keyframes sos-aurora-a {
+      from { transform: translate3d(-5%, -2%, 0) scale(1); }
+      to { transform: translate3d(8%, 8%, 0) scale(1.1); }
+    }
+
+    @keyframes sos-aurora-b {
+      from { transform: translate3d(8%, -4%, 0) scale(1); }
+      to { transform: translate3d(-7%, 6%, 0) scale(1.08); }
+    }
+
+    @keyframes sos-aurora-c {
+      from { transform: translate3d(-3%, 5%, 0) scale(1); }
+      to { transform: translate3d(6%, -8%, 0) scale(1.12); }
+    }
+
+    @keyframes sos-tracker-pulse {
+      0%, 100% { box-shadow: 0 0 22px rgba(255, 204, 77, 0.12); }
+      50% { box-shadow: 0 0 34px rgba(255, 204, 77, 0.24); }
+    }
+
+    @keyframes sos-slide-up {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 1100px) {
+      .sos-sidebar {
+        width: 100%;
+        height: auto;
+        inset: 0 0 auto 0;
+        padding: 14px;
+      }
+
+      .sos-brand {
+        margin-bottom: 12px;
+      }
+
+      .sos-nav {
+        grid-auto-flow: column;
+        grid-auto-columns: max-content;
+        overflow-x: auto;
+      }
+
+      .sos-nav-btn {
+        width: auto;
+        min-width: 150px;
+      }
+
+      .sos-sidebar-panel {
+        display: none;
+      }
+
+      .sos-main {
+        margin-left: 0;
+        padding: 172px 18px 22px;
+      }
+
+      .sos-grid.cols-4,
+      .sos-grid.cols-3,
+      .sos-schedule-board,
+      .sos-admin-board,
+      .sos-toggle-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .sos-grid.cols-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 800px) {
+      .sos-page-head {
+        display: grid;
+      }
+
+      .sos-head-actions {
+        justify-content: flex-start;
+      }
+
+      .sos-grid.cols-4,
+      .sos-grid.cols-3,
+      .sos-schedule-board,
+      .sos-admin-board,
+      .sos-row,
+      .sos-toggle-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .sos-admin-side-panel {
+        position: static;
+      }
+
+      .sos-page-title {
+        font-size: 34px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .sos-main {
+        padding: 188px 12px 18px;
+      }
+
+      .sos-card-head,
+      .sos-card-body {
+        padding: 14px;
+      }
+
+      .sos-page-title {
+        font-size: 30px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="scheduler-admin-root" data-mode="standalone" data-api-base="/api/scheduler"></div>
+
+  <script>
+    (function (window, document) {
+      "use strict";
+
+      var app = window.MMEDSchedulerAdmin || {};
+      var routes = [
+        { id: "ops", label: "Ops Board", icon: "OP" }
+      ];
+
+      var providerRoster = [
+        { id: "all", label: "All Providers", short: "All", endpoint: "/admin/appointments" },
+        { id: "dr-j", label: "Dr J", short: "DJ", endpoint: "/admin/appointments" },
+        { id: "dr-brian", label: "Dr. Brian", short: "BR", endpoint: "/admin/appointments" },
+        { id: "phil-usce", label: "Phil / USCE", short: "PH", endpoint: "/admin/appointments" },
+        { id: "dr-s", label: "Dr S", short: "DS", endpoint: "/admin/appointments", pending: true },
+        { id: "sophia", label: "Sophia", short: "SO", endpoint: "/admin/appointments", pending: true }
+      ];
+
+      var trackerSteps = [
+        { key: "providers", title: "Providers", status: "complete" },
+        { key: "availability", title: "Availability", status: "active" },
+        { key: "slots", title: "Slots", status: "pending" },
+        { key: "appointments", title: "Appointments", status: "pending" },
+        { key: "audit", title: "Audit", status: "pending" }
+      ];
+
+      app.state = app.state || {
+        route: "ops",
+        mode: "standalone",
+        apiBase: "/api/scheduler",
+        selectedProvider: "all",
+        selectedAppointmentType: "",
+        selectedWeekStart: todayValue(),
+        selectedSlotAction: "open",
+        repeatWeeklyOpen: false,
+        repeatUntil: defaultRepeatUntil(),
+        selectedCell: null,
+        csrfToken: "",
+        session: null,
+        bootstrap: null,
+        providers: [],
+        appointmentTypes: [],
+        availabilityGrid: null,
+        pendingGridChanges: {},
+        gridLoading: false,
+        gridSaving: false,
+        appointments: [],
+        providerSchedule: [],
+        auditRows: [],
+        analytics: null,
+        enrollmentPolicy: null,
+        entitlementConfig: null,
+        adminSessionReady: false,
+        ssaPreview: null,
+        setupResults: {},
+        draftSlots: buildDraftSlots(),
+        conflictPreview: [],
+        loading: {},
+        notice: null,
+        mounted: false
+      };
+
+      app.refs = app.refs || {};
+
+      app.mount = function mount(config) {
+        config = config || {};
+        var target = typeof config.target === "string" ? document.querySelector(config.target) : config.target;
+        app.refs.root = target || document.getElementById("scheduler-admin-root");
+        if (!app.refs.root) return;
+
+        app.state.mode = config.mode || app.refs.root.getAttribute("data-mode") || "standalone";
+        app.state.apiBase = config.apiBase || app.refs.root.getAttribute("data-api-base") || "/api/scheduler";
+        app.state.route = normalizeRoute(config.route || getHashRoute() || app.state.route);
+        app.state.selectedProvider = normalizeProvider(config.provider || app.state.selectedProvider);
+
+        renderShell();
+        bindGlobalEvents();
+        app.state.mounted = true;
+        bootstrap();
+      };
+
+      app.render = function render() {
+        if (!app.refs.content) return;
+        app.refs.content.innerHTML = [
+          pageHeader(),
+          notice(),
+          adminAvailabilityBoard()
+        ].join("");
+        bindRouteEvents();
+      };
+
+      app.api = {
+        get: function get(path) {
+          return request(path);
+        },
+        post: function post(path, body) {
+          return request(path, { method: "POST", body: body });
+        }
+      };
+
+      app.router = {
+        go: function go(route) {
+          app.state.route = normalizeRoute(route);
+          if (app.state.mode === "standalone") {
+            window.location.hash = app.state.route;
+          }
+          app.render();
+        }
+      };
+
+      function renderShell() {
+        app.refs.root.className = "sos-admin-app is-simple-board";
+        app.refs.root.setAttribute("data-mode", app.state.mode);
+
+        if (app.state.mode === "embedded") {
+          app.refs.root.innerHTML = '<main class="sos-main"><div class="sos-shell" data-admin-content></div></main>';
+          app.refs.content = app.refs.root.querySelector("[data-admin-content]");
+          app.render();
+          return;
+        }
+
+        app.refs.root.innerHTML = [
+          '<div class="sos-bg-layer" aria-hidden="true"><span class="sos-bg-a"></span><span class="sos-bg-b"></span><span class="sos-bg-c"></span></div>',
+          '<main class="sos-main"><div class="sos-shell" data-admin-content></div></main>'
+        ].join("");
+        app.refs.content = app.refs.root.querySelector("[data-admin-content]");
+        app.render();
+      }
+
+      function pageHeader() {
+        var copy = "Pick a mentor, pick a meeting type, then paint the weekly grid students can actually book.";
+        var sessionReady = isAdminSessionReady();
+        var actor = sessionReady ? currentAdminDisplayName() : "Session pending";
+        return [
+          '<header class="sos-page-head">',
+          '<div>',
+          '<span class="sos-kicker">Scheduler Ops</span>',
+          '<h2 class="sos-page-title">Scheduler Ops</h2>',
+          '<p class="sos-page-copy">' + copy + '</p>',
+          '</div>',
+          '<div class="sos-head-actions">',
+          '<span class="sos-pill ' + (sessionReady ? "good" : "warn") + '">' + escapeHtml(actor || (sessionReady ? "Connected" : "Session pending")) + '</span>',
+          '<button class="sos-btn" type="button" data-action="reload-all">Refresh</button>',
+          '</div>',
+          '</header>'
+        ].join("");
+      }
+
+      function isAdminSessionReady() {
+        return Boolean(
+          app.state.bootstrap
+            || app.state.adminSessionReady
+            || app.state.entitlementConfig
+            || app.state.analytics
+            || (app.state.session && app.state.session.authenticated && hasSchedulerAdminRole(app.state.session))
+        );
+      }
+
+      function currentAdminDisplayName() {
+        var bootstrapUser = app.state.bootstrap && app.state.bootstrap.user ? app.state.bootstrap.user : null;
+        var sessionUser = app.state.session && app.state.session.user ? app.state.session.user : null;
+        return String(
+          (bootstrapUser && (bootstrapUser.display_name || bootstrapUser.displayName || bootstrapUser.login))
+            || (sessionUser && (sessionUser.displayName || sessionUser.display_name || sessionUser.login))
+            || "Connected"
+        );
+      }
+
+      function tracker(steps) {
+        return [
+          '<section class="sos-tracker" aria-label="Scheduler staging progress">',
+          '<div class="sos-tracker-track">',
+          steps.map(function (step, index) {
+            var stateClass = step.status === "complete" ? " is-complete" : step.status === "active" ? " is-active" : "";
+            return '<div class="sos-tracker-segment' + stateClass + '"><span class="sos-tracker-label">Step ' + String(index + 1) + '</span><span class="sos-tracker-title">' + escapeHtml(step.title) + '</span></div>';
+          }).join(""),
+          '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function notice() {
+        if (!app.state.notice) return "";
+        return '<div class="sos-notice ' + (app.state.notice.type === "error" ? "error" : "") + '"><strong>' + escapeHtml(app.state.notice.title) + '</strong><span>' + escapeHtml(app.state.notice.message) + '</span></div>';
+      }
+
+      function stats() {
+        var today = app.state.appointments.filter(isToday).length;
+        var upcoming = app.state.appointments.length;
+        var providers = app.state.providers.length || countConfigured("providers");
+        var alerts = [app.state.notice, isAdminSessionReady() ? null : true].filter(Boolean).length;
+        return [
+          '<section class="sos-grid cols-4" aria-label="Scheduler summary">',
+          statCard("Today", today, "Booked appointments loaded from HQ API."),
+          statCard("Upcoming", upcoming, "Current admin appointment result count."),
+          statCard("Providers", providers, "Provider rows or fixture placeholders discovered."),
+          statCard("Alerts", alerts, "Open configuration and session notices."),
+          '</section>'
+        ].join("");
+      }
+
+      function statCard(label, value, note) {
+        return '<article class="sos-stat"><p class="sos-stat-label">' + escapeHtml(label) + '</p><strong class="sos-stat-value">' + escapeHtml(value) + '</strong><p class="sos-stat-note">' + escapeHtml(note) + '</p></article>';
+      }
+
+      function mainRoute() {
+        if (app.state.route === "availability") return adminAvailabilityBoard();
+        if (app.state.route === "types") return typesView();
+        if (app.state.route === "audit") return auditView();
+        if (app.state.route === "appointments") return appointmentsView();
+        return opsView();
+      }
+
+      function opsView() {
+        return adminAvailabilityBoard();
+      }
+
+      function availabilityView() {
+        return [
+          providerSwitcher(),
+          '<section class="sos-grid cols-2" data-view="availability">',
+          availabilityBuilder(),
+          slotPublisher(),
+          '</section>'
+        ].join("");
+      }
+
+      function typesView() {
+        return [
+          providerSwitcher(),
+          '<section class="sos-grid cols-2" data-view="types">',
+          appointmentTypeManager(),
+          mappingPanel(),
+          '</section>'
+        ].join("");
+      }
+
+      function appointmentsView() {
+        return [
+          providerSwitcher(),
+          '<section class="sos-grid cols-2" data-view="appointments">',
+          appointmentOpsTable(),
+          overridePanel(),
+          '</section>'
+        ].join("");
+      }
+
+      function providerSwitcher() {
+        var providers = providerOptions();
+        return [
+          '<section class="sos-provider-switcher" aria-label="Provider filter">',
+          providers.map(function (provider) {
+            return '<button class="sos-tab" type="button" data-provider="' + escapeHtml(provider.id) + '" aria-selected="' + String(app.state.selectedProvider === provider.id) + '">' + escapeHtml(provider.label) + '</button>';
+          }).join(""),
+          '</section>'
+        ].join("");
+      }
+
+      function adminAvailabilityBoard() {
+        var grid = app.state.availabilityGrid || {};
+        var pendingCount = Object.keys(app.state.pendingGridChanges || {}).length;
+        return [
+          '<section class="sos-admin-board" data-view="admin-grid">',
+          '<div class="sos-admin-board-main">',
+          adminGridToolbar(grid),
+          adminGridBody(grid),
+          adminGridLegend(grid),
+          adminAppointmentsStrip(grid),
+          pendingCount ? saveDock(pendingCount) : "",
+          '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function adminGridToolbar(grid) {
+        return [
+          '<div class="sos-admin-toolbar">',
+          '<div class="sos-admin-title-row">',
+          '<div><h3 class="sos-admin-toolbar-title">Weekly openings</h3><p class="sos-admin-toolbar-copy">Click a mode, then click slots to paint what students can book. Save publishes the board.</p></div>',
+          '<span class="sos-pill good">' + escapeHtml(activeProvider().label) + '</span>',
+          '</div>',
+          '<div class="sos-admin-provider-tabs" aria-label="Mentor filter">' + simpleBoardProviders().map(function (provider) {
+            return '<button class="sos-tab" type="button" data-provider="' + escapeHtml(provider.id) + '" aria-selected="' + String(app.state.selectedProvider === provider.id) + '">' + escapeHtml(provider.label) + '</button>';
+          }).join("") + '</div>',
+          '<div class="sos-admin-controls">',
+          '<label class="sos-admin-control"><span>Meeting type</span><select class="sos-chip-select" data-action="select-admin-type" aria-label="Meeting type">' + appointmentTypeOptions() + '</select></label>',
+          '<div class="sos-paint-bar" aria-label="Paint mode">',
+          '<span class="sos-paint-label">Paint</span>',
+          slotActionChip("open", "Open"),
+          slotActionChip("reserve", "Reserved"),
+          slotActionChip("clear", "Blank"),
+          slotActionChip("blackout", "Blocked"),
+          '<span class="sos-paint-state">Painting: ' + escapeHtml(paintModeLabel(app.state.selectedSlotAction)) + '</span>',
+          '</div>',
+          weeklyRepeatControl(),
+          '</div>',
+          '<div class="sos-admin-week-row">',
+          '<button class="sos-btn sos-btn-quiet" type="button" data-action="prev-admin-week">Previous</button>',
+          '<span class="sos-pill warn">Week of ' + escapeHtml(formatShortDate(app.state.selectedWeekStart)) + '</span>',
+          '<div class="sos-action-row"><button class="sos-btn sos-btn-quiet" type="button" data-action="next-admin-week">Next</button><button class="sos-btn" type="button" data-action="reload-admin-grid">Reload</button></div>',
+          '</div>',
+          '</div>'
+        ].join("");
+      }
+
+      function slotActionChip(action, label) {
+        return '<button class="sos-action-chip" type="button" data-slot-action="' + escapeHtml(action) + '" aria-pressed="' + String(app.state.selectedSlotAction === action) + '">' + escapeHtml(label) + '</button>';
+      }
+
+      function weeklyRepeatControl() {
+        var openMode = app.state.selectedSlotAction === "open";
+        return [
+          '<label class="sos-repeat-control" title="Repeat painted open slots on the same weekday and time until the selected end date.">',
+          '<input type="checkbox" data-action="toggle-repeat-weekly" ' + (app.state.repeatWeeklyOpen ? "checked" : "") + (openMode ? "" : " disabled") + '>',
+          '<span>Repeat open slots weekly</span>',
+          '<input type="date" data-action="repeat-until" value="' + escapeHtml(app.state.repeatUntil || defaultRepeatUntil()) + '" ' + (openMode && app.state.repeatWeeklyOpen ? "" : " disabled") + '>',
+          '<span class="sos-repeat-hint">' + (openMode ? "Applies to painted Open slots only." : "Switch paint mode to Open to repeat.") + '</span>',
+          '</label>'
+        ].join("");
+      }
+
+      function appointmentTypeOptions() {
+        var types = appointmentTypeOptionsData();
+        if (!types.length) return '<option value="">Load meeting types</option>';
+        return types.map(function (type) {
+          return '<option value="' + escapeHtml(type.id) + '"' + (type.id === app.state.selectedAppointmentType ? " selected" : "") + '>' + escapeHtml(type.label) + '</option>';
+        }).join("");
+      }
+
+      function adminGridBody(grid) {
+        if (app.state.gridLoading) {
+          return '<div class="sos-admin-loading"><div><strong>Loading weekly openings</strong><p>Checking student-visible slots and booked appointments.</p></div></div>';
+        }
+        var cells = Array.isArray(grid.cells) ? grid.cells : [];
+        if (!app.state.selectedProvider || app.state.selectedProvider === "all" || !app.state.selectedAppointmentType) {
+          return '<div class="sos-admin-empty"><strong>Select a mentor and meeting type</strong><p>The board will load the exact slots students see for that combination.</p></div>';
+        }
+        if (!cells.length) {
+          return '<div class="sos-admin-empty"><strong>No weekly cells loaded</strong><p>Reload the board or choose another mentor/type. No student-visible slots were changed.</p></div>';
+        }
+        var days = adminGridDays(grid);
+        var timeRows = adminGridTimes(cells);
+        return [
+          '<div class="sos-admin-grid-wrap">',
+          '<div class="sos-admin-calendar-grid" role="grid" aria-label="Weekly availability board">',
+          '<div class="sos-admin-time-head">Time</div>',
+          days.map(function (day) { return '<div class="sos-admin-grid-head"><strong>' + escapeHtml(day.day) + '</strong><span>' + escapeHtml(day.date) + '</span></div>'; }).join(""),
+          timeRows.map(function (time) {
+            return '<div class="sos-admin-time-head">' + escapeHtml(time.label) + '</div>' + days.map(function (day) {
+              return adminSlotCell(cellForGrid(cells, day.key, time.label));
+            }).join("");
+          }).join(""),
+          '</div>',
+          '</div>'
+        ].join("");
+      }
+
+      function adminSlotCell(cell) {
+        if (!cell) return '<button class="sos-admin-slot-cell is-clear" type="button" disabled><span class="sos-cell-status">Blank</span></button>';
+        var pending = app.state.pendingGridChanges[cell.id];
+        var status = pending ? pending.action : cell.status || "closed";
+        if (status === "clear") status = "clear";
+        var classes = ["sos-admin-slot-cell", "is-" + status];
+        if (pending) classes.push("is-pending");
+        var statusLabel = pending ? stagedStatusLabel(pending.action) : cellStatusLabel(cell.status);
+        var title = cell.appointment ? "Open booked appointment details" : "Apply " + app.state.selectedSlotAction + " to " + cell.label;
+        return '<button class="' + classes.join(" ") + '" type="button" data-admin-cell-id="' + escapeHtml(cell.id) + '" title="' + escapeHtml(title) + '"><span class="sos-cell-status">' + escapeHtml(statusLabel) + '</span><span class="sos-cell-time">' + escapeHtml(cell.time_label || "") + '</span></button>';
+      }
+
+      function adminGridSidePanel(grid) {
+        return "";
+      }
+
+      function adminGridLegend(grid) {
+        var cells = Array.isArray(grid.cells) ? grid.cells : [];
+        var openCount = cells.filter(function (cell) { return cell.status === "open"; }).length;
+        var bookedCount = cells.filter(function (cell) { return cell.status === "booked"; }).length;
+        return [
+          '<div class="sos-simple-strip" aria-label="Board legend">',
+          '<div class="sos-simple-legend">',
+          '<span class="sos-legend-dot is-open">Open</span>',
+          '<span class="sos-legend-dot is-reserved">Reserved</span>',
+          '<span class="sos-legend-dot">Blank</span>',
+          '<span class="sos-legend-dot is-blackout">Blocked</span>',
+          '<span class="sos-legend-dot is-booked">Booked</span>',
+          '</div>',
+          '<span class="sos-muted">' + escapeHtml(openCount) + ' open / ' + escapeHtml(bookedCount) + ' booked this week</span>',
+          '</div>'
+        ].join("");
+      }
+
+      function adminAppointmentsStrip(grid) {
+        var appointments = Array.isArray(grid.appointments) ? grid.appointments : [];
+        var visible = appointments.slice(0, 8);
+        return [
+          '<section class="sos-simple-appointments" aria-label="Upcoming appointments for selected board">',
+          '<h3>Upcoming appointments</h3>',
+          visible.length
+            ? '<div class="sos-appointment-chips">' + visible.map(function (appointment) {
+              var time = appointment.start_at ? formatDateTime(appointment.start_at) : "Time pending";
+              return '<span class="sos-appointment-chip">' + escapeHtml((appointment.appointment_type_name || "Appointment") + " · " + time) + '</span>';
+            }).join("") + '</div>'
+            : '<p class="sos-admin-toolbar-copy">No booked appointments loaded for this mentor/type/week.</p>',
+          '</section>'
+        ].join("");
+      }
+
+      function paintModeLabel(action) {
+        var labels = {
+          open: "Open",
+          reserve: "Reserved",
+          clear: "Blank",
+          blackout: "Blocked"
+        };
+        return labels[action] || "Open";
+      }
+
+      function selectedCellDetails(cell) {
+        var appointment = cell.appointment || {};
+        return [
+          '<div class="sos-detail-list">',
+          detailItem("Status", cellStatusLabel(cell.status)),
+          detailItem("Time", (cell.label || "") + " ET"),
+          appointment.id ? detailItem("Appointment", appointment.appointment_type_name || "Booked appointment") : "",
+          appointment.id ? detailItem("Student", appointment.student_label || "Student") : "",
+          appointment.id ? detailItem("Meeting", appointment.meeting_url_present ? "Link present" : "No link stored") : "",
+          '</div>',
+          '<div class="sos-action-row" style="margin-top:14px;"><button class="sos-btn" type="button" data-action="close-slot-detail">Close details</button></div>'
+        ].join("");
+      }
+
+      function adminGridSummary(grid, appointments) {
+        var cells = Array.isArray(grid.cells) ? grid.cells : [];
+        return [
+          '<div class="sos-detail-list">',
+          detailItem("Mentor", activeProvider().label),
+          detailItem("Meeting type", activeAppointmentType().label || "Select a type"),
+          detailItem("Open slots", cells.filter(function (cell) { return cell.status === "open"; }).length),
+          detailItem("Booked slots", cells.filter(function (cell) { return cell.status === "booked"; }).length),
+          detailItem("Upcoming appointments", appointments.length),
+          '</div>',
+          '<div class="sos-notice" style="margin-top:14px;"><strong>Student visibility</strong><span>Green Open cells are the slots students can book for this mentor and meeting type after the board is saved.</span></div>'
+        ].join("");
+      }
+
+      function detailItem(label, value) {
+        if (!value) return "";
+        return '<div class="sos-detail-item"><span>' + escapeHtml(label) + '</span><strong>' + escapeHtml(value) + '</strong></div>';
+      }
+
+      function saveDock(count) {
+        return [
+          '<div class="sos-save-dock">',
+          '<div><strong>' + escapeHtml(count) + ' unsaved slot change' + (count === 1 ? "" : "s") + '</strong><p class="sos-admin-toolbar-copy">Save publishes these openings to the student Scheduler.</p></div>',
+          '<div class="sos-action-row"><button class="sos-btn" type="button" data-action="discard-admin-grid">Discard</button><button class="sos-btn sos-btn-primary" type="button" data-action="save-admin-grid" ' + (app.state.gridSaving ? "disabled" : "") + '>Save changes</button></div>',
+          '</div>'
+        ].join("");
+      }
+
+      function scheduleBoard() {
+        return [
+          '<section class="sos-card">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Provider schedule board</h3><p class="sos-card-copy">Week view for published availability, booked sessions, blackouts, and conflicts.</p></div><button class="sos-btn" type="button" data-action="reload-appointments">Reload</button></div>',
+          '<div class="sos-card-body">',
+          '<div class="sos-ops-toolbar"><span class="sos-pill warn">' + escapeHtml(activeProvider().label) + '</span><span class="sos-muted">Week of ' + escapeHtml(formatShortDate(app.state.selectedWeekStart)) + '</span></div>',
+          '<div class="sos-schedule-board">',
+          weekColumns().map(function (day) {
+            return '<article class="sos-day-column"><strong>' + escapeHtml(day.label) + '</strong><span>' + escapeHtml(day.dateLabel) + '</span>' + dayEntries(day.key).join("") + '</article>';
+          }).join(""),
+          '</div>',
+          conflictNotice(),
+          '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function opsSummaryPanel() {
+        return [
+          '<section class="sos-card">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Ops snapshot</h3><p class="sos-card-copy">Production Scheduler is active with Brian-approved default availability for Dr J and Dr. Brian.</p></div><span class="sos-pill good">Live</span></div>',
+          '<div class="sos-card-body">',
+          '<div class="sos-grid cols-3">',
+          miniMetric("Draft slots", app.state.draftSlots.length),
+          miniMetric("Appointments", filteredAppointments().length),
+          miniMetric("Conflicts", app.state.conflictPreview.length),
+          '</div>',
+          '<div class="sos-notice"><strong>Default windows active</strong><span>Dr. Brian runs weekdays 11 AM-2 PM ET. Dr J runs weekdays 9-11 AM and 6-8 PM ET. Dr S and Sophia are visible with availability coming soon.</span></div>',
+          enrollmentPolicyNotice(),
+          entitlementOpsPanel(),
+          '<div class="sos-grid cols-3">',
+          featureTile("Student Intake", "Provider-facing intake review is scaffolded for authenticated HQ users."),
+          featureTile("Private Notes", "Notes stay provider/admin only and never render in the student scheduler."),
+          featureTile("Sync Status", "External calendar sync waits for nonproduction credentials."),
+          '</div>',
+          '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function enrollmentPolicyNotice() {
+        var policy = app.state.enrollmentPolicy || {};
+        if (policy.mode === "entitlements" || policy.entitlements) {
+          return '<div class="sos-notice"><strong>Scheduler entitlements active</strong><span>Non-member consult is open to registered users. Mission Residency and Exam Prep booking require server-side course or product entitlement facts. Browser-supplied eligibility and credits are ignored.</span></div>';
+        }
+        if (policy.mode === "launch_allowlist") {
+          return '<div class="sos-notice"><strong>Controlled launch allowlist active</strong><span>Booking is limited by server-side user and appointment type scope until the real enrollment bridge is connected. Browser-supplied eligibility is ignored.</span></div>';
+        }
+        if (policy.mode === "bridge") {
+          return '<div class="sos-notice"><strong>Enrollment bridge active</strong><span>Scheduler eligibility is resolved server-side through the configured production bridge.</span></div>';
+        }
+        return '<div class="sos-notice"><strong>Enrollment fails closed</strong><span>No broad booking access is open without the approved enrollment bridge or a scoped launch policy.</span></div>';
+      }
+
+      function entitlementOpsPanel() {
+        var config = app.state.entitlementConfig || (app.state.bootstrap && app.state.bootstrap.config ? app.state.bootstrap.config.entitlements : null) || {};
+        var policy = config.policy || (app.state.enrollmentPolicy && app.state.enrollmentPolicy.entitlements) || {};
+        var quota = config.quotas || {};
+        var credits = config.credits || {};
+        var facts = config.facts_configured ? "Session facts present" : "Awaiting course facts";
+        return [
+          '<div class="sos-builder-section">',
+          '<h4>Enrollment entitlements</h4>',
+          '<p>Server-side gating is ready for Non-Member, Mission Residency, and Exam Prep. Course IDs can be adjusted without trusting browser claims.</p>',
+          '<div class="sos-grid cols-3">',
+          featureTile("Non-Member", "Registered users can book Consult: Non-Member."),
+          featureTile("Mission Residency", "360 gets all Mission Residency types. Match Prep Pro gets small group and open door only."),
+          featureTile("Exam Prep", "Exam Prep products unlock Exam Prep visit types."),
+          '</div>',
+          '<div class="sos-grid cols-3">',
+          miniMetric("Entitlement mode", policy.mode || "model_ready"),
+          miniMetric("Session facts", facts),
+          miniMetric("Quota/Credits", (quota.model_ready || credits.model_ready) ? "Ready" : "Pending"),
+          '</div>',
+          '<div class="sos-notice"><strong>Credit model staged</strong><span>Admin-configurable monthly allocations, service costs, manual adjustments, and season limits are contract-ready. Live edits wait for approved Scheduler-only settings persistence.</span></div>',
+          '</div>'
+        ].join("");
+      }
+
+      function availabilityBuilder() {
+        return [
+          '<form class="sos-card" data-form="availability">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Availability builder</h3><p class="sos-card-copy">Build weekly templates, overrides, buffers, and booking windows for ' + escapeHtml(activeProvider().label) + '.</p></div><span class="sos-pill">Draft</span></div>',
+          '<div class="sos-card-body">',
+          field("Provider", providerSelect("provider_id")),
+          '<div class="sos-row">' + field("Weekly template", '<select class="sos-select" name="weekly_template"><option>Dr. Brian weekdays 11 AM-2 PM ET</option><option>Dr J weekdays 9-11 AM ET</option><option>Dr J weekdays 6-8 PM ET</option><option>Custom override</option></select>') + field("Appointment type", '<select class="sos-select" name="appointment_type_id"><optgroup label="Mission Residency"><option>1-on-1 Advising</option><option>Personal Statement</option><option>1-on-1 Mock IV</option><option>ERAS Application Review</option></optgroup><optgroup label="Exam Prep"><option>1-on-1 Advising</option><option>Small Group</option></optgroup></select>') + '</div>',
+          '<div class="sos-row">' + field("Date override", '<input class="sos-input" name="override_date" type="date">') + field("Capacity", '<input class="sos-input" name="capacity" type="number" min="1" value="1">') + '</div>',
+          '<div class="sos-row">' + field("Buffer before", '<input class="sos-input" name="buffer_before_minutes" type="number" min="0" value="10">') + field("Buffer after", '<input class="sos-input" name="buffer_after_minutes" type="number" min="0" value="10">') + '</div>',
+          '<div class="sos-row">' + field("Minimum notice", '<input class="sos-input" name="min_notice_hours" type="number" min="0" value="24">') + field("Max booking window", '<input class="sos-input" name="max_booking_days" type="number" min="1" value="60">') + '</div>',
+          field("Eligibility rule", '<input class="sos-input" name="eligibility_rule" value="Eligible MissionMed product or admin override" autocomplete="off">'),
+          '<div class="sos-builder-section"><h4>Visual weekly openings</h4><p>Matrix-native control surface for open blocks, exact start times, buffers, blackout markers, and group capacity. Drag persistence waits for approved API-backed publishing.</p>' + availabilityMatrix() + '</div>',
+          '<div class="sos-form-actions"><button class="sos-btn sos-btn-primary" type="submit">Save draft</button><button class="sos-btn" type="button" data-action="preview-conflicts">Preview conflicts</button></div>',
+          '</div>',
+          '</form>'
+        ].join("");
+      }
+
+      function slotPublisher() {
+        return [
+          '<section class="sos-card">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Slot publisher</h3><p class="sos-card-copy">Review draft slots, then publish or unpublish through server routes when persistence is ready.</p></div><span class="sos-pill warn">Draft</span></div>',
+          '<div class="sos-card-body">',
+          '<div class="sos-slot-list">',
+          app.state.draftSlots.map(function (slot) {
+            return '<article class="sos-slot-row"><div><strong>' + escapeHtml(slot.provider) + '</strong><span>' + escapeHtml(slot.label) + '</span></div><span class="sos-pill ' + (slot.status === "conflict" ? "bad" : "warn") + '">' + escapeHtml(slot.status) + '</span></article>';
+          }).join(""),
+          '</div>',
+          '<div class="sos-form-actions"><button class="sos-btn sos-btn-primary" type="button" data-action="publish-slots">Publish slots</button><button class="sos-btn" type="button" data-action="unpublish-slots">Unpublish slots</button><button class="sos-btn" type="button" data-action="preview-conflicts">Conflict preview</button></div>',
+          '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function appointmentTypeManager() {
+        return [
+          '<form class="sos-card" data-form="type">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Appointment type builder</h3><p class="sos-card-copy">Configure the full Scheduler visit type surface with Matrix styling and server-mediated writes only.</p></div><span class="sos-pill">HQ only</span></div>',
+          '<div class="sos-card-body sos-builder-shell">',
+          builderSection("Basics", "Name, instructions, duration, label, color, and booking layout.", [
+            '<div class="sos-row">' + field("Division", '<select class="sos-select" name="metadata_division_id"><option value="mission-residency">Mission Residency</option><option value="exam-prep">Exam Prep</option></select>') + field("Visit type", '<select class="sos-select" name="metadata_visit_type"><optgroup label="Mission Residency"><option>1-on-1 Advising</option><option>Personal Statement</option><option>1-on-1 Mock IV</option><option>ERAS Application Review</option></optgroup><optgroup label="Exam Prep"><option>1-on-1 Advising</option><option>Small Group</option></optgroup></select>') + '</div>',
+            field("Name", '<input class="sos-input" name="name" value="Mission Residency 1-on-1 Advising" autocomplete="off">'),
+            field("Description / instructions", '<textarea class="sos-textarea" name="description" placeholder="What the student should know before booking.">Mock interview preparation with specialty-specific coaching.</textarea>'),
+            '<div class="sos-row">' + field("Duration", '<input class="sos-input" name="duration_minutes" type="number" min="5" value="60">') + field("Duration unit", '<select class="sos-select" name="metadata_duration_unit"><option>minutes</option><option>hours</option><option>days</option></select>') + '</div>',
+            '<div class="sos-row">' + field("Label", '<input class="sos-input" name="metadata_label" value="Interview" autocomplete="off">') + field("Matrix color", '<select class="sos-select" name="metadata_color"><option>gold</option><option>blue</option><option>green</option><option>orange</option></select>') + '</div>',
+            field("Booking layout", '<select class="sos-select" name="metadata_booking_layout"><option value="guided_week">Guided week</option><option value="first_available">First available</option><option value="expanded">Expanded date then time</option><option value="express">Express date and time</option></select>')
+          ]),
+          builderSection("Availability", "Visual weekly grid, available blocks, specific start times, intervals, and date windows.", [
+            '<div class="sos-row">' + field("Start mode", '<select class="sos-select" name="metadata_availability_start_mode"><option value="available_blocks">Available blocks</option><option value="specific_start_times">Specific start times</option></select>') + field("Start interval", '<select class="sos-select" name="metadata_interval_minutes"><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="20">20 minutes</option><option value="30">30 minutes</option><option value="60" selected>60 minutes</option></select>') + '</div>',
+            '<div class="sos-row">' + field("Booking date window start", '<input class="sos-input" name="metadata_window_start" type="date">') + field("Booking date window end", '<input class="sos-input" name="metadata_window_end" type="date">') + '</div>',
+            availabilityMatrix()
+          ]),
+          builderSection("Capacity", "Individual visits, group sessions, class capacity, and waitlist placeholder.", [
+            '<div class="sos-row">' + field("Mode", '<select class="sos-select" name="metadata_capacity_mode"><option value="individual">Individual</option><option value="group">Group or class</option></select>') + field("Capacity", '<input class="sos-input" name="capacity" type="number" min="1" value="1">') + '</div>',
+            toggleGrid([["Waitlist placeholder", "metadata_waitlist_enabled"], ["Group capacity marker", "metadata_capacity_marker"], ["Resource capacity applies", "metadata_resource_capacity"], ["Allow overlapping group seats", "metadata_overlap_group"]])
+          ]),
+          builderSection("Scheduling Options", "Timezone, buffers, minimum notice, advance window, booking window, and per-day limits.", [
+            '<div class="sos-row">' + field("Timezone mode", '<select class="sos-select" name="metadata_timezone_mode"><option value="localized">Localized to student</option><option value="locked">Locked to provider timezone</option></select>') + field("Per-day limit", '<input class="sos-input" name="metadata_per_day_limit" type="number" min="0" placeholder="No limit">') + '</div>',
+            '<div class="sos-row">' + field("Buffer before", '<input class="sos-input" name="buffer_before_minutes" type="number" min="0" value="10">') + field("Buffer after", '<input class="sos-input" name="buffer_after_minutes" type="number" min="0" value="10">') + '</div>',
+            '<div class="sos-row">' + field("Minimum notice", '<input class="sos-input" name="min_notice_minutes" type="number" min="0" value="1440">') + field("Advance booking limit", '<input class="sos-input" name="max_booking_window_days" type="number" min="1" value="60">') + '</div>'
+          ]),
+          builderSection("Web Meetings", "Manual links now, Zoom/Webex/Google Meet through server-side adapters when staging credentials exist.", [
+            '<div class="sos-row">' + field("Meeting provider", '<select class="sos-select" name="meeting_mode"><option value="manual">Manual link</option><option value="zoom">Zoom</option><option value="webex">Webex</option><option value="google_meet">Google Meet</option><option value="none">None</option></select>') + field("Provider account mapping", '<input class="sos-input" name="metadata_meeting_account" placeholder="Staging account id, not a secret">') + '</div>',
+            '<div class="sos-row">' + field("Manual meeting URL", '<input class="sos-input" name="metadata_manual_meeting_url" placeholder="Optional server-side manual link">') + field("Link policy", '<select class="sos-select" name="metadata_meeting_link_policy"><option value="after_confirmation">After confirmation</option><option value="manual_review">Manual review</option></select>') + '</div>',
+            toggleGrid([["Auto-generate meeting", "metadata_meeting_auto_generate"], ["Show link after confirmation", "metadata_meeting_after_confirm"], ["Attach to ICS", "metadata_meeting_ics"], ["Provider-specific account", "metadata_meeting_provider_map"]])
+          ]),
+          builderSection("Customer Information", "Student intake fields with display and required controls. Staff-only fields remain server/admin only.", [
+            '<div class="sos-row">' + field("Field label", '<input class="sos-input" name="metadata_intake_label" value="Goals for this session" autocomplete="off">') + field("Field type", '<select class="sos-select" name="metadata_intake_type"><option>textarea</option><option>text</option><option>select</option><option>date</option><option>number</option></select>') + '</div>',
+            toggleGrid([["Display to student", "metadata_intake_display"], ["Required", "metadata_intake_required"], ["Staff can review", "metadata_intake_staff"], ["Protected from public UI", "metadata_intake_protected"]])
+          ]),
+          builderSection("Notifications", "Email/SMS reminder queue settings. Live sends require server-side provider env and opt-in.", [
+            '<div class="sos-row">' + field("Admin notice email", '<input class="sos-input" name="metadata_admin_email" type="email" placeholder="ops@example.com">') + field("Reminder minutes before", '<input class="sos-input" name="metadata_reminder_minutes" value="1440" autocomplete="off">') + '</div>',
+            toggleGrid([["Admin booked email", "metadata_admin_booked_email"], ["Student booked email", "metadata_student_booked_email"], ["Admin canceled email", "metadata_admin_canceled_email"], ["Student canceled email", "metadata_student_canceled_email"], ["Email reminders", "metadata_reminder_placeholder"], ["SMS reminders require opt-in", "metadata_sms_reminders"]])
+          ]),
+          builderSection("Booking Flow", "Step order, confirmation behavior, and future redirect controls.", [
+            '<div class="sos-row">' + field("Flow", '<select class="sos-select" name="metadata_booking_flow"><option value="expanded">Expanded</option><option value="express">Express</option><option value="first_available">First available</option></select>') + field("Confirmation behavior", '<select class="sos-select" name="metadata_confirmation_behavior"><option>Show Matrix confirmation</option><option>Custom confirmation route placeholder</option></select>') + '</div>',
+            field("Step sequence", '<input class="sos-input" name="metadata_booking_steps" value="division, visit_type, mentor, time_slot, review_confirm" autocomplete="off">')
+          ]),
+          builderSection("Payments", "Stripe test-mode scaffold and no-payment mode. Payment is server-verified only.", [
+            '<div class="sos-row">' + field("Payment mode", '<select class="sos-select" name="metadata_payment_mode"><option value="none">None</option><option value="required">Required</option><option value="optional">Optional</option><option value="deposit">Deposit placeholder</option></select>') + field("Provider", '<select class="sos-select" name="metadata_payment_provider"><option>Stripe</option><option>PayPal placeholder</option></select>') + '</div>',
+            '<div class="sos-row">' + field("Amount cents", '<input class="sos-input" name="metadata_payment_amount_cents" type="number" min="0" value="0">') + field("Currency", '<input class="sos-input" name="metadata_payment_currency" value="usd" autocomplete="off">') + '</div>'
+          ]),
+          builderSection("Booking Info", "MissionMed route/embed equivalent for Matrix and standalone pages.", [
+            '<div class="sos-row">' + field("Standalone route", '<input class="sos-input" readonly value="/schedule?division=mission-residency">') + field("Matrix route", '<input class="sos-input" readonly value="/member-dashboard/#schedule">') + '</div>',
+            '<div class="sos-form-actions"><button class="sos-btn" type="button" data-action="preview-conflicts">Preview availability</button><button class="sos-btn sos-btn-primary" type="submit">Save appointment type</button></div>'
+          ]),
+          '</div>',
+          '</form>'
+        ].join("");
+      }
+
+      function mappingPanel() {
+        return [
+          '<section class="sos-card">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Provider mapping</h3><p class="sos-card-copy">Operational view for Dr J, Dr. Brian, Phil, Dr S, Sophia, and future coach mapping.</p></div><button class="sos-btn" type="button" data-action="reload-collection">Probe providers</button></div>',
+          '<div class="sos-card-body">',
+          '<div class="sos-grid cols-3">',
+          providerRoster.filter(function (item) { return item.id !== "all"; }).map(function (item) {
+            return featureTile(item.label, item.pending ? "Display-only mentor. Provider identity mapping and approved availability are still required." : "Provider is mapped to the production Scheduler catalog.");
+          }).join(""),
+          '</div>',
+          '<div class="sos-notice"><strong>Fail closed</strong><span>If provider mapping is missing, provider routes stay blocked and student booking cannot assign a provider.</span></div>',
+          '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function appointmentOpsTable() {
+        return [
+          '<section class="sos-card">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Appointment ops table</h3><p class="sos-card-copy">All scheduled appointments with reschedule, cancel, no-show, and note actions.</p></div><button class="sos-btn" type="button" data-action="reload-appointments">Reload</button></div>',
+          '<div class="sos-card-body">' + table(filteredAppointments(), ["Student", "Provider", "Type", "Start", "Status", "Actions"], appointmentOpsCells, "No appointments loaded yet. Connect nonproduction fixtures to validate live rows.") + '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function overridePanel() {
+        return [
+          '<form class="sos-card" data-form="override">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Manual booking</h3><p class="sos-card-copy">Admin override remains server-mediated and requires a reason.</p></div><span class="sos-pill warn">Admin</span></div>',
+          '<div class="sos-card-body">',
+          field("Student user id", '<input class="sos-input" name="student_user_id" autocomplete="off" placeholder="Nonproduction fixture user id">'),
+          field("Appointment type id", '<input class="sos-input" name="appointment_type_id" autocomplete="off" placeholder="Scheduler appointment type id">'),
+          field("Provider id", '<input class="sos-input" name="provider_id" autocomplete="off" placeholder="Scheduler provider id">'),
+          '<div class="sos-row">' + field("Start", '<input class="sos-input" name="start_at" type="datetime-local">') + field("End", '<input class="sos-input" name="end_at" type="datetime-local">') + '</div>',
+          field("Reason", '<textarea class="sos-textarea" name="reason" placeholder="Required admin reason"></textarea>'),
+          '<button class="sos-btn sos-btn-primary" type="submit">Create override</button>',
+          '</div>',
+          '</form>'
+        ].join("");
+      }
+
+      function auditView() {
+        return [
+          '<section class="sos-grid cols-2" data-view="audit">',
+          '<section class="sos-card">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Audit log</h3><p class="sos-card-copy">Read-only event review for scheduler mutations.</p></div><button class="sos-btn" type="button" data-action="reload-audit">Reload</button></div>',
+          '<div class="sos-card-body">',
+          app.state.auditRows.length ? table(app.state.auditRows, ["Actor", "Action", "Target", "Time"], auditCells, "No audit events loaded.") : '<div class="sos-notice"><strong>No audit events loaded</strong><span>Use Reload to query the admin-only Scheduler audit route.</span></div>',
+          '</div>',
+          '</section>',
+          '<section class="sos-card">',
+          '<div class="sos-card-head"><div><h3 class="sos-card-title">Analytics and SSA import preview</h3><p class="sos-card-copy">Dry-run panels only. No import or production mutation happens here.</p></div><span class="sos-pill warn">Dry run</span></div>',
+          '<div class="sos-card-body">',
+          '<button class="sos-btn" type="button" data-action="reload-analytics">Load analytics placeholder</button>',
+          '<button class="sos-btn sos-btn-primary" type="button" data-action="ssa-preview">Run SSA preview</button>',
+          '<div class="sos-notice"><strong>Analytics</strong><span>' + escapeHtml(app.state.analytics ? app.state.analytics.message || "Analytics payload loaded." : "Analytics waits for persisted scheduler usage data.") + '</span></div>',
+          '<div class="sos-notice"><strong>SSA import preview</strong><span>' + escapeHtml(app.state.ssaPreview ? "Preview completed with no mutations." : "No import preview loaded.") + '</span></div>',
+          '</div>',
+          '</section>',
+          '</section>'
+        ].join("");
+      }
+
+      function builderSection(title, copy, rows) {
+        return [
+          '<section class="sos-builder-section">',
+          '<div><h4>' + escapeHtml(title) + '</h4><p>' + escapeHtml(copy) + '</p></div>',
+          rows.join(""),
+          '</section>'
+        ].join("");
+      }
+
+      function toggleGrid(items) {
+        return '<div class="sos-toggle-grid">' + items.map(function (item) {
+          return '<label class="sos-toggle-item"><input type="checkbox" name="' + escapeHtml(item[1]) + '" value="true"><span>' + escapeHtml(item[0]) + '</span><span class="sos-pill">Toggle</span></label>';
+        }).join("") + '</div>';
+      }
+
+      function availabilityMatrix() {
+        var days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        var times = ["8 AM", "9 AM", "10 AM", "11 AM", "12 PM", "1 PM", "2 PM", "3 PM", "4 PM", "5 PM", "6 PM", "7 PM", "8 PM"];
+        return [
+          '<div class="sos-availability-matrix" aria-label="Weekly availability grid">',
+          '<div class="sos-time-label">Time</div>',
+          days.map(function (day) { return '<div class="sos-time-label">' + escapeHtml(day) + '</div>'; }).join(""),
+          times.map(function (time, timeIndex) {
+            return '<div class="sos-time-label">' + escapeHtml(time) + '</div>' + days.map(function (day, dayIndex) {
+              var classes = ["sos-grid-cell"];
+              var isWeekday = dayIndex < 5;
+              var provider = activeProvider().id;
+              var brianOpen = isWeekday && ["11 AM", "12 PM", "1 PM"].indexOf(time) >= 0;
+              var drJOpen = isWeekday && ["9 AM", "10 AM", "6 PM", "7 PM"].indexOf(time) >= 0;
+              if ((provider === "all" && (brianOpen || drJOpen)) || (provider === "dr-brian" && brianOpen) || (provider === "dr-j" && drJOpen)) classes.push("is-open");
+              if ((provider === "dr-s" || provider === "sophia") && isWeekday && ["10 AM", "1 PM"].indexOf(time) >= 0) classes.push("is-buffer");
+              if (provider === "phil-usce" && isWeekday && time === "2 PM") classes.push("is-buffer");
+              return '<button class="' + classes.join(" ") + '" type="button" data-action="grid-preview" aria-label="' + escapeHtml(day + " " + time) + '">' + escapeHtml(cellLabel(classes)) + '</button>';
+            }).join("");
+          }).join(""),
+          '</div>',
+          '<div class="sos-action-row"><span class="sos-pill good">Open block</span><span class="sos-pill warn">Exact start</span><span class="sos-pill bad">Blackout</span><span class="sos-pill">Buffer</span></div>'
+        ].join("");
+      }
+
+      function cellLabel(classes) {
+        if (classes.indexOf("is-blackout") >= 0) return "Blackout";
+        if (classes.indexOf("is-start") >= 0) return "Start";
+        if (classes.indexOf("is-open") >= 0) return "Open";
+        if (classes.indexOf("is-buffer") >= 0) return "Buffer";
+        return "";
+      }
+
+      function field(label, control) {
+        return '<label class="sos-field"><span class="sos-label">' + escapeHtml(label) + '</span>' + control + '</label>';
+      }
+
+      function table(rows, headers, cellBuilder, emptyText) {
+        if (!rows || !rows.length) {
+          return '<div class="sos-empty">' + escapeHtml(emptyText) + '</div>';
+        }
+        return [
+          '<div class="sos-table-wrap"><table class="sos-table">',
+          '<thead><tr>' + headers.map(function (header) { return '<th scope="col">' + escapeHtml(header) + '</th>'; }).join("") + '</tr></thead>',
+          '<tbody>',
+          rows.map(function (row) { return '<tr>' + cellBuilder(row).map(function (cell) { return '<td>' + cell + '</td>'; }).join("") + '</tr>'; }).join(""),
+          '</tbody></table></div>'
+        ].join("");
+      }
+
+      function appointmentCells(row) {
+        return [
+          escapeHtml(row.student_display_name || row.student_name || row.student_user_id || row.student_id || "Student"),
+          escapeHtml(row.provider_display_name || row.provider_name || row.provider_id || "Provider"),
+          escapeHtml(row.start_at ? formatDateTime(row.start_at) : "Time pending"),
+          badge(row.status || "scheduled")
+        ];
+      }
+
+      function appointmentOpsCells(row) {
+        return [
+          escapeHtml(row.student_display_name || row.student_name || row.student_user_id || row.student_id || "Student"),
+          escapeHtml(row.provider_display_name || row.provider_name || row.provider_id || "Provider"),
+          escapeHtml(row.appointment_type_name || row.title || row.appointment_type_id || "Session"),
+          escapeHtml(row.start_at ? formatDateTime(row.start_at) : "Time pending"),
+          badge(row.status || "scheduled"),
+          '<div class="sos-action-row"><button class="sos-btn sos-btn-quiet" type="button" data-action="noop-reschedule">Reschedule</button><button class="sos-btn sos-btn-quiet" type="button" data-action="noop-cancel">Cancel</button><button class="sos-btn sos-btn-quiet" type="button" data-action="noop-noshow">No-show</button><button class="sos-btn sos-btn-quiet" type="button" data-action="noop-note">Note</button></div>'
+        ];
+      }
+
+      function providerCells(row) {
+        return [
+          escapeHtml(row.student_display_name || row.student_name || row.student_id || "Student"),
+          escapeHtml(row.appointment_type_name || row.title || row.appointment_type_id || "Session"),
+          escapeHtml(row.start_at ? formatDateTime(row.start_at) : "Time pending"),
+          badge(row.status || "ready")
+        ];
+      }
+
+      function auditCells(row) {
+        return [
+          escapeHtml(row.actor_display_name || row.actor_id || "Actor"),
+          escapeHtml(row.action || "scheduler_event"),
+          escapeHtml(row.target_id || row.appointment_id || row.id || "Target"),
+          escapeHtml(row.created_at ? formatDateTime(row.created_at) : "Time pending")
+        ];
+      }
+
+      function badge(status) {
+        var normalized = String(status || "").toLowerCase();
+        var tone = normalized.indexOf("cancel") >= 0 || normalized.indexOf("error") >= 0 ? "bad" : normalized.indexOf("pending") >= 0 || normalized.indexOf("not") >= 0 ? "warn" : "good";
+        return '<span class="sos-pill ' + tone + '">' + escapeHtml(status || "ready") + '</span>';
+      }
+
+      function miniMetric(label, value) {
+        return '<article class="sos-item"><strong>' + escapeHtml(value) + '</strong><span>' + escapeHtml(label) + '</span></article>';
+      }
+
+      function featureTile(title, copy) {
+        return '<article class="sos-item"><strong>' + escapeHtml(title) + '</strong><span>' + escapeHtml(copy) + '</span></article>';
+      }
+
+      function providerSelect(name) {
+        return '<select class="sos-select" name="' + escapeHtml(name) + '">' + providerRoster.filter(function (item) { return item.id !== "all"; }).map(function (provider) {
+          return '<option value="' + escapeHtml(provider.id) + '"' + (provider.id === app.state.selectedProvider ? " selected" : "") + '>' + escapeHtml(provider.label) + '</option>';
+        }).join("") + '</select>';
+      }
+
+      function activeProvider() {
+        var simple = simpleBoardProviders();
+        return simple.find(function (provider) {
+          return provider.id === app.state.selectedProvider;
+        }) || simple[0] || providerOptions()[1] || providerRoster[1];
+      }
+
+      function activeAppointmentType() {
+        return appointmentTypeOptionsData().find(function (type) {
+          return type.id === app.state.selectedAppointmentType;
+        }) || { id: "", label: "Select a meeting type" };
+      }
+
+      function providerOptions() {
+        var rows = Array.isArray(app.state.providers) && app.state.providers.length
+          ? app.state.providers.map(function (provider) {
+            return {
+              id: provider.id,
+              label: provider.display_name || provider.name || provider.label || "Mentor",
+              short: provider.short || initials(provider.display_name || provider.name || "MM")
+            };
+          })
+          : providerRoster;
+        return [{ id: "all", label: "All Providers", short: "All" }].concat(rows.filter(function (row) { return row.id !== "all"; }));
+      }
+
+      function simpleBoardProviders() {
+        var rows = providerOptions().filter(function (provider) { return provider.id !== "all"; });
+        var allowed = rows.filter(function (provider) {
+          var label = String(provider.label || "").toLowerCase();
+          var id = String(provider.id || "").toLowerCase();
+          return label.indexOf("brian") >= 0
+            || label.indexOf("dr j") >= 0
+            || label.indexOf("drj") >= 0
+            || label.indexOf("phil") >= 0
+            || id.indexOf("brian") >= 0
+            || id.indexOf("dr-j") >= 0
+            || id.indexOf("drj") >= 0
+            || id.indexOf("phil") >= 0;
+        });
+        var ordered = [];
+        ["brian", "dr j", "drj", "phil"].forEach(function (needle) {
+          allowed.forEach(function (provider) {
+            var value = String(provider.label + " " + provider.id).toLowerCase();
+            if (value.indexOf(needle) >= 0 && !ordered.some(function (existing) { return existing.id === provider.id; })) {
+              ordered.push(provider);
+            }
+          });
+        });
+        return ordered.length ? ordered : rows;
+      }
+
+      function appointmentTypeOptionsData() {
+        return (app.state.appointmentTypes || []).map(function (type) {
+          return {
+            id: type.id,
+            label: type.name || type.slug || "Appointment type",
+            slug: type.slug || "",
+            duration: Number(type.duration_minutes || type.durationMinutes || 30)
+          };
+        });
+      }
+
+      function adminGridDays(grid) {
+        var start = grid.week_start || app.state.selectedWeekStart;
+        return Array.from({ length: 7 }, function (_, index) {
+          var date = addDays(start, index);
+          return {
+            key: date.toISOString().slice(0, 10),
+            day: new Intl.DateTimeFormat([], { weekday: "short" }).format(date),
+            date: new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(date)
+          };
+        });
+      }
+
+      function adminGridTimes(cells) {
+        var seen = {};
+        return cells.reduce(function (list, cell) {
+          var label = cell.time_label || "";
+          if (label && !seen[label]) {
+            seen[label] = true;
+            list.push({ label: label });
+          }
+          return list;
+        }, []);
+      }
+
+      function cellForGrid(cells, dateKey, timeLabel) {
+        return cells.find(function (cell) {
+          return cell.date === dateKey && cell.time_label === timeLabel;
+        }) || null;
+      }
+
+      function cellStatusLabel(status) {
+        var labels = {
+          open: "Open",
+          closed: "Blank",
+          reserved: "Reserved",
+          blackout: "Blocked",
+          booked: "Booked"
+        };
+        return labels[String(status || "closed").toLowerCase()] || "Blank";
+      }
+
+      function stagedStatusLabel(action) {
+        var labels = {
+          open: "Open",
+          close: "Blank",
+          reserve: "Reserved",
+          blackout: "Blocked",
+          clear: "Blank"
+        };
+        return labels[action] || "Open";
+      }
+
+      function initials(value) {
+        return String(value || "MM")
+          .split(/\s+/u)
+          .filter(Boolean)
+          .slice(0, 2)
+          .map(function (part) { return part.slice(0, 1).toUpperCase(); })
+          .join("") || "MM";
+      }
+
+      function addDays(dateKey, days) {
+        var date = new Date(String(dateKey || todayValue()) + "T00:00:00");
+        date.setDate(date.getDate() + days);
+        return date;
+      }
+
+      function filteredAppointments() {
+        if (app.state.selectedProvider === "all") return app.state.appointments;
+        return app.state.appointments.filter(function (row) {
+          var haystack = [row.provider_id, row.provider_name, row.provider_display_name].join(" ").toLowerCase();
+          return haystack.indexOf(app.state.selectedProvider.replace("-", " ")) >= 0 || haystack.indexOf(activeProvider().label.toLowerCase()) >= 0;
+        });
+      }
+
+      function weekColumns() {
+        var start = new Date(app.state.selectedWeekStart + "T00:00:00");
+        return Array.from({ length: 5 }, function (_, index) {
+          var day = new Date(start.getTime() + index * 24 * 60 * 60 * 1000);
+          return {
+            key: day.toISOString().slice(0, 10),
+            label: new Intl.DateTimeFormat([], { weekday: "short" }).format(day),
+            dateLabel: new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(day)
+          };
+        });
+      }
+
+      function dayEntries(dayKey) {
+        var rows = filteredAppointments().filter(function (row) {
+          return String(row.start_at || row.startAt || "").slice(0, 10) === dayKey;
+        });
+        var draftRows = app.state.draftSlots.filter(function (slot) {
+          return slot.date === dayKey && (app.state.selectedProvider === "all" || slot.provider_id === app.state.selectedProvider);
+        });
+        var html = [];
+        rows.forEach(function (row) {
+          html.push('<div class="sos-board-block is-booked"><strong>' + escapeHtml(row.appointment_type_name || row.title || "Booked") + '</strong><span>' + escapeHtml(row.start_at ? formatTime(row.start_at) : "Time pending") + '</span></div>');
+        });
+        draftRows.forEach(function (slot) {
+          html.push('<div class="sos-board-block ' + (slot.status === "conflict" ? "is-conflict" : "is-draft") + '"><strong>' + escapeHtml(slot.provider) + '</strong><span>' + escapeHtml(slot.label) + '</span></div>');
+        });
+        if (!html.length) {
+          html.push('<div class="sos-board-empty">No slots loaded</div>');
+        }
+        return html;
+      }
+
+      function conflictNotice() {
+        if (!app.state.conflictPreview.length) {
+          return '<div class="sos-notice"><strong>Conflict preview</strong><span>No local conflicts are selected. Run preview before publishing slots.</span></div>';
+        }
+        return '<div class="sos-notice error"><strong>Conflict preview</strong><span>' + escapeHtml(app.state.conflictPreview.length) + ' possible conflict warning needs review before publishing.</span></div>';
+      }
+
+      function buildConflictPreview() {
+        return app.state.draftSlots.filter(function (slot) {
+          return slot.status === "conflict" && (app.state.selectedProvider === "all" || slot.provider_id === app.state.selectedProvider);
+        });
+      }
+
+      function bindGlobalEvents() {
+        window.removeEventListener("hashchange", onHashChange);
+        window.addEventListener("hashchange", onHashChange);
+      }
+
+      function bindRouteEvents() {
+        app.refs.root.querySelectorAll("[data-admin-route]").forEach(function (button) {
+          button.setAttribute("aria-current", String(button.getAttribute("data-admin-route") === app.state.route));
+          button.addEventListener("click", function () {
+            app.router.go(button.getAttribute("data-admin-route"));
+          });
+        });
+
+        app.refs.root.querySelectorAll("[data-provider]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            app.state.selectedProvider = normalizeProvider(button.getAttribute("data-provider"));
+            app.state.pendingGridChanges = {};
+            app.state.selectedCell = null;
+            app.render();
+            loadAdminGrid({ quiet: true });
+          });
+        });
+
+        var typeSelect = app.refs.root.querySelector('[data-action="select-admin-type"]');
+        if (typeSelect) {
+          typeSelect.addEventListener("change", function () {
+            app.state.selectedAppointmentType = typeSelect.value;
+            app.state.pendingGridChanges = {};
+            app.state.selectedCell = null;
+            app.render();
+            loadAdminGrid({ quiet: true });
+          });
+        }
+
+        app.refs.root.querySelectorAll("[data-slot-action]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            app.state.selectedSlotAction = button.getAttribute("data-slot-action") || "close";
+            if (app.state.selectedSlotAction !== "open") app.state.repeatWeeklyOpen = false;
+            app.render();
+          });
+        });
+
+        var repeatToggle = app.refs.root.querySelector('[data-action="toggle-repeat-weekly"]');
+        if (repeatToggle) {
+          repeatToggle.addEventListener("change", function () {
+            app.state.repeatWeeklyOpen = Boolean(repeatToggle.checked);
+            if (!app.state.repeatUntil) app.state.repeatUntil = defaultRepeatUntil();
+            app.render();
+          });
+        }
+
+        var repeatUntil = app.refs.root.querySelector('[data-action="repeat-until"]');
+        if (repeatUntil) {
+          repeatUntil.addEventListener("change", function () {
+            app.state.repeatUntil = repeatUntil.value || defaultRepeatUntil();
+            app.render();
+          });
+        }
+
+        app.refs.root.querySelectorAll("[data-admin-cell-id]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            stageAdminCellChange(button.getAttribute("data-admin-cell-id"));
+          });
+        });
+
+        bindAction("reload-all", reloadAll);
+        bindAction("reload-appointments", loadAppointments);
+        bindAction("reload-provider", loadProviderSchedule);
+        bindAction("reload-admin-grid", loadAdminGrid);
+        bindAction("prev-admin-week", previousAdminWeek);
+        bindAction("next-admin-week", nextAdminWeek);
+        bindAction("save-admin-grid", saveAdminGrid);
+        bindAction("discard-admin-grid", discardAdminGrid);
+        bindAction("close-slot-detail", closeSlotDetail);
+        bindAction("reload-audit", loadAudit);
+        bindAction("reload-analytics", loadAnalytics);
+        bindAction("reload-collection", probeCollection);
+        bindAction("ssa-preview", previewImport);
+        bindAction("preview-conflicts", previewConflicts);
+        bindAction("publish-slots", publishSlots);
+        bindAction("unpublish-slots", unpublishSlots);
+        bindAction("grid-preview", gridPreviewPending);
+        bindAction("noop-reschedule", opsActionPending);
+        bindAction("noop-cancel", opsActionPending);
+        bindAction("noop-noshow", opsActionPending);
+        bindAction("noop-note", opsActionPending);
+        bindForm("override", submitOverride);
+        bindForm("availability", submitAvailability);
+        bindForm("type", submitAppointmentType);
+        bindForm("block", submitBlock);
+      }
+
+      function bindAction(action, handler) {
+        app.refs.root.querySelectorAll('[data-action="' + action + '"]').forEach(function (button) {
+          button.addEventListener("click", function () {
+            handler();
+          });
+        });
+      }
+
+      function bindForm(name, handler) {
+        var form = app.refs.root.querySelector('[data-form="' + name + '"]');
+        if (!form) return;
+        form.addEventListener("submit", function (event) {
+          event.preventDefault();
+          handler(event.currentTarget);
+        });
+      }
+
+      function onHashChange() {
+        if (app.state.mode !== "standalone") return;
+        var next = normalizeRoute(getHashRoute());
+        if (next !== app.state.route) {
+          app.state.route = next;
+          app.render();
+        }
+      }
+
+      async function bootstrap() {
+        await loadAuthSession();
+        var result = await app.api.get("/bootstrap");
+        if (result.ok) {
+          app.state.bootstrap = result.data || result;
+          app.state.enrollmentPolicy = app.state.bootstrap && app.state.bootstrap.config ? app.state.bootstrap.config.enrollment_policy : null;
+          app.state.entitlementConfig = app.state.bootstrap && app.state.bootstrap.config ? app.state.bootstrap.config.entitlements : null;
+          clearNotice();
+        } else {
+          app.state.bootstrap = null;
+          setNotice("Session not ready", result.message || "HQ scheduler requires an authenticated MissionMed session.", "error");
+        }
+        await reloadAll({ quiet: true });
+      }
+
+      async function reloadAll(options) {
+        options = options || {};
+        await Promise.all([loadProviders({ quiet: true }), loadAppointmentTypes({ quiet: true }), loadAppointments({ quiet: true }), loadProviderSchedule({ quiet: true }), loadAnalytics({ quiet: true }), loadEntitlementConfig({ quiet: true })]);
+        await loadAdminGrid({ quiet: true });
+        if (!options.quiet) setNotice("Refreshed", "Scheduler panels refreshed from available HQ API routes.", "info");
+        app.render();
+      }
+
+      async function loadAuthSession() {
+        try {
+          var payload = await fetchAuthSession();
+          if (!payload.authenticated || !hasSchedulerAdminRole(payload)) {
+            var exchanged = await exchangeSchedulerAdminSession(payload);
+            if (exchanged && exchanged.authenticated) {
+              payload = exchanged;
+            } else if (!payload.authenticated) {
+              payload = exchanged || payload;
+            }
+          }
+          app.state.session = payload;
+          app.state.csrfToken = payload.csrfToken || "";
+        } catch (error) {
+          app.state.session = null;
+          app.state.csrfToken = "";
+        }
+      }
+
+      async function fetchAuthSession() {
+        var response = await fetch("/api/auth/session?mm_scheduler_exchange=1&audience=scheduler", {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" }
+        });
+        return response.json().catch(function () { return {}; });
+      }
+
+      async function exchangeSchedulerAdminSession(previousPayload) {
+        try {
+          var response = await fetch("/api/auth/exchange", {
+            method: "POST",
+            credentials: "same-origin",
+            cache: "no-store",
+            headers: {
+              Accept: "application/json",
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({ audience: "scheduler" })
+          });
+          var payload = await response.json().catch(function () { return {}; });
+          return response.ok && payload.authenticated ? payload : (payload && Object.keys(payload).length ? payload : previousPayload);
+        } catch (error) {
+          return previousPayload || {};
+        }
+      }
+
+      function hasSchedulerAdminRole(payload) {
+        var roles = [];
+        if (payload && payload.user && Array.isArray(payload.user.roles)) roles = roles.concat(payload.user.roles);
+        if (payload && Array.isArray(payload.roles)) roles = roles.concat(payload.roles);
+        if (payload && payload.user && payload.user.role) roles.push(payload.user.role);
+        if (payload && payload.role) roles.push(payload.role);
+        return roles.map(function (role) {
+          return String(role || "").trim().toLowerCase();
+        }).some(function (role) {
+          return role === "administrator" || role === "admin" || role === "hq_admin" || role === "missionmed_admin" || role === "coordinator";
+        });
+      }
+
+      async function loadAppointments(options) {
+        options = options || {};
+        var result = await app.api.get("/admin/appointments");
+        app.state.appointments = result.ok ? (result.data && result.data.appointments) || result.appointments || [] : [];
+        if (!result.ok && !options.quiet) setNotice("Appointments blocked", result.message || "Appointments could not be loaded.", "error");
+        app.render();
+      }
+
+      async function loadProviders(options) {
+        options = options || {};
+        var result = await app.api.get("/admin/providers");
+        var rows = result.ok ? (result.data && result.data.result) || result.result || [] : [];
+        app.state.providers = Array.isArray(rows) ? rows : [];
+        var simpleProviders = simpleBoardProviders();
+        if (app.state.providers.length && (app.state.selectedProvider === "all" || !simpleProviders.some(function (provider) { return provider.id === app.state.selectedProvider; }))) {
+          app.state.selectedProvider = simpleProviders[0] ? simpleProviders[0].id : app.state.providers[0].id;
+        }
+        if (!result.ok && !options.quiet) setNotice("Providers blocked", result.message || "Mentor catalog could not be loaded.", "error");
+      }
+
+      async function loadAppointmentTypes(options) {
+        options = options || {};
+        var result = await app.api.get("/admin/appointment-types");
+        var rows = result.ok ? (result.data && result.data.result) || result.result || [] : [];
+        app.state.appointmentTypes = Array.isArray(rows) ? rows : [];
+        if (app.state.appointmentTypes.length && !app.state.appointmentTypes.some(function (type) { return type.id === app.state.selectedAppointmentType; })) {
+          app.state.selectedAppointmentType = app.state.appointmentTypes[0].id;
+        }
+        if (!result.ok && !options.quiet) setNotice("Meeting types blocked", result.message || "Appointment types could not be loaded.", "error");
+      }
+
+      async function loadAdminGrid(options) {
+        options = options || {};
+        if (!app.state.selectedProvider || app.state.selectedProvider === "all" || !app.state.selectedAppointmentType) return;
+        app.state.gridLoading = true;
+        app.render();
+        var query = [
+          "provider_id=" + encodeURIComponent(app.state.selectedProvider),
+          "appointment_type_id=" + encodeURIComponent(app.state.selectedAppointmentType),
+          "week_start=" + encodeURIComponent(app.state.selectedWeekStart),
+          "timezone=America/New_York"
+        ].join("&");
+        var result = await app.api.get("/admin/availability-grid?" + query);
+        app.state.gridLoading = false;
+        if (result.ok) {
+          app.state.availabilityGrid = result.data || result;
+          app.state.pendingGridChanges = {};
+          app.state.selectedCell = null;
+          if (!options.quiet) clearNotice();
+        } else if (!options.quiet) {
+          setNotice("Availability board blocked", result.message || "The Scheduler API could not load this mentor/type grid.", "error");
+        }
+        app.render();
+      }
+
+      async function loadProviderSchedule(options) {
+        options = options || {};
+        var result = await app.api.get("/provider/my-schedule");
+        app.state.providerSchedule = result.ok ? (result.data && result.data.schedule) || result.schedule || [] : [];
+        if (!result.ok && !options.quiet) setNotice("Provider schedule blocked", result.message || "Provider schedule could not be loaded.", "error");
+        app.render();
+      }
+
+      async function loadAudit(options) {
+        options = options || {};
+        var result = await app.api.get("/admin/audit-log");
+        app.state.auditRows = result.ok ? (result.data && result.data.events) || result.events || [] : [];
+        if (!result.ok && !options.quiet) setNotice("Audit not configured", result.message || "Audit-log query waits for persistence wiring.", "error");
+        app.render();
+      }
+
+      async function loadAnalytics(options) {
+        options = options || {};
+        var result = await app.api.get("/admin/analytics");
+        app.state.analytics = result.ok ? (result.data && result.data.analytics) || result.data || result : null;
+        if (!result.ok && !options.quiet) setNotice("Analytics blocked", result.message || "Analytics placeholder could not be loaded.", "error");
+        app.render();
+      }
+
+      async function loadEntitlementConfig(options) {
+        options = options || {};
+        var result = await app.api.get("/admin/entitlements/config");
+        if (result.ok) {
+          app.state.adminSessionReady = true;
+          app.state.entitlementConfig = result.data && result.data.config ? result.data.config : app.state.entitlementConfig;
+          if (app.state.notice && app.state.notice.title === "Session not ready") clearNotice();
+        } else if (!options.quiet) {
+          setNotice("Entitlement config unavailable", result.message || "Scheduler entitlement controls are not available yet.", "error");
+        }
+      }
+
+      async function probeCollection() {
+        var result = await app.api.get("/admin/providers");
+        app.state.setupResults.providers = {
+          ok: result.ok,
+          status: result.status || "ready",
+          message: result.message || (result.ok ? "Provider route responded." : "Provider route did not respond.")
+        };
+        app.render();
+      }
+
+      async function previewImport() {
+        var result = await app.api.post("/admin/import/ssa-preview", { rows: [] });
+        app.state.ssaPreview = result.ok ? result.data || result : null;
+        setNotice(result.ok ? "SSA preview complete" : "SSA preview blocked", result.ok ? "Dry-run import returned without mutations." : result.message || "SSA preview is unavailable.", result.ok ? "info" : "error");
+        app.render();
+      }
+
+      async function submitOverride(form) {
+        var payload = formData(form);
+        payload.idempotency_key = "hq-override-" + Date.now();
+        var result = await app.api.post("/admin/override-book", payload);
+        setNotice(result.ok ? "Override submitted" : "Override blocked", result.ok ? "Server accepted the admin override request." : result.message || "Override request was blocked.", result.ok ? "info" : "error");
+        if (result.ok) form.reset();
+        await loadAppointments({ quiet: true });
+      }
+
+      async function submitAvailability(form) {
+        var payload = formData(form);
+        payload.provider_filter = app.state.selectedProvider;
+        var result = await app.api.post("/admin/availability", payload);
+        app.state.setupResults.availability = {
+          ok: result.ok,
+          status: result.status || "mutation_attempted",
+          message: result.message || (result.ok ? "Save request accepted by HQ API." : "Save request was blocked.")
+        };
+        setNotice(result.ok ? "Availability draft submitted" : "Availability save blocked", app.state.setupResults.availability.message, result.ok ? "info" : "error");
+        app.render();
+      }
+
+      async function submitAppointmentType(form) {
+        var result = await app.api.post("/admin/appointment-types", normalizeAppointmentTypePayload(formData(form)));
+        app.state.setupResults["appointment-types"] = {
+          ok: result.ok,
+          status: result.status || "mutation_attempted",
+          message: result.message || (result.ok ? "Appointment type request accepted by HQ API." : "Appointment type save was blocked.")
+        };
+        setNotice(result.ok ? "Appointment type submitted" : "Appointment type blocked", app.state.setupResults["appointment-types"].message, result.ok ? "info" : "error");
+        app.render();
+      }
+
+      async function previewConflicts() {
+        var conflicts = buildConflictPreview();
+        app.state.conflictPreview = conflicts;
+        setNotice(conflicts.length ? "Conflict preview ready" : "No local conflicts found", conflicts.length ? String(conflicts.length) + " draft conflict warning needs review." : "Draft slots do not overlap in this local preview.", conflicts.length ? "error" : "info");
+        app.render();
+      }
+
+      async function publishSlots() {
+        var result = await app.api.post("/admin/availability", { action: "publish_slots", provider_filter: app.state.selectedProvider, draft_slots: app.state.draftSlots });
+        setNotice(result.ok ? "Publish request submitted" : "Publish blocked", result.ok ? "Server accepted the slot publish request." : result.message || "Publishing waits for nonproduction persistence.", result.ok ? "info" : "error");
+        app.render();
+      }
+
+      async function unpublishSlots() {
+        var result = await app.api.post("/admin/availability", { action: "unpublish_slots", provider_filter: app.state.selectedProvider, draft_slots: app.state.draftSlots });
+        setNotice(result.ok ? "Unpublish request submitted" : "Unpublish blocked", result.ok ? "Server accepted the slot unpublish request." : result.message || "Unpublishing waits for nonproduction persistence.", result.ok ? "info" : "error");
+        app.render();
+      }
+
+      function previousAdminWeek() {
+        app.state.selectedWeekStart = addDays(app.state.selectedWeekStart, -7).toISOString().slice(0, 10);
+        app.state.pendingGridChanges = {};
+        app.state.selectedCell = null;
+        loadAdminGrid({ quiet: true });
+      }
+
+      function nextAdminWeek() {
+        app.state.selectedWeekStart = addDays(app.state.selectedWeekStart, 7).toISOString().slice(0, 10);
+        app.state.pendingGridChanges = {};
+        app.state.selectedCell = null;
+        loadAdminGrid({ quiet: true });
+      }
+
+      function closeSlotDetail() {
+        app.state.selectedCell = null;
+        app.render();
+      }
+
+      function discardAdminGrid() {
+        app.state.pendingGridChanges = {};
+        app.state.selectedCell = null;
+        setNotice("Changes discarded", "No slot changes were saved.", "info");
+        app.render();
+      }
+
+      function stageAdminCellChange(cellId) {
+        var cell = findAdminCell(cellId);
+        if (!cell) return;
+        app.state.selectedCell = cell;
+        if (cell.status === "booked") {
+          app.render();
+          return;
+        }
+        var action = app.state.selectedSlotAction || "close";
+        var next = Object.assign({}, app.state.pendingGridChanges);
+        next[cell.id] = {
+          action: action,
+          provider_id: cell.provider_id,
+          appointment_type_id: cell.appointment_type_id,
+          start_at: cell.start_at,
+          end_at: cell.end_at,
+          timezone: cell.timezone || "America/New_York",
+          reason: defaultAdminGridReason(action),
+          repeat_weekly: action === "open" && app.state.repeatWeeklyOpen === true,
+          repeat_until: action === "open" && app.state.repeatWeeklyOpen === true ? app.state.repeatUntil : null
+        };
+        app.state.pendingGridChanges = next;
+        app.render();
+      }
+
+      function findAdminCell(cellId) {
+        var grid = app.state.availabilityGrid || {};
+        return (grid.cells || []).find(function (cell) { return cell.id === cellId; }) || null;
+      }
+
+      async function saveAdminGrid() {
+        var changes = Object.keys(app.state.pendingGridChanges || {}).map(function (key) {
+          return app.state.pendingGridChanges[key];
+        });
+        if (!changes.length) return;
+        app.state.gridSaving = true;
+        app.render();
+        var failures = [];
+        for (var index = 0; index < changes.length; index += 1) {
+          var change = changes[index];
+          var result = await app.api.post("/admin/availability-cell", Object.assign({}, change, {
+            idempotency_key: "admin-grid-" + Date.now() + "-" + index
+          }));
+          if (!result.ok) failures.push(result.message || result.error || "Slot update failed");
+        }
+        app.state.gridSaving = false;
+        if (failures.length) {
+          setNotice("Some slot changes failed", failures[0], "error");
+        } else {
+          setNotice("Availability saved", "Student-visible openings now reflect the saved board.", "info");
+          app.state.pendingGridChanges = {};
+        }
+        await Promise.all([loadAppointments({ quiet: true }), loadAdminGrid({ quiet: true })]);
+      }
+
+      function defaultAdminGridReason(action) {
+        if (action === "reserve") return "Reserved by Scheduler Ops";
+        if (action === "blackout") return "Blackout set by Scheduler Ops";
+        if (action === "clear") return "Cleared by Scheduler Ops";
+        if (action === "open") return "Opened by Scheduler Ops";
+        return "Closed by Scheduler Ops";
+      }
+
+      async function opsActionPending() {
+        setNotice("Action needs a persisted appointment", "Reschedule, cancel, no-show, and note actions are visible for ops review. They need fixture-backed appointment rows before execution.", "error");
+        app.render();
+      }
+
+      async function gridPreviewPending() {
+        setNotice("Visual grid is draft-only", "The weekly grid expresses availability, start times, buffers, and blackout intent. Persisted drag editing waits for the staging admin config API.", "info");
+        app.render();
+      }
+
+      async function submitBlock(form) {
+        var result = await app.api.post("/provider/block-time", formData(form));
+        setNotice(result.ok ? "Block submitted" : "Block blocked", result.ok ? "Provider block request was submitted to the server." : result.message || "Provider block request was blocked.", result.ok ? "info" : "error");
+        if (result.ok) form.reset();
+        await loadProviderSchedule({ quiet: true });
+      }
+
+      async function request(path, options) {
+        options = options || {};
+        try {
+          var headers = { Accept: "application/json" };
+          if (options.body) headers["Content-Type"] = "application/json";
+          if (app.state.csrfToken) headers["x-mmhq-csrf"] = app.state.csrfToken;
+          var response = await fetch(app.state.apiBase + path, {
+            method: options.method || "GET",
+            headers: headers,
+            body: options.body ? JSON.stringify(options.body) : undefined,
+            credentials: "same-origin"
+          });
+          var payload = await response.json().catch(function () { return {}; });
+          return response.ok ? payload : Object.assign({ ok: false, status: response.status }, payload);
+        } catch (error) {
+          return { ok: false, error: "network_error", message: error.message };
+        }
+      }
+
+      function countConfigured(collection) {
+        var result = app.state.setupResults[collection];
+        if (!result || !result.ok) return 0;
+        if (Array.isArray(result.rows)) return result.rows.length;
+        if (Array.isArray(result.result)) return result.result.length;
+        return 1;
+      }
+
+      function normalizeRoute(route) {
+        var clean = String(route || "").replace(/^#/, "");
+        if (clean === "availability") return "ops";
+        return routes.some(function (candidate) { return candidate.id === clean; }) ? clean : "ops";
+      }
+
+      function normalizeProvider(provider) {
+        var simpleProviders = simpleBoardProviders();
+        return simpleProviders.some(function (candidate) { return candidate.id === provider; }) ? provider : (simpleProviders[0] ? simpleProviders[0].id : "all");
+      }
+
+      function getHashRoute() {
+        return window.location.hash ? window.location.hash.slice(1) : "";
+      }
+
+      function formData(form) {
+        return Object.fromEntries(new FormData(form).entries());
+      }
+
+      function normalizeAppointmentTypePayload(payload) {
+        var requestedMeetingMode = payload.meeting_mode || "manual";
+        var persistedMeetingMode = ["manual", "zoom", "google_meet", "none"].indexOf(requestedMeetingMode) >= 0 ? requestedMeetingMode : "manual";
+        var metadata = {
+          instructions: payload.description || "",
+          division_id: payload.metadata_division_id || "mission-residency",
+          division_label: payload.metadata_division_id === "exam-prep" ? "Exam Prep" : "Mission Residency",
+          visit_type: payload.metadata_visit_type || "1-on-1 Advising",
+          duration_unit: payload.metadata_duration_unit || "minutes",
+          label: payload.metadata_label || "",
+          color: payload.metadata_color || "gold",
+          booking_layout: payload.metadata_booking_layout || "guided_week",
+          availability_start_mode: payload.metadata_availability_start_mode || "available_blocks",
+          interval_minutes: Number(payload.metadata_interval_minutes || 60),
+          availability_window: {
+            start: payload.metadata_window_start || null,
+            end: payload.metadata_window_end || null
+          },
+          capacity_mode: payload.metadata_capacity_mode || "individual",
+          waitlist: { enabled: payload.metadata_waitlist_enabled === "true" },
+          timezone_mode: payload.metadata_timezone_mode || "localized",
+          per_day_limit: payload.metadata_per_day_limit ? Number(payload.metadata_per_day_limit) : null,
+          web_meetings: {
+            provider: requestedMeetingMode,
+            auto_generate: payload.metadata_meeting_auto_generate === "true",
+            provider_account_id: payload.metadata_meeting_account || null,
+            meeting_url: payload.metadata_manual_meeting_url || null,
+            link_policy: payload.metadata_meeting_link_policy || (payload.metadata_meeting_after_confirm === "true" ? "after_confirmation" : "manual_review")
+          },
+          intake_fields: [{
+            field_key: "session_goals",
+            label: payload.metadata_intake_label || "Goals for this session",
+            field_type: payload.metadata_intake_type || "textarea",
+            display: payload.metadata_intake_display === "true",
+            required: payload.metadata_intake_required === "true",
+            visibility: payload.metadata_intake_protected === "true" ? "staff_only" : "student_and_staff",
+            sort_order: 1
+          }],
+          notifications: {
+            admin_booked_email: payload.metadata_admin_booked_email === "true",
+            student_booked_email: payload.metadata_student_booked_email === "true",
+            admin_canceled_email: payload.metadata_admin_canceled_email === "true",
+            student_canceled_email: payload.metadata_student_canceled_email === "true",
+            reminder_schedule: reminderScheduleFromPayload(payload.metadata_reminder_minutes),
+            sms_reminders: payload.metadata_sms_reminders === "true",
+            admin_email: payload.metadata_admin_email || null,
+            notification_opt_in: true,
+            status: "not_configured"
+          },
+          booking_flow: {
+            mode: payload.metadata_booking_flow || "guided",
+            steps: String(payload.metadata_booking_steps || "division, visit_type, mentor, time_slot, review_confirm").split(",").map(function (step) { return step.trim(); }).filter(Boolean),
+            confirmation_behavior: payload.metadata_confirmation_behavior || "Show Matrix confirmation"
+          },
+          payments: {
+            mode: payload.metadata_payment_mode || "none",
+            provider: String(payload.metadata_payment_provider || "stripe").toLowerCase().replace(" placeholder", ""),
+            amount_cents: Number(payload.metadata_payment_amount_cents || 0),
+            currency: String(payload.metadata_payment_currency || "usd").toLowerCase(),
+            status: "not_configured"
+          }
+        };
+
+        return {
+          name: payload.name || "Untitled appointment type",
+          slug: slugify(payload.name || "untitled-appointment-type"),
+          description: payload.description || "",
+          duration_minutes: Number(payload.duration_minutes || 60),
+          buffer_before_minutes: Number(payload.buffer_before_minutes || 0),
+          buffer_after_minutes: Number(payload.buffer_after_minutes || 0),
+          min_notice_minutes: Number(payload.min_notice_minutes || 1440),
+          max_booking_window_days: Number(payload.max_booking_window_days || 60),
+          capacity: payload.capacity ? Number(payload.capacity) : null,
+          group_enabled: metadata.capacity_mode === "group",
+          meeting_mode: persistedMeetingMode,
+          status: "draft",
+          active: false,
+          metadata: metadata
+        };
+      }
+
+      function slugify(value) {
+        return String(value || "")
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 80) || "appointment-type";
+      }
+
+      function reminderScheduleFromPayload(value) {
+        return String(value || "")
+          .split(",")
+          .map(function (item) { return Number(item.trim()); })
+          .filter(function (minutes) { return Number.isFinite(minutes) && minutes >= 0; })
+          .map(function (minutes) { return { minutes_before: minutes }; });
+      }
+
+      function setNotice(title, message, type) {
+        app.state.notice = { title: title, message: message, type: type || "info" };
+      }
+
+      function clearNotice() {
+        app.state.notice = null;
+      }
+
+      function isToday(row) {
+        if (!row || !row.start_at) return false;
+        return new Date(row.start_at).toDateString() === new Date().toDateString();
+      }
+
+      function formatDateTime(value) {
+        var date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value || "");
+        return new Intl.DateTimeFormat([], { dateStyle: "medium", timeStyle: "short" }).format(date);
+      }
+
+      function formatTime(value) {
+        var date = new Date(value);
+        if (Number.isNaN(date.getTime())) return String(value || "");
+        return new Intl.DateTimeFormat([], { timeStyle: "short" }).format(date);
+      }
+
+      function formatShortDate(value) {
+        var date = new Date(value + "T00:00:00");
+        if (Number.isNaN(date.getTime())) return String(value || "");
+        return new Intl.DateTimeFormat([], { month: "short", day: "numeric" }).format(date);
+      }
+
+      function todayValue() {
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function defaultRepeatUntil() {
+        return addDays(todayValue(), 84).toISOString().slice(0, 10);
+      }
+
+      function buildDraftSlots() {
+        var today = new Date();
+        return [
+          { provider_id: "dr-j", provider: "Dr J", date: today.toISOString().slice(0, 10), label: "Exam Prep, 9:00 AM ET", status: "published" },
+          { provider_id: "dr-j", provider: "Dr J", date: today.toISOString().slice(0, 10), label: "Exam Prep, 6:00 PM ET", status: "published" },
+          { provider_id: "dr-brian", provider: "Dr. Brian", date: new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10), label: "Mission Residency, 11:00 AM ET", status: "published" },
+          { provider_id: "dr-s", provider: "Dr S", date: new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10), label: "Availability coming soon", status: "pending" }
+        ];
+      }
+
+      function escapeHtml(value) {
+        return String(value === undefined || value === null ? "" : value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      window.MMEDSchedulerAdmin = app;
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () { app.mount(); });
+      } else {
+        app.mount();
+      }
+    })(window, document);
+  </script>
+</body>
+</html>

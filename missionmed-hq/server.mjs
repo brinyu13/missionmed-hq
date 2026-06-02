@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
+import { handleSchedulerApiRoute } from './lib/scheduler/routes.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -911,6 +912,26 @@ function resolveAuthSessionFinalRedirect(rawFinal = '', request = null) {
   }
 }
 
+function withAuthSessionHandoffFragment(finalRedirect = '', handoffToken = '') {
+  const base = String(finalRedirect || '').trim();
+  const token = String(handoffToken || '').trim();
+  if (!base || !token) {
+    return base;
+  }
+
+  try {
+    const target = new URL(base);
+    const hash = String(target.hash || '').replace(/^#/u, '');
+    const params = new URLSearchParams(hash);
+    params.set('mmhq_handoff_token', token);
+    const nextHash = params.toString();
+    target.hash = nextHash ? `#${nextHash}` : '';
+    return target.toString();
+  } catch {
+    return base;
+  }
+}
+
 function isLocalhostHostname(hostname = '') {
   return LOCALHOST_HOSTNAMES.has(String(hostname || '').trim().toLowerCase());
 }
@@ -984,6 +1005,7 @@ function createSessionRecord(user, authContext = {}, authSource) {
     expiresAt: expiresAt.toISOString(),
     csrfToken: base64UrlEncode(randomBytes(18)),
     authSource,
+    authAudience: normalizeAuthAudience(authContext.authAudience || ''),
     wpAuthorization: String(authContext.wpAuthorization || '').trim(),
     user,
   };
@@ -1844,10 +1866,11 @@ async function handleApiRoute(request, response, url, context) {
 
   if (pathname === '/api/auth/session') {
     const handoffToken = String(searchParams.get('token') || '').trim();
+    const audience = normalizeAuthAudience(searchParams.get('audience') || searchParams.get('aud') || '');
     const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
 
     if (handoffToken) {
-      const exchange = await exchangeWordPressAuth({ token: handoffToken }, request);
+      const exchange = await exchangeWordPressAuth({ token: handoffToken, audience }, request);
       if (!exchange.ok || !exchange.session) {
         sendJson(response, exchange.status || 401, {
           error: 'auth_exchange_failed',
@@ -1857,7 +1880,8 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
-      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(exchange.session);
+      const schedulerSession = await hydrateSchedulerEntitlementSession(exchange.session, request, audience);
+      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(schedulerSession);
       if (!bootstrap.ok) {
         sendJson(response, bootstrap.status || 502, {
           error: bootstrap.error || 'supabase_bootstrap_failed',
@@ -1866,14 +1890,15 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
-      const hydratedSession = bootstrap.session || exchange.session;
+      const hydratedSession = bootstrap.session || schedulerSession;
       const responseHeaders = {
         ...authHeaders,
         'Set-Cookie': buildSessionCookie(request, hydratedSession),
       };
 
       if (finalRedirect) {
-        sendRedirect(response, finalRedirect, 302, responseHeaders);
+        const redirectWithToken = withAuthSessionHandoffFragment(finalRedirect, handoffToken);
+        sendRedirect(response, redirectWithToken, 302, responseHeaders);
         return;
       }
 
@@ -1882,6 +1907,20 @@ async function handleApiRoute(request, response, url, context) {
         200,
         buildSessionPayload(hydratedSession, request),
         responseHeaders,
+      );
+      return;
+    }
+
+    if (isSchedulerAuthAudience(audience) && session) {
+      const schedulerSession = await hydrateSchedulerEntitlementSession(session, request, audience);
+      sendJson(
+        response,
+        200,
+        buildSessionPayload(schedulerSession, request),
+        {
+          ...authHeaders,
+          'Set-Cookie': buildSessionCookie(request, schedulerSession),
+        },
       );
       return;
     }
@@ -2037,13 +2076,28 @@ async function handleApiRoute(request, response, url, context) {
       return;
     }
 
+    const audience = normalizeAuthAudience(payload?.audience || payload?.authAudience || payload?.mode || '');
+    let sessionForPayload = exchange.session;
+    if (isSchedulerAuthAudience(audience)) {
+      sessionForPayload = await hydrateSchedulerEntitlementSession(exchange.session, request, audience);
+      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(sessionForPayload);
+      if (!bootstrap.ok) {
+        sendJson(response, bootstrap.status || 502, {
+          error: bootstrap.error || 'supabase_bootstrap_failed',
+          message: bootstrap.message || 'Supabase bootstrap failed.',
+        }, authHeaders);
+        return;
+      }
+      sessionForPayload = bootstrap.session || sessionForPayload;
+    }
+
     sendJson(
       response,
       200,
-      buildSessionPayload(exchange.session, request),
+      buildSessionPayload(sessionForPayload, request),
       {
         ...authHeaders,
-        'Set-Cookie': buildSessionCookie(request, exchange.session),
+        'Set-Cookie': buildSessionCookie(request, sessionForPayload),
       },
     );
     return;
@@ -2056,7 +2110,8 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const authSession = session || readSessionFromRequest(request);
-    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(authSession);
+    const schedulerSession = await hydrateSchedulerEntitlementSession(authSession, request, authSession?.authAudience || '');
+    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(schedulerSession);
     if (!bootstrap.ok) {
       sendJson(response, bootstrap.status || 502, {
         error: bootstrap.error || 'supabase_bootstrap_failed',
@@ -2067,7 +2122,7 @@ async function handleApiRoute(request, response, url, context) {
 
     sendJson(response, 200, bootstrap.payload || {}, {
       ...authHeaders,
-      'Set-Cookie': buildSessionCookie(request, bootstrap.session || authSession),
+      'Set-Cookie': buildSessionCookie(request, bootstrap.session || schedulerSession || authSession),
     });
     return;
   }
@@ -2125,6 +2180,24 @@ async function handleApiRoute(request, response, url, context) {
 
   if (pathname.startsWith('/api/usce/')) {
     const handled = await handleUsceRoute(request, response, url, { session, authHeaders });
+    if (handled) {
+      return;
+    }
+  }
+
+  if (pathname.startsWith('/api/scheduler/')) {
+    const schedulerSession = await hydrateSchedulerEntitlementSession(session, request, 'scheduler');
+    const schedulerAuthHeaders = schedulerSession && schedulerSession !== session
+      ? { ...authHeaders, 'Set-Cookie': buildSessionCookie(request, schedulerSession) }
+      : authHeaders;
+    const handled = await handleSchedulerApiRoute(request, response, url, {
+      session: schedulerSession,
+      authHeaders: schedulerAuthHeaders,
+      sendJson,
+      sendMethodNotAllowed,
+      readJsonBody,
+      validateCsrf,
+    });
     if (handled) {
       return;
     }
@@ -6077,6 +6150,26 @@ function isAuthSupabaseProjectAllowed() {
   };
 }
 
+function normalizeAuthAudience(value = '') {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/gu, '-');
+}
+
+function isSchedulerAuthAudience(audience = '') {
+  return ['scheduler', 'missionmed-scheduler', 'matrix-scheduler'].includes(normalizeAuthAudience(audience));
+}
+
+function canAuthenticateWordPressUserForAudience(user, audience = '') {
+  if (isAuthorizedWordPressUser(user)) {
+    return true;
+  }
+
+  if (!isSchedulerAuthAudience(audience)) {
+    return false;
+  }
+
+  return Boolean(Number(user?.id || 0) && String(user?.email || '').trim());
+}
+
 function getRequestCookieHeader(request = null) {
   const raw = request?.headers?.cookie || request?.headers?.Cookie || '';
   return String(raw || '').trim();
@@ -6129,6 +6222,297 @@ async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
     status: 200,
     user: wpUser.data || {},
   };
+}
+
+async function hydrateSchedulerEntitlementSession(authSession = null, request = null, audience = '') {
+  if (!authSession || !authSession.user) {
+    return authSession;
+  }
+
+  const normalizedAudience = normalizeAuthAudience(audience || authSession.authAudience || authSession.auth_audience || '');
+  if (!isSchedulerAuthAudience(normalizedAudience)) {
+    return authSession;
+  }
+
+  const existingFacts = authSession.schedulerEntitlements || authSession.user?.schedulerEntitlements || {};
+  const cookieHeader = getRequestCookieHeader(request);
+  if (!hasWordPressSessionCookie(cookieHeader) && Object.keys(existingFacts || {}).length) {
+    return authSession;
+  }
+
+  const resolved = await resolveSchedulerEntitlementFactsFromWordPress(authSession, cookieHeader);
+  const facts = mergeSchedulerEntitlementFacts(existingFacts, resolved);
+
+  return {
+    ...authSession,
+    schedulerEntitlements: facts,
+    user: {
+      ...authSession.user,
+      schedulerEntitlements: facts,
+    },
+  };
+}
+
+async function resolveSchedulerEntitlementFactsFromWordPress(authSession = null, cookieHeader = '') {
+  const checkedAt = new Date().toISOString();
+  const wpUserId = Number(authSession?.user?.id || authSession?.wpUserId || 0) || null;
+  const unavailable = (reason, detail = '') => ({
+    source: 'wordpress_cookie',
+    configured: false,
+    unavailable: true,
+    reason,
+    detail,
+    checked_at: checkedAt,
+    wp_user_id: wpUserId,
+    course_ids: [],
+    learndash_course_ids: [],
+    product_ids: [],
+    woocommerce_product_ids: [],
+    tier_keys: [],
+    division_keys: [],
+  });
+
+  if (!CONFIG.wpBase) {
+    return unavailable('wordpress_base_missing', 'MMHQ_WP_BASE is not configured.');
+  }
+
+  if (!hasWordPressSessionCookie(cookieHeader)) {
+    return unavailable('wordpress_session_cookie_missing', 'A WordPress session cookie is required for live Scheduler entitlement facts.');
+  }
+
+  const schedulerEntitlementResponse = await fetchWordPressCurrentUserJson('/wp-json/missionmed-scheduler/v1/entitlements/me', cookieHeader);
+  if (isMatchingSchedulerEntitlementResponse(schedulerEntitlementResponse, wpUserId)) {
+    return normalizeSchedulerEntitlementEndpointFacts(schedulerEntitlementResponse, {
+      checkedAt,
+      wpUserId,
+      source: 'wordpress_cookie_scheduler_endpoint',
+      mode: 'cookie-authenticated Scheduler entitlement endpoint',
+    });
+  }
+
+  let [coursesResponse, profileResponse] = await Promise.all([
+    fetchWordPressCurrentUserJson('/wp-json/mmed/v1/courses', cookieHeader),
+    fetchWordPressCurrentUserJson('/wp-json/mmed/v1/user/profile', cookieHeader),
+  ]);
+  let source = 'wordpress_cookie';
+  let sourceDetail = 'cookie-authenticated Matrix REST';
+
+  if (wpUserId && !hasUsableSchedulerEntitlementFacts(coursesResponse, profileResponse)) {
+    const serviceEntitlementResponse = await fetchWordPressCurrentUserJsonWithServiceAuth(`/wp-json/missionmed-scheduler/v1/entitlements/me?wp_user_id=${encodeURIComponent(String(wpUserId))}`);
+    if (isMatchingSchedulerEntitlementResponse(serviceEntitlementResponse, wpUserId)) {
+      return normalizeSchedulerEntitlementEndpointFacts(serviceEntitlementResponse, {
+        checkedAt,
+        wpUserId,
+        source: 'wordpress_service_scheduler_endpoint',
+        mode: 'service-authenticated Scheduler entitlement endpoint with matching WordPress user id',
+      });
+    }
+
+    const serviceProfileResponse = await fetchWordPressCurrentUserJsonWithServiceAuth('/wp-json/mmed/v1/user/profile');
+    const serviceProfileUserId = Number(serviceProfileResponse.data?.id || 0) || null;
+    if (serviceProfileResponse.ok && serviceProfileUserId === wpUserId) {
+      const serviceCoursesResponse = await fetchWordPressCurrentUserJsonWithServiceAuth('/wp-json/mmed/v1/courses');
+      profileResponse = serviceProfileResponse;
+      coursesResponse = serviceCoursesResponse.ok ? serviceCoursesResponse : coursesResponse;
+      source = 'wordpress_service_self_verified';
+      sourceDetail = 'service-authenticated Matrix REST with matching WordPress user id';
+    }
+  }
+
+  const courseIds = coursesResponse.ok
+    ? uniquePositiveIntegerStrings((coursesResponse.data?.courses || []).map((course) => course?.id || course?.course_id))
+    : [];
+  const profile = profileResponse.ok && profileResponse.data && typeof profileResponse.data === 'object'
+    ? profileResponse.data
+    : {};
+
+  const tierKeys = uniqueTextTokens([
+    profile.program_tier,
+    profile.tier,
+    profile.membership_tier,
+  ]);
+  const divisionKeys = uniqueTextTokens([
+    profile.division,
+    profile.primary_division,
+    profile.program_division,
+  ]);
+
+  return {
+    source,
+    configured: Boolean(courseIds.length || tierKeys.length || divisionKeys.length),
+    unavailable: false,
+    checked_at: checkedAt,
+    wp_user_id: wpUserId,
+    course_ids: courseIds,
+    learndash_course_ids: courseIds,
+    product_ids: [],
+    woocommerce_product_ids: [],
+    tier_keys: tierKeys,
+    division_keys: divisionKeys,
+    source_details: {
+      mode: sourceDetail,
+      courses: coursesResponse.ok ? 'mmed/v1/courses' : coursesResponse.error || 'courses_unavailable',
+      profile: profileResponse.ok ? 'mmed/v1/user/profile' : profileResponse.error || 'profile_unavailable',
+      product_ids: 'not_available_from_current_wordpress_rest_bridge',
+    },
+  };
+}
+
+function isMatchingSchedulerEntitlementResponse(response = {}, wpUserId = null) {
+  if (!response.ok || !response.data || typeof response.data !== 'object') {
+    return false;
+  }
+  const responseUserId = Number(response.data.wordpress_user_id || response.data.wp_user_id || response.data.user_id || 0) || null;
+  return Boolean(wpUserId && responseUserId === Number(wpUserId));
+}
+
+function normalizeSchedulerEntitlementEndpointFacts(response = {}, { checkedAt, wpUserId, source, mode } = {}) {
+  const data = response.data || {};
+  const courseIds = uniquePositiveIntegerStrings([
+    data.course_ids,
+    data.courseIds,
+    data.learndash_course_ids,
+    data.learndashCourseIds,
+  ]);
+  const productIds = uniquePositiveIntegerStrings([
+    data.product_ids,
+    data.productIds,
+    data.woocommerce_product_ids,
+    data.woocommerceProductIds,
+  ]);
+  const tierKeys = uniqueTextTokens([data.tier_keys, data.tierKeys]);
+  const divisionKeys = uniqueTextTokens([data.division_keys, data.divisionKeys]);
+  return {
+    source,
+    configured: Boolean(courseIds.length || productIds.length || tierKeys.length || divisionKeys.length),
+    unavailable: false,
+    checked_at: checkedAt || new Date().toISOString(),
+    wp_user_id: wpUserId,
+    course_ids: courseIds,
+    learndash_course_ids: courseIds,
+    product_ids: productIds,
+    woocommerce_product_ids: productIds,
+    tier_keys: tierKeys,
+    division_keys: divisionKeys,
+    source_details: {
+      mode,
+      endpoint: 'missionmed-scheduler/v1/entitlements/me',
+      learndash_available: data.source_flags?.learndash_available ?? null,
+      woocommerce_available: data.source_flags?.woocommerce_available ?? null,
+      matrix_available: data.source_flags?.matrix_available ?? null,
+      exam_prep_status: data.mapping?.exam_prep_status || 'unknown',
+    },
+  };
+}
+
+async function fetchWordPressCurrentUserJson(pathname = '', cookieHeader = '') {
+  const response = await fetchJson(`${CONFIG.wpBase}${pathname}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Cookie: cookieHeader,
+    },
+    timeoutMs: 8_000,
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status || 502,
+      error: response.error || 'wordpress_rest_unavailable',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    data: response.data || {},
+  };
+}
+
+async function fetchWordPressCurrentUserJsonWithServiceAuth(pathname = '') {
+  const headers = getWordPressServiceHeaders();
+  if (!headers || !Object.keys(headers).length) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'wordpress_service_credentials_missing',
+    };
+  }
+
+  const response = await fetchJson(`${CONFIG.wpBase}${pathname}`, {
+    method: 'GET',
+    headers: {
+      ...headers,
+      Accept: 'application/json',
+    },
+    timeoutMs: 8_000,
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status || 502,
+      error: response.error || 'wordpress_service_rest_unavailable',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    data: response.data || {},
+  };
+}
+
+function hasUsableSchedulerEntitlementFacts(coursesResponse = {}, profileResponse = {}) {
+  const courseIds = coursesResponse.ok
+    ? uniquePositiveIntegerStrings((coursesResponse.data?.courses || []).map((course) => course?.id || course?.course_id))
+    : [];
+  const profile = profileResponse.ok && profileResponse.data && typeof profileResponse.data === 'object'
+    ? profileResponse.data
+    : {};
+  const tierKeys = uniqueTextTokens([profile.program_tier, profile.tier, profile.membership_tier]);
+  const divisionKeys = uniqueTextTokens([profile.division, profile.primary_division, profile.program_division]);
+  return Boolean(courseIds.length || tierKeys.length || divisionKeys.length);
+}
+
+function mergeSchedulerEntitlementFacts(existing = {}, resolved = {}) {
+  const base = existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {};
+  const next = resolved && typeof resolved === 'object' && !Array.isArray(resolved) ? resolved : {};
+  return {
+    ...base,
+    ...next,
+    course_ids: uniquePositiveIntegerStrings([base.course_ids, base.courseIds, base.learndash_course_ids, base.learndashCourseIds, next.course_ids, next.courseIds, next.learndash_course_ids, next.learndashCourseIds]),
+    learndash_course_ids: uniquePositiveIntegerStrings([base.learndash_course_ids, base.learndashCourseIds, base.course_ids, base.courseIds, next.learndash_course_ids, next.learndashCourseIds, next.course_ids, next.courseIds]),
+    product_ids: uniquePositiveIntegerStrings([base.product_ids, base.productIds, base.woocommerce_product_ids, base.woocommerceProductIds, next.product_ids, next.productIds, next.woocommerce_product_ids, next.woocommerceProductIds]),
+    woocommerce_product_ids: uniquePositiveIntegerStrings([base.woocommerce_product_ids, base.woocommerceProductIds, base.product_ids, base.productIds, next.woocommerce_product_ids, next.woocommerceProductIds, next.product_ids, next.productIds]),
+    tier_keys: uniqueTextTokens([base.tier_keys, base.tierKeys, next.tier_keys, next.tierKeys]),
+    division_keys: uniqueTextTokens([base.division_keys, base.divisionKeys, next.division_keys, next.divisionKeys]),
+  };
+}
+
+function uniquePositiveIntegerStrings(values = []) {
+  return [...new Set(flattenValues(values)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .map((value) => String(Math.trunc(value))))];
+}
+
+function uniqueTextTokens(values = []) {
+  return [...new Set(flattenValues(values)
+    .map((value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/gu, '_'))
+    .filter(Boolean))];
+}
+
+function flattenValues(values = []) {
+  return (Array.isArray(values) ? values : [values])
+    .flat(Infinity)
+    .flatMap((value) => {
+      if (typeof value === 'string' && value.includes(',')) {
+        return value.split(',');
+      }
+      return [value];
+    });
 }
 
 function normalizeWordPressIdentityUser(user = {}, fallback = {}) {
@@ -6536,9 +6920,10 @@ async function ensureSupabaseAuthUser(email, password, session = null) {
   };
 }
 
-function parseWordPressHandoffToken(wpToken = '') {
+function parseWordPressHandoffToken(wpToken = '', options = {}) {
   // WordPress handoff tokens are signed payloads, not bearer tokens from /auth/token.
   const rawToken = String(wpToken || '').trim();
+  const audience = normalizeAuthAudience(options.audience || '');
   const parts = rawToken.match(/^([A-Za-z0-9_-]+)\.([a-fA-F0-9]{64})$/u);
 
   if (!parts) {
@@ -6626,12 +7011,14 @@ function parseWordPressHandoffToken(wpToken = '') {
     };
   }
 
-  if (!isAuthorizedWordPressUser(wpUser)) {
+  if (!canAuthenticateWordPressUserForAudience(wpUser, audience)) {
     return {
       ok: false,
       recognized: true,
       status: 403,
-      error: 'This WordPress account is not authorized for MissionMed HQ.',
+      error: isSchedulerAuthAudience(audience)
+        ? 'This WordPress account is not authorized for MissionMed Scheduler.'
+        : 'This WordPress account is not authorized for MissionMed HQ.',
     };
   }
 
@@ -6646,9 +7033,10 @@ function parseWordPressHandoffToken(wpToken = '') {
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
+  const audience = normalizeAuthAudience(payload.audience || payload.authAudience || payload.mode || '');
 
   if (wpToken) {
-    const handoff = parseWordPressHandoffToken(wpToken);
+    const handoff = parseWordPressHandoffToken(wpToken, { audience });
     if (handoff.ok && handoff.user) {
       const wpUser = handoff.user;
       return {
@@ -6665,6 +7053,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
           },
           {
             wpAuthorization: getWordPressServiceAuthorization(),
+            authAudience: audience,
           },
           'wordpress-handoff',
         ),
@@ -6691,11 +7080,13 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
     }
 
     const wpUser = normalizeWordPressIdentityUser(cookieValidation.user || {});
-    if (!isAuthorizedWordPressUser(wpUser)) {
+    if (!canAuthenticateWordPressUserForAudience(wpUser, audience)) {
       return {
         ok: false,
         status: 403,
-        error: 'This WordPress account is not authorized for MissionMed HQ.',
+        error: isSchedulerAuthAudience(audience)
+          ? 'This WordPress account is not authorized for MissionMed Scheduler.'
+          : 'This WordPress account is not authorized for MissionMed HQ.',
       };
     }
 
@@ -6713,6 +7104,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
         },
         {
           wpAuthorization: getWordPressServiceAuthorization(),
+          authAudience: audience,
         },
         'wordpress-cookie',
       ),
@@ -6771,11 +7163,13 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   }
 
   const wpUser = normalizeWordPressUser(exchange.data?.user || {});
-  if (!isAuthorizedWordPressUser(wpUser)) {
+  if (!canAuthenticateWordPressUserForAudience(wpUser, audience)) {
     return {
       ok: false,
       status: 403,
-      error: 'This WordPress account is not authorized for MissionMed HQ.',
+      error: isSchedulerAuthAudience(audience)
+        ? 'This WordPress account is not authorized for MissionMed Scheduler.'
+        : 'This WordPress account is not authorized for MissionMed HQ.',
     };
   }
 
@@ -6793,6 +7187,7 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
       },
       {
         wpAuthorization: `Bearer ${issuedToken}`,
+        authAudience: audience,
       },
       'wordpress-token',
     ),

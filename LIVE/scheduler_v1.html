@@ -1,0 +1,4148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MissionMed Matrix Scheduler</title>
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Poppins:wght@400;500;600;700;800&display=swap");
+
+    :root {
+      --navy: #061727;
+      --navy2: #0b2033;
+      --navy3: #102b46;
+      --blue: #3bb7ff;
+      --blue2: #78d4ff;
+      --gold: #ffcc4d;
+      --gold2: #ffe08a;
+      --orange: #ff8a3d;
+      --orange2: #ffb27a;
+      --green: #3dff9a;
+      --green2: #9cffc7;
+      --red: #ff5c7a;
+      --matrix-heading: "Space Grotesk", "Poppins", sans-serif;
+      --matrix-body: "Poppins", sans-serif;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background: var(--navy);
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    #schedule-root,
+    #schedule-root * {
+      box-sizing: border-box;
+    }
+
+    #schedule-root {
+      --sidebar-w: 252px;
+      position: relative;
+      display: flex;
+      width: 100vw;
+      min-height: 100vh;
+      background: var(--navy);
+      color: #fff;
+      font-family: var(--matrix-body);
+      line-height: 1.5;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    #schedule-root h1,
+    #schedule-root h2,
+    #schedule-root h3,
+    #schedule-root p,
+    #schedule-root ul,
+    #schedule-root li,
+    #schedule-root button {
+      margin: 0;
+      padding: 0;
+      font-family: inherit;
+      letter-spacing: 0;
+    }
+
+    #schedule-root a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    #schedule-root button,
+    #schedule-root input,
+    #schedule-root select,
+    #schedule-root textarea {
+      font: inherit;
+    }
+
+    #schedule-root button {
+      border: 0;
+      color: inherit;
+      cursor: pointer;
+    }
+
+    #schedule-root input,
+    #schedule-root select,
+    #schedule-root textarea {
+      width: 100%;
+      min-height: 44px;
+      padding: 11px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+        rgba(6, 23, 39, 0.42);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      color: #fff;
+      outline: none;
+      transition: border-color 0.24s ease, box-shadow 0.24s ease, transform 0.24s ease;
+    }
+
+    #schedule-root textarea {
+      min-height: 98px;
+      resize: vertical;
+    }
+
+    #schedule-root input:focus,
+    #schedule-root select:focus,
+    #schedule-root textarea:focus {
+      border-color: rgba(243, 213, 118, 0.6);
+      box-shadow: 0 0 0 4px rgba(217, 184, 91, 0.14);
+      transform: translateY(-1px);
+    }
+
+    #schedule-root option {
+      background: var(--navy2);
+      color: #fff;
+    }
+
+    /*
+      MM-SCHED-057D layout invariant:
+      Standalone Scheduler may own the viewport, but Matrix embedded Scheduler must
+      never use 100vw or escape the Matrix content lane again. Keep every booking
+      step/card/grid fluid inside its current container.
+    */
+    #schedule-root.sos-schedule-embedded {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      min-height: auto;
+      margin: 0;
+      background: transparent;
+      overflow: visible;
+    }
+
+    #schedule-root.sos-schedule-embedded .sos-page,
+    #schedule-root.sos-schedule-embedded .sos-book-flow,
+    #schedule-root.sos-schedule-embedded .sos-tracker-board,
+    #schedule-root.sos-schedule-embedded .sos-card,
+    #schedule-root.sos-schedule-embedded .sos-card-pad,
+    #schedule-root.sos-schedule-embedded .sos-load-shell {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .sos-sidebar {
+      position: fixed;
+      inset: 0 auto 0 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      width: var(--sidebar-w);
+      min-height: 100vh;
+      padding: 24px 0;
+      overflow-y: auto;
+      background: linear-gradient(180deg, #040e1a 0%, #07192d 100%);
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 16px 0 48px rgba(0, 0, 0, 0.26);
+    }
+
+    .sos-main {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      min-height: 100vh;
+      margin-left: var(--sidebar-w);
+      overflow: hidden;
+    }
+
+    .sos-bg-layer {
+      position: fixed;
+      inset: 0 0 0 var(--sidebar-w);
+      z-index: 0;
+      overflow: hidden;
+      contain: paint;
+      pointer-events: none;
+      background: linear-gradient(180deg, #0a2540 0%, #0e3a5c 30%, #0b3050 70%, #071e35 100%);
+    }
+
+    .sos-bg-layer::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.025), transparent);
+      background-size: 200% 100%;
+      animation: sos-shimmer 3s ease-in-out infinite;
+    }
+
+    .sos-bg-layer::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      background:
+        radial-gradient(ellipse at 48% 38%, rgba(14, 117, 168, 0.12), transparent 58%),
+        linear-gradient(180deg, rgba(6, 23, 39, 0) 0%, rgba(6, 23, 39, 0.44) 100%);
+      animation: sos-glow-pulse 6s ease-in-out infinite alternate;
+    }
+
+    .sos-bg {
+      position: absolute;
+      inset: -8% -10%;
+      z-index: 1;
+      transform-origin: 50% 10%;
+    }
+
+    .sos-bg-a {
+      background: linear-gradient(170deg, transparent 10%, rgba(54, 192, 113, 0.18) 25%, rgba(0, 229, 255, 0.15) 40%, transparent 55%);
+      filter: blur(25px);
+      animation: sos-aurora-a 5s ease-in-out infinite alternate;
+    }
+
+    .sos-bg-b {
+      background: linear-gradient(160deg, transparent 30%, rgba(168, 85, 247, 0.14) 42%, rgba(0, 229, 255, 0.12) 54%, transparent 68%);
+      filter: blur(35px);
+      animation: sos-aurora-b 7s ease-in-out infinite alternate;
+    }
+
+    .sos-bg-c {
+      background: linear-gradient(175deg, transparent 5%, rgba(54, 192, 113, 0.12) 18%, rgba(217, 184, 91, 0.1) 32%, transparent 48%);
+      filter: blur(40px);
+      animation: sos-aurora-c 9s ease-in-out infinite alternate;
+    }
+
+    .sos-content {
+      position: relative;
+      z-index: 3;
+      min-height: 100vh;
+      padding: 34px 38px 62px;
+    }
+
+    .sos-brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 0 20px;
+      margin-bottom: 28px;
+    }
+
+    .sos-brand-mark {
+      display: grid;
+      width: 42px;
+      height: 42px;
+      place-items: center;
+      flex: 0 0 42px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      box-shadow: 0 4px 20px rgba(217, 184, 91, 0.35);
+      color: var(--navy);
+      font-family: var(--matrix-heading);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .sos-brand-title {
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .sos-brand-title small {
+      display: block;
+      margin-top: 3px;
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .sos-nav-section {
+      margin-bottom: 22px;
+    }
+
+    .sos-nav-label {
+      padding: 0 20px;
+      margin-bottom: 8px;
+      color: rgba(255, 255, 255, 0.32);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .sos-nav-list {
+      display: grid;
+      gap: 2px;
+      list-style: none;
+    }
+
+    .sos-nav-link {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 44px;
+      padding: 10px 20px;
+      border-left: 3px solid transparent;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 13px;
+      font-weight: 600;
+      text-align: left;
+      touch-action: manipulation;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    }
+
+    .sos-nav-link:hover,
+    .sos-nav-link:focus-visible {
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff;
+      outline: none;
+    }
+
+    .sos-nav-link.is-active {
+      background: rgba(217, 184, 91, 0.1);
+      border-left-color: var(--gold);
+      color: var(--gold2);
+    }
+
+    .sos-nav-icon {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      flex: 0 0 22px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.76);
+      font-family: var(--matrix-heading);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .sos-nav-link.is-active .sos-nav-icon {
+      background: rgba(217, 184, 91, 0.18);
+      color: var(--gold2);
+    }
+
+    .sos-nav-badge {
+      margin-left: auto;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: var(--orange);
+      color: #fff;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .sos-sidebar-footer {
+      padding: 14px 20px 0;
+      margin-top: auto;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .sos-page {
+      animation: sos-fade-in 0.35s ease;
+    }
+
+    .sos-page-header {
+      max-width: 760px;
+      margin-bottom: 28px;
+    }
+
+    .sos-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 14px;
+      margin-bottom: 12px;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      color: var(--navy);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .sos-page-title {
+      margin-bottom: 8px;
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 42px;
+      font-weight: 700;
+      line-height: 1.12;
+    }
+
+    .sos-page-copy {
+      max-width: 620px;
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 14px;
+    }
+
+    .sos-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .sos-grid-stats {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      margin-bottom: 28px;
+    }
+
+    .sos-grid-two {
+      grid-template-columns: minmax(280px, 430px) minmax(0, 1fr);
+      align-items: start;
+    }
+
+    .sos-card {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(23, 163, 207, 0.12);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #0d3a56 0%, #082a3f 100%);
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.3),
+        0 16px 48px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
+        inset 0 -3px 6px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    }
+
+    .sos-card:hover {
+      border-color: rgba(23, 163, 207, 0.22);
+      box-shadow:
+        0 8px 16px rgba(0, 0, 0, 0.35),
+        0 24px 64px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      transform: translateY(-3px);
+    }
+
+    .sos-card-pad {
+      padding: 22px;
+    }
+
+    .sos-stat {
+      display: grid;
+      min-height: 126px;
+      place-items: center;
+      padding: 20px;
+      text-align: center;
+    }
+
+    .sos-stat-value {
+      display: block;
+      color: var(--gold2);
+      font-family: var(--matrix-heading);
+      font-size: 32px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .sos-stat-label {
+      display: block;
+      margin-top: 8px;
+      color: rgba(255, 255, 255, 0.48);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .sos-stat-sub {
+      display: block;
+      margin-top: 7px;
+      color: rgba(255, 255, 255, 0.38);
+      font-size: 11px;
+    }
+
+    .sos-panel-title {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 10px;
+      color: var(--blue2);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .sos-panel-title::before {
+      content: "";
+      display: block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--blue2);
+      box-shadow: 0 0 6px var(--blue2);
+    }
+
+    .sos-panel-heading {
+      margin-bottom: 8px;
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .sos-panel-copy {
+      color: rgba(255, 255, 255, 0.56);
+      font-size: 13px;
+    }
+
+    .sos-tracker-board {
+      padding: 20px;
+      margin-bottom: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #0b78a8, #0a5687);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.08), 0 26px 80px rgba(0, 0, 0, 0.34);
+    }
+
+    .sos-tracker-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .sos-tracker-title {
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      line-height: 1.05;
+      text-transform: uppercase;
+    }
+
+    .sos-tracker-title span {
+      display: block;
+      color: var(--gold2);
+    }
+
+    .sos-tracker-copy {
+      max-width: 560px;
+      margin-top: 7px;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .sos-tracker-labels {
+      display: grid;
+      gap: 3px;
+      margin: 0 10px 6px;
+    }
+
+    .sos-tracker-labels span {
+      overflow: hidden;
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-align: center;
+      text-overflow: ellipsis;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .sos-segment-bar {
+      display: grid;
+      overflow: hidden;
+      border: 3px solid rgba(255, 255, 255, 0.72);
+      border-radius: 999px;
+      background: #637689;
+      filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.34));
+    }
+
+    .sos-segment {
+      position: relative;
+      display: grid;
+      min-height: 68px;
+      place-items: center;
+      background: linear-gradient(180deg, #8ca0b2, #5d7285);
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%, 14px 50%);
+      color: rgba(255, 255, 255, 0.55);
+      font-family: var(--matrix-heading);
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .sos-segment:first-child {
+      clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 0 100%);
+    }
+
+    .sos-segment:last-child {
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 14px 50%);
+    }
+
+    .sos-segment.is-complete {
+      background: linear-gradient(180deg, #31c46f, #159a56);
+      color: #fff;
+    }
+
+    .sos-segment.is-active {
+      background: linear-gradient(180deg, var(--orange2), var(--orange));
+      color: #fff;
+      animation: sos-tracker-pulse 1.08s ease-in-out infinite;
+    }
+
+    .sos-status-strip {
+      margin-top: 13px;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .sos-status-strip strong {
+      color: var(--gold2);
+      font-weight: 800;
+    }
+
+    .sos-btn,
+    .sos-tab,
+    .sos-sched-slot {
+      touch-action: manipulation;
+    }
+
+    .sos-btn:disabled {
+      cursor: not-allowed;
+      opacity: 0.48;
+      transform: none;
+    }
+
+    .sos-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 44px;
+      min-height: 44px;
+      padding: 12px 18px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      white-space: nowrap;
+      border: 1px solid rgba(255, 255, 255, 0.12) !important;
+      border-radius: 10px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+        linear-gradient(180deg, #0f4668, #082a40);
+      box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.32),
+        0 20px 50px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        inset 0 -4px 8px rgba(0, 0, 0, 0.25);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0;
+      transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease, filter 0.24s ease;
+    }
+
+    .sos-btn:hover,
+    .sos-btn:focus-visible {
+      border-color: rgba(23, 163, 207, 0.5) !important;
+      box-shadow:
+        0 12px 24px rgba(0, 0, 0, 0.38),
+        0 28px 70px rgba(0, 0, 0, 0.32),
+        0 0 22px rgba(23, 163, 207, 0.16),
+        inset 0 1px 0 rgba(255, 255, 255, 0.22);
+      transform: translateY(-2px) scale(1.015);
+      outline: none;
+    }
+
+    .sos-btn:active {
+      box-shadow:
+        0 4px 10px rgba(0, 0, 0, 0.34),
+        inset 0 3px 8px rgba(0, 0, 0, 0.36);
+      transform: translateY(1px) scale(0.98);
+    }
+
+    .sos-btn-primary {
+      border-color: rgba(243, 213, 118, 0.36) !important;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.02)),
+        linear-gradient(135deg, #b8941e, #d4a826);
+      box-shadow:
+        0 12px 28px rgba(0, 0, 0, 0.34),
+        0 0 34px rgba(217, 184, 91, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.36),
+        inset 0 -5px 12px rgba(110, 70, 0, 0.2);
+      color: #fff;
+    }
+
+    .sos-btn-block {
+      width: 100%;
+      margin-top: 18px;
+    }
+
+    .sos-toolbar,
+    .sos-tabs,
+    .sos-badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 22px;
+    }
+
+    .sos-tab,
+    .sos-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 8px 13px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+        rgba(6, 23, 39, 0.5);
+      box-shadow:
+        0 7px 18px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 12px;
+      font-weight: 800;
+      transition: transform 0.24s ease, box-shadow 0.24s ease, background 0.24s ease;
+    }
+
+    .sos-tab {
+      min-height: 48px;
+      padding-inline: 18px;
+    }
+
+    .sos-tab:hover,
+    .sos-tab.is-active,
+    .sos-tab[aria-current="true"] {
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3), 0 0 22px rgba(217, 184, 91, 0.22);
+      color: var(--navy);
+      transform: translateY(-2px);
+    }
+
+    .sos-pill {
+      min-height: 32px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .sos-tier-high {
+      background: rgba(54, 192, 113, 0.14);
+      border-color: rgba(54, 192, 113, 0.32);
+      color: #dfffea;
+    }
+
+    .sos-tier-medium {
+      background: rgba(217, 184, 91, 0.14);
+      border-color: rgba(243, 213, 118, 0.32);
+      color: #fff0ba;
+    }
+
+    .sos-tier-low {
+      background: rgba(240, 107, 47, 0.14);
+      border-color: rgba(240, 107, 47, 0.34);
+      color: #ffd8c2;
+    }
+
+    .sos-notice,
+    .sos-banner {
+      padding: 18px;
+      border: 1px solid rgba(243, 213, 118, 0.32);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
+        rgba(217, 184, 91, 0.12);
+      box-shadow:
+        0 12px 30px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      color: var(--gold2);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .sos-banner.is-error {
+      border-color: rgba(217, 92, 92, 0.32);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03)),
+        rgba(217, 92, 92, 0.12);
+      color: #ffd9d9;
+    }
+
+    .sos-empty {
+      padding: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      background: rgba(9, 36, 61, 0.45);
+      color: rgba(255, 255, 255, 0.66);
+      font-size: 13px;
+    }
+
+    .sos-empty-rich {
+      display: grid;
+      gap: 10px;
+      justify-items: start;
+    }
+
+    .sos-empty-icon {
+      display: grid;
+      width: 52px;
+      height: 52px;
+      place-items: center;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--gold), var(--gold2));
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3), 0 0 20px rgba(217, 184, 91, 0.2);
+      color: var(--navy);
+      font-weight: 900;
+    }
+
+    .sos-empty-rich h3 {
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 22px;
+    }
+
+    .sos-field {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .sos-field label {
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .sos-form-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: flex-end;
+      margin-top: 18px;
+    }
+
+    .sos-form-actions .sos-btn:not(.sos-btn-primary) {
+      order: -1;
+      margin-right: auto;
+    }
+
+    .sos-btn-primary {
+      min-width: 160px;
+      min-height: 52px;
+      font-size: 16px;
+      letter-spacing: 0.02em;
+    }
+
+    .sos-sched-slots {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .sos-schedule-tracker {
+      padding: 12px 14px;
+      margin-bottom: 16px;
+    }
+
+    .sos-schedule-tracker .sos-tracker-top {
+      margin-bottom: 8px;
+    }
+
+    .sos-schedule-tracker .sos-tracker-title {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: baseline;
+      font-size: 16px;
+      letter-spacing: 0.04em;
+    }
+
+    .sos-schedule-tracker .sos-tracker-title span {
+      display: inline;
+    }
+
+    .sos-schedule-tracker .sos-tracker-copy {
+      margin-top: 3px;
+      font-size: 11px;
+    }
+
+    .sos-schedule-tracker .sos-tracker-labels {
+      margin: 0 6px 4px;
+    }
+
+    .sos-schedule-tracker .sos-segment-bar {
+      border-width: 2px;
+    }
+
+    .sos-schedule-tracker .sos-segment {
+      min-height: 34px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: filter 0.2s ease, transform 0.15s ease;
+    }
+
+    .sos-schedule-tracker .sos-segment:hover {
+      filter: brightness(1.15);
+      transform: scale(1.03);
+    }
+
+    .sos-schedule-tracker .sos-status-strip {
+      margin-top: 8px;
+      font-size: 11px;
+    }
+
+    .sos-sched-book-shell {
+      display: grid;
+      grid-template-columns: minmax(320px, 1.05fr) minmax(280px, 0.65fr);
+      gap: 18px;
+      align-items: start;
+      margin-bottom: 18px;
+    }
+
+    .sos-sched-discovery {
+      display: grid;
+      grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.65fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .sos-sched-stepper {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 14px 0 16px;
+    }
+
+    .sos-sched-step {
+      min-height: 64px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .sos-sched-step strong {
+      display: block;
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 13px;
+    }
+
+    .sos-sched-step span {
+      display: block;
+      margin-top: 4px;
+      color: rgba(255, 255, 255, 0.52);
+      font-size: 11px;
+    }
+
+    .sos-sched-step.is-complete {
+      border-color: rgba(54, 192, 113, 0.34);
+      background: rgba(54, 192, 113, 0.1);
+    }
+
+    .sos-sched-step.is-active {
+      border-color: rgba(243, 213, 118, 0.46);
+      background: rgba(217, 184, 91, 0.12);
+      box-shadow: 0 0 24px rgba(217, 184, 91, 0.14);
+    }
+
+    .sos-sched-help {
+      padding: 12px;
+      margin-top: 12px;
+      border: 1px solid rgba(243, 213, 118, 0.22);
+      border-radius: 10px;
+      background: rgba(217, 184, 91, 0.08);
+      color: rgba(255, 255, 255, 0.72);
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .sos-book-flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .sos-booking-fields {
+      display: grid;
+      /* MM-SCHED-057D: detail controls are intentionally full-width rows. */
+      grid-template-columns: minmax(0, 1fr);
+      gap: 14px;
+      align-items: end;
+    }
+
+    .sos-booking-fields .sos-field,
+    .sos-booking-fields select {
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+
+    .sos-review-preferences {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) minmax(220px, 0.72fr);
+      gap: 14px;
+      margin-top: 16px;
+    }
+
+    .sos-review-preferences textarea {
+      min-height: 112px;
+    }
+
+    .sos-review-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 18px 0 4px;
+    }
+
+    .sos-review-summary-card {
+      min-width: 0;
+      padding: 14px 15px;
+      border: 1px solid rgba(120, 212, 255, 0.18);
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025)),
+        rgba(4, 27, 45, 0.42);
+    }
+
+    .sos-review-summary-card span {
+      display: block;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .sos-review-summary-card strong {
+      display: block;
+      margin-top: 5px;
+      overflow-wrap: anywhere;
+      color: rgba(255, 255, 255, 0.88);
+      font-family: var(--matrix-heading);
+      font-size: 14px;
+      line-height: 1.28;
+    }
+
+    .sos-confirmation-card {
+      max-width: 980px;
+    }
+
+    .sos-confirmation-hero {
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+      margin-bottom: 22px;
+      padding: 18px;
+      border: 1px solid rgba(107, 231, 183, 0.38);
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(39, 174, 96, 0.18), rgba(59, 130, 246, 0.1));
+    }
+
+    .sos-confirmation-check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 48px;
+      width: 48px;
+      height: 48px;
+      border-radius: 16px;
+      background: #2fd982;
+      box-shadow: 0 18px 42px rgba(47, 217, 130, 0.28);
+      color: #04151e;
+      font-size: 28px;
+      font-weight: 900;
+    }
+
+    .sos-confirmation-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(260px, 0.8fr);
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .sos-confirmation-panel {
+      min-width: 0;
+      padding: 18px;
+      border: 1px solid rgba(148, 197, 255, 0.2);
+      border-radius: 16px;
+      background: rgba(8, 28, 45, 0.44);
+    }
+
+    .sos-confirmation-panel h3 {
+      margin: 0 0 14px;
+      color: #fff;
+      font-size: 15px;
+      letter-spacing: 0.02em;
+    }
+
+    .sos-file-vault-callout {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 16px 0;
+      padding: 18px;
+      border: 1px solid rgba(246, 213, 111, 0.34);
+      border-radius: 16px;
+      background: rgba(246, 213, 111, 0.11);
+    }
+
+    .sos-file-vault-callout strong,
+    .sos-file-vault-callout span {
+      display: block;
+    }
+
+    .sos-file-vault-callout span {
+      margin-top: 4px;
+      color: rgba(232, 241, 255, 0.76);
+    }
+
+    .sos-confirmation-actions {
+      justify-content: flex-start;
+    }
+
+    .sos-compact-options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .sos-compact-check {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      min-height: 48px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.045);
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .sos-book-step {
+      display: grid;
+      gap: 14px;
+    }
+
+    .sos-avatar-pair {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      margin: 12px 0;
+      border: 1px solid rgba(243, 213, 118, 0.18);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .sos-avatar {
+      display: grid;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border: 1px solid rgba(255, 255, 255, 0.13);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.22), transparent 34%),
+        linear-gradient(135deg, rgba(27, 154, 191, 0.82), rgba(217, 184, 91, 0.78));
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 13px;
+      font-weight: 900;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    .sos-avatar.is-mentor {
+      background:
+        radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.2), transparent 34%),
+        linear-gradient(135deg, rgba(36, 192, 113, 0.74), rgba(243, 137, 48, 0.74));
+    }
+
+    .sos-avatar-link {
+      width: 30px;
+      height: 1px;
+      background: linear-gradient(90deg, rgba(243, 213, 118, 0.1), rgba(243, 213, 118, 0.78), rgba(243, 213, 118, 0.1));
+    }
+
+    .sos-meeting-note {
+      padding: 14px;
+      border: 1px solid rgba(54, 192, 113, 0.24);
+      border-radius: 10px;
+      background: rgba(54, 192, 113, 0.08);
+      color: rgba(255, 255, 255, 0.74);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .sos-sched-summary-row {
+      display: grid;
+      grid-template-columns: 92px 1fr;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .sos-sched-summary-row span:first-child {
+      color: rgba(255, 255, 255, 0.48);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .sos-sched-summary-row span:last-child {
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 13px;
+    }
+
+    .sos-sched-matrix-wrap {
+      overflow-x: auto;
+      margin: 14px 0;
+      padding-bottom: 8px;
+    }
+
+    .sos-sched-week {
+      display: grid;
+      grid-template-columns: 68px repeat(7, minmax(94px, 1fr));
+      gap: 6px;
+      min-width: 770px;
+    }
+
+    .sos-sched-time-label,
+    .sos-sched-grid-cell {
+      min-height: 36px;
+      padding: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      font-size: 11px;
+    }
+
+    .sos-sched-time-label {
+      display: grid;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.54);
+      background: rgba(255, 255, 255, 0.03);
+      font-weight: 800;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .sos-sched-grid-cell {
+      display: grid;
+      place-items: stretch;
+      background: rgba(255, 255, 255, 0.045);
+      color: rgba(255, 255, 255, 0.62);
+    }
+
+    .sos-sched-grid-cell.is-open {
+      border-color: rgba(61, 255, 154, 0.26);
+      background: rgba(61, 255, 154, 0.1);
+    }
+
+    .sos-sched-grid-cell.is-selected {
+      border-color: rgba(23, 163, 207, 0.56);
+      background: rgba(23, 163, 207, 0.16);
+      box-shadow: 0 0 18px rgba(23, 163, 207, 0.18);
+    }
+
+    .sos-sched-open-slot {
+      display: grid;
+      place-items: center;
+      min-height: 30px;
+      width: 100%;
+      border: 1px solid rgba(61, 255, 154, 0.28);
+      border-radius: 7px;
+      background: rgba(61, 255, 154, 0.12);
+      color: var(--green2);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+    }
+
+    .sos-sched-open-slot:hover,
+    .sos-sched-open-slot:focus-visible {
+      border-color: rgba(61, 255, 154, 0.52);
+      background: rgba(61, 255, 154, 0.18);
+      transform: scale(1.04);
+      outline: none;
+    }
+
+    .sos-sched-open-slot[aria-pressed="true"] {
+      border-color: rgba(23, 163, 207, 0.72);
+      background: rgba(23, 163, 207, 0.2);
+      color: #9be8ff;
+      box-shadow: 0 0 14px rgba(23, 163, 207, 0.22);
+    }
+
+    .sos-sched-empty {
+      min-height: 30px;
+      border-radius: 7px;
+      background: rgba(255, 255, 255, 0.015);
+    }
+
+    .sos-sched-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .sos-slot-selected-summary {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+      margin: 12px 0 0;
+      padding: 12px 14px;
+      border: 1px solid rgba(23, 163, 207, 0.36);
+      border-radius: 12px;
+      background: rgba(23, 163, 207, 0.1);
+    }
+
+    .sos-slot-selected-summary strong {
+      display: block;
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 14px;
+    }
+
+    .sos-slot-selected-summary span {
+      display: block;
+      margin-top: 2px;
+      color: rgba(255, 255, 255, 0.62);
+      font-size: 12px;
+    }
+
+    .sos-sched-next {
+      display: grid;
+      gap: 8px;
+      margin: 12px 0 14px;
+    }
+
+    .sos-sched-next-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .sos-sched-mini-list {
+      display: grid;
+      gap: 9px;
+    }
+
+    .sos-sched-mini-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.045);
+    }
+
+    .sos-sched-mini-item strong {
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 14px;
+    }
+
+    .sos-sched-mini-item span {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 12px;
+    }
+
+    .sos-sched-slot {
+      display: grid;
+      gap: 4px;
+      min-height: 72px;
+      padding: 13px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02)),
+        rgba(6, 23, 39, 0.5);
+      color: #fff;
+      text-align: left;
+      box-shadow:
+        0 7px 18px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      transition: transform 0.24s ease, border-color 0.24s ease, box-shadow 0.24s ease;
+    }
+
+    .sos-sched-slot:hover,
+    .sos-sched-slot:focus-visible {
+      border-color: rgba(23, 163, 207, 0.5);
+      transform: translateY(-2px);
+      outline: none;
+    }
+
+    .sos-sched-slot[aria-pressed="true"] {
+      border-color: rgba(243, 213, 118, 0.58);
+      background: linear-gradient(135deg, rgba(217, 184, 91, 0.24), rgba(23, 163, 207, 0.12));
+      box-shadow: 0 0 24px rgba(217, 184, 91, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .sos-sched-slot strong {
+      color: var(--gold2);
+      font-family: var(--matrix-heading);
+      font-size: 18px;
+    }
+
+    .sos-sched-slot span {
+      color: rgba(255, 255, 255, 0.56);
+      font-size: 12px;
+    }
+
+    .sos-sched-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .sos-sched-item {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.055);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 7px 16px rgba(0, 0, 0, 0.2);
+    }
+
+    .sos-sched-item strong {
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 17px;
+    }
+
+    .sos-sched-item span {
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 13px;
+    }
+
+    .sos-loading {
+      display: grid;
+      min-height: 260px;
+      place-items: center;
+      color: rgba(255, 255, 255, 0.64);
+      font-size: 13px;
+    }
+
+    .sos-load-shell {
+      position: relative;
+      display: grid;
+      gap: 14px;
+      padding: 20px;
+      border: 1px solid rgba(120, 212, 255, 0.22);
+      border-radius: 14px;
+      background:
+        linear-gradient(180deg, rgba(9, 62, 92, 0.74), rgba(5, 28, 48, 0.88)),
+        rgba(6, 23, 39, 0.72);
+      box-shadow: 0 20px 58px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      animation: sos-fade-in 0.22s ease both;
+    }
+
+    .sos-load-shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 16% 0%, rgba(255, 204, 77, 0.12), transparent 28%),
+        repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.025) 0 1px, transparent 1px 20px);
+    }
+
+    .sos-load-shell > * {
+      position: relative;
+      z-index: 1;
+    }
+
+    .sos-load-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 210px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .sos-load-kicker {
+      margin: 0 0 5px;
+      color: var(--gold2);
+      font-family: var(--matrix-heading);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.24s ease, opacity 0.24s ease;
+    }
+
+    .sos-load-title {
+      margin: 0;
+      color: #fff;
+      font-family: var(--matrix-heading);
+      font-size: 22px;
+      font-weight: 800;
+      line-height: 1.15;
+      transition: opacity 0.24s ease;
+    }
+
+    .sos-load-message {
+      margin: 7px 0 0;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 14px;
+      line-height: 1.48;
+      transition: opacity 0.24s ease;
+    }
+
+    .sos-load-progress {
+      display: grid;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .sos-load-meta {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: rgba(255, 255, 255, 0.7);
+      font-family: var(--matrix-heading);
+      font-size: 13px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+
+    .sos-load-track {
+      height: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.32);
+    }
+
+    .sos-load-fill {
+      height: 100%;
+      width: var(--sos-load-progress, 12%);
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--gold), var(--orange), var(--blue2));
+      box-shadow: 0 0 22px rgba(255, 204, 77, 0.34);
+      transition: width 760ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+
+    .sos-slot-skeleton {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 9px;
+      padding: 11px;
+      border: 1px solid rgba(120, 212, 255, 0.16);
+      border-radius: 12px;
+      background: rgba(4, 27, 45, 0.72);
+    }
+
+    .sos-slot-skeleton-day {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .sos-slot-skeleton-day h3 {
+      color: rgba(255, 255, 255, 0.76);
+      font-family: var(--matrix-heading);
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .sos-slot-skeleton-line {
+      min-height: 34px;
+      border: 1px solid rgba(120, 212, 255, 0.18);
+      border-radius: 8px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.06), rgba(120, 212, 255, 0.18), rgba(255, 255, 255, 0.06));
+      background-size: 220% 100%;
+      animation: sos-load-shimmer 1.5s ease-in-out infinite;
+    }
+
+    .sos-slot-skeleton-line.is-open {
+      border-color: rgba(61, 255, 154, 0.48);
+      background: rgba(61, 255, 154, 0.12);
+      box-shadow: 0 0 18px rgba(61, 255, 154, 0.08);
+      animation: none;
+    }
+
+    .sos-load-foot {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sos-load-error {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 14px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid rgba(255, 92, 122, 0.52);
+      border-radius: 12px;
+      background: rgba(80, 28, 42, 0.52);
+    }
+
+    .sos-load-error h3 {
+      margin: 0 0 4px;
+      font-family: var(--matrix-heading);
+      font-size: 16px;
+    }
+
+    .sos-load-error p {
+      margin: 0;
+      color: rgba(255, 225, 230, 0.84);
+      font-size: 13px;
+      line-height: 1.42;
+    }
+
+    @keyframes sos-aurora-a {
+      0% { transform: translateX(-80px) skewX(-4deg) scaleY(1); }
+      100% { transform: translateX(100px) skewX(5deg) scaleY(1.4); }
+    }
+
+    @keyframes sos-aurora-b {
+      0% { transform: translateX(70px) skewX(3deg) scaleY(0.9); }
+      100% { transform: translateX(-90px) skewX(-6deg) scaleY(1.3); }
+    }
+
+    @keyframes sos-aurora-c {
+      0% { transform: translateX(-50px) scaleX(1) scaleY(1); }
+      100% { transform: translateX(80px) scaleX(1.2) scaleY(1.2); }
+    }
+
+    @keyframes sos-shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    @keyframes sos-load-shimmer {
+      0% { background-position: 120% 0; }
+      100% { background-position: -120% 0; }
+    }
+
+    @keyframes sos-glow-pulse {
+      0% { opacity: 0.4; transform: scale(0.96); }
+      100% { opacity: 0.88; transform: scale(1.08); }
+    }
+
+    @keyframes sos-tracker-pulse {
+      0%, 100% { filter: brightness(1); box-shadow: inset 0 0 0 rgba(255, 255, 255, 0); }
+      50% { filter: brightness(1.34); box-shadow: inset 0 0 24px rgba(255, 244, 180, 0.62); }
+    }
+
+    @keyframes sos-fade-in {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1100px) {
+      .sos-grid-stats,
+      .sos-grid-two,
+      .sos-sched-book-shell,
+      .sos-sched-discovery {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 800px) {
+      #schedule-root {
+        --sidebar-w: 0px;
+        display: block;
+        width: 100%;
+      }
+
+      .sos-sidebar {
+        position: relative;
+        inset: auto;
+        width: 100%;
+        min-height: auto;
+        padding: 16px 0;
+      }
+
+      .sos-main {
+        margin-left: 0;
+      }
+
+      .sos-bg-layer {
+        inset: 0;
+      }
+
+      .sos-content {
+        padding: 24px 16px 44px;
+      }
+
+      .sos-page-title {
+        font-size: 34px;
+      }
+
+      .sos-grid-stats,
+      .sos-grid-two,
+      .sos-sched-book-shell,
+      .sos-sched-discovery,
+      .sos-booking-fields,
+      .sos-review-preferences,
+      .sos-review-summary-grid,
+      .sos-confirmation-grid,
+      .sos-book-flow,
+      .sos-sched-stepper,
+      .sos-sched-week,
+      .sos-load-head,
+      .sos-load-error,
+      .sos-slot-skeleton {
+        grid-template-columns: 1fr;
+      }
+
+      .sos-load-shell {
+        padding: 16px;
+      }
+
+      .sos-load-foot {
+        justify-content: flex-start;
+      }
+
+      .sos-file-vault-callout {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .sos-tracker-labels {
+        display: none;
+      }
+
+      .sos-segment {
+        min-height: 48px;
+        font-size: 16px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .sos-content {
+        padding: 20px 12px 40px;
+      }
+
+      .sos-page-title {
+        font-size: 30px;
+      }
+
+      .sos-toolbar .sos-btn {
+        flex: 1 1 auto;
+        padding-inline: 12px;
+      }
+    }
+
+    .sos-page-transition {
+      animation: sos-step-fade 0.25s ease;
+    }
+    @keyframes sos-step-fade {
+      from { opacity: 0.7; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .sos-step-slide-in {
+      animation: sos-slide-in 0.35s cubic-bezier(0.22, 0.61, 0.36, 1);
+    }
+    @keyframes sos-slide-in {
+      from { opacity: 0; transform: translateX(40px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .sos-step-slide-out {
+      animation: sos-slide-out 0.2s ease forwards;
+    }
+    @keyframes sos-slide-out {
+      from { opacity: 1; transform: translateX(0); }
+      to { opacity: 0; transform: translateX(-40px); }
+    }
+
+    .sos-week-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .sos-week-label {
+      font-family: var(--matrix-heading);
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--gold2);
+      letter-spacing: 0.03em;
+    }
+    .sos-btn-sm {
+      min-width: 36px;
+      min-height: 36px;
+      padding: 6px 12px;
+      font-size: 13px;
+    }
+    .sos-view-toggle {
+      display: flex;
+      gap: 6px;
+      margin: 8px 0;
+    }
+    .sos-view-toggle .is-active {
+      border-color: rgba(243, 213, 118, 0.5) !important;
+      background: rgba(217, 184, 91, 0.15);
+    }
+  </style>
+</head>
+<body>
+  <div id="schedule-root" data-mode="standalone" data-api-base="/api/scheduler"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      var scheduler = window.MMEDScheduler || {};
+      var refs = {};
+      var EASTERN_TIMEZONE = "America/New_York";
+      var BOOKING_DIVISIONS = [
+        {
+          id: "non-member",
+          name: "Non-Member",
+          meetingCopy: "After booking, you'll receive an email with your consultation details. Your Matrix Calendar will also show this appointment on the scheduled date.",
+          visits: [
+            { slug: "consult-non-member", aliases: ["non-member-consult"], label: "Consult: Non-Member", mentors: ["dr-brian", "dr-j"] }
+          ]
+        },
+        {
+          id: "mission-residency",
+          name: "Mission Residency",
+          meetingCopy: "After booking, you'll receive an email with your session link. Your Matrix Calendar will also show this appointment on the scheduled date.",
+          visits: [
+            { slug: "mission-residency-1-on-1-advising", label: "1-on-1 Advising", mentors: ["dr-brian", "dr-s"] },
+            { slug: "mission-residency-personal-statement", label: "Personal Statement", mentors: ["dr-brian", "dr-s"] },
+            { slug: "mission-residency-1-on-1-mock-iv", label: "1-on-1 Mock IV", mentors: ["dr-brian", "dr-s"] },
+            { slug: "mission-residency-eras-application-review", label: "ERAS Application Review", mentors: ["dr-brian", "dr-s"] },
+            { slug: "mission-residency-small-group-advising", label: "Small Group Advising", mentors: ["dr-brian", "dr-s"] },
+            { slug: "mission-residency-open-door-office-hours", label: "Open Door Office Hours", mentors: ["dr-brian", "dr-s"] }
+          ]
+        },
+        {
+          id: "exam-prep",
+          name: "Exam Prep",
+          meetingCopy: "After booking, you'll receive an email with your session link. Your Matrix Calendar will also show this appointment on the scheduled date.",
+          visits: [
+            { slug: "exam-prep-1-on-1-advising", label: "1-on-1 Advising", mentors: ["dr-j", "sophia"] },
+            { slug: "exam-prep-small-group", label: "Small Group", mentors: ["dr-j", "sophia"] }
+          ]
+        }
+      ];
+
+      scheduler.state = {
+        route: "book",
+        bookingStep: 1,
+        mode: "standalone",
+        apiBase: "/api/scheduler",
+        timezone: EASTERN_TIMEZONE,
+        csrfToken: "",
+        boot: null,
+        bootError: "",
+        notice: "",
+        noticeError: false,
+        loading: false,
+        loadingError: "",
+        loadingTransitionContext: "catalog",
+        loadingTransitionStep: 0,
+        loadingTransitionTimer: null,
+        catalogLoading: false,
+        appointmentsLoading: false,
+        availabilityLoading: false,
+        appointmentTypes: [],
+        entitlements: null,
+        providers: [],
+        slots: [],
+        selectedSlotKey: "",
+        division: "",
+        upcoming: [],
+        history: [],
+        bookingState: "Draft",
+        bookingConfirmed: false,
+        confirmedAppointment: null,
+        confirmedMeeting: null,
+        date: nextDateValue(),
+        intake: "",
+        emailOptIn: true,
+        smsOptIn: false,
+        smsPhone: "",
+        slotView: "week"
+      };
+
+      function isLocalPreview() {
+        return window.location && window.location.protocol === "file:";
+      }
+
+      function localPreviewAppointmentTypes() {
+        return BOOKING_DIVISIONS.reduce(function (rows, division) {
+          division.visits.forEach(function (visit) {
+            rows.push({
+              id: "preview-" + visit.slug,
+              slug: visit.slug,
+              name: visit.label,
+              description: "",
+              duration_minutes: 30,
+              capacity: 1,
+              group_enabled: false,
+              meeting_mode: "manual",
+              status: "active",
+              active: true,
+              entitlement: { status: "eligible", locked: false },
+              metadata: { division: division.id },
+              student_config: {
+                instructions: "",
+                intake_fields: [],
+                payments: { required: false, mode: "none" },
+                web_meetings: { provider: "manual", link_policy: "after_confirmation" }
+              }
+            });
+          });
+          return rows;
+        }, []);
+      }
+
+      function localPreviewProviders() {
+        return [
+          { id: "preview-dr-brian", display_name: "Dr. Brian", name: "Dr. Brian", metadata: { provider_slug: "dr-brian" } },
+          { id: "preview-dr-j", display_name: "Dr J", name: "Dr J", metadata: { provider_slug: "dr-j" } },
+          { id: "preview-dr-s", display_name: "Dr S", name: "Dr S", metadata: { provider_slug: "dr-s" } },
+          { id: "preview-sophia", display_name: "Sophia", name: "Sophia", metadata: { provider_slug: "sophia" } }
+        ];
+      }
+
+      function localPreviewSlots() {
+        var selected = new Date(scheduler.state.date + "T12:00:00.000Z");
+        var slots = [];
+        for (var offset = 1; offset <= 5; offset += 1) {
+          var day = new Date(selected.getTime() + offset * 24 * 60 * 60 * 1000);
+          if (day.getUTCDay() === 0 || day.getUTCDay() === 6) continue;
+          ["11:00", "12:00", "13:00"].forEach(function (time) {
+            var parts = time.split(":");
+            var endHour = String(Math.min(23, Number(parts[0]) + 1)).padStart(2, "0");
+            slots.push({
+              id: "preview-slot-" + dateInputValue(day) + "-" + time,
+              starts_at: dateInputValue(day) + "T" + time + ":00-04:00",
+              ends_at: dateInputValue(day) + "T" + endHour + ":" + (parts[1] || "00") + ":00-04:00",
+              provider_id: scheduler.state.providerId,
+              appointment_type_id: scheduler.state.appointmentTypeId
+            });
+          });
+        }
+        return slots;
+      }
+
+      scheduler.components = {
+        pageHeader: function (eyebrow, title, copy) {
+          return [
+            '<header class="sos-page-header">',
+            '<span class="sos-eyebrow">' + escapeHTML(eyebrow) + "</span>",
+            '<h1 class="sos-page-title">' + escapeHTML(title) + "</h1>",
+            copy ? '<p class="sos-page-copy">' + escapeHTML(copy) + "</p>" : "",
+            "</header>"
+          ].join("");
+        },
+
+        statCard: function (value, label, tone, sublabel) {
+          return [
+            '<div class="sos-card sos-stat">',
+            "<div>",
+            '<span class="sos-stat-value" style="color:' + escapeAttr(tone || "var(--gold2)") + '">' + escapeHTML(value) + "</span>",
+            '<span class="sos-stat-label">' + escapeHTML(label) + "</span>",
+            sublabel ? '<span class="sos-stat-sub">' + escapeHTML(sublabel) + "</span>" : "",
+            "</div>",
+            "</div>"
+          ].join("");
+        },
+
+        tracker: function (phase) {
+          var phases = phase && Array.isArray(phase.phases) ? phase.phases : defaultSchedulePhase().phases;
+          var currentIndex = phase && typeof phase.current_index === "number" ? phase.current_index : defaultSchedulePhase().current_index;
+          var currentPhase = phases[currentIndex] || phases[0] || null;
+
+          return [
+            '<div class="sos-tracker-board sos-tracker sos-schedule-tracker" aria-label="Scheduler journey tracker">',
+            '<div class="sos-tracker-top"><div>',
+            '<div class="sos-tracker-title">Schedule<span>Journey</span></div>',
+            '<div class="sos-tracker-copy">Completed segments turn green; your current booking step pulses orange.</div>',
+            "</div></div>",
+            '<div class="sos-tracker-labels" style="grid-template-columns:repeat(' + phases.length + ',1fr)">',
+            phases.map(function (item) {
+              return "<span>" + escapeHTML(item.name || item.id || "") + "</span>";
+            }).join(""),
+            "</div>",
+            '<div class="sos-segment-bar sos-tracker-track" style="grid-template-columns:repeat(' + phases.length + ',1fr)">',
+            phases.map(function (item, index) {
+              var classes = ["sos-segment", "sos-tracker-segment"];
+              // data-tracker-step allows clicking segments to jump to that step
+              if (item.complete) {
+                classes.push("is-complete");
+              } else if (index === currentIndex) {
+                classes.push("is-active");
+              }
+              return '<div class="' + classes.join(" ") + '" data-tracker-step="' + (index + 1) + '">' + (index + 1) + "</div>";
+            }).join(""),
+            "</div>",
+            '<div class="sos-status-strip">Current step: <strong>' + escapeHTML(currentPhase ? currentPhase.name || currentPhase.id : "Assigned") + "</strong></div>",
+            "</div>"
+          ].join("");
+        },
+
+        loading: function (label) {
+          return '<div class="sos-loading">' + escapeHTML(label || "Loading schedule data...") + "</div>";
+        },
+
+        slotGridLoading: function (options) {
+          options = options || {};
+          var step = loadingStep(options.context || scheduler.state.loadingTransitionContext || "catalog");
+          var progress = String(step.percent || 12);
+          var error = options.error || scheduler.state.loadingError;
+          var title = error ? "Loading needs attention" : step.title;
+          var message = error ? (scheduler.state.loadingError || "We could not finish loading appointment options.") : loadingMessage(step);
+          var status = error ? "Needs attention" : (Number(progress) >= 96 ? "Almost ready" : "Loading");
+          return [
+            '<div class="sos-load-shell" data-sos-loading-shell aria-live="polite" style="--sos-load-progress:' + escapeAttr(progress) + '%">',
+            '<div class="sos-load-head">',
+            "<div>",
+            '<p class="sos-load-kicker" data-sos-load-kicker>' + escapeHTML(step.kicker || "Loading appointment options") + "</p>",
+            '<h2 class="sos-load-title" data-sos-load-title>' + escapeHTML(title) + "</h2>",
+            '<p class="sos-load-message" data-sos-load-message>' + escapeHTML(message) + "</p>",
+            "</div>",
+            '<div class="sos-load-progress">',
+            '<div class="sos-load-meta"><span data-sos-load-percent>' + escapeHTML(progress) + '%</span><span data-sos-load-state>' + escapeHTML(status) + '</span></div>',
+            '<div class="sos-load-track"><div class="sos-load-fill"></div></div>',
+            "</div>",
+            "</div>",
+            slotSkeletonMarkup(),
+            error ? loadingErrorMarkup() : '<div class="sos-load-foot"><span class="sos-pill sos-tier-medium">Eastern / New York</span></div>',
+            "</div>"
+          ].join("");
+        },
+
+        empty: function (title, copy) {
+          return [
+            '<div class="sos-empty sos-empty-rich">',
+            '<div class="sos-empty-icon">Sc</div>',
+            '<h3>' + escapeHTML(title) + "</h3>",
+            '<p>' + escapeHTML(copy || "") + "</p>",
+            "</div>"
+          ].join("");
+        }
+      };
+
+      scheduler.api = {
+        request: function (path, options) {
+          options = options || {};
+          var headers = {
+            Accept: "application/json"
+          };
+          if (options.body) {
+            headers["Content-Type"] = "application/json";
+          }
+          if (scheduler.state.csrfToken) {
+            headers["x-mmhq-csrf"] = scheduler.state.csrfToken;
+          }
+          return fetch(scheduler.state.apiBase + path, {
+            method: options.method || "GET",
+            headers: headers,
+            body: options.body ? JSON.stringify(options.body) : undefined,
+            credentials: "same-origin"
+          }).then(function (response) {
+            return response.json().catch(function () {
+              return {};
+            }).then(function (payload) {
+              return response.ok ? payload : Object.assign({ ok: false, status: response.status }, payload);
+            });
+          }).catch(function (error) {
+            return { ok: false, error: "network_error", message: error.message };
+          });
+        },
+
+        get: function (path) {
+          return this.request(path);
+        },
+
+        post: function (path, body) {
+          return this.request(path, { method: "POST", body: body || {} });
+        }
+      };
+
+      scheduler.mount = function (config) {
+        config = config || {};
+        stopLoadingTransition();
+        refs.root = typeof config.target === "string" ? document.querySelector(config.target) : config.target;
+        if (!refs.root) {
+          refs.root = document.getElementById("schedule-root");
+        }
+        if (!refs.root) {
+          return;
+        }
+
+        scheduler.state.mode = config.mode || refs.root.getAttribute("data-mode") || "standalone";
+        scheduler.state.apiBase = config.apiBase || refs.root.getAttribute("data-api-base") || "/api/scheduler";
+
+        if (scheduler.state.mode === "embedded") {
+          refs.content = refs.root;
+          refs.root.classList.add("sos-schedule-embedded");
+        } else {
+          refs.root.innerHTML = standaloneShell();
+          refs.sidebar = refs.root.querySelector("[data-scheduler-sidebar]");
+          refs.content = refs.root.querySelector("[data-scheduler-content]");
+        }
+
+        scheduler.router.start();
+        scheduler.bootstrap();
+      };
+
+      scheduler.router = {
+        start: function () {
+          if (scheduler.state.mode === "standalone") {
+            window.addEventListener("hashchange", scheduler.router.route);
+            scheduler.router.route();
+          } else {
+            scheduler.render.page(scheduler.state.route);
+          }
+        },
+
+        route: function () {
+          var route = window.location.hash.replace(/^#\/?/, "") || scheduler.state.route || "book";
+          var allowed = ["book", "upcoming", "history"];
+          if (allowed.indexOf(route) === -1) {
+            route = "book";
+          }
+          scheduler.state.route = route;
+          scheduler.render.sidebar();
+          scheduler.render.page(route);
+        },
+
+        go: function (route) {
+          if (scheduler.state.mode === "standalone") {
+            window.location.hash = route;
+          } else {
+            scheduler.state.route = route;
+            scheduler.render.page(route);
+          }
+        }
+      };
+
+      scheduler.bootstrap = function () {
+        scheduler.state.loading = true;
+        scheduler.state.loadingError = "";
+        startLoadingTransition("catalog");
+        scheduler.render.page(scheduler.state.route);
+        loadAuthSession().then(function () {
+          return scheduler.api.get("/bootstrap");
+        }).then(function (boot) {
+          scheduler.state.boot = boot.ok ? boot.data : null;
+          scheduler.state.entitlements = boot.ok && boot.data && boot.data.config ? boot.data.config.entitlements || scheduler.state.entitlements : scheduler.state.entitlements;
+          scheduler.state.bootError = boot.ok || isLocalPreview() ? "" : boot.message || boot.error || "Scheduler is not available yet.";
+          scheduler.render.sidebar();
+          return loadAll();
+        }).then(function () {
+          scheduler.state.loading = false;
+          stopLoadingTransition();
+          scheduler.render.sidebar();
+          scheduler.render.page(scheduler.state.route);
+        }).catch(function (error) {
+          scheduler.state.loading = false;
+          scheduler.state.catalogLoading = false;
+          scheduler.state.appointmentsLoading = false;
+          scheduler.state.loadingError = error && error.message ? error.message : "Scheduler data did not load. Please retry.";
+          stopLoadingTransition();
+          scheduler.render.page(scheduler.state.route);
+        });
+      };
+
+      scheduler.render = {
+        sidebar: function () {
+          if (!refs.sidebar) {
+            return;
+          }
+          refs.sidebar.innerHTML = [
+            '<div class="sos-brand">',
+            '<div class="sos-brand-mark">MM</div>',
+            '<div class="sos-brand-title">Matrix<small>MissionMed</small></div>',
+            "</div>",
+            '<div class="sos-nav-section">',
+            '<div class="sos-nav-label">Planning</div>',
+            '<ul class="sos-nav-list">',
+            navLink("book", "Book", "Bk", ""),
+            navLink("upcoming", "Upcoming", "Up", scheduler.state.upcoming.length),
+            navLink("history", "History", "Hi", scheduler.state.history.length),
+            "</ul>",
+            "</div>",
+            '<div class="sos-nav-section">',
+            '<div class="sos-nav-label">Account</div>',
+            '<ul class="sos-nav-list">',
+            '<li><span class="sos-nav-link"><span class="sos-nav-icon">TZ</span><span>' + escapeHTML(scheduler.state.timezone) + "</span></span></li>",
+            "</ul>",
+            "</div>",
+            '<div class="sos-sidebar-footer">',
+            '<div class="sos-panel-copy">' + escapeHTML(sidebarStatus()) + "</div>",
+            "</div>"
+          ].join("");
+
+          refs.sidebar.querySelectorAll("[data-route]").forEach(function (link) {
+            link.addEventListener("click", function (event) {
+              event.preventDefault();
+              scheduler.router.go(link.getAttribute("data-route"));
+            });
+          });
+        },
+
+        page: function (route) {
+          if (!refs.content) {
+            return;
+          }
+          if (scheduler.state.loading || scheduler.state.loadingError) {
+            refs.content.innerHTML = [
+              '<section class="sos-page">',
+              scheduler.components.pageHeader("Planning", "Book a Session", "Select your division, choose a mentor, then reserve a published time."),
+              scheduler.components.tracker(defaultSchedulePhase()),
+              scheduler.components.slotGridLoading({ context: scheduler.state.loadingTransitionContext || "catalog", error: scheduler.state.loadingError }),
+              "</section>"
+            ].join("");
+            bindLoadingControls();
+            return;
+          }
+          if (route === "upcoming") {
+            renderUpcoming();
+          } else if (route === "history") {
+            renderHistory();
+          } else {
+            renderBook();
+          }
+          var page = refs.content.querySelector(".sos-page");
+          if (page) {
+            page.classList.remove("sos-page-transition");
+            void page.offsetWidth;
+            page.classList.add("sos-page-transition");
+          }
+          bindCurrentView();
+        }
+      };
+
+      function renderBookingStepOnly() {
+        var flow = refs.content ? refs.content.querySelector(".sos-book-flow") : null;
+        if (!flow) {
+          scheduler.render.page(scheduler.state.route);
+          return;
+        }
+        flow.innerHTML = activeBookingStepMarkup();
+        flow.classList.remove("sos-page-transition");
+        void flow.offsetWidth;
+        flow.classList.add("sos-page-transition");
+        bindCurrentView();
+      }
+
+      function standaloneShell() {
+        return [
+          '<aside class="sos-sidebar" data-scheduler-sidebar></aside>',
+          '<main class="sos-main">',
+          '<div class="sos-bg-layer"><div class="sos-bg sos-bg-a"></div><div class="sos-bg sos-bg-b"></div><div class="sos-bg sos-bg-c"></div></div>',
+          '<div class="sos-content" data-scheduler-content></div>',
+          "</main>"
+        ].join("");
+      }
+
+      function renderBook() {
+        refs.content.innerHTML = [
+          '<section class="sos-page">',
+          scheduler.components.pageHeader("Planning", "Book a Session", "Select your division, choose a mentor, then reserve a published time."),
+          scheduler.components.tracker(scheduleTrackerPhase()),
+          noticeMarkup(),
+          '<div class="sos-book-flow">',
+          activeBookingStepMarkup(),
+          "</div>",
+          "</section>"
+        ].join("");
+      }
+
+      function renderUpcoming() {
+        refs.content.innerHTML = [
+          '<section class="sos-page">',
+          scheduler.components.pageHeader("Planning", "Upcoming Appointments", "Review scheduled sessions without exposing staff-only notes."),
+          scheduler.components.tracker(upcomingTrackerPhase()),
+          statsGrid(),
+          tabsMarkup(),
+          noticeMarkup(),
+          '<div class="sos-card sos-card-pad">',
+          '<div class="sos-panel-title">Student calendar</div>',
+          '<h2 class="sos-panel-heading">Upcoming</h2>',
+          listMarkup(scheduler.state.upcoming, "No upcoming appointments", "Accepted sessions will appear here after the scheduler API confirms them.", false),
+          "</div>",
+          "</section>"
+        ].join("");
+      }
+
+      function renderHistory() {
+        refs.content.innerHTML = [
+          '<section class="sos-page">',
+          scheduler.components.pageHeader("Planning", "Appointment History", "Past sessions and canceled requests stay separated from the booking flow."),
+          scheduler.components.tracker(historyTrackerPhase()),
+          statsGrid(),
+          tabsMarkup(),
+          noticeMarkup(),
+          '<div class="sos-card sos-card-pad">',
+          '<div class="sos-panel-title">Completed and closed</div>',
+          '<h2 class="sos-panel-heading">History</h2>',
+          listMarkup(scheduler.state.history, "No appointment history", "Closed sessions will appear here after the scheduler API returns them.", true),
+          "</div>",
+          "</section>"
+        ].join("");
+      }
+
+      function activeBookingStepMarkup() {
+        if (scheduler.state.bookingConfirmed) {
+          return confirmationStep();
+        }
+        if (scheduler.state.bookingStep === 2) {
+          return chooseTimeStep();
+        }
+        if (scheduler.state.bookingStep === 3) {
+          return reviewConfirmStep();
+        }
+        return selectDetailsStep();
+      }
+
+      function selectDetailsStep() {
+        var type = selectedAppointmentType();
+        var canContinue = Boolean(scheduler.state.division && scheduler.state.appointmentTypeId && scheduler.state.providerId && !isTypeLocked(type));
+        return [
+          '<form class="sos-card sos-card-pad" data-booking-form>',
+          '<div class="sos-booking-fields">',
+          divisionSelectMarkup(),
+          scheduler.state.division ? visitTypeSelectMarkup() : "",
+          scheduler.state.appointmentTypeId ? mentorSelectMarkup() : "",
+          "</div>",
+          scheduler.state.catalogLoading ? '<div class="sos-notice"><strong>Loading appointment options</strong><span>Program options are loading from the Scheduler API.</span></div>' : "",
+          scheduler.state.division && !visitTypeOptions().length ? noVisitTypesNoticeMarkup() : "",
+          lockedTypeNoticeMarkup(type),
+          '<div class="sos-form-actions">',
+          '<button class="sos-btn sos-btn-primary" type="button" data-action="next-step"' + (canContinue ? "" : " disabled") + ">Next</button>",
+          '<span class="sos-pill sos-tier-medium">Eastern / New York</span>',
+          "</div>",
+          "</form>"
+        ].join("");
+      }
+
+      function chooseTimeStep() {
+        var canContinue = Boolean(selectedSlot());
+        return [
+          '<section class="sos-card sos-card-pad">',
+          '<div class="sos-panel-title">Choose Time Slot</div>',
+          '<h2 class="sos-panel-heading">Choose Available Time Slot</h2>',
+          '<p class="sos-panel-copy">Showing a weekly grid of published openings in Eastern / New York.</p>',
+          scheduler.state.availabilityLoading ? scheduler.components.slotGridLoading({ context: "availability" }) : weekGridMarkup(),
+          scheduler.state.availabilityLoading ? "" : selectedSlotSummaryMarkup(),
+          '<div class="sos-form-actions">',
+          '<button class="sos-btn" type="button" data-action="previous-step">Back</button>',
+          '<button class="sos-btn sos-btn-primary" type="button" data-action="next-step"' + (canContinue && !scheduler.state.availabilityLoading ? "" : " disabled") + ">Next</button>",
+          '<button class="sos-btn" type="button" data-action="refresh"' + (scheduler.state.availabilityLoading ? " disabled" : "") + ">Refresh</button>",
+          "</div>",
+          "</section>"
+        ].join("");
+      }
+
+      function confirmationStep() {
+        var appointment = scheduler.state.confirmedAppointment || {};
+        var meeting = scheduler.state.confirmedMeeting || {};
+        var meetingUrl = confirmedMeetingUrl(appointment, meeting);
+        return [
+          '<section class="sos-card sos-card-pad sos-confirmation-card">',
+          '<div class="sos-confirmation-hero">',
+          '<span class="sos-confirmation-check">✓</span>',
+          '<div><div class="sos-panel-title">Session Confirmed</div>',
+          '<h2 class="sos-panel-heading">Your session is booked</h2>',
+          '<p class="sos-panel-copy">We reserved your time and added it to your Matrix schedule.</p></div>',
+          '</div>',
+          '<div class="sos-confirmation-grid">',
+          '<div class="sos-confirmation-panel"><h3>Appointment summary</h3>' + confirmedSummaryRows(appointment) + '</div>',
+          '<div class="sos-confirmation-panel"><h3>Meeting link</h3>' + confirmedMeetingMarkup(meetingUrl) + '</div>',
+          '</div>',
+          '<div class="sos-file-vault-callout">',
+          '<div><strong>Have files for your mentor?</strong><span>Upload drafts, score reports, notes, screenshots, or prep documents in Matrix File Vault before the session.</span></div>',
+          '<a class="sos-btn sos-btn-primary" href="/member-dashboard/#filevault">Open File Vault</a>',
+          '</div>',
+          '<div class="sos-form-actions sos-confirmation-actions">',
+          '<a class="sos-btn" href="/member-dashboard/#calendar">View Calendar</a>',
+          '<button class="sos-btn" type="button" data-action="reset-booking">Book another session</button>',
+          '</div>',
+          '</section>'
+        ].join("");
+      }
+
+      function confirmedSummaryRows(appointment) {
+        var type = selectedAppointmentType();
+        var provider = selectedProvider();
+        var slot = selectedSlot();
+        var start = appointment.start_at || appointment.startAt || (slot ? slotStart(slot) : "");
+        var duration = appointment.duration_minutes || appointment.duration || (type ? type.duration_minutes || type.duration || 60 : 60);
+        var rows = [
+          ["Program / Division", selectedDivisionName() || "MissionMed"],
+          ["Appointment type", appointment.appointment_type_name || selectedVisitLabel() || (type ? type.name || type.title || type.id : "Session")],
+          ["Mentor", appointment.provider_name || (provider ? provider.display_name || provider.name || provider.id : "Mentor")],
+          ["Date and time", start ? formatDateTime(start) : "Confirmed"],
+          ["Duration", String(duration) + " minutes"],
+          ["Reminders", reminderLabel()]
+        ];
+        return reviewSummaryCards(rows);
+      }
+
+      function confirmedMeetingUrl(appointment, meeting) {
+        var nested = appointment && appointment.meeting ? appointment.meeting : {};
+        var candidates = [
+          meeting && meeting.meeting_url,
+          meeting && meeting.meetingUrl,
+          meeting && meeting.join_url,
+          meeting && meeting.joinUrl,
+          meeting && meeting.webex_url,
+          meeting && meeting.webexUrl,
+          meeting && meeting.zoom_url,
+          meeting && meeting.zoomUrl,
+          appointment && appointment.meeting_url,
+          appointment && appointment.meetingUrl,
+          appointment && appointment.join_url,
+          appointment && appointment.joinUrl,
+          appointment && appointment.webex_url,
+          appointment && appointment.webexUrl,
+          appointment && appointment.zoom_url,
+          appointment && appointment.zoomUrl,
+          nested && nested.meeting_url,
+          nested && nested.join_url,
+          nested && nested.webex_url,
+          nested && nested.zoom_url
+        ];
+        for (var i = 0; i < candidates.length; i += 1) {
+          var url = String(candidates[i] || "").trim();
+          if (/^https?:\/\//i.test(url)) {
+            return url;
+          }
+        }
+        return "";
+      }
+
+      function confirmedMeetingMarkup(meetingUrl) {
+        if (meetingUrl) {
+          return [
+            '<p class="sos-panel-copy">Your meeting link is ready.</p>',
+            '<a class="sos-btn sos-btn-primary" href="' + escapeAttr(meetingUrl) + '" target="_blank" rel="noopener">Open meeting link</a>'
+          ].join("");
+        }
+        return [
+          '<p class="sos-panel-copy">Your meeting link is being generated. It will appear in Matrix Calendar and your confirmation email as soon as provisioning finishes.</p>',
+          '<a class="sos-btn" href="/member-dashboard/#calendar">Check Calendar</a>'
+        ].join("");
+      }
+
+      function reviewConfirmStep() {
+        var type = selectedAppointmentType();
+        var provider = selectedProvider();
+        var slot = selectedSlot();
+        var canConfirm = Boolean(type && provider && slot);
+        return [
+          '<section class="sos-card sos-card-pad">',
+          '<div class="sos-panel-title">Review & Confirm</div>',
+          '<h2 class="sos-panel-heading">Confirm your session</h2>',
+          '<p class="sos-panel-copy">Review the details before we reserve the time through the MissionMed scheduler.</p>',
+          selectedSummaryRows(true),
+          reviewPreferencesMarkup(type),
+          '<div class="sos-meeting-note">' + escapeHTML(meetingExpectationCopy()) + '</div>',
+          '<div class="sos-sched-help">You can request a change later from your appointment list when reschedule or cancellation rules allow it.</div>',
+          '<div class="sos-form-actions">',
+          '<button class="sos-btn" type="button" data-action="previous-step">Back</button>',
+          '<button class="sos-btn sos-btn-primary" type="button" data-action="confirm-booking"' + (canConfirm ? "" : " disabled") + ">Confirm session</button>",
+          '<span class="sos-pill sos-tier-medium">' + escapeHTML(scheduler.state.bookingState) + "</span>",
+          "</div>",
+          "</section>"
+        ].join("");
+      }
+
+      function selectedSummaryRows(full) {
+        var type = selectedAppointmentType();
+        var provider = selectedProvider();
+        var slot = selectedSlot();
+        var rows = [
+          ["Program / Division", selectedDivisionName() || "Choose a program"],
+          ["Appointment type", selectedVisitLabel() || (type ? type.name || type.title || type.id : "Not selected")],
+          ["Mentor", provider ? provider.display_name || provider.name || provider.id : "Not selected"],
+          ["Date and time", slot ? formatDateTime(slotStart(slot)) : "Choose an available slot"],
+          ["Duration", type ? String(type.duration_minutes || type.duration || 60) + " minutes" : "Set by visit type"],
+          ["Reminders", reminderLabel()]
+        ];
+        if (full) {
+          rows.push(["Capacity", capacityLabel(type)]);
+          rows.push(["Meeting", meetingLabel(type)]);
+          rows.push(["Payment", paymentLabel(type)]);
+        }
+        return reviewSummaryCards(rows);
+      }
+
+      function reviewSummaryCards(rows) {
+        return '<div class="sos-review-summary-grid">' + rows.map(function (row) {
+          return '<div class="sos-review-summary-card"><span>' + escapeHTML(row[0]) + '</span><strong>' + escapeHTML(row[1]) + "</strong></div>";
+        }).join("") + "</div>";
+      }
+
+      function avatarPairMarkup(provider) {
+        var user = scheduler.state.boot && scheduler.state.boot.user ? scheduler.state.boot.user : {};
+        var studentLabel = user.display_name || user.email || "You";
+        var mentorLabel = provider ? provider.display_name || provider.name || "Mentor" : "Mentor";
+        return [
+          '<div class="sos-avatar-pair" aria-label="Student and mentor avatars">',
+          '<div class="sos-avatar" title="' + escapeAttr(studentLabel) + '">' + escapeHTML(initials(studentLabel || "You")) + "</div>",
+          '<div class="sos-avatar-link" aria-hidden="true"></div>',
+          '<div class="sos-avatar is-mentor" title="' + escapeAttr(mentorLabel) + '">' + escapeHTML(initials(mentorLabel || "Mentor")) + "</div>",
+          "</div>"
+        ].join("");
+      }
+
+      function divisionSelectMarkup() {
+        var enabled = visibleBookingDivisions();
+        return [
+          '<div class="sos-field">',
+          '<label for="schedule-division">MissionMed Program / Division</label>',
+          '<select id="schedule-division" name="division">',
+          '<option value="">Choose a program</option>',
+          enabled.map(function (division) {
+            return '<option value="' + escapeAttr(division.id) + '"' + (scheduler.state.division === division.id ? " selected" : "") + ">" + escapeHTML(division.name) + "</option>";
+          }).join(""),
+          "</select>",
+          "</div>"
+        ].join("");
+      }
+
+      function visitTypeSelectMarkup() {
+        var options = visitTypeOptions();
+        return [
+          '<div class="sos-field">',
+          '<label for="schedule-appointment-type">Type of appointment</label>',
+          '<select id="schedule-appointment-type" name="appointment-type">',
+          '<option value="">Choose appointment type</option>',
+          options.map(function (option) {
+            var locked = isTypeLocked(option.type);
+            var suffix = locked ? " · locked" : entitlementSuffix(option.type);
+            return '<option value="' + escapeAttr(option.type.id) + '"' + (scheduler.state.appointmentTypeId === option.type.id ? " selected" : "") + (locked ? " disabled" : "") + ">" + escapeHTML(option.label + suffix) + "</option>";
+          }).join(""),
+          "</select>",
+          "</div>"
+        ].join("");
+      }
+
+      function noVisitTypesNoticeMarkup() {
+        return '<div class="sos-notice"><strong>No visit types loaded</strong><span>Refresh the Scheduler, or open it from Matrix so it can use the authenticated Scheduler API.</span></div>';
+      }
+
+      function lockedTypeNoticeMarkup(type) {
+        var entitlement = type && type.entitlement ? type.entitlement : null;
+        if (!entitlement || entitlement.locked !== true) {
+          return "";
+        }
+        return '<div class="sos-notice"><strong>Locked for this account</strong><span>' + escapeHTML(entitlement.message || "This visit type needs a matching MissionMed enrollment.") + "</span></div>";
+      }
+
+      function entitlementNoticeMarkup() {
+        var entitlements = scheduler.state.entitlements || {};
+        var policy = entitlements.policy || {};
+        var selected = selectedAppointmentType();
+        var selectedEntitlement = selected && selected.entitlement ? selected.entitlement : null;
+        if (selectedEntitlement && selectedEntitlement.locked) {
+          return '<div class="sos-notice"><strong>Locked for this account</strong><span>' + escapeHTML(selectedEntitlement.message || "This visit type needs a matching MissionMed enrollment.") + "</span></div>";
+        }
+        if (entitlements.facts_configured) {
+          return '<div class="sos-notice"><strong>Enrollment verified</strong><span>Your Scheduler options are based on server-side MissionMed enrollment facts.</span></div>';
+        }
+        if (policy.non_member_consult_enabled) {
+          return '<div class="sos-notice"><strong>Registered access</strong><span>All registered users can book Consult: Non-Member. Residency and Exam Prep options require matching enrollment.</span></div>';
+        }
+        return "";
+      }
+
+      function mentorSelectMarkup() {
+        var options = mentorOptions();
+        return [
+          '<div class="sos-field">',
+          '<label for="schedule-provider">Mentor</label>',
+          '<select id="schedule-provider" name="provider">',
+          '<option value="">Choose a mentor</option>',
+          options.map(function (option) {
+            var suffix = option.availableSoon ? " · availability coming soon" : "";
+            return '<option value="' + escapeAttr(option.provider.id) + '"' + (scheduler.state.providerId === option.provider.id ? " selected" : "") + ">" + escapeHTML(option.label + suffix) + "</option>";
+          }).join(""),
+          "</select>",
+          "</div>"
+        ].join("");
+      }
+
+      function typeInstructionsMarkup(type) {
+        var config = type && type.student_config ? type.student_config : {};
+        var instructions = config.instructions || type && type.description || "";
+        if (!instructions) {
+          return "";
+        }
+        return '<div class="sos-notice"><strong>Visit instructions</strong><span>' + escapeHTML(instructions) + "</span></div>";
+      }
+
+      function intakeFieldsMarkup(type) {
+        var fields = studentIntakeFields(type);
+        if (!fields.length) {
+          return "";
+        }
+        return '<div class="sos-sched-list">' + fields.map(function (field) {
+          var key = field.field_key || field.id || "";
+          var required = field.required ? " required" : "";
+          var label = escapeHTML(field.label || key || "Question") + (field.required ? " *" : "");
+          if (field.field_type === "textarea") {
+            return '<div class="sos-field"><label for="intake-' + escapeAttr(key) + '">' + label + '</label><textarea id="intake-' + escapeAttr(key) + '" data-intake-field="' + escapeAttr(key) + '" data-required="' + String(field.required === true) + '"' + required + "></textarea></div>";
+          }
+          return '<div class="sos-field"><label for="intake-' + escapeAttr(key) + '">' + label + '</label><input class="sos-input" id="intake-' + escapeAttr(key) + '" data-intake-field="' + escapeAttr(key) + '" data-required="' + String(field.required === true) + '" type="' + escapeAttr(inputType(field.field_type)) + '"' + required + "></div>";
+        }).join("") + "</div>";
+      }
+
+      function studentIntakeFields(type) {
+        return type && type.student_config && Array.isArray(type.student_config.intake_fields)
+          ? type.student_config.intake_fields
+          : [];
+      }
+
+      function reviewPreferencesMarkup(type) {
+        var payment = type && type.student_config && type.student_config.payments ? type.student_config.payments : {};
+        return [
+          '<div class="sos-review-preferences">',
+          '<div class="sos-field"><label for="schedule-intake">Notes</label><textarea id="schedule-intake" name="intake" placeholder="Anything you want your mentor to know before the session">' + escapeHTML(scheduler.state.intake) + "</textarea></div>",
+          '<div class="sos-compact-options">',
+          '<label class="sos-compact-check" for="schedule-email-opt-in"><span>Email reminder</span><input type="checkbox" id="schedule-email-opt-in" ' + (scheduler.state.emailOptIn ? "checked" : "") + '></label>',
+          '<label class="sos-compact-check" for="schedule-sms-opt-in"><span>Text reminder</span><input type="checkbox" id="schedule-sms-opt-in" ' + (scheduler.state.smsOptIn ? "checked" : "") + '></label>',
+          scheduler.state.smsOptIn ? '<div class="sos-field"><label for="schedule-sms-phone">Reminder phone</label><input class="sos-input" id="schedule-sms-phone" name="sms_phone" type="tel" autocomplete="tel" value="' + escapeAttr(scheduler.state.smsPhone) + '" placeholder="Optional phone number"></div>' : "",
+          payment.required ? '<div class="sos-notice"><strong>Payment required</strong><span>Paid visit types wait for server-verified Stripe confirmation before booking.</span></div>' : "",
+          "</div>",
+          "</div>"
+        ].join("");
+      }
+
+      function inputType(fieldType) {
+        if (["email", "date", "number", "tel", "phone"].indexOf(fieldType) >= 0) return fieldType === "phone" ? "tel" : fieldType;
+        return "text";
+      }
+
+      function capacityLabel(type) {
+        if (!type) return "Set by visit type";
+        var config = type.student_config && type.student_config.capacity ? type.student_config.capacity : {};
+        var count = config.capacity || type.capacity || 1;
+        return (type.group_enabled || config.mode === "group") ? "Group, " + count + " seats" : "Individual";
+      }
+
+      function meetingLabel(type) {
+        if (!type) return "Link appears after confirmation";
+        var meeting = type.student_config && type.student_config.web_meetings ? type.student_config.web_meetings : {};
+        var provider = meeting.provider || type.meeting_mode || "manual";
+        if (provider === "none") return "No meeting link";
+        if (provider === "manual") return "Manual link after confirmation";
+        return provider.replace("_", " ") + " after confirmation";
+      }
+
+      function paymentLabel(type) {
+        if (!type) return "No payment step";
+        var payment = type.student_config && type.student_config.payments ? type.student_config.payments : {};
+        if (payment.required) return payment.status === "configured" ? "Payment required" : "Payment required, not configured";
+        if (payment.mode === "optional") return "Optional payment";
+        return "No payment required";
+      }
+
+      function reminderLabel() {
+        if (scheduler.state.smsOptIn) return "Email and SMS";
+        if (scheduler.state.emailOptIn) return "Email";
+        return "Off";
+      }
+
+      function selectedDivision() {
+        return BOOKING_DIVISIONS.find(function (division) {
+          return division.id === scheduler.state.division;
+        }) || null;
+      }
+
+      function visibleBookingDivisions() {
+        var available = scheduler.state.entitlements && Array.isArray(scheduler.state.entitlements.available_divisions)
+          ? scheduler.state.entitlements.available_divisions
+          : [];
+        if (!available.length) {
+          return BOOKING_DIVISIONS;
+        }
+        var allowed = new Set(available);
+        return BOOKING_DIVISIONS.filter(function (division) {
+          return allowed.has(division.id) || hasDivisionTypes(division);
+        });
+      }
+
+      function hasDivisionTypes(division) {
+        return division.visits.some(function (visit) {
+          return Boolean(appointmentTypeByVisit(visit, division));
+        });
+      }
+
+      function selectedDivisionName() {
+        var division = selectedDivision();
+        return division ? division.name : "";
+      }
+
+      function selectedVisitConfig() {
+        var division = selectedDivision();
+        if (!division) return null;
+        var type = selectedAppointmentType();
+        return division.visits.find(function (visit) {
+          return type && appointmentTypeMatchesVisit(type, visit, division);
+        }) || null;
+      }
+
+      function selectedVisitLabel() {
+        var visit = selectedVisitConfig();
+        return visit ? visit.label : "";
+      }
+
+      function visitTypeOptions() {
+        var division = selectedDivision();
+        if (!division) return [];
+        return division.visits.map(function (visit) {
+          var type = appointmentTypeByVisit(visit, division);
+          return type ? { label: visit.label, visit: visit, type: type } : null;
+        }).filter(Boolean);
+      }
+
+      function isTypeLocked(type) {
+        return Boolean(type && type.entitlement && type.entitlement.locked === true);
+      }
+
+      function entitlementSuffix(type) {
+        var entitlement = type && type.entitlement ? type.entitlement : {};
+        if (entitlement.status === "eligible") return " · included";
+        if (entitlement.status === "server_facts_pending") return " · enrollment checked at booking";
+        return "";
+      }
+
+      function mentorOptions() {
+        var visit = selectedVisitConfig();
+        if (!visit) return [];
+        return visit.mentors.map(function (slug) {
+          var provider = providerBySlug(slug);
+          if (!provider) return null;
+          return {
+            label: provider.display_name || provider.name || mentorNameFromSlug(slug),
+            provider: provider,
+            availableSoon: slug === "dr-s" || slug === "sophia"
+          };
+        }).filter(Boolean);
+      }
+
+      function appointmentTypeBySlug(slug) {
+        return scheduler.state.appointmentTypes.find(function (row) {
+          return appointmentTypeSlugCandidates(row).some(function (candidate) {
+            return normalizeSlug(candidate) === normalizeSlug(slug);
+          });
+        }) || null;
+      }
+
+      function appointmentTypeByVisit(visit, division) {
+        return scheduler.state.appointmentTypes.find(function (row) {
+          return appointmentTypeMatchesVisit(row, visit, division);
+        }) || null;
+      }
+
+      function appointmentTypeMatchesVisit(row, visit, division) {
+        var visitCandidates = visitSlugCandidates(visit).map(normalizeSlug).filter(Boolean);
+        var rowCandidates = appointmentTypeSlugCandidates(row).map(normalizeSlug).filter(Boolean);
+        if (rowCandidates.some(function (candidate) { return visitCandidates.indexOf(candidate) >= 0; })) {
+          return true;
+        }
+        var visitLabel = normalizeSlug(visit && visit.label);
+        var rowLabels = appointmentTypeLabelCandidates(row).map(normalizeSlug).filter(Boolean);
+        return Boolean(visitLabel && rowLabels.indexOf(visitLabel) >= 0 && appointmentTypeDivisionMatches(row, division));
+      }
+
+      function visitSlugCandidates(visit) {
+        return [visit && visit.slug].concat(Array.isArray(visit && visit.aliases) ? visit.aliases : []).filter(Boolean);
+      }
+
+      function appointmentTypeSlugCandidates(row) {
+        var metadata = row && row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+        var config = row && row.student_config && typeof row.student_config === "object" ? row.student_config : {};
+        return [
+          row && row.slug,
+          row && row.appointment_type_slug,
+          row && row.appointmentTypeSlug,
+          row && row.type_slug,
+          metadata.slug,
+          metadata.appointment_type_slug,
+          config.slug,
+          config.appointment_type_slug
+        ].filter(Boolean);
+      }
+
+      function appointmentTypeLabelCandidates(row) {
+        return [row && row.label, row && row.title, row && row.name, row && row.display_name].filter(Boolean);
+      }
+
+      function appointmentTypeDivisionMatches(row, division) {
+        if (!division) return true;
+        var metadata = row && row.metadata && typeof row.metadata === "object" ? row.metadata : {};
+        var config = row && row.student_config && typeof row.student_config === "object" ? row.student_config : {};
+        var candidates = [
+          row && row.division,
+          row && row.division_key,
+          row && row.division_slug,
+          row && row.category,
+          metadata.division,
+          metadata.division_key,
+          metadata.category,
+          config.division,
+          config.division_key
+        ].map(normalizeSlug).filter(Boolean);
+        if (!candidates.length) return true;
+        var divisionKeys = [division.id, division.name].map(normalizeSlug);
+        return candidates.some(function (candidate) {
+          return divisionKeys.indexOf(candidate) >= 0;
+        });
+      }
+
+      function normalizeSlug(value) {
+        return String(value || "")
+          .toLowerCase()
+          .replace(/&/g, " and ")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
+
+      function providerBySlug(slug) {
+        return scheduler.state.providers.find(function (provider) {
+          return providerSlug(provider) === String(slug || "");
+        }) || null;
+      }
+
+      function providerSlug(provider) {
+        var metadata = provider && provider.metadata && typeof provider.metadata === "object" ? provider.metadata : {};
+        var explicit = metadata.provider_slug || metadata.slug || "";
+        if (explicit) return String(explicit).trim();
+        return String(provider && (provider.slug || provider.display_name || provider.name || "") || "")
+          .toLowerCase()
+          .replace(/dr\.?\s*/g, "dr-")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
+
+      function mentorNameFromSlug(slug) {
+        if (slug === "dr-brian") return "Dr. Brian";
+        if (slug === "dr-j") return "Dr J";
+        if (slug === "dr-s") return "Dr S";
+        if (slug === "sophia") return "Sophia";
+        return "Mentor";
+      }
+
+      function meetingExpectationCopy() {
+        var division = selectedDivision();
+        return division ? division.meetingCopy : "After booking, you'll receive an email with your session link. Your Matrix Calendar will also show this appointment on the scheduled date.";
+      }
+
+      function initials(value) {
+        var words = String(value || "").replace(/[^A-Za-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+        if (!words.length) return "MM";
+        if (words[0].toLowerCase() === "dr" && words[1]) return ("D" + words[1][0]).toUpperCase();
+        return words.slice(0, 2).map(function (word) { return word[0]; }).join("").toUpperCase();
+      }
+
+      function stepperMarkup(phase) {
+        return '<div class="sos-sched-stepper">' + phase.phases.map(function (item, index) {
+          var classes = ["sos-sched-step"];
+          if (item.complete) {
+            classes.push("is-complete");
+          } else if (index === phase.current_index) {
+            classes.push("is-active");
+          }
+          return '<div class="' + classes.join(" ") + '"><strong>' + escapeHTML(item.name) + '</strong><span>' + escapeHTML(stepHint(item.id)) + "</span></div>";
+        }).join("") + "</div>";
+      }
+
+      function stepHint(id) {
+        if (id === "details") return "Division and mentor";
+        if (id === "time") return "Published openings";
+        return "Review and send";
+      }
+
+      function weekGridMarkup() {
+        var days = weekDays();
+        var rows = matrixTimeRows();
+        var hasSlots = sortedSlots().length > 0;
+        return [
+          '<div class="sos-week-nav">',
+          '<button class="sos-btn sos-btn-sm" type="button" data-action="prev-week" aria-label="Previous week">&larr;</button>',
+          '<span class="sos-week-label">' + weekLabel() + '</span>',
+          '<button class="sos-btn sos-btn-sm" type="button" data-action="next-week" aria-label="Next week">&rarr;</button>',
+          '</div>',
+          '<div class="sos-sched-matrix-wrap">',
+          '<div class="sos-sched-week" aria-label="Available week" role="grid">',
+          '<div class="sos-sched-time-label">Time</div>',
+          days.map(function(day) {
+            return '<div class="sos-sched-time-label">' + escapeHTML(new Intl.DateTimeFormat([], { weekday: "short", month: "short", day: "numeric", timeZone: EASTERN_TIMEZONE }).format(day)) + '</div>';
+          }).join(""),
+          rows.map(function(row) {
+            return '<div class="sos-sched-time-label">' + escapeHTML(row.label) + '</div>' + days.map(function(day) {
+              var dateKey = dateInputValue(day);
+              var slot = slotForMatrixCell(dateKey, row.key);
+              var isSelected = slot && scheduler.state.selectedSlotKey === slotKey(slot);
+              var cellClasses = ["sos-sched-grid-cell"];
+              if (slot) cellClasses.push("is-open");
+              if (isSelected) cellClasses.push("is-selected");
+              return [
+                '<div class="' + cellClasses.join(" ") + '" role="gridcell">',
+                slot ? '<button class="sos-sched-open-slot" type="button" data-slot-key="' + escapeAttr(slotKey(slot)) + '" aria-pressed="' + String(isSelected) + '">' + escapeHTML(isSelected ? "Selected" : "Open") + '</button>' : '<div class="sos-sched-empty" aria-hidden="true"></div>',
+                '</div>'
+              ].join("");
+            }).join("");
+          }).join(""),
+          '</div>',
+          '</div>',
+          '<div class="sos-sched-legend"><span class="sos-pill good">Open slot</span><span class="sos-pill sos-tier-medium">Selected slot</span><span class="sos-pill">Unavailable</span></div>',
+          hasSlots ? "" : '<div class="sos-notice"><strong>No published slots loaded yet.</strong><span>Use Refresh or try a different mentor if openings do not appear.</span></div>'
+        ].join("");
+      }
+
+      function selectedSlotSummaryMarkup() {
+        var slot = selectedSlot();
+        if (!slot) {
+          return '<div class="sos-notice"><strong>Pick an open block</strong><span>Select any Open slot in the weekly grid to continue.</span></div>';
+        }
+        return [
+          '<div class="sos-slot-selected-summary">',
+          '<span class="sos-nav-icon">✓</span>',
+          '<div><strong>' + escapeHTML(formatDateTime(slotStart(slot))) + '</strong>',
+          '<span>' + escapeHTML(selectedProviderName(slot)) + " · " + escapeHTML(selectedAppointmentType() ? selectedAppointmentType().title || selectedAppointmentType().label || "Selected visit" : "Selected visit") + '</span></div>',
+          '</div>'
+        ].join("");
+      }
+
+      function matrixTimeRows() {
+        var defaultRows = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00", "19:00", "20:00"];
+        var keys = {};
+        defaultRows.forEach(function (key) { keys[key] = true; });
+        sortedSlots().forEach(function (slot) {
+          keys[easternTimeKey(slotStart(slot))] = true;
+        });
+        return Object.keys(keys).sort().map(function (key) {
+          return { key: key, label: matrixTimeLabel(key) };
+        });
+      }
+
+      function slotForMatrixCell(dateKey, timeKey) {
+        var slots = sortedSlots();
+        for (var i = 0; i < slots.length; i += 1) {
+          if (localDateKey(slotStart(slots[i])) === dateKey && easternTimeKey(slotStart(slots[i])) === timeKey) {
+            return slots[i];
+          }
+        }
+        return null;
+      }
+
+      function nextAvailableMarkup() {
+        var nextSlots = sortedSlots().slice(0, 3);
+        if (!nextSlots.length) {
+          return '<div class="sos-notice"><strong>No available slots are published for this mentor yet.</strong><span>Try a different mentor or check back soon.</span></div>';
+        }
+        return [
+          '<div class="sos-sched-next">',
+          '<div class="sos-panel-title">Next available</div>',
+          '<div class="sos-sched-next-row">',
+          nextSlots.map(function (slot) {
+            var key = slotKey(slot);
+            return '<button class="sos-btn" type="button" data-slot-key="' + escapeAttr(key) + '">' + escapeHTML(formatDate(slotStart(slot)) + " " + formatTime(slotStart(slot))) + "</button>";
+          }).join(""),
+          "</div>",
+          "</div>"
+        ].join("");
+      }
+
+      function slotsMarkup() {
+        var daySlots = slotsForDate(scheduler.state.date);
+        if (!daySlots.length) {
+          return scheduler.components.empty("No available slots are published for this mentor yet.", "Try a different day or mentor, or check back soon.");
+        }
+        return daySlots.map(function (slot) {
+          var key = slotKey(slot);
+          return [
+            '<button type="button" class="sos-sched-slot" data-slot-key="' + escapeAttr(key) + '" aria-pressed="' + String(scheduler.state.selectedSlotKey === key) + '">',
+            "<strong>" + escapeHTML(formatTime(slot.startAt || slot.start_at)) + "</strong>",
+            "<span>" + escapeHTML(formatDate(slot.startAt || slot.start_at)) + "</span>",
+            "<span>" + escapeHTML(selectedProviderName(slot)) + "</span>",
+            "</button>"
+          ].join("");
+        }).join("");
+      }
+
+      function listMarkup(rows, emptyTitle, emptyCopy, history) {
+        if (!rows.length) {
+          return scheduler.components.empty(emptyTitle, emptyCopy);
+        }
+        return '<div class="sos-sched-list">' + rows.map(function (row) {
+          var appointmentId = row.id || row.appointment_id || row.appointmentId || "";
+          return [
+            '<article class="sos-sched-item">',
+            "<strong>" + escapeHTML(formatDateTime(row.start_at || row.startAt)) + "</strong>",
+            "<span>Status: " + escapeHTML(row.status || "booked") + "</span>",
+            row.provider_name ? "<span>Provider: " + escapeHTML(row.provider_name) + "</span>" : "",
+            row.appointment_type_name ? "<span>Visit type: " + escapeHTML(row.appointment_type_name) + "</span>" : "",
+            row.meeting_url ? '<span>Meeting: <a href="' + escapeAttr(row.meeting_url) + '" target="_blank" rel="noopener">Open link</a></span>' : '<span>Meeting: link appears after confirmation</span>',
+            history ? "" : '<div class="sos-form-actions"><button class="sos-btn" type="button">Join</button><button class="sos-btn" type="button">Reschedule</button><button class="sos-btn" type="button" data-action="cancel-appointment" data-appointment-id="' + escapeAttr(appointmentId) + '">Cancel</button></div>',
+            "</article>"
+          ].join("");
+        }).join("") + "</div>";
+      }
+
+      function compactListMarkup(rows, emptyText) {
+        if (!rows.length) {
+          return '<div class="sos-empty">' + escapeHTML(emptyText) + "</div>";
+        }
+        return '<div class="sos-sched-mini-list">' + rows.slice(0, 3).map(function (row) {
+          return [
+            '<article class="sos-sched-mini-item">',
+            '<div><strong>' + escapeHTML(formatDateTime(row.start_at || row.startAt)) + '</strong><span>' + escapeHTML(row.appointment_type_name || row.provider_name || row.status || "Scheduled") + "</span></div>",
+            '<span class="sos-pill sos-tier-high">' + escapeHTML(row.status || "Booked") + "</span>",
+            "</article>"
+          ].join("");
+        }).join("") + "</div>";
+      }
+
+      function tabsMarkup() {
+        return [
+          '<nav class="sos-tabs" aria-label="Scheduler views">',
+          tabButton("book", "Book"),
+          tabButton("upcoming", "Upcoming"),
+          tabButton("history", "History"),
+          "</nav>"
+        ].join("");
+      }
+
+      function tabButton(route, label) {
+        return '<button class="sos-tab" type="button" data-route="' + escapeAttr(route) + '" aria-current="' + String(scheduler.state.route === route) + '">' + escapeHTML(label) + "</button>";
+      }
+
+      function statsGrid() {
+        return [
+          '<div class="sos-grid sos-grid-stats">',
+          scheduler.components.statCard(String(scheduler.state.appointmentTypes.length), "Visit Types", "var(--blue2)", "From scheduler API"),
+          scheduler.components.statCard(String(scheduler.state.providers.length), "Providers", "var(--gold2)", "Mapped server-side"),
+          scheduler.components.statCard(String(scheduler.state.slots.length), "Slots", "var(--green)", "Current search"),
+          scheduler.components.statCard(String(scheduler.state.upcoming.length), "Upcoming", "var(--orange2)", "Student scoped"),
+          "</div>"
+        ].join("");
+      }
+
+      function noticeMarkup() {
+        var message = scheduler.state.notice || scheduler.state.bootError;
+        if (!message) {
+          return "";
+        }
+        return '<div class="sos-banner ' + (scheduler.state.noticeError || scheduler.state.bootError ? "is-error" : "") + '">' + escapeHTML(friendlyMessage(message)) + "</div>";
+      }
+
+      function loadingSteps() {
+        return [
+          { title: "Checking scheduling access", message: "Checking your session and Scheduler access.", percent: 12, kicker: "Loading appointment options" },
+          { title: "Loading appointment options", message: "Checking the appointment types available to this account.", percent: 34, kicker: "Loading appointment options" },
+          { title: "Checking mentor availability", message: safeAppointmentSearchSubject, percent: 58, kicker: "Mentor availability" },
+          { title: "Searching available openings", message: "Preparing the next available days in the Scheduler panel.", percent: 82, kicker: "Published openings" },
+          { title: "Building your weekly slot grid", message: "Building the weekly time-slot view from available openings.", percent: 96, kicker: "Slot grid" }
+        ];
+      }
+
+      function loadingStep(context) {
+        var steps = loadingSteps();
+        var index = Math.min(Math.max(Number(scheduler.state.loadingTransitionStep || 0), 0), steps.length - 1);
+        if (context === "availability" && index < 2) {
+          index = Math.min(3, steps.length - 1);
+        }
+        return steps[index] || steps[0];
+      }
+
+      function loadingMessage(step) {
+        return typeof step.message === "function" ? step.message() : step.message;
+      }
+
+      function safeAppointmentSearchSubject() {
+        var provider = selectedProvider();
+        var name = provider ? provider.display_name || provider.name || provider.title || "" : "";
+        name = String(name || "").replace(/[^\w\s.'-]/g, "").replace(/\s+/g, " ").trim();
+        var match = name.match(/^Dr\.?\s+(.+)$/i);
+        if (match && match[1]) {
+          var parts = match[1].trim().split(/\s+/);
+          var last = parts.length ? parts[parts.length - 1] : "";
+          if (last) {
+            return "Searching available appointments for Dr. " + last;
+          }
+        }
+        return "Searching available appointments for your account";
+      }
+
+      function startLoadingTransition(context) {
+        scheduler.state.loadingTransitionContext = context || "catalog";
+        scheduler.state.loadingTransitionStep = context === "availability" ? 2 : 0;
+        stopLoadingTransition();
+        scheduler.state.loadingTransitionTimer = window.setInterval(function () {
+          var maxStep = loadingSteps().length - 1;
+          if (scheduler.state.loadingTransitionStep < maxStep) {
+            scheduler.state.loadingTransitionStep += 1;
+            if ((scheduler.state.loading || scheduler.state.availabilityLoading) && refs.content) {
+              if (!updateLoadingTransitionDom()) {
+                scheduler.render.page(scheduler.state.route);
+              }
+            }
+          }
+        }, 950);
+      }
+
+      function updateLoadingTransitionDom() {
+        if (!refs.content) {
+          return false;
+        }
+        var shell = refs.content.querySelector("[data-sos-loading-shell]");
+        if (!shell) {
+          return false;
+        }
+        var step = loadingStep(scheduler.state.loadingTransitionContext || "catalog");
+        var progress = String(step.percent || 12);
+        var error = scheduler.state.loadingError;
+        var title = error ? "Loading needs attention" : step.title;
+        var message = error ? (scheduler.state.loadingError || "We could not finish loading appointment options.") : loadingMessage(step);
+        var state = error ? "Needs attention" : (Number(progress) >= 96 ? "Almost ready" : "Loading");
+        shell.style.setProperty("--sos-load-progress", progress + "%");
+        setText(shell.querySelector("[data-sos-load-kicker]"), step.kicker || "Loading appointment options");
+        setText(shell.querySelector("[data-sos-load-title]"), title);
+        setText(shell.querySelector("[data-sos-load-message]"), message);
+        setText(shell.querySelector("[data-sos-load-percent]"), progress + "%");
+        setText(shell.querySelector("[data-sos-load-state]"), state);
+        shell.querySelectorAll("[data-sos-skeleton-line]").forEach(function (line) {
+          var dayIndex = Number(line.getAttribute("data-day-index") || 0);
+          var slotIndex = Number(line.getAttribute("data-slot-index") || 0);
+          var isOpen = Number(scheduler.state.loadingTransitionStep || 0) >= 3 && (dayIndex + slotIndex) % 3 === 0;
+          line.classList.toggle("is-open", isOpen);
+        });
+        return true;
+      }
+
+      function setText(node, value) {
+        if (node) {
+          node.textContent = value || "";
+        }
+      }
+
+      function stopLoadingTransition() {
+        if (scheduler.state.loadingTransitionTimer) {
+          window.clearInterval(scheduler.state.loadingTransitionTimer);
+          scheduler.state.loadingTransitionTimer = null;
+        }
+      }
+
+      function slotSkeletonMarkup() {
+        var days = ["Mon", "Tue", "Wed", "Thu", "Fri"];
+        var stage = Number(scheduler.state.loadingTransitionStep || 0);
+        return [
+          '<div class="sos-slot-skeleton" aria-hidden="true">',
+          days.map(function (day, dayIndex) {
+            var lines = ['<div class="sos-slot-skeleton-day"><h3>' + escapeHTML(day) + "</h3>"];
+            for (var i = 0; i < 4; i += 1) {
+              var isOpen = stage >= 3 && (dayIndex + i) % 3 === 0;
+              lines.push('<div class="sos-slot-skeleton-line' + (isOpen ? " is-open" : "") + '" data-sos-skeleton-line data-day-index="' + escapeAttr(dayIndex) + '" data-slot-index="' + escapeAttr(i) + '"></div>');
+            }
+            lines.push("</div>");
+            return lines.join("");
+          }).join(""),
+          "</div>"
+        ].join("");
+      }
+
+      function loadingErrorMarkup() {
+        return [
+          '<div class="sos-load-error">',
+          "<div>",
+          "<h3>Appointment options did not load</h3>",
+          "<p>Stay in Scheduler and retry the same first-party loading flow.</p>",
+          "</div>",
+          '<button class="sos-btn sos-btn-primary" type="button" data-action="retry-scheduler-load">Retry</button>',
+          "</div>"
+        ].join("");
+      }
+
+      function clickFeedback(element) {
+        element.style.transform = "scale(0.95)";
+        element.style.transition = "transform 0.1s ease";
+        setTimeout(function() {
+          element.style.transform = "";
+          element.style.transition = "";
+        }, 150);
+        try {
+          var ctx = window._mmAudioCtx || (window._mmAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+          var osc = ctx.createOscillator();
+          var gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.frequency.value = 880;
+          gain.gain.value = 0.08;
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 0.04);
+        } catch(e) {}
+      }
+
+      function confirmFeedback(element) {
+        element.style.boxShadow = "0 0 30px rgba(54, 192, 113, 0.5)";
+        setTimeout(function() { element.style.boxShadow = ""; }, 600);
+        try {
+          var ctx = window._mmAudioCtx || (window._mmAudioCtx = new (window.AudioContext || window.webkitAudioContext)());
+          [523, 659, 784].forEach(function(freq, i) {
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = freq;
+            gain.gain.value = 0.06;
+            osc.start(ctx.currentTime + i * 0.08);
+            osc.stop(ctx.currentTime + i * 0.08 + 0.12);
+          });
+        } catch(e) {}
+      }
+
+      function bindLoadingControls() {
+        if (!refs.content) {
+          return;
+        }
+        var retry = refs.content.querySelector('[data-action="retry-scheduler-load"]');
+        if (retry) {
+          retry.addEventListener("click", function () {
+            clickFeedback(retry);
+            scheduler.state.loadingError = "";
+            scheduler.bootstrap();
+          });
+        }
+      }
+
+      function bindCurrentView() {
+        refs.content.querySelectorAll("[data-route]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            clickFeedback(button);
+            scheduler.router.go(button.getAttribute("data-route"));
+          });
+        });
+
+        refs.content.querySelectorAll("[data-slot-key]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            clickFeedback(button);
+            scheduler.state.selectedSlotKey = button.getAttribute("data-slot-key") || "";
+            scheduler.render.page(scheduler.state.route);
+          });
+        });
+
+        var form = refs.content.querySelector("[data-booking-form]");
+        if (form) {
+          form.addEventListener("submit", submitBooking);
+        }
+
+        var divisionSelect = refs.content.querySelector("#schedule-division");
+        if (divisionSelect) {
+          divisionSelect.addEventListener("change", function () {
+            clickFeedback(divisionSelect);
+            scheduler.state.division = divisionSelect.value;
+            scheduler.state.appointmentTypeId = "";
+            scheduler.state.providerId = "";
+            scheduler.state.selectedSlotKey = "";
+            scheduler.state.slots = [];
+            scheduler.state.bookingStep = 1;
+            renderBookingStepOnly();
+          });
+        }
+
+        var typeSelect = refs.content.querySelector("#schedule-appointment-type");
+        if (typeSelect) {
+          typeSelect.addEventListener("change", function () {
+            clickFeedback(typeSelect);
+            scheduler.state.appointmentTypeId = typeSelect.value;
+            scheduler.state.providerId = "";
+            scheduler.state.selectedSlotKey = "";
+            scheduler.state.slots = [];
+            scheduler.state.bookingStep = 1;
+            loadProviders();
+          });
+        }
+
+        var providerSelect = refs.content.querySelector("#schedule-provider");
+        if (providerSelect) {
+          providerSelect.addEventListener("change", function () {
+            clickFeedback(providerSelect);
+            scheduler.state.providerId = providerSelect.value;
+            scheduler.state.selectedSlotKey = "";
+            scheduler.state.slots = [];
+            scheduler.state.bookingStep = 1;
+            renderBookingStepOnly();
+          });
+        }
+
+        var dateInput = refs.content.querySelector("#schedule-date");
+        if (dateInput) {
+          dateInput.addEventListener("change", function () {
+            clickFeedback(dateInput);
+            scheduler.state.date = dateInput.value;
+            scheduler.state.selectedSlotKey = "";
+            loadAvailability();
+          });
+        }
+
+        var intake = refs.content.querySelector("#schedule-intake");
+        if (intake) {
+          intake.addEventListener("input", function () {
+            scheduler.state.intake = intake.value;
+          });
+        }
+
+        var emailOptIn = refs.content.querySelector("#schedule-email-opt-in");
+        if (emailOptIn) {
+          emailOptIn.addEventListener("change", function () {
+            clickFeedback(emailOptIn);
+            scheduler.state.emailOptIn = emailOptIn.checked;
+          });
+        }
+
+        var smsOptIn = refs.content.querySelector("#schedule-sms-opt-in");
+        if (smsOptIn) {
+          smsOptIn.addEventListener("change", function () {
+            clickFeedback(smsOptIn);
+            scheduler.state.smsOptIn = smsOptIn.checked;
+            if (!scheduler.state.smsOptIn) {
+              scheduler.state.smsPhone = "";
+            }
+            scheduler.render.page(scheduler.state.route);
+          });
+        }
+
+        var smsPhone = refs.content.querySelector("#schedule-sms-phone");
+        if (smsPhone) {
+          smsPhone.addEventListener("input", function () {
+            scheduler.state.smsPhone = smsPhone.value;
+          });
+        }
+
+        var refresh = refs.content.querySelector('[data-action="refresh"]');
+        if (refresh) {
+          refresh.addEventListener("click", function () {
+            clickFeedback(refresh);
+            loadAvailability();
+          });
+        }
+
+        refs.content.querySelectorAll('[data-action="next-step"]').forEach(function (button) {
+          button.addEventListener("click", function () {
+            clickFeedback(button);
+            readFormState();
+            if (scheduler.state.bookingStep === 1) {
+              if (!scheduler.state.division || !scheduler.state.appointmentTypeId || !scheduler.state.providerId) {
+                setNotice("Choose a division, visit type, and mentor before continuing.", true);
+                scheduler.render.page(scheduler.state.route);
+                return;
+              }
+              if (isTypeLocked(selectedAppointmentType())) {
+                setNotice("This visit type needs a matching MissionMed enrollment before booking.", true);
+                scheduler.render.page(scheduler.state.route);
+                return;
+              }
+              scheduler.state.bookingStep = 2;
+              setNotice("", false);
+              scheduler.render.page(scheduler.state.route);
+              loadAvailability();
+              var flow = refs.content ? refs.content.querySelector(".sos-book-flow") : null;
+              if (flow) { flow.classList.add("sos-step-slide-in"); }
+              return;
+            }
+            if (scheduler.state.bookingStep === 2) {
+              if (!selectedSlot()) {
+                setNotice("Choose a time before continuing.", true);
+                scheduler.render.page(scheduler.state.route);
+                return;
+              }
+              scheduler.state.bookingStep = 3;
+              setNotice("", false);
+              scheduler.render.page(scheduler.state.route);
+              var flow = refs.content ? refs.content.querySelector(".sos-book-flow") : null;
+              if (flow) { flow.classList.add("sos-step-slide-in"); }
+            }
+          });
+        });
+
+        refs.content.querySelectorAll('[data-action="previous-step"]').forEach(function (button) {
+          button.addEventListener("click", function () {
+            clickFeedback(button);
+            readFormState();
+            scheduler.state.bookingStep = Math.max(1, Number(scheduler.state.bookingStep || 1) - 1);
+            setNotice("", false);
+            scheduler.render.page(scheduler.state.route);
+            var flow = refs.content ? refs.content.querySelector(".sos-book-flow") : null;
+            if (flow) { flow.classList.add("sos-step-slide-in"); }
+          });
+        });
+
+        var confirmBtn = refs.content.querySelector('[data-action="confirm-booking"]');
+        if (confirmBtn) {
+          confirmBtn.addEventListener("click", function () {
+            clickFeedback(confirmBtn);
+            confirmFeedback(confirmBtn);
+            submitBookingFromButton();
+          });
+        }
+
+        var resetBooking = refs.content.querySelector('[data-action="reset-booking"]');
+        if (resetBooking) {
+          resetBooking.addEventListener("click", function () {
+            clickFeedback(resetBooking);
+            scheduler.state.bookingConfirmed = false;
+            scheduler.state.confirmedAppointment = null;
+            scheduler.state.confirmedMeeting = null;
+            scheduler.state.bookingState = "Draft";
+            scheduler.state.selectedSlotKey = "";
+            scheduler.state.bookingStep = 1;
+            setNotice("", false);
+            scheduler.render.page(scheduler.state.route);
+          });
+        }
+
+        refs.content.querySelectorAll('[data-action="cancel-appointment"]').forEach(function (button) {
+          button.addEventListener("click", function () {
+            clickFeedback(button);
+            cancelAppointment(button.getAttribute("data-appointment-id") || "");
+          });
+        });
+
+        refs.content.querySelectorAll("[data-date]").forEach(function (button) {
+          button.addEventListener("click", function () {
+            clickFeedback(button);
+            scheduler.state.date = button.getAttribute("data-date") || scheduler.state.date;
+            scheduler.state.selectedSlotKey = "";
+            scheduler.render.page(scheduler.state.route);
+            loadAvailability();
+          });
+        });
+
+        // Fix 2: Clickable tracker segments
+        refs.content.querySelectorAll("[data-tracker-step]").forEach(function (seg) {
+          seg.addEventListener("click", function () {
+            clickFeedback(seg);
+            var targetStep = parseInt(seg.getAttribute("data-tracker-step"), 10);
+            var currentStep = scheduler.state.bookingStep || 1;
+            if (targetStep <= currentStep) {
+              scheduler.state.bookingStep = targetStep;
+              setNotice("", false);
+              scheduler.render.page(scheduler.state.route);
+            }
+          });
+        });
+
+        // Fix 4: Week navigation arrows
+        var prevWeek = refs.content.querySelector('[data-action="prev-week"]');
+        if (prevWeek) {
+          prevWeek.addEventListener("click", function () {
+            clickFeedback(prevWeek);
+            var d = new Date(scheduler.state.date + "T12:00:00.000Z");
+            d.setDate(d.getDate() - 7);
+            scheduler.state.date = dateInputValue(d);
+            scheduler.state.selectedSlotKey = "";
+            scheduler.render.page(scheduler.state.route);
+            loadAvailability();
+          });
+        }
+        var nextWeek = refs.content.querySelector('[data-action="next-week"]');
+        if (nextWeek) {
+          nextWeek.addEventListener("click", function () {
+            clickFeedback(nextWeek);
+            var d = new Date(scheduler.state.date + "T12:00:00.000Z");
+            d.setDate(d.getDate() + 7);
+            scheduler.state.date = dateInputValue(d);
+            scheduler.state.selectedSlotKey = "";
+            scheduler.render.page(scheduler.state.route);
+            loadAvailability();
+          });
+        }
+
+        // Fix 4: Slot view toggle
+        refs.content.querySelectorAll("[data-slot-view]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            clickFeedback(btn);
+            scheduler.state.slotView = btn.getAttribute("data-slot-view") || "week";
+            scheduler.render.page(scheduler.state.route);
+          });
+        });
+      }
+
+      function cancelAppointment(appointmentId) {
+        appointmentId = String(appointmentId || "").trim();
+        if (!appointmentId) {
+          setNotice("We could not identify that appointment. Refresh and try again.", true);
+          scheduler.render.page(scheduler.state.route);
+          return;
+        }
+        setNotice("Canceling appointment...", false);
+        scheduler.render.page(scheduler.state.route);
+        scheduler.api.post("/cancel", {
+          appointment_id: appointmentId,
+          idempotency_key: "student-cancel-" + Date.now() + "-" + Math.random().toString(16).slice(2),
+          reason: "student_cancelled_from_scheduler"
+        }).then(function (result) {
+          if (!result.ok) {
+            setNotice(result.message || "We could not cancel this appointment yet.", true);
+            return null;
+          }
+          setNotice("Appointment canceled.", false);
+          return Promise.all([loadUpcoming(), loadHistory()]);
+        }).then(function () {
+          scheduler.render.sidebar();
+          scheduler.render.page(scheduler.state.route);
+        });
+      }
+
+      function fieldSelect(key, label, rows, emptyLabel) {
+        var id = "schedule-" + key;
+        return [
+          '<div class="sos-field">',
+          '<label for="' + escapeAttr(id) + '">' + escapeHTML(label) + "</label>",
+          '<select id="' + escapeAttr(id) + '" name="' + escapeAttr(key) + '">',
+          '<option value="">' + escapeHTML(emptyLabel) + "</option>",
+          rows.map(function (row) {
+            var selected = selectedValue(key) === String(row.id) ? " selected" : "";
+            return '<option value="' + escapeAttr(row.id) + '"' + selected + ">" + escapeHTML(row.name || row.display_name || row.title || row.id) + "</option>";
+          }).join(""),
+          "</select>",
+          "</div>"
+        ].join("");
+      }
+
+      function selectedValue(key) {
+        if (key === "appointment-type") {
+          return scheduler.state.appointmentTypeId || "";
+        }
+        if (key === "provider") {
+          return scheduler.state.providerId || "";
+        }
+        return "";
+      }
+
+      function loadAuthSession() {
+        return fetchSchedulerAuthSession().then(function (payload) {
+          if (payload && payload.authenticated) {
+            applySchedulerAuthPayload(payload);
+            return payload;
+          }
+          return exchangeSchedulerWordPressSession(payload);
+        }).then(function (payload) {
+          if (payload && payload.authenticated) {
+            applySchedulerAuthPayload(payload);
+            return payload;
+          }
+          if (window.MMEDSchedulerAuthHandoff && window.MMEDSchedulerAuthHandoff(payload)) {
+            return new Promise(function () {});
+          }
+          scheduler.state.csrfToken = "";
+          return payload || {};
+        }).catch(function () {
+          scheduler.state.csrfToken = "";
+          return {};
+        });
+      }
+
+      function fetchSchedulerAuthSession() {
+        return fetch("/api/auth/session?mm_scheduler_exchange=1&audience=scheduler", {
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: { Accept: "application/json" }
+        }).then(function (response) {
+          return response.json().catch(function () {
+            return {};
+          });
+        });
+      }
+
+      function exchangeSchedulerWordPressSession(previousPayload) {
+        return fetch("/api/auth/exchange", {
+          method: "POST",
+          credentials: "same-origin",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ audience: "scheduler" })
+        }).then(function (response) {
+          return response.json().catch(function () {
+            return {};
+          }).then(function (payload) {
+            if (response.ok && payload && payload.authenticated) {
+              return payload;
+            }
+            return payload && Object.keys(payload).length ? payload : previousPayload;
+          });
+        }).catch(function () {
+          return previousPayload || {};
+        });
+      }
+
+      function applySchedulerAuthPayload(payload) {
+        scheduler.state.csrfToken = payload.csrfToken || "";
+        if (payload.user) {
+          scheduler.state.boot = Object.assign({}, scheduler.state.boot || {}, {
+            user: {
+              id: payload.user.id,
+              display_name: payload.user.displayName || payload.user.display_name || "",
+              email: payload.user.email || "",
+              roles: payload.user.roles || []
+            }
+          });
+        }
+      }
+
+      function loadAll() {
+        scheduler.state.catalogLoading = true;
+        scheduler.state.appointmentsLoading = true;
+        scheduler.render.page(scheduler.state.route);
+        var catalog = loadAppointmentTypes().then(function () {
+          scheduler.state.catalogLoading = false;
+          scheduler.state.loading = false;
+          stopLoadingTransition();
+          scheduler.render.page(scheduler.state.route);
+        });
+        var appointments = Promise.all([loadUpcoming(), loadHistory()]).then(function () {
+          scheduler.state.appointmentsLoading = false;
+          scheduler.render.sidebar();
+          if (scheduler.state.route === "upcoming" || scheduler.state.route === "history") {
+            scheduler.render.page(scheduler.state.route);
+          }
+        });
+        return Promise.all([catalog, appointments]);
+      }
+
+      function loadAppointmentTypes() {
+        return scheduler.api.get("/appointment-types").then(function (result) {
+          scheduler.state.appointmentTypes = result.ok ? result.data.types || [] : (isLocalPreview() ? localPreviewAppointmentTypes() : []);
+          scheduler.state.entitlements = result.ok ? result.data.entitlements || scheduler.state.entitlements : scheduler.state.entitlements;
+          if (!result.ok) {
+            setNotice(isLocalPreview() ? "" : "Scheduler server is not connected in this local preview.", !isLocalPreview());
+          }
+        });
+      }
+
+      function loadProviders() {
+        readFormState();
+        if (!scheduler.state.appointmentTypeId) {
+          scheduler.state.providers = [];
+          renderBookingStepOnly();
+          return Promise.resolve();
+        }
+        var query = new URLSearchParams();
+        if (scheduler.state.appointmentTypeId) {
+          query.set("appointment_type_id", scheduler.state.appointmentTypeId);
+        }
+        return scheduler.api.get("/providers?" + query.toString()).then(function (result) {
+          scheduler.state.providers = result.ok ? result.data.providers || [] : (isLocalPreview() ? localPreviewProviders() : []);
+          if (!result.ok) {
+            setNotice(isLocalPreview() ? "" : "We could not load providers yet. Try again after the scheduler server is connected.", !isLocalPreview());
+          }
+          renderBookingStepOnly();
+        });
+      }
+
+      function loadAvailability() {
+        readFormState();
+        if (!scheduler.state.appointmentTypeId || !scheduler.state.providerId) {
+          scheduler.state.slots = [];
+          scheduler.state.selectedSlotKey = "";
+          scheduler.state.availabilityLoading = false;
+          stopLoadingTransition();
+          scheduler.render.page(scheduler.state.route);
+          return Promise.resolve();
+        }
+        scheduler.state.availabilityLoading = true;
+        scheduler.state.selectedSlotKey = "";
+        startLoadingTransition("availability");
+        scheduler.render.page(scheduler.state.route);
+        var selected = new Date(scheduler.state.date + "T12:00:00.000Z");
+        var start = new Date(selected.getTime() - 24 * 60 * 60 * 1000);
+        var end = new Date(selected.getTime() + 8 * 24 * 60 * 60 * 1000);
+        var query = new URLSearchParams({
+          start_date: start.toISOString(),
+          end_date: end.toISOString(),
+          timezone: scheduler.state.timezone
+        });
+        if (scheduler.state.appointmentTypeId) {
+          query.set("appointment_type_id", scheduler.state.appointmentTypeId);
+        }
+        if (scheduler.state.providerId) {
+          query.set("provider_id", scheduler.state.providerId);
+        }
+        return scheduler.api.get("/availability?" + query.toString()).then(function (result) {
+          scheduler.state.slots = result.ok ? result.data.slots || [] : (isLocalPreview() ? localPreviewSlots() : []);
+          scheduler.state.selectedSlotKey = "";
+          if (!result.ok) {
+            setNotice(isLocalPreview() ? "" : "We could not load available times yet. Try again or contact support if this continues.", !isLocalPreview());
+          }
+        }).catch(function () {
+          scheduler.state.slots = [];
+          scheduler.state.selectedSlotKey = "";
+          setNotice("We could not load available times yet. Try again or contact support if this continues.", true);
+        }).then(function () {
+          scheduler.state.availabilityLoading = false;
+          stopLoadingTransition();
+          scheduler.render.page(scheduler.state.route);
+        });
+      }
+
+      function loadUpcoming() {
+        return scheduler.api.get("/my-appointments").then(function (result) {
+          scheduler.state.upcoming = result.ok ? result.data.appointments || [] : [];
+        });
+      }
+
+      function loadHistory() {
+        return scheduler.api.get("/my-appointment-history").then(function (result) {
+          scheduler.state.history = result.ok ? result.data.appointments || [] : [];
+        });
+      }
+
+      function submitBooking(event) {
+        event.preventDefault();
+        return submitBookingCore();
+      }
+
+      function submitBookingFromButton() {
+        return submitBookingCore();
+      }
+
+      function submitBookingCore() {
+        readFormState();
+        var slot = selectedSlot();
+        var type = selectedAppointmentType();
+        if (isTypeLocked(type)) {
+          setNotice("This visit type needs a matching MissionMed enrollment before booking.", true);
+          scheduler.render.page(scheduler.state.route);
+          return;
+        }
+        if (!slot) {
+          setNotice("Choose a time before confirming.", true);
+          scheduler.render.page(scheduler.state.route);
+          return;
+        }
+        var requiredMissing = missingRequiredIntake(type);
+        if (requiredMissing.length) {
+          setNotice("Please answer the required intake questions before confirming: " + requiredMissing.join(", ") + ".", true);
+          scheduler.render.page(scheduler.state.route);
+          return;
+        }
+        if (paymentRequired(type)) {
+          setNotice("This visit type requires server-verified payment. The Stripe test adapter is not configured in this preview, so booking is blocked safely.", true);
+          scheduler.render.page(scheduler.state.route);
+          return;
+        }
+        scheduler.state.bookingState = "Sending";
+        scheduler.render.page(scheduler.state.route);
+        scheduler.api.post("/book", {
+          idempotency_key: "student-" + Date.now() + "-" + Math.random().toString(16).slice(2),
+          appointment_type_id: scheduler.state.appointmentTypeId,
+          provider_id: scheduler.state.providerId,
+          start_at: slot.startAt || slot.start_at,
+          end_at: slot.endAt || slot.end_at,
+          timezone: scheduler.state.timezone,
+          intake_answers: collectIntakeAnswers(),
+          email_opt_in: scheduler.state.emailOptIn,
+          sms_opt_in: scheduler.state.smsOptIn,
+          sms_phone: scheduler.state.smsOptIn ? scheduler.state.smsPhone : ""
+        }).then(function (result) {
+          scheduler.state.bookingState = result.ok ? "Confirmed" : "Blocked";
+          if (!result.ok) {
+            scheduler.state.bookingConfirmed = false;
+            scheduler.state.confirmedAppointment = null;
+            scheduler.state.confirmedMeeting = null;
+            setNotice(result.message || "Booking could not be confirmed.", true);
+          } else {
+            var appointment = result.data && result.data.appointment ? result.data.appointment : {};
+            var meeting = result.data && result.data.integrations ? result.data.integrations.meeting || {} : {};
+            scheduler.state.bookingConfirmed = true;
+            scheduler.state.confirmedAppointment = appointment;
+            scheduler.state.confirmedMeeting = meeting;
+            scheduler.state.bookingStep = 3;
+            setNotice("", false);
+            return loadUpcoming();
+          }
+        }).catch(function (error) {
+          if (scheduler.state.bookingConfirmed) {
+            setNotice("Session booked. Your upcoming list could not refresh yet, but the confirmation is complete.", false);
+          } else {
+            scheduler.state.bookingState = "Blocked";
+            setNotice(error && error.message ? error.message : "Booking could not be confirmed.", true);
+          }
+        }).then(function () {
+          scheduler.render.sidebar();
+          scheduler.render.page(scheduler.state.route);
+        });
+      }
+
+      function readFormState() {
+        var divisionSelect = refs.content ? refs.content.querySelector("#schedule-division") : null;
+        var typeSelect = refs.content ? refs.content.querySelector("#schedule-appointment-type") : null;
+        var providerSelect = refs.content ? refs.content.querySelector("#schedule-provider") : null;
+        var dateInput = refs.content ? refs.content.querySelector("#schedule-date") : null;
+        var intake = refs.content ? refs.content.querySelector("#schedule-intake") : null;
+        var emailOptIn = refs.content ? refs.content.querySelector("#schedule-email-opt-in") : null;
+        var smsOptIn = refs.content ? refs.content.querySelector("#schedule-sms-opt-in") : null;
+        var smsPhone = refs.content ? refs.content.querySelector("#schedule-sms-phone") : null;
+        if (divisionSelect) {
+          scheduler.state.division = divisionSelect.value;
+        }
+        if (typeSelect) {
+          scheduler.state.appointmentTypeId = typeSelect.value;
+        }
+        if (providerSelect) {
+          scheduler.state.providerId = providerSelect.value;
+        }
+        if (dateInput) {
+          scheduler.state.date = dateInput.value || scheduler.state.date;
+        }
+        if (intake) {
+          scheduler.state.intake = intake.value || "";
+        }
+        if (emailOptIn) {
+          scheduler.state.emailOptIn = emailOptIn.checked;
+        }
+        if (smsOptIn) {
+          scheduler.state.smsOptIn = smsOptIn.checked;
+        }
+        if (smsPhone) {
+          scheduler.state.smsPhone = smsPhone.value || "";
+        }
+      }
+
+      function collectIntakeAnswers() {
+        var answers = [{ field_key: "student_notes", answer_text: scheduler.state.intake }];
+        if (scheduler.state.smsOptIn) {
+          answers.push({ field_key: "sms_reminder_opt_in", answer_text: "yes" });
+          if (String(scheduler.state.smsPhone || "").trim()) {
+            answers.push({ field_key: "sms_reminder_phone", answer_text: String(scheduler.state.smsPhone || "").trim() });
+          }
+        }
+        if (!refs.content) return answers;
+        refs.content.querySelectorAll("[data-intake-field]").forEach(function (field) {
+          answers.push({
+            field_key: field.getAttribute("data-intake-field") || "",
+            answer_text: field.value || ""
+          });
+        });
+        return answers;
+      }
+
+      function missingRequiredIntake(type) {
+        if (!refs.content) return [];
+        return studentIntakeFields(type)
+          .filter(function (field) { return field.required === true; })
+          .filter(function (field) {
+            var input = refs.content.querySelector('[data-intake-field="' + cssEscape(field.field_key || field.id || "") + '"]');
+            return !input || !String(input.value || "").trim();
+          })
+          .map(function (field) { return field.label || field.field_key || "Required field"; });
+      }
+
+      function paymentRequired(type) {
+        var payment = type && type.student_config && type.student_config.payments ? type.student_config.payments : {};
+        return payment.required === true || payment.mode === "required";
+      }
+
+      function setNotice(message, isError) {
+        scheduler.state.notice = message || "";
+        scheduler.state.noticeError = Boolean(isError);
+      }
+
+      function selectedSlot() {
+        for (var i = 0; i < scheduler.state.slots.length; i += 1) {
+          if (slotKey(scheduler.state.slots[i]) === scheduler.state.selectedSlotKey) {
+            return scheduler.state.slots[i];
+          }
+        }
+        return null;
+      }
+
+      function selectedAppointmentType() {
+        return scheduler.state.appointmentTypes.find(function (row) {
+          return String(row.id) === String(scheduler.state.appointmentTypeId || "");
+        }) || null;
+      }
+
+      function selectedProvider() {
+        return scheduler.state.providers.find(function (row) {
+          return String(row.id) === String(scheduler.state.providerId || "");
+        }) || null;
+      }
+
+      function selectedProviderName(slot) {
+        var provider = scheduler.state.providers.find(function (row) {
+          return String(row.id) === String(slot.provider_id || slot.providerId || scheduler.state.providerId || "");
+        });
+        return provider ? provider.display_name || provider.name || provider.id : "Provider";
+      }
+
+      function sortedSlots() {
+        return scheduler.state.slots.slice().sort(function (a, b) {
+          return new Date(slotStart(a)).getTime() - new Date(slotStart(b)).getTime();
+        });
+      }
+
+      function slotsForDate(key) {
+        return sortedSlots().filter(function (slot) {
+          return localDateKey(slotStart(slot)) === key;
+        });
+      }
+
+      function weekDays() {
+        var d = new Date(scheduler.state.date + "T12:00:00.000Z");
+        var day = d.getDay();
+        var sun = new Date(d.getTime() - day * 86400000);
+        return Array.from({ length: 7 }, function(_, i) {
+          return new Date(sun.getTime() + i * 86400000);
+        });
+      }
+
+      function weekLabel() {
+        var days = weekDays();
+        var fmt = new Intl.DateTimeFormat([], { month: "short", day: "numeric", timeZone: EASTERN_TIMEZONE });
+        return fmt.format(days[0]) + " - " + fmt.format(days[6]);
+      }
+
+      function scheduleTrackerPhase() {
+        var phases = [
+          { name: "Select Details", id: "details", complete: Boolean(scheduler.state.division && scheduler.state.appointmentTypeId && scheduler.state.providerId) },
+          { name: "Choose Time Slot", id: "time", complete: Boolean(scheduler.state.selectedSlotKey) },
+          { name: "Review & Confirm", id: "confirm", complete: scheduler.state.bookingState === "Confirmed" }
+        ];
+        return { phases: phases, current_index: Math.max(0, Math.min(2, Number(scheduler.state.bookingStep || 1) - 1)) };
+      }
+
+      function upcomingTrackerPhase() {
+        return {
+          phases: [
+            { name: "Booked", id: "booked", complete: scheduler.state.upcoming.length > 0 },
+            { name: "Prepare", id: "prepare", complete: false },
+            { name: "Attend", id: "attend", complete: false },
+            { name: "Follow Up", id: "followup", complete: false }
+          ],
+          current_index: scheduler.state.upcoming.length > 0 ? 1 : 0
+        };
+      }
+
+      function historyTrackerPhase() {
+        return {
+          phases: [
+            { name: "Scheduled", id: "scheduled", complete: true },
+            { name: "Completed", id: "completed", complete: scheduler.state.history.length > 0 },
+            { name: "Outcome", id: "outcome", complete: false },
+            { name: "Next Step", id: "next", complete: false }
+          ],
+          current_index: scheduler.state.history.length > 0 ? 2 : 1
+        };
+      }
+
+      function defaultSchedulePhase() {
+        return {
+          phases: [
+            { name: "Select Details", id: "details", complete: false },
+            { name: "Choose Time Slot", id: "time", complete: false },
+            { name: "Review & Confirm", id: "confirm", complete: false }
+          ],
+          current_index: 0
+        };
+      }
+
+      function navLink(route, label, icon, badge) {
+        var active = scheduler.state.route === route ? " is-active" : "";
+        var badgeHtml = badge !== "" && badge !== null && badge !== undefined ? '<span class="sos-nav-badge">' + escapeHTML(String(badge)) + "</span>" : "";
+        return [
+          "<li>",
+          '<a class="sos-nav-link' + active + '" href="#' + escapeAttr(route) + '" data-route="' + escapeAttr(route) + '">',
+          '<span class="sos-nav-icon">' + escapeHTML(icon) + "</span>",
+          "<span>" + escapeHTML(label) + "</span>",
+          badgeHtml,
+          "</a>",
+          "</li>"
+        ].join("");
+      }
+
+      function sidebarStatus() {
+        if (scheduler.state.boot && scheduler.state.boot.user) {
+          return scheduler.state.boot.user.display_name || scheduler.state.boot.user.email || "Scheduler ready";
+        }
+        return scheduler.state.bootError || "Checking session";
+      }
+
+      function slotKey(slot) {
+        return [
+          String(slot.providerId || slot.provider_id || scheduler.state.providerId || ""),
+          String(slot.appointmentTypeId || slot.appointment_type_id || scheduler.state.appointmentTypeId || ""),
+          String(slot.startAt || slot.start_at || ""),
+          String(slot.endAt || slot.end_at || "")
+        ].join("|");
+      }
+
+      function slotStart(slot) {
+        return String(slot.startAt || slot.start_at || "");
+      }
+
+      function nextDateValue() {
+        return new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      }
+
+      function localDateKey(value) {
+        if (!value) {
+          return "";
+        }
+        var parts = new Intl.DateTimeFormat("en-CA", {
+          timeZone: EASTERN_TIMEZONE,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit"
+        }).formatToParts(new Date(value)).reduce(function (acc, part) {
+          acc[part.type] = part.value;
+          return acc;
+        }, {});
+        return [parts.year, parts.month, parts.day].join("-");
+      }
+
+      function dateInputValue(value) {
+        return localDateKey(value);
+      }
+
+      function formatDateTime(value) {
+        if (!value) {
+          return "Time pending";
+        }
+        return new Intl.DateTimeFormat([], { dateStyle: "medium", timeStyle: "short", timeZone: EASTERN_TIMEZONE }).format(new Date(value));
+      }
+
+      function formatTime(value) {
+        if (!value) {
+          return "Time";
+        }
+        return new Intl.DateTimeFormat([], { timeStyle: "short", timeZone: EASTERN_TIMEZONE }).format(new Date(value));
+      }
+
+      function easternTimeKey(value) {
+        if (!value) {
+          return "00:00";
+        }
+        var parts = new Intl.DateTimeFormat("en-US", {
+          timeZone: EASTERN_TIMEZONE,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false
+        }).formatToParts(new Date(value)).reduce(function (acc, part) {
+          acc[part.type] = part.value;
+          return acc;
+        }, {});
+        var hour = parts.hour === "24" ? "00" : parts.hour;
+        return String(hour || "00").padStart(2, "0") + ":" + String(parts.minute || "00").padStart(2, "0");
+      }
+
+      function matrixTimeLabel(key) {
+        var pieces = String(key || "00:00").split(":");
+        var hour = parseInt(pieces[0], 10) || 0;
+        var minute = parseInt(pieces[1], 10) || 0;
+        var date = new Date(Date.UTC(2026, 0, 1, hour, minute, 0));
+        return new Intl.DateTimeFormat([], { hour: "numeric", minute: "2-digit", timeZone: "UTC" }).format(date);
+      }
+
+      function formatDate(value) {
+        if (!value) {
+          return "Date";
+        }
+        return new Intl.DateTimeFormat([], { weekday: "short", month: "short", day: "numeric", timeZone: EASTERN_TIMEZONE }).format(new Date(value));
+      }
+
+      function friendlyMessage(message) {
+        var text = String(message || "");
+        if (/failed to fetch|network|not available|auth|session|route|api/i.test(text)) {
+          return "Scheduler server is not connected in this local preview. Try again after the local server is running, or contact support.";
+        }
+        return text;
+      }
+
+      function escapeHTML(value) {
+        return String(value == null ? "" : value).replace(/[&<>"']/g, function (character) {
+          return {
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#039;"
+          }[character];
+        });
+      }
+
+      function escapeAttr(value) {
+        return escapeHTML(value).replace(/`/g, "&#096;");
+      }
+
+      function cssEscape(value) {
+        if (window.CSS && typeof window.CSS.escape === "function") {
+          return window.CSS.escape(String(value || ""));
+        }
+        return String(value || "").replace(/["\\]/g, "\\$&");
+      }
+
+      window.MMEDScheduler = scheduler;
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+          scheduler.mount();
+        });
+      } else {
+        scheduler.mount();
+      }
+    }());
+  </script>
+</body>
+</html>
