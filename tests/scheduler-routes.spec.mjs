@@ -27,6 +27,45 @@ const APPOINTMENT_TYPE = {
   max_booking_window_days: 365,
 };
 
+const DR_BRIAN_WEBEX_APPOINTMENT_TYPE = {
+  ...APPOINTMENT_TYPE,
+  id: 'type-mission-residency-dr-brian',
+  slug: 'mission-residency-dr-brian',
+  name: 'Mission Residency 1-on-1 Advising',
+  metadata: {
+    division: 'mission-residency',
+    web_meetings: {
+      provider: 'webex',
+      auto_generate: true,
+      provider_account_id: 'dr-brian-webex@example.test',
+      send_invitee_email: true,
+    },
+    notifications: {
+      student_booked_email: true,
+      admin_booked_email: false,
+    },
+  },
+};
+
+const DR_J_ZOOM_APPOINTMENT_TYPE = {
+  ...APPOINTMENT_TYPE,
+  id: 'type-dr-j-examprep',
+  slug: 'dr-j-examprep',
+  name: 'ExamPrep 1-on-1 with Dr. J',
+  metadata: {
+    division: 'exam-prep',
+    web_meetings: {
+      provider: 'zoom',
+      auto_generate: true,
+      provider_account_id: 'dr-j-zoom@example.test',
+    },
+    notifications: {
+      student_booked_email: false,
+      admin_booked_email: false,
+    },
+  },
+};
+
 const FUTURE_FIXTURE_START = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 FUTURE_FIXTURE_START.setUTCHours(14, 0, 0, 0);
 const FUTURE_FIXTURE_END = new Date(FUTURE_FIXTURE_START.getTime() + 30 * 60 * 1000);
@@ -1263,6 +1302,230 @@ test('non-Zoom cancel does not invoke Zoom cleanup adapter', async () => {
   assert.equal(cancel.payload.data.integrations.meeting.provider, 'webex');
 });
 
+test('Dr. Brian Mission Residency booking routes to Webex invitee, student email, and calendar join metadata', async () => {
+  const repo = repository({
+    appointmentTypes: [DR_BRIAN_WEBEX_APPOINTMENT_TYPE],
+    providers: [{ id: 'provider-brian', display_name: 'Dr. Brian', active: true, status: 'active' }],
+  });
+  let webexPayload = null;
+  const emailPayloads = [];
+  const schedulerAdapters = {
+    webexMeetingLinkAdapter: async (payload) => {
+      webexPayload = payload;
+      return {
+        ok: true,
+        status: 'created',
+        provider: 'webex',
+        meeting_url: 'https://webex.example.test/join/dr-brian-055d',
+        external_event_id: 'webex-meeting-055d',
+        invitee_status: 'created',
+        invitee_email_present: Boolean(payload.student_email),
+        invitee_email_sent: payload.webex_invitee_send_email !== false,
+        invitee_id: 'webex-invitee-055d',
+      };
+    },
+    emailMedMailNotificationAdapter: async (payload) => {
+      emailPayloads.push(payload);
+      return { ok: true, status: 'sent', provider_message_id: `msg-${emailPayloads.length}` };
+    },
+    zoomMeetingLinkAdapter: async () => {
+      throw new Error('Zoom must not run for Dr. Brian Webex booking.');
+    },
+  };
+
+  const booking = await callRoute({
+    path: '/api/scheduler/book',
+    method: 'POST',
+    repo,
+    schedulerAdapters,
+    body: {
+      appointment_type_id: DR_BRIAN_WEBEX_APPOINTMENT_TYPE.id,
+      provider_id: 'provider-brian',
+      start_at: BOOKING_START_AT,
+      end_at: BOOKING_END_AT,
+      timezone: 'America/New_York',
+      idempotency_key: 'route-book-dr-brian-webex-055d',
+    },
+  });
+
+  assert.equal(booking.status, 200);
+  assert.equal(webexPayload.student_email, 'student-a@example.test');
+  assert.equal(webexPayload.student_display_name, 'Student A');
+  assert.equal(webexPayload.provider_account_id, 'dr-brian-webex@example.test');
+  assert.equal(webexPayload.title, 'MissionMed Appointment - Dr. Brian - Mission Residency 1-on-1 Advising');
+  assert.equal(webexPayload.webex_invitee_send_email, true);
+  assert.equal(booking.payload.data.integrations.meeting.provider, 'webex');
+  assert.equal(booking.payload.data.integrations.meeting.invitee_email_present, true);
+  assert.equal(booking.payload.data.integrations.meeting.invitee_email_sent, true);
+
+  const appointment = repo.store.appointments[0];
+  assert.equal(appointment.meeting_url, 'https://webex.example.test/join/dr-brian-055d');
+  assert.equal(appointment.external_event_status, 'created');
+  assert.equal(appointment.metadata.scheduler_integrations.meeting.meeting_provider, 'webex');
+  assert.equal(appointment.metadata.scheduler_integrations.meeting.webex_join_url, 'https://webex.example.test/join/dr-brian-055d');
+  assert.equal(appointment.metadata.scheduler_integrations.meeting.webex_meeting_id, 'webex-meeting-055d');
+  assert.equal(appointment.metadata.scheduler_integrations.meeting.invitee_status, 'created');
+
+  const studentEmail = emailPayloads.find((payload) => payload.template_key === 'scheduler_booking_confirmation');
+  assert.ok(studentEmail);
+  assert.equal(studentEmail.to_email, 'student-a@example.test');
+  assert.equal(studentEmail.meeting_url, 'https://webex.example.test/join/dr-brian-055d');
+  assert.equal(studentEmail.meeting_provider, 'webex');
+  assert.equal(studentEmail.provider_name, 'Dr. Brian');
+
+  const studentCalendar = await callRoute({ path: CALENDAR_FEED_PATH, repo, schedulerAdapters });
+  assert.equal(studentCalendar.status, 200);
+  assert.equal(studentCalendar.payload.data.events.length, 1);
+  const studentEvent = studentCalendar.payload.data.events[0];
+  assert.equal(studentEvent.meeting_url, 'https://webex.example.test/join/dr-brian-055d');
+  assert.equal(studentEvent.meeting_platform, 'webex');
+  assert.equal(studentEvent.join_button.label, 'Join Webex');
+  assert.equal(studentEvent.join_button.url, 'https://webex.example.test/join/dr-brian-055d');
+  assert.equal(studentEvent.meta_json.student_email, undefined);
+  assert.equal(studentEvent.meta_json.meeting_url, 'https://webex.example.test/join/dr-brian-055d');
+
+  const adminCalendar = await callRoute({
+    path: CALENDAR_FEED_PATH.replace('/api/scheduler/calendar-feed', '/api/scheduler/admin/calendar-feed'),
+    repo,
+    authSession: adminSession(),
+  });
+  assert.equal(adminCalendar.status, 200);
+  assert.equal(adminCalendar.payload.data.events[0].meeting_platform, 'webex');
+  assert.equal(adminCalendar.payload.data.events[0].meta_json.student_email, 'student-a@example.test');
+
+  const providerCalendar = await callRoute({
+    path: CALENDAR_FEED_PATH.replace('/api/scheduler/calendar-feed', '/api/scheduler/provider/calendar-feed'),
+    repo,
+    authSession: providerSession({ schedulerProviderId: 'provider-brian' }),
+  });
+  assert.equal(providerCalendar.status, 200);
+  assert.equal(providerCalendar.payload.data.events[0].join_button.label, 'Join Webex');
+  assert.equal(providerCalendar.payload.data.events[0].meta_json.student_email, 'student-a@example.test');
+
+  const otherStudent = await callRoute({
+    path: CALENDAR_FEED_PATH,
+    repo,
+    authSession: session({
+      supabaseUserId: 'student-b',
+      user: {
+        id: 102,
+        wpUserId: 102,
+        email: 'student-b@example.test',
+        login: 'student-b',
+        displayName: 'Student B',
+        roles: ['student'],
+      },
+    }),
+  });
+  assert.equal(otherStudent.status, 200);
+  assert.equal(otherStudent.payload.data.events.length, 0);
+
+  const myAppointments = await callRoute({ path: '/api/scheduler/my-appointments', repo });
+  const serialized = JSON.stringify(myAppointments.payload);
+  assert.equal(serialized.includes('host_key'), false);
+  assert.equal(serialized.includes('hostUrl'), false);
+  assert.equal(serialized.includes('start_url'), false);
+  assert.equal(serialized.includes('webex-meeting-055d'), false);
+  assert.equal(serialized.includes('webex-invitee-055d'), false);
+  assert.equal(serialized.includes('student-a@example.test'), false);
+});
+
+test('Dr. J ExamPrep booking remains Zoom scoped while Webex adapter is untouched', async () => {
+  const repo = repository({
+    appointmentTypes: [DR_J_ZOOM_APPOINTMENT_TYPE],
+    providers: [{ id: 'provider-dr-j', display_name: 'Dr. J', active: true, status: 'active' }],
+  });
+  let zoomCount = 0;
+  let webexCount = 0;
+  const response = await callRoute({
+    path: '/api/scheduler/book',
+    method: 'POST',
+    repo,
+    schedulerAdapters: {
+      zoomMeetingLinkAdapter: async () => {
+        zoomCount += 1;
+        return {
+          ok: true,
+          status: 'created',
+          provider: 'zoom',
+          meeting_url: 'https://zoom.example.test/j/dr-j-055d',
+          external_event_id: 'zoom-meeting-055d',
+        };
+      },
+      webexMeetingLinkAdapter: async () => {
+        webexCount += 1;
+        throw new Error('Webex must not run for Dr. J Zoom booking.');
+      },
+    },
+    body: {
+      appointment_type_id: DR_J_ZOOM_APPOINTMENT_TYPE.id,
+      provider_id: 'provider-dr-j',
+      start_at: BOOKING_START_AT,
+      end_at: BOOKING_END_AT,
+      timezone: 'America/New_York',
+      idempotency_key: 'route-book-dr-j-zoom-055d',
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(zoomCount, 1);
+  assert.equal(webexCount, 0);
+  assert.equal(repo.store.appointments[0].meeting_url, 'https://zoom.example.test/j/dr-j-055d');
+  assert.equal(repo.store.appointments[0].metadata.scheduler_integrations.meeting.provider, 'zoom');
+});
+
+test('Webex failure keeps appointment but exposes pending join-link state without a fake button', async () => {
+  const repo = repository({
+    appointmentTypes: [DR_BRIAN_WEBEX_APPOINTMENT_TYPE],
+    providers: [{ id: 'provider-brian', display_name: 'Dr. Brian', active: true, status: 'active' }],
+  });
+  const emailPayloads = [];
+  const response = await callRoute({
+    path: '/api/scheduler/book',
+    method: 'POST',
+    repo,
+    schedulerAdapters: {
+      webexMeetingLinkAdapter: async () => ({
+        ok: false,
+        status: 'failed',
+        provider: 'webex',
+        message: 'Mock Webex outage.',
+      }),
+      emailMedMailNotificationAdapter: async (payload) => {
+        emailPayloads.push(payload);
+        return { ok: true, status: 'sent', provider_message_id: `msg-failed-${emailPayloads.length}` };
+      },
+    },
+    body: {
+      appointment_type_id: DR_BRIAN_WEBEX_APPOINTMENT_TYPE.id,
+      provider_id: 'provider-brian',
+      start_at: SECOND_BOOKING_START_AT,
+      end_at: SECOND_BOOKING_END_AT,
+      timezone: 'America/New_York',
+      idempotency_key: 'route-book-dr-brian-webex-failed-055d',
+    },
+  });
+
+  assert.equal(response.status, 200);
+  assert.equal(response.payload.data.integrations.meeting.status, 'failed');
+  assert.equal(repo.store.appointments[0].meeting_url, null);
+  assert.equal(repo.store.appointments[0].external_event_status, 'failed');
+  assert.equal(repo.store.appointments[0].metadata.scheduler_integrations.meeting.meeting_create_status, 'failed');
+
+  const studentEmail = emailPayloads.find((payload) => payload.template_key === 'scheduler_booking_confirmation');
+  assert.ok(studentEmail);
+  assert.equal(studentEmail.meeting_url, null);
+  assert.equal(studentEmail.meeting_expected, true);
+
+  const studentCalendar = await callRoute({
+    path: `/api/scheduler/calendar-feed?start=${encodeURIComponent(FUTURE_FIXTURE_DAY_START.toISOString())}&end=${encodeURIComponent(new Date(FUTURE_FIXTURE_SECOND_END.getTime() + 60_000).toISOString())}`,
+    repo,
+  });
+  assert.equal(studentCalendar.status, 200);
+  assert.equal(studentCalendar.payload.data.events[0].meeting_url, null);
+  assert.equal(studentCalendar.payload.data.events[0].join_button, null);
+});
+
 test('admin Zoom-backed cancel also invokes cleanup adapter', async () => {
   const repo = repository({
     appointmentTypes: [{
@@ -1460,6 +1723,50 @@ test('Webex adapter reports API failure without exposing credentials', async () 
 
   assert.equal(webex.status, 'failed');
   assert.equal(webex.provider_error, 'provider down');
+});
+
+test('Webex adapter creates meeting invitee with student email through REST invitee endpoint', async () => {
+  const calls = [];
+  const webex = await webexMeetingLinkAdapter({
+    provider_account_id: 'dr-brian-webex@example.test',
+    student_email: 'student-a@example.test',
+    student_display_name: 'Student A',
+    title: 'WEBEX-TEST-DO-NOT-USE Dr Brian Scheduler Webex Booking',
+    start_at: BOOKING_START_AT,
+    end_at: BOOKING_END_AT,
+    timezone: 'America/New_York',
+    webex_invitee_send_email: true,
+  }, {
+    env: {
+      SCHEDULER_WEBEX_ENABLED: 'true',
+      SCHEDULER_WEBEX_ACCESS_TOKEN: 'secret-token',
+    },
+    fetchImpl: async (url, init = {}) => {
+      calls.push({ url: String(url), method: init.method, body: init.body ? JSON.parse(init.body) : null });
+      if (String(url).endsWith('/v1/meetings')) {
+        return jsonResponse(201, { id: 'webex-meeting-055d', webLink: 'https://webex.example.test/join/055d' });
+      }
+      if (String(url).endsWith('/v1/meetingInvitees')) {
+        return jsonResponse(201, { id: 'webex-invitee-055d', email: 'student-a@example.test', meetingId: 'webex-meeting-055d' });
+      }
+      return jsonResponse(404, { message: 'unexpected endpoint' });
+    },
+  });
+
+  assert.equal(webex.status, 'created');
+  assert.equal(webex.meeting_url, 'https://webex.example.test/join/055d');
+  assert.equal(webex.external_event_id, 'webex-meeting-055d');
+  assert.equal(webex.invitee_status, 'created');
+  assert.equal(webex.invitee_email_present, true);
+  assert.equal(webex.invitee_email_sent, true);
+  assert.equal(calls.length, 2);
+  assert.match(calls[0].url, /\/v1\/meetings$/u);
+  assert.match(calls[1].url, /\/v1\/meetingInvitees$/u);
+  assert.equal(calls[1].body.meetingId, 'webex-meeting-055d');
+  assert.equal(calls[1].body.email, 'student-a@example.test');
+  assert.equal(calls[1].body.displayName, 'Student A');
+  assert.equal(calls[1].body.hostEmail, 'dr-brian-webex@example.test');
+  assert.equal(calls[1].body.sendEmail, true);
 });
 
 test('mock meeting and payment adapters support staging-safe success and failure coverage', async () => {

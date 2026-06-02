@@ -55,6 +55,7 @@ export const SCHEDULER_ROUTE_FAMILIES = {
   ],
   admin: [
     'GET /api/scheduler/admin/appointments',
+    'GET /api/scheduler/admin/calendar-feed',
     'GET /api/scheduler/admin/availability-grid',
     'POST /api/scheduler/admin/availability-cell',
     'CRUD /api/scheduler/admin/providers',
@@ -86,6 +87,7 @@ export const SCHEDULER_ROUTE_FAMILIES = {
   ],
   provider: [
     'GET /api/scheduler/provider/my-schedule',
+    'GET /api/scheduler/provider/calendar-feed',
     'POST /api/scheduler/provider/block-time',
     'POST /api/scheduler/provider/unblock-time',
     'GET /api/scheduler/provider/appointment/:id',
@@ -364,7 +366,12 @@ export async function handleSchedulerApiRoute(request, response, url, context = 
         repository,
         schedulerAdapters,
       });
-      const placeholders = await buildMutationPlaceholderSummary(action, result?.appointment?.id || result?.appointment_id, schedulerAdapters);
+      const placeholders = await buildMutationPlaceholderSummary(
+        action,
+        result?.appointment?.id || result?.appointment_id,
+        schedulerAdapters,
+        integrations?.meeting?.provider || null,
+      );
       sendJson(response, 200, schedulerOk({
         status: 'mutation_accepted',
         action,
@@ -436,6 +443,28 @@ async function handleAdminSchedulerRoute({ request, response, url, actor, contex
     if (request.method !== 'GET') return methodNotAllowed(sendMethodNotAllowed, response, ['GET']);
     const appointments = await repository.adminListAppointments(Object.fromEntries(url.searchParams.entries()));
     sendJson(response, 200, schedulerOk({ status: 'ready', appointments, filters: Object.fromEntries(url.searchParams.entries()) }), authHeaders);
+    return true;
+  }
+
+  if (pathname === '/api/scheduler/admin/calendar-feed') {
+    if (request.method !== 'GET') return methodNotAllowed(sendMethodNotAllowed, response, ['GET']);
+    const filters = Object.fromEntries(url.searchParams.entries());
+    const [appointments, providers, appointmentTypes] = await Promise.all([
+      repository.adminListAppointments(filters),
+      repository.listProviders({}),
+      repository.listAppointmentTypes({}),
+    ]);
+    sendJson(response, 200, schedulerOk({
+      status: 'ready',
+      events: buildSchedulerCalendarFeedEvents(appointments, {
+        providers,
+        appointmentTypes,
+        start: filters.start || filters.start_at || filters.startAt,
+        end: filters.end || filters.end_at || filters.endAt,
+        audience: 'admin',
+      }),
+      filters,
+    }), authHeaders);
     return true;
   }
 
@@ -968,6 +997,29 @@ async function handleProviderSchedulerRoute({ request, response, url, actor, con
     return true;
   }
 
+  if (pathname === '/api/scheduler/provider/calendar-feed') {
+    if (request.method !== 'GET') return methodNotAllowed(sendMethodNotAllowed, response, ['GET']);
+    const filters = Object.fromEntries(url.searchParams.entries());
+    const [appointments, providers, appointmentTypes] = await Promise.all([
+      repository.providerListSchedule(actor, filters),
+      repository.listProviders({}),
+      repository.listAppointmentTypes({}),
+    ]);
+    sendJson(response, 200, schedulerOk({
+      status: 'ready',
+      events: buildSchedulerCalendarFeedEvents(appointments, {
+        providers,
+        appointmentTypes,
+        start: filters.start || filters.start_at || filters.startAt,
+        end: filters.end || filters.end_at || filters.endAt,
+        audience: 'provider',
+      }),
+      actor: safeSchedulerActor(actor),
+      filters,
+    }), authHeaders);
+    return true;
+  }
+
   if (pathname === '/api/scheduler/provider/block-time') {
     if (request.method !== 'POST') return methodNotAllowed(sendMethodNotAllowed, response, ['POST']);
     const payload = await readBody(readJsonBody, request);
@@ -1293,10 +1345,14 @@ async function runSchedulerPostMutationIntegrations({
     return summary;
   }
 
+  const resolvedAppointmentType = appointmentType || await resolveAppointmentTypeForIntegration(appointment, repository);
+  const provider = await resolveProviderForIntegration(appointment, repository);
+
   if (action === 'book') {
     summary.meeting = await createAndPersistMeetingLink({
       appointment,
-      appointmentType,
+      appointmentType: resolvedAppointmentType,
+      provider,
       payload,
       repository,
       actor,
@@ -1307,7 +1363,7 @@ async function runSchedulerPostMutationIntegrations({
   if (action === 'cancel') {
     summary.meeting = await cleanupZoomMeetingAfterCancel({
       appointment,
-      appointmentType,
+      appointmentType: resolvedAppointmentType,
       payload,
       repository,
       actor,
@@ -1320,11 +1376,12 @@ async function runSchedulerPostMutationIntegrations({
     appointment: {
       ...appointment,
       meeting_url: summary.meeting.meeting_url || appointment.meeting_url || null,
-      payment_status: paymentRequiredByConfig(normalizeMetadata(appointmentType?.metadata).payments || {})
+      payment_status: paymentRequiredByConfig(normalizeMetadata(resolvedAppointmentType?.metadata).payments || {})
         ? 'confirmed'
         : 'not required',
     },
-    appointmentType,
+    appointmentType: resolvedAppointmentType,
+    provider,
     actor,
     payload,
     repository,
@@ -1337,6 +1394,7 @@ async function runSchedulerPostMutationIntegrations({
 async function createAndPersistMeetingLink({
   appointment,
   appointmentType,
+  provider = null,
   payload,
   repository,
   actor,
@@ -1352,6 +1410,14 @@ async function createAndPersistMeetingLink({
     webex: schedulerAdapters.webexMeetingLinkAdapter || webexMeetingLinkAdapter,
     manual: schedulerAdapters.manualMeetingLinkAdapter || manualMeetingLinkAdapter,
   }[config.provider];
+  const providerName = providerDisplayName(provider, appointment);
+  const appointmentTypeName = appointmentTypeDisplayName(appointmentType, appointment);
+  const meetingTitle = schedulerMeetingTitle({
+    providerName,
+    appointmentTypeName,
+    provider: config.provider,
+    payload,
+  });
   const meeting = await adapter({
     ...payload,
     appointment,
@@ -1361,29 +1427,60 @@ async function createAndPersistMeetingLink({
     appointment_id: appointment.id,
     provider_account_id: config.provider_account_id,
     meeting_url: config.meeting_url,
-    title: appointmentType?.name || 'MissionMed appointment',
+    title: meetingTitle,
     start_at: appointment.start_at || appointment.startAt,
     end_at: appointment.end_at || appointment.endAt,
     timezone: appointment.timezone || payload.timezone,
     duration_minutes: appointmentType?.duration_minutes,
+    provider_name: providerName,
+    appointment_type_name: appointmentTypeName,
+    student_email: actor.email || null,
+    student_display_name: actor.displayName || actor.login || null,
+    webex_invitee_send_email: config.invitee_send_email,
+    actor,
   });
 
   const externalStatus = meeting.ok && meeting.meeting_url ? 'created' : meeting.status === 'not_configured' ? 'not_configured' : 'failed';
+  const existingMetadata = normalizeMetadata(appointment.metadata);
+  const existingIntegrations = normalizeMetadata(existingMetadata.scheduler_integrations);
+  const existingMeeting = normalizeMetadata(existingIntegrations.meeting);
+  const nowIso = new Date().toISOString();
+  const meetingUrl = meeting.ok && meeting.meeting_url ? meeting.meeting_url : appointment.meeting_url || null;
+  const meetingPatch = {
+    ...existingMeeting,
+    provider: config.provider,
+    provider_platform: config.provider,
+    meeting_provider: config.provider,
+    status: meeting.status,
+    meeting_create_status: meeting.status,
+    meeting_url: meetingUrl,
+    meeting_url_present: Boolean(meeting.meeting_url),
+    external_event_id: meeting.external_event_id || existingMeeting.external_event_id || null,
+    external_event_id_present: Boolean(meeting.external_event_id),
+    join_url: meetingUrl,
+    updated_at: nowIso,
+    ...(meeting.ok && meeting.meeting_url ? { meeting_created_at: nowIso } : {}),
+  };
+  if (config.provider === 'webex') {
+    meetingPatch.webex_meeting_id = meeting.external_event_id || existingMeeting.webex_meeting_id || null;
+    meetingPatch.webex_join_url = meetingUrl;
+    meetingPatch.invitee_status = meeting.invitee_status || 'unknown';
+    meetingPatch.invitee_email_present = meeting.invitee_email_present === true;
+    meetingPatch.invitee_email_sent = meeting.invitee_email_sent === true;
+    meetingPatch.invitee_id_present = Boolean(meeting.invitee_id);
+  }
   const patch = {
-    meeting_url: meeting.ok && meeting.meeting_url ? meeting.meeting_url : appointment.meeting_url || null,
+    meeting_url: meetingUrl,
     external_event_status: externalStatus,
     metadata: {
-      ...(appointment.metadata || {}),
+      ...existingMetadata,
       scheduler_integrations: {
-        ...((appointment.metadata || {}).scheduler_integrations || {}),
-        meeting: {
-          ...(((appointment.metadata || {}).scheduler_integrations || {}).meeting || {}),
-          provider: config.provider,
-          status: meeting.status,
-          meeting_url_present: Boolean(meeting.meeting_url),
-          external_event_id: meeting.external_event_id || (((appointment.metadata || {}).scheduler_integrations || {}).meeting || {}).external_event_id || null,
-          external_event_id_present: Boolean(meeting.external_event_id),
-          updated_at: new Date().toISOString(),
+        ...existingIntegrations,
+        meeting: meetingPatch,
+        booking_student: {
+          email: actor.email || null,
+          display_name: actor.displayName || actor.login || null,
+          wp_user_id: actor.wpUserId || null,
         },
       },
     },
@@ -1405,6 +1502,8 @@ async function createAndPersistMeetingLink({
       status: meeting.status,
       meeting_url_present: Boolean(meeting.meeting_url),
       external_event_id_present: Boolean(meeting.external_event_id),
+      invitee_email_present: meeting.invitee_email_present === true,
+      invitee_status: meeting.invitee_status || null,
     },
     metadata: { source: 'scheduler_integrations' },
   });
@@ -1412,9 +1511,15 @@ async function createAndPersistMeetingLink({
   return {
     provider: config.provider,
     status: meeting.status,
-    meeting_url: meeting.ok && meeting.meeting_url ? meeting.meeting_url : null,
+    meeting_url: meetingUrl,
     meeting_url_present: Boolean(meeting.meeting_url),
+    meeting_provider: config.provider,
+    provider_platform: config.provider,
+    join_url: meetingUrl,
     external_event_status: externalStatus,
+    invitee_status: meeting.invitee_status || null,
+    invitee_email_present: meeting.invitee_email_present === true,
+    invitee_email_sent: meeting.invitee_email_sent === true,
   };
 }
 
@@ -1518,6 +1623,43 @@ async function resolveAppointmentTypeForIntegration(appointment = {}, repository
   return (types || []).find((type) => String(type.id || '') === String(appointmentTypeId)) || types?.[0] || null;
 }
 
+async function resolveProviderForIntegration(appointment = {}, repository) {
+  const providerId = appointment?.provider_id || appointment?.providerId || null;
+  if (!providerId || typeof repository.listProviders !== 'function') return null;
+  const providers = await repository.listProviders({ provider_id: providerId, providerId });
+  return (providers || []).find((provider) => String(provider.id || '') === String(providerId)) || providers?.[0] || null;
+}
+
+function providerDisplayName(provider = {}, appointment = {}) {
+  return String(
+    provider?.display_name
+      || provider?.displayName
+      || provider?.name
+      || appointment.provider_name
+      || appointment.providerName
+      || '',
+  ).trim();
+}
+
+function appointmentTypeDisplayName(appointmentType = {}, appointment = {}) {
+  return String(
+    appointmentType?.name
+      || appointmentType?.title
+      || appointment.appointment_type_name
+      || appointment.appointmentTypeName
+      || 'MissionMed appointment',
+  ).trim();
+}
+
+function schedulerMeetingTitle({ providerName = '', appointmentTypeName = '', provider = '', payload = {} } = {}) {
+  const explicit = String(payload.meeting_title || payload.meetingTitle || '').trim();
+  if (explicit) return explicit;
+  const platformLabel = String(provider || '').toLowerCase() === 'webex' ? 'MissionMed Appointment' : 'MissionMed Appointment';
+  const mentor = providerName || 'MissionMed provider';
+  const type = appointmentTypeName || 'Scheduler appointment';
+  return `${platformLabel} - ${mentor} - ${type}`;
+}
+
 function meetingExternalEventId(appointment = {}) {
   const metadata = normalizeMetadata(appointment.metadata);
   const integrations = normalizeMetadata(metadata.scheduler_integrations);
@@ -1535,12 +1677,13 @@ async function enqueueAndDispatchSchedulerNotifications({
   action,
   appointment,
   appointmentType,
+  provider = null,
   actor,
   payload,
   repository,
   schedulerAdapters = {},
 }) {
-  const notifications = notificationRequestsForMutation({ action, appointment, appointmentType, actor, payload });
+  const notifications = notificationRequestsForMutation({ action, appointment, appointmentType, provider, actor, payload });
   const emailAdapter = schedulerAdapters.emailMedMailNotificationAdapter || emailMedMailNotificationAdapter;
   const smsAdapter = schedulerAdapters.smsNotificationProviderAdapter || smsNotificationProviderAdapter;
   const results = [];
@@ -1652,16 +1795,27 @@ async function dispatchDueSchedulerNotifications({
   };
 }
 
-function notificationRequestsForMutation({ action, appointment, appointmentType, actor, payload }) {
+function notificationRequestsForMutation({ action, appointment, appointmentType, provider = null, actor, payload }) {
   const config = notificationConfig(appointmentType);
   const nowIso = new Date().toISOString();
   const baseKey = payload.idempotency_key || payload.idempotencyKey || `${action}:${appointment.id}`;
+  const meetingProvider = appointmentMeetingProvider(appointment, appointmentType);
+  const providerName = providerDisplayName(provider, appointment);
+  const appointmentTypeName = appointmentTypeDisplayName(appointmentType, appointment);
   const baseMetadata = {
     source: 'scheduler_integrations',
     meeting_url_present: Boolean(appointment.meeting_url),
     meeting_url: appointment.meeting_url || null,
+    join_url: appointment.meeting_url || null,
+    meeting_provider: meetingProvider,
+    meeting_platform: meetingProvider,
+    meeting_expected: Boolean(meetingProvider && meetingProvider !== 'none'),
     payment_status: appointment.payment_status || 'not required',
     recipient_email: actor.email || null,
+    provider_name: providerName || null,
+    appointment_type_name: appointmentTypeName,
+    start_at: appointment.start_at || appointment.startAt || null,
+    end_at: appointment.end_at || appointment.endAt || null,
   };
   const rows = [];
   const add = (channel, templateKey, recipientRole, scheduledAt, metadata = {}) => {
@@ -1701,13 +1855,16 @@ function notificationRequestsForMutation({ action, appointment, appointmentType,
   return rows;
 }
 
-async function buildMutationPlaceholderSummary(action, appointmentId = null, schedulerAdapters = {}) {
+async function buildMutationPlaceholderSummary(action, appointmentId = null, schedulerAdapters = {}, meetingProvider = null) {
   const emailAdapter = schedulerAdapters.emailMedMailNotificationAdapter || emailMedMailNotificationAdapter;
   const smsAdapter = schedulerAdapters.smsNotificationProviderAdapter || smsNotificationProviderAdapter;
   const zoomAdapter = schedulerAdapters.zoomMeetingLinkAdapter || zoomMeetingLinkAdapter;
   const email = await emailAdapter({ appointmentId, templateKey: `scheduler_${action}`, recipientRole: 'student' });
   const calendar = await googleCalendarEventAdapter({ appointmentId });
-  const zoom = await zoomAdapter({ appointmentId });
+  const normalizedMeetingProvider = String(meetingProvider || '').trim().toLowerCase();
+  const zoom = action === 'book' && ['zoom', 'webex', 'manual', 'none'].includes(normalizedMeetingProvider)
+    ? { status: normalizedMeetingProvider === 'zoom' ? 'handled_by_meeting_integration' : 'not_required' }
+    : await zoomAdapter({ appointmentId });
   const meet = await googleMeetAdapter({ appointmentId });
   const sms = await smsAdapter({ appointmentId });
   return {
@@ -1734,6 +1891,13 @@ function webMeetingConfig(appointmentType = {}) {
     provider_account_id: meeting.provider_account_id || meeting.providerAccountId || meeting.meeting_account_id || meeting.meetingAccountId || null,
     meeting_url: meeting.meeting_url || meeting.meetingUrl || null,
     link_policy: meeting.link_policy || meeting.linkPolicy || 'after_confirmation',
+    invitee_send_email: configBooleanDefault(
+      meeting.invitee_send_email
+        ?? meeting.inviteeSendEmail
+        ?? meeting.send_invitee_email
+        ?? meeting.sendInviteeEmail,
+      true,
+    ),
   };
 }
 
@@ -2002,6 +2166,15 @@ function coerceBoolean(value) {
   if (typeof value === 'boolean') return value;
   const normalized = String(value || '').trim().toLowerCase();
   return ['1', 'true', 'yes', 'on'].includes(normalized);
+}
+
+function configBooleanDefault(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+  if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
 }
 
 async function archiveGridBlackouts(repository, rows = [], { nowIso = new Date().toISOString(), actor, action = 'clear' } = {}) {
@@ -2423,22 +2596,23 @@ function normalizeMetadata(metadata = {}) {
   return metadata;
 }
 
-function buildSchedulerCalendarFeedEvents(appointments = [], { providers = [], appointmentTypes = [], start = '', end = '' } = {}) {
+function buildSchedulerCalendarFeedEvents(appointments = [], { providers = [], appointmentTypes = [], start = '', end = '', audience = 'student' } = {}) {
   const providerById = new Map((providers || []).map((provider) => [String(provider.id || ''), provider]));
   const typeById = new Map((appointmentTypes || []).map((type) => [String(type.id || ''), type]));
   const startBoundary = parseCalendarBoundary(start);
   const endBoundary = parseCalendarBoundary(end);
 
-  return (appointments || [])
+    return (appointments || [])
     .map((appointment) => buildSchedulerCalendarFeedEvent(appointment, {
       provider: providerById.get(String(appointment.provider_id || appointment.providerId || '')),
       appointmentType: typeById.get(String(appointment.appointment_type_id || appointment.appointmentTypeId || '')),
+      audience,
     }))
     .filter(Boolean)
     .filter((event) => eventWithinCalendarRange(event, startBoundary, endBoundary));
 }
 
-function buildSchedulerCalendarFeedEvent(appointment = {}, { provider = {}, appointmentType = {} } = {}) {
+function buildSchedulerCalendarFeedEvent(appointment = {}, { provider = {}, appointmentType = {}, audience = 'student' } = {}) {
   const appointmentId = appointment.id || appointment.appointment_id || appointment.appointmentId;
   const startAt = appointment.start_at || appointment.startAt;
   if (!appointmentId || !startAt) return null;
@@ -2449,9 +2623,19 @@ function buildSchedulerCalendarFeedEvent(appointment = {}, { provider = {}, appo
   const appointmentTypeName = appointmentType.name || appointment.appointment_type_name || appointment.appointmentTypeName || 'MissionMed appointment';
   const description = appointmentType.description || appointment.description || '';
   const meeting = metadata.scheduler_integrations?.meeting || {};
+  const meetingUrl = appointmentMeetingUrl(appointment);
+  const meetingProvider = appointmentMeetingProvider(appointment, appointmentType);
+  const joinLabel = meetingUrl ? joinButtonLabel(meetingProvider) : null;
+  const bookingStudent = normalizeCalendarMetadata(metadata.scheduler_integrations?.booking_student);
   const status = String(appointment.status || 'booked');
+  const privilegedAudience = ['admin', 'provider'].includes(String(audience || '').toLowerCase());
+  const studentLabel = appointment.student_display_name || appointment.student_name || appointment.student_label || appointment.studentLabel || bookingStudent.display_name || null;
+  const studentEmail = privilegedAudience
+    ? (appointment.student_email || appointment.studentEmail || metadata.student_email || metadata.studentEmail || bookingStudent.email || null)
+    : null;
 
   return {
+    id: `scheduler:${String(appointmentId)}`,
     source: 'scheduler',
     source_id: String(appointmentId),
     event_type: 'appointment',
@@ -2461,8 +2645,16 @@ function buildSchedulerCalendarFeedEvent(appointment = {}, { provider = {}, appo
     end_at: appointment.end_at || appointment.endAt || null,
     all_day: false,
     location: appointment.location || null,
-    meeting_url: appointment.meeting_url || appointment.meetingUrl || null,
-    meeting_platform: appointment.meeting_platform || appointment.meetingPlatform || meeting.provider || null,
+    meeting_url: meetingUrl,
+    join_url: meetingUrl,
+    meeting_platform: meetingProvider,
+    meeting_provider: meetingProvider,
+    provider_platform: meetingProvider,
+    join_button: meetingUrl ? {
+      label: joinLabel,
+      url: meetingUrl,
+      provider: meetingProvider,
+    } : null,
     category: normalizeCalendarCategory(appointment.category || appointment.division || typeMetadata.division || typeMetadata.category || appointmentType.division || 'appointment'),
     status,
     meta_json: {
@@ -2471,10 +2663,63 @@ function buildSchedulerCalendarFeedEvent(appointment = {}, { provider = {}, appo
       provider_name: providerName,
       appointment_type_id: appointment.appointment_type_id || appointment.appointmentTypeId || null,
       appointment_type: appointmentType.slug || appointmentTypeName,
+      meeting_url: meetingUrl,
+      join_url: meetingUrl,
+      meeting_platform: meetingProvider,
+      meeting_provider: meetingProvider,
+      join_button_label: joinLabel,
+      source: 'scheduler',
       can_cancel: !['canceled', 'cancelled', 'completed', 'no_show'].includes(status),
       can_reschedule: !['canceled', 'cancelled', 'completed', 'no_show'].includes(status),
+      ...(privilegedAudience ? {
+        student_label: studentLabel,
+        student_email: studentEmail,
+      } : {}),
     },
   };
+}
+
+function appointmentMeetingUrl(appointment = {}) {
+  const metadata = normalizeCalendarMetadata(appointment.metadata);
+  const meeting = normalizeCalendarMetadata(metadata.scheduler_integrations?.meeting);
+  return String(
+    appointment.meeting_url
+      || appointment.meetingUrl
+      || appointment.join_url
+      || appointment.joinUrl
+      || meeting.webex_join_url
+      || meeting.zoom_join_url
+      || meeting.join_url
+      || meeting.meeting_url
+      || '',
+  ).trim() || null;
+}
+
+function appointmentMeetingProvider(appointment = {}, appointmentType = {}) {
+  const metadata = normalizeCalendarMetadata(appointment.metadata);
+  const meeting = normalizeCalendarMetadata(metadata.scheduler_integrations?.meeting);
+  const typeMetadata = normalizeCalendarMetadata(appointmentType.metadata);
+  const typeMeeting = normalizeCalendarMetadata(typeMetadata.web_meetings || typeMetadata.webMeetings);
+  const provider = String(
+    appointment.meeting_provider
+      || appointment.meetingProvider
+      || appointment.meeting_platform
+      || appointment.meetingPlatform
+      || meeting.meeting_provider
+      || meeting.provider_platform
+      || meeting.provider
+      || typeMeeting.provider
+      || appointmentType.meeting_mode
+      || '',
+  ).trim().toLowerCase();
+  return ['zoom', 'webex', 'google_meet', 'manual', 'none'].includes(provider) ? provider : null;
+}
+
+function joinButtonLabel(provider = '') {
+  if (provider === 'webex') return 'Join Webex';
+  if (provider === 'zoom') return 'Join Zoom';
+  if (provider === 'google_meet') return 'Join Google Meet';
+  return 'Join meeting';
 }
 
 function normalizeCalendarMetadata(metadata = {}) {

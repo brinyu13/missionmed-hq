@@ -205,6 +205,23 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
         || meetingResponse.data?.meetingLink
         || '',
     ).trim();
+    const externalEventId = String(meetingResponse.data?.id || meetingResponse.data?.meetingId || '').trim() || null;
+    const invitee = meetingUrl && externalEventId
+      ? await createWebexMeetingInvitee({
+        payload,
+        meetingId: externalEventId,
+        providerAccountId,
+        accessToken: config.accessToken,
+        apiBase: config.apiBase,
+        fetchImpl: options.fetchImpl,
+        timeoutMs: options.timeoutMs,
+      })
+      : {
+        ok: false,
+        status: 'skipped',
+        invitee_email_present: Boolean(studentInviteeEmail(payload)),
+        message: 'Webex invitee creation skipped because meeting creation did not return a meeting id and join URL.',
+      };
     return {
       ok: Boolean(meetingUrl),
       status: meetingUrl ? 'created' : 'failed',
@@ -212,13 +229,84 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
       provider: 'webex',
       meeting_url: meetingUrl || null,
       meeting_url_present: Boolean(meetingUrl),
-      external_event_id: String(meetingResponse.data?.id || meetingResponse.data?.meetingId || '').trim() || null,
+      external_event_id: externalEventId,
       provider_account_id_present: true,
+      invitee_status: invitee.status,
+      invitee_email_present: invitee.invitee_email_present,
+      invitee_email_sent: invitee.invitee_email_sent === true,
+      invitee_id: invitee.invitee_id || null,
       message: meetingUrl ? 'Webex meeting created server-side.' : 'Webex response did not include a join URL.',
     };
   } catch (error) {
     return adapterException('webex_meeting_link_creation', 'webex', error);
   }
+}
+
+async function createWebexMeetingInvitee({
+  payload = {},
+  meetingId = '',
+  providerAccountId = '',
+  accessToken = '',
+  apiBase = '',
+  fetchImpl,
+  timeoutMs,
+} = {}) {
+  const email = studentInviteeEmail(payload);
+  if (!email) {
+    return {
+      ok: true,
+      status: 'suppressed',
+      adapter: 'webex_meeting_invitee_creation',
+      provider: 'webex',
+      invitee_email_present: false,
+      reason: 'student_email_missing',
+      message: 'Webex invitee creation suppressed because no student email was available.',
+    };
+  }
+  if (!meetingId) {
+    return {
+      ok: false,
+      status: 'missing_meeting_id',
+      adapter: 'webex_meeting_invitee_creation',
+      provider: 'webex',
+      invitee_email_present: true,
+      message: 'Webex invitee creation requires a created meeting id.',
+    };
+  }
+
+  const inviteeResponse = await fetchJson(new URL('/v1/meetingInvitees', apiBase), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(webexInviteePayload({
+      payload,
+      meetingId,
+      providerAccountId,
+      email,
+    })),
+    fetchImpl,
+    timeoutMs,
+  });
+  if (!inviteeResponse.ok) {
+    return {
+      ...providerFailure('webex_meeting_invitee_creation', 'webex', inviteeResponse, 'Webex invitee creation failed.'),
+      invitee_email_present: true,
+      invitee_email_sent: false,
+    };
+  }
+
+  return {
+    ok: true,
+    status: 'created',
+    adapter: 'webex_meeting_invitee_creation',
+    provider: 'webex',
+    invitee_email_present: true,
+    invitee_email_sent: webexInviteeSendEmail(payload),
+    invitee_id: String(inviteeResponse.data?.id || '').trim() || null,
+    message: 'Webex meeting invitee created server-side.',
+  };
 }
 
 export async function googleMeetAdapter() {
@@ -802,6 +890,58 @@ function webexMeetingPayload(payload = {}, providerAccountId = '') {
   return body;
 }
 
+function webexInviteePayload({ payload = {}, meetingId = '', providerAccountId = '', email = '' } = {}) {
+  const body = {
+    meetingId,
+    email,
+    displayName: studentInviteeDisplayName(payload) || undefined,
+    sendEmail: webexInviteeSendEmail(payload),
+  };
+  if (providerAccountId.includes('@')) {
+    body.hostEmail = providerAccountId;
+  }
+  return Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined && value !== null && value !== ''));
+}
+
+function studentInviteeEmail(payload = {}) {
+  return String(
+    payload.student_email
+      || payload.studentEmail
+      || payload.attendee_email
+      || payload.attendeeEmail
+      || payload.invitee_email
+      || payload.inviteeEmail
+      || payload.to_email
+      || payload.toEmail
+      || payload.actor?.email
+      || '',
+  ).trim().toLowerCase();
+}
+
+function studentInviteeDisplayName(payload = {}) {
+  return safePlainText(
+    payload.student_display_name
+      || payload.studentDisplayName
+      || payload.attendee_name
+      || payload.attendeeName
+      || payload.invitee_display_name
+      || payload.inviteeDisplayName
+      || payload.actor?.displayName
+      || payload.actor?.login
+      || '',
+  ).slice(0, 128);
+}
+
+function webexInviteeSendEmail(payload = {}) {
+  const explicit = payload.webex_invitee_send_email
+    ?? payload.webexInviteeSendEmail
+    ?? payload.send_invitee_email
+    ?? payload.sendInviteeEmail;
+  if (explicit === undefined || explicit === null || explicit === '') return true;
+  if (typeof explicit === 'boolean') return explicit;
+  return TRUE_VALUES.has(String(explicit).trim().toLowerCase());
+}
+
 async function createStripePaymentIntent(payload = {}, options = {}) {
   const amount = Number(payload.amount_cents || payload.amountCents || 0);
   const currency = String(payload.currency || 'usd').trim().toLowerCase();
@@ -976,6 +1116,8 @@ function schedulerEmailText(templateKey, payload = {}, appointment = {}) {
   const when = appointment.start_at || appointment.startAt || payload.start_at || payload.startAt || '';
   const provider = payload.provider_name || payload.providerName || appointment.provider_name || 'your MissionMed provider';
   const meetingUrl = String(payload.meeting_url || payload.meetingUrl || appointment.meeting_url || '').trim();
+  const meetingProvider = String(payload.meeting_provider || payload.meetingProvider || payload.meeting_platform || payload.meetingPlatform || '').trim();
+  const meetingExpected = payload.meeting_expected === true || payload.meetingExpected === true || Boolean(meetingProvider);
   const paymentStatus = payload.payment_status || payload.paymentStatus || appointment.payment_status || 'not required';
   const lines = [
     schedulerEmailSubject(templateKey, payload),
@@ -985,6 +1127,7 @@ function schedulerEmailText(templateKey, payload = {}, appointment = {}) {
     `Payment: ${paymentStatus}`,
   ];
   if (meetingUrl) lines.push(`Meeting link: ${meetingUrl}`);
+  else if (meetingExpected) lines.push('Meeting link: pending; MissionMed will follow up with the join link.');
   lines.push('', 'Reply to MissionMed if you need help with this appointment.');
   return lines.join('\n');
 }

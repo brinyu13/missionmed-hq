@@ -629,11 +629,41 @@ export function sanitizeAppointmentForStudent(appointment = {}) {
         const {
           external_event_id: _externalEventId,
           externalEventId: _externalEventIdCamel,
+          webex_meeting_id: _webexMeetingId,
+          webexMeetingId: _webexMeetingIdCamel,
+          zoom_meeting_id: _zoomMeetingId,
+          zoomMeetingId: _zoomMeetingIdCamel,
+          invitee_id: _inviteeId,
+          inviteeId: _inviteeIdCamel,
+          host_key: _hostKey,
+          hostKey: _hostKeyCamel,
+          host_url: _hostUrl,
+          hostUrl: _hostUrlCamel,
+          start_url: _startUrl,
+          startUrl: _startUrlCamel,
+          access_token: _accessToken,
+          accessToken: _accessTokenCamel,
+          refresh_token: _refreshToken,
+          refreshToken: _refreshTokenCamel,
+          bearer_token: _bearerToken,
+          bearerToken: _bearerTokenCamel,
           ...safeMeeting
         } = meeting;
         metadata.scheduler_integrations = {
           ...metadata.scheduler_integrations,
           meeting: safeMeeting,
+        };
+      }
+      if (metadata.scheduler_integrations.booking_student && typeof metadata.scheduler_integrations.booking_student === 'object') {
+        const {
+          email: _bookingStudentEmail,
+          wp_user_id: _bookingStudentWpUserId,
+          wpUserId: _bookingStudentWpUserIdCamel,
+          ...safeBookingStudent
+        } = metadata.scheduler_integrations.booking_student;
+        metadata.scheduler_integrations = {
+          ...metadata.scheduler_integrations,
+          booking_student: safeBookingStudent,
         };
       }
     }
