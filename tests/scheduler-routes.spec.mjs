@@ -47,6 +47,36 @@ const DR_BRIAN_WEBEX_APPOINTMENT_TYPE = {
   },
 };
 
+const SHARED_MISSION_RESIDENCY_PROVIDER_SCOPED_TYPE = {
+  ...APPOINTMENT_TYPE,
+  id: 'type-mission-residency-shared-provider-scoped',
+  slug: 'mission-residency-shared-provider-scoped',
+  name: 'Mission Residency 1-on-1 Advising',
+  metadata: {
+    division: 'mission-residency',
+    web_meetings: {
+      provider: 'manual',
+      auto_generate: false,
+      provider_overrides: {
+        'provider-brian': {
+          provider: 'webex',
+          auto_generate: true,
+          provider_account_id: 'dr-brian-webex@example.test',
+          send_invitee_email: true,
+        },
+        'provider-dr-s': {
+          provider: 'manual',
+          auto_generate: false,
+        },
+      },
+    },
+    notifications: {
+      student_booked_email: false,
+      admin_booked_email: false,
+    },
+  },
+};
+
 const DR_J_ZOOM_APPOINTMENT_TYPE = {
   ...APPOINTMENT_TYPE,
   id: 'type-dr-j-examprep',
@@ -1428,6 +1458,72 @@ test('Dr. Brian Mission Residency booking routes to Webex invitee, student email
   assert.equal(serialized.includes('webex-meeting-055d'), false);
   assert.equal(serialized.includes('webex-invitee-055d'), false);
   assert.equal(serialized.includes('student-a@example.test'), false);
+});
+
+test('Mission Residency Webex routing can be scoped to Dr. Brian on shared appointment types', async () => {
+  const repo = repository({
+    appointmentTypes: [SHARED_MISSION_RESIDENCY_PROVIDER_SCOPED_TYPE],
+    providers: [
+      { id: 'provider-brian', display_name: 'Dr. Brian', active: true, status: 'active' },
+      { id: 'provider-dr-s', display_name: 'Dr S', active: true, status: 'active' },
+    ],
+  });
+  const webexPayloads = [];
+  const schedulerAdapters = {
+    webexMeetingLinkAdapter: async (payload) => {
+      webexPayloads.push(payload);
+      return {
+        ok: true,
+        status: 'created',
+        provider: 'webex',
+        meeting_url: 'https://webex.example.test/join/provider-scoped-brian',
+        external_event_id: 'webex-provider-scoped-brian',
+        invitee_status: 'created',
+        invitee_email_present: Boolean(payload.student_email),
+      };
+    },
+    zoomMeetingLinkAdapter: async () => {
+      throw new Error('Zoom must not run for Mission Residency provider-scoped routing.');
+    },
+  };
+
+  const brianBooking = await callRoute({
+    path: '/api/scheduler/book',
+    method: 'POST',
+    repo,
+    schedulerAdapters,
+    body: {
+      appointment_type_id: SHARED_MISSION_RESIDENCY_PROVIDER_SCOPED_TYPE.id,
+      provider_id: 'provider-brian',
+      start_at: BOOKING_START_AT,
+      end_at: BOOKING_END_AT,
+      timezone: 'America/New_York',
+      idempotency_key: 'route-book-shared-brian-webex-055f',
+    },
+  });
+
+  const drSBooking = await callRoute({
+    path: '/api/scheduler/book',
+    method: 'POST',
+    repo,
+    schedulerAdapters,
+    body: {
+      appointment_type_id: SHARED_MISSION_RESIDENCY_PROVIDER_SCOPED_TYPE.id,
+      provider_id: 'provider-dr-s',
+      start_at: SECOND_BOOKING_START_AT,
+      end_at: SECOND_BOOKING_END_AT,
+      timezone: 'America/New_York',
+      idempotency_key: 'route-book-shared-dr-s-manual-055f',
+    },
+  });
+
+  assert.equal(brianBooking.status, 200);
+  assert.equal(drSBooking.status, 200);
+  assert.equal(webexPayloads.length, 1);
+  assert.equal(webexPayloads[0].provider_account_id, 'dr-brian-webex@example.test');
+  assert.equal(repo.store.appointments[0].metadata.scheduler_integrations.meeting.provider, 'webex');
+  assert.equal(repo.store.appointments[1].metadata.scheduler_integrations.meeting.provider, 'manual');
+  assert.equal(repo.store.appointments[1].meeting_url, null);
 });
 
 test('Dr. J ExamPrep booking remains Zoom scoped while Webex adapter is untouched', async () => {

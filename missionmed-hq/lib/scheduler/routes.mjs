@@ -1400,7 +1400,7 @@ async function createAndPersistMeetingLink({
   actor,
   schedulerAdapters = {},
 }) {
-  const config = webMeetingConfig(appointmentType);
+  const config = webMeetingConfig(appointmentType, provider);
   if (!['zoom', 'webex', 'manual'].includes(config.provider) || (config.provider !== 'manual' && config.auto_generate !== true)) {
     return { status: 'not_required', provider: config.provider };
   }
@@ -1881,24 +1881,49 @@ function paymentRequiredByConfig(paymentConfig = {}) {
   return paymentConfig.required === true || mode === 'required' || mode === 'deposit';
 }
 
-function webMeetingConfig(appointmentType = {}) {
+function webMeetingConfig(appointmentType = {}, providerRow = null) {
   const metadata = normalizeMetadata(appointmentType?.metadata);
   const meeting = metadata.web_meetings || metadata.webMeetings || {};
-  const provider = String(meeting.provider || appointmentType?.meeting_mode || 'manual').trim().toLowerCase();
+  const scopedMeeting = providerScopedMeetingConfig(meeting, providerRow);
+  const provider = String(scopedMeeting.provider || appointmentType?.meeting_mode || 'manual').trim().toLowerCase();
   return {
     provider: ['zoom', 'webex', 'google_meet', 'manual', 'none'].includes(provider) ? provider : 'manual',
-    auto_generate: meeting.auto_generate === true || meeting.autoGenerate === true || meeting.auto_generate === 'true',
-    provider_account_id: meeting.provider_account_id || meeting.providerAccountId || meeting.meeting_account_id || meeting.meetingAccountId || null,
-    meeting_url: meeting.meeting_url || meeting.meetingUrl || null,
-    link_policy: meeting.link_policy || meeting.linkPolicy || 'after_confirmation',
+    auto_generate: scopedMeeting.auto_generate === true || scopedMeeting.autoGenerate === true || scopedMeeting.auto_generate === 'true',
+    provider_account_id: scopedMeeting.provider_account_id || scopedMeeting.providerAccountId || scopedMeeting.meeting_account_id || scopedMeeting.meetingAccountId || null,
+    meeting_url: scopedMeeting.meeting_url || scopedMeeting.meetingUrl || null,
+    link_policy: scopedMeeting.link_policy || scopedMeeting.linkPolicy || 'after_confirmation',
     invitee_send_email: configBooleanDefault(
-      meeting.invitee_send_email
-        ?? meeting.inviteeSendEmail
-        ?? meeting.send_invitee_email
-        ?? meeting.sendInviteeEmail,
+      scopedMeeting.invitee_send_email
+        ?? scopedMeeting.inviteeSendEmail
+        ?? scopedMeeting.send_invitee_email
+        ?? scopedMeeting.sendInviteeEmail,
       true,
     ),
   };
+}
+
+function providerScopedMeetingConfig(meeting = {}, providerRow = null) {
+  if (!meeting || typeof meeting !== 'object' || Array.isArray(meeting)) return {};
+  const providerId = String(providerRow?.id || providerRow?.provider_id || providerRow?.providerId || '').trim();
+  if (!providerId) return meeting;
+  const overrideSources = [
+    meeting.provider_overrides,
+    meeting.providerOverrides,
+    meeting.providers,
+    meeting.provider_accounts,
+    meeting.providerAccounts,
+  ];
+  for (const source of overrideSources) {
+    if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+    const override = source[providerId];
+    if (override && typeof override === 'object' && !Array.isArray(override)) {
+      return { ...meeting, ...override };
+    }
+    if (typeof override === 'string' && override.trim()) {
+      return { ...meeting, provider_account_id: override.trim() };
+    }
+  }
+  return meeting;
 }
 
 function notificationConfig(appointmentType = {}) {
