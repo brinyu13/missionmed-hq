@@ -241,7 +241,32 @@ function mm_scheduler_webex_broker_api_post( $endpoint, $body ) {
 		return $token;
 	}
 
-	$response = wp_remote_post(
+	$response = mm_scheduler_webex_broker_post_with_token( $endpoint, $body, $token );
+	$decoded  = mm_scheduler_webex_broker_decode_response( $response );
+	$error_data = is_wp_error( $decoded ) ? $decoded->get_error_data() : null;
+	if ( is_wp_error( $decoded ) && is_array( $error_data ) && 401 === (int) ( $error_data['status'] ?? 0 ) ) {
+		$token = mm_scheduler_webex_broker_refresh_token();
+		if ( is_wp_error( $token ) ) {
+			return $token;
+		}
+		$decoded = mm_scheduler_webex_broker_decode_response(
+			mm_scheduler_webex_broker_post_with_token( $endpoint, $body, $token )
+		);
+	}
+
+	return $decoded;
+}
+
+/**
+ * POST a Webex REST request with a bearer token.
+ *
+ * @param string $endpoint Endpoint path.
+ * @param array  $body     Request body.
+ * @param string $token    Access token.
+ * @return array|WP_Error
+ */
+function mm_scheduler_webex_broker_post_with_token( $endpoint, $body, $token ) {
+	return wp_remote_post(
 		mm_scheduler_webex_broker_api_base() . $endpoint,
 		array(
 			'headers' => array(
@@ -252,8 +277,6 @@ function mm_scheduler_webex_broker_api_post( $endpoint, $body ) {
 			'timeout' => 20,
 		)
 	);
-
-	return mm_scheduler_webex_broker_decode_response( $response );
 }
 
 /**
