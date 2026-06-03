@@ -102,7 +102,7 @@ function mm_scheduler_webex_broker_create_meeting( $request ) {
 		);
 	}
 
-	$result = MMED_Webex_Client::create_meeting(
+	$result = mm_scheduler_webex_broker_rest_create_meeting(
 		array(
 			'title'    => $title,
 			'start'    => $start,
@@ -163,11 +163,10 @@ function mm_scheduler_webex_broker_invite_attendee( $meeting_id, $invitee ) {
 		);
 	}
 
-	$result = MMED_Webex_Client::invite_attendee(
+	$result = mm_scheduler_webex_broker_create_invitee(
 		$meeting_id,
 		$email,
-		sanitize_text_field( $invitee['display_name'] ?? '' ),
-		false
+		sanitize_text_field( $invitee['display_name'] ?? '' )
 	);
 
 	if ( is_wp_error( $result ) ) {
@@ -184,6 +183,217 @@ function mm_scheduler_webex_broker_invite_attendee( $meeting_id, $invitee ) {
 		'id'                    => sanitize_text_field( $result['id'] ?? '' ),
 		'invitee_email_present' => true,
 		'invitee_email_sent'    => true,
+	);
+}
+
+/**
+ * Create a Webex meeting through the REST gateway reachable from production.
+ *
+ * @param array $params Meeting payload.
+ * @return array|WP_Error
+ */
+function mm_scheduler_webex_broker_rest_create_meeting( $params ) {
+	return mm_scheduler_webex_broker_api_post(
+		'/meetings',
+		array(
+			'title'                  => sanitize_text_field( $params['title'] ?? '' ),
+			'start'                  => sanitize_text_field( $params['start'] ?? '' ),
+			'end'                    => sanitize_text_field( $params['end'] ?? '' ),
+			'timezone'               => sanitize_text_field( $params['timezone'] ?? 'America/New_York' ),
+			'enabledAutoRecordMeeting' => false,
+			'enabledJoinBeforeHost'  => true,
+			'joinBeforeHostMinutes'  => 5,
+			'allowAnyUserToBeCoHost' => false,
+		)
+	);
+}
+
+/**
+ * Add one student invitee to a Webex meeting through REST.
+ *
+ * @param string $meeting_id   Webex meeting ID.
+ * @param string $email        Invitee email.
+ * @param string $display_name Invitee display name.
+ * @return array|WP_Error
+ */
+function mm_scheduler_webex_broker_create_invitee( $meeting_id, $email, $display_name = '' ) {
+	return mm_scheduler_webex_broker_api_post(
+		'/meetingInvitees',
+		array(
+			'meetingId'   => sanitize_text_field( $meeting_id ),
+			'email'       => sanitize_email( $email ),
+			'displayName' => sanitize_text_field( $display_name ),
+			'coHost'      => false,
+		)
+	);
+}
+
+/**
+ * POST to the Webex REST API using the existing encrypted Webex token store.
+ *
+ * @param string $endpoint Endpoint path.
+ * @param array  $body     Request body.
+ * @return array|WP_Error
+ */
+function mm_scheduler_webex_broker_api_post( $endpoint, $body ) {
+	$token = mm_scheduler_webex_broker_access_token();
+	if ( is_wp_error( $token ) ) {
+		return $token;
+	}
+
+	$response = wp_remote_post(
+		mm_scheduler_webex_broker_api_base() . $endpoint,
+		array(
+			'headers' => array(
+				'Authorization' => 'Bearer ' . $token,
+				'Content-Type'  => 'application/json',
+			),
+			'body'    => wp_json_encode( $body ),
+			'timeout' => 20,
+		)
+	);
+
+	return mm_scheduler_webex_broker_decode_response( $response );
+}
+
+/**
+ * Return the Webex REST base reachable from production.
+ *
+ * @return string
+ */
+function mm_scheduler_webex_broker_api_base() {
+	$base = trim( (string) getenv( 'MM_SCHEDULER_WEBEX_API_BASE' ) );
+	if ( '' === $base && defined( 'MM_SCHEDULER_WEBEX_API_BASE' ) ) {
+		$base = trim( (string) MM_SCHEDULER_WEBEX_API_BASE );
+	}
+	if ( '' === $base ) {
+		$base = 'https://integration.webexapis.com/v1';
+	}
+
+	return untrailingslashit( esc_url_raw( $base ) );
+}
+
+/**
+ * Read or refresh the existing encrypted Webex access token without exposing it.
+ *
+ * @return string|WP_Error
+ */
+function mm_scheduler_webex_broker_access_token() {
+	$token  = mm_scheduler_webex_broker_webex_option( 'mmed_webex_access_token' );
+	$expiry = (int) get_option( 'mmed_webex_token_expiry', 0 );
+	if ( '' !== $token && time() < $expiry - 300 ) {
+		return $token;
+	}
+
+	return mm_scheduler_webex_broker_refresh_token();
+}
+
+/**
+ * Refresh the encrypted Webex token through the reachable REST gateway.
+ *
+ * @return string|WP_Error
+ */
+function mm_scheduler_webex_broker_refresh_token() {
+	$client_id     = mm_scheduler_webex_broker_webex_option( 'mmed_webex_client_id' );
+	$client_secret = mm_scheduler_webex_broker_webex_option( 'mmed_webex_client_secret' );
+	$refresh       = mm_scheduler_webex_broker_webex_option( 'mmed_webex_refresh_token' );
+
+	if ( '' === $client_id || '' === $client_secret || '' === $refresh ) {
+		return new WP_Error( 'webex_not_connected', 'Webex OAuth credentials are not connected.', array( 'status' => 503 ) );
+	}
+
+	$response = wp_remote_post(
+		mm_scheduler_webex_broker_api_base() . '/access_token',
+		array(
+			'body'    => array(
+				'grant_type'    => 'refresh_token',
+				'client_id'     => $client_id,
+				'client_secret' => $client_secret,
+				'refresh_token' => $refresh,
+			),
+			'timeout' => 20,
+		)
+	);
+	$body = mm_scheduler_webex_broker_decode_response( $response );
+	if ( is_wp_error( $body ) ) {
+		return $body;
+	}
+	if ( empty( $body['access_token'] ) ) {
+		return new WP_Error( 'webex_refresh_failed', 'Webex token refresh did not return an access token.', array( 'status' => 502 ) );
+	}
+
+	mm_scheduler_webex_broker_update_webex_option( 'mmed_webex_access_token', $body['access_token'] );
+	if ( ! empty( $body['refresh_token'] ) ) {
+		mm_scheduler_webex_broker_update_webex_option( 'mmed_webex_refresh_token', $body['refresh_token'] );
+	}
+	update_option( 'mmed_webex_token_expiry', time() + (int) ( $body['expires_in'] ?? 0 ), false );
+
+	return $body['access_token'];
+}
+
+/**
+ * Read an encrypted option through the active Webex client internals.
+ *
+ * @param string $key Option key.
+ * @return string
+ */
+function mm_scheduler_webex_broker_webex_option( $key ) {
+	if ( ! class_exists( 'MMED_Webex_Client' ) ) {
+		return '';
+	}
+	try {
+		$method = new ReflectionMethod( 'MMED_Webex_Client', 'get_option_value' );
+		$method->setAccessible( true );
+		return trim( (string) $method->invoke( null, $key ) );
+	} catch ( Exception $error ) {
+		return '';
+	}
+}
+
+/**
+ * Update an encrypted option through the active Webex client internals.
+ *
+ * @param string $key   Option key.
+ * @param string $value Option value.
+ * @return void
+ */
+function mm_scheduler_webex_broker_update_webex_option( $key, $value ) {
+	if ( ! class_exists( 'MMED_Webex_Client' ) ) {
+		return;
+	}
+	try {
+		$method = new ReflectionMethod( 'MMED_Webex_Client', 'update_encrypted_option' );
+		$method->setAccessible( true );
+		$method->invoke( null, $key, $value );
+	} catch ( Exception $error ) {
+		return;
+	}
+}
+
+/**
+ * Decode a Webex REST response.
+ *
+ * @param array|WP_Error $response HTTP response.
+ * @return array|WP_Error
+ */
+function mm_scheduler_webex_broker_decode_response( $response ) {
+	if ( is_wp_error( $response ) ) {
+		return $response;
+	}
+
+	$code = (int) wp_remote_retrieve_response_code( $response );
+	$body = json_decode( wp_remote_retrieve_body( $response ), true );
+	if ( $code >= 200 && $code < 300 ) {
+		return is_array( $body ) ? $body : array();
+	}
+
+	return new WP_Error(
+		'webex_api_error',
+		'Webex API request failed.',
+		array(
+			'status' => $code,
+			'body'   => is_array( $body ) ? $body : array(),
+		)
 	);
 }
 
