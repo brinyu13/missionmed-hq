@@ -24,6 +24,39 @@ add_action(
 				'permission_callback' => 'mm_scheduler_webex_broker_can_access',
 			)
 		);
+
+		register_rest_route(
+			'mmed/v1',
+			'/admin/webex/auth-url',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => 'mm_scheduler_webex_admin_auth_url',
+				'permission_callback' => 'mm_scheduler_webex_admin_can_manage',
+			),
+			true
+		);
+
+		register_rest_route(
+			'mmed/v1',
+			'/admin/webex/callback',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => 'mm_scheduler_webex_admin_oauth_callback',
+				'permission_callback' => 'mm_scheduler_webex_admin_can_manage',
+			),
+			true
+		);
+
+		register_rest_route(
+			'mmed/v1',
+			'/admin/webex/status',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => 'mm_scheduler_webex_admin_status',
+				'permission_callback' => 'mm_scheduler_webex_admin_can_manage',
+			),
+			true
+		);
 	}
 );
 
@@ -68,6 +101,117 @@ function mm_scheduler_webex_broker_can_access( $request ) {
 	}
 
 	return true;
+}
+
+/**
+ * Whether the current WordPress user may manage Webex settings.
+ *
+ * @return bool
+ */
+function mm_scheduler_webex_admin_can_manage() {
+	return current_user_can( 'manage_options' );
+}
+
+/**
+ * Return the Webex OAuth authorization URL through the reachable REST gateway.
+ *
+ * @return WP_REST_Response|WP_Error
+ */
+function mm_scheduler_webex_admin_auth_url() {
+	$client_id = mm_scheduler_webex_broker_webex_option( 'mmed_webex_client_id' );
+	if ( '' === $client_id ) {
+		return new WP_Error( 'webex_client_id_missing', 'Webex client ID is not configured.', array( 'status' => 400 ) );
+	}
+
+	$url = add_query_arg(
+		array(
+			'response_type' => 'code',
+			'client_id'     => $client_id,
+			'redirect_uri'  => mm_scheduler_webex_admin_redirect_uri(),
+			'scope'         => 'meeting:schedules_write meeting:schedules_read meeting:participants_read meeting:participants_write spark:people_read',
+			'state'         => wp_create_nonce( 'mmed_webex_oauth' ),
+		),
+		mm_scheduler_webex_broker_api_base() . '/authorize'
+	);
+
+	return rest_ensure_response( array( 'auth_url' => $url ) );
+}
+
+/**
+ * Complete Webex OAuth using the reachable REST gateway.
+ *
+ * @param WP_REST_Request $request REST request.
+ * @return void
+ */
+function mm_scheduler_webex_admin_oauth_callback( $request ) {
+	$code  = sanitize_text_field( $request->get_param( 'code' ) );
+	$state = sanitize_text_field( $request->get_param( 'state' ) );
+
+	if ( ! wp_verify_nonce( $state, 'mmed_webex_oauth' ) ) {
+		wp_die( 'Invalid Webex OAuth state parameter.' );
+	}
+
+	$client_id     = mm_scheduler_webex_broker_webex_option( 'mmed_webex_client_id' );
+	$client_secret = mm_scheduler_webex_broker_webex_option( 'mmed_webex_client_secret' );
+	if ( '' === $client_id || '' === $client_secret ) {
+		wp_die( 'Webex OAuth credentials are not configured.' );
+	}
+
+	$response = wp_remote_post(
+		mm_scheduler_webex_broker_api_base() . '/access_token',
+		array(
+			'body'    => array(
+				'grant_type'    => 'authorization_code',
+				'client_id'     => $client_id,
+				'client_secret' => $client_secret,
+				'code'          => $code,
+				'redirect_uri'  => mm_scheduler_webex_admin_redirect_uri(),
+			),
+			'timeout' => 20,
+		)
+	);
+	$body = mm_scheduler_webex_broker_decode_response( $response );
+	if ( is_wp_error( $body ) || empty( $body['access_token'] ) ) {
+		wp_die( 'Webex OAuth failed: no access token received.' );
+	}
+
+	mm_scheduler_webex_broker_update_webex_option( 'mmed_webex_access_token', $body['access_token'] );
+	if ( ! empty( $body['refresh_token'] ) ) {
+		mm_scheduler_webex_broker_update_webex_option( 'mmed_webex_refresh_token', $body['refresh_token'] );
+	}
+	update_option( 'mmed_webex_token_expiry', time() + (int) ( $body['expires_in'] ?? 0 ), false );
+
+	$me = mm_scheduler_webex_broker_api_get( '/people/me', $body['access_token'] );
+	if ( ! is_wp_error( $me ) && ! empty( $me['emails'][0] ) ) {
+		update_option( 'mmed_webex_host_email', sanitize_email( $me['emails'][0] ), false );
+	}
+
+	wp_safe_redirect( admin_url( 'admin.php?page=mmed-sessions&webex=connected' ) );
+	exit;
+}
+
+/**
+ * Return a safe Webex connection status.
+ *
+ * @return WP_REST_Response
+ */
+function mm_scheduler_webex_admin_status() {
+	$token = mm_scheduler_webex_broker_access_token();
+	return rest_ensure_response(
+		array(
+			'status'     => is_wp_error( $token ) ? 'disconnected' : 'connected',
+			'host_email' => sanitize_email( get_option( 'mmed_webex_host_email', '' ) ),
+		)
+	);
+}
+
+/**
+ * Return the registered Webex OAuth redirect URI.
+ *
+ * @return string
+ */
+function mm_scheduler_webex_admin_redirect_uri() {
+	return set_url_scheme( rest_url( 'mmed/v1/admin/webex/callback' ), 'https' );
 }
 
 /**
@@ -277,6 +421,25 @@ function mm_scheduler_webex_broker_post_with_token( $endpoint, $body, $token ) {
 			'timeout' => 20,
 		)
 	);
+}
+
+/**
+ * GET a Webex REST resource with a bearer token.
+ *
+ * @param string $endpoint Endpoint path.
+ * @param string $token    Access token.
+ * @return array|WP_Error
+ */
+function mm_scheduler_webex_broker_api_get( $endpoint, $token ) {
+	$response = wp_remote_get(
+		mm_scheduler_webex_broker_api_base() . $endpoint,
+		array(
+			'headers' => array( 'Authorization' => 'Bearer ' . $token ),
+			'timeout' => 20,
+		)
+	);
+
+	return mm_scheduler_webex_broker_decode_response( $response );
 }
 
 /**
