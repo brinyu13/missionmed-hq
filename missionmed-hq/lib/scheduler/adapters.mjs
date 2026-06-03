@@ -195,7 +195,7 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
         status: 'configured',
         adapter: 'webex_meeting_link_creation',
         provider: 'webex',
-        mode: brokerConfig.enabled && !config.accessToken ? 'wordpress_broker' : 'direct_rest',
+        mode: brokerConfig.enabled ? 'wordpress_broker' : 'direct_rest',
         provider_account_id_present: false,
         message: 'Webex meeting creation is configured; a provider account mapping is required when booking.',
       };
@@ -203,7 +203,7 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
     return providerMappingMissing('webex_meeting_link_creation', 'webex');
   }
 
-  if (!config.enabled || !config.accessToken) {
+  if (brokerConfig.enabled) {
     return createWebexMeetingViaBroker(payload, providerAccountId, brokerConfig, options);
   }
 
