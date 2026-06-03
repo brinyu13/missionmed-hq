@@ -1265,6 +1265,9 @@ function schedulerEmailSubject(templateKey, payload = {}) {
 
 function schedulerEmailText(templateKey, payload = {}, appointment = {}) {
   const when = appointment.start_at || appointment.startAt || payload.start_at || payload.startAt || '';
+  const end = appointment.end_at || appointment.endAt || payload.end_at || payload.endAt || '';
+  const timezone = schedulerEmailTimezone(payload, appointment);
+  const appointmentTitle = schedulerEmailAppointmentTitle(payload, appointment);
   const provider = payload.provider_name || payload.providerName || appointment.provider_name || 'your MissionMed provider';
   const meetingUrl = String(payload.meeting_url || payload.meetingUrl || appointment.meeting_url || '').trim();
   const meetingProvider = String(payload.meeting_provider || payload.meetingProvider || payload.meeting_platform || payload.meetingPlatform || '').trim();
@@ -1273,14 +1276,72 @@ function schedulerEmailText(templateKey, payload = {}, appointment = {}) {
   const lines = [
     schedulerEmailSubject(templateKey, payload),
     '',
+    `Appointment: ${appointmentTitle}`,
     `Provider: ${provider}`,
-    `Time: ${when ? new Date(when).toISOString() : 'scheduled time pending'}`,
+    `Time: ${schedulerEmailTimeRange(when, end, timezone)}`,
     `Payment: ${paymentStatus}`,
   ];
   if (meetingUrl) lines.push(`Meeting link: ${meetingUrl}`);
   else if (meetingExpected) lines.push('Meeting link: pending; MissionMed will follow up with the join link.');
   lines.push('', 'Reply to MissionMed if you need help with this appointment.');
   return lines.join('\n');
+}
+
+function schedulerEmailAppointmentTitle(payload = {}, appointment = {}) {
+  return String(
+    payload.appointment_type_name
+      || payload.appointmentTypeName
+      || payload.appointmentType?.name
+      || payload.appointment_type?.name
+      || appointment.appointment_type_name
+      || appointment.appointmentTypeName
+      || appointment.title
+      || appointment.name
+      || 'MissionMed appointment',
+  ).trim();
+}
+
+function schedulerEmailTimezone(payload = {}, appointment = {}) {
+  return String(
+    appointment.timezone
+      || appointment.timeZone
+      || payload.timezone
+      || payload.timeZone
+      || payload.appointmentType?.timezone
+      || payload.appointment_type?.timezone
+      || 'America/New_York',
+  ).trim() || 'America/New_York';
+}
+
+function schedulerEmailTimeRange(startAt = '', endAt = '', timezone = 'America/New_York') {
+  const start = formatSchedulerEmailDateTime(startAt, timezone);
+  const end = formatSchedulerEmailDateTime(endAt, timezone);
+  if (start && end) return `${start} - ${end} (${timezoneLabel(timezone)})`;
+  if (start) return `${start} (${timezoneLabel(timezone)})`;
+  return 'scheduled time pending';
+}
+
+function formatSchedulerEmailDateTime(value = '', timezone = 'America/New_York') {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function timezoneLabel(timezone = '') {
+  return timezone === 'America/New_York' ? 'New York / Eastern Time' : timezone;
 }
 
 function schedulerSmsBody(payload = {}) {

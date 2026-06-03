@@ -1181,6 +1181,44 @@ test('admin notification dispatcher sends due queued notifications through injec
   assert.equal(repo.store.notifications[0].provider_message_id, 'msg-test');
 });
 
+test('Scheduler Postmark email payload includes appointment title, Eastern time, and Webex join URL', async () => {
+  let postmarkPayload = null;
+  const result = await emailMedMailNotificationAdapter({
+    template_key: 'scheduler_booking_confirmation',
+    recipient_role: 'student',
+    to_email: 'student-a@example.test',
+    provider_name: 'Dr. Brian',
+    appointment_type_name: 'Mission Residency 1-on-1 Advising',
+    start_at: '2026-06-07T15:00:00.000Z',
+    end_at: '2026-06-07T17:00:00.000Z',
+    timezone: 'America/New_York',
+    payment_status: 'not required',
+    meeting_provider: 'webex',
+    meeting_url: 'https://webex.example.test/join/dr-brian-email',
+  }, {
+    env: {
+      SCHEDULER_EMAIL_ENABLED: 'true',
+      SCHEDULER_EMAIL_PROVIDER: 'postmark',
+      SCHEDULER_POSTMARK_SERVER_TOKEN: 'test-postmark-token',
+      SCHEDULER_EMAIL_FROM: 'scheduler@example.test',
+    },
+    fetchImpl: async (_url, options = {}) => {
+      postmarkPayload = JSON.parse(String(options.body || '{}'));
+      return jsonResponse(200, { ErrorCode: 0, MessageID: 'msg-email-payload' });
+    },
+  });
+
+  assert.equal(result.status, 'sent');
+  assert.equal(postmarkPayload.To, 'student-a@example.test');
+  assert.match(postmarkPayload.TextBody, /Appointment: Mission Residency 1-on-1 Advising/);
+  assert.match(postmarkPayload.TextBody, /Provider: Dr\. Brian/);
+  assert.match(postmarkPayload.TextBody, /11:00 AM EDT/);
+  assert.match(postmarkPayload.TextBody, /1:00 PM EDT/);
+  assert.match(postmarkPayload.TextBody, /New York \/ Eastern Time/);
+  assert.match(postmarkPayload.TextBody, /Meeting link: https:\/\/webex\.example\.test\/join\/dr-brian-email/);
+  assert.equal(/host key|hostKey|host-only|token|secret/i.test(postmarkPayload.TextBody), false);
+});
+
 test('Zoom auto-generation stores meeting link and remains idempotent on retry', async () => {
   const repo = repository({
     appointmentTypes: [{
