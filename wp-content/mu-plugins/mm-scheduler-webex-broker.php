@@ -131,7 +131,7 @@ function mm_scheduler_webex_admin_auth_url() {
 			'scope'         => 'meeting:schedules_write meeting:schedules_read meeting:participants_read meeting:participants_write spark:people_read',
 			'state'         => wp_create_nonce( 'mmed_webex_oauth' ),
 		),
-		mm_scheduler_webex_broker_api_base() . '/authorize'
+		mm_scheduler_webex_broker_oauth_base() . '/authorize'
 	);
 
 	return rest_ensure_response( array( 'auth_url' => $url ) );
@@ -158,7 +158,7 @@ function mm_scheduler_webex_admin_oauth_callback( $request ) {
 	}
 
 	$response = wp_remote_post(
-		mm_scheduler_webex_broker_api_base() . '/access_token',
+		mm_scheduler_webex_broker_oauth_base() . '/access_token',
 		array(
 			'body'    => array(
 				'grant_type'    => 'authorization_code',
@@ -508,6 +508,23 @@ function mm_scheduler_webex_broker_api_base() {
 }
 
 /**
+ * Return the documented Webex OAuth base URL.
+ *
+ * @return string
+ */
+function mm_scheduler_webex_broker_oauth_base() {
+	$base = trim( (string) getenv( 'MM_SCHEDULER_WEBEX_OAUTH_BASE' ) );
+	if ( '' === $base && defined( 'MM_SCHEDULER_WEBEX_OAUTH_BASE' ) ) {
+		$base = trim( (string) MM_SCHEDULER_WEBEX_OAUTH_BASE );
+	}
+	if ( '' === $base ) {
+		$base = 'https://webexapis.com/v1';
+	}
+
+	return untrailingslashit( esc_url_raw( $base ) );
+}
+
+/**
  * Read or refresh the existing encrypted Webex access token without exposing it.
  *
  * @return string|WP_Error
@@ -523,7 +540,7 @@ function mm_scheduler_webex_broker_access_token() {
 }
 
 /**
- * Refresh the encrypted Webex token through the reachable REST gateway.
+ * Refresh the encrypted Webex token through the documented OAuth endpoint.
  *
  * @return string|WP_Error
  */
@@ -537,7 +554,7 @@ function mm_scheduler_webex_broker_refresh_token() {
 	}
 
 	$response = wp_remote_post(
-		mm_scheduler_webex_broker_api_base() . '/access_token',
+		mm_scheduler_webex_broker_oauth_base() . '/access_token',
 		array(
 			'body'    => array(
 				'grant_type'    => 'refresh_token',
