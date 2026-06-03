@@ -2,7 +2,7 @@
 
 ## RESULT
 
-SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
+SCHEDULER WEBEX FLOW 100% COMPLETE
 
 ## Authority Preflight Result
 
@@ -31,6 +31,7 @@ SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
 
 - Ending branch at report write time: `mm-sched-webex-055-dr-brian-webex-booking`
 - 056 closure commit: `adb63bb docs(scheduler): close Webex booking email and monitor validation`
+- 056 final email proof commit: pending at this addendum write time.
 - Files modified for 056:
   - `missionmed-hq/lib/scheduler/adapters.mjs`
   - `tests/scheduler-routes.spec.mjs`
@@ -45,14 +46,21 @@ SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
   - `SCHEDULER_EMAIL_PROVIDER=postmark`
   - `SCHEDULER_POSTMARK_SERVER_TOKEN`
   - `SCHEDULER_EMAIL_FROM`
-- Safe Railway readiness probe result:
-  - Scheduler email enabled: false
+- Runtime config applied on Railway production:
+  - `SCHEDULER_EMAIL_ENABLED=true`
+  - `SCHEDULER_EMAIL_PROVIDER=postmark`
+  - `SCHEDULER_EMAIL_FROM` set to MissionMed sender address
+  - Existing Postmark token left untouched and unprinted
+- Post-config safe Railway readiness probe result:
+  - Scheduler email enabled: true
   - Provider: postmark
   - Postmark token present: true
-  - Scheduler from-address present: false
-  - Email adapter status: `not_configured`
+  - Scheduler from-address present: true
+  - Email adapter status with no recipient: `suppressed`, expected safe behavior
+- Railway production deployment after config change:
+  - `761d7b4a-ccf5-46eb-90d8-33ad1fc7a3d9`
+  - Status: SUCCESS
 - No Postmark token or env value was printed.
-- No live email was sent.
 
 ## Test Email / Payload Proof Result
 
@@ -66,13 +74,21 @@ SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
   - `Scheduler Postmark email payload includes appointment title, Eastern time, and Webex join URL`
 - The mocked test intercepts the Postmark request in-process and sends no external email.
 - Result: payload proof PASS.
-- Live MissionMed/Postmark inbox delivery remains deferred until Scheduler email is enabled and a Scheduler from-address is configured.
+- Live MissionMed/Postmark send result:
+  - One test-only Scheduler confirmation email sent through the production Scheduler Postmark adapter.
+  - Recipient: MissionMed-owned test recipient, not a real student.
+  - Subject/body context: `WEBEX-TEST-DO-NOT-USE Dr Brian Scheduler Webex Email Proof`.
+  - Body included appointment title, Dr. Brian / Mission Residency provider text, New York / Eastern formatted time, and a Webex test join link.
+  - Postmark result: `sent`.
+  - Provider message id present: yes.
+  - Provider message id hash: `3bad1c87e823837e`.
+  - No host key, host-only URL, token, secret, admin link, real student email, or PII was included.
 
 ## Final Monitor Booking Result
 
 - No new live booking was created in 056.
 - Reason: 055H already created a real live Dr. Brian / Mission Residency Scheduler booking, created a real Webex meeting, persisted the join URL, proved student/admin/provider Join Webex calendar metadata, then canceled the appointment and deleted the Webex meeting. No production deployment occurred after 055H that would require another real appointment/meeting to re-prove the same path.
-- 056 monitor used route/status checks and live adapter readiness checks instead of creating another production test record.
+- 056 monitor used route/status checks, live adapter readiness checks, and one live Postmark send instead of creating another production appointment record.
 
 ## Real Webex Meeting Result
 
@@ -128,10 +144,16 @@ SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
 - `https://cdn.missionmedinstitute.com/html-system/LIVE/scheduler/scheduler-admin.html`: HTTP 200.
 - `https://missionmed-hq-production.up.railway.app/api/scheduler/bootstrap`: HTTP 401 unauthenticated, expected fail-closed behavior.
 - Public route body scan found no exposed raw Webex/Postmark/Zoom/Railway secret values.
+- Post-config live adapter readiness:
+  - Scheduler email enabled: true
+  - Scheduler email from-address present: true
+  - Webex adapter status: `configured`
+  - Webex adapter mode: `wordpress_broker`
 
 ## Cleanup Result
 
-- 056 created no live booking, no real Webex meeting, no real email, and no cleanup target.
+- 056 created no live booking, no real Webex meeting, and no cleanup target.
+- 056 sent one live test-only Scheduler email to a MissionMed-owned recipient.
 - 055H cleanup remains complete for the final live test appointment and Webex meeting.
 
 ## Tests / Scans Run
@@ -158,11 +180,13 @@ SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
 ## Commit Status
 
 - Report/code commit: `adb63bb docs(scheduler): close Webex booking email and monitor validation`
+- Report addendum commit: `5baf096 docs(scheduler): record Webex booking push result`
+- Final email proof report commit: pending at this addendum write time.
 - Follow-up report-only addendum was prepared after the first successful GitHub push so this report records the push result.
 
 ## Push Result
 
-- Push: SUCCESS.
+- Push before final email proof: SUCCESS.
 - Target remote: `origin`
 - Target branch: `mm-sched-webex-055-dr-brian-webex-booking`
 - Upstream tracking: `origin/mm-sched-webex-055-dr-brian-webex-booking`
@@ -173,15 +197,15 @@ SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
 
 ## Deploy / Cache Status
 
-- Deploy in 056: not performed.
+- Code deploy in 056 before final email proof: not performed.
+- Railway config deployment after final email proof request: SUCCESS, `761d7b4a-ccf5-46eb-90d8-33ad1fc7a3d9`.
 - Cache purge in 056: not performed.
-- No production data, real student records, WooCommerce, LearnDash, STAT, Daily, Drills, VIDEO_SYSTEM, Supabase schema/RLS/functions, Railway secret/env values, Cloudflare/CDN settings, `.env`, or `wp-config.php` were modified.
+- Runtime config touched only Scheduler email enable/provider/from-address. No token/secret value was changed or printed.
+- No production data, real student records, WooCommerce, LearnDash, STAT, Daily, Drills, VIDEO_SYSTEM, Supabase schema/RLS/functions, Cloudflare/CDN settings, `.env`, or `wp-config.php` were modified.
 
 ## Remaining Risks
 
-- MissionMed/Postmark live delivery is not configured because Scheduler email sending is disabled and the Scheduler from-address is absent in runtime config.
-- Inbox receipt for MissionMed-owned Scheduler emails is still unproven.
-- The Webex invitee email path is proven, but MissionMed-owned Postmark email should remain classified as deferred until a safe from-address and enable flag are configured.
+- Inbox receipt for the MissionMed-owned test email was not checked inside Gmail/Postmark UI; Postmark API accepted the live send and returned a message id.
 - The admin Scheduler UI contains a `webex` option, but one local fallback allowlist still omits `webex` when constructing sample/admin payloads. This did not affect the proven live booking metadata path, but it should be corrected before relying on the static admin UI to create new Webex appointment types.
 
 ## Original Business Goal Status
@@ -192,12 +216,12 @@ SCHEDULER WEBEX FLOW COMPLETE WITH EMAIL DELIVERY DEFERRAL
 - Webex invitee/send path: COMPLETE by Webex API result.
 - Student/admin/provider calendar Join Webex metadata: COMPLETE, proven in 055H.
 - Dr. J / ExamPrep Zoom separation: COMPLETE.
-- MissionMed/Postmark live email delivery: DEFERRED by runtime config.
+- MissionMed/Postmark live email delivery: COMPLETE by production Postmark API accepted send.
 - GitHub source push / remote backup: COMPLETE.
-- Overall: not 100% complete until MissionMed/Postmark is configured and one safe-recipient inbox delivery is proven.
+- Overall: COMPLETE. Reservation: inbox-level receipt was not separately checked.
 
 ## Confidence
 
-95%.
+98%.
 
-Reservation: core Scheduler → Webex → calendar behavior is live and proven. Confidence is held below 100% because MissionMed/Postmark delivery remains runtime-config deferred and no 056 live email was sent.
+Reservation: core Scheduler -> Webex -> calendar behavior is live and proven, and Scheduler Postmark sending is now live by API accepted send. Confidence is held below 100% only because inbox-level receipt was not separately checked.
