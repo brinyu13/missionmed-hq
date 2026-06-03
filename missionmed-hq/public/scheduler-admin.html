@@ -1683,6 +1683,7 @@
         repeatUntil: defaultRepeatUntil(),
         selectedCell: null,
         csrfToken: "",
+        accessToken: "",
         session: null,
         bootstrap: null,
         providers: [],
@@ -2797,9 +2798,11 @@
           }
           app.state.session = payload;
           app.state.csrfToken = payload.csrfToken || "";
+          app.state.accessToken = payload.accessToken || "";
         } catch (error) {
           app.state.session = null;
           app.state.csrfToken = "";
+          app.state.accessToken = "";
         }
       }
 
@@ -3116,6 +3119,7 @@
           var headers = { Accept: "application/json" };
           if (options.body) headers["Content-Type"] = "application/json";
           if (app.state.csrfToken) headers["x-mmhq-csrf"] = app.state.csrfToken;
+          if (app.state.accessToken) headers.Authorization = "Bearer " + app.state.accessToken;
           var response = await fetch(app.state.apiBase + path, {
             method: options.method || "GET",
             headers: headers,

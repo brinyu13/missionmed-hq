@@ -1881,6 +1881,7 @@
         apiBase: "/api/scheduler",
         timezone: EASTERN_TIMEZONE,
         csrfToken: "",
+        accessToken: "",
         boot: null,
         bootError: "",
         notice: "",
@@ -2084,6 +2085,9 @@
           }
           if (scheduler.state.csrfToken) {
             headers["x-mmhq-csrf"] = scheduler.state.csrfToken;
+          }
+          if (scheduler.state.accessToken) {
+            headers.Authorization = "Bearer " + scheduler.state.accessToken;
           }
           return fetch(scheduler.state.apiBase + path, {
             method: options.method || "GET",
@@ -3584,9 +3588,11 @@
             return new Promise(function () {});
           }
           scheduler.state.csrfToken = "";
+          scheduler.state.accessToken = "";
           return payload || {};
         }).catch(function () {
           scheduler.state.csrfToken = "";
+          scheduler.state.accessToken = "";
           return {};
         });
       }
@@ -3629,6 +3635,7 @@
 
       function applySchedulerAuthPayload(payload) {
         scheduler.state.csrfToken = payload.csrfToken || "";
+        scheduler.state.accessToken = payload.accessToken || "";
         if (payload.user) {
           scheduler.state.boot = Object.assign({}, scheduler.state.boot || {}, {
             user: {
