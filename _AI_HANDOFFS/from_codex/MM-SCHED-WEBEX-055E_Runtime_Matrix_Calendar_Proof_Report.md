@@ -150,7 +150,7 @@ Prior implementation commit remains:
 
 Continuation package commit:
 
-- `f5f5dd4 feat(scheduler): add signed WordPress Webex broker`
+- `96f3eed feat(scheduler): add signed WordPress Webex broker`
 
 ## 8. Matrix Calendar Bridge Source-Truth Result
 
