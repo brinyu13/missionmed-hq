@@ -1769,6 +1769,62 @@ test('Webex adapter creates meeting invitee with student email through REST invi
   assert.equal(calls[1].body.sendEmail, true);
 });
 
+test('Webex adapter can create meetings through signed WordPress broker without Scheduler Webex token', async () => {
+  const calls = [];
+  const webex = await webexMeetingLinkAdapter({
+    provider_account_id: 'dr-brian-webex@example.test',
+    student_email: 'student-a@example.test',
+    student_display_name: 'Student A',
+    title: 'WEBEX-TEST-DO-NOT-USE Dr Brian Scheduler Webex Broker Booking',
+    start_at: BOOKING_START_AT,
+    end_at: BOOKING_END_AT,
+    timezone: 'America/New_York',
+    webex_invitee_send_email: true,
+  }, {
+    env: {
+      MMHQ_WP_BASE: 'https://missionmed.example.test',
+      MMHQ_HANDOFF_SECRET: 'shared-handoff-secret',
+    },
+    fetchImpl: async (url, init = {}) => {
+      calls.push({
+        url: String(url),
+        method: init.method,
+        headers: init.headers,
+        body: init.body ? JSON.parse(init.body) : null,
+      });
+      return jsonResponse(201, {
+        ok: true,
+        provider: 'webex',
+        id: 'webex-broker-meeting-055f',
+        webLink: 'https://webex.example.test/join/broker-055f',
+        invitee: {
+          status: 'created',
+          id: 'webex-broker-invitee-055f',
+          invitee_email_present: true,
+          invitee_email_sent: true,
+        },
+      });
+    },
+  });
+
+  assert.equal(webex.status, 'created');
+  assert.equal(webex.mode, 'wordpress_broker');
+  assert.equal(webex.meeting_url, 'https://webex.example.test/join/broker-055f');
+  assert.equal(webex.external_event_id, 'webex-broker-meeting-055f');
+  assert.equal(webex.invitee_status, 'created');
+  assert.equal(webex.invitee_email_present, true);
+  assert.equal(webex.invitee_email_sent, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://missionmed.example.test/wp-json/missionmed-scheduler/v1/webex/meeting');
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].headers['X-MM-Scheduler-Signature'], /^sha256=[a-f0-9]{64}$/u);
+  assert.match(calls[0].headers['X-MM-Scheduler-Timestamp'], /^\d+$/u);
+  assert.equal(calls[0].body.provider_account_id, 'dr-brian-webex@example.test');
+  assert.equal(calls[0].body.meeting.title, 'WEBEX-TEST-DO-NOT-USE Dr Brian Scheduler Webex Broker Booking');
+  assert.equal(calls[0].body.invitee.email, 'student-a@example.test');
+  assert.equal(calls[0].body.invitee.send_email, true);
+});
+
 test('mock meeting and payment adapters support staging-safe success and failure coverage', async () => {
   const zoomSuccess = await createMockMeetingAdapter('zoom', 'created')({});
   const webexFailure = await createMockMeetingAdapter('webex', 'failed')({});

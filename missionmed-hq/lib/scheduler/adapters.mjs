@@ -1,3 +1,5 @@
+import crypto from 'node:crypto';
+
 import { resolveSchedulerEntitlementDecision } from './entitlements.mjs';
 
 const DEFAULT_TIMEOUT_MS = 6500;
@@ -173,15 +175,34 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
     accessToken: secretText(env.SCHEDULER_WEBEX_ACCESS_TOKEN || env.WEBEX_ACCESS_TOKEN),
     apiBase: cleanUrl(env.SCHEDULER_WEBEX_API_BASE || 'https://webexapis.com'),
   };
-  if (!config.enabled || !config.accessToken) {
+  const brokerConfig = webexBrokerConfig(env);
+  if ((!config.enabled || !config.accessToken) && !brokerConfig.enabled) {
     return notConfigured('webex_meeting_link_creation', {
-      required_env: ['SCHEDULER_WEBEX_ENABLED', 'SCHEDULER_WEBEX_ACCESS_TOKEN'],
+      required_env: [
+        'SCHEDULER_WEBEX_ENABLED + SCHEDULER_WEBEX_ACCESS_TOKEN',
+        'or MMHQ_WP_BASE + MMHQ_HANDOFF_SECRET + deployed WordPress Scheduler Webex broker',
+      ],
     });
   }
 
   const providerAccountId = providerMeetingAccount(payload, 'webex');
   if (!providerAccountId) {
+    if (!hasMeetingRequestPayload(payload)) {
+      return {
+        ok: true,
+        status: 'configured',
+        adapter: 'webex_meeting_link_creation',
+        provider: 'webex',
+        mode: brokerConfig.enabled && !config.accessToken ? 'wordpress_broker' : 'direct_rest',
+        provider_account_id_present: false,
+        message: 'Webex meeting creation is configured; a provider account mapping is required when booking.',
+      };
+    }
     return providerMappingMissing('webex_meeting_link_creation', 'webex');
+  }
+
+  if (!config.enabled || !config.accessToken) {
+    return createWebexMeetingViaBroker(payload, providerAccountId, brokerConfig, options);
   }
 
   try {
@@ -236,6 +257,74 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
       invitee_email_sent: invitee.invitee_email_sent === true,
       invitee_id: invitee.invitee_id || null,
       message: meetingUrl ? 'Webex meeting created server-side.' : 'Webex response did not include a join URL.',
+    };
+  } catch (error) {
+    return adapterException('webex_meeting_link_creation', 'webex', error);
+  }
+}
+
+async function createWebexMeetingViaBroker(payload = {}, providerAccountId = '', config = {}, options = {}) {
+  if (!config.enabled) {
+    return notConfigured('webex_meeting_link_creation', {
+      required_env: ['MMHQ_WP_BASE', 'MMHQ_HANDOFF_SECRET'],
+    });
+  }
+
+  try {
+    const body = JSON.stringify(webexBrokerPayload(payload, providerAccountId));
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = schedulerBrokerSignature(config.secret, timestamp, body);
+    const response = await fetchJson(new URL(config.path, config.base), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-MM-Scheduler-Timestamp': timestamp,
+        'X-MM-Scheduler-Signature': signature,
+        'X-MM-Scheduler-Source': 'missionmed-hq-scheduler',
+      },
+      body,
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (!response.ok) {
+      return providerFailure('webex_meeting_link_creation', 'webex', response, 'WordPress Webex broker meeting creation failed.');
+    }
+
+    const meetingUrl = String(
+      response.data?.meeting_url
+        || response.data?.meetingUrl
+        || response.data?.webLink
+        || response.data?.join_url
+        || response.data?.joinUrl
+        || response.data?.meeting?.webLink
+        || response.data?.meeting?.meeting_url
+        || '',
+    ).trim();
+    const externalEventId = String(
+      response.data?.external_event_id
+        || response.data?.externalEventId
+        || response.data?.id
+        || response.data?.meetingId
+        || response.data?.meeting?.id
+        || '',
+    ).trim() || null;
+    const invitee = normalizeBrokerInvitee(response.data?.invitee || response.data?.attendee || {});
+    return {
+      ok: Boolean(meetingUrl),
+      status: meetingUrl ? 'created' : 'failed',
+      adapter: 'webex_meeting_link_creation',
+      provider: 'webex',
+      mode: 'wordpress_broker',
+      meeting_url: meetingUrl || null,
+      meeting_url_present: Boolean(meetingUrl),
+      external_event_id: externalEventId,
+      provider_account_id_present: true,
+      invitee_status: invitee.status,
+      invitee_email_present: invitee.invitee_email_present,
+      invitee_email_sent: invitee.invitee_email_sent,
+      invitee_id: invitee.invitee_id,
+      message: meetingUrl ? 'Webex meeting created through the WordPress broker.' : 'WordPress Webex broker response did not include a join URL.',
     };
   } catch (error) {
     return adapterException('webex_meeting_link_creation', 'webex', error);
@@ -903,6 +992,31 @@ function webexInviteePayload({ payload = {}, meetingId = '', providerAccountId =
   return Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined && value !== null && value !== ''));
 }
 
+function webexBrokerPayload(payload = {}, providerAccountId = '') {
+  return {
+    source: 'missionmed_scheduler',
+    appointment_id: String(payload.appointmentId || payload.appointment_id || payload.appointment?.id || ''),
+    idempotency_key: String(payload.idempotency_key || payload.idempotencyKey || ''),
+    provider_account_id: providerAccountId,
+    meeting: webexMeetingPayload(payload, providerAccountId),
+    invitee: {
+      email: studentInviteeEmail(payload),
+      display_name: studentInviteeDisplayName(payload),
+      send_email: webexInviteeSendEmail(payload),
+    },
+  };
+}
+
+function normalizeBrokerInvitee(invitee = {}) {
+  const status = String(invitee.status || invitee.invitee_status || '').trim() || (invitee.id ? 'created' : 'suppressed');
+  return {
+    status,
+    invitee_email_present: invitee.invitee_email_present === true || Boolean(invitee.email),
+    invitee_email_sent: invitee.invitee_email_sent === true || invitee.email_sent === true || invitee.sendEmail === true,
+    invitee_id: String(invitee.id || invitee.invitee_id || '').trim() || null,
+  };
+}
+
 function studentInviteeEmail(payload = {}) {
   return String(
     payload.student_email
@@ -1203,6 +1317,44 @@ function cleanUrl(value = '') {
   } catch {
     return '';
   }
+}
+
+function cleanPath(value = '') {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.startsWith('/') ? text : `/${text}`;
+}
+
+function webexBrokerConfig(env = {}) {
+  const disabled = envFlag(env.SCHEDULER_WEBEX_BROKER_DISABLED);
+  const base = cleanUrl(env.SCHEDULER_WEBEX_BROKER_BASE || env.MMHQ_WP_BASE || '');
+  const secret = secretText(env.SCHEDULER_WEBEX_BROKER_SECRET || env.MMHQ_HANDOFF_SECRET || '');
+  const path = cleanPath(env.SCHEDULER_WEBEX_BROKER_PATH || '/wp-json/missionmed-scheduler/v1/webex/meeting');
+  const explicit = envFlag(env.SCHEDULER_WEBEX_BROKER_ENABLED)
+    || Boolean(env.SCHEDULER_WEBEX_BROKER_BASE || env.SCHEDULER_WEBEX_BROKER_PATH || env.SCHEDULER_WEBEX_BROKER_SECRET)
+    || Boolean(env.MMHQ_WP_BASE && env.MMHQ_HANDOFF_SECRET);
+
+  return {
+    enabled: !disabled && explicit && Boolean(base && secret && path),
+    base,
+    path,
+    secret,
+  };
+}
+
+function schedulerBrokerSignature(secret = '', timestamp = '', body = '') {
+  return `sha256=${crypto.createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')}`;
+}
+
+function hasMeetingRequestPayload(payload = {}) {
+  return Boolean(
+    payload.appointment
+      || payload.appointmentId
+      || payload.appointment_id
+      || payload.title
+      || payload.start_at
+      || payload.startAt,
+  );
 }
 
 function parseJson(text = '') {
