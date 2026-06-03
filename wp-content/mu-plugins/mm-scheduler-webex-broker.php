@@ -113,7 +113,7 @@ function mm_scheduler_webex_admin_can_manage() {
 }
 
 /**
- * Return the Webex OAuth authorization URL through the reachable REST gateway.
+ * Return the Webex OAuth authorization URL through the documented OAuth endpoint.
  *
  * @return WP_REST_Response|WP_Error
  */
@@ -138,7 +138,7 @@ function mm_scheduler_webex_admin_auth_url() {
 }
 
 /**
- * Complete Webex OAuth using the reachable REST gateway.
+ * Complete Webex OAuth using the documented OAuth endpoint.
  *
  * @param WP_REST_Request $request REST request.
  * @return void
@@ -491,7 +491,7 @@ function mm_scheduler_webex_broker_api_get( $endpoint, $token ) {
 }
 
 /**
- * Return the Webex REST base reachable from production.
+ * Return the documented Webex REST base URL.
  *
  * @return string
  */
@@ -501,7 +501,7 @@ function mm_scheduler_webex_broker_api_base() {
 		$base = trim( (string) MM_SCHEDULER_WEBEX_API_BASE );
 	}
 	if ( '' === $base ) {
-		$base = 'https://integration.webexapis.com/v1';
+		$base = 'https://webexapis.com/v1';
 	}
 
 	return untrailingslashit( esc_url_raw( $base ) );
