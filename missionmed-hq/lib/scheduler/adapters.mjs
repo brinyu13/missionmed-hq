@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import { resolveSchedulerEntitlementDecision } from './entitlements.mjs';
 
 const DEFAULT_TIMEOUT_MS = 6500;
+const WEBEX_TIMEOUT_MS = 20000;
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on', 'enabled']);
 
 // MM-SCHED integrations remain server-only. Live calls require explicit env enablement.
@@ -174,6 +175,7 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
     enabled: envFlag(env.SCHEDULER_WEBEX_ENABLED),
     accessToken: secretText(env.SCHEDULER_WEBEX_ACCESS_TOKEN || env.WEBEX_ACCESS_TOKEN),
     apiBase: cleanUrl(env.SCHEDULER_WEBEX_API_BASE || 'https://webexapis.com'),
+    timeoutMs: positiveInteger(env.SCHEDULER_WEBEX_TIMEOUT_MS || env.SCHEDULER_PROVIDER_TIMEOUT_MS, WEBEX_TIMEOUT_MS),
   };
   const brokerConfig = webexBrokerConfig(env);
   if ((!config.enabled || !config.accessToken) && !brokerConfig.enabled) {
@@ -214,7 +216,7 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
       },
       body: JSON.stringify(webexMeetingPayload(payload, providerAccountId)),
       fetchImpl: options.fetchImpl,
-      timeoutMs: options.timeoutMs,
+      timeoutMs: options.timeoutMs || config.timeoutMs,
     });
     if (!meetingResponse.ok) {
       return providerFailure('webex_meeting_link_creation', 'webex', meetingResponse, 'Webex meeting creation failed.');
@@ -235,7 +237,7 @@ export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
         accessToken: config.accessToken,
         apiBase: config.apiBase,
         fetchImpl: options.fetchImpl,
-        timeoutMs: options.timeoutMs,
+        timeoutMs: options.timeoutMs || config.timeoutMs,
       })
       : {
         ok: false,
@@ -285,7 +287,7 @@ async function createWebexMeetingViaBroker(payload = {}, providerAccountId = '',
       },
       body,
       fetchImpl: options.fetchImpl,
-      timeoutMs: options.timeoutMs,
+      timeoutMs: options.timeoutMs || config.timeoutMs,
     });
     if (!response.ok) {
       return providerFailure('webex_meeting_link_creation', 'webex', response, 'WordPress Webex broker meeting creation failed.');
@@ -1310,6 +1312,11 @@ function secretText(value = '') {
   return String(value || '').trim();
 }
 
+function positiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
 function cleanUrl(value = '') {
   const text = String(value || '').trim().replace(/\/+$/u, '');
   try {
@@ -1339,6 +1346,7 @@ function webexBrokerConfig(env = {}) {
     base,
     path,
     secret,
+    timeoutMs: positiveInteger(env.SCHEDULER_WEBEX_TIMEOUT_MS || env.SCHEDULER_PROVIDER_TIMEOUT_MS, WEBEX_TIMEOUT_MS),
   };
 }
 
