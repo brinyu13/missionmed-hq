@@ -968,17 +968,52 @@ function zoomExternalEventId(payload = {}) {
 }
 
 function webexMeetingPayload(payload = {}, providerAccountId = '') {
+  const timezone = String(payload.timezone || 'America/New_York');
   const body = {
     title: meetingTitle(payload),
-    start: new Date(payload.start_at || payload.startAt).toISOString(),
-    end: new Date(payload.end_at || payload.endAt).toISOString(),
-    timezone: String(payload.timezone || 'America/New_York'),
+    start: webexDateTimeForTimezone(payload.start_at || payload.startAt, timezone),
+    end: webexDateTimeForTimezone(payload.end_at || payload.endAt, timezone),
+    timezone,
     agenda: safePlainText(payload.agenda || payload.description || 'MissionMed scheduled appointment.'),
   };
   if (providerAccountId.includes('@')) {
     body.hostEmail = providerAccountId;
   }
   return body;
+}
+
+function webexDateTimeForTimezone(value = '', timezone = 'America/New_York') {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || '').trim();
+  const tz = String(timezone || '').trim();
+  if (!tz) return date.toISOString();
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+      timeZoneName: 'shortOffset',
+    }).formatToParts(date);
+    const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}${webexOffsetFromTimeZoneName(map.timeZoneName)}`;
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function webexOffsetFromTimeZoneName(value = '') {
+  const text = String(value || '').trim();
+  if (!text || text === 'GMT' || text === 'UTC') return '+00:00';
+  const match = text.match(/^(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?$/u);
+  if (!match) return '+00:00';
+  const [, sign, hours, minutes = '00'] = match;
+  return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 function webexInviteePayload({ payload = {}, meetingId = '', providerAccountId = '', email = '' } = {}) {

@@ -1857,6 +1857,9 @@ test('Webex adapter creates meeting invitee with student email through REST invi
   assert.equal(webex.invitee_email_sent, true);
   assert.equal(calls.length, 2);
   assert.match(calls[0].url, /\/v1\/meetings$/u);
+  assert.match(calls[0].body.start, /-04:00$/u);
+  assert.match(calls[0].body.end, /-04:00$/u);
+  assert.equal(calls[0].body.timezone, 'America/New_York');
   assert.match(calls[1].url, /\/v1\/meetingInvitees$/u);
   assert.equal(calls[1].body.meetingId, 'webex-meeting-055d');
   assert.equal(calls[1].body.email, 'student-a@example.test');
@@ -1917,6 +1920,9 @@ test('Webex adapter can create meetings through signed WordPress broker without 
   assert.match(calls[0].headers['X-MM-Scheduler-Timestamp'], /^\d+$/u);
   assert.equal(calls[0].body.provider_account_id, 'dr-brian-webex@example.test');
   assert.equal(calls[0].body.meeting.title, 'WEBEX-TEST-DO-NOT-USE Dr Brian Scheduler Webex Broker Booking');
+  assert.match(calls[0].body.meeting.start, /-04:00$/u);
+  assert.match(calls[0].body.meeting.end, /-04:00$/u);
+  assert.equal(calls[0].body.meeting.timezone, 'America/New_York');
   assert.equal(calls[0].body.invitee.email, 'student-a@example.test');
   assert.equal(calls[0].body.invitee.send_email, true);
 });
@@ -1967,6 +1973,8 @@ test('Webex adapter prefers signed WordPress broker over stale direct token env'
   assert.equal(calls[0].url, 'https://missionmed.example.test/wp-json/missionmed-scheduler/v1/webex/meeting');
   assert.equal(calls[0].method, 'POST');
   assert.equal(calls[0].body.meeting.title, 'WEBEX-TEST-DO-NOT-USE Dr Brian Scheduler Webex Broker Preferred');
+  assert.match(calls[0].body.meeting.start, /-04:00$/u);
+  assert.match(calls[0].body.meeting.end, /-04:00$/u);
 });
 
 test('mock meeting and payment adapters support staging-safe success and failure coverage', async () => {

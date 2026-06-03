@@ -338,19 +338,43 @@ function mm_scheduler_webex_broker_invite_attendee( $meeting_id, $invitee ) {
  * @return array|WP_Error
  */
 function mm_scheduler_webex_broker_rest_create_meeting( $params ) {
+	$timezone = sanitize_text_field( $params['timezone'] ?? 'America/New_York' );
 	return mm_scheduler_webex_broker_api_post(
 		'/meetings',
 		array(
 			'title'                  => sanitize_text_field( $params['title'] ?? '' ),
-			'start'                  => sanitize_text_field( $params['start'] ?? '' ),
-			'end'                    => sanitize_text_field( $params['end'] ?? '' ),
-			'timezone'               => sanitize_text_field( $params['timezone'] ?? 'America/New_York' ),
+			'start'                  => mm_scheduler_webex_broker_datetime_for_timezone( $params['start'] ?? '', $timezone ),
+			'end'                    => mm_scheduler_webex_broker_datetime_for_timezone( $params['end'] ?? '', $timezone ),
+			'timezone'               => $timezone,
 			'enabledAutoRecordMeeting' => false,
 			'enabledJoinBeforeHost'  => true,
 			'joinBeforeHostMinutes'  => 5,
 			'allowAnyUserToBeCoHost' => false,
 		)
 	);
+}
+
+/**
+ * Webex rejects UTC timestamps when a named timezone has a different offset.
+ *
+ * @param string $value    Incoming ISO datetime.
+ * @param string $timezone IANA timezone.
+ * @return string
+ */
+function mm_scheduler_webex_broker_datetime_for_timezone( $value, $timezone ) {
+	$value    = sanitize_text_field( $value );
+	$timezone = sanitize_text_field( $timezone ?: 'America/New_York' );
+	if ( '' === $value ) {
+		return '';
+	}
+
+	try {
+		$zone = new DateTimeZone( $timezone );
+		$date = new DateTimeImmutable( $value );
+		return $date->setTimezone( $zone )->format( 'Y-m-d\TH:i:sP' );
+	} catch ( Exception $error ) {
+		return $value;
+	}
 }
 
 /**
