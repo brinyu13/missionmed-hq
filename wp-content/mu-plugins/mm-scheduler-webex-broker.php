@@ -196,11 +196,12 @@ function mm_scheduler_webex_admin_oauth_callback( $request ) {
  * @return WP_REST_Response
  */
 function mm_scheduler_webex_admin_status() {
-	$token = mm_scheduler_webex_broker_access_token();
+	$connection = mm_scheduler_webex_broker_connection_health();
+
 	return rest_ensure_response(
 		array(
-			'status'     => is_wp_error( $token ) ? 'disconnected' : 'connected',
-			'host_email' => sanitize_email( get_option( 'mmed_webex_host_email', '' ) ),
+			'status'     => $connection['connected'] ? 'connected' : 'disconnected',
+			'host_email' => sanitize_email( $connection['host_email'] ),
 		)
 	);
 }
@@ -369,6 +370,53 @@ function mm_scheduler_webex_broker_create_invitee( $meeting_id, $email, $display
 			'displayName' => sanitize_text_field( $display_name ),
 			'coHost'      => false,
 		)
+	);
+}
+
+/**
+ * Validate the stored Webex OAuth connection without exposing token details.
+ *
+ * @return array
+ */
+function mm_scheduler_webex_broker_connection_health() {
+	$token = mm_scheduler_webex_broker_access_token();
+	if ( is_wp_error( $token ) ) {
+		return array(
+			'connected'  => false,
+			'host_email' => get_option( 'mmed_webex_host_email', '' ),
+		);
+	}
+
+	$me = mm_scheduler_webex_broker_api_get( '/people/me', $token );
+	if ( is_wp_error( $me ) ) {
+		$data = $me->get_error_data();
+		if ( is_array( $data ) && 401 === (int) ( $data['status'] ?? 0 ) ) {
+			$token = mm_scheduler_webex_broker_refresh_token();
+			if ( is_wp_error( $token ) ) {
+				return array(
+					'connected'  => false,
+					'host_email' => get_option( 'mmed_webex_host_email', '' ),
+				);
+			}
+			$me = mm_scheduler_webex_broker_api_get( '/people/me', $token );
+		}
+	}
+
+	if ( is_wp_error( $me ) ) {
+		return array(
+			'connected'  => false,
+			'host_email' => get_option( 'mmed_webex_host_email', '' ),
+		);
+	}
+
+	$host_email = sanitize_email( $me['emails'][0] ?? get_option( 'mmed_webex_host_email', '' ) );
+	if ( '' !== $host_email ) {
+		update_option( 'mmed_webex_host_email', $host_email, false );
+	}
+
+	return array(
+		'connected'  => true,
+		'host_email' => $host_email,
 	);
 }
 
