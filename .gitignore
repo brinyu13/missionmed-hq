@@ -19,9 +19,14 @@ _BUILD_TEMP/
 node_modules/
 .venv*/
 venv/
+*.env
 .env
-.env.local
-!.env.example
+.env.*
+*.key
+*.pem
+*secret*
+*credential*
+*token*
 _SYSTEM/r2.env
 *.m4v
 *.pdf
@@ -35,21 +40,36 @@ VIDEO_SYSTEM_BACKUP*/
 BACKUPS/
 07_BACKUPS/
 
-# MissionMed twin workstation state and AI handoff paths must stay trackable.
+# MissionMed twin workstation state and AI handoff paths must stay trackable
+# without opening whole trees to secrets or local machine state.
 !_AI_HANDOFFS/
-!_AI_HANDOFFS/**
+_AI_HANDOFFS/**
+!_AI_HANDOFFS/**/
+!_AI_HANDOFFS/*.md
+!_AI_HANDOFFS/**/*.md
 !_SYSTEM_LOGS/
 !_SYSTEM_LOGS/MM_ACTIVITY_LOG.md
 !_SYSTEM_LOGS/LEARNINGS_LOG.jsonl
 !08_AI_SYSTEM/
+08_AI_SYSTEM/**
+!08_AI_SYSTEM/**/
 !08_AI_SYSTEM/MissionMed_AI_Brain/
-!08_AI_SYSTEM/MissionMed_AI_Brain/**
+!08_AI_SYSTEM/MissionMed_AI_Brain/*.md
+!08_AI_SYSTEM/MissionMed_AI_Brain/**/*.md
 !_SYSTEM/TWIN_STATE.md
 !_SYSTEM/ACTIVE_WORK.md
-!.claude/
-!.claude/**
+!_SYSTEM/DUAL_MAC_SYNC_PROTOCOL.md
+!_SYSTEM/mm-sync-start.sh
+!_SYSTEM/mm-sync-end.sh
 
-# Keep local Finder metadata ignored inside explicitly trackable trees.
-_AI_HANDOFFS/**/.DS_Store
-08_AI_SYSTEM/**/.DS_Store
-.claude/**/.DS_Store
+# Reassert sensitive ignores after safe unignore rules. Last match wins.
+*.env
+.env
+.env.*
+*.key
+*.pem
+*secret*
+*credential*
+*token*
+_SYSTEM/r2.env
+**/.DS_Store
