@@ -368,6 +368,43 @@ check_nested_repos_end() {
   done
 }
 
+post_live_session_end() {
+  local summary="$1"
+  local next_action="$2"
+  local laptop="$3"
+  local branch="$4"
+  local issue_file="_SYSTEM/.live-issue-number"
+  local issue_number
+  local status_message
+
+  [ -f "$issue_file" ] || return 0
+
+  issue_number="$(tr -d '[:space:]' < "$issue_file")"
+  if ! [[ "$issue_number" =~ ^[1-9][0-9]*$ ]]; then
+    return 0
+  fi
+
+  command -v gh >/dev/null 2>&1 || return 0
+
+  if [ ! -x "_SYSTEM/mm-post.sh" ]; then
+    echo "Live coordination issue is configured, but _SYSTEM/mm-post.sh is missing or not executable." >&2
+    return 0
+  fi
+
+  status_message="$(cat <<EOF
+SESSION END
+Laptop: $laptop
+Branch: $branch
+Summary: $summary
+Next Action: $next_action
+EOF
+)"
+
+  if ! _SYSTEM/mm-post.sh "$status_message"; then
+    echo "Live coordination post failed; sync already completed." >&2
+  fi
+}
+
 section "MissionMed twin workstation end"
 echo "Laptop: $(laptop_name)"
 echo "Repository: $ROOT"
@@ -402,3 +439,4 @@ check_nested_repos_end "$COMMIT_MESSAGE"
 
 section "Twin sync end complete"
 git status --short
+post_live_session_end "$SESSION_SUMMARY" "$NEXT_ACTION" "$LAPTOP" "$(git branch --show-current)"
