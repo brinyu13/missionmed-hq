@@ -17,9 +17,11 @@ _BUILD_TEMP/
 *.png
 
 node_modules/
+.venv*/
 venv/
 .env
 .env.local
+!.env.example
 _SYSTEM/r2.env
 *.m4v
 *.pdf
@@ -27,4 +29,27 @@ _SYSTEM/r2.env
 *.csv
 *.xlsx
 _CACHE/
+MissionMed_AI_Sandbox/
+VIDEOS FOR INGESTION/
+VIDEO_SYSTEM_BACKUP*/
 BACKUPS/
+07_BACKUPS/
+
+# MissionMed twin workstation state and AI handoff paths must stay trackable.
+!_AI_HANDOFFS/
+!_AI_HANDOFFS/**
+!_SYSTEM_LOGS/
+!_SYSTEM_LOGS/MM_ACTIVITY_LOG.md
+!_SYSTEM_LOGS/LEARNINGS_LOG.jsonl
+!08_AI_SYSTEM/
+!08_AI_SYSTEM/MissionMed_AI_Brain/
+!08_AI_SYSTEM/MissionMed_AI_Brain/**
+!_SYSTEM/TWIN_STATE.md
+!_SYSTEM/ACTIVE_WORK.md
+!.claude/
+!.claude/**
+
+# Keep local Finder metadata ignored inside explicitly trackable trees.
+_AI_HANDOFFS/**/.DS_Store
+08_AI_SYSTEM/**/.DS_Store
+.claude/**/.DS_Store
