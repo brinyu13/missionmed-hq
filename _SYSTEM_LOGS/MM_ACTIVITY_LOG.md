@@ -386,3 +386,37 @@
 - `npm run typecheck` showed TypeScript help (no tsconfig)
 
 **Status:** COMPLETE (pending live Railway smoke recheck)
+
+---
+
+## 2026-06-06 | MM-DUALMAC-SCRIPTS-001 | Twin workstation sync scripts
+
+**Prompt ID:** MM-DUALMAC-SCRIPTS-001
+**Task:** Implement the MissionMed Twin Workstation sync system so two macOS Tahoe MacBooks can operate as one MissionMed workstation.
+
+**Files Created:**
+- `_SYSTEM/TWIN_STATE.md`
+- `_SYSTEM/ACTIVE_WORK.md`
+- `_SYSTEM/mm-sync-start.sh`
+- `_SYSTEM/mm-sync-end.sh`
+- `_SYSTEM/DUAL_MAC_SYNC_PROTOCOL.md`
+- `_AI_HANDOFFS/from_codex/MM-DUALMAC-SCRIPTS-001_REPORT.md`
+
+**Files Modified:**
+- `.gitignore`
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md`
+
+**Validation:**
+- `bash -n _SYSTEM/mm-sync-start.sh` passed.
+- `bash -n _SYSTEM/mm-sync-end.sh` passed.
+- `chmod +x _SYSTEM/mm-sync-start.sh _SYSTEM/mm-sync-end.sh` completed.
+- `_SYSTEM/mm-sync-start.sh --no-pull` completed without fetch, pull, commit, stash, push, deploy, or nested repo mutation.
+- Git ignore audit confirmed required ignored paths remain ignored and required sync paths are trackable.
+- No files are staged; no `.env`, secret file, or large media file is staged.
+- No root git changes are present under `missionmed-hq` or `VIDEO_SYSTEM` in this ticket worktree.
+
+**Notes:**
+- The requested architecture handoff `_AI_HANDOFFS/from_cowork/MM-DUALMAC-SEAMLESS-001_ARCHITECTURE.md` was not present in this ticket worktree, so implementation followed the explicit ticket requirements.
+- Main checkout pre-flight showed existing untracked artifacts and nested `.git` directories; this ticket worktree was clean before edits.
+
+**Status:** COMPLETE

@@ -17,9 +17,16 @@ _BUILD_TEMP/
 *.png
 
 node_modules/
+.venv*/
 venv/
+*.env
 .env
-.env.local
+.env.*
+*.key
+*.pem
+*secret*
+*credential*
+*token*
 _SYSTEM/r2.env
 *.m4v
 *.pdf
@@ -27,4 +34,42 @@ _SYSTEM/r2.env
 *.csv
 *.xlsx
 _CACHE/
+MissionMed_AI_Sandbox/
+VIDEOS FOR INGESTION/
+VIDEO_SYSTEM_BACKUP*/
 BACKUPS/
+07_BACKUPS/
+
+# MissionMed twin workstation state and AI handoff paths must stay trackable
+# without opening whole trees to secrets or local machine state.
+!_AI_HANDOFFS/
+_AI_HANDOFFS/**
+!_AI_HANDOFFS/**/
+!_AI_HANDOFFS/*.md
+!_AI_HANDOFFS/**/*.md
+!_SYSTEM_LOGS/
+!_SYSTEM_LOGS/MM_ACTIVITY_LOG.md
+!_SYSTEM_LOGS/LEARNINGS_LOG.jsonl
+!08_AI_SYSTEM/
+08_AI_SYSTEM/**
+!08_AI_SYSTEM/**/
+!08_AI_SYSTEM/MissionMed_AI_Brain/
+!08_AI_SYSTEM/MissionMed_AI_Brain/*.md
+!08_AI_SYSTEM/MissionMed_AI_Brain/**/*.md
+!_SYSTEM/TWIN_STATE.md
+!_SYSTEM/ACTIVE_WORK.md
+!_SYSTEM/DUAL_MAC_SYNC_PROTOCOL.md
+!_SYSTEM/mm-sync-start.sh
+!_SYSTEM/mm-sync-end.sh
+
+# Reassert sensitive ignores after safe unignore rules. Last match wins.
+*.env
+.env
+.env.*
+*.key
+*.pem
+*secret*
+*credential*
+*token*
+_SYSTEM/r2.env
+**/.DS_Store
