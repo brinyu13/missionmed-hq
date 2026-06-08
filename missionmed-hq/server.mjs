@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
+import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -97,6 +98,11 @@ const CONFIG = {
   wpBearerToken: envValue('MMHQ_WP_BEARER_TOKEN', ''),
   wpAuthEndpoint: envValue('MMHQ_WP_AUTH_ENDPOINT', '/wp-json/missionmed-command-center/v1/auth/token/'),
   wpAllowedRoles: splitCsv(envValue('MMHQ_ALLOWED_WP_ROLES', 'administrator')),
+  drillsOnCallCourseIds: splitCsv(envValue('MMHQ_DRILLS_ON_CALL_COURSE_IDS', envValue('MMHQ_DRILLS_ON_CALL_COURSE_ID', '')))
+    .map((value) => Number(value))
+    .filter((value) => Number.isInteger(value) && value > 0),
+  drillsOnCallCourseName: String(envValue('MMHQ_DRILLS_ON_CALL_COURSE_NAME', 'Dr J, Drills On-Call')).trim() || 'Dr J, Drills On-Call',
+  drillsOnCallProductUrl: String(envValue('MMHQ_DRILLS_ON_CALL_PRODUCT_URL', 'https://missionmedinstitute.com/product/dr-j-drills-on-call/')).trim() || 'https://missionmedinstitute.com/product/dr-j-drills-on-call/',
   stripeSecretKey: envValue('MMHQ_STRIPE_SECRET_KEY', ''),
   stripeConnectClientId: envValue('MMHQ_STRIPE_CONNECT_CLIENT_ID', ''),
   stripeConnectRedirectUri: sanitizeServiceUrl(envValue('MMHQ_STRIPE_CONNECT_REDIRECT_URI', '')),
@@ -106,6 +112,14 @@ const CONFIG = {
   supabaseAnonKey: envValue('MMHQ_SUPABASE_ANON_KEY', ''),
   supabaseServiceRoleKey: envValue('MMHQ_SUPABASE_SERVICE_ROLE_KEY', ''),
   supabaseLegacyKeysPresent: hasConfiguredEnv('MMHQ_SUPABASE_SERVICE_ROLE_KEY') || hasConfiguredEnv('MMHQ_SUPABASE_ANON_KEY'),
+  arenaTrialHashSalt: String(envValue('MMHQ_ARENA_TRIAL_HASH_SALT', '')).trim(),
+  arenaTrialDeviceCookie: String(envValue('MMHQ_ARENA_TRIAL_COOKIE', 'mm_arena_trial_device')).trim() || 'mm_arena_trial_device',
+  arenaGateEnabled: envFlag('MMHQ_ARENA_GATE_ENABLED', true),
+  turnstileSecretKey: String(envValue('MMHQ_TURNSTILE_SECRET_KEY', '') || envValue('TURNSTILE_SECRET_KEY', '')).trim(),
+  turnstileVerifyUrl: sanitizeServiceUrl(envValue('MMHQ_TURNSTILE_VERIFY_URL', 'https://challenges.cloudflare.com/turnstile/v0/siteverify'), { allowLocalhost: false }),
+  arenaRateLimitWindowMs: Math.max(10_000, Number(envValue('MMHQ_ARENA_RATE_LIMIT_WINDOW_MS', '60000')) || 60_000),
+  arenaAccessStateRateLimit: Math.max(10, Number(envValue('MMHQ_ARENA_ACCESS_STATE_RATE_LIMIT', '90')) || 90),
+  arenaMutationRateLimit: Math.max(5, Number(envValue('MMHQ_ARENA_MUTATION_RATE_LIMIT', '30')) || 30),
   cieBase: sanitizeServiceUrl(envValue('MMHQ_CIE_BASE', '')),
   mediaUploadBase: sanitizeServiceUrl(envValue('MMHQ_MEDIA_UPLOAD_BASE', '')) || sanitizeServiceUrl(envValue('MMHQ_CIE_BASE', '')),
   mediaPipelineBase: sanitizeServiceUrl(envValue('MMHQ_MEDIA_PIPELINE_BASE', 'http://127.0.0.1:8001')),
@@ -126,6 +140,62 @@ const AUTH_BOOTSTRAP_PASSWORD_SALT = String(envValue('MMHQ_SUPABASE_PASSWORD_SAL
 const AUTH_HANDOFF_SECRET = String(envValue('MMHQ_HANDOFF_SECRET', '')).trim();
 const AUTH_HANDOFF_MAX_CLOCK_SKEW_SECONDS = 300;
 const AUTH_WORDPRESS_COOKIE_PREFIXES = ['wordpress_logged_in_', 'wordpress_sec_'];
+const ARENA_TIME_ZONE = 'America/New_York';
+const ARENA_BETA_SOURCE = 'arena_beta_trial';
+const ARENA_ACCESS_TIERS = Object.freeze({
+  ADMIN: 'ADMIN_FULL_ACCESS',
+  FULL: 'FULL_ACCESS',
+  FREE_TRIAL: 'FREE_TRIAL',
+  NO_ACCESS: 'NO_ACCESS',
+  EXPIRED_TRIAL: 'EXPIRED_TRIAL',
+});
+const ARENA_FREE_TRIAL_LIMITS = Object.freeze({
+  drills_per_day: 1,
+  stat_rounds_per_day: 3,
+});
+const ARENA_OPEN_MODES = new Set(['stat', 'stat_v3_lab']);
+const ARENA_DRILLS_ON_CALL_MODES = new Set(['daily_rounds', 'daily', 'drills', 'daily_drills_v3']);
+const ARENA_MODE_USAGE_TYPES = Object.freeze({
+  daily_rounds: 'drills',
+  daily: 'drills',
+  drills: 'drills',
+  daily_drills_v3: 'drills',
+});
+const ARENA_PRO_LOCKED_MODES = Object.freeze([
+  'iv_on_call',
+  'tournamed',
+  'usce_on_call',
+  'pimpin_rounds',
+]);
+const ARENA_FULL_ACCESS_TIERS = new Set([
+  '360',
+  '360_elite',
+  '360_match',
+  '360_match_mentorship',
+  'full_arena_access',
+  'mission_residency',
+  'missionmed_360',
+  'missionmed_360_match',
+  'missionmed_360_match_mentorship',
+  'missionmed_full_access',
+  'match_mentorship',
+  'mission_residency_360',
+  'arena_pro',
+  'arena_full',
+  'arena_membership',
+  'arena_pro_membership',
+  'arena_paid_membership',
+  'arena_unlimited',
+]);
+const ARENA_ADMIN_ROLE_MARKERS = new Set([
+  'administrator',
+  'super_admin',
+  'manage_options',
+  'missionmed_admin',
+  'missionmed_operator',
+  'arena_admin',
+]);
+const ARENA_RATE_LIMIT_BUCKETS = new Map();
 
 const HQ_CACHE = new Map();
 const HQ_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -977,6 +1047,8 @@ function readEncryptedSession(token) {
 function createSessionRecord(user, authContext = {}, authSource) {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + CONFIG.sessionTtlSeconds * 1000);
+  const audience = normalizeAuthAudience(authContext.audience || '');
+  const apiScope = String(authContext.apiScope || (audience === 'arena' ? 'arena' : 'hq')).trim() || 'hq';
 
   return {
     version: 1,
@@ -984,6 +1056,8 @@ function createSessionRecord(user, authContext = {}, authSource) {
     expiresAt: expiresAt.toISOString(),
     csrfToken: base64UrlEncode(randomBytes(18)),
     authSource,
+    audience,
+    apiScope,
     wpAuthorization: String(authContext.wpAuthorization || '').trim(),
     user,
   };
@@ -1089,6 +1163,8 @@ function buildSessionPayload(session = null, request = null) {
     sessionPersistent: Boolean(SESSION_SECRET),
     csrfToken: session.csrfToken,
     expiresAt: session.expiresAt,
+    audience: session.audience || '',
+    apiScope: session.apiScope || 'hq',
     user: {
       id: session.user.id,
       dbocUserId: session.supabaseUserId || session.user.id,
@@ -1098,6 +1174,7 @@ function buildSessionPayload(session = null, request = null) {
       roles: session.user.roles,
       scope: session.user.scope,
       authSource: session.authSource,
+      apiScope: session.apiScope || 'hq',
     },
     accessToken,
     authMode: buildAuthDebugSnapshot(session, request),
@@ -1800,6 +1877,13 @@ async function handleApiRoute(request, response, url, context) {
     return;
   }
 
+  if (pathname.startsWith('/api/usce/public/')) {
+    const handled = await handleUscePublicRoute(request, response, url);
+    if (handled) {
+      return;
+    }
+  }
+
   if (request.method === 'OPTIONS') {
     response.writeHead(204, buildCorsHeaders(request));
     response.end();
@@ -1845,9 +1929,10 @@ async function handleApiRoute(request, response, url, context) {
   if (pathname === '/api/auth/session') {
     const handoffToken = String(searchParams.get('token') || '').trim();
     const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
+    const audience = normalizeAuthAudience(searchParams.get('audience') || '');
 
     if (handoffToken) {
-      const exchange = await exchangeWordPressAuth({ token: handoffToken }, request);
+      const exchange = await exchangeWordPressAuth({ token: handoffToken, audience }, request);
       if (!exchange.ok || !exchange.session) {
         sendJson(response, exchange.status || 401, {
           error: 'auth_exchange_failed',
@@ -2132,6 +2217,21 @@ async function handleApiRoute(request, response, url, context) {
 
   if (!requireAuthenticatedApiSession(request, response, session)) {
     return;
+  }
+
+  if (isArenaOnlySession(session) && !pathname.startsWith('/api/arena/')) {
+    sendJson(response, 403, {
+      error: 'arena_scope_only',
+      message: 'This MissionMed session is scoped to Arena access.',
+    }, authHeaders);
+    return;
+  }
+
+  if (pathname.startsWith('/api/arena/')) {
+    const handled = await handleArenaRoute(request, response, url, { session, authHeaders });
+    if (handled) {
+      return;
+    }
   }
 
   if (pathname.startsWith('/api/dboc/')) {
@@ -6151,6 +6251,60 @@ function toCanonicalIdentity(wordPressUser, source = 'wp_cookie') {
   };
 }
 
+function normalizeWordPressCourseAccess(raw = {}) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const result = {};
+  Object.entries(raw).forEach(([key, value]) => {
+    const safeKey = String(key || '').trim();
+    if (!safeKey) return;
+    if (value === true || value === false) {
+      result[safeKey] = { enrolled: value === true };
+      return;
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return;
+    const courseIds = Array.isArray(value.course_ids)
+      ? value.course_ids
+      : (Array.isArray(value.courseIds) ? value.courseIds : [value.course_id || value.courseId]);
+    result[safeKey] = {
+      enrolled: value.enrolled === true || value.has_access === true || value.hasAccess === true,
+      course_id: Number(value.course_id || value.courseId || 0) || null,
+      course_ids: courseIds.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0),
+      course_title: String(value.course_title || value.courseTitle || value.title || '').trim(),
+      source: String(value.source || '').trim(),
+    };
+  });
+  return result;
+}
+
+function sessionHasDrillsOnCallCourseAccess(session = null) {
+  const user = session?.user || {};
+  const access = user.courseAccess || user.course_access || {};
+  const entry = access.drills_on_call || access.drillsOnCall || access.dr_j_drills_on_call || access[CONFIG.drillsOnCallCourseName];
+  if (!entry) return { has_access: false, source: 'learn_dash_course_access_missing' };
+  if (entry === true) return { has_access: true, source: 'wordpress_handoff.course_access.drills_on_call' };
+  if (typeof entry !== 'object' || Array.isArray(entry)) return { has_access: false, source: 'learn_dash_course_access_invalid' };
+  const enrolled = entry.enrolled === true || entry.has_access === true || entry.hasAccess === true;
+  const courseIds = Array.isArray(entry.course_ids)
+    ? entry.course_ids.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item > 0)
+    : [];
+  const courseId = Number(entry.course_id || entry.courseId || 0);
+  if (Number.isInteger(courseId) && courseId > 0 && !courseIds.includes(courseId)) courseIds.push(courseId);
+  const configuredIds = CONFIG.drillsOnCallCourseIds || [];
+  const idMatches = configuredIds.length === 0 || courseIds.some((course) => configuredIds.includes(course));
+  if (enrolled && idMatches) {
+    return {
+      has_access: true,
+      source: String(entry.source || 'wordpress_handoff.course_access.drills_on_call').trim(),
+      course_id: courseIds[0] || null,
+    };
+  }
+  return {
+    has_access: false,
+    source: enrolled ? 'learn_dash_course_id_mismatch' : 'learn_dash_course_not_enrolled',
+    course_id: courseIds[0] || null,
+  };
+}
+
 function deriveAuthBootstrapPassword(wpUserId, email) {
   return createHash('sha256')
     .update(`${AUTH_BOOTSTRAP_PASSWORD_SALT}:${wpUserId}:${String(email || '').toLowerCase()}`)
@@ -6615,6 +6769,7 @@ function parseWordPressHandoffToken(wpToken = '') {
     display_name: payload?.display_name || payload?.name,
     email: payload?.email,
     roles: Array.isArray(payload?.roles) ? payload.roles : [],
+    course_access: payload?.course_access || payload?.courseAccess || {},
   });
 
   if (!Number(wpUser.id || 0) || !String(wpUser.email || '').trim()) {
@@ -6623,15 +6778,6 @@ function parseWordPressHandoffToken(wpToken = '') {
       recognized: true,
       status: 401,
       error: 'handoff_identity_invalid',
-    };
-  }
-
-  if (!isAuthorizedWordPressUser(wpUser)) {
-    return {
-      ok: false,
-      recognized: true,
-      status: 403,
-      error: 'This WordPress account is not authorized for MissionMed HQ.',
     };
   }
 
@@ -6646,11 +6792,20 @@ function parseWordPressHandoffToken(wpToken = '') {
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
+  const audience = normalizeAuthAudience(payload?.audience || '');
 
   if (wpToken) {
     const handoff = parseWordPressHandoffToken(wpToken);
     if (handoff.ok && handoff.user) {
       const wpUser = handoff.user;
+      const grant = resolveWordPressSessionGrant(wpUser, audience);
+      if (!grant.ok) {
+        return {
+          ok: false,
+          status: 403,
+          error: 'This WordPress account is not authorized for MissionMed HQ.',
+        };
+      }
       return {
         ok: true,
         status: 200,
@@ -6661,12 +6816,15 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
             displayName: wpUser.displayName,
             email: wpUser.email,
             roles: wpUser.roles,
+            courseAccess: wpUser.courseAccess,
             scope: wpUser.scope || resolveOperatorScope(wpUser),
           },
           {
             wpAuthorization: getWordPressServiceAuthorization(),
+            audience: grant.audience,
+            apiScope: grant.apiScope,
           },
-          'wordpress-handoff',
+          `wordpress-handoff${grant.authSourceSuffix}`,
         ),
       };
     }
@@ -6691,7 +6849,8 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
     }
 
     const wpUser = normalizeWordPressIdentityUser(cookieValidation.user || {});
-    if (!isAuthorizedWordPressUser(wpUser)) {
+    const grant = resolveWordPressSessionGrant(wpUser, audience);
+    if (!grant.ok) {
       return {
         ok: false,
         status: 403,
@@ -6709,12 +6868,15 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
           displayName: wpUser.displayName,
           email: wpUser.email,
           roles: wpUser.roles,
+          courseAccess: wpUser.courseAccess,
           scope: wpUser.scope || resolveOperatorScope(wpUser),
         },
         {
           wpAuthorization: getWordPressServiceAuthorization(),
+          audience: grant.audience,
+          apiScope: grant.apiScope,
         },
-        'wordpress-cookie',
+        `wordpress-cookie${grant.authSourceSuffix}`,
       ),
     };
   }
@@ -6771,7 +6933,8 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
   }
 
   const wpUser = normalizeWordPressUser(exchange.data?.user || {});
-  if (!isAuthorizedWordPressUser(wpUser)) {
+  const grant = resolveWordPressSessionGrant(wpUser, audience);
+  if (!grant.ok) {
     return {
       ok: false,
       status: 403,
@@ -6789,12 +6952,15 @@ async function exchangeWordPressAuth(payload = {}, request = null) {
         displayName: wpUser.displayName,
         email: wpUser.email,
         roles: wpUser.roles,
+        courseAccess: wpUser.courseAccess,
         scope: wpUser.scope || resolveOperatorScope(wpUser),
       },
       {
         wpAuthorization: `Bearer ${issuedToken}`,
+        audience: grant.audience,
+        apiScope: grant.apiScope,
       },
-      'wordpress-token',
+      `wordpress-token${grant.authSourceSuffix}`,
     ),
   };
 }
@@ -6937,6 +7103,7 @@ function normalizeWordPressUser(user) {
     email: String(user?.email || '').trim(),
     roles: Array.isArray(user?.roles) ? user.roles.map((role) => String(role).toLowerCase()) : [],
     capabilities: user?.capabilities || user?.extra_capabilities || {},
+    courseAccess: normalizeWordPressCourseAccess(user?.courseAccess || user?.course_access || {}),
     scope: user?.scope || null,
   };
 }
@@ -6948,6 +7115,47 @@ function isAuthorizedWordPressUser(user) {
   }
 
   return Boolean(user.capabilities?.manage_options);
+}
+
+function normalizeAuthAudience(audience = '') {
+  const safe = String(audience || '').trim().toLowerCase();
+  return safe === 'arena' ? 'arena' : '';
+}
+
+function isArenaEligibleWordPressUser(user) {
+  return Boolean(Number(user?.id || 0) && String(user?.email || '').trim());
+}
+
+function resolveWordPressSessionGrant(user, audience = '') {
+  if (isAuthorizedWordPressUser(user)) {
+    return {
+      ok: true,
+      apiScope: 'hq',
+      audience: normalizeAuthAudience(audience),
+      authSourceSuffix: '',
+    };
+  }
+
+  if (normalizeAuthAudience(audience) === 'arena' && isArenaEligibleWordPressUser(user)) {
+    return {
+      ok: true,
+      apiScope: 'arena',
+      audience: 'arena',
+      authSourceSuffix: '-arena',
+    };
+  }
+
+  return {
+    ok: false,
+    apiScope: '',
+    audience: normalizeAuthAudience(audience),
+    authSourceSuffix: '',
+  };
+}
+
+function isArenaOnlySession(session = null) {
+  return String(session?.apiScope || '').trim().toLowerCase() === 'arena'
+    || (String(session?.audience || '').trim().toLowerCase() === 'arena' && !isAuthorizedWordPressUser(session?.user || {}));
 }
 
 function resolveOperatorScope(user) {
@@ -10527,6 +10735,957 @@ async function fetchSupabaseTable(path, options = {}) {
     body: options.body,
     timeoutMs: options.timeoutMs || 7000,
   });
+}
+
+function normalizeArenaMode(value = '') {
+  const safe = String(value || '').trim().toLowerCase().replace(/-/gu, '_');
+  if (safe === 'qstat') return 'stat';
+  if (safe === 'daily_round' || safe === 'dailyrounds') return 'daily_rounds';
+  if (safe === 'daily_drills' || safe === 'drills_v3') return 'daily_drills_v3';
+  if (safe === 'statv3' || safe === 'stat_v3') return 'stat_v3_lab';
+  if (safe === 'iv_oncall' || safe === 'ivoncall') return 'iv_on_call';
+  if (safe === 'usceoncall') return 'usce_on_call';
+  if (safe === 'pimpin' || safe === 'pimpin_round') return 'pimpin_rounds';
+  return safe;
+}
+
+function getArenaTodayDateKey(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: ARENA_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now).reduce((accumulator, part) => {
+    if (part.type !== 'literal') accumulator[part.type] = part.value;
+    return accumulator;
+  }, {});
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function arenaHashSalt() {
+  return CONFIG.arenaTrialHashSalt || SESSION_SECRET || 'missionmed-arena-trial-salt';
+}
+
+function hashArenaValue(value = '') {
+  const safe = String(value || '').trim();
+  if (!safe) return '';
+  return createHash('sha256')
+    .update(`${arenaHashSalt()}:${safe}`)
+    .digest('hex');
+}
+
+function hashArenaEmail(email = '') {
+  const safe = String(email || '').trim().toLowerCase();
+  return safe ? hashArenaValue(`email:${safe}`) : '';
+}
+
+function getArenaClientIp(request) {
+  const direct = String(request.headers['cf-connecting-ip'] || '').trim();
+  if (direct) return direct;
+  const forwarded = String(request.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  if (forwarded) return forwarded;
+  return String(request.socket?.remoteAddress || '').trim();
+}
+
+function getArenaUserAgent(request) {
+  return String(request.headers['user-agent'] || '').trim().slice(0, 1000);
+}
+
+function buildArenaFingerprintHashes(request) {
+  const ipHash = hashArenaValue(`ip:${getArenaClientIp(request)}`);
+  const userAgentHash = hashArenaValue(`ua:${getArenaUserAgent(request)}`);
+  const fingerprintHash = ipHash && userAgentHash ? hashArenaValue(`fp:${ipHash}:${userAgentHash}`) : '';
+  return {
+    ip_hash: ipHash,
+    user_agent_hash: userAgentHash,
+    request_fingerprint_hash: fingerprintHash,
+  };
+}
+
+function normalizeArenaRoleList(session = null) {
+  const roles = Array.isArray(session?.user?.roles) ? session.user.roles : [];
+  return roles
+    .map((role) => String(role || '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function resolveArenaAdminAuthority(session = null) {
+  const roles = normalizeArenaRoleList(session);
+  const matchedRole = roles.find((role) => ARENA_ADMIN_ROLE_MARKERS.has(role));
+  if (matchedRole) {
+    return {
+      is_admin: true,
+      admin_source: `wordpress_role:${matchedRole}`,
+    };
+  }
+
+  const scope = session?.user?.scope || {};
+  if (scope && scope.is_all === true && String(scope.operator || '').trim().toLowerCase() === 'brian') {
+    return {
+      is_admin: true,
+      admin_source: 'hq_operator_scope:brian',
+    };
+  }
+
+  return {
+    is_admin: false,
+    admin_source: '',
+  };
+}
+
+function getArenaIdentity(session = null) {
+  const wpUserId = Number(session?.user?.id || 0) || null;
+  const email = String(session?.user?.email || '').trim().toLowerCase();
+  return {
+    user_id: wpUserId ? `wp:${wpUserId}` : '',
+    wp_user_id: wpUserId,
+    supabase_uid: String(session?.supabaseUserId || '').trim(),
+    email,
+    email_hash: hashArenaEmail(email),
+  };
+}
+
+async function resolveArenaSupabaseUid(identity) {
+  if (identity.supabase_uid) return identity.supabase_uid;
+  const email = String(identity.email || '').trim().toLowerCase();
+  const adminToken = CONFIG.supabaseServiceRoleKey || CONFIG.supabaseKey;
+  if (!email || !CONFIG.supabaseUrl || !adminToken) return '';
+  const lookup = await findSupabaseAuthUserByEmail(email, adminToken);
+  if (lookup.ok && lookup.user?.id) return String(lookup.user.id).trim();
+  return '';
+}
+
+function buildArenaIdentityOrFilter(identity) {
+  const clauses = [];
+  if (identity.wp_user_id) clauses.push(`wp_user_id.eq.${Number(identity.wp_user_id)}`);
+  if (identity.supabase_uid) clauses.push(`supabase_uid.eq.${identity.supabase_uid}`);
+  if (identity.email_hash) clauses.push(`email_hash.eq.${identity.email_hash}`);
+  return clauses.join(',');
+}
+
+function isMissingArenaTable(result) {
+  const message = String(result?.error || result?.data?.message || result?.data?.hint || '').toLowerCase();
+  return result && !result.ok && (
+    result.status === 404 ||
+    result.status === 400 ||
+    message.includes('does not exist') ||
+    message.includes('schema cache') ||
+    message.includes('not found')
+  );
+}
+
+async function fetchArenaRows(table, params, options = {}) {
+  const query = params instanceof URLSearchParams ? params.toString() : String(params || '');
+  const pathWithQuery = query ? `${table}?${query}` : table;
+  const result = await fetchSupabaseTable(pathWithQuery, {
+    headers: options.headers || {},
+    timeoutMs: options.timeoutMs || 6500,
+  });
+  if (!result.ok) {
+    if (isMissingArenaTable(result)) {
+      return { ok: true, missing_table: true, rows: [] };
+    }
+    return { ok: false, status: result.status, error: result.error || 'arena_table_fetch_failed', rows: [] };
+  }
+  return {
+    ok: true,
+    missing_table: false,
+    rows: Array.isArray(result.data) ? result.data : [],
+  };
+}
+
+async function insertArenaRow(table, row) {
+  const result = await fetchSupabaseTable(table, {
+    method: 'POST',
+    headers: {
+      Prefer: 'return=representation',
+    },
+    body: JSON.stringify(row || {}),
+    timeoutMs: 6500,
+  });
+  if (!result.ok) {
+    return {
+      ok: false,
+      status: result.status || 500,
+      error: result.error || `${table}_insert_failed`,
+    };
+  }
+  return {
+    ok: true,
+    row: Array.isArray(result.data) ? result.data[0] : result.data,
+  };
+}
+
+function rowExpiresInFuture(row, fieldName) {
+  const raw = String(row?.[fieldName] || '').trim();
+  if (!raw) return true;
+  const ms = Date.parse(raw);
+  return Number.isFinite(ms) && ms > Date.now();
+}
+
+function hasFullAccessEntitlement(row = {}) {
+  const status = String(row.status || row.entitlement_status || '').trim().toLowerCase();
+  if (status && !['active', 'granted', 'current'].includes(status)) return false;
+  if (!rowExpiresInFuture(row, 'expires_at')) return false;
+  const rawTier = String(row.access_tier || row.entitlement_tier || row.grant_type || '').trim().toLowerCase();
+  if (rawTier === ARENA_ACCESS_TIERS.ADMIN.toLowerCase() || rawTier === 'admin_full_access') return false;
+  if (rawTier === ARENA_ACCESS_TIERS.FULL.toLowerCase() || rawTier === 'full_access') return true;
+  return ARENA_FULL_ACCESS_TIERS.has(rawTier);
+}
+
+function isIgnoredArenaAdminEntitlement(row = {}) {
+  const status = String(row.status || row.entitlement_status || '').trim().toLowerCase();
+  if (status && !['active', 'granted', 'current'].includes(status)) return false;
+  if (!rowExpiresInFuture(row, 'expires_at')) return false;
+  const rawTier = String(row.access_tier || row.entitlement_tier || row.grant_type || '').trim().toLowerCase();
+  return rawTier === ARENA_ACCESS_TIERS.ADMIN.toLowerCase() || rawTier === 'admin_full_access';
+}
+
+async function findArenaExplicitEntitlements(identity) {
+  const orFilter = buildArenaIdentityOrFilter(identity);
+  if (!orFilter) return { rows: [], missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', '*');
+  params.set('or', `(${orFilter})`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', '25');
+  const result = await fetchArenaRows('arena_access_entitlements', params);
+  return {
+    rows: result.rows || [],
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+async function findArenaTrialClaims(identity) {
+  const orFilter = buildArenaIdentityOrFilter(identity);
+  if (!orFilter) return { rows: [], missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', '*');
+  params.set('or', `(${orFilter})`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', '10');
+  const result = await fetchArenaRows('arena_trial_claims', params);
+  return {
+    rows: result.rows || [],
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+async function findArenaStudentProfile(identity) {
+  if (!identity.supabase_uid) return { row: null, missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', 'user_id,enrollment_tier,enrollment_status,enrollment_verified_at,enrollment_grace_expires_at');
+  params.set('user_id', `eq.${identity.supabase_uid}`);
+  params.set('limit', '1');
+  const result = await fetchArenaRows('student_profiles', params);
+  return {
+    row: (result.rows || [])[0] || null,
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+function studentProfileHasFullAccess(profile = null) {
+  if (!profile || typeof profile !== 'object') return false;
+  const status = String(profile.enrollment_status || '').trim().toLowerCase();
+  const graceMs = Date.parse(String(profile.enrollment_grace_expires_at || ''));
+  const hasGrace = Number.isFinite(graceMs) && graceMs > Date.now();
+  if (status !== 'active' && !hasGrace) return false;
+  const tiers = Array.isArray(profile.enrollment_tier)
+    ? profile.enrollment_tier
+    : String(profile.enrollment_tier || '').split(',');
+  return tiers
+    .map((tier) => String(tier || '').trim().toLowerCase())
+    .some((tier) => ARENA_FULL_ACCESS_TIERS.has(tier));
+}
+
+async function countArenaUsage(identity, usageType, dateKey) {
+  const orFilter = buildArenaIdentityOrFilter(identity);
+  if (!orFilter || !usageType || !dateKey) return { count: 0, missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', 'id');
+  params.set('or', `(${orFilter})`);
+  params.set('usage_type', `eq.${usageType}`);
+  params.set('usage_date', `eq.${dateKey}`);
+  params.set('action', 'in.(started,completed)');
+  params.set('limit', '500');
+  const result = await fetchArenaRows('arena_usage_ledger', params);
+  return {
+    count: (result.rows || []).length,
+    missing_table: !!result.missing_table,
+    error: result.ok ? '' : result.error,
+  };
+}
+
+async function consumeArenaTrialUsage({
+  identity,
+  usageType,
+  dateKey,
+  mode,
+  action,
+  limit,
+  idempotencyKey = '',
+  metadata = {},
+}) {
+  const payload = {
+    p_supabase_uid: identity?.supabase_uid || null,
+    p_wp_user_id: identity?.wp_user_id ? Number(identity.wp_user_id) : null,
+    p_email_hash: identity?.email_hash || null,
+    p_usage_date: dateKey,
+    p_timezone: ARENA_TIME_ZONE,
+    p_mode: mode,
+    p_usage_type: usageType,
+    p_action: action,
+    p_limit: Number(limit || 0),
+    p_idempotency_key: String(idempotencyKey || '').trim() || null,
+    p_metadata: metadata && typeof metadata === 'object' && !Array.isArray(metadata) ? metadata : {},
+  };
+  const result = await fetchSupabaseRpc('arena_consume_trial_usage', payload);
+  if (!result.ok) {
+    return {
+      ok: false,
+      status: result.status || 500,
+      error: result.error || 'arena_usage_consume_failed',
+    };
+  }
+  const data = result.data && typeof result.data === 'object' && !Array.isArray(result.data)
+    ? result.data
+    : {};
+  return {
+    ok: true,
+    allowed: data.allowed === true,
+    consumed: data.consumed === true,
+    reason: String(data.reason || '').trim(),
+    current_count: Number(data.current_count || 0),
+    limit: Number(data.limit || limit || 0),
+    row_id: String(data.row_id || '').trim(),
+  };
+}
+
+function buildArenaAccessContract({
+  tier,
+  identity,
+  admin = {},
+  trial = null,
+  drillsOnCall = {},
+  todayDrillsUsed = 0,
+  todayStatRoundsUsed = 0,
+  source = '',
+  warnings = [],
+}) {
+  const isAdmin = tier === ARENA_ACCESS_TIERS.ADMIN;
+  const isFull = tier === ARENA_ACCESS_TIERS.FULL || isAdmin;
+  const hasDrillsOnCall = isAdmin || drillsOnCall.has_access === true;
+  const isTrial = tier === ARENA_ACCESS_TIERS.FREE_TRIAL;
+  const lockedModes = [];
+  if (!hasDrillsOnCall) lockedModes.push(...ARENA_DRILLS_ON_CALL_MODES);
+  if (!isFull) lockedModes.push(...ARENA_PRO_LOCKED_MODES);
+  const allowedModes = isAdmin
+    ? ['all']
+    : [
+      ...ARENA_OPEN_MODES,
+      ...(hasDrillsOnCall ? ARENA_DRILLS_ON_CALL_MODES : []),
+      ...(isFull ? ARENA_PRO_LOCKED_MODES : []),
+    ];
+  const limits = isTrial
+    ? { ...ARENA_FREE_TRIAL_LIMITS }
+    : { drills_per_day: null, stat_rounds_per_day: null };
+
+  return {
+    access_tier: tier,
+    user_id: identity.user_id || '',
+    wp_user_id: identity.wp_user_id ? String(identity.wp_user_id) : '',
+    supabase_uid: identity.supabase_uid || '',
+    is_admin: !!isAdmin,
+    admin_source: admin.admin_source || '',
+    trial_started_at: trial?.trial_started_at || '',
+    trial_expires_at: trial?.trial_expires_at || '',
+    today_drills_used: Number(todayDrillsUsed || 0),
+    today_stat_rounds_used: Number(todayStatRoundsUsed || 0),
+    drills_on_call_access: !!hasDrillsOnCall,
+    drills_on_call_source: isAdmin ? admin.admin_source || 'admin_full_access' : String(drillsOnCall.source || '').trim(),
+    drills_on_call_course_id: drillsOnCall.course_id ? String(drillsOnCall.course_id) : '',
+    drills_on_call_course_name: CONFIG.drillsOnCallCourseName,
+    drills_on_call_product_url: CONFIG.drillsOnCallProductUrl,
+    limits,
+    allowed_modes: allowedModes,
+    locked_modes: Array.from(new Set(lockedModes)),
+    day_boundary_timezone: ARENA_TIME_ZONE,
+    source,
+    warnings,
+  };
+}
+
+async function resolveArenaAccessState(session, request) {
+  const identity = getArenaIdentity(session);
+  identity.supabase_uid = await resolveArenaSupabaseUid(identity);
+  const warnings = [];
+  const admin = resolveArenaAdminAuthority(session);
+  const drillsOnCall = admin.is_admin
+    ? { has_access: true, source: admin.admin_source }
+    : sessionHasDrillsOnCallCourseAccess(session);
+  const today = getArenaTodayDateKey();
+  const [drillUsage, statUsage] = await Promise.all([
+    countArenaUsage(identity, 'drills', today),
+    countArenaUsage(identity, 'stat', today),
+  ]);
+
+  if (drillUsage.missing_table || statUsage.missing_table) warnings.push('arena_usage_ledger_missing');
+
+  if (admin.is_admin) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.ADMIN,
+      identity,
+      admin,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: admin.admin_source,
+      warnings,
+    });
+  }
+
+  if (!CONFIG.arenaGateEnabled) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FULL,
+      identity,
+      admin,
+      drillsOnCall: { has_access: true, source: 'arena_gate_disabled_env' },
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'arena_gate_disabled_env',
+      warnings: [...warnings, 'arena_gate_disabled'],
+    });
+  }
+
+  const [entitlements, studentProfile, trialClaims] = await Promise.all([
+    findArenaExplicitEntitlements(identity),
+    findArenaStudentProfile(identity),
+    findArenaTrialClaims(identity),
+  ]);
+
+  if (entitlements.missing_table) warnings.push('arena_access_entitlements_missing');
+  if (studentProfile.missing_table) warnings.push('student_profiles_missing');
+  if (trialClaims.missing_table) warnings.push('arena_trial_claims_missing');
+  if ((entitlements.rows || []).some(isIgnoredArenaAdminEntitlement)) {
+    warnings.push('admin_entitlement_rows_ignored_server_session_required');
+  }
+
+  const fullAccessRow = (entitlements.rows || []).find(hasFullAccessEntitlement);
+  if (fullAccessRow) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FULL,
+      identity,
+      admin,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: String(fullAccessRow.source || fullAccessRow.grant_type || 'arena_access_entitlements'),
+      warnings,
+    });
+  }
+
+  if (studentProfileHasFullAccess(studentProfile.row)) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FULL,
+      identity,
+      admin,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'student_profiles.enrollment_tier',
+      warnings,
+    });
+  }
+
+  const trialRow = (trialClaims.rows || []).find((row) => {
+    const status = String(row.status || '').trim().toLowerCase();
+    return (!status || ['active', 'started'].includes(status)) && rowExpiresInFuture(row, 'trial_expires_at');
+  }) || null;
+
+  if (trialRow) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.FREE_TRIAL,
+      identity,
+      admin,
+      trial: trialRow,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'arena_trial_claims',
+      warnings,
+    });
+  }
+
+  const expiredTrial = (trialClaims.rows || []).find((row) => String(row.trial_expires_at || '').trim()) || null;
+  if (expiredTrial) {
+    return buildArenaAccessContract({
+      tier: ARENA_ACCESS_TIERS.EXPIRED_TRIAL,
+      identity,
+      admin,
+      trial: expiredTrial,
+      drillsOnCall,
+      todayDrillsUsed: drillUsage.count,
+      todayStatRoundsUsed: statUsage.count,
+      source: 'arena_trial_claims.expired',
+      warnings,
+    });
+  }
+
+  return buildArenaAccessContract({
+    tier: ARENA_ACCESS_TIERS.NO_ACCESS,
+    identity,
+    admin,
+    drillsOnCall,
+    todayDrillsUsed: drillUsage.count,
+    todayStatRoundsUsed: statUsage.count,
+    source: 'no_entitlement_found',
+    warnings,
+  });
+}
+
+function evaluateArenaModeAccess(accessState, mode) {
+  const normalizedMode = normalizeArenaMode(mode);
+  const tier = String(accessState?.access_tier || ARENA_ACCESS_TIERS.NO_ACCESS);
+  if (!normalizedMode) {
+    return { allowed: false, mode: normalizedMode, reason: 'arena_mode_required' };
+  }
+  if (ARENA_OPEN_MODES.has(normalizedMode)) {
+    return { allowed: true, mode: normalizedMode, reason: 'stat_open_access' };
+  }
+  if (ARENA_DRILLS_ON_CALL_MODES.has(normalizedMode)) {
+    if (accessState?.drills_on_call_access === true) {
+      return { allowed: true, mode: normalizedMode, reason: 'drills_on_call_enrolled' };
+    }
+    return {
+      allowed: false,
+      mode: normalizedMode,
+      reason: 'drills_on_call_enrollment_required',
+    };
+  }
+  if (tier === ARENA_ACCESS_TIERS.ADMIN || tier === ARENA_ACCESS_TIERS.FULL) {
+    return { allowed: true, mode: normalizedMode, reason: 'full_access' };
+  }
+  if (ARENA_PRO_LOCKED_MODES.includes(normalizedMode)) {
+    return { allowed: false, mode: normalizedMode, reason: 'arena_pro_mode_locked' };
+  }
+  if (tier === ARENA_ACCESS_TIERS.EXPIRED_TRIAL) {
+    return { allowed: false, mode: normalizedMode, reason: 'trial_expired' };
+  }
+  return { allowed: true, mode: normalizedMode, reason: 'open_access' };
+}
+
+function arenaRateLimitKey(request, session, routeKey) {
+  const identity = getArenaIdentity(session);
+  const subject = identity.wp_user_id || identity.supabase_uid || hashArenaValue(`ip:${getArenaClientIp(request)}`);
+  return `${routeKey}:${subject}`;
+}
+
+function checkArenaRateLimit(request, session, routeKey, limit) {
+  const key = arenaRateLimitKey(request, session, routeKey);
+  const now = Date.now();
+  const windowMs = CONFIG.arenaRateLimitWindowMs;
+  const bucket = ARENA_RATE_LIMIT_BUCKETS.get(key) || [];
+  const fresh = bucket.filter((timestamp) => now - timestamp < windowMs);
+  fresh.push(now);
+  ARENA_RATE_LIMIT_BUCKETS.set(key, fresh);
+  if (fresh.length > limit) {
+    return {
+      allowed: false,
+      retry_after_seconds: Math.ceil(windowMs / 1000),
+    };
+  }
+  return { allowed: true, retry_after_seconds: 0 };
+}
+
+function requireArenaRateLimit(request, response, session, authHeaders, routeKey, limit) {
+  const rate = checkArenaRateLimit(request, session, routeKey, limit);
+  if (rate.allowed) return true;
+  sendJson(response, 429, {
+    error: 'rate_limited',
+    message: 'Too many Arena access requests. Please wait a moment and try again.',
+    retry_after_seconds: rate.retry_after_seconds,
+  }, {
+    ...authHeaders,
+    'Retry-After': String(rate.retry_after_seconds),
+  });
+  return false;
+}
+
+async function handleArenaAccessStateRoute(request, response, session, authHeaders) {
+  if (request.method !== 'GET') {
+    sendMethodNotAllowed(response, ['GET']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'access-state', CONFIG.arenaAccessStateRateLimit)) {
+    return true;
+  }
+  const accessState = await resolveArenaAccessState(session, request);
+  sendJson(response, 200, accessState, authHeaders);
+  return true;
+}
+
+async function handleArenaUsageCheckRoute(request, response, session, authHeaders) {
+  if (request.method !== 'POST') {
+    sendMethodNotAllowed(response, ['POST']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'usage-check', CONFIG.arenaMutationRateLimit)) {
+    return true;
+  }
+  let payload = {};
+  try {
+    payload = await readJsonBody(request);
+  } catch (error) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  const mode = normalizeArenaMode(payload.mode || payload.arena_mode || '');
+  if (!mode) {
+    sendJson(response, 400, { error: 'arena_mode_required', message: 'Arena mode is required.' }, authHeaders);
+    return true;
+  }
+  const accessState = await resolveArenaAccessState(session, request);
+  const decision = evaluateArenaModeAccess(accessState, mode);
+  sendJson(response, decision.allowed ? 200 : 403, {
+    allowed: decision.allowed,
+    reason: decision.reason,
+    mode: decision.mode,
+    access_state: accessState,
+  }, authHeaders);
+  return true;
+}
+
+async function handleArenaUsageRecordRoute(request, response, session, authHeaders) {
+  if (request.method !== 'POST') {
+    sendMethodNotAllowed(response, ['POST']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'usage-record', CONFIG.arenaMutationRateLimit)) {
+    return true;
+  }
+  let payload = {};
+  try {
+    payload = await readJsonBody(request);
+  } catch {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+
+  const mode = normalizeArenaMode(payload.mode || payload.arena_mode || '');
+  if (!mode) {
+    sendJson(response, 400, { error: 'arena_mode_required', message: 'Arena mode is required.' }, authHeaders);
+    return true;
+  }
+  const action = String(payload.action || 'started').trim().toLowerCase();
+  if (!['started', 'completed'].includes(action)) {
+    sendJson(response, 400, { error: 'invalid_usage_action', message: 'Usage action must be started or completed.' }, authHeaders);
+    return true;
+  }
+
+  const accessState = await resolveArenaAccessState(session, request);
+  const decision = evaluateArenaModeAccess(accessState, mode);
+  const usageType = ARENA_MODE_USAGE_TYPES[decision.mode];
+  const deniedReason = String(decision.reason || '').trim();
+  const canResolveTrialIdempotency = accessState.access_tier === ARENA_ACCESS_TIERS.FREE_TRIAL
+    && usageType
+    && String(payload.idempotency_key || '').trim()
+    && ['daily_drill_limit_reached', 'daily_stat_limit_reached'].includes(deniedReason);
+  if (!decision.allowed && !canResolveTrialIdempotency) {
+    sendJson(response, 403, {
+      allowed: false,
+      error: 'arena_access_denied',
+      reason: decision.reason,
+      mode: decision.mode,
+      access_state: accessState,
+    }, authHeaders);
+    return true;
+  }
+
+  if (!usageType || decision.reason !== 'trial_quota_available' || accessState.access_tier !== ARENA_ACCESS_TIERS.FREE_TRIAL) {
+    sendJson(response, 200, {
+      allowed: true,
+      consumed: false,
+      reason: decision.reason,
+      mode: decision.mode,
+      access_state: accessState,
+    }, authHeaders);
+    return true;
+  }
+
+  const identity = getArenaIdentity(session);
+  identity.supabase_uid = accessState.supabase_uid || await resolveArenaSupabaseUid(identity);
+  const today = getArenaTodayDateKey();
+  const limit = usageType === 'stat'
+    ? ARENA_FREE_TRIAL_LIMITS.stat_rounds_per_day
+    : ARENA_FREE_TRIAL_LIMITS.drills_per_day;
+  const consume = await consumeArenaTrialUsage({
+    identity,
+    usageType,
+    dateKey: today,
+    mode: decision.mode,
+    action,
+    limit,
+    idempotencyKey: payload.idempotency_key,
+    metadata: {
+      source: 'arena_beta_gate',
+      user_agent_hash: hashArenaValue(`ua:${getArenaUserAgent(request)}`) || null,
+      recorded_at: new Date().toISOString(),
+    },
+  });
+  if (!consume.ok) {
+    sendJson(response, consume.status || 500, {
+      allowed: false,
+      error: 'arena_usage_record_failed',
+      message: 'Arena usage could not be recorded. Please try again.',
+      detail: consume.error,
+    }, authHeaders);
+    return true;
+  }
+
+  if (!consume.allowed && consume.reason === 'duplicate_usage_key') {
+    const freshState = await resolveArenaAccessState(session, request);
+    sendJson(response, 200, {
+      allowed: true,
+      consumed: false,
+      reason: 'duplicate_usage_key',
+      mode: decision.mode,
+      quota: {
+        current_count: consume.current_count,
+        limit: consume.limit || limit,
+      },
+      access_state: freshState,
+    }, authHeaders);
+    return true;
+  }
+
+  if (!consume.allowed) {
+    const freshState = await resolveArenaAccessState(session, request);
+    sendJson(response, 403, {
+      allowed: false,
+      error: 'arena_trial_quota_exceeded',
+      reason: consume.reason || (usageType === 'stat' ? 'daily_stat_limit_reached' : 'daily_drill_limit_reached'),
+      mode: decision.mode,
+      quota: {
+        current_count: consume.current_count,
+        limit: consume.limit || limit,
+      },
+      access_state: freshState,
+    }, authHeaders);
+    return true;
+  }
+
+  const freshState = await resolveArenaAccessState(session, request);
+  sendJson(response, 200, {
+    allowed: true,
+    consumed: consume.consumed,
+    reason: consume.reason || 'usage_recorded',
+    mode: decision.mode,
+    quota: {
+      current_count: consume.current_count,
+      limit: consume.limit || limit,
+    },
+    access_state: freshState,
+  }, authHeaders);
+  return true;
+}
+
+async function verifyTurnstileToken(token, request) {
+  const safeToken = String(token || '').trim();
+  if (!CONFIG.turnstileSecretKey) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'turnstile_not_configured',
+      message: 'Cloudflare Turnstile is not configured for Arena trial creation.',
+    };
+  }
+  if (!safeToken) {
+    return {
+      ok: false,
+      status: 400,
+      error: 'turnstile_token_missing',
+      message: 'Turnstile verification is required before starting a trial.',
+    };
+  }
+  const body = new URLSearchParams();
+  body.set('secret', CONFIG.turnstileSecretKey);
+  body.set('response', safeToken);
+  const remoteIp = getArenaClientIp(request);
+  if (remoteIp) body.set('remoteip', remoteIp);
+  const result = await fetchJson(CONFIG.turnstileVerifyUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+    },
+    body: body.toString(),
+    timeoutMs: 6500,
+  });
+  if (!result.ok || result.data?.success !== true) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'turnstile_verification_failed',
+      message: 'Turnstile verification failed. Please retry.',
+    };
+  }
+  return { ok: true, status: 200 };
+}
+
+function readArenaTrialCookieHash(request) {
+  const cookies = parseCookies(request.headers.cookie || '');
+  const raw = String(cookies[CONFIG.arenaTrialDeviceCookie] || '').trim();
+  return raw ? hashArenaValue(`trial_device:${raw}`) : '';
+}
+
+function buildArenaTrialCookie(request, rawValue) {
+  return serializeCookie(CONFIG.arenaTrialDeviceCookie, rawValue, {
+    httpOnly: true,
+    maxAge: 60 * 60 * 24 * 400,
+    path: '/',
+    sameSite: 'Lax',
+    secure: shouldUseSecureCookies(request),
+  });
+}
+
+async function findArenaTrialAbuseClaim(cookieHash, fingerprintHash) {
+  const clauses = [];
+  if (cookieHash) clauses.push(`first_party_trial_cookie_id_hash.eq.${cookieHash}`);
+  if (fingerprintHash) clauses.push(`request_fingerprint_hash.eq.${fingerprintHash}`);
+  if (!clauses.length) return { found: false, missing_table: false };
+  const params = new URLSearchParams();
+  params.set('select', 'id,status,created_at,trial_expires_at,first_party_trial_cookie_id_hash,request_fingerprint_hash');
+  params.set('or', `(${clauses.join(',')})`);
+  params.set('order', 'created_at.desc');
+  params.set('limit', '5');
+  const result = await fetchArenaRows('arena_trial_claims', params);
+  if (result.missing_table) return { found: false, missing_table: true };
+  const found = (result.rows || []).some((row) => {
+    const createdMs = Date.parse(String(row.created_at || ''));
+    const recent = Number.isFinite(createdMs) && (Date.now() - createdMs) < 1000 * 60 * 60 * 24 * 45;
+    return recent || rowExpiresInFuture(row, 'trial_expires_at');
+  });
+  return { found, missing_table: false };
+}
+
+async function handleArenaTrialStartRoute(request, response, session, authHeaders) {
+  if (request.method !== 'POST') {
+    sendMethodNotAllowed(response, ['POST']);
+    return true;
+  }
+  if (!requireArenaRateLimit(request, response, session, authHeaders, 'trial-start', CONFIG.arenaMutationRateLimit)) {
+    return true;
+  }
+  let payload = {};
+  try {
+    payload = await readJsonBody(request);
+  } catch {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+    sendJson(response, 400, { error: 'invalid_body', message: 'Invalid JSON body.' }, authHeaders);
+    return true;
+  }
+
+  const turnstile = await verifyTurnstileToken(payload.turnstile_token || payload['cf-turnstile-response'], request);
+  if (!turnstile.ok) {
+    sendJson(response, turnstile.status || 403, {
+      error: turnstile.error,
+      message: turnstile.message,
+    }, authHeaders);
+    return true;
+  }
+
+  const identity = getArenaIdentity(session);
+  identity.supabase_uid = await resolveArenaSupabaseUid(identity);
+  if (!identity.wp_user_id && !identity.supabase_uid) {
+    sendJson(response, 401, {
+      error: 'arena_trial_identity_required',
+      message: 'An authenticated MissionMed account is required before starting a trial.',
+    }, authHeaders);
+    return true;
+  }
+
+  const existingCookieHash = readArenaTrialCookieHash(request);
+  const newCookieValue = base64UrlEncode(randomBytes(24));
+  const cookieHash = existingCookieHash || hashArenaValue(`trial_device:${newCookieValue}`);
+  const fingerprint = buildArenaFingerprintHashes(request);
+  const duplicate = await findArenaTrialAbuseClaim(cookieHash, fingerprint.request_fingerprint_hash);
+  if (duplicate.found) {
+    sendJson(response, 409, {
+      error: 'arena_trial_duplicate_device_or_network',
+      message: 'It looks like a trial was already started on this device or network. If this is wrong, contact MissionMed support.',
+    }, {
+      ...authHeaders,
+      'Set-Cookie': buildArenaTrialCookie(request, existingCookieHash ? String(parseCookies(request.headers.cookie || '')[CONFIG.arenaTrialDeviceCookie] || '') : newCookieValue),
+    });
+    return true;
+  }
+
+  const now = new Date();
+  const expires = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const insert = await insertArenaRow('arena_trial_claims', {
+    supabase_uid: identity.supabase_uid || null,
+    wp_user_id: identity.wp_user_id || null,
+    email_hash: identity.email_hash || null,
+    trial_started_at: now.toISOString(),
+    trial_expires_at: expires.toISOString(),
+    first_seen_ip_hash: fingerprint.ip_hash || null,
+    first_seen_user_agent_hash: fingerprint.user_agent_hash || null,
+    request_fingerprint_hash: fingerprint.request_fingerprint_hash || null,
+    first_party_trial_cookie_id_hash: cookieHash || null,
+    status: 'active',
+    source: ARENA_BETA_SOURCE,
+  });
+
+  if (!insert.ok) {
+    sendJson(response, insert.status || 500, {
+      error: 'arena_trial_create_failed',
+      message: 'Arena trial could not be created. Please contact MissionMed support.',
+      detail: insert.error,
+    }, authHeaders);
+    return true;
+  }
+
+  const accessState = await resolveArenaAccessState(session, request);
+  sendJson(response, 201, {
+    created: true,
+    access_state: accessState,
+  }, {
+    ...authHeaders,
+    'Set-Cookie': buildArenaTrialCookie(request, existingCookieHash ? String(parseCookies(request.headers.cookie || '')[CONFIG.arenaTrialDeviceCookie] || '') : newCookieValue),
+  });
+  return true;
+}
+
+async function handleArenaRoute(request, response, url, context) {
+  const { pathname } = url;
+  const { session, authHeaders } = context;
+  if (pathname === '/api/arena/access-state') {
+    return handleArenaAccessStateRoute(request, response, session, authHeaders);
+  }
+  if (pathname === '/api/arena/trial/start') {
+    return handleArenaTrialStartRoute(request, response, session, authHeaders);
+  }
+  if (pathname === '/api/arena/usage/check-start') {
+    return handleArenaUsageCheckRoute(request, response, session, authHeaders);
+  }
+  if (pathname === '/api/arena/usage/record') {
+    return handleArenaUsageRecordRoute(request, response, session, authHeaders);
+  }
+  return false;
 }
 
 async function fetchUnifiedListPage(page = 1, pageSize = 200, filters = {}) {
