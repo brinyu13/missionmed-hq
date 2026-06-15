@@ -2,6 +2,26 @@
 
 ---
 
+## 2026-06-15 | MM-LAUNCH-SEV1-005-WOO-LEGACY-PRODUCT | Legacy Woo Product Visibility
+
+**Prompt ID:** MM-LAUNCH-SEV1-005-WOO-LEGACY-PRODUCT
+**Task:** Resolved public exposure for legacy Woo product `3577` without changing pricing, checkout, payments, orders, users, LearnDash, Matrix, Scheduler, or Arena backend.
+**Files Modified:**
+- `wp-content/mu-plugins/missionmed-launch-sev1-fixes.php` (UPDATED)
+- `_AI_HANDOFFS/from_codex/MM-LAUNCH-SEV1-005-WOO-LEGACY-PRODUCT-REPORT.md` (CREATED)
+- `VALIDATION/SEV1-005_WOO_VALIDATION.md` (CREATED)
+- `VALIDATION/SEV1-005_ROLLBACK_STATUS.md` (CREATED)
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` (UPDATED)
+**Production Change:** Set Woo product `3577` catalog visibility from `visible` to `hidden`; title, slug, status, price, purchasability, stock status, and LearnDash metadata unchanged.
+**Source Guard:** Added a narrow public Store API product collection/search exclusion for product `3577` because Woo Store API default collection exposed hidden products unless `catalog_visibility=visible` was requested.
+**Production Backup:** `/www/theresidencyacademy_209/missionmed_deploy_backups/MM-LAUNCH-SEV1-005-20260615T210909Z/`
+**Final Mu-Plugin SHA256:** `0395ce6aad8fe74fdae3c9beb2482b1246f8c9784d0a888b9fada98a4434274c`
+**Validation:** Product `3577` no longer appears in catalog/search/store collection responses; direct product URL and direct Store API by ID remain 200; main program prices unchanged.
+**Safety:** No `railway up`; no Woo price/checkout/payment/order/user change; no LearnDash, Matrix, Scheduler, or Arena backend modification.
+**Verdict:** GO.
+
+---
+
 ## 2026-06-15 | MM-LAUNCH-SEV1-004-WATCH-ITEM-CLEANUP | Launch Watch Item Cleanup
 
 **Prompt ID:** MM-LAUNCH-SEV1-004-WATCH-ITEM-CLEANUP

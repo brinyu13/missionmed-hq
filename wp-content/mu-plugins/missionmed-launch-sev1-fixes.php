@@ -593,6 +593,41 @@ if ( ! function_exists( 'mm_launch_sev1_fix_menu_labels' ) ) {
 
 add_filter( 'wp_nav_menu_objects', 'mm_launch_sev1_fix_menu_labels', PHP_INT_MAX );
 
+if ( ! function_exists( 'mm_launch_sev1_hide_legacy_product_from_store_api_collections' ) ) {
+	function mm_launch_sev1_hide_legacy_product_from_store_api_collections( $query ) {
+		if ( is_admin() || ! ( $query instanceof WP_Query ) ) {
+			return;
+		}
+
+		if ( ! defined( 'REST_REQUEST' ) || ! REST_REQUEST ) {
+			return;
+		}
+
+		$request_uri = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+		$path        = wp_parse_url( $request_uri, PHP_URL_PATH );
+		$path        = is_string( $path ) ? strtolower( $path ) : '';
+
+		if ( false === strpos( $path, '/wp-json/wc/store/v1/products' ) ) {
+			return;
+		}
+
+		if ( preg_match( '#/wp-json/wc/store/v1/products/\d+/?$#', $path ) ) {
+			return;
+		}
+
+		$post_type = $query->get( 'post_type' );
+		if ( ! empty( $post_type ) && ! in_array( 'product', (array) $post_type, true ) ) {
+			return;
+		}
+
+		$post__not_in = array_map( 'absint', (array) $query->get( 'post__not_in' ) );
+		$post__not_in[] = 3577;
+		$query->set( 'post__not_in', array_values( array_unique( $post__not_in ) ) );
+	}
+}
+
+add_action( 'pre_get_posts', 'mm_launch_sev1_hide_legacy_product_from_store_api_collections', PHP_INT_MAX );
+
 if ( ! function_exists( 'mm_launch_sev1_privacy_policy_url' ) ) {
 	function mm_launch_sev1_privacy_policy_url( $url ) {
 		return home_url( '/privacy-policy/' );
