@@ -352,6 +352,39 @@ if ( ! function_exists( 'mm_launch_sev1_pricing_styles' ) ) {
 
 add_action( 'wp_head', 'mm_launch_sev1_pricing_styles', PHP_INT_MAX );
 
+if ( ! function_exists( 'mm_launch_sev1_watch_item_styles' ) ) {
+	function mm_launch_sev1_watch_item_styles() {
+		if ( ! mm_launch_sev1_is_frontend() || ! mm_launch_sev1_slug_is( array( 'red-flag-match-stories' ) ) ) {
+			return;
+		}
+		?>
+		<style id="mm-launch-sev1-watch-css">
+			@media(max-width:767px){
+				html,body{max-width:100%;overflow-x:hidden}
+				.score-table,
+				table.score-table,
+				.score-table-wrap,
+				.elementor-widget-container .score-table{
+					display:block;
+					max-width:100%;
+					overflow-x:auto;
+					-webkit-overflow-scrolling:touch;
+				}
+				.score-table table,
+				table.score-table{
+					min-width:560px;
+					width:max-content;
+					max-width:none;
+					white-space:nowrap;
+				}
+			}
+		</style>
+		<?php
+	}
+}
+
+add_action( 'wp_head', 'mm_launch_sev1_watch_item_styles', PHP_INT_MAX );
+
 if ( ! function_exists( 'mm_launch_sev1_current_pricing_panel' ) ) {
 	function mm_launch_sev1_current_pricing_panel() {
 		return '<section class="mm-launch-current-pricing-panel" id="current-early-enrollment-pricing"><div class="wrap"><div class="eyebrow">Current Early Enrollment Pricing</div><h2>Enroll before the July 1 price increase.</h2><p>MissionMed is using intentional early-season pricing for launch enrollment. Checkout pricing should remain unchanged unless WooCommerce architecture is separately approved.</p><div class="grid"><article><h3>IV Prep Essentials</h3>' . mm_launch_sev1_price_presentation( '$1,699', '$1,499', '$200' ) . '</article><article><h3>Match Prep Pro</h3>' . mm_launch_sev1_price_presentation( '$3,749', '$2,799', '$950' ) . '</article><article><h3>360 Match Mentorship</h3>' . mm_launch_sev1_price_presentation( '$5,499', '$3,999', '$1,500' ) . '</article></div><a class="cta" href="/mission-residency-courses/">View Courses And Enrollment</a></div></section>';
@@ -405,6 +438,9 @@ if ( ! function_exists( 'mm_launch_sev1_text_replacements' ) ) {
 			'href="#">Terms</a>'               => 'href="/terms-of-agreement/">Terms</a>',
 			'href="/?page_id=3"'               => 'href="/privacy-policy/"',
 			'href="https://missionmedinstitute.com/?page_id=3"' => 'href="https://missionmedinstitute.com/privacy-policy/"',
+			'href="MR-1503C2_WhatIsMissionResidency_OnePage.html"' => 'href="/what-alumni-said/"',
+			'href="/mission-residency/MR-1503C2_WhatIsMissionResidency_OnePage.html"' => 'href="/what-alumni-said/"',
+			'href="https://missionmedinstitute.com/mission-residency/MR-1503C2_WhatIsMissionResidency_OnePage.html"' => 'href="https://missionmedinstitute.com/what-alumni-said/"',
 		);
 
 		$content = strtr( $content, $global_replacements );
@@ -468,6 +504,8 @@ if ( ! function_exists( 'mm_launch_sev1_text_replacements' ) ) {
 				array(
 					'Create Free Player Profile' => 'Enter Arena Preview',
 					'Create Player Profile'      => 'Enter Arena Preview',
+					'Create Free Profile'        => 'Enter Arena Preview',
+					'Start your Arena file.'     => 'Enter the Arena preview.',
 					'This concept preview does not create a real account. It only shows the confirmation message below.' => 'Arena preview access is available through the live Arena entry point; account features may require cohort enrollment.',
 					'Concept demo only. No account was created.' => 'Arena preview available. Account creation may require cohort enrollment.',
 					'concept demo only'           => 'Arena preview',
@@ -584,6 +622,30 @@ if ( ! function_exists( 'mm_launch_sev1_footer_link_repair_script' ) ) {
 					anchor.textContent = label;
 				}
 			}
+			function cleanVisibleText(root) {
+				var walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, {
+					acceptNode: function(textNode) {
+						var parent = textNode.parentElement;
+						if (!parent || /^(SCRIPT|STYLE|TEXTAREA|NOSCRIPT)$/i.test(parent.tagName)) {
+							return NodeFilter.FILTER_REJECT;
+						}
+						return NodeFilter.FILTER_ACCEPT;
+					}
+				});
+				var nodes = [];
+				var node;
+				while ((node = walker.nextNode())) {
+					nodes.push(node);
+				}
+				nodes.forEach(function(textNode){
+					textNode.nodeValue = textNode.nodeValue
+						.replace(/360 Elite/g, '360 Match Mentorship')
+						.replace(/Create Free Profile/g, 'Enter Arena Preview')
+						.replace(/Create Free Player Profile/g, 'Enter Arena Preview')
+						.replace(/Start your Arena file\./g, 'Enter the Arena preview.');
+				});
+			}
+			cleanVisibleText(document.body);
 			document.querySelectorAll('a').forEach(function(anchor){
 				var text = (anchor.textContent || '').trim().toLowerCase();
 				var href = anchor.getAttribute('href') || '';
@@ -596,7 +658,13 @@ if ( ! function_exists( 'mm_launch_sev1_footer_link_repair_script' ) ) {
 				if (text === 'matchlab') {
 					setLink(anchor, '/arena/', 'Arena');
 				}
+				if (slug === 'mission-residency' && href.indexOf('MR-1503C2_WhatIsMissionResidency_OnePage.html') !== -1) {
+					setLink(anchor, '/what-alumni-said/', 'Read What Alumni Said');
+				}
 				if (slug === 'homepage-arena' && /start drills|enter a duel|create .*profile|join .*interest|arena preview/.test(text)) {
+					setLink(anchor, '/arena/', 'Enter Arena Preview');
+				}
+				if (slug === 'homepage-arena' && /missionmed-registration|member-dashboard/.test(href) && /preview|profile|duel|drills|notified|interrogation/.test(text)) {
 					setLink(anchor, '/arena/', 'Enter Arena Preview');
 				}
 				if (slug === 'compare-programs' && href.indexOf('/contact') !== -1) {
@@ -612,6 +680,37 @@ if ( ! function_exists( 'mm_launch_sev1_footer_link_repair_script' ) ) {
 					setLink(anchor, '/rotation-request/');
 				}
 			});
+			if (slug === 'homepage-arena') {
+				document.querySelectorAll('button[data-open-signup], button, [role="button"]').forEach(function(button){
+					var text = (button.textContent || '').trim().toLowerCase();
+					if (!/enter arena preview|create .*profile|start .*arena|join .*interest/.test(text)) {
+						return;
+					}
+					button.textContent = 'Enter Arena Preview';
+					button.setAttribute('type', 'button');
+					if (button.dataset.mmLaunchSev1ArenaConverted === '1') {
+						return;
+					}
+					var link = document.createElement('a');
+					link.href = '/arena/';
+					link.className = button.className;
+					link.textContent = 'Enter Arena Preview';
+					link.setAttribute('role', 'button');
+					link.dataset.mmLaunchSev1ArenaConverted = '1';
+					button.replaceWith(link);
+					return;
+				});
+				document.querySelectorAll('form').forEach(function(form){
+					var formText = (form.textContent || '').trim().toLowerCase();
+					if (formText.indexOf('arena') === -1 && formText.indexOf('profile') === -1) {
+						return;
+					}
+					form.addEventListener('submit', function(event){
+						event.preventDefault();
+						window.location.href = '/arena/';
+					}, true);
+				});
+			}
 			if (slug === 'examprep/courses') {
 				document.querySelectorAll('section,div,nav').forEach(function(node){
 					var text = (node.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -619,6 +718,51 @@ if ( ! function_exists( 'mm_launch_sev1_footer_link_repair_script' ) ) {
 						node.remove();
 					}
 				});
+			}
+			function repairLateLaunchItems() {
+				cleanVisibleText(document.body);
+				document.querySelectorAll('a').forEach(function(anchor){
+					var text = (anchor.textContent || '').trim().toLowerCase();
+					var href = anchor.getAttribute('href') || '';
+					if (slug === 'mission-residency' && href.indexOf('MR-1503C2_WhatIsMissionResidency_OnePage.html') !== -1) {
+						setLink(anchor, '/what-alumni-said/', 'Read What Alumni Said');
+					}
+					if (slug === 'homepage-arena' && /arena preview/.test(text)) {
+						setLink(anchor, '/arena/', 'Enter Arena Preview');
+					}
+					if (slug === 'homepage-arena' && /missionmed-registration|member-dashboard/.test(href) && /preview|profile|duel|drills|notified|interrogation/.test(text)) {
+						setLink(anchor, '/arena/', 'Enter Arena Preview');
+					}
+				});
+				if (slug === 'homepage-arena') {
+					document.querySelectorAll('button[data-open-signup], button, [role="button"]').forEach(function(button){
+						var text = (button.textContent || '').trim().toLowerCase();
+						if (!/enter arena preview|create .*profile|start .*arena|join .*interest/.test(text)) {
+							return;
+						}
+						if (button.dataset.mmLaunchSev1ArenaConverted === '1') {
+							return;
+						}
+						var link = document.createElement('a');
+						link.href = '/arena/';
+						link.className = button.className;
+						link.textContent = 'Enter Arena Preview';
+						link.setAttribute('role', 'button');
+						link.dataset.mmLaunchSev1ArenaConverted = '1';
+						button.replaceWith(link);
+					});
+					return;
+				}
+			}
+			[250, 1000, 3000, 6000].forEach(function(delay){
+				window.setTimeout(repairLateLaunchItems, delay);
+			});
+			if ('MutationObserver' in window && document.body) {
+				var repairTimer;
+				new MutationObserver(function(){
+					window.clearTimeout(repairTimer);
+					repairTimer = window.setTimeout(repairLateLaunchItems, 120);
+				}).observe(document.body, { childList: true, subtree: true });
 			}
 		})();
 		</script>

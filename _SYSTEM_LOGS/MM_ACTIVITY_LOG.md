@@ -2,6 +2,45 @@
 
 ---
 
+## 2026-06-15 | MM-LAUNCH-SEV1-004-WATCH-ITEM-CLEANUP | Launch Watch Item Cleanup
+
+**Prompt ID:** MM-LAUNCH-SEV1-004-WATCH-ITEM-CLEANUP
+**Task:** Cleaned remaining SEV1-003 post-deploy watch items without touching WooCommerce prices, checkout, payments, users, LearnDash, Matrix, Scheduler, or Arena backend.
+**Files Modified:**
+- `wp-content/mu-plugins/missionmed-launch-sev1-fixes.php` (UPDATED)
+- `_AI_HANDOFFS/from_codex/MM-LAUNCH-SEV1-004-LEGACY-WOO-PRODUCT-DECISION.md` (CREATED)
+- `_AI_HANDOFFS/from_codex/MM-LAUNCH-SEV1-004-WATCH-ITEM-CLEANUP-REPORT.md` (CREATED)
+- `VALIDATION/SEV1-004_LIVE_VALIDATION_MATRIX.md` (CREATED)
+- `VALIDATION/SEV1-004_ROLLBACK_STATUS.md` (CREATED)
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` (UPDATED)
+**Scope:** Fixed public-facing `360 Elite` drift on Mission Residency, repaired the dead Mission Residency proof CTA including the final relative-href variant, routed Arena preview interactions to `/arena/`, added scoped Red Flag mobile table overflow CSS, and documented the legacy Woo product decision.
+**Production File Deployed:** `wp-content/mu-plugins/missionmed-launch-sev1-fixes.php` only; final SHA256 `f2830b42fb16f604f96590f31f892294484082349b188b791845c4523eb91928`.
+**Production Backups:** `/www/theresidencyacademy_209/missionmed_deploy_backups/MM-LAUNCH-SEV1-004-20260615T142436Z/` and `/www/theresidencyacademy_209/missionmed_deploy_backups/MM-LAUNCH-SEV1-004-FINAL-20260615T185828Z/`.
+**Local Backups:** `_SYSTEM_LOGS/backups/MM-LAUNCH-SEV1-004-20260615-142436/`, `_SYSTEM_LOGS/backups/MM-LAUNCH-SEV1-004-20260615-145828/`, and `_SYSTEM_LOGS/backups/MM-LAUNCH-SEV1-004-20260615-150251-final/`.
+**Validation:** PHP lint PASS; `git diff --check` PASS; final cache-busted live validation recorded in `VALIDATION/SEV1-004_LIVE_VALIDATION_MATRIX.md`; Woo Store API prices unchanged.
+**Safety:** No `railway up`; no WooCommerce product/price/checkout/payment/user change; no LearnDash, Matrix, Scheduler, or Arena backend modification.
+**Verdict:** GO WITH WATCH ITEMS. SEV1-003 watch items 1-4 are mitigated live; legacy Woo product exposure remains a documented admin decision item with no WooCommerce data changed.
+
+---
+
+## 2026-06-15 | MM-LAUNCH-SEV1-003-LIVE-DEPLOY-VALIDATE | Live Launch Plugin Deployment + Validation
+
+**Prompt ID:** MM-LAUNCH-SEV1-003-LIVE-DEPLOY-VALIDATE
+**Task:** Deployed the approved launch mu-plugin package only, cleared accessible WordPress/Kinsta/CDN/Elementor/Autoptimize caches, validated the live launch URL set, checked Woo Store API early-season pricing, browser-validated CTA destinations, and produced GO/NO-GO launch documentation.
+**Files Modified:**
+- `_AI_HANDOFFS/from_codex/MM-LAUNCH-SEV1-003-LIVE-VALIDATION-REPORT.md` (CREATED)
+- `VALIDATION/SEV1-003_LIVE_VALIDATION_MATRIX.md` (CREATED)
+- `VALIDATION/SEV1-003_ROLLBACK_STATUS.md` (CREATED)
+- `VALIDATION/SEV1-003_CTA_CLICK_LOG.md` (CREATED)
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` (UPDATED)
+**Production File Deployed:** `wp-content/mu-plugins/missionmed-launch-sev1-fixes.php` only.
+**Production Backup:** `/www/theresidencyacademy_209/missionmed_deploy_backups/MM-LAUNCH-SEV1-003-20260615T175404Z/`
+**Validation:** Local and remote PHP lint PASS; SHA256 match PASS; legal pages 200 PASS; Woo API early-season prices unchanged PASS; no fatal/white-screen/legal rollback triggers observed.
+**Verdict:** GO WITH MINOR WATCH ITEMS. Remaining P1 items: one visible `360 Elite` attribution, one dead Mission Residency proof CTA, Arena preview CTAs routing to registration/member dashboard rather than direct `/arena/`, legacy Woo product exposure, and checkout-safe Woo Blocks warning follow-up.
+**Safety:** No `railway up`; no WooCommerce product/price/checkout/payment/user change; no LearnDash, Matrix, Scheduler, or Arena backend modification.
+
+---
+
 ## 2026-06-15 | MM-LAUNCH-SEV1-002-MEGARUN | Launch Readiness Hardening
 
 **Prompt ID:** MM-LAUNCH-SEV1-002-MEGARUN  
