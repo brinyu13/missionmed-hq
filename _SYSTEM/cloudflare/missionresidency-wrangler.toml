@@ -1,0 +1,12 @@
+name = "missionresidency-to-missionmed"
+main = "./missionresidency-redirect-worker.mjs"
+compatibility_date = "2026-06-15"
+
+routes = [
+  { pattern = "missionresidency.com/*", zone_name = "missionresidency.com" },
+  { pattern = "www.missionresidency.com/*", zone_name = "missionresidency.com" },
+]
+
+[vars]
+REDIRECT_TARGET = "https://missionmedinstitute.com/mission-residency/"
+REDIRECT_STATUS = "301"
