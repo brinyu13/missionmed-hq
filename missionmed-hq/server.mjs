@@ -11,7 +11,7 @@ import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
 
-const { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } = crypto;
+const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -123,6 +123,8 @@ const CONFIG = {
 const AUTH_ALLOWED_SUPABASE_PROJECT = 'fglyvdykwgbuivikqoah';
 const AUTH_FORBIDDEN_SUPABASE_PROJECT = 'plgndqcplokwiuimwhzh';
 const AUTH_BOOTSTRAP_PASSWORD_SALT = String(envValue('MMHQ_SUPABASE_PASSWORD_SALT', 'missionmed-bootstrap-salt')).trim() || 'missionmed-bootstrap-salt';
+const AUTH_HANDOFF_SECRET = String(envValue('MMHQ_HANDOFF_SECRET', '')).trim();
+const AUTH_HANDOFF_MAX_CLOCK_SKEW_SECONDS = 300;
 const AUTH_WORDPRESS_COOKIE_PREFIXES = ['wordpress_logged_in_', 'wordpress_sec_'];
 
 const HQ_CACHE = new Map();
@@ -864,6 +866,49 @@ function getHqBaseForRequest(request = null) {
   }
 
   return '';
+}
+
+function safeTimingEqual(left = '', right = '') {
+  const leftBuffer = Buffer.from(String(left || ''), 'utf8');
+  const rightBuffer = Buffer.from(String(right || ''), 'utf8');
+  if (!leftBuffer.length || leftBuffer.length !== rightBuffer.length) {
+    return false;
+  }
+
+  try {
+    return timingSafeEqual(leftBuffer, rightBuffer);
+  } catch {
+    return false;
+  }
+}
+
+function resolveAuthSessionFinalRedirect(rawFinal = '', request = null) {
+  const candidate = String(rawFinal || '').trim();
+  if (!candidate) {
+    return '';
+  }
+
+  try {
+    const baseOrigin = request ? getRequestOrigin(request) : INTERNAL_REQUEST_ORIGIN;
+    const target = new URL(candidate, baseOrigin);
+    const allowedOrigins = new Set();
+
+    if (CONFIG.wpBase) {
+      allowedOrigins.add(new URL(CONFIG.wpBase).origin);
+    }
+
+    if (request) {
+      allowedOrigins.add(new URL(getRequestOrigin(request)).origin);
+    }
+
+    if (!allowedOrigins.has(target.origin)) {
+      return '';
+    }
+
+    return target.toString();
+  } catch {
+    return '';
+  }
 }
 
 function isLocalhostHostname(hostname = '') {
@@ -1799,8 +1844,9 @@ async function handleApiRoute(request, response, url, context) {
 
   if (pathname === '/api/auth/session') {
     const handoffToken = String(searchParams.get('token') || '').trim();
+    const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
 
-    if (!session && handoffToken) {
+    if (handoffToken) {
       const exchange = await exchangeWordPressAuth({ token: handoffToken }, request);
       if (!exchange.ok || !exchange.session) {
         sendJson(response, exchange.status || 401, {
@@ -1820,14 +1866,22 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
+      const hydratedSession = bootstrap.session || exchange.session;
+      const responseHeaders = {
+        ...authHeaders,
+        'Set-Cookie': buildSessionCookie(request, hydratedSession),
+      };
+
+      if (finalRedirect) {
+        sendRedirect(response, finalRedirect, 302, responseHeaders);
+        return;
+      }
+
       sendJson(
         response,
         200,
-        buildSessionPayload(bootstrap.session || exchange.session, request),
-        {
-          ...authHeaders,
-          'Set-Cookie': buildSessionCookie(request, bootstrap.session || exchange.session),
-        },
+        buildSessionPayload(hydratedSession, request),
+        responseHeaders,
       );
       return;
     }
@@ -6172,7 +6226,14 @@ async function signInSupabaseAuthUser(email, password) {
   };
 }
 
-async function mintSupabaseSessionViaAdminMagicLink(email) {
+async function mintSupabaseSessionViaAdminGeneratedLink(
+  email,
+  {
+    linkType = 'magiclink',
+    verifyType = 'magiclink',
+    password = '',
+  } = {},
+) {
   const adminToken = CONFIG.supabaseServiceRoleKey || CONFIG.supabaseKey;
   const authApiKey = CONFIG.supabaseAnonKey || CONFIG.supabaseKey || CONFIG.supabaseServiceRoleKey;
 
@@ -6180,9 +6241,17 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: 503,
-      error: 'supabase_magiclink_not_configured',
-      detail: 'Supabase magic-link bootstrap is not configured.',
+      error: 'supabase_admin_link_not_configured',
+      detail: 'Supabase admin link bootstrap is not configured.',
     };
+  }
+
+  const generateBody = {
+    type: String(linkType || 'magiclink').trim().toLowerCase(),
+    email,
+  };
+  if (String(password || '').trim()) {
+    generateBody.password = String(password);
   }
 
   const generate = await fetchJson(`${CONFIG.supabaseUrl}/auth/v1/admin/generate_link`, {
@@ -6193,10 +6262,7 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
       apikey: adminToken,
       Authorization: `Bearer ${adminToken}`,
     },
-    body: JSON.stringify({
-      type: 'magiclink',
-      email,
-    }),
+    body: JSON.stringify(generateBody),
     timeoutMs: 9_000,
   });
 
@@ -6204,8 +6270,8 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: generate.status || 502,
-      error: 'supabase_magiclink_generate_failed',
-      detail: generate.error || 'Supabase magic-link generation failed.',
+      error: 'supabase_admin_link_generate_failed',
+      detail: generate.error || `Supabase ${generateBody.type} link generation failed.`,
     };
   }
 
@@ -6214,8 +6280,8 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: 502,
-      error: 'supabase_magiclink_token_missing',
-      detail: 'Supabase magic-link response did not include token_hash.',
+      error: 'supabase_admin_link_token_missing',
+      detail: `Supabase ${generateBody.type} link response did not include token_hash.`,
     };
   }
 
@@ -6227,7 +6293,7 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
       apikey: authApiKey,
     },
     body: JSON.stringify({
-      type: 'magiclink',
+      type: String(verifyType || generateBody.type || 'magiclink').trim().toLowerCase(),
       token_hash: tokenHash,
     }),
     timeoutMs: 9_000,
@@ -6237,8 +6303,8 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: verify.status || 502,
-      error: 'supabase_magiclink_verify_failed',
-      detail: verify.error || 'Supabase magic-link verification failed.',
+      error: 'supabase_admin_link_verify_failed',
+      detail: verify.error || `Supabase ${generateBody.type} link verification failed.`,
     };
   }
 
@@ -6248,17 +6314,32 @@ async function mintSupabaseSessionViaAdminMagicLink(email) {
     return {
       ok: false,
       status: 502,
-      error: 'supabase_magiclink_tokens_missing',
-      detail: 'Supabase magic-link verification succeeded but no session tokens were returned.',
+      error: 'supabase_admin_link_tokens_missing',
+      detail: `Supabase ${generateBody.type} link verification succeeded but no session tokens were returned.`,
     };
   }
 
   return {
     ok: true,
     status: 200,
-    source: 'auth_bootstrap_magiclink',
+    source: `auth_bootstrap_${generateBody.type}`,
     session: verify.data,
   };
+}
+
+async function mintSupabaseSessionViaAdminMagicLink(email) {
+  return mintSupabaseSessionViaAdminGeneratedLink(email, {
+    linkType: 'magiclink',
+    verifyType: 'magiclink',
+  });
+}
+
+async function mintSupabaseSessionViaAdminSignupLink(email, password) {
+  return mintSupabaseSessionViaAdminGeneratedLink(email, {
+    linkType: 'signup',
+    verifyType: 'signup',
+    password,
+  });
 }
 
 async function findSupabaseAuthUserByEmail(email, adminToken) {
@@ -6268,10 +6349,14 @@ async function findSupabaseAuthUserByEmail(email, adminToken) {
   }
 
   const perPage = 200;
-  const maxPages = 5;
+  const maxPages = 10;
 
   for (let page = 1; page <= maxPages; page += 1) {
-    const query = `page=${page}&per_page=${perPage}&email=${encodeURIComponent(normalizedEmail)}`;
+    // Compatibility note:
+    // Some Supabase Auth builds return "Database error finding users" when
+    // the admin users endpoint is queried with an email filter parameter.
+    // Use plain pagination and match the email in-process instead.
+    const query = `page=${page}&per_page=${perPage}`;
     const listUsers = await fetchJson(`${CONFIG.supabaseUrl}/auth/v1/admin/users?${query}`, {
       method: 'GET',
       headers: {
@@ -6291,7 +6376,9 @@ async function findSupabaseAuthUserByEmail(email, adminToken) {
       };
     }
 
-    const users = Array.isArray(listUsers.data?.users) ? listUsers.data.users : [];
+    const users = Array.isArray(listUsers.data?.users)
+      ? listUsers.data.users
+      : (Array.isArray(listUsers.data) ? listUsers.data : []);
     const matched = users.find((entry) => String(entry?.email || '').trim().toLowerCase() === normalizedEmail) || null;
     if (matched) {
       return { ok: true, status: 200, user: matched };
@@ -6449,9 +6536,149 @@ async function ensureSupabaseAuthUser(email, password, session = null) {
   };
 }
 
+function parseWordPressHandoffToken(wpToken = '') {
+  // WordPress handoff tokens are signed payloads, not bearer tokens from /auth/token.
+  const rawToken = String(wpToken || '').trim();
+  const parts = rawToken.match(/^([A-Za-z0-9_-]+)\.([a-fA-F0-9]{64})$/u);
+
+  if (!parts) {
+    return {
+      ok: false,
+      recognized: false,
+      status: 401,
+      error: 'MissionMed HQ bearer token format is invalid.',
+    };
+  }
+
+  if (!AUTH_HANDOFF_SECRET) {
+    return {
+      ok: false,
+      recognized: true,
+      status: 503,
+      error: 'MissionMed HQ handoff secret is not configured.',
+    };
+  }
+
+  const payloadSegment = String(parts[1] || '').trim();
+  const providedSignature = String(parts[2] || '').trim().toLowerCase();
+  const expectedSignature = createHmac('sha256', AUTH_HANDOFF_SECRET)
+    .update(payloadSegment)
+    .digest('hex')
+    .toLowerCase();
+
+  if (!safeTimingEqual(providedSignature, expectedSignature)) {
+    return {
+      ok: false,
+      recognized: true,
+      status: 401,
+      error: 'invalid_handoff_signature',
+    };
+  }
+
+  let payload = null;
+  try {
+    payload = JSON.parse(base64UrlDecode(payloadSegment).toString('utf8'));
+  } catch {
+    return {
+      ok: false,
+      recognized: true,
+      status: 401,
+      error: 'invalid_handoff_payload',
+    };
+  }
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const issuedAt = Number(payload?.iat || 0);
+  const expiresAt = Number(payload?.exp || 0);
+
+  if (!Number.isFinite(expiresAt) || expiresAt <= nowSeconds) {
+    return {
+      ok: false,
+      recognized: true,
+      status: 401,
+      error: 'handoff_token_expired',
+    };
+  }
+
+  if (Number.isFinite(issuedAt) && issuedAt > nowSeconds + AUTH_HANDOFF_MAX_CLOCK_SKEW_SECONDS) {
+    return {
+      ok: false,
+      recognized: true,
+      status: 401,
+      error: 'handoff_token_not_yet_valid',
+    };
+  }
+
+  const wpUser = normalizeWordPressUser({
+    id: payload?.wp_user_id || payload?.id,
+    username: payload?.username || payload?.login,
+    display_name: payload?.display_name || payload?.name,
+    email: payload?.email,
+    roles: Array.isArray(payload?.roles) ? payload.roles : [],
+  });
+
+  if (!Number(wpUser.id || 0) || !String(wpUser.email || '').trim()) {
+    return {
+      ok: false,
+      recognized: true,
+      status: 401,
+      error: 'handoff_identity_invalid',
+    };
+  }
+
+  if (!isAuthorizedWordPressUser(wpUser)) {
+    return {
+      ok: false,
+      recognized: true,
+      status: 403,
+      error: 'This WordPress account is not authorized for MissionMed HQ.',
+    };
+  }
+
+  return {
+    ok: true,
+    recognized: true,
+    status: 200,
+    user: wpUser,
+  };
+}
+
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
+
+  if (wpToken) {
+    const handoff = parseWordPressHandoffToken(wpToken);
+    if (handoff.ok && handoff.user) {
+      const wpUser = handoff.user;
+      return {
+        ok: true,
+        status: 200,
+        session: createSessionRecord(
+          {
+            id: wpUser.id,
+            login: wpUser.login,
+            displayName: wpUser.displayName,
+            email: wpUser.email,
+            roles: wpUser.roles,
+            scope: wpUser.scope || resolveOperatorScope(wpUser),
+          },
+          {
+            wpAuthorization: getWordPressServiceAuthorization(),
+          },
+          'wordpress-handoff',
+        ),
+      };
+    }
+
+    if (handoff.recognized) {
+      return {
+        ok: false,
+        status: handoff.status || 401,
+        error: handoff.error || 'WordPress handoff failed.',
+      };
+    }
+  }
 
   if (!wpToken && hasWordPressSessionCookie(cookieHeader)) {
     const cookieValidation = await fetchWordPressUserFromCookieHeader(cookieHeader);
@@ -6614,6 +6841,8 @@ async function bootstrapSupabaseSessionFromWordPressSession(authSession = null) 
 
   const password = deriveAuthBootstrapPassword(wpUser.id, email);
   let signInResult = await signInSupabaseAuthUser(email, password);
+  let ensureUserFailure = null;
+  const bootstrapFallbackErrors = [];
   if (!signInResult.ok) {
     const reason = String(signInResult.detail || signInResult.error || '').toLowerCase();
     const shouldEnsureUser =
@@ -6627,40 +6856,54 @@ async function bootstrapSupabaseSessionFromWordPressSession(authSession = null) 
     if (shouldEnsureUser) {
       const ensureUser = await ensureSupabaseAuthUser(email, password, authSession);
       if (!ensureUser.ok) {
-        return {
-          ok: false,
-          status: 502,
-          error: 'supabase_user_unresolved',
-          message: ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.',
-        };
-      }
-
-      signInResult = await signInSupabaseAuthUser(email, password);
-    }
-  }
-
-  if (!signInResult.ok) {
-    if (isSupabaseEmailProviderDisabled(signInResult.detail || signInResult.error)) {
-      const magicLinkSession = await mintSupabaseSessionViaAdminMagicLink(email);
-      if (magicLinkSession.ok) {
-        signInResult = magicLinkSession;
+        ensureUserFailure = ensureUser;
+        bootstrapFallbackErrors.push(ensureUser.detail || ensureUser.error || 'Unable to resolve Supabase auth user.');
       } else {
-        signInResult = {
-          ok: false,
-          status: magicLinkSession.status || signInResult.status || 502,
-          error: magicLinkSession.error || signInResult.error || 'supabase_bootstrap_failed',
-          detail: magicLinkSession.detail || signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
-        };
+        signInResult = await signInSupabaseAuthUser(email, password);
       }
     }
   }
 
   if (!signInResult.ok) {
+    const magicLinkSession = await mintSupabaseSessionViaAdminMagicLink(email);
+    if (magicLinkSession.ok) {
+      signInResult = magicLinkSession;
+    } else {
+      bootstrapFallbackErrors.push(magicLinkSession.detail || magicLinkSession.error || 'Supabase admin magic-link bootstrap failed.');
+    }
+  }
+
+  if (!signInResult.ok) {
+    const signupLinkSession = await mintSupabaseSessionViaAdminSignupLink(email, password);
+    if (signupLinkSession.ok) {
+      signInResult = signupLinkSession;
+    } else {
+      bootstrapFallbackErrors.push(signupLinkSession.detail || signupLinkSession.error || 'Supabase admin signup-link bootstrap failed.');
+    }
+  }
+
+  if (!signInResult.ok) {
+    const reason = String(signInResult.detail || signInResult.error || '').toLowerCase();
+    if (isSupabaseEmailProviderDisabled(reason)) {
+      bootstrapFallbackErrors.push('Supabase email auth provider is disabled.');
+    }
+
+    const composedMessage = [
+      signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
+      ...bootstrapFallbackErrors,
+      ensureUserFailure?.detail || ensureUserFailure?.error || '',
+    ]
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean)
+      .filter((entry, idx, arr) => arr.indexOf(entry) === idx)
+      .slice(0, 4)
+      .join(' | ');
+
     return {
       ok: false,
       status: 502,
       error: 'supabase_bootstrap_failed',
-      message: signInResult.detail || signInResult.error || 'Supabase bootstrap failed.',
+      message: composedMessage || 'Supabase bootstrap failed.',
     };
   }
 
