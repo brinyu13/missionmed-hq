@@ -1,11 +1,14 @@
-# DEPRECATED
-# This file has been replaced by: _SYSTEM/PRIMER_CORE.md + extensions
-# Extensions: PRIMER_EXT_HTML_DEPLOY.md, PRIMER_EXT_VISUAL.md, PRIMER_EXT_INTEGRITY.md
-# Naming canon: _SYSTEM/NAMING_CANON.md
-# Do NOT load this file. Load PRIMER_CORE.md instead.
-# If a prompt references this file, redirect to PRIMER_CORE.md.
-# Deprecation date: 2026-04-18
-# Authority: MR-1367
+# LEGACY COMPATIBILITY PRIMER
+# This file is retained because many active MissionMed prompts still require:
+# "Load SESSION_PRIMER_V2.md and apply all rules."
+# Canonical core remains: _SYSTEM/PRIMER_CORE.md + extensions
+# STATUS: Deprecated for new threads. Do not use this file as active startup primer.
+# Required behavior when this file is loaded:
+# 1) Apply the mandatory Git hygiene and AI logging section in this file.
+# 2) Load _SYSTEM/PRIMER_CORE.md and apply all rules.
+# 3) On conflicts, prefer _SYSTEM/PRIMER_CORE.md and _SYSTEM/GIT_WORKSPACE_HYGIENE_PROTOCOL.md.
+# Compatibility mode date: 2026-04-28
+# Authority: MR-1367 + MR-G8
 
 # SESSION PRIMER V2 — MISSIONMED CONTROL LAYER
 # Version: 1.5 | Created: 2026-03-28 | Updated: 2026-04-10 | Prompts: MRP-701, MRP-707, MR-SYS-001, MR-HQ-001, MR-HQ-003, MM-HTML-DEPLOYMENT-SYSTEM-LOCK-001
@@ -16,6 +19,57 @@
 # This file is a CONTROL LAYER — not an execution engine.
 # It does NOT replace system logic or duplicate automation.
 # =============================================
+
+---
+
+## MISSIONMED GIT WORKSPACE HYGIENE + AI LOGGING - MANDATORY FOR EVERY THREAD
+
+This section is mandatory and supersedes any conflicting legacy logging defaults in this file.
+
+### MISSIONMED DIRTY-STATE TRIAGE — CURRENT DEFAULT
+
+1. Dirty repo status is not an automatic blocker.
+2. Dirty repo status requires inspection and classification.
+3. AI must identify dirty tracked files and untracked files before editing.
+4. AI may continue only if dirty files do not overlap the intended task and no destructive cleanup is required.
+5. AI must stop if dirty files overlap intended edits or touch production-sensitive areas outside the task scope.
+6. AI must never reset, clean, delete, stash, force checkout, pull, rebase, merge, push, or deploy unless explicitly authorized.
+7. Codex must stage only intended files.
+8. Claude planning/demo/design may continue if outputs stay outside the repo.
+9. Routine AI outputs/logs must stay outside the repo.
+10. Worktrees are optional advanced tools, not default workflow.
+11. New threads must load PRIMER_CORE.md, KNOWLEDGE_INDEX.md, and MISSIONMED_MASTER_KNOWLEDGE.md.
+12. SESSION_PRIMER_V2.md is deprecated for new threads and must not be used as the active primer.
+
+Additional MissionMed defaults:
+
+1. `/Users/brianb/MissionMed` is the primary local repo.
+2. Codex must not edit directly on `main` unless explicitly authorized.
+3. Before editing, Codex must run `bash _SYSTEM/scripts/mm-preflight.sh`.
+4. Claude may use MissionMed for context but should not write in-repo unless explicitly authorized.
+5. Claude/Codex demos/reports/scratch/log outputs must go outside the repo.
+6. Newest outputs should go to `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`.
+7. Routine AI activity logs should go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`.
+8. Repo log `/Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` is curated and versioned for intentional implementation summaries only.
+9. Do not broadly ignore production folders.
+10. Do not touch Drill ingestion/runtime unless explicitly scoped.
+11. Do not mix unrelated workstreams in one branch.
+12. If unsure where to work or save output, stop and ask.
+
+### Future Prompt Requirement Block (Copy/Paste)
+
+```text
+Load _SYSTEM/PRIMER_CORE.md and apply all rules.
+Load KNOWLEDGE_INDEX.md and MISSIONMED_MASTER_KNOWLEDGE.md for MissionMed knowledge routing.
+Follow MissionMed simple Git workflow and dirty-state triage protocol.
+Do not use SESSION_PRIMER_V2.md as the active primer for new threads.
+Do not edit /Users/brianb/MissionMed directly on main unless explicitly authorized.
+Run bash _SYSTEM/scripts/mm-preflight.sh before editing and classify dirty tracked/untracked files.
+For Claude demos, reports, standalone HTML, mockups, screenshots, scratch files, backups, generated outputs, and routine activity logs, do not save inside /Users/brianb/MissionMed.
+Save outputs to /Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/ and save routine logs to /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/.
+Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes on a scoped branch, and commit that curated summary with related work.
+Do not run reset, git clean, destructive cleanup, deploy, push, pull, rebase, or merge unless explicitly authorized.
+```
 
 ---
 
@@ -37,7 +91,7 @@ Before executing ANY task, validate the following files exist and are accessible
 - If ANY required file is missing → **STOP. REPORT. DO NOT PROCEED.**
 - If file exists but is empty (0 bytes) → treat as MISSING.
 - If a file named `MASTER_INDEX.md` is referenced instead of `KNOWLEDGE_INDEX.md` → **WRONG FILE. HALT.**
-- `/Users/brianb/MissionMed/` is the only valid MissionMed root. Any non-canonical MissionMed root reference is invalid and must be corrected before execution.
+- `/Users/brianb/MissionMed/` is the canonical MissionMed root for normal branch-based workflows. Worktrees under `/Users/brianb/MissionMed_worktrees/` are optional advanced tools only.
 - Pre-flight results must be stated in the execution report. No silent passes.
 
 ---
@@ -244,7 +298,9 @@ A task is COMPLETE only when ALL of the following are true:
 - [ ] No system breakage detected
 - [ ] `append_learning.py` was called after task work and successfully appended a learning update to `LEARNINGS_LOG.jsonl` (Section 9)
 - [ ] Execution report written (Section 13)
-- [ ] Activity log entry appended to `MM_ACTIVITY_LOG.md`
+- [ ] Activity logging handled via policy:
+  - routine logs written to external `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`
+  - repo `MM_ACTIVITY_LOG.md` updated only for intentional implementation summaries committed with related changes
 
 **If any item is not satisfied, or if learning read/write enforcement failed at any point → task status = PARTIAL, not COMPLETE.**
 
@@ -262,7 +318,7 @@ A task is INVALID (not just incomplete — structurally invalid) if:
 - `append_learning.py` was not called after task execution
 - Learning update is missing or was not appended to `LEARNINGS_LOG.jsonl`
 - Task was marked `COMPLETE` without a successful learning read and learning write
-- Activity log entry was not written
+- Required activity logging policy was not followed (external routine logs or curated repo update during implementation commit)
 - A HIGH-risk task was executed without integrity checks
 
 **Recovery from INVALID state:**

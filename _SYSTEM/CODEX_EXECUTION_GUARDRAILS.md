@@ -535,3 +535,129 @@ Every Codex prompt that touches the MissionMed system MUST reference this docume
 ---
 
 END OF CODEX EXECUTION GUARDRAILS
+
+---
+
+## 8. GIT WORKSPACE HYGIENE (MR-G8)
+
+These rules are mandatory for MissionMed Git safety and apply to every Codex execution.
+
+### 8.1 Required Primer Load (always run first)
+
+Before implementation edits, load:
+
+- `_SYSTEM/PRIMER_CORE.md` (canonical startup/control)
+- `KNOWLEDGE_INDEX.md` (knowledge routing)
+- `MISSIONMED_MASTER_KNOWLEDGE.md` (knowledge routing)
+- `_SYSTEM/GIT_WORKSPACE_HYGIENE_PROTOCOL.md`
+
+`SESSION_PRIMER_V2.md` is deprecated for new threads and must not be used as the active primer.
+
+### 8.2 Pre-Edit Command Preamble (always run first)
+
+Before any file edits, print and verify:
+
+```bash
+pwd
+git branch --show-current
+git status --short
+git status --branch --short
+bash _SYSTEM/scripts/mm-preflight.sh
+```
+
+### 8.3 MissionMed Dirty-State Triage (required)
+
+Dirty repo state is not an automatic stop. Codex must inspect and classify before editing:
+
+- Report current branch, dirty tracked files, and untracked files.
+- Classify whether each dirty path appears related to the current task.
+- Flag production-sensitive dirty files:
+  - `missionmed-hq/server.mjs`
+  - `LIVE/`
+  - `wp-content/mu-plugins/`
+  - `supabase/migrations/`
+  - auth/login/wiring paths
+  - Railway runtime files
+  - Drill ingestion/runtime paths
+- Declare exact intended edit scope before changing files.
+
+Continue is allowed when dirty files are unrelated, scope is clear, and no destructive cleanup is required.
+
+### 8.4 Stop Conditions (required)
+
+Codex must stop and report when any condition below is true:
+
+- Dirty files overlap intended edit files.
+- Dirty files include production-sensitive paths outside explicit task scope.
+- Task would require reset, clean, deletion, stash, forced checkout, merge, rebase, pull, push, or deploy without explicit authorization.
+- Codex cannot confidently avoid unrelated dirty files.
+
+### 8.5 Scope Declaration Before Editing
+
+Before editing, state exact target files and task scope.
+If requested edits expand beyond scope, stop and re-confirm scope.
+
+### 8.6 Production Runtime Safety
+
+Do not edit production runtime files unless explicitly scoped by prompt:
+
+- `LIVE/`
+- `wp-content/mu-plugins/`
+- `missionmed-hq/server.mjs`
+- `supabase/migrations/`
+
+### 8.7 Codex-Specific Git Requirements
+
+- Do not hard-stop solely because repo is dirty.
+- For code edits, switch/create a normal task branch inside `/Users/brianb/MissionMed`.
+- Stage only intended files.
+- Do not include unrelated dirty files in commits.
+- Never clean/reset/delete unrelated dirty files.
+
+### 8.8 Claude-Specific Behavior
+
+Claude planning/design/demo work may continue when repo is dirty if all are true:
+
+- Claude does not write into `/Users/brianb/MissionMed` unless explicitly authorized.
+- Outputs go to `/Users/brianb/MissionMed_AI_Sandbox/` (prefer `_RECENT_AI_OUTPUTS/` for newest deliverables).
+- Claude does not recommend destructive cleanup commands.
+- Claude does not claim local saves unless file writes are verified.
+
+### 8.9 Demo/Scratch Output Location
+
+Store demos, reports, screenshots, and scratch output outside repo root:
+
+- `/Users/brianb/MissionMed_AI_Sandbox/`
+
+When relevant, also copy latest deliverables to:
+
+- `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`
+
+### 8.10 Routine AI Logging Location
+
+Detailed routine Codex run logs must default to:
+
+- `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/CODEX/`
+
+Do not use repo `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` for audit-only, demo-only, or planning-only runs.
+
+Repo `MM_ACTIVITY_LOG.md` may be updated only for intentional, curated implementation summaries that are committed with related repo changes from the proper worktree/branch.
+
+### 8.11 No Workstream Mixing
+
+Do not combine unrelated projects (USCE, Arena, STAT, Dashboard, IV, WordPress runtime) in one edit cycle unless prompt explicitly requires coordinated changes.
+
+### 8.12 Future Prompt Requirement Block (Copy/Paste)
+
+```text
+Load _SYSTEM/PRIMER_CORE.md and apply all rules.
+Load KNOWLEDGE_INDEX.md and MISSIONMED_MASTER_KNOWLEDGE.md for MissionMed knowledge routing.
+Follow MissionMed simple Git workflow and dirty-state triage protocol.
+Do not use SESSION_PRIMER_V2.md as the active primer for new threads.
+Use /Users/brianb/MissionMed as the primary repo and do not edit directly on main unless explicitly authorized.
+Run bash _SYSTEM/scripts/mm-preflight.sh before editing, inspect dirty tracked/untracked files, and continue only when scope is safe.
+For Claude demos, reports, standalone HTML, mockups, screenshots, scratch files, backups, generated outputs, and routine activity logs, do not save inside /Users/brianb/MissionMed.
+Save outputs to /Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/ and save routine logs to /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/.
+Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes on the scoped branch, and commit that curated summary with related work.
+Do not run reset, git clean, destructive cleanup, deploy, push, pull, rebase, or merge unless explicitly authorized.
+```

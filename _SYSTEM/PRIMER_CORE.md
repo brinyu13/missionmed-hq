@@ -13,7 +13,7 @@ Validate these 3 files exist before task work begins:
 - `/Users/brianb/MissionMed/08_AI_SYSTEM/MissionMed_AI_Brain/KNOWLEDGE_INDEX.md`
 - `/Users/brianb/MissionMed/_SYSTEM_LOGS/LEARNINGS_LOG.jsonl`
 
-If ANY missing → STOP. REPORT. DO NOT PROCEED. `/Users/brianb/MissionMed/` is the only valid MissionMed root. Any non-canonical root reference is invalid and must be corrected before execution.
+If ANY missing → STOP. REPORT. DO NOT PROCEED. `/Users/brianb/MissionMed/` is the canonical MissionMed root for normal branch-based work. Worktrees are optional advanced recovery tools only. Any non-canonical root reference outside this layout is invalid and must be corrected before execution.
 
 ---
 
@@ -22,6 +22,57 @@ If ANY missing → STOP. REPORT. DO NOT PROCEED. `/Users/brianb/MissionMed/` is 
 - Call `/Users/brianb/MissionMed/_SYSTEM_LOGS/read_learnings.py` and load the last 10 entries from `LEARNINGS_LOG.jsonl`.
 - Review `/Users/brianb/MissionMed/_SYSTEM/RULES_ENGINE.md` before executing task work.
 - Starting work without a successful learning read = INVALID TASK.
+
+---
+
+## MISSIONMED SIMPLE GIT WORKFLOW + AI LOGGING - MANDATORY FOR EVERY THREAD
+
+This section is mandatory and overrides any older conflicting logging/workspace behavior in this file.
+
+### MISSIONMED DIRTY-STATE TRIAGE — CURRENT DEFAULT
+
+1. Dirty repo status is not an automatic blocker.
+2. Dirty repo status requires inspection and classification.
+3. AI must identify dirty tracked files and untracked files before editing.
+4. AI may continue only if dirty files do not overlap the intended task and no destructive cleanup is required.
+5. AI must stop if dirty files overlap intended edits or touch production-sensitive areas outside the task scope.
+6. AI must never reset, clean, delete, stash, force checkout, pull, rebase, merge, push, or deploy unless explicitly authorized.
+7. Codex must stage only intended files.
+8. Claude planning/demo/design may continue if outputs stay outside the repo.
+9. Routine AI outputs/logs must stay outside the repo.
+10. Worktrees are optional advanced tools, not default workflow.
+11. New threads must load PRIMER_CORE.md, KNOWLEDGE_INDEX.md, and MISSIONMED_MASTER_KNOWLEDGE.md.
+12. SESSION_PRIMER_V2.md is deprecated for new threads and must not be used as the active primer.
+
+Additional MissionMed defaults:
+
+1. `/Users/brianb/MissionMed` is the primary local repo.
+2. `main` is protected for routine edits; use a scoped task branch unless explicitly authorized.
+3. Before editing, run `git branch --show-current` and `git status --short`.
+4. Claude/demo/scratch/report outputs must stay outside the repo in `/Users/brianb/MissionMed_AI_Sandbox/`.
+5. Newest AI outputs go to `/Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/`.
+6. Routine AI logs go to `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`.
+7. The repo `MM_ACTIVITY_LOG.md` is curated only and should not be updated by routine demo/planning tasks.
+8. Do not broadly ignore production folders.
+9. Do not touch Drill ingestion/runtime unless explicitly scoped.
+10. If unsure where to work or save output, stop and ask.
+
+### Future Prompt Requirement Block (Copy/Paste)
+
+```text
+Load _SYSTEM/PRIMER_CORE.md and apply all rules.
+Load KNOWLEDGE_INDEX.md and MISSIONMED_MASTER_KNOWLEDGE.md for MissionMed knowledge routing.
+Use /Users/brianb/MissionMed as the primary repo and follow the MissionMed simple Git workflow.
+Run bash _SYSTEM/scripts/mm-preflight.sh before editing and apply dirty-state triage results.
+Dirty repo does not mean automatic stop; inspect, classify, and proceed only when scope is safe and non-overlapping.
+If currently on main and edits are planned, create/switch to a scoped task branch first unless explicitly authorized.
+Do not use SESSION_PRIMER_V2.md as the active primer for new threads.
+For Claude demos, reports, standalone HTML, mockups, screenshots, scratch files, backups, generated outputs, and routine logs, do not save inside /Users/brianb/MissionMed.
+Save outputs to /Users/brianb/MissionMed_AI_Sandbox/_RECENT_AI_OUTPUTS/ and save routine logs to /Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/.
+Only update /Users/brianb/MissionMed/_SYSTEM_LOGS/MM_ACTIVITY_LOG.md when making intentional repo changes and commit that curated summary with related work.
+Worktrees are optional tools, not the default.
+Do not run reset, git clean, destructive cleanup, deploy, push, pull, rebase, or merge unless explicitly authorized.
+```
 
 ---
 
@@ -67,7 +118,9 @@ A task is COMPLETE only when ALL of the following are true:
 - [ ] Output file(s) exist
 - [ ] Execution report written (§8)
 - [ ] Learning appended via `append_learning.py` (§9)
-- [ ] Activity log entry appended to `MM_ACTIVITY_LOG.md`
+- [ ] Activity logging handled via policy:
+  - routine logs written to external `/Users/brianb/MissionMed_AI_Sandbox/_ACTIVITY_LOGS/`
+  - repo `MM_ACTIVITY_LOG.md` updated only for intentional implementation summaries committed with related code/doc changes
 - [ ] NEXT ACTION block produced
 
 Any unchecked item → status = PARTIAL, not COMPLETE.
@@ -130,7 +183,7 @@ START
   ├─ LEARNING ENGINE (§9) ── append_learning.py
   │    └─ FAIL → STATUS = PARTIAL
   ├─ EXECUTION REPORT (§8) ── 3-tier
-  └─ ACTIVITY LOG + NEXT ACTION → DONE (§7)
+  └─ EXTERNAL LOG (ROUTINE) OR CURATED REPO LOG (IMPLEMENTATION) + NEXT ACTION → DONE (§7)
 ```
 
 ---
