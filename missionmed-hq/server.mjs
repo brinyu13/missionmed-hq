@@ -10,6 +10,37 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
+import {
+  createUscePublicIntakeAdminControlledTest,
+  getUsceAdminPublicIntakeAction,
+  getUscePublicIntakeAdminList,
+  handleUscePublicRoute,
+  isUsceAdminPublicIntakeControlledTestPath,
+  isUsceAdminPublicIntakeListPath,
+  updateUscePublicIntakeAdminNote,
+  updateUscePublicIntakeAdminStatus,
+} from './routes/usce-public-intake.mjs';
+import {
+  handleUsceAdminOfferRoute,
+  handleUsceOfferPortalPublicRoute,
+  isUsceAdminOfferPath,
+} from './routes/usce-offer-portal.mjs';
+import {
+  handleUsceStudentStatusRoute,
+  isUsceStudentStatusPath,
+} from './routes/usce-status-tracker.mjs';
+import {
+  handleGmailMetadataProofRoute,
+  isGmailMetadataProofPath,
+} from './routes/gmail-metadata-proof.mjs';
+import {
+  handleGmailSyncPreviewRoute,
+  isGmailSyncPreviewPath,
+} from './routes/gmail-sync-preview.mjs';
+import {
+  handleGmailCommsReviewWriteRoute,
+  isGmailCommsReviewWritePath,
+} from './routes/gmail-comms-review-write.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -24,6 +55,7 @@ const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
 const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
 const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
+const USCE_STUDENT_AUTH_AUDIENCE = 'usce_student';
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
 const IS_PRODUCTION = RUNTIME_ENV === 'production';
 
@@ -1710,13 +1742,13 @@ function authenticateApiRequest(request) {
   return readSessionFromRequest(request);
 }
 
-function requireAuthenticatedApiSession(request, response, session) {
+function requireAuthenticatedApiSession(request, response, session, authHeaders = buildCorsHeaders(request)) {
   if (CONFIG.authRequired && !session) {
     sendJson(response, 401, {
       error: 'authentication_required',
       message: 'MissionMed HQ requires a valid WordPress token exchange before protected routes can load.',
       login: getLoginHints(request),
-    });
+    }, authHeaders);
     return false;
   }
 
@@ -1724,7 +1756,7 @@ function requireAuthenticatedApiSession(request, response, session) {
     sendJson(response, 403, {
       error: 'csrf_validation_failed',
       message: 'Missing or invalid CSRF token.',
-    });
+    }, authHeaders);
     return false;
   }
 
@@ -1743,6 +1775,19 @@ const USCE_KNOWN_ROUTE_PATTERNS = [
   /^\/api\/usce\/offers\/[^/]+\/send$/u,
   /^\/api\/usce\/offers\/[^/]+\/revoke$/u,
   /^\/api\/usce\/offers\/[^/]+\/onboard$/u,
+  /^\/api\/usce\/admin\/public-intake-requests$/u,
+  /^\/api\/usce\/admin\/public-intake-requests\/controlled-test$/u,
+  /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/status$/u,
+  /^\/api\/usce\/admin\/public-intake-requests\/[^/]+\/admin-note$/u,
+  /^\/api\/usce\/admin\/intake-requests\/[^/]+\/offer-draft$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/message-preview$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/send$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/comms$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/payment$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/paperwork$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/learndash$/u,
+  /^\/api\/usce\/admin\/offers\/[^/]+\/token$/u,
   /^\/api\/usce\/programs$/u,
   /^\/api\/usce\/programs\/[^/]+$/u,
   /^\/api\/usce\/portal\/[^/]+$/u,
@@ -1778,6 +1823,14 @@ function requireUsceUserSession(request, response, session, authHeaders) {
       error: 'authentication_required',
       message: 'USCE routes require an authenticated HQ session.',
       login: getLoginHints(request),
+    }, authHeaders);
+    return false;
+  }
+
+  if (CONFIG.authRequired && !isAuthorizedWordPressUser(normalizeWordPressIdentityUser(session.user || {}))) {
+    sendJson(response, 403, {
+      error: 'hq_role_required',
+      message: 'This Railway session is valid for learner auth bootstrap but is not authorized for protected USCE APIs.',
     }, authHeaders);
     return false;
   }
@@ -1845,6 +1898,63 @@ async function handleUsceRoute(request, response, url, context) {
     return true;
   }
 
+  if (isUsceAdminOfferPath(pathname)) {
+    return handleUsceAdminOfferRoute(request, response, url, { session, authHeaders });
+  }
+
+  if (isUsceAdminPublicIntakeListPath(pathname)) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    sendRoutePayload(response, await getUscePublicIntakeAdminList(url.searchParams), authHeaders);
+    return true;
+  }
+
+  if (isUsceAdminPublicIntakeControlledTestPath(pathname)) {
+    if (request.method !== 'POST') {
+      sendMethodNotAllowed(response, ['POST']);
+      return true;
+    }
+
+    const payload = await readJsonBody(request);
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      sendJson(response, 400, {
+        error: 'invalid_json',
+        message: 'USCE controlled intake test creation requires a JSON object payload.',
+      }, authHeaders);
+      return true;
+    }
+
+    sendRoutePayload(response, await createUscePublicIntakeAdminControlledTest(request, payload), authHeaders);
+    return true;
+  }
+
+  const adminPublicIntakeAction = getUsceAdminPublicIntakeAction(pathname);
+  if (adminPublicIntakeAction) {
+    if (request.method !== 'PATCH') {
+      sendMethodNotAllowed(response, ['PATCH']);
+      return true;
+    }
+
+    const payload = await readJsonBody(request);
+    if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
+      sendJson(response, 400, {
+        error: 'invalid_json',
+        message: 'USCE admin action requires a JSON object payload.',
+      }, authHeaders);
+      return true;
+    }
+
+    const result = adminPublicIntakeAction.action === 'status'
+      ? await updateUscePublicIntakeAdminStatus(adminPublicIntakeAction.requestId, payload)
+      : await updateUscePublicIntakeAdminNote(adminPublicIntakeAction.requestId, payload);
+
+    sendRoutePayload(response, result, authHeaders);
+    return true;
+  }
+
   if (pathname.startsWith('/api/usce/portal/')) {
     sendJson(response, 404, {
       error: 'portal_offer_not_found',
@@ -1881,6 +1991,20 @@ async function handleApiRoute(request, response, url, context) {
       timestamp: new Date().toISOString(),
     });
     return;
+  }
+
+  if (pathname.startsWith('/api/usce/public/')) {
+    const handled = await handleUscePublicRoute(request, response, url);
+    if (handled) {
+      return;
+    }
+  }
+
+  if (pathname.startsWith('/api/usce/offer/')) {
+    const handled = await handleUsceOfferPortalPublicRoute(request, response, url);
+    if (handled) {
+      return;
+    }
   }
 
   if (request.method === 'OPTIONS') {
@@ -2207,13 +2331,37 @@ async function handleApiRoute(request, response, url, context) {
   }
 
   if (pathname.startsWith('/api/usce/')) {
+    if (isUsceStudentStatusPath(pathname)) {
+      await handleUsceStudentStatusRoute(request, response, url, {
+        session,
+        authHeaders,
+        login: getLoginHints(request, USCE_STUDENT_AUTH_AUDIENCE),
+      });
+      return;
+    }
+
     const handled = await handleUsceRoute(request, response, url, { session, authHeaders });
     if (handled) {
       return;
     }
   }
 
-  if (!requireAuthenticatedApiSession(request, response, session)) {
+  if (!requireAuthenticatedApiSession(request, response, session, authHeaders)) {
+    return;
+  }
+
+  if (isGmailMetadataProofPath(pathname)) {
+    await handleGmailMetadataProofRoute(request, response, url, { session, authHeaders });
+    return;
+  }
+
+  if (isGmailSyncPreviewPath(pathname)) {
+    await handleGmailSyncPreviewRoute(request, response, url, { session, authHeaders });
+    return;
+  }
+
+  if (isGmailCommsReviewWritePath(pathname)) {
+    await handleGmailCommsReviewWriteRoute(request, response, url, { session, authHeaders });
     return;
   }
 
