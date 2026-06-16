@@ -2,6 +2,33 @@
 
 ---
 
+## 2026-06-16 | MM-MR-HOMEPAGE-CLEANUP-001B | Mission Residency Homepage Cleanup Source-Controlled Implementation
+
+**Prompt ID:** MM-MR-HOMEPAGE-CLEANUP-001B
+**Tool:** Codex
+**Task:** Proceed with the confirmed worktree/branch and complete the MM-MR-HOMEPAGE-CLEANUP-001B implementation from the existing MM-MR-HOMEPAGE-CLEANUP-001 handoff.
+
+**Files Modified / Created:**
+- `wp-content/mu-plugins/missionmed-mr-homepage-cleanup.php`
+- `_AI_HANDOFFS/from_codex/MM-MR-HOMEPAGE-CLEANUP-001B_IMPLEMENTATION_REPORT.md`
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md`
+
+**Result:**
+- Added a guarded MU-plugin that runs only on the Mission Residency homepage (`/mission-residency/`, Elementor post ID `5686`).
+- Converted the prior manual WPCode JS/CSS handoff into a deployable source-controlled implementation.
+- Covered hero rewrite, hero box removal, CTA changes, copy rewrites, Program Director sentence removal, red-flag quote/data cleanup, cost section compression, MatchFirst wording fix, Dr. Brian bio rewrite, bottom cost-section removal, and bottom CTA repair.
+- Preserved rollback by isolating all behavior in one removable MU-plugin file.
+
+**Verification:**
+- PHP lint passed for `wp-content/mu-plugins/missionmed-mr-homepage-cleanup.php`.
+- Extracted inline JavaScript passed `node --check`.
+- Output-buffer simulation against a live source snapshot injected both CSS and JS markers.
+- Live pre-check confirmed the old cleanup targets were still present before implementation.
+
+**Status:** CODE READY
+
+---
+
 ## 2026-04-27 | MMOS-DASHBOARD-OS-01-VISION | Full Product Vision Enhancement Report
 
 **Prompt ID:** (Z)-MMOS-DASHBOARD-claude-ultra-901B  
