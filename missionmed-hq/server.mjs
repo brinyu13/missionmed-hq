@@ -22,6 +22,8 @@ const ENV_FILE = path.join(__dirname, '.env');
 const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
+const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
+const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
 const IS_PRODUCTION = RUNTIME_ENV === 'production';
 
@@ -911,6 +913,26 @@ function resolveAuthSessionFinalRedirect(rawFinal = '', request = null) {
   }
 }
 
+function withAuthSessionHandoffFragment(finalRedirect = '', handoffToken = '') {
+  const base = String(finalRedirect || '').trim();
+  const token = String(handoffToken || '').trim();
+  if (!base || !token) {
+    return base;
+  }
+
+  try {
+    const target = new URL(base);
+    const hash = String(target.hash || '').replace(/^#/u, '');
+    const params = new URLSearchParams(hash);
+    params.set('mmhq_handoff_token', token);
+    const nextHash = params.toString();
+    target.hash = nextHash ? `#${nextHash}` : '';
+    return target.toString();
+  } catch {
+    return base;
+  }
+}
+
 function isLocalhostHostname(hostname = '') {
   return LOCALHOST_HOSTNAMES.has(String(hostname || '').trim().toLowerCase());
 }
@@ -1046,6 +1068,37 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
   }
 
   return target.toString();
+}
+
+function resolveExactCdnTarget(rawTarget = '', fallback = '') {
+  const candidate = String(rawTarget || '').trim() || fallback;
+
+  try {
+    const target = new URL(candidate, fallback);
+    const allowed = new URL(fallback);
+    if (target.origin !== allowed.origin || target.pathname !== allowed.pathname) {
+      return fallback;
+    }
+    target.hash = '';
+    return target.toString();
+  } catch {
+    return fallback;
+  }
+}
+
+function resolveUsceAdminAuthTarget(rawTarget = '') {
+  return resolveExactCdnTarget(rawTarget, USCE_ADMIN_CDN_URL);
+}
+
+function buildUsceAdminAuthRelayUrl(request = null, target = '') {
+  const hqBase = getHqBaseForRequest(request);
+  if (!hqBase) {
+    return '';
+  }
+
+  const relay = new URL(USCE_ADMIN_AUTH_RELAY_PATH, hqBase);
+  relay.searchParams.set('target', resolveUsceAdminAuthTarget(target));
+  return relay.toString();
 }
 
 function getLoginHints(request = null) {
@@ -1743,6 +1796,36 @@ function requireUsceUserSession(request, response, session, authHeaders) {
 async function handleUsceRoute(request, response, url, context) {
   const { pathname } = url;
   const { session, authHeaders } = context;
+
+  if (pathname === USCE_ADMIN_AUTH_RELAY_PATH) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    const relayTarget = resolveUsceAdminAuthTarget(url.searchParams.get('target'));
+    const handoffToken = String(url.searchParams.get('token') || '').trim();
+
+    if (!handoffToken) {
+      const relayReturnTo = buildUsceAdminAuthRelayUrl(request, relayTarget);
+      const redirectUrl = buildWordPressAuthRedirectUrl(relayReturnTo);
+
+      if (!redirectUrl) {
+        sendJson(response, 503, {
+          error: 'wordpress_login_not_configured',
+          message: 'WordPress login redirect is not configured yet. Set MMHQ_WP_BASE.',
+          login: getLoginHints(request),
+        }, authHeaders);
+        return true;
+      }
+
+      sendRedirect(response, redirectUrl);
+      return true;
+    }
+
+    sendRedirect(response, withAuthSessionHandoffFragment(relayTarget, handoffToken));
+    return true;
+  }
 
   if (!isKnownUsceRoute(pathname)) {
     return false;
