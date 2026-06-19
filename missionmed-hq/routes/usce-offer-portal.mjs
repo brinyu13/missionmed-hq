@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 const OFFER_TABLE = 'command_center.usce_offer_drafts';
 const PAYMENT_URL = 'https://missionmedinstitute.com/product/usce-clinical-rotations/';
 const OFFER_PAGE_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html';
+const DECLINE_CONFIRMATION_URL = 'https://missionmed-hq-production.up.railway.app/usce-decline-confirm';
 const TRACKER_PAGE_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_status_tracker.html';
 const ACCOUNT_URL = 'https://missionmedinstitute.com/my-account/';
 const MAX_BODY_BYTES = 16 * 1024;
@@ -44,8 +45,10 @@ const POSTMARK_LIVE_SEND_FLAGS = ['USCE_POSTMARK_LIVE_SEND_ENABLED', 'MM_USCE_PO
 const POSTMARK_TOKEN_FLAGS = ['POSTMARK_SERVER_TOKEN', 'USCE_POSTMARK_SERVER_TOKEN', 'MMHQ_POSTMARK_SERVER_TOKEN'];
 const POSTMARK_FROM_FLAGS = ['USCE_POSTMARK_FROM_EMAIL', 'POSTMARK_FROM_EMAIL', 'MMHQ_POSTMARK_FROM_EMAIL'];
 const POSTMARK_REPLY_TO_FLAGS = ['USCE_POSTMARK_REPLY_TO_EMAIL', 'POSTMARK_REPLY_TO_EMAIL', 'MMHQ_POSTMARK_REPLY_TO_EMAIL'];
+const USCE_ENROLLMENT_URL_FLAGS = ['USCE_WOOCOMMERCE_ENROLLMENT_URL', 'USCE_ENROLLMENT_URL', 'MM_USCE_ENROLLMENT_URL'];
+const USCE_DECLINE_CONFIRMATION_URL_FLAGS = ['USCE_DECLINE_CONFIRMATION_URL', 'MM_USCE_DECLINE_CONFIRMATION_URL'];
 const POSTMARK_API_URL = 'https://api.postmarkapp.com/email';
-const POSTMARK_FROM_NAME = 'MMI Clinical Rotations';
+const POSTMARK_FROM_NAME = 'MissionMed Clinicals';
 const DEFAULT_POSTMARK_FROM = 'clinicals@missionmedinstitute.com';
 const DEFAULT_POSTMARK_REPLY_TO = 'clinicals@missionmedinstitute.com';
 const POSTMARK_MAX_ATTEMPTS = 3;
@@ -55,9 +58,29 @@ const STUDENT_ACTIONS = new Map([
   ['accepted', 'accept'],
   ['decline', 'decline'],
   ['declined', 'decline'],
+  ['decline_pending', 'decline_pending'],
+  ['offer_decline_pending', 'decline_pending'],
+  ['confirm_decline_notify_future', 'decline_notify_future'],
+  ['decline_notify_future', 'decline_notify_future'],
+  ['declined_notify_future', 'decline_notify_future'],
+  ['offer_declined_notify_future', 'decline_notify_future'],
+  ['confirm_decline_no_notify', 'decline_no_notify'],
+  ['decline_no_notify', 'decline_no_notify'],
+  ['declined_no_notify', 'decline_no_notify'],
+  ['offer_declined_no_notify', 'decline_no_notify'],
   ['request_alternate', 'request_alternate'],
   ['alternate_requested', 'request_alternate'],
 ]);
+export const USCE_OFFER_FLOW_STATUSES = Object.freeze({
+  DRAFT: 'DRAFT',
+  SENT: 'SENT',
+  OFFER_SENT: 'OFFER_SENT',
+  OFFER_ACCEPTED: 'OFFER_ACCEPTED',
+  OFFER_DECLINE_PENDING: 'OFFER_DECLINE_PENDING',
+  OFFER_DECLINED_NOTIFY_FUTURE: 'OFFER_DECLINED_NOTIFY_FUTURE',
+  OFFER_DECLINED_NO_NOTIFY: 'OFFER_DECLINED_NO_NOTIFY',
+  EXPIRED: 'EXPIRED',
+});
 const ALLOWED_ORIGINS = new Set([
   'https://missionmedinstitute.com',
   'https://www.missionmedinstitute.com',
@@ -117,6 +140,15 @@ export async function handleUsceOfferPortalPublicRoute(request, response, url) {
     return true;
   }
 
+  if (route.action === 'decline_pending') {
+    if (request.method !== 'GET' && request.method !== 'POST') {
+      sendMethodNotAllowed(response, ['GET', 'POST', 'OPTIONS'], corsHeaders);
+      return true;
+    }
+    sendRoutePayload(response, await submitStudentOfferDeclinePending(route.token, request), corsHeaders);
+    return true;
+  }
+
   if (request.method !== 'POST') {
     sendMethodNotAllowed(response, ['POST', 'OPTIONS'], corsHeaders);
     return true;
@@ -130,6 +162,11 @@ export async function handleUsceOfferPortalPublicRoute(request, response, url) {
       error: error?.code === 'body_too_large' ? 'payload_too_large' : 'invalid_json',
       message: 'Offer response payload could not be accepted.',
     }, corsHeaders);
+    return true;
+  }
+
+  if (route.action === 'confirm_decline') {
+    sendRoutePayload(response, await submitStudentOfferDeclineConfirmation(route.token, payload, request), corsHeaders);
     return true;
   }
 
@@ -226,8 +263,37 @@ export function isSafeOfferToken(value) {
   return token.length >= 32 && token.length <= 256 && /^[A-Za-z0-9_-]+$/u.test(token);
 }
 
-export function buildPaymentHandoffForAction(action) {
-  return normalizeStudentResponseAction(action) === 'accept' ? buildPaymentUrl() : null;
+export function buildPaymentHandoffForAction(action, context = {}) {
+  return normalizeStudentResponseAction(action) === 'accept' ? buildPaymentUrl(context) : null;
+}
+
+export function normalizeOfferLifecycleStatus(value) {
+  const status = sanitizeText(value, 80).toUpperCase();
+  if (!status) return 'NEW';
+  if (status === 'SENT') return USCE_OFFER_FLOW_STATUSES.OFFER_SENT;
+  if (status === 'ACCEPTED' || status === 'PAID') return USCE_OFFER_FLOW_STATUSES.OFFER_ACCEPTED;
+  if (status === 'DECLINED') return USCE_OFFER_FLOW_STATUSES.OFFER_DECLINED_NO_NOTIFY;
+  if (Object.values(USCE_OFFER_FLOW_STATUSES).includes(status)) return status;
+  if (status.includes('DECLINE_PENDING')) return USCE_OFFER_FLOW_STATUSES.OFFER_DECLINE_PENDING;
+  if (status.includes('DECLINED_NOTIFY')) return USCE_OFFER_FLOW_STATUSES.OFFER_DECLINED_NOTIFY_FUTURE;
+  if (status.includes('DECLINED_NO')) return USCE_OFFER_FLOW_STATUSES.OFFER_DECLINED_NO_NOTIFY;
+  if (status.includes('ACCEPT') || status.includes('PAID')) return USCE_OFFER_FLOW_STATUSES.OFFER_ACCEPTED;
+  if (status.includes('OFFER') || status.includes('APPROV') || status.includes('REMIND') || status.includes('PENDING_PAYMENT')) {
+    return USCE_OFFER_FLOW_STATUSES.OFFER_SENT;
+  }
+  return status;
+}
+
+export function isOfferStatusVisibleInAdmin(value) {
+  return Object.values(USCE_OFFER_FLOW_STATUSES).includes(normalizeOfferLifecycleStatus(value));
+}
+
+export function buildOfferActionUrls({ offerId, rawToken, offerUrl, paymentUrl, declineUrl } = {}) {
+  const token = rawToken || extractOfferToken(offerUrl);
+  return {
+    accept_url: buildPaymentUrl({ offerId, token, baseUrl: paymentUrl }),
+    decline_url: buildDeclineConfirmationUrl({ offerId, token, baseUrl: declineUrl }),
+  };
 }
 
 async function readAdminJsonPayload(request, response, headers, allowEmpty = false) {
@@ -347,15 +413,27 @@ async function saveAdminMessagePreview(offerId, payload, session) {
   const message = normalizeOfferMessagePayload(payload);
   if (!message.ok) return message;
 
-  return callOfferRpc({
+  const renderedMessage = buildOfferEmailPresentation({ offerId, message: message.data });
+  const result = await callOfferRpc({
     rpcName: ADMIN_MESSAGE_PREVIEW_RPC,
     body: {
       p_offer_id: offerId,
-      p_message: message.data,
+      p_message: {
+        ...message.data,
+        subject: renderedMessage.subject || message.data.subject,
+        rendered_email: publicRenderedEmailPayload(renderedMessage),
+      },
       p_admin_identity: buildAdminIdentity(session),
     },
     action: 'offer_message_preview',
   });
+
+  if (!result?.ok) return result;
+
+  return {
+    ...result,
+    rendered_email: publicRenderedEmailPayload(renderedMessage),
+  };
 }
 
 async function sendAdminOfferMessage(offerId, payload, session, request) {
@@ -422,7 +500,7 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
     fromEmail: postmarkConfig.fromEmail,
     replyTo: postmarkConfig.replyTo,
     toEmail: message.data.to_email,
-    subject: message.data.subject,
+    subject: renderedMessage.subject || message.data.subject,
     body: renderedMessage.textBody,
     htmlBody: renderedMessage.htmlBody,
   });
@@ -433,7 +511,12 @@ async function sendAdminOfferMessage(offerId, payload, session, request) {
 
   return recordOfferSend({
     offerId,
-    message: { ...message.data, from_email: postmarkConfig.fromEmail },
+    message: {
+      ...message.data,
+      subject: renderedMessage.subject || message.data.subject,
+      from_email: postmarkConfig.fromEmail,
+      rendered_email: publicRenderedEmailPayload(renderedMessage),
+    },
     mode: 'live',
     idempotencyKey,
     postmarkMessageId: liveResult.message_id,
@@ -525,6 +608,51 @@ async function submitStudentOfferResponse(rawToken, payload, request) {
       },
     },
     action: 'student_offer_response',
+    publicRequest: true,
+  });
+}
+
+async function submitStudentOfferDeclinePending(rawToken, request) {
+  return callOfferRpc({
+    rpcName: STUDENT_RESPOND_RPC,
+    body: {
+      p_token_hash: hashOfferToken(rawToken),
+      p_action: 'decline_pending',
+      p_note: null,
+      p_consent: false,
+      p_metadata: {
+        source: 'usce_offer_decline_confirmation',
+        stage: 'pending',
+        user_agent_hash: hashForLog(request.headers['user-agent'] || ''),
+        ip_hash: hashForLog(getClientIp(request)),
+      },
+    },
+    action: 'student_offer_decline_pending',
+    publicRequest: true,
+  });
+}
+
+async function submitStudentOfferDeclineConfirmation(rawToken, payload, request) {
+  const preference = normalizeDeclineNotifyPreference(payload);
+  if (!preference.ok) return preference;
+
+  const note = sanitizeText(payload?.note ?? payload?.student_response_note, MAX_NOTE_LENGTH);
+  return callOfferRpc({
+    rpcName: STUDENT_RESPOND_RPC,
+    body: {
+      p_token_hash: hashOfferToken(rawToken),
+      p_action: preference.action,
+      p_note: note || null,
+      p_consent: true,
+      p_metadata: {
+        source: 'usce_offer_decline_confirmation',
+        stage: 'confirmed',
+        notify_future_rotations: preference.notifyFutureRotations,
+        user_agent_hash: hashForLog(request.headers['user-agent'] || ''),
+        ip_hash: hashForLog(getClientIp(request)),
+      },
+    },
+    action: 'student_offer_decline_confirmed',
     publicRequest: true,
   });
 }
@@ -625,6 +753,20 @@ function normalizeOperationsPatch(action, payload) {
 
   if (note) data.note = note;
   return { ok: true, data };
+}
+
+function normalizeDeclineNotifyPreference(payload) {
+  const raw = payload?.notify_future_rotations ?? payload?.notifyFutureRotations ?? payload?.future_rotations;
+  if (raw === true || raw === 'true' || raw === 'yes' || raw === 'notify') {
+    return { ok: true, notifyFutureRotations: true, action: 'decline_notify_future' };
+  }
+  if (raw === false || raw === 'false' || raw === 'no' || raw === 'do_not_notify') {
+    return { ok: true, notifyFutureRotations: false, action: 'decline_no_notify' };
+  }
+  return badRequest(
+    'decline_notify_preference_required',
+    'Choose whether MissionMed should notify you about future rotations before confirming the decline.',
+  );
 }
 
 function normalizeLimit(value, fallback, max) {
@@ -833,6 +975,16 @@ function getStudentOfferRoute(pathname) {
   let match = normalized.match(/^\/api\/usce\/offer\/([^/]+)$/u);
   if (match) {
     return { action: 'read', token: decodeToken(match[1]) };
+  }
+
+  match = normalized.match(/^\/api\/usce\/offer\/([^/]+)\/decline$/u);
+  if (match) {
+    return { action: 'decline_pending', token: decodeToken(match[1]) };
+  }
+
+  match = normalized.match(/^\/api\/usce\/offer\/([^/]+)\/decline\/confirm$/u);
+  if (match) {
+    return { action: 'confirm_decline', token: decodeToken(match[1]) };
   }
 
   match = normalized.match(/^\/api\/usce\/offer\/([^/]+)\/respond$/u);
@@ -1053,13 +1205,20 @@ function getPostmarkConfig() {
   return { ok: true, enabled, dryRun, liveSend, token, fromEmail, replyTo };
 }
 
-function buildOfferEmailPresentation({ offerId, message }) {
+export function buildOfferEmailPresentation({ offerId, message }) {
   const category = String(message?.category || 'offer_ready').toLowerCase();
   const body = String(message?.body || '');
   const offerUrl = extractUrl(body, 'usce_offer.html') || OFFER_PAGE_URL;
+  const rawToken = extractOfferToken(offerUrl);
+
+  if (category === 'offer_ready') {
+    return buildClinicalOfferEmail({ offerId, message, body, offerUrl, rawToken });
+  }
+
   const status = offerEmailStatus(category);
+  const actionContext = { offerId, rawToken, offerUrl };
   const actions = [
-    { label: status.primaryActionLabel, url: status.includePayment ? buildPaymentUrl() : offerUrl, primary: true },
+    { label: status.primaryActionLabel, url: status.includePayment ? buildPaymentUrl(actionContext) : offerUrl, primary: true },
     { label: 'Open tracker', url: TRACKER_PAGE_URL, primary: false },
     { label: 'Sign in', url: buildAccountUrl(TRACKER_PAGE_URL), primary: false },
   ];
@@ -1079,10 +1238,142 @@ function buildOfferEmailPresentation({ offerId, message }) {
     offerId,
     actions,
     stages,
-    primaryUrl: status.includePayment ? buildPaymentUrl() : offerUrl,
+    primaryUrl: status.includePayment ? buildPaymentUrl(actionContext) : offerUrl,
   });
 
-  return { textBody, htmlBody };
+  return { subject: message?.subject || offerEmailHeading(category), textBody, htmlBody };
+}
+
+function publicRenderedEmailPayload(renderedMessage) {
+  return {
+    subject: renderedMessage.subject || '',
+    textBody: renderedMessage.textBody || '',
+    htmlBody: renderedMessage.htmlBody || '',
+    accept_url: renderedMessage.accept_url || '',
+    decline_url: renderedMessage.decline_url || '',
+    template: renderedMessage.template || 'usce_offer_update',
+  };
+}
+
+function buildClinicalOfferEmail({ offerId, message, body, offerUrl, rawToken }) {
+  const details = extractOfferDetails(body);
+  const firstName = extractFirstName(body);
+  const coordinatorName = extractCoordinatorName(body) || 'MissionMed Clinicals';
+  const actions = buildOfferActionUrls({ offerId, rawToken, offerUrl });
+  const subject = 'Your Clinical Rotation Offer from MissionMed';
+  const detailRows = [
+    ['Program', details.program],
+    ['Specialty', details.specialty],
+    ['Location', details.location],
+    ['Dates / months offered', details.months],
+    ['Rotation length', details.length],
+    ['Proposed start', details.start],
+    ['End date', details.end],
+    ['Respond by', details.expires],
+  ].filter(([, value]) => value);
+  const detailText = detailRows.length
+    ? detailRows.map(([label, value]) => `${label}: ${value}`).join('\n')
+    : 'Offer reference: ' + (offerId || 'pending');
+  const detailHtml = detailRows.length
+    ? detailRows.map(([label, value]) => [
+      '<tr>',
+      `<td style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#627287;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;">${escapeHtml(label)}</td>`,
+      `<td align="right" style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#071627;font-size:14px;font-weight:800;">${escapeHtml(value)}</td>`,
+      '</tr>',
+    ].join('')).join('')
+    : `<tr><td style="padding:11px 0;color:#627287;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;">Offer reference</td><td align="right" style="padding:11px 0;color:#071627;font-size:14px;font-weight:800;">${escapeHtml(offerId || 'pending')}</td></tr>`;
+
+  const greeting = firstName ? `Hi ${firstName},` : 'Hi,';
+  const stages = ['Request', 'Review', 'Match', 'Offer', 'Enroll'];
+  const textBody = [
+    subject,
+    '',
+    greeting,
+    '',
+    'MissionMed Clinicals has a rotation offer ready for your review.',
+    '',
+    'Offer summary',
+    detailText,
+    '',
+    'Accept This Offer:',
+    actions.accept_url,
+    '',
+    'Decline This Offer:',
+    actions.decline_url,
+    '',
+    'If you decline, the slot may be released to other students in the queue. You will choose whether you want future rotation notifications before the decline is finalized.',
+    '',
+    'Spots are not guaranteed until enrollment is confirmed.',
+    '',
+    coordinatorName,
+    'MissionMed Clinicals',
+  ].join('\n');
+
+  const trackerLabels = stages.map((stage) => `<td align="center" style="padding:0 3px 7px;color:#ffffff;font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">${escapeHtml(stage)}</td>`).join('');
+  const trackerSegments = stages.map((stage, index) => {
+    const done = index < 3;
+    const active = index === 3;
+    const background = done ? '#32bf72' : active ? '#f3cf61' : '#8d9ba6';
+    const color = active ? '#071627' : '#ffffff';
+    const radius = index === 0 ? '999px 0 0 999px' : index === stages.length - 1 ? '0 999px 999px 0' : '0';
+    return `<td width="20%" align="center" style="padding:0;"><div style="min-height:46px;line-height:46px;background:${background};border-right:2px solid #6f8291;border-radius:${radius};color:${color};font-size:21px;font-weight:900;">${index + 1}</div></td>`;
+  }).join('');
+
+  const htmlBody = [
+    '<!doctype html><html><body style="margin:0;padding:0;background:#071627;">',
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Your MissionMed Clinicals offer is ready for review.</div>',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071627;font-family:Poppins,Arial,Helvetica,sans-serif;color:#ffffff;"><tr><td align="center" style="padding:22px 14px;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;border-collapse:collapse;">',
+    '<tr><td style="padding:16px 18px;background:#051524;border:1px solid rgba(255,255,255,.16);border-bottom:0;border-radius:10px 10px 0 0;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
+    '<td width="58" valign="middle"><div style="width:42px;height:42px;border-radius:50%;background:#f3cf61;color:#071627;text-align:center;line-height:42px;font-family:Georgia,serif;font-size:18px;font-weight:900;">MM</div></td>',
+    '<td valign="middle"><div style="color:#ffffff;font-size:15px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">MissionMed</div><div style="color:#a9b9c8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;">Clinical rotations</div></td>',
+    '<td align="right" valign="middle"><div style="color:#f3cf61;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Offer ready</div></td>',
+    '</tr></table>',
+    '</td></tr>',
+    '<tr><td style="padding:30px 22px 24px;background:#0b4770;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
+    '<div style="display:inline-block;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:7px 12px;color:#f3cf61;background:rgba(255,255,255,.08);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">Clinical Rotation Offer</div>',
+    `<h1 style="margin:18px 0 12px;color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:1.05;font-weight:700;">${escapeHtml(subject)}</h1>`,
+    `<p style="margin:0;color:#d9e7f1;font-size:15px;line-height:1.65;">${escapeHtml(greeting)} MissionMed Clinicals has a rotation offer ready for your review. Accept to continue to enrollment or decline to release this option after confirmation.</p>`,
+    '</td></tr>',
+    '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:-8px;background:#0b78a8;border:1px solid rgba(255,255,255,.22);border-radius:12px;"><tr><td style="padding:16px;">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>' + trackerLabels + '</tr></table>',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:3px solid rgba(255,255,255,.72);border-radius:999px;overflow:hidden;background:#637689;"><tr>' + trackerSegments + '</tr></table>',
+    '<div style="margin:14px 0 0;text-align:center;color:#ffffff;font-size:14px;line-height:1.35;font-weight:900;text-transform:uppercase;">Offer - <span style="color:#f3cf61;">Waiting for your response</span></div>',
+    '</td></tr></table>',
+    '</td></tr>',
+    '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;border-top:6px solid #d9b85b;box-shadow:0 18px 48px rgba(0,0,0,.28);"><tr><td style="padding:20px;">',
+    '<div style="color:#071627;font-family:Georgia,serif;font-size:26px;line-height:1.15;font-weight:900;">Offer summary</div>',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:10px;border-collapse:collapse;">',
+    detailHtml,
+    '</table>',
+    '<p style="margin:16px 0 0;color:#627287;font-size:13px;line-height:1.6;">Spots are not guaranteed until enrollment is confirmed.</p>',
+    '</td></tr></table>',
+    '</td></tr>',
+    '<tr><td style="padding:0 22px 22px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;"><tr><td style="padding:20px;">',
+    '<div style="font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#071627;">Choose your response</div>',
+    '<p style="margin:8px 0 16px;color:#627287;font-size:13px;line-height:1.65;">Accepting opens the MissionMed enrollment page. Declining opens a confirmation page first, so your offer is not released until you confirm.</p>',
+    `<a href="${escapeHtml(actions.accept_url)}" data-mm-cta="accept-offer" style="display:inline-block;margin:0 10px 10px 0;padding:14px 18px;border-radius:999px;background:#f3cf61;border:1px solid #f3cf61;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Accept This Offer</a>`,
+    `<a href="${escapeHtml(actions.decline_url)}" data-mm-cta="decline-offer" style="display:inline-block;margin:0 0 10px 0;padding:14px 18px;border-radius:999px;background:#ffffff;border:1px solid #d7dee8;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Decline This Offer</a>`,
+    '</td></tr></table>',
+    '</td></tr>',
+    '<tr><td style="padding:0 22px 24px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);border-bottom:1px solid rgba(255,255,255,.16);border-radius:0 0 10px 10px;">',
+    '<p style="margin:0;color:rgba(255,255,255,.72);font-size:12px;line-height:1.65;">If you decline, this slot may be released to other students currently in the queue. Questions? Reply to this email and MissionMed Clinicals will help.</p>',
+    '</td></tr></table></td></tr></table></body></html>',
+  ].join('');
+
+  return {
+    subject,
+    textBody,
+    htmlBody,
+    accept_url: actions.accept_url,
+    decline_url: actions.decline_url,
+    original_subject: message?.subject || '',
+    template: 'usce_offer_ready_canonical_v1',
+  };
 }
 
 function buildOfferTrackerEmailHtml({
@@ -1201,11 +1492,35 @@ function offerEmailStatus(category) {
   return { eyebrow: 'Offer ready', preheader: 'Approve, decline, or request an alternate MissionMed Clinicals offer.', stageLabel: 'Offer sent', stageText: 'Waiting for your approval', activeIndex: 3, primaryActionLabel: 'Review offer', includePayment: false };
 }
 
-function buildPaymentUrl() {
-  const url = new URL(PAYMENT_URL);
+function buildPaymentUrl({ offerId, token, baseUrl } = {}) {
+  const url = new URL(resolveConfiguredUrl(baseUrl, USCE_ENROLLMENT_URL_FLAGS, PAYMENT_URL));
   url.searchParams.set('usce_offer_approved', '1');
   url.searchParams.set('secure_window', '48h');
+  if (isUuid(offerId)) url.searchParams.set('offer_id', offerId);
+  if (isSafeOfferToken(token)) url.searchParams.set('token', token);
   return url.toString();
+}
+
+function buildDeclineConfirmationUrl({ offerId, token, baseUrl } = {}) {
+  const url = new URL(resolveConfiguredUrl(baseUrl, USCE_DECLINE_CONFIRMATION_URL_FLAGS, DECLINE_CONFIRMATION_URL));
+  if (isUuid(offerId)) url.searchParams.set('offer_id', offerId);
+  if (isSafeOfferToken(token)) url.searchParams.set('token', token);
+  return url.toString();
+}
+
+function resolveConfiguredUrl(explicitUrl, envNames, fallbackUrl) {
+  const candidates = [explicitUrl, envValueAny(envNames, ''), fallbackUrl];
+  for (const candidate of candidates) {
+    const raw = String(candidate || '').trim();
+    if (!raw) continue;
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol === 'https:') return parsed.toString();
+    } catch {
+      // Try the next candidate.
+    }
+  }
+  return fallbackUrl;
 }
 
 function buildAccountUrl(target) {
@@ -1218,6 +1533,54 @@ function extractUrl(body, contains) {
   const candidates = String(body || '').match(/https?:\/\/[^\s<>"')]+/gu) || [];
   const found = candidates.find((url) => !contains || url.includes(contains));
   return found || candidates[0] || '';
+}
+
+function extractOfferToken(offerUrl) {
+  try {
+    const parsed = new URL(String(offerUrl || ''));
+    const token = parsed.searchParams.get('offer') || parsed.searchParams.get('token') || '';
+    return isSafeOfferToken(token) ? token : '';
+  } catch {
+    return '';
+  }
+}
+
+function extractFirstName(body) {
+  const match = String(body || '').match(/^\s*Hi\s+([A-Za-z][A-Za-z'-]{0,40})\b/iu);
+  return match ? sanitizeText(match[1], 42) : '';
+}
+
+function extractCoordinatorName(body) {
+  const lines = String(body || '').split(/\n/u).map((line) => line.trim()).filter(Boolean);
+  const teamIndex = lines.findIndex((line) => /MissionMed Clinicals Team/iu.test(line));
+  if (teamIndex > 0) return sanitizeText(lines[teamIndex - 1], 80);
+  return '';
+}
+
+function extractOfferDetails(body) {
+  const text = String(body || '');
+  const read = (...labels) => {
+    for (const label of labels) {
+      const pattern = new RegExp(`^\\s*${escapeRegExp(label)}\\s*:\\s*(.+)$`, 'imu');
+      const match = text.match(pattern);
+      if (match) return sanitizeText(match[1], 220);
+    }
+    return '';
+  };
+  return {
+    program: read('Program'),
+    specialty: read('Specialty'),
+    location: read('Location'),
+    length: read('Length', 'Duration', 'Rotation length'),
+    months: read('Month(s) offered', 'Months offered', 'Requested dates', 'Timing'),
+    start: read('Proposed start', 'Start date', 'Earliest start'),
+    end: read('End date'),
+    expires: read('Offer expires', 'Respond by', 'Expiration', 'Deadline'),
+  };
+}
+
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
 async function sendPostmarkEmailWithRetry(message) {

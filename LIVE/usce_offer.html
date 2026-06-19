@@ -550,6 +550,7 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
     offerTokenParam: 'offer',
     readEndpoint: '/api/usce/offer/:token',
     respondEndpoint: '/api/usce/offer/:token/respond',
+    declineConfirmUrl: 'https://missionmed-hq-production.up.railway.app/usce-decline-confirm',
     liveAdapterEnabled: true
   };
 
@@ -594,9 +595,9 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
 
   function bindEvents(){
     els.acceptBtn.addEventListener('click', function(){ showConfirmBar('accepted'); });
-    els.declineBtn.addEventListener('click', function(){ showConfirmBar('declined'); });
+    els.declineBtn.addEventListener('click', openDeclineConfirmation);
     els.acceptConfirmBtn.addEventListener('click', function(){ respond('accepted'); });
-    els.declineConfirmBtn.addEventListener('click', function(){ respond('declined'); });
+    els.declineConfirmBtn.addEventListener('click', openDeclineConfirmation);
     els.acceptCancelBtn.addEventListener('click', hideConfirmBars);
     els.declineCancelBtn.addEventListener('click', hideConfirmBars);
     els.alternateBtn.addEventListener('click', openAltForm);
@@ -667,7 +668,20 @@ h1{font-family:var(--serif);font-size:clamp(34px,5.2vw,62px);line-height:1;margi
   }
 
   function declineOffer(token, reason) {
-    return respondToOffer(token, 'decline', reason);
+    openDeclineConfirmation();
+    return Promise.resolve({ ok: true, action: 'decline_confirmation_opened' });
+  }
+
+  function buildDeclineConfirmationUrl() {
+    var url = new URL(CONFIG.declineConfirmUrl);
+    if (state.token) url.searchParams.set('token', state.token);
+    var offerId = state.offer && (state.offer.offer_id || state.offer.id || state.offer.reference);
+    if (offerId) url.searchParams.set('offer_id', String(offerId));
+    return url.toString();
+  }
+
+  function openDeclineConfirmation() {
+    window.location.href = buildDeclineConfirmationUrl();
   }
 
   function requestAlternate(token, payload) {

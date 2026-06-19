@@ -184,8 +184,13 @@
 .mm-cx .mm-status-new { background: rgba(201,162,75,0.18); color: #8c6d1f; }
 .mm-cx .mm-status-in_progress { background: rgba(31,69,106,0.14); color: var(--mm-navy-3); }
 .mm-cx .mm-status-offered { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
+.mm-cx .mm-status-offer_sent { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
 .mm-cx .mm-status-accepted { background: rgba(31,138,90,0.14); color: var(--mm-success); }
+.mm-cx .mm-status-offer_accepted { background: rgba(31,138,90,0.14); color: var(--mm-success); }
+.mm-cx .mm-status-offer_decline_pending { background: rgba(196,122,26,0.16); color: var(--mm-warn); }
 .mm-cx .mm-status-declined { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
+.mm-cx .mm-status-offer_declined_notify_future { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
+.mm-cx .mm-status-offer_declined_no_notify { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
 .mm-cx .mm-status-draft { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-expired { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-retained { background: rgba(201,162,75,0.18); color: #8c6d1f; }
@@ -270,8 +275,10 @@
 .mm-cx .mm-email { border: 1px solid var(--mm-line); border-radius: 12px; overflow: hidden; background: #fff; }
 .mm-cx .mm-email-head { padding: 12px 16px; border-bottom: 1px solid var(--mm-line); background: var(--mm-paper); font-size: 13px; color: var(--mm-navy); display: grid; grid-template-columns: 60px 1fr; gap: 4px 10px; }
 .mm-cx .mm-email-head span { color: var(--mm-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding-top: 2px; }
-.mm-cx .mm-email-body { padding: 16px; font-size: 14px; color: var(--mm-ink); white-space: pre-wrap; line-height: 1.6; min-height: 240px; outline: none; }
+.mm-cx .mm-email-body { padding: 0; font-size: 14px; color: var(--mm-ink); white-space: normal; line-height: 1.6; min-height: 420px; outline: none; background: #eef2f6; }
+.mm-cx .mm-email-body.is-source { padding: 16px; white-space: pre-wrap; min-height: 240px; background: #fff; }
 .mm-cx .mm-email-body[contenteditable="true"] { background: #fffbe9; border-top: 2px dashed var(--mm-gold); }
+.mm-cx .mm-email-preview-frame { width: 100%; min-height: 680px; border: 0; display: block; background: #fff; }
 .mm-cx .mm-email-subject { font-weight: 700; font-size: 15px; padding: 10px 16px; border-bottom: 1px solid var(--mm-line); color: var(--mm-navy); outline: none; }
 .mm-cx .mm-email-subject[contenteditable="true"] { background: #fffbe9; }
 
@@ -497,6 +504,11 @@
             <option value="NEW">New</option>
             <option value="IN_PROGRESS">In Progress</option>
             <option value="OFFERED">Offered</option>
+            <option value="OFFER_SENT">Offer Sent</option>
+            <option value="OFFER_ACCEPTED">Offer Accepted</option>
+            <option value="OFFER_DECLINE_PENDING">Decline Pending</option>
+            <option value="OFFER_DECLINED_NOTIFY_FUTURE">Declined - Notify Future</option>
+            <option value="OFFER_DECLINED_NO_NOTIFY">Declined - No Notify</option>
             <option value="ACCEPTED">Accepted</option>
             <option value="DECLINED">Declined</option>
             <option value="RETAINED">Retained</option>
@@ -834,7 +846,7 @@
     return d.toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
   }
   function slaLevel(r){
-    if (['ACCEPTED','DECLINED','RETAINED','OFFERED'].indexOf(r.status) > -1) return 'green';
+    if (['ACCEPTED','OFFER_ACCEPTED','DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY','RETAINED','OFFERED','OFFER_SENT','OFFER_DECLINE_PENDING'].indexOf(r.status) > -1) return 'green';
     const hrs = (Date.now() - r.submittedAt) / 3600000;
     if (hrs >= SLA_RED_HRS) return 'red';
     if (hrs >= SLA_AMBER_HRS) return 'amber';
@@ -844,6 +856,9 @@
     const wrap = $('#mmToasts');
     const t = document.createElement('div'); t.className='mm-toast'; t.textContent = msg; wrap.appendChild(t);
     setTimeout(()=>{ t.style.opacity='0'; t.style.transform='translateX(12px)'; t.style.transition='all .25s'; setTimeout(()=>t.remove(), 260); }, 2600);
+  }
+  function esc(value){
+    return String(value == null ? '' : value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
   }
 
   function setRuntimeStatus(primary, meta){
@@ -1047,12 +1062,29 @@
   /* =========================================================
      HQ DASHBOARD
      ========================================================= */
+  function statusLabel(value){
+    const labels = {
+      NEW: 'New',
+      IN_PROGRESS: 'In Progress',
+      OFFERED: 'Offered',
+      OFFER_SENT: 'Offer Sent',
+      OFFER_ACCEPTED: 'Offer Accepted',
+      OFFER_DECLINE_PENDING: 'Decline Pending',
+      OFFER_DECLINED_NOTIFY_FUTURE: 'Declined - Notify Future',
+      OFFER_DECLINED_NO_NOTIFY: 'Declined - No Notify',
+      ACCEPTED: 'Accepted',
+      DECLINED: 'Declined',
+      RETAINED: 'Retained'
+    };
+    return labels[value] || String(value || '').replace(/_/g, ' ');
+  }
+
   function refreshStats(){
-    const by = (s) => state.requests.filter(r => r.status === s).length;
+    const by = (...statuses) => state.requests.filter(r => statuses.indexOf(r.status) > -1).length;
     $('#st_new').textContent = by('NEW');
     $('#st_progress').textContent = by('IN_PROGRESS');
-    $('#st_offered').textContent = by('OFFERED');
-    $('#st_accepted').textContent = by('ACCEPTED');
+    $('#st_offered').textContent = by('OFFERED', 'OFFER_SENT', 'OFFER_DECLINE_PENDING');
+    $('#st_accepted').textContent = by('ACCEPTED', 'OFFER_ACCEPTED');
   }
 
   function filteredRequests(){
@@ -1065,7 +1097,7 @@
     if (state.sort === 'newest') list.sort((a,b)=>b.submittedAt-a.submittedAt);
     else if (state.sort === 'oldest') list.sort((a,b)=>a.submittedAt-b.submittedAt);
     else if (state.sort === 'urgent') list.sort((a,b)=>{
-      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','DECLINED','RETAINED','ACCEPTED'].indexOf(r.status);
+      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','OFFER_SENT','OFFER_DECLINE_PENDING','DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY','RETAINED','ACCEPTED','OFFER_ACCEPTED'].indexOf(r.status);
       const ra = rank(a), rb = rank(b);
       if (ra !== rb) return ra - rb;
       return a.submittedAt - b.submittedAt;
@@ -1076,11 +1108,13 @@
   function normalizeLiveStatus(raw){
     const s = String(raw || '').trim().toUpperCase();
     if (!s) return 'NEW';
-    if (s.indexOf('ACCEPT') > -1 || s === 'PAID') return 'ACCEPTED';
-    if (s.indexOf('DECLIN') > -1 || s.indexOf('REVOK') > -1) return 'DECLINED';
+    if (s === 'ACCEPTED' || s === 'OFFER_ACCEPTED' || s === 'PAID') return 'OFFER_ACCEPTED';
+    if (s.indexOf('DECLINE_PENDING') > -1) return 'OFFER_DECLINE_PENDING';
+    if (s.indexOf('DECLINED_NOTIFY') > -1) return 'OFFER_DECLINED_NOTIFY_FUTURE';
+    if (s.indexOf('DECLINED_NO') > -1 || s === 'DECLINED' || s.indexOf('REVOK') > -1) return 'OFFER_DECLINED_NO_NOTIFY';
     if (s.indexOf('RETAIN') > -1) return 'RETAINED';
     if (s.indexOf('IN_PROGRESS') > -1 || s.indexOf('CLAIM') > -1) return 'IN_PROGRESS';
-    if (s.indexOf('OFFER') > -1 || s.indexOf('SENT') > -1 || s.indexOf('APPROV') > -1 || s.indexOf('REMIND') > -1 || s.indexOf('PENDING_PAYMENT') > -1) return 'OFFERED';
+    if (s.indexOf('OFFER') > -1 || s.indexOf('SENT') > -1 || s.indexOf('APPROV') > -1 || s.indexOf('REMIND') > -1 || s.indexOf('PENDING_PAYMENT') > -1) return 'OFFER_SENT';
     return 'NEW';
   }
 
@@ -1184,7 +1218,7 @@
       item.innerHTML =
         '<div class="mm-req-item-top">' +
           '<span class="mm-req-name"><span class="mm-sla-dot mm-sla-'+sla+'" title="SLA: '+sla+'"></span><span class="mm-nm-txt"></span></span>' +
-          '<span class="mm-status-badge mm-status-' + r.status.toLowerCase() + '">' + r.status.replace('_',' ') + '</span>' +
+          '<span class="mm-status-badge mm-status-' + r.status.toLowerCase() + '">' + esc(statusLabel(r.status)) + '</span>' +
         '</div>' +
         '<div class="mm-req-meta"></div>' +
         '<div class="mm-req-time"><span></span><b></b></div>';
@@ -1227,7 +1261,7 @@
 
     const badge = $('#mmDetStatus');
     badge.className = 'mm-status-badge mm-status-' + r.status.toLowerCase();
-    badge.textContent = r.status.replace('_',' ');
+    badge.textContent = statusLabel(r.status);
 
     renderRankedList($('#mmDetSpecs'), r.specialties);
     renderRankedList($('#mmDetLocs'), r.locations);
@@ -1499,11 +1533,77 @@ COORDINATOR + '\n' +
     return { to: r.email, subject, body, approved: false };
   }
 
+  function buildLocalOfferEmailPreview(draft){
+    const offer = draft.offer || {};
+    const acceptUrl = buildOfferAcceptUrl(offer);
+    const declineUrl = buildOfferDeclineUrl(offer);
+    const rows = [
+      ['Program', offer.program],
+      ['Specialty', offer.specialty],
+      ['Location', offer.location],
+      ['Dates / months offered', Array.isArray(offer.months) ? offer.months.join(' or ') : ''],
+      ['Rotation length', offer.length],
+      ['Proposed start', offer.start ? new Date(offer.start).toLocaleDateString() : ''],
+      ['Respond by', offer.expiresAt ? fmtDateTime(offer.expiresAt) : '']
+    ].filter(row => row[1]);
+    const detailHtml = rows.map(row =>
+      '<tr><td style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#627287;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;">' + esc(row[0]) + '</td>' +
+      '<td align="right" style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#071627;font-size:14px;font-weight:800;">' + esc(row[1]) + '</td></tr>'
+    ).join('');
+    const htmlBody = [
+      '<!doctype html><html><body style="margin:0;padding:0;background:#071627;">',
+      '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071627;font-family:Poppins,Arial,Helvetica,sans-serif;color:#ffffff;"><tr><td align="center" style="padding:22px 14px;">',
+      '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;border-collapse:collapse;">',
+      '<tr><td style="padding:16px 18px;background:#051524;border:1px solid rgba(255,255,255,.16);border-bottom:0;border-radius:10px 10px 0 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
+      '<td width="58" valign="middle"><div style="width:42px;height:42px;border-radius:50%;background:#f3cf61;color:#071627;text-align:center;line-height:42px;font-family:Georgia,serif;font-size:18px;font-weight:900;">MM</div></td>',
+      '<td valign="middle"><div style="color:#ffffff;font-size:15px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">MissionMed</div><div style="color:#a9b9c8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;">Clinical rotations</div></td>',
+      '<td align="right" valign="middle"><div style="color:#f3cf61;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Offer ready</div></td>',
+      '</tr></table></td></tr>',
+      '<tr><td style="padding:30px 22px 24px;background:#0b4770;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
+      '<div style="display:inline-block;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:7px 12px;color:#f3cf61;background:rgba(255,255,255,.08);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">Clinical Rotation Offer</div>',
+      '<h1 style="margin:18px 0 12px;color:#ffffff;font-family:Georgia,serif;font-size:38px;line-height:1.05;font-weight:700;">Your Clinical Rotation Offer from MissionMed</h1>',
+      '<p style="margin:0;color:#d9e7f1;font-size:15px;line-height:1.65;">MissionMed Clinicals has a rotation offer ready for your review. Accept to continue to enrollment or decline to release this option after confirmation.</p>',
+      '</td></tr>',
+      '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:-8px;background:#0b78a8;border:1px solid rgba(255,255,255,.22);border-radius:12px;"><tr><td style="padding:16px;color:#ffffff;font-size:14px;font-weight:900;text-transform:uppercase;text-align:center;">USCE Tracker - Offer waiting for student response</td></tr></table></td></tr>',
+      '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;border-top:6px solid #d9b85b;"><tr><td style="padding:20px;"><div style="color:#071627;font-family:Georgia,serif;font-size:26px;line-height:1.15;font-weight:900;">Offer summary</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:10px;border-collapse:collapse;">',
+      detailHtml,
+      '</table><p style="margin:16px 0 0;color:#627287;font-size:13px;line-height:1.6;">Spots are not guaranteed until enrollment is confirmed.</p></td></tr></table></td></tr>',
+      '<tr><td style="padding:0 22px 22px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;"><tr><td style="padding:20px;"><div style="font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#071627;">Choose your response</div><p style="margin:8px 0 16px;color:#627287;font-size:13px;line-height:1.65;">Accepting opens the MissionMed enrollment page. Declining opens a confirmation page first.</p>',
+      '<a href="' + esc(acceptUrl) + '" data-mm-cta="accept-offer" style="display:inline-block;margin:0 10px 10px 0;padding:14px 18px;border-radius:999px;background:#f3cf61;border:1px solid #f3cf61;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Accept This Offer</a>',
+      '<a href="' + esc(declineUrl) + '" data-mm-cta="decline-offer" style="display:inline-block;margin:0 0 10px 0;padding:14px 18px;border-radius:999px;background:#ffffff;border:1px solid #d7dee8;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Decline This Offer</a>',
+      '</td></tr></table></td></tr></table></td></tr></table></body></html>'
+    ].join('');
+    return {
+      subject: 'Your Clinical Rotation Offer from MissionMed',
+      textBody: draft.body + '\n\nAccept This Offer:\n' + acceptUrl + '\n\nDecline This Offer:\n' + declineUrl,
+      htmlBody,
+      accept_url: acceptUrl,
+      decline_url: declineUrl,
+      template: 'usce_offer_preview_local'
+    };
+  }
+
+  function buildOfferAcceptUrl(offer){
+    const url = new URL('https://missionmedinstitute.com/product/usce-clinical-rotations/');
+    url.searchParams.set('usce_offer_approved', '1');
+    url.searchParams.set('secure_window', '48h');
+    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
+    return url.toString();
+  }
+
+  function buildOfferDeclineUrl(offer){
+    const url = new URL('https://missionmed-hq-production.up.railway.app/usce-decline-confirm');
+    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
+    return url.toString();
+  }
+
   function renderEmailModal(){
     const d = state.draftEmail;
+    const rendered = buildLocalOfferEmailPreview(d);
+    d.renderedEmail = rendered;
     $('#emTo').textContent = d.to;
-    $('#emSubject').textContent = d.subject;
-    $('#emBody').textContent = d.body;
+    $('#emSubject').textContent = rendered.subject || d.subject;
+    renderEmailHtmlPreview(rendered.htmlBody);
     $('#emSubject').setAttribute('contenteditable', 'false');
     $('#emBody').setAttribute('contenteditable', 'false');
     const bar = $('#mmApproveBar');
@@ -1512,12 +1612,30 @@ COORDINATOR + '\n' +
     $('#mmEmailSend').disabled = !d.approved;
     $('#mmEmailEdit').textContent = 'Edit';
   }
+  function renderEmailHtmlPreview(htmlBody){
+    const body = $('#emBody');
+    body.classList.remove('is-source');
+    body.innerHTML = '';
+    const frame = document.createElement('iframe');
+    frame.className = 'mm-email-preview-frame';
+    frame.title = 'Rendered student offer email preview';
+    frame.setAttribute('sandbox', '');
+    frame.srcdoc = htmlBody || '';
+    body.appendChild(frame);
+  }
+  function renderEmailSourceEditor(){
+    const body = $('#emBody');
+    body.classList.add('is-source');
+    body.innerHTML = '';
+    body.textContent = state.draftEmail.body;
+    body.setAttribute('contenteditable','true');
+    $('#emSubject').setAttribute('contenteditable','true');
+    body.focus();
+  }
   function editOfferEmail(){
     const editing = $('#emBody').getAttribute('contenteditable') === 'true';
     if (!editing) {
-      $('#emBody').setAttribute('contenteditable','true');
-      $('#emSubject').setAttribute('contenteditable','true');
-      $('#emBody').focus();
+      renderEmailSourceEditor();
       $('#mmEmailEdit').textContent = 'Done editing';
       state.draftEmail.approved = false;
       $('#mmApproveBar').classList.remove('is-approved');
@@ -1527,9 +1645,7 @@ COORDINATOR + '\n' +
     } else {
       state.draftEmail.subject = $('#emSubject').textContent.trim();
       state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
+      renderEmailModal();
       toast('Edits captured');
     }
   }
@@ -1539,9 +1655,7 @@ COORDINATOR + '\n' +
     if ($('#emBody').getAttribute('contenteditable') === 'true') {
       state.draftEmail.subject = $('#emSubject').textContent.trim();
       state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
+      renderEmailModal();
     }
     state.draftEmail.approved = true;
     $('#mmApproveBar').classList.add('is-approved');
@@ -1554,7 +1668,7 @@ COORDINATOR + '\n' +
   function sendOfferEmail(){
     if (!state.draftEmail || !state.draftEmail.approved) { toast('Approve first'); return; }
     const offer = state.draftEmail.offer;
-    offer.status = 'SENT';
+    offer.status = 'OFFER_SENT';
     offer.subject = state.draftEmail.subject;
     offer.body = state.draftEmail.body;
     offer.sentAt = Date.now();
@@ -1563,10 +1677,10 @@ COORDINATOR + '\n' +
     const r = state.requests.find(x => x.id === offer.requestId);
     r.offerId = offer.id;
     const prev = r.status;
-    r.status = 'OFFERED';
-    pushAudit(r, prev, 'OFFERED', 'Offer sent by ' + COORDINATOR);
+    r.status = 'OFFER_SENT';
+    pushAudit(r, prev, 'OFFER_SENT', 'Offer sent by ' + COORDINATOR);
     r.comms.push({ dir:'out', kind:'Offer email sent', at: Date.now(), subject: offer.subject, body: offer.body });
-    r.offerHistory.push({ id: offer.id, status: 'SENT', at: Date.now() });
+    r.offerHistory.push({ id: offer.id, status: 'OFFER_SENT', at: Date.now() });
     state.currentOfferId = offer.id;
     closeModal();
     renderRequestList();
@@ -1606,7 +1720,7 @@ COORDINATOR + '\n' +
   function viewOffer(){
     let offer = null;
     if (state.currentOfferId) offer = state.offers.find(o => o.id === state.currentOfferId);
-    if (!offer) offer = state.offers.find(o => o.status === 'SENT') || state.offers[0];
+    if (!offer) offer = state.offers.find(o => ['SENT','OFFER_SENT','OFFER_DECLINE_PENDING'].indexOf(String(o.status || '').toUpperCase()) > -1) || state.offers[0];
     return offer;
   }
 
@@ -1618,8 +1732,10 @@ COORDINATOR + '\n' +
       wrap.querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
       return;
     }
-    if (offer.status === 'ACCEPTED') return renderAccepted(offer);
-    if (offer.status === 'DECLINED') return renderDeclined(offer);
+    const status = String(offer.status || '').toUpperCase();
+    if (['ACCEPTED','OFFER_ACCEPTED'].indexOf(status) > -1) return renderAccepted(offer);
+    if (status === 'OFFER_DECLINE_PENDING') return renderDeclinePending(offer);
+    if (['DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY'].indexOf(status) > -1) return renderDeclined(offer);
 
     const instructions = offer.instructions ? offer.instructions : 'A coordinator will follow up with orientation details after acceptance.';
     wrap.innerHTML =
@@ -1628,7 +1744,7 @@ COORDINATOR + '\n' +
           '<span class="mm-eyebrow">Clinical Rotation Offer</span>' +
           '<h2 id="pOfferTitle"></h2>' +
           '<small style="color:var(--mm-muted);">Offer ' + offer.id + ' \u00B7 For ' + offer.student.name + '</small>' +
-        '</div><span class="mm-status-badge mm-status-offered">SENT</span></div>' +
+        '</div><span class="mm-status-badge mm-status-' + esc((offer.status || 'OFFER_SENT').toLowerCase()) + '">' + esc(statusLabel(offer.status || 'OFFER_SENT')) + '</span></div>' +
         '<div class="mm-offer-fields">' +
           '<div class="mm-offer-field"><small>Program</small><b id="pProgram"></b></div>' +
           '<div class="mm-offer-field"><small>Specialty</small><b id="pSpec"></b></div>' +
@@ -1695,11 +1811,11 @@ COORDINATOR + '\n' +
 
   function acceptOffer(id){
     const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'ACCEPTED';
+    offer.status = 'OFFER_ACCEPTED';
     const r = state.requests.find(x => x.id === offer.requestId);
     if (r) {
-      const prev = r.status; r.status = 'ACCEPTED';
-      pushAudit(r, prev, 'ACCEPTED', 'Student accepted');
+      const prev = r.status; r.status = 'OFFER_ACCEPTED';
+      pushAudit(r, prev, 'OFFER_ACCEPTED', 'Student accepted');
       r.comms.push({ dir:'in', kind:'Student accepted', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' accepted the offer for ' + offer.specialty + ' in ' + offer.location + '.' });
     }
     toast('Offer accepted'); renderAccepted(offer);
@@ -1722,14 +1838,23 @@ COORDINATOR + '\n' +
 
   function declineOffer(id){
     const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'DECLINED';
+    offer.status = 'OFFER_DECLINE_PENDING';
     const r = state.requests.find(x => x.id === offer.requestId);
     if (r) {
-      const prev = r.status; r.status = 'DECLINED';
-      pushAudit(r, prev, 'DECLINED', 'Student declined');
-      r.comms.push({ dir:'in', kind:'Student declined', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' declined the offer.' });
+      const prev = r.status; r.status = 'OFFER_DECLINE_PENDING';
+      pushAudit(r, prev, 'OFFER_DECLINE_PENDING', 'Student opened decline confirmation');
+      r.comms.push({ dir:'in', kind:'Decline confirmation opened', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' opened the decline confirmation step. Final notify preference is still required.' });
     }
-    toast('Offer declined'); renderDeclined(offer);
+    toast('Decline confirmation pending'); renderDeclinePending(offer);
+  }
+  function renderDeclinePending(offer){
+    $('#mmPortalWrap').innerHTML =
+      '<div class="mm-success-card"><div class="mm-empty-ring">!</div>' +
+      '<h2>Decline confirmation pending.</h2>' +
+      '<p><b>' + offer.specialty + '</b> \u00B7 ' + offer.location + ' \u00B7 ' + (offer.months||[]).join(' or ') + ' (' + offer.length + ')</p>' +
+      '<p style="margin-top:-6px;">This demo state mirrors the live flow: a decline is not final until the student confirms whether they want future rotation notifications.</p>' +
+      '<div style="margin-top: 16px;"><button type="button" class="mm-btn mm-btn-dark" data-goto="hq">Return to HQ (demo)</button></div></div>';
+    $('#mmPortalWrap').querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
   }
   function renderDeclined(offer){
     const wrap = $('#mmPortalWrap');

@@ -3132,7 +3132,11 @@ async function serveStatic(response, pathname) {
   // SPA routing: all known frontend routes serve index.html so the client-side
   // router can handle them. This prevents 404s when navigating directly to
   // /studio, /media-engine, etc.
-  const requestedPath = isSpaRoute(pathname) ? '/index.html' : pathname;
+  const staticPathAliases = new Map([
+    ['/usce-decline-confirm', '/usce-decline-confirm.html'],
+    ['/usce-decline-confirm/', '/usce-decline-confirm.html'],
+  ]);
+  const requestedPath = staticPathAliases.get(pathname) || (isSpaRoute(pathname) ? '/index.html' : pathname);
   const absolutePath = path.normalize(path.join(PUBLIC_DIR, requestedPath));
 
   if (!absolutePath.startsWith(PUBLIC_DIR)) {

@@ -191,8 +191,13 @@
 .mm-cx .mm-status-new { background: rgba(201,162,75,0.18); color: #8c6d1f; }
 .mm-cx .mm-status-in_progress { background: rgba(31,69,106,0.14); color: var(--mm-navy-3); }
 .mm-cx .mm-status-offered { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
+.mm-cx .mm-status-offer_sent { background: rgba(31,69,106,0.12); color: var(--mm-navy); }
 .mm-cx .mm-status-accepted { background: rgba(31,138,90,0.14); color: var(--mm-success); }
+.mm-cx .mm-status-offer_accepted { background: rgba(31,138,90,0.14); color: var(--mm-success); }
+.mm-cx .mm-status-offer_decline_pending { background: rgba(196,122,26,0.16); color: var(--mm-warn); }
 .mm-cx .mm-status-declined { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
+.mm-cx .mm-status-offer_declined_notify_future { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
+.mm-cx .mm-status-offer_declined_no_notify { background: rgba(178,58,58,0.12); color: var(--mm-danger); }
 .mm-cx .mm-status-draft { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-expired { background: rgba(94,107,122,0.14); color: var(--mm-muted); }
 .mm-cx .mm-status-retained { background: rgba(201,162,75,0.18); color: #8c6d1f; }
@@ -282,8 +287,10 @@
 .mm-cx .mm-email { border: 1px solid var(--mm-line); border-radius: 12px; overflow: hidden; background: #fff; }
 .mm-cx .mm-email-head { padding: 12px 16px; border-bottom: 1px solid var(--mm-line); background: var(--mm-paper); font-size: 13px; color: var(--mm-navy); display: grid; grid-template-columns: 60px 1fr; gap: 4px 10px; }
 .mm-cx .mm-email-head span { color: var(--mm-muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding-top: 2px; }
-.mm-cx .mm-email-body { padding: 16px; font-size: 14px; color: var(--mm-ink); white-space: pre-wrap; line-height: 1.6; min-height: 240px; outline: none; }
+.mm-cx .mm-email-body { padding: 0; font-size: 14px; color: var(--mm-ink); white-space: normal; line-height: 1.6; min-height: 420px; outline: none; background: #eef2f6; }
+.mm-cx .mm-email-body.is-source { padding: 16px; white-space: pre-wrap; min-height: 240px; background: #fff; }
 .mm-cx .mm-email-body[contenteditable="true"] { background: #fffbe9; border-top: 2px dashed var(--mm-gold); }
+.mm-cx .mm-email-preview-frame { width: 100%; min-height: 680px; border: 0; display: block; background: #fff; }
 .mm-cx .mm-email-subject { font-weight: 700; font-size: 15px; padding: 10px 16px; border-bottom: 1px solid var(--mm-line); color: var(--mm-navy); outline: none; }
 .mm-cx .mm-email-subject[contenteditable="true"] { background: #fffbe9; }
 
@@ -524,6 +531,11 @@
             <option value="NEW">New</option>
             <option value="IN_PROGRESS">In Progress</option>
             <option value="OFFERED">Offered</option>
+            <option value="OFFER_SENT">Offer Sent</option>
+            <option value="OFFER_ACCEPTED">Offer Accepted</option>
+            <option value="OFFER_DECLINE_PENDING">Decline Pending</option>
+            <option value="OFFER_DECLINED_NOTIFY_FUTURE">Declined - Notify Future</option>
+            <option value="OFFER_DECLINED_NO_NOTIFY">Declined - No Notify</option>
             <option value="ACCEPTED">Accepted</option>
             <option value="DECLINED">Declined</option>
             <option value="RETAINED">Retained</option>
@@ -768,7 +780,7 @@
       <div class="mm-modal-head">
         <div>
           <h3 id="mmModalTitle">Offer Email - Preview</h3>
-          <small style="color:var(--mm-muted); font-size: 12px;">Review. Edit. Approve. Log dry-run until live send is enabled.</small>
+          <small style="color:var(--mm-muted); font-size: 12px;">Review, edit, approve, and send the student offer email.</small>
         </div>
         <button type="button" class="mm-modal-close" id="mmModalClose" aria-label="Close">&times;</button>
       </div>
@@ -783,7 +795,7 @@
         </div>
         <div class="mm-approve-bar" id="mmApproveBar" style="margin-top: 14px;">
           <span class="mm-check"></span>
-          <span id="mmApproveText">Approve final version before dry-run logging</span>
+          <span id="mmApproveText">Approve final version before sending</span>
         </div>
       </div>
       <div class="mm-modal-foot">
@@ -791,7 +803,7 @@
         <div style="display:flex; gap:10px; flex-wrap: wrap;">
           <button type="button" class="mm-btn mm-btn-ghost" id="mmEmailEdit">Edit</button>
           <button type="button" class="mm-btn mm-btn-dark" id="mmEmailApprove">Approve</button>
-          <button type="button" class="mm-btn mm-btn-success" id="mmEmailSend" disabled>Log Dry-Run Offer</button>
+          <button type="button" class="mm-btn mm-btn-success" id="mmEmailSend" disabled>Send Offer Email</button>
         </div>
       </div>
     </div>
@@ -867,6 +879,11 @@
     NEW: 'new',
     IN_PROGRESS: 'in_progress',
     OFFERED: 'offer_ready',
+    OFFER_SENT: 'offer_ready',
+    OFFER_ACCEPTED: 'accepted',
+    OFFER_DECLINE_PENDING: 'decline_pending',
+    OFFER_DECLINED_NOTIFY_FUTURE: 'declined_notify_future',
+    OFFER_DECLINED_NO_NOTIFY: 'declined_no_notify',
     ACCEPTED: 'offer_ready',
     DECLINED: 'archived',
     RETAINED: 'reviewed',
@@ -877,7 +894,20 @@
     new: 'NEW',
     reviewed: 'IN_PROGRESS',
     in_progress: 'IN_PROGRESS',
-    offer_ready: 'OFFERED',
+    offer_ready: 'OFFER_SENT',
+    offered: 'OFFER_SENT',
+    sent: 'OFFER_SENT',
+    offer_sent: 'OFFER_SENT',
+    accepted: 'OFFER_ACCEPTED',
+    offer_accepted: 'OFFER_ACCEPTED',
+    paid: 'OFFER_ACCEPTED',
+    decline_pending: 'OFFER_DECLINE_PENDING',
+    offer_decline_pending: 'OFFER_DECLINE_PENDING',
+    declined_notify_future: 'OFFER_DECLINED_NOTIFY_FUTURE',
+    offer_declined_notify_future: 'OFFER_DECLINED_NOTIFY_FUTURE',
+    declined_no_notify: 'OFFER_DECLINED_NO_NOTIFY',
+    offer_declined_no_notify: 'OFFER_DECLINED_NO_NOTIFY',
+    declined: 'OFFER_DECLINED_NO_NOTIFY',
     archived: 'ARCHIVED'
   };
 
@@ -887,6 +917,11 @@
     { value: "NEW", label: "New" },
     { value: "IN_PROGRESS", label: "In progress" },
     { value: "OFFERED", label: "Offered" },
+    { value: "OFFER_SENT", label: "Offer sent" },
+    { value: "OFFER_ACCEPTED", label: "Offer accepted" },
+    { value: "OFFER_DECLINE_PENDING", label: "Decline pending" },
+    { value: "OFFER_DECLINED_NOTIFY_FUTURE", label: "Declined - notify future" },
+    { value: "OFFER_DECLINED_NO_NOTIFY", label: "Declined - no notify" },
     { value: "ACCEPTED", label: "Accepted" },
     { value: "DECLINED", label: "Declined" },
     { value: "RETAINED", label: "Retained" },
@@ -989,7 +1024,7 @@
     return d.toLocaleDateString([], { month:'short', day:'numeric', year:'numeric' }) + ' at ' + d.toLocaleTimeString([], { hour:'numeric', minute:'2-digit' });
   }
   function slaLevel(r){
-    if (['ACCEPTED','DECLINED','RETAINED','OFFERED','ARCHIVED'].indexOf(r.status) > -1) return 'green';
+    if (['ACCEPTED','OFFER_ACCEPTED','DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY','RETAINED','OFFERED','OFFER_SENT','OFFER_DECLINE_PENDING','ARCHIVED'].indexOf(r.status) > -1) return 'green';
     const hrs = (Date.now() - r.submittedAt) / 3600000;
     if (hrs >= SLA_RED_HRS) return 'red';
     if (hrs >= SLA_AMBER_HRS) return 'amber';
@@ -1461,11 +1496,11 @@
   }
 
   function refreshStats(){
-    const by = (s) => state.requests.filter(r => r.status === s).length;
+    const by = (...statuses) => state.requests.filter(r => statuses.indexOf(r.status) > -1).length;
     $('#st_new').textContent = by('NEW');
     $('#st_progress').textContent = by('IN_PROGRESS');
-    $('#st_offered').textContent = by('OFFERED');
-    $('#st_accepted').textContent = by('ACCEPTED');
+    $('#st_offered').textContent = by('OFFERED', 'OFFER_SENT', 'OFFER_DECLINE_PENDING');
+    $('#st_accepted').textContent = by('ACCEPTED', 'OFFER_ACCEPTED');
   }
 
   function filteredRequests(){
@@ -1479,7 +1514,7 @@
     if (state.sort === 'newest') list.sort((a,b)=>b.submittedAt-a.submittedAt);
     else if (state.sort === 'oldest') list.sort((a,b)=>a.submittedAt-b.submittedAt);
     else if (state.sort === 'urgent') list.sort((a,b)=>{
-      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','DECLINED','RETAINED','ACCEPTED','ARCHIVED'].indexOf(r.status);
+      const rank = (r)=> ['NEW','IN_PROGRESS','OFFERED','OFFER_SENT','OFFER_DECLINE_PENDING','DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY','RETAINED','ACCEPTED','OFFER_ACCEPTED','ARCHIVED'].indexOf(r.status);
       const ra = rank(a), rb = rank(b);
       if (ra !== rb) return ra - rb;
       return a.submittedAt - b.submittedAt;
@@ -1626,6 +1661,10 @@
     let studentState = 'Request received';
     const status = String(r.status || 'NEW').toUpperCase();
     const offerStatus = String(offer && offer.status || '').toUpperCase();
+    const sentStates = ['OFFERED','OFFER_SENT'];
+    const acceptedStates = ['ACCEPTED','OFFER_ACCEPTED'];
+    const declinePendingStates = ['OFFER_DECLINE_PENDING'];
+    const declinedStates = ['DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY'];
     const submittedAt = Number(r.submittedAt || 0);
     const oneHourReviewStarted = submittedAt > 0 && Date.now() - submittedAt >= 60 * 60 * 1000;
 
@@ -1641,24 +1680,32 @@
       adminDetail = offer.portalUrl ? 'Preview or log the message so the student has the secure offer link.' : 'Generate the student link, then preview/log the offer message.';
       studentState = 'Availability confirmed';
     }
-    if (offer && (offer.portalUrl || offer.hasToken || ['READY','SENT','VIEWED'].includes(offerStatus) || status === 'OFFERED')) {
+    if (offer && (offer.portalUrl || offer.hasToken || ['READY','SENT','VIEWED','OFFER_SENT','OFFER_DECLINE_PENDING'].includes(offerStatus) || sentStates.includes(status) || declinePendingStates.includes(status))) {
       index = 3;
       waitingOn = 'Student';
       adminAction = 'Watch decision';
       adminDetail = 'Monitor comms, Gmail metadata, and whether the student accepts, declines, or requests an alternate.';
       studentState = 'Offer sent, waiting approval';
     }
-    if (status === 'ACCEPTED' || offerStatus === 'ACCEPTED') {
+    if (acceptedStates.includes(status) || acceptedStates.includes(offerStatus)) {
       index = 4;
       waitingOn = 'Student';
       adminAction = 'Confirm tuition and lock rotation';
       adminDetail = 'Tuition handoff is now appropriate. Do not create an order manually from this tracker.';
       studentState = 'Tuition / rotation securing';
-    } else if (status === 'DECLINED' || offerStatus === 'DECLINED') {
+    } else if (declinePendingStates.includes(status) || declinePendingStates.includes(offerStatus)) {
+      index = 3;
+      waitingOn = 'Student';
+      adminAction = 'Await final decline confirmation';
+      adminDetail = 'The student opened the decline confirmation step. The offer should not be treated as released until the final preference is recorded.';
+      studentState = 'Decline confirmation pending';
+    } else if (declinedStates.includes(status) || declinedStates.includes(offerStatus)) {
       index = 3;
       waitingOn = 'Complete';
       adminAction = 'Close or restart';
-      adminDetail = 'No tuition CTA should appear. Prepare a new request only if the student asks.';
+      adminDetail = status === 'OFFER_DECLINED_NOTIFY_FUTURE' || offerStatus === 'OFFER_DECLINED_NOTIFY_FUTURE'
+        ? 'Student declined this offer and wants future rotation notifications.'
+        : 'Student declined this offer and does not want future rotation notifications.';
       studentState = 'Declined safely';
     } else if (status === 'RETAINED' || offerStatus === 'ALTERNATE_REQUESTED') {
       index = 2;
@@ -1703,7 +1750,7 @@
       summary: 'Same five-segment student tracker, with admin-only next-action context.',
       stages: stages.map((stage, idx) => {
         let state = idx < index ? 'complete' : idx === index ? 'active' : 'waiting';
-        if ((status === 'DECLINED' || offerStatus === 'DECLINED') && idx === 3) state = 'issue';
+        if ((declinedStates.includes(status) || declinedStates.includes(offerStatus)) && idx === 3) state = 'issue';
         if (offer && ['ready','enabled'].includes(offer.learndashStatus) && idx <= 4) state = 'complete';
         return { ...stage, state };
       })
@@ -2161,13 +2208,19 @@
     const offer = readOfferForm(); if (!offer) return;
     try {
       const liveOffer = state.adapter === 'live' ? await persistLiveOfferDraft(offer) : persistLocalOfferDraft(offer);
+      if (state.adapter === 'live' && liveOffer && liveOffer.id) {
+        await ensureLiveOfferPortalUrl(liveOffer);
+      }
       const previewOffer = liveOffer ? { ...offer, id: liveOffer.id, requestId: offer.requestId, portalUrl: liveOffer.portalUrl || offer.portalUrl || '' } : offer;
       state.draftEmail = buildDraftEmail(previewOffer);
       state.draftEmail.offer = previewOffer;
       if (state.adapter === 'live' && liveOffer && liveOffer.id) {
-        await recordLiveMessagePreview(liveOffer.id, state.draftEmail);
+        const previewPayload = await recordLiveMessagePreview(liveOffer.id, state.draftEmail);
+        applyRenderedEmailPayload(state.draftEmail, previewPayload && previewPayload.rendered_email);
         await loadLiveComms(liveOffer.id, currentReq());
         setAdapterBanner('message preview logged through protected comms path. No live email was sent.', 'live');
+      } else {
+        applyRenderedEmailPayload(state.draftEmail, buildLocalOfferEmailPreview(state.draftEmail));
       }
       renderEmailModal();
       $('#mmModalScrim').classList.add('is-open');
@@ -2190,6 +2243,30 @@
         body: draft.body
       }
     });
+  }
+
+  async function ensureLiveOfferPortalUrl(liveOffer){
+    if (!liveOffer || !liveOffer.id || liveOffer.portalUrl) return liveOffer && liveOffer.portalUrl;
+    const tokenPayload = await mintLiveOfferToken(liveOffer.id);
+    if (tokenPayload && tokenPayload.offer_url) {
+      liveOffer.portalUrl = tokenPayload.offer_url;
+      state.lastOfferUrl = tokenPayload.offer_url;
+      state.liveOffersByRequest[liveOffer.requestId] = liveOffer;
+    }
+    return liveOffer.portalUrl || '';
+  }
+
+  function applyRenderedEmailPayload(draft, rendered){
+    if (!draft) return;
+    const payload = rendered && (rendered.htmlBody || rendered.html_body || rendered.html || rendered.textBody || rendered.text_body) ? rendered : buildLocalOfferEmailPreview(draft);
+    draft.renderedEmail = {
+      subject: payload.subject || draft.subject,
+      textBody: payload.textBody || payload.text_body || draft.body,
+      htmlBody: payload.htmlBody || payload.html_body || payload.html || '',
+      acceptUrl: payload.accept_url || payload.acceptUrl || '',
+      declineUrl: payload.decline_url || payload.declineUrl || '',
+      template: payload.template || 'usce_offer_preview'
+    };
   }
 
   async function loadLiveComms(offerId, r){
@@ -2234,7 +2311,7 @@
     const start = offer.start ? ('\nProposed start: ' + new Date(offer.start).toLocaleDateString()) : '';
     const subject = 'Your MissionMed Offer: ' + offer.specialty + ' in ' + offer.location;
     const instructions = offer.instructions ? ('\n\nNext steps:\n' + offer.instructions) : '';
-    const portalLine = offer.portalUrl ? '\nOffer link: ' + offer.portalUrl : '\nOffer link: Your coordinator will share your secure offer link after final review.';
+    const portalLine = offer.portalUrl ? '\nReview offer: ' + offer.portalUrl : '';
     const body =
 selectedMessageOpening(offer, first) +
 'Program: ' + offer.program + '\n' +
@@ -2253,37 +2330,134 @@ CONFIG.gmailMailboxes[0];
     return { to: r.email, subject, body, approved: false };
   }
 
+  function buildLocalOfferEmailPreview(draft){
+    const offer = draft.offer || {};
+    const acceptUrl = buildOfferAcceptUrl(offer);
+    const declineUrl = buildOfferDeclineUrl(offer);
+    const rows = [
+      ['Program', offer.program],
+      ['Specialty', offer.specialty],
+      ['Location', offer.location],
+      ['Dates / months offered', Array.isArray(offer.months) ? offer.months.join(' or ') : ''],
+      ['Rotation length', offer.length],
+      ['Proposed start', offer.start ? new Date(offer.start).toLocaleDateString() : ''],
+      ['Respond by', offer.expiresAt ? fmtDateTime(offer.expiresAt) : '']
+    ].filter(row => row[1]);
+    const detailHtml = rows.map(row =>
+      '<tr><td style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#627287;font-size:12px;font-weight:900;letter-spacing:.07em;text-transform:uppercase;">' + esc(row[0]) + '</td>' +
+      '<td align="right" style="padding:11px 0;border-bottom:1px solid #d7dee8;color:#071627;font-size:14px;font-weight:800;">' + esc(row[1]) + '</td></tr>'
+    ).join('');
+    const htmlBody = [
+      '<!doctype html><html><body style="margin:0;padding:0;background:#071627;">',
+      '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#071627;font-family:Poppins,Arial,Helvetica,sans-serif;color:#ffffff;"><tr><td align="center" style="padding:22px 14px;">',
+      '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:720px;border-collapse:collapse;">',
+      '<tr><td style="padding:16px 18px;background:#051524;border:1px solid rgba(255,255,255,.16);border-bottom:0;border-radius:10px 10px 0 0;"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>',
+      '<td width="58" valign="middle"><div style="width:42px;height:42px;border-radius:50%;background:#f3cf61;color:#071627;text-align:center;line-height:42px;font-family:Georgia,serif;font-size:18px;font-weight:900;">MM</div></td>',
+      '<td valign="middle"><div style="color:#ffffff;font-size:15px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">MissionMed</div><div style="color:#a9b9c8;font-size:11px;letter-spacing:.12em;text-transform:uppercase;">Clinical rotations</div></td>',
+      '<td align="right" valign="middle"><div style="color:#f3cf61;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;">Offer ready</div></td>',
+      '</tr></table></td></tr>',
+      '<tr><td style="padding:30px 22px 24px;background:#0b4770;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);">',
+      '<div style="display:inline-block;border:1px solid rgba(255,255,255,.28);border-radius:999px;padding:7px 12px;color:#f3cf61;background:rgba(255,255,255,.08);font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;">Clinical Rotation Offer</div>',
+      '<h1 style="margin:18px 0 12px;color:#ffffff;font-family:Georgia,serif;font-size:38px;line-height:1.05;font-weight:700;">Your Clinical Rotation Offer from MissionMed</h1>',
+      '<p style="margin:0;color:#d9e7f1;font-size:15px;line-height:1.65;">MissionMed Clinicals has a rotation offer ready for your review. Accept to continue to enrollment or decline to release this option after confirmation.</p>',
+      '</td></tr>',
+      '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:-8px;background:#0b78a8;border:1px solid rgba(255,255,255,.22);border-radius:12px;"><tr><td style="padding:16px;color:#ffffff;font-size:14px;font-weight:900;text-transform:uppercase;text-align:center;">USCE Tracker - Offer waiting for student response</td></tr></table></td></tr>',
+      '<tr><td style="padding:0 22px 18px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;border-top:6px solid #d9b85b;"><tr><td style="padding:20px;"><div style="color:#071627;font-family:Georgia,serif;font-size:26px;line-height:1.15;font-weight:900;">Offer summary</div><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:10px;border-collapse:collapse;">',
+      detailHtml,
+      '</table><p style="margin:16px 0 0;color:#627287;font-size:13px;line-height:1.6;">Spots are not guaranteed until enrollment is confirmed.</p></td></tr></table></td></tr>',
+      '<tr><td style="padding:0 22px 22px;background:#071627;border-left:1px solid rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.16);"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fffdf6;color:#071627;border-radius:8px;"><tr><td style="padding:20px;"><div style="font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#071627;">Choose your response</div><p style="margin:8px 0 16px;color:#627287;font-size:13px;line-height:1.65;">Accepting opens the MissionMed enrollment page. Declining opens a confirmation page first.</p>',
+      '<a href="' + esc(acceptUrl) + '" data-mm-cta="accept-offer" style="display:inline-block;margin:0 10px 10px 0;padding:14px 18px;border-radius:999px;background:#f3cf61;border:1px solid #f3cf61;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Accept This Offer</a>',
+      '<a href="' + esc(declineUrl) + '" data-mm-cta="decline-offer" style="display:inline-block;margin:0 0 10px 0;padding:14px 18px;border-radius:999px;background:#ffffff;border:1px solid #d7dee8;color:#071627;font-size:12px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;text-decoration:none;">Decline This Offer</a>',
+      '</td></tr></table></td></tr></table></td></tr></table></body></html>'
+    ].join('');
+    return {
+      subject: 'Your Clinical Rotation Offer from MissionMed',
+      textBody: draft.body + '\n\nAccept This Offer:\n' + acceptUrl + '\n\nDecline This Offer:\n' + declineUrl,
+      htmlBody,
+      accept_url: acceptUrl,
+      decline_url: declineUrl,
+      template: 'usce_offer_preview_local'
+    };
+  }
+
+  function buildOfferAcceptUrl(offer){
+    const url = new URL(CONFIG.paymentProductUrl);
+    url.searchParams.set('usce_offer_approved', '1');
+    url.searchParams.set('secure_window', '48h');
+    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
+    const token = offer && extractOfferTokenFromUrl(offer.portalUrl || '');
+    if (token) url.searchParams.set('token', token);
+    return url.toString();
+  }
+
+  function buildOfferDeclineUrl(offer){
+    const url = new URL('https://missionmed-hq-production.up.railway.app/usce-decline-confirm');
+    if (offer && offer.id) url.searchParams.set('offer_id', offer.id);
+    const token = offer && extractOfferTokenFromUrl(offer.portalUrl || '');
+    if (token) url.searchParams.set('token', token);
+    return url.toString();
+  }
+
+  function extractOfferTokenFromUrl(url){
+    try {
+      const parsed = new URL(String(url || ''));
+      return parsed.searchParams.get('offer') || parsed.searchParams.get('token') || '';
+    } catch (_error) {
+      return '';
+    }
+  }
+
   function renderEmailModal(){
     const d = state.draftEmail;
     $('#emTo').textContent = d.to;
-    $('#emSubject').textContent = d.subject;
-    $('#emBody').textContent = d.body;
+    $('#emSubject').textContent = (d.renderedEmail && d.renderedEmail.subject) || d.subject;
+    renderEmailHtmlPreview((d.renderedEmail && d.renderedEmail.htmlBody) || buildLocalOfferEmailPreview(d).htmlBody);
     $('#emSubject').setAttribute('contenteditable', 'false');
     $('#emBody').setAttribute('contenteditable', 'false');
     const bar = $('#mmApproveBar');
     bar.classList.toggle('is-approved', !!d.approved);
-    $('#mmApproveText').textContent = d.approved ? 'Approved - ready to log dry-run' : 'Approve final version before dry-run logging';
+    $('#mmApproveText').textContent = d.approved ? 'Approved - ready to send' : 'Approve final version before sending';
     $('#mmEmailSend').disabled = !d.approved;
     $('#mmEmailEdit').textContent = 'Edit';
   }
+
+  function renderEmailHtmlPreview(htmlBody){
+    const body = $('#emBody');
+    body.classList.remove('is-source');
+    body.innerHTML = '';
+    const frame = document.createElement('iframe');
+    frame.className = 'mm-email-preview-frame';
+    frame.title = 'Rendered student offer email preview';
+    frame.setAttribute('sandbox', '');
+    frame.srcdoc = htmlBody || '';
+    body.appendChild(frame);
+  }
+
+  function renderEmailSourceEditor(){
+    const body = $('#emBody');
+    body.classList.add('is-source');
+    body.innerHTML = '';
+    body.textContent = state.draftEmail.body;
+    body.setAttribute('contenteditable','true');
+    $('#emSubject').setAttribute('contenteditable','true');
+    body.focus();
+  }
+
   function editOfferEmail(){
     const editing = $('#emBody').getAttribute('contenteditable') === 'true';
     if (!editing) {
-      $('#emBody').setAttribute('contenteditable','true');
-      $('#emSubject').setAttribute('contenteditable','true');
-      $('#emBody').focus();
+      renderEmailSourceEditor();
       $('#mmEmailEdit').textContent = 'Done editing';
       state.draftEmail.approved = false;
       $('#mmApproveBar').classList.remove('is-approved');
-      $('#mmApproveText').textContent = 'Approve final version before dry-run logging';
+      $('#mmApproveText').textContent = 'Approve final version before sending';
       $('#mmEmailSend').disabled = true;
       toast('Editing enabled');
     } else {
       state.draftEmail.subject = $('#emSubject').textContent.trim();
       state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
+      applyRenderedEmailPayload(state.draftEmail, buildLocalOfferEmailPreview(state.draftEmail));
+      renderEmailModal();
       toast('Edits captured');
     }
   }
@@ -2293,13 +2467,12 @@ CONFIG.gmailMailboxes[0];
     if ($('#emBody').getAttribute('contenteditable') === 'true') {
       state.draftEmail.subject = $('#emSubject').textContent.trim();
       state.draftEmail.body = $('#emBody').textContent;
-      $('#emBody').setAttribute('contenteditable','false');
-      $('#emSubject').setAttribute('contenteditable','false');
-      $('#mmEmailEdit').textContent = 'Edit';
+      applyRenderedEmailPayload(state.draftEmail, buildLocalOfferEmailPreview(state.draftEmail));
+      renderEmailModal();
     }
     state.draftEmail.approved = true;
     $('#mmApproveBar').classList.add('is-approved');
-    $('#mmApproveText').textContent = 'Approved - ready to log dry-run';
+    $('#mmApproveText').textContent = 'Approved - ready to send';
     $('#mmEmailSend').disabled = false;
     toast('Offer email approved');
   }
@@ -2314,16 +2487,9 @@ CONFIG.gmailMailboxes[0];
         offer.body = state.draftEmail.body;
         const liveOffer = await persistLiveOfferDraft(offer);
         if (!liveOffer || !liveOffer.id) throw new Error('Offer draft id missing after save.');
-        if (!liveOffer.portalUrl) {
-          const tokenPayload = await mintLiveOfferToken(liveOffer.id);
-          if (tokenPayload && tokenPayload.offer_url) {
-            liveOffer.portalUrl = tokenPayload.offer_url;
-            state.lastOfferUrl = tokenPayload.offer_url;
-            state.liveOffersByRequest[liveOffer.requestId] = liveOffer;
-          }
-        }
+        await ensureLiveOfferPortalUrl(liveOffer);
         if (liveOffer.portalUrl && state.draftEmail.body.indexOf(liveOffer.portalUrl) === -1) {
-          state.draftEmail.body = state.draftEmail.body.replace('Offer link: Your coordinator will share your secure offer link after final review.', 'Offer link: ' + liveOffer.portalUrl);
+          state.draftEmail.body += '\nReview offer: ' + liveOffer.portalUrl;
           offer.body = state.draftEmail.body;
         }
         await recordLiveMessagePreview(liveOffer.id, state.draftEmail);
@@ -2335,26 +2501,26 @@ CONFIG.gmailMailboxes[0];
             to_email: state.draftEmail.to,
             subject: state.draftEmail.subject,
             body: state.draftEmail.body,
-            approve_live_send: false,
-            idempotency_key: 'cx-offer-328d-' + liveOffer.id + '-dry-run'
+            approve_live_send: true,
+            idempotency_key: 'cx-offer-live-send-' + liveOffer.id
           }
         });
-        liveOffer.status = 'SENT';
+        liveOffer.status = 'OFFER_SENT';
         const r = state.requests.find(x => x.id === liveOffer.requestId);
         if (r) {
           const prev = r.status;
-          r.status = 'OFFERED';
-          pushAudit(r, prev, 'OFFERED', 'Offer logged through dry-run comms path');
-          r.comms.push({ dir:'out', kind:'Offer dry-run logged', at: Date.now(), subject: state.draftEmail.subject, body:'Message preview and Postmark dry-run were logged. Student portal link generated separately; no live email was sent.' });
-          if (!r.offerHistory.some(h => h.id === liveOffer.id && h.status === 'SENT')) r.offerHistory.push({ id: liveOffer.id, status:'SENT_DRY_RUN', at: Date.now() });
+          r.status = 'OFFER_SENT';
+          pushAudit(r, prev, 'OFFER_SENT', 'Offer email sent through protected comms path');
+          r.comms.push({ dir:'out', kind:'Offer email sent', at: Date.now(), subject: state.draftEmail.subject, body:'Message preview was approved, student portal link was generated, and the offer email was sent through the protected sender.' });
+          if (!r.offerHistory.some(h => h.id === liveOffer.id && h.status === 'OFFER_SENT')) r.offerHistory.push({ id: liveOffer.id, status:'OFFER_SENT', at: Date.now() });
           await loadLiveComms(liveOffer.id, r);
         }
         state.currentOfferId = liveOffer.id;
         closeModal();
         renderRequestList();
         renderDetail();
-        setAdapterBanner('offer message dry-run logged and student link generated. Live email remains gated off.', 'live');
-        toast('Dry-run logged and link generated');
+        setAdapterBanner('offer email sent and student link generated.', 'live');
+        toast('Offer email sent');
         return;
       } catch (error) {
         setAdapterBanner('send/log blocked safely: ' + errorSummary(error), 'blocked');
@@ -2362,7 +2528,7 @@ CONFIG.gmailMailboxes[0];
         return;
       }
     }
-    offer.status = 'SENT';
+    offer.status = 'OFFER_SENT';
     offer.subject = state.draftEmail.subject;
     offer.body = state.draftEmail.body;
     offer.sentAt = Date.now();
@@ -2371,10 +2537,10 @@ CONFIG.gmailMailboxes[0];
     const r = state.requests.find(x => x.id === offer.requestId);
     r.offerId = offer.id;
     const prev = r.status;
-    r.status = 'OFFERED';
-    pushAudit(r, prev, 'OFFERED', 'Offer sent by ' + COORDINATOR);
+    r.status = 'OFFER_SENT';
+    pushAudit(r, prev, 'OFFER_SENT', 'Offer sent by ' + COORDINATOR);
     r.comms.push({ dir:'out', kind:'Offer email sent', at: Date.now(), subject: offer.subject, body: offer.body });
-    r.offerHistory.push({ id: offer.id, status: 'SENT', at: Date.now() });
+    r.offerHistory.push({ id: offer.id, status: 'OFFER_SENT', at: Date.now() });
     state.currentOfferId = offer.id;
     closeModal();
     renderRequestList();
@@ -2486,7 +2652,7 @@ CONFIG.gmailMailboxes[0];
   function viewOffer(){
     let offer = null;
     if (state.currentOfferId) offer = state.offers.find(o => o.id === state.currentOfferId);
-    if (!offer) offer = state.offers.find(o => o.status === 'SENT') || state.offers[0];
+    if (!offer) offer = state.offers.find(o => ['SENT','OFFER_SENT','OFFER_DECLINE_PENDING'].indexOf(String(o.status || '').toUpperCase()) > -1) || state.offers[0];
     return offer;
   }
 
@@ -2498,8 +2664,10 @@ CONFIG.gmailMailboxes[0];
       wrap.querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
       return;
     }
-    if (offer.status === 'ACCEPTED') return renderAccepted(offer);
-    if (offer.status === 'DECLINED') return renderDeclined(offer);
+    const status = String(offer.status || '').toUpperCase();
+    if (['ACCEPTED','OFFER_ACCEPTED'].indexOf(status) > -1) return renderAccepted(offer);
+    if (status === 'OFFER_DECLINE_PENDING') return renderDeclinePending(offer);
+    if (['DECLINED','OFFER_DECLINED_NOTIFY_FUTURE','OFFER_DECLINED_NO_NOTIFY'].indexOf(status) > -1) return renderDeclined(offer);
 
     const instructions = offer.instructions ? offer.instructions : 'A coordinator will follow up with orientation details after acceptance.';
     wrap.innerHTML =
@@ -2508,7 +2676,7 @@ CONFIG.gmailMailboxes[0];
           '<span class="mm-eyebrow">Clinical Rotation Offer</span>' +
           '<h2 id="pOfferTitle"></h2>' +
           '<small style="color:var(--mm-muted);">Offer ' + offer.id + ' \u00B7 For ' + offer.student.name + '</small>' +
-        '</div><span class="mm-status-badge mm-status-offered">SENT</span></div>' +
+        '</div><span class="mm-status-badge mm-status-' + esc((offer.status || 'OFFER_SENT').toLowerCase()) + '">' + esc(statusLabel(offer.status || 'OFFER_SENT')) + '</span></div>' +
         '<div class="mm-offer-fields">' +
           '<div class="mm-offer-field"><small>Program</small><b id="pProgram"></b></div>' +
           '<div class="mm-offer-field"><small>Specialty</small><b id="pSpec"></b></div>' +
@@ -2576,11 +2744,11 @@ CONFIG.gmailMailboxes[0];
 
   function acceptOffer(id){
     const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'ACCEPTED';
+    offer.status = 'OFFER_ACCEPTED';
     const r = state.requests.find(x => x.id === offer.requestId);
     if (r) {
-      const prev = r.status; r.status = 'ACCEPTED';
-      pushAudit(r, prev, 'ACCEPTED', 'Student accepted');
+      const prev = r.status; r.status = 'OFFER_ACCEPTED';
+      pushAudit(r, prev, 'OFFER_ACCEPTED', 'Student accepted');
       r.comms.push({ dir:'in', kind:'Student accepted', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' accepted the offer for ' + offer.specialty + ' in ' + offer.location + '.' });
     }
     toast('Offer accepted'); renderAccepted(offer);
@@ -2603,14 +2771,23 @@ CONFIG.gmailMailboxes[0];
 
   function declineOffer(id){
     const offer = state.offers.find(o => o.id === id); if (!offer) return;
-    offer.status = 'DECLINED';
+    offer.status = 'OFFER_DECLINE_PENDING';
     const r = state.requests.find(x => x.id === offer.requestId);
     if (r) {
-      const prev = r.status; r.status = 'DECLINED';
-      pushAudit(r, prev, 'DECLINED', 'Student declined');
-      r.comms.push({ dir:'in', kind:'Student declined', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' declined the offer.' });
+      const prev = r.status; r.status = 'OFFER_DECLINE_PENDING';
+      pushAudit(r, prev, 'OFFER_DECLINE_PENDING', 'Student opened decline confirmation');
+      r.comms.push({ dir:'in', kind:'Decline confirmation opened', at: Date.now(), subject:'Re: ' + (offer.subject || 'Your MissionMed Offer'), body: r.name + ' opened the decline confirmation step. Final notify preference is still required.' });
     }
-    toast('Offer declined'); renderDeclined(offer);
+    toast('Decline confirmation pending'); renderDeclinePending(offer);
+  }
+  function renderDeclinePending(offer){
+    $('#mmPortalWrap').innerHTML =
+      '<div class="mm-success-card"><div class="mm-empty-ring">!</div>' +
+      '<h2>Decline confirmation pending.</h2>' +
+      '<p><b>' + offer.specialty + '</b> \u00B7 ' + offer.location + ' \u00B7 ' + (offer.months||[]).join(' or ') + ' (' + offer.length + ')</p>' +
+      '<p style="margin-top:-6px;">This demo state mirrors the live flow: a decline is not final until the student confirms whether they want future rotation notifications.</p>' +
+      '<div style="margin-top: 16px;"><button type="button" class="mm-btn mm-btn-dark" data-goto="hq">Return to HQ (demo)</button></div></div>';
+    $('#mmPortalWrap').querySelector('[data-goto]').addEventListener('click', ()=> switchView('hq'));
   }
   function renderDeclined(offer){
     const wrap = $('#mmPortalWrap');
