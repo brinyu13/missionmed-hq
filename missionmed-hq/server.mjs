@@ -133,6 +133,8 @@ const CONFIG = {
   wpBearerToken: envValue('MMHQ_WP_BEARER_TOKEN', ''),
   wpAuthEndpoint: envValue('MMHQ_WP_AUTH_ENDPOINT', '/wp-json/missionmed-command-center/v1/auth/token/'),
   wpAllowedRoles: splitCsv(envValue('MMHQ_ALLOWED_WP_ROLES', 'administrator')),
+  mmcPrivateAllowedRoles: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_ROLES', 'administrator')),
+  mmcPrivateAllowedEmails: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_EMAILS', '')),
   stripeSecretKey: envValue('MMHQ_STRIPE_SECRET_KEY', ''),
   stripeConnectClientId: envValue('MMHQ_STRIPE_CONNECT_CLIENT_ID', ''),
   stripeConnectRedirectUri: sanitizeServiceUrl(envValue('MMHQ_STRIPE_CONNECT_REDIRECT_URI', '')),
@@ -2852,12 +2854,28 @@ function isMmcPrivatePath(pathname = '') {
   return normalized === MMC_PRIVATE_ROUTE_PREFIX || normalized.startsWith(`${MMC_PRIVATE_ROUTE_PREFIX}/`);
 }
 
+function isAuthorizedMmcPrivateUser(user = {}) {
+  const normalized = normalizeWordPressUser(user);
+  const roles = Array.isArray(normalized.roles) ? normalized.roles : [];
+  const email = String(normalized.email || '').trim().toLowerCase();
+
+  if (roles.some((role) => CONFIG.mmcPrivateAllowedRoles.includes(String(role).toLowerCase()))) {
+    return true;
+  }
+
+  if (email && CONFIG.mmcPrivateAllowedEmails.includes(email)) {
+    return true;
+  }
+
+  return Boolean(normalized.capabilities?.manage_options);
+}
+
 function isAuthorizedMmcPrivateSession(session = null) {
   if (!session?.user) {
     return false;
   }
 
-  return isAuthorizedWordPressUser(normalizeWordPressUser(session.user));
+  return isAuthorizedMmcPrivateUser(session.user);
 }
 
 function resolveMmcPrivateStaticPath(pathname = '') {

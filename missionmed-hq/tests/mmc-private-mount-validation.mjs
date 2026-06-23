@@ -26,16 +26,23 @@ for (const relativePath of requiredMountFiles) {
 
 for (const requiredServerPattern of [
   /const MMC_PRIVATE_ROUTE_PREFIX = '\/mmc-private';/u,
+  /MMHQ_MMC_PRIVATE_ALLOWED_WP_ROLES/u,
+  /MMHQ_MMC_PRIVATE_ALLOWED_WP_EMAILS/u,
   /function isMmcPrivatePath/u,
+  /function isAuthorizedMmcPrivateUser/u,
   /function isAuthorizedMmcPrivateSession/u,
   /function handleMmcPrivateMount/u,
   /readSessionFromRequest\(request\)/u,
-  /isAuthorizedWordPressUser\(normalizeWordPressUser\(session\.user\)\)/u,
+  /isAuthorizedMmcPrivateUser\(session\.user\)/u,
   /X-MissionMed-Private-Mount/u,
   /X-Robots-Tag/u,
 ]) {
   assert.match(serverSource, requiredServerPattern, `Missing private mount guard pattern: ${requiredServerPattern}`);
 }
+
+const privateSessionAuthSource = extractBetween(serverSource, 'function isAuthorizedMmcPrivateSession', 'function resolveMmcPrivateStaticPath');
+assert.doesNotMatch(privateSessionAuthSource, /isAuthorizedWordPressUser/u, 'MMC private route must not inherit the broad shared HQ role allowlist.');
+assert.match(privateSessionAuthSource, /isAuthorizedMmcPrivateUser\(session\.user\)/u, 'MMC private route must use its route-specific authorization predicate.');
 
 const privateRouteIndex = serverSource.indexOf('if (isMmcPrivatePath(pathname))');
 const apiRouteIndex = serverSource.indexOf("if (pathname.startsWith('/api/'))");
