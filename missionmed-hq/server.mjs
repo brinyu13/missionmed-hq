@@ -53,6 +53,8 @@ const ENV_FILE = path.join(__dirname, '.env');
 const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
+const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
+const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
 const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
 const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
 const USCE_STUDENT_AUTH_AUDIENCE = 'usce_student';
@@ -233,6 +235,11 @@ const server = http.createServer(async (request, response) => {
         sendRedirect(response, '/api/auth/start');
         return;
       }
+    }
+
+    if (isMmcPrivatePath(pathname)) {
+      await handleMmcPrivateMount(request, response, pathname);
+      return;
     }
 
     if (request.method === 'GET' && (
@@ -2020,7 +2027,12 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const hqBase = getHqBaseForRequest(request);
-    const hqEntryUrl = hqBase ? new URL('/api/auth/session', hqBase).toString() : '';
+    const hqEntry = hqBase ? new URL('/api/auth/session', hqBase) : null;
+    const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
+    if (hqEntry && finalRedirect) {
+      hqEntry.searchParams.set('final', finalRedirect);
+    }
+    const hqEntryUrl = hqEntry ? hqEntry.toString() : '';
     const redirectUrl = buildWordPressAuthRedirectUrl(hqEntryUrl);
 
     if (!redirectUrl) {
@@ -2834,6 +2846,58 @@ const SPA_FRONTEND_ROUTES = new Set([
   '/settings',
   '/hq',
 ]);
+
+function isMmcPrivatePath(pathname = '') {
+  const normalized = String(pathname || '/').replace(/\/+$/u, '') || '/';
+  return normalized === MMC_PRIVATE_ROUTE_PREFIX || normalized.startsWith(`${MMC_PRIVATE_ROUTE_PREFIX}/`);
+}
+
+function isAuthorizedMmcPrivateSession(session = null) {
+  if (!session?.user) {
+    return false;
+  }
+
+  return isAuthorizedWordPressUser(normalizeWordPressUser(session.user));
+}
+
+function resolveMmcPrivateStaticPath(pathname = '') {
+  const normalized = String(pathname || MMC_PRIVATE_ROUTE_PREFIX).replace(/\/+$/u, '') || MMC_PRIVATE_ROUTE_PREFIX;
+  if (normalized === MMC_PRIVATE_ROUTE_PREFIX) {
+    return MMC_PRIVATE_INDEX_PATH;
+  }
+
+  return pathname;
+}
+
+async function handleMmcPrivateMount(request, response, pathname) {
+  if (request.method !== 'GET') {
+    sendMethodNotAllowed(response, ['GET']);
+    return;
+  }
+
+  const session = readSessionFromRequest(request);
+  if (!session) {
+    const hqBase = getHqBaseForRequest(request);
+    const finalRedirect = hqBase ? new URL(`${MMC_PRIVATE_ROUTE_PREFIX}/`, hqBase).toString() : `${MMC_PRIVATE_ROUTE_PREFIX}/`;
+    sendRedirect(response, `/api/auth/start?final=${encodeURIComponent(finalRedirect)}`);
+    return;
+  }
+
+  if (!isAuthorizedMmcPrivateSession(session)) {
+    sendJson(response, 403, {
+      error: 'mmc_private_forbidden',
+      message: 'MMC private review is limited to authorized MissionMed HQ operators.',
+    }, {
+      'X-MissionMed-Private-Mount': 'forbidden',
+    });
+    return;
+  }
+
+  response.setHeader('X-MissionMed-Private-Mount', 'admin-only');
+  response.setHeader('X-MissionMed-Route', 'mmc-private');
+  response.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  await serveStatic(response, resolveMmcPrivateStaticPath(pathname));
+}
 
 function isSpaRoute(pathname) {
   const normalized = pathname.replace(/\/+$/u, '') || '/';
