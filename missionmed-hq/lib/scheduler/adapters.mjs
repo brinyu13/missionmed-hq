@@ -1,0 +1,1677 @@
+import crypto from 'node:crypto';
+
+import { resolveSchedulerEntitlementDecision } from './entitlements.mjs';
+
+const DEFAULT_TIMEOUT_MS = 6500;
+const WEBEX_TIMEOUT_MS = 20000;
+const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on', 'enabled']);
+
+// MM-SCHED integrations remain server-only. Live calls require explicit env enablement.
+export async function googleCalendarBusySyncAdapter() {
+  return notConfigured('google_calendar_busy_sync');
+}
+
+export async function googleCalendarEventAdapter() {
+  return notConfigured('google_calendar_event_creation');
+}
+
+export async function googleCalendarProviderMappingAdapter() {
+  return notConfigured('google_calendar_provider_mapping');
+}
+
+export async function icsInviteAdapter() {
+  return notConfigured('ics_invite_generation');
+}
+
+export async function zoomMeetingLinkAdapter(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const config = {
+    enabled: envFlag(env.SCHEDULER_ZOOM_ENABLED),
+    accountId: secretText(env.SCHEDULER_ZOOM_ACCOUNT_ID || env.ZOOM_ACCOUNT_ID),
+    clientId: secretText(env.SCHEDULER_ZOOM_CLIENT_ID || env.ZOOM_CLIENT_ID),
+    clientSecret: secretText(env.SCHEDULER_ZOOM_CLIENT_SECRET || env.ZOOM_CLIENT_SECRET),
+    apiBase: cleanUrl(env.SCHEDULER_ZOOM_API_BASE || 'https://api.zoom.us'),
+    tokenBase: cleanUrl(env.SCHEDULER_ZOOM_TOKEN_BASE || 'https://zoom.us'),
+  };
+  if (!config.enabled || !config.accountId || !config.clientId || !config.clientSecret) {
+    return notConfigured('zoom_meeting_link_creation', {
+      required_env: ['SCHEDULER_ZOOM_ENABLED', 'SCHEDULER_ZOOM_ACCOUNT_ID', 'SCHEDULER_ZOOM_CLIENT_ID', 'SCHEDULER_ZOOM_CLIENT_SECRET'],
+    });
+  }
+
+  const providerAccountId = providerMeetingAccount(payload, 'zoom');
+  if (!providerAccountId) {
+    return providerMappingMissing('zoom_meeting_link_creation', 'zoom');
+  }
+
+  try {
+    const tokenUrl = new URL('/oauth/token', config.tokenBase);
+    tokenUrl.searchParams.set('grant_type', 'account_credentials');
+    tokenUrl.searchParams.set('account_id', config.accountId);
+    const tokenResponse = await fetchJson(tokenUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,
+      },
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (!tokenResponse.ok || !tokenResponse.data?.access_token) {
+      return providerFailure('zoom_meeting_link_creation', 'zoom', tokenResponse, 'Zoom token request failed.');
+    }
+
+    const meetingResponse = await fetchJson(new URL(`/v2/users/${encodeURIComponent(providerAccountId)}/meetings`, config.apiBase), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${tokenResponse.data.access_token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(zoomMeetingPayload(payload)),
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (!meetingResponse.ok) {
+      return providerFailure('zoom_meeting_link_creation', 'zoom', meetingResponse, 'Zoom meeting creation failed.');
+    }
+
+    const meetingUrl = String(meetingResponse.data?.join_url || '').trim();
+    return {
+      ok: Boolean(meetingUrl),
+      status: meetingUrl ? 'created' : 'failed',
+      adapter: 'zoom_meeting_link_creation',
+      provider: 'zoom',
+      meeting_url: meetingUrl || null,
+      meeting_url_present: Boolean(meetingUrl),
+      external_event_id: String(meetingResponse.data?.id || meetingResponse.data?.uuid || '').trim() || null,
+      provider_account_id_present: true,
+      message: meetingUrl ? 'Zoom meeting created server-side.' : 'Zoom response did not include a join URL.',
+    };
+  } catch (error) {
+    return adapterException('zoom_meeting_link_creation', 'zoom', error);
+  }
+}
+
+export async function zoomMeetingCleanupAdapter(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const config = {
+    enabled: envFlag(env.SCHEDULER_ZOOM_ENABLED),
+    accountId: secretText(env.SCHEDULER_ZOOM_ACCOUNT_ID || env.ZOOM_ACCOUNT_ID),
+    clientId: secretText(env.SCHEDULER_ZOOM_CLIENT_ID || env.ZOOM_CLIENT_ID),
+    clientSecret: secretText(env.SCHEDULER_ZOOM_CLIENT_SECRET || env.ZOOM_CLIENT_SECRET),
+    apiBase: cleanUrl(env.SCHEDULER_ZOOM_API_BASE || 'https://api.zoom.us'),
+    tokenBase: cleanUrl(env.SCHEDULER_ZOOM_TOKEN_BASE || 'https://zoom.us'),
+  };
+  if (!config.enabled || !config.accountId || !config.clientId || !config.clientSecret) {
+    return notConfigured('zoom_meeting_cleanup', {
+      required_env: ['SCHEDULER_ZOOM_ENABLED', 'SCHEDULER_ZOOM_ACCOUNT_ID', 'SCHEDULER_ZOOM_CLIENT_ID', 'SCHEDULER_ZOOM_CLIENT_SECRET'],
+    });
+  }
+
+  const externalEventId = zoomExternalEventId(payload);
+  if (!externalEventId) {
+    return {
+      ok: false,
+      status: 'missing_external_event_id',
+      adapter: 'zoom_meeting_cleanup',
+      provider: 'zoom',
+      external_event_id_present: false,
+      message: 'Zoom meeting cleanup requires a persisted external event id.',
+    };
+  }
+
+  try {
+    const tokenUrl = new URL('/oauth/token', config.tokenBase);
+    tokenUrl.searchParams.set('grant_type', 'account_credentials');
+    tokenUrl.searchParams.set('account_id', config.accountId);
+    const tokenResponse = await fetchJson(tokenUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${config.clientId}:${config.clientSecret}`).toString('base64')}`,
+      },
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (!tokenResponse.ok || !tokenResponse.data?.access_token) {
+      return providerFailure('zoom_meeting_cleanup', 'zoom', tokenResponse, 'Zoom token request failed.');
+    }
+
+    const deleteResponse = await fetchJson(new URL(`/v2/meetings/${encodeURIComponent(externalEventId)}`, config.apiBase), {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${tokenResponse.data.access_token}`,
+      },
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (deleteResponse.ok) {
+      return {
+        ok: true,
+        status: 'deleted',
+        adapter: 'zoom_meeting_cleanup',
+        provider: 'zoom',
+        external_event_id_present: true,
+        message: 'Zoom meeting deleted server-side.',
+      };
+    }
+    if (Number(deleteResponse.status) === 404 || Number(deleteResponse.data?.code) === 3001) {
+      return {
+        ok: true,
+        status: 'already_missing',
+        adapter: 'zoom_meeting_cleanup',
+        provider: 'zoom',
+        external_event_id_present: true,
+        message: 'Zoom meeting was already absent.',
+      };
+    }
+    return providerFailure('zoom_meeting_cleanup', 'zoom', deleteResponse, 'Zoom meeting cleanup failed.');
+  } catch (error) {
+    return adapterException('zoom_meeting_cleanup', 'zoom', error);
+  }
+}
+
+export async function webexMeetingLinkAdapter(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const config = {
+    enabled: envFlag(env.SCHEDULER_WEBEX_ENABLED),
+    accessToken: secretText(env.SCHEDULER_WEBEX_ACCESS_TOKEN || env.WEBEX_ACCESS_TOKEN),
+    apiBase: cleanUrl(env.SCHEDULER_WEBEX_API_BASE || 'https://webexapis.com'),
+    timeoutMs: positiveInteger(env.SCHEDULER_WEBEX_TIMEOUT_MS || env.SCHEDULER_PROVIDER_TIMEOUT_MS, WEBEX_TIMEOUT_MS),
+  };
+  const brokerConfig = webexBrokerConfig(env);
+  if ((!config.enabled || !config.accessToken) && !brokerConfig.enabled) {
+    return notConfigured('webex_meeting_link_creation', {
+      required_env: [
+        'SCHEDULER_WEBEX_ENABLED + SCHEDULER_WEBEX_ACCESS_TOKEN',
+        'or MMHQ_WP_BASE + MMHQ_HANDOFF_SECRET + deployed WordPress Scheduler Webex broker',
+      ],
+    });
+  }
+
+  const providerAccountId = providerMeetingAccount(payload, 'webex');
+  if (!providerAccountId) {
+    if (!hasMeetingRequestPayload(payload)) {
+      return {
+        ok: true,
+        status: 'configured',
+        adapter: 'webex_meeting_link_creation',
+        provider: 'webex',
+        mode: brokerConfig.enabled ? 'wordpress_broker' : 'direct_rest',
+        provider_account_id_present: false,
+        message: 'Webex meeting creation is configured; a provider account mapping is required when booking.',
+      };
+    }
+    return providerMappingMissing('webex_meeting_link_creation', 'webex');
+  }
+
+  if (brokerConfig.enabled) {
+    return createWebexMeetingViaBroker(payload, providerAccountId, brokerConfig, options);
+  }
+
+  try {
+    const meetingResponse = await fetchJson(new URL('/v1/meetings', config.apiBase), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(webexMeetingPayload(payload, providerAccountId)),
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs || config.timeoutMs,
+    });
+    if (!meetingResponse.ok) {
+      return providerFailure('webex_meeting_link_creation', 'webex', meetingResponse, 'Webex meeting creation failed.');
+    }
+
+    const meetingUrl = String(
+      meetingResponse.data?.webLink
+        || meetingResponse.data?.joinWebUrl
+        || meetingResponse.data?.meetingLink
+        || '',
+    ).trim();
+    const externalEventId = String(meetingResponse.data?.id || meetingResponse.data?.meetingId || '').trim() || null;
+    const invitee = meetingUrl && externalEventId
+      ? await createWebexMeetingInvitee({
+        payload,
+        meetingId: externalEventId,
+        providerAccountId,
+        accessToken: config.accessToken,
+        apiBase: config.apiBase,
+        fetchImpl: options.fetchImpl,
+        timeoutMs: options.timeoutMs || config.timeoutMs,
+      })
+      : {
+        ok: false,
+        status: 'skipped',
+        invitee_email_present: Boolean(studentInviteeEmail(payload)),
+        message: 'Webex invitee creation skipped because meeting creation did not return a meeting id and join URL.',
+      };
+    return {
+      ok: Boolean(meetingUrl),
+      status: meetingUrl ? 'created' : 'failed',
+      adapter: 'webex_meeting_link_creation',
+      provider: 'webex',
+      meeting_url: meetingUrl || null,
+      meeting_url_present: Boolean(meetingUrl),
+      external_event_id: externalEventId,
+      provider_account_id_present: true,
+      invitee_status: invitee.status,
+      invitee_email_present: invitee.invitee_email_present,
+      invitee_email_sent: invitee.invitee_email_sent === true,
+      invitee_id: invitee.invitee_id || null,
+      message: meetingUrl ? 'Webex meeting created server-side.' : 'Webex response did not include a join URL.',
+    };
+  } catch (error) {
+    return adapterException('webex_meeting_link_creation', 'webex', error);
+  }
+}
+
+export async function webexRecordingLookupAdapter(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const config = {
+    enabled: envFlag(env.SCHEDULER_WEBEX_ENABLED),
+    accessToken: secretText(env.SCHEDULER_WEBEX_ACCESS_TOKEN || env.WEBEX_ACCESS_TOKEN),
+    apiBase: cleanUrl(env.SCHEDULER_WEBEX_API_BASE || 'https://webexapis.com'),
+    timeoutMs: positiveInteger(env.SCHEDULER_WEBEX_TIMEOUT_MS || env.SCHEDULER_PROVIDER_TIMEOUT_MS, WEBEX_TIMEOUT_MS),
+  };
+  const brokerConfig = webexBrokerConfig(env);
+  const meetingId = webexRecordingMeetingId(payload);
+  if (!meetingId) {
+    return {
+      ok: false,
+      status: 'missing_meeting_id',
+      adapter: 'webex_recording_lookup',
+      provider: 'webex',
+      message: 'Webex recording lookup requires a meeting id.',
+    };
+  }
+
+  if (brokerConfig.enabled) {
+    return lookupWebexRecordingsViaBroker({ ...payload, meeting_id: meetingId }, brokerConfig, options);
+  }
+
+  if (!config.enabled || !config.accessToken) {
+    return notConfigured('webex_recording_lookup', {
+      required_env: [
+        'SCHEDULER_WEBEX_ENABLED + SCHEDULER_WEBEX_ACCESS_TOKEN',
+        'or MMHQ_WP_BASE + MMHQ_HANDOFF_SECRET + deployed WordPress Scheduler Webex broker',
+      ],
+    });
+  }
+
+  try {
+    const endpoint = new URL('/v1/recordings', config.apiBase);
+    endpoint.searchParams.set('meetingId', meetingId);
+    const response = await fetchJson(endpoint, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+        Accept: 'application/json',
+      },
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs || config.timeoutMs,
+    });
+    if (!response.ok) {
+      return providerFailure('webex_recording_lookup', 'webex', response, 'Webex recording lookup failed.');
+    }
+    return normalizeWebexRecordingLookup(response.data, meetingId);
+  } catch (error) {
+    return adapterException('webex_recording_lookup', 'webex', error);
+  }
+}
+
+async function createWebexMeetingViaBroker(payload = {}, providerAccountId = '', config = {}, options = {}) {
+  if (!config.enabled) {
+    return notConfigured('webex_meeting_link_creation', {
+      required_env: ['MMHQ_WP_BASE', 'MMHQ_HANDOFF_SECRET'],
+    });
+  }
+
+  try {
+    const body = JSON.stringify(webexBrokerPayload(payload, providerAccountId));
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = schedulerBrokerSignature(config.secret, timestamp, body);
+    const response = await fetchJson(new URL(config.path, config.base), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-MM-Scheduler-Timestamp': timestamp,
+        'X-MM-Scheduler-Signature': signature,
+        'X-MM-Scheduler-Source': 'missionmed-hq-scheduler',
+      },
+      body,
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs || config.timeoutMs,
+    });
+    if (!response.ok) {
+      return providerFailure('webex_meeting_link_creation', 'webex', response, 'WordPress Webex broker meeting creation failed.');
+    }
+
+    const meetingUrl = String(
+      response.data?.meeting_url
+        || response.data?.meetingUrl
+        || response.data?.webLink
+        || response.data?.join_url
+        || response.data?.joinUrl
+        || response.data?.meeting?.webLink
+        || response.data?.meeting?.meeting_url
+        || '',
+    ).trim();
+    const externalEventId = String(
+      response.data?.external_event_id
+        || response.data?.externalEventId
+        || response.data?.id
+        || response.data?.meetingId
+        || response.data?.meeting?.id
+        || '',
+    ).trim() || null;
+    const invitee = normalizeBrokerInvitee(response.data?.invitee || response.data?.attendee || {});
+    return {
+      ok: Boolean(meetingUrl),
+      status: meetingUrl ? 'created' : 'failed',
+      adapter: 'webex_meeting_link_creation',
+      provider: 'webex',
+      mode: 'wordpress_broker',
+      meeting_url: meetingUrl || null,
+      meeting_url_present: Boolean(meetingUrl),
+      external_event_id: externalEventId,
+      provider_account_id_present: true,
+      invitee_status: invitee.status,
+      invitee_email_present: invitee.invitee_email_present,
+      invitee_email_sent: invitee.invitee_email_sent,
+      invitee_id: invitee.invitee_id,
+      message: meetingUrl ? 'Webex meeting created through the WordPress broker.' : 'WordPress Webex broker response did not include a join URL.',
+    };
+  } catch (error) {
+    return adapterException('webex_meeting_link_creation', 'webex', error);
+  }
+}
+
+async function lookupWebexRecordingsViaBroker(payload = {}, config = {}, options = {}) {
+  if (!config.enabled) {
+    return notConfigured('webex_recording_lookup', {
+      required_env: ['MMHQ_WP_BASE', 'MMHQ_HANDOFF_SECRET'],
+    });
+  }
+
+  try {
+    const body = JSON.stringify({
+      source: 'missionmed_scheduler',
+      appointment_id: String(payload.appointmentId || payload.appointment_id || ''),
+      meeting_id: webexRecordingMeetingId(payload),
+      appointment_title: safePlainText(payload.appointment_title || payload.appointmentTitle || payload.title || ''),
+      appointment_start_at: String(payload.appointment_start_at || payload.appointmentStartAt || payload.start_at || payload.startAt || ''),
+      appointment_end_at: String(payload.appointment_end_at || payload.appointmentEndAt || payload.end_at || payload.endAt || ''),
+    });
+    const timestamp = String(Math.floor(Date.now() / 1000));
+    const signature = schedulerBrokerSignature(config.secret, timestamp, body);
+    const path = String(config.recordingsPath || '/wp-json/missionmed-scheduler/v1/webex/recordings');
+    const response = await fetchJson(new URL(path, config.base), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-MM-Scheduler-Timestamp': timestamp,
+        'X-MM-Scheduler-Signature': signature,
+        'X-MM-Scheduler-Source': 'missionmed-hq-scheduler',
+      },
+      body,
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs || config.timeoutMs,
+    });
+    if (!response.ok) {
+      return providerFailure('webex_recording_lookup', 'webex', response, 'WordPress Webex broker recording lookup failed.');
+    }
+    return normalizeWebexRecordingLookup(response.data, webexRecordingMeetingId(payload));
+  } catch (error) {
+    return adapterException('webex_recording_lookup', 'webex', error);
+  }
+}
+
+async function createWebexMeetingInvitee({
+  payload = {},
+  meetingId = '',
+  providerAccountId = '',
+  accessToken = '',
+  apiBase = '',
+  fetchImpl,
+  timeoutMs,
+} = {}) {
+  const email = studentInviteeEmail(payload);
+  if (!email) {
+    return {
+      ok: true,
+      status: 'suppressed',
+      adapter: 'webex_meeting_invitee_creation',
+      provider: 'webex',
+      invitee_email_present: false,
+      reason: 'student_email_missing',
+      message: 'Webex invitee creation suppressed because no student email was available.',
+    };
+  }
+  if (!meetingId) {
+    return {
+      ok: false,
+      status: 'missing_meeting_id',
+      adapter: 'webex_meeting_invitee_creation',
+      provider: 'webex',
+      invitee_email_present: true,
+      message: 'Webex invitee creation requires a created meeting id.',
+    };
+  }
+
+  const inviteeResponse = await fetchJson(new URL('/v1/meetingInvitees', apiBase), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(webexInviteePayload({
+      payload,
+      meetingId,
+      providerAccountId,
+      email,
+    })),
+    fetchImpl,
+    timeoutMs,
+  });
+  if (!inviteeResponse.ok) {
+    return {
+      ...providerFailure('webex_meeting_invitee_creation', 'webex', inviteeResponse, 'Webex invitee creation failed.'),
+      invitee_email_present: true,
+      invitee_email_sent: false,
+    };
+  }
+
+  return {
+    ok: true,
+    status: 'created',
+    adapter: 'webex_meeting_invitee_creation',
+    provider: 'webex',
+    invitee_email_present: true,
+    invitee_email_sent: webexInviteeSendEmail(payload),
+    invitee_id: String(inviteeResponse.data?.id || '').trim() || null,
+    message: 'Webex meeting invitee created server-side.',
+  };
+}
+
+export async function googleMeetAdapter() {
+  return notConfigured('google_meet_handling');
+}
+
+export async function manualMeetingLinkAdapter(payload = {}) {
+  const meetingUrl = String(payload.meeting_url || payload.meetingUrl || '').trim();
+  if (!meetingUrl) {
+    return notConfigured('manual_meeting_link');
+  }
+
+  return {
+    ok: true,
+    status: 'manual',
+    adapter: 'manual_meeting_link',
+    meeting_url_present: true,
+    message: 'Manual meeting link was provided server-side.',
+  };
+}
+
+export async function stripePaymentAdapter(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const secretKey = secretText(env.SCHEDULER_STRIPE_SECRET_KEY || env.STRIPE_SECRET_KEY);
+  const allowLive = envFlag(env.SCHEDULER_ALLOW_LIVE_STRIPE);
+  const enabled = envFlag(env.SCHEDULER_STRIPE_ENABLED);
+  if (!enabled || !secretKey) {
+    return notConfigured('stripe_payment_intent', {
+      required_env: ['SCHEDULER_STRIPE_ENABLED', 'SCHEDULER_STRIPE_SECRET_KEY or STRIPE_SECRET_KEY'],
+    });
+  }
+  if (secretKey.startsWith('sk_live_') && !allowLive) {
+    return notConfigured('stripe_payment_intent', {
+      reason: 'live_stripe_key_requires_explicit_scheduler_approval',
+      required_env: ['SCHEDULER_ALLOW_LIVE_STRIPE'],
+    });
+  }
+
+  const action = String(payload.action || payload.operation || (payload.payment_intent_id || payload.paymentIntentId ? 'verify' : 'create')).trim();
+  try {
+    if (action === 'verify' || action === 'retrieve') {
+      return await verifyStripePaymentIntent(payload, { ...options, secretKey });
+    }
+    return await createStripePaymentIntent(payload, { ...options, secretKey });
+  } catch (error) {
+    return adapterException('stripe_payment_intent', 'stripe', error);
+  }
+}
+
+export async function paypalPaymentAdapter() {
+  return notConfigured('paypal_payment');
+}
+
+export function createMockMeetingAdapter(provider = 'zoom', decision = 'created') {
+  return async (payload = {}) => {
+    if (decision === 'failed') {
+      return {
+        ok: false,
+        status: 'failed',
+        adapter: `${provider}_meeting_link_creation`,
+        provider,
+        message: 'Mock meeting adapter failure.',
+      };
+    }
+
+    return {
+      ok: true,
+      status: 'created',
+      adapter: `${provider}_meeting_link_creation`,
+      provider,
+      meeting_url: payload.meeting_url || payload.meetingUrl || `https://example.test/${provider}/mock-meeting`,
+      meeting_url_present: Boolean(payload.meeting_url || payload.meetingUrl) || true,
+      external_event_id: `${provider}-mock-event`,
+      message: 'Mock meeting adapter created a staging-safe meeting placeholder.',
+    };
+  };
+}
+
+export function createMockMeetingCleanupAdapter(provider = 'zoom', decision = 'deleted') {
+  return async () => {
+    if (decision === 'failed') {
+      return {
+        ok: false,
+        status: 'failed',
+        adapter: `${provider}_meeting_cleanup`,
+        provider,
+        message: 'Mock meeting cleanup adapter failure.',
+      };
+    }
+
+    return {
+      ok: true,
+      status: decision,
+      adapter: `${provider}_meeting_cleanup`,
+      provider,
+      external_event_id_present: true,
+      message: 'Mock meeting cleanup adapter deleted a staging-safe meeting placeholder.',
+    };
+  };
+}
+
+export function createMockPaymentAdapter(provider = 'stripe', decision = 'not_configured') {
+  return async (payload = {}) => {
+    if (decision !== 'succeeded') {
+      return {
+        ok: false,
+        status: decision,
+        adapter: `${provider}_payment_intent`,
+        provider,
+        message: 'Mock payment adapter did not confirm payment.',
+      };
+    }
+
+    return {
+      ok: true,
+      status: 'succeeded',
+      adapter: `${provider}_payment_intent`,
+      provider,
+      payment_confirmation_id: payload.payment_confirmation_id || payload.paymentConfirmationId || 'mock-payment-confirmation',
+      message: 'Mock payment adapter confirmed payment.',
+    };
+  };
+}
+
+export async function emailMedMailNotificationAdapter(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const provider = String(env.SCHEDULER_EMAIL_PROVIDER || env.MEDMAIL_PROVIDER || 'postmark').trim().toLowerCase();
+  const enabled = envFlag(env.SCHEDULER_EMAIL_ENABLED || env.MEDMAIL_ENABLED);
+  const token = secretText(env.SCHEDULER_POSTMARK_SERVER_TOKEN || env.POSTMARK_SERVER_TOKEN);
+  const from = String(env.SCHEDULER_EMAIL_FROM || env.MEDMAIL_FROM_EMAIL || env.POSTMARK_FROM_EMAIL || '').trim();
+  if (!enabled || provider !== 'postmark' || !token || !from) {
+    return notConfigured('email_medmail_notification_queue', {
+      required_env: ['SCHEDULER_EMAIL_ENABLED', 'SCHEDULER_EMAIL_PROVIDER=postmark', 'SCHEDULER_POSTMARK_SERVER_TOKEN', 'SCHEDULER_EMAIL_FROM'],
+      queued: Boolean(payload.queued),
+    });
+  }
+
+  const recipient = normalizeRecipient(payload);
+  if (!recipient.email) {
+    return {
+      ok: true,
+      status: 'suppressed',
+      adapter: 'email_medmail_notification_queue',
+      channel: 'email',
+      reason: 'recipient_email_missing',
+      message: 'Email notification suppressed because no recipient email was available.',
+    };
+  }
+
+  const email = buildSchedulerEmail({ ...payload, recipient, from });
+  try {
+    const response = await fetchJson('https://api.postmarkapp.com/email', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'X-Postmark-Server-Token': token,
+      },
+      body: JSON.stringify(email),
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (!response.ok || Number(response.data?.ErrorCode || 0) !== 0) {
+      return providerFailure('email_medmail_notification_queue', 'postmark', response, 'Postmark send failed.');
+    }
+    return {
+      ok: true,
+      status: 'sent',
+      adapter: 'email_medmail_notification_queue',
+      provider: 'postmark',
+      channel: 'email',
+      provider_message_id: String(response.data?.MessageID || response.data?.MessageId || '').trim() || null,
+      message: 'Scheduler email sent via Postmark.',
+    };
+  } catch (error) {
+    return adapterException('email_medmail_notification_queue', 'postmark', error);
+  }
+}
+
+export async function smsNotificationProviderAdapter(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const provider = String(env.SCHEDULER_SMS_PROVIDER || 'twilio').trim().toLowerCase();
+  const enabled = envFlag(env.SCHEDULER_SMS_ENABLED);
+  const accountSid = secretText(env.SCHEDULER_TWILIO_ACCOUNT_SID || env.TWILIO_ACCOUNT_SID);
+  const authToken = secretText(env.SCHEDULER_TWILIO_AUTH_TOKEN || env.TWILIO_AUTH_TOKEN);
+  const messagingServiceSid = secretText(env.SCHEDULER_TWILIO_MESSAGING_SERVICE_SID || env.TWILIO_MESSAGING_SERVICE_SID);
+  const from = String(env.SCHEDULER_TWILIO_FROM || env.TWILIO_FROM || '').trim();
+  if (!enabled || provider !== 'twilio' || !accountSid || !authToken || (!messagingServiceSid && !from)) {
+    return notConfigured('sms_notification_provider', {
+      required_env: ['SCHEDULER_SMS_ENABLED', 'SCHEDULER_SMS_PROVIDER=twilio', 'SCHEDULER_TWILIO_ACCOUNT_SID', 'SCHEDULER_TWILIO_AUTH_TOKEN', 'SCHEDULER_TWILIO_MESSAGING_SERVICE_SID or SCHEDULER_TWILIO_FROM'],
+    });
+  }
+  if (!payload.sms_opt_in && !payload.smsOptIn) {
+    return {
+      ok: true,
+      status: 'suppressed',
+      adapter: 'sms_notification_provider',
+      channel: 'sms',
+      reason: 'sms_opt_in_required',
+      message: 'SMS notification suppressed because the student has not opted in.',
+    };
+  }
+  const to = String(payload.to_phone || payload.toPhone || payload.phone || '').trim();
+  if (!to) {
+    return {
+      ok: true,
+      status: 'suppressed',
+      adapter: 'sms_notification_provider',
+      channel: 'sms',
+      reason: 'recipient_phone_missing',
+      message: 'SMS notification suppressed because no recipient phone was available.',
+    };
+  }
+
+  const body = schedulerSmsBody(payload);
+  const params = new URLSearchParams();
+  params.set('To', to);
+  params.set('Body', body);
+  if (messagingServiceSid) params.set('MessagingServiceSid', messagingServiceSid);
+  else params.set('From', from);
+
+  try {
+    const response = await fetchJson(`https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(accountSid)}/Messages.json`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: params.toString(),
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (!response.ok) {
+      return providerFailure('sms_notification_provider', 'twilio', response, 'Twilio SMS send failed.');
+    }
+    return {
+      ok: true,
+      status: 'sent',
+      adapter: 'sms_notification_provider',
+      provider: 'twilio',
+      channel: 'sms',
+      provider_message_id: String(response.data?.sid || '').trim() || null,
+      message: 'Scheduler SMS sent via Twilio.',
+    };
+  } catch (error) {
+    return adapterException('sms_notification_provider', 'twilio', error);
+  }
+}
+
+export async function enrollmentGateAdapter(payload = {}, options = {}) {
+  const entitlementDecision = resolveSchedulerEntitlementDecision(payload, options);
+  if (entitlementDecision) {
+    return normalizeEnrollmentDecision(entitlementDecision, payload);
+  }
+
+  const bridgeDecision = await getBridgeEnrollmentDecision(payload, options);
+  if (bridgeDecision) {
+    return normalizeEnrollmentDecision(bridgeDecision, payload);
+  }
+
+  const launchDecision = getLaunchAllowlistEnrollmentDecision(payload, options.env || process.env);
+  if (launchDecision) {
+    return normalizeEnrollmentDecision(launchDecision, payload);
+  }
+
+  const fixtureDecision = getServerFixtureEnrollmentDecision(payload);
+  if (fixtureDecision) {
+    return normalizeEnrollmentDecision(fixtureDecision, payload);
+  }
+
+  return normalizeEnrollmentDecision({
+    ok: false,
+    status: 'not_configured',
+    eligible: false,
+    reason: 'enrollment_bridge_not_configured',
+    mode: 'fail_closed',
+    message: 'Enrollment gate is not configured. Booking must wait for the approved Railway WordPress/LearnDash/WooCommerce eligibility bridge or an admin override.',
+  }, payload);
+}
+
+function getLaunchAllowlistEnrollmentDecision(payload = {}, env = process.env) {
+  if (String(env.SCHEDULER_LAUNCH_ENROLLMENT_MODE || '').trim().toLowerCase() !== 'allowlist') {
+    return null;
+  }
+
+  const allowedTypeTokens = mergeTokenSets(
+    env.SCHEDULER_LAUNCH_ELIGIBLE_APPOINTMENT_TYPE_IDS,
+    env.SCHEDULER_LAUNCH_ELIGIBLE_APPOINTMENT_TYPE_SLUGS,
+  );
+  if (!allowedTypeTokens.size) {
+    return {
+      ok: false,
+      status: 'not_configured',
+      eligible: false,
+      reason: 'launch_allowlist_missing_appointment_type_scope',
+      mode: 'launch_allowlist',
+      message: 'Scheduler launch allowlist is missing an appointment type scope, so booking remains closed.',
+    };
+  }
+
+  const appointmentTypeTokens = compactTokens([
+    payload.appointmentTypeId,
+    payload.appointment_type_id,
+    payload.appointmentType?.id,
+    payload.appointment_type?.id,
+    payload.appointmentType?.slug,
+    payload.appointment_type?.slug,
+  ]);
+  if (!hasTokenMatch(appointmentTypeTokens, allowedTypeTokens)) {
+    return {
+      ok: false,
+      status: 'ineligible',
+      eligible: false,
+      reason: 'launch_allowlist_appointment_type_not_allowed',
+      mode: 'launch_allowlist',
+      message: 'This appointment type is not open for the controlled Scheduler launch allowlist.',
+    };
+  }
+
+  const actor = payload.actor || {};
+  const allowedUserTokens = mergeTokenSets(
+    env.SCHEDULER_LAUNCH_ELIGIBLE_USER_IDS,
+    env.SCHEDULER_LAUNCH_ELIGIBLE_WP_USER_IDS,
+    env.SCHEDULER_LAUNCH_ELIGIBLE_EMAILS,
+    env.SCHEDULER_LAUNCH_ELIGIBLE_LOGINS,
+  );
+  if (!allowedUserTokens.size) {
+    return {
+      ok: false,
+      status: 'not_configured',
+      eligible: false,
+      reason: 'launch_allowlist_missing_user_scope',
+      mode: 'launch_allowlist',
+      message: 'Scheduler launch allowlist is missing a server-side user scope, so booking remains closed.',
+    };
+  }
+
+  const userTokens = compactTokens([
+    payload.studentUserId,
+    payload.student_user_id,
+    payload.studentWpUserId,
+    payload.student_wp_user_id,
+    actor.userId,
+    actor.wpUserId,
+    actor.email,
+    actor.login,
+  ]);
+  if (!hasTokenMatch(userTokens, allowedUserTokens)) {
+    return {
+      ok: false,
+      status: 'ineligible',
+      eligible: false,
+      reason: 'launch_allowlist_user_not_allowed',
+      mode: 'launch_allowlist',
+      message: 'This account is not included in the controlled Scheduler launch allowlist.',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 'eligible',
+    eligible: true,
+    reason: 'launch_allowlist_eligible',
+    mode: 'launch_allowlist',
+    message: 'Controlled Scheduler launch allowlist confirms eligibility for this appointment type.',
+  };
+}
+
+function getServerFixtureEnrollmentDecision(payload = {}, env = process.env) {
+  if (String(env.SCHEDULER_STAGING_ENROLLMENT_MODE || '').trim() !== 'fixture') {
+    return null;
+  }
+
+  const studentUserId = String(payload.studentUserId ?? payload.student_user_id ?? '').trim();
+  const eligibleIds = splitFixtureList(env.SCHEDULER_STAGING_ELIGIBLE_USER_IDS);
+  const ineligibleIds = splitFixtureList(env.SCHEDULER_STAGING_INELIGIBLE_USER_IDS);
+
+  if (eligibleIds.has(studentUserId)) {
+    return {
+      ok: true,
+      status: 'eligible',
+      eligible: true,
+      reason: 'staging_fixture_eligible',
+      mode: 'server_fixture',
+      message: 'Staging fixture confirms scheduler eligibility.',
+    };
+  }
+
+  if (ineligibleIds.has(studentUserId)) {
+    return {
+      ok: false,
+      status: 'ineligible',
+      eligible: false,
+      reason: 'staging_fixture_ineligible',
+      mode: 'server_fixture',
+      message: 'Staging fixture marks this user ineligible.',
+    };
+  }
+
+  return {
+    ok: false,
+    status: 'unknown',
+    eligible: false,
+    reason: 'staging_fixture_missing_user',
+    mode: 'server_fixture',
+    message: 'Staging fixture has no eligibility record for this user.',
+  };
+}
+
+function mergeTokenSets(...values) {
+  const tokens = new Set();
+  for (const value of values) {
+    for (const token of compactTokens(String(value || '').split(','))) {
+      tokens.add(token);
+    }
+  }
+  return tokens;
+}
+
+function compactTokens(values = []) {
+  return values
+    .map((value) => String(value ?? '').trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function hasTokenMatch(values = [], allowed = new Set()) {
+  return values.some((value) => allowed.has(value));
+}
+
+export function createMockEnrollmentGateAdapter(decision = 'eligible') {
+  return async (payload = {}) => normalizeEnrollmentDecision(decision, payload);
+}
+
+export function normalizeEnrollmentDecision(decision = {}, payload = {}) {
+  const normalized = typeof decision === 'string'
+    ? { status: decision, eligible: decision === 'eligible' }
+    : { ...decision };
+  const eligible = normalized.eligible === true || normalized.status === 'eligible';
+  const status = normalized.status || (eligible ? 'eligible' : 'not_configured');
+  const reason = normalized.reason || (eligible ? 'eligible' : status);
+
+  return {
+    ok: eligible,
+    status,
+    adapter: 'enrollment_gate',
+    eligible,
+    reason,
+    mode: normalized.mode || 'mock_or_configured_decision',
+    checked: {
+      appointment_type_id: payload.appointmentTypeId ?? payload.appointment_type_id ?? null,
+      student_user_id: payload.studentUserId ?? payload.student_user_id ?? null,
+      student_wp_user_id: payload.studentWpUserId ?? payload.student_wp_user_id ?? null,
+    },
+    message: normalized.message || (eligible
+      ? 'Enrollment eligibility confirmed.'
+      : 'Enrollment eligibility could not be confirmed.'),
+  };
+}
+
+export async function ssaImportPreviewAdapter(payload = {}) {
+  const source = payload.source || payload.export || payload.rows || null;
+  return {
+    ok: true,
+    status: 'dry_run',
+    adapter: 'ssa_import_preview',
+    import_run_enabled: false,
+    summary: {
+      source_present: Boolean(source),
+      rows_seen: Array.isArray(payload.rows) ? payload.rows.length : 0,
+    },
+    warnings: [
+      'SSA import preview is scaffolded only.',
+      'No SSA source, production WordPress database, Supabase data, reminders, or calendar events were modified.',
+    ],
+  };
+}
+
+function notConfigured(adapter, details = {}) {
+  return {
+    ok: false,
+    status: 'not_configured',
+    adapter,
+    ...details,
+    message: `${adapter} is intentionally not wired in MM-SCHED-012 foundation.`,
+  };
+}
+
+function providerMappingMissing(adapter, provider) {
+  return {
+    ok: false,
+    status: 'provider_mapping_missing',
+    adapter,
+    provider,
+    message: `${provider} meeting creation requires a server-side provider account mapping.`,
+  };
+}
+
+function providerFailure(adapter, provider, response = {}, message = 'Provider request failed.') {
+  return {
+    ok: false,
+    status: 'failed',
+    adapter,
+    provider,
+    http_status: response.status || null,
+    provider_error: safeProviderError(response.data),
+    message,
+  };
+}
+
+function adapterException(adapter, provider, error) {
+  return {
+    ok: false,
+    status: 'failed',
+    adapter,
+    provider,
+    message: error instanceof Error ? error.message : 'Adapter request failed.',
+  };
+}
+
+async function fetchJson(target, {
+  method = 'GET',
+  headers = {},
+  body = undefined,
+  fetchImpl = globalThis.fetch,
+  timeoutMs = DEFAULT_TIMEOUT_MS,
+} = {}) {
+  if (typeof fetchImpl !== 'function') {
+    return { ok: false, status: 0, data: { message: 'fetch_unavailable' } };
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(timeoutMs || DEFAULT_TIMEOUT_MS));
+  try {
+    const response = await fetchImpl(target, { method, headers, body, signal: controller.signal });
+    const text = await response.text();
+    return { ok: response.ok, status: response.status, data: parseJson(text), text };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function zoomMeetingPayload(payload = {}) {
+  return {
+    topic: meetingTitle(payload),
+    type: 2,
+    start_time: isoWithoutMillis(payload.start_at || payload.startAt),
+    duration: durationMinutes(payload),
+    timezone: String(payload.timezone || 'America/New_York'),
+    agenda: safePlainText(payload.agenda || payload.description || 'MissionMed scheduled appointment.'),
+    settings: {
+      waiting_room: true,
+      join_before_host: false,
+      approval_type: 2,
+      registrants_email_notification: false,
+    },
+  };
+}
+
+function zoomExternalEventId(payload = {}) {
+  return String(
+    payload.external_event_id
+      || payload.externalEventId
+      || payload.zoom_meeting_id
+      || payload.zoomMeetingId
+      || payload.meeting_id
+      || payload.meetingId
+      || '',
+  ).trim();
+}
+
+function webexMeetingPayload(payload = {}, providerAccountId = '') {
+  const timezone = String(payload.timezone || 'America/New_York');
+  const body = {
+    title: meetingTitle(payload),
+    start: webexDateTimeForTimezone(payload.start_at || payload.startAt, timezone),
+    end: webexDateTimeForTimezone(payload.end_at || payload.endAt, timezone),
+    timezone,
+    agenda: safePlainText(payload.agenda || payload.description || 'MissionMed scheduled appointment.'),
+    enabledAutoRecordMeeting: webexAutoRecordEnabled(payload),
+  };
+  if (providerAccountId.includes('@')) {
+    body.hostEmail = providerAccountId;
+  }
+  return body;
+}
+
+function webexAutoRecordEnabled(payload = {}) {
+  const explicit = payload.webex_auto_record
+    ?? payload.webexAutoRecord
+    ?? payload.auto_record
+    ?? payload.autoRecord
+    ?? payload.recording_auto_record
+    ?? payload.recordingAutoRecord;
+  if (explicit === undefined || explicit === null || explicit === '') return false;
+  if (typeof explicit === 'boolean') return explicit;
+  return TRUE_VALUES.has(String(explicit).trim().toLowerCase());
+}
+
+function webexDateTimeForTimezone(value = '', timezone = 'America/New_York') {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || '').trim();
+  const tz = String(timezone || '').trim();
+  if (!tz) return date.toISOString();
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23',
+      timeZoneName: 'shortOffset',
+    }).formatToParts(date);
+    const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}${webexOffsetFromTimeZoneName(map.timeZoneName)}`;
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function webexOffsetFromTimeZoneName(value = '') {
+  const text = String(value || '').trim();
+  if (!text || text === 'GMT' || text === 'UTC') return '+00:00';
+  const match = text.match(/^(?:GMT|UTC)([+-])(\d{1,2})(?::?(\d{2}))?$/u);
+  if (!match) return '+00:00';
+  const [, sign, hours, minutes = '00'] = match;
+  return `${sign}${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function webexInviteePayload({ payload = {}, meetingId = '', providerAccountId = '', email = '' } = {}) {
+  const body = {
+    meetingId,
+    email,
+    displayName: studentInviteeDisplayName(payload) || undefined,
+    sendEmail: webexInviteeSendEmail(payload),
+  };
+  if (providerAccountId.includes('@')) {
+    body.hostEmail = providerAccountId;
+  }
+  return Object.fromEntries(Object.entries(body).filter(([, value]) => value !== undefined && value !== null && value !== ''));
+}
+
+function webexBrokerPayload(payload = {}, providerAccountId = '') {
+  return {
+    source: 'missionmed_scheduler',
+    appointment_id: String(payload.appointmentId || payload.appointment_id || payload.appointment?.id || ''),
+    idempotency_key: String(payload.idempotency_key || payload.idempotencyKey || ''),
+    provider_account_id: providerAccountId,
+    meeting: webexMeetingPayload(payload, providerAccountId),
+    invitee: {
+      email: studentInviteeEmail(payload),
+      display_name: studentInviteeDisplayName(payload),
+      send_email: webexInviteeSendEmail(payload),
+    },
+  };
+}
+
+function webexRecordingMeetingId(payload = {}) {
+  return String(
+    payload.meeting_id
+      || payload.meetingId
+      || payload.webex_meeting_id
+      || payload.webexMeetingId
+      || payload.external_event_id
+      || payload.externalEventId
+      || '',
+  ).trim();
+}
+
+function normalizeWebexRecordingLookup(data = {}, meetingId = '') {
+  const source = Array.isArray(data?.recordings)
+    ? data.recordings
+    : Array.isArray(data?.items)
+      ? data.items
+      : data?.recording
+        ? [data.recording]
+        : [];
+  const recordings = source
+    .map(normalizeWebexRecording)
+    .filter((recording) => recording.id || recording.playback_url);
+  const first = recordings.find((recording) => recording.playback_url) || recordings[0] || null;
+  return {
+    ok: Boolean(first?.playback_url),
+    status: first?.playback_url ? 'ready' : 'processing',
+    adapter: 'webex_recording_lookup',
+    provider: 'webex',
+    meeting_id: meetingId,
+    has_recording: Boolean(first?.playback_url),
+    recording: first,
+    recordings,
+    count: recordings.length,
+    message: first?.playback_url ? 'Webex recording is available.' : 'Webex recording is not available yet.',
+  };
+}
+
+function normalizeWebexRecording(item = {}) {
+  const directLinks = item.temporaryDirectDownloadLinks || item.temporary_direct_download_links || {};
+  return {
+    id: String(item.id || item.recording_id || item.recordingId || '').trim(),
+    title: safePlainText(item.topic || item.title || item.name || ''),
+    playback_url: String(item.playbackUrl || item.playbackURL || item.playback_url || '').trim(),
+    download_url_present: item.download_url_present === true || item.downloadUrlPresent === true || Boolean(item.downloadUrl || item.downloadURL || item.download_url || directLinks.recordingDownloadLink),
+    duration_seconds: positiveInteger(item.durationSeconds || item.duration || item.duration_seconds, 0),
+    file_size_bytes: positiveInteger(item.sizeBytes || item.fileSize || item.file_size_bytes, 0),
+    created_at: String(item.createTime || item.created || item.createdTime || item.created_at || '').trim(),
+  };
+}
+
+function normalizeBrokerInvitee(invitee = {}) {
+  const status = String(invitee.status || invitee.invitee_status || '').trim() || (invitee.id ? 'created' : 'suppressed');
+  return {
+    status,
+    invitee_email_present: invitee.invitee_email_present === true || Boolean(invitee.email),
+    invitee_email_sent: invitee.invitee_email_sent === true || invitee.email_sent === true || invitee.sendEmail === true,
+    invitee_id: String(invitee.id || invitee.invitee_id || '').trim() || null,
+  };
+}
+
+function studentInviteeEmail(payload = {}) {
+  return String(
+    payload.student_email
+      || payload.studentEmail
+      || payload.attendee_email
+      || payload.attendeeEmail
+      || payload.invitee_email
+      || payload.inviteeEmail
+      || payload.to_email
+      || payload.toEmail
+      || payload.actor?.email
+      || '',
+  ).trim().toLowerCase();
+}
+
+function studentInviteeDisplayName(payload = {}) {
+  return safePlainText(
+    payload.student_display_name
+      || payload.studentDisplayName
+      || payload.attendee_name
+      || payload.attendeeName
+      || payload.invitee_display_name
+      || payload.inviteeDisplayName
+      || payload.actor?.displayName
+      || payload.actor?.login
+      || '',
+  ).slice(0, 128);
+}
+
+function webexInviteeSendEmail(payload = {}) {
+  const explicit = payload.webex_invitee_send_email
+    ?? payload.webexInviteeSendEmail
+    ?? payload.send_invitee_email
+    ?? payload.sendInviteeEmail;
+  if (explicit === undefined || explicit === null || explicit === '') return true;
+  if (typeof explicit === 'boolean') return explicit;
+  return TRUE_VALUES.has(String(explicit).trim().toLowerCase());
+}
+
+async function createStripePaymentIntent(payload = {}, options = {}) {
+  const amount = Number(payload.amount_cents || payload.amountCents || 0);
+  const currency = String(payload.currency || 'usd').trim().toLowerCase();
+  if (!Number.isFinite(amount) || amount <= 0) {
+    return {
+      ok: false,
+      status: 'failed',
+      adapter: 'stripe_payment_intent',
+      provider: 'stripe',
+      reason: 'amount_required',
+      message: 'Stripe PaymentIntent creation requires a positive amount_cents.',
+    };
+  }
+
+  const params = new URLSearchParams();
+  params.set('amount', String(Math.floor(amount)));
+  params.set('currency', currency);
+  params.set('automatic_payment_methods[enabled]', 'true');
+  for (const [key, value] of Object.entries(stripeMetadata(payload))) {
+    if (value != null && String(value).trim()) params.set(`metadata[${key}]`, String(value));
+  }
+  const response = await fetchJson('https://api.stripe.com/v1/payment_intents', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${options.secretKey}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: params.toString(),
+    fetchImpl: options.fetchImpl,
+    timeoutMs: options.timeoutMs,
+  });
+  if (!response.ok) {
+    return providerFailure('stripe_payment_intent', 'stripe', response, 'Stripe PaymentIntent creation failed.');
+  }
+  return {
+    ok: true,
+    status: response.data?.status || 'requires_payment_method',
+    adapter: 'stripe_payment_intent',
+    provider: 'stripe',
+    payment_intent_id: response.data?.id || null,
+    client_secret: response.data?.client_secret || null,
+    payment_confirmation_id: response.data?.id || null,
+    message: 'Stripe PaymentIntent created server-side.',
+  };
+}
+
+async function verifyStripePaymentIntent(payload = {}, options = {}) {
+  const paymentIntentId = String(payload.payment_intent_id || payload.paymentIntentId || payload.payment_confirmation_id || payload.paymentConfirmationId || '').trim();
+  if (!paymentIntentId) {
+    return {
+      ok: false,
+      status: 'payment_confirmation_missing',
+      adapter: 'stripe_payment_intent',
+      provider: 'stripe',
+      message: 'Payment confirmation id is required.',
+    };
+  }
+  const response = await fetchJson(`https://api.stripe.com/v1/payment_intents/${encodeURIComponent(paymentIntentId)}`, {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${options.secretKey}` },
+    fetchImpl: options.fetchImpl,
+    timeoutMs: options.timeoutMs,
+  });
+  if (!response.ok) {
+    return providerFailure('stripe_payment_intent', 'stripe', response, 'Stripe PaymentIntent verification failed.');
+  }
+  const status = String(response.data?.status || '').trim();
+  return {
+    ok: status === 'succeeded',
+    status: status === 'succeeded' ? 'succeeded' : 'payment_pending',
+    adapter: 'stripe_payment_intent',
+    provider: 'stripe',
+    payment_intent_id: response.data?.id || paymentIntentId,
+    payment_confirmation_id: response.data?.id || paymentIntentId,
+    amount_cents: response.data?.amount || null,
+    currency: response.data?.currency || null,
+    message: status === 'succeeded'
+      ? 'Stripe PaymentIntent is server-verified as succeeded.'
+      : `Stripe PaymentIntent is ${status || 'not confirmed'}.`,
+  };
+}
+
+async function getBridgeEnrollmentDecision(payload = {}, options = {}) {
+  const env = options.env || process.env;
+  const enabled = envFlag(env.SCHEDULER_ENROLLMENT_BRIDGE_ENABLED);
+  const bridgeUrl = String(env.SCHEDULER_ENROLLMENT_BRIDGE_URL || '').trim();
+  const token = secretText(env.SCHEDULER_ENROLLMENT_BRIDGE_TOKEN || '');
+  if (!enabled || !bridgeUrl || !token) {
+    return null;
+  }
+  if (!envFlag(env.SCHEDULER_ENROLLMENT_BRIDGE_ALLOW_PRODUCTION) && !isNonProductionUrl(bridgeUrl)) {
+    return {
+      ok: false,
+      status: 'not_configured',
+      eligible: false,
+      reason: 'production_enrollment_bridge_not_authorized',
+      mode: 'fail_closed',
+      message: 'Enrollment bridge URL appears production-like and is not explicitly authorized for Scheduler.',
+    };
+  }
+
+  try {
+    const response = await fetchJson(bridgeUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        student_user_id: payload.studentUserId ?? payload.student_user_id ?? null,
+        student_wp_user_id: payload.studentWpUserId ?? payload.student_wp_user_id ?? null,
+        appointment_type_id: payload.appointmentTypeId ?? payload.appointment_type_id ?? null,
+        appointment_type_slug: payload.appointmentTypeSlug ?? payload.appointment_type_slug ?? null,
+        requested_action: payload.requestedAction || payload.requested_action || 'book',
+      }),
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+    if (!response.ok) {
+      return {
+        ok: false,
+        status: 'error',
+        eligible: false,
+        reason: 'enrollment_bridge_error',
+        mode: 'bridge',
+        message: 'Enrollment bridge returned an error and Scheduler failed closed.',
+      };
+    }
+    return { ...response.data, mode: response.data?.mode || 'bridge' };
+  } catch {
+    return {
+      ok: false,
+      status: 'error',
+      eligible: false,
+      reason: 'enrollment_bridge_timeout_or_network_error',
+      mode: 'bridge',
+      message: 'Enrollment bridge could not be reached. Scheduler failed closed.',
+    };
+  }
+}
+
+function buildSchedulerEmail(payload = {}) {
+  const templateKey = String(payload.templateKey || payload.template_key || 'scheduler_notification');
+  const appointment = payload.appointment || {};
+  const subject = schedulerEmailSubject(templateKey, payload);
+  const text = schedulerEmailText(templateKey, payload, appointment);
+  return {
+    From: payload.from,
+    To: payload.recipient.email,
+    Subject: subject,
+    TextBody: text,
+    HtmlBody: `<p>${escapeHtml(text).replace(/\n/g, '<br>')}</p>`,
+    MessageStream: String(payload.message_stream || payload.messageStream || 'outbound').trim(),
+    Metadata: {
+      appointment_id: String(payload.appointmentId || payload.appointment_id || appointment.id || ''),
+      template_key: templateKey,
+      source: 'missionmed_scheduler',
+    },
+  };
+}
+
+function schedulerEmailSubject(templateKey, payload = {}) {
+  if (templateKey.includes('cancel')) return 'MissionMed appointment canceled';
+  if (templateKey.includes('reschedule')) return 'MissionMed appointment rescheduled';
+  if (templateKey.includes('reminder')) return 'MissionMed appointment reminder';
+  if (String(payload.recipientRole || payload.recipient_role || '').includes('admin')) return 'MissionMed scheduler booking notice';
+  return 'MissionMed appointment confirmation';
+}
+
+function schedulerEmailText(templateKey, payload = {}, appointment = {}) {
+  const when = appointment.start_at || appointment.startAt || payload.start_at || payload.startAt || '';
+  const end = appointment.end_at || appointment.endAt || payload.end_at || payload.endAt || '';
+  const timezone = schedulerEmailTimezone(payload, appointment);
+  const appointmentTitle = schedulerEmailAppointmentTitle(payload, appointment);
+  const provider = payload.provider_name || payload.providerName || appointment.provider_name || 'your MissionMed provider';
+  const meetingUrl = String(payload.meeting_url || payload.meetingUrl || appointment.meeting_url || '').trim();
+  const meetingProvider = String(payload.meeting_provider || payload.meetingProvider || payload.meeting_platform || payload.meetingPlatform || '').trim();
+  const meetingExpected = payload.meeting_expected === true || payload.meetingExpected === true || Boolean(meetingProvider);
+  const paymentStatus = payload.payment_status || payload.paymentStatus || appointment.payment_status || 'not required';
+  const lines = [
+    schedulerEmailSubject(templateKey, payload),
+    '',
+    `Appointment: ${appointmentTitle}`,
+    `Provider: ${provider}`,
+    `Time: ${schedulerEmailTimeRange(when, end, timezone)}`,
+    `Payment: ${paymentStatus}`,
+  ];
+  if (meetingUrl) lines.push(`Meeting link: ${meetingUrl}`);
+  else if (meetingExpected) lines.push('Meeting link: pending; MissionMed will follow up with the join link.');
+  lines.push('', 'Reply to MissionMed if you need help with this appointment.');
+  return lines.join('\n');
+}
+
+function schedulerEmailAppointmentTitle(payload = {}, appointment = {}) {
+  return String(
+    payload.appointment_type_name
+      || payload.appointmentTypeName
+      || payload.appointmentType?.name
+      || payload.appointment_type?.name
+      || appointment.appointment_type_name
+      || appointment.appointmentTypeName
+      || appointment.title
+      || appointment.name
+      || 'MissionMed appointment',
+  ).trim();
+}
+
+function schedulerEmailTimezone(payload = {}, appointment = {}) {
+  return String(
+    appointment.timezone
+      || appointment.timeZone
+      || payload.timezone
+      || payload.timeZone
+      || payload.appointmentType?.timezone
+      || payload.appointment_type?.timezone
+      || 'America/New_York',
+  ).trim() || 'America/New_York';
+}
+
+function schedulerEmailTimeRange(startAt = '', endAt = '', timezone = 'America/New_York') {
+  const start = formatSchedulerEmailDateTime(startAt, timezone);
+  const end = formatSchedulerEmailDateTime(endAt, timezone);
+  if (start && end) return `${start} - ${end} (${timezoneLabel(timezone)})`;
+  if (start) return `${start} (${timezoneLabel(timezone)})`;
+  return 'scheduled time pending';
+}
+
+function formatSchedulerEmailDateTime(value = '', timezone = 'America/New_York') {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      timeZoneName: 'short',
+    }).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function timezoneLabel(timezone = '') {
+  return timezone === 'America/New_York' ? 'New York / Eastern Time' : timezone;
+}
+
+function schedulerSmsBody(payload = {}) {
+  const when = payload.start_at || payload.startAt || payload.appointment?.start_at || payload.appointment?.startAt || '';
+  const meetingUrl = String(payload.meeting_url || payload.meetingUrl || payload.appointment?.meeting_url || '').trim();
+  const parts = [`MissionMed reminder: appointment ${when ? new Date(when).toISOString() : 'coming up'}.`];
+  if (meetingUrl) parts.push(`Join: ${meetingUrl}`);
+  return parts.join(' ');
+}
+
+function normalizeRecipient(payload = {}) {
+  return {
+    email: String(payload.to_email || payload.toEmail || payload.recipient?.email || payload.actor?.email || '').trim().toLowerCase(),
+    phone: String(payload.to_phone || payload.toPhone || payload.recipient?.phone || '').trim(),
+  };
+}
+
+function providerMeetingAccount(payload = {}, provider = '') {
+  const metadata = payload.metadata || payload.appointmentType?.metadata || payload.appointment_type?.metadata || {};
+  const meeting = metadata.web_meetings || metadata.webMeetings || {};
+  const providerMap = payload.providerMeetingAccounts || payload.provider_meeting_accounts || metadata.provider_meeting_accounts || {};
+  return String(
+    payload.provider_account_id
+      || payload.providerAccountId
+      || payload.meeting_account_id
+      || payload.meetingAccountId
+      || meeting.provider_account_id
+      || meeting.providerAccountId
+      || meeting[`${provider}_account_id`]
+      || providerMap[provider]
+      || '',
+  ).trim();
+}
+
+function meetingTitle(payload = {}) {
+  return safePlainText(payload.title || payload.topic || payload.appointmentTypeName || payload.appointment_type_name || 'MissionMed appointment');
+}
+
+function durationMinutes(payload = {}) {
+  const explicit = Number(payload.duration_minutes || payload.durationMinutes || 0);
+  if (Number.isFinite(explicit) && explicit > 0) return Math.floor(explicit);
+  const start = new Date(payload.start_at || payload.startAt);
+  const end = new Date(payload.end_at || payload.endAt);
+  if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end > start) {
+    return Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+  }
+  return 30;
+}
+
+function stripeMetadata(payload = {}) {
+  return {
+    source: 'missionmed_scheduler',
+    appointment_type_id: payload.appointment_type_id || payload.appointmentTypeId || payload.appointmentType?.id,
+    student_user_id: payload.student_user_id || payload.studentUserId,
+    idempotency_key: payload.idempotency_key || payload.idempotencyKey,
+  };
+}
+
+function envFlag(value) {
+  return TRUE_VALUES.has(String(value || '').trim().toLowerCase());
+}
+
+function secretText(value = '') {
+  return String(value || '').trim();
+}
+
+function positiveInteger(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function cleanUrl(value = '') {
+  const text = String(value || '').trim().replace(/\/+$/u, '');
+  try {
+    return new URL(text).toString().replace(/\/+$/u, '');
+  } catch {
+    return '';
+  }
+}
+
+function cleanPath(value = '') {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  return text.startsWith('/') ? text : `/${text}`;
+}
+
+function webexBrokerConfig(env = {}) {
+  const disabled = envFlag(env.SCHEDULER_WEBEX_BROKER_DISABLED);
+  const base = cleanUrl(env.SCHEDULER_WEBEX_BROKER_BASE || env.MMHQ_WP_BASE || '');
+  const secret = secretText(env.SCHEDULER_WEBEX_BROKER_SECRET || env.MMHQ_HANDOFF_SECRET || '');
+  const path = cleanPath(env.SCHEDULER_WEBEX_BROKER_PATH || '/wp-json/missionmed-scheduler/v1/webex/meeting');
+  const explicit = envFlag(env.SCHEDULER_WEBEX_BROKER_ENABLED)
+    || Boolean(env.SCHEDULER_WEBEX_BROKER_BASE || env.SCHEDULER_WEBEX_BROKER_PATH || env.SCHEDULER_WEBEX_BROKER_SECRET)
+    || Boolean(env.MMHQ_WP_BASE && env.MMHQ_HANDOFF_SECRET);
+
+  return {
+    enabled: !disabled && explicit && Boolean(base && secret && path),
+    base,
+    path,
+    secret,
+    timeoutMs: positiveInteger(env.SCHEDULER_WEBEX_TIMEOUT_MS || env.SCHEDULER_PROVIDER_TIMEOUT_MS, WEBEX_TIMEOUT_MS),
+  };
+}
+
+function schedulerBrokerSignature(secret = '', timestamp = '', body = '') {
+  return `sha256=${crypto.createHmac('sha256', secret).update(`${timestamp}.${body}`).digest('hex')}`;
+}
+
+function hasMeetingRequestPayload(payload = {}) {
+  return Boolean(
+    payload.appointment
+      || payload.appointmentId
+      || payload.appointment_id
+      || payload.title
+      || payload.start_at
+      || payload.startAt,
+  );
+}
+
+function parseJson(text = '') {
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text.slice(0, 500) };
+  }
+}
+
+function safeProviderError(data = {}) {
+  if (!data || typeof data !== 'object') return null;
+  return String(data.message || data.error_description || data.error || data.code || data.raw || '').slice(0, 240) || null;
+}
+
+function safePlainText(value = '') {
+  return String(value || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+}
+
+function isoWithoutMillis(value) {
+  const date = new Date(value || Date.now());
+  return Number.isNaN(date.getTime()) ? new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z') : date.toISOString().replace(/\.\d{3}Z$/u, 'Z');
+}
+
+function isNonProductionUrl(value = '') {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host === 'localhost'
+      || host === '127.0.0.1'
+      || host.endsWith('.test')
+      || host.includes('staging')
+      || host.includes('nonprod')
+      || host.includes('sandbox')
+      || host.includes('railway.app');
+  } catch {
+    return false;
+  }
+}
+
+function escapeHtml(value = '') {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function splitFixtureList(value = '') {
+  return new Set(
+    String(value || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+}
