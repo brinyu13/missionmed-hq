@@ -35,7 +35,15 @@
     ownsStudentTimeline: true,
     ownsReadinessFramework: true,
     ownsRiskFramework: true,
-    ownsRelationshipContext: true
+    ownsRelationshipContext: true,
+    ownsStudentBriefingEngine: true,
+    ownsOpenLoopDetector: true,
+    ownsPromiseEngine: true,
+    ownsAdviceHistoryEngine: true,
+    ownsTimelineSummarizer: true,
+    ownsRiskSummaryEngine: true,
+    ownsNextBestMoveEngine: true,
+    ownsProfilePhotos: true
   });
 
   const ownershipModel = Object.freeze({
@@ -98,6 +106,41 @@
       status: STATUS.VERIFIED,
       owner: "MMC",
       writes: "local risk score derived only from MMC-owned follow-through and mentor context"
+    },
+    studentBriefingEngine: {
+      status: STATUS.VERIFIED,
+      owner: "MMC",
+      writes: "local executive briefing derived from MMC-owned memory, goals, tasks, sessions, promises, and assignments"
+    },
+    openLoopDetector: {
+      status: STATUS.VERIFIED,
+      owner: "MMC",
+      writes: "local repeated topic, open commitment, and unfinished action projection"
+    },
+    promiseEngine: {
+      status: STATUS.VERIFIED,
+      owner: "MMC",
+      writes: "local mentor and student promise tracking with overdue state"
+    },
+    adviceHistoryEngine: {
+      status: STATUS.VERIFIED,
+      owner: "MMC",
+      writes: "local latest, repeated, and not-yet-acted-on advice projection"
+    },
+    timelineSummarizer: {
+      status: STATUS.VERIFIED,
+      owner: "MMC",
+      writes: "local recent events, milestones, and change summary"
+    },
+    nextBestMoveEngine: {
+      status: STATUS.VERIFIED,
+      owner: "MMC",
+      writes: "local coaching recommendation from owned open loops, risk, promises, and memory"
+    },
+    profilePhotos: {
+      status: STATUS.VERIFIED,
+      owner: "MMC",
+      writes: "local internal-pilot profile photo data and metadata for mentor/admin review only"
     },
     externalSystems: {
       status: STATUS.BLOCKED,
@@ -162,7 +205,8 @@
     ]),
     sessionArtifacts: Object.freeze([
       Object.freeze({ id: "artifact-amara-0622-summary", sessionId: "session-amara-0622", studentId: "amara", type: "summary", title: "Post-session summary", visibility: "mentor", createdAt: "2026-06-22" })
-    ])
+    ]),
+    profilePhotos: Object.freeze([])
   });
 
   function clone(value) {
@@ -212,7 +256,8 @@
       state.memory,
       state.sessions,
       state.sessionArtifacts,
-      state.goals
+      state.goals,
+      state.profilePhotos
     ];
     return pools.flat()
       .map((record) => String(record && record.id || "").match(/-(\d+)$/))
@@ -320,6 +365,57 @@
       return state.sessions.filter((session) => !studentId || session.studentId === studentId);
     }
 
+    function getProfilePhoto(studentId) {
+      const student = findStudent(studentId);
+      const resolvedStudentId = student ? student.id : studentId;
+      const photo = state.profilePhotos.find((item) => item.studentId === resolvedStudentId) || null;
+      if (photo) return photo;
+      return {
+        id: `profile-photo-fallback-${resolvedStudentId}`,
+        studentId: resolvedStudentId,
+        hasPhoto: false,
+        dataUrl: null,
+        fileName: null,
+        mimeType: null,
+        size: 0,
+        initials: student ? student.initials : "ST",
+        source: "local MMC profile photo",
+        visibility: "mentor/admin review only for now",
+        productionStorage: "future unresolved",
+        studentUploadStatus: "future-supported, not enabled publicly",
+        status: STATUS.UNVERIFIED,
+        updatedAt: null
+      };
+    }
+
+    function setProfilePhoto(payload) {
+      const student = findStudent(payload.studentId);
+      const resolvedStudentId = student ? student.id : payload.studentId;
+      const dataUrl = String(payload.dataUrl || "");
+      if (!resolvedStudentId || !dataUrl.startsWith("data:image/")) return null;
+      const existingIndex = state.profilePhotos.findIndex((item) => item.studentId === resolvedStudentId);
+      const record = {
+        id: existingIndex >= 0 ? state.profilePhotos[existingIndex].id : nextId("profile-photo"),
+        studentId: resolvedStudentId,
+        hasPhoto: true,
+        dataUrl,
+        fileName: payload.fileName || "local-profile-photo",
+        mimeType: payload.mimeType || "image/*",
+        size: Number(payload.size || 0),
+        initials: student ? student.initials : "ST",
+        source: "local MMC profile photo",
+        visibility: "mentor/admin review only for now",
+        productionStorage: "future unresolved",
+        studentUploadStatus: "future-supported, not enabled publicly",
+        status: STATUS.VERIFIED,
+        updatedAt: "2026-06-23"
+      };
+      if (existingIndex >= 0) state.profilePhotos.splice(existingIndex, 1, record);
+      else state.profilePhotos.unshift(record);
+      persistState("profile-photo-local-save");
+      return record;
+    }
+
     function getStudentBundle(studentId) {
       const student = findStudent(studentId);
       const resolvedStudentId = student ? student.id : studentId;
@@ -336,7 +432,8 @@
         sensitiveMemory: getMemory(resolvedStudentId, "sensitive"),
         adviceMemory: getMemory(resolvedStudentId, "last-advice"),
         nextMoves: getMemory(resolvedStudentId, "next-move"),
-        sessions: getSessions(resolvedStudentId)
+        sessions: getSessions(resolvedStudentId),
+        profilePhoto: getProfilePhoto(resolvedStudentId)
       };
     }
 
@@ -512,6 +609,275 @@
         });
       });
       return records.sort((a, b) => b.date.localeCompare(a.date));
+    }
+
+    function newestByDate(records, field) {
+      return records.slice().sort((a, b) => normalizeDate(b[field]).localeCompare(normalizeDate(a[field])));
+    }
+
+    function detectRepeatedTopics(bundle) {
+      const topicCatalog = [
+        { key: "statement", label: "Personal statement", cue: "story clarity and rewrite follow-through" },
+        { key: "lor", label: "LOR collection", cue: "letters and attending outreach" },
+        { key: "usce", label: "USCE strategy", cue: "rotation targeting and coordinator outreach" },
+        { key: "intro", label: "Warm introduction", cue: "mentor-owned networking promise" },
+        { key: "mock", label: "Mock interview cadence", cue: "practice rhythm and debrief loop" },
+        { key: "timeline", label: "Application timeline", cue: "dates, milestones, and readiness pacing" },
+        { key: "confidence", label: "Confidence and feedback style", cue: "coaching delivery and trust signal" }
+      ];
+      const textParts = [
+        ...bundle.tasks.map((task) => `${task.title} ${task.type} ${task.dueLabel}`),
+        ...bundle.promises.map((promise) => `${promise.title} ${promise.dueLabel} ${promise.status}`),
+        ...bundle.memory.map((memory) => `${memory.title} ${memory.content} ${memory.category}`),
+        ...bundle.sessions.map((session) => `${session.title} ${session.summary || ""} ${session.privateNotes || ""}`),
+        ...bundle.goals.map((goal) => `${goal.title} ${goal.milestone} ${goal.velocity} ${(goal.readinessInputs || []).join(" ")}`)
+      ].join(" ").toLowerCase();
+      return topicCatalog.map((topic) => {
+        const occurrences = (textParts.match(new RegExp(topic.key, "gu")) || []).length;
+        return {
+          id: `topic-${topic.key}`,
+          label: topic.label,
+          cue: topic.cue,
+          occurrences
+        };
+      }).filter((topic) => topic.occurrences >= 2);
+    }
+
+    function dedupeByTitle(items) {
+      const seen = new Set();
+      return items.filter((item) => {
+        const key = String(item.title || item.label || item.id || "").toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+    }
+
+    function getOpenLoops(studentId) {
+      const bundle = getStudentBundle(studentId);
+      const promiseLoops = bundle.openPromises.map((promise) => ({
+        id: promise.id,
+        title: promise.title,
+        type: promise.promisor === "student" ? "Student Promise" : "Mentor Promise",
+        status: promise.dueLabel,
+        severity: promise.dueLabel === "Overdue" ? "critical" : "high",
+        detail: `${promise.promisor} promise remains ${promise.status}`
+      }));
+      const taskLoops = bundle.openTasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        type: task.owner === "student" ? "Student Action" : task.type,
+        status: task.dueLabel,
+        severity: task.priority,
+        detail: `${task.owner} owned · ${task.status} · ${task.priority}`
+      }));
+      const topicLoops = detectRepeatedTopics(bundle).map((topic) => ({
+        id: topic.id,
+        title: topic.label,
+        type: "Repeated Topic",
+        status: `${topic.occurrences} mentions`,
+        severity: topic.occurrences >= 3 ? "high" : "medium",
+        detail: topic.cue
+      }));
+      return dedupeByTitle([...promiseLoops, ...taskLoops, ...topicLoops]).slice(0, 7);
+    }
+
+    function getPromiseBriefing(studentId) {
+      const bundle = getStudentBundle(studentId);
+      const mentorPromises = bundle.promises.filter((promise) => promise.promisor === "mentor");
+      const studentCommitments = bundle.openTasks.filter((task) => task.owner === "student").map((task) => ({
+        id: task.id,
+        title: task.title,
+        madeAt: normalizeDate(task.dueAt),
+        dueLabel: task.dueLabel,
+        status: task.status,
+        promisor: "student",
+        taskId: task.id
+      }));
+      const allPromises = [...mentorPromises, ...studentCommitments];
+      const open = allPromises.filter((promise) => promise.status === "open");
+      const overdue = open.filter((promise) => promise.dueLabel === "Overdue");
+      return {
+        engine: "Promise Engine",
+        status: STATUS.VERIFIED,
+        made: allPromises,
+        mentorPromises,
+        studentCommitments,
+        open,
+        overdue,
+        completed: allPromises.filter((promise) => promise.status === "complete"),
+        summary: overdue.length
+          ? `${overdue.length} overdue promise needs closure`
+          : open.length
+            ? `${open.length} open promise or commitment needs tracking`
+            : "No open promises captured"
+      };
+    }
+
+    function getAdviceHistory(studentId) {
+      const bundle = getStudentBundle(studentId);
+      const adviceRecords = newestByDate(bundle.adviceMemory, "createdAt");
+      const latest = adviceRecords[0] || null;
+      const repeatedTopics = detectRepeatedTopics(bundle);
+      const openTaskText = bundle.openTasks.map((task) => task.title.toLowerCase()).join(" ");
+      const notActedUpon = repeatedTopics
+        .filter((topic) => openTaskText.includes(topic.key))
+        .map((topic) => ({
+          id: `advice-open-${topic.id}`,
+          title: topic.label,
+          detail: topic.cue,
+          status: "Open action remains"
+        }));
+      return {
+        engine: "Advice History Engine",
+        status: STATUS.VERIFIED,
+        latest,
+        repeated: repeatedTopics,
+        notActedUpon,
+        summary: latest ? latest.content : "No advice captured yet"
+      };
+    }
+
+    function getRelationshipContextEngine(studentId) {
+      const relationship = getRelationshipContext(studentId);
+      const bundle = getStudentBundle(studentId);
+      const personal = bundle.personalMemory[0];
+      const sensitive = bundle.sensitiveMemory[0];
+      return Object.assign({}, relationship, {
+        engine: "Relationship Context Engine",
+        status: STATUS.VERIFIED,
+        personalContext: personal ? personal.content : "No personal context captured yet.",
+        sensitiveTopics: sensitive ? [sensitive.content] : [],
+        professionalContext: bundle.goals[0]
+          ? `${bundle.goals[0].title}; current milestone: ${bundle.goals[0].milestone}`
+          : "No formal MMC-owned professional goal captured yet.",
+        relationshipSummary: `${relationship.trustSignal} trust signal · ${relationship.openLoops.length} open loop(s)`
+      });
+    }
+
+    function getTimelineSummary(studentId) {
+      const bundle = getStudentBundle(studentId);
+      const timeline = getStudentTimeline(studentId);
+      const lastSession = newestByDate(bundle.sessions, "startedAt")[0] || null;
+      return {
+        engine: "Timeline Summarizer",
+        status: STATUS.VERIFIED,
+        lastSession,
+        recent: timeline.slice(0, 5),
+        milestones: bundle.goals.slice(0, 3).map((goal) => ({
+          id: goal.id,
+          title: goal.milestone,
+          date: normalizeDate(goal.targetDate),
+          status: goal.velocity,
+          detail: `${goal.progress}% progress`
+        })),
+        summary: lastSession
+          ? `${lastSession.title} on ${normalizeDate(lastSession.startedAt)}; ${bundle.openTasks.length} open action(s) remain`
+          : `${timeline.length} MMC-owned timeline record(s) available`
+      };
+    }
+
+    function getRiskSummary(studentId) {
+      const risk = getRisk(studentId);
+      const readiness = getReadiness(studentId);
+      const trend = risk.overdue || risk.criticalOpen ? "Escalating" : readiness.score >= 70 ? "Improving" : "Stable";
+      return {
+        engine: "Risk Summary Engine",
+        status: STATUS.VERIFIED,
+        level: risk.level,
+        score: risk.score,
+        trend,
+        severity: risk.score >= 70 ? "High severity" : risk.score >= 42 ? "Moderate severity" : "Low severity",
+        reasons: risk.reasons,
+        readinessStatus: readiness.status,
+        readinessScore: readiness.score,
+        summary: `${risk.level} risk · ${trend} · ${risk.reasons.slice(0, 2).join("; ")}`
+      };
+    }
+
+    function getNextBestMove(studentId) {
+      const bundle = getStudentBundle(studentId);
+      const promiseBriefing = getPromiseBriefing(studentId);
+      const adviceHistory = getAdviceHistory(studentId);
+      const riskSummary = getRiskSummary(studentId);
+      const nextMove = bundle.nextMoves[0];
+      const overduePromise = promiseBriefing.overdue[0];
+      const criticalTask = bundle.openTasks.find((task) => task.priority === "critical");
+      const highTask = bundle.openTasks.find((task) => task.priority === "high");
+      let title = "Open the next coaching loop";
+      let action = nextMove ? nextMove.content : "Review goals, promises, and open actions before starting.";
+      if (overduePromise) {
+        title = "Close the overdue promise first";
+        action = `Confirm and complete: ${overduePromise.title}`;
+      } else if (criticalTask) {
+        title = "Resolve the critical action";
+        action = `Move ${criticalTask.title} from open loop to completed follow-through.`;
+      } else if (highTask) {
+        title = "Tighten the highest-priority action";
+        action = `Turn ${highTask.title} into a dated commitment.`;
+      }
+      return {
+        engine: "Next Best Move Engine",
+        status: STATUS.VERIFIED,
+        title,
+        action,
+        why: [
+          riskSummary.summary,
+          adviceHistory.notActedUpon[0] ? `${adviceHistory.notActedUpon[0].title} advice is still open` : "Latest advice has no explicit open follow-through conflict",
+          promiseBriefing.summary
+        ],
+        confidence: bundle.memory.length && bundle.tasks.length ? "High for MMC-owned local context" : "Partial until more MMC-owned memory is captured"
+      };
+    }
+
+    function getStudentBriefing(studentId) {
+      const bundle = getStudentBundle(studentId);
+      const student = bundle.student || {};
+      const goal = bundle.goals[0] || null;
+      const relationship = getRelationshipContextEngine(studentId);
+      const profilePhoto = getProfilePhoto(studentId);
+      const promiseBriefing = getPromiseBriefing(studentId);
+      const adviceHistory = getAdviceHistory(studentId);
+      const timelineSummary = getTimelineSummary(studentId);
+      const riskSummary = getRiskSummary(studentId);
+      const nextBestMove = getNextBestMove(studentId);
+      const openLoops = getOpenLoops(studentId);
+      const deadlines = bundle.openTasks
+        .filter((task) => task.dueAt && task.dueAt !== "TBD")
+        .slice(0, 4)
+        .map((task) => ({
+          id: task.id,
+          title: task.title,
+          date: normalizeDate(task.dueAt),
+          status: task.dueLabel,
+          owner: task.owner
+        }));
+      const lastAdvice = adviceHistory.latest;
+      return {
+        engine: "Student Briefing Engine",
+        status: STATUS.VERIFIED,
+        source: "MMC-owned memory, goals, tasks, sessions, notes, promises, timeline, and assignments only",
+        profilePhoto,
+        studentId: student.id || studentId,
+        studentName: student.name || "Student",
+        who: `${student.name || "This student"} is a ${student.specialty || "specialty"} applicant from ${student.country || "unknown country"} with ${bundle.openTasks.length} open MMC-owned action(s).`,
+        personalContext: relationship.personalContext,
+        professionalContext: relationship.professionalContext,
+        lastMeeting: timelineSummary.lastSession
+          ? `${timelineSummary.lastSession.title} · ${normalizeDate(timelineSummary.lastSession.startedAt)}`
+          : student.lastMeeting || "No MMC-owned session captured yet.",
+        lastAdvice: lastAdvice ? lastAdvice.content : "No advice captured yet.",
+        openLoops,
+        promises: promiseBriefing,
+        adviceHistory,
+        relationship,
+        timelineSummary,
+        riskSummary,
+        nextBestMove,
+        deadlines,
+        primaryGoal: goal ? goal.title : "No MMC-owned goal captured yet.",
+        confidence: "VERIFIED local-only MMC-owned intelligence; no external systems queried"
+      };
     }
 
     function searchMemory(query, studentId) {
@@ -792,7 +1158,16 @@
           "readinessFramework",
           "riskFramework",
           "relationshipContext",
-          "sessionInsights"
+          "sessionInsights",
+          "Student Briefing Engine",
+          "Open Loop Detector",
+          "Promise Engine",
+          "Advice History Engine",
+          "Relationship Context Engine",
+          "Timeline Summarizer",
+          "Risk Summary Engine",
+          "Next Best Move Engine",
+          "local MMC profile photo"
         ]
       };
     }
@@ -811,11 +1186,21 @@
       getGoals,
       getMemory,
       getSessions,
+      getProfilePhoto,
+      setProfilePhoto,
       getReadiness,
       getRisk,
       getRelationshipContext,
+      getRelationshipContextEngine,
       getSessionInsights,
       getStudentTimeline,
+      getOpenLoops,
+      getPromiseBriefing,
+      getAdviceHistory,
+      getTimelineSummary,
+      getRiskSummary,
+      getNextBestMove,
+      getStudentBriefing,
       searchMemory,
       completeTask,
       createTask,

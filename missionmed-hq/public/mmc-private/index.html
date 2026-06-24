@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:,">
 <title>Matrix Mentor Console Core</title>
-<link rel="stylesheet" href="./src/styles.css?v=011">
+<link rel="stylesheet" href="./src/styles.css?v=016">
 </head>
 <body>
 <div class="app">
@@ -455,7 +455,7 @@
   <!-- Profile Header -->
   <div class="card mb-md" style="border-color:rgba(0,212,255,0.2)">
     <div style="display:flex;gap:20px;align-items:center">
-      <div class="avatar" style="width:56px;height:56px;font-size:20px" id="profile-avatar">AO</div>
+      <div class="avatar profile-header-avatar" id="profile-avatar" data-testid="profile-header-photo">AO</div>
       <div style="flex:1">
         <div style="font-size:18px;font-weight:700" id="profile-name">Amara Okafor</div>
         <div style="font-size:13px;color:var(--text-muted);margin-top:2px" id="profile-school">University of Lagos Medical School · Nigeria</div>
@@ -468,6 +468,84 @@
       <div style="text-align:right">
         <span class="badge badge-orange" id="profile-risk" style="font-size:12px;padding:6px 14px">Medium Risk</span>
         <div style="font-size:11px;color:var(--text-dim);margin-top:6px" id="profile-mentor">Mentor: Brian Biruk</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-md mentor-briefing-card" id="student-briefing-card" data-testid="student-briefing-card">
+    <div class="card-header">
+      <div>
+        <div class="card-title" style="color:var(--gold)">Student Briefing Engine</div>
+        <div class="card-subtitle">Mentor intelligence from MMC-owned memory, goals, tasks, sessions, promises, and assignments</div>
+      </div>
+      <div style="text-align:right">
+        <span class="badge badge-cyan" id="briefing-student-name">Amara Okafor</span>
+        <div id="briefing-confidence" style="font-size:10px;color:var(--text-dim);margin-top:5px">VERIFIED local-only MMC-owned intelligence</div>
+      </div>
+    </div>
+    <div class="briefing-top-grid">
+      <div class="briefing-photo-panel">
+        <div class="avatar briefing-profile-photo" id="briefing-profile-photo" data-testid="briefing-profile-photo">AO</div>
+        <div class="briefing-photo-actions">
+          <label class="topbar-btn gold profile-photo-upload-label">
+            Change Photo
+            <input type="file" id="profile-photo-upload" data-testid="profile-photo-upload" accept="image/png,image/jpeg,image/webp" onchange="handleProfilePhotoUpload(this)">
+          </label>
+          <div class="briefing-photo-note" id="profile-photo-state">Initials fallback active · local MMC profile photo</div>
+        </div>
+        <div class="briefing-photo-metadata" id="briefing-photo-metadata" data-testid="profile-photo-metadata">
+          <div><strong>source:</strong> local MMC profile photo</div>
+          <div><strong>visibility:</strong> mentor/admin review only for now</div>
+          <div><strong>production storage:</strong> future unresolved</div>
+          <div><strong>student upload:</strong> future-supported, not enabled publicly</div>
+        </div>
+      </div>
+      <div class="briefing-hero-grid">
+      <div class="briefing-hero-panel" id="briefing-who">
+        <div class="briefing-kicker">WHO IS THIS PERSON?</div>
+        <div class="briefing-lead">Amara is an Internal Medicine applicant with open MMC-owned actions.</div>
+        <div class="briefing-meta-line">Match into academic Internal Medicine</div>
+      </div>
+      <div class="briefing-hero-panel accent" id="briefing-next-best-move" data-testid="briefing-next-best-move">
+        <div class="briefing-kicker">NEXT BEST MOVE</div>
+        <div class="briefing-lead" style="color:var(--gold)">Close the overdue promise first</div>
+        <div class="briefing-meta-line">Confirm and complete the coordinator introduction.</div>
+      </div>
+      </div>
+    </div>
+    <div class="briefing-grid" aria-label="Mentor Intelligence Briefing">
+      <div class="briefing-panel" id="briefing-personal-context" data-testid="briefing-personal-context">
+        <div class="briefing-label">PERSONAL CONTEXT</div>
+      </div>
+      <div class="briefing-panel" id="briefing-professional-context" data-testid="briefing-professional-context">
+        <div class="briefing-label">PROFESSIONAL CONTEXT</div>
+      </div>
+      <div class="briefing-panel" id="briefing-last-meeting" data-testid="briefing-last-meeting">
+        <div class="briefing-label">LAST MEETING</div>
+      </div>
+      <div class="briefing-panel" id="briefing-advice-history" data-testid="briefing-advice-history">
+        <div class="briefing-label">LAST ADVICE</div>
+      </div>
+      <div class="briefing-panel" id="briefing-promises" data-testid="briefing-promises">
+        <div class="briefing-label">PROMISES MADE</div>
+      </div>
+      <div class="briefing-panel" id="briefing-promises-overdue" data-testid="briefing-promises-overdue">
+        <div class="briefing-label">PROMISES OVERDUE</div>
+      </div>
+      <div class="briefing-panel" id="briefing-open-loops" data-testid="briefing-open-loops">
+        <div class="briefing-label">OPEN LOOPS</div>
+      </div>
+      <div class="briefing-panel" id="briefing-deadlines" data-testid="briefing-deadlines">
+        <div class="briefing-label">DEADLINES</div>
+      </div>
+      <div class="briefing-panel" id="briefing-risk-summary" data-testid="briefing-risk-summary">
+        <div class="briefing-label">RISK</div>
+      </div>
+      <div class="briefing-panel" id="briefing-relationship-context" data-testid="briefing-relationship-context">
+        <div class="briefing-label">RELATIONSHIP CONTEXT</div>
+      </div>
+      <div class="briefing-panel span-2" id="briefing-timeline-summary" data-testid="briefing-timeline-summary">
+        <div class="briefing-label">TIMELINE SUMMARY</div>
       </div>
     </div>
   </div>
@@ -1469,7 +1547,7 @@
 <div class="saved-toast" id="saved-toast" data-testid="saved-toast">Saved.</div>
 
   <script src="./src/mmc-data-adapters.js?v=010"></script>
-  <script src="./src/mmc-ownership-layer.js?v=012"></script>
-  <script src="./src/app.js?v=012"></script>
+  <script src="./src/mmc-ownership-layer.js?v=016"></script>
+  <script src="./src/app.js?v=016"></script>
 </body>
 </html>
