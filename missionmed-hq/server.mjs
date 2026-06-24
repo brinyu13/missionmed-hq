@@ -11,6 +11,7 @@ import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
 import { handleUscePublicRoute } from './routes/usce-public-intake.mjs';
+import { handleSchedulerApiRoute } from './lib/scheduler/routes.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -23,6 +24,8 @@ const ENV_FILE = path.join(__dirname, '.env');
 const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
+const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
+const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
 const IS_PRODUCTION = RUNTIME_ENV === 'production';
 
@@ -98,6 +101,13 @@ const CONFIG = {
   wpBearerToken: envValue('MMHQ_WP_BEARER_TOKEN', ''),
   wpAuthEndpoint: envValue('MMHQ_WP_AUTH_ENDPOINT', '/wp-json/missionmed-command-center/v1/auth/token/'),
   wpAllowedRoles: splitCsv(envValue('MMHQ_ALLOWED_WP_ROLES', 'administrator')),
+  mmcPrivateAllowedRoles: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_ROLES', 'administrator')),
+  mmcPrivateAllowedEmails: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_EMAILS', '')),
+  mmcPersistenceEnabled: envFlag('MMHQ_MMC_PERSISTENCE_ENABLED', false),
+  mmcSupabaseUrl: sanitizeServiceUrl(envValue('MMHQ_MMC_SUPABASE_URL', '')),
+  mmcSupabaseAnonKey: String(envValue('MMHQ_MMC_SUPABASE_ANON_KEY', '')).trim(),
+  mmcSupabaseJwtSecret: String(envValue('MMHQ_MMC_SUPABASE_JWT_SECRET', '')).trim(),
+  mmcAllowedSupabaseProjectRef: String(envValue('MMHQ_MMC_ALLOWED_SUPABASE_PROJECT_REF', 'avpdetdkpwmqqxtvomix')).trim().toLowerCase(),
   drillsOnCallCourseIds: splitCsv(envValue('MMHQ_DRILLS_ON_CALL_COURSE_IDS', envValue('MMHQ_DRILLS_ON_CALL_COURSE_ID', '')))
     .map((value) => Number(value))
     .filter((value) => Number.isInteger(value) && value > 0),
@@ -136,6 +146,11 @@ const CONFIG = {
 
 const AUTH_ALLOWED_SUPABASE_PROJECT = 'fglyvdykwgbuivikqoah';
 const AUTH_FORBIDDEN_SUPABASE_PROJECT = 'plgndqcplokwiuimwhzh';
+const MMC_STAGING_SUPABASE_PROJECT = 'avpdetdkpwmqqxtvomix';
+const MMC_FORBIDDEN_SUPABASE_PROJECTS = new Set([
+  AUTH_ALLOWED_SUPABASE_PROJECT,
+  AUTH_FORBIDDEN_SUPABASE_PROJECT,
+]);
 const AUTH_BOOTSTRAP_PASSWORD_SALT = String(envValue('MMHQ_SUPABASE_PASSWORD_SALT', 'missionmed-bootstrap-salt')).trim() || 'missionmed-bootstrap-salt';
 const AUTH_HANDOFF_SECRET = String(envValue('MMHQ_HANDOFF_SECRET', '')).trim();
 const AUTH_HANDOFF_MAX_CLOCK_SKEW_SECONDS = 300;
@@ -269,6 +284,12 @@ const server = http.createServer(async (request, response) => {
         sendRedirect(response, '/api/auth/start');
         return;
       }
+    }
+
+
+    if (isMmcPrivatePath(pathname)) {
+      await handleMmcPrivateMount(request, response, pathname);
+      return;
     }
 
     if (request.method === 'GET' && (
@@ -1734,7 +1755,7 @@ function authenticateApiRequest(request) {
   return readSessionFromRequest(request);
 }
 
-function requireAuthenticatedApiSession(request, response, session) {
+function requireAuthenticatedApiSession(request, response, session, authHeaders = buildCorsHeaders(request)) {
   if (CONFIG.authRequired && !session) {
     sendJson(response, 401, {
       error: 'authentication_required',
@@ -1897,7 +1918,12 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const hqBase = getHqBaseForRequest(request);
-    const hqEntryUrl = hqBase ? new URL('/api/auth/session', hqBase).toString() : '';
+    const hqEntry = hqBase ? new URL('/api/auth/session', hqBase) : null;
+    const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
+    if (hqEntry && finalRedirect) {
+      hqEntry.searchParams.set('final', finalRedirect);
+    }
+    const hqEntryUrl = hqEntry ? hqEntry.toString() : '';
     const redirectUrl = buildWordPressAuthRedirectUrl(hqEntryUrl);
 
     if (!redirectUrl) {
@@ -1929,7 +1955,7 @@ async function handleApiRoute(request, response, url, context) {
   if (pathname === '/api/auth/session') {
     const handoffToken = String(searchParams.get('token') || '').trim();
     const finalRedirect = resolveAuthSessionFinalRedirect(searchParams.get('final'), request);
-    const audience = normalizeAuthAudience(searchParams.get('audience') || '');
+    const audience = normalizeAuthAudience(searchParams.get('audience') || searchParams.get('aud') || '');
 
     if (handoffToken) {
       const exchange = await exchangeWordPressAuth({ token: handoffToken, audience }, request);
@@ -1942,7 +1968,8 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
-      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(exchange.session);
+      const schedulerSession = await hydrateSchedulerEntitlementSession(exchange.session, request, audience);
+      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(schedulerSession);
       if (!bootstrap.ok) {
         sendJson(response, bootstrap.status || 502, {
           error: bootstrap.error || 'supabase_bootstrap_failed',
@@ -1951,7 +1978,7 @@ async function handleApiRoute(request, response, url, context) {
         return;
       }
 
-      const hydratedSession = bootstrap.session || exchange.session;
+      const hydratedSession = bootstrap.session || schedulerSession;
       const responseHeaders = {
         ...authHeaders,
         'Set-Cookie': buildSessionCookie(request, hydratedSession),
@@ -1967,6 +1994,20 @@ async function handleApiRoute(request, response, url, context) {
         200,
         buildSessionPayload(hydratedSession, request),
         responseHeaders,
+      );
+      return;
+    }
+
+    if (isSchedulerAuthAudience(audience) && session) {
+      const schedulerSession = await hydrateSchedulerEntitlementSession(session, request, audience);
+      sendJson(
+        response,
+        200,
+        buildSessionPayload(schedulerSession, request),
+        {
+          ...authHeaders,
+          'Set-Cookie': buildSessionCookie(request, schedulerSession),
+        },
       );
       return;
     }
@@ -2122,13 +2163,28 @@ async function handleApiRoute(request, response, url, context) {
       return;
     }
 
+    const audience = normalizeAuthAudience(payload?.audience || payload?.authAudience || payload?.mode || '');
+    let sessionForPayload = exchange.session;
+    if (isSchedulerAuthAudience(audience)) {
+      sessionForPayload = await hydrateSchedulerEntitlementSession(exchange.session, request, audience);
+      const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(sessionForPayload);
+      if (!bootstrap.ok) {
+        sendJson(response, bootstrap.status || 502, {
+          error: bootstrap.error || 'supabase_bootstrap_failed',
+          message: bootstrap.message || 'Supabase bootstrap failed.',
+        }, authHeaders);
+        return;
+      }
+      sessionForPayload = bootstrap.session || sessionForPayload;
+    }
+
     sendJson(
       response,
       200,
-      buildSessionPayload(exchange.session, request),
+      buildSessionPayload(sessionForPayload, request),
       {
         ...authHeaders,
-        'Set-Cookie': buildSessionCookie(request, exchange.session),
+        'Set-Cookie': buildSessionCookie(request, sessionForPayload),
       },
     );
     return;
@@ -2141,7 +2197,8 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     const authSession = session || readSessionFromRequest(request);
-    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(authSession);
+    const schedulerSession = await hydrateSchedulerEntitlementSession(authSession, request, authSession?.audience || authSession?.authAudience || '');
+    const bootstrap = await bootstrapSupabaseSessionFromWordPressSession(schedulerSession);
     if (!bootstrap.ok) {
       sendJson(response, bootstrap.status || 502, {
         error: bootstrap.error || 'supabase_bootstrap_failed',
@@ -2152,7 +2209,7 @@ async function handleApiRoute(request, response, url, context) {
 
     sendJson(response, 200, bootstrap.payload || {}, {
       ...authHeaders,
-      'Set-Cookie': buildSessionCookie(request, bootstrap.session || authSession),
+      'Set-Cookie': buildSessionCookie(request, bootstrap.session || schedulerSession || authSession),
     });
     return;
   }
@@ -2215,7 +2272,25 @@ async function handleApiRoute(request, response, url, context) {
     }
   }
 
-  if (!requireAuthenticatedApiSession(request, response, session)) {
+  if (pathname.startsWith('/api/scheduler/')) {
+    const schedulerSession = await hydrateSchedulerEntitlementSession(session, request, 'scheduler');
+    const schedulerAuthHeaders = schedulerSession && schedulerSession !== session
+      ? { ...authHeaders, 'Set-Cookie': buildSessionCookie(request, schedulerSession) }
+      : authHeaders;
+    const handled = await handleSchedulerApiRoute(request, response, url, {
+      session: schedulerSession,
+      authHeaders: schedulerAuthHeaders,
+      sendJson,
+      sendMethodNotAllowed,
+      readJsonBody,
+      validateCsrf,
+    });
+    if (handled) {
+      return;
+    }
+  }
+
+  if (!requireAuthenticatedApiSession(request, response, session, authHeaders)) {
     return;
   }
 
@@ -2238,6 +2313,12 @@ async function handleApiRoute(request, response, url, context) {
     await handleDbocRoute(request, response, url, session);
     return;
   }
+
+  if (pathname === '/api/mmc/persistence') {
+    await handleMmcPersistenceRoute(request, response, url, { session, authHeaders });
+    return;
+  }
+
 
   if (pathname === '/api/bootstrap') {
     sendRoutePayload(response, {
@@ -2687,6 +2768,1103 @@ async function handleApiRoute(request, response, url, context) {
     error: 'not_found',
     message: `No route matched ${pathname}.`,
   });
+}
+
+
+function isMmcPrivatePath(pathname = '') {
+  const normalized = String(pathname || '/').replace(/\/+$/u, '') || '/';
+  return normalized === MMC_PRIVATE_ROUTE_PREFIX || normalized.startsWith(`${MMC_PRIVATE_ROUTE_PREFIX}/`);
+}
+
+function isAuthorizedMmcPrivateUser(user = {}) {
+  const normalized = normalizeWordPressUser(user);
+  const roles = Array.isArray(normalized.roles) ? normalized.roles : [];
+  const email = String(normalized.email || '').trim().toLowerCase();
+
+  if (roles.some((role) => CONFIG.mmcPrivateAllowedRoles.includes(String(role).toLowerCase()))) {
+    return true;
+  }
+
+  if (email && CONFIG.mmcPrivateAllowedEmails.includes(email)) {
+    return true;
+  }
+
+  return Boolean(normalized.capabilities?.manage_options);
+}
+
+function isAuthorizedMmcPrivateSession(session = null) {
+  if (!session?.user) {
+    return false;
+  }
+
+  return isAuthorizedMmcPrivateUser(session.user);
+}
+
+function resolveMmcPrivateStaticPath(pathname = '') {
+  const normalized = String(pathname || MMC_PRIVATE_ROUTE_PREFIX).replace(/\/+$/u, '') || MMC_PRIVATE_ROUTE_PREFIX;
+  if (normalized === MMC_PRIVATE_ROUTE_PREFIX) {
+    return MMC_PRIVATE_INDEX_PATH;
+  }
+
+  return pathname;
+}
+
+async function handleMmcPrivateMount(request, response, pathname) {
+  if (request.method !== 'GET') {
+    sendMethodNotAllowed(response, ['GET']);
+    return;
+  }
+
+  const session = readSessionFromRequest(request);
+  if (!session) {
+    const hqBase = getHqBaseForRequest(request);
+    const finalRedirect = hqBase ? new URL(`${MMC_PRIVATE_ROUTE_PREFIX}/`, hqBase).toString() : `${MMC_PRIVATE_ROUTE_PREFIX}/`;
+    sendRedirect(response, `/api/auth/start?final=${encodeURIComponent(finalRedirect)}`);
+    return;
+  }
+
+  if (!isAuthorizedMmcPrivateSession(session)) {
+    sendJson(response, 403, {
+      error: 'mmc_private_forbidden',
+      message: 'MMC private review is limited to authorized MissionMed HQ operators.',
+    }, {
+      'X-MissionMed-Private-Mount': 'forbidden',
+    });
+    return;
+  }
+
+  response.setHeader('X-MissionMed-Private-Mount', 'admin-only');
+  response.setHeader('X-MissionMed-Route', 'mmc-private');
+  response.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  await serveStatic(response, resolveMmcPrivateStaticPath(pathname));
+}
+
+function getMmcPersistenceConfig() {
+  if (!CONFIG.mmcPersistenceEnabled) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_persistence_disabled',
+      message: 'MMC persistence is disabled. Set MMHQ_MMC_PERSISTENCE_ENABLED=true for staging integration.',
+    };
+  }
+
+  const projectRef = getSupabaseProjectRef(CONFIG.mmcSupabaseUrl);
+  if (!CONFIG.mmcSupabaseUrl || !projectRef) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_url_missing',
+      message: 'MMHQ_MMC_SUPABASE_URL is required for MMC persistence.',
+    };
+  }
+
+  if (MMC_FORBIDDEN_SUPABASE_PROJECTS.has(projectRef)) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'mmc_supabase_project_forbidden',
+      message: 'MMC persistence refused a forbidden production Supabase project.',
+    };
+  }
+
+  const allowedProjectRef = CONFIG.mmcAllowedSupabaseProjectRef || MMC_STAGING_SUPABASE_PROJECT;
+  if (projectRef !== allowedProjectRef) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'mmc_supabase_project_mismatch',
+      message: `MMC persistence expected project ${allowedProjectRef} but received ${projectRef}.`,
+    };
+  }
+
+  if (!CONFIG.mmcSupabaseAnonKey) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_anon_key_missing',
+      message: 'MMHQ_MMC_SUPABASE_ANON_KEY is required for RLS-scoped MMC persistence.',
+    };
+  }
+
+  if (!CONFIG.mmcSupabaseJwtSecret) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_jwt_secret_missing',
+      message: 'MMHQ_MMC_SUPABASE_JWT_SECRET is required to mint RLS-scoped MMC JWT claims.',
+    };
+  }
+
+  return {
+    ok: true,
+    supabaseUrl: CONFIG.mmcSupabaseUrl,
+    anonKey: CONFIG.mmcSupabaseAnonKey,
+    jwtSecret: CONFIG.mmcSupabaseJwtSecret,
+    projectRef,
+  };
+}
+
+function stableUuidFromString(value = '') {
+  const hash = createHash('sha256').update(String(value || '')).digest();
+  hash[6] = (hash[6] & 0x0f) | 0x40;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.subarray(0, 16).toString('hex');
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join('-');
+}
+
+function resolveMmcRoleForSession(session = null) {
+  const user = normalizeWordPressUser(session?.user || {});
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  if (user.capabilities?.manage_options || roles.includes('administrator')) {
+    return 'admin';
+  }
+
+  if (roles.some((role) => ['admin', 'hq_admin', 'hq_operator', 'operator'].includes(role))) {
+    return 'admin';
+  }
+
+  return 'mentor';
+}
+
+function buildMmcPrincipal(session = null) {
+  const user = normalizeWordPressUser(session?.user || {});
+  const identityKey = user.id
+    ? `wp:${user.id}`
+    : user.email
+      ? `wp-email:${user.email.toLowerCase()}`
+      : `wp-login:${user.login || 'unknown'}`;
+  return {
+    id: stableUuidFromString(identityKey),
+    authSource: 'wordpress_hq',
+    authSubjectId: stableUuidFromString(identityKey),
+    displayName: user.displayName || user.login || 'MMC Mentor',
+    email: user.email || '',
+    role: resolveMmcRoleForSession(session),
+    wpUserId: user.id || null,
+    wpLogin: user.login || '',
+  };
+}
+
+function signMmcSupabaseJwt(principal, config) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+  };
+  const payload = {
+    aud: 'authenticated',
+    exp: now + 600,
+    iat: now,
+    sub: principal.id,
+    role: 'authenticated',
+    email: principal.email || undefined,
+    app_metadata: {
+      mmc_role: principal.role,
+      mm_role: principal.role,
+      auth_source: principal.authSource,
+    },
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signature = createHmac('sha256', config.jwtSecret)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest();
+  return `${encodedHeader}.${encodedPayload}.${base64UrlEncode(signature)}`;
+}
+
+function buildMmcSupabaseHeaders(config, jwt, { includeContentType = false, prefer = '' } = {}) {
+  const headers = {
+    Accept: 'application/json',
+    apikey: config.anonKey,
+    Authorization: `Bearer ${jwt}`,
+    'Accept-Profile': 'mmc',
+  };
+
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json';
+    headers['Content-Profile'] = 'mmc';
+  }
+
+  if (prefer) {
+    headers.Prefer = prefer;
+  }
+
+  return headers;
+}
+
+async function fetchMmcSupabase(config, jwt, tablePath, options = {}) {
+  return fetchJson(`${config.supabaseUrl}/rest/v1/${tablePath}`, {
+    method: options.method || 'GET',
+    headers: buildMmcSupabaseHeaders(config, jwt, {
+      includeContentType: Boolean(options.body),
+      prefer: options.prefer || '',
+    }),
+    body: options.body,
+    timeoutMs: options.timeoutMs || 8000,
+  });
+}
+
+function jsonArraySourceRef(localId, domain) {
+  return [{
+    system: 'mmc-private-runtime',
+    local_id: String(localId || ''),
+    domain: String(domain || ''),
+  }];
+}
+
+function compactObject(value = {}) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  );
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function sanitizeMmcLocalId(value = '') {
+  return String(value || '').trim().replace(/[^\w:.-]/gu, '-').slice(0, 120);
+}
+
+function collectMmcStudentIds(state = {}) {
+  const ids = new Set();
+  for (const domain of ['assignments', 'goals', 'tasks', 'promises', 'memory', 'sessions', 'sessionArtifacts', 'openLoops', 'intelligenceSnapshots']) {
+    for (const record of asArray(state[domain])) {
+      const id = sanitizeMmcLocalId(record?.studentId);
+      if (id) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+function mmcDateOrNull(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'TBD' || raw === 'Student' || raw === 'Queued') {
+    return null;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function mmcDateOnlyOrNull(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'TBD') {
+    return null;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeMmcActionStatus(status = '') {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'complete' || value === 'completed') return 'completed';
+  if (value === 'in_progress') return 'in_progress';
+  if (value === 'blocked') return 'blocked';
+  if (value === 'canceled') return 'canceled';
+  if (value === 'archived') return 'archived';
+  return 'open';
+}
+
+function normalizeMmcSessionStatus(status = '') {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'active') return 'in_session';
+  if (value === 'complete' || value === 'completed') return 'completed';
+  if (value === 'post-session' || value === 'post_session') return 'post_session';
+  if (value === 'canceled') return 'canceled';
+  if (value === 'archived') return 'archived';
+  if (value === 'prep') return 'prep';
+  return 'planned';
+}
+
+function normalizeMmcProgressState(goal = {}) {
+  if (String(goal.velocity || '').toLowerCase().includes('risk')) return 'at_risk';
+  const progress = Number(goal.progress || 0);
+  if (progress >= 100) return 'complete';
+  if (progress > 0) return 'progressing';
+  return 'not_started';
+}
+
+function actionTypeForTask(task = {}) {
+  const type = String(task.type || '').toLowerCase();
+  if (type.includes('promise')) return 'promise';
+  if (type.includes('follow')) return 'follow_up';
+  if (type.includes('deadline')) return 'deadline';
+  if (type.includes('prep')) return 'prep';
+  if (type.includes('review')) return 'review';
+  return 'task';
+}
+
+async function selectMmcRows(context, table, query = 'select=*') {
+  const result = await fetchMmcSupabase(context.config, context.jwt, `${table}?${query}`);
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} select failed.`);
+  }
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+async function insertMmcRow(context, table, payload) {
+  const result = await fetchMmcSupabase(context.config, context.jwt, table, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    prefer: 'return=representation',
+  });
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} insert failed.`);
+  }
+  return Array.isArray(result.data) ? result.data[0] : result.data;
+}
+
+async function updateMmcRow(context, table, id, payload) {
+  const result = await fetchMmcSupabase(context.config, context.jwt, `${table}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    prefer: 'return=representation',
+  });
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} update failed.`);
+  }
+  return Array.isArray(result.data) ? result.data[0] : result.data;
+}
+
+function stripMmcCreateOnlyFields(payload = {}) {
+  const next = { ...payload };
+  delete next.created_by_principal_id;
+  return next;
+}
+
+function mapRowsByLocalId(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const localId = String(row?.metadata?.local_id || '').trim();
+    if (localId) {
+      map.set(localId, row);
+    }
+  }
+  return map;
+}
+
+async function upsertMmcRowByLocalId(context, table, existingByLocalId, localId, payload) {
+  const existing = existingByLocalId.get(localId);
+  if (existing?.id) {
+    return updateMmcRow(context, table, existing.id, stripMmcCreateOnlyFields(payload));
+  }
+  const inserted = await insertMmcRow(context, table, payload);
+  if (inserted?.id) {
+    existingByLocalId.set(localId, inserted);
+  }
+  return inserted;
+}
+
+function scopedMmcMentorQuery(mentorId, query = 'select=*') {
+  return `mentor_id=eq.${encodeURIComponent(mentorId)}&deleted_at=is.null&archived_at=is.null&${query}`;
+}
+
+function buildMmcPersistenceContext(session, config) {
+  const principal = buildMmcPrincipal(session);
+  return {
+    config,
+    principal,
+    jwt: signMmcSupabaseJwt(principal, config),
+  };
+}
+
+async function findMmcMentor(context) {
+  const existing = await selectMmcRows(
+    context,
+    'mentors',
+    `auth_subject_id=eq.${encodeURIComponent(context.principal.authSubjectId)}&status=eq.active&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (existing[0]) {
+    return existing[0];
+  }
+
+  return null;
+}
+
+async function ensureMmcMentor(context) {
+  const existing = await findMmcMentor(context);
+  if (existing) {
+    return existing;
+  }
+
+  if (context.principal.role !== 'admin') {
+    throw new Error('MMC mentor principal is not seeded for this authorized mentor.');
+  }
+  return insertMmcRow(context, 'mentors', {
+    auth_source: context.principal.authSource,
+    auth_subject_id: context.principal.authSubjectId,
+    display_name: context.principal.displayName,
+    role: 'admin',
+    status: 'active',
+    last_verified_at: new Date().toISOString(),
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'verified',
+    provenance: { source: 'MMC-021 private route bootstrap' },
+    metadata: {
+      wp_user_id: context.principal.wpUserId,
+      wp_login: context.principal.wpLogin,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function ensureMmcSubjectRef(context, studentId, student = {}) {
+  const localId = sanitizeMmcLocalId(studentId);
+  const rows = await selectMmcRows(
+    context,
+    'identity_references',
+    `primary_anchor_type=eq.mmc_fixture_student&primary_anchor_hash=eq.${encodeURIComponent(localId)}&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (rows[0]) {
+    return rows[0];
+  }
+  if (context.principal.role !== 'admin') {
+    throw new Error(`MMC subject reference is not seeded for ${localId}.`);
+  }
+  return insertMmcRow(context, 'identity_references', {
+    reference_status: 'unverified',
+    primary_anchor_type: 'mmc_fixture_student',
+    primary_anchor_hash: localId,
+    confidence: 0,
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'unreviewed',
+    source_refs: jsonArraySourceRef(localId, 'fixture-student'),
+    provenance: { source: 'MMC-021 fixture-safe subject reference' },
+    metadata: {
+      student_id: localId,
+      student_name: student.name || null,
+      canonical_student_identity: false,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function ensureMmcAssignment(context, mentor, subjectRef, studentId) {
+  const rows = await selectMmcRows(
+    context,
+    'mentor_assignments',
+    `mentor_id=eq.${encodeURIComponent(mentor.id)}&subject_ref_id=eq.${encodeURIComponent(subjectRef.id)}&status=eq.active&revoked_at=is.null&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (rows[0]) {
+    return rows[0];
+  }
+  if (context.principal.role !== 'admin') {
+    throw new Error(`MMC assignment is not seeded for ${sanitizeMmcLocalId(studentId)}.`);
+  }
+  return insertMmcRow(context, 'mentor_assignments', {
+    mentor_id: mentor.id,
+    subject_ref_id: subjectRef.id,
+    assignment_scope: 'coaching',
+    status: 'active',
+    granted_by_principal_id: context.principal.id,
+    grant_reason: 'MMC-021 staging/private-route fixture assignment',
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'verified',
+    source_refs: jsonArraySourceRef(studentId, 'mentor-assignment'),
+    provenance: { source: 'MMC-021 private route bootstrap' },
+    metadata: {
+      student_id: sanitizeMmcLocalId(studentId),
+      canonical_student_identity: false,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function buildMmcReferenceMaps(context, state = {}) {
+  const mentor = await ensureMmcMentor(context);
+  const studentsById = new Map(asArray(state.students).map((student) => [String(student.id || ''), student]));
+  const subjectRefs = new Map();
+  const assignments = new Map();
+  const studentIds = collectMmcStudentIds(state);
+
+  for (const studentId of studentIds) {
+    const subjectRef = await ensureMmcSubjectRef(context, studentId, studentsById.get(studentId) || {});
+    const assignment = await ensureMmcAssignment(context, mentor, subjectRef, studentId);
+    subjectRefs.set(studentId, subjectRef);
+    assignments.set(studentId, assignment);
+  }
+
+  return { mentor, subjectRefs, assignments };
+}
+
+function getMmcReferenceForStudent(referenceMaps, studentId) {
+  const localId = sanitizeMmcLocalId(studentId);
+  const subjectRef = referenceMaps.subjectRefs.get(localId);
+  const assignment = referenceMaps.assignments.get(localId);
+  if (!subjectRef || !assignment) {
+    return null;
+  }
+  return { subjectRef, assignment };
+}
+
+function buildMmcCommonRow(context, reference, record, domain, extraMetadata = {}) {
+  const localId = sanitizeMmcLocalId(record.id || `${domain}-${record.studentId}`);
+  return {
+    mentor_id: reference.assignment.mentor_id,
+    assignment_id: reference.assignment.id,
+    subject_ref_id: reference.subjectRef.id,
+    visibility: extraMetadata.visibility || 'mentor_admin',
+    sensitivity: extraMetadata.sensitivity || 'standard',
+    review_status: extraMetadata.review_status || 'reviewed',
+    source_refs: jsonArraySourceRef(localId, domain),
+    provenance: {
+      source: 'MMC-021 private mount persistence',
+      local_domain: domain,
+    },
+    metadata: compactObject({
+      ...extraMetadata.metadata,
+      local_id: localId,
+      local_domain: domain,
+      student_id: sanitizeMmcLocalId(record.studentId),
+      mmc_runtime: 'MMC-021',
+    }),
+    updated_by_principal_id: context.principal.id,
+    created_by_principal_id: context.principal.id,
+  };
+}
+
+function buildMmcMemoryRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'mentor_memory', {
+      sensitivity: record.sensitive ? 'sensitive' : 'standard',
+      metadata: {
+        title: record.title || null,
+        category: record.category || null,
+        source: record.source || null,
+      },
+    }),
+    memory_type: record.category || 'coaching',
+    memory_text: record.content || record.title || 'MMC mentor memory',
+    confidence: record.verified === false ? 0.5 : 1,
+    last_confirmed_at: mmcDateOrNull(record.createdAt),
+  };
+}
+
+function buildMmcPrivateNoteRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'private_notes', {
+      visibility: 'mentor_private',
+      sensitivity: record.sensitive ? 'highly_sensitive' : 'sensitive',
+      metadata: {
+        title: record.title || 'Private Mentor Note',
+        category: record.category || 'private-note',
+        source: record.source || null,
+      },
+    }),
+    note_type: 'mentor_private',
+    note_body: record.content || record.title || 'MMC private note',
+  };
+}
+
+function buildMmcActionRow(context, reference, record, domain) {
+  const isPromise = domain === 'promise' || actionTypeForTask(record) === 'promise';
+  return {
+    ...buildMmcCommonRow(context, reference, record, domain === 'promise' ? 'promise' : 'task', {
+      metadata: {
+        local_type: record.type || null,
+        dueLabel: record.dueLabel || null,
+        priority: record.priority || null,
+        promiseId: record.promiseId || null,
+        taskId: record.taskId || null,
+        sourceSessionId: record.sourceSessionId || null,
+        madeAt: record.madeAt || null,
+      },
+    }),
+    owner_type: record.owner || record.promisor || 'mentor',
+    action_type: isPromise ? 'promise' : actionTypeForTask(record),
+    title: record.title || 'MMC action item',
+    details: record.details || null,
+    due_at: mmcDateOrNull(record.dueAt),
+    status: normalizeMmcActionStatus(record.status),
+    closed_at: normalizeMmcActionStatus(record.status) === 'completed' ? mmcDateOrNull(record.completedAt || record.updatedAt || new Date().toISOString()) : null,
+    closed_by_principal_id: normalizeMmcActionStatus(record.status) === 'completed' ? context.principal.id : null,
+  };
+}
+
+function buildMmcGoalRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'goal', {
+      metadata: {
+        milestone: record.milestone || null,
+        progress: Number(record.progress || 0),
+        velocity: record.velocity || null,
+        readinessInputs: asArray(record.readinessInputs),
+      },
+    }),
+    goal_type: 'coaching',
+    title: record.title || 'MMC coaching goal',
+    description: record.milestone || null,
+    target_date: mmcDateOnlyOrNull(record.targetDate),
+    status: record.status === 'complete' ? 'achieved' : 'active',
+    progress_state: normalizeMmcProgressState(record),
+    milestone_json: asArray(record.readinessInputs).map((item) => ({ label: item })),
+  };
+}
+
+function buildMmcSessionRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'coaching_session', {
+      metadata: {
+        title: record.title || null,
+        capturedItemIds: asArray(record.capturedItemIds),
+        studentVisible: Boolean(record.studentVisible),
+      },
+    }),
+    session_status: normalizeMmcSessionStatus(record.status),
+    started_at: mmcDateOrNull(record.startedAt),
+    ended_at: mmcDateOrNull(record.endedAt),
+    session_focus: record.title || 'MMC-owned advising session',
+    post_session_summary: record.summary || null,
+    prep_summary: record.privateNotes || null,
+    source_type: 'manual_mmc',
+  };
+}
+
+function buildMmcArtifactRow(context, reference, record, sessionIdByLocalId) {
+  const mappedSessionId = sessionIdByLocalId.get(String(record.sessionId || '').trim()) || null;
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'session_artifact', {
+      visibility: record.visibility === 'mentor' ? 'mentor_private' : 'mentor_admin',
+      metadata: {
+        localSessionId: record.sessionId || null,
+        type: record.type || null,
+      },
+    }),
+    session_id: mappedSessionId,
+    artifact_type: record.type || 'post_session_summary',
+    title: record.title || 'MMC session artifact',
+    content_body: record.content || record.summary || null,
+  };
+}
+
+function buildMmcOpenLoopRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'open_loop', {
+      sensitivity: record.severity === 'critical' ? 'sensitive' : 'standard',
+      metadata: {
+        type: record.type || null,
+        detail: record.detail || null,
+      },
+    }),
+    loop_type: record.type || 'coaching',
+    summary: record.title || record.summary || 'MMC open loop',
+    severity: ['low', 'medium', 'high', 'critical'].includes(String(record.severity || '').toLowerCase())
+      ? String(record.severity).toLowerCase()
+      : 'medium',
+    status: record.status === 'resolved' ? 'resolved' : 'open',
+  };
+}
+
+function buildMmcSnapshotRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'intelligence_snapshot', {
+      metadata: {
+        snapshotType: record.snapshotType || 'student_briefing',
+      },
+    }),
+    snapshot_type: record.snapshotType || 'student_briefing',
+    summary_json: record.summary || record,
+    confidence: Number(record.confidenceScore || 1),
+    generated_at: new Date().toISOString(),
+  };
+}
+
+async function saveMmcPersistenceState(context, state = {}, request = null) {
+  const referenceMaps = await buildMmcReferenceMaps(context, state);
+  const existing = {
+    mentor_memory: mapRowsByLocalId(await selectMmcRows(context, 'mentor_memory', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    private_notes: mapRowsByLocalId(await selectMmcRows(context, 'private_notes', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    action_items: mapRowsByLocalId(await selectMmcRows(context, 'action_items', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    goals: mapRowsByLocalId(await selectMmcRows(context, 'goals', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    coaching_sessions: mapRowsByLocalId(await selectMmcRows(context, 'coaching_sessions', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    session_artifacts: mapRowsByLocalId(await selectMmcRows(context, 'session_artifacts', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    open_loops: mapRowsByLocalId(await selectMmcRows(context, 'open_loops', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    intelligence_snapshots: mapRowsByLocalId(await selectMmcRows(context, 'intelligence_snapshots', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+  };
+  const sessionIdByLocalId = new Map();
+  let writeCount = 0;
+
+  for (const record of asArray(state.memory).filter((item) => item?.category !== 'private-note')) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'mentor_memory', existing.mentor_memory, sanitizeMmcLocalId(record.id), buildMmcMemoryRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.memory).filter((item) => item?.category === 'private-note')) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'private_notes', existing.private_notes, sanitizeMmcLocalId(record.id), buildMmcPrivateNoteRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.tasks)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'action_items', existing.action_items, sanitizeMmcLocalId(record.id), buildMmcActionRow(context, reference, record, 'task'));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.promises)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'action_items', existing.action_items, sanitizeMmcLocalId(record.id), buildMmcActionRow(context, reference, record, 'promise'));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.goals)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'goals', existing.goals, sanitizeMmcLocalId(record.id), buildMmcGoalRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.sessions)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    const saved = await upsertMmcRowByLocalId(context, 'coaching_sessions', existing.coaching_sessions, sanitizeMmcLocalId(record.id), buildMmcSessionRow(context, reference, record));
+    if (saved?.id) sessionIdByLocalId.set(String(record.id || '').trim(), saved.id);
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.sessionArtifacts)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'session_artifacts', existing.session_artifacts, sanitizeMmcLocalId(record.id), buildMmcArtifactRow(context, reference, record, sessionIdByLocalId));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.openLoops)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'open_loops', existing.open_loops, sanitizeMmcLocalId(record.id), buildMmcOpenLoopRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.intelligenceSnapshots)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'intelligence_snapshots', existing.intelligence_snapshots, sanitizeMmcLocalId(record.id), buildMmcSnapshotRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  await insertMmcRow(context, 'audit_events', {
+    actor_principal_id: context.principal.id,
+    actor_role: context.principal.role,
+    action: 'mmc021_persistence_sync',
+    object_schema: 'mmc',
+    object_table: 'multiple',
+    reason: 'MMC-021 private mount persistence sync',
+    request_id: request?.headers?.['x-request-id'] || null,
+    user_agent_hash: request?.headers?.['user-agent']
+      ? createHash('sha256').update(String(request.headers['user-agent'])).digest('hex')
+      : null,
+    metadata: {
+      write_count: writeCount,
+      project_ref: context.config.projectRef,
+      runtime: 'MMC-021',
+    },
+  });
+
+  return {
+    ok: true,
+    writeCount,
+    state: await loadMmcPersistenceState(context),
+  };
+}
+
+function mapMmcMemoryRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    category: row.metadata?.category || row.memory_type || 'coaching',
+    title: row.metadata?.title || row.memory_type || 'Mentor Memory',
+    content: row.memory_text || '',
+    sensitive: row.sensitivity !== 'standard',
+    verified: row.review_status === 'verified' || row.review_status === 'reviewed',
+    source: row.metadata?.source || 'mmc-schema',
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcPrivateNoteRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    category: 'private-note',
+    title: row.metadata?.title || 'Private Mentor Note',
+    content: row.note_body || '',
+    sensitive: row.sensitivity !== 'standard',
+    verified: row.review_status === 'verified' || row.review_status === 'reviewed',
+    source: row.metadata?.source || 'mmc-schema-private-note',
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcActionRow(row) {
+  const isPromise = row.metadata?.local_domain === 'promise' || row.action_type === 'promise';
+  const common = {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    owner: row.owner_type || 'mentor',
+    type: row.metadata?.local_type || (isPromise ? 'Promise' : row.action_type || 'Task'),
+    title: row.title || 'MMC action item',
+    dueLabel: row.metadata?.dueLabel || 'Queued',
+    dueAt: row.due_at ? String(row.due_at).slice(0, 10) : 'TBD',
+    status: row.status === 'completed' ? 'complete' : row.status || 'open',
+    priority: row.metadata?.priority || 'normal',
+    promiseId: row.metadata?.promiseId || null,
+    sourceSessionId: row.metadata?.sourceSessionId || null,
+  };
+  if (!isPromise) {
+    return { kind: 'task', record: common };
+  }
+  return {
+    kind: 'promise',
+    record: {
+      id: common.id,
+      taskId: row.metadata?.taskId || common.promiseId || null,
+      studentId: common.studentId,
+      promisor: row.owner_type || 'mentor',
+      title: common.title,
+      madeAt: row.metadata?.madeAt || String(row.created_at || '').slice(0, 10),
+      dueLabel: common.dueLabel,
+      status: common.status,
+    },
+  };
+}
+
+function mapMmcGoalRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    title: row.title || 'MMC coaching goal',
+    milestone: row.metadata?.milestone || row.description || '',
+    targetDate: row.target_date || 'TBD',
+    progress: Number(row.metadata?.progress || 0),
+    velocity: row.metadata?.velocity || row.progress_state || 'Needs mentor definition',
+    readinessInputs: asArray(row.metadata?.readinessInputs).length
+      ? row.metadata.readinessInputs
+      : asArray(row.milestone_json).map((item) => item.label).filter(Boolean),
+  };
+}
+
+function mapMmcSessionRow(row) {
+  const status = row.session_status === 'completed'
+    ? 'complete'
+    : row.session_status === 'in_session'
+      ? 'active'
+      : row.session_status || 'planned';
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    mentorId: row.mentor_id || '',
+    status,
+    startedAt: row.started_at || '',
+    endedAt: row.ended_at || null,
+    title: row.metadata?.title || row.session_focus || 'MMC-owned advising session',
+    summary: row.post_session_summary || '',
+    privateNotes: row.prep_summary || '',
+    capturedItemIds: asArray(row.metadata?.capturedItemIds),
+    studentVisible: Boolean(row.metadata?.studentVisible),
+  };
+}
+
+function mapMmcArtifactRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    sessionId: row.metadata?.localSessionId || row.session_id || null,
+    studentId: row.metadata?.student_id || '',
+    type: row.metadata?.type || row.artifact_type || 'summary',
+    title: row.title || 'MMC session artifact',
+    visibility: row.visibility === 'mentor_private' ? 'mentor' : row.visibility,
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcOpenLoopRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    title: row.summary || 'MMC open loop',
+    type: row.metadata?.type || row.loop_type || 'coaching',
+    status: row.status || 'open',
+    severity: row.severity || 'medium',
+    detail: row.metadata?.detail || '',
+  };
+}
+
+function mapMmcSnapshotRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    snapshotType: row.snapshot_type || 'student_briefing',
+    summary: row.summary_json || {},
+    confidenceScore: Number(row.confidence || 0),
+    generatedAt: row.generated_at || row.created_at || null,
+  };
+}
+
+async function loadMmcPersistenceState(context) {
+  const mentor = await findMmcMentor(context);
+  if (!mentor) {
+    return emptyMmcPersistenceState();
+  }
+
+  const [
+    memoryRows,
+    privateNoteRows,
+    actionRows,
+    goalRows,
+    sessionRows,
+    artifactRows,
+    openLoopRows,
+    snapshotRows,
+  ] = await Promise.all([
+    selectMmcRows(context, 'mentor_memory', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'private_notes', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'action_items', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'goals', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'coaching_sessions', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'session_artifacts', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'open_loops', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'intelligence_snapshots', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+  ]);
+  const actionMapped = actionRows.map(mapMmcActionRow);
+  return {
+    memory: [
+      ...memoryRows.map(mapMmcMemoryRow),
+      ...privateNoteRows.map(mapMmcPrivateNoteRow),
+    ].filter((record) => record.studentId),
+    tasks: actionMapped.filter((item) => item.kind === 'task').map((item) => item.record).filter((record) => record.studentId),
+    promises: actionMapped.filter((item) => item.kind === 'promise').map((item) => item.record).filter((record) => record.studentId),
+    goals: goalRows.map(mapMmcGoalRow).filter((record) => record.studentId),
+    sessions: sessionRows.map(mapMmcSessionRow).filter((record) => record.studentId),
+    sessionArtifacts: artifactRows.map(mapMmcArtifactRow).filter((record) => record.studentId),
+    openLoops: openLoopRows.map(mapMmcOpenLoopRow).filter((record) => record.studentId),
+    intelligenceSnapshots: snapshotRows.map(mapMmcSnapshotRow).filter((record) => record.studentId),
+  };
+}
+
+function emptyMmcPersistenceState() {
+  return {
+    memory: [],
+    tasks: [],
+    promises: [],
+    goals: [],
+    sessions: [],
+    sessionArtifacts: [],
+    openLoops: [],
+    intelligenceSnapshots: [],
+  };
+}
+
+function responseForMmcPersistenceUnavailable(response, configStatus, extraHeaders = {}) {
+  sendJson(response, configStatus.status || 503, {
+    ok: false,
+    status: 'UNVERIFIED',
+    mode: 'fixture-memory-fallback',
+    error: configStatus.code,
+    message: configStatus.message,
+    localStorageFallback: false,
+    persistedDomains: [],
+  }, extraHeaders);
+}
+
+async function handleMmcPersistenceRoute(request, response, url, { session, authHeaders }) {
+  if (!['GET', 'POST'].includes(request.method)) {
+    sendMethodNotAllowed(response, ['GET', 'POST']);
+    return;
+  }
+
+  if (!isAuthorizedMmcPrivateSession(session)) {
+    sendJson(response, 403, {
+      ok: false,
+      error: 'mmc_private_forbidden',
+      message: 'MMC persistence requires the private MMC route-specific authorization model.',
+    }, authHeaders);
+    return;
+  }
+
+  const configStatus = getMmcPersistenceConfig();
+  if (!configStatus.ok) {
+    responseForMmcPersistenceUnavailable(response, configStatus, authHeaders);
+    return;
+  }
+
+  const context = buildMmcPersistenceContext(session, configStatus);
+  try {
+    if (request.method === 'GET') {
+      const state = await loadMmcPersistenceState(context);
+      sendJson(response, 200, {
+        ok: true,
+        status: 'VERIFIED',
+        mode: 'mmc-schema',
+        projectRef: configStatus.projectRef,
+        csrfToken: session?.csrfToken || '',
+        localStorageFallback: false,
+        persistedDomains: [
+          'mmc.mentor_memory',
+          'mmc.private_notes',
+          'mmc.action_items',
+          'mmc.goals',
+          'mmc.coaching_sessions',
+          'mmc.session_artifacts',
+          'mmc.open_loops',
+          'mmc.intelligence_snapshots',
+        ],
+        state,
+      }, authHeaders);
+      return;
+    }
+
+    const payload = await readJsonBody(request);
+    const saved = await saveMmcPersistenceState(context, payload?.state || {}, request);
+    sendJson(response, 200, {
+      ok: true,
+      status: 'VERIFIED',
+      mode: 'mmc-schema',
+      projectRef: configStatus.projectRef,
+      writeCount: saved.writeCount,
+      localStorageFallback: false,
+      persistedDomains: [
+        'mmc.mentor_memory',
+        'mmc.private_notes',
+        'mmc.action_items',
+        'mmc.goals',
+        'mmc.coaching_sessions',
+        'mmc.session_artifacts',
+        'mmc.open_loops',
+        'mmc.intelligence_snapshots',
+      ],
+      state: saved.state,
+    }, authHeaders);
+  } catch (error) {
+    sendJson(response, 502, {
+      ok: false,
+      status: 'CONFLICT',
+      mode: 'fixture-memory-fallback',
+      error: 'mmc_persistence_failed',
+      message: error instanceof Error ? error.message : 'MMC persistence request failed.',
+      localStorageFallback: false,
+    }, authHeaders);
+  }
 }
 
 // SPA frontend routes — these are client-side routes that all resolve to index.html.
@@ -6231,6 +7409,297 @@ async function fetchWordPressUserFromCookieHeader(cookieHeader = '') {
   };
 }
 
+async function hydrateSchedulerEntitlementSession(authSession = null, request = null, audience = '') {
+  if (!authSession || !authSession.user) {
+    return authSession;
+  }
+
+  const normalizedAudience = normalizeAuthAudience(audience || authSession.audience || authSession.authAudience || authSession.auth_audience || '');
+  if (!isSchedulerAuthAudience(normalizedAudience)) {
+    return authSession;
+  }
+
+  const existingFacts = authSession.schedulerEntitlements || authSession.user?.schedulerEntitlements || {};
+  const cookieHeader = getRequestCookieHeader(request);
+  if (!hasWordPressSessionCookie(cookieHeader) && Object.keys(existingFacts || {}).length) {
+    return authSession;
+  }
+
+  const resolved = await resolveSchedulerEntitlementFactsFromWordPress(authSession, cookieHeader);
+  const facts = mergeSchedulerEntitlementFacts(existingFacts, resolved);
+
+  return {
+    ...authSession,
+    schedulerEntitlements: facts,
+    user: {
+      ...authSession.user,
+      schedulerEntitlements: facts,
+    },
+  };
+}
+
+async function resolveSchedulerEntitlementFactsFromWordPress(authSession = null, cookieHeader = '') {
+  const checkedAt = new Date().toISOString();
+  const wpUserId = Number(authSession?.user?.id || authSession?.wpUserId || 0) || null;
+  const unavailable = (reason, detail = '') => ({
+    source: 'wordpress_cookie',
+    configured: false,
+    unavailable: true,
+    reason,
+    detail,
+    checked_at: checkedAt,
+    wp_user_id: wpUserId,
+    course_ids: [],
+    learndash_course_ids: [],
+    product_ids: [],
+    woocommerce_product_ids: [],
+    tier_keys: [],
+    division_keys: [],
+  });
+
+  if (!CONFIG.wpBase) {
+    return unavailable('wordpress_base_missing', 'MMHQ_WP_BASE is not configured.');
+  }
+
+  if (!hasWordPressSessionCookie(cookieHeader)) {
+    return unavailable('wordpress_session_cookie_missing', 'A WordPress session cookie is required for live Scheduler entitlement facts.');
+  }
+
+  const schedulerEntitlementResponse = await fetchWordPressCurrentUserJson('/wp-json/missionmed-scheduler/v1/entitlements/me', cookieHeader);
+  if (isMatchingSchedulerEntitlementResponse(schedulerEntitlementResponse, wpUserId)) {
+    return normalizeSchedulerEntitlementEndpointFacts(schedulerEntitlementResponse, {
+      checkedAt,
+      wpUserId,
+      source: 'wordpress_cookie_scheduler_endpoint',
+      mode: 'cookie-authenticated Scheduler entitlement endpoint',
+    });
+  }
+
+  let [coursesResponse, profileResponse] = await Promise.all([
+    fetchWordPressCurrentUserJson('/wp-json/mmed/v1/courses', cookieHeader),
+    fetchWordPressCurrentUserJson('/wp-json/mmed/v1/user/profile', cookieHeader),
+  ]);
+  let source = 'wordpress_cookie';
+  let sourceDetail = 'cookie-authenticated Matrix REST';
+
+  if (wpUserId && !hasUsableSchedulerEntitlementFacts(coursesResponse, profileResponse)) {
+    const serviceEntitlementResponse = await fetchWordPressCurrentUserJsonWithServiceAuth(`/wp-json/missionmed-scheduler/v1/entitlements/me?wp_user_id=${encodeURIComponent(String(wpUserId))}`);
+    if (isMatchingSchedulerEntitlementResponse(serviceEntitlementResponse, wpUserId)) {
+      return normalizeSchedulerEntitlementEndpointFacts(serviceEntitlementResponse, {
+        checkedAt,
+        wpUserId,
+        source: 'wordpress_service_scheduler_endpoint',
+        mode: 'service-authenticated Scheduler entitlement endpoint with matching WordPress user id',
+      });
+    }
+
+    const serviceProfileResponse = await fetchWordPressCurrentUserJsonWithServiceAuth('/wp-json/mmed/v1/user/profile');
+    const serviceProfileUserId = Number(serviceProfileResponse.data?.id || 0) || null;
+    if (serviceProfileResponse.ok && serviceProfileUserId === wpUserId) {
+      const serviceCoursesResponse = await fetchWordPressCurrentUserJsonWithServiceAuth('/wp-json/mmed/v1/courses');
+      profileResponse = serviceProfileResponse;
+      coursesResponse = serviceCoursesResponse.ok ? serviceCoursesResponse : coursesResponse;
+      source = 'wordpress_service_self_verified';
+      sourceDetail = 'service-authenticated Matrix REST with matching WordPress user id';
+    }
+  }
+
+  const courseIds = coursesResponse.ok
+    ? uniquePositiveIntegerStrings((coursesResponse.data?.courses || []).map((course) => course?.id || course?.course_id))
+    : [];
+  const profile = profileResponse.ok && profileResponse.data && typeof profileResponse.data === 'object'
+    ? profileResponse.data
+    : {};
+
+  const tierKeys = uniqueTextTokens([
+    profile.program_tier,
+    profile.tier,
+    profile.membership_tier,
+  ]);
+  const divisionKeys = uniqueTextTokens([
+    profile.division,
+    profile.primary_division,
+    profile.program_division,
+  ]);
+
+  return {
+    source,
+    configured: Boolean(courseIds.length || tierKeys.length || divisionKeys.length),
+    unavailable: false,
+    checked_at: checkedAt,
+    wp_user_id: wpUserId,
+    course_ids: courseIds,
+    learndash_course_ids: courseIds,
+    product_ids: [],
+    woocommerce_product_ids: [],
+    tier_keys: tierKeys,
+    division_keys: divisionKeys,
+    source_details: {
+      mode: sourceDetail,
+      courses: coursesResponse.ok ? 'mmed/v1/courses' : coursesResponse.error || 'courses_unavailable',
+      profile: profileResponse.ok ? 'mmed/v1/user/profile' : profileResponse.error || 'profile_unavailable',
+      product_ids: 'not_available_from_current_wordpress_rest_bridge',
+    },
+  };
+}
+
+function isMatchingSchedulerEntitlementResponse(response = {}, wpUserId = null) {
+  if (!response.ok || !response.data || typeof response.data !== 'object') {
+    return false;
+  }
+  const responseUserId = Number(response.data.wordpress_user_id || response.data.wp_user_id || response.data.user_id || 0) || null;
+  return Boolean(wpUserId && responseUserId === Number(wpUserId));
+}
+
+function normalizeSchedulerEntitlementEndpointFacts(response = {}, { checkedAt, wpUserId, source, mode } = {}) {
+  const data = response.data || {};
+  const courseIds = uniquePositiveIntegerStrings([
+    data.course_ids,
+    data.courseIds,
+    data.learndash_course_ids,
+    data.learndashCourseIds,
+  ]);
+  const productIds = uniquePositiveIntegerStrings([
+    data.product_ids,
+    data.productIds,
+    data.woocommerce_product_ids,
+    data.woocommerceProductIds,
+  ]);
+  const tierKeys = uniqueTextTokens([data.tier_keys, data.tierKeys]);
+  const divisionKeys = uniqueTextTokens([data.division_keys, data.divisionKeys]);
+  return {
+    source,
+    configured: Boolean(courseIds.length || productIds.length || tierKeys.length || divisionKeys.length),
+    unavailable: false,
+    checked_at: checkedAt || new Date().toISOString(),
+    wp_user_id: wpUserId,
+    course_ids: courseIds,
+    learndash_course_ids: courseIds,
+    product_ids: productIds,
+    woocommerce_product_ids: productIds,
+    tier_keys: tierKeys,
+    division_keys: divisionKeys,
+    source_details: {
+      mode,
+      endpoint: 'missionmed-scheduler/v1/entitlements/me',
+      learndash_available: data.source_flags?.learndash_available ?? null,
+      woocommerce_available: data.source_flags?.woocommerce_available ?? null,
+      matrix_available: data.source_flags?.matrix_available ?? null,
+      exam_prep_status: data.mapping?.exam_prep_status || 'unknown',
+    },
+  };
+}
+
+async function fetchWordPressCurrentUserJson(pathname = '', cookieHeader = '') {
+  const response = await fetchJson(`${CONFIG.wpBase}${pathname}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Cookie: cookieHeader,
+    },
+    timeoutMs: 8_000,
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status || 502,
+      error: response.error || 'wordpress_rest_unavailable',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    data: response.data || {},
+  };
+}
+
+async function fetchWordPressCurrentUserJsonWithServiceAuth(pathname = '') {
+  const headers = getWordPressServiceHeaders();
+  if (!headers || !Object.keys(headers).length) {
+    return {
+      ok: false,
+      status: 503,
+      error: 'wordpress_service_credentials_missing',
+    };
+  }
+
+  const response = await fetchJson(`${CONFIG.wpBase}${pathname}`, {
+    method: 'GET',
+    headers: {
+      ...headers,
+      Accept: 'application/json',
+    },
+    timeoutMs: 8_000,
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      status: response.status || 502,
+      error: response.error || 'wordpress_service_rest_unavailable',
+    };
+  }
+
+  return {
+    ok: true,
+    status: 200,
+    data: response.data || {},
+  };
+}
+
+function hasUsableSchedulerEntitlementFacts(coursesResponse = {}, profileResponse = {}) {
+  const courseIds = coursesResponse.ok
+    ? uniquePositiveIntegerStrings((coursesResponse.data?.courses || []).map((course) => course?.id || course?.course_id))
+    : [];
+  const profile = profileResponse.ok && profileResponse.data && typeof profileResponse.data === 'object'
+    ? profileResponse.data
+    : {};
+  const tierKeys = uniqueTextTokens([profile.program_tier, profile.tier, profile.membership_tier]);
+  const divisionKeys = uniqueTextTokens([profile.division, profile.primary_division, profile.program_division]);
+  return Boolean(courseIds.length || tierKeys.length || divisionKeys.length);
+}
+
+function mergeSchedulerEntitlementFacts(existing = {}, resolved = {}) {
+  const base = existing && typeof existing === 'object' && !Array.isArray(existing) ? existing : {};
+  const next = resolved && typeof resolved === 'object' && !Array.isArray(resolved) ? resolved : {};
+  return {
+    ...base,
+    ...next,
+    course_ids: uniquePositiveIntegerStrings([base.course_ids, base.courseIds, base.learndash_course_ids, base.learndashCourseIds, next.course_ids, next.courseIds, next.learndash_course_ids, next.learndashCourseIds]),
+    learndash_course_ids: uniquePositiveIntegerStrings([base.learndash_course_ids, base.learndashCourseIds, base.course_ids, base.courseIds, next.learndash_course_ids, next.learndashCourseIds, next.course_ids, next.courseIds]),
+    product_ids: uniquePositiveIntegerStrings([base.product_ids, base.productIds, base.woocommerce_product_ids, base.woocommerceProductIds, next.product_ids, next.productIds, next.woocommerce_product_ids, next.woocommerceProductIds]),
+    woocommerce_product_ids: uniquePositiveIntegerStrings([base.woocommerce_product_ids, base.woocommerceProductIds, base.product_ids, base.productIds, next.woocommerce_product_ids, next.woocommerceProductIds, next.product_ids, next.productIds]),
+    tier_keys: uniqueTextTokens([base.tier_keys, base.tierKeys, next.tier_keys, next.tierKeys]),
+    division_keys: uniqueTextTokens([base.division_keys, base.divisionKeys, next.division_keys, next.divisionKeys]),
+  };
+}
+
+function uniquePositiveIntegerStrings(values = []) {
+  return [...new Set(flattenValues(values)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0)
+    .map((value) => String(Math.trunc(value))))];
+}
+
+function uniqueTextTokens(values = []) {
+  return [...new Set(flattenValues(values)
+    .map((value) => String(value || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/gu, '_'))
+    .filter(Boolean))];
+}
+
+function flattenValues(values = []) {
+  return (Array.isArray(values) ? values : [values])
+    .flat(Infinity)
+    .flatMap((value) => {
+      if (typeof value === 'string' && value.includes(',')) {
+        return value.split(',');
+      }
+      return [value];
+    });
+}
+
 function normalizeWordPressIdentityUser(user = {}, fallback = {}) {
   const normalized = normalizeWordPressUser(user);
   return {
@@ -6792,7 +8261,7 @@ function parseWordPressHandoffToken(wpToken = '') {
 async function exchangeWordPressAuth(payload = {}, request = null) {
   const cookieHeader = getRequestCookieHeader(request);
   const wpToken = String(payload.wpToken || payload.token || payload.bearerToken || '').trim();
-  const audience = normalizeAuthAudience(payload?.audience || '');
+  const audience = normalizeAuthAudience(payload?.audience || payload?.authAudience || payload?.mode || '');
 
   if (wpToken) {
     const handoff = parseWordPressHandoffToken(wpToken);
@@ -7118,25 +8587,33 @@ function isAuthorizedWordPressUser(user) {
 }
 
 function normalizeAuthAudience(audience = '') {
-  const safe = String(audience || '').trim().toLowerCase();
-  return safe === 'arena' ? 'arena' : '';
+  return String(audience || '').trim().toLowerCase().replace(/[^a-z0-9_-]+/gu, '-');
+}
+
+function isSchedulerAuthAudience(audience = '') {
+  return ['scheduler', 'missionmed-scheduler', 'matrix-scheduler'].includes(normalizeAuthAudience(audience));
 }
 
 function isArenaEligibleWordPressUser(user) {
   return Boolean(Number(user?.id || 0) && String(user?.email || '').trim());
 }
 
+function isSchedulerEligibleWordPressUser(user) {
+  return Boolean(Number(user?.id || 0) && String(user?.email || '').trim());
+}
+
 function resolveWordPressSessionGrant(user, audience = '') {
+  const normalizedAudience = normalizeAuthAudience(audience);
   if (isAuthorizedWordPressUser(user)) {
     return {
       ok: true,
       apiScope: 'hq',
-      audience: normalizeAuthAudience(audience),
+      audience: normalizedAudience,
       authSourceSuffix: '',
     };
   }
 
-  if (normalizeAuthAudience(audience) === 'arena' && isArenaEligibleWordPressUser(user)) {
+  if (normalizedAudience === 'arena' && isArenaEligibleWordPressUser(user)) {
     return {
       ok: true,
       apiScope: 'arena',
@@ -7145,10 +8622,19 @@ function resolveWordPressSessionGrant(user, audience = '') {
     };
   }
 
+  if (isSchedulerAuthAudience(normalizedAudience) && isSchedulerEligibleWordPressUser(user)) {
+    return {
+      ok: true,
+      apiScope: 'scheduler',
+      audience: normalizedAudience,
+      authSourceSuffix: '-scheduler',
+    };
+  }
+
   return {
     ok: false,
     apiScope: '',
-    audience: normalizeAuthAudience(audience),
+    audience: normalizedAudience,
     authSourceSuffix: '',
   };
 }
