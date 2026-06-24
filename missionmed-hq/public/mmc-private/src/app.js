@@ -44,6 +44,9 @@ if (ownershipRuntime) {
   document.documentElement.dataset.mmcLocalOwnedWritesEnabled = String(ownershipRuntime.gate.localOwnedWritesEnabled);
   document.documentElement.dataset.mmcLocalStorageEnabled = String(ownershipRuntime.validationSummary().storage.enabled);
   document.documentElement.dataset.mmcExternalWritesEnabled = String(ownershipRuntime.gate.externalWritesEnabled);
+  document.documentElement.dataset.mmcMentorIntelligenceStatus = 'MENTOR_INTELLIGENCE_READY';
+  document.documentElement.dataset.mmcBriefingSource = 'mmc-owned-local-only';
+  document.documentElement.dataset.mmcProfilePhotoStatus = 'local-internal-pilot-only';
 }
 
 const programLabels = {usce:'USCE Navigator',match:'Match Ready',interview:'Interview Forge'};
@@ -100,6 +103,34 @@ function timelineDotClass(tone) {
   if (tone === 'red') return 'red';
   if (tone === 'gold') return 'gold';
   return 'cyan';
+}
+
+function getProfilePhoto(studentId) {
+  return ownershipRuntime && ownershipRuntime.getProfilePhoto
+    ? ownershipRuntime.getProfilePhoto(studentId)
+    : null;
+}
+
+function photoAvatarMarkup(student, className) {
+  const photo = getProfilePhoto(student.id);
+  const classNames = className || 'avatar';
+  if (photo && photo.hasPhoto && photo.dataUrl) {
+    return `<div class="${classNames} has-photo"><img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(student.name)} profile photo"></div>`;
+  }
+  return `<div class="${classNames}">${escapeHtml(student.initials)}</div>`;
+}
+
+function updatePhotoAvatar(node, student, className) {
+  if (!node || !student) return;
+  const photo = getProfilePhoto(student.id);
+  node.className = className || 'avatar';
+  if (photo && photo.hasPhoto && photo.dataUrl) {
+    node.classList.add('has-photo');
+    node.innerHTML = `<img src="${escapeHtml(photo.dataUrl)}" alt="${escapeHtml(student.name)} profile photo">`;
+  } else {
+    node.classList.remove('has-photo');
+    node.textContent = student.initials;
+  }
 }
 
 function updateOwnershipStats() {
@@ -163,7 +194,7 @@ function renderStudentTable(data) {
     <tr class="clickable" onclick="openProfile('${s.id}')"${index === 0 ? ' data-testid="directory-row"' : ''}>
       <td>
         <div class="flex-row">
-          <div class="avatar" style="width:28px;height:28px;font-size:10px">${s.initials}</div>
+          ${photoAvatarMarkup(s, 'avatar directory-avatar')}
           <div>
             <div style="font-weight:500">${s.name}</div>
             <div style="font-size:11px;color:var(--text-dim)">${s.school}</div>
@@ -230,6 +261,8 @@ function renderOwnedProfile(studentId) {
   if (!ownershipRuntime) return;
   const bundle = ownershipRuntime.getStudentBundle(studentId);
   if (!bundle || !bundle.student) return;
+  const photo = bundle.profilePhoto || getProfilePhoto(studentId);
+  const profilePhotoState = document.getElementById('profile-photo-state');
   const fallbackGoal = {
     title: `Create active coaching goal for ${bundle.student.name}`,
     milestone: 'No formal MMC-owned milestone has been captured yet',
@@ -248,6 +281,12 @@ function renderOwnedProfile(studentId) {
   const timelinePanel = document.getElementById('profile-journey-timeline');
   if (mentor) {
     mentor.textContent = `Mentor: Brian Biruk · MMC-owned tasks ${bundle.openTasks.length} · Memory ${bundle.memory.length}`;
+  }
+  updatePhotoAvatar(document.getElementById('profile-avatar'), bundle.student, 'avatar profile-header-avatar');
+  if (profilePhotoState) {
+    profilePhotoState.textContent = photo && photo.hasPhoto
+      ? `Local profile photo saved · ${photo.visibility} · production storage ${photo.productionStorage}`
+      : `Initials fallback active · source ${photo ? photo.source : 'local MMC profile photo'} · production storage future unresolved`;
   }
   if (strategy) {
     strategy.innerHTML = `
@@ -309,6 +348,165 @@ function renderOwnedProfile(studentId) {
       </div>
     `).join('') || '<div style="font-size:12px;color:var(--text-dim)">No MMC-owned timeline records yet.</div>';
   }
+  renderStudentBriefing(studentId);
+}
+
+function renderBriefingRows(items, emptyText, renderItem) {
+  if (!items || !items.length) {
+    return `<div class="briefing-empty">${escapeHtml(emptyText)}</div>`;
+  }
+  return items.map(renderItem).join('');
+}
+
+function renderStudentBriefing(studentId) {
+  if (!ownershipRuntime || !ownershipRuntime.getStudentBriefing) return;
+  const briefing = ownershipRuntime.getStudentBriefing(studentId);
+  if (!briefing) return;
+  const setHtml = (id, html) => {
+    const node = document.getElementById(id);
+    if (node) node.innerHTML = html;
+  };
+  const setText = (id, text) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = text;
+  };
+  const riskClass = badgeClassForRisk(briefing.riskSummary.level);
+  const readinessClass = badgeClassForReadiness(briefing.riskSummary.readinessStatus);
+  const photo = briefing.profilePhoto || getProfilePhoto(studentId);
+  const student = students.find(s => s.id === briefing.studentId) || students[0];
+  setText('briefing-student-name', briefing.studentName);
+  setText('briefing-confidence', briefing.confidence);
+  updatePhotoAvatar(document.getElementById('briefing-profile-photo'), student, 'avatar briefing-profile-photo');
+  setHtml('briefing-photo-metadata', `
+    <div><strong>source:</strong> ${escapeHtml(photo.source)}</div>
+    <div><strong>visibility:</strong> ${escapeHtml(photo.visibility)}</div>
+    <div><strong>production storage:</strong> ${escapeHtml(photo.productionStorage)}</div>
+    <div><strong>student upload:</strong> ${escapeHtml(photo.studentUploadStatus)}</div>
+  `);
+  setHtml('briefing-who', `
+    <div class="briefing-kicker">WHO IS THIS PERSON?</div>
+    <div class="briefing-lead">${escapeHtml(briefing.who)}</div>
+    <div class="briefing-meta-line">${escapeHtml(briefing.primaryGoal)}</div>
+  `);
+  setHtml('briefing-next-best-move', `
+    <div class="briefing-kicker">NEXT BEST MOVE</div>
+    <div class="briefing-lead" style="color:var(--gold)">${escapeHtml(briefing.nextBestMove.title)}</div>
+    <div class="briefing-meta-line">${escapeHtml(briefing.nextBestMove.action)}</div>
+    <div class="briefing-why">${briefing.nextBestMove.why.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>
+  `);
+  setHtml('briefing-personal-context', `
+    <div class="briefing-label">PERSONAL CONTEXT</div>
+    <div class="briefing-text">${escapeHtml(briefing.personalContext)}</div>
+  `);
+  setHtml('briefing-professional-context', `
+    <div class="briefing-label">PROFESSIONAL CONTEXT</div>
+    <div class="briefing-text">${escapeHtml(briefing.professionalContext)}</div>
+  `);
+  setHtml('briefing-last-meeting', `
+    <div class="briefing-label">LAST MEETING</div>
+    <div class="briefing-text">${escapeHtml(briefing.lastMeeting)}</div>
+  `);
+  setHtml('briefing-advice-history', `
+    <div class="briefing-label">LAST ADVICE</div>
+    <div class="briefing-text">${escapeHtml(briefing.lastAdvice)}</div>
+    <div class="briefing-sublist">
+      ${renderBriefingRows(briefing.adviceHistory.notActedUpon.slice(0, 3), 'No unresolved advice loop detected.', item => `
+        <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.status)}</strong></div>
+      `)}
+    </div>
+  `);
+  setHtml('briefing-promises', `
+    <div class="briefing-label">PROMISES MADE</div>
+    ${renderBriefingRows(briefing.promises.made.slice(0, 4), 'No promises captured yet.', item => `
+      <div class="briefing-row">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.status === 'complete' ? 'DONE' : item.dueLabel)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-promises-overdue', `
+    <div class="briefing-label">PROMISES OVERDUE</div>
+    ${renderBriefingRows(briefing.promises.overdue.slice(0, 3), 'No overdue promises.', item => `
+      <div class="briefing-row danger">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.dueLabel)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-open-loops', `
+    <div class="briefing-label">OPEN LOOPS</div>
+    ${renderBriefingRows(briefing.openLoops.slice(0, 5), 'No open loops captured yet.', item => `
+      <div class="briefing-row">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.status)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-deadlines', `
+    <div class="briefing-label">DEADLINES</div>
+    ${renderBriefingRows(briefing.deadlines.slice(0, 4), 'No dated deadlines captured.', item => `
+      <div class="briefing-row">
+        <span>${escapeHtml(item.title)}</span>
+        <strong>${escapeHtml(item.date)}</strong>
+      </div>
+    `)}
+  `);
+  setHtml('briefing-risk-summary', `
+    <div class="briefing-label">RISK</div>
+    <div class="briefing-scoreline">
+      <span class="badge ${riskClass}">${escapeHtml(briefing.riskSummary.level)} Risk</span>
+      <span class="badge ${readinessClass}">${escapeHtml(briefing.riskSummary.readinessStatus)}</span>
+    </div>
+    <div class="briefing-text">${escapeHtml(briefing.riskSummary.summary)}</div>
+  `);
+  setHtml('briefing-relationship-context', `
+    <div class="briefing-label">RELATIONSHIP CONTEXT</div>
+    <div class="briefing-scoreline"><span class="badge badge-gold">${escapeHtml(briefing.relationship.trustSignal)}</span></div>
+    <div class="briefing-text">${escapeHtml(briefing.relationship.communicationStyle)}</div>
+  `);
+  setHtml('briefing-timeline-summary', `
+    <div class="briefing-label">TIMELINE SUMMARY</div>
+    <div class="briefing-text">${escapeHtml(briefing.timelineSummary.summary)}</div>
+    <div class="briefing-sublist">
+      ${renderBriefingRows(briefing.timelineSummary.recent.slice(0, 3), 'No timeline records captured.', item => `
+        <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.kind)}</strong></div>
+      `)}
+    </div>
+  `);
+}
+
+function handleProfilePhotoUpload(input) {
+  if (!ownershipRuntime || !ownershipRuntime.setProfilePhoto || !input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const state = document.getElementById('profile-photo-state');
+  if (!file.type || !file.type.startsWith('image/')) {
+    if (state) state.textContent = 'Profile photo not saved: image file required.';
+    return;
+  }
+  if (file.size > 1600000) {
+    if (state) state.textContent = 'Profile photo not saved: local pilot limit is 1.6 MB.';
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const record = ownershipRuntime.setProfilePhoto({
+      studentId: activePrepStudent,
+      dataUrl: reader.result,
+      fileName: file.name,
+      mimeType: file.type,
+      size: file.size
+    });
+    if (record) {
+      renderOwnedProfile(activePrepStudent);
+      filterStudents();
+      if (state) state.textContent = `Local profile photo saved for ${studentName(activePrepStudent)} · mentor/admin review only.`;
+      showToast('Local profile photo saved.');
+    }
+  };
+  reader.onerror = () => {
+    if (state) state.textContent = 'Profile photo not saved: local file could not be read.';
+  };
+  reader.readAsDataURL(file);
 }
 
 function renderMemoryContent(studentId) {
@@ -691,10 +889,37 @@ window.MMC_DEMO_PARITY = {
   approvedBaseline: 'MMC-008B',
   integrationLayer: 'MMC-010 reality hydration guard',
   ownershipLayer: ownershipRuntime ? 'MMC-MEGARUN-012 local ownership intelligence' : 'not-loaded',
+  mentorIntelligenceLayer: ownershipRuntime ? 'MMC-016 local Student Briefing Engine' : 'not-loaded',
   productionDependencies: false,
   backend: false,
   apiCalls: false,
   adapterMode: mmcRuntime ? mmcRuntime.mode : 'not-loaded'
+};
+
+window.MMC_MENTOR_INTELLIGENCE = {
+  authority: 'MMC-016',
+  status: ownershipRuntime ? 'MENTOR_INTELLIGENCE_READY' : 'not-loaded',
+  source: 'mmc-owned-local-only',
+  engines: [
+    'Student Briefing Engine',
+    'Open Loop Detector',
+    'Promise Engine',
+    'Advice History Engine',
+    'Relationship Context Engine',
+    'Timeline Summarizer',
+    'Risk Summary Engine',
+    'Next Best Move Engine'
+  ],
+  profilePhotoSupport: 'local-internal-pilot-only',
+  profilePhotoSource: 'local MMC profile photo',
+  profilePhotoVisibility: 'mentor/admin review only for now',
+  productionPhotoUpload: false,
+  productionPhotoStorage: 'future unresolved',
+  studentPhotoUploadPublic: false,
+  productionDependencies: false,
+  apiCalls: false,
+  externalRequestsEnabled: false,
+  externalWritesEnabled: false
 };
 
 window.MMCApp = {
@@ -703,6 +928,7 @@ window.MMCApp = {
   openCallPrep,
   startSessionCommand,
   endSessionCommand,
+  savePostSession,
   openQuickCapture,
   closeQuickCapture,
   saveQuickCapture,
@@ -723,10 +949,18 @@ window.MMCApp = {
   getOwnershipRuntime() {
     return ownershipRuntime ? ownershipRuntime.validationSummary() : null;
   },
+  getStudentBriefing(studentId) {
+    return ownershipRuntime ? ownershipRuntime.getStudentBriefing(studentId || activePrepStudent) : null;
+  },
+  getProfilePhoto(studentId) {
+    return getProfilePhoto(studentId || activePrepStudent);
+  },
+  handleProfilePhotoUpload,
   renderOwnedActions,
   renderMemoryContent,
   renderMemorySearchResults,
-  renderOwnedProfile
+  renderOwnedProfile,
+  renderStudentBriefing
 };
 
 if (ownershipRuntime) {

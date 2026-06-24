@@ -77,10 +77,10 @@ for (const forbiddenMountPattern of [
 }
 
 for (const assetPattern of [
-  /<link rel="stylesheet" href="\.\/src\/styles\.css\?v=011">/u,
+  /<link rel="stylesheet" href="\.\/src\/styles\.css\?v=016">/u,
   /<script src="\.\/src\/mmc-data-adapters\.js\?v=010"><\/script>/u,
-  /<script src="\.\/src\/mmc-ownership-layer\.js\?v=012"><\/script>/u,
-  /<script src="\.\/src\/app\.js\?v=012"><\/script>/u,
+  /<script src="\.\/src\/mmc-ownership-layer\.js\?v=016"><\/script>/u,
+  /<script src="\.\/src\/app\.js\?v=016"><\/script>/u,
 ]) {
   assert.match(indexSource, assetPattern, `Private mount asset reference must remain local: ${assetPattern}`);
 }
@@ -89,6 +89,17 @@ for (const approvedSurface of [
   'Mentor Memory',
   'Meeting Intelligence',
   'Student Intelligence Profile',
+  'Student Briefing Engine',
+  'local MMC profile photo',
+  'mentor/admin review only for now',
+  'future-supported, not enabled publicly',
+  'WHO IS THIS PERSON?',
+  'OPEN LOOPS',
+  'PROMISES MADE',
+  'LAST ADVICE',
+  'RELATIONSHIP CONTEXT',
+  'TIMELINE SUMMARY',
+  'NEXT BEST MOVE',
   'Student View Preview',
   'Call Prep',
   'Session Command',
@@ -100,6 +111,12 @@ for (const approvedSurface of [
 
 assert.match(appSource, /productionDependencies:\s*false/u, 'MMC private mount must keep production dependencies disabled.');
 assert.match(appSource, /apiCalls:\s*false/u, 'MMC private mount must keep API calls disabled.');
+assert.match(appSource, /mentorIntelligenceLayer:\s*ownershipRuntime \? 'MMC-016 local Student Briefing Engine'/u, 'MMC private mount must expose MMC-016 mentor intelligence.');
+assert.match(appSource, /window\.MMC_MENTOR_INTELLIGENCE/u, 'MMC private mount must expose the MMC-016 validation harness.');
+assert.match(appSource, /profilePhotoSupport:\s*'local-internal-pilot-only'/u, 'MMC private mount must keep profile photo support local only.');
+assert.match(appSource, /productionPhotoUpload:\s*false/u, 'MMC private mount must not enable production photo upload.');
+assert.match(mountSources, /data-testid="profile-photo-upload"/u, 'MMC private mount must expose local admin photo upload control.');
+assert.match(mountSources, /data-testid="briefing-profile-photo"/u, 'MMC private mount must render briefing profile photo surface.');
 assert.match(mountSources, /externalRequestsEnabled: false/u, 'MMC private mount must keep external requests disabled.');
 assert.match(mountSources, /externalWritesEnabled: false/u, 'MMC private mount must keep external writes disabled.');
 assert.match(appSource, /window\.MMCApp/u, 'MMC private mount must expose the validation harness.');
