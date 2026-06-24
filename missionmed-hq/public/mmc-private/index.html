@@ -1,0 +1,1613 @@
+<!-- MMC-005A Matrix Mentor Console | OS workflow patched from MMC-003 visual base | No Backend | Demo Only -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
+<title>Matrix Mentor Console Core</title>
+<link rel="stylesheet" href="./src/styles.css?v=100">
+</head>
+<body>
+<div class="app">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <h1>MATRIX MENTOR</h1>
+    <span>Console v1.0</span>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <span class="nav-section-label">Command</span>
+      <div class="nav-item active" data-screen="dashboard" onclick="switchScreen('dashboard')">
+        <span class="nav-icon">&#9632;</span>Today
+        <span class="nav-badge" style="background:var(--orange)">3</span>
+      </div>
+      <div class="nav-item" data-screen="actions" onclick="switchScreen('actions')">
+        <span class="nav-icon">&#9745;</span>Actions
+        <span class="nav-badge">7</span>
+      </div>
+      <div class="nav-item" data-screen="directory" onclick="switchScreen('directory')">
+        <span class="nav-icon">&#9782;</span>Student Directory
+      </div>
+    </div>
+    <div class="nav-section">
+      <span class="nav-section-label">Intelligence</span>
+      <div class="nav-item" data-screen="profile" onclick="switchScreen('profile')">
+        <span class="nav-icon">&#9673;</span>Student Profile
+      </div>
+      <div class="nav-item" data-screen="meeting" onclick="switchScreen('meeting')">
+        <span class="nav-icon">&#9654;</span>Meeting Intelligence
+        <span class="nav-badge">1</span>
+      </div>
+      <div class="nav-item" data-screen="memory" onclick="switchScreen('memory')">
+        <span class="nav-icon">&#9733;</span>Mentor Memory / Call Prep
+      </div>
+    </div>
+    <div class="nav-section">
+      <span class="nav-section-label">Views</span>
+      <div class="nav-item" data-screen="studentview" onclick="switchScreen('studentview')">
+        <span class="nav-icon">&#9737;</span>Student View Preview
+      </div>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="avatar">BB</div>
+    <div class="meta">
+      <div>Brian Biruk</div>
+      <div>Lead Mentor</div>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN AREA -->
+<div class="main">
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="topbar-title" id="topbar-title">Today</span>
+    <span class="topbar-sub" id="topbar-sub">Monday, June 22, 2026</span>
+  </div>
+  <div class="topbar-right">
+    <span class="sync-indicator initializing" id="persistence-indicator"><span class="sync-dot initializing" id="persistence-status-dot"></span> <span id="persistence-status-label">Persistence Checking</span></span>
+    <button class="topbar-btn" onclick="recoverSession()" data-testid="resume-session">Resume Session</button>
+    <button class="topbar-btn" onclick="exportPilotSnapshot()" data-testid="export-alpha-snapshot">Export Snapshot</button>
+    <button class="topbar-btn gold" onclick="openCallPrep('amara')">Prep Next Call</button>
+    <button class="topbar-btn" onclick="openQuickCapture()" data-testid="quick-capture-open">Quick Capture</button>
+  </div>
+</header>
+
+<!-- CONTENT -->
+<div class="content-area" id="content-area">
+
+<!-- ============================================ -->
+<!-- SCREEN 1: TODAY -->
+<!-- ============================================ -->
+<div class="screen active" id="screen-dashboard" data-testid="screen-today">
+
+  <!-- Stats Row -->
+  <div class="grid-4 mb-md">
+    <div class="card">
+      <div class="stat-label">Active Students</div>
+      <div class="stat-value" style="color:var(--cyan)">24</div>
+      <div class="stat-change up">+3 this session</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Sessions This Week</div>
+      <div class="stat-value" style="color:var(--gold)">12</div>
+      <div class="stat-change up">+2 vs last week</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Action Items Open</div>
+      <div class="stat-value" style="color:var(--orange)">7</div>
+      <div class="stat-change down">3 overdue</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Mentor Memory Alerts</div>
+      <div class="stat-value" style="color:var(--red)" id="mentor-promises-count">3</div>
+      <div class="stat-change" style="color:var(--yellow)">Review before calls</div>
+    </div>
+  </div>
+
+  <div class="card mb-md alpha-readiness-card" id="pilot-readiness-panel" data-testid="pilot-readiness-panel">
+    <div class="card-header">
+      <div>
+        <div class="card-title" style="color:var(--gold)">Private Alpha Control</div>
+        <div class="card-subtitle">MMC-owned pilot readiness, persistence visibility, recovery, and export</div>
+      </div>
+      <span class="badge badge-orange" id="pilot-readiness-state">Checking</span>
+    </div>
+    <div class="grid-4">
+      <div>
+        <div class="stat-label">Persistence</div>
+        <div class="alpha-state-line" id="pilot-persistence-state" data-testid="pilot-persistence-state">initializing</div>
+      </div>
+      <div>
+        <div class="stat-label">Assignments</div>
+        <div class="alpha-state-line" id="pilot-assignment-state" data-testid="pilot-assignment-state">loading</div>
+      </div>
+      <div>
+        <div class="stat-label">Session Recovery</div>
+        <div class="alpha-state-line" id="pilot-session-recovery-state" data-testid="pilot-session-recovery-state">checking</div>
+      </div>
+      <div>
+        <div class="stat-label">Export</div>
+        <div class="alpha-state-line" id="pilot-export-state" data-testid="pilot-export-state">ready</div>
+      </div>
+    </div>
+    <div class="flex-between mt-md" style="align-items:flex-start;gap:12px">
+      <div id="pilot-blockers" style="display:flex;flex-wrap:wrap;gap:6px">
+        <span class="badge badge-orange">Checking private alpha blockers</span>
+      </div>
+      <div class="flex-row">
+        <button class="topbar-btn" onclick="recoverSession()">Resume Session</button>
+        <button class="topbar-btn gold" onclick="exportPilotSnapshot()">Export Snapshot</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2 gap-lg">
+    <!-- Left Column -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Programs -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Active Programs</div>
+          <span class="badge badge-cyan">3 Programs</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="flex-between" style="padding:8px 12px;background:var(--gold-dim);border-radius:var(--radius);border-left:3px solid var(--gold)">
+            <div>
+              <div style="font-size:13px;font-weight:600">USCE Navigator</div>
+              <div style="font-size:11px;color:var(--text-dim)">Clinical Experience Matching</div>
+            </div>
+            <span class="badge badge-gold">14 Students</span>
+          </div>
+          <div class="flex-between" style="padding:8px 12px;background:var(--cyan-dim);border-radius:var(--radius);border-left:3px solid var(--cyan)">
+            <div>
+              <div style="font-size:13px;font-weight:600">Match Ready</div>
+              <div style="font-size:11px;color:var(--text-dim)">Residency Application Prep</div>
+            </div>
+            <span class="badge badge-cyan">7 Students</span>
+          </div>
+          <div class="flex-between" style="padding:8px 12px;background:var(--green-dim);border-radius:var(--radius);border-left:3px solid var(--green)">
+            <div>
+              <div style="font-size:13px;font-weight:600">Interview Forge</div>
+              <div style="font-size:11px;color:var(--text-dim)">Mock Interview Training</div>
+            </div>
+            <span class="badge badge-green">3 Students</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Today's Meetings -->
+      <div class="card">
+        <div class="card-header">
+        <div class="card-title">Today's Operating Loop</div>
+          <span class="badge badge-gold">3 Scheduled</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="flex-between" style="padding:10px;border-radius:var(--radius);background:rgba(46,204,113,0.08);border:1px solid rgba(46,204,113,0.15)">
+            <div class="flex-row gap-md">
+              <div style="font-size:11px;font-weight:700;color:var(--green);min-width:50px">10:00</div>
+              <div>
+                <div style="font-size:13px;font-weight:500">Amara Okafor</div>
+                <div style="font-size:11px;color:var(--text-dim)">USCE Strategy Review</div>
+              </div>
+            </div>
+            <button class="topbar-btn" style="padding:4px 10px;font-size:11px" onclick="openCallPrep('amara')" data-testid="today-prep">Prep</button>
+          </div>
+          <div class="flex-between" style="padding:10px;border-radius:var(--radius);background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.12)">
+            <div class="flex-row gap-md">
+              <div style="font-size:11px;font-weight:700;color:var(--cyan);min-width:50px">14:00</div>
+              <div>
+                <div style="font-size:13px;font-weight:500">Raj Patel</div>
+                <div style="font-size:11px;color:var(--text-dim)">Personal Statement Workshop</div>
+              </div>
+            </div>
+            <button class="topbar-btn gold" style="padding:4px 10px;font-size:11px" onclick="openCallPrep('raj')">Prep</button>
+          </div>
+          <div class="flex-between" style="padding:10px;border-radius:var(--radius);background:rgba(255,255,255,0.03);border:1px solid var(--border)">
+            <div class="flex-row gap-md">
+              <div style="font-size:11px;font-weight:700;color:var(--text-muted);min-width:50px">16:30</div>
+              <div>
+                <div style="font-size:13px;font-weight:500">Mei-Ling Chen</div>
+                <div style="font-size:11px;color:var(--text-dim)">Mock Interview Debrief</div>
+              </div>
+            </div>
+            <button class="topbar-btn" style="padding:4px 10px;font-size:11px" onclick="openCallPrep('mei')">Prep</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Urgent Tasks -->
+      <div class="card">
+        <div class="card-header">
+        <div class="card-title">Urgent Actions</div>
+          <span class="badge badge-red">3 Overdue</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--red-dim)">
+            <div style="font-size:13px"><strong>Submit LOR</strong> for Amara Okafor</div>
+            <div style="font-size:11px;color:var(--red)">Due yesterday</div>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--red-dim)">
+            <div style="font-size:13px"><strong>Review CV</strong> for Diego Ramirez</div>
+            <div style="font-size:11px;color:var(--red)">Due 2 days ago</div>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--orange-dim)">
+            <div style="font-size:13px"><strong>Schedule Mock IV</strong> for Yuki Tanaka</div>
+            <div style="font-size:11px;color:var(--orange)">Due tomorrow</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Student Groups -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Student Groups by Session</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <div class="flex-between mb-sm">
+              <span style="font-size:12px;font-weight:500">Spring 2026 Cohort</span>
+              <span style="font-size:11px;color:var(--cyan)">10 students</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill cyan" style="width:85%"></div></div>
+            <div style="font-size:10px;color:var(--text-dim);margin-top:4px">85% on track</div>
+          </div>
+          <div>
+            <div class="flex-between mb-sm">
+              <span style="font-size:12px;font-weight:500">Summer 2026 Cohort</span>
+              <span style="font-size:11px;color:var(--gold)">8 students</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill gold" style="width:62%"></div></div>
+            <div style="font-size:10px;color:var(--text-dim);margin-top:4px">62% on track</div>
+          </div>
+          <div>
+            <div class="flex-between mb-sm">
+              <span style="font-size:12px;font-weight:500">Fall 2026 Intake</span>
+              <span style="font-size:11px;color:var(--green)">6 students</span>
+            </div>
+            <div class="progress-bar"><div class="progress-fill green" style="width:40%"></div></div>
+            <div style="font-size:10px;color:var(--text-dim);margin-top:4px">40% onboarding</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Transcripts -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Transcripts</div>
+          <button class="topbar-btn" style="padding:4px 10px;font-size:11px" onclick="switchScreen('meeting')">View All</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(0,212,255,0.06)'" onmouseout="this.style.background='transparent'" onclick="switchScreen('meeting')">
+            <div>
+              <div style="font-size:13px;font-weight:500">Amara Okafor â USCE Strategy</div>
+              <div style="font-size:11px;color:var(--text-dim)">Jun 22, 10:00 AM Â· 42 min Â· Webex</div>
+            </div>
+            <span class="badge badge-green">AI Processed</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(0,212,255,0.06)'" onmouseout="this.style.background='transparent'">
+            <div>
+              <div style="font-size:13px;font-weight:500">Raj Patel â PS Review</div>
+              <div style="font-size:11px;color:var(--text-dim)">Jun 20, 3:00 PM Â· 35 min Â· Webex</div>
+            </div>
+            <span class="badge badge-green">AI Processed</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='rgba(0,212,255,0.06)'" onmouseout="this.style.background='transparent'">
+            <div>
+              <div style="font-size:13px;font-weight:500">Diego Ramirez â Match Strategy</div>
+              <div style="font-size:11px;color:var(--text-dim)">Jun 19, 11:00 AM Â· 28 min Â· Webex</div>
+            </div>
+            <span class="badge badge-cyan">Processing</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mentor Memory Alerts -->
+      <div class="card" style="border-color:rgba(232,164,28,0.3)">
+        <div class="card-header">
+          <div class="card-title" style="color:var(--gold)">Mentor Memory Alerts</div>
+          <span class="private-marker">MENTOR ONLY</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:10px;border-radius:6px;background:var(--red-dim);border-left:3px solid var(--red)">
+            <div style="font-size:12px;font-weight:600;color:var(--red)">Amara Okafor â Emotional State</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Mentioned father's health concerns last session. Approach today's call with sensitivity. Do not bring up unless she does.</div>
+          </div>
+          <div style="padding:10px;border-radius:6px;background:var(--orange-dim);border-left:3px solid var(--orange)">
+            <div style="font-size:12px;font-weight:600;color:var(--orange)">Raj Patel â Promise Tracker</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">You promised to send program director contact for Internal Medicine at Mount Sinai. Still pending.</div>
+          </div>
+          <div style="padding:10px;border-radius:6px;background:var(--yellow-dim);border-left:3px solid var(--yellow)">
+            <div style="font-size:12px;font-weight:600;color:var(--yellow)">Mei-Ling Chen â Deadline Risk</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">ERAS opens in 14 days. Her personal statement is only 60% done. Needs acceleration.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 2A: ACTIONS -->
+<!-- ============================================ -->
+<div class="screen" id="screen-actions" data-testid="screen-actions">
+
+  <div class="grid-4 mb-md">
+    <div class="card">
+      <div class="stat-label">Open Actions</div>
+      <div class="stat-value" style="color:var(--orange)" id="open-actions-count">7</div>
+      <div class="stat-change down">3 overdue</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Mentor Promises</div>
+      <div class="stat-value" style="color:var(--red)">3</div>
+      <div class="stat-change" style="color:var(--yellow)">Needs follow-through</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Document Reviews</div>
+      <div class="stat-value" style="color:var(--cyan)" id="document-reviews-count">2</div>
+      <div class="stat-change up">Ready to clear</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Due Today</div>
+      <div class="stat-value" style="color:var(--gold)" id="due-today-count">4</div>
+      <div class="stat-change up">Start here</div>
+    </div>
+  </div>
+
+  <div class="card mb-md">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Action Queue</div>
+        <div class="card-subtitle">Promises, reviews, follow-ups, admin work, and decisions</div>
+      </div>
+      <button class="topbar-btn gold" onclick="openQuickCapture()">Quick Capture</button>
+    </div>
+    <div class="filter-bar">
+      <div class="filter-chip active">All</div>
+      <div class="filter-chip">Promises</div>
+      <div class="filter-chip">Reviews</div>
+      <div class="filter-chip">Due Today</div>
+      <div class="filter-chip">Overdue</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px" id="actions-list">
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--red-dim);border-left:3px solid var(--red)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Promise:</strong> Send Mount Sinai IM coordinator introduction for Amara</div>
+        </div>
+        <span class="badge badge-red">Overdue</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--red-dim);border-left:3px solid var(--red)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)" data-testid="action-checkbox">
+          <div class="action-text" style="font-size:13px"><strong>Review:</strong> Personal statement opening paragraph for Raj</div>
+        </div>
+        <span class="badge badge-red">Due Today</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--orange-dim);border-left:3px solid var(--orange)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Follow-up:</strong> Check Mei-Ling ERAS acceleration plan</div>
+        </div>
+        <span class="badge badge-orange">Tomorrow</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Decision:</strong> Approve Diego mock interview cadence</div>
+        </div>
+        <span class="badge badge-cyan">This Week</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:rgba(232,164,28,0.06);border-left:3px solid var(--gold)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Admin:</strong> Update Yuki session notes before next prep</div>
+        </div>
+        <span class="badge badge-gold">Queued</span>
+      </div>
+    </div>
+    <div id="action-save-state" class="mt-md" style="font-size:12px;color:var(--text-dim)">No actions completed in this demo run.</div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 2: STUDENT DIRECTORY -->
+<!-- ============================================ -->
+<div class="screen" id="screen-directory" data-testid="screen-directory">
+
+  <div class="card mb-md" style="border-color:rgba(0,212,255,0.18)">
+    <div class="flex-between">
+      <div>
+        <div class="card-title">Attention-Ranked Directory</div>
+        <div class="card-subtitle">Default sort: risk, stale contact, overdue work, and readiness pressure</div>
+      </div>
+      <span class="badge badge-cyan">OS Priority View</span>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <input type="text" placeholder="Search students..." style="width:220px" id="student-search" oninput="filterStudents()">
+    <div class="filter-chip active" data-filter="all" onclick="setFilter(this,'all')">All Students</div>
+    <div class="filter-chip" data-filter="usce" onclick="setFilter(this,'usce')">USCE Navigator</div>
+    <div class="filter-chip" data-filter="match" onclick="setFilter(this,'match')">Match Ready</div>
+    <div class="filter-chip" data-filter="interview" onclick="setFilter(this,'interview')">Interview Forge</div>
+    <select style="padding:6px 12px;font-size:12px" id="risk-filter" onchange="filterStudents()">
+      <option value="">All Risk Levels</option>
+      <option value="high">High Risk</option>
+      <option value="medium">Medium Risk</option>
+      <option value="low">Low Risk</option>
+    </select>
+    <select style="padding:6px 12px;font-size:12px" id="session-filter" onchange="filterStudents()">
+      <option value="">All Sessions</option>
+      <option value="spring2026">Spring 2026</option>
+      <option value="summer2026">Summer 2026</option>
+      <option value="fall2026">Fall 2026</option>
+    </select>
+  </div>
+
+  <div class="panel">
+    <table class="data-table" id="student-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Country</th>
+          <th>Program</th>
+          <th>Session</th>
+          <th>Specialty</th>
+          <th>Risk</th>
+          <th>Status</th>
+          <th>Last Meeting</th>
+          <th>Attention</th>
+        </tr>
+      </thead>
+      <tbody id="student-tbody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===========================   <div class="stat-change up">Ready to clear</div>
+    </div>
+    <div class="card">
+      <div class="stat-label">Due Today</div>
+      <div class="stat-value" style="color:var(--gold)" id="due-today-count">4</div>
+      <div class="stat-change up">Start here</div>
+    </div>
+  </div>
+
+  <div class="card mb-md">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Action Queue</div>
+        <div class="card-subtitle">Promises, reviews, follow-ups, admin work, and decisions</div>
+      </div>
+      <button class="topbar-btn gold" onclick="openQuickCapture()">Quick Capture</button>
+    </div>
+    <div class="filter-bar">
+      <div class="filter-chip active">All</div>
+      <div class="filter-chip">Promises</div>
+      <div class="filter-chip">Reviews</div>
+      <div class="filter-chip">Due Today</div>
+      <div class="filter-chip">Overdue</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px" id="actions-list">
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--red-dim);border-left:3px solid var(--red)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Promise:</strong> Send Mount Sinai IM coordinator introduction for Amara</div>
+        </div>
+        <span class="badge badge-red">Overdue</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--red-dim);border-left:3px solid var(--red)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)" data-testid="action-checkbox">
+          <div class="action-text" style="font-size:13px"><strong>Review:</strong> Personal statement opening paragraph for Raj</div>
+        </div>
+        <span class="badge badge-red">Due Today</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:var(--orange-dim);border-left:3px solid var(--orange)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Follow-up:</strong> Check Mei-Ling ERAS acceleration plan</div>
+        </div>
+        <span class="badge badge-orange">Tomorrow</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Decision:</strong> Approve Diego mock interview cadence</div>
+        </div>
+        <span class="badge badge-cyan">This Week</span>
+      </div>
+      <div class="flex-between action-row" style="padding:10px;border-radius:var(--radius);background:rgba(232,164,28,0.06);border-left:3px solid var(--gold)">
+        <div class="flex-row" style="flex:1">
+          <input class="action-checkbox" type="checkbox" onchange="completeAction(this)">
+          <div class="action-text" style="font-size:13px"><strong>Admin:</strong> Update Yuki session notes before next prep</div>
+        </div>
+        <span class="badge badge-gold">Queued</span>
+      </div>
+    </div>
+    <div id="action-save-state" class="mt-md" style="font-size:12px;color:var(--text-dim)">No actions completed in this demo run.</div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 2: STUDENT DIRECTORY -->
+<!-- ============================================ -->
+<div class="screen" id="screen-directory" data-testid="screen-directory">
+
+  <div class="card mb-md" style="border-color:rgba(0,212,255,0.18)">
+    <div class="flex-between">
+      <div>
+        <div class="card-title">Attention-Ranked Directory</div>
+        <div class="card-subtitle">Default sort: risk, stale contact, overdue work, and readiness pressure</div>
+      </div>
+      <span class="badge badge-cyan">OS Priority View</span>
+    </div>
+  </div>
+
+  <div class="filter-bar">
+    <input type="text" placeholder="Search students..." style="width:220px" id="student-search" oninput="filterStudents()">
+    <div class="filter-chip active" data-filter="all" onclick="setFilter(this,'all')">All Students</div>
+    <div class="filter-chip" data-filter="usce" onclick="setFilter(this,'usce')">USCE Navigator</div>
+    <div class="filter-chip" data-filter="match" onclick="setFilter(this,'match')">Match Ready</div>
+    <div class="filter-chip" data-filter="interview" onclick="setFilter(this,'interview')">Interview Forge</div>
+    <select style="padding:6px 12px;font-size:12px" id="risk-filter" onchange="filterStudents()">
+      <option value="">All Risk Levels</option>
+      <option value="high">High Risk</option>
+      <option value="medium">Medium Risk</option>
+      <option value="low">Low Risk</option>
+    </select>
+    <select style="padding:6px 12px;font-size:12px" id="session-filter" onchange="filterStudents()">
+      <option value="">All Sessions</option>
+      <option value="spring2026">Spring 2026</option>
+      <option value="summer2026">Summer 2026</option>
+      <option value="fall2026">Fall 2026</option>
+    </select>
+  </div>
+
+  <div class="panel">
+    <table class="data-table" id="student-table">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Country</th>
+          <th>Program</th>
+          <th>Session</th>
+          <th>Specialty</th>
+          <th>Risk</th>
+          <th>Status</th>
+          <th>Last Meeting</th>
+          <th>Attention</th>
+        </tr>
+      </thead>
+      <tbody id="student-tbody">
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ===========================v class="briefing-panel span-2" id="briefing-timeline-summary" data-testid="briefing-timeline-summary">
+        <div class="briefing-label">TIMELINE SUMMARY</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mb-md" style="border-color:rgba(232,164,28,0.2)">
+    <div class="card-header">
+      <div>
+        <div class="card-title" style="color:var(--gold)">Workflow Capture</div>
+        <div class="card-subtitle">Add a mentor note, action, memory, or flag without leaving the profile</div>
+      </div>
+      <button class="topbar-btn gold" onclick="openCallPrep('amara')">Prep Call</button>
+    </div>
+    <div class="grid-2 gap-md">
+      <input class="micro-input" id="profile-workflow-input" placeholder="Capture a note or next step for this student">
+      <div class="flex-row" style="justify-content:flex-end">
+        <button class="topbar-btn" onclick="saveProfileCapture()">Save Note</button>
+        <button class="topbar-btn" onclick="saveProfileGoal()" data-testid="profile-save-goal">Save Goal</button>
+        <button class="topbar-btn" onclick="switchScreen('actions')">Open Actions</button>
+      </div>
+    </div>
+    <div id="profile-capture-state" style="font-size:11px;color:var(--text-dim);margin-top:8px">No profile capture saved in this demo run.</div>
+  </div>
+
+  <div class="grid-2 gap-lg">
+    <!-- Left Column -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Scores & Attempts -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Scores & Attempts</div>
+        </div>
+        <div class="grid-3 gap-md">
+          <div>
+            <div class="stat-label">USMLE Step 1</div>
+            <div class="stat-value" style="font-size:22px;color:var(--green)">Pass</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px">1st attempt Â· Mar 2025</div>
+          </div>
+          <div>
+            <div class="stat-label">Step 2 CK</div>
+            <div class="stat-value" style="font-size:22px;color:var(--cyan)">241</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px">1st attempt Â· Oct 2025</div>
+          </div>
+          <div>
+            <div class="stat-label">OET</div>
+            <div class="stat-value" style="font-size:22px;color:var(--gold)">B+</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:4px">All sections pass</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Red Flags -->
+      <div class="card" style="border-color:rgba(231,76,60,0.2)">
+        <div class="card-header">
+          <div class="card-title" style="color:var(--red)">Red Flags</div>
+          <span class="private-marker">MENTOR ONLY</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:12px;padding:6px 10px;background:var(--red-dim);border-radius:6px">Personal statement is generic â needs complete rewrite</div>
+          <div style="font-size:12px;padding:6px 10px;background:var(--orange-dim);border-radius:6px">Only 2 USCE rotations completed; target is 4+</div>
+          <div style="font-size:12px;padding:6px 10px;background:var(--yellow-dim);border-radius:6px">Has not begun LOR collection process</div>
+        </div>
+      </div>
+
+      <!-- Goals & Strategy -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Current Strategy</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px" id="profile-current-strategy">
+          <div>
+            <div style="font-size:11px;color:var(--text-dim)">Primary Goal</div>
+            <div style="font-size:13px;font-weight:500;margin-top:2px">Match into Internal Medicine residency â academic program preferred</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-dim)">Target Programs</div>
+            <div style="font-size:13px;margin-top:2px">Mount Sinai, SUNY Downstate, Montefiore, Lincoln Medical</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-dim)">Current Focus</div>
+            <div style="font-size:13px;margin-top:2px">Secure 2 more USCE rotations before ERAS opens. Rewrite personal statement. Begin LOR requests.</div>
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text-dim)">Key Deadlines</div>
+            <div style="font-size:13px;margin-top:2px;color:var(--orange)">ERAS Opens: Jul 6, 2026 Â· PS Final Draft: Jun 30 Â· LOR Requests: Jun 28</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MMC Readiness Framework -->
+      <div class="card" style="border-color:rgba(0,212,255,0.2)">
+        <div class="card-header">
+          <div class="card-title">MMC Readiness Framework</div>
+          <span class="badge badge-cyan">Local</span>
+        </div>
+        <div id="profile-readiness-framework" style="display:flex;flex-direction:column;gap:10px">
+          <div class="flex-between">
+            <div>
+              <div style="font-size:11px;color:var(--text-dim)">Readiness</div>
+              <div style="font-size:24px;font-weight:700;color:var(--cyan);margin-top:2px">58%</div>
+            </div>
+            <span class="badge badge-orange">Needs attention</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Student Journey Timeline -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Student Journey Timeline</div>
+          <span class="badge badge-gold">MMC-Owned</span>
+        </div>
+        <div id="profile-journey-timeline">
+          <div class="timeline-item">
+            <div class="timeline-dot cyan"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">USCE Strategy Review</div>
+              <div class="timeline-meta">2026-06-22 Â· Session</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Session captured in MMC memory.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mock IV Performance -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Mock Interview Performance</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Communication</span><span style="font-size:12px;color:var(--green)">82%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill green" style="width:82%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Clinical Knowledge</span><span style="font-size:12px;color:var(--cyan)">75%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill cyan" style="width:75%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Story Clarity</span><span style="font-size:12px;color:var(--orange)">58%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill gold" style="width:58%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Professionalism</span><span style="font-size:12px;color:var(--green)">90%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill green" style="width:90%"></div></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">2 mock interviews completed Â· StoryForge Readiness: 60%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Recent Meetings -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Meetings</div>
+          <button class="topbar-btn" style="padding:4px 10px;font-size:11px" onclick="switchScreen('meeting')">View Full</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div class="timeline-item">
+            <div class="timeline-dot green"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">USCE Strategy Review</div>
+              <div class="timeline-meta">Jun 22, 2026 Â· 42 min Â· Webex</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Discussed rotation applications to Mount Sinai and Montefiore. Identified networking contacts.</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot cyan"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">Personal Statement Workshop</div>
+              <div class="timeline-meta">Jun 15, 2026 Â· 55 min Â· Webex</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Reviewed first draft. Story lacks personal motivation hook. Assigned rewrite with specific framework.</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot gold"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">Initial Assessment</div>
+              <div class="timeline-meta">Jun 1, 2026 Â· 60 min Â· Webex</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Onboarding call. Assessed current status, set goals, created timeline.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Messages -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Messages</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:8px 10px;border-radius:6px;background:rgba(0,212,255,0.05)">
+            <div class="flex-between"><span style="font-size:11px;color:var(--cyan)">Amara</span><span style="font-size:10px;color:var(--text-dim)">Jun 21, 8:30 PM</span></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Hi Brian, I've attached the updated draft. Still working on the opening paragraph. Can we discuss tomorrow?</div>
+          </div>
+          <div style="padding:8px 10px;border-radius:6px;background:rgba(232,164,28,0.05)">
+            <div class="flex-between"><span style="font-size:11px;color:var(--gold)">You</span><span style="font-size:10px;color:var(--text-dim)">Jun 21, 9:15 PM</span></div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Great progress. Let's focus on the motivation section in our next call. I'll prep some examples.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submitted Files -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Submitted Files</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.03)">
+            <div class="flex-row">
+              <span style="color:var(--cyan)">&#128196;</span>
+              <div>
+                <div style="font-size:12px;font-weight:500">Personal_Statement_v2.docx</div>
+                <div style="font-size:10px;color:var(--text-dim)">Jun 21, 2026 Â· 2.1 MB</div>
+              </div>
+            </div>
+            <span class="badge badge-orange">Under Review</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.03)">
+            <div class="flex-row">
+              <span style="color:var(--cyan)">&#128196;</span>
+              <div>
+                <div style="font-size:12px;font-weight:500">CV_Amara_Okafor_2026.pdf</div>
+                <div style="font-size:10px;color:var(--text-dim)">Jun 10, 2026 Â· 420 KB</div>
+              </div>
+            </div>
+            <span class="badge badge-green">Reviewed</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.03)">
+            <div class="flex-row">
+              <span style="color:var(--cyan)">&#128196;</span>
+              <div>
+                <div style="font-size:12px;font-weight:500">USCE_Rotation_Log.xlsx</div>
+                <div style="font-size:10px;color:var(--text-dim)">Jun 5, 2026 Â· 85 KB</div>
+              </div>
+            </div>
+            <span class="badge badge-green">Reviewed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- StoryForge Readiness -->
+      <div class="card" style="border-color:rgba(232,164,28,0.2)">
+        <div class="card-header">
+          <div class="card-title" style="color:var(--gold)">StoryForge Readiness</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Why Medicine</span><span style="font-size:12px;color:var(--green)">Done</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill green" style="width:100%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Why This Specialty</span><span style="font-size:12px;color:var(--cyan)">70%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill cyan" style="width:70%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Defining Experience</span><span style="font-size:12px;color:var(--orange)">40%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill gold" style="width:40%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Challenge Overcome</span><span style="font-size:12px;color:var(--red)">20%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill red" style="width:20%"></div></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:4px">Overall StoryForge readiness: 60% â Needs 2 more sessions</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 4: SESSION / MEETING INTELLIGENCE -->
+<!-- ============================================ -->
+<div class="screen" id="screen-meeting" data-testid="screen-meeting">
+
+  <div class="grid-2 gap-lg">
+    <!-- Left: Recording + Transcript -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- Recording Card -->
+      <div class="card" style="border-color:rgba(0,212,255,0.25)">
+        <div class="card-header">
+          <div>
+            <div class="card-title">Webex Recording</div>
+            <div class="card-subtitle">Amara Okafor â USCE Strategy Review</div>
+          </div>
+          <span class="badge badge-green">Processed</span>
+        </div>
+        <div style="background:var(--navy-deep);border-radius:var(--radius);padding:20px;text-align:center;border:1px solid var(--border)">
+          <div style="font-size:48px;color:var(--cyan);margin-bottom:12px">&#9654;</div>
+          <div style="font-size:14px;font-weight:600">USCE Strategy Review</div>
+          <div style="font-size:12px;color:var(--text-dim);margin-top:4px">June 22, 2026 Â· 10:00 AM Â· 42 minutes</div>
+          <div class="flex-row" style="justify-content:center;margin-top:12px;gap:12px">
+            <span class="badge badge-cyan">Webex Cloud</span>
+            <span class="badge badge-gold">Auto-Transcribed</span>
+            <span class="badge badge-green">AI Analyzed</span>
+          </div>
+        </div>
+        <div class="flex-row mt-md" style="gap:12px">
+          <div style="flex:1;font-size:11px;color:var(--text-dim)">
+            <strong style="color:var(--white)">Participants:</strong> Brian Biruk (Mentor), Amara Okafor (Student)
+          </div>
+        </div>
+      </div>
+
+      <!-- Transcript -->
+      <div class="panel" style="max-height:500px;overflow-y:auto">
+        <div class="panel-head">
+          <span>Transcript (AI-Enhanced)</span>
+          <span class="badge badge-gold">42 min</span>
+        </div>
+        <div class="panel-body" style="font-size:13px;line-height:1.7">
+          <div style="margin-bottom:12px">
+            <span style="font-weight:600;color:var(--gold)">Brian [00:01]:</span>
+            <span style="color:var(--text-muted)"> Good morning, Amara. How are you feeling about the USCE search?</span>
+          </div>
+          <div style="margin-bottom:12px">
+            <span style="font-weight:600;color:var(--cyan)">Amara [00:15]:</span>
+            <span style="color:var(--text-muted)"> Honestly, a bit stressed. I've sent about 40 emails and only heard back from two programs. I'm not sure my approach is working.</span>
+          </div>
+          <div style="margin-bottom:12px">
+            <span style="font-weight:600;color:var(--gold)">Brian [00:42]:</span>
+            <span style="color:var(--text-muted)"> That response rate is actually typical. Let me share something â the students who match well don't just email blindly. They network through specific channels. Let's look at your target list...</span>
+          </div>
+          <div style="margin-bottom:12px">
+            <span style="font-weight:600;color:var(--cyan)">Amara [02:10]:</span>
+            <span style="color:var(--text-muted)"> I've been focusing on Mount Sinai and Montefiore because they have strong IMG-friendly programs. But I don't know anyone there.</span>
+          </div>
+          <div style="margin-bottom:12px">
+            <span style="font-weight:600;color:var(--gold)">Brian [02:35]:</span>
+            <span style="color:var(--text-muted)"> Good choices. I actually know the program coordinator at Mount Sinai IM. Let me send an introduction email for you this week. For Montefiore, we should look at their alumni network...</span>
+          </div>
+          <div style="margin-bottom:12px">
+            <span style="font-weight:600;color:var(--cyan)">Amara [05:20]:</span>
+            <span style="color:var(--text-muted)"> That would be amazing. Also, I wanted to mention â my father hasn't been well lately, so I might need some flexibility with deadlines if things get complicated.</span>
+          </div>
+          <div style="margin-bottom:12px;padding:8px;border-radius:6px;background:var(--red-dim);border-left:3px solid var(--red)">
+            <span class="private-marker" style="margin-bottom:4px">AI FLAG â SENSITIVE</span>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:4px">Student disclosed family health concern. Flagged for mentor memory. Handle with care in future sessions.</div>
+          </div>
+          <div style="margin-bottom:12px">
+            <span style="font-weight:600;color:var(--gold)">Brian [05:50]:</span>
+            <span style="color:var(--text-muted)"> Of course, Amara. Family comes first. We'll build flexibility into your timeline. Let's make sure the most critical items have buffer...</span>
+          </div>
+          <div style="color:var(--text-dim);font-style:italic;font-size:12px;text-align:center;padding:12px 0;border-top:1px solid var(--border);margin-top:8px">[Transcript continues â 36 minutes remaining]</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: AI Analysis -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- AI Summary -->
+      <div class="card" style="border-color:rgba(232,164,28,0.2)">
+        <div class="card-header">
+          <div class="card-title" style="color:var(--gold)">AI Session Summary</div>
+          <span class="badge badge-gold">Auto-Generated</span>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);line-height:1.6">
+          <p>42-minute advising session focused on USCE rotation strategy. Student expressed frustration with low email response rates. Mentor provided networking strategies and offered to make introductions at Mount Sinai IM program.</p>
+          <p style="margin-top:8px">Key pivot: Student disclosed father's health concerns, which may impact timeline adherence. Mentor appropriately offered flexibility and adjusted deadlines.</p>
+          <p style="margin-top:8px">Session productive overall â clear action items established with realistic timelines.</p>
+        </div>
+      </div>
+
+      <!-- Action Items -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Action Items</div>
+          <span class="badge badge-cyan">5 Items</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(231,76,60,0.06);border-left:3px solid var(--red)">
+            <div style="font-size:12px"><strong>Brian:</strong> Send intro email to Mount Sinai IM coordinator</div>
+            <span style="font-size:11px;color:var(--red)">Due: Jun 24</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+            <div style="font-size:12px"><strong>Amara:</strong> Research Montefiore alumni network on LinkedIn</div>
+            <span style="font-size:11px;color:var(--cyan)">Due: Jun 25</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+            <div style="font-size:12px"><strong>Amara:</strong> Complete personal statement rewrite (opening + motivation)</div>
+            <span style="font-size:11px;color:var(--orange)">Due: Jun 30</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(232,164,28,0.06);border-left:3px solid var(--gold)">
+            <div style="font-size:12px"><strong>Brian:</strong> Share personal statement framework examples</div>
+            <span style="font-size:11px;color:var(--gold)">Due: Jun 23</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+            <div style="font-size:12px"><strong>Amara:</strong> Draft 3 LOR request emails for review</div>
+            <span style="font-size:11px;color:var(--cyan)">Due: Jun 28</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Story Insights -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Story Insights (AI-Extracted)</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;color:var(--text-muted)">
+          <div style="padding:8px 10px;background:var(--gold-dim);border-radius:6px">
+            <strong style="color:var(--gold)">Motivation Signal:</strong> Amara mentioned her experience volunteering at a rural clinic in Lagos as formative. This could be the "defining experience" anchor for StoryForge.
+          </div>
+          <div style="padding:8px 10px;background:var(--cyan-dim);border-radius:6px">
+            <strong style="color:var(--cyan)">Specialty Fit:</strong> Strong interest in continuity of care and chronic disease management aligns well with Internal Medicine narrative.
+          </div>
+          <div style="padding:8px 10px;background:var(--violet-dim);border-radius:6px">
+            <strong style="color:var(--violet)">Challenge Theme:</strong> Navigating the IMG pathway while supporting family back home could be powerful "challenge overcome" if framed correctly.
+          </div>
+        </div>
+      </div>
+
+      <!-- Mentor-Only Notes -->
+      <div class="card" style="border-color:rgba(231,76,60,0.2)">
+        <div class="card-header">
+          <div class="card-title" style="color:var(--red)">Mentor-Only Notes</div>
+          <span class="private-marker">NEVER SHARED WITH STUDENT</span>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);line-height:1.6">
+          <p>Amara is more anxious than she lets on. The father's health situation is clearly weighing on her. Need to monitor for signs of burnout or withdrawal.</p>
+          <p style="margin-top:8px">Her personal statement draft was weak â she knows it but is emotionally attached to the current version. Use the framework approach to guide revision without being dismissive.</p>
+          <p style="margin-top:8px">She's a strong candidate on paper. The main risk is timeline execution, not capability. Keep her momentum with small wins.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 5: CALL PREP / MEMORY-DRIVEN PREP -->
+<!-- ============================================ -->
+<div class="screen" id="screen-memory" data-testid="screen-memory">
+
+  <div class="flex-between mb-md">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:var(--gold)">Mentor Memory / Call Prep</h2>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:4px">Memory-driven prep before entering the live session</div>
+    </div>
+    <div class="flex-row">
+      <span class="private-marker" style="font-size:11px;padding:4px 12px">MENTOR EYES ONLY</span>
+      <button class="topbar-btn gold" onclick="startSessionCommand()" data-testid="start-session">Start Session</button>
+    </div>
+  </div>
+
+  <!-- Student Selector -->
+  <div class="filter-bar">
+    <div class="filter-chip active" onclick="selectMemoryStudent(this,'amara')">Amara Okafor</div>
+    <div class="filter-chip" onclick="selectMemoryStudent(this,'raj')">Raj Patel</div>
+    <div class="filter-chip" onclick="selectMemoryStudent(this,'mei')">Mei-Ling Chen</div>
+    <div class="filter-chip" onclick="selectMemoryStudent(this,'diego')">Diego Ramirez</div>
+    <div class="filter-chip" onclick="selectMemoryStudent(this,'yuki')">Yuki Tanaka</div>
+  </div>
+
+  <div class="card mb-md" id="memory-search-panel" style="border-color:rgba(0,212,255,0.22)">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Memory Search</div>
+        <div class="card-subtitle">Search local MMC memory, promises, sessions, goals, and tasks</div>
+      </div>
+      <span class="badge badge-cyan">Local Only</span>
+    </div>
+    <div class="search-bar" style="margin:0 0 10px 0">
+      <span class="search-icon">&#8981;</span>
+      <input class="search-input" id="memory-search-input" placeholder="Search promises, context, next moves..." oninput="runMemorySearch()">
+    </div>
+    <div id="memory-search-results" style="display:flex;flex-direction:column;gap:8px">
+      <div style="font-size:12px;color:var(--text-dim)">Search results will use only MMC-owned local memory.</div>
+    </div>
+  </div>
+
+  <div id="memory-content">
+    <!-- Pre-Call Briefing -->
+    <div class="card mb-md" style="border-color:rgba(232,164,28,0.3);background:linear-gradient(135deg,rgba(232,164,28,0.08),rgba(0,212,255,0.04))">
+      <div class="card-header">
+        <div class="card-title" style="font-size:15px;color:var(--gold)">Pre-Call Briefing: Amara Okafor</div>
+        <span class="badge badge-gold">Next Call: Today 2:00 PM</span>
+      </div>
+      <div style="font-size:13px;color:var(--text-muted);line-height:1.7;padding:4px 0">
+        <strong style="color:var(--white)">What I need to remember before this call:</strong>
+        <ul style="margin:8px 0 0 18px;display:flex;flex-direction:column;gap:6px">
+          <li>Her father is dealing with health issues â she mentioned this last session. <strong style="color:var(--orange)">Do not bring it up directly.</strong> Let her lead if she wants to discuss.</li>
+          <li>I promised to send the Mount Sinai IM coordinator introduction. <strong style="color:var(--red)">This is still pending â do it before the call.</strong></li>
+          <li>Her personal statement needs a complete rewrite. She's sensitive about it. Use the framework approach, not direct criticism.</li>
+          <li>She prefers morning calls but agreed to afternoon today. Keep it efficient â she has clinical duties after.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="grid-2 gap-lg">
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Personal Details -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Personal Details</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
+            <div><strong style="color:var(--white)">Hometown:</strong> Lagos, Nigeria</div>
+            <div><strong style="color:var(--white)">Current Location:</strong> Brooklyn, NY (staying with cousin)</div>
+            <div><strong style="color:var(--white)">Timezone:</strong> EST â prefers morning calls</div>
+            <div><strong style="color:var(--white)">Communication Style:</strong> Polite, reserved initially. Opens up after rapport building. Responds well to structured guidance over open-ended advice.</div>
+            <div><strong style="color:var(--white)">Motivator:</strong> Making her family proud. First doctor in her family.</div>
+          </div>
+        </div>
+
+        <!-- Family Details -->
+        <div class="card" style="border-color:rgba(231,76,60,0.15)">
+          <div class="card-header">
+            <div class="card-title">Family Context</div>
+            <span class="private-marker">SENSITIVE</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
+            <div><strong style="color:var(--white)">Family:</strong> Parents and younger brother in Lagos. Father is a school teacher. Mother runs a small business.</div>
+            <div style="color:var(--orange)"><strong>Current Concern:</strong> Father has been unwell (mentioned Jun 22). She didn't elaborate on specifics. May affect her availability and focus.</div>
+            <div><strong style="color:var(--white)">Financial:</strong> Family is funding her medical education journey. Budget-conscious. Sensitive to any additional costs.</div>
+          </div>
+        </div>
+
+        <!-- Promises Made -->
+        <div class="card" style="border-color:rgba(231,76,60,0.2)">
+          <div class="card-header">
+            <div class="card-title" style="color:var(--red)">Promises Made</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--red-dim)">
+              <div style="font-size:12px"><strong>Send Mount Sinai IM coordinator intro</strong> â promised Jun 22</div>
+              <span class="badge badge-red">PENDING</span>
+            </div>
+            <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--green-dim)">
+              <div style="font-size:12px"><strong>Share PS framework examples</strong> â promised Jun 15</div>
+              <span class="badge badge-green">DONE</span>
+            </div>
+            <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--green-dim)">
+              <div style="font-size:12px"><strong>Review her CV</strong> â promised Jun 8</div>
+              <span class="badge badge-green">DONE</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <!-- Last Advice Given -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Last Advice Given</div>
+            <span style="font-size:11px;color:var(--text-dim)">Jun 22, 2026</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
+            <div style="padding:8px 10px;background:var(--cyan-dim);border-radius:6px;border-left:3px solid var(--cyan)">Focus networking efforts on warm introductions rather than cold emails. Use LinkedIn alumni connections.</div>
+            <div style="padding:8px 10px;background:var(--gold-dim);border-radius:6px;border-left:3px solid var(--gold)">Rewrite personal statement using the "Why â What â So What" framework. Start with the rural clinic experience.</div>
+            <div style="padding:8px 10px;background:var(--green-dim);border-radius:6px;border-left:3px solid var(--green)">Begin LOR requests early. Draft request emails for 3 attendings and have me review before sending.</div>
+          </div>
+        </div>
+
+        <!-- Sensitive Context -->
+        <div class="card" style="border-color:rgba(231,76,60,0.2)">
+          <div class="card-header">
+            <div class="card-title" style="color:var(--orange)">Sensitive Context</div>
+            <span class="private-marker">HANDLE WITH CARE</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:13px;color:var(--text-muted)">
+            <div style="padding:8px 10px;background:var(--red-dim);border-radius:6px">
+              <strong style="color:var(--red)">Father's Health:</strong> She mentioned this briefly at the end of the last call. Clearly emotional about it. Let her bring it up â don't probe.
+            </div>
+            <div style="padding:8px 10px;background:var(--orange-dim);border-radius:6px">
+              <strong style="color:var(--orange)">Financial Pressure:</strong> She's sensitive about costs. When recommending resources, prioritize free options. Don't suggest paid services without checking first.
+            </div>
+            <div style="padding:8px 10px;background:var(--yellow-dim);border-radius:6px">
+              <strong style="color:var(--yellow)">Imposter Syndrome:</strong> Shows signs of self-doubt despite strong credentials. Reinforce achievements regularly. Frame feedback constructively.
+            </div>
+          </div>
+        </div>
+
+        <!-- Next Best Coaching Move -->
+        <div class="card" style="border-color:rgba(0,212,255,0.25);background:linear-gradient(135deg,rgba(0,212,255,0.06),rgba(232,164,28,0.04))">
+          <div class="card-header">
+            <div class="card-title" style="color:var(--cyan)">Next Best Coaching Move</div>
+            <span class="badge badge-cyan">AI Suggested</span>
+          </div>
+          <div style="font-size:13px;color:var(--text-muted);line-height:1.7">
+            <p><strong style="color:var(--white)">Recommended approach for today's call:</strong></p>
+            <ol style="margin:8px 0 0 18px;display:flex;flex-direction:column;gap:6px">
+              <li>Start with a personal check-in (2 min). Let her set the emotional tone.</li>
+              <li>Confirm you sent the Mount Sinai introduction. <span style="color:var(--red)">(Send it before the call!)</span></li>
+              <li>Review personal statement progress. Use the framework to guide revision, not criticism.</li>
+              <li>Set micro-deadlines: PS opening by Jun 25, full draft by Jun 30.</li>
+              <li>Discuss LOR strategy â help her identify which attendings to approach.</li>
+              <li>End with positive reinforcement: her Step 2 CK score is strong, and her clinical experience is building.</li>
+            </ol>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 7: SESSION COMMAND -->
+<!-- ============================================ -->
+<div class="screen" id="screen-sessioncmd" data-testid="screen-session">
+
+  <div class="flex-between mb-md">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:var(--cyan)">Session Command</h2>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:4px">Live call cockpit with mentor memory, notes, and running action capture</div>
+    </div>
+    <div class="flex-row">
+      <span class="badge badge-green">SESSION LIVE</span>
+      <button class="topbar-btn gold" onclick="endSessionCommand()" data-testid="end-session">End Session</button>
+    </div>
+  </div>
+
+  <div class="grid-2 gap-lg">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card" style="border-color:rgba(0,212,255,0.25)">
+        <div class="card-header">
+          <div class="card-title">Student Quick Reference: <span id="session-student-name">Amara Okafor</span></div>
+          <span class="badge badge-orange" id="session-risk">Medium Risk</span>
+        </div>
+        <div class="grid-3 gap-md">
+          <div>
+            <div class="stat-label">Step 2 CK</div>
+            <div class="stat-value" id="session-step2" style="font-size:22px;color:var(--cyan)">241</div>
+          </div>
+          <div>
+            <div class="stat-label">Program</div>
+            <div class="stat-value" id="session-program" style="font-size:18px;color:var(--gold)">USCE Navigator</div>
+          </div>
+          <div>
+            <div class="stat-label">Readiness</div>
+            <div class="stat-value" id="session-readiness" style="font-size:22px;color:var(--orange)">60%</div>
+          </div>
+        </div>
+        <div id="session-current-focus" style="font-size:12px;color:var(--text-muted);margin-top:12px">Current focus: secure 2 more USCE rotations, rewrite personal statement, begin LOR requests.</div>
+      </div>
+
+      <div class="card" style="border-color:rgba(231,76,60,0.2)">
+        <div class="card-header">
+          <div class="card-title" style="color:var(--orange)">Sensitive Context</div>
+          <span class="private-marker">HANDLE WITH CARE</span>
+        </div>
+        <div id="session-sensitive-context" style="font-size:13px;color:var(--text-muted);line-height:1.7">Father's health concerns may be affecting focus. Let Amara lead if she wants to discuss it. Keep feedback structured and constructive.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Follow-through Check</div>
+          <span class="badge badge-red">1 Pending Promise</span>
+        </div>
+        <div id="session-follow-through" style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:8px 10px;border-radius:6px;background:var(--red-dim);border-left:3px solid var(--red);font-size:12px"><strong>Brian:</strong> Mount Sinai coordinator introduction still pending</div>
+          <div style="padding:8px 10px;border-radius:6px;background:var(--cyan-dim);border-left:3px solid var(--cyan);font-size:12px"><strong>Amara:</strong> Personal statement rewrite progress needs review</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Live Session Notes</div>
+          <span class="badge badge-green" id="session-save-state">Saved in demo</span>
+        </div>
+        <textarea class="session-note-area" id="session-notes" data-testid="session-notes">Opening check-in complete. Amara is focused but anxious about application timing. Need to convert this call into 3 concrete next steps.</textarea>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Quick Tags</div>
+          <span class="badge badge-cyan">Session Capture</span>
+        </div>
+        <div class="filter-bar" style="margin-bottom:0">
+          <button class="filter-chip" onclick="addSessionItem('Action Item')">+ Action Item</button>
+          <button class="filter-chip" onclick="addSessionItem('Promise')">+ Promise</button>
+          <button class="filter-chip" onclick="addSessionItem('Memory')">+ Memory</button>
+          <button class="filter-chip" onclick="addSessionItem('Flag')">+ Flag</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Created This Session</div>
+          <span class="badge badge-gold" id="session-item-count">1 Item</span>
+        </div>
+        <div id="session-items" style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:8px 10px;border-radius:6px;background:var(--cyan-dim);border-left:3px solid var(--cyan);font-size:12px"><strong>Action Item:</strong> Student will rewrite PS opening by Jun 25</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 8: POST-SESSION CAPTURE -->
+<!-- ============================================ -->
+<div class="screen" id="screen-postsession" data-testid="screen-post">
+
+  <div class="flex-between mb-md">
+    <div>
+      <h2 style="font-size:18px;font-weight:700;color:var(--gold)">Post-Session Capture</h2>
+      <div style="font-size:12px;color:var(--text-dim);margin-top:4px">Confirm the session record before returning to Today</div>
+    </div>
+    <span class="badge badge-gold">Close the loop</span>
+  </div>
+
+  <div style="max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:16px">
+    <div class="card" style="border-color:rgba(232,164,28,0.25)">
+      <div class="card-header">
+        <div class="card-title">Session Summary</div>
+        <span class="badge badge-gold">Mentor Editable</span>
+      </div>
+      <textarea class="session-note-area" id="post-session-summary" style="min-height:150px">Amara and Brian reviewed the USCE outreach plan, personal statement rewrite, and immediate LOR preparation. Next steps are concrete and deadline-driven.</textarea>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Action Items Review</div>
+        <span class="badge badge-cyan">Confirm Before Save</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px" id="post-session-action-review">
+        <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--cyan-dim);border-left:3px solid var(--cyan)">
+          <div class="flex-row" style="flex:1">
+            <input class="action-checkbox" type="checkbox" checked>
+            <input class="micro-input" value="Student rewrites PS opening by Jun 25">
+          </div>
+          <span class="badge badge-cyan">Student</span>
+        </div>
+        <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:var(--gold-dim);border-left:3px solid var(--gold)">
+          <div class="flex-row" style="flex:1">
+            <input class="action-checkbox" type="checkbox" checked>
+            <input class="micro-input" value="Brian sends Mount Sinai intro before next call">
+          </div>
+          <span class="badge badge-gold">Mentor</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Student Visibility</div>
+        <span class="private-marker">PRIVATE BY DEFAULT</span>
+      </div>
+      <div class="flex-between" style="padding:10px;border-radius:var(--radius);background:rgba(255,255,255,0.03);border:1px solid var(--border)">
+        <div>
+          <div style="font-size:13px;font-weight:600">Approve summary for student view</div>
+          <div style="font-size:11px;color:var(--text-dim);margin-top:3px">Private mentor notes and sensitive context are never shared.</div>
+        </div>
+        <input class="action-checkbox" type="checkbox" id="student-visibility-toggle">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">Anything Else?</div>
+        <span class="private-marker">MENTOR ONLY</span>
+      </div>
+      <textarea class="session-note-area" id="post-session-private-notes" style="min-height:110px" placeholder="Add mentor-only final notes."></textarea>
+    </div>
+
+    <button class="topbar-btn gold" style="width:100%;padding:12px 16px;font-size:13px" onclick="savePostSession()" data-testid="save-post-session">Save and Return to Today</button>
+  </div>
+
+</div>
+
+<!-- ============================================ -->
+<!-- SCREEN 6: STUDENT VIEW PREVIEW -->
+<!-- ============================================ -->
+<div class="screen" id="screen-studentview" data-testid="screen-studentview">
+
+  <div class="student-view-banner">
+    <span>STUDENT VIEW PREVIEW â This is what the student sees. Private mentor notes, internal AI analysis, and memory data are hidden.</span>
+    <button class="topbar-btn" style="padding:5px 12px;font-size:11px;border-color:rgba(165,94,234,0.3);color:var(--violet);background:rgba(165,94,234,0.1)" onclick="switchScreen('profile')">Switch to Admin View</button>
+  </div>
+
+  <!-- Student Header -->
+  <div class="card mb-md" style="border-color:rgba(165,94,234,0.15)">
+    <div style="display:flex;gap:16px;align-items:center">
+      <div class="avatar" style="width:48px;height:48px;font-size:18px;background:linear-gradient(135deg,var(--violet),var(--cyan))">AO</div>
+      <div>
+        <div style="font-size:16px;font-weight:700">Welcome back, Amara</div>
+        <div style="font-size:12px;color:var(--text-dim)">USCE Navigator Â· Spring 2026 Cohort</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2 gap-lg">
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- My Tasks -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">My Tasks</div>
+          <span class="badge badge-cyan">5 Active</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(231,76,60,0.06);border-left:3px solid var(--red)">
+            <div style="font-size:12px">Research Montefiore alumni network on LinkedIn</div>
+            <span style="font-size:11px;color:var(--red)">Due: Jun 25</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(230,126,34,0.06);border-left:3px solid var(--orange)">
+            <div style="font-size:12px">Complete personal statement rewrite</div>
+            <span style="font-size:11px;color:var(--orange)">Due: Jun 30</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+            <div style="font-size:12px">Draft 3 LOR request emails</div>
+            <span style="font-size:11px;color:var(--cyan)">Due: Jun 28</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(0,212,255,0.06);border-left:3px solid var(--cyan)">
+            <div style="font-size:12px">Update USCE rotation log with latest rotation</div>
+            <span style="font-size:11px;color:var(--cyan)">Due: Jul 1</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(46,204,113,0.06);border-left:3px solid var(--green)">
+            <div style="font-size:12px">Complete StoryForge "Why This Specialty" module</div>
+            <span style="font-size:11px;color:var(--green)">Due: Jul 5</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Deadlines -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Upcoming Deadlines</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0">
+          <div class="timeline-item">
+            <div class="timeline-dot red"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">LinkedIn Research â Montefiore</div>
+              <div class="timeline-meta">Jun 25, 2026 â 3 days away</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot gold"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">LOR Request Emails Draft</div>
+              <div class="timeline-meta">Jun 28, 2026 â 6 days away</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot cyan"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">Personal Statement Final Draft</div>
+              <div class="timeline-meta">Jun 30, 2026 â 8 days away</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-dot green"></div>
+            <div class="timeline-content">
+              <div class="timeline-title">ERAS Application Opens</div>
+              <div class="timeline-meta">Jul 6, 2026 â 14 days away</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- My Goals -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">My Goals</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div>
+            <div class="flex-between"><span style="font-size:12px">USCE Rotations (4 target)</span><span style="font-size:12px;color:var(--orange)">2/4</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill gold" style="width:50%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">Personal Statement</span><span style="font-size:12px;color:var(--orange)">60%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill gold" style="width:60%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">LOR Collection</span><span style="font-size:12px;color:var(--red)">0/3</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill red" style="width:0%"></div></div>
+          </div>
+          <div>
+            <div class="flex-between"><span style="font-size:12px">StoryForge Modules</span><span style="font-size:12px;color:var(--cyan)">60%</span></div>
+            <div class="progress-bar mt-sm"><div class="progress-fill cyan" style="width:60%"></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Approved Meeting Summaries -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Meeting Summaries</div>
+          <span style="font-size:10px;color:var(--text-dim)">Approved for student view</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="padding:10px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid var(--border)">
+            <div class="flex-between">
+              <span style="font-size:13px;font-weight:500">USCE Strategy Review</span>
+              <span style="font-size:11px;color:var(--text-dim)">Jun 22</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Discussed networking strategies for USCE rotations. Identified key contacts at target programs. Set timelines for personal statement revision and LOR requests.</div>
+            <div style="font-size:11px;color:var(--text-dim);margin-top:6px;font-style:italic">Note: Private mentor observations and AI analysis are not included in this summary.</div>
+          </div>
+          <div style="padding:10px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid var(--border)">
+            <div class="flex-between">
+              <span style="font-size:13px;font-weight:500">Personal Statement Workshop</span>
+              <span style="font-size:11px;color:var(--text-dim)">Jun 15</span>
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px">Reviewed first draft of personal statement. Discussed narrative structure using "Why â What â So What" framework. Action: rewrite opening with focus on defining clinical experience.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- My Files -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">My Submitted Files</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.03)">
+            <div class="flex-row">
+              <span style="color:var(--violet)">&#128196;</span>
+              <div>
+                <div style="font-size:12px;font-weight:500">Personal_Statement_v2.docx</div>
+                <div style="font-size:10px;color:var(--text-dim)">Submitted Jun 21</div>
+              </div>
+            </div>
+            <span class="badge badge-orange">Under Review</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.03)">
+            <div class="flex-row">
+              <span style="color:var(--violet)">&#128196;</span>
+              <div>
+                <div style="font-size:12px;font-weight:500">CV_Amara_Okafor_2026.pdf</div>
+                <div style="font-size:10px;color:var(--text-dim)">Submitted Jun 10</div>
+              </div>
+            </div>
+            <span class="badge badge-green">Reviewed</span>
+          </div>
+          <div class="flex-between" style="padding:8px 10px;border-radius:6px;background:rgba(255,255,255,0.03)">
+            <div class="flex-row">
+              <span style="color:var(--violet)">&#128196;</span>
+              <div>
+                <div style="font-size:12px;font-weight:500">USCE_Rotation_Log.xlsx</div>
+                <div style="font-size:10px;color:var(--text-dim)">Submitted Jun 5</div>
+              </div>
+            </div>
+            <span class="badge badge-green">Reviewed</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</div><!-- end content-area -->
+</div><!-- end main -->
+</div><!-- end app -->
+
+<!-- QUICK CAPTURE OVERLAY -->
+<div class="quick-capture-overlay" id="quick-capture-overlay" data-testid="quick-capture-overlay">
+  <div class="quick-capture-modal">
+    <div class="flex-between mb-md">
+      <div>
+        <div class="card-title" style="color:var(--gold);font-size:15px">Quick Capture</div>
+        <div class="card-subtitle">Fast note, action, memory, or flag without leaving the workflow</div>
+      </div>
+      <button class="topbar-btn" onclick="closeQuickCapture()" data-testid="quick-capture-close">Close</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <select id="quick-capture-student" data-testid="quick-capture-student">
+        <option value="amara">Amara Okafor</option>
+        <option value="raj">Raj Patel</option>
+        <option value="mei">Mei-Ling Chen</option>
+        <option value="diego">Diego Ramirez</option>
+      </select>
+      <div class="filter-bar" style="margin-bottom:0">
+        <div class="filter-chip active" onclick="setQuickCaptureType(this,'Note')">Note</div>
+        <div class="filter-chip" onclick="setQuickCaptureType(this,'Action')">Action</div>
+        <div class="filter-chip" onclick="setQuickCaptureType(this,'Memory')">Memory</div>
+        <div class="filter-chip" onclick="setQuickCaptureType(this,'Flag')">Flag</div>
+      </div>
+      <textarea id="quick-capture-content" data-testid="quick-capture-content" placeholder="Capture the thought before it disappears."></textarea>
+      <div class="flex-between">
+        <span id="quick-capture-state" style="font-size:12px;color:var(--text-dim)">Ready to save.</span>
+        <button class="topbar-btn gold" onclick="saveQuickCapture()" data-testid="quick-capture-save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="saved-toast" id="saved-toast" data-testid="saved-toast">Saved.</div>
+
+  <script src="./src/mmc-data-adapters.js?v=010"></script>
+<script src="./src/mmc-ownership-layer.js?v=100"></script>
+<script src="./src/app.js?v=100"></script>
+</body>
+</html>
