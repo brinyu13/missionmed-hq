@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="missionmed-app" content="usce-decline-confirmation">
+<title>Decline USCE Offer - MissionMed</title>
+<style>
+:root {
+  --mm-navy: #0f2a44;
+  --mm-navy-2: #173755;
+  --mm-gold: #c9a24b;
+  --mm-paper: #f7f5f0;
+  --mm-ink: #0b1c2e;
+  --mm-muted: #5e6b7a;
+  --mm-line: rgba(15,42,68,.14);
+  --mm-danger: #b23a3a;
+  --mm-success: #1f8a5a;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #fbfaf6 0%, #f3efe7 100%);
+  color: var(--mm-ink);
+}
+.mm-wrap {
+  width: min(760px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 28px 0 52px;
+}
+.mm-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--mm-navy);
+  font-weight: 800;
+  margin-bottom: 20px;
+}
+.mm-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, var(--mm-navy), var(--mm-navy-2));
+  color: var(--mm-gold);
+}
+.mm-brand small {
+  display: block;
+  color: var(--mm-muted);
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.mm-card {
+  background: #fff;
+  border: 1px solid var(--mm-line);
+  border-radius: 12px;
+  box-shadow: 0 18px 52px rgba(15,42,68,.13);
+  overflow: hidden;
+}
+.mm-hero {
+  background: linear-gradient(135deg, var(--mm-navy), var(--mm-navy-2));
+  color: #fff;
+  padding: 28px;
+}
+.mm-eyebrow {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(201,162,75,.16);
+  color: #dcb866;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+h1 {
+  margin: 14px 0 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(30px, 7vw, 44px);
+  line-height: 1.02;
+}
+.mm-hero p {
+  margin: 0;
+  color: rgba(255,255,255,.78);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.mm-body { padding: 24px 28px 28px; }
+.mm-alert {
+  border: 1px solid rgba(178,58,58,.2);
+  background: rgba(178,58,58,.07);
+  color: #6d1f1f;
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  margin-bottom: 18px;
+}
+.mm-recap {
+  border: 1px solid var(--mm-line);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.mm-row {
+  display: grid;
+  grid-template-columns: minmax(130px, 32%) 1fr;
+  gap: 12px;
+  padding: 13px 15px;
+  border-bottom: 1px solid var(--mm-line);
+}
+.mm-row:last-child { border-bottom: 0; }
+.mm-row small {
+  color: var(--mm-muted);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.mm-row b {
+  color: var(--mm-navy);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.mm-choice-title {
+  margin: 0 0 10px;
+  color: var(--mm-navy);
+  font-size: 16px;
+}
+.mm-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid var(--mm-line);
+  border-radius: 10px;
+  padding: 13px 14px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.mm-choice:hover { border-color: var(--mm-gold); }
+.mm-choice input { margin-top: 3px; }
+.mm-choice span {
+  display: block;
+  color: var(--mm-navy);
+  font-weight: 800;
+}
+.mm-choice small {
+  display: block;
+  color: var(--mm-muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 3px;
+}
+.mm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 18px;
+}
+.mm-btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font: 800 13px/1.2 inherit;
+  cursor: pointer;
+  text-decoration: none;
+}
+.mm-btn-primary {
+  background: var(--mm-danger);
+  color: #fff;
+}
+.mm-btn-secondary {
+  background: var(--mm-paper);
+  color: var(--mm-navy);
+  border: 1px solid var(--mm-line);
+}
+.mm-btn:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+.mm-state {
+  display: none;
+  margin-top: 16px;
+  border-radius: 10px;
+  padding: 13px 14px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.mm-state.is-on { display: block; }
+.mm-state.ok { background: rgba(31,138,90,.1); color: #125f3d; }
+.mm-state.bad { background: rgba(178,58,58,.1); color: #7d2424; }
+@media (max-width: 560px) {
+  .mm-body, .mm-hero { padding: 22px; }
+  .mm-row { grid-template-columns: 1fr; gap: 4px; }
+  .mm-actions { justify-content: stretch; }
+  .mm-btn { width: 100%; text-align: center; }
+}
+</style>
+</head>
+<body>
+<main class="mm-wrap">
+  <div class="mm-brand">
+    <div class="mm-mark">MM</div>
+    <div>MissionMed Clinicals<small>USCE offer response</small></div>
+  </div>
+  <section class="mm-card">
+    <div class="mm-hero">
+      <span class="mm-eyebrow">Confirm decline</span>
+      <h1>Before You Release This Offer</h1>
+      <p>Review the rotation details and choose whether MissionMed should notify you about future rotations before your decline is finalized.</p>
+    </div>
+    <div class="mm-body">
+      <div class="mm-alert">
+        If you decline, this rotation slot may be released to other students currently in the queue. We cannot guarantee the same placement will be available again.
+      </div>
+      <div class="mm-recap" id="offerRecap">
+        <div class="mm-row"><small>Status</small><b>Loading offer details...</b></div>
+      </div>
+      <form id="declineForm">
+        <h2 class="mm-choice-title">Future rotation notifications</h2>
+        <label class="mm-choice">
+          <input type="radio" name="notify" value="yes" required>
+          <span>Yes, notify me about future rotations<small>MissionMed may contact you if another rotation fits your preferences.</small></span>
+        </label>
+        <label class="mm-choice">
+          <input type="radio" name="notify" value="no" required>
+          <span>No, do not notify me<small>Your current offer will be declined and future USCE notices will not be sent from this response.</small></span>
+        </label>
+        <div class="mm-actions">
+          <a class="mm-btn mm-btn-secondary" id="backToOffer" href="https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html">Back to Offer</a>
+          <button class="mm-btn mm-btn-primary" id="confirmBtn" type="submit">Confirm Decline</button>
+        </div>
+      </form>
+      <div class="mm-state" id="stateBox"></div>
+    </div>
+  </section>
+</main>
+<script>
+(function(){
+  "use strict";
+
+  const API_BASE = /^https?:$/i.test(window.location.protocol)
+    ? ""
+    : "https://missionmed-hq-production.up.railway.app";
+  const OFFER_PAGE_URL = "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_offer.html";
+  const params = new URLSearchParams(window.location.search || "");
+  const token = String(params.get("token") || params.get("offer") || "").trim();
+  const offerId = String(params.get("offer_id") || "").trim();
+  const recap = document.getElementById("offerRecap");
+  const stateBox = document.getElementById("stateBox");
+  const form = document.getElementById("declineForm");
+  const confirmBtn = document.getElementById("confirmBtn");
+  const backToOffer = document.getElementById("backToOffer");
+
+  function esc(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function apiPath(path) {
+    return API_BASE.replace(/\/+$/, "") + path;
+  }
+
+  async function fetchJson(path, options) {
+    const response = await fetch(apiPath(path), Object.assign({
+      method: "GET",
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    }, options || {}));
+    let payload = null;
+    try { payload = await response.json(); } catch (_err) { payload = null; }
+    if (!response.ok || (payload && payload.ok === false)) {
+      const err = new Error(payload && payload.message ? payload.message : "USCE offer request failed.");
+      err.status = response.status;
+      err.payload = payload;
+      throw err;
+    }
+    return payload || {};
+  }
+
+  function showState(kind, message) {
+    stateBox.className = "mm-state is-on " + (kind === "ok" ? "ok" : "bad");
+    stateBox.textContent = message;
+  }
+
+  function valueFrom(data, keys) {
+    for (const key of keys) {
+      if (data && data[key] != null && String(data[key]).trim()) return String(data[key]).trim();
+    }
+    return "";
+  }
+
+  function normalizeOffer(raw) {
+    const source = raw && (raw.offer || raw.item || raw.data || raw);
+    return {
+      status: valueFrom(source, ["status", "offer_status"]) || "OFFER_DECLINE_PENDING",
+      specialty: valueFrom(source, ["specialty", "primary_specialty"]),
+      location: valueFrom(source, ["location", "site_location"]),
+      timing: valueFrom(source, ["timing", "months", "month", "preferred_months_or_dates"]),
+      duration: valueFrom(source, ["duration_weeks", "length", "duration"]),
+      start: valueFrom(source, ["start_date", "proposed_start", "starts_at"]),
+      expires: valueFrom(source, ["expires_at", "offer_expires_at", "respond_by"])
+    };
+  }
+
+  function renderRecap(offer) {
+    const rows = [
+      ["Status", offer.status],
+      ["Specialty", offer.specialty],
+      ["Location", offer.location],
+      ["Timing", offer.timing],
+      ["Length", offer.duration ? offer.duration + (/week/i.test(offer.duration) ? "" : " weeks") : ""],
+      ["Proposed start", offer.start],
+      ["Offer expires", offer.expires]
+    ].filter(function(row){ return row[1]; });
+    recap.innerHTML = rows.length
+      ? rows.map(function(row){ return '<div class="mm-row"><small>' + esc(row[0]) + '</small><b>' + esc(row[1]) + '</b></div>'; }).join("")
+      : '<div class="mm-row"><small>Status</small><b>Offer loaded. Choose your notification preference to finalize.</b></div>';
+  }
+
+  async function boot() {
+    if (!token) {
+      confirmBtn.disabled = true;
+      renderRecap({ status: "Missing offer token" });
+      showState("bad", "This decline link is missing its secure offer token. Return to the offer email and open the decline link again.");
+      return;
+    }
+
+    const offerUrl = new URL(OFFER_PAGE_URL);
+    offerUrl.searchParams.set("offer", token);
+    backToOffer.href = offerUrl.toString();
+
+    try {
+      const pending = await fetchJson("/api/usce/offer/" + encodeURIComponent(token) + "/decline", { method: "POST" });
+      let readPayload = null;
+      try {
+        readPayload = await fetchJson("/api/usce/offer/" + encodeURIComponent(token));
+      } catch (_readErr) {
+        readPayload = null;
+      }
+      renderRecap(normalizeOffer(readPayload || pending));
+    } catch (error) {
+      confirmBtn.disabled = true;
+      renderRecap({ status: "Unable to load offer" });
+      showState("bad", error && error.message ? error.message : "This offer could not be prepared for decline confirmation.");
+    }
+  }
+
+  form.addEventListener("submit", async function(event){
+    event.preventDefault();
+    if (!token) return;
+    const selected = form.querySelector('input[name="notify"]:checked');
+    if (!selected) {
+      showState("bad", "Choose whether MissionMed should notify you about future rotations.");
+      return;
+    }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = "Confirming...";
+    try {
+      const payload = {
+        notify_future_rotations: selected.value === "yes",
+        offer_id: offerId || null
+      };
+      await fetchJson("/api/usce/offer/" + encodeURIComponent(token) + "/decline/confirm", {
+        method: "POST",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      form.style.display = "none";
+      showState("ok", selected.value === "yes"
+        ? "Your decline was recorded. MissionMed may notify you if another rotation fits your preferences."
+        : "Your decline was recorded. MissionMed will not send future rotation notifications from this response.");
+    } catch (error) {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = "Confirm Decline";
+      showState("bad", error && error.message ? error.message : "Decline confirmation failed. Please try again.");
+    }
+  });
+
+  boot();
+})();
+</script>
+</body>
+</html>
