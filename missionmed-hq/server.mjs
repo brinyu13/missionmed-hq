@@ -10,6 +10,10 @@ import { fileURLToPath } from 'node:url';
 import { analyzeSafTranscript } from './saf_analyzer.mjs';
 import { selectDbocQuestion } from './question_selector.mjs';
 import { buildDeliveryInsights, computeDeliveryMetricsFromWav, computeDeliveryMetricsSafeFallback } from './worker_metrics.mjs';
+import {
+  getUscePublicIntakeAdminList,
+  isUsceAdminPublicIntakeListPath,
+} from './routes/usce-public-intake.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -22,6 +26,14 @@ const ENV_FILE = path.join(__dirname, '.env');
 const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
+const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
+const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
+const USCE_ADMIN_WORDPRESS_URL = 'https://missionmedinstitute.com/usce-admin/';
+const DEFAULT_CORS_ALLOWED_ORIGINS = new Set([
+  'https://missionmedinstitute.com',
+  'https://www.missionmedinstitute.com',
+  'https://cdn.missionmedinstitute.com',
+]);
 const RUNTIME_ENV = String(process.env.NODE_ENV || 'development').trim().toLowerCase() || 'development';
 const IS_PRODUCTION = RUNTIME_ENV === 'production';
 
@@ -1048,6 +1060,67 @@ function buildWordPressAuthRedirectUrl(returnTo = '') {
   return target.toString();
 }
 
+function normalizeRelayPathname(pathname = '') {
+  const normalized = `/${String(pathname || '').replace(/^\/+/u, '')}`;
+  return normalized.replace(/\/+$/u, '') || '/';
+}
+
+function withAuthSessionHandoffFragment(finalRedirect = '', handoffToken = '') {
+  const base = String(finalRedirect || '').trim();
+  const token = String(handoffToken || '').trim();
+  if (!base || !token) {
+    return base;
+  }
+
+  try {
+    const target = new URL(base);
+    const params = new URLSearchParams(String(target.hash || '').replace(/^#/u, ''));
+    params.set('mmhq_handoff_token', token);
+    const nextHash = params.toString();
+    target.hash = nextHash ? `#${nextHash}` : '';
+    return target.toString();
+  } catch {
+    return base;
+  }
+}
+
+function resolveUsceAdminAuthTarget(rawTarget = '') {
+  const candidate = String(rawTarget || '').trim() || USCE_ADMIN_WORDPRESS_URL;
+  const allowedTargets = [USCE_ADMIN_WORDPRESS_URL, USCE_ADMIN_CDN_URL];
+
+  try {
+    const target = new URL(candidate, USCE_ADMIN_WORDPRESS_URL);
+    target.hash = '';
+    target.search = '';
+
+    for (const allowedTarget of allowedTargets) {
+      const allowed = new URL(allowedTarget);
+      if (
+        target.origin === allowed.origin
+        && normalizeRelayPathname(target.pathname) === normalizeRelayPathname(allowed.pathname)
+      ) {
+        target.pathname = allowed.pathname;
+        return target.toString();
+      }
+    }
+  } catch {
+    return USCE_ADMIN_WORDPRESS_URL;
+  }
+
+  return USCE_ADMIN_WORDPRESS_URL;
+}
+
+function buildUsceAdminAuthRelayUrl(request = null, target = '') {
+  const hqBase = getHqBaseForRequest(request);
+  if (!hqBase) {
+    return '';
+  }
+
+  const relay = new URL(USCE_ADMIN_AUTH_RELAY_PATH, hqBase);
+  relay.searchParams.set('target', resolveUsceAdminAuthTarget(target));
+  return relay.toString();
+}
+
 function getLoginHints(request = null) {
   const hqBase = getHqBaseForRequest(request);
   const hqEntryUrl = hqBase ? new URL('/api/auth/session', hqBase).toString() : '';
@@ -1690,6 +1763,7 @@ const USCE_KNOWN_ROUTE_PATTERNS = [
   /^\/api\/usce\/offers\/[^/]+\/send$/u,
   /^\/api\/usce\/offers\/[^/]+\/revoke$/u,
   /^\/api\/usce\/offers\/[^/]+\/onboard$/u,
+  /^\/api\/usce\/admin\/public-intake-requests$/u,
   /^\/api\/usce\/programs$/u,
   /^\/api\/usce\/programs\/[^/]+$/u,
   /^\/api\/usce\/portal\/[^/]+$/u,
@@ -1759,6 +1833,16 @@ async function handleUsceRoute(request, response, url, context) {
   }
 
   if (!requireUsceUserSession(request, response, session, authHeaders)) {
+    return true;
+  }
+
+  if (isUsceAdminPublicIntakeListPath(pathname)) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return true;
+    }
+
+    sendRoutePayload(response, await getUscePublicIntakeAdminList(url.searchParams), authHeaders);
     return true;
   }
 
@@ -2110,6 +2194,36 @@ async function handleApiRoute(request, response, url, context) {
     }
 
     await handleStripeConnectCallback(request, response, searchParams, session);
+    return;
+  }
+
+  if (pathname === USCE_ADMIN_AUTH_RELAY_PATH) {
+    if (request.method !== 'GET') {
+      sendMethodNotAllowed(response, ['GET']);
+      return;
+    }
+
+    const relayTarget = resolveUsceAdminAuthTarget(searchParams.get('target'));
+    const handoffToken = String(searchParams.get('token') || '').trim();
+
+    if (!handoffToken) {
+      const relayReturnTo = buildUsceAdminAuthRelayUrl(request, relayTarget);
+      const redirectUrl = buildWordPressAuthRedirectUrl(relayReturnTo);
+
+      if (!redirectUrl) {
+        sendJson(response, 503, {
+          error: 'wordpress_login_not_configured',
+          message: 'WordPress login redirect is not configured yet. Set MMHQ_WP_BASE.',
+          login: getLoginHints(request),
+        }, authHeaders);
+        return;
+      }
+
+      sendRedirect(response, redirectUrl);
+      return;
+    }
+
+    sendRedirect(response, withAuthSessionHandoffFragment(relayTarget, handoffToken));
     return;
   }
 
@@ -2742,10 +2856,32 @@ function logRequest(request, response, pathname, durationMs) {
   ].join(' | '));
 }
 
+function resolveAllowedCorsOrigin(requestOrigin = '') {
+  const origin = String(requestOrigin || '').trim();
+  const configuredOrigin = String(CONFIG.allowedOrigin || '').trim();
+
+  if (configuredOrigin === '*') {
+    return origin || 'https://missionmedinstitute.com';
+  }
+
+  const allowedOrigins = new Set(DEFAULT_CORS_ALLOWED_ORIGINS);
+  for (const candidate of configuredOrigin.split(',')) {
+    const normalized = String(candidate || '').trim().replace(/\/+$/u, '');
+    if (normalized) {
+      allowedOrigins.add(normalized);
+    }
+  }
+
+  if (origin && allowedOrigins.has(origin.replace(/\/+$/u, ''))) {
+    return origin;
+  }
+
+  return configuredOrigin || 'https://missionmedinstitute.com';
+}
+
 function buildCorsHeaders(request = null) {
   const requestOrigin = String(request?.headers?.origin || '').trim();
-  const fallbackOrigin = CONFIG.allowedOrigin || requestOrigin || 'https://missionmedinstitute.com';
-  const allowedOrigin = fallbackOrigin === '*' ? (requestOrigin || 'https://missionmedinstitute.com') : fallbackOrigin;
+  const allowedOrigin = resolveAllowedCorsOrigin(requestOrigin);
 
   return {
     'Access-Control-Allow-Origin': allowedOrigin,
@@ -6615,6 +6751,7 @@ function parseWordPressHandoffToken(wpToken = '') {
     display_name: payload?.display_name || payload?.name,
     email: payload?.email,
     roles: Array.isArray(payload?.roles) ? payload.roles : [],
+    capabilities: payload?.capabilities || payload?.extra_capabilities || payload?.allcaps || {},
   });
 
   if (!Number(wpUser.id || 0) || !String(wpUser.email || '').trim()) {
@@ -6936,9 +7073,21 @@ function normalizeWordPressUser(user) {
     displayName: String(user?.name || user?.display_name || '').trim() || 'WordPress User',
     email: String(user?.email || '').trim(),
     roles: Array.isArray(user?.roles) ? user.roles.map((role) => String(role).toLowerCase()) : [],
-    capabilities: user?.capabilities || user?.extra_capabilities || {},
+    capabilities: normalizeWordPressCapabilities(user?.capabilities || user?.extra_capabilities || user?.allcaps || {}),
     scope: user?.scope || null,
   };
+}
+
+function normalizeWordPressCapabilities(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(value)
+      .filter(([key]) => typeof key === 'string' && key.trim())
+      .map(([key, val]) => [String(key).trim(), Boolean(val)]),
+  );
 }
 
 function isAuthorizedWordPressUser(user) {

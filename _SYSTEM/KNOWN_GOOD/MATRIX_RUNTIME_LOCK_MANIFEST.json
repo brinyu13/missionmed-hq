@@ -1,0 +1,253 @@
+{
+  "schema_version": "1.0",
+  "status": "ACTIVE",
+  "lock_name": "MissionMed Matrix Runtime Known-Good Lock",
+  "last_updated_utc": "2026-06-23T18:30:57Z",
+  "owner": "Brian",
+  "purpose": "Prevent AI/worktree/source/deploy drift from silently replacing Brian-validated Matrix-owned App Mode runtimes with older or embedded versions.",
+  "canonical_worktrees": [
+    "/Users/brianb/MissionMed_worktrees/D8-443_matrix_student_entry_learndash_phase0",
+    "/Users/brianb/MissionMed_worktrees/mm-matrix-062-calendar-app-mode-source-locked",
+    "/Users/brianb/MissionMed_worktrees/b1-storyforge-advanced-102-live-matrix-source-export"
+  ],
+  "production": {
+    "ssh_alias": "missionmed-kinsta",
+    "plugin_root": "/www/theresidencyacademy_209/public/wp-content/plugins/missionmed-hub",
+    "public_base_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub",
+    "baseline_backup_path": "/www/theresidencyacademy_209/private/matrix-runtime-lock-baselines/20260527T122254Z",
+    "backup_required_before_deploy": true,
+    "broad_cache_purge_allowed": false
+  },
+  "global_runtime_invariants": [
+    "Preserve mmed_matrix_runtime_v2 = 1.",
+    "Matrix app routes must open Matrix-owned full App Mode, not embedded dashboard panels.",
+    "Calendar loads only on #calendar.",
+    "Scheduler loads only on #scheduler.",
+    "File Vault loads only on #filevault.",
+    "Messages and StoryForge use the same route-level Matrix App Mode canon when enabled.",
+    "Dashboard must not hydrate full Calendar/Scheduler/File Vault/Messages/StoryForge modules.",
+    "Only one module-specific matrix-app-mode class may be active at a time.",
+    "Every Matrix App Mode must include Return to Matrix Dashboard.",
+    "No inactive module hydration.",
+    "No duplicate auth/session calls.",
+    "No duplicate module mounts.",
+    "Do not hide the WordPress admin bar for admins."
+  ],
+  "override_policy": {
+    "default": "BLOCK",
+    "required_phrase": "Brian explicitly approves Matrix runtime lock override for <ticket> and <asset keys>.",
+    "stale_worktree_warning": "WARNING: You are about to work from an old Matrix runtime version. Do not edit or deploy without Brian approval.",
+    "new_version_lock_requirement": "Any approved new live Matrix version must create a fresh Kinsta rollback backup, verify origin SHA256, verify public cache-busted SHA256, update this manifest, and write a deployment report."
+  },
+  "assets": {
+    "student_os_js": {
+      "app": "matrix-shell",
+      "role": "student Matrix router, App Mode protocol, Dashboard widgets, Messages/StoryForge shell routes",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
+      "production_path": "assets/student-os.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.js",
+      "approved_sha256": "8e5bc1629af8d7de4c18d900ccf705307024bd3c00e90de6f008d66257c5317c",
+      "approved_version": "1782239358",
+      "approved_state": "B1-100-d-a StoryForge locked bootstrap Matrix shell deploy: StoryForge registered as Runtime v2 standalone app, locked for normal students, admin/full-access preview only; Brian-approved deploy and lock update.",
+      "allowed_scoped_changes": [
+        "route-level Matrix App Mode guard fixes",
+        "Dashboard overview widgets with no app-mode regression",
+        "Messages/StoryForge shell route work under explicit scoped ticket"
+      ],
+      "requires_brian_validation": true
+    },
+    "student_os_css": {
+      "app": "matrix-shell",
+      "role": "student Matrix shell, Dashboard widgets, App Mode chrome/isolation CSS",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os.css",
+      "production_path": "assets/student-os.css",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os.css",
+      "approved_sha256": "111942c48eb8fd5dbe4132f17b4a6df89eb6a30044b1cb076db190c0da794a33",
+      "approved_version": "1780257981",
+      "approved_state": "B1-102 production-current Matrix shell CSS export: temp-lock/Profile/Messages styling; Brian-approved via B1-Storyforge-102-b runtime lock update",
+      "allowed_scoped_changes": [
+        "Matrix App Mode chrome/isolation CSS under explicit scoped ticket",
+        "Dashboard overview styling with app-mode regression validation"
+      ],
+      "requires_brian_validation": true
+    },
+    "class_mmed_student_os_php": {
+      "app": "matrix-shell",
+      "role": "WordPress enqueue/localization/runtime-v2 asset map",
+      "source_path": "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php",
+      "production_path": "includes/class-mmed-student-os.php",
+      "public_url": null,
+      "approved_sha256": "0adf5e50e7336c7987ee27fb114997244c496de64996c6d0b824d01e3fc1d9f6",
+      "approved_version": "1782239361",
+      "approved_state": "B1-100-d-a StoryForge Runtime v2 asset registration and module metadata deploy; Brian-approved deploy and lock update.",
+      "allowed_scoped_changes": [
+        "Runtime v2 asset map additions under scoped ticket",
+        "Version/hash localization fixes with route regression proof"
+      ],
+      "requires_brian_validation": true
+    },
+    "calendar_v4_js": {
+      "app": "calendar",
+      "role": "Brian-approved Prototype v4 Calendar App Mode runtime",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.js",
+      "production_path": "assets/student-os-calendar-v4.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.js",
+      "approved_sha256": "dde1bf2697f6fc843c7aa0641217fd7bcb068b54b5f36cd3af2c078051dacd77",
+      "approved_version": "1782019654",
+      "approved_state": "B1-102 production-current Calendar v4 export: Scheduler calendar-feed/My Appointments/Mission Residency category repairs; Brian-approved via B1-Storyforge-102-b runtime lock update",
+      "visual_source": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MATRIX_CALENDAR_PROTOTYPE_v4.html",
+      "allowed_scoped_changes": [
+        "Calendar Prototype v4 scoped bugfixes only",
+        "No replacement with legacy .sos-calendar dashboard implementation"
+      ],
+      "requires_brian_validation": true
+    },
+    "calendar_v4_css": {
+      "app": "calendar",
+      "role": "Brian-approved Prototype v4 Calendar App Mode CSS",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.css",
+      "production_path": "assets/student-os-calendar-v4.css",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.css",
+      "approved_sha256": "41b3a29530f23253827a707433e36fe48a121cd63aa39ed8433bef42e12ba385",
+      "approved_version": "1782010174",
+      "approved_state": "B1-102 production-current Calendar v4 CSS export: app-mode/read-only/mobile/meeting-link repairs; Brian-approved via B1-Storyforge-102-b runtime lock update",
+      "visual_source": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MATRIX_CALENDAR_PROTOTYPE_v4.html",
+      "allowed_scoped_changes": [
+        "Calendar Prototype v4 scoped styling fixes only"
+      ],
+      "requires_brian_validation": true
+    },
+    "scheduler_mount_js": {
+      "app": "scheduler",
+      "role": "Matrix-owned Scheduler App Mode adapter for CDN Scheduler source",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/scheduler-mount.js",
+      "production_path": "assets/scheduler-mount.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/scheduler-mount.js",
+      "approved_sha256": "2a47b847c52ed53dbffe51bef85c45efb2eecabe9246b821bce8b54f218e7578",
+      "approved_version": "1781804754",
+      "approved_state": "B1-102 production-current Scheduler mount export: surface guard/Arena CTA suppression/empty-flow/provider/confirm repairs; Brian-approved via B1-Storyforge-102-b runtime lock update",
+      "standalone_fallback": "https://missionmedinstitute.com/schedule",
+      "allowed_scoped_changes": [
+        "Scheduler App Mode adapter fixes only",
+        "No replacement with embedded dashboard wizard",
+        "No backend booking/payment/auth logic changes"
+      ],
+      "requires_brian_validation": true
+    },
+    "file_vault_js": {
+      "app": "filevault",
+      "role": "Matrix-owned File Vault 006D App Mode runtime",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.js",
+      "production_path": "assets/student-os-file-vault.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os-file-vault.js",
+      "approved_sha256": "f1639c41d32ffe74d6d2712c93a321abd67c36ef12adb75b36061b2b39331edd",
+      "approved_version": "1779876257-mm064-006d-fidelity",
+      "approved_state": "MM-FILEVAULT-064/065 006D File Vault App Mode current production package restored by D8-443H",
+      "visual_source": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MX-FILEVAULT-006D_Nexus_Clarity_Final_Demo.html",
+      "allowed_scoped_changes": [
+        "File Vault UI/modal fixes only",
+        "No storage/R2/RLS/upload/download/delete/share permission changes without explicit storage authorization"
+      ],
+      "requires_brian_validation": true
+    },
+    "file_vault_css": {
+      "app": "filevault",
+      "role": "Matrix-owned File Vault 006D App Mode CSS",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css",
+      "production_path": "assets/student-os-file-vault.css",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css",
+      "approved_sha256": "6daeaf25071f0850dbedfd522e9f0819f46fcf0e5c7a8ffc5ad3abba73ef0990",
+      "approved_version": "1779876257-mm064-006d-fidelity",
+      "approved_state": "MM-FILEVAULT-064/065 006D File Vault App Mode current production CSS restored by D8-443H",
+      "visual_source": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MX-FILEVAULT-006D_Nexus_Clarity_Final_Demo.html",
+      "allowed_scoped_changes": [
+        "File Vault scoped visual fixes only"
+      ],
+      "requires_brian_validation": true
+    },
+    "storyforge_js": {
+      "app": "storyforge",
+      "role": "Matrix-owned StoryForge locked bootstrap Runtime v2 app runtime",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.js",
+      "production_path": "assets/student-os-storyforge.js",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os-storyforge.js",
+      "approved_sha256": "989c141068049eb6bf738a1404a61845d1db690dc66add165581e26bd21c2c67",
+      "approved_version": "1782239347",
+      "approved_state": "B1-100-d-a StoryForge locked bootstrap source: normal students see coming-soon/disabled state; admin/full-access preview only; no persistence, backend, scoring, storage, REST, Supabase, R2, or Railway wiring.",
+      "visual_source": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MX-003_StoryForge_Matrix_Mimic.html",
+      "allowed_scoped_changes": [
+        "StoryForge locked bootstrap frontend copy/UI fixes only",
+        "No persistence, backend, scoring, upload, storage, REST, Supabase, R2, or Railway changes without explicit later authorization"
+      ],
+      "requires_brian_validation": true
+    },
+    "storyforge_css": {
+      "app": "storyforge",
+      "role": "Matrix-owned StoryForge locked bootstrap Runtime v2 app CSS",
+      "source_path": "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.css",
+      "production_path": "assets/student-os-storyforge.css",
+      "public_url": "https://missionmedinstitute.com/wp-content/plugins/missionmed-hub/assets/student-os-storyforge.css",
+      "approved_sha256": "5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8",
+      "approved_version": "1782239347",
+      "approved_state": "B1-100-d-a StoryForge locked bootstrap app-mode CSS; Brian-approved deploy and lock update.",
+      "visual_source": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MX-003_StoryForge_Matrix_Mimic.html",
+      "allowed_scoped_changes": [
+        "StoryForge scoped visual fixes only",
+        "No shared Matrix shell, Calendar, Scheduler, File Vault, Drills, Arena, STAT, Daily, auth, payments, WooCommerce, or LearnDash changes without explicit authorization"
+      ],
+      "requires_brian_validation": true
+    }
+  },
+  "route_locks": {
+    "dashboard": {
+      "route": "https://missionmedinstitute.com/member-dashboard/#dashboard",
+      "must_not_hydrate_full_apps": [
+        "calendar",
+        "scheduler",
+        "filevault"
+      ]
+    },
+    "calendar": {
+      "route": "https://missionmedinstitute.com/member-dashboard/#calendar",
+      "required_body_classes": [
+        "matrix-app-mode",
+        "matrix-app-mode-calendar"
+      ],
+      "return_target": "#dashboard"
+    },
+    "scheduler": {
+      "route": "https://missionmedinstitute.com/member-dashboard/#scheduler",
+      "required_body_classes": [
+        "matrix-app-mode",
+        "matrix-app-mode-scheduler"
+      ],
+      "return_target": "#dashboard"
+    },
+    "filevault": {
+      "route": "https://missionmedinstitute.com/member-dashboard/#filevault",
+      "required_body_classes": [
+        "matrix-app-mode",
+        "matrix-app-mode-file-vault"
+      ],
+      "return_target": "#dashboard"
+    },
+    "messages": {
+      "route": "https://missionmedinstitute.com/member-dashboard/#messages",
+      "required_body_classes": [
+        "matrix-app-mode",
+        "matrix-app-mode-messages"
+      ],
+      "return_target": "#dashboard",
+      "status": "route-level app-mode canon protected; separate visual lock pending"
+    },
+    "storyforge": {
+      "route": "https://missionmedinstitute.com/member-dashboard/#storyforge",
+      "required_body_classes": [
+        "matrix-app-mode",
+        "matrix-app-mode-storyforge"
+      ],
+      "return_target": "#dashboard",
+      "status": "route-level app-mode canon protected; separate visual lock pending"
+    }
+  }
+}
