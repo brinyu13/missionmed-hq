@@ -105,6 +105,8 @@ Load the relevant extension when its trigger condition is met:
 | `PRIMER_EXT_VISUAL.md` | Task involves frontend/UI changes at MEDIUM or HIGH risk |
 | `PRIMER_EXT_INTEGRITY.md` | Risk = HIGH |
 | `MM-AUTH-ARCH-001.md` | Task touches auth flow, session management, CORS, Arena auth, HQ auth, Supabase bootstrap, or `/api/auth/*` endpoints |
+| `CRITICAL_SYSTEMS_CONTRACT.md` | Task touches shared auth/session, Arena, USCE admin, MissionMed HQ/Railway, WordPress proxy/wrappers, CDN/R2 live assets, Supabase project routing, Matrix-owned apps, or deploy gates |
+| `KNOWN_GOOD/MATRIX_RUNTIME_LOCK_PROTOCOL.md` | Task touches Matrix runtime, Student OS, Admin OS, Matrix-owned App Mode, Calendar, Scheduler, File Vault, Messages, StoryForge, Matrix deploy/cache behavior, or `missionmed-hub` Matrix assets |
 
 Extensions live in `/Users/brianb/MissionMed/_SYSTEM/`.
 

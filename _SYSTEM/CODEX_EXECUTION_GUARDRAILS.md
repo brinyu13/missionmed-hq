@@ -19,11 +19,13 @@ Before executing ANY command, you MUST:
 1. Read _SYSTEM/CODEX_EXECUTION_GUARDRAILS.md
 2. Read _SYSTEM/SUPABASE_MIGRATION_PROTOCOL.md (if touching migrations)
 3. Read _SYSTEM/DATA_FLOW_CONTRACT.md (if touching data layer)
-4. Classify your task risk level (LOW / MEDIUM / HIGH)
-5. Run pre-execution checks for your risk level
-6. Execute ONLY whitelisted commands
-7. Run post-execution validation
-8. STOP on any unexpected output
+4. Read _SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_PROTOCOL.md (if touching Matrix runtime, Student OS, Admin OS, Calendar, Scheduler, File Vault, Messages, StoryForge, or Matrix deploy/cache behavior)
+5. Read _SYSTEM/CRITICAL_SYSTEMS_CONTRACT.md (if touching shared auth/session, Arena, USCE admin, MissionMed HQ/Railway, WordPress proxy/wrappers, CDN/R2 live assets, Supabase project routing, Matrix-owned apps, or deploy gates)
+6. Classify your task risk level (LOW / MEDIUM / HIGH)
+7. Run pre-execution checks for your risk level
+8. Execute ONLY whitelisted commands
+9. Run post-execution validation
+10. STOP on any unexpected output
 
 You are NOT authorized to:
 - Run migration repair commands
@@ -34,6 +36,8 @@ You are NOT authorized to:
 - Access answer_map pre-finalization
 - Modify auth endpoints
 - Execute commands not on the whitelist
+- Deploy protected Matrix runtime assets without Matrix runtime guard preflight, rollback backup, origin hash proof, and public cache-busted hash proof
+- Deploy protected critical systems without the Critical Systems Contract gate unless Brian explicitly approves an emergency bypass
 ```
 
 ---
@@ -59,6 +63,10 @@ You are NOT authorized to:
 | G-13 | NEVER embed service_role keys in frontend code | Security boundary. Service role is server-only. |
 | G-14 | NEVER modify the duel state machine trigger (`duel_state_monotonic_fn`) | State integrity invariant. See MR-078B INV-3. |
 | G-15 | NEVER trust client-submitted scores | Server-authoritative scoring. See MR-078B INV-2. |
+| G-16 | NEVER edit or deploy protected Matrix runtime assets from a stale worktree after the Matrix runtime guard warns | STOP. Wait for Brian approval of the exact asset/ticket override. |
+| G-17 | NEVER replace Brian-approved Matrix-owned App Mode with older embedded/dashboard implementations | STOP. Restore the locked Matrix runtime canon first. |
+| G-18 | NEVER raw-deploy protected auth, HQ, USCE, Arena, WordPress proxy, CDN/R2, Supabase-routing, or Matrix surfaces without the Critical Systems Contract gate or an explicit Brian emergency bypass | STOP. Run `_SYSTEM/tools/critical_systems_gate.py` and follow `_SYSTEM/CRITICAL_SYSTEMS_CONTRACT.md`. |
+| G-19 | NEVER edit `app/api/**` as a fix for current Railway production unless deployment evidence proves that tree is the active runtime owner | STOP. Current production owner is `missionmed-hq/server.mjs`. |
 
 ### 1.2 Commands That Are ALWAYS Forbidden
 
@@ -82,7 +90,28 @@ INSERT INTO dataset_questions *                # runtime; migration-only
 rm -rf supabase/migrations/*
 ```
 
-### 1.3 Commands That Require Explicit Approval
+### 1.3 Matrix Runtime Lock Commands
+
+When touching Matrix runtime assets, run the guard before editing:
+
+```
+python3 /Users/brianb/MissionMed/_SYSTEM/tools/matrix_runtime_guard.py preflight --worktree <ABSOLUTE_WORKTREE> --assets all --verify-public
+```
+
+If deploying protected Matrix runtime assets, use the guarded deploy path unless Brian explicitly authorizes a manual equivalent:
+
+```
+python3 /Users/brianb/MissionMed/_SYSTEM/tools/matrix_runtime_guard.py guarded-deploy --worktree <ABSOLUTE_WORKTREE> --assets <ASSET_KEYS> --ticket <TICKET> --brian-approved
+```
+
+The guard is authoritative for Matrix runtime lock state:
+
+- Manifest: `/Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json`
+- Protocol: `/Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_PROTOCOL.md`
+
+If the guard prints `WARNING: You are about to work from an old Matrix runtime version`, Codex must stop and wait for Brian's explicit override approval.
+
+### 1.4 Commands That Require Explicit Approval
 
 These commands are allowed ONLY when the prompt explicitly authorizes them AND pre-execution checks pass:
 

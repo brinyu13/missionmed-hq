@@ -6,6 +6,8 @@ Effective: 2026-05-27
 
 This protocol applies to every Codex, Claude, Cowork, or human-assisted task that touches MissionMed Matrix runtime, Matrix-owned App Mode, Matrix student/admin shell wiring, Matrix app assets, or related deploy/cache behavior.
 
+Global delegation note: this Matrix lock remains authoritative for Matrix hashes and app-mode invariants. `_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json` references it as a delegated lock and may add browser route-smoke expectations, but it must not replace or duplicate this lock.
+
 ## Protected Runtime Canon
 
 Matrix apps are Matrix-owned full App Mode experiences. They are not standalone rewrites and they must not render as embedded dashboard panels after route selection.

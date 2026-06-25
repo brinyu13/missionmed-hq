@@ -1,6 +1,7 @@
 {
   "version": "1.0",
   "description": "MissionMed Arena deploy map (LIVE source to STAGING keys)",
+  "scope_note": "This manifest covers only arena/stat/drills/daily staging HTML mappings. Critical production routes, USCE admin, Matrix assets, HQ/Railway, WordPress wrappers, CDN/R2 LIVE assets, and Supabase pins are governed by _SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json.",
   "mappings": [
     {
       "source": "LIVE/arena.html",

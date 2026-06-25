@@ -1,0 +1,325 @@
+{
+  "schema_version": "1.0",
+  "status": "ACTIVE",
+  "lock_name": "MissionMed Critical Systems Contract",
+  "owner": "Brian",
+  "last_updated_utc": "2026-06-25T19:53:29Z",
+  "known_good": {
+    "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
+    "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
+    "railway_deployment": "27280193-c85b-49de-8b03-58e28ba0c9f3"
+  },
+  "delegated_locks": {
+    "matrix_runtime": "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json"
+  },
+  "runtime_owners": {
+    "railway_missionmed_hq": {
+      "host": "railway",
+      "service": "missionmed-hq",
+      "environment": "production",
+      "start_command": "node missionmed-hq/server.mjs",
+      "active_source_roots": [
+        "missionmed-hq/"
+      ],
+      "inactive_lookalikes": [
+        "app/api/**"
+      ],
+      "ignore_file": ".railwayignore",
+      "required_env": [
+        {
+          "name": "MMHQ_SESSION_SECRET",
+          "fail_if_missing": true
+        }
+      ]
+    }
+  },
+  "protected_paths": [
+    ".railwayignore",
+    "missionmed-hq/server.mjs",
+    "missionmed-hq/routes/usce-public-intake.mjs",
+    "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_PROTOCOL.md",
+    "_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json",
+    "_SYSTEM/tools/matrix_runtime_guard.py",
+    "_SYSTEM/CRITICAL_SYSTEMS_CONTRACT.md",
+    "_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json",
+    "_SYSTEM/tools/critical_systems_gate.py"
+  ],
+  "supabase_projects": {
+    "ranklistiq": {
+      "project_ref": "fglyvdykwgbuivikqoah",
+      "name": "missionmed-ranklistiq",
+      "domains": [
+        "Arena",
+        "STAT",
+        "USCE command_center.usce_*"
+      ]
+    },
+    "growth_engine": {
+      "project_ref": "plgndqcplokwiuimwhzh",
+      "name": "MissionMed Growth Engine",
+      "domains": [
+        "HQ CRM",
+        "command_center.students",
+        "command_center.leads",
+        "command_center.payments",
+        "command_center.email_drafts",
+        "command_center.events"
+      ]
+    },
+    "scheduler_staging": {
+      "project_ref": "avpdetdkpwmqqxtvomix",
+      "name": "MissionMed Scheduler Staging",
+      "domains": [
+        "Scheduler staging, inventory pending"
+      ]
+    }
+  },
+  "asset_checks": [
+    {
+      "id": "cdn_usce_admin_live",
+      "system": "usce_admin",
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
+      "approved_sha256": "115aa040f57a0fdaf3f49f6e398423b93635633b901eb01d7ffc85142e91ddd4",
+      "required_markers": [
+        "/api/usce/admin/public-intake-requests",
+        "/api/usce/admin/auth/relay",
+        "/api/auth/session",
+        "Live protected"
+      ],
+      "local_source_note": "LIVE/usce_admin.html currently differs from live CDN. Live CDN is pinned until source reconciliation."
+    },
+    {
+      "id": "cdn_arena_live",
+      "system": "arena",
+      "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/arena.html",
+      "approved_sha256": "19a519f583439056af56bcf513f2fb26f872369c458ac958093bde48d9acb12a",
+      "required_markers": [
+        "/api/auth/exchange",
+        "/api/auth/bootstrap",
+        "fglyvdykwgbuivikqoah"
+      ],
+      "local_source_path": "LIVE/arena.html"
+    }
+  ],
+  "route_checks": [
+    {
+      "id": "hq_health",
+      "system": "auth_core",
+      "url": "https://missionmed-hq-production.up.railway.app/health",
+      "method": "GET",
+      "expected_status": 200,
+      "body_contains": "\"status\":\"ok\""
+    },
+    {
+      "id": "hq_auth_session_cdn_cors",
+      "system": "auth_core",
+      "url": "https://missionmed-hq-production.up.railway.app/api/auth/session",
+      "method": "GET",
+      "headers": {
+        "Origin": "https://cdn.missionmedinstitute.com"
+      },
+      "expected_status": 200,
+      "expected_headers": {
+        "access-control-allow-origin": "https://cdn.missionmedinstitute.com"
+      }
+    },
+    {
+      "id": "usce_admin_auth_relay",
+      "system": "usce_admin",
+      "url": "https://missionmed-hq-production.up.railway.app/api/usce/admin/auth/relay?target=https%3A%2F%2Fcdn.missionmedinstitute.com%2Fhtml-system%2FLIVE%2Fusce_admin.html",
+      "method": "GET",
+      "expected_status": 302,
+      "expected_headers_contains": {
+        "location": "action=mmac_hq_auth_redirect"
+      },
+      "must_not_status": [
+        401,
+        404,
+        500,
+        501
+      ]
+    },
+    {
+      "id": "usce_admin_public_intake_unauth",
+      "system": "usce_admin",
+      "url": "https://missionmed-hq-production.up.railway.app/api/usce/admin/public-intake-requests",
+      "method": "GET",
+      "headers": {
+        "Origin": "https://cdn.missionmedinstitute.com"
+      },
+      "expected_status": 401,
+      "body_contains": "USCE routes require an authenticated HQ session.",
+      "expected_headers": {
+        "access-control-allow-origin": "https://cdn.missionmedinstitute.com"
+      },
+      "must_not_status": [
+        404,
+        500,
+        501
+      ]
+    },
+    {
+      "id": "wordpress_arena_wrapper",
+      "system": "arena",
+      "url": "https://missionmedinstitute.com/arena",
+      "method": "GET",
+      "expected_status": 200,
+      "must_not_status": [
+        404,
+        500
+      ]
+    },
+    {
+      "id": "wordpress_usce_admin_wrapper",
+      "system": "usce_admin",
+      "url": "https://missionmedinstitute.com/usce-admin/",
+      "method": "GET",
+      "expected_status": 200,
+      "must_not_status": [
+        404,
+        500
+      ]
+    },
+    {
+      "id": "wordpress_home",
+      "system": "wordpress",
+      "url": "https://missionmedinstitute.com/",
+      "method": "GET",
+      "expected_status": 200,
+      "must_not_status": [
+        404,
+        500
+      ]
+    }
+  ],
+  "systems": {
+    "auth_core": {
+      "owner": "HQ",
+      "runtime_owner": "railway_missionmed_hq",
+      "classes": [
+        "auth_session",
+        "route",
+        "cors_header",
+        "deploy_artifact"
+      ],
+      "critical_routes": [
+        "/api/auth/session",
+        "/api/auth/exchange",
+        "/api/auth/bootstrap",
+        "/api/auth/start"
+      ],
+      "forbidden_changes": [
+        "Do not edit app/api/** to fix current Railway production."
+      ]
+    },
+    "usce_admin": {
+      "owner": "USCE",
+      "runtime_owner": "railway_missionmed_hq",
+      "classes": [
+        "auth_session",
+        "redirect_handoff",
+        "cors_header",
+        "cdn_asset",
+        "wordpress_wrapper",
+        "supabase_pin",
+        "browser_journey"
+      ],
+      "supabase": {
+        "project_ref": "fglyvdykwgbuivikqoah",
+        "schema": "command_center",
+        "tables": [
+          "usce_public_intake_requests",
+          "usce_offer_drafts",
+          "usce_audit"
+        ],
+        "rpcs": [
+          "create_usce_public_intake_request",
+          "list_usce_public_intake_requests",
+          "update_usce_public_intake_request_status",
+          "update_usce_public_intake_request_admin_note"
+        ],
+        "access_role": "service_role"
+      },
+      "rollback": "Re-deploy tag known-good/2026-06-25-critical-auth-usce-arena-matrix or Railway deployment 27280193-c85b-49de-8b03-58e28ba0c9f3; restore CDN usce_admin.html from approved backup if CDN drifted."
+    },
+    "arena": {
+      "owner": "Arena",
+      "runtime_owner": "railway_missionmed_hq",
+      "classes": [
+        "auth_session",
+        "cdn_asset",
+        "wordpress_wrapper",
+        "supabase_pin",
+        "browser_journey"
+      ],
+      "supabase": {
+        "project_ref": "fglyvdykwgbuivikqoah",
+        "forbidden_project_refs": [
+          "plgndqcplokwiuimwhzh"
+        ]
+      },
+      "rollback": "Restore approved arena.html to R2/CDN and purge; do not edit payments or Matrix."
+    },
+    "matrix_runtime": {
+      "owner": "Matrix",
+      "delegated_to": "matrix_runtime",
+      "classes": [
+        "matrix_runtime",
+        "browser_journey"
+      ],
+      "protected_routes": [
+        "https://missionmedinstitute.com/member-dashboard/#dashboard",
+        "https://missionmedinstitute.com/member-dashboard/#calendar",
+        "https://missionmedinstitute.com/member-dashboard/#scheduler",
+        "https://missionmedinstitute.com/member-dashboard/#filevault",
+        "https://missionmedinstitute.com/member-dashboard/#messages",
+        "https://missionmedinstitute.com/member-dashboard/#storyforge"
+      ]
+    }
+  },
+  "browser_journeys": [
+    {
+      "id": "arena_authenticated_login",
+      "system": "arena",
+      "url": "https://missionmedinstitute.com/arena",
+      "expected_text": "ENTER ARENA",
+      "expected_console_errors": 0,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "usce_admin_authenticated_read",
+      "system": "usce_admin",
+      "url": "https://missionmed-hq-production.up.railway.app/api/usce/admin/auth/relay?target=https%3A%2F%2Fcdn.missionmedinstitute.com%2Fhtml-system%2FLIVE%2Fusce_admin.html",
+      "expected_text": "LIVE PROTECTED",
+      "expected_min_rows": 1,
+      "expected_console_errors": 0,
+      "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "matrix_app_mode_routes",
+      "system": "matrix_runtime",
+      "routes": [
+        "#dashboard",
+        "#calendar",
+        "#scheduler",
+        "#filevault",
+        "#messages",
+        "#storyforge"
+      ],
+      "expected_app_mode_body_class": true,
+      "manual_or_browser_plugin_required": true
+    }
+  ],
+  "new_system_registration": {
+    "rule": "No new MissionMed route, asset, RPC, iframe, CDN key, or Matrix-owned app mode is deployable until it has a manifest entry with owner, runtime owner, route or asset checks, dependency pins, browser expectation, and rollback path.",
+    "required_fields": [
+      "owner",
+      "runtime_owner",
+      "source_of_truth",
+      "routes_or_assets",
+      "dependencies",
+      "rollback"
+    ]
+  }
+}
+

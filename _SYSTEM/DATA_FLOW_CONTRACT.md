@@ -13,15 +13,18 @@ This document defines the EXACT data contract across Arena, STAT, Supabase, and 
 
 ## 0. SUPABASE PROJECT MAP
 
-Two Supabase projects exist. They serve different data domains. NEVER confuse them.
+Three Supabase projects are currently known. They serve different data domains. NEVER confuse them.
 
 | Project | ID | Name | Data Domain |
 |---------|-----|------|-------------|
-| **RANKLISTIQ** | `fglyvdykwgbuivikqoah` | missionmed-ranklistiq | STAT duels, player_profiles, user_avatars, match_players, dataset_questions, bot_profiles, E3 telemetry (study_sessions, match_attempts, question_attempts), RankListIQ tables |
-| **GROWTH ENGINE** | `plgndqcplokwiuimwhzh` | MissionMed Growth Engine | command_center.* (CRM), drill_registry, menu_categories, media_*, rfa_submissions |
+| **RANKLISTIQ** | `fglyvdykwgbuivikqoah` | missionmed-ranklistiq | STAT duels, player_profiles, user_avatars, match_players, dataset_questions, bot_profiles, E3 telemetry (study_sessions, match_attempts, question_attempts), RankListIQ tables, and USCE `command_center.usce_*` tables/RPCs |
+| **GROWTH ENGINE** | `plgndqcplokwiuimwhzh` | MissionMed Growth Engine | HQ CRM `command_center.students`, `leads`, `payments`, `email_drafts`, `events`, plus drill_registry, menu_categories, media_*, rfa_submissions |
+| **SCHEDULER STAGING** | `avpdetdkpwmqqxtvomix` | MissionMed Scheduler Staging | Scheduler staging; production dependency inventory pending |
 
 Arena and STAT frontends connect to **RANKLISTIQ** (`fglyvdykwgbuivikqoah`).
-HQ backend connects to **GROWTH ENGINE** (`plgndqcplokwiuimwhzh`) for CRM and to **RANKLISTIQ** for student/player provisioning.
+HQ backend connects to **GROWTH ENGINE** (`plgndqcplokwiuimwhzh`) for CRM, to **RANKLISTIQ** for student/player provisioning, and to **RANKLISTIQ** for USCE `command_center.usce_*` intake/offer/audit data.
+
+Important: `command_center` is a schema name present in more than one Supabase project. Pin by project + schema + table/RPC. Do not move USCE code to GROWTH ENGINE merely because the schema is named `command_center`.
 
 Local migration files in `/supabase/migrations/` target the **GROWTH ENGINE** project.
 STAT/duel migrations were applied to **RANKLISTIQ** via separate deployment path.
@@ -43,7 +46,8 @@ STAT/duel migrations were applied to **RANKLISTIQ** via separate deployment path
 | Question bank | Supabase `dataset_questions` + `dataset_registry` | Sealed into `duel_challenges` at creation | Never modified after seed; never client-writable |
 | Drill catalog | Supabase `drill_registry` | Arena frontend (read), HQ backend (read) | Never duplicated |
 | Menu structure | Supabase `menu_categories` + `menu_category_drills` | Arena frontend (read + admin write) | Never stored elsewhere |
-| Student/Lead CRM data | Supabase `command_center.*` schema | HQ frontend (read via Bearer API) | Never in Arena or STAT |
+| Student/Lead CRM data | Growth Engine Supabase `command_center.students`, `leads`, `payments`, `email_drafts`, `events` | HQ frontend (read via Bearer API) | Never in Arena or STAT |
+| USCE intake/offer/audit data | RANKLISTIQ Supabase `command_center.usce_*` | USCE admin and HQ backend | Never repointed by schema name alone |
 | Payment records | Supabase `command_center.payments` | HQ frontend (read) | Never in WordPress |
 | Email queue | Supabase `command_center.email_drafts` + `email_queue` | HQ backend (processing) | Never in frontend |
 | Media metadata | Supabase `media_*` tables | HQ media player (read) | Never in Arena |
