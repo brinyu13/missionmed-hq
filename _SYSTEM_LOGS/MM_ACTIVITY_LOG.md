@@ -552,3 +552,14 @@
 - Main checkout pre-flight showed existing untracked artifacts and nested `.git` directories; this ticket worktree was clean before edits.
 
 **Status:** COMPLETE
+
+
+---
+
+## 2026-07-06 | MM-SPINE-002 | Legacy Knowledge Bridge
+
+**Prompt ID:** MM-SPINE-002
+**Task:** Add four critical product passports and bridge legacy knowledge files to MissionMed_OS.
+**Files Modified:** PRODUCT_PASSPORTS/*.md, _SYSTEM/SESSION_PRIMER_V2.md, _SYSTEM/ACTIVE_WORK.md, _SYSTEM_LOGS/MM_ACTIVITY_LOG.md.
+**Bridge Notice:** New live activity log home is ~/MissionMed_OS/logs/MM_ACTIVITY_LOG.md. This legacy log is preserved and receives bridge notices only.
+**Status:** CODEX COMPLETE - pending Cowork passport-accuracy audit before acceptance.
