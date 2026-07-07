@@ -11,4 +11,5 @@ Hard stop rules:
 - Stop on unresolved authority conflict.
 - Stop on stale Matrix runtime warning.
 - Stop when CURRENT is stale and the task depends on current state.
+- Stop on unexpected command output that changes risk.
 - Stop before secrets, tokens, keys, credentials, or env values enter files.
