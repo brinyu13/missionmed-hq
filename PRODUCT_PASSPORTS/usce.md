@@ -32,6 +32,13 @@ USCE runs through the MissionMed HQ Railway runtime and LIVE wrappers. Evidence:
 - `/api/usce/portal/**`
 - `/api/usce/student/status`
 - `/api/usce/health`
+- /api/usce/admin/auth/relay
+  Admin auth relay.
+  Highest regression-risk route based on prior MissionMed repair history.
+
+- /api/usce/analytics/**
+- /api/usce/cron/**
+- /api/usce/webhook/**
 - LIVE wrapper pages: `LIVE/usce_admin.html` and `LIVE/usce_student.html`
 - Evidence: route constants and route patterns in `missionmed-hq/server.mjs` and `missionmed-hq/routes/usce-*.mjs`.
 
