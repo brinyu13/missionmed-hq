@@ -1,0 +1,17 @@
+file	marker	expected_source	status
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	refreshRestNonce	sdk_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	mmedWebexSdkV3SelfViewHidden	sdk_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	has-remote-students	sdk_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	ActiveSpeaker	sdk_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	sourceUpdate	sdk_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	hostRosterPollTimer	sdk_production_roster_fallback	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	hostRosterFallbackPollInFlight	sdk_production_roster_fallback	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	teamRosterFallbackParticipants	sdk_production_roster_fallback	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js	__MMED_V3_BUILD	WEBEX-107A_build_marker	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js	studentSafeErrorMessage	embed_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js	Copy student Webex link	embed_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js	data-webex-copy-join	embed_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js	fallbackActionMarkup	embed_worktree_hardening	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js	widgetScriptPromise	embed_production_widget_loader	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js	widgetScriptUrl	embed_production_widget_loader	PASS
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js	__MMED_V3_BUILD	WEBEX-107A_build_marker	PASS

@@ -1,0 +1,2 @@
+relative_path	classification	note
+includes/class-mmed-live-drills-sdk-v3.php	WEBEX-107A_PENDING	Production bootstrap references this V3 class, but 107A0 authority is limited to the 47 recovered baseline files. This file is part of the WEBEX-107A Drills LIVE surface and was not adopted in 107A0.

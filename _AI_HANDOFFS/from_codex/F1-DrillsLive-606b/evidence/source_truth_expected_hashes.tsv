@@ -1,0 +1,6 @@
+relative_path	expected_sha256
+wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3.html	a3224c7df50f35ccbbda8ab53a358e64032da8c2c960c8fce6be0f3e6fcfdae4
+wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-sdk-v3.php	bd2a11f10d565235500c83c987448883db36b7d4db433d266e4ec6de2445073c
+wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-action.php	09e223906eb6606259961216eaf591e1ba38e628ade5ea5287db504ac598cee8
+wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-studentflow.js	254faafc55b433b859be35aec6577a941546f3e655263caf0062e58b2de6d3d2
+wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3.js	2fd945408c5266827f20b6bd5762cd195e7905d57a70dc1cfb39be656e892ad4

@@ -1,0 +1,6 @@
+a1d0871a7de6a199872538b6f6688de97f26b5b68027a71f598716db00b3f673  /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-606a/evidence/production_daily-drills-live-webex-sdk-v3.js
+e31c11caf04ee043a7f8fa82ea58128d5f2b4b845484adcbf2c89ad6b5efc6a5  /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-606a/evidence/production_daily-drills-live-webex-v3-embed.js
+154110f5d0d5360cc2fd137e2b8ba5f305a4e25506604b5d90eba052fae928a5  /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-606a/evidence/worktree_base_daily-drills-live-webex-sdk-v3.js
+18ffa394db2350d8059508b0786c504fb9b14b735e259b94ad2873b31090fafb  /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-606a/evidence/worktree_base_daily-drills-live-webex-v3-embed.js
+154110f5d0d5360cc2fd137e2b8ba5f305a4e25506604b5d90eba052fae928a5  /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js
+18ffa394db2350d8059508b0786c504fb9b14b735e259b94ad2873b31090fafb  /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js

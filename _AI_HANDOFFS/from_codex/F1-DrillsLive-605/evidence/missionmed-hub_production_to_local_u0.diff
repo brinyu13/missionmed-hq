@@ -1,0 +1,342 @@
+diff --git a/Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-605/evidence/production_recovered_missionmed-hub.php b/Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-605/evidence/local_pre_adoption_missionmed-hub.php
+index 43b5289..1023437 100644
+--- a/Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-605/evidence/production_recovered_missionmed-hub.php
++++ b/Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/_AI_HANDOFFS/from_codex/F1-DrillsLive-605/evidence/local_pre_adoption_missionmed-hub.php
+@@ -116,12 +115,0 @@ require_once MMED_HUB_PATH . 'includes/class-mmed-webex-client.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-feature-flags.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-admin-os.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-attendance.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-session-reminders.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-session-analytics.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-action-items.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-session-chat.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-arena-live.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-drill-game.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-interview-prep.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-office-hours.php';
+-require_once MMED_HUB_PATH . 'includes/class-mmed-welcome-email-admin.php';
+@@ -133 +120,0 @@ if ( mmed_hub_is_student_os_enabled() ) {
+-    require_once MMED_HUB_PATH . 'includes/class-mmed-communications.php';
+@@ -143,4 +129,0 @@ if ( mmed_hub_is_student_os_enabled() ) {
+-    require_once MMED_HUB_PATH . 'includes/class-mmed-live-drills-preview.php';
+-    if ( file_exists( MMED_HUB_PATH . 'includes/class-mmed-live-drills-sdk-v3.php' ) ) {
+-        require_once MMED_HUB_PATH . 'includes/class-mmed-live-drills-sdk-v3.php';
+-    }
+@@ -151,6 +133,0 @@ MMED_Access_Gate::init();
+-if ( class_exists( 'MMED_Admin_OS' ) ) {
+-    MMED_Admin_OS::init();
+-}
+-if ( class_exists( 'MMED_Welcome_Email_Admin' ) ) {
+-    MMED_Welcome_Email_Admin::init();
+-}
+@@ -193,5 +169,0 @@ function mmed_hub_activate() {
+-    if ( class_exists( 'MMED_Calendar_Enrollment' ) ) {
+-        MMED_Calendar_Enrollment::seed_default_calendar_events();
+-        update_option( 'mmed_calendar_default_events_version', MMED_Calendar_Enrollment::DEFAULT_EVENTS_VERSION, false );
+-    }
+-
+@@ -206,40 +177,0 @@ function mmed_hub_activate() {
+-
+-    if ( class_exists( 'MMED_Feature_Flags' ) ) {
+-        MMED_Feature_Flags::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Attendance' ) ) {
+-        MMED_Attendance::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Session_Reminders' ) ) {
+-        MMED_Session_Reminders::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Session_Analytics' ) ) {
+-        MMED_Session_Analytics::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Action_Items' ) ) {
+-        MMED_Action_Items::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Session_Chat' ) ) {
+-        MMED_Session_Chat::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Arena_Live' ) ) {
+-        MMED_Arena_Live::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Drill_Game' ) ) {
+-        MMED_Drill_Game::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Interview_Prep' ) ) {
+-        MMED_Interview_Prep::maybe_install();
+-    }
+-
+-    if ( class_exists( 'MMED_Office_Hours' ) ) {
+-        MMED_Office_Hours::maybe_install();
+-    }
+@@ -271,3 +202,0 @@ if ( class_exists( 'MMED_Calendar_Engine' ) ) {
+-if ( class_exists( 'MMED_Communications' ) ) {
+-    add_action( 'init', array( 'MMED_Communications', 'init' ) );
+-}
+@@ -280,30 +208,0 @@ if ( class_exists( 'MMED_Webex_Client' ) ) {
+-if ( class_exists( 'MMED_Feature_Flags' ) ) {
+-    add_action( 'init', array( 'MMED_Feature_Flags', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Attendance' ) ) {
+-    add_action( 'init', array( 'MMED_Attendance', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Session_Reminders' ) ) {
+-    add_action( 'init', array( 'MMED_Session_Reminders', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Session_Analytics' ) ) {
+-    add_action( 'init', array( 'MMED_Session_Analytics', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Action_Items' ) ) {
+-    add_action( 'init', array( 'MMED_Action_Items', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Session_Chat' ) ) {
+-    add_action( 'init', array( 'MMED_Session_Chat', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Arena_Live' ) ) {
+-    add_action( 'init', array( 'MMED_Arena_Live', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Drill_Game' ) ) {
+-    add_action( 'init', array( 'MMED_Drill_Game', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Interview_Prep' ) ) {
+-    add_action( 'init', array( 'MMED_Interview_Prep', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Office_Hours' ) ) {
+-    add_action( 'init', array( 'MMED_Office_Hours', 'init' ) );
+-}
+@@ -335,6 +233,0 @@ if ( class_exists( 'MMED_Todo_Engine' ) ) {
+-if ( class_exists( 'MMED_Live_Drills_Preview' ) ) {
+-    add_action( 'init', array( 'MMED_Live_Drills_Preview', 'init' ) );
+-}
+-if ( class_exists( 'MMED_Live_Drills_SDK_V3' ) ) {
+-    add_action( 'init', array( 'MMED_Live_Drills_SDK_V3', 'init' ) );
+-}
+@@ -657,2 +550,2 @@ function mmed_woo_order_complete( $order_id ) {
+-        foreach ( MMED_Access_Audit::get_mapping_product_ids( $mapping ) as $product_id ) {
+-            $product_map[ $product_id ] = $mapping;
++        if ( ! empty( $mapping['product_id'] ) ) {
++            $product_map[ (int) $mapping['product_id'] ] = $mapping;
+@@ -667,21 +560,2 @@ function mmed_woo_order_complete( $order_id ) {
+-        $item_product_ids = array();
+-
+-        if ( is_object( $item ) && method_exists( $item, 'get_product_id' ) ) {
+-            $item_product_ids[] = (int) $item->get_product_id();
+-        }
+-
+-        if ( is_object( $item ) && method_exists( $item, 'get_variation_id' ) ) {
+-            $item_product_ids[] = (int) $item->get_variation_id();
+-        }
+-
+-        $item_product_ids = array_values( array_unique( array_filter( array_map( 'absint', $item_product_ids ) ) ) );
+-        $mapping          = null;
+-
+-        foreach ( $item_product_ids as $product_id ) {
+-            if ( isset( $product_map[ $product_id ] ) ) {
+-                $mapping = $product_map[ $product_id ];
+-                break;
+-            }
+-        }
+-
+-        if ( empty( $mapping ) ) {
++        $product_id = (int) $item->get_product_id();
++        if ( ! isset( $product_map[ $product_id ] ) ) {
+@@ -690,0 +565 @@ function mmed_woo_order_complete( $order_id ) {
++        $mapping       = $product_map[ $product_id ];
+@@ -760,9 +634,0 @@ function mmed_hub_admin_menu() {
+-    add_submenu_page(
+-        'missionmed-hub',
+-        'Session Analytics',
+-        'Session Analytics',
+-        'manage_options',
+-        'mmed-session-analytics',
+-        'mmed_render_session_analytics_admin'
+-    );
+-
+@@ -783,5 +648,0 @@ function mmed_render_session_admin() {
+-    $arena_battles_enabled = class_exists( 'MMED_Feature_Flags' ) && MMED_Feature_Flags::is_enabled( 'arena_live_battles' );
+-    $office_hours_enabled  = class_exists( 'MMED_Feature_Flags' ) && MMED_Feature_Flags::is_enabled( 'office_hours_queue' );
+-    $session_admin_js      = MMED_HUB_PATH . 'assets/admin-session-manager.js';
+-    $session_admin_css     = MMED_HUB_PATH . 'assets/admin-session-manager.css';
+-
+@@ -792 +653 @@ function mmed_render_session_admin() {
+-        file_exists( $session_admin_js ) ? (string) filemtime( $session_admin_js ) : MMED_HUB_VERSION,
++        MMED_HUB_VERSION,
+@@ -800 +661 @@ function mmed_render_session_admin() {
+-        file_exists( $session_admin_css ) ? (string) filemtime( $session_admin_css ) : MMED_HUB_VERSION
++        MMED_HUB_VERSION
+@@ -807,118 +668,8 @@ function mmed_render_session_admin() {
+-            'restUrl'             => rest_url( 'mmed/v1/admin/sessions' ),
+-            'webexRestUrl'        => rest_url( 'mmed/v1/admin/webex' ),
+-            'attendanceRestUrl'   => rest_url( 'mmed/v1/admin/attendance' ),
+-            'analyticsRestUrl'    => rest_url( 'mmed/v1/admin/analytics' ),
+-            'featureFlagsRestUrl' => rest_url( 'mmed/v1/admin/feature-flags' ),
+-            'nonce'               => wp_create_nonce( 'wp_rest' ),
+-            'instructors'         => mmed_session_admin_instructors(),
+-            'days'                => array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ),
+-            'platforms'           => array( 'webex', 'zoom', 'google_meet', 'teams' ),
+-            'eventTypes'          => array( 'mr_session', 'drill_step1', 'drill_step23', 'arena_event', 'office_hours', 'mock_interview_slot', 'mock_interview', 'study_block', 'general', 'custom' ),
+-            'webexSettings'       => class_exists( 'MMED_Webex_Client' ) ? MMED_Webex_Client::get_admin_settings() : array(),
+-            'featureFlags'        => class_exists( 'MMED_Feature_Flags' ) ? MMED_Feature_Flags::get_all_flags() : array(),
+-        )
+-    );
+-
+-    if ( $arena_battles_enabled ) {
+-        $arena_js  = MMED_HUB_PATH . 'assets/admin-arena-battles.js';
+-        $arena_css = MMED_HUB_PATH . 'assets/admin-arena-battles.css';
+-
+-        wp_enqueue_script(
+-            'mmed-admin-arena-battles',
+-            MMED_HUB_URL . 'assets/admin-arena-battles.js',
+-            array(),
+-            file_exists( $arena_js ) ? (string) filemtime( $arena_js ) : MMED_HUB_VERSION,
+-            true
+-        );
+-
+-        wp_enqueue_style(
+-            'mmed-admin-arena-battles',
+-            MMED_HUB_URL . 'assets/admin-arena-battles.css',
+-            array( 'mmed-session-manager' ),
+-            file_exists( $arena_css ) ? (string) filemtime( $arena_css ) : MMED_HUB_VERSION
+-        );
+-
+-        wp_localize_script(
+-            'mmed-admin-arena-battles',
+-            'mmedArenaAdmin',
+-            array(
+-                'arenaRestUrl'   => rest_url( 'mmed/v1/admin/arena-battles' ),
+-                'sessionsRestUrl' => rest_url( 'mmed/v1/admin/sessions' ),
+-                'nonce'          => wp_create_nonce( 'wp_rest' ),
+-                'formats'        => array( 'lightning', 'case_showdown', 'app_review', 'interview_sim', 'weekly_challenge' ),
+-                'featureEnabled' => true,
+-            )
+-        );
+-    }
+-
+-    if ( $office_hours_enabled ) {
+-        $office_js  = MMED_HUB_PATH . 'assets/admin-office-hours.js';
+-        $office_css = MMED_HUB_PATH . 'assets/admin-office-hours.css';
+-
+-        wp_enqueue_script(
+-            'mmed-admin-office-hours',
+-            MMED_HUB_URL . 'assets/admin-office-hours.js',
+-            array(),
+-            file_exists( $office_js ) ? (string) filemtime( $office_js ) : MMED_HUB_VERSION,
+-            true
+-        );
+-
+-        wp_enqueue_style(
+-            'mmed-admin-office-hours',
+-            MMED_HUB_URL . 'assets/admin-office-hours.css',
+-            array( 'mmed-session-manager' ),
+-            file_exists( $office_css ) ? (string) filemtime( $office_css ) : MMED_HUB_VERSION
+-        );
+-
+-        wp_localize_script(
+-            'mmed-admin-office-hours',
+-            'mmedOfficeHoursAdmin',
+-            array(
+-                'officeRestUrl'   => rest_url( 'mmed/v1/admin/office-hours' ),
+-                'sessionsRestUrl' => rest_url( 'mmed/v1/admin/sessions' ),
+-                'nonce'           => wp_create_nonce( 'wp_rest' ),
+-                'featureEnabled'  => true,
+-            )
+-        );
+-    }
+-
+-    echo '<div class="wrap"><div id="mmed-session-manager-root"></div>';
+-    if ( $arena_battles_enabled ) {
+-        echo '<div id="mmed-arena-battles-root"></div>';
+-    }
+-    if ( $office_hours_enabled ) {
+-        echo '<div id="mmed-office-hours-root"></div>';
+-    }
+-    echo '</div>';
+-}
+-
+-function mmed_render_session_analytics_admin() {
+-    if ( ! current_user_can( 'manage_options' ) ) {
+-        return;
+-    }
+-
+-    $js_path  = MMED_HUB_PATH . 'assets/admin-analytics.js';
+-    $css_path = MMED_HUB_PATH . 'assets/admin-analytics.css';
+-
+-    wp_enqueue_script(
+-        'mmed-admin-analytics',
+-        MMED_HUB_URL . 'assets/admin-analytics.js',
+-        array( 'jquery' ),
+-        file_exists( $js_path ) ? (string) filemtime( $js_path ) : MMED_HUB_VERSION,
+-        true
+-    );
+-
+-    wp_enqueue_style(
+-        'mmed-admin-analytics',
+-        MMED_HUB_URL . 'assets/admin-analytics.css',
+-        array(),
+-        file_exists( $css_path ) ? (string) filemtime( $css_path ) : MMED_HUB_VERSION
+-    );
+-
+-    wp_localize_script(
+-        'mmed-admin-analytics',
+-        'mmedAnalyticsAdmin',
+-        array(
+-            'dashboardUrl' => rest_url( 'mmed/v1/admin/analytics/dashboard' ),
+-            'nonce'        => wp_create_nonce( 'wp_rest' ),
+-            'templates'    => array( '360elite', '360elite_onboarding', 'complete', 'foundation', 'usce' ),
++            'restUrl'     => rest_url( 'mmed/v1/admin/sessions' ),
++            'webexRestUrl' => rest_url( 'mmed/v1/admin/webex' ),
++            'nonce'       => wp_create_nonce( 'wp_rest' ),
++            'instructors' => mmed_session_admin_instructors(),
++            'days'        => array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ),
++            'platforms'   => array( 'webex', 'zoom', 'google_meet', 'teams' ),
++            'eventTypes'  => array( 'mr_session', 'drill_step1', 'drill_step23', 'mock_interview', 'study_block', 'general', 'custom' ),
++            'webexSettings' => class_exists( 'MMED_Webex_Client' ) ? MMED_Webex_Client::get_admin_settings() : array(),
+@@ -928 +679 @@ function mmed_render_session_analytics_admin() {
+-    echo '<div class="wrap"><div id="mmed-analytics-root"></div></div>';
++    echo '<div class="wrap"><div id="mmed-session-manager-root"></div></div>';
+@@ -1083 +834 @@ function mmed_hub_settings_page() {
+-                            <option value="0">Select</option>
++                            <option value="0">- Select -</option>
+@@ -1094 +845 @@ function mmed_hub_settings_page() {
+-                            <option value="0">Select</option>
++                            <option value="0">- Select -</option>
+@@ -1105 +856 @@ function mmed_hub_settings_page() {
+-                            <option value="0">Select</option>
++                            <option value="0">- Select -</option>
+@@ -1116 +867 @@ function mmed_hub_settings_page() {
+-                        <p class="description">These primary IDs power the WooCommerce enrollment fallback and MissionMed access audit screen. Source-level aliases also accept current public and payment-plan products without changing the saved legacy option keys.</p>
++                        <p class="description">These IDs power both the WooCommerce enrollment fallback and the MissionMed access audit screen. Residency auditing now tracks Foundation, Complete, and 360 alongside the USCE mapping below.</p>
+@@ -1120,2 +871,2 @@ function mmed_hub_settings_page() {
+-                    <th><label for="mmed_product_foundation">Primary WooCommerce Product ID: IV Prep Complete Masterclass</label></th>
+-                    <td><input type="number" id="mmed_product_foundation" name="mmed_product_foundation" value="<?php echo esc_attr( $p_found ); ?>" class="small-text" /> <span class="description">Default: 3577. Source aliases: 3577, 5504, 5513.</span></td>
++                    <th><label for="mmed_product_foundation">WooCommerce Product ID: Interview Prep Foundation</label></th>
++                    <td><input type="number" id="mmed_product_foundation" name="mmed_product_foundation" value="<?php echo esc_attr( $p_found ); ?>" class="small-text" /> <span class="description">Default: 3577</span></td>
+@@ -1124 +875 @@ function mmed_hub_settings_page() {
+-                    <th><label for="mmed_course_foundation">LearnDash Course ID: IV Prep Complete Masterclass</label></th>
++                    <th><label for="mmed_course_foundation">LearnDash Course ID: Interview Prep Foundation</label></th>
+@@ -1128,2 +879,2 @@ function mmed_hub_settings_page() {
+-                    <th><label for="mmed_product_complete">Primary WooCommerce Product ID: Match Prep Pro</label></th>
+-                    <td><input type="number" id="mmed_product_complete" name="mmed_product_complete" value="<?php echo esc_attr( $p_complete ); ?>" class="small-text" /> <span class="description">Default: 3576. Source aliases: 3576, 5512.</span></td>
++                    <th><label for="mmed_product_complete">WooCommerce Product ID: Interview Prep Complete</label></th>
++                    <td><input type="number" id="mmed_product_complete" name="mmed_product_complete" value="<?php echo esc_attr( $p_complete ); ?>" class="small-text" /> <span class="description">Default: 3576</span></td>
+@@ -1132 +883 @@ function mmed_hub_settings_page() {
+-                    <th><label for="mmed_course_complete">LearnDash Course ID: Match Prep Pro</label></th>
++                    <th><label for="mmed_course_complete">LearnDash Course ID: Interview Prep Complete</label></th>
+@@ -1136,2 +887,2 @@ function mmed_hub_settings_page() {
+-                    <th><label for="mmed_product_360elite">Primary WooCommerce Product ID: 360 Match Mentorship</label></th>
+-                    <td><input type="number" id="mmed_product_360elite" name="mmed_product_360elite" value="<?php echo esc_attr( $p_360 ); ?>" class="small-text" /> <span class="description">Default: 3575. Source aliases: 3575, 5511.</span></td>
++                    <th><label for="mmed_product_360elite">WooCommerce Product ID: 360 Elite</label></th>
++                    <td><input type="number" id="mmed_product_360elite" name="mmed_product_360elite" value="<?php echo esc_attr( $p_360 ); ?>" class="small-text" /> <span class="description">Default: 3575</span></td>
+@@ -1140 +891 @@ function mmed_hub_settings_page() {
+-                    <th><label for="mmed_course_360elite">LearnDash Course ID: 360 Match Mentorship</label></th>
++                    <th><label for="mmed_course_360elite">LearnDash Course ID: 360 Elite</label></th>
+@@ -1157 +908 @@ function mmed_hub_settings_page() {
+-                    <td><input type="number" id="mmed_group_residency" name="mmed_group_residency" value="<?php echo esc_attr( $g_res ); ?>" class="small-text" /> <span class="description">Applied to IV Prep Complete Masterclass, Match Prep Pro, and 360 Match Mentorship if a residency group is configured.</span></td>
++                    <td><input type="number" id="mmed_group_residency" name="mmed_group_residency" value="<?php echo esc_attr( $g_res ); ?>" class="small-text" /> <span class="description">Applied to Foundation, Complete, and 360 if a residency group is configured.</span></td>

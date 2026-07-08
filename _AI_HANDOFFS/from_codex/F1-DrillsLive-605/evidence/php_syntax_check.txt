@@ -1,0 +1,16 @@
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/missionmed-hub.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-feature-flags.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-admin-os.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-attendance.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-session-reminders.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-session-analytics.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-action-items.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-session-chat.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-arena-live.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-drill-game.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-interview-prep.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-office-hours.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-welcome-email-admin.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-communications.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/includes/class-mmed-live-drills-preview.php
+No syntax errors detected in /Users/brianb/MissionMed_worktrees/F1-DrillsLive-605/wp-content/plugins/missionmed-hub/templates/admin-os-shell.php

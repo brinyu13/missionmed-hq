@@ -1,0 +1,96 @@
+--- worktree-base-embed
++++ merged-embed
+@@ -1,6 +1,7 @@
+ (function () {
+   "use strict";
+ 
++  var __MMED_V3_BUILD = "WEBEX-107A.606a 2026-07-08 55577a7";
+   var config = normalizeEmbedConfig(window.MMEDLiveDrillsWebexPreview || {});
+   window.MMEDLiveDrillsWebexPreview = config;
+   var activeWidget = null;
+@@ -22,6 +23,7 @@
+   var nativeGetUserMedia = null;
+   var cameraPatchInstalled = false;
+   var nonceRefreshPromise = null;
++  var widgetScriptPromise = null;
+ 
+   function attr(value) {
+     return String(value || "").replace(/[&<>"']/g, function (char) {
+@@ -43,6 +45,7 @@
+     var next = rawConfig && typeof rawConfig === "object" ? rawConfig : {};
+     next.restUrl = next.restUrl || defaultRestUrl();
+     next.widgetLayout = next.widgetLayout || "Grid";
++    next.widgetScriptUrl = next.widgetScriptUrl || "";
+     next.meeting = next.meeting && typeof next.meeting === "object" ? next.meeting : {};
+     return next;
+   }
+@@ -261,7 +264,46 @@
+       });
+     });
+   }
++
++  function ensureWidgetBundle(stage) {
++    var script;
++
++    if (window.MmedWebexWidget && typeof window.MmedWebexWidget.init === "function") {
++      return Promise.resolve();
++    }
+ 
++    if (widgetScriptPromise) {
++      return widgetScriptPromise;
++    }
++
++    if (!config.widgetScriptUrl) {
++      return Promise.reject(new Error("Embedded Webex fallback bundle is unavailable."));
++    }
++
++    status(stage, "Loading Webex fallback bundle...", "loading");
++    widgetScriptPromise = new Promise(function (resolve, reject) {
++      script = document.createElement("script");
++      script.src = config.widgetScriptUrl;
++      script.async = true;
++      script.onload = function () {
++        if (window.MmedWebexWidget && typeof window.MmedWebexWidget.init === "function") {
++          resolve();
++          return;
++        }
++        reject(new Error("Embedded Webex fallback bundle did not initialize."));
++      };
++      script.onerror = function () {
++        reject(new Error("Embedded Webex fallback bundle failed to load."));
++      };
++      document.head.appendChild(script);
++    }).catch(function (error) {
++      widgetScriptPromise = null;
++      throw error;
++    });
++
++    return widgetScriptPromise;
++  }
++
+   function getWidgetToken(mode) {
+     var tokenMode = mode === "host" ? "host" : "guest";
+     if (tokenPromises[tokenMode]) return tokenPromises[tokenMode];
+@@ -1190,13 +1232,6 @@
+         });
+       }
+       status(stage, isAdmin ? "Choose or paste the Webex meeting first, then join the in-app host stage." : "The host has not selected a Webex meeting yet. Keep this page open and try again when Dr J starts the room.", "error");
+-      return;
+-    }
+-
+-    if (!window.MmedWebexWidget || typeof window.MmedWebexWidget.init !== "function") {
+-      status(stage, tokenMode === "host"
+-        ? "Embedded Webex bundle is not loaded. Use the Webex host app fallback."
+-        : "Embedded Webex bundle is not loaded. Copy the student Webex link and message the host.", "error");
+       return;
+     }
+ 
+@@ -1213,6 +1248,8 @@
+ 
+     var cameraReady = options.skipCameraPrime ? Promise.resolve() : primeCameraPermission(stage);
+     cameraReady.then(function () {
++      return ensureWidgetBundle(stage);
++    }).then(function () {
+       return getWidgetToken(tokenMode);
+     }).then(function (token) {
+       mount.hidden = false;

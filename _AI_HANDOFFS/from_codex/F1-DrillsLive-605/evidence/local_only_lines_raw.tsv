@@ -1,0 +1,30 @@
+550	        if ( ! empty( $mapping['product_id'] ) ) {
+551	            $product_map[ (int) $mapping['product_id'] ] = $mapping;
+560	        $product_id = (int) $item->get_product_id();
+561	        if ( ! isset( $product_map[ $product_id ] ) ) {
+565	        $mapping       = $product_map[ $product_id ];
+653	        MMED_HUB_VERSION,
+661	        MMED_HUB_VERSION
+668	            'restUrl'     => rest_url( 'mmed/v1/admin/sessions' ),
+669	            'webexRestUrl' => rest_url( 'mmed/v1/admin/webex' ),
+670	            'nonce'       => wp_create_nonce( 'wp_rest' ),
+671	            'instructors' => mmed_session_admin_instructors(),
+672	            'days'        => array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ),
+673	            'platforms'   => array( 'webex', 'zoom', 'google_meet', 'teams' ),
+674	            'eventTypes'  => array( 'mr_session', 'drill_step1', 'drill_step23', 'mock_interview', 'study_block', 'general', 'custom' ),
+675	            'webexSettings' => class_exists( 'MMED_Webex_Client' ) ? MMED_Webex_Client::get_admin_settings() : array(),
+679	    echo '<div class="wrap"><div id="mmed-session-manager-root"></div></div>';
+834	                            <option value="0">- Select -</option>
+845	                            <option value="0">- Select -</option>
+856	                            <option value="0">- Select -</option>
+867	                        <p class="description">These IDs power both the WooCommerce enrollment fallback and the MissionMed access audit screen. Residency auditing now tracks Foundation, Complete, and 360 alongside the USCE mapping below.</p>
+871	                    <th><label for="mmed_product_foundation">WooCommerce Product ID: Interview Prep Foundation</label></th>
+872	                    <td><input type="number" id="mmed_product_foundation" name="mmed_product_foundation" value="<?php echo esc_attr( $p_found ); ?>" class="small-text" /> <span class="description">Default: 3577</span></td>
+875	                    <th><label for="mmed_course_foundation">LearnDash Course ID: Interview Prep Foundation</label></th>
+879	                    <th><label for="mmed_product_complete">WooCommerce Product ID: Interview Prep Complete</label></th>
+880	                    <td><input type="number" id="mmed_product_complete" name="mmed_product_complete" value="<?php echo esc_attr( $p_complete ); ?>" class="small-text" /> <span class="description">Default: 3576</span></td>
+883	                    <th><label for="mmed_course_complete">LearnDash Course ID: Interview Prep Complete</label></th>
+887	                    <th><label for="mmed_product_360elite">WooCommerce Product ID: 360 Elite</label></th>
+888	                    <td><input type="number" id="mmed_product_360elite" name="mmed_product_360elite" value="<?php echo esc_attr( $p_360 ); ?>" class="small-text" /> <span class="description">Default: 3575</span></td>
+891	                    <th><label for="mmed_course_360elite">LearnDash Course ID: 360 Elite</label></th>
+908	                    <td><input type="number" id="mmed_group_residency" name="mmed_group_residency" value="<?php echo esc_attr( $g_res ); ?>" class="small-text" /> <span class="description">Applied to Foundation, Complete, and 360 if a residency group is configured.</span></td>

@@ -1,0 +1,8 @@
+FILE wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js
+
+FILE wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js
+
+FILE wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-studentflow.js
+
+FILE wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3.js
+

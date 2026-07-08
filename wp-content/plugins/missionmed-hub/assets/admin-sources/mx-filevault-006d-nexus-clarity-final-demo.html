@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<!--
+  MX-FILEVAULT-006D — Final Unified File Vault / Doc Docs Demo
+  Direction: NEXUS (Student + Doc Docs) + CLARITY (Admin)
+  Author: Claude Opus 4.7
+  Date: 2026-05-20
+  Authority: (MX)-FILEVAULT-claude-opus47-high-006D
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MissionMed Matrix — File Vault</title>
+<style>
+/* ==============================================================
+   RESET + VARIABLES
+   ============================================================== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#0F2A44;--navy2:#1B2F4A;--charcoal:#2A2A2A;--red:#B23A3A;
+  --white:#FFFFFF;--gray:#F4F6F8;
+  --glass:rgba(15,42,68,.85);--glass2:rgba(27,47,74,.7);
+  --border:rgba(255,255,255,.08);--border2:rgba(255,255,255,.15);--border3:rgba(255,255,255,.22);
+  --text:#E8ECF1;--text2:#8B9BB4;--text3:#5A6A80;
+  --blue:#4A9FE5;--green:#3DAA7D;--amber:#D4A843;--purple:#7B68C4;--teal:#3AA5A5;
+  --s-draft:#5A6A80;--s-sub:#4A9FE5;--s-rev:#D4A843;--s-need:#B23A3A;
+  --s-revd:#7B68C4;--s-final:#3DAA7D;--s-arch:#3A3A4A;
+  --r:12px;--r-sm:8px;--r-lg:16px;
+  --shadow:0 4px 24px rgba(0,0,0,.3);--shadow-lg:0 8px 40px rgba(0,0,0,.45);
+  --tr:.22s cubic-bezier(.4,0,.2,1);
+}
+html{font-size:13.5px}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(145deg,#060C16,#0F2A44 55%,#081420);color:var(--text);min-height:100vh;overflow-x:hidden}
+
+/* ==============================================================
+   SCROLLBARS
+   ============================================================== */
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:3px}::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.2)}
+
+/* ==============================================================
+   HEADER
+   ============================================================== */
+.hdr{position:sticky;top:0;z-index:1000;background:rgba(6,12,22,.96);backdrop-filter:blur(24px);border-bottom:1px solid var(--border);height:52px;padding:0 20px;display:flex;align-items:center;justify-content:space-between}
+.hdr .logo{display:flex;align-items:center;gap:10px}
+.hdr .logo img{height:28px}
+.hdr .logo .crumb{font-size:.78rem;color:var(--text2);display:flex;align-items:center;gap:5px}
+.hdr .logo .crumb b{color:var(--text);font-weight:600}
+.hdr .badges{display:flex;gap:8px}
+
+/* ==============================================================
+   NAV BAR (mode + search + view + actions)
+   ============================================================== */
+.nav{display:flex;align-items:center;gap:12px;padding:8px 20px;border-bottom:1px solid var(--border);background:rgba(15,42,68,.25)}
+
+/* Toggle groups */
+.tg{display:flex;gap:2px;background:rgba(255,255,255,.04);border-radius:8px;padding:2px}
+.tg button{padding:5px 13px;border:none;border-radius:6px;background:transparent;color:var(--text3);cursor:pointer;font-size:.76rem;font-weight:500;transition:var(--tr);white-space:nowrap}
+.tg button:hover{color:var(--text2)}
+.tg button.on{background:var(--navy);color:var(--blue)}
+
+/* Search */
+.srch{flex:1;max-width:520px;position:relative}
+.srch input{width:100%;padding:7px 14px 7px 34px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:.82rem;outline:none;transition:var(--tr)}
+.srch input:focus{border-color:var(--blue);background:rgba(255,255,255,.1);box-shadow:0 0 0 3px rgba(74,159,229,.12)}
+.srch .si{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:.85rem}
+.srch .sk{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.65rem;color:var(--text3);background:rgba(255,255,255,.06);padding:2px 6px;border-radius:3px}
+
+/* Search results dropdown */
+.sr-drop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:linear-gradient(150deg,#0F2A44,#14314E);border:1px solid var(--border2);border-radius:var(--r);box-shadow:var(--shadow-lg);z-index:200;max-height:440px;overflow-y:auto;display:none}
+.sr-drop.open{display:block}
+.sr-sec{padding:8px 14px;border-bottom:1px solid var(--border)}
+.sr-sec .sr-lab{font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px;font-weight:600}
+.sr-tag{display:inline-flex;align-items:center;gap:3px;padding:3px 9px;border-radius:12px;font-size:.72rem;background:rgba(255,255,255,.05);color:var(--text2);margin:2px 3px 2px 0;cursor:pointer;transition:var(--tr)}
+.sr-tag:hover{background:rgba(255,255,255,.1);color:var(--text)}
+.sr-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:var(--tr)}
+.sr-item:hover{background:rgba(255,255,255,.05)}
+.sr-item:last-child{border-bottom:none}
+.sr-item .sr-name{font-weight:600;font-size:.82rem}
+.sr-item .sr-match{display:inline-flex;align-items:center;gap:3px;font-size:.68rem;padding:1px 6px;border-radius:4px;margin-top:3px}
+.sr-item .sr-match.fn{background:rgba(74,159,229,.1);color:var(--blue)}
+.sr-item .sr-match.bd{background:rgba(61,170,125,.1);color:var(--green)}
+.sr-item .sr-match.cm{background:rgba(212,168,67,.1);color:var(--amber)}
+.sr-item .sr-match.sc{background:rgba(123,104,196,.1);color:var(--purple)}
+.sr-item .sr-ctx{font-size:.75rem;color:var(--text3);margin-top:3px}
+.sr-item .sr-ctx mark{background:rgba(212,168,67,.2);color:var(--amber);padding:0 2px;border-radius:2px}
+
+/* Buttons */
+.btn{padding:6px 15px;border:none;border-radius:var(--r-sm);font-size:.78rem;font-weight:600;cursor:pointer;transition:var(--tr);display:inline-flex;align-items:center;gap:5px}
+.btn-p{background:linear-gradient(135deg,var(--blue),#3A8AD5);color:var(--white)}
+.btn-p:hover{box-shadow:0 4px 16px rgba(74,159,229,.3);transform:translateY(-1px)}
+.btn-s{background:rgba(255,255,255,.08);color:var(--text)}
+.btn-s:hover{background:rgba(255,255,255,.14)}
+.btn-d{background:rgba(178,58,58,.12);color:var(--red)}
+.btn-d:hover{background:rgba(178,58,58,.22)}
+.btn-g{background:transparent;color:var(--text2);padding:5px 9px}
+.btn-g:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.btn-sm{padding:4px 10px;font-size:.72rem}
+.btn-i{width:30px;height:30px;padding:0;border-radius:7px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);border:none;color:var(--text2);cursor:pointer;transition:var(--tr)}
+.btn-i:hover{background:rgba(255,255,255,.12);color:var(--text)}
+
+/* ==============================================================
+   FILTER DRAWER
+   ============================================================== */
+.fdr{background:rgba(15,42,68,.92);border-bottom:1px solid var(--border);max-height:0;overflow:hidden;transition:max-height .3s ease;padding:0 20px}
+.fdr.open{max-height:360px;padding:14px 20px}
+.fg{margin-bottom:12px}
+.fg-lab{font-size:.68rem;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px}
+.fc{display:flex;flex-wrap:wrap;gap:5px}
+.chip{padding:4px 11px;border-radius:16px;font-size:.72rem;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;transition:var(--tr);display:inline-flex;align-items:center;gap:4px}
+.chip:hover{border-color:var(--blue);color:var(--text)}
+.chip.on{background:rgba(74,159,229,.14);border-color:var(--blue);color:var(--blue)}
+.chip .dot{width:6px;height:6px;border-radius:50%}
+
+/* ==============================================================
+   STATUS BADGES
+   ============================================================== */
+.sb{display:inline-flex;align-items:center;gap:4px;padding:2px 9px;border-radius:16px;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.03em}
+.sb::before{content:'';width:5px;height:5px;border-radius:50%}
+.sb-draft{background:rgba(90,106,128,.18);color:#8B9BB4}.sb-draft::before{background:var(--s-draft)}
+.sb-sub{background:rgba(74,159,229,.14);color:var(--blue)}.sb-sub::before{background:var(--s-sub)}
+.sb-rev{background:rgba(212,168,67,.14);color:var(--amber)}.sb-rev::before{background:var(--s-rev)}
+.sb-need{background:rgba(178,58,58,.14);color:var(--red)}.sb-need::before{background:var(--s-need)}
+.sb-revd{background:rgba(123,104,196,.14);color:var(--purple)}.sb-revd::before{background:var(--s-revd)}
+.sb-final{background:rgba(61,170,125,.14);color:var(--green)}.sb-final::before{background:var(--s-final)}
+
+/* Security badges */
+.sec{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:4px;font-size:.65rem;font-weight:500}
+.sec-priv{background:rgba(61,170,125,.1);color:var(--green)}
+.sec-course{background:rgba(74,159,229,.1);color:var(--blue)}
+.sec-sign{background:rgba(123,104,196,.1);color:var(--purple)}
+
+/* ==============================================================
+   PANEL / CARD PRIMITIVES
+   ============================================================== */
+.pan{background:var(--glass);border:1px solid var(--border);border-radius:var(--r);backdrop-filter:blur(12px);overflow:hidden}
+.pan-h{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.pan-h h3{font-size:.85rem;font-weight:600}
+.pan-h .cnt{font-size:.72rem;color:var(--text2);background:rgba(255,255,255,.06);padding:2px 7px;border-radius:10px}
+
+.crd{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px;cursor:pointer;transition:var(--tr)}
+.crd:hover{background:rgba(255,255,255,.06);border-color:var(--border2);transform:translateY(-1px);box-shadow:var(--shadow)}
+.crd.sel{border-color:var(--blue);background:rgba(74,159,229,.07)}
+
+/* ==============================================================
+   SECTION CONTAINERS (VIEWS)
+   ============================================================== */
+.view{display:none}.view.on{display:block}
+
+/* ==============================================================
+   NEXUS STUDENT LAYOUT (tri-panel)
+   ============================================================== */
+.nx-lay{display:grid;grid-template-columns:240px 1fr 330px;gap:0;height:calc(100vh - 104px)}
+.nx-left{background:rgba(6,12,22,.5);border-right:1px solid var(--border);padding:14px;overflow-y:auto}
+.nx-main{padding:14px;overflow-y:auto}
+.nx-right{background:rgba(6,12,22,.5);border-left:1px solid var(--border);overflow-y:auto}
+
+/* ==============================================================
+   CLARITY ADMIN LAYOUT (bento grid)
+   ============================================================== */
+.cl-lay{padding:16px 20px;max-width:1440px;margin:0 auto}
+.bn{display:grid;grid-template-columns:repeat(12,1fr);grid-auto-rows:minmax(50px,auto);gap:10px}
+.bc{background:var(--glass);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;padding:14px}
+
+/* ==============================================================
+   DOC DOCS LAYOUT
+   ============================================================== */
+.dd-lay{display:grid;grid-template-columns:1fr 370px;gap:0;height:calc(100vh - 104px)}
+.dd-canvas{display:flex;flex-direction:column;gap:10px;padding:14px;overflow-y:auto}
+.dd-side{border-left:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+
+/* ==============================================================
+   FOLDER CARDS
+   ============================================================== */
+.fold-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(185px,1fr));gap:10px}
+.fold{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:var(--tr);position:relative;overflow:hidden}
+.fold::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--blue),var(--purple));opacity:0;transition:var(--tr)}
+.fold:hover{background:rgba(255,255,255,.06);transform:translateY(-2px);box-shadow:var(--shadow)}.fold:hover::before{opacity:1}
+.fold .fi{width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,rgba(74,159,229,.14),rgba(123,104,196,.14));display:flex;align-items:center;justify-content:center;font-size:1.1rem;margin-bottom:8px}
+.fold .fn{font-weight:600;font-size:.84rem;margin-bottom:3px}
+.fold .fm{font-size:.72rem;color:var(--text2);display:flex;gap:10px}
+.fold .cring{position:absolute;top:10px;right:10px;width:30px;height:30px}
+.fold .cring svg{transform:rotate(-90deg)}
+.fold .cring .ct{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:.55rem;font-weight:700}
+
+/* ==============================================================
+   FILE LIST
+   ============================================================== */
+.fl{display:flex;flex-direction:column;gap:1px}
+.fr{display:grid;grid-template-columns:30px 1fr 110px 90px 90px 75px 36px;align-items:center;gap:10px;padding:8px 12px;border-radius:var(--r-sm);cursor:pointer;transition:var(--tr)}
+.fr:hover{background:rgba(255,255,255,.04)}.fr.sel{background:rgba(74,159,229,.07)}
+.fr .fic{width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700}
+.fic.docx{background:rgba(74,159,229,.14);color:var(--blue)}
+.fic.pdf{background:rgba(178,58,58,.14);color:var(--red)}
+.fic.img{background:rgba(61,170,125,.14);color:var(--green)}
+.fic.xlsx{background:rgba(61,170,125,.14);color:var(--green)}
+.fr .fname{font-weight:500;font-size:.82rem}.fr .fname .canon{display:block;font-size:.68rem;color:var(--text3);margin-top:1px}
+.fr .fdate{font-size:.75rem;color:var(--text2)}
+.fr .fsize{font-size:.75rem;color:var(--text3)}
+.fr .fview{font-size:.68rem;display:flex;align-items:center;gap:3px}
+
+/* FILE GRID */
+.fg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(165px,1fr));gap:10px}
+.fg-c{background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:var(--r);padding:14px;cursor:pointer;transition:var(--tr);text-align:center;position:relative}
+.fg-c:hover{background:rgba(255,255,255,.06);transform:translateY(-2px);box-shadow:var(--shadow)}
+.fg-c .gic{width:50px;height:50px;border-radius:12px;margin:0 auto 10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.fg-c .gn{font-weight:600;font-size:.8rem;margin-bottom:4px}
+.fg-c .gm{font-size:.7rem;color:var(--text2)}
+.fg-c .gs{margin-top:7px}
+.fg-c .gbar{position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:50%;height:2px;border-radius:2px}
+
+/* ==============================================================
+   DROP ZONE
+   ============================================================== */
+.dz{border:2px dashed var(--border2);border-radius:var(--r);padding:24px;text-align:center;transition:var(--tr);cursor:pointer;position:relative}
+.dz:hover,.dz.over{border-color:var(--blue);background:rgba(74,159,229,.04)}
+.dz .dzi{font-size:1.6rem;margin-bottom:6px;opacity:.5}
+.dz .dzt{font-size:.85rem;color:var(--text2);margin-bottom:3px}
+.dz .dzh{font-size:.72rem;color:var(--text3)}
+
+/* ==============================================================
+   HEALTH / PROGRESS
+   ============================================================== */
+.hm{display:flex;align-items:center;gap:7px}
+.hb{flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
+.hb .hf{height:100%;border-radius:3px;transition:width .5s ease}
+.hl{font-size:.68rem;color:var(--text2);min-width:28px;text-align:right}
+
+/* ==============================================================
+   UPLOAD PROGRESS
+   ============================================================== */
+.up{position:relative;overflow:hidden;height:4px;background:rgba(255,255,255,.07);border-radius:2px;margin-top:6px}
+.up .uf{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--blue),var(--purple));transition:width .3s ease}
+.up .us{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.2),transparent);animation:shimmer 1.5s infinite}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+
+/* ==============================================================
+   COMMENTS
+   ============================================================== */
+.cms{padding:12px 16px}
+.cms h4{font-size:.8rem;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.cms h4 .uc{background:rgba(178,58,58,.18);color:var(--red);padding:1px 6px;border-radius:8px;font-size:.68rem}
+.cm{padding:10px 12px;border-radius:var(--r-sm);background:rgba(255,255,255,.03);margin-bottom:7px;border-left:3px solid var(--blue)}
+.cm.adm{border-left-color:var(--purple)}
+.cm.res{opacity:.45;border-left-color:var(--text3)}
+.cm .ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.cm .ca{font-size:.75rem;font-weight:600;display:flex;align-items:center;gap:5px}
+.cm .ca .rb{font-size:.62rem;padding:1px 5px;border-radius:3px;text-transform:uppercase;font-weight:700}
+.rb.adm-b{background:rgba(123,104,196,.18);color:var(--purple)}
+.rb.stu-b{background:rgba(74,159,229,.18);color:var(--blue)}
+.cm .ct{font-size:.68rem;color:var(--text3)}
+.cm .cb{font-size:.78rem;color:var(--text);line-height:1.45}
+.cm .cact{margin-top:6px;display:flex;gap:6px}
+.cm-inp{display:flex;gap:6px;margin-top:10px}
+.cm-inp input{flex:1;padding:7px 12px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-size:.78rem;outline:none}
+.cm-inp input:focus{border-color:var(--blue)}
+
+/* ==============================================================
+   VERSION TIMELINE (TIME MACHINE)
+   ============================================================== */
+.tm{padding:12px 16px}
+.tm h4{font-size:.8rem;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:7px}
+.vt{position:relative;padding-left:18px}
+.vt::before{content:'';position:absolute;left:6px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--blue),var(--purple),var(--text3))}
+.vn{position:relative;margin-bottom:14px;padding:10px 12px;background:rgba(255,255,255,.03);border-radius:var(--r-sm);border:1px solid var(--border);transition:var(--tr);cursor:pointer}
+.vn:hover{background:rgba(255,255,255,.06);border-color:var(--border2)}
+.vn.cur{border-color:var(--blue);background:rgba(74,159,229,.07)}
+.vn.cur::after{content:'CURRENT';position:absolute;top:7px;right:7px;font-size:.58rem;font-weight:700;color:var(--blue);background:rgba(74,159,229,.14);padding:1px 5px;border-radius:3px}
+.vn::before{content:'';position:absolute;left:-15px;top:14px;width:8px;height:8px;border-radius:50%;background:var(--navy2);border:2px solid var(--blue)}
+.vn.cur::before{background:var(--blue);box-shadow:0 0 7px rgba(74,159,229,.5)}
+.vn .vl{font-weight:600;font-size:.8rem;margin-bottom:3px}
+.vn .vm{font-size:.68rem;color:var(--text2);margin-bottom:4px}
+.vn .vc{font-size:.72rem;color:var(--text3)}
+.vn .vs{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:.68rem}
+.vn .vs .score-ch{font-weight:700}
+.vn .va{display:flex;gap:5px;margin-top:6px}
+
+/* ==============================================================
+   CHANGELOG / AUDIT
+   ============================================================== */
+.clog{padding:12px 16px}
+.clog h4{font-size:.8rem;font-weight:600;margin-bottom:10px}
+.le{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.03);font-size:.75rem}
+.le .li{width:22px;height:22px;border-radius:5px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.65rem}
+.li.upl{background:rgba(74,159,229,.14);color:var(--blue)}
+.li.viw{background:rgba(123,104,196,.14);color:var(--purple)}
+.li.cmt{background:rgba(212,168,67,.14);color:var(--amber)}
+.li.sts{background:rgba(61,170,125,.14);color:var(--green)}
+.li.dl{background:rgba(178,58,58,.14);color:var(--red)}
+.li.scr{background:rgba(58,165,165,.14);color:var(--teal)}
+.le .lt{flex:1;color:var(--text2)}.le .lt b{color:var(--text);font-weight:600}
+.le .ltime{color:var(--text3);font-size:.68rem;white-space:nowrap}
+
+/* ==============================================================
+   REVIEW QUEUE ITEMS
+   ============================================================== */
+.rqi{display:grid;grid-template-columns:38px 1fr 130px 90px 70px 50px;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid rgba(255,255,255,.03);cursor:pointer;transition:var(--tr)}
+.rqi:hover{background:rgba(255,255,255,.03)}
+.rqi .av{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--navy2),var(--purple));display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:var(--white)}
+.rqi .si .sn{font-weight:600;font-size:.82rem}
+.rqi .si .dt{font-size:.72rem;color:var(--text2)}
+
+/* ==============================================================
+   ADMIN HEATMAP
+   ============================================================== */
+.heat{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:3px}
+.hc{aspect-ratio:1;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;cursor:pointer;transition:var(--tr);position:relative}
+.hc:hover{transform:scale(1.1);z-index:1}
+.hc .ht{display:none;position:absolute;bottom:calc(100% + 5px);background:var(--charcoal);padding:3px 7px;border-radius:3px;font-size:.64rem;white-space:nowrap;z-index:10;font-weight:400}
+.hc:hover .ht{display:block}
+
+/* ==============================================================
+   MISSING DOCS RADAR
+   ============================================================== */
+.mdr{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:7px}
+.mi{padding:9px 10px;border-radius:var(--r-sm);border:1px dashed rgba(178,58,58,.3);background:rgba(178,58,58,.04);text-align:center;transition:var(--tr)}
+.mi .mn{font-size:.75rem;color:var(--red);font-weight:500}
+.mi .md{font-size:.65rem;color:var(--text3);margin-top:2px}
+
+/* ==============================================================
+   ACTIVITY FEED
+   ============================================================== */
+.afeed{padding:12px 16px}
+.ai{display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+.ai .adot{width:7px;height:7px;border-radius:50%;margin-top:5px;flex-shrink:0;animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.ai .atxt{font-size:.75rem;color:var(--text2);flex:1}.ai .atxt b{color:var(--text)}
+.ai .ago{font-size:.68rem;color:var(--text3);white-space:nowrap}
+
+/* ==============================================================
+   DOC DOCS PREVIEW
+   ============================================================== */
+.doc-prev{background:rgba(255,255,255,.97);border-radius:var(--r);min-height:380px;position:relative;overflow:hidden;flex:1}
+.doc-prev .dp-content{padding:32px 36px;color:#333;font-family:Georgia,'Times New Roman',serif;font-size:.9rem;line-height:1.75;max-width:620px;margin:0 auto;position:relative}
+.doc-prev .dp-content h2{font-size:1.2rem;margin-bottom:10px;color:#111}
+.doc-prev .dp-content p{margin-bottom:10px}
+
+/* Inline markers */
+.marker{position:relative;border-bottom:2px solid;padding-bottom:1px;cursor:pointer}
+.marker.strong{border-color:#3DAA7D;background:rgba(61,170,125,.08)}
+.marker.generic{border-color:#D4A843;background:rgba(212,168,67,.08)}
+.marker.revise{border-color:#B23A3A;background:rgba(178,58,58,.08)}
+.marker.tone{border-color:#7B68C4;background:rgba(123,104,196,.08)}
+.marker.keep{border-color:#3DAA7D;background:rgba(61,170,125,.12)}
+.marker .mtip{display:none;position:absolute;bottom:calc(100% + 4px);left:0;background:#1B2F4A;color:var(--text);padding:4px 8px;border-radius:4px;font-size:.7rem;font-family:-apple-system,sans-serif;white-space:nowrap;z-index:10;box-shadow:var(--shadow)}
+.marker:hover .mtip{display:block}
+
+/* Line edit toolbar */
+.le-toolbar{display:flex;flex-wrap:wrap;gap:4px;padding:8px 12px;background:rgba(15,42,68,.95);border-radius:var(--r-sm);margin-bottom:10px}
+.le-toolbar button{padding:4px 10px;border:1px solid var(--border);border-radius:14px;background:transparent;color:var(--text2);font-size:.68rem;cursor:pointer;transition:var(--tr);display:flex;align-items:center;gap:3px}
+.le-toolbar button:hover{border-color:var(--blue);color:var(--text);background:rgba(255,255,255,.05)}
+.le-toolbar button.active{border-color:var(--blue);color:var(--blue);background:rgba(74,159,229,.1)}
+
+/* ==============================================================
+   SCORING PANEL
+   ============================================================== */
+.score-panel{padding:14px 16px;border-bottom:1px solid var(--border)}
+.score-panel h4{font-size:.8rem;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.score-total{display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px;background:rgba(255,255,255,.03);border-radius:var(--r-sm);border:1px solid var(--border)}
+.score-total .st-num{font-size:2.2rem;font-weight:800;line-height:1}
+.score-total .st-label{font-size:.75rem;font-weight:600;margin-bottom:2px}
+.score-total .st-delta{font-size:.72rem;display:flex;align-items:center;gap:3px}
+.score-total .st-delta.up{color:var(--green)}
+.score-total .st-delta.dn{color:var(--red)}
+.score-total .st-ready{font-size:.7rem;padding:3px 9px;border-radius:12px;font-weight:700;text-transform:uppercase}
+.sr-strong{background:rgba(61,170,125,.14);color:var(--green)}
+.sr-comp{background:rgba(74,159,229,.14);color:var(--blue)}
+.sr-work{background:rgba(212,168,67,.14);color:var(--amber)}
+.sr-not{background:rgba(178,58,58,.14);color:var(--red)}
+.score-row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.score-row .srl{font-size:.72rem;color:var(--text2);width:110px;flex-shrink:0}
+.score-row .srbar{flex:1;height:6px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden}
+.score-row .srbar .srf{height:100%;border-radius:3px;transition:width .5s ease}
+.score-row .srv{font-size:.7rem;font-weight:700;min-width:24px;text-align:right}
+.score-trend{margin-top:10px;padding:10px;background:rgba(255,255,255,.02);border-radius:var(--r-sm);border:1px solid var(--border)}
+.score-trend .trend-lab{font-size:.68rem;color:var(--text3);margin-bottom:6px;font-weight:600;text-transform:uppercase}
+.trend-bars{display:flex;align-items:flex-end;gap:6px;height:50px}
+.trend-bar{flex:1;border-radius:3px 3px 0 0;background:rgba(74,159,229,.3);position:relative;transition:height .4s ease;cursor:pointer}
+.trend-bar:hover{background:rgba(74,159,229,.5)}
+.trend-bar .tb-tip{display:none;position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);background:var(--charcoal);padding:3px 6px;border-radius:3px;font-size:.62rem;white-space:nowrap;z-index:5}
+.trend-bar:hover .tb-tip{display:block}
+.trend-labels{display:flex;gap:6px;margin-top:4px}
+.trend-labels span{flex:1;text-align:center;font-size:.6rem;color:var(--text3)}
+
+/* ==============================================================
+   UPLOAD WIZARD MODAL
+   ============================================================== */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:2000;display:none;align-items:center;justify-content:center}
+.modal-bg.vis{display:flex}
+.wiz{background:linear-gradient(150deg,#0F2A44,#162D4A);border:1px solid var(--border2);border-radius:var(--r-lg);width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;box-shadow:var(--shadow-lg)}
+.wiz-h{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.wiz-h h2{font-size:1rem;font-weight:700}
+.wiz-x{width:30px;height:30px;border-radius:7px;border:none;background:rgba(255,255,255,.06);color:var(--text2);cursor:pointer;font-size:.95rem;transition:var(--tr)}
+.wiz-x:hover{background:rgba(255,255,255,.12);color:var(--text)}
+.wiz-b{padding:20px}
+.ws{margin-bottom:16px}
+.ws label{display:block;font-size:.72rem;font-weight:600;color:var(--text2);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+.ws select,.ws input,.ws textarea{width:100%;padding:8px 12px;background:rgba(255,255,255,.06);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--text);font-size:.84rem;outline:none;transition:var(--tr)}
+.ws select:focus,.ws input:focus,.ws textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(74,159,229,.12)}
+.ws select option{background:var(--navy)}
+.ws textarea{resize:vertical;min-height:68px}
+.ws .trow{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:rgba(255,255,255,.03);border-radius:var(--r-sm);border:1px solid var(--border)}
+.ws .trow span{font-size:.82rem}
+.tog{position:relative;width:38px;height:20px;background:rgba(255,255,255,.1);border-radius:10px;cursor:pointer;transition:var(--tr)}
+.tog.on{background:var(--blue)}
+.tog::after{content:'';position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--white);transition:var(--tr)}
+.tog.on::after{left:20px}
+.fnprev{background:rgba(0,0,0,.3);border-radius:var(--r-sm);padding:10px 14px;margin-top:14px;border-left:3px solid var(--green)}
+.fnprev .fpl{font-size:.68rem;color:var(--green);text-transform:uppercase;letter-spacing:.04em;margin-bottom:3px;font-weight:600}
+.fnprev .fpo{font-size:.74rem;color:var(--text3);text-decoration:line-through;margin-bottom:3px}
+.fnprev .fpc{font-size:.82rem;color:var(--text);font-weight:500;font-family:'SF Mono','Fira Code',monospace}
+.fnprev .fpd{font-size:.78rem;color:var(--blue);margin-top:3px}
+.wiz-f{padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px}
+
+/* ==============================================================
+   RESPONSIVE
+   ============================================================== */
+@media(max-width:1200px){.nx-lay{grid-template-columns:200px 1fr 280px}.dd-lay{grid-template-columns:1fr 320px}}
+@media(max-width:900px){.nx-lay{grid-template-columns:1fr}.nx-left,.nx-right{display:none}.dd-lay{grid-template-columns:1fr}.dd-side{display:none}.bn{grid-template-columns:repeat(6,1fr)}.nav{flex-wrap:wrap}.srch{max-width:100%;order:-1;width:100%}}
+@media(max-width:600px){.hdr{padding:0 10px}.fold-grid{grid-template-columns:1fr 1fr}.nav{padding:6px 10px;gap:6px}.fr{grid-template-columns:28px 1fr 80px 70px}.fr .fsize,.fr .fview,.fr .file-actions{display:none}}
+
+/* ==============================================================
+   UTILITIES
+   ============================================================== */
+.hidden{display:none!important}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header class="hdr">
+  <div class="logo">
+    <img src="https://missionmedinstitute.com/wp-content/uploads/2026/02/608a69b125647f6e63b56f87b823b1e60dbdaebf4916b1d5d5edcc408b8ab3fe.png" alt="MissionMed" onerror="this.style.display='none'">
+    <div class="crumb"><span>Matrix</span> / <b id="crumbTitle">File Vault</b></div>
+  </div>
+  <div class="badges">
+    <span class="sec sec-priv">&#128274; Private Vault</span>
+    <span class="sec sec-sign">&#9989; Signed Downloads</span>
+    <span class="sec sec-course" style="display:none" id="badgeNoPublic">No Public Links</span>
+  </div>
+</header>
+
+<!-- ============================================================
+     NAV BAR
+     ============================================================ -->
+<div class="nav">
+  <div class="tg" id="modeTg">
+    <button class="on" onclick="setMode('student',this)">&#128100; Student</button>
+    <button onclick="setMode('admin',this)">&#128736; Admin</button>
+    <button onclick="setMode('docdocs',this)">&#128196; Doc Docs</button>
+  </div>
+  <div class="srch" id="searchBox">
+    <span class="si">&#128269;</span>
+    <input type="text" id="searchIn" placeholder="Search files, comments, scores, versions..." onfocus="openSR()" onblur="setTimeout(closeSR,200)" oninput="doSearch()">
+    <span class="sk">&#8984;K</span>
+    <div class="sr-drop" id="srDrop">
+      <div class="sr-sec">
+        <div class="sr-lab">Recent Searches</div>
+        <span class="sr-tag" onclick="fillSearch('personal statement')">&#128337; personal statement</span>
+        <span class="sr-tag" onclick="fillSearch('score > 80')">&#128337; score > 80</span>
+        <span class="sr-tag" onclick="fillSearch('needs changes')">&#128337; needs changes</span>
+      </div>
+      <div class="sr-sec">
+        <div class="sr-lab">Smart Filters</div>
+        <span class="sr-tag" onclick="fillSearch('status:needs-changes')">&#9881; Needs Changes</span>
+        <span class="sr-tag" onclick="fillSearch('unresolved comments')">&#9881; Unresolved Comments</span>
+        <span class="sr-tag" onclick="fillSearch('score:strong')">&#9881; Score: Strong+</span>
+        <span class="sr-tag" onclick="fillSearch('missing:required')">&#9881; Missing Required</span>
+      </div>
+      <div id="srResults"></div>
+    </div>
+  </div>
+  <div class="tg" id="viewTg">
+    <button class="on" onclick="setVw('list',this)">&#9776; List</button>
+    <button onclick="setVw('grid',this)">&#9638; Grid</button>
+  </div>
+  <button class="btn btn-g" onclick="toggleFD()" id="filtBtn">&#9881; Filters</button>
+  <button class="btn btn-p" onclick="openWiz()">&#8679; Upload</button>
+</div>
+
+<!-- ============================================================
+     FILTER DRAWER
+     ============================================================ -->
+<div class="fdr" id="filtDraw">
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px">
+    <div class="fg"><div class="fg-lab">Division</div><div class="fc">
+      <button class="chip on" onclick="tChip(this)">All</button>
+      <button class="chip" onclick="tChip(this)">Mission Residency</button>
+      <button class="chip" onclick="tChip(this)">USMLE / Dr J</button>
+      <button class="chip" onclick="tChip(this)">Clinicals</button>
+    </div></div>
+    <div class="fg"><div class="fg-lab">Document Type</div><div class="fc">
+      <button class="chip" onclick="tChip(this)">Personal Statement</button>
+      <button class="chip" onclick="tChip(this)">LOR</button>
+      <button class="chip" onclick="tChip(this)">CV</button>
+      <button class="chip" onclick="tChip(this)">Timeline</button>
+    </div></div>
+    <div class="fg"><div class="fg-lab">Status</div><div class="fc">
+      <button class="chip" onclick="tChip(this)"><span class="dot" style="background:var(--s-draft)"></span>Draft</button>
+      <button class="chip" onclick="tChip(this)"><span class="dot" style="background:var(--s-sub)"></span>Submitted</button>
+      <button class="chip" onclick="tChip(this)"><span class="dot" style="background:var(--s-rev)"></span>In Review</button>
+      <button class="chip" onclick="tChip(this)"><span class="dot" style="background:var(--s-need)"></span>Needs Changes</button>
+      <button class="chip" onclick="tChip(this)"><span class="dot" style="background:var(--s-final)"></span>Final</button>
+    </div></div>
+    <div class="fg"><div class="fg-lab">Review State</div><div class="fc">
+      <button class="chip on" onclick="tChip(this)">All</button>
+      <button class="chip" onclick="tChip(this)">Not Viewed</button>
+      <button class="chip" onclick="tChip(this)">Viewed</button>
+      <button class="chip" onclick="tChip(this)">Reviewed</button>
+    </div></div>
+    <div class="fg"><div class="fg-lab">Score Range</div><div class="fc">
+      <button class="chip" onclick="tChip(this)">Not Scored</button>
+      <button class="chip" onclick="tChip(this)">1-40 Not Ready</button>
+      <button class="chip" onclick="tChip(this)">41-65 Needs Work</button>
+      <button class="chip" onclick="tChip(this)">66-80 Competitive</button>
+      <button class="chip" onclick="tChip(this)">81-90 Strong</button>
+      <button class="chip" onclick="tChip(this)">91+ Final Ready</button>
+    </div></div>
+    <div class="fg"><div class="fg-lab">Date</div><div class="fc">
+      <button class="chip" onclick="tChip(this)">Today</button>
+      <button class="chip" onclick="tChip(this)">This Week</button>
+      <button class="chip" onclick="tChip(this)">This Month</button>
+    </div></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     VIEW: STUDENT (NEXUS)
+     ============================================================ -->
+<div class="view on" id="v-student">
+<div class="nx-lay">
+  <!-- LEFT SIDEBAR -->
+  <div class="nx-left">
+    <div style="margin-bottom:14px">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;font-weight:600">Mission Residency</div>
+      <div id="sideNav" style="display:flex;flex-direction:column;gap:3px"></div>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;font-weight:600">Quick Actions</div>
+      <button class="btn btn-p btn-sm" style="width:100%;margin-bottom:5px" onclick="openWiz()">&#8679; Upload File</button>
+      <button class="btn btn-s btn-sm" style="width:100%">&#128193; New Folder</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;font-weight:600">Document Health</div>
+      <div id="sideHealth" style="display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+    <div>
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;font-weight:600">Next Recommended</div>
+      <div style="padding:10px;background:rgba(178,58,58,.08);border:1px solid rgba(178,58,58,.2);border-radius:var(--r-sm);font-size:.78rem;color:var(--red)">
+        &#9888;&#65039; Upload your <b>Timeline</b> document<br><span style="font-size:.7rem;color:var(--text3)">Due: May 25, 2026</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER -->
+  <div class="nx-main">
+    <div class="dz" id="stuDZ" ondragover="dOver(event)" ondragleave="dLeave(event)" ondrop="dDrop(event)" onclick="openWiz()">
+      <div class="dzi">&#128451;</div>
+      <div class="dzt">Drop files here or click to upload</div>
+      <div class="dzh">DOCX, PDF, XLSX, PNG, JPG &bull; Max 25MB &bull; No public links</div>
+      <div class="up" style="display:none" id="stuProg"><div class="uf" style="width:0%"></div><div class="us"></div></div>
+    </div>
+
+    <div style="margin-top:14px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="font-size:.92rem;font-weight:700">My Folders</h3>
+      <span style="font-size:.72rem;color:var(--text3)">5 folders, 12 files</span>
+    </div>
+    <div class="fold-grid" id="stuFolds"></div>
+
+    <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="font-size:.92rem;font-weight:700">Recent Files</h3>
+      <div style="display:flex;gap:5px">
+        <button class="chip on" onclick="tChip(this)">All</button>
+        <button class="chip" onclick="tChip(this)"><span class="dot" style="background:var(--s-need)"></span>Needs Changes</button>
+        <button class="chip" onclick="tChip(this)"><span class="dot" style="background:var(--s-rev)"></span>In Review</button>
+      </div>
+    </div>
+    <div id="stuFileList"></div>
+    <div id="stuFileGrid" class="hidden"></div>
+
+    <div style="margin-top:16px;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <h3 style="font-size:.92rem;font-weight:700">&#128230; Shared With Me / MissionMed Downloads</h3>
+      <span class="sec sec-course">&#128274; Course Access</span>
+    </div>
+    <div id="stuShared"></div>
+  </div>
+
+  <!-- RIGHT SIDEBAR: DETAIL -->
+  <div class="nx-right" id="stuDetail">
+    <div style="padding:20px;text-align:center;color:var(--text3)">
+      <div style="font-size:1.8rem;margin-bottom:6px;opacity:.25">&#128196;</div>
+      <div style="font-size:.82rem">Select a file to preview</div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================
+     VIEW: ADMIN (CLARITY)
+     ============================================================ -->
+<div class="view" id="v-admin">
+<div class="cl-lay">
+  <div class="bn">
+    <!-- Stat Cards -->
+    <div class="bc" style="grid-column:span 3">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;margin-bottom:4px;font-weight:600">Needs Review</div>
+      <div style="font-size:2rem;font-weight:800;color:var(--red)">4</div>
+      <div class="hm" style="margin-top:6px"><div class="hb"><div class="hf" style="width:80%;background:var(--red)"></div></div></div>
+    </div>
+    <div class="bc" style="grid-column:span 3">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;margin-bottom:4px;font-weight:600">In Review</div>
+      <div style="font-size:2rem;font-weight:800;color:var(--amber)">2</div>
+      <div class="hm" style="margin-top:6px"><div class="hb"><div class="hf" style="width:40%;background:var(--amber)"></div></div></div>
+    </div>
+    <div class="bc" style="grid-column:span 3">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;margin-bottom:4px;font-weight:600">Final</div>
+      <div style="font-size:2rem;font-weight:800;color:var(--green)">8</div>
+      <div class="hm" style="margin-top:6px"><div class="hb"><div class="hf" style="width:100%;background:var(--green)"></div></div></div>
+    </div>
+    <div class="bc" style="grid-column:span 3">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;margin-bottom:4px;font-weight:600">Missing Docs</div>
+      <div style="font-size:2rem;font-weight:800;color:var(--red)">3</div>
+      <div class="hm" style="margin-top:6px"><div class="hb"><div class="hf" style="width:60%;background:var(--red)"></div></div></div>
+    </div>
+
+    <!-- Review Queue -->
+    <div class="bc" style="grid-column:span 8;padding:0">
+      <div class="pan-h"><h3>Review Queue</h3>
+        <div style="display:flex;gap:4px">
+          <button class="chip on" onclick="tChip(this)">Needs Review</button>
+          <button class="chip" onclick="tChip(this)">Not Viewed</button>
+          <button class="chip" onclick="tChip(this)">Returned</button>
+          <button class="chip" onclick="tChip(this)">New Version</button>
+          <button class="chip" onclick="tChip(this)">Final Candidates</button>
+        </div>
+      </div>
+      <div id="admQueue" style="padding:0"></div>
+    </div>
+
+    <!-- Activity + Heatmap -->
+    <div class="bc" style="grid-column:span 4;padding:0">
+      <div class="pan-h"><h3>Student Attention</h3></div>
+      <div style="padding:10px 14px"><div class="heat" id="admHeat"></div></div>
+      <div class="pan-h" style="border-top:1px solid var(--border)"><h3>Activity Feed</h3></div>
+      <div id="admFeed" style="padding:0 14px 10px"></div>
+    </div>
+
+    <!-- Student Browser -->
+    <div class="bc" style="grid-column:span 8;padding:0">
+      <div class="pan-h"><h3>Student Folder Browser</h3><span class="cnt">6 students</span></div>
+      <div id="admStudents" style="padding:0"></div>
+    </div>
+
+    <!-- Missing + Actions -->
+    <div class="bc" style="grid-column:span 4">
+      <div style="font-size:.8rem;font-weight:600;margin-bottom:10px">Missing Required</div>
+      <div class="mdr" id="admMissing"></div>
+      <div style="margin-top:14px;display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-p btn-sm" style="width:100%">&#128230; Share Resource</button>
+        <button class="btn btn-s btn-sm" style="width:100%">&#128203; Export Audit Log</button>
+        <button class="btn btn-s btn-sm" style="width:100%">&#128202; Score Overview</button>
+      </div>
+    </div>
+
+    <!-- Audit Trail -->
+    <div class="bc" style="grid-column:span 12;padding:0">
+      <div class="pan-h"><h3>Audit Trail</h3><span class="cnt">Last 48 hours</span></div>
+      <div id="admAudit" style="padding:8px 14px"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================
+     VIEW: DOC DOCS STUDIO (NEXUS)
+     ============================================================ -->
+<div class="view" id="v-docdocs">
+<div class="dd-lay">
+  <!-- CANVAS SIDE -->
+  <div class="dd-canvas">
+    <!-- Top bar -->
+    <div class="pan" style="padding:10px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-size:.82rem;font-weight:600">&#128196; Personal Statement</span>
+          <span class="sb sb-rev">In Review</span>
+          <span class="sec sec-priv">&#128274; Private</span>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-s btn-sm">&#128190; Download</button>
+          <button class="btn btn-p btn-sm" onclick="markFinalBtn()">&#9989; Mark Final</button>
+          <button class="btn btn-d btn-sm">&#8617;&#65039; Request Changes</button>
+          <button class="btn btn-s btn-sm">&#128228; Upload New Version</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Line Edit Toolbar -->
+    <div class="le-toolbar" id="leToolbar">
+      <button onclick="tLE(this)" title="Too Generic">&#128312; Too Generic</button>
+      <button onclick="tLE(this)" title="Needs Specificity">&#128313; Needs Specificity</button>
+      <button class="active" onclick="tLE(this)" title="Strong Line">&#128994; Strong Line</button>
+      <button onclick="tLE(this)" title="Program Fit Issue">&#128309; Program Fit</button>
+      <button onclick="tLE(this)" title="Tone Issue">&#128995; Tone Issue</button>
+      <button onclick="tLE(this)" title="Red Flag">&#128308; Red Flag</button>
+      <button onclick="tLE(this)" title="Grammar/Polish">&#9898; Grammar</button>
+      <button onclick="tLE(this)" title="Keep This">&#128154; Keep This</button>
+      <button onclick="tLE(this)" title="Revise Opening">&#9999;&#65039; Revise Opening</button>
+      <button onclick="tLE(this)" title="Strengthen Closing">&#128170; Strengthen Closing</button>
+    </div>
+
+    <!-- Document Preview -->
+    <div class="doc-prev">
+      <div class="dp-content">
+        <h2>Personal Statement</h2>
+        <p><span class="marker strong">From the moment I first observed a surgical team navigate the complexities of a cardiac bypass, I knew that medicine was not merely a profession but a calling<span class="mtip">&#128994; Strong Line: Compelling opening hook</span></span> that demanded both intellectual rigor and unwavering compassion.</p>
+        <p>My journey began in <span class="marker generic">the underserved communities<span class="mtip">&#128312; Too Generic: Which communities? Name them.</span></span> of rural Ohio, where I witnessed firsthand the devastating impact of healthcare disparities. These experiences crystallized my understanding that effective medicine requires not only clinical expertise but also <span class="marker keep">a deep appreciation for the social determinants of health<span class="mtip">&#128154; Keep This: Strong program-fit language</span></span>.</p>
+        <p>During my research fellowship at <span class="marker strong">Johns Hopkins<span class="mtip">&#128994; Strong Line: Institutional credibility</span></span>, I investigated novel biomarkers for early detection of pancreatic cancer, contributing to <span class="marker strong">two peer-reviewed publications<span class="mtip">&#128994; Strong Line: Concrete achievement</span></span>. This work reinforced my belief that <span class="marker tone">the intersection of clinical practice and research holds the key to transforming patient outcomes<span class="mtip">&#128995; Tone Issue: Slightly cliched. Make more personal.</span></span>.</p>
+        <p><span class="marker revise">Looking ahead, I am committed to a career that bridges the gap between research innovation and compassionate patient care.<span class="mtip">&#128308; Red Flag: Generic closing. Strengthen with specific goals and program connection.</span></span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR -->
+  <div class="dd-side">
+    <!-- Scoring Panel -->
+    <div class="score-panel" id="scorePanel">
+      <h4>&#127919; Document Score</h4>
+      <div class="score-total">
+        <div class="st-num" style="color:var(--blue)" id="totalScore">81</div>
+        <div style="flex:1">
+          <div class="st-label">Overall Strength</div>
+          <div class="st-delta up" id="scoreDelta">&#9650; +19 from Draft 2</div>
+          <div style="margin-top:4px"><span class="st-ready sr-strong" id="readyLabel">Strong</span></div>
+        </div>
+      </div>
+      <div id="scoreRows"></div>
+      <div class="score-trend">
+        <div class="trend-lab">Score Trend by Version</div>
+        <div class="trend-bars" id="trendBars"></div>
+        <div class="trend-labels" id="trendLabels"></div>
+      </div>
+    </div>
+
+    <!-- Time Machine -->
+    <div class="tm" style="border-bottom:1px solid var(--border)">
+      <h4>&#128336; Time Machine</h4>
+      <div class="vt" id="ddVersions"></div>
+    </div>
+
+    <!-- Comments -->
+    <div class="cms" style="flex:1;border-bottom:1px solid var(--border)">
+      <h4>&#128172; Comments <span class="uc">2 unresolved</span></h4>
+      <div id="ddComments"></div>
+    </div>
+
+    <!-- Changelog -->
+    <div class="clog">
+      <h4>&#128203; Changelog</h4>
+      <div id="ddChangelog"></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ============================================================
+     UPLOAD WIZARD
+     ============================================================ -->
+<div class="modal-bg" id="wizModal">
+<div class="wiz">
+  <div class="wiz-h"><h2>&#128451; Upload to File Vault</h2><button class="wiz-x" onclick="closeWiz()">&times;</button></div>
+  <div class="wiz-b">
+    <div class="ws"><label>File</label>
+      <div style="padding:12px;background:rgba(255,255,255,.04);border-radius:var(--r-sm);border:1px solid var(--border);display:flex;align-items:center;gap:9px">
+        <span style="font-size:1.1rem">&#128196;</span>
+        <div><div style="font-weight:600;font-size:.84rem">personal statement final final.docx</div><div style="font-size:.72rem;color:var(--text3)">245 KB &bull; DOCX</div></div>
+      </div>
+    </div>
+    <div class="ws"><label>Division</label><select><option selected>Mission Residency</option><option>USMLE / Dr J Exam Prep</option><option>Clinicals</option></select></div>
+    <div class="ws"><label>Course / Program</label><select><option selected>360 Elite</option><option>Complete</option><option>Foundation</option></select></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="ws"><label>Session Letter</label><input type="text" value="A" readonly></div>
+      <div class="ws"><label>Draft / Version</label><input type="text" value="Draft 3" readonly></div>
+    </div>
+    <div class="ws"><label>Folder</label><select><option selected>Personal Statement</option><option>Letters of Recommendation</option><option>CV / Resume</option><option>Timeline</option><option>Miscellaneous</option></select></div>
+    <div class="ws"><label>Document Type</label><select><option selected>Personal Statement</option><option>Letter of Recommendation</option><option>CV / Resume</option><option>Timeline</option><option>Other</option></select></div>
+    <div class="ws"><label>Replaces Previous Version?</label><div class="trow"><span>Yes, replaces Draft 2</span><div class="tog on" onclick="this.classList.toggle('on')"></div></div></div>
+    <div class="ws"><label>Note to Advisor (Optional)</label><textarea placeholder="Revised intro paragraph per Dr Brian's feedback...">Revised intro paragraph per Dr Brian's feedback. Expanded clinical experience section.</textarea></div>
+    <div class="ws"><label>Ready for Review?</label><div class="trow"><span>Submit for review after upload</span><div class="tog" onclick="this.classList.toggle('on')"></div></div></div>
+    <div class="fnprev">
+      <div class="fpl">Generated Filename</div>
+      <div class="fpo">personal statement final final.docx</div>
+      <div class="fpc">MR-360Elite_Session-A_Smith-Jane_Personal-Statement_Draft-03_2026-05-20.docx</div>
+      <div class="fpd">Display: Personal Statement &mdash; Draft 3</div>
+    </div>
+  </div>
+  <div class="wiz-f"><button class="btn btn-s" onclick="closeWiz()">Cancel</button><button class="btn btn-p" onclick="doUpload()">&#8679; Upload File</button></div>
+</div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* STATE */
+let mode='student',vw='list',selFile=null;
+
+/* ====== MOCK DATA ====== */
+const FOLDS=[
+  {id:'ps',name:'Personal Statement',icon:'&#128221;',files:3,last:'2d ago',st:'rev',comp:75},
+  {id:'lor',name:'Letters of Rec',icon:'&#128231;',files:2,last:'5d ago',st:'sub',comp:40},
+  {id:'cv',name:'CV / Resume',icon:'&#128203;',files:4,last:'1d ago',st:'need',comp:60},
+  {id:'tl',name:'Timeline',icon:'&#128197;',files:1,last:'1w ago',st:'draft',comp:20},
+  {id:'misc',name:'Miscellaneous',icon:'&#128194;',files:2,last:'3d ago',st:'final',comp:100}
+];
+const stCol={rev:'var(--amber)',sub:'var(--blue)',need:'var(--red)',draft:'var(--text3)',final:'var(--green)',revd:'var(--purple)'};
+const stMap={rev:'sb-rev',sub:'sb-sub',need:'sb-need',draft:'sb-draft',final:'sb-final',revd:'sb-revd'};
+const stLab={rev:'In Review',sub:'Submitted',need:'Needs Changes',draft:'Draft',final:'Final',revd:'Reviewed'};
+
+const FILES=[
+  {id:1,name:'Personal Statement',canon:'MR-360Elite_Session-A_Smith-Jane_PS_Draft-03_2026-05-18.docx',tp:'docx',st:'rev',date:'May 18',sz:'245 KB',viewed:'Viewed by Dr Brian',vi:'&#128065;',fold:'ps',ver:3,score:81},
+  {id:2,name:'CV / Resume',canon:'MR-360Elite_Session-A_Smith-Jane_CV_Draft-02_2026-05-19.docx',tp:'docx',st:'need',date:'May 19',sz:'189 KB',viewed:'Needs changes',vi:'&#9888;&#65039;',fold:'cv',ver:2,score:62},
+  {id:3,name:'LOR - Dr Williams',canon:'MR-360Elite_Session-A_Smith-Jane_LOR-Williams_Final.pdf',tp:'pdf',st:'final',date:'May 15',sz:'312 KB',viewed:'Approved',vi:'&#9989;',fold:'lor',ver:1,score:null},
+  {id:4,name:'LOR - Dr Chen',canon:'MR-360Elite_Session-A_Smith-Jane_LOR-Chen_Draft-01.pdf',tp:'pdf',st:'sub',date:'May 17',sz:'287 KB',viewed:'Not viewed yet',vi:'&#128064;',fold:'lor',ver:1,score:null},
+  {id:5,name:'Match Timeline',canon:'MR-360Elite_Session-A_Smith-Jane_Timeline_Draft-01.xlsx',tp:'xlsx',st:'draft',date:'May 10',sz:'45 KB',viewed:'',vi:'',fold:'tl',ver:1,score:null},
+  {id:6,name:'PS Early Draft',canon:'MR-360Elite_Session-A_Smith-Jane_PS_Draft-01_2026-04-28.docx',tp:'docx',st:'revd',date:'Apr 28',sz:'210 KB',viewed:'Reviewed',vi:'&#9989;',fold:'ps',ver:1,score:45}
+];
+
+const SHARED=[
+  {name:'MR Interview Prep Guide 2026',tp:'pdf',sz:'2.4 MB',date:'May 1',badge:'Mission Residency'},
+  {name:'Personal Statement Framework',tp:'docx',sz:'156 KB',date:'Apr 15',badge:'360 Elite'},
+  {name:'Match Timeline Template',tp:'xlsx',sz:'89 KB',date:'Mar 20',badge:'All MR'}
+];
+
+const STUDENTS=[
+  {name:'Jane Smith',ini:'JS',div:'MR',course:'360 Elite',sess:'A',files:12,pend:2,last:'May 19',att:3,topScore:81},
+  {name:'Michael Torres',ini:'MT',div:'MR',course:'Complete',sess:'A',files:8,pend:1,last:'May 18',att:2,topScore:68},
+  {name:'Sarah Kim',ini:'SK',div:'MR',course:'360 Elite',sess:'B',files:15,pend:0,last:'May 20',att:0,topScore:92},
+  {name:'David Park',ini:'DP',div:'MR',course:'Foundation',sess:'A',files:5,pend:3,last:'May 15',att:4,topScore:45},
+  {name:'Emily Johnson',ini:'EJ',div:'USMLE',course:'Dr J Prep',sess:'A',files:6,pend:1,last:'May 17',att:1,topScore:71},
+  {name:'Robert Chen',ini:'RC',div:'MR',course:'360 Elite',sess:'A',files:10,pend:0,last:'May 19',att:0,topScore:88}
+];
+
+const QUEUE=[
+  {student:'Jane Smith',ini:'JS',doc:'Personal Statement',type:'Draft 3',date:'May 18, 2026',score:81},
+  {student:'David Park',ini:'DP',doc:'CV / Resume',type:'Draft 1',date:'May 15, 2026',score:45},
+  {student:'Michael Torres',ini:'MT',doc:'Personal Statement',type:'Draft 2',date:'May 18, 2026',score:68},
+  {student:'Emily Johnson',ini:'EJ',doc:'Study Plan',type:'Draft 1',date:'May 17, 2026',score:null}
+];
+
+const ALOG=[
+  {ic:'upl',txt:'<b>Jane Smith</b> uploaded PS Draft 3',time:'2h ago',c:'var(--blue)'},
+  {ic:'viw',txt:'<b>Dr Brian</b> viewed Jane\'s PS',time:'1h ago',c:'var(--purple)'},
+  {ic:'scr',txt:'<b>Dr Brian</b> scored Jane\'s PS: 81/100',time:'1h ago',c:'var(--teal)'},
+  {ic:'cmt',txt:'<b>Dr Brian</b> commented on Jane\'s CV',time:'3h ago',c:'var(--amber)'},
+  {ic:'sts',txt:'<b>LOR - Dr Williams</b> marked Final',time:'1d ago',c:'var(--green)'},
+  {ic:'upl',txt:'<b>Michael Torres</b> uploaded PS Draft 2',time:'1d ago',c:'var(--blue)'},
+  {ic:'dl',txt:'<b>Sarah Kim</b> downloaded Interview Guide',time:'2d ago',c:'var(--red)'}
+];
+
+const AUDIT=[
+  {ic:'upl',txt:'<b>Jane Smith</b> uploaded version 3',time:'May 18, 10:32 AM'},
+  {ic:'sts',txt:'Status: Draft &#8594; Submitted',time:'May 18, 10:33 AM'},
+  {ic:'viw',txt:'<b>Dr Brian</b> viewed document',time:'May 18, 11:45 AM'},
+  {ic:'sts',txt:'Status: Submitted &#8594; In Review',time:'May 18, 11:45 AM'},
+  {ic:'scr',txt:'<b>Dr Brian</b> scored document: 81/100 (Strong)',time:'May 18, 11:50 AM'},
+  {ic:'cmt',txt:'<b>Dr Brian</b> added 2 comments',time:'May 18, 12:02 PM'},
+  {ic:'viw',txt:'<b>Jane Smith</b> viewed comments',time:'May 18, 2:15 PM'},
+  {ic:'cmt',txt:'<b>Jane Smith</b> replied to comment',time:'May 18, 2:20 PM'}
+];
+
+const VERSIONS=[
+  {n:3,lab:'Draft 3',date:'May 18, 2026',by:'Jane Smith',st:'In Review',ch:'Revised intro, expanded research section',cur:true,score:81},
+  {n:2,lab:'Draft 2',date:'May 8, 2026',by:'Jane Smith',st:'Reviewed',ch:'Restructured narrative per advisor feedback',score:62},
+  {n:1,lab:'Draft 1',date:'Apr 28, 2026',by:'Jane Smith',st:'Reviewed',ch:'Initial draft',score:45}
+];
+
+const COMMENTS=[
+  {au:'Dr Brian',role:'admin',time:'1 hour ago',txt:'The opening paragraph is much stronger now. The surgical observation anecdote works well as a hook.',res:false},
+  {au:'Dr Brian',role:'admin',time:'1 hour ago',txt:'Consider adding one more sentence connecting your research experience to your clinical interests. The transition feels abrupt.',res:false},
+  {au:'Jane Smith',role:'student',time:'4 hours ago',txt:'Thank you! I will expand the research-to-clinical transition in the next version.',res:false,child:true},
+  {au:'Dr Brian',role:'admin',time:'3 days ago',txt:'Good structure overall. Strengthen the opening and connect experiences more clearly.',res:true}
+];
+
+const MISSING=[
+  {name:'Timeline',stu:'David Park',due:'May 25, 2026'},
+  {name:'LOR #2',stu:'David Park',due:'Jun 1, 2026'},
+  {name:'CV / Resume',stu:'Emily Johnson',due:'May 28, 2026'}
+];
+
+const SCORES={
+  'Overall Strength':{v:81,c:'var(--blue)'},'Authenticity':{v:78,c:'var(--blue)'},'Specificity':{v:72,c:'var(--amber)'},
+  'Structure':{v:85,c:'var(--green)'},'Residency Fit':{v:88,c:'var(--green)'},'Red Flag Handling':{v:75,c:'var(--amber)'},
+  'Opening Hook':{v:90,c:'var(--green)'},'Closing Strength':{v:55,c:'var(--red)'},'Grammar/Polish':{v:84,c:'var(--green)'},
+  'Interview Alignment':{v:82,c:'var(--blue)'}
+};
+
+const TREND=[{lab:'D1',score:45},{lab:'D2',score:62},{lab:'D3',score:81}];
+
+/* ====== RENDER ====== */
+function ring(comp,col){
+  const r=12,cx=15,d=2*Math.PI*r,off=d*(1-comp/100);
+  return `<div class="cring"><svg width="30" height="30" viewBox="0 0 30 30"><circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="2.5"/><circle cx="${cx}" cy="${cx}" r="${r}" fill="none" stroke="${col}" stroke-width="2.5" stroke-dasharray="${d}" stroke-dashoffset="${off}" stroke-linecap="round"/></svg><span class="ct" style="color:${col}">${comp}%</span></div>`;
+}
+
+function rFolds(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=FOLDS.map(f=>`<div class="fold" onclick="pickFold('${f.id}')">
+    ${ring(f.comp,stCol[f.st])}
+    <div class="fi">${f.icon}</div>
+    <div class="fn">${f.name}</div>
+    <div class="fm"><span>${f.files} files</span><span>${f.last}</span></div>
+  </div>`).join('');
+}
+
+function rNav(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=FOLDS.map(f=>`<button class="btn btn-g btn-sm" style="justify-content:space-between;width:100%" onclick="pickFold('${f.id}')">
+    <span>${f.icon} ${f.name}</span><span style="font-size:.68rem;color:${stCol[f.st]}">${f.files}</span>
+  </button>`).join('');
+}
+
+function rHealth(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=FOLDS.map(f=>`<div>
+    <div style="display:flex;justify-content:space-between;margin-bottom:3px"><span style="font-size:.72rem">${f.name}</span><span style="font-size:.68rem;color:${stCol[f.st]}">${stLab[f.st]||''}</span></div>
+    <div class="hm"><div class="hb"><div class="hf" style="width:${f.comp}%;background:${stCol[f.st]}"></div></div></div>
+  </div>`).join('');
+}
+
+function rFileList(id,files){
+  const e=document.getElementById(id);if(!e)return;
+  const icC={docx:'docx',pdf:'pdf',xlsx:'xlsx',img:'img'},icT={docx:'W',pdf:'P',xlsx:'X',img:'&#128247;'};
+  e.innerHTML=`<div class="fl">${files.map(f=>`<div class="fr${selFile&&selFile.id===f.id?' sel':''}" onclick="pickFile(${f.id})">
+    <div class="fic ${icC[f.tp]}">${icT[f.tp]}</div>
+    <div class="fname">${f.name}${f.score!==null?` <span style="font-size:.68rem;color:var(--teal);font-weight:600">${f.score}/100</span>`:''}<span class="canon">${f.canon.length>48?f.canon.substring(0,48)+'...':f.canon}</span></div>
+    <div class="fdate">${f.date}</div>
+    <div><span class="sb ${stMap[f.st]}">${stLab[f.st]}</span></div>
+    <div class="fsize">${f.sz}</div>
+    <div class="fview" style="color:${f.st==='need'?'var(--red)':f.st==='final'?'var(--green)':'var(--text2)'}">${f.vi} ${f.viewed}</div>
+    <div><button class="btn-i">&#8943;</button></div>
+  </div>`).join('')}</div>`;
+}
+
+function rFileGrid(id,files){
+  const e=document.getElementById(id);if(!e)return;
+  const icBg={docx:'rgba(74,159,229,.14)',pdf:'rgba(178,58,58,.14)',xlsx:'rgba(61,170,125,.14)',img:'rgba(61,170,125,.14)'};
+  e.innerHTML=`<div class="fg-grid">${files.map(f=>`<div class="fg-c" onclick="pickFile(${f.id})">
+    <div class="gbar" style="background:${stCol[f.st]}"></div>
+    <div class="gic" style="background:${icBg[f.tp]}">${f.tp==='docx'?'W':f.tp==='pdf'?'P':f.tp==='xlsx'?'X':'&#128247;'}</div>
+    <div class="gn">${f.name}</div>
+    <div class="gm">v${f.ver} &bull; ${f.sz}${f.score!==null?' &bull; '+f.score+'/100':''}</div>
+    <div class="gs"><span class="sb ${stMap[f.st]}">${stLab[f.st]}</span></div>
+  </div>`).join('')}</div>`;
+}
+
+function rShared(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=`<div class="fl">${SHARED.map(f=>`<div class="fr" style="grid-template-columns:30px 1fr 90px 80px 80px">
+    <div class="fic ${f.tp==='pdf'?'pdf':'docx'}">${f.tp==='pdf'?'P':f.tp==='xlsx'?'X':'W'}</div>
+    <div class="fname">${f.name}</div>
+    <div class="fdate">${f.date}</div>
+    <div class="fsize">${f.sz}</div>
+    <div><span class="sec sec-course" style="font-size:.62rem">${f.badge}</span></div>
+  </div>`).join('')}</div>`;
+}
+
+function rQueue(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=QUEUE.map(r=>`<div class="rqi" onclick="pickQueueItem()">
+    <div class="av">${r.ini}</div>
+    <div class="si"><div class="sn">${r.student}</div><div class="dt">${r.doc} &bull; ${r.type}</div></div>
+    <div class="fdate">${r.date}</div>
+    <div><span class="sb sb-sub">Submitted</span></div>
+    <div style="font-size:.72rem;color:var(--teal);font-weight:600">${r.score!==null?r.score+'/100':'--'}</div>
+    <div><button class="btn btn-p btn-sm">Review</button></div>
+  </div>`).join('');
+}
+
+function rStudents(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=`<div class="fl">${STUDENTS.map(s=>{
+    const ac=s.att>=3?'var(--red)':s.att>=1?'var(--amber)':'var(--green)';
+    const ready=s.topScore>=81?'sr-strong':s.topScore>=66?'sr-comp':s.topScore>=41?'sr-work':'sr-not';
+    const readyL=s.topScore>=81?'Strong':s.topScore>=66?'Competitive':s.topScore>=41?'Needs Work':'Not Ready';
+    return `<div class="fr" style="grid-template-columns:36px 1fr 90px 70px 70px 60px 50px 70px">
+      <div class="av" style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,var(--navy2),var(--purple));display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700">${s.ini}</div>
+      <div><div style="font-weight:600;font-size:.82rem">${s.name}</div><div style="font-size:.68rem;color:var(--text2)">${s.div} &bull; ${s.course} &bull; Session ${s.sess}</div></div>
+      <div style="font-size:.72rem;color:var(--text2)">${s.files} files</div>
+      <div style="font-size:.72rem;color:${s.pend>0?'var(--red)':'var(--text3)'}">${s.pend} pending</div>
+      <div style="font-size:.72rem;color:var(--text2)">${s.last}</div>
+      <div style="font-size:.72rem;font-weight:700;color:${ac}">${s.att>0?'&#9888;&#65039; '+s.att:''}</div>
+      <div style="font-size:.72rem;color:var(--teal);font-weight:600">${s.topScore}/100</div>
+      <div><button class="btn btn-g btn-sm">Browse &#8594;</button></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function rHeat(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=STUDENTS.map(s=>{
+    const i=s.att/4;const r=Math.round(178*i+61*(1-i)),g=Math.round(58*i+170*(1-i)),b=Math.round(58*i+125*(1-i));
+    return `<div class="hc" style="background:rgba(${r},${g},${b},.3);color:rgba(${r},${g},${b},1)">${s.ini}<div class="ht">${s.name}: ${s.att} items</div></div>`;
+  }).join('');
+}
+
+function rFeed(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=ALOG.map(a=>`<div class="ai"><div class="adot" style="background:${a.c}"></div><div class="atxt">${a.txt}</div><div class="ago">${a.time}</div></div>`).join('');
+}
+
+function rAudit(id){
+  const e=document.getElementById(id);if(!e)return;
+  const ic={upl:'&#8679;',viw:'&#128065;',cmt:'&#128172;',sts:'&#8635;',dl:'&#128190;',scr:'&#127919;'};
+  e.innerHTML=AUDIT.map(a=>`<div class="le"><div class="li ${a.ic}">${ic[a.ic]||'&#8635;'}</div><div class="lt">${a.txt}</div><div class="ltime">${a.time}</div></div>`).join('');
+}
+
+function rVersions(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=VERSIONS.map(v=>`<div class="vn${v.cur?' cur':''}" onclick="pickVer(${v.n})">
+    <div class="vl">v${v.n}: ${v.lab}</div>
+    <div class="vm">${v.date} &bull; by ${v.by} &bull; ${v.st}</div>
+    <div class="vc">${v.ch}</div>
+    ${v.score!==null?`<div class="vs"><span style="color:var(--teal)">&#127919;</span> Score: <span class="score-ch" style="color:${v.score>=81?'var(--green)':v.score>=66?'var(--blue)':'var(--amber)'}">${v.score}/100</span>${v.n>1?' <span style="color:var(--green);font-size:.65rem">&#9650;+'+(v.score-(VERSIONS.find(x=>x.n===v.n-1)||{score:0}).score)+'</span>':''}</div>`:''}
+    <div class="va">
+      <button class="btn btn-g btn-sm">&#128190; Download</button>
+      ${!v.cur?'<button class="btn btn-g btn-sm">&#8634; Restore</button>':''}
+      <button class="btn btn-g btn-sm">&#128269; Compare</button>
+    </div>
+  </div>`).join('');
+}
+
+function rComments(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=COMMENTS.map(c=>{
+    const cls=c.role==='admin'?'adm':'';const rcls=c.res?'res':'';
+    return `<div class="cm ${cls} ${rcls}" ${c.child?'style="margin-left:16px"':''}>
+      <div class="ch"><div class="ca">${c.au} <span class="rb ${c.role==='admin'?'adm-b':'stu-b'}">${c.role}</span></div><div class="ct">${c.time}${c.res?' &bull; Resolved':''}</div></div>
+      <div class="cb">${c.txt}</div>
+      ${!c.res&&c.role==='admin'?`<div class="cact"><button class="btn btn-g btn-sm">Reply</button><button class="btn btn-g btn-sm" onclick="resolveComment(this)">&#9989; Resolve</button></div>`:''}
+    </div>`;
+  }).join('')+`<div class="cm-inp"><input type="text" placeholder="Add a comment..."><button class="btn btn-p btn-sm">Send</button></div>`;
+}
+
+function rMissing(id){
+  const e=document.getElementById(id);if(!e)return;
+  e.innerHTML=MISSING.map(m=>`<div class="mi"><div class="mn">${m.name}</div><div style="font-size:.68rem;color:var(--text2)">${m.stu}</div><div class="md">Due: ${m.due}</div></div>`).join('');
+}
+
+function rScores(){
+  const rows=document.getElementById('scoreRows');if(!rows)return;
+  rows.innerHTML=Object.entries(SCORES).map(([k,v])=>`<div class="score-row">
+    <div class="srl">${k}</div>
+    <div class="srbar"><div class="srf" style="width:${v.v}%;background:${v.c}"></div></div>
+    <div class="srv" style="color:${v.c}">${v.v}</div>
+  </div>`).join('');
+
+  const bars=document.getElementById('trendBars'),labs=document.getElementById('trendLabels');
+  if(bars&&labs){
+    const mx=100;
+    bars.innerHTML=TREND.map(t=>`<div class="trend-bar" style="height:${t.score/mx*100}%;background:${t.score>=81?'rgba(61,170,125,.5)':t.score>=66?'rgba(74,159,229,.4)':'rgba(212,168,67,.4)'}"><div class="tb-tip">${t.lab}: ${t.score}/100</div></div>`).join('');
+    labs.innerHTML=TREND.map(t=>`<span>${t.lab}</span>`).join('');
+  }
+}
+
+/* ====== DETAIL PANEL ====== */
+function pickFile(id){
+  selFile=FILES.find(f=>f.id===id);if(!selFile)return;
+  const p=document.getElementById('stuDetail');if(!p)return;
+  p.innerHTML=`
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:.95rem;font-weight:700;margin-bottom:3px">${selFile.name}</div>
+      <div style="font-size:.72rem;color:var(--text2)">v${selFile.ver} &bull; ${selFile.sz} &bull; ${selFile.date}</div>
+      <div style="margin-top:6px;display:flex;gap:6px;align-items:center"><span class="sb ${stMap[selFile.st]}">${stLab[selFile.st]}</span>
+      ${selFile.score!==null?`<span style="font-size:.72rem;color:var(--teal);font-weight:600">&#127919; ${selFile.score}/100</span>`:''}</div>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-p btn-sm">&#128190; Download</button>
+      ${selFile.st==='draft'?'<button class="btn btn-s btn-sm">&#128228; Submit for Review</button>':''}
+      <button class="btn btn-s btn-sm">&#128228; New Version</button>
+      <button class="btn btn-g btn-sm">&#128172; Comments</button>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;margin-bottom:4px;font-weight:600">Canonical Name</div>
+      <div style="font-size:.72rem;color:var(--blue);font-family:monospace;word-break:break-all">${selFile.canon}</div>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;margin-bottom:4px;font-weight:600">Review Status</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.78rem;color:${selFile.st==='need'?'var(--red)':selFile.viewed.includes('Viewed')?'var(--green)':'var(--text2)'}">${selFile.vi} ${selFile.viewed||'No activity'}</div>
+    </div>
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;gap:6px"><span class="sec sec-priv">&#128274; Private</span><span class="sec sec-sign">&#9989; Signed</span></div>
+      <div style="font-size:.68rem;color:var(--text3);margin-top:4px">Access: You + Authorized Admins Only</div>
+    </div>
+    ${selFile.score!==null?`<div style="padding:12px 16px;border-bottom:1px solid var(--border)">
+      <div style="font-size:.68rem;color:var(--text3);text-transform:uppercase;margin-bottom:6px;font-weight:600">Score Summary</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:1.8rem;font-weight:800;color:var(--blue)">${selFile.score}</div>
+        <div><div style="font-size:.75rem;font-weight:600">${selFile.score>=81?'Strong':selFile.score>=66?'Competitive':'Needs Work'}</div>
+        <div style="font-size:.68rem;color:var(--text3)">of 100</div></div>
+      </div>
+    </div>`:''}
+    <div class="tm"><h4>&#128336; Versions</h4><div class="vt">${VERSIONS.filter((v,i)=>i<2).map(v=>`<div class="vn${v.cur?' cur':''}"><div class="vl">v${v.n}: ${v.lab}</div><div class="vm">${v.date} &bull; ${v.st}${v.score!==null?' &bull; '+v.score+'/100':''}</div><div class="va"><button class="btn btn-g btn-sm">&#128190;</button></div></div>`).join('')}</div></div>
+  `;
+  // Re-render file list to show selection
+  rFileList('stuFileList',FILES);
+}
+
+/* ====== MODE SWITCHING ====== */
+function setMode(m,btn){
+  mode=m;
+  document.querySelectorAll('#modeTg button').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById('v-'+m).classList.add('on');
+  const t={student:'File Vault',admin:'Admin Command Center',docdocs:'Doc Docs Studio'};
+  document.getElementById('crumbTitle').textContent=t[m]||'File Vault';
+  document.getElementById('badgeNoPublic').style.display=m==='admin'?'inline-flex':'none';
+}
+
+function setVw(v,btn){
+  vw=v;document.querySelectorAll('#viewTg button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');
+  document.getElementById('stuFileList').classList.toggle('hidden',v!=='list');
+  document.getElementById('stuFileGrid').classList.toggle('hidden',v!=='grid');
+}
+
+function toggleFD(){document.getElementById('filtDraw').classList.toggle('open')}
+function tChip(el){el.classList.toggle('on')}
+function tLE(el){el.classList.toggle('active')}
+function pickFold(id){}
+function pickVer(n){}
+function pickQueueItem(){setMode('docdocs',document.querySelectorAll('#modeTg button')[2])}
+function resolveComment(btn){const cm=btn.closest('.cm');if(cm){cm.classList.add('res');cm.querySelector('.cact').remove()}}
+function markFinalBtn(){
+  const el=document.querySelector('#v-docdocs .sb');
+  if(el){el.className='sb sb-final';el.innerHTML='';el.insertAdjacentHTML('beforeend','Final')}
+}
+
+/* ====== SEARCH ====== */
+function openSR(){document.getElementById('srDrop').classList.add('open')}
+function closeSR(){document.getElementById('srDrop').classList.remove('open')}
+function fillSearch(t){document.getElementById('searchIn').value=t;doSearch()}
+function doSearch(){
+  const t=document.getElementById('searchIn').value.toLowerCase(),res=document.getElementById('srResults');
+  if(!t){res.innerHTML='';return}
+  const m=FILES.filter(f=>f.name.toLowerCase().includes(t)||f.canon.toLowerCase().includes(t));
+  const sm=STUDENTS.filter(s=>s.name.toLowerCase().includes(t));
+  let h='';
+  if(sm.length)h+=sm.map(s=>`<div class="sr-item"><div class="sr-name">&#128100; ${s.name}</div><span class="sr-match fn">Student &bull; ${s.course}</span><div class="sr-ctx">${s.files} files, top score ${s.topScore}/100</div></div>`).join('');
+  h+=m.map(f=>`<div class="sr-item" onclick="pickFile(${f.id});closeSR()"><div class="sr-name">${f.name}</div><span class="sr-match fn">&#128196; Matched in filename</span>${f.score!==null?`<span class="sr-match sc">&#127919; Score: ${f.score}</span>`:''}<div class="sr-ctx">${f.canon}</div></div>`).join('');
+  if(!h)h='<div style="padding:14px;text-align:center;color:var(--text3);font-size:.8rem">No results</div>';
+  res.innerHTML=h;
+}
+
+/* ====== UPLOAD ====== */
+function openWiz(){document.getElementById('wizModal').classList.add('vis')}
+function closeWiz(){document.getElementById('wizModal').classList.remove('vis')}
+function doUpload(){
+  closeWiz();
+  const p=document.getElementById('stuProg');if(p){p.style.display='block';let w=0;
+    const iv=setInterval(()=>{w+=Math.random()*15+5;if(w>=100){w=100;clearInterval(iv);setTimeout(()=>p.style.display='none',800)}p.querySelector('.uf').style.width=w+'%'},180);
+  }
+}
+
+/* ====== DRAG DROP ====== */
+function dOver(e){e.preventDefault();e.currentTarget.classList.add('over')}
+function dLeave(e){e.currentTarget.classList.remove('over')}
+function dDrop(e){e.preventDefault();e.currentTarget.classList.remove('over');openWiz()}
+
+/* ====== KEYBOARD ====== */
+document.addEventListener('keydown',e=>{
+  if((e.metaKey||e.ctrlKey)&&e.key==='k'){e.preventDefault();document.getElementById('searchIn').focus()}
+  if(e.key==='Escape'){closeWiz();closeSR()}
+});
+
+/* ====== INIT ====== */
+function init(){
+  rFolds('stuFolds');rNav('sideNav');rHealth('sideHealth');
+  rFileList('stuFileList',FILES);rFileGrid('stuFileGrid',FILES);
+  rShared('stuShared');
+  rQueue('admQueue');rStudents('admStudents');rHeat('admHeat');
+  rFeed('admFeed');rAudit('admAudit');rMissing('admMissing');
+  rVersions('ddVersions');rComments('ddComments');rAudit('ddChangelog');
+  rScores();
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,229 @@
+--- production-embed
++++ merged-embed
+@@ -1,6 +1,7 @@
+ (function () {
+   "use strict";
+ 
++  var __MMED_V3_BUILD = "WEBEX-107A.606a 2026-07-08 55577a7";
+   var config = normalizeEmbedConfig(window.MMEDLiveDrillsWebexPreview || {});
+   window.MMEDLiveDrillsWebexPreview = config;
+   var activeWidget = null;
+@@ -70,6 +71,44 @@
+     if (meeting.joinUrl) return "uri";
+     if (meeting.sipAddress) return "sip";
+     return "uri";
++  }
++
++  function studentSafeErrorMessage(message) {
++    var text = String(message || "");
++    if (/authenticate|token|guest token|join token|rest_cookie_invalid_nonce|nonce/i.test(text)) {
++      return "Daily Drills could not create a student Webex join token. Stay on the roster, retry the in-page join, or copy the student Webex link and message the host.";
++    }
++    if (/app fallback|desktop|native/i.test(text)) {
++      return "Webex did not complete the in-page student join. Retry inside Daily Drills or copy the student Webex link; do not start the meeting from a signed-in host Webex app.";
++    }
++    return text || "Embedded Webex could not start. Retry inside Daily Drills or copy the student Webex link and message the host.";
++  }
++
++  function fallbackActionMarkup(isAdmin, joinUrl) {
++    if (!joinUrl) return "";
++    if (isAdmin) {
++      return '<a class="mmed-webex-fallback-link" data-webex-app-fallback href="' + attr(joinUrl) + '" target="_blank" rel="noopener noreferrer">Open Webex host app fallback</a>';
++    }
++    return '<button class="mmed-webex-fallback-link" type="button" data-webex-copy-join>Copy student Webex link</button>';
++  }
++
++  function copyStudentJoinLink(stage) {
++    var joinUrl = String((getMeeting() && getMeeting().joinUrl) || "").trim();
++    var copyPromise;
++    if (!joinUrl) {
++      status(stage, "The host has not selected a Webex meeting yet. Keep this page open and try again when the room is ready.", "error");
++      return;
++    }
++    if (window.navigator && window.navigator.clipboard && typeof window.navigator.clipboard.writeText === "function") {
++      copyPromise = window.navigator.clipboard.writeText(joinUrl);
++    } else {
++      copyPromise = Promise.reject(new Error("Clipboard unavailable."));
++    }
++    copyPromise.then(function () {
++      status(stage, "Student Webex link copied. Paste it into a guest/private browser if embedded join still fails, and message the host.", "ready");
++    }).catch(function () {
++      status(stage, "Copy failed. Ask the host for the student Webex join link; do not start the meeting from a host Webex app.", "error");
++    });
+   }
+ 
+   function isAdminControlMode() {
+@@ -351,7 +390,9 @@
+       stage.classList.remove("is-webex-embedded");
+     }
+ 
+-    status(stage, message || "Embedded Webex could not start. Use the Webex app fallback.", "error");
++    status(stage, activeRuntimeTokenMode === "host"
++      ? (message || "Embedded Webex could not start. Use the Webex host app fallback.")
++      : studentSafeErrorMessage(message), "error");
+   }
+ 
+   function clearWidgetReadinessWatch() {
+@@ -398,11 +439,11 @@
+ 	    return !!(button && !button.disabled);
+ 	  }
+ 
+-			  function clickWidgetJoinControl(mount) {
+-			    var button = widgetJoinButton(mount);
+-			    if (!button || button.disabled) {
+-			      return false;
+-			    }
++		  function clickWidgetJoinControl(mount) {
++		    var button = widgetJoinButton(mount);
++		    if (!button || button.disabled) {
++		      return false;
++		    }
+     try {
+       button.scrollIntoView({ block: "center", inline: "center" });
+     } catch (error) {}
+@@ -422,14 +463,11 @@
+         }));
+       } catch (error) {}
+     });
+-	    try {
+-	      button.click();
+-	    } catch (error) {}
+-	    try {
+-	      button.setAttribute("data-mmed-join-clicked-at", String(Date.now()));
+-	    } catch (error) {}
+-			    return true;
+-			  }
++    try {
++      button.click();
++    } catch (error) {}
++		    return true;
++		  }
+ 
+   function hasWidgetMeetingMedia(mount) {
+     var text = widgetText(mount);
+@@ -482,7 +520,7 @@
+     if (/wdm\/api\/v1\/devices|HTTP Status 403|Forbidden|webex-js-sdk/i.test(message)) {
+       return activeRuntimeTokenMode === "host"
+         ? "Webex rejected the in-browser host device registration. Use the Webex app fallback for this meeting, then reconnect the Webex OAuth host account before live browser-host use."
+-        : "Webex rejected the in-browser device registration. Use the Webex app fallback or refresh and try again.";
++        : "Webex rejected the in-browser student device registration. Retry inside Daily Drills or copy the student Webex link and message the host.";
+     }
+     return "";
+   }
+@@ -568,7 +606,7 @@
+       if (hasWidgetErrorText(mount)) {
+         showWidgetFallbackError(stage, activeRuntimeTokenMode === "host"
+           ? "Webex could not finish host browser join. Use the Webex app fallback for this meeting, then reconnect the Webex OAuth host account before live browser-host use."
+-          : "Webex could not finish browser join. Use the Webex app fallback or refresh and try again.");
++          : "Webex could not finish the student browser join. Retry inside Daily Drills or copy the student Webex link and message the host.");
+       }
+     }
+ 
+@@ -587,7 +625,7 @@
+       }
+       showWidgetFallbackError(stage, activeRuntimeTokenMode === "host"
+         ? "Webex did not reach the host video screen in this browser. Use Open Webex app fallback for this meeting; browser-host mode needs a host-capable Webex OAuth account for the selected meeting."
+-        : "Webex did not reach the join screen in this browser. Refresh or use the Webex fallback link.");
++        : "Webex did not reach the student join screen in this browser. Retry inside Daily Drills or copy the student Webex link and message the host.");
+     }, 18000);
+ 
+ 	    window.setTimeout(check, 800);
+@@ -903,7 +941,12 @@
+ 
+   function setupHostControlDrawer(stage) {
+     var drawer;
+-    if (!stage || !isAdminControlMode()) return;
++    if (!stage) return;
++    if (!isAdminControlMode()) {
++      drawer = stage.querySelector("[data-webex-host-drawer]");
++      if (drawer) drawer.remove();
++      return;
++    }
+     drawer = stage.querySelector("[data-webex-host-drawer]");
+     if (!drawer) {
+       stage.insertAdjacentHTML("beforeend", [
+@@ -1168,6 +1211,7 @@
+     var destination = getDestination();
+ 	    var isAdmin = isAdminControlMode();
+ 	    var tokenMode = isAdmin && options.hostMode ? "host" : "guest";
++		    activeRuntimeTokenMode = tokenMode;
+ 		    activeRuntimeAutoClickJoin = !!options.autoClickJoin && tokenMode !== "host";
+ 		    activeRuntimeJoinClicked = false;
+     activeRuntimeJoinClickAttempts = 0;
+@@ -1233,7 +1277,7 @@
+     var isAdmin = isAdminControlMode();
+     var introCopy = isAdmin
+       ? "Admin mode: select or paste the Webex meeting below, then join as host inside this browser stage. This page cannot detect an unrelated desktop-only meeting unless its link is selected or pasted."
+-      : "Start or join the Webex meeting inside the Daily Drills video stage. The regular Webex app link stays available as a fallback.";
++      : "Join Webex inside the Daily Drills video stage. If embedded join fails, copy the student Webex link and message the host.";
+     var primaryAction = isAdmin
+       ? '<button class="open-webex-btn" type="button" data-start-embedded-webex data-admin-browser-join>Start Live Webex Session</button>'
+       : '<button class="open-webex-btn" type="button" data-start-embedded-webex>Join Webex Inside Daily Drills</button>';
+@@ -1250,7 +1294,7 @@
+         '<p class="live-copy">' + attr(introCopy) + "</p>",
+         '<div class="mmed-webex-embed-actions">',
+           primaryAction,
+-          joinUrl ? '<a class="mmed-webex-fallback-link" href="' + attr(joinUrl) + '" target="_blank" rel="noopener noreferrer">Open Webex app fallback</a>' : "",
++          fallbackActionMarkup(isAdmin, joinUrl),
+         "</div>",
+         '<p class="preview-meeting-copy">' + attr(title) + "</p>",
+         '<p class="mmed-webex-embed-status" data-webex-embed-status data-state="idle">' + attr(initialStatus) + "</p>",
+@@ -1268,6 +1312,13 @@
+     stages.forEach(enhanceStage);
+ 
+     document.addEventListener("click", function (event) {
++      var copyButton = event.target && event.target.closest("[data-webex-copy-join]");
++      if (copyButton) {
++        event.preventDefault();
++        copyStudentJoinLink(copyButton.closest("[data-live-stage]"));
++        return;
++      }
++
+       var button = event.target && event.target.closest("[data-start-embedded-webex]");
+       if (!button) return;
+       event.preventDefault();
+@@ -1290,33 +1341,18 @@
+       handleRuntimeWebexError(event && event.reason);
+     });
+ 
+-	    window.MMEDLiveDrillsEmbeddedWebex = {
+-	      start: function (options) {
+-	        var stage = document.querySelector(".shell.is-active [data-live-stage]");
+-	        if (!options && isAdminControlMode()) {
+-	          options = { allowAdmin: true, hostMode: true };
+-	        }
+-	        if (stage) startEmbedded(stage, options || {});
+-	      },
+-	      clickJoinNow: function () {
+-	        var stage = document.querySelector(".shell.is-active [data-live-stage]");
+-	        var mount = stage && stage.querySelector("[data-webex-widget-mount]");
+-	        return clickWidgetJoinControl(mount);
+-	      },
+-	      hasJoinControl: function () {
+-	        var stage = document.querySelector(".shell.is-active [data-live-stage]");
+-	        var mount = stage && stage.querySelector("[data-webex-widget-mount]");
+-	        return hasWidgetJoinControl(mount);
+-	      },
+-	      hasMeetingMedia: function () {
+-	        var stage = document.querySelector(".shell.is-active [data-live-stage]");
+-	        var mount = stage && stage.querySelector("[data-webex-widget-mount]");
+-	        return hasWidgetMeetingMedia(mount);
+-	      },
+-	      applyCamera: function () {
+-	        var stage = document.querySelector(".shell.is-active [data-live-stage]");
+-	        if (stage) applySelectedCamera(stage, true);
++    window.MMEDLiveDrillsEmbeddedWebex = {
++      start: function (options) {
++        var stage = document.querySelector(".shell.is-active [data-live-stage]");
++        if (!options && isAdminControlMode()) {
++          options = { allowAdmin: true, hostMode: true };
++        }
++        if (stage) startEmbedded(stage, options || {});
+       },
++      applyCamera: function () {
++        var stage = document.querySelector(".shell.is-active [data-live-stage]");
++        if (stage) applySelectedCamera(stage, true);
++      },
+       hasBundle: !!(window.MmedWebexWidget && typeof window.MmedWebexWidget.init === "function"),
+       hasMeetingDestination: !!getDestination()
+     };

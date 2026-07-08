@@ -1,0 +1,205 @@
+--- worktree-base-sdk
++++ merged-sdk
+@@ -1,6 +1,7 @@
+ (function () {
+   "use strict";
+ 
++  var __MMED_V3_BUILD = "WEBEX-107A.606a 2026-07-08 55577a7";
+   var config = normalizeConfig(window.MMEDLiveDrillsSDKV3Config || {});
+   var SDK_BUNDLE_URL = "https://cdn.jsdelivr.net/npm/webex@3.12.0/umd/webex.min.js";
+   var V3_CAMERA_STORAGE_KEY = "mmedWebexSdkV3CameraDeviceId";
+@@ -49,6 +50,9 @@
+   };
+   var autoAdmitAttempts = {};
+   var autoAdmitInFlight = {};
++  var hostRosterPollTimer = 0;
++  var hostRosterFallbackPollInFlight = false;
++  var teamRosterFallbackParticipants = [];
+ 	  var remoteMedia = {
+ 	    status: "Waiting for remote students to join Webex.",
+ 	    videos: [],
+@@ -918,13 +922,114 @@
+ 
+   function collectParticipants(meeting) {
+     var map = membersMapFromMeeting(meeting);
+-    return Object.keys(map).map(function (id) {
++    var participants = Object.keys(map).map(function (id) {
+       return normalizeParticipant(map[id], id);
+     }).filter(function (participant) {
+       return !!participant.id;
+-    }).sort(participantSort);
++    });
++    return mergeRosterFallbackParticipants(participants).sort(participantSort);
++  }
++
++  function rosterFallbackStateUrl() {
++    var team = teamConfig();
++    return team && team.stateUrl ? String(team.stateUrl) : "";
++  }
++
++  function rosterFallbackStudentId(student) {
++    return String(student && (student.id || student.userId || student.email || student.name) || "").trim();
++  }
++
++  function normalizeRosterFallbackParticipant(student, team) {
++    var id = rosterFallbackStudentId(student);
++    var name = safeDisplayText(student && (student.name || student.displayName || student.fullName), "Student");
++    return {
++      id: "roster:" + id,
++      name: name,
++      status: safeDisplayText(team && team.name, "Daily Drills roster"),
++      isSelf: false,
++      isHost: false,
++      isInLobby: false,
++      isInMeeting: true,
++      isAudioMuted: null,
++      isVideoMuted: null,
++      isMutable: false,
++      isRosterFallback: true,
++      sessionLocusUrl: ""
++    };
++  }
++
++  function normalizeRosterFallbackState(payload) {
++    if (payload && Array.isArray(payload.teams)) return payload;
++    if (payload && payload.state && Array.isArray(payload.state.teams)) return payload.state;
++    if (payload && payload.data && Array.isArray(payload.data.teams)) return payload.data;
++    return null;
++  }
++
++  function collectRosterFallbackParticipants(payload) {
++    var nextState = normalizeRosterFallbackState(payload);
++    var output = [];
++    if (!nextState || !Array.isArray(nextState.teams)) return output;
++    nextState.teams.forEach(function (team) {
++      (Array.isArray(team.students) ? team.students : []).forEach(function (student) {
++        var id = rosterFallbackStudentId(student);
++        if (!id) return;
++        output.push(normalizeRosterFallbackParticipant(student, team));
++      });
++    });
++    return output;
++  }
++
++  function participantLikelySamePerson(a, b) {
++    var aName = String(a && a.name || "").trim().toLowerCase();
++    var bName = String(b && b.name || "").trim().toLowerCase();
++    if (!aName || !bName) return false;
++    return aName === bName || aName.indexOf(bName) !== -1 || bName.indexOf(aName) !== -1;
++  }
++
++  function mergeRosterFallbackParticipants(participants) {
++    var merged = (participants || []).slice();
++    var remoteSdkParticipants = merged.filter(function (participant) {
++      return participant && !participant.isSelf && (participant.isInMeeting || participant.isInLobby);
++    });
++    if (remoteSdkParticipants.length || !teamRosterFallbackParticipants.length) {
++      return merged;
++    }
++    teamRosterFallbackParticipants.forEach(function (fallback) {
++      var exists = merged.some(function (participant) {
++        return participantLikelySamePerson(participant, fallback);
++      });
++      if (!exists) merged.push(fallback);
++    });
++    return merged;
+   }
+ 
++  function fetchTeamRosterFallback() {
++    var url = rosterFallbackStateUrl();
++    var headers = { "Accept": "application/json" };
++    if (!isAdminMode() || !url || !window.fetch || hostRosterFallbackPollInFlight) {
++      return Promise.resolve(teamRosterFallbackParticipants);
++    }
++    hostRosterFallbackPollInFlight = true;
++    if (restNonce()) {
++      headers["X-WP-Nonce"] = restNonce();
++    }
++    return window.fetch(url + (url.indexOf("?") === -1 ? "?" : "&") + "mmed_v3_roster_fallback_ts=" + Date.now(), {
++      method: "GET",
++      credentials: "same-origin",
++      cache: "no-store",
++      headers: headers
++    }).then(function (response) {
++      return response.json().catch(function () { return {}; });
++    }).then(function (payload) {
++      teamRosterFallbackParticipants = collectRosterFallbackParticipants(payload);
++      hostRosterFallbackPollInFlight = false;
++      return teamRosterFallbackParticipants;
++    }, function () {
++      hostRosterFallbackPollInFlight = false;
++      return teamRosterFallbackParticipants;
++    });
++  }
++
+   function recordingState(meeting) {
+     var recording = meeting && meeting.recording;
+     var members = meetingMembersObject(meeting);
+@@ -1364,6 +1469,34 @@
+   function refreshRemoteParticipantFallback() {
+     if (!active.meeting) return;
+     hostControls.participants = collectParticipants(active.meeting);
++  }
++
++  function stopHostRosterPoll() {
++    if (hostRosterPollTimer) {
++      window.clearInterval(hostRosterPollTimer);
++      hostRosterPollTimer = 0;
++    }
++  }
++
++  function startHostRosterPoll() {
++    if (!isAdminMode()) return;
++    stopHostRosterPoll();
++    fetchTeamRosterFallback().then(function () {
++      if (active.meeting && active.state === "connected") {
++        refreshHostControls();
++      }
++    });
++    hostRosterPollTimer = window.setInterval(function () {
++      if (!active.meeting || active.state !== "connected") {
++        stopHostRosterPoll();
++        return;
++      }
++      fetchTeamRosterFallback().then(function () {
++        refreshHostControls();
++      }, function () {
++        refreshHostControls();
++      });
++    }, 2000);
+   }
+ 
+   function bindHostControlEvents(meeting) {
+@@ -2716,6 +2849,7 @@
+       stopPreview();
+     }
+ 
++    stopHostRosterPoll();
+ 	    if (active.meeting && typeof active.meeting.leave === "function") {
+ 	      try {
+ 	        active.meeting.leave();
+@@ -2991,11 +3125,12 @@
+         : "Webex connected, but reported role " + role + ". Confirm this meeting is owned or cohosted by the connected Webex account.";
+       if (mismatch) {
+         message += mismatch;
+-      }
+-	      setState("connected", role, message);
++	      }
++		      setState("connected", role, message);
+       refreshHostControls(role === "host" ? "Webex host controls ready." : "Connected, but Webex did not report host role.");
+-	      setEmbedStatus(stage, message, role === "host" && !mismatch ? "ready" : "error");
+-	    }).catch(function (error) {
++      startHostRosterPoll();
++		      setEmbedStatus(stage, message, role === "host" && !mismatch ? "ready" : "error");
++		    }).catch(function (error) {
+       var message = actionableError(error);
+       setState("failed", active.role || "unknown", message);
+       setEmbedStatus(stage, message, "error");
+@@ -3105,6 +3240,7 @@
+     active.microphoneStream = null;
+ 	    active.sourceMediaStream = null;
+ 	    active.mediaPath = "";
++    stopHostRosterPoll();
+     resetHostControls("Start the Webex session to use host controls.");
+     resetRemoteMedia("Waiting for remote students to join Webex.");
+ 	    if (!previewStillLive || !restoreLivePreviewAfterJoinFailure()) {

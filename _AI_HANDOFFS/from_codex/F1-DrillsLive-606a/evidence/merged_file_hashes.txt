@@ -1,0 +1,2 @@
+da7121967c9f6fa9ab7907c8ad78f26b746fde683306c25b39c28f47c07a4a37  wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-sdk-v3.js
+88e94a94529325dd054e5c0fa8b4073b2c48a90eac011e70bd46be5310b4535a  wp-content/plugins/missionmed-hub/assets/daily-drills-live-webex-v3-embed.js

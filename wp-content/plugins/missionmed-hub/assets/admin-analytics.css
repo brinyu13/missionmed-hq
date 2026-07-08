@@ -1,0 +1,102 @@
+.mmed-analytics-admin {
+	max-width: 1320px;
+}
+
+.mmed-analytics-header {
+	align-items: center;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	display: flex;
+	justify-content: space-between;
+	margin: 20px 0;
+	padding: 18px 20px;
+}
+
+.mmed-analytics-header h1 {
+	font-size: 26px;
+	margin: 4px 0 6px;
+}
+
+.mmed-analytics-header p {
+	color: #646970;
+	margin: 0;
+}
+
+.mmed-analytics-eyebrow {
+	color: #0e75a8;
+	font-size: 12px;
+	font-weight: 700;
+	letter-spacing: 0;
+	text-transform: uppercase;
+}
+
+.mmed-analytics-filters {
+	align-items: end;
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin-bottom: 16px;
+	padding: 14px;
+}
+
+.mmed-analytics-filters label {
+	color: #1d2327;
+	display: grid;
+	font-weight: 600;
+	gap: 5px;
+}
+
+.mmed-analytics-filters input,
+.mmed-analytics-filters select {
+	min-width: 180px;
+}
+
+.mmed-analytics-grid {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+	margin-bottom: 16px;
+}
+
+.mmed-analytics-card,
+.mmed-analytics-loading {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 6px;
+	padding: 16px;
+}
+
+.mmed-analytics-card h2 {
+	font-size: 18px;
+	margin: 0 0 12px;
+}
+
+.mmed-analytics-card canvas {
+	height: auto;
+	max-width: 100%;
+}
+
+.mmed-analytics-wide {
+	grid-column: 1 / -1;
+}
+
+.mmed-analytics-loading {
+	color: #646970;
+}
+
+@media (max-width: 782px) {
+	.mmed-analytics-filters {
+		align-items: stretch;
+		display: grid;
+	}
+
+	.mmed-analytics-filters input,
+	.mmed-analytics-filters select {
+		min-width: 0;
+		width: 100%;
+	}
+}

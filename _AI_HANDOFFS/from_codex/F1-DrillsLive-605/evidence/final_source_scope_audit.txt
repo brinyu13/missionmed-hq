@@ -1,0 +1,4 @@
+source_status_uall_count	47
+adopted_path_count	47
+status_not_in_adopted_count	0
+adopted_not_in_status_count	0

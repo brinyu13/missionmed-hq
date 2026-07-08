@@ -113,11 +113,24 @@ require_once MMED_HUB_PATH . 'includes/class-mmed-access-audit.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-access-gate.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-session-manager.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-webex-client.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-feature-flags.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-admin-os.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-attendance.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-session-reminders.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-session-analytics.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-action-items.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-session-chat.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-arena-live.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-drill-game.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-interview-prep.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-office-hours.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-welcome-email-admin.php';
 
 if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-student-os.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-rest-api.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-calendar-engine.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-communications.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-file-vault.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-study-schedule.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-supabase-bridge.php';
@@ -127,10 +140,20 @@ if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-ssa-adapter.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-todo-engine.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-calendar-enrollment.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-live-drills-preview.php';
+    if ( file_exists( MMED_HUB_PATH . 'includes/class-mmed-live-drills-sdk-v3.php' ) ) {
+        require_once MMED_HUB_PATH . 'includes/class-mmed-live-drills-sdk-v3.php';
+    }
 }
 
 MMED_Access_Audit::init();
 MMED_Access_Gate::init();
+if ( class_exists( 'MMED_Admin_OS' ) ) {
+    MMED_Admin_OS::init();
+}
+if ( class_exists( 'MMED_Welcome_Email_Admin' ) ) {
+    MMED_Welcome_Email_Admin::init();
+}
 
 /* ── Activation ───────────────────────────────────────────────────── */
 register_activation_hook( __FILE__, 'mmed_hub_activate' );
@@ -167,6 +190,11 @@ function mmed_hub_activate() {
         }
     }
 
+    if ( class_exists( 'MMED_Calendar_Enrollment' ) ) {
+        MMED_Calendar_Enrollment::seed_default_calendar_events();
+        update_option( 'mmed_calendar_default_events_version', MMED_Calendar_Enrollment::DEFAULT_EVENTS_VERSION, false );
+    }
+
     if ( class_exists( 'MMED_Session_Manager' ) ) {
         MMED_Session_Manager::maybe_install();
         MMED_Session_Manager::seed_defaults();
@@ -174,6 +202,46 @@ function mmed_hub_activate() {
 
     if ( class_exists( 'MMED_Webex_Client' ) ) {
         MMED_Webex_Client::seed_default_credentials();
+    }
+
+    if ( class_exists( 'MMED_Feature_Flags' ) ) {
+        MMED_Feature_Flags::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Attendance' ) ) {
+        MMED_Attendance::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Session_Reminders' ) ) {
+        MMED_Session_Reminders::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Session_Analytics' ) ) {
+        MMED_Session_Analytics::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Action_Items' ) ) {
+        MMED_Action_Items::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Session_Chat' ) ) {
+        MMED_Session_Chat::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Arena_Live' ) ) {
+        MMED_Arena_Live::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Drill_Game' ) ) {
+        MMED_Drill_Game::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Interview_Prep' ) ) {
+        MMED_Interview_Prep::maybe_install();
+    }
+
+    if ( class_exists( 'MMED_Office_Hours' ) ) {
+        MMED_Office_Hours::maybe_install();
     }
 }
 
@@ -200,11 +268,44 @@ if ( class_exists( 'MMED_Student_OS' ) ) {
 if ( class_exists( 'MMED_Calendar_Engine' ) ) {
     add_action( 'init', array( 'MMED_Calendar_Engine', 'init' ) );
 }
+if ( class_exists( 'MMED_Communications' ) ) {
+    add_action( 'init', array( 'MMED_Communications', 'init' ) );
+}
 if ( class_exists( 'MMED_Session_Manager' ) ) {
     add_action( 'init', array( 'MMED_Session_Manager', 'init' ) );
 }
 if ( class_exists( 'MMED_Webex_Client' ) ) {
     add_action( 'init', array( 'MMED_Webex_Client', 'init' ) );
+}
+if ( class_exists( 'MMED_Feature_Flags' ) ) {
+    add_action( 'init', array( 'MMED_Feature_Flags', 'init' ) );
+}
+if ( class_exists( 'MMED_Attendance' ) ) {
+    add_action( 'init', array( 'MMED_Attendance', 'init' ) );
+}
+if ( class_exists( 'MMED_Session_Reminders' ) ) {
+    add_action( 'init', array( 'MMED_Session_Reminders', 'init' ) );
+}
+if ( class_exists( 'MMED_Session_Analytics' ) ) {
+    add_action( 'init', array( 'MMED_Session_Analytics', 'init' ) );
+}
+if ( class_exists( 'MMED_Action_Items' ) ) {
+    add_action( 'init', array( 'MMED_Action_Items', 'init' ) );
+}
+if ( class_exists( 'MMED_Session_Chat' ) ) {
+    add_action( 'init', array( 'MMED_Session_Chat', 'init' ) );
+}
+if ( class_exists( 'MMED_Arena_Live' ) ) {
+    add_action( 'init', array( 'MMED_Arena_Live', 'init' ) );
+}
+if ( class_exists( 'MMED_Drill_Game' ) ) {
+    add_action( 'init', array( 'MMED_Drill_Game', 'init' ) );
+}
+if ( class_exists( 'MMED_Interview_Prep' ) ) {
+    add_action( 'init', array( 'MMED_Interview_Prep', 'init' ) );
+}
+if ( class_exists( 'MMED_Office_Hours' ) ) {
+    add_action( 'init', array( 'MMED_Office_Hours', 'init' ) );
 }
 if ( class_exists( 'MMED_File_Vault' ) ) {
     add_action( 'init', array( 'MMED_File_Vault', 'init' ) );
@@ -230,6 +331,12 @@ if ( class_exists( 'MMED_SSA_Adapter' ) ) {
 if ( class_exists( 'MMED_Todo_Engine' ) ) {
     add_action( 'init', array( 'MMED_Todo_Engine', 'init' ) );
     add_action( 'init', array( 'MMED_Calendar_Enrollment', 'init' ) );
+}
+if ( class_exists( 'MMED_Live_Drills_Preview' ) ) {
+    add_action( 'init', array( 'MMED_Live_Drills_Preview', 'init' ) );
+}
+if ( class_exists( 'MMED_Live_Drills_SDK_V3' ) ) {
+    add_action( 'init', array( 'MMED_Live_Drills_SDK_V3', 'init' ) );
 }
 if ( class_exists( 'MMED_REST_API' ) ) {
     MMED_REST_API::init();
@@ -547,8 +654,8 @@ function mmed_woo_order_complete( $order_id ) {
 
     $product_map = array();
     foreach ( MMED_Access_Audit::get_program_mappings() as $mapping ) {
-        if ( ! empty( $mapping['product_id'] ) ) {
-            $product_map[ (int) $mapping['product_id'] ] = $mapping;
+        foreach ( MMED_Access_Audit::get_mapping_product_ids( $mapping ) as $product_id ) {
+            $product_map[ $product_id ] = $mapping;
         }
     }
 
@@ -557,12 +664,30 @@ function mmed_woo_order_complete( $order_id ) {
     }
 
     foreach ( $order->get_items() as $item ) {
-        $product_id = (int) $item->get_product_id();
-        if ( ! isset( $product_map[ $product_id ] ) ) {
+        $item_product_ids = array();
+
+        if ( is_object( $item ) && method_exists( $item, 'get_product_id' ) ) {
+            $item_product_ids[] = (int) $item->get_product_id();
+        }
+
+        if ( is_object( $item ) && method_exists( $item, 'get_variation_id' ) ) {
+            $item_product_ids[] = (int) $item->get_variation_id();
+        }
+
+        $item_product_ids = array_values( array_unique( array_filter( array_map( 'absint', $item_product_ids ) ) ) );
+        $mapping          = null;
+
+        foreach ( $item_product_ids as $product_id ) {
+            if ( isset( $product_map[ $product_id ] ) ) {
+                $mapping = $product_map[ $product_id ];
+                break;
+            }
+        }
+
+        if ( empty( $mapping ) ) {
             continue;
         }
 
-        $mapping       = $product_map[ $product_id ];
         $template_slug = $mapping['template_slug'];
         $should_fire_template = ! empty( $template_slug );
 
@@ -632,6 +757,15 @@ function mmed_hub_admin_menu() {
         'mmed_render_session_admin'
     );
 
+    add_submenu_page(
+        'missionmed-hub',
+        'Session Analytics',
+        'Session Analytics',
+        'manage_options',
+        'mmed-session-analytics',
+        'mmed_render_session_analytics_admin'
+    );
+
     add_options_page(
         'MissionMed Hub Settings',
         'MissionMed Hub',
@@ -646,11 +780,16 @@ function mmed_render_session_admin() {
         return;
     }
 
+    $arena_battles_enabled = class_exists( 'MMED_Feature_Flags' ) && MMED_Feature_Flags::is_enabled( 'arena_live_battles' );
+    $office_hours_enabled  = class_exists( 'MMED_Feature_Flags' ) && MMED_Feature_Flags::is_enabled( 'office_hours_queue' );
+    $session_admin_js      = MMED_HUB_PATH . 'assets/admin-session-manager.js';
+    $session_admin_css     = MMED_HUB_PATH . 'assets/admin-session-manager.css';
+
     wp_enqueue_script(
         'mmed-session-manager',
         MMED_HUB_URL . 'assets/admin-session-manager.js',
         array( 'jquery', 'wp-api-fetch' ),
-        MMED_HUB_VERSION,
+        file_exists( $session_admin_js ) ? (string) filemtime( $session_admin_js ) : MMED_HUB_VERSION,
         true
     );
 
@@ -658,25 +797,135 @@ function mmed_render_session_admin() {
         'mmed-session-manager',
         MMED_HUB_URL . 'assets/admin-session-manager.css',
         array(),
-        MMED_HUB_VERSION
+        file_exists( $session_admin_css ) ? (string) filemtime( $session_admin_css ) : MMED_HUB_VERSION
     );
 
     wp_localize_script(
         'mmed-session-manager',
         'mmedSessionAdmin',
         array(
-            'restUrl'     => rest_url( 'mmed/v1/admin/sessions' ),
-            'webexRestUrl' => rest_url( 'mmed/v1/admin/webex' ),
-            'nonce'       => wp_create_nonce( 'wp_rest' ),
-            'instructors' => mmed_session_admin_instructors(),
-            'days'        => array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ),
-            'platforms'   => array( 'webex', 'zoom', 'google_meet', 'teams' ),
-            'eventTypes'  => array( 'mr_session', 'drill_step1', 'drill_step23', 'mock_interview', 'study_block', 'general', 'custom' ),
-            'webexSettings' => class_exists( 'MMED_Webex_Client' ) ? MMED_Webex_Client::get_admin_settings() : array(),
+            'restUrl'             => rest_url( 'mmed/v1/admin/sessions' ),
+            'webexRestUrl'        => rest_url( 'mmed/v1/admin/webex' ),
+            'attendanceRestUrl'   => rest_url( 'mmed/v1/admin/attendance' ),
+            'analyticsRestUrl'    => rest_url( 'mmed/v1/admin/analytics' ),
+            'featureFlagsRestUrl' => rest_url( 'mmed/v1/admin/feature-flags' ),
+            'nonce'               => wp_create_nonce( 'wp_rest' ),
+            'instructors'         => mmed_session_admin_instructors(),
+            'days'                => array( 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday' ),
+            'platforms'           => array( 'webex', 'zoom', 'google_meet', 'teams' ),
+            'eventTypes'          => array( 'mr_session', 'drill_step1', 'drill_step23', 'arena_event', 'office_hours', 'mock_interview_slot', 'mock_interview', 'study_block', 'general', 'custom' ),
+            'webexSettings'       => class_exists( 'MMED_Webex_Client' ) ? MMED_Webex_Client::get_admin_settings() : array(),
+            'featureFlags'        => class_exists( 'MMED_Feature_Flags' ) ? MMED_Feature_Flags::get_all_flags() : array(),
         )
     );
 
-    echo '<div class="wrap"><div id="mmed-session-manager-root"></div></div>';
+    if ( $arena_battles_enabled ) {
+        $arena_js  = MMED_HUB_PATH . 'assets/admin-arena-battles.js';
+        $arena_css = MMED_HUB_PATH . 'assets/admin-arena-battles.css';
+
+        wp_enqueue_script(
+            'mmed-admin-arena-battles',
+            MMED_HUB_URL . 'assets/admin-arena-battles.js',
+            array(),
+            file_exists( $arena_js ) ? (string) filemtime( $arena_js ) : MMED_HUB_VERSION,
+            true
+        );
+
+        wp_enqueue_style(
+            'mmed-admin-arena-battles',
+            MMED_HUB_URL . 'assets/admin-arena-battles.css',
+            array( 'mmed-session-manager' ),
+            file_exists( $arena_css ) ? (string) filemtime( $arena_css ) : MMED_HUB_VERSION
+        );
+
+        wp_localize_script(
+            'mmed-admin-arena-battles',
+            'mmedArenaAdmin',
+            array(
+                'arenaRestUrl'   => rest_url( 'mmed/v1/admin/arena-battles' ),
+                'sessionsRestUrl' => rest_url( 'mmed/v1/admin/sessions' ),
+                'nonce'          => wp_create_nonce( 'wp_rest' ),
+                'formats'        => array( 'lightning', 'case_showdown', 'app_review', 'interview_sim', 'weekly_challenge' ),
+                'featureEnabled' => true,
+            )
+        );
+    }
+
+    if ( $office_hours_enabled ) {
+        $office_js  = MMED_HUB_PATH . 'assets/admin-office-hours.js';
+        $office_css = MMED_HUB_PATH . 'assets/admin-office-hours.css';
+
+        wp_enqueue_script(
+            'mmed-admin-office-hours',
+            MMED_HUB_URL . 'assets/admin-office-hours.js',
+            array(),
+            file_exists( $office_js ) ? (string) filemtime( $office_js ) : MMED_HUB_VERSION,
+            true
+        );
+
+        wp_enqueue_style(
+            'mmed-admin-office-hours',
+            MMED_HUB_URL . 'assets/admin-office-hours.css',
+            array( 'mmed-session-manager' ),
+            file_exists( $office_css ) ? (string) filemtime( $office_css ) : MMED_HUB_VERSION
+        );
+
+        wp_localize_script(
+            'mmed-admin-office-hours',
+            'mmedOfficeHoursAdmin',
+            array(
+                'officeRestUrl'   => rest_url( 'mmed/v1/admin/office-hours' ),
+                'sessionsRestUrl' => rest_url( 'mmed/v1/admin/sessions' ),
+                'nonce'           => wp_create_nonce( 'wp_rest' ),
+                'featureEnabled'  => true,
+            )
+        );
+    }
+
+    echo '<div class="wrap"><div id="mmed-session-manager-root"></div>';
+    if ( $arena_battles_enabled ) {
+        echo '<div id="mmed-arena-battles-root"></div>';
+    }
+    if ( $office_hours_enabled ) {
+        echo '<div id="mmed-office-hours-root"></div>';
+    }
+    echo '</div>';
+}
+
+function mmed_render_session_analytics_admin() {
+    if ( ! current_user_can( 'manage_options' ) ) {
+        return;
+    }
+
+    $js_path  = MMED_HUB_PATH . 'assets/admin-analytics.js';
+    $css_path = MMED_HUB_PATH . 'assets/admin-analytics.css';
+
+    wp_enqueue_script(
+        'mmed-admin-analytics',
+        MMED_HUB_URL . 'assets/admin-analytics.js',
+        array( 'jquery' ),
+        file_exists( $js_path ) ? (string) filemtime( $js_path ) : MMED_HUB_VERSION,
+        true
+    );
+
+    wp_enqueue_style(
+        'mmed-admin-analytics',
+        MMED_HUB_URL . 'assets/admin-analytics.css',
+        array(),
+        file_exists( $css_path ) ? (string) filemtime( $css_path ) : MMED_HUB_VERSION
+    );
+
+    wp_localize_script(
+        'mmed-admin-analytics',
+        'mmedAnalyticsAdmin',
+        array(
+            'dashboardUrl' => rest_url( 'mmed/v1/admin/analytics/dashboard' ),
+            'nonce'        => wp_create_nonce( 'wp_rest' ),
+            'templates'    => array( '360elite', '360elite_onboarding', 'complete', 'foundation', 'usce' ),
+        )
+    );
+
+    echo '<div class="wrap"><div id="mmed-analytics-root"></div></div>';
 }
 
 function mmed_session_admin_instructors() {
@@ -831,7 +1080,7 @@ function mmed_hub_settings_page() {
                     <th><label for="mmed_reviewer_residency">Default Reviewer (Residency)</label></th>
                     <td>
                         <select id="mmed_reviewer_residency" name="mmed_reviewer_residency">
-                            <option value="0">- Select -</option>
+                            <option value="0">Select</option>
                             <?php foreach ( $reviewers as $u ) : ?>
                                 <option value="<?php echo esc_attr( $u->ID ); ?>" <?php selected( $rev_res, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?> (ID: <?php echo esc_html( $u->ID ); ?>)</option>
                             <?php endforeach; ?>
@@ -842,7 +1091,7 @@ function mmed_hub_settings_page() {
                     <th><label for="mmed_reviewer_clinicals">Default Reviewer (Clinicals)</label></th>
                     <td>
                         <select id="mmed_reviewer_clinicals" name="mmed_reviewer_clinicals">
-                            <option value="0">- Select -</option>
+                            <option value="0">Select</option>
                             <?php foreach ( $reviewers as $u ) : ?>
                                 <option value="<?php echo esc_attr( $u->ID ); ?>" <?php selected( $rev_clin, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?> (ID: <?php echo esc_html( $u->ID ); ?>)</option>
                             <?php endforeach; ?>
@@ -853,7 +1102,7 @@ function mmed_hub_settings_page() {
                     <th><label for="mmed_reviewer_usmle">Default Reviewer (USMLE)</label></th>
                     <td>
                         <select id="mmed_reviewer_usmle" name="mmed_reviewer_usmle">
-                            <option value="0">- Select -</option>
+                            <option value="0">Select</option>
                             <?php foreach ( $reviewers as $u ) : ?>
                                 <option value="<?php echo esc_attr( $u->ID ); ?>" <?php selected( $rev_usmle, $u->ID ); ?>><?php echo esc_html( $u->display_name ); ?> (ID: <?php echo esc_html( $u->ID ); ?>)</option>
                             <?php endforeach; ?>
@@ -864,31 +1113,31 @@ function mmed_hub_settings_page() {
                     <th colspan="2">
                         <hr>
                         <h2>Course Access Mapping</h2>
-                        <p class="description">These IDs power both the WooCommerce enrollment fallback and the MissionMed access audit screen. Residency auditing now tracks Foundation, Complete, and 360 alongside the USCE mapping below.</p>
+                        <p class="description">These primary IDs power the WooCommerce enrollment fallback and MissionMed access audit screen. Source-level aliases also accept current public and payment-plan products without changing the saved legacy option keys.</p>
                     </th>
                 </tr>
                 <tr>
-                    <th><label for="mmed_product_foundation">WooCommerce Product ID: Interview Prep Foundation</label></th>
-                    <td><input type="number" id="mmed_product_foundation" name="mmed_product_foundation" value="<?php echo esc_attr( $p_found ); ?>" class="small-text" /> <span class="description">Default: 3577</span></td>
+                    <th><label for="mmed_product_foundation">Primary WooCommerce Product ID: IV Prep Complete Masterclass</label></th>
+                    <td><input type="number" id="mmed_product_foundation" name="mmed_product_foundation" value="<?php echo esc_attr( $p_found ); ?>" class="small-text" /> <span class="description">Default: 3577. Source aliases: 3577, 5504, 5513.</span></td>
                 </tr>
                 <tr>
-                    <th><label for="mmed_course_foundation">LearnDash Course ID: Interview Prep Foundation</label></th>
+                    <th><label for="mmed_course_foundation">LearnDash Course ID: IV Prep Complete Masterclass</label></th>
                     <td><input type="number" id="mmed_course_foundation" name="mmed_course_foundation" value="<?php echo esc_attr( $c_found ); ?>" class="small-text" /> <span class="description">Default: 3646</span></td>
                 </tr>
                 <tr>
-                    <th><label for="mmed_product_complete">WooCommerce Product ID: Interview Prep Complete</label></th>
-                    <td><input type="number" id="mmed_product_complete" name="mmed_product_complete" value="<?php echo esc_attr( $p_complete ); ?>" class="small-text" /> <span class="description">Default: 3576</span></td>
+                    <th><label for="mmed_product_complete">Primary WooCommerce Product ID: Match Prep Pro</label></th>
+                    <td><input type="number" id="mmed_product_complete" name="mmed_product_complete" value="<?php echo esc_attr( $p_complete ); ?>" class="small-text" /> <span class="description">Default: 3576. Source aliases: 3576, 5512.</span></td>
                 </tr>
                 <tr>
-                    <th><label for="mmed_course_complete">LearnDash Course ID: Interview Prep Complete</label></th>
+                    <th><label for="mmed_course_complete">LearnDash Course ID: Match Prep Pro</label></th>
                     <td><input type="number" id="mmed_course_complete" name="mmed_course_complete" value="<?php echo esc_attr( $c_complete ); ?>" class="small-text" /> <span class="description">Default: 5227</span></td>
                 </tr>
                 <tr>
-                    <th><label for="mmed_product_360elite">WooCommerce Product ID: 360 Elite</label></th>
-                    <td><input type="number" id="mmed_product_360elite" name="mmed_product_360elite" value="<?php echo esc_attr( $p_360 ); ?>" class="small-text" /> <span class="description">Default: 3575</span></td>
+                    <th><label for="mmed_product_360elite">Primary WooCommerce Product ID: 360 Match Mentorship</label></th>
+                    <td><input type="number" id="mmed_product_360elite" name="mmed_product_360elite" value="<?php echo esc_attr( $p_360 ); ?>" class="small-text" /> <span class="description">Default: 3575. Source aliases: 3575, 5511.</span></td>
                 </tr>
                 <tr>
-                    <th><label for="mmed_course_360elite">LearnDash Course ID: 360 Elite</label></th>
+                    <th><label for="mmed_course_360elite">LearnDash Course ID: 360 Match Mentorship</label></th>
                     <td><input type="number" id="mmed_course_360elite" name="mmed_course_360elite" value="<?php echo esc_attr( $c_360 ); ?>" class="small-text" /> <span class="description">Default: 3893</span></td>
                 </tr>
                 <tr>
@@ -905,7 +1154,7 @@ function mmed_hub_settings_page() {
                 </tr>
                 <tr>
                     <th><label for="mmed_group_residency">LearnDash Group ID: Mission Residency</label></th>
-                    <td><input type="number" id="mmed_group_residency" name="mmed_group_residency" value="<?php echo esc_attr( $g_res ); ?>" class="small-text" /> <span class="description">Applied to Foundation, Complete, and 360 if a residency group is configured.</span></td>
+                    <td><input type="number" id="mmed_group_residency" name="mmed_group_residency" value="<?php echo esc_attr( $g_res ); ?>" class="small-text" /> <span class="description">Applied to IV Prep Complete Masterclass, Match Prep Pro, and 360 Match Mentorship if a residency group is configured.</span></td>
                 </tr>
                 <tr>
                     <th><label for="mmed_group_usmle">LearnDash Group ID: USMLE Exam Prep</label></th>
