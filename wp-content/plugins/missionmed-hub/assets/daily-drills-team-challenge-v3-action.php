@@ -81,7 +81,10 @@ $mmed_v3_lock_wait_ms = (int) floor( microtime( true ) * 1000 ) - $mmed_v3_lock_
 
 $mmed_v3_request = new WP_REST_Request( 'POST', '/mmed/v1/live-drills-v3/team-challenge' );
 foreach ( $mmed_v3_payload as $mmed_v3_key => $mmed_v3_value ) {
-	$mmed_v3_request->set_param( sanitize_key( $mmed_v3_key ), $mmed_v3_value );
+	if ( ! is_string( $mmed_v3_key ) || ! preg_match( '/^[A-Za-z][A-Za-z0-9_]{0,63}$/', $mmed_v3_key ) ) {
+		continue;
+	}
+	$mmed_v3_request->set_param( $mmed_v3_key, $mmed_v3_value );
 }
 
 $mmed_v3_result = MMED_Live_Drills_SDK_V3::update_team_challenge_state( $mmed_v3_request, $mmed_v3_viewer );
