@@ -1,700 +1,334 @@
 <?php
 /**
- * V3-only low-latency Team Challenge action endpoint.
+ * Sole Drills LIVE state transport and mutation gateway.
  *
- * This intentionally does not bootstrap the full MissionMed plugin stack. It
- * only accepts host scoring actions after validating the WordPress logged-in
- * cookie, REST nonce, and manage_options capability with a SHORTINIT load.
+ * Anonymous GET requests read a privacy-safe static snapshot without WordPress
+ * or database boot. Authorized reads use a session-bound viewer ticket and a
+ * SHORTINIT boot only to access the signing salts. Every mutation takes one
+ * lock, boots WordPress once, and delegates to the protected gameplay class.
+ *
+ * @package MissionMed_Hub
  */
 
-define( 'SHORTINIT', true );
-
+$mmed_v3_request_started_ms = (int) floor( microtime( true ) * 1000 );
+$mmed_v3_method = strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) );
 $mmed_v3_root = dirname( __DIR__, 4 );
-require_once $mmed_v3_root . '/wp-load.php';
 
-$mmed_v3_method = strtoupper( $_SERVER['REQUEST_METHOD'] ?? 'GET' );
+require_once dirname( __DIR__ ) . '/includes/class-mmed-live-drills-state-contract.php';
 
-if ( 'GET' === $mmed_v3_method ) {
-	$state = mmed_v3_read_snapshot();
-	if ( empty( $state['teams'] ) || ! is_array( $state['teams'] ) ) {
-		mmed_v3_json( array( 'message' => 'Team Challenge state is unavailable.' ), 404 );
-	}
-	mmed_v3_json( $state, 200 );
+if ( 'GET' === $mmed_v3_method || 'HEAD' === $mmed_v3_method ) {
+	mmed_v3_floor_handle_get( $mmed_v3_root, 'HEAD' === $mmed_v3_method );
 }
 
 if ( 'POST' !== $mmed_v3_method ) {
-	mmed_v3_json( array( 'message' => 'Method not allowed.' ), 405 );
+	mmed_v3_floor_json( array( 'message' => 'This room does not support that request.' ), 405 );
 }
 
-$mmed_v3_admin_auth = mmed_v3_authenticate_admin_request();
-if ( ! $mmed_v3_admin_auth['ok'] ) {
-	mmed_v3_json( array( 'message' => 'Host/admin session required.' ), 403 );
+require_once $mmed_v3_root . '/wp-load.php';
+
+if ( ! class_exists( 'MMED_Live_Drills_SDK_V3' ) ) {
+	mmed_v3_floor_json( array( 'message' => 'The live room is unavailable. Refresh the page or contact the host.' ), 503 );
 }
 
-$payload = json_decode( file_get_contents( 'php://input' ), true );
-if ( ! is_array( $payload ) ) {
-	mmed_v3_json( array( 'message' => 'Invalid Team Challenge action.' ), 400 );
+mmed_v3_floor_require_same_origin();
+
+$mmed_v3_nonce = isset( $_SERVER['HTTP_X_WP_NONCE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_WP_NONCE'] ) ) : '';
+if ( ! wp_verify_nonce( $mmed_v3_nonce, 'wp_rest' ) ) {
+	mmed_v3_floor_json( array( 'message' => 'Your room session expired. Refresh the page and try again.' ), 403 );
 }
 
-$state = mmed_v3_read_snapshot();
-if ( empty( $state['teams'] ) || ! is_array( $state['teams'] ) ) {
-	mmed_v3_json( array( 'message' => 'Team Challenge state is unavailable.' ), 409 );
+$mmed_v3_payload = json_decode( (string) file_get_contents( 'php://input' ), true );
+if ( ! is_array( $mmed_v3_payload ) ) {
+	mmed_v3_floor_json( array( 'message' => 'That room action could not be read. Try again.' ), 400 );
 }
 
-$action = mmed_v3_key( $payload['action'] ?? '' );
+$mmed_v3_action = sanitize_key( $mmed_v3_payload['action'] ?? '' );
+$mmed_v3_ticket = mmed_v3_floor_viewer_ticket();
+$mmed_v3_viewer = array();
+$mmed_v3_private_path = mmed_v3_floor_private_snapshot_path( $mmed_v3_root );
+$mmed_v3_private_state = MMED_Live_Drills_State_Contract::read_json( $mmed_v3_private_path );
+$mmed_v3_session_id = sanitize_key( $mmed_v3_private_state['sessionId'] ?? '' );
 
-if ( 'score' === $action ) {
-	$state = mmed_v3_apply_score( $state, ! empty( $payload['correct'] ) );
-	if ( ! empty( $payload['autoNext'] ) ) {
-		$state = mmed_v3_auto_select_next( $state, mmed_v3_key( $payload['autoNextMode'] ?? '' ) );
-		$action = 'score_auto_next';
-	}
-} elseif ( 'declare_winner' === $action ) {
-	$state = mmed_v3_declare_winner( $state, mmed_v3_key( $payload['teamId'] ?? '' ) );
-} elseif ( 'undo_score' === $action ) {
-	$state = mmed_v3_undo_score( $state );
-} elseif ( 'auto_select_next' === $action ) {
-	$state = mmed_v3_auto_select_next( $state, mmed_v3_key( $payload['mode'] ?? '' ) );
-} elseif ( 'select_student' === $action ) {
-	$state = mmed_v3_select_student( $state, mmed_v3_key( $payload['teamId'] ?? '' ), mmed_v3_key( $payload['studentId'] ?? '' ) );
-} elseif ( 'set_countdown' === $action ) {
-	$state = mmed_v3_set_countdown( $state, mmed_v3_key( $payload['command'] ?? '' ), $payload['durationSeconds'] ?? 0 );
-} elseif ( 'reset' === $action ) {
-	$state = mmed_v3_reset_scores( $state );
-} else {
-	mmed_v3_json( array( 'message' => 'Action requires the standard Team Challenge endpoint.' ), 405 );
-}
-
-$state = mmed_v3_append_history( $state, $action );
-$state['snapshotGeneratedAtMs'] = (int) floor( microtime( true ) * 1000 );
-
-if ( ! mmed_v3_persist_option_state( $state ) || ! mmed_v3_write_snapshot( $state ) ) {
-	mmed_v3_json( array( 'message' => 'Could not save Team Challenge state.' ), 500 );
-}
-
-mmed_v3_json( $state, 200 );
-
-function mmed_v3_authenticate_admin_request() {
-	$nonce = isset( $_SERVER['HTTP_X_WP_NONCE'] ) ? (string) $_SERVER['HTTP_X_WP_NONCE'] : '';
-	if ( '' === $nonce ) {
-		return array( 'ok' => false, 'reason' => 'missing_nonce' );
-	}
-
-	$auth = mmed_v3_validate_logged_in_cookie();
-	if ( empty( $auth['user_id'] ) || empty( $auth['token'] ) ) {
-		return array( 'ok' => false, 'reason' => $auth['reason'] ?? 'invalid_cookie' );
-	}
-
-	if ( ! mmed_v3_verify_rest_nonce( $nonce, (int) $auth['user_id'], (string) $auth['token'] ) ) {
-		return array( 'ok' => false, 'reason' => 'invalid_nonce' );
-	}
-
-	if ( ! mmed_v3_user_has_administrator_cap( (int) $auth['user_id'] ) ) {
-		return array( 'ok' => false, 'reason' => 'missing_admin_cap' );
-	}
-
-	return array(
-		'ok'      => true,
-		'user_id' => (int) $auth['user_id'],
+if ( is_user_logged_in() ) {
+	$mmed_v3_viewer = array(
+		'id'        => 'u' . get_current_user_id(),
+		'role'      => current_user_can( 'manage_options' ) ? 'host' : 'participant',
+		'sessionId' => $mmed_v3_session_id,
+	);
+} elseif ( '' !== $mmed_v3_ticket && '' !== $mmed_v3_session_id ) {
+	$mmed_v3_viewer = MMED_Live_Drills_State_Contract::verify_viewer_ticket(
+		mmed_v3_floor_secret(),
+		$mmed_v3_ticket,
+		$mmed_v3_session_id
 	);
 }
 
-function mmed_v3_validate_logged_in_cookie() {
-	global $wpdb;
+$mmed_v3_anonymous_actions = array( 'guest_join', 'guest_watch' );
+if ( empty( $mmed_v3_viewer ) && ! in_array( $mmed_v3_action, $mmed_v3_anonymous_actions, true ) ) {
+	mmed_v3_floor_json( array( 'message' => 'Choose Play or Watch again to reconnect to this room.' ), 401 );
+}
 
-	$cookie_name = mmed_v3_logged_in_cookie_name();
-	if ( ! $wpdb ) {
-		return array( 'reason' => 'missing_database' );
-	}
-	if ( '' === $cookie_name ) {
-		return array( 'reason' => 'missing_cookie_name' );
-	}
-	if ( empty( $_COOKIE[ $cookie_name ] ) ) {
-		return array( 'reason' => 'missing_cookie_value' );
-	}
+$mmed_v3_lock_started_ms = (int) floor( microtime( true ) * 1000 );
+$mmed_v3_lock = mmed_v3_floor_acquire_writer_lock( $mmed_v3_root );
+if ( ! is_resource( $mmed_v3_lock ) ) {
+	mmed_v3_floor_json( array( 'message' => 'The room is processing another update. Try again in a moment.' ), 503 );
+}
+$mmed_v3_lock_wait_ms = (int) floor( microtime( true ) * 1000 ) - $mmed_v3_lock_started_ms;
 
-	$cookie = (string) wp_unslash( $_COOKIE[ $cookie_name ] );
-	$parts  = explode( '|', $cookie );
-	if ( 4 !== count( $parts ) ) {
-		return array( 'reason' => 'bad_cookie_parts' );
-	}
+$mmed_v3_request = new WP_REST_Request( 'POST', '/mmed/v1/live-drills-v3/team-challenge' );
+foreach ( $mmed_v3_payload as $mmed_v3_key => $mmed_v3_value ) {
+	$mmed_v3_request->set_param( sanitize_key( $mmed_v3_key ), $mmed_v3_value );
+}
 
-	list( $username, $expiration, $token, $hmac ) = $parts;
-	$expiration = (int) $expiration;
-	if ( $expiration < time() || '' === $username || '' === $token || '' === $hmac ) {
-		return array( 'reason' => 'expired_or_empty_cookie' );
-	}
+$mmed_v3_result = MMED_Live_Drills_SDK_V3::update_team_challenge_state( $mmed_v3_request, $mmed_v3_viewer );
+$mmed_v3_accepted_ms = (int) floor( microtime( true ) * 1000 );
 
-	$user = $wpdb->get_row(
-		$wpdb->prepare(
-			"SELECT ID, user_login, user_pass FROM {$wpdb->users} WHERE user_login = %s LIMIT 1",
-			$username
+if ( is_wp_error( $mmed_v3_result ) ) {
+	flock( $mmed_v3_lock, LOCK_UN );
+	fclose( $mmed_v3_lock );
+	$mmed_v3_error_data = $mmed_v3_result->get_error_data();
+	$mmed_v3_error_status = is_array( $mmed_v3_error_data ) && ! empty( $mmed_v3_error_data['status'] ) ? absint( $mmed_v3_error_data['status'] ) : 400;
+	mmed_v3_floor_json(
+		array(
+			'code'    => $mmed_v3_result->get_error_code(),
+			'message' => $mmed_v3_result->get_error_message(),
 		),
-		ARRAY_A
-	);
-	if ( ! is_array( $user ) || empty( $user['ID'] ) || empty( $user['user_pass'] ) ) {
-		return array( 'reason' => 'user_not_found' );
-	}
-
-	$pass_frag = mmed_v3_password_fragment( (string) $user['user_pass'] );
-	$key       = mmed_v3_wp_hash( $username . '|' . $pass_frag . '|' . $expiration . '|' . $token, 'logged_in' );
-	$hash      = hash_hmac( 'sha256', $username . '|' . $expiration . '|' . $token, $key );
-	if ( ! hash_equals( $hash, $hmac ) ) {
-		return array( 'reason' => 'cookie_hash_mismatch' );
-	}
-
-	if ( ! mmed_v3_session_token_is_active( (int) $user['ID'], $token ) ) {
-		return array( 'reason' => 'session_token_inactive' );
-	}
-
-	return array(
-		'user_id' => (int) $user['ID'],
-		'token'   => $token,
+		$mmed_v3_error_status
 	);
 }
 
-function mmed_v3_logged_in_cookie_name() {
-	if ( defined( 'LOGGED_IN_COOKIE' ) && '' !== LOGGED_IN_COOKIE && isset( $_COOKIE[ LOGGED_IN_COOKIE ] ) ) {
-		return LOGGED_IN_COOKIE;
+if ( method_exists( 'MMED_Live_Drills_SDK_V3', 'team_challenge_last_persist_error' ) ) {
+	$mmed_v3_persist_error = MMED_Live_Drills_SDK_V3::team_challenge_last_persist_error();
+	if ( '' !== $mmed_v3_persist_error ) {
+		flock( $mmed_v3_lock, LOCK_UN );
+		fclose( $mmed_v3_lock );
+		mmed_v3_floor_json( array( 'message' => 'The room could not safely save that update. Nothing else should be changed; try again.' ), 500 );
 	}
+}
 
-	foreach ( array_keys( $_COOKIE ) as $cookie_name ) {
-		if ( 0 === strpos( (string) $cookie_name, 'wordpress_logged_in_' ) ) {
-			return (string) $cookie_name;
+$mmed_v3_state = $mmed_v3_result instanceof WP_REST_Response ? $mmed_v3_result->get_data() : $mmed_v3_result;
+$mmed_v3_state = MMED_Live_Drills_State_Contract::normalize_state( $mmed_v3_state );
+
+if ( in_array( $mmed_v3_action, $mmed_v3_anonymous_actions, true ) ) {
+	$mmed_v3_guest_id = sanitize_key( $mmed_v3_payload['guestId'] ?? '' );
+	if ( 0 !== strpos( $mmed_v3_guest_id, 'guest-' ) ) {
+		$mmed_v3_guest_id = 'guest-' . $mmed_v3_guest_id;
+	}
+	$mmed_v3_viewer = array(
+		'id'        => $mmed_v3_guest_id,
+		'role'      => 'participant',
+		'sessionId' => $mmed_v3_state['sessionId'],
+	);
+}
+
+if ( empty( $mmed_v3_viewer ) ) {
+	$mmed_v3_viewer = array( 'id' => '', 'role' => 'public', 'sessionId' => $mmed_v3_state['sessionId'] );
+}
+
+$mmed_v3_response = MMED_Live_Drills_State_Contract::viewer_view( $mmed_v3_state, $mmed_v3_viewer );
+if ( in_array( $mmed_v3_viewer['role'] ?? '', array( 'host', 'participant' ), true ) ) {
+	$mmed_v3_response['_viewerTicket'] = MMED_Live_Drills_State_Contract::issue_viewer_ticket(
+		mmed_v3_floor_secret(),
+		$mmed_v3_viewer['id'],
+		$mmed_v3_viewer['role'],
+		$mmed_v3_state['sessionId']
+	);
+}
+
+$mmed_v3_response['nowMs'] = $mmed_v3_accepted_ms;
+$mmed_v3_response['_meta'] = array(
+	'actionReceivedAtMs' => $mmed_v3_request_started_ms,
+	'serverAcceptedAtMs' => $mmed_v3_accepted_ms,
+	'processingMs'       => max( 0, $mmed_v3_accepted_ms - $mmed_v3_request_started_ms ),
+	'lockWaitMs'         => max( 0, $mmed_v3_lock_wait_ms ),
+	'eventSeq'           => (int) ( $mmed_v3_state['eventSeq'] ?? 0 ),
+	'lifecycle'          => sanitize_key( $mmed_v3_state['lifecycle']['state'] ?? 'idle' ),
+);
+
+flock( $mmed_v3_lock, LOCK_UN );
+fclose( $mmed_v3_lock );
+
+mmed_v3_floor_json( $mmed_v3_response, 200 );
+
+/**
+ * Serve a conditional public or ticket-authorized state read.
+ *
+ * @param string $root WordPress root.
+ * @param bool   $head Whether this is a HEAD request.
+ * @return void
+ */
+function mmed_v3_floor_handle_get( $root, $head = false ) {
+	$public_path = mmed_v3_floor_public_snapshot_path( $root );
+	$public_state = MMED_Live_Drills_State_Contract::read_json( $public_path );
+	$ticket = mmed_v3_floor_viewer_ticket();
+	$viewer = array();
+	$reader_mode = 'static-public';
+	$state = $public_state;
+
+	if ( '' !== $ticket ) {
+		if ( ! defined( 'SHORTINIT' ) ) {
+			define( 'SHORTINIT', true );
 		}
-	}
-
-	return defined( 'LOGGED_IN_COOKIE' ) ? (string) LOGGED_IN_COOKIE : '';
-}
-
-function mmed_v3_password_fragment( $hash ) {
-	if ( 0 === strpos( $hash, '$P$' ) || 0 === strpos( $hash, '$2y$' ) || 0 === strpos( $hash, '$2a$' ) ) {
-		return substr( $hash, 8, 4 );
-	}
-
-	return substr( $hash, -4 );
-}
-
-function mmed_v3_session_token_is_active( $user_id, $token ) {
-	global $wpdb;
-	if ( ! $wpdb || empty( $wpdb->usermeta ) ) {
-		return false;
-	}
-
-	$row = $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key = %s LIMIT 1",
-			$user_id,
-			'session_tokens'
-		)
-	);
-	$sessions = mmed_v3_maybe_unserialize( $row );
-	if ( ! is_array( $sessions ) ) {
-		return false;
-	}
-
-	$verifier = hash( 'sha256', $token );
-	if ( empty( $sessions[ $verifier ] ) || ! is_array( $sessions[ $verifier ] ) ) {
-		return false;
-	}
-
-	return empty( $sessions[ $verifier ]['expiration'] ) || (int) $sessions[ $verifier ]['expiration'] >= time();
-}
-
-function mmed_v3_verify_rest_nonce( $nonce, $user_id, $token ) {
-	$nonce = (string) $nonce;
-	if ( '' === $nonce || ! $user_id || '' === $token ) {
-		return false;
-	}
-
-	$life = defined( 'DAY_IN_SECONDS' ) ? DAY_IN_SECONDS : 86400;
-	$tick = (int) ceil( time() / ( $life / 2 ) );
-	foreach ( array( $tick, $tick - 1 ) as $candidate_tick ) {
-		$expected = substr( mmed_v3_wp_hash( $candidate_tick . '|wp_rest|' . $user_id . '|' . $token, 'nonce' ), -12, 10 );
-		if ( hash_equals( $expected, $nonce ) ) {
-			return true;
+		require_once $root . '/wp-load.php';
+		$private_state = MMED_Live_Drills_State_Contract::read_json( mmed_v3_floor_private_snapshot_path( $root ) );
+		$session_id = (string) ( $private_state['sessionId'] ?? '' );
+		$viewer = MMED_Live_Drills_State_Contract::verify_viewer_ticket( mmed_v3_floor_secret(), $ticket, $session_id );
+		if ( empty( $viewer ) ) {
+			mmed_v3_floor_json( array( 'message' => 'Your room access expired. Choose Play or Watch again.' ), 401 );
 		}
+		$state = $private_state;
+		$reader_mode = 'static-ticket';
 	}
 
+	if ( empty( $state['teams'] ) || ! is_array( $state['teams'] ) ) {
+		mmed_v3_floor_json( array( 'message' => 'The live room is not ready yet. Keep this page open and try again shortly.' ), 404 );
+	}
+
+	$response = empty( $viewer )
+		? MMED_Live_Drills_State_Contract::public_view( $state )
+		: MMED_Live_Drills_State_Contract::viewer_view( $state, $viewer );
+	$etag = MMED_Live_Drills_State_Contract::etag( $response );
+	$now_ms = MMED_Live_Drills_State_Contract::now_ms();
+	$snapshot_ms = (int) ( $response['snapshotGeneratedAtMs'] ?? 0 );
+	$if_none_match = trim( (string) ( $_SERVER['HTTP_IF_NONE_MATCH'] ?? '' ) );
+
+	header( 'ETag: ' . $etag );
+	header( 'Vary: X-MMED-Viewer-Ticket' );
+	header( 'X-MMED-Reader-Mode: ' . $reader_mode );
+	header( 'X-MMED-Server-Now-Ms: ' . $now_ms );
+	header( 'X-MMED-Event-Seq: ' . (int) ( $response['eventSeq'] ?? 0 ) );
+	header( 'X-MMED-Lifecycle: ' . preg_replace( '/[^a-z_]/', '', (string) ( $response['lifecycle']['state'] ?? 'idle' ) ) );
+	header( 'X-MMED-Snapshot-Age-Ms: ' . max( 0, $now_ms - $snapshot_ms ) );
+	header( empty( $viewer ) ? 'Cache-Control: no-store, max-age=0' : 'Cache-Control: no-store, private, max-age=0' );
+	header( 'Pragma: no-cache' );
+	header( 'X-Content-Type-Options: nosniff' );
+
+	if ( '*' === $if_none_match || in_array( $etag, array_map( 'trim', explode( ',', $if_none_match ) ), true ) ) {
+		http_response_code( 304 );
+		exit;
+	}
+
+	$response['nowMs'] = $now_ms;
+	if ( $head ) {
+		header( 'Content-Type: application/json; charset=UTF-8' );
+		http_response_code( 200 );
+		exit;
+	}
+	mmed_v3_floor_json( $response, 200 );
+}
+
+/**
+ * Return the state reader ticket from an HTTP header only.
+ *
+ * @return string
+ */
+function mmed_v3_floor_viewer_ticket() {
+	$ticket = (string) ( $_SERVER['HTTP_X_MMED_VIEWER_TICKET'] ?? '' );
+
+	return strlen( $ticket ) <= 2048 ? trim( $ticket ) : '';
+}
+
+/**
+ * Return the signing secret after WordPress configuration has loaded.
+ *
+ * @return string
+ */
+function mmed_v3_floor_secret() {
+	$auth_key = defined( 'AUTH_KEY' ) ? (string) AUTH_KEY : '';
+	$auth_salt = defined( 'AUTH_SALT' ) ? (string) AUTH_SALT : '';
+
+	return hash( 'sha256', 'mmed-live-drills-viewer|' . $auth_key . '|' . $auth_salt );
+}
+
+/**
+ * Return the anonymous public snapshot path.
+ *
+ * @param string $root WordPress root.
+ * @return string
+ */
+function mmed_v3_floor_public_snapshot_path( $root ) {
+	$override = getenv( 'MMED_V3_PUBLIC_STATE_PATH' );
+	if ( is_string( $override ) && '' !== trim( $override ) ) {
+		return $override;
+	}
+
+	return rtrim( $root, '/' ) . '/wp-content/uploads/' . MMED_Live_Drills_State_Contract::PUBLIC_SNAPSHOT_RELATIVE_PATH;
+}
+
+/**
+ * Return the private snapshot path outside the public document root.
+ *
+ * @param string $root WordPress root.
+ * @return string
+ */
+function mmed_v3_floor_private_snapshot_path( $root ) {
+	$override = getenv( 'MMED_V3_PRIVATE_STATE_PATH' );
+	if ( is_string( $override ) && '' !== trim( $override ) ) {
+		return $override;
+	}
+
+	return dirname( rtrim( $root, '/' ) ) . '/private/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
+}
+
+/**
+ * Acquire the sole writer lock with a bounded wait.
+ *
+ * @param string $root WordPress root.
+ * @return resource|false
+ */
+function mmed_v3_floor_acquire_writer_lock( $root ) {
+	$path = dirname( mmed_v3_floor_private_snapshot_path( $root ) ) . '/team-challenge-state.lock';
+	$directory = dirname( $path );
+	if ( ! is_dir( $directory ) && ! mkdir( $directory, 0750, true ) ) {
+		return false;
+	}
+	$handle = fopen( $path, 'c+' );
+	if ( ! is_resource( $handle ) ) {
+		return false;
+	}
+	@chmod( $path, 0640 );
+	$deadline = microtime( true ) + 2.0;
+	do {
+		if ( flock( $handle, LOCK_EX | LOCK_NB ) ) {
+			return $handle;
+		}
+		usleep( 20000 );
+	} while ( microtime( true ) < $deadline );
+
+	fclose( $handle );
 	return false;
 }
 
-function mmed_v3_wp_hash( $data, $scheme ) {
-	return hash_hmac( 'md5', (string) $data, mmed_v3_salt( $scheme ) );
+/**
+ * Enforce same-origin browser mutations.
+ *
+ * @return void
+ */
+function mmed_v3_floor_require_same_origin() {
+	$origin = trim( (string) ( $_SERVER['HTTP_ORIGIN'] ?? '' ) );
+	if ( '' === $origin ) {
+		return;
+	}
+	$origin_host = strtolower( (string) wp_parse_url( $origin, PHP_URL_HOST ) );
+	$site_host = strtolower( (string) wp_parse_url( home_url( '/' ), PHP_URL_HOST ) );
+	if ( '' === $origin_host || '' === $site_host || ! hash_equals( $site_host, $origin_host ) ) {
+		mmed_v3_floor_json( array( 'message' => 'Open this room from MissionMed and try again.' ), 403 );
+	}
 }
 
-function mmed_v3_salt( $scheme ) {
-	$scheme = strtolower( (string) $scheme );
-	if ( 'nonce' === $scheme ) {
-		return mmed_v3_constant( 'NONCE_KEY' ) . mmed_v3_constant( 'NONCE_SALT' );
-	}
-	if ( 'logged_in' === $scheme ) {
-		return mmed_v3_constant( 'LOGGED_IN_KEY' ) . mmed_v3_constant( 'LOGGED_IN_SALT' );
-	}
-
-	return mmed_v3_constant( 'AUTH_KEY' ) . mmed_v3_constant( 'AUTH_SALT' );
-}
-
-function mmed_v3_constant( $name ) {
-	return defined( $name ) ? (string) constant( $name ) : '';
-}
-
-function mmed_v3_user_has_administrator_cap( $user_id ) {
-	global $wpdb;
-	if ( ! $wpdb || empty( $wpdb->usermeta ) ) {
-		return false;
-	}
-
-	$key = $wpdb->prefix . 'capabilities';
-	$row = $wpdb->get_var( $wpdb->prepare( "SELECT meta_value FROM {$wpdb->usermeta} WHERE user_id = %d AND meta_key = %s LIMIT 1", $user_id, $key ) );
-	if ( ! is_string( $row ) || '' === $row ) {
-		return false;
-	}
-
-	$caps = mmed_v3_maybe_unserialize( $row );
-	return is_array( $caps ) && ! empty( $caps['administrator'] );
-}
-
-function mmed_v3_maybe_unserialize( $value ) {
-	if ( ! is_string( $value ) ) {
-		return $value;
-	}
-
-	$trimmed = trim( $value );
-	if ( '' === $trimmed ) {
-		return $value;
-	}
-
-	if ( 'N;' === $trimmed || preg_match( '/^[aOsibd]:/', $trimmed ) ) {
-		$decoded = @unserialize( $trimmed );
-		if ( false !== $decoded || 'b:0;' === $trimmed ) {
-			return $decoded;
-		}
-	}
-
-	return $value;
-}
-
-function mmed_v3_snapshot_path() {
-	return dirname( __DIR__, 3 ) . '/uploads/missionmed-live-drills-v3/team-challenge-state.json';
-}
-
-function mmed_v3_read_snapshot() {
-	$path = mmed_v3_snapshot_path();
-	if ( ! file_exists( $path ) ) {
-		return array();
-	}
-
-	$decoded = json_decode( file_get_contents( $path ), true );
-	return is_array( $decoded ) ? $decoded : array();
-}
-
-function mmed_v3_write_snapshot( $state ) {
-	$path = mmed_v3_snapshot_path();
-	$dir  = dirname( $path );
-	if ( ! is_dir( $dir ) && ! mkdir( $dir, 0755, true ) ) {
-		return false;
-	}
-
-	$json = mmed_v3_json_encode( $state );
-	if ( ! is_string( $json ) || '' === $json ) {
-		return false;
-	}
-
-	$tmp = $path . '.tmp.' . bin2hex( random_bytes( 6 ) );
-	if ( false === file_put_contents( $tmp, $json, LOCK_EX ) ) {
-		return false;
-	}
-	@chmod( $tmp, 0644 );
-	if ( ! rename( $tmp, $path ) ) {
-		@unlink( $tmp );
-		return false;
-	}
-
-	return true;
-}
-
-function mmed_v3_persist_option_state( $state ) {
-	global $wpdb;
-
-	if ( ! $wpdb || empty( $wpdb->options ) || ! is_array( $state ) ) {
-		return false;
-	}
-
-	$option_name  = 'mmed_live_drills_v3_team_challenge_state';
-	$option_value = serialize( $state );
-	$existing_id  = $wpdb->get_var(
-		$wpdb->prepare(
-			"SELECT option_id FROM {$wpdb->options} WHERE option_name = %s LIMIT 1",
-			$option_name
-		)
-	);
-
-	if ( $existing_id ) {
-		$updated = $wpdb->update(
-			$wpdb->options,
-			array(
-				'option_value' => $option_value,
-				'autoload'     => 'no',
-			),
-			array( 'option_name' => $option_name ),
-			array( '%s', '%s' ),
-			array( '%s' )
-		);
-
-		return false !== $updated;
-	}
-
-	$inserted = $wpdb->insert(
-		$wpdb->options,
-		array(
-			'option_name'  => $option_name,
-			'option_value' => $option_value,
-			'autoload'     => 'no',
-		),
-		array( '%s', '%s', '%s' )
-	);
-
-	return false !== $inserted;
-}
-
-function mmed_v3_apply_score( $state, $correct ) {
-	$active = is_array( $state['active'] ?? null ) ? $state['active'] : array();
-	$team_id = mmed_v3_key( $active['teamId'] ?? '' );
-	$student_id = mmed_v3_key( $active['studentId'] ?? '' );
-
-	foreach ( $state['teams'] as $team_index => $team ) {
-		if ( mmed_v3_key( $team['id'] ?? '' ) !== $team_id || empty( $team['students'] ) || ! is_array( $team['students'] ) ) {
-			continue;
-		}
-		foreach ( $team['students'] as $student_index => $student ) {
-			if ( mmed_v3_key( $student['id'] ?? '' ) !== $student_id ) {
-				continue;
-			}
-			$name = mmed_v3_text( $student['name'] ?? 'Student' );
-			$state['teams'][ $team_index ]['students'][ $student_index ]['attempts'] = (int) ( $student['attempts'] ?? 0 ) + 1;
-			$state['teams'][ $team_index ]['students'][ $student_index ]['questionsAsked'] = (int) ( $student['questionsAsked'] ?? $student['attempts'] ?? 0 ) + 1;
-			if ( $correct ) {
-				$state['teams'][ $team_index ]['students'][ $student_index ]['points'] = (int) ( $student['points'] ?? 0 ) + 1;
-			}
-			$state = mmed_v3_recalculate_scores( $state );
-			$state['lastScore'] = array(
-				'teamId' => $team_id,
-				'studentId' => $student_id,
-				'correct' => (bool) $correct,
-				'updatedAt' => gmdate( 'c' ),
-			);
-			$state['lastEvent'] = array(
-				'type' => $correct ? 'correct' : 'missed',
-				'message' => $name . ( $correct ? ' answered correctly.' : ' missed this one.' ),
-				'updatedAt' => gmdate( 'c' ),
-			);
-			$state['nextTeamId'] = mmed_v3_next_team_id( $state, $team_id );
-			$state['winner'] = null;
-			$state['updatedAt'] = gmdate( 'c' );
-			return $state;
-		}
-	}
-
-	mmed_v3_json( array( 'message' => 'Choose an active student before scoring.' ), 409 );
-}
-
-function mmed_v3_declare_winner( $state, $team_id ) {
-	foreach ( $state['teams'] as $team ) {
-		if ( mmed_v3_key( $team['id'] ?? '' ) !== $team_id ) {
-			continue;
-		}
-		$mvp = mmed_v3_team_mvp( $team );
-		$state['winner'] = array(
-			'teamId' => mmed_v3_key( $team['id'] ?? '' ),
-			'teamName' => mmed_v3_text( $team['name'] ?? 'Winning Team' ),
-			'mvpStudentId' => $mvp ? mmed_v3_key( $mvp['id'] ?? '' ) : '',
-			'mvpName' => $mvp ? mmed_v3_text( $mvp['name'] ?? '' ) : '',
-			'updatedAt' => gmdate( 'c' ),
-		);
-		$state['lastEvent'] = array(
-			'type' => 'declare_winner',
-			'message' => $state['winner']['teamName'] . ' win.',
-			'updatedAt' => gmdate( 'c' ),
-		);
-		$state['updatedAt'] = gmdate( 'c' );
-		return $state;
-	}
-
-	mmed_v3_json( array( 'message' => 'Selected team is unavailable.' ), 409 );
-}
-
-function mmed_v3_undo_score( $state ) {
-	$last = is_array( $state['lastScore'] ?? null ) ? $state['lastScore'] : array();
-	$team_id = mmed_v3_key( $last['teamId'] ?? $state['active']['teamId'] ?? '' );
-	$student_id = mmed_v3_key( $last['studentId'] ?? $state['active']['studentId'] ?? '' );
-	$decrement_point = array_key_exists( 'correct', $last ) ? (bool) $last['correct'] : true;
-
-	foreach ( $state['teams'] as $team_index => $team ) {
-		if ( mmed_v3_key( $team['id'] ?? '' ) !== $team_id || empty( $team['students'] ) || ! is_array( $team['students'] ) ) {
-			continue;
-		}
-		foreach ( $team['students'] as $student_index => $student ) {
-			if ( mmed_v3_key( $student['id'] ?? '' ) !== $student_id ) {
-				continue;
-			}
-			if ( $decrement_point ) {
-				$state['teams'][ $team_index ]['students'][ $student_index ]['points'] = max( 0, (int) ( $student['points'] ?? 0 ) - 1 );
-			}
-			$state['teams'][ $team_index ]['students'][ $student_index ]['attempts'] = max( 0, (int) ( $student['attempts'] ?? 0 ) - 1 );
-			$state['teams'][ $team_index ]['students'][ $student_index ]['questionsAsked'] = max( 0, (int) ( $student['questionsAsked'] ?? $student['attempts'] ?? 0 ) - 1 );
-			$state = mmed_v3_recalculate_scores( $state );
-			unset( $state['lastScore'] );
-			$state['winner'] = null;
-			$state['lastEvent'] = array(
-				'type' => 'undo_score',
-				'message' => 'Score corrected for ' . mmed_v3_text( $student['name'] ?? 'Student' ) . '.',
-				'updatedAt' => gmdate( 'c' ),
-			);
-			$state['updatedAt'] = gmdate( 'c' );
-			return $state;
-		}
-	}
-
-	return $state;
-}
-
-function mmed_v3_reset_scores( $state ) {
-	foreach ( (array) ( $state['teams'] ?? array() ) as $team_index => $team ) {
-		$state['teams'][ $team_index ]['score'] = 0;
-		foreach ( (array) ( $team['students'] ?? array() ) as $student_index => $student ) {
-			$state['teams'][ $team_index ]['students'][ $student_index ]['points'] = 0;
-			$state['teams'][ $team_index ]['students'][ $student_index ]['attempts'] = 0;
-			$state['teams'][ $team_index ]['students'][ $student_index ]['questionsAsked'] = 0;
-		}
-	}
-
-	$state['winner'] = null;
-	unset( $state['lastScore'] );
-	$state['lastEvent'] = array(
-		'type'      => 'reset',
-		'message'   => 'Scores reset to zero.',
-		'updatedAt' => gmdate( 'c' ),
-	);
-	$state['updatedAt'] = gmdate( 'c' );
-	return $state;
-}
-
-function mmed_v3_select_student( $state, $team_id, $student_id ) {
-	if ( ! mmed_v3_find_student( $state, $team_id, $student_id ) ) {
-		mmed_v3_json( array( 'message' => 'Selected student is unavailable.' ), 409 );
-	}
-
-	$state['active'] = array( 'teamId' => $team_id, 'studentId' => $student_id );
-	$student = mmed_v3_find_student( $state, $team_id, $student_id );
-	$state['nextTeamId'] = mmed_v3_next_team_id( $state, $team_id );
-	$state['lastEvent'] = array(
-		'type' => 'select_student',
-		'message' => mmed_v3_text( $student['name'] ?? 'Student' ) . ' is up.',
-		'updatedAt' => gmdate( 'c' ),
-	);
-	$state['updatedAt'] = gmdate( 'c' );
-	return $state;
-}
-
-function mmed_v3_set_countdown( $state, $command, $duration_seconds ) {
-	$duration = min( 10800, max( 0, (int) $duration_seconds ) );
-	$current  = is_array( $state['countdown'] ?? null ) ? mmed_v3_sanitize_countdown( $state['countdown'] ) : mmed_v3_sanitize_countdown( array() );
-
-	if ( 'start' === $command ) {
-		if ( 0 === $duration ) {
-			$duration = max( 1, (int) ( $current['durationSeconds'] ?? 300 ) );
-		}
-		$state['countdown'] = mmed_v3_sanitize_countdown(
-			array(
-				'durationSeconds' => $duration,
-				'endsAtEpoch'     => time() + $duration,
-				'isRunning'       => true,
-				'updatedAt'       => gmdate( 'c' ),
-			)
-		);
-	} elseif ( 'stop' === $command ) {
-		if ( 0 === $duration && ! empty( $current['isRunning'] ) && ! empty( $current['endsAtEpoch'] ) ) {
-			$duration = max( 0, (int) $current['endsAtEpoch'] - time() );
-		}
-		$state['countdown'] = mmed_v3_sanitize_countdown(
-			array(
-				'durationSeconds' => $duration,
-				'endsAtEpoch'     => 0,
-				'isRunning'       => false,
-				'updatedAt'       => gmdate( 'c' ),
-			)
-		);
-	} elseif ( 'reset' === $command ) {
-		$state['countdown'] = mmed_v3_sanitize_countdown( array() );
-	} else {
-		$state['countdown'] = mmed_v3_sanitize_countdown(
-			array(
-				'durationSeconds' => $duration,
-				'endsAtEpoch'     => 0,
-				'isRunning'       => false,
-				'updatedAt'       => gmdate( 'c' ),
-			)
-		);
-	}
-
-	$state['lastEvent'] = array(
-		'type'      => 'set_countdown',
-		'message'   => ! empty( $state['countdown']['isRunning'] ) ? 'Countdown started.' : 'Countdown updated.',
-		'updatedAt' => gmdate( 'c' ),
-	);
-	$state['updatedAt'] = gmdate( 'c' );
-
-	return $state;
-}
-
-function mmed_v3_sanitize_countdown( $countdown ) {
-	$countdown = is_array( $countdown ) ? $countdown : array();
-	$duration  = min( 10800, max( 0, (int) ( $countdown['durationSeconds'] ?? 0 ) ) );
-	$ends_at   = max( 0, (int) ( $countdown['endsAtEpoch'] ?? 0 ) );
-	$running   = ! empty( $countdown['isRunning'] ) && $ends_at > 0;
-
-	return array(
-		'durationSeconds' => $duration,
-		'endsAtEpoch'     => $ends_at,
-		'isRunning'       => $running,
-		'updatedAt'       => mmed_v3_text( $countdown['updatedAt'] ?? gmdate( 'c' ) ),
-	);
-}
-
-function mmed_v3_auto_select_next( $state, $mode ) {
-	$teams = is_array( $state['teams'] ?? null ) ? $state['teams'] : array();
-	$active = is_array( $state['active'] ?? null ) ? $state['active'] : array();
-	$team_id = mmed_v3_key( $state['nextTeamId'] ?? '' );
-	if ( '' === $team_id ) {
-		$team_id = mmed_v3_next_team_id( $state, mmed_v3_key( $active['teamId'] ?? '' ) );
-	}
-
-	$candidates = array();
-	foreach ( $teams as $team ) {
-		if ( mmed_v3_key( $team['id'] ?? '' ) !== $team_id || empty( $team['students'] ) || ! is_array( $team['students'] ) ) {
-			continue;
-		}
-		foreach ( $team['students'] as $student ) {
-			$candidates[] = $student;
-		}
-	}
-	if ( empty( $candidates ) ) {
-		return $state;
-	}
-
-	$lowest = null;
-	foreach ( $candidates as $candidate ) {
-		$count = mmed_v3_question_count( $candidate );
-		$lowest = null === $lowest ? $count : min( $lowest, $count );
-	}
-	$candidates = array_values(
-		array_filter(
-			$candidates,
-			function ( $student ) use ( $lowest ) {
-				return mmed_v3_question_count( $student ) === $lowest;
-			}
-		)
-	);
-
-	if ( 'fair_random' === $mode ) {
-		$student = $candidates[ array_rand( $candidates ) ];
-	} else {
-		$current_id = mmed_v3_key( $active['studentId'] ?? '' );
-		$student = $candidates[0];
-		if ( 1 < count( $candidates ) && mmed_v3_key( $student['id'] ?? '' ) === $current_id ) {
-			$student = $candidates[1];
-		}
-	}
-
-	return mmed_v3_select_student( $state, $team_id, mmed_v3_key( $student['id'] ?? '' ) );
-}
-
-function mmed_v3_question_count( $student ) {
-	return (int) ( $student['questionsAsked'] ?? $student['attempts'] ?? 0 );
-}
-
-function mmed_v3_recalculate_scores( $state ) {
-	foreach ( $state['teams'] as $team_index => $team ) {
-		$total = 0;
-		foreach ( (array) ( $team['students'] ?? array() ) as $student ) {
-			$total += (int) ( $student['points'] ?? 0 );
-		}
-		$state['teams'][ $team_index ]['score'] = $total;
-	}
-	return $state;
-}
-
-function mmed_v3_next_team_id( $state, $current_team_id ) {
-	$ids = array_values( array_filter( array_map( function ( $team ) { return mmed_v3_key( $team['id'] ?? '' ); }, (array) ( $state['teams'] ?? array() ) ) ) );
-	if ( empty( $ids ) ) {
-		return '';
-	}
-	$index = array_search( $current_team_id, $ids, true );
-	if ( false === $index ) {
-		return $ids[0];
-	}
-	return $ids[ ( $index + 1 ) % count( $ids ) ];
-}
-
-function mmed_v3_team_mvp( $team ) {
-	$students = is_array( $team['students'] ?? null ) ? $team['students'] : array();
-	$mvp = null;
-	foreach ( $students as $student ) {
-		if ( ! $mvp || (int) ( $student['points'] ?? 0 ) > (int) ( $mvp['points'] ?? 0 ) ) {
-			$mvp = $student;
-		}
-	}
-	return $mvp;
-}
-
-function mmed_v3_find_student( $state, $team_id, $student_id ) {
-	foreach ( (array) ( $state['teams'] ?? array() ) as $team ) {
-		if ( mmed_v3_key( $team['id'] ?? '' ) !== $team_id ) {
-			continue;
-		}
-		foreach ( (array) ( $team['students'] ?? array() ) as $student ) {
-			if ( mmed_v3_key( $student['id'] ?? '' ) === $student_id ) {
-				return $student;
-			}
-		}
-	}
-	return null;
-}
-
-function mmed_v3_append_history( $state, $event_type ) {
-	$history = is_array( $state['history'] ?? null ) ? $state['history'] : array();
-	$event = is_array( $state['lastEvent'] ?? null ) ? $state['lastEvent'] : array();
-	$history[] = array(
-		'type' => mmed_v3_key( $event_type ),
-		'event' => mmed_v3_key( $event['type'] ?? $event_type ),
-		'message' => mmed_v3_text( $event['message'] ?? '' ),
-		'updatedAt' => mmed_v3_text( $event['updatedAt'] ?? gmdate( 'c' ) ),
-	);
-	if ( 50 < count( $history ) ) {
-		$history = array_slice( $history, -50 );
-	}
-	$state['history'] = $history;
-	return $state;
-}
-
-function mmed_v3_key( $value ) {
-	return strtolower( preg_replace( '/[^a-zA-Z0-9_\\-]/', '', (string) $value ) );
-}
-
-function mmed_v3_text( $value ) {
-	$text = function_exists( 'wp_strip_all_tags' ) ? wp_strip_all_tags( (string) $value ) : strip_tags( (string) $value );
-	return trim( preg_replace( '/[\\x00-\\x1F\\x7F]/', '', $text ) );
-}
-
-function mmed_v3_json( $data, $status ) {
-	http_response_code( $status );
+/**
+ * Emit a JSON response with no-store headers.
+ *
+ * @param mixed $data Response data.
+ * @param int   $status HTTP status.
+ * @return void
+ */
+function mmed_v3_floor_json( $data, $status ) {
+	http_response_code( (int) $status );
 	header( 'Content-Type: application/json; charset=UTF-8' );
-	header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
-	echo mmed_v3_json_encode( $data );
+	header( 'Cache-Control: no-store, private, max-age=0' );
+	header( 'Pragma: no-cache' );
+	header( 'X-Content-Type-Options: nosniff' );
+	echo json_encode( $data, JSON_UNESCAPED_SLASHES );
 	exit;
-}
-
-function mmed_v3_json_encode( $data ) {
-	return function_exists( 'wp_json_encode' ) ? wp_json_encode( $data ) : json_encode( $data );
 }

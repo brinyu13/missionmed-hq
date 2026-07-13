@@ -9,6 +9,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
+require_once __DIR__ . '/class-mmed-live-drills-state-contract.php';
+
 /**
  * Registers an isolated SDK V3 route for WEBEX-081.
  */
@@ -55,6 +57,11 @@ class MMED_Live_Drills_SDK_V3 {
 	const TEAM_CHALLENGE_SCRIPT_PATH = 'assets/daily-drills-team-challenge-v3-studentflow.js';
 
 	/**
+	 * Dedicated background state reader.
+	 */
+	const TEAM_CHALLENGE_WORKER_PATH = 'assets/daily-drills-team-challenge-v3-worker.js';
+
+	/**
 	 * Isolated SDK V3 experiment controller path relative to the plugin root.
 	 */
 	const SDK_V3_SCRIPT_PATH = 'assets/daily-drills-live-webex-sdk-v3.js';
@@ -90,6 +97,13 @@ class MMED_Live_Drills_SDK_V3 {
 	const TEAM_CHALLENGE_SNAPSHOT_RELATIVE_PATH = 'missionmed-live-drills-v3/team-challenge-state.json';
 
 	/**
+	 * Last persistence error for the sole mutation gateway.
+	 *
+	 * @var string
+	 */
+	private static $team_challenge_persist_error = '';
+
+	/**
 	 * Optional admin toggle for demo placeholders. Production beta defaults to real roster only.
 	 */
 	const TEAM_CHALLENGE_PLACEHOLDERS_OPTION = 'mmed_live_drills_team_challenge_placeholders_enabled';
@@ -116,7 +130,6 @@ class MMED_Live_Drills_SDK_V3 {
 	 */
 	public static function init() {
 		add_action( 'login_init', array( __CLASS__, 'maybe_redirect_v3_login' ), 0 );
-		add_action( 'init', array( __CLASS__, 'maybe_handle_fast_team_challenge_state' ), 0 );
 		add_action( 'template_redirect', array( __CLASS__, 'maybe_render_preview' ), 0 );
 		add_action( 'rest_api_init', array( __CLASS__, 'register_rest_routes' ) );
 	}
@@ -133,93 +146,22 @@ class MMED_Live_Drills_SDK_V3 {
 	}
 
 	/**
-	 * Serve V3 Team Challenge state without REST bootstrap/template overhead.
+	 * Reject the retired route-class transport.
 	 *
-	 * This endpoint is route-scoped to the isolated V3 page and reuses the same
-	 * state update handlers as REST so scoring semantics stay identical.
+	 * The standalone action endpoint is the only state transport and the only
+	 * mutation gateway. Keeping this explicit rejection prevents stale clients
+	 * from silently reintroducing a second writer.
 	 *
 	 * @return void
 	 */
 	public static function maybe_handle_fast_team_challenge_state() {
-		if ( ! isset( $_GET['mmed_v3_team_state_fast'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			return;
-		}
-
-		self::release_php_session_lock();
-
-		$request_path = isset( $_SERVER['REQUEST_URI'] ) ? wp_parse_url( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ), PHP_URL_PATH ) : '';
-		$request_path = trim( (string) $request_path, '/' );
-		if ( self::ROUTE_PATH !== $request_path ) {
-			return;
-		}
-
-		if ( ! self::is_team_challenge_enabled() || ! self::current_user_can_access_preview() ) {
-			self::send_team_challenge_fast_json(
-				array(
-					'code'    => 'mmed_team_challenge_forbidden',
-					'message' => 'Team Challenge is unavailable.',
-				),
-				403
-			);
-		}
-
-		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_key( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
-		if ( 'GET' === $method ) {
-			$state = self::get_team_challenge_state_data();
-			self::write_team_challenge_state_snapshot( $state );
-			self::send_team_challenge_fast_json( self::add_team_challenge_client_viewer_data( $state ), 200 );
-		}
-
-		if ( 'POST' !== $method ) {
-			self::send_team_challenge_fast_json(
-				array(
-					'code'    => 'mmed_team_challenge_method_not_allowed',
-					'message' => 'Unsupported Team Challenge request.',
-				),
-				405
-			);
-		}
-
-		$nonce = isset( $_SERVER['HTTP_X_WP_NONCE'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_X_WP_NONCE'] ) ) : '';
-		if ( ! wp_verify_nonce( $nonce, 'wp_rest' ) ) {
-			self::send_team_challenge_fast_json(
-				array(
-					'code'    => 'rest_cookie_invalid_nonce',
-					'message' => 'Team Challenge session expired. Refresh the page and try again.',
-				),
-				403
-			);
-		}
-
-		$raw_body = file_get_contents( 'php://input' );
-		$payload  = json_decode( is_string( $raw_body ) ? $raw_body : '', true );
-		if ( ! is_array( $payload ) ) {
-			$payload = array();
-		}
-
-		$request = new WP_REST_Request( 'POST', '/mmed/v1/live-drills-v3/team-challenge' );
-		foreach ( $payload as $key => $value ) {
-			$request->set_param( sanitize_key( $key ), $value );
-		}
-
-		$result = self::update_team_challenge_state( $request );
-		if ( is_wp_error( $result ) ) {
-			$data   = $result->get_error_data();
-			$status = is_array( $data ) && ! empty( $data['status'] ) ? absint( $data['status'] ) : 400;
-			self::send_team_challenge_fast_json(
-				array(
-					'code'    => $result->get_error_code(),
-					'message' => $result->get_error_message(),
-				),
-				$status
-			);
-		}
-
-		if ( $result instanceof WP_REST_Response ) {
-			self::send_team_challenge_fast_json( $result->get_data(), $result->get_status() );
-		}
-
-		self::send_team_challenge_fast_json( $result, 200 );
+		self::send_team_challenge_fast_json(
+			array(
+				'code'    => 'mmed_team_challenge_transport_retired',
+				'message' => 'Refresh the room to use the current live connection.',
+			),
+			410
+		);
 	}
 
 	/**
@@ -330,22 +272,11 @@ class MMED_Live_Drills_SDK_V3 {
 				'mmed/v1',
 				'/live-drills-v3/team-challenge',
 				array(
-					array(
-						'methods'             => WP_REST_Server::READABLE,
-						'callback'            => array( __CLASS__, 'get_team_challenge_state' ),
-						'permission_callback' => function () {
-							return self::current_user_can_access_preview();
-						},
-					),
-						array(
-							'methods'             => WP_REST_Server::CREATABLE,
-							'callback'            => array( __CLASS__, 'update_team_challenge_state' ),
-							'permission_callback' => function () {
-								return self::current_user_can_access_preview();
-							},
-						),
-					)
-				);
+					'methods'             => WP_REST_Server::READABLE,
+					'callback'            => array( __CLASS__, 'get_team_challenge_state' ),
+					'permission_callback' => '__return_true',
+				)
+			);
 			}
 
 	/**
@@ -438,10 +369,6 @@ class MMED_Live_Drills_SDK_V3 {
 		}
 
 		self::release_php_session_lock();
-
-		if ( isset( $_GET['mmed_v3_team_state_fast'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			self::maybe_handle_fast_team_challenge_state();
-		}
 
 		nocache_headers();
 		header( 'X-Robots-Tag: noindex, nofollow', true );
@@ -557,8 +484,12 @@ class MMED_Live_Drills_SDK_V3 {
 		}
 
 		nocache_headers();
-			$response = new WP_REST_Response( self::add_team_challenge_client_viewer_data( self::get_team_challenge_state_data() ), 200 );
-		$response->header( 'Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0' );
+		$state  = self::get_team_challenge_state_data();
+		$viewer = self::current_team_challenge_viewer( $state );
+		$data   = MMED_Live_Drills_State_Contract::viewer_view( $state, $viewer );
+		$data['nowMs'] = MMED_Live_Drills_State_Contract::now_ms();
+		$response = new WP_REST_Response( $data, 200 );
+		$response->header( 'Cache-Control', empty( $viewer ) ? 'no-store, max-age=0' : 'no-store, private, max-age=0' );
 		$response->header( 'Pragma', 'no-cache' );
 		return $response;
 	}
@@ -567,18 +498,21 @@ class MMED_Live_Drills_SDK_V3 {
 	 * Update Team Challenge state from admin controls.
 	 *
 	 * @param WP_REST_Request $request REST request.
+	 * @param array           $verified_viewer Viewer verified by the sole gateway.
 	 * @return WP_REST_Response|WP_Error
 	 */
-	public static function update_team_challenge_state( $request ) {
+	public static function update_team_challenge_state( $request, $verified_viewer = array() ) {
 		if ( ! self::is_team_challenge_enabled() ) {
 			return new WP_Error( 'mmed_team_challenge_disabled', 'Team Challenge is disabled.', array( 'status' => 403 ) );
 		}
 
+		self::$team_challenge_persist_error = '';
 		nocache_headers();
 		$state      = self::get_team_challenge_state_data();
-			$action     = sanitize_key( $request->get_param( 'action' ) );
-			$team_id    = sanitize_key( $request->get_param( 'teamId' ) );
-			$student_id = sanitize_key( $request->get_param( 'studentId' ) );
+		$verified_viewer = is_array( $verified_viewer ) ? $verified_viewer : array();
+		$action     = sanitize_key( $request->get_param( 'action' ) );
+		$team_id    = sanitize_key( $request->get_param( 'teamId' ) );
+		$student_id = sanitize_key( $request->get_param( 'studentId' ) );
 
 			$admin_only_actions = array(
 				'reset',
@@ -596,9 +530,10 @@ class MMED_Live_Drills_SDK_V3 {
 						'set_meeting_link',
 				'use_active_meeting',
 				'schedule_session',
-				'select_session',
-				'declare_winner',
-			);
+					'select_session',
+					'declare_winner',
+					'session_lifecycle',
+				);
 
 			if ( in_array( $action, $admin_only_actions, true ) && ! current_user_can( 'manage_options' ) ) {
 				self::log_team_challenge_event(
@@ -612,13 +547,32 @@ class MMED_Live_Drills_SDK_V3 {
 				return new WP_Error( 'mmed_team_challenge_admin_required', 'Only the host/admin can control Team Challenge scoring.', array( 'status' => 403 ) );
 			}
 
+			if ( 'session_lifecycle' === $action ) {
+				$command = sanitize_key( $request->get_param( 'command' ) );
+				$state = self::transition_team_challenge_lifecycle( $state, $command );
+				if ( is_wp_error( $state ) ) {
+					return $state;
+				}
+				self::persist_team_challenge_state( $state, 'session_lifecycle' );
+				return new WP_REST_Response( $state, 200 );
+			}
+
+			if ( in_array( $action, array( 'join_in', 'guest_join', 'watch', 'guest_watch' ), true ) && ! self::team_challenge_entry_is_open( $state ) ) {
+				return new WP_Error(
+					'mmed_team_challenge_room_closed',
+					'This room is not accepting entries yet. Keep the page open until the host opens the doors.',
+					array( 'status' => 409 )
+				);
+			}
+
 				if ( 'join_in' === $action ) {
 					$user = wp_get_current_user();
 					if ( ! $user || empty( $user->ID ) ) {
-						return new WP_Error( 'mmed_team_challenge_login_required', 'Sign in before joining the Team Challenge roster.', array( 'status' => 401 ) );
+						return new WP_Error( 'mmed_team_challenge_login_required', 'Choose guest entry or sign in, then try Play again.', array( 'status' => 401 ) );
 					}
 
 				$state = self::team_challenge_join_current_user( $state, $user );
+				$state = self::remove_team_challenge_spectator( $state, 'u' . absint( $user->ID ) );
 					self::persist_team_challenge_state( $state, 'join_in' );
 					return new WP_REST_Response( $state, 200 );
 				}
@@ -628,17 +582,39 @@ class MMED_Live_Drills_SDK_V3 {
 				}
 
 			if ( 'guest_join' === $action ) {
-				$guest_id   = sanitize_key( $request->get_param( 'guestId' ) );
-				$first_name = sanitize_text_field( wp_unslash( (string) $request->get_param( 'firstName' ) ) );
-				$last_name  = sanitize_text_field( wp_unslash( (string) $request->get_param( 'lastName' ) ) );
-				$email      = sanitize_email( wp_unslash( (string) $request->get_param( 'email' ) ) );
+				$guest_id = self::normalize_team_challenge_guest_id( $request->get_param( 'guestId' ) );
+				$name = self::team_challenge_guest_name_from_request( $request );
 
-				if ( '' === trim( $first_name ) || '' === trim( $last_name ) || ! is_email( $email ) ) {
-					return new WP_Error( 'mmed_team_challenge_guest_required', 'Enter first name, last name, and email to jump in as a guest.', array( 'status' => 400 ) );
+				if ( '' === $guest_id || is_wp_error( $name ) ) {
+					return is_wp_error( $name ) ? $name : new WP_Error( 'mmed_team_challenge_guest_id_required', 'Refresh the page and enter your name again.', array( 'status' => 400 ) );
 				}
 
-				$state = self::team_challenge_join_guest( $state, $guest_id, $first_name, $last_name, $email );
+				$state = self::team_challenge_join_guest( $state, $guest_id, $name );
+				$state = self::remove_team_challenge_spectator( $state, $guest_id );
 				self::persist_team_challenge_state( $state, 'guest_join' );
+				return new WP_REST_Response( $state, 200 );
+			}
+
+			if ( 'watch' === $action ) {
+				$user = wp_get_current_user();
+				if ( ! $user || empty( $user->ID ) ) {
+					return new WP_Error( 'mmed_team_challenge_login_required', 'Choose guest entry or sign in, then try Watch again.', array( 'status' => 401 ) );
+				}
+				$state = self::team_challenge_remove_current_user( $state, $user );
+				$state = self::add_team_challenge_spectator( $state, 'u' . absint( $user->ID ), sanitize_text_field( $user->display_name ), false );
+				self::persist_team_challenge_state( $state, 'watch' );
+				return new WP_REST_Response( $state, 200 );
+			}
+
+			if ( 'guest_watch' === $action ) {
+				$guest_id = self::normalize_team_challenge_guest_id( $request->get_param( 'guestId' ) );
+				$name = self::team_challenge_guest_name_from_request( $request );
+				if ( '' === $guest_id || is_wp_error( $name ) ) {
+					return is_wp_error( $name ) ? $name : new WP_Error( 'mmed_team_challenge_guest_id_required', 'Refresh the page and enter your name again.', array( 'status' => 400 ) );
+				}
+				$state = self::team_challenge_remove_guest( $state, $guest_id );
+				$state = self::add_team_challenge_spectator( $state, $guest_id, $name, true );
+				self::persist_team_challenge_state( $state, 'guest_watch' );
 				return new WP_REST_Response( $state, 200 );
 			}
 
@@ -649,15 +625,19 @@ class MMED_Live_Drills_SDK_V3 {
 				}
 
 				$state = self::team_challenge_remove_current_user( $state, $user );
+				$state = self::add_team_challenge_spectator( $state, 'u' . absint( $user->ID ), sanitize_text_field( $user->display_name ), false );
 				self::persist_team_challenge_state( $state, 'opt_out' );
 				return new WP_REST_Response( $state, 200 );
 			}
 
 			if ( 'guest_opt_out' === $action ) {
-				$guest_id = sanitize_key( $request->get_param( 'guestId' ) );
-				$email    = sanitize_email( wp_unslash( (string) $request->get_param( 'email' ) ) );
+				$guest_id = self::normalize_team_challenge_guest_id( $request->get_param( 'guestId' ) );
+				if ( ! self::verified_viewer_matches( $verified_viewer, $guest_id ) ) {
+					return new WP_Error( 'mmed_team_challenge_guest_session_required', 'Choose Watch again to reconnect to this room.', array( 'status' => 401 ) );
+				}
 
-				$state = self::team_challenge_remove_guest( $state, $guest_id, $email );
+				$state = self::team_challenge_remove_guest( $state, $guest_id );
+				$state = self::add_team_challenge_spectator( $state, $guest_id, 'Viewer', true );
 				self::persist_team_challenge_state( $state, 'guest_opt_out' );
 				return new WP_REST_Response( $state, 200 );
 			}
@@ -851,11 +831,15 @@ class MMED_Live_Drills_SDK_V3 {
 			}
 
 			if ( 'declare_winner' === $action ) {
+				if ( 'live' !== self::team_challenge_lifecycle_state( $state ) ) {
+					return new WP_Error( 'mmed_team_challenge_not_live', 'Start the room before declaring a winner.', array( 'status' => 409 ) );
+				}
 				if ( ! self::team_challenge_team_exists( $state, $team_id ) ) {
 					return new WP_Error( 'mmed_team_challenge_team_missing', 'Selected team is not available.', array( 'status' => 400 ) );
 				}
 
 					$state = self::declare_team_challenge_winner( $state, $team_id );
+					$state = self::transition_team_challenge_lifecycle( $state, 'ended' );
 					self::persist_team_challenge_state( $state, 'declare_winner' );
 					return new WP_REST_Response( $state, 200 );
 				}
@@ -867,6 +851,9 @@ class MMED_Live_Drills_SDK_V3 {
 				}
 
 			if ( 'score' === $action ) {
+				if ( 'live' !== self::team_challenge_lifecycle_state( $state ) ) {
+					return new WP_Error( 'mmed_team_challenge_not_live', 'Start the room before scoring.', array( 'status' => 409 ) );
+				}
 			$active = is_array( $state['active'] ?? null ) ? $state['active'] : array();
 			$team_id = sanitize_key( $active['teamId'] ?? '' );
 			$student_id = sanitize_key( $active['studentId'] ?? '' );
@@ -882,6 +869,13 @@ class MMED_Live_Drills_SDK_V3 {
 			}
 
 			if ( 'send_chat_message' === $action ) {
+				$chat_guest_id = self::normalize_team_challenge_guest_id( $request->get_param( 'guestId' ) );
+				if ( ! is_user_logged_in() && ! self::verified_viewer_matches( $verified_viewer, $chat_guest_id ) ) {
+					return new WP_Error( 'mmed_team_challenge_guest_session_required', 'Choose Play or Watch again before sending a message.', array( 'status' => 401 ) );
+				}
+				if ( is_user_logged_in() && ! current_user_can( 'manage_options' ) && ! self::team_challenge_viewer_is_present( $state, 'u' . get_current_user_id() ) ) {
+					return new WP_Error( 'mmed_team_challenge_entry_required', 'Choose Play or Watch before sending a message.', array( 'status' => 409 ) );
+				}
 				$message = sanitize_text_field( wp_unslash( (string) $request->get_param( 'message' ) ) );
 				$message = substr( $message, 0, 180 );
 				if ( '' === trim( $message ) ) {
@@ -892,7 +886,7 @@ class MMED_Live_Drills_SDK_V3 {
 					$state,
 					$message,
 					sanitize_text_field( wp_unslash( (string) $request->get_param( 'target' ) ) ),
-					sanitize_key( $request->get_param( 'guestId' ) ),
+					$chat_guest_id,
 					sanitize_text_field( wp_unslash( (string) $request->get_param( 'firstName' ) ) ),
 					sanitize_text_field( wp_unslash( (string) $request->get_param( 'lastName' ) ) )
 				);
@@ -902,6 +896,307 @@ class MMED_Live_Drills_SDK_V3 {
 
 			return new WP_Error( 'mmed_team_challenge_action_invalid', 'Unsupported Team Challenge action.', array( 'status' => 400 ) );
 		}
+
+	/**
+	 * Return the persistence error recorded during the current mutation.
+	 *
+	 * @return string
+	 */
+	public static function team_challenge_last_persist_error() {
+		return self::$team_challenge_persist_error;
+	}
+
+	/**
+	 * Return the current signed-in viewer role.
+	 *
+	 * @return array
+	 */
+	private static function current_team_challenge_viewer( $state = array() ) {
+		$user_id = get_current_user_id();
+		if ( ! $user_id ) {
+			return array();
+		}
+		if ( ! current_user_can( 'manage_options' ) && ! self::team_challenge_viewer_is_present( $state, 'u' . absint( $user_id ) ) ) {
+			return array();
+		}
+
+		return array(
+			'id'   => 'u' . absint( $user_id ),
+			'role' => current_user_can( 'manage_options' ) ? 'host' : 'participant',
+		);
+	}
+
+	/**
+	 * Return the signing secret shared with the direct state reader.
+	 *
+	 * @return string
+	 */
+	private static function team_challenge_viewer_secret() {
+		$auth_key = defined( 'AUTH_KEY' ) ? (string) AUTH_KEY : '';
+		$auth_salt = defined( 'AUTH_SALT' ) ? (string) AUTH_SALT : '';
+
+		return hash( 'sha256', 'mmed-live-drills-viewer|' . $auth_key . '|' . $auth_salt );
+	}
+
+	/**
+	 * Issue a viewer ticket for the current signed-in user.
+	 *
+	 * @param array $state Current state.
+	 * @return string
+	 */
+	private static function current_team_challenge_viewer_ticket( $state ) {
+		$viewer = self::current_team_challenge_viewer( $state );
+		if ( empty( $viewer ) ) {
+			return '';
+		}
+		$state = MMED_Live_Drills_State_Contract::normalize_state( $state );
+
+		return MMED_Live_Drills_State_Contract::issue_viewer_ticket(
+			self::team_challenge_viewer_secret(),
+			$viewer['id'],
+			$viewer['role'],
+			$state['sessionId']
+		);
+	}
+
+	/**
+	 * Return whether an identity is on the active roster or spectator list.
+	 *
+	 * @param array  $state Current state.
+	 * @param string $viewer_id Internal viewer ID.
+	 * @return bool
+	 */
+	private static function team_challenge_viewer_is_present( $state, $viewer_id ) {
+		$viewer_id = sanitize_key( $viewer_id );
+		foreach ( (array) ( $state['teams'] ?? array() ) as $team ) {
+			foreach ( (array) ( $team['students'] ?? array() ) as $student ) {
+				if ( sanitize_key( $student['id'] ?? '' ) === $viewer_id ) {
+					return true;
+				}
+			}
+		}
+		foreach ( (array) ( $state['spectators'] ?? array() ) as $spectator ) {
+			if ( is_array( $spectator ) && sanitize_key( $spectator['id'] ?? '' ) === $viewer_id ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Return the normalized lifecycle state.
+	 *
+	 * @param array $state Current state.
+	 * @return string
+	 */
+	private static function team_challenge_lifecycle_state( $state ) {
+		$state = MMED_Live_Drills_State_Contract::normalize_state( $state );
+
+		return sanitize_key( $state['lifecycle']['state'] ?? 'idle' );
+	}
+
+	/**
+	 * Return whether participant entry is currently accepted.
+	 *
+	 * @param array $state Current state.
+	 * @return bool
+	 */
+	private static function team_challenge_entry_is_open( $state ) {
+		return in_array( self::team_challenge_lifecycle_state( $state ), array( 'doors_open', 'live' ), true );
+	}
+
+	/**
+	 * Apply a guarded lifecycle transition.
+	 *
+	 * @param array  $state Current state.
+	 * @param string $command Transition command.
+	 * @return array|WP_Error
+	 */
+	private static function transition_team_challenge_lifecycle( $state, $command ) {
+		$state = MMED_Live_Drills_State_Contract::normalize_state( $state );
+		$command = sanitize_key( $command );
+		$current = self::team_challenge_lifecycle_state( $state );
+		$now = current_time( 'mysql' );
+
+		if ( 'new' === $command ) {
+			$teams = array();
+			foreach ( (array) ( $state['teams'] ?? array() ) as $team ) {
+				$teams[] = array(
+					'id'       => sanitize_key( $team['id'] ?? '' ),
+					'name'     => sanitize_text_field( $team['name'] ?? ( $team['label'] ?? 'Team' ) ),
+					'label'    => sanitize_text_field( $team['label'] ?? ( $team['name'] ?? 'Team' ) ),
+					'color'    => sanitize_hex_color( $team['color'] ?? '' ) ?: '',
+					'score'    => 0,
+					'students' => array(),
+				);
+			}
+			if ( 2 > count( $teams ) ) {
+				$teams = self::build_team_challenge_teams();
+				foreach ( $teams as $index => $team ) {
+					$teams[ $index ]['students'] = array();
+					$teams[ $index ]['score'] = 0;
+				}
+			}
+			$state['sessionId'] = 'session-' . gmdate( 'YmdHis' ) . '-' . strtolower( wp_generate_password( 8, false, false ) );
+			$state['teams'] = $teams;
+			$state['active'] = array( 'teamId' => '', 'studentId' => '' );
+			$state['nextTeamId'] = 'blue';
+			$state['lastScore'] = null;
+			$state['winner'] = null;
+			$state['hostNote'] = '';
+			$state['chatMessages'] = array();
+			$state['history'] = array();
+			$state['scoreLedger'] = array();
+			$state['spectators'] = array();
+			$state['spectatorCount'] = 0;
+			$state['countdown'] = self::sanitize_team_challenge_countdown( array() );
+			$state['lifecycle'] = array(
+				'state'      => 'idle',
+				'changedAt'  => $now,
+				'startedAt'  => '',
+				'endedAt'    => '',
+				'archivedAt' => '',
+			);
+		} else {
+			$transitions = array(
+				'idle'       => array( 'idle', 'doors_open', 'archived' ),
+				'doors_open' => array( 'idle', 'live', 'ended' ),
+				'live'       => array( 'ended' ),
+				'ended'      => array( 'archived' ),
+				'archived'   => array(),
+			);
+			if ( ! isset( $transitions[ $current ] ) || ! in_array( $command, $transitions[ $current ], true ) ) {
+				$next = in_array( $current, array( 'ended', 'archived' ), true ) ? 'Create a new session before reopening the doors.' : 'Use the next room step shown in the host controls.';
+				return new WP_Error( 'mmed_team_challenge_lifecycle_invalid', 'That room change is not available. ' . $next, array( 'status' => 409 ) );
+			}
+			$state['lifecycle']['state'] = $command;
+			$state['lifecycle']['changedAt'] = $now;
+			if ( 'live' === $command ) {
+				$state['lifecycle']['startedAt'] = $now;
+				$state['lifecycle']['endedAt'] = '';
+			}
+			if ( 'ended' === $command ) {
+				$state['lifecycle']['endedAt'] = $now;
+				$state['countdown'] = self::sanitize_team_challenge_countdown( array() );
+			}
+			if ( 'archived' === $command ) {
+				$state['lifecycle']['archivedAt'] = $now;
+			}
+			if ( 'idle' === $command ) {
+				$state['countdown'] = self::sanitize_team_challenge_countdown( array() );
+			}
+		}
+
+		$state['lastEvent'] = array(
+			'type'      => 'session_lifecycle',
+			'message'   => 'Room status changed to ' . str_replace( '_', ' ', $state['lifecycle']['state'] ) . '.',
+			'updatedAt' => $now,
+		);
+		$state['updatedAt'] = $now;
+
+		return $state;
+	}
+
+	/**
+	 * Return a normalized name from guest entry.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return string|WP_Error
+	 */
+	private static function team_challenge_guest_name_from_request( $request ) {
+		$name = sanitize_text_field( wp_unslash( (string) $request->get_param( 'displayName' ) ) );
+		if ( '' === trim( $name ) ) {
+			$name = trim(
+				sanitize_text_field( wp_unslash( (string) $request->get_param( 'firstName' ) ) ) . ' ' .
+				sanitize_text_field( wp_unslash( (string) $request->get_param( 'lastName' ) ) )
+			);
+		}
+		$name = preg_replace( '/\s+/', ' ', trim( $name ) );
+		$length = function_exists( 'mb_strlen' ) ? mb_strlen( $name ) : strlen( $name );
+		if ( 2 > $length ) {
+			return new WP_Error( 'mmed_team_challenge_guest_name_short', 'Enter the name you want the host to see.', array( 'status' => 400 ) );
+		}
+		if ( 60 < $length ) {
+			return new WP_Error( 'mmed_team_challenge_guest_name_long', 'Use a name with 60 characters or fewer.', array( 'status' => 400 ) );
+		}
+
+		return $name;
+	}
+
+	/**
+	 * Normalize a browser guest ID.
+	 *
+	 * @param mixed $guest_id Guest ID.
+	 * @return string
+	 */
+	private static function normalize_team_challenge_guest_id( $guest_id ) {
+		$guest_id = substr( sanitize_key( $guest_id ), 0, 80 );
+		if ( '' === $guest_id ) {
+			return '';
+		}
+		if ( 0 !== strpos( $guest_id, 'guest-' ) ) {
+			$guest_id = 'guest-' . $guest_id;
+		}
+
+		return $guest_id;
+	}
+
+	/**
+	 * Verify that the gateway-authenticated viewer owns a guest subject.
+	 *
+	 * @param array  $viewer Verified viewer.
+	 * @param string $guest_id Guest ID.
+	 * @return bool
+	 */
+	private static function verified_viewer_matches( $viewer, $guest_id ) {
+		return is_array( $viewer ) && 'participant' === sanitize_key( $viewer['role'] ?? '' ) && hash_equals( sanitize_key( $viewer['id'] ?? '' ), sanitize_key( $guest_id ) );
+	}
+
+	/**
+	 * Add or refresh a spectator row.
+	 *
+	 * @param array  $state Current state.
+	 * @param string $id Viewer ID.
+	 * @param string $name Viewer name.
+	 * @param bool   $is_guest Guest flag.
+	 * @return array
+	 */
+	private static function add_team_challenge_spectator( $state, $id, $name, $is_guest ) {
+		$state = self::remove_team_challenge_spectator( $state, $id );
+		$state['spectators'][] = array(
+			'id'       => sanitize_key( $id ),
+			'name'     => substr( sanitize_text_field( $name ?: 'Viewer' ), 0, 80 ),
+			'joinedAt' => current_time( 'mysql' ),
+			'isGuest'  => (bool) $is_guest,
+		);
+		$state['spectators'] = MMED_Live_Drills_State_Contract::normalize_spectators( $state['spectators'] );
+		$state['spectatorCount'] = count( $state['spectators'] );
+
+		return $state;
+	}
+
+	/**
+	 * Remove a spectator row.
+	 *
+	 * @param array  $state Current state.
+	 * @param string $id Viewer ID.
+	 * @return array
+	 */
+	private static function remove_team_challenge_spectator( $state, $id ) {
+		$id = sanitize_key( $id );
+		$state['spectators'] = array_values(
+			array_filter(
+				(array) ( $state['spectators'] ?? array() ),
+				function ( $spectator ) use ( $id ) {
+					return ! is_array( $spectator ) || sanitize_key( $spectator['id'] ?? '' ) !== $id;
+				}
+			)
+		);
+		$state['spectatorCount'] = count( $state['spectators'] );
+
+		return $state;
+	}
 
 	/**
 	 * Return whether the preview flag is enabled.
@@ -1712,6 +2007,10 @@ class MMED_Live_Drills_SDK_V3 {
 	 * @return string
 	 */
 	private static function inject_preview_meeting( $html ) {
+		$state = self::get_team_challenge_state_data();
+		if ( empty( self::current_team_challenge_viewer( $state ) ) ) {
+			return $html;
+		}
 		$meeting  = self::get_preview_meeting();
 		$join_url = esc_url( $meeting['join_url'] ?? '' );
 
@@ -1735,7 +2034,9 @@ class MMED_Live_Drills_SDK_V3 {
 	 * @return string
 	 */
 	private static function inject_embedded_assets( $html ) {
-		$meeting = self::get_preview_meeting();
+		$state = self::get_team_challenge_state_data();
+		$viewer = self::current_team_challenge_viewer( $state );
+		$meeting = empty( $viewer ) ? array() : self::get_preview_meeting();
 		$css_url    = self::asset_url( self::WIDGET_CSS_PATH );
 		$widget_url = self::asset_url( self::WIDGET_SCRIPT_PATH );
 		$embed_url  = self::asset_url( self::EMBED_SCRIPT_PATH );
@@ -1745,7 +2046,7 @@ class MMED_Live_Drills_SDK_V3 {
 					'nonce'   => wp_create_nonce( 'wp_rest' ),
 					'widgetLayout' => 'Stack',
 					'widgetScriptUrl' => esc_url_raw( $widget_url ),
-					'meeting' => array(
+						'meeting' => empty( $viewer ) ? array() : array(
 				'id'         => sanitize_text_field( $meeting['id'] ?? '' ),
 				'title'      => sanitize_text_field( $meeting['title'] ?? self::TEST_MEETING_TITLE ),
 				'joinUrl'    => esc_url_raw( $meeting['join_url'] ?? '' ),
@@ -1781,12 +2082,15 @@ class MMED_Live_Drills_SDK_V3 {
 			return $html;
 		}
 
-				$meeting = self::get_preview_meeting();
-				$meeting_join_url = esc_url_raw( $meeting['join_url'] ?? '' );
-				$personal_room_url = self::is_personal_meeting_room_url( $meeting_join_url ) ? $meeting_join_url : '';
-				if ( '' === $personal_room_url ) {
-					$personal_room_url = self::get_default_personal_meeting_room_url();
-				}
+					$state = self::get_team_challenge_state_data();
+					$viewer = self::current_team_challenge_viewer( $state );
+					$meeting = empty( $viewer ) ? array() : self::get_preview_meeting();
+					$meeting_join_url = esc_url_raw( $meeting['join_url'] ?? '' );
+					$personal_room_url = current_user_can( 'manage_options' ) && self::is_personal_meeting_room_url( $meeting_join_url ) ? $meeting_join_url : '';
+					if ( current_user_can( 'manage_options' ) && '' === $personal_room_url ) {
+						$personal_room_url = self::get_default_personal_meeting_room_url();
+					}
+					$action_url = esc_url_raw( self::asset_url( 'assets/daily-drills-team-challenge-v3-action.php' ) );
 
 				$config = array(
 			'enabled'       => true,
@@ -1794,16 +2098,18 @@ class MMED_Live_Drills_SDK_V3 {
 			'isAdmin'       => current_user_can( 'manage_options' ),
 			'mode'          => current_user_can( 'manage_options' ) ? 'admin' : 'student',
 				'currentUserId' => get_current_user_id(),
-					'stateUrl'      => esc_url_raw( rest_url( 'mmed/v1/live-drills-v3/team-challenge' ) ),
-					'fastStateUrl'  => esc_url_raw( self::team_challenge_snapshot_url() ),
-					'fastStateWriteUrl' => esc_url_raw( home_url( '/' . self::ROUTE_PATH . '/?mmed_v3_team_state_fast=1' ) ),
-					'fastStateActionUrl' => esc_url_raw( self::asset_url( 'assets/daily-drills-team-challenge-v3-action.php' ) ),
+						'stateUrl'      => $action_url,
+						'fastStateUrl'  => $action_url,
+						'fastStateWriteUrl' => $action_url,
+						'fastStateActionUrl' => $action_url,
+						'workerUrl'     => esc_url_raw( self::asset_url( self::TEAM_CHALLENGE_WORKER_PATH ) ),
+						'viewerTicket'  => self::current_team_challenge_viewer_ticket( $state ),
 				'avatarBaseUrl' => esc_url_raw( MMED_HUB_URL . 'assets/team-challenge-avatars/' ),
 					'loginUrl'      => esc_url_raw( add_query_arg( 'redirect_to', rawurlencode( home_url( '/' . self::ROUTE_PATH . '/' ) ), home_url( '/my-account/' ) ) ),
 					'registrationUrl' => esc_url_raw( add_query_arg( 'redirect_to', rawurlencode( home_url( '/' . self::ROUTE_PATH . '/' ) ), home_url( '/my-account/' ) ) ),
 				'avatarStudioUrl' => esc_url_raw( home_url( '/homepage-arena/' ) ),
 				'personalMeetingRoomUrl' => $personal_room_url,
-				'meeting'       => array(
+					'meeting'       => empty( $viewer ) ? array() : array(
 					'title'   => sanitize_text_field( $meeting['title'] ?? 'Live Team Challenge Webex Meeting' ),
 					'joinUrl' => $meeting_join_url,
 					'start'   => sanitize_text_field( $meeting['start'] ?? '' ),
@@ -1811,10 +2117,10 @@ class MMED_Live_Drills_SDK_V3 {
 			),
 			'scheduledSessions' => current_user_can( 'manage_options' ) ? self::get_team_challenge_sessions() : array(),
 			'nonce'         => wp_create_nonce( 'wp_rest' ),
-			'pollInterval'  => 1000,
-			'copy'          => array(
-				'studentMode' => 'Selected student answers live in Webex.',
-				'adminMode'   => 'Select the active student, or use Auto next, then mark Correct or Missed.',
+				'pollInterval'  => 450,
+				'copy'          => array(
+					'studentMode' => 'The host will choose each player in turn.',
+					'adminMode'   => 'Select the active student, or use Auto next, then mark Correct or Missed.',
 			),
 		);
 
@@ -1836,12 +2142,15 @@ class MMED_Live_Drills_SDK_V3 {
 	 * @return string
 	 */
 	private static function inject_sdk_v3_assets( $html ) {
+		$state = self::get_team_challenge_state_data();
+		$action_url = esc_url_raw( self::asset_url( 'assets/daily-drills-team-challenge-v3-action.php' ) );
 		$config = array(
 			'enabled'       => true,
 			'route'         => self::ROUTE_PATH,
 			'runtimeMode'   => 'sdk-v3-isolated',
 			'legacyRoute'   => 'daily-drills-live-webex-preview',
-			'stateEndpoint' => esc_url_raw( rest_url( 'mmed/v1/live-drills-v3/team-challenge' ) ),
+			'stateEndpoint' => $action_url,
+			'viewerTicket'  => self::current_team_challenge_viewer_ticket( $state ),
 		);
 
 		$script_url = self::asset_url( self::SDK_V3_SCRIPT_PATH );
@@ -1863,19 +2172,14 @@ class MMED_Live_Drills_SDK_V3 {
 	private static function get_team_challenge_state_data() {
 		$fresh = self::build_team_challenge_state();
 		$state = get_option( self::TEAM_CHALLENGE_STATE_OPTION, array() );
-		$snapshot = self::read_team_challenge_state_snapshot();
-		if ( is_array( $snapshot ) && ! empty( $snapshot['teams'] ) ) {
-			$state_ms    = self::team_challenge_state_timestamp_ms( $state );
-			$snapshot_ms = self::team_challenge_state_timestamp_ms( $snapshot );
-			if ( ! is_array( $state ) || empty( $state['teams'] ) || $snapshot_ms >= $state_ms ) {
-				$state = $snapshot;
-				update_option( self::TEAM_CHALLENGE_STATE_OPTION, $state, false );
-			}
+		$private_snapshot = self::read_team_challenge_private_snapshot();
+		if ( is_array( $private_snapshot ) && ! empty( $private_snapshot['teams'] ) && MMED_Live_Drills_State_Contract::compare_states( $private_snapshot, $state ) >= 0 ) {
+			$state = $private_snapshot;
 		}
 
 		if ( ! is_array( $state ) || empty( $state['teams'] ) || empty( $state['rosterHash'] ) ) {
 			$fresh['meeting'] = self::team_challenge_meeting_for_client_state( self::get_preview_meeting() );
-			return $fresh;
+			return MMED_Live_Drills_State_Contract::normalize_state( $fresh );
 		}
 
 		if ( $state['rosterHash'] !== $fresh['rosterHash'] ) {
@@ -1889,13 +2193,13 @@ class MMED_Live_Drills_SDK_V3 {
 			$state['sourceRosterHash'] = $fresh['rosterHash'];
 		}
 
-				$state['meeting'] = self::team_challenge_meeting_for_client_state( self::get_preview_meeting() );
-				$state['hostNote'] = sanitize_textarea_field( $state['hostNote'] ?? '' );
-				$state['chatMessages'] = self::sanitize_team_challenge_chat_messages( $state['chatMessages'] ?? array() );
-				$state['countdown'] = self::sanitize_team_challenge_countdown( $state['countdown'] ?? array() );
+		$state['meeting'] = self::team_challenge_meeting_for_client_state( self::get_preview_meeting() );
+		$state['hostNote'] = sanitize_textarea_field( $state['hostNote'] ?? '' );
+		$state['chatMessages'] = self::sanitize_team_challenge_chat_messages( $state['chatMessages'] ?? array() );
+		$state['countdown'] = self::sanitize_team_challenge_countdown( $state['countdown'] ?? array() );
 
-				return $state;
-			}
+		return MMED_Live_Drills_State_Contract::normalize_state( $state );
+	}
 
 	/**
 	 * Build the default Team Challenge state from current opt-ins or safe placeholders.
@@ -1905,15 +2209,27 @@ class MMED_Live_Drills_SDK_V3 {
 	private static function build_team_challenge_state() {
 		$teams = self::build_team_challenge_teams();
 
-			return array(
-				'mode'         => 'team_challenge',
-				'sessionTitle' => 'Live Team Challenge',
+				return array(
+					'schemaVersion' => MMED_Live_Drills_State_Contract::SCHEMA_VERSION,
+					'mode'         => 'team_challenge',
+					'sessionId'    => 'legacy-' . substr( md5( wp_json_encode( $teams ) ), 0, 16 ),
+					'sessionTitle' => 'Live Team Challenge',
+					'lifecycle'    => array(
+						'state'      => 'idle',
+						'changedAt'  => '',
+						'startedAt'  => '',
+						'endedAt'    => '',
+						'archivedAt' => '',
+					),
+					'eventSeq'    => 0,
 				'teams'        => $teams,
 				'active'       => self::get_first_team_challenge_active( $teams ),
 					'nextTeamId'   => 'red',
 						'winner'       => null,
 						'hostNote'     => '',
-						'chatMessages' => array(),
+							'chatMessages' => array(),
+							'spectators'   => array(),
+							'spectatorCount' => 0,
 						'countdown'    => self::sanitize_team_challenge_countdown( array() ),
 						'rosterHash'   => md5( wp_json_encode( $teams ) ),
 				'history'      => array(),
@@ -2474,38 +2790,23 @@ class MMED_Live_Drills_SDK_V3 {
 		}
 
 		/**
-		 * Add a browser guest to the live roster without exposing their raw email.
+		 * Add a name-only browser guest to the live roster.
 		 *
 		 * @param array  $state      Team Challenge state.
 		 * @param string $guest_id   Browser-local guest ID.
-		 * @param string $first_name First name.
-		 * @param string $last_name  Last name.
-		 * @param string $email      Email address.
+		 * @param string $name       Display name.
 		 * @return array
 		 */
-		private static function team_challenge_join_guest( $state, $guest_id, $first_name, $last_name, $email ) {
-			$email_hash = hash( 'sha256', strtolower( trim( $email ) ) );
-			$guest_id   = sanitize_key( $guest_id );
-			if ( '' === $guest_id ) {
-				$guest_id = 'guest-' . substr( $email_hash, 0, 16 );
-			}
-			if ( 0 !== strpos( $guest_id, 'guest-' ) ) {
-				$guest_id = 'guest-' . $guest_id;
-			}
+	private static function team_challenge_join_guest( $state, $guest_id, $name ) {
+		$guest_id = self::normalize_team_challenge_guest_id( $guest_id );
+		$name = substr( sanitize_text_field( $name ), 0, 60 );
 
-			$name = sanitize_text_field( trim( $first_name . ' ' . $last_name ) );
-			if ( '' === $name ) {
-				$name = 'Guest Student';
-			}
-
-			$existing = null;
-			foreach ( $state['teams'] ?? array() as $team_index => $team ) {
-				foreach ( $team['students'] ?? array() as $student_index => $student ) {
-					$same_id    = sanitize_key( $student['id'] ?? '' ) === $guest_id;
-					$same_email = ! empty( $student['emailHash'] ) && hash_equals( (string) $student['emailHash'], $email_hash );
-					if ( ! $same_id && ! $same_email ) {
-						continue;
-					}
+		$existing = null;
+		foreach ( $state['teams'] ?? array() as $team_index => $team ) {
+			foreach ( $team['students'] ?? array() as $student_index => $student ) {
+				if ( sanitize_key( $student['id'] ?? '' ) !== $guest_id ) {
+					continue;
+				}
 
 						$existing = $student;
 						$state    = self::preserve_team_challenge_score_snapshot( $state, $student );
@@ -2531,13 +2832,12 @@ class MMED_Live_Drills_SDK_V3 {
 				'avatarUrl'      => esc_url_raw( $existing['avatarUrl'] ?? '' ),
 				'avatarFullUrl'  => esc_url_raw( $existing['avatarFullUrl'] ?? '' ),
 				'avatarSource'   => sanitize_key( $existing['avatarSource'] ?? 'guest_fallback' ),
-				'avatarSeed'     => sanitize_key( 'guest-' . substr( $email_hash, 0, 12 ) ),
+				'avatarSeed'     => sanitize_key( substr( hash( 'sha256', $guest_id ), 0, 16 ) ),
 				'isBot'          => false,
-					'isGuest'        => true,
-					'emailHash'      => $email_hash,
-					'joined'         => true,
-				);
-				$student = self::restore_team_challenge_score_snapshot( $state, $student );
+				'isGuest'        => true,
+				'joined'         => true,
+			);
+			$student = self::restore_team_challenge_score_snapshot( $state, $student );
 
 				$state['teams'][ $target_index ]['students'][] = $student;
 				$state = self::recalculate_team_challenge_scores( $state );
@@ -2600,19 +2900,15 @@ class MMED_Live_Drills_SDK_V3 {
 		 *
 		 * @param array  $state    Team Challenge state.
 		 * @param string $guest_id Browser-local guest ID.
-		 * @param string $email    Email address.
 		 * @return array
 		 */
-		private static function team_challenge_remove_guest( $state, $guest_id, $email ) {
-			$guest_id   = sanitize_key( $guest_id );
-			$email_hash = is_email( $email ) ? hash( 'sha256', strtolower( trim( $email ) ) ) : '';
-			$removed    = false;
+	private static function team_challenge_remove_guest( $state, $guest_id ) {
+		$guest_id = self::normalize_team_challenge_guest_id( $guest_id );
+		$removed    = false;
 
 			foreach ( $state['teams'] ?? array() as $team_index => $team ) {
 				foreach ( $team['students'] ?? array() as $student_index => $student ) {
-					$same_id    = '' !== $guest_id && sanitize_key( $student['id'] ?? '' ) === $guest_id;
-					$same_email = '' !== $email_hash && ! empty( $student['emailHash'] ) && hash_equals( (string) $student['emailHash'], $email_hash );
-						if ( ! $same_id && ! $same_email ) {
+					if ( '' === $guest_id || sanitize_key( $student['id'] ?? '' ) !== $guest_id ) {
 							continue;
 						}
 
@@ -2998,22 +3294,14 @@ class MMED_Live_Drills_SDK_V3 {
 			 * @param array $countdown Raw countdown state.
 			 * @return array
 			 */
-			private static function sanitize_team_challenge_countdown( $countdown ) {
-				if ( ! is_array( $countdown ) ) {
-					$countdown = array();
-				}
-
-				$duration = min( 10800, max( 0, absint( $countdown['durationSeconds'] ?? 0 ) ) );
-				$ends_at  = max( 0, absint( $countdown['endsAtEpoch'] ?? 0 ) );
-				$running  = ! empty( $countdown['isRunning'] ) && $ends_at > 0;
-
-				return array(
-					'durationSeconds' => $duration,
-					'endsAtEpoch'     => $ends_at,
-					'isRunning'       => $running,
-					'updatedAt'       => sanitize_text_field( (string) ( $countdown['updatedAt'] ?? current_time( 'mysql' ) ) ),
-				);
+		private static function sanitize_team_challenge_countdown( $countdown ) {
+			$normalized = MMED_Live_Drills_State_Contract::normalize_countdown( $countdown );
+			if ( '' === $normalized['updatedAt'] ) {
+				$normalized['updatedAt'] = current_time( 'mysql' );
 			}
+
+			return $normalized;
+		}
 
 			/**
 			 * Sanitize stored chat messages.
@@ -3715,7 +4003,30 @@ class MMED_Live_Drills_SDK_V3 {
 	}
 
 	/**
-	 * Read the public Team Challenge snapshot when it is newer than the option.
+	 * Return the private snapshot path outside the public document root.
+	 *
+	 * @return string
+	 */
+	private static function team_challenge_private_snapshot_path() {
+		$override = getenv( 'MMED_V3_PRIVATE_STATE_PATH' );
+		if ( is_string( $override ) && '' !== trim( $override ) ) {
+			return $override;
+		}
+
+		return trailingslashit( dirname( untrailingslashit( ABSPATH ) ) ) . 'private/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
+	}
+
+	/**
+	 * Read the private authoritative snapshot mirror.
+	 *
+	 * @return array
+	 */
+	private static function read_team_challenge_private_snapshot() {
+		return MMED_Live_Drills_State_Contract::read_json( self::team_challenge_private_snapshot_path() );
+	}
+
+	/**
+	 * Read the anonymous-safe public Team Challenge snapshot.
 	 *
 	 * @return array
 	 */
@@ -3757,7 +4068,7 @@ class MMED_Live_Drills_SDK_V3 {
 	}
 
 	/**
-	 * Write a public, viewer-neutral state snapshot for low-latency student reads.
+	 * Write an anonymous-safe state snapshot for direct low-latency reads.
 	 *
 	 * @param array $state Team Challenge state.
 	 * @return bool
@@ -3774,63 +4085,96 @@ class MMED_Live_Drills_SDK_V3 {
 			return false;
 		}
 
-		$snapshot = is_array( $state ) ? $state : array();
-		unset( $snapshot['currentUserId'] );
-		$snapshot['snapshotGeneratedAtMs'] = (int) floor( microtime( true ) * 1000 );
+		$snapshot = MMED_Live_Drills_State_Contract::public_view( $state );
 
-		$json = wp_json_encode( $snapshot );
-		if ( ! is_string( $json ) || '' === $json ) {
+		return MMED_Live_Drills_State_Contract::write_json_atomic( $path, $snapshot, 0644 );
+	}
+
+	/**
+	 * Write the full private snapshot mirror.
+	 *
+	 * @param array $state Full state.
+	 * @return bool
+	 */
+	private static function write_team_challenge_private_snapshot( $state ) {
+		return MMED_Live_Drills_State_Contract::write_json_atomic(
+			self::team_challenge_private_snapshot_path(),
+			$state,
+			0640
+		);
+	}
+
+	/**
+	 * Restore exact prior file bytes after a partial persistence failure.
+	 *
+	 * @param string      $path Path.
+	 * @param string|null $bytes Prior bytes, or null when the file did not exist.
+	 * @param int         $mode File mode.
+	 * @return bool
+	 */
+	private static function restore_team_challenge_snapshot_bytes( $path, $bytes, $mode ) {
+		if ( null === $bytes ) {
+			return ! file_exists( $path ) || unlink( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink
+		}
+		$directory = dirname( $path );
+		if ( ! wp_mkdir_p( $directory ) ) {
+			return false;
+		}
+		$tmp_path = $path . '.restore.' . wp_generate_password( 12, false, false );
+		if ( false === file_put_contents( $tmp_path, $bytes, LOCK_EX ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
+			return false;
+		}
+		@chmod( $tmp_path, $mode ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		if ( ! rename( $tmp_path, $path ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
+			@unlink( $tmp_path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.unlink_unlink
 			return false;
 		}
 
-			$tmp_path = $path . '.tmp.' . wp_generate_password( 12, false, false );
-			if ( false === file_put_contents( $tmp_path, $json, LOCK_EX ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents
-				return false;
-			}
-			@chmod( $tmp_path, 0644 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-			if ( ! rename( $tmp_path, $path ) ) { // phpcs:ignore WordPress.WP.AlternativeFunctions.rename_rename
-				@unlink( $tmp_path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged,WordPress.WP.AlternativeFunctions.unlink_unlink
-				return false;
-			}
-
-			return true;
-		}
+		return true;
+	}
 
 	/**
 	 * Persist Team Challenge state with bounded, non-secret event history.
 	 *
-	 * @param array  $state      Team Challenge state.
+	 * @param array  $state      Team Challenge state, updated by reference.
 	 * @param string $event_type Safe event type.
 	 * @return bool
 	 */
-	private static function persist_team_challenge_state( $state, $event_type ) {
+	private static function persist_team_challenge_state( &$state, $event_type ) {
+		self::$team_challenge_persist_error = '';
+		$previous = get_option( self::TEAM_CHALLENGE_STATE_OPTION, array() );
+		$state = MMED_Live_Drills_State_Contract::prepare_mutation( $state, (int) ( $previous['eventSeq'] ?? 0 ) );
 		$state = self::append_team_challenge_history( $state, $event_type );
 
-		$previous = get_option( self::TEAM_CHALLENGE_STATE_OPTION, array() );
-		$changed  = maybe_serialize( $previous ) !== maybe_serialize( $state );
-			$saved          = update_option( self::TEAM_CHALLENGE_STATE_OPTION, $state, false );
-			$snapshot_saved = self::write_team_challenge_state_snapshot( $state );
+		$private_path = self::team_challenge_private_snapshot_path();
+		$public_location = self::team_challenge_snapshot_location();
+		$public_path = $public_location['path'] ?? '';
+		$private_before = file_exists( $private_path ) ? file_get_contents( $private_path ) : null; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
+		$public_before = '' !== $public_path && file_exists( $public_path ) ? file_get_contents( $public_path ) : null; // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents
 
-			if ( ! $saved && $changed ) {
-				self::log_team_challenge_event(
-					'team_state_persistence_failure',
-					array(
-						'event_type' => sanitize_key( $event_type ),
-					)
-				);
-			}
-
-			if ( ! $snapshot_saved ) {
-				self::log_team_challenge_event(
-					'team_state_snapshot_failure',
-					array(
-						'event_type' => sanitize_key( $event_type ),
-					)
-				);
-			}
-
-			return $saved || ! $changed;
+		if ( ! self::write_team_challenge_private_snapshot( $state ) ) {
+			self::$team_challenge_persist_error = 'private_snapshot_write_failed';
+			return false;
 		}
+		if ( ! self::write_team_challenge_state_snapshot( $state ) ) {
+			self::restore_team_challenge_snapshot_bytes( $private_path, $private_before, 0640 );
+			self::$team_challenge_persist_error = 'public_snapshot_write_failed';
+			return false;
+		}
+
+		$saved = update_option( self::TEAM_CHALLENGE_STATE_OPTION, $state, false );
+		if ( ! $saved ) {
+			$option_matches = maybe_serialize( get_option( self::TEAM_CHALLENGE_STATE_OPTION, array() ) ) === maybe_serialize( $state );
+			if ( ! $option_matches ) {
+				self::restore_team_challenge_snapshot_bytes( $private_path, $private_before, 0640 );
+				self::restore_team_challenge_snapshot_bytes( $public_path, $public_before, 0644 );
+				self::$team_challenge_persist_error = 'option_write_failed';
+				return false;
+			}
+		}
+
+		return true;
+	}
 
 	/**
 	 * Append a safe event summary to the shared session state.
@@ -3848,6 +4192,7 @@ class MMED_Live_Drills_SDK_V3 {
 			'event'     => sanitize_key( $event['type'] ?? $event_type ),
 			'message'   => sanitize_text_field( $event['message'] ?? '' ),
 			'updatedAt' => sanitize_text_field( $event['updatedAt'] ?? current_time( 'mysql' ) ),
+			'eventSeq'  => (int) ( $state['eventSeq'] ?? 0 ),
 		);
 
 		if ( self::TEAM_CHALLENGE_HISTORY_LIMIT < count( $history ) ) {
