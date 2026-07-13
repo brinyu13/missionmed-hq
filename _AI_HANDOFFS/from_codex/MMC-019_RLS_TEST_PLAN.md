@@ -122,4 +122,3 @@ Functional:
 - READY: Use this plan to draft tests for a future staging-only schema build.
 - BLOCKED: Production schema execution until tests are implemented and passing against a staging schema.
 - BLOCKED: Production writes until assignment, identity references, audit logging, backup/rollback, and retention policy are approved.
-

@@ -287,4 +287,3 @@ Every future `mmc.*` table should include the following logical controls unless 
 - READY: Draft a migration proposal in a separate explicit schema-build task.
 - BLOCKED: Apply migrations anywhere until explicit approval.
 - BLOCKED: Production writes until RLS tests, identity references, assignment authority, audit logging, backup/rollback, retention/privacy, and least-privilege credentials are verified.
-
