@@ -964,7 +964,7 @@
 	      "body:not(.mmed-team-challenge-admin) .center-column{grid-template-rows:minmax(255px,1fr) minmax(260px,34vh)}",
 	      "body:not(.mmed-team-challenge-admin) .team-challenge-joinbar{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;text-align:center}",
 	      ".team-challenge-joinbar.is-joined,.team-challenge-joinbar.is-watching{background:linear-gradient(135deg,rgba(7,12,28,.98),rgba(3,6,18,.99));box-shadow:0 16px 46px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.08)}",
-	      "@media(min-width:761px){body:not(.mmed-team-challenge-admin) .team-challenge-joinbar.is-joined,body:not(.mmed-team-challenge-admin) .team-challenge-joinbar.is-watching{min-height:360px}}",
+		      "@media(min-width:761px){body:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar.is-joined) .center-column,body:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar.is-watching) .center-column{grid-template-rows:minmax(255px,1fr) 360px}body:not(.mmed-team-challenge-admin) .team-challenge-joinbar.is-joined,body:not(.mmed-team-challenge-admin) .team-challenge-joinbar.is-watching{min-height:0}}",
 	      ".team-challenge-joinbar:before{content:'DR J LIVE';position:absolute;left:12px;top:10px;width:max-content;padding:3px 9px;border-radius:999px;background:rgba(250,204,21,.14);border:1px solid rgba(250,204,21,.36);color:#fde68a;font-size:9px;font-weight:1000;letter-spacing:.16em;text-transform:uppercase}",
 	      ".team-challenge-adminbar p{margin:0;color:#c8d4f4;font-size:12px;line-height:1.25}",
 	      ".team-challenge-joinbar p{margin:0;color:#dbeafe;font-size:13px;line-height:1.25}",
