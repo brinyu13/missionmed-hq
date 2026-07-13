@@ -14,6 +14,10 @@ $mmed_v3_request_started_ms = (int) floor( microtime( true ) * 1000 );
 $mmed_v3_method = strtoupper( (string) ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) );
 $mmed_v3_root = dirname( __DIR__, 4 );
 
+if ( ! getenv( 'MMED_V3_PRIVATE_STATE_PATH' ) ) {
+	putenv( 'MMED_V3_PRIVATE_STATE_PATH=' . dirname( rtrim( $mmed_v3_root, '/' ) ) . '/web/missionmed-private/missionmed-live-drills-v3/team-challenge-state.json' );
+}
+
 require_once dirname( __DIR__ ) . '/includes/class-mmed-live-drills-state-contract.php';
 
 if ( 'GET' === $mmed_v3_method || 'HEAD' === $mmed_v3_method ) {
@@ -267,7 +271,7 @@ function mmed_v3_floor_private_snapshot_path( $root ) {
 		return $override;
 	}
 
-	return dirname( rtrim( $root, '/' ) ) . '/' . MMED_Live_Drills_State_Contract::PRIVATE_RUNTIME_ROOT_RELATIVE_PATH . '/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
+	return dirname( rtrim( $root, '/' ) ) . '/web/missionmed-private/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
 }
 
 /**
