@@ -1,6 +1,11 @@
 (function () {
   "use strict";
 
+  if (window.__MMED_DRILLS_LIVE_FLOOR_INITIALIZED__) {
+    return;
+  }
+  window.__MMED_DRILLS_LIVE_FLOOR_INITIALIZED__ = true;
+
   var config = normalizeBootstrapConfig(window.MMEDLiveDrillsTeamChallengePreview || {});
   window.MMEDLiveDrillsTeamChallengePreview = config;
   if (!config.enabled || !config.stateUrl) {
@@ -31,14 +36,13 @@
   var isAdmin = mode === "admin";
   var currentUserId = Number(config.currentUserId || 0);
   var currentUserProfile = normalizeCurrentUserProfile(config.currentUser || config.user || {});
-  var fastStateUrl = config.fastStateUrl || buildFastStateUrl();
-  var fastStateWriteUrl = config.fastStateWriteUrl || buildFastStateWriteUrl();
-  var fastStateActionUrl = config.fastStateActionUrl || "";
-  var fastStateReadUrl = config.fastStateReadUrl || buildFastStateReadUrl();
-  if (fastStateReadUrl) {
-    fastStateUrl = fastStateReadUrl;
-  }
+  var fastStateActionUrl = config.fastStateActionUrl || config.stateUrl || "";
+  var fastStateUrl = fastStateActionUrl;
+  var fastStateWriteUrl = fastStateActionUrl;
+  var fastStateReadUrl = fastStateActionUrl;
   var pollTimer = null;
+  var realtimeWorker = null;
+  var realtimeMode = "starting";
   var refreshInFlight = false;
   var pendingActions = 0;
   var actionQueue = Promise.resolve();
@@ -49,12 +53,17 @@
   var lastWinnerKey = "";
   var lastFeedbackEventKey = "";
   var hasRenderedState = false;
-  var realtimePollInterval = Math.max(180, Math.min(Number(config.pollInterval || 240), 320));
-  var realtimeTurboInterval = 120;
-  var realtimeHiddenInterval = 900;
+  var realtimePollInterval = Math.max(300, Math.min(Number(config.pollInterval || 450), 900));
+  var realtimeTurboInterval = 300;
   var realtimeBurstUntil = Date.now() + 60000;
   var lastStateFingerprint = "";
   var latestAppliedStateMs = 0;
+  var latestAppliedEventSeq = -1;
+  var stateEtag = "";
+  var serverClockOffsetMs = 0;
+  var serverClockSamples = 0;
+  var diagnosticsEnabled = false;
+  var diagnosticEvents = [];
   var correctSoundUrl = "https://cdn.missionmedinstitute.com/html-system/LIVE/Shared/assets/Music/Announcer%20Correct%20Answer.mp3";
   var missedSoundUrl = "https://cdn.missionmedinstitute.com/html-system/LIVE/Shared/assets/Music/Child%20Voice%20Try%20Again%202.mp3";
   var winnerSoundUrl = "https://cdn.missionmedinstitute.com/html-system/LIVE/Shared/assets/Music/Cheering%20Small%20Crowd.mp3";
@@ -66,7 +75,9 @@
 		  }
 		  var personalMeetingRoomOptionValue = "__personal_room__";
 		  var nonceRefreshPromise = null;
-	  var guestStorageKey = "mmedLiveTeamChallengeGuest";
+		  var guestStorageKey = "mmedLiveTeamChallengeGuest";
+		  var viewerTicketStorageKey = "mmedLiveTeamChallengeViewerTicket";
+		  var viewerTicketMetaStorageKey = "mmedLiveTeamChallengeViewerTicketMeta";
 	  var activeGuestRosterStorageKey = "mmedLiveTeamChallengeActiveGuestId";
 	  var watchingStorageKey = "mmedLiveTeamChallengeWatching";
 	  var chatTargetStorageKey = "mmedLiveTeamChallengeChatTargetV3";
@@ -81,8 +92,20 @@
 		  var speakerMutedStorageKey = "mmedLiveTeamChallengeSpeakerMuted";
 			  var guestFieldsHydrated = false;
 			  var guestFieldsDirty = false;
-			  var guestEntryMode = false;
+			  var guestEntryMode = !currentUserId;
 			  var activeGuestRosterId = loadActiveGuestRosterId();
+			  clearLegacySharedViewerTicket();
+			  var viewerTicket = loadViewerTicket();
+			  var viewerTicketMeta = loadViewerTicketMeta();
+			  if (!viewerTicketBelongsToCurrentContext(viewerTicketMeta)) {
+			    viewerTicket = "";
+			    clearSessionViewerTicket();
+			  }
+			  if (config.viewerTicket) {
+			    viewerTicket = String(config.viewerTicket || "");
+			    viewerTicketMeta = { id: currentUserId ? "u" + String(currentUserId) : "", role: isAdmin ? "host" : "participant", kind: currentUserId ? "signed" : "guest" };
+			    persistSessionViewerTicket(viewerTicket, viewerTicketMeta);
+			  }
 			  var autoNextEnabled = loadAutoNextEnabled();
 			  var autoNextMode = loadAutoNextMode();
 			  var activeAdminStep = loadAdminStep();
@@ -130,13 +153,91 @@
     return /(?:^|[?&])mmed_guest_reset=1(?:&|$)/.test(window.location.search || "");
   }
 
-	  function resetStoredGuestChoice() {
-	    try {
-	      window.localStorage.removeItem(guestStorageKey);
-	      window.localStorage.removeItem(activeGuestRosterStorageKey);
-	      window.localStorage.removeItem(watchingStorageKey);
-	    } catch (error) {}
-	  }
+		  function resetStoredGuestChoice() {
+		    try {
+		      window.localStorage.removeItem(guestStorageKey);
+		      window.localStorage.removeItem(activeGuestRosterStorageKey);
+		      window.localStorage.removeItem(watchingStorageKey);
+		      window.localStorage.removeItem(viewerTicketStorageKey);
+		      window.sessionStorage.removeItem(viewerTicketStorageKey);
+		      window.sessionStorage.removeItem(viewerTicketMetaStorageKey);
+		    } catch (error) {}
+		  }
+
+		  function clearLegacySharedViewerTicket() {
+		    try {
+		      if (window.localStorage) window.localStorage.removeItem(viewerTicketStorageKey);
+		    } catch (error) {}
+		  }
+
+		  function loadViewerTicket() {
+		    try {
+		      return String((window.sessionStorage && window.sessionStorage.getItem(viewerTicketStorageKey)) || "");
+		    } catch (error) {
+		      return "";
+		    }
+		  }
+
+		  function loadViewerTicketMeta() {
+		    try {
+		      var raw = window.sessionStorage && window.sessionStorage.getItem(viewerTicketMetaStorageKey);
+		      var parsed = raw ? JSON.parse(raw) : {};
+		      return parsed && typeof parsed === "object" ? parsed : {};
+		    } catch (error) {
+		      return {};
+		    }
+		  }
+
+		  function viewerTicketBelongsToCurrentContext(meta) {
+		    meta = meta && typeof meta === "object" ? meta : {};
+		    if (!meta.kind) return false;
+		    if (meta.kind === "guest") return !currentUserId;
+		    return !!currentUserId && String(meta.id || "") === "u" + String(currentUserId);
+		  }
+
+		  function clearSessionViewerTicket() {
+		    try {
+		      if (!window.sessionStorage) return;
+		      window.sessionStorage.removeItem(viewerTicketStorageKey);
+		      window.sessionStorage.removeItem(viewerTicketMetaStorageKey);
+		    } catch (error) {}
+		  }
+
+		  function persistSessionViewerTicket(ticket, meta) {
+		    try {
+		      if (!window.sessionStorage) return;
+		      if (ticket) {
+		        window.sessionStorage.setItem(viewerTicketStorageKey, String(ticket));
+		        window.sessionStorage.setItem(viewerTicketMetaStorageKey, JSON.stringify(meta || {}));
+		      } else {
+		        clearSessionViewerTicket();
+		      }
+		    } catch (error) {}
+		  }
+
+		  function saveViewerTicket(ticket, viewer) {
+		    viewerTicket = String(ticket || "");
+		    config.viewerTicket = viewerTicket;
+		    viewer = viewer && typeof viewer === "object" ? viewer : {};
+		    viewerTicketMeta = viewerTicket ? {
+		      id: String(viewer.id || (currentUserId ? "u" + String(currentUserId) : "")),
+		      role: String(viewer.role || (isAdmin ? "host" : "participant")),
+		      kind: String(viewer.id || "").indexOf("guest-") === 0 || !currentUserId ? "guest" : "signed"
+		    } : {};
+		    persistSessionViewerTicket(viewerTicket, viewerTicketMeta);
+		    if (realtimeWorker) {
+		      realtimeWorker.postMessage({ type: "update-viewer", viewerTicket: viewerTicket });
+		    } else {
+		      stateEtag = "";
+		      scheduleRealtimePoll(0);
+		    }
+		    if (window.MMEDLiveDrillsWebexPreview) {
+		      window.MMEDLiveDrillsWebexPreview.viewerTicket = viewerTicket;
+		    }
+		    if (window.MMEDLiveDrillsSDKV3Config) {
+		      window.MMEDLiveDrillsSDKV3Config.viewerTicket = viewerTicket;
+		    }
+		  }
 
 	  function rememberAdminMode() {
 	    if (!isAdmin) return;
@@ -397,15 +498,17 @@
     next.isAdmin = next.isAdmin === true;
     next.mode = next.isAdmin ? "admin" : (next.mode || "student");
 	    next.currentUserId = Number(next.currentUserId || 0);
+	    next.workerUrl = String(next.workerUrl || "");
+	    next.viewerTicket = String(next.viewerTicket || "");
 	    next.avatarBaseUrl = next.avatarBaseUrl || (window.location.origin.replace(/\/$/, "") + "/wp-content/plugins/missionmed-hub/assets/team-challenge-avatars/");
 		    next.loginUrl = customAccountUrl(next.loginUrl);
 		    next.registrationUrl = customAccountUrl(next.registrationUrl);
 	    next.avatarStudioUrl = next.avatarStudioUrl || "";
     next.meeting = next.meeting && typeof next.meeting === "object" ? next.meeting : {};
     next.scheduledSessions = Array.isArray(next.scheduledSessions) ? next.scheduledSessions : [];
-    next.pollInterval = next.pollInterval || 650;
-    next.copy = next.copy || {
-      studentMode: "Selected student answers live in Webex.",
+	    next.pollInterval = next.pollInterval || 450;
+	    next.copy = next.copy || {
+	      studentMode: "The host will choose each player in turn.",
       adminMode: "Select the active student, or use Auto next, then mark Correct or Missed."
     };
 
@@ -416,24 +519,32 @@
   document.body.classList.toggle("mmed-team-challenge-admin", isAdmin);
 
   injectStyles();
+  injectFloorStyles();
   mountChallengeFrame();
   bindControls();
   preloadSounds();
   startRealtimePolling();
   fetchCurrentUserProfile();
 	  countdownTimer = window.setInterval(renderCountdown, 250);
-	  window.addEventListener("beforeunload", function () {
-	    window.clearTimeout(pollTimer);
-	    window.clearInterval(countdownTimer);
-	  });
+		  window.addEventListener("beforeunload", function () {
+		    window.clearTimeout(pollTimer);
+		    window.clearInterval(countdownTimer);
+		    if (realtimeWorker) {
+		      realtimeWorker.postMessage({ type: "stop" });
+		      realtimeWorker.terminate();
+		      realtimeWorker = null;
+		    }
+		  });
 	  window.addEventListener("focus", function () {
 	    enterRealtimeBurst(8000, true);
 	  });
-	  document.addEventListener("visibilitychange", function () {
-	    if (!document.hidden) {
-	      enterRealtimeBurst(8000, true);
-	    }
-	  });
+		  document.addEventListener("visibilitychange", function () {
+		    if (!document.hidden) {
+		      enterRealtimeBurst(8000, true);
+		    } else if (realtimeWorker) {
+		      realtimeWorker.postMessage({ type: "poll-now" });
+		    }
+		  });
 	  document.addEventListener("pointerdown", function () {
 	    enterRealtimeBurst(4500, false);
 	    primeFeedbackAudio();
@@ -443,12 +554,80 @@
 	    primeFeedbackAudio();
 	  }, true);
 
-	  function startRealtimePolling() {
-	    scheduleRealtimePoll(0);
-	  }
+		  function startRealtimePolling() {
+		    if (config.workerUrl && window.Worker) {
+		      try {
+		        realtimeWorker = new Worker(config.workerUrl);
+		        realtimeMode = "worker";
+		        realtimeWorker.onmessage = handleRealtimeWorkerMessage;
+		        realtimeWorker.onerror = function () {
+		          recordDiagnostic("worker_failed", { mode: "fallback" });
+		          stopRealtimeWorker();
+		          startMainThreadFallback();
+		        };
+		        realtimeWorker.postMessage({
+		          type: "start",
+		          url: fastStateUrl || config.stateUrl,
+		          viewerTicket: viewerTicket,
+		          intervalMs: realtimePollInterval,
+		          etag: stateEtag
+		        });
+		        return;
+		      } catch (error) {
+		        recordDiagnostic("worker_start_failed", { message: safeDiagnosticMessage(error) });
+		        stopRealtimeWorker();
+		      }
+		    }
+		    startMainThreadFallback();
+		  }
 
-	  function scheduleRealtimePoll(delay) {
-	    window.clearTimeout(pollTimer);
+		  function stopRealtimeWorker() {
+		    if (!realtimeWorker) return;
+		    try {
+		      realtimeWorker.postMessage({ type: "stop" });
+		      realtimeWorker.terminate();
+		    } catch (error) {}
+		    realtimeWorker = null;
+		  }
+
+		  function startMainThreadFallback() {
+		    realtimeMode = "main-thread-fallback";
+		    scheduleRealtimePoll(0);
+		  }
+
+		  function handleRealtimeWorkerMessage(event) {
+		    var message = event && event.data && typeof event.data === "object" ? event.data : {};
+		    if (message.etag) stateEtag = String(message.etag);
+		    updateServerClock(message.timing || {});
+		    recordDiagnostic(message.type || "worker_message", message.timing || {});
+		    if (message.type === "state" && message.state) {
+		      applyAuthoritativeState(message.state, message.timing || {});
+		      renderConnectionState("connected");
+		      return;
+		    }
+		    if (message.type === "unchanged") {
+		      renderConnectionState("connected");
+		      return;
+		    }
+		    if (message.type === "authorization-expired") {
+		      saveViewerTicket("");
+		      setGuestWatching(false);
+		      renderStatus("Your room access expired. Choose Play or Watch again to reconnect.");
+		      return;
+		    }
+		    if (message.type === "read-error") {
+		      renderConnectionState("reconnecting");
+		    }
+		  }
+
+		  function scheduleRealtimePoll(delay) {
+		    if (realtimeWorker) {
+		      if (typeof delay === "number" && delay <= 0) {
+		        realtimeWorker.postMessage({ type: "poll-now" });
+		      }
+		      return;
+		    }
+		    window.clearTimeout(pollTimer);
 	    pollTimer = window.setTimeout(function () {
 	      refreshState().then(function () {
 	        scheduleRealtimePoll();
@@ -456,20 +635,24 @@
 	    }, typeof delay === "number" ? delay : currentRealtimePollDelay());
 	  }
 
-	  function currentRealtimePollDelay() {
-	    var baseDelay = document.hidden ? realtimeHiddenInterval : realtimePollInterval;
-	    if (!document.hidden && Date.now() < realtimeBurstUntil) {
-	      baseDelay = realtimeTurboInterval;
+		  function currentRealtimePollDelay() {
+		    var baseDelay = realtimePollInterval;
+		    if (Date.now() < realtimeBurstUntil) {
+		      baseDelay = realtimeTurboInterval;
 	    }
 	    return baseDelay + Math.floor(Math.random() * 24);
 	  }
 
 	  function enterRealtimeBurst(durationMs, pollNow) {
 	    realtimeBurstUntil = Math.max(realtimeBurstUntil, Date.now() + Math.max(Number(durationMs || 0), 0));
-	    if (pollNow) {
-	      scheduleRealtimePoll(0);
-	    }
-	  }
+		    if (pollNow) {
+		      if (realtimeWorker) {
+		        realtimeWorker.postMessage({ type: "poll-now" });
+		      } else {
+		        scheduleRealtimePoll(0);
+		      }
+		    }
+		  }
 
 	  function isNonceError(error) {
     var message = String(error && error.message ? error.message : error || "");
@@ -531,21 +714,21 @@
     return nonceRefreshPromise;
   }
 
-			  function fetchState(method, payload, options) {
-			    options = options || {};
-			    var requestMethod = method || "GET";
-			    var requestUrl = requestMethod === "GET" ? (fastStateUrl || config.stateUrl) : stateWriteUrlForPayload(payload);
-	    var headers = {
-	      "Content-Type": "application/json"
-	    };
-	    if (requestMethod === "GET") {
-	      requestUrl += (requestUrl.indexOf("?") === -1 ? "?" : "&") + "mmed_live_state_ts=" + Date.now();
-	      headers["Cache-Control"] = "no-cache";
-	      headers.Pragma = "no-cache";
-	    }
-	    if (config.nonce) {
-	      headers["X-WP-Nonce"] = config.nonce;
-	    }
+		  function fetchState(method, payload) {
+		    var requestMethod = method || "GET";
+		    var requestUrl = fastStateActionUrl || config.stateUrl;
+		    var startedAtMs = Date.now();
+		    var headers = { "Accept": "application/json" };
+		    if (!requestUrl) {
+		      return Promise.reject(new Error("The live room connection is unavailable. Refresh the page."));
+		    }
+		    if (requestMethod === "POST") {
+		      headers["Content-Type"] = "application/json";
+		      if (config.nonce) headers["X-WP-Nonce"] = config.nonce;
+		    } else if (stateEtag) {
+		      headers["If-None-Match"] = stateEtag;
+		    }
+		    if (viewerTicket) headers["X-MMED-Viewer-Ticket"] = viewerTicket;
 
 		    return window.fetch(requestUrl, {
 		      method: requestMethod,
@@ -554,58 +737,48 @@
 		      headers: headers,
 		      body: payload ? JSON.stringify(payload) : undefined
 		    }).then(function (response) {
-      if (!response.ok) {
-        return response.json().catch(function () {
-          return {};
-        }).then(function (body) {
-          var error = new Error(body.message || "Team Challenge request failed.");
-          error.status = response.status;
-          throw error;
-        });
-      }
-	      return response.json();
-		    }).catch(function (error) {
-		      if (requestMethod === "GET" && requestUrl !== config.stateUrl && config.stateUrl) {
-		        if (!options.snapshotRetry && (!error.status || error.status >= 500)) {
-		          return wait(180).then(function () {
-		            return fetchState(method, payload, { snapshotRetry: true });
-		          });
+		      var receivedAtMs = Date.now();
+		      var nextEtag = response.headers.get("ETag");
+		      var timing = {
+		        requestStartedAtMs: startedAtMs,
+		        clientReceivedAtMs: receivedAtMs,
+		        serverNowMs: Number(response.headers.get("X-MMED-Server-Now-Ms") || 0),
+		        eventSeq: Number(response.headers.get("X-MMED-Event-Seq") || 0),
+		        snapshotAgeMs: Number(response.headers.get("X-MMED-Snapshot-Age-Ms") || 0),
+		        readerMode: requestMethod === "GET" ? realtimeMode : "writer",
+		        roundTripMs: Math.max(0, receivedAtMs - startedAtMs)
+		      };
+		      if (nextEtag) stateEtag = nextEtag;
+		      updateServerClock(timing);
+		      recordDiagnostic(response.status === 304 ? "unchanged" : "response", timing);
+		      if (response.status === 304) return null;
+		      return response.json().catch(function () {
+		        return {};
+		      }).then(function (body) {
+		        if (!response.ok) {
+		          var error = new Error(body.message || "The live room could not complete that action. Try again.");
+		          error.status = response.status;
+		          throw error;
 		        }
-		        if (!error.status || error.status >= 500 || error.status === 401 || error.status === 403 || error.status === 404) {
-		          fastStateUrl = "";
-		          return fetchState(method, payload);
-		        }
-		      }
-	      if (requestMethod === "POST" && requestUrl === fastStateActionUrl && config.stateUrl) {
-	        fastStateActionUrl = "";
-	        return fetchState(method, payload);
+		        body._clientTiming = timing;
+		        return body;
+		      });
+		    });
+		  }
+
+		  function stateWriteUrlForPayload() {
+		    return fastStateActionUrl || config.stateUrl || fastStateWriteUrl;
+		  }
+
+	  function requestState(method, payload, options) {
+	    options = options || {};
+	    return fetchState(method, payload).catch(function (error) {
+	      if ((method || "GET") === "GET" && error && error.status === 401 && viewerTicket && !options.publicRetry) {
+	        saveViewerTicket("");
+	        return requestState(method, payload, { publicRetry: true });
 	      }
-	      if (requestMethod === "POST" && requestUrl !== config.stateUrl && config.stateUrl && (error.status === 404 || error.status === 405)) {
-	        fastStateWriteUrl = "";
-	        return fetchState(method, payload);
-	      }
-	      throw error;
-	    });
-	  }
-
-	  function stateWriteUrlForPayload(payload) {
-	    if (canUseFastAction(payload)) {
-	      return fastStateActionUrl;
-	    }
-	    return config.stateUrl || fastStateWriteUrl;
-	  }
-
-	  function canUseFastAction(payload) {
-	    if (!isAdmin || !fastStateActionUrl || !payload || typeof payload !== "object") {
-	      return false;
-	    }
-	    return ["score", "declare_winner", "undo_score", "auto_select_next", "select_student", "set_countdown"].indexOf(payload.action) !== -1;
-	  }
-
-  function requestState(method, payload) {
-    return fetchState(method, payload).catch(function (error) {
-      if (!isNonceError(error)) {
-        throw error;
+	      if (!isNonceError(error)) {
+	        throw error;
       }
 
       return refreshConfigNonce().then(function () {
@@ -614,37 +787,192 @@
     });
   }
 
-  function refreshState(options) {
+	  function refreshState(options) {
 	    options = options || {};
     if (refreshInFlight || (pendingActions > 0 && !options.force)) {
       return Promise.resolve();
     }
 
     refreshInFlight = true;
-	    return requestState("GET").then(function (nextState) {
-	      var incomingVersion = stateVersionMs(nextState);
-	      if (incomingVersion && latestAppliedStateMs && incomingVersion + 250 < latestAppliedStateMs) {
-	        return;
+		    return requestState("GET").then(function (nextState) {
+		      if (nextState) applyAuthoritativeState(nextState, nextState._clientTiming || {});
+	    }).catch(function (error) {
+	      renderStatus(error.message || "The live room could not refresh. Keep this page open while it reconnects.");
+	      renderConnectionState("reconnecting");
+	    }).then(function () {
+	      refreshInFlight = false;
+	    });
+	  }
+
+	  function stateEventSeq(nextState) {
+	    var sequence = Number(nextState && nextState.eventSeq);
+	    return Number.isFinite(sequence) ? Math.max(0, Math.floor(sequence)) : 0;
+	  }
+
+	  function applyAuthoritativeState(nextState, timing) {
+	    var incomingSeq;
+	    var incomingVersion;
+	    var fingerprint;
+	    var previousState;
+	    var feedback;
+	    var incomingRole;
+	    var currentRole;
+	    if (!nextState || typeof nextState !== "object") return false;
+	    incomingSeq = stateEventSeq(nextState);
+	    incomingRole = String(nextState.viewer && nextState.viewer.role || "public");
+	    currentRole = String(state && state.viewer && state.viewer.role || "public");
+	    if (incomingSeq < latestAppliedEventSeq) {
+	      recordDiagnostic("stale_rejected", { incomingEventSeq: incomingSeq, appliedEventSeq: latestAppliedEventSeq });
+	      return false;
+	    }
+	    if (incomingSeq === latestAppliedEventSeq && incomingRole === currentRole && state) {
+	      return false;
+	    }
+
+	    incomingVersion = stateVersionMs(nextState);
+	    fingerprint = stateFingerprint(nextState);
+	    previousState = state ? cloneState(state) : null;
+	    updateServerClock(Object.assign({}, timing || {}, { serverNowMs: Number(nextState.nowMs || (timing && timing.serverNowMs) || 0) }));
+	    state = normalizeState(nextState);
+	    latestAppliedEventSeq = Math.max(latestAppliedEventSeq, incomingSeq);
+	    latestAppliedStateMs = Math.max(latestAppliedStateMs, incomingVersion || 0);
+	    lastConfirmedState = cloneState(state);
+	    updateMeetingConfigFromState(nextState);
+	    feedback = detectIncomingFeedback(previousState, state);
+	    renderState();
+	    renderConnectionState("connected");
+	    playIncomingFeedback(feedback);
+	    if (fingerprint && fingerprint !== lastStateFingerprint) {
+	      lastStateFingerprint = fingerprint;
+	      enterRealtimeBurst(3000, false);
+	    }
+	    recordDiagnostic("state_applied", {
+	      eventSeq: incomingSeq,
+	      clientAppliedAtMs: Date.now(),
+	      clientReceivedAtMs: Number(timing && timing.clientReceivedAtMs || 0),
+	      lifecycle: lifecycleState(state),
+	      mode: realtimeMode
+	    });
+	    return true;
+	  }
+
+	  function updateServerClock(timing) {
+	    timing = timing && typeof timing === "object" ? timing : {};
+	    var serverNowMs = Number(timing.serverNowMs || 0);
+	    var startedAtMs = Number(timing.requestStartedAtMs || 0);
+	    var receivedAtMs = Number(timing.clientReceivedAtMs || Date.now());
+	    if (!Number.isFinite(serverNowMs) || serverNowMs <= 0) return;
+	    var midpoint = startedAtMs > 0 ? startedAtMs + Math.max(0, receivedAtMs - startedAtMs) / 2 : receivedAtMs;
+	    var sample = serverNowMs - midpoint;
+	    if (!Number.isFinite(sample)) return;
+	    if (!serverClockSamples) {
+	      serverClockOffsetMs = sample;
+	    } else {
+	      serverClockOffsetMs = (serverClockOffsetMs * 0.75) + (sample * 0.25);
+	    }
+	    serverClockSamples += 1;
+	  }
+
+	  function authoritativeNowMs() {
+	    return Date.now() + serverClockOffsetMs;
+	  }
+
+	  function lifecycleState(targetState) {
+	    var lifecycle = targetState && targetState.lifecycle && typeof targetState.lifecycle === "object" ? targetState.lifecycle : {};
+	    var value = String(lifecycle.state || "idle").toLowerCase();
+	    return ["idle", "doors_open", "live", "ended", "archived"].indexOf(value) !== -1 ? value : "idle";
+	  }
+
+	  function roomAcceptsEntry() {
+	    return ["doors_open", "live"].indexOf(lifecycleState(state || {})) !== -1;
+	  }
+
+	  function entryClosedReason() {
+	    var roomState = lifecycleState(state || {});
+	    if (roomState === "ended") return "This session has ended. The host will open a new room for the next drill.";
+	    if (roomState === "archived") return "This session is closed. Return at the next scheduled drill.";
+	    return "The room is not open yet. Keep this page open until the host opens the doors.";
+	  }
+
+	  function safeDiagnosticMessage(value) {
+	    return String(value && value.message ? value.message : value || "")
+	      .replace(/https?:\/\/\S+/gi, "[url]")
+	      .replace(/(?:token|nonce|authorization)\s*[:=]?\s*\S+/gi, "[credential]")
+	      .slice(0, 180);
+	  }
+
+	  function recordDiagnostic(type, details) {
+	    if (!isAdmin) return;
+	    details = details && typeof details === "object" ? details : {};
+	    var safe = {
+	      type: String(type || "event").slice(0, 48),
+	      atMs: Date.now(),
+	      eventSeq: Number(details.eventSeq || details.incomingEventSeq || 0),
+	      action: String(details.action || "").slice(0, 48),
+	      mode: String(details.mode || details.readerMode || realtimeMode).slice(0, 48),
+	      lifecycle: String(details.lifecycle || (state ? lifecycleState(state) : "idle")).slice(0, 24),
+	      optimisticMs: Number(details.optimisticMs || 0),
+	      roundTripMs: Number(details.roundTripMs || 0),
+	      serverProcessingMs: Number(details.serverProcessingMs || 0),
+	      lockWaitMs: Number(details.lockWaitMs || 0),
+	      snapshotAgeMs: Number(details.snapshotAgeMs || 0),
+	      clientReceivedAtMs: Number(details.clientReceivedAtMs || 0),
+	      clientAppliedAtMs: Number(details.clientAppliedAtMs || 0),
+	      serverAcceptedAtMs: Number(details.serverAcceptedAtMs || 0),
+	      message: safeDiagnosticMessage(details.message || "")
+	    };
+	    diagnosticEvents.push(safe);
+	    diagnosticEvents = diagnosticEvents.slice(-200);
+	    renderDiagnostics();
+	  }
+
+	  function renderConnectionState(connectionState) {
+	    Array.prototype.slice.call(document.querySelectorAll("[data-connection-state]")).forEach(function (node) {
+	      node.setAttribute("data-state", connectionState || "connected");
+	      node.textContent = connectionState === "reconnecting" ? "Reconnecting" : "Connected";
+	    });
+	  }
+
+	  function renderDiagnostics() {
+	    if (!isAdmin) return;
+	    var panel = document.querySelector("[data-floor-diagnostics]");
+	    if (!panel) return;
+	    panel.hidden = !diagnosticsEnabled;
+	    if (!diagnosticsEnabled) return;
+	    var latest = diagnosticEvents[diagnosticEvents.length - 1] || {};
+	    var latestOfType = function (type) {
+	      for (var index = diagnosticEvents.length - 1; index >= 0; index -= 1) {
+	        if (diagnosticEvents[index].type === type) return diagnosticEvents[index];
 	      }
-	      var fingerprint = stateFingerprint(nextState);
-	      var previousState = state ? cloneState(state) : null;
-      state = normalizeState(nextState);
-	      latestAppliedStateMs = Math.max(latestAppliedStateMs, incomingVersion || 0);
-      lastConfirmedState = cloneState(state);
-      updateMeetingConfigFromState(nextState);
-	      var feedback = detectIncomingFeedback(previousState, state);
-      renderState();
-	      playIncomingFeedback(feedback);
-	      if (fingerprint && fingerprint !== lastStateFingerprint) {
-	        lastStateFingerprint = fingerprint;
-	        enterRealtimeBurst(8000, false);
-	      }
-    }).catch(function (error) {
-      renderStatus(error.message || "Team Challenge unavailable.");
-    }).then(function () {
-      refreshInFlight = false;
-    });
-  }
+	      return {};
+	    };
+	    var optimistic = latestOfType("optimistic_ack");
+	    var accepted = latestOfType("server_accepted");
+	    var applied = latestOfType("state_applied");
+	    var snapshotAge = state && state.snapshotGeneratedAtMs ? Math.max(0, authoritativeNowMs() - Number(state.snapshotGeneratedAtMs || 0)) : 0;
+	    panel.textContent = [
+	      "Connection: " + realtimeMode,
+	      "Event: " + Number(state && state.eventSeq || 0),
+	      "Room: " + lifecycleState(state || {}),
+	      "Snapshot age: " + Math.round(snapshotAge) + " ms",
+	      "Last round trip: " + Math.round(Number(latest.roundTripMs || 0)) + " ms",
+	      "Optimistic ack: " + Math.round(Number(optimistic.optimisticMs || 0)) + " ms",
+	      "Server processing: " + Math.round(Number(accepted.serverProcessingMs || 0)) + " ms",
+	      "Writer lock: " + Math.round(Number(accepted.lockWaitMs || 0)) + " ms",
+	      "Receive to apply: " + Math.max(0, Math.round(Number(applied.clientAppliedAtMs || 0) - Number(applied.clientReceivedAtMs || 0))) + " ms",
+	      "Clock offset: " + Math.round(serverClockOffsetMs) + " ms",
+	      "Conditional reads: " + diagnosticEvents.filter(function (item) { return item.type === "unchanged"; }).length,
+	      "Stale rejects: " + diagnosticEvents.filter(function (item) { return item.type === "stale_rejected"; }).length
+	    ].join(" | ");
+	  }
+
+	  if (isAdmin) {
+	    window.MMEDLiveDrillsDiagnostics = {
+	      enable: function () { diagnosticsEnabled = true; renderDiagnostics(); },
+	      disable: function () { diagnosticsEnabled = false; renderDiagnostics(); },
+	      exportSafeMetrics: function () { return cloneState(diagnosticEvents); }
+	    };
+	  }
 
 	  function stateFingerprint(nextState) {
 	    var teams = Array.isArray(nextState && nextState.teams) ? nextState.teams : [];
@@ -666,8 +994,10 @@
 	    var lastEvent = nextState && nextState.lastEvent ? nextState.lastEvent : {};
 	    var active = nextState && nextState.active ? nextState.active : {};
 	    var sync = nextState && nextState.sync ? nextState.sync : {};
-	    return [
-	      sync.revision || "",
+		    return [
+		      stateEventSeq(nextState),
+		      lifecycleState(nextState),
+		      sync.revision || "",
 	      nextState && nextState.updatedAt ? nextState.updatedAt : "",
 	      active.teamId || "",
 	      active.studentId || "",
@@ -697,48 +1027,68 @@
 	  }
 
   function sendAction(payload, options) {
-    options = options || {};
-		    if (!isAdmin && ["join_in", "opt_out", "guest_join", "guest_opt_out", "create_account_join", "send_chat_message"].indexOf(payload.action) === -1) {
-      return;
-    }
-
-	    if (options.optimistic) {
-	      applyOptimistic(payload);
-	      enterRealtimeBurst(7000, false);
-	    } else {
-	      renderStatus("Updating Team Challenge...");
+	    options = options || {};
+			    if (!isAdmin && ["join_in", "watch", "opt_out", "guest_join", "guest_watch", "guest_opt_out", "send_chat_message"].indexOf(payload.action) === -1) {
+	      return Promise.reject(new Error("That control is available to the host only."));
 	    }
+	    var actionStartedAtMs = Date.now();
+	    recordDiagnostic("action_initiated", { action: payload.action, actionInitiatedAtMs: actionStartedAtMs });
 
-    pendingActions += 1;
-    actionQueue = actionQueue.catch(function () {
-      return null;
-    }).then(function () {
-      return requestState("POST", payload).then(function (nextState) {
-	        var confirmedVersion = stateVersionMs(nextState) || Date.now();
-        var confirmedState = normalizeState(nextState);
-        lastConfirmedState = cloneState(confirmedState);
-	        latestAppliedStateMs = Math.max(latestAppliedStateMs, confirmedVersion);
-	        updateMeetingConfigFromState(nextState);
-	        if (pendingActions <= 1) {
-	          state = confirmedState;
+		    if (options.optimistic) {
+		      applyOptimistic(payload);
+		      recordDiagnostic("optimistic_ack", {
+		        action: payload.action,
+		        actionInitiatedAtMs: actionStartedAtMs,
+		        optimisticAcknowledgedAtMs: Date.now(),
+		        optimisticMs: Math.max(0, Date.now() - actionStartedAtMs)
+		      });
+		      enterRealtimeBurst(3000, false);
+		    } else {
+		      renderStatus("Saving that room update...");
+		    }
+
+	    pendingActions += 1;
+	    actionQueue = actionQueue.catch(function () {
+	      return null;
+	    }).then(function () {
+	      return requestState("POST", payload).then(function (nextState) {
+		        var issuedTicket = String(nextState && nextState._viewerTicket || "");
+		        var meta = nextState && nextState._meta && typeof nextState._meta === "object" ? nextState._meta : {};
+		        if (issuedTicket) {
+		          delete nextState._viewerTicket;
+		          saveViewerTicket(issuedTicket, nextState.viewer || {});
+		        }
+		        recordDiagnostic("server_accepted", {
+		          action: payload.action,
+		          actionInitiatedAtMs: actionStartedAtMs,
+		          serverAcceptedAtMs: Number(meta.serverAcceptedAtMs || 0),
+		          clientReceivedAtMs: Date.now(),
+		          eventSeq: stateEventSeq(nextState),
+		          serverProcessingMs: Number(meta.processingMs || 0),
+		          lockWaitMs: Number(meta.lockWaitMs || 0)
+		        });
+		        var clientTiming = nextState._clientTiming || {};
+		        delete nextState._meta;
+		        delete nextState._clientTiming;
+		        applyAuthoritativeState(nextState, clientTiming);
+		        enterRealtimeBurst(3000, true);
+		        return nextState;
+		      }).catch(function (error) {
+	        if (lastConfirmedState && pendingActions <= 1) {
+	          state = cloneState(lastConfirmedState);
 	          renderState();
 	        }
-	        lastStateFingerprint = stateFingerprint(nextState);
-	        enterRealtimeBurst(7000, false);
-	      }).catch(function (error) {
-        if (lastConfirmedState && pendingActions <= 1) {
-          state = cloneState(lastConfirmedState);
-          renderState();
-        }
-        renderStatus(error.message || "Team Challenge update failed.");
-      }).then(function () {
-        pendingActions = Math.max(0, pendingActions - 1);
-        if (pendingActions === 0 && lastConfirmedState) {
-          state = cloneState(lastConfirmedState);
-          renderState();
-        }
-      });
-    });
+	        renderStatus(error.message || "That update did not save. Try again or ask the host for help.");
+	        if (options.propagateErrors) throw error;
+	        return null;
+	      }).then(function (value) {
+	        pendingActions = Math.max(0, pendingActions - 1);
+	        return value;
+	      }, function (error) {
+	        pendingActions = Math.max(0, pendingActions - 1);
+	        throw error;
+	      });
+	    });
 
     return actionQueue;
   }
@@ -1231,6 +1581,72 @@
     document.head.appendChild(style);
   }
 
+  function injectFloorStyles() {
+    var style = document.createElement("style");
+    style.id = "mmed-live-floor-layout";
+    style.textContent = [
+      "html{height:auto!important;min-height:100%}",
+      "body.mmed-team-challenge-enabled{height:auto!important;min-height:100vh;overflow-x:hidden!important;overflow-y:auto!important;background:#050814}",
+      ".mmed-team-challenge-enabled #legacyShell,.mmed-team-challenge-enabled .shell.is-active{display:block;min-width:0;height:auto!important;min-height:100vh;overflow:visible!important}",
+      ".mmed-team-challenge-enabled .mm-drill{height:auto!important;min-height:100vh;padding:10px;overflow:visible!important}",
+      ".mmed-team-challenge-enabled .mm-drill .app{display:grid!important;grid-template-areas:'brand brand brand' 'blue center red';grid-template-columns:minmax(210px,300px) minmax(0,1fr) minmax(210px,300px)!important;grid-template-rows:auto auto!important;align-items:stretch;gap:10px;width:100%;max-width:1920px;min-height:calc(100vh - 20px);height:auto!important;margin:0 auto;overflow:visible!important}",
+      ".mmed-team-challenge-enabled .brand-header{grid-area:brand;min-width:0}",
+      ".mmed-team-challenge-enabled #leftPanel{grid-area:blue}",
+      ".mmed-team-challenge-enabled #rightPanel{grid-area:red}",
+      ".mmed-team-challenge-enabled .center-column{grid-area:center;display:grid!important;grid-template-rows:minmax(440px,72vh) auto!important;align-content:start;gap:10px;min-width:0;height:auto!important;max-height:none!important;overflow:visible!important}",
+      ".mmed-team-challenge-enabled .player-shell{position:relative;min-width:0;min-height:440px;height:auto!important;overflow:hidden}",
+      ".mmed-team-challenge-enabled .live-stage{position:relative;min-height:390px;height:calc(100% - 42px)!important;overflow:hidden}",
+      ".mmed-team-challenge-enabled .team-challenge-panel{min-width:0;height:auto!important;min-height:440px;max-height:none!important;overflow:hidden}",
+      ".mmed-team-challenge-enabled .team-challenge-list{overflow-y:auto;overscroll-behavior:contain;min-height:0}",
+      ".mmed-team-challenge-enabled .team-challenge-total{font-size:32px;line-height:1;flex:0 0 auto}",
+      ".mmed-team-challenge-enabled .team-challenge-head h3{font-size:18px;overflow-wrap:anywhere}",
+      ".mmed-team-challenge-enabled .team-challenge-adminbar,.mmed-team-challenge-enabled .team-challenge-joinbar{position:relative!important;inset:auto!important;min-width:0;min-height:0;height:auto!important;max-height:none!important;overflow:visible!important}",
+      ".mmed-team-challenge-enabled .team-student-panel-layout{min-height:0}",
+	      ".mmed-team-challenge-enabled .team-student-panel-main{height:auto!important;overflow:visible!important}",
+	      ".mmed-team-challenge-enabled .team-challenge-joinbar:not(.is-joined):not(.is-watching) .team-chat-box,.mmed-team-challenge-enabled .team-challenge-joinbar:not(.is-joined):not(.is-watching) .team-volume-controls{display:none}",
+	      ".mmed-team-challenge-enabled .team-challenge-joinbar:not(.is-joined):not(.is-watching) .team-student-panel-main{grid-template-rows:auto!important;align-content:start}",
+      ".mmed-team-challenge-enabled .team-guest-fields{grid-template-columns:minmax(0,1fr)!important}",
+      ".mmed-team-challenge-enabled .team-guest-fields label{min-width:0}",
+	      ".mmed-team-challenge-enabled .team-guest-fields input{min-height:44px}",
+      ".mmed-team-challenge-enabled .team-guest-fields [data-entry-help]{display:block;color:#cbd5e1;font-size:12px;line-height:1.35;text-transform:none}",
+	      ".mmed-team-challenge-enabled .team-join-actions{grid-template-columns:repeat(2,minmax(0,1fr))}",
+	      ".mmed-team-challenge-enabled .team-join-actions button{min-height:48px}",
+	      ".mmed-team-challenge-enabled .team-challenge-joinbar.is-joined .team-join-actions,.mmed-team-challenge-enabled .team-challenge-joinbar.is-watching .team-join-actions{position:static;grid-column:1/-1}",
+	      ".mmed-team-challenge-enabled .team-challenge-joinbar.is-joined [data-opt-out]{position:static;right:auto;bottom:auto;min-height:44px;border-radius:8px;padding:8px 11px;font-size:10px}",
+	      "body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar:not(.is-joined):not(.is-watching)) .center-column{grid-template-rows:minmax(220px,30vh) auto!important}",
+	      "body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar:not(.is-joined):not(.is-watching)) .player-shell{min-height:220px}",
+	      "body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar:not(.is-joined):not(.is-watching)) .live-stage{min-height:174px}",
+	      ".mmed-team-challenge-enabled .team-challenge-joinbar p span{display:block;margin-top:6px}",
+      ".mmed-team-challenge-enabled .team-student-signin{display:block;margin-top:6px;color:#bfdbfe;font-size:12px;text-align:center}",
+      ".mmed-team-challenge-enabled .team-room-state-overlay{position:absolute;z-index:9;inset:0;display:grid;place-content:center;gap:10px;padding:28px;text-align:center;background:#040713;color:#eef5ff}",
+      ".mmed-team-challenge-enabled .team-room-state-overlay[hidden]{display:none}",
+      ".mmed-team-challenge-enabled .team-room-state-overlay span{color:#facc15;font-size:11px;font-weight:950;text-transform:uppercase}",
+      ".mmed-team-challenge-enabled .team-room-state-overlay h2{margin:0;font-size:30px;line-height:1.1;letter-spacing:0}",
+      ".mmed-team-challenge-enabled .team-room-state-overlay p{max-width:560px;margin:0;color:#cbd5e1;font-size:15px;line-height:1.5}",
+	      ".mmed-team-challenge-enabled .team-lifecycle-controls{display:grid;grid-template-columns:minmax(82px,.8fr) repeat(6,minmax(0,1fr));align-items:center;gap:5px;padding:6px;border:1px solid rgba(127,149,197,.28);background:#0a1025}",
+      ".mmed-team-challenge-enabled .team-lifecycle-controls strong{font-size:12px;color:#f8fafc}",
+      ".mmed-team-challenge-enabled .team-lifecycle-controls button{min-height:34px;border:1px solid rgba(127,149,197,.34);border-radius:6px;background:#101a38;color:#eef5ff;padding:6px 8px;font-size:10px;font-weight:900;text-transform:uppercase}",
+      ".mmed-team-challenge-enabled .team-lifecycle-controls button[aria-current='true']{border-color:#facc15;color:#fef08a}",
+      ".mmed-team-challenge-enabled .team-lifecycle-controls button:disabled{opacity:.42;cursor:not-allowed}",
+      ".mmed-team-challenge-enabled .team-floor-diagnostics{padding:7px 9px;border:1px solid rgba(34,211,238,.34);background:#071827;color:#bae6fd;font:11px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}",
+      ".mmed-team-challenge-enabled .team-connection-state{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}",
+      ".mmed-team-challenge-enabled .team-connection-state:before{content:'';width:7px;height:7px;border-radius:50%;background:#22c55e}",
+	      ".mmed-team-challenge-enabled .team-connection-state[data-state='reconnecting']:before{background:#facc15}",
+	      ".mmed-team-challenge-admin .team-challenge-adminbar,.mmed-team-challenge-admin .team-admin-stack{grid-template-columns:minmax(0,1fr)!important}",
+      ".mmed-team-challenge-enabled .team-countdown-display{font-size:42px!important;letter-spacing:0!important}",
+	      "body.mmed-team-challenge-enabled:not([data-room-state='live']) .team-challenge-student.is-active:after{content:'NEXT'}",
+	      "body.mmed-team-challenge-enabled[data-room-state='idle'] .team-student-room-lock:before{content:'Room waiting'}",
+	      "body.mmed-team-challenge-enabled[data-room-state='doors_open'] .team-student-room-lock:before{content:'Doors open'}",
+	      "body.mmed-team-challenge-enabled[data-room-state='live'] .team-student-room-lock:before{content:'Room live'}",
+	      "body.mmed-team-challenge-enabled[data-room-state='ended'] .team-student-room-lock:before,body.mmed-team-challenge-enabled[data-room-state='archived'] .team-student-room-lock:before{content:'Room closed'}",
+	      "@media(max-height:800px) and (min-width:1100px){body.mmed-team-challenge-admin .center-column{grid-template-rows:minmax(300px,42vh) auto!important}body.mmed-team-challenge-admin .player-shell{min-height:300px}body.mmed-team-challenge-admin .live-stage{min-height:254px}body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin) .center-column{grid-template-rows:minmax(300px,48vh) auto!important}}",
+	      "@media(max-width:1099px){.mmed-team-challenge-enabled .mm-drill .app{grid-template-areas:'brand brand' 'blue red' 'center center';grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;grid-template-rows:auto auto auto!important}.mmed-team-challenge-enabled .team-challenge-panel{min-height:0;max-height:280px}.mmed-team-challenge-enabled .team-challenge-list{max-height:210px}.mmed-team-challenge-enabled .center-column{grid-template-rows:minmax(400px,70vh) auto!important}body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar:not(.is-joined):not(.is-watching)) .center-column{grid-template-rows:minmax(220px,30vh) auto!important}.mmed-team-challenge-enabled .team-lifecycle-controls{grid-template-columns:repeat(3,minmax(0,1fr))}.mmed-team-challenge-enabled .team-lifecycle-controls strong{grid-column:1/-1}}",
+      "@media(max-width:720px){.mmed-team-challenge-enabled .mm-drill{padding:6px}.mmed-team-challenge-enabled .mm-drill .app{gap:6px}.mmed-team-challenge-enabled .brand-header{padding:9px 10px}.mmed-team-challenge-enabled .brand-logo{width:36px;height:36px}.mmed-team-challenge-enabled .team-session-title{display:none}.mmed-team-challenge-enabled .team-challenge-panel{max-height:210px;border-radius:6px}.mmed-team-challenge-enabled .team-challenge-head{height:auto;min-height:58px;padding:8px}.mmed-team-challenge-enabled .team-challenge-head h3{font-size:13px;line-height:1.15}.mmed-team-challenge-enabled .team-challenge-count{font-size:9px}.mmed-team-challenge-enabled .team-challenge-total{font-size:28px}.mmed-team-challenge-enabled .team-challenge-list{max-height:145px}.mmed-team-challenge-enabled .team-challenge-name{font-size:11px}.mmed-team-challenge-enabled .center-column{grid-template-rows:minmax(310px,62vh) auto!important}.mmed-team-challenge-enabled .player-shell{min-height:310px}.mmed-team-challenge-enabled .live-stage{min-height:264px}.mmed-team-challenge-enabled .team-room-state-overlay{padding:18px}.mmed-team-challenge-enabled .team-room-state-overlay h2{font-size:24px}.mmed-team-challenge-enabled .team-student-panel-layout{grid-template-columns:minmax(0,1fr)!important}.mmed-team-challenge-enabled .team-student-avatar-card{display:none}.mmed-team-challenge-enabled .team-student-top{grid-template-columns:minmax(0,1fr)!important}.mmed-team-challenge-enabled .team-join-actions{grid-template-columns:repeat(2,minmax(0,1fr))!important}.mmed-team-challenge-enabled .team-join-actions button,.mmed-team-challenge-enabled .team-student-webex-cta{min-height:48px}.mmed-team-challenge-enabled .team-countdown-display{font-size:36px!important}.mmed-team-challenge-enabled .team-lifecycle-controls{grid-template-columns:repeat(2,minmax(0,1fr))}.mmed-team-challenge-enabled .team-lifecycle-controls strong{grid-column:1/-1}.mmed-team-challenge-enabled .team-admin-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.mmed-team-challenge-enabled .team-admin-step{overflow:visible!important}}",
+	      "@media(max-width:430px){.mmed-team-challenge-enabled .team-challenge-head h3{font-size:12px}.mmed-team-challenge-enabled .team-challenge-total{font-size:25px}.mmed-team-challenge-enabled .team-challenge-list{max-height:125px}.mmed-team-challenge-enabled .center-column{grid-template-rows:minmax(280px,58vh) auto!important}.mmed-team-challenge-enabled .player-shell{min-height:280px}.mmed-team-challenge-enabled .live-stage{min-height:234px}body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar:not(.is-joined):not(.is-watching)) .center-column{grid-template-rows:minmax(190px,24vh) auto!important}body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar:not(.is-joined):not(.is-watching)) .player-shell{min-height:190px}body.mmed-team-challenge-enabled:not(.mmed-team-challenge-admin):has(.team-challenge-joinbar:not(.is-joined):not(.is-watching)) .live-stage{min-height:144px}.mmed-team-challenge-enabled .team-challenge-joinbar:before{display:none}.mmed-team-challenge-enabled .team-student-step-strip{display:none}.mmed-team-challenge-enabled .team-student-top{grid-template-columns:minmax(0,1fr) minmax(112px,.48fr)!important}.mmed-team-challenge-enabled .team-challenge-joinbar p b{font-size:24px}.mmed-team-challenge-enabled .team-countdown-card{padding:5px}.mmed-team-challenge-enabled .team-countdown-display{font-size:30px!important}.mmed-team-challenge-enabled .team-join-actions{grid-template-columns:minmax(0,1fr)!important}}"
+    ].join("");
+    document.head.appendChild(style);
+  }
+
   function mountChallengeFrame() {
     var left = legacyShell.querySelector("#leftPanel");
     var right = legacyShell.querySelector("#rightPanel");
@@ -1270,9 +1686,19 @@
 	        '<button class="team-admin-tab" type="button" data-admin-step-tab="2" aria-pressed="false">Step 2 <span>Countdown + Message</span></button>',
 	        '<button class="team-admin-tab" type="button" data-admin-step-tab="3" aria-pressed="false">Step 3 <span>Score</span></button>',
 	        '</div>',
-	        '<div class="team-admin-stack">',
-		        '<div class="team-control-banner" aria-label="Admin control mode"><strong>Admin / host control mode</strong><span>Choose the room, click Start Live Webex Session, then score the drill.</span></div>',
-		        hostReadinessMarkup(),
+		        '<div class="team-admin-stack">',
+			        '<div class="team-control-banner" aria-label="Host controls"><strong>Host controls</strong><span>Open the doors, start the room, then score each turn.</span><span class="team-connection-state" data-connection-state data-state="connected">Connected</span></div>',
+			        '<div class="team-lifecycle-controls" data-lifecycle-controls aria-label="Room status controls">',
+			        '<strong data-lifecycle-label>Room idle</strong>',
+			        '<button type="button" data-lifecycle-command="new">New session</button>',
+			        '<button type="button" data-lifecycle-command="doors_open">Open doors</button>',
+			        '<button type="button" data-lifecycle-command="live">Start room</button>',
+			        '<button type="button" data-lifecycle-command="ended">End room</button>',
+			        '<button type="button" data-lifecycle-command="archived">Archive</button>',
+			        '<button type="button" data-floor-diagnostics-toggle aria-expanded="false">Diagnostics</button>',
+			        '</div>',
+			        '<div class="team-floor-diagnostics" data-floor-diagnostics hidden></div>',
+			        hostReadinessMarkup(),
 	        '<section class="team-admin-step" data-admin-step="1">',
 	        '<h4><span>Step 1</span> Choose Webex room</h4>',
 	        '<div class="team-meeting-current" data-current-meeting-label>Meeting: not set</div>',
@@ -1347,44 +1773,30 @@
 			        '<aside class="team-student-avatar-card team-student-card-you" data-student-panel-avatar="student"></aside>',
 			        '<div class="team-student-panel-main">',
 			        '<div class="team-student-top">',
-			        '<p data-join-prompt><b>JUMPING IN?</b><br>Are you playing in Team Challenge, or watching this round?</p>',
+			        '<p data-join-prompt><b>JUMPING IN?</b><span>Are you playing in Team Challenge, or watching this round?</span></p>',
 			        countdownMarkup(false),
 			        '</div>',
 			        '<div class="team-student-step-strip" aria-label="Student live drill steps">',
 			        '<div class="team-student-step-pill" data-student-step="1"><b>1</b><span>Choose</span></div>',
-			        '<div class="team-student-step-pill" data-student-step="2"><b>2</b><span>Enter Webex</span></div>',
+			        '<div class="team-student-step-pill" data-student-step="2"><b>2</b><span>Enter room</span></div>',
 			        '<div class="team-student-step-pill" data-student-step="3"><b>3</b><span>Chat + Play</span></div>',
 			        '</div>',
-			        '<div class="team-student-room-lock" data-student-meeting-lock><span>Loading selected room...</span></div>',
+			        '<div class="team-student-room-lock" data-student-meeting-lock><span>Waiting for the host</span></div>',
 			        '<div class="team-student-identity" data-student-identity></div>',
-			        '',
-			        '<div class="team-account-primary" data-account-primary>',
-			        '<div><strong>Create a free account</strong><span>Best option: save your profile and avatar for future live drills.</span></div>',
-			        '<div class="team-account-fields" data-account-fields>',
-			        '<label>First name<input type="text" autocomplete="given-name" data-account-first placeholder="First name"></label>',
-			        '<label>Last name<input type="text" autocomplete="family-name" data-account-last placeholder="Last name"></label>',
-			        '<label data-account-email-wrap>Email<input type="email" autocomplete="email" data-account-email placeholder="you@example.com"></label>',
-			        '<label data-account-password-wrap>Password<input type="password" autocomplete="new-password" data-account-password placeholder="At least 8 characters"></label>',
-			        '</div>',
-			        '<div class="team-account-actions">',
-			        '<button type="button" data-account-create-join>Create free account + join</button>',
-			        '<button type="button" data-account-guest-focus>Enter as guest</button>',
-			        '<a href="' + escapeAttr(config.loginUrl) + '">Sign in</a>',
-			        '</div>',
-			        '</div>',
+			        '<div class="team-challenge-status" data-team-challenge-status role="status" aria-live="polite"></div>',
 			        '<div class="team-logged-in-tools" data-logged-in-tools>',
-			        '<button type="button" data-avatar-studio-open>Open Avatar Studio</button>',
+			        '<button type="button" data-avatar-studio-open>Choose avatar</button>',
 			        '</div>',
-			        '<button type="button" class="team-student-webex-cta" data-student-webex-enter>Enter Webex Meeting<span>Join the host in the live video room</span></button>',
+			        '<button type="button" class="team-student-webex-cta" data-student-webex-enter>Enter video room<span>Join the host when the room is live</span></button>',
 			        '<div class="team-guest-fields" data-guest-fields>',
-			        '<label>First name<input type="text" autocomplete="given-name" data-guest-first placeholder="First name"></label>',
-			        '<label>Last name<input type="text" autocomplete="family-name" data-guest-last placeholder="Last name"></label>',
-			        '<label data-guest-email-wrap>Email<input type="email" autocomplete="email" data-guest-email placeholder="you@example.com"></label>',
+			        '<label>Your name<input type="text" maxlength="60" autocomplete="name" data-guest-name placeholder="Name the host will see" aria-describedby="guest-name-help"></label>',
+			        '<span id="guest-name-help" data-entry-help>Enter your name, then choose Play or Watch.</span>',
 			        '</div>',
 			        '<div class="team-join-actions">',
-			        "<button type=\"button\" data-join-in>Yes, I'm jumping in</button>",
-			        '<button type="button" data-opt-out>No, just watching</button>',
+			        '<button type="button" data-join-in>Play</button>',
+			        '<button type="button" data-opt-out>Watch</button>',
 			        '</div>',
+			        currentUserId ? '' : '<a class="team-student-signin" href="' + escapeAttr(config.loginUrl) + '">Already have an account? Sign in</a>',
 			        chatBoxMarkup("student"),
 			        volumeControlsMarkup(),
 			        '</div>',
@@ -1393,11 +1805,14 @@
 		      ].join("");
 		      player.insertAdjacentElement("afterend", joinbar);
 	    }
-    if (stage) {
+	    if (stage) {
       var staleActiveAvatar = stage.querySelector("[data-team-active-avatar-card]");
-      if (staleActiveAvatar) {
-        staleActiveAvatar.remove();
-      }
+	      if (staleActiveAvatar) {
+	        staleActiveAvatar.remove();
+	      }
+	      if (!stage.querySelector("[data-room-state-overlay]")) {
+	        stage.insertAdjacentHTML("beforeend", '<section class="team-room-state-overlay" data-room-state-overlay><span data-room-state-kicker>Dr J Drills LIVE</span><h2 data-room-state-title>Checking the room...</h2><p data-room-state-copy>Keep this page open while the current room loads.</p></section>');
+	      }
     }
     if (isAdmin && !document.querySelector("[data-team-assignment-modal]")) {
       document.body.insertAdjacentHTML("beforeend", assignmentModalMarkup());
@@ -1590,7 +2005,11 @@
   function setGuestWatching(value) {
     try {
       if (window.localStorage) {
-        window.localStorage.setItem(watchingStorageKey, value ? "1" : "0");
+        if (value) {
+          window.localStorage.setItem(watchingStorageKey, String(state && state.sessionId || "pending"));
+        } else {
+          window.localStorage.removeItem(watchingStorageKey);
+        }
       }
     } catch (error) {
       // Local watching state is only used to keep the prompt out of the way.
@@ -1599,7 +2018,9 @@
 
   function guestIsWatching() {
     try {
-      return !!(window.localStorage && window.localStorage.getItem(watchingStorageKey) === "1");
+      var watchedSession = String((window.localStorage && window.localStorage.getItem(watchingStorageKey)) || "");
+      var currentSession = String(state && state.sessionId || "");
+      return !!(watchedSession && currentSession && watchedSession === currentSession);
     } catch (error) {
       return false;
     }
@@ -1748,7 +2169,7 @@
 	    return changed;
 	  }
 
-	  function fillGuestFields() {
+		  function fillGuestFields() {
 	    var joinbar = document.querySelector("[data-team-challenge-joinbar]");
 	    var profile = loadGuestProfile();
 	    if (!joinbar || currentUserId) {
@@ -1757,20 +2178,13 @@
 	    if (guestFieldsHydrated || guestFieldsDirty) {
 	      return;
 	    }
-	    var first = joinbar.querySelector("[data-guest-first]");
-	    var last = joinbar.querySelector("[data-guest-last]");
-	    var email = joinbar.querySelector("[data-guest-email]");
-	    if (first && profile.firstName && !first.value && document.activeElement !== first) {
-	      first.value = profile.firstName;
-	    }
-	    if (last && profile.lastName && !last.value && document.activeElement !== last) {
-	      last.value = profile.lastName;
-	    }
-	    if (email && profile.email && !email.value && document.activeElement !== email) {
-	      email.value = profile.email;
-	    }
-	    guestFieldsHydrated = true;
-	  }
+		    var name = joinbar.querySelector("[data-guest-name]");
+		    var savedName = String(profile.displayName || [profile.firstName || "", profile.lastName || ""].join(" ")).trim();
+		    if (name && savedName && !name.value && document.activeElement !== name) {
+		      name.value = savedName;
+		    }
+		    guestFieldsHydrated = true;
+		  }
 
 	  function clearGuestFieldInputs() {
 	    var joinbar = document.querySelector("[data-team-challenge-joinbar]");
@@ -1778,11 +2192,7 @@
 	    if (!joinbar) {
 	      return;
 	    }
-	    fields = [
-	      joinbar.querySelector("[data-guest-first]"),
-	      joinbar.querySelector("[data-guest-last]"),
-	      joinbar.querySelector("[data-guest-email]")
-	    ];
+		    fields = [joinbar.querySelector("[data-guest-name]")];
 	    fields.forEach(function (field) {
 	      if (field) {
 	        field.value = "";
@@ -1793,43 +2203,33 @@
 	  function collectGuestPayload() {
 	    var joinbar = document.querySelector("[data-team-challenge-joinbar]");
 	    var profile = loadGuestProfile();
-    var first = joinbar && joinbar.querySelector("[data-guest-first]");
-    var last = joinbar && joinbar.querySelector("[data-guest-last]");
-    var email = joinbar && joinbar.querySelector("[data-guest-email]");
-    var firstName = first ? first.value.trim() : "";
-    var lastName = last ? last.value.trim() : "";
-    var emailValue = email ? email.value.trim() : "";
+	    var nameInput = joinbar && joinbar.querySelector("[data-guest-name]");
+	    var displayName = nameInput ? nameInput.value.replace(/\s+/g, " ").trim() : "";
+	    var nameLength = Array.from(displayName).length;
 
-    if (!firstName || !lastName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-      renderStatus("Enter first name, last name, and email, then click Yes, I'm jumping in.");
-      if (!firstName && first) {
-        first.focus();
-      } else if (!lastName && last) {
-        last.focus();
-      } else if (email) {
-        email.focus();
-      }
-      return null;
-    }
-
-	    if (profile.email && String(profile.email).trim().toLowerCase() !== emailValue.toLowerCase()) {
-	      profile.id = "";
+	    if (nameLength < 2 || nameLength > 60) {
+	      renderStatus(nameLength > 60 ? "Use a name with 60 characters or fewer." : "Enter the name you want the host to see.");
+	      if (nameInput) nameInput.focus();
+	      return null;
 	    }
-	    profile.firstName = firstName;
-	    profile.lastName = lastName;
-	    profile.email = emailValue;
-	    profile.id = ensureGuestId(profile);
+
+		    var nameParts = displayName.split(" ");
+		    profile.displayName = displayName;
+		    profile.firstName = nameParts.shift() || displayName;
+		    profile.lastName = nameParts.join(" ");
+		    delete profile.email;
+		    profile.id = ensureGuestId(profile);
 	    saveGuestProfile(profile);
 	    saveActiveGuestRosterId(profile.id);
 	    guestFieldsDirty = false;
 	    guestFieldsHydrated = true;
 
-    return {
-      guestId: profile.id,
-      firstName: firstName,
-      lastName: lastName,
-	      email: emailValue
-	    };
+	    return {
+	      guestId: profile.id,
+	      displayName: displayName,
+	      firstName: profile.firstName,
+	      lastName: profile.lastName
+		    };
 	  }
 
 		  function collectAccountPayload() {
@@ -1916,73 +2316,77 @@
 		    }
 		  }
 
-		  function submitJoinIn(joinButton) {
-	    var payload;
-	    setGuestWatching(false);
-	    guestEntryMode = false;
+			  function submitJoinIn(joinButton) {
+	    var payload = currentUserId ? { action: "join_in" } : collectGuestPayload();
+	    if (!roomAcceptsEntry()) {
+	      renderStatus(entryClosedReason());
+	      return Promise.resolve(null);
+	    }
+	    if (!payload) return Promise.resolve(null);
+	    if (!currentUserId) payload.action = "guest_join";
 	    if (joinButton) {
 	      joinButton.disabled = true;
-	      joinButton.textContent = "Joining live...";
+	      joinButton.textContent = "Joining...";
 	    }
-
-	    if (currentUserId) {
-	      sendAction({ action: "join_in" }, { optimistic: true }).then(function () {
-	        if (joinButton) {
-	          joinButton.disabled = false;
-	        }
-	      });
-	      startStudentWebexAfterChoice("play");
-	      return;
-	    }
-
-    payload = collectGuestPayload();
-    if (!payload) {
-      if (joinButton) {
-        joinButton.disabled = false;
-        joinButton.textContent = "Yes, I'm jumping in";
-      }
-      return;
-    }
-
-	    payload.action = "guest_join";
-	    sendAction(payload, { optimistic: true }).then(function () {
+	    return sendAction(payload, { optimistic: true, propagateErrors: true }).then(function (nextState) {
+	      if (!nextState) return null;
+	      setGuestWatching(false);
+	      guestEntryMode = false;
+	      renderJoinBar();
+	      if (lifecycleState(nextState) === "live") {
+	        startStudentWebexAfterChoice("play");
+	      } else {
+	        renderStatus("You are on the roster. The video room will open when the host starts the session.");
+	      }
+	      return nextState;
+	    }).catch(function (error) {
+	      guestEntryMode = !currentUserId;
+	      renderStatus(error.message || "You were not added. Check your name and try Play again.");
+	      return null;
+	    }).then(function (result) {
 	      if (joinButton) {
 	        joinButton.disabled = false;
+	        joinButton.textContent = "Play";
 	      }
+	      return result;
 	    });
-	    startStudentWebexAfterChoice("play");
 	  }
 
 	  function submitOptOut(optOutButton) {
-	    var profile = loadGuestProfile();
-	    setGuestWatching(true);
-	    guestEntryMode = false;
-    if (optOutButton) {
-      optOutButton.disabled = true;
-      optOutButton.textContent = "Updating...";
-    }
-
-	    if (currentUserId) {
-	      sendAction({ action: "opt_out" }, { optimistic: true }).then(function () {
-	        if (optOutButton) {
-	          optOutButton.disabled = false;
-	        }
-	      });
-	      startStudentWebexAfterChoice("watch");
-	      return;
+	    var payload = currentUserId ? { action: "watch" } : collectGuestPayload();
+	    if (!roomAcceptsEntry()) {
+	      renderStatus(entryClosedReason());
+	      return Promise.resolve(null);
 	    }
-
-	    sendAction({
-	      action: "guest_opt_out",
-	      guestId: profile.id || "",
-	      email: profile.email || ""
-	    }, { optimistic: true }).then(function () {
+	    if (!payload) return Promise.resolve(null);
+	    if (!currentUserId) payload.action = "guest_watch";
+	    if (optOutButton) {
+	      optOutButton.disabled = true;
+	      optOutButton.textContent = "Joining...";
+	    }
+	    return sendAction(payload, { optimistic: true, propagateErrors: true }).then(function (nextState) {
+	      if (!nextState) return null;
+	      setGuestWatching(true);
+	      guestEntryMode = false;
+	      renderJoinBar();
+	      if (lifecycleState(nextState) === "live") {
+	        startStudentWebexAfterChoice("watch");
+	      } else {
+	        renderStatus("You are watching. The video room will open when the host starts the session.");
+	      }
+	      return nextState;
+	    }).catch(function (error) {
+	      guestEntryMode = !currentUserId;
+	      renderStatus(error.message || "You were not added as a viewer. Check your name and try Watch again.");
+	      return null;
+	    }).then(function (result) {
 	      if (optOutButton) {
 	        optOutButton.disabled = false;
+	        optOutButton.textContent = "Watch";
 	      }
+	      return result;
 	    });
-		    startStudentWebexAfterChoice("watch");
-		  }
+	  }
 
 		  function handleAdminbarClick(event) {
 		    var target = event && event.target;
@@ -1995,6 +2399,19 @@
 
 		    if (target.closest("[data-admin-step-tab]")) {
 		      setAdminStep(target.closest("[data-admin-step-tab]").getAttribute("data-admin-step-tab"));
+		      return true;
+		    }
+
+		    var lifecycleButton = target.closest("[data-lifecycle-command]");
+		    if (lifecycleButton) {
+		      transitionLifecycle(lifecycleButton.getAttribute("data-lifecycle-command"), lifecycleButton);
+		      return true;
+		    }
+
+		    if (target.closest("[data-floor-diagnostics-toggle]")) {
+		      diagnosticsEnabled = !diagnosticsEnabled;
+		      renderDiagnostics();
+		      renderLifecycle();
 		      return true;
 		    }
 
@@ -2133,21 +2550,31 @@
 		    var attempts = 0;
 		    var watcher = window.setInterval(function () {
 		      var embedded = window.MMEDLiveDrillsEmbeddedWebex;
+		      var stageStatus = document.querySelector("[data-webex-embed-status]");
 		      attempts += 1;
+		      if (stageStatus && stageStatus.getAttribute("data-state") === "error") {
+		        window.clearInterval(watcher);
+		        studentWebexOpened = false;
+		        setStudentWebexCtaState("Retry video room", "You remain in this round", false);
+		        renderStatus("You are still in the room. Tap Retry video room, or ask the host for the external join link.");
+		        return;
+		      }
 		      if (embedded && typeof embedded.hasMeetingMedia === "function" && embedded.hasMeetingMedia()) {
 		        window.clearInterval(watcher);
-		        setStudentWebexCtaState("Webex connected", "You are in the live video room", true);
-		        renderStatus("You are in the Webex room and ready for Daily Drills.");
+		        setStudentWebexCtaState("Video connected", "You are in the live room", true);
+		        renderStatus("You are in the live room and ready for Dr J Drills LIVE.");
 		        return;
 		      }
 		      if (embedded && typeof embedded.hasJoinControl === "function" && embedded.hasJoinControl()) {
-		        setStudentWebexCtaState("Tap Join Meeting above", "Webex requires one final browser confirmation", false);
-		        renderStatus("The Webex room is ready. Tap Join meeting in the video stage once to enter.");
+		        setStudentWebexCtaState("Tap Join above", "One final browser confirmation is required", false);
+		        renderStatus("The video room is ready. Tap Join in the video stage once to enter.");
 		        return;
 		      }
-		      if (attempts >= 30) {
+		      if (attempts >= 12) {
 		        window.clearInterval(watcher);
-		        setStudentWebexCtaState("Webex opened above", "Tap only if video did not load", false);
+		        studentWebexOpened = false;
+		        setStudentWebexCtaState("Retry video room", "You remain in this round", false);
+		        renderStatus("You are still in the room. Tap Retry video room if the stage did not load, or ask the host for help.");
 		      }
 		    }, 1000);
 		  }
@@ -2160,13 +2587,13 @@
 		    }
 		    source = choice === "watch" ? "student_watch_choice" : "student_play_choice";
 		    studentWebexOpened = true;
-		    setStudentWebexCtaState("Opening Webex...", "Check the video stage above", true);
-		    renderStatus(choice === "watch" ? "Opening the live Webex room as a viewer..." : "Adding you to the roster and opening the live Webex room...");
+		    setStudentWebexCtaState("Opening video room...", "Check the stage above", true);
+		    renderStatus(choice === "watch" ? "Opening the live room as a viewer..." : "Opening the live room for your team...");
 
 		    embedded = window.MMEDLiveDrillsEmbeddedWebex;
 			    if (embedded && typeof embedded.hasJoinControl === "function" && embedded.hasJoinControl() && typeof embedded.clickJoinNow === "function") {
 			      if (embedded.clickJoinNow()) {
-			        setStudentWebexCtaState("Joining Webex now", "The meeting is opening in the video stage", true);
+		        setStudentWebexCtaState("Joining now", "The room is opening in the video stage", true);
 			        watchStudentWebexConnection();
 			        return;
 			      }
@@ -2186,19 +2613,19 @@
 		    if (window.MMEDLiveDrillsSDKV3 && typeof window.MMEDLiveDrillsSDKV3.startGuest === "function") {
 		      Promise.resolve(window.MMEDLiveDrillsSDKV3.startGuest({ source: source })).catch(function (error) {
 		        studentWebexOpened = false;
-		        setStudentWebexCtaState("Retry Webex join", "Video did not open automatically", false);
-		        renderStatus(error && error.message ? error.message : "Webex could not open automatically. Use the stage fallback if needed.");
+		        setStudentWebexCtaState("Retry video room", "Video did not open automatically", false);
+		        renderStatus(error && error.message ? error.message : "The video room could not open automatically. Use the stage control to retry.");
 		      });
 		      return;
 		    }
 		    studentWebexOpened = false;
-		    setStudentWebexCtaState("Enter Webex Meeting", "Video did not open automatically", false);
-		    renderStatus(choice === "watch" ? "You are set to watch. The Webex room is still loading; use the stage button if needed." : "You are on the roster. The Webex room is still loading; use the stage button if needed.");
+		    setStudentWebexCtaState("Enter video room", "Video did not open automatically", false);
+		    renderStatus(choice === "watch" ? "You are set to watch. The video room is still loading; use the stage control to retry." : "You are on the roster. The video room is still loading; use the stage control to retry.");
 		  }
 
 		  function setStudentWebexCtaState(label, sublabel, disabled) {
 		    var button = document.querySelector("[data-student-webex-enter]");
-		    var text = String(label || "Enter Webex Meeting");
+		    var text = String(label || "Enter video room");
 		    var detail = String(sublabel || "Join the host in the live video room");
 		    if (!button) {
 		      return;
@@ -2212,19 +2639,19 @@
 		    var watching = !joined && guestIsWatching();
 		    var choice = watching ? "watch" : "play";
 		    if (!joined && !watching) {
-		      renderStatus("Choose Jumping In or Just Watching first, then enter the Webex meeting.");
+		      renderStatus("Choose Play or Watch first, then enter the video room.");
 		      return;
 		    }
 		    if (button) {
-		      setStudentWebexCtaState("Opening Webex...", "Check the video stage above", true);
+		      setStudentWebexCtaState("Opening video room...", "Check the stage above", true);
 		      window.setTimeout(function () {
 		        if (!button || !button.isConnected) {
 		          return;
 		        }
-		        setStudentWebexCtaState("Webex opened above", "Tap only if video did not load", false);
+		        setStudentWebexCtaState("Video opened above", "Tap only if the room did not load", false);
 		      }, 5000);
 		    }
-		    renderStatus("Opening the Webex meeting in the video stage...");
+		    renderStatus("Opening the video room in the stage...");
 		    startStudentWebexAfterChoice(choice);
 		  }
 
@@ -2325,7 +2752,7 @@
 		    });
 
 		    document.addEventListener("input", function (event) {
-		      if (event.target && event.target.closest("[data-team-challenge-joinbar] [data-guest-first],[data-team-challenge-joinbar] [data-guest-last],[data-team-challenge-joinbar] [data-guest-email]")) {
+		      if (event.target && event.target.closest("[data-team-challenge-joinbar] [data-guest-name]")) {
 		        guestFieldsDirty = true;
 		      }
 		      if (event.target && event.target.matches("[data-effects-volume],[data-speaker-volume]")) {
@@ -3070,6 +3497,7 @@
       return;
     }
 
+	    renderLifecycle();
 	    updateSessionTitle();
 	    updateMeetingLabel();
 		    syncAdminStepTabs();
@@ -3247,6 +3675,118 @@
     }, duration || 520);
   }
 
+  function lifecycleAllowedTargets(current) {
+    var transitions = {
+      idle: ["doors_open", "archived"],
+      doors_open: ["idle", "live", "ended"],
+      live: ["ended"],
+      ended: ["archived"],
+      archived: []
+    };
+    return transitions[current] || [];
+  }
+
+  function transitionLifecycle(command, button) {
+    var roomState = lifecycleState(state || {});
+    var normalized = String(command || "").toLowerCase();
+    if (!isAdmin || ["new", "idle", "doors_open", "live", "ended", "archived"].indexOf(normalized) === -1) {
+      return;
+    }
+    if (normalized === "new") {
+      var hasSessionData = (state && state.teams || []).some(function (team) {
+        return Number(team.score || 0) > 0 || (team.students || []).length > 0;
+      });
+      if (hasSessionData && !window.confirm("Start a new session? This clears the current roster, scores, chat, and winner.")) {
+        return;
+      }
+    } else if (lifecycleAllowedTargets(roomState).indexOf(normalized) === -1) {
+      renderStatus("Use the next available room step shown in the host controls.");
+      return;
+    }
+    if (button) button.disabled = true;
+    renderStatus(normalized === "new" ? "Preparing a new session..." : "Updating the room status...");
+    sendAction({ action: "session_lifecycle", command: normalized }, { optimistic: false, propagateErrors: true })
+      .catch(function (error) {
+        renderStatus(error.message || "The room status did not change. Try again.");
+      }).then(function () {
+        if (button) button.disabled = false;
+        renderLifecycle();
+      });
+  }
+
+  function lifecyclePresentation(roomState) {
+    var presentations = {
+      idle: {
+        label: "Room idle",
+        kicker: "Upcoming session",
+        title: "The room opens soon",
+        copy: "Keep this page open. Play and Watch become available when the host opens the doors."
+      },
+      doors_open: {
+        label: "Doors open",
+        kicker: "Doors open",
+        title: "Choose Play or Watch",
+        copy: "Enter your name below and choose how you want to join this round."
+      },
+      live: {
+        label: "Room live",
+        kicker: "Live now",
+        title: "Dr J is live",
+        copy: "Choose Play or Watch below to enter the live room."
+      },
+      ended: {
+        label: "Session ended",
+        kicker: "Session complete",
+        title: "This drill has ended",
+        copy: "Scores are final. The host will open a new room for the next drill."
+      },
+      archived: {
+        label: "Room archived",
+        kicker: "Room closed",
+        title: "This session is closed",
+        copy: "Return here for the next scheduled Dr J Drills LIVE session."
+      }
+    };
+    return presentations[roomState] || presentations.idle;
+  }
+
+  function renderLifecycle() {
+    var roomState = lifecycleState(state || {});
+    var presentation = lifecyclePresentation(roomState);
+    var overlay = legacyShell.querySelector("[data-room-state-overlay]");
+    var accepted = roomAcceptsEntry();
+    legacyShell.setAttribute("data-room-state", roomState);
+    document.body.setAttribute("data-room-state", roomState);
+    Array.prototype.slice.call(legacyShell.querySelectorAll("[data-room-state-label]" )).forEach(function (node) {
+      node.textContent = presentation.label;
+    });
+    Array.prototype.slice.call(legacyShell.querySelectorAll("[data-room-state-meta]" )).forEach(function (node) {
+      node.textContent = roomState === "live" ? "LIVE" : (roomState === "doors_open" ? "OPEN" : "WAITING");
+    });
+    if (overlay) {
+      var kicker = overlay.querySelector("[data-room-state-kicker]");
+      var title = overlay.querySelector("[data-room-state-title]");
+      var copy = overlay.querySelector("[data-room-state-copy]");
+      if (kicker) kicker.textContent = presentation.kicker;
+      if (title) title.textContent = presentation.title;
+      if (copy) copy.textContent = presentation.copy;
+      overlay.hidden = roomState === "live";
+    }
+    if (isAdmin) {
+      var allowed = lifecycleAllowedTargets(roomState);
+      var lifecycleLabel = document.querySelector("[data-lifecycle-label]");
+      if (lifecycleLabel) lifecycleLabel.textContent = presentation.label;
+      Array.prototype.slice.call(document.querySelectorAll("[data-lifecycle-command]")).forEach(function (button) {
+        var command = button.getAttribute("data-lifecycle-command");
+        button.setAttribute("aria-current", command === roomState ? "true" : "false");
+        button.disabled = command !== "new" && allowed.indexOf(command) === -1;
+      });
+      var diagnosticsToggle = document.querySelector("[data-floor-diagnostics-toggle]");
+      if (diagnosticsToggle) diagnosticsToggle.setAttribute("aria-expanded", diagnosticsEnabled ? "true" : "false");
+    }
+    return accepted;
+  }
+
 	  function renderJoinBar() {
     if (isAdmin) {
       return;
@@ -3262,28 +3802,43 @@
     var prompt = joinbar.querySelector("[data-join-prompt]");
     var joinButton = joinbar.querySelector("[data-join-in]");
     var optOutButton = joinbar.querySelector("[data-opt-out]");
+	    var helper = joinbar.querySelector("[data-entry-help]");
+	    var roomState = lifecycleState(state || {});
+	    var acceptsEntry = roomAcceptsEntry();
 
 	    joinbar.classList.toggle("is-joined", joined);
 	    joinbar.classList.toggle("is-watching", watching);
 	    joinbar.classList.toggle("is-logged-in", !!currentUserId);
 	    joinbar.classList.toggle("is-guest-entry", !!guestEntryMode);
+	    joinbar.setAttribute("data-room-state", roomState);
 	    fillGuestFields();
 	    renderStudentIdentity();
 
     if (prompt) {
       prompt.innerHTML = joined
-        ? "<b>YOU ARE JUMPING IN.</b><br>You are on a team roster for scoring."
+	        ? "<b>YOU ARE PLAYING.</b><span>You are on a team roster for scoring.</span>"
         : watching
-          ? "<b>JUST WATCHING.</b><br>You are off the scoring roster for this round."
-          : "<b>JUMPING IN?</b><br>Are you playing in Team Challenge, or watching this round?";
+	          ? "<b>YOU ARE WATCHING.</b><span>You are off the scoring roster for this round.</span>"
+	          : acceptsEntry
+	            ? "<b>READY TO JOIN?</b><span>Choose Play for a team or Watch from the gallery.</span>"
+	            : "<b>ROOM STATUS</b><span>" + escapeHtml(lifecyclePresentation(roomState).copy) + "</span>";
     }
     if (joinButton) {
-      joinButton.textContent = joined ? "I am in" : watching ? "Jump in now" : "Yes, I'm jumping in";
-      joinButton.disabled = joined;
+	      joinButton.textContent = joined ? "Playing" : watching ? "Switch to Play" : "Play";
+	      joinButton.disabled = joined || !acceptsEntry;
     }
-		    if (optOutButton) {
-		      optOutButton.textContent = joined ? "Jump Out" : "No, just watching";
-		    }
+	    if (optOutButton) {
+	      optOutButton.textContent = watching ? "Watching" : "Watch";
+	      optOutButton.disabled = watching || !acceptsEntry;
+	    }
+	    if (helper) {
+	      helper.textContent = acceptsEntry ? "Enter your name, then choose Play or Watch." : entryClosedReason();
+	    }
+	    var videoButton = joinbar.querySelector("[data-student-webex-enter]");
+	    if (videoButton && !studentWebexOpened) {
+	      videoButton.disabled = roomState !== "live" || (!joined && !watching);
+	      setStudentWebexCtaState(roomState === "live" ? "Enter video room" : "Video room opens when live", roomState === "live" ? "Join Dr J in the live stage" : "Keep this page open", videoButton.disabled);
+	    }
 		  }
 
 		  function normalizeCountdown(raw) {
@@ -3301,7 +3856,7 @@
 		  function countdownRemainingSeconds(raw) {
 		    var countdown = normalizeCountdown(raw || (state && state.countdown));
 		    if (countdown.isRunning && countdown.endsAtEpoch > 0) {
-		      return Math.max(0, Math.ceil(countdown.endsAtEpoch - (Date.now() / 1000)));
+		      return Math.max(0, Math.ceil(countdown.endsAtEpoch - (authoritativeNowMs() / 1000)));
 		    }
 		    return Math.max(0, countdown.durationSeconds);
 		  }
@@ -3316,7 +3871,8 @@
 		  function renderCountdown() {
 		    var countdown = normalizeCountdown(state && state.countdown);
 		    var remaining = countdownRemainingSeconds(countdown);
-		    var isLive = countdown.isRunning && remaining <= 0;
+		    var isLive = lifecycleState(state || {}) === "live";
+		    var expired = countdown.isRunning && remaining <= 0;
 		    Array.prototype.slice.call(document.querySelectorAll("[data-team-countdown-card]")).forEach(function (card) {
 		      var display = card.querySelector("[data-countdown-display]");
 		      var status = card.querySelector("[data-countdown-status]");
@@ -3325,7 +3881,7 @@
 		        display.classList.toggle("is-live", isLive);
 		      }
 		      if (status) {
-		        status.textContent = isLive ? "Live" : (countdown.isRunning ? "Starting" : (remaining > 0 ? "Paused" : "Ready"));
+		        status.textContent = isLive ? "Live" : (countdown.isRunning && !expired ? "Starting" : (remaining > 0 ? "Paused" : "Ready"));
 		      }
 		    });
 		    syncPlayerTopbarCountdown(countdown, remaining, isLive);
@@ -3541,10 +4097,10 @@
 		    var profile = loadGuestProfile();
 		    var guestName = [profile.firstName || "", profile.lastName || ""].join(" ").trim();
 		    if (guestName) {
-		      node.innerHTML = '<b>Guest: ' + escapeHtml(guestName) + '</b><span>Temporary beta access</span>';
+		      node.innerHTML = '<b>Guest: ' + escapeHtml(guestName) + '</b><span>Saved for this room</span>';
 		      return;
 		    }
-		    node.innerHTML = '<b>Choose account or guest access</b><span>One-click live entry</span>';
+		    node.innerHTML = '<b>Guest entry</b><span>No account needed</span>';
 		  }
 
 		  function viewerStudentEntry() {
@@ -3590,10 +4146,10 @@
 		    guestFieldsHydrated = true;
 		    renderJoinBar();
 		    clearGuestFieldInputs();
-		    var first = document.querySelector("[data-team-challenge-joinbar] [data-guest-first]");
-		    if (first) {
-		      first.focus();
-		      renderStatus("Enter guest details, then choose Jumping In or Just Watching.");
+		    var name = document.querySelector("[data-team-challenge-joinbar] [data-guest-name]");
+		    if (name) {
+		      name.focus();
+			      renderStatus("Enter your name, then choose Play or Watch.");
 	    }
 	  }
 
@@ -3690,7 +4246,7 @@
 		    setReadyItem("room", meeting.joinUrl ? "ready" : "warn", meeting.title);
 		    setReadyItem("devices", devicesReady ? "ready" : "warn", devicesReady ? "Camera/mic ready" : "Check first");
 		    setReadyItem("webex", webexHost ? "ready" : (sdk.state === "loading" ? "warn" : (sdk.state === "failed" ? "error" : "warn")), webexHost ? "Host live" : (sdk.state === "loading" ? "Starting" : (sdk.state === "failed" ? "Retry needed" : "Start Webex")));
-		    setReadyItem("countdown", (countdown.isRunning || remaining > 0) ? "ready" : "warn", countdown.isRunning && remaining <= 0 ? "Live" : (remaining > 0 ? formatCountdown(remaining) : "Set time"));
+		    setReadyItem("countdown", (countdown.isRunning || remaining > 0) ? "ready" : "warn", lifecycleState(state || {}) === "live" ? "Room live" : (remaining > 0 ? formatCountdown(remaining) : "Set time"));
 		    setReadyItem("teams", teamsReady ? "ready" : "warn", roster.length + (roster.length === 1 ? " player" : " players"));
 		    setReadyItem("session", sessionReady ? "ready" : "warn", sessionReady ? "Ready to run" : "Finish steps");
 		  }
@@ -3895,6 +4451,7 @@
     var input = legacyShell.querySelector("[data-session-title-input]");
     if (titleNode) {
       titleNode.textContent = title;
+	  titleNode.hidden = /^dr\s*j\s*drills\s*live$/i.test(String(title).trim());
     }
     if (input && document.activeElement !== input) {
       input.value = title;
@@ -3921,12 +4478,13 @@
 		    }
 		    Array.prototype.slice.call(studentRoomLabels).forEach(function (node) {
 		      var span = node.querySelector("span") || node;
-		      span.textContent = title;
+		      var roomState = lifecycleState(state || {});
+		      span.textContent = roomState === "live" ? "Video room ready" : (roomState === "doors_open" ? "Doors open - choose Play or Watch" : lifecyclePresentation(roomState).label);
 		    });
 		    if (studentWebexButton && !studentWebexOpened) {
 		      var sublabel = studentWebexButton.querySelector("span");
 		      if (sublabel) {
-		        sublabel.textContent = "Join " + title;
+		        sublabel.textContent = lifecycleState(state || {}) === "live" ? "Join Dr J in the live stage" : "Keep this page open";
 		      }
 		    }
 	    if (input && document.activeElement !== input && !input.value && effectiveJoinUrl) {
@@ -4858,6 +5416,13 @@
 	    if (!nextState || !Array.isArray(nextState.teams)) {
 	      return nextState;
 	    }
+	    nextState.eventSeq = stateEventSeq(nextState);
+	    nextState.sessionId = String(nextState.sessionId || "");
+	    nextState.viewer = nextState.viewer && typeof nextState.viewer === "object" ? nextState.viewer : { role: "public" };
+	    nextState.viewer.role = ["public", "participant", "host"].indexOf(String(nextState.viewer.role || "public")) !== -1 ? String(nextState.viewer.role || "public") : "public";
+	    nextState.lifecycle = nextState.lifecycle && typeof nextState.lifecycle === "object" ? nextState.lifecycle : {};
+	    nextState.lifecycle.state = lifecycleState(nextState);
+	    nextState.spectatorCount = Math.max(0, Math.floor(Number(nextState.spectatorCount || 0)));
 		    if (Number(nextState.currentUserId || 0) > 0) {
 		      currentUserId = Number(nextState.currentUserId || 0);
 		      config.currentUserId = currentUserId;

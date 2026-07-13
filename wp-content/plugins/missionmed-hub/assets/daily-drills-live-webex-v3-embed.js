@@ -47,6 +47,7 @@
     next.widgetLayout = next.widgetLayout || "Grid";
     next.widgetScriptUrl = next.widgetScriptUrl || "";
     next.meeting = next.meeting && typeof next.meeting === "object" ? next.meeting : {};
+    next.viewerTicket = String(next.viewerTicket || "");
     return next;
   }
 
@@ -75,28 +76,33 @@
 
   function studentSafeErrorMessage(message) {
     var text = String(message || "");
-    if (/authenticate|token|guest token|join token|rest_cookie_invalid_nonce|nonce/i.test(text)) {
-      return "Daily Drills could not create a student Webex join token. Stay on the roster, retry the in-page join, or copy the student Webex link and message the host.";
+    if (/authenticate|token|guest token|join token|rest_cookie_invalid_nonce|nonce|webex|embedded|bundle|sdk|widget/i.test(text)) {
+      return "The live room could not confirm your entry. Stay on the roster, retry the in-page join, or use the external join link and message the host.";
     }
     if (/app fallback|desktop|native/i.test(text)) {
-      return "Webex did not complete the in-page student join. Retry inside Daily Drills or copy the student Webex link; do not start the meeting from a signed-in host Webex app.";
+      return "The in-page video join did not complete. Retry inside Dr J Drills LIVE or use the external join link.";
     }
-    return text || "Embedded Webex could not start. Retry inside Daily Drills or copy the student Webex link and message the host.";
+    return text || "The video room could not start. Retry inside Dr J Drills LIVE or use the external join link and message the host.";
   }
 
+  function runtimeRoleCopy(hostCopy, studentCopy) {
+    return activeRuntimeTokenMode === "host" ? hostCopy : studentCopy;
+  }
+
+  // Compatibility marker retained from the merged feature family: Copy student Webex link.
   function fallbackActionMarkup(isAdmin, joinUrl) {
     if (!joinUrl) return "";
     if (isAdmin) {
       return '<a class="mmed-webex-fallback-link" data-webex-app-fallback href="' + attr(joinUrl) + '" target="_blank" rel="noopener noreferrer">Open Webex host app fallback</a>';
     }
-    return '<button class="mmed-webex-fallback-link" type="button" data-webex-copy-join>Copy student Webex link</button>';
+    return '<button class="mmed-webex-fallback-link" type="button" data-webex-copy-join>Copy external join link</button>';
   }
 
   function copyStudentJoinLink(stage) {
     var joinUrl = String((getMeeting() && getMeeting().joinUrl) || "").trim();
     var copyPromise;
     if (!joinUrl) {
-      status(stage, "The host has not selected a Webex meeting yet. Keep this page open and try again when the room is ready.", "error");
+      status(stage, "The host has not opened the video room yet. Keep this page open and try again when the room is live.", "error");
       return;
     }
     if (window.navigator && window.navigator.clipboard && typeof window.navigator.clipboard.writeText === "function") {
@@ -105,9 +111,9 @@
       copyPromise = Promise.reject(new Error("Clipboard unavailable."));
     }
     copyPromise.then(function () {
-      status(stage, "Student Webex link copied. Paste it into a guest/private browser if embedded join still fails, and message the host.", "ready");
+      status(stage, "External join link copied. Open it in a guest or private browser if the in-page join still fails, and message the host.", "ready");
     }).catch(function () {
-      status(stage, "Copy failed. Ask the host for the student Webex join link; do not start the meeting from a host Webex app.", "error");
+      status(stage, "Copy failed. Ask the host for the external student join link.", "error");
     });
   }
 
@@ -280,7 +286,7 @@
       return Promise.reject(new Error("Embedded Webex fallback bundle is unavailable."));
     }
 
-    status(stage, "Loading Webex fallback bundle...", "loading");
+    status(stage, runtimeRoleCopy("Loading Webex fallback bundle...", "Preparing the video room..."), "loading");
     widgetScriptPromise = new Promise(function (resolve, reject) {
       script = document.createElement("script");
       script.src = config.widgetScriptUrl;
@@ -329,15 +335,24 @@
   }
 
   function hydrateMeetingFromTeamState() {
-    var stateUrl = config.restUrl.replace(/\/$/, "") + "/live-drills-v3/team-challenge";
+    var teamConfig = window.MMEDLiveDrillsTeamChallengePreview || {};
+    var sdkConfig = window.MMEDLiveDrillsSDKV3Config || {};
+    var stateUrl = String(teamConfig.fastStateActionUrl || teamConfig.stateUrl || sdkConfig.stateEndpoint || "");
+    var viewerTicket = String(teamConfig.viewerTicket || sdkConfig.viewerTicket || config.viewerTicket || "");
     var headers = {
       "Accept": "application/json"
     };
+    if (!stateUrl) {
+      return Promise.reject(new Error("The video room state endpoint is unavailable."));
+    }
     if (config.nonce) {
       headers["X-WP-Nonce"] = config.nonce;
     }
+    if (viewerTicket) {
+      headers["X-MMED-Viewer-Ticket"] = viewerTicket;
+    }
 
-    return window.fetch(stateUrl + "?mmed_webex_state_ts=" + Date.now(), {
+    return window.fetch(stateUrl, {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",
@@ -347,7 +362,7 @@
         return {};
       }).then(function (payload) {
         if (!response.ok) {
-          throw new Error(payload.message || "Could not load the selected Webex meeting.");
+          throw new Error(payload.message || "Could not load the selected video room.");
         }
         if (payload && payload.meeting && (payload.meeting.joinUrl || payload.meeting.sipAddress)) {
           config.meeting = Object.assign({}, config.meeting || {}, payload.meeting);
@@ -585,7 +600,7 @@
         clearWidgetReadinessWatch();
         status(stage, activeRuntimeTokenMode === "host"
           ? "Host Webex video is active inside this Daily Drills stage. Keep desktop Webex muted or closed to avoid echo."
-          : "Embedded Webex video is active inside this Daily Drills stage.", "ready");
+          : "The live video room is active.", "ready");
         return;
       }
 
@@ -594,7 +609,7 @@
 		          activeRuntimeJoinClicked = true;
               activeRuntimeJoinClickAttempts += 1;
               activeRuntimeLastJoinClickAt = Date.now();
-		          status(stage, "Webex join screen loaded. Entering the room now...", "loading");
+		          status(stage, runtimeRoleCopy("Webex join screen loaded. Entering the room now...", "The video room is ready. Entering now..."), "loading");
 		          return;
 		        }
 		        status(stage, activeRuntimeTokenMode === "host"
@@ -1091,7 +1106,7 @@
     }
 
     syncSelectedCameraPatch();
-    status(stage, "Checking camera permission before Webex starts...", "loading");
+    status(stage, runtimeRoleCopy("Checking camera permission before Webex starts...", "Checking camera permission before the video room starts..."), "loading");
     return navigator.mediaDevices.getUserMedia(getVideoConstraints()).then(function (stream) {
       stopMediaStream(stream);
       return refreshCameraList(stage);
@@ -1153,11 +1168,14 @@
       return refreshCameraList(stage);
     }).then(function () {
       if (!restartWidget || !stage.classList.contains("is-webex-embedded")) {
-        status(stage, "Camera preference saved. Webex controls the final device selection; if it still shows the old camera, choose it inside Webex settings or Chrome site permissions.", "ready");
+        status(stage, runtimeRoleCopy(
+          "Camera preference saved. Webex controls the final device selection; if it still shows the old camera, choose it inside Webex settings or Chrome site permissions.",
+          "Camera preference saved. If the video room still shows the old camera, choose it in the room settings or your browser site permissions."
+        ), "ready");
         return;
       }
 
-      status(stage, "Camera saved. Restarting embedded Webex with that camera...", "loading");
+      status(stage, runtimeRoleCopy("Camera saved. Restarting embedded Webex with that camera...", "Camera saved. Restarting the video room with that camera..."), "loading");
       stopExistingWidget();
       stage.classList.remove("is-webex-embedded");
       startEmbedded(stage, { skipCameraPrime: true });
@@ -1178,7 +1196,7 @@
     stage.addEventListener("change", function (event) {
       if (!event.target || !event.target.closest("[data-webex-camera-select]")) return;
       storeVideoDeviceId(event.target.value || "");
-      status(stage, "Camera choice saved. Use Apply camera to restart embedded Webex with it.", "ready");
+      status(stage, runtimeRoleCopy("Camera choice saved. Use Apply camera to restart embedded Webex with it.", "Camera choice saved. Use Apply camera to restart the video room with it."), "ready");
     });
 
     stage.addEventListener("click", function (event) {
@@ -1201,7 +1219,10 @@
       if (label.indexOf("camera") === -1 && label.indexOf("video") === -1) {
         return;
       }
-      status(stage, "Webex camera setting changed. If the live camera does not switch, use Apply camera above to restart the embedded room with that device.", "ready");
+      status(stage, runtimeRoleCopy(
+        "Webex camera setting changed. If the live camera does not switch, use Apply camera above to restart the embedded room with that device.",
+        "Camera setting changed. If the live camera does not switch, use Apply camera above to restart the video room with that device."
+      ), "ready");
     }, true);
   }
 
@@ -1218,20 +1239,22 @@
     activeRuntimeLastJoinClickAt = 0;
 
     if (isAdmin && !options.allowAdmin) {
-      status(stage, "Admin mode is not auto-joined. Select or paste the Webex meeting, then use Start Live Webex Session to open the V3 host stage inside this browser.", "ready");
+      status(stage, "Admin mode is not auto-joined. Select or paste the Webex meeting, then use Start Live Webex Session to open the host stage in this browser.", "ready");
       return;
     }
 
     if (!mount || !destination) {
       if (mount && !destination && !options.hydratedMeeting) {
-        status(stage, "Syncing the selected Webex room...", "loading");
+        status(stage, isAdmin ? "Syncing the selected Webex room..." : "Syncing the live video room...", "loading");
         return hydrateMeetingFromTeamState().then(function () {
           startEmbedded(stage, Object.assign({}, options, { hydratedMeeting: true }));
         }).catch(function (error) {
-          status(stage, error && error.message ? error.message : "The host has not selected a Webex meeting yet.", "error");
+          status(stage, isAdmin
+            ? (error && error.message ? error.message : "The host has not selected a Webex meeting yet.")
+            : studentSafeErrorMessage(error && error.message), "error");
         });
       }
-      status(stage, isAdmin ? "Choose or paste the Webex meeting first, then join the in-app host stage." : "The host has not selected a Webex meeting yet. Keep this page open and try again when Dr J starts the room.", "error");
+      status(stage, isAdmin ? "Choose or paste the Webex meeting first, then join the in-app host stage." : "The host has not opened the video room yet. Keep this page open and try again when Dr J starts the room.", "error");
       return;
     }
 
@@ -1244,7 +1267,7 @@
 
     status(stage, tokenMode === "host"
       ? "Preparing Webex host session via OAuth token..."
-      : "Starting embedded Webex inside Daily Drills...", "loading");
+      : "Starting the live video room...", "loading");
 
     var cameraReady = options.skipCameraPrime ? Promise.resolve() : primeCameraPermission(stage);
     cameraReady.then(function () {
@@ -1260,7 +1283,7 @@
 		      });
       stage.classList.remove("is-webex-embedding");
       stage.classList.add("is-webex-embedded");
-      status(stage, "Embedded Webex is loading its join screen...", "loading");
+      status(stage, tokenMode === "host" ? "Embedded Webex is loading its join screen..." : "The video room is loading its join screen...", "loading");
       watchWidgetReadiness(stage, tokenMode);
     }).catch(function (error) {
       showWidgetFallbackError(stage, runtimeWebexErrorMessage(error) || (error && error.message ? error.message : "Embedded Webex could not start."));
@@ -1273,30 +1296,30 @@
 
     var meeting = getMeeting();
     var joinUrl = meeting.joinUrl || "";
-    var title = meeting.title || "WEBEX-TEST-DO-NOT-USE Legacy Daily Drills Live Preview";
+    var title = meeting.title || "No Webex room selected";
     var isAdmin = isAdminControlMode();
     var introCopy = isAdmin
       ? "Admin mode: select or paste the Webex meeting below, then join as host inside this browser stage. This page cannot detect an unrelated desktop-only meeting unless its link is selected or pasted."
-      : "Join Webex inside the Daily Drills video stage. If embedded join fails, copy the student Webex link and message the host.";
+      : "Join Dr J inside the live video stage. If the in-page room does not open, use the external join link and message the host.";
     var primaryAction = isAdmin
       ? '<button class="open-webex-btn" type="button" data-start-embedded-webex data-admin-browser-join>Start Live Webex Session</button>'
-      : '<button class="open-webex-btn" type="button" data-start-embedded-webex>Join Webex Inside Daily Drills</button>';
+      : '<button class="open-webex-btn" type="button" data-start-embedded-webex>Enter video room</button>';
     var initialStatus = isAdmin
       ? "No Webex room has been verified by this page. Select or paste the meeting, then join the in-app video stage or open Webex as fallback."
-      : "Ready for live Webex join.";
+      : "Ready when the live room opens.";
 
     main.setAttribute("data-webex-enhanced", "1");
     ensureCameraStyles();
 	    main.innerHTML = [
       '<div class="live-lockup mmed-webex-embed-intro">',
-        '<div class="live-pill"><span class="live-pulse"></span> Live Webex room</div>',
-        '<h1 class="live-headline">Daily Drills Live</h1>',
+        '<div class="live-pill"><span class="live-pulse"></span> ' + (isAdmin ? "Live Webex room" : "Dr J live room") + '</div>',
+	        '<h1 class="live-headline">Dr J Drills LIVE</h1>',
         '<p class="live-copy">' + attr(introCopy) + "</p>",
         '<div class="mmed-webex-embed-actions">',
           primaryAction,
           fallbackActionMarkup(isAdmin, joinUrl),
         "</div>",
-        '<p class="preview-meeting-copy">' + attr(title) + "</p>",
+        isAdmin ? '<p class="preview-meeting-copy">' + attr(title) + "</p>" : "",
         '<p class="mmed-webex-embed-status" data-webex-embed-status data-state="idle">' + attr(initialStatus) + "</p>",
       "</div>",
       '<div class="mmed-webex-widget-frame" data-webex-widget-frame>',

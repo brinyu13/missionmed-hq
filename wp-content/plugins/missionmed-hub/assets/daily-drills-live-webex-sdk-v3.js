@@ -80,6 +80,7 @@
     next.route = next.route || "daily-drills-live-webex-v3";
     next.runtimeMode = next.runtimeMode || "sdk-v3-isolated";
     next.stateEndpoint = next.stateEndpoint || "";
+    next.viewerTicket = String(next.viewerTicket || "");
     return next;
   }
 
@@ -157,7 +158,7 @@
   }
 
   function isDebugMode() {
-    return /(?:^|[?&])(?:debug|sdk_debug|webex_debug)=1(?:&|$)/i.test(window.location.search || "");
+    return isAdminMode() && /(?:^|[?&])(?:debug|sdk_debug|webex_debug)=1(?:&|$)/i.test(window.location.search || "");
   }
 
   function stateLabel(value) {
@@ -171,7 +172,7 @@
   function readyMessage() {
     return isAdminMode()
       ? "Ready. Choose the Webex room, then click Start Live Webex Session."
-      : "Ready. Click Jumping In or Just Watching to enter the live room.";
+      : "Ready. Choose Play or Watch to enter the live room.";
   }
 
   function restBaseUrl() {
@@ -181,6 +182,10 @@
 
   function restNonce() {
     return String(embedConfig().nonce || teamConfig().nonce || "");
+  }
+
+  function viewerTicket() {
+    return String(teamConfig().viewerTicket || config.viewerTicket || "");
   }
 
   function isNonceError(error) {
@@ -2585,23 +2590,27 @@
     }
 
     if (!config.stateEndpoint) {
-      return Promise.reject(new Error("No V3 Webex meeting is selected yet."));
+      return Promise.reject(new Error(isAdminMode() ? "No Webex room is selected yet." : "The host has not opened the video room yet."));
     }
 
-    return fetch(config.stateEndpoint + "?mmed_sdk_v3_state_ts=" + Date.now(), {
+    var headers = {
+      "Accept": "application/json",
+      "X-WP-Nonce": restNonce()
+    };
+    if (viewerTicket()) {
+      headers["X-MMED-Viewer-Ticket"] = viewerTicket();
+    }
+    return fetch(config.stateEndpoint, {
       method: "GET",
       credentials: "same-origin",
       cache: "no-store",
-      headers: {
-        "Accept": "application/json",
-        "X-WP-Nonce": restNonce()
-      }
+      headers: headers
     }).then(function (response) {
       return response.json().catch(function () {
         return {};
       }).then(function (payload) {
         if (!response.ok || !payload.meeting) {
-          throw new Error(payload.message || "No V3 Webex meeting is selected yet.");
+          throw new Error(payload.message || (isAdminMode() ? "No Webex room is selected yet." : "The host has not opened the video room yet."));
         }
         updateMeetingConfig(payload.meeting);
         return payload.meeting;
@@ -2958,21 +2967,21 @@
   function actionableGuestError(error) {
     var message = safeMessage(error);
     if (/authenticate|token|guest token|attendee token|join token|rest_cookie_invalid_nonce|nonce/i.test(message)) {
-      return "Daily Drills could not create a student Webex join token. Stay on the roster, retry the in-page join, or copy the student Webex link and message the host.";
+      return "The live room could not confirm your entry. Stay on the roster, retry the in-page join, or use the external join link and message the host.";
     }
     if (/confluence url for the device is null|device.*null|webex-js-sdk|409/i.test(message)) {
-      return "Webex rejected the SDK student join while registering this browser. Switching to the embedded Webex attendee join.";
+      return "The first in-page join path was unavailable. Switching to the compatible video-room join.";
     }
     if (/permission|not authorized|forbidden|403/i.test(message)) {
-      return "Webex rejected the in-browser student join. Refresh this page or copy the student Webex link and message the host while class keeps moving.";
+      return "The in-browser student join was not authorized. Refresh this page or use the external join link and message the host.";
     }
     if (/camera|microphone|media|permission denied|notallowed/i.test(message)) {
-      return "Camera or microphone permission is needed. Allow MissionMed in Chrome, then click Jumping In again.";
+      return "Camera or microphone permission is needed. Allow MissionMed in Chrome, then choose Play again.";
     }
     if (/no v3 webex meeting|meeting is selected|choose|paste/i.test(message)) {
-      return "The host has not selected the Webex room yet. Keep this page open and try again when Dr J starts the room.";
+      return "The host has not opened the video room yet. Keep this page open and try again when Dr J starts the room.";
     }
-    return message || "Student browser join failed. Retry inside Daily Drills or copy the student Webex link and message the host.";
+    return message || "The student video join failed. Retry inside Dr J Drills LIVE or use the external join link and message the host.";
   }
 
   function shouldUseWidgetGuestFallback(error) {
@@ -2989,8 +2998,8 @@
     }
 
     cleanupFailedJoin(stage);
-    setState("loading", "attendee", "Webex SDK attendee join hit a device-registration issue. Switching to embedded Webex join...");
-    setEmbedStatus(stage, "Switching to embedded Webex attendee join...", "loading");
+    setState("loading", "attendee", "Switching to the compatible in-page video join...");
+    setEmbedStatus(stage, "Switching to the compatible in-page video join...", "loading");
     window.setTimeout(function () {
       window.MMEDLiveDrillsEmbeddedWebex.start({
         allowAdmin: false,
