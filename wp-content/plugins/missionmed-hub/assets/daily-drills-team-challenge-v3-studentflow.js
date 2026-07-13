@@ -1684,18 +1684,14 @@
 	    var key = scoreLedgerKeyForStudent(student);
 	    var snapshot;
 	    var ledger;
-	    var previous;
 	    if (!key) return;
 	    snapshot = scoreSnapshot(student);
-	    if (!snapshot.points && !snapshot.attempts && !snapshot.questionsAsked) return;
 	    ledger = loadScoreLedger();
-	    previous = ledger[key] || {};
-	    ledger[key] = {
-	      points: Math.max(Number(previous.points || 0), snapshot.points),
-	      attempts: Math.max(Number(previous.attempts || 0), snapshot.attempts),
-	      questionsAsked: Math.max(Number(previous.questionsAsked || 0), snapshot.questionsAsked),
-	      updatedAt: snapshot.updatedAt
-	    };
+	    if (!snapshot.points && !snapshot.attempts && !snapshot.questionsAsked) {
+	      delete ledger[key];
+	    } else {
+	      ledger[key] = snapshot;
+	    }
 	    saveScoreLedger(ledger);
 	  }
 
@@ -4874,8 +4870,6 @@
 		    nextState.countdown = normalizeCountdown(nextState.countdown);
 		    if (nextState.lastEvent && nextState.lastEvent.type === "reset") {
 		      clearScoreLedger();
-		    } else if (restoreScoresFromLedger(nextState)) {
-		      recalculateScores(nextState);
 		    }
 	    nextState.teams.forEach(function (team) {
       (team.students || []).forEach(function (student) {

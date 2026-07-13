@@ -2668,23 +2668,15 @@ class MMED_Live_Drills_SDK_V3 {
 					'updatedAt'      => current_time( 'mysql' ),
 				);
 
-				if ( empty( $snapshot['points'] ) && empty( $snapshot['attempts'] ) && empty( $snapshot['questionsAsked'] ) ) {
-					return $state;
-				}
-
 				if ( ! isset( $state['scoreLedger'] ) || ! is_array( $state['scoreLedger'] ) ) {
 					$state['scoreLedger'] = array();
 				}
 
-				$previous = isset( $state['scoreLedger'][ $key ] ) && is_array( $state['scoreLedger'][ $key ] )
-					? $state['scoreLedger'][ $key ]
-					: array();
-
-				$snapshot['points']         = max( absint( $previous['points'] ?? 0 ), $snapshot['points'] );
-				$snapshot['attempts']       = max( absint( $previous['attempts'] ?? 0 ), $snapshot['attempts'] );
-				$snapshot['questionsAsked'] = max( absint( $previous['questionsAsked'] ?? 0 ), $snapshot['questionsAsked'] );
-
-				$state['scoreLedger'][ $key ] = $snapshot;
+				if ( empty( $snapshot['points'] ) && empty( $snapshot['attempts'] ) && empty( $snapshot['questionsAsked'] ) ) {
+					unset( $state['scoreLedger'][ $key ] );
+				} else {
+					$state['scoreLedger'][ $key ] = $snapshot;
+				}
 
 				return $state;
 			}
