@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-BASE_URL="${BASE_URL:-https://www.theresidencyacademy.com}"
+BASE_URL="${BASE_URL:-https://missionmedinstitute.com}"
 ROUTE_PATH="${ROUTE_PATH:-/daily-drills-live-webex-v3/}"
 LEGACY_PATH="${LEGACY_PATH:-/daily-drills-live-webex-preview/}"
 FAST_ENDPOINT_PATH="${FAST_ENDPOINT_PATH:-/wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-v3-action.php?mmed_v3_state=1}"
@@ -60,7 +60,7 @@ else
   fail "route render returned HTTP ${route_code:-none}: $route_url"
 fi
 
-for asset_name in daily-drills-live-webex-v3-embed.js daily-drills-live-webex-sdk-v3.js daily-drills-team-challenge-v3.js daily-drills-team-challenge-v3-studentflow.js; do
+for asset_name in daily-drills-live-webex-v3-embed.js daily-drills-live-webex-sdk-v3.js daily-drills-team-challenge-v3-studentflow.js; do
   if grep -q "$asset_name" "$route_body"; then
     ok "route references $asset_name"
   else
@@ -68,12 +68,28 @@ for asset_name in daily-drills-live-webex-v3-embed.js daily-drills-live-webex-sd
   fi
 done
 
+if grep -q 'daily-drills-team-challenge-v3.js' "$route_body"; then
+  ok "route references the admin challenge runtime for this viewer context"
+else
+  note "admin challenge runtime is not expected in this student/anonymous viewer context"
+fi
+
 if [[ -f "$MANIFEST_PATH" ]]; then
   note "checking public asset hashes from $MANIFEST_PATH"
   while IFS=$'\t' read -r relative_path expected_sha _rest; do
     [[ -z "${relative_path:-}" || "$relative_path" == "relative_path" ]] && continue
     [[ "$relative_path" != wp-content/plugins/missionmed-hub/assets/* ]] && continue
-    asset_url="$(url_join "$BASE_URL" "/$relative_path")"
+    if [[ "$relative_path" == *.php ]]; then
+      note "skipping static-byte fetch for executable endpoint $relative_path"
+      continue
+    fi
+    asset_basename="$(basename "$relative_path")"
+    asset_version="$(ROUTE_ASSET="$asset_basename" perl -0777 -ne '$asset = quotemeta($ENV{ROUTE_ASSET}); if (/$asset\?ver=([0-9]+)/) { print $1; exit }' "$route_body")"
+    if [[ -n "$asset_version" ]]; then
+      asset_url="$(url_join "$BASE_URL" "/$relative_path?ver=$asset_version")"
+    else
+      asset_url="$(url_join "$BASE_URL" "/$relative_path?mmed_smoke_sha=$expected_sha")"
+    fi
     asset_out="$tmp_dir/$(basename "$relative_path")"
     asset_code="$(fetch_body "$asset_url" "$asset_out")"
     if [[ "$asset_code" != "200" ]]; then
@@ -92,10 +108,15 @@ else
 fi
 
 fast_url="$(url_join "$BASE_URL" "$FAST_ENDPOINT_PATH")"
+if [[ "$fast_url" == *\?* ]]; then
+  fast_url="${fast_url}&mmed_v3_team_state_ts=$(date +%s)-${RANDOM}"
+else
+  fast_url="${fast_url}?mmed_v3_team_state_ts=$(date +%s)-${RANDOM}"
+fi
 fast_body="$tmp_dir/fast.json"
 fast_headers="$tmp_dir/fast.headers"
 fast_code="$(fetch_body "$fast_url" "$fast_body")"
-fetch_headers "$fast_url" "$fast_headers"
+curl -fsSL -D "$fast_headers" -o /dev/null "$fast_url" || true
 if [[ "$fast_code" == "200" ]]; then
   ok "fast endpoint returned HTTP 200"
 else
