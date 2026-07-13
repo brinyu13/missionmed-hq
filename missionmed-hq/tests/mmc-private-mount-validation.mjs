@@ -32,6 +32,11 @@ for (const requiredServerPattern of [
   /function isAuthorizedMmcPrivateUser/u,
   /function isAuthorizedMmcPrivateSession/u,
   /function handleMmcPrivateMount/u,
+  /MMHQ_MMC_PERSISTENCE_ENABLED/u,
+  /MMHQ_MMC_SUPABASE_URL/u,
+  /MMHQ_MMC_SUPABASE_ANON_KEY/u,
+  /MMHQ_MMC_SUPABASE_JWT_SECRET/u,
+  /function handleMmcPersistenceRoute/u,
   /readSessionFromRequest\(request\)/u,
   /isAuthorizedMmcPrivateUser\(session\.user\)/u,
   /X-MissionMed-Private-Mount/u,
@@ -58,7 +63,6 @@ assert.match(authStartSource, /resolveAuthSessionFinalRedirect\(searchParams\.ge
 assert.match(authStartSource, /hqEntry\.searchParams\.set\('final', finalRedirect\)/u, 'Auth start must preserve sanitized final redirects.');
 
 for (const forbiddenMountPattern of [
-  /fetch\s*\(/iu,
   /XMLHttpRequest\s*\(/iu,
   /navigator\.sendBeacon/iu,
   /WebSocket\s*\(/iu,
@@ -76,11 +80,14 @@ for (const forbiddenMountPattern of [
   assert.equal(forbiddenMountPattern.test(mountSources), false, `Private mount contains forbidden integration pattern: ${forbiddenMountPattern}`);
 }
 
+assert.match(mountSources, /\/api\/mmc\/persistence/u, 'Private mount must use only the same-origin MMC persistence API.');
+assert.doesNotMatch(mountSources, /fetch\s*\(\s*['"]https?:/iu, 'Private mount must not fetch external URLs.');
+
 for (const assetPattern of [
-  /<link rel="stylesheet" href="\.\/src\/styles\.css\?v=016">/u,
+  /<link rel="stylesheet" href="\.\/src\/styles\.css\?v=100">/u,
   /<script src="\.\/src\/mmc-data-adapters\.js\?v=010"><\/script>/u,
-  /<script src="\.\/src\/mmc-ownership-layer\.js\?v=016"><\/script>/u,
-  /<script src="\.\/src\/app\.js\?v=016"><\/script>/u,
+  /<script src="\.\/src\/mmc-ownership-layer\.js\?v=100"><\/script>/u,
+  /<script src="\.\/src\/app\.js\?v=100"><\/script>/u,
 ]) {
   assert.match(indexSource, assetPattern, `Private mount asset reference must remain local: ${assetPattern}`);
 }
@@ -105,13 +112,19 @@ for (const approvedSurface of [
   'Session Command',
   'Actions',
   'Post-Session Capture',
+  'Private Alpha Control',
+  'Resume Session',
+  'Export Snapshot',
 ]) {
   assert.match(mountSources, new RegExp(escapeRegExp(approvedSurface)), `Missing approved MMC surface: ${approvedSurface}`);
 }
 
 assert.match(appSource, /productionDependencies:\s*false/u, 'MMC private mount must keep production dependencies disabled.');
-assert.match(appSource, /apiCalls:\s*false/u, 'MMC private mount must keep API calls disabled.');
-assert.match(appSource, /mentorIntelligenceLayer:\s*ownershipRuntime \? 'MMC-016 local Student Briefing Engine'/u, 'MMC private mount must expose MMC-016 mentor intelligence.');
+assert.match(appSource, /apiCalls:\s*ownershipRuntime \? 'same-origin \/api\/mmc\/persistence \+ \/api\/mmc\/coaching-pipeline only'/u, 'MMC private mount must limit API calls to approved same-origin MMC persistence and coaching pipeline routes.');
+assert.match(appSource, /data-testid="pipeline-admin-panel"/u, 'MMC private mount must expose the admin-only Pipeline Admin panel.');
+assert.match(appSource, /data-testid="pipeline-run-analysis"/u, 'MMC private mount must expose the real analysis workflow control.');
+assert.match(appSource, /\/analysis-runs\/analyze/u, 'MMC private mount must call the same-origin real analysis route.');
+assert.match(appSource, /mentorIntelligenceLayer:\s*ownershipRuntime \? 'MMC-016 Student Briefing Engine backed by MMC-021 persistence'/u, 'MMC private mount must expose MMC-016 mentor intelligence backed by MMC-021 persistence.');
 assert.match(appSource, /window\.MMC_MENTOR_INTELLIGENCE/u, 'MMC private mount must expose the MMC-016 validation harness.');
 assert.match(appSource, /profilePhotoSupport:\s*'local-internal-pilot-only'/u, 'MMC private mount must keep profile photo support local only.');
 assert.match(appSource, /productionPhotoUpload:\s*false/u, 'MMC private mount must not enable production photo upload.');
@@ -120,6 +133,10 @@ assert.match(mountSources, /data-testid="briefing-profile-photo"/u, 'MMC private
 assert.match(mountSources, /externalRequestsEnabled: false/u, 'MMC private mount must keep external requests disabled.');
 assert.match(mountSources, /externalWritesEnabled: false/u, 'MMC private mount must keep external writes disabled.');
 assert.match(appSource, /window\.MMCApp/u, 'MMC private mount must expose the validation harness.');
+assert.match(appSource, /window\.MMC_PRIVATE_ALPHA/u, 'MMC private mount must expose the private alpha launch harness.');
+assert.match(appSource, /validatePrivateAlphaLaunch/u, 'MMC private mount must expose private alpha launch validation.');
+assert.match(appSource, /exportPilotSnapshot/u, 'MMC private mount must expose local snapshot export.');
+assert.match(appSource, /recoverSession/u, 'MMC private mount must expose session recovery.');
 
 const discoveredFiles = listFiles(mountDir).map((file) => path.relative(mountDir, file).replaceAll(path.sep, '/')).sort();
 assert.deepEqual(discoveredFiles, requiredMountFiles.sort(), 'MMC private mount should contain only the expected packaged alpha files.');

@@ -1,9 +1,11 @@
-// MMC-011 local ownership layer, advanced by MMC MegaRun 012.
-// This module performs no network work and only mutates local MMC-owned browser state.
+// MMC-021 ownership layer.
+// This module keeps the approved MMC UX while syncing MMC-owned domains through
+// the private same-origin persistence route backed by the validated mmc.* schema.
 (function () {
   "use strict";
 
-  const STORAGE_KEY = "mmc.ownership.local.v1";
+  const PROFILE_PHOTO_STORAGE_KEY = "mmc.profile_photos.local_pilot.v1";
+  const DEFAULT_PERSISTENCE_ENDPOINT = "/api/mmc/persistence";
 
   const STATUS = Object.freeze({
     VERIFIED: "VERIFIED",
@@ -14,15 +16,21 @@
   });
 
   const ownershipGate = Object.freeze({
-    version: "MMC-MEGARUN-012",
-    baseline: "MMC-011 / MMC-008B",
-    mode: "local-mmc-owned-intelligence",
-    verdict: "READY_FOR_INTERNAL_PILOT",
-    productionIntegration: false,
+    version: "MMC-021",
+    launchReadinessVersion: "MMC-MEGARUN-100",
+    baseline: "MMC-011 / MMC-016 / MMC-018 / MMC-020A",
+    mode: "mmc-schema-persistence",
+    verdict: "PERSISTENCE_INTEGRATION_READY",
+    productionIntegration: true,
+    productionHydration: false,
     externalRequestsEnabled: false,
     externalWritesEnabled: false,
-    localOwnedWritesEnabled: true,
-    localStorageEnabled: true,
+    sameOriginPersistenceEnabled: true,
+    localOwnedWritesEnabled: false,
+    localStorageEnabled: false,
+    localStorageFallbackEnabled: false,
+    schemaPersistenceEnabled: true,
+    schemaPersistenceTarget: "mmc.*",
     ownsMentorMemory: true,
     ownsCoachingSessions: true,
     ownsGoals: true,
@@ -50,42 +58,42 @@
     mentors: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local mentor profile and role projection"
+      writes: "mmc.mentors principal projection via private persistence route"
     },
     mentorAssignments: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local mentor-to-student assignment roster"
+      writes: "mmc.mentor_assignments for fixture-safe mentor-to-student assignment roster"
     },
     coachingSessions: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local call prep, live session, and post-session lifecycle"
+      writes: "mmc.coaching_sessions for call prep, live session, and post-session lifecycle"
     },
     goals: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local student goals, milestones, progress, and velocity"
+      writes: "mmc.goals for student goals, milestones, progress, and velocity"
     },
     tasks: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local student tasks, mentor tasks, promises, deadlines, and follow-ups"
+      writes: "mmc.action_items for student tasks, mentor tasks, promises, deadlines, and follow-ups"
     },
     mentorMemory: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local personal context, sensitive context, last advice, next move, and timeline"
+      writes: "mmc.mentor_memory for personal context, sensitive context, last advice, next move, and timeline"
     },
     privateNotes: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local mentor-only notes denied to student preview by default"
+      writes: "mmc.private_notes for mentor-only notes denied to student preview by default"
     },
     sessionArtifacts: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local summary, captured items, visibility decision, and session references"
+      writes: "mmc.session_artifacts for summary, captured items, visibility decision, and session references"
     },
     memorySearch: {
       status: STATUS.VERIFIED,
@@ -140,7 +148,7 @@
     profilePhotos: {
       status: STATUS.VERIFIED,
       owner: "MMC",
-      writes: "local internal-pilot profile photo data and metadata for mentor/admin review only"
+      writes: "separate local internal-pilot profile photo data and metadata for mentor/admin review only"
     },
     externalSystems: {
       status: STATUS.BLOCKED,
@@ -206,6 +214,13 @@
     sessionArtifacts: Object.freeze([
       Object.freeze({ id: "artifact-amara-0622-summary", sessionId: "session-amara-0622", studentId: "amara", type: "summary", title: "Post-session summary", visibility: "mentor", createdAt: "2026-06-22" })
     ]),
+    identityReferences: Object.freeze([]),
+    rosterStudents: Object.freeze([]),
+    openLoops: Object.freeze([]),
+    intelligenceSnapshots: Object.freeze([]),
+    activityLog: Object.freeze([
+      Object.freeze({ id: "activity-bootstrap", action: "private-alpha-bootstrap", detail: "MMC-owned pilot roster, memory, goals, tasks, and sessions loaded.", createdAt: "2026-06-23T09:00:00.000Z" })
+    ]),
     profilePhotos: Object.freeze([])
   });
 
@@ -213,11 +228,15 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  function asArray(value) {
+    return Array.isArray(value) ? value : [];
+  }
+
   function makeState() {
     return clone(baseState);
   }
 
-  function getStorage() {
+  function getProfilePhotoStorage() {
     try {
       if (typeof window === "undefined" || !window.localStorage) return null;
       return window.localStorage;
@@ -231,21 +250,40 @@
     return String(value).slice(0, 10);
   }
 
-  function loadState(storageMeta) {
-    const storage = getStorage();
+  function loadProfilePhotos(storageMeta) {
+    const storage = getProfilePhotoStorage();
     storageMeta.enabled = Boolean(storage);
-    if (!storage) return makeState();
+    if (!storage) return [];
     try {
-      const raw = storage.getItem(STORAGE_KEY);
-      if (!raw) return makeState();
+      const raw = storage.getItem(PROFILE_PHOTO_STORAGE_KEY);
+      if (!raw) return [];
       const parsed = JSON.parse(raw);
-      if (!parsed || typeof parsed !== "object" || !parsed.state) return makeState();
+      if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.profilePhotos)) return [];
       storageMeta.loadedFromStorage = true;
       storageMeta.lastSavedAt = parsed.savedAt || null;
-      return Object.assign(makeState(), parsed.state);
+      return parsed.profilePhotos;
     } catch (error) {
-      storageMeta.error = "Local ownership state could not be loaded; fixture-safe baseline retained.";
-      return makeState();
+      storageMeta.error = "Local profile photos could not be loaded; initials fallback retained.";
+      return [];
+    }
+  }
+
+  function saveProfilePhotos(profilePhotos, storageMeta) {
+    const storage = getProfilePhotoStorage();
+    storageMeta.enabled = Boolean(storage);
+    if (!storage) return false;
+    try {
+      storageMeta.lastSavedAt = new Date().toISOString();
+      storage.setItem(PROFILE_PHOTO_STORAGE_KEY, JSON.stringify({
+        version: ownershipGate.version,
+        savedAt: storageMeta.lastSavedAt,
+        profilePhotos
+      }));
+      storageMeta.error = null;
+      return true;
+    } catch (error) {
+      storageMeta.error = "Local profile photos could not be persisted.";
+      return false;
     }
   }
 
@@ -284,54 +322,330 @@
   }
 
   function createRuntime(options) {
-    const storageMeta = {
+    const profilePhotoStorageMeta = {
       enabled: false,
-      key: STORAGE_KEY,
+      key: PROFILE_PHOTO_STORAGE_KEY,
       loadedFromStorage: false,
       lastSavedAt: null,
-      lastPersistReason: null,
       error: null
     };
-    const state = loadState(storageMeta);
+    const state = makeState();
+    state.profilePhotos = loadProfilePhotos(profilePhotoStorageMeta);
     const demoStudents = Array.isArray(options && options.demoStudents) ? options.demoStudents : [];
     const activeMentorId = String(options && options.activeMentorId || "mentor-brian");
+    const persistenceEndpoint = String(options && options.persistenceEndpoint || DEFAULT_PERSISTENCE_ENDPOINT);
+    const persistenceMeta = {
+      enabled: Boolean(persistenceEndpoint),
+      endpoint: persistenceEndpoint,
+      mode: "mmc-schema",
+      status: "initializing",
+      loadedFromSchema: false,
+      lastLoadedAt: null,
+      lastSavedAt: null,
+      lastPersistReason: null,
+      lastWriteCount: 0,
+      error: null,
+      csrfToken: "",
+      localStorageFallback: false,
+      persistedDomains: [
+        "mmc.mentor_memory",
+        "mmc.private_notes",
+        "mmc.action_items",
+        "mmc.goals",
+        "mmc.coaching_sessions",
+        "mmc.session_artifacts",
+        "mmc.open_loops",
+        "mmc.intelligence_snapshots"
+      ]
+    };
     let activeSessionId = null;
     let sequence = deriveSequence(state);
+    let pendingPersistence = Promise.resolve({ ok: true, skipped: true });
 
     function nextId(prefix) {
       sequence += 1;
       return `${prefix}-${sequence}`;
     }
 
-    function persistState(reason) {
-      const storage = getStorage();
-      storageMeta.enabled = Boolean(storage);
-      storageMeta.lastPersistReason = reason || "local-write";
-      if (!storage) return false;
+    function nowIso() {
+      return new Date().toISOString();
+    }
+
+    function today() {
+      return nowIso().slice(0, 10);
+    }
+
+    function recordActivity(action, detail) {
+      state.activityLog.unshift({
+        id: nextId("activity"),
+        action,
+        detail: typeof detail === "string" ? detail : JSON.stringify(detail || {}),
+        createdAt: nowIso()
+      });
+      state.activityLog = state.activityLog.slice(0, 60);
+    }
+
+    function latestRecoverableSession(studentId) {
+      const recoverable = state.sessions
+        .filter((session) => session.status === "active" || session.status === "post-session")
+        .filter((session) => !studentId || session.studentId === studentId)
+        .sort((a, b) => String(b.startedAt || "").localeCompare(String(a.startedAt || "")));
+      return recoverable[0] || null;
+    }
+
+    function recoverLatestSession(studentId) {
+      const session = latestRecoverableSession(studentId) || latestRecoverableSession();
+      if (!session) return null;
+      activeSessionId = session.id;
+      recordActivity("session-recovered", { sessionId: session.id, studentId: session.studentId });
+      return session;
+    }
+
+    function applyPersistedState(persistedState) {
+      if (!persistedState || typeof persistedState !== "object") return false;
+      let applied = false;
+      for (const key of ["goals", "tasks", "promises", "memory", "sessions", "sessionArtifacts", "openLoops", "intelligenceSnapshots"]) {
+        if (Array.isArray(persistedState[key]) && persistedState[key].length) {
+          state[key] = clone(persistedState[key]);
+          applied = true;
+        }
+      }
+      if (Array.isArray(persistedState.identityReferences)) {
+        state.identityReferences = clone(persistedState.identityReferences);
+        applied = true;
+      }
+      if (Array.isArray(persistedState.assignments) && persistedState.assignments.length) {
+        state.assignments = mergeRecords(state.assignments, persistedState.assignments, assignmentMergeKey);
+        applied = true;
+      }
+      if (Array.isArray(persistedState.rosterStudents)) {
+        state.rosterStudents = clone(persistedState.rosterStudents).filter(rosterStudentCanEnterSelector);
+        applied = true;
+      }
+      sequence = deriveSequence(state);
+      const recoverableSession = latestRecoverableSession();
+      if (recoverableSession) activeSessionId = recoverableSession.id;
+      return applied;
+    }
+
+    function mergeRecords(existing, incoming, keyFn) {
+      const merged = [];
+      const seen = new Set();
+      [...asArray(existing), ...asArray(incoming)].forEach((record) => {
+        const key = keyFn(record);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        merged.push(record);
+      });
+      return merged;
+    }
+
+    function assignmentMergeKey(record) {
+      return record && (record.id || `${record.mentorId || activeMentorId}:${record.studentId || ""}`);
+    }
+
+    function rosterStudentCanEnterSelector(student) {
+      if (!student || !student.id) return false;
+      if (demoStudents.some((item) => item.id === student.id)) return false;
+      const bridge = student.mmcRosterIdentity || {};
+      if (bridge.status !== STATUS.VERIFIED) return false;
+      if (!bridge.subjectRefId || !bridge.assignmentId) return false;
+      const identity = state.identityReferences.find((item) => item.id === bridge.subjectRefId);
+      const assignment = state.assignments.find((item) => item.id === bridge.assignmentId);
+      if (!identity || !assignment) return false;
+      if (identity.primaryAnchorType === "mmc_fixture_student") return false;
+      if (assignment.status !== "active") return false;
+      if (assignment.studentId !== student.id || identity.studentId !== student.id) return false;
+      if (assignment.reviewStatus !== "verified" && assignment.reviewStatus !== "reviewed") return false;
+      const verifiedReference = identity.referenceStatus === "verified" || identity.reviewStatus === "verified";
+      const reviewedReference = identity.reviewStatus === "reviewed" && Number(identity.confidence || 0) >= 0.86;
+      if (!verifiedReference && !reviewedReference) return false;
+      return true;
+    }
+
+    function persistenceFetchOptions(method, body) {
+      const headers = { Accept: "application/json" };
+      if (body) headers["Content-Type"] = "application/json";
+      if (persistenceMeta.csrfToken) headers["X-MMHQ-CSRF"] = persistenceMeta.csrfToken;
+      return {
+        method,
+        credentials: "same-origin",
+        headers,
+        body: body ? JSON.stringify(body) : undefined
+      };
+    }
+
+    async function hydratePersistence() {
+      if (!persistenceEndpoint || typeof fetch !== "function") {
+        persistenceMeta.status = "unavailable";
+        persistenceMeta.error = "MMC schema persistence fetch is unavailable; fixture memory retained.";
+        return false;
+      }
       try {
-        storageMeta.lastSavedAt = new Date().toISOString();
-        storage.setItem(STORAGE_KEY, JSON.stringify({
-          version: ownershipGate.version,
-          baseline: ownershipGate.baseline,
-          savedAt: storageMeta.lastSavedAt,
-          state
-        }));
-        storageMeta.error = null;
+        const response = await fetch(persistenceEndpoint, persistenceFetchOptions("GET"));
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload || payload.ok === false) {
+          persistenceMeta.status = "unavailable";
+          persistenceMeta.error = payload && payload.message ? payload.message : "MMC schema persistence is unavailable; fixture memory retained.";
+          persistenceMeta.localStorageFallback = false;
+          return false;
+        }
+        persistenceMeta.status = "connected";
+        persistenceMeta.loadedFromSchema = applyPersistedState(payload.state);
+        persistenceMeta.lastLoadedAt = new Date().toISOString();
+        persistenceMeta.csrfToken = payload.csrfToken || persistenceMeta.csrfToken;
+        persistenceMeta.persistedDomains = Array.isArray(payload.persistedDomains) ? payload.persistedDomains : persistenceMeta.persistedDomains;
+        persistenceMeta.error = null;
         return true;
       } catch (error) {
-        storageMeta.error = "Local ownership state could not be persisted.";
+        persistenceMeta.status = "unavailable";
+        persistenceMeta.error = "MMC schema persistence could not be loaded; fixture memory retained.";
+        persistenceMeta.localStorageFallback = false;
         return false;
       }
     }
 
+    function buildDerivedPersistenceState() {
+      const base = clone(state);
+      base.students = demoStudents.map((student) => ({
+        id: student.id,
+        name: student.name,
+        initials: student.initials
+      }));
+      base.openLoops = getAssignedStudentIds().flatMap((studentId) =>
+        getOpenLoops(studentId).map((loop) => ({
+          id: `loop-${studentId}-${loop.id}`,
+          studentId,
+          title: loop.title,
+          type: loop.type,
+          status: loop.status,
+          severity: loop.severity,
+          detail: loop.detail
+        }))
+      );
+      base.intelligenceSnapshots = getAssignedStudentIds().map((studentId) => ({
+        id: `snapshot-${studentId}-student-briefing`,
+        studentId,
+        snapshotType: "student_briefing",
+        summary: getStudentBriefing(studentId),
+        confidenceScore: 1
+      }));
+      return base;
+    }
+
+    function persistState(reason) {
+      persistenceMeta.lastPersistReason = reason || "schema-write";
+      if (!persistenceEndpoint || typeof fetch !== "function") {
+        persistenceMeta.status = "unavailable";
+        persistenceMeta.error = "MMC schema persistence fetch is unavailable.";
+        return false;
+      }
+
+      persistenceMeta.status = "saving";
+      pendingPersistence = pendingPersistence
+        .catch(() => null)
+        .then(async () => {
+          try {
+            const response = await fetch(persistenceEndpoint, persistenceFetchOptions("POST", {
+              reason: persistenceMeta.lastPersistReason,
+              state: buildDerivedPersistenceState()
+            }));
+            const payload = await response.json().catch(() => null);
+            if (!response.ok || !payload || payload.ok === false) {
+              throw new Error(payload && payload.message ? payload.message : "MMC schema persistence save failed.");
+            }
+            persistenceMeta.status = "connected";
+            persistenceMeta.loadedFromSchema = applyPersistedState(payload.state) || persistenceMeta.loadedFromSchema;
+            persistenceMeta.lastSavedAt = new Date().toISOString();
+            persistenceMeta.lastWriteCount = Number(payload.writeCount || 0);
+            persistenceMeta.persistedDomains = Array.isArray(payload.persistedDomains) ? payload.persistedDomains : persistenceMeta.persistedDomains;
+            persistenceMeta.error = null;
+            return payload;
+          } catch (error) {
+            persistenceMeta.status = "error";
+            persistenceMeta.error = error instanceof Error ? error.message : "MMC schema persistence save failed.";
+            return { ok: false, error: persistenceMeta.error };
+          }
+        });
+      return true;
+    }
+
+    function flushPersistence() {
+      return pendingPersistence;
+    }
+
     function findStudent(studentId) {
-      return demoStudents.find((student) => student.id === studentId) || demoStudents[0] || null;
+      const exact = demoStudents.find((student) => student.id === studentId);
+      if (exact) return exact;
+      const roster = state.rosterStudents.find((student) => student.id === studentId && rosterStudentCanEnterSelector(student));
+      if (roster) return roster;
+      return inferStudentFromOwnedState(studentId);
+    }
+
+    function inferStudentFromOwnedState(studentId) {
+      const resolvedStudentId = String(studentId || "").trim();
+      if (!resolvedStudentId) return null;
+      const hasOwnedRecord = [
+        state.assignments,
+        state.goals,
+        state.tasks,
+        state.promises,
+        state.memory,
+        state.sessions,
+        state.sessionArtifacts,
+        state.openLoops,
+        state.intelligenceSnapshots
+      ].some((collection) => asArray(collection).some((record) => record && record.studentId === resolvedStudentId));
+      if (!hasOwnedRecord) return null;
+      const name = titleFromStudentId(resolvedStudentId);
+      return {
+        id: resolvedStudentId,
+        name,
+        initials: initialsFromName(name),
+        program: "match",
+        session: "private",
+        specialty: "Reviewed coaching subject",
+        status: "Active",
+        risk: "medium",
+        source: "mmc-owned-reviewed-subject",
+        canonicalStudentIdentity: false
+      };
+    }
+
+    function titleFromStudentId(value) {
+      return String(value || "student")
+        .replace(/[_:.-]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .split(" ")
+        .filter(Boolean)
+        .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+        .join(" ") || "Reviewed Student";
+    }
+
+    function initialsFromName(value) {
+      const parts = String(value || "Reviewed Student").trim().split(/\s+/g).filter(Boolean);
+      return (parts[0]?.[0] || "R") + (parts[1]?.[0] || "S");
     }
 
     function getAssignedStudentIds(mentorId = activeMentorId) {
       return state.assignments
         .filter((assignment) => assignment.mentorId === mentorId && assignment.status === "active")
         .map((assignment) => assignment.studentId);
+    }
+
+    function getRosterStudents() {
+      return state.rosterStudents
+        .filter(rosterStudentCanEnterSelector)
+        .map((student) => Object.assign({}, student, {
+          mmcReality: Object.assign({}, student.mmcReality || {}, {
+            source: "mmc-roster-identity-bridge",
+            identityStatus: STATUS.VERIFIED,
+            protectedPayloadLoaded: false,
+            hydrationStatus: "mmc-owned-roster-bridge",
+            liveDataReviewStatus: "ROSTER_IDENTITY_READY"
+          })
+        }));
     }
 
     function getTasks(studentId) {
@@ -408,11 +722,12 @@
         productionStorage: "future unresolved",
         studentUploadStatus: "future-supported, not enabled publicly",
         status: STATUS.VERIFIED,
-        updatedAt: "2026-06-23"
+        updatedAt: today()
       };
       if (existingIndex >= 0) state.profilePhotos.splice(existingIndex, 1, record);
       else state.profilePhotos.unshift(record);
-      persistState("profile-photo-local-save");
+      saveProfilePhotos(state.profilePhotos, profilePhotoStorageMeta);
+      recordActivity("profile-photo-local-save", { studentId: resolvedStudentId, storage: "local-only" });
       return record;
     }
 
@@ -433,6 +748,9 @@
         adviceMemory: getMemory(resolvedStudentId, "last-advice"),
         nextMoves: getMemory(resolvedStudentId, "next-move"),
         sessions: getSessions(resolvedStudentId),
+        sessionArtifacts: asArray(state.sessionArtifacts).filter((artifact) => artifact.studentId === resolvedStudentId),
+        intelligenceSnapshots: asArray(state.intelligenceSnapshots).filter((snapshot) => snapshot.studentId === resolvedStudentId),
+        openLoops: asArray(state.openLoops).filter((loop) => loop.studentId === resolvedStudentId),
         profilePhoto: getProfilePhoto(resolvedStudentId)
       };
     }
@@ -935,7 +1253,12 @@
 
     function hydrateDirectory(students) {
       const assigned = new Set(getAssignedStudentIds());
-      return students.map((student) => {
+      const byId = new Map();
+      [...asArray(students), ...getRosterStudents()].forEach((student) => {
+        if (!student || !student.id || byId.has(student.id)) return;
+        byId.set(student.id, student);
+      });
+      return Array.from(byId.values()).map((student) => {
         const bundle = getStudentBundle(student.id);
         return Object.assign({}, student, {
           mmcOwned: {
@@ -961,6 +1284,7 @@
         const promise = state.promises.find((item) => item.id === task.promiseId);
         if (promise) promise.status = completed ? "complete" : "open";
       }
+      recordActivity(completed ? "action-completed" : "action-reopened", { taskId: task.id, studentId: task.studentId });
       persistState("task-status");
       return task;
     }
@@ -980,6 +1304,7 @@
         sourceSessionId: payload.sourceSessionId || activeSessionId
       };
       state.tasks.unshift(task);
+      recordActivity("task-created", { taskId: task.id, studentId: task.studentId, type: task.type });
       persistState("task-create");
       return task;
     }
@@ -994,11 +1319,31 @@
         sensitive: Boolean(payload.sensitive),
         verified: true,
         source: payload.source || "manual",
-        createdAt: "2026-06-23"
+        createdAt: today()
       };
       state.memory.unshift(memory);
+      recordActivity("memory-created", { memoryId: memory.id, studentId: memory.studentId, category: memory.category });
       persistState("memory-create");
       return memory;
+    }
+
+    function createGoal(payload) {
+      const goal = {
+        id: nextId("goal"),
+        studentId: payload.studentId,
+        title: payload.title || "Captured coaching goal",
+        milestone: payload.milestone || "Define next milestone with student",
+        targetDate: payload.targetDate || "TBD",
+        progress: Number(payload.progress || 0),
+        velocity: payload.velocity || "Needs mentor definition",
+        readinessInputs: Array.isArray(payload.readinessInputs) && payload.readinessInputs.length
+          ? payload.readinessInputs
+          : ["goal captured in MMC", "milestone pending", "mentor follow-up needed"]
+      };
+      state.goals.unshift(goal);
+      recordActivity("goal-created", { goalId: goal.id, studentId: goal.studentId });
+      persistState("goal-create");
+      return goal;
     }
 
     function createPromise(payload) {
@@ -1017,12 +1362,13 @@
         studentId: payload.studentId,
         promisor: payload.promisor || "mentor",
         title: payload.title,
-        madeAt: "2026-06-23",
+        madeAt: today(),
         dueLabel: payload.dueLabel || "Queued",
         status: "open"
       };
       task.promiseId = promise.id;
       state.promises.unshift(promise);
+      recordActivity("promise-created", { promiseId: promise.id, studentId: promise.studentId, promisor: promise.promisor });
       persistState("promise-create");
       return { task, promise };
     }
@@ -1051,7 +1397,7 @@
         studentId: resolvedStudentId,
         mentorId: activeMentorId,
         status: "active",
-        startedAt: "2026-06-23T10:00:00",
+        startedAt: nowIso(),
         endedAt: null,
         title: "MMC-owned advising session",
         summary: "",
@@ -1061,6 +1407,7 @@
       };
       state.sessions.unshift(session);
       activeSessionId = session.id;
+      recordActivity("session-started", { sessionId: session.id, studentId: session.studentId });
       persistState("session-start");
       return session;
     }
@@ -1098,6 +1445,7 @@
         });
       }
       session.capturedItemIds.push(result.id);
+      recordActivity("session-item-created", { sessionId: session.id, itemId: result.id, type: payload.type || "Action" });
       persistState("session-item");
       return result;
     }
@@ -1107,6 +1455,7 @@
       if (!session) return null;
       session.privateNotes = notes || session.privateNotes;
       session.status = "post-session";
+      recordActivity("session-ended", { sessionId: session.id, studentId: session.studentId });
       persistState("session-end");
       return session;
     }
@@ -1115,9 +1464,24 @@
       const session = getActiveSession();
       if (!session) return null;
       session.summary = payload.summary || session.summary;
+      if (payload.privateNotes) {
+        const privateNote = {
+          id: nextId("memory"),
+          studentId: session.studentId,
+          category: "private-note",
+          title: "Post-session private note",
+          content: payload.privateNotes,
+          sensitive: false,
+          verified: true,
+          source: "post-session",
+          createdAt: today()
+        };
+        state.memory.unshift(privateNote);
+        session.capturedItemIds.push(privateNote.id);
+      }
       session.studentVisible = Boolean(payload.studentVisible);
       session.status = "complete";
-      session.endedAt = "2026-06-23T10:42:00";
+      session.endedAt = nowIso();
       const artifact = {
         id: nextId("artifact"),
         sessionId: session.id,
@@ -1125,10 +1489,11 @@
         type: "post-session-summary",
         title: "MMC-owned post-session summary",
         visibility: session.studentVisible ? "student-approved" : "mentor",
-        createdAt: "2026-06-23"
+        createdAt: today()
       };
       state.sessionArtifacts.unshift(artifact);
       activeSessionId = null;
+      recordActivity("post-session-saved", { sessionId: session.id, studentId: session.studentId, studentVisible: session.studentVisible });
       persistState("post-session-save");
       return { session, artifact };
     }
@@ -1137,20 +1502,77 @@
       return clone(state);
     }
 
+    function exportPilotSnapshot() {
+      const snapshot = {
+        exportedAt: nowIso(),
+        status: "PRIVATE_ALPHA_LAUNCH_READY_CANDIDATE",
+        scope: "MMC-owned private alpha data only",
+        productionHydration: false,
+        externalRequestsEnabled: false,
+        localStorageFallbackEnabled: false,
+        validation: validationSummary(),
+        launchReadiness: getLaunchReadiness(),
+        state: exportState()
+      };
+      recordActivity("pilot-snapshot-exported", { assignedStudents: snapshot.validation.stats.assignedStudents });
+      return snapshot;
+    }
+
+    function getLaunchReadiness() {
+      const stats = getStats();
+      const activeSession = getActiveSession();
+      const recoverableSession = latestRecoverableSession();
+      const blockers = [];
+      if (persistenceMeta.status !== "connected") blockers.push("schema persistence is not connected");
+      if (persistenceMeta.localStorageFallback) blockers.push("localStorage fallback is enabled");
+      if (!stats.assignedStudents) blockers.push("no mentor assignments available");
+      if (!stats.memoryItems) blockers.push("no mentor memory available");
+      if (!stats.goals) blockers.push("no goals available");
+      return {
+        status: blockers.length ? "PRIVATE_ALPHA_REVIEW_NEEDED" : "PRIVATE_ALPHA_LAUNCH_READY",
+        blockers,
+        mentorBootstrapReady: stats.assignedStudents > 0,
+        assignmentCount: stats.assignedStudents,
+        persistenceStatus: persistenceMeta.status,
+        persistenceLastSavedAt: persistenceMeta.lastSavedAt,
+        persistenceLastLoadedAt: persistenceMeta.lastLoadedAt,
+        persistenceLastWriteCount: persistenceMeta.lastWriteCount,
+        localStorageFallbackEnabled: Boolean(persistenceMeta.localStorageFallback),
+        sessionRecoveryReady: Boolean(activeSession || recoverableSession),
+        activeSession: activeSession || recoverableSession || null,
+        exportReady: true,
+        stats
+      };
+    }
+
     function validationSummary() {
       return {
         status: ownershipGate.verdict,
         version: ownershipGate.version,
+        launchReadinessVersion: ownershipGate.launchReadinessVersion,
         mode: ownershipGate.mode,
-        productionIntegration: false,
+        productionIntegration: true,
+        productionHydration: false,
         externalRequestsEnabled: false,
         externalWritesEnabled: false,
-        localOwnedWritesEnabled: true,
-        localStorageEnabled: storageMeta.enabled,
-        storage: Object.assign({}, storageMeta),
+        localOwnedWritesEnabled: false,
+        localStorageEnabled: false,
+        localStorageFallbackEnabled: false,
+        schemaPersistenceEnabled: true,
+        persistence: Object.assign({}, persistenceMeta),
+        profilePhotoStorage: Object.assign({}, profilePhotoStorageMeta),
         model: ownershipModel,
         stats: getStats(),
+        activeSessionId,
+        recoverableSession: latestRecoverableSession(),
+        launchReadiness: getLaunchReadiness(),
         assignedStudentIds: getAssignedStudentIds(),
+        rosterIdentityBridge: {
+          status: getRosterStudents().length ? STATUS.VERIFIED : STATUS.UNVERIFIED,
+          selectableStudents: getRosterStudents().length,
+          identityReferences: state.identityReferences.length,
+          source: "read-only /api/mmc/persistence projection from mmc.identity_references + mmc.mentor_assignments"
+        },
         writableDomains: Object.keys(ownershipModel).filter((key) => ownershipModel[key].owner === "MMC"),
         intelligenceDomains: [
           "memorySearch",
@@ -1180,12 +1602,14 @@
       hydrateDirectory,
       getStats,
       getAssignedStudentIds,
+      getRosterStudents,
       getStudentBundle,
       getTasks,
       getOpenTasks,
       getGoals,
       getMemory,
       getSessions,
+      getActiveSession,
       getProfilePhoto,
       setProfilePhoto,
       getReadiness,
@@ -1205,13 +1629,19 @@
       completeTask,
       createTask,
       createMemory,
+      createGoal,
       createPromise,
       quickCapture,
       startSession,
       addSessionItem,
       endSession,
       savePostSession,
+      recoverLatestSession,
+      hydratePersistence,
+      flushPersistence,
       exportState,
+      exportPilotSnapshot,
+      getLaunchReadiness,
       validationSummary
     });
   }

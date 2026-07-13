@@ -35,6 +35,7 @@ if (mmcRuntime) {
 const ownershipRuntime = window.MMCOwnershipLayer
   ? window.MMCOwnershipLayer.createRuntime({ demoStudents: students, activeMentorId: 'mentor-brian' })
   : null;
+let ownershipHydrationPromise = Promise.resolve(false);
 if (ownershipRuntime) {
   students = ownershipRuntime.hydrateDirectory(students);
   window.MMC_OWNERSHIP_RUNTIME = ownershipRuntime;
@@ -42,19 +43,90 @@ if (ownershipRuntime) {
   document.documentElement.dataset.mmcOwnershipStatus = ownershipRuntime.status;
   document.documentElement.dataset.mmcOwnershipMode = ownershipRuntime.mode;
   document.documentElement.dataset.mmcLocalOwnedWritesEnabled = String(ownershipRuntime.gate.localOwnedWritesEnabled);
-  document.documentElement.dataset.mmcLocalStorageEnabled = String(ownershipRuntime.validationSummary().storage.enabled);
+  document.documentElement.dataset.mmcLocalStorageEnabled = String(ownershipRuntime.validationSummary().localStorageEnabled);
+  document.documentElement.dataset.mmcSchemaPersistenceEnabled = String(ownershipRuntime.validationSummary().schemaPersistenceEnabled);
+  document.documentElement.dataset.mmcSchemaPersistenceStatus = ownershipRuntime.validationSummary().persistence.status;
   document.documentElement.dataset.mmcExternalWritesEnabled = String(ownershipRuntime.gate.externalWritesEnabled);
   document.documentElement.dataset.mmcMentorIntelligenceStatus = 'MENTOR_INTELLIGENCE_READY';
-  document.documentElement.dataset.mmcBriefingSource = 'mmc-owned-local-only';
+  document.documentElement.dataset.mmcBriefingSource = 'mmc-owned-schema-with-fixture-fallback';
   document.documentElement.dataset.mmcProfilePhotoStatus = 'local-internal-pilot-only';
+  ownershipHydrationPromise = ownershipRuntime.hydratePersistence()
+    .then((loaded) => {
+      students = ownershipRuntime.hydrateDirectory(students);
+      document.documentElement.dataset.mmcSchemaPersistenceStatus = ownershipRuntime.validationSummary().persistence.status;
+      document.documentElement.dataset.mmcSchemaPersistenceLoaded = String(Boolean(loaded));
+      refreshOwnershipViews();
+      return loaded;
+    })
+    .catch(() => {
+      document.documentElement.dataset.mmcSchemaPersistenceStatus = ownershipRuntime.validationSummary().persistence.status;
+      refreshOwnershipViews();
+      return false;
+    });
 }
 
 const programLabels = {usce:'USCE Navigator',match:'Match Ready',interview:'Interview Forge'};
-const sessionLabels = {spring2026:'Spring 2026',summer2026:'Summer 2026',fall2026:'Fall 2026'};
+const sessionLabels = {spring2026:'Spring 2026',summer2026:'Summer 2026',fall2026:'Fall 2026',private:'Private Review'};
 const statusColors = {Active:'badge-green','At Risk':'badge-red',Onboarding:'badge-cyan'};
 let activePrepStudent = 'amara';
 let quickCaptureType = 'Note';
 let sessionItemCounter = 1;
+let activeMeetingStudent = 'amara';
+let activeMeetingSessionId = null;
+
+const MMC_PIPELINE_ENDPOINT = '/api/mmc/coaching-pipeline';
+const MMC_PIPELINE_DEFAULT_CATEGORY = 'Live Session';
+const MMC_WEBEX_TRIGGER_KEY = 'mmc.private.webexAllowedTriggers.mentor-brian.v1';
+const MMC_WEBEX_DEFAULT_TRIGGERS = '[MM-ADV]';
+const pipelineAdminState = {
+  initialized: false,
+  loading: false,
+  working: false,
+  error: null,
+  status: null,
+  workerStatus: null,
+  workerScan: null,
+  webexStatus: null,
+  webexInventory: null,
+  webexAllowedTriggers: readLocalPreference(MMC_WEBEX_TRIGGER_KEY, MMC_WEBEX_DEFAULT_TRIGGERS),
+  rosterVerificationSources: [],
+  rosterVerification: null,
+  resolutionReviewQueue: [],
+  inventory: [],
+  sourceAssets: [],
+  search: '',
+  selectedAssetId: null,
+  selectedStudentId: '',
+  manualStudentId: '',
+  manualStudentName: '',
+  rosterEvidenceJson: '',
+  selectedSessionId: '',
+  workerMinStableAgeMs: 0,
+  lastResult: null
+};
+
+const MMC_DENSITY_KEY = 'mmc.private.displayDensity.mentor-brian.v1';
+const MMC_PROFILE_DETAIL_KEY = 'mmc.private.profileDetails.mentor-brian.v1';
+let mmcDisplayDensity = readLocalPreference(MMC_DENSITY_KEY, 'compact');
+let profileDetailsExpanded = readLocalPreference(MMC_PROFILE_DETAIL_KEY, 'collapsed') === 'expanded';
+
+function readLocalPreference(key, fallback) {
+  try {
+    if (typeof localStorage === 'undefined') return fallback;
+    const value = localStorage.getItem(key);
+    return value || fallback;
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function writeLocalPreference(key, value) {
+  try {
+    if (typeof localStorage !== 'undefined') localStorage.setItem(key, value);
+  } catch (error) {
+    // Preference writes are best-effort only; MMC must remain usable without localStorage.
+  }
+}
 
 function escapeHtml(value) {
   return String(value == null ? '' : value)
@@ -67,7 +139,9 @@ function escapeHtml(value) {
 
 function studentName(studentId) {
   const student = students.find(s => s.id === studentId);
-  return student ? student.name : 'Student';
+  if (student) return student.name;
+  const bundle = ownershipRuntime && ownershipRuntime.getStudentBundle ? ownershipRuntime.getStudentBundle(studentId) : null;
+  return bundle && bundle.student ? bundle.student.name : 'Student';
 }
 
 function badgeClassForTask(task) {
@@ -133,6 +207,60 @@ function updatePhotoAvatar(node, student, className) {
   }
 }
 
+function applyDensityMode() {
+  document.documentElement.dataset.mmcDensityMode = mmcDisplayDensity;
+  document.body.classList.toggle('mmc-density-full', mmcDisplayDensity === 'full');
+  document.body.classList.toggle('mmc-density-compact', mmcDisplayDensity !== 'full');
+  const toggle = document.getElementById('density-mode-toggle');
+  if (toggle) {
+    toggle.textContent = mmcDisplayDensity === 'full' ? 'Full View' : 'Compact';
+    toggle.setAttribute('aria-pressed', String(mmcDisplayDensity === 'full'));
+  }
+  applyProfileSecondaryState();
+}
+
+function toggleDensityMode() {
+  mmcDisplayDensity = mmcDisplayDensity === 'full' ? 'compact' : 'full';
+  writeLocalPreference(MMC_DENSITY_KEY, mmcDisplayDensity);
+  applyDensityMode();
+  showToast(mmcDisplayDensity === 'full' ? 'Full profile detail enabled.' : 'Compact mentor mode enabled.');
+}
+
+function toggleSystemStatus() {
+  const popover = document.getElementById('pilot-readiness-panel');
+  const toggle = document.getElementById('system-status-toggle');
+  if (!popover || !toggle) return;
+  const isOpen = popover.classList.toggle('open');
+  popover.setAttribute('aria-hidden', String(!isOpen));
+  toggle.setAttribute('aria-expanded', String(isOpen));
+  renderPilotReadiness();
+}
+
+function applyProfileSecondaryState() {
+  const expanded = mmcDisplayDensity === 'full' || profileDetailsExpanded;
+  const detail = document.getElementById('profile-secondary-detail');
+  const context = document.getElementById('profile-briefing-context-group');
+  [detail, context].forEach((node) => {
+    if (!node) return;
+    node.classList.toggle('is-collapsed', !expanded);
+    node.classList.toggle('is-expanded', expanded);
+  });
+  document.querySelectorAll('[data-testid="profile-secondary-toggle"], [data-testid="profile-context-toggle"]').forEach((button) => {
+    button.textContent = expanded ? 'Collapse Details' : 'Expand Details';
+    button.setAttribute('aria-expanded', String(expanded));
+  });
+}
+
+function toggleProfileSecondarySections() {
+  profileDetailsExpanded = !(mmcDisplayDensity === 'full' || profileDetailsExpanded);
+  if (mmcDisplayDensity === 'full' && !profileDetailsExpanded) {
+    mmcDisplayDensity = 'compact';
+    writeLocalPreference(MMC_DENSITY_KEY, mmcDisplayDensity);
+  }
+  writeLocalPreference(MMC_PROFILE_DETAIL_KEY, profileDetailsExpanded ? 'expanded' : 'collapsed');
+  applyDensityMode();
+}
+
 function updateOwnershipStats() {
   if (!ownershipRuntime) return;
   const stats = ownershipRuntime.getStats();
@@ -146,6 +274,841 @@ function updateOwnershipStats() {
   if (reviews) reviews.textContent = String(stats.documentReviews);
   if (dueToday) dueToday.textContent = String(stats.dueToday);
   if (actionBadge) actionBadge.textContent = String(stats.openActions);
+}
+
+function refreshOwnershipViews() {
+  if (!ownershipRuntime) return;
+  renderOwnedActions();
+  renderOwnedProfile(activePrepStudent);
+  renderMemoryContent(activePrepStudent);
+  renderMemorySearchResults();
+  renderSessionItems();
+  renderPostSessionReview();
+  renderSessionCommand(activePrepStudent);
+  renderMeetingIntelligence(activeMeetingStudent || activePrepStudent);
+  filterStudents();
+  updateOwnershipStats();
+  renderPilotReadiness();
+  applyDensityMode();
+}
+
+function updateSchemaPersistenceStatus() {
+  if (!ownershipRuntime) return;
+  const summary = ownershipRuntime.validationSummary();
+  document.documentElement.dataset.mmcSchemaPersistenceStatus = summary.persistence.status;
+  document.documentElement.dataset.mmcSchemaPersistenceLastSavedAt = summary.persistence.lastSavedAt || '';
+  document.documentElement.dataset.mmcSchemaPersistenceError = summary.persistence.error || '';
+  const indicator = document.getElementById('persistence-indicator');
+  const label = document.getElementById('persistence-status-label');
+  const dot = document.getElementById('persistence-status-dot');
+  const status = summary.persistence.status || 'initializing';
+  const display = status === 'connected'
+    ? 'Schema Connected'
+    : status === 'saving'
+      ? 'Saving'
+      : status === 'error'
+        ? 'Persistence Attention'
+        : 'Fixture Fallback';
+  if (label) label.textContent = display;
+  if (indicator) indicator.className = 'sync-indicator ' + status;
+  if (dot) dot.className = 'sync-dot ' + status;
+}
+
+function flushOwnershipPersistence() {
+  if (!ownershipRuntime || !ownershipRuntime.flushPersistence) return Promise.resolve(null);
+  return ownershipRuntime.flushPersistence().then((result) => {
+    updateSchemaPersistenceStatus();
+    renderPilotReadiness();
+    return result;
+  });
+}
+
+async function pipelineFetch(path, options) {
+  const csrfToken = ownershipRuntime && ownershipRuntime.validationSummary
+    ? ownershipRuntime.validationSummary().persistence.csrfToken
+    : '';
+  const response = await fetch(MMC_PIPELINE_ENDPOINT + path, {
+    method: options && options.method ? options.method : 'GET',
+    credentials: 'same-origin',
+    headers: Object.assign({
+      Accept: 'application/json'
+    }, options && options.body ? { 'Content-Type': 'application/json' } : {},
+    csrfToken ? { 'X-MMHQ-CSRF': csrfToken } : {}),
+    body: options && options.body ? JSON.stringify(options.body) : undefined
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || !payload || payload.ok === false) {
+    throw new Error(payload && payload.message ? payload.message : 'MMC coaching pipeline request failed.');
+  }
+  return payload;
+}
+
+async function refreshPipelineAdmin() {
+  if (pipelineAdminState.loading) return;
+  pipelineAdminState.loading = true;
+  pipelineAdminState.error = null;
+  renderPipelineAdmin();
+  try {
+    const triggerQuery = encodeURIComponent(pipelineAdminState.webexAllowedTriggers || MMC_WEBEX_DEFAULT_TRIGGERS);
+    const [status, inventory, assets, workerStatus, workerScan, webexStatus, webexInventory, reviewQueue, rosterSources] = await Promise.all([
+      pipelineFetch('/status'),
+      pipelineFetch('/inventory?category=' + encodeURIComponent(MMC_PIPELINE_DEFAULT_CATEGORY) + '&limit=25'),
+      pipelineFetch('/source-assets'),
+      pipelineFetch('/worker/status'),
+      pipelineFetch('/worker/scan?limit=12&include_incomplete=1&min_stable_age_ms=' + encodeURIComponent(pipelineAdminState.workerMinStableAgeMs || 0)),
+      pipelineFetch('/webex/status'),
+      pipelineFetch('/webex/recordings?limit=25&allowed_triggers=' + triggerQuery),
+      pipelineFetch('/student-resolution/review-queue'),
+      pipelineFetch('/roster-verification/sources')
+    ]);
+    pipelineAdminState.status = status;
+    pipelineAdminState.workerStatus = workerStatus;
+    pipelineAdminState.workerScan = workerScan;
+    pipelineAdminState.webexStatus = webexStatus;
+    pipelineAdminState.webexInventory = webexInventory;
+    pipelineAdminState.rosterVerificationSources = Array.isArray(rosterSources.sources) ? rosterSources.sources : [];
+    pipelineAdminState.resolutionReviewQueue = Array.isArray(reviewQueue.data) ? reviewQueue.data : [];
+    pipelineAdminState.inventory = Array.isArray(inventory.candidates) ? inventory.candidates : [];
+    pipelineAdminState.sourceAssets = Array.isArray(assets.data) ? assets.data : [];
+    pipelineAdminState.initialized = true;
+    if (!pipelineAdminState.selectedAssetId && pipelineAdminState.sourceAssets[0]) {
+      pipelineAdminState.selectedAssetId = pipelineAdminState.sourceAssets[0].id;
+    }
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Pipeline Admin is unavailable.';
+  } finally {
+    pipelineAdminState.loading = false;
+    renderPipelineAdmin();
+  }
+}
+
+async function importCoachingDropZoneCandidates() {
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = null;
+  renderPipelineAdmin();
+  try {
+    const result = await pipelineFetch('/worker/import', {
+      method: 'POST',
+      body: {
+        limit: 25,
+        minStableAgeMs: pipelineAdminState.workerMinStableAgeMs || 0
+      }
+    });
+    const imported = result.imported ? result.imported.length : 0;
+    const updated = result.updated ? result.updated.length : 0;
+    const review = result.reviewQueue ? result.reviewQueue.length : 0;
+    pipelineAdminState.lastResult = `Coaching worker imported ${imported}, updated ${updated}, review queue ${review}.`;
+    await refreshPipelineAdmin();
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Coaching drop-zone import failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+function setPipelineWebexAllowedTriggers(value) {
+  const normalized = value || MMC_WEBEX_DEFAULT_TRIGGERS;
+  pipelineAdminState.webexAllowedTriggers = normalized;
+  writeLocalPreference(MMC_WEBEX_TRIGGER_KEY, normalized);
+}
+
+async function refreshWebexRecordings() {
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = null;
+  renderPipelineAdmin();
+  try {
+    const triggerQuery = encodeURIComponent(pipelineAdminState.webexAllowedTriggers || MMC_WEBEX_DEFAULT_TRIGGERS);
+    const result = await pipelineFetch('/webex/recordings?limit=25&allowed_triggers=' + triggerQuery);
+    pipelineAdminState.webexInventory = result;
+    const allowed = Array.isArray(result.allowed) ? result.allowed.length : 0;
+    const ignored = Array.isArray(result.ignored) ? result.ignored.length : 0;
+    pipelineAdminState.lastResult = `Webex inventory refreshed: ${allowed} allowed, ${ignored} ignored.`;
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Webex inventory refresh failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+async function pullTriggeredWebexRecordings() {
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = null;
+  renderPipelineAdmin();
+  try {
+    const result = await pipelineFetch('/webex/pull', {
+      method: 'POST',
+      body: {
+        allowedTriggers: pipelineAdminState.webexAllowedTriggers || MMC_WEBEX_DEFAULT_TRIGGERS,
+        limit: 5
+      }
+    });
+    const staged = Array.isArray(result.staged) ? result.staged.length : 0;
+    const ignored = Array.isArray(result.ignored) ? result.ignored.length : 0;
+    const imported = result.workerImport && Array.isArray(result.workerImport.imported) ? result.workerImport.imported.length : 0;
+    const updated = result.workerImport && Array.isArray(result.workerImport.updated) ? result.workerImport.updated.length : 0;
+    pipelineAdminState.lastResult = `Webex trigger pull staged ${staged}, ignored ${ignored}, worker imported ${imported}, updated ${updated}.`;
+    await refreshPipelineAdmin();
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Webex trigger pull failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+async function importPipelineCandidates() {
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = null;
+  renderPipelineAdmin();
+  try {
+    const result = await pipelineFetch('/source-assets/import', {
+      method: 'POST',
+      body: {
+        category: MMC_PIPELINE_DEFAULT_CATEGORY,
+        limit: 25
+      }
+    });
+    pipelineAdminState.lastResult = `Imported ${result.imported ? result.imported.length : 0}; skipped ${result.skipped ? result.skipped.length : 0}.`;
+    await refreshPipelineAdmin();
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Source asset import failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+function selectPipelineAsset(assetId) {
+  pipelineAdminState.selectedAssetId = assetId;
+  renderPipelineAdmin();
+}
+
+function setPipelineAssetSearch(value) {
+  pipelineAdminState.search = value || '';
+  renderPipelineAdmin();
+}
+
+function setPipelineStudent(value) {
+  pipelineAdminState.selectedStudentId = value || '';
+  if (pipelineAdminState.selectedStudentId) {
+    activeMeetingStudent = pipelineAdminState.selectedStudentId;
+    activePrepStudent = pipelineAdminState.selectedStudentId;
+  }
+  pipelineAdminState.selectedSessionId = '';
+  if (pipelineAdminState.selectedStudentId) renderMeetingIntelligence(activeMeetingStudent);
+  else renderPipelineAdmin();
+}
+
+function setPipelineSession(value) {
+  pipelineAdminState.selectedSessionId = value || '';
+  renderPipelineAdmin();
+}
+
+function setPipelineManualStudentId(value) {
+  pipelineAdminState.manualStudentId = value || '';
+  renderPipelineAdmin();
+}
+
+function setPipelineManualStudentName(value) {
+  pipelineAdminState.manualStudentName = value || '';
+  renderPipelineAdmin();
+}
+
+function setPipelineRosterEvidenceJson(value) {
+  pipelineAdminState.rosterEvidenceJson = value || '';
+  renderPipelineAdmin();
+}
+
+function selectedPipelineAsset() {
+  return pipelineAdminState.sourceAssets.find((asset) => asset.id === pipelineAdminState.selectedAssetId) || null;
+}
+
+function pipelineAssetMatches(asset, query) {
+  if (!query) return true;
+  const haystack = [
+    asset.asset_title,
+    asset.source_id,
+    asset.source_system,
+    asset.media_url,
+    asset.transcript_pointer,
+    asset.asset_status,
+    asset.review_status,
+    asset.metadata && asset.metadata.student_resolution && asset.metadata.student_resolution.status,
+    asset.metadata && asset.metadata.roster_verification && asset.metadata.roster_verification.status,
+    asset.metadata && asset.metadata.roster_verification && asset.metadata.roster_verification.studentName,
+    asset.metadata && asset.metadata.roster_verification && asset.metadata.roster_verification.studentId,
+    asset.metadata && asset.metadata.student_resolution && asset.metadata.student_resolution.student && asset.metadata.student_resolution.student.suggested && asset.metadata.student_resolution.student.suggested.studentName,
+    asset.metadata && asset.metadata.student_resolution && asset.metadata.student_resolution.student && asset.metadata.student_resolution.student.suggested && asset.metadata.student_resolution.student.suggested.studentId
+  ].join(' ').toLowerCase();
+  return haystack.includes(query.toLowerCase());
+}
+
+function getPipelineSessionOptions(studentId) {
+  const records = buildMeetingRecords(studentId);
+  return records.map((record) => ({
+    id: record.id,
+    title: record.title,
+    dateLabel: record.dateLabel
+  }));
+}
+
+function getAssetResolution(asset) {
+  return asset && asset.metadata && asset.metadata.student_resolution ? asset.metadata.student_resolution : null;
+}
+
+function getAssetRosterVerification(asset) {
+  return asset && asset.metadata && asset.metadata.roster_verification ? asset.metadata.roster_verification : null;
+}
+
+function getResolutionSuggestedStudent(asset) {
+  const resolution = getAssetResolution(asset);
+  return resolution && resolution.student && resolution.student.suggested ? resolution.student.suggested : null;
+}
+
+function selectedPipelineStudentTarget() {
+  const manualId = (pipelineAdminState.manualStudentId || '').trim();
+  const manualName = (pipelineAdminState.manualStudentName || '').trim();
+  const selectedId = (pipelineAdminState.selectedStudentId || '').trim();
+  if (manualId) {
+    return {
+      id: manualId,
+      name: manualName || manualId.replace(/[_:.-]+/g, ' ').replace(/\b\w/g, char => char.toUpperCase()),
+      source: 'manual-review'
+    };
+  }
+  if (selectedId) {
+    const selected = students.find((item) => item.id === selectedId);
+    return {
+      id: selectedId,
+      name: selected ? selected.name : selectedId,
+      source: selected ? 'approved-roster-selection' : 'manual-review'
+    };
+  }
+  return null;
+}
+
+function parsePipelineRosterEvidence() {
+  const raw = (pipelineAdminState.rosterEvidenceJson || '').trim();
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  return Array.isArray(parsed) ? parsed : [parsed];
+}
+
+async function resolveSelectedRosterVerification() {
+  const asset = selectedPipelineAsset();
+  const student = selectedPipelineStudentTarget();
+  if (!asset || !student) {
+    pipelineAdminState.error = 'Select a source asset and reviewed student target before verifying roster identity.';
+    renderPipelineAdmin();
+    return;
+  }
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = 'Checking production-safe roster evidence...';
+  renderPipelineAdmin();
+  try {
+    const result = await pipelineFetch('/roster-verification/resolve', {
+      method: 'POST',
+      body: {
+        sourceAssetId: asset.id,
+        studentId: student.id,
+        studentName: student.name,
+        sourceEvidence: parsePipelineRosterEvidence()
+      }
+    });
+    pipelineAdminState.rosterVerification = result.verification || null;
+    pipelineAdminState.lastResult = `Roster ${result.review.status || 'UNVERIFIED'} · ${Math.round(Number(result.review.confidence || 0) * 100)}% · ${result.review.strongAnchors || 0} strong anchor(s).`;
+    await refreshPipelineAdmin();
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Roster verification failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+async function approveSelectedRosterBridge() {
+  const asset = selectedPipelineAsset();
+  const student = selectedPipelineStudentTarget();
+  if (!asset || !student) {
+    pipelineAdminState.error = 'Select a source asset and reviewed student target before approving roster bridge.';
+    renderPipelineAdmin();
+    return;
+  }
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = 'Approving verified MMC roster bridge...';
+  renderPipelineAdmin();
+  try {
+    const result = await pipelineFetch('/roster-verification/approve', {
+      method: 'POST',
+      body: {
+        sourceAssetId: asset.id,
+        studentId: student.id,
+        studentName: student.name,
+        sourceEvidence: parsePipelineRosterEvidence()
+      }
+    });
+    pipelineAdminState.rosterVerification = result.verification || null;
+    pipelineAdminState.manualStudentId = result.data && result.data.subject ? result.data.subject.studentId : student.id;
+    pipelineAdminState.manualStudentName = result.data && result.data.subject ? result.data.subject.studentName : student.name;
+    pipelineAdminState.lastResult = `Verified roster bridge approved for ${pipelineAdminState.manualStudentName}.`;
+    if (ownershipRuntime && ownershipRuntime.hydratePersistence) {
+      await ownershipRuntime.hydratePersistence();
+      students = ownershipRuntime.hydrateDirectory(students);
+      refreshOwnershipViews();
+    }
+    await refreshPipelineAdmin();
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Roster bridge approval failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+async function resolveSelectedPipelineAsset() {
+  const asset = selectedPipelineAsset();
+  if (!asset) {
+    pipelineAdminState.error = 'Select a source asset before running student resolution.';
+    renderPipelineAdmin();
+    return;
+  }
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = 'Resolving student evidence...';
+  renderPipelineAdmin();
+  try {
+    const result = await pipelineFetch('/student-resolution/resolve', {
+      method: 'POST',
+      body: { sourceAssetId: asset.id }
+    });
+    const review = result.review || {};
+    pipelineAdminState.lastResult = `Resolution ${review.status || 'UNVERIFIED'} · confidence ${Math.round(Number(review.confidence || 0) * 100)}% · ${review.suggestedStudentName || review.suggestedStudentId || 'review required'}.`;
+    if (review.suggestedStudentId && !pipelineAdminState.manualStudentId) {
+      pipelineAdminState.manualStudentId = review.suggestedStudentId;
+      pipelineAdminState.manualStudentName = review.suggestedStudentName || review.suggestedStudentId;
+    }
+    await refreshPipelineAdmin();
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Student resolution failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+function useSuggestedPipelineStudent() {
+  const suggestion = getResolutionSuggestedStudent(selectedPipelineAsset());
+  if (!suggestion || !suggestion.studentId) {
+    pipelineAdminState.error = 'No suggested student is available for the selected source asset.';
+    renderPipelineAdmin();
+    return;
+  }
+  pipelineAdminState.manualStudentId = suggestion.studentId;
+  pipelineAdminState.manualStudentName = suggestion.studentName || suggestion.studentId;
+  pipelineAdminState.lastResult = `Prepared reviewed target ${pipelineAdminState.manualStudentName}. Approve only after evidence review.`;
+  renderPipelineAdmin();
+}
+
+async function runPipelineAnalysis() {
+  const asset = selectedPipelineAsset();
+  const student = selectedPipelineStudentTarget();
+  if (!asset || !student) {
+    pipelineAdminState.error = 'Select an imported source asset and a reviewed student target before running real analysis.';
+    renderPipelineAdmin();
+    return;
+  }
+  const sessionOptions = getPipelineSessionOptions(student.id);
+  const selectedSession = sessionOptions.find((session) => session.id === pipelineAdminState.selectedSessionId) || null;
+  pipelineAdminState.working = true;
+  pipelineAdminState.error = null;
+  pipelineAdminState.lastResult = 'Attaching source asset...';
+  renderPipelineAdmin();
+  try {
+    const attach = await pipelineFetch('/student-resolution/approve', {
+      method: 'POST',
+      body: {
+        sourceAssetId: asset.id,
+        studentId: student.id,
+        studentName: student.name,
+        sessionLocalId: selectedSession ? selectedSession.id : '',
+        sessionTitle: selectedSession ? selectedSession.title : asset.asset_title
+      }
+    });
+    const analysisRunId = attach && attach.data && attach.data.analysisRun ? attach.data.analysisRun.id : null;
+    if (!analysisRunId) {
+      throw new Error('Pipeline attach did not return an analysis run id.');
+    }
+    pipelineAdminState.lastResult = 'Running real structured analysis from transcript...';
+    renderPipelineAdmin();
+    const analysis = await pipelineFetch('/analysis-runs/analyze', {
+      method: 'POST',
+      body: { analysisRunId }
+    });
+    pipelineAdminState.lastResult = `Real analysis persisted ${analysis.persisted ? analysis.persisted.sessionArtifacts : 0} artifact(s), ${analysis.persisted ? analysis.persisted.intelligenceSnapshots : 0} snapshot(s), and ${analysis.persisted ? analysis.persisted.mentorMemory : 0} memory item(s).`;
+    if (ownershipRuntime && ownershipRuntime.hydratePersistence) {
+      await ownershipRuntime.hydratePersistence();
+      students = ownershipRuntime.hydrateDirectory(students);
+    }
+    const sessionLocalId = attach.data.session && attach.data.session.localId ? attach.data.session.localId : pipelineAdminState.selectedSessionId;
+    activeMeetingStudent = student.id;
+    activePrepStudent = student.id;
+    activeMeetingSessionId = sessionLocalId || null;
+    refreshOwnershipViews();
+    renderMeetingIntelligence(student.id, activeMeetingSessionId);
+    showToast('Real meeting analysis saved to Meeting Intelligence.');
+  } catch (error) {
+    pipelineAdminState.error = error instanceof Error ? error.message : 'Real analysis failed.';
+  } finally {
+    pipelineAdminState.working = false;
+    renderPipelineAdmin();
+  }
+}
+
+function runPipelineMockAnalysis() {
+  return runPipelineAnalysis();
+}
+
+function renderPipelineAdmin() {
+  const root = document.getElementById('pipeline-admin-root');
+  if (!root) return;
+
+  if (!pipelineAdminState.initialized && !pipelineAdminState.loading && !pipelineAdminState.error) {
+    refreshPipelineAdmin();
+  }
+
+  const currentStudentId = pipelineAdminState.selectedStudentId || pipelineAdminState.manualStudentId || activeMeetingStudent || activePrepStudent;
+  const query = pipelineAdminState.search || '';
+  const filteredAssets = pipelineAdminState.sourceAssets
+    .filter((asset) => pipelineAssetMatches(asset, query))
+    .slice(0, 12);
+  const selectedAssetRecord = selectedPipelineAsset();
+  const selectedResolution = getAssetResolution(selectedAssetRecord);
+  const selectedRosterVerification = getAssetRosterVerification(selectedAssetRecord) || pipelineAdminState.rosterVerification;
+  const selectedReview = selectedAssetRecord && selectedAssetRecord.metadata ? selectedAssetRecord.metadata.student_resolution_review : null;
+  const selectedSuggestion = getResolutionSuggestedStudent(selectedAssetRecord);
+  const selectedResolutionReasons = selectedResolution && selectedResolution.review && Array.isArray(selectedResolution.review.reasons)
+    ? selectedResolution.review.reasons.slice(0, 4)
+    : [];
+  const selectedResolutionEvidence = selectedResolution && selectedResolution.student && Array.isArray(selectedResolution.student.evidence)
+    ? selectedResolution.student.evidence.slice(0, 4)
+    : [];
+  const selectedTarget = selectedPipelineStudentTarget();
+  const sessionOptions = getPipelineSessionOptions(currentStudentId);
+  const studentOptions = [
+    `<option value="" ${pipelineAdminState.selectedStudentId ? '' : 'selected'}>No roster student selected</option>`,
+    ...students.map((student) => `
+      <option value="${escapeHtml(student.id)}" ${student.id === pipelineAdminState.selectedStudentId ? 'selected' : ''}>${escapeHtml(student.name)}</option>
+    `)
+  ].join('');
+  const sessionOptionMarkup = [
+    `<option value="" ${pipelineAdminState.selectedSessionId ? '' : 'selected'}>Create pipeline review session from selected asset</option>`,
+    ...sessionOptions.map((session) => `
+      <option value="${escapeHtml(session.id)}" ${session.id === pipelineAdminState.selectedSessionId ? 'selected' : ''}>${escapeHtml(session.title)} · ${escapeHtml(session.dateLabel)}</option>
+    `)
+  ].join('');
+  const inventoryCount = pipelineAdminState.inventory.length;
+  const statusBadge = pipelineAdminState.status && pipelineAdminState.status.principalRole === 'admin'
+    ? '<span class="badge badge-green">Admin Private</span>'
+    : '<span class="badge badge-orange">Admin Check Pending</span>';
+  const resultMarkup = pipelineAdminState.error
+    ? `<div class="pipeline-status-line danger">${escapeHtml(pipelineAdminState.error)}</div>`
+    : pipelineAdminState.lastResult
+      ? `<div class="pipeline-status-line success">${escapeHtml(pipelineAdminState.lastResult)}</div>`
+      : '<div class="pipeline-status-line">No source asset attached in this browser session yet.</div>';
+  const workerStatus = pipelineAdminState.workerStatus || {};
+  const workerScan = pipelineAdminState.workerScan || {};
+  const workerDropZone = workerStatus.dropZone || {};
+  const workerPairs = Array.isArray(workerScan.candidates) ? workerScan.candidates : [];
+  const workerIncomplete = Array.isArray(workerScan.incomplete) ? workerScan.incomplete : [];
+  const workerBadge = workerDropZone.exists
+    ? '<span class="badge badge-green">Worker Path Verified</span>'
+    : '<span class="badge badge-orange">Worker Path Missing</span>';
+  const workerReviewCount = workerStatus.dbQueue ? Number(workerStatus.dbQueue.reviewRequired || 0) : 0;
+  const resolutionReviewCount = Array.isArray(pipelineAdminState.resolutionReviewQueue) ? pipelineAdminState.resolutionReviewQueue.length : 0;
+  const rosterSourceCounts = (pipelineAdminState.rosterVerificationSources || []).reduce((acc, source) => {
+    acc[source.status || 'UNVERIFIED'] = (acc[source.status || 'UNVERIFIED'] || 0) + 1;
+    return acc;
+  }, {});
+  const rosterReview = selectedRosterVerification ? {
+    status: selectedRosterVerification.status || 'UNVERIFIED',
+    confidence: Number(selectedRosterVerification.confidence || 0),
+    strongAnchors: Array.isArray(selectedRosterVerification.strongAnchors) ? selectedRosterVerification.strongAnchors.length : 0,
+    independentStrongAnchors: Number(selectedRosterVerification.independentStrongAnchors || 0),
+    reasons: Array.isArray(selectedRosterVerification.reasons) ? selectedRosterVerification.reasons.slice(0, 4) : []
+  } : null;
+  const workerPairMarkup = workerPairs.slice(0, 4).map((item) => `
+    <div class="pipeline-worker-pair">
+      <span>${escapeHtml(item.assetTitle || item.sourceId || 'Coaching asset')}</span>
+      <strong>${escapeHtml(item.meetingMatchStatus || 'unverified')} · ${escapeHtml(item.subjectMatchStatus || 'unverified')}</strong>
+      <em>${item.reviewRequired ? 'Review required' : 'Analysis ready'} · ${escapeHtml(item.video && item.video.relativePath ? item.video.relativePath : 'video pointer')}</em>
+    </div>
+  `).join('');
+  const webexStatus = pipelineAdminState.webexStatus || {};
+  const webexInventory = pipelineAdminState.webexInventory || {};
+  const webexAllowed = Array.isArray(webexInventory.allowed) ? webexInventory.allowed : [];
+  const webexIgnored = Array.isArray(webexInventory.ignored) ? webexInventory.ignored : [];
+  const webexBadge = webexStatus.tokenConfigured
+    ? '<span class="badge badge-green">Read Token Present</span>'
+    : '<span class="badge badge-orange">Token Missing</span>';
+  const webexPullBadge = webexStatus.pullEnabled
+    ? '<span class="badge badge-green">Pull Gate Enabled</span>'
+    : '<span class="badge badge-orange">Pull Gate Closed</span>';
+  const webexRecordMarkup = [...webexAllowed.slice(0, 3), ...webexIgnored.slice(0, 2)].map((item) => `
+    <div class="pipeline-worker-pair">
+      <span>${escapeHtml(item.title || item.id || 'Webex recording')}</span>
+      <strong>${item.trigger && item.trigger.allowed ? 'Allowed' : 'Ignored'} · ${escapeHtml(item.trigger ? item.trigger.reason : 'unknown')}</strong>
+      <em>${escapeHtml((item.trigger && item.trigger.triggerCodes && item.trigger.triggerCodes.join(', ')) || 'No trigger')} · Transcript ${item.hasTranscriptUrl ? 'available' : 'missing'}</em>
+    </div>
+  `).join('');
+
+  root.innerHTML = `
+    <div class="pipeline-admin-panel" data-testid="pipeline-admin-panel">
+      <div class="pipeline-admin-head">
+        <div>
+          <div class="briefing-kicker">PIPELINE ADMIN</div>
+          <div class="card-title" style="color:var(--gold)">Attach Existing Coaching Asset</div>
+          <div class="card-subtitle">Admin-only same-origin workflow. Source pointers only; no watcher, R2, Stream, Webex mutation, or production media mutation.</div>
+        </div>
+        <div class="meeting-status-stack">
+          ${statusBadge}
+          <span class="badge badge-cyan">${pipelineAdminState.sourceAssets.length} Imported</span>
+      <span class="badge badge-gold">${inventoryCount} Candidates</span>
+          <span class="badge badge-orange">${resolutionReviewCount} Resolve Review</span>
+          <span class="badge badge-cyan">${rosterSourceCounts.VERIFIED || 0} Verified Source Lane</span>
+        </div>
+      </div>
+      <div class="pipeline-worker-card" data-testid="pipeline-worker-status">
+        <div class="pipeline-worker-head">
+          <div>
+            <div class="briefing-kicker">COACHING IMPORT WORKER</div>
+            <div class="card-title" style="color:var(--gold)">MissionWebexVideos Drop Zone</div>
+            <div class="card-subtitle">${escapeHtml(workerDropZone.path || 'Checking coaching drop-zone path')}</div>
+          </div>
+          <div class="meeting-status-stack">
+            ${workerBadge}
+            <span class="badge badge-cyan">${workerPairs.length} Pair(s)</span>
+            <span class="badge badge-orange">${workerReviewCount} Review</span>
+          </div>
+        </div>
+        <div class="pipeline-worker-grid">
+          <div class="pipeline-status-line">
+            Dedicated worker only. Daily Drills watcher is not imported, not started, and video_registry.json is not written.
+            ${workerDropZone.knownTypoSiblingExists ? '<br><strong>Note:</strong> typo sibling folder detected; it is not treated as canonical.' : ''}
+          </div>
+          <div class="pipeline-worker-actions">
+            <button class="topbar-btn" data-testid="pipeline-worker-refresh" onclick="refreshPipelineAdmin()" ${pipelineAdminState.loading ? 'disabled' : ''}>Scan Drop Zone</button>
+            <button class="topbar-btn gold" data-testid="pipeline-worker-import" onclick="importCoachingDropZoneCandidates()" ${pipelineAdminState.working || !workerDropZone.exists ? 'disabled' : ''}>Import Coaching Pairs</button>
+          </div>
+        </div>
+        <div class="pipeline-worker-pairs">
+          ${workerPairMarkup || `<div class="pipeline-empty">${workerDropZone.exists ? 'No complete MP4/MOV/M4V + transcript pairs found yet.' : 'Create the canonical MissionWebexVideos folder before importing coaching assets.'}</div>`}
+          ${workerIncomplete.length ? `<div class="pipeline-empty">${workerIncomplete.length} incomplete or unstable file group(s) are waiting for a paired video/transcript.</div>` : ''}
+        </div>
+      </div>
+      <div class="pipeline-worker-card" data-testid="pipeline-webex-trigger-status">
+        <div class="pipeline-worker-head">
+          <div>
+            <div class="briefing-kicker">WEBEX TRIGGERED PULL</div>
+            <div class="card-title" style="color:var(--gold)">Strict Title Trigger Filter</div>
+            <div class="card-subtitle">${escapeHtml(webexStatus.dropZonePath || 'MissionWebexVidoes staging path')}</div>
+          </div>
+          <div class="meeting-status-stack">
+            ${webexBadge}
+            ${webexPullBadge}
+            <span class="badge badge-cyan">${webexAllowed.length} Allowed</span>
+            <span class="badge badge-orange">${webexIgnored.length} Ignored</span>
+          </div>
+        </div>
+        <div class="pipeline-worker-grid">
+          <div class="pipeline-status-line">
+            Default allow is [MM-ADV]. [MM-IGNORE] always denies. Untriggered recordings are ignored and never handed to the worker.
+            <br>Trigger configuration is stored locally for Pipeline Admin review; it does not change Webex or production settings.
+          </div>
+          <div class="pipeline-worker-actions">
+            <input class="micro-input" data-testid="pipeline-webex-triggers" value="${escapeHtml(pipelineAdminState.webexAllowedTriggers || MMC_WEBEX_DEFAULT_TRIGGERS)}" placeholder="[MM-ADV]" oninput="setPipelineWebexAllowedTriggers(this.value)">
+            <button class="topbar-btn" data-testid="pipeline-webex-refresh" onclick="refreshWebexRecordings()" ${pipelineAdminState.working ? 'disabled' : ''}>Refresh Webex</button>
+            <button class="topbar-btn gold" data-testid="pipeline-webex-pull" onclick="pullTriggeredWebexRecordings()" ${pipelineAdminState.working || !webexStatus.tokenConfigured || !webexStatus.pullEnabled ? 'disabled' : ''}>Pull Triggered</button>
+          </div>
+        </div>
+        <div class="pipeline-worker-pairs">
+          ${webexRecordMarkup || `<div class="pipeline-empty">${webexStatus.tokenConfigured ? 'No Webex inventory loaded yet, or no triggered recordings are available.' : 'Configure an approved read-only Webex token before inventory can be verified.'}</div>`}
+        </div>
+      </div>
+      <div class="pipeline-admin-grid">
+        <div class="pipeline-admin-column">
+          <div class="pipeline-control-row">
+            <input class="micro-input" data-testid="pipeline-asset-search" value="${escapeHtml(query)}" placeholder="Search imported source assets" oninput="setPipelineAssetSearch(this.value)">
+            <button class="topbar-btn" data-testid="pipeline-refresh" onclick="refreshPipelineAdmin()" ${pipelineAdminState.loading ? 'disabled' : ''}>Refresh</button>
+            <button class="topbar-btn gold" data-testid="pipeline-import" onclick="importPipelineCandidates()" ${pipelineAdminState.working ? 'disabled' : ''}>Import Live Sessions</button>
+          </div>
+          <div class="pipeline-asset-list" data-testid="pipeline-source-asset-list">
+            ${filteredAssets.map((asset) => `
+              <button class="pipeline-asset-item ${asset.id === pipelineAdminState.selectedAssetId ? 'active' : ''}" onclick="selectPipelineAsset('${escapeHtml(asset.id)}')">
+                <span>${escapeHtml(asset.asset_title || asset.source_id || 'Untitled source asset')}</span>
+                <strong>${escapeHtml(asset.asset_status || 'candidate')} · ${escapeHtml(asset.review_status || 'unreviewed')} · ${escapeHtml((asset.metadata && asset.metadata.student_resolution && (asset.metadata.student_resolution.status || (asset.metadata.student_resolution.overall && asset.metadata.student_resolution.overall.status))) || 'UNRESOLVED')}</strong>
+                <em>${asset.media_url ? 'Video pointer available' : 'No video pointer'} · ${asset.transcript_pointer ? 'Transcript pointer available' : 'No transcript pointer'}</em>
+              </button>
+            `).join('') || `
+              <div class="pipeline-empty">No imported source assets match this filter. Import Live Session candidates to create MMC-owned pointers from the existing video registry.</div>
+            `}
+          </div>
+        </div>
+        <div class="pipeline-admin-column">
+          <div class="pipeline-field">
+            <label>Roster Student (optional)</label>
+            <select data-testid="pipeline-student-select" onchange="setPipelineStudent(this.value)">${studentOptions}</select>
+          </div>
+          <div class="pipeline-field">
+            <label>Reviewed Student ID</label>
+            <input class="micro-input" data-testid="pipeline-manual-student-id" value="${escapeHtml(pipelineAdminState.manualStudentId || '')}" placeholder="e.g. ignacio-anzola" oninput="setPipelineManualStudentId(this.value)">
+          </div>
+          <div class="pipeline-field">
+            <label>Reviewed Student Name</label>
+            <input class="micro-input" data-testid="pipeline-manual-student-name" value="${escapeHtml(pipelineAdminState.manualStudentName || '')}" placeholder="Reviewed student display name" oninput="setPipelineManualStudentName(this.value)">
+          </div>
+          <div class="pipeline-field">
+            <label>Session</label>
+            <select data-testid="pipeline-session-select" onchange="setPipelineSession(this.value)">${sessionOptionMarkup}</select>
+          </div>
+          <div class="pipeline-selected-card" data-testid="pipeline-selected-asset">
+            <div class="briefing-label">SELECTED SOURCE</div>
+            <div class="briefing-text">${selectedAssetRecord ? escapeHtml(selectedAssetRecord.asset_title || selectedAssetRecord.source_id) : 'No source asset selected yet.'}</div>
+            <div class="briefing-sublist">
+              <div class="briefing-row"><span>Recording pointer</span><strong>${selectedAssetRecord && selectedAssetRecord.media_url ? 'VERIFIED' : 'EMPTY'}</strong></div>
+              <div class="briefing-row"><span>Transcript pointer</span><strong>${selectedAssetRecord && selectedAssetRecord.transcript_pointer ? 'VERIFIED' : 'EMPTY'}</strong></div>
+              <div class="briefing-row"><span>Resolution</span><strong>${escapeHtml(selectedReview ? selectedReview.status : selectedResolution ? selectedResolution.status : 'UNRESOLVED')}</strong></div>
+              <div class="briefing-row"><span>Suggested student</span><strong>${selectedSuggestion ? escapeHtml(selectedSuggestion.studentName || selectedSuggestion.studentId) : 'Review required'}</strong></div>
+              <div class="briefing-row"><span>Confidence</span><strong>${selectedReview ? Math.round(Number(selectedReview.confidence || 0) * 100) + '%' : selectedResolution ? Math.round(Number(selectedResolution.confidence || 0) * 100) + '%' : '0%'}</strong></div>
+              <div class="briefing-row"><span>Output mode</span><strong>OpenAI structured</strong></div>
+            </div>
+          </div>
+          <div class="pipeline-selected-card" data-testid="pipeline-resolution-card">
+            <div class="briefing-label">STUDENT RESOLUTION REVIEW</div>
+            <div class="briefing-text">${selectedResolutionReasons.length ? escapeHtml(selectedResolutionReasons.join(' · ')) : 'Run resolution to collect deterministic evidence before attaching.'}</div>
+            <div class="briefing-sublist mt-sm">
+              ${selectedResolutionEvidence.map((item) => `
+                <div class="briefing-row"><span>${escapeHtml(item.kind || 'evidence')}</span><strong>${escapeHtml(item.value || item.reference || item.assignmentId || '')}</strong></div>
+              `).join('') || '<div class="briefing-row"><span>No evidence displayed yet</span><strong>Resolve first</strong></div>'}
+            </div>
+          </div>
+          <div class="pipeline-selected-card" data-testid="pipeline-roster-verification-card">
+            <div class="briefing-label">ROSTER VERIFICATION LANE</div>
+            <div class="briefing-text">Production-safe bridge requires two independent strong anchors or explicit admin approval. Name, email, Calendar, and Webex title/date evidence stay supporting only.</div>
+            <div class="briefing-sublist mt-sm">
+              <div class="briefing-row"><span>Status</span><strong>${escapeHtml(rosterReview ? rosterReview.status : 'UNVERIFIED')}</strong></div>
+              <div class="briefing-row"><span>Confidence</span><strong>${rosterReview ? Math.round(rosterReview.confidence * 100) + '%' : '0%'}</strong></div>
+              <div class="briefing-row"><span>Strong anchors</span><strong>${rosterReview ? rosterReview.strongAnchors + ' / ' + rosterReview.independentStrongAnchors + ' independent' : '0 / 0 independent'}</strong></div>
+              <div class="briefing-row"><span>Verified read lane</span><strong>${rosterSourceCounts.VERIFIED || 0} verified · ${rosterSourceCounts.UNVERIFIED || 0} unresolved</strong></div>
+              <div class="briefing-row"><span>Reasons</span><strong>${escapeHtml(rosterReview && rosterReview.reasons.length ? rosterReview.reasons.join(' · ') : 'Evidence review pending')}</strong></div>
+            </div>
+            <div class="pipeline-field mt-sm">
+              <label>Approved Source Evidence JSON</label>
+              <textarea class="micro-input pipeline-evidence-input" data-testid="pipeline-roster-evidence-json" placeholder='[{"sourceSystem":"wordpress_user","anchorType":"wp_user_id","anchorValue":"...","studentId":"ignacio-anzola","studentName":"Ignacio Anzola","confidence":0.94}]' oninput="setPipelineRosterEvidenceJson(this.value)">${escapeHtml(pipelineAdminState.rosterEvidenceJson || '')}</textarea>
+            </div>
+            <div class="pipeline-worker-actions">
+              <button class="topbar-btn" data-testid="pipeline-roster-resolve" onclick="resolveSelectedRosterVerification()" ${pipelineAdminState.working || !selectedAssetRecord || !selectedTarget ? 'disabled' : ''}>Verify Roster Evidence</button>
+              <button class="topbar-btn gold" data-testid="pipeline-roster-approve" onclick="approveSelectedRosterBridge()" ${pipelineAdminState.working || !selectedAssetRecord || !selectedTarget ? 'disabled' : ''}>Approve Roster Bridge</button>
+            </div>
+          </div>
+          <div class="pipeline-worker-actions">
+            <button class="topbar-btn" data-testid="pipeline-resolve-student" onclick="resolveSelectedPipelineAsset()" ${pipelineAdminState.working || !selectedAssetRecord ? 'disabled' : ''}>Resolve Student</button>
+            <button class="topbar-btn" data-testid="pipeline-use-suggested-student" onclick="useSuggestedPipelineStudent()" ${pipelineAdminState.working || !selectedSuggestion ? 'disabled' : ''}>Use Suggested</button>
+          </div>
+          <button class="topbar-btn gold pipeline-run-btn" data-testid="pipeline-run-analysis" onclick="runPipelineAnalysis()" ${pipelineAdminState.working || !selectedAssetRecord || !selectedTarget ? 'disabled' : ''}>Approve Link + Run Real Analysis</button>
+          ${resultMarkup}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function formatTimestamp(value) {
+  if (!value) return 'Not yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
+function renderPilotReadiness() {
+  if (!ownershipRuntime || !ownershipRuntime.getLaunchReadiness) return;
+  const readiness = ownershipRuntime.getLaunchReadiness();
+  const summary = ownershipRuntime.validationSummary();
+  updateSchemaPersistenceStatus();
+  const setText = (id, text) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = text;
+  };
+  const stateClass = readiness.status === 'PRIVATE_ALPHA_LAUNCH_READY' ? 'badge-green' : 'badge-orange';
+  const state = document.getElementById('pilot-readiness-state');
+  if (state) {
+    state.className = 'badge ' + stateClass;
+    state.textContent = readiness.status === 'PRIVATE_ALPHA_LAUNCH_READY' ? 'Launch Ready' : 'Needs Review';
+  }
+  setText('pilot-persistence-state', `${summary.persistence.status} · writes ${summary.persistence.lastWriteCount || 0} · last save ${formatTimestamp(summary.persistence.lastSavedAt)}`);
+  setText('pilot-assignment-state', `${readiness.assignmentCount} assigned students · ${summary.stats.memoryItems} memory items · ${summary.stats.goals} goals`);
+  setText('pilot-session-recovery-state', readiness.activeSession
+    ? `Recoverable ${readiness.activeSession.status} session for ${studentName(readiness.activeSession.studentId)}`
+    : 'No active session to recover');
+  setText('pilot-export-state', readiness.exportReady ? 'Snapshot export ready' : 'Snapshot export unavailable');
+  const blockers = document.getElementById('pilot-blockers');
+  if (blockers) {
+    blockers.innerHTML = readiness.blockers.length
+      ? readiness.blockers.map(item => `<span class="badge badge-orange">${escapeHtml(item)}</span>`).join('')
+      : '<span class="badge badge-green">No alpha blockers detected</span>';
+  }
+}
+
+function exportPilotSnapshot() {
+  if (!ownershipRuntime || !ownershipRuntime.exportPilotSnapshot) return null;
+  const snapshot = ownershipRuntime.exportPilotSnapshot();
+  const state = document.getElementById('pilot-export-state');
+  const fileName = `mmc-private-alpha-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.json`;
+  const serialized = JSON.stringify(snapshot, null, 2);
+  if (typeof Blob !== 'undefined' && typeof URL !== 'undefined' && URL.createObjectURL && typeof document !== 'undefined') {
+    const blob = new Blob([serialized], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  if (state) state.textContent = `Snapshot prepared: ${fileName}`;
+  renderPilotReadiness();
+  showToast('Private alpha snapshot prepared.');
+  return snapshot;
+}
+
+function recoverSession() {
+  if (!ownershipRuntime || !ownershipRuntime.recoverLatestSession) {
+    showToast('No recoverable session found.');
+    return null;
+  }
+  const session = ownershipRuntime.recoverLatestSession(activePrepStudent);
+  if (!session) {
+    showToast('No recoverable session found.');
+    renderPilotReadiness();
+    return null;
+  }
+  activePrepStudent = session.studentId;
+  const notes = document.getElementById('session-notes');
+  if (notes) notes.value = session.privateNotes || session.summary || '';
+  renderSessionCommand(activePrepStudent);
+  renderSessionItems();
+  renderPilotReadiness();
+  showToast('Recovered active session for ' + studentName(activePrepStudent) + '.');
+  switchScreen('sessioncmd');
+  return session;
 }
 
 // =============================================
@@ -163,7 +1126,7 @@ function switchScreen(id) {
     actions: ['Actions', 'Promises, reviews, follow-ups, and decisions'],
     directory: ['Attention-Ranked Directory', '24 students prioritized by mentor attention'],
     profile: ['Student Intelligence Profile', 'Admin View'],
-    meeting: ['Meeting Intelligence', 'Webex Recording + AI Analysis'],
+    meeting: ['Meeting Intelligence', 'MMC-Owned Session Review'],
     memory: ['Mentor Memory / Call Prep', 'Memory-driven prep system'],
     sessioncmd: ['Session Command', 'Live mentor cockpit'],
     postsession: ['Post-Session Capture', 'Confirm actions and return to Today'],
@@ -171,6 +1134,11 @@ function switchScreen(id) {
   };
   document.getElementById('topbar-title').textContent = titles[id][0];
   document.getElementById('topbar-sub').textContent = titles[id][1];
+
+  if (id === 'meeting') renderMeetingIntelligence(activeMeetingStudent || activePrepStudent);
+  if (id === 'profile') applyProfileSecondaryState();
+  if (id === 'memory') renderFocusView(activePrepStudent);
+  applyDensityMode();
 
   document.getElementById('content-area').scrollTop = 0;
 }
@@ -394,6 +1362,18 @@ function renderStudentBriefing(studentId) {
     <div class="briefing-meta-line">${escapeHtml(briefing.nextBestMove.action)}</div>
     <div class="briefing-why">${briefing.nextBestMove.why.map(item => `<span>${escapeHtml(item)}</span>`).join('')}</div>
   `);
+  setHtml('profile-pre-call-briefing', `
+    <div class="briefing-label">PRE-CALL BRIEFING</div>
+    <div class="briefing-text">${escapeHtml(briefing.lastMeeting)}</div>
+    <div class="briefing-sublist">
+      ${renderBriefingRows(briefing.openLoops.slice(0, 3), 'No urgent open loops captured.', item => `
+        <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.status)}</strong></div>
+      `)}
+      ${renderBriefingRows(briefing.deadlines.slice(0, 2), 'No dated deadlines captured.', item => `
+        <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.date)}</strong></div>
+      `)}
+    </div>
+  `);
   setHtml('briefing-personal-context', `
     <div class="briefing-label">PERSONAL CONTEXT</div>
     <div class="briefing-text">${escapeHtml(briefing.personalContext)}</div>
@@ -473,6 +1453,7 @@ function renderStudentBriefing(studentId) {
       `)}
     </div>
   `);
+  applyProfileSecondaryState();
 }
 
 function handleProfilePhotoUpload(input) {
@@ -501,6 +1482,7 @@ function handleProfilePhotoUpload(input) {
       filterStudents();
       if (state) state.textContent = `Local profile photo saved for ${studentName(activePrepStudent)} · mentor/admin review only.`;
       showToast('Local profile photo saved.');
+      renderPilotReadiness();
     }
   };
   reader.onerror = () => {
@@ -509,11 +1491,381 @@ function handleProfilePhotoUpload(input) {
   reader.readAsDataURL(file);
 }
 
+function renderFocusView(studentId) {
+  if (!ownershipRuntime) return;
+  const root = document.getElementById('focus-view-root');
+  if (!root) return;
+  const bundle = ownershipRuntime.getStudentBundle(studentId);
+  if (!bundle || !bundle.student) return;
+  const student = bundle.student;
+  const briefing = ownershipRuntime.getStudentBriefing(student.id);
+  const insights = ownershipRuntime.getSessionInsights(student.id);
+  const risk = insights.risk;
+  const readiness = insights.readiness;
+  const promises = (bundle.promises || []).slice(0, 3);
+  const openTasks = (bundle.openTasks || []).slice(0, 4);
+  const personal = (bundle.personalMemory || [])[0];
+  const sensitive = (bundle.sensitiveMemory || [])[0];
+  const lastSession = (bundle.sessions || [])[0];
+  const nextMove = (bundle.nextMoves || [])[0] || (briefing ? briefing.nextBestMove : null);
+  root.innerHTML = `
+    <div class="focus-view-card mb-md" data-testid="call-prep-focus-view">
+      <div class="focus-view-hero">
+        <div>
+          <div class="briefing-kicker">FOCUS VIEW</div>
+          <div class="focus-view-title">${escapeHtml(student.name)} call prep</div>
+          <div class="focus-view-subtitle">${escapeHtml(briefing ? briefing.who : 'MMC-owned call prep is ready.')}</div>
+        </div>
+        <div class="focus-view-actions">
+          <span class="badge ${badgeClassForRisk(risk.level)}">${escapeHtml(risk.level)} Risk</span>
+          <span class="badge ${badgeClassForReadiness(readiness.status)}">${escapeHtml(readiness.status)} · ${escapeHtml(readiness.score)}%</span>
+          <button class="topbar-btn gold" onclick="startSessionCommand()" data-testid="focus-start-session">Start Session</button>
+        </div>
+      </div>
+      <div class="focus-grid">
+        <div class="focus-panel focus-primary">
+          <div class="briefing-label">NEXT BEST MOVE</div>
+          <div class="focus-big">${escapeHtml(nextMove ? (nextMove.title || nextMove.content) : 'Open the session by reviewing goals, promises, and open loops.')}</div>
+          <div class="briefing-meta-line">${escapeHtml(nextMove ? (nextMove.action || nextMove.content || '') : 'No generated next move yet.')}</div>
+        </div>
+        <div class="focus-panel">
+          <div class="briefing-label">QUICK REFERENCE</div>
+          <div class="focus-list">
+            <div><strong>Program:</strong> ${escapeHtml(programLabels[student.program] || student.program)}</div>
+            <div><strong>Specialty:</strong> ${escapeHtml(student.specialty)}</div>
+            <div><strong>Last meeting:</strong> ${escapeHtml(lastSession ? lastSession.dateLabel || lastSession.createdAt || student.lastMeeting : student.lastMeeting)}</div>
+            <div><strong>Personal context:</strong> ${escapeHtml(personal ? personal.content : 'No personal context captured.')}</div>
+          </div>
+        </div>
+        <div class="focus-panel">
+          <div class="briefing-label">PROMISES / OPEN LOOPS</div>
+          <div class="briefing-sublist">
+            ${renderBriefingRows(promises, 'No mentor promises captured.', item => `
+              <div class="briefing-row ${item.status === 'complete' ? '' : 'danger'}"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.status === 'complete' ? 'DONE' : item.dueLabel || 'OPEN')}</strong></div>
+            `)}
+            ${renderBriefingRows(openTasks.slice(0, 2), 'No open tasks captured.', item => `
+              <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.dueLabel)}</strong></div>
+            `)}
+          </div>
+        </div>
+        <div class="focus-panel">
+          <div class="briefing-label">HANDLE WITH CARE</div>
+          <div class="briefing-text">${escapeHtml(sensitive ? sensitive.content : 'No sensitive context captured for this student.')}</div>
+          <div class="briefing-meta-line">${escapeHtml(risk.reasons.slice(0, 2).join(' · ') || 'No active risk reason captured.')}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function sessionDateLabel(session) {
+  if (!session) return 'No date';
+  if (session.dateLabel) return session.dateLabel;
+  const raw = session.startedAt || session.createdAt || session.updatedAt;
+  if (!raw) return 'Local MMC session';
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return String(raw);
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function sessionDurationLabel(session) {
+  if (!session || !session.startedAt || !session.endedAt) return 'Duration not captured';
+  const start = new Date(session.startedAt);
+  const end = new Date(session.endedAt);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'Duration not captured';
+  const minutes = Math.max(1, Math.round((end.getTime() - start.getTime()) / 60000));
+  return `${minutes} min`;
+}
+
+function normalizePipelineItems(value, fallbackLabel) {
+  if (!Array.isArray(value) || !value.length) return [];
+  return value.map((item, index) => {
+    if (typeof item === 'string') {
+      return { id: `${fallbackLabel}-${index}`, title: item, detail: '', status: '' };
+    }
+    return {
+      id: item.id || `${fallbackLabel}-${index}`,
+      title: item.title || item.label || item.summary || item.action || `${fallbackLabel} ${index + 1}`,
+      detail: item.detail || item.details || item.reason || item.evidence || '',
+      status: item.status || item.owner_type || item.owner || ''
+    };
+  });
+}
+
+function findPipelineSnapshotForSession(snapshots, artifacts, sessionId) {
+  const artifactRunIds = new Set(artifacts.map((item) => item.analysisRunId).filter(Boolean));
+  const artifactAssetIds = new Set(artifacts.map((item) => item.sourceAssetId).filter(Boolean));
+  return snapshots.find((snapshot) => {
+    if (snapshot.snapshotType !== 'meeting_intelligence') return false;
+    if (snapshot.sessionId && snapshot.sessionId === sessionId) return true;
+    if (snapshot.analysisRunId && artifactRunIds.has(snapshot.analysisRunId)) return true;
+    if (snapshot.sourceAssetId && artifactAssetIds.has(snapshot.sourceAssetId)) return true;
+    return false;
+  }) || snapshots.find((snapshot) => snapshot.snapshotType === 'meeting_intelligence') || null;
+}
+
+function buildMeetingRecords(studentId) {
+  if (!ownershipRuntime) return [];
+  const bundle = ownershipRuntime.getStudentBundle(studentId);
+  if (!bundle || !bundle.student) return [];
+  const briefing = ownershipRuntime.getStudentBriefing(studentId);
+  const insights = ownershipRuntime.getSessionInsights(studentId);
+  const sessions = bundle.sessions || [];
+  const openTasks = bundle.openTasks || [];
+  const tasks = bundle.tasks || [];
+  const sessionArtifacts = bundle.sessionArtifacts || [];
+  const intelligenceSnapshots = bundle.intelligenceSnapshots || [];
+  return sessions.map((session, index) => {
+    const relatedTasks = openTasks.filter(task => task.sourceSessionId === session.id).concat(
+      tasks.filter(task => task.sourceSessionId === session.id && task.status === 'complete')
+    );
+    const fallbackTasks = relatedTasks.length ? relatedTasks : openTasks.slice(0, 3);
+    const artifacts = sessionArtifacts.filter(item => item.sessionId === session.id);
+    const pipelineSnapshot = findPipelineSnapshotForSession(intelligenceSnapshots, artifacts, session.id);
+    const structured = pipelineSnapshot && pipelineSnapshot.summary ? pipelineSnapshot.summary : {};
+    const recordingArtifact = artifacts.find(item => item.type === 'recording_reference');
+    const transcriptArtifact = artifacts.find(item => item.type === 'transcript_reference');
+    const summaryArtifact = artifacts.find(item => item.type === 'ai_meeting_summary' || item.type === 'summary' || item.type === 'post-session-summary');
+    const structuredActions = normalizePipelineItems(structured.action_items, 'action');
+    const storyInsights = normalizePipelineItems(structured.story_insights, 'story');
+    const sensitiveTopics = normalizePipelineItems(structured.sensitive_topics, 'sensitive');
+    const relationshipSignals = normalizePipelineItems(structured.relationship_signals, 'relationship');
+    const timelineEvents = normalizePipelineItems(structured.timeline_events, 'timeline');
+    const nextMove = structured.next_best_move || (briefing ? briefing.nextBestMove.action : '');
+    return {
+      id: session.id,
+      student: bundle.student,
+      session,
+      artifacts,
+      pipelineSnapshot,
+      title: session.title || `${bundle.student.name} mentoring session`,
+      dateLabel: sessionDateLabel(session),
+      durationLabel: sessionDurationLabel(session),
+      status: session.status || 'saved',
+      summary: structured.summary || summaryArtifact?.content || summaryArtifact?.summary || session.summary || (briefing ? briefing.lastMeeting : 'No session summary captured yet.'),
+      privateNotes: structured.mentor_note_draft || session.privateNotes || artifacts.find(item => item.type === 'private_note')?.content || 'No mentor-only note captured for this session.',
+      actionItems: structuredActions.length ? structuredActions : fallbackTasks.slice(0, 5),
+      storyInsights,
+      sensitiveTopics,
+      relationshipSignals,
+      timelineEvents,
+      nextBestMove: nextMove || 'Review open loops and confirm the next coaching commitment.',
+      sourcePointers: {
+        recording: recordingArtifact ? recordingArtifact.contentPointer : null,
+        transcript: transcriptArtifact ? transcriptArtifact.contentPointer : null,
+        sourceAssetTitle: recordingArtifact?.sourceAssetTitle || transcriptArtifact?.sourceAssetTitle || summaryArtifact?.sourceAssetTitle || ''
+      },
+      signals: [
+        { label: 'Relationship', value: insights.relationship.trustSignal, detail: insights.relationship.communicationStyle, tone: 'gold' },
+        { label: 'Risk', value: structured.risk && structured.risk.level ? `${structured.risk.level} Risk` : `${insights.risk.level} Risk`, detail: structured.risk && Array.isArray(structured.risk.reasons) && structured.risk.reasons.length ? structured.risk.reasons.slice(0, 2).join(' · ') : insights.risk.reasons.slice(0, 2).join(' · ') || 'No risk reason captured.', tone: insights.risk.level === 'High' ? 'red' : 'orange' },
+        { label: 'Readiness', value: structured.readiness && structured.readiness.level ? structured.readiness.level : `${insights.readiness.score}%`, detail: structured.readiness && Array.isArray(structured.readiness.reasons) && structured.readiness.reasons.length ? structured.readiness.reasons.slice(0, 2).join(' · ') : insights.readiness.status, tone: 'cyan' },
+        { label: 'Next Move', value: pipelineSnapshot ? 'Pipeline Output' : (briefing ? briefing.nextBestMove.title : 'Review open loops'), detail: nextMove || (briefing ? briefing.nextBestMove.action : 'Use MMC-owned tasks and goals.'), tone: 'green' }
+      ],
+      transcriptSegments: [
+        recordingArtifact ? {
+          speaker: 'Recording',
+          time: 'Pointer',
+          text: recordingArtifact.contentPointer || recordingArtifact.title || 'Recording pointer available.'
+        } : null,
+        transcriptArtifact ? {
+          speaker: 'Transcript',
+          time: 'Pointer',
+          text: transcriptArtifact.contentPointer || transcriptArtifact.title || 'Transcript pointer available.'
+        } : null,
+        ...artifacts
+        .filter(item => item.type === 'transcript_note' || item.type === 'summary' || item.type === 'private_note')
+        .map((item, artifactIndex) => ({
+          speaker: item.type === 'private_note' ? 'Mentor note' : 'MMC artifact',
+          time: `T+${artifactIndex + 1}`,
+          text: item.content || item.summary || item.title || 'Session artifact captured.'
+        }))
+      ].filter(Boolean),
+      ordinal: index + 1
+    };
+  });
+}
+
+function renderMeetingIntelligence(studentId, selectedSessionId) {
+  const root = document.getElementById('meeting-intelligence-root');
+  if (!root || !ownershipRuntime) return;
+  activeMeetingStudent = studentId || activeMeetingStudent || activePrepStudent;
+  const bundleForActive = ownershipRuntime.getStudentBundle(activeMeetingStudent);
+  const student = bundleForActive && bundleForActive.student
+    ? bundleForActive.student
+    : students.find(s => s.id === activeMeetingStudent) || students[0];
+  const records = buildMeetingRecords(student.id);
+  if (selectedSessionId) activeMeetingSessionId = selectedSessionId;
+  if (!activeMeetingSessionId || !records.some(item => item.id === activeMeetingSessionId)) {
+    activeMeetingSessionId = records[0] ? records[0].id : null;
+  }
+  const selected = records.find(item => item.id === activeMeetingSessionId);
+  const leadingStudents = students.slice(0, 5);
+  const filterStudents = leadingStudents.some((item) => item.id === student.id)
+    ? leadingStudents
+    : [student, ...leadingStudents.filter((item) => item.id !== student.id).slice(0, 4)];
+  const studentFilters = filterStudents.map(item => `
+    <button class="filter-chip ${item.id === student.id ? 'active' : ''}" onclick="selectMeetingStudent('${escapeHtml(item.id)}')">${escapeHtml(item.name)}</button>
+  `).join('');
+
+  if (!records.length) {
+    root.innerHTML = `
+      <div class="meeting-intelligence-shell">
+        <div class="meeting-topline">
+          <div>
+            <div class="briefing-kicker">MEETING INTELLIGENCE</div>
+            <div class="meeting-title">MMC-owned session review</div>
+            <div class="card-subtitle">Dynamic renderer from coaching_sessions and session_artifacts only</div>
+          </div>
+          <span class="badge badge-cyan">No External Requests</span>
+        </div>
+        <div class="filter-bar meeting-filter-bar">${studentFilters}</div>
+        <div id="pipeline-admin-root" data-testid="pipeline-admin-root"></div>
+        <div class="card meeting-empty-state">
+          <div class="card-title" style="color:var(--gold)">No MMC-owned sessions captured for ${escapeHtml(student.name)} yet.</div>
+          <div class="briefing-text mt-sm">Run Call Prep, Session Command, and Post-Session Capture, or attach an existing coaching asset with Pipeline Admin. No watcher, R2, Stream, Webex mutation, transcript API mutation, or production media mutation is used.</div>
+          <button class="topbar-btn gold mt-md" onclick="openCallPrep('${escapeHtml(student.id)}')">Prep First Call</button>
+        </div>
+      </div>
+    `;
+    renderPipelineAdmin();
+    return;
+  }
+
+  root.innerHTML = `
+    <div class="meeting-intelligence-shell">
+      <div class="meeting-topline">
+        <div>
+          <div class="briefing-kicker">MEETING INTELLIGENCE</div>
+          <div class="meeting-title">MMC-owned session review</div>
+          <div class="card-subtitle">Rendered dynamically from local/MMC persistence and reviewed pipeline source pointers.</div>
+        </div>
+        <div class="meeting-status-stack">
+          <span class="badge badge-gold">${records.length} Session${records.length === 1 ? '' : 's'}</span>
+          <span class="badge badge-cyan">Same-Origin MMC Only</span>
+        </div>
+      </div>
+      <div class="filter-bar meeting-filter-bar">${studentFilters}</div>
+      <div id="pipeline-admin-root" data-testid="pipeline-admin-root"></div>
+      <div class="meeting-layout">
+        <div class="meeting-history-panel">
+          <div class="card-header">
+            <div class="card-title">Meeting History</div>
+            <span class="badge badge-cyan">${escapeHtml(student.name)}</span>
+          </div>
+          <div class="meeting-history-list">
+            ${records.map(item => `
+              <button class="meeting-history-item ${item.id === selected.id ? 'active' : ''}" onclick="selectMeetingSession('${escapeHtml(item.id)}')">
+                <span>${escapeHtml(item.title)}</span>
+                <strong>${escapeHtml(item.dateLabel)}</strong>
+                <em>${escapeHtml(item.durationLabel)} · ${escapeHtml(item.status)}</em>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="meeting-detail-panel">
+          <div class="meeting-detail-hero">
+            <div>
+              <div class="briefing-kicker">SELECTED SESSION</div>
+              <div class="meeting-detail-title">${escapeHtml(selected.title)}</div>
+              <div class="briefing-meta-line">${escapeHtml(selected.dateLabel)} · ${escapeHtml(selected.durationLabel)} · ${escapeHtml(selected.student.name)}</div>
+            </div>
+            <button class="topbar-btn" onclick="openCallPrep('${escapeHtml(student.id)}')">Prep Follow-Up</button>
+          </div>
+          <div class="meeting-detail-grid">
+            <div class="meeting-card wide">
+              <div class="flex-between">
+                <div class="briefing-label">RECORDING / SOURCE ASSET</div>
+                <span class="badge ${selected.pipelineSnapshot ? 'badge-green' : 'badge-orange'}">${selected.pipelineSnapshot ? 'Pipeline Readback' : 'MMC Session'}</span>
+              </div>
+              <div class="pipeline-pointer-grid mt-sm">
+                <div>
+                  <div class="briefing-label">Recording</div>
+                  <div class="briefing-text">${selected.sourcePointers.recording ? escapeHtml(selected.sourcePointers.recording) : 'No recording pointer attached.'}</div>
+                </div>
+                <div>
+                  <div class="briefing-label">Transcript</div>
+                  <div class="briefing-text">${selected.sourcePointers.transcript ? escapeHtml(selected.sourcePointers.transcript) : 'No transcript pointer attached.'}</div>
+                </div>
+              </div>
+            </div>
+            <div class="meeting-card wide">
+              <div class="briefing-label">SUMMARY</div>
+              <div class="briefing-text">${escapeHtml(selected.summary)}</div>
+            </div>
+            <div class="meeting-card">
+              <div class="briefing-label">ACTION ITEMS</div>
+              <div class="briefing-sublist">
+                ${renderBriefingRows(selected.actionItems, 'No action items captured for this session.', item => `
+                  <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.dueLabel || item.status || 'OPEN')}</strong></div>
+                `)}
+              </div>
+            </div>
+            <div class="meeting-card">
+              <div class="briefing-label">STORY INSIGHTS</div>
+              <div class="briefing-sublist">
+                ${renderBriefingRows(selected.storyInsights, 'No reviewed story insights captured in this analysis.', item => `
+                  <div class="briefing-row"><span>${escapeHtml(item.title)}</span><strong>${escapeHtml(item.status || 'INSIGHT')}</strong></div>
+                `)}
+              </div>
+            </div>
+            <div class="meeting-card">
+              <div class="briefing-label">MENTOR-ONLY NOTES</div>
+              <div class="briefing-text">${escapeHtml(selected.privateNotes)}</div>
+            </div>
+            <div class="meeting-card">
+              <div class="briefing-label">NEXT BEST COACHING MOVE</div>
+              <div class="briefing-text">${escapeHtml(selected.nextBestMove)}</div>
+            </div>
+            <div class="meeting-card wide">
+              <div class="briefing-label">COACHING SIGNALS</div>
+              <div class="meeting-signal-grid">
+                ${selected.signals.map(signal => `
+                  <div class="meeting-signal ${escapeHtml(signal.tone)}">
+                    <span>${escapeHtml(signal.label)}</span>
+                    <strong>${escapeHtml(signal.value)}</strong>
+                    <em>${escapeHtml(signal.detail)}</em>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="meeting-card wide">
+              <div class="flex-between">
+                <div class="briefing-label">TRANSCRIPT VIEWER</div>
+                <span class="badge ${selected.sourcePointers.transcript ? 'badge-green' : 'badge-orange'}">${selected.sourcePointers.transcript ? 'Pointer Available' : 'Deferred / MMC Artifacts Only'}</span>
+              </div>
+              <div class="briefing-text mt-sm">This area displays MMC-owned session artifacts and source pointers only. Webex remains read-only and trigger-gated.</div>
+              <div class="meeting-transcript-list mt-sm">
+                ${renderBriefingRows(selected.transcriptSegments, 'No transcript-like MMC artifacts captured for this session.', item => `
+                  <div class="meeting-transcript-row"><strong>${escapeHtml(item.speaker)} ${escapeHtml(item.time)}</strong><span>${escapeHtml(item.text)}</span></div>
+                `)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  renderPipelineAdmin();
+}
+
+function selectMeetingStudent(studentId) {
+  activeMeetingStudent = studentId;
+  activePrepStudent = studentId;
+  activeMeetingSessionId = null;
+  renderMeetingIntelligence(studentId);
+}
+
+function selectMeetingSession(sessionId) {
+  activeMeetingSessionId = sessionId;
+  renderMeetingIntelligence(activeMeetingStudent, sessionId);
+}
+
 function renderMemoryContent(studentId) {
   if (!ownershipRuntime) return;
   const bundle = ownershipRuntime.getStudentBundle(studentId);
   const container = document.getElementById('memory-content');
   if (!bundle || !bundle.student || !container) return;
+  renderFocusView(studentId);
   const student = bundle.student;
   const personal = bundle.personalMemory[0];
   const sensitive = bundle.sensitiveMemory[0];
@@ -662,6 +2014,41 @@ function runMemorySearch() {
   renderMemorySearchResults();
 }
 
+function renderSessionCommand(studentId) {
+  if (!ownershipRuntime) return;
+  const bundle = ownershipRuntime.getStudentBundle(studentId);
+  if (!bundle || !bundle.student) return;
+  const student = bundle.student;
+  const briefing = ownershipRuntime.getStudentBriefing(student.id);
+  const risk = ownershipRuntime.getRisk(student.id);
+  const readiness = ownershipRuntime.getReadiness(student.id);
+  const openTasks = bundle.openTasks.slice(0, 3);
+  const setText = (id, text) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = text;
+  };
+  setText('session-student-name', student.name);
+  setText('session-step2', student.step2 || 'TBD');
+  setText('session-program', programLabels[student.program] || student.program || 'Program');
+  setText('session-readiness', `${readiness.score}%`);
+  setText('session-current-focus', briefing ? briefing.nextBestMove.action : 'Use MMC-owned memory and open loops to steer the call.');
+  const riskBadge = document.getElementById('session-risk');
+  if (riskBadge) {
+    riskBadge.className = 'badge ' + badgeClassForRisk(risk.level);
+    riskBadge.textContent = risk.level + ' Risk';
+  }
+  const sensitive = bundle.sensitiveMemory[0];
+  setText('session-sensitive-context', sensitive ? sensitive.content : 'No sensitive context captured for this student.');
+  const followThrough = document.getElementById('session-follow-through');
+  if (followThrough) {
+    followThrough.innerHTML = openTasks.map((task) => {
+      const surface = surfaceForTask(task);
+      const owner = task.owner === 'mentor' ? 'Brian' : student.name.split(' ')[0];
+      return `<div style="padding:8px 10px;border-radius:6px;background:${surface[0]};border-left:3px solid ${surface[1]};font-size:12px"><strong>${escapeHtml(owner)}:</strong> ${escapeHtml(task.title)}</div>`;
+    }).join('') || '<div style="font-size:12px;color:var(--text-dim)">No open follow-through items.</div>';
+  }
+}
+
 function renderSessionItems() {
   if (!ownershipRuntime) return;
   const bundle = ownershipRuntime.getStudentBundle(activePrepStudent);
@@ -725,7 +2112,9 @@ function openCallPrep(id) {
 function startSessionCommand() {
   if (ownershipRuntime) {
     ownershipRuntime.startSession(activePrepStudent);
+    renderSessionCommand(activePrepStudent);
     renderSessionItems();
+    renderPilotReadiness();
   }
   switchScreen('sessioncmd');
 }
@@ -737,6 +2126,7 @@ function endSessionCommand() {
   if (ownershipRuntime) {
     ownershipRuntime.endSession(notes ? notes.value : '');
     renderPostSessionReview();
+    renderPilotReadiness();
   }
   switchScreen('postsession');
 }
@@ -745,12 +2135,15 @@ function savePostSession() {
   if (ownershipRuntime) {
     const summary = document.getElementById('post-session-summary');
     const visibility = document.getElementById('student-visibility-toggle');
+    const privateNotes = document.getElementById('post-session-private-notes');
     ownershipRuntime.savePostSession({
       summary: summary ? summary.value : '',
+      privateNotes: privateNotes ? privateNotes.value.trim() : '',
       studentVisible: visibility ? visibility.checked : false
     });
     renderOwnedActions();
     renderMemoryContent(activePrepStudent);
+    renderPilotReadiness();
   }
   showToast('Post-session capture saved. Returning to Today.');
   switchScreen('dashboard');
@@ -770,6 +2163,7 @@ function completeAction(checkbox) {
   const state = document.getElementById('action-save-state');
   if (state) state.textContent = checkbox.checked ? 'Action completed in MMC ownership layer.' : 'Action reopened in MMC ownership layer.';
   updateOwnershipStats();
+  renderPilotReadiness();
 }
 
 function addSessionItem(type) {
@@ -782,6 +2176,7 @@ function addSessionItem(type) {
     renderSessionItems();
     renderOwnedActions();
     renderMemoryContent(activePrepStudent);
+    renderSessionCommand(activePrepStudent);
   } else {
     sessionItemCounter += 1;
     const list = document.getElementById('session-items');
@@ -796,6 +2191,7 @@ function addSessionItem(type) {
   }
   const saveState = document.getElementById('session-save-state');
   if (saveState) saveState.textContent = ownershipRuntime ? 'Saved to MMC ownership' : 'Saved in demo';
+  renderPilotReadiness();
 }
 
 function setQuickCaptureType(el, type) {
@@ -835,6 +2231,7 @@ function saveQuickCapture() {
       renderSessionItems();
       renderMemorySearchResults();
     }
+    renderPilotReadiness();
   }
   if (state) state.textContent = quickCaptureType + ' saved for ' + student.name + '.';
   closeQuickCapture();
@@ -855,9 +2252,33 @@ function saveProfileCapture() {
     renderOwnedProfile(activePrepStudent);
     renderMemoryContent(activePrepStudent);
     renderMemorySearchResults();
+    renderPilotReadiness();
   }
   if (state) state.textContent = 'Saved: ' + text;
   showToast('Profile capture saved.');
+  if (input) input.value = '';
+}
+
+function saveProfileGoal() {
+  const input = document.getElementById('profile-workflow-input');
+  const state = document.getElementById('profile-capture-state');
+  const text = input && input.value.trim() ? input.value.trim() : 'New coaching goal captured';
+  if (ownershipRuntime && ownershipRuntime.createGoal) {
+    ownershipRuntime.createGoal({
+      studentId: activePrepStudent,
+      title: text,
+      milestone: 'Captured from Student Intelligence Profile workflow',
+      progress: 0,
+      velocity: 'Needs mentor definition',
+      readinessInputs: ['mentor-defined goal', 'follow-up milestone needed', 'MMC-owned goal']
+    });
+    renderOwnedProfile(activePrepStudent);
+    renderMemoryContent(activePrepStudent);
+    renderMemorySearchResults();
+    renderPilotReadiness();
+  }
+  if (state) state.textContent = 'Goal saved: ' + text;
+  showToast('Goal saved to MMC ownership.');
   if (input) input.value = '';
 }
 
@@ -888,11 +2309,11 @@ window.MMC_DEMO_PARITY = {
   source: 'ported-from-approved-demo',
   approvedBaseline: 'MMC-008B',
   integrationLayer: 'MMC-010 reality hydration guard',
-  ownershipLayer: ownershipRuntime ? 'MMC-MEGARUN-012 local ownership intelligence' : 'not-loaded',
-  mentorIntelligenceLayer: ownershipRuntime ? 'MMC-016 local Student Briefing Engine' : 'not-loaded',
+  ownershipLayer: ownershipRuntime ? 'MMC-021 mmc.* persistence ownership intelligence' : 'not-loaded',
+  mentorIntelligenceLayer: ownershipRuntime ? 'MMC-016 Student Briefing Engine backed by MMC-021 persistence' : 'not-loaded',
   productionDependencies: false,
-  backend: false,
-  apiCalls: false,
+  backend: ownershipRuntime ? 'same-origin MMC persistence plus coaching pipeline only' : false,
+  apiCalls: ownershipRuntime ? 'same-origin /api/mmc/persistence + /api/mmc/coaching-pipeline only' : false,
   adapterMode: mmcRuntime ? mmcRuntime.mode : 'not-loaded'
 };
 
@@ -917,9 +2338,22 @@ window.MMC_MENTOR_INTELLIGENCE = {
   productionPhotoStorage: 'future unresolved',
   studentPhotoUploadPublic: false,
   productionDependencies: false,
-  apiCalls: false,
+  apiCalls: ownershipRuntime ? 'same-origin /api/mmc/persistence + /api/mmc/coaching-pipeline only' : false,
   externalRequestsEnabled: false,
   externalWritesEnabled: false
+};
+
+window.MMC_PRIVATE_ALPHA = {
+  authority: 'MMC-MEGARUN-100',
+  status: ownershipRuntime ? 'PRIVATE_ALPHA_LAUNCH_READY_CANDIDATE' : 'not-loaded',
+  persistence: ownershipRuntime ? 'same-origin /api/mmc/persistence' : false,
+  localStorageFallback: false,
+  productionHydration: false,
+  sessionRecovery: true,
+  snapshotExport: true,
+  mentorBootstrap: true,
+  assignmentManagement: 'MMC-owned assignment model only',
+  forbiddenIntegrations: ['Webex', 'transcripts', 'StoryForge', 'Drills', 'Arena', 'private object storage', 'Scheduler mutation', 'Calendar mutation', 'privileged DB runtime keys']
 };
 
 window.MMCApp = {
@@ -933,21 +2367,66 @@ window.MMCApp = {
   closeQuickCapture,
   saveQuickCapture,
   runMemorySearch,
+  recoverSession,
+  exportPilotSnapshot,
+  renderPilotReadiness,
   validateNoExternalIntegrations() {
     return {
       productionDependencies: false,
-      backend: false,
-      apiCalls: false,
+      backend: ownershipRuntime ? 'same-origin MMC persistence plus coaching pipeline only' : false,
+      apiCalls: ownershipRuntime ? 'same-origin /api/mmc/persistence + /api/mmc/coaching-pipeline only' : false,
+      productionHydration: false,
+      externalProductionRequests: false,
       capturedRequests: [],
       adapter: mmcRuntime ? mmcRuntime.validationSummary() : null,
       ownership: ownershipRuntime ? ownershipRuntime.validationSummary() : null
     };
   },
+  hydratePersistence() {
+    return ownershipHydrationPromise;
+  },
+  flushPersistence: flushOwnershipPersistence,
   getRealityRuntime() {
     return mmcRuntime ? mmcRuntime.validationSummary() : null;
   },
   getOwnershipRuntime() {
     return ownershipRuntime ? ownershipRuntime.validationSummary() : null;
+  },
+  validatePrivateAlphaLaunch() {
+    const requiredScreens = [
+      'screen-dashboard',
+      'screen-actions',
+      'screen-directory',
+      'screen-profile',
+      'screen-memory',
+      'screen-sessioncmd',
+      'screen-postsession',
+      'screen-studentview'
+    ];
+    const requiredHooks = [
+      'pilot-readiness-panel',
+      'pilot-persistence-state',
+      'pilot-assignment-state',
+      'pilot-session-recovery-state',
+      'pilot-export-state',
+      'actions-list',
+      'student-briefing-card',
+      'session-items',
+      'post-session-action-review'
+    ];
+    const summary = ownershipRuntime ? ownershipRuntime.validationSummary() : null;
+    return {
+      status: summary && summary.launchReadiness ? summary.launchReadiness.status : 'not-loaded',
+      requiredScreensPresent: requiredScreens.every(id => Boolean(document.getElementById(id))),
+      requiredHooksPresent: requiredHooks.every(id => Boolean(document.getElementById(id))),
+      persistenceStatus: summary ? summary.persistence.status : 'not-loaded',
+      localStorageFallbackEnabled: summary ? summary.localStorageFallbackEnabled : null,
+      assignedStudents: summary ? summary.stats.assignedStudents : 0,
+      externalRequestsEnabled: false,
+      productionHydration: false,
+      snapshotExport: Boolean(ownershipRuntime && ownershipRuntime.exportPilotSnapshot),
+      sessionRecovery: Boolean(ownershipRuntime && ownershipRuntime.recoverLatestSession)
+    };
   },
   getStudentBriefing(studentId) {
     return ownershipRuntime ? ownershipRuntime.getStudentBriefing(studentId || activePrepStudent) : null;
@@ -956,10 +2435,37 @@ window.MMCApp = {
     return getProfilePhoto(studentId || activePrepStudent);
   },
   handleProfilePhotoUpload,
+  toggleDensityMode,
+  toggleSystemStatus,
+  toggleProfileSecondarySections,
+  renderFocusView,
+  renderMeetingIntelligence,
+  selectMeetingStudent,
+  selectMeetingSession,
+  refreshPipelineAdmin,
+  importCoachingDropZoneCandidates,
+  setPipelineWebexAllowedTriggers,
+  refreshWebexRecordings,
+  pullTriggeredWebexRecordings,
+  importPipelineCandidates,
+  selectPipelineAsset,
+  setPipelineAssetSearch,
+  setPipelineStudent,
+  setPipelineSession,
+  setPipelineManualStudentId,
+  setPipelineManualStudentName,
+  setPipelineRosterEvidenceJson,
+  resolveSelectedRosterVerification,
+  approveSelectedRosterBridge,
+  runPipelineAnalysis,
+  runPipelineMockAnalysis,
+  renderPipelineAdmin,
+  saveProfileGoal,
   renderOwnedActions,
   renderMemoryContent,
   renderMemorySearchResults,
   renderOwnedProfile,
+  renderSessionCommand,
   renderStudentBriefing
 };
 
@@ -968,8 +2474,11 @@ if (ownershipRuntime) {
   renderOwnedProfile(activePrepStudent);
   renderMemoryContent(activePrepStudent);
   renderMemorySearchResults();
+  renderMeetingIntelligence(activeMeetingStudent);
   renderSessionItems();
   renderPostSessionReview();
-  }
+  renderPilotReadiness();
+  applyDensityMode();
+}
 
 renderStudentTable(students);

@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:,">
 <title>Matrix Mentor Console Core</title>
-<link rel="stylesheet" href="./src/styles.css?v=016">
+<link rel="stylesheet" href="./src/styles.css?v=100">
 </head>
 <body>
 <div class="app">
@@ -71,7 +71,44 @@
     <span class="topbar-sub" id="topbar-sub">Monday, June 22, 2026</span>
   </div>
   <div class="topbar-right">
-    <span class="sync-indicator"><span class="sync-dot"></span> Live Sync</span>
+    <div class="system-status-wrap">
+      <button class="system-status-toggle" id="system-status-toggle" onclick="toggleSystemStatus()" data-testid="system-status-toggle" aria-expanded="false">
+        <span class="sync-indicator initializing" id="persistence-indicator"><span class="sync-dot initializing" id="persistence-status-dot"></span> <span id="persistence-status-label">Persistence Checking</span></span>
+      </button>
+      <div class="system-status-popover" id="pilot-readiness-panel" data-testid="pilot-readiness-panel" aria-hidden="true">
+        <div class="system-status-head">
+          <div>
+            <div class="card-title" style="color:var(--gold)">Private Alpha Control</div>
+            <div class="card-subtitle">Operational status moved out of the mentor dashboard</div>
+          </div>
+          <span class="badge badge-orange" id="pilot-readiness-state">Checking</span>
+        </div>
+        <div class="system-status-grid">
+          <div>
+            <div class="stat-label">Persistence</div>
+            <div class="alpha-state-line" id="pilot-persistence-state" data-testid="pilot-persistence-state">initializing</div>
+          </div>
+          <div>
+            <div class="stat-label">Assignments</div>
+            <div class="alpha-state-line" id="pilot-assignment-state" data-testid="pilot-assignment-state">loading</div>
+          </div>
+          <div>
+            <div class="stat-label">Session Recovery</div>
+            <div class="alpha-state-line" id="pilot-session-recovery-state" data-testid="pilot-session-recovery-state">checking</div>
+          </div>
+          <div>
+            <div class="stat-label">Export</div>
+            <div class="alpha-state-line" id="pilot-export-state" data-testid="pilot-export-state">ready</div>
+          </div>
+        </div>
+        <div id="pilot-blockers" class="system-status-blockers">
+          <span class="badge badge-orange">Checking private alpha blockers</span>
+        </div>
+      </div>
+    </div>
+    <button class="topbar-btn" onclick="toggleDensityMode()" id="density-mode-toggle" data-testid="density-mode-toggle">Compact</button>
+    <button class="topbar-btn" onclick="recoverSession()" data-testid="resume-session">Resume Session</button>
+    <button class="topbar-btn" onclick="exportPilotSnapshot()" data-testid="export-alpha-snapshot">Export Snapshot</button>
     <button class="topbar-btn gold" onclick="openCallPrep('amara')">Prep Next Call</button>
     <button class="topbar-btn" onclick="openQuickCapture()" data-testid="quick-capture-open">Quick Capture</button>
   </div>
@@ -513,39 +550,63 @@
       </div>
       </div>
     </div>
-    <div class="briefing-grid" aria-label="Mentor Intelligence Briefing">
-      <div class="briefing-panel" id="briefing-personal-context" data-testid="briefing-personal-context">
-        <div class="briefing-label">PERSONAL CONTEXT</div>
+    <div class="profile-active-intelligence" aria-label="Active Mentor Intelligence">
+      <div class="profile-section-heading">
+        <div>
+          <div class="briefing-kicker">ACTIVE INTELLIGENCE</div>
+          <div class="profile-section-title">What matters for the next mentor move</div>
+        </div>
+        <span class="badge badge-gold">Always Visible</span>
       </div>
-      <div class="briefing-panel" id="briefing-professional-context" data-testid="briefing-professional-context">
-        <div class="briefing-label">PROFESSIONAL CONTEXT</div>
+      <div class="briefing-grid active-intelligence-grid">
+        <div class="briefing-panel span-2" id="profile-pre-call-briefing" data-testid="profile-pre-call-briefing">
+          <div class="briefing-label">PRE-CALL BRIEFING</div>
+        </div>
+        <div class="briefing-panel" id="briefing-last-meeting" data-testid="briefing-last-meeting">
+          <div class="briefing-label">LAST MEETING</div>
+        </div>
+        <div class="briefing-panel" id="briefing-risk-summary" data-testid="briefing-risk-summary">
+          <div class="briefing-label">RISK</div>
+        </div>
+        <div class="briefing-panel" id="briefing-promises" data-testid="briefing-promises">
+          <div class="briefing-label">PROMISES MADE</div>
+        </div>
+        <div class="briefing-panel" id="briefing-promises-overdue" data-testid="briefing-promises-overdue">
+          <div class="briefing-label">PROMISES OVERDUE</div>
+        </div>
+        <div class="briefing-panel" id="briefing-open-loops" data-testid="briefing-open-loops">
+          <div class="briefing-label">OPEN LOOPS</div>
+        </div>
       </div>
-      <div class="briefing-panel" id="briefing-last-meeting" data-testid="briefing-last-meeting">
-        <div class="briefing-label">LAST MEETING</div>
+    </div>
+
+    <div class="profile-panel-group" id="profile-briefing-context-group">
+      <div class="profile-panel-group-head">
+        <div>
+          <div class="briefing-kicker">CONTEXT DETAILS</div>
+          <div class="profile-section-title">Relationship, timeline, deadlines, and background</div>
+        </div>
+        <button class="topbar-btn" onclick="toggleProfileSecondarySections()" data-testid="profile-context-toggle">Toggle Details</button>
       </div>
-      <div class="briefing-panel" id="briefing-advice-history" data-testid="briefing-advice-history">
-        <div class="briefing-label">LAST ADVICE</div>
-      </div>
-      <div class="briefing-panel" id="briefing-promises" data-testid="briefing-promises">
-        <div class="briefing-label">PROMISES MADE</div>
-      </div>
-      <div class="briefing-panel" id="briefing-promises-overdue" data-testid="briefing-promises-overdue">
-        <div class="briefing-label">PROMISES OVERDUE</div>
-      </div>
-      <div class="briefing-panel" id="briefing-open-loops" data-testid="briefing-open-loops">
-        <div class="briefing-label">OPEN LOOPS</div>
-      </div>
-      <div class="briefing-panel" id="briefing-deadlines" data-testid="briefing-deadlines">
-        <div class="briefing-label">DEADLINES</div>
-      </div>
-      <div class="briefing-panel" id="briefing-risk-summary" data-testid="briefing-risk-summary">
-        <div class="briefing-label">RISK</div>
-      </div>
-      <div class="briefing-panel" id="briefing-relationship-context" data-testid="briefing-relationship-context">
-        <div class="briefing-label">RELATIONSHIP CONTEXT</div>
-      </div>
-      <div class="briefing-panel span-2" id="briefing-timeline-summary" data-testid="briefing-timeline-summary">
-        <div class="briefing-label">TIMELINE SUMMARY</div>
+      <div class="briefing-grid profile-context-grid" aria-label="Mentor Intelligence Detail Panels">
+        <div class="briefing-panel" id="briefing-personal-context" data-testid="briefing-personal-context">
+          <div class="briefing-label">PERSONAL CONTEXT</div>
+        </div>
+        <div class="briefing-panel" id="briefing-professional-context" data-testid="briefing-professional-context">
+          <div class="briefing-label">PROFESSIONAL CONTEXT</div>
+        </div>
+        <div class="briefing-panel" id="briefing-advice-history" data-testid="briefing-advice-history">
+          <div class="briefing-label">LAST ADVICE</div>
+        </div>
+        <div class="briefing-panel" id="briefing-deadlines" data-testid="briefing-deadlines">
+          <div class="briefing-label">DEADLINES</div>
+        </div>
+        <div class="briefing-panel" id="briefing-relationship-context" data-testid="briefing-relationship-context">
+          <div class="briefing-label">RELATIONSHIP CONTEXT</div>
+        </div>
+        <div class="briefing-panel span-2" id="briefing-timeline-summary" data-testid="briefing-timeline-summary">
+          <div class="briefing-label">TIMELINE SUMMARY</div>
+        </div>
       </div>
     </div>
   </div>
@@ -562,13 +623,22 @@
       <input class="micro-input" id="profile-workflow-input" placeholder="Capture a note or next step for this student">
       <div class="flex-row" style="justify-content:flex-end">
         <button class="topbar-btn" onclick="saveProfileCapture()">Save Note</button>
+        <button class="topbar-btn" onclick="saveProfileGoal()" data-testid="profile-save-goal">Save Goal</button>
         <button class="topbar-btn" onclick="switchScreen('actions')">Open Actions</button>
       </div>
     </div>
     <div id="profile-capture-state" style="font-size:11px;color:var(--text-dim);margin-top:8px">No profile capture saved in this demo run.</div>
   </div>
 
-  <div class="grid-2 gap-lg">
+  <div class="profile-secondary-detail" id="profile-secondary-detail">
+    <div class="profile-secondary-header">
+      <div>
+        <div class="briefing-kicker">PROFILE DETAIL STACK</div>
+        <div class="profile-section-title">Scores, strategy, documents, messages, and StoryForge readiness</div>
+      </div>
+      <button class="topbar-btn" onclick="toggleProfileSecondarySections()" data-testid="profile-secondary-toggle">Toggle Details</button>
+    </div>
+  <div class="grid-2 gap-lg profile-secondary-body">
     <!-- Left Column -->
     <div style="display:flex;flex-direction:column;gap:16px">
 
@@ -817,6 +887,7 @@
 
     </div>
   </div>
+  </div>
 
 </div>
 
@@ -825,7 +896,9 @@
 <!-- ============================================ -->
 <div class="screen" id="screen-meeting" data-testid="screen-meeting">
 
-  <div class="grid-2 gap-lg">
+  <div id="meeting-intelligence-root" data-testid="meeting-intelligence-root"></div>
+
+  <div class="grid-2 gap-lg legacy-static-meeting" aria-hidden="true">
     <!-- Left: Recording + Transcript -->
     <div style="display:flex;flex-direction:column;gap:16px">
 
@@ -1006,6 +1079,8 @@
     <div class="filter-chip" onclick="selectMemoryStudent(this,'yuki')">Yuki Tanaka</div>
   </div>
 
+  <div id="focus-view-root" data-testid="focus-view"></div>
+
   <div class="card mb-md" id="memory-search-panel" style="border-color:rgba(0,212,255,0.22)">
     <div class="card-header">
       <div>
@@ -1172,24 +1247,24 @@
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card" style="border-color:rgba(0,212,255,0.25)">
         <div class="card-header">
-          <div class="card-title">Student Quick Reference</div>
-          <span class="badge badge-orange">Medium Risk</span>
+          <div class="card-title">Student Quick Reference: <span id="session-student-name">Amara Okafor</span></div>
+          <span class="badge badge-orange" id="session-risk">Medium Risk</span>
         </div>
         <div class="grid-3 gap-md">
           <div>
             <div class="stat-label">Step 2 CK</div>
-            <div class="stat-value" style="font-size:22px;color:var(--cyan)">241</div>
+            <div class="stat-value" id="session-step2" style="font-size:22px;color:var(--cyan)">241</div>
           </div>
           <div>
-            <div class="stat-label">USCE</div>
-            <div class="stat-value" style="font-size:22px;color:var(--gold)">2/4</div>
+            <div class="stat-label">Program</div>
+            <div class="stat-value" id="session-program" style="font-size:18px;color:var(--gold)">USCE Navigator</div>
           </div>
           <div>
-            <div class="stat-label">Story</div>
-            <div class="stat-value" style="font-size:22px;color:var(--orange)">60%</div>
+            <div class="stat-label">Readiness</div>
+            <div class="stat-value" id="session-readiness" style="font-size:22px;color:var(--orange)">60%</div>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-top:12px">Current focus: secure 2 more USCE rotations, rewrite personal statement, begin LOR requests.</div>
+        <div id="session-current-focus" style="font-size:12px;color:var(--text-muted);margin-top:12px">Current focus: secure 2 more USCE rotations, rewrite personal statement, begin LOR requests.</div>
       </div>
 
       <div class="card" style="border-color:rgba(231,76,60,0.2)">
@@ -1197,7 +1272,7 @@
           <div class="card-title" style="color:var(--orange)">Sensitive Context</div>
           <span class="private-marker">HANDLE WITH CARE</span>
         </div>
-        <div style="font-size:13px;color:var(--text-muted);line-height:1.7">Father's health concerns may be affecting focus. Let Amara lead if she wants to discuss it. Keep feedback structured and constructive.</div>
+        <div id="session-sensitive-context" style="font-size:13px;color:var(--text-muted);line-height:1.7">Father's health concerns may be affecting focus. Let Amara lead if she wants to discuss it. Keep feedback structured and constructive.</div>
       </div>
 
       <div class="card">
@@ -1205,7 +1280,7 @@
           <div class="card-title">Follow-through Check</div>
           <span class="badge badge-red">1 Pending Promise</span>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
+        <div id="session-follow-through" style="display:flex;flex-direction:column;gap:8px">
           <div style="padding:8px 10px;border-radius:6px;background:var(--red-dim);border-left:3px solid var(--red);font-size:12px"><strong>Brian:</strong> Mount Sinai coordinator introduction still pending</div>
           <div style="padding:8px 10px;border-radius:6px;background:var(--cyan-dim);border-left:3px solid var(--cyan);font-size:12px"><strong>Amara:</strong> Personal statement rewrite progress needs review</div>
         </div>
@@ -1547,7 +1622,7 @@
 <div class="saved-toast" id="saved-toast" data-testid="saved-toast">Saved.</div>
 
   <script src="./src/mmc-data-adapters.js?v=010"></script>
-  <script src="./src/mmc-ownership-layer.js?v=016"></script>
-  <script src="./src/app.js?v=016"></script>
+<script src="./src/mmc-ownership-layer.js?v=100"></script>
+<script src="./src/app.js?v=100"></script>
 </body>
 </html>
