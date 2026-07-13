@@ -1,11 +1,13 @@
 # A1 MMC Next Work
 
-RESULT: FINALIZATION_ONLY
+RESULT: NO_MIGRATION_BLOCKER_REMAINS
 
-1. Commit the completed reports, generated browser proof, and inherited EOF-whitespace repair.
-2. Re-run final diff/secret/status checks.
-3. Push only a1-macair-mmc-mentor-intelligence-004 and prove remote equality.
-4. Create and verify the storage-efficient canonical Pro bundle, package checksums, tar archive, real test extraction, and restore fetch.
-5. Update the external backup receipts and declare the retirement terminal state.
+The migration/retirement task is complete. Future work is separate and must not be inferred as authorized here:
 
-No product design, production deploy, migration apply, or pull request is part of this continuation.
+1. Give the final Fable 5 CAM v2.0 input package to Fable and request the listed constitutions, architecture, state maps, tickets, and regression manual.
+2. Resolve the standalone-versus-HQ-mounted production architecture through an explicit design/approval task.
+3. Normalize the MissionWebexVidoes versus MissionWebexVideos default-path debt with a dedicated compatibility test.
+4. If desired, run credentialed staging/browser tests in a separately authorized non-production task.
+5. Apply migrations or deploy only under explicit future authorization and the repository's guarded protocols.
+
+No future MMC comparison task needs the MacBook Air.

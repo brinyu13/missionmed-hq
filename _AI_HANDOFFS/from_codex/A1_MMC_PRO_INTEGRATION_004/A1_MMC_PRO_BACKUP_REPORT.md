@@ -1,11 +1,26 @@
 # A1 MMC Pro Backup Report
 
-RESULT: BACKUP_ELIGIBLE_PENDING_FINAL_BRANCH_PUSH
+RESULT: VERIFIED_CANONICAL_BACKUP_COMPLETE
 
-The validated code and report set is eligible for the required backup at:
+Backup root:
 
 /Users/brianb/MissionMed_Migration/A1_MMC_PRO_CANONICAL_BASELINE_004/
 
-The storage-safe design creates a fresh self-contained bundle for only refs/heads/a1-macair-mmc-mentor-intelligence-004, not a second copy of the 2.333 GB Air all-refs archive. The package will include the final reports, authority/conflict material, restore guide, branch map, checksums, Air archive pointer, and a real test extraction.
+## Verified pre-final cycle
 
-Because the final tar SHA and branch tip are self-referential with this committed report, exact post-push bundle/tar/test-extraction evidence is written into the external backup copy of this report and the final combined handoff after creation.
+- Branch SHA: 9fabf830a4737cb429564e2a5126a3be2a5eaeb3.
+- Bundle SHA-256: 7486720811c669bd06ba79d0a403b201c11861968cd92b2869dfec6bdf32502d.
+- Bundle verify: PASS; complete named-branch history.
+- Payload checksum rows: 36/36 PASS.
+- Pre-final tar: A1_MMC_PRO_CANONICAL_BASELINE_004_20260713_PRE_FINAL_REPORTS.tar.gz.
+- Pre-final tar SHA-256: bd3fd513739e6185ab850682954c1be9c84ed34f3508a0bdd1e406e3e9a4a3e6.
+- Tar listing: PASS.
+- Real extraction checksum verification: PASS.
+- Extracted bundle verification: PASS.
+- Clean test restore SHA: exact 9fabf830a4737cb429564e2a5126a3be2a5eaeb3.
+
+## Final refresh
+
+After the commit containing this report is pushed, the package reports and branch-only bundle are refreshed from that exact final tip, checksums regenerated, and the required A1_MMC_PRO_CANONICAL_BASELINE_004_20260713.tar.gz is listed, extracted, checksum-verified, bundle-verified, and fetched into a clean test repository. Exact final branch, bundle, tar, checksum-count, extraction, and restore proof is recorded in the adjacent external FINAL_BACKUP_VERIFICATION_RECEIPT.md.
+
+The backup includes reports, authority, conflict evidence, restore guide, branch map, checksums, and a pointer to the full Air archive. It excludes secrets, caches, node_modules, browser profiles, and raw media. It does not duplicate the 2.333 GB Air archive.
