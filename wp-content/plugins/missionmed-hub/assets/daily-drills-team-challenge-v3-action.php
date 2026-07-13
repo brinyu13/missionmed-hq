@@ -267,7 +267,7 @@ function mmed_v3_floor_private_snapshot_path( $root ) {
 		return $override;
 	}
 
-	return dirname( rtrim( $root, '/' ) ) . '/private/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
+	return dirname( rtrim( $root, '/' ) ) . '/' . MMED_Live_Drills_State_Contract::PRIVATE_RUNTIME_ROOT_RELATIVE_PATH . '/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
 }
 
 /**

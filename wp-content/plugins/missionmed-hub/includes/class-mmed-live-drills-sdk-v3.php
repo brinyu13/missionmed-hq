@@ -4013,7 +4013,7 @@ class MMED_Live_Drills_SDK_V3 {
 			return $override;
 		}
 
-		return trailingslashit( dirname( untrailingslashit( ABSPATH ) ) ) . 'private/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
+		return trailingslashit( dirname( untrailingslashit( ABSPATH ) ) ) . MMED_Live_Drills_State_Contract::PRIVATE_RUNTIME_ROOT_RELATIVE_PATH . '/' . MMED_Live_Drills_State_Contract::PRIVATE_SNAPSHOT_RELATIVE_PATH;
 	}
 
 	/**

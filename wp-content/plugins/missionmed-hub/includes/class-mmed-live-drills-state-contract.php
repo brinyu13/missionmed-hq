@@ -15,6 +15,7 @@ if ( class_exists( 'MMED_Live_Drills_State_Contract', false ) ) {
 final class MMED_Live_Drills_State_Contract {
 
 	const SCHEMA_VERSION = 2;
+	const PRIVATE_RUNTIME_ROOT_RELATIVE_PATH = 'web/missionmed-private';
 	const PRIVATE_SNAPSHOT_RELATIVE_PATH = 'missionmed-live-drills-v3/team-challenge-state.json';
 	const PUBLIC_SNAPSHOT_RELATIVE_PATH = 'missionmed-live-drills-v3/team-challenge-state.json';
 	const VIEWER_TICKET_VERSION = 1;
