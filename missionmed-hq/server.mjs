@@ -29,6 +29,10 @@ import {
   handleUsceStudentStatusRoute,
   isUsceStudentStatusPath,
 } from './routes/usce-status-tracker.mjs';
+import {
+  handleMmcCoachingPipelineRoute,
+  isMmcCoachingPipelinePath,
+} from './routes/mmc-coaching-pipeline.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -135,6 +139,11 @@ const CONFIG = {
   wpAllowedRoles: splitCsv(envValue('MMHQ_ALLOWED_WP_ROLES', 'administrator')),
   mmcPrivateAllowedRoles: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_ROLES', 'administrator')),
   mmcPrivateAllowedEmails: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_EMAILS', '')),
+  mmcPersistenceEnabled: envFlag('MMHQ_MMC_PERSISTENCE_ENABLED', false),
+  mmcSupabaseUrl: sanitizeServiceUrl(envValue('MMHQ_MMC_SUPABASE_URL', '')),
+  mmcSupabaseAnonKey: String(envValue('MMHQ_MMC_SUPABASE_ANON_KEY', '')).trim(),
+  mmcSupabaseJwtSecret: String(envValue('MMHQ_MMC_SUPABASE_JWT_SECRET', '')).trim(),
+  mmcAllowedSupabaseProjectRef: String(envValue('MMHQ_MMC_ALLOWED_SUPABASE_PROJECT_REF', 'avpdetdkpwmqqxtvomix')).trim().toLowerCase(),
   stripeSecretKey: envValue('MMHQ_STRIPE_SECRET_KEY', ''),
   stripeConnectClientId: envValue('MMHQ_STRIPE_CONNECT_CLIENT_ID', ''),
   stripeConnectRedirectUri: sanitizeServiceUrl(envValue('MMHQ_STRIPE_CONNECT_REDIRECT_URI', '')),
@@ -160,6 +169,11 @@ const CONFIG = {
 
 const AUTH_ALLOWED_SUPABASE_PROJECT = 'fglyvdykwgbuivikqoah';
 const AUTH_FORBIDDEN_SUPABASE_PROJECT = 'plgndqcplokwiuimwhzh';
+const MMC_STAGING_SUPABASE_PROJECT = 'avpdetdkpwmqqxtvomix';
+const MMC_FORBIDDEN_SUPABASE_PROJECTS = new Set([
+  AUTH_ALLOWED_SUPABASE_PROJECT,
+  AUTH_FORBIDDEN_SUPABASE_PROJECT,
+]);
 const AUTH_BOOTSTRAP_PASSWORD_SALT = String(envValue('MMHQ_SUPABASE_PASSWORD_SALT', 'missionmed-bootstrap-salt')).trim() || 'missionmed-bootstrap-salt';
 const AUTH_HANDOFF_SECRET = String(envValue('MMHQ_HANDOFF_SECRET', '')).trim();
 const AUTH_HANDOFF_MAX_CLOCK_SKEW_SECONDS = 300;
@@ -2572,6 +2586,30 @@ async function handleApiRoute(request, response, url, context) {
     return;
   }
 
+  if (pathname === '/api/mmc/persistence') {
+    await handleMmcPersistenceRoute(request, response, url, { session, authHeaders });
+    return;
+  }
+
+  if (isMmcCoachingPipelinePath(pathname)) {
+    await handleMmcCoachingPipelineRoute(request, response, url, {
+      session,
+      authHeaders,
+      isAuthorizedMmcPrivateSession,
+      getMmcPersistenceConfig,
+      buildMmcPersistenceContext,
+      ensureMmcMentor,
+      ensureMmcSubjectRef,
+      ensureMmcAssignment,
+      selectMmcRows,
+      insertMmcRow,
+      updateMmcRow,
+      readJsonBody,
+      sendJson,
+    });
+    return;
+  }
+
   if (pathname === '/api/bootstrap') {
     sendRoutePayload(response, {
       auth: buildSessionPayload(session, request),
@@ -3104,6 +3142,1223 @@ async function handleMmcPrivateMount(request, response, pathname) {
   response.setHeader('X-Robots-Tag', 'noindex, nofollow');
   await serveStatic(response, resolveMmcPrivateStaticPath(pathname));
 }
+
+function getMmcPersistenceConfig() {
+  if (!CONFIG.mmcPersistenceEnabled) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_persistence_disabled',
+      message: 'MMC persistence is disabled. Set MMHQ_MMC_PERSISTENCE_ENABLED=true for staging integration.',
+    };
+  }
+
+  const projectRef = getSupabaseProjectRef(CONFIG.mmcSupabaseUrl);
+  if (!CONFIG.mmcSupabaseUrl || !projectRef) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_url_missing',
+      message: 'MMHQ_MMC_SUPABASE_URL is required for MMC persistence.',
+    };
+  }
+
+  if (MMC_FORBIDDEN_SUPABASE_PROJECTS.has(projectRef)) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'mmc_supabase_project_forbidden',
+      message: 'MMC persistence refused a forbidden production Supabase project.',
+    };
+  }
+
+  const allowedProjectRef = CONFIG.mmcAllowedSupabaseProjectRef || MMC_STAGING_SUPABASE_PROJECT;
+  if (projectRef !== allowedProjectRef) {
+    return {
+      ok: false,
+      status: 403,
+      code: 'mmc_supabase_project_mismatch',
+      message: `MMC persistence expected project ${allowedProjectRef} but received ${projectRef}.`,
+    };
+  }
+
+  if (!CONFIG.mmcSupabaseAnonKey) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_anon_key_missing',
+      message: 'MMHQ_MMC_SUPABASE_ANON_KEY is required for RLS-scoped MMC persistence.',
+    };
+  }
+
+  if (!CONFIG.mmcSupabaseJwtSecret) {
+    return {
+      ok: false,
+      status: 503,
+      code: 'mmc_supabase_jwt_secret_missing',
+      message: 'MMHQ_MMC_SUPABASE_JWT_SECRET is required to mint RLS-scoped MMC JWT claims.',
+    };
+  }
+
+  return {
+    ok: true,
+    supabaseUrl: CONFIG.mmcSupabaseUrl,
+    anonKey: CONFIG.mmcSupabaseAnonKey,
+    jwtSecret: CONFIG.mmcSupabaseJwtSecret,
+    projectRef,
+  };
+}
+
+function stableUuidFromString(value = '') {
+  const hash = createHash('sha256').update(String(value || '')).digest();
+  hash[6] = (hash[6] & 0x0f) | 0x40;
+  hash[8] = (hash[8] & 0x3f) | 0x80;
+  const hex = hash.subarray(0, 16).toString('hex');
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    hex.slice(12, 16),
+    hex.slice(16, 20),
+    hex.slice(20, 32),
+  ].join('-');
+}
+
+function resolveMmcRoleForSession(session = null) {
+  const user = normalizeWordPressUser(session?.user || {});
+  const roles = Array.isArray(user.roles) ? user.roles : [];
+  if (user.capabilities?.manage_options || roles.includes('administrator')) {
+    return 'admin';
+  }
+
+  if (roles.some((role) => ['admin', 'hq_admin', 'hq_operator', 'operator'].includes(role))) {
+    return 'admin';
+  }
+
+  return 'mentor';
+}
+
+function buildMmcPrincipal(session = null) {
+  const user = normalizeWordPressUser(session?.user || {});
+  const identityKey = user.id
+    ? `wp:${user.id}`
+    : user.email
+      ? `wp-email:${user.email.toLowerCase()}`
+      : `wp-login:${user.login || 'unknown'}`;
+  return {
+    id: stableUuidFromString(identityKey),
+    authSource: 'wordpress_hq',
+    authSubjectId: stableUuidFromString(identityKey),
+    displayName: user.displayName || user.login || 'MMC Mentor',
+    email: user.email || '',
+    role: resolveMmcRoleForSession(session),
+    wpUserId: user.id || null,
+    wpLogin: user.login || '',
+  };
+}
+
+function signMmcSupabaseJwt(principal, config) {
+  const now = Math.floor(Date.now() / 1000);
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+  };
+  const payload = {
+    aud: 'authenticated',
+    exp: now + 600,
+    iat: now,
+    sub: principal.id,
+    role: 'authenticated',
+    email: principal.email || undefined,
+    app_metadata: {
+      mmc_role: principal.role,
+      mm_role: principal.role,
+      auth_source: principal.authSource,
+    },
+  };
+  const encodedHeader = base64UrlEncode(JSON.stringify(header));
+  const encodedPayload = base64UrlEncode(JSON.stringify(payload));
+  const signature = createHmac('sha256', config.jwtSecret)
+    .update(`${encodedHeader}.${encodedPayload}`)
+    .digest();
+  return `${encodedHeader}.${encodedPayload}.${base64UrlEncode(signature)}`;
+}
+
+function buildMmcSupabaseHeaders(config, jwt, { includeContentType = false, prefer = '' } = {}) {
+  const headers = {
+    Accept: 'application/json',
+    apikey: config.anonKey,
+    Authorization: `Bearer ${jwt}`,
+    'Accept-Profile': 'mmc',
+  };
+
+  if (includeContentType) {
+    headers['Content-Type'] = 'application/json';
+    headers['Content-Profile'] = 'mmc';
+  }
+
+  if (prefer) {
+    headers.Prefer = prefer;
+  }
+
+  return headers;
+}
+
+async function fetchMmcSupabase(config, jwt, tablePath, options = {}) {
+  return fetchJson(`${config.supabaseUrl}/rest/v1/${tablePath}`, {
+    method: options.method || 'GET',
+    headers: buildMmcSupabaseHeaders(config, jwt, {
+      includeContentType: Boolean(options.body),
+      prefer: options.prefer || '',
+    }),
+    body: options.body,
+    timeoutMs: options.timeoutMs || 8000,
+  });
+}
+
+function jsonArraySourceRef(localId, domain) {
+  return [{
+    system: 'mmc-private-runtime',
+    local_id: String(localId || ''),
+    domain: String(domain || ''),
+  }];
+}
+
+function compactObject(value = {}) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  );
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function sanitizeMmcLocalId(value = '') {
+  return String(value || '').trim().replace(/[^\w:.-]/gu, '-').slice(0, 120);
+}
+
+function collectMmcStudentIds(state = {}) {
+  const ids = new Set();
+  for (const domain of ['assignments', 'goals', 'tasks', 'promises', 'memory', 'sessions', 'sessionArtifacts', 'openLoops', 'intelligenceSnapshots']) {
+    for (const record of asArray(state[domain])) {
+      const id = sanitizeMmcLocalId(record?.studentId);
+      if (id) ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+function mmcDateOrNull(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'TBD' || raw === 'Student' || raw === 'Queued') {
+    return null;
+  }
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function mmcDateOnlyOrNull(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'TBD') {
+    return null;
+  }
+  const parsed = new Date(raw);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function normalizeMmcActionStatus(status = '') {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'complete' || value === 'completed') return 'completed';
+  if (value === 'in_progress') return 'in_progress';
+  if (value === 'blocked') return 'blocked';
+  if (value === 'canceled') return 'canceled';
+  if (value === 'archived') return 'archived';
+  return 'open';
+}
+
+function normalizeMmcSessionStatus(status = '') {
+  const value = String(status || '').trim().toLowerCase();
+  if (value === 'active') return 'in_session';
+  if (value === 'complete' || value === 'completed') return 'completed';
+  if (value === 'post-session' || value === 'post_session') return 'post_session';
+  if (value === 'canceled') return 'canceled';
+  if (value === 'archived') return 'archived';
+  if (value === 'prep') return 'prep';
+  return 'planned';
+}
+
+function normalizeMmcProgressState(goal = {}) {
+  if (String(goal.velocity || '').toLowerCase().includes('risk')) return 'at_risk';
+  const progress = Number(goal.progress || 0);
+  if (progress >= 100) return 'complete';
+  if (progress > 0) return 'progressing';
+  return 'not_started';
+}
+
+function actionTypeForTask(task = {}) {
+  const type = String(task.type || '').toLowerCase();
+  if (type.includes('promise')) return 'promise';
+  if (type.includes('follow')) return 'follow_up';
+  if (type.includes('deadline')) return 'deadline';
+  if (type.includes('prep')) return 'prep';
+  if (type.includes('review')) return 'review';
+  return 'task';
+}
+
+async function selectMmcRows(context, table, query = 'select=*') {
+  const result = await fetchMmcSupabase(context.config, context.jwt, `${table}?${query}`);
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} select failed.`);
+  }
+  return Array.isArray(result.data) ? result.data : [];
+}
+
+async function insertMmcRow(context, table, payload) {
+  const result = await fetchMmcSupabase(context.config, context.jwt, table, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+    prefer: 'return=representation',
+  });
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} insert failed.`);
+  }
+  return Array.isArray(result.data) ? result.data[0] : result.data;
+}
+
+async function updateMmcRow(context, table, id, payload) {
+  const result = await fetchMmcSupabase(context.config, context.jwt, `${table}?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+    prefer: 'return=representation',
+  });
+  if (!result.ok) {
+    throw new Error(result.error || `MMC ${table} update failed.`);
+  }
+  return Array.isArray(result.data) ? result.data[0] : result.data;
+}
+
+function stripMmcCreateOnlyFields(payload = {}) {
+  const next = { ...payload };
+  delete next.created_by_principal_id;
+  return next;
+}
+
+function mapRowsByLocalId(rows = []) {
+  const map = new Map();
+  for (const row of rows) {
+    const localId = String(row?.metadata?.local_id || '').trim();
+    if (localId) {
+      map.set(localId, row);
+    }
+  }
+  return map;
+}
+
+async function upsertMmcRowByLocalId(context, table, existingByLocalId, localId, payload) {
+  const existing = existingByLocalId.get(localId);
+  if (existing?.id) {
+    return updateMmcRow(context, table, existing.id, stripMmcCreateOnlyFields(payload));
+  }
+  const inserted = await insertMmcRow(context, table, payload);
+  if (inserted?.id) {
+    existingByLocalId.set(localId, inserted);
+  }
+  return inserted;
+}
+
+function scopedMmcMentorQuery(mentorId, query = 'select=*') {
+  return `mentor_id=eq.${encodeURIComponent(mentorId)}&deleted_at=is.null&archived_at=is.null&${query}`;
+}
+
+function buildMmcPersistenceContext(session, config) {
+  const principal = buildMmcPrincipal(session);
+  return {
+    config,
+    principal,
+    jwt: signMmcSupabaseJwt(principal, config),
+  };
+}
+
+async function findMmcMentor(context) {
+  const existing = await selectMmcRows(
+    context,
+    'mentors',
+    `auth_subject_id=eq.${encodeURIComponent(context.principal.authSubjectId)}&status=eq.active&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (existing[0]) {
+    return existing[0];
+  }
+
+  return null;
+}
+
+async function ensureMmcMentor(context) {
+  const existing = await findMmcMentor(context);
+  if (existing) {
+    return existing;
+  }
+
+  if (context.principal.role !== 'admin') {
+    throw new Error('MMC mentor principal is not seeded for this authorized mentor.');
+  }
+  return insertMmcRow(context, 'mentors', {
+    auth_source: context.principal.authSource,
+    auth_subject_id: context.principal.authSubjectId,
+    display_name: context.principal.displayName,
+    role: 'admin',
+    status: 'active',
+    last_verified_at: new Date().toISOString(),
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'verified',
+    provenance: { source: 'MMC-021 private route bootstrap' },
+    metadata: {
+      wp_user_id: context.principal.wpUserId,
+      wp_login: context.principal.wpLogin,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function ensureMmcSubjectRef(context, studentId, student = {}) {
+  const localId = sanitizeMmcLocalId(studentId);
+  const rows = await selectMmcRows(
+    context,
+    'identity_references',
+    `primary_anchor_type=eq.mmc_fixture_student&primary_anchor_hash=eq.${encodeURIComponent(localId)}&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (rows[0]) {
+    return rows[0];
+  }
+  if (context.principal.role !== 'admin') {
+    throw new Error(`MMC subject reference is not seeded for ${localId}.`);
+  }
+  return insertMmcRow(context, 'identity_references', {
+    reference_status: 'unverified',
+    primary_anchor_type: 'mmc_fixture_student',
+    primary_anchor_hash: localId,
+    confidence: 0,
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'unreviewed',
+    source_refs: jsonArraySourceRef(localId, 'fixture-student'),
+    provenance: { source: 'MMC-021 fixture-safe subject reference' },
+    metadata: {
+      student_id: localId,
+      student_name: student.name || null,
+      canonical_student_identity: false,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function ensureMmcAssignment(context, mentor, subjectRef, studentId) {
+  const rows = await selectMmcRows(
+    context,
+    'mentor_assignments',
+    `mentor_id=eq.${encodeURIComponent(mentor.id)}&subject_ref_id=eq.${encodeURIComponent(subjectRef.id)}&status=eq.active&revoked_at=is.null&deleted_at=is.null&select=*&limit=1`,
+  );
+  if (rows[0]) {
+    return rows[0];
+  }
+  if (context.principal.role !== 'admin') {
+    throw new Error(`MMC assignment is not seeded for ${sanitizeMmcLocalId(studentId)}.`);
+  }
+  return insertMmcRow(context, 'mentor_assignments', {
+    mentor_id: mentor.id,
+    subject_ref_id: subjectRef.id,
+    assignment_scope: 'coaching',
+    status: 'active',
+    granted_by_principal_id: context.principal.id,
+    grant_reason: 'MMC-021 staging/private-route fixture assignment',
+    visibility: 'mentor_admin',
+    sensitivity: 'standard',
+    review_status: 'verified',
+    source_refs: jsonArraySourceRef(studentId, 'mentor-assignment'),
+    provenance: { source: 'MMC-021 private route bootstrap' },
+    metadata: {
+      student_id: sanitizeMmcLocalId(studentId),
+      canonical_student_identity: false,
+      mmc_runtime: 'MMC-021',
+    },
+    created_by_principal_id: context.principal.id,
+  });
+}
+
+async function buildMmcReferenceMaps(context, state = {}) {
+  const mentor = await ensureMmcMentor(context);
+  const studentsById = new Map(asArray(state.students).map((student) => [String(student.id || ''), student]));
+  const subjectRefs = new Map();
+  const assignments = new Map();
+  const studentIds = collectMmcStudentIds(state);
+
+  for (const studentId of studentIds) {
+    const subjectRef = await ensureMmcSubjectRef(context, studentId, studentsById.get(studentId) || {});
+    const assignment = await ensureMmcAssignment(context, mentor, subjectRef, studentId);
+    subjectRefs.set(studentId, subjectRef);
+    assignments.set(studentId, assignment);
+  }
+
+  return { mentor, subjectRefs, assignments };
+}
+
+function getMmcReferenceForStudent(referenceMaps, studentId) {
+  const localId = sanitizeMmcLocalId(studentId);
+  const subjectRef = referenceMaps.subjectRefs.get(localId);
+  const assignment = referenceMaps.assignments.get(localId);
+  if (!subjectRef || !assignment) {
+    return null;
+  }
+  return { subjectRef, assignment };
+}
+
+function buildMmcCommonRow(context, reference, record, domain, extraMetadata = {}) {
+  const localId = sanitizeMmcLocalId(record.id || `${domain}-${record.studentId}`);
+  return {
+    mentor_id: reference.assignment.mentor_id,
+    assignment_id: reference.assignment.id,
+    subject_ref_id: reference.subjectRef.id,
+    visibility: extraMetadata.visibility || 'mentor_admin',
+    sensitivity: extraMetadata.sensitivity || 'standard',
+    review_status: extraMetadata.review_status || 'reviewed',
+    source_refs: jsonArraySourceRef(localId, domain),
+    provenance: {
+      source: 'MMC-021 private mount persistence',
+      local_domain: domain,
+    },
+    metadata: compactObject({
+      ...extraMetadata.metadata,
+      local_id: localId,
+      local_domain: domain,
+      student_id: sanitizeMmcLocalId(record.studentId),
+      mmc_runtime: 'MMC-021',
+    }),
+    updated_by_principal_id: context.principal.id,
+    created_by_principal_id: context.principal.id,
+  };
+}
+
+function buildMmcMemoryRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'mentor_memory', {
+      sensitivity: record.sensitive ? 'sensitive' : 'standard',
+      metadata: {
+        title: record.title || null,
+        category: record.category || null,
+        source: record.source || null,
+      },
+    }),
+    memory_type: record.category || 'coaching',
+    memory_text: record.content || record.title || 'MMC mentor memory',
+    confidence: record.verified === false ? 0.5 : 1,
+    last_confirmed_at: mmcDateOrNull(record.createdAt),
+  };
+}
+
+function buildMmcPrivateNoteRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'private_notes', {
+      visibility: 'mentor_private',
+      sensitivity: record.sensitive ? 'highly_sensitive' : 'sensitive',
+      metadata: {
+        title: record.title || 'Private Mentor Note',
+        category: record.category || 'private-note',
+        source: record.source || null,
+      },
+    }),
+    note_type: 'mentor_private',
+    note_body: record.content || record.title || 'MMC private note',
+  };
+}
+
+function buildMmcActionRow(context, reference, record, domain) {
+  const isPromise = domain === 'promise' || actionTypeForTask(record) === 'promise';
+  return {
+    ...buildMmcCommonRow(context, reference, record, domain === 'promise' ? 'promise' : 'task', {
+      metadata: {
+        local_type: record.type || null,
+        dueLabel: record.dueLabel || null,
+        priority: record.priority || null,
+        promiseId: record.promiseId || null,
+        taskId: record.taskId || null,
+        sourceSessionId: record.sourceSessionId || null,
+        madeAt: record.madeAt || null,
+      },
+    }),
+    owner_type: record.owner || record.promisor || 'mentor',
+    action_type: isPromise ? 'promise' : actionTypeForTask(record),
+    title: record.title || 'MMC action item',
+    details: record.details || null,
+    due_at: mmcDateOrNull(record.dueAt),
+    status: normalizeMmcActionStatus(record.status),
+    closed_at: normalizeMmcActionStatus(record.status) === 'completed' ? mmcDateOrNull(record.completedAt || record.updatedAt || new Date().toISOString()) : null,
+    closed_by_principal_id: normalizeMmcActionStatus(record.status) === 'completed' ? context.principal.id : null,
+  };
+}
+
+function buildMmcGoalRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'goal', {
+      metadata: {
+        milestone: record.milestone || null,
+        progress: Number(record.progress || 0),
+        velocity: record.velocity || null,
+        readinessInputs: asArray(record.readinessInputs),
+      },
+    }),
+    goal_type: 'coaching',
+    title: record.title || 'MMC coaching goal',
+    description: record.milestone || null,
+    target_date: mmcDateOnlyOrNull(record.targetDate),
+    status: record.status === 'complete' ? 'achieved' : 'active',
+    progress_state: normalizeMmcProgressState(record),
+    milestone_json: asArray(record.readinessInputs).map((item) => ({ label: item })),
+  };
+}
+
+function buildMmcSessionRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'coaching_session', {
+      metadata: {
+        title: record.title || null,
+        capturedItemIds: asArray(record.capturedItemIds),
+        studentVisible: Boolean(record.studentVisible),
+      },
+    }),
+    session_status: normalizeMmcSessionStatus(record.status),
+    started_at: mmcDateOrNull(record.startedAt),
+    ended_at: mmcDateOrNull(record.endedAt),
+    session_focus: record.title || 'MMC-owned advising session',
+    post_session_summary: record.summary || null,
+    prep_summary: record.privateNotes || null,
+    source_type: 'manual_mmc',
+  };
+}
+
+function buildMmcArtifactRow(context, reference, record, sessionIdByLocalId) {
+  const mappedSessionId = sessionIdByLocalId.get(String(record.sessionId || '').trim()) || null;
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'session_artifact', {
+      visibility: record.visibility === 'mentor' ? 'mentor_private' : 'mentor_admin',
+      metadata: {
+        localSessionId: record.sessionId || null,
+        type: record.type || null,
+      },
+    }),
+    session_id: mappedSessionId,
+    artifact_type: record.type || 'post_session_summary',
+    title: record.title || 'MMC session artifact',
+    content_body: record.content || record.summary || null,
+  };
+}
+
+function buildMmcOpenLoopRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'open_loop', {
+      sensitivity: record.severity === 'critical' ? 'sensitive' : 'standard',
+      metadata: {
+        type: record.type || null,
+        detail: record.detail || null,
+      },
+    }),
+    loop_type: record.type || 'coaching',
+    summary: record.title || record.summary || 'MMC open loop',
+    severity: ['low', 'medium', 'high', 'critical'].includes(String(record.severity || '').toLowerCase())
+      ? String(record.severity).toLowerCase()
+      : 'medium',
+    status: record.status === 'resolved' ? 'resolved' : 'open',
+  };
+}
+
+function buildMmcSnapshotRow(context, reference, record) {
+  return {
+    ...buildMmcCommonRow(context, reference, record, 'intelligence_snapshot', {
+      metadata: {
+        snapshotType: record.snapshotType || 'student_briefing',
+      },
+    }),
+    snapshot_type: record.snapshotType || 'student_briefing',
+    summary_json: record.summary || record,
+    confidence: Number(record.confidenceScore || 1),
+    generated_at: new Date().toISOString(),
+  };
+}
+
+async function saveMmcPersistenceState(context, state = {}, request = null) {
+  const referenceMaps = await buildMmcReferenceMaps(context, state);
+  const existing = {
+    mentor_memory: mapRowsByLocalId(await selectMmcRows(context, 'mentor_memory', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    private_notes: mapRowsByLocalId(await selectMmcRows(context, 'private_notes', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    action_items: mapRowsByLocalId(await selectMmcRows(context, 'action_items', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    goals: mapRowsByLocalId(await selectMmcRows(context, 'goals', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    coaching_sessions: mapRowsByLocalId(await selectMmcRows(context, 'coaching_sessions', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    session_artifacts: mapRowsByLocalId(await selectMmcRows(context, 'session_artifacts', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    open_loops: mapRowsByLocalId(await selectMmcRows(context, 'open_loops', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+    intelligence_snapshots: mapRowsByLocalId(await selectMmcRows(context, 'intelligence_snapshots', scopedMmcMentorQuery(referenceMaps.mentor.id, 'select=*'))),
+  };
+  const sessionIdByLocalId = new Map();
+  let writeCount = 0;
+
+  for (const record of asArray(state.memory).filter((item) => item?.category !== 'private-note')) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'mentor_memory', existing.mentor_memory, sanitizeMmcLocalId(record.id), buildMmcMemoryRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.memory).filter((item) => item?.category === 'private-note')) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'private_notes', existing.private_notes, sanitizeMmcLocalId(record.id), buildMmcPrivateNoteRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.tasks)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'action_items', existing.action_items, sanitizeMmcLocalId(record.id), buildMmcActionRow(context, reference, record, 'task'));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.promises)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'action_items', existing.action_items, sanitizeMmcLocalId(record.id), buildMmcActionRow(context, reference, record, 'promise'));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.goals)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'goals', existing.goals, sanitizeMmcLocalId(record.id), buildMmcGoalRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.sessions)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    const saved = await upsertMmcRowByLocalId(context, 'coaching_sessions', existing.coaching_sessions, sanitizeMmcLocalId(record.id), buildMmcSessionRow(context, reference, record));
+    if (saved?.id) sessionIdByLocalId.set(String(record.id || '').trim(), saved.id);
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.sessionArtifacts)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'session_artifacts', existing.session_artifacts, sanitizeMmcLocalId(record.id), buildMmcArtifactRow(context, reference, record, sessionIdByLocalId));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.openLoops)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'open_loops', existing.open_loops, sanitizeMmcLocalId(record.id), buildMmcOpenLoopRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  for (const record of asArray(state.intelligenceSnapshots)) {
+    const reference = getMmcReferenceForStudent(referenceMaps, record.studentId);
+    if (!reference) continue;
+    await upsertMmcRowByLocalId(context, 'intelligence_snapshots', existing.intelligence_snapshots, sanitizeMmcLocalId(record.id), buildMmcSnapshotRow(context, reference, record));
+    writeCount += 1;
+  }
+
+  await insertMmcRow(context, 'audit_events', {
+    actor_principal_id: context.principal.id,
+    actor_role: context.principal.role,
+    action: 'mmc021_persistence_sync',
+    object_schema: 'mmc',
+    object_table: 'multiple',
+    reason: 'MMC-021 private mount persistence sync',
+    request_id: request?.headers?.['x-request-id'] || null,
+    user_agent_hash: request?.headers?.['user-agent']
+      ? createHash('sha256').update(String(request.headers['user-agent'])).digest('hex')
+      : null,
+    metadata: {
+      write_count: writeCount,
+      project_ref: context.config.projectRef,
+      runtime: 'MMC-021',
+    },
+  });
+
+  return {
+    ok: true,
+    writeCount,
+    state: await loadMmcPersistenceState(context),
+  };
+}
+
+function mapMmcMemoryRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    category: row.metadata?.category || row.memory_type || 'coaching',
+    title: row.metadata?.title || row.memory_type || 'Mentor Memory',
+    content: row.memory_text || '',
+    sensitive: row.sensitivity !== 'standard',
+    verified: row.review_status === 'verified' || row.review_status === 'reviewed',
+    source: row.metadata?.source || 'mmc-schema',
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcPrivateNoteRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    category: 'private-note',
+    title: row.metadata?.title || 'Private Mentor Note',
+    content: row.note_body || '',
+    sensitive: row.sensitivity !== 'standard',
+    verified: row.review_status === 'verified' || row.review_status === 'reviewed',
+    source: row.metadata?.source || 'mmc-schema-private-note',
+    createdAt: String(row.created_at || '').slice(0, 10),
+  };
+}
+
+function mapMmcActionRow(row) {
+  const isPromise = row.metadata?.local_domain === 'promise' || row.action_type === 'promise';
+  const common = {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    owner: row.owner_type || 'mentor',
+    type: row.metadata?.local_type || (isPromise ? 'Promise' : row.action_type || 'Task'),
+    title: row.title || 'MMC action item',
+    dueLabel: row.metadata?.dueLabel || 'Queued',
+    dueAt: row.due_at ? String(row.due_at).slice(0, 10) : 'TBD',
+    status: row.status === 'completed' ? 'complete' : row.status || 'open',
+    priority: row.metadata?.priority || 'normal',
+    promiseId: row.metadata?.promiseId || null,
+    sourceSessionId: row.metadata?.sourceSessionId || null,
+  };
+  if (!isPromise) {
+    return { kind: 'task', record: common };
+  }
+  return {
+    kind: 'promise',
+    record: {
+      id: common.id,
+      taskId: row.metadata?.taskId || common.promiseId || null,
+      studentId: common.studentId,
+      promisor: row.owner_type || 'mentor',
+      title: common.title,
+      madeAt: row.metadata?.madeAt || String(row.created_at || '').slice(0, 10),
+      dueLabel: common.dueLabel,
+      status: common.status,
+    },
+  };
+}
+
+function mapMmcGoalRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    title: row.title || 'MMC coaching goal',
+    milestone: row.metadata?.milestone || row.description || '',
+    targetDate: row.target_date || 'TBD',
+    progress: Number(row.metadata?.progress || 0),
+    velocity: row.metadata?.velocity || row.progress_state || 'Needs mentor definition',
+    readinessInputs: asArray(row.metadata?.readinessInputs).length
+      ? row.metadata.readinessInputs
+      : asArray(row.milestone_json).map((item) => item.label).filter(Boolean),
+  };
+}
+
+function mapMmcSessionRow(row) {
+  const status = row.session_status === 'completed'
+    ? 'complete'
+    : row.session_status === 'in_session'
+      ? 'active'
+      : row.session_status || 'planned';
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    mentorId: row.mentor_id || '',
+    status,
+    startedAt: row.started_at || '',
+    endedAt: row.ended_at || null,
+    title: row.metadata?.title || row.session_focus || 'MMC-owned advising session',
+    summary: row.post_session_summary || '',
+    privateNotes: row.prep_summary || '',
+    capturedItemIds: asArray(row.metadata?.capturedItemIds),
+    studentVisible: Boolean(row.metadata?.studentVisible),
+    sourceType: row.source_type || 'manual_mmc',
+    metadata: row.metadata || {},
+    sourceRefs: asArray(row.source_refs),
+  };
+}
+
+function mapMmcArtifactRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    sessionId: row.metadata?.localSessionId || row.metadata?.session_local_id || row.session_id || null,
+    studentId: row.metadata?.student_id || '',
+    type: row.metadata?.type || row.artifact_type || 'summary',
+    title: row.title || 'MMC session artifact',
+    content: row.content_body || '',
+    summary: row.content_body || '',
+    contentPointer: row.content_pointer || null,
+    sourceAssetId: row.metadata?.source_asset_id || null,
+    analysisRunId: row.metadata?.analysis_run_id || null,
+    sourceAssetTitle: row.metadata?.source_asset_title || null,
+    visibility: row.visibility === 'mentor_private' ? 'mentor' : row.visibility,
+    createdAt: String(row.created_at || '').slice(0, 10),
+    metadata: row.metadata || {},
+    sourceRefs: asArray(row.source_refs),
+  };
+}
+
+function mapMmcOpenLoopRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    title: row.summary || 'MMC open loop',
+    type: row.metadata?.type || row.loop_type || 'coaching',
+    status: row.status || 'open',
+    severity: row.severity || 'medium',
+    detail: row.metadata?.detail || '',
+  };
+}
+
+function mapMmcSnapshotRow(row) {
+  return {
+    id: row.metadata?.local_id || row.id,
+    studentId: row.metadata?.student_id || '',
+    snapshotType: row.snapshot_type || 'student_briefing',
+    summary: row.summary_json || {},
+    confidenceScore: Number(row.confidence || 0),
+    generatedAt: row.generated_at || row.created_at || null,
+    sourceAssetId: row.metadata?.source_asset_id || null,
+    analysisRunId: row.metadata?.analysis_run_id || null,
+    sessionId: row.metadata?.localSessionId || row.metadata?.session_local_id || null,
+    metadata: row.metadata || {},
+    evidenceRefs: asArray(row.evidence_refs),
+    sourceRefs: asArray(row.source_refs),
+  };
+}
+
+function mapMmcIdentityReferenceRow(row) {
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  const anchorSet = row.anchor_set_json && typeof row.anchor_set_json === 'object' ? row.anchor_set_json : {};
+  const studentId = sanitizeMmcLocalId(
+    metadata.student_id ||
+    metadata.local_student_id ||
+    metadata.roster_student_id ||
+    anchorSet.student_id ||
+    row.primary_anchor_hash ||
+    '',
+  );
+  const studentName = String(
+    metadata.student_name ||
+    metadata.studentName ||
+    metadata.display_name ||
+    metadata.full_name ||
+    anchorSet.student_name ||
+    anchorSet.full_name ||
+    studentId ||
+    '',
+  ).trim();
+  return {
+    id: row.id,
+    studentId,
+    studentName,
+    referenceStatus: row.reference_status || 'unverified',
+    primaryAnchorType: row.primary_anchor_type || '',
+    primaryAnchorHash: row.primary_anchor_hash || '',
+    confidence: Number(row.confidence || 0),
+    reviewStatus: row.review_status || 'unreviewed',
+    verificationMethod: row.verification_method || '',
+    verifiedAt: row.verified_at || null,
+    canonicalStudentIdentity: metadata.canonical_student_identity === true,
+    visibility: row.visibility || 'mentor_admin',
+    sensitivity: row.sensitivity || 'standard',
+    sourceRefs: asArray(row.source_refs),
+    provenance: row.provenance || {},
+    metadata,
+  };
+}
+
+function mapMmcAssignmentRow(row, identityById = new Map()) {
+  const metadata = row.metadata && typeof row.metadata === 'object' ? row.metadata : {};
+  const identity = identityById.get(row.subject_ref_id) || {};
+  const studentId = sanitizeMmcLocalId(
+    metadata.student_id ||
+    metadata.local_student_id ||
+    metadata.roster_student_id ||
+    identity.studentId ||
+    '',
+  );
+  return {
+    id: row.id,
+    mentorId: row.mentor_id || '',
+    subjectRefId: row.subject_ref_id || '',
+    studentId,
+    status: row.status || 'active',
+    cohort: metadata.cohort || metadata.assignment_cohort || row.assignment_scope || 'coaching',
+    source: metadata.source || 'mmc.mentor_assignments',
+    assignmentScope: row.assignment_scope || 'coaching',
+    reviewStatus: row.review_status || 'unreviewed',
+    visibility: row.visibility || 'mentor_admin',
+    sensitivity: row.sensitivity || 'standard',
+    grantReason: row.grant_reason || '',
+    startsAt: row.starts_at || null,
+    sourceRefs: asArray(row.source_refs),
+    provenance: row.provenance || {},
+    metadata,
+  };
+}
+
+function mapMmcRosterStudentRow(identity, assignment) {
+  const metadata = identity.metadata && typeof identity.metadata === 'object' ? identity.metadata : {};
+  const rawName = String(identity.studentName || metadata.student_name || identity.studentId || '').trim();
+  const name = rawName || titleFromMmcLocalId(identity.studentId);
+  return {
+    id: identity.studentId,
+    name,
+    initials: initialsFromName(name),
+    country: metadata.country || metadata.roster_country || 'Unverified country',
+    school: metadata.school || metadata.medical_school || 'Roster school pending',
+    program: metadata.program || 'match',
+    session: metadata.session || 'private',
+    specialty: metadata.specialty || metadata.roster_specialty || 'MissionMed Coaching',
+    risk: metadata.risk || 'medium',
+    status: metadata.status || metadata.roster_status || 'Active',
+    lastMeeting: metadata.last_meeting || metadata.lastMeeting || 'Review recent meeting intelligence',
+    step1: metadata.step1 || '',
+    step2: metadata.step2 || '',
+    oet: metadata.oet || '',
+    riskLabel: metadata.riskLabel || metadata.risk_label || 'Medium Risk',
+    riskClass: metadata.riskClass || metadata.risk_class || 'badge-orange',
+    source: 'mmc-roster-identity-bridge',
+    canonicalStudentIdentity: identity.canonicalStudentIdentity === true,
+    mmcRosterIdentity: {
+      status: 'VERIFIED',
+      source: 'mmc.identity_references + mmc.mentor_assignments',
+      subjectRefId: identity.id,
+      assignmentId: assignment.id,
+      primaryAnchorType: identity.primaryAnchorType,
+      primaryAnchorHash: identity.primaryAnchorHash,
+      referenceStatus: identity.referenceStatus,
+      reviewStatus: identity.reviewStatus,
+      confidence: identity.confidence,
+      verificationMethod: identity.verificationMethod || 'mmc-reviewed-roster-bridge',
+      canonicalStudentIdentity: identity.canonicalStudentIdentity === true,
+    },
+  };
+}
+
+function titleFromMmcLocalId(value) {
+  return String(value || 'student')
+    .replace(/[_:.-]+/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(' ') || 'Reviewed Student';
+}
+
+function initialsFromName(value) {
+  const parts = String(value || 'Reviewed Student').trim().split(/\s+/gu).filter(Boolean);
+  return `${parts[0]?.[0] || 'R'}${parts[1]?.[0] || 'S'}`.toUpperCase();
+}
+
+function identityReferenceCanEnterRoster(identity, assignment) {
+  if (!identity || !assignment) return false;
+  if (!identity.studentId || !assignment.studentId) return false;
+  if (identity.studentId !== assignment.studentId) return false;
+  if (identity.primaryAnchorType === 'mmc_fixture_student') return false;
+  if (assignment.status !== 'active') return false;
+  if (assignment.reviewStatus === 'rejected') return false;
+  if (identity.reviewStatus === 'rejected') return false;
+  const verifiedReference = identity.referenceStatus === 'verified' || identity.reviewStatus === 'verified';
+  const reviewedReference = identity.reviewStatus === 'reviewed' && Number(identity.confidence || 0) >= 0.86;
+  const verifiedAssignment = assignment.reviewStatus === 'verified' || assignment.reviewStatus === 'reviewed';
+  return Boolean(verifiedAssignment && (verifiedReference || reviewedReference));
+}
+
+async function loadMmcPersistenceState(context) {
+  const mentor = await findMmcMentor(context);
+  if (!mentor) {
+    return emptyMmcPersistenceState();
+  }
+
+  const [
+    memoryRows,
+    privateNoteRows,
+    actionRows,
+    goalRows,
+    sessionRows,
+    artifactRows,
+    openLoopRows,
+    snapshotRows,
+    assignmentRows,
+  ] = await Promise.all([
+    selectMmcRows(context, 'mentor_memory', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'private_notes', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'action_items', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'goals', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'coaching_sessions', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'session_artifacts', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'open_loops', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'intelligence_snapshots', scopedMmcMentorQuery(mentor.id, 'select=*&order=created_at.asc&limit=1000')),
+    selectMmcRows(context, 'mentor_assignments', `mentor_id=eq.${encodeURIComponent(mentor.id)}&status=eq.active&revoked_at=is.null&deleted_at=is.null&archived_at=is.null&select=*&order=created_at.asc&limit=1000`),
+  ]);
+  const subjectIds = assignmentRows
+    .map((row) => row.subject_ref_id)
+    .filter(Boolean);
+  const identityRows = subjectIds.length
+    ? await selectMmcRows(
+      context,
+      'identity_references',
+      `id=in.(${subjectIds.map((id) => encodeURIComponent(id)).join(',')})&deleted_at=is.null&archived_at=is.null&select=*&limit=1000`,
+    )
+    : [];
+  const identityReferences = identityRows.map(mapMmcIdentityReferenceRow);
+  const identityById = new Map(identityReferences.map((identity) => [identity.id, identity]));
+  const assignments = assignmentRows
+    .map((row) => mapMmcAssignmentRow(row, identityById))
+    .filter((assignment) => assignment.studentId);
+  const rosterStudents = assignments
+    .map((assignment) => {
+      const identity = identityById.get(assignment.subjectRefId);
+      return identityReferenceCanEnterRoster(identity, assignment)
+        ? mapMmcRosterStudentRow(identity, assignment)
+        : null;
+    })
+    .filter(Boolean);
+  const actionMapped = actionRows.map(mapMmcActionRow);
+  return {
+    identityReferences,
+    assignments,
+    rosterStudents,
+    memory: [
+      ...memoryRows.map(mapMmcMemoryRow),
+      ...privateNoteRows.map(mapMmcPrivateNoteRow),
+    ].filter((record) => record.studentId),
+    tasks: actionMapped.filter((item) => item.kind === 'task').map((item) => item.record).filter((record) => record.studentId),
+    promises: actionMapped.filter((item) => item.kind === 'promise').map((item) => item.record).filter((record) => record.studentId),
+    goals: goalRows.map(mapMmcGoalRow).filter((record) => record.studentId),
+    sessions: sessionRows.map(mapMmcSessionRow).filter((record) => record.studentId),
+    sessionArtifacts: artifactRows.map(mapMmcArtifactRow).filter((record) => record.studentId),
+    openLoops: openLoopRows.map(mapMmcOpenLoopRow).filter((record) => record.studentId),
+    intelligenceSnapshots: snapshotRows.map(mapMmcSnapshotRow).filter((record) => record.studentId),
+  };
+}
+
+function emptyMmcPersistenceState() {
+  return {
+    identityReferences: [],
+    assignments: [],
+    rosterStudents: [],
+    memory: [],
+    tasks: [],
+    promises: [],
+    goals: [],
+    sessions: [],
+    sessionArtifacts: [],
+    openLoops: [],
+    intelligenceSnapshots: [],
+  };
+}
+
+function responseForMmcPersistenceUnavailable(response, configStatus, extraHeaders = {}) {
+  sendJson(response, configStatus.status || 503, {
+    ok: false,
+    status: 'UNVERIFIED',
+    mode: 'fixture-memory-fallback',
+    error: configStatus.code,
+    message: configStatus.message,
+    localStorageFallback: false,
+    persistedDomains: [],
+  }, extraHeaders);
+}
+
+async function handleMmcPersistenceRoute(request, response, url, { session, authHeaders }) {
+  if (!['GET', 'POST'].includes(request.method)) {
+    sendMethodNotAllowed(response, ['GET', 'POST']);
+    return;
+  }
+
+  if (!isAuthorizedMmcPrivateSession(session)) {
+    sendJson(response, 403, {
+      ok: false,
+      error: 'mmc_private_forbidden',
+      message: 'MMC persistence requires the private MMC route-specific authorization model.',
+    }, authHeaders);
+    return;
+  }
+
+  const configStatus = getMmcPersistenceConfig();
+  if (!configStatus.ok) {
+    responseForMmcPersistenceUnavailable(response, configStatus, authHeaders);
+    return;
+  }
+
+  const context = buildMmcPersistenceContext(session, configStatus);
+  try {
+    if (request.method === 'GET') {
+      const state = await loadMmcPersistenceState(context);
+      sendJson(response, 200, {
+        ok: true,
+        status: 'VERIFIED',
+        mode: 'mmc-schema',
+        projectRef: configStatus.projectRef,
+        csrfToken: session?.csrfToken || '',
+        localStorageFallback: false,
+        persistedDomains: [
+          'mmc.mentor_memory',
+          'mmc.private_notes',
+          'mmc.action_items',
+          'mmc.goals',
+          'mmc.coaching_sessions',
+          'mmc.session_artifacts',
+          'mmc.open_loops',
+          'mmc.intelligence_snapshots',
+        ],
+        state,
+      }, authHeaders);
+      return;
+    }
+
+    const payload = await readJsonBody(request);
+    const saved = await saveMmcPersistenceState(context, payload?.state || {}, request);
+    sendJson(response, 200, {
+      ok: true,
+      status: 'VERIFIED',
+      mode: 'mmc-schema',
+      projectRef: configStatus.projectRef,
+      writeCount: saved.writeCount,
+      localStorageFallback: false,
+      persistedDomains: [
+        'mmc.mentor_memory',
+        'mmc.private_notes',
+        'mmc.action_items',
+        'mmc.goals',
+        'mmc.coaching_sessions',
+        'mmc.session_artifacts',
+        'mmc.open_loops',
+        'mmc.intelligence_snapshots',
+      ],
+      state: saved.state,
+    }, authHeaders);
+  } catch (error) {
+    sendJson(response, 502, {
+      ok: false,
+      status: 'CONFLICT',
+      mode: 'fixture-memory-fallback',
+      error: 'mmc_persistence_failed',
+      message: error instanceof Error ? error.message : 'MMC persistence request failed.',
+      localStorageFallback: false,
+    }, authHeaders);
+  }
+}
+
 
 function isSpaRoute(pathname) {
   const normalized = pathname.replace(/\/+$/u, '') || '/';
