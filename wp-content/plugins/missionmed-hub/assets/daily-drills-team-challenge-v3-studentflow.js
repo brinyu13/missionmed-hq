@@ -571,7 +571,7 @@
 		            return fetchState(method, payload, { snapshotRetry: true });
 		          });
 		        }
-		        if (error.status === 401 || error.status === 403 || error.status === 404) {
+		        if (!error.status || error.status >= 500 || error.status === 401 || error.status === 403 || error.status === 404) {
 		          fastStateUrl = "";
 		          return fetchState(method, payload);
 		        }
@@ -680,15 +680,17 @@
 	  }
 
 	  function stateVersionMs(nextState) {
-	    var parsed;
+		    var parsed;
+		    var updatedAt;
 	    if (!nextState || typeof nextState !== "object") {
 	      return 0;
 	    }
 	    if (nextState.snapshotGeneratedAtMs) {
 	      return Number(nextState.snapshotGeneratedAtMs) || 0;
 	    }
-	    if (nextState.updatedAt) {
-	      parsed = Date.parse(nextState.updatedAt);
+		    if (nextState.updatedAt) {
+		      updatedAt = String(nextState.updatedAt).trim();
+		      parsed = Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(updatedAt) ? updatedAt.replace(" ", "T") + "Z" : updatedAt);
 	      return Number.isFinite(parsed) ? parsed : 0;
 	    }
 	    return 0;
