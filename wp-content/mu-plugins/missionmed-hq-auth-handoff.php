@@ -2,8 +2,12 @@
 /**
  * Plugin Name: MissionMed HQ Auth Handoff
  * Description: WordPress -> Railway runtime auth handoff for Arena/STAT exchange bootstrap.
- * Version: 1.0.1
+ * Version: 1.0.2
  */
+/* 1.0.2 (Y1-ARENA-3026): logged-out handoff requests now route to the branded
+ * WooCommerce /my-account/ login instead of wp-login.php. The post-login round
+ * trip is unchanged: it is carried by the signed mmhq login-state cookie plus
+ * the wp_login hook below, which fires for My Account logins too. */
 
 if (!defined('ABSPATH')) {
     exit;
@@ -154,7 +158,43 @@ function mmhq_handoff_default_final() {
 }
 
 function mmhq_handoff_login_url($request_uri) {
-    return wp_login_url((string) $request_uri);
+    $request_uri = (string) $request_uri;
+
+    // Branded login (Y1-ARENA-3026): send logged-out users to the WooCommerce
+    // My Account page, matching the site-wide convention in
+    // missionmed-global-auth-ui.php (mm_global_auth_ui_build_login_url).
+    $branded = '';
+    if (function_exists('wc_get_page_permalink')) {
+        $branded = (string) wc_get_page_permalink('myaccount');
+    }
+    if ($branded === '') {
+        $page_id = (int) get_option('woocommerce_myaccount_page_id');
+        if ($page_id > 0) {
+            $branded = (string) get_permalink($page_id);
+        }
+    }
+
+    // Same-origin guard: the branded page must live on this site's host.
+    if ($branded !== '') {
+        $branded_host = strtolower((string) wp_parse_url($branded, PHP_URL_HOST));
+        $site_host    = strtolower((string) wp_parse_url(home_url('/'), PHP_URL_HOST));
+        if ($branded_host === '' || $branded_host !== $site_host) {
+            $branded = '';
+        }
+    }
+
+    if ($branded === '') {
+        // Safe fallback: never strand the user if the My Account page is
+        // missing or WooCommerce is unavailable.
+        return wp_login_url($request_uri);
+    }
+
+    // redirect_to is a progressive enhancement for themes/plugins that honor
+    // it on the My Account form. The authoritative round trip is the signed
+    // login-state cookie (set by the caller before this redirect) consumed by
+    // mmhq_handoff_redirect_after_login() on wp_login, which WooCommerce
+    // logins also fire. add_query_arg() encodes the value exactly once.
+    return add_query_arg('redirect_to', $request_uri, $branded);
 }
 
 function mmhq_handoff_allowed_return_hosts() {
