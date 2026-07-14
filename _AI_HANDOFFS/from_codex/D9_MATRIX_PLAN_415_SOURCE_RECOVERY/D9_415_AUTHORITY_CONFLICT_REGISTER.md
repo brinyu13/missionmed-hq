@@ -1,13 +1,14 @@
-# D9-415 Authority Conflict Register
+# D9-415 Final Authority Conflict Register
 
-No conflict was silently resolved.
+No authority conflict was silently resolved.
 
-| ID | Severity | Conflict | Strongest evidence | Required resolution |
-|---|---|---|---|---|
-| C-001 | RESOLVED FOR SOURCE RECOVERY | Production controller `23da5c...` conflicts with active lock `c0a538...`. | Founder Decision 002 plus identical T0/T1 manifests. | Preserve current byte in D9-415A and former lock byte as historical evidence; no global lock mutation. |
-| C-002 | DEFERRED | New observed controller is entitlement-significant, but D9-415 may not decide or change entitlement authority. | Decision 002 explicitly separates preservation from approval. | D9-416 resolves authority; D9-420 must not infer deployability. |
-| C-003 | P1 | D9-410 hashes versus current shell hashes. | D9-410 baseline versus post-D9-410 manifest/production. | Preserve both time-scoped baselines and label current direct production distinctly. |
-| C-004 | P1 | Active Matrix manifest is newer but uncommitted in protected dirty root. | Root Git status and manifest hash. | Treat as evidence input only; do not modify/copy blindly; later branch-local reconciliation after direct snapshot. |
-| C-005 | P1 | Exact baseline includes all shipped residues, while safe package should exclude non-runtime material. | Complete 125-file production inventory. | D9-415A preserves exact bytes; packaging exclusions happen only later and are documented. |
-| C-006 | P1 | Global MU backup policy versus unrelated inherited top-level backup files. | Origin/main tree and prompt's Matrix scope. | Target recovered Matrix active-set validation; do not mutate unrelated inherited files. |
-| C-007 | ADVISORY | D9-415 absent from OS registry. | Fetched `origin/main:missions.json`. | Record degradation; use explicit founder packet; no unauthorized registry change. |
+| ID | Final status | Conflict | Resolution / routing |
+|---|---|---|---|
+| C-001 | RESOLVED FOR SOURCE RECOVERY | Production controller `23da5c...` versus active global lock `c0a538...`. | Founder Decision 002 authorizes exact current byte for source recovery; former byte remains rollback evidence; global lock unchanged. |
+| C-002 | DEFERRED TO D9-416 | Observed controller is entitlement-significant, while D9-415 cannot approve entitlement authority. | Preservation is not approval; D9-416 decides intended semantics and access contract. |
+| C-003 | RESOLVED AS TIME-SCOPED PROVENANCE | D9-410 hashes versus newer observed runtime. | Both baselines retained with timestamps and direct mappings; current D9-415 snapshot governs source recovery. |
+| C-004 | RESOLVED BY BRANCH-LOCAL EVIDENCE | Newer active Matrix manifest is in a protected dirty root. | Read as evidence only; no protected root mutation; branch-local lock records the discrepancy. |
+| C-005 | RESOLVED | Exact baseline includes shipped residue while package must be safe. | A/tag preserve all 125 plugin files; policy excludes five documented non-runtime residues from the 120-file package set. |
+| C-006 | ROUTED TO OTHER OWNERS | Wider repository contains inherited Arena/STAT backup-pattern MU files. | Matrix package selects only nine intended-active files; other product owners must quarantine their files before general deployment. |
+| C-007 | ADVISORY | D9-415 absent from MissionMed OS registry. | Founder packet governs this bounded mission; registry and doctrine remain untouched. |
+| C-008 | DEFERRED TO D9-416 | Source authority is recovered but data/auth/deployment authority is open. | `G-D9-5A` PASS; `G-D9-5B` OPEN; overall G-D9-5 PARTIAL; D9-420 BLOCKED. |

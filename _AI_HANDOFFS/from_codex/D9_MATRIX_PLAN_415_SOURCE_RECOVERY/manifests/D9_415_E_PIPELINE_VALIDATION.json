@@ -1,0 +1,102 @@
+{
+  "baseline_tag": {
+    "name": "d9-matrix-observed-production-baseline-NOT-DEPLOYABLE-20260713",
+    "result": "PASS",
+    "target": "c340a3a87732f7dc4afb06c01e4586239a050495"
+  },
+  "cache_side_effects": "NONE",
+  "ci_configuration": {
+    "artifact_upload": false,
+    "environment": false,
+    "permissions": "contents: read",
+    "result": "PASS_NON_DEPLOYING",
+    "secrets": false,
+    "trigger": "pull_request"
+  },
+  "database_side_effects": "NONE",
+  "deployment_side_effects": "NONE",
+  "head_commit": "030fe1071b76dfa7e37757eb70ba9c3aa1e41b00",
+  "json_validation": {
+    "result": "PASS",
+    "tracked_json_count": 25
+  },
+  "no_production_command_scan": {
+    "files_scanned": 5,
+    "match_count": 0,
+    "result": "PASS"
+  },
+  "package_build_1": {
+    "archive_file_count": 131,
+    "branch": "d9-matrix-plan-415-source-recovery",
+    "deployable": false,
+    "deployment_side_effects": "NONE",
+    "package_byte_size": 2711483,
+    "package_sha256": "afd9a1e6a236413552c6477b1f959ac5d750233724ceb14dd2351393430dae5f",
+    "plugin_version": "1.5.1",
+    "result": "PASS",
+    "source_commit": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+    "source_file_count": 129,
+    "source_manifest_sha256": "a650686889a6ddc22664ed890b6ff7b80fc3c1e475282723b8542d05f3967bc5",
+    "source_total_bytes": 10560023,
+    "source_tree": "9e0408d93a37c0d6f73a4d06aa9da135b79c9b90"
+  },
+  "package_build_2": {
+    "archive_file_count": 131,
+    "branch": "d9-matrix-plan-415-source-recovery",
+    "deployable": false,
+    "deployment_side_effects": "NONE",
+    "package_byte_size": 2711483,
+    "package_sha256": "afd9a1e6a236413552c6477b1f959ac5d750233724ceb14dd2351393430dae5f",
+    "plugin_version": "1.5.1",
+    "result": "PASS",
+    "source_commit": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+    "source_file_count": 129,
+    "source_manifest_sha256": "a650686889a6ddc22664ed890b6ff7b80fc3c1e475282723b8542d05f3967bc5",
+    "source_total_bytes": 10560023,
+    "source_tree": "9e0408d93a37c0d6f73a4d06aa9da135b79c9b90"
+  },
+  "package_reproducibility": "PASS_IDENTICAL_SHA256_AND_SIZE",
+  "plugin_header_version": "1.5.1",
+  "production_side_effects": "NONE",
+  "protected_hash_validation": "PASS_10_OF_10_WITH_FOUNDER_002_CONTROLLER_EXCEPTION",
+  "result": "PASS",
+  "runtime_source_commit": "e12cd99aa9c019a6f99325c0b961aa50db945472",
+  "runtime_source_tree": "9e0408d93a37c0d6f73a4d06aa9da135b79c9b90",
+  "schema_version": "1.0",
+  "secret_and_private_data_scan": {
+    "binary_file_count": 11,
+    "credential_schema_label_count": 2,
+    "email_reviewed_count": 33,
+    "entropy_reviewed_count": 18,
+    "high_confidence_reviewed_false_positive_count": 1,
+    "private_data_fallback_expression_count": 1,
+    "result": "PASS_HASH_SCOPED_REVIEWED_BASELINE",
+    "scanned_byte_count": 10575308,
+    "scanned_file_count": 134,
+    "unreviewed_candidate_count": 0
+  },
+  "strict_mu_validation": {
+    "intended_active_count": 9,
+    "result": "PASS"
+  },
+  "syntax": {
+    "javascript": "PASS_REQUIRED_TOOL",
+    "javascript_file_count": 29,
+    "php": "PASS_REQUIRED_TOOL",
+    "php_file_count": 61
+  },
+  "ticket": "D9-MATRIX-PLAN-415",
+  "tools": {
+    "git": "git version 2.50.1 (Apple Git-155)",
+    "node": "v24.14.0",
+    "php": "PHP 8.5.4 (cli) (built: Mar 10 2026 23:15:23) (NTS)",
+    "python": "3.14.6"
+  },
+  "tracked_source_completeness": "PASS",
+  "trusted_input_validation": {
+    "mutable_policy_override": false,
+    "result": "PASS_HASH_SEALED",
+    "trusted_dependency_count": 4
+  },
+  "worktree_clean": true
+}

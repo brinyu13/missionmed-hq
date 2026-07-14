@@ -16,3 +16,5 @@ The following facts should be added to the Matrix product passport through a sep
 10. `G-D9-4` remains open; `G-D9-5B` remains `OPEN — D9-416 REQUIRED`; overall `G-D9-5` remains `PARTIAL`; D9-420 remains blocked.
 
 No canonical passport or global doctrine file was edited by D9-415. Adoption of this proposal must preserve the Founder Decision 002 distinction between observed source and approved behavior.
+
+Final adoption should also record D9-415E `030fe1071b76dfa7e37757eb70ba9c3aa1e41b00` as the fail-closed validation hardening commit, draft PR #9 as **DO NOT MERGE**, `G-D9-5A` as passed only for code source authority, and the exact D9-416 input packet as the unresolved data/auth/deployment authority boundary.

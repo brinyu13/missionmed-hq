@@ -40,3 +40,16 @@ Status: **PASS**
 ## Scope boundary
 
 Commit A is an observed-production evidence baseline, not a release. It intentionally contains the production backup-named MU-plugin. It approves neither entitlement behavior nor deployment. D9-416 remains required before implementation or release, and D9-420 remains blocked.
+
+## Required safe-lineage commit record
+
+| Commit | Tree | Parent | Files/path entries | Purpose | Validation |
+|---|---|---|---:|---|---|
+| A `c340a3a87732f7dc4afb06c01e4586239a050495` | `2a43327429214fdf1c161aa9adf297fabac155bd` | `9c1fa72e6b056db8b6fe0e17031fcaa688f78569` | 182 | Exact observed plugin/MU baseline plus safe provenance evidence | T0/T1, 135 mappings, syntax, guard, secret/data scan |
+| B `9469437d2ac5010563e59b6fdc00a9fe48548a80` | `d5d3fc057ce47f3af46774541de1faca059defb1` | A | 5 path entries / 4 logical changes | Source-only MU backup quarantine | Byte-identical move, intended-active manifest, fail-closed backup validator |
+| C `e12cd99aa9c019a6f99325c0b961aa50db945472` | `9e0408d93a37c0d6f73a4d06aa9da135b79c9b90` | B | 14 | Branch-local source/lock provenance and rollback evidence | 135 Git mappings, protected hashes, former/current CSS/controller verification |
+| D `a81a3afc9d7b1f40295d0a1585045293326b0387` | `60f094ed21bac2a66e31a1c45426770f80a0bc56` | C | 13 | Deterministic package and non-deploying CI | Two identical archives, local full validator |
+| E `030fe1071b76dfa7e37757eb70ba9c3aa1e41b00` | `d4f60aa9c755cd143f67c759a38a4ba9de739419` | D | 3 | Wave 2 fail-closed validation fixes | Detached candidate, clean E, missing-tool, fresh-clone, and hosted CI validation |
+| F | Resolve from final branch head | E | Final handoff set | Final reports and combined handoff | Detached candidate, remote/CI/mirror equality after self-referential commit |
+
+Every commit is within the permitted D9-415 source/evidence/validation scope. No commit modifies production or the protected global Matrix lock.

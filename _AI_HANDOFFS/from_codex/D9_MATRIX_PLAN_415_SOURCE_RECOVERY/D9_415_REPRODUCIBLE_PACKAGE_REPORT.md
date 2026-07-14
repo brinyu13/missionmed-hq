@@ -33,3 +33,7 @@ Five observed plugin files are excluded as non-runtime residue: three root docum
 Direct byte comparison also passed. Ordering, file and directory modes, owner fields, source-commit tar timestamps, gzip timestamp, metadata serialization, and source-manifest serialization are deterministic.
 
 The archives were created only under a temporary local validation directory and were not committed, uploaded, deployed, or sent to production. Package metadata explicitly records `deployable: false` and `deployment_side_effects: NONE`.
+
+## Wave 2 revalidation
+
+D9-415E did not change runtime or package bytes. It independently sealed the runtime commit/tree, tag/target, policy, source lock, production map, MU manifest, counts, exclusions, protected hashes, builder/scanner/validator/workflow dependencies, and command-deny patterns. The identical package SHA-256 remained `afd9a1e6a236413552c6477b1f959ac5d750233724ceb14dd2351393430dae5f` in detached-candidate, clean-E, fresh-clone, and hosted-CI validation.
