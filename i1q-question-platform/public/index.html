@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>MissionMed Question Platform</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to workspace</a>
+  <div class="shell">
+    <aside class="sidebar" aria-label="Question Platform navigation">
+      <div class="brand-block">
+        <strong>MissionMed</strong>
+        <span>Question Platform</span>
+      </div>
+      <nav id="primary-nav">
+        <button class="nav-item is-active" type="button" data-screen="dashboard" aria-current="page">Dashboard</button>
+        <button class="nav-item" type="button" data-screen="inventory">Source inventory</button>
+        <button class="nav-item" type="button" data-screen="transcript">Transcript evidence</button>
+        <button class="nav-item" type="button" data-screen="triage">Candidate triage</button>
+        <button class="nav-item" type="button" data-screen="editor">Question editor</button>
+        <button class="nav-item" type="button" data-screen="evidence">Evidence workbench</button>
+        <button class="nav-item" type="button" data-screen="editorial">Editorial review</button>
+        <button class="nav-item" type="button" data-screen="physician">Physician review</button>
+        <button class="nav-item" type="button" data-screen="diff">Revision diff</button>
+        <button class="nav-item" type="button" data-screen="search">Search</button>
+        <button class="nav-item" type="button" data-screen="release">Release center</button>
+        <button class="nav-item" type="button" data-screen="incidents">Incident center</button>
+      </nav>
+      <div class="environment-label"><span class="status-dot status-amber"></span>Local synthetic data</div>
+    </aside>
+
+    <main id="workspace" tabindex="-1">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="screen-kicker">Operations</p>
+          <h1 id="screen-title">Executive dashboard</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="identity">Local Demo Reviewer</span>
+          <button class="icon-button" type="button" id="refresh-button" aria-label="Refresh current view" title="Refresh current view">&#8635;</button>
+        </div>
+      </header>
+
+      <div id="global-status" class="status-banner status-warning" role="status" aria-live="polite">
+        <strong>Production gate blocked</strong>
+        <span>Authentication adapter and governance owners are unassigned.</span>
+      </div>
+
+      <section id="screen" class="screen" aria-busy="true">
+        <div class="loading-state" role="status">Loading dashboard</div>
+      </section>
+    </main>
+  </div>
+  <div id="announcer" class="sr-only" aria-live="assertive"></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

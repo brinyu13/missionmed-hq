@@ -1,0 +1,498 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MissionMed I1Q Question Platform API",
+    "version": "0.1.0-1006",
+    "description": "Internal candidate API. Production identity adapter and canonical datastore binding are required before deployment."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:4176",
+      "description": "Local synthetic demonstration only"
+    }
+  ],
+  "security": [
+    {
+      "MissionMedInternalSession": []
+    }
+  ],
+  "paths": {
+    "/api/health": {
+      "get": {
+        "security": [],
+        "operationId": "getHealth",
+        "responses": {
+          "200": {
+            "description": "Service health without protected data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dashboard": {
+      "get": {
+        "operationId": "getDashboard",
+        "responses": {
+          "200": {
+            "description": "Internal operational summary"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          }
+        }
+      }
+    },
+    "/api/v1/governance": {
+      "get": {
+        "operationId": "getGovernanceSlots",
+        "responses": {
+          "200": {
+            "description": "Current role-slot assignments"
+          }
+        }
+      }
+    },
+    "/api/v1/governance/{slot}": {
+      "put": {
+        "operationId": "assignGovernanceSlot",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Governance slot assigned by an administrator"
+          },
+          "422": {
+            "description": "Unknown slot or reviewer does not meet role requirements"
+          }
+        }
+      }
+    },
+    "/api/v1/reviewers": {
+      "post": {
+        "operationId": "registerReviewer",
+        "responses": {
+          "201": {
+            "description": "Reviewer registered by an administrator"
+          }
+        }
+      }
+    },
+    "/api/v1/feature-flags/{key}": {
+      "put": {
+        "operationId": "setFeatureFlag",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "internal_platform_enabled",
+                "stat_adapter_enabled",
+                "drills_adapter_enabled",
+                "student_release_enabled"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Feature flag changed by an administrator"
+          }
+        }
+      }
+    },
+    "/api/v1/resources/{entityType}": {
+      "get": {
+        "operationId": "listResources",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cursor page"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createResource",
+        "description": "Creates mutable non-workflow resources. Reviewers, revisions, reviews, releases, artifacts, flags, audit events, and idempotency records require dedicated workflows.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created"
+          }
+        }
+      }
+    },
+    "/api/v1/resources/{entityType}/{id}": {
+      "get": {
+        "operationId": "getResource",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "$ref": "#/components/parameters/ResourceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Resource"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateMutableResource",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/EntityType"
+          },
+          {
+            "$ref": "#/components/parameters/ResourceId"
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated mutable resource"
+          },
+          "409": {
+            "description": "Immutable resource or optimistic lock conflict"
+          }
+        }
+      }
+    },
+    "/api/v1/item-revisions": {
+      "post": {
+        "operationId": "createImmutableItemRevision",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/IdempotencyKey"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemRevisionDraft"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Immutable AI draft revision"
+          },
+          "422": {
+            "description": "Question or lineage validation failed"
+          }
+        }
+      }
+    },
+    "/api/v1/review-assignments": {
+      "post": {
+        "operationId": "createReviewAssignment",
+        "responses": {
+          "201": {
+            "description": "Review assignment created"
+          }
+        }
+      }
+    },
+    "/api/v1/review-events": {
+      "post": {
+        "operationId": "appendImmutableReviewEvent",
+        "responses": {
+          "201": {
+            "description": "Immutable exact-revision review event"
+          },
+          "422": {
+            "description": "Review order, credential, self-review, or governance gate failed"
+          }
+        }
+      }
+    },
+    "/api/v1/releases": {
+      "post": {
+        "operationId": "assembleRelease",
+        "responses": {
+          "201": {
+            "description": "Immutable single-manifest release assembled"
+          },
+          "422": {
+            "description": "One or more exact revisions are not eligible"
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{releaseId}/promotions": {
+      "post": {
+        "operationId": "promoteRelease",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Immutable promotion record appended"
+          },
+          "422": {
+            "description": "Release or feature-flag gate failed"
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{releaseId}/artifacts/{channel}": {
+      "get": {
+        "operationId": "getReleaseArtifact",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "channel",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "phase",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pre_answer",
+                "post_answer_finalized"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Phase-authorized artifact"
+          },
+          "403": {
+            "description": "Answer-bearing artifact requested before finalization"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "MissionMedInternalSession": {
+        "type": "openIdConnect",
+        "openIdConnectUrl": "OPEN_CANONICAL_MISSIONMED_IDENTITY_ADAPTER"
+      }
+    },
+    "parameters": {
+      "EntityType": {
+        "name": "entityType",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "ResourceId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "IdempotencyKey": {
+        "name": "Idempotency-Key",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 200
+        }
+      }
+    },
+    "schemas": {
+      "Health": {
+        "type": "object",
+        "required": [
+          "ok",
+          "service",
+          "version",
+          "mode"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "service": {
+            "const": "i1q-question-platform"
+          },
+          "version": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "LOCAL_SYNTHETIC_DEMO",
+              "AUTH_ADAPTER_REQUIRED"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemRevisionDraft": {
+        "type": "object",
+        "required": [
+          "item_id",
+          "concept_id",
+          "source_ids",
+          "prompt",
+          "choices",
+          "answer",
+          "explanation",
+          "correct_answer_rationale"
+        ],
+        "properties": {
+          "item_id": {
+            "type": "string"
+          },
+          "concept_id": {
+            "type": "string"
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "choices": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "type": "object"
+            }
+          },
+          "answer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "correct_answer_rationale": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "responses": {
+      "Unauthenticated": {
+        "description": "Canonical internal identity is required"
+      },
+      "NotFound": {
+        "description": "Resource not found or not visible to actor"
+      }
+    }
+  }
+}

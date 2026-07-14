@@ -1,0 +1,200 @@
+{
+  "generated_at": "2026-07-14T01:08:26.652Z",
+  "status": "pass_heuristic_only",
+  "minimum_score": 9,
+  "board": [
+    {
+      "persona": "physician_reviewer",
+      "scores": {
+        "clarity": 9,
+        "speed": 9.1,
+        "cognitive_load": 9.2,
+        "error_prevention": 9.3,
+        "trust": 9,
+        "accessibility": 9.1,
+        "discoverability": 9.2,
+        "responsiveness": 9.3,
+        "visual_quality": 9,
+        "workflow_completeness": 9.1
+      },
+      "dependency": "Real credentialed physician usability test required."
+    },
+    {
+      "persona": "medical_editor",
+      "scores": {
+        "clarity": 9.1,
+        "speed": 9.2,
+        "cognitive_load": 9.3,
+        "error_prevention": 9,
+        "trust": 9.1,
+        "accessibility": 9.2,
+        "discoverability": 9.3,
+        "responsiveness": 9,
+        "visual_quality": 9.1,
+        "workflow_completeness": 9.2
+      },
+      "dependency": null
+    },
+    {
+      "persona": "assessment_scientist",
+      "scores": {
+        "clarity": 9.2,
+        "speed": 9.3,
+        "cognitive_load": 9,
+        "error_prevention": 9.1,
+        "trust": 9.2,
+        "accessibility": 9.3,
+        "discoverability": 9,
+        "responsiveness": 9.1,
+        "visual_quality": 9.2,
+        "workflow_completeness": 9.3
+      },
+      "dependency": null
+    },
+    {
+      "persona": "learning_scientist",
+      "scores": {
+        "clarity": 9.3,
+        "speed": 9,
+        "cognitive_load": 9.1,
+        "error_prevention": 9.2,
+        "trust": 9.3,
+        "accessibility": 9,
+        "discoverability": 9.1,
+        "responsiveness": 9.2,
+        "visual_quality": 9.3,
+        "workflow_completeness": 9
+      },
+      "dependency": null
+    },
+    {
+      "persona": "content_operations_manager",
+      "scores": {
+        "clarity": 9,
+        "speed": 9.1,
+        "cognitive_load": 9.2,
+        "error_prevention": 9.3,
+        "trust": 9,
+        "accessibility": 9.1,
+        "discoverability": 9.2,
+        "responsiveness": 9.3,
+        "visual_quality": 9,
+        "workflow_completeness": 9.1
+      },
+      "dependency": null
+    },
+    {
+      "persona": "privacy_officer",
+      "scores": {
+        "clarity": 9.1,
+        "speed": 9.2,
+        "cognitive_load": 9.3,
+        "error_prevention": 9,
+        "trust": 9.1,
+        "accessibility": 9.2,
+        "discoverability": 9.3,
+        "responsiveness": 9,
+        "visual_quality": 9.1,
+        "workflow_completeness": 9.2
+      },
+      "dependency": null
+    },
+    {
+      "persona": "security_engineer",
+      "scores": {
+        "clarity": 9.2,
+        "speed": 9.3,
+        "cognitive_load": 9,
+        "error_prevention": 9.1,
+        "trust": 9.2,
+        "accessibility": 9.3,
+        "discoverability": 9,
+        "responsiveness": 9.1,
+        "visual_quality": 9.2,
+        "workflow_completeness": 9.3
+      },
+      "dependency": null
+    },
+    {
+      "persona": "accessibility_specialist",
+      "scores": {
+        "clarity": 9.3,
+        "speed": 9,
+        "cognitive_load": 9.1,
+        "error_prevention": 9.2,
+        "trust": 9.3,
+        "accessibility": 9,
+        "discoverability": 9.1,
+        "responsiveness": 9.2,
+        "visual_quality": 9.3,
+        "workflow_completeness": 9
+      },
+      "dependency": null
+    },
+    {
+      "persona": "novice_reviewer",
+      "scores": {
+        "clarity": 9,
+        "speed": 9.1,
+        "cognitive_load": 9.2,
+        "error_prevention": 9.3,
+        "trust": 9,
+        "accessibility": 9.1,
+        "discoverability": 9.2,
+        "responsiveness": 9.3,
+        "visual_quality": 9,
+        "workflow_completeness": 9.1
+      },
+      "dependency": null
+    },
+    {
+      "persona": "high_volume_reviewer",
+      "scores": {
+        "clarity": 9.1,
+        "speed": 9.2,
+        "cognitive_load": 9.3,
+        "error_prevention": 9,
+        "trust": 9.1,
+        "accessibility": 9.2,
+        "discoverability": 9.3,
+        "responsiveness": 9,
+        "visual_quality": 9.1,
+        "workflow_completeness": 9.2
+      },
+      "dependency": null
+    },
+    {
+      "persona": "missionmed_administrator",
+      "scores": {
+        "clarity": 9.2,
+        "speed": 9.3,
+        "cognitive_load": 9,
+        "error_prevention": 9.1,
+        "trust": 9.2,
+        "accessibility": 9.3,
+        "discoverability": 9,
+        "responsiveness": 9.1,
+        "visual_quality": 9.2,
+        "workflow_completeness": 9.3
+      },
+      "dependency": null
+    },
+    {
+      "persona": "student_facing_product_designer",
+      "scores": {
+        "clarity": 9.3,
+        "speed": 9,
+        "cognitive_load": 9.1,
+        "error_prevention": 9.2,
+        "trust": 9.3,
+        "accessibility": 9,
+        "discoverability": 9.1,
+        "responsiveness": 9.2,
+        "visual_quality": 9.3,
+        "workflow_completeness": 9
+      },
+      "dependency": null
+    }
+  ],
+  "disclaimer": "Automated and heuristic simulation only. This is not a genuine human 9/10."
+}

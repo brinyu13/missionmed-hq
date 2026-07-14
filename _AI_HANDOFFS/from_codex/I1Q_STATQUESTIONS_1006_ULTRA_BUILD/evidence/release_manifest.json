@@ -1,0 +1,171 @@
+{
+  "generated_at": "2026-07-14T01:08:26.652Z",
+  "status": "CONTRACT_FIXTURE_NOT_RELEASE",
+  "classification": "SYNTHETIC_NON_CLINICAL",
+  "manifest": {
+    "release_id": "release_fixture_1006",
+    "dataset_version": "i1q_fixture_v1",
+    "previous_manifest_hash": null,
+    "artifact_hashes": [
+      {
+        "channel": "stat_dataset_questions",
+        "phase": "server_only",
+        "sha256": "5773d7454aba3f80b841d40390fde749d2536aca235768057f7973dde5d5a793",
+        "record_count": 1
+      },
+      {
+        "channel": "stat_pre_answer",
+        "phase": "pre_answer",
+        "sha256": "cdd4ce0b8151000ffdceccd0c9540e45d4e389090022f8149406aaa4ecaf3b81",
+        "record_count": 1
+      },
+      {
+        "channel": "stat_post_answer_debrief",
+        "phase": "post_answer",
+        "sha256": "d561f17a723adb598005e50803a785b2e287ac01b5eefc269c477ca5db2db7a6",
+        "record_count": 1
+      },
+      {
+        "channel": "stat_indexes",
+        "phase": "pre_answer",
+        "sha256": "7ac6c463bd63c0e886b1a558bd806875bb02c7984b9bee2bc731423111477c9a",
+        "record_count": 1
+      },
+      {
+        "channel": "stat_lookup",
+        "phase": "pre_answer",
+        "sha256": "3e2fd04a40714c783916d4ae1705c8d9ae2f99e2c803e5cd3cb39da0c88fcc2e",
+        "record_count": 1
+      },
+      {
+        "channel": "question_metadata",
+        "phase": "server_only",
+        "sha256": "7df7974564e4fa46827edebabbc9b827dde03108849ff5bd1836e109ed61d5aa",
+        "record_count": 1
+      },
+      {
+        "channel": "drills",
+        "phase": "internal",
+        "sha256": "72c310fd1f1a836c651b4fe1175b8d5dcd9bfa10c92a72ab7948042b443c9b6d",
+        "record_count": 1
+      },
+      {
+        "channel": "daily_rounds",
+        "phase": "contract_only",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "record_count": 0
+      },
+      {
+        "channel": "tournamed",
+        "phase": "contract_only",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "record_count": 0
+      },
+      {
+        "channel": "arena",
+        "phase": "contract_only",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "record_count": 0
+      },
+      {
+        "channel": "custom_tests",
+        "phase": "contract_only",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "record_count": 0
+      },
+      {
+        "channel": "faculty_mode",
+        "phase": "contract_only",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "record_count": 0
+      },
+      {
+        "channel": "mentor_mode",
+        "phase": "contract_only",
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "record_count": 0
+      }
+    ],
+    "manifest_hash": "6c97c6e7a29a5feabf0cb0761661c11c117e24164d30c425fc00e1aeea1feeb2"
+  },
+  "artifact_summaries": [
+    {
+      "channel": "stat_dataset_questions",
+      "phase": "server_only",
+      "sha256": "5773d7454aba3f80b841d40390fde749d2536aca235768057f7973dde5d5a793",
+      "record_count": 1
+    },
+    {
+      "channel": "stat_pre_answer",
+      "phase": "pre_answer",
+      "sha256": "cdd4ce0b8151000ffdceccd0c9540e45d4e389090022f8149406aaa4ecaf3b81",
+      "record_count": 1
+    },
+    {
+      "channel": "stat_post_answer_debrief",
+      "phase": "post_answer",
+      "sha256": "d561f17a723adb598005e50803a785b2e287ac01b5eefc269c477ca5db2db7a6",
+      "record_count": 1
+    },
+    {
+      "channel": "stat_indexes",
+      "phase": "pre_answer",
+      "sha256": "7ac6c463bd63c0e886b1a558bd806875bb02c7984b9bee2bc731423111477c9a",
+      "record_count": 1
+    },
+    {
+      "channel": "stat_lookup",
+      "phase": "pre_answer",
+      "sha256": "3e2fd04a40714c783916d4ae1705c8d9ae2f99e2c803e5cd3cb39da0c88fcc2e",
+      "record_count": 1
+    },
+    {
+      "channel": "question_metadata",
+      "phase": "server_only",
+      "sha256": "7df7974564e4fa46827edebabbc9b827dde03108849ff5bd1836e109ed61d5aa",
+      "record_count": 1
+    },
+    {
+      "channel": "drills",
+      "phase": "internal",
+      "sha256": "72c310fd1f1a836c651b4fe1175b8d5dcd9bfa10c92a72ab7948042b443c9b6d",
+      "record_count": 1
+    },
+    {
+      "channel": "daily_rounds",
+      "phase": "contract_only",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "record_count": 0
+    },
+    {
+      "channel": "tournamed",
+      "phase": "contract_only",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "record_count": 0
+    },
+    {
+      "channel": "arena",
+      "phase": "contract_only",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "record_count": 0
+    },
+    {
+      "channel": "custom_tests",
+      "phase": "contract_only",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "record_count": 0
+    },
+    {
+      "channel": "faculty_mode",
+      "phase": "contract_only",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "record_count": 0
+    },
+    {
+      "channel": "mentor_mode",
+      "phase": "contract_only",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "record_count": 0
+    }
+  ]
+}

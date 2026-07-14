@@ -1,0 +1,24 @@
+{
+  "generated_at": "2026-07-14T01:08:26.652Z",
+  "status": "DISCOVERY_ONLY_REAL_INVENTORY_NOT_AUTHORIZED",
+  "counts": {
+    "local_vtt_files": 0,
+    "local_transcript_caption_subtitle_data_files": 0,
+    "local_nodes_or_media_registry_artifacts": 0,
+    "seeded_drill_rows_with_stream_vtt_nodes_references": 1,
+    "sidecar_paths_referenced_by_seed": 2,
+    "checked_in_stat_runtime_index_lookup_json": 0,
+    "matching_historical_git_blobs": 3,
+    "static_v4_sql_insert_statements": 845,
+    "registered_i1q_missions": 0,
+    "registered_i1q_products_or_passports": 0
+  },
+  "real_inventory_totals": null,
+  "blockers": [
+    "i1q_mission_registration_missing",
+    "privacy_owner_unassigned",
+    "media_registry_export_not_authorized",
+    "rights_state_unverified"
+  ],
+  "source_mutations": 0
+}

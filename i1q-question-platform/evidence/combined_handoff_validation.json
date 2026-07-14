@@ -1,0 +1,149 @@
+{
+  "generated_at": "2026-07-14T01:08:35.865Z",
+  "status": "pass",
+  "combined_path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/I1Q_1006_COMBINED_HANDOFF.md",
+  "source_count": 22,
+  "source_list": [
+    {
+      "path": "audit/README.md",
+      "bytes": 4135,
+      "lines": 72,
+      "sha256": "a8fae819d3b88136361c28d52b54eb0e5e40b79baa128005ec32bd2b2eebf1ba"
+    },
+    {
+      "path": "I1Q_1006_BASELINE.md",
+      "bytes": 2952,
+      "lines": 47,
+      "sha256": "6fd0eb68dabe0a7de1da11600486bef6149a0d37f78639764ba49ffb550b211a"
+    },
+    {
+      "path": "I1Q_1006_BATCH_EXTRACTION.md",
+      "bytes": 1536,
+      "lines": 43,
+      "sha256": "8749e2a29f2399b1577b4fc0bab9bc86b55b29a68bbd6fd059ed35d3a0983e34"
+    },
+    {
+      "path": "I1Q_1006_BLOCKING_OPERATOR_ACTIONS.md",
+      "bytes": 3193,
+      "lines": 94,
+      "sha256": "b10778f8cf37e827f0cd9eac204a8adce4d62439699405a8ce0ebd4289f1970b"
+    },
+    {
+      "path": "I1Q_1006_CURRENT_REALITY.md",
+      "bytes": 3870,
+      "lines": 56,
+      "sha256": "2b85a7ca868c117d94faed9aa70034976c8eac6966656abd80e89f681275a38f"
+    },
+    {
+      "path": "I1Q_1006_DATASTORE_AND_API.md",
+      "bytes": 3489,
+      "lines": 53,
+      "sha256": "61a761f59cf0251663aa7e58e9512e520c05829dd5d52e7fd177d9222a7ca375"
+    },
+    {
+      "path": "I1Q_1006_EMBEDDED_1005A_AUDIT.md",
+      "bytes": 2330,
+      "lines": 46,
+      "sha256": "70033f23b64be7e3c4e38d98bd83c14a2d41ad101c3053ea629f19b0b1577a08"
+    },
+    {
+      "path": "I1Q_1006_EXPORTS_AND_INTEGRATIONS.md",
+      "bytes": 2167,
+      "lines": 62,
+      "sha256": "4a01d6d67513b1dd922131e50baf67dba8439963e4c51c6681ee7312c961f2b8"
+    },
+    {
+      "path": "I1Q_1006_EXTRACTION_ENGINE.md",
+      "bytes": 2865,
+      "lines": 60,
+      "sha256": "f28692f20d700296ec72aa4269b4baa58116c458143c6287c23477ed2d8cc45f"
+    },
+    {
+      "path": "I1Q_1006_LEGACY_RECOVERY.md",
+      "bytes": 2022,
+      "lines": 59,
+      "sha256": "80d6f28e872974d16aa2a30d7fce21bbed138381b10fdc27ab2bbfdf72517a5c"
+    },
+    {
+      "path": "I1Q_1006_MEDIA_INVENTORY.md",
+      "bytes": 2280,
+      "lines": 45,
+      "sha256": "270c6043419c4c9ab6b3417b2891b7baf9f45c427c2d3a991e4d226fe7ca8335"
+    },
+    {
+      "path": "I1Q_1006_MISSION_REGISTRATION.md",
+      "bytes": 2234,
+      "lines": 51,
+      "sha256": "914fe59554045f896527f63e415acff64f63fe805b9dd356faa18d11f5b75025"
+    },
+    {
+      "path": "I1Q_1006_OPEN_HUMAN_DECISIONS.md",
+      "bytes": 2918,
+      "lines": 37,
+      "sha256": "c90f1dc88d55c7e3afbd7775c48afa62490523d5b481a1e07e389ad7f6e63d5c"
+    },
+    {
+      "path": "I1Q_1006_PATH_INDEX.md",
+      "bytes": 2675,
+      "lines": 87,
+      "sha256": "3e16afdad2c780bd018a83bd9511ac52832ad47dd829fe0c04e5a6f0d9c840a8"
+    },
+    {
+      "path": "I1Q_1006_PILOT_REPORT.md",
+      "bytes": 1991,
+      "lines": 46,
+      "sha256": "710f1f65d979a2399d3ab50e6f2aa6e94590a99e2e1ff490a8da0d1d5a5f0bbb"
+    },
+    {
+      "path": "I1Q_1006_PRODUCTION_GATE.md",
+      "bytes": 2280,
+      "lines": 51,
+      "sha256": "005652369cee1125c12edfff7ee9ab38e4f99a77d79715d3c161f003dac17b33"
+    },
+    {
+      "path": "I1Q_1006_REPORT.md",
+      "bytes": 3111,
+      "lines": 78,
+      "sha256": "b5f65f61ce70d8c2c849d65f704d725f2d9ad10fa6b99425f5f481ff8843659a"
+    },
+    {
+      "path": "I1Q_1006_REVIEW_APP.md",
+      "bytes": 2173,
+      "lines": 54,
+      "sha256": "1c1c175c2fbaf659082cbeffb2c932e1fe04bd7302bcd5b3e8d88af7f554979e"
+    },
+    {
+      "path": "I1Q_1006_SECURITY_PRIVACY_ACCESSIBILITY.md",
+      "bytes": 2595,
+      "lines": 57,
+      "sha256": "8b4c2677e0b47c3271e2caaaded19b3f45e62c0cebe1b664ee7f5a943d08e831"
+    },
+    {
+      "path": "I1Q_1006_STAGING_AND_CANARY.md",
+      "bytes": 2030,
+      "lines": 52,
+      "sha256": "106597df6efc491d50ebecfa9e9fa78dd21a0d15cfac28e3c1d24e9b92a8e09a"
+    },
+    {
+      "path": "I1Q_1006_STRESS_AND_PERFORMANCE.md",
+      "bytes": 1733,
+      "lines": 46,
+      "sha256": "7b8557ebe0a26928d124b4d954b39ca065abb62261fc0b69163dfd5b4599db13"
+    },
+    {
+      "path": "I1Q_1006_UI_UX_BOARD.md",
+      "bytes": 1873,
+      "lines": 68,
+      "sha256": "86f6d64e67c452025d782bf5f3b80c4db9b62534336c625d156a10e50747d305"
+    }
+  ],
+  "final_line_count": 1351,
+  "combined_bytes": 59924,
+  "combined_sha256": "a713e193a2147bf1b1d3a10d68bafc154081fb813c3cc05a6c91c282c6d2815b",
+  "markers_found": 22,
+  "missing_sources": [],
+  "duplicate_sources": [],
+  "unexpected_sources": [],
+  "exact_content_mismatches": [],
+  "self_embedding": false
+}
