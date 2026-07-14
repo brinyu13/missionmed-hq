@@ -19,13 +19,47 @@ from typing import Any
 # makes the validator dirty its own worktree before the clean-tree gate.
 sys.dont_write_bytecode = True
 
-from build_d9_matrix_source_package import DEFAULT_POLICY, ROOT, build_package, load_context
+from build_d9_matrix_source_package import (
+    DEFAULT_POLICY,
+    ROOT,
+    TRUSTED_BASELINE_COMMIT,
+    TRUSTED_BASELINE_TAG,
+    TRUSTED_NO_PRODUCTION_COMMAND_PATTERNS,
+    TRUSTED_PRODUCTION_HASH_MAP_PATH,
+    build_package,
+    load_context,
+    require_tracked_sha256,
+)
 
 
 HANDOFF = ROOT / "_AI_HANDOFFS" / "from_codex" / "D9_MATRIX_PLAN_415_SOURCE_RECOVERY"
 SCANNER = HANDOFF / "evidence" / "D9_415_REDACTED_SOURCE_SCAN.py"
 MU_VALIDATOR = ROOT / "_SYSTEM" / "scripts" / "validate_d9_matrix_mu_active_set.py"
 WORKFLOW = ROOT / ".github" / "workflows" / "d9-matrix-source-validation.yml"
+BUILDER = ROOT / "_SYSTEM" / "scripts" / "build_d9_matrix_source_package.py"
+TRUSTED_BUILDER_SHA256 = "763b6f07c2ffc683885972c6b9ad2479dc590e7c0de10bbf2ee59a5dec0875df"
+TRUSTED_SCANNER_SHA256 = "80e4a1041649e72449c3ff01b8bd1b7e2f5c898d7f16e13f57894564a8b6e38e"
+TRUSTED_MU_VALIDATOR_SHA256 = "3b90850360bfc1702804b8fca59c98028e22baa2634045ca55191fffbf903138"
+TRUSTED_WORKFLOW_SHA256 = "9a1d37670fb9720066896c6a2b108339aecb29f851e1d7671a33c21350f989d1"
+TRUSTED_CHECKOUT_ACTION = "actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5"
+EXPECTED_PHP_FILE_COUNT = 61
+EXPECTED_JAVASCRIPT_FILE_COUNT = 29
+
+
+def validate_trusted_dependencies() -> dict[str, Any]:
+    trusted = {
+        BUILDER.relative_to(ROOT).as_posix(): TRUSTED_BUILDER_SHA256,
+        SCANNER.relative_to(ROOT).as_posix(): TRUSTED_SCANNER_SHA256,
+        MU_VALIDATOR.relative_to(ROOT).as_posix(): TRUSTED_MU_VALIDATOR_SHA256,
+        WORKFLOW.relative_to(ROOT).as_posix(): TRUSTED_WORKFLOW_SHA256,
+    }
+    for path, digest in trusted.items():
+        require_tracked_sha256("HEAD", path, digest)
+    return {
+        "result": "PASS_HASH_SEALED",
+        "trusted_dependency_count": len(trusted),
+        "mutable_policy_override": False,
+    }
 
 
 def run(command: list[str], *, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -58,6 +92,10 @@ def validate_syntax(context: dict[str, Any], output_dir: Path) -> dict[str, Any]
     syntax_root = output_dir / "syntax"
     php = shutil.which("php")
     node = shutil.which("node")
+    if php is None:
+        raise RuntimeError("required PHP syntax tool is unavailable")
+    if node is None:
+        raise RuntimeError("required Node.js syntax tool is unavailable")
     php_count = 0
     js_count = 0
     for item in context["files"]:
@@ -67,16 +105,25 @@ def validate_syntax(context: dict[str, Any], output_dir: Path) -> dict[str, Any]
         destination = syntax_root / item.source_path
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(item.data)
-        if suffix == ".php" and php:
+        if suffix == ".php":
             run([php, "-l", str(destination)])
             php_count += 1
-        elif suffix == ".js" and node:
+        elif suffix == ".js":
             run([node, "--check", str(destination)])
             js_count += 1
+    if php_count != EXPECTED_PHP_FILE_COUNT:
+        raise RuntimeError(
+            f"PHP syntax file count mismatch: {php_count} != {EXPECTED_PHP_FILE_COUNT}"
+        )
+    if js_count != EXPECTED_JAVASCRIPT_FILE_COUNT:
+        raise RuntimeError(
+            "JavaScript syntax file count mismatch: "
+            f"{js_count} != {EXPECTED_JAVASCRIPT_FILE_COUNT}"
+        )
     return {
-        "php": "PASS" if php else "SKIP_TOOL_UNAVAILABLE",
+        "php": "PASS_REQUIRED_TOOL",
         "php_file_count": php_count,
-        "javascript": "PASS" if node else "SKIP_TOOL_UNAVAILABLE",
+        "javascript": "PASS_REQUIRED_TOOL",
         "javascript_file_count": js_count,
     }
 
@@ -192,15 +239,16 @@ def validate_mu_strict(context: dict[str, Any], archive_path: Path, output_dir: 
 
 def validate_no_production_commands(context: dict[str, Any]) -> dict[str, Any]:
     paths = [
-        ROOT / "_SYSTEM" / "scripts" / "build_d9_matrix_source_package.py",
+        BUILDER,
         ROOT / "_SYSTEM" / "scripts" / "validate_d9_matrix_source.py",
-        ROOT / "_SYSTEM" / "scripts" / "validate_d9_matrix_mu_active_set.py",
+        MU_VALIDATOR,
+        SCANNER,
         WORKFLOW,
     ]
     matches: list[dict[str, Any]] = []
     for path in paths:
         text = path.read_text(encoding="utf-8")
-        for pattern in context["policy"]["no_production_command_patterns"]:
+        for pattern in TRUSTED_NO_PRODUCTION_COMMAND_PATTERNS:
             for match in re.finditer(pattern, text):
                 matches.append(
                     {
@@ -219,9 +267,12 @@ def validate_workflow() -> dict[str, Any]:
     required = [
         "pull_request:",
         "contents: read",
-        "actions/checkout@v4",
+        TRUSTED_CHECKOUT_ACTION,
+        "persist-credentials: false",
         "validate_d9_matrix_source.py",
         "$RUNNER_TEMP",
+        TRUSTED_PRODUCTION_HASH_MAP_PATH,
+        SCANNER.relative_to(ROOT).as_posix(),
     ]
     missing = [item for item in required if item not in text]
     forbidden = [
@@ -257,6 +308,7 @@ def main() -> int:
             raise RuntimeError("validation output must be outside the repository")
         output_dir.mkdir(parents=True, exist_ok=True)
         context = load_context(args.policy)
+        trusted_dependencies = validate_trusted_dependencies()
         build1_path = output_dir / "build-1" / "missionmed-matrix-source.tar.gz"
         build2_path = output_dir / "build-2" / "missionmed-matrix-source.tar.gz"
         build1 = build_package(context, build1_path)
@@ -273,11 +325,9 @@ def main() -> int:
         command_scan = validate_no_production_commands(context)
         workflow = validate_workflow()
 
-        tag = context["policy"]["runtime_source_lock"]
-        source_lock = json.loads((ROOT / tag).read_text(encoding="utf-8"))
-        baseline_tag = source_lock["observed_baseline"]["tag"]
+        baseline_tag = TRUSTED_BASELINE_TAG
         tag_target = run(["git", "rev-list", "-n", "1", baseline_tag]).stdout.strip()
-        if tag_target != source_lock["observed_baseline"]["commit"]:
+        if tag_target != TRUSTED_BASELINE_COMMIT:
             raise RuntimeError("baseline tag target mismatch")
 
         report = {
@@ -289,6 +339,7 @@ def main() -> int:
             "runtime_source_tree": context["source_tree"],
             "worktree_clean": True,
             "tracked_source_completeness": "PASS",
+            "trusted_input_validation": trusted_dependencies,
             "protected_hash_validation": "PASS_10_OF_10_WITH_FOUNDER_002_CONTROLLER_EXCEPTION",
             "plugin_header_version": context["plugin_version"],
             "json_validation": {"result": "PASS", "tracked_json_count": json_count},

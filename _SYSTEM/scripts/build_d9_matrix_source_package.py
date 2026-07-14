@@ -26,6 +26,99 @@ DEFAULT_POLICY = (
     / "D9_MATRIX_PACKAGE_POLICY.json"
 )
 
+# D9-415E fail-closed trust anchors. These values are deliberately independent
+# of the mutable JSON policy so a pull request cannot repin the recovered
+# runtime, relax the package boundary, or redefine the provenance chain by
+# changing JSON inputs alone.
+TRUSTED_RUNTIME_SOURCE_COMMIT = "e12cd99aa9c019a6f99325c0b961aa50db945472"
+TRUSTED_RUNTIME_SOURCE_TREE = "9e0408d93a37c0d6f73a4d06aa9da135b79c9b90"
+TRUSTED_BASELINE_TAG = "d9-matrix-observed-production-baseline-NOT-DEPLOYABLE-20260713"
+TRUSTED_BASELINE_COMMIT = "c340a3a87732f7dc4afb06c01e4586239a050495"
+TRUSTED_POLICY_SHA256 = "6719d7820a3f5cd4397f68e048b4bce591b93aaaff2d19c15563965c674d23bf"
+TRUSTED_PRODUCTION_HASH_MAP_PATH = (
+    "_AI_HANDOFFS/from_codex/D9_MATRIX_PLAN_415_SOURCE_RECOVERY/"
+    "D9_415_PRODUCTION_TO_GIT_HASH_MAP.json"
+)
+TRUSTED_PRODUCTION_HASH_MAP_SHA256 = "81046f4c828594667c6692521501d5d69bdd73035fc3dc99f0f0ba7e5b8ff63a"
+TRUSTED_MU_MANIFEST_PATH = (
+    "_SYSTEM/BASELINES/D9_MATRIX_RUNTIME_2026_07_13/"
+    "D9_MATRIX_MU_INTENDED_ACTIVE.json"
+)
+TRUSTED_MU_MANIFEST_SHA256 = "dbfc6d5da0d64fa7071e437cd225de33dda658be2f60ac6a75d8b000cadd7803"
+TRUSTED_SOURCE_LOCK_PATH = (
+    "_SYSTEM/BASELINES/D9_MATRIX_RUNTIME_2026_07_13/"
+    "D9_MATRIX_RUNTIME_SOURCE_LOCK.json"
+)
+TRUSTED_SOURCE_LOCK_SHA256 = "d9c5eeda6b244d1491f2c45f22736d4f31382940c38dd0285c1c4eed02e0e861"
+TRUSTED_PLUGIN_ROOT = "wp-content/plugins/missionmed-hub"
+TRUSTED_PLUGIN_VERSION = "1.5.1"
+TRUSTED_ARCHIVE_ROOT = "missionmed-matrix-source"
+TRUSTED_COMPLETE_PLUGIN_COUNT = 125
+TRUSTED_PACKAGE_PLUGIN_COUNT = 120
+TRUSTED_INTENDED_MU_COUNT = 9
+TRUSTED_PACKAGE_SOURCE_COUNT = 129
+TRUSTED_EXCLUDED_PLUGIN_PATHS = (
+    "wp-content/plugins/missionmed-hub/CHANGELOG.md",
+    "wp-content/plugins/missionmed-hub/MULTI_DIVISION_DASHBOARD_INTEGRATION.md",
+    "wp-content/plugins/missionmed-hub/WEBEX_WIDGET_RESEARCH.md",
+    "wp-content/plugins/missionmed-hub/assets/daily-drills-team-challenge-sdk-tiles.inactive.js",
+    "wp-content/plugins/missionmed-hub/assets/test-deploy.txt",
+)
+TRUSTED_PROTECTED_ASSETS = {
+    "student_os_js": (
+        "wp-content/plugins/missionmed-hub/assets/student-os.js",
+        "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+    ),
+    "student_os_css": (
+        "wp-content/plugins/missionmed-hub/assets/student-os.css",
+        "111942c48eb8fd5dbe4132f17b4a6df89eb6a30044b1cb076db190c0da794a33",
+    ),
+    "class_mmed_student_os_php": (
+        "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php",
+        "23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29",
+    ),
+    "calendar_v4_js": (
+        "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.js",
+        "e9ef490cd15b10c2d43726d9249c1b623dbd5077a1728b128c50e10ca11010aa",
+    ),
+    "calendar_v4_css": (
+        "wp-content/plugins/missionmed-hub/assets/student-os-calendar-v4.css",
+        "6e519195f199b3f545690530bf78ffc35897b7ca70ca66428e72873714f4547e",
+    ),
+    "scheduler_mount_js": (
+        "wp-content/plugins/missionmed-hub/assets/scheduler-mount.js",
+        "2a47b847c52ed53dbffe51bef85c45efb2eecabe9246b821bce8b54f218e7578",
+    ),
+    "file_vault_js": (
+        "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.js",
+        "f1639c41d32ffe74d6d2712c93a321abd67c36ef12adb75b36061b2b39331edd",
+    ),
+    "file_vault_css": (
+        "wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css",
+        "6daeaf25071f0850dbedfd522e9f0819f46fcf0e5c7a8ffc5ad3abba73ef0990",
+    ),
+    "storyforge_js": (
+        "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.js",
+        "a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa",
+    ),
+    "storyforge_css": (
+        "wp-content/plugins/missionmed-hub/assets/student-os-storyforge.css",
+        "5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8",
+    ),
+}
+TRUSTED_NO_PRODUCTION_COMMAND_PATTERNS = (
+    "(?i)\\bssh\\s+[^\\n]+",
+    "(?i)\\bscp\\s+[^\\n]+",
+    "(?i)\\brsync\\s+[^\\n]+",
+    "(?i)\\bgit\\s+push\\b",
+    "(?i)\\bgh\\s+pr\\s+merge\\b",
+    "(?i)\\bwp\\s+(?:plugin|option|cache|db)\\b",
+    "(?i)\\bsupabase\\s+(?:db|migration|functions)\\b",
+    "(?i)\\bcurl\\b[^\\n]*(?:-X|--request)\\s*(?:POST|PUT|PATCH|DELETE)",
+    "(?i)\\bkubectl\\s+(?:apply|delete|patch|set)\\b",
+    "(?i)\\bhelm\\s+(?:install|upgrade|uninstall)\\b",
+)
+
 
 @dataclass(frozen=True)
 class SourceFile:
@@ -63,6 +156,12 @@ def tracked_json(ref: str, path: str) -> dict[str, Any]:
     return json.loads(git_bytes(ref, path).decode("utf-8"))
 
 
+def require_tracked_sha256(ref: str, path: str, expected: str) -> None:
+    observed = hashlib.sha256(git_bytes(ref, path)).hexdigest()
+    if observed != expected:
+        raise RuntimeError(f"trusted input digest mismatch: {path}")
+
+
 def ensure_clean_worktree() -> None:
     status = str(git("status", "--porcelain=v1", "--untracked-files=all"))
     if status:
@@ -93,8 +192,37 @@ def parse_plugin_version(data: bytes) -> str:
 
 def load_context(policy_path: Path = DEFAULT_POLICY) -> dict[str, Any]:
     ensure_clean_worktree()
-    policy_rel = policy_path.resolve().relative_to(ROOT).as_posix()
+    if policy_path.resolve() != DEFAULT_POLICY.resolve():
+        raise RuntimeError("alternate package policies are forbidden for the sealed D9-415 baseline")
+    policy_rel = DEFAULT_POLICY.relative_to(ROOT).as_posix()
+    require_tracked_sha256("HEAD", policy_rel, TRUSTED_POLICY_SHA256)
     policy = tracked_json("HEAD", policy_rel)
+    fixed_policy = {
+        "runtime_source_commit": TRUSTED_RUNTIME_SOURCE_COMMIT,
+        "runtime_source_tree": TRUSTED_RUNTIME_SOURCE_TREE,
+        "plugin_root": TRUSTED_PLUGIN_ROOT,
+        "plugin_version": TRUSTED_PLUGIN_VERSION,
+        "archive_root": TRUSTED_ARCHIVE_ROOT,
+        "production_hash_map": TRUSTED_PRODUCTION_HASH_MAP_PATH,
+        "mu_active_manifest": TRUSTED_MU_MANIFEST_PATH,
+        "runtime_source_lock": TRUSTED_SOURCE_LOCK_PATH,
+        "expected_complete_plugin_file_count": TRUSTED_COMPLETE_PLUGIN_COUNT,
+        "expected_package_plugin_file_count": TRUSTED_PACKAGE_PLUGIN_COUNT,
+        "expected_intended_mu_file_count": TRUSTED_INTENDED_MU_COUNT,
+        "expected_package_source_file_count": TRUSTED_PACKAGE_SOURCE_COUNT,
+    }
+    for key, expected in fixed_policy.items():
+        if policy.get(key) != expected:
+            raise RuntimeError(f"sealed package policy field mismatch: {key}")
+    if tuple(policy.get("excluded_plugin_paths", [])) != TRUSTED_EXCLUDED_PLUGIN_PATHS:
+        raise RuntimeError("sealed package exclusion list mismatch")
+    if tuple(policy.get("no_production_command_patterns", [])) != TRUSTED_NO_PRODUCTION_COMMAND_PATTERNS:
+        raise RuntimeError("sealed production-command policy mismatch")
+    require_tracked_sha256(
+        "HEAD", TRUSTED_PRODUCTION_HASH_MAP_PATH, TRUSTED_PRODUCTION_HASH_MAP_SHA256
+    )
+    require_tracked_sha256("HEAD", TRUSTED_MU_MANIFEST_PATH, TRUSTED_MU_MANIFEST_SHA256)
+    require_tracked_sha256("HEAD", TRUSTED_SOURCE_LOCK_PATH, TRUSTED_SOURCE_LOCK_SHA256)
     source_commit = policy["runtime_source_commit"]
     source_tree = str(git("show", "-s", "--format=%T", source_commit))
     if source_tree != policy["runtime_source_tree"]:
@@ -169,6 +297,16 @@ def load_context(policy_path: Path = DEFAULT_POLICY) -> dict[str, Any]:
             raise RuntimeError(f"quarantine preservation hash mismatch: {entry['forensic_path']}")
 
     protected = source_lock["protected_assets"]
+    if set(protected) != set(TRUSTED_PROTECTED_ASSETS):
+        raise RuntimeError("sealed protected-asset key set mismatch")
+    for key, (path, digest) in TRUSTED_PROTECTED_ASSETS.items():
+        if protected[key].get("path") != path or protected[key].get("observed_sha256") != digest:
+            raise RuntimeError(f"sealed protected-asset authority mismatch: {key}")
+    observed_baseline = source_lock.get("observed_baseline", {})
+    if observed_baseline.get("tag") != TRUSTED_BASELINE_TAG:
+        raise RuntimeError("sealed baseline tag name mismatch")
+    if observed_baseline.get("commit") != TRUSTED_BASELINE_COMMIT:
+        raise RuntimeError("sealed baseline tag target mismatch")
     for key, entry in protected.items():
         observed = hashlib.sha256(git_bytes(source_commit, entry["path"])).hexdigest()
         if observed != entry["observed_sha256"]:
@@ -187,6 +325,13 @@ def load_context(policy_path: Path = DEFAULT_POLICY) -> dict[str, Any]:
         raise RuntimeError(f"plugin version mismatch: {plugin_version} != {policy['plugin_version']}")
 
     archive_root = policy["archive_root"]
+    archive_root_path = PurePosixPath(archive_root)
+    if (
+        archive_root_path.is_absolute()
+        or len(archive_root_path.parts) != 1
+        or archive_root_path.parts[0] in {"", ".", ".."}
+    ):
+        raise RuntimeError("archive root must be one safe relative path component")
     files: list[SourceFile] = []
     for path in package_plugin_paths + sorted(mu_paths):
         files.append(
