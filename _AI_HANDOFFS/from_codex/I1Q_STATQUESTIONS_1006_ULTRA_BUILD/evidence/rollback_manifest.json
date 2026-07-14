@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-14T01:08:26.652Z",
+  "generated_at": "2026-07-14T01:17:48.747Z",
   "status": "DESIGNED_NOT_EXECUTED",
   "compensating_migration": "i1q-question-platform/db/rollback/0001_compensating_disable.sql",
   "sha256": "aa4d276c947f1dee12a8a72b606b6d53ef339a52c11c0516b03dc62d8a52a24d",

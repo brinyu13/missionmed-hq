@@ -43,4 +43,4 @@ VERIFIED: The harness is outside the 1005 directory under `audit/` and uses synt
 
 VERIFIED: Official suite green, adversarial suite green, fixed hash green, answer-leak mutations green, source estate unchanged, patient metric numeric.
 
-BLOCKED: A checkpoint commit is deferred until the complete integrated 1006 candidate and handoff are validated together, avoiding a partial commit of ignored evidence artifacts.
+VERIFIED: The complete integrated 1006 candidate and handoff were committed together in checkpoint commit `0a05b4d` after validation.

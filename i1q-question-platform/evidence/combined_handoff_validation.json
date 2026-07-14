@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-14T01:08:35.865Z",
+  "generated_at": "2026-07-14T01:17:55.256Z",
   "status": "pass",
   "combined_path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/I1Q_1006_COMBINED_HANDOFF.md",
   "source_count": 22,
@@ -42,9 +42,9 @@
     },
     {
       "path": "I1Q_1006_EMBEDDED_1005A_AUDIT.md",
-      "bytes": 2330,
+      "bytes": 2285,
       "lines": 46,
-      "sha256": "70033f23b64be7e3c4e38d98bd83c14a2d41ad101c3053ea629f19b0b1577a08"
+      "sha256": "4c9a065cf98067b3128edb56c35e1f61a8bbb0180ccb8793f7485111bc98502d"
     },
     {
       "path": "I1Q_1006_EXPORTS_AND_INTEGRATIONS.md",
@@ -138,8 +138,8 @@
     }
   ],
   "final_line_count": 1351,
-  "combined_bytes": 59924,
-  "combined_sha256": "a713e193a2147bf1b1d3a10d68bafc154081fb813c3cc05a6c91c282c6d2815b",
+  "combined_bytes": 59879,
+  "combined_sha256": "ad311340c8ecbe7abf4f077fa92dc1ef32760d65bbac4ab9a70b76b4fe379572",
   "markers_found": 22,
   "missing_sources": [],
   "duplicate_sources": [],

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-14T01:08:26.652Z",
+  "generated_at": "2026-07-14T01:17:48.747Z",
   "status": "STATIC_PASS_PREVIEW_NOT_RUN",
   "migration": "i1q-question-platform/db/migrations/0001_i1q_question_platform.sql",
   "sha256": "bd50aefa3c67bc756697f892c984d212a0330e75fd50b77e6b62095c349307d9",
