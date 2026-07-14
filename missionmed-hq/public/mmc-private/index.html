@@ -1072,11 +1072,11 @@
 
   <!-- Student Selector -->
   <div class="filter-bar">
-    <div class="filter-chip active" onclick="selectMemoryStudent(this,'amara')">Amara Okafor</div>
-    <div class="filter-chip" onclick="selectMemoryStudent(this,'raj')">Raj Patel</div>
-    <div class="filter-chip" onclick="selectMemoryStudent(this,'mei')">Mei-Ling Chen</div>
-    <div class="filter-chip" onclick="selectMemoryStudent(this,'diego')">Diego Ramirez</div>
-    <div class="filter-chip" onclick="selectMemoryStudent(this,'yuki')">Yuki Tanaka</div>
+    <div class="filter-chip active" data-memory-student="amara" onclick="selectMemoryStudent(this,'amara')">Amara Okafor</div>
+    <div class="filter-chip" data-memory-student="raj" onclick="selectMemoryStudent(this,'raj')">Raj Patel</div>
+    <div class="filter-chip" data-memory-student="mei" onclick="selectMemoryStudent(this,'mei')">Mei-Ling Chen</div>
+    <div class="filter-chip" data-memory-student="diego" onclick="selectMemoryStudent(this,'diego')">Diego Ramirez</div>
+    <div class="filter-chip" data-memory-student="yuki" onclick="selectMemoryStudent(this,'yuki')">Yuki Tanaka</div>
   </div>
 
   <div id="focus-view-root" data-testid="focus-view"></div>
@@ -1293,7 +1293,7 @@
           <div class="card-title">Live Session Notes</div>
           <span class="badge badge-green" id="session-save-state">Saved in demo</span>
         </div>
-        <textarea class="session-note-area" id="session-notes" data-testid="session-notes">Opening check-in complete. Amara is focused but anxious about application timing. Need to convert this call into 3 concrete next steps.</textarea>
+        <textarea class="session-note-area" id="session-notes" data-testid="session-notes">Session notes initialize for the selected student when a session starts.</textarea>
       </div>
 
       <div class="card">

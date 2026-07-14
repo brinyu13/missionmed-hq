@@ -1,0 +1,41 @@
+{
+  "schema": "missionmed.a1_mmc_prechange_state.v1",
+  "captured_utc": "2026-07-14T16:08:34Z",
+  "captured_local": "2026-07-14T12:08:34-0400",
+  "worktree": "/Users/brianb/MissionMed_worktrees/A1-MacAirMMCMentorIntelligence-004",
+  "repository_root": "/Users/brianb/MissionMed",
+  "remote": "https://github.com/brinyu13/missionmed-hq.git",
+  "branch": "a1-macair-mmc-mentor-intelligence-004",
+  "head": "41a2dfbbdf5e42eec1b6f2b0179af752d5c03551",
+  "upstream": "origin/a1-macair-mmc-mentor-intelligence-004",
+  "upstream_head": "41a2dfbbdf5e42eec1b6f2b0179af752d5c03551",
+  "remote_main": "9c1fa72e6b056db8b6fe0e17031fcaa688f78569",
+  "merge_base_with_remote_main": "5cc9144bfc770e5eda78124cc1fa886640041767",
+  "ahead_of_remote_main": 13,
+  "behind_remote_main": 13,
+  "staged_paths": [],
+  "untracked_paths": [],
+  "unstaged_paths": [
+    "_AI_HANDOFFS/from_codex/A1_MMC_PRO_INTEGRATION_004/A1_MMC_PRO_INTEGRATION_004_COMPLETE_COMBINED_HANDOFF.md"
+  ],
+  "existing_dirty_file": {
+    "worktree_sha256": "16cf08007021a902ca1d49c06f8d94f5f552d1ba65a9a438d36746f7d24be62c",
+    "worktree_git_blob": "df9857e22373d34f472c6d75e17a75d15d9b1320",
+    "committed_git_blob": "d3b3034c5a1bef0782d81d2c2ecfafcadd73fa90",
+    "committed_sha256": "8145e60c7fce254a7a2926a8771b708bd3663a5e79a584c038de8dbfd52598a8",
+    "observed_delta": "The first heading begins with x# instead of #; no other line differs. Provenance was not assumed at capture time."
+  },
+  "matrix_preflight": {
+    "command_scope": "all protected Matrix assets with public verification",
+    "exit_code": 42,
+    "disposition": "No Matrix-protected source will be edited, imported, deployed, or used as the MMC canonical source in this run.",
+    "production_lock_mismatch": {
+      "asset": "class_mmed_student_os_php",
+      "approved_sha256": "c0a538d3454ff4a05822e00ace01ebf933a8bbfcf1722fc2be382527743d78cb",
+      "observed_origin_sha256": "23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29"
+    }
+  },
+  "production_mutations": 0,
+  "deployments": 0,
+  "destructive_git_actions": 0
+}

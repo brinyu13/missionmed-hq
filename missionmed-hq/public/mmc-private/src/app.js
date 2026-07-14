@@ -1137,7 +1137,7 @@ function switchScreen(id) {
 
   if (id === 'meeting') renderMeetingIntelligence(activeMeetingStudent || activePrepStudent);
   if (id === 'profile') applyProfileSecondaryState();
-  if (id === 'memory') renderFocusView(activePrepStudent);
+  if (id === 'memory') renderMemoryContent(activePrepStudent);
   applyDensityMode();
 
   document.getElementById('content-area').scrollTop = 0;
@@ -1865,6 +1865,9 @@ function renderMemoryContent(studentId) {
   const bundle = ownershipRuntime.getStudentBundle(studentId);
   const container = document.getElementById('memory-content');
   if (!bundle || !bundle.student || !container) return;
+  document.querySelectorAll('#screen-memory [data-memory-student]').forEach((chip) => {
+    chip.classList.toggle('active', chip.dataset.memoryStudent === studentId);
+  });
   renderFocusView(studentId);
   const student = bundle.student;
   const personal = bundle.personalMemory[0];
@@ -2088,6 +2091,7 @@ function openProfile(id) {
   const s = students.find(x => x.id === id);
   if (!s) return;
   activePrepStudent = id;
+  activeMeetingStudent = id;
   document.getElementById('profile-avatar').textContent = s.initials;
   document.getElementById('profile-name').textContent = s.name;
   document.getElementById('profile-school').textContent = s.school + ' · ' + s.country;
@@ -2115,6 +2119,15 @@ function startSessionCommand() {
     renderSessionCommand(activePrepStudent);
     renderSessionItems();
     renderPilotReadiness();
+    const student = students.find((candidate) => candidate.id === activePrepStudent);
+    const briefing = ownershipRuntime.getStudentBriefing(activePrepStudent);
+    const notes = document.getElementById('session-notes');
+    if (student && notes) {
+      const currentFocus = briefing && briefing.nextBestMove
+        ? briefing.nextBestMove.action
+        : 'Review goals, promises, and open loops.';
+      notes.value = `Opening check-in started for ${student.name}. Current focus: ${currentFocus}`;
+    }
   }
   switchScreen('sessioncmd');
 }
