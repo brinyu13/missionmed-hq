@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.1",
+  "ticket": "D9-MATRIX-PLAN-415",
+  "updated_at": "2026-07-13T21:00:00-04:00",
+  "evidence_root": ".",
+  "entries": [
+    {"id":"E-P0-001","path":"evidence/PHASE_0_PREFLIGHT.txt","phase":0,"class":"git_preflight","redaction":"none_required"},
+    {"id":"E-P0-002","path":"evidence/PHASE_0_INPUT_HASHES.txt","phase":0,"class":"authority_hashes","redaction":"none_required"},
+    {"id":"E-P0-003","path":"evidence/PHASE_0_ENVIRONMENT.txt","phase":0,"class":"environment","redaction":"safe_versions_only"},
+    {"id":"E-P0-004","path":"evidence/PHASE_0_INSTRUCTION_SOURCES.txt","phase":0,"class":"instruction_chain","redaction":"none_required"},
+    {"id":"E-P1-001","path":"evidence/WAVE_1_SUBAGENT_A.md","phase":1,"class":"production_snapshot_secret_safety","redaction":"hashes_and_safe_metadata_only"},
+    {"id":"E-P1-002","path":"evidence/WAVE_1_SUBAGENT_B.md","phase":1,"class":"git_provenance","redaction":"none_required"},
+    {"id":"E-P1-003","path":"evidence/WAVE_1_SUBAGENT_C.md","phase":1,"class":"wordpress_mu_security","redaction":"no_values_or_private_payloads"},
+    {"id":"E-P1-004","path":"evidence/WAVE_1_SUBAGENT_D.md","phase":1,"class":"packaging_ci_release_rollback","redaction":"none_required"},
+    {"id":"E-P2-001","path":"D9_415_FOUNDER_DECISION_002.md","phase":2,"class":"hash_scoped_authority","redaction":"none_required"},
+    {"id":"E-P2-002","path":"D9_415_SNAPSHOT_CUTOFF.md","phase":2,"class":"quiescent_cutoff","redaction":"safe_metadata_only"},
+    {"id":"E-P2-003","path":"manifests/D9_415_T0_FULL_PRODUCTION_MANIFEST.tsv","phase":2,"class":"full_pre_snapshot_manifest","redaction":"paths_and_hashes_only"},
+    {"id":"E-P2-004","path":"manifests/D9_415_T1_FULL_PRODUCTION_MANIFEST.tsv","phase":2,"class":"full_post_snapshot_manifest","redaction":"paths_and_hashes_only"},
+    {"id":"E-P2-005","path":"manifests/D9_415_LOCAL_SNAPSHOT_VERIFICATION.json","phase":2,"class":"local_copy_verification","redaction":"paths_and_mismatch_codes_only"},
+    {"id":"E-P2-006","path":"D9_415_PRODUCTION_PLUGIN_SNAPSHOT_MANIFEST.json","phase":2,"class":"plugin_manifest","redaction":"safe_metadata_only"},
+    {"id":"E-P2-007","path":"D9_415_SECRET_AND_DATA_SCAN_REPORT.md","phase":2,"class":"redacted_secret_private_data_scan","redaction":"no_matched_values"},
+    {"id":"E-P3-001","path":"D9_415_MU_PLUGIN_RUNTIME_MANIFEST.json","phase":3,"class":"selected_mu_closure","redaction":"safe_metadata_only"},
+    {"id":"E-P3-002","path":"D9_415_MU_DEPENDENCY_GRAPH.md","phase":3,"class":"mu_dependency_graph","redaction":"none_required"},
+    {"id":"E-P3-003","path":"manifests/D9_415_REDACTED_SOURCE_SCAN.json","phase":3,"class":"redacted_scan_candidates","redaction":"lengths_hashes_rule_ids_only"},
+    {"id":"E-P3-004","path":"manifests/D9_415_TRACKED_SOURCE_SCAN.json","phase":3,"class":"tracked_tree_rescan","redaction":"lengths_hashes_rule_ids_only"},
+    {"id":"E-P3-005","path":"manifests/D9_415_MATRIX_GUARD_NINE_UNCHANGED_ASSETS.txt","phase":3,"class":"matrix_guard_pass","redaction":"hashes_only"},
+    {"id":"E-P3-006","path":"manifests/D9_415_MATRIX_GUARD_AUTHORIZED_CONTROLLER_EXCEPTION.txt","phase":3,"class":"decision_002_guard_exception","redaction":"hashes_only"},
+    {"id":"E-P3-007","path":"manifests/D9_415_BASELINE_PHP_SYNTAX.txt","phase":3,"class":"php_syntax","redaction":"paths_only"},
+    {"id":"E-P3-008","path":"manifests/D9_415_BASELINE_JS_SYNTAX.txt","phase":3,"class":"javascript_syntax","redaction":"paths_only"}
+  ]
+}

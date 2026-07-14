@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.1",
+  "ticket": "D9-MATRIX-PLAN-415",
+  "prompt": "D9-415-CODEX-GPT56-SOL-ULTRA-PRODUCTION-SOURCE-RECOVERY-MEGARUN-V2",
+  "resume_authority": "D9-415-CODEX-RESUME-HASH-SCOPED-FOUNDER-AUTHORIZATION",
+  "founder_decision_applied": "D9-415-FOUNDATION-002",
+  "updated_at": "2026-07-13T21:00:00-04:00",
+  "current_phase": "PHASE_4_READY_FOR_D9_415A_BASELINE_COMMIT",
+  "completed_gates": [
+    "mandatory_inputs_read",
+    "instruction_chain_loaded",
+    "founder_decision_001_recorded",
+    "phase_0_preflight_passed",
+    "execution_plan_created",
+    "subagent_wave_1_four_of_four_complete",
+    "wave_1_synthesis_filed",
+    "production_import_freeze_applied",
+    "founder_decision_002_recorded_and_applied",
+    "resume_worktree_branch_origin_base_rechecked",
+    "current_controller_23da5c_rechecked",
+    "active_lock_controller_c0a538_rechecked",
+    "t0_t1_cutoff_process_recorded",
+    "t0_t1_manifests_identical",
+    "local_forensic_copy_verified_zero_mismatches",
+    "current_controller_preserved_in_sealed_snapshot",
+    "plugin_manifest_125_files_complete",
+    "matrix_mu_closure_10_files_complete",
+    "redacted_secret_private_data_scan_passed",
+    "nine_unchanged_matrix_assets_guard_passed",
+    "decision_002_controller_exception_recorded",
+    "product_tree_import_matches_sealed_snapshot",
+    "baseline_php_js_json_syntax_passed"
+  ],
+  "resolved_gates": [
+    "hash_scoped_source_recovery_authority",
+    "snapshot_authorized_subject_to_identical_t0_t1"
+  ],
+  "failed_gates": [],
+  "current_branch": "d9-matrix-plan-415-source-recovery",
+  "base_commit": "9c1fa72e6b056db8b6fe0e17031fcaa688f78569",
+  "current_commit": "9c1fa72e6b056db8b6fe0e17031fcaa688f78569",
+  "origin_main": "9c1fa72e6b056db8b6fe0e17031fcaa688f78569",
+  "worktree_initially_clean": true,
+  "worktree_status": "TASK_GENERATED_HANDOFF_WRITES_ONLY",
+  "controller_hashes": {
+    "authorized_current_observed_production": "23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29",
+    "active_lock_historical_rollback": "c0a538d3454ff4a05822e00ace01ebf933a8bbfcf1722fc2be382527743d78cb"
+  },
+  "snapshot_cutoff": {
+    "status": "PASS_QUIESCENT",
+    "t0": "2026-07-14T00:31:00.453619187Z",
+    "t1": "2026-07-14T00:31:03.315562100Z",
+    "comparison": "IDENTICAL",
+    "normalized_manifest_sha256": "88c8be901df41ba260d5c3091f08dc87cd6d4ad9b36423e24e437373ea2b2a61",
+    "total_entries": 287,
+    "plugin_files": 125,
+    "plugin_directories": 8,
+    "mu_observation_files": 126,
+    "mu_observation_directories": 28,
+    "local_copy_mismatch_count": 0
+  },
+  "subagents": {
+    "wave_1": {
+      "required": 4,
+      "complete": 4,
+      "status": "COMPLETE_WITH_BLOCKER_RESOLVED_BY_FOUNDER_002"
+    },
+    "wave_2": {
+      "required": 4,
+      "complete": 0,
+      "status": "NOT_STARTED"
+    }
+  },
+  "production_mutation_count": 0,
+  "database_mutation_count": 0,
+  "cache_mutation_count": 0,
+  "feature_flag_mutation_count": 0,
+  "current_blockers": [],
+  "current_risks": [
+    "active_matrix_lock_controller_is_earlier_than_authorized_observed_source_and_must_not_be_modified_in_d9_415",
+    "y1_cam_4005_entitlement_behavior_is_preserved_but_not_approved",
+    "d9_415_is_absent_from_the_current_missionmed_os_registry",
+    "complete_matrix_related_mu_dependency_set_requires_local_snapshot_analysis",
+    "content_level_secret_and_student_data_scans_must_pass_before_git_import"
+  ],
+  "next_action": "Stage only the exact imported plugin/MU source and safe D9-415 provenance evidence, verify the staged tree against manifests, create immutable D9-415A, and tag it before any normalization."
+}

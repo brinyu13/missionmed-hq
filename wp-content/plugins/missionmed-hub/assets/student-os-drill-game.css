@@ -1,0 +1,158 @@
+.mmed-drill-game-panel {
+	background: rgba(15, 23, 42, 0.84);
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	border-radius: 8px;
+	display: grid;
+	gap: 14px;
+	margin-top: 16px;
+	padding: 16px;
+}
+
+.mmed-drill-game-head {
+	align-items: center;
+	display: flex;
+	gap: 16px;
+	justify-content: space-between;
+}
+
+.mmed-drill-game-label {
+	color: #d9b85b;
+	font-size: 12px;
+	font-weight: 900;
+	text-transform: uppercase;
+}
+
+.mmed-drill-game-head h2 {
+	color: #f8fafc;
+	font-size: 20px;
+	margin: 4px 0;
+}
+
+.mmed-drill-game-head p {
+	color: #94a3b8;
+	margin: 0;
+}
+
+.mmed-drill-game-points {
+	background: rgba(217, 184, 91, 0.12);
+	border: 1px solid rgba(217, 184, 91, 0.32);
+	border-radius: 8px;
+	display: grid;
+	min-width: 96px;
+	padding: 10px;
+	text-align: center;
+}
+
+.mmed-drill-game-points strong {
+	color: #f8e7a4;
+	font-size: 28px;
+	line-height: 1;
+}
+
+.mmed-drill-game-points span {
+	color: #94a3b8;
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+.mmed-drill-game-actions {
+	display: grid;
+	gap: 10px;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.mmed-drill-game-actions button {
+	background: rgba(255, 255, 255, 0.07);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	border-radius: 8px;
+	color: #e2e8f0;
+	cursor: pointer;
+	font-weight: 900;
+	min-height: 46px;
+}
+
+.mmed-drill-game-actions button:first-child {
+	background: rgba(16, 185, 129, 0.14);
+	border-color: rgba(16, 185, 129, 0.32);
+	color: #bbf7d0;
+}
+
+.mmed-drill-game-actions button:disabled {
+	cursor: wait;
+	opacity: 0.62;
+}
+
+.mmed-drill-game-stats {
+	display: grid;
+	gap: 10px;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.mmed-drill-game-stats div {
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 8px;
+	display: grid;
+	gap: 3px;
+	padding: 10px;
+}
+
+.mmed-drill-game-stats strong {
+	color: #f8fafc;
+	font-size: 20px;
+}
+
+.mmed-drill-game-stats span {
+	color: #94a3b8;
+	font-size: 11px;
+	font-weight: 800;
+	text-transform: uppercase;
+}
+
+.mmed-drill-game-leaders h3 {
+	color: #f8fafc;
+	font-size: 15px;
+	margin: 0 0 8px;
+}
+
+.mmed-drill-game-leaders ol {
+	display: grid;
+	gap: 7px;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.mmed-drill-game-leaders li {
+	align-items: center;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 8px;
+	display: flex;
+	justify-content: space-between;
+	padding: 9px 10px;
+}
+
+.mmed-drill-game-leaders span {
+	color: #d8e3ef;
+	font-weight: 800;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.mmed-drill-game-leaders strong {
+	color: #f8e7a4;
+}
+
+@media (max-width: 760px) {
+	.mmed-drill-game-head {
+		align-items: flex-start;
+		flex-direction: column;
+	}
+
+	.mmed-drill-game-actions,
+	.mmed-drill-game-stats {
+		grid-template-columns: 1fr;
+	}
+}
