@@ -7,6 +7,8 @@ import test from "node:test";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const upPath = path.resolve(here, "../sql/001_rise_registry.proposed.sql");
 const downPath = path.resolve(here, "../sql/001_rise_registry.down.proposed.sql");
+const appUpPath = path.resolve(here, "../sql/002_rise_app_and_audit.proposed.sql");
+const appDownPath = path.resolve(here, "../sql/002_rise_app_and_audit.down.proposed.sql");
 
 async function readUp() {
   return fs.readFile(upPath, "utf8");
@@ -198,4 +200,46 @@ test("proposed rollback refuses destructive schema deletion", async () => {
   assert.match(sql, /reactivate a verified release instead/);
   assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
   assert.doesNotMatch(sql, /public\./i);
+});
+
+test("private application schema models consent, sessions, comparisons, handoffs, and operator work", async () => {
+  const sql = await fs.readFile(appUpPath, "utf8");
+  assert.match(sql, /^BEGIN;/m);
+  assert.match(sql, /^COMMIT;/m);
+  assert.match(sql, /CREATE SCHEMA IF NOT EXISTS rise_app;/);
+  assert.match(sql, /CREATE SCHEMA IF NOT EXISTS rise_audit;/);
+  for (const table of [
+    "authorization_code_redemptions", "sessions", "profile_consents", "profile_projections",
+    "saved_programs", "comparison_sets", "comparison_set_members", "match_assessments",
+    "handoff_grants", "intelligence_queue_items",
+  ]) {
+    assert.match(sql, new RegExp(`CREATE TABLE rise_app\\.${table} \\(`));
+    assert.match(sql, new RegExp(`ALTER TABLE rise_app\\.${table} ENABLE ROW LEVEL SECURITY;`));
+    assert.match(sql, new RegExp(`ALTER TABLE rise_app\\.${table} FORCE ROW LEVEL SECURITY;`));
+  }
+  assert.match(sql, /code_expires_at <= code_issued_at \+ interval '60 seconds'/);
+  assert.match(sql, /expires_at <= issued_at \+ interval '5 minutes'/);
+  assert.match(sql, /encrypted_projection bytea NOT NULL/);
+  assert.match(sql, /purpose text NOT NULL CHECK \(purpose = 'rise_program_compatibility'\)/);
+  assert.match(sql, /REVOKE ALL ON ALL TABLES IN SCHEMA rise_app FROM PUBLIC;/);
+  assert.doesNotMatch(sql, /GRANT[\s\S]+TO PUBLIC/i);
+});
+
+test("audit and recovery evidence are append-only and private", async () => {
+  const sql = await fs.readFile(appUpPath, "utf8");
+  assert.match(sql, /CREATE TABLE rise_audit\.audit_events \(/);
+  assert.match(sql, /CREATE TABLE rise_audit\.recovery_checkpoints \(/);
+  assert.match(sql, /previous_event_sha256 char\(64\)/);
+  assert.match(sql, /restore_rehearsal_status text NOT NULL/);
+  assert.match(sql, /CREATE FUNCTION rise_audit\.reject_immutable_mutation\(\)[\s\S]*SECURITY DEFINER[\s\S]*SET search_path = pg_catalog, rise_audit/);
+  assert.match(sql, /CREATE TRIGGER rise_audit_events_immutable/);
+  assert.match(sql, /CREATE TRIGGER rise_recovery_checkpoints_immutable/);
+  assert.match(sql, /REVOKE ALL ON ALL TABLES IN SCHEMA rise_audit FROM PUBLIC;/);
+});
+
+test("app and audit rollback refuses destructive schema deletion", async () => {
+  const sql = await fs.readFile(appDownPath, "utf8");
+  assert.match(sql, /intentionally fail-closed/);
+  assert.match(sql, /RAISE EXCEPTION/);
+  assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
 });

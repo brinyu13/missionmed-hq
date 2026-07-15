@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "service": "missionmed-rise",
+  "serviceRoot": "/rise",
+  "configFilePath": "/rise/railway.json",
+  "dockerfilePath": "Dockerfile",
+  "expectedEntrypoint": [
+    "node",
+    "server.mjs"
+  ],
+  "forbiddenEntrypoints": [
+    "node missionmed-hq/server.mjs"
+  ],
+  "healthcheckPath": "/api/rise/v1/health",
+  "requiredEnvironment": [
+    "NODE_ENV",
+    "RISE_ENVIRONMENT",
+    "RISE_AUTH_MODE",
+    "RISE_AUTH_ADAPTER_MODULE",
+    "RISE_ABUSE_ADAPTER_MODULE",
+    "RISE_INDEX_PATH",
+    "RISE_INDEX_SHA256",
+    "RISE_INDEX_MANIFEST_PATH",
+    "RISE_SOURCE_AUTHORIZATION_SHA256S",
+    "RISE_ASSET_MANIFEST_SHA256",
+    "RISE_BUILD_ID"
+  ],
+  "requiredValues": {
+    "NODE_ENV": "production",
+    "RISE_ENVIRONMENT": "production",
+    "RISE_AUTH_MODE": "injected"
+  },
+  "runtimeArtifactPolicy": {
+    "registryIndexEmbeddedInImage": false,
+    "syntheticRegistryProhibitedInProduction": true,
+    "registryIndexMustPassImmutableManifestVerification": true,
+    "sourceAuthorizationHashesMustMatchRuntimePins": true,
+    "webAssetsMustPassManifestVerification": true
+  }
+}

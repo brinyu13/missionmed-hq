@@ -2,6 +2,17 @@
 
 This directory contains the isolated production-candidate foundation for RISE. It does not modify or deploy the protected MissionMed HQ, WordPress, Matrix, ACTN, CAM, StoryForge, Railway, or Supabase runtimes.
 
+## Isolated Service Package
+
+RISE has its own package boundary, lockfile, container recipe, and Railway config under `rise/`. A future approved Railway service must use `/rise` as its service root and `/rise/railway.json` as its config path. The contract in `deployment-contract.v1.json` prevents the service from falling through to the shared HQ entrypoint and records every required production pin. It is a reviewable deployment blueprint only; no Railway service currently exists.
+
+```bash
+cd rise
+npm ci
+npm test
+npm run build
+```
+
 ## Registry Import
 
 The importer consumes a deterministic NDJSON inspection produced from the canonical 31-specialty workbook. It can create an immutable offline-shadow release with stable program identities, exact specialty designations, combined-program browse memberships, source documents, field claims, and a validation manifest only when current written source authorization is governance-pinned.
@@ -57,6 +68,10 @@ FREIDA values are labeled as dated, program-reported census data. FREIDA and Res
 ## Runtime Authentication
 
 Local preview uses a synthetic fixture on a loopback address only. A hosted runtime must set `RISE_AUTH_MODE=injected`, provide `RISE_AUTH_ADAPTER_MODULE`, and return a host-authenticated session with audience `rise` plus `rise:read` (and `rise:operator` where needed). Browser bearer tokens are rejected. Production is detected from either `NODE_ENV=production` or `RISE_ENVIRONMENT=production` and requires `RISE_INDEX_SHA256`, `RISE_INDEX_MANIFEST_PATH`, `RISE_SOURCE_AUTHORIZATION_SHA256S`, `RISE_ASSET_MANIFEST_SHA256`, an authenticated web asset manifest, and `RISE_ABUSE_ADAPTER_MODULE` exporting a shared durable abuse-controller factory. `RISE_REVOKED_SOURCE_AUTHORIZATION_SHA256S` immediately blocks listed authorization records.
+
+## Proposed Database Migrations
+
+`001_rise_registry.proposed.sql` defines immutable, release-scoped registry data and atomic activation. `002_rise_app_and_audit.proposed.sql` defines private session, consented Matrix projection, saved/compare, assessment, handoff, operator-queue, append-only audit, and recovery-checkpoint planes. All app tables are RLS-enabled and forced with no policies or runtime grants, so they remain inaccessible until the approved identity and database owners install narrowly scoped policies. Both down migrations refuse destructive deletion.
 
 ## Tests
 
