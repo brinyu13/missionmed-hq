@@ -246,15 +246,17 @@ class MMED_Calendar_Engine {
 
 		self::maybe_install();
 
-		$event_id = absint( $request['id'] );
-		$user_id  = get_current_user_id();
-		$event    = self::get_owned_event( $event_id, $user_id );
+		$event_id      = absint( $request['id'] );
+		$user_id       = get_current_user_id();
+		$strict_owner  = self::is_strict_owner_request( $request );
+		$required_type = self::required_event_type( $request );
+		$event         = self::get_owned_event( $event_id, $user_id );
 
-		if ( ! $event && current_user_can( 'manage_options' ) ) {
+		if ( ! $event && ! $strict_owner && current_user_can( 'manage_options' ) ) {
 			$event = self::get_admin_editable_event( $event_id );
 		}
 
-		if ( ! $event ) {
+		if ( ! $event || ( $required_type && $required_type !== (string) $event->event_type ) ) {
 			return new WP_Error( 'mmed_event_not_found', 'Event not found.', array( 'status' => 404 ) );
 		}
 
@@ -265,7 +267,9 @@ class MMED_Calendar_Engine {
 		}
 
 		$event_source   = isset( $payload['source'] ) ? $payload['source'] : (string) $event->source;
-		$target_user_id = self::resolve_event_user_id( $raw, (int) $event->user_id, $event_source );
+		$target_user_id = $strict_owner
+			? (int) $event->user_id
+			: self::resolve_event_user_id( $raw, (int) $event->user_id, $event_source );
 		if ( current_user_can( 'manage_options' ) && (int) $event->user_id !== $target_user_id ) {
 			$payload['user_id'] = $target_user_id;
 		}
@@ -276,15 +280,23 @@ class MMED_Calendar_Engine {
 
 		$payload['updated_at'] = current_time( 'mysql' );
 
+		$where = array(
+			'id'      => $event_id,
+			'user_id' => (int) $event->user_id,
+		);
+		$where_formats = array( '%d', '%d' );
+
+		if ( $required_type ) {
+			$where['event_type'] = $required_type;
+			$where_formats[]      = '%s';
+		}
+
 		$updated = $wpdb->update(
 			self::table_name(),
 			$payload,
-			array(
-				'id'      => $event_id,
-				'user_id' => (int) $event->user_id,
-			),
+			$where,
 			self::format_map( $payload ),
-			array( '%d', '%d' )
+			$where_formats
 		);
 
 		if ( false === $updated ) {
@@ -305,33 +317,73 @@ class MMED_Calendar_Engine {
 
 		self::maybe_install();
 
-		$event_id = absint( $request['id'] );
-		$user_id  = get_current_user_id();
+		$event_id      = absint( $request['id'] );
+		$user_id       = get_current_user_id();
+		$strict_owner  = self::is_strict_owner_request( $request );
+		$required_type = self::required_event_type( $request );
 
 		$event = self::get_owned_event( $event_id, $user_id );
-		if ( ! $event && current_user_can( 'manage_options' ) ) {
+		if ( ! $event && ! $strict_owner && current_user_can( 'manage_options' ) ) {
 			$event = self::get_admin_editable_event( $event_id );
 		}
 
-		if ( ! $event ) {
+		if ( ! $event || ( $required_type && $required_type !== (string) $event->event_type ) ) {
 			return new WP_Error( 'mmed_event_not_found', 'Event not found.', array( 'status' => 404 ) );
 		}
 
-		$wpdb->update(
+		$where = array(
+			'id'      => $event_id,
+			'user_id' => (int) $event->user_id,
+		);
+		$where_formats = array( '%d', '%d' );
+
+		if ( $required_type ) {
+			$where['event_type'] = $required_type;
+			$where_formats[]      = '%s';
+		}
+
+		$deleted = $wpdb->update(
 			self::table_name(),
 			array(
 				'status'     => 'cancelled',
 				'updated_at' => current_time( 'mysql' ),
 			),
-			array(
-				'id'      => $event_id,
-				'user_id' => (int) $event->user_id,
-			),
+			$where,
 			array( '%s', '%s' ),
-			array( '%d', '%d' )
+			$where_formats
 		);
 
+		if ( false === $deleted && $strict_owner ) {
+			return new WP_Error( 'mmed_event_delete_failed', 'Event could not be deleted.', array( 'status' => 500 ) );
+		}
+
 		return new WP_REST_Response( array( 'deleted' => true, 'id' => $event_id ), 200 );
+	}
+
+	/**
+	 * Determine whether an internal caller requires owner-only mutation semantics.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return bool
+	 */
+	protected static function is_strict_owner_request( $request ) {
+		return $request instanceof WP_REST_Request
+			&& self::is_truthy_request_value( $request->get_param( '_mmed_strict_owner' ) );
+	}
+
+	/**
+	 * Read an optional event-type constraint that can only narrow a mutation.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return string
+	 */
+	protected static function required_event_type( $request ) {
+		if ( ! $request instanceof WP_REST_Request ) {
+			return '';
+		}
+
+		$type = sanitize_key( $request->get_param( '_mmed_required_event_type' ) );
+		return in_array( $type, self::event_types(), true ) ? $type : '';
 	}
 
 	/**
@@ -823,6 +875,13 @@ class MMED_Calendar_Engine {
 		}
 
 		if ( current_user_can( 'manage_options' ) ) {
+			// An explicit private audience must win over Calendar's historical
+			// admin-authored global default. Existing callers without this marker
+			// retain their current behavior.
+			if ( 'private' === $audience ) {
+				return absint( $default_user_id );
+			}
+
 			if ( 'all_students' === $audience ) {
 				return 0;
 			}
