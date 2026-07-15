@@ -1,0 +1,53 @@
+# V1 Study Schedule — File Manifest
+
+Status: **complete**
+
+## Manifest law
+
+- All final files live in this directory.
+- The canonical directory name is `V1_STUDY_SCHEDULE_8000_RECON`; the superseded
+  `V1_STUDY_SCHEDULER_8000_RECON` name is intentionally not created.
+- The combined handoff embeds all 28 final Markdown deliverables except itself,
+  including this manifest, with BEGIN/END markers.
+- `V1_8000_RUN_STATE.json` and `V1_8000_BUILD_COMBINED.py` are preserved beside
+  the Markdown set but are not Markdown embeddings.
+- This manifest lists the 29 nonrecursive source inputs. It cannot include its
+  own hash without recursion, and the combined file cannot list itself as an
+  input. Their final hashes are reported by closeout validation and the final
+  response.
+- Every listed value is SHA-256 over the exact final bytes used to build the
+  combined handoff.
+
+## Nonrecursive source-input manifest
+
+| File | Bytes | SHA-256 |
+|---|---:|---|
+| `V1_8000_AGENT_ORCHESTRATION_REPORT.md` | 3641 | `f2371b0d4b072836b970b1f5f1d0a8ebe3479f78937778ed89eea021000084e5` |
+| `V1_8000_ARTIFACT_AND_PROTOTYPE_CENSUS.md` | 6029 | `93113fe628829741da1341653d01a78434cee5a5f2b990ac455bab5d8c632615` |
+| `V1_8000_AUTHORITY_HIERARCHY.md` | 4541 | `59fe7fd3e35fac666f2a8638c2fc507abaeb8e9fb8555eac1d94969277838cd8` |
+| `V1_8000_BLOCKER_REGISTER.md` | 6277 | `aeb9d93f99f70298d7f0b9a8fdce234175d7a3a9b533eb4533d9549d87c2d54d` |
+| `V1_8000_BUILD_COMBINED.py` | 2822 | `3bf4a20f8fb3783e6b00a3b1203788a94177adac32ff0e5df0b897b6a648f742` |
+| `V1_8000_CANONICAL_SOURCE_DECISION.md` | 4358 | `b49f0bdf08d43a958d2153827a0a459e79ab9b218606f6c502e88cfa64c1148c` |
+| `V1_8000_COMMAND_LOG.md` | 6601 | `5f7cba48df67a7b9266387d02374742827af8d34a63e334590f70b18a652833a` |
+| `V1_8000_COMPLETION_SCORECARD.md` | 6610 | `eb6779fb2446f3b76f511b6fcfff7aa9580fa5cc4b4b3c1f06cbc7fdddbb1789` |
+| `V1_8000_CURRENT_ARCHITECTURE.md` | 4325 | `14b881cae6b2d7a9716e473b932b75f1c734bf2c4ec3b6dfdbef521c218d246a` |
+| `V1_8000_CURRENT_STATE_REPORT.md` | 7798 | `d058ba16c8ce1419fd8b73f17a3a1061baaf3444029a4db848662c42017cdc23` |
+| `V1_8000_DATA_API_AND_IDENTITY_MAP.md` | 6872 | `dc8d3364230f5e00931f9df59ce08d08e29bd21d0bf49c36eb9e7df8195d1a47` |
+| `V1_8000_DECISION_LEDGER.md` | 14099 | `e63c46da6ec2ddd59d6ae132c8e07806792c5d36a0c2870bead28abb8336bdf1` |
+| `V1_8000_ECOSYSTEM_DEPENDENCY_MAP.md` | 5031 | `810945db24a1c81dbc53ef4fe53502e4d3d52f3b34f194167ce382ebb3fa39a6` |
+| `V1_8000_EVIDENCE_INDEX.md` | 6922 | `233e834df742ab57baafece60fde472b7f8d975695e7e6b8440861d31262c63c` |
+| `V1_8000_EXECUTIVE_VERDICT.md` | 4559 | `76e0e0e6ec48ad795bdbfdbab14e57beb33be21d9a77bef5a273df5a08f04b63` |
+| `V1_8000_FEATURE_IMPLEMENTATION_MATRIX.md` | 9959 | `c138be667f60c408b27df967d0fe60a902cd574ce3d5ff31f4a3a02ceae80688` |
+| `V1_8000_INDEPENDENT_REVIEW.md` | 6750 | `f1e9b061e634d02aeba70934deece20da34d077cffaedbb37ee338c252950449` |
+| `V1_8000_PRODUCT_REQUIREMENTS_RECONSTRUCTION.md` | 8023 | `370f41afb589520bfc82653a123aa47471dc22be59b21331dec50947c28c43a7` |
+| `V1_8000_PROTECTED_CONTRACT_AND_INVARIANT_REGISTER.md` | 7475 | `7815c46a72090b123cd06f8b9f3a6016a9461fdbe8388e27c55b73861710d1a4` |
+| `V1_8000_RECOMMENDED_TICKET_SEQUENCE.md` | 3460 | `080fe61219dae0a20dfddce4ba48e229f771acd43619ad1754bcc4dc50af6c5f` |
+| `V1_8000_REPOSITORY_BRANCH_WORKTREE_MAP.md` | 3104 | `6382131f7d73f3751820f048bc27cb576aa2a2cf208d3d42402f599c0f497a05` |
+| `V1_8000_RISK_AND_CONFLICT_REGISTER.md` | 6032 | `47949121c0ab000261095ea3963509c5080235c1b0b462cd564f454a2f59f604` |
+| `V1_8000_RUNTIME_AND_PRODUCTION_READINESS.md` | 5496 | `50b428cd205249e714aa1510833ba91c4b9a537c4819bdd4b0e0ec536e96b9d7` |
+| `V1_8000_RUN_STATE.json` | 5701 | `63db466a7ad2a2d349bc23e381cb50a905e1c54e419b0ed316a6ab257e1ecb27` |
+| `V1_8000_SHORTEST_SAFE_PRODUCTION_PATH.md` | 5419 | `1dff7d94c7c0386e56a81c54923d9eaf50579ba702d3226638331c3238ea6e74` |
+| `V1_8000_TARGET_ARCHITECTURE.md` | 9937 | `a6bfec3d8f56d38e08cd7f338fada022d21522318d7b593ed70196f284da0d89` |
+| `V1_8000_TEST_QA_AND_OBSERVABILITY_BASELINE.md` | 4826 | `4037e01e7b5854c5433af21f4162fab0dafc76ca4b8d4e37556b757dbb6897e3` |
+| `V1_8000_UI_UX_EXPERT_BOARD_RUBRIC.md` | 5430 | `70f40fda81a76731345065443757663085402f3455313267892edcd413ad23db` |
+| `V1_8000_V1_8010_NEXT_RUN_INPUTS.md` | 5510 | `c19b004e9caff5318e3d55ff6e2de2dcfff6b79a6d82943233891c7856f26550` |

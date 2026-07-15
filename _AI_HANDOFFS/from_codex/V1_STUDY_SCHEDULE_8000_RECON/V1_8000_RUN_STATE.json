@@ -1,0 +1,156 @@
+{
+  "schema_version": "1.0",
+  "mission": "V1-STUDY-SCHEDULE-8000",
+  "status": "complete",
+  "date": "2026-07-14",
+  "mode": "reconciliation_only",
+  "startup": {
+    "condition": "resolved",
+    "index_lock_initial": "stale_removed",
+    "index_lock_resume": "not_present",
+    "missionmed_os_local_changes": "preserved_untouched",
+    "remote_authority": "fetched_and_read_directly"
+  },
+  "missionmed_os": {
+    "local_branch": "main",
+    "local_head": "72b48e54f5b009ca17cb37c143e7d3c8afb1ef02",
+    "local_status_entries": 19,
+    "local_ahead": 0,
+    "local_behind_fetched_origin_main": 11,
+    "fetched_origin_main": "714443573c41e7a04e4241e67244c334787e1bed",
+    "local_changes": "preserved_untouched"
+  },
+  "product_identity": {
+    "product": "V1 Study Schedule",
+    "purpose": "Learner academic study planning and execution",
+    "historical_aliases": [
+      "Matrix Plan",
+      "Study Schedule",
+      "Study Scheduler",
+      "D9 Matrix Plan"
+    ],
+    "excluded_products": [
+      "MissionMed Scheduler",
+      "Appointment Scheduler",
+      "Calendar",
+      "Webex Scheduler"
+    ]
+  },
+  "repository": {
+    "url": "https://github.com/brinyu13/missionmed-hq.git",
+    "worktree": "/Users/brianb/MissionMed_worktrees/V1-StudyScheduler-8000",
+    "branch": "codex/v1-study-schedule-8000",
+    "start_head": "d4455bf4ee401eaa8b074603497eb9fcd6eb04a0",
+    "canonical_base_ref": "origin/d9-matrix-plan-415-source-recovery",
+    "canonical_base_head": "d4455bf4ee401eaa8b074603497eb9fcd6eb04a0",
+    "origin_main": "9c1fa72e6b056db8b6fe0e17031fcaa688f78569",
+    "run_start_upstream": null
+  },
+  "authority": {
+    "visual_interaction": "D9-300",
+    "visual_artifact_sha256": "cd7737649afeb581fa3a18abb774cfa8ade1860372e0215cc8bd3fa375d0dc67",
+    "behavioral": "D9-350 where consistent",
+    "refinement_evidence": "D9-360, revalidation required, G-D9-4 open",
+    "implementation_foundation": "d4455bf4ee401eaa8b074603497eb9fcd6eb04a0",
+    "physical_data_store": null,
+    "identity": "WordPress user identity; server context contract pending"
+  },
+  "runtime": {
+    "public_observation_start_utc": "2026-07-15T00:23:41Z",
+    "public_observation_end_utc": "2026-07-15T00:23:42Z",
+    "d9_415_snapshot_t0_utc": "2026-07-14T00:31:00.453619187Z",
+    "d9_415_snapshot_t1_utc": "2026-07-14T00:31:03.315562100Z",
+    "production_route": null,
+    "source_inferred_legacy_route": "/member-dashboard/#study",
+    "authenticated_route_verified": false,
+    "public_hashed_asset_sha256": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+    "source_hashed_asset_sha256": "646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a",
+    "public_unversioned_asset_sha256": "6b3ad4ea933f61c28da266a7260851b3c0af69b8e09a7df08ff5485718f9948c",
+    "active_hashed_bundle_in_global_lock": false,
+    "global_lock_student_os_path": "wp-content/plugins/missionmed-hub/assets/student-os.js",
+    "active_hashed_bundle_in_matrix_passport": false,
+    "anonymous_dashboard_http": 302,
+    "anonymous_rest_http": 401,
+    "runtime_lock_override": {
+      "approved": true,
+      "asset": "class_mmed_student_os_php",
+      "scope": "V1-STUDY-SCHEDULE-8000 read-only reconciliation"
+    }
+  },
+  "scores_percent": {
+    "product_definition": 86,
+    "ux_specification": 88,
+    "visual_design": 82,
+    "frontend_production_implementation": 5,
+    "backend_production_implementation": 5,
+    "persistence_data": 0,
+    "integrations": 0,
+    "mentor_admin": 0,
+    "mobile_responsive": 0,
+    "accessibility": 0,
+    "automated_testing": 0,
+    "manual_visual_qa": 0,
+    "performance": 0,
+    "observability": 0,
+    "security_boundary_readiness": 0,
+    "staging_readiness": 0,
+    "deployment_readiness": 0,
+    "rollback_readiness": 0,
+    "overall_production_readiness": 7
+  },
+  "production_readiness_gate_count": {
+    "passed": 2,
+    "total": 30,
+    "percentage_compact_indicator": 7,
+    "interpretation": "High confidence applies to evidence classification/count, not to a calibrated launch probability."
+  },
+  "prototype_tests": {
+    "d9_350": {
+      "passed": 188,
+      "failed": 0
+    },
+    "d9_360": {
+      "passed": 209,
+      "failed": 0
+    }
+  },
+  "agents": {
+    "herschel": "completed_read_only",
+    "avicenna": "completed_read_only",
+    "lorentz": "completed_read_only",
+    "darwin": "completed_read_only",
+    "final_challenge": "all_valid_p0_p1_report_defects_resolved"
+  },
+  "mutations": {
+    "application_source_final_diff": 0,
+    "application_source_persisted": 0,
+    "provisional_source_files_created_during_overrun": 2,
+    "provisional_source_files_deleted_during_disposition": 2,
+    "production": 0,
+    "database": 0,
+    "cache_cdn": 0,
+    "feature_flag": 0,
+    "authentication_entitlement": 0,
+    "deployments": 0
+  },
+  "next": {
+    "ticket": "V1-STUDY-SCHEDULE-8010",
+    "implementation_ready": false,
+    "phase_a_ready": true,
+    "exact_action": "Open V1-8010A at d4455bf and complete the exact 14-item authority checklist, source freeze, non-mutating production observation, and local/isolated-staging characterization before schema or learner-visible implementation."
+  },
+  "publication": {
+    "commit": "self_commit_hash_reported_externally",
+    "remote_branch": "origin/codex/v1-study-schedule-8000",
+    "draft_pr": "url_reported_externally",
+    "combined_handoff_sha256": "reported_externally_to_avoid_recursive_manifest_dependency"
+  },
+  "validation": {
+    "final_agent_challenge_complete": true,
+    "json_parsed": true,
+    "paths_verified": true,
+    "secret_private_data_scan_passed": true,
+    "application_source_diff_zero": true,
+    "deterministic_clean_checkout_reproduction": true
+  }
+}
