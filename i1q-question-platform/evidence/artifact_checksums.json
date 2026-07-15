@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T16:08:58.772Z",
+  "generated_at": "2026-07-15T16:17:54.598Z",
   "status": "pass",
   "artifact_count": 44,
   "artifacts": [
@@ -10,8 +10,8 @@
     },
     {
       "path": "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
-      "bytes": 135093,
-      "sha256": "bcd680af7c5e2dd11d1cf8869d6bf4d12020c2fe4ae51342d54b11e96b3078a2"
+      "bytes": 136254,
+      "sha256": "2a8b3651336f4820986c842e1c03a286f789001ff8483270aee0a24cfab7c38e"
     },
     {
       "path": "i1q-question-platform/db/rollback/0001_compensating_disable.sql",
@@ -100,8 +100,8 @@
     },
     {
       "path": "i1q-question-platform/src/exports.mjs",
-      "bytes": 15643,
-      "sha256": "a0feb60f185b5733c1323c255a054fdc498d794fe75cd06b9bc1a105b15d3c6b"
+      "bytes": 16484,
+      "sha256": "c1e5b6a4ddd67c7f16f74211ecda0b7e59bf741ed80e459dd2e8b0c286748dbf"
     },
     {
       "path": "i1q-question-platform/src/hash.mjs",
@@ -160,8 +160,8 @@
     },
     {
       "path": "i1q-question-platform/tests/exports-class-c.test.mjs",
-      "bytes": 16143,
-      "sha256": "b1c6199118ddcc55a5feb30daeffd943f143ef9d2332c9eb30c024ee0bfb7c02"
+      "bytes": 19513,
+      "sha256": "c967d5b21a3316de7f00dde941b47c6dfa5d70ccc5ac129977c499fe2e71bda8"
     },
     {
       "path": "i1q-question-platform/tests/fixtures/validator/estate-template.json",
@@ -180,8 +180,8 @@
     },
     {
       "path": "i1q-question-platform/tests/migration-1007x.test.mjs",
-      "bytes": 17662,
-      "sha256": "814ed4d656fa9ce2efec7501a5d9c2c6454735b1ec527609ab4275b3710a711d"
+      "bytes": 18864,
+      "sha256": "41b0dae119ca9410e4f62a1a937e915c5d3a18a75a2dfe729a1becb5a0efd706"
     },
     {
       "path": "i1q-question-platform/tests/migration.test.mjs",
@@ -200,8 +200,8 @@
     },
     {
       "path": "i1q-question-platform/tests/postgres-migration.test.mjs",
-      "bytes": 45231,
-      "sha256": "36307cdefcfc451706076c97bfb49c2e826049d8eed3a23a274bf24c115d63e7"
+      "bytes": 55804,
+      "sha256": "ce49b211dd2052b32d70fe26533d50a17d1d74564ad8d56b6936b57db9edf40d"
     },
     {
       "path": "i1q-question-platform/tests/postgres-repository.test.mjs",
