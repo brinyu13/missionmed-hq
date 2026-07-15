@@ -65,7 +65,10 @@ compatibility suite; the string `0` is not a placeholder reader.
   and active FOREIGN KEY, UNIQUE, and (on MariaDB) CHECK enforcement. The
   runner pins `STRICT_TRANS_TABLES`, `NO_ZERO_IN_DATE`, and `NO_ZERO_DATE` for
   all protected work, verifies them before mutation, and restores the caller's
-  exact SQL mode on every exit. A cryptographically unique native SAVEPOINT /
+  exact SQL mode on every exit. Because `SET SESSION timestamp` can spoof
+  `UTC_TIMESTAMP()`, the runner bounds that session value against both the PHP
+  process clock and `SYSDATE(6)` before mutable work and before every ledger
+  timestamp; a fixed replay/future clock fails closed. A cryptographically unique native SAVEPOINT /
   ROLLBACK TO / RELEASE round trip is the transaction-state authority; optional
   Performance Schema instrumentation is not authority.
 - Commissioning uses `READ COMMITTED`, verifies the transaction after each
@@ -143,7 +146,8 @@ After any watermark, the permanent rollback floor includes the C access/domain a
 - Exact engine, server, isolation, SQL mode, charset/collation, and connection evidence.
 - Disabled FK/UNIQUE/MariaDB-CHECK enforcement, non-strict mode, autocommit off,
   read-only/local/XA outer transactions, PFS-disabled outer transactions,
-  completion-type CHAIN/RELEASE, and preserved caller savepoint/sentinel cases.
+  completion-type CHAIN/RELEASE, replay-spoofed session time, and preserved
+  caller savepoint/sentinel cases.
 - Same-named TEMPORARY tables both before initial DDL and as an exact-shape
   shadow beside a durable ledger; caller temporary bytes and durable authority
   must both remain untouched after rejection.

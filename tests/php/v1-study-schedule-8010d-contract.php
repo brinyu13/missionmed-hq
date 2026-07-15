@@ -102,6 +102,7 @@ v1_8010d_expect_throws(
 );
 
 $migrator_reflection = new ReflectionClass( 'MMED_V1_Study_Migrator' );
+v1_8010d_expect( 5.0 === MMED_V1_Study_Migrator::CLOCK_SKEW_SECONDS, 'session-clock skew boundary is explicit and immutable' );
 $valid_timestamp     = $migrator_reflection->getMethod( 'valid_ledger_timestamp' );
 $valid_timestamp->setAccessible( true );
 $migrator_without_database = $migrator_reflection->newInstanceWithoutConstructor();
@@ -145,5 +146,6 @@ foreach ( array( 'dbDelta', 'update_option', 'add_option', 'delete_option', 'reg
 	v1_8010d_expect( false === strpos( $source, $forbidden . '(' ), 'kernel source remains inert: ' . $forbidden );
 }
 v1_8010d_expect( 0 === preg_match( '/\b(?:DROP|TRUNCATE|ALTER)\s+(?:TABLE|DATABASE)\b/i', $source ), 'kernel source contains no destructive schema command' );
+v1_8010d_expect( false !== strpos( $source, '@@SESSION.timestamp' ) && false !== strpos( $source, 'UNIX_TIMESTAMP(SYSDATE(6))' ), 'kernel independently bounds replay-spoofable database session time' );
 
 echo "V1 Study Schedule 8010D pure contract: ok\n";

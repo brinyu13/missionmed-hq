@@ -90,6 +90,26 @@ if ( $is_mariadb ) {
 }
 v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === $inspector->inspect()['state'], 'constraint-gate rejection leaves the kernel absent' );
 
+$wpdb->set_prefix( 'v1dclock_' );
+$initial_session_timestamp = (float) $wpdb->get_var( 'SELECT @@SESSION.timestamp' );
+$initial_system_timestamp  = (float) $wpdb->get_var( 'SELECT UNIX_TIMESTAMP(SYSDATE(6))' );
+v1_8010d_wp_expect( abs( $initial_session_timestamp - $initial_system_timestamp ) <= MMED_V1_Study_Migrator::CLOCK_SKEW_SECONDS, 'fixture begins with the default current session timestamp' );
+v1_8010d_wp_expect( false !== $wpdb->query( 'SET SESSION timestamp = 2114380800' ), 'fixture fixes the session clock in 2037' );
+v1_8010d_wp_expect_error(
+	static function () use ( $wpdb, $store_id, $runner_a ) {
+		( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
+	},
+	'v1_migration_database_clock_untrusted',
+	'migrator rejects a replay-spoofed session clock before DDL'
+);
+v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === ( new MMED_V1_Study_Schema_Inspector( $wpdb ) )->inspect()['state'], 'clock-gate rejection leaves the kernel absent' );
+v1_8010d_wp_expect( false !== $wpdb->query( 'SET SESSION timestamp = DEFAULT' ), 'fixture restores the default current session timestamp' );
+v1_8010d_wp_expect(
+	abs( (float) $wpdb->get_var( 'SELECT @@SESSION.timestamp' ) - (float) $wpdb->get_var( 'SELECT UNIX_TIMESTAMP(SYSDATE(6))' ) ) <= MMED_V1_Study_Migrator::CLOCK_SKEW_SECONDS,
+	'fixture verifies the restored default session clock'
+);
+$wpdb->set_prefix( 'v1dmain_' );
+
 $original_sql_mode = (string) $wpdb->get_var( 'SELECT @@SESSION.sql_mode' );
 $wpdb->set_prefix( 'v1dsqlmode_' );
 v1_8010d_wp_expect( false !== $wpdb->query( "SET SESSION sql_mode = ''" ), 'fixture supplies an explicitly non-strict caller SQL mode' );
@@ -497,7 +517,8 @@ $environment = $wpdb->get_row(
 	'SELECT @@SESSION.sql_mode AS sql_mode, @@SESSION.autocommit AS autocommit, @@SESSION.foreign_key_checks AS foreign_key_checks,'
 	. ' @@SESSION.unique_checks AS unique_checks, @@SESSION.character_set_client AS character_set_client,'
 	. ' @@SESSION.character_set_connection AS character_set_connection, @@SESSION.character_set_results AS character_set_results,'
-	. ' @@SESSION.collation_connection AS collation_connection, @@character_set_server AS character_set_server, @@collation_server AS collation_server',
+	. ' @@SESSION.collation_connection AS collation_connection, @@character_set_server AS character_set_server, @@collation_server AS collation_server,'
+	. ' @@SESSION.timestamp AS session_timestamp, UNIX_TIMESTAMP(SYSDATE(6)) AS system_timestamp',
 	ARRAY_A
 );
 v1_8010d_wp_expect( is_array( $environment ), 'database environment evidence is readable' );
@@ -512,6 +533,7 @@ v1_8010d_wp_expect( $original_sql_mode === $environment['sql_mode'], 'adversaria
 v1_8010d_wp_expect( 1 === (int) $environment['autocommit'], 'database session ends with autocommit enabled' );
 v1_8010d_wp_expect( 1 === (int) $environment['foreign_key_checks'] && 1 === (int) $environment['unique_checks'], 'database session ends with FK and UNIQUE enforcement enabled' );
 v1_8010d_wp_expect( ! $is_mariadb || 1 === (int) $environment['check_constraint_checks'], 'MariaDB session ends with CHECK enforcement enabled' );
+v1_8010d_wp_expect( abs( (float) $environment['session_timestamp'] - (float) $environment['system_timestamp'] ) <= MMED_V1_Study_Migrator::CLOCK_SKEW_SECONDS, 'database session ends with an unspoofed current clock' );
 $environment_json = json_encode( $environment, JSON_UNESCAPED_SLASHES );
 v1_8010d_wp_expect( is_string( $environment_json ), 'database environment evidence encodes deterministically' );
 

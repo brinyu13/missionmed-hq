@@ -16,6 +16,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 /** Content-addressed DDL runner with advisory-lock and restart reconciliation. */
 final class MMED_V1_Study_Migrator {
 
+	/** Maximum tolerated wall-clock skew while proving the session clock is not overridden. */
+	const CLOCK_SKEW_SECONDS = 5.0;
+
 	/** @var object */
 	private $database;
 
@@ -635,6 +638,46 @@ final class MMED_V1_Study_Migrator {
 		if ( 1 !== (int) $foreign_keys || 1 !== (int) $unique_keys || 1 !== (int) $checks ) {
 			throw new RuntimeException( 'v1_migration_session_constraints_disabled' );
 		}
+		$this->assert_database_clock_unspoofed();
+	}
+
+	/**
+	 * Bound the mutable session timestamp to independent process and server clocks.
+	 *
+	 * MySQL and MariaDB permit SET SESSION timestamp to override NOW(), including
+	 * UTC_TIMESTAMP(). Ledger timestamps remain database-authored, but a fixed
+	 * replay timestamp must never be allowed to masquerade as current database
+	 * time. Rechecking at every ledger timestamp also closes post-preflight drift.
+	 *
+	 * @return void
+	 */
+	private function assert_database_clock_unspoofed() {
+		$process_before    = microtime( true );
+		$session_timestamp = $this->guarded_scalar( 'SELECT @@SESSION.timestamp', 'v1_migration_database_clock_probe_failed' );
+		$server_timestamp  = $this->guarded_scalar( 'SELECT UNIX_TIMESTAMP(SYSDATE(6))', 'v1_migration_database_clock_probe_failed' );
+		$process_after     = microtime( true );
+
+		if (
+			! is_numeric( $session_timestamp )
+			|| ! is_numeric( $server_timestamp )
+			|| $process_after < $process_before
+		) {
+			throw new RuntimeException( 'v1_migration_database_clock_untrusted' );
+		}
+
+		$minimum = $process_before - self::CLOCK_SKEW_SECONDS;
+		$maximum = $process_after + self::CLOCK_SKEW_SECONDS;
+		$session = (float) $session_timestamp;
+		$server  = (float) $server_timestamp;
+		if (
+			$session < $minimum
+			|| $session > $maximum
+			|| $server < $minimum
+			|| $server > $maximum
+			|| abs( $session - $server ) > self::CLOCK_SKEW_SECONDS
+		) {
+			throw new RuntimeException( 'v1_migration_database_clock_untrusted' );
+		}
 	}
 
 	/**
@@ -863,6 +906,7 @@ final class MMED_V1_Study_Migrator {
 
 	/** @return string */
 	private function now() {
+		$this->assert_database_clock_unspoofed();
 		$now = $this->native_scalar_required( 'SELECT UTC_TIMESTAMP(6)', 'v1_database_time_unavailable' );
 		if ( ! $this->valid_ledger_timestamp( $now ) ) {
 			throw new RuntimeException( 'v1_database_time_unavailable' );
