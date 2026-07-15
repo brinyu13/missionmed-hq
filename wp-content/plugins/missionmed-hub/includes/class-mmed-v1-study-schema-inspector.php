@@ -373,7 +373,7 @@ class MMED_V1_Study_Schema_Inspector {
 			throw new RuntimeException( 'V1 CHECK clause is unavailable.' );
 		}
 		preg_match_all(
-			'/>=|<=|<>|!=|=|>|<|\+|-|\(|\)|,|[a-z_][a-z0-9_]*|[0-9]+/',
+			'/>=|<=|<>|!=|=|>|<|\+|-|%|\(|\)|,|[a-z_][a-z0-9_]*|[0-9]+/',
 			$source,
 			$matches,
 			PREG_OFFSET_CAPTURE
@@ -476,11 +476,21 @@ class MMED_V1_Study_Schema_Inspector {
 
 	/** @return array */
 	private function parse_check_additive( $tokens, &$index ) {
-		$node = $this->parse_check_primary( $tokens, $index );
+		$node = $this->parse_check_multiplicative( $tokens, $index );
 		while ( isset( $tokens[ $index ] ) && in_array( $tokens[ $index ], array( '+', '-' ), true ) ) {
 			$operator = $tokens[ $index ];
 			++$index;
-			$node = array( '+' === $operator ? 'add' : 'subtract', $node, $this->parse_check_primary( $tokens, $index ) );
+			$node = array( '+' === $operator ? 'add' : 'subtract', $node, $this->parse_check_multiplicative( $tokens, $index ) );
+		}
+		return $node;
+	}
+
+	/** MySQL and MariaDB serialize MOD() as `%` and infix MOD respectively. @return array */
+	private function parse_check_multiplicative( $tokens, &$index ) {
+		$node = $this->parse_check_primary( $tokens, $index );
+		while ( isset( $tokens[ $index ] ) && in_array( $tokens[ $index ], array( '%', 'mod' ), true ) ) {
+			++$index;
+			$node = array( 'mod', $node, $this->parse_check_primary( $tokens, $index ) );
 		}
 		return $node;
 	}
@@ -533,6 +543,12 @@ class MMED_V1_Study_Schema_Inspector {
 			throw new RuntimeException( 'V1 CHECK clause function call is invalid.' );
 		}
 		++$index;
+		if ( 'mod' === $token ) {
+			if ( 2 !== count( $arguments ) ) {
+				throw new RuntimeException( 'V1 CHECK clause MOD arity is invalid.' );
+			}
+			return array( 'mod', $arguments[0], $arguments[1] );
+		}
 		return array( 'call', $token, $arguments );
 	}
 
@@ -551,6 +567,9 @@ class MMED_V1_Study_Schema_Inspector {
 		}
 		if ( 'compare' === $type ) {
 			return 'compare(' . $tree[1] . ',' . $this->serialize_check_tree( $tree[2] ) . ',' . $this->serialize_check_tree( $tree[3] ) . ')';
+		}
+		if ( 'mod' === $type ) {
+			return 'mod(' . $this->serialize_check_tree( $tree[1] ) . ',' . $this->serialize_check_tree( $tree[2] ) . ')';
 		}
 		if ( in_array( $type, array( 'is_null', 'is_not_null' ), true ) ) {
 			return $type . '(' . $this->serialize_check_tree( $tree[1] ) . ')';

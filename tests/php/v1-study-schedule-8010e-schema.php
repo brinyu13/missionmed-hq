@@ -91,6 +91,10 @@ foreach ( $shapes['weeks']['checks'] + $shapes['blocks']['checks'] as $check_cla
 	$canonical = $canonical_check->invoke( $inspector_without_database, $check_clause );
 	v1_8010e_schema_expect( is_string( $canonical ) && '' !== $canonical, 'every Week CHECK clause is accepted by the exact portable grammar' );
 }
+$mod_function = $canonical_check->invoke( $inspector_without_database, 'MOD(duration_minutes, 15) = 0' );
+$mod_keyword  = $canonical_check->invoke( $inspector_without_database, 'duration_minutes MOD 15 = 0' );
+$mod_percent  = $canonical_check->invoke( $inspector_without_database, 'duration_minutes % 15 = 0' );
+v1_8010e_schema_expect( $mod_function === $mod_keyword && $mod_keyword === $mod_percent, 'MOD function and both governed engine metadata synonyms canonicalize identically' );
 
 $source = '';
 foreach ( array( 'class-mmed-v1-study-week-schema.php', 'class-mmed-v1-study-week-schema-inspector.php' ) as $source_file ) {
