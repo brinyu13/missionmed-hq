@@ -207,3 +207,125 @@ test('selected source lineage never falls back across inventory records', async 
     }
   }
 });
+
+test('accepted editorial reviewers see exact protected answer and rationale content without browser persistence', async () => {
+  const html = await readFile(htmlPath, 'utf8');
+  const dom = new JSDOM(html, { url: 'http://127.0.0.1:4176/' });
+  const originalGlobals = Object.fromEntries([
+    'document', 'window', 'FormData', 'fetch',
+  ].map((key) => [key, globalThis[key]]));
+  const revisionHash = 'a'.repeat(64);
+  const revision = {
+    id: 'itemrev_protected_ui',
+    item_id: 'item_protected_ui',
+    author_actor_id: 'actor_author_ui',
+    content_hash: revisionHash,
+    revision_number: 1,
+    workflow_status: 'candidate',
+    choices: [
+      { key: 'A', text: 'Alpha safe wording' },
+      { key: 'B', text: 'Beta safe wording' },
+      { key: 'C', text: 'Gamma safe wording' },
+      { key: 'D', text: 'Delta safe wording' },
+    ],
+    evidence_claim_ids: ['claim_protected_ui'],
+    active_flags: [],
+  };
+  const assignment = {
+    id: 'assignment_protected_ui',
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_protected_ui',
+    reviewer_actor_id: 'actor_editor_ui',
+    review_type: 'editorial',
+    required_role: 'editorial_reviewer',
+    exact_revision_hash: revisionHash,
+    state: 'accepted',
+  };
+  const reviewPath = `/api/v1/item-revisions/${revision.id}/review-content?assignment_id=${assignment.id}&purpose=editorial_review`;
+  const payloads = new Map([
+    ['/api/health', { ok: true, service: 'i1q-question-platform', mode: 'INJECTED_AUTH_ADAPTER' }],
+    ['/api/v1/session', {
+      actor: { id: 'actor_editor_ui', roles: ['editorial_reviewer'] },
+      session: { expires_at: '2099-01-01T00:00:00.000Z', csrf_token: 'synthetic-ui-csrf-token' },
+    }],
+    ['/api/v1/dashboard', { inventory_sources: 0, extraction_jobs: 0, candidates: 1, review_assignments: 1, blocked_releases: 0, incidents: 0, governance_unassigned: ['medical_governance_lead'], production_gate: 'BLOCKED' }],
+    ['/api/v1/governance', { medical_governance_lead: null }],
+    ['/api/v1/resources/feature_flags?limit=200', { total: 2, rows: [
+      { id: 'flag_internal_platform', key: 'internal_platform_enabled', enabled: true },
+      { id: 'flag_internal_review', key: 'internal_review_enabled', enabled: true },
+    ] }],
+    ['/api/v1/resources/item_revisions?limit=200', { total: 1, rows: [revision] }],
+    ['/api/v1/resources/reviewers?limit=200', { total: 1, rows: [{
+      id: 'reviewer_protected_ui',
+      actor_id: 'actor_editor_ui',
+      roles: ['editorial_reviewer'],
+      conflict_actor_ids: [],
+    }] }],
+    ['/api/v1/resources/review_assignments?limit=200', { total: 1, rows: [assignment] }],
+    ['/api/v1/resources/evidence_claims?limit=200', { total: 1, rows: [{
+      id: 'claim_protected_ui',
+      status: 'verified',
+      expires_at: '2099-01-01T00:00:00.000Z',
+    }] }],
+    ['/api/v1/resources/review_events?limit=200', { total: 0, rows: [] }],
+    [reviewPath, {
+      item_revision_id: revision.id,
+      assignment_id: assignment.id,
+      exact_revision_hash: revisionHash,
+      review_type: 'editorial',
+      prompt: 'Which synthetic label is correct?',
+      choices: [
+        { key: 'A', text: 'Alpha protected wording', why_tempting: 'Alpha lure', why_wrong: 'Alpha mismatch', misconception_id: 'miscon_alpha_ui' },
+        { key: 'B', text: 'Beta protected wording', why_tempting: null, why_wrong: null, misconception_id: null },
+        { key: 'C', text: 'Gamma protected wording', why_tempting: 'Gamma lure', why_wrong: 'Gamma mismatch', misconception_id: 'miscon_gamma_ui' },
+        { key: 'D', text: 'Delta protected wording', why_tempting: 'Delta lure', why_wrong: 'Delta mismatch', misconception_id: 'miscon_delta_ui' },
+      ],
+      answer: 'B',
+      explanation: 'SECRET_UI_TEACHING_EXPLANATION',
+      correct_answer_rationale: 'SECRET_UI_CORRECT_RATIONALE',
+      source_ids: ['source_protected_ui'],
+      evidence_claim_ids: ['claim_protected_ui'],
+    }],
+  ]);
+  const requested = [];
+  const settle = () => new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+
+  try {
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.FormData = dom.window.FormData;
+    globalThis.fetch = async (path) => {
+      requested.push(String(path));
+      return {
+        ok: payloads.has(String(path)),
+        status: payloads.has(String(path)) ? 200 : 404,
+        json: async () => structuredClone(payloads.get(String(path)) || { error: 'not_found' }),
+      };
+    };
+    dom.window.confirm = () => true;
+
+    const app = await import(`${appPath.href}?protected-review-test=${Date.now()}`);
+    await app.bootPromise;
+    dom.window.document.querySelector('[data-screen="editorial"]').click();
+    await settle();
+    await settle();
+
+    const screen = dom.window.document.querySelector('#screen');
+    assert.match(screen.textContent, /Protected review content/u);
+    assert.match(screen.textContent, /Answer B/u);
+    assert.match(screen.textContent, /SECRET_UI_TEACHING_EXPLANATION/u);
+    assert.match(screen.textContent, /SECRET_UI_CORRECT_RATIONALE/u);
+    assert.match(screen.textContent, /miscon_alpha_ui/u);
+    assert.match(screen.textContent, /source_protected_ui/u);
+    assert.ok(screen.querySelector('[data-action="editorial-decision"][data-verdict="pass"]'));
+    assert.ok(requested.includes(reviewPath));
+    assert.equal(dom.window.localStorage.length, 0);
+    assert.equal(dom.window.sessionStorage.length, 0);
+  } finally {
+    dom.window.close();
+    for (const [key, value] of Object.entries(originalGlobals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});

@@ -333,6 +333,60 @@
         }
       }
     },
+    "/api/v1/item-revisions/{itemRevisionId}/review-content": {
+      "get": {
+        "operationId": "getAssignedReviewContent",
+        "description": "Returns answer-bearing content only to the accepted reviewer for the exact immutable revision and declared review purpose.",
+        "parameters": [
+          {
+            "name": "itemRevisionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "assignment_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "editorial_review",
+                "medical_review"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Purpose-scoped protected content for the accepted exact-revision assignment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignedReviewContent"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Assignment, actor, role, purpose, credential, workflow, or feature gate failed"
+          },
+          "503": {
+            "description": "Canonical protected-content adapter is unavailable"
+          }
+        }
+      }
+    },
     "/api/v1/review-assignments": {
       "post": {
         "operationId": "createReviewAssignment",
@@ -590,6 +644,132 @@
           }
         },
         "additionalProperties": true
+      },
+      "AssignedReviewContent": {
+        "type": "object",
+        "required": [
+          "item_revision_id",
+          "assignment_id",
+          "exact_revision_hash",
+          "review_type",
+          "prompt",
+          "choices",
+          "answer",
+          "explanation",
+          "correct_answer_rationale",
+          "source_ids",
+          "evidence_claim_ids"
+        ],
+        "properties": {
+          "item_revision_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "assignment_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "exact_revision_hash": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "review_type": {
+            "enum": [
+              "editorial",
+              "medical"
+            ]
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 1
+          },
+          "choices": {
+            "type": "array",
+            "minItems": 4,
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/AssignedReviewChoice"
+            }
+          },
+          "answer": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "explanation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "correct_answer_rationale": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "evidence_claim_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AssignedReviewChoice": {
+        "type": "object",
+        "required": [
+          "key",
+          "text",
+          "why_tempting",
+          "why_wrong",
+          "misconception_id"
+        ],
+        "properties": {
+          "key": {
+            "enum": [
+              "A",
+              "B",
+              "C",
+              "D"
+            ]
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "why_tempting": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "why_wrong": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "misconception_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "additionalProperties": false
       }
     },
     "responses": {

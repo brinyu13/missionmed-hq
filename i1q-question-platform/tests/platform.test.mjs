@@ -265,6 +265,85 @@ test('review events use the canonical needs_revision verdict', () => {
   }, actors.editor), /review_verdict_invalid/);
 });
 
+test('accepted exact-revision reviewers receive protected content for one purpose only', () => {
+  const { platform, revision } = seedPlatform();
+  platform.submitRevisionCandidate(revision.id, actors.author);
+  const assignment = platform.createReviewAssignment({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    review_type: 'editorial',
+  }, actors.admin);
+
+  assert.throws(
+    () => platform.readAssignedReviewContent(revision.id, assignment.id, 'editorial_review', actors.editor),
+    /review_content_access_denied/,
+  );
+  platform.acceptReviewAssignment(assignment.id, actors.editor);
+
+  const content = platform.readAssignedReviewContent(
+    revision.id,
+    assignment.id,
+    'editorial_review',
+    actors.editor,
+  );
+  assert.equal(content.item_revision_id, revision.id);
+  assert.equal(content.assignment_id, assignment.id);
+  assert.equal(content.exact_revision_hash, assignment.exact_revision_hash);
+  assert.equal(content.review_type, 'editorial');
+  assert.equal(content.answer, 'B');
+  assert.equal(content.explanation, revision.explanation);
+  assert.equal(content.correct_answer_rationale, revision.correct_answer_rationale);
+  assert.equal(content.choices.find((choice) => choice.key === 'A').why_wrong, 'Not in fixture key');
+  assert.deepEqual(content.source_ids, ['src_test']);
+  assert.deepEqual(content.evidence_claim_ids, ['claim_test']);
+
+  assert.throws(
+    () => platform.readAssignedReviewContent(revision.id, assignment.id, 'medical_review', actors.editor),
+    /review_content_access_denied/,
+  );
+  assert.throws(
+    () => platform.readAssignedReviewContent(revision.id, assignment.id, 'editorial_review', actors.physician),
+    /review_content_access_denied/,
+  );
+  assert.throws(
+    () => platform.readAssignedReviewContent(revision.id, assignment.id, 'editorial_review', actors.reader),
+    /review_content_access_denied/,
+  );
+  const wrongHashAssignment = platform.repository.create('review_assignments', {
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    reviewer_actor_id: actors.editor.id,
+    review_type: 'editorial',
+    required_role: 'editorial_reviewer',
+    exact_revision_hash: '0'.repeat(64),
+    credential_status: 'not_applicable',
+    credential_verification_id: null,
+    state: 'accepted',
+  }, { id: 'assignment_wrong_hash', actorId: actors.admin.id });
+  assert.throws(
+    () => platform.readAssignedReviewContent(revision.id, wrongHashAssignment.id, 'editorial_review', actors.editor),
+    /review_content_access_denied/,
+  );
+
+  platform.submitReviewEvent({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    assignment_id: assignment.id,
+    review_type: 'editorial',
+    verdict: 'pass',
+    to_status: 'medical_review',
+  }, actors.editor);
+  assert.throws(
+    () => platform.readAssignedReviewContent(revision.id, assignment.id, 'editorial_review', actors.editor),
+    /review_content_access_denied/,
+  );
+
+  const actions = platform.repository.snapshot().world.audit_events.map((event) => event.action);
+  assert.ok(actions.includes('review_content_accessed'));
+  assert.equal(actions.filter((action) => action === 'review_content_access_denied').length, 6);
+  assert.equal(platform.repository.verifyAuditChain(), true);
+});
+
 test('private source references are hidden from ordinary internal readers', () => {
   const { platform } = seedPlatform();
   platform.repository.update('source_records', 'src_test', { private_storage_ref: 'private://fixture' }, { actorId: actors.admin.id });

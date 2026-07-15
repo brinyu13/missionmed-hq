@@ -17,6 +17,27 @@ import { QuestionPlatform, createSyntheticDemoPlatform } from './platform.mjs';
 const MODULE_DIR = fileURLToPath(new URL('.', import.meta.url));
 const PUBLIC_DIR = normalize(join(MODULE_DIR, '..', 'public'));
 const MAX_BODY_BYTES = 1_000_000;
+const SHA256_HEX = /^[0-9a-f]{64}$/u;
+const REVIEW_CONTENT_FIELDS = new Set([
+  'item_revision_id',
+  'assignment_id',
+  'exact_revision_hash',
+  'review_type',
+  'prompt',
+  'choices',
+  'answer',
+  'explanation',
+  'correct_answer_rationale',
+  'source_ids',
+  'evidence_claim_ids',
+]);
+const REVIEW_CHOICE_FIELDS = new Set([
+  'key',
+  'text',
+  'why_tempting',
+  'why_wrong',
+  'misconception_id',
+]);
 
 const MIME = Object.freeze({
   '.html': 'text/html; charset=utf-8',
@@ -107,6 +128,68 @@ function dashboard(platform, actor) {
   };
 }
 
+function exactKeys(value, allowed) {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    && Object.keys(value).every((key) => allowed.has(key));
+}
+
+function normalizeReviewContent(payload, { itemRevisionId, assignmentId, purpose }) {
+  const reviewType = purpose === 'editorial_review'
+    ? 'editorial'
+    : purpose === 'medical_review' ? 'medical' : null;
+  const choices = Array.isArray(payload?.choices) ? payload.choices : [];
+  const sourceIds = Array.isArray(payload?.source_ids) ? payload.source_ids : [];
+  const claimIds = Array.isArray(payload?.evidence_claim_ids) ? payload.evidence_claim_ids : [];
+  const stableString = (value) => typeof value === 'string' && value.trim() === value && value.length > 0;
+  if (
+    !reviewType
+    || !exactKeys(payload, REVIEW_CONTENT_FIELDS)
+    || payload.item_revision_id !== itemRevisionId
+    || payload.assignment_id !== assignmentId
+    || payload.review_type !== reviewType
+    || !SHA256_HEX.test(payload.exact_revision_hash || '')
+    || !stableString(payload.prompt)
+    || !['A', 'B', 'C', 'D'].includes(payload.answer)
+    || !stableString(payload.explanation)
+    || !stableString(payload.correct_answer_rationale)
+    || choices.length !== 4
+    || sourceIds.length === 0
+    || claimIds.length === 0
+    || !sourceIds.every(stableString)
+    || !claimIds.every(stableString)
+  ) {
+    throw new AuthorizationError('review_content_adapter_invalid', 500);
+  }
+  const choiceKeys = new Set();
+  for (const choice of choices) {
+    if (
+      !exactKeys(choice, REVIEW_CHOICE_FIELDS)
+      || !['A', 'B', 'C', 'D'].includes(choice.key)
+      || choiceKeys.has(choice.key)
+      || !stableString(choice.text)
+    ) {
+      throw new AuthorizationError('review_content_adapter_invalid', 500);
+    }
+    choiceKeys.add(choice.key);
+    const correct = choice.key === payload.answer;
+    if (correct) {
+      if (choice.why_tempting !== null || choice.why_wrong !== null || choice.misconception_id !== null) {
+        throw new AuthorizationError('review_content_adapter_invalid', 500);
+      }
+    } else if (
+      !stableString(choice.why_tempting)
+      || !stableString(choice.why_wrong)
+      || !stableString(choice.misconception_id)
+    ) {
+      throw new AuthorizationError('review_content_adapter_invalid', 500);
+    }
+  }
+  if (choiceKeys.size !== 4) {
+    throw new AuthorizationError('review_content_adapter_invalid', 500);
+  }
+  return structuredClone(payload);
+}
+
 async function serveStatic(pathname, response) {
   const requested = pathname === '/' ? '/index.html' : pathname;
   const relative = normalize(requested).replace(/^([/\\])+/, '');
@@ -134,6 +217,7 @@ export function createQuestionPlatformServer({
   localDemo = false,
   identityResolver = null,
   finalizationResolver = null,
+  reviewContentResolver = null,
 } = {}) {
   assertLocalDemoConfiguration(localDemo);
   if (localDemo && identityResolver) {
@@ -144,6 +228,9 @@ export function createQuestionPlatformServer({
   }
   if (finalizationResolver !== null && (typeof finalizationResolver !== 'function' || !identityResolver)) {
     throw new AuthorizationError('finalization_adapter_invalid', 500);
+  }
+  if (reviewContentResolver !== null && (typeof reviewContentResolver !== 'function' || !identityResolver)) {
+    throw new AuthorizationError('review_content_adapter_invalid', 500);
   }
   const platform = suppliedPlatform || (localDemo ? createSyntheticDemoPlatform() : new QuestionPlatform());
   if (platform.syntheticDemo === true && (!localDemo || identityResolver)) {
@@ -210,6 +297,7 @@ export function createQuestionPlatformServer({
 
       const featureFlagMutation = request.method === 'PUT'
         && /^\/api\/v1\/feature-flags\/[a-z_]+$/u.test(url.pathname);
+      const reviewContentMatch = url.pathname.match(/^\/api\/v1\/item-revisions\/([^/]+)\/review-content$/u);
       if (
         !localDemo
         && !featureFlagMutation
@@ -223,9 +311,10 @@ export function createQuestionPlatformServer({
         || /^\/api\/v1\/review-assignments\/[^/]+\/accept$/u.test(url.pathname)
         || url.pathname === '/api/v1/review-events'
       );
+      const reviewRoute = reviewMutation || (request.method === 'GET' && reviewContentMatch);
       if (
         !localDemo
-        && reviewMutation
+        && reviewRoute
         && !platform.featureFlagEnabled('internal_review_enabled')
       ) {
         throw new AuthorizationError('internal_review_disabled', 403);
@@ -305,6 +394,29 @@ export function createQuestionPlatformServer({
       const submitRevisionMatch = url.pathname.match(/^\/api\/v1\/item-revisions\/([^/]+)\/submit-candidate$/u);
       if (request.method === 'POST' && submitRevisionMatch) {
         json(response, 200, platform.submitRevisionCandidate(submitRevisionMatch[1], actor));
+        return;
+      }
+      if (request.method === 'GET' && reviewContentMatch) {
+        const itemRevisionId = decodeURIComponent(reviewContentMatch[1]);
+        const assignmentId = url.searchParams.get('assignment_id') || '';
+        const purpose = url.searchParams.get('purpose') || '';
+        let content;
+        if (localDemo) {
+          content = platform.readAssignedReviewContent(itemRevisionId, assignmentId, purpose, actor);
+        } else {
+          if (!reviewContentResolver) {
+            throw new AuthorizationError('review_content_adapter_required', 503);
+          }
+          content = await reviewContentResolver({
+            request,
+            identityContext,
+            actor,
+            itemRevisionId,
+            assignmentId,
+            purpose,
+          });
+        }
+        json(response, 200, normalizeReviewContent(content, { itemRevisionId, assignmentId, purpose }));
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/v1/review-assignments') {

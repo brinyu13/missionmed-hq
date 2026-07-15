@@ -368,6 +368,14 @@ function getResource(entityType, id) {
   return api(`/api/v1/resources/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}`);
 }
 
+function getReviewContent(itemRevisionId, assignmentId, purpose) {
+  const query = new URLSearchParams({
+    assignment_id: assignmentId,
+    purpose,
+  });
+  return api(`/api/v1/item-revisions/${encodeURIComponent(itemRevisionId)}/review-content?${query}`);
+}
+
 function resolveInventorySource(rows) {
   const selected = rows.find((row) => row.id === state.selectedInventorySourceId) || null;
   if (selected) return selected;
@@ -1057,6 +1065,41 @@ function currentRevisionStatus(revision, events) {
     .at(-1)?.to_status || revision.workflow_status;
 }
 
+function reviewContentPanel(content, revision, claims, events) {
+  const revisionEvents = [...events]
+    .filter((event) => event.item_revision_id === revision.id)
+    .sort((left, right) => Number(left.sequence) - Number(right.sequence));
+  return `
+    <section class="panel review-content-panel" aria-labelledby="protected-review-content-heading">
+      <div class="panel-header">
+        <div><h2 id="protected-review-content-heading">Protected review content</h2><span class="muted">Purpose-scoped to this accepted assignment</span></div>
+        ${badge(`Answer ${content.answer}`, 'green')}
+      </div>
+      <div class="field-stack">
+        <div><strong>Stem</strong><p>${escapeHtml(content.prompt)}</p></div>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Exact revision choices and rationales"><table>
+          <thead><tr><th scope="col">Option</th><th scope="col">Wording</th><th scope="col">Why tempting</th><th scope="col">Why wrong</th><th scope="col">Misconception</th></tr></thead>
+          <tbody>${safeArray(content.choices).map((choice) => `<tr>
+            <th scope="row">${escapeHtml(choice.key)}${choice.key === content.answer ? ' (correct)' : ''}</th>
+            <td>${escapeHtml(choice.text)}</td>
+            <td>${escapeHtml(choice.why_tempting || 'Correct option')}</td>
+            <td>${escapeHtml(choice.why_wrong || 'Correct option')}</td>
+            <td>${escapeHtml(choice.misconception_id || 'Not applicable')}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+        ${detailList([
+    ['Correct answer rationale', escapeHtml(content.correct_answer_rationale)],
+    ['Teaching explanation', escapeHtml(content.explanation)],
+    ['Source anchors', escapeHtml(safeArray(content.source_ids).join(', '))],
+    ['Evidence claims', escapeHtml(safeArray(content.evidence_claim_ids).join(', '))],
+    ['Active flags', escapeHtml(safeArray(revision.active_flags).join(', ') || 'None')],
+    ['Claim currency', escapeHtml(claims.map((claim) => `${claim.id}: ${claim.status || 'unknown'}`).join(', ') || 'No linked claims')],
+    ['Prior review events', escapeHtml(revisionEvents.map((event) => `#${event.sequence} ${event.review_type}: ${event.verdict}`).join(', ') || 'None')],
+        ])}
+      </div>
+    </section>`;
+}
+
 async function editorialTemplate() {
   const [revisionsPage, reviewersPage, assignmentsPage, claimsPage, eventsPage] = await Promise.all([
     listResource('item_revisions'),
@@ -1097,7 +1140,16 @@ async function editorialTemplate() {
     && exactAssignment
     && ['candidate', 'editorial_review'].includes(workflowStatus),
   );
-  const canReview = Boolean(assignment?.state === 'accepted' && reviewer && !conflict && !expired && exactAssignment && effectiveWorkflowStatus === 'editorial_review');
+  const canReadReviewContent = Boolean(assignment?.state === 'accepted' && reviewer && !conflict && !expired && exactAssignment && effectiveWorkflowStatus === 'editorial_review');
+  let reviewContent = null;
+  if (canReadReviewContent) {
+    try {
+      reviewContent = await getReviewContent(revision.id, assignment.id, 'editorial_review');
+    } catch {
+      reviewContent = null;
+    }
+  }
+  const canReview = canReadReviewContent && reviewContent !== null;
   const reason = conflict
     ? 'Self-review or a declared reviewer conflict blocks this exact revision.'
     : expired
@@ -1108,7 +1160,9 @@ async function editorialTemplate() {
         ? 'This revision is not in the editorial candidate state.'
         : !exactAssignment
           ? 'The assignment hash does not match the selected immutable revision.'
-          : 'Accept the assignment before recording a verdict.';
+          : canReadReviewContent && !reviewContent
+            ? 'Protected answer and rationale content is unavailable for this assignment.'
+            : 'Accept the assignment before recording a verdict.';
   const decisionButtons = canReview
     ? `<button class="button button-danger" type="button" data-action="editorial-decision" data-verdict="fail" data-to-status="rejected">Reject</button>
        <button class="button" type="button" data-action="editorial-decision" data-verdict="needs_revision" data-to-status="candidate">Request revision</button>
@@ -1119,7 +1173,9 @@ async function editorialTemplate() {
     markup: `
       ${conflict ? stateNotice('review-conflict', 'Reviewer conflict blocks a verdict', 'The current reviewer cannot independently review this author revision.', 'Assign a different editorial reviewer to the exact revision hash.', 'danger') : ''}
       ${expired ? stateNotice('expired-evidence', 'Evidence expired during review', 'The verdict controls remain blocked until current evidence is attached.', 'Replace the expired claim and repeat exact-revision review.', 'danger') : ''}
+      ${canReadReviewContent && !reviewContent ? stateNotice('blocked', 'Protected review content is unavailable', 'No verdict may be recorded without the answer and rationale content for this exact revision.', 'Restore the canonical purpose-scoped answer reader and reload this assignment.', 'danger') : ''}
       <form id="editorial-form" class="layout-two" data-revision-id="${escapeHtml(revision.id)}" data-revision-hash="${escapeHtml(revision.content_hash || '')}" data-reviewer-id="${escapeHtml(reviewer?.id || '')}" data-assignment-id="${escapeHtml(assignment?.id || '')}">
+        ${reviewContent ? reviewContentPanel(reviewContent, revision, relevantClaims, eventsPage.rows) : ''}
         <section class="panel" aria-labelledby="editorial-rubric-heading">
           <h2 id="editorial-rubric-heading">Editorial rubric</h2>
           <ul class="checklist">
@@ -1176,7 +1232,16 @@ async function physicianTemplate() {
   const governanceReady = governance.medical_governance_lead !== null;
   const workflowStatus = currentRevisionStatus(revision, eventsPage.rows);
   const canAccept = Boolean(roleAuthorized && assignment?.state === 'open' && !expired && !hashConflict && workflowStatus === 'medical_review');
-  const canReview = Boolean(roleAuthorized && assignment?.state === 'accepted' && !expired && !hashConflict && workflowStatus === 'medical_review');
+  const canReadReviewContent = Boolean(roleAuthorized && assignment?.state === 'accepted' && !expired && !hashConflict && workflowStatus === 'medical_review');
+  let reviewContent = null;
+  if (canReadReviewContent) {
+    try {
+      reviewContent = await getReviewContent(revision.id, assignment.id, 'medical_review');
+    } catch {
+      reviewContent = null;
+    }
+  }
+  const canReview = canReadReviewContent && reviewContent !== null;
   const reason = !roleAuthorized
     ? 'The current local role is not a credentialed physician reviewer for this assignment.'
     : !governanceReady
@@ -1185,14 +1250,18 @@ async function physicianTemplate() {
         ? 'Evidence currency has expired and requires exact-revision re-review.'
         : hashConflict
           ? 'The assignment hash does not match the selected immutable revision.'
-          : 'No active authorized medical review workflow is available.';
+          : canReadReviewContent && !reviewContent
+            ? 'Protected answer and rationale content is unavailable for this assignment.'
+            : 'No active authorized medical review workflow is available.';
   return {
     context: revisionIdentity(revision, roleAuthorized ? 'Physician reviewer' : 'Editorial local role', assignment, expired ? badge('Expired') : badge('Current'), hashConflict),
     markup: `
       ${!roleAuthorized ? stateNotice('unauthorized', 'Physician review role required', 'The current reviewer cannot sign a medical decision.', 'Use canonical authentication as the assigned credentialed physician reviewer.', 'danger') : ''}
       ${hashConflict ? stateNotice('concurrent-edit', 'Assignment revision changed', 'The signed assignment hash no longer matches this revision.', 'Reload and reassign the exact immutable revision before review.', 'danger') : ''}
       ${expired ? stateNotice('expired-evidence', 'Evidence expired before physician decision', 'Approval is blocked without current claim evidence.', 'Replace the claim and repeat the exact-revision review.', 'danger') : ''}
+      ${canReadReviewContent && !reviewContent ? stateNotice('blocked', 'Protected review content is unavailable', 'No medical decision may be recorded without the answer and rationale content for this exact revision.', 'Restore the canonical purpose-scoped answer reader and reload this assignment.', 'danger') : ''}
       <form id="physician-form" class="layout-two" data-revision-id="${escapeHtml(revision.id)}" data-revision-hash="${escapeHtml(revision.content_hash || '')}" data-reviewer-id="${escapeHtml(reviewer?.id || '')}" data-assignment-id="${escapeHtml(assignment?.id || '')}">
+        ${reviewContent ? reviewContentPanel(reviewContent, revision, relevantClaims, eventsPage.rows) : ''}
         <section class="panel" aria-labelledby="physician-attestation-heading">
           <div class="panel-header"><h2 id="physician-attestation-heading">Exact revision attestation</h2>${badge(canReview ? 'Ready' : 'Blocked', canReview ? 'green' : 'red')}</div>
           <ul class="review-criteria">

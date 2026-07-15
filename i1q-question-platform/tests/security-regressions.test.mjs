@@ -144,6 +144,37 @@ function enableSyntheticFlag(repository, key) {
   repository.create('feature_flags', { key, enabled: true }, { id: `flag_${key}` });
 }
 
+function seedEditorialReview({ accepted = true, internalReviewEnabled = true } = {}) {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  seedRevisionDependencies(repository, 'review_content');
+  const reviewer = platform.registerReviewer({
+    actor_id: actors.editor.id,
+    display_name: 'Synthetic Protected Content Reviewer',
+    roles: ['editorial_reviewer'],
+    credential: { type: 'editorial', status: 'verified' },
+  }, actors.admin, { id: 'reviewer_protected_content' });
+  const revision = platform.createRevision(
+    revisionPayload('review_content'),
+    actors.author,
+    { idempotencyKey: 'protected-review-content-revision' },
+  );
+  platform.submitRevisionCandidate(revision.id, actors.author);
+  const assignment = platform.createReviewAssignment({
+    item_revision_id: revision.id,
+    reviewer_id: reviewer.id,
+    review_type: 'editorial',
+  }, actors.admin);
+  if (accepted) {
+    platform.acceptReviewAssignment(assignment.id, actors.editor);
+  }
+  enableSyntheticFlag(repository, 'internal_platform_enabled');
+  if (internalReviewEnabled) {
+    enableSyntheticFlag(repository, 'internal_review_enabled');
+  }
+  return { repository, platform, revision, reviewer, assignment };
+}
+
 test('ordinary resource GET and list are answer-free and generic artifacts stay protected', async () => {
   const repository = new MemoryRepository();
   const platform = new QuestionPlatform({ repository });
@@ -522,6 +553,135 @@ test('session bootstrap is available while internal platform and review routes s
     });
     assert.equal(blockedReview.status, 403);
     assert.equal((await blockedReview.json()).error, 'internal_review_disabled');
+  });
+});
+
+test('protected review content is feature gated and requires a canonical adapter', async () => {
+  const seeded = seedEditorialReview({ internalReviewEnabled: false });
+  const path = `/api/v1/item-revisions/${seeded.revision.id}/review-content?assignment_id=${seeded.assignment.id}&purpose=editorial_review`;
+  await withServer({
+    platform: seeded.platform,
+    identityResolver: async () => identityContext(actors.editor),
+    reviewContentResolver: async ({ itemRevisionId, assignmentId, purpose, actor }) => (
+      seeded.platform.readAssignedReviewContent(itemRevisionId, assignmentId, purpose, actor)
+    ),
+  }, async (baseUrl) => {
+    const blocked = await fetch(`${baseUrl}${path}`);
+    assert.equal(blocked.status, 403);
+    assert.deepEqual(await blocked.json(), { error: 'internal_review_disabled' });
+  });
+
+  enableSyntheticFlag(seeded.repository, 'internal_review_enabled');
+  await withServer({
+    platform: seeded.platform,
+    identityResolver: async () => identityContext(actors.editor),
+  }, async (baseUrl) => {
+    const unavailable = await fetch(`${baseUrl}${path}`);
+    assert.equal(unavailable.status, 503);
+    assert.deepEqual(await unavailable.json(), { error: 'internal_error' });
+  });
+});
+
+test('protected review content is assignment scoped, closed world, and answer complete', async () => {
+  const seeded = seedEditorialReview();
+  const path = `/api/v1/item-revisions/${seeded.revision.id}/review-content?assignment_id=${seeded.assignment.id}&purpose=editorial_review`;
+  const resolver = async ({ itemRevisionId, assignmentId, purpose, actor }) => (
+    seeded.platform.readAssignedReviewContent(itemRevisionId, assignmentId, purpose, actor)
+  );
+
+  await withServer({
+    platform: seeded.platform,
+    identityResolver: async (request) => identityContext(
+      request.headers['x-fixture-actor'] === 'wrong' ? actors.ratifier : actors.editor,
+    ),
+    reviewContentResolver: resolver,
+  }, async (baseUrl) => {
+    const accepted = await fetch(`${baseUrl}${path}`);
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.headers.get('cache-control'), 'no-store');
+    const content = await accepted.json();
+    assert.equal(content.answer, 'B');
+    assert.equal(content.explanation, 'SECRET_EXPLANATION_review_content');
+    assert.equal(content.correct_answer_rationale, 'SECRET_CORRECT_RATIONALE_review_content');
+    assert.equal(content.choices.length, 4);
+    assert.equal(content.choices.find((choice) => choice.key === 'A').why_wrong, 'Synthetic mismatch');
+    assert.deepEqual(Object.keys(content).sort(), [
+      'answer',
+      'assignment_id',
+      'choices',
+      'correct_answer_rationale',
+      'evidence_claim_ids',
+      'exact_revision_hash',
+      'explanation',
+      'item_revision_id',
+      'prompt',
+      'review_type',
+      'source_ids',
+    ]);
+
+    const wrongActor = await fetch(`${baseUrl}${path}`, { headers: { 'X-Fixture-Actor': 'wrong' } });
+    assert.equal(wrongActor.status, 403);
+    assert.deepEqual(await wrongActor.json(), { error: 'review_content_access_denied' });
+
+    const wrongPurpose = await fetch(`${baseUrl}${path.replace('editorial_review', 'medical_review')}`);
+    assert.equal(wrongPurpose.status, 403);
+    assert.deepEqual(await wrongPurpose.json(), { error: 'review_content_access_denied' });
+
+    const injected = await fetch(`${baseUrl}${path.replace(seeded.assignment.id, 'SECRET_UNKNOWN_ASSIGNMENT')}`);
+    assert.equal(injected.status, 403);
+    assert.doesNotMatch(JSON.stringify(await injected.json()), /SECRET_UNKNOWN_ASSIGNMENT/u);
+  });
+
+  const validPayload = seeded.platform.readAssignedReviewContent(
+    seeded.revision.id,
+    seeded.assignment.id,
+    'editorial_review',
+    actors.editor,
+  );
+  await withServer({
+    platform: seeded.platform,
+    identityResolver: async () => identityContext(actors.editor),
+    reviewContentResolver: async () => ({ ...validPayload, private_debug: 'SECRET_ADAPTER_FIELD' }),
+  }, async (baseUrl) => {
+    const malformed = await fetch(`${baseUrl}${path}`);
+    assert.equal(malformed.status, 500);
+    const payload = await malformed.json();
+    assert.deepEqual(payload, { error: 'internal_error' });
+    assert.doesNotMatch(JSON.stringify(payload), /SECRET_ADAPTER_FIELD/u);
+  });
+
+  seeded.platform.submitReviewEvent({
+    item_revision_id: seeded.revision.id,
+    reviewer_id: seeded.reviewer.id,
+    assignment_id: seeded.assignment.id,
+    review_type: 'editorial',
+    verdict: 'pass',
+    to_status: 'medical_review',
+  }, actors.editor);
+  await withServer({
+    platform: seeded.platform,
+    identityResolver: async () => identityContext(actors.editor),
+    reviewContentResolver: resolver,
+  }, async (baseUrl) => {
+    const completed = await fetch(`${baseUrl}${path}`);
+    assert.equal(completed.status, 403);
+    assert.deepEqual(await completed.json(), { error: 'review_content_access_denied' });
+  });
+});
+
+test('open review assignments cannot read protected content', async () => {
+  const seeded = seedEditorialReview({ accepted: false });
+  const path = `/api/v1/item-revisions/${seeded.revision.id}/review-content?assignment_id=${seeded.assignment.id}&purpose=editorial_review`;
+  await withServer({
+    platform: seeded.platform,
+    identityResolver: async () => identityContext(actors.editor),
+    reviewContentResolver: async ({ itemRevisionId, assignmentId, purpose, actor }) => (
+      seeded.platform.readAssignedReviewContent(itemRevisionId, assignmentId, purpose, actor)
+    ),
+  }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}${path}`);
+    assert.equal(response.status, 403);
+    assert.deepEqual(await response.json(), { error: 'review_content_access_denied' });
   });
 });
 

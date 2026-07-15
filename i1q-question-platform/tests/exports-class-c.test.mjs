@@ -1,0 +1,210 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+
+import {
+  assertClassCStatDebriefArtifact,
+  buildReleaseArtifacts,
+  validateClassCStatDebriefArtifact,
+} from '../src/exports.mjs';
+
+const DEBRIEF_FIELDS = Object.freeze([
+  'dataset_version',
+  'question_id',
+  'answer',
+  'explanation',
+  'correct_answer_rationale',
+  'distractor_rationales',
+]);
+
+const RATIONALE_FIELDS = Object.freeze([
+  'choice_key',
+  'why_tempting',
+  'why_wrong',
+]);
+
+const CLASS_D_AND_UNKNOWN_FIELDS = Object.freeze([
+  'misconception_id',
+  'item_id',
+  'itemrev_id',
+  'item_revision_id',
+  'source_id',
+  'source_record_id',
+  'source_ids',
+  'claim_id',
+  'evidence_claim_id',
+  'evidence_claim_ids',
+  'reviewer_id',
+  'reviewer_identity',
+  'psychometrics',
+  'percent_correct',
+  'unknown_field',
+]);
+
+function makeSyntheticRevision() {
+  const choice = (key, text, suffix) => ({
+    key,
+    text,
+    why_tempting: `Synthetic lure ${suffix}`,
+    why_wrong: `Synthetic mismatch ${suffix}`,
+    misconception_id: `internal_misconception_${suffix}`,
+    item_id: `internal_choice_item_${suffix}`,
+    itemrev_id: `internal_choice_revision_${suffix}`,
+    source_id: `internal_choice_source_${suffix}`,
+    claim_id: `internal_choice_claim_${suffix}`,
+    reviewer_id: `internal_choice_reviewer_${suffix}`,
+    psychometrics: { selection_rate: 0.25 },
+    unknown_field: `internal_choice_unknown_${suffix}`,
+  });
+  return {
+    id: 'internal_item_revision_synthetic',
+    item_id: 'internal_item_synthetic',
+    revision_number: 1,
+    content_hash: 'a'.repeat(64),
+    export_question_id: 'I1Q-SYNTHETIC-CLASS-C-0001',
+    prompt: 'Which label matches the synthetic square?',
+    choices: [
+      choice('A', 'Label alpha', 'alpha'),
+      {
+        key: 'B',
+        text: 'Label beta',
+        why_tempting: null,
+        why_wrong: null,
+        misconception_id: null,
+      },
+      choice('C', 'Label gamma', 'gamma'),
+      choice('D', 'Label delta', 'delta'),
+    ],
+    answer: 'B',
+    explanation: 'The synthetic key maps the square to label beta.',
+    correct_answer_rationale: 'The synthetic fixture explicitly identifies label beta.',
+    topic: 'Synthetic classification',
+    subtopic: 'Shapes',
+    concept_id: 'internal_concept_synthetic',
+    source_ids: ['internal_source_synthetic'],
+    evidence_claim_ids: ['internal_claim_synthetic'],
+    reviewer_id: 'internal_reviewer_synthetic',
+    psychometrics: { percent_correct: 0.75 },
+    unknown_field: 'internal_unknown_synthetic',
+    drills: {
+      video_id: 'synthetic_video',
+      source_record_id: 'internal_source_synthetic',
+      title: 'Synthetic classification drill',
+      playback: {
+        availability: 'available',
+        url: 'https://example.invalid/synthetic/playback',
+        stream_id: null,
+      },
+      nodes: {
+        availability: 'available',
+        url: 'https://example.invalid/synthetic/nodes.json',
+      },
+      transcript: { availability: 'missing', url: null },
+      vtt: { availability: 'unknown', url: null },
+      timestamp: { start_seconds: 10, end_seconds: 20 },
+      rights_status: 'cleared_for',
+      privacy_status: 'pass',
+      source_hash: 'b'.repeat(64),
+      working_hash: 'c'.repeat(64),
+    },
+  };
+}
+
+function validDebrief() {
+  return {
+    dataset_version: 'synthetic_v1',
+    question_id: 'I1Q-SYNTHETIC-CLASS-C-0001',
+    answer: 'B',
+    explanation: 'Synthetic explanation prose.',
+    correct_answer_rationale: 'Synthetic correct rationale prose.',
+    distractor_rationales: ['A', 'C', 'D'].map((choiceKey) => ({
+      choice_key: choiceKey,
+      why_tempting: `Synthetic lure ${choiceKey}.`,
+      why_wrong: `Synthetic mismatch ${choiceKey}.`,
+    })),
+  };
+}
+
+test('Class C construction strips Class D fields and preserves teaching prose', () => {
+  const generated = buildReleaseArtifacts({
+    releaseId: 'synthetic_release_class_c',
+    datasetVersion: 'synthetic_v1',
+    revisions: [makeSyntheticRevision()],
+  });
+  const artifact = generated.artifacts.find((entry) => entry.channel === 'stat_post_answer_debrief');
+  assert.equal(artifact.phase, 'post_answer');
+  assert.equal(artifact.data_class, 'C');
+  assert.deepEqual(validateClassCStatDebriefArtifact(artifact.payload), []);
+
+  const [debrief] = artifact.payload;
+  assert.deepEqual(Object.keys(debrief), DEBRIEF_FIELDS);
+  assert.equal(debrief.explanation, 'The synthetic key maps the square to label beta.');
+  assert.equal(debrief.correct_answer_rationale, 'The synthetic fixture explicitly identifies label beta.');
+  assert.deepEqual(
+    debrief.distractor_rationales.map((rationale) => Object.keys(rationale)),
+    [RATIONALE_FIELDS, RATIONALE_FIELDS, RATIONALE_FIELDS],
+  );
+  assert.deepEqual(
+    debrief.distractor_rationales.map(({ choice_key: choiceKey, why_tempting: whyTempting, why_wrong: whyWrong }) => ({
+      choice_key: choiceKey,
+      why_tempting: whyTempting,
+      why_wrong: whyWrong,
+    })),
+    [
+      { choice_key: 'A', why_tempting: 'Synthetic lure alpha', why_wrong: 'Synthetic mismatch alpha' },
+      { choice_key: 'C', why_tempting: 'Synthetic lure gamma', why_wrong: 'Synthetic mismatch gamma' },
+      { choice_key: 'D', why_tempting: 'Synthetic lure delta', why_wrong: 'Synthetic mismatch delta' },
+    ],
+  );
+
+  const serialized = JSON.stringify(artifact.payload);
+  for (const forbidden of [
+    'misconception',
+    'internal_item_synthetic',
+    'internal_item_revision_synthetic',
+    'internal_source_synthetic',
+    'internal_claim_synthetic',
+    'internal_reviewer_synthetic',
+    'percent_correct',
+    'internal_unknown_synthetic',
+  ]) {
+    assert.equal(serialized.includes(forbidden), false, forbidden);
+  }
+});
+
+test('Class C validation rejects unknown fields at both closed-world object levels', () => {
+  for (const field of CLASS_D_AND_UNKNOWN_FIELDS) {
+    const topLevel = { ...validDebrief(), [field]: `internal_${field}` };
+    assert.throws(() => assertClassCStatDebriefArtifact([topLevel]), (error) => {
+      assert.equal(error.code, 'class_c_debrief_validation_failed');
+      assert.equal(error.statusCode, 422);
+      assert.ok(error.findings.includes(`$[0].${field}:unknown_field`));
+      return true;
+    });
+
+    const nested = validDebrief();
+    nested.distractor_rationales[0][field] = `internal_${field}`;
+    assert.throws(() => assertClassCStatDebriefArtifact([nested]), (error) => {
+      assert.equal(error.code, 'class_c_debrief_validation_failed');
+      assert.equal(error.statusCode, 422);
+      assert.ok(error.findings.includes(`$[0].distractor_rationales[0].${field}:unknown_field`));
+      return true;
+    });
+  }
+});
+
+test('artifact construction rejects identifiers hidden inside teaching prose fields', () => {
+  const revision = makeSyntheticRevision();
+  revision.choices[0].why_wrong = {
+    text: 'Synthetic mismatch alpha',
+    claim_id: 'internal_claim_hidden',
+  };
+  assert.throws(() => buildReleaseArtifacts({
+    releaseId: 'synthetic_release_nested_identifier',
+    datasetVersion: 'synthetic_v1',
+    revisions: [revision],
+  }), (error) => {
+    assert.equal(error.code, 'class_c_debrief_validation_failed');
+    assert.ok(error.findings.includes('$[0].distractor_rationales[0].why_wrong:string_required'));
+    return true;
+  });
+});

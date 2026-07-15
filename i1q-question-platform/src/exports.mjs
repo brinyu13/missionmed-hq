@@ -44,6 +44,87 @@ function assertFourChoices(revision) {
   }
 }
 
+const STAT_CLASS_C_DEBRIEF_FIELDS = Object.freeze([
+  'dataset_version',
+  'question_id',
+  'answer',
+  'explanation',
+  'correct_answer_rationale',
+  'distractor_rationales',
+]);
+
+const STAT_CLASS_C_DISTRACTOR_RATIONALE_FIELDS = Object.freeze([
+  'choice_key',
+  'why_tempting',
+  'why_wrong',
+]);
+
+function validateClosedWorldObject(value, allowedFields, path, findings) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    findings.push(`${path}:object_required`);
+    return false;
+  }
+  const allowed = new Set(allowedFields);
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) findings.push(`${path}.${key}:unknown_field`);
+  }
+  for (const key of allowed) {
+    if (!Object.hasOwn(value, key)) findings.push(`${path}.${key}:required_field`);
+  }
+  return true;
+}
+
+function validateRequiredString(value, path, findings) {
+  if (typeof value !== 'string' || !value.trim()) findings.push(`${path}:string_required`);
+}
+
+export function validateClassCStatDebriefArtifact(payload) {
+  const findings = [];
+  if (!Array.isArray(payload)) {
+    return ['$:array_required'];
+  }
+  payload.forEach((debrief, index) => {
+    const path = `$[${index}]`;
+    if (!validateClosedWorldObject(debrief, STAT_CLASS_C_DEBRIEF_FIELDS, path, findings)) return;
+    validateRequiredString(debrief.dataset_version, `${path}.dataset_version`, findings);
+    validateRequiredString(debrief.question_id, `${path}.question_id`, findings);
+    if (!['A', 'B', 'C', 'D'].includes(debrief.answer)) findings.push(`${path}.answer:choice_key_required`);
+    validateRequiredString(debrief.explanation, `${path}.explanation`, findings);
+    validateRequiredString(debrief.correct_answer_rationale, `${path}.correct_answer_rationale`, findings);
+    if (!Array.isArray(debrief.distractor_rationales) || debrief.distractor_rationales.length !== 3) {
+      findings.push(`${path}.distractor_rationales:exactly_three_required`);
+      return;
+    }
+    debrief.distractor_rationales.forEach((rationale, rationaleIndex) => {
+      const rationalePath = `${path}.distractor_rationales[${rationaleIndex}]`;
+      if (!validateClosedWorldObject(
+        rationale,
+        STAT_CLASS_C_DISTRACTOR_RATIONALE_FIELDS,
+        rationalePath,
+        findings,
+      )) return;
+      if (!['A', 'B', 'C', 'D'].includes(rationale.choice_key)) {
+        findings.push(`${rationalePath}.choice_key:choice_key_required`);
+      }
+      validateRequiredString(rationale.why_tempting, `${rationalePath}.why_tempting`, findings);
+      validateRequiredString(rationale.why_wrong, `${rationalePath}.why_wrong`, findings);
+    });
+  });
+  return [...new Set(findings)];
+}
+
+export function assertClassCStatDebriefArtifact(payload) {
+  const findings = validateClassCStatDebriefArtifact(payload);
+  if (findings.length > 0) {
+    const error = new Error('class_c_debrief_validation_failed');
+    error.code = 'class_c_debrief_validation_failed';
+    error.statusCode = 422;
+    error.findings = findings;
+    throw error;
+  }
+  return payload;
+}
+
 export function projectStatDatasetQuestion({ revision, datasetVersion, questionId }) {
   assertFourChoices(revision);
   const row = {
@@ -82,7 +163,6 @@ export function projectStatDebrief(row, revision) {
         choice_key: choice.key,
         why_tempting: choice.why_tempting,
         why_wrong: choice.why_wrong,
-        misconception_id: choice.misconception_id,
       })),
   };
 }
@@ -113,6 +193,7 @@ function artifact(channel, phase, dataClass, payload) {
 function governedArtifact(channel, payload) {
   const contract = STAT_CHANNEL_CONTRACTS[channel];
   if (!contract) throw new Error(`channel_contract_required:${channel}`);
+  if (channel === 'stat_post_answer_debrief') assertClassCStatDebriefArtifact(payload);
   return artifact(channel, contract.phase, contract.data_class, payload);
 }
 

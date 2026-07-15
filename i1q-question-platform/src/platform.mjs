@@ -923,6 +923,81 @@ export class QuestionPlatform {
     });
   }
 
+  readAssignedReviewContent(itemRevisionId, assignmentId, purpose, actorInput) {
+    let actor = null;
+    const auditTarget = typeof itemRevisionId === 'string' && itemRevisionId.trim()
+      ? itemRevisionId.trim().slice(0, 128)
+      : 'unknown';
+    try {
+      actor = requireRead(actorInput);
+      requireWrite(actor);
+      const reviewType = purpose === 'editorial_review'
+        ? 'editorial'
+        : purpose === 'medical_review' ? 'medical' : null;
+      assert(reviewType !== null, 'review_content_access_denied');
+      assert(typeof assignmentId === 'string' && assignmentId.trim(), 'review_content_access_denied');
+      const revision = this.#repository.get('item_revisions', itemRevisionId);
+      const assignment = this.#repository.get('review_assignments', assignmentId);
+      const reviewer = this.#repository.get('reviewers', assignment.reviewer_id);
+      const requiredRole = reviewType === 'medical' ? 'physician_reviewer' : 'editorial_reviewer';
+
+      assert(assignment.item_revision_id === revision.id, 'review_content_access_denied');
+      assert(assignment.reviewer_actor_id === actor.id, 'review_content_access_denied');
+      assert(assignment.review_type === reviewType, 'review_content_access_denied');
+      assert(assignment.required_role === requiredRole, 'review_content_access_denied');
+      assert(assignment.state === 'accepted', 'review_content_access_denied');
+      assert(assignment.exact_revision_hash === revision.content_hash, 'review_content_access_denied');
+      assert(actor.roles.includes(requiredRole), 'review_content_access_denied');
+      assert(reviewer.actor_id === actor.id, 'review_content_access_denied');
+      assert(reviewer.roles?.includes(requiredRole), 'review_content_access_denied');
+      this.#assertNoReviewConflict(reviewer, revision);
+      if (reviewType === 'medical') {
+        assert(currentMedicalCredential(reviewer), 'review_content_access_denied');
+        assert(
+          assignment.credential_verification_id === reviewer.credential.verification_id,
+          'review_content_access_denied',
+        );
+      }
+      const expectedState = reviewType === 'medical' ? 'medical_review' : 'editorial_review';
+      assert(this.revisionStatus(revision.id) === expectedState, 'review_content_access_denied');
+
+      const content = {
+        item_revision_id: revision.id,
+        assignment_id: assignment.id,
+        exact_revision_hash: revision.content_hash,
+        review_type: reviewType,
+        prompt: revision.prompt,
+        choices: revision.choices.map((choice) => ({
+          key: choice.key,
+          text: choice.text,
+          why_tempting: choice.why_tempting,
+          why_wrong: choice.why_wrong,
+          misconception_id: choice.misconception_id,
+        })),
+        answer: revision.answer,
+        explanation: revision.explanation,
+        correct_answer_rationale: revision.correct_answer_rationale,
+        source_ids: [...revision.source_ids],
+        evidence_claim_ids: [...revision.evidence_claim_ids],
+      };
+      this.#repository.appendAudit({
+        actor_id: actor.id,
+        action: 'review_content_accessed',
+        entity_type: 'item_revision',
+        entity_id: revision.id,
+      });
+      return structuredClone(content);
+    } catch {
+      this.#repository.appendAudit({
+        actor_id: actor?.id || 'unknown',
+        action: 'review_content_access_denied',
+        entity_type: 'item_revision',
+        entity_id: auditTarget,
+      });
+      throw new AuthorizationError('review_content_access_denied', 403);
+    }
+  }
+
   revisionStatus(itemRevisionId) {
     const revision = this.#repository.get('item_revisions', itemRevisionId);
     const events = this.#repository.list('review_events', {

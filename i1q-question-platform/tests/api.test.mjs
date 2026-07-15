@@ -127,6 +127,7 @@ test('OpenAPI path and feature-flag contracts match the live HTTP surface', asyn
     '/api/v1/governance/{slot}',
     '/api/v1/item-revisions',
     '/api/v1/item-revisions/{itemRevisionId}/draft',
+    '/api/v1/item-revisions/{itemRevisionId}/review-content',
     '/api/v1/item-revisions/{itemRevisionId}/submit-candidate',
     '/api/v1/releases',
     '/api/v1/releases/{releaseId}/artifacts/{channel}',
@@ -150,4 +151,12 @@ test('OpenAPI path and feature-flag contracts match the live HTTP surface', asyn
   ]));
   const artifactParameters = openapi.paths['/api/v1/releases/{releaseId}/artifacts/{channel}'].get.parameters;
   assert.equal(artifactParameters.some((parameter) => parameter.name === 'phase'), false);
+  const reviewContent = openapi.paths['/api/v1/item-revisions/{itemRevisionId}/review-content'].get;
+  assert.equal(reviewContent.parameters.find((parameter) => parameter.name === 'assignment_id').required, true);
+  assert.deepEqual(
+    reviewContent.parameters.find((parameter) => parameter.name === 'purpose').schema.enum,
+    ['editorial_review', 'medical_review'],
+  );
+  assert.equal(openapi.components.schemas.AssignedReviewContent.additionalProperties, false);
+  assert.equal(openapi.components.schemas.AssignedReviewChoice.additionalProperties, false);
 });
