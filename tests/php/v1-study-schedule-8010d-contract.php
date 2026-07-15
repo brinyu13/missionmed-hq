@@ -89,7 +89,7 @@ $canonicalize->setAccessible( true );
 $inspector_without_database = $inspector_reflection->newInstanceWithoutConstructor();
 $source_check = '(revision = expected_revision + 1 AND plan_hash IS NOT NULL) OR (OCTET_LENGTH(idempotency_key) BETWEEN 16 AND 64 AND plan_id IS NULL)';
 $mariadb_check = 'revision = expected_revision + 1 and plan_hash is not null or octet_length(idempotency_key) between 16 and 64 and plan_id is null';
-$mysql_check = '((`revision` = (`expected_revision` + 1)) and (`plan_hash` is not null)) or ((octet_length(`idempotency_key`) between 16 and 64) and (`plan_id` is null))';
+$mysql_check = '((`revision` = (`expected_revision` + 1)) and (`plan_hash` is not null)) or ((length(`idempotency_key`) between 16 and 64) and (`plan_id` is null))';
 $canonical_source = $canonicalize->invoke( $inspector_without_database, $source_check );
 v1_8010d_expect( $canonical_source === $canonicalize->invoke( $inspector_without_database, $mariadb_check ), 'MariaDB flattened CHECK text preserves the source boolean contract' );
 v1_8010d_expect( $canonical_source === $canonicalize->invoke( $inspector_without_database, $mysql_check ), 'MySQL parenthesized CHECK text preserves arithmetic and boolean semantics' );

@@ -3,9 +3,7 @@ name: V1 Study Schedule 8010D persistence kernel
 on:
   pull_request:
     paths:
-      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-schema.php"
-      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-schema-inspector.php"
-      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-migrator.php"
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
       - "tests/php/v1-study-schedule-8010d-*.php"
       - "tests/php/run-v1-study-schedule-8010d.sh"
       - ".github/workflows/v1-study-schedule-8010d.yml"

@@ -83,6 +83,7 @@ final class MMED_V1_Study_Migrator {
 		try {
 			$this->verify_connection();
 			$this->assert_clean_session();
+			$this->assert_no_temporary_table_shadows();
 			$this->hit( 'after_lock' );
 			$this->reconcile_migrations( $runner_id );
 			$this->commission( $store_id );
@@ -153,6 +154,9 @@ final class MMED_V1_Study_Migrator {
 				if ( null === $row && 1 !== $version ) {
 					throw new RuntimeException( 'v1_migration_unowned_table' );
 				}
+				if ( null !== $row && 'failed' === $row['state'] ) {
+					throw new RuntimeException( 'v1_migration_failed_requires_review' );
+				}
 				if ( null === $row || 'applied' !== $row['state'] ) {
 					$this->record_applied( $migration, $runner_id, null === $row ? 1 : ( (int) $row['attempt_count'] + 1 ), 'recovered_after_ddl' );
 					$ledger = $this->ledger_rows();
@@ -194,13 +198,18 @@ final class MMED_V1_Study_Migrator {
 
 			$table = $this->inspector->inspect_table( $migration['table_key'] );
 			if ( empty( $table['exists'] ) || empty( $table['ok'] ) ) {
-				if ( 1 !== $version ) {
-					$this->record_failed( $migration, $runner_id, 'postcondition_failed' );
-				}
-				$errors = isset( $table['errors'] ) && is_array( $table['errors'] ) ? $table['errors'] : array( 'inspection_unavailable' );
-				throw new RuntimeException(
+				$errors        = isset( $table['errors'] ) && is_array( $table['errors'] ) ? $table['errors'] : array( 'inspection_unavailable' );
+				$postcondition = new RuntimeException(
 					'v1_migration_postcondition_failed:' . $version . ':' . implode( ',', array_map( 'strval', $errors ) )
 				);
+				if ( 1 !== $version ) {
+					try {
+						$this->record_failed( $migration, $runner_id, 'postcondition_failed' );
+					} catch ( Throwable $failure_error ) {
+						throw new RuntimeException( $postcondition->getMessage() . ';failure_record=' . $failure_error->getMessage(), 0, $postcondition );
+					}
+				}
+				throw $postcondition;
 			}
 			$this->hit( 'after_migration_' . $version . '_verify' );
 			$this->record_applied( $migration, $runner_id, null === $row ? 1 : ( (int) $row['attempt_count'] + 1 ), 'verified' );
@@ -222,7 +231,8 @@ final class MMED_V1_Study_Migrator {
 			throw new RuntimeException( 'v1_migration_ledger_drift' );
 		}
 
-		$sql  = "SELECT migration_version, migration_id, HEX(checksum) AS checksum_hex, state, checkpoint, attempt_count";
+		$sql  = 'SELECT migration_version, migration_id, HEX(checksum) AS checksum_hex, state, checkpoint, attempt_count,';
+		$sql .= ' HEX(runner_id) AS runner_hex, failure_code, started_at, applied_at, updated_at';
 		$sql .= " FROM `{$table['migrations']}` ORDER BY migration_version";
 		$rows = $this->rows( $sql );
 		$out  = array();
@@ -237,6 +247,11 @@ final class MMED_V1_Study_Migrator {
 				'state'         => (string) ( $row['state'] ?? '' ),
 				'checkpoint'    => (string) ( $row['checkpoint'] ?? '' ),
 				'attempt_count' => (int) ( $row['attempt_count'] ?? 0 ),
+				'runner_hex'    => strtolower( (string) ( $row['runner_hex'] ?? '' ) ),
+				'failure_code'  => null === ( $row['failure_code'] ?? null ) ? null : (string) $row['failure_code'],
+				'started_at'    => null === ( $row['started_at'] ?? null ) ? null : (string) $row['started_at'],
+				'applied_at'    => null === ( $row['applied_at'] ?? null ) ? null : (string) $row['applied_at'],
+				'updated_at'    => null === ( $row['updated_at'] ?? null ) ? null : (string) $row['updated_at'],
 			);
 		}
 		return $out;
@@ -263,8 +278,31 @@ final class MMED_V1_Study_Migrator {
 				|| $row['checksum_hex'] !== $migration['checksum_hex']
 				|| ! in_array( $row['state'], array( 'applying', 'applied', 'failed' ), true )
 				|| $row['attempt_count'] < 1
+				|| 1 !== preg_match( '/^[a-f0-9]{12}4[a-f0-9]{3}[89ab][a-f0-9]{15}$/', $row['runner_hex'] )
+				|| ! $this->valid_ledger_timestamp( $row['started_at'] )
+				|| ! $this->valid_ledger_timestamp( $row['updated_at'] )
+				|| strcmp( $row['updated_at'], $row['started_at'] ) < 0
 			) {
 				throw new RuntimeException( 'v1_migration_ledger_mismatch' );
+			}
+			if ( 'applying' === $row['state'] ) {
+				$valid_state = 'before_ddl' === $row['checkpoint']
+					&& null === $row['failure_code']
+					&& null === $row['applied_at'];
+			} elseif ( 'failed' === $row['state'] ) {
+				$valid_state = 'failed' === $row['checkpoint']
+					&& is_string( $row['failure_code'] )
+					&& 1 === preg_match( '/^[a-z0-9_]{1,64}$/', $row['failure_code'] )
+					&& null === $row['applied_at'];
+			} else {
+				$valid_state = in_array( $row['checkpoint'], array( 'verified', 'recovered_after_ddl' ), true )
+					&& null === $row['failure_code']
+					&& $this->valid_ledger_timestamp( $row['applied_at'] )
+					&& strcmp( $row['applied_at'], $row['started_at'] ) >= 0
+					&& strcmp( $row['updated_at'], $row['applied_at'] ) >= 0;
+			}
+			if ( ! $valid_state ) {
+				throw new RuntimeException( 'v1_migration_ledger_state_invalid' );
 			}
 			if ( $require_applied && 'applied' !== $row['state'] ) {
 				throw new RuntimeException( 'v1_migration_not_applied' );
@@ -273,6 +311,11 @@ final class MMED_V1_Study_Migrator {
 		if ( $require_applied && count( $ledger ) !== count( $expected ) ) {
 			throw new RuntimeException( 'v1_migration_ledger_incomplete' );
 		}
+	}
+
+	/** @return bool */
+	private function valid_ledger_timestamp( $value ) {
+		return is_string( $value ) && 1 === preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}$/', $value );
 	}
 
 	/** @return void */
@@ -413,7 +456,7 @@ final class MMED_V1_Study_Migrator {
 				throw new RuntimeException( 'v1_commission_transaction_lost' );
 			}
 			$this->hit( 'after_gate_insert' );
-			$this->native_query_required( 'COMMIT', 'v1_commission_commit_outcome_unknown' );
+			$this->native_query_required( 'COMMIT AND NO CHAIN NO RELEASE', 'v1_commission_commit_outcome_unknown' );
 			$transaction_started = false;
 			if ( $this->native_transaction_is_active() ) {
 				throw new RuntimeException( 'v1_commission_commit_outcome_unknown' );
@@ -425,7 +468,7 @@ final class MMED_V1_Study_Migrator {
 
 		if ( $transaction_started ) {
 			try {
-				$this->native_query_required( 'ROLLBACK', 'v1_commission_rollback_failed' );
+				$this->native_query_required( 'ROLLBACK AND NO CHAIN NO RELEASE', 'v1_commission_rollback_failed' );
 				$transaction_started = false;
 			} catch ( Throwable $error ) {
 				$cleanup_errors[] = $error->getMessage();
@@ -560,38 +603,52 @@ final class MMED_V1_Study_Migrator {
 		) {
 			throw new RuntimeException( 'v1_migration_session_not_clean' );
 		}
+		$foreign_keys = $this->guarded_scalar( 'SELECT @@SESSION.foreign_key_checks', 'v1_migration_session_probe_failed' );
+		$unique_keys  = $this->guarded_scalar( 'SELECT @@SESSION.unique_checks', 'v1_migration_session_probe_failed' );
+		$checks       = $this->server_is_mariadb()
+			? $this->guarded_scalar( 'SELECT @@SESSION.check_constraint_checks', 'v1_migration_session_probe_failed' )
+			: 1;
+		if ( 1 !== (int) $foreign_keys || 1 !== (int) $unique_keys || 1 !== (int) $checks ) {
+			throw new RuntimeException( 'v1_migration_session_constraints_disabled' );
+		}
+		$sql_mode = $this->guarded_scalar( 'SELECT @@SESSION.sql_mode', 'v1_migration_session_probe_failed' );
+		$modes    = is_string( $sql_mode ) ? array_map( 'trim', explode( ',', strtoupper( $sql_mode ) ) ) : array();
+		if ( ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) ) {
+			throw new RuntimeException( 'v1_migration_session_sql_mode_unsafe' );
+		}
+	}
+
+	/**
+	 * Permanent information_schema rows cannot reveal same-named session TEMPORARY
+	 * tables. Probe the complete owned namespace without dropping caller state.
+	 *
+	 * @return void
+	 */
+	private function assert_no_temporary_table_shadows() {
+		foreach ( MMED_V1_Study_Schema::table_names( $this->database ) as $table_name ) {
+			$this->verify_lock();
+			$handle  = $this->native_handle();
+			$created = @mysqli_query(
+				$handle,
+				"CREATE TEMPORARY TABLE `{$table_name}` (v1_probe tinyint unsigned NOT NULL) ENGINE=InnoDB"
+			);
+			if ( true !== $created ) {
+				$errno = (int) @mysqli_errno( $handle );
+				$this->native_handle();
+				throw new RuntimeException( 1050 === $errno ? 'v1_migration_temporary_shadow_detected' : 'v1_migration_temporary_shadow_probe_failed' );
+			}
+			$this->native_handle();
+			if ( true !== @mysqli_query( $handle, "DROP TEMPORARY TABLE `{$table_name}`" ) ) {
+				throw new RuntimeException( 'v1_migration_temporary_shadow_cleanup_failed' );
+			}
+			$this->native_handle();
+			$this->verify_lock();
+		}
 	}
 
 	/** @return bool */
 	private function transaction_is_active() {
-		if ( $this->server_is_mariadb() ) {
-			$active = $this->guarded_scalar( 'SELECT @@SESSION.in_transaction', 'v1_migration_transaction_probe_failed' );
-			if ( null === $active ) {
-				throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
-			}
-			return 1 === (int) $active;
-		}
-
-		$consumer = $this->guarded_scalar(
-			"SELECT ENABLED FROM performance_schema.setup_consumers WHERE NAME = 'events_transactions_current'",
-			'v1_migration_transaction_probe_failed'
-		);
-		$instrument = $this->guarded_scalar(
-			"SELECT ENABLED FROM performance_schema.setup_instruments WHERE NAME = 'transaction'",
-			'v1_migration_transaction_probe_failed'
-		);
-		if ( 'YES' !== $consumer || 'YES' !== $instrument ) {
-			throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
-		}
-
-		$sql  = 'SELECT COUNT(*) FROM performance_schema.events_transactions_current';
-		$sql .= ' WHERE THREAD_ID = (SELECT THREAD_ID FROM performance_schema.threads WHERE PROCESSLIST_ID = CONNECTION_ID())';
-		$sql .= " AND STATE = 'ACTIVE' AND AUTOCOMMIT = 'NO' AND END_EVENT_ID IS NULL";
-		$active = $this->guarded_scalar( $sql, 'v1_migration_transaction_probe_failed' );
-		if ( null === $active ) {
-			throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
-		}
-		return (int) $active > 0;
+		return $this->native_transaction_probe( 'v1_migration_transaction_probe_failed' );
 	}
 
 	/** @return object */
@@ -604,6 +661,8 @@ final class MMED_V1_Study_Migrator {
 			|| ! function_exists( 'mysqli_fetch_row' )
 			|| ! function_exists( 'mysqli_free_result' )
 			|| ! function_exists( 'mysqli_affected_rows' )
+			|| ! function_exists( 'mysqli_errno' )
+			|| ! function_exists( 'mysqli_sqlstate' )
 		) {
 			throw new RuntimeException( 'v1_native_database_capability_unavailable' );
 		}
@@ -612,6 +671,45 @@ final class MMED_V1_Study_Migrator {
 			throw new RuntimeException( 'v1_migration_connection_changed' );
 		}
 		return $handle;
+	}
+
+	/**
+	 * Detect a local transaction without relying on optional instrumentation.
+	 * SAVEPOINT is a no-op outside a transaction, followed by exact errno 1305;
+	 * inside one, rollback/release of the unique probe savepoint both succeed.
+	 *
+	 * @return bool
+	 */
+	private function native_transaction_probe( $error_code ) {
+		try {
+			$name = 'mmed_v1_probe_' . bin2hex( random_bytes( 16 ) );
+		} catch ( Throwable $error ) {
+			throw new RuntimeException( $error_code, 0, $error );
+		}
+		$handle = $this->native_handle();
+		if ( true !== @mysqli_query( $handle, 'SAVEPOINT `' . $name . '`' ) ) {
+			throw new RuntimeException( $error_code );
+		}
+		$this->native_handle();
+		$rolled_back = @mysqli_query( $handle, 'ROLLBACK TO SAVEPOINT `' . $name . '`' );
+		if ( true === $rolled_back ) {
+			$this->native_handle();
+			if ( true !== @mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' ) ) {
+				throw new RuntimeException( $error_code );
+			}
+			$this->native_handle();
+			return true;
+		}
+		$errno    = (int) @mysqli_errno( $handle );
+		$sqlstate = (string) @mysqli_sqlstate( $handle );
+		$this->native_handle();
+		if ( 1305 === $errno && '42000' === $sqlstate ) {
+			return false;
+		}
+		// The savepoint probably still exists after an unexpected rollback error.
+		// Cleanup is best-effort only; the captured probe failure remains primary.
+		@mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' );
+		throw new RuntimeException( $error_code );
 	}
 
 	/** @return void */
@@ -669,13 +767,7 @@ final class MMED_V1_Study_Migrator {
 
 	/** @return bool */
 	private function native_transaction_is_active() {
-		if ( $this->server_is_mariadb() ) {
-			return 1 === (int) $this->native_scalar_required( 'SELECT @@SESSION.in_transaction', 'v1_commission_transaction_probe_failed' );
-		}
-		$sql  = 'SELECT COUNT(*) FROM performance_schema.events_transactions_current';
-		$sql .= ' WHERE THREAD_ID = (SELECT THREAD_ID FROM performance_schema.threads WHERE PROCESSLIST_ID = CONNECTION_ID())';
-		$sql .= " AND STATE = 'ACTIVE' AND AUTOCOMMIT = 'NO' AND END_EVENT_ID IS NULL";
-		return (int) $this->native_scalar_required( $sql, 'v1_commission_transaction_probe_failed' ) > 0;
+		return $this->native_transaction_probe( 'v1_commission_transaction_probe_failed' );
 	}
 
 	/** @return bool */

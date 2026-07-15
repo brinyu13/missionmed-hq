@@ -150,6 +150,7 @@ final class MMED_V1_Study_Schema_Inspector {
 		$errors = array_merge( $errors, $this->compare_indexes( $table_name, $expected['indexes'] ) );
 		$errors = array_merge( $errors, $this->compare_foreign_keys( $table_name, $expected['foreign_keys'], $table_names ) );
 		$errors = array_merge( $errors, $this->compare_checks( $table_name, $expected['checks'] ) );
+		$errors = array_merge( $errors, $this->compare_triggers( $table_name ) );
 		return $errors;
 	}
 
@@ -326,6 +327,33 @@ final class MMED_V1_Study_Schema_Inspector {
 		);
 	}
 
+	/** Owned kernel tables must not have unowned trigger side effects. @return array */
+	private function compare_triggers( $table_name ) {
+		$this->assert_trigger_visibility( $table_name );
+		$sql = 'SELECT TRIGGER_NAME FROM information_schema.TRIGGERS';
+		$sql .= ' WHERE TRIGGER_SCHEMA = %s AND EVENT_OBJECT_SCHEMA = %s AND EVENT_OBJECT_TABLE = %s';
+		$sql .= ' ORDER BY TRIGGER_NAME';
+		$rows = $this->rows( $this->database->prepare( $sql, $this->schema_name, $this->schema_name, $table_name ) );
+		return empty( $rows ) ? array() : array( $table_name . ':trigger_set' );
+	}
+
+	/** MySQL hides triggers unless the current account has an effective direct grant. @return void */
+	private function assert_trigger_visibility( $table_name ) {
+		if ( $this->is_mariadb ) {
+			return;
+		}
+		$grantee = "CONCAT(QUOTE(LEFT(CURRENT_USER(), CHAR_LENGTH(CURRENT_USER()) - CHAR_LENGTH(SUBSTRING_INDEX(CURRENT_USER(), '@', -1)) - 1)), '@', QUOTE(SUBSTRING_INDEX(CURRENT_USER(), '@', -1)))";
+		$sql  = 'SELECT COUNT(*) FROM (';
+		$sql .= ' SELECT 1 FROM information_schema.USER_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER'";
+		$sql .= ' UNION ALL SELECT 1 FROM information_schema.SCHEMA_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER' AND TABLE_SCHEMA = %s";
+		$sql .= ' UNION ALL SELECT 1 FROM information_schema.TABLE_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER' AND TABLE_SCHEMA = %s AND TABLE_NAME = %s";
+		$sql .= ') AS effective_trigger_grants';
+		$grants = $this->scalar( $this->database->prepare( $sql, $this->schema_name, $this->schema_name, $table_name ) );
+		if ( null === $grants || (int) $grants < 1 ) {
+			throw new RuntimeException( 'V1 trigger metadata visibility is unavailable.' );
+		}
+	}
+
 	/** Convert the limited kernel CHECK grammar into a precedence-explicit AST. @return string */
 	private function canonical_check_clause( $clause ) {
 		$source = strtolower( str_replace( '`', '', trim( (string) $clause ) ) );
@@ -471,6 +499,11 @@ final class MMED_V1_Study_Schema_Inspector {
 		++$index;
 		if ( ! isset( $tokens[ $index ] ) || '(' !== $tokens[ $index ] ) {
 			return array( 'identifier', $token );
+		}
+		// MySQL serializes OCTET_LENGTH() in CHECK metadata using its exact
+		// byte-length synonym LENGTH(). Canonicalize only this documented alias.
+		if ( 'length' === $token ) {
+			$token = 'octet_length';
 		}
 
 		++$index;
