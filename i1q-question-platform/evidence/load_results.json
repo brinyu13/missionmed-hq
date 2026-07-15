@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-15T15:16:14.740Z",
+  "generated_at": "2026-07-15T15:45:20.412Z",
   "status": "pass",
   "workload": "10,000 synthetic candidate inserts plus bounded 200-row page",
-  "elapsed_ms": 169.152,
+  "elapsed_ms": 174.064,
   "page_rows": 200,
   "total_rows": 10000,
   "scope": "local in-memory service only; not a database or production load result"
