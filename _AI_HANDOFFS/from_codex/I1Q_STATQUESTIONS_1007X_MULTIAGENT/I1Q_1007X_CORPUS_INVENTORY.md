@@ -70,7 +70,9 @@ Speaker strings were evaluated in memory and retained only as truncated hashes a
 
 VERIFIED: all sources require speaker-aware privacy processing before extraction.
 
-INFERENCE: authoritative `DRJ_DRILLS` collection metadata supports source-level Dr. J corpus classification under `DR-006`. Segment-level attribution still requires the explicit label or privacy-owner attestation. The privacy specialist owns the final persisted `likely_drj` versus `verified_drj` ruling.
+VERIFIED: the interim privacy owner accepted authoritative `DRJ_DRILLS` registry metadata as sufficient for source-level `verified_drj` classification under `DR-006`. This is not segment-level attribution, medical credential verification, public-rights clearance, or permission to publish quotations.
+
+VERIFIED: 96 sources have explicit speaker evidence that may support a restricted exact-match Dr. J segment allowlist after privacy gates pass. The one generic-only source retains zero segments unless an authoritative source-owner mapping is recorded.
 
 ## Enrichment Coverage
 
@@ -105,8 +107,8 @@ UNKNOWN: this is not proof that no Drive corpus exists. Search indexing, access 
 | Nodes availability | PASS, 97 of 97 |
 | Source hash coverage | PASS, 97 of 97 for both artifact classes |
 | Duplicate-ID check | PASS |
-| Source-level Dr. J classification | PENDING privacy-owner finalization |
-| Segment-level Dr. J attribution | BLOCKED until speaker policy and one ambiguous source are resolved |
+| Source-level Dr. J classification | PASS, 97 of 97 `verified_drj` |
+| Segment-level Dr. J attribution | 96 potentially resolvable; 1 zero-retention; all blocked pending privacy gates |
 | Working redacted transcripts | NOT CREATED |
 | Student-speech removal | NOT RUN |
 | Patient and third-party redaction | NOT RUN |
