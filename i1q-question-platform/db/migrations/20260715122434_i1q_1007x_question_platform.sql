@@ -2902,7 +2902,7 @@ SET search_path = pg_catalog, i1q
 AS $function$
 DECLARE
   max_security_text_bytes constant integer := 65536;
-  max_url_decode_rounds constant integer := 3;
+  max_url_decode_rounds constant integer := 8;
   ascii_code integer;
   decode_round integer;
   normalized text;
@@ -2917,13 +2917,12 @@ BEGIN
   FOR decode_round IN 1..max_url_decode_rounds LOOP
     previous := normalized;
     FOR ascii_code IN 32..126 LOOP
-      IF ascii_code <> 37 THEN
-        normalized := pg_catalog.replace(
-          normalized,
-          '%' || pg_catalog.lpad(pg_catalog.to_hex(ascii_code), 2, '0'),
-          pg_catalog.chr(ascii_code)
-        );
-      END IF;
+      CONTINUE WHEN ascii_code = 37;
+      normalized := pg_catalog.replace(
+        normalized,
+        '%' || pg_catalog.lpad(pg_catalog.to_hex(ascii_code), 2, '0'),
+        pg_catalog.chr(ascii_code)
+      );
     END LOOP;
     normalized := pg_catalog.replace(normalized, '%25', '%');
     EXIT WHEN normalized = previous;

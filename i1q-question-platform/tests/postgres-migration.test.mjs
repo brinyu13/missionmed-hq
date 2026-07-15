@@ -219,10 +219,11 @@ test('student artifacts reject exact release-scoped Class D values embedded in p
   assert.match(identifierLeak, /identifier\.canonical/u);
   assert.match(identifierLeak, /canonical_base64_value/u);
   assert.match(canonicalText, /max_security_text_bytes constant integer := 65536/u);
-  assert.match(normalizedText, /max_url_decode_rounds constant integer := 3/u);
+  assert.match(normalizedText, /max_url_decode_rounds constant integer := 8/u);
   assert.match(normalizedText, /FOR decode_round IN 1\.\.max_url_decode_rounds LOOP/u);
   assert.match(normalizedText, /FOR ascii_code IN 32\.\.126 LOOP/u);
-  assert.match(normalizedText, /ascii_code <> 37/u);
+  assert.match(normalizedText, /CONTINUE WHEN ascii_code = 37/u);
+  assert.match(normalizedText, /normalized ~ '%\[0-9a-f\]\{2\}'/u);
   assert.match(normalizedText, /security_text_encoding_depth_exceeded/u);
   assert.match(normalizedText, /security_text_size_limit_exceeded/u);
   assert.ok(normalizedText.indexOf('FOR ascii_code IN 32..126 LOOP') < normalizedText.indexOf("replace(normalized, '%25', '%')"));
@@ -659,7 +660,7 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       encoded text;
       encoding_round integer;
     BEGIN
-      IF encoding_depth < 1 OR encoding_depth > 8 THEN
+      IF encoding_depth < 1 OR encoding_depth > 9 THEN
         RAISE EXCEPTION 'invalid_test_encoding_depth';
       END IF;
       encoded := pg_catalog.replace(candidate_value, '_', '%5F');
@@ -688,7 +689,7 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       encoded_bytes bytea;
       encoding_round integer;
     BEGIN
-      IF encoding_depth < 1 OR encoding_depth > 8 THEN
+      IF encoding_depth < 1 OR encoding_depth > 9 THEN
         RAISE EXCEPTION 'invalid_test_encoding_depth';
       END IF;
       encoded_bytes := pg_catalog.convert_to(candidate_value, 'UTF8');
@@ -914,10 +915,10 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     $iterative_probes$;
     SELECT pg_temp.expect_class_d_value_denied(
       'artifact_encoding_depth_limit',
-      pg_temp.encode_separator('source_synthetic', 4),
+      pg_temp.encode_separator('source_synthetic', 9),
       'explanation',
       'depth_limit',
-      4
+      9
     );
     SELECT pg_temp.expect_class_d_value_denied(
       'artifact_security_text_size_limit',
@@ -954,7 +955,7 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       END IF;
       IF NOT EXISTS (
         SELECT 1 FROM pg_temp.class_d_denial_probes
-         WHERE probe_group = 'depth_limit' AND encoding_depth = 4 AND denied_sqlstate = '54000'
+         WHERE probe_group = 'depth_limit' AND encoding_depth = 9 AND denied_sqlstate = '54000'
       ) THEN
         RAISE EXCEPTION 'encoding_depth_limit_not_fail_closed';
       END IF;

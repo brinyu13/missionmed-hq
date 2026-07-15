@@ -295,10 +295,11 @@ test('channel artifacts bind policy, phase, class, and pre-answer fields', () =>
   assert.match(identifierLeak, /pg_catalog\.encode\(pg_catalog\.convert_to\(identifier\.normalized, 'UTF8'\), 'base64'\)/u);
   assert.match(canonicalText, /max_security_text_bytes constant integer := 65536/u);
   assert.match(canonicalText, /security_text_size_limit_exceeded/u);
-  assert.match(normalizedText, /max_url_decode_rounds constant integer := 3/u);
+  assert.match(normalizedText, /max_url_decode_rounds constant integer := 8/u);
   assert.match(normalizedText, /FOR decode_round IN 1\.\.max_url_decode_rounds LOOP/u);
   assert.match(normalizedText, /FOR ascii_code IN 32\.\.126 LOOP/u);
-  assert.match(normalizedText, /ascii_code <> 37/u);
+  assert.match(normalizedText, /CONTINUE WHEN ascii_code = 37/u);
+  assert.match(normalizedText, /normalized ~ '%\[0-9a-f\]\{2\}'/u);
   assert.match(normalizedText, /security_text_encoding_depth_exceeded/u);
   assert.match(normalizedText, /security_text_size_limit_exceeded/u);
   assert.ok(normalizedText.indexOf('FOR ascii_code IN 32..126 LOOP') < normalizedText.indexOf("replace(normalized, '%25', '%')"));
