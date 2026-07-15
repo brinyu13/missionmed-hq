@@ -59,6 +59,108 @@ const STAT_CLASS_C_DISTRACTOR_RATIONALE_FIELDS = Object.freeze([
   'why_wrong',
 ]);
 
+const CLASS_D_FIELD_MARKER = /\b(?:item(?:[\s_-]*(?:rev|revision))?[\s_-]*ids?|revision[\s_-]*number|(?:vg|variant[\s_-]*group)[\s_-]*ids?|concept[\s_-]*ids?|misconception[\s_-]*ids?|source(?:[\s_-]*record)?[\s_-]*ids?|(?:evidence[\s_-]*)?claim[\s_-]*ids?|reviewer(?:[\s_-]*actor)?[\s_-]*(?:id|identity)|assignment[\s_-]*ids?|psychometric(?:s)?(?:[\s_-]*ids?)?|incident[\s_-]*ids?|content[\s_-]*hash|(?:taxonomy|blueprint|vocabulary|policy|prompt|pipeline|model)[\s_-]*version(?:[\s_-]*ids?)?|extraction[\s_-]*run[\s_-]*ids?|rights[\s_-]*record[\s_-]*ids?|(?:privacy[\s_-]*)?redaction[\s_-]*record[\s_-]*ids?)\b/iu;
+const PUBLIC_IDENTIFIER_KEYS = new Set(['datasetversion', 'exportquestionid', 'questionid']);
+
+function decodeCodePoint(raw, radix, original) {
+  const codePoint = Number.parseInt(raw, radix);
+  return Number.isInteger(codePoint) && codePoint >= 0 && codePoint <= 0x10ffff
+    ? String.fromCodePoint(codePoint)
+    : original;
+}
+
+function decodeLeakText(value) {
+  return String(value)
+    .normalize('NFKC')
+    .replace(/[\u200B-\u200D\uFEFF]/gu, '')
+    .replace(/\\u([0-9a-f]{4})/giu, (match, hex) => decodeCodePoint(hex, 16, match))
+    .replace(/%([0-9a-f]{2})/giu, (match, hex) => decodeCodePoint(hex, 16, match))
+    .replace(/&#x([0-9a-f]+);?/giu, (match, hex) => decodeCodePoint(hex, 16, match))
+    .replace(/&#([0-9]+);?/gu, (match, decimal) => decodeCodePoint(decimal, 10, match))
+    .normalize('NFKC');
+}
+
+function normalizeLeakValue(value) {
+  return typeof value === 'string' ? decodeLeakText(value).trim().toLocaleLowerCase('en-US') : '';
+}
+
+function classDIdentifierKey(key) {
+  const normalized = String(key).replace(/[^a-z0-9]/giu, '').toLocaleLowerCase('en-US');
+  if (!normalized || PUBLIC_IDENTIFIER_KEYS.has(normalized)) return false;
+  return normalized === 'id'
+    || normalized.endsWith('id')
+    || normalized.endsWith('ids')
+    || normalized.includes('hash')
+    || normalized.includes('identity')
+    || normalized.includes('identifier')
+    || (normalized.endsWith('version')
+      && /taxonomy|blueprint|vocabulary|policy|prompt|pipeline|model/u.test(normalized));
+}
+
+function addIdentifierValueVariants(value, output) {
+  const normalized = normalizeLeakValue(value);
+  if (normalized.length < 4) return;
+  output.add(normalized);
+  output.add(encodeURIComponent(normalized).toLocaleLowerCase('en-US'));
+  output.add(Buffer.from(normalized, 'utf8').toString('base64').toLocaleLowerCase('en-US'));
+  output.add(Buffer.from(normalized, 'utf8').toString('base64url').toLocaleLowerCase('en-US'));
+}
+
+function collectStringValues(value, output) {
+  if (typeof value === 'string') {
+    addIdentifierValueVariants(value, output);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectStringValues(entry, output));
+    return;
+  }
+  if (value && typeof value === 'object') {
+    Object.values(value).forEach((entry) => collectStringValues(entry, output));
+  }
+}
+
+export function collectClassDIdentifierValues(revision, additionalRecords = []) {
+  const output = new Set();
+  const visit = (value) => {
+    if (Array.isArray(value)) {
+      value.forEach(visit);
+      return;
+    }
+    if (!value || typeof value !== 'object') return;
+    for (const [key, entry] of Object.entries(value)) {
+      if (classDIdentifierKey(key)) collectStringValues(entry, output);
+      if (entry && typeof entry === 'object') visit(entry);
+    }
+  };
+  visit(revision);
+  visit(additionalRecords);
+  return [...output].sort();
+}
+
+function scanClassDProseValues(debrief, path, forbiddenValues, findings) {
+  const proseEntries = [
+    [`${path}.explanation`, debrief?.explanation],
+    [`${path}.correct_answer_rationale`, debrief?.correct_answer_rationale],
+  ];
+  for (const [index, rationale] of (debrief?.distractor_rationales || []).entries()) {
+    proseEntries.push(
+      [`${path}.distractor_rationales[${index}].why_tempting`, rationale?.why_tempting],
+      [`${path}.distractor_rationales[${index}].why_wrong`, rationale?.why_wrong],
+    );
+  }
+  for (const [prosePath, value] of proseEntries) {
+    if (typeof value !== 'string') continue;
+    const normalized = normalizeLeakValue(value);
+    if (CLASS_D_FIELD_MARKER.test(decodeLeakText(value))) {
+      findings.push(`${prosePath}:class_d_field_marker`);
+    }
+    if (forbiddenValues.some((candidate) => candidate && normalized.includes(candidate))) {
+      findings.push(`${prosePath}:class_d_identifier_value`);
+    }
+  }
+}
+
 function validateClosedWorldObject(value, allowedFields, path, findings) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     findings.push(`${path}:object_required`);
@@ -78,7 +180,7 @@ function validateRequiredString(value, path, findings) {
   if (typeof value !== 'string' || !value.trim()) findings.push(`${path}:string_required`);
 }
 
-export function validateClassCStatDebriefArtifact(payload) {
+export function validateClassCStatDebriefArtifact(payload, { classDValuesByIndex = [] } = {}) {
   const findings = [];
   if (!Array.isArray(payload)) {
     return ['$:array_required'];
@@ -109,12 +211,18 @@ export function validateClassCStatDebriefArtifact(payload) {
       validateRequiredString(rationale.why_tempting, `${rationalePath}.why_tempting`, findings);
       validateRequiredString(rationale.why_wrong, `${rationalePath}.why_wrong`, findings);
     });
+    scanClassDProseValues(
+      debrief,
+      path,
+      Array.isArray(classDValuesByIndex[index]) ? classDValuesByIndex[index] : [],
+      findings,
+    );
   });
   return [...new Set(findings)];
 }
 
-export function assertClassCStatDebriefArtifact(payload) {
-  const findings = validateClassCStatDebriefArtifact(payload);
+export function assertClassCStatDebriefArtifact(payload, options = {}) {
+  const findings = validateClassCStatDebriefArtifact(payload, options);
   if (findings.length > 0) {
     const error = new Error('class_c_debrief_validation_failed');
     error.code = 'class_c_debrief_validation_failed';
@@ -190,14 +298,20 @@ function artifact(channel, phase, dataClass, payload) {
   };
 }
 
-function governedArtifact(channel, payload) {
+function governedArtifact(channel, payload, validationOptions = {}) {
   const contract = STAT_CHANNEL_CONTRACTS[channel];
   if (!contract) throw new Error(`channel_contract_required:${channel}`);
-  if (channel === 'stat_post_answer_debrief') assertClassCStatDebriefArtifact(payload);
+  if (channel === 'stat_post_answer_debrief') assertClassCStatDebriefArtifact(payload, validationOptions);
   return artifact(channel, contract.phase, contract.data_class, payload);
 }
 
-export function buildReleaseArtifacts({ releaseId, datasetVersion, revisions, previousManifestHash = null }) {
+export function buildReleaseArtifacts({
+  releaseId,
+  datasetVersion,
+  revisions,
+  previousManifestHash = null,
+  additionalClassDRecordsByRevisionId = {},
+}) {
   const entries = prepareStatRelease({ datasetVersion, revisions });
   const datasetRows = entries.map((entry) => projectStatDatasetQuestion({
     revision: entry.revision,
@@ -215,6 +329,10 @@ export function buildReleaseArtifacts({ releaseId, datasetVersion, revisions, pr
   const indexes = buildCompositeIndexes(metadata);
   const drills = entries.map(({ revision }) => projectDrillsAdapter({ revision, releaseId }));
   const releaseMembership = buildReleaseMembership(entries);
+  const classDValuesByIndex = entries.map(({ revision }) => collectClassDIdentifierValues(
+    revision,
+    additionalClassDRecordsByRevisionId?.[revision.id] || [],
+  ));
 
   assertClassAArtifact('stat_pre_answer', preAnswer);
   assertClassAArtifact('stat_indexes', indexes);
@@ -223,7 +341,7 @@ export function buildReleaseArtifacts({ releaseId, datasetVersion, revisions, pr
   const artifacts = [
     governedArtifact('stat_dataset_questions', datasetRows),
     governedArtifact('stat_pre_answer', preAnswer),
-    governedArtifact('stat_post_answer_debrief', debrief),
+    governedArtifact('stat_post_answer_debrief', debrief, { classDValuesByIndex }),
     governedArtifact('stat_indexes', indexes),
     governedArtifact('stat_lookup', lookup),
     governedArtifact('question_metadata', metadata),

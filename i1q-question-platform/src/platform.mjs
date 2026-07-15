@@ -1154,11 +1154,40 @@ export class QuestionPlatform {
       datasetVersion: releaseInput.datasetVersion,
       itemRevisionIds: [...itemRevisionIds].sort(),
     });
+    const additionalClassDRecordsByRevisionId = Object.fromEntries(revisions.map((revision) => {
+      const linkedRecords = [
+        ...this.#repository.list('review_assignments', {
+          predicate: (row) => row.item_revision_id === revision.id,
+          limit: 200,
+        }).rows,
+        ...this.#repository.list('review_events', {
+          predicate: (row) => row.item_revision_id === revision.id,
+          limit: 200,
+        }).rows,
+        ...this.#repository.list('psychometric_snapshots', {
+          predicate: (row) => row.item_revision_id === revision.id,
+          limit: 200,
+        }).rows,
+      ];
+      for (const sourceId of revision.source_ids) {
+        const source = this.#repository.get('source_records', sourceId);
+        linkedRecords.push(source);
+        if (source.rights_record_id) linkedRecords.push(this.#repository.get('rights_records', source.rights_record_id));
+        if (source.privacy_redaction_record_id) {
+          linkedRecords.push(this.#repository.get('privacy_redaction_records', source.privacy_redaction_record_id));
+        }
+      }
+      revision.evidence_claim_ids.forEach((claimId) => linkedRecords.push(
+        this.#repository.get('evidence_claims', claimId),
+      ));
+      return [revision.id, linkedRecords];
+    }));
     const generated = buildReleaseArtifacts({
       releaseId,
       datasetVersion: releaseInput.datasetVersion,
       revisions,
       previousManifestHash: releaseInput.previousManifestHash || null,
+      additionalClassDRecordsByRevisionId,
     });
     const preAnswer = generated.artifacts.find((artifact) => artifact.channel === 'stat_pre_answer');
     assert(scanForAnswerLeak(preAnswer.payload).length === 0, 'pre_answer_leak_detected');

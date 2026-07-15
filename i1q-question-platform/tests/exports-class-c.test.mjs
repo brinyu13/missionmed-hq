@@ -83,7 +83,10 @@ function makeSyntheticRevision() {
     source_ids: ['internal_source_synthetic'],
     evidence_claim_ids: ['internal_claim_synthetic'],
     reviewer_id: 'internal_reviewer_synthetic',
-    psychometrics: { percent_correct: 0.75 },
+    psychometrics: {
+      calibration_id: 'internal_psychometric_synthetic',
+      percent_correct: 0.75,
+    },
     unknown_field: 'internal_unknown_synthetic',
     drills: {
       video_id: 'synthetic_video',
@@ -205,6 +208,181 @@ test('artifact construction rejects identifiers hidden inside teaching prose fie
   }), (error) => {
     assert.equal(error.code, 'class_c_debrief_validation_failed');
     assert.ok(error.findings.includes('$[0].distractor_rationales[0].why_wrong:string_required'));
+    return true;
+  });
+});
+
+test('Class C construction rejects internal identifier values in every prose field', () => {
+  const fieldMutators = [
+    (revision, value) => { revision.explanation = value; },
+    (revision, value) => { revision.correct_answer_rationale = value; },
+    (revision, value) => { revision.choices[0].why_tempting = value; },
+    (revision, value) => { revision.choices[0].why_wrong = value; },
+  ];
+  const valueSelectors = [
+    (revision) => revision.id,
+    (revision) => revision.item_id,
+    (revision) => revision.concept_id,
+    (revision) => revision.source_ids[0],
+    (revision) => revision.evidence_claim_ids[0],
+    (revision) => revision.reviewer_id,
+    (revision) => revision.choices[0].misconception_id,
+    (revision) => revision.drills.source_record_id,
+  ];
+
+  for (const mutate of fieldMutators) {
+    for (const selectValue of valueSelectors) {
+      const revision = makeSyntheticRevision();
+      const forbiddenValue = selectValue(revision);
+      mutate(revision, `Synthetic prose containing ${forbiddenValue}.`);
+      assert.throws(() => buildReleaseArtifacts({
+        releaseId: 'synthetic_release_class_d_value',
+        datasetVersion: 'synthetic_v1',
+        revisions: [revision],
+      }), (error) => {
+        assert.equal(error.code, 'class_c_debrief_validation_failed');
+        assert.equal(error.statusCode, 422);
+        assert.ok(error.findings.some((finding) => finding.endsWith(':class_d_identifier_value')));
+        assert.equal(JSON.stringify(error.findings).includes(forbiddenValue), false);
+        return true;
+      });
+    }
+  }
+});
+
+test('Class C value isolation rejects encoded IDs and structured Class D markers', () => {
+  for (const transform of [
+    (value) => encodeURIComponent(value),
+    (value) => Buffer.from(value, 'utf8').toString('base64'),
+    (value) => Buffer.from(value, 'utf8').toString('base64url'),
+  ]) {
+    const revision = makeSyntheticRevision();
+    revision.choices[0].why_wrong = `Synthetic encoded value ${transform(revision.source_ids[0])}`;
+    assert.throws(() => buildReleaseArtifacts({
+      releaseId: 'synthetic_release_encoded_class_d',
+      datasetVersion: 'synthetic_v1',
+      revisions: [revision],
+    }), (error) => (
+      error.code === 'class_c_debrief_validation_failed'
+      && error.findings.some((finding) => finding.endsWith(':class_d_identifier_value'))
+    ));
+  }
+
+  const revision = makeSyntheticRevision();
+  revision.correct_answer_rationale = 'Synthetic object marker {"reviewer_id":"opaque"}.';
+  assert.throws(() => buildReleaseArtifacts({
+    releaseId: 'synthetic_release_structured_class_d',
+    datasetVersion: 'synthetic_v1',
+    revisions: [revision],
+  }), (error) => (
+    error.code === 'class_c_debrief_validation_failed'
+    && error.findings.some((finding) => finding.endsWith(':class_d_field_marker'))
+  ));
+});
+
+test('Class C value isolation permits the opaque release question ID outside prose', () => {
+  const revision = makeSyntheticRevision();
+  const generated = buildReleaseArtifacts({
+    releaseId: 'synthetic_release_question_id_allowed',
+    datasetVersion: 'synthetic_v1',
+    revisions: [revision],
+  });
+  const artifact = generated.artifacts.find((entry) => entry.channel === 'stat_post_answer_debrief');
+  assert.equal(artifact.payload[0].question_id, revision.export_question_id);
+  assert.deepEqual(validateClassCStatDebriefArtifact(artifact.payload), []);
+});
+
+test('Class C rejects valid-string Class D values in every permitted prose field', () => {
+  const identifierCases = [
+    ['item', (revision) => revision.item_id],
+    ['revision', (revision) => revision.id],
+    ['source', (revision) => revision.source_ids[0]],
+    ['claim', (revision) => revision.evidence_claim_ids[0]],
+    ['reviewer', (revision) => revision.reviewer_id],
+    ['misconception', (revision) => revision.choices[0].misconception_id],
+    ['psychometric', (revision) => revision.psychometrics.calibration_id],
+  ];
+  const injectors = [
+    ['explanation', (revision, value) => { revision.explanation = `Synthetic prose ${value}.`; }],
+    ['correct rationale', (revision, value) => { revision.correct_answer_rationale = `Synthetic prose ${value}.`; }],
+    ['why tempting', (revision, value) => { revision.choices[0].why_tempting = `Synthetic prose ${value}.`; }],
+    ['why wrong', (revision, value) => { revision.choices[0].why_wrong = `Synthetic prose ${value}.`; }],
+  ];
+
+  for (const [identifierName, identifier] of identifierCases) {
+    for (const [fieldName, inject] of injectors) {
+      const revision = makeSyntheticRevision();
+      inject(revision, identifier(revision));
+      assert.throws(() => buildReleaseArtifacts({
+        releaseId: `synthetic_release_${identifierName}_${fieldName.replace(' ', '_')}`,
+        datasetVersion: 'synthetic_v1',
+        revisions: [revision],
+      }), (error) => {
+        assert.equal(error.code, 'class_c_debrief_validation_failed');
+        assert.ok(error.findings.some((finding) => finding.endsWith(':class_d_identifier_value')));
+        return true;
+      }, `${identifierName} in ${fieldName}`);
+    }
+  }
+});
+
+test('Class C rejects encoded internal field markers in otherwise valid prose', () => {
+  for (const [index, marker] of [
+    'source_id=internal',
+    'source%5Fid=internal',
+    'source\\u005fid=internal',
+    'source&#95;id=internal',
+    'source_\u200Bid=internal',
+  ].entries()) {
+    const revision = makeSyntheticRevision();
+    revision.explanation = `Synthetic prose must not serialize ${marker}.`;
+    assert.throws(() => buildReleaseArtifacts({
+      releaseId: `synthetic_release_class_d_marker_${index}`,
+      datasetVersion: 'synthetic_v1',
+      revisions: [revision],
+    }), (error) => {
+      assert.equal(error.code, 'class_c_debrief_validation_failed');
+      assert.ok(error.findings.includes('$[0].explanation:class_d_field_marker'));
+      return true;
+    });
+  }
+});
+
+test('Class C rejects simply encoded internal identifier values', () => {
+  for (const [index, encodedSourceId] of [
+    'internal%5Fsource%5Fsynthetic',
+    'internal\\u005fsource\\u005fsynthetic',
+    'internal&#95;source&#95;synthetic',
+    'internal_\u200Bsource_synthetic',
+  ].entries()) {
+    const revision = makeSyntheticRevision();
+    revision.explanation = `Synthetic prose ${encodedSourceId}.`;
+    assert.throws(() => buildReleaseArtifacts({
+      releaseId: `synthetic_release_encoded_class_d_value_${index}`,
+      datasetVersion: 'synthetic_v1',
+      revisions: [revision],
+    }), (error) => {
+      assert.equal(error.code, 'class_c_debrief_validation_failed');
+      assert.ok(error.findings.includes('$[0].explanation:class_d_identifier_value'));
+      return true;
+    });
+  }
+});
+
+test('additional release-linked reviewer identifiers are included in the Class D value scan', () => {
+  const revision = makeSyntheticRevision();
+  delete revision.reviewer_id;
+  revision.explanation = 'Synthetic prose internal_linked_reviewer.';
+  assert.throws(() => buildReleaseArtifacts({
+    releaseId: 'synthetic_release_linked_reviewer',
+    datasetVersion: 'synthetic_v1',
+    revisions: [revision],
+    additionalClassDRecordsByRevisionId: {
+      [revision.id]: [{ reviewer_id: 'internal_linked_reviewer' }],
+    },
+  }), (error) => {
+    assert.equal(error.code, 'class_c_debrief_validation_failed');
+    assert.ok(error.findings.includes('$[0].explanation:class_d_identifier_value'));
     return true;
   });
 });
