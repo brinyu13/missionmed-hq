@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T15:50:08.513Z",
+  "generated_at": "2026-07-15T16:08:58.772Z",
   "status": "pass",
   "exit_code": 0,
   "test_files": [
@@ -17,7 +17,7 @@
     "tests/security-regressions.test.mjs",
     "tests/ui.test.mjs"
   ],
-  "passed_assertions": 223,
+  "passed_assertions": 224,
   "failed_assertions": 0,
-  "output_sha256": "cbc955d86276a924318222d1d11e3b79c61df7dd90a9cd06c59d22636c322d44"
+  "output_sha256": "b8320a60b40988489ace32a9b889236249b0ebfa5987d76b17154c9e857d8882"
 }

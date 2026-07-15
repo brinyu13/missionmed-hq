@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-15T15:50:08.513Z",
+  "generated_at": "2026-07-15T16:08:58.772Z",
   "status": "STATIC_PASS_PREVIEW_NOT_RUN",
   "migration": "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
-  "sha256": "bda6e9bf23cb59d1c5121c69a31fed536c4f3f1b6541de1e10a96921e7e50009",
+  "sha256": "bcd680af7c5e2dd11d1cf8869d6bf4d12020c2fe4ae51342d54b11e96b3078a2",
   "production_or_staging_apply_count": 0,
   "reason": "Static validation and a disposable local PostgreSQL apply, reapply, RLS, compensation, and reapply proof passed. Canonical preview and staging were not available."
 }

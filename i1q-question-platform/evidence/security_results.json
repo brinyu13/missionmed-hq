@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T15:50:08.513Z",
+  "generated_at": "2026-07-15T16:08:58.772Z",
   "status": "pass_local_candidate_with_production_blockers",
   "passed": [
     "deny_by_default_without_identity_adapter",
