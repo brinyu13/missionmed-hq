@@ -80,14 +80,23 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 	/** @return array */
 	public function commit( $candidate, $owner_id, $actor_id, $actor_kind, $temporal_envelope ) {
 		$idempotency_key = $this->outer_idempotency_key( $candidate );
+		$this->hit( 'after_idempotency_preflight' );
 		$this->assert_identity( $owner_id, $actor_id, $actor_kind );
+		$this->hit( 'after_identity_preflight' );
 		$this->connection_id = $this->current_connection_id();
+		$this->hit( 'after_connection_preflight' );
 		$this->assert_clean_session();
+		$this->hit( 'after_clean_session_preflight' );
 		$original_session_controls = $this->session_controls();
+		$this->hit( 'after_session_controls_preflight' );
 		$original_isolation = $this->isolation_level();
+		$this->hit( 'after_isolation_preflight' );
 		$original_sql_mode = $this->native_sql_mode();
+		$this->hit( 'after_sql_mode_preflight' );
 		$original_encoding = $this->session_encoding();
+		$this->hit( 'after_encoding_preflight' );
 		$this->assert_physical_provenance();
+		$this->hit( 'after_provenance_preflight' );
 		MMED_V1_Study_Native_Session_Guard::assert_no_temporary_table_shadows(
 			$this->database,
 			$this->connection_id,
@@ -96,6 +105,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 				array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
 			)
 		);
+		$this->hit( 'after_shadow_preflight' );
 
 		$started = false;
 		$isolation_changed = false;
