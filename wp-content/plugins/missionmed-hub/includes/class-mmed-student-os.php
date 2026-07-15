@@ -58,7 +58,7 @@ class MMED_Student_OS {
 		}
 
 		$css_path           = MMED_HUB_PATH . 'assets/student-os.css';
-		$js_asset           = 'student-os.646e3598d284fff3.js';
+		$js_asset           = 'student-os.c1d97237eab4936d.js';
 		$js_path            = MMED_HUB_PATH . 'assets/' . $js_asset;
 		$scheduler_mount_js = MMED_HUB_PATH . 'assets/scheduler-mount.js';
 		$runtime_v2_enabled = self::is_runtime_v2_enabled();
@@ -745,17 +745,39 @@ class MMED_Student_OS {
 		}
 
 		$parts = wp_parse_url( $target );
-		if ( ! is_array( $parts ) || 'https' !== strtolower( (string) ( $parts['scheme'] ?? '' ) ) || ! empty( $parts['user'] ) || ! empty( $parts['pass'] ) ) {
+		if (
+			! is_array( $parts )
+			|| 'https' !== strtolower( (string) ( $parts['scheme'] ?? '' ) )
+			|| 'cam-hq-production-cam-production.up.railway.app' !== strtolower( (string) ( $parts['host'] ?? '' ) )
+				|| '/cam/' !== (string) ( $parts['path'] ?? '' )
+				|| ( ! empty( $parts['port'] ) && 443 !== absint( $parts['port'] ) )
+			|| ! empty( $parts['user'] )
+			|| ! empty( $parts['pass'] )
+			|| ! empty( $parts['query'] )
+			|| ! empty( $parts['fragment'] )
+		) {
 			return '';
 		}
+
+		$return_to = home_url( '/member-dashboard/#dashboard' );
+		$final     = add_query_arg(
+			array(
+				'entry'     => 'matrix',
+				'return_to' => $return_to,
+			),
+			$target
+		);
+		$auth_url  = 'https://cam-hq-production-cam-production.up.railway.app/api/auth/start';
 
 		return esc_url_raw(
 			add_query_arg(
 				array(
+					'audience'  => 'cam',
 					'entry'     => 'matrix',
-					'return_to' => home_url( '/member-dashboard/#dashboard' ),
+					'return_to' => $return_to,
+					'final'     => $final,
 				),
-				$target
+				$auth_url
 			)
 		);
 	}
