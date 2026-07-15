@@ -1,0 +1,80 @@
+'use strict';
+
+const assert = require('assert');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const root = path.resolve(__dirname, '../..');
+const assets = path.join(root, 'wp-content/plugins/missionmed-hub/assets');
+const names = fs.readdirSync(assets).filter((name) => /^v1-study-loader\.[a-f0-9]{16}\.js$/.test(name));
+assert.deepStrictEqual(names.length, 1, 'exactly one content-addressed V1 loader must exist');
+
+const name = names[0];
+const source = fs.readFileSync(path.join(assets, name), 'utf8');
+const digest = crypto.createHash('sha256').update(source).digest('hex');
+assert.strictEqual(name, `v1-study-loader.${digest.slice(0, 16)}.js`, 'filename prefix must match complete bytes');
+
+function execute(overrides = {}, existingWindow = null) {
+  const events = existingWindow ? existingWindow.__events : [];
+  const config = Object.assign({
+    contract_version: 1,
+    mode: 'V1_ACTIVE_READ_WRITE',
+    entitlement: { allowed: true },
+    exposure: { allowed: true },
+    reader: { allowed: true, version: '1' },
+    writer: { allowed: true },
+    release: { id: 'V1-STUDY-SCHEDULE-8010C', digest },
+  }, overrides);
+
+  const window = existingWindow || {
+    MMED_OS: { study_schedule_v1: config },
+    __events: events,
+    __fetches: 0,
+    CustomEvent: function CustomEvent(type, options) {
+      this.type = type;
+      this.detail = options.detail;
+    },
+    dispatchEvent(event) {
+      this.__events.push(event);
+    },
+    fetch() {
+      this.__fetches += 1;
+      throw new Error('8010C must not fetch');
+    },
+    location: { hash: '#study' },
+  };
+  if (existingWindow) window.MMED_OS.study_schedule_v1 = config;
+
+  const document = {
+    currentScript: { src: `https://example.invalid/assets/${name}` },
+    createElement() {
+      throw new Error('8010C must not create DOM nodes');
+    },
+  };
+  const context = vm.createContext({ window, document });
+  vm.runInContext(source, context, { filename: name });
+  return window;
+}
+
+const valid = execute();
+assert.strictEqual(valid.__events.length, 1, 'valid immutable config dispatches exactly one event');
+assert.strictEqual(valid.__events[0].type, 'mmed:v1-study:bootstrap');
+assert.strictEqual(valid.__events[0].detail.release.digest, digest);
+assert.strictEqual(valid.__fetches, 0, 'valid loader performs no fetch');
+assert.strictEqual(valid.location.hash, '#study', 'valid loader does not alter Matrix navigation');
+execute({}, valid);
+assert.strictEqual(valid.__events.length, 1, 're-execution is idempotent for the same digest');
+
+const mismatch = execute({ release: { id: 'V1-STUDY-SCHEDULE-8010C', digest: '0'.repeat(64) } });
+assert.strictEqual(mismatch.__events.length, 0, 'digest mismatch dispatches no event');
+const hidden = execute({ mode: 'V1_HIDDEN_NO_TRUTH', exposure: { allowed: false }, reader: { allowed: false, version: null } });
+assert.strictEqual(hidden.__events.length, 0, 'hidden configuration dispatches no event');
+const denied = execute({ entitlement: { allowed: false } });
+assert.strictEqual(denied.__events.length, 0, 'denied entitlement dispatches no event');
+
+assert.strictEqual(/\bfetch\s*\(/.test(source), false, 'loader source contains no fetch call');
+assert.strictEqual(/localStorage|sessionStorage|history\.|location\.hash\s*=/.test(source), false, 'loader source contains no storage or router mutation');
+
+console.log('V1 Study Schedule 8010C loader isolation: ok');
