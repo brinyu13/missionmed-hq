@@ -78,10 +78,15 @@ const CHANNEL_PHASES = Object.freeze({
 
 const FLAG_NAMES = Object.freeze([
   'internal_platform_enabled',
+  'internal_review_enabled',
+  'student_content_enabled',
+  'student_release_enabled',
   'stat_adapter_enabled',
   'drills_adapter_enabled',
-  'student_release_enabled',
 ]);
+
+const INTERNAL_FLAG_NAMES = Object.freeze(FLAG_NAMES.slice(0, 2));
+const RELEASE_FLAG_NAMES = Object.freeze(FLAG_NAMES.slice(2));
 
 const HASH_PATTERN = /^[a-f0-9]{64}$/u;
 const COMMIT_PATTERN = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
@@ -1748,7 +1753,7 @@ function validateRuntimeClaims(evidence, issues) {
   if (!deployment) return;
 
   const flags = deployment.feature_flags || {};
-  const enabledConsumerFlags = FLAG_NAMES.slice(1).filter((name) => flags[name] === true);
+  const enabledConsumerFlags = RELEASE_FLAG_NAMES.filter((name) => flags[name] === true);
   const proof = deployment.release_proof;
   const consumerProof = deployment.consumer_release_proof;
 
@@ -1776,8 +1781,12 @@ function validateRuntimeClaims(evidence, issues) {
     }
   }
 
-  if (flags.internal_platform_enabled === true && deployment.status !== 'INTERNAL_PRODUCTION_LIVE') {
-    issue(issues, 'E_INTERNAL_FLAG_PROOF', 'deployment_manifest.json', '$.feature_flags.internal_platform_enabled', 'Internal platform flag requires authenticated production proof.');
+  if (INTERNAL_FLAG_NAMES.some((name) => flags[name] === true)
+    && deployment.status !== 'INTERNAL_PRODUCTION_LIVE') {
+    issue(issues, 'E_INTERNAL_FLAG_PROOF', 'deployment_manifest.json', '$.feature_flags', 'Internal platform and review flags require authenticated production proof.');
+  }
+  if (flags.internal_review_enabled === true && flags.internal_platform_enabled !== true) {
+    issue(issues, 'E_INTERNAL_REVIEW_FLAG_ORDER', 'deployment_manifest.json', '$.feature_flags.internal_review_enabled', 'Internal review cannot be enabled while the internal platform is disabled.');
   }
 
   if (enabledConsumerFlags.length > 0) {
@@ -1907,10 +1916,11 @@ function validateCrossFileState(evidence, issues) {
     issue(issues, 'E_STATE_B_PROOF', 'deployment_manifest.json', '$.success_level', 'State B requires privacy-safe real candidates that remain unapproved.');
   }
   if (level >= 3 && (deployment.status !== 'INTERNAL_PRODUCTION_LIVE'
-    || deployment.feature_flags?.internal_platform_enabled !== true)) {
+    || deployment.feature_flags?.internal_platform_enabled !== true
+    || deployment.feature_flags?.internal_review_enabled !== true)) {
     issue(issues, 'E_STATE_C_PROOF', 'deployment_manifest.json', '$.success_level', 'State C requires authenticated internal production proof.');
   }
-  if (successLevel === 'STATE_C' && FLAG_NAMES.slice(1).some((name) => deployment.feature_flags?.[name] === true)) {
+  if (successLevel === 'STATE_C' && RELEASE_FLAG_NAMES.some((name) => deployment.feature_flags?.[name] === true)) {
     issue(issues, 'E_STATE_C_FLAGS', 'deployment_manifest.json', '$.feature_flags', 'State C requires student and consumer flags to remain off.');
   }
   if (successLevel === 'STATE_D' && (!(candidates?.published_revisions > 0)

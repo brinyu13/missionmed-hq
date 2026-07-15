@@ -1,5 +1,7 @@
 import {
+  FEATURE_FLAG_KEYS,
   GOVERNANCE_SLOTS,
+  RELEASE_RESTRICTED_FEATURE_FLAG_KEYS,
   RELEASE_TRANSITIONS,
   REVISION_TRANSITIONS,
   WORKFLOW_MANAGED_ENTITY_TYPES,
@@ -23,11 +25,7 @@ import { MemoryRepository } from './store.mjs';
 
 const LOCAL_SYNTHETIC_CAPABILITY = Symbol('local_synthetic_capability');
 const SHA256_HEX = /^[0-9a-f]{64}$/u;
-const LOCKED_OFF_FLAGS = new Set([
-  'stat_adapter_enabled',
-  'drills_adapter_enabled',
-  'student_release_enabled',
-]);
+const LOCKED_OFF_FLAGS = new Set(RELEASE_RESTRICTED_FEATURE_FLAG_KEYS);
 const REVIEWER_ROLES = new Set(['editorial_reviewer', 'physician_reviewer']);
 const REVISION_FIELDS = new Set([
   'item_id',
@@ -571,7 +569,7 @@ export class QuestionPlatform {
 
   setFeatureFlag(key, enabled, scope, actorInput) {
     const actor = requireRole(actorInput, 'platform_admin');
-    assert(['internal_platform_enabled', 'stat_adapter_enabled', 'drills_adapter_enabled', 'student_release_enabled'].includes(key), 'unknown_feature_flag');
+    assert(FEATURE_FLAG_KEYS.includes(key), 'unknown_feature_flag');
     if (Boolean(enabled) && LOCKED_OFF_FLAGS.has(key)) {
       throw new AuthorizationError('feature_flag_locked_off');
     }
@@ -1115,6 +1113,10 @@ export function createSyntheticDemoPlatform() {
     privacy_status: 'pass',
     extraction_suitability: 'synthetic_only',
   }, { id: 'inventory_local_demo', actorId: admin.id });
+
+  for (const key of FEATURE_FLAG_KEYS) {
+    platform.setFeatureFlag(key, false, { audience: 'none' }, admin);
+  }
 
   platform.createRevision({
     item_id: item.id,

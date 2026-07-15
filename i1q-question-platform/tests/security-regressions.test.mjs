@@ -381,6 +381,10 @@ test('release validation and ratification require exact evidence and independent
     () => platform.setFeatureFlag('student_release_enabled', true, {}, actors.admin),
     /feature_flag_locked_off/,
   );
+  assert.throws(
+    () => platform.setFeatureFlag('student_content_enabled', true, {}, actors.admin),
+    /feature_flag_locked_off/,
+  );
 });
 
 test('resolver-backed mutations require a session-bound CSRF token and trusted Origin', async () => {

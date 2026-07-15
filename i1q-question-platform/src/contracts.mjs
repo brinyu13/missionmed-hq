@@ -70,6 +70,22 @@ export const GOVERNANCE_SLOTS = Object.freeze([
   'assessment_science_owner',
 ]);
 
+export const FEATURE_FLAG_KEYS = Object.freeze([
+  'internal_platform_enabled',
+  'internal_review_enabled',
+  'student_content_enabled',
+  'student_release_enabled',
+  'stat_adapter_enabled',
+  'drills_adapter_enabled',
+]);
+
+export const RELEASE_RESTRICTED_FEATURE_FLAG_KEYS = Object.freeze([
+  'student_content_enabled',
+  'student_release_enabled',
+  'stat_adapter_enabled',
+  'drills_adapter_enabled',
+]);
+
 export const REQUIRED_PRIVACY_CLASSES = Object.freeze([
   'NON_DRJ_SPEECH',
   'STUDENT_NAME',

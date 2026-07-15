@@ -10,9 +10,11 @@
     "canonical_route": "canonical_github",
     "feature_flags": {
       "internal_platform_enabled": true,
+      "internal_review_enabled": true,
+      "student_content_enabled": false,
+      "student_release_enabled": false,
       "stat_adapter_enabled": false,
-      "drills_adapter_enabled": false,
-      "student_release_enabled": false
+      "drills_adapter_enabled": false
     },
     "blockers": []
   },

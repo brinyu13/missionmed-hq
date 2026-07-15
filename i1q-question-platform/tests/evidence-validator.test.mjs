@@ -305,9 +305,11 @@ async function buildEstate(t, hooks = {}) {
       canonical_route: null,
       feature_flags: {
         internal_platform_enabled: false,
+        internal_review_enabled: false,
+        student_content_enabled: false,
+        student_release_enabled: false,
         stat_adapter_enabled: false,
         drills_adapter_enabled: false,
-        student_release_enabled: false,
       },
       blockers: ['synthetic_fixture_not_runtime_proof'],
     },
@@ -425,9 +427,11 @@ async function buildEstate(t, hooks = {}) {
       sha256: checksumArtifacts.find((entry) => entry.path.includes('/db/rollback/')).sha256,
       disables: [
         'internal_platform_enabled',
+        'internal_review_enabled',
+        'student_content_enabled',
+        'student_release_enabled',
         'stat_adapter_enabled',
         'drills_adapter_enabled',
-        'student_release_enabled',
       ],
       drops_data: false,
     },
@@ -675,7 +679,7 @@ test('rejects source-content leakage in evidence artifacts', async (t) => {
   assert.ok(errorCodes(report).has('E_SOURCE_LEAK'));
 });
 
-for (const flag of ['student_release_enabled', 'stat_adapter_enabled', 'drills_adapter_enabled']) {
+for (const flag of ['student_content_enabled', 'student_release_enabled', 'stat_adapter_enabled', 'drills_adapter_enabled']) {
   test(`rejects enabled ${flag} without exact release proof`, async (t) => {
     const context = await buildEstate(t, {
       mutate: ({ evidence }) => {
@@ -686,6 +690,17 @@ for (const flag of ['student_release_enabled', 'stat_adapter_enabled', 'drills_a
     assert.ok(errorCodes(report).has('E_FLAG_RELEASE_PROOF'));
   });
 }
+
+test('rejects internal review without internal platform proof', async (t) => {
+  const context = await buildEstate(t, {
+    mutate: ({ evidence }) => {
+      evidence['deployment_manifest.json'].feature_flags.internal_review_enabled = true;
+    },
+  });
+  const report = await validate(context);
+  assert.ok(errorCodes(report).has('E_INTERNAL_FLAG_PROOF'));
+  assert.ok(errorCodes(report).has('E_INTERNAL_REVIEW_FLAG_ORDER'));
+});
 
 test('rejects an unsupported production claim', async (t) => {
   const fixture = await readFixture('false-production-claim.json');

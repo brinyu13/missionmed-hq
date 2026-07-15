@@ -457,10 +457,13 @@ async function dashboardTemplate() {
   ];
   const blockers = Object.entries(governance).filter(([, owner]) => owner === null);
   const flags = new Map(flagsPage.rows.map((row) => [row.key, row.enabled === true]));
-  const consumerFlags = [
-    ['Student release', 'student_release_enabled'],
-    ['STAT adapter', 'stat_adapter_enabled'],
-    ['Drills adapter', 'drills_adapter_enabled'],
+  const featureFlags = [
+    ['Internal platform', 'internal_platform_enabled', true],
+    ['Internal review', 'internal_review_enabled', true],
+    ['Student content', 'student_content_enabled', false],
+    ['Student release', 'student_release_enabled', false],
+    ['STAT adapter', 'stat_adapter_enabled', false],
+    ['Drills adapter', 'drills_adapter_enabled', false],
   ];
   return {
     context: [
@@ -479,8 +482,11 @@ async function dashboardTemplate() {
         </section>
         <section class="panel" aria-labelledby="consumer-heading">
           <h2 id="consumer-heading">Consumer guardrails</h2>
-          <ul class="status-list">${consumerFlags.map(([label, key]) => `
-            <li><span>${escapeHtml(label)}</span>${badge(flags.get(key) === true ? 'On' : 'Off', flags.get(key) === true ? 'red' : 'green')}</li>`).join('')}</ul>
+          <ul class="status-list">${featureFlags.map(([label, key, internal]) => {
+            const enabled = flags.get(key) === true;
+            const tone = enabled ? (internal ? 'green' : 'red') : (internal ? 'amber' : 'green');
+            return `<li><span>${escapeHtml(label)}</span>${badge(enabled ? 'On' : 'Off', tone)}</li>`;
+          }).join('')}</ul>
           <div class="action-row compact-actions">
             <button class="button" type="button" data-nav-screen="extraction">Open extraction queue</button>
             <button class="button" type="button" data-nav-screen="audit">Inspect audit trail</button>

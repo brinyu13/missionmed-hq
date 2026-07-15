@@ -296,7 +296,14 @@ async function main() {
     status: 'DESIGNED_NOT_EXECUTED',
     compensating_migration: relative(WORKTREE, rollbackPath),
     sha256: sha256(await readFile(rollbackPath)),
-    disables: ['internal_platform_enabled', 'stat_adapter_enabled', 'drills_adapter_enabled', 'student_release_enabled'],
+    disables: [
+      'internal_platform_enabled',
+      'internal_review_enabled',
+      'student_content_enabled',
+      'student_release_enabled',
+      'stat_adapter_enabled',
+      'drills_adapter_enabled',
+    ],
     drops_data: false,
   });
 
@@ -307,9 +314,11 @@ async function main() {
     canonical_route: null,
     feature_flags: {
       internal_platform_enabled: false,
+      internal_review_enabled: false,
+      student_content_enabled: false,
+      student_release_enabled: false,
       stat_adapter_enabled: false,
       drills_adapter_enabled: false,
-      student_release_enabled: false,
     },
     blockers: [
       'mission_registration_patch_not_applied',
