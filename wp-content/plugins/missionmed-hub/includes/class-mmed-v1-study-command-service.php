@@ -62,6 +62,24 @@ interface MMED_V1_Study_Command_Fence {
 	public function lock_calendar_rows( $database, $connection_id, $owner_id );
 }
 
+/**
+ * Typed, synthetic-only E3 shared-owner arbiter seam.
+ *
+ * This does not weaken or replace the accepted E2 fence. Implementations must
+ * return the exact scope below and expose the authority and Calendar snapshot
+ * obtained on the same transaction/connection as the two inherited locks.
+ */
+interface MMED_V1_Study_Shared_Owner_Arbiter extends MMED_V1_Study_Command_Fence {
+
+	const SCOPE_SYNTHETIC_SHARED_OWNER = 'synthetic-isolated-e3-shared-owner';
+
+	/** @return array|null Content-free locked authority evidence. */
+	public function locked_authority();
+
+	/** @return array|null Content-free locked Calendar census. */
+	public function locked_calendar_snapshot();
+}
+
 /** Injectable UUID-v4 source; production uses only the CSPRNG implementation. */
 interface MMED_V1_Study_UUID_Source {
 

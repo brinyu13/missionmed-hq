@@ -54,6 +54,12 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 	 * @param callable|null                  $failpoint Test-only pre-commit failure injector.
 	 */
 	public function __construct( $database, $fence, $uuid_source = null, $failpoint = null ) {
+		$fence_scope = $fence instanceof MMED_V1_Study_Command_Fence ? $fence->scope() : null;
+		$accepted_fence = MMED_V1_Study_Command_Fence::SCOPE_SYNTHETIC_ISOLATED === $fence_scope
+			|| (
+				MMED_V1_Study_Shared_Owner_Arbiter::SCOPE_SYNTHETIC_SHARED_OWNER === $fence_scope
+				&& $fence instanceof MMED_V1_Study_Shared_Owner_Arbiter
+			);
 		if (
 			! is_object( $database )
 			|| ! method_exists( $database, 'query' )
@@ -62,7 +68,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			|| ! method_exists( $database, 'prepare' )
 			|| ! method_exists( $database, 'remove_placeholder_escape' )
 			|| ! $fence instanceof MMED_V1_Study_Command_Fence
-			|| MMED_V1_Study_Command_Fence::SCOPE_SYNTHETIC_ISOLATED !== $fence->scope()
+			|| ! $accepted_fence
 			|| ( null !== $uuid_source && ! $uuid_source instanceof MMED_V1_Study_UUID_Source )
 			|| ( null !== $failpoint && ! is_callable( $failpoint ) )
 		) {
@@ -125,6 +131,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			$this->assert_in_transaction_provenance();
 			$this->hit( 'after_gate_lock' );
 			$this->invoke_fence( 'lock_control_rows', $owner_id );
+			$this->assert_shared_owner_authority( $owner_id );
 			$this->hit( 'after_control_lock' );
 			$this->assert_owner_restore_census( $owner_id );
 
@@ -177,6 +184,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			}
 
 			$this->invoke_fence( 'lock_calendar_rows', $owner_id );
+			$this->assert_shared_owner_calendar_empty( $owner_id, $this->basic_plan_revision( $plan, $owner_id ) );
 			$this->hit( 'after_calendar_fence' );
 
 			$domain_rows = $this->lock_domain_rows( $owner_id );
@@ -1624,6 +1632,85 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$this->assert_transaction_context();
 		$this->execute( 'RELEASE SAVEPOINT `' . $savepoint . '`', 'v1_command_fence_savepoint_lost' );
 		$this->assert_transaction_context();
+	}
+
+	/** Require exact typed E3 authority when the distinct shared-owner scope is used. */
+	private function assert_shared_owner_authority( $owner_id ) {
+		if ( ! $this->shared_owner_scope() ) {
+			return;
+		}
+		$authority = $this->fence->locked_authority();
+		$keys = is_array( $authority ) ? array_keys( $authority ) : array();
+		if (
+			array(
+				'authority_hash', 'connection_id', 'current_reader_version', 'decision_12_state',
+				'exposure', 'generation', 'mode', 'owner_id', 'path', 'previous_reader_version',
+				'release_digest', 'release_record_hash', 'stop', 'store_id_hash', 'store_record_hash',
+			) !== $keys
+			|| ! $this->is_hash_hex( $authority['authority_hash'] ?? null )
+			|| $this->connection_id !== (int) ( $authority['connection_id'] ?? 0 )
+			|| MMED_V1_Study_Week_Schema::CURRENT_READER_VERSION !== (string) ( $authority['current_reader_version'] ?? '' )
+			|| 'approved' !== (string) ( $authority['decision_12_state'] ?? '' )
+			|| true !== ( $authority['exposure'] ?? null )
+			|| MMED_V1_Study_Week_Schema::GENERATION !== (int) ( $authority['generation'] ?? 0 )
+			|| MMED_V1_Study_Domain::MODE_ACTIVE_READ_WRITE !== (string) ( $authority['mode'] ?? '' )
+			|| $owner_id !== (int) ( $authority['owner_id'] ?? 0 )
+			|| 'v1' !== (string) ( $authority['path'] ?? '' )
+			|| null !== ( $authority['previous_reader_version'] ?? null )
+			|| MMED_V1_Study_Release::RELEASE_SHA256 !== (string) ( $authority['release_digest'] ?? '' )
+			|| ! $this->is_hash_hex( $authority['release_record_hash'] ?? null )
+			|| false !== ( $authority['stop'] ?? null )
+			|| ! $this->is_hash_hex( $authority['store_id_hash'] ?? null )
+			|| ! $this->is_hash_hex( $authority['store_record_hash'] ?? null )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$hashable = $authority;
+		unset( $hashable['authority_hash'] );
+		if ( ! hash_equals( $authority['authority_hash'], hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $hashable ) ) ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->assert_transaction_context();
+	}
+
+	/**
+	 * Refuse a V1 cutover while any locked legacy Calendar Study row exists.
+	 * E3 intentionally supplies no importer and therefore makes no conversion
+	 * claim. The internal reason is collapsed by the service to generic 503.
+	 */
+	private function assert_shared_owner_calendar_empty( $owner_id, $plan_revision ) {
+		if ( ! $this->shared_owner_scope() ) {
+			return;
+		}
+		$snapshot = $this->fence->locked_calendar_snapshot();
+		$keys = is_array( $snapshot ) ? array_keys( $snapshot ) : array();
+		if (
+			array( 'aggregate_hash', 'connection_id', 'owner_id', 'plan_revision', 'row_count', 'rows', 'watermark_present' ) !== $keys
+			|| ! $this->is_hash_hex( $snapshot['aggregate_hash'] ?? null )
+			|| $this->connection_id !== (int) ( $snapshot['connection_id'] ?? 0 )
+			|| $owner_id !== (int) ( $snapshot['owner_id'] ?? 0 )
+			|| $plan_revision !== (string) ( $snapshot['plan_revision'] ?? '' )
+			|| ! is_int( $snapshot['row_count'] ?? null )
+			|| ! is_array( $snapshot['rows'] ?? null )
+			|| $snapshot['row_count'] !== count( $snapshot['rows'] )
+			|| ( '0' !== $plan_revision ) !== ( true === ( $snapshot['watermark_present'] ?? null ) )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$calendar_hash = hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $snapshot['rows'] ) );
+		if ( ! hash_equals( $snapshot['aggregate_hash'], $calendar_hash ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if ( 0 !== $snapshot['row_count'] || array() !== $snapshot['rows'] ) {
+			throw new MMED_V1_Study_Command_Exception( 'legacy_import_required' );
+		}
+		$this->assert_transaction_context();
+	}
+
+	/** Return whether the exact typed E3 scope is active. */
+	private function shared_owner_scope() {
+		return $this->fence instanceof MMED_V1_Study_Shared_Owner_Arbiter
+			&& MMED_V1_Study_Shared_Owner_Arbiter::SCOPE_SYNTHETIC_SHARED_OWNER === $this->fence->scope();
 	}
 
 	/** Require an injected seam to preserve this exact live transaction. */
