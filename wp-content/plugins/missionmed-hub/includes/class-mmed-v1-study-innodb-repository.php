@@ -456,6 +456,7 @@ final class MMED_V1_Study_Week_Current_Reader {
 
 	/** @return mixed */
 	private function scalar( $sql ) {
+		$this->verify_connection();
 		$value = $this->database->get_var( $sql );
 		$this->assert_query( 'v1_reader_query_failed' );
 		$this->verify_connection();
@@ -464,6 +465,7 @@ final class MMED_V1_Study_Week_Current_Reader {
 
 	/** @return array */
 	private function rows( $sql ) {
+		$this->verify_connection();
 		$format = defined( 'ARRAY_A' ) ? ARRAY_A : 'ARRAY_A';
 		$rows = $this->database->get_results( $sql, $format );
 		$this->assert_query( 'v1_reader_query_failed' );
@@ -476,6 +478,7 @@ final class MMED_V1_Study_Week_Current_Reader {
 
 	/** @return void */
 	private function execute( $sql, $error_code ) {
+		$this->verify_connection();
 		$result = $this->database->query( $sql );
 		$this->assert_query( $error_code );
 		$this->verify_connection();
@@ -538,14 +541,14 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 	/** @var MMED_V1_Study_Week_Current_Reader */
 	private $reader;
 
-	/** @var array|null */
-	private $provenance;
+	/** @var int */
+	private $connection_id;
 
 	/** @param object $database WordPress database connection. */
 	public function __construct( $database ) {
-		$this->database   = $database;
-		$this->reader     = new MMED_V1_Study_Week_Current_Reader( $database );
-		$this->provenance = null;
+		$this->database      = $database;
+		$this->connection_id = $this->read_connection_id();
+		$this->reader        = new MMED_V1_Study_Week_Current_Reader( $database );
 	}
 
 	/** @return string */
@@ -603,21 +606,24 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 
 	/** @return array */
 	private function physical_provenance() {
-		if ( is_array( $this->provenance ) ) {
-			return $this->provenance;
-		}
-		$this->provenance = array( 'state' => 'unknown', 'store_id' => null, 'generation' => null );
+		$provenance = array( 'state' => 'unknown', 'store_id' => null, 'generation' => null );
 		try {
-			$parent = ( new MMED_V1_Study_Schema_Inspector( $this->database ) )->inspect();
+			$this->assert_connection();
+			$parent_inspector = new MMED_V1_Study_Schema_Inspector( $this->database );
+			$parent = $parent_inspector->inspect();
+			$this->assert_connection();
 			$week   = ( new MMED_V1_Study_Week_Schema_Inspector( $this->database ) )->inspect();
+			$this->assert_connection();
+			$ledger_applied_at = $this->ledger_ready();
 			if (
 				empty( $parent['ok'] )
 				|| MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== $parent['state']
 				|| empty( $week['ok'] )
 				|| MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== $week['state']
-				|| ! $this->ledger_ready()
+				|| false === $ledger_applied_at
+				|| ! $this->owned_table_set_ready( $parent_inspector->schema_name() )
 			) {
-				return $this->provenance;
+				return $provenance;
 			}
 			$tables = MMED_V1_Study_Schema::table_names( $this->database );
 			$sql  = 'SELECT LOWER(HEX(g1.store_id)) AS store_hex, g1.writer_schema_version AS g1_schema,';
@@ -625,18 +631,23 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 			$sql .= ' LOWER(HEX(g1.manifest_hash)) AS g1_manifest, g1.activated_at AS g1_activated,';
 			$sql .= ' g2.writer_schema_version AS g2_schema, g2.current_reader_version AS g2_reader,';
 			$sql .= ' g2.previous_reader_version AS g2_previous, LOWER(HEX(g2.manifest_hash)) AS g2_manifest,';
-			$sql .= ' g2.activated_at AS g2_activated, sg.gate_key, sg.current_generation, sg.gate_state, sg.commissioned_at';
+			$sql .= ' g2.activated_at AS g2_activated, sg.gate_key, sg.current_generation, sg.gate_state, sg.commissioned_at,';
+			$sql .= ' sg.updated_at AS gate_updated,';
+			$sql .= " (SELECT COUNT(*) FROM `{$tables['generations']}`) AS generation_count,";
+			$sql .= " (SELECT COUNT(*) FROM `{$tables['store_gate']}`) AS gate_count";
 			$sql .= " FROM `{$tables['store_gate']}` sg";
 			$sql .= " INNER JOIN `{$tables['generations']}` g2 ON g2.store_id = sg.store_id AND g2.generation = sg.current_generation";
 			$sql .= " INNER JOIN `{$tables['generations']}` g1 ON g1.store_id = sg.store_id AND g1.generation = 1";
 			$sql .= ' WHERE sg.gate_key = 1 AND sg.current_generation = 2 AND sg.gate_state = %s';
 			$rows = $this->rows( $this->prepare( $sql, 'ready' ) );
 			if ( 1 !== count( $rows ) ) {
-				return $this->provenance;
+				return $provenance;
 			}
 			$row = $rows[0];
 			if (
-				MMED_V1_Study_Schema::SCHEMA_VERSION !== (string) ( $row['g1_schema'] ?? '' )
+				2 !== (int) ( $row['generation_count'] ?? 0 )
+				|| 1 !== (int) ( $row['gate_count'] ?? 0 )
+				|| MMED_V1_Study_Schema::SCHEMA_VERSION !== (string) ( $row['g1_schema'] ?? '' )
 				|| MMED_V1_Study_Schema::CURRENT_READER_VERSION !== (string) ( $row['g1_reader'] ?? '' )
 				|| null !== ( $row['g1_previous'] ?? null )
 				|| MMED_V1_Study_Schema::manifest_hash_hex( $this->database ) !== (string) ( $row['g1_manifest'] ?? '' )
@@ -644,24 +655,31 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 				|| MMED_V1_Study_Week_Schema::CURRENT_READER_VERSION !== (string) ( $row['g2_reader'] ?? '' )
 				|| null !== ( $row['g2_previous'] ?? null )
 				|| MMED_V1_Study_Week_Schema::manifest_hash_hex( $this->database ) !== (string) ( $row['g2_manifest'] ?? '' )
-				|| empty( $row['g1_activated'] )
-				|| empty( $row['g2_activated'] )
-				|| empty( $row['commissioned_at'] )
+				|| ! $this->valid_timestamp( $row['g1_activated'] ?? null )
+				|| ! $this->valid_timestamp( $row['g2_activated'] ?? null )
+				|| ! $this->valid_timestamp( $row['commissioned_at'] ?? null )
+				|| ! $this->valid_timestamp( $row['gate_updated'] ?? null )
+				|| (string) $row['commissioned_at'] !== (string) $row['g1_activated']
+				|| strcmp( $row['g2_activated'], $row['commissioned_at'] ) < 0
+				|| strcmp( $row['gate_updated'], $row['g2_activated'] ) < 0
+				|| strcmp( $row['g2_activated'], $ledger_applied_at ) < 0
 			) {
-				return $this->provenance;
+				return $provenance;
 			}
 			$store_id = $this->uuid_from_hex( $row['store_hex'] ?? null );
-			$this->provenance = array( 'state' => 'commissioned', 'store_id' => $store_id, 'generation' => 2 );
+			$this->assert_connection();
+			$provenance = array( 'state' => 'commissioned', 'store_id' => $store_id, 'generation' => 2 );
 		} catch ( Throwable $error ) {
 			unset( $error );
 		}
-		return $this->provenance;
+		return $provenance;
 	}
 
-	/** @return bool */
+	/** @return string|false Latest exact applied timestamp, or false. */
 	private function ledger_ready() {
 		$tables = MMED_V1_Study_Schema::table_names( $this->database );
-		$sql  = 'SELECT migration_version, migration_id, LOWER(HEX(checksum)) AS checksum_hex, state, checkpoint, failure_code';
+		$sql  = 'SELECT migration_version, migration_id, LOWER(HEX(checksum)) AS checksum_hex, state, checkpoint,';
+		$sql .= ' attempt_count, LOWER(HEX(runner_id)) AS runner_hex, failure_code, started_at, applied_at, updated_at';
 		$sql .= " FROM `{$tables['migrations']}` ORDER BY migration_version";
 		$rows = $this->rows( $sql );
 		$expected = array_merge(
@@ -671,6 +689,7 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 		if ( count( $rows ) !== count( $expected ) ) {
 			return false;
 		}
+		$previous_applied_at = null;
 		foreach ( $expected as $index => $migration ) {
 			$row = $rows[ $index ];
 			if (
@@ -679,22 +698,77 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 				|| $migration['checksum_hex'] !== (string) ( $row['checksum_hex'] ?? '' )
 				|| 'applied' !== (string) ( $row['state'] ?? '' )
 				|| ! in_array( (string) ( $row['checkpoint'] ?? '' ), array( 'verified', 'recovered_after_ddl' ), true )
+				|| (int) ( $row['attempt_count'] ?? 0 ) < 1
+				|| 1 !== preg_match( '/^[a-f0-9]{12}4[a-f0-9]{3}[89ab][a-f0-9]{15}$/D', (string) ( $row['runner_hex'] ?? '' ) )
 				|| null !== ( $row['failure_code'] ?? null )
+				|| ! $this->valid_timestamp( $row['started_at'] ?? null )
+				|| ! $this->valid_timestamp( $row['applied_at'] ?? null )
+				|| ! $this->valid_timestamp( $row['updated_at'] ?? null )
+				|| strcmp( $row['applied_at'], $row['started_at'] ) < 0
+				|| strcmp( $row['updated_at'], $row['applied_at'] ) < 0
+				|| ( null !== $previous_applied_at && strcmp( $row['started_at'], $previous_applied_at ) < 0 )
 			) {
 				return false;
 			}
+			$previous_applied_at = $row['applied_at'];
 		}
-		return true;
+		return null === $previous_applied_at ? false : $previous_applied_at;
+	}
+
+	/** @return bool */
+	private function owned_table_set_ready( $schema_name ) {
+		$prefix = (string) $this->database->prefix . 'mmed_v1_study_';
+		$sql  = 'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s';
+		$sql .= ' AND LEFT(TABLE_NAME, CHAR_LENGTH(%s)) = %s ORDER BY TABLE_NAME';
+		$rows = $this->rows( $this->prepare( $sql, $schema_name, $prefix, $prefix ) );
+		$actual = array();
+		foreach ( $rows as $row ) {
+			$actual[] = isset( $row['TABLE_NAME'] ) ? (string) $row['TABLE_NAME'] : '';
+		}
+		$expected = array_merge(
+			array_values( MMED_V1_Study_Schema::table_names( $this->database ) ),
+			array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
+		);
+		sort( $actual, SORT_STRING );
+		sort( $expected, SORT_STRING );
+		return $expected === $actual;
+	}
+
+	/** @return bool */
+	private function valid_timestamp( $value ) {
+		if ( ! is_string( $value ) || 1 !== preg_match( '/^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}$/D', $value ) ) {
+			return false;
+		}
+		$timestamp = DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s.u', $value, new DateTimeZone( 'UTC' ) );
+		return false !== $timestamp && $value === $timestamp->format( 'Y-m-d H:i:s.u' );
 	}
 
 	/** @return array */
 	private function rows( $sql ) {
+		$this->assert_connection();
 		$format = defined( 'ARRAY_A' ) ? ARRAY_A : 'ARRAY_A';
 		$rows = $this->database->get_results( $sql, $format );
 		if ( ! property_exists( $this->database, 'last_error' ) || '' !== (string) $this->database->last_error || ! is_array( $rows ) ) {
 			throw new RuntimeException( 'v1_repository_read_failed' );
 		}
+		$this->assert_connection();
 		return $rows;
+	}
+
+	/** @return int */
+	private function read_connection_id() {
+		$id = $this->database->get_var( 'SELECT CONNECTION_ID()' );
+		if ( ! property_exists( $this->database, 'last_error' ) || '' !== (string) $this->database->last_error || null === $id || (int) $id <= 0 ) {
+			throw new RuntimeException( 'v1_repository_connection_unavailable' );
+		}
+		return (int) $id;
+	}
+
+	/** @return void */
+	private function assert_connection() {
+		if ( $this->connection_id !== $this->read_connection_id() ) {
+			throw new RuntimeException( 'v1_repository_connection_changed' );
+		}
 	}
 
 	/** @return string */

@@ -33,6 +33,44 @@ function v1_8010e_e1_commission_parent( $database, $prefix, $counter ) {
 	return array( $store, $runner );
 }
 
+/** Test-only forwarding database that simulates a reconnect after ledger read. */
+final class V1_8010E_E1_Drift_DB {
+	public $prefix;
+	public $last_error = '';
+	private $inner;
+	private $drift = false;
+
+	public function __construct( $inner ) {
+		$this->inner = $inner;
+		$this->prefix = $inner->prefix;
+	}
+
+	public function prepare() {
+		return call_user_func_array( array( $this->inner, 'prepare' ), func_get_args() );
+	}
+
+	public function query() {
+		$value = call_user_func_array( array( $this->inner, 'query' ), func_get_args() );
+		$this->last_error = (string) $this->inner->last_error;
+		return $value;
+	}
+
+	public function get_results( $sql ) {
+		$value = call_user_func_array( array( $this->inner, 'get_results' ), func_get_args() );
+		$this->last_error = (string) $this->inner->last_error;
+		if ( false !== strpos( $sql, 'SELECT migration_version' ) && false !== strpos( $sql, 'mmed_v1_study_migrations' ) ) {
+			$this->drift = true;
+		}
+		return $value;
+	}
+
+	public function get_var( $sql ) {
+		$value = call_user_func_array( array( $this->inner, 'get_var' ), func_get_args() );
+		$this->last_error = (string) $this->inner->last_error;
+		return $this->drift && 1 === preg_match( '/^SELECT CONNECTION_ID\(\)$/iD', trim( $sql ) ) ? ( (int) $value + 1 ) : $value;
+	}
+}
+
 global $wpdb;
 $original_prefix = $wpdb->prefix;
 $wpdb->set_prefix( 'v1e1_' );
@@ -226,15 +264,19 @@ v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` 
 
 $bad_hash = str_repeat( '0', 64 );
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['plans']}` SET plan_hash = UNHEX('{$bad_hash}') WHERE owner_id = {$owner_id}" ), 'fixture corrupts Plan hash' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET plan_hash = UNHEX('{$bad_hash}') WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture keeps the current receipt bound to the corrupt Plan hash' );
 v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'hash corruption fails content-free' );
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['plans']}` SET plan_hash = UNHEX('{$plan_hash}') WHERE owner_id = {$owner_id}" ), 'fixture restores Plan hash' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET plan_hash = UNHEX('{$plan_hash}') WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture restores the current receipt Plan hash' );
 
 $noncanonical = ' ' . $plan_json;
 $noncanonical_hash = hash( 'sha256', $noncanonical );
 $corrupt_json_sql = "UPDATE `{$kernel['plans']}` SET plan_json = %s, plan_hash = UNHEX(%s) WHERE owner_id = %d";
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $corrupt_json_sql, array( $noncanonical, $noncanonical_hash, $owner_id ) ) ), 'fixture stores hash-consistent noncanonical JSON' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET plan_hash = UNHEX('{$noncanonical_hash}') WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture binds the current receipt to the noncanonical snapshot hash' );
 v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'noncanonical JSON fails even with a matching hash' );
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $corrupt_json_sql, array( $plan_json, $plan_hash, $owner_id ) ) ), 'fixture restores canonical JSON' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET plan_hash = UNHEX('{$plan_hash}') WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture restores the current receipt canonical Plan hash' );
 
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$week_tables['blocks']}` SET title = 'Drifted normalized title' WHERE owner_id = {$owner_id}" ), 'fixture drifts normalized truth' );
 v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'normalized-row drift fails snapshot equivalence' );
@@ -289,6 +331,40 @@ v1_8010e_wp_expect(
 );
 $loaded_v2 = $repository->load( $owner_id, '2' );
 v1_8010e_wp_expect( ! empty( $loaded_v2['ok'] ) && $snapshot_v2 === $loaded_v2['plan'], 'revision 2 reads through distinct immutable-watermark and current receipts' );
+
+$freshness_repository = new MMED_V1_Study_InnoDB_Repository( $wpdb );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_READY === $freshness_repository->binding_kind(), 'fresh provenance begins ready' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['store_gate']}` SET gate_state = 'migrating' WHERE gate_key = 1" ), 'fixture drifts the ready gate after first binding' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === $freshness_repository->binding_kind(), 'same repository rejects post-bind gate drift without stale positive cache' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['store_gate']}` SET gate_state = 'ready' WHERE gate_key = 1" ), 'fixture restores the ready gate' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_READY === $freshness_repository->binding_kind(), 'same repository re-proves restored readiness' );
+
+$generation_3_sql = "INSERT INTO `{$kernel['generations']}` (generation, store_id, writer_schema_version, current_reader_version, previous_reader_version, manifest_hash, activated_at) VALUES (3, UNHEX(%s), %s, %s, NULL, UNHEX(%s), %s)";
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $generation_3_sql, array( v1_8010e_wp_uuid_hex( $store ), '2', '2', MMED_V1_Study_Week_Schema::manifest_hash_hex( $wpdb ), $now_2 ) ) ), 'fixture appends a valid-looking future generation' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'extra generation fails exact control provenance' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "DELETE FROM `{$kernel['generations']}` WHERE generation = 3" ), 'fixture removes future generation' );
+
+$runner_7_hex = strtolower( (string) $wpdb->get_var( "SELECT HEX(runner_id) FROM `{$kernel['migrations']}` WHERE migration_version = 7" ) );
+v1_8010e_wp_expect( 1 === preg_match( '/^[a-f0-9]{32}$/D', $runner_7_hex ), 'fixture captures exact migration runner' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['migrations']}` SET runner_id = UNHEX('00000000000000000000000000000000') WHERE migration_version = 7" ), 'fixture corrupts migration runner identity' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'invalid migration runner fails provenance' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['migrations']}` SET runner_id = UNHEX('{$runner_7_hex}') WHERE migration_version = 7" ), 'fixture restores migration runner identity' );
+
+$migration_7_started = (string) $wpdb->get_var( "SELECT started_at FROM `{$kernel['migrations']}` WHERE migration_version = 7" );
+$migration_7_applied = (string) $wpdb->get_var( "SELECT applied_at FROM `{$kernel['migrations']}` WHERE migration_version = 7" );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['migrations']}` SET applied_at = DATE_SUB(started_at, INTERVAL 1 SECOND) WHERE migration_version = 7" ), 'fixture corrupts migration timestamp chronology' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'invalid migration timestamp chronology fails provenance' );
+$restore_migration_time_sql = "UPDATE `{$kernel['migrations']}` SET started_at = %s, applied_at = %s WHERE migration_version = 7";
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $restore_migration_time_sql, array( $migration_7_started, $migration_7_applied ) ) ), 'fixture restores migration timestamp chronology' );
+
+$intruder_table = $wpdb->prefix . 'mmed_v1_study_intruder';
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "CREATE TABLE `{$intruder_table}` (id bigint unsigned NOT NULL PRIMARY KEY) ENGINE=InnoDB" ), 'fixture creates unexpected owned-namespace table' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'unexpected owned-namespace table fails provenance' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "DROP TABLE `{$intruder_table}`" ), 'fixture removes unexpected owned-namespace table' );
+
+$drift_repository = new MMED_V1_Study_InnoDB_Repository( new V1_8010E_E1_Drift_DB( $wpdb ) );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === $drift_repository->binding_kind(), 'connection identity drift during provenance proof fails closed' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_READY === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'all provenance fixtures restore exact readiness' );
 
 list( $unowned_store ) = v1_8010e_e1_commission_parent( $wpdb, 'v1e1unowned_', 1 );
 $unowned_migration = MMED_V1_Study_Week_Schema::migrations( $wpdb )[0];
