@@ -803,6 +803,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		try {
 			return $this->assert_receipt_integrity_inner( $receipt, $owner_id, $plan_id );
 		} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+			$this->hit( 'receipt_domain_failed_' . $error->reason_code() );
 			unset( $error );
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
@@ -817,6 +818,57 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$receipt_plan_id = $this->uuid_from_hex( $receipt['plan_hex'] ?? null );
 		$revision = MMED_V1_Study_Week_Domain::decimal_revision( (string) ( $receipt['revision'] ?? '' ) );
 		$expected = MMED_V1_Study_Week_Domain::decimal_revision( (string) ( $receipt['expected_revision'] ?? '' ) );
+		if (
+			(string) $owner_id !== (string) ( $receipt['owner_id'] ?? '' )
+			|| ( null !== $plan_id && $receipt_plan_id !== $plan_id )
+			|| $revision !== MMED_V1_Study_Week_Domain::increment_revision( $expected )
+			|| ! is_string( $receipt['idempotency_key'] ?? null )
+			|| strlen( $receipt['idempotency_key'] ) < 16
+			|| strlen( $receipt['idempotency_key'] ) > 64
+		) {
+			$this->hit( 'receipt_shape_failed_identity' );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if (
+			! is_string( $receipt['request_json'] ?? null )
+			|| ! is_numeric( $receipt['request_bytes'] ?? null )
+			|| (int) $receipt['request_bytes'] <= 0
+			|| (int) $receipt['request_bytes'] > self::MAX_RECEIPT_BYTES
+			|| (int) $receipt['request_bytes'] !== strlen( $receipt['request_json'] )
+			|| ! $this->is_hash_hex( $receipt['request_hash_hex'] ?? null )
+			|| ! hash_equals( (string) $receipt['request_hash_hex'], (string) ( $receipt['request_actual_hash_hex'] ?? '' ) )
+		) {
+			$this->hit( 'receipt_shape_failed_request' );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if (
+			(int) ( $receipt['actor_id'] ?? 0 ) <= 0
+			|| 'learner' !== (string) ( $receipt['actor_kind'] ?? '' )
+			|| ! in_array( (string) ( $receipt['action'] ?? '' ), MMED_V1_Study_Week_Domain::commands(), true )
+			|| '2' !== (string) ( $receipt['store_generation'] ?? '' )
+			|| MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $receipt['schema_version'] ?? '' )
+			|| ! $this->is_hash_hex( $receipt['plan_hash_hex'] ?? null )
+			|| 200 !== (int) ( $receipt['result_status'] ?? 0 )
+		) {
+			$this->hit( 'receipt_shape_failed_provenance' );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if (
+			! is_string( $receipt['result_json'] ?? null )
+			|| ! is_numeric( $receipt['result_bytes'] ?? null )
+			|| (int) $receipt['result_bytes'] <= 0
+			|| (int) $receipt['result_bytes'] > self::MAX_RECEIPT_BYTES
+			|| (int) $receipt['result_bytes'] !== strlen( $receipt['result_json'] )
+			|| ! $this->is_hash_hex( $receipt['result_hash_hex'] ?? null )
+			|| ! hash_equals( (string) $receipt['result_hash_hex'], (string) ( $receipt['result_actual_hash_hex'] ?? '' ) )
+		) {
+			$this->hit( 'receipt_shape_failed_result' );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if ( ! $this->valid_timestamp( $receipt['committed_at'] ?? null ) ) {
+			$this->hit( 'receipt_shape_failed_timestamp' );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
 		if (
 			(string) $owner_id !== (string) ( $receipt['owner_id'] ?? '' )
 			|| ( null !== $plan_id && $receipt_plan_id !== $plan_id )
@@ -849,6 +901,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->hit( 'receipt_shape_valid' );
 
 		$request = json_decode( $receipt['request_json'], true );
 		$temporal = $this->receipt_temporal_envelope_inner( $receipt );
@@ -865,6 +918,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			(string) $receipt['actor_kind'],
 			$temporal
 		);
+		$this->hit( 'receipt_request_normalized' );
 		if (
 			! is_array( $request )
 			|| ! hash_equals( $receipt['request_json'], MMED_V1_Study_Week_Domain::canonical_json( $request ) )
@@ -884,7 +938,9 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->hit( 'receipt_request_valid' );
 		$result = $this->decode_receipt_result( $receipt );
+		$this->hit( 'receipt_result_decoded' );
 		if (
 			$operation_id !== $result['operation_id']
 			|| $revision !== $result['revision']
@@ -897,6 +953,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->hit( 'receipt_result_valid' );
 		return array( 'normalized' => $normalized, 'result' => $result );
 	}
 
