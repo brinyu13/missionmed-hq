@@ -126,6 +126,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			$this->hit( 'after_gate_lock' );
 			$this->invoke_fence( 'lock_control_rows', $owner_id );
 			$this->hit( 'after_control_lock' );
+			$this->assert_owner_restore_census( $owner_id );
 
 			$placeholder_at = $this->trusted_timestamp();
 			$this->insert_or_existing_plan( $owner_id, $placeholder_at );
@@ -543,6 +544,18 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 		$this->assert_transaction_context();
+	}
+
+	/** Reject owner rows hidden by relationship joins before any Plan DML. */
+	private function assert_owner_restore_census( $owner_id ) {
+		foreach ( MMED_V1_Study_Restore_Census::owner_descriptors( $this->database, $owner_id ) as $descriptor ) {
+			$sql = $this->prepare( $descriptor['sql'], ...$descriptor['arguments'] );
+			if ( ! empty( $this->rows( $sql ) ) ) {
+				$this->hit( 'restore_census_failed_' . $descriptor['reason'] );
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$this->assert_transaction_context();
+		}
 	}
 
 	/** @return void */

@@ -130,6 +130,118 @@ final class MMED_V1_Study_Native_Session_Guard {
 	}
 }
 
+/** Pure bounded-query descriptors for post-restore relationship census. */
+final class MMED_V1_Study_Restore_Census {
+
+	/** @return array */
+	public static function global_descriptors( $database ) {
+		return self::descriptors( $database, null );
+	}
+
+	/** @return array */
+	public static function owner_descriptors( $database, $owner_id ) {
+		if ( ! is_int( $owner_id ) || $owner_id <= 0 ) {
+			throw new InvalidArgumentException( 'V1 restore census owner is invalid.' );
+		}
+		return self::descriptors( $database, $owner_id );
+	}
+
+	/** @return array */
+	private static function descriptors( $database, $owner_id ) {
+		if ( ! is_object( $database ) ) {
+			throw new InvalidArgumentException( 'V1 restore census database is invalid.' );
+		}
+		$kernel = MMED_V1_Study_Schema::table_names( $database );
+		$week = MMED_V1_Study_Week_Schema::table_names( $database );
+		$owner_scoped = null !== $owner_id;
+		$descriptors = array();
+		if ( ! $owner_scoped ) {
+			$descriptors[] = array(
+				'reason' => 'v1_restore_relation_gate_generation',
+				'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['store_gate']}` sg"
+					. " WHERE NOT EXISTS (SELECT 1 FROM `{$kernel['generations']}` g"
+					. ' WHERE g.store_id = sg.store_id AND g.generation = sg.current_generation) LIMIT 1',
+				'arguments' => array(),
+			);
+		}
+		$owner_plan = $owner_scoped ? 'p.owner_id = %d AND ' : '';
+		$owner_operation = $owner_scoped ? 'o.owner_id = %d AND ' : '';
+		$owner_week = $owner_scoped ? 'w.owner_id = %d AND ' : '';
+		$owner_block = $owner_scoped ? 'b.owner_id = %d AND ' : '';
+		$arguments = $owner_scoped ? array( $owner_id ) : array();
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_plan_generation',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['plans']}` p WHERE {$owner_plan}"
+				. "NOT EXISTS (SELECT 1 FROM `{$kernel['generations']}` g WHERE g.generation = p.store_generation) LIMIT 1",
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_operation_plan',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['operations']}` o WHERE {$owner_operation}"
+				. "NOT EXISTS (SELECT 1 FROM `{$kernel['plans']}` p"
+				. ' WHERE p.owner_id = o.owner_id AND p.plan_id = o.plan_id) LIMIT 1',
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_operation_generation',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['operations']}` o WHERE {$owner_operation}"
+				. "NOT EXISTS (SELECT 1 FROM `{$kernel['generations']}` g WHERE g.generation = o.store_generation) LIMIT 1",
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_week_plan',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$week['weeks']}` w WHERE {$owner_week}"
+				. "NOT EXISTS (SELECT 1 FROM `{$kernel['plans']}` p"
+				. ' WHERE p.owner_id = w.owner_id AND p.plan_id = w.plan_id) LIMIT 1',
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_block_week',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$week['blocks']}` b WHERE {$owner_block}"
+				. "NOT EXISTS (SELECT 1 FROM `{$week['weeks']}` w"
+				. ' WHERE w.owner_id = b.owner_id AND w.plan_id = b.plan_id AND w.week_id = b.week_id) LIMIT 1',
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_plan_watermark_operation',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['plans']}` p WHERE {$owner_plan}("
+				. '(p.current_revision = 0 AND (p.watermark_operation_id IS NOT NULL OR p.watermark_at IS NOT NULL))'
+				. ' OR (p.current_revision > 0 AND NOT EXISTS ('
+				. "SELECT 1 FROM `{$kernel['operations']}` o WHERE o.operation_id = p.watermark_operation_id"
+				. ' AND o.owner_id = p.owner_id AND o.plan_id = p.plan_id AND o.revision = 1'
+				. ' AND o.expected_revision = 0 AND o.committed_at = p.watermark_at))) LIMIT 1',
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_plan_current_operation',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['plans']}` p WHERE {$owner_plan}"
+				. 'p.current_revision > 0 AND NOT EXISTS ('
+				. "SELECT 1 FROM `{$kernel['operations']}` o WHERE o.owner_id = p.owner_id AND o.plan_id = p.plan_id"
+				. ' AND o.revision = p.current_revision AND o.plan_hash = p.plan_hash'
+				. ' AND o.committed_at = p.updated_at) LIMIT 1',
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_operation_prior',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['operations']}` o WHERE {$owner_operation}("
+				. 'o.revision < 1 OR (o.revision = 1 AND o.expected_revision <> 0)'
+				. ' OR (o.revision > 1 AND (o.expected_revision <> o.revision - 1 OR NOT EXISTS ('
+				. "SELECT 1 FROM `{$kernel['operations']}` prior_o WHERE prior_o.owner_id = o.owner_id"
+				. ' AND prior_o.plan_id = o.plan_id AND prior_o.revision = o.expected_revision)))'
+				. ') LIMIT 1',
+			'arguments' => $arguments,
+		);
+		$descriptors[] = array(
+			'reason' => 'v1_restore_relation_operation_beyond_plan',
+			'sql' => "SELECT 1 AS v1_restore_invalid FROM `{$kernel['operations']}` o WHERE {$owner_operation}EXISTS ("
+				. "SELECT 1 FROM `{$kernel['plans']}` p WHERE p.owner_id = o.owner_id AND p.plan_id = o.plan_id"
+				. ' AND o.revision > p.current_revision) LIMIT 1',
+			'arguments' => $arguments,
+		);
+		return $descriptors;
+	}
+}
+
 /** Read one complete Plan through a single read-only consistent snapshot. */
 final class MMED_V1_Study_Week_Current_Reader {
 
@@ -192,6 +304,7 @@ final class MMED_V1_Study_Week_Current_Reader {
 
 	/** @return array */
 	private function read_plan( $owner_id ) {
+		$this->assert_owner_restore_census( $owner_id );
 		$kernel = MMED_V1_Study_Schema::table_names( $this->database );
 		$week   = MMED_V1_Study_Week_Schema::table_names( $this->database );
 		$sql  = 'SELECT CAST(owner_id AS CHAR) AS owner_id, LOWER(HEX(plan_id)) AS plan_hex,';
@@ -380,6 +493,16 @@ final class MMED_V1_Study_Week_Current_Reader {
 			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_snapshot_mismatch' );
 		}
 		return array( 'ok' => true, 'reason_code' => 'ok', 'plan' => $snapshot );
+	}
+
+	/** Reject owner rows hidden by relationship joins in the same snapshot. */
+	private function assert_owner_restore_census( $owner_id ) {
+		foreach ( MMED_V1_Study_Restore_Census::owner_descriptors( $this->database, $owner_id ) as $descriptor ) {
+			$sql = $this->prepare( $descriptor['sql'], ...$descriptor['arguments'] );
+			if ( ! empty( $this->rows( $sql ) ) ) {
+				throw new MMED_V1_Study_Reader_Corruption( $descriptor['reason'] );
+			}
+		}
 	}
 
 	/**
@@ -761,6 +884,7 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 				|| MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== $week['state']
 				|| false === $ledger_applied_at
 				|| ! $this->owned_table_set_ready( $parent_inspector->schema_name() )
+				|| ! $this->restore_control_relation_ready()
 			) {
 				return $provenance;
 			}
@@ -812,6 +936,16 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 			unset( $error );
 		}
 		return $provenance;
+	}
+
+	/** Keep only the constant-size gate/generation relation on provenance paths. */
+	private function restore_control_relation_ready() {
+		$descriptors = MMED_V1_Study_Restore_Census::global_descriptors( $this->database );
+		$descriptor = array_shift( $descriptors );
+		return is_array( $descriptor )
+			&& 'v1_restore_relation_gate_generation' === ( $descriptor['reason'] ?? null )
+			&& empty( $descriptor['arguments'] )
+			&& empty( $this->rows( $descriptor['sql'] ) );
 	}
 
 	/** @return string|false Latest exact applied timestamp, or false. */
