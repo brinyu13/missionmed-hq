@@ -77,6 +77,11 @@ class MMED_Study_Schedule {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function create_block( $request ) {
+		$writer_gate = self::v1_legacy_writer_gate();
+		if ( is_wp_error( $writer_gate ) ) {
+			return $writer_gate;
+		}
+
 		$params  = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
 		$payload = self::block_payload_to_event( $params );
 
@@ -102,6 +107,11 @@ class MMED_Study_Schedule {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function update_block( $request ) {
+		$writer_gate = self::v1_legacy_writer_gate();
+		if ( is_wp_error( $writer_gate ) ) {
+			return $writer_gate;
+		}
+
 		$event = self::get_owned_study_event( absint( $request['id'] ) );
 		if ( is_wp_error( $event ) ) {
 			return $event;
@@ -133,6 +143,11 @@ class MMED_Study_Schedule {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function delete_block( $request ) {
+		$writer_gate = self::v1_legacy_writer_gate();
+		if ( is_wp_error( $writer_gate ) ) {
+			return $writer_gate;
+		}
+
 		$event = self::get_owned_study_event( absint( $request['id'] ) );
 		if ( is_wp_error( $event ) ) {
 			return $event;
@@ -140,6 +155,31 @@ class MMED_Study_Schedule {
 
 		self::scope_legacy_mutation( $request, $event );
 		return MMED_Calendar_Engine::delete_event( $request );
+	}
+
+	/**
+	 * Apply the V1 cutover law before any Calendar lookup or mutation. Legacy-only
+	 * fixtures and installations without the 8010C boundary retain 8010B behavior.
+	 *
+	 * @return true|WP_Error
+	 */
+	protected static function v1_legacy_writer_gate() {
+		if ( ! class_exists( 'MMED_V1_Study_Access' ) ) {
+			return true;
+		}
+
+		$decision = MMED_V1_Study_Access::legacy_writer_decision( get_current_user_id() );
+		if ( ! empty( $decision['allowed'] ) ) {
+			return true;
+		}
+
+		$status = isset( $decision['status'] ) ? (int) $decision['status'] : 503;
+		$code   = 503 === $status ? 'mmed_study_dependency_unavailable' : 'mmed_study_write_disabled';
+		return new WP_Error(
+			$code,
+			503 === $status ? 'Study write service is unavailable.' : 'Study writes are disabled.',
+			array( 'status' => $status )
+		);
 	}
 
 	/**
