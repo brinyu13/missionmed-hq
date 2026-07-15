@@ -16,6 +16,95 @@ if ( ! defined( 'ABSPATH' ) ) {
 /** Content corruption marker that never exposes private row details. */
 final class MMED_V1_Study_Reader_Corruption extends RuntimeException {}
 
+/** Same-connection probes shared by physical provenance and current reads. */
+final class MMED_V1_Study_Native_Session_Guard {
+
+	/** Return whether the pinned native session is inside a transaction. */
+	public static function transaction_active( $database, $connection_id, $error_code ) {
+		try {
+			$name = 'mmed_v1_reader_probe_' . bin2hex( random_bytes( 16 ) );
+		} catch ( Throwable $error ) {
+			throw new RuntimeException( $error_code, 0, $error );
+		}
+		$handle = self::handle( $database, $connection_id, $error_code );
+		if ( true !== @mysqli_query( $handle, 'SAVEPOINT `' . $name . '`' ) ) {
+			throw new RuntimeException( $error_code );
+		}
+		self::handle( $database, $connection_id, $error_code );
+		$rolled_back = @mysqli_query( $handle, 'ROLLBACK TO SAVEPOINT `' . $name . '`' );
+		if ( true === $rolled_back ) {
+			self::handle( $database, $connection_id, $error_code );
+			if ( true !== @mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' ) ) {
+				throw new RuntimeException( $error_code );
+			}
+			self::handle( $database, $connection_id, $error_code );
+			return true;
+		}
+		$errno    = (int) @mysqli_errno( $handle );
+		$sqlstate = (string) @mysqli_sqlstate( $handle );
+		self::handle( $database, $connection_id, $error_code );
+		if ( 1305 === $errno && '42000' === $sqlstate ) {
+			return false;
+		}
+		@mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' );
+		throw new RuntimeException( $error_code );
+	}
+
+	/** Prove non-destructively that no permanent table is hidden by a TEMPORARY table. */
+	public static function assert_no_temporary_table_shadows( $database, $connection_id, $table_names ) {
+		if ( ! is_array( $table_names ) ) {
+			throw new RuntimeException( 'v1_reader_temporary_shadow_probe_failed' );
+		}
+		foreach ( array_values( array_unique( $table_names ) ) as $table_name ) {
+			if ( ! is_string( $table_name ) || 1 !== preg_match( '/^[A-Za-z0-9_]{1,64}$/D', $table_name ) ) {
+				throw new RuntimeException( 'v1_reader_temporary_shadow_probe_failed' );
+			}
+			$handle = self::handle( $database, $connection_id, 'v1_reader_temporary_shadow_probe_failed' );
+			$result = @mysqli_query( $handle, "SHOW CREATE TABLE `{$table_name}`" );
+			if ( ! is_object( $result ) ) {
+				throw new RuntimeException( 'v1_reader_temporary_shadow_probe_failed' );
+			}
+			$row = @mysqli_fetch_assoc( $result );
+			@mysqli_free_result( $result );
+			self::handle( $database, $connection_id, 'v1_reader_temporary_shadow_probe_failed' );
+			$create = null;
+			foreach ( is_array( $row ) ? $row : array() as $value ) {
+				if ( is_string( $value ) && 1 === preg_match( '/^CREATE(?:\s+TEMPORARY)?\s+TABLE\b/iD', ltrim( $value ) ) ) {
+					$create = ltrim( $value );
+					break;
+				}
+			}
+			if ( ! is_string( $create ) ) {
+				throw new RuntimeException( 'v1_reader_temporary_shadow_probe_failed' );
+			}
+			if ( 1 === preg_match( '/^CREATE\s+TEMPORARY\s+TABLE\b/iD', $create ) ) {
+				throw new RuntimeException( 'v1_reader_temporary_shadow_detected' );
+			}
+		}
+	}
+
+	/** Return the exact mysqli handle bound to the pinned connection. */
+	private static function handle( $database, $connection_id, $error_code ) {
+		$handle = is_object( $database ) && isset( $database->dbh ) ? $database->dbh : null;
+		if (
+			! is_object( $handle )
+			|| ! function_exists( 'mysqli_thread_id' )
+			|| ! function_exists( 'mysqli_query' )
+			|| ! function_exists( 'mysqli_fetch_assoc' )
+			|| ! function_exists( 'mysqli_free_result' )
+			|| ! function_exists( 'mysqli_errno' )
+			|| ! function_exists( 'mysqli_sqlstate' )
+		) {
+			throw new RuntimeException( $error_code );
+		}
+		$id = @mysqli_thread_id( $handle );
+		if ( ! is_int( $id ) || $id !== (int) $connection_id ) {
+			throw new RuntimeException( 'v1_reader_connection_changed' );
+		}
+		return $handle;
+	}
+}
+
 /** Read one complete Plan through a single read-only consistent snapshot. */
 final class MMED_V1_Study_Week_Current_Reader {
 
@@ -83,7 +172,8 @@ final class MMED_V1_Study_Week_Current_Reader {
 		$sql  = 'SELECT CAST(owner_id AS CHAR) AS owner_id, LOWER(HEX(plan_id)) AS plan_hex,';
 		$sql .= ' CAST(store_generation AS CHAR) AS store_generation, schema_version,';
 		$sql .= ' CAST(current_revision AS CHAR) AS current_revision, LOWER(HEX(watermark_operation_id)) AS watermark_hex,';
-		$sql .= ' watermark_at, plan_json, LOWER(HEX(plan_hash)) AS plan_hash_hex, OCTET_LENGTH(plan_json) AS plan_bytes';
+		$sql .= ' watermark_at, CASE WHEN OCTET_LENGTH(plan_json) <= ' . self::MAX_SNAPSHOT_BYTES . ' THEN plan_json ELSE NULL END AS plan_json,';
+		$sql .= ' LOWER(HEX(plan_hash)) AS plan_hash_hex, OCTET_LENGTH(plan_json) AS plan_bytes';
 		$sql .= " FROM `{$kernel['plans']}` WHERE owner_id = %d LIMIT 2";
 		$plans = $this->rows( $this->prepare( $sql, $owner_id ) );
 		if ( empty( $plans ) ) {
@@ -364,6 +454,14 @@ final class MMED_V1_Study_Week_Current_Reader {
 		if ( 1 !== (int) $this->scalar( 'SELECT @@SESSION.autocommit' ) || true === $initial_transaction_state ) {
 			throw new RuntimeException( 'v1_reader_session_not_clean' );
 		}
+		MMED_V1_Study_Native_Session_Guard::assert_no_temporary_table_shadows(
+			$this->database,
+			$this->connection_id,
+			array_merge(
+				array_values( MMED_V1_Study_Schema::table_names( $this->database ) ),
+				array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
+			)
+		);
 		$original_isolation = $this->isolation_level();
 		$started = false;
 		$result  = null;
@@ -434,64 +532,11 @@ final class MMED_V1_Study_Week_Current_Reader {
 
 	/** @return bool */
 	private function transaction_active() {
-		return $this->native_transaction_probe( 'v1_reader_transaction_probe_failed' );
-	}
-
-	/** Return the exact mysqli handle bound to the pinned reader connection. */
-	private function native_handle() {
-		$handle = isset( $this->database->dbh ) ? $this->database->dbh : null;
-		if (
-			! is_object( $handle )
-			|| ! function_exists( 'mysqli_thread_id' )
-			|| ! function_exists( 'mysqli_query' )
-			|| ! function_exists( 'mysqli_errno' )
-			|| ! function_exists( 'mysqli_sqlstate' )
-		) {
-			throw new RuntimeException( 'v1_reader_native_capability_unavailable' );
-		}
-		$id = @mysqli_thread_id( $handle );
-		if ( ! is_int( $id ) || $id !== $this->connection_id ) {
-			throw new RuntimeException( 'v1_reader_connection_changed' );
-		}
-		return $handle;
-	}
-
-	/**
-	 * Probe transaction state without vendor-specific instrumentation.
-	 * Outside a transaction SAVEPOINT is accepted as a no-op and rollback to
-	 * that name returns exact error 1305/42000; inside one rollback/release both
-	 * succeed without touching any caller-owned savepoint or row mutation.
-	 *
-	 * @return bool
-	 */
-	private function native_transaction_probe( $error_code ) {
-		try {
-			$name = 'mmed_v1_reader_probe_' . bin2hex( random_bytes( 16 ) );
-		} catch ( Throwable $error ) {
-			throw new RuntimeException( $error_code, 0, $error );
-		}
-		$handle = $this->native_handle();
-		if ( true !== @mysqli_query( $handle, 'SAVEPOINT `' . $name . '`' ) ) {
-			throw new RuntimeException( $error_code );
-		}
-		$this->native_handle();
-		$rolled_back = @mysqli_query( $handle, 'ROLLBACK TO SAVEPOINT `' . $name . '`' );
-		if ( true === $rolled_back ) {
-			$this->native_handle();
-			if ( true !== @mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' ) ) {
-				throw new RuntimeException( $error_code );
-			}
-			$this->native_handle();
-			return true;
-		}
-		$errno = (int) @mysqli_errno( $handle );
-		$sqlstate = (string) @mysqli_sqlstate( $handle );
-		$this->native_handle();
-		if ( 1305 === $errno && '42000' === $sqlstate ) {
-			return false;
-		}
-		@mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' );
-		throw new RuntimeException( $error_code );
+		return MMED_V1_Study_Native_Session_Guard::transaction_active(
+			$this->database,
+			$this->connection_id,
+			'v1_reader_transaction_probe_failed'
+		);
 	}
 
 	/** @return bool */
@@ -667,6 +712,17 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 		$provenance = array( 'state' => 'unknown', 'store_id' => null, 'generation' => null );
 		try {
 			$this->assert_connection();
+			if ( ! $this->session_is_clean() ) {
+				return $provenance;
+			}
+			MMED_V1_Study_Native_Session_Guard::assert_no_temporary_table_shadows(
+				$this->database,
+				$this->connection_id,
+				array_merge(
+					array_values( MMED_V1_Study_Schema::table_names( $this->database ) ),
+					array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
+				)
+			);
 			$parent_inspector = new MMED_V1_Study_Schema_Inspector( $this->database );
 			$parent = $parent_inspector->inspect();
 			$this->assert_connection();
@@ -736,14 +792,14 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 	/** @return string|false Latest exact applied timestamp, or false. */
 	private function ledger_ready() {
 		$tables = MMED_V1_Study_Schema::table_names( $this->database );
-		$sql  = 'SELECT migration_version, migration_id, LOWER(HEX(checksum)) AS checksum_hex, state, checkpoint,';
-		$sql .= ' attempt_count, LOWER(HEX(runner_id)) AS runner_hex, failure_code, started_at, applied_at, updated_at';
-		$sql .= " FROM `{$tables['migrations']}` ORDER BY migration_version";
-		$rows = $this->rows( $sql );
 		$expected = array_merge(
 			MMED_V1_Study_Schema::migrations( $this->database ),
 			MMED_V1_Study_Week_Schema::migrations( $this->database )
 		);
+		$sql  = 'SELECT migration_version, migration_id, LOWER(HEX(checksum)) AS checksum_hex, state, checkpoint,';
+		$sql .= ' attempt_count, LOWER(HEX(runner_id)) AS runner_hex, failure_code, started_at, applied_at, updated_at';
+		$sql .= " FROM `{$tables['migrations']}` ORDER BY migration_version LIMIT " . ( count( $expected ) + 1 );
+		$rows = $this->rows( $sql );
 		if ( count( $rows ) !== count( $expected ) ) {
 			return false;
 		}
@@ -776,17 +832,17 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 	/** @return bool */
 	private function owned_table_set_ready( $schema_name ) {
 		$prefix = (string) $this->database->prefix . 'mmed_v1_study_';
+		$expected = array_merge(
+			array_values( MMED_V1_Study_Schema::table_names( $this->database ) ),
+			array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
+		);
 		$sql  = 'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s';
-		$sql .= ' AND LEFT(TABLE_NAME, CHAR_LENGTH(%s)) = %s ORDER BY TABLE_NAME';
+		$sql .= ' AND LEFT(TABLE_NAME, CHAR_LENGTH(%s)) = %s ORDER BY TABLE_NAME LIMIT ' . ( count( $expected ) + 1 );
 		$rows = $this->rows( $this->prepare( $sql, $schema_name, $prefix, $prefix ) );
 		$actual = array();
 		foreach ( $rows as $row ) {
 			$actual[] = isset( $row['TABLE_NAME'] ) ? (string) $row['TABLE_NAME'] : '';
 		}
-		$expected = array_merge(
-			array_values( MMED_V1_Study_Schema::table_names( $this->database ) ),
-			array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
-		);
 		sort( $actual, SORT_STRING );
 		sort( $expected, SORT_STRING );
 		return $expected === $actual;
@@ -820,6 +876,24 @@ final class MMED_V1_Study_InnoDB_Repository implements MMED_V1_Study_Repository 
 			throw new RuntimeException( 'v1_repository_connection_unavailable' );
 		}
 		return (int) $id;
+	}
+
+	/** Return whether provenance may safely probe the current native session. */
+	private function session_is_clean() {
+		$this->assert_connection();
+		$autocommit = $this->database->get_var( 'SELECT @@SESSION.autocommit' );
+		if ( ! property_exists( $this->database, 'last_error' ) || '' !== (string) $this->database->last_error || null === $autocommit ) {
+			throw new RuntimeException( 'v1_repository_session_probe_failed' );
+		}
+		$this->assert_connection();
+		if ( 1 !== (int) $autocommit ) {
+			return false;
+		}
+		return false === MMED_V1_Study_Native_Session_Guard::transaction_active(
+			$this->database,
+			$this->connection_id,
+			'v1_repository_transaction_probe_failed'
+		);
 	}
 
 	/** @return void */

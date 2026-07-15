@@ -32,8 +32,9 @@ v1_8010e_e1_contract_expect( false === strpos( $migrator, "'mmed_v1_8010e_'" ), 
 v1_8010e_e1_contract_expect( false !== strpos( $migrator, 'v1_migration_unowned_table' ), 'unledgered exact tables fail closed' );
 v1_8010e_e1_contract_expect( false !== strpos( $migrator, 'v1_week_existing_truth_upgrade_unsupported' ), 'unproved initialized generation-1 truth cannot be stranded' );
 v1_8010e_e1_contract_expect( false !== strpos( $repository, 'START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY' ), 'reader uses one read-only consistent snapshot' );
-v1_8010e_e1_contract_expect( false !== strpos( $repository, 'native_transaction_probe' ) && false !== strpos( $repository, "'42000'" ), 'reader positively probes caller transaction state on both supported engines' );
+v1_8010e_e1_contract_expect( false !== strpos( $repository, 'MMED_V1_Study_Native_Session_Guard::transaction_active' ) && false !== strpos( $repository, "'42000'" ), 'reader positively probes caller transaction state on both supported engines' );
 v1_8010e_e1_contract_expect( false === strpos( $repository, '@@SESSION.in_transaction' ), 'reader does not depend on MariaDB-only transaction instrumentation' );
+v1_8010e_e1_contract_expect( false !== strpos( $repository, 'SHOW CREATE TABLE' ) && false !== strpos( $repository, 'v1_reader_temporary_shadow_detected' ), 'reader and provenance reject same-session TEMPORARY shadows non-destructively' );
 v1_8010e_e1_contract_expect( false !== strpos( $repository, "array( '2' )" ), 'repository advertises only reader 2' );
 v1_8010e_e1_contract_expect( false !== strpos( $repository, "'plan_corrupt'" ), 'reader has a content-free corruption outcome' );
 v1_8010e_e1_contract_expect( false !== strpos( $repository, 'hash_equals( $json, $plan[' ), 'reader requires exact canonical snapshot bytes' );
@@ -42,6 +43,8 @@ v1_8010e_e1_contract_expect( false !== strpos( $repository, 'assert_current_rece
 v1_8010e_e1_contract_expect( false === strpos( $repository, 'private $provenance' ) && false === strpos( $repository, '$this->provenance' ), 'physical provenance cannot retain stale positive cache' );
 v1_8010e_e1_contract_expect( false !== strpos( $repository, 'generation_count' ) && false !== strpos( $repository, 'runner_hex' ) && false !== strpos( $repository, 'owned_table_set_ready' ), 'provenance verifies exact controls, ledger identity, and owned table set' );
 v1_8010e_e1_contract_expect( false !== strpos( $repository, 'const MAX_WEEKS_PER_PLAN = 260;' ) && false !== strpos( $repository, 'const MAX_BLOCKS_PER_PLAN = 4096;' ), 'normalized reader row budgets are explicit and governed' );
+v1_8010e_e1_contract_expect( false !== strpos( $repository, 'CASE WHEN OCTET_LENGTH(plan_json) <=' ), 'oversized Plan JSON is suppressed by the database before PHP materialization' );
+v1_8010e_e1_contract_expect( substr_count( $repository, 'count( $expected ) + 1' ) >= 2, 'ledger and owned-table censuses stop at expected-plus-one rows' );
 v1_8010e_e1_contract_expect( false !== strpos( $repository, 'v1_reader_week_limit_exceeded' ) && false !== strpos( $repository, 'v1_reader_block_limit_exceeded' ), 'over-budget normalized truth fails closed before projection' );
 v1_8010e_e1_contract_expect( false !== strpos( $week_domain, 'usort(' ) && false !== strpos( $week_domain, '$active_end' ), 'collision verification is ordered rather than quadratic' );
 v1_8010e_e1_contract_expect( false !== strpos( $worker, 'READY reader_after_plan' ) && false !== strpos( $worker, 'writer-v3' ), 'two-connection worker exposes the exact snapshot-tear barrier and atomic writer' );

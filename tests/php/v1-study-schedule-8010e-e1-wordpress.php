@@ -37,12 +37,14 @@ function v1_8010e_e1_commission_parent( $database, $prefix, $counter ) {
 final class V1_8010E_E1_Drift_DB {
 	public $prefix;
 	public $last_error = '';
+	public $dbh;
 	private $inner;
 	private $drift = false;
 
 	public function __construct( $inner ) {
 		$this->inner = $inner;
 		$this->prefix = $inner->prefix;
+		$this->dbh = $inner->dbh;
 	}
 
 	public function prepare() {
@@ -249,6 +251,29 @@ v1_8010e_wp_expect(
 v1_8010e_wp_expect( MMED_V1_Study_Domain::TRUTH_PRESENT === $repository->cutover_provenance( $owner_id )['state'], 'hash-verified Plan is positive cutover truth' );
 v1_8010e_wp_expect( 'dependency_unavailable' === $repository->load( $owner_id, '1' )['reason_code'], 'unimplemented reader 1 fails closed' );
 
+foreach ( array_merge( array_values( $kernel ), array_values( $week_tables ) ) as $shadow_index => $shadow_table ) {
+	v1_8010e_wp_expect(
+		1 === (int) $wpdb->query( "CREATE TEMPORARY TABLE `{$shadow_table}` (v1_shadow_id int unsigned NOT NULL) ENGINE=InnoDB" ),
+		'fixture creates same-session TEMPORARY shadow for owned table ' . ( $shadow_index + 1 )
+	);
+	v1_8010e_wp_expect(
+		MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(),
+		'physical provenance rejects same-session TEMPORARY shadow for owned table ' . ( $shadow_index + 1 )
+	);
+	$shadow_read = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+	v1_8010e_wp_expect(
+		empty( $shadow_read['ok'] ) && 'dependency_unavailable' === $shadow_read['reason_code'],
+		'current reader rejects same-session TEMPORARY shadow for owned table ' . ( $shadow_index + 1 )
+	);
+	v1_8010e_wp_expect(
+		1 === (int) $wpdb->query( "DROP TEMPORARY TABLE `{$shadow_table}`" ),
+		'fixture removes same-session TEMPORARY shadow for owned table ' . ( $shadow_index + 1 )
+	);
+}
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_READY === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'all seven TEMPORARY-shadow probes restore exact physical readiness' );
+$post_shadow_read = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+v1_8010e_wp_expect( ! empty( $post_shadow_read['ok'] ) && $snapshot === $post_shadow_read['plan'], 'all seven TEMPORARY-shadow probes preserve canonical learner truth' );
+
 v1_8010e_wp_expect( false !== $wpdb->query( 'CREATE TEMPORARY TABLE v1e1_reader_transaction_sentinel (sentinel_id int NOT NULL PRIMARY KEY) ENGINE=InnoDB' ), 'reader test creates a session-local transaction sentinel' );
 v1_8010e_wp_expect( false !== $wpdb->query( 'START TRANSACTION' ), 'reader test starts a caller-owned transaction' );
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( 'INSERT INTO v1e1_reader_transaction_sentinel (sentinel_id) VALUES (1)' ), 'caller writes a rollback sentinel before invoking the reader' );
@@ -287,6 +312,28 @@ v1_8010e_wp_expect( ! empty( $read_committed_result['ok'] ), 'reader completes a
 $reader_restored_isolation = strtoupper( str_replace( array( '_', ' ' ), '-', (string) $wpdb->get_var( $reader_isolation_sql ) ) );
 v1_8010e_wp_expect( 'READ-COMMITTED' === $reader_restored_isolation, 'reader restores the exact non-default caller isolation after success' );
 v1_8010e_wp_expect( false !== $wpdb->query( 'SET SESSION TRANSACTION ISOLATION LEVEL ' . str_replace( '-', ' ', $reader_original_isolation ) ), 'reader test restores its original isolation level' );
+
+$reader_owned_tables = array_merge( array_values( $kernel ), array_values( $week_tables ) );
+foreach ( $reader_owned_tables as $shadow_index => $reader_owned_table ) {
+	v1_8010e_wp_expect( false !== $wpdb->query( "CREATE TEMPORARY TABLE `{$reader_owned_table}` (probe_id int unsigned NOT NULL PRIMARY KEY) ENGINE=InnoDB" ), 'fixture shadows owned table ' . ( $shadow_index + 1 ) );
+	v1_8010e_wp_expect( 1 === (int) $wpdb->query( "INSERT INTO `{$reader_owned_table}` (probe_id) VALUES (1)" ), 'fixture records a sentinel inside owned shadow ' . ( $shadow_index + 1 ) );
+	v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'physical provenance rejects owned TEMPORARY shadow ' . ( $shadow_index + 1 ) );
+	if ( $reader_owned_table === $kernel['plans'] ) {
+		$shadowed_read = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+		v1_8010e_wp_expect( empty( $shadowed_read['ok'] ) && 'dependency_unavailable' === $shadowed_read['reason_code'], 'direct current reader rejects a same-session Plan shadow' );
+	}
+	v1_8010e_wp_expect( 1 === (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$reader_owned_table}`" ), 'non-destructive shadow probe preserves sentinel ' . ( $shadow_index + 1 ) );
+	v1_8010e_wp_expect( false !== $wpdb->query( "DROP TEMPORARY TABLE `{$reader_owned_table}`" ), 'fixture removes owned shadow ' . ( $shadow_index + 1 ) );
+}
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_READY === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'all seven permanent tables remain exact after non-destructive shadow probes' );
+
+$oversized_plan_bytes = MMED_V1_Study_Week_Current_Reader::MAX_SNAPSHOT_BYTES + 1;
+$oversize_sql = "UPDATE `{$kernel['plans']}` SET plan_json = REPEAT('x', %d), plan_hash = UNHEX(SHA2(REPEAT('x', %d), 256)) WHERE owner_id = %d";
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $oversize_sql, array( $oversized_plan_bytes, $oversized_plan_bytes, $owner_id ) ) ), 'fixture stores an over-budget Plan without transferring it through PHP' );
+v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'server-side Plan projection rejects oversized LONGTEXT content-free' );
+$restore_bounded_plan_sql = "UPDATE `{$kernel['plans']}` SET plan_json = %s, plan_hash = UNHEX(%s) WHERE owner_id = %d";
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $restore_bounded_plan_sql, array( $plan_json, $plan_hash, $owner_id ) ) ), 'fixture restores the bounded canonical Plan' );
+v1_8010e_wp_expect( ! empty( $repository->load( $owner_id, '2' )['ok'] ), 'restored bounded Plan remains readable' );
 
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( "DELETE FROM `{$kernel['operations']}` WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture removes the watermark receipt' );
 v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'orphan watermark fails content-free' );
@@ -382,6 +429,11 @@ $generation_3_sql = "INSERT INTO `{$kernel['generations']}` (generation, store_i
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $generation_3_sql, array( v1_8010e_wp_uuid_hex( $store ), '2', '2', MMED_V1_Study_Week_Schema::manifest_hash_hex( $wpdb ), $now_2 ) ) ), 'fixture appends a valid-looking future generation' );
 v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'extra generation fails exact control provenance' );
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( "DELETE FROM `{$kernel['generations']}` WHERE generation = 3" ), 'fixture removes future generation' );
+
+$extra_ledger_sql = "INSERT INTO `{$kernel['migrations']}` (migration_version, migration_id, checksum, state, checkpoint, attempt_count, runner_id, failure_code, started_at, applied_at, updated_at) SELECT 8, '8010E-008-unexpected', UNHEX(REPEAT('a', 64)), 'applied', 'verified', 1, runner_id, NULL, started_at, applied_at, updated_at FROM `{$kernel['migrations']}` WHERE migration_version = 7";
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( $extra_ledger_sql ), 'fixture appends one unexpected ledger row beyond the bounded expected set' );
+v1_8010e_wp_expect( MMED_V1_Study_Domain::BINDING_UNAVAILABLE === ( new MMED_V1_Study_InnoDB_Repository( $wpdb ) )->binding_kind(), 'bounded ledger read rejects expected-plus-one cardinality' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "DELETE FROM `{$kernel['migrations']}` WHERE migration_version = 8" ), 'fixture removes unexpected ledger row' );
 
 $runner_7_hex = strtolower( (string) $wpdb->get_var( "SELECT HEX(runner_id) FROM `{$kernel['migrations']}` WHERE migration_version = 7" ) );
 v1_8010e_wp_expect( 1 === preg_match( '/^[a-f0-9]{32}$/D', $runner_7_hex ), 'fixture captures exact migration runner' );
