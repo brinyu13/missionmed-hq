@@ -1,11 +1,18 @@
 import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { extname, join, normalize } from 'node:path';
+import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { AuthorizationError, localDemoActor } from './auth.mjs';
+import {
+  AuthorizationError,
+  assertLocalDemoConfiguration,
+  createTrustedFinalizationContext,
+  enforceRequestIntegrity,
+  localDemoActor,
+  normalizeIdentityContext,
+} from './auth.mjs';
 import { ENTITY_TYPES, PLATFORM_VERSION } from './contracts.mjs';
-import { createSyntheticDemoPlatform } from './platform.mjs';
+import { QuestionPlatform, createSyntheticDemoPlatform } from './platform.mjs';
 
 const MODULE_DIR = fileURLToPath(new URL('.', import.meta.url));
 const PUBLIC_DIR = normalize(join(MODULE_DIR, '..', 'public'));
@@ -41,6 +48,7 @@ async function readJson(request) {
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {
       const error = new Error('request_body_too_large');
+      error.code = 'request_body_too_large';
       error.statusCode = 413;
       throw error;
     }
@@ -53,9 +61,33 @@ async function readJson(request) {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
     const error = new Error('invalid_json');
+    error.code = 'invalid_json';
     error.statusCode = 400;
     throw error;
   }
+}
+
+function publicErrorCode(error, statusCode) {
+  if (statusCode >= 500) {
+    return 'internal_error';
+  }
+  if (error instanceof AuthorizationError) {
+    return error.code;
+  }
+  const code = typeof error?.code === 'string' ? error.code.split(':', 1)[0] : '';
+  if (['invalid_json', 'request_body_too_large', 'workflow_endpoint_required'].includes(code)) {
+    return code;
+  }
+  if (statusCode === 404) {
+    return 'not_found';
+  }
+  if (statusCode === 409) {
+    return 'request_conflict';
+  }
+  if (statusCode === 403) {
+    return 'request_forbidden';
+  }
+  return 'request_rejected';
 }
 
 function dashboard(platform, actor) {
@@ -79,7 +111,7 @@ async function serveStatic(pathname, response) {
   const requested = pathname === '/' ? '/index.html' : pathname;
   const relative = normalize(requested).replace(/^([/\\])+/, '');
   const filePath = normalize(join(PUBLIC_DIR, relative));
-  if (!filePath.startsWith(PUBLIC_DIR)) {
+  if (filePath !== PUBLIC_DIR && !filePath.startsWith(`${PUBLIC_DIR}${sep}`)) {
     json(response, 404, { error: 'not_found' });
     return;
   }
@@ -98,18 +130,44 @@ async function serveStatic(pathname, response) {
 }
 
 export function createQuestionPlatformServer({
-  platform = createSyntheticDemoPlatform(),
+  platform: suppliedPlatform = null,
   localDemo = false,
   identityResolver = null,
+  finalizationResolver = null,
 } = {}) {
+  assertLocalDemoConfiguration(localDemo);
+  if (localDemo && identityResolver) {
+    throw new AuthorizationError('local_demo_forbidden', 403);
+  }
+  if (identityResolver !== null && typeof identityResolver !== 'function') {
+    throw new AuthorizationError('identity_adapter_required', 500);
+  }
+  if (finalizationResolver !== null && (typeof finalizationResolver !== 'function' || !identityResolver)) {
+    throw new AuthorizationError('finalization_adapter_invalid', 500);
+  }
+  const platform = suppliedPlatform || (localDemo ? createSyntheticDemoPlatform() : new QuestionPlatform());
+  if (platform.syntheticDemo === true && (!localDemo || identityResolver)) {
+    throw new AuthorizationError('local_demo_forbidden', 403);
+  }
+
   return createServer(async (request, response) => {
     const url = new URL(request.url || '/', 'http://127.0.0.1');
+    if (localDemo) {
+      try {
+        localDemoActor(request, true);
+      } catch (error) {
+        json(response, error.statusCode || 401, { error: error.code || 'authentication_required' });
+        return;
+      }
+    }
     if (url.pathname === '/api/health') {
       json(response, 200, {
         ok: true,
         service: 'i1q-question-platform',
         version: PLATFORM_VERSION,
-        mode: localDemo ? 'LOCAL_SYNTHETIC_DEMO' : 'AUTH_ADAPTER_REQUIRED',
+        mode: localDemo
+          ? 'LOCAL_SYNTHETIC_DEMO'
+          : identityResolver ? 'INJECTED_AUTH_ADAPTER' : 'AUTH_ADAPTER_REQUIRED',
       });
       return;
     }
@@ -120,9 +178,21 @@ export function createQuestionPlatformServer({
     }
 
     try {
-      const actor = identityResolver
-        ? await identityResolver(request)
-        : localDemoActor(request, localDemo);
+      let actor;
+      let identityContext = null;
+      if (identityResolver) {
+        let resolved;
+        try {
+          resolved = await identityResolver(request);
+        } catch {
+          throw new AuthorizationError('authentication_required', 401);
+        }
+        identityContext = normalizeIdentityContext(resolved);
+        enforceRequestIntegrity(request, identityContext);
+        actor = identityContext.actor;
+      } else {
+        actor = localDemoActor(request, localDemo);
+      }
 
       if (request.method === 'GET' && url.pathname === '/api/v1/dashboard') {
         json(response, 200, dashboard(platform, actor));
@@ -140,7 +210,7 @@ export function createQuestionPlatformServer({
       }
       if (request.method === 'POST' && url.pathname === '/api/v1/reviewers') {
         const body = await readJson(request);
-        json(response, 201, platform.registerReviewer(body, actor, { id: body.id }));
+        json(response, 201, platform.registerReviewer(body, actor));
         return;
       }
       const flagMatch = url.pathname.match(/^\/api\/v1\/feature-flags\/([a-z_]+)$/u);
@@ -202,18 +272,47 @@ export function createQuestionPlatformServer({
         json(response, 201, platform.assembleRelease(await readJson(request), actor));
         return;
       }
+      const validationMatch = url.pathname.match(/^\/api\/v1\/releases\/([^/]+)\/validations$/u);
+      if (request.method === 'POST' && validationMatch) {
+        json(response, 201, platform.recordReleaseValidation(
+          validationMatch[1],
+          await readJson(request),
+          actor,
+        ));
+        return;
+      }
       const promotionMatch = url.pathname.match(/^\/api\/v1\/releases\/([^/]+)\/promotions$/u);
       if (request.method === 'POST' && promotionMatch) {
         const body = await readJson(request);
-        json(response, 201, platform.promoteRelease(promotionMatch[1], body.to_state, actor));
+        json(response, 201, platform.promoteRelease(promotionMatch[1], body, actor));
         return;
       }
       const artifactMatch = url.pathname.match(/^\/api\/v1\/releases\/([^/]+)\/artifacts\/([^/]+)$/u);
       if (request.method === 'GET' && artifactMatch) {
+        let finalizationContext = null;
+        if (finalizationResolver) {
+          try {
+            const resolvedFinalization = await finalizationResolver({
+              request,
+              identityContext,
+              releaseId: artifactMatch[1],
+              channel: artifactMatch[2],
+            });
+            if (resolvedFinalization) {
+              finalizationContext = createTrustedFinalizationContext(resolvedFinalization, {
+                identityContext,
+                releaseId: artifactMatch[1],
+                channel: artifactMatch[2],
+              });
+            }
+          } catch {
+            finalizationContext = null;
+          }
+        }
         json(response, 200, platform.artifactForPhase(
           artifactMatch[1],
           artifactMatch[2],
-          url.searchParams.get('phase') || 'pre_answer',
+          finalizationContext,
           actor,
         ));
         return;
@@ -223,7 +322,7 @@ export function createQuestionPlatformServer({
     } catch (error) {
       const statusCode = error.statusCode || (error instanceof AuthorizationError ? error.statusCode : 500);
       json(response, statusCode, {
-        error: statusCode >= 500 ? 'internal_error' : error.code || error.message,
+        error: publicErrorCode(error, statusCode),
       });
     }
   });

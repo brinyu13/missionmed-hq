@@ -1,0 +1,529 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { createQuestionPlatformServer } from '../src/server.mjs';
+import { QuestionPlatform } from '../src/platform.mjs';
+import { sha256 } from '../src/hash.mjs';
+import { MemoryRepository } from '../src/store.mjs';
+
+const TRUSTED_ORIGIN = 'https://internal.missionmed.example';
+const CSRF_TOKEN = 'synthetic-csrf-token-for-security-tests';
+
+const actors = Object.freeze({
+  admin: Object.freeze({ id: 'actor_admin_security', roles: ['platform_admin', 'editorial_reviewer', 'release_manager'] }),
+  author: Object.freeze({ id: 'actor_author_security', roles: ['author'] }),
+  editor: Object.freeze({ id: 'actor_editor_security', roles: ['editorial_reviewer'] }),
+  reader: Object.freeze({ id: 'actor_reader_security', roles: ['read_only'] }),
+  assembler: Object.freeze({ id: 'actor_assembler_security', roles: ['release_manager'] }),
+  validator: Object.freeze({ id: 'actor_validator_security', roles: ['release_manager'] }),
+  ratifier: Object.freeze({ id: 'actor_ratifier_security', roles: ['release_manager'] }),
+});
+
+async function withServer(options, operation) {
+  const server = createQuestionPlatformServer(options);
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  try {
+    await operation(`http://127.0.0.1:${address.port}`);
+  } finally {
+    await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  }
+}
+
+function identityContext(actor = actors.reader, overrides = {}) {
+  const now = Date.now();
+  const session = {
+    id: 'session_security_fixture',
+    expires_at: new Date(now + 60_000).toISOString(),
+    validated_at: new Date(now).toISOString(),
+    revoked: false,
+    ...(overrides.session || {}),
+  };
+  const requestSecurity = {
+    session_id: session.id,
+    csrf_token: CSRF_TOKEN,
+    trusted_origins: [TRUSTED_ORIGIN],
+    ...(overrides.request_security || {}),
+  };
+  return {
+    validated: true,
+    actor,
+    session,
+    request_security: requestSecurity,
+    ...overrides,
+    ...(overrides.session === null ? { session: null } : { session }),
+    ...(overrides.request_security === null ? { request_security: null } : { request_security: requestSecurity }),
+  };
+}
+
+function mutationHeaders(overrides = {}) {
+  return {
+    'Content-Type': 'application/json',
+    Origin: TRUSTED_ORIGIN,
+    'X-CSRF-Token': CSRF_TOKEN,
+    ...overrides,
+  };
+}
+
+function syntheticDrills(suffix = 'security') {
+  return {
+    video_id: `video_${suffix}`,
+    source_record_id: `src_${suffix}`,
+    title: `Synthetic drill ${suffix}`,
+    playback: {
+      availability: 'available',
+      url: `https://example.invalid/${suffix}/playback`,
+      stream_id: null,
+    },
+    nodes: {
+      availability: 'available',
+      url: `https://example.invalid/${suffix}/nodes.json`,
+    },
+    transcript: { availability: 'missing', url: null },
+    vtt: { availability: 'unknown', url: null },
+    timestamp: { start_seconds: 10, end_seconds: 20 },
+    rights_status: 'cleared_for',
+    privacy_status: 'pass_with_redactions',
+    source_hash: sha256(`source_${suffix}`),
+    working_hash: sha256(`working_${suffix}`),
+  };
+}
+
+function revisionPayload(suffix = 'security', overrides = {}) {
+  return {
+    item_id: `item_${suffix}`,
+    concept_id: `concept_${suffix}`,
+    source_ids: [`src_${suffix}`],
+    evidence_claim_ids: [`claim_${suffix}`],
+    prompt: `Which label matches synthetic fixture ${suffix}?`,
+    choices: [
+      { key: 'A', text: `Alpha ${suffix}`, why_tempting: 'Position lure', why_wrong: 'Synthetic mismatch', misconception_id: 'miscon_alpha' },
+      { key: 'B', text: `Beta ${suffix}`, why_tempting: null, why_wrong: null, misconception_id: null },
+      { key: 'C', text: `Gamma ${suffix}`, why_tempting: 'Adjacent lure', why_wrong: 'Synthetic mismatch', misconception_id: 'miscon_gamma' },
+      { key: 'D', text: `Delta ${suffix}`, why_tempting: 'Ordering lure', why_wrong: 'Synthetic mismatch', misconception_id: 'miscon_delta' },
+    ],
+    answer: 'B',
+    explanation: `SECRET_EXPLANATION_${suffix}`,
+    correct_answer_rationale: `SECRET_CORRECT_RATIONALE_${suffix}`,
+    topic: 'Synthetic security fixtures',
+    subtopic: 'Authorization',
+    drills: syntheticDrills(suffix),
+    ...structuredClone(overrides),
+  };
+}
+
+function seedRevisionDependencies(repository, suffix = 'security') {
+  repository.create('concepts', { title: `Concept ${suffix}` }, { id: `concept_${suffix}` });
+  repository.create('items', { item_type: 'single_best_answer' }, { id: `item_${suffix}` });
+  repository.create('source_records', {
+    source_type: 'AI_DRAFT',
+    source_hash: sha256(`source_${suffix}`),
+  }, { id: `src_${suffix}` });
+  repository.create('evidence_claims', {
+    status: 'fixture_only',
+    source_record_ids: [`src_${suffix}`],
+  }, { id: `claim_${suffix}` });
+}
+
+function seedAnswerBearingRevision(repository, suffix = 'read') {
+  return repository.create('item_revisions', {
+    ...revisionPayload(suffix),
+    export_question_id: `I1Q-SECURITY-${suffix.toUpperCase()}`,
+    author_actor_id: actors.author.id,
+    revision_number: 1,
+    workflow_status: 'draft',
+    debug: {
+      answerKey: 'B',
+      solution: `SECRET_SOLUTION_${suffix}`,
+    },
+  }, { id: `itemrev_${suffix}`, actorId: actors.author.id });
+}
+
+test('ordinary resource GET and list are answer-free and generic artifacts stay protected', async () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  const revision = seedAnswerBearingRevision(repository, 'read');
+  repository.create('channel_artifacts', {
+    release_id: 'release_read',
+    channel: 'stat_dataset_questions',
+    phase: 'server_only',
+    payload: [{ answer: 'B', explanation: 'SECRET_ARTIFACT_EXPLANATION' }],
+  }, { id: 'artifact_read' });
+
+  for (const view of [
+    platform.get('item_revisions', revision.id, actors.reader),
+    platform.list('item_revisions', {}, actors.reader).rows[0],
+  ]) {
+    const serialized = JSON.stringify(view);
+    assert.equal(view.answer, undefined);
+    assert.equal(view.explanation, undefined);
+    assert.deepEqual(view.choices.map((choice) => Object.keys(choice)), [
+      ['key', 'text'], ['key', 'text'], ['key', 'text'], ['key', 'text'],
+    ]);
+    assert.doesNotMatch(serialized, /SECRET_|answerKey|why_wrong|why_tempting|misconception_id/u);
+  }
+  assert.throws(
+    () => platform.get('channel_artifacts', 'artifact_read', actors.assembler),
+    /protected_route_required/,
+  );
+  assert.equal(
+    platform.artifactForPhase('release_read', 'stat_dataset_questions', null, actors.assembler).payload[0].answer,
+    'B',
+  );
+
+  await withServer({
+    platform,
+    identityResolver: async () => identityContext(actors.reader),
+  }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/resources/item_revisions/${revision.id}`);
+    assert.equal(response.status, 200);
+    assert.doesNotMatch(JSON.stringify(await response.json()), /SECRET_|answerKey|why_wrong|why_tempting/u);
+  });
+});
+
+test('static serving rejects normalized paths outside the public directory', async () => {
+  await withServer({ localDemo: true }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/..%2Fpublic_evil%2Findex.html`);
+    assert.equal(response.status, 404);
+    assert.deepEqual(await response.json(), { error: 'not_found' });
+  });
+});
+
+test('local demo is forbidden for normalized production environment values', () => {
+  const original = process.env.NODE_ENV;
+  process.env.NODE_ENV = ' Production ';
+  try {
+    assert.throws(
+      () => createQuestionPlatformServer({ localDemo: true }),
+      /local_demo_forbidden/,
+    );
+  } finally {
+    if (original === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = original;
+    }
+  }
+});
+
+test('caller phase strings cannot unlock post-answer artifacts and participant proof is server supplied', async () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  repository.create('channel_artifacts', {
+    release_id: 'release_phase',
+    channel: 'stat_post_answer_debrief',
+    phase: 'post_answer',
+    payload: [{ answer: 'B', explanation: 'Synthetic debrief' }],
+  }, { id: 'artifact_phase' });
+
+  assert.throws(
+    () => platform.artifactForPhase(
+      'release_phase',
+      'stat_post_answer_debrief',
+      'post_answer_finalized',
+      actors.reader,
+    ),
+    /finalization_required/,
+  );
+
+  await withServer({
+    platform,
+    identityResolver: async () => identityContext(actors.reader),
+  }, async (baseUrl) => {
+    const spoofed = await fetch(`${baseUrl}/api/v1/releases/release_phase/artifacts/stat_post_answer_debrief?phase=post_answer_finalized`);
+    assert.equal(spoofed.status, 403);
+    assert.equal((await spoofed.json()).error, 'finalization_required');
+  });
+
+  await withServer({
+    platform,
+    identityResolver: async () => identityContext(actors.reader),
+    finalizationResolver: async ({ identityContext: trustedIdentity, releaseId, channel }) => ({
+      authorized: true,
+      state: 'finalized',
+      release_id: releaseId,
+      channel,
+      session_id: trustedIdentity.session.id,
+      actor_id: trustedIdentity.actor.id,
+      scope: 'participant',
+    }),
+  }, async (baseUrl) => {
+    const authorized = await fetch(`${baseUrl}/api/v1/releases/release_phase/artifacts/stat_post_answer_debrief`);
+    assert.equal(authorized.status, 200);
+    assert.equal((await authorized.json()).payload[0].answer, 'B');
+  });
+});
+
+test('review events reject administrator impersonation, assignment-type swaps, and revision hash swaps', () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  const revision = seedAnswerBearingRevision(repository, 'review');
+  const reviewer = platform.registerReviewer({
+    actor_id: actors.editor.id,
+    display_name: 'Synthetic Editorial Reviewer',
+    roles: ['editorial_reviewer'],
+    credential: { type: 'editorial', status: 'verified' },
+  }, actors.admin, { id: 'reviewer_editor_security' });
+  const assignment = platform.createReviewAssignment({
+    item_revision_id: revision.id,
+    reviewer_id: reviewer.id,
+    review_type: 'editorial',
+  }, actors.admin);
+  const baseEvent = {
+    item_revision_id: revision.id,
+    reviewer_id: reviewer.id,
+    assignment_id: assignment.id,
+    review_type: 'editorial',
+    verdict: 'pass',
+    to_status: 'candidate',
+  };
+
+  assert.throws(() => platform.submitReviewEvent(baseEvent, actors.admin), /reviewer_actor_mismatch/);
+  assert.throws(() => platform.submitReviewEvent({
+    ...baseEvent,
+    exact_revision_hash: '0'.repeat(64),
+  }, actors.editor), /review_revision_hash_mismatch/);
+
+  const wrongTypeAssignment = repository.create('review_assignments', {
+    item_revision_id: revision.id,
+    reviewer_id: reviewer.id,
+    reviewer_actor_id: reviewer.actor_id,
+    review_type: 'medical',
+    required_role: 'editorial_reviewer',
+    exact_revision_hash: revision.content_hash,
+    credential_status: 'not_applicable',
+    credential_verification_id: null,
+    state: 'accepted',
+  }, { id: 'assign_wrong_type_security' });
+  assert.throws(() => platform.submitReviewEvent({
+    ...baseEvent,
+    assignment_id: wrongTypeAssignment.id,
+  }, actors.editor), /assignment_type_mismatch/);
+});
+
+test('self-asserted medical credentials stay unverified without the trusted verifier boundary', () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  const fabricated = platform.registerReviewer({
+    actor_id: 'actor_fabricated_medical',
+    display_name: 'Synthetic Unverified Medical Claim',
+    roles: ['physician_reviewer'],
+    credential: {
+      type: 'md',
+      status: 'verified',
+      verification_id: 'caller-controlled',
+      expires_at: '2099-01-01T00:00:00.000Z',
+    },
+  }, actors.admin, { id: 'reviewer_fabricated_medical' });
+  assert.equal(fabricated.credential.status, 'unverified');
+  assert.equal(fabricated.credential.verification_id, null);
+  assert.throws(
+    () => platform.assignGovernanceSlot('medical_governance_lead', fabricated.id, actors.admin),
+    /medical_governance_credential_not_verified/,
+  );
+
+  const revision = seedAnswerBearingRevision(repository, 'fabricated');
+  assert.throws(() => platform.createReviewAssignment({
+    item_revision_id: revision.id,
+    reviewer_id: fabricated.id,
+    review_type: 'medical',
+  }, actors.admin), /physician_credential_not_verified/);
+});
+
+test('release validation and ratification require exact evidence and independent actors', () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  const manifestHash = 'a'.repeat(64);
+  const release = repository.create('release_snapshots', {
+    release_id: 'release_separation',
+    dataset_version: 'fixture_security_v1',
+    state: 'assembled',
+    item_revision_ids: [],
+    release_membership: [],
+    manifest: { manifest_hash: manifestHash, release_membership: [] },
+    assembled_by_actor_id: actors.assembler.id,
+  }, { id: 'release_separation', actorId: actors.assembler.id });
+  const evidenceInput = {
+    manifest_hash: manifestHash,
+    evidence_hash: 'b'.repeat(64),
+    checks: [{ id: 'synthetic_validator_suite', status: 'pass' }],
+  };
+
+  assert.throws(
+    () => platform.recordReleaseValidation(release.id, evidenceInput, actors.assembler),
+    /release_actor_separation_required/,
+  );
+  const evidence = platform.recordReleaseValidation(release.id, evidenceInput, actors.validator);
+  assert.throws(() => platform.promoteRelease(release.id, {
+    to_state: 'validated',
+    manifest_hash: 'c'.repeat(64),
+    validation_evidence_id: evidence.id,
+  }, actors.validator), /manifest_hash_mismatch/);
+  assert.throws(() => platform.promoteRelease(release.id, {
+    to_state: 'validated',
+    manifest_hash: manifestHash,
+  }, actors.validator), /validator_evidence_required/);
+  platform.promoteRelease(release.id, {
+    to_state: 'validated',
+    manifest_hash: manifestHash,
+    validation_evidence_id: evidence.id,
+  }, actors.validator);
+  assert.throws(() => platform.promoteRelease(release.id, {
+    to_state: 'ratified',
+    manifest_hash: manifestHash,
+    validation_evidence_id: evidence.id,
+  }, actors.validator), /independent_ratification_actor_required/);
+  platform.promoteRelease(release.id, {
+    to_state: 'ratified',
+    manifest_hash: manifestHash,
+    validation_evidence_id: evidence.id,
+  }, actors.ratifier);
+  assert.throws(
+    () => platform.setFeatureFlag('student_release_enabled', true, {}, actors.admin),
+    /feature_flag_locked_off/,
+  );
+});
+
+test('resolver-backed mutations require a session-bound CSRF token and trusted Origin', async () => {
+  await withServer({
+    identityResolver: async () => identityContext(actors.admin),
+  }, async (baseUrl) => {
+    const body = JSON.stringify({ title: 'Synthetic CSRF concept' });
+    const missingToken = await fetch(`${baseUrl}/api/v1/resources/concepts`, {
+      method: 'POST',
+      headers: mutationHeaders({ 'X-CSRF-Token': '' }),
+      body,
+    });
+    assert.equal(missingToken.status, 403);
+    assert.equal((await missingToken.json()).error, 'request_verification_failed');
+
+    const mismatchedToken = await fetch(`${baseUrl}/api/v1/resources/concepts`, {
+      method: 'POST',
+      headers: mutationHeaders({ 'X-CSRF-Token': 'mismatched-csrf-token' }),
+      body,
+    });
+    assert.equal(mismatchedToken.status, 403);
+
+    const untrustedOrigin = await fetch(`${baseUrl}/api/v1/resources/concepts`, {
+      method: 'POST',
+      headers: mutationHeaders({ Origin: 'https://untrusted.example' }),
+      body,
+    });
+    assert.equal(untrustedOrigin.status, 403);
+
+    const accepted = await fetch(`${baseUrl}/api/v1/resources/concepts`, {
+      method: 'POST',
+      headers: mutationHeaders(),
+      body,
+    });
+    assert.equal(accepted.status, 201);
+  });
+});
+
+test('expired, revoked, stale, missing-session, and outage identity contexts fail closed', async (t) => {
+  const now = Date.now();
+  const cases = [
+    ['expired', identityContext(actors.reader, { session: { expires_at: new Date(now - 1_000).toISOString() } })],
+    ['revoked', identityContext(actors.reader, { session: { revoked: true } })],
+    ['stale', identityContext(actors.reader, { session: { validated_at: new Date(now - 10 * 60_000).toISOString() } })],
+    ['missing session', identityContext(actors.reader, { session: null })],
+    ['not explicitly validated', identityContext(actors.reader, { validated: false })],
+  ];
+  for (const [name, context] of cases) {
+    await t.test(name, async () => {
+      await withServer({ identityResolver: async () => context }, async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/api/v1/dashboard`);
+        assert.equal(response.status, 401);
+        assert.equal((await response.json()).error, 'authentication_required');
+      });
+    });
+  }
+  await t.test('adapter outage', async () => {
+    await withServer({
+      identityResolver: async () => {
+        throw new Error('SECRET_ADAPTER_OUTAGE_DETAIL');
+      },
+    }, async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/v1/dashboard`);
+      assert.equal(response.status, 401);
+      const payload = await response.json();
+      assert.equal(payload.error, 'authentication_required');
+      assert.doesNotMatch(JSON.stringify(payload), /SECRET_ADAPTER_OUTAGE_DETAIL/u);
+    });
+  });
+});
+
+test('local demo is prohibited in production and rejects forwarded proxy ambiguity', async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  process.env.NODE_ENV = 'production';
+  try {
+    assert.throws(() => createQuestionPlatformServer({ localDemo: true }), /local_demo_forbidden/);
+  } finally {
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+  }
+
+  await withServer({ localDemo: true }, async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/v1/dashboard`, {
+      headers: { 'X-Forwarded-For': '127.0.0.1' },
+    });
+    assert.equal(response.status, 401);
+    assert.equal((await response.json()).error, 'production_identity_adapter_required');
+  });
+});
+
+test('generic POST and PATCH reject sensitive mass assignment without echoing payloads', async () => {
+  await withServer({
+    identityResolver: async () => identityContext(actors.admin),
+  }, async (baseUrl) => {
+    const attacks = [
+      ['POST', '/api/v1/resources/rights_records', { rights_status: 'cleared_for', secret: 'SECRET_RIGHTS_PAYLOAD' }],
+      ['POST', '/api/v1/resources/privacy_redaction_records', { status: 'pass', secret: 'SECRET_PRIVACY_PAYLOAD' }],
+      ['POST', '/api/v1/resources/evidence_claims', { status: 'verified', claim_text: 'SECRET_EVIDENCE_PAYLOAD' }],
+      ['POST', '/api/v1/resources/reviewers', { roles: ['physician_reviewer'], credential: { status: 'verified' } }],
+      ['POST', '/api/v1/resources/item_revisions', { answer: 'SECRET_ANSWER_PAYLOAD' }],
+      ['POST', '/api/v1/resources/export_validation_results', { status: 'pass', evidence: 'SECRET_VALIDATOR_PAYLOAD' }],
+      ['PATCH', '/api/v1/resources/inventory_sources/inventory_missing', { extraction_suitability: 'eligible', private_storage_ref: 'SECRET_SOURCE_PAYLOAD' }],
+      ['PATCH', '/api/v1/resources/concepts/concept_missing', { answerKey: 'SECRET_ALIAS_PAYLOAD' }],
+    ];
+    for (const [method, path, body] of attacks) {
+      const response = await fetch(`${baseUrl}${path}`, {
+        method,
+        headers: mutationHeaders({ 'If-Match': '0'.repeat(64) }),
+        body: JSON.stringify(body),
+      });
+      assert.ok([403, 422].includes(response.status), `${method} ${path} returned ${response.status}`);
+      const payload = await response.json();
+      assert.doesNotMatch(JSON.stringify(payload), /SECRET_|verified|cleared_for|eligible/u);
+    }
+  });
+});
+
+test('platform assigns and persists a stable export ID while incomplete Drills metadata fails closed', () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  seedRevisionDependencies(repository, 'stable');
+  const revision = platform.createRevision(
+    revisionPayload('stable'),
+    actors.author,
+    { idempotencyKey: 'stable-export-id' },
+  );
+  assert.match(revision.export_question_id, /^I1Q-[0-9A-F]{16}$/u);
+  assert.equal(
+    platform.createRevision(revisionPayload('stable'), actors.author, { idempotencyKey: 'stable-export-id' }).export_question_id,
+    revision.export_question_id,
+  );
+
+  seedRevisionDependencies(repository, 'incomplete');
+  const incomplete = revisionPayload('incomplete');
+  delete incomplete.drills.nodes;
+  assert.throws(
+    () => platform.createRevision(incomplete, actors.author, { idempotencyKey: 'incomplete-drills' }),
+    /nodes_availability_required/,
+  );
+  assert.equal(repository.list('item_revisions', {
+    predicate: (row) => row.item_id === 'item_incomplete',
+  }).total, 0);
+});
