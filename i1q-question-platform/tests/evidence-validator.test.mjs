@@ -107,6 +107,10 @@ function promoteToPassingRealPilot(evidence) {
   Object.assign(evidence['inventory_report.json'], {
     status: 'REAL_CORPUS_INVENTORIED',
     classification: 'REAL_CORPUS',
+    evidence_scope: 'POINT_IN_TIME_AGGREGATE',
+    row_manifest_retained: false,
+    independently_recomputable_from_git: false,
+    qualification: 'Synthetic point-in-time aggregate fixture with no retained row manifest.',
     registry_sha256: 'a'.repeat(64),
     probe_manifest_sha256: 'b'.repeat(64),
     real_inventory_totals: {
@@ -632,6 +636,31 @@ test('accepts complete aggregate-only real privacy metrics without raising claim
   const report = await validate(context);
   assert.equal(report.valid, true, JSON.stringify(report.errors, null, 2));
   assert.equal(report.claimed_state, 'BLOCKED');
+});
+
+test('rejects an unqualified non-recomputable real inventory claim', async (t) => {
+  const context = await buildEstate(t, {
+    mutate: ({ evidence }) => {
+      promoteToPassingRealPilot(evidence);
+      evidence['inventory_report.json'].qualification = '';
+    },
+  });
+  const report = await validate(context);
+  assert.ok(errorCodes(report).has('E_REAL_INVENTORY_QUALIFICATION'));
+});
+
+test('rejects contradictory row-manifest and reproducibility claims', async (t) => {
+  const context = await buildEstate(t, {
+    mutate: ({ evidence }) => {
+      promoteToPassingRealPilot(evidence);
+      evidence['inventory_report.json'].evidence_scope = 'RECOMPUTABLE_AGGREGATE_MANIFEST';
+      evidence['inventory_report.json'].row_manifest_retained = false;
+      evidence['inventory_report.json'].independently_recomputable_from_git = true;
+      evidence['inventory_report.json'].qualification = null;
+    },
+  });
+  const report = await validate(context);
+  assert.ok(errorCodes(report).has('E_REAL_INVENTORY_QUALIFICATION'));
 });
 
 test('rejects a fabricated exact-binomial privacy lower bound', async (t) => {

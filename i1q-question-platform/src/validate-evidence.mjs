@@ -569,6 +569,10 @@ const EVIDENCE_SCHEMAS = Object.freeze({
       generated_at: generatedAtSchema,
       status: stringSchema({ enum: ['DISCOVERY_ONLY_REAL_INVENTORY_NOT_AUTHORIZED', 'REAL_CORPUS_INVENTORIED', 'BLOCKED_NOT_RUN'] }),
       classification: stringSchema({ enum: ['DISCOVERY_ONLY', 'REAL_CORPUS'] }),
+      evidence_scope: stringSchema({ enum: ['POINT_IN_TIME_AGGREGATE', 'RECOMPUTABLE_AGGREGATE_MANIFEST'] }),
+      row_manifest_retained: { type: 'boolean' },
+      independently_recomputable_from_git: { type: 'boolean' },
+      qualification: nullableStringSchema,
       registry_sha256: hashSchema,
       probe_manifest_sha256: hashSchema,
       counts: objectSchema(
@@ -1874,6 +1878,23 @@ function validateCrossFileState(evidence, issues) {
         || !HASH_PATTERN.test(inventory.registry_sha256 || '')
         || !HASH_PATTERN.test(inventory.probe_manifest_sha256 || '')) {
         issue(issues, 'E_REAL_INVENTORY_PROOF', 'inventory_report.json', '$', 'Real inventory claim lacks aggregate-only hashes and real classification.');
+      }
+      const pointInTimeAggregate = inventory.evidence_scope === 'POINT_IN_TIME_AGGREGATE'
+        && inventory.row_manifest_retained === false
+        && inventory.independently_recomputable_from_git === false
+        && typeof inventory.qualification === 'string'
+        && inventory.qualification.trim();
+      const recomputableManifest = inventory.evidence_scope === 'RECOMPUTABLE_AGGREGATE_MANIFEST'
+        && inventory.row_manifest_retained === true
+        && inventory.independently_recomputable_from_git === true;
+      if (!pointInTimeAggregate && !recomputableManifest) {
+        issue(
+          issues,
+          'E_REAL_INVENTORY_QUALIFICATION',
+          'inventory_report.json',
+          '$',
+          'Real inventory must declare whether its aggregate counts are independently recomputable and qualify point-in-time evidence when they are not.',
+        );
       }
     }
   }

@@ -170,6 +170,10 @@ async function main() {
   await writeEvidence('inventory_report.json', {
     status: 'REAL_CORPUS_INVENTORIED',
     classification: 'REAL_CORPUS',
+    evidence_scope: 'POINT_IN_TIME_AGGREGATE',
+    row_manifest_retained: false,
+    independently_recomputable_from_git: false,
+    qualification: 'The 2026-07-15 source response and aggregate probes were witnessed, but no privacy-safe row manifest was retained.',
     registry_sha256: 'd78910d22ed3b428fd38129ec60140b70673a804a31ae3119e465d75b53631a1',
     probe_manifest_sha256: 'ede9cc62aee72868cb4e2c96a9125bbc7be3403dbb7f3afe6b77c493bb79dae0',
     counts: {
@@ -213,7 +217,7 @@ async function main() {
     real_sources_processed: 0,
     provisional_benchmark_sources: 0,
     metrics: null,
-    reason: 'The real inventory is complete, but every source remains privacy blocked and no working redacted transcript exists.',
+    reason: 'The witnessed aggregate inventory is complete for the 2026-07-15 source response, but every source remains privacy blocked and no working redacted transcript exists.',
     pipeline_unit_contracts: 'pass',
   });
 
