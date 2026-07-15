@@ -1,11 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
+const LUCIDE_UMD_PATH = require.resolve("lucide/dist/umd/lucide.min.js");
 const DEFAULT_WEB_DIRECTORY = path.join(here, "web");
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_PAGE_SIZE = 50;
@@ -103,22 +106,50 @@ function listView(record) {
   };
 }
 
-function selectedSpecialtyMatch(record, specialty, includeCombined) {
-  if (!specialty) return true;
-  if (record.designation === specialty) return true;
-  const membership = record.browseMemberships.find((item) => item.browseSpecialty === specialty);
-  if (!membership) return false;
-  if (membership.relationship === "RELATED_COMBINED") return includeCombined;
-  return true;
-}
-
 function evidenceBand(percent) {
   if (percent >= 65) return "high";
   if (percent >= 40) return "medium";
   return "low";
 }
 
-function searchPrograms(index, searchParams) {
+function buildSearchReadModel(programs) {
+  const byName = [...programs].sort((left, right) =>
+    String(left.display.programName).localeCompare(String(right.display.programName)) ||
+    String(left.id).localeCompare(String(right.id)));
+  const metadata = new WeakMap();
+  for (const record of byName) {
+    metadata.set(record, {
+      haystack: normalizeQuery([
+        record.display.programName,
+        record.display.institution,
+        record.display.hospital,
+        record.display.city,
+        record.display.state,
+        record.designation,
+        record.id,
+        record.programSpecialtyId,
+        ...(record.identifiers ?? []).map((identifier) => identifier.value),
+      ].filter(Boolean).join(" ")),
+      region: regionFor(record.display.state),
+      programType: normalizeQuery(knownValue(record.fields["Program Best Described As"])),
+      j1: knownValue(record.fields.J1) === true,
+      h1b: knownValue(record.fields.H1B) === true,
+      evidence: evidenceBand(record.evidence.coveragePercent),
+      specialtyRelationships: new Map(record.browseMemberships.map((membership) =>
+        [membership.browseSpecialty, membership.relationship])),
+    });
+  }
+  return { byName, metadata };
+}
+
+function selectedSpecialtyMatch(record, specialty, includeCombined, metadata) {
+  if (!specialty || record.designation === specialty) return true;
+  const relationship = metadata.specialtyRelationships.get(specialty);
+  if (!relationship) return false;
+  return relationship !== "RELATED_COMBINED" || includeCombined;
+}
+
+function searchPrograms(readModel, searchParams) {
   const query = normalizeQuery(searchParams.get("q"));
   const specialty = String(searchParams.get("specialty") ?? "").trim();
   const jurisdiction = String(searchParams.get("jurisdiction") ?? "").trim();
@@ -131,29 +162,18 @@ function searchPrograms(index, searchParams) {
   const page = Math.max(1, Number.parseInt(searchParams.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number.parseInt(searchParams.get("pageSize") ?? "24", 10) || 24));
 
-  let records = index.programs.filter((record) => {
-    if (!selectedSpecialtyMatch(record, specialty, includeCombined)) return false;
+  let records = readModel.byName.filter((record) => {
+    const metadata = readModel.metadata.get(record);
+    if (!selectedSpecialtyMatch(record, specialty, includeCombined, metadata)) return false;
     if (jurisdiction && record.display.state !== jurisdiction) return false;
-    if (region && regionFor(record.display.state) !== region) return false;
-    if (programType && !normalizeQuery(knownValue(record.fields["Program Best Described As"])).includes(programType)) return false;
-    if (visa === "J1" && knownValue(record.fields.J1) !== true) return false;
-    if (visa === "H1B" && knownValue(record.fields.H1B) !== true) return false;
-    if (evidence && evidenceBand(record.evidence.coveragePercent) !== evidence) return false;
-    if (!query) return true;
-    const haystack = normalizeQuery([
-      record.display.programName,
-      record.display.institution,
-      record.display.hospital,
-      record.display.city,
-      record.display.state,
-      record.designation,
-      record.id,
-      record.programSpecialtyId,
-      ...(record.identifiers ?? []).map((identifier) => identifier.value),
-    ].filter(Boolean).join(" "));
-    return haystack.includes(query);
+    if (region && metadata.region !== region) return false;
+    if (programType && !metadata.programType.includes(programType)) return false;
+    if (visa === "J1" && !metadata.j1) return false;
+    if (visa === "H1B" && !metadata.h1b) return false;
+    if (evidence && metadata.evidence !== evidence) return false;
+    return !query || metadata.haystack.includes(query);
   });
-  records = [...records].sort((left, right) => {
+  if (sort === "jurisdiction" || sort === "evidence") records = [...records].sort((left, right) => {
     if (sort === "jurisdiction") {
       return String(left.display.state).localeCompare(String(right.display.state)) ||
         String(left.display.programName).localeCompare(String(right.display.programName));
@@ -323,13 +343,12 @@ async function serveStatic(requestPath, response, webDirectory, requestId) {
   let relative = requestPath === "/rise/" || requestPath === "/rise" ? "index.html" : requestPath.slice("/rise/".length);
   if (requestPath === "/vendor/lucide.js") {
     const bundledVendorPath = path.resolve(webDirectory, "vendor/lucide.js");
-    const dependencyVendorPath = path.resolve(here, "../node_modules/lucide/dist/umd/lucide.min.js");
     let body;
     try {
       body = await fs.readFile(bundledVendorPath);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
-      body = await fs.readFile(dependencyVendorPath);
+      body = await fs.readFile(LUCIDE_UMD_PATH);
     }
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/javascript; charset=utf-8");
@@ -390,6 +409,7 @@ export function createRiseServer({
     throw new Error("Synthetic RISE fixtures are prohibited in production");
   }
   const byProgramSpecialtyId = new Map(registryIndex.programs.map((record) => [record.programSpecialtyId, record]));
+  const searchReadModel = buildSearchReadModel(registryIndex.programs);
   const authenticate = createAuthenticator({ mode: authMode, authenticator, production });
   const abuse = resolveAbuseController(abuseController, { production });
   return http.createServer(async (request, response) => {
@@ -515,7 +535,7 @@ export function createRiseServer({
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/programs") {
-        const result = searchPrograms(registryIndex, url.searchParams);
+        const result = searchPrograms(searchReadModel, url.searchParams);
         status = 200;
         sendJson(response, 200, {
           registryReleaseId: registryIndex.registryReleaseId,

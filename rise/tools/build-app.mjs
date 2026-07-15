@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const riseRoot = path.resolve(here, "..");
+const require = createRequire(import.meta.url);
+const lucideUmdPath = require.resolve("lucide/dist/umd/lucide.min.js");
 const sourceDirectory = path.join(riseRoot, "web");
 const defaultOutput = path.join(riseRoot, "dist");
 const requiredFiles = ["index.html", "styles.css", "app.js"];
@@ -35,7 +38,7 @@ async function build(outputDirectory) {
     await fs.copyFile(path.join(sourceDirectory, file), path.join(stagingDirectory, file));
   }
   await fs.copyFile(
-    path.resolve(riseRoot, "../node_modules/lucide/dist/umd/lucide.min.js"),
+    lucideUmdPath,
     path.join(stagingDirectory, "vendor/lucide.js"),
   );
   const outputFiles = [...requiredFiles, "vendor/lucide.js"];
