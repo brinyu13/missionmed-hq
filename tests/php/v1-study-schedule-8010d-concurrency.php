@@ -68,6 +68,10 @@ function v1_8010d_process_finish( $child, $send_go = false ) {
 		fflush( $child['pipes'][0] );
 	}
 	fclose( $child['pipes'][0] );
+	// process_line() makes stdout nonblocking. Restore blocking mode so this
+	// controlled, bounded-output worker is read through EOF before proc_close().
+	stream_set_blocking( $child['pipes'][1], true );
+	stream_set_blocking( $child['pipes'][2], true );
 	$out = stream_get_contents( $child['pipes'][1] );
 	$err = stream_get_contents( $child['pipes'][2] );
 	fclose( $child['pipes'][1] );
@@ -99,7 +103,10 @@ v1_8010d_process_expect( 0 === $second['code'] && 1 === preg_match( '/^BUSY conn
 v1_8010d_process_expect( $first_connection !== (int) $busy_match[1] && (int) $observed['connection_id'] !== (int) $busy_match[1], 'installer, contender, and observer are independent sessions' );
 
 $first_done = v1_8010d_process_finish( $first, true );
-v1_8010d_process_expect( 0 === $first_done['code'] && false !== strpos( $first_done['out'], 'OK connection=' ), 'first installer completes after explicit GO' );
+v1_8010d_process_expect(
+	0 === $first_done['code'] && 1 === preg_match( '/^OK connection=\d+ generation=1$/', $first_done['out'] ) && '' === $first_done['err'],
+	'first installer completes after explicit GO; code=' . $first_done['code'] . ' out=' . $first_done['out'] . ' err=' . $first_done['err']
+);
 $repeat = v1_8010d_process_run( 'run', $prefix, $store, '99999999-9999-4999-8999-999999999999' );
 v1_8010d_process_expect( 0 === $repeat['code'] && false !== strpos( $repeat['out'], 'OK connection=' ), 'post-race idempotent rerun succeeds' );
 

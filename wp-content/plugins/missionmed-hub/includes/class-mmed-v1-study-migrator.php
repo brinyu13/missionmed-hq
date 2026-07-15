@@ -64,9 +64,9 @@ final class MMED_V1_Study_Migrator {
 			throw new RuntimeException( null === $got_lock ? 'v1_migration_lock_error' : 'v1_migration_busy' );
 		}
 
-		$primary_error = null;
 		try {
 			$this->verify_connection();
+			$this->assert_clean_session();
 			$this->hit( 'after_lock' );
 			$this->reconcile_migrations( $runner_id );
 			$this->commission( $store_id );
@@ -81,17 +81,8 @@ final class MMED_V1_Study_Migrator {
 				'generation'    => MMED_V1_Study_Schema::GENERATION,
 				'manifest_hash' => MMED_V1_Study_Schema::manifest_hash_hex( $this->database ),
 			);
-		} catch ( Throwable $error ) {
-			$primary_error = $error;
-			throw $error;
 		} finally {
-			try {
-				$this->release_lock( $lock_name );
-			} catch ( Throwable $release_error ) {
-				if ( null === $primary_error ) {
-					throw $release_error;
-				}
-			}
+			$this->release_lock( $lock_name );
 		}
 	}
 
@@ -163,7 +154,10 @@ final class MMED_V1_Study_Migrator {
 				if ( 1 !== $version ) {
 					$this->record_failed( $migration, $runner_id, 'postcondition_failed' );
 				}
-				throw new RuntimeException( 'v1_migration_postcondition_failed' );
+				$errors = isset( $table['errors'] ) && is_array( $table['errors'] ) ? $table['errors'] : array( 'inspection_unavailable' );
+				throw new RuntimeException(
+					'v1_migration_postcondition_failed:' . $version . ':' . implode( ',', array_map( 'strval', $errors ) )
+				);
 			}
 			$this->hit( 'after_migration_' . $version . '_verify' );
 			$this->record_applied( $migration, $runner_id, null === $row ? 1 : ( (int) $row['attempt_count'] + 1 ), 'verified' );
@@ -211,7 +205,12 @@ final class MMED_V1_Study_Migrator {
 		foreach ( $migrations as $migration ) {
 			$expected[ (int) $migration['version'] ] = $migration;
 		}
+		$next_version = 1;
 		foreach ( $ledger as $version => $row ) {
+			if ( $version !== $next_version ) {
+				throw new RuntimeException( 'v1_migration_ledger_version_gap' );
+			}
+			++$next_version;
 			if ( ! isset( $expected[ $version ] ) ) {
 				throw new RuntimeException( 'v1_migration_future_or_unknown_version' );
 			}
@@ -321,6 +320,7 @@ final class MMED_V1_Study_Migrator {
 		}
 
 		$this->verify_connection();
+		$this->assert_clean_session();
 		$this->query_required( 'SET TRANSACTION ISOLATION LEVEL READ COMMITTED', 'v1_commission_isolation_failed' );
 		$this->query_required( 'START TRANSACTION', 'v1_commission_begin_failed' );
 		$committed = false;
@@ -418,9 +418,12 @@ final class MMED_V1_Study_Migrator {
 
 	/** @return void */
 	private function release_lock( $lock_name ) {
+		if ( $this->connection_id !== $this->current_connection_id() ) {
+			throw new RuntimeException( 'v1_migration_connection_changed' );
+		}
 		$owner = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) );
 		if ( null === $owner ) {
-			return;
+			throw new RuntimeException( 'v1_migration_lock_lost' );
 		}
 		if ( (int) $owner !== $this->connection_id ) {
 			throw new RuntimeException( 'v1_migration_lock_owner_changed' );
@@ -435,6 +438,18 @@ final class MMED_V1_Study_Migrator {
 	private function verify_connection() {
 		if ( $this->connection_id <= 0 || $this->connection_id !== $this->current_connection_id() ) {
 			throw new RuntimeException( 'v1_migration_connection_changed' );
+		}
+	}
+
+	/** Reject an outer transaction or nonstandard autocommit session. @return void */
+	private function assert_clean_session() {
+		$rows = $this->rows( 'SELECT @@SESSION.in_transaction AS in_transaction, @@SESSION.autocommit AS autocommit' );
+		if (
+			1 !== count( $rows )
+			|| 0 !== (int) ( $rows[0]['in_transaction'] ?? -1 )
+			|| 1 !== (int) ( $rows[0]['autocommit'] ?? -1 )
+		) {
+			throw new RuntimeException( 'v1_migration_session_not_clean' );
 		}
 	}
 

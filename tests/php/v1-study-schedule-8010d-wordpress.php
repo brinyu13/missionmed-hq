@@ -48,6 +48,17 @@ $inspector = new MMED_V1_Study_Schema_Inspector( $wpdb );
 $before    = $inspector->inspect();
 v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === $before['state'], 'fresh isolated prefix starts physically absent' );
 
+$wpdb->query( 'START TRANSACTION' );
+v1_8010d_wp_expect_failure(
+	static function () use ( $wpdb, $store_id, $runner_a ) {
+		( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
+	},
+	'migrator rejects an outer transaction before any DDL'
+);
+$wpdb->query( 'ROLLBACK' );
+$still_absent = $inspector->inspect();
+v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === $still_absent['state'], 'outer-transaction rejection leaves the kernel absent' );
+
 $result = ( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
 v1_8010d_wp_expect( ! empty( $result['ok'] ) && 'ready' === $result['state'], 'explicit migration commissions generation 1' );
 $after = $inspector->inspect();
