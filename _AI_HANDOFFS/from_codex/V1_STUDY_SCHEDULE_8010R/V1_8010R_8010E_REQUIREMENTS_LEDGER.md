@@ -2,7 +2,7 @@
 
 Updated: 2026-07-15 UTC  
 Milestone: 8010E Week vertical slice  
-Status: E0 VERIFIED; E1 IMPLEMENTATION IN PROGRESS; DEFAULT HIDDEN; SYNTHETIC ONLY
+Status: E0 + E1 VERIFIED; E2 COMMAND WORK NEXT; DEFAULT HIDDEN; SYNTHETIC ONLY
 
 ## Product identity
 
@@ -53,6 +53,31 @@ kernel failed.
   passed the 8010E MySQL 8/MariaDB 10.11 and PHP 7.4/8.3 matrix plus every
   8010C, containment, and 8010D regression job. E0 closes the normalized Week/
   Block domain and exact physical-schema contract only.
+- E1 exact validation commit `e9c537abbe465289b3b6cd1037565d8cec08acf4`
+  and tree `95ae6a8542dafa72e630acfef64fd523241fe20c` passed all 21
+  jobs in the 8010E, 8010C, containment, and 8010D workflows. E1 closes the
+  restart-safe generation-2 migrator and isolated bounded current reader only.
+
+## Accepted E1 closure
+
+E1 now provides the shared-lock, ledger-owned, restart-safe migration from an
+empty generation-1 store to exact generation 2. It validates the immutable
+parent ledger, rejects initialized generation-1 truth without a proved
+transformer, commissions migrations 6–7 and the generation/gate atomically,
+and reconciles every distinct durable SIGKILL state.
+
+The isolated current reader re-proves physical provenance on each positive
+call, rejects same-session temporary shadows for all seven owned tables, pins a
+clean native connection, preserves caller transactions/savepoints/XA and
+isolation, and rebuilds the canonical Plan from normalized Week/Block rows in
+one read-only consistent snapshot. Plan/receipt/row/census inputs are bounded
+before or at maximum-plus-one materialization. A two-connection revision tear
+and two positive owners passed on both supported database families. No E1 P0 or
+P1 remains after two independent final read-only reviews.
+
+E1 remains isolated and inert. It does not bind the repository into plugin
+runtime or provide the Plan command writer, shared Calendar/V1 owner arbiter,
+REST routes, actor adapter, rollback reader, feature control, or visible UI.
 
 ## Governing 8010E scope
 
@@ -192,7 +217,7 @@ Before 8010E can close, evidence must cover:
 | ID | Gate | Current effect |
 |---|---|---|
 | BLK-12 | Retention/privacy policy HOLD | Blocks real data, exposure, and deployment only |
-| BLK-E-REPO | Ledgered generation-2 migrator, physical current reader, and normalized Week repository absent | Blocks persistent Week claim |
+| BLK-E-COMMAND | Canonical Plan command writer and first-operation transaction absent | Blocks persistent Week mutation claim |
 | BLK-E-ARBITER | Shared Calendar/V1 owner transaction absent | Blocks any writer activation |
 | BLK-E-ACTOR | Production explicit learner actor adapter absent | Blocks learner exposure |
 | BLK-E-ROLLBACK | Current/N-1 and backup/restore proof absent | Blocks promotion/deployment |
