@@ -207,7 +207,11 @@ v1_8010e_wp_expect( '' !== $runtime_tzdb && strlen( $runtime_tzdb ) <= 64 && 1 =
 $temporal = MMED_V1_Study_Week_Domain::temporal_envelope( '2026-07-13', 'America/New_York', 'profile-e2-v1', $runtime_tzdb );
 $fence = new V1_8010E_E2_Synthetic_Fence();
 $uuid_source = new V1_8010E_E2_UUID_Source( 1000 );
-$service = new MMED_V1_Study_Command_Service( new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, $fence, $uuid_source ) );
+$main_hits = array();
+$main_probe = static function ( $name ) use ( &$main_hits ) {
+	$main_hits[] = (string) $name;
+};
+$service = new MMED_V1_Study_Command_Service( new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, $fence, $uuid_source, $main_probe ) );
 
 /* Generation 2 must accept and atomically upgrade an inherited empty E1 fence. */
 $inherited_owner = 8202;
@@ -274,8 +278,13 @@ $mission = MMED_V1_Study_Week_Domain::derive_mission( $loaded['plan']['weeks'][0
 v1_8010e_wp_expect( '1' === $mission['revision'] && $block_id === $mission['primary']['block_id'], 'Mission derives from the same committed Week revision' );
 
 $changed_temporal = MMED_V1_Study_Week_Domain::temporal_envelope( '2026-07-13', 'America/New_York', 'profile-e2-v2', 'synthetic-future-tzdb-v2' );
+$main_hits = array();
 $replay = $service->execute( $create, $owner_id, $owner_id, 'learner', $changed_temporal );
-v1_8010e_wp_expect( ! empty( $replay['ok'] ) && true === $replay['replayed'] && $first_result === $replay['result'], 'exact replay survives a later server temporal-envelope version' );
+$replay_last_hit = empty( $main_hits ) ? 'none' : (string) end( $main_hits );
+v1_8010e_wp_expect(
+	! empty( $replay['ok'] ) && true === $replay['replayed'] && $first_result === $replay['result'],
+	'exact replay survives a later server temporal-envelope version; reason=' . (string) ( $replay['reason_code'] ?? 'missing' ) . '; status=' . (string) ( $replay['status'] ?? 'missing' ) . '; last=' . $replay_last_hit
+);
 v1_8010e_wp_expect( $counts === v1_8010e_e2_physical_owner_counts( $wpdb, $owner_id ), 'exact replay writes no duplicate physical row' );
 
 $changed = $create;
