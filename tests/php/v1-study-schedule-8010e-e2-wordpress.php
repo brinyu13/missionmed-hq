@@ -348,7 +348,7 @@ foreach ( $final['plan']['weeks'][0]['blocks'] as $final_block ) {
 	$final_blocks[ $final_block['block_id'] ] = $final_block;
 }
 v1_8010e_wp_expect( isset( $final_blocks[ $block_id ] ) && 'tombstoned' === $final_blocks[ $block_id ]['state'], 'deleted Block identity remains as a durable tombstone' );
-v1_8010e_wp_expect( isset( $final_blocks[ $adjacent_block_id ] ) && 'flexible' === $final_blocks[ $adjacent_block_id ]['state'], 'adjacent Block remains active' );
+v1_8010e_wp_expect( isset( $final_blocks[ $adjacent_block_id ] ) && MMED_V1_Study_Week_Domain::STATE_FLEXIBLE === $final_blocks[ $adjacent_block_id ]['state'], 'adjacent Block remains active' );
 v1_8010e_wp_expect( $block_hex === str_replace( '-', '', $final_blocks[ $block_id ]['block_id'] ), 'original physical Block identifier never changes' );
 v1_8010e_wp_expect( 5 === v1_8010e_e2_physical_owner_counts( $wpdb, $owner_id )['operations'], 'exactly five successful commands have receipts' );
 $late_replay = $service->execute( $create, $owner_id, $owner_id, 'learner', $changed_temporal );
