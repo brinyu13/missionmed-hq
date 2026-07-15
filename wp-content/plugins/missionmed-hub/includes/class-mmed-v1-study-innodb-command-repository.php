@@ -267,8 +267,8 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 					$verified_rows['blocks']
 				);
 			} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+				$this->hit( 'snapshot_rebuild_failed_' . $error->reason_code() );
 				unset( $error );
-				$this->hit( 'snapshot_rebuild_failed' );
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
 			$this->hit( 'after_snapshot_rebuild' );
