@@ -127,6 +127,24 @@ function validDebrief() {
   };
 }
 
+function encodeUnderscores(value, depth) {
+  let encoded = value;
+  for (let pass = 0; pass < depth; pass += 1) {
+    encoded = encoded.replaceAll('%', '%25').replaceAll('_', '%5F');
+  }
+  return encoded;
+}
+
+function encodeAscii(value, depth) {
+  let encoded = [...Buffer.from(value, 'utf8')]
+    .map((byte) => `%${byte.toString(16).padStart(2, '0')}`)
+    .join('');
+  for (let pass = 1; pass < depth; pass += 1) {
+    encoded = encoded.replaceAll('%', '%25');
+  }
+  return encoded;
+}
+
 test('Class C construction strips Class D fields and preserves teaching prose', () => {
   const generated = buildReleaseArtifacts({
     releaseId: 'synthetic_release_class_c',
@@ -357,10 +375,49 @@ test('Class C rejects valid-string Class D values in every permitted prose field
   }
 });
 
+test('Class C rejects double and triple URL encoding for every identifier family and prose field', () => {
+  const identifierCases = [
+    ['item', (revision) => revision.item_id],
+    ['revision', (revision) => revision.id],
+    ['source', (revision) => revision.source_ids[0]],
+    ['claim', (revision) => revision.evidence_claim_ids[0]],
+    ['reviewer', (revision) => revision.reviewer_id],
+    ['misconception', (revision) => revision.choices[0].misconception_id],
+    ['psychometric', (revision) => revision.psychometrics.calibration_id],
+  ];
+  const injectors = [
+    ['explanation', (revision, value) => { revision.explanation = `Synthetic prose ${value}.`; }],
+    ['correct_rationale', (revision, value) => { revision.correct_answer_rationale = `Synthetic prose ${value}.`; }],
+    ['why_tempting', (revision, value) => { revision.choices[0].why_tempting = `Synthetic prose ${value}.`; }],
+    ['why_wrong', (revision, value) => { revision.choices[0].why_wrong = `Synthetic prose ${value}.`; }],
+  ];
+
+  for (const [encodingName, encode] of [['separator', encodeUnderscores], ['ascii', encodeAscii]]) {
+    for (const depth of [2, 3]) {
+      for (const [identifierName, identifier] of identifierCases) {
+        for (const [fieldName, inject] of injectors) {
+          const revision = makeSyntheticRevision();
+          inject(revision, encode(identifier(revision), depth));
+          assert.throws(() => buildReleaseArtifacts({
+            releaseId: `synthetic_release_${encodingName}_${depth}_${identifierName}_${fieldName}`,
+            datasetVersion: 'synthetic_v1',
+            revisions: [revision],
+          }), (error) => (
+            error.code === 'class_c_debrief_validation_failed'
+            && error.findings.some((finding) => finding.endsWith(':class_d_identifier_value'))
+          ));
+        }
+      }
+    }
+  }
+});
+
 test('Class C rejects encoded internal field markers in otherwise valid prose', () => {
   for (const [index, marker] of [
     'source_id=internal',
     'source%5Fid=internal',
+    'source%255Fid=internal',
+    'source%25255Fid=internal',
     'source\\u005fid=internal',
     'source&#95;id=internal',
     'source_\u200Bid=internal',
@@ -377,6 +434,32 @@ test('Class C rejects encoded internal field markers in otherwise valid prose', 
       return true;
     });
   }
+});
+
+test('Class C fails closed when iterative decoding exceeds the bounded depth', () => {
+  const revision = makeSyntheticRevision();
+  revision.explanation = `Synthetic prose ${encodeUnderscores(revision.source_ids[0], 9)}.`;
+  assert.throws(() => buildReleaseArtifacts({
+    releaseId: 'synthetic_release_decode_depth_limit',
+    datasetVersion: 'synthetic_v1',
+    revisions: [revision],
+  }), (error) => (
+    error.code === 'class_c_security_decode_depth_limit'
+    && error.statusCode === 422
+  ));
+});
+
+test('Class C fails closed when security text exceeds the bounded size', () => {
+  const revision = makeSyntheticRevision();
+  revision.explanation = 'x'.repeat((64 * 1024) + 1);
+  assert.throws(() => buildReleaseArtifacts({
+    releaseId: 'synthetic_release_decode_size_limit',
+    datasetVersion: 'synthetic_v1',
+    revisions: [revision],
+  }), (error) => (
+    error.code === 'class_c_security_decode_size_limit'
+    && error.statusCode === 422
+  ));
 });
 
 test('Class C rejects simply encoded internal identifier values', () => {

@@ -61,6 +61,8 @@ const STAT_CLASS_C_DISTRACTOR_RATIONALE_FIELDS = Object.freeze([
 
 const CLASS_D_FIELD_MARKER = /\b(?:item(?:[\s_-]*(?:rev|revision))?[\s_-]*ids?|revision[\s_-]*number|(?:vg|variant[\s_-]*group)[\s_-]*ids?|concept[\s_-]*ids?|misconception[\s_-]*ids?|source(?:[\s_-]*record)?[\s_-]*ids?|(?:evidence[\s_-]*)?claim[\s_-]*ids?|reviewer(?:[\s_-]*actor)?[\s_-]*(?:id|identity)|assignment[\s_-]*ids?|psychometric(?:s)?(?:[\s_-]*ids?)?|incident[\s_-]*ids?|content[\s_-]*hash|(?:taxonomy|blueprint|vocabulary|policy|prompt|pipeline|model)[\s_-]*version(?:[\s_-]*ids?)?|extraction[\s_-]*run[\s_-]*ids?|rights[\s_-]*record[\s_-]*ids?|(?:privacy[\s_-]*)?redaction[\s_-]*record[\s_-]*ids?)\b/iu;
 const PUBLIC_IDENTIFIER_KEYS = new Set(['datasetversion', 'exportquestionid', 'questionid']);
+const SECURITY_TEXT_MAX_BYTES = 64 * 1024;
+const SECURITY_TEXT_MAX_DECODE_PASSES = 8;
 
 function decodeCodePoint(raw, radix, original) {
   const codePoint = Number.parseInt(raw, radix);
@@ -69,8 +71,8 @@ function decodeCodePoint(raw, radix, original) {
     : original;
 }
 
-function decodeLeakText(value) {
-  return String(value)
+function decodeLeakTextPass(value) {
+  return value
     .normalize('NFKC')
     .replace(/[\u200B-\u200D\uFEFF]/gu, '')
     .replace(/\\u([0-9a-f]{4})/giu, (match, hex) => decodeCodePoint(hex, 16, match))
@@ -78,6 +80,29 @@ function decodeLeakText(value) {
     .replace(/&#x([0-9a-f]+);?/giu, (match, hex) => decodeCodePoint(hex, 16, match))
     .replace(/&#([0-9]+);?/gu, (match, decimal) => decodeCodePoint(decimal, 10, match))
     .normalize('NFKC');
+}
+
+function securityTextLimitError(reason) {
+  const error = new Error(`class_c_security_decode_${reason}_limit`);
+  error.code = `class_c_security_decode_${reason}_limit`;
+  error.statusCode = 422;
+  return error;
+}
+
+function decodeLeakText(value) {
+  let decoded = String(value).normalize('NFKC');
+  if (Buffer.byteLength(decoded, 'utf8') > SECURITY_TEXT_MAX_BYTES) {
+    throw securityTextLimitError('size');
+  }
+  for (let pass = 0; pass < SECURITY_TEXT_MAX_DECODE_PASSES; pass += 1) {
+    const next = decodeLeakTextPass(decoded);
+    if (Buffer.byteLength(next, 'utf8') > SECURITY_TEXT_MAX_BYTES) {
+      throw securityTextLimitError('size');
+    }
+    if (next === decoded) return next;
+    decoded = next;
+  }
+  throw securityTextLimitError('depth');
 }
 
 function normalizeLeakValue(value) {

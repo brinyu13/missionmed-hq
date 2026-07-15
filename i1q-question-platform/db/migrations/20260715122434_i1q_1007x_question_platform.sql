@@ -2865,28 +2865,32 @@ $function$;
 
 CREATE OR REPLACE FUNCTION i1q.canonical_security_text(candidate text)
 RETURNS text
-LANGUAGE sql
+LANGUAGE plpgsql
 IMMUTABLE
 STRICT
 SET search_path = pg_catalog, i1q
 AS $function$
-  SELECT pg_catalog.replace(
-           pg_catalog.replace(
-             pg_catalog.replace(
-               pg_catalog.replace(
-                 pg_catalog.normalize(candidate, 'NFKC'),
-                 pg_catalog.chr(8203),
-                 ''
-               ),
-               pg_catalog.chr(8204),
-               ''
-             ),
-             pg_catalog.chr(8205),
-             ''
-           ),
-           pg_catalog.chr(65279),
-           ''
-         )
+DECLARE
+  max_security_text_bytes constant integer := 65536;
+  canonical text;
+BEGIN
+  IF pg_catalog.octet_length(candidate) > max_security_text_bytes THEN
+    RAISE EXCEPTION 'security_text_size_limit_exceeded'
+      USING ERRCODE = '54000';
+  END IF;
+
+  canonical := pg_catalog.normalize(candidate, 'NFKC');
+  canonical := pg_catalog.replace(canonical, pg_catalog.chr(8203), '');
+  canonical := pg_catalog.replace(canonical, pg_catalog.chr(8204), '');
+  canonical := pg_catalog.replace(canonical, pg_catalog.chr(8205), '');
+  canonical := pg_catalog.replace(canonical, pg_catalog.chr(65279), '');
+
+  IF pg_catalog.octet_length(canonical) > max_security_text_bytes THEN
+    RAISE EXCEPTION 'security_text_size_limit_exceeded'
+      USING ERRCODE = '54000';
+  END IF;
+  RETURN canonical;
+END
 $function$;
 
 CREATE OR REPLACE FUNCTION i1q.normalize_security_text(candidate text)
@@ -2897,14 +2901,39 @@ STRICT
 SET search_path = pg_catalog, i1q
 AS $function$
 DECLARE
+  max_security_text_bytes constant integer := 65536;
+  max_url_decode_rounds constant integer := 3;
+  ascii_code integer;
+  decode_round integer;
   normalized text;
+  previous text;
 BEGIN
+  IF pg_catalog.octet_length(candidate) > max_security_text_bytes THEN
+    RAISE EXCEPTION 'security_text_size_limit_exceeded'
+      USING ERRCODE = '54000';
+  END IF;
+
   normalized := pg_catalog.lower(i1q.canonical_security_text(candidate));
-  normalized := pg_catalog.replace(normalized, '%25', '%');
-  normalized := pg_catalog.replace(normalized, '%5f', '_');
-  normalized := pg_catalog.replace(normalized, '%2d', '-');
-  normalized := pg_catalog.replace(normalized, '%2e', '.');
-  normalized := pg_catalog.replace(normalized, '%20', ' ');
+  FOR decode_round IN 1..max_url_decode_rounds LOOP
+    previous := normalized;
+    FOR ascii_code IN 32..126 LOOP
+      IF ascii_code <> 37 THEN
+        normalized := pg_catalog.replace(
+          normalized,
+          '%' || pg_catalog.lpad(pg_catalog.to_hex(ascii_code), 2, '0'),
+          pg_catalog.chr(ascii_code)
+        );
+      END IF;
+    END LOOP;
+    normalized := pg_catalog.replace(normalized, '%25', '%');
+    EXIT WHEN normalized = previous;
+  END LOOP;
+
+  IF normalized ~ '%[0-9a-f]{2}' THEN
+    RAISE EXCEPTION 'security_text_encoding_depth_exceeded'
+      USING ERRCODE = '54000';
+  END IF;
+
   normalized := pg_catalog.replace(normalized, pg_catalog.chr(92) || 'u005f', '_');
   normalized := pg_catalog.replace(normalized, pg_catalog.chr(92) || 'u002d', '-');
   normalized := pg_catalog.replace(normalized, pg_catalog.chr(92) || 'u002e', '.');
@@ -2917,7 +2946,13 @@ BEGIN
   normalized := pg_catalog.regexp_replace(normalized, '&#0*45;?', '-', 'g');
   normalized := pg_catalog.regexp_replace(normalized, '&#0*46;?', '.', 'g');
   normalized := pg_catalog.regexp_replace(normalized, '&#0*32;?', ' ', 'g');
-  RETURN pg_catalog.normalize(normalized, 'NFKC');
+  normalized := pg_catalog.normalize(normalized, 'NFKC');
+
+  IF pg_catalog.octet_length(normalized) > max_security_text_bytes THEN
+    RAISE EXCEPTION 'security_text_size_limit_exceeded'
+      USING ERRCODE = '54000';
+  END IF;
+  RETURN normalized;
 END
 $function$;
 

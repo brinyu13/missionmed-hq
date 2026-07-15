@@ -203,6 +203,8 @@ test('student artifacts reject exact release-scoped Class D values embedded in p
   const createArtifact = functionDefinition('create_channel_artifact');
   const identifierValues = functionDefinition('release_class_d_identifier_values');
   const identifierLeak = functionDefinition('contains_release_class_d_identifier');
+  const canonicalText = functionDefinition('canonical_security_text');
+  const normalizedText = functionDefinition('normalize_security_text');
   const markerCheck = functionDefinition('is_class_d_field_marker');
   const markerLeak = functionDefinition('contains_class_d_field_marker');
 
@@ -216,6 +218,16 @@ test('student artifacts reject exact release-scoped Class D values embedded in p
   assert.match(identifierLeak, /'base64'/u);
   assert.match(identifierLeak, /identifier\.canonical/u);
   assert.match(identifierLeak, /canonical_base64_value/u);
+  assert.match(canonicalText, /max_security_text_bytes constant integer := 65536/u);
+  assert.match(normalizedText, /max_url_decode_rounds constant integer := 3/u);
+  assert.match(normalizedText, /FOR decode_round IN 1\.\.max_url_decode_rounds LOOP/u);
+  assert.match(normalizedText, /FOR ascii_code IN 32\.\.126 LOOP/u);
+  assert.match(normalizedText, /ascii_code <> 37/u);
+  assert.match(normalizedText, /security_text_encoding_depth_exceeded/u);
+  assert.match(normalizedText, /security_text_size_limit_exceeded/u);
+  assert.ok(normalizedText.indexOf('FOR ascii_code IN 32..126 LOOP') < normalizedText.indexOf("replace(normalized, '%25', '%')"));
+  assert.ok(createArtifact.indexOf("IF target_data_class IN ('A', 'C')") < createArtifact.indexOf('calculated_hash := '));
+  assert.ok(createArtifact.indexOf('calculated_hash := ') < createArtifact.indexOf('INSERT INTO i1q.channel_artifacts'));
   for (const family of ['item', 'revision', 'source', 'claim', 'reviewer', 'misconception', 'psychometric']) {
     assert.match(identifierValues, new RegExp(`SELECT '${family}'`, 'u'));
   }
@@ -554,20 +566,26 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
 
     CREATE OR REPLACE FUNCTION pg_temp.expect_class_d_value_denied(
       candidate_artifact_id text,
-      candidate_value text
+      candidate_value text,
+      candidate_field text DEFAULT 'explanation',
+      probe_group text DEFAULT 'legacy',
+      encoding_depth integer DEFAULT NULL
     )
     RETURNS void
     LANGUAGE plpgsql
     AS $expect$
     DECLARE
       candidate_payload jsonb;
+      candidate_prose text;
+      denied_state text;
     BEGIN
+      candidate_prose := 'Synthetic permitted prose contains ' || candidate_value || ' as an internal token.';
       candidate_payload := pg_catalog.jsonb_build_array(
         pg_catalog.jsonb_build_object(
           'dataset_version', 'synthetic_release_v1',
           'question_id', 'Q1',
           'answer', 'A',
-          'explanation', 'Synthetic permitted prose contains ' || candidate_value || ' as an internal token.',
+          'explanation', 'Synthetic permitted explanation.',
           'correct_answer_rationale', 'Synthetic permitted rationale.',
           'distractor_rationales', pg_catalog.jsonb_build_array(
             pg_catalog.jsonb_build_object(
@@ -578,18 +596,119 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
           )
         )
       );
+      candidate_payload := CASE candidate_field
+        WHEN 'explanation' THEN pg_catalog.jsonb_set(
+          candidate_payload, ARRAY['0', 'explanation'], pg_catalog.to_jsonb(candidate_prose), false
+        )
+        WHEN 'correct_answer_rationale' THEN pg_catalog.jsonb_set(
+          candidate_payload, ARRAY['0', 'correct_answer_rationale'], pg_catalog.to_jsonb(candidate_prose), false
+        )
+        WHEN 'why_tempting' THEN pg_catalog.jsonb_set(
+          candidate_payload, ARRAY['0', 'distractor_rationales', '0', 'why_tempting'], pg_catalog.to_jsonb(candidate_prose), false
+        )
+        WHEN 'why_wrong' THEN pg_catalog.jsonb_set(
+          candidate_payload, ARRAY['0', 'distractor_rationales', '0', 'why_wrong'], pg_catalog.to_jsonb(candidate_prose), false
+        )
+        ELSE NULL
+      END;
+      IF candidate_payload IS NULL THEN
+        RAISE EXCEPTION 'unsupported_class_c_prose_field:%', candidate_field;
+      END IF;
       BEGIN
         PERFORM i1q.create_channel_artifact(
           candidate_artifact_id, 'release_synthetic', 'csp_stat_post_answer',
           'stat_post_answer_debrief', 'post_answer', 'C', 'application/json',
           candidate_payload
         );
-      EXCEPTION WHEN insufficient_privilege THEN
+      EXCEPTION WHEN insufficient_privilege OR program_limit_exceeded THEN
+        GET STACKED DIAGNOSTICS denied_state = RETURNED_SQLSTATE;
+        IF EXISTS (
+          SELECT 1 FROM i1q.channel_artifacts artifact WHERE artifact.id = candidate_artifact_id
+        ) THEN
+          RAISE EXCEPTION 'denied_artifact_row_persisted:%', candidate_artifact_id;
+        END IF;
+        INSERT INTO pg_temp.class_d_denial_probes (
+          artifact_id, probe_group, prose_field, encoding_depth, denied_sqlstate
+        ) VALUES (
+          candidate_artifact_id, probe_group, candidate_field, encoding_depth, denied_state
+        );
         RETURN;
       END;
       RAISE EXCEPTION 'expected_class_d_value_denial:%:%', candidate_artifact_id, candidate_value;
     END
     $expect$;
+
+    CREATE TEMP TABLE class_d_denial_probes (
+      artifact_id text PRIMARY KEY,
+      probe_group text NOT NULL,
+      prose_field text NOT NULL,
+      encoding_depth integer,
+      denied_sqlstate text NOT NULL
+    ) ON COMMIT PRESERVE ROWS;
+
+    CREATE OR REPLACE FUNCTION pg_temp.encode_separator(
+      candidate_value text,
+      encoding_depth integer
+    )
+    RETURNS text
+    LANGUAGE plpgsql
+    IMMUTABLE
+    STRICT
+    AS $encode$
+    DECLARE
+      encoded text;
+      encoding_round integer;
+    BEGIN
+      IF encoding_depth < 1 OR encoding_depth > 8 THEN
+        RAISE EXCEPTION 'invalid_test_encoding_depth';
+      END IF;
+      encoded := pg_catalog.replace(candidate_value, '_', '%5F');
+      encoded := pg_catalog.replace(encoded, '-', '%2D');
+      IF encoding_depth > 1 THEN
+        FOR encoding_round IN 2..encoding_depth LOOP
+          encoded := pg_catalog.replace(encoded, '%', '%25');
+        END LOOP;
+      END IF;
+      RETURN encoded;
+    END
+    $encode$;
+
+    CREATE OR REPLACE FUNCTION pg_temp.encode_ascii(
+      candidate_value text,
+      encoding_depth integer
+    )
+    RETURNS text
+    LANGUAGE plpgsql
+    IMMUTABLE
+    STRICT
+    AS $encode$
+    DECLARE
+      byte_index integer;
+      encoded text := '';
+      encoded_bytes bytea;
+      encoding_round integer;
+    BEGIN
+      IF encoding_depth < 1 OR encoding_depth > 8 THEN
+        RAISE EXCEPTION 'invalid_test_encoding_depth';
+      END IF;
+      encoded_bytes := pg_catalog.convert_to(candidate_value, 'UTF8');
+      IF pg_catalog.length(encoded_bytes) > 0 THEN
+        FOR byte_index IN 0..(pg_catalog.length(encoded_bytes) - 1) LOOP
+          encoded := encoded || '%' || pg_catalog.lpad(
+            pg_catalog.to_hex(pg_catalog.get_byte(encoded_bytes, byte_index)),
+            2,
+            '0'
+          );
+        END LOOP;
+      END IF;
+      IF encoding_depth > 1 THEN
+        FOR encoding_round IN 2..encoding_depth LOOP
+          encoded := pg_catalog.replace(encoded, '%', '%25');
+        END LOOP;
+      END IF;
+      RETURN encoded;
+    END
+    $encode$;
 
     SELECT pg_catalog.set_config('i1q_test.actor_id', '', false);
     SELECT pg_temp.expect_denied($sql$SELECT * FROM i1q.read_item_revision_answers('itemrev_synthetic', 'authoring')$sql$);
@@ -720,6 +839,149 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
         '='
       )
     );
+    DO $iterative_probes$
+    DECLARE
+      candidate_field text;
+      encoding_depth integer;
+      identifier_family text;
+      identifier_value text;
+    BEGIN
+      FOR identifier_family, identifier_value IN
+        SELECT fixture.identifier_family, fixture.identifier_value
+          FROM (VALUES
+            ('item', 'item_synthetic'),
+            ('revision', 'itemrev_synthetic'),
+            ('source', 'source_synthetic'),
+            ('claim', 'claim_synthetic'),
+            ('reviewer', 'reviewer_editor'),
+            ('misconception', 'misconception_synthetic'),
+            ('psychometric', 'psychometric_synthetic')
+          ) fixture(identifier_family, identifier_value)
+      LOOP
+        FOREACH candidate_field IN ARRAY ARRAY[
+          'explanation', 'correct_answer_rationale', 'why_tempting', 'why_wrong'
+        ]::text[] LOOP
+          FOREACH encoding_depth IN ARRAY ARRAY[2, 3]::integer[] LOOP
+            PERFORM pg_temp.expect_class_d_value_denied(
+              pg_catalog.format(
+                'artifact_iterative_%s_%s_d%s',
+                identifier_family,
+                candidate_field,
+                encoding_depth
+              ),
+              pg_temp.encode_separator(identifier_value, encoding_depth),
+              candidate_field,
+              'iterative_identifier',
+              encoding_depth
+            );
+            PERFORM pg_temp.expect_class_d_value_denied(
+              pg_catalog.format(
+                'artifact_ascii_%s_%s_d%s',
+                identifier_family,
+                candidate_field,
+                encoding_depth
+              ),
+              pg_temp.encode_ascii(identifier_value, encoding_depth),
+              candidate_field,
+              'iterative_ascii_identifier',
+              encoding_depth
+            );
+          END LOOP;
+        END LOOP;
+      END LOOP;
+
+      FOREACH candidate_field IN ARRAY ARRAY[
+        'explanation', 'correct_answer_rationale', 'why_tempting', 'why_wrong'
+      ]::text[] LOOP
+        FOREACH encoding_depth IN ARRAY ARRAY[2, 3]::integer[] LOOP
+          PERFORM pg_temp.expect_class_d_value_denied(
+            pg_catalog.format('artifact_marker_%s_d%s', candidate_field, encoding_depth),
+            pg_temp.encode_separator('source_id', encoding_depth),
+            candidate_field,
+            'iterative_marker',
+            encoding_depth
+          );
+          PERFORM pg_temp.expect_class_d_value_denied(
+            pg_catalog.format('artifact_ascii_marker_%s_d%s', candidate_field, encoding_depth),
+            pg_temp.encode_ascii('source_id', encoding_depth),
+            candidate_field,
+            'iterative_ascii_marker',
+            encoding_depth
+          );
+        END LOOP;
+      END LOOP;
+    END
+    $iterative_probes$;
+    SELECT pg_temp.expect_class_d_value_denied(
+      'artifact_encoding_depth_limit',
+      pg_temp.encode_separator('source_synthetic', 4),
+      'explanation',
+      'depth_limit',
+      4
+    );
+    SELECT pg_temp.expect_class_d_value_denied(
+      'artifact_security_text_size_limit',
+      pg_catalog.repeat('x', 65537),
+      'explanation',
+      'size_limit',
+      NULL
+    );
+
+    RESET ROLE;
+    DO $probe_check$
+    BEGIN
+      IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'iterative_identifier') <> 56 THEN
+        RAISE EXCEPTION 'iterative_identifier_probe_count_invalid';
+      END IF;
+      IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'iterative_marker') <> 8 THEN
+        RAISE EXCEPTION 'iterative_marker_probe_count_invalid';
+      END IF;
+      IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'iterative_ascii_identifier') <> 56 THEN
+        RAISE EXCEPTION 'iterative_ascii_identifier_probe_count_invalid';
+      END IF;
+      IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'iterative_ascii_marker') <> 8 THEN
+        RAISE EXCEPTION 'iterative_ascii_marker_probe_count_invalid';
+      END IF;
+      IF EXISTS (
+        SELECT 1 FROM pg_temp.class_d_denial_probes
+         WHERE probe_group IN (
+           'iterative_identifier', 'iterative_marker',
+           'iterative_ascii_identifier', 'iterative_ascii_marker'
+         )
+           AND denied_sqlstate <> '42501'
+      ) THEN
+        RAISE EXCEPTION 'iterative_probe_sqlstate_invalid';
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_temp.class_d_denial_probes
+         WHERE probe_group = 'depth_limit' AND encoding_depth = 4 AND denied_sqlstate = '54000'
+      ) THEN
+        RAISE EXCEPTION 'encoding_depth_limit_not_fail_closed';
+      END IF;
+      IF NOT EXISTS (
+        SELECT 1 FROM pg_temp.class_d_denial_probes
+         WHERE probe_group = 'size_limit' AND denied_sqlstate = '54000'
+      ) THEN
+        RAISE EXCEPTION 'security_text_size_limit_not_fail_closed';
+      END IF;
+      IF EXISTS (
+        SELECT 1
+          FROM i1q.channel_artifacts artifact
+          JOIN pg_temp.class_d_denial_probes probe ON probe.artifact_id = artifact.id
+      ) THEN
+        RAISE EXCEPTION 'denied_channel_artifact_row_persisted';
+      END IF;
+      IF EXISTS (
+        SELECT 1
+          FROM i1q.channel_artifact_payloads payload
+          JOIN pg_temp.class_d_denial_probes probe ON probe.artifact_id = payload.artifact_id
+      ) THEN
+        RAISE EXCEPTION 'denied_channel_payload_row_persisted';
+      END IF;
+    END
+    $probe_check$;
+    SET ROLE i1q_test_runtime;
+    SELECT pg_catalog.set_config('i1q_test.actor_id', '00000000-0000-0000-0000-000000000005', false);
     SELECT i1q.create_channel_artifact(
       'artifact_safe', 'release_synthetic', 'csp_stat_pre_answer',
       'stat_pre_answer', 'pre_answer', 'A', 'application/json',

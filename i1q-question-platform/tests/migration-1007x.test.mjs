@@ -254,6 +254,8 @@ test('channel artifacts bind policy, phase, class, and pre-answer fields', () =>
   const identifierValues = functionBlock(migration, 'release_class_d_identifier_values(');
   const identifierLeak = functionBlock(migration, 'contains_release_class_d_identifier(');
   const stringValues = functionBlock(migration, 'jsonb_string_values(');
+  const canonicalText = functionBlock(migration, 'canonical_security_text(');
+  const normalizedText = functionBlock(migration, 'normalize_security_text(');
   const markerCheck = functionBlock(migration, 'is_class_d_field_marker(');
   const markerLeak = functionBlock(migration, 'contains_class_d_field_marker(');
   assert.match(createArtifact, /policy\.channel <> target_channel/u);
@@ -268,6 +270,8 @@ test('channel artifacts bind policy, phase, class, and pre-answer fields', () =>
   assert.match(createArtifact, /i1q\.contains_release_class_d_identifier\(scalar\.string_value, target_release_id\)/u);
   assert.match(createArtifact, /channel_artifact_class_d_field_marker/u);
   assert.match(createArtifact, /channel_artifact_class_d_value_leak/u);
+  assert.ok(createArtifact.indexOf("IF target_data_class IN ('A', 'C')") < createArtifact.indexOf('calculated_hash := '));
+  assert.ok(createArtifact.indexOf('calculated_hash := ') < createArtifact.indexOf('INSERT INTO i1q.channel_artifacts'));
   for (const relation of [
     'release_memberships',
     'item_revision_sources',
@@ -289,6 +293,15 @@ test('channel artifacts bind policy, phase, class, and pre-answer fields', () =>
   assert.match(stringValues, /pg_catalog\.jsonb_typeof\(walk\.value\) = 'string'/u);
   assert.match(identifierLeak, /pg_catalog\.strpos\(candidate_entry\.normalized, identifier\.normalized\) > 0/u);
   assert.match(identifierLeak, /pg_catalog\.encode\(pg_catalog\.convert_to\(identifier\.normalized, 'UTF8'\), 'base64'\)/u);
+  assert.match(canonicalText, /max_security_text_bytes constant integer := 65536/u);
+  assert.match(canonicalText, /security_text_size_limit_exceeded/u);
+  assert.match(normalizedText, /max_url_decode_rounds constant integer := 3/u);
+  assert.match(normalizedText, /FOR decode_round IN 1\.\.max_url_decode_rounds LOOP/u);
+  assert.match(normalizedText, /FOR ascii_code IN 32\.\.126 LOOP/u);
+  assert.match(normalizedText, /ascii_code <> 37/u);
+  assert.match(normalizedText, /security_text_encoding_depth_exceeded/u);
+  assert.match(normalizedText, /security_text_size_limit_exceeded/u);
+  assert.ok(normalizedText.indexOf('FOR ascii_code IN 32..126 LOOP') < normalizedText.indexOf("replace(normalized, '%25', '%')"));
   assert.match(markerCheck, /i1q\.normalize_security_marker\(candidate\)/u);
   assert.match(markerLeak, /i1q\.normalize_security_text\(candidate\)/u);
   assert.ok(markerLeak.includes('source([[:space:]_.-]*record)?[[:space:]_.-]*ids?'));
