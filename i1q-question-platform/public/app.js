@@ -227,8 +227,11 @@ const state = {
   scenario: 'live',
   renderToken: 0,
   health: null,
+  session: null,
   dashboard: null,
-  selectedSourceId: null,
+  selectedInventorySourceId: null,
+  selectedSourceRecordId: null,
+  selectedTranscriptArtifactId: null,
   selectedRunId: 'run_fixture_resumable',
   selectedCandidateId: null,
   selectedCandidateDetail: null,
@@ -341,6 +344,9 @@ function actionKey(prefix = 'action') {
 
 async function api(path, { method = 'GET', body, headers = {} } = {}) {
   const requestHeaders = { Accept: 'application/json', ...headers };
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && state.session?.session?.csrf_token) {
+    requestHeaders['X-CSRF-Token'] = state.session.session.csrf_token;
+  }
   const options = { method, headers: requestHeaders };
   if (body !== undefined) {
     requestHeaders['Content-Type'] = 'application/json';
@@ -362,6 +368,28 @@ function getResource(entityType, id) {
   return api(`/api/v1/resources/${encodeURIComponent(entityType)}/${encodeURIComponent(id)}`);
 }
 
+function resolveInventorySource(rows) {
+  const selected = rows.find((row) => row.id === state.selectedInventorySourceId) || null;
+  if (selected) return selected;
+  if (rows.length !== 1) return null;
+  state.selectedInventorySourceId = rows[0].id;
+  return rows[0];
+}
+
+function resolveSourceRecord(rows, inventory) {
+  const selected = rows.find((row) => row.id === state.selectedSourceRecordId) || null;
+  const matchesInventory = (row) => !inventory || [
+    row.canonical_source_id,
+    row.video_id,
+  ].includes(inventory.canonical_video_id);
+  if (selected && matchesInventory(selected)) return selected;
+  if (!inventory) return null;
+  const matches = rows.filter(matchesInventory);
+  if (matches.length !== 1) return null;
+  state.selectedSourceRecordId = matches[0].id;
+  return matches[0];
+}
+
 function announce(message, assertive = false) {
   const region = assertive ? assertiveAnnouncer : politeAnnouncer;
   region.textContent = '';
@@ -371,8 +399,9 @@ function announce(message, assertive = false) {
 function showActionStatus(message, { tone = 'success', focus = false, assertive = false } = {}) {
   actionStatus.hidden = false;
   actionStatus.className = `action-status action-status-${tone}`;
+  actionStatus.setAttribute('role', assertive ? 'alert' : 'status');
+  actionStatus.setAttribute('aria-live', assertive ? 'assertive' : 'polite');
   actionStatus.textContent = message;
-  announce(message, assertive);
   if (focus) actionStatus.focus({ preventScroll: true });
 }
 
@@ -549,18 +578,18 @@ async function sourceTemplate() {
     listResource('rights_records'),
     listResource('privacy_redaction_records'),
   ]);
-  const source = sourcesPage.rows.find((row) => row.id === state.selectedSourceId) || sourcesPage.rows[0] || null;
-  const inventory = inventoryPage.rows[0] || null;
+  const inventory = resolveInventorySource(inventoryPage.rows);
+  const source = resolveSourceRecord(sourcesPage.rows, inventory);
   if (!source && !inventory) {
-    return { context: [], markup: emptyState('No source detail is available', 'The authorized source routes returned no records.') };
+    return { context: [], markup: emptyState('Select one source record', 'Open an authorized inventory row before inspecting source details.') };
   }
-  if (source) state.selectedSourceId = source.id;
   const rights = rightsPage.rows.find((row) => row.id === source?.rights_record_id) || null;
   const privacy = privacyPage.rows.find((row) => row.id === source?.privacy_redaction_record_id) || null;
   const isPartial = inventory && (!inventory.transcript_available || !inventory.vtt_available || !inventory.nodes_available);
   const privacyBlocked = privacy && !['pass', 'pass_with_redactions'].includes(privacy.status);
   const rightsBlocked = rights && rights.rights_status !== 'cleared_for';
   const notices = [
+    !source ? stateNotice('lineage-error', 'Source lineage is unresolved', 'No unique source record matches the selected inventory record.', 'Resolve the canonical video identity before using privacy, transcript, or extraction evidence.', 'danger') : '',
     isPartial ? stateNotice('partial-source', 'Source package is incomplete', 'One or more transcript, VTT, or node assets are unavailable.', 'Inspect the available metadata and request an authorized corpus refresh.') : '',
     privacyBlocked ? stateNotice('privacy-blocked', 'Privacy decision blocks use', 'The linked redaction record is not cleared.', 'Open Privacy status and resolve the failed class before extraction.', 'danger') : '',
     rightsBlocked ? stateNotice('rights-blocked', 'Rights decision blocks use', 'The linked rights record does not permit this use.', 'Obtain an authorized rights decision or remove this source.', 'danger') : '',
@@ -608,13 +637,17 @@ async function sourceTemplate() {
 }
 
 async function privacyTemplate() {
-  const [privacyPage, sourcesPage] = await Promise.all([
+  const [privacyPage, sourcesPage, inventoryPage] = await Promise.all([
     listResource('privacy_redaction_records'),
     listResource('source_records'),
+    listResource('inventory_sources'),
   ]);
-  const record = privacyPage.rows.find((row) => row.id === sourcesPage.rows.find((source) => source.id === state.selectedSourceId)?.privacy_redaction_record_id)
-    || privacyPage.rows[0]
-    || null;
+  const inventory = resolveInventorySource(inventoryPage.rows);
+  const source = resolveSourceRecord(sourcesPage.rows, inventory);
+  if (!source) {
+    return { context: [], markup: emptyState('Privacy lineage is unresolved', 'Select an inventory source with one canonical source-record match before reviewing privacy status.') };
+  }
+  const record = privacyPage.rows.find((row) => row.id === source.privacy_redaction_record_id) || null;
   if (!record) {
     return { context: [], markup: emptyState('No privacy record is available', 'No authorized redaction decision was returned.') };
   }
@@ -658,23 +691,45 @@ async function privacyTemplate() {
 }
 
 async function transcriptTemplate() {
-  const [artifactsPage, segmentsPage, inventoryPage] = await Promise.all([
+  const [artifactsPage, segmentsPage, inventoryPage, sourcesPage] = await Promise.all([
     listResource('transcript_artifacts'),
     listResource('normalized_transcript_segments'),
     listResource('inventory_sources'),
+    listResource('source_records'),
   ]);
-  const inventory = inventoryPage.rows[0] || null;
-  const segments = segmentsPage.rows;
+  const inventory = resolveInventorySource(inventoryPage.rows);
+  const source = resolveSourceRecord(sourcesPage.rows, inventory);
+  if (!inventory) {
+    return { context: [], markup: emptyState('Select one source record', 'Open an authorized inventory row before inspecting transcript evidence.') };
+  }
+  const artifacts = artifactsPage.rows.filter((artifact) => artifact.inventory_source_id === inventory.id);
+  let selectedArtifact = artifacts.find((artifact) => artifact.id === state.selectedTranscriptArtifactId) || null;
+  if (!selectedArtifact && artifacts.length === 1) {
+    [selectedArtifact] = artifacts;
+    state.selectedTranscriptArtifactId = selectedArtifact.id;
+  }
+  const segments = selectedArtifact
+    ? segmentsPage.rows.filter((segment) => segment.transcript_artifact_id === selectedArtifact.id)
+    : [];
+  const ambiguousArtifacts = artifacts.length > 1 && !selectedArtifact;
   const partial = !inventory?.transcript_available || !inventory?.vtt_available || segments.length === 0;
   return {
     context: [
-      ['Source', escapeHtml(inventory?.title || 'No selected source')],
-      ['Transcript artifacts', String(artifactsPage.total)],
-      ['Sanitized segments', String(segmentsPage.total)],
+      ['Source', escapeHtml(source?.title || inventory.title)],
+      ['Inventory record', `<span class="hash-text">${escapeHtml(inventory.id)}</span>`],
+      ['Source record', `<span class="hash-text">${escapeHtml(source?.id || 'Unresolved')}</span>`],
+      ['Transcript artifact', `<span class="hash-text">${escapeHtml(selectedArtifact?.id || 'Not selected')}</span>`],
+      ['Sanitized segments', String(segments.length)],
       ['Availability', badge(partial ? 'Partial source' : 'Available')],
     ],
     markup: `
+      ${!source ? stateNotice('lineage-error', 'Source lineage is unresolved', 'No unique source record matches this inventory record.', 'Resolve the canonical source identity before extraction.', 'danger') : ''}
+      ${ambiguousArtifacts ? stateNotice('lineage-error', 'Select one transcript artifact', 'Multiple transcript artifacts are linked to this inventory record.', 'Choose the exact artifact whose sanitized segments should be reviewed.', 'warning') : ''}
       ${partial ? stateNotice('partial-source', 'Transcript evidence is incomplete', 'The safe routes did not return a complete transcript and timing package.', 'Inspect Source detail, then request an authorized corpus refresh.') : ''}
+      ${artifacts.length > 1 ? `<section class="panel" aria-labelledby="transcript-artifacts-heading">
+        <div class="panel-header"><h2 id="transcript-artifacts-heading">Linked transcript artifacts</h2>${badge(`${artifacts.length} available`)}</div>
+        <div class="action-row">${artifacts.map((artifact) => `<button class="button button-small" type="button" data-action="select-transcript-artifact" data-id="${escapeHtml(artifact.id)}"${artifact.id === selectedArtifact?.id ? ' aria-current="true"' : ''}>${escapeHtml(artifact.id)}</button>`).join('')}</div>
+      </section>` : ''}
       <div class="layout-two">
         <section class="panel" aria-labelledby="transcript-segments-heading">
           <div class="panel-header"><h2 id="transcript-segments-heading">Sanitized evidence segments</h2>${badge(segments.length ? `${segments.length} returned` : 'No segments')}</div>
@@ -851,7 +906,8 @@ async function editorTemplate() {
   state.selectedRevisionId = revision.id;
   state.editorRevision = revision;
   const choices = ['A', 'B', 'C', 'D'].map((key) => revision.choices?.find((choice) => choice.key === key) || { key, text: '' });
-  const hasLineage = safeArray(revision.source_ids).length > 0 && safeArray(revision.evidence_claim_ids).length > 0 && revision.drills;
+  const hasLineage = safeArray(revision.source_ids).length > 0 && safeArray(revision.evidence_claim_ids).length > 0;
+  const isDraft = revision.workflow_status === 'draft';
   const sourceLabels = safeArray(revision.source_ids).map((id) => sourcesPage.rows.find((row) => row.id === id)?.title || id);
   const claimLabels = safeArray(revision.evidence_claim_ids).map((id) => claimsPage.rows.find((row) => row.id === id)?.id || id);
   return {
@@ -886,9 +942,9 @@ async function editorTemplate() {
             ['Evidence lineage', escapeHtml(claimLabels.join(', ') || 'Not supplied')],
           ])}
           <div class="action-row">
-            ${hasLineage ? '<button class="button button-primary" type="submit">Save immutable draft</button>' : disabledCommand('Save immutable draft', 'Source, evidence, and Drills lineage are required before this route can persist a revision.', { tone: 'primary' })}
+            ${hasLineage && isDraft ? '<button class="button button-primary" type="submit">Save draft</button>' : disabledCommand('Save draft', isDraft ? 'Source and evidence lineage are required before this route can persist a draft.' : 'This exact revision is frozen after candidate submission.', { tone: 'primary' })}
+            ${hasLineage && isDraft ? `<button class="button" type="button" data-action="submit-candidate" data-id="${escapeHtml(revision.id)}">Submit for review</button>` : disabledCommand('Submit for review', isDraft ? 'Source and evidence lineage are required before candidate submission.' : 'This exact revision has already left draft state.')}
           </div>
-          ${disabledCommand('Submit for review', 'No state-transition route is exposed for this draft, and self-review is forbidden.')}
         </aside>
       </form>`,
   };
@@ -994,12 +1050,20 @@ function revisionIdentity(revision, role, assignment, evidenceStatus, conflict) 
   ];
 }
 
+function currentRevisionStatus(revision, events) {
+  return [...events]
+    .filter((event) => event.item_revision_id === revision.id)
+    .sort((left, right) => Number(left.sequence) - Number(right.sequence))
+    .at(-1)?.to_status || revision.workflow_status;
+}
+
 async function editorialTemplate() {
-  const [revisionsPage, reviewersPage, assignmentsPage, claimsPage] = await Promise.all([
+  const [revisionsPage, reviewersPage, assignmentsPage, claimsPage, eventsPage] = await Promise.all([
     listResource('item_revisions'),
     listResource('reviewers'),
     listResource('review_assignments'),
     listResource('evidence_claims'),
+    listResource('review_events'),
   ]);
   const revisions = [...revisionsPage.rows].sort((left, right) => Number(right.revision_number) - Number(left.revision_number));
   const revision = revisions.find((row) => row.id === state.selectedRevisionId) || revisions[0] || null;
@@ -1007,8 +1071,12 @@ async function editorialTemplate() {
     return { context: [], markup: emptyState('No revision is available for editorial review', 'The authorized revision queue returned no records.') };
   }
   state.selectedRevisionId = revision.id;
-  const reviewer = reviewersPage.rows.find((row) => row.actor_id === 'reviewer_local_demo') || reviewersPage.rows[0] || null;
-  const assignment = assignmentsPage.rows.find((row) => row.item_revision_id === revision.id && row.review_type === 'editorial' && row.state === 'accepted') || null;
+  const actorId = state.session?.actor?.id || '';
+  const reviewer = reviewersPage.rows.find((row) => row.actor_id === actorId) || null;
+  const assignment = assignmentsPage.rows.find((row) => row.item_revision_id === revision.id
+    && row.review_type === 'editorial'
+    && row.reviewer_actor_id === actorId
+    && ['open', 'accepted'].includes(row.state)) || null;
   const conflict = Boolean(reviewer && (
     reviewer.actor_id === revision.author_actor_id
     || reviewer.delegated_by_actor_id === revision.author_actor_id
@@ -1016,14 +1084,31 @@ async function editorialTemplate() {
   ));
   const relevantClaims = claimsPage.rows.filter((claim) => safeArray(revision.evidence_claim_ids).includes(claim.id));
   const expired = relevantClaims.some((claim) => Number.isFinite(Date.parse(claim.expires_at || '')) && Date.parse(claim.expires_at) <= Date.now());
-  const canReview = Boolean(assignment && reviewer && !conflict && revision.workflow_status === 'editorial_review' && assignment.exact_revision_hash === revision.content_hash);
+  const workflowStatus = currentRevisionStatus(revision, eventsPage.rows);
+  const effectiveWorkflowStatus = assignment?.state === 'accepted' && workflowStatus === 'candidate'
+    ? 'editorial_review'
+    : workflowStatus;
+  const exactAssignment = Boolean(assignment && assignment.exact_revision_hash === revision.content_hash);
+  const canAccept = Boolean(
+    assignment?.state === 'open'
+    && reviewer
+    && !conflict
+    && !expired
+    && exactAssignment
+    && ['candidate', 'editorial_review'].includes(workflowStatus),
+  );
+  const canReview = Boolean(assignment?.state === 'accepted' && reviewer && !conflict && !expired && exactAssignment && effectiveWorkflowStatus === 'editorial_review');
   const reason = conflict
     ? 'Self-review or a declared reviewer conflict blocks this exact revision.'
+    : expired
+      ? 'Evidence currency has expired for this exact revision.'
     : !assignment
       ? 'No active editorial assignment exists for this exact revision.'
-      : revision.workflow_status !== 'editorial_review'
-        ? 'This revision is not in editorial review state.'
-        : 'The assignment hash does not match the selected immutable revision.';
+      : !['candidate', 'editorial_review'].includes(effectiveWorkflowStatus)
+        ? 'This revision is not in the editorial candidate state.'
+        : !exactAssignment
+          ? 'The assignment hash does not match the selected immutable revision.'
+          : 'Accept the assignment before recording a verdict.';
   const decisionButtons = canReview
     ? `<button class="button button-danger" type="button" data-action="editorial-decision" data-verdict="fail" data-to-status="rejected">Reject</button>
        <button class="button" type="button" data-action="editorial-decision" data-verdict="needs_revision" data-to-status="candidate">Request revision</button>
@@ -1048,6 +1133,7 @@ async function editorialTemplate() {
         <aside class="panel field-stack" aria-labelledby="editorial-verdict-heading">
           <h2 id="editorial-verdict-heading">Verdict</h2>
           <label>Review note<textarea name="note" placeholder="Required for rejection or revision request"></textarea></label>
+          ${canAccept ? `<button class="button button-primary" type="button" data-action="accept-assignment" data-id="${escapeHtml(assignment.id)}">Accept assignment</button>` : ''}
           <div class="action-row review-actions">${decisionButtons}</div>
         </aside>
       </form>`,
@@ -1055,25 +1141,42 @@ async function editorialTemplate() {
 }
 
 async function physicianTemplate() {
-  const [revisionsPage, assignmentsPage, reviewersPage, governance, claimsPage] = await Promise.all([
+  const [revisionsPage, assignmentsPage, reviewersPage, governance, claimsPage, eventsPage] = await Promise.all([
     listResource('item_revisions'),
     listResource('review_assignments'),
     listResource('reviewers'),
     api('/api/v1/governance'),
     listResource('evidence_claims'),
+    listResource('review_events'),
   ]);
   const revisions = [...revisionsPage.rows].sort((left, right) => Number(right.revision_number) - Number(left.revision_number));
   const revision = revisions.find((row) => row.id === state.selectedRevisionId) || revisions[0] || null;
   if (!revision) {
     return { context: [], markup: emptyState('No revision is available for physician review', 'The authorized medical review queue returned no records.') };
   }
-  const assignment = assignmentsPage.rows.find((row) => row.item_revision_id === revision.id && row.review_type === 'medical' && row.state === 'accepted') || null;
-  const reviewer = reviewersPage.rows.find((row) => row.id === assignment?.reviewer_id) || null;
+  const actorId = state.session?.actor?.id || '';
+  const reviewer = reviewersPage.rows.find((row) => row.actor_id === actorId) || null;
+  const assignment = assignmentsPage.rows.find((row) => row.item_revision_id === revision.id
+    && row.review_type === 'medical'
+    && row.reviewer_actor_id === actorId
+    && ['open', 'accepted'].includes(row.state)) || null;
   const relevantClaims = claimsPage.rows.filter((claim) => safeArray(revision.evidence_claim_ids).includes(claim.id));
   const expired = relevantClaims.some((claim) => Number.isFinite(Date.parse(claim.expires_at || '')) && Date.parse(claim.expires_at) <= Date.now());
   const hashConflict = Boolean(assignment && assignment.exact_revision_hash !== revision.content_hash);
-  const roleAuthorized = Boolean(reviewer?.roles?.includes('physician_reviewer') && reviewer.actor_id === 'reviewer_local_demo');
+  const credentialExpiresAt = Date.parse(reviewer?.credential?.expires_at || '');
+  const roleAuthorized = Boolean(
+    state.session?.actor?.roles?.includes('physician_reviewer')
+    && reviewer?.roles?.includes('physician_reviewer')
+    && reviewer.actor_id === actorId
+    && reviewer.credential?.status === 'verified'
+    && ['md', 'do'].includes(reviewer.credential?.type)
+    && Number.isFinite(credentialExpiresAt)
+    && credentialExpiresAt > Date.now(),
+  );
   const governanceReady = governance.medical_governance_lead !== null;
+  const workflowStatus = currentRevisionStatus(revision, eventsPage.rows);
+  const canAccept = Boolean(roleAuthorized && assignment?.state === 'open' && !expired && !hashConflict && workflowStatus === 'medical_review');
+  const canReview = Boolean(roleAuthorized && assignment?.state === 'accepted' && !expired && !hashConflict && workflowStatus === 'medical_review');
   const reason = !roleAuthorized
     ? 'The current local role is not a credentialed physician reviewer for this assignment.'
     : !governanceReady
@@ -1086,12 +1189,12 @@ async function physicianTemplate() {
   return {
     context: revisionIdentity(revision, roleAuthorized ? 'Physician reviewer' : 'Editorial local role', assignment, expired ? badge('Expired') : badge('Current'), hashConflict),
     markup: `
-      ${!roleAuthorized ? stateNotice('unauthorized', 'Physician review role required', 'The current local reviewer cannot sign a medical decision.', 'Use canonical authentication as the assigned credentialed physician reviewer.', 'danger') : ''}
+      ${!roleAuthorized ? stateNotice('unauthorized', 'Physician review role required', 'The current reviewer cannot sign a medical decision.', 'Use canonical authentication as the assigned credentialed physician reviewer.', 'danger') : ''}
       ${hashConflict ? stateNotice('concurrent-edit', 'Assignment revision changed', 'The signed assignment hash no longer matches this revision.', 'Reload and reassign the exact immutable revision before review.', 'danger') : ''}
       ${expired ? stateNotice('expired-evidence', 'Evidence expired before physician decision', 'Approval is blocked without current claim evidence.', 'Replace the claim and repeat the exact-revision review.', 'danger') : ''}
-      <div class="layout-two">
+      <form id="physician-form" class="layout-two" data-revision-id="${escapeHtml(revision.id)}" data-revision-hash="${escapeHtml(revision.content_hash || '')}" data-reviewer-id="${escapeHtml(reviewer?.id || '')}" data-assignment-id="${escapeHtml(assignment?.id || '')}">
         <section class="panel" aria-labelledby="physician-attestation-heading">
-          <div class="panel-header"><h2 id="physician-attestation-heading">Exact revision attestation</h2>${badge('Blocked', 'red')}</div>
+          <div class="panel-header"><h2 id="physician-attestation-heading">Exact revision attestation</h2>${badge(canReview ? 'Ready' : 'Blocked', canReview ? 'green' : 'red')}</div>
           <ul class="review-criteria">
             <li><strong>Medical accuracy</strong><span>Requires an assigned, credentialed physician.</span></li>
             <li><strong>Distractor safety</strong><span>Requires every option and rationale for this exact hash.</span></li>
@@ -1106,10 +1209,17 @@ async function physicianTemplate() {
             ['Medical governance lead', `<span class="hash-text">${escapeHtml(governance.medical_governance_lead || 'Unassigned')}</span>`],
             ['Exact revision hash', `<span class="hash-text">${escapeHtml(shortHash(revision.content_hash))}</span>`],
           ])}
-          ${disabledCommand('Reject medical review', reason, { tone: 'danger' })}
-          ${disabledCommand('Approve exact revision', reason, { tone: 'primary' })}
+          <label>Medical review note<textarea name="note" placeholder="Required for rejection or revision request"></textarea></label>
+          ${canAccept ? `<button class="button button-primary" type="button" data-action="accept-assignment" data-id="${escapeHtml(assignment.id)}">Accept assignment</button>` : ''}
+          ${canReview ? `<div class="action-row review-actions">
+            <button class="button button-danger" type="button" data-action="medical-decision" data-verdict="fail" data-to-status="rejected">Reject</button>
+            <button class="button" type="button" data-action="medical-decision" data-verdict="needs_revision" data-to-status="editorial_review">Request revision</button>
+            ${governanceReady
+    ? '<button class="button button-primary" type="button" data-action="medical-decision" data-verdict="pass" data-to-status="approved">Approve exact revision</button>'
+    : disabledCommand('Approve exact revision', 'The medical governance lead is unassigned.', { tone: 'primary' })}
+          </div>` : `${disabledCommand('Reject medical review', reason, { tone: 'danger' })}${disabledCommand('Approve exact revision', reason, { tone: 'primary' })}`}
         </aside>
-      </div>`,
+      </form>`,
   };
 }
 
@@ -1374,13 +1484,13 @@ function showLoading(name) {
   screen.innerHTML = `<div class="loading-state" data-state="loading" role="status">Loading ${escapeHtml(nextTitle.toLowerCase())}</div>`;
 }
 
-async function renderScreen(name, { focusHeading = false } = {}) {
+async function renderScreen(name, { focusHeading = false, preserveStatus = false } = {}) {
   if (!REQUIRED_WORKFLOWS.includes(name)) return;
   const token = ++state.renderToken;
   const previousScreen = state.currentScreen;
   state.currentScreen = name;
   if (previousScreen !== name) state.editorDirty = false;
-  clearActionStatus();
+  if (!preserveStatus) clearActionStatus();
   setActiveNavigation(name);
   setMobileNavigation(false);
   const [nextKicker, nextTitle] = WORKFLOW_META[name];
@@ -1491,7 +1601,6 @@ async function submitEditor(form) {
     misconception_id: String(data.get(`misconception_${key}`) || '').trim(),
   }));
   const payload = {
-    item_id: revision.item_id,
     concept_id: revision.concept_id,
     source_ids: safeArray(revision.source_ids),
     evidence_claim_ids: safeArray(revision.evidence_claim_ids),
@@ -1503,17 +1612,16 @@ async function submitEditor(form) {
     topic: revision.topic || '',
     subtopic: revision.subtopic || '',
     lineage: revision.lineage || 'INTERNAL_HUMAN_EDIT',
-    drills: revision.drills,
   };
-  const created = await api('/api/v1/item-revisions', {
-    method: 'POST',
+  if (revision.drills) payload.drills = revision.drills;
+  const updated = await api(`/api/v1/item-revisions/${encodeURIComponent(revision.id)}/draft`, {
+    method: 'PATCH',
     body: payload,
-    headers: { 'Idempotency-Key': actionKey('revision') },
   });
   state.editorDirty = false;
-  state.selectedRevisionId = created.id;
-  showActionStatus('New immutable draft revision created.', { focus: true });
-  await renderScreen('editor');
+  state.selectedRevisionId = updated.id;
+  showActionStatus('Draft saved for the exact revision.', { focus: true });
+  await renderScreen('editor', { preserveStatus: true });
 }
 
 async function submitEditorialDecision(button) {
@@ -1556,7 +1664,37 @@ async function submitEditorialDecision(button) {
     },
   });
   showActionStatus('Editorial decision recorded for the exact revision.', { focus: true });
-  await renderScreen('editorial');
+  await renderScreen('editorial', { preserveStatus: true });
+}
+
+async function submitMedicalDecision(button) {
+  const form = button.closest('#physician-form');
+  if (!form) return;
+  const note = String(new FormData(form).get('note') || '').trim();
+  const verdict = button.dataset.verdict;
+  if (verdict !== 'pass' && !note) {
+    showActionStatus('A medical review note is required for rejection or revision requests.', {
+      tone: 'warning',
+      focus: true,
+      assertive: true,
+    });
+    return;
+  }
+  await api('/api/v1/review-events', {
+    method: 'POST',
+    body: {
+      item_revision_id: form.dataset.revisionId,
+      reviewer_id: form.dataset.reviewerId,
+      assignment_id: form.dataset.assignmentId,
+      review_type: 'medical',
+      exact_revision_hash: form.dataset.revisionHash,
+      verdict,
+      to_status: button.dataset.toStatus,
+      structured_findings: { note },
+    },
+  });
+  showActionStatus('Medical decision recorded for the exact revision.', { focus: true });
+  await renderScreen('physician', { preserveStatus: true });
 }
 
 async function handleAction(button) {
@@ -1578,8 +1716,14 @@ async function handleAction(button) {
       await renderScreen(state.currentScreen, { focusHeading: true });
       break;
     case 'open-source':
-      state.selectedSourceId = button.dataset.id;
+      state.selectedInventorySourceId = button.dataset.id;
+      state.selectedSourceRecordId = null;
+      state.selectedTranscriptArtifactId = null;
       navigate('source');
+      break;
+    case 'select-transcript-artifact':
+      state.selectedTranscriptArtifactId = button.dataset.id;
+      await renderScreen('transcript', { focusHeading: true });
       break;
     case 'select-run':
       state.selectedRunId = button.dataset.id;
@@ -1588,14 +1732,14 @@ async function handleAction(button) {
     case 'queue-extraction': {
       const run = newSyntheticRun('', 'queue');
       showActionStatus(`Synthetic extraction ${run.id} queued.`, { focus: true });
-      await renderScreen('extraction');
+      await renderScreen('extraction', { preserveStatus: true });
       break;
     }
     case 'retry-extraction':
     case 'resume-extraction': {
       const run = newSyntheticRun(button.dataset.id, action === 'resume-extraction' ? 'resume' : 'retry');
       showActionStatus(`Synthetic extraction ${run.id} queued as a new run.`, { focus: true });
-      await renderScreen('extraction');
+      await renderScreen('extraction', { preserveStatus: true });
       break;
     }
     case 'open-candidate':
@@ -1617,6 +1761,19 @@ async function handleAction(button) {
     case 'editorial-decision':
       await submitEditorialDecision(button);
       break;
+    case 'medical-decision':
+      await submitMedicalDecision(button);
+      break;
+    case 'submit-candidate':
+      await api(`/api/v1/item-revisions/${encodeURIComponent(button.dataset.id)}/submit-candidate`, { method: 'POST' });
+      showActionStatus('Draft submitted as a candidate for independent review.', { focus: true });
+      await renderScreen('editor', { preserveStatus: true });
+      break;
+    case 'accept-assignment':
+      await api(`/api/v1/review-assignments/${encodeURIComponent(button.dataset.id)}/accept`, { method: 'POST' });
+      showActionStatus('Assignment accepted for the exact revision.', { focus: true });
+      await renderScreen(state.currentScreen, { preserveStatus: true });
+      break;
     case 'assemble-release': {
       const datasetVersion = String(document.querySelector('#dataset-version')?.value || '').trim();
       const assembled = await api('/api/v1/releases', {
@@ -1624,7 +1781,7 @@ async function handleAction(button) {
         body: { datasetVersion, itemRevisionIds: [button.dataset.revisionId] },
       });
       showActionStatus(`Internal release ${assembled.release.id} assembled.`, { focus: true });
-      await renderScreen('release');
+      await renderScreen('release', { preserveStatus: true });
       break;
     }
     case 'preview-release': {
@@ -1725,10 +1882,13 @@ async function boot() {
   ].join('');
   try {
     state.health = await api('/api/health');
+    state.session = await api('/api/v1/session');
     const localDemo = state.health.mode === 'LOCAL_SYNTHETIC_DEMO';
     scenarioControl.hidden = !localDemo;
     environmentMode.textContent = localDemo ? 'Local synthetic fixture' : 'Authenticated internal adapter';
-    actorIdentity.textContent = localDemo ? 'Local synthetic reviewer' : 'Authenticated internal session';
+    actorIdentity.textContent = localDemo
+      ? 'Local synthetic reviewer'
+      : `Authenticated as ${state.session.actor.id}`;
     await renderScreen('dashboard');
   } catch (error) {
     environmentMode.textContent = 'Service unavailable';

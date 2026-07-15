@@ -37,6 +37,8 @@ test('responsive, focus, reduced-motion, and non-color status rules exist', asyn
   assert.match(css, /@media \(max-width: 760px\)/);
   assert.match(css, /prefers-reduced-motion/);
   assert.match(css, /\.badge::before/);
+  assert.match(css, /#primary-nav\.is-open/);
+  assert.match(css, /\.sidebar :focus-visible/);
   assert.doesNotMatch(css, /linear-gradient|radial-gradient/);
 });
 
@@ -78,6 +80,10 @@ test('client boots the dashboard and navigates with API-backed rendering', async
   ].map((key) => [key, globalThis[key]]));
   const payloads = new Map([
     ['/api/health', { ok: true, service: 'i1q-question-platform', mode: 'LOCAL_SYNTHETIC_DEMO' }],
+    ['/api/v1/session', {
+      actor: { id: 'actor_local_demo', roles: ['platform_admin', 'author', 'editorial_reviewer'] },
+      session: { expires_at: '2099-01-01T00:00:00.000Z', csrf_token: 'synthetic-ui-csrf-token' },
+    }],
     ['/api/v1/dashboard', {
       inventory_sources: 1,
       extraction_jobs: 0,
@@ -114,6 +120,85 @@ test('client boots the dashboard and navigates with API-backed rendering', async
     await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
     assert.match(dom.window.document.querySelector('#screen').textContent, /No sources match/u);
     assert.equal(dom.window.document.querySelector('[data-screen="inventory"]').getAttribute('aria-current'), 'page');
+  } finally {
+    dom.window.close();
+    for (const [key, value] of Object.entries(originalGlobals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
+  }
+});
+
+test('selected source lineage never falls back across inventory records', async () => {
+  const html = await readFile(htmlPath, 'utf8');
+  const dom = new JSDOM(html, { url: 'http://127.0.0.1:4176/' });
+  const originalGlobals = Object.fromEntries([
+    'document', 'window', 'FormData', 'fetch',
+  ].map((key) => [key, globalThis[key]]));
+  const inventory = [
+    { id: 'inventory_one', canonical_video_id: 'video_one', title: 'Inventory one', transcript_available: true, vtt_available: true, nodes_available: true, rights_status: 'cleared_for', privacy_status: 'pass' },
+    { id: 'inventory_two', canonical_video_id: 'video_two', title: 'Inventory two', transcript_available: true, vtt_available: true, nodes_available: true, rights_status: 'cleared_for', privacy_status: 'pass' },
+    { id: 'inventory_three', canonical_video_id: 'video_three', title: 'Inventory three', transcript_available: true, vtt_available: true, nodes_available: true, rights_status: 'cleared_for', privacy_status: 'pass' },
+  ];
+  const sources = inventory.map((row, index) => ({
+    id: `source_${index + 1}`,
+    canonical_source_id: row.canonical_video_id,
+    video_id: row.canonical_video_id,
+    title: `Source ${index + 1}`,
+    source_type: 'AI_DRAFT',
+    source_hash: String(index + 1).repeat(64),
+    rights_record_id: `rights_${index + 1}`,
+    privacy_redaction_record_id: `privacy_${index + 1}`,
+  }));
+  const payloads = new Map([
+    ['/api/health', { ok: true, service: 'i1q-question-platform', mode: 'LOCAL_SYNTHETIC_DEMO' }],
+    ['/api/v1/session', { actor: { id: 'actor_local_demo', roles: ['platform_admin', 'author'] }, session: { expires_at: null, csrf_token: null } }],
+    ['/api/v1/dashboard', { inventory_sources: 3, extraction_jobs: 0, candidates: 0, review_assignments: 0, blocked_releases: 0, incidents: 0, governance_unassigned: ['medical_governance_lead'], production_gate: 'BLOCKED' }],
+    ['/api/v1/governance', { medical_governance_lead: null }],
+    ['/api/v1/resources/feature_flags?limit=200', { total: 0, rows: [] }],
+    ['/api/v1/resources/inventory_sources?limit=200', { total: inventory.length, rows: inventory }],
+    ['/api/v1/resources/source_records?limit=200', { total: sources.length, rows: sources }],
+    ['/api/v1/resources/rights_records?limit=200', { total: 3, rows: [1, 2, 3].map((id) => ({ id: `rights_${id}`, rights_status: 'cleared_for', allowed_uses: ['synthetic_fixture'] })) }],
+    ['/api/v1/resources/privacy_redaction_records?limit=200', { total: 3, rows: [1, 2, 3].map((id) => ({ id: `privacy_${id}`, status: 'pass', required_class_metrics: {} })) }],
+    ['/api/v1/resources/transcript_artifacts?limit=200', { total: 2, rows: [
+      { id: 'artifact_one', inventory_source_id: 'inventory_one' },
+      { id: 'artifact_two', inventory_source_id: 'inventory_two' },
+    ] }],
+    ['/api/v1/resources/normalized_transcript_segments?limit=200', { total: 2, rows: [
+      { id: 'segment_one', transcript_artifact_id: 'artifact_one', redacted_text: 'Sanitized segment one', speaker_label: 'Fixture speaker', start_seconds: 1 },
+      { id: 'segment_two', transcript_artifact_id: 'artifact_two', redacted_text: 'Sanitized segment two', speaker_label: 'Fixture speaker', start_seconds: 2 },
+    ] }],
+  ]);
+  const settle = () => new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+
+  try {
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.FormData = dom.window.FormData;
+    globalThis.fetch = async (path) => ({
+      ok: payloads.has(String(path)),
+      status: payloads.has(String(path)) ? 200 : 404,
+      json: async () => payloads.get(String(path)) || { error: 'not_found' },
+    });
+    dom.window.confirm = () => true;
+
+    const app = await import(`${appPath.href}?lineage-test=${Date.now()}`);
+    await app.bootPromise;
+    dom.window.document.querySelector('[data-screen="inventory"]').click();
+    await settle();
+    dom.window.document.querySelector('[data-action="open-source"][data-id="inventory_two"]').click();
+    await settle();
+    const sourceText = dom.window.document.querySelector('#screen').textContent;
+    assert.match(sourceText, /Source 2/u);
+    assert.match(sourceText, /source_2/u);
+    assert.doesNotMatch(sourceText, /Source 1/u);
+
+    dom.window.document.querySelector('[data-screen="transcript"]').click();
+    await settle();
+    const transcriptText = dom.window.document.querySelector('#screen').textContent;
+    assert.match(dom.window.document.querySelector('#record-context').textContent, /artifact_two/u);
+    assert.match(transcriptText, /Sanitized segment two/u);
+    assert.doesNotMatch(transcriptText, /Sanitized segment one/u);
   } finally {
     dom.window.close();
     for (const [key, value] of Object.entries(originalGlobals)) {

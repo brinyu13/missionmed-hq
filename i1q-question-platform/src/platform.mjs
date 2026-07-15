@@ -866,17 +866,28 @@ export class QuestionPlatform {
     if (assignmentInput.review_type === 'medical') {
       assert(workflowState === 'medical_review', 'medical_review_requires_editorial_pass');
     } else {
-      assert(workflowState === 'candidate', 'editorial_assignment_state_invalid');
+      assert(
+        ['candidate', 'editorial_review'].includes(workflowState),
+        'editorial_assignment_state_invalid',
+      );
     }
     if (assignmentInput.exact_revision_hash !== undefined) {
       assert(assignmentInput.exact_revision_hash === revision.content_hash, 'assignment_revision_hash_mismatch');
     }
-    assert(this.#repository.list('review_assignments', {
+    const assignmentsForReviewType = this.#repository.list('review_assignments', {
       predicate: (row) => row.item_revision_id === revision.id
-        && row.review_type === assignmentInput.review_type
-        && ['open', 'accepted'].includes(row.state),
-      limit: 1,
-    }).total === 0, 'active_assignment_exists');
+        && row.review_type === assignmentInput.review_type,
+      limit: 200,
+    });
+    assert(assignmentsForReviewType.rows.every(
+      (row) => !['open', 'accepted'].includes(row.state),
+    ), 'active_assignment_exists');
+    const assignmentId = deterministicId('assign', {
+      item_revision_id: revision.id,
+      review_type: assignmentInput.review_type,
+      attempt: assignmentsForReviewType.total + 1,
+      exact_revision_hash: revision.content_hash,
+    });
     return this.#repository.create('review_assignments', {
       item_revision_id: revision.id,
       reviewer_id: reviewer.id,
@@ -888,7 +899,7 @@ export class QuestionPlatform {
       credential_verification_id: reviewer.credential?.verification_id || null,
       state: 'open',
       assigned_by: actor.id,
-    }, { actorId: actor.id });
+    }, { id: assignmentId, actorId: actor.id });
   }
 
   acceptReviewAssignment(assignmentId, actorInput) {
@@ -1212,7 +1223,9 @@ export class QuestionPlatform {
     const toState = input.to_state;
     const actor = toState === 'validated'
       ? requireAnyRole(actorInput, ['release_manager', 'system'])
-      : requireRole(actorInput, 'release_manager');
+      : toState === 'ratified'
+        ? requireWrite(actorInput)
+        : requireRole(actorInput, 'release_manager');
     const release = this.#repository.get('release_snapshots', releaseId);
     assert(input.manifest_hash === release.manifest.manifest_hash, 'manifest_hash_mismatch');
     const promotions = this.#repository.list('release_promotion_records', {
@@ -1238,6 +1251,13 @@ export class QuestionPlatform {
       assert(actor.id !== release.assembled_by_actor_id, 'release_actor_separation_required');
     }
     if (toState === 'ratified') {
+      assert(this.#governance.medical_governance_lead !== null, 'medical_governance_lead_unassigned');
+      const medicalGovernanceLead = this.#repository.get(
+        'reviewers',
+        this.#governance.medical_governance_lead,
+      );
+      assert(currentMedicalCredential(medicalGovernanceLead), 'medical_governance_credential_not_verified');
+      assert(medicalGovernanceLead.actor_id === actor.id, 'medical_governance_actor_mismatch');
       assert(validatedPromotion?.validation_evidence_id === validation.id, 'validator_evidence_chain_mismatch');
       assert(actor.id !== release.assembled_by_actor_id, 'release_actor_separation_required');
       assert(actor.id !== validation.validator_actor_id, 'independent_ratification_actor_required');
@@ -1356,6 +1376,8 @@ export function createSyntheticDemoPlatform() {
   const workingHash = sha256('synthetic non-clinical working fixture');
   const source = repository.create('source_records', {
     source_type: 'AI_DRAFT',
+    canonical_source_id: 'video_local_demo',
+    video_id: 'video_local_demo',
     title: 'Synthetic non-clinical fixture',
     rights_record_id: rights.id,
     privacy_redaction_record_id: privacy.id,

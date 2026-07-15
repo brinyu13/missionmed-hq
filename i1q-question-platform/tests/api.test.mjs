@@ -93,3 +93,25 @@ test('governance and feature flags use explicit administrator workflows', async 
     assert.equal(flagPayload.key, 'internal_platform_enabled');
   });
 });
+
+test('draft candidate submission uses the explicit lifecycle route', async () => {
+  await withServer({ localDemo: true }, async (baseUrl) => {
+    const revisionsResponse = await fetch(`${baseUrl}/api/v1/resources/item_revisions?limit=200`);
+    assert.equal(revisionsResponse.status, 200);
+    const revisions = await revisionsResponse.json();
+    assert.equal(revisions.rows.length, 1);
+    assert.equal(revisions.rows[0].workflow_status, 'draft');
+
+    const submitted = await fetch(`${baseUrl}/api/v1/item-revisions/${encodeURIComponent(revisions.rows[0].id)}/submit-candidate`, {
+      method: 'POST',
+    });
+    assert.equal(submitted.status, 200);
+    assert.equal((await submitted.json()).workflow_status, 'candidate');
+
+    const duplicate = await fetch(`${baseUrl}/api/v1/item-revisions/${encodeURIComponent(revisions.rows[0].id)}/submit-candidate`, {
+      method: 'POST',
+    });
+    assert.equal(duplicate.status, 422);
+    assert.equal((await duplicate.json()).error, 'request_rejected');
+  });
+});

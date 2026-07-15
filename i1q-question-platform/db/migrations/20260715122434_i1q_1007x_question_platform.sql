@@ -83,6 +83,59 @@ BEGIN
 END
 $hash_helper$;
 
+CREATE OR REPLACE FUNCTION i1q.canonical_json(document jsonb)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  canonical text;
+BEGIN
+  CASE pg_catalog.jsonb_typeof(document)
+    WHEN 'object' THEN
+      IF EXISTS (
+        SELECT 1
+          FROM pg_catalog.jsonb_each(document) entry
+         GROUP BY pg_catalog.normalize(entry.key, 'NFC')
+        HAVING pg_catalog.count(*) > 1
+      ) THEN
+        RAISE EXCEPTION 'canonical_json_duplicate_normalized_key'
+          USING ERRCODE = '22023';
+      END IF;
+      SELECT '{' || COALESCE(
+               pg_catalog.string_agg(
+                 pg_catalog.to_jsonb(pg_catalog.normalize(entry.key, 'NFC'))::text
+                 || ':' || i1q.canonical_json(entry.value),
+                 ',' ORDER BY pg_catalog.normalize(entry.key, 'NFC')
+               ),
+               ''
+             ) || '}'
+        INTO canonical
+        FROM pg_catalog.jsonb_each(document) entry;
+      RETURN canonical;
+    WHEN 'array' THEN
+      SELECT '[' || COALESCE(
+               pg_catalog.string_agg(
+                 i1q.canonical_json(entry.value),
+                 ',' ORDER BY entry.ordinality
+               ),
+               ''
+             ) || ']'
+        INTO canonical
+        FROM pg_catalog.jsonb_array_elements(document) WITH ORDINALITY entry(value, ordinality);
+      RETURN canonical;
+    WHEN 'string' THEN
+      RETURN pg_catalog.to_jsonb(
+        pg_catalog.normalize(document #>> '{}', 'NFC')
+      )::text;
+    ELSE
+      RETURN document::text;
+  END CASE;
+END
+$function$;
+
 CREATE TABLE IF NOT EXISTS i1q.schema_versions (
   version text PRIMARY KEY,
   migration_filename text NOT NULL UNIQUE,
@@ -214,7 +267,7 @@ CREATE TABLE IF NOT EXISTS i1q.channel_security_policies (
   id text PRIMARY KEY,
   channel text NOT NULL,
   policy_version integer NOT NULL CHECK (policy_version > 0),
-  field_rules jsonb NOT NULL,
+  field_rules jsonb NOT NULL CHECK (pg_catalog.jsonb_typeof(field_rules) = 'array'),
   content_hash text NOT NULL CHECK (content_hash ~ '^[0-9a-f]{64}$'),
   status text NOT NULL CHECK (status IN ('draft', 'active', 'superseded')),
   created_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
@@ -378,7 +431,10 @@ CREATE TABLE IF NOT EXISTS i1q.item_revisions (
   item_id text NOT NULL REFERENCES i1q.items(id),
   revision_number integer NOT NULL CHECK (revision_number > 0),
   author_actor_id uuid NOT NULL,
-  workflow_status text NOT NULL CHECK (workflow_status IN ('draft', 'candidate', 'editorial_review', 'medical_review')),
+  workflow_status text NOT NULL CHECK (workflow_status IN (
+    'draft', 'candidate', 'editorial_review', 'medical_review',
+    'approved', 'rejected', 'superseded', 'retired'
+  )),
   medical_validation_status text NOT NULL CHECK (medical_validation_status = 'AI_DRAFT_NOT_MEDICALLY_VALIDATED'),
   taxonomy_version_id text NOT NULL REFERENCES i1q.taxonomy_versions(id),
   misconception_vocabulary_version_id text NOT NULL REFERENCES i1q.misconception_vocabulary_versions(id),
@@ -482,6 +538,7 @@ CREATE TABLE IF NOT EXISTS i1q.review_assignments (
   reviewer_actor_id uuid NOT NULL,
   review_type text NOT NULL CHECK (review_type IN ('editorial', 'medical')),
   required_role text NOT NULL CHECK (required_role IN ('editorial_reviewer', 'physician_reviewer')),
+  required_specialty text,
   priority text NOT NULL CHECK (priority IN ('P0', 'P1', 'P2', 'P3')),
   exact_revision_hash text NOT NULL CHECK (exact_revision_hash ~ '^[0-9a-f]{64}$'),
   credential_status text NOT NULL,
@@ -610,6 +667,7 @@ CREATE TABLE IF NOT EXISTS i1q.export_validation_results (
   manifest_hash text NOT NULL CHECK (manifest_hash ~ '^[0-9a-f]{64}$'),
   evidence_hash text NOT NULL CHECK (evidence_hash ~ '^[0-9a-f]{64}$'),
   check_ids text[] NOT NULL,
+  artifact_results jsonb NOT NULL CHECK (pg_catalog.jsonb_typeof(artifact_results) = 'array'),
   status text NOT NULL CHECK (status IN ('pass', 'fail', 'blocked')),
   validator_actor_id uuid NOT NULL,
   validated_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp(),
@@ -770,6 +828,14 @@ CREATE TABLE IF NOT EXISTS i1q.feature_flags (
   changed_by_actor_id uuid,
   changed_by_authority text NOT NULL,
   changed_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp()
+);
+
+CREATE TABLE IF NOT EXISTS i1q.compensation_records (
+  compensation_id text PRIMARY KEY,
+  reason text NOT NULL,
+  flags_disabled integer NOT NULL CHECK (flags_disabled >= 0),
+  actor_id uuid,
+  applied_at timestamptz NOT NULL DEFAULT pg_catalog.clock_timestamp()
 );
 
 CREATE TABLE IF NOT EXISTS i1q.audit_chain_heads (
@@ -962,20 +1028,28 @@ STABLE
 SECURITY DEFINER
 SET search_path = pg_catalog, i1q
 AS $function$
-  SELECT COALESCE(
-    (
+  SELECT CASE
+    WHEN revision.workflow_status IN ('superseded', 'retired') THEN revision.workflow_status
+    WHEN COALESCE(latest_event.to_status, revision.workflow_status) = 'candidate'
+         AND EXISTS (
+           SELECT 1
+             FROM i1q.review_assignments assignment
+            WHERE assignment.item_revision_id = revision.id
+              AND assignment.review_type = 'editorial'
+              AND assignment.state = 'accepted'
+              AND assignment.exact_revision_hash = revision.content_hash
+         ) THEN 'editorial_review'
+    ELSE COALESCE(latest_event.to_status, revision.workflow_status)
+  END
+    FROM i1q.item_revisions revision
+    LEFT JOIN LATERAL (
       SELECT event.to_status
         FROM i1q.review_events event
-       WHERE event.item_revision_id = target_revision_id
+       WHERE event.item_revision_id = revision.id
        ORDER BY event.sequence DESC
        LIMIT 1
-    ),
-    (
-      SELECT revision.workflow_status
-        FROM i1q.item_revisions revision
-       WHERE revision.id = target_revision_id
-    )
-  )
+    ) latest_event ON true
+   WHERE revision.id = target_revision_id
 $function$;
 
 CREATE OR REPLACE FUNCTION i1q.has_revision_assignment(target_revision_id text)
@@ -1033,6 +1107,23 @@ AS $function$
       )
 $function$;
 
+CREATE OR REPLACE FUNCTION i1q.can_read_claim(target_claim_id text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, i1q
+AS $function$
+  SELECT i1q.has_any_active_role(ARRAY['content_operator', 'release_manager', 'system']::text[])
+      OR i1q.holds_governance_slot('medical_governance_lead')
+      OR EXISTS (
+        SELECT 1
+          FROM i1q.item_revision_claims link
+         WHERE link.evidence_claim_id = target_claim_id
+           AND i1q.can_read_revision(link.item_revision_id)
+      )
+$function$;
+
 CREATE OR REPLACE FUNCTION i1q.can_read_review_record(target_revision_id text, target_reviewer_actor_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -1058,6 +1149,98 @@ LANGUAGE plpgsql
 AS $function$
 BEGIN
   RAISE EXCEPTION 'immutable_record:%', TG_TABLE_NAME
+    USING ERRCODE = '55000';
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.enforce_item_revision_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  current_status text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'immutable_record:item_revisions'
+      USING ERRCODE = '55000';
+  END IF;
+
+  IF ROW(
+    NEW.id,
+    NEW.item_id,
+    NEW.revision_number,
+    NEW.author_actor_id,
+    NEW.created_at
+  ) IS DISTINCT FROM ROW(
+    OLD.id,
+    OLD.item_id,
+    OLD.revision_number,
+    OLD.author_actor_id,
+    OLD.created_at
+  ) THEN
+    RAISE EXCEPTION 'item_revision_identity_immutable'
+      USING ERRCODE = '55000';
+  END IF;
+
+  IF OLD.workflow_status = 'draft'
+     AND NEW.workflow_status = 'draft'
+     AND OLD.author_actor_id = i1q.current_actor_id()
+     AND i1q.has_active_role('author') THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.workflow_status = 'draft'
+     AND NEW.workflow_status = 'candidate'
+     AND OLD.author_actor_id = i1q.current_actor_id()
+     AND i1q.has_active_role('author')
+     AND (pg_catalog.to_jsonb(NEW) - 'workflow_status') = (pg_catalog.to_jsonb(OLD) - 'workflow_status') THEN
+    RETURN NEW;
+  END IF;
+
+  current_status := i1q.revision_workflow_state(OLD.id);
+  IF NEW.workflow_status IN ('superseded', 'retired')
+     AND (pg_catalog.to_jsonb(NEW) - 'workflow_status') = (pg_catalog.to_jsonb(OLD) - 'workflow_status')
+     AND i1q.has_any_active_role(ARRAY['release_manager', 'incident_owner', 'system']::text[])
+     AND (
+       (current_status = 'approved' AND NEW.workflow_status IN ('superseded', 'retired'))
+       OR (current_status IN ('draft', 'candidate', 'editorial_review', 'medical_review', 'rejected', 'superseded') AND NEW.workflow_status = 'retired')
+     ) THEN
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION 'item_revision_frozen:%', current_status
+    USING ERRCODE = '55000';
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.enforce_item_revision_answer_mutation()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  revision i1q.item_revisions%ROWTYPE;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'immutable_record:item_revision_answers'
+      USING ERRCODE = '55000';
+  END IF;
+
+  SELECT * INTO revision
+    FROM i1q.item_revisions
+   WHERE id = OLD.item_revision_id;
+
+  IF NEW.item_revision_id = OLD.item_revision_id
+     AND revision.workflow_status = 'draft'
+     AND revision.author_actor_id = i1q.current_actor_id()
+     AND i1q.has_active_role('author') THEN
+    RETURN NEW;
+  END IF;
+
+  RAISE EXCEPTION 'item_revision_answer_frozen'
     USING ERRCODE = '55000';
 END
 $function$;
@@ -1161,14 +1344,15 @@ DECLARE
   immutable_table text;
   immutable_tables text[] := ARRAY[
     'schema_versions',
-    'item_revisions',
-    'item_revision_answers',
     'item_revision_sources',
     'item_revision_claims',
     'item_revision_concepts',
     'item_revision_misconceptions',
     'review_events',
     'reviewer_calibration_records',
+    'source_records',
+    'privacy_redaction_records',
+    'extraction_runs',
     'restricted_source_references',
     'release_snapshots',
     'export_question_identities',
@@ -1178,6 +1362,7 @@ DECLARE
     'channel_artifacts',
     'channel_artifact_payloads',
     'psychometric_snapshots',
+    'compensation_records',
     'audit_events'
   ];
 BEGIN
@@ -1199,6 +1384,28 @@ BEGIN
       );
     END IF;
   END LOOP;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_trigger
+     WHERE tgrelid = 'i1q.item_revisions'::regclass
+       AND tgname = 'item_revisions_guarded_mutation'
+       AND NOT tgisinternal
+  ) THEN
+    CREATE TRIGGER item_revisions_guarded_mutation
+      BEFORE UPDATE OR DELETE ON i1q.item_revisions
+      FOR EACH ROW EXECUTE FUNCTION i1q.enforce_item_revision_mutation();
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_catalog.pg_trigger
+     WHERE tgrelid = 'i1q.item_revision_answers'::regclass
+       AND tgname = 'item_revision_answers_guarded_mutation'
+       AND NOT tgisinternal
+  ) THEN
+    CREATE TRIGGER item_revision_answers_guarded_mutation
+      BEFORE UPDATE OR DELETE ON i1q.item_revision_answers
+      FOR EACH ROW EXECUTE FUNCTION i1q.enforce_item_revision_answer_mutation();
+  END IF;
 
   IF NOT EXISTS (
     SELECT 1 FROM pg_catalog.pg_trigger
@@ -1264,6 +1471,203 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION i1q.edit_item_revision_draft(
+  target_revision_id text,
+  draft_patch jsonb,
+  target_content_hash text,
+  answer_patch jsonb DEFAULT '{}'::jsonb,
+  target_answer_content_hash text DEFAULT NULL
+)
+RETURNS i1q.item_revisions
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  revision i1q.item_revisions%ROWTYPE;
+  updated_revision i1q.item_revisions;
+BEGIN
+  SELECT * INTO revision
+    FROM i1q.item_revisions
+   WHERE id = target_revision_id
+   FOR UPDATE;
+
+  IF revision.id IS NULL
+     OR revision.workflow_status <> 'draft'
+     OR revision.author_actor_id <> i1q.current_actor_id()
+     OR NOT i1q.has_active_role('author') THEN
+    RAISE EXCEPTION 'draft_revision_edit_denied'
+      USING ERRCODE = '42501';
+  END IF;
+  IF pg_catalog.jsonb_typeof(draft_patch) <> 'object'
+     OR pg_catalog.jsonb_typeof(answer_patch) <> 'object'
+     OR target_content_hash !~ '^[0-9a-f]{64}$'
+     OR EXISTS (
+       SELECT 1 FROM pg_catalog.jsonb_object_keys(draft_patch) key
+        WHERE key <> ALL(ARRAY[
+          'prompt', 'choice_a', 'choice_b', 'choice_c', 'choice_d',
+          'classification', 'active_flags', 'open_conflict_id'
+        ]::text[])
+     )
+     OR EXISTS (
+       SELECT 1 FROM pg_catalog.jsonb_object_keys(answer_patch) key
+        WHERE key <> ALL(ARRAY[
+          'answer', 'explanation', 'correct_answer_rationale', 'distractor_rationales',
+          'teaching_point', 'reference_labels', 'drj_voice_note'
+        ]::text[])
+     ) THEN
+    RAISE EXCEPTION 'draft_revision_patch_invalid'
+      USING ERRCODE = '22023';
+  END IF;
+  IF answer_patch <> '{}'::jsonb
+     AND (target_answer_content_hash IS NULL OR target_answer_content_hash !~ '^[0-9a-f]{64}$') THEN
+    RAISE EXCEPTION 'draft_answer_hash_required'
+      USING ERRCODE = '22023';
+  END IF;
+
+  UPDATE i1q.item_revisions
+     SET prompt = CASE WHEN draft_patch ? 'prompt' THEN draft_patch ->> 'prompt' ELSE prompt END,
+         choice_a = CASE WHEN draft_patch ? 'choice_a' THEN draft_patch ->> 'choice_a' ELSE choice_a END,
+         choice_b = CASE WHEN draft_patch ? 'choice_b' THEN draft_patch ->> 'choice_b' ELSE choice_b END,
+         choice_c = CASE WHEN draft_patch ? 'choice_c' THEN draft_patch ->> 'choice_c' ELSE choice_c END,
+         choice_d = CASE WHEN draft_patch ? 'choice_d' THEN draft_patch ->> 'choice_d' ELSE choice_d END,
+         classification = CASE WHEN draft_patch ? 'classification' THEN draft_patch -> 'classification' ELSE classification END,
+         active_flags = CASE
+           WHEN draft_patch ? 'active_flags'
+           THEN ARRAY(SELECT pg_catalog.jsonb_array_elements_text(draft_patch -> 'active_flags'))
+           ELSE active_flags
+         END,
+         open_conflict_id = CASE
+           WHEN draft_patch ? 'open_conflict_id' THEN NULLIF(draft_patch ->> 'open_conflict_id', '')
+           ELSE open_conflict_id
+         END,
+         content_hash = target_content_hash
+   WHERE id = revision.id
+  RETURNING * INTO updated_revision;
+
+  IF answer_patch <> '{}'::jsonb THEN
+    UPDATE i1q.item_revision_answers
+       SET answer = CASE WHEN answer_patch ? 'answer' THEN (answer_patch ->> 'answer')::char(1) ELSE answer END,
+           explanation = CASE WHEN answer_patch ? 'explanation' THEN answer_patch ->> 'explanation' ELSE explanation END,
+           correct_answer_rationale = CASE WHEN answer_patch ? 'correct_answer_rationale' THEN answer_patch ->> 'correct_answer_rationale' ELSE correct_answer_rationale END,
+           distractor_rationales = CASE WHEN answer_patch ? 'distractor_rationales' THEN answer_patch -> 'distractor_rationales' ELSE distractor_rationales END,
+           teaching_point = CASE WHEN answer_patch ? 'teaching_point' THEN answer_patch ->> 'teaching_point' ELSE teaching_point END,
+           reference_labels = CASE WHEN answer_patch ? 'reference_labels' THEN answer_patch -> 'reference_labels' ELSE reference_labels END,
+           drj_voice_note = CASE WHEN answer_patch ? 'drj_voice_note' THEN NULLIF(answer_patch ->> 'drj_voice_note', '') ELSE drj_voice_note END,
+           answer_content_hash = target_answer_content_hash
+     WHERE item_revision_id = revision.id;
+    IF NOT FOUND THEN
+      RAISE EXCEPTION 'draft_answer_record_missing'
+        USING ERRCODE = '55000';
+    END IF;
+  END IF;
+
+  PERFORM i1q.append_audit_event(
+    'item_revision_draft_edited',
+    'item_revision',
+    revision.id,
+    pg_catalog.jsonb_build_object(
+      'previous_content_hash', revision.content_hash,
+      'content_hash', updated_revision.content_hash,
+      'answer_changed', answer_patch <> '{}'::jsonb
+    )
+  );
+  RETURN updated_revision;
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.submit_item_revision_candidate(target_revision_id text)
+RETURNS i1q.item_revisions
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  revision i1q.item_revisions%ROWTYPE;
+BEGIN
+  SELECT * INTO revision
+    FROM i1q.item_revisions
+   WHERE id = target_revision_id
+   FOR UPDATE;
+
+  IF revision.id IS NULL
+     OR revision.workflow_status <> 'draft'
+     OR revision.author_actor_id <> i1q.current_actor_id()
+     OR NOT i1q.has_active_role('author') THEN
+    RAISE EXCEPTION 'revision_submission_denied'
+      USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM i1q.item_revision_answers answer WHERE answer.item_revision_id = revision.id)
+     OR NOT EXISTS (SELECT 1 FROM i1q.item_revision_sources source WHERE source.item_revision_id = revision.id)
+     OR NOT EXISTS (SELECT 1 FROM i1q.item_revision_claims claim WHERE claim.item_revision_id = revision.id) THEN
+    RAISE EXCEPTION 'revision_submission_incomplete'
+      USING ERRCODE = '55000';
+  END IF;
+
+  UPDATE i1q.item_revisions
+     SET workflow_status = 'candidate'
+   WHERE id = revision.id
+  RETURNING * INTO revision;
+
+  PERFORM i1q.append_audit_event(
+    'item_revision_submitted_candidate',
+    'item_revision',
+    revision.id,
+    pg_catalog.jsonb_build_object('content_hash', revision.content_hash)
+  );
+  RETURN revision;
+END
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.set_item_revision_terminal_state(
+  target_revision_id text,
+  target_state text,
+  reason_code text
+)
+RETURNS i1q.item_revisions
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  revision i1q.item_revisions%ROWTYPE;
+  prior_state text;
+BEGIN
+  SELECT * INTO revision
+    FROM i1q.item_revisions
+   WHERE id = target_revision_id
+   FOR UPDATE;
+  prior_state := i1q.revision_workflow_state(target_revision_id);
+
+  IF revision.id IS NULL
+     OR target_state NOT IN ('superseded', 'retired')
+     OR reason_code IS NULL
+     OR pg_catalog.btrim(reason_code) = ''
+     OR NOT i1q.has_any_active_role(ARRAY['release_manager', 'incident_owner', 'system']::text[]) THEN
+    RAISE EXCEPTION 'revision_terminal_transition_denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  UPDATE i1q.item_revisions
+     SET workflow_status = target_state
+   WHERE id = revision.id
+  RETURNING * INTO revision;
+
+  PERFORM i1q.append_audit_event(
+    'item_revision_' || target_state,
+    'item_revision',
+    revision.id,
+    pg_catalog.jsonb_build_object(
+      'from_status', prior_state,
+      'to_status', target_state,
+      'reason_code', reason_code,
+      'content_hash', revision.content_hash
+    )
+  );
+  RETURN revision;
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION i1q.read_item_revision_answers(
   target_revision_id text,
   access_purpose text
@@ -1308,13 +1712,25 @@ BEGIN
   ) OR EXISTS (
     SELECT 1
       FROM i1q.review_assignments assignment
+      JOIN i1q.reviewers reviewer
+        ON reviewer.id = assignment.reviewer_id
+       AND reviewer.actor_id = assignment.reviewer_actor_id
+       AND reviewer.active
      WHERE assignment.item_revision_id = revision.id
        AND assignment.exact_revision_hash = revision.content_hash
        AND assignment.reviewer_actor_id = i1q.current_actor_id()
-       AND assignment.state IN ('accepted', 'completed')
+       AND assignment.state = 'accepted'
+       AND i1q.has_active_role(assignment.required_role)
        AND (
          (assignment.review_type = 'editorial' AND access_purpose = 'editorial_review')
-         OR (assignment.review_type = 'medical' AND access_purpose = 'medical_review')
+         OR (
+           assignment.review_type = 'medical'
+           AND access_purpose = 'medical_review'
+           AND reviewer.credential_class IN ('md', 'do')
+           AND reviewer.credential_status = 'verified'
+           AND reviewer.credential_verification_id = assignment.credential_verification_id
+           AND (reviewer.credential_expires_at IS NULL OR reviewer.credential_expires_at > pg_catalog.clock_timestamp())
+         )
        )
   ) OR (
     access_purpose = 'release_validation'
@@ -1403,7 +1819,8 @@ CREATE OR REPLACE FUNCTION i1q.create_review_assignment(
   target_reviewer_id text,
   target_review_type text,
   target_priority text,
-  target_due_at timestamptz DEFAULT NULL
+  target_due_at timestamptz DEFAULT NULL,
+  target_required_specialty text DEFAULT NULL
 )
 RETURNS i1q.review_assignments
 LANGUAGE plpgsql
@@ -1440,6 +1857,16 @@ BEGIN
     RAISE EXCEPTION 'review_assignment_target_invalid'
       USING ERRCODE = '22023';
   END IF;
+  IF target_review_type = 'editorial'
+     AND i1q.revision_workflow_state(revision.id) NOT IN ('candidate', 'editorial_review') THEN
+    RAISE EXCEPTION 'editorial_assignment_state_invalid'
+      USING ERRCODE = '55000';
+  END IF;
+  IF target_review_type = 'medical'
+     AND i1q.revision_workflow_state(revision.id) <> 'medical_review' THEN
+    RAISE EXCEPTION 'medical_assignment_state_invalid'
+      USING ERRCODE = '55000';
+  END IF;
   IF revision.author_actor_id = reviewer.actor_id
      OR reviewer.delegated_by_actor_id = revision.author_actor_id
      OR revision.author_actor_id = ANY(reviewer.conflict_actor_ids) THEN
@@ -1448,6 +1875,11 @@ BEGIN
   END IF;
   IF NOT required_role = ANY(reviewer.roles) THEN
     RAISE EXCEPTION 'reviewer_role_mismatch'
+      USING ERRCODE = '42501';
+  END IF;
+  IF target_required_specialty IS NOT NULL
+     AND NOT (target_required_specialty = ANY(reviewer.specialties)) THEN
+    RAISE EXCEPTION 'reviewer_specialty_mismatch'
       USING ERRCODE = '42501';
   END IF;
   IF target_review_type = 'medical' AND NOT (
@@ -1459,7 +1891,6 @@ BEGIN
     RAISE EXCEPTION 'physician_credential_not_verified'
       USING ERRCODE = '42501';
   END IF;
-
   INSERT INTO i1q.review_assignments (
     id,
     item_revision_id,
@@ -1467,6 +1898,7 @@ BEGIN
     reviewer_actor_id,
     review_type,
     required_role,
+    required_specialty,
     priority,
     exact_revision_hash,
     credential_status,
@@ -1481,6 +1913,7 @@ BEGIN
     reviewer.actor_id,
     target_review_type,
     required_role,
+    target_required_specialty,
     target_priority,
     revision.content_hash,
     reviewer.credential_status,
@@ -1513,18 +1946,39 @@ SET search_path = pg_catalog, i1q
 AS $function$
 DECLARE
   assignment i1q.review_assignments%ROWTYPE;
+  reviewer i1q.reviewers%ROWTYPE;
 BEGIN
   SELECT * INTO assignment
     FROM i1q.review_assignments
    WHERE id = target_assignment_id
    FOR UPDATE;
+  SELECT * INTO reviewer
+    FROM i1q.reviewers
+   WHERE id = assignment.reviewer_id
+     AND actor_id = assignment.reviewer_actor_id
+     AND active;
 
   IF assignment.id IS NULL
+     OR reviewer.id IS NULL
      OR assignment.reviewer_actor_id <> i1q.current_actor_id()
      OR assignment.state <> 'open'
-     OR NOT i1q.has_active_role(assignment.required_role) THEN
+     OR NOT i1q.has_active_role(assignment.required_role)
+     OR (
+       assignment.review_type = 'medical'
+       AND NOT (
+         reviewer.credential_class IN ('md', 'do')
+         AND reviewer.credential_status = 'verified'
+         AND reviewer.credential_verification_id = assignment.credential_verification_id
+         AND (reviewer.credential_expires_at IS NULL OR reviewer.credential_expires_at > pg_catalog.clock_timestamp())
+       )
+     ) THEN
     RAISE EXCEPTION 'review_assignment_accept_denied'
       USING ERRCODE = '42501';
+  END IF;
+  IF (assignment.review_type = 'editorial' AND i1q.revision_workflow_state(assignment.item_revision_id) NOT IN ('candidate', 'editorial_review'))
+     OR (assignment.review_type = 'medical' AND i1q.revision_workflow_state(assignment.item_revision_id) <> 'medical_review') THEN
+    RAISE EXCEPTION 'review_assignment_state_stale'
+      USING ERRCODE = '55000';
   END IF;
 
   UPDATE i1q.review_assignments
@@ -1587,7 +2041,7 @@ BEGIN
 
   current_status := i1q.revision_workflow_state(revision.id);
   IF assignment.review_type = 'editorial' THEN
-    IF current_status NOT IN ('draft', 'candidate', 'editorial_review') THEN
+    IF current_status <> 'editorial_review' THEN
       RAISE EXCEPTION 'editorial_review_state_invalid'
         USING ERRCODE = '55000';
     END IF;
@@ -1860,6 +2314,7 @@ BEGIN
          AND (
            rights.rights_status <> 'cleared_for'
            OR NOT (rights.allowed_uses @> ARRAY['question_derivation']::text[])
+           OR (rights.expires_at IS NOT NULL AND rights.expires_at <= pg_catalog.clock_timestamp())
            OR (source.source_type = 'DRJ_TRANSCRIPT' AND privacy.status NOT IN ('pass', 'pass_with_redactions'))
          )
     ) THEN
@@ -1904,7 +2359,7 @@ BEGIN
     'previous_manifest_hash', prior_manifest_hash,
     'release_membership', normalized_memberships
   );
-  calculated_manifest_hash := i1q.sha256_hex(manifest_payload::text);
+  calculated_manifest_hash := i1q.sha256_hex(i1q.canonical_json(manifest_payload));
 
   INSERT INTO i1q.release_snapshots (
     id,
@@ -1968,6 +2423,68 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION i1q.length_prefixed(value text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+  SELECT pg_catalog.octet_length(value)::text || ':' || value
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.release_validation_evidence_hash(target_release_id text)
+RETURNS text
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  release i1q.release_snapshots%ROWTYPE;
+  artifact_preimage text;
+  check_preimage text := '';
+  check_id text;
+  preimage text;
+BEGIN
+  SELECT * INTO release
+    FROM i1q.release_snapshots
+   WHERE id = target_release_id;
+  IF release.id IS NULL THEN
+    RAISE EXCEPTION 'release_validation_release_missing'
+      USING ERRCODE = '22023';
+  END IF;
+
+  SELECT pg_catalog.string_agg(
+           '|' || i1q.length_prefixed(artifact.channel)
+           || '|' || i1q.length_prefixed(artifact.phase)
+           || '|' || i1q.length_prefixed(artifact.data_class)
+           || '|' || i1q.length_prefixed(artifact.artifact_hash)
+           || '|' || i1q.length_prefixed(artifact.record_count::text),
+           '' ORDER BY artifact.channel
+         )
+    INTO artifact_preimage
+    FROM i1q.channel_artifacts artifact
+   WHERE artifact.release_id = release.id;
+  IF artifact_preimage IS NULL THEN
+    RAISE EXCEPTION 'release_validation_artifacts_missing'
+      USING ERRCODE = '55000';
+  END IF;
+
+  FOREACH check_id IN ARRAY ARRAY['LT-1', 'LT-2', 'LT-3', 'LT-4', 'LT-5', 'LT-6']::text[] LOOP
+    check_preimage := check_preimage
+      || '|' || i1q.length_prefixed(check_id)
+      || '|' || i1q.length_prefixed('pass');
+  END LOOP;
+  preimage := i1q.length_prefixed('i1q.release-validation.v1')
+    || '|' || i1q.length_prefixed(release.id)
+    || '|' || i1q.length_prefixed(release.manifest_hash)
+    || artifact_preimage
+    || check_preimage;
+  RETURN i1q.sha256_hex(preimage);
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION i1q.record_export_validation(
   validation_id text,
   target_release_id text,
@@ -1982,13 +2499,44 @@ AS $function$
 DECLARE
   release i1q.release_snapshots%ROWTYPE;
   result i1q.export_validation_results;
+  required_check_ids constant text[] := ARRAY['LT-1', 'LT-2', 'LT-3', 'LT-4', 'LT-5', 'LT-6']::text[];
+  normalized_check_ids text[];
+  expected_evidence_hash text;
+  artifact_results jsonb;
 BEGIN
   SELECT * INTO release FROM i1q.release_snapshots WHERE id = target_release_id;
   IF NOT i1q.has_any_active_role(ARRAY['release_manager', 'system']::text[])
      OR release.id IS NULL
      OR release.assembled_by_actor_id = i1q.current_actor_id()
      OR validation_evidence_hash !~ '^[0-9a-f]{64}$'
-     OR pg_catalog.cardinality(passed_check_ids) = 0 THEN
+     OR passed_check_ids IS NULL THEN
+    RAISE EXCEPTION 'release_validation_denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  SELECT pg_catalog.array_agg(DISTINCT check_id ORDER BY check_id)
+    INTO normalized_check_ids
+    FROM pg_catalog.unnest(passed_check_ids) check_id;
+  expected_evidence_hash := i1q.release_validation_evidence_hash(target_release_id);
+  SELECT pg_catalog.jsonb_agg(
+           pg_catalog.jsonb_build_object(
+             'artifact_id', artifact.id,
+             'channel', artifact.channel,
+             'phase', artifact.phase,
+             'data_class', artifact.data_class,
+             'artifact_hash', artifact.artifact_hash,
+             'record_count', artifact.record_count,
+             'check_ids', pg_catalog.to_jsonb(required_check_ids),
+             'status', 'pass'
+           ) ORDER BY artifact.channel
+         )
+    INTO artifact_results
+    FROM i1q.channel_artifacts artifact
+   WHERE artifact.release_id = target_release_id;
+  IF pg_catalog.cardinality(passed_check_ids) <> pg_catalog.cardinality(required_check_ids)
+     OR normalized_check_ids <> required_check_ids
+     OR validation_evidence_hash <> expected_evidence_hash
+     OR artifact_results IS NULL THEN
     RAISE EXCEPTION 'release_validation_denied'
       USING ERRCODE = '42501';
   END IF;
@@ -1999,6 +2547,7 @@ BEGIN
     manifest_hash,
     evidence_hash,
     check_ids,
+    artifact_results,
     status,
     validator_actor_id
   ) VALUES (
@@ -2006,7 +2555,8 @@ BEGIN
     release.id,
     release.manifest_hash,
     validation_evidence_hash,
-    passed_check_ids,
+    required_check_ids,
+    artifact_results,
     'pass',
     i1q.current_actor_id()
   ) RETURNING * INTO result;
@@ -2068,7 +2618,15 @@ BEGIN
   SELECT * INTO release FROM i1q.release_snapshots WHERE id = target_release_id;
   current_state := i1q.release_current_state(target_release_id);
 
-  IF release.id IS NULL OR pg_catalog.jsonb_typeof(promotion_evidence_hashes) <> 'array' THEN
+  IF release.id IS NULL
+     OR pg_catalog.jsonb_typeof(promotion_evidence_hashes) <> 'array'
+     OR pg_catalog.jsonb_array_length(promotion_evidence_hashes) = 0
+     OR EXISTS (
+       SELECT 1
+         FROM pg_catalog.jsonb_array_elements(promotion_evidence_hashes) evidence_hash
+        WHERE pg_catalog.jsonb_typeof(evidence_hash) <> 'string'
+           OR evidence_hash #>> '{}' !~ '^[0-9a-f]{64}$'
+     ) THEN
     RAISE EXCEPTION 'release_promotion_invalid'
       USING ERRCODE = '22023';
   END IF;
@@ -2094,13 +2652,30 @@ BEGIN
     IF target_authority_type <> 'medical_governance_attestation'
        OR current_state <> 'validated'
        OR NOT i1q.holds_governance_slot('medical_governance_lead')
-       OR NOT i1q.medical_governance_is_credentialed() THEN
+       OR NOT i1q.medical_governance_is_credentialed()
+       OR release.assembled_by_actor_id = i1q.current_actor_id()
+       OR NOT EXISTS (
+         SELECT 1
+           FROM i1q.export_validation_results validation
+          WHERE validation.release_id = release.id
+            AND validation.manifest_hash = release.manifest_hash
+            AND validation.status = 'pass'
+            AND validation.validator_actor_id <> i1q.current_actor_id()
+            AND validation.validator_actor_id <> release.assembled_by_actor_id
+       ) THEN
       RAISE EXCEPTION 'medical_release_attestation_denied'
         USING ERRCODE = '42501';
     END IF;
   ELSIF target_state = 'published' THEN
     IF target_authority_type <> 'brian_publication_ratification'
        OR current_state <> 'ratified'
+       OR release.assembled_by_actor_id = i1q.current_actor_id()
+       OR EXISTS (
+         SELECT 1
+           FROM i1q.release_promotion_records prior
+          WHERE prior.release_id = release.id
+            AND prior.actor_id = i1q.current_actor_id()
+       )
        OR NOT EXISTS (
          SELECT 1
            FROM i1q.publication_authorities authority
@@ -2108,10 +2683,10 @@ BEGIN
             AND authority.actor_id = i1q.current_actor_id()
             AND authority.assignment_evidence_hash IS NOT NULL
        )
-       OR NOT EXISTS (
-         SELECT 1
+       OR 2 <> (
+         SELECT pg_catalog.count(*)
            FROM i1q.feature_flags flag
-          WHERE flag.key = 'student_release_enabled'
+          WHERE flag.key IN ('student_content_enabled', 'student_release_enabled')
             AND flag.enabled
        ) THEN
       RAISE EXCEPTION 'student_publication_not_authorized'
@@ -2197,6 +2772,39 @@ BEGIN
 END
 $function$;
 
+CREATE OR REPLACE FUNCTION i1q.jsonb_field_paths(document jsonb)
+RETURNS TABLE(field_path text)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, i1q
+AS $function$
+  WITH RECURSIVE walk(field_path, value) AS (
+    SELECT ''::text, document
+    UNION ALL
+    SELECT CASE
+             WHEN child.key IS NULL THEN walk.field_path
+             WHEN walk.field_path = '' THEN child.key
+             ELSE walk.field_path || '.' || child.key
+           END,
+           child.value
+      FROM walk
+      CROSS JOIN LATERAL (
+        SELECT object_entry.key, object_entry.value
+          FROM pg_catalog.jsonb_each(
+            CASE WHEN pg_catalog.jsonb_typeof(walk.value) = 'object' THEN walk.value ELSE '{}'::jsonb END
+          ) object_entry
+        UNION ALL
+        SELECT NULL::text, array_entry.value
+          FROM pg_catalog.jsonb_array_elements(
+            CASE WHEN pg_catalog.jsonb_typeof(walk.value) = 'array' THEN walk.value ELSE '[]'::jsonb END
+          ) array_entry(value)
+      ) child
+  )
+  SELECT DISTINCT walk.field_path
+    FROM walk
+   WHERE walk.field_path <> ''
+$function$;
+
 CREATE OR REPLACE FUNCTION i1q.create_channel_artifact(
   artifact_id text,
   target_release_id text,
@@ -2215,15 +2823,78 @@ AS $function$
 DECLARE
   created_artifact i1q.channel_artifacts;
   calculated_hash text;
+  policy i1q.channel_security_policies%ROWTYPE;
+  allowed_classes text[];
+  contract_valid boolean := false;
 BEGIN
+  SELECT * INTO policy
+    FROM i1q.channel_security_policies candidate
+   WHERE candidate.id = policy_id
+     AND candidate.status = 'active';
+  contract_valid := (
+    (target_channel = 'stat_dataset_questions' AND target_phase = 'server_only' AND target_data_class = 'server_only')
+    OR (target_channel = 'stat_pre_answer' AND target_phase = 'pre_answer' AND target_data_class = 'A')
+    OR (target_channel = 'stat_post_answer_debrief' AND target_phase = 'post_answer' AND target_data_class = 'C')
+    OR (target_channel = 'stat_indexes' AND target_phase = 'pre_answer' AND target_data_class = 'A')
+    OR (target_channel = 'stat_lookup' AND target_phase = 'pre_answer' AND target_data_class = 'A')
+    OR (target_channel = 'question_metadata' AND target_phase = 'server_only' AND target_data_class = 'D')
+    OR (target_channel = 'drills' AND target_phase = 'internal' AND target_data_class = 'internal')
+    OR (target_phase = 'contract_only' AND target_data_class = 'contract_only' AND artifact_payload = '[]'::jsonb)
+  );
+  allowed_classes := CASE target_data_class
+    WHEN 'A' THEN ARRAY['A']::text[]
+    WHEN 'C' THEN ARRAY['A', 'C']::text[]
+    WHEN 'D' THEN ARRAY['A', 'B', 'C', 'D']::text[]
+    WHEN 'server_only' THEN ARRAY['A', 'B', 'C']::text[]
+    WHEN 'internal' THEN ARRAY['A', 'B', 'C', 'D']::text[]
+    WHEN 'contract_only' THEN ARRAY[]::text[]
+    ELSE NULL
+  END;
+
   IF NOT i1q.has_any_active_role(ARRAY['release_manager', 'system']::text[])
      OR NOT EXISTS (SELECT 1 FROM i1q.release_snapshots release WHERE release.id = target_release_id)
-     OR NOT EXISTS (SELECT 1 FROM i1q.channel_security_policies policy WHERE policy.id = policy_id AND policy.status = 'active') THEN
+     OR policy.id IS NULL
+     OR policy.channel <> target_channel
+     OR NOT contract_valid
+     OR allowed_classes IS NULL
+     OR target_media_type IS NULL
+     OR pg_catalog.btrim(target_media_type) = ''
+     OR artifact_payload IS NULL
+     OR artifact_payload = 'null'::jsonb
+     OR pg_catalog.jsonb_typeof(policy.field_rules) <> 'array' THEN
     RAISE EXCEPTION 'channel_artifact_create_denied'
       USING ERRCODE = '42501';
   END IF;
 
-  calculated_hash := i1q.sha256_hex(artifact_payload::text);
+  IF target_phase <> 'contract_only' AND EXISTS (
+    SELECT 1
+      FROM i1q.jsonb_field_paths(artifact_payload) path
+     WHERE 1 <> (
+       SELECT pg_catalog.count(*)
+         FROM pg_catalog.jsonb_array_elements(policy.field_rules) rule
+        WHERE rule ->> 'field_path' = path.field_path
+          AND rule ->> 'class_name' = ANY(allowed_classes)
+          AND pg_catalog.jsonb_typeof(rule -> 'channels') = 'array'
+          AND rule -> 'channels' @> pg_catalog.jsonb_build_array(target_channel)
+          AND pg_catalog.jsonb_typeof(rule -> 'phases') = 'array'
+          AND rule -> 'phases' @> pg_catalog.jsonb_build_array(target_phase)
+     )
+  ) THEN
+    RAISE EXCEPTION 'channel_artifact_policy_field_denied'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF target_phase = 'pre_answer' AND EXISTS (
+    SELECT 1
+      FROM i1q.jsonb_field_paths(artifact_payload) path
+     WHERE pg_catalog.regexp_replace(pg_catalog.lower(path.field_path), '[^a-z0-9.]', '', 'g')
+       ~ '(^|\.)(answer|answers|answerkey|answermap|correct|correctness|correctanswer|correctchoice|correctkey|correctoption|explanation|explanations|iscorrect|rationale|rationales|solution|solutionkey|solutions|whytempting|whywrong|itemid|itemrevid|revisionnumber|vgid|conceptid|misconceptionid|reviewerid|claimid|psychometric|incident|sourceid|extraction|rights|redaction)(\.|$)'
+  ) THEN
+    RAISE EXCEPTION 'channel_artifact_pre_answer_leak'
+      USING ERRCODE = '42501';
+  END IF;
+
+  calculated_hash := i1q.sha256_hex(i1q.canonical_json(artifact_payload));
   INSERT INTO i1q.channel_artifacts (
     id,
     release_id,
@@ -2317,6 +2988,25 @@ AS $function$
 DECLARE
   changed_count integer;
 BEGIN
+  IF i1q.current_actor_id() IS NOT NULL
+     OR compensation_id IS NULL
+     OR pg_catalog.btrim(compensation_id) = ''
+     OR compensation_reason IS NULL
+     OR pg_catalog.btrim(compensation_reason) = '' THEN
+    RAISE EXCEPTION 'compensation_operator_context_required'
+      USING ERRCODE = '42501';
+  END IF;
+  PERFORM pg_catalog.pg_advisory_xact_lock(
+    pg_catalog.hashtextextended('i1q:disable:' || compensation_id, 0)
+  );
+  IF EXISTS (
+    SELECT 1
+      FROM i1q.compensation_records record
+     WHERE record.compensation_id = $1
+  ) THEN
+    RETURN true;
+  END IF;
+
   UPDATE i1q.feature_flags
      SET enabled = false,
          changed_by_actor_id = i1q.current_actor_id(),
@@ -2325,25 +3015,29 @@ BEGIN
    WHERE enabled;
   GET DIAGNOSTICS changed_count = ROW_COUNT;
 
-  IF NOT EXISTS (
-    SELECT 1
-      FROM i1q.audit_events event
-     WHERE event.action = 'i1q_behavior_compensated'
-       AND event.entity_type = 'migration_compensation'
-       AND event.entity_id = compensation_id
-  ) THEN
-    PERFORM i1q.append_audit_event(
-      'i1q_behavior_compensated',
-      'migration_compensation',
-      compensation_id,
-      pg_catalog.jsonb_build_object(
-        'reason', compensation_reason,
-        'flags_disabled', changed_count,
-        'data_preserved', true,
-        'history_preserved', true
-      )
-    );
-  END IF;
+  INSERT INTO i1q.compensation_records (
+    compensation_id,
+    reason,
+    flags_disabled,
+    actor_id
+  ) VALUES (
+    compensation_id,
+    compensation_reason,
+    changed_count,
+    i1q.current_actor_id()
+  );
+
+  PERFORM i1q.append_audit_event(
+    'i1q_behavior_compensated',
+    'migration_compensation',
+    compensation_id,
+    pg_catalog.jsonb_build_object(
+      'reason', compensation_reason,
+      'flags_disabled', changed_count,
+      'data_preserved', true,
+      'history_preserved', true
+    )
+  );
   RETURN true;
 END
 $function$;
@@ -2368,7 +3062,7 @@ DECLARE
     'psychometric_snapshots', 'normalized_transcript_segments',
     'extraction_candidates', 'candidate_quality_flags', 'batch_jobs',
     'job_checkpoints', 'import_maps', 'feature_flags', 'audit_chain_heads',
-    'audit_events', 'api_idempotency_keys'
+    'audit_events', 'api_idempotency_keys', 'compensation_records'
   ];
 BEGIN
   FOREACH table_name IN ARRAY all_tables LOOP
@@ -2381,14 +3075,15 @@ $rls_enable$;
 DO $read_policies$
 DECLARE
   table_name text;
-  metadata_tables text[] := ARRAY[
+  reference_tables text[] := ARRAY[
     'schema_versions', 'taxonomy_versions', 'blueprint_versions',
     'misconception_vocabulary_versions', 'misconception_entries',
     'channel_security_policies', 'concepts', 'variant_groups', 'items',
-    'evidence_claims', 'model_prompt_versions', 'release_snapshots',
-    'export_question_identities', 'release_memberships', 'export_validation_results',
-    'release_promotion_records', 'channel_artifacts', 'psychometric_snapshots',
-    'incident_records', 'import_maps'
+    'model_prompt_versions'
+  ];
+  release_tables text[] := ARRAY[
+    'release_snapshots', 'export_question_identities', 'release_memberships',
+    'export_validation_results', 'release_promotion_records', 'channel_artifacts'
   ];
   revision_link_tables text[] := ARRAY[
     'item_revision_sources', 'item_revision_claims',
@@ -2401,7 +3096,7 @@ BEGIN
       USING (actor_id = i1q.current_actor_id());
   END IF;
 
-  FOREACH table_name IN ARRAY metadata_tables LOOP
+  FOREACH table_name IN ARRAY reference_tables LOOP
     IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'i1q' AND tablename = table_name AND policyname = table_name || '_operational_read') THEN
       EXECUTE pg_catalog.format(
         'CREATE POLICY %I ON i1q.%I FOR SELECT USING (i1q.has_any_active_role(ARRAY[''platform_admin'', ''content_operator'', ''author'', ''editorial_reviewer'', ''physician_reviewer'', ''release_manager'', ''privacy_officer'', ''incident_owner'', ''system'']::text[]))',
@@ -2410,6 +3105,47 @@ BEGIN
       );
     END IF;
   END LOOP;
+
+  FOREACH table_name IN ARRAY release_tables LOOP
+    IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'i1q' AND tablename = table_name AND policyname = table_name || '_release_read') THEN
+      EXECUTE pg_catalog.format(
+        'CREATE POLICY %I ON i1q.%I FOR SELECT USING (i1q.has_any_active_role(ARRAY[''platform_admin'', ''content_operator'', ''release_manager'', ''system'']::text[]))',
+        table_name || '_release_read',
+        table_name
+      );
+    END IF;
+  END LOOP;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'i1q' AND tablename = 'evidence_claims' AND policyname = 'evidence_claims_scoped_read') THEN
+    CREATE POLICY evidence_claims_scoped_read
+      ON i1q.evidence_claims FOR SELECT
+      USING (i1q.can_read_claim(id));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'i1q' AND tablename = 'incident_records' AND policyname = 'incident_records_owner_read') THEN
+    CREATE POLICY incident_records_owner_read
+      ON i1q.incident_records FOR SELECT
+      USING (i1q.has_any_active_role(ARRAY['incident_owner', 'privacy_officer', 'release_manager', 'system']::text[]));
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'i1q' AND tablename = 'psychometric_snapshots' AND policyname = 'psychometric_snapshots_aggregate_read') THEN
+    CREATE POLICY psychometric_snapshots_aggregate_read
+      ON i1q.psychometric_snapshots FOR SELECT
+      USING (
+        report_only
+        AND privacy_floor_applied
+        AND (
+          i1q.has_any_active_role(ARRAY['read_only', 'release_manager', 'system']::text[])
+          OR i1q.holds_governance_slot('assessment_science_owner')
+        )
+      );
+  END IF;
+
+  IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'i1q' AND tablename = 'import_maps' AND policyname = 'import_maps_operator_read') THEN
+    CREATE POLICY import_maps_operator_read
+      ON i1q.import_maps FOR SELECT
+      USING (i1q.has_any_active_role(ARRAY['content_operator', 'release_manager', 'system']::text[]));
+  END IF;
 
   IF NOT EXISTS (SELECT 1 FROM pg_catalog.pg_policies WHERE schemaname = 'i1q' AND tablename = 'item_revisions' AND policyname = 'item_revisions_scoped_read') THEN
     CREATE POLICY item_revisions_scoped_read
@@ -2520,11 +3256,13 @@ COMMENT ON SCHEMA i1q IS
 COMMENT ON TABLE i1q.actor_role_memberships IS
   'App-owned role membership derived from auth.uid(). No caller-set role string or role GUC participates in authorization.';
 COMMENT ON TABLE i1q.item_revisions IS
-  'Immutable answer-free Item Revision content. Answers and post-answer teaching content are stored separately.';
+  'Answer-free Item Revision content. Drafts use guarded author edits; candidate and later content is frozen. Workflow and terminal state changes are audited.';
 COMMENT ON TABLE i1q.item_revision_answers IS
   'Answer-bearing and post-answer content. No direct read policy exists; access is purpose-scoped and audit-appended.';
 COMMENT ON TABLE i1q.restricted_source_references IS
   'Raw or restricted object references only. No direct read policy exists.';
+COMMENT ON TABLE i1q.compensation_records IS
+  'Unique forward compensation claims. One row and one audit event are permitted per compensation ID.';
 COMMENT ON TABLE i1q.release_memberships IS
   'Exact immutable release tuple: release, item, itemrev, revision number, content hash, dataset version, and stable projected question ID. The question_id column is the adapter projected_question_id.';
 COMMENT ON FUNCTION i1q.has_active_role(text) IS

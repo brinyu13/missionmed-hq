@@ -316,11 +316,6 @@ export function createQuestionPlatformServer({
         json(response, 200, platform.acceptReviewAssignment(acceptAssignmentMatch[1], actor));
         return;
       }
-      const assignmentAcceptMatch = url.pathname.match(/^\/api\/v1\/review-assignments\/([^/]+)\/accept$/u);
-      if (request.method === 'POST' && assignmentAcceptMatch) {
-        json(response, 200, platform.acceptReviewAssignment(assignmentAcceptMatch[1], actor));
-        return;
-      }
       if (request.method === 'POST' && url.pathname === '/api/v1/review-events') {
         json(response, 201, platform.submitReviewEvent(await readJson(request), actor));
         return;

@@ -17,7 +17,7 @@ const actors = Object.freeze({
   reader: Object.freeze({ id: 'actor_reader_security', roles: ['read_only'] }),
   assembler: Object.freeze({ id: 'actor_assembler_security', roles: ['release_manager'] }),
   validator: Object.freeze({ id: 'actor_validator_security', roles: ['release_manager'] }),
-  ratifier: Object.freeze({ id: 'actor_ratifier_security', roles: ['release_manager'] }),
+  ratifier: Object.freeze({ id: 'actor_ratifier_security', roles: ['physician_reviewer'] }),
 });
 
 async function withServer(options, operation) {
@@ -340,7 +340,24 @@ test('self-asserted medical credentials stay unverified without the trusted veri
 
 test('release validation and ratification require exact evidence and independent actors', () => {
   const repository = new MemoryRepository();
-  const platform = new QuestionPlatform({ repository });
+  const platform = new QuestionPlatform({
+    repository,
+    credentialVerifier: ({ subject_actor_id: subjectActorId, claimed_credential: credential }) => ({
+      verified: true,
+      subject_actor_id: subjectActorId,
+      type: credential.type,
+      verification_id: `synthetic-security-verification-${subjectActorId}`,
+      verified_at: '2026-07-15T00:00:00.000Z',
+      expires_at: '2099-01-01T00:00:00.000Z',
+    }),
+  });
+  const governanceLead = platform.registerReviewer({
+    actor_id: actors.ratifier.id,
+    display_name: 'Synthetic Medical Governance Lead',
+    roles: ['physician_reviewer'],
+    credential: { type: 'md', status: 'verified', expires_at: '2099-01-01T00:00:00.000Z' },
+  }, actors.admin, { id: 'reviewer_release_ratifier' });
+  platform.assignGovernanceSlot('medical_governance_lead', governanceLead.id, actors.admin);
   const manifestHash = 'a'.repeat(64);
   const artifact = repository.create('channel_artifacts', {
     release_id: 'release_separation',
@@ -382,6 +399,19 @@ test('release validation and ratification require exact evidence and independent
     checks: evidenceInput.checks,
   });
 
+  assert.throws(() => platform.recordReleaseValidation(release.id, {
+    ...evidenceInput,
+    checks: evidenceInput.checks.slice(0, 5),
+  }, actors.validator), /official_validator_checks_required/);
+  assert.throws(() => platform.recordReleaseValidation(release.id, {
+    ...evidenceInput,
+    checks: [...evidenceInput.checks.slice(0, 5), evidenceInput.checks[0]],
+  }, actors.validator), /official_validator_checks_required/);
+  assert.throws(() => platform.recordReleaseValidation(release.id, {
+    ...evidenceInput,
+    evidence_hash: 'f'.repeat(64),
+  }, actors.validator), /validator_evidence_hash_mismatch/);
+
   assert.throws(
     () => platform.recordReleaseValidation(release.id, evidenceInput, actors.assembler),
     /release_actor_separation_required/,
@@ -405,7 +435,7 @@ test('release validation and ratification require exact evidence and independent
     to_state: 'ratified',
     manifest_hash: manifestHash,
     validation_evidence_id: evidence.id,
-  }, actors.validator), /independent_ratification_actor_required/);
+  }, actors.validator), /medical_governance_actor_mismatch/);
   platform.promoteRelease(release.id, {
     to_state: 'ratified',
     manifest_hash: manifestHash,
@@ -459,6 +489,55 @@ test('resolver-backed mutations require a session-bound CSRF token and trusted O
     });
     assert.equal(accepted.status, 201);
   });
+});
+
+test('session bootstrap is available while internal platform and review routes stay feature gated', async () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  await withServer({
+    platform,
+    identityResolver: async () => identityContext(actors.admin),
+  }, async (baseUrl) => {
+    const sessionResponse = await fetch(`${baseUrl}/api/v1/session`);
+    assert.equal(sessionResponse.status, 200);
+    const session = await sessionResponse.json();
+    assert.equal(session.actor.id, actors.admin.id);
+    assert.equal(session.session.csrf_token, CSRF_TOKEN);
+
+    const blockedDashboard = await fetch(`${baseUrl}/api/v1/dashboard`);
+    assert.equal(blockedDashboard.status, 403);
+    assert.equal((await blockedDashboard.json()).error, 'internal_platform_disabled');
+
+    repository.create('feature_flags', {
+      key: 'internal_platform_enabled',
+      enabled: true,
+    }, { id: 'flag_internal_platform_test' });
+    const dashboard = await fetch(`${baseUrl}/api/v1/dashboard`);
+    assert.equal(dashboard.status, 200);
+
+    const blockedReview = await fetch(`${baseUrl}/api/v1/review-assignments`, {
+      method: 'POST',
+      headers: mutationHeaders(),
+      body: '{}',
+    });
+    assert.equal(blockedReview.status, 403);
+    assert.equal((await blockedReview.json()).error, 'internal_review_disabled');
+  });
+});
+
+test('consumer artifacts require their exact adapter feature flag', () => {
+  const repository = new MemoryRepository();
+  const platform = new QuestionPlatform({ repository });
+  repository.create('channel_artifacts', {
+    release_id: 'release_consumer_flag',
+    channel: 'stat_pre_answer',
+    phase: 'pre_answer',
+    payload: [{ question_id: 'Q1', prompt: 'Synthetic?', choices: ['A', 'B', 'C', 'D'] }],
+  }, { id: 'artifact_consumer_flag' });
+  assert.throws(
+    () => platform.artifactForPhase('release_consumer_flag', 'stat_pre_answer', null, actors.reader),
+    /consumer_feature_flag_disabled/,
+  );
 });
 
 test('expired, revoked, stale, missing-session, and outage identity contexts fail closed', async (t) => {

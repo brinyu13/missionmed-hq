@@ -303,6 +303,42 @@ test('unassigned medical governance blocks exact approval', () => {
   }, actors.physician), /medical_governance_lead_unassigned/);
 });
 
+test('medical revision requests return to an assignable editorial review', () => {
+  const { platform, revision } = seedPlatform();
+  passEditorial(platform, revision);
+  const medicalAssignment = platform.createReviewAssignment({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_physician',
+    review_type: 'medical',
+  }, actors.admin);
+  platform.acceptReviewAssignment(medicalAssignment.id, actors.physician);
+  platform.submitReviewEvent({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_physician',
+    assignment_id: medicalAssignment.id,
+    review_type: 'medical',
+    verdict: 'needs_revision',
+    to_status: 'editorial_review',
+  }, actors.physician);
+
+  assert.equal(platform.revisionStatus(revision.id), 'editorial_review');
+  const editorialAssignment = platform.createReviewAssignment({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    review_type: 'editorial',
+  }, actors.admin);
+  platform.acceptReviewAssignment(editorialAssignment.id, actors.editor);
+  platform.submitReviewEvent({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    assignment_id: editorialAssignment.id,
+    review_type: 'editorial',
+    verdict: 'pass',
+    to_status: 'medical_review',
+  }, actors.editor);
+  assert.equal(platform.revisionStatus(revision.id), 'medical_review');
+});
+
 test('credentialed exact-revision approval enables assembly but not publication', () => {
   const { platform, revision } = seedPlatform();
   passEditorial(platform, revision);
@@ -347,7 +383,7 @@ test('credentialed exact-revision approval enables assembly but not publication'
     to_state: 'ratified',
     manifest_hash: assembled.release.manifest.manifest_hash,
     validation_evidence_id: validation.id,
-  }, actors.ratifier);
+  }, actors.physician);
   assert.throws(() => platform.promoteRelease(assembled.release.id, {
     to_state: 'published',
     manifest_hash: assembled.release.manifest.manifest_hash,

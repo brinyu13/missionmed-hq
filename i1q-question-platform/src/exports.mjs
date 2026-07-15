@@ -202,11 +202,22 @@ export function releaseValidationEvidenceHash({ releaseId, manifestHash, artifac
   ) {
     throw new Error('official_validator_checks_required');
   }
-  return sha256({
-    contract: 'i1q.release-validation.v1',
-    release_id: String(releaseId),
-    manifest_hash: String(manifestHash),
-    artifacts: normalizedArtifacts,
-    checks: normalizedChecks,
-  });
+  const lengthPrefixed = (value) => {
+    const normalized = String(value).normalize('NFC');
+    return `${Buffer.byteLength(normalized, 'utf8')}:${normalized}`;
+  };
+  const fields = [
+    'i1q.release-validation.v1',
+    String(releaseId),
+    String(manifestHash),
+    ...normalizedArtifacts.flatMap((artifact) => [
+      artifact.channel,
+      artifact.phase,
+      artifact.data_class,
+      artifact.sha256,
+      String(artifact.record_count),
+    ]),
+    ...normalizedChecks.flatMap((check) => [check.id, check.status]),
+  ];
+  return sha256(fields.map(lengthPrefixed).join('|'));
 }

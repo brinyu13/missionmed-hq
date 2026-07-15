@@ -7,10 +7,13 @@ import { fileURLToPath } from 'node:url';
 import {
   CORE_ENTITY_TYPES,
   OPERATIONAL_ENTITY_TYPES,
+  REQUIRED_RELEASE_VALIDATION_CHECK_IDS,
   ROLES,
   STAT_DATASET_FIELDS,
 } from '../src/contracts.mjs';
 import { buildReleaseMembership } from '../src/adapters/stat-v1.mjs';
+import { releaseValidationEvidenceHash } from '../src/exports.mjs';
+import { sha256 } from '../src/hash.mjs';
 
 const migrationPath = fileURLToPath(new URL(
   '../db/migrations/20260715122434_i1q_1007x_question_platform.sql',
@@ -134,8 +137,10 @@ test('anonymous, read-only, admin, author, reviewer, release, and privacy bounda
   assert.match(answers, /access_purpose = 'authoring'[\s\S]*revision\.author_actor_id = i1q\.current_actor_id\(\)/u);
   assert.match(answers, /assignment\.reviewer_actor_id = i1q\.current_actor_id\(\)/u);
   assert.match(answers, /assignment\.exact_revision_hash = revision\.content_hash/u);
-  assert.match(answers, /assignment\.review_type = 'editorial'.*access_purpose = 'editorial_review'/u);
-  assert.match(answers, /assignment\.review_type = 'medical'.*access_purpose = 'medical_review'/u);
+  assert.match(answers, /assignment\.review_type = 'editorial'[\s\S]*access_purpose = 'editorial_review'/u);
+  assert.match(answers, /assignment\.review_type = 'medical'[\s\S]*access_purpose = 'medical_review'/u);
+  assert.match(answers, /assignment\.state = 'accepted'/u);
+  assert.match(answers, /has_active_role\(assignment\.required_role\)/u);
   assert.match(answers, /access_purpose = 'release_validation'[\s\S]*has_active_role\('release_manager'\)[\s\S]*= 'approved'/u);
   assert.match(restricted, /ARRAY\['privacy_officer', 'system'\]/u);
 });
@@ -154,6 +159,8 @@ test('review writes are assignment-scoped, exact-hash-bound, credentialed, and n
   assert.match(record, /reviewer\.credential_verification_id = assignment\.credential_verification_id/u);
   assert.match(record, /reviewer_calibration_records/u);
   assert.match(create, /self_review_forbidden/u);
+  assert.match(create, /target_review_type = 'editorial'[\s\S]*NOT IN \('candidate', 'editorial_review'\)/u);
+  assert.match(functionDefinition('accept_review_assignment'), /assignment\.review_type = 'editorial'[\s\S]*NOT IN \('candidate', 'editorial_review'\)/u);
   assert.match(record, /self_review_forbidden/u);
   assert.match(record, /item_already_has_approved_revision/u);
   assert.doesNotMatch(record.match(/record_review_event\(([\s\S]*?)\)\nRETURNS/u)?.[1] ?? '', /actor|reviewer|role|credential|hash/iu);
@@ -173,10 +180,17 @@ test('release identity, exact membership, hash chains, and disabled consumer fla
   const assemble = functionDefinition('assemble_release');
   assert.match(assemble, /medical_governance_is_credentialed\(\)/u);
   assert.match(assemble, /exact_medical_approval_missing/u);
-  assert.match(assemble, /calculated_manifest_hash := i1q\.sha256_hex\(manifest_payload::text\)/u);
+  assert.match(assemble, /calculated_manifest_hash := i1q\.sha256_hex\(i1q\.canonical_json\(manifest_payload\)\)/u);
   assert.match(assemble, /previous_manifest_hash/u);
   assert.match(assemble, /release_membership', normalized_memberships/u);
-  assert.match(functionDefinition('promote_release'), /medical_governance_is_credentialed\(\)/u);
+  const promote = functionDefinition('promote_release');
+  assert.match(promote, /medical_governance_is_credentialed\(\)/u);
+  assert.match(promote, /pg_catalog\.jsonb_array_length\(promotion_evidence_hashes\) = 0/u);
+  assert.match(promote, /evidence_hash #>> '\{\}' !~ '\^\[0-9a-f\]\{64\}\$'/u);
+  assert.match(functionDefinition('record_export_validation'), /normalized_check_ids <> required_check_ids/u);
+  assert.match(functionDefinition('record_export_validation'), /artifact_results/u);
+  assert.match(functionDefinition('create_channel_artifact'), /policy\.channel <> target_channel/u);
+  assert.match(functionDefinition('create_channel_artifact'), /channel_artifact_pre_answer_leak/u);
 
   for (const key of ['student_content_enabled', 'student_release_enabled', 'stat_adapter_enabled', 'drills_adapter_enabled']) {
     assert.match(migration, new RegExp(`'${key}', false`, 'u'));
@@ -212,15 +226,17 @@ test('application adapter membership and projection contracts map exactly to SQL
   assert.match(tableDefinition('export_question_identities'), /question_id text PRIMARY KEY/u);
 });
 
-test('immutable records and the audit chain reject caller-supplied chain material', () => {
+test('immutable and guarded records reject caller-supplied chain material', () => {
   const immutableBlock = migration.match(/immutable_tables text\[\] := ARRAY\[([\s\S]*?)\n  \];/u)?.[1] ?? '';
   for (const table of [
-    'item_revisions', 'item_revision_answers', 'review_events', 'release_snapshots',
+    'review_events', 'release_snapshots',
     'release_memberships', 'release_promotion_records', 'channel_artifacts',
     'channel_artifact_payloads', 'audit_events',
   ]) {
     assert.match(immutableBlock, new RegExp(`'${table}'`, 'u'));
   }
+  assert.match(migration, /item_revisions_guarded_mutation/u);
+  assert.match(migration, /item_revision_answers_guarded_mutation/u);
   assert.match(migration, /BEFORE UPDATE OR DELETE ON i1q\.%I/u);
   const prepare = functionDefinition('prepare_audit_event');
   for (const assignedField of ['sequence', 'id', 'actor_id', 'actor_label', 'previous_hash', 'occurred_at', 'event_hash']) {
@@ -245,7 +261,9 @@ test('primary and compensation files are statically repeat-safe and compensation
   assert.match(sql, /SELECT i1q\.disable_i1q_behavior/u);
   const disable = functionDefinition('disable_i1q_behavior');
   assert.match(disable, /SET enabled = false/u);
-  assert.match(disable, /IF NOT EXISTS[\s\S]*i1q_behavior_compensated/u);
+  assert.match(disable, /pg_advisory_xact_lock/u);
+  assert.match(disable, /FROM i1q\.compensation_records/u);
+  assert.match(disable, /INSERT INTO i1q\.compensation_records/u);
   assert.match(disable, /'data_preserved', true/u);
   assert.match(disable, /'history_preserved', true/u);
 });
@@ -266,6 +284,13 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
   skip: postgresUrl ? false : 'set I1Q_POSTGRES_TEST_URL to an isolated disposable local database',
   timeout: 60_000,
 }, () => {
+  const safeArtifactPayload = [{
+    dataset_version: 'synthetic_release_v1',
+    question_id: 'Q1',
+    prompt: 'Synthetic?',
+    choices: ['A', 'B', 'C', 'D'],
+  }];
+  const safeArtifactSql = JSON.stringify(safeArtifactPayload).replaceAll("'", "''");
   runPsql([], `
     CREATE SCHEMA IF NOT EXISTS auth;
     CREATE OR REPLACE FUNCTION auth.uid()
@@ -307,7 +332,8 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       ('membership_physician', '00000000-0000-0000-0000-000000000004', 'physician_reviewer', repeat('4', 64)),
       ('membership_release', '00000000-0000-0000-0000-000000000005', 'release_manager', repeat('5', 64)),
       ('membership_privacy', '00000000-0000-0000-0000-000000000006', 'privacy_officer', repeat('6', 64)),
-      ('membership_read', '00000000-0000-0000-0000-000000000007', 'read_only', repeat('7', 64));
+      ('membership_read', '00000000-0000-0000-0000-000000000007', 'read_only', repeat('7', 64)),
+      ('membership_assembler', '00000000-0000-0000-0000-000000000008', 'release_manager', repeat('8', 64));
 
     INSERT INTO i1q.taxonomy_versions (id, version, status, content, content_hash)
     VALUES ('tax_synthetic', 'synthetic_v1', 'active', '{}', repeat('a', 64));
@@ -353,14 +379,49 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     ) VALUES
       ('reviewer_editor', '00000000-0000-0000-0000-000000000003', 'Synthetic Editor', ARRAY['editorial_reviewer'], 'editorial', 'not_applicable', NULL, true),
       ('reviewer_physician', '00000000-0000-0000-0000-000000000004', 'Synthetic Credentialed Reviewer', ARRAY['physician_reviewer'], 'md', 'verified', 'synthetic-verification', true);
+    UPDATE i1q.governance_slots
+       SET reviewer_id = 'reviewer_editor',
+           assigned_by_actor_id = '00000000-0000-0000-0000-000000000001',
+           assignment_evidence_hash = repeat('a', 64),
+           assigned_at = pg_catalog.clock_timestamp()
+     WHERE slot = 'editorial_lead';
+    INSERT INTO i1q.reviewer_calibration_records (
+      id, reviewer_id, calibration_set_id, agreement_rate, kappa, status,
+      calibrated_at, expires_at, content_hash
+    ) VALUES (
+      'calibration_physician', 'reviewer_physician', 'synthetic-calibration', 1, 1,
+      'current', pg_catalog.clock_timestamp(), pg_catalog.clock_timestamp() + interval '1 day', repeat('b', 64)
+    );
     INSERT INTO i1q.review_assignments (
       id, item_revision_id, reviewer_id, reviewer_actor_id, review_type, required_role,
-      priority, exact_revision_hash, credential_status, state, assigned_by_actor_id, accepted_at
+      priority, exact_revision_hash, credential_status, credential_verification_id,
+      state, assigned_by_actor_id, accepted_at
     ) VALUES
       ('assignment_editor', 'itemrev_synthetic', 'reviewer_editor', '00000000-0000-0000-0000-000000000003', 'editorial', 'editorial_reviewer',
-       'P1', repeat('e', 64), 'not_applicable', 'accepted', '00000000-0000-0000-0000-000000000001', pg_catalog.clock_timestamp()),
+       'P1', repeat('e', 64), 'not_applicable', NULL, 'accepted', '00000000-0000-0000-0000-000000000001', pg_catalog.clock_timestamp()),
       ('assignment_cross', 'itemrev_synthetic', 'reviewer_physician', '00000000-0000-0000-0000-000000000004', 'medical', 'physician_reviewer',
-       'P1', repeat('e', 64), 'verified', 'open', '00000000-0000-0000-0000-000000000001', NULL);
+       'P1', repeat('e', 64), 'verified', 'synthetic-verification', 'open', '00000000-0000-0000-0000-000000000001', NULL);
+
+    INSERT INTO i1q.release_snapshots (
+      id, release_label, dataset_version, sequence, manifest_hash, manifest,
+      claims_currency_checked_at, assembled_by_actor_id
+    ) VALUES (
+      'release_synthetic', 'Synthetic release', 'synthetic_release_v1', 1,
+      repeat('1', 64), pg_catalog.jsonb_build_object('manifest_hash', repeat('1', 64)),
+      pg_catalog.clock_timestamp(), '00000000-0000-0000-0000-000000000008'
+    );
+    INSERT INTO i1q.channel_security_policies (
+      id, channel, policy_version, field_rules, content_hash, status
+    ) VALUES (
+      'csp_stat_pre_answer', 'stat_pre_answer', 1,
+      pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object('field_path', 'dataset_version', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
+        pg_catalog.jsonb_build_object('field_path', 'question_id', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
+        pg_catalog.jsonb_build_object('field_path', 'prompt', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
+        pg_catalog.jsonb_build_object('field_path', 'choices', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer'))
+      ),
+      repeat('2', 64), 'active'
+    );
 
     SET ROLE i1q_test_runtime;
 
@@ -416,6 +477,17 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
         RAISE EXCEPTION 'assigned_editor_answer_scope_failed';
       END IF;
     END $check$;
+    RESET ROLE;
+    UPDATE i1q.reviewers SET active = false WHERE id = 'reviewer_editor';
+    SET ROLE i1q_test_runtime;
+    SELECT pg_catalog.set_config('i1q_test.actor_id', '00000000-0000-0000-0000-000000000003', false);
+    SELECT pg_temp.expect_denied($sql$SELECT * FROM i1q.read_item_revision_answers('itemrev_synthetic', 'editorial_review')$sql$);
+    RESET ROLE;
+    UPDATE i1q.reviewers SET active = true WHERE id = 'reviewer_editor';
+    SET ROLE i1q_test_runtime;
+    SELECT * FROM i1q.record_review_event(
+      'event_editor_pass', 'assignment_editor', 'pass', '{}'::jsonb
+    );
     SELECT pg_temp.expect_denied($sql$SELECT * FROM i1q.accept_review_assignment('assignment_cross')$sql$);
 
     SELECT pg_catalog.set_config('i1q_test.actor_id', '00000000-0000-0000-0000-000000000004', false);
@@ -425,9 +497,79 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       END IF;
     END $check$;
     SELECT pg_temp.expect_denied($sql$SELECT * FROM i1q.read_item_revision_answers('itemrev_synthetic', 'medical_review')$sql$);
+    SELECT * FROM i1q.accept_review_assignment('assignment_cross');
+    DO $check$ BEGIN
+      IF (SELECT count(*) FROM i1q.read_item_revision_answers('itemrev_synthetic', 'medical_review')) <> 1 THEN
+        RAISE EXCEPTION 'assigned_physician_answer_scope_failed';
+      END IF;
+    END $check$;
+    SELECT * FROM i1q.record_review_event(
+      'event_medical_revision', 'assignment_cross', 'needs_revision', '{}'::jsonb
+    );
+    DO $check$ BEGIN
+      IF i1q.revision_workflow_state('itemrev_synthetic') <> 'editorial_review' THEN
+        RAISE EXCEPTION 'medical_revision_request_not_editorial';
+      END IF;
+    END $check$;
+
+    SELECT pg_catalog.set_config('i1q_test.actor_id', '00000000-0000-0000-0000-000000000003', false);
+    SELECT * FROM i1q.create_review_assignment(
+      'assignment_editor_second', 'itemrev_synthetic', 'reviewer_editor', 'editorial', 'P1', NULL
+    );
+    SELECT * FROM i1q.accept_review_assignment('assignment_editor_second');
+    SELECT * FROM i1q.record_review_event(
+      'event_editor_second_pass', 'assignment_editor_second', 'pass', '{}'::jsonb
+    );
+    DO $check$ BEGIN
+      IF i1q.revision_workflow_state('itemrev_synthetic') <> 'medical_review' THEN
+        RAISE EXCEPTION 'second_editorial_pass_not_medical';
+      END IF;
+    END $check$;
 
     SELECT pg_catalog.set_config('i1q_test.actor_id', '00000000-0000-0000-0000-000000000005', false);
     SELECT pg_temp.expect_denied($sql$SELECT * FROM i1q.read_item_revision_answers('itemrev_synthetic', 'release_validation')$sql$);
+    SELECT pg_temp.expect_denied($sql$
+      SELECT i1q.create_channel_artifact(
+        'artifact_wrong_policy', 'release_synthetic', 'csp_stat_pre_answer',
+        'drills', 'internal', 'internal', 'application/json', '[]'::jsonb
+      )
+    $sql$);
+    SELECT pg_temp.expect_denied($sql$
+      SELECT i1q.create_channel_artifact(
+        'artifact_leak', 'release_synthetic', 'csp_stat_pre_answer',
+        'stat_pre_answer', 'pre_answer', 'A', 'application/json',
+        '[{"dataset_version":"synthetic_release_v1","question_id":"Q1","prompt":"Synthetic?","choices":["A","B","C","D"],"answer":"A"}]'::jsonb
+      )
+    $sql$);
+    SELECT i1q.create_channel_artifact(
+      'artifact_safe', 'release_synthetic', 'csp_stat_pre_answer',
+      'stat_pre_answer', 'pre_answer', 'A', 'application/json',
+      '${safeArtifactSql}'::jsonb
+    );
+    SELECT pg_temp.expect_denied($sql$
+      SELECT i1q.record_export_validation(
+        'validation_invented', 'release_synthetic', repeat('3', 64), ARRAY['CALLER-PASS']::text[]
+      )
+    $sql$);
+    SELECT pg_temp.expect_denied($sql$
+      SELECT i1q.record_export_validation(
+        'validation_wrong_hash', 'release_synthetic', repeat('3', 64),
+        ARRAY['LT-1','LT-2','LT-3','LT-4','LT-5','LT-6']::text[]
+      )
+    $sql$);
+    SELECT i1q.record_export_validation(
+      'validation_synthetic',
+      'release_synthetic',
+      i1q.release_validation_evidence_hash('release_synthetic'),
+      ARRAY['LT-1','LT-2','LT-3','LT-4','LT-5','LT-6']::text[]
+    );
+    DO $check$ BEGIN
+      IF (SELECT pg_catalog.jsonb_array_length(artifact_results)
+            FROM i1q.export_validation_results
+           WHERE id = 'validation_synthetic') <> 1 THEN
+        RAISE EXCEPTION 'artifact_validation_results_missing';
+      END IF;
+    END $check$;
 
     SELECT pg_catalog.set_config('i1q_test.actor_id', '00000000-0000-0000-0000-000000000006', false);
     DO $check$ BEGIN
@@ -460,6 +602,36 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       IF NOT blocked THEN RAISE EXCEPTION 'immutable_revision_update_succeeded'; END IF;
     END $check$;
   `);
+
+  const validationVector = JSON.parse(runPsql(['--tuples-only', '--no-align'], `
+    SELECT pg_catalog.jsonb_build_object(
+      'release_id', artifact.release_id,
+      'manifest_hash', release.manifest_hash,
+      'channel', artifact.channel,
+      'phase', artifact.phase,
+      'data_class', artifact.data_class,
+      'artifact_hash', artifact.artifact_hash,
+      'record_count', artifact.record_count,
+      'evidence_hash', i1q.release_validation_evidence_hash(release.id)
+    )::text
+      FROM i1q.channel_artifacts artifact
+      JOIN i1q.release_snapshots release ON release.id = artifact.release_id
+     WHERE artifact.id = 'artifact_safe';
+  `).trim());
+  const nodeEvidenceHash = releaseValidationEvidenceHash({
+    releaseId: validationVector.release_id,
+    manifestHash: validationVector.manifest_hash,
+    artifacts: [{
+      channel: validationVector.channel,
+      phase: validationVector.phase,
+      data_class: validationVector.data_class,
+      artifact_hash: validationVector.artifact_hash,
+      record_count: validationVector.record_count,
+    }],
+    checks: REQUIRED_RELEASE_VALIDATION_CHECK_IDS.map((id) => ({ id, status: 'pass' })),
+  });
+  assert.equal(validationVector.artifact_hash, sha256(safeArtifactPayload));
+  assert.equal(nodeEvidenceHash, validationVector.evidence_hash);
 
   runPsql(['--file', compensationPath]);
   runPsql(['--file', compensationPath]);
