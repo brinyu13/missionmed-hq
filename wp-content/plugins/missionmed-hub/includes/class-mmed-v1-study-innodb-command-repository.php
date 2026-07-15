@@ -80,23 +80,23 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 	/** @return array */
 	public function commit( $candidate, $owner_id, $actor_id, $actor_kind, $temporal_envelope ) {
 		$idempotency_key = $this->outer_idempotency_key( $candidate );
-		$this->hit( 'after_idempotency_preflight' );
+		$this->observe( 'after_idempotency_preflight' );
 		$this->assert_identity( $owner_id, $actor_id, $actor_kind );
-		$this->hit( 'after_identity_preflight' );
+		$this->observe( 'after_identity_preflight' );
 		$this->connection_id = $this->current_connection_id();
-		$this->hit( 'after_connection_preflight' );
+		$this->observe( 'after_connection_preflight' );
 		$this->assert_clean_session();
-		$this->hit( 'after_clean_session_preflight' );
+		$this->observe( 'after_clean_session_preflight' );
 		$original_session_controls = $this->session_controls();
-		$this->hit( 'after_session_controls_preflight' );
+		$this->observe( 'after_session_controls_preflight' );
 		$original_isolation = $this->isolation_level();
-		$this->hit( 'after_isolation_preflight' );
+		$this->observe( 'after_isolation_preflight' );
 		$original_sql_mode = $this->native_sql_mode();
-		$this->hit( 'after_sql_mode_preflight' );
+		$this->observe( 'after_sql_mode_preflight' );
 		$original_encoding = $this->session_encoding();
-		$this->hit( 'after_encoding_preflight' );
+		$this->observe( 'after_encoding_preflight' );
 		$this->assert_physical_provenance();
-		$this->hit( 'after_provenance_preflight' );
+		$this->observe( 'after_provenance_preflight' );
 		MMED_V1_Study_Native_Session_Guard::assert_no_temporary_table_shadows(
 			$this->database,
 			$this->connection_id,
@@ -105,7 +105,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 				array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
 			)
 		);
-		$this->hit( 'after_shadow_preflight' );
+		$this->observe( 'after_shadow_preflight' );
 
 		$started = false;
 		$isolation_changed = false;
@@ -114,19 +114,24 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		try {
 			$encoding_changed = true;
 			$this->pin_session_encoding();
+			$this->observe( 'after_encoding_pin' );
 			$sql_mode_changed = true;
 			$this->native_set_sql_mode( $this->hardened_sql_mode( $original_sql_mode ) );
 			$this->assert_sql_mode_hardened();
+			$this->observe( 'after_sql_mode_pin' );
 			$isolation_changed = true;
 			$this->execute( 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED', 'v1_command_isolation_failed' );
 			if ( 'READ-COMMITTED' !== $this->isolation_level() ) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
+			$this->observe( 'after_isolation_pin' );
 			$this->execute( 'START TRANSACTION READ WRITE', 'v1_command_begin_failed' );
 			$started = true;
+			$this->observe( 'after_start' );
 			if ( true !== $this->transaction_active() ) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
+			$this->observe( 'after_transaction_probe' );
 			$this->hit( 'after_begin' );
 
 			$this->lock_store_gate();
@@ -1634,6 +1639,13 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			} else {
 				$this->assert_transaction_context();
 			}
+		}
+	}
+
+	/** Report a synthetic diagnostic boundary without asserting transaction state. */
+	private function observe( $name ) {
+		if ( null !== $this->failpoint ) {
+			call_user_func( $this->failpoint, (string) $name );
 		}
 	}
 
