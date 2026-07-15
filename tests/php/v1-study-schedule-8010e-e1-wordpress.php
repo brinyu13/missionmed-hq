@@ -249,6 +249,45 @@ v1_8010e_wp_expect(
 v1_8010e_wp_expect( MMED_V1_Study_Domain::TRUTH_PRESENT === $repository->cutover_provenance( $owner_id )['state'], 'hash-verified Plan is positive cutover truth' );
 v1_8010e_wp_expect( 'dependency_unavailable' === $repository->load( $owner_id, '1' )['reason_code'], 'unimplemented reader 1 fails closed' );
 
+v1_8010e_wp_expect( false !== $wpdb->query( 'CREATE TEMPORARY TABLE v1e1_reader_transaction_sentinel (sentinel_id int NOT NULL PRIMARY KEY) ENGINE=InnoDB' ), 'reader test creates a session-local transaction sentinel' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'START TRANSACTION' ), 'reader test starts a caller-owned transaction' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( 'INSERT INTO v1e1_reader_transaction_sentinel (sentinel_id) VALUES (1)' ), 'caller writes a rollback sentinel before invoking the reader' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'SAVEPOINT caller_reader_anchor' ), 'caller creates its own savepoint before invoking the reader' );
+$outer_transaction_read = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+v1_8010e_wp_expect( empty( $outer_transaction_read['ok'] ) && 'dependency_unavailable' === $outer_transaction_read['reason_code'], 'reader rejects an already-open caller transaction before START TRANSACTION can commit it' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->get_var( 'SELECT COUNT(*) FROM v1e1_reader_transaction_sentinel' ), 'reader transaction probe preserves the caller uncommitted row' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'ROLLBACK TO SAVEPOINT caller_reader_anchor' ), 'reader transaction probe preserves the caller-owned savepoint' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'ROLLBACK' ), 'caller can roll back its own transaction after reader rejection' );
+v1_8010e_wp_expect( 0 === (int) $wpdb->get_var( 'SELECT COUNT(*) FROM v1e1_reader_transaction_sentinel' ), 'caller rollback removes the uncommitted sentinel row' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'DROP TEMPORARY TABLE v1e1_reader_transaction_sentinel' ), 'reader test removes its session-local sentinel' );
+
+v1_8010e_wp_expect( false !== $wpdb->query( 'SET autocommit = 0' ), 'reader test disables caller autocommit' );
+$autocommit_off_read = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+v1_8010e_wp_expect( empty( $autocommit_off_read['ok'] ) && 'dependency_unavailable' === $autocommit_off_read['reason_code'], 'reader rejects autocommit-off sessions before opening a snapshot' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'ROLLBACK' ) && false !== $wpdb->query( 'SET autocommit = 1' ), 'reader test restores caller autocommit' );
+
+v1_8010e_wp_expect( false !== $wpdb->query( 'START TRANSACTION READ ONLY' ), 'reader test starts a caller-owned read-only transaction' );
+$outer_read_only = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+v1_8010e_wp_expect( empty( $outer_read_only['ok'] ) && 'dependency_unavailable' === $outer_read_only['reason_code'], 'reader rejects caller-owned read-only transactions' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'ROLLBACK' ), 'caller-owned read-only transaction remains rollback-capable' );
+
+$reader_xa_id = 'v1_8010e_e1_reader_xa';
+v1_8010e_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'XA START %s', $reader_xa_id ) ), 'reader test starts a caller-owned XA branch' );
+$xa_read = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+v1_8010e_wp_expect( empty( $xa_read['ok'] ) && 'dependency_unavailable' === $xa_read['reason_code'], 'reader classifies active XA as unavailable without issuing START TRANSACTION' );
+v1_8010e_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'XA END %s', $reader_xa_id ) ), 'caller can end its XA branch after reader rejection' );
+v1_8010e_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'XA ROLLBACK %s', $reader_xa_id ) ), 'caller can roll back its XA branch after reader rejection' );
+
+$reader_isolation_sql = $is_mariadb ? 'SELECT @@SESSION.tx_isolation' : 'SELECT @@SESSION.transaction_isolation';
+$reader_original_isolation = strtoupper( str_replace( array( '_', ' ' ), '-', (string) $wpdb->get_var( $reader_isolation_sql ) ) );
+v1_8010e_wp_expect( in_array( $reader_original_isolation, array( 'READ-UNCOMMITTED', 'READ-COMMITTED', 'REPEATABLE-READ', 'SERIALIZABLE' ), true ), 'reader test captures a supported caller isolation level' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' ), 'reader test selects a non-default caller isolation' );
+$read_committed_result = ( new MMED_V1_Study_Week_Current_Reader( $wpdb ) )->load( $owner_id );
+v1_8010e_wp_expect( ! empty( $read_committed_result['ok'] ), 'reader completes a consistent snapshot from a clean READ COMMITTED session' );
+$reader_restored_isolation = strtoupper( str_replace( array( '_', ' ' ), '-', (string) $wpdb->get_var( $reader_isolation_sql ) ) );
+v1_8010e_wp_expect( 'READ-COMMITTED' === $reader_restored_isolation, 'reader restores the exact non-default caller isolation after success' );
+v1_8010e_wp_expect( false !== $wpdb->query( 'SET SESSION TRANSACTION ISOLATION LEVEL ' . str_replace( '-', ' ', $reader_original_isolation ) ), 'reader test restores its original isolation level' );
+
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( "DELETE FROM `{$kernel['operations']}` WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture removes the watermark receipt' );
 v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'orphan watermark fails content-free' );
 v1_8010e_wp_expect( 1 === (int) $insert_receipt(), 'fixture restores the watermark receipt' );

@@ -432,16 +432,66 @@ final class MMED_V1_Study_Week_Current_Reader {
 		return $value;
 	}
 
-	/**
-	 * MariaDB exposes an SQL transaction-state variable; MySQL exposes the
-	 * equivalent only through client protocol state. A null result therefore
-	 * means that same-connection transaction commands are the authoritative
-	 * proof for MySQL, not that the transaction is inactive.
-	 *
-	 * @return bool|null
-	 */
+	/** @return bool */
 	private function transaction_active() {
-		return $this->is_mariadb() ? 1 === (int) $this->scalar( 'SELECT @@SESSION.in_transaction' ) : null;
+		return $this->native_transaction_probe( 'v1_reader_transaction_probe_failed' );
+	}
+
+	/** Return the exact mysqli handle bound to the pinned reader connection. */
+	private function native_handle() {
+		$handle = isset( $this->database->dbh ) ? $this->database->dbh : null;
+		if (
+			! is_object( $handle )
+			|| ! function_exists( 'mysqli_thread_id' )
+			|| ! function_exists( 'mysqli_query' )
+			|| ! function_exists( 'mysqli_errno' )
+			|| ! function_exists( 'mysqli_sqlstate' )
+		) {
+			throw new RuntimeException( 'v1_reader_native_capability_unavailable' );
+		}
+		$id = @mysqli_thread_id( $handle );
+		if ( ! is_int( $id ) || $id !== $this->connection_id ) {
+			throw new RuntimeException( 'v1_reader_connection_changed' );
+		}
+		return $handle;
+	}
+
+	/**
+	 * Probe transaction state without vendor-specific instrumentation.
+	 * Outside a transaction SAVEPOINT is accepted as a no-op and rollback to
+	 * that name returns exact error 1305/42000; inside one rollback/release both
+	 * succeed without touching any caller-owned savepoint or row mutation.
+	 *
+	 * @return bool
+	 */
+	private function native_transaction_probe( $error_code ) {
+		try {
+			$name = 'mmed_v1_reader_probe_' . bin2hex( random_bytes( 16 ) );
+		} catch ( Throwable $error ) {
+			throw new RuntimeException( $error_code, 0, $error );
+		}
+		$handle = $this->native_handle();
+		if ( true !== @mysqli_query( $handle, 'SAVEPOINT `' . $name . '`' ) ) {
+			throw new RuntimeException( $error_code );
+		}
+		$this->native_handle();
+		$rolled_back = @mysqli_query( $handle, 'ROLLBACK TO SAVEPOINT `' . $name . '`' );
+		if ( true === $rolled_back ) {
+			$this->native_handle();
+			if ( true !== @mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' ) ) {
+				throw new RuntimeException( $error_code );
+			}
+			$this->native_handle();
+			return true;
+		}
+		$errno = (int) @mysqli_errno( $handle );
+		$sqlstate = (string) @mysqli_sqlstate( $handle );
+		$this->native_handle();
+		if ( 1305 === $errno && '42000' === $sqlstate ) {
+			return false;
+		}
+		@mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' );
+		throw new RuntimeException( $error_code );
 	}
 
 	/** @return bool */
