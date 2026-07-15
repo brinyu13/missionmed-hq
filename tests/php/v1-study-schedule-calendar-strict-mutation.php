@@ -67,7 +67,8 @@ function date_i18n( string $format, int $timestamp ): string { return date( $for
 
 final class MMED_V1_Study_Access {
 	public static function legacy_writer_decision( $owner_id ): array {
-		return array( 'allowed' => (int) $owner_id > 0, 'status' => 200 );
+		unset( $owner_id );
+		return array( 'allowed' => true, 'status' => 200 );
 	}
 }
 
