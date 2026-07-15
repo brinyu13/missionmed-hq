@@ -215,13 +215,14 @@ $fake_result = MMED_V1_Study_Week_Command_State::command_result(
 	'40000000-0000-4000-8000-000000000001',
 	$fake_plan_hash
 );
-$other_week = MMED_V1_Study_Week_Domain::build_week_model(
-	$plan_id,
-	'20000000-0000-4000-8000-000000000002',
-	'2026-07-20',
-	'1',
-	array()
+$other_week = array(
+	'blocks'     => array(),
+	'plan_id'    => $plan_id,
+	'revision'   => '1',
+	'week_id'    => '20000000-0000-4000-8000-000000000002',
+	'week_start' => '2026-07-20',
 );
+$other_week['projection_hash'] = hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $other_week ) );
 $two_week_snapshot = $created_state['snapshot'];
 $two_week_snapshot['weeks'] = array( $other_week, $created_state['snapshot']['weeks'][0] );
 $two_week_hash = hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $two_week_snapshot ) );
