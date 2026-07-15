@@ -64,16 +64,22 @@ final class MMED_V1_Study_Migrator {
 		$this->connection_id = $this->current_connection_id();
 		$lock_name           = $this->lock_name();
 		$existing_owner      = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_probe_failed' );
+		$this->verify_connection();
 		if ( null !== $existing_owner ) {
 			throw new RuntimeException(
 				(int) $existing_owner === $this->connection_id ? 'v1_migration_reentrant' : 'v1_migration_busy'
 			);
 		}
 		$got_lock            = $this->database->get_var( $this->prepare( 'SELECT GET_LOCK(%s, 0)', $lock_name ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_error' );
+		$this->verify_connection();
 		if ( 1 !== (int) $got_lock ) {
 			throw new RuntimeException( null === $got_lock ? 'v1_migration_lock_error' : 'v1_migration_busy' );
 		}
 
+		$result  = null;
+		$primary = null;
 		try {
 			$this->verify_connection();
 			$this->assert_clean_session();
@@ -85,15 +91,32 @@ final class MMED_V1_Study_Migrator {
 				throw new RuntimeException( 'v1_schema_postcondition_failed' );
 			}
 			$this->verify_connection();
-			return array(
+			$result = array(
 				'ok'            => true,
 				'state'         => 'ready',
 				'generation'    => MMED_V1_Study_Schema::GENERATION,
 				'manifest_hash' => MMED_V1_Study_Schema::manifest_hash_hex( $this->database ),
 			);
-		} finally {
-			$this->release_lock( $lock_name );
+		} catch ( Throwable $error ) {
+			$primary = $error;
 		}
+
+		$release_error = null;
+		try {
+			$this->release_lock( $lock_name );
+		} catch ( Throwable $error ) {
+			$release_error = $error;
+		}
+		if ( null !== $primary ) {
+			if ( null !== $release_error ) {
+				throw new RuntimeException( $primary->getMessage() . ';lock_cleanup=' . $release_error->getMessage(), 0, $primary );
+			}
+			throw $primary;
+		}
+		if ( null !== $release_error ) {
+			throw $release_error;
+		}
+		return $result;
 	}
 
 	/** @return void */
@@ -329,13 +352,22 @@ final class MMED_V1_Study_Migrator {
 			return;
 		}
 
-		$this->verify_connection();
+		$this->verify_lock();
 		$this->assert_clean_session();
-		$this->query_required( 'SET TRANSACTION ISOLATION LEVEL READ COMMITTED', 'v1_commission_isolation_failed' );
-		$this->query_required( 'START TRANSACTION', 'v1_commission_begin_failed' );
-		$committed = false;
+		$original_isolation = $this->native_isolation_level();
+		$transaction_started = false;
+		$primary             = null;
+		$cleanup_errors      = array();
 		try {
-			$this->verify_connection();
+			$this->native_set_isolation_level( 'READ-COMMITTED' );
+			if ( 'READ-COMMITTED' !== $this->native_isolation_level() ) {
+				throw new RuntimeException( 'v1_commission_isolation_verify_failed' );
+			}
+			$this->native_query_required( 'START TRANSACTION', 'v1_commission_begin_failed' );
+			$transaction_started = true;
+			if ( ! $this->native_transaction_is_active() ) {
+				throw new RuntimeException( 'v1_commission_transaction_inactive' );
+			}
 			$table    = MMED_V1_Study_Schema::table_names( $this->database );
 			$now      = $this->now();
 			$storehex = $this->uuid_hex( $store_id );
@@ -343,7 +375,7 @@ final class MMED_V1_Study_Migrator {
 			$sql      = "INSERT INTO `{$table['generations']}`";
 			$sql     .= ' (generation, store_id, writer_schema_version, current_reader_version, previous_reader_version, manifest_hash, activated_at)';
 			$sql     .= ' VALUES (%d, UNHEX(%s), %s, %s, NULL, UNHEX(%s), %s)';
-			$this->query_required(
+			$this->native_query_exactly_one(
 				$this->prepare(
 					$sql,
 					MMED_V1_Study_Schema::GENERATION,
@@ -355,25 +387,59 @@ final class MMED_V1_Study_Migrator {
 				),
 				'v1_generation_insert_failed'
 			);
+			if ( ! $this->native_transaction_is_active() ) {
+				throw new RuntimeException( 'v1_commission_transaction_lost' );
+			}
 			$this->hit( 'after_generation_insert' );
 
 			$sql  = "INSERT INTO `{$table['store_gate']}`";
 			$sql .= ' (gate_key, store_id, current_generation, gate_state, commissioned_at, updated_at)';
 			$sql .= ' VALUES (1, UNHEX(%s), %d, %s, %s, %s)';
-			$this->query_required(
+			$this->native_query_exactly_one(
 				$this->prepare( $sql, $storehex, MMED_V1_Study_Schema::GENERATION, 'ready', $now, $now ),
 				'v1_gate_insert_failed'
 			);
-			$this->hit( 'after_gate_insert' );
-			$this->query_required( 'COMMIT', 'v1_commission_commit_failed' );
-			$committed = true;
-			$this->hit( 'after_commission_commit' );
-		} finally {
-			if ( ! $committed ) {
-				$this->database->query( 'ROLLBACK' );
+			if ( ! $this->native_transaction_is_active() ) {
+				throw new RuntimeException( 'v1_commission_transaction_lost' );
 			}
+			$this->hit( 'after_gate_insert' );
+			$this->native_query_required( 'COMMIT', 'v1_commission_commit_outcome_unknown' );
+			$transaction_started = false;
+			if ( $this->native_transaction_is_active() ) {
+				throw new RuntimeException( 'v1_commission_commit_outcome_unknown' );
+			}
+			$this->hit( 'after_commission_commit' );
+		} catch ( Throwable $error ) {
+			$primary = $error;
 		}
 
+		if ( $transaction_started ) {
+			try {
+				$this->native_query_required( 'ROLLBACK', 'v1_commission_rollback_failed' );
+				$transaction_started = false;
+			} catch ( Throwable $error ) {
+				$cleanup_errors[] = $error->getMessage();
+			}
+		}
+		try {
+			$this->native_set_isolation_level( $original_isolation );
+			if ( $original_isolation !== $this->native_isolation_level() ) {
+				throw new RuntimeException( 'v1_commission_isolation_restore_verify_failed' );
+			}
+		} catch ( Throwable $error ) {
+			$cleanup_errors[] = $error->getMessage();
+		}
+		if ( null !== $primary ) {
+			if ( ! empty( $cleanup_errors ) ) {
+				throw new RuntimeException( $primary->getMessage() . ';transaction_cleanup=' . implode( ',', $cleanup_errors ), 0, $primary );
+			}
+			throw $primary;
+		}
+		if ( ! empty( $cleanup_errors ) ) {
+			throw new RuntimeException( 'v1_commission_cleanup_failed:' . implode( ',', $cleanup_errors ) );
+		}
+
+		$this->verify_lock();
 		$this->validate_commissioned_rows( $this->commissioning_rows(), $store_id );
 	}
 
@@ -432,6 +498,8 @@ final class MMED_V1_Study_Migrator {
 			throw new RuntimeException( 'v1_migration_connection_changed' );
 		}
 		$owner = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_probe_failed' );
+		$this->verify_connection();
 		if ( null === $owner ) {
 			throw new RuntimeException( 'v1_migration_lock_lost' );
 		}
@@ -439,12 +507,30 @@ final class MMED_V1_Study_Migrator {
 			throw new RuntimeException( 'v1_migration_lock_owner_changed' );
 		}
 		$released = $this->database->get_var( $this->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_release_failed' );
+		$this->verify_connection();
 		if ( 1 !== (int) $released ) {
 			throw new RuntimeException( 'v1_migration_lock_release_failed' );
 		}
 		$owner = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_probe_failed' );
+		$this->verify_connection();
 		if ( null !== $owner && (int) $owner === $this->connection_id ) {
 			throw new RuntimeException( 'v1_migration_lock_release_incomplete' );
+		}
+	}
+
+	/** Verify the advisory lock and connection before/after mutable work. @return void */
+	private function verify_lock() {
+		$this->verify_connection();
+		$owner = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $this->lock_name() ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_probe_failed' );
+		$this->verify_connection();
+		if ( null === $owner ) {
+			throw new RuntimeException( 'v1_migration_lock_lost' );
+		}
+		if ( (int) $owner !== $this->connection_id ) {
+			throw new RuntimeException( 'v1_migration_lock_owner_changed' );
 		}
 	}
 
@@ -457,7 +543,7 @@ final class MMED_V1_Study_Migrator {
 
 	/** Reject an outer transaction or nonstandard autocommit session. @return void */
 	private function assert_clean_session() {
-		$autocommit = $this->database->get_var( 'SELECT @@SESSION.autocommit' );
+		$autocommit = $this->guarded_scalar( 'SELECT @@SESSION.autocommit', 'v1_migration_session_probe_failed' );
 		if (
 			1 !== (int) $autocommit
 			|| $this->transaction_is_active()
@@ -469,18 +555,20 @@ final class MMED_V1_Study_Migrator {
 	/** @return bool */
 	private function transaction_is_active() {
 		if ( $this->server_is_mariadb() ) {
-			$active = $this->database->get_var( 'SELECT @@SESSION.in_transaction' );
+			$active = $this->guarded_scalar( 'SELECT @@SESSION.in_transaction', 'v1_migration_transaction_probe_failed' );
 			if ( null === $active ) {
 				throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
 			}
 			return 1 === (int) $active;
 		}
 
-		$consumer = $this->database->get_var(
-			"SELECT ENABLED FROM performance_schema.setup_consumers WHERE NAME = 'events_transactions_current'"
+		$consumer = $this->guarded_scalar(
+			"SELECT ENABLED FROM performance_schema.setup_consumers WHERE NAME = 'events_transactions_current'",
+			'v1_migration_transaction_probe_failed'
 		);
-		$instrument = $this->database->get_var(
-			"SELECT ENABLED FROM performance_schema.setup_instruments WHERE NAME = 'transaction'"
+		$instrument = $this->guarded_scalar(
+			"SELECT ENABLED FROM performance_schema.setup_instruments WHERE NAME = 'transaction'",
+			'v1_migration_transaction_probe_failed'
 		);
 		if ( 'YES' !== $consumer || 'YES' !== $instrument ) {
 			throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
@@ -489,11 +577,95 @@ final class MMED_V1_Study_Migrator {
 		$sql  = 'SELECT COUNT(*) FROM performance_schema.events_transactions_current';
 		$sql .= ' WHERE THREAD_ID = (SELECT THREAD_ID FROM performance_schema.threads WHERE PROCESSLIST_ID = CONNECTION_ID())';
 		$sql .= " AND STATE = 'ACTIVE' AND AUTOCOMMIT = 'NO' AND END_EVENT_ID IS NULL";
-		$active = $this->database->get_var( $sql );
+		$active = $this->guarded_scalar( $sql, 'v1_migration_transaction_probe_failed' );
 		if ( null === $active ) {
 			throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
 		}
 		return (int) $active > 0;
+	}
+
+	/** @return object */
+	private function native_handle() {
+		$handle = isset( $this->database->dbh ) ? $this->database->dbh : null;
+		if (
+			! is_object( $handle )
+			|| ! function_exists( 'mysqli_thread_id' )
+			|| ! function_exists( 'mysqli_query' )
+			|| ! function_exists( 'mysqli_fetch_row' )
+			|| ! function_exists( 'mysqli_free_result' )
+			|| ! function_exists( 'mysqli_affected_rows' )
+		) {
+			throw new RuntimeException( 'v1_native_database_capability_unavailable' );
+		}
+		$id = @mysqli_thread_id( $handle );
+		if ( ! is_int( $id ) || $id !== $this->connection_id ) {
+			throw new RuntimeException( 'v1_migration_connection_changed' );
+		}
+		return $handle;
+	}
+
+	/** @return void */
+	private function native_query_required( $sql, $error_code ) {
+		$handle = $this->native_handle();
+		$result = @mysqli_query( $handle, $sql );
+		if ( true !== $result ) {
+			throw new RuntimeException( $error_code );
+		}
+		$this->native_handle();
+	}
+
+	/** @return void */
+	private function native_query_exactly_one( $sql, $error_code ) {
+		$this->native_query_required( $sql, $error_code );
+		if ( 1 !== (int) @mysqli_affected_rows( $this->native_handle() ) ) {
+			throw new RuntimeException( $error_code );
+		}
+	}
+
+	/** @return mixed */
+	private function native_scalar_required( $sql, $error_code ) {
+		$handle = $this->native_handle();
+		$result = @mysqli_query( $handle, $sql );
+		if ( ! is_object( $result ) ) {
+			throw new RuntimeException( $error_code );
+		}
+		$row = @mysqli_fetch_row( $result );
+		@mysqli_free_result( $result );
+		$this->native_handle();
+		if ( ! is_array( $row ) || 1 !== count( $row ) ) {
+			throw new RuntimeException( $error_code );
+		}
+		return $row[0];
+	}
+
+	/** @return string */
+	private function native_isolation_level() {
+		$sql   = $this->server_is_mariadb() ? 'SELECT @@SESSION.tx_isolation' : 'SELECT @@SESSION.transaction_isolation';
+		$value = strtoupper( str_replace( array( '_', ' ' ), '-', (string) $this->native_scalar_required( $sql, 'v1_commission_isolation_probe_failed' ) ) );
+		if ( ! in_array( $value, array( 'READ-UNCOMMITTED', 'READ-COMMITTED', 'REPEATABLE-READ', 'SERIALIZABLE' ), true ) ) {
+			throw new RuntimeException( 'v1_commission_isolation_probe_failed' );
+		}
+		return $value;
+	}
+
+	/** @return void */
+	private function native_set_isolation_level( $level ) {
+		if ( ! in_array( $level, array( 'READ-UNCOMMITTED', 'READ-COMMITTED', 'REPEATABLE-READ', 'SERIALIZABLE' ), true ) ) {
+			throw new RuntimeException( 'v1_commission_isolation_invalid' );
+		}
+		$sql_level = str_replace( '-', ' ', $level );
+		$this->native_query_required( 'SET SESSION TRANSACTION ISOLATION LEVEL ' . $sql_level, 'v1_commission_isolation_failed' );
+	}
+
+	/** @return bool */
+	private function native_transaction_is_active() {
+		if ( $this->server_is_mariadb() ) {
+			return 1 === (int) $this->native_scalar_required( 'SELECT @@SESSION.in_transaction', 'v1_commission_transaction_probe_failed' );
+		}
+		$sql  = 'SELECT COUNT(*) FROM performance_schema.events_transactions_current';
+		$sql .= ' WHERE THREAD_ID = (SELECT THREAD_ID FROM performance_schema.threads WHERE PROCESSLIST_ID = CONNECTION_ID())';
+		$sql .= " AND STATE = 'ACTIVE' AND AUTOCOMMIT = 'NO' AND END_EVENT_ID IS NULL";
+		return (int) $this->native_scalar_required( $sql, 'v1_commission_transaction_probe_failed' ) > 0;
 	}
 
 	/** @return bool */
@@ -501,7 +673,7 @@ final class MMED_V1_Study_Migrator {
 		if ( null !== $this->is_mariadb ) {
 			return $this->is_mariadb;
 		}
-		$version = $this->database->get_var( 'SELECT VERSION()' );
+		$version = $this->guarded_scalar( 'SELECT VERSION()', 'v1_database_server_identity_unavailable' );
 		if ( ! is_string( $version ) || '' === $version ) {
 			throw new RuntimeException( 'v1_database_server_identity_unavailable' );
 		}
@@ -549,25 +721,48 @@ final class MMED_V1_Study_Migrator {
 
 	/** @return void */
 	private function query_required( $sql, $error_code ) {
+		$this->verify_lock();
 		if ( false === $this->database->query( $sql ) ) {
 			throw new RuntimeException( $error_code );
 		}
+		$this->verify_lock();
 	}
 
 	/** @return void */
 	private function query_exactly_one( $sql, $error_code ) {
+		$this->verify_lock();
 		if ( 1 !== (int) $this->database->query( $sql ) ) {
 			throw new RuntimeException( $error_code );
 		}
+		$this->verify_lock();
 	}
 
 	/** @return array */
 	private function rows( $sql ) {
+		$this->verify_lock();
 		$format = defined( 'ARRAY_A' ) ? ARRAY_A : 'ARRAY_A';
 		$rows   = $this->database->get_results( $sql, $format );
+		$this->assert_last_query_succeeded( 'v1_database_read_failed' );
+		$this->verify_lock();
 		if ( ! is_array( $rows ) ) {
 			throw new RuntimeException( 'v1_database_read_failed' );
 		}
 		return $rows;
+	}
+
+	/** @return mixed */
+	private function guarded_scalar( $sql, $error_code ) {
+		$this->verify_lock();
+		$value = $this->database->get_var( $sql );
+		$this->assert_last_query_succeeded( $error_code );
+		$this->verify_lock();
+		return $value;
+	}
+
+	/** @return void */
+	private function assert_last_query_succeeded( $error_code ) {
+		if ( ! property_exists( $this->database, 'last_error' ) || '' !== (string) $this->database->last_error ) {
+			throw new RuntimeException( $error_code );
+		}
 	}
 }

@@ -52,6 +52,11 @@ v1_8010d_expect(
 	'migration IDs are immutable and explicit'
 );
 v1_8010d_expect( null === MMED_V1_Study_Schema::PREVIOUS_READER_VERSION, 'generation 1 claims no fictional N-1 reader' );
+v1_8010d_expect(
+	array( 'migrations', 'store_gate', 'generations', 'plans', 'operations' ) === array_keys( MMED_V1_Study_Schema::logical_table_suffixes() ),
+	'physical table ownership suffixes are explicit and ordered'
+);
+v1_8010d_expect( 8 === count( MMED_V1_Study_Schema::logical_constraint_suffixes() ), 'constraint namespace has eight explicit logical symbols' );
 
 foreach ( $migrations_a as $index => $migration ) {
 	v1_8010d_expect( 1 === preg_match( '/^[a-f0-9]{64}$/', $migration['checksum_hex'] ), 'migration checksum is canonical hex' );
@@ -64,6 +69,7 @@ foreach ( $migrations_a as $index => $migration ) {
 $constraints_a = MMED_V1_Study_Schema::constraint_names( $database_a );
 $constraints_b = MMED_V1_Study_Schema::constraint_names( $database_b );
 v1_8010d_expect( $constraints_a !== $constraints_b, 'constraint symbols are database-prefix scoped' );
+v1_8010d_expect( MMED_V1_Study_Schema::manifest_hash_hex( $database_a ) === MMED_V1_Study_Schema::manifest_hash_hex( $database_b ), 'manifest binds logical ownership while remaining deployment-prefix independent' );
 foreach ( $constraints_a as $constraint ) {
 	v1_8010d_expect( strlen( $constraint ) <= 64, 'constraint identifier respects database limit' );
 	v1_8010d_expect( 1 === preg_match( '/^[A-Za-z0-9_]+$/', $constraint ), 'constraint identifier is safe' );
@@ -74,8 +80,8 @@ v1_8010d_expect( array_keys( $shapes ) === array( 'migrations', 'store_gate', 'g
 v1_8010d_expect( isset( $shapes['operations']['indexes']['uq_owner_revision'] ), 'owner revision is database unique' );
 v1_8010d_expect( isset( $shapes['operations']['indexes']['uq_owner_idempotency'] ), 'owner idempotency is database unique' );
 v1_8010d_expect( isset( $shapes['operations']['foreign_keys'][ $constraints_a['operation_plan'] ] ), 'operation owner/Plan relation is database enforced' );
-v1_8010d_expect( in_array( $constraints_a['operation_revision'], $shapes['operations']['checks'], true ), 'revision transition check is declared' );
-v1_8010d_expect( in_array( $constraints_a['plan_shape'], $shapes['plans']['checks'], true ), 'revision-zero/Plan shape check is declared' );
+v1_8010d_expect( isset( $shapes['operations']['checks'][ $constraints_a['operation_revision'] ] ), 'revision transition check clause is declared' );
+v1_8010d_expect( isset( $shapes['plans']['checks'][ $constraints_a['plan_shape'] ] ), 'revision-zero/Plan shape check clause is declared' );
 
 $uuid   = '12345678-1234-4abc-8def-1234567890ab';
 $binary = MMED_V1_Study_Schema::uuid_to_binary( $uuid );

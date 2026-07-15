@@ -189,6 +189,25 @@ v1_8010d_wp_expect( false === $insert_op( '87654321-4321-4cba-8cba-ba0987654321'
 $count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM `{$tables['operations']}`" );
 v1_8010d_wp_expect( 1 === $count, 'failed invariant probes leave exactly one valid receipt' );
 
+$wpdb->set_prefix( 'v1dcheck_' );
+$check_store = 'abcdefab-cdef-4abc-8def-abcdefabcdef';
+$check_run   = 'abcdefab-cdef-4abc-9def-abcdefabcdef';
+( new MMED_V1_Study_Migrator( $wpdb ) )->run( $check_store, $check_run );
+$check_tables      = MMED_V1_Study_Schema::table_names( $wpdb );
+$check_constraints = MMED_V1_Study_Schema::constraint_names( $wpdb );
+$server_version    = (string) $wpdb->get_var( 'SELECT VERSION()' );
+$drop_check_sql    = false !== stripos( $server_version, 'mariadb' )
+	? "ALTER TABLE `{$check_tables['plans']}` DROP CONSTRAINT `{$check_constraints['plan_shape']}`"
+	: "ALTER TABLE `{$check_tables['plans']}` DROP CHECK `{$check_constraints['plan_shape']}`";
+v1_8010d_wp_expect( false !== $wpdb->query( $drop_check_sql ), 'fixture removes the exact Plan CHECK in disposable schema' );
+v1_8010d_wp_expect(
+	false !== $wpdb->query( "ALTER TABLE `{$check_tables['plans']}` ADD CONSTRAINT `{$check_constraints['plan_shape']}` CHECK (1 = 1)" ),
+	'fixture installs a same-named no-op CHECK in disposable schema'
+);
+$check_drift = ( new MMED_V1_Study_Schema_Inspector( $wpdb ) )->inspect_table( 'plans' );
+v1_8010d_wp_expect( empty( $check_drift['ok'] ), 'same-named no-op CHECK fails exact inspection' );
+v1_8010d_wp_expect( in_array( $check_tables['plans'] . ':check_set', $check_drift['errors'], true ), 'CHECK clause drift has a stable structural error' );
+
 if ( '1' === getenv( 'V1_D_EXTENDED' ) ) {
 	$failpoints = array( 'after_lock', 'before_migration_1_ddl', 'after_migration_1_ddl', 'after_migration_1_verify', 'after_migration_1_applied' );
 	foreach ( array( 2, 3, 4, 5 ) as $version ) {

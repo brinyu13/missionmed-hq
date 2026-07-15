@@ -23,6 +23,33 @@ final class MMED_V1_Study_Schema {
 	const GENERATION              = 1;
 	const TABLE_COLLATION         = 'utf8mb4_bin';
 	const TABLE_CHARSET           = 'utf8mb4';
+	const TABLE_NAMESPACE_VERSION = 'v1-study-kernel-tables-v1';
+	const CONSTRAINT_NAMESPACE_VERSION = 'sha256-prefix-12-v1';
+
+	/** Prefix-independent physical table ownership suffixes. @return array */
+	public static function logical_table_suffixes() {
+		return array(
+			'migrations'  => 'mmed_v1_study_migrations',
+			'store_gate'  => 'mmed_v1_study_store_gate',
+			'generations' => 'mmed_v1_study_store_generations',
+			'plans'       => 'mmed_v1_study_plans',
+			'operations'  => 'mmed_v1_study_operations',
+		);
+	}
+
+	/** Prefix-independent constraint symbol suffixes. @return array */
+	public static function logical_constraint_suffixes() {
+		return array(
+			'gate_singleton'       => 'gate_singleton_ck',
+			'plan_shape'            => 'plan_shape_ck',
+			'operation_revision'    => 'operation_revision_ck',
+			'idempotency_length'    => 'idempotency_length_ck',
+			'gate_generation'       => 'gate_generation_fk',
+			'plan_generation'       => 'plan_generation_fk',
+			'operation_plan'        => 'operation_plan_fk',
+			'operation_generation'  => 'operation_generation_fk',
+		);
+	}
 
 	/** @return array */
 	public static function table_names( $database ) {
@@ -31,13 +58,10 @@ final class MMED_V1_Study_Schema {
 			throw new RuntimeException( 'V1 database prefix is invalid.' );
 		}
 
-		$names = array(
-			'migrations'  => $prefix . 'mmed_v1_study_migrations',
-			'store_gate'  => $prefix . 'mmed_v1_study_store_gate',
-			'generations' => $prefix . 'mmed_v1_study_store_generations',
-			'plans'       => $prefix . 'mmed_v1_study_plans',
-			'operations'  => $prefix . 'mmed_v1_study_operations',
-		);
+		$names = array();
+		foreach ( self::logical_table_suffixes() as $key => $suffix ) {
+			$names[ $key ] = $prefix . $suffix;
+		}
 		foreach ( $names as $name ) {
 			if ( strlen( $name ) > 64 ) {
 				throw new RuntimeException( 'V1 rendered table identifier is too long.' );
@@ -51,16 +75,14 @@ final class MMED_V1_Study_Schema {
 		self::table_names( $database );
 		$prefix = (string) $database->prefix;
 		$scope  = substr( hash( 'sha256', $prefix ), 0, 12 );
-		return array(
-			'gate_singleton'     => 'mmed_v1_' . $scope . '_gate_singleton_ck',
-			'plan_shape'         => 'mmed_v1_' . $scope . '_plan_shape_ck',
-			'operation_revision' => 'mmed_v1_' . $scope . '_operation_revision_ck',
-			'idempotency_length' => 'mmed_v1_' . $scope . '_idempotency_length_ck',
-			'gate_generation'    => 'mmed_v1_' . $scope . '_gate_generation_fk',
-			'plan_generation'    => 'mmed_v1_' . $scope . '_plan_generation_fk',
-			'operation_plan'     => 'mmed_v1_' . $scope . '_operation_plan_fk',
-			'operation_generation' => 'mmed_v1_' . $scope . '_operation_generation_fk',
-		);
+		$names = array();
+		foreach ( self::logical_constraint_suffixes() as $key => $suffix ) {
+			$names[ $key ] = 'mmed_v1_' . $scope . '_' . $suffix;
+			if ( strlen( $names[ $key ] ) > 64 ) {
+				throw new RuntimeException( 'V1 rendered constraint identifier is too long.' );
+			}
+		}
+		return $names;
 	}
 
 	/**
@@ -82,6 +104,7 @@ final class MMED_V1_Study_Schema {
 		}
 
 		$result = array();
+		$binding = self::checksum_binding_json();
 		foreach ( $descriptors as $descriptor ) {
 			$id        = $descriptor['id'];
 			$template  = $descriptor['template'];
@@ -91,11 +114,26 @@ final class MMED_V1_Study_Schema {
 				'id'           => $id,
 				'table_key'    => $descriptor['table_key'],
 				'sql'          => self::canonical_sql( strtr( $template, $replacements ) ),
-				'checksum_hex' => hash( 'sha256', $id . "\n" . $canonical ),
+				'checksum_hex' => hash( 'sha256', $id . "\n" . $binding . "\n" . $canonical ),
 			);
 		}
 
 		return $result;
+	}
+
+	/** @return string */
+	private static function checksum_binding_json() {
+		$binding = array(
+			'table_namespace_version'      => self::TABLE_NAMESPACE_VERSION,
+			'tables'                       => self::logical_table_suffixes(),
+			'constraint_namespace_version' => self::CONSTRAINT_NAMESPACE_VERSION,
+			'constraints'                  => self::logical_constraint_suffixes(),
+		);
+		$json = json_encode( $binding, JSON_UNESCAPED_SLASHES );
+		if ( ! is_string( $json ) ) {
+			throw new RuntimeException( 'V1 schema checksum binding encoding failed.' );
+		}
+		return $json;
 	}
 
 	/** @return array */
@@ -244,6 +282,10 @@ final class MMED_V1_Study_Schema {
 		}
 		$manifest = array(
 			'contract'        => 'V1-STUDY-SCHEDULE-8010D-KERNEL',
+			'table_namespace_version' => self::TABLE_NAMESPACE_VERSION,
+			'tables'          => self::logical_table_suffixes(),
+			'constraint_namespace_version' => self::CONSTRAINT_NAMESPACE_VERSION,
+			'constraints'     => self::logical_constraint_suffixes(),
 			'generation'      => self::GENERATION,
 			'schema'          => self::SCHEMA_VERSION,
 			'current_reader'  => self::CURRENT_READER_VERSION,
@@ -313,9 +355,10 @@ final class MMED_V1_Study_Schema {
 						'referenced_columns' => array( 'store_id', 'generation' ),
 						'update_rule'        => 'RESTRICT',
 						'delete_rule'        => 'RESTRICT',
+						'match_option'       => 'NONE',
 					),
 				),
-				array( $constraints['gate_singleton'] )
+				array( $constraints['gate_singleton'] => 'gate_key = 1' )
 			),
 			'generations' => self::table_shape(
 				array(
@@ -360,9 +403,12 @@ final class MMED_V1_Study_Schema {
 						'referenced_columns' => array( 'generation' ),
 						'update_rule'        => 'RESTRICT',
 						'delete_rule'        => 'RESTRICT',
+						'match_option'       => 'NONE',
 					),
 				),
-				array( $constraints['plan_shape'] )
+				array(
+					$constraints['plan_shape'] => '(current_revision = 0 AND plan_id IS NULL AND schema_version IS NULL AND watermark_operation_id IS NULL AND watermark_at IS NULL AND plan_json IS NULL AND plan_hash IS NULL) OR (current_revision > 0 AND plan_id IS NOT NULL AND schema_version IS NOT NULL AND watermark_operation_id IS NOT NULL AND watermark_at IS NOT NULL AND plan_json IS NOT NULL AND plan_hash IS NOT NULL)',
+				)
 			),
 			'operations' => self::table_shape(
 				array(
@@ -400,6 +446,7 @@ final class MMED_V1_Study_Schema {
 						'referenced_columns' => array( 'owner_id', 'plan_id' ),
 						'update_rule'        => 'RESTRICT',
 						'delete_rule'        => 'RESTRICT',
+						'match_option'       => 'NONE',
 					),
 					$constraints['operation_generation'] => array(
 						'columns'            => array( 'store_generation' ),
@@ -407,9 +454,13 @@ final class MMED_V1_Study_Schema {
 						'referenced_columns' => array( 'generation' ),
 						'update_rule'        => 'RESTRICT',
 						'delete_rule'        => 'RESTRICT',
+						'match_option'       => 'NONE',
 					),
 				),
-				array( $constraints['operation_revision'], $constraints['idempotency_length'] )
+				array(
+					$constraints['operation_revision'] => 'revision = expected_revision + 1',
+					$constraints['idempotency_length'] => 'OCTET_LENGTH(idempotency_key) BETWEEN 16 AND 64',
+				)
 			),
 		);
 	}

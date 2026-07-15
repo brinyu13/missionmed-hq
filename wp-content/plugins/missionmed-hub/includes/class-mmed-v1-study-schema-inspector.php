@@ -26,14 +26,18 @@ final class MMED_V1_Study_Schema_Inspector {
 	/** @var bool */
 	private $is_mariadb;
 
+	/** @var int */
+	private $connection_id;
+
 	/** @param object $database WordPress database connection. */
 	public function __construct( $database ) {
 		if ( ! is_object( $database ) || ! method_exists( $database, 'get_results' ) || ! method_exists( $database, 'prepare' ) ) {
 			throw new InvalidArgumentException( 'V1 schema inspector requires a database connection.' );
 		}
-		$this->database    = $database;
-		$this->schema_name = $this->read_schema_name();
-		$this->is_mariadb  = $this->read_is_mariadb();
+		$this->database      = $database;
+		$this->connection_id = $this->read_connection_id();
+		$this->schema_name   = $this->read_schema_name();
+		$this->is_mariadb    = $this->read_is_mariadb();
 	}
 
 	/**
@@ -98,7 +102,7 @@ final class MMED_V1_Study_Schema_Inspector {
 
 	/** @return string */
 	private function read_schema_name() {
-		$name = $this->database->get_var( 'SELECT DATABASE()' );
+		$name = $this->scalar( 'SELECT DATABASE()' );
 		if ( ! is_string( $name ) || '' === $name ) {
 			throw new RuntimeException( 'V1 database schema identity is unavailable.' );
 		}
@@ -107,7 +111,7 @@ final class MMED_V1_Study_Schema_Inspector {
 
 	/** @return bool */
 	private function read_is_mariadb() {
-		$version = $this->database->get_var( 'SELECT VERSION()' );
+		$version = $this->scalar( 'SELECT VERSION()' );
 		if ( ! is_string( $version ) || '' === $version ) {
 			throw new RuntimeException( 'V1 database server identity is unavailable.' );
 		}
@@ -238,18 +242,25 @@ final class MMED_V1_Study_Schema_Inspector {
 
 	/** @return array */
 	private function compare_foreign_keys( $table_name, $expected, $table_names ) {
-		$sql = 'SELECT k.CONSTRAINT_NAME, k.ORDINAL_POSITION, k.COLUMN_NAME, k.REFERENCED_TABLE_NAME,';
-		$sql .= ' k.REFERENCED_COLUMN_NAME, r.UPDATE_RULE, r.DELETE_RULE';
+		$sql = 'SELECT k.CONSTRAINT_NAME, k.ORDINAL_POSITION, k.COLUMN_NAME, k.REFERENCED_TABLE_SCHEMA, k.REFERENCED_TABLE_NAME,';
+		$sql .= ' k.REFERENCED_COLUMN_NAME, r.UNIQUE_CONSTRAINT_SCHEMA, r.UPDATE_RULE, r.DELETE_RULE, r.MATCH_OPTION';
 		$sql .= ' FROM information_schema.KEY_COLUMN_USAGE k';
 		$sql .= ' INNER JOIN information_schema.REFERENTIAL_CONSTRAINTS r';
-		$sql .= ' ON r.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME = k.CONSTRAINT_NAME';
+		$sql .= ' ON r.CONSTRAINT_SCHEMA = k.CONSTRAINT_SCHEMA AND r.TABLE_NAME = k.TABLE_NAME AND r.CONSTRAINT_NAME = k.CONSTRAINT_NAME';
 		$sql .= ' WHERE k.CONSTRAINT_SCHEMA = %s AND k.TABLE_NAME = %s AND k.REFERENCED_TABLE_NAME IS NOT NULL';
 		$sql .= ' ORDER BY k.CONSTRAINT_NAME, k.ORDINAL_POSITION';
 		$rows = $this->rows( $this->database->prepare( $sql, $this->schema_name, $table_name ) );
 
 		$actual = array();
+		$errors = array();
 		foreach ( $rows as $row ) {
 			$name = (string) ( $row['CONSTRAINT_NAME'] ?? '' );
+			if (
+				$this->schema_name !== (string) ( $row['REFERENCED_TABLE_SCHEMA'] ?? '' )
+				|| $this->schema_name !== (string) ( $row['UNIQUE_CONSTRAINT_SCHEMA'] ?? '' )
+			) {
+				$errors[] = $table_name . ':' . $name . ':foreign_key_schema';
+			}
 			if ( ! isset( $actual[ $name ] ) ) {
 				$referenced_name = (string) ( $row['REFERENCED_TABLE_NAME'] ?? '' );
 				$referenced_key  = array_search( $referenced_name, $table_names, true );
@@ -259,6 +270,7 @@ final class MMED_V1_Study_Schema_Inspector {
 					'referenced_columns' => array(),
 					'update_rule'        => strtoupper( (string) ( $row['UPDATE_RULE'] ?? '' ) ),
 					'delete_rule'        => strtoupper( (string) ( $row['DELETE_RULE'] ?? '' ) ),
+					'match_option'       => strtoupper( (string) ( $row['MATCH_OPTION'] ?? '' ) ),
 				);
 			}
 			$actual[ $name ]['columns'][]            = (string) ( $row['COLUMN_NAME'] ?? '' );
@@ -267,12 +279,16 @@ final class MMED_V1_Study_Schema_Inspector {
 
 		ksort( $expected, SORT_STRING );
 		ksort( $actual, SORT_STRING );
-		return $expected === $actual ? array() : array( $table_name . ':foreign_key_set' );
+		if ( $expected !== $actual ) {
+			$errors[] = $table_name . ':foreign_key_set';
+		}
+		return array_values( array_unique( $errors ) );
 	}
 
 	/** @return array */
-	private function compare_checks( $table_name, $expected_names ) {
-		$sql = 'SELECT tc.CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS tc';
+	private function compare_checks( $table_name, $expected ) {
+		$enforced = $this->is_mariadb ? "'YES' AS ENFORCED" : 'tc.ENFORCED';
+		$sql = 'SELECT tc.CONSTRAINT_NAME, cc.CHECK_CLAUSE, ' . $enforced . ' FROM information_schema.TABLE_CONSTRAINTS tc';
 		$sql .= ' INNER JOIN information_schema.CHECK_CONSTRAINTS cc';
 		$sql .= ' ON cc.CONSTRAINT_SCHEMA = tc.CONSTRAINT_SCHEMA AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME';
 		$sql .= " WHERE tc.CONSTRAINT_SCHEMA = %s AND tc.TABLE_NAME = %s AND tc.CONSTRAINT_TYPE = 'CHECK'";
@@ -280,20 +296,163 @@ final class MMED_V1_Study_Schema_Inspector {
 		$rows   = $this->rows( $this->database->prepare( $sql, $this->schema_name, $table_name ) );
 		$actual = array();
 		foreach ( $rows as $row ) {
-			$actual[] = (string) ( $row['CONSTRAINT_NAME'] ?? '' );
+			$name = (string) ( $row['CONSTRAINT_NAME'] ?? '' );
+			$actual[ $name ] = array(
+				'clause'   => $this->canonical_check_clause( (string) ( $row['CHECK_CLAUSE'] ?? '' ) ),
+				'enforced' => strtoupper( (string) ( $row['ENFORCED'] ?? '' ) ),
+			);
 		}
-		sort( $expected_names, SORT_STRING );
-		return $expected_names === $actual ? array() : array( $table_name . ':check_set' );
+		$canonical_expected = array();
+		foreach ( $expected as $name => $clause ) {
+			$canonical_expected[ $name ] = array(
+				'clause'   => $this->canonical_check_clause( $clause ),
+				'enforced' => 'YES',
+			);
+		}
+		ksort( $canonical_expected, SORT_STRING );
+		ksort( $actual, SORT_STRING );
+		return $canonical_expected === $actual ? array() : array( $table_name . ':check_set' );
+	}
+
+	/** Convert the limited kernel CHECK grammar into a precedence-explicit AST. @return string */
+	private function canonical_check_clause( $clause ) {
+		$compact = preg_replace( '/\s+/', '', strtolower( str_replace( '`', '', trim( (string) $clause ) ) ) );
+		if ( ! is_string( $compact ) || '' === $compact ) {
+			throw new RuntimeException( 'V1 CHECK clause is unavailable.' );
+		}
+		preg_match_all( '/>=|<=|<>|!=|=|>|<|\+|-|\(|\)|,|[a-z_][a-z0-9_]*|[0-9]+/', $compact, $matches );
+		$tokens = isset( $matches[0] ) ? $matches[0] : array();
+		if ( empty( $tokens ) || implode( '', $tokens ) !== $compact ) {
+			throw new RuntimeException( 'V1 CHECK clause grammar is unsupported.' );
+		}
+		$index = 0;
+		$tree  = $this->parse_check_or( $tokens, $index );
+		if ( $index !== count( $tokens ) ) {
+			throw new RuntimeException( 'V1 CHECK clause parse is incomplete.' );
+		}
+		return $this->serialize_check_tree( $tree );
+	}
+
+	/** @return array */
+	private function parse_check_or( $tokens, &$index ) {
+		$nodes = array( $this->parse_check_and( $tokens, $index ) );
+		while ( isset( $tokens[ $index ] ) && 'or' === $tokens[ $index ] ) {
+			++$index;
+			$nodes[] = $this->parse_check_and( $tokens, $index );
+		}
+		return 1 === count( $nodes ) ? $nodes[0] : array( 'or', $nodes );
+	}
+
+	/** @return array */
+	private function parse_check_and( $tokens, &$index ) {
+		$nodes = array( $this->parse_check_factor( $tokens, $index ) );
+		while ( isset( $tokens[ $index ] ) && 'and' === $tokens[ $index ] ) {
+			++$index;
+			$nodes[] = $this->parse_check_factor( $tokens, $index );
+		}
+		return 1 === count( $nodes ) ? $nodes[0] : array( 'and', $nodes );
+	}
+
+	/** @return array */
+	private function parse_check_factor( $tokens, &$index ) {
+		if ( isset( $tokens[ $index ] ) && '(' === $tokens[ $index ] ) {
+			++$index;
+			$node = $this->parse_check_or( $tokens, $index );
+			if ( ! isset( $tokens[ $index ] ) || ')' !== $tokens[ $index ] ) {
+				throw new RuntimeException( 'V1 CHECK clause parenthesis is unbalanced.' );
+			}
+			++$index;
+			return $node;
+		}
+
+		$atom          = array();
+		$depth         = 0;
+		$between_open  = false;
+		while ( isset( $tokens[ $index ] ) ) {
+			$token = $tokens[ $index ];
+			if ( 0 === $depth && ')' === $token ) {
+				break;
+			}
+			if ( 0 === $depth && in_array( $token, array( 'and', 'or' ), true ) ) {
+				if ( 'and' === $token && $between_open ) {
+					$between_open = false;
+				} else {
+					break;
+				}
+			}
+			if ( 'between' === $token && 0 === $depth ) {
+				$between_open = true;
+			}
+			if ( '(' === $token ) {
+				++$depth;
+			} elseif ( ')' === $token ) {
+				--$depth;
+			}
+			$atom[] = $token;
+			++$index;
+		}
+		if ( empty( $atom ) || 0 !== $depth || $between_open ) {
+			throw new RuntimeException( 'V1 CHECK clause atom is invalid.' );
+		}
+		return array( 'atom', $atom );
+	}
+
+	/** @return string */
+	private function serialize_check_tree( $tree ) {
+		if ( 'atom' === $tree[0] ) {
+			return 'atom(' . implode( '', $tree[1] ) . ')';
+		}
+		$children = array();
+		foreach ( $tree[1] as $child ) {
+			$children[] = $this->serialize_check_tree( $child );
+		}
+		return $tree[0] . '(' . implode( ',', $children ) . ')';
 	}
 
 	/** @return array */
 	private function rows( $sql ) {
+		$this->assert_connection();
 		$format = defined( 'ARRAY_A' ) ? ARRAY_A : 'ARRAY_A';
 		$rows   = $this->database->get_results( $sql, $format );
+		$this->assert_database_query_succeeded();
+		$this->assert_connection();
 		if ( ! is_array( $rows ) ) {
 			throw new RuntimeException( 'V1 information_schema query failed.' );
 		}
 		return $rows;
+	}
+
+	/** @return mixed */
+	private function scalar( $sql ) {
+		$this->assert_connection();
+		$value = $this->database->get_var( $sql );
+		$this->assert_database_query_succeeded();
+		$this->assert_connection();
+		return $value;
+	}
+
+	/** @return int */
+	private function read_connection_id() {
+		$id = $this->database->get_var( 'SELECT CONNECTION_ID()' );
+		$this->assert_database_query_succeeded();
+		if ( null === $id || (int) $id <= 0 ) {
+			throw new RuntimeException( 'V1 information_schema connection is unavailable.' );
+		}
+		return (int) $id;
+	}
+
+	/** @return void */
+	private function assert_connection() {
+		if ( $this->connection_id !== $this->read_connection_id() ) {
+			throw new RuntimeException( 'V1 information_schema connection changed.' );
+		}
+	}
+
+	/** @return void */
+	private function assert_database_query_succeeded() {
+		if ( ! property_exists( $this->database, 'last_error' ) || '' !== (string) $this->database->last_error ) {
+			throw new RuntimeException( 'V1 information_schema query failed.' );
+		}
 	}
 
 	/** @return string|null */
