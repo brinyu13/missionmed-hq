@@ -424,6 +424,12 @@ class MMED_V1_Study_Schema_Inspector {
 	/** @return array */
 	private function parse_check_factor( $tokens, &$index ) {
 		if ( isset( $tokens[ $index ] ) && '(' === $tokens[ $index ] ) {
+			$predicate_start = $index;
+			try {
+				return $this->parse_check_predicate( $tokens, $index );
+			} catch ( RuntimeException $error ) {
+				$index = $predicate_start;
+			}
 			++$index;
 			$node = $this->parse_check_or( $tokens, $index );
 			if ( ! isset( $tokens[ $index ] ) || ')' !== $tokens[ $index ] ) {
@@ -480,6 +486,16 @@ class MMED_V1_Study_Schema_Inspector {
 		while ( isset( $tokens[ $index ] ) && in_array( $tokens[ $index ], array( '+', '-' ), true ) ) {
 			$operator = $tokens[ $index ];
 			++$index;
+			if ( '+' === $operator && isset( $tokens[ $index ] ) && 'interval' === $tokens[ $index ] ) {
+				++$index;
+				$amount = $this->parse_check_primary( $tokens, $index );
+				if ( ! isset( $tokens[ $index ] ) || 'minute' !== $tokens[ $index ] ) {
+					throw new RuntimeException( 'V1 CHECK clause interval unit is unsupported.' );
+				}
+				++$index;
+				$node = array( 'timestampadd_minute', $amount, $node );
+				continue;
+			}
 			$node = array( '+' === $operator ? 'add' : 'subtract', $node, $this->parse_check_multiplicative( $tokens, $index ) );
 		}
 		return $node;
@@ -549,6 +565,17 @@ class MMED_V1_Study_Schema_Inspector {
 			}
 			return array( 'mod', $arguments[0], $arguments[1] );
 		}
+		if ( 'timestampadd' === $token ) {
+			if (
+				3 !== count( $arguments )
+				|| ! isset( $arguments[0][0], $arguments[0][1] )
+				|| 'identifier' !== $arguments[0][0]
+				|| 'minute' !== $arguments[0][1]
+			) {
+				throw new RuntimeException( 'V1 CHECK clause TIMESTAMPADD unit or arity is invalid.' );
+			}
+			return array( 'timestampadd_minute', $arguments[1], $arguments[2] );
+		}
 		return array( 'call', $token, $arguments );
 	}
 
@@ -570,6 +597,9 @@ class MMED_V1_Study_Schema_Inspector {
 		}
 		if ( 'mod' === $type ) {
 			return 'mod(' . $this->serialize_check_tree( $tree[1] ) . ',' . $this->serialize_check_tree( $tree[2] ) . ')';
+		}
+		if ( 'timestampadd_minute' === $type ) {
+			return 'timestampadd_minute(' . $this->serialize_check_tree( $tree[1] ) . ',' . $this->serialize_check_tree( $tree[2] ) . ')';
 		}
 		if ( in_array( $type, array( 'is_null', 'is_not_null' ), true ) ) {
 			return $type . '(' . $this->serialize_check_tree( $tree[1] ) . ')';

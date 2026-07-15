@@ -95,6 +95,12 @@ $mod_function = $canonical_check->invoke( $inspector_without_database, 'MOD(dura
 $mod_keyword  = $canonical_check->invoke( $inspector_without_database, 'duration_minutes MOD 15 = 0' );
 $mod_percent  = $canonical_check->invoke( $inspector_without_database, 'duration_minutes % 15 = 0' );
 v1_8010e_schema_expect( $mod_function === $mod_keyword && $mod_keyword === $mod_percent, 'MOD function and both governed engine metadata synonyms canonicalize identically' );
+$mod_parenthesized = $canonical_check->invoke( $inspector_without_database, '(duration_minutes % 15) = 0' );
+$mod_double_wrapped = $canonical_check->invoke( $inspector_without_database, '((duration_minutes % 15) = 0)' );
+v1_8010e_schema_expect( $mod_percent === $mod_parenthesized && $mod_parenthesized === $mod_double_wrapped, 'MySQL arithmetic metadata parentheses preserve the exact MOD predicate' );
+$timestampadd_function = $canonical_check->invoke( $inspector_without_database, 'end_at_utc = TIMESTAMPADD(MINUTE, duration_minutes, start_at_utc)' );
+$timestampadd_interval = $canonical_check->invoke( $inspector_without_database, 'end_at_utc = start_at_utc + INTERVAL duration_minutes MINUTE' );
+v1_8010e_schema_expect( $timestampadd_function === $timestampadd_interval, 'MariaDB interval metadata canonicalizes to the governed TIMESTAMPADD minute expression' );
 
 $source = '';
 foreach ( array( 'class-mmed-v1-study-week-schema.php', 'class-mmed-v1-study-week-schema-inspector.php' ) as $source_file ) {
