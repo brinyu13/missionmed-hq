@@ -83,6 +83,24 @@ v1_8010d_expect( isset( $shapes['operations']['foreign_keys'][ $constraints_a['o
 v1_8010d_expect( isset( $shapes['operations']['checks'][ $constraints_a['operation_revision'] ] ), 'revision transition check clause is declared' );
 v1_8010d_expect( isset( $shapes['plans']['checks'][ $constraints_a['plan_shape'] ] ), 'revision-zero/Plan shape check clause is declared' );
 
+$inspector_reflection = new ReflectionClass( 'MMED_V1_Study_Schema_Inspector' );
+$canonicalize         = $inspector_reflection->getMethod( 'canonical_check_clause' );
+$canonicalize->setAccessible( true );
+$inspector_without_database = $inspector_reflection->newInstanceWithoutConstructor();
+$source_check = '(revision = expected_revision + 1 AND plan_hash IS NOT NULL) OR (OCTET_LENGTH(idempotency_key) BETWEEN 16 AND 64 AND plan_id IS NULL)';
+$mariadb_check = 'revision = expected_revision + 1 and plan_hash is not null or octet_length(idempotency_key) between 16 and 64 and plan_id is null';
+$mysql_check = '((`revision` = (`expected_revision` + 1)) and (`plan_hash` is not null)) or ((octet_length(`idempotency_key`) between 16 and 64) and (`plan_id` is null))';
+$canonical_source = $canonicalize->invoke( $inspector_without_database, $source_check );
+v1_8010d_expect( $canonical_source === $canonicalize->invoke( $inspector_without_database, $mariadb_check ), 'MariaDB flattened CHECK text preserves the source boolean contract' );
+v1_8010d_expect( $canonical_source === $canonicalize->invoke( $inspector_without_database, $mysql_check ), 'MySQL parenthesized CHECK text preserves arithmetic and boolean semantics' );
+v1_8010d_expect( $canonical_source !== $canonicalize->invoke( $inspector_without_database, '1 = 1' ), 'same-named no-op CHECK cannot canonicalize as the owned contract' );
+v1_8010d_expect_throws(
+	static function () use ( $canonicalize, $inspector_without_database ) {
+		$canonicalize->invoke( $inspector_without_database, 'revision = 1; SELECT 1' );
+	},
+	'unsupported CHECK grammar fails closed'
+);
+
 $uuid   = '12345678-1234-4abc-8def-1234567890ab';
 $binary = MMED_V1_Study_Schema::uuid_to_binary( $uuid );
 v1_8010d_expect( 16 === strlen( $binary ), 'UUID packs to 16 bytes' );

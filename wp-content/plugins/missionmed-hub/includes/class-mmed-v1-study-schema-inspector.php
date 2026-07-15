@@ -328,13 +328,29 @@ final class MMED_V1_Study_Schema_Inspector {
 
 	/** Convert the limited kernel CHECK grammar into a precedence-explicit AST. @return string */
 	private function canonical_check_clause( $clause ) {
-		$compact = preg_replace( '/\s+/', '', strtolower( str_replace( '`', '', trim( (string) $clause ) ) ) );
-		if ( ! is_string( $compact ) || '' === $compact ) {
+		$source = strtolower( str_replace( '`', '', trim( (string) $clause ) ) );
+		if ( '' === $source ) {
 			throw new RuntimeException( 'V1 CHECK clause is unavailable.' );
 		}
-		preg_match_all( '/>=|<=|<>|!=|=|>|<|\+|-|\(|\)|,|[a-z_][a-z0-9_]*|[0-9]+/', $compact, $matches );
-		$tokens = isset( $matches[0] ) ? $matches[0] : array();
-		if ( empty( $tokens ) || implode( '', $tokens ) !== $compact ) {
+		preg_match_all(
+			'/>=|<=|<>|!=|=|>|<|\+|-|\(|\)|,|[a-z_][a-z0-9_]*|[0-9]+/',
+			$source,
+			$matches,
+			PREG_OFFSET_CAPTURE
+		);
+		$pairs  = isset( $matches[0] ) ? $matches[0] : array();
+		$tokens = array();
+		$cursor = 0;
+		foreach ( $pairs as $pair ) {
+			$token  = (string) $pair[0];
+			$offset = (int) $pair[1];
+			if ( '' !== trim( substr( $source, $cursor, $offset - $cursor ) ) ) {
+				throw new RuntimeException( 'V1 CHECK clause grammar is unsupported.' );
+			}
+			$tokens[] = $token;
+			$cursor   = $offset + strlen( $token );
+		}
+		if ( empty( $tokens ) || '' !== trim( substr( $source, $cursor ) ) ) {
 			throw new RuntimeException( 'V1 CHECK clause grammar is unsupported.' );
 		}
 		$index = 0;
@@ -376,49 +392,138 @@ final class MMED_V1_Study_Schema_Inspector {
 			++$index;
 			return $node;
 		}
+		return $this->parse_check_predicate( $tokens, $index );
+	}
 
-		$atom          = array();
-		$depth         = 0;
-		$between_open  = false;
-		while ( isset( $tokens[ $index ] ) ) {
-			$token = $tokens[ $index ];
-			if ( 0 === $depth && ')' === $token ) {
-				break;
+	/** Parse the exact predicate forms used by the owned constraints. @return array */
+	private function parse_check_predicate( $tokens, &$index ) {
+		$left = $this->parse_check_additive( $tokens, $index );
+		if ( ! isset( $tokens[ $index ] ) ) {
+			throw new RuntimeException( 'V1 CHECK clause predicate is incomplete.' );
+		}
+
+		$operator = $tokens[ $index ];
+		if ( 'is' === $operator ) {
+			++$index;
+			$negated = isset( $tokens[ $index ] ) && 'not' === $tokens[ $index ];
+			if ( $negated ) {
+				++$index;
 			}
-			if ( 0 === $depth && in_array( $token, array( 'and', 'or' ), true ) ) {
-				if ( 'and' === $token && $between_open ) {
-					$between_open = false;
-				} else {
+			if ( ! isset( $tokens[ $index ] ) || 'null' !== $tokens[ $index ] ) {
+				throw new RuntimeException( 'V1 CHECK clause NULL predicate is invalid.' );
+			}
+			++$index;
+			return array( $negated ? 'is_not_null' : 'is_null', $left );
+		}
+
+		if ( 'between' === $operator ) {
+			++$index;
+			$minimum = $this->parse_check_additive( $tokens, $index );
+			if ( ! isset( $tokens[ $index ] ) || 'and' !== $tokens[ $index ] ) {
+				throw new RuntimeException( 'V1 CHECK clause BETWEEN predicate is invalid.' );
+			}
+			++$index;
+			$maximum = $this->parse_check_additive( $tokens, $index );
+			return array( 'between', $left, $minimum, $maximum );
+		}
+
+		if ( ! in_array( $operator, array( '>=', '<=', '<>', '!=', '=', '>', '<' ), true ) ) {
+			throw new RuntimeException( 'V1 CHECK clause comparison is unsupported.' );
+		}
+		++$index;
+		return array( 'compare', $operator, $left, $this->parse_check_additive( $tokens, $index ) );
+	}
+
+	/** @return array */
+	private function parse_check_additive( $tokens, &$index ) {
+		$node = $this->parse_check_primary( $tokens, $index );
+		while ( isset( $tokens[ $index ] ) && in_array( $tokens[ $index ], array( '+', '-' ), true ) ) {
+			$operator = $tokens[ $index ];
+			++$index;
+			$node = array( '+' === $operator ? 'add' : 'subtract', $node, $this->parse_check_primary( $tokens, $index ) );
+		}
+		return $node;
+	}
+
+	/** @return array */
+	private function parse_check_primary( $tokens, &$index ) {
+		if ( ! isset( $tokens[ $index ] ) ) {
+			throw new RuntimeException( 'V1 CHECK clause value is incomplete.' );
+		}
+		$token = $tokens[ $index ];
+		if ( '(' === $token ) {
+			++$index;
+			$node = $this->parse_check_additive( $tokens, $index );
+			if ( ! isset( $tokens[ $index ] ) || ')' !== $tokens[ $index ] ) {
+				throw new RuntimeException( 'V1 CHECK clause value parenthesis is unbalanced.' );
+			}
+			++$index;
+			return $node;
+		}
+		if ( 1 === preg_match( '/^[0-9]+$/', $token ) ) {
+			++$index;
+			$number = ltrim( $token, '0' );
+			return array( 'number', '' === $number ? '0' : $number );
+		}
+		if ( 1 !== preg_match( '/^[a-z_][a-z0-9_]*$/', $token ) ) {
+			throw new RuntimeException( 'V1 CHECK clause value is unsupported.' );
+		}
+		++$index;
+		if ( ! isset( $tokens[ $index ] ) || '(' !== $tokens[ $index ] ) {
+			return array( 'identifier', $token );
+		}
+
+		++$index;
+		$arguments = array();
+		if ( isset( $tokens[ $index ] ) && ')' !== $tokens[ $index ] ) {
+			while ( true ) {
+				$arguments[] = $this->parse_check_additive( $tokens, $index );
+				if ( ! isset( $tokens[ $index ] ) || ',' !== $tokens[ $index ] ) {
 					break;
 				}
+				++$index;
 			}
-			if ( 'between' === $token && 0 === $depth ) {
-				$between_open = true;
-			}
-			if ( '(' === $token ) {
-				++$depth;
-			} elseif ( ')' === $token ) {
-				--$depth;
-			}
-			$atom[] = $token;
-			++$index;
 		}
-		if ( empty( $atom ) || 0 !== $depth || $between_open ) {
-			throw new RuntimeException( 'V1 CHECK clause atom is invalid.' );
+		if ( ! isset( $tokens[ $index ] ) || ')' !== $tokens[ $index ] ) {
+			throw new RuntimeException( 'V1 CHECK clause function call is invalid.' );
 		}
-		return array( 'atom', $atom );
+		++$index;
+		return array( 'call', $token, $arguments );
 	}
 
 	/** @return string */
 	private function serialize_check_tree( $tree ) {
-		if ( 'atom' === $tree[0] ) {
-			return 'atom(' . implode( '', $tree[1] ) . ')';
+		$type = $tree[0];
+		if ( 'identifier' === $type || 'number' === $type ) {
+			return $type . '(' . $tree[1] . ')';
+		}
+		if ( 'call' === $type ) {
+			$arguments = array();
+			foreach ( $tree[2] as $argument ) {
+				$arguments[] = $this->serialize_check_tree( $argument );
+			}
+			return 'call(' . $tree[1] . ',' . implode( ',', $arguments ) . ')';
+		}
+		if ( 'compare' === $type ) {
+			return 'compare(' . $tree[1] . ',' . $this->serialize_check_tree( $tree[2] ) . ',' . $this->serialize_check_tree( $tree[3] ) . ')';
+		}
+		if ( in_array( $type, array( 'is_null', 'is_not_null' ), true ) ) {
+			return $type . '(' . $this->serialize_check_tree( $tree[1] ) . ')';
+		}
+		if ( 'between' === $type ) {
+			return 'between(' . $this->serialize_check_tree( $tree[1] ) . ',' . $this->serialize_check_tree( $tree[2] ) . ',' . $this->serialize_check_tree( $tree[3] ) . ')';
+		}
+		if ( in_array( $type, array( 'add', 'subtract' ), true ) ) {
+			return $type . '(' . $this->serialize_check_tree( $tree[1] ) . ',' . $this->serialize_check_tree( $tree[2] ) . ')';
 		}
 		$children = array();
 		foreach ( $tree[1] as $child ) {
 			$children[] = $this->serialize_check_tree( $child );
 		}
-		return $tree[0] . '(' . implode( ',', $children ) . ')';
+		if ( ! in_array( $type, array( 'and', 'or' ), true ) ) {
+			throw new RuntimeException( 'V1 CHECK clause tree is invalid.' );
+		}
+		return $type . '(' . implode( ',', $children ) . ')';
 	}
 
 	/** @return array */
