@@ -32,6 +32,18 @@ function v1_8010d_wp_expect_failure( $callback, $message ) {
 	}
 }
 
+function v1_8010d_wp_expect_error( $callback, $error_code, $message ) {
+	$actual = null;
+	try {
+		$callback();
+	} catch ( RuntimeException $error ) {
+		$actual = $error->getMessage();
+	}
+	if ( $error_code !== $actual ) {
+		throw new RuntimeException( $message . '; expected=' . $error_code . ' actual=' . ( null === $actual ? 'none' : $actual ) );
+	}
+}
+
 function v1_8010d_wp_uuid( $counter, $lane ) {
 	return sprintf( '%08x-%04x-4%03x-8%03x-%012x', $lane, $counter & 0xffff, $counter & 0xfff, $lane & 0xfff, $counter );
 }
@@ -49,13 +61,14 @@ $before    = $inspector->inspect();
 v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === $before['state'], 'fresh isolated prefix starts physically absent' );
 
 $wpdb->query( 'START TRANSACTION' );
-v1_8010d_wp_expect_failure(
+v1_8010d_wp_expect_error(
 	static function () use ( $wpdb, $store_id, $runner_a ) {
 		( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
 	},
+	'v1_migration_session_not_clean',
 	'migrator rejects an outer transaction before any DDL'
 );
-$wpdb->query( 'ROLLBACK' );
+v1_8010d_wp_expect( false !== $wpdb->query( 'ROLLBACK' ), 'outer transaction rolls back cleanly after rejection' );
 $still_absent = $inspector->inspect();
 v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === $still_absent['state'], 'outer-transaction rejection leaves the kernel absent' );
 

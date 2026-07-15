@@ -28,6 +28,9 @@ final class MMED_V1_Study_Migrator {
 	/** @var int */
 	private $connection_id;
 
+	/** @var bool|null */
+	private $is_mariadb;
+
 	/**
 	 * @param object        $database WordPress database connection.
 	 * @param callable|null $failpoint Test-only deterministic failure callback.
@@ -43,6 +46,7 @@ final class MMED_V1_Study_Migrator {
 		$this->inspector  = new MMED_V1_Study_Schema_Inspector( $database );
 		$this->failpoint  = $failpoint;
 		$this->connection_id = 0;
+		$this->is_mariadb = null;
 	}
 
 	/**
@@ -443,14 +447,45 @@ final class MMED_V1_Study_Migrator {
 
 	/** Reject an outer transaction or nonstandard autocommit session. @return void */
 	private function assert_clean_session() {
-		$rows = $this->rows( 'SELECT @@SESSION.in_transaction AS in_transaction, @@SESSION.autocommit AS autocommit' );
+		$autocommit = $this->database->get_var( 'SELECT @@SESSION.autocommit' );
 		if (
-			1 !== count( $rows )
-			|| 0 !== (int) ( $rows[0]['in_transaction'] ?? -1 )
-			|| 1 !== (int) ( $rows[0]['autocommit'] ?? -1 )
+			1 !== (int) $autocommit
+			|| $this->transaction_is_active()
 		) {
 			throw new RuntimeException( 'v1_migration_session_not_clean' );
 		}
+	}
+
+	/** @return bool */
+	private function transaction_is_active() {
+		if ( $this->server_is_mariadb() ) {
+			$active = $this->database->get_var( 'SELECT @@SESSION.in_transaction' );
+			if ( null === $active ) {
+				throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
+			}
+			return 1 === (int) $active;
+		}
+
+		$sql    = 'SELECT COUNT(*) FROM performance_schema.events_transactions_current';
+		$sql   .= ' WHERE THREAD_ID = (SELECT THREAD_ID FROM performance_schema.threads WHERE PROCESSLIST_ID = CONNECTION_ID())';
+		$active = $this->database->get_var( $sql );
+		if ( null === $active ) {
+			throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
+		}
+		return (int) $active > 0;
+	}
+
+	/** @return bool */
+	private function server_is_mariadb() {
+		if ( null !== $this->is_mariadb ) {
+			return $this->is_mariadb;
+		}
+		$version = $this->database->get_var( 'SELECT VERSION()' );
+		if ( ! is_string( $version ) || '' === $version ) {
+			throw new RuntimeException( 'v1_database_server_identity_unavailable' );
+		}
+		$this->is_mariadb = false !== stripos( $version, 'mariadb' );
+		return $this->is_mariadb;
 	}
 
 	/** @return int */

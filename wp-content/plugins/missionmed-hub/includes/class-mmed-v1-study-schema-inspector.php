@@ -23,6 +23,9 @@ final class MMED_V1_Study_Schema_Inspector {
 	/** @var string */
 	private $schema_name;
 
+	/** @var bool */
+	private $is_mariadb;
+
 	/** @param object $database WordPress database connection. */
 	public function __construct( $database ) {
 		if ( ! is_object( $database ) || ! method_exists( $database, 'get_results' ) || ! method_exists( $database, 'prepare' ) ) {
@@ -30,6 +33,7 @@ final class MMED_V1_Study_Schema_Inspector {
 		}
 		$this->database    = $database;
 		$this->schema_name = $this->read_schema_name();
+		$this->is_mariadb  = $this->read_is_mariadb();
 	}
 
 	/**
@@ -99,6 +103,15 @@ final class MMED_V1_Study_Schema_Inspector {
 			throw new RuntimeException( 'V1 database schema identity is unavailable.' );
 		}
 		return $name;
+	}
+
+	/** @return bool */
+	private function read_is_mariadb() {
+		$version = $this->database->get_var( 'SELECT VERSION()' );
+		if ( ! is_string( $version ) || '' === $version ) {
+			throw new RuntimeException( 'V1 database server identity is unavailable.' );
+		}
+		return false !== stripos( $version, 'mariadb' );
 	}
 
 	/** @return array */
@@ -285,7 +298,17 @@ final class MMED_V1_Study_Schema_Inspector {
 
 	/** @return string|null */
 	private function normalize_default( $value ) {
-		return null === $value ? null : (string) $value;
+		if ( null === $value ) {
+			return null;
+		}
+		$value = (string) $value;
+		// MariaDB exposes an implicit SQL NULL default as unquoted text NULL.
+		// A literal string default remains quoted in information_schema and must
+		// not be normalized away as compatible drift.
+		if ( $this->is_mariadb && 'NULL' === $value ) {
+			return null;
+		}
+		return $value;
 	}
 
 	/** @return string|null */
