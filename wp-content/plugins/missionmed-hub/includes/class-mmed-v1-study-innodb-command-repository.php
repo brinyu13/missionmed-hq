@@ -905,11 +905,15 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 
 		$request = json_decode( $receipt['request_json'], true );
 		$temporal = $this->receipt_temporal_envelope_inner( $receipt );
+		$candidate_payload = is_array( $request ) && isset( $request['payload'] ) && is_array( $request['payload'] ) ? $request['payload'] : null;
+		if ( MMED_V1_Study_Week_Domain::COMMAND_CREATE === (string) ( $receipt['action'] ?? '' ) && is_array( $candidate_payload ) ) {
+			unset( $candidate_payload['family'] );
+		}
 		$candidate = array(
 			'idempotency_key' => $receipt['idempotency_key'],
 			'expected_revision' => $request['expected_revision'] ?? null,
 			'command' => $request['command'] ?? null,
-			'payload' => $request['payload'] ?? null,
+			'payload' => $candidate_payload,
 		);
 		$normalized = MMED_V1_Study_Week_Domain::normalize_command(
 			$candidate,
