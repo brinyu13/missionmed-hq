@@ -211,6 +211,9 @@ class MMED_File_Vault {
 		if ( ! $file ) {
 			return new WP_Error( 'mmed_file_not_found', 'File not found.', array( 'status' => 404 ) );
 		}
+		if ( self::v2_metadata_for_row( $file ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_confirm_required', 'This document is managed by File Vault V2 and cannot be changed through the legacy confirmation route.', array( 'status' => 409 ) );
+		}
 
 		$params    = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
 		$file_size = isset( $params['file_size'] ) ? absint( $params['file_size'] ) : 0;
@@ -255,13 +258,48 @@ class MMED_File_Vault {
 			return new WP_Error( 'mmed_file_not_found', 'File not found.', array( 'status' => 404 ) );
 		}
 
+		$expires = 300;
+		$r2_key  = (string) $file->r2_key;
+		$v2_meta = self::v2_metadata_for_row( $file );
+		if ( $v2_meta ) {
+			$versions = isset( $v2_meta['versions'] ) && is_array( $v2_meta['versions'] ) ? $v2_meta['versions'] : array();
+			$current  = empty( $versions ) ? null : end( $versions );
+			if ( ! is_array( $current ) || 'ready_clean' !== sanitize_key( $current['verification_state'] ?? '' ) || empty( $current['r2_key'] ) ) {
+				return new WP_Error( 'mmed_file_vault_v2_download_unverified', 'This document has not passed File Vault V2 private-storage verification.', array( 'status' => 409 ) );
+			}
+			$r2_key  = (string) $current['r2_key'];
+			$expires = 60;
+			if ( class_exists( 'MMED_File_Vault_V2_Repository' ) && method_exists( 'MMED_File_Vault_V2_Repository', 'record_compatibility_download' ) ) {
+				$recorded = MMED_File_Vault_V2_Repository::record_compatibility_download( absint( $file->id ), get_current_user_id() );
+				if ( is_wp_error( $recorded ) ) {
+					return $recorded;
+				}
+			}
+		}
+
 		return new WP_REST_Response(
 			array(
-				'url'     => self::presign_url( 'GET', $file->r2_key, 300 ),
-				'expires' => 300,
+				'url'     => self::presign_url( 'GET', $r2_key, $expires ),
+				'expires' => $expires,
 			),
 			200
 		);
+	}
+
+	/**
+	 * Return the additive V2 metadata envelope for a shared-table row.
+	 *
+	 * @param object|null $row File row.
+	 * @return array
+	 */
+	protected static function v2_metadata_for_row( $row ) {
+		if ( ! $row || empty( $row->meta_json ) ) {
+			return array();
+		}
+		$decoded = json_decode( (string) $row->meta_json, true );
+		return is_array( $decoded ) && isset( $decoded['file_vault_v2'] ) && is_array( $decoded['file_vault_v2'] )
+			? $decoded['file_vault_v2']
+			: array();
 	}
 
 	/**
@@ -743,6 +781,14 @@ class MMED_File_Vault {
 			$user     = get_user_by( 'id', (int) $row->reviewed_by );
 			$reviewer = $user ? $user->display_name : '';
 		}
+		$status  = (string) $row->status;
+		$v2_meta = self::v2_metadata_for_row( $row );
+		if ( $v2_meta ) {
+			$v2_status = sanitize_key( $v2_meta['workflow_status'] ?? '' );
+			if ( in_array( $v2_status, array( 'draft', 'uploaded', 'submitted', 'in_review', 'needs_changes', 'reviewed', 'final' ), true ) ) {
+				$status = $v2_status;
+			}
+		}
 
 		return array(
 			'id'            => (int) $row->id,
@@ -753,7 +799,7 @@ class MMED_File_Vault {
 			'category'      => (string) $row->category,
 			'tags'          => (string) $row->tags,
 			'version'       => (int) $row->version,
-			'status'        => (string) $row->status,
+			'status'        => $status,
 			'reviewed_by'   => $reviewer,
 			'reviewed_at'   => self::format_datetime( $row->reviewed_at ),
 			'created_at'    => self::format_datetime( $row->created_at ),

@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>File Vault V2 deterministic harness</title>
+	<link rel="icon" href="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+	<link rel="stylesheet" href="../../wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.css">
+	<style>
+		html,
+		body,
+		#sos-content {
+			width: 100%;
+			height: 100%;
+			margin: 0;
+		}
+
+		body {
+			overflow: hidden;
+			background: #090b0f;
+		}
+
+		.fv1-harness-fallback {
+			display: grid;
+			place-items: center;
+			width: 100%;
+			height: 100%;
+			color: #f1f3f6;
+			background: #090b0f;
+			font: 700 16px/1.5 system-ui, sans-serif;
+		}
+	</style>
+</head>
+<body>
+	<div id="sos-content"></div>
+	<script>
+		(function () {
+			"use strict";
+
+			var params = new URLSearchParams(window.location.search);
+			var role = ["student", "mentor", "admin"].indexOf(params.get("role")) !== -1 ? params.get("role") : "student";
+			var scenario = params.get("scenario") || "default";
+			var fail = params.get("fail") || "";
+			var now = "2026-07-15T14:00:00Z";
+			var students = [
+				{ id: 101, display_name: "Avery Rivera (Fixture)", document_count: 4, coverage_percent: 80, needs_attention: 1 },
+				{ id: 102, display_name: "Jordan Lee (Fixture)", document_count: 2, coverage_percent: 40, needs_attention: 2 },
+				{ id: 103, display_name: "Sam Okafor (Fixture)", document_count: 5, coverage_percent: 100, needs_attention: 0 }
+			];
+				var rubrics = {
+					personal_statement: ["Purpose", "Structure", "Evidence", "Specificity", "Voice", "Clarity", "Reflection", "Fit", "Polish", "Overall"],
+					curriculum_vitae: ["Organization", "Evidence", "Clarity", "Polish"]
+				};
+				var documentTypes = {
+					personal_statement: "Personal Statement",
+					curriculum_vitae: "Curriculum Vitae",
+					mspe: "MSPE",
+					medical_school_transcript: "Medical School Transcript",
+					usmle_transcript: "USMLE Transcript",
+					letter_of_recommendation_1: "Letter of Recommendation 1",
+					letter_of_recommendation_2: "Letter of Recommendation 2",
+					letter_of_recommendation_3: "Letter of Recommendation 3",
+					ecfmg_status_report: "ECFMG Status Report",
+					application_photo: "Application Photo",
+					other: "Other Document"
+				};
+			var documentsByStudent = {
+				101: [
+					{
+						id: 1101,
+						name: "Personal Statement",
+						original_name: "avery_personal_statement_v2.docx",
+						canonical_name: "personal-statement.docx",
+						document_type: "personal_statement",
+						category: "student",
+						mime_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+						file_size: 48219,
+						version: 2,
+						status: "needs_changes",
+						status_label: "Needs Changes",
+						note: "Focused revision after mentor review.",
+						review_note: "Clarify the final paragraph and connect it to the opening example.",
+						created_at: "2026-07-01T16:20:00Z",
+						updated_at: "2026-07-14T18:40:00Z",
+							download_available: true,
+							verification_state: "ready_clean",
+						open_comment_count: 1,
+							versions: [
+								{ number: 1, original_name: "avery_personal_statement_v1.docx", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-01T16:20:00Z", file_size: 45192, note: "Initial draft", score: 68, score_max: 100 },
+								{ number: 2, original_name: "avery_personal_statement_v2.docx", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-14T18:40:00Z", file_size: 48219, note: "Focused revision", score: 76, score_max: 100 }
+						],
+						comments: [
+							{ id: "comment-fixture-1", author_name: "Mentor Quinn (Fixture)", author_role: "mentor", version: 2, created_at: "2026-07-14T19:10:00Z", body: "The opening is clear. Please make the closing connection more specific.", resolved: false }
+						],
+						scores: [
+								{ total_score: 68, max_score: 100, readiness_label: "Score recorded", version: 1, created_at: "2026-07-02T13:00:00Z", scorer_name: "Mentor Quinn (Fixture)", category_scores: { purpose: 7, structure: 7, evidence: 6, specificity: 6, voice: 8, clarity: 7, reflection: 7, fit: 6, polish: 7, overall: 7 } },
+								{ total_score: 76, max_score: 100, readiness_label: "Score recorded", version: 2, created_at: "2026-07-14T19:00:00Z", scorer_name: "Mentor Quinn (Fixture)", category_scores: { purpose: 8, structure: 7, evidence: 8, specificity: 7, voice: 8, clarity: 8, reflection: 8, fit: 7, polish: 8, overall: 7 } }
+							],
+							latest_score: { total_score: 76, max_score: 100, readiness_label: "Score recorded", version: 2, created_at: "2026-07-14T19:00:00Z", scorer_name: "Mentor Quinn (Fixture)", category_scores: { purpose: 8, structure: 7, evidence: 8, specificity: 7, voice: 8, clarity: 8, reflection: 8, fit: 7, polish: 8, overall: 7 } }
+					},
+					{
+						id: 1102,
+						name: "Curriculum Vitae",
+						original_name: "avery_cv.pdf",
+						canonical_name: "curriculum-vitae.pdf",
+						document_type: "curriculum_vitae",
+						category: "student",
+						mime_type: "application/pdf",
+						file_size: 226314,
+						version: 3,
+						status: "submitted",
+						status_label: "Submitted",
+						note: "Updated experience section.",
+						review_note: "",
+						created_at: "2026-06-19T12:00:00Z",
+						updated_at: "2026-07-13T15:25:00Z",
+						download_available: true,
+						verification_state: "ready_clean",
+						open_comment_count: 0,
+						versions: [{ number: 3, original_name: "avery_cv.pdf", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-13T15:25:00Z", file_size: 226314, note: "Updated experience section" }],
+						comments: [],
+						scores: [],
+						latest_score: null
+					},
+					{
+						id: 1103,
+						name: "Medical School Transcript",
+						original_name: "transcript.pdf",
+						canonical_name: "medical-school-transcript.pdf",
+						document_type: "medical_school_transcript",
+						category: "student",
+						mime_type: "application/pdf",
+						file_size: 519022,
+						version: 1,
+						status: "final",
+						status_label: "Final",
+						note: "",
+						review_note: "Verified for this fixture workflow.",
+						created_at: "2026-06-23T10:10:00Z",
+						updated_at: "2026-06-23T10:10:00Z",
+						download_available: true,
+						verification_state: "ready_clean",
+						open_comment_count: 0,
+						versions: [{ number: 1, original_name: "transcript.pdf", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-06-23T10:10:00Z", file_size: 519022, note: "" }],
+						comments: [],
+						scores: [],
+						latest_score: null
+					},
+					{
+						id: 1104,
+						name: "Photo",
+						original_name: "avery_photo.jpg",
+						canonical_name: "photo.jpg",
+						document_type: "application_photo",
+						category: "student",
+						mime_type: "image/jpeg",
+						file_size: 143000,
+						version: 1,
+						status: "uploaded",
+						status_label: "Uploaded",
+						note: "",
+						review_note: "",
+						created_at: "2026-07-08T09:30:00Z",
+						updated_at: "2026-07-08T09:30:00Z",
+						download_available: true,
+						verification_state: "ready_clean",
+						open_comment_count: 0,
+						versions: [{ number: 1, original_name: "avery_photo.jpg", uploader_name: "Avery Rivera (Fixture)", uploaded_at: "2026-07-08T09:30:00Z", file_size: 143000, note: "" }],
+						comments: [],
+						scores: [],
+						latest_score: null
+					}
+				],
+				102: [],
+				103: []
+			};
+
+			function clone(value) {
+				return JSON.parse(JSON.stringify(value));
+			}
+
+			function studentById(studentId) {
+				return students.find(function (student) { return student.id === Number(studentId); }) || null;
+			}
+
+			function capabilities(viewerRole, hasStudent) {
+				return {
+					upload: hasStudent && viewerRole !== "mentor",
+					download: hasStudent,
+					comment: hasStudent,
+					submit: hasStudent && viewerRole === "student",
+					review: hasStudent && viewerRole !== "student",
+					score: hasStudent && viewerRole !== "student",
+					finalize: hasStudent && viewerRole === "admin",
+					view_audit: viewerRole !== "student",
+					view_student_list: viewerRole !== "student"
+				};
+			}
+
+			function activeDocuments(studentId) {
+				if (scenario === "empty") return [];
+				return documentsByStudent[studentId] || [];
+			}
+
+			function journeyFor(studentId) {
+				var documents = activeDocuments(studentId);
+				var definitions = [
+					["personal_statement", "Personal Statement"],
+						["curriculum_vitae", "Curriculum Vitae"],
+						["medical_school_transcript", "Medical School Transcript"],
+						["application_photo", "Application Photo"],
+					["mspe", "MSPE"]
+				];
+				var items = definitions.map(function (definition) {
+					var documentItem = documents.find(function (candidate) { return candidate.document_type === definition[0]; });
+					return { document_type: definition[0], label: definition[1], document_id: documentItem ? documentItem.id : 0, status: documentItem ? documentItem.status : "missing" };
+				});
+				var complete = items.filter(function (item) { return item.document_id > 0; }).length;
+					return {
+						label: "Fixture application document set",
+						requirement_set: {
+							id: "fixture-application-set",
+							label: "Fixture application document set",
+							source: "Deterministic browser fixture"
+						},
+					items: items,
+					gates: [
+						{ label: "Internal document review target", date: "2026-08-15T00:00:00Z" },
+						{ label: "Application preparation checkpoint", date: "2026-09-01T00:00:00Z" }
+					],
+					complete_count: complete,
+					total_count: items.length,
+					coverage_percent: Math.round((complete / items.length) * 100)
+				};
+			}
+
+			function activityFor(studentId) {
+				if (scenario === "empty") return [];
+				if (scenario === "audit-boundary") {
+					return Array.from({ length: 201 }, function (_, index) {
+						return {
+							id: "audit-event-" + String(index + 1).padStart(4, "0"),
+							message: "Bounded audit fixture event " + String(index + 1),
+							document_name: "Personal Statement",
+							actor: "MissionMed Reviewer (Fixture)",
+							at: new Date(Date.parse("2026-07-15T12:00:00Z") - (index * 1000)).toISOString()
+						};
+					});
+				}
+				return [
+					{ id: "fixture-event-0001", message: "Review note added.", document_name: "Personal Statement", actor: "Mentor Quinn (Fixture)", at: "2026-07-14T19:10:00Z" },
+					{ id: "fixture-event-0002", message: "Version 2 uploaded.", document_name: "Personal Statement", actor: "Avery Rivera (Fixture)", at: "2026-07-14T18:40:00Z" },
+					{ id: "fixture-event-0003", message: "Curriculum Vitae submitted.", document_name: "Curriculum Vitae", actor: "Avery Rivera (Fixture)", at: "2026-07-13T15:25:00Z" }
+				];
+			}
+
+			function libraryFor(studentId) {
+				if (scenario === "empty") return [];
+				var documents = activeDocuments(studentId);
+				return documents.length ? [documents[2] || documents[0]] : [];
+			}
+
+			function queueRows() {
+				if (scenario === "empty") return [];
+				return activeDocuments(101).filter(function (documentItem) {
+					return ["submitted", "in_review", "needs_changes"].indexOf(documentItem.status) !== -1;
+				}).map(function (documentItem) {
+					var row = clone(documentItem);
+					row.student = clone(studentById(101));
+					return row;
+				});
+			}
+
+			function nextActionFor(studentId) {
+				var documents = activeDocuments(studentId);
+				var changes = documents.find(function (documentItem) { return documentItem.status === "needs_changes"; });
+				if (changes) return { kind: "open_document", document_id: changes.id, title: "Revise your Personal Statement", detail: "A mentor left one focused note on the current version." };
+					return { kind: "upload", document_type: "personal_statement", title: "Add Personal Statement", detail: "Start with the next server-configured document in your record." };
+			}
+
+			function storageState() {
+				return {
+					ready: scenario !== "blocked",
+					private: true,
+					max_file_size: 26214400,
+					user_quota_bytes: 524288000,
+					user_usage_bytes: 957559,
+					contracts: {
+						default: { extensions: ["pdf", "docx", "png"], max_file_size: 26214400 },
+						application_photo: { extensions: ["jpg", "jpeg"], max_file_size: 153600 }
+					}
+				};
+			}
+
+			function studentScope(viewerRole, studentId, includeStaff) {
+				var student = studentById(studentId);
+				var data = {
+					viewer_role: viewerRole,
+					student: clone(student),
+					documents: clone(activeDocuments(studentId)),
+					journey: clone(journeyFor(studentId)),
+					library: clone(libraryFor(studentId)),
+						activity: clone(activityFor(studentId)),
+						document_types: clone(documentTypes),
+						rubrics: clone(rubrics),
+					storage: storageState(),
+					capabilities: capabilities(viewerRole, !!student),
+					next_action: clone(nextActionFor(studentId))
+				};
+				if (includeStaff && viewerRole !== "student") {
+					data.students = clone(students);
+					data.review_queue = clone(queueRows());
+					data.command = { student_count: students.length, document_count: 11, review_count: queueRows().length, attention_count: 3 };
+					data.staff_pagination = { page: 1, per_page: 50, has_more: false, next_page: null, scope_complete: true };
+				}
+				return data;
+			}
+
+			function staffScope(viewerRole) {
+				var scopedStudents = scenario === "paged" ? students.slice(0, 2) : students;
+				return {
+					viewer_role: viewerRole,
+					student: null,
+					documents: [],
+						journey: { label: "No document set assigned", requirement_set: { id: "", label: "No document set assigned", source: "" }, items: [], gates: [], complete_count: 0, total_count: 0, coverage_percent: 0 },
+					library: [],
+						activity: [],
+						document_types: clone(documentTypes),
+						rubrics: clone(rubrics),
+					storage: storageState(),
+					capabilities: capabilities(viewerRole, false),
+					students: clone(scopedStudents),
+					review_queue: clone(queueRows()),
+					command: { student_count: scopedStudents.length, document_count: scenario === "paged" ? 6 : 11, review_count: queueRows().length, attention_count: 3 },
+					staff_pagination: { page: 1, per_page: 2, has_more: scenario === "paged", next_page: scenario === "paged" ? 2 : null, scope_complete: scenario !== "paged" },
+					next_action: null
+				};
+			}
+
+			function findDocument(id) {
+				var result = null;
+				Object.keys(documentsByStudent).some(function (studentId) {
+					result = documentsByStudent[studentId].find(function (documentItem) { return documentItem.id === Number(id); }) || null;
+					return !!result;
+				});
+				return result;
+			}
+
+			function reject(message, status) {
+				var error = new Error(message);
+				error.status = status || 500;
+				return Promise.reject(error);
+			}
+
+			var harness = {
+				ready: false,
+				role: role,
+				scenario: scenario,
+				fail: fail,
+				calls: [],
+				mutations: [],
+				downloads: [],
+				errors: [],
+				instance: null
+			};
+			window.__FV2_HARNESS__ = harness;
+
+			window.addEventListener("error", function (event) {
+				harness.errors.push(String(event.error && event.error.message || event.message || "Window error"));
+			});
+			window.addEventListener("unhandledrejection", function (event) {
+				harness.errors.push(String(event.reason && event.reason.message || event.reason || "Unhandled rejection"));
+			});
+
+			var nativeAnchorClick = HTMLAnchorElement.prototype.click;
+			HTMLAnchorElement.prototype.click = function () {
+				if (this.href.indexOf("https://secure-files.fixture.invalid/") === 0) {
+					harness.downloads.push({ href: this.href, filename: this.download });
+					return;
+				}
+				return nativeAnchorClick.call(this);
+			};
+
+			window.MMED_FILE_VAULT_V1 = {
+				render: function () {
+					harness.v1FallbackRendered = true;
+					document.getElementById("sos-content").innerHTML = '<main class="fv1-harness-fallback" data-v1-fallback>Classic File Vault fallback rendered.</main>';
+				}
+			};
+
+			window.mmedFileVaultV2Config = {
+				maxFileSize: 26214400,
+				role: role,
+				v1: {
+					css: new URL("../../wp-content/plugins/missionmed-hub/assets/student-os-file-vault.css", window.location.href).toString()
+				}
+			};
+
+			function api(request) {
+				var method = request.method;
+				var path = request.path;
+				var body = request.body || {};
+				harness.calls.push({ method: method, path: path, body: clone(body), query: clone(request.query || {}) });
+				if (request.signal && request.signal.aborted) {
+					var aborted = new Error("Fixture request aborted.");
+					aborted.name = "AbortError";
+					return Promise.reject(aborted);
+				}
+				if (path === "/bootstrap" && method === "GET") {
+					if (scenario === "error") return reject("Fixture bootstrap is intentionally unavailable.", 503);
+					if (scenario === "malformed") return Promise.resolve({ viewer_role: role });
+					var requestedStudent = Number(request.query && request.query.student_id || 0);
+					if (fail === "refresh" && harness.calls.filter(function (call) { return call.path === "/bootstrap"; }).length > 1) return reject("Fixture refresh failed.", 503);
+					if (role === "student") return Promise.resolve(studentScope(role, 101, false));
+					return Promise.resolve(requestedStudent ? studentScope(role, requestedStudent, true) : staffScope(role));
+				}
+				if (path === "/students" && method === "GET") {
+					var rosterPage = Number(request.query && request.query.page || 1);
+					if (scenario === "paged" && rosterPage === 2) {
+						return Promise.resolve({
+							students: clone(students.slice(2)),
+							review_queue: [],
+							command: { student_count: 1, document_count: 5, review_count: 0, attention_count: 0 },
+							pagination: { page: 2, per_page: 2, has_more: false, next_page: null, scope_complete: true }
+						});
+					}
+					return Promise.resolve({ students: clone(students), review_queue: clone(queueRows()), command: { student_count: 3, document_count: 11, review_count: queueRows().length, attention_count: 3 }, pagination: { page: 1, per_page: 50, has_more: false, next_page: null, scope_complete: true } });
+				}
+				var studentMatch = path.match(/^\/students\/(\d+)$/);
+				if (studentMatch && method === "GET") {
+					var studentId = Number(studentMatch[1]);
+					if (!studentById(studentId)) return reject("Student Vault not found.", 404);
+					return Promise.resolve(studentScope(role, studentId, false));
+				}
+				if (path === "/audit" && method === "GET") {
+					if (fail === "audit") return reject("Fixture audit feed failed.", 503);
+					var auditPage = Number(request.query && request.query.page || 1);
+					var auditEvents = activityFor(101).map(function (eventItem) {
+						return Object.assign({}, eventItem, { student: clone(studentById(101)) });
+					});
+					if (scenario === "audit-boundary") {
+						var beforeId = String(request.query && request.query.before_id || "");
+						var start = beforeId ? auditEvents.findIndex(function (eventItem) { return eventItem.id === beforeId; }) + 1 : 0;
+						if (beforeId && start === 0) return reject("Fixture audit cursor is invalid.", 422);
+						var eventLimit = Math.min(200, Number(request.query && request.query.event_limit || 200));
+						var eventChunk = auditEvents.slice(start, start + eventLimit);
+						var hasMoreEvents = start + eventChunk.length < auditEvents.length;
+						var lastEvent = eventChunk[eventChunk.length - 1] || null;
+						return Promise.resolve({
+							events: clone(eventChunk),
+							pagination: {
+								page: 1,
+								per_page: 50,
+								event_limit: eventLimit,
+								has_more: hasMoreEvents,
+								next_page: hasMoreEvents ? 1 : null,
+								next_before_at: hasMoreEvents && lastEvent ? lastEvent.at : "",
+								next_before_id: hasMoreEvents && lastEvent ? lastEvent.id : "",
+								scope_complete: !hasMoreEvents
+							}
+						});
+					}
+					if (scenario === "paged") {
+						return Promise.resolve({
+							events: clone(auditPage === 1 ? auditEvents.slice(0, 1) : auditEvents.slice(1)),
+							pagination: { page: auditPage, per_page: 2, event_limit: 200, has_more: auditPage === 1, next_page: auditPage === 1 ? 2 : null, next_before_at: "", next_before_id: "", scope_complete: auditPage !== 1 }
+						});
+					}
+					return Promise.resolve({ events: clone(auditEvents), pagination: { page: 1, per_page: 50, event_limit: 200, has_more: false, next_page: null, next_before_at: "", next_before_id: "", scope_complete: true } });
+				}
+				var documentMatch = path.match(/^\/files\/(\d+)$/);
+				if (documentMatch && method === "GET") {
+					if (fail === "document") return reject("Fixture document failed.", 503);
+					var documentItem = findDocument(documentMatch[1]);
+					return documentItem ? Promise.resolve(clone(documentItem)) : reject("Document not found.", 404);
+				}
+				var downloadMatch = path.match(/^\/files\/(\d+)\/download$/);
+				if (downloadMatch && method === "GET") {
+					var downloadDocument = findDocument(downloadMatch[1]);
+					return downloadDocument ? Promise.resolve({ url: "https://secure-files.fixture.invalid/download/" + downloadDocument.id, filename: downloadDocument.original_name, expires: 60 }) : reject("Document not found.", 404);
+				}
+				if ((path === "/uploads" || /^\/files\/\d+\/versions$/.test(path)) && method === "POST") {
+					if (fail === "upload") return reject("Fixture upload signing failed.", 503);
+					harness.pendingUpload = { body: clone(body), documentId: Number((path.match(/^\/files\/(\d+)/) || [])[1] || 0) };
+					return Promise.resolve({
+						upload_id: "123e4567-e89b-42d3-a456-426614174000",
+						confirm_token: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						upload_url: "https://secure-files.fixture.invalid/upload/123e4567-e89b-42d3-a456-426614174000",
+						required_headers: {
+							"Content-Type": body.mime_type,
+							"x-amz-checksum-sha256": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+						}
+					});
+				}
+				if (path === "/uploads/123e4567-e89b-42d3-a456-426614174000/confirm" && method === "POST") {
+					if (fail === "confirm") return reject("Fixture confirmation failed.", 503);
+					if (body.confirm_token !== "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa") return reject("Confirmation token rejected.", 403);
+					var pending = harness.pendingUpload || { body: {}, documentId: 0 };
+					var confirmed;
+					if (pending.documentId) {
+						confirmed = findDocument(pending.documentId);
+						confirmed.version += 1;
+						confirmed.original_name = pending.body.filename;
+						confirmed.file_size = pending.body.file_size;
+						confirmed.updated_at = now;
+						confirmed.status = pending.body.ready_for_review ? "submitted" : "uploaded";
+						confirmed.status_label = pending.body.ready_for_review ? "Submitted" : "Uploaded";
+					} else {
+						confirmed = {
+							id: 1199,
+							name: pending.body.display_name || "Fixture Upload",
+							original_name: pending.body.filename,
+							canonical_name: pending.body.filename,
+							document_type: pending.body.document_type || "other",
+							category: "student",
+							mime_type: pending.body.mime_type,
+							file_size: pending.body.file_size,
+							version: 1,
+							status: pending.body.ready_for_review ? "submitted" : "uploaded",
+							status_label: pending.body.ready_for_review ? "Submitted" : "Uploaded",
+							note: pending.body.note || "",
+							review_note: "",
+							created_at: now,
+								updated_at: now,
+								download_available: true,
+								verification_state: "ready_clean",
+							open_comment_count: 0,
+							versions: [{ number: 1, original_name: pending.body.filename, uploader_name: role === "student" ? "Avery Rivera (Fixture)" : "Admin Fixture", uploaded_at: now, file_size: pending.body.file_size, note: pending.body.note || "" }],
+							comments: [],
+							scores: [],
+							latest_score: null
+						};
+						documentsByStudent[101].unshift(confirmed);
+					}
+					harness.mutations.push({ type: "confirm", documentId: confirmed.id });
+					return Promise.resolve(clone(confirmed));
+				}
+				var submitMatch = path.match(/^\/files\/(\d+)\/submit$/);
+				if (submitMatch && method === "POST") {
+					var submitted = findDocument(submitMatch[1]);
+					if (!submitted) return reject("Document not found.", 404);
+					submitted.status = "submitted";
+					submitted.status_label = "Submitted";
+					submitted.updated_at = now;
+					harness.mutations.push({ type: "submit", documentId: submitted.id });
+					return Promise.resolve(clone(submitted));
+				}
+				var commentMatch = path.match(/^\/files\/(\d+)\/comments$/);
+				if (commentMatch && method === "POST") {
+					var commented = findDocument(commentMatch[1]);
+					if (!commented) return reject("Document not found.", 404);
+					var comment = { id: "comment-fixture-" + (commented.comments.length + 2), author_name: role === "student" ? "Avery Rivera (Fixture)" : "Staff Fixture", author_role: role, version: commented.version, created_at: now, body: body.body, resolved: false };
+					commented.comments.push(comment);
+					commented.open_comment_count += 1;
+					harness.mutations.push({ type: "comment", documentId: commented.id });
+					return Promise.resolve(clone(comment));
+				}
+				var resolveMatch = path.match(/^\/files\/(\d+)\/comments\/([^/]+)\/resolve$/);
+				if (resolveMatch && method === "PUT") {
+					var resolvedDocument = findDocument(resolveMatch[1]);
+					var resolved = resolvedDocument && resolvedDocument.comments.find(function (commentItem) { return commentItem.id === decodeURIComponent(resolveMatch[2]); });
+					if (!resolved) return reject("Comment not found.", 404);
+					resolved.resolved = true;
+					resolvedDocument.open_comment_count = resolvedDocument.comments.filter(function (commentItem) { return !commentItem.resolved; }).length;
+					harness.mutations.push({ type: "resolve", documentId: resolvedDocument.id });
+					return Promise.resolve(clone(resolved));
+				}
+				var statusMatch = path.match(/^\/files\/(\d+)\/status$/);
+				if (statusMatch && method === "PUT") {
+					var reviewed = findDocument(statusMatch[1]);
+					if (!reviewed) return reject("Document not found.", 404);
+					reviewed.status = body.status;
+					reviewed.status_label = String(body.status || "").replace(/_/g, " ").replace(/\b\w/g, function (letter) { return letter.toUpperCase(); });
+					reviewed.review_note = body.note || "";
+					reviewed.updated_at = now;
+					harness.mutations.push({ type: "status", documentId: reviewed.id, status: body.status });
+					return Promise.resolve(clone(reviewed));
+				}
+				var scoreMatch = path.match(/^\/files\/(\d+)\/score$/);
+				if (scoreMatch && method === "POST") {
+					var scored = findDocument(scoreMatch[1]);
+					if (!scored) return reject("Document not found.", 404);
+						var computedTotal = Object.keys(body.category_scores || {}).reduce(function (sum, key) { return sum + Math.max(0, Math.min(10, Number(body.category_scores[key]) || 0)); }, 0);
+						var maximum = Math.max(10, Object.keys(body.category_scores || {}).length * 10);
+						var score = { total_score: Math.min(maximum, computedTotal), max_score: maximum, readiness_label: "Score recorded", version: scored.version, created_at: now, scorer_name: role === "mentor" ? "Mentor Fixture" : "Admin Fixture", category_scores: clone(body.category_scores || {}), notes: body.notes || "" };
+					scored.scores.push(score);
+					scored.latest_score = score;
+					harness.mutations.push({ type: "score", documentId: scored.id });
+					return Promise.resolve(clone(score));
+				}
+				return reject("Unexpected fixture route: " + method + " " + path, 500);
+			}
+
+			harness.api = api;
+			harness.hashFile = function () {
+				return Promise.resolve("0000000000000000000000000000000000000000000000000000000000000000");
+			};
+			harness.uploadTransport = function (options) {
+				var stopped = false;
+				var timer = 0;
+				var promise = new Promise(function (resolve, rejectUpload) {
+					options.onProgress(25);
+					timer = window.setTimeout(function () {
+						if (stopped) {
+							var aborted = new Error("Fixture upload stopped.");
+							aborted.name = "AbortError";
+							rejectUpload(aborted);
+							return;
+						}
+						options.onProgress(100);
+						resolve();
+					}, 35);
+				});
+				return {
+					promise: promise,
+					abort: function () {
+						stopped = true;
+						window.clearTimeout(timer);
+					}
+				};
+			};
+		}());
+	</script>
+	<script src="../../wp-content/plugins/missionmed-hub/assets/student-os-file-vault-v2.js"></script>
+	<script>
+		window.MMED_FILE_VAULT_V2.mountHarness("#sos-content", {
+			api: window.__FV2_HARNESS__.api,
+			hashFile: window.__FV2_HARNESS__.hashFile,
+			uploadTransport: window.__FV2_HARNESS__.uploadTransport,
+			config: window.mmedFileVaultV2Config
+		}).then(function (instance) {
+			window.__FV2_HARNESS__.instance = instance;
+			window.__FV2_HARNESS__.ready = true;
+			document.documentElement.setAttribute("data-harness-ready", "true");
+		}).catch(function (error) {
+			window.__FV2_HARNESS__.errors.push(String(error && error.message || error));
+			document.documentElement.setAttribute("data-harness-ready", "error");
+		});
+	</script>
+</body>
+</html>

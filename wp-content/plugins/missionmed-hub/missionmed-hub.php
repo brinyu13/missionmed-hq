@@ -132,6 +132,8 @@ if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-calendar-engine.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-communications.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-file-vault.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-file-vault-v2-repository.php';
+    require_once MMED_HUB_PATH . 'includes/class-mmed-file-vault-v2.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-study-schedule.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-supabase-bridge.php';
     require_once MMED_HUB_PATH . 'includes/class-mmed-ranklist.php';
@@ -309,6 +311,9 @@ if ( class_exists( 'MMED_Office_Hours' ) ) {
 }
 if ( class_exists( 'MMED_File_Vault' ) ) {
     add_action( 'init', array( 'MMED_File_Vault', 'init' ) );
+}
+if ( class_exists( 'MMED_File_Vault_V2' ) ) {
+    MMED_File_Vault_V2::init();
 }
 if ( class_exists( 'MMED_Study_Schedule' ) ) {
     add_action( 'init', array( 'MMED_Study_Schedule', 'init' ) );
