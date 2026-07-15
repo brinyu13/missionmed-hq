@@ -31,7 +31,8 @@ unverified administrator routing; published historical files are not rewritten.
 
 - governed `student_os_js` approved SHA-256:
   `646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a`;
-- controller lock: `c0a538…`; recovered/origin/observed controller: `23da5c…`;
+- former controller lock: `c0a538…`; normalized recovered/origin/observed and
+  current approved controller: `23da5c…`;
 - current `#study`: legacy Calendar-backed administrator view;
 - current legacy storage: Calendar-owned `wp_mmed_events`;
 - current legacy REST: `/mmed/v1/study-blocks` broad logged-in boundary;
@@ -46,3 +47,5 @@ unverified administrator routing; published historical files are not rewritten.
 
 Subagents were read-only. MissionMed_OS remained read-only. The supervisor
 independently reproduced every load-bearing claim used by the 14 decisions.
+
+Runtime normalization evidence is in `V1_8010A_RUNTIME_LOCK_NORMALIZATION.md`.

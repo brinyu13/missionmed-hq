@@ -1,6 +1,6 @@
 # V1-8010A Decision 14 — Matrix Runtime Lock and Protected Delivery
 
-**Status:** ACCEPTED; CONTROLLER DRIFT MUST BE NORMALIZED BEFORE PROTECTED EDIT
+**Status:** ACCEPTED; CONTROLLER DRIFT NORMALIZED 2026-07-15
 
 ## Corrected runtime evidence
 
@@ -17,11 +17,15 @@ Contrary V1-8000 statements are superseded by this decision. The authenticated
 administrator route `/member-dashboard/#study` is verified as the legacy
 Calendar-backed view, not V1. Eligible-learner behavior remains unverified.
 
-The guard is green for every declared public JS/CSS asset and exits `42` only
-because `class_mmed_student_os_php` is approved at `c0a538…` while recovered,
-origin, and observed runtime bytes are `23da5c…`. This provenance drift must be
-normalized with a fresh backup and descriptor update before any protected V1
-controller edit.
+The initial guard was green for every declared public JS/CSS asset and identified
+only `class_mmed_student_os_php`: the former descriptor was `c0a538…` while
+recovered, origin, and observed runtime bytes were `23da5c…`.
+
+That drift is now normalized. A fresh Kinsta rollback copy and a private local
+evidence bundle were created, the global descriptor was updated to the proven
+`23da5c…` baseline under Brian's explicit authority, and a full source/origin/
+public preflight passes without an override. See
+`V1_8010A_RUNTIME_LOCK_NORMALIZATION.md`.
 
 ## Protected protocol
 

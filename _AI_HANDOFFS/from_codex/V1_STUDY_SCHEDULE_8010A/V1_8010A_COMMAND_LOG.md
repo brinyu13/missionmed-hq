@@ -12,6 +12,8 @@ content, credentials, environment values, or private data are recorded.
 | Accepted-input manifest | Handoff write | 75 relative paths/sizes/SHA-256 values generated; JSON parsed |
 | Independent agent wave | Read-only | Herschel/Avicenna/Lorentz findings reconciled; Darwin followed |
 | Decision filing | Handoff write | Decisions 01–14, authority, characterization, evidence, blockers, sequence filed |
+| Runtime normalization | Protected manifest + backup | Live/local controller hash equality proved; fresh private Kinsta/local backups created; descriptor normalized; full guard passed without override; no production application byte changed |
+| Legacy containment | Application source + fixture tests | Owner/type/state-constrained atomic mutations, metadata preservation, and explicit private creation implemented locally |
 | Validation | Read-only | JSON parse, Markdown/build checks, Git whitespace/status checks |
 
 No application source, database, feature flag, cache/CDN, authentication,

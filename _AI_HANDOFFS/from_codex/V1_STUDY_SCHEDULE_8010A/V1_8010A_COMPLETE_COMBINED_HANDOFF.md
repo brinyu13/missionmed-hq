@@ -661,7 +661,7 @@ truth. Pre-watermark users may return to legacy.
 
 # V1-8010A Decision 14 — Matrix Runtime Lock and Protected Delivery
 
-**Status:** ACCEPTED; CONTROLLER DRIFT MUST BE NORMALIZED BEFORE PROTECTED EDIT
+**Status:** ACCEPTED; CONTROLLER DRIFT NORMALIZED 2026-07-15
 
 ## Corrected runtime evidence
 
@@ -678,11 +678,15 @@ Contrary V1-8000 statements are superseded by this decision. The authenticated
 administrator route `/member-dashboard/#study` is verified as the legacy
 Calendar-backed view, not V1. Eligible-learner behavior remains unverified.
 
-The guard is green for every declared public JS/CSS asset and exits `42` only
-because `class_mmed_student_os_php` is approved at `c0a538…` while recovered,
-origin, and observed runtime bytes are `23da5c…`. This provenance drift must be
-normalized with a fresh backup and descriptor update before any protected V1
-controller edit.
+The initial guard was green for every declared public JS/CSS asset and identified
+only `class_mmed_student_os_php`: the former descriptor was `c0a538…` while
+recovered, origin, and observed runtime bytes were `23da5c…`.
+
+That drift is now normalized. A fresh Kinsta rollback copy and a private local
+evidence bundle were created, the global descriptor was updated to the proven
+`23da5c…` baseline under Brian's explicit authority, and a full source/origin/
+public preflight passes without an override. See
+`V1_8010A_RUNTIME_LOCK_NORMALIZATION.md`.
 
 ## Protected protocol
 
@@ -811,6 +815,58 @@ This is a hash-only provenance record for the historical V1 Study Schedule corpu
 The machine-readable equivalent is `V1_8010A_ACCEPTED_INPUT_MANIFEST.json`.
 
 <!-- END EMBEDDED FILE: V1_8010A_ACCEPTED_INPUT_MANIFEST.md -->
+
+<!-- BEGIN EMBEDDED FILE: V1_8010A_RUNTIME_LOCK_NORMALIZATION.md -->
+
+# V1-8010A Matrix Runtime Lock Normalization
+
+## Result
+
+**PASS.** The only historical Matrix guard drift was normalized before editing
+the protected Student OS controller. Production application bytes were not
+changed.
+
+## Evidence
+
+| Item | Evidence |
+|---|---|
+| Timestamp | `2026-07-15T03:07:27Z` |
+| Controller local SHA-256 | `23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29` |
+| Controller Kinsta SHA-256 | `23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29` |
+| Manifest-before SHA-256 | `efb1d51b916ccc32fa0bf56fa3bd77b828f5cfa63ca04fb8b29c914654c9952d` |
+| Former approved controller SHA-256 | `c0a538d3454ff4a05822e00ace01ebf933a8bbfcf1722fc2be382527743d78cb` |
+| Current approved controller SHA-256 | `23da5c033e8d9ffcf3e9512fb385a8a0a0e88b592cae5e375941d43372cefe29` |
+| Kinsta rollback copy | `/www/theresidencyacademy_209/private/matrix-runtime-guard-backups/V1-STUDY-SCHEDULE-8010A/20260715T030727Z/class-mmed-student-os.php` |
+| Private local evidence bundle | `/Users/brianb/MissionMed_Backups/V1_STUDY_SCHEDULE_8010A/runtime-lock-normalization/20260715T030727Z/` |
+
+The local evidence bundle is mode `0600` and contains the pre-change global
+manifest, current local controller, and independently copied Kinsta controller.
+The Kinsta rollback copy is also mode `0600`.
+
+## Authorized descriptor change
+
+Only the existing `class_mmed_student_os_php` descriptor and manifest update
+timestamp were normalized. Source owner, provenance, backup, validation ticket,
+and validation time now point to V1-8010A. No other protected asset hash, route
+lock, invariant, or allowed change was altered.
+
+## Verification
+
+After normalization:
+
+- the manifest parsed as JSON;
+- all ten declared local/source and production-origin assets matched;
+- every public JS/CSS hash matched;
+- `matrix_runtime_guard.py preflight --assets all --verify-public` exited `0`
+  without `--brian-approved`;
+- MissionMed_OS remained untouched;
+- no production plugin, database, cache/CDN, flag, authentication, entitlement,
+  or learner-data state changed.
+
+Future V1 loader/controller/JS/CSS assets must be registered under their exact
+content hashes before a protected deployment.
+
+<!-- END EMBEDDED FILE: V1_8010A_RUNTIME_LOCK_NORMALIZATION.md -->
 
 <!-- BEGIN EMBEDDED FILE: V1_8010A_CHARACTERIZATION_BASELINE.md -->
 
@@ -1005,7 +1061,7 @@ no polling, bounded long tasks, and <5% retained-heap growth over 20 mounts.
 | ID | Severity | State | Boundary | Resolution and acceptance evidence |
 |---|---|---|---|---|
 | B-01 | P0 release | OPEN | Exact privacy/retention/mentor visibility/backup policy | Privacy/legal-approved version attached to Decision 12; export/delete/backup tests pass before real learner data or production |
-| B-02 | P0 protected edit | OPEN | Student OS controller approved-hash drift | Archive live/controller bytes, reconcile descriptor to proven `23da5c…`, rerun guard green, register exact V1 protected keys |
+| B-02 | P0 protected edit | RESOLVED 2026-07-15 | Student OS controller approved-hash drift | Live/local `23da5c…` bytes archived; descriptor normalized; full guard passes without override. New V1 assets still require registration before deploy. |
 | B-03 | P1 data | OPEN | No proven Plan-owned physical store | Synthetic InnoDB migration/transaction/uniqueness/failure/backup/restore/current-N-1 suite passes |
 | B-04 | P1 access | OPEN | Eligible 360 learner runtime path unverified | Explicit eligible and ineligible test principals prove fail-closed claim and owner isolation; admin mutation remains denied |
 | B-05 | P1 implementation | OPEN | V1 application and six governed views absent | Reversible slices E–H pass domain, browser, accessibility, responsive, and adapter suites |
@@ -1054,7 +1110,8 @@ unverified administrator routing; published historical files are not rewritten.
 
 - governed `student_os_js` approved SHA-256:
   `646e3598d284fff31d22dec98c70c1800e74743276872bb65f1afeeda1c17e5a`;
-- controller lock: `c0a538…`; recovered/origin/observed controller: `23da5c…`;
+- former controller lock: `c0a538…`; normalized recovered/origin/observed and
+  current approved controller: `23da5c…`;
 - current `#study`: legacy Calendar-backed administrator view;
 - current legacy storage: Calendar-owned `wp_mmed_events`;
 - current legacy REST: `/mmed/v1/study-blocks` broad logged-in boundary;
@@ -1069,6 +1126,8 @@ unverified administrator routing; published historical files are not rewritten.
 
 Subagents were read-only. MissionMed_OS remained read-only. The supervisor
 independently reproduced every load-bearing claim used by the 14 decisions.
+
+Runtime normalization evidence is in `V1_8010A_RUNTIME_LOCK_NORMALIZATION.md`.
 
 <!-- END EMBEDDED FILE: V1_8010A_EVIDENCE_INDEX.md -->
 
@@ -1088,6 +1147,8 @@ content, credentials, environment values, or private data are recorded.
 | Accepted-input manifest | Handoff write | 75 relative paths/sizes/SHA-256 values generated; JSON parsed |
 | Independent agent wave | Read-only | Herschel/Avicenna/Lorentz findings reconciled; Darwin followed |
 | Decision filing | Handoff write | Decisions 01–14, authority, characterization, evidence, blockers, sequence filed |
+| Runtime normalization | Protected manifest + backup | Live/local controller hash equality proved; fresh private Kinsta/local backups created; descriptor normalized; full guard passed without override; no production application byte changed |
+| Legacy containment | Application source + fixture tests | Owner/type/state-constrained atomic mutations, metadata preservation, and explicit private creation implemented locally |
 | Validation | Read-only | JSON parse, Markdown/build checks, Git whitespace/status checks |
 
 No application source, database, feature flag, cache/CDN, authentication,
@@ -1106,10 +1167,10 @@ The manifest excludes itself and the generated combined handoff to avoid digest 
 | `V1_8010A_ACCEPTED_INPUT_MANIFEST.json` | 19351 | `1bbfce9b723e4b4338278793bbc0e3a821ae58947ece11d43b43440da0bd6e4a` |
 | `V1_8010A_ACCEPTED_INPUT_MANIFEST.md` | 12664 | `7c747e43c6cddcc0e11cb9d4ab41f6fd767251e1f972b34886308ec8732859f0` |
 | `V1_8010A_AUTHORIZATION_RECORD.md` | 1847 | `a9d92a2f37ce250e7cdf3740b3fad36cd0479c2546470205698d69b9760a130c` |
-| `V1_8010A_BLOCKER_REGISTER.md` | 1993 | `3cc989c965e83799d804afe174ef6386f42543438cddd479d25241540492bed0` |
-| `V1_8010A_BUILD.py` | 8782 | `277a17639ae688c1dce830660f4c84d9db992da983b4ca7713883d24d8ea5d0d` |
+| `V1_8010A_BLOCKER_REGISTER.md` | 2035 | `1196cc7b785536900d16b781c2a0ce1129cd0e9e5b35fd9a0105f0a366f5f81a` |
+| `V1_8010A_BUILD.py` | 8828 | `16be4830a36aec319d8365808f586264ad6896261e895904852ad6e86b3a11d8` |
 | `V1_8010A_CHARACTERIZATION_BASELINE.md` | 2606 | `85e53b350585bd768ac83ab0299e073cc31fbba18e8ad7d9647c923c12572391` |
-| `V1_8010A_COMMAND_LOG.md` | 1274 | `6dd99a73deaabb5b59f4a22ec729482150d434f51e9fea162991775763b357ae` |
+| `V1_8010A_COMMAND_LOG.md` | 1700 | `b8559947a081b252cd84dc7fc4bf39d168e70606f78bcd39c21fcf9551df7122` |
 | `V1_8010A_DECISION_01.md` | 1348 | `99c020c97b6242756b4b59b56fede5cf8b211db00b84057e1bfc8e4cdda91bf2` |
 | `V1_8010A_DECISION_02.md` | 1604 | `4f3ca7536b1f405132a870321cf7f8242fd24fb70df6192071e045c811655df7` |
 | `V1_8010A_DECISION_03.md` | 1122 | `39b59173e11cf0c0ef3a678be5ac56fec5a9efb48aaa5c865c9b51badb44567b` |
@@ -1123,11 +1184,12 @@ The manifest excludes itself and the generated combined handoff to avoid digest 
 | `V1_8010A_DECISION_11.md` | 1320 | `a4b869afc979be68fed2d57bf417adb7a76fad39216831dcafcd33121a8cff8b` |
 | `V1_8010A_DECISION_12.md` | 1952 | `1222e4316b8b64e1458644aabfa45a5c3191126682432f2bde9379cf9fa57b0e` |
 | `V1_8010A_DECISION_13.md` | 1691 | `97772edab6aab8e0dbbc184210073ab33447ff43666af7c9e7d75ddacc50c484` |
-| `V1_8010A_DECISION_14.md` | 1966 | `dde3a58bf3aaf187b213c69d21dd811f2fb3847ef6f9dafeeed18a91b5cd691f` |
+| `V1_8010A_DECISION_14.md` | 2167 | `cf2729815bba27e07e29d926adbccd17d76a9df8fc61815d849ac9d32d2dd181` |
 | `V1_8010A_DECISION_LEDGER.md` | 2435 | `558b563fcd10515849467b4fc2422e2c6c64067ed7e7c2afb80362b27e0d38ed` |
-| `V1_8010A_EVIDENCE_INDEX.md` | 2124 | `a8f674866b046a546eb5182923ae0c351619743d5c9d9ffd25fc91c69b9c8782` |
+| `V1_8010A_EVIDENCE_INDEX.md` | 2245 | `75d4ee8c0d1126a1501e81ae955867b5c7dcf3ab2d7e7279bad8585ef506991c` |
 | `V1_8010A_IMPLEMENTATION_SEQUENCE.md` | 3588 | `cf771cc7519ab6e5c188ed377d22cd783c0e05fd241d7a86a09eafa9c8b1dffa` |
 | `V1_8010A_INDEPENDENT_VERIFICATION.md` | 2882 | `c8b7ab516fe63832d4027d24cc6078133cfdc14512ec553cb9cae9d55a9a8c53` |
 | `V1_8010A_PRODUCT_IDENTITY_LEDGER.md` | 694 | `48fcaefb90277c79f7a4e423bb5f54c6399ec56316ee6b397898e5bf5f8d974b` |
+| `V1_8010A_RUNTIME_LOCK_NORMALIZATION.md` | 2198 | `d92ac1a40619f28e25708fe2b310a8329f855b43933874d97c936d5406ec3a86` |
 
 <!-- END EMBEDDED FILE: V1_8010A_FILE_MANIFEST.md -->
