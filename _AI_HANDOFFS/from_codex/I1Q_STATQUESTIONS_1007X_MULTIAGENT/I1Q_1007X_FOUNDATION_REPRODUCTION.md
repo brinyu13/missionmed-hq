@@ -2,7 +2,7 @@
 
 ## Verdict
 
-`HISTORICAL FOUNDATION PASS, 1006 APPLICATION REPAIR REQUIRED`
+`HISTORICAL FOUNDATION PASS, 1007X LOCAL REPAIR COMPLETE`
 
 ## 1005 Exact-Byte Reproduction
 
@@ -43,7 +43,9 @@ The 111-assertion PASS means the harness detected the expected defect and its in
 
 `npm run validate` failed with exit code 1 because `src/validate-evidence.mjs` does not exist. The checked-in validation command is therefore nonfunctional.
 
-## Reproduced Blocking Defects
+## Historical Reproduced Blocking Defects
+
+The following defects were verified in the 1006 baseline. They are retained as historical reproduction evidence and were addressed by the 1007X local repair series unless an external gate is stated.
 
 1. Read roles can retrieve answer-bearing `item_revisions`; sanitization leaves `answer` and `explanation` intact.
 2. The post-answer artifact route trusts a caller-controlled phase query without server-authoritative finalization evidence.
@@ -64,14 +66,16 @@ The local synthetic server started successfully at its loopback demo address and
 
 ## Dependency Audit
 
-The repository lockfile currently reports four advisories across three packages:
+The repository lockfile was upgraded to fixed dependency versions. The current root audit reports zero vulnerabilities.
 
-- `form-data`: high, CRLF injection, fixed version available
-- `ws`: high denial of service and moderate memory disclosure advisories, fixed version available
-- transitive `esbuild`: low Windows development-server file-read advisory, fixed version available
+## 1007X Convergence
 
-No source import of those packages was found in the inspected tree, and the isolated I1Q package has no package dependencies. The alerts are still a repository-wide release gate until the dependency map establishes consumers and a tested, scoped upgrade is accepted.
+The final repair package suite discovers 228 tests, passes 227, fails 0, and has one environment-gated disposable-database skip. A separate fresh disposable PostgreSQL run passes all 13 apply, reapply, RLS, iterative Class D artifact isolation, validation, compensation, and reapply tests. The Class D regressions cover mixed-case Base64 and Base64URL values, separator-only and full printable-ASCII double and triple URL encodings across seven identifier families and four teaching-prose fields, bounded decode depth, a 64 KiB scalar limit, and zero persisted rows after denial. The evidence validator claims only State A and passes all 20 files with the current 44-artifact checksum set.
+
+Local repairs cover answer-free generic reads, server-derived post-answer authorization, exhaustive Class A and closed-world Class C validation, purpose-scoped exact-assignment reviewer content, workflow-owned mutations, reviewer and publication separation, canonical identity adapter requirements, CSRF and Origin checks, transaction-scoped repository behavior, privacy-safe working-segment construction, the full required privacy-class model, MR-078A migration structure, composite release identity, and explicit Drills availability.
+
+Canonical auth wiring, runtime grants, preview, staging, browser, accessibility, human validation, monitoring, and deployment remain external gates.
 
 ## Current Gate
 
-Foundation reproduction is complete. Foundation repair is not complete. Application integration, migration, staging, or deployment must not proceed until the P0 answer and release bypasses, privacy fail-open behavior, and nonfunctional evidence validator are repaired with regression coverage.
+Foundation reproduction and local repair are complete. Application engineering may continue locally. Preview, staging, or deployment must not proceed until the named canonical integration and certification gates pass.

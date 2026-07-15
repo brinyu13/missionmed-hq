@@ -2,6 +2,10 @@
   "schema_version": "i1q-corpus-inventory-summary-v1",
   "captured_at": "2026-07-15T11:49:53.296Z",
   "privacy_class": "evidence_only_no_source_text",
+  "evidence_scope": "POINT_IN_TIME_AGGREGATE",
+  "row_manifest_retained": false,
+  "independently_recomputable_from_git": false,
+  "qualification": "The source response and aggregate probes were witnessed on 2026-07-15, but no privacy-safe row manifest was retained.",
   "registry": {
     "sha256": "d78910d22ed3b428fd38129ec60140b70673a804a31ae3119e465d75b53631a1",
     "bytes": 125354,

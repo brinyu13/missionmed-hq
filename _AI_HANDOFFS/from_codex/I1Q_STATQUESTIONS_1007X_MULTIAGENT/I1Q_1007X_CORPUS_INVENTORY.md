@@ -2,9 +2,11 @@
 
 ## Verdict
 
-`REAL_CORPUS_INVENTORIED, EXTRACTION BLOCKED PENDING PRIVACY NORMALIZATION`
+`REAL_CORPUS_INVENTORIED AS A POINT-IN-TIME AGGREGATE, EXTRACTION BLOCKED PENDING PRIVACY NORMALIZATION`
 
 The authorized production Drills registry and its referenced transcript and nodes artifacts were read without mutation on 2026-07-15. No raw transcript text, title, filename, URL, personal name, or source object is stored in this report or the repository evidence.
+
+QUALIFICATION: the retained evidence is aggregate-only. It preserves registry and probe hashes plus totals, but it does not preserve a privacy-safe row-level source manifest. The 97-row result therefore describes the witnessed 2026-07-15 inventory and cannot be independently recomputed row by row from Git alone.
 
 ## Authority
 
@@ -119,6 +121,10 @@ UNKNOWN: this is not proof that no Drive corpus exists. Search indexing, access 
 
 ## State Result
 
-State A `REAL_CORPUS_INVENTORIED` is technically demonstrated by canonical registration, an effective protected integration decision, a complete 97-row real registry inventory, and full referenced-artifact availability evidence.
+State A `REAL_CORPUS_INVENTORIED` is supported as a dated point-in-time aggregate by canonical registration, an effective protected integration decision, the witnessed 97-row real registry inventory, and full referenced-artifact availability totals.
+
+INFERENCE: calling the aggregate inventory complete is reasonable for the observed source response because the response hash, row count, duplicate count, request totals, distinct content hashes, and failure totals agree. It is not a claim that a later operator can reconstruct the same 97 source rows from retained evidence.
+
+OPEN: a future authorized inventory run should retain a privacy-safe row manifest containing only opaque source identifiers or salted stable identifiers, source-level availability states, content hashes, classification state, and probe outcome. It must exclude title, URL, path, speaker wording, transcript text, and personal identifiers.
 
 This report does not claim State B. No privacy-safe working transcript or real candidate has been generated or stored.

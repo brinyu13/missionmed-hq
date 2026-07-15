@@ -12,19 +12,21 @@
 
 | Owner | Write scope | Read scope | Status |
 | --- | --- | --- | --- |
-| Root Supervisor | All root reports; MissionMed OS registration and decision; integration commits; migration/deploy manifests | All authorized project and authority inputs | ACTIVE |
-| Ecosystem Mapper | `agents/ecosystem_mapper/` only | Shared consumers and contracts, read-only | PENDING REMAP AFTER AUTHORITY MERGE |
-| Privacy and Rights | `agents/privacy_rights/` only | Authorized corpus metadata and privacy-safe samples | INITIAL READ-ONLY AUDIT COMPLETE, DURABLE REPORT PENDING |
-| Medical Knowledge | `agents/medical_knowledge/` only | Architecture, schemas, review requirements, privacy-safe fixtures | PENDING |
-| Assessment Science | `agents/assessment_science/` only | Schemas, validators, privacy-safe fixtures | PENDING |
-| Architecture and Data | `agents/architecture_data/` only | `i1q-question-platform/`, migrations, export contracts | INITIAL READ-ONLY AUDIT IN FLIGHT |
-| Auth and Security | `agents/auth_security/` only | Auth, RLS, migrations, dependency and deployment surfaces | INITIAL READ-ONLY AUDIT IN FLIGHT |
-| Internal App | Assigned application paths only after root opens a wave | `i1q-question-platform/` | NOT STARTED |
-| UX and Accessibility | `agents/ux_accessibility/` only | UI, tests, evidence and screenshots | INITIAL READ-ONLY AUDIT COMPLETE, RELEASE VETO RECORDED |
-| Corpus and Extraction | Assigned extraction paths only after inventory gate | Authorized registries and corpus, read-only | NOT STARTED |
-| Adapter | Assigned adapter paths only after mapping | STAT and Drills contracts, read-only | NOT STARTED |
-| Release and Reliability | `agents/release_reliability/` only | CI, staging, monitoring, backup and rollback evidence | NOT STARTED |
-| Independent Red Team | `agents/red_team/` only | Fixed final candidate and all evidence | NOT STARTED |
+| Root Supervisor | All root reports; MissionMed OS registration and decision; integration commits; migration/deploy manifests | All authorized project and authority inputs | FINAL INTEGRATION COMPLETE |
+| Ecosystem Mapper | `agents/ecosystem_mapper/` only | Shared consumers and contracts, read-only | COMPLETE |
+| Privacy and Rights | `agents/privacy_rights/` only | Authorized corpus metadata and privacy-safe samples | COMPLETE, PRIVACY VETO RETAINED |
+| Medical Knowledge | `agents/medical_content/` only | Architecture, schemas, review requirements, privacy-safe fixtures | COMPLETE, NO MEDICAL APPROVAL |
+| Assessment Science | `agents/assessment_science/` only | Schemas, validators, privacy-safe fixtures | COMPLETE, RELEASE VETO RETAINED |
+| Architecture and Data | `agents/datastore_contracts/` only | `i1q-question-platform/`, migrations, export contracts | COMPLETE |
+| Auth and Security | `agents/lorentz_security/` and `agents/security_integrated/` | Auth, RLS, migrations, dependency and deployment surfaces | COMPLETE, ACTIONABLE LOCAL DEFECTS REPAIRED |
+| Internal App | Root-integrated application paths | `i1q-question-platform/` | LOCAL SYNTHETIC BUILD COMPLETE |
+| UX and Accessibility | `agents/ux_accessibility/` and `agents/ux_current/` | UI, tests, evidence and screenshots | COMPLETE, RELEASE VETO RETAINED |
+| Corpus and Extraction | Root-integrated reports only | Authorized registries and corpus, read-only | INVENTORY COMPLETE, EXTRACTION BLOCKED |
+| Adapter | Root-integrated adapter paths | STAT and Drills contracts, read-only | LOCAL CONTRACTS COMPLETE, FLAGS OFF |
+| Release and Reliability | `agents/release_reliability/` only | CI, staging, monitoring, backup and rollback evidence | COMPLETE, DEPLOYMENT BLOCKED |
+| Darwin | `agents/darwin/` only | Current integrated code and tests | COMPLETE, LOCAL PARITY PASS, EXTERNAL RELEASE BLOCKED |
+| Independent Red Team | `agents/independent_red_team/` only | Initial audit, iterative reruns, failed `65bb52c`, and exact final `ba17e22` candidate | COMPLETE, IRT-009 AND IRT-010 CLOSED LOCALLY, STATE C VETO RETAINED |
+| Final Exact Red-Team Verifier | `agents/red_team/` only | Historical counterexamples through IRT-009-H4 and exact pushed checkpoint `ba17e22` | COMPLETE, STATE A CLEAR QUALIFIED ONLY, STATES B C D VETOED |
 
 ## Repair Wave 1 Assignments
 

@@ -38,7 +38,7 @@ No shared HQ or WordPress file was changed in this run.
 
 DR-006 routes the additive schema to RANKLISTIQ. The root `supabase/migrations/` path is documented as Growth Engine ownership and has a migration-history desynchronization. It is not a safe I1Q target.
 
-No tracked GitHub workflow or canonical RANKLISTIQ migration directory was found. The app-local `0001` SQL is design evidence only and is not MR-078A apply-ready. Offline migration hardening may continue, but preview or staging application cannot occur until an owner-provided project-pinned workflow exists.
+No tracked GitHub workflow or canonical RANKLISTIQ migration directory was found. The app-local `20260715122434` migration is a validated standalone MR-078A candidate and passed disposable PostgreSQL apply, reapply, RLS, compensation, and reapply tests. It still cannot enter preview or staging until an owner-provided project-pinned workflow exists.
 
 ## Consumer Boundaries
 
@@ -79,7 +79,7 @@ A future route must pin:
 
 ## Dependency Risk
 
-Repository lockfile audit identified four advisories: one high in `form-data`, high and moderate issues in `ws`, and one low transitive issue in `esbuild`. No source imports were found for the affected packages, but a clean fixed dependency estate is required before release certification.
+The repository lockfile was updated to fixed versions. The current root `npm audit --audit-level=low` result is zero vulnerabilities.
 
 ## Baselines
 
@@ -89,12 +89,12 @@ Repository lockfile audit identified four advisories: one high in `form-data`, h
 | Protected static deploy validator | PASS |
 | Protected LIVE route reachability and markers | PASS |
 | Protected source and runtime checksums | FAIL, four of four diverge |
-| I1Q initial local suite | PASS, 30 of 30 |
-| Adapter suite | PASS, 34 of 34 |
-| Evidence validator | IN REPAIR |
+| I1Q current local suite | PASS, 228 discovered, 227 passed, 0 failed, and 1 disposable-database skip |
+| STAT, Drills, and Class C adapter suite | PASS, 48 of 48 |
+| Evidence validator | PASS, 20 of 20 files and State A |
 | Live authenticated session journey | NOT RUN |
 | Browser journey | BLOCKED, in-app browser unavailable |
-| Preview migration and RLS | NOT RUN |
+| Disposable local migration and RLS | PASS, 13 of 13; preview still not run |
 | Staging, rollback, and monitoring | NOT AVAILABLE |
 
 ## Current Release Position

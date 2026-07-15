@@ -1,0 +1,178 @@
+{
+  "packet": "I1Q-1007X integrated security attack results",
+  "reviewed_commit": "ccb8b73899c81ba0d028638be0d79b6a351f0ceb",
+  "reviewed_worktree_platform_sha256": "121f4ac1ed0a13a6044b6c4e1370d76c6c7bf44afa8e2e1add9346ae190a828a",
+  "scope": {
+    "mode": "read_only_outside_report_directory",
+    "real_medical_content_used": false,
+    "provider_accessed": false,
+    "production_accessed": false
+  },
+  "evidence": {
+    "migration_sha256": "9ccf9b29b402fb271e449be26d6b11deb496e834d3b7caa7ec875ba582749ca8",
+    "compensation_sha256": "25e317428ca75c8cce29269e19c7002ea69860080aac7f59496312bbed34446a",
+    "postgres_repository_sha256": "f4c5f6e3acffc0925c9c36a027471f5d02ec6606ea65ca7e48abfb701f7edee3",
+    "auth_sha256": "fbaeefbd2bada81278312845fcf58cb01543fb4ef3c4ab3a98b2129dfcd91bb7",
+    "server_sha256": "eacdedd01ac4c3ca52becabbaad208109f677da3acdf08878d1a3fedc0bb094d",
+    "platform_sha256": "121f4ac1ed0a13a6044b6c4e1370d76c6c7bf44afa8e2e1add9346ae190a828a"
+  },
+  "tests": {
+    "focused_total": 119,
+    "focused_passed": 112,
+    "focused_failed": 6,
+    "focused_skipped": 1,
+    "prior_committed_full_total_observed": 195,
+    "prior_committed_full_passed_observed": 194,
+    "prior_committed_full_failed_observed": 0,
+    "prior_committed_full_skipped_observed": 1,
+    "npm_audit_vulnerabilities": 0,
+    "secret_pattern_findings": 0
+  },
+  "attacks": [
+    {
+      "id": "ATK-001",
+      "target": "generic read IDOR",
+      "method": "unassigned read_only actor lists item_revisions in the synthetic platform",
+      "expected": "no unapproved or unassigned revision",
+      "observed": "one draft revision returned",
+      "result": "FAIL",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-002",
+      "target": "internal feature gate",
+      "method": "valid injected identity requests dashboard with no enabled internal flags",
+      "expected": "request denied",
+      "observed": "HTTP 200 and dashboard payload",
+      "result": "FAIL",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-003",
+      "target": "consumer feature gate",
+      "method": "read stat_pre_answer artifact while all restricted flags are false",
+      "expected": "request denied",
+      "observed": "artifact returned",
+      "result": "FAIL",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-004",
+      "target": "expired revoked stale and missing identity",
+      "method": "existing negative request tests",
+      "expected": "deny",
+      "observed": "all covered contexts denied",
+      "result": "PASS",
+      "severity": "P0"
+    },
+    {
+      "id": "ATK-005",
+      "target": "CSRF and Origin",
+      "method": "missing and mismatched session-bound token and trusted Origin tests",
+      "expected": "deny",
+      "observed": "all covered mutations denied",
+      "result": "PASS",
+      "severity": "P0"
+    },
+    {
+      "id": "ATK-006",
+      "target": "review impersonation and revision swap",
+      "method": "administrator impersonation, assignment type, actor, role, credential, and hash swap tests",
+      "expected": "deny",
+      "observed": "all covered swaps denied",
+      "result": "PASS",
+      "severity": "P0"
+    },
+    {
+      "id": "ATK-007",
+      "target": "revoked reviewer answer access in SQL",
+      "method": "static control-flow inspection",
+      "expected": "active required role checked",
+      "observed": "assignment branch checks actor and state but not active role or current credential",
+      "result": "FAIL",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-008",
+      "target": "channel policy confusion",
+      "method": "static create_channel_artifact inspection",
+      "expected": "policy, channel, phase, class, and payload bound",
+      "observed": "independent caller fields and arbitrary JSON accepted",
+      "result": "FAIL",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-009",
+      "target": "PostgreSQL RLS rollback and reapply",
+      "method": "disposable database test",
+      "expected": "complete pass",
+      "observed": "skipped because no authorized isolated URL was available",
+      "result": "NOT_RUN",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-010",
+      "target": "official release validation checks",
+      "method": "static application and SQL control-flow inspection",
+      "expected": "all official leak checks bound to stored evidence",
+      "observed": "any nonempty caller-named passing list is accepted",
+      "result": "FAIL",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-011",
+      "target": "expired rights bypass",
+      "method": "static release assembly inspection",
+      "expected": "expired rights record rejected",
+      "observed": "rights status checked but expires_at ignored",
+      "result": "FAIL",
+      "severity": "P1"
+    },
+    {
+      "id": "ATK-012",
+      "target": "current review workflow integration",
+      "method": "current focused test run",
+      "expected": "zero failures",
+      "observed": "six assignment_not_active related failures",
+      "result": "FAIL",
+      "severity": "P1"
+    }
+  ],
+  "findings": {
+    "release_verdict": "BLOCK",
+    "highest_security_clearance": "LOCAL_SYNTHETIC_MECHANICS_ONLY",
+    "state_c_cleared": false
+  },
+  "changes": [
+    "created this report packet only"
+  ],
+  "risks": [
+    "generic IDOR and source metadata visibility",
+    "internal and consumer flag bypass",
+    "revoked reviewer answer access",
+    "artifact security policy confusion",
+    "arbitrary release validation checks and expired rights",
+    "broad metadata RLS and compensation concurrency",
+    "current review workflow test failures",
+    "unproven canonical identity, RLS, rollback, and browser behavior"
+  ],
+  "blockers": [
+    "security repairs not implemented",
+    "current integrated focused suite is not green",
+    "canonical identity resolver absent",
+    "Postgres repository not wired to the service",
+    "canonical unprivileged runtime role absent",
+    "disposable PostgreSQL proof absent",
+    "staging and browser proof absent"
+  ],
+  "confidence": 0.97,
+  "paths": [
+    "i1q-question-platform/src/auth.mjs",
+    "i1q-question-platform/src/server.mjs",
+    "i1q-question-platform/src/platform.mjs",
+    "i1q-question-platform/src/postgres-repository.mjs",
+    "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+    "i1q-question-platform/db/rollback/20260715122435_i1q_1007x_compensating_disable.sql"
+  ],
+  "root_handoff": "Repair every P1 finding, add direct negative tests, run the complete PostgreSQL role and rollback matrix, and obtain a fresh independent security review on the exact frozen commit."
+}

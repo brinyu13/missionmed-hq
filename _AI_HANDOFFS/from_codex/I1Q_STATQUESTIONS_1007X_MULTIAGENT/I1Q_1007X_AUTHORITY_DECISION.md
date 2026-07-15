@@ -76,4 +76,4 @@ This run must not claim State D without those real records.
 
 ## Canonical Filing
 
-The authority branch passed independent verification and merged through MissionMed OS PR #12 at exact head `b3d8089dbc436bad6ec48de95e1d57b6985b7444`. Canonical `main` is `93c0404794fe105235b80514c75fffc3177f140b`, clean and synchronized with `origin/main`. The protected integration decision is therefore effective for the bounded internal implementation described here.
+The authority branch passed independent verification and merged through MissionMed OS PR #12 at exact head `b3d8089dbc436bad6ec48de95e1d57b6985b7444`. The I1Q merge commit is `93c0404794fe105235b80514c75fffc3177f140b`. At the final read-only recheck, canonical `main` was clean and synchronized with `origin/main` at later separately owned RISE commit `0e47d39d79edd9891896eb41e65183e855573cc1`; `CURRENT.md` still listed I1Q-1006 active and DR-006 remained tracked. The protected integration decision is effective for the bounded internal implementation described here.

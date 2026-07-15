@@ -4,7 +4,7 @@
 
 `LOCAL_CONTRACT_PASS, CONSUMER INTEGRATION OFF`
 
-The versioned local STAT adapter now enforces the frozen nine-field server projection, composite identity, stable export IDs, exact release membership, fixed artifact classes, and closed-world Class A validation. It has not been installed in, connected to, or enabled for the protected STAT runtime.
+The versioned local STAT adapter now enforces the frozen nine-field server projection, composite identity, stable export IDs, exact release membership, fixed artifact classes, and closed-world Class A and Class C validation. It has not been installed in, connected to, or enabled for the protected STAT runtime.
 
 ## Implemented Boundary
 
@@ -27,6 +27,8 @@ The versioned local STAT adapter now enforces the frozen nine-field server proje
 
 Class A validation is closed-world for pre-answer questions, indexes, and lookup data. It rejects unknown fields plus recursive answer, answer-map, correctness, explanation, solution, and rationale aliases. It also detects common serialized answer disclosures in string values.
 
+Class C validation is closed-world for each debrief row and distractor rationale. It permits only dataset identity, answer, explanation, correct-answer rationale, and three prose distractor rationales. Internal misconception, item, revision, source, claim, reviewer, and psychometric keys and exact values are rejected and are not projected. The pre-hash scan covers all permitted prose fields plus encoded structured-field markers and release-linked internal records. Its bounded iterative normalization rejects mixed-case Base64 and Base64URL values, separator-only and full printable-ASCII double and triple URL encodings, excessive decode depth, and scalars above 64 KiB.
+
 The post-answer contract accepts only server state `finalized` and a true server-derived participant result. A caller-provided phase string is not authorization. Final platform wiring is owned by the security integration slice and remains a release gate.
 
 The protected `answer_map` remains outside this adapter and must remain server-only and unavailable before finalization.
@@ -35,7 +37,7 @@ The protected `answer_map` remains outside this adapter and must remain server-o
 
 Direct adapter suite:
 
-- 34 tests passed
+- 48 tests passed
 - 0 failed
 - all 14 durable transformation vectors passed
 - exact nine-field key order passed
@@ -43,6 +45,7 @@ Direct adapter suite:
 - reordering input revisions produced byte-equivalent artifacts and the same manifest hash
 - duplicate IDs and absent stable IDs failed closed
 - exhaustive recursive answer aliases failed closed
+- 14 dedicated Class C projection, unknown-field, valid-string identifier, iterative encoding, size, depth, encoded-marker, and linked-record regressions passed
 
 ## Legacy Compatibility
 
@@ -55,10 +58,10 @@ The current 3,961-item CDN runtime mirror is not the static 845-row v4 dataset a
 | Gate | Status |
 | --- | --- |
 | Adapter unit and adversarial tests | PASS |
-| Platform release integration | IN PROGRESS |
-| Stable ID persistence in datastore | NOT PROVEN |
+| Platform release integration | PASS in local synthetic service |
+| Stable ID persistence in datastore | SPECIFIED and locally tested |
 | Server-authoritative finalization and participant lookup | NOT PROVEN end to end |
-| RLS answer isolation | NOT RUN |
+| RLS answer isolation | PASS in disposable PostgreSQL |
 | Deployed answer-leak test | NOT RUN |
 | Historical attempt join | NOT RUN |
 | Protected STAT checksum parity | BLOCKED, tracked and deployed sources diverge |
@@ -72,6 +75,7 @@ The current 3,961-item CDN runtime mirror is not the static 845-row v4 dataset a
 - `i1q-question-platform/src/contracts.mjs`
 - `i1q-question-platform/src/exports.mjs`
 - `i1q-question-platform/tests/adapters-security.test.mjs`
+- `i1q-question-platform/tests/exports-class-c.test.mjs`
 
 ## Conclusion
 
