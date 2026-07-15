@@ -4,9 +4,18 @@ on:
   pull_request:
     paths:
       - "wp-content/plugins/missionmed-hub/missionmed-hub.php"
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-engine.php"
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-study-schedule.php"
       - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php"
+      - "wp-content/plugins/missionmed-hub/assets/v1-study-*"
+      - "wp-content/plugins/missionmed-hub/assets/student-os.js"
+      - "wp-content/plugins/missionmed-hub/assets/student-os.*.js"
+      - "wp-content/mu-plugins/missionmed-hq-auth-handoff.php"
       - "tests/php/v1-study-schedule-8010e-*.php"
       - "tests/php/run-v1-study-schedule-8010e*.sh"
+      - "tests/js/v1-study-schedule-*.js"
+      - "tests/browser/v1-study-schedule-*"
       - ".github/workflows/v1-study-schedule-8010e.yml"
   workflow_dispatch:
 
@@ -63,7 +72,7 @@ jobs:
             database_image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
             php: "7.4"
             php_image: wordpress:6.1.1-php7.4-apache@sha256:7e46cf3373751b6d62b7a0fc3a7d6686f641a34a2a0eb18947da5375c55fd009
-            extended: "0"
+            extended: "1"
           - database: MySQL 8
             database_image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
             php: "8.3"

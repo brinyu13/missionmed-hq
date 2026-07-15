@@ -3,10 +3,19 @@ name: V1 Study Schedule containment
 on:
   pull_request:
     paths:
+      - "wp-content/plugins/missionmed-hub/missionmed-hub.php"
       - "wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-engine.php"
       - "wp-content/plugins/missionmed-hub/includes/class-mmed-study-schedule.php"
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-student-os.php"
+      - "wp-content/plugins/missionmed-hub/assets/v1-study-*"
+      - "wp-content/plugins/missionmed-hub/assets/student-os.js"
+      - "wp-content/plugins/missionmed-hub/assets/student-os.*.js"
+      - "wp-content/mu-plugins/missionmed-hq-auth-handoff.php"
       - "tests/php/v1-study-schedule-*.php"
       - "tests/php/run-v1-study-schedule-containment.sh"
+      - "tests/js/v1-study-schedule-*.js"
+      - "tests/browser/v1-study-schedule-*"
       - ".github/workflows/v1-study-schedule-containment.yml"
   workflow_dispatch:
 
@@ -21,10 +30,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        php:
-          - "7.4-cli"
-          - "8.3-cli"
-    container: php:${{ matrix.php }}
+        include:
+          - php: "7.4-cli"
+            image: "php:7.4-cli@sha256:620a6b9f4d4feef2210026172570465e9d0c1de79766418d3affd09190a7fda5"
+          - php: "8.3-cli"
+            image: "php:8.3-cli@sha256:2a3f699b6cb31e5638c5432e4d37d4047853ba6351a692c91e0a073af00a55cc"
+    container: ${{ matrix.image }}
     steps:
       - name: Check out source
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
@@ -43,14 +54,16 @@ jobs:
       matrix:
         include:
           - php: "7.4"
-            image: wordpress:6.1.1-php7.4-apache
+            image: wordpress:6.1.1-php7.4-apache@sha256:7e46cf3373751b6d62b7a0fc3a7d6686f641a34a2a0eb18947da5375c55fd009
+            database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
           - php: "8.3"
-            image: wordpress:6.6.2-php8.3-apache
+            image: wordpress:6.6.2-php8.3-apache@sha256:04be81de853887fca707742785b32bf93fb4a692246dd1bc90b3790105071a9a
+            database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
     container:
       image: ${{ matrix.image }}
     services:
       database:
-        image: mariadb:10.11
+        image: ${{ matrix.database_image }}
         env:
           MARIADB_DATABASE: wordpress
           MARIADB_ROOT_PASSWORD: v1synthetic
