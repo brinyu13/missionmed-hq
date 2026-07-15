@@ -61,32 +61,9 @@ v1_8010e_wp_expect( null === MMED_V1_Study_Week_Schema::PREVIOUS_READER_VERSION,
 $provenance = $repository->store_provenance();
 v1_8010e_wp_expect( 'commissioned' === $provenance['state'] && $store === $provenance['store_id'] && 2 === $provenance['generation'], 'repository proves physical store identity' );
 $absent = $repository->load( 8011, '2' );
-$absent_diagnostic = 'not-run';
-if ( ! empty( $absent['ok'] ) || 'no_truth' !== ( $absent['reason_code'] ?? null ) ) {
-	$repository_reflection = new ReflectionClass( $repository );
-	$reader_property = $repository_reflection->getProperty( 'reader' );
-	$reader_property->setAccessible( true );
-	$diagnostic_reader = $reader_property->getValue( $repository );
-	$reader_reflection = new ReflectionClass( $diagnostic_reader );
-	$snapshot_method = $reader_reflection->getMethod( 'with_consistent_snapshot' );
-	$plan_method = $reader_reflection->getMethod( 'read_plan' );
-	$snapshot_method->setAccessible( true );
-	$plan_method->setAccessible( true );
-	try {
-		$snapshot_method->invoke(
-			$diagnostic_reader,
-			function () use ( $plan_method, $diagnostic_reader ) {
-				return $plan_method->invoke( $diagnostic_reader, 8011 );
-			}
-		);
-		$absent_diagnostic = 'unexpected-success';
-	} catch ( Throwable $error ) {
-		$absent_diagnostic = $error->getMessage();
-	}
-}
 v1_8010e_wp_expect(
 	empty( $absent['ok'] ) && 'no_truth' === $absent['reason_code'],
-	'missing learner Plan is positive no-truth, not Calendar fallback; reason=' . (string) ( $absent['reason_code'] ?? 'none' ) . ' diagnostic=' . $absent_diagnostic
+	'missing learner Plan is positive no-truth, not Calendar fallback; reason=' . (string) ( $absent['reason_code'] ?? 'none' )
 );
 
 $owner_id = 8011;

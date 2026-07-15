@@ -27,6 +27,9 @@ final class MMED_V1_Study_Week_Current_Reader {
 	/** @var int */
 	private $connection_id;
 
+	/** @var bool|null */
+	private $is_mariadb;
+
 	/** @param object $database WordPress database connection. */
 	public function __construct( $database ) {
 		if (
@@ -40,6 +43,7 @@ final class MMED_V1_Study_Week_Current_Reader {
 		}
 		$this->database      = $database;
 		$this->connection_id = 0;
+		$this->is_mariadb    = null;
 	}
 
 	/**
@@ -259,7 +263,8 @@ final class MMED_V1_Study_Week_Current_Reader {
 			throw new InvalidArgumentException( 'V1 reader callback is invalid.' );
 		}
 		$this->connection_id = $this->current_connection_id();
-		if ( 1 !== (int) $this->scalar( 'SELECT @@SESSION.autocommit' ) || 0 !== (int) $this->scalar( 'SELECT @@SESSION.in_transaction' ) ) {
+		$initial_transaction_state = $this->transaction_active();
+		if ( 1 !== (int) $this->scalar( 'SELECT @@SESSION.autocommit' ) || true === $initial_transaction_state ) {
 			throw new RuntimeException( 'v1_reader_session_not_clean' );
 		}
 		$original_isolation = $this->isolation_level();
@@ -274,16 +279,16 @@ final class MMED_V1_Study_Week_Current_Reader {
 			}
 			$this->execute( 'START TRANSACTION WITH CONSISTENT SNAPSHOT, READ ONLY', 'v1_reader_begin_failed' );
 			$started = true;
-			if ( 1 !== (int) $this->scalar( 'SELECT @@SESSION.in_transaction' ) ) {
+			if ( false === $this->transaction_active() ) {
 				throw new RuntimeException( 'v1_reader_transaction_inactive' );
 			}
 			$result = call_user_func( $callback );
-			if ( 1 !== (int) $this->scalar( 'SELECT @@SESSION.in_transaction' ) ) {
+			if ( false === $this->transaction_active() ) {
 				throw new RuntimeException( 'v1_reader_transaction_lost' );
 			}
 			$this->execute( 'COMMIT AND NO CHAIN NO RELEASE', 'v1_reader_commit_failed' );
 			$started = false;
-			if ( 0 !== (int) $this->scalar( 'SELECT @@SESSION.in_transaction' ) ) {
+			if ( true === $this->transaction_active() ) {
 				throw new RuntimeException( 'v1_reader_commit_failed' );
 			}
 		} catch ( Throwable $error ) {
@@ -322,13 +327,32 @@ final class MMED_V1_Study_Week_Current_Reader {
 
 	/** @return string */
 	private function isolation_level() {
-		$version = (string) $this->scalar( 'SELECT VERSION()' );
-		$sql = false !== stripos( $version, 'mariadb' ) ? 'SELECT @@SESSION.tx_isolation' : 'SELECT @@SESSION.transaction_isolation';
+		$sql = $this->is_mariadb() ? 'SELECT @@SESSION.tx_isolation' : 'SELECT @@SESSION.transaction_isolation';
 		$value = strtoupper( str_replace( array( '_', ' ' ), '-', (string) $this->scalar( $sql ) ) );
 		if ( ! in_array( $value, array( 'READ-UNCOMMITTED', 'READ-COMMITTED', 'REPEATABLE-READ', 'SERIALIZABLE' ), true ) ) {
 			throw new RuntimeException( 'v1_reader_isolation_probe_failed' );
 		}
 		return $value;
+	}
+
+	/**
+	 * MariaDB exposes an SQL transaction-state variable; MySQL exposes the
+	 * equivalent only through client protocol state. A null result therefore
+	 * means that same-connection transaction commands are the authoritative
+	 * proof for MySQL, not that the transaction is inactive.
+	 *
+	 * @return bool|null
+	 */
+	private function transaction_active() {
+		return $this->is_mariadb() ? 1 === (int) $this->scalar( 'SELECT @@SESSION.in_transaction' ) : null;
+	}
+
+	/** @return bool */
+	private function is_mariadb() {
+		if ( null === $this->is_mariadb ) {
+			$this->is_mariadb = false !== stripos( (string) $this->scalar( 'SELECT VERSION()' ), 'mariadb' );
+		}
+		return $this->is_mariadb;
 	}
 
 	/** @return int */
