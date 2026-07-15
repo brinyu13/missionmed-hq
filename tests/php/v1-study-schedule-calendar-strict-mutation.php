@@ -43,6 +43,7 @@ final class WP_REST_Request implements ArrayAccess {
 	public function get_param( string $key ) { return $this->params[ $key ] ?? null; }
 	public function has_param( string $key ): bool { return array_key_exists( $key, $this->params ); }
 	public function offsetExists( $offset ): bool { return array_key_exists( $offset, $this->params ); }
+	#[\ReturnTypeWillChange]
 	public function offsetGet( $offset ) { return $this->params[ $offset ] ?? null; }
 	public function offsetSet( $offset, $value ): void { $this->params[ $offset ] = $value; }
 	public function offsetUnset( $offset ): void { unset( $this->params[ $offset ] ); }
@@ -162,7 +163,6 @@ $wpdb->events = array(
 );
 $GLOBALS['wpdb'] = $wpdb;
 
-$row = $wpdb->events[10];
 $request = new WP_REST_Request(
 	array( 'status' => 'completed', 'meta' => array( 'subject' => 'Renal', 'completed' => true ) ),
 	strict_params( 10 )
