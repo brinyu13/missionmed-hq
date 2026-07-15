@@ -153,3 +153,12 @@ jobs:
             require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010e-wordpress.php";
             require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010e-e1-wordpress.php";
           '
+
+      - name: Prove E1 cross-process locks and SIGKILL restart
+        if: matrix.extended == '1'
+        env:
+          V1_REPO_ROOT: ${{ github.workspace }}
+          V1_WP_ROOT: /tmp/v1-wordpress
+        run: |
+          set -eu
+          php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010e-e1-process.php
