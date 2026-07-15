@@ -309,14 +309,18 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			$this->insert_receipt( $owner_id, $actor_id, $normalized, $ids, $reduced['next_revision'], $plan_hash, $result_json, $now );
 			$this->hit( 'after_receipt_write' );
 			$stored = $this->receipt_by_idempotency( $owner_id, $idempotency_key, true );
+			$this->hit( 'after_receipt_lookup' );
 			$this->assert_receipt_integrity( $stored, $owner_id, $ids['plan_id'] );
+			$this->hit( 'after_receipt_integrity' );
 			if (
 				! hash_equals( $result_json, (string) $stored['result_json'] )
 				|| (string) $stored['committed_at'] !== $now
 				|| ( null !== $state['watermark_at'] && strcmp( $now, $state['watermark_at'] ) < 0 )
 			) {
+				$this->hit( 'receipt_postcheck_failed' );
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
+			$this->hit( 'after_receipt_postcheck' );
 			$this->assert_session_integrity( true );
 			$this->hit( 'before_commit' );
 			$this->execute( 'COMMIT AND NO CHAIN NO RELEASE', 'v1_command_commit_failed' );
