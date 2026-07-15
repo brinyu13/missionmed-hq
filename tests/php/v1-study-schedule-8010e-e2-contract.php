@@ -349,7 +349,9 @@ v1_8010e_e2_expect( is_string( $worker_source ) && is_string( $process_source ),
 foreach ( array( 'control_before_plan', 'after_plan_publish', 'after_week_write', 'after_block_write', 'after_receipt_write', 'before_commit', 'after_commit', 'READY response_lost', 'KILL CONNECTION', 'INNODB_TRX', 'LOCK_WAIT', 'linkage_valid', 'native_handle_preserved' ) as $proof_token ) {
 	v1_8010e_e2_expect( false !== strpos( $worker_source . $process_source, $proof_token ), 'E2 process proof includes exact boundary: ' . $proof_token );
 }
-v1_8010e_e2_expect( false !== strpos( $process_source, 'same-key contender remains blocked' ), 'E2 process proof observes owner serialization before releasing the first writer' );
+$same_key_wait = strpos( $process_source, 'v1_8010e_e2_process_wait_for_owner_lock( (int) $second_match[1], (int) $first_match[1] );' );
+$same_key_release = strpos( $process_source, "v1_8010e_e2_process_result( \$first, true, 'first same-key writer commits' );" );
+v1_8010e_e2_expect( false !== $same_key_wait && false !== $same_key_release && $same_key_wait < $same_key_release, 'E2 process proof observes owner serialization before releasing the first writer' );
 v1_8010e_e2_expect( false !== strpos( $process_source, 'response-loss retry returns the exact durable result bytes' ), 'E2 process proof binds post-commit response loss to an exact replay hash' );
 v1_8010e_e2_expect( false !== strpos( $process_source, 'e2_worker_finish_timeout' ), 'E2 process controller has a hard completion watchdog' );
 

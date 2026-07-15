@@ -218,14 +218,23 @@ $inherited_insert = $wpdb->query(
 	)
 );
 v1_8010e_wp_expect( 1 === (int) $inherited_insert, 'fixture creates one exact inherited generation-1 revision-0 owner fence' );
-$inherited = $service->execute(
+$inherited_hits = array();
+$inherited_probe = static function ( $name ) use ( &$inherited_hits ) {
+	$inherited_hits[] = (string) $name;
+};
+$inherited_service = new MMED_V1_Study_Command_Service( new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, $fence, $uuid_source, $inherited_probe ) );
+$inherited = $inherited_service->execute(
 	v1_8010e_e2_physical_create( '8010E-e2-inherited-fence-001', '0', $temporal, 'Inherited fence command', '15:00', 30 ),
 	$inherited_owner,
 	$inherited_owner,
 	'learner',
 	$temporal
 );
-v1_8010e_wp_expect( ! empty( $inherited['ok'] ) && '1' === $inherited['result']['revision'], 'first command succeeds from an inherited generation-1 empty fence' );
+$inherited_last_hit = empty( $inherited_hits ) ? 'none' : (string) end( $inherited_hits );
+v1_8010e_wp_expect(
+	! empty( $inherited['ok'] ) && '1' === $inherited['result']['revision'],
+	'first command succeeds from an inherited generation-1 empty fence; reason=' . (string) ( $inherited['reason_code'] ?? 'missing' ) . '; last=' . $inherited_last_hit
+);
 v1_8010e_wp_expect( '2' === (string) $wpdb->get_var( $wpdb->prepare( "SELECT CAST(store_generation AS CHAR) FROM `{$kernel['plans']}` WHERE owner_id = %d", $inherited_owner ) ), 'first command atomically upgrades the inherited fence to generation 2' );
 
 $create = v1_8010e_e2_physical_create( '8010E-e2-physical-create-0001', '0', $temporal, 'Cardiology question bank', '09:00', 90 );
