@@ -101,6 +101,16 @@ v1_8010d_expect_throws(
 	'unsupported CHECK grammar fails closed'
 );
 
+$migrator_reflection = new ReflectionClass( 'MMED_V1_Study_Migrator' );
+$valid_timestamp     = $migrator_reflection->getMethod( 'valid_ledger_timestamp' );
+$valid_timestamp->setAccessible( true );
+$migrator_without_database = $migrator_reflection->newInstanceWithoutConstructor();
+v1_8010d_expect( true === $valid_timestamp->invoke( $migrator_without_database, '2026-07-15 12:34:56.123456' ), 'canonical UTC ledger timestamp is valid' );
+v1_8010d_expect( false === $valid_timestamp->invoke( $migrator_without_database, '0000-00-00 00:00:00.000000' ), 'zero ledger date fails closed' );
+v1_8010d_expect( false === $valid_timestamp->invoke( $migrator_without_database, '0000-01-01 00:00:00.000000' ), 'year-zero ledger date fails closed' );
+v1_8010d_expect( false === $valid_timestamp->invoke( $migrator_without_database, '0999-12-31 23:59:59.999999' ), 'ledger timestamp below the database-supported range fails closed' );
+v1_8010d_expect( false === $valid_timestamp->invoke( $migrator_without_database, '2026-02-30 12:34:56.123456' ), 'normalized invalid calendar date fails closed' );
+
 $uuid   = '12345678-1234-4abc-8def-1234567890ab';
 $binary = MMED_V1_Study_Schema::uuid_to_binary( $uuid );
 v1_8010d_expect( 16 === strlen( $binary ), 'UUID packs to 16 bytes' );

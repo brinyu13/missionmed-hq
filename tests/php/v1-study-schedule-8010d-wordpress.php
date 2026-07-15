@@ -57,6 +57,7 @@ $is_mariadb     = false !== stripos( $server_version, 'mariadb' );
 $isolation_variable = $is_mariadb ? '@@SESSION.tx_isolation' : '@@SESSION.transaction_isolation';
 $initial_isolation  = (string) $wpdb->get_var( 'SELECT ' . $isolation_variable );
 v1_8010d_wp_expect( 1 === preg_match( $is_mariadb ? '/^10\.11\./' : '/^8\.0\./', $server_version ), 'disposable database version is in the governed engine family' );
+v1_8010d_wp_expect( $is_mariadb || version_compare( preg_replace( '/-.*/', '', $server_version ), '8.0.16', '>=' ), 'MySQL version supports enforced CHECK constraints and partial-revoke visibility gates' );
 
 $store_id  = '11111111-1111-4111-8111-111111111111';
 $runner_a  = '22222222-2222-4222-8222-222222222222';
@@ -90,15 +91,35 @@ if ( $is_mariadb ) {
 v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === $inspector->inspect()['state'], 'constraint-gate rejection leaves the kernel absent' );
 
 $original_sql_mode = (string) $wpdb->get_var( 'SELECT @@SESSION.sql_mode' );
-v1_8010d_wp_expect( false !== $wpdb->query( "SET SESSION sql_mode = ''" ), 'fixture disables strict SQL mode' );
-v1_8010d_wp_expect_error(
-	static function () use ( $wpdb, $store_id, $runner_a ) {
-		( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
+$wpdb->set_prefix( 'v1dsqlmode_' );
+v1_8010d_wp_expect( false !== $wpdb->query( "SET SESSION sql_mode = ''" ), 'fixture supplies an explicitly non-strict caller SQL mode' );
+$observed_hardened_mode = null;
+$sql_mode_probe_fired   = false;
+$sql_mode_probe         = static function ( $name ) use ( $wpdb, &$observed_hardened_mode, &$sql_mode_probe_fired ) {
+	if ( ! $sql_mode_probe_fired && 'after_lock' === $name ) {
+		$sql_mode_probe_fired   = true;
+		$observed_hardened_mode = (string) $wpdb->get_var( 'SELECT @@SESSION.sql_mode' );
+		throw new RuntimeException( 'synthetic_sql_mode_probe' );
+	}
+};
+v1_8010d_wp_expect_failure(
+	static function () use ( $wpdb, $sql_mode_probe ) {
+		( new MMED_V1_Study_Migrator( $wpdb, $sql_mode_probe ) )->run( '78787878-7878-4787-8787-787878787878', '90909090-9090-4909-8909-909090909090' );
 	},
-	'v1_migration_session_sql_mode_unsafe',
-	'migrator rejects non-strict SQL coercion before DDL'
+	'non-strict caller mode reaches the hardened migration boundary'
 );
-v1_8010d_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'SET SESSION sql_mode = %s', $original_sql_mode ) ), 'fixture restores strict SQL mode' );
+$observed_modes = array_map( 'trim', explode( ',', strtoupper( (string) $observed_hardened_mode ) ) );
+v1_8010d_wp_expect(
+	$sql_mode_probe_fired
+		&& ( in_array( 'STRICT_TRANS_TABLES', $observed_modes, true ) || in_array( 'STRICT_ALL_TABLES', $observed_modes, true ) )
+		&& in_array( 'NO_ZERO_IN_DATE', $observed_modes, true )
+		&& in_array( 'NO_ZERO_DATE', $observed_modes, true ),
+	'migrator pins strict and no-zero SQL modes before mutable work'
+);
+v1_8010d_wp_expect( '' === (string) $wpdb->get_var( 'SELECT @@SESSION.sql_mode' ), 'migrator restores the exact non-strict caller SQL mode after failure' );
+v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === ( new MMED_V1_Study_Schema_Inspector( $wpdb ) )->inspect()['state'], 'SQL-mode capability proof performs no persistent DDL' );
+v1_8010d_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'SET SESSION sql_mode = %s', $original_sql_mode ) ), 'fixture restores the original caller SQL mode' );
+$wpdb->set_prefix( 'v1dmain_' );
 
 v1_8010d_wp_expect( false !== $wpdb->query( 'SET autocommit = 0' ), 'fixture disables autocommit' );
 v1_8010d_wp_expect_error(
@@ -199,6 +220,7 @@ $main_connection = (int) $wpdb->get_var( 'SELECT CONNECTION_ID()' );
 v1_8010d_wp_expect( false !== $wpdb->query( 'SET SESSION completion_type = 2' ), 'fixture requests RELEASE completion semantics' );
 $result = ( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
 v1_8010d_wp_expect( $main_connection === (int) $wpdb->get_var( 'SELECT CONNECTION_ID()' ), 'explicit NO RELEASE keeps the commissioning connection alive' );
+v1_8010d_wp_expect( $original_sql_mode === (string) $wpdb->get_var( 'SELECT @@SESSION.sql_mode' ), 'migrator restores the exact caller SQL mode after hardening' );
 v1_8010d_wp_expect( false !== $wpdb->query( 'SET SESSION completion_type = 0' ), 'fixture restores default completion semantics' );
 v1_8010d_wp_expect( ! empty( $result['ok'] ) && 'ready' === $result['state'], 'explicit migration commissions generation 1' );
 $after = $inspector->inspect();
@@ -259,18 +281,19 @@ foreach ( $ledger as $offset => $row ) {
 }
 
 $ledger_snapshot = $wpdb->get_row(
-	"SELECT state, checkpoint, HEX(runner_id) AS runner_hex, failure_code, started_at, applied_at, updated_at FROM `{$tables['migrations']}` WHERE migration_version = 5",
+	"SELECT state, checkpoint, attempt_count, HEX(runner_id) AS runner_hex, failure_code, started_at, applied_at, updated_at FROM `{$tables['migrations']}` WHERE migration_version = 5",
 	ARRAY_A
 );
 v1_8010d_wp_expect( is_array( $ledger_snapshot ) && 'applied' === $ledger_snapshot['state'], 'fixture captures the canonical applied ledger row' );
 $restore_ledger = static function () use ( $wpdb, $tables, $ledger_snapshot ) {
-	$sql  = "UPDATE `{$tables['migrations']}` SET state = %s, checkpoint = %s, runner_id = UNHEX(%s), failure_code = NULL,";
+	$sql  = "UPDATE `{$tables['migrations']}` SET state = %s, checkpoint = %s, attempt_count = %d, runner_id = UNHEX(%s), failure_code = NULL,";
 	$sql .= ' started_at = %s, applied_at = %s, updated_at = %s WHERE migration_version = 5';
 	return $wpdb->query(
 		$wpdb->prepare(
 			$sql,
 			$ledger_snapshot['state'],
 			$ledger_snapshot['checkpoint'],
+			$ledger_snapshot['attempt_count'],
 			$ledger_snapshot['runner_hex'],
 			$ledger_snapshot['started_at'],
 			$ledger_snapshot['applied_at'],
@@ -301,6 +324,21 @@ v1_8010d_wp_expect( 1 === (int) $restore_ledger(), 'fixture restores canonical l
 v1_8010d_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$tables['migrations']}` SET state = 'failed', checkpoint = 'failed', failure_code = 'ddl_failed', applied_at = NULL WHERE migration_version = 5" ), 'fixture creates a structurally valid terminal failed row beside an exact table' );
 v1_8010d_wp_expect_error( $rerun_main, 'v1_migration_failed_requires_review', 'failed migration cannot be silently rehabilitated by exact table state' );
 v1_8010d_wp_expect( 1 === (int) $restore_ledger(), 'fixture restores canonical applied ledger state' );
+
+v1_8010d_wp_expect(
+	1 === (int) $wpdb->query( "UPDATE `{$tables['migrations']}` SET state = 'applying', checkpoint = 'before_ddl', failure_code = NULL, applied_at = NULL, updated_at = '2099-01-01 00:00:00.000000' WHERE migration_version = 5" ),
+	'fixture simulates a recovery after a database clock regression'
+);
+$rerun_main();
+$clock_recovery = $wpdb->get_row( "SELECT state, applied_at, updated_at FROM `{$tables['migrations']}` WHERE migration_version = 5", ARRAY_A );
+v1_8010d_wp_expect(
+	is_array( $clock_recovery )
+		&& 'applied' === $clock_recovery['state']
+		&& '2099-01-01 00:00:00.000000' === $clock_recovery['applied_at']
+		&& '2099-01-01 00:00:00.000000' === $clock_recovery['updated_at'],
+	'recovery timestamps clamp monotonically instead of corrupting the ledger'
+);
+v1_8010d_wp_expect( 1 === (int) $restore_ledger(), 'fixture restores canonical ledger after clock-regression proof' );
 v1_8010d_wp_expect( ! empty( ( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_b )['ok'] ), 'restored ledger remains commission-compatible' );
 
 $now = '2026-07-15 12:00:00.000000';
@@ -396,6 +434,18 @@ v1_8010d_wp_expect(
 	false !== $wpdb->query( "CREATE TRIGGER `{$trigger_name}` BEFORE UPDATE ON `{$check_tables['plans']}` FOR EACH ROW SET NEW.updated_at = NEW.updated_at" ),
 	'fixture installs an unowned trigger on a disposable owned table'
 );
+if ( ! $is_mariadb ) {
+	$partial_revoke_original = (int) $wpdb->get_var( 'SELECT @@GLOBAL.partial_revokes' );
+	v1_8010d_wp_expect( false !== $wpdb->query( 'SET GLOBAL partial_revokes = ON' ), 'fixture enables MySQL partial-revoke semantics' );
+	$visibility_error = null;
+	try {
+		( new MMED_V1_Study_Schema_Inspector( $wpdb ) )->inspect_table( 'plans' );
+	} catch ( RuntimeException $error ) {
+		$visibility_error = $error->getMessage();
+	}
+	v1_8010d_wp_expect( 'V1 trigger metadata visibility is unavailable.' === $visibility_error, 'global-only TRIGGER grant cannot certify visibility under partial revokes' );
+	v1_8010d_wp_expect( false !== $wpdb->query( 'SET GLOBAL partial_revokes = ' . $partial_revoke_original ), 'fixture restores MySQL partial-revoke semantics' );
+}
 $trigger_drift = ( new MMED_V1_Study_Schema_Inspector( $wpdb ) )->inspect_table( 'plans' );
 v1_8010d_wp_expect( empty( $trigger_drift['ok'] ), 'owned-table trigger fails exact inspection' );
 v1_8010d_wp_expect( in_array( $check_tables['plans'] . ':trigger_set', $trigger_drift['errors'], true ), 'trigger drift has a stable structural error' );

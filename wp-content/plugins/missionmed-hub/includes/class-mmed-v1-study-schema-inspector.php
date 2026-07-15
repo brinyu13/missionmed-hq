@@ -344,14 +344,21 @@ final class MMED_V1_Study_Schema_Inspector {
 		}
 		$grantee = "CONCAT(QUOTE(LEFT(CURRENT_USER(), CHAR_LENGTH(CURRENT_USER()) - CHAR_LENGTH(SUBSTRING_INDEX(CURRENT_USER(), '@', -1)) - 1)), '@', QUOTE(SUBSTRING_INDEX(CURRENT_USER(), '@', -1)))";
 		$sql  = 'SELECT COUNT(*) FROM (';
-		$sql .= ' SELECT 1 FROM information_schema.USER_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER'";
-		$sql .= ' UNION ALL SELECT 1 FROM information_schema.SCHEMA_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER' AND TABLE_SCHEMA = %s";
+		$sql .= ' SELECT 1 FROM information_schema.SCHEMA_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER' AND TABLE_SCHEMA = %s";
 		$sql .= ' UNION ALL SELECT 1 FROM information_schema.TABLE_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER' AND TABLE_SCHEMA = %s AND TABLE_NAME = %s";
-		$sql .= ') AS effective_trigger_grants';
-		$grants = $this->scalar( $this->database->prepare( $sql, $this->schema_name, $this->schema_name, $table_name ) );
-		if ( null === $grants || (int) $grants < 1 ) {
-			throw new RuntimeException( 'V1 trigger metadata visibility is unavailable.' );
+		$sql .= ') AS explicit_trigger_grants';
+		$explicit = $this->scalar( $this->database->prepare( $sql, $this->schema_name, $this->schema_name, $table_name ) );
+		if ( null !== $explicit && (int) $explicit > 0 ) {
+			return;
 		}
+
+		$sql = 'SELECT COUNT(*) FROM information_schema.USER_PRIVILEGES WHERE GRANTEE = ' . $grantee . " AND PRIVILEGE_TYPE = 'TRIGGER'";
+		$global_grant   = $this->scalar( $sql );
+		$partial_revoke = $this->scalar( 'SELECT @@GLOBAL.partial_revokes' );
+		if ( null !== $global_grant && (int) $global_grant > 0 && 0 === (int) $partial_revoke ) {
+			return;
+		}
+		throw new RuntimeException( 'V1 trigger metadata visibility is unavailable.' );
 	}
 
 	/** Convert the limited kernel CHECK grammar into a precedence-explicit AST. @return string */

@@ -78,11 +78,15 @@ final class MMED_V1_Study_Migrator {
 			throw new RuntimeException( null === $got_lock ? 'v1_migration_lock_error' : 'v1_migration_busy' );
 		}
 
-		$result  = null;
-		$primary = null;
+		$result            = null;
+		$primary           = null;
+		$original_sql_mode = null;
 		try {
 			$this->verify_connection();
 			$this->assert_clean_session();
+			$original_sql_mode = $this->native_sql_mode();
+			$this->native_set_sql_mode( $this->hardened_sql_mode( $original_sql_mode ) );
+			$this->assert_sql_mode_hardened();
 			$this->assert_no_temporary_table_shadows();
 			$this->hit( 'after_lock' );
 			$this->reconcile_migrations( $runner_id );
@@ -102,20 +106,30 @@ final class MMED_V1_Study_Migrator {
 			$primary = $error;
 		}
 
-		$release_error = null;
+		$cleanup_errors = array();
+		if ( null !== $original_sql_mode ) {
+			try {
+				$this->native_set_sql_mode( $original_sql_mode );
+				if ( $original_sql_mode !== $this->native_sql_mode() ) {
+					throw new RuntimeException( 'v1_migration_sql_mode_restore_verify_failed' );
+				}
+			} catch ( Throwable $error ) {
+				$cleanup_errors[] = 'sql_mode=' . $error->getMessage();
+			}
+		}
 		try {
 			$this->release_lock( $lock_name );
 		} catch ( Throwable $error ) {
-			$release_error = $error;
+			$cleanup_errors[] = 'lock=' . $error->getMessage();
 		}
 		if ( null !== $primary ) {
-			if ( null !== $release_error ) {
-				throw new RuntimeException( $primary->getMessage() . ';lock_cleanup=' . $release_error->getMessage(), 0, $primary );
+			if ( ! empty( $cleanup_errors ) ) {
+				throw new RuntimeException( $primary->getMessage() . ';cleanup=' . implode( ',', $cleanup_errors ), 0, $primary );
 			}
 			throw $primary;
 		}
-		if ( null !== $release_error ) {
-			throw $release_error;
+		if ( ! empty( $cleanup_errors ) ) {
+			throw new RuntimeException( 'v1_migration_cleanup_failed:' . implode( ',', $cleanup_errors ) );
 		}
 		return $result;
 	}
@@ -315,7 +329,11 @@ final class MMED_V1_Study_Migrator {
 
 	/** @return bool */
 	private function valid_ledger_timestamp( $value ) {
-		return is_string( $value ) && 1 === preg_match( '/^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}$/', $value );
+		if ( ! is_string( $value ) || 1 !== preg_match( '/^[1-9][0-9]{3}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{6}$/', $value ) ) {
+			return false;
+		}
+		$timestamp = DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s.u', $value, new DateTimeZone( 'UTC' ) );
+		return false !== $timestamp && $value === $timestamp->format( 'Y-m-d H:i:s.u' );
 	}
 
 	/** @return void */
@@ -346,7 +364,8 @@ final class MMED_V1_Study_Migrator {
 		}
 
 		$sql = "UPDATE `{$table['migrations']}` SET state = %s, checkpoint = %s, attempt_count = %d,";
-		$sql .= ' runner_id = UNHEX(%s), failure_code = NULL, applied_at = NULL, updated_at = %s WHERE migration_version = %d';
+		$sql .= ' runner_id = UNHEX(%s), failure_code = NULL, applied_at = NULL,';
+		$sql .= ' updated_at = GREATEST(started_at, updated_at, %s) WHERE migration_version = %d';
 		$this->query_exactly_one(
 			$this->prepare( $sql, 'applying', 'before_ddl', $attempt, $this->uuid_hex( $runner_id ), $now, $migration['version'] ),
 			'v1_migration_ledger_update_failed'
@@ -361,7 +380,9 @@ final class MMED_V1_Study_Migrator {
 		$sql  .= ' (migration_version, migration_id, checksum, state, checkpoint, attempt_count, runner_id, failure_code, started_at, applied_at, updated_at)';
 		$sql  .= ' VALUES (%d, %s, UNHEX(%s), %s, %s, %d, UNHEX(%s), NULL, %s, %s, %s)';
 		$sql  .= ' ON DUPLICATE KEY UPDATE state = VALUES(state), checkpoint = VALUES(checkpoint), attempt_count = VALUES(attempt_count),';
-		$sql  .= ' runner_id = VALUES(runner_id), failure_code = NULL, applied_at = VALUES(applied_at), updated_at = VALUES(updated_at)';
+		$sql  .= ' runner_id = VALUES(runner_id), failure_code = NULL,';
+		$sql  .= ' applied_at = GREATEST(started_at, updated_at, VALUES(applied_at)),';
+		$sql  .= ' updated_at = GREATEST(started_at, updated_at, VALUES(applied_at), VALUES(updated_at))';
 		$this->query_required(
 			$this->prepare(
 				$sql,
@@ -384,7 +405,7 @@ final class MMED_V1_Study_Migrator {
 	private function record_failed( $migration, $runner_id, $failure_code ) {
 		$table = MMED_V1_Study_Schema::table_names( $this->database );
 		$sql   = "UPDATE `{$table['migrations']}` SET state = %s, checkpoint = %s, runner_id = UNHEX(%s),";
-		$sql  .= ' failure_code = %s, updated_at = %s WHERE migration_version = %d';
+		$sql  .= ' failure_code = %s, applied_at = NULL, updated_at = GREATEST(started_at, updated_at, %s) WHERE migration_version = %d';
 		$this->query_exactly_one(
 			$this->prepare( $sql, 'failed', 'failed', $this->uuid_hex( $runner_id ), $failure_code, $this->now(), $migration['version'] ),
 			'v1_migration_failure_record_failed'
@@ -407,6 +428,7 @@ final class MMED_V1_Study_Migrator {
 
 		$this->verify_lock();
 		$this->assert_clean_session();
+		$this->assert_sql_mode_hardened();
 		$original_isolation = $this->native_isolation_level();
 		$transaction_started = false;
 		$primary             = null;
@@ -428,6 +450,7 @@ final class MMED_V1_Study_Migrator {
 			$sql      = "INSERT INTO `{$table['generations']}`";
 			$sql     .= ' (generation, store_id, writer_schema_version, current_reader_version, previous_reader_version, manifest_hash, activated_at)';
 			$sql     .= ' VALUES (%d, UNHEX(%s), %s, %s, NULL, UNHEX(%s), %s)';
+			$this->assert_sql_mode_hardened();
 			$this->native_query_exactly_one(
 				$this->prepare(
 					$sql,
@@ -448,6 +471,7 @@ final class MMED_V1_Study_Migrator {
 			$sql  = "INSERT INTO `{$table['store_gate']}`";
 			$sql .= ' (gate_key, store_id, current_generation, gate_state, commissioned_at, updated_at)';
 			$sql .= ' VALUES (1, UNHEX(%s), %d, %s, %s, %s)';
+			$this->assert_sql_mode_hardened();
 			$this->native_query_exactly_one(
 				$this->prepare( $sql, $storehex, MMED_V1_Study_Schema::GENERATION, 'ready', $now, $now ),
 				'v1_gate_insert_failed'
@@ -611,11 +635,6 @@ final class MMED_V1_Study_Migrator {
 		if ( 1 !== (int) $foreign_keys || 1 !== (int) $unique_keys || 1 !== (int) $checks ) {
 			throw new RuntimeException( 'v1_migration_session_constraints_disabled' );
 		}
-		$sql_mode = $this->guarded_scalar( 'SELECT @@SESSION.sql_mode', 'v1_migration_session_probe_failed' );
-		$modes    = is_string( $sql_mode ) ? array_map( 'trim', explode( ',', strtoupper( $sql_mode ) ) ) : array();
-		if ( ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) ) {
-			throw new RuntimeException( 'v1_migration_session_sql_mode_unsafe' );
-		}
 	}
 
 	/**
@@ -747,6 +766,49 @@ final class MMED_V1_Study_Migrator {
 	}
 
 	/** @return string */
+	private function native_sql_mode() {
+		$value = $this->native_scalar_required( 'SELECT @@SESSION.sql_mode', 'v1_migration_sql_mode_probe_failed' );
+		if ( ! is_string( $value ) ) {
+			throw new RuntimeException( 'v1_migration_sql_mode_probe_failed' );
+		}
+		return $value;
+	}
+
+	/** @return string */
+	private function hardened_sql_mode( $current ) {
+		$modes = array_values( array_filter( array_map( 'trim', explode( ',', strtoupper( (string) $current ) ) ), 'strlen' ) );
+		if ( ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) ) {
+			$modes[] = 'STRICT_TRANS_TABLES';
+		}
+		foreach ( array( 'NO_ZERO_IN_DATE', 'NO_ZERO_DATE' ) as $required ) {
+			if ( ! in_array( $required, $modes, true ) ) {
+				$modes[] = $required;
+			}
+		}
+		return implode( ',', $modes );
+	}
+
+	/** @return void */
+	private function native_set_sql_mode( $mode ) {
+		$this->native_query_required(
+			$this->prepare( 'SET SESSION sql_mode = %s', (string) $mode ),
+			'v1_migration_sql_mode_set_failed'
+		);
+	}
+
+	/** @return void */
+	private function assert_sql_mode_hardened() {
+		$modes = array_map( 'trim', explode( ',', strtoupper( $this->native_sql_mode() ) ) );
+		if (
+			( ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) )
+			|| ! in_array( 'NO_ZERO_IN_DATE', $modes, true )
+			|| ! in_array( 'NO_ZERO_DATE', $modes, true )
+		) {
+			throw new RuntimeException( 'v1_migration_sql_mode_verify_failed' );
+		}
+	}
+
+	/** @return string */
 	private function native_isolation_level() {
 		$sql   = $this->server_is_mariadb() ? 'SELECT @@SESSION.tx_isolation' : 'SELECT @@SESSION.transaction_isolation';
 		$value = strtoupper( str_replace( array( '_', ' ' ), '-', (string) $this->native_scalar_required( $sql, 'v1_commission_isolation_probe_failed' ) ) );
@@ -801,8 +863,11 @@ final class MMED_V1_Study_Migrator {
 
 	/** @return string */
 	private function now() {
-		$now = new DateTimeImmutable( 'now', new DateTimeZone( 'UTC' ) );
-		return $now->format( 'Y-m-d H:i:s.u' );
+		$now = $this->native_scalar_required( 'SELECT UTC_TIMESTAMP(6)', 'v1_database_time_unavailable' );
+		if ( ! $this->valid_ledger_timestamp( $now ) ) {
+			throw new RuntimeException( 'v1_database_time_unavailable' );
+		}
+		return $now;
 	}
 
 	/** @return string */
@@ -824,6 +889,7 @@ final class MMED_V1_Study_Migrator {
 	/** @return void */
 	private function query_required( $sql, $error_code ) {
 		$this->verify_lock();
+		$this->assert_sql_mode_hardened();
 		$this->native_query_required( $sql, $error_code );
 		$this->verify_lock();
 	}
@@ -831,6 +897,7 @@ final class MMED_V1_Study_Migrator {
 	/** @return void */
 	private function query_exactly_one( $sql, $error_code ) {
 		$this->verify_lock();
+		$this->assert_sql_mode_hardened();
 		$this->native_query_exactly_one( $sql, $error_code );
 		$this->verify_lock();
 	}

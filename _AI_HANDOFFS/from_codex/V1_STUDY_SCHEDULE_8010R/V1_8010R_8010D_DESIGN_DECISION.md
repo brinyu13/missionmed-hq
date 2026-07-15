@@ -40,15 +40,37 @@ compatibility suite; the string `0` is not a placeholder reader.
 - No automatic install on plugin load, activation, or request.
 - Explicit connection-scoped advisory installer lock with zero-wait concurrent rejection.
 - Exact immutable DDL descriptors and SHA-256 checksums.
-- Exact `information_schema` postconditions for tables, engines, columns, indexes, and collation.
+- Exact `information_schema` postconditions for tables, engines, columns,
+  indexes, foreign keys, enforced CHECK semantics, collation, and the absence of
+  triggers. MySQL zero-trigger evidence requires a proven direct effective
+  `TRIGGER` metadata grant for every owned table; invisible metadata is not
+  absence.
 - Restart after injected failure at every DDL/checkpoint boundary without assuming transactional DDL.
 - Immutable checksum mismatch, partial incompatible schema, version gap, or unsupported future migration fails closed.
-- No `DROP`, `TRUNCATE`, destructive `ALTER`, table replacement, or option-only ledger.
+- No persistent `DROP`, `TRUNCATE`, destructive `ALTER`, table replacement, or
+  option-only ledger. The sole `DROP TEMPORARY TABLE` is an immediately paired,
+  same-connection cleanup of an internal collision probe that never drops a
+  caller table.
 - Initial commissioning appends generation 1 and marks the physical gate ready only after every postcondition passes.
 - The manifest describes every engine, row format, table collation, column type,
   null/default/extra property, index, foreign key, and absence of extra schema.
 - Migration checksums derive from immutable placeholder templates, not global
   replacement of a live WordPress prefix or collation string.
+- Every mutable statement uses one cached native database handle/thread with no
+  WordPress reconnect or query-replay path. Before persistent DDL, the runner
+  proves all five owned names are free of same-session TEMPORARY shadows by
+  creating and immediately removing its own temporary probe; exact error 1050
+  preserves and rejects a caller shadow.
+- The session must have autocommit enabled, no active local/XA transaction,
+  and active FOREIGN KEY, UNIQUE, and (on MariaDB) CHECK enforcement. The
+  runner pins `STRICT_TRANS_TABLES`, `NO_ZERO_IN_DATE`, and `NO_ZERO_DATE` for
+  all protected work, verifies them before mutation, and restores the caller's
+  exact SQL mode on every exit. A cryptographically unique native SAVEPOINT /
+  ROLLBACK TO / RELEASE round trip is the transaction-state authority; optional
+  Performance Schema instrumentation is not authority.
+- Commissioning uses `READ COMMITTED`, verifies the transaction after each
+  write, and ends with explicit `COMMIT AND NO CHAIN NO RELEASE` or `ROLLBACK
+  AND NO CHAIN NO RELEASE`, followed by an inactive-state and connection check.
 
 ## Writer law
 
@@ -116,9 +138,17 @@ After any watermark, the permanent rollback floor includes the C access/domain a
 - Real disposable WordPress/InnoDB, not `$wpdb` stubs.
 - Independent database processes/connections and deterministic barriers.
 - `READ COMMITTED` is set and verified before each transaction; shared-lock SQL
-  is proven on MariaDB 10.11 and MySQL 8; nested transactions and connection
+  is proven on MariaDB 10.11 and MySQL 8.0.16 or newer; nested transactions and connection
   switching fail closed.
 - Exact engine, server, isolation, SQL mode, charset/collation, and connection evidence.
+- Disabled FK/UNIQUE/MariaDB-CHECK enforcement, non-strict mode, autocommit off,
+  read-only/local/XA outer transactions, PFS-disabled outer transactions,
+  completion-type CHAIN/RELEASE, and preserved caller savepoint/sentinel cases.
+- Same-named TEMPORARY tables both before initial DDL and as an exact-shape
+  shadow beside a durable ledger; caller temporary bytes and durable authority
+  must both remain untouched after rejection.
+- Same-named no-op CHECK and live-trigger drift rejection, followed by exact
+  compatibility only after the disposable drift is removed.
 - Concurrent installer exclusion and restart after every injected DDL boundary.
 - V1-first and legacy-first races for create/update/delete/type-transition/bulk paths.
 - V1-vs-V1 stale revision, same/different idempotency, and owner-isolation races.
