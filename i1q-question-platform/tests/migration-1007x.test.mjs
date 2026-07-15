@@ -1,0 +1,244 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import test from 'node:test';
+
+const migrationPath = new URL('../db/migrations/20260715122434_i1q_1007x_question_platform.sql', import.meta.url);
+const rollbackPath = new URL('../db/rollback/20260715122435_i1q_1007x_compensating_disable.sql', import.meta.url);
+const historicalPath = new URL('../db/migrations/0001_i1q_question_platform.sql', import.meta.url);
+
+const [migration, rollback, historical] = await Promise.all([
+  readFile(migrationPath, 'utf8'),
+  readFile(rollbackPath, 'utf8'),
+  readFile(historicalPath, 'utf8'),
+]);
+
+function stripLineComments(sql) {
+  return sql.replace(/^\s*--.*$/gmu, '');
+}
+
+function taggedBlock(sql, tag) {
+  const marker = `$${tag}$`;
+  const start = sql.indexOf(`DO ${marker}`);
+  const end = sql.indexOf(`${marker};`, start + marker.length);
+  assert.notEqual(start, -1, `missing ${tag} block`);
+  assert.notEqual(end, -1, `unterminated ${tag} block`);
+  return sql.slice(start, end + marker.length + 1);
+}
+
+function functionBlock(sql, name) {
+  const start = sql.indexOf(`CREATE OR REPLACE FUNCTION i1q.${name}`);
+  const end = sql.indexOf('$function$;', start);
+  assert.notEqual(start, -1, `missing function ${name}`);
+  assert.notEqual(end, -1, `unterminated function ${name}`);
+  return sql.slice(start, end + '$function$;'.length);
+}
+
+function tableBlock(sql, name) {
+  const start = sql.indexOf(`CREATE TABLE IF NOT EXISTS i1q.${name} (`);
+  const end = sql.indexOf('\n);', start);
+  assert.notEqual(start, -1, `missing table ${name}`);
+  assert.notEqual(end, -1, `unterminated table ${name}`);
+  return sql.slice(start, end + 3);
+}
+
+function quotedArray(block, variableName) {
+  const expression = new RegExp(`${variableName}\\s+text\\[\\]\\s*:=\\s*ARRAY\\[([\\s\\S]*?)\\];`, 'u');
+  const match = block.match(expression);
+  assert.ok(match, `missing array ${variableName}`);
+  return [...match[1].matchAll(/'([a-z_]+)'/gu)].map((entry) => entry[1]);
+}
+
+function sorted(values) {
+  return [...values].sort();
+}
+
+test('1007X migration is a standalone, transaction-wrapped, versioned candidate', () => {
+  assert.match(migration, /^-- Migration: 20260715122434_i1q_1007x_question_platform\.sql/mu);
+  assert.match(migration, /\nBEGIN;[\s\S]*\nCOMMIT;\s*$/u);
+  assert.match(migration, /i1q_unversioned_schema_requires_authoritative_reconciliation/u);
+  assert.match(migration, /pg_catalog\.to_regclass\('i1q\.schema_versions'\) IS NULL/u);
+  assert.match(migration, /VALUES \('20260715122434', '20260715122434_i1q_1007x_question_platform\.sql'/u);
+  assert.match(migration, /ON CONFLICT \(version\) DO NOTHING/u);
+  assert.doesNotMatch(stripLineComments(migration), /\b(?:DROP|TRUNCATE)\b/iu);
+});
+
+test('every created table is covered by both enabled and forced RLS', () => {
+  const createdTables = [...migration.matchAll(/CREATE TABLE IF NOT EXISTS i1q\.([a-z_]+)\s*\(/gu)]
+    .map((match) => match[1]);
+  const rlsBlock = taggedBlock(migration, 'rls_enable');
+  const rlsTables = quotedArray(rlsBlock, 'all_tables');
+
+  assert.equal(createdTables.length, 51);
+  assert.equal(new Set(createdTables).size, createdTables.length);
+  assert.deepEqual(sorted(rlsTables), sorted(createdTables));
+  assert.match(rlsBlock, /ALTER TABLE i1q\.%I ENABLE ROW LEVEL SECURITY/u);
+  assert.match(rlsBlock, /ALTER TABLE i1q\.%I FORCE ROW LEVEL SECURITY/u);
+});
+
+test('runtime grants fail closed for PUBLIC and built-in client roles', () => {
+  const executableSql = stripLineComments(migration);
+  assert.doesNotMatch(executableSql, /\bGRANT\b/iu);
+  assert.match(executableSql, /REVOKE ALL ON SCHEMA i1q FROM PUBLIC/u);
+  assert.match(executableSql, /REVOKE ALL ON ALL TABLES IN SCHEMA i1q FROM PUBLIC/u);
+  assert.match(executableSql, /REVOKE ALL ON ALL FUNCTIONS IN SCHEMA i1q FROM PUBLIC/u);
+  assert.match(executableSql, /ALTER DEFAULT PRIVILEGES IN SCHEMA i1q REVOKE ALL ON TABLES FROM PUBLIC/u);
+  assert.match(executableSql, /ALTER DEFAULT PRIVILEGES IN SCHEMA i1q REVOKE EXECUTE ON FUNCTIONS FROM PUBLIC/u);
+
+  const revokeBlock = taggedBlock(migration, 'revoke_builtin_roles');
+  assert.match(revokeBlock, /ARRAY\['anon', 'authenticated'\]::text\[\]/u);
+  assert.match(revokeBlock, /REVOKE ALL ON ALL TABLES IN SCHEMA i1q FROM %I/u);
+  assert.match(revokeBlock, /REVOKE ALL ON ALL FUNCTIONS IN SCHEMA i1q FROM %I/u);
+});
+
+test('authorization derives actor identity from auth.uid and database memberships', () => {
+  const executableSql = stripLineComments(migration);
+  const actorFunction = functionBlock(migration, 'current_actor_id()');
+  const roleFunction = functionBlock(migration, 'has_active_role(required_role text)');
+
+  assert.match(migration, /pg_catalog\.to_regprocedure\('auth\.uid\(\)'\) IS NULL/u);
+  assert.match(actorFunction, /SECURITY INVOKER/u);
+  assert.match(actorFunction, /SELECT auth\.uid\(\)/u);
+  assert.match(roleFunction, /FROM i1q\.actor_role_memberships membership/u);
+  assert.match(roleFunction, /membership\.actor_id = i1q\.current_actor_id\(\)/u);
+  assert.match(roleFunction, /membership\.revoked_at IS NULL/u);
+  assert.match(roleFunction, /membership\.valid_from <= pg_catalog\.clock_timestamp\(\)/u);
+  assert.doesNotMatch(executableSql, /current_setting\s*\(/iu);
+  assert.doesNotMatch(executableSql, /set_config\s*\(/iu);
+  assert.doesNotMatch(executableSql, /app\.actor_(?:id|roles)/iu);
+});
+
+test('historical caller-asserted role GUC semantics are not carried into 1007X', () => {
+  assert.match(historical, /current_setting\('app\.actor_id'/u);
+  assert.match(historical, /current_setting\('app\.actor_roles'/u);
+  assert.doesNotMatch(migration, /current_setting\('app\.actor_/u);
+  assert.match(migration, /does not apply or modify 0001_i1q_question_platform\.sql/u);
+});
+
+test('all six initial feature flags are explicitly seeded off', () => {
+  const expectedKeys = [
+    'drills_adapter_enabled',
+    'internal_platform_enabled',
+    'internal_review_enabled',
+    'stat_adapter_enabled',
+    'student_content_enabled',
+    'student_release_enabled',
+  ];
+  const seedBlock = migration.slice(
+    migration.indexOf('INSERT INTO i1q.feature_flags'),
+    migration.indexOf('ON CONFLICT (key) DO NOTHING') + 'ON CONFLICT (key) DO NOTHING'.length,
+  );
+  const rows = [...seedBlock.matchAll(/\('flag_[a-z_]+', '([a-z_]+)', false, 'migration:I1Q-1007X'\)/gu)]
+    .map((match) => match[1]);
+
+  assert.deepEqual(sorted(rows), expectedKeys);
+  assert.doesNotMatch(seedBlock, /, true,/u);
+  assert.match(seedBlock, /ON CONFLICT \(key\) DO NOTHING/u);
+});
+
+test('student publication requires ratification and an enabled release flag', () => {
+  const promoteRelease = functionBlock(migration, 'promote_release(');
+  assert.match(promoteRelease, /target_state = 'published'/u);
+  assert.match(promoteRelease, /target_authority_type <> 'brian_publication_ratification'/u);
+  assert.match(promoteRelease, /authority\.authority_code = 'brian_publication_ratifier'/u);
+  assert.match(promoteRelease, /authority\.actor_id = i1q\.current_actor_id\(\)/u);
+  assert.match(promoteRelease, /flag\.key = 'student_release_enabled'[\s\S]*flag\.enabled/u);
+  assert.match(promoteRelease, /student_publication_not_authorized/u);
+});
+
+test('item revisions are answer free and answer material is isolated', () => {
+  const revisions = tableBlock(migration, 'item_revisions');
+  const answers = tableBlock(migration, 'item_revision_answers');
+  assert.doesNotMatch(revisions, /^\s+(?:answer|explanation|correct_answer_rationale|distractor_rationales|teaching_point)\s/mu);
+  for (const field of ['answer', 'explanation', 'correct_answer_rationale', 'distractor_rationales', 'teaching_point']) {
+    assert.match(answers, new RegExp(`^\\s+${field}\\s`, 'mu'));
+  }
+  assert.doesNotMatch(migration, /CREATE POLICY\s+[a-z_]+\s+ON i1q\.item_revision_answers\b/iu);
+
+  const answerReader = functionBlock(migration, 'read_item_revision_answers(');
+  assert.match(answerReader, /access_purpose = 'authoring'/u);
+  assert.match(answerReader, /access_purpose = 'editorial_review'/u);
+  assert.match(answerReader, /access_purpose = 'medical_review'/u);
+  assert.match(answerReader, /access_purpose = 'release_validation'/u);
+  assert.match(answerReader, /access_purpose = 'system_validation'/u);
+  assert.match(answerReader, /answer_access_denied/u);
+  assert.match(answerReader, /'answer_accessed'/u);
+});
+
+test('restricted source references have no direct read policy', () => {
+  assert.doesNotMatch(migration, /CREATE POLICY\s+[a-z_]+\s+ON i1q\.restricted_source_references\b/iu);
+  const sourceReader = functionBlock(migration, 'read_restricted_source_reference(');
+  assert.match(sourceReader, /ARRAY\['privacy_officer', 'system'\]::text\[\]/u);
+  assert.match(sourceReader, /access_purpose NOT IN \('privacy_review', 'redaction', 'incident_response'\)/u);
+  assert.match(sourceReader, /restricted_source_access_denied/u);
+  assert.match(sourceReader, /'restricted_source_accessed'/u);
+});
+
+test('required history and release records are protected by generic immutable triggers', () => {
+  const triggerBlock = taggedBlock(migration, 'triggers');
+  const immutableTables = quotedArray(triggerBlock, 'immutable_tables');
+  const required = [
+    'audit_events',
+    'channel_artifact_payloads',
+    'channel_artifacts',
+    'export_question_identities',
+    'export_validation_results',
+    'item_revision_answers',
+    'item_revision_claims',
+    'item_revision_concepts',
+    'item_revision_misconceptions',
+    'item_revision_sources',
+    'item_revisions',
+    'psychometric_snapshots',
+    'release_memberships',
+    'release_promotion_records',
+    'release_snapshots',
+    'restricted_source_references',
+    'review_events',
+    'reviewer_calibration_records',
+    'schema_versions',
+  ];
+
+  assert.deepEqual(sorted(immutableTables), sorted(required));
+  assert.match(triggerBlock, /BEFORE UPDATE OR DELETE ON i1q\.%I/u);
+  assert.match(triggerBlock, /review_assignments_no_delete/u);
+  assert.match(triggerBlock, /review_assignments_transition/u);
+});
+
+test('release assembly binds exact immutable revision and evidence state', () => {
+  const assembleRelease = functionBlock(migration, 'assemble_release(');
+  assert.match(assembleRelease, /i1q\.revision_workflow_state\(revision\.id\) <> 'approved'/u);
+  assert.match(assembleRelease, /event\.exact_revision_hash = revision\.content_hash/u);
+  assert.match(assembleRelease, /event\.credential_status = 'verified'/u);
+  assert.match(assembleRelease, /claim\.status = 'verified'/u);
+  assert.match(assembleRelease, /rights\.rights_status <> 'cleared_for'/u);
+  assert.match(assembleRelease, /privacy\.status NOT IN \('pass', 'pass_with_redactions'\)/u);
+  assert.match(assembleRelease, /identity\.question_id = stable_question_id/u);
+  assert.match(assembleRelease, /identity\.item_id = revision\.item_id/u);
+});
+
+test('compensating rollback is forward-only, preserving, and reapply-safe', () => {
+  const executableRollback = stripLineComments(rollback);
+  assert.match(executableRollback, /^\s*BEGIN;[\s\S]*COMMIT;\s*$/u);
+  assert.match(executableRollback, /SELECT i1q\.disable_i1q_behavior\(\s*'20260715122435'/u);
+  assert.doesNotMatch(executableRollback, /\b(?:DROP|TRUNCATE|DELETE|ALTER|UPDATE|INSERT)\b/iu);
+
+  const disableFunction = functionBlock(migration, 'disable_i1q_behavior(');
+  assert.match(disableFunction, /UPDATE i1q\.feature_flags[\s\S]*SET enabled = false[\s\S]*WHERE enabled/u);
+  assert.match(disableFunction, /IF NOT EXISTS \([\s\S]*event\.entity_id = compensation_id/u);
+  assert.match(disableFunction, /'data_preserved', true/u);
+  assert.match(disableFunction, /'history_preserved', true/u);
+  assert.doesNotMatch(disableFunction, /\b(?:DROP|TRUNCATE|DELETE)\b/iu);
+});
+
+test('reapply guards cover tables, policies, triggers, and initialization rows', () => {
+  const createTableStatements = [...migration.matchAll(/CREATE TABLE[^;]+;/gsu)].map((match) => match[0]);
+  assert.equal(createTableStatements.length, 51);
+  for (const statement of createTableStatements) {
+    assert.match(statement, /^CREATE TABLE IF NOT EXISTS i1q\./u);
+  }
+  assert.match(migration, /IF NOT EXISTS \(SELECT 1 FROM pg_catalog\.pg_policies/u);
+  assert.match(migration, /IF NOT EXISTS \([\s\S]*FROM pg_catalog\.pg_trigger/u);
+  assert.match(migration, /ON CONFLICT \(slot\) DO NOTHING/u);
+  assert.match(migration, /ON CONFLICT \(authority_code\) DO NOTHING/u);
+  assert.match(migration, /event\.action = 'schema_candidate_initialized'[\s\S]*event\.entity_id = '20260715122434'/u);
+});
