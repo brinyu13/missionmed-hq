@@ -1,0 +1,20 @@
+{
+  "case": "unsupported_production_claim",
+  "target": "deployment_manifest.json",
+  "replacement": {
+    "status": "INTERNAL_PRODUCTION_LIVE",
+    "success_level": "STATE_C",
+    "deployment_urls": [
+      "https://invalid.production.invalid"
+    ],
+    "canonical_route": "canonical_github",
+    "feature_flags": {
+      "internal_platform_enabled": true,
+      "stat_adapter_enabled": false,
+      "drills_adapter_enabled": false,
+      "student_release_enabled": false
+    },
+    "blockers": []
+  },
+  "expected_code": "E_RUNTIME_PROOF_REQUIRED"
+}
