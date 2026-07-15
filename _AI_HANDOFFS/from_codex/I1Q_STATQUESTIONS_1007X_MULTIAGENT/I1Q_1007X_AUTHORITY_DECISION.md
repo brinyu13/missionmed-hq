@@ -2,7 +2,7 @@
 
 ## Verdict
 
-`FILED ON REVIEW BRANCH, EFFECTIVE FOR REVIEWED IMPLEMENTATION AFTER CANONICAL MERGE`
+`CANONICALLY FILED AND EFFECTIVE`
 
 Authority commit:
 
@@ -73,3 +73,7 @@ AI benchmarking may authorize only quarantined candidate generation. It cannot a
 Every student-facing revision requires an exact immutable Item Revision, completed editorial review, genuine credentialed physician review, current Evidence Claim, no conflict, no active safety flag, rights and privacy clearance, release validation, and Brian publication ratification.
 
 This run must not claim State D without those real records.
+
+## Canonical Filing
+
+The authority branch passed independent verification and merged through MissionMed OS PR #12 at exact head `b3d8089dbc436bad6ec48de95e1d57b6985b7444`. Canonical `main` is `93c0404794fe105235b80514c75fffc3177f140b`, clean and synchronized with `origin/main`. The protected integration decision is therefore effective for the bounded internal implementation described here.

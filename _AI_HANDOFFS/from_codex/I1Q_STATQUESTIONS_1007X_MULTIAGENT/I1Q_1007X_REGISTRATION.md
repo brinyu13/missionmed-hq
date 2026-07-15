@@ -2,7 +2,7 @@
 
 ## Verdict
 
-`REGISTERED ON REVIEW BRANCH, CANONICAL MERGE PENDING INDEPENDENT VERIFICATION`
+`CANONICALLY REGISTERED`
 
 ## Registration Record
 
@@ -54,6 +54,6 @@ The branch was pushed and opened as draft review:
 
 [MissionMed OS PR #12](https://github.com/brinyu13/missionmed-os/pull/12)
 
-At report time, both MissionMed GitHub workflows and the published-page check were green. A fresh independent agent was assigned to verify the exact remote diff and rerun the read-only checks before merge.
+Both MissionMed GitHub workflows and the published-page check passed. A fresh independent agent verified exact range `714443573c41e7a04e4241e67244c334787e1bed..b3d8089dbc436bad6ec48de95e1d57b6985b7444`, reran lint, 33 state-feed tests, the full read-only regression suite, adapter, renderer, secret, manifest, canon-hash, and local-serve checks, and issued `PASS / SAFE TO MERGE` with no defect.
 
-Until that review passes and the branch reaches canonical `main`, this report does not claim final canonical registration.
+PR #12 was promoted from draft and merged only at verified head `b3d8089dbc436bad6ec48de95e1d57b6985b7444`. Canonical MissionMed OS `main` is clean at merge commit `93c0404794fe105235b80514c75fffc3177f140b`. `CURRENT.md` lists I1Q-1006 active, and the MissionMed OS reports no blocker.
