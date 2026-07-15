@@ -26,6 +26,19 @@
 | Release and Reliability | `agents/release_reliability/` only | CI, staging, monitoring, backup and rollback evidence | NOT STARTED |
 | Independent Red Team | `agents/red_team/` only | Fixed final candidate and all evidence | NOT STARTED |
 
+## Repair Wave 1 Assignments
+
+These scopes apply after the baseline audit commits and are intentionally disjoint.
+
+| Owner | Exclusive application write scope | Test scope | Prohibited overlap |
+| --- | --- | --- | --- |
+| Adapter and Identity Implementer | `i1q-question-platform/src/contracts.mjs`, `i1q-question-platform/src/exports.mjs`, `i1q-question-platform/src/adapters/**` | new `i1q-question-platform/tests/adapters-security.test.mjs` | auth, server, platform, privacy, pipeline, store, SQL, UI |
+| Auth and Release Security Implementer | `i1q-question-platform/src/auth.mjs`, `i1q-question-platform/src/server.mjs`, `i1q-question-platform/src/platform.mjs` | new `i1q-question-platform/tests/security-regressions.test.mjs` | contracts, exports, adapters, privacy, pipeline, store, SQL, UI |
+| Privacy Normalization Implementer | `i1q-question-platform/src/privacy.mjs`, `i1q-question-platform/src/pipeline.mjs` | new `i1q-question-platform/tests/privacy-regressions.test.mjs` | contracts, exports, adapters, auth, server, platform, store, SQL, UI |
+| Evidence Validator Implementer | new `i1q-question-platform/src/validate-evidence.mjs` and new validator-only fixtures | new `i1q-question-platform/tests/evidence-validator.test.mjs` | existing evidence generator, app modules, SQL, UI |
+
+Every implementer must run the existing 30-test suite plus its direct tests. No implementer may alter existing test files to make a failure disappear. Cross-scope integration and any necessary conflict repair belong to the root supervisor after all workers return.
+
 ## Root-Only Paths and Actions
 
 - `/Users/brianb/MissionMed_OS/**`
