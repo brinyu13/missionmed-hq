@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
-  REQUIRED_PRIVACY_CLASSES,
   STAT_DATASET_FIELDS,
 } from '../src/contracts.mjs';
 import {
@@ -10,9 +9,17 @@ import {
   scanForAnswerLeak,
 } from '../src/exports.mjs';
 import { canonicalJson, sha256, statPackHash } from '../src/hash.mjs';
-import { detectQuestionCandidates, normalizeTranscriptArtifact, validateDraftCandidate } from '../src/pipeline.mjs';
+import {
+  detectQuestionCandidates,
+  normalizeTranscriptArtifact,
+  validateDraftCandidate,
+  VERIFIED_DRJ_SPEAKER_AUTHORITY_CLASSES,
+} from '../src/pipeline.mjs';
 import { QuestionPlatform } from '../src/platform.mjs';
-import { scorePrivacyAggregate } from '../src/privacy.mjs';
+import {
+  REQUIRED_PRIVACY_EVALUATION_CLASSES,
+  scorePrivacyAggregate,
+} from '../src/privacy.mjs';
 import { MemoryRepository } from '../src/store.mjs';
 
 const actors = {
@@ -20,12 +27,25 @@ const actors = {
   author: { id: 'actor_author', roles: ['author'] },
   editor: { id: 'actor_editor', roles: ['editorial_reviewer'] },
   physician: { id: 'actor_physician', roles: ['physician_reviewer'] },
+  validator: { id: 'actor_validator', roles: ['release_manager'] },
+  ratifier: { id: 'actor_ratifier', roles: ['release_manager'] },
+  publisher: { id: 'actor_publisher', roles: ['release_manager'] },
   reader: { id: 'actor_reader', roles: ['read_only'] },
 };
 
 function seedPlatform() {
   const repository = new MemoryRepository({ clock: () => '2026-07-13T12:00:00.000Z' });
-  const platform = new QuestionPlatform({ repository });
+  const platform = new QuestionPlatform({
+    repository,
+    credentialVerifier: ({ subject_actor_id: subjectActorId, claimed_credential: claimedCredential }) => ({
+      verified: true,
+      subject_actor_id: subjectActorId,
+      type: claimedCredential.type,
+      verification_id: `synthetic-verification-${subjectActorId}`,
+      verified_at: '2026-07-13T12:00:00.000Z',
+      expires_at: '2099-01-01T00:00:00.000Z',
+    }),
+  });
   platform.registerReviewer({
     actor_id: actors.editor.id,
     display_name: 'Synthetic Editor',
@@ -41,33 +61,34 @@ function seedPlatform() {
   platform.create('concepts', { title: 'Synthetic concept' }, actors.admin, { id: 'concept_test' });
   platform.create('variant_groups', { concept_id: 'concept_test', form: 'recall' }, actors.admin, { id: 'vg_test' });
   platform.create('items', { variant_group_id: 'vg_test', item_type: 'single_best_answer' }, actors.admin, { id: 'item_test' });
-  platform.create('rights_records', {
+  repository.create('rights_records', {
     rights_status: 'cleared_for',
     allowed_uses: ['synthetic_fixture'],
-  }, actors.admin, { id: 'rights_test' });
-  platform.create('privacy_redaction_records', {
+  }, { id: 'rights_test', actorId: actors.admin.id });
+  repository.create('privacy_redaction_records', {
     status: 'pass',
     required_class_metrics: {},
-  }, actors.admin, { id: 'redact_test' });
-  platform.create('source_records', {
+  }, { id: 'redact_test', actorId: actors.admin.id });
+  repository.create('source_records', {
     source_type: 'AI_DRAFT',
     title: 'Synthetic source',
     source_hash: sha256('synthetic source'),
     rights_record_id: 'rights_test',
     privacy_redaction_record_id: 'redact_test',
-  }, actors.admin, { id: 'src_test' });
-  platform.create('evidence_claims', {
+  }, { id: 'src_test', actorId: actors.admin.id });
+  repository.create('evidence_claims', {
     claim_text: 'Synthetic fixture maps square to beta.',
     authority_class: 'fixture_only',
     status: 'verified',
     source_record_ids: ['src_test'],
     expires_at: '2099-01-01T00:00:00.000Z',
-  }, actors.admin, { id: 'claim_test' });
+  }, { id: 'claim_test', actorId: actors.admin.id });
   const revision = platform.createRevision({
     item_id: 'item_test',
     concept_id: 'concept_test',
     source_ids: ['src_test'],
     evidence_claim_ids: ['claim_test'],
+    export_question_id: 'I1Q-PLATFORM-TEST-0001',
     prompt: 'Which label matches the square synthetic sample?',
     choices: [
       { key: 'A', text: 'Label alpha', why_tempting: 'Position bias', why_wrong: 'Not in fixture key', misconception_id: 'miscon_position' },
@@ -80,6 +101,20 @@ function seedPlatform() {
     correct_answer_rationale: 'The fixture key identifies beta.',
     topic: 'Synthetic fixtures',
     subtopic: 'Classification',
+    drills: {
+      video_id: 'video_test',
+      source_record_id: 'src_test',
+      title: 'Synthetic platform test drill',
+      playback: { availability: 'available', url: 'https://example.invalid/test/playback', stream_id: null },
+      nodes: { availability: 'available', url: 'https://example.invalid/test/nodes.json' },
+      transcript: { availability: 'missing', url: null },
+      vtt: { availability: 'unknown', url: null },
+      timestamp: { start_seconds: 0, end_seconds: 5 },
+      rights_status: 'cleared_for',
+      privacy_status: 'pass',
+      source_hash: sha256('synthetic source'),
+      working_hash: sha256('synthetic working source'),
+    },
   }, actors.author, { idempotencyKey: 'revision-1' });
   return { platform, revision };
 }
@@ -139,26 +174,32 @@ test('single manifest emits answer-free pre-answer artifact', () => {
   assert.equal(first.artifacts.filter((artifact) => artifact.channel === 'stat_dataset_questions').length, 1);
 });
 
-test('privacy aggregate includes every required class with numeric patient recall', () => {
-  const labels = REQUIRED_PRIVACY_CLASSES.map((privacyClass, index) => ({ id: `label_${index}`, privacy_class: privacyClass }));
+test('small privacy mechanics fixtures are class-complete but cannot claim release PASS', () => {
+  const labels = REQUIRED_PRIVACY_EVALUATION_CLASSES
+    .map((privacyClass, index) => ({ id: `label_${index}`, privacy_class: privacyClass }));
   const detections = labels.map((label) => ({ label_id: label.id, privacy_class: label.privacy_class }));
-  const scored = scorePrivacyAggregate({ labels, detections });
-  assert.equal(scored.status, 'pass');
-  assert.deepEqual(Object.keys(scored.required_classes), REQUIRED_PRIVACY_CLASSES);
-  assert.equal(typeof scored.required_classes.patient_identifier.recall, 'number');
-  assert.equal(scored.required_classes.patient_identifier.recall, 1);
-  assert.equal(scored.required_classes.patient_identifier.precision, 1);
+  const evaluated_counts = Object.fromEntries(
+    REQUIRED_PRIVACY_EVALUATION_CLASSES.map((privacyClass) => [privacyClass, 1]),
+  );
+  const scored = scorePrivacyAggregate({ labels, detections, evaluated_counts });
+  assert.equal(scored.status, 'INCOMPLETE');
+  assert.deepEqual(Object.keys(scored.required_classes), REQUIRED_PRIVACY_EVALUATION_CLASSES);
+  assert.equal(typeof scored.required_classes.PATIENT_DIRECT_IDENTIFIER.recall, 'number');
+  assert.ok(scored.required_classes.PATIENT_DIRECT_IDENTIFIER.incomplete_reasons.includes('GOLD_MINIMUM_NOT_MET'));
 });
 
-test('missing required privacy class is a failure with explicit zero denominator behavior', () => {
-  const labels = REQUIRED_PRIVACY_CLASSES
-    .filter((privacyClass) => privacyClass !== 'patient_identifier')
+test('missing required privacy class has explicit zero-denominator behavior', () => {
+  const labels = REQUIRED_PRIVACY_EVALUATION_CLASSES
+    .filter((privacyClass) => privacyClass !== 'PATIENT_DIRECT_IDENTIFIER')
     .map((privacyClass, index) => ({ id: `label_${index}`, privacy_class: privacyClass }));
-  const scored = scorePrivacyAggregate({ labels, detections: [] });
-  assert.equal(scored.status, 'fail');
-  assert.equal(scored.required_classes.patient_identifier.denominator, 0);
-  assert.equal(scored.required_classes.patient_identifier.recall, 0);
-  assert.equal(scored.required_classes.patient_identifier.status, 'fail_missing_required_class');
+  const evaluated_counts = Object.fromEntries(
+    REQUIRED_PRIVACY_EVALUATION_CLASSES.map((privacyClass) => [privacyClass, 1]),
+  );
+  const scored = scorePrivacyAggregate({ labels, detections: [], evaluated_counts });
+  assert.equal(scored.status, 'INCOMPLETE');
+  assert.equal(scored.required_classes.PATIENT_DIRECT_IDENTIFIER.denominator, 0);
+  assert.equal(scored.required_classes.PATIENT_DIRECT_IDENTIFIER.recall, 0);
+  assert.ok(scored.required_classes.PATIENT_DIRECT_IDENTIFIER.incomplete_reasons.includes('ZERO_GOLD_POSITIVES'));
 });
 
 test('item revisions and audit events are immutable and audit chain verifies', () => {
@@ -183,7 +224,7 @@ test('workflow-managed entities reject generic create and update bypasses', () =
 
 test('private source references are hidden from ordinary internal readers', () => {
   const { platform } = seedPlatform();
-  platform.update('source_records', 'src_test', { private_storage_ref: 'private://fixture' }, actors.admin);
+  platform.repository.update('source_records', 'src_test', { private_storage_ref: 'private://fixture' }, { actorId: actors.admin.id });
   const readerView = platform.get('source_records', 'src_test', actors.reader);
   const adminView = platform.get('source_records', 'src_test', actors.admin);
   assert.equal(readerView.private_storage_ref, undefined);
@@ -246,10 +287,30 @@ test('credentialed exact-revision approval enables assembly but not publication'
   }, actors.physician);
   const assembled = platform.assembleRelease({ datasetVersion: 'fixture_v1', itemRevisionIds: [revision.id] }, actors.admin);
   assert.equal(assembled.release.state, 'assembled');
-  platform.promoteRelease(assembled.release.id, 'validated', actors.admin);
-  platform.promoteRelease(assembled.release.id, 'ratified', actors.admin);
-  assert.throws(() => platform.promoteRelease(assembled.release.id, 'published', actors.admin), /student_release_feature_flag_disabled/);
-  assert.throws(() => platform.artifactForPhase(assembled.release.id, 'stat_post_answer_debrief', 'pre_answer', actors.admin), /post_answer_requires_finalization/);
+  assert.deepEqual(assembled.release.release_membership, assembled.release.manifest.release_membership);
+  assert.equal(assembled.release.release_membership[0].question_id, revision.export_question_id);
+  assert.equal(assembled.artifacts.some((artifact) => Object.hasOwn(artifact, 'payload')), false);
+  const validation = platform.recordReleaseValidation(assembled.release.id, {
+    manifest_hash: assembled.release.manifest.manifest_hash,
+    evidence_hash: sha256('synthetic release validation evidence'),
+    checks: [{ id: 'synthetic_release_suite', status: 'pass' }],
+  }, actors.validator);
+  platform.promoteRelease(assembled.release.id, {
+    to_state: 'validated',
+    manifest_hash: assembled.release.manifest.manifest_hash,
+    validation_evidence_id: validation.id,
+  }, actors.validator);
+  platform.promoteRelease(assembled.release.id, {
+    to_state: 'ratified',
+    manifest_hash: assembled.release.manifest.manifest_hash,
+    validation_evidence_id: validation.id,
+  }, actors.ratifier);
+  assert.throws(() => platform.promoteRelease(assembled.release.id, {
+    to_state: 'published',
+    manifest_hash: assembled.release.manifest.manifest_hash,
+    validation_evidence_id: validation.id,
+  }, actors.publisher), /student_release_feature_flag_disabled/);
+  assert.throws(() => platform.artifactForPhase(assembled.release.id, 'stat_post_answer_debrief', 'pre_answer', actors.admin), /finalization_required/);
 });
 
 test('retracted claims and restricted rights block release assembly', () => {
@@ -269,27 +330,36 @@ test('retracted claims and restricted rights block release assembly', () => {
     verdict: 'pass',
     to_status: 'approved',
   }, actors.physician);
-  platform.update('evidence_claims', 'claim_test', { status: 'retracted' }, actors.admin);
+  platform.repository.update('evidence_claims', 'claim_test', { status: 'retracted' }, { actorId: actors.admin.id });
   assert.throws(() => platform.assembleRelease({ datasetVersion: 'fixture_bad_claim', itemRevisionIds: [revision.id] }, actors.admin), /claim_not_verified/);
-  platform.update('evidence_claims', 'claim_test', { status: 'verified' }, actors.admin);
-  platform.update('rights_records', 'rights_test', { rights_status: 'restricted' }, actors.admin);
+  platform.repository.update('evidence_claims', 'claim_test', { status: 'verified' }, { actorId: actors.admin.id });
+  platform.repository.update('rights_records', 'rights_test', { rights_status: 'restricted' }, { actorId: actors.admin.id });
   assert.throws(() => platform.assembleRelease({ datasetVersion: 'fixture_bad_rights', itemRevisionIds: [revision.id] }, actors.admin), /source_rights_not_cleared/);
 });
 
 test('pipeline normalizes, redacts, and never auto-approves', () => {
+  const speakerLabel = 'SYNTHETIC_PLATFORM_DRJ_LABEL';
   const segments = normalizeTranscriptArtifact({
+    drj_speaker_labels: [speakerLabel],
     video_id: 'video_fixture',
     transcript_id: 'transcript_fixture',
+    source_attribution: 'verified_drj',
     source_hash: sha256('fixture source'),
+    working_source_ref: `working_source_ref_${sha256('fixture working mapping').slice(0, 20)}`,
     segments: [{
-      text: 'PATIENT - A1 - B2 - C3: Which coded concept applies?',
+      text: 'Which [PATIENT_IDENTIFIER:SYNTHETIC_PATIENT] coded symbol applies?',
       start_time: 0,
       end_time: 4,
-      speaker: 'instructor',
-      speaker_confidence: 1,
+      speaker: speakerLabel,
+      speaker_attribution: 'verified_drj',
+      speaker_evidence: {
+        authority_class: VERIFIED_DRJ_SPEAKER_AUTHORITY_CLASSES[0],
+        mapping_sha256: sha256('synthetic platform speaker mapping'),
+      },
+      speaker_role: 'drj',
     }],
   });
-  assert.match(segments[0].redacted_text, /REDACTED_PATIENT_IDENTIFIER/);
+  assert.match(segments[0].redacted_text, /REDACTED_PATIENT_DIRECT_IDENTIFIER/);
   const candidates = detectQuestionCandidates(segments, {
     classifyMedical: () => ({ medical: true, confidence: 0.9 }),
   });

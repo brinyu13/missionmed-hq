@@ -71,12 +71,14 @@ export const GOVERNANCE_SLOTS = Object.freeze([
 ]);
 
 export const REQUIRED_PRIVACY_CLASSES = Object.freeze([
-  'student_name',
-  'third_party_name',
-  'patient_identifier',
-  'email',
-  'phone',
-  'address',
+  'NON_DRJ_SPEECH',
+  'STUDENT_NAME',
+  'STUDENT_OTHER_IDENTIFIER',
+  'PATIENT_DIRECT_IDENTIFIER',
+  'PATIENT_QUASI_IDENTIFIER',
+  'THIRD_PARTY_IDENTITY',
+  'IDENTIFYING_CLINICAL_ANECDOTE',
+  'SOURCE_METADATA',
 ]);
 
 export const REVISION_STATES = Object.freeze([
