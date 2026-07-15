@@ -204,6 +204,13 @@ function v1_8010e_e2_process_json( $result, $expected_state, $message ) {
 	$expected_keys = array(
 		'RESULT' => array( 'state', 'connection_id', 'ok', 'reason_code', 'replayed', 'status', 'revision', 'result_hash', 'native_handle_preserved' ),
 		'OBSERVED' => array( 'state', 'connection_id', 'counts', 'linkage_valid', 'revision', 'result_hash' ),
+		'REVISION_OBSERVED' => array(
+			'state', 'connection_id', 'counts', 'revision', 'target_receipt_hash', 'operation_chain',
+			'plan_linkage_valid', 'week_created_revision', 'week_updated_revision', 'block_hex',
+			'block_state_code', 'start_at_utc', 'end_at_utc', 'local_date', 'local_minute',
+			'duration_minutes', 'block_created_revision', 'block_updated_revision',
+			'tombstoned_revision', 'tombstoned_at_present',
+		),
 		'THREAD' => array( 'state', 'connection_id', 'target_connection', 'process_present', 'transaction_present' ),
 		'KILLED' => array( 'state', 'connection_id', 'target_connection' ),
 		'LOCK_WAIT' => array( 'state', 'connection_id', 'requester_connection', 'blocker_connection', 'waiting' ),
@@ -226,6 +233,10 @@ function v1_8010e_e2_process_result( $child, $send_go, $message ) {
 
 function v1_8010e_e2_process_observe( $scenario ) {
 	return v1_8010e_e2_process_json( v1_8010e_e2_process_run( 'observe', $scenario ), 'OBSERVED', 'observer reads committed E2 state' );
+}
+
+function v1_8010e_e2_process_observe_revision( $scenario ) {
+	return v1_8010e_e2_process_json( v1_8010e_e2_process_run( 'observe-revision', $scenario ), 'REVISION_OBSERVED', 'observer reads exact revision E2 state' );
 }
 
 /** Poll until the killed database session and transaction are both absent. */
@@ -289,13 +300,18 @@ function v1_8010e_e2_process_expect_committed( $scenario, $result, $message ) {
 
 /** Require one content-free successful command summary. */
 function v1_8010e_e2_process_expect_success( $result, $replayed, $message ) {
+	v1_8010e_e2_process_expect_success_revision( $result, $replayed, '1', $message );
+}
+
+/** Require one content-free successful command summary at an exact revision. */
+function v1_8010e_e2_process_expect_success_revision( $result, $replayed, $revision, $message ) {
 	v1_8010e_e2_process_expect(
 		true === ( $result['ok'] ?? null )
 		&& 'ok' === ( $result['reason_code'] ?? null )
 		&& $replayed === ( $result['replayed'] ?? null )
 		&& 200 === ( $result['status'] ?? null )
 		&& true === ( $result['native_handle_preserved'] ?? null )
-		&& '1' === ( $result['revision'] ?? null )
+		&& (string) $revision === ( $result['revision'] ?? null )
 		&& is_string( $result['result_hash'] ?? null )
 		&& 1 === preg_match( '/^[a-f0-9]{64}$/D', $result['result_hash'] ),
 		$message
@@ -314,6 +330,138 @@ function v1_8010e_e2_process_expect_failure( $result, $reason, $status, $message
 		&& null === ( $result['result_hash'] ?? null ),
 		$message
 	);
+}
+
+/** Deterministic Block identity emitted as counter three by a seed lane. */
+function v1_8010e_e2_process_block_hex( $lane ) {
+	$lane = (int) $lane;
+	if ( $lane <= 0 || $lane > 4095 ) {
+		throw new RuntimeException( 'e2_process_revision_lane_invalid' );
+	}
+	$uuid = sprintf( '%08x-%04x-4%03x-8%03x-%012x', 0xe2000000 + $lane, 3, 3, $lane, 3 );
+	return strtolower( str_replace( '-', '', $uuid ) );
+}
+
+/** Build one exact content-free expected selected revision projection. */
+function v1_8010e_e2_process_revision_expected( $block_hex, $revision, $chain, $minute, $duration, $start_at, $end_at, $state_code = 1, $tombstoned = false ) {
+	$revision = (string) $revision;
+	return array(
+		'counts' => array( 'plans' => 1, 'operations' => (int) $revision, 'weeks' => 1, 'blocks' => 1 ),
+		'revision' => $revision,
+		'target_receipt_hash' => null,
+		'operation_chain' => (string) $chain,
+		'plan_linkage_valid' => true,
+		'week_created_revision' => '1',
+		'week_updated_revision' => $revision,
+		'block_hex' => (string) $block_hex,
+		'block_state_code' => (int) $state_code,
+		'start_at_utc' => (string) $start_at,
+		'end_at_utc' => (string) $end_at,
+		'local_date' => '2026-07-15',
+		'local_minute' => (int) $minute,
+		'duration_minutes' => (int) $duration,
+		'block_created_revision' => '1',
+		'block_updated_revision' => $revision,
+		'tombstoned_revision' => $tombstoned ? $revision : null,
+		'tombstoned_at_present' => (bool) $tombstoned,
+	);
+}
+
+/** Require an exact selected persistence projection without exposing row content. */
+function v1_8010e_e2_process_expect_revision_state( $observed, $expected, $message ) {
+	$actual = array(
+		'counts' => $observed['counts'] ?? null,
+		'revision' => $observed['revision'] ?? null,
+		'target_receipt_hash' => $observed['target_receipt_hash'] ?? null,
+		'operation_chain' => $observed['operation_chain'] ?? null,
+		'plan_linkage_valid' => $observed['plan_linkage_valid'] ?? null,
+		'week_created_revision' => $observed['week_created_revision'] ?? null,
+		'week_updated_revision' => $observed['week_updated_revision'] ?? null,
+		'block_hex' => $observed['block_hex'] ?? null,
+		'block_state_code' => $observed['block_state_code'] ?? null,
+		'start_at_utc' => $observed['start_at_utc'] ?? null,
+		'end_at_utc' => $observed['end_at_utc'] ?? null,
+		'local_date' => $observed['local_date'] ?? null,
+		'local_minute' => $observed['local_minute'] ?? null,
+		'duration_minutes' => $observed['duration_minutes'] ?? null,
+		'block_created_revision' => $observed['block_created_revision'] ?? null,
+		'block_updated_revision' => $observed['block_updated_revision'] ?? null,
+		'tombstoned_revision' => $observed['tombstoned_revision'] ?? null,
+		'tombstoned_at_present' => $observed['tombstoned_at_present'] ?? null,
+	);
+	v1_8010e_e2_process_expect( $expected === $actual, $message );
+}
+
+/** Seed one exact revision-one Block and prove raw base truth. */
+function v1_8010e_e2_process_revision_seed( $seed_scenario, $observe_scenario, $expected ) {
+	$result = v1_8010e_e2_process_json(
+		v1_8010e_e2_process_run( 'command', $seed_scenario ),
+		'RESULT',
+		'revision seed worker completes'
+	);
+	v1_8010e_e2_process_expect_success_revision( $result, false, '1', 'revision seed commits exactly once' );
+	$observed = v1_8010e_e2_process_observe_revision( $observe_scenario );
+	v1_8010e_e2_process_expect_revision_state( $observed, $expected, 'revision seed exposes the exact selected base projection' );
+}
+
+/** Prove one revision-greater-than-zero SIGKILL rollback, retry, and replay. */
+function v1_8010e_e2_process_revision_crash_retry( $scenario, $base_expected, $committed_expected, &$active ) {
+	$crashed = v1_8010e_e2_process_start( 'command', $scenario );
+	$active[] = $crashed;
+	$line = v1_8010e_e2_process_line( $crashed['pipes'][1] );
+	v1_8010e_e2_process_expect( 1 === preg_match( '/^READY after_receipt_write connection=(\d+)$/D', $line, $match ), 'revision crash reaches the post-receipt pre-commit barrier' );
+	v1_8010e_e2_process_sigkill( $crashed );
+	$active = array();
+	v1_8010e_e2_process_wait_connection_gone( (int) $match[1] );
+	$rolled_back = v1_8010e_e2_process_observe_revision( $scenario );
+	v1_8010e_e2_process_expect_revision_state( $rolled_back, $base_expected, 'revision crash restores the selected Week, Block, Plan, and receipt projection' );
+
+	$retry = v1_8010e_e2_process_json( v1_8010e_e2_process_run( 'command-retry', $scenario ), 'RESULT', 'revision crash retry completes' );
+	v1_8010e_e2_process_expect_success_revision( $retry, false, $committed_expected['revision'], 'revision crash retry commits exactly once' );
+	$expected = $committed_expected;
+	$expected['target_receipt_hash'] = $retry['result_hash'];
+	$committed = v1_8010e_e2_process_observe_revision( $scenario );
+	v1_8010e_e2_process_expect_revision_state( $committed, $expected, 'revision crash retry publishes the exact selected persistence projection' );
+
+	$replay = v1_8010e_e2_process_json( v1_8010e_e2_process_run( 'command-retry', $scenario ), 'RESULT', 'revision crash replay completes' );
+	v1_8010e_e2_process_expect_success_revision( $replay, true, $committed_expected['revision'], 'revision crash retry replays exact receipt' );
+	v1_8010e_e2_process_expect( hash_equals( $retry['result_hash'], $replay['result_hash'] ), 'revision crash replay returns exact result bytes' );
+	$after_replay = v1_8010e_e2_process_observe_revision( $scenario );
+	v1_8010e_e2_process_expect_revision_state( $after_replay, $expected, 'revision crash replay changes no selected persistence state' );
+}
+
+/** Prove one two-session revision race, stale loser, and winning replay. */
+function v1_8010e_e2_process_revision_race( $winner_scenario, $loser_scenario, $committed_expected, &$active ) {
+	$winner = v1_8010e_e2_process_start( 'command', $winner_scenario );
+	$active[] = $winner;
+	$winner_ready = v1_8010e_e2_process_line( $winner['pipes'][1] );
+	v1_8010e_e2_process_expect( 1 === preg_match( '/^READY after_plan_lock connection=(\d+)$/D', $winner_ready, $winner_match ), 'revision winner holds the owner Plan row' );
+	$loser = v1_8010e_e2_process_start( 'command', $loser_scenario );
+	$active[] = $loser;
+	$loser_ready = v1_8010e_e2_process_line( $loser['pipes'][1] );
+	v1_8010e_e2_process_expect( 1 === preg_match( '/^READY control_before_plan connection=(\d+)$/D', $loser_ready, $loser_match ), 'revision loser reaches the ordered control phase' );
+	v1_8010e_e2_process_expect( (int) $winner_match[1] !== (int) $loser_match[1], 'revision race uses independent database sessions' );
+	v1_8010e_e2_process_wait_for_owner_lock( (int) $loser_match[1], (int) $winner_match[1] );
+	$winner_result = v1_8010e_e2_process_result( $winner, true, 'revision winner commits' );
+	$loser_result = v1_8010e_e2_process_result( $loser, false, 'revision loser completes after winner' );
+	$active = array();
+	v1_8010e_e2_process_expect_success_revision( $winner_result, false, $committed_expected['revision'], 'revision winner advances exactly once' );
+	v1_8010e_e2_process_expect_failure( $loser_result, 'stale_revision', 409, 'revision loser performs zero stale DML' );
+
+	$winner_expected = $committed_expected;
+	$winner_expected['target_receipt_hash'] = $winner_result['result_hash'];
+	$winner_observed = v1_8010e_e2_process_observe_revision( $winner_scenario );
+	v1_8010e_e2_process_expect_revision_state( $winner_observed, $winner_expected, 'revision winner owns the exact selected persistence projection' );
+	$loser_expected = $committed_expected;
+	$loser_expected['target_receipt_hash'] = null;
+	$loser_observed = v1_8010e_e2_process_observe_revision( $loser_scenario );
+	v1_8010e_e2_process_expect_revision_state( $loser_observed, $loser_expected, 'revision loser creates no receipt or state' );
+
+	$replay = v1_8010e_e2_process_json( v1_8010e_e2_process_run( 'command-retry', $winner_scenario ), 'RESULT', 'revision winner replay completes' );
+	v1_8010e_e2_process_expect_success_revision( $replay, true, $committed_expected['revision'], 'revision winner replay is exact' );
+	v1_8010e_e2_process_expect( hash_equals( $winner_result['result_hash'], $replay['result_hash'] ), 'revision winner replay returns exact result bytes' );
+	$after_replay = v1_8010e_e2_process_observe_revision( $winner_scenario );
+	v1_8010e_e2_process_expect_revision_state( $after_replay, $winner_expected, 'revision winner replay changes no selected persistence state' );
 }
 
 $active = array();
@@ -454,6 +602,122 @@ try {
 	v1_8010e_e2_process_expect_success( $response_retry, true, 'response-loss retry is reported as replay' );
 	v1_8010e_e2_process_expect( hash_equals( $response_observed['result_hash'], $response_retry['result_hash'] ), 'response-loss retry returns the exact durable result bytes' );
 	v1_8010e_e2_process_expect_committed( 'response-loss', $response_retry, 'response-loss replay leaves the single committed row set unchanged' );
+
+	/* Revision-two MOVE survives late pre-commit death, replays, and serializes a revision-three race. */
+	$move_block = v1_8010e_e2_process_block_hex( 201 );
+	$move_base = v1_8010e_e2_process_revision_expected(
+		$move_block,
+		'1',
+		'0>1:create_block',
+		540,
+		30,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 13:30:00.000000'
+	);
+	v1_8010e_e2_process_revision_seed( 'rev-move-seed', 'rev-move-crash', $move_base );
+	$move_revision_two = v1_8010e_e2_process_revision_expected(
+		$move_block,
+		'2',
+		'0>1:create_block|1>2:move_block',
+		600,
+		30,
+		'2026-07-15 14:00:00.000000',
+		'2026-07-15 14:30:00.000000'
+	);
+	v1_8010e_e2_process_revision_crash_retry( 'rev-move-crash', $move_base, $move_revision_two, $active );
+	$move_revision_three = v1_8010e_e2_process_revision_expected(
+		$move_block,
+		'3',
+		'0>1:create_block|1>2:move_block|2>3:move_block',
+		660,
+		30,
+		'2026-07-15 15:00:00.000000',
+		'2026-07-15 15:30:00.000000'
+	);
+	v1_8010e_e2_process_revision_race( 'rev-move-race-a', 'rev-move-race-b', $move_revision_three, $active );
+
+	/* Revision-two RESIZE has the same rollback, replay, and stale-race law. */
+	$resize_block = v1_8010e_e2_process_block_hex( 211 );
+	$resize_base = v1_8010e_e2_process_revision_expected(
+		$resize_block,
+		'1',
+		'0>1:create_block',
+		540,
+		30,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 13:30:00.000000'
+	);
+	v1_8010e_e2_process_revision_seed( 'rev-resize-seed', 'rev-resize-crash', $resize_base );
+	$resize_revision_two = v1_8010e_e2_process_revision_expected(
+		$resize_block,
+		'2',
+		'0>1:create_block|1>2:resize_block',
+		540,
+		60,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 14:00:00.000000'
+	);
+	v1_8010e_e2_process_revision_crash_retry( 'rev-resize-crash', $resize_base, $resize_revision_two, $active );
+	$resize_revision_three = v1_8010e_e2_process_revision_expected(
+		$resize_block,
+		'3',
+		'0>1:create_block|1>2:resize_block|2>3:resize_block',
+		540,
+		90,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 14:30:00.000000'
+	);
+	v1_8010e_e2_process_revision_race( 'rev-resize-race-a', 'rev-resize-race-b', $resize_revision_three, $active );
+
+	/* DELETE crash/retry uses one owner because the successful retry tombstones the target. */
+	$delete_crash_block = v1_8010e_e2_process_block_hex( 221 );
+	$delete_crash_base = v1_8010e_e2_process_revision_expected(
+		$delete_crash_block,
+		'1',
+		'0>1:create_block',
+		540,
+		30,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 13:30:00.000000'
+	);
+	v1_8010e_e2_process_revision_seed( 'rev-delete-crash-seed', 'rev-delete-crash', $delete_crash_base );
+	$delete_revision_two = v1_8010e_e2_process_revision_expected(
+		$delete_crash_block,
+		'2',
+		'0>1:create_block|1>2:delete_block',
+		540,
+		30,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 13:30:00.000000',
+		3,
+		true
+	);
+	v1_8010e_e2_process_revision_crash_retry( 'rev-delete-crash', $delete_crash_base, $delete_revision_two, $active );
+
+	/* A fresh owner proves simultaneous DELETE linearization and exact winning replay. */
+	$delete_race_block = v1_8010e_e2_process_block_hex( 231 );
+	$delete_race_base = v1_8010e_e2_process_revision_expected(
+		$delete_race_block,
+		'1',
+		'0>1:create_block',
+		540,
+		30,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 13:30:00.000000'
+	);
+	v1_8010e_e2_process_revision_seed( 'rev-delete-race-seed', 'rev-delete-race-a', $delete_race_base );
+	$delete_race_revision_two = v1_8010e_e2_process_revision_expected(
+		$delete_race_block,
+		'2',
+		'0>1:create_block|1>2:delete_block',
+		540,
+		30,
+		'2026-07-15 13:00:00.000000',
+		'2026-07-15 13:30:00.000000',
+		3,
+		true
+	);
+	v1_8010e_e2_process_revision_race( 'rev-delete-race-a', 'rev-delete-race-b', $delete_race_revision_two, $active );
 } finally {
 	foreach ( $active as $child ) {
 		v1_8010e_e2_process_abort( $child );
