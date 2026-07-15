@@ -41,7 +41,7 @@ jobs:
           sh tests/php/run-v1-study-schedule-8010d.sh
 
   innodb-contract:
-    name: ${{ matrix.database }} / PHP ${{ matrix.php }} E0 + E1
+    name: ${{ matrix.database }} / PHP ${{ matrix.php }} E0 + E1 + E2
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -140,7 +140,7 @@ jobs:
             }
           '
 
-      - name: Apply E0 and verify restart-safe E1 migration/current reader
+      - name: Apply E0 and verify restart-safe E1 plus isolated E2 writer
         env:
           V1_REPO_ROOT: ${{ github.workspace }}
           V1_WP_ROOT: /tmp/v1-wordpress
@@ -152,6 +152,7 @@ jobs:
             require getenv("V1_WP_ROOT") . "/wp-load.php";
             require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010e-wordpress.php";
             require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010e-e1-wordpress.php";
+            require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010e-e2-wordpress.php";
           '
 
       - name: Prove E1 cross-process locks and SIGKILL restart
