@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T16:51:48.244Z",
+  "generated_at": "2026-07-15T16:57:05.761Z",
   "status": "pass",
   "combined_path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT/I1Q_1007X_COMBINED_HANDOFF.md",
   "source_count": 109,
@@ -132,15 +132,15 @@
     },
     {
       "path": "agents/independent_red_team/independent_red_team.md",
-      "bytes": 89072,
+      "bytes": 88994,
       "lines": 1067,
-      "sha256": "20b899fb057330312ac1eb29d990e69c77e8968f10888a540201d3ff2ee9213d"
+      "sha256": "edfe094d964886df1241559eb7c2612827145ae00f9ed7e11f3dec46ab8ad205"
     },
     {
       "path": "agents/independent_red_team/release_veto_or_clearance.md",
-      "bytes": 37457,
+      "bytes": 37413,
       "lines": 511,
-      "sha256": "5e492ff8ab2b7af6cd659b0d20e408c0e74ba3656c5374fde6c5e4e65c42bc48"
+      "sha256": "3be28e6c9e07505487e64b6d2b3ba4f17318f6c4308cd0f20aee657aec5e2418"
     },
     {
       "path": "agents/lorentz_security/answer_isolation_report.md",
@@ -276,15 +276,15 @@
     },
     {
       "path": "agents/red_team/independent_red_team.md",
-      "bytes": 5911,
+      "bytes": 5901,
       "lines": 75,
-      "sha256": "efa9a01814f62fc57bdaf44b358b81ad3ccca1c2f1a255873c2f34c712fee58a"
+      "sha256": "fa2fb72982f6c51a83b10407955c1aa03b7f37805d3937e32572b5f24f45e739"
     },
     {
       "path": "agents/red_team/release_veto_or_clearance.md",
-      "bytes": 2355,
+      "bytes": 2351,
       "lines": 31,
-      "sha256": "5de617cb43c397ce3cee0090fea43a9eddf28f2549111ecb8618b7bb4fc5e735"
+      "sha256": "dc466d294be61405e023927668a54487e3c2388565b885facbc2b8cb44fe3a5e"
     },
     {
       "path": "agents/release_reliability/dependent_product_regression.md",
@@ -456,9 +456,9 @@
     },
     {
       "path": "I1Q_1007X_AGENT_OWNERSHIP_MATRIX.md",
-      "bytes": 4967,
+      "bytes": 5018,
       "lines": 58,
-      "sha256": "4bd9e779e60927d016c48c07c31eb5056b4f1ea025f25f7efc930422189c8452"
+      "sha256": "3063a886619f04eb19e88b5f854ea26d36aa4f92cea7d23e0412da0a4e94724a"
     },
     {
       "path": "I1Q_1007X_AUTH.md",
@@ -558,9 +558,9 @@
     },
     {
       "path": "I1Q_1007X_PATH_INDEX.md",
-      "bytes": 6069,
+      "bytes": 6070,
       "lines": 101,
-      "sha256": "bfd993b221c1eccfc16c87dc98c5102388f111a5456c4a15b06938aebc307b8d"
+      "sha256": "770fe73eb662e14501cb8a59650041ebae7ce5c009e703a901f271be88b26fae"
     },
     {
       "path": "I1Q_1007X_PERFORMANCE.md",
@@ -600,9 +600,9 @@
     },
     {
       "path": "I1Q_1007X_RED_TEAM.md",
-      "bytes": 5321,
+      "bytes": 5543,
       "lines": 65,
-      "sha256": "fdabdfb191e547901c5f0347642e33977f1c2c9beecb0672aa41d1b68ffaa59e"
+      "sha256": "d439f590ff2772dd410e28575fac1a1b4998de439508b2b36bbeb2f6622a3df7"
     },
     {
       "path": "I1Q_1007X_REGISTRATION.md",
@@ -612,9 +612,9 @@
     },
     {
       "path": "I1Q_1007X_REPORT.md",
-      "bytes": 11375,
+      "bytes": 11606,
       "lines": 140,
-      "sha256": "77aec3be666f17228294d0e3603f6fc8e2eaa899e32c446bee211e857178f1ee"
+      "sha256": "f6c2a522f0ee0ba439672fe79a2b10ce969f80f91bafc368bf2b959f58c00521"
     },
     {
       "path": "I1Q_1007X_RLS.md",
@@ -660,8 +660,8 @@
     }
   ],
   "final_line_count": 11142,
-  "combined_bytes": 746557,
-  "combined_sha256": "b5f0c5a1f1b0d4043c6dcfadc06121ff97f4d1a53a0f22586ad7e635430f1ec6",
+  "combined_bytes": 746926,
+  "combined_sha256": "8fdc2acc486cbd220eaac573e766693e06084b70b4338709092e9bbd53b48a73",
   "markers_found": 109,
   "missing_sources": [],
   "duplicate_sources": [],

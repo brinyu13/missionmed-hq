@@ -2383,11 +2383,11 @@ FILE: agents/independent_red_team/independent_red_team.md
 
 Ticket: `I1Q-1007X-MA`
 Agent: `Agent 11, fresh-context Independent Red Team`
-Initial audited engineering checkpoint: `6ac62c5a0503981680f161fe5119d5e5e2fa031a`  
-First post-repair checkpoint: `aebc98795f28fdfc2b130e118be762a30f536259`  
-Final post-repair checkpoint: `2d28d0b271b637f68358fd4aae414aa2f708c63f`  
-Final iterative-isolation checkpoint: `65bb52c4bd14d6d20145e666e3b95b6109dfef83`  
-Final SQL case-folding checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`  
+Initial audited engineering checkpoint: `6ac62c5a0503981680f161fe5119d5e5e2fa031a`
+First post-repair checkpoint: `aebc98795f28fdfc2b130e118be762a30f536259`
+Final post-repair checkpoint: `2d28d0b271b637f68358fd4aae414aa2f708c63f`
+Final iterative-isolation checkpoint: `65bb52c4bd14d6d20145e666e3b95b6109dfef83`
+Final SQL case-folding checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
 Date: `2026-07-15`
 State C verdict: `RELEASE VETO`
 State A verdict: `SUPPORTED WITH EVIDENCE QUALIFICATION`
@@ -2998,10 +2998,10 @@ Root should require a new immutable pushed checkpoint that closes the Class D va
 
 ## Final Post-Repair Rerun: 2026-07-15
 
-Audit target: `2d28d0b271b637f68358fd4aae414aa2f708c63f`  
-Branch: `i1q-question-platform-ultra-1007x-ma`  
-Target relationship: exact `HEAD` and exact `origin/i1q-question-platform-ultra-1007x-ma` when inspected  
-Current State C verdict: `RELEASE VETO`  
+Audit target: `2d28d0b271b637f68358fd4aae414aa2f708c63f`
+Branch: `i1q-question-platform-ultra-1007x-ma`
+Target relationship: exact `HEAD` and exact `origin/i1q-question-platform-ultra-1007x-ma` when inspected
+Current State C verdict: `RELEASE VETO`
 Current State A verdict: `SUPPORTED ONLY AS A DATED POINT-IN-TIME AGGREGATE`
 
 ### 1. Scope Completed
@@ -3119,12 +3119,12 @@ All six flags must remain off. No State B, C, or D clearance is issued.
 
 ### 8. Confidence
 
-State C veto: `0.999`.  
-State A as the highest supportable dated point-in-time state: `0.95`.  
-IRT-009 remains open in JavaScript: `1.00`.  
-IRT-010 exact-checkpoint closure: `1.00`.  
-IRT-003 local application closure: `0.98`.  
-Exact corpus and candidate recomputability: `0.00`.  
+State C veto: `0.999`.
+State A as the highest supportable dated point-in-time state: `0.95`.
+IRT-009 remains open in JavaScript: `1.00`.
+IRT-010 exact-checkpoint closure: `1.00`.
+IRT-003 local application closure: `0.98`.
+Exact corpus and candidate recomputability: `0.00`.
 Independent runtime confidence for the changed SQL in this rerun: `0.00` because the disposable cluster did not start.
 
 ### 9. Exact File Paths
@@ -3141,12 +3141,12 @@ Request another independent rerun only after iterative encoding is rejected in J
 
 ## Final Iterative-Isolation Rerun: 2026-07-15
 
-Audit target: `65bb52c4bd14d6d20145e666e3b95b6109dfef83`  
-Branch: `i1q-question-platform-ultra-1007x-ma`  
-Target relationship: exact local `HEAD` and exact tracked origin when inspected  
-Current State C verdict: `RELEASE VETO`  
-Current State A verdict: `SUPPORTED ONLY AS A DATED POINT-IN-TIME AGGREGATE`  
-IRT-009: `OPEN, HIGH`  
+Audit target: `65bb52c4bd14d6d20145e666e3b95b6109dfef83`
+Branch: `i1q-question-platform-ultra-1007x-ma`
+Target relationship: exact local `HEAD` and exact tracked origin when inspected
+Current State C verdict: `RELEASE VETO`
+Current State A verdict: `SUPPORTED ONLY AS A DATED POINT-IN-TIME AGGREGATE`
+IRT-009: `OPEN, HIGH`
 IRT-010: `CLOSED FOR EXACT-CHECKPOINT EVIDENCE INTEGRITY`
 
 ### 1. Scope Completed
@@ -3277,12 +3277,12 @@ All six flags must remain off. No State B, C, or D clearance, global leak cleara
 
 ### 8. Confidence
 
-State C veto: `1.00`.  
-State A as the highest supportable dated point-in-time state: `0.95`.  
-IRT-009 open at exact `65bb52c`: `1.00`.  
-IRT-010 exact-checkpoint closure: `1.00`.  
-IRT-003 local application closure: `0.98`.  
-Independent corpus and candidate recomputability: `0.00`.  
+State C veto: `1.00`.
+State A as the highest supportable dated point-in-time state: `0.95`.
+IRT-009 open at exact `65bb52c`: `1.00`.
+IRT-010 exact-checkpoint closure: `1.00`.
+IRT-003 local application closure: `0.98`.
+Independent corpus and candidate recomputability: `0.00`.
 PostgreSQL no-leak clearance: `0.00` because persistence was reproduced.
 
 ### 9. Exact File Paths
@@ -3299,12 +3299,12 @@ Do not claim State B, C, D, consumer release, student release, global no-leak sa
 
 ## Final SQL Case-Folding Rerun: 2026-07-15
 
-Audit target: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`  
-Branch: `i1q-question-platform-ultra-1007x-ma`  
-Target relationship: exact local `HEAD` and exact tracked origin when inspected  
-Current State C verdict: `RELEASE VETO`  
-Current State A verdict: `SUPPORTED ONLY AS A DATED POINT-IN-TIME AGGREGATE`  
-IRT-009: `CLOSED IN LOCAL EXACT-CHECKPOINT SCOPE`  
+Audit target: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
+Branch: `i1q-question-platform-ultra-1007x-ma`
+Target relationship: exact local `HEAD` and exact tracked origin when inspected
+Current State C verdict: `RELEASE VETO`
+Current State A verdict: `SUPPORTED ONLY AS A DATED POINT-IN-TIME AGGREGATE`
+IRT-009: `CLOSED IN LOCAL EXACT-CHECKPOINT SCOPE`
 IRT-010: `CLOSED FOR EXACT-CHECKPOINT EVIDENCE INTEGRITY`
 
 ### 1. Scope Completed
@@ -3427,12 +3427,12 @@ All six flags must remain off. No State B, C, or D clearance, production release
 
 ### 8. Confidence
 
-State C veto: `1.00`.  
-State A as the highest supportable dated point-in-time state: `0.95`.  
-IRT-009 local exact-checkpoint closure: `0.995`.  
-IRT-010 exact-checkpoint closure: `1.00`.  
-IRT-003 local application closure: `0.98`.  
-Independent corpus and candidate recomputability: `0.00`.  
+State C veto: `1.00`.
+State A as the highest supportable dated point-in-time state: `0.95`.
+IRT-009 local exact-checkpoint closure: `0.995`.
+IRT-010 exact-checkpoint closure: `1.00`.
+IRT-003 local application closure: `0.98`.
+Independent corpus and candidate recomputability: `0.00`.
 Global deployed no-leak clearance: `0.00` absent a deployed runtime.
 
 ### 9. Exact File Paths
@@ -3453,8 +3453,8 @@ FILE: agents/independent_red_team/release_veto_or_clearance.md
 # I1Q-1007X Release Veto Or Clearance
 
 Ticket: `I1Q-1007X-MA`
-Initial audited checkpoint: `6ac62c5a0503981680f161fe5119d5e5e2fa031a`  
-First post-repair checkpoint: `aebc98795f28fdfc2b130e118be762a30f536259`  
+Initial audited checkpoint: `6ac62c5a0503981680f161fe5119d5e5e2fa031a`
+First post-repair checkpoint: `aebc98795f28fdfc2b130e118be762a30f536259`
 Final post-repair checkpoint: `2d28d0b271b637f68358fd4aae414aa2f708c63f`
 Final iterative-isolation checkpoint: `65bb52c4bd14d6d20145e666e3b95b6109dfef83`
 Final SQL case-folding checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
@@ -3657,7 +3657,7 @@ Carry `STATE C RELEASE VETO` and `STATE A SUPPORTED WITH POINT-IN-TIME AGGREGATE
 
 ## Final Post-Repair Rerun: 2026-07-15
 
-Audited pushed checkpoint: `2d28d0b271b637f68358fd4aae414aa2f708c63f`  
+Audited pushed checkpoint: `2d28d0b271b637f68358fd4aae414aa2f708c63f`
 Branch: `i1q-question-platform-ultra-1007x-ma`
 
 `STATE C RELEASE VETO`
@@ -3712,11 +3712,11 @@ IRT-009 blocks student and consumer release. IRT-001, IRT-005, IRT-006, IRT-007,
 
 ### 8. Confidence
 
-State C veto: `0.999`.  
-State A point-in-time support: `0.95`.  
-IRT-009 open: `1.00`.  
-IRT-010 closed: `1.00`.  
-IRT-003 locally resolved: `0.98`.  
+State C veto: `0.999`.
+State A point-in-time support: `0.95`.
+IRT-009 open: `1.00`.
+IRT-010 closed: `1.00`.
+IRT-003 locally resolved: `0.98`.
 Independent count recomputability: `0.00`.
 
 ### 9. Exact File Paths
@@ -3731,7 +3731,7 @@ Carry State C veto and State A only as a dated point-in-time aggregate. Mark IRT
 
 ## Final Iterative-Isolation Rerun: 2026-07-15
 
-Audited pushed checkpoint: `65bb52c4bd14d6d20145e666e3b95b6109dfef83`  
+Audited pushed checkpoint: `65bb52c4bd14d6d20145e666e3b95b6109dfef83`
 Branch: `i1q-question-platform-ultra-1007x-ma`
 
 `STATE C RELEASE VETO`
@@ -3829,12 +3829,12 @@ All six flags must remain off. No State B, C, or D clearance is issued.
 
 ### 8. Confidence
 
-State C veto: `1.00`.  
-State A point-in-time support: `0.95`.  
-IRT-009 open: `1.00`.  
-IRT-010 closed: `1.00`.  
-IRT-003 local closure: `0.98`.  
-Independent count recomputability: `0.00`.  
+State C veto: `1.00`.
+State A point-in-time support: `0.95`.
+IRT-009 open: `1.00`.
+IRT-010 closed: `1.00`.
+IRT-003 local closure: `0.98`.
+Independent count recomputability: `0.00`.
 PostgreSQL Class D isolation clearance: `0.00`.
 
 ### 9. Exact File Paths
@@ -3851,7 +3851,7 @@ Do not claim State B, C, D, consumer release, student release, global no-leak sa
 
 ## Final SQL Case-Folding Rerun: 2026-07-15
 
-Audited pushed checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`  
+Audited pushed checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
 Branch: `i1q-question-platform-ultra-1007x-ma`
 
 `STATE C RELEASE VETO`
@@ -3942,12 +3942,12 @@ All six flags must remain off. No State B, C, or D clearance, production release
 
 ### 8. Confidence
 
-State C veto: `1.00`.  
-State A point-in-time support: `0.95`.  
-IRT-009 local exact-checkpoint closure: `0.995`.  
-IRT-010 closure: `1.00`.  
-IRT-003 local closure: `0.98`.  
-Independent count recomputability: `0.00`.  
+State C veto: `1.00`.
+State A point-in-time support: `0.95`.
+IRT-009 local exact-checkpoint closure: `0.995`.
+IRT-010 closure: `1.00`.
+IRT-003 local closure: `0.98`.
+Independent count recomputability: `0.00`.
 Global deployed no-leak clearance: `0.00`.
 
 ### 9. Exact File Paths
@@ -5773,11 +5773,11 @@ FILE: agents/red_team/independent_red_team.md
 
 Verdict: `STATE A CLEAR QUALIFIED ONLY`; `STATE B VETO`; `STATE C VETO`; `STATE D VETO`.
 
-Final exact checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`  
-Repair checkpoint: `e9e807c4803bf4483c90125ace91793489596b81`  
-Remote branch: `i1q-question-platform-ultra-1007x-ma` at the same final object  
-Final diff-only range: `65bb52c4bd14d6d20145e666e3b95b6109dfef83..ba17e22b0fe8a48a7397557ef95d2ceb454970d4`  
-Historical High checkpoints: `8e3f96b826923d394f19735b87725aceacaeff7c`, `2d28d0b271b637f68358fd4aae414aa2f708c63f`, `65bb52c4bd14d6d20145e666e3b95b6109dfef83`  
+Final exact checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
+Repair checkpoint: `e9e807c4803bf4483c90125ace91793489596b81`
+Remote branch: `i1q-question-platform-ultra-1007x-ma` at the same final object
+Final diff-only range: `65bb52c4bd14d6d20145e666e3b95b6109dfef83..ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
+Historical High checkpoints: `8e3f96b826923d394f19735b87725aceacaeff7c`, `2d28d0b271b637f68358fd4aae414aa2f708c63f`, `65bb52c4bd14d6d20145e666e3b95b6109dfef83`
 Date: `2026-07-15`
 
 Both `65bb52c` and `ba17e22` were exported with `git archive` and tested outside the working tree. This audit makes no deployment, auth, browser, accessibility, monitoring, or protected-consumer claim.
@@ -5850,8 +5850,8 @@ FILE: agents/red_team/release_veto_or_clearance.md
 ============================================================
 # I1Q-1007X Release Veto Or Clearance
 
-Final exact checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`  
-Repair checkpoint: `e9e807c4803bf4483c90125ace91793489596b81`  
+Final exact checkpoint: `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
+Repair checkpoint: `e9e807c4803bf4483c90125ace91793489596b81`
 Final diff-only range: `65bb52c4bd14d6d20145e666e3b95b6109dfef83..ba17e22b0fe8a48a7397557ef95d2ceb454970d4`
 
 ## Verdict
@@ -9056,7 +9056,7 @@ FILE: I1Q_1007X_AGENT_OWNERSHIP_MATRIX.md
 | Release and Reliability | `agents/release_reliability/` only | CI, staging, monitoring, backup and rollback evidence | COMPLETE, DEPLOYMENT BLOCKED |
 | Darwin | `agents/darwin/` only | Current integrated code and tests | COMPLETE, LOCAL PARITY PASS, EXTERNAL RELEASE BLOCKED |
 | Independent Red Team | `agents/independent_red_team/` only | Initial audit, iterative reruns, failed `65bb52c`, and exact final `ba17e22` candidate | COMPLETE, IRT-009 AND IRT-010 CLOSED LOCALLY, STATE C VETO RETAINED |
-| Historical Report-Only Check | `agents/red_team/` only | Repair range through `6dc408f` | COMPLETE BUT SUPERSEDED, LATER IRT-009 VARIANTS WERE NOT FOUND |
+| Final Exact Red-Team Verifier | `agents/red_team/` only | Historical counterexamples through IRT-009-H4 and exact pushed checkpoint `ba17e22` | COMPLETE, STATE A CLEAR QUALIFIED ONLY, STATES B C D VETOED |
 
 ## Repair Wave 1 Assignments
 
@@ -10270,7 +10270,7 @@ All paths below are relative to that root unless an absolute path is shown.
 | `agents/ux_current/` | Pre-repair current-state UX audit and 5.87 score |
 | `agents/release_reliability/` | Deployment, rollback, monitoring, and release veto |
 | `agents/independent_red_team/` | Initial audit, iterative repair reruns, the failed `65bb52c` audit, and exact final `ba17e22` adversarial review |
-| `agents/red_team/` | Historical report-only verification of `6dc408f`, superseded after later IRT-009 variants were found |
+| `agents/red_team/` | Final exact-object verification of `ba17e22`, including preserved IRT-009-H4 reproduction and closure |
 
 Specialist reports are immutable point-in-time evidence. Some record defects that later root commits repaired. Final current-state rulings are in the root reports, evidence validator, independent Red Team, and supervisor report.
 
@@ -10587,7 +10587,7 @@ At exact pushed checkpoint `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`, IRT-009 i
 2. Commit `b9bb26a` repaired those findings. Commit `aebc987` made the inventory qualification explicit and machine-readable.
 3. A report-only check at `6dc408f` closed the first two findings but was superseded because later audits found deeper encoding paths.
 4. The audit at `2d28d0b` reproduced 28 double URL-encoding bypasses and required bounded iterative normalization.
-5. The audit at `65bb52c` found that SQL lowercased before decoding, then restored uppercase bytes. Eight of eight full-byte mixed-case probes persisted both artifact and payload rows.
+5. Audits at `65bb52c` found that SQL lowercased before decoding, then restored uppercase bytes. A broader matrix persisted eight of eight full-byte mixed-case probes, and the final verifier independently persisted the named IRT-009-H4 vector in all four prose families.
 6. Commit `e9e807c` case-folded after every SQL decode pass and final normalization, and expanded the relational matrix. Commit `ba17e22` refreshed the exact evidence.
 7. The final independent audit at `ba17e22` reproduced all requested attacks and closed the local defect without clearing any external State C gate.
 
@@ -10603,7 +10603,7 @@ At exact pushed checkpoint `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`, IRT-009 i
 | IRT-006, global no-leak claim unproven | OPEN EXTERNAL. No requested local counterexample remains, but no deployed response, browser, log, telemetry, cache, or storage proof exists. |
 | IRT-007, rollback, monitoring, and protected consumers unproven | OPEN EXTERNAL. No canonical operational route or owner-reconciled runtime baseline exists. |
 | IRT-008, browser, accessibility, human, and UX gates unproven | OPEN EXTERNAL. Browser was unavailable, no staging host exists, and the last simulated UX score predates the final repairs. |
-| IRT-009, Class D encoding and SQL persistence bypasses | CLOSED IN LOCAL EXACT-CHECKPOINT SCOPE at `ba17e22`. Every requested JavaScript and PostgreSQL probe failed closed before hashing or insertion. |
+| IRT-009, Class D encoding and SQL persistence bypasses | CLOSED IN LOCAL EXACT-CHECKPOINT SCOPE at `ba17e22`. All four historical High counterexamples, including IRT-009-H4 at `65bb52c`, are preserved. Every requested final JavaScript and PostgreSQL probe failed closed before hashing or insertion. |
 | IRT-010, exact-checkpoint evidence integrity | CLOSED at `ba17e22`. All 44 artifact records match exact Git-object bytes and hashes. |
 
 ## Final Independent Proof
@@ -10613,7 +10613,7 @@ At exact pushed checkpoint `ba17e22b0fe8a48a7397557ef95d2ceb454970d4`, IRT-009 i
 - PostgreSQL matrix: 196 of 196 identifier combinations and 16 of 16 marker combinations denied
 - Limit probes: depth 9 and 65,537 bytes both returned fail-closed SQLSTATE `54000`
 - Persistence proof: 0 artifact rows and 0 payload rows for denied probes
-- Focused suite: 88 passed, 0 failed, 0 skipped
+- Focused STAT and Drills adapters plus Class C suite: 48 passed, 0 failed, 0 skipped
 - Package suite: 228 discovered, 227 passed, 0 failed, 1 intentionally gated PostgreSQL skip
 - Fresh disposable PostgreSQL 16: 13 passed, 0 failed, 0 skipped
 - Evidence validator: 20 of 20 files, 0 errors, claimed State A
@@ -10800,7 +10800,7 @@ All six flags remain false:
 | Authenticated staging and production tests | NOT RUN |
 | Production writes or protected runtime changes | NONE |
 
-Darwin's point-in-time reports certify the `6ac62c5` checkpoint with 205 passing tests and 20 valid evidence files. The first independent red team then found a direct Class D key in the Class C debrief and missing purpose-scoped reviewer content. Commit `b9bb26a` repairs both. A report-only check at `6dc408f` closed those two findings but was later superseded because it did not find the deeper value-encoding problem. Subsequent commits derive release-linked values, scan them before hashing and insertion, and close direct, embedded-prose, and mixed-case Base64 and Base64URL bypasses. The independent rerun at `2d28d0b` reproduced 28 double URL-encoding bypasses. Commits `f5244a2` and `64d7631` added bounded iterative normalization, but the exact `65bb52c` audit then proved that SQL restored uppercase bytes after its only case fold and persisted eight of eight full-byte mixed-case bypasses. Commit `e9e807c` case-folds after decoding and expands the fresh PostgreSQL proof to 196 actual mixed-case release-linked identifier probes, 16 marker probes, depth and size denials, and zero-row assertions. Commit `ba17e22` refreshes all machine evidence; all 44 checksums match its exact bytes. Darwin's external release veto remains valid.
+Darwin's point-in-time reports certify the `6ac62c5` checkpoint with 205 passing tests and 20 valid evidence files. The first independent red team then found a direct Class D key in the Class C debrief and missing purpose-scoped reviewer content. Commit `b9bb26a` repairs both. A report-only check at `6dc408f` closed those two findings but was later superseded because it did not find the deeper value-encoding problem. Subsequent commits derive release-linked values, scan them before hashing and insertion, and close direct, embedded-prose, and mixed-case Base64 and Base64URL bypasses. The independent rerun at `2d28d0b` reproduced 28 double URL-encoding bypasses. Commits `f5244a2` and `64d7631` added bounded iterative normalization, but exact `65bb52c` audits then proved that SQL restored uppercase bytes after its only case fold: a broader matrix persisted eight of eight full-byte mixed-case probes, and the final verifier independently persisted the named IRT-009-H4 percent vector in all four prose families. Commit `e9e807c` case-folds after decoding and expands the fresh PostgreSQL proof to 196 actual mixed-case release-linked identifier probes, 16 marker probes, depth and size denials, and zero-row assertions. Commit `ba17e22` refreshes all machine evidence; all 44 checksums match its exact bytes. Darwin's external release veto remains valid.
 
 ## Specialist Verdicts
 
@@ -10814,8 +10814,8 @@ Darwin's point-in-time reports certify the `6ac62c5` checkpoint with 205 passing
 - Performance: local synthetic mechanics pass; staging capacity unknown.
 - Release reliability: no staging or production route, monitor, backup, or operational rollback proof.
 - First independent red team on `6ac62c5`: State C veto; two local high findings repaired in `b9bb26a`; count-reproducibility qualification and external vetoes retained.
-- Independent exact-object audit on `65bb52c`: IRT-009 remained open after eight of eight mixed-case SQL bypasses persisted; IRT-010 closed; State C veto retained.
-- Independent exact-object audit on `ba17e22`: IRT-009 and IRT-010 closed in local exact-checkpoint scope; JavaScript denied 196 of 196; PostgreSQL denied 196 of 196 identifiers and 16 of 16 markers with zero persistence; State C veto retained for external gates.
+- Independent exact-object audits on `65bb52c`: IRT-009 remained open after mixed-case SQL bypasses persisted, including the named IRT-009-H4 vector in all four prose families; IRT-010 closed; State C veto retained.
+- Independent exact-object audits on `ba17e22`: IRT-009 and IRT-010 closed in local exact-checkpoint scope; JavaScript denied 196 of 196; PostgreSQL denied 196 of 196 identifiers and 16 of 16 markers with zero persistence; the exact H4 replay denied all four prose-family attacks; State C veto retained for external gates.
 
 ## Consumer Safety
 
