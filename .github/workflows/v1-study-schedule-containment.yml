@@ -1,0 +1,35 @@
+name: V1 Study Schedule containment
+
+on:
+  pull_request:
+    paths:
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-engine.php"
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-study-schedule.php"
+      - "tests/php/v1-study-schedule-*.php"
+      - "tests/php/run-v1-study-schedule-containment.sh"
+      - ".github/workflows/v1-study-schedule-containment.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-containment:
+    name: PHP ${{ matrix.php }} containment
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - "7.4-cli"
+          - "8.3-cli"
+    container: php:${{ matrix.php }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Run containment fixtures
+        run: sh tests/php/run-v1-study-schedule-containment.sh
