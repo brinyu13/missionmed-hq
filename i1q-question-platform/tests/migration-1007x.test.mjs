@@ -252,8 +252,10 @@ test('medical revision requests can return to a fresh editorial assignment', () 
 test('channel artifacts bind policy, phase, class, and pre-answer fields', () => {
   const createArtifact = functionBlock(migration, 'create_channel_artifact(');
   const identifierValues = functionBlock(migration, 'release_class_d_identifier_values(');
+  const identifierLeak = functionBlock(migration, 'contains_release_class_d_identifier(');
   const stringValues = functionBlock(migration, 'jsonb_string_values(');
   const markerCheck = functionBlock(migration, 'is_class_d_field_marker(');
+  const markerLeak = functionBlock(migration, 'contains_class_d_field_marker(');
   assert.match(createArtifact, /policy\.channel <> target_channel/u);
   assert.match(createArtifact, /contract_valid/u);
   assert.match(createArtifact, /i1q\.jsonb_field_paths\(artifact_payload\)/u);
@@ -263,7 +265,7 @@ test('channel artifacts bind policy, phase, class, and pre-answer fields', () =>
   assert.match(createArtifact, /channel_artifact_class_d_scan_unavailable/u);
   assert.match(createArtifact, /i1q\.jsonb_field_names\(artifact_payload\)/u);
   assert.match(createArtifact, /i1q\.jsonb_string_values\(artifact_payload\)/u);
-  assert.match(createArtifact, /identifier\.identifier_value = scalar\.string_value/u);
+  assert.match(createArtifact, /i1q\.contains_release_class_d_identifier\(scalar\.string_value, target_release_id\)/u);
   assert.match(createArtifact, /channel_artifact_class_d_field_marker/u);
   assert.match(createArtifact, /channel_artifact_class_d_value_leak/u);
   for (const relation of [
@@ -285,7 +287,11 @@ test('channel artifacts bind policy, phase, class, and pre-answer fields', () =>
   assert.match(identifierValues, /'misconception'/u);
   assert.match(identifierValues, /'psychometric'/u);
   assert.match(stringValues, /pg_catalog\.jsonb_typeof\(walk\.value\) = 'string'/u);
+  assert.match(identifierLeak, /pg_catalog\.strpos\(candidate_entry\.normalized, identifier\.normalized\) > 0/u);
+  assert.match(identifierLeak, /pg_catalog\.encode\(pg_catalog\.convert_to\(identifier\.normalized, 'UTF8'\), 'base64'\)/u);
   assert.match(markerCheck, /i1q\.normalize_security_marker\(candidate\)/u);
+  assert.match(markerLeak, /i1q\.normalize_security_text\(candidate\)/u);
+  assert.ok(markerLeak.includes('source([[:space:]_.-]*record)?[[:space:]_.-]*ids?'));
   assert.match(markerCheck, /'sourceid'/u);
   assert.match(markerCheck, /'psychometricsnapshotid'/u);
 });

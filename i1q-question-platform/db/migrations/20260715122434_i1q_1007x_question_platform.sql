@@ -2863,6 +2863,42 @@ AS $function$
    WHERE pg_catalog.jsonb_typeof(walk.value) = 'string'
 $function$;
 
+CREATE OR REPLACE FUNCTION i1q.normalize_security_text(candidate text)
+RETURNS text
+LANGUAGE plpgsql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+DECLARE
+  normalized text;
+BEGIN
+  normalized := pg_catalog.lower(pg_catalog.normalize(candidate, 'NFKC'));
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(8203), '');
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(8204), '');
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(8205), '');
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(65279), '');
+  normalized := pg_catalog.replace(normalized, '%25', '%');
+  normalized := pg_catalog.replace(normalized, '%5f', '_');
+  normalized := pg_catalog.replace(normalized, '%2d', '-');
+  normalized := pg_catalog.replace(normalized, '%2e', '.');
+  normalized := pg_catalog.replace(normalized, '%20', ' ');
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(92) || 'u005f', '_');
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(92) || 'u002d', '-');
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(92) || 'u002e', '.');
+  normalized := pg_catalog.replace(normalized, pg_catalog.chr(92) || 'u0020', ' ');
+  normalized := pg_catalog.regexp_replace(normalized, '&#x0*5f;?', '_', 'g');
+  normalized := pg_catalog.regexp_replace(normalized, '&#x0*2d;?', '-', 'g');
+  normalized := pg_catalog.regexp_replace(normalized, '&#x0*2e;?', '.', 'g');
+  normalized := pg_catalog.regexp_replace(normalized, '&#x0*20;?', ' ', 'g');
+  normalized := pg_catalog.regexp_replace(normalized, '&#0*95;?', '_', 'g');
+  normalized := pg_catalog.regexp_replace(normalized, '&#0*45;?', '-', 'g');
+  normalized := pg_catalog.regexp_replace(normalized, '&#0*46;?', '.', 'g');
+  normalized := pg_catalog.regexp_replace(normalized, '&#0*32;?', ' ', 'g');
+  RETURN pg_catalog.normalize(normalized, 'NFKC');
+END
+$function$;
+
 CREATE OR REPLACE FUNCTION i1q.normalize_security_marker(candidate text)
 RETURNS text
 LANGUAGE sql
@@ -2871,16 +2907,7 @@ STRICT
 SET search_path = pg_catalog, i1q
 AS $function$
   SELECT pg_catalog.regexp_replace(
-           pg_catalog.regexp_replace(
-             pg_catalog.replace(
-               pg_catalog.lower(pg_catalog.normalize(candidate, 'NFC')),
-               '%25',
-               '%'
-             ),
-             '%(2e|2d|5f|5b|5d)',
-             '',
-             'g'
-           ),
+           i1q.normalize_security_text(candidate),
            '[^a-z0-9]',
            '',
            'g'
@@ -2902,6 +2929,17 @@ AS $function$
     'incidentid', 'sourceid', 'sourcerecordid', 'extractionid',
     'rightsrecordid', 'redactionrecordid', 'privacyredactionrecordid'
   ]::text[])
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.contains_class_d_field_marker(candidate text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+  SELECT i1q.normalize_security_text(candidate) ~
+    '(^|[^a-z0-9])((item([[:space:]_.-]*(rev|revision))?[[:space:]_.-]*ids?)|(revision[[:space:]_.-]*(id|number))|((vg|variant[[:space:]_.-]*group)[[:space:]_.-]*ids?)|(concept[[:space:]_.-]*ids?)|(misconception[[:space:]_.-]*ids?)|(source([[:space:]_.-]*record)?[[:space:]_.-]*ids?)|((evidence[[:space:]_.-]*)?claim[[:space:]_.-]*ids?)|(reviewer([[:space:]_.-]*actor)?[[:space:]_.-]*(id|identity))|((review[[:space:]_.-]*)?assignment[[:space:]_.-]*ids?)|(review[[:space:]_.-]*event[[:space:]_.-]*ids?)|(psychometrics?[[:space:]_.-]*ids?)|(incident[[:space:]_.-]*ids?)|(content[[:space:]_.-]*hash)|(extraction[[:space:]_.-]*run[[:space:]_.-]*ids?)|(rights[[:space:]_.-]*record[[:space:]_.-]*ids?)|((privacy[[:space:]_.-]*)?redaction[[:space:]_.-]*record[[:space:]_.-]*ids?))([^a-z0-9]|$)'
 $function$;
 
 CREATE OR REPLACE FUNCTION i1q.release_class_d_identifier_values(target_release_id text)
@@ -2973,6 +3011,58 @@ AS $function$
     FROM identifiers
    WHERE identifiers.identifier_value IS NOT NULL
      AND pg_catalog.btrim(identifiers.identifier_value) <> ''
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.contains_release_class_d_identifier(
+  candidate text,
+  target_release_id text
+)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+  WITH candidate_value AS (
+    SELECT i1q.normalize_security_text(candidate) AS normalized
+  ), identifiers AS (
+    SELECT i1q.normalize_security_text(identifier.identifier_value) AS normalized
+      FROM i1q.release_class_d_identifier_values(target_release_id) identifier
+  ), variants AS (
+    SELECT identifier.normalized,
+           pg_catalog.lower(
+             pg_catalog.replace(
+               pg_catalog.replace(
+                 pg_catalog.encode(pg_catalog.convert_to(identifier.normalized, 'UTF8'), 'base64'),
+                 pg_catalog.chr(10),
+                 ''
+               ),
+               pg_catalog.chr(13),
+               ''
+             )
+           ) AS base64_value
+      FROM identifiers identifier
+     WHERE pg_catalog.length(identifier.normalized) >= 4
+  )
+  SELECT EXISTS (
+    SELECT 1
+      FROM candidate_value candidate_entry
+      CROSS JOIN variants identifier
+     WHERE pg_catalog.strpos(candidate_entry.normalized, identifier.normalized) > 0
+        OR pg_catalog.strpos(candidate_entry.normalized, identifier.base64_value) > 0
+        OR pg_catalog.strpos(
+             candidate_entry.normalized,
+             pg_catalog.rtrim(
+               pg_catalog.replace(
+                 pg_catalog.replace(identifier.base64_value, '+', '-'),
+                 '/',
+                 '_'
+               ),
+               '='
+             )
+           ) > 0
+  )
 $function$;
 
 CREATE OR REPLACE FUNCTION i1q.create_channel_artifact(
@@ -3076,12 +3166,8 @@ BEGIN
     IF EXISTS (
       SELECT 1
         FROM i1q.jsonb_string_values(artifact_payload) scalar
-       WHERE i1q.is_class_d_field_marker(scalar.string_value)
-          OR EXISTS (
-            SELECT 1
-              FROM i1q.release_class_d_identifier_values(target_release_id) identifier
-             WHERE identifier.identifier_value = scalar.string_value
-          )
+       WHERE i1q.contains_class_d_field_marker(scalar.string_value)
+          OR i1q.contains_release_class_d_identifier(scalar.string_value, target_release_id)
     ) THEN
       RAISE EXCEPTION 'channel_artifact_class_d_value_leak'
         USING ERRCODE = '42501';

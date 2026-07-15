@@ -199,18 +199,21 @@ test('release identity, exact membership, hash chains, and disabled consumer fla
   assert.doesNotMatch(migration, /ON i1q\.feature_flags FOR (?:INSERT|UPDATE|DELETE)/iu);
 });
 
-test('student artifacts reject exact release-scoped Class D values without prose substring matching', () => {
+test('student artifacts reject exact release-scoped Class D values embedded in prose', () => {
   const createArtifact = functionDefinition('create_channel_artifact');
   const identifierValues = functionDefinition('release_class_d_identifier_values');
+  const identifierLeak = functionDefinition('contains_release_class_d_identifier');
   const markerCheck = functionDefinition('is_class_d_field_marker');
+  const markerLeak = functionDefinition('contains_class_d_field_marker');
 
   assert.match(createArtifact, /target_data_class IN \('A', 'C'\)/u);
   assert.match(createArtifact, /i1q\.release_memberships membership/u);
   assert.match(createArtifact, /channel_artifact_class_d_scan_unavailable/u);
   assert.match(createArtifact, /i1q\.jsonb_string_values\(artifact_payload\)/u);
-  assert.match(createArtifact, /identifier\.identifier_value = scalar\.string_value/u);
-  assert.doesNotMatch(createArtifact, /identifier\.identifier_value\s+(?:LIKE|ILIKE)/iu);
-  assert.doesNotMatch(createArtifact, /(?:position|strpos)\s*\(\s*scalar\.string_value/iu);
+  assert.match(createArtifact, /i1q\.contains_release_class_d_identifier\(scalar\.string_value, target_release_id\)/u);
+  assert.match(identifierLeak, /pg_catalog\.strpos\(candidate_entry\.normalized, identifier\.normalized\) > 0/u);
+  assert.match(identifierLeak, /pg_catalog\.length\(identifier\.normalized\) >= 4/u);
+  assert.match(identifierLeak, /'base64'/u);
   for (const family of ['item', 'revision', 'source', 'claim', 'reviewer', 'misconception', 'psychometric']) {
     assert.match(identifierValues, new RegExp(`SELECT '${family}'`, 'u'));
   }
@@ -222,6 +225,7 @@ test('student artifacts reject exact release-scoped Class D values without prose
   assert.match(identifierValues, /JOIN i1q\.psychometric_snapshots/u);
   assert.match(markerCheck, /'sourceid'/u);
   assert.match(markerCheck, /'psychometricsnapshotid'/u);
+  assert.match(markerLeak, /i1q\.normalize_security_text\(candidate\)/u);
 });
 
 test('application adapter membership and projection contracts map exactly to SQL', () => {
@@ -557,7 +561,7 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
           'dataset_version', 'synthetic_release_v1',
           'question_id', 'Q1',
           'answer', 'A',
-          'explanation', candidate_value,
+          'explanation', 'Synthetic permitted prose contains ' || candidate_value || ' as an internal token.',
           'correct_answer_rationale', 'Synthetic permitted rationale.',
           'distractor_rationales', pg_catalog.jsonb_build_array(
             pg_catalog.jsonb_build_object(
