@@ -6,7 +6,7 @@ No production change occurred. The exact rollback point is the existing state at
 
 ## Candidate Rollback
 
-The candidate implementation is commit `78732eb492c0e8d8cfd2a768593b1a10f506ee17` on isolated review branch `codex/p1-rise-4006-production`. Removing or closing that branch has no production effect. Generated `rise/dist` and registry outputs are ignored and are not deployment state.
+The candidate implementation is commit `8549c84a675a8b8a8026850330a3155bf9ed720a` on isolated review branch `codex/p1-rise-4006-production`. Removing or closing that branch has no production effect. Generated `rise/dist` and registry outputs are ignored and are not deployment state.
 
 ## Proposed Future Layered Rollback
 
@@ -18,7 +18,7 @@ The candidate implementation is commit `78732eb492c0e8d8cfd2a768593b1a10f506ee17
 6. Restore the dedicated RISE database from its pre-migration backup only if forward recovery is unsafe.
 7. Re-run RISE and ecosystem gates before re-opening access.
 
-The proposed schema down migration intentionally raises an exception instead of using `DROP SCHEMA ... CASCADE`; destructive rollback must be an explicit, separately reviewed operation with retained source, audit, and backup records.
+Both proposed schema down migrations intentionally raise an exception instead of deleting registry, consent, session, audit, or recovery history. Disposable PostgreSQL rehearsal proved atomic prior-release registry rollback and destructive-down refusal. It did not rehearse a production backup restore or service/asset rollback.
 
 ## Recovery Evidence Required Before A Future Release
 

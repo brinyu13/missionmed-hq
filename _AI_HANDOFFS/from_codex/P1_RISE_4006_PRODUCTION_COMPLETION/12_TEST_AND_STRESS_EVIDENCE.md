@@ -4,12 +4,13 @@
 
 | Command | Result | Scope |
 |---|---|---|
-| `npm run test:rise` | 66 passed, 0 failed | Identity, specialty, evidence, pre-read source/grant authorization, exporter/importer lineage, pre-read index integrity, durable abuse adapter, runtime/auth, matching, distance, CAM, SQL lifecycle contracts |
-| `npm run test:rise:browser` | 26 passed, 0 failed | Chrome real-browser functional, accessibility, focus, race, provenance, history, responsive, slow-response, dialog, and adversarial checks |
-| `npm run test:rise:stress -- --out .../synthetic-stress-report.json` | Pass | 6,500 synthetic programs; 100 concurrent injected-session subjects/searches |
+| `cd rise && npm test` | 71 passed, 0 failed | Identity, specialty, evidence, pre-read source/grant authorization, exporter/importer lineage, index/asset integrity, deployment isolation, durable abuse adapter, runtime/auth, matching, distance, CAM, registry/app/audit SQL contracts |
+| `cd rise && npm run test:browser` | 26 passed, 0 failed | Chrome real-browser functional, accessibility, focus, race, provenance, history, responsive, slow-response, dialog, and adversarial checks |
+| `cd rise && node tests/stress-synthetic.mjs --out .../synthetic-stress-report.json` | Pass | 6,500 synthetic programs; 100 concurrent injected-session subjects/searches |
 | `node --test missionmed-hq/tests/mmc-private-mount-validation.mjs` | 1 passed, 0 failed | Existing HQ private-mount validation |
 | `npm test` | Exit 0; **0 tests discovered** | Not counted as meaningful coverage |
-| `npm audit --audit-level=high` | 0 vulnerabilities | Clean install audited 171 packages |
+| `cd rise && npm audit --audit-level=low` | 0 vulnerabilities | Clean isolated install audited 104 packages |
+| root `npm audit --audit-level=low` | 0 vulnerabilities | Existing root lock audited 195 dependencies |
 | `git diff --check` | Pass | Whitespace integrity |
 | `node --check` over tracked RISE JS/MJS source | Pass | Syntax integrity |
 | credential-pattern scan | No matches | RISE source, handoff, package metadata |
@@ -27,12 +28,12 @@ Covered journeys include Command Home, Explorer, combined-specialty membership, 
 | Synthetic programs | 6,500 |
 | Concurrent HTTP searches | 100 |
 | Successful responses | 100/100 |
-| Wall time | 492.2 ms |
-| Median request | 295.7 ms |
-| p95 request | 462.3 ms |
-| Maximum request | 480.2 ms |
-| RSS after run | 166.3 MB |
-| Heap used after run | 27.8 MB |
+| Wall time | 276.8 ms |
+| Median request | 163.3 ms |
+| p95 request | 254.2 ms |
+| Maximum request | 264.4 ms |
+| RSS after run | 142.6 MB |
+| Heap used after run | 24.7 MB |
 
 This is a local, single-process synthetic stress result. The harness uses the injected host-session boundary with a unique opaque subject per concurrent request. A separate core regression proves that weighted bulk requests from one subject receive `429`, a second subject has an independent bucket, the bucket map is bounded, and logs contain only a short subject digest. The stress result does not establish production database, network, cache, multi-instance, or real-identity performance.
 
@@ -49,10 +50,13 @@ This is a local, single-process synthetic stress result. The harness uses the in
 
 Generated `rise/dist` and registry data are ignored and were not committed as production artifacts.
 
+The isolated `rise/package.json` clean-install/build path produced the same build ID. Dockerfile and Railway contracts passed static tests, but an image build did not run because the local Docker daemon was unavailable. This is recorded as a validation limitation, not a container pass.
+
 ## Evidence Files
 
 - `artifacts/playwright-report.json`
 - `artifacts/synthetic-stress-report.json`
+- `artifacts/platform-readiness-verification.json`
 - `artifacts/screenshots/rise-explorer-1440x900.png`
 - `artifacts/screenshots/rise-explorer-390x844.png`
 - `artifacts/screenshots/rise-explorer-430x932.png`

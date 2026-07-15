@@ -25,7 +25,7 @@ The safe implementation branch is isolated from both the old RISE data worktree 
 | Repository | `https://github.com/brinyu13/missionmed-hq.git` |
 | Isolated implementation worktree | `/tmp/P1-RISE-4006-production` |
 | Branch | `codex/p1-rise-4006-production` |
-| Review implementation commit | `78732eb492c0e8d8cfd2a768593b1a10f506ee17` |
+| Current review implementation commit | `8549c84a675a8b8a8026850330a3155bf9ed720a` |
 | Base upstream | `origin/main` |
 | Base commit | `9c1fa72e6b056db8b6fe0e17031fcaa688f78569` |
 | Base subject | `Merge MM-SPINE-006A product boot stop rule` |
@@ -350,7 +350,7 @@ States distinguish local candidate behavior from production availability. No `IM
 
 ## Acceptance Coverage Gap
 
-The isolated candidate now implements and tests the read-only status, search, filtering, bounded pagination, program profile, field evidence, missing-data semantics, comparison, browser-history, responsive, keyboard, health, and stable-identity foundations. It also fails closed for unapproved source data and truthfully disables unimplemented integrations. It does **not** complete the product contract: Matrix consent/profile projection, criterion toggling, explainable matching, distance, fellowship, ACTN, CAM, interview packs, durable operator actions, production identity, database/RLS, staging, and deployment remain absent or gated.
+The isolated candidate now implements and tests the read-only status, search, filtering, bounded pagination, program profile, field evidence, missing-data semantics, comparison, browser-history, responsive, keyboard, health, and stable-identity foundations. It also fails closed for unapproved source data and truthfully disables unimplemented integrations. An isolated service/package contract and proposed forced-RLS app/audit schema now exist and pass local PostgreSQL rehearsal. The product contract remains incomplete: Matrix projection and consent behavior, criterion toggling, explainable matching, fellowship, ACTN, CAM, interview packs, durable operator actions, production identity, approved RLS policies, staging, and live deployment remain absent or gated.
 
 ## Traceability Verdict
 
@@ -372,7 +372,7 @@ The isolated candidate now implements and tests the read-only status, search, fi
 | D-003 | Preserve the CAM-derived visual language and desktop information architecture | Final | 4005 scored desktop UI 9.1 and desktop UX 9.0. Product structure is not the release problem. |
 | D-004 | Rebuild production as a modular shell, typed API, versioned registry release, and durable evidence model | Final | Separates presentation, data, policy, integrations, and auditability. |
 | D-005 | Target the human-facing route `https://missionmedinstitute.com/rise/` | Proposed pending registration | This is the natural MissionMed member route. It does not currently exist and cannot be created until runtime ownership and rollback are registered. |
-| D-006 | Prefer a scoped RISE deployment unit over adding more behavior directly to the drifted shared HQ runtime | Proposed pending authority | A separate Railway service within the existing Railway project gives independent health, staging, deploy, and rollback while preserving established infrastructure. |
+| D-006 | Prefer a scoped RISE deployment unit over adding more behavior directly to the drifted shared HQ runtime | Blueprint implemented; activation pending authority | `rise/package.json`, its lockfile, Dockerfile, Railway config, and a machine-readable deployment contract isolate the RISE entrypoint and required production pins. No service was provisioned. |
 | D-007 | Serve only a versioned static frontend shell from Cloudflare/R2 | Proposed pending authority | Matches existing MissionMed static-product delivery while keeping data, auth, and private integrations server-side. |
 | D-008 | Use a dedicated RISE Supabase project or explicitly approved isolated RISE database owner | External decision required | No current project owns RISE. Reusing RankListIQ or Growth Engine without authority would expand blast radius and violate migration governance. |
 | D-009 | Use immutable ACGME/FREIDA-derived program and program-specialty keys | Final | Ordinal `RISE_ID` values are not stable across refreshes. |
@@ -503,6 +503,8 @@ Browser -> dedicated Railway RISE API -> dedicated RISE Supabase projects
 
 RISE must not launch as a Matrix App Mode edit, a route added directly to the drifted HQ monolith, a browser-to-Supabase application, or the monolithic 4004 HTML with its embedded demo dataset.
 
+The review branch now contains an isolated `rise/` package, lockfile, multi-stage non-root container recipe, `railway.json`, and `deployment-contract.v1.json`. Railway must be configured with service root `/rise` and config path `/rise/railway.json`; the container entrypoint is only `node server.mjs`. The registry index, auth adapter, durable abuse adapter, and production pins remain external runtime inputs and are not embedded in the image. This is a deployable blueprint, not a provisioned service.
+
 ## Change-Impact And Activation Graph
 
 ```mermaid
@@ -608,6 +610,8 @@ Required structured events: auth exchange, authorization denial, registry releas
 7. ACTN, CAM, and StoryForge adapters as independent releases.
 8. Broad release only after independent quality certification.
 
+The proposed database plane is split into immutable `rise`, private `rise_app`, and append-only `rise_audit` schemas. All ten app tables are forced-RLS with no policies or runtime grants, so the blueprint remains inaccessible until the identity and database owners approve and install narrow policies.
+
 ## Rollback
 
 Rollback is layer-specific: disable the WordPress capability/route, point the asset manifest to the prior immutable build, redeploy only the prior RISE service image, reactivate the prior registry release, or disable one adapter. No Matrix rollback and no broad HQ deployment should be required for a core RISE rollback.
@@ -708,6 +712,10 @@ Distance carries origin basis, destination basis, method, coordinate dataset/ver
 
 Matrix remains applicant-profile authority. A later Matrix-owned server endpoint returns only an explicit, consented `candidate_profile.v1` field projection. RISE stores projection version/digest and consent receipt, not a hidden full-profile copy. No query-string or localStorage transport is permitted.
 
+## Private Persistence Contract
+
+The proposed `rise_app` schema stores only hash-bound authorization-code redemption, sessions and CSRF tokens, consent receipts, encrypted/versioned Matrix projections, release-bound saves and comparisons, auditable match assessments, five-minute single-use handoff grants, and operator queue records. The proposed `rise_audit` schema stores append-only audit events and backup/restore checkpoints. All ten app tables force RLS and intentionally have no policies or runtime grants; owner-approved subject/role policies are a staging prerequisite. Audit and recovery records reject updates and deletes. Browser-direct database access remains prohibited.
+
 ## ACTN Contract
 
 RISE consumes a role-filtered aggregate keyed by immutable program ID: counts, eligibility state, freshness, and an ACTN deep link. Named alumni/contact data remains in ACTN. RISE never name-matches spreadsheet text to people.
@@ -727,7 +735,7 @@ Relationships distinguish same sponsor, same institution, same health system, af
 
 ## Current Verdict
 
-The isolated foundation passes its local source-policy and payload-safety contracts. Production security is not certifiable because no RISE runtime, identity relay, database, route, RLS policy, staging environment, or deployable rollback exists. No production secrets or applicant data were created or logged.
+The isolated foundation passes its local source-policy, payload-safety, service-isolation, and proposed-schema contracts. Production security is not certifiable because no RISE runtime, identity relay, deployed database, approved RLS policy, route, staging environment, or immutable production rollback artifact exists. No production secrets or applicant data were created or logged.
 
 ## Roles
 
@@ -764,7 +772,7 @@ WordPress capability, RISE session role, API authorization, and database policy 
 - Production requires an injected shared durable abuse controller that runs before authentication and again against the opaque authenticated subject. The bounded process-local implementation is test/preview only; audit identity is a short SHA-256 digest.
 - Profile and evidence responses use `Cache-Control: no-store`.
 
-These controls are unit/contract tested. They are not a substitute for the missing WordPress/HQ code exchange, production cookie session, CSRF implementation, database RLS, production telemetry, or authenticated staging tests.
+These controls are unit/contract tested. The proposed app tables are forced-RLS with no policies or runtime grants and therefore fail closed. This is not a substitute for the missing WordPress/HQ code exchange, production cookie session, CSRF implementation, owner-approved RLS policies, production telemetry, or authenticated staging tests.
 
 ## Data Classification
 
@@ -818,7 +826,7 @@ These controls are unit/contract tested. They are not a substitute for the missi
 
 ## Database Policy Requirements
 
-The proposed dedicated `rise` schema uses separate NOLOGIN reader, importer, and release-manager roles. The browser receives no service key. Registry writes are importer-only while a release is offline or staging; row locks serialize inserts against activation, and activation/history use a narrowly granted security-definer function. Future applicant state must be isolated by canonical subject ID and reviewed RLS or an equivalent server policy. Production schema changes require a clean project-specific migration history, backup, staging test, and forward-safe rollback plan.
+The proposed dedicated `rise` schema uses separate NOLOGIN reader, importer, and release-manager roles. The browser receives no service key. Registry writes are importer-only while a release is offline or staging; row locks serialize inserts against activation, and activation/history use a narrowly granted security-definer function. The proposed `rise_app` plane stores only hashed session/code/CSRF identifiers, consent receipts, encrypted Matrix projections, user-scoped saves/comparisons/assessments, five-minute handoff grants, and operator queue records. Its ten tables have `ENABLE` and `FORCE ROW LEVEL SECURITY` with no policies or grants. `rise_audit` rejects updates/deletes to audit and recovery rows. Production schema changes still require owner-approved policies, a clean migration history, backup, staging test, and restore rehearsal.
 
 ## Security Gates Still Required
 
@@ -854,8 +862,10 @@ No staging or production database migration was executed. No production registry
 | Specialty semantics | `rise/src/specialties.mjs` | Exact and combined browse membership tested |
 | Combined map | `rise/config/combined-specialties.v1.json` | Versioned local contract |
 | Source policy | `rise/config/source-policy.v1.json` | FREIDA and Residency Explorer each require written authorization |
-| Proposed migration | `rise/sql/001_rise_registry.proposed.sql` | Contract-tested only; never applied |
+| Proposed registry migration | `rise/sql/001_rise_registry.proposed.sql` | Contract-tested and rehearsed in disposable PostgreSQL 16; never applied to staging/production |
 | Proposed down migration | `rise/sql/001_rise_registry.down.proposed.sql` | Intentionally raises an exception instead of destructive `CASCADE` |
+| Proposed app/audit migration | `rise/sql/002_rise_app_and_audit.proposed.sql` | Ten forced-RLS app tables plus two append-only audit/recovery tables; disposable rehearsal passed |
+| Proposed app/audit down migration | `rise/sql/002_rise_app_and_audit.down.proposed.sql` | Intentionally refuses destructive schema deletion |
 
 The exporter validates the governance-pinned authorization record and the exact source-owner grant bytes before reading workbook bytes, then emits a schema-v2 inspection whose metadata contains the exact authorization-record hashes and a deterministic hash of every table. The importer revalidates those current pins and grant bytes, rehashes the inspection tables, requires exact authorization-lineage equality, validates a 196-column contract across 31 specialty tabs, normalizes identifiers, resolves only explicitly reviewed collisions, derives stable IDs, and preserves blank values as unknown. Runtime CLI overrides of dataset, collision-resolution, or combined-specialty governance are prohibited. The API-index builder independently verifies the release-manifest pin and every release-file hash. Before reading a source-controlled index, the runtime verifies a separately pinned index manifest and current source-authorization set; it also authenticates the web build and every asset.
 
@@ -893,18 +903,19 @@ The reviewed collision is `1401900001 ` versus `1401900001` for the University o
 - Exporter and importer tests prove the exact authorization lineage is bound to the inspection artifact and its table content is independently rehashed.
 - Synthetic import tests cover identity stability, collision rejection, combined memberships, missing values, visa semantics, and editorial quarantine.
 - API-index tests prove quarantined known claims do not inflate evidence coverage and release-file tampering fails closed.
-- Nine SQL contract tests verify release-scoped composite keys and foreign keys, no cross-release provenance, `RELATED_SPECIALTY`, atomic active-release activation/history, lifecycle-locked snapshot inserts, least-privilege roles, prior-release rollback, and a fail-closed destructive down migration.
-- Full local core suite: 66 passed, 0 failed.
+- Twelve SQL contract tests verify release-scoped composite keys and foreign keys, no cross-release provenance, `RELATED_SPECIALTY`, atomic activation/history, lifecycle-locked snapshot inserts, least-privilege roles, prior-release rollback, private app state, forced RLS, append-only audit, and fail-closed down migrations.
+- Disposable PostgreSQL 16.13 applied both proposed migrations: 11 registry tables, 10 app tables, and 2 audit tables. All 10 app tables had RLS enabled and forced. Activate/forward-activate/rollback, stale-caller rejection, 61-second auth-code rejection, append-only audit rejection, and destructive-down refusal passed. No real source bytes or production system were touched.
+- Full local core suite: 71 passed, 0 failed.
 
 ## Proposed Production Model
 
-The proposed design creates a dedicated `rise` schema with separate NOLOGIN reader, importer, and release-manager group roles. It stores release-scoped programs, specialties, browse memberships, source documents, claims, quarantine records, import runs, and append-only activation history. Snapshot inserts lock the parent release and are accepted only while it is offline or staging; activation is serialized through a security-definer function and immutable pointer. Browser-direct database access is not granted. Applicant-owned state, consent, integrations, and production RLS remain intentionally absent until their owners and privacy contracts exist. The proposal does not alter an existing MissionMed schema and was not applied to any database.
+The proposed design creates a dedicated `rise` schema with separate NOLOGIN reader, importer, and release-manager group roles. It stores release-scoped programs, specialties, browse memberships, source documents, claims, quarantine records, import runs, and append-only activation history. Snapshot inserts lock the parent release and are accepted only while it is offline or staging; activation is serialized through a security-definer function and immutable pointer. Private `rise_app` and `rise_audit` schemas model the minimum session, consented projection, applicant state, handoff, operator, audit, and recovery records without granting runtime access. Browser-direct database access is not granted. The proposal altered only a disposable local cluster and no MissionMed database.
 
 ## Migration Gate
 
-Migration requires all of the following: written AMA authorization for FREIDA use; separate AAMC authorization for any Residency Explorer content; an accountable RISE data owner; isolated staging and production database projects; reviewed RLS; approved secrets; rehearsed migration and backup; immutable release storage; and a tested activation rollback. None is currently available. The unrelated RankListIQ Supabase history must not be reused or repaired for RISE.
+Staging or production migration requires all of the following: written AMA authorization for FREIDA use; separate AAMC authorization for any Residency Explorer content; an accountable RISE data owner; isolated staging and production database projects; reviewed RLS policies; approved secrets; migration/backup/restore rehearsal in the approved environment; immutable release storage; and a tested production rollback. The local schema and activation rehearsal does not satisfy those external prerequisites. The unrelated RankListIQ Supabase history must not be reused or repaired for RISE.
 
-**Migration verdict:** `NOT_EXECUTED_EXTERNAL_AUTHORITY_AND_PLATFORM_BLOCKERS`
+**Migration verdict:** `LOCAL_DISPOSABLE_REHEARSAL_PASS_STAGING_PRODUCTION_NOT_EXECUTED`
 
 <!-- END 07_DATA_MIGRATION_AND_VALIDATION.md -->
 <!-- BEGIN 08_REGISTRY_SYNC_REPORT.md -->
@@ -1020,6 +1031,8 @@ An independent review agent assessed the rendered candidate and the full 4006 ch
 
 The independently reviewed code foundation may proceed to scoped review. It is not certified for staging activation or production deployment. Source rights, product/runtime authority, staging, identity, cross-product contracts, complete workflows, ecosystem gates, and live acceptance remain release blockers.
 
+The subsequent source-independent service-isolation, app/audit schema, and search-performance hardening at commit `8549c84a675a8b8a8026850330a3155bf9ed720a` passed automated and disposable-database regression checks but occurred after this board. It requires a fresh independent review before any future activation; the frozen scores above were not raised.
+
 <!-- END 09_INDEPENDENT_RELEASE_BOARD.md -->
 <!-- BEGIN 10_RELEASE_SCORECARD.md -->
 
@@ -1056,11 +1069,11 @@ These are the independent board's scores. The first column scores only the imple
 | UI >= 9 | FAIL | 7.8 candidate / 3.0 complete charter |
 | UX >= 9 | FAIL | 7.3 candidate / 2.2 complete charter |
 | Evidence integrity | FAIL production | Code fails closed; legal source gate unresolved |
-| Security/privacy | FAIL production | Local foundation hardened; production identity, private-data policy, RLS, and staging attack surface absent |
+| Security/privacy | FAIL production | Local foundation and forced-RLS schema contract hardened; production identity, approved policies, and staging attack surface absent |
 | Accessibility | FAIL production | 26-test browser/core pass; complete product and live states absent |
 | Performance | PROVISIONAL ONLY | 6,500-record synthetic run; no production DB/API/multi-instance evidence |
 | Ecosystem regression | FAIL release gate | Shared gate has two CDN hash mismatches and protected-state warnings |
-| Staging acceptance | NOT RUN | No authorized RISE staging environment |
+| Staging acceptance | NOT RUN | Local PostgreSQL rehearsal passed; no authorized RISE staging environment |
 | Production acceptance | NOT RUN | Live route remains 404 |
 
 ## Release Decision
@@ -1084,7 +1097,7 @@ The candidate is suitable for review and continued isolated engineering. It is n
 | B-004 | High | No production WordPress/HQ `aud=rise` identity exchange or cookie session exists | Auth inventory; `/rise/` absent | HQ/WordPress owner contract required |
 | B-005 | High | Matrix profile, criteria toggling, full explainable matching, fellowship, ACTN, interview pack, functional CAM handoff, and durable operator workflows are absent | Requirement matrix and rendered candidate | Product/integration work requires owners and real contracts |
 | B-006 | High | Shared critical-systems gate fails two CDN hash checks and reports protected concurrent changes plus three outstanding cross-product browser journeys | Enforced gate result, 2026-07-15 | Reconcile in the owning mission; do not overwrite concurrent work |
-| B-007 | High | No staging acceptance, migration rehearsal, production deployment, or authorized live journey can run | Environment inventory and live 404 | Consequence of B-001 through B-006 |
+| B-007 | High | No authorized staging acceptance, staging backup/restore rehearsal, production deployment, or live journey can run | Environment inventory and live 404; local disposable migration rehearsal now passes | Consequence of B-001 through B-006 |
 
 ## Repaired Implementation Defects
 
@@ -1108,6 +1121,9 @@ The candidate is suitable for review and continued isolated engineering. It is n
 | R-016 | Medium | Reworded completeness and visa claims; added persistent fixture, availability, and eligibility boundaries plus claim-level provenance | Browser text and visual review |
 | R-017 | Medium | Isolated synthetic browser/stress fixtures from deployable registry data | Fixture classification and source gates |
 | R-018 | Medium | Updated direct dependencies and retained a reproducible asset build | `npm audit`: zero vulnerabilities; exact build hashes |
+| R-019 | High | Added an isolated RISE package, lockfile, non-root multi-stage container recipe, Railway config, and machine-readable deployment contract; eliminated fallback to the HQ entrypoint | Clean isolated install/build, deployment contract tests, unchanged authenticated asset build ID |
+| R-020 | High | Added private app/audit schemas with hashed session artifacts, consented encrypted Matrix projections, short handoff grants, forced RLS, append-only audit/recovery, and non-destructive rollback posture | PostgreSQL 16.13 rehearsal plus three new SQL contract tests |
+| R-021 | Medium | Compiled immutable search metadata once per registry load instead of rebuilding it per request | Full API/browser regression plus improved 6,500-program synthetic stress evidence |
 
 ## Final Independent Implemented-Scope Audit
 
@@ -1133,12 +1149,13 @@ These limitations and the open production blockers are reported separately; none
 
 | Command | Result | Scope |
 |---|---|---|
-| `npm run test:rise` | 66 passed, 0 failed | Identity, specialty, evidence, pre-read source/grant authorization, exporter/importer lineage, pre-read index integrity, durable abuse adapter, runtime/auth, matching, distance, CAM, SQL lifecycle contracts |
-| `npm run test:rise:browser` | 26 passed, 0 failed | Chrome real-browser functional, accessibility, focus, race, provenance, history, responsive, slow-response, dialog, and adversarial checks |
-| `npm run test:rise:stress -- --out .../synthetic-stress-report.json` | Pass | 6,500 synthetic programs; 100 concurrent injected-session subjects/searches |
+| `cd rise && npm test` | 71 passed, 0 failed | Identity, specialty, evidence, pre-read source/grant authorization, exporter/importer lineage, index/asset integrity, deployment isolation, durable abuse adapter, runtime/auth, matching, distance, CAM, registry/app/audit SQL contracts |
+| `cd rise && npm run test:browser` | 26 passed, 0 failed | Chrome real-browser functional, accessibility, focus, race, provenance, history, responsive, slow-response, dialog, and adversarial checks |
+| `cd rise && node tests/stress-synthetic.mjs --out .../synthetic-stress-report.json` | Pass | 6,500 synthetic programs; 100 concurrent injected-session subjects/searches |
 | `node --test missionmed-hq/tests/mmc-private-mount-validation.mjs` | 1 passed, 0 failed | Existing HQ private-mount validation |
 | `npm test` | Exit 0; **0 tests discovered** | Not counted as meaningful coverage |
-| `npm audit --audit-level=high` | 0 vulnerabilities | Clean install audited 171 packages |
+| `cd rise && npm audit --audit-level=low` | 0 vulnerabilities | Clean isolated install audited 104 packages |
+| root `npm audit --audit-level=low` | 0 vulnerabilities | Existing root lock audited 195 dependencies |
 | `git diff --check` | Pass | Whitespace integrity |
 | `node --check` over tracked RISE JS/MJS source | Pass | Syntax integrity |
 | credential-pattern scan | No matches | RISE source, handoff, package metadata |
@@ -1156,12 +1173,12 @@ Covered journeys include Command Home, Explorer, combined-specialty membership, 
 | Synthetic programs | 6,500 |
 | Concurrent HTTP searches | 100 |
 | Successful responses | 100/100 |
-| Wall time | 492.2 ms |
-| Median request | 295.7 ms |
-| p95 request | 462.3 ms |
-| Maximum request | 480.2 ms |
-| RSS after run | 166.3 MB |
-| Heap used after run | 27.8 MB |
+| Wall time | 276.8 ms |
+| Median request | 163.3 ms |
+| p95 request | 254.2 ms |
+| Maximum request | 264.4 ms |
+| RSS after run | 142.6 MB |
+| Heap used after run | 24.7 MB |
 
 This is a local, single-process synthetic stress result. The harness uses the injected host-session boundary with a unique opaque subject per concurrent request. A separate core regression proves that weighted bulk requests from one subject receive `429`, a second subject has an independent bucket, the bucket map is bounded, and logs contain only a short subject digest. The stress result does not establish production database, network, cache, multi-instance, or real-identity performance.
 
@@ -1178,10 +1195,13 @@ This is a local, single-process synthetic stress result. The harness uses the in
 
 Generated `rise/dist` and registry data are ignored and were not committed as production artifacts.
 
+The isolated `rise/package.json` clean-install/build path produced the same build ID. Dockerfile and Railway contracts passed static tests, but an image build did not run because the local Docker daemon was unavailable. This is recorded as a validation limitation, not a container pass.
+
 ## Evidence Files
 
 - `artifacts/playwright-report.json`
 - `artifacts/synthetic-stress-report.json`
+- `artifacts/platform-readiness-verification.json`
 - `artifacts/screenshots/rise-explorer-1440x900.png`
 - `artifacts/screenshots/rise-explorer-390x844.png`
 - `artifacts/screenshots/rise-explorer-430x932.png`
@@ -1304,7 +1324,7 @@ The implemented read-only surfaces pass their automated axe and core keyboard re
 
 ## Verdict
 
-The isolated candidate has a strong fail-closed posture for the functionality it implements. Production security and privacy **fail certification** because the production identity relay, secure cookie session, CSRF protection, database/RLS, staging environment, applicant consent/projection, ACTN privacy boundary, secret/telemetry configuration, and live attack surface do not exist.
+The isolated candidate has a strong fail-closed posture for the functionality it implements. Production security and privacy **fail certification** because the production identity relay, secure cookie session, CSRF protection, deployed database and approved RLS policies, staging environment, live applicant consent/projection behavior, ACTN privacy boundary, secret/telemetry configuration, and live attack surface do not exist.
 
 ## Candidate Controls Verified
 
@@ -1322,7 +1342,9 @@ The isolated candidate has a strong fail-closed posture for the functionality it
 | Integration truth | Match, ACTN, CAM, and operator writes fail closed or report disabled; no simulated write succeeds |
 | CAM payload safety | Strict subject/release/reference binding, resolver checks, atomic consume-once replay, bounded arrays/outcomes, TTL/future issue, HTML/demo/geography rejection |
 | Release/rollback SQL | Release-scoped keys/FKs, NOLOGIN roles, append-only rows, lifecycle-locked inserts, no cross-release provenance, atomic activation/history, prior-release rollback, destructive schema rollback blocked |
-| Dependency posture | Clean-install `npm audit --audit-level=high` reports 0 vulnerabilities across 171 audited packages |
+| Private app/audit SQL | Session/code/CSRF values are hash-only, Matrix projections are encrypted and consent-bound, handoff grants expire within five minutes, all ten app tables force RLS with no policies/grants, and audit/recovery rows reject mutation |
+| Deployment isolation | Dedicated package/lock, non-root container recipe, RISE-only entrypoint, external data/auth/abuse inputs, and static deployment contract tests |
+| Dependency posture | Isolated and root `npm audit --audit-level=low` each report 0 vulnerabilities |
 | Secret posture | No credential, token, key, private registry export, or applicant record added to the branch |
 
 ## Adversarial Coverage
@@ -1335,7 +1357,7 @@ Tests cover unauthenticated and insufficient-capability access, browser bearer r
 |---|---|
 | No real host authentication adapter or secure cookie session | Identity/role guarantees cannot be exercised |
 | No CSRF, session expiry/logout, fixation, or one-time code redemption implementation | State-changing production boundary is absent |
-| No dedicated database or RLS test environment | Applicant isolation and operator access are unproven |
+| No dedicated staging database or owner-approved RLS policies | Local forced-RLS schema rehearsal passed, but applicant isolation and operator access remain unproven in the intended runtime |
 | No production telemetry/alerting or approved bulk-export policy | A durable adapter contract cannot establish operational detection or commercial policy without its host implementation |
 | No Matrix consent/data-minimization implementation | Sensitive applicant fields have no production privacy contract |
 | No ACTN/CAM/StoryForge production adapters | Cross-product privacy and authorization cannot be tested |
@@ -1349,7 +1371,7 @@ No applicant or private relationship data is present in the candidate, which min
 
 **Privacy verdict:** `NO_PRIVATE_DATA_EXPOSED_PRODUCTION_POLICY_AND_CONTROLS_ABSENT`
 
-The independent security re-audit found no remaining internal Critical or High issue in the implemented source, runtime, CAM, or proposed SQL foundation. That narrow pass does not clear the absent production controls above.
+The prior independent security re-audit found no remaining internal Critical or High issue in the implemented source, runtime, CAM, or registry SQL foundation. The later isolated-service and app/audit schema additions passed contract, audit, browser, stress, and disposable-PostgreSQL regression checks but have not received a new independent board review. That limitation and the absent production controls above keep the release blocked.
 
 <!-- END 15_SECURITY_AND_PRIVACY_AUDIT.md -->
 <!-- BEGIN 16_ECOSYSTEM_REGRESSION_REPORT.md -->
@@ -1390,6 +1412,10 @@ RISE has no entry in the Critical Systems Manifest, deploy manifest, HQ route ta
 
 **Ecosystem verdict:** `FAIL_RELEASE_GATE_CURRENT_PRODUCTS_UNCHANGED_BY_CANDIDATE`
 
+## Final Isolation Recheck
+
+After commit `8549c84a675a8b8a8026850330a3155bf9ed720a`, the additional changes remained confined to `rise/` and the evidence package. No shared runtime, route, WordPress, Cloudflare, Supabase, Matrix, CAM, ACTN, StoryForge, Arena, Scheduler, Timeline, or File Vault source was modified. The enforced gate was rerun from `/Users/brianb/MissionMed`: all seven route/API checks and syntax/import checks passed; the same two CDN hash checks failed; the same two protected-path warnings and three external browser journeys remained. The gate again exited `1`, so production remained blocked.
+
 <!-- END 16_ECOSYSTEM_REGRESSION_REPORT.md -->
 <!-- BEGIN 17_STAGING_ACCEPTANCE.md -->
 
@@ -1407,11 +1433,13 @@ No RISE staging service, database, R2 namespace, WordPress staging route, identi
 - Implemented injected-host authentication and capability contracts.
 - Implemented source-rights, artifact-hash, and loopback-preview gates.
 - Produced proposed database schemas and fail-closed rollback behavior.
+- Applied both proposed schemas in disposable PostgreSQL 16.13 and rehearsed atomic activation, prior-release rollback, stale-caller rejection, forced RLS, auth-code TTL, append-only audit, and non-destructive down behavior.
+- Added an isolated service package, container recipe, Railway config, and deployment contract. Docker image execution remains unverified because the local Docker daemon was unavailable.
 - Exercised read-only UI, accessibility, responsive, adversarial, and stress behavior locally.
 
 ## Required Staging Acceptance Still Outstanding
 
-Student and mentor/admin journeys are all unexecuted against real identity and data: sign-in, Matrix projection/consent, criteria toggling, matching, distance, program evidence, compare, fellowship, ACTN, interview pack, CAM handoff, operator audit, sign-out, session expiry, and unauthorized access. Database rehearsal, backup/restore, cache, observability, role boundaries, and integration failure behavior are also untested in staging.
+Student and mentor/admin journeys are all unexecuted against real identity and data: sign-in, Matrix projection/consent, criteria toggling, matching, distance, program evidence, compare, fellowship, ACTN, interview pack, CAM handoff, operator audit, sign-out, session expiry, and unauthorized access. The disposable schema rehearsal is not staging acceptance; staging backup/restore, cache, observability, role policies, container execution, and integration failure behavior remain untested.
 
 ## Activation Preconditions
 
@@ -1439,16 +1467,16 @@ Production deployment was correctly blocked because staging acceptance did not r
 | Production commit | None |
 | Production branch | None |
 | Review branch | `codex/p1-rise-4006-production` |
-| Review implementation commit | `78732eb492c0e8d8cfd2a768593b1a10f506ee17` |
+| Review implementation commit | `8549c84a675a8b8a8026850330a3155bf9ed720a` |
 | Environment | Production unchanged |
-| Migration IDs | None executed |
+| Migration IDs | None executed in staging/production; proposals `001` and `002` rehearsed locally only |
 | Production timestamp | None |
 | Live route | `https://missionmedinstitute.com/rise/` returns 404 |
 | Asset activation | None |
 | Database activation | None |
 | Rollback target | Existing absence of RISE |
 
-The production authorization gate failed on source rights, product/runtime authority, security, complete-product quality, ecosystem gate, staging acceptance, migration rehearsal, and rollback provisioning. No Railway, WordPress, R2/Cloudflare, Supabase, Matrix, CAM, ACTN, StoryForge, or HQ production mutation was attempted.
+The production authorization gate failed on source rights, product/runtime authority, complete-product quality, ecosystem gate, staging acceptance, staging backup/restore rehearsal, and rollback provisioning. Local schema and activation rehearsal passed but does not authorize a staging or production migration. No Railway, WordPress, R2/Cloudflare, Supabase, Matrix, CAM, ACTN, StoryForge, or HQ production mutation was attempted.
 
 The final local build ID `rise_web_cc8f346c0ac1` is reproducible test evidence only and is not a deployment ID.
 
@@ -1467,6 +1495,8 @@ The final local build ID `rise_web_cc8f346c0ac1` is reproducible test evidence o
 - Evidence: `artifacts/live-rise-route-404-2026-07-15.png`
 
 The route was rechecked in the in-app Browser after the final local repair loop and still rendered the same WordPress 404 content.
+
+A final direct public probe at `2026-07-15T15:40:53Z`, after source-independent hardening commit `8549c84a675a8b8a8026850330a3155bf9ed720a`, again returned HTTP `404` without redirect. No production surface changed.
 
 Earlier direct probes on the same mission also found `/rise` and `/rise/` absent, the HQ `/rise` path returning 404, the unmatched HQ API path guarded by global auth, and no RISE CDN asset.
 
@@ -1502,7 +1532,7 @@ No production change occurred. The exact rollback point is the existing state at
 
 ## Candidate Rollback
 
-The candidate implementation is commit `78732eb492c0e8d8cfd2a768593b1a10f506ee17` on isolated review branch `codex/p1-rise-4006-production`. Removing or closing that branch has no production effect. Generated `rise/dist` and registry outputs are ignored and are not deployment state.
+The candidate implementation is commit `8549c84a675a8b8a8026850330a3155bf9ed720a` on isolated review branch `codex/p1-rise-4006-production`. Removing or closing that branch has no production effect. Generated `rise/dist` and registry outputs are ignored and are not deployment state.
 
 ## Proposed Future Layered Rollback
 
@@ -1514,7 +1544,7 @@ The candidate implementation is commit `78732eb492c0e8d8cfd2a768593b1a10f506ee17
 6. Restore the dedicated RISE database from its pre-migration backup only if forward recovery is unsafe.
 7. Re-run RISE and ecosystem gates before re-opening access.
 
-The proposed schema down migration intentionally raises an exception instead of using `DROP SCHEMA ... CASCADE`; destructive rollback must be an explicit, separately reviewed operation with retained source, audit, and backup records.
+Both proposed schema down migrations intentionally raise an exception instead of deleting registry, consent, session, audit, or recovery history. Disposable PostgreSQL rehearsal proved atomic prior-release registry rollback and destructive-down refusal. It did not rehearse a production backup restore or service/asset rollback.
 
 ## Recovery Evidence Required Before A Future Release
 
@@ -1560,7 +1590,7 @@ The proposed schema down migration intentionally raises an exception instead of 
 | Staging acceptance | NOT RUN: NO AUTHORIZED ENVIRONMENT |
 | Production/live acceptance | NOT RUN / ROUTE ABSENT |
 | Deployment receipt | NO-DEPLOY RECEIPT RECORDED |
-| Rollback | CURRENT NO-OP VERIFIED; FUTURE PLAN NOT REHEARSED |
+| Rollback | CURRENT NO-OP VERIFIED; LOCAL REGISTRY ACTIVATE/ROLLBACK REHEARSED; PRODUCTION RESTORE NOT REHEARSED |
 | Combined handoff | COMPLETE AT HANDOFF ASSEMBLY |
 
 ## Genuine External Blockers
@@ -1587,6 +1617,33 @@ At `2026-07-15 11:26 EDT`, the production boundary was re-audited before accepti
 
 The canonical Drive handoff was corrected in place under file ID `1MaJIdOkxgtfWMQWgSmhG2JuVgZ_wtrkB`; the file ID and parent were preserved so downstream references do not fork.
 
+## Third Consecutive Blocker Confirmation
+
+At `2026-07-15 11:33 EDT`, a second autonomous continuation re-read the complete production charter and repeated the authoritative checks after the original production audit and the first continuation re-audit:
+
+- The review worktree remained clean and synchronized at `83faa938f2ff48286b019002d8de5d89bccae31f`; draft PR `#15` remained open and merge-clean with no checks, comments, or reviews.
+- The active Drive identity remained `info@missionmedinstitute.com`. Searches for files modified after the prior re-audit found no new source grant or RISE authority record; only this existing combined handoff matched.
+- MissionMed OS `origin/main` remained `93c0404794fe105235b80514c75fffc3177f140b` with no RISE authority, decision, mission, product, or passport entry.
+- The live route recheck `https://missionmedinstitute.com/rise/?recheck=20260715T1535` returned HTTP `404` without redirect and independently rendered the same WordPress missing-page state in the in-app browser.
+- The accessible Railway inventory contained 13 projects and no RISE project or service. The accessible Supabase inventory contained four projects and no RISE project.
+- The enforced shared critical gate again exited `1` with the same USCE and Arena CDN hash mismatches, the same two protected concurrent changes, and the same three external browser journeys still required.
+
+The same legally and operationally material blockers therefore persisted across three consecutive goal turns. All work that can be completed without source-owner grants, founder/platform authority, provisioned RISE infrastructure, integration-owner contracts, and resolution of the shared release gate is already represented in the candidate and evidence package.
+
+## Final Source-Independent Hardening
+
+The authoritative branch was advanced to implementation commit `8549c84a675a8b8a8026850330a3155bf9ed720a` without importing the superseded real-data release:
+
+- Added an isolated RISE package/lock, non-root multi-stage Dockerfile, Railway config, and machine-readable deployment contract. The contract fixes the service root at `/rise`, uses `/rise/railway.json`, starts only `node server.mjs`, and requires runtime pins for auth, durable abuse control, source authorizations, index, and web assets.
+- Added proposed `rise_app` and `rise_audit` schemas for hashed session/code/CSRF identifiers, consented encrypted Matrix projections, saved/comparison state, assessments, five-minute handoff grants, operator work, append-only audit, and recovery checkpoints. All ten app tables force RLS with no policies or grants.
+- Rehearsed both migrations in disposable PostgreSQL 16.13: 11 registry, 10 app, and 2 audit tables; forced RLS 10/10; activate/forward-activate/rollback, stale-caller rejection, 61-second code rejection, append-only audit rejection, and destructive-down refusal all passed. No staging or production database was touched.
+- Clean isolated install and build passed with unchanged build ID `rise_web_cc8f346c0ac1`; 71/71 core and 26/26 Chrome browser tests passed; isolated and root audits reported zero vulnerabilities. The 6,500-program/100-request synthetic run completed 100/100 with p95 254.2 ms.
+- Docker image execution was not claimed because Docker Desktop could not provide a daemon. Static container/deployment contracts and the underlying clean-install/build path passed.
+- The shared critical gate still exited `1` with the same two CDN mismatches, two protected-path warnings, and three outstanding browser journeys. A final public probe at `2026-07-15T15:40:53Z` again returned HTTP `404` for the intended route.
+- Google Drive profile verification returned `MissionMed Institute Info <info@missionmedinstitute.com>`. The canonical combined handoff was replaced in place under file ID `1MaJIdOkxgtfWMQWgSmhG2JuVgZ_wtrkB` in folder `1Bj3cGoXIF4_z8Y7u2wuW9ys01Wr21iGa`; its name and parent were preserved.
+
+These changes complete additional engineering that did not depend on source-owner or platform authority. They do not clear any external production gate.
+
 ## Smallest Brian Actions
 
 - Obtain the source-owner grants and MissionMed approval records, beginning with AMA/FREIDA because FREIDA is the required source in the canonical workbook.
@@ -1596,7 +1653,7 @@ The canonical Drive handoff was corrected in place under file ID `1MaJIdOkxgtfWM
 
 ## Completed Independent Work
 
-All work independent of those boundaries was completed: lineage and live discovery; canonical 31-specialty artifact pinning; source/legal verification; source-owner-grant, release, index, asset, runtime, CAM, and SQL hardening; 66 core tests; 26 browser tests; five responsive viewports; axe/keyboard/adversarial coverage; a 6,500-program synthetic stress run; real-browser visual review; independent UI, domain/provenance, security, and release-board audits; repair/re-audit loops; ecosystem gate rerun; no-deploy receipt; rollback plan; and complete evidence packaging.
+All work independent of those boundaries was completed: lineage and live discovery; canonical 31-specialty artifact pinning; source/legal verification; source-owner-grant, release, index, asset, runtime, CAM, service-isolation, registry/app/audit SQL, and search-performance hardening; 71 core tests; 26 browser tests; five responsive viewports; axe/keyboard/adversarial coverage; a 6,500-program synthetic stress run; disposable PostgreSQL rehearsal; real-browser visual review; independent UI, domain/provenance, security, and release-board audits; repair/re-audit loops; ecosystem gate rerun; no-deploy receipt; rollback plan; and complete evidence packaging.
 
 ## Certification
 

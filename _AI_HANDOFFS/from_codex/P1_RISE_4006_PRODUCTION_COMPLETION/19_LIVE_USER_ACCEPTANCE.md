@@ -11,6 +11,8 @@
 
 The route was rechecked in the in-app Browser after the final local repair loop and still rendered the same WordPress 404 content.
 
+A final direct public probe at `2026-07-15T15:40:53Z`, after source-independent hardening commit `8549c84a675a8b8a8026850330a3155bf9ed720a`, again returned HTTP `404` without redirect. No production surface changed.
+
 Earlier direct probes on the same mission also found `/rise` and `/rise/` absent, the HQ `/rise` path returning 404, the unmatched HQ API path guarded by global auth, and no RISE CDN asset.
 
 ## Journey Result

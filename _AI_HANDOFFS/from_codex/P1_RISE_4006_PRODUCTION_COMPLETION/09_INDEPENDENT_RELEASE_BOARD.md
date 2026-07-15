@@ -45,3 +45,5 @@ An independent review agent assessed the rendered candidate and the full 4006 ch
 `NO_GO_EXTERNAL_BLOCKERS_AND_INCOMPLETE_CHARTER`
 
 The independently reviewed code foundation may proceed to scoped review. It is not certified for staging activation or production deployment. Source rights, product/runtime authority, staging, identity, cross-product contracts, complete workflows, ecosystem gates, and live acceptance remain release blockers.
+
+The subsequent source-independent service-isolation, app/audit schema, and search-performance hardening at commit `8549c84a675a8b8a8026850330a3155bf9ed720a` passed automated and disposable-database regression checks but occurred after this board. It requires a fresh independent review before any future activation; the frozen scores above were not raised.

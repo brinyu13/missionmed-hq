@@ -27,7 +27,7 @@
 | Staging acceptance | NOT RUN: NO AUTHORIZED ENVIRONMENT |
 | Production/live acceptance | NOT RUN / ROUTE ABSENT |
 | Deployment receipt | NO-DEPLOY RECEIPT RECORDED |
-| Rollback | CURRENT NO-OP VERIFIED; FUTURE PLAN NOT REHEARSED |
+| Rollback | CURRENT NO-OP VERIFIED; LOCAL REGISTRY ACTIVATE/ROLLBACK REHEARSED; PRODUCTION RESTORE NOT REHEARSED |
 | Combined handoff | COMPLETE AT HANDOFF ASSEMBLY |
 
 ## Genuine External Blockers
@@ -54,6 +54,33 @@ At `2026-07-15 11:26 EDT`, the production boundary was re-audited before accepti
 
 The canonical Drive handoff was corrected in place under file ID `1MaJIdOkxgtfWMQWgSmhG2JuVgZ_wtrkB`; the file ID and parent were preserved so downstream references do not fork.
 
+## Third Consecutive Blocker Confirmation
+
+At `2026-07-15 11:33 EDT`, a second autonomous continuation re-read the complete production charter and repeated the authoritative checks after the original production audit and the first continuation re-audit:
+
+- The review worktree remained clean and synchronized at `83faa938f2ff48286b019002d8de5d89bccae31f`; draft PR `#15` remained open and merge-clean with no checks, comments, or reviews.
+- The active Drive identity remained `info@missionmedinstitute.com`. Searches for files modified after the prior re-audit found no new source grant or RISE authority record; only this existing combined handoff matched.
+- MissionMed OS `origin/main` remained `93c0404794fe105235b80514c75fffc3177f140b` with no RISE authority, decision, mission, product, or passport entry.
+- The live route recheck `https://missionmedinstitute.com/rise/?recheck=20260715T1535` returned HTTP `404` without redirect and independently rendered the same WordPress missing-page state in the in-app browser.
+- The accessible Railway inventory contained 13 projects and no RISE project or service. The accessible Supabase inventory contained four projects and no RISE project.
+- The enforced shared critical gate again exited `1` with the same USCE and Arena CDN hash mismatches, the same two protected concurrent changes, and the same three external browser journeys still required.
+
+The same legally and operationally material blockers therefore persisted across three consecutive goal turns. All work that can be completed without source-owner grants, founder/platform authority, provisioned RISE infrastructure, integration-owner contracts, and resolution of the shared release gate is already represented in the candidate and evidence package.
+
+## Final Source-Independent Hardening
+
+The authoritative branch was advanced to implementation commit `8549c84a675a8b8a8026850330a3155bf9ed720a` without importing the superseded real-data release:
+
+- Added an isolated RISE package/lock, non-root multi-stage Dockerfile, Railway config, and machine-readable deployment contract. The contract fixes the service root at `/rise`, uses `/rise/railway.json`, starts only `node server.mjs`, and requires runtime pins for auth, durable abuse control, source authorizations, index, and web assets.
+- Added proposed `rise_app` and `rise_audit` schemas for hashed session/code/CSRF identifiers, consented encrypted Matrix projections, saved/comparison state, assessments, five-minute handoff grants, operator work, append-only audit, and recovery checkpoints. All ten app tables force RLS with no policies or grants.
+- Rehearsed both migrations in disposable PostgreSQL 16.13: 11 registry, 10 app, and 2 audit tables; forced RLS 10/10; activate/forward-activate/rollback, stale-caller rejection, 61-second code rejection, append-only audit rejection, and destructive-down refusal all passed. No staging or production database was touched.
+- Clean isolated install and build passed with unchanged build ID `rise_web_cc8f346c0ac1`; 71/71 core and 26/26 Chrome browser tests passed; isolated and root audits reported zero vulnerabilities. The 6,500-program/100-request synthetic run completed 100/100 with p95 254.2 ms.
+- Docker image execution was not claimed because Docker Desktop could not provide a daemon. Static container/deployment contracts and the underlying clean-install/build path passed.
+- The shared critical gate still exited `1` with the same two CDN mismatches, two protected-path warnings, and three outstanding browser journeys. A final public probe at `2026-07-15T15:40:53Z` again returned HTTP `404` for the intended route.
+- Google Drive profile verification returned `MissionMed Institute Info <info@missionmedinstitute.com>`. The canonical combined handoff was replaced in place under file ID `1MaJIdOkxgtfWMQWgSmhG2JuVgZ_wtrkB` in folder `1Bj3cGoXIF4_z8Y7u2wuW9ys01Wr21iGa`; its name and parent were preserved.
+
+These changes complete additional engineering that did not depend on source-owner or platform authority. They do not clear any external production gate.
+
 ## Smallest Brian Actions
 
 - Obtain the source-owner grants and MissionMed approval records, beginning with AMA/FREIDA because FREIDA is the required source in the canonical workbook.
@@ -63,7 +90,7 @@ The canonical Drive handoff was corrected in place under file ID `1MaJIdOkxgtfWM
 
 ## Completed Independent Work
 
-All work independent of those boundaries was completed: lineage and live discovery; canonical 31-specialty artifact pinning; source/legal verification; source-owner-grant, release, index, asset, runtime, CAM, and SQL hardening; 66 core tests; 26 browser tests; five responsive viewports; axe/keyboard/adversarial coverage; a 6,500-program synthetic stress run; real-browser visual review; independent UI, domain/provenance, security, and release-board audits; repair/re-audit loops; ecosystem gate rerun; no-deploy receipt; rollback plan; and complete evidence packaging.
+All work independent of those boundaries was completed: lineage and live discovery; canonical 31-specialty artifact pinning; source/legal verification; source-owner-grant, release, index, asset, runtime, CAM, service-isolation, registry/app/audit SQL, and search-performance hardening; 71 core tests; 26 browser tests; five responsive viewports; axe/keyboard/adversarial coverage; a 6,500-program synthetic stress run; disposable PostgreSQL rehearsal; real-browser visual review; independent UI, domain/provenance, security, and release-board audits; repair/re-audit loops; ecosystem gate rerun; no-deploy receipt; rollback plan; and complete evidence packaging.
 
 ## Certification
 

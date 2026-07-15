@@ -31,11 +31,11 @@ These are the independent board's scores. The first column scores only the imple
 | UI >= 9 | FAIL | 7.8 candidate / 3.0 complete charter |
 | UX >= 9 | FAIL | 7.3 candidate / 2.2 complete charter |
 | Evidence integrity | FAIL production | Code fails closed; legal source gate unresolved |
-| Security/privacy | FAIL production | Local foundation hardened; production identity, private-data policy, RLS, and staging attack surface absent |
+| Security/privacy | FAIL production | Local foundation and forced-RLS schema contract hardened; production identity, approved policies, and staging attack surface absent |
 | Accessibility | FAIL production | 26-test browser/core pass; complete product and live states absent |
 | Performance | PROVISIONAL ONLY | 6,500-record synthetic run; no production DB/API/multi-instance evidence |
 | Ecosystem regression | FAIL release gate | Shared gate has two CDN hash mismatches and protected-state warnings |
-| Staging acceptance | NOT RUN | No authorized RISE staging environment |
+| Staging acceptance | NOT RUN | Local PostgreSQL rehearsal passed; no authorized RISE staging environment |
 | Production acceptance | NOT RUN | Live route remains 404 |
 
 ## Release Decision

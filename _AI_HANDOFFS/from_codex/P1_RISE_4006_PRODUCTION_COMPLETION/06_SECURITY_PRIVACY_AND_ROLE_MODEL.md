@@ -2,7 +2,7 @@
 
 ## Current Verdict
 
-The isolated foundation passes its local source-policy and payload-safety contracts. Production security is not certifiable because no RISE runtime, identity relay, database, route, RLS policy, staging environment, or deployable rollback exists. No production secrets or applicant data were created or logged.
+The isolated foundation passes its local source-policy, payload-safety, service-isolation, and proposed-schema contracts. Production security is not certifiable because no RISE runtime, identity relay, deployed database, approved RLS policy, route, staging environment, or immutable production rollback artifact exists. No production secrets or applicant data were created or logged.
 
 ## Roles
 
@@ -39,7 +39,7 @@ WordPress capability, RISE session role, API authorization, and database policy 
 - Production requires an injected shared durable abuse controller that runs before authentication and again against the opaque authenticated subject. The bounded process-local implementation is test/preview only; audit identity is a short SHA-256 digest.
 - Profile and evidence responses use `Cache-Control: no-store`.
 
-These controls are unit/contract tested. They are not a substitute for the missing WordPress/HQ code exchange, production cookie session, CSRF implementation, database RLS, production telemetry, or authenticated staging tests.
+These controls are unit/contract tested. The proposed app tables are forced-RLS with no policies or runtime grants and therefore fail closed. This is not a substitute for the missing WordPress/HQ code exchange, production cookie session, CSRF implementation, owner-approved RLS policies, production telemetry, or authenticated staging tests.
 
 ## Data Classification
 
@@ -93,7 +93,7 @@ These controls are unit/contract tested. They are not a substitute for the missi
 
 ## Database Policy Requirements
 
-The proposed dedicated `rise` schema uses separate NOLOGIN reader, importer, and release-manager roles. The browser receives no service key. Registry writes are importer-only while a release is offline or staging; row locks serialize inserts against activation, and activation/history use a narrowly granted security-definer function. Future applicant state must be isolated by canonical subject ID and reviewed RLS or an equivalent server policy. Production schema changes require a clean project-specific migration history, backup, staging test, and forward-safe rollback plan.
+The proposed dedicated `rise` schema uses separate NOLOGIN reader, importer, and release-manager roles. The browser receives no service key. Registry writes are importer-only while a release is offline or staging; row locks serialize inserts against activation, and activation/history use a narrowly granted security-definer function. The proposed `rise_app` plane stores only hashed session/code/CSRF identifiers, consent receipts, encrypted Matrix projections, user-scoped saves/comparisons/assessments, five-minute handoff grants, and operator queue records. Its ten tables have `ENABLE` and `FORCE ROW LEVEL SECURITY` with no policies or grants. `rise_audit` rejects updates/deletes to audit and recovery rows. Production schema changes still require owner-approved policies, a clean migration history, backup, staging test, and restore rehearsal.
 
 ## Security Gates Still Required
 

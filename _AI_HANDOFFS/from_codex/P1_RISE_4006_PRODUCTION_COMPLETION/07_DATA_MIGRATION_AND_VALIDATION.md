@@ -15,8 +15,10 @@ No staging or production database migration was executed. No production registry
 | Specialty semantics | `rise/src/specialties.mjs` | Exact and combined browse membership tested |
 | Combined map | `rise/config/combined-specialties.v1.json` | Versioned local contract |
 | Source policy | `rise/config/source-policy.v1.json` | FREIDA and Residency Explorer each require written authorization |
-| Proposed migration | `rise/sql/001_rise_registry.proposed.sql` | Contract-tested only; never applied |
+| Proposed registry migration | `rise/sql/001_rise_registry.proposed.sql` | Contract-tested and rehearsed in disposable PostgreSQL 16; never applied to staging/production |
 | Proposed down migration | `rise/sql/001_rise_registry.down.proposed.sql` | Intentionally raises an exception instead of destructive `CASCADE` |
+| Proposed app/audit migration | `rise/sql/002_rise_app_and_audit.proposed.sql` | Ten forced-RLS app tables plus two append-only audit/recovery tables; disposable rehearsal passed |
+| Proposed app/audit down migration | `rise/sql/002_rise_app_and_audit.down.proposed.sql` | Intentionally refuses destructive schema deletion |
 
 The exporter validates the governance-pinned authorization record and the exact source-owner grant bytes before reading workbook bytes, then emits a schema-v2 inspection whose metadata contains the exact authorization-record hashes and a deterministic hash of every table. The importer revalidates those current pins and grant bytes, rehashes the inspection tables, requires exact authorization-lineage equality, validates a 196-column contract across 31 specialty tabs, normalizes identifiers, resolves only explicitly reviewed collisions, derives stable IDs, and preserves blank values as unknown. Runtime CLI overrides of dataset, collision-resolution, or combined-specialty governance are prohibited. The API-index builder independently verifies the release-manifest pin and every release-file hash. Before reading a source-controlled index, the runtime verifies a separately pinned index manifest and current source-authorization set; it also authenticates the web build and every asset.
 
@@ -54,15 +56,16 @@ The reviewed collision is `1401900001 ` versus `1401900001` for the University o
 - Exporter and importer tests prove the exact authorization lineage is bound to the inspection artifact and its table content is independently rehashed.
 - Synthetic import tests cover identity stability, collision rejection, combined memberships, missing values, visa semantics, and editorial quarantine.
 - API-index tests prove quarantined known claims do not inflate evidence coverage and release-file tampering fails closed.
-- Nine SQL contract tests verify release-scoped composite keys and foreign keys, no cross-release provenance, `RELATED_SPECIALTY`, atomic active-release activation/history, lifecycle-locked snapshot inserts, least-privilege roles, prior-release rollback, and a fail-closed destructive down migration.
-- Full local core suite: 66 passed, 0 failed.
+- Twelve SQL contract tests verify release-scoped composite keys and foreign keys, no cross-release provenance, `RELATED_SPECIALTY`, atomic activation/history, lifecycle-locked snapshot inserts, least-privilege roles, prior-release rollback, private app state, forced RLS, append-only audit, and fail-closed down migrations.
+- Disposable PostgreSQL 16.13 applied both proposed migrations: 11 registry tables, 10 app tables, and 2 audit tables. All 10 app tables had RLS enabled and forced. Activate/forward-activate/rollback, stale-caller rejection, 61-second auth-code rejection, append-only audit rejection, and destructive-down refusal passed. No real source bytes or production system were touched.
+- Full local core suite: 71 passed, 0 failed.
 
 ## Proposed Production Model
 
-The proposed design creates a dedicated `rise` schema with separate NOLOGIN reader, importer, and release-manager group roles. It stores release-scoped programs, specialties, browse memberships, source documents, claims, quarantine records, import runs, and append-only activation history. Snapshot inserts lock the parent release and are accepted only while it is offline or staging; activation is serialized through a security-definer function and immutable pointer. Browser-direct database access is not granted. Applicant-owned state, consent, integrations, and production RLS remain intentionally absent until their owners and privacy contracts exist. The proposal does not alter an existing MissionMed schema and was not applied to any database.
+The proposed design creates a dedicated `rise` schema with separate NOLOGIN reader, importer, and release-manager group roles. It stores release-scoped programs, specialties, browse memberships, source documents, claims, quarantine records, import runs, and append-only activation history. Snapshot inserts lock the parent release and are accepted only while it is offline or staging; activation is serialized through a security-definer function and immutable pointer. Private `rise_app` and `rise_audit` schemas model the minimum session, consented projection, applicant state, handoff, operator, audit, and recovery records without granting runtime access. Browser-direct database access is not granted. The proposal altered only a disposable local cluster and no MissionMed database.
 
 ## Migration Gate
 
-Migration requires all of the following: written AMA authorization for FREIDA use; separate AAMC authorization for any Residency Explorer content; an accountable RISE data owner; isolated staging and production database projects; reviewed RLS; approved secrets; rehearsed migration and backup; immutable release storage; and a tested activation rollback. None is currently available. The unrelated RankListIQ Supabase history must not be reused or repaired for RISE.
+Staging or production migration requires all of the following: written AMA authorization for FREIDA use; separate AAMC authorization for any Residency Explorer content; an accountable RISE data owner; isolated staging and production database projects; reviewed RLS policies; approved secrets; migration/backup/restore rehearsal in the approved environment; immutable release storage; and a tested production rollback. The local schema and activation rehearsal does not satisfy those external prerequisites. The unrelated RankListIQ Supabase history must not be reused or repaired for RISE.
 
-**Migration verdict:** `NOT_EXECUTED_EXTERNAL_AUTHORITY_AND_PLATFORM_BLOCKERS`
+**Migration verdict:** `LOCAL_DISPOSABLE_REHEARSAL_PASS_STAGING_PRODUCTION_NOT_EXECUTED`

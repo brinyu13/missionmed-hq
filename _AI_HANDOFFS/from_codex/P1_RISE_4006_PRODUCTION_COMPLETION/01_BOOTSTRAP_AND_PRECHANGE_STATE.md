@@ -19,7 +19,7 @@ The safe implementation branch is isolated from both the old RISE data worktree 
 | Repository | `https://github.com/brinyu13/missionmed-hq.git` |
 | Isolated implementation worktree | `/tmp/P1-RISE-4006-production` |
 | Branch | `codex/p1-rise-4006-production` |
-| Review implementation commit | `78732eb492c0e8d8cfd2a768593b1a10f506ee17` |
+| Current review implementation commit | `8549c84a675a8b8a8026850330a3155bf9ed720a` |
 | Base upstream | `origin/main` |
 | Base commit | `9c1fa72e6b056db8b6fe0e17031fcaa688f78569` |
 | Base subject | `Merge MM-SPINE-006A product boot stop rule` |

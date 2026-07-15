@@ -33,3 +33,7 @@ The final enforced gate was rerun on `2026-07-15` and exited `1`. Its seven avai
 RISE has no entry in the Critical Systems Manifest, deploy manifest, HQ route table, protected authority records, or rollback registry. The intended live route remains absent. Modifying shared infrastructure before those records and owners exist would violate the MissionMed control plane.
 
 **Ecosystem verdict:** `FAIL_RELEASE_GATE_CURRENT_PRODUCTS_UNCHANGED_BY_CANDIDATE`
+
+## Final Isolation Recheck
+
+After commit `8549c84a675a8b8a8026850330a3155bf9ed720a`, the additional changes remained confined to `rise/` and the evidence package. No shared runtime, route, WordPress, Cloudflare, Supabase, Matrix, CAM, ACTN, StoryForge, Arena, Scheduler, Timeline, or File Vault source was modified. The enforced gate was rerun from `/Users/brianb/MissionMed`: all seven route/API checks and syntax/import checks passed; the same two CDN hash checks failed; the same two protected-path warnings and three external browser journeys remained. The gate again exited `1`, so production remained blocked.

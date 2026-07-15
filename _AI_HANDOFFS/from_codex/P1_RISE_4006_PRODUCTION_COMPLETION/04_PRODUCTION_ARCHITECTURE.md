@@ -13,6 +13,8 @@ Browser -> dedicated Railway RISE API -> dedicated RISE Supabase projects
 
 RISE must not launch as a Matrix App Mode edit, a route added directly to the drifted HQ monolith, a browser-to-Supabase application, or the monolithic 4004 HTML with its embedded demo dataset.
 
+The review branch now contains an isolated `rise/` package, lockfile, multi-stage non-root container recipe, `railway.json`, and `deployment-contract.v1.json`. Railway must be configured with service root `/rise` and config path `/rise/railway.json`; the container entrypoint is only `node server.mjs`. The registry index, auth adapter, durable abuse adapter, and production pins remain external runtime inputs and are not embedded in the image. This is a deployable blueprint, not a provisioned service.
+
 ## Change-Impact And Activation Graph
 
 ```mermaid
@@ -117,6 +119,8 @@ Required structured events: auth exchange, authorization denial, registry releas
 6. Matrix projection after owner/security approval.
 7. ACTN, CAM, and StoryForge adapters as independent releases.
 8. Broad release only after independent quality certification.
+
+The proposed database plane is split into immutable `rise`, private `rise_app`, and append-only `rise_audit` schemas. All ten app tables are forced-RLS with no policies or runtime grants, so the blueprint remains inaccessible until the identity and database owners approve and install narrow policies.
 
 ## Rollback
 

@@ -1,19 +1,19 @@
 {
-  "generatedAt": "2026-07-15T15:05:20.681Z",
+  "generatedAt": "2026-07-15T15:40:07.760Z",
   "dataClassification": "synthetic_test_fixture",
   "programCount": 6500,
   "requestCount": 100,
   "statusCounts": {
     "200": 100
   },
-  "wallTimeMs": 492.2,
+  "wallTimeMs": 276.8,
   "latencyMs": {
-    "median": 295.7,
-    "p95": 462.3,
-    "max": 480.2
+    "median": 163.3,
+    "p95": 254.2,
+    "max": 264.4
   },
   "processMemoryMb": {
-    "rss": 166.3,
-    "heapUsed": 27.8
+    "rss": 142.6,
+    "heapUsed": 24.7
   }
 }

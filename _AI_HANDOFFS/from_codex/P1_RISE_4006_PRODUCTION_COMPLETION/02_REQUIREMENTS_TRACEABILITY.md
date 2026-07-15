@@ -87,7 +87,7 @@ States distinguish local candidate behavior from production availability. No `IM
 
 ## Acceptance Coverage Gap
 
-The isolated candidate now implements and tests the read-only status, search, filtering, bounded pagination, program profile, field evidence, missing-data semantics, comparison, browser-history, responsive, keyboard, health, and stable-identity foundations. It also fails closed for unapproved source data and truthfully disables unimplemented integrations. It does **not** complete the product contract: Matrix consent/profile projection, criterion toggling, explainable matching, distance, fellowship, ACTN, CAM, interview packs, durable operator actions, production identity, database/RLS, staging, and deployment remain absent or gated.
+The isolated candidate now implements and tests the read-only status, search, filtering, bounded pagination, program profile, field evidence, missing-data semantics, comparison, browser-history, responsive, keyboard, health, and stable-identity foundations. It also fails closed for unapproved source data and truthfully disables unimplemented integrations. An isolated service/package contract and proposed forced-RLS app/audit schema now exist and pass local PostgreSQL rehearsal. The product contract remains incomplete: Matrix projection and consent behavior, criterion toggling, explainable matching, fellowship, ACTN, CAM, interview packs, durable operator actions, production identity, approved RLS policies, staging, and live deployment remain absent or gated.
 
 ## Traceability Verdict
 

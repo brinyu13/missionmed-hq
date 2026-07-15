@@ -87,6 +87,10 @@ Distance carries origin basis, destination basis, method, coordinate dataset/ver
 
 Matrix remains applicant-profile authority. A later Matrix-owned server endpoint returns only an explicit, consented `candidate_profile.v1` field projection. RISE stores projection version/digest and consent receipt, not a hidden full-profile copy. No query-string or localStorage transport is permitted.
 
+## Private Persistence Contract
+
+The proposed `rise_app` schema stores only hash-bound authorization-code redemption, sessions and CSRF tokens, consent receipts, encrypted/versioned Matrix projections, release-bound saves and comparisons, auditable match assessments, five-minute single-use handoff grants, and operator queue records. The proposed `rise_audit` schema stores append-only audit events and backup/restore checkpoints. All ten app tables force RLS and intentionally have no policies or runtime grants; owner-approved subject/role policies are a staging prerequisite. Audit and recovery records reject updates and deletes. Browser-direct database access remains prohibited.
+
 ## ACTN Contract
 
 RISE consumes a role-filtered aggregate keyed by immutable program ID: counts, eligibility state, freshness, and an ACTN deep link. Named alumni/contact data remains in ACTN. RISE never name-matches spreadsheet text to people.

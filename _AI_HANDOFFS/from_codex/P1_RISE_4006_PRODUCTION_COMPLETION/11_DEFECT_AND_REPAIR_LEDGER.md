@@ -10,7 +10,7 @@
 | B-004 | High | No production WordPress/HQ `aud=rise` identity exchange or cookie session exists | Auth inventory; `/rise/` absent | HQ/WordPress owner contract required |
 | B-005 | High | Matrix profile, criteria toggling, full explainable matching, fellowship, ACTN, interview pack, functional CAM handoff, and durable operator workflows are absent | Requirement matrix and rendered candidate | Product/integration work requires owners and real contracts |
 | B-006 | High | Shared critical-systems gate fails two CDN hash checks and reports protected concurrent changes plus three outstanding cross-product browser journeys | Enforced gate result, 2026-07-15 | Reconcile in the owning mission; do not overwrite concurrent work |
-| B-007 | High | No staging acceptance, migration rehearsal, production deployment, or authorized live journey can run | Environment inventory and live 404 | Consequence of B-001 through B-006 |
+| B-007 | High | No authorized staging acceptance, staging backup/restore rehearsal, production deployment, or live journey can run | Environment inventory and live 404; local disposable migration rehearsal now passes | Consequence of B-001 through B-006 |
 
 ## Repaired Implementation Defects
 
@@ -34,6 +34,9 @@
 | R-016 | Medium | Reworded completeness and visa claims; added persistent fixture, availability, and eligibility boundaries plus claim-level provenance | Browser text and visual review |
 | R-017 | Medium | Isolated synthetic browser/stress fixtures from deployable registry data | Fixture classification and source gates |
 | R-018 | Medium | Updated direct dependencies and retained a reproducible asset build | `npm audit`: zero vulnerabilities; exact build hashes |
+| R-019 | High | Added an isolated RISE package, lockfile, non-root multi-stage container recipe, Railway config, and machine-readable deployment contract; eliminated fallback to the HQ entrypoint | Clean isolated install/build, deployment contract tests, unchanged authenticated asset build ID |
+| R-020 | High | Added private app/audit schemas with hashed session artifacts, consented encrypted Matrix projections, short handoff grants, forced RLS, append-only audit/recovery, and non-destructive rollback posture | PostgreSQL 16.13 rehearsal plus three new SQL contract tests |
+| R-021 | Medium | Compiled immutable search metadata once per registry load instead of rebuilding it per request | Full API/browser regression plus improved 6,500-program synthetic stress evidence |
 
 ## Final Independent Implemented-Scope Audit
 

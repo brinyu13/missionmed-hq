@@ -12,11 +12,13 @@ No RISE staging service, database, R2 namespace, WordPress staging route, identi
 - Implemented injected-host authentication and capability contracts.
 - Implemented source-rights, artifact-hash, and loopback-preview gates.
 - Produced proposed database schemas and fail-closed rollback behavior.
+- Applied both proposed schemas in disposable PostgreSQL 16.13 and rehearsed atomic activation, prior-release rollback, stale-caller rejection, forced RLS, auth-code TTL, append-only audit, and non-destructive down behavior.
+- Added an isolated service package, container recipe, Railway config, and deployment contract. Docker image execution remains unverified because the local Docker daemon was unavailable.
 - Exercised read-only UI, accessibility, responsive, adversarial, and stress behavior locally.
 
 ## Required Staging Acceptance Still Outstanding
 
-Student and mentor/admin journeys are all unexecuted against real identity and data: sign-in, Matrix projection/consent, criteria toggling, matching, distance, program evidence, compare, fellowship, ACTN, interview pack, CAM handoff, operator audit, sign-out, session expiry, and unauthorized access. Database rehearsal, backup/restore, cache, observability, role boundaries, and integration failure behavior are also untested in staging.
+Student and mentor/admin journeys are all unexecuted against real identity and data: sign-in, Matrix projection/consent, criteria toggling, matching, distance, program evidence, compare, fellowship, ACTN, interview pack, CAM handoff, operator audit, sign-out, session expiry, and unauthorized access. The disposable schema rehearsal is not staging acceptance; staging backup/restore, cache, observability, role policies, container execution, and integration failure behavior remain untested.
 
 ## Activation Preconditions
 

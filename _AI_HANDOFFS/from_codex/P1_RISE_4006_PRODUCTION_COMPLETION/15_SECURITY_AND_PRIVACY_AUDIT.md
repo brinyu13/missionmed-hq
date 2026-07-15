@@ -2,7 +2,7 @@
 
 ## Verdict
 
-The isolated candidate has a strong fail-closed posture for the functionality it implements. Production security and privacy **fail certification** because the production identity relay, secure cookie session, CSRF protection, database/RLS, staging environment, applicant consent/projection, ACTN privacy boundary, secret/telemetry configuration, and live attack surface do not exist.
+The isolated candidate has a strong fail-closed posture for the functionality it implements. Production security and privacy **fail certification** because the production identity relay, secure cookie session, CSRF protection, deployed database and approved RLS policies, staging environment, live applicant consent/projection behavior, ACTN privacy boundary, secret/telemetry configuration, and live attack surface do not exist.
 
 ## Candidate Controls Verified
 
@@ -20,7 +20,9 @@ The isolated candidate has a strong fail-closed posture for the functionality it
 | Integration truth | Match, ACTN, CAM, and operator writes fail closed or report disabled; no simulated write succeeds |
 | CAM payload safety | Strict subject/release/reference binding, resolver checks, atomic consume-once replay, bounded arrays/outcomes, TTL/future issue, HTML/demo/geography rejection |
 | Release/rollback SQL | Release-scoped keys/FKs, NOLOGIN roles, append-only rows, lifecycle-locked inserts, no cross-release provenance, atomic activation/history, prior-release rollback, destructive schema rollback blocked |
-| Dependency posture | Clean-install `npm audit --audit-level=high` reports 0 vulnerabilities across 171 audited packages |
+| Private app/audit SQL | Session/code/CSRF values are hash-only, Matrix projections are encrypted and consent-bound, handoff grants expire within five minutes, all ten app tables force RLS with no policies/grants, and audit/recovery rows reject mutation |
+| Deployment isolation | Dedicated package/lock, non-root container recipe, RISE-only entrypoint, external data/auth/abuse inputs, and static deployment contract tests |
+| Dependency posture | Isolated and root `npm audit --audit-level=low` each report 0 vulnerabilities |
 | Secret posture | No credential, token, key, private registry export, or applicant record added to the branch |
 
 ## Adversarial Coverage
@@ -33,7 +35,7 @@ Tests cover unauthenticated and insufficient-capability access, browser bearer r
 |---|---|
 | No real host authentication adapter or secure cookie session | Identity/role guarantees cannot be exercised |
 | No CSRF, session expiry/logout, fixation, or one-time code redemption implementation | State-changing production boundary is absent |
-| No dedicated database or RLS test environment | Applicant isolation and operator access are unproven |
+| No dedicated staging database or owner-approved RLS policies | Local forced-RLS schema rehearsal passed, but applicant isolation and operator access remain unproven in the intended runtime |
 | No production telemetry/alerting or approved bulk-export policy | A durable adapter contract cannot establish operational detection or commercial policy without its host implementation |
 | No Matrix consent/data-minimization implementation | Sensitive applicant fields have no production privacy contract |
 | No ACTN/CAM/StoryForge production adapters | Cross-product privacy and authorization cannot be tested |
@@ -47,4 +49,4 @@ No applicant or private relationship data is present in the candidate, which min
 
 **Privacy verdict:** `NO_PRIVATE_DATA_EXPOSED_PRODUCTION_POLICY_AND_CONTROLS_ABSENT`
 
-The independent security re-audit found no remaining internal Critical or High issue in the implemented source, runtime, CAM, or proposed SQL foundation. That narrow pass does not clear the absent production controls above.
+The prior independent security re-audit found no remaining internal Critical or High issue in the implemented source, runtime, CAM, or registry SQL foundation. The later isolated-service and app/audit schema additions passed contract, audit, browser, stress, and disposable-PostgreSQL regression checks but have not received a new independent board review. That limitation and the absent production controls above keep the release blocked.
