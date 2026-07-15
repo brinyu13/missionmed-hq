@@ -72,6 +72,18 @@ v1_8010d_wp_expect( false !== $wpdb->query( 'ROLLBACK' ), 'outer transaction rol
 $still_absent = $inspector->inspect();
 v1_8010d_wp_expect( MMED_V1_Study_Schema_Inspector::STATE_ABSENT === $still_absent['state'], 'outer-transaction rejection leaves the kernel absent' );
 
+$lock_name = 'mmed_v1_8010d_' . substr( hash( 'sha256', $inspector->schema_name() . "\n" . $wpdb->prefix ), 0, 40 );
+v1_8010d_wp_expect( 1 === (int) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, 0)', $lock_name ) ), 'fixture acquires the installer lock once' );
+v1_8010d_wp_expect_error(
+	static function () use ( $wpdb, $store_id, $runner_a ) {
+		( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
+	},
+	'v1_migration_reentrant',
+	'migrator rejects recursive same-session advisory-lock acquisition'
+);
+v1_8010d_wp_expect( 1 === (int) $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) ), 'fixture releases its single installer-lock reference' );
+v1_8010d_wp_expect( null === $wpdb->get_var( $wpdb->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) ), 'recursive rejection does not increase advisory-lock depth' );
+
 $result = ( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
 v1_8010d_wp_expect( ! empty( $result['ok'] ) && 'ready' === $result['state'], 'explicit migration commissions generation 1' );
 $after = $inspector->inspect();

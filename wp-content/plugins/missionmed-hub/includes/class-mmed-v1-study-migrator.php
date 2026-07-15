@@ -28,9 +28,6 @@ final class MMED_V1_Study_Migrator {
 	/** @var int */
 	private $connection_id;
 
-	/** @var bool|null */
-	private $is_mariadb;
-
 	/**
 	 * @param object        $database WordPress database connection.
 	 * @param callable|null $failpoint Test-only deterministic failure callback.
@@ -42,11 +39,10 @@ final class MMED_V1_Study_Migrator {
 		if ( null !== $failpoint && ! is_callable( $failpoint ) ) {
 			throw new InvalidArgumentException( 'V1 migrator failpoint is invalid.' );
 		}
-		$this->database   = $database;
-		$this->inspector  = new MMED_V1_Study_Schema_Inspector( $database );
-		$this->failpoint  = $failpoint;
+		$this->database      = $database;
+		$this->inspector     = new MMED_V1_Study_Schema_Inspector( $database );
+		$this->failpoint     = $failpoint;
 		$this->connection_id = 0;
-		$this->is_mariadb = null;
 	}
 
 	/**
@@ -63,6 +59,12 @@ final class MMED_V1_Study_Migrator {
 
 		$this->connection_id = $this->current_connection_id();
 		$lock_name           = $this->lock_name();
+		$existing_owner      = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) );
+		if ( null !== $existing_owner ) {
+			throw new RuntimeException(
+				(int) $existing_owner === $this->connection_id ? 'v1_migration_reentrant' : 'v1_migration_busy'
+			);
+		}
 		$got_lock            = $this->database->get_var( $this->prepare( 'SELECT GET_LOCK(%s, 0)', $lock_name ) );
 		if ( 1 !== (int) $got_lock ) {
 			throw new RuntimeException( null === $got_lock ? 'v1_migration_lock_error' : 'v1_migration_busy' );
@@ -436,6 +438,10 @@ final class MMED_V1_Study_Migrator {
 		if ( 1 !== (int) $released ) {
 			throw new RuntimeException( 'v1_migration_lock_release_failed' );
 		}
+		$owner = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) );
+		if ( null !== $owner && (int) $owner === $this->connection_id ) {
+			throw new RuntimeException( 'v1_migration_lock_release_incomplete' );
+		}
 	}
 
 	/** @return void */
@@ -458,34 +464,16 @@ final class MMED_V1_Study_Migrator {
 
 	/** @return bool */
 	private function transaction_is_active() {
-		if ( $this->server_is_mariadb() ) {
-			$active = $this->database->get_var( 'SELECT @@SESSION.in_transaction' );
-			if ( null === $active ) {
-				throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
-			}
-			return 1 === (int) $active;
-		}
-
-		$sql    = 'SELECT COUNT(*) FROM performance_schema.events_transactions_current';
-		$sql   .= ' WHERE THREAD_ID = (SELECT THREAD_ID FROM performance_schema.threads WHERE PROCESSLIST_ID = CONNECTION_ID())';
-		$active = $this->database->get_var( $sql );
-		if ( null === $active ) {
+		$handle = isset( $this->database->dbh ) ? $this->database->dbh : null;
+		if ( ! is_object( $handle ) || ! property_exists( $handle, 'server_status' ) ) {
 			throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
 		}
-		return (int) $active > 0;
-	}
-
-	/** @return bool */
-	private function server_is_mariadb() {
-		if ( null !== $this->is_mariadb ) {
-			return $this->is_mariadb;
+		$status = $handle->server_status;
+		if ( ! is_int( $status ) ) {
+			throw new RuntimeException( 'v1_migration_transaction_probe_failed' );
 		}
-		$version = $this->database->get_var( 'SELECT VERSION()' );
-		if ( ! is_string( $version ) || '' === $version ) {
-			throw new RuntimeException( 'v1_database_server_identity_unavailable' );
-		}
-		$this->is_mariadb = false !== stripos( $version, 'mariadb' );
-		return $this->is_mariadb;
+		// MySQL/MariaDB protocol SERVER_STATUS_IN_TRANS bit.
+		return 0 !== ( $status & 0x0001 );
 	}
 
 	/** @return int */
