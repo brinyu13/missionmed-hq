@@ -27,26 +27,31 @@ final class MMED_V1_Study_Native_Session_Guard {
 			throw new RuntimeException( $error_code, 0, $error );
 		}
 		$handle = self::handle( $database, $connection_id, $error_code );
-		if ( true !== @mysqli_query( $handle, 'SAVEPOINT `' . $name . '`' ) ) {
+		$failure = null;
+		if ( true !== self::native_query( $handle, 'SAVEPOINT `' . $name . '`', $failure ) ) {
+			self::handle( $database, $connection_id, $error_code );
+			if ( 1305 === (int) ( $failure['errno'] ?? 0 ) && '42000' === (string) ( $failure['sqlstate'] ?? '' ) ) {
+				return false;
+			}
 			throw new RuntimeException( $error_code );
 		}
 		self::handle( $database, $connection_id, $error_code );
-		$rolled_back = @mysqli_query( $handle, 'ROLLBACK TO SAVEPOINT `' . $name . '`' );
+		$rolled_back = self::native_query( $handle, 'ROLLBACK TO SAVEPOINT `' . $name . '`', $failure );
 		if ( true === $rolled_back ) {
 			self::handle( $database, $connection_id, $error_code );
-			if ( true !== @mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' ) ) {
+			if ( true !== self::native_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`', $failure ) ) {
 				throw new RuntimeException( $error_code );
 			}
 			self::handle( $database, $connection_id, $error_code );
 			return true;
 		}
-		$errno    = (int) @mysqli_errno( $handle );
-		$sqlstate = (string) @mysqli_sqlstate( $handle );
+		$errno    = (int) ( $failure['errno'] ?? 0 );
+		$sqlstate = (string) ( $failure['sqlstate'] ?? '' );
 		self::handle( $database, $connection_id, $error_code );
 		if ( 1305 === $errno && '42000' === $sqlstate ) {
 			return false;
 		}
-		@mysqli_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`' );
+		self::native_query( $handle, 'RELEASE SAVEPOINT `' . $name . '`', $failure );
 		throw new RuntimeException( $error_code );
 	}
 
@@ -60,7 +65,8 @@ final class MMED_V1_Study_Native_Session_Guard {
 				throw new RuntimeException( 'v1_reader_temporary_shadow_probe_failed' );
 			}
 			$handle = self::handle( $database, $connection_id, 'v1_reader_temporary_shadow_probe_failed' );
-			$result = @mysqli_query( $handle, "SHOW CREATE TABLE `{$table_name}`" );
+			$failure = null;
+			$result = self::native_query( $handle, "SHOW CREATE TABLE `{$table_name}`", $failure );
 			if ( ! is_object( $result ) ) {
 				throw new RuntimeException( 'v1_reader_temporary_shadow_probe_failed' );
 			}
@@ -81,6 +87,25 @@ final class MMED_V1_Study_Native_Session_Guard {
 				throw new RuntimeException( 'v1_reader_temporary_shadow_detected' );
 			}
 		}
+	}
+
+	/** Normalize native query failures even when a caller enables strict MySQLi reporting. */
+	private static function native_query( $handle, $sql, &$failure ) {
+		$failure = array( 'errno' => 0, 'sqlstate' => '' );
+		try {
+			$result = @mysqli_query( $handle, $sql );
+		} catch ( Throwable $error ) {
+			$failure['errno'] = (int) $error->getCode();
+			$failure['sqlstate'] = method_exists( $error, 'getSqlState' )
+				? (string) $error->getSqlState()
+				: (string) @mysqli_sqlstate( $handle );
+			return false;
+		}
+		if ( false === $result ) {
+			$failure['errno'] = (int) @mysqli_errno( $handle );
+			$failure['sqlstate'] = (string) @mysqli_sqlstate( $handle );
+		}
+		return $result;
 	}
 
 	/** Return the exact mysqli handle bound to the pinned connection. */
