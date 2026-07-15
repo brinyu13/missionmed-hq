@@ -6,13 +6,14 @@ const htmlPath = new URL('../public/index.html', import.meta.url);
 const cssPath = new URL('../public/styles.css', import.meta.url);
 const appPath = new URL('../public/app.js', import.meta.url);
 
-test('review app exposes all twelve primary workflows', async () => {
+test('review app exposes all seventeen required workflows', async () => {
   const html = await readFile(htmlPath, 'utf8');
   const screens = [...html.matchAll(/data-screen="([a-z]+)"/gu)].map((match) => match[1]);
-  assert.equal(screens.length, 12);
+  assert.equal(screens.length, 17);
   assert.deepEqual(screens, [
-    'dashboard', 'inventory', 'transcript', 'triage', 'editor', 'evidence',
-    'editorial', 'physician', 'diff', 'search', 'release', 'incidents',
+    'dashboard', 'inventory', 'source', 'privacy', 'transcript', 'extraction',
+    'triage', 'editor', 'distractors', 'evidence', 'editorial', 'physician',
+    'diff', 'search', 'release', 'incidents', 'audit',
   ]);
 });
 
@@ -38,9 +39,32 @@ test('responsive, focus, reduced-motion, and non-color status rules exist', asyn
   assert.doesNotMatch(css, /linear-gradient|radial-gradient/);
 });
 
-test('navigation has explicit Enter and Space activation support', async () => {
+test('navigation uses native keyboard-activated buttons', async () => {
+  const html = await readFile(htmlPath, 'utf8');
+  const nav = html.match(/<nav id="primary-nav"[\s\S]*?<\/nav>/u)?.[0] || '';
+  const controls = [...nav.matchAll(/<button\b([^>]*)data-screen="([a-z]+)"([^>]*)>/gu)];
+  assert.equal(controls.length, 17);
+  for (const [, before, , after] of controls) {
+    assert.match(`${before}${after}`, /type="button"/u);
+    assert.doesNotMatch(`${before}${after}`, /tabindex="(?:-[^1]|[1-9])/u);
+  }
+});
+
+test('client declares every required operational state and privacy class', async () => {
   const app = await readFile(appPath, 'utf8');
-  assert.match(app, /addEventListener\('keydown'/u);
-  assert.match(app, /\['Enter', ' '\]\.includes\(event\.key\)/u);
-  assert.match(app, /button\.click\(\)/u);
+  for (const state of [
+    'loading', 'empty', 'blocked', 'unauthorized', 'error', 'partial-source',
+    'privacy-blocked', 'rights-blocked', 'expired-evidence', 'review-conflict',
+    'stale-edit', 'concurrent-edit', 'extraction-queued', 'extraction-running',
+    'extraction-failed', 'extraction-resumable',
+  ]) {
+    assert.match(app, new RegExp(`'${state}'`, 'u'));
+  }
+  for (const privacyClass of [
+    'NON_DRJ_SPEECH', 'STUDENT_NAME', 'STUDENT_OTHER_IDENTIFIER',
+    'PATIENT_DIRECT_IDENTIFIER', 'PATIENT_QUASI_IDENTIFIER',
+    'THIRD_PARTY_IDENTITY', 'IDENTIFYING_CLINICAL_ANECDOTE', 'SOURCE_METADATA',
+  ]) {
+    assert.match(app, new RegExp(`'${privacyClass}'`, 'u'));
+  }
 });
