@@ -803,9 +803,14 @@ v1_8010e_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'SET SESSION complet
 $driver = new mysqli_driver();
 $original_report_mode = $driver->report_mode;
 $driver->report_mode = MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT;
+$main_hits = array();
 $strict_replay = $service->execute( $create, $owner_id, $owner_id, 'learner', $changed_temporal );
 $driver->report_mode = $original_report_mode;
-v1_8010e_wp_expect( ! empty( $strict_replay['ok'] ) && true === $strict_replay['replayed'] && $first_result === $strict_replay['result'], 'native duplicate fence accepts only exact 1062/23000 under strict MySQLi reporting' );
+$strict_replay_last_hit = empty( $main_hits ) ? 'none' : (string) end( $main_hits );
+v1_8010e_wp_expect(
+	! empty( $strict_replay['ok'] ) && true === $strict_replay['replayed'] && $first_result === $strict_replay['result'],
+	'native duplicate fence accepts only exact 1062/23000 under strict MySQLi reporting; reason=' . (string) ( $strict_replay['reason_code'] ?? 'missing' ) . '; status=' . (string) ( $strict_replay['status'] ?? 'missing' ) . '; last=' . $strict_replay_last_hit
+);
 
 $shadow_owner = 8415;
 v1_8010e_wp_expect( false !== $wpdb->query( "CREATE TEMPORARY TABLE `{$kernel['operations']}` (v1_probe tinyint unsigned NOT NULL) ENGINE=InnoDB" ), 'fixture shadows one owned table on the command session' );
