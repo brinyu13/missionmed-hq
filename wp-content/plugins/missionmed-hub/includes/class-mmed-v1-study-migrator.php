@@ -174,11 +174,21 @@ final class MMED_V1_Study_Migrator {
 			}
 
 			$this->hit( 'before_migration_' . $version . '_ddl' );
-			if ( false === $this->database->query( $migration['sql'] ) ) {
+			try {
+				$this->query_required( $migration['sql'], 'v1_migration_ddl_failed' );
+			} catch ( Throwable $error ) {
+				$record_error = null;
 				if ( 1 !== $version ) {
-					$this->record_failed( $migration, $runner_id, 'ddl_failed' );
+					try {
+						$this->record_failed( $migration, $runner_id, 'ddl_failed' );
+					} catch ( Throwable $failure_error ) {
+						$record_error = $failure_error;
+					}
 				}
-				throw new RuntimeException( 'v1_migration_ddl_failed' );
+				if ( null !== $record_error ) {
+					throw new RuntimeException( $error->getMessage() . ';failure_record=' . $record_error->getMessage(), 0, $error );
+				}
+				throw $error;
 			}
 			$this->hit( 'after_migration_' . $version . '_ddl' );
 
@@ -722,18 +732,14 @@ final class MMED_V1_Study_Migrator {
 	/** @return void */
 	private function query_required( $sql, $error_code ) {
 		$this->verify_lock();
-		if ( false === $this->database->query( $sql ) ) {
-			throw new RuntimeException( $error_code );
-		}
+		$this->native_query_required( $sql, $error_code );
 		$this->verify_lock();
 	}
 
 	/** @return void */
 	private function query_exactly_one( $sql, $error_code ) {
 		$this->verify_lock();
-		if ( 1 !== (int) $this->database->query( $sql ) ) {
-			throw new RuntimeException( $error_code );
-		}
+		$this->native_query_exactly_one( $sql, $error_code );
 		$this->verify_lock();
 	}
 

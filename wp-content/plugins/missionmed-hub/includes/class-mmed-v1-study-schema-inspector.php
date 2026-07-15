@@ -311,7 +311,19 @@ final class MMED_V1_Study_Schema_Inspector {
 		}
 		ksort( $canonical_expected, SORT_STRING );
 		ksort( $actual, SORT_STRING );
-		return $canonical_expected === $actual ? array() : array( $table_name . ':check_set' );
+		if ( $canonical_expected === $actual ) {
+			return array();
+		}
+		$expected_json = json_encode( $canonical_expected, JSON_UNESCAPED_SLASHES );
+		$actual_json   = json_encode( $actual, JSON_UNESCAPED_SLASHES );
+		if ( ! is_string( $expected_json ) || ! is_string( $actual_json ) ) {
+			throw new RuntimeException( 'V1 CHECK diagnostic encoding failed.' );
+		}
+		return array(
+			$table_name . ':check_set',
+			$table_name . ':check_expected_b64:' . base64_encode( $expected_json ),
+			$table_name . ':check_actual_b64:' . base64_encode( $actual_json ),
+		);
 	}
 
 	/** Convert the limited kernel CHECK grammar into a precedence-explicit AST. @return string */
