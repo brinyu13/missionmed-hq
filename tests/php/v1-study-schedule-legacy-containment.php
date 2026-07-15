@@ -74,6 +74,7 @@ final class WP_REST_Request implements ArrayAccess {
 
 	public function set_header( string $key, string $value ): void {}
 	public function offsetExists( $offset ): bool { return isset( $this->params[ $offset ] ); }
+	#[\ReturnTypeWillChange]
 	public function offsetGet( $offset ) { return $this->params[ $offset ] ?? null; }
 	public function offsetSet( $offset, $value ): void { $this->params[ $offset ] = $value; }
 	public function offsetUnset( $offset ): void { unset( $this->params[ $offset ] ); }
@@ -219,6 +220,11 @@ expect_same( false, array_key_exists( 'meeting_url', $update_body ), 'Calendar-o
 expect_same( true, MMED_Calendar_Engine::$updated->get_param( '_mmed_strict_owner' ), 'admin fallback disabled' );
 expect_same( 'study_block', MMED_Calendar_Engine::$updated->get_param( '_mmed_required_event_type' ), 'atomic type constraint supplied' );
 $update_response = $updated->get_data();
+expect_same(
+	array( 'id', 'title', 'subject', 'notes', 'start_at', 'end_at', 'duration', 'status', 'completed', 'category' ),
+	array_keys( $update_response ),
+	'update response uses the exact Study allowlist'
+);
 expect_same( false, array_key_exists( 'event', $update_response ), 'update omits nested Calendar event' );
 expect_same( false, array_key_exists( 'user_id', $update_response ), 'update omits Calendar owner' );
 expect_same( false, array_key_exists( 'meeting_url', $update_response ), 'update omits Calendar meeting data' );
@@ -244,11 +250,21 @@ expect_same( 201, $created->status, 'legacy Study create delegated' );
 expect_same( 'private', $create_body['audience'] ?? null, 'legacy Study create is explicitly private' );
 expect_same( 'study_block', $create_body['event_type'] ?? null, 'legacy Study create fixes type' );
 $create_response = $created->get_data();
+expect_same(
+	array( 'id', 'title', 'subject', 'notes', 'start_at', 'end_at', 'duration', 'status', 'completed', 'category' ),
+	array_keys( $create_response ),
+	'create response uses the exact Study allowlist'
+);
 expect_same( false, array_key_exists( 'user_id', $create_response ), 'create omits Calendar owner' );
 expect_same( false, array_key_exists( 'source_id', $create_response ), 'create omits Calendar source identity' );
 expect_same( false, array_key_exists( 'meta', $create_response ), 'create omits internal metadata' );
 
 $formatted = MMED_Study_Schedule::format_block( MMED_Calendar_Engine::$events[10] );
+expect_same(
+	array( 'id', 'title', 'subject', 'notes', 'start_at', 'end_at', 'duration', 'status', 'completed', 'category' ),
+	array_keys( $formatted ),
+	'GET response uses the exact Study allowlist'
+);
 expect_same( false, array_key_exists( 'event', $formatted ), 'GET block omits nested Calendar event' );
 expect_same( false, array_key_exists( 'user_id', $formatted ), 'GET block omits Calendar owner' );
 expect_same( false, array_key_exists( 'mentor_hint', $formatted ), 'GET block omits internal metadata keys' );
