@@ -131,6 +131,71 @@ export const STAT_DATASET_FIELDS = Object.freeze([
   'explanation',
 ]);
 
+export const STAT_CHANNEL_CONTRACTS = Object.freeze({
+  stat_dataset_questions: Object.freeze({ phase: 'server_only', data_class: 'server_only' }),
+  stat_pre_answer: Object.freeze({ phase: 'pre_answer', data_class: 'A' }),
+  stat_post_answer_debrief: Object.freeze({ phase: 'post_answer', data_class: 'C' }),
+  stat_indexes: Object.freeze({ phase: 'pre_answer', data_class: 'A' }),
+  stat_lookup: Object.freeze({ phase: 'pre_answer', data_class: 'A' }),
+  question_metadata: Object.freeze({ phase: 'server_only', data_class: 'D' }),
+  drills: Object.freeze({ phase: 'internal', data_class: 'internal' }),
+});
+
+export const CLASS_A_CHANNELS = Object.freeze([
+  'stat_pre_answer',
+  'stat_indexes',
+  'stat_lookup',
+]);
+
+export const CLASS_A_FORBIDDEN_KEY_TOKENS = Object.freeze([
+  'answer',
+  'answers',
+  'correct',
+  'correctness',
+  'explanation',
+  'explanations',
+  'rationale',
+  'rationales',
+  'solution',
+  'solutions',
+]);
+
+export const CLASS_A_FORBIDDEN_EXACT_KEYS = Object.freeze([
+  'answer_map',
+  'answer_key',
+  'correct_answer',
+  'correct_answer_rationale',
+  'correct_choice',
+  'correct_choice_key',
+  'correct_key',
+  'correct_option',
+  'distractor_rationale',
+  'distractor_rationales',
+  'is_correct',
+  'solution_key',
+  'why_tempting',
+  'why_wrong',
+]);
+
+export const DRILLS_ADAPTER_VERSION = 'i1q.drills.adapter.v1';
+
+export const SOURCE_AVAILABILITY_STATES = Object.freeze([
+  'available',
+  'missing',
+  'restricted',
+  'invalid',
+  'unknown',
+]);
+
+export const DRILLS_ALLOWED_RIGHTS_STATES = Object.freeze([
+  'cleared_for',
+]);
+
+export const DRILLS_ALLOWED_PRIVACY_STATES = Object.freeze([
+  'pass',
+  'pass_with_redactions',
+]);
+
 export const CHANNELS = Object.freeze([
   'stat_dataset_questions',
   'stat_pre_answer',
@@ -202,12 +267,29 @@ export const ID_PREFIXES = Object.freeze({
 
 export const SENSITIVE_FIELDS = Object.freeze(new Set([
   'answer',
+  'answers',
+  'answer_map',
   'answer_key',
   'answerKey',
   'correctAnswer',
   'correct_answer',
+  'correct_answer_rationale',
+  'correct_choice',
+  'correct_choice_key',
+  'correct_key',
   'correct_option',
+  'correctness',
+  'distractor_rationale',
+  'distractor_rationales',
+  'explanation',
+  'explanations',
+  'is_correct',
+  'rationale',
+  'rationales',
   'solution',
+  'solutions',
+  'why_tempting',
+  'why_wrong',
   'raw_text',
   'raw_transcript',
   'private_source_url',

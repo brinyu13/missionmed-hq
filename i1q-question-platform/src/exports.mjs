@@ -1,5 +1,37 @@
-import { CHANNELS, STAT_DATASET_FIELDS } from './contracts.mjs';
+import {
+  CHANNELS,
+  STAT_CHANNEL_CONTRACTS,
+} from './contracts.mjs';
+import {
+  assertClassAArtifact,
+  scanClassASecrets,
+  validateClassAArtifact,
+} from './adapters/class-a.mjs';
+import { projectDrillsAdapter, validateDailyRegistryRow } from './adapters/drills-v1.mjs';
+import {
+  assertExactStatDatasetQuestion,
+  assertPostAnswerAccess,
+  assertUniqueCompositeIdentities,
+  buildCompositeIndexes,
+  buildCompositeLookup,
+  buildReleaseMembership,
+  compositeQuestionIdentity,
+  createHistoricalJoinIdentity,
+  prepareStatRelease,
+} from './adapters/stat-v1.mjs';
 import { canonicalJson, sha256 } from './hash.mjs';
+
+export {
+  assertClassAArtifact,
+  assertExactStatDatasetQuestion,
+  assertPostAnswerAccess,
+  assertUniqueCompositeIdentities,
+  compositeQuestionIdentity,
+  createHistoricalJoinIdentity,
+  projectDrillsAdapter,
+  validateClassAArtifact,
+  validateDailyRegistryRow,
+};
 
 function assertFourChoices(revision) {
   if (!Array.isArray(revision.choices) || revision.choices.length !== 4) {
@@ -24,10 +56,7 @@ export function projectStatDatasetQuestion({ revision, datasetVersion, questionI
     answer: revision.answer,
     explanation: revision.explanation,
   };
-  if (Object.keys(row).join(',') !== STAT_DATASET_FIELDS.join(',')) {
-    throw new Error('stat_projection_field_drift');
-  }
-  return row;
+  return assertExactStatDatasetQuestion(row);
 }
 
 export function projectStatPreAnswer(row) {
@@ -59,19 +88,20 @@ export function projectStatDebrief(row, revision) {
 
 export function projectQuestionMetadata({ revision, questionId, datasetVersion }) {
   return {
+    dataset_version: datasetVersion,
     question_id: questionId,
     topic: revision.topic,
     subtopic: revision.subtopic || null,
     concept_id: revision.concept_id,
     source: 'I1Q',
-    dataset_version: datasetVersion,
   };
 }
 
-function artifact(channel, phase, payload) {
+function artifact(channel, phase, dataClass, payload) {
   return {
     channel,
     phase,
+    data_class: dataClass,
     payload,
     media_type: 'application/json',
     sha256: sha256(canonicalJson(payload)),
@@ -79,65 +109,59 @@ function artifact(channel, phase, payload) {
   };
 }
 
+function governedArtifact(channel, payload) {
+  const contract = STAT_CHANNEL_CONTRACTS[channel];
+  if (!contract) throw new Error(`channel_contract_required:${channel}`);
+  return artifact(channel, contract.phase, contract.data_class, payload);
+}
+
 export function buildReleaseArtifacts({ releaseId, datasetVersion, revisions, previousManifestHash = null }) {
-  const ordered = [...revisions].sort((a, b) => a.id.localeCompare(b.id));
-  const datasetRows = ordered.map((revision, index) => projectStatDatasetQuestion({
-    revision,
-    datasetVersion,
-    questionId: revision.export_question_id || `I1Q-${String(index + 1).padStart(6, '0')}`,
+  const entries = prepareStatRelease({ datasetVersion, revisions });
+  const datasetRows = entries.map((entry) => projectStatDatasetQuestion({
+    revision: entry.revision,
+    datasetVersion: entry.dataset_version,
+    questionId: entry.question_id,
   }));
   const preAnswer = datasetRows.map(projectStatPreAnswer);
-  const debrief = datasetRows.map((row, index) => projectStatDebrief(row, ordered[index]));
+  const debrief = datasetRows.map((row, index) => projectStatDebrief(row, entries[index].revision));
   const metadata = datasetRows.map((row, index) => projectQuestionMetadata({
-    revision: ordered[index],
+    revision: entries[index].revision,
     questionId: row.question_id,
-    datasetVersion,
+    datasetVersion: row.dataset_version,
   }));
-  const lookup = Object.fromEntries(datasetRows.map((row) => [row.question_id, {
-    dataset_version: row.dataset_version,
-    ordinal: datasetRows.indexOf(row),
-  }]));
-  const indexes = {
-    by_topic: metadata.reduce((acc, row) => {
-      acc[row.topic] ||= [];
-      acc[row.topic].push(row.question_id);
-      return acc;
-    }, {}),
-    by_concept: metadata.reduce((acc, row) => {
-      acc[row.concept_id] ||= [];
-      acc[row.concept_id].push(row.question_id);
-      return acc;
-    }, {}),
-  };
+  const lookup = buildCompositeLookup(entries);
+  const indexes = buildCompositeIndexes(metadata);
+  const drills = entries.map(({ revision }) => projectDrillsAdapter({ revision, releaseId }));
+  const releaseMembership = buildReleaseMembership(entries);
+
+  assertClassAArtifact('stat_pre_answer', preAnswer);
+  assertClassAArtifact('stat_indexes', indexes);
+  assertClassAArtifact('stat_lookup', lookup);
 
   const artifacts = [
-    artifact('stat_dataset_questions', 'server_only', datasetRows),
-    artifact('stat_pre_answer', 'pre_answer', preAnswer),
-    artifact('stat_post_answer_debrief', 'post_answer', debrief),
-    artifact('stat_indexes', 'pre_answer', indexes),
-    artifact('stat_lookup', 'pre_answer', lookup),
-    artifact('question_metadata', 'server_only', metadata),
-    artifact('drills', 'internal', ordered.map((revision) => ({
-      item_revision_id: revision.id,
-      prompt: revision.prompt,
-      concept_id: revision.concept_id,
-      source_ids: revision.source_ids,
-      review_status: 'approved',
-    }))),
+    governedArtifact('stat_dataset_questions', datasetRows),
+    governedArtifact('stat_pre_answer', preAnswer),
+    governedArtifact('stat_post_answer_debrief', debrief),
+    governedArtifact('stat_indexes', indexes),
+    governedArtifact('stat_lookup', lookup),
+    governedArtifact('question_metadata', metadata),
+    governedArtifact('drills', drills),
   ];
 
   const futureChannels = CHANNELS.filter((channel) => !artifacts.some((entry) => entry.channel === channel));
   for (const channel of futureChannels) {
-    artifacts.push(artifact(channel, 'contract_only', []));
+    artifacts.push(artifact(channel, 'contract_only', 'contract_only', []));
   }
 
   const manifestPayload = {
     release_id: releaseId,
     dataset_version: datasetVersion,
     previous_manifest_hash: previousManifestHash,
-    artifact_hashes: artifacts.map(({ channel, phase, sha256: artifactHash, record_count: recordCount }) => ({
+    release_membership: releaseMembership,
+    artifact_hashes: artifacts.map(({ channel, phase, data_class: dataClass, sha256: artifactHash, record_count: recordCount }) => ({
       channel,
       phase,
+      data_class: dataClass,
       sha256: artifactHash,
       record_count: recordCount,
     })),
@@ -152,24 +176,5 @@ export function buildReleaseArtifacts({ releaseId, datasetVersion, revisions, pr
 }
 
 export function scanForAnswerLeak(value, path = '$') {
-  const findings = [];
-  const forbidden = /^(answer|answer_key|answerKey|correctAnswer|correct_answer|correct_option|solution)$/u;
-  const walk = (current, currentPath) => {
-    if (Array.isArray(current)) {
-      current.forEach((entry, index) => walk(entry, `${currentPath}[${index}]`));
-      return;
-    }
-    if (!current || typeof current !== 'object') {
-      return;
-    }
-    for (const [key, entry] of Object.entries(current)) {
-      const nextPath = `${currentPath}.${key}`;
-      if (forbidden.test(key)) {
-        findings.push(nextPath);
-      }
-      walk(entry, nextPath);
-    }
-  };
-  walk(value, path);
-  return findings;
+  return scanClassASecrets(value, path);
 }
