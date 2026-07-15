@@ -20,6 +20,7 @@ final class MMED_V1_Study_Reader_Corruption extends RuntimeException {}
 final class MMED_V1_Study_Week_Current_Reader {
 
 	const MAX_SNAPSHOT_BYTES = 2097152;
+	const MAX_RECEIPT_BYTES = 262144;
 
 	/** @var object */
 	private $database;
@@ -127,6 +128,7 @@ final class MMED_V1_Study_Week_Current_Reader {
 			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_plan_shape_invalid' );
 		}
 		$plan_id = $this->uuid_from_hex( $plan['plan_hex'] ?? null );
+		$this->assert_current_receipt( $owner_id, $plan, $revision );
 
 		$week_sql  = 'SELECT CAST(owner_id AS CHAR) AS owner_id, LOWER(HEX(plan_id)) AS plan_hex, LOWER(HEX(week_id)) AS week_hex,';
 		$week_sql .= ' week_start_local, timezone, profile_version, tzdb_version, temporal_policy_version,';
@@ -255,6 +257,93 @@ final class MMED_V1_Study_Week_Current_Reader {
 			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_snapshot_mismatch' );
 		}
 		return array( 'ok' => true, 'reason_code' => 'ok', 'plan' => $snapshot );
+	}
+
+	/**
+	 * Prove both immutable cutover watermark and latest-revision receipts.
+	 * Both lookups run inside the same consistent snapshot as the Plan read.
+	 *
+	 * @return void
+	 */
+	private function assert_current_receipt( $owner_id, $plan, $revision ) {
+		$watermark = $this->receipt_rows(
+			'operation_id = UNHEX(%s)',
+			array( $plan['watermark_hex'] )
+		);
+		$current = $this->receipt_rows(
+			'owner_id = %d AND plan_id = UNHEX(%s) AND revision = %s',
+			array( $owner_id, $plan['plan_hex'], $revision )
+		);
+		if ( 1 !== count( $watermark ) || 1 !== count( $current ) ) {
+			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_receipt_missing' );
+		}
+		$watermark = $watermark[0];
+		$current = $current[0];
+		$this->assert_receipt_shape( $watermark, $owner_id, $plan['plan_hex'] );
+		$this->assert_receipt_shape( $current, $owner_id, $plan['plan_hex'] );
+		if (
+			(string) $plan['watermark_hex'] !== (string) $watermark['operation_hex']
+			|| '1' !== MMED_V1_Study_Week_Domain::decimal_revision( $watermark['revision'] )
+			|| '0' !== MMED_V1_Study_Week_Domain::decimal_revision( $watermark['expected_revision'] )
+			|| (string) $plan['watermark_at'] !== (string) $watermark['committed_at']
+			|| $revision !== MMED_V1_Study_Week_Domain::decimal_revision( $current['revision'] )
+			|| $revision !== MMED_V1_Study_Week_Domain::increment_revision( $current['expected_revision'] )
+			|| ! hash_equals( (string) $plan['plan_hash_hex'], (string) $current['plan_hash_hex'] )
+			|| strcmp( (string) $current['committed_at'], (string) $plan['watermark_at'] ) < 0
+			|| ( '1' === $revision && (string) $watermark['operation_hex'] !== (string) $current['operation_hex'] )
+		) {
+			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_receipt_invalid' );
+		}
+	}
+
+	/** @return array */
+	private function receipt_rows( $where, $arguments ) {
+		$tables = MMED_V1_Study_Schema::table_names( $this->database );
+		$sql  = 'SELECT LOWER(HEX(operation_id)) AS operation_hex, CAST(owner_id AS CHAR) AS owner_id,';
+		$sql .= ' LOWER(HEX(plan_id)) AS plan_hex, CAST(revision AS CHAR) AS revision,';
+		$sql .= ' CAST(expected_revision AS CHAR) AS expected_revision, OCTET_LENGTH(idempotency_key) AS idempotency_bytes,';
+		$sql .= ' OCTET_LENGTH(request_json) AS request_bytes, LOWER(HEX(request_hash)) AS request_hash_hex,';
+		$sql .= ' LOWER(SHA2(request_json, 256)) AS request_actual_hash_hex, CAST(actor_id AS CHAR) AS actor_id,';
+		$sql .= ' actor_kind, action, CAST(store_generation AS CHAR) AS store_generation, schema_version,';
+		$sql .= ' LOWER(HEX(plan_hash)) AS plan_hash_hex, CAST(result_status AS CHAR) AS result_status,';
+		$sql .= ' OCTET_LENGTH(result_json) AS result_bytes, LOWER(HEX(result_hash)) AS result_hash_hex,';
+		$sql .= ' LOWER(SHA2(result_json, 256)) AS result_actual_hash_hex, committed_at';
+		$sql .= " FROM `{$tables['operations']}` WHERE {$where} LIMIT 2";
+		return $this->rows( $this->prepare( $sql, ...$arguments ) );
+	}
+
+	/** @return void */
+	private function assert_receipt_shape( $receipt, $owner_id, $plan_hex ) {
+		$this->uuid_from_hex( $receipt['operation_hex'] ?? null );
+		$request_bytes = isset( $receipt['request_bytes'] ) && is_numeric( $receipt['request_bytes'] ) ? (int) $receipt['request_bytes'] : 0;
+		$result_bytes = isset( $receipt['result_bytes'] ) && is_numeric( $receipt['result_bytes'] ) ? (int) $receipt['result_bytes'] : 0;
+		$result_status = isset( $receipt['result_status'] ) && is_numeric( $receipt['result_status'] ) ? (int) $receipt['result_status'] : 0;
+		if (
+			(string) $owner_id !== (string) ( $receipt['owner_id'] ?? '' )
+			|| (string) $plan_hex !== (string) ( $receipt['plan_hex'] ?? '' )
+			|| (int) ( $receipt['idempotency_bytes'] ?? 0 ) < 16
+			|| (int) ( $receipt['idempotency_bytes'] ?? 0 ) > 64
+			|| $request_bytes <= 0
+			|| $request_bytes > self::MAX_RECEIPT_BYTES
+			|| $result_bytes <= 0
+			|| $result_bytes > self::MAX_RECEIPT_BYTES
+			|| ! is_string( $receipt['request_hash_hex'] ?? null )
+			|| ! hash_equals( $receipt['request_hash_hex'], (string) ( $receipt['request_actual_hash_hex'] ?? '' ) )
+			|| ! is_string( $receipt['result_hash_hex'] ?? null )
+			|| ! hash_equals( $receipt['result_hash_hex'], (string) ( $receipt['result_actual_hash_hex'] ?? '' ) )
+			|| (int) ( $receipt['actor_id'] ?? 0 ) <= 0
+			|| '' === (string) ( $receipt['actor_kind'] ?? '' )
+			|| '' === (string) ( $receipt['action'] ?? '' )
+			|| '2' !== (string) ( $receipt['store_generation'] ?? '' )
+			|| MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $receipt['schema_version'] ?? '' )
+			|| 1 !== preg_match( '/^[a-f0-9]{64}$/D', (string) ( $receipt['plan_hash_hex'] ?? '' ) )
+			|| $result_status < 200
+			|| $result_status > 299
+			|| ! is_string( $receipt['committed_at'] ?? null )
+			|| '' === $receipt['committed_at']
+		) {
+			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_receipt_invalid' );
+		}
 	}
 
 	/** @return mixed */

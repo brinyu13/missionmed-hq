@@ -132,6 +132,34 @@ $plan_json = MMED_V1_Study_Week_Domain::canonical_json( $snapshot );
 $plan_hash = hash( 'sha256', $plan_json );
 $plan_sql = "INSERT INTO `{$kernel['plans']}` (owner_id, plan_id, store_generation, schema_version, current_revision, watermark_operation_id, watermark_at, plan_json, plan_hash, created_at, updated_at) VALUES (%d, UNHEX(%s), 2, %s, 1, UNHEX(%s), %s, %s, UNHEX(%s), %s, %s)";
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $plan_sql, array( $owner_id, v1_8010e_wp_uuid_hex( $plan_id ), '2', v1_8010e_wp_uuid_hex( $watermark_id ), $now, $plan_json, $plan_hash, $now, $now ) ) ), 'synthetic generation-2 Plan snapshot inserts' );
+$request_json = '{"action":"synthetic_seed","expected_revision":"0"}';
+$result_json = '{"revision":"1"}';
+$receipt_sql = "INSERT INTO `{$kernel['operations']}` (operation_id, owner_id, plan_id, revision, expected_revision, idempotency_key, request_json, request_hash, actor_id, actor_kind, action, store_generation, schema_version, plan_hash, result_status, result_json, result_hash, committed_at) VALUES (UNHEX(%s), %d, UNHEX(%s), 1, 0, %s, %s, UNHEX(%s), %d, %s, %s, 2, %s, UNHEX(%s), 200, %s, UNHEX(%s), %s)";
+$insert_receipt = function () use ( $wpdb, $receipt_sql, $watermark_id, $owner_id, $plan_id, $request_json, $result_json, $plan_hash, $now ) {
+	return $wpdb->query(
+		v1_8010e_wp_prepare(
+			$wpdb,
+			$receipt_sql,
+			array(
+				v1_8010e_wp_uuid_hex( $watermark_id ),
+				$owner_id,
+				v1_8010e_wp_uuid_hex( $plan_id ),
+				'8010e-e1-seed-01',
+				$request_json,
+				hash( 'sha256', $request_json ),
+				$owner_id,
+				'learner',
+				'synthetic_seed',
+				'2',
+				$plan_hash,
+				$result_json,
+				hash( 'sha256', $result_json ),
+				$now,
+			)
+		)
+	);
+};
+v1_8010e_wp_expect( 1 === (int) $insert_receipt(), 'synthetic generation-2 watermark receipt inserts' );
 $week_sql = "INSERT INTO `{$week_tables['weeks']}` (owner_id, plan_id, week_id, week_start_local, timezone, profile_version, tzdb_version, temporal_policy_version, temporal_context_hash, created_revision, updated_revision, created_at, updated_at) VALUES (%d, UNHEX(%s), UNHEX(%s), %s, %s, %s, %s, %s, UNHEX(%s), 1, 1, %s, %s)";
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $week_sql, array( $owner_id, v1_8010e_wp_uuid_hex( $plan_id ), v1_8010e_wp_uuid_hex( $week_id ), $week_start, $timezone, $profile, $tzdb, MMED_V1_Study_Week_Domain::TEMPORAL_POLICY_VERSION, $envelope['context'], $now, $now ) ) ), 'synthetic normalized Week inserts' );
 $block_row = array(
@@ -183,6 +211,19 @@ v1_8010e_wp_expect(
 v1_8010e_wp_expect( MMED_V1_Study_Domain::TRUTH_PRESENT === $repository->cutover_provenance( $owner_id )['state'], 'hash-verified Plan is positive cutover truth' );
 v1_8010e_wp_expect( 'dependency_unavailable' === $repository->load( $owner_id, '1' )['reason_code'], 'unimplemented reader 1 fails closed' );
 
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "DELETE FROM `{$kernel['operations']}` WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture removes the watermark receipt' );
+v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'orphan watermark fails content-free' );
+v1_8010e_wp_expect( 1 === (int) $insert_receipt(), 'fixture restores the watermark receipt' );
+
+$bad_receipt_hash = str_repeat( 'f', 64 );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET plan_hash = UNHEX('{$bad_receipt_hash}') WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture corrupts receipt Plan hash binding' );
+v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'receipt Plan hash mismatch fails content-free' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET plan_hash = UNHEX('{$plan_hash}') WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture restores receipt Plan hash binding' );
+
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET committed_at = '2026-07-15 12:00:01.000000' WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture drifts receipt commit watermark' );
+v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'receipt commit watermark mismatch fails content-free' );
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['operations']}` SET committed_at = '{$now}' WHERE operation_id = UNHEX('" . v1_8010e_wp_uuid_hex( $watermark_id ) . "')" ), 'fixture restores receipt commit watermark' );
+
 $bad_hash = str_repeat( '0', 64 );
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( "UPDATE `{$kernel['plans']}` SET plan_hash = UNHEX('{$bad_hash}') WHERE owner_id = {$owner_id}" ), 'fixture corrupts Plan hash' );
 v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reason_code'], 'hash corruption fails content-free' );
@@ -207,6 +248,47 @@ v1_8010e_wp_expect( 'plan_corrupt' === $repository->load( $owner_id, '2' )['reas
 $restore_temporal_sql = "UPDATE `{$week_tables['blocks']}` SET timezone = %s, profile_version = %s, temporal_context_hash = UNHEX(%s), start_at_utc = %s, end_at_utc = %s WHERE owner_id = %d";
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $restore_temporal_sql, array( $timezone, $profile, $envelope['context'], $slot['start_at_utc'], $slot['end_at_utc'], $owner_id ) ) ), 'fixture restores Week-bound temporal envelope' );
 v1_8010e_wp_expect( ! empty( $repository->load( $owner_id, '2' )['ok'] ), 'restored normalized snapshot reads successfully' );
+
+$operation_2 = '8010e100-0000-4000-8000-000000000014';
+$now_2 = '2026-07-15 12:01:00.000000';
+$week_dto_v2 = $week_dto;
+$week_dto_v2['plan_revision'] = '2';
+$week_model_v2 = MMED_V1_Study_Week_Domain::week_model_from_repository_rows( $owner_id, $week_dto_v2, array( $block_dto ) );
+$snapshot_v2 = array( 'plan_id' => $plan_id, 'revision' => '2', 'schema_version' => '2', 'weeks' => array( $week_model_v2 ) );
+$plan_json_v2 = MMED_V1_Study_Week_Domain::canonical_json( $snapshot_v2 );
+$plan_hash_v2 = hash( 'sha256', $plan_json_v2 );
+$advance_plan_sql = "UPDATE `{$kernel['plans']}` SET current_revision = 2, plan_json = %s, plan_hash = UNHEX(%s), updated_at = %s WHERE owner_id = %d AND current_revision = 1";
+v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_prepare( $wpdb, $advance_plan_sql, array( $plan_json_v2, $plan_hash_v2, $now_2, $owner_id ) ) ), 'fixture advances Plan while preserving the immutable cutover watermark' );
+$request_json_v2 = '{"action":"synthetic_update","expected_revision":"1"}';
+$result_json_v2 = '{"revision":"2"}';
+$receipt_v2_sql = "INSERT INTO `{$kernel['operations']}` (operation_id, owner_id, plan_id, revision, expected_revision, idempotency_key, request_json, request_hash, actor_id, actor_kind, action, store_generation, schema_version, plan_hash, result_status, result_json, result_hash, committed_at) VALUES (UNHEX(%s), %d, UNHEX(%s), 2, 1, %s, %s, UNHEX(%s), %d, %s, %s, 2, %s, UNHEX(%s), 200, %s, UNHEX(%s), %s)";
+v1_8010e_wp_expect(
+	1 === (int) $wpdb->query(
+		v1_8010e_wp_prepare(
+			$wpdb,
+			$receipt_v2_sql,
+			array(
+				v1_8010e_wp_uuid_hex( $operation_2 ),
+				$owner_id,
+				v1_8010e_wp_uuid_hex( $plan_id ),
+				'8010e-e1-update-2',
+				$request_json_v2,
+				hash( 'sha256', $request_json_v2 ),
+				$owner_id,
+				'learner',
+				'synthetic_update',
+				'2',
+				$plan_hash_v2,
+				$result_json_v2,
+				hash( 'sha256', $result_json_v2 ),
+				$now_2,
+			)
+		)
+	),
+	'fixture inserts the distinct current-revision receipt'
+);
+$loaded_v2 = $repository->load( $owner_id, '2' );
+v1_8010e_wp_expect( ! empty( $loaded_v2['ok'] ) && $snapshot_v2 === $loaded_v2['plan'], 'revision 2 reads through distinct immutable-watermark and current receipts' );
 
 list( $unowned_store ) = v1_8010e_e1_commission_parent( $wpdb, 'v1e1unowned_', 1 );
 $unowned_migration = MMED_V1_Study_Week_Schema::migrations( $wpdb )[0];
