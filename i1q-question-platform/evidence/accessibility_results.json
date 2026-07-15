@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-07-14T01:17:48.747Z",
-  "status": "pass_automated_and_browser_heuristics",
+  "generated_at": "2026-07-15T14:33:50.795Z",
+  "status": "BLOCKED_NOT_RUN",
   "standard_target": "WCAG 2.2 AA",
   "results": {
     "one_h1": true,
@@ -14,5 +14,5 @@
     "warning_banner_contrast_ratio": 8.98,
     "active_navigation_contrast_ratio": 10.05
   },
-  "external_human_gap": "Screen-reader and assistive-technology validation by a human remains required before production."
+  "external_human_gap": "Real browser, screen-reader, assistive-technology, zoom, reflow, and human validation were not available."
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-14T01:17:48.747Z",
+  "generated_at": "2026-07-15T14:33:50.795Z",
   "status": "NO_RELEVANT_I1Q_RECORD_FOUND",
   "read_only_queries": [
     {
@@ -13,5 +13,6 @@
     }
   ],
   "files_opened": 0,
-  "files_modified": 0
+  "files_modified": 0,
+  "classification": "DISCOVERY_ONLY"
 }

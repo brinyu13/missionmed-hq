@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 const APP_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKTREE = dirname(APP_ROOT);
-const ROOT = join(WORKTREE, '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD');
-const COMBINED_NAME = 'I1Q_1006_COMBINED_HANDOFF.md';
+const ROOT = join(WORKTREE, '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT');
+const COMBINED_NAME = 'I1Q_1007X_COMBINED_HANDOFF.md';
 const COMBINED_PATH = join(ROOT, COMBINED_NAME);
 const VALIDATION_PATH = join(ROOT, 'evidence/combined_handoff_validation.json');
 

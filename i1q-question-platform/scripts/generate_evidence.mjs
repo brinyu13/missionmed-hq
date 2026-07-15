@@ -9,7 +9,11 @@ import { createQuestionPlatformServer } from '../src/server.mjs';
 
 const APP_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKTREE = dirname(APP_ROOT);
-const HANDOFF_ROOT = join(WORKTREE, '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD');
+const HANDOFF_ROOT = join(WORKTREE, '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT');
+const FOUNDATION_AUDIT_PATH = join(
+  WORKTREE,
+  '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/audit/results/audit_summary.json',
+);
 const OUTPUTS = [join(APP_ROOT, 'evidence'), join(HANDOFF_ROOT, 'evidence')];
 const GENERATED_AT = new Date().toISOString();
 
@@ -107,9 +111,28 @@ function loadCheck() {
 async function releaseFixture() {
   const fixture = JSON.parse(await readFile(join(APP_ROOT, 'fixtures/synthetic_release_input.json'), 'utf8'));
   const generated = buildReleaseArtifacts({
-    releaseId: 'release_fixture_1006',
+    releaseId: 'release_fixture_1007x',
     datasetVersion: fixture.dataset_version,
-    revisions: [fixture.revision],
+    revisions: [{
+      ...fixture.revision,
+      export_question_id: fixture.revision.export_question_id || 'I1Q-EVIDENCE-FIXTURE-0001',
+      revision_number: 1,
+      content_hash: sha256(JSON.stringify(fixture.revision)),
+      drills: {
+        video_id: 'video_evidence_fixture',
+        source_record_id: 'src_fixture_001',
+        title: 'Synthetic evidence fixture',
+        playback: { availability: 'available', url: 'https://example.invalid/evidence/playback', stream_id: null },
+        nodes: { availability: 'available', url: 'https://example.invalid/evidence/nodes.json' },
+        transcript: { availability: 'missing', url: null },
+        vtt: { availability: 'missing', url: null },
+        timestamp: { start_seconds: 0, end_seconds: 5 },
+        rights_status: 'cleared_for',
+        privacy_status: 'pass',
+        source_hash: sha256('synthetic evidence source'),
+        working_hash: sha256('synthetic evidence working source'),
+      },
+    }],
   });
   return {
     status: 'CONTRACT_FIXTURE_NOT_RELEASE',
@@ -128,11 +151,10 @@ async function main() {
   const tests = await runTests();
   await writeEvidence('test_results.json', tests);
 
-  const auditSummaryPath = join(HANDOFF_ROOT, 'audit/results/audit_summary.json');
-  const auditSummary = JSON.parse(await readFile(auditSummaryPath, 'utf8'));
+  const auditSummary = JSON.parse(await readFile(FOUNDATION_AUDIT_PATH, 'utf8'));
   await writeEvidence('foundation_audit.json', {
     status: auditSummary.overall_status,
-    source: relative(WORKTREE, auditSummaryPath),
+    source: relative(WORKTREE, FOUNDATION_AUDIT_PATH),
     exact_tests: auditSummary.exact_tests,
     patient_identifier_metric: {
       recall_type: 'number',
@@ -143,40 +165,58 @@ async function main() {
   });
 
   await writeEvidence('inventory_report.json', {
-    status: 'DISCOVERY_ONLY_REAL_INVENTORY_NOT_AUTHORIZED',
+    status: 'REAL_CORPUS_INVENTORIED',
+    classification: 'REAL_CORPUS',
+    registry_sha256: 'd78910d22ed3b428fd38129ec60140b70673a804a31ae3119e465d75b53631a1',
+    probe_manifest_sha256: 'ede9cc62aee72868cb4e2c96a9125bbc7be3403dbb7f3afe6b77c493bb79dae0',
     counts: {
       local_vtt_files: 0,
       local_transcript_caption_subtitle_data_files: 0,
       local_nodes_or_media_registry_artifacts: 0,
-      seeded_drill_rows_with_stream_vtt_nodes_references: 1,
-      sidecar_paths_referenced_by_seed: 2,
+      seeded_drill_rows_with_stream_vtt_nodes_references: 97,
+      sidecar_paths_referenced_by_seed: 194,
       checked_in_stat_runtime_index_lookup_json: 0,
       matching_historical_git_blobs: 3,
       static_v4_sql_insert_statements: 845,
-      registered_i1q_missions: 0,
-      registered_i1q_products_or_passports: 0,
+      registered_i1q_missions: 1,
+      registered_i1q_products_or_passports: 1,
+      authorized_sources: 97,
+      registry_rows: 97,
+      transcripts_available: 97,
+      nodes_available: 97,
+      verified_drj_sources: 97,
+      multi_speaker_sources: 97,
+      working_redacted_sources: 0,
+      extraction_ready_sources: 0,
+      duplicate_source_groups: 0,
     },
-    real_inventory_totals: null,
+    real_inventory_totals: {
+      authorized_sources: 97,
+      transcripts_available: 97,
+      nodes_available: 97,
+      verified_drj_sources: 97,
+      extraction_ready_sources: 0,
+    },
     blockers: [
-      'i1q_mission_registration_missing',
-      'privacy_owner_unassigned',
-      'media_registry_export_not_authorized',
-      'rights_state_unverified',
+      'all_sources_privacy_blocked',
+      'working_redacted_transcripts_not_created',
+      'privacy_pilot_not_passed',
     ],
     source_mutations: 0,
   });
 
   await writeEvidence('extraction_metrics.json', {
-    status: 'BLOCKED_NOT_RUN',
+    status: 'INCOMPLETE_NOT_CLEARED',
     real_sources_processed: 0,
     provisional_benchmark_sources: 0,
     metrics: null,
-    reason: 'No authorized real inventory, privacy owner, rights clearance, or medical governance lead.',
+    reason: 'The real inventory is complete, but every source remains privacy blocked and no working redacted transcript exists.',
     pipeline_unit_contracts: 'pass',
   });
 
   await writeEvidence('candidate_counts.json', {
     status: 'NO_REAL_CANDIDATES',
+    classification: 'REAL_CORPUS',
     real_candidates: 0,
     synthetic_fixture_candidates: 1,
     physician_approved_revisions: 0,
@@ -185,31 +225,31 @@ async function main() {
   });
 
   await writeEvidence('browser_results.json', {
-    status: 'pass_local_synthetic_app',
-    workflows: 12,
-    viewport_workflow_checks: 36,
+    status: 'BLOCKED_NOT_RUN',
+    workflows: 17,
+    viewport_workflow_checks: 0,
     viewport_widths: [390, 1024, 1440],
     page_level_horizontal_overflow_failures: 0,
     console_warning_or_error_count: 0,
     keyboard_checks: {
-      enter_navigation: 'pass',
-      space_navigation: 'pass',
-      explicit_keydown_handler: 'pass',
+      enter_navigation: 'not_run',
+      space_navigation: 'not_run',
+      explicit_keydown_handler: 'not_run',
     },
     state_checks: {
-      autosave_unsaved_then_saved: 'pass',
-      physician_approve_disabled: 'pass',
-      release_assemble_disabled: 'pass',
+      autosave_unsaved_then_saved: 'not_run',
+      physician_approve_disabled: 'not_run',
+      release_assemble_disabled: 'not_run',
     },
     screenshot_counts: {
-      desktop: 12,
-      tablet: 3,
-      mobile: 4,
+      desktop: 0,
+      tablet: 0,
+      mobile: 0,
     },
   });
 
   await writeEvidence('accessibility_results.json', {
-    status: 'pass_automated_and_browser_heuristics',
+    status: 'BLOCKED_NOT_RUN',
     standard_target: 'WCAG 2.2 AA',
     results: {
       one_h1: true,
@@ -223,25 +263,42 @@ async function main() {
       warning_banner_contrast_ratio: 8.98,
       active_navigation_contrast_ratio: 10.05,
     },
-    external_human_gap: 'Screen-reader and assistive-technology validation by a human remains required before production.',
+    external_human_gap: 'Real browser, screen-reader, assistive-technology, zoom, reflow, and human validation were not available.',
   });
 
   const personas = [
-    'physician_reviewer', 'medical_editor', 'assessment_scientist', 'learning_scientist',
-    'content_operations_manager', 'privacy_officer', 'security_engineer',
-    'accessibility_specialist', 'novice_reviewer', 'high_volume_reviewer',
-    'missionmed_administrator', 'student_facing_product_designer',
+    'physician_reviewer',
+    'medical_educator',
+    'assessment_scientist',
+    'editorial_reviewer',
+    'privacy_officer',
+    'novice_operator',
+    'power_operator',
+    'assistive_technology_user',
+    'release_manager',
+    'incident_responder',
   ];
-  const dimensions = ['clarity', 'speed', 'cognitive_load', 'error_prevention', 'trust', 'accessibility', 'discoverability', 'responsiveness', 'visual_quality', 'workflow_completeness'];
+  const preRepairScores = {
+    clarity: 7.4,
+    speed: 5.8,
+    cognitive_load: 6.4,
+    error_prevention: 6.2,
+    trust: 6.0,
+    accessibility: 5.6,
+    discoverability: 6.3,
+    responsiveness: 5.2,
+    visual_quality: 4.8,
+    workflow_completeness: 6.1,
+  };
   await writeEvidence('ux_scorecard.json', {
-    status: 'pass_heuristic_only',
+    status: 'fail_heuristic_only',
     minimum_score: 9,
-    board: personas.map((persona, personaIndex) => ({
+    board: personas.map((persona) => ({
       persona,
-      scores: Object.fromEntries(dimensions.map((dimension, dimensionIndex) => [dimension, Number((9 + ((personaIndex + dimensionIndex) % 4) / 10).toFixed(1))])),
-      dependency: persona === 'physician_reviewer' ? 'Real credentialed physician usability test required.' : null,
+      scores: { ...preRepairScores },
+      dependency: 'Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run.',
     })),
-    disclaimer: 'Automated and heuristic simulation only. This is not a genuine human 9/10.',
+    disclaimer: 'Pre-repair simulated expert baseline from commit 4b154e8: aggregate 5.87 and minimum 4.3. Repairs landed in 57eee4f, but no post-repair browser, assistive-technology, or human rescore was run. The current UX gate remains unproven.',
   });
 
   await writeEvidence('load_results.json', loadCheck());
@@ -267,14 +324,22 @@ async function main() {
       'claim_currency_release_gate',
       'rights_release_gate',
       'student_release_flag_defaults_off',
+      'actor_scoped_resource_reads',
+      'internal_platform_and_review_feature_gates',
+      'consumer_specific_feature_gates',
+      'review_assignment_acceptance_lifecycle',
+      'expired_rights_rejection',
+      'official_release_validation_check_set',
+      'artifact_policy_phase_class_binding',
+      'disposable_postgres_apply_reapply_rls_and_compensation',
     ],
     blocked_or_not_executed: [
       'canonical_auth_session_penetration_test',
-      'postgres_rls_live_test',
       'production_idor_test',
       'production_csrf_test',
       'production_rate_limit_test',
-      'external_dependency_scan',
+      'staging_runtime_role_and_rls_test',
+      'browser_accessibility_and_human_test',
     ],
     critical_open_defects: 0,
     high_open_defects: 0,
@@ -283,14 +348,14 @@ async function main() {
   await writeEvidence('health_check_results.json', await healthCheck());
   await writeEvidence('release_manifest.json', await releaseFixture());
 
-  const migrationPath = join(APP_ROOT, 'db/migrations/0001_i1q_question_platform.sql');
-  const rollbackPath = join(APP_ROOT, 'db/rollback/0001_compensating_disable.sql');
+  const migrationPath = join(APP_ROOT, 'db/migrations/20260715122434_i1q_1007x_question_platform.sql');
+  const rollbackPath = join(APP_ROOT, 'db/rollback/20260715122435_i1q_1007x_compensating_disable.sql');
   await writeEvidence('migration_validation.json', {
     status: 'STATIC_PASS_PREVIEW_NOT_RUN',
     migration: relative(WORKTREE, migrationPath),
     sha256: sha256(await readFile(migrationPath)),
     production_or_staging_apply_count: 0,
-    reason: 'Canonical project, migration authorization, and database adapter are unresolved.',
+    reason: 'Static validation and a disposable local PostgreSQL apply, reapply, RLS, compensation, and reapply proof passed. Canonical preview and staging were not available.',
   });
   await writeEvidence('rollback_manifest.json', {
     status: 'DESIGNED_NOT_EXECUTED',
@@ -309,7 +374,7 @@ async function main() {
 
   await writeEvidence('deployment_manifest.json', {
     status: 'BLOCKED_NOT_DEPLOYED',
-    success_level: 'BELOW_LEVEL_1',
+    success_level: 'STATE_A',
     deployment_urls: [],
     canonical_route: null,
     feature_flags: {
@@ -321,14 +386,13 @@ async function main() {
       drills_adapter_enabled: false,
     },
     blockers: [
-      'mission_registration_patch_not_applied',
-      'decision_record_for_protected_integration_missing',
       'canonical_auth_adapter_unresolved',
-      'canonical_database_project_and_migration_route_unresolved',
-      'privacy_owner_unassigned',
+      'canonical_unprivileged_runtime_role_and_repository_wiring_unresolved',
+      'canonical_preview_staging_and_github_deployment_route_unresolved',
+      'all_real_sources_privacy_blocked',
       'medical_governance_lead_unassigned',
-      'release_manager_unassigned',
-      'staging_and_rollback_not_executed',
+      'browser_accessibility_and_human_validation_not_run',
+      'staging_and_production_rollback_not_executed',
     ],
   });
 
@@ -350,15 +414,35 @@ async function main() {
     ],
     files_opened: 0,
     files_modified: 0,
+    classification: 'DISCOVERY_ONLY',
   });
 
   await writeEvidence('legacy_reconciliation.json', {
-    status: 'BLOCKED_STATIC_EXPORT_NOT_AUTHORIZED',
+    status: 'STATIC_V4_RECONCILED',
+    classification: 'REAL_STATIC_EXPORT',
     expected_rows_from_checked_in_migration_provenance: 845,
-    reconciled_rows: 0,
+    reconciled_rows: 845,
     imported_rows: 0,
     historical_join_strategy: 'dataset_version plus question_id plus content_hash',
     unreviewed_marked_approved: 0,
+    migration_sha256: '9bbd46e329933f1ebe5642e48238f9e0ac9f29bd772ad40675123e1d2c313f0e',
+    restricted_export_sha256: '066df25d6c46e2e04904ab13ea2aab2c8b5631c6ff76551a0e6d24d4664008cb',
+    static_rows: 845,
+    distinct_question_ids: 845,
+    required_field_nulls: 0,
+    stat_field_list: [
+      'dataset_version',
+      'question_id',
+      'prompt',
+      'choice_a',
+      'choice_b',
+      'choice_c',
+      'choice_d',
+      'answer',
+      'explanation',
+    ],
+    production_database_reads: 0,
+    production_database_writes: 0,
   });
 
   const files = await walkFiles(APP_ROOT, ['evidence']);

@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-14T01:17:48.747Z",
-  "status": "pass_local_synthetic_app",
-  "workflows": 12,
-  "viewport_workflow_checks": 36,
+  "generated_at": "2026-07-15T14:33:50.795Z",
+  "status": "BLOCKED_NOT_RUN",
+  "workflows": 17,
+  "viewport_workflow_checks": 0,
   "viewport_widths": [
     390,
     1024,
@@ -11,18 +11,18 @@
   "page_level_horizontal_overflow_failures": 0,
   "console_warning_or_error_count": 0,
   "keyboard_checks": {
-    "enter_navigation": "pass",
-    "space_navigation": "pass",
-    "explicit_keydown_handler": "pass"
+    "enter_navigation": "not_run",
+    "space_navigation": "not_run",
+    "explicit_keydown_handler": "not_run"
   },
   "state_checks": {
-    "autosave_unsaved_then_saved": "pass",
-    "physician_approve_disabled": "pass",
-    "release_assemble_disabled": "pass"
+    "autosave_unsaved_then_saved": "not_run",
+    "physician_approve_disabled": "not_run",
+    "release_assemble_disabled": "not_run"
   },
   "screenshot_counts": {
-    "desktop": 12,
-    "tablet": 3,
-    "mobile": 4
+    "desktop": 0,
+    "tablet": 0,
+    "mobile": 0
   }
 }

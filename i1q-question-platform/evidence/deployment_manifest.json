@@ -1,23 +1,24 @@
 {
-  "generated_at": "2026-07-14T01:17:48.747Z",
+  "generated_at": "2026-07-15T14:33:50.795Z",
   "status": "BLOCKED_NOT_DEPLOYED",
-  "success_level": "BELOW_LEVEL_1",
+  "success_level": "STATE_A",
   "deployment_urls": [],
   "canonical_route": null,
   "feature_flags": {
     "internal_platform_enabled": false,
+    "internal_review_enabled": false,
+    "student_content_enabled": false,
+    "student_release_enabled": false,
     "stat_adapter_enabled": false,
-    "drills_adapter_enabled": false,
-    "student_release_enabled": false
+    "drills_adapter_enabled": false
   },
   "blockers": [
-    "mission_registration_patch_not_applied",
-    "decision_record_for_protected_integration_missing",
     "canonical_auth_adapter_unresolved",
-    "canonical_database_project_and_migration_route_unresolved",
-    "privacy_owner_unassigned",
+    "canonical_unprivileged_runtime_role_and_repository_wiring_unresolved",
+    "canonical_preview_staging_and_github_deployment_route_unresolved",
+    "all_real_sources_privacy_blocked",
     "medical_governance_lead_unassigned",
-    "release_manager_unassigned",
-    "staging_and_rollback_not_executed"
+    "browser_accessibility_and_human_validation_not_run",
+    "staging_and_production_rollback_not_executed"
   ]
 }

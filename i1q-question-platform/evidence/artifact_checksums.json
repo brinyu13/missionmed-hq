@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-07-14T01:17:48.747Z",
+  "generated_at": "2026-07-15T14:33:50.795Z",
   "status": "pass",
-  "artifact_count": 26,
+  "artifact_count": 43,
   "artifacts": [
     {
       "path": "i1q-question-platform/db/migrations/0001_i1q_question_platform.sql",
@@ -9,9 +9,19 @@
       "sha256": "bd50aefa3c67bc756697f892c984d212a0330e75fd50b77e6b62095c349307d9"
     },
     {
+      "path": "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
+      "bytes": 122460,
+      "sha256": "c7e93e8d4c540ddf07951ac9fd909ed1fb49fdd962d31003e934cb186967c127"
+    },
+    {
       "path": "i1q-question-platform/db/rollback/0001_compensating_disable.sql",
       "bytes": 780,
       "sha256": "aa4d276c947f1dee12a8a72b606b6d53ef339a52c11c0516b03dc62d8a52a24d"
+    },
+    {
+      "path": "i1q-question-platform/db/rollback/20260715122435_i1q_1007x_compensating_disable.sql",
+      "bytes": 1074,
+      "sha256": "25e317428ca75c8cce29269e19c7002ea69860080aac7f59496312bbed34446a"
     },
     {
       "path": "i1q-question-platform/fixtures/legacy_v4_mapping.synthetic.json",
@@ -30,8 +40,8 @@
     },
     {
       "path": "i1q-question-platform/openapi.json",
-      "bytes": 12034,
-      "sha256": "2f4d7c673a0ed00e371592d6a71cdc4331693ba0ece7d8db41a8754afdf49281"
+      "bytes": 14894,
+      "sha256": "eba3f0f6dea172f34a41d85d0fabe5c46bf319ccdf746d4b9209aefa7b481172"
     },
     {
       "path": "i1q-question-platform/package.json",
@@ -40,43 +50,58 @@
     },
     {
       "path": "i1q-question-platform/public/app.js",
-      "bytes": 17982,
-      "sha256": "109d15ba6cdc7cb66ab8ea62dd5c06422dc11c864a791ac610554ef4c7c5d361"
+      "bytes": 104504,
+      "sha256": "a7855373721dcc95d5c98bf6f0158a07e759503a643cfb530043b86cd3db1b66"
     },
     {
       "path": "i1q-question-platform/public/index.html",
-      "bytes": 2934,
-      "sha256": "aa88b769cd8316f170df08551b5a0e6de0b5307dada5aa7e275c7ec7d3c229bd"
+      "bytes": 4653,
+      "sha256": "664b5e7661ee1b8dbea8005097c6b6c8c10c336a97b2bc10c2393c4070227a49"
     },
     {
       "path": "i1q-question-platform/public/styles.css",
-      "bytes": 11056,
-      "sha256": "d1ebbb9cdf5c6c5cdb14af1e101a0f6b79d217507acee02e4a4096f6cca14cb8"
+      "bytes": 14274,
+      "sha256": "f9b29ee6e9e3cfe24701f8852992a25b292953c73db1ee418e10b551d7de6980"
     },
     {
       "path": "i1q-question-platform/scripts/build_combined_handoff.mjs",
-      "bytes": 4620,
-      "sha256": "5cb052ce427e2daad981c5d0f615835618b33a8da5bf54edfa5d7d7200159fb3"
+      "bytes": 4621,
+      "sha256": "a30e1391a8ee08a9cbe3864ff0246eceb65f4ce2e842dcc3d11f7496c2fa4255"
     },
     {
       "path": "i1q-question-platform/scripts/generate_evidence.mjs",
-      "bytes": 13766,
-      "sha256": "4a8a1dfc7dc2137503e934286f6856a7baaf95a4322dec8fa88f80d1e18cb0e9"
+      "bytes": 16814,
+      "sha256": "55983bf80dad933e343d8334648e4cc076cbb0ef4399e5e0b3a1d4069cdce200"
+    },
+    {
+      "path": "i1q-question-platform/src/adapters/class-a.mjs",
+      "bytes": 6022,
+      "sha256": "028dcbcd09dbaa10ad03c6b352e96a873e180734e99af255fcba6a58276cd0f8"
+    },
+    {
+      "path": "i1q-question-platform/src/adapters/drills-v1.mjs",
+      "bytes": 4554,
+      "sha256": "5862542cf50b183960249bafb36f84e44f0730cbe194063296daa95560a3d8bc"
+    },
+    {
+      "path": "i1q-question-platform/src/adapters/stat-v1.mjs",
+      "bytes": 5531,
+      "sha256": "959a8782bb4e6f40085100aa06d53e87c5e84a43cf9417fabab4dc0fd35d97d9"
     },
     {
       "path": "i1q-question-platform/src/auth.mjs",
-      "bytes": 1819,
-      "sha256": "4689d5605f63526e4f92fc1039c5b65fdcc5c5a4b0d5fca9d2773503b1a3c210"
+      "bytes": 8870,
+      "sha256": "fbaeefbd2bada81278312845fcf58cb01543fb4ef3c4ab3a98b2129dfcd91bb7"
     },
     {
       "path": "i1q-question-platform/src/contracts.mjs",
-      "bytes": 5961,
-      "sha256": "532941b22f8011f97228b86bfbaba601af83b19c8601f64eaa7653e58a492027"
+      "bytes": 8602,
+      "sha256": "e5792220f68b4a096c2fcc73d62f844bc8ad00fb05bf66c2736e3d5b39ac28f7"
     },
     {
       "path": "i1q-question-platform/src/exports.mjs",
-      "bytes": 5665,
-      "sha256": "f36517ca1f2d694941b589da0e2bb5b0d2b744678508456c1688f6a1b911d69a"
+      "bytes": 7378,
+      "sha256": "dd359132147ad45c82df5552c2fba871ace23b446a45099e3f062c6afd8808e5"
     },
     {
       "path": "i1q-question-platform/src/hash.mjs",
@@ -85,33 +110,73 @@
     },
     {
       "path": "i1q-question-platform/src/pipeline.mjs",
-      "bytes": 4260,
-      "sha256": "38766f901f12f43cdd19637747d1bbb0da454025e01c9a1d142e5410fe6600f6"
+      "bytes": 14009,
+      "sha256": "4808f8c276d132e4e14b9c8f5a6eb5c9a64d8ca258773e5fbfdb9d38f4f27c84"
     },
     {
       "path": "i1q-question-platform/src/platform.mjs",
-      "bytes": 21340,
-      "sha256": "7c791307f8a4db43aa2caddcc31ac94c83f831061758c6983f057aaf20e482bf"
+      "bytes": 60805,
+      "sha256": "b232f577c7c5acc793c723228b20ad6c519807ef24055e7a298c380e953936dd"
+    },
+    {
+      "path": "i1q-question-platform/src/postgres-repository.mjs",
+      "bytes": 14868,
+      "sha256": "7056d29a1d705020fda5c9a69ca242a317087e8707592777df391fa47bf5f472"
     },
     {
       "path": "i1q-question-platform/src/privacy.mjs",
-      "bytes": 2180,
-      "sha256": "702dfd782b6f457c6289c6d3d8216ca5fff04f47d1d5148cc7127cd85b5f556e"
+      "bytes": 26016,
+      "sha256": "e8344bd67df7e7bccc82792553476e3360b36a87d63ad457671e3e5297c260a1"
     },
     {
       "path": "i1q-question-platform/src/server.mjs",
-      "bytes": 9118,
-      "sha256": "d13b287af3b22175ba049f3aa68bbf0938cd50cb2e9e6c472982e2e6476b7aa0"
+      "bytes": 14517,
+      "sha256": "a956dab618a354b2170e45ff63562a2a8bc8157672e07c4bd5c9ac03b82e9c90"
     },
     {
       "path": "i1q-question-platform/src/store.mjs",
-      "bytes": 5423,
-      "sha256": "47d66d19fee38db7a285232fb6f593849705d27fcbef37e886e37d0e077e31c2"
+      "bytes": 5833,
+      "sha256": "0a593fa4e8a10f2061cc321e976197e2a0702b092fb2348207f81080dcde4bde"
+    },
+    {
+      "path": "i1q-question-platform/src/validate-evidence.mjs",
+      "bytes": 91624,
+      "sha256": "aa5190fa81bc3a4329f59a5fd1a0b970935ba0b8f167a54cc737a53d29f8dde6"
+    },
+    {
+      "path": "i1q-question-platform/tests/adapters-security.test.mjs",
+      "bytes": 18507,
+      "sha256": "c24b539427376ad790056543c0bbaea8e4d8187825957d6d655c9acd49373b08"
     },
     {
       "path": "i1q-question-platform/tests/api.test.mjs",
-      "bytes": 4142,
-      "sha256": "8403b8c0aade14d9e622a356c96206d967300dcdce1eb6a59c8c30bdddf34772"
+      "bytes": 6681,
+      "sha256": "ada37a9f07a85b42fce67ed7a11724d2d7bf96df7ba67faf6bdb0a0537c9a25d"
+    },
+    {
+      "path": "i1q-question-platform/tests/evidence-validator.test.mjs",
+      "bytes": 28379,
+      "sha256": "5ab1e39ea1c9b2c0cfdc72f60b654d675db49a9fcc73bae1f996069baddbd2f6"
+    },
+    {
+      "path": "i1q-question-platform/tests/fixtures/validator/estate-template.json",
+      "bytes": 2557,
+      "sha256": "d285fd2ec6eef0ae3cbc2842e13ced2c01910a0c56119b20b656e03036177a0d"
+    },
+    {
+      "path": "i1q-question-platform/tests/fixtures/validator/false-production-claim.json",
+      "bytes": 632,
+      "sha256": "a654be6d4fc8d70d8b6cbab5ff9153ef3348a69e9ab0d3e3261ad0a1420b7b80"
+    },
+    {
+      "path": "i1q-question-platform/tests/fixtures/validator/missing-patient-identifier.json",
+      "bytes": 223,
+      "sha256": "0ec442672600f1ac58ac37fc37519d7bfd3321d9cf42674dee58a23644efd36b"
+    },
+    {
+      "path": "i1q-question-platform/tests/migration-1007x.test.mjs",
+      "bytes": 15360,
+      "sha256": "ec2395efbac101d181db217e330dd539c82a68b160653f645757ed313b952e92"
     },
     {
       "path": "i1q-question-platform/tests/migration.test.mjs",
@@ -125,13 +190,33 @@
     },
     {
       "path": "i1q-question-platform/tests/platform.test.mjs",
-      "bytes": 14401,
-      "sha256": "46d52fe177191e59def10899d276ba7595f0fcb4856c90f27e9c695c26ae95ff"
+      "bytes": 21233,
+      "sha256": "0325e65fd86b0c6f83e9b60f09e28e8a36342b7cd6f0529d5f1dfc1dc3b62418"
+    },
+    {
+      "path": "i1q-question-platform/tests/postgres-migration.test.mjs",
+      "bytes": 34657,
+      "sha256": "1f25d7f8fd2f9628883984cafa3d47fac6e82050cc331293871147a83361ddac"
+    },
+    {
+      "path": "i1q-question-platform/tests/postgres-repository.test.mjs",
+      "bytes": 18575,
+      "sha256": "b10d6d8091506c4f6043f65b14913889950a52fa2e5beb4a48f0153e249ab5b2"
+    },
+    {
+      "path": "i1q-question-platform/tests/privacy-regressions.test.mjs",
+      "bytes": 21911,
+      "sha256": "a1605cd8346dd0c5067f0d1c126353149452ed02a5ba5a2a6afecad8face30db"
+    },
+    {
+      "path": "i1q-question-platform/tests/security-regressions.test.mjs",
+      "bytes": 26194,
+      "sha256": "3861d3c4a1b3cf5cb4eca9a9b0ef181fd34cf4644148309aee89db9ae6b1e9cc"
     },
     {
       "path": "i1q-question-platform/tests/ui.test.mjs",
-      "bytes": 2067,
-      "sha256": "2ff4aa7765c5c8f5cb40f566285e56ad62927035b2a175b6835cb15232e336b1"
+      "bytes": 10698,
+      "sha256": "6ab6434a499061569924a7ea3f5cf7b2d13aa65756e11daaf4f5c824e8c451da"
     }
   ]
 }

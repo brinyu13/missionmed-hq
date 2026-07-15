@@ -1,9 +1,28 @@
 {
-  "generated_at": "2026-07-14T01:17:48.747Z",
-  "status": "BLOCKED_STATIC_EXPORT_NOT_AUTHORIZED",
+  "generated_at": "2026-07-15T14:33:50.795Z",
+  "status": "STATIC_V4_RECONCILED",
+  "classification": "REAL_STATIC_EXPORT",
   "expected_rows_from_checked_in_migration_provenance": 845,
-  "reconciled_rows": 0,
+  "reconciled_rows": 845,
   "imported_rows": 0,
   "historical_join_strategy": "dataset_version plus question_id plus content_hash",
-  "unreviewed_marked_approved": 0
+  "unreviewed_marked_approved": 0,
+  "migration_sha256": "9bbd46e329933f1ebe5642e48238f9e0ac9f29bd772ad40675123e1d2c313f0e",
+  "restricted_export_sha256": "066df25d6c46e2e04904ab13ea2aab2c8b5631c6ff76551a0e6d24d4664008cb",
+  "static_rows": 845,
+  "distinct_question_ids": 845,
+  "required_field_nulls": 0,
+  "stat_field_list": [
+    "dataset_version",
+    "question_id",
+    "prompt",
+    "choice_a",
+    "choice_b",
+    "choice_c",
+    "choice_d",
+    "answer",
+    "explanation"
+  ],
+  "production_database_reads": 0,
+  "production_database_writes": 0
 }

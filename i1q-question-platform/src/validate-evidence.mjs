@@ -134,7 +134,7 @@ const artifactSummarySchema = objectSchema(
   {
     channel: stringSchema({ enum: Object.keys(CHANNEL_PHASES) }),
     phase: stringSchema({ enum: ['server_only', 'pre_answer', 'post_answer', 'internal', 'contract_only'] }),
-    data_class: stringSchema({ enum: ['A', 'B', 'C', 'D', 'contract_only'] }),
+    data_class: stringSchema({ enum: ['A', 'B', 'C', 'D', 'server_only', 'internal', 'contract_only'] }),
     sha256: hashSchema,
     record_count: nonNegativeIntegerSchema,
   },
@@ -687,12 +687,12 @@ const EVIDENCE_SCHEMAS = Object.freeze({
           dataset_version: nonEmptyStringSchema,
           previous_manifest_hash: nullableHashSchema,
           release_membership: arraySchema(objectSchema(
-            ['dataset_version', 'question_id', 'item_id', 'itemrev_id', 'revision_number', 'content_hash'],
+            ['dataset_version', 'question_id', 'item_id', 'item_revision_id', 'revision_number', 'content_hash'],
             {
               dataset_version: nonEmptyStringSchema,
               question_id: nonEmptyStringSchema,
               item_id: nonEmptyStringSchema,
-              itemrev_id: nonEmptyStringSchema,
+              item_revision_id: nonEmptyStringSchema,
               revision_number: integerSchema({ minimum: 1 }),
               content_hash: hashSchema,
             },
@@ -707,7 +707,7 @@ const EVIDENCE_SCHEMAS = Object.freeze({
         {
           channel: stringSchema({ enum: Object.keys(CHANNEL_PHASES) }),
           phase: stringSchema({ enum: ['server_only', 'pre_answer', 'post_answer', 'internal', 'contract_only'] }),
-          data_class: stringSchema({ enum: ['A', 'B', 'C', 'D', 'contract_only'] }),
+          data_class: stringSchema({ enum: ['A', 'B', 'C', 'D', 'server_only', 'internal', 'contract_only'] }),
           sha256: hashSchema,
           record_count: nonNegativeIntegerSchema,
           payload: anySchema,
@@ -765,7 +765,7 @@ const EVIDENCE_SCHEMAS = Object.freeze({
     ['generated_at', 'status', 'minimum_score', 'board', 'disclaimer'],
     {
       generated_at: generatedAtSchema,
-      status: stringSchema({ const: 'pass_heuristic_only' }),
+      status: stringSchema({ enum: ['pass_heuristic_only', 'fail_heuristic_only'] }),
       minimum_score: numberSchema({ minimum: 0, maximum: 10 }),
       board: arraySchema(objectSchema(
         ['persona', 'scores', 'dependency'],

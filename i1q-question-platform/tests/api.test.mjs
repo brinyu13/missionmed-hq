@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { createQuestionPlatformServer } from '../src/server.mjs';
 
@@ -114,4 +115,39 @@ test('draft candidate submission uses the explicit lifecycle route', async () =>
     assert.equal(duplicate.status, 422);
     assert.equal((await duplicate.json()).error, 'request_rejected');
   });
+});
+
+test('OpenAPI path and feature-flag contracts match the live HTTP surface', async () => {
+  const openapi = JSON.parse(await readFile(new URL('../openapi.json', import.meta.url), 'utf8'));
+  assert.deepEqual(Object.keys(openapi.paths).sort(), [
+    '/api/health',
+    '/api/v1/dashboard',
+    '/api/v1/feature-flags/{key}',
+    '/api/v1/governance',
+    '/api/v1/governance/{slot}',
+    '/api/v1/item-revisions',
+    '/api/v1/item-revisions/{itemRevisionId}/draft',
+    '/api/v1/item-revisions/{itemRevisionId}/submit-candidate',
+    '/api/v1/releases',
+    '/api/v1/releases/{releaseId}/artifacts/{channel}',
+    '/api/v1/releases/{releaseId}/promotions',
+    '/api/v1/releases/{releaseId}/validations',
+    '/api/v1/resources/{entityType}',
+    '/api/v1/resources/{entityType}/{id}',
+    '/api/v1/review-assignments',
+    '/api/v1/review-assignments/{assignmentId}/accept',
+    '/api/v1/review-events',
+    '/api/v1/reviewers',
+    '/api/v1/session',
+  ].sort());
+  assert.deepEqual(new Set(openapi.paths['/api/v1/feature-flags/{key}'].put.parameters[0].schema.enum), new Set([
+    'internal_platform_enabled',
+    'internal_review_enabled',
+    'student_content_enabled',
+    'student_release_enabled',
+    'stat_adapter_enabled',
+    'drills_adapter_enabled',
+  ]));
+  const artifactParameters = openapi.paths['/api/v1/releases/{releaseId}/artifacts/{channel}'].get.parameters;
+  assert.equal(artifactParameters.some((parameter) => parameter.name === 'phase'), false);
 });

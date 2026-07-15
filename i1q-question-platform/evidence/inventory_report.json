@@ -1,24 +1,41 @@
 {
-  "generated_at": "2026-07-14T01:17:48.747Z",
-  "status": "DISCOVERY_ONLY_REAL_INVENTORY_NOT_AUTHORIZED",
+  "generated_at": "2026-07-15T14:33:50.795Z",
+  "status": "REAL_CORPUS_INVENTORIED",
+  "classification": "REAL_CORPUS",
+  "registry_sha256": "d78910d22ed3b428fd38129ec60140b70673a804a31ae3119e465d75b53631a1",
+  "probe_manifest_sha256": "ede9cc62aee72868cb4e2c96a9125bbc7be3403dbb7f3afe6b77c493bb79dae0",
   "counts": {
     "local_vtt_files": 0,
     "local_transcript_caption_subtitle_data_files": 0,
     "local_nodes_or_media_registry_artifacts": 0,
-    "seeded_drill_rows_with_stream_vtt_nodes_references": 1,
-    "sidecar_paths_referenced_by_seed": 2,
+    "seeded_drill_rows_with_stream_vtt_nodes_references": 97,
+    "sidecar_paths_referenced_by_seed": 194,
     "checked_in_stat_runtime_index_lookup_json": 0,
     "matching_historical_git_blobs": 3,
     "static_v4_sql_insert_statements": 845,
-    "registered_i1q_missions": 0,
-    "registered_i1q_products_or_passports": 0
+    "registered_i1q_missions": 1,
+    "registered_i1q_products_or_passports": 1,
+    "authorized_sources": 97,
+    "registry_rows": 97,
+    "transcripts_available": 97,
+    "nodes_available": 97,
+    "verified_drj_sources": 97,
+    "multi_speaker_sources": 97,
+    "working_redacted_sources": 0,
+    "extraction_ready_sources": 0,
+    "duplicate_source_groups": 0
   },
-  "real_inventory_totals": null,
+  "real_inventory_totals": {
+    "authorized_sources": 97,
+    "transcripts_available": 97,
+    "nodes_available": 97,
+    "verified_drj_sources": 97,
+    "extraction_ready_sources": 0
+  },
   "blockers": [
-    "i1q_mission_registration_missing",
-    "privacy_owner_unassigned",
-    "media_registry_export_not_authorized",
-    "rights_state_unverified"
+    "all_sources_privacy_blocked",
+    "working_redacted_transcripts_not_created",
+    "privacy_pilot_not_passed"
   ],
   "source_mutations": 0
 }

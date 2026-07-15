@@ -35,6 +35,19 @@
         }
       }
     },
+    "/api/v1/session": {
+      "get": {
+        "operationId": "getSessionContext",
+        "responses": {
+          "200": {
+            "description": "Safe actor, role, expiry, and CSRF bootstrap"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          }
+        }
+      }
+    },
     "/api/v1/dashboard": {
       "get": {
         "operationId": "getDashboard",
@@ -103,6 +116,8 @@
               "type": "string",
               "enum": [
                 "internal_platform_enabled",
+                "internal_review_enabled",
+                "student_content_enabled",
                 "stat_adapter_enabled",
                 "drills_adapter_enabled",
                 "student_release_enabled"
@@ -262,12 +277,91 @@
         }
       }
     },
+    "/api/v1/item-revisions/{itemRevisionId}/draft": {
+      "patch": {
+        "operationId": "editDraftItemRevision",
+        "parameters": [
+          {
+            "name": "itemRevisionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Guarded update to an author-owned draft"
+          },
+          "422": {
+            "description": "Revision is frozen, stale, unauthorized, or invalid"
+          }
+        }
+      }
+    },
+    "/api/v1/item-revisions/{itemRevisionId}/submit-candidate": {
+      "post": {
+        "operationId": "submitItemRevisionCandidate",
+        "parameters": [
+          {
+            "name": "itemRevisionId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Draft frozen and submitted as a candidate"
+          },
+          "422": {
+            "description": "Revision is not an author-owned draft"
+          }
+        }
+      }
+    },
     "/api/v1/review-assignments": {
       "post": {
         "operationId": "createReviewAssignment",
         "responses": {
           "201": {
             "description": "Review assignment created"
+          }
+        }
+      }
+    },
+    "/api/v1/review-assignments/{assignmentId}/accept": {
+      "post": {
+        "operationId": "acceptReviewAssignment",
+        "parameters": [
+          {
+            "name": "assignmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Assigned reviewer accepts the exact revision"
+          },
+          "422": {
+            "description": "Actor, role, credential, assignment, or state gate failed"
           }
         }
       }
@@ -294,6 +388,29 @@
           },
           "422": {
             "description": "One or more exact revisions are not eligible"
+          }
+        }
+      }
+    },
+    "/api/v1/releases/{releaseId}/validations": {
+      "post": {
+        "operationId": "recordReleaseValidation",
+        "parameters": [
+          {
+            "name": "releaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Official artifact-bound validation result recorded"
+          },
+          "422": {
+            "description": "Official check set, artifact set, or evidence hash failed"
           }
         }
       }
@@ -340,22 +457,11 @@
             "schema": {
               "type": "string"
             }
-          },
-          {
-            "name": "phase",
-            "in": "query",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "pre_answer",
-                "post_answer_finalized"
-              ]
-            }
           }
         ],
         "responses": {
           "200": {
-            "description": "Phase-authorized artifact"
+            "description": "Feature-gated artifact authorized by server-derived finalization context"
           },
           "403": {
             "description": "Answer-bearing artifact requested before finalization"
