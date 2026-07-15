@@ -15,6 +15,8 @@ php -l tests/php/v1-study-schedule-8010e-e2-worker.php
 php -l tests/php/v1-study-schedule-8010e-e2-process.php
 php -l tests/php/v1-study-schedule-8010e-e3-restore-census-contract.php
 php -l tests/php/v1-study-schedule-8010e-e3-restore-census.php
+php -l tests/php/v1-study-schedule-8010e-e3-reader-rollback-contract.php
 php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010e-e1-contract.php
 php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010e-e2-contract.php
 php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010e-e3-restore-census-contract.php
+php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010e-e3-reader-rollback-contract.php
