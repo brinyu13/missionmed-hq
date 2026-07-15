@@ -1031,9 +1031,9 @@ final class MMED_V1_Study_Week_Domain {
 			$candidates = self::utc_candidates( $date . ' ' . $time, $zone );
 			if ( ! empty( $candidates ) ) {
 				return array(
+					'fold_required' => count( $candidates ) > 1,
 					'local_date'    => $date,
 					'local_time'    => $time,
-					'fold_required' => count( $candidates ) > 1,
 				);
 			}
 		}
@@ -1061,9 +1061,9 @@ final class MMED_V1_Study_Week_Domain {
 			$candidates = self::utc_candidates( $date . ' ' . $time, $zone );
 			if ( ! empty( $candidates ) ) {
 				return array(
+					'fold_required' => count( $candidates ) > 1,
 					'local_date'    => $date,
 					'local_time'    => $time,
-					'fold_required' => count( $candidates ) > 1,
 				);
 			}
 		}
