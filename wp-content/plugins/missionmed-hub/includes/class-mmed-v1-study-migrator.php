@@ -25,6 +25,9 @@ final class MMED_V1_Study_Migrator {
 	/** @var MMED_V1_Study_Schema_Inspector */
 	private $inspector;
 
+	/** @var MMED_V1_Study_Week_Schema_Inspector|null */
+	private $week_inspector;
+
 	/** @var callable|null */
 	private $failpoint;
 
@@ -47,6 +50,7 @@ final class MMED_V1_Study_Migrator {
 		}
 		$this->database      = $database;
 		$this->inspector     = new MMED_V1_Study_Schema_Inspector( $database );
+		$this->week_inspector = null;
 		$this->failpoint     = $failpoint;
 		$this->connection_id = 0;
 		$this->is_mariadb    = null;
@@ -137,12 +141,107 @@ final class MMED_V1_Study_Migrator {
 		return $result;
 	}
 
+	/**
+	 * Reconcile additive Week migrations and atomically activate generation 2.
+	 *
+	 * This remains an isolated operator path. It deliberately reuses the exact
+	 * generation-1 advisory-lock namespace so old and new installers cannot race.
+	 *
+	 * @param string $store_id  Existing commissioned store UUID.
+	 * @param string $runner_id Migration runner UUID.
+	 * @return array
+	 */
+	public function run_week_generation( $store_id, $runner_id ) {
+		if ( ! MMED_V1_Study_Schema::valid_uuid( $store_id ) || ! MMED_V1_Study_Schema::valid_uuid( $runner_id ) ) {
+			throw new InvalidArgumentException( 'V1 migration UUID is invalid.' );
+		}
+		$this->week_inspector();
+
+		$this->connection_id = $this->current_connection_id();
+		$lock_name           = $this->lock_name();
+		$existing_owner      = $this->database->get_var( $this->prepare( 'SELECT IS_USED_LOCK(%s)', $lock_name ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_probe_failed' );
+		$this->verify_connection();
+		if ( null !== $existing_owner ) {
+			throw new RuntimeException(
+				(int) $existing_owner === $this->connection_id ? 'v1_migration_reentrant' : 'v1_migration_busy'
+			);
+		}
+		$got_lock = $this->database->get_var( $this->prepare( 'SELECT GET_LOCK(%s, 0)', $lock_name ) );
+		$this->assert_last_query_succeeded( 'v1_migration_lock_error' );
+		$this->verify_connection();
+		if ( 1 !== (int) $got_lock ) {
+			throw new RuntimeException( null === $got_lock ? 'v1_migration_lock_error' : 'v1_migration_busy' );
+		}
+
+		$result            = null;
+		$primary           = null;
+		$original_sql_mode = null;
+		try {
+			$this->verify_connection();
+			$this->assert_clean_session();
+			$original_sql_mode = $this->native_sql_mode();
+			$this->native_set_sql_mode( $this->hardened_sql_mode( $original_sql_mode ) );
+			$this->assert_sql_mode_hardened();
+			$this->assert_no_temporary_table_shadows( $this->combined_table_names() );
+			$this->hit( 'after_lock' );
+
+			$state = $this->week_generation_state( $store_id );
+			if ( 'ready_2' !== $state ) {
+				if ( 'ready_1' === $state ) {
+					$this->enter_week_migration( $store_id );
+				}
+				$this->reconcile_migrations( $runner_id, $this->combined_migrations() );
+				$this->activate_week_generation( $store_id );
+			}
+			if ( 'ready_2' !== $this->week_generation_state( $store_id ) ) {
+				throw new RuntimeException( 'v1_week_generation_postcondition_failed' );
+			}
+			$this->verify_connection();
+			$result = array(
+				'ok'            => true,
+				'state'         => 'ready',
+				'generation'    => MMED_V1_Study_Week_Schema::GENERATION,
+				'manifest_hash' => MMED_V1_Study_Week_Schema::manifest_hash_hex( $this->database ),
+			);
+		} catch ( Throwable $error ) {
+			$primary = $error;
+		}
+
+		$cleanup_errors = array();
+		if ( null !== $original_sql_mode ) {
+			try {
+				$this->native_set_sql_mode( $original_sql_mode );
+				if ( $original_sql_mode !== $this->native_sql_mode() ) {
+					throw new RuntimeException( 'v1_migration_sql_mode_restore_verify_failed' );
+				}
+			} catch ( Throwable $error ) {
+				$cleanup_errors[] = 'sql_mode=' . $error->getMessage();
+			}
+		}
+		try {
+			$this->release_lock( $lock_name );
+		} catch ( Throwable $error ) {
+			$cleanup_errors[] = 'lock=' . $error->getMessage();
+		}
+		if ( null !== $primary ) {
+			if ( ! empty( $cleanup_errors ) ) {
+				throw new RuntimeException( $primary->getMessage() . ';cleanup=' . implode( ',', $cleanup_errors ), 0, $primary );
+			}
+			throw $primary;
+		}
+		if ( ! empty( $cleanup_errors ) ) {
+			throw new RuntimeException( 'v1_migration_cleanup_failed:' . implode( ',', $cleanup_errors ) );
+		}
+		return $result;
+	}
+
 	/** @return void */
-	private function reconcile_migrations( $runner_id ) {
-		$migrations = MMED_V1_Study_Schema::migrations( $this->database );
+	private function reconcile_migrations( $runner_id, $migrations = null ) {
+		$migrations = is_array( $migrations ) ? $migrations : MMED_V1_Study_Schema::migrations( $this->database );
 		$seen_gap   = false;
 		foreach ( $migrations as $migration ) {
-			$table = $this->inspector->inspect_table( $migration['table_key'] );
+			$table = $this->inspect_migration_table( $migration );
 			if ( ! empty( $table['exists'] ) ) {
 				if ( $seen_gap ) {
 					throw new RuntimeException( 'v1_migration_noncontiguous_tables' );
@@ -161,7 +260,7 @@ final class MMED_V1_Study_Migrator {
 		foreach ( $migrations as $migration ) {
 			$this->verify_connection();
 			$version = (int) $migration['version'];
-			$table   = $this->inspector->inspect_table( $migration['table_key'] );
+			$table   = $this->inspect_migration_table( $migration );
 			$row     = isset( $ledger[ $version ] ) ? $ledger[ $version ] : null;
 
 			if ( ! empty( $table['exists'] ) ) {
@@ -213,7 +312,7 @@ final class MMED_V1_Study_Migrator {
 			}
 			$this->hit( 'after_migration_' . $version . '_ddl' );
 
-			$table = $this->inspector->inspect_table( $migration['table_key'] );
+			$table = $this->inspect_migration_table( $migration );
 			if ( empty( $table['exists'] ) || empty( $table['ok'] ) ) {
 				$errors        = isset( $table['errors'] ) && is_array( $table['errors'] ) ? $table['errors'] : array( 'inspection_unavailable' );
 				$postcondition = new RuntimeException(
@@ -566,6 +665,348 @@ final class MMED_V1_Study_Migrator {
 		}
 	}
 
+	/** @return MMED_V1_Study_Week_Schema_Inspector */
+	private function week_inspector() {
+		if ( ! class_exists( 'MMED_V1_Study_Week_Schema' ) || ! class_exists( 'MMED_V1_Study_Week_Schema_Inspector' ) ) {
+			throw new RuntimeException( 'v1_week_schema_capability_unavailable' );
+		}
+		if ( null === $this->week_inspector ) {
+			$this->week_inspector = new MMED_V1_Study_Week_Schema_Inspector( $this->database );
+		}
+		return $this->week_inspector;
+	}
+
+	/** @return array */
+	private function combined_migrations() {
+		$migrations = array_merge(
+			MMED_V1_Study_Schema::migrations( $this->database ),
+			MMED_V1_Study_Week_Schema::migrations( $this->database )
+		);
+		if ( array( 1, 2, 3, 4, 5, 6, 7 ) !== array_map( 'intval', array_column( $migrations, 'version' ) ) ) {
+			throw new RuntimeException( 'v1_week_migration_sequence_invalid' );
+		}
+		return $migrations;
+	}
+
+	/** @return array */
+	private function combined_table_names() {
+		return array_values(
+			array_merge(
+				MMED_V1_Study_Schema::table_names( $this->database ),
+				MMED_V1_Study_Week_Schema::table_names( $this->database )
+			)
+		);
+	}
+
+	/** @return array */
+	private function inspect_migration_table( $migration ) {
+		$version = isset( $migration['version'] ) ? (int) $migration['version'] : 0;
+		$key     = isset( $migration['table_key'] ) ? $migration['table_key'] : null;
+		if ( $version >= 1 && $version <= 5 ) {
+			return $this->inspector->inspect_table( $key );
+		}
+		if ( $version >= 6 && $version <= 7 ) {
+			return $this->week_inspector()->inspect_table( $key );
+		}
+		throw new RuntimeException( 'v1_migration_future_or_unknown_version' );
+	}
+
+	/**
+	 * Return the only accepted generation transition state.
+	 *
+	 * @return string ready_1, migrating_1, or ready_2.
+	 */
+	private function week_generation_state( $store_id ) {
+		$parent = $this->inspector->inspect();
+		if ( empty( $parent['ok'] ) || MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== $parent['state'] ) {
+			throw new RuntimeException( 'v1_week_parent_schema_unavailable' );
+		}
+		$this->assert_no_unknown_owned_tables();
+
+		$migrations = $this->combined_migrations();
+		$ledger     = $this->ledger_rows();
+		$this->validate_ledger( $ledger, $migrations );
+		for ( $version = 1; $version <= 5; ++$version ) {
+			if ( ! isset( $ledger[ $version ] ) || 'applied' !== $ledger[ $version ]['state'] ) {
+				throw new RuntimeException( 'v1_week_parent_ledger_incomplete' );
+			}
+		}
+
+		$control = $this->week_control_rows();
+		if ( 1 === count( $control['generations'] ) ) {
+			$gate_state = isset( $control['gate']['gate_state'] ) ? (string) $control['gate']['gate_state'] : '';
+			if ( ! in_array( $gate_state, array( 'ready', 'migrating' ), true ) ) {
+				throw new RuntimeException( 'v1_week_generation_control_mismatch' );
+			}
+			$this->assert_generation_one_control( $control, $store_id, $gate_state );
+			$this->assert_generation_one_truth_empty();
+			$week = $this->week_inspector()->inspect();
+			if ( 'ready' === $gate_state ) {
+				if ( 5 !== count( $ledger ) || MMED_V1_Study_Schema_Inspector::STATE_ABSENT !== $week['state'] ) {
+					throw new RuntimeException( 'v1_week_ready_one_state_mismatch' );
+				}
+				return 'ready_1';
+			}
+			if ( MMED_V1_Study_Schema_Inspector::STATE_INCOMPATIBLE === $week['state'] ) {
+				throw new RuntimeException( 'v1_week_migration_schema_drift' );
+			}
+			return 'migrating_1';
+		}
+
+		if ( 2 === count( $control['generations'] ) ) {
+			$this->assert_ready_two_control( $control, $store_id );
+			$this->validate_ledger( $ledger, $migrations, true );
+			$week = $this->week_inspector()->inspect();
+			if ( empty( $week['ok'] ) || MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== $week['state'] ) {
+				throw new RuntimeException( 'v1_week_generation_schema_unavailable' );
+			}
+			return 'ready_2';
+		}
+
+		throw new RuntimeException( 'v1_week_generation_control_partial' );
+	}
+
+	/** @return array */
+	private function week_control_rows( $for_update = false ) {
+		$tables = MMED_V1_Study_Schema::table_names( $this->database );
+		$suffix = $for_update ? ' FOR UPDATE' : '';
+		$gates  = $this->rows(
+			"SELECT gate_key, HEX(store_id) AS store_hex, current_generation, gate_state, commissioned_at, updated_at FROM `{$tables['store_gate']}` ORDER BY gate_key{$suffix}"
+		);
+		$generations = $this->rows(
+			"SELECT generation, HEX(store_id) AS store_hex, writer_schema_version, current_reader_version, previous_reader_version, HEX(manifest_hash) AS manifest_hex, activated_at FROM `{$tables['generations']}` ORDER BY generation{$suffix}"
+		);
+		return array(
+			'gate'        => 1 === count( $gates ) ? $gates[0] : null,
+			'gate_count'  => count( $gates ),
+			'generations' => $generations,
+		);
+	}
+
+	/** @return void */
+	private function assert_generation_one_control( $control, $store_id, $gate_state ) {
+		if (
+			1 !== (int) $control['gate_count']
+			|| 1 !== count( $control['generations'] )
+			|| ! is_array( $control['gate'] )
+			|| ! $this->generation_row_matches( $control['generations'][0], $store_id, 1 )
+			|| ! $this->gate_row_matches( $control['gate'], $store_id, 1, $gate_state )
+		) {
+			throw new RuntimeException( 'v1_week_generation_control_mismatch' );
+		}
+	}
+
+	/** @return void */
+	private function assert_ready_two_control( $control, $store_id ) {
+		if (
+			1 !== (int) $control['gate_count']
+			|| 2 !== count( $control['generations'] )
+			|| ! is_array( $control['gate'] )
+			|| ! $this->generation_row_matches( $control['generations'][0], $store_id, 1 )
+			|| ! $this->generation_row_matches( $control['generations'][1], $store_id, 2 )
+			|| ! $this->gate_row_matches( $control['gate'], $store_id, 2, 'ready' )
+		) {
+			throw new RuntimeException( 'v1_week_generation_control_mismatch' );
+		}
+	}
+
+	/** @return bool */
+	private function generation_row_matches( $row, $store_id, $generation ) {
+		if ( ! is_array( $row ) ) {
+			return false;
+		}
+		$is_week = 2 === (int) $generation;
+		$schema  = $is_week ? MMED_V1_Study_Week_Schema::SCHEMA_VERSION : MMED_V1_Study_Schema::SCHEMA_VERSION;
+		$reader  = $is_week ? MMED_V1_Study_Week_Schema::CURRENT_READER_VERSION : MMED_V1_Study_Schema::CURRENT_READER_VERSION;
+		$manifest = $is_week
+			? MMED_V1_Study_Week_Schema::manifest_hash_hex( $this->database )
+			: MMED_V1_Study_Schema::manifest_hash_hex( $this->database );
+		return (int) $generation === (int) ( $row['generation'] ?? 0 )
+			&& strtoupper( $this->uuid_hex( $store_id ) ) === strtoupper( (string) ( $row['store_hex'] ?? '' ) )
+			&& $schema === (string) ( $row['writer_schema_version'] ?? '' )
+			&& $reader === (string) ( $row['current_reader_version'] ?? '' )
+			&& null === ( $row['previous_reader_version'] ?? null )
+			&& $manifest === strtolower( (string) ( $row['manifest_hex'] ?? '' ) )
+			&& $this->valid_ledger_timestamp( $row['activated_at'] ?? null );
+	}
+
+	/** @return bool */
+	private function gate_row_matches( $row, $store_id, $generation, $state ) {
+		return is_array( $row )
+			&& 1 === (int) ( $row['gate_key'] ?? 0 )
+			&& strtoupper( $this->uuid_hex( $store_id ) ) === strtoupper( (string) ( $row['store_hex'] ?? '' ) )
+			&& (int) $generation === (int) ( $row['current_generation'] ?? 0 )
+			&& $state === (string) ( $row['gate_state'] ?? '' )
+			&& $this->valid_ledger_timestamp( $row['commissioned_at'] ?? null )
+			&& $this->valid_ledger_timestamp( $row['updated_at'] ?? null );
+	}
+
+	/** @return void */
+	private function assert_generation_one_truth_empty() {
+		$tables = MMED_V1_Study_Schema::table_names( $this->database );
+		$plans  = $this->guarded_scalar(
+			"SELECT COUNT(*) FROM `{$tables['plans']}` WHERE current_revision > 0",
+			'v1_week_truth_probe_failed'
+		);
+		$operations = $this->guarded_scalar(
+			"SELECT COUNT(*) FROM `{$tables['operations']}`",
+			'v1_week_truth_probe_failed'
+		);
+		if ( 0 !== (int) $plans || 0 !== (int) $operations ) {
+			throw new RuntimeException( 'v1_week_existing_truth_upgrade_unsupported' );
+		}
+	}
+
+	/** @return void */
+	private function enter_week_migration( $store_id ) {
+		$this->with_week_transaction(
+			'v1_week_enter',
+			function () use ( $store_id ) {
+				$control = $this->week_control_rows( true );
+				$this->assert_generation_one_control( $control, $store_id, 'ready' );
+				$this->assert_generation_one_truth_empty();
+				$tables = MMED_V1_Study_Schema::table_names( $this->database );
+				$sql = "UPDATE `{$tables['store_gate']}` SET gate_state = %s, updated_at = %s";
+				$sql .= ' WHERE gate_key = 1 AND store_id = UNHEX(%s) AND current_generation = 1 AND gate_state = %s';
+				$this->query_exactly_one(
+					$this->prepare( $sql, 'migrating', $this->now(), $this->uuid_hex( $store_id ), 'ready' ),
+					'v1_week_gate_transition_failed'
+				);
+				$this->hit( 'after_week_gate_migrating_update' );
+			}
+		);
+		$this->hit( 'after_week_gate_migrating_commit' );
+	}
+
+	/** @return void */
+	private function activate_week_generation( $store_id ) {
+		$parent = $this->inspector->inspect();
+		$week   = $this->week_inspector()->inspect();
+		if (
+			empty( $parent['ok'] )
+			|| MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== $parent['state']
+			|| empty( $week['ok'] )
+			|| MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== $week['state']
+		) {
+			throw new RuntimeException( 'v1_week_generation_schema_unavailable' );
+		}
+		$this->validate_ledger( $this->ledger_rows(), $this->combined_migrations(), true );
+		$this->hit( 'before_generation_2_activation' );
+		$this->with_week_transaction(
+			'v1_week_activate',
+			function () use ( $store_id ) {
+				$control = $this->week_control_rows( true );
+				$this->assert_generation_one_control( $control, $store_id, 'migrating' );
+				$this->assert_generation_one_truth_empty();
+				$tables   = MMED_V1_Study_Schema::table_names( $this->database );
+				$now      = $this->now();
+				$storehex = $this->uuid_hex( $store_id );
+				$sql      = "INSERT INTO `{$tables['generations']}`";
+				$sql     .= ' (generation, store_id, writer_schema_version, current_reader_version, previous_reader_version, manifest_hash, activated_at)';
+				$sql     .= ' VALUES (%d, UNHEX(%s), %s, %s, NULL, UNHEX(%s), %s)';
+				$this->query_exactly_one(
+					$this->prepare(
+						$sql,
+						MMED_V1_Study_Week_Schema::GENERATION,
+						$storehex,
+						MMED_V1_Study_Week_Schema::SCHEMA_VERSION,
+						MMED_V1_Study_Week_Schema::CURRENT_READER_VERSION,
+						MMED_V1_Study_Week_Schema::manifest_hash_hex( $this->database ),
+						$now
+					),
+					'v1_week_generation_insert_failed'
+				);
+				$this->hit( 'after_generation_2_insert' );
+
+				$sql = "UPDATE `{$tables['store_gate']}` SET current_generation = %d, gate_state = %s, updated_at = %s";
+				$sql .= ' WHERE gate_key = 1 AND store_id = UNHEX(%s) AND current_generation = 1 AND gate_state = %s';
+				$this->query_exactly_one(
+					$this->prepare( $sql, 2, 'ready', $this->now(), $storehex, 'migrating' ),
+					'v1_week_generation_gate_update_failed'
+				);
+				$this->hit( 'after_generation_2_gate_update' );
+			}
+		);
+		$this->hit( 'after_generation_2_commit' );
+	}
+
+	/** @return void */
+	private function with_week_transaction( $error_prefix, $callback ) {
+		if ( ! is_callable( $callback ) ) {
+			throw new InvalidArgumentException( 'V1 Week transaction callback is invalid.' );
+		}
+		$this->verify_lock();
+		$this->assert_clean_session();
+		$this->assert_sql_mode_hardened();
+		$original_isolation = $this->native_isolation_level();
+		$transaction_started = false;
+		$primary = null;
+		$cleanup_errors = array();
+		try {
+			$this->native_set_isolation_level( 'READ-COMMITTED' );
+			if ( 'READ-COMMITTED' !== $this->native_isolation_level() ) {
+				throw new RuntimeException( $error_prefix . '_isolation_verify_failed' );
+			}
+			$this->native_query_required( 'START TRANSACTION', $error_prefix . '_begin_failed' );
+			$transaction_started = true;
+			if ( ! $this->native_transaction_is_active() ) {
+				throw new RuntimeException( $error_prefix . '_transaction_inactive' );
+			}
+			call_user_func( $callback );
+			if ( ! $this->native_transaction_is_active() ) {
+				throw new RuntimeException( $error_prefix . '_transaction_lost' );
+			}
+			$this->native_query_required( 'COMMIT AND NO CHAIN NO RELEASE', $error_prefix . '_commit_outcome_unknown' );
+			$transaction_started = false;
+			if ( $this->native_transaction_is_active() ) {
+				throw new RuntimeException( $error_prefix . '_commit_outcome_unknown' );
+			}
+		} catch ( Throwable $error ) {
+			$primary = $error;
+		}
+		if ( $transaction_started ) {
+			try {
+				$this->native_query_required( 'ROLLBACK AND NO CHAIN NO RELEASE', $error_prefix . '_rollback_failed' );
+				$transaction_started = false;
+			} catch ( Throwable $error ) {
+				$cleanup_errors[] = $error->getMessage();
+			}
+		}
+		try {
+			$this->native_set_isolation_level( $original_isolation );
+			if ( $original_isolation !== $this->native_isolation_level() ) {
+				throw new RuntimeException( $error_prefix . '_isolation_restore_verify_failed' );
+			}
+		} catch ( Throwable $error ) {
+			$cleanup_errors[] = $error->getMessage();
+		}
+		if ( null !== $primary ) {
+			if ( ! empty( $cleanup_errors ) ) {
+				throw new RuntimeException( $primary->getMessage() . ';transaction_cleanup=' . implode( ',', $cleanup_errors ), 0, $primary );
+			}
+			throw $primary;
+		}
+		if ( ! empty( $cleanup_errors ) ) {
+			throw new RuntimeException( $error_prefix . '_cleanup_failed:' . implode( ',', $cleanup_errors ) );
+		}
+		$this->verify_lock();
+	}
+
+	/** @return void */
+	private function assert_no_unknown_owned_tables() {
+		$prefix = (string) $this->database->prefix . 'mmed_v1_study_';
+		$sql = 'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s';
+		$sql .= ' AND LEFT(TABLE_NAME, CHAR_LENGTH(%s)) = %s ORDER BY TABLE_NAME';
+		$rows = $this->rows( $this->prepare( $sql, $this->inspector->schema_name(), $prefix, $prefix ) );
+		$allowed = array_fill_keys( $this->combined_table_names(), true );
+		foreach ( $rows as $row ) {
+			$name = isset( $row['TABLE_NAME'] ) ? (string) $row['TABLE_NAME'] : '';
+			if ( ! isset( $allowed[ $name ] ) ) {
+				throw new RuntimeException( 'v1_week_unknown_owned_table' );
+			}
+		}
+	}
+
 	/** @return string */
 	private function lock_name() {
 		$prefix = isset( $this->database->prefix ) ? (string) $this->database->prefix : '';
@@ -686,8 +1127,12 @@ final class MMED_V1_Study_Migrator {
 	 *
 	 * @return void
 	 */
-	private function assert_no_temporary_table_shadows() {
-		foreach ( MMED_V1_Study_Schema::table_names( $this->database ) as $table_name ) {
+	private function assert_no_temporary_table_shadows( $table_names = null ) {
+		$table_names = is_array( $table_names ) ? array_values( $table_names ) : array_values( MMED_V1_Study_Schema::table_names( $this->database ) );
+		foreach ( $table_names as $table_name ) {
+			if ( ! is_string( $table_name ) || 1 !== preg_match( '/^[A-Za-z0-9_]{1,64}$/D', $table_name ) ) {
+				throw new RuntimeException( 'v1_migration_temporary_shadow_probe_failed' );
+			}
 			$this->verify_lock();
 			$handle  = $this->native_handle();
 			$created = @mysqli_query(

@@ -41,7 +41,7 @@ jobs:
           sh tests/php/run-v1-study-schedule-8010d.sh
 
   innodb-contract:
-    name: ${{ matrix.database }} exact Week DDL
+    name: ${{ matrix.database }} / PHP ${{ matrix.php }} E0 + E1
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -50,10 +50,26 @@ jobs:
         include:
           - database: MariaDB 10.11
             database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
+            php: "7.4"
+            php_image: wordpress:6.1.1-php7.4-apache@sha256:7e46cf3373751b6d62b7a0fc3a7d6686f641a34a2a0eb18947da5375c55fd009
+            extended: "0"
+          - database: MariaDB 10.11
+            database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
+            php: "8.3"
+            php_image: wordpress:6.6.2-php8.3-apache@sha256:04be81de853887fca707742785b32bf93fb4a692246dd1bc90b3790105071a9a
+            extended: "1"
           - database: MySQL 8
             database_image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+            php: "7.4"
+            php_image: wordpress:6.1.1-php7.4-apache@sha256:7e46cf3373751b6d62b7a0fc3a7d6686f641a34a2a0eb18947da5375c55fd009
+            extended: "0"
+          - database: MySQL 8
+            database_image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+            php: "8.3"
+            php_image: wordpress:6.6.2-php8.3-apache@sha256:04be81de853887fca707742785b32bf93fb4a692246dd1bc90b3790105071a9a
+            extended: "1"
     container:
-      image: wordpress:6.6.2-php8.3-apache@sha256:04be81de853887fca707742785b32bf93fb4a692246dd1bc90b3790105071a9a
+      image: ${{ matrix.php_image }}
     services:
       database:
         image: ${{ matrix.database_image }}
@@ -124,14 +140,16 @@ jobs:
             }
           '
 
-      - name: Apply and adversarially verify exact E0 DDL
+      - name: Apply E0 and verify restart-safe E1 migration/current reader
         env:
           V1_REPO_ROOT: ${{ github.workspace }}
           V1_WP_ROOT: /tmp/v1-wordpress
+          V1_E1_EXTENDED: ${{ matrix.extended }}
         run: |
           set -eu
           php -d display_errors=1 -d error_reporting=-1 -r '
             chdir(getenv("V1_WP_ROOT"));
             require getenv("V1_WP_ROOT") . "/wp-load.php";
             require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010e-wordpress.php";
+            require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010e-e1-wordpress.php";
           '
