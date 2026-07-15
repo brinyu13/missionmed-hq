@@ -58,7 +58,7 @@ class MMED_Student_OS {
 		}
 
 		$css_path           = MMED_HUB_PATH . 'assets/student-os.css';
-		$js_asset           = 'student-os.646e3598d284fff3.js';
+		$js_asset           = 'student-os.c1d97237eab4936d.js';
 		$js_path            = MMED_HUB_PATH . 'assets/' . $js_asset;
 		$scheduler_mount_js = MMED_HUB_PATH . 'assets/scheduler-mount.js';
 		$runtime_v2_enabled = self::is_runtime_v2_enabled();
@@ -745,19 +745,55 @@ class MMED_Student_OS {
 		}
 
 		$parts = wp_parse_url( $target );
-		if ( ! is_array( $parts ) || 'https' !== strtolower( (string) ( $parts['scheme'] ?? '' ) ) || ! empty( $parts['user'] ) || ! empty( $parts['pass'] ) ) {
+		if (
+			! is_array( $parts )
+			|| 'https' !== strtolower( (string) ( $parts['scheme'] ?? '' ) )
+			|| 'cam-hq-production-cam-production.up.railway.app' !== strtolower( (string) ( $parts['host'] ?? '' ) )
+				|| '/cam/' !== (string) ( $parts['path'] ?? '' )
+				|| ( ! empty( $parts['port'] ) && 443 !== absint( $parts['port'] ) )
+			|| ! empty( $parts['user'] )
+			|| ! empty( $parts['pass'] )
+			|| ! empty( $parts['query'] )
+			|| ! empty( $parts['fragment'] )
+		) {
 			return '';
 		}
 
-		return esc_url_raw(
-			add_query_arg(
-				array(
-					'entry'     => 'matrix',
-					'return_to' => home_url( '/member-dashboard/#dashboard' ),
-				),
-				$target
+		$return_to = home_url( '/member-dashboard/' ) . '#dashboard';
+		$final     = self::build_cam_query_url(
+			$target,
+			array(
+				'entry'     => 'matrix',
+				'return_to' => $return_to,
 			)
 		);
+		$auth_url  = 'https://cam-hq-production-cam-production.up.railway.app/api/auth/start';
+
+		return esc_url_raw(
+			self::build_cam_query_url(
+				$auth_url,
+				array(
+					'audience'  => 'cam',
+					'entry'     => 'matrix',
+					'return_to' => $return_to,
+					'final'     => $final,
+				)
+			)
+		);
+	}
+
+	/**
+	 * Build a CAM URL with RFC3986 encoding so nested fragments remain query data.
+	 *
+	 * WordPress add_query_arg() preserves a literal # inside parameter values. In a
+	 * browser that starts the outer fragment early and drops the nested final URL.
+	 *
+	 * @param string $base Base HTTPS URL without a query or fragment.
+	 * @param array  $args Query parameters.
+	 * @return string
+	 */
+	private static function build_cam_query_url( $base, $args ) {
+		return rtrim( (string) $base, '?' ) . '?' . http_build_query( $args, '', '&', PHP_QUERY_RFC3986 );
 	}
 
 	/**

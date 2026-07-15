@@ -5499,12 +5499,51 @@
 	function safeCamLaunchUrl(value) {
 		try {
 			var url = new URL(String(value || ""), window.location.href);
-			if (url.protocol !== "https:" || url.username || url.password || url.searchParams.get("entry") !== "matrix") {
+			var hqOrigin = "https://cam-hq-production-cam-production.up.railway.app";
+			var returnTarget = "https://missionmedinstitute.com/member-dashboard/#dashboard";
+			var allowedKeys = ["audience", "entry", "return_to", "final"];
+			var queryKeys = [];
+			url.searchParams.forEach(function (_queryValue, queryKey) {
+				queryKeys.push(queryKey);
+			});
+
+			if (
+				url.origin !== hqOrigin
+				|| url.pathname !== "/api/auth/start"
+				|| url.hash
+				|| url.username
+				|| url.password
+				|| queryKeys.length !== allowedKeys.length
+				|| queryKeys.some(function (queryKey) { return allowedKeys.indexOf(queryKey) === -1; })
+				|| allowedKeys.some(function (queryKey) { return url.searchParams.getAll(queryKey).length !== 1; })
+				|| url.searchParams.get("audience") !== "cam"
+				|| url.searchParams.get("entry") !== "matrix"
+				|| url.searchParams.get("return_to") !== returnTarget
+			) {
 				return "";
 			}
-			["access_token", "refresh_token", "token", "jwt", "code", "session"].forEach(function (name) {
-				if (url.searchParams.has(name)) throw new Error("CAM launch URL contains a forbidden credential parameter");
+
+			var finalUrl = new URL(url.searchParams.get("final"));
+			var finalKeys = [];
+			finalUrl.searchParams.forEach(function (_finalValue, finalKey) {
+				finalKeys.push(finalKey);
 			});
+			if (
+				finalUrl.origin !== hqOrigin
+				|| finalUrl.pathname !== "/cam/"
+				|| finalUrl.hash
+				|| finalUrl.username
+				|| finalUrl.password
+				|| finalKeys.length !== 2
+				|| finalUrl.searchParams.getAll("entry").length !== 1
+				|| finalUrl.searchParams.getAll("return_to").length !== 1
+				|| finalKeys.some(function (finalKey) { return ["entry", "return_to"].indexOf(finalKey) === -1; })
+				|| finalUrl.searchParams.get("entry") !== "matrix"
+				|| finalUrl.searchParams.get("return_to") !== returnTarget
+			) {
+				return "";
+			}
+
 			return url.toString();
 		} catch (error) {
 			return "";
