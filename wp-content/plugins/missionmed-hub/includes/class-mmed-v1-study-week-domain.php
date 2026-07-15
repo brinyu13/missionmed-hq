@@ -611,8 +611,15 @@ final class MMED_V1_Study_Week_Domain {
 			'week_id'    => self::uuid( $week_id ),
 			'week_start' => $week_start,
 		);
-		$model['projection_hash'] = hash( 'sha256', self::canonical_json( $model ) );
-		return $model;
+		$projection_hash = hash( 'sha256', self::canonical_json( $model ) );
+		return array(
+			'blocks'          => $model['blocks'],
+			'plan_id'         => $model['plan_id'],
+			'projection_hash' => $projection_hash,
+			'revision'        => $model['revision'],
+			'week_id'         => $model['week_id'],
+			'week_start'      => $model['week_start'],
+		);
 	}
 
 	/** Derive the non-persistent 8010E Mission primary from one exact Week model. */
@@ -663,9 +670,9 @@ final class MMED_V1_Study_Week_Domain {
 
 		if ( empty( $candidates ) ) {
 			return array(
+				'primary'  => null,
 				'revision' => $revision,
 				'state'    => 'protect_the_day',
-				'primary'  => null,
 				'title'    => 'Protect the day',
 				'why'      => 'Nothing is planned yet. Make one clear promise to yourself.',
 			);
@@ -703,9 +710,9 @@ final class MMED_V1_Study_Week_Domain {
 		$why = $primary['_mission_why'];
 		unset( $primary['_mission_tier'], $primary['_mission_why'] );
 		return array(
+			'primary'  => $primary,
 			'revision' => $revision,
 			'state'    => 'planned',
-			'primary'  => $primary,
 			'title'    => isset( $primary['title'] ) ? $primary['title'] : '',
 			'why'      => $why,
 		);
