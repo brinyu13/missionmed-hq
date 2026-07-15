@@ -243,6 +243,7 @@ final class MMED_V1_Study_Week_Domain {
 			'command'          => $command,
 			'contract_version' => self::CONTRACT_VERSION,
 			'expected_revision'=> $expected_revision_string,
+			'idempotency_key'  => $idempotency_key,
 			'owner_id'         => (string) $owner_id,
 			'payload'          => $payload,
 			'storage_codebook' => array(
@@ -358,7 +359,25 @@ final class MMED_V1_Study_Week_Domain {
 			throw new MMED_V1_Study_Week_Domain_Exception( 'outside_display_window' );
 		}
 
-		$instant = self::resolve_local_instant( $local_date, $local_time, $timezone, $fold );
+		try {
+			$instant = self::resolve_local_instant( $local_date, $local_time, $timezone, $fold );
+		} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+			if ( 'dst_gap' !== $error->reason_code() ) {
+				throw $error;
+			}
+			throw new MMED_V1_Study_Week_Domain_Exception(
+				'dst_gap',
+				array(
+					'suggested_slot' => self::next_valid_command_slot(
+						$week_start,
+						$local_date,
+						$local_time,
+						$duration_minutes,
+						$week_zone
+					),
+				)
+			);
+		}
 		$start_epoch = $instant['epoch'];
 		$end_epoch = $start_epoch + ( $duration_minutes * 60 );
 		$utc = new DateTimeZone( 'UTC' );
@@ -1002,6 +1021,36 @@ final class MMED_V1_Study_Week_Domain {
 				break;
 			}
 			$time = $cursor->format( 'H:i' );
+			$candidates = self::utc_candidates( $date . ' ' . $time, $zone );
+			if ( ! empty( $candidates ) ) {
+				return array(
+					'local_date'    => $date,
+					'local_time'    => $time,
+					'fold_required' => count( $candidates ) > 1,
+				);
+			}
+		}
+		throw new MMED_V1_Study_Week_Domain_Exception( 'dst_gap_without_safe_suggestion' );
+	}
+
+	/** Return the next gap-free slot that also satisfies the selected Week canvas. */
+	private static function next_valid_command_slot( $week_start, $local_date, $local_time, $duration_minutes, $zone ) {
+		$week_end = ( new DateTimeImmutable( $week_start . ' 00:00:00', new DateTimeZone( 'UTC' ) ) )->modify( '+7 days' )->format( 'Y-m-d' );
+		$cursor = DateTimeImmutable::createFromFormat( '!Y-m-d H:i', $local_date . ' ' . $local_time, new DateTimeZone( 'UTC' ) );
+		if ( ! $cursor instanceof DateTimeImmutable ) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'dst_gap_without_safe_suggestion' );
+		}
+		for ( $step = 1; $step <= ( 7 * 24 * 60 / self::STEP_MINUTES ); ++$step ) {
+			$cursor = $cursor->modify( '+' . self::STEP_MINUTES . ' minutes' );
+			$date = $cursor->format( 'Y-m-d' );
+			if ( strcmp( $date, $week_end ) >= 0 ) {
+				break;
+			}
+			$time = $cursor->format( 'H:i' );
+			$minute = self::minute_of_day( $time );
+			if ( $minute < self::DISPLAY_START_MINUTE || $minute + $duration_minutes > self::DISPLAY_END_MINUTE ) {
+				continue;
+			}
 			$candidates = self::utc_candidates( $date . ' ' . $time, $zone );
 			if ( ! empty( $candidates ) ) {
 				return array(

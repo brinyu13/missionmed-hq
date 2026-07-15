@@ -113,7 +113,7 @@ final class MMED_V1_Study_Command_Service {
 		} catch ( MMED_V1_Study_Command_Exception $error ) {
 			return self::failure( $error->reason_code() );
 		} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
-			return self::failure( $error->reason_code() );
+			return self::failure( $error->reason_code(), $error->safe_context() );
 		} catch ( Throwable $error ) {
 			unset( $error );
 			return self::failure( 'dependency_unavailable' );
@@ -130,24 +130,37 @@ final class MMED_V1_Study_Command_Service {
 		if ( array( 'ok', 'reason_code', 'replayed', 'result', 'status' ) !== $keys ) {
 			return false;
 		}
-		return true === $result['ok']
-			&& 'ok' === $result['reason_code']
-			&& is_bool( $result['replayed'] )
-			&& is_array( $result['result'] )
-			&& 200 === $result['status'];
+		if (
+			true !== $result['ok']
+			|| 'ok' !== $result['reason_code']
+			|| ! is_bool( $result['replayed'] )
+			|| ! is_array( $result['result'] )
+			|| 200 !== $result['status']
+		) {
+			return false;
+		}
+		try {
+			MMED_V1_Study_Week_Command_State::assert_command_result( $result['result'] );
+			return true;
+		} catch ( Throwable $error ) {
+			unset( $error );
+			return false;
+		}
 	}
 
 	/** @return array */
-	private static function failure( $reason_code ) {
+	private static function failure( $reason_code, $safe_context = array() ) {
 		$allowed = array(
 			'actor_owner_invalid', 'block_collision', 'block_limit_exceeded', 'block_not_found',
 			'command_body_shape', 'command_unknown', 'create_payload_shape', 'delete_payload_shape',
 			'dst_fold_choice_required', 'dst_fold_choice_unexpected', 'dst_gap', 'duration_invalid',
-			'activity_duration_too_short', 'activity_source_owned', 'fixed_anchor_immutable',
-			'idempotency_conflict', 'idempotency_key_invalid', 'move_payload_shape', 'no_state_change',
-			'outside_display_window', 'outside_selected_week', 'resize_payload_shape', 'revision_exhausted',
-			'revision_invalid', 'stale_revision', 'temporal_context_stale', 'title_invalid',
-			'week_limit_exceeded',
+				'activity_duration_too_short', 'activity_source_owned', 'activity_type_invalid', 'fixed_anchor_immutable',
+				'fold_invalid',
+				'idempotency_conflict', 'idempotency_key_invalid', 'move_payload_shape', 'no_state_change',
+				'local_date_invalid', 'local_time_invalid', 'outside_display_window', 'outside_selected_week',
+				'priority_invalid', 'resize_payload_shape', 'revision_exhausted',
+				'revision_invalid', 'stale_revision', 'temporal_context_stale', 'title_invalid',
+				'uuid_invalid', 'week_limit_exceeded',
 		);
 		if ( ! in_array( $reason_code, $allowed, true ) ) {
 			$reason_code = 'dependency_unavailable';
@@ -159,11 +172,31 @@ final class MMED_V1_Study_Command_Service {
 		if ( 'dependency_unavailable' === $reason_code ) {
 			$status = 503;
 		}
+		$result = null;
+		if ( 'dst_gap' === $reason_code && is_array( $safe_context ) ) {
+			$suggestion = $safe_context['suggested_slot'] ?? null;
+			$keys = is_array( $suggestion ) ? array_keys( $suggestion ) : array();
+			sort( $keys, SORT_STRING );
+			if (
+				array( 'fold_required', 'local_date', 'local_time' ) === $keys
+				&& is_bool( $suggestion['fold_required'] )
+				&& is_string( $suggestion['local_date'] )
+				&& 1 === preg_match( '/^\d{4}-\d{2}-\d{2}$/D', $suggestion['local_date'] )
+				&& is_string( $suggestion['local_time'] )
+				&& 1 === preg_match( '/^(?:[01]\d|2[0-3]):(?:00|15|30|45)$/D', $suggestion['local_time'] )
+			) {
+				$result = array( 'suggested_slot' => $suggestion );
+			}
+		}
+		if ( 'dst_gap' === $reason_code && null === $result ) {
+			$reason_code = 'dependency_unavailable';
+			$status = 503;
+		}
 		return array(
 			'ok'          => false,
 			'reason_code' => $reason_code,
 			'replayed'    => false,
-			'result'      => null,
+			'result'      => $result,
 			'status'      => $status,
 		);
 	}

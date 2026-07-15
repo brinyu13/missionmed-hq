@@ -155,7 +155,7 @@ v1_8010e_expect( MMED_V1_Study_Week_Domain::activity_catalog_fingerprint() === $
 v1_8010e_expect( MMED_V1_Study_Week_Domain::STORAGE_CODEBOOK_VERSION === $create['storage_codebook_version'] && MMED_V1_Study_Week_Domain::storage_codebook_fingerprint() === $create['storage_codebook_fingerprint'], 'normalized DTO exposes exact persistence semantics without reparsing request JSON' );
 v1_8010e_expect( '0' === $create['expected_revision'], 'revision remains an exact decimal string' );
 v1_8010e_expect( 1 === preg_match( '/^[a-f0-9]{64}$/', $create['request_hash'] ), 'server-bound request hash is canonical' );
-v1_8010e_expect( '05b3aec3197513db4df64aa808cfdef16ca503beac4c5255b963df1b65d71580' === $create['request_hash'], 'request hash matches the cross-runtime golden vector including catalog and storage semantics' );
+v1_8010e_expect( '8c9fae090e08cd4379ea39a3681ac9e8e2c8b5f618cbb42baca7742847233c45' === $create['request_hash'], 'request hash matches the cross-runtime golden vector including replay identity, catalog, and storage semantics' );
 v1_8010e_expect( $create['request_hash'] === MMED_V1_Study_Week_Domain::normalize_command( $create_body, 42, 42, 'learner', $temporal )['request_hash'], 'identical commands bind to one semantic hash' );
 
 $move_body = array(
@@ -205,7 +205,7 @@ $different_revision_body['expected_revision'] = '1';
 v1_8010e_expect( $create['request_hash'] !== MMED_V1_Study_Week_Domain::normalize_command( $different_revision_body, 42, 42, 'learner', $temporal )['request_hash'], 'expected revision is bound into the request hash' );
 $different_key_body = $create_body;
 $different_key_body['idempotency_key'] = '8010E-create-0002';
-v1_8010e_expect( $create['request_hash'] === MMED_V1_Study_Week_Domain::normalize_command( $different_key_body, 42, 42, 'learner', $temporal )['request_hash'], 'idempotency key selects a receipt but does not change semantic request identity' );
+v1_8010e_expect( $create['request_hash'] !== MMED_V1_Study_Week_Domain::normalize_command( $different_key_body, 42, 42, 'learner', $temporal )['request_hash'], 'idempotency key is cryptographically bound to its immutable receipt identity' );
 $changed_envelope = MMED_V1_Study_Week_Domain::temporal_envelope( '2026-07-13', 'America/New_York', 'profile-42-v8', '2026a' );
 $changed_body = $create_body;
 $changed_body['payload']['temporal_context'] = $changed_envelope['context'];

@@ -17,8 +17,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 /** Exact same-connection command repository for disposable synthetic stores. */
 final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Command_Repository {
 
+	const CLOCK_SKEW_SECONDS = 5.0;
 	const MAX_SNAPSHOT_BYTES = 2097152;
 	const MAX_RECEIPT_BYTES = 262144;
+	const RECEIPT_AUDIT_BATCH = 32;
+	const MAX_RECEIPTS_PER_PLAN = 4096;
 
 	/** @var object */
 	private $database;
@@ -37,6 +40,12 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 
 	/** @var bool|null */
 	private $is_mariadb;
+
+	/** @var object|null Exact native mysqli handle; reconnect is never followed. */
+	private $native_handle;
+
+	/** @var string|null Preflight store UUID hex bound to the locked gate. */
+	private $provenance_store_hex;
 
 	/**
 	 * @param object                         $database WordPress database connection.
@@ -63,6 +72,8 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$this->uuid_source = null === $uuid_source ? new MMED_V1_Study_CSPRNG_UUID_Source() : $uuid_source;
 		$this->failpoint = $failpoint;
 		$this->is_mariadb = null;
+		$this->native_handle = isset( $database->dbh ) && is_object( $database->dbh ) ? $database->dbh : null;
+		$this->provenance_store_hex = null;
 	}
 
 	/** @return array */
@@ -71,6 +82,10 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$this->assert_identity( $owner_id, $actor_id, $actor_kind );
 		$this->connection_id = $this->current_connection_id();
 		$this->assert_clean_session();
+		$original_session_controls = $this->session_controls();
+		$original_isolation = $this->isolation_level();
+		$original_sql_mode = $this->native_sql_mode();
+		$original_encoding = $this->session_encoding();
 		$this->assert_physical_provenance();
 		MMED_V1_Study_Native_Session_Guard::assert_no_temporary_table_shadows(
 			$this->database,
@@ -82,23 +97,39 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		);
 
 		$started = false;
+		$isolation_changed = false;
+		$sql_mode_changed = false;
+		$encoding_changed = false;
 		try {
+			$encoding_changed = true;
+			$this->pin_session_encoding();
+			$sql_mode_changed = true;
+			$this->native_set_sql_mode( $this->hardened_sql_mode( $original_sql_mode ) );
+			$this->assert_sql_mode_hardened();
+			$isolation_changed = true;
+			$this->execute( 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED', 'v1_command_isolation_failed' );
+			if ( 'READ-COMMITTED' !== $this->isolation_level() ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
 			$this->execute( 'START TRANSACTION READ WRITE', 'v1_command_begin_failed' );
 			$started = true;
-			if ( false === $this->transaction_active() ) {
+			if ( true !== $this->transaction_active() ) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
 			$this->hit( 'after_begin' );
 
 			$this->lock_store_gate();
+			$this->assert_transaction_context();
+			$this->lock_owned_metadata_and_ledger();
+			$this->assert_in_transaction_provenance();
 			$this->hit( 'after_gate_lock' );
-			$this->assert_fence_result( $this->fence->lock_control_rows( $this->database, $this->connection_id, $owner_id ) );
-			$this->verify_connection();
+			$this->invoke_fence( 'lock_control_rows', $owner_id );
 			$this->hit( 'after_control_lock' );
 
-			$now = $this->trusted_timestamp();
-			$this->insert_or_existing_plan( $owner_id, $now );
+			$placeholder_at = $this->trusted_timestamp();
+			$this->insert_or_existing_plan( $owner_id, $placeholder_at );
 			$plan = $this->lock_plan( $owner_id );
+			$now = $this->trusted_timestamp();
 			$this->hit( 'after_plan_lock' );
 
 			$receipt = $this->receipt_by_idempotency( $owner_id, $idempotency_key, false );
@@ -106,13 +137,14 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			$replay = false;
 			if ( null !== $receipt ) {
 				$this->assert_receipt_integrity( $receipt, $owner_id, null );
+				$receipt_temporal = $this->receipt_temporal_envelope( $receipt );
 				try {
 					$normalized = MMED_V1_Study_Week_Domain::normalize_command(
 						$candidate,
 						$owner_id,
 						$actor_id,
 						$actor_kind,
-						$this->receipt_temporal_envelope( $receipt )
+						$receipt_temporal
 					);
 				} catch ( Throwable $error ) {
 					unset( $error );
@@ -137,24 +169,48 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 				if ( $normalized['expected_revision'] !== $current_revision ) {
 					throw new MMED_V1_Study_Command_Exception( 'stale_revision' );
 				}
+				if ( strlen( $current_revision ) > 4 || (int) $current_revision >= self::MAX_RECEIPTS_PER_PLAN ) {
+					throw new MMED_V1_Study_Command_Exception( 'revision_exhausted' );
+				}
 			}
 
-			$this->assert_fence_result( $this->fence->lock_calendar_rows( $this->database, $this->connection_id, $owner_id ) );
-			$this->verify_connection();
+			$this->invoke_fence( 'lock_calendar_rows', $owner_id );
 			$this->hit( 'after_calendar_fence' );
 
 			$domain_rows = $this->lock_domain_rows( $owner_id );
-			$state = $this->assert_plan_state( $plan, $owner_id, $domain_rows['weeks'], $domain_rows['blocks'] );
+			$state = $this->trusted_plan_state( $plan, $owner_id, $domain_rows['weeks'], $domain_rows['blocks'] );
+			if ( strcmp( $now, $state['updated_at'] ) < 0 ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$current_committed_at = null;
 			if ( '0' !== $state['revision'] ) {
-				$this->assert_receipt_chain( $owner_id, $state );
+				$current_committed_at = $this->assert_receipt_chain( $owner_id, $state, $domain_rows['weeks'] );
+				if ( strcmp( $now, $current_committed_at ) < 0 ) {
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
 			}
 			$this->hit( 'after_domain_lock' );
 
 			if ( $replay ) {
+				if ( null === $state['plan_id'] ) {
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
+				$this->assert_receipt_integrity( $receipt, $owner_id, $state['plan_id'] );
 				$result = $this->decode_receipt_result( $receipt );
+				$this->assert_session_integrity( true );
 				$this->execute( 'COMMIT AND NO CHAIN NO RELEASE', 'v1_command_commit_failed' );
 				$started = false;
+				$this->hit( 'after_commit' );
 				$this->assert_transaction_ended();
+				$this->restore_isolation( $original_isolation );
+				$isolation_changed = false;
+				$this->native_set_sql_mode( $original_sql_mode );
+				if ( $original_sql_mode !== $this->native_sql_mode() ) {
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
+				$sql_mode_changed = false;
+				$this->restore_session_encoding( $original_encoding );
+				$encoding_changed = false;
 				return $this->success( $result, true );
 			}
 
@@ -179,29 +235,41 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
 			$plan_hash = hash( 'sha256', $plan_json );
-			$result = array(
-				'action'       => $normalized['command'],
-				'block_id'     => $reduced['block_id'],
-				'operation_id' => $ids['operation_id'],
-				'plan_hash'    => $plan_hash,
-				'revision'     => $reduced['next_revision'],
-			);
+			try {
+				$result = MMED_V1_Study_Week_Command_State::command_result(
+					$reduced['snapshot'],
+					$normalized['temporal']['week_start'],
+					$this->learner_local_date( $now, $normalized['temporal']['timezone'] ),
+					$normalized['command'],
+					$reduced['block_id'],
+					$ids['operation_id'],
+					$plan_hash
+				);
+			} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+				unset( $error );
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
 			$result_json = MMED_V1_Study_Week_Domain::canonical_json( $result );
 			if ( strlen( $result_json ) > self::MAX_RECEIPT_BYTES ) {
-				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				throw new MMED_V1_Study_Command_Exception( 'block_limit_exceeded' );
 			}
 
 			$this->persist_reduction( $owner_id, $state, $normalized, $ids, $reduced, $plan_json, $plan_hash, $now );
 			$this->hit( 'after_domain_write' );
 
 			$verified_rows = $this->lock_domain_rows( $owner_id );
-			$verified_snapshot = MMED_V1_Study_Week_Command_State::snapshot(
-				$owner_id,
-				$ids['plan_id'],
-				$reduced['next_revision'],
-				$verified_rows['weeks'],
-				$verified_rows['blocks']
-			);
+			try {
+				$verified_snapshot = MMED_V1_Study_Week_Command_State::snapshot(
+					$owner_id,
+					$ids['plan_id'],
+					$reduced['next_revision'],
+					$verified_rows['weeks'],
+					$verified_rows['blocks']
+				);
+			} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+				unset( $error );
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
 			$verified_json = MMED_V1_Study_Week_Domain::canonical_json( $verified_snapshot );
 			if ( ! hash_equals( $plan_json, $verified_json ) || ! hash_equals( $plan_hash, hash( 'sha256', $verified_json ) ) ) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
@@ -213,23 +281,81 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			$this->hit( 'after_receipt_write' );
 			$stored = $this->receipt_by_idempotency( $owner_id, $idempotency_key, true );
 			$this->assert_receipt_integrity( $stored, $owner_id, $ids['plan_id'] );
-			if ( ! hash_equals( $result_json, (string) $stored['result_json'] ) ) {
+			if (
+				! hash_equals( $result_json, (string) $stored['result_json'] )
+				|| (string) $stored['committed_at'] !== $now
+				|| ( null !== $state['watermark_at'] && strcmp( $now, $state['watermark_at'] ) < 0 )
+			) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
+			$this->assert_session_integrity( true );
 			$this->hit( 'before_commit' );
 			$this->execute( 'COMMIT AND NO CHAIN NO RELEASE', 'v1_command_commit_failed' );
 			$started = false;
+			$this->hit( 'after_commit' );
 			$this->assert_transaction_ended();
+			$this->restore_isolation( $original_isolation );
+			$isolation_changed = false;
+			$this->native_set_sql_mode( $original_sql_mode );
+			if ( $original_sql_mode !== $this->native_sql_mode() ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$sql_mode_changed = false;
+			$this->restore_session_encoding( $original_encoding );
+			$encoding_changed = false;
 			return $this->success( $result, false );
 		} catch ( Throwable $error ) {
+			$cleanup_failed = false;
 			if ( $started ) {
 				try {
 					$this->execute( 'ROLLBACK AND NO CHAIN NO RELEASE', 'v1_command_rollback_failed' );
 					$started = false;
 					$this->assert_transaction_ended();
 				} catch ( Throwable $rollback_error ) {
-					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+					unset( $rollback_error );
+					$this->best_effort_detached_rollback();
+					$cleanup_failed = true;
 				}
+			}
+			if ( $isolation_changed ) {
+				try {
+					$this->restore_isolation( $original_isolation );
+					$isolation_changed = false;
+				} catch ( Throwable $isolation_error ) {
+					unset( $isolation_error );
+					$cleanup_failed = true;
+				}
+			}
+			if ( $sql_mode_changed ) {
+				try {
+					$this->native_set_sql_mode( $original_sql_mode );
+					if ( $original_sql_mode !== $this->native_sql_mode() ) {
+						throw new RuntimeException( 'v1_command_sql_mode_restore_failed' );
+					}
+					$sql_mode_changed = false;
+				} catch ( Throwable $sql_mode_error ) {
+					unset( $sql_mode_error );
+					$cleanup_failed = true;
+				}
+			}
+			if ( $encoding_changed ) {
+				try {
+					$this->restore_session_encoding( $original_encoding );
+					$encoding_changed = false;
+				} catch ( Throwable $encoding_error ) {
+					unset( $encoding_error );
+					$cleanup_failed = true;
+				}
+			}
+			try {
+				$this->restore_session_controls( $original_session_controls );
+				$this->assert_clean_session();
+			} catch ( Throwable $session_error ) {
+				unset( $session_error );
+				$cleanup_failed = true;
+			}
+			if ( $cleanup_failed ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
 			throw $error;
 		}
@@ -262,9 +388,15 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 	/** @return void */
 	private function assert_physical_provenance() {
 		$repository = new MMED_V1_Study_InnoDB_Repository( $this->database );
-		if ( MMED_V1_Study_Domain::BINDING_READY !== $repository->binding_kind() ) {
+		$provenance = $repository->store_provenance();
+		if (
+			'commissioned' !== (string) ( $provenance['state'] ?? '' )
+			|| 2 !== (int) ( $provenance['generation'] ?? 0 )
+			|| ! is_string( $provenance['store_id'] ?? null )
+		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->provenance_store_hex = $this->uuid_hex( $provenance['store_id'] );
 		$this->verify_connection();
 	}
 
@@ -277,6 +409,105 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->assert_session_integrity( false, false, false );
+	}
+
+	/**
+	 * Acquire transaction-duration metadata locks for the complete owned store
+	 * and shared locks for the immutable migration ledger. This closes the gap
+	 * between preflight provenance and the first domain write without taking an
+	 * application row lock out of the governed order.
+	 *
+	 * @return void
+	 */
+	private function lock_owned_metadata_and_ledger() {
+		$tables = array_merge(
+			array_values( MMED_V1_Study_Schema::table_names( $this->database ) ),
+			array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
+		);
+		foreach ( array_values( array_unique( $tables ) ) as $table ) {
+			if ( ! is_string( $table ) || 1 !== preg_match( '/^[A-Za-z0-9_]{1,64}$/D', $table ) ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$this->rows( "SELECT 1 AS v1_metadata_pin FROM `{$table}` WHERE 1 = 0 LOCK IN SHARE MODE" );
+			$this->assert_transaction_context();
+		}
+		$kernel = MMED_V1_Study_Schema::table_names( $this->database );
+		$expected = array_merge(
+			MMED_V1_Study_Schema::migrations( $this->database ),
+			MMED_V1_Study_Week_Schema::migrations( $this->database )
+		);
+		$rows = $this->rows(
+			'SELECT migration_version, migration_id, LOWER(HEX(checksum)) AS checksum_hex, state, checkpoint,'
+			. ' attempt_count, LOWER(HEX(runner_id)) AS runner_hex, failure_code, started_at, applied_at, updated_at'
+			. " FROM `{$kernel['migrations']}` ORDER BY migration_version LIMIT "
+			. ( count( $expected ) + 1 ) . ' LOCK IN SHARE MODE'
+		);
+		if ( count( $expected ) !== count( $rows ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$previous_applied_at = null;
+		foreach ( $expected as $index => $migration ) {
+			$row = $rows[ $index ];
+			if (
+				(int) $migration['version'] !== (int) ( $row['migration_version'] ?? 0 )
+				|| $migration['id'] !== (string) ( $row['migration_id'] ?? '' )
+				|| $migration['checksum_hex'] !== (string) ( $row['checksum_hex'] ?? '' )
+				|| 'applied' !== (string) ( $row['state'] ?? '' )
+				|| ! in_array( (string) ( $row['checkpoint'] ?? '' ), array( 'verified', 'recovered_after_ddl' ), true )
+				|| (int) ( $row['attempt_count'] ?? 0 ) < 1
+				|| ! $this->is_uuid_hex( $row['runner_hex'] ?? null )
+				|| null !== ( $row['failure_code'] ?? null )
+				|| ! $this->valid_timestamp( $row['started_at'] ?? null )
+				|| ! $this->valid_timestamp( $row['applied_at'] ?? null )
+				|| ! $this->valid_timestamp( $row['updated_at'] ?? null )
+				|| strcmp( $row['applied_at'], $row['started_at'] ) < 0
+				|| strcmp( $row['updated_at'], $row['applied_at'] ) < 0
+				|| ( null !== $previous_applied_at && strcmp( $row['started_at'], $previous_applied_at ) < 0 )
+			) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$previous_applied_at = $row['applied_at'];
+		}
+		$this->assert_transaction_context();
+	}
+
+	/** Revalidate exact live table/trigger shapes while metadata locks are held. */
+	private function assert_in_transaction_provenance() {
+		$parent_inspector = new MMED_V1_Study_Schema_Inspector( $this->database );
+		$parent = $parent_inspector->inspect();
+		$week = ( new MMED_V1_Study_Week_Schema_Inspector( $this->database ) )->inspect();
+		$this->verify_connection();
+		$expected_tables = array_merge(
+			array_values( MMED_V1_Study_Schema::table_names( $this->database ) ),
+			array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
+		);
+		$prefix = (string) $this->database->prefix . 'mmed_v1_study_';
+		$namespace_rows = $this->rows(
+			$this->prepare(
+				'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s'
+				. ' AND LEFT(TABLE_NAME, CHAR_LENGTH(%s)) = %s ORDER BY TABLE_NAME LIMIT ' . ( count( $expected_tables ) + 1 ),
+				$parent_inspector->schema_name(),
+				$prefix,
+				$prefix
+			)
+		);
+		$actual_tables = array();
+		foreach ( $namespace_rows as $row ) {
+			$actual_tables[] = (string) ( $row['TABLE_NAME'] ?? '' );
+		}
+		sort( $expected_tables, SORT_STRING );
+		sort( $actual_tables, SORT_STRING );
+		if (
+			empty( $parent['ok'] )
+			|| MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== ( $parent['state'] ?? null )
+			|| empty( $week['ok'] )
+			|| MMED_V1_Study_Schema_Inspector::STATE_COMPATIBLE !== ( $week['state'] ?? null )
+			|| $expected_tables !== $actual_tables
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->assert_transaction_context();
 	}
 
 	/** @return void */
@@ -297,9 +528,11 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		}
 		$row = $rows[0];
 		if (
-			'2' !== (string) ( $row['current_generation'] ?? '' )
-			|| 'ready' !== (string) ( $row['gate_state'] ?? '' )
-			|| ! is_string( $row['gate_store_hex'] ?? null )
+				'2' !== (string) ( $row['current_generation'] ?? '' )
+				|| 'ready' !== (string) ( $row['gate_state'] ?? '' )
+				|| ! is_string( $row['gate_store_hex'] ?? null )
+				|| ! is_string( $this->provenance_store_hex )
+				|| ! hash_equals( $this->provenance_store_hex, (string) $row['gate_store_hex'] )
 			|| ! hash_equals( (string) $row['gate_store_hex'], (string) ( $row['g1_store_hex'] ?? '' ) )
 			|| ! hash_equals( (string) $row['gate_store_hex'], (string) ( $row['g2_store_hex'] ?? '' ) )
 			|| MMED_V1_Study_Schema::SCHEMA_VERSION !== (string) ( $row['g1_schema'] ?? '' )
@@ -321,25 +554,21 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$sql  = "INSERT INTO `{$tables['plans']}`";
 		$sql .= ' (owner_id, plan_id, store_generation, schema_version, current_revision, watermark_operation_id, watermark_at, plan_json, plan_hash, created_at, updated_at)';
 		$sql .= ' SELECT %d, NULL, 2, NULL, 0, NULL, NULL, NULL, NULL, %s, %s';
-		$sql .= " FROM `{$tables['generations']}` WHERE generation = 2";
-		$this->verify_connection();
-		$result = $this->database->query( $this->prepare( $sql, $owner_id, $now, $now ) );
+		$sql .= " FROM `{$tables['store_gate']}` sg INNER JOIN `{$tables['generations']}` g";
+		$sql .= ' ON g.store_id = sg.store_id AND g.generation = 2 WHERE sg.gate_key = 1 AND sg.current_generation = 2 AND sg.gate_state = %s';
+		$failure = null;
+		$result = $this->native_query( $this->prepare( $sql, $owner_id, $now, $now, 'ready' ), $failure );
 		if ( false === $result ) {
-			$handle = isset( $this->database->dbh ) ? $this->database->dbh : null;
-			$errno = is_object( $handle ) && function_exists( 'mysqli_errno' ) ? (int) @mysqli_errno( $handle ) : 0;
-			$sqlstate = is_object( $handle ) && function_exists( 'mysqli_sqlstate' ) ? (string) @mysqli_sqlstate( $handle ) : '';
-			if ( 1062 !== $errno || '23000' !== $sqlstate ) {
+			if ( 1062 !== (int) ( $failure['errno'] ?? 0 ) || '23000' !== (string) ( $failure['sqlstate'] ?? '' ) ) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
-			$this->database->last_error = '';
-			$this->verify_connection();
+			$this->assert_transaction_context();
 			return;
 		}
-		$this->assert_query( 'v1_command_plan_fence_failed' );
-		$this->verify_connection();
-		if ( 1 !== (int) $result ) {
+		if ( true !== $result || 1 !== $this->native_affected_rows() ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->assert_transaction_context();
 	}
 
 	/** @return array */
@@ -361,10 +590,13 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 	/** @return string */
 	private function basic_plan_revision( $plan, $owner_id ) {
 		if (
-			! is_array( $plan )
-			|| (string) $owner_id !== (string) ( $plan['owner_id'] ?? '' )
-			|| '2' !== (string) ( $plan['store_generation'] ?? '' )
+				! is_array( $plan )
+				|| (string) $owner_id !== (string) ( $plan['owner_id'] ?? '' )
+				|| ! in_array( (string) ( $plan['store_generation'] ?? '' ), array( '1', '2' ), true )
 			|| ! is_string( $plan['current_revision'] ?? null )
+			|| ! $this->valid_timestamp( $plan['created_at'] ?? null )
+			|| ! $this->valid_timestamp( $plan['updated_at'] ?? null )
+			|| strcmp( (string) $plan['created_at'], (string) $plan['updated_at'] ) > 0
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
@@ -383,7 +615,8 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			return $revision;
 		}
 		if (
-			MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $plan['schema_version'] ?? '' )
+				'2' !== (string) ( $plan['store_generation'] ?? '' )
+				|| MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $plan['schema_version'] ?? '' )
 			|| ! $this->is_uuid_hex( $plan['plan_hex'] ?? null )
 			|| ! $this->is_uuid_hex( $plan['watermark_hex'] ?? null )
 			|| ! $this->valid_timestamp( $plan['watermark_at'] ?? null )
@@ -409,7 +642,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$week_sql .= ' ORDER BY week_start_local, week_id LIMIT ' . ( MMED_V1_Study_Week_Command_State::MAX_WEEKS_PER_PLAN + 1 ) . ' FOR UPDATE';
 		$weeks = $this->rows( $this->prepare( $week_sql, $owner_id ) );
 		if ( count( $weeks ) > MMED_V1_Study_Week_Command_State::MAX_WEEKS_PER_PLAN ) {
-			throw new MMED_V1_Study_Command_Exception( 'week_limit_exceeded' );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 
 		$block_sql  = 'SELECT CAST(b.owner_id AS CHAR) AS owner_id, LOWER(HEX(b.plan_id)) AS plan_hex, LOWER(HEX(b.week_id)) AS week_hex,';
@@ -430,7 +663,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$block_sql .= ' WHERE b.owner_id = %d ORDER BY b.week_id, b.block_id LIMIT ' . ( MMED_V1_Study_Week_Command_State::MAX_BLOCKS_PER_PLAN + 1 ) . ' FOR UPDATE';
 		$blocks = $this->rows( $this->prepare( $block_sql, $owner_id ) );
 		if ( count( $blocks ) > MMED_V1_Study_Week_Command_State::MAX_BLOCKS_PER_PLAN ) {
-			throw new MMED_V1_Study_Command_Exception( 'block_limit_exceeded' );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 		return array( 'weeks' => $weeks, 'blocks' => $blocks );
 	}
@@ -447,6 +680,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 				'plan_id'   => null,
 				'plan_json' => null,
 				'revision'  => '0',
+				'updated_at' => (string) $plan['updated_at'],
 				'watermark_at' => null,
 				'watermark_id' => null,
 			);
@@ -465,9 +699,20 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			'plan_id'   => $plan_id,
 			'plan_json' => $json,
 			'revision'  => $revision,
+			'updated_at' => (string) $plan['updated_at'],
 			'watermark_at' => (string) $plan['watermark_at'],
 			'watermark_id' => $this->uuid_from_hex( $plan['watermark_hex'] ),
 		);
+	}
+
+	/** Reconstruct stored truth without allowing corruption to become a client 4xx. */
+	private function trusted_plan_state( $plan, $owner_id, $weeks, $blocks ) {
+		try {
+			return $this->assert_plan_state( $plan, $owner_id, $weeks, $blocks );
+		} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+			unset( $error );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
 	}
 
 	/** @return array|null */
@@ -520,8 +765,18 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		return $sql;
 	}
 
-	/** @return void */
+	/** @return array */
 	private function assert_receipt_integrity( $receipt, $owner_id, $plan_id ) {
+		try {
+			return $this->assert_receipt_integrity_inner( $receipt, $owner_id, $plan_id );
+		} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+			unset( $error );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+	}
+
+	/** Validate one stored receipt after provenance errors are contained. */
+	private function assert_receipt_integrity_inner( $receipt, $owner_id, $plan_id ) {
 		if ( ! is_array( $receipt ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
@@ -536,10 +791,11 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			|| ! is_string( $receipt['idempotency_key'] ?? null )
 			|| strlen( $receipt['idempotency_key'] ) < 16
 			|| strlen( $receipt['idempotency_key'] ) > 64
-			|| ! is_string( $receipt['request_json'] ?? null )
-			|| ! is_numeric( $receipt['request_bytes'] ?? null )
-			|| (int) $receipt['request_bytes'] <= 0
-			|| (int) $receipt['request_bytes'] > self::MAX_RECEIPT_BYTES
+				|| ! is_string( $receipt['request_json'] ?? null )
+				|| ! is_numeric( $receipt['request_bytes'] ?? null )
+				|| (int) $receipt['request_bytes'] <= 0
+				|| (int) $receipt['request_bytes'] > self::MAX_RECEIPT_BYTES
+				|| (int) $receipt['request_bytes'] !== strlen( $receipt['request_json'] )
 			|| ! $this->is_hash_hex( $receipt['request_hash_hex'] ?? null )
 			|| ! hash_equals( (string) $receipt['request_hash_hex'], (string) ( $receipt['request_actual_hash_hex'] ?? '' ) )
 			|| (int) ( $receipt['actor_id'] ?? 0 ) <= 0
@@ -549,10 +805,11 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			|| MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $receipt['schema_version'] ?? '' )
 			|| ! $this->is_hash_hex( $receipt['plan_hash_hex'] ?? null )
 			|| 200 !== (int) ( $receipt['result_status'] ?? 0 )
-			|| ! is_string( $receipt['result_json'] ?? null )
-			|| ! is_numeric( $receipt['result_bytes'] ?? null )
-			|| (int) $receipt['result_bytes'] <= 0
-			|| (int) $receipt['result_bytes'] > self::MAX_RECEIPT_BYTES
+				|| ! is_string( $receipt['result_json'] ?? null )
+				|| ! is_numeric( $receipt['result_bytes'] ?? null )
+				|| (int) $receipt['result_bytes'] <= 0
+				|| (int) $receipt['result_bytes'] > self::MAX_RECEIPT_BYTES
+				|| (int) $receipt['result_bytes'] !== strlen( $receipt['result_json'] )
 			|| ! $this->is_hash_hex( $receipt['result_hash_hex'] ?? null )
 			|| ! hash_equals( (string) $receipt['result_hash_hex'], (string) ( $receipt['result_actual_hash_hex'] ?? '' ) )
 			|| ! $this->valid_timestamp( $receipt['committed_at'] ?? null )
@@ -561,9 +818,26 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		}
 
 		$request = json_decode( $receipt['request_json'], true );
+		$temporal = $this->receipt_temporal_envelope_inner( $receipt );
+		$candidate = array(
+			'idempotency_key' => $receipt['idempotency_key'],
+			'expected_revision' => $request['expected_revision'] ?? null,
+			'command' => $request['command'] ?? null,
+			'payload' => $request['payload'] ?? null,
+		);
+		$normalized = MMED_V1_Study_Week_Domain::normalize_command(
+			$candidate,
+			$owner_id,
+			(int) $receipt['actor_id'],
+			(string) $receipt['actor_kind'],
+			$temporal
+		);
 		if (
 			! is_array( $request )
 			|| ! hash_equals( $receipt['request_json'], MMED_V1_Study_Week_Domain::canonical_json( $request ) )
+			|| ! hash_equals( $receipt['request_json'], $normalized['request_json'] )
+			|| ! hash_equals( (string) $receipt['request_hash_hex'], $normalized['request_hash'] )
+			|| (string) $receipt['idempotency_key'] !== $normalized['idempotency_key']
 			|| (string) $owner_id !== (string) ( $request['owner_id'] ?? '' )
 			|| (string) ( $receipt['actor_id'] ?? '' ) !== (string) ( $request['actor_id'] ?? '' )
 			|| 'learner' !== (string) ( $request['actor_kind'] ?? '' )
@@ -580,17 +854,31 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$result = $this->decode_receipt_result( $receipt );
 		if (
 			$operation_id !== $result['operation_id']
-			|| $receipt_plan_id !== $this->uuid_from_hex( $receipt['plan_hex'] )
 			|| $revision !== $result['revision']
 			|| (string) $receipt['action'] !== $result['action']
-			|| ! hash_equals( (string) $receipt['plan_hash_hex'], $result['plan_hash'] )
-		) {
+				|| ! hash_equals( (string) $receipt['plan_hash_hex'], $result['plan_hash'] )
+				|| $receipt_plan_id !== (string) ( $result['week']['plan_id'] ?? '' )
+				|| ( MMED_V1_Study_Week_Domain::COMMAND_CREATE !== $result['action'] && $result['block_id'] !== (string) ( $request['payload']['block_id'] ?? '' ) )
+				|| (string) ( $request['temporal']['week_start'] ?? '' ) !== (string) ( $result['week']['week_start'] ?? '' )
+				|| $result['today'] !== $this->learner_local_date( (string) $receipt['committed_at'], (string) ( $request['temporal']['timezone'] ?? '' ) )
+			) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		return array( 'normalized' => $normalized, 'result' => $result );
 	}
 
 	/** @return array */
 	private function receipt_temporal_envelope( $receipt ) {
+		try {
+			return $this->receipt_temporal_envelope_inner( $receipt );
+		} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+			unset( $error );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+	}
+
+	/** Rebuild the immutable receipt envelope after provenance errors are contained. */
+	private function receipt_temporal_envelope_inner( $receipt ) {
 		$request = json_decode( (string) ( $receipt['request_json'] ?? '' ), true );
 		$temporal = is_array( $request ) && isset( $request['temporal'] ) && is_array( $request['temporal'] ) ? $request['temporal'] : null;
 		if ( ! is_array( $temporal ) ) {
@@ -614,24 +902,21 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		if ( ! is_array( $result ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		$keys = array_keys( $result );
-		sort( $keys, SORT_STRING );
-		if (
-			array( 'action', 'block_id', 'operation_id', 'plan_hash', 'revision' ) !== $keys
-			|| ! hash_equals( (string) $receipt['result_json'], MMED_V1_Study_Week_Domain::canonical_json( $result ) )
-			|| ! in_array( $result['action'], MMED_V1_Study_Week_Domain::commands(), true )
-			|| MMED_V1_Study_Week_Domain::uuid( $result['block_id'] ) !== $result['block_id']
-			|| MMED_V1_Study_Week_Domain::uuid( $result['operation_id'] ) !== $result['operation_id']
-			|| ! $this->is_hash_hex( $result['plan_hash'] )
-			|| MMED_V1_Study_Week_Domain::decimal_revision( $result['revision'] ) !== $result['revision']
-		) {
+		try {
+			$result = MMED_V1_Study_Week_Command_State::assert_command_result( $result );
+		} catch ( Throwable $error ) {
+			unset( $error );
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if ( ! hash_equals( (string) $receipt['result_json'], MMED_V1_Study_Week_Domain::canonical_json( $result ) ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 		return $result;
 	}
 
-	/** @return void */
-	private function assert_receipt_chain( $owner_id, $state ) {
+	/** @return string Current receipt commit timestamp. */
+	private function assert_receipt_chain( $owner_id, $state, $week_rows ) {
+		$this->assert_receipt_chain_summary( $owner_id, $state['plan_id'], $state['revision'], $week_rows );
 		$watermark = $this->receipt_by_operation( $state['watermark_id'] );
 		$current = $this->receipt_by_revision( $owner_id, $state['plan_id'], $state['revision'] );
 		$this->assert_receipt_integrity( $watermark, $owner_id, $state['plan_id'] );
@@ -640,13 +925,338 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			'1' !== (string) $watermark['revision']
 			|| '0' !== (string) $watermark['expected_revision']
 			|| $state['watermark_id'] !== $this->uuid_from_hex( $watermark['operation_hex'] )
-			|| $state['watermark_at'] !== (string) $watermark['committed_at']
-			|| $state['revision'] !== (string) $current['revision']
-			|| ! hash_equals( $state['plan_hash'], (string) $current['plan_hash_hex'] )
-			|| strcmp( (string) $current['committed_at'], $state['watermark_at'] ) < 0
+				|| $state['watermark_at'] !== (string) $watermark['committed_at']
+				|| $state['revision'] !== (string) $current['revision']
+				|| ! hash_equals( $state['plan_hash'], (string) $current['plan_hash_hex'] )
+				|| $state['updated_at'] !== (string) $current['committed_at']
+				|| strcmp( (string) $current['committed_at'], $state['watermark_at'] ) < 0
 			|| ( '1' === $state['revision'] && (string) $watermark['operation_hex'] !== (string) $current['operation_hex'] )
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return (string) $current['committed_at'];
+	}
+
+	/** Prove the append-only owner receipt namespace is contiguous and hash-intact. */
+	private function assert_receipt_chain_summary( $owner_id, $plan_id, $revision, $week_rows ) {
+		$tables = MMED_V1_Study_Schema::table_names( $this->database );
+		$sql  = 'SELECT CAST(COUNT(*) AS CHAR) AS receipt_count, CAST(COALESCE(MIN(revision), 0) AS CHAR) AS minimum_revision,';
+		$sql .= ' CAST(COALESCE(MAX(revision), 0) AS CHAR) AS maximum_revision,';
+		$sql .= ' CAST(COALESCE(SUM(CASE WHEN plan_id <> UNHEX(%s) OR revision <> expected_revision + 1';
+		$sql .= ' OR store_generation <> 2 OR schema_version <> %s OR result_status <> 200 OR actor_kind <> %s OR actor_id <> owner_id';
+		$sql .= ' OR action NOT IN (%s, %s, %s, %s) OR OCTET_LENGTH(idempotency_key) NOT BETWEEN 16 AND 64';
+		$sql .= ' OR OCTET_LENGTH(request_json) NOT BETWEEN 1 AND ' . self::MAX_RECEIPT_BYTES;
+		$sql .= ' OR OCTET_LENGTH(result_json) NOT BETWEEN 1 AND ' . self::MAX_RECEIPT_BYTES;
+		$sql .= ' OR JSON_VALID(request_json) <> 1 OR JSON_VALID(result_json) <> 1';
+		$sql .= ' OR request_hash <> UNHEX(SHA2(request_json, 256)) OR result_hash <> UNHEX(SHA2(result_json, 256))';
+		$sql .= ' THEN 1 ELSE 0 END), 0) AS CHAR) AS invalid_rows';
+		$sql .= " FROM `{$tables['operations']}` WHERE owner_id = %d";
+		$rows = $this->rows(
+			$this->prepare(
+				$sql,
+				$this->uuid_hex( $plan_id ),
+				MMED_V1_Study_Week_Schema::SCHEMA_VERSION,
+				'learner',
+				MMED_V1_Study_Week_Domain::COMMAND_CREATE,
+				MMED_V1_Study_Week_Domain::COMMAND_MOVE,
+				MMED_V1_Study_Week_Domain::COMMAND_RESIZE,
+				MMED_V1_Study_Week_Domain::COMMAND_DELETE,
+				$owner_id
+			)
+		);
+		if (
+			1 !== count( $rows )
+			|| $revision !== (string) ( $rows[0]['receipt_count'] ?? '' )
+			|| '1' !== (string) ( $rows[0]['minimum_revision'] ?? '' )
+			|| $revision !== (string) ( $rows[0]['maximum_revision'] ?? '' )
+			|| '0' !== (string) ( $rows[0]['invalid_rows'] ?? '' )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$regressions = $this->scalar(
+			$this->prepare(
+				"SELECT COUNT(*) FROM `{$tables['operations']}` current_receipt INNER JOIN `{$tables['operations']}` prior_receipt"
+				. ' ON prior_receipt.owner_id = current_receipt.owner_id AND prior_receipt.revision = current_receipt.expected_revision'
+				. ' WHERE current_receipt.owner_id = %d AND current_receipt.revision > 1'
+				. ' AND current_receipt.committed_at < prior_receipt.committed_at',
+				$owner_id
+			)
+		);
+		if ( '0' !== (string) $regressions ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->assert_receipt_chain_rows( $owner_id, $plan_id, $revision, $week_rows );
+		$this->assert_transaction_context();
+	}
+
+	/** Deep-validate every bounded receipt so self-consistent semantic tampering cannot hide between endpoints. */
+	private function assert_receipt_chain_rows( $owner_id, $plan_id, $revision, $week_rows ) {
+		$tables = MMED_V1_Study_Schema::table_names( $this->database );
+		if ( strlen( $revision ) > 4 || (int) $revision < 1 || (int) $revision > self::MAX_RECEIPTS_PER_PLAN ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$expected_count = (int) $revision;
+		$validated = 0;
+		$previous_committed_at = null;
+		$replayed_weeks = array();
+		while ( $validated < $expected_count ) {
+			$sql = $this->receipt_select();
+			$sql .= " FROM `{$tables['operations']}` WHERE owner_id = %d AND revision > %d";
+			$sql .= ' ORDER BY revision LIMIT ' . self::RECEIPT_AUDIT_BATCH . ' FOR UPDATE';
+			$rows = $this->rows( $this->prepare( $sql, $owner_id, $validated ) );
+			if ( empty( $rows ) ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			foreach ( $rows as $receipt ) {
+				++$validated;
+				if (
+					(string) $validated !== (string) ( $receipt['revision'] ?? '' )
+					|| (string) ( $validated - 1 ) !== (string) ( $receipt['expected_revision'] ?? '' )
+					|| ( null !== $previous_committed_at && strcmp( (string) ( $receipt['committed_at'] ?? '' ), $previous_committed_at ) < 0 )
+				) {
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
+				$validated_receipt = $this->assert_receipt_integrity( $receipt, $owner_id, $plan_id );
+				try {
+					$this->assert_receipt_transition(
+						$validated_receipt['normalized'],
+						$validated_receipt['result'],
+						$plan_id,
+						$replayed_weeks
+					);
+				} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+					unset( $error );
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
+				$previous_committed_at = (string) $receipt['committed_at'];
+			}
+		}
+		if ( $validated !== $expected_count ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->assert_replayed_week_provenance( $replayed_weeks, $week_rows, $owner_id, $plan_id );
+		$this->assert_transaction_context();
+	}
+
+	/** Bind replayed historic temporal envelopes to the final locked Week provenance rows. */
+	private function assert_replayed_week_provenance( $replayed_weeks, $week_rows, $owner_id, $plan_id ) {
+		if ( ! is_array( $replayed_weeks ) || ! is_array( $week_rows ) || count( $replayed_weeks ) !== count( $week_rows ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$plan_hex = $this->uuid_hex( $plan_id );
+		foreach ( $week_rows as $row ) {
+			$week_start = (string) ( $row['week_start_local'] ?? '' );
+			$known = $replayed_weeks[ $week_start ] ?? null;
+			if (
+				! is_array( $known )
+				|| (string) $owner_id !== (string) ( $row['owner_id'] ?? '' )
+				|| $plan_hex !== (string) ( $row['plan_hex'] ?? '' )
+				|| $this->uuid_from_hex( $row['week_hex'] ?? null ) !== (string) ( $known['week']['week_id'] ?? '' )
+				|| MMED_V1_Study_Week_Domain::TEMPORAL_POLICY_VERSION !== (string) ( $row['temporal_policy_version'] ?? '' )
+			) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$temporal = MMED_V1_Study_Week_Domain::temporal_envelope(
+				$week_start,
+				$row['timezone'] ?? null,
+				$row['profile_version'] ?? null,
+				$row['tzdb_version'] ?? null
+			);
+			if (
+				! hash_equals( (string) ( $row['temporal_context_hash_hex'] ?? '' ), $temporal['context'] )
+				|| MMED_V1_Study_Week_Domain::canonical_json( $known['temporal'] ) !== MMED_V1_Study_Week_Domain::canonical_json( $temporal )
+			) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+		}
+	}
+
+	/** Replay one historic learner transition and bind its full Plan hash. */
+	private function assert_receipt_transition( $normalized, $result, $plan_id, &$weeks ) {
+		if ( ! is_array( $normalized ) || ! is_array( $result ) || ! is_array( $weeks ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$revision = (string) $result['revision'];
+		foreach ( $weeks as $known_start => $known ) {
+			if ( ! is_array( $known ) || ! is_array( $known['week'] ?? null ) || ! is_array( $known['temporal'] ?? null ) ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$known['week'] = $this->rebase_receipt_week( $known['week'], $revision );
+			$weeks[ $known_start ] = $known;
+		}
+		$week_start = (string) $normalized['temporal']['week_start'];
+		$actual = $result['week'];
+		if (
+			$plan_id !== (string) ( $actual['plan_id'] ?? '' )
+			|| $week_start !== (string) ( $actual['week_start'] ?? '' )
+			|| $revision !== (string) ( $actual['revision'] ?? '' )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$command = $normalized['command'];
+		$payload = $normalized['payload'];
+		$prior = $weeks[ $week_start ] ?? null;
+		if (
+			null !== $prior
+			&& MMED_V1_Study_Week_Domain::canonical_json( $prior['temporal'] ) !== MMED_V1_Study_Week_Domain::canonical_json( $normalized['temporal'] )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if ( MMED_V1_Study_Week_Domain::COMMAND_CREATE === $command ) {
+			$expected_blocks = null === $prior ? array() : $prior['week']['blocks'];
+			if ( null !== $prior && (string) $prior['week']['week_id'] !== (string) $actual['week_id'] ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			foreach ( $expected_blocks as $existing ) {
+				if ( $result['block_id'] === (string) ( $existing['block_id'] ?? '' ) ) {
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
+			}
+			$expected_blocks[] = array(
+				'activity_type' => $payload['activity_type'],
+				'block_id' => $result['block_id'],
+				'duration_minutes' => $payload['duration_minutes'],
+				'family' => $payload['family'],
+				'fold' => null === $payload['fold'] ? 'normal' : $payload['fold'],
+				'goal_linked' => false,
+				'local_date' => $payload['local_date'],
+				'local_time' => $payload['local_time'],
+				'priority' => $payload['priority'],
+				'state' => MMED_V1_Study_Week_Domain::STATE_FLEXIBLE,
+				'title' => $payload['title'],
+			);
+			$expected = $this->receipt_week_model( $plan_id, (string) $actual['week_id'], $week_start, $revision, $expected_blocks );
+		} else {
+			if ( null === $prior || (string) $prior['week']['week_id'] !== (string) $actual['week_id'] ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$expected_blocks = $prior['week']['blocks'];
+			$target_index = null;
+			foreach ( $expected_blocks as $index => $block ) {
+				if ( $result['block_id'] === (string) ( $block['block_id'] ?? '' ) ) {
+					if ( null !== $target_index ) {
+						throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+					}
+					$target_index = $index;
+				}
+			}
+			if ( null === $target_index || MMED_V1_Study_Week_Domain::STATE_FLEXIBLE !== (string) $expected_blocks[ $target_index ]['state'] ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			MMED_V1_Study_Week_Domain::assert_mutation_target( $command, $expected_blocks[ $target_index ], $payload );
+			if ( MMED_V1_Study_Week_Domain::COMMAND_MOVE === $command ) {
+				$expected_blocks[ $target_index ]['local_date'] = $payload['local_date'];
+				$expected_blocks[ $target_index ]['local_time'] = $payload['local_time'];
+				$expected_blocks[ $target_index ]['fold'] = null === $payload['fold'] ? 'normal' : $payload['fold'];
+			} elseif ( MMED_V1_Study_Week_Domain::COMMAND_RESIZE === $command ) {
+				$expected_blocks[ $target_index ]['duration_minutes'] = $payload['duration_minutes'];
+			} elseif ( MMED_V1_Study_Week_Domain::COMMAND_DELETE === $command ) {
+				$expected_blocks[ $target_index ]['state'] = MMED_V1_Study_Week_Domain::STATE_TOMBSTONE;
+			} else {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$expected = $this->receipt_week_model( $plan_id, (string) $prior['week']['week_id'], $week_start, $revision, $expected_blocks );
+		}
+		$this->assert_receipt_week_collision_free( $expected, $normalized['temporal'] );
+		if ( MMED_V1_Study_Week_Domain::canonical_json( $expected ) !== MMED_V1_Study_Week_Domain::canonical_json( $actual ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$weeks[ $week_start ] = array( 'week' => $actual, 'temporal' => $normalized['temporal'] );
+		$plan_weeks = array();
+		foreach ( $weeks as $known ) {
+			$plan_weeks[] = $known['week'];
+		}
+		usort(
+			$plan_weeks,
+			static function ( $left, $right ) {
+				$start = strcmp( (string) $left['week_start'], (string) $right['week_start'] );
+				return 0 !== $start ? $start : strcmp( (string) $left['week_id'], (string) $right['week_id'] );
+			}
+		);
+		$snapshot = array(
+			'plan_id' => $plan_id,
+			'revision' => $revision,
+			'schema_version' => MMED_V1_Study_Week_Schema::SCHEMA_VERSION,
+			'weeks' => $plan_weeks,
+		);
+		if ( ! hash_equals( $result['plan_hash'], hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $snapshot ) ) ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+	}
+
+	/** Rebase an unchanged historic Week to the next Plan revision. */
+	private function rebase_receipt_week( $week, $revision ) {
+		if ( ! is_array( $week ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $this->receipt_week_model(
+			(string) ( $week['plan_id'] ?? '' ),
+			(string) ( $week['week_id'] ?? '' ),
+			(string) ( $week['week_start'] ?? '' ),
+			$revision,
+			$week['blocks'] ?? null
+		);
+	}
+
+	/** Build the exact public Week hash envelope from replayed block state. */
+	private function receipt_week_model( $plan_id, $week_id, $week_start, $revision, $blocks ) {
+		if ( ! is_array( $blocks ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		usort(
+			$blocks,
+			static function ( $left, $right ) {
+				return strcmp( (string) ( $left['block_id'] ?? '' ), (string) ( $right['block_id'] ?? '' ) );
+			}
+		);
+		$model = array(
+			'blocks' => array_values( $blocks ),
+			'plan_id' => MMED_V1_Study_Week_Domain::uuid( $plan_id ),
+			'revision' => MMED_V1_Study_Week_Domain::decimal_revision( $revision ),
+			'week_id' => MMED_V1_Study_Week_Domain::uuid( $week_id ),
+			'week_start' => $week_start,
+		);
+		$model['projection_hash'] = hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $model ) );
+		MMED_V1_Study_Week_Domain::derive_mission( $model, $week_start );
+		return $model;
+	}
+
+	/** Recheck active interval collisions while replaying one Week transition. */
+	private function assert_receipt_week_collision_free( $week, $temporal ) {
+		$intervals = array();
+		foreach ( $week['blocks'] as $block ) {
+			if ( MMED_V1_Study_Week_Domain::STATE_TOMBSTONE === $block['state'] ) {
+				continue;
+			}
+			$slot = MMED_V1_Study_Week_Domain::resolve_slot_from_envelope(
+				$block['local_date'],
+				$block['local_time'],
+				$block['duration_minutes'],
+				'normal' === $block['fold'] ? null : $block['fold'],
+				$temporal
+			);
+			$intervals[] = array( $slot['start_at_utc'], $slot['end_at_utc'], $block['block_id'] );
+		}
+		usort(
+			$intervals,
+			static function ( $left, $right ) {
+				foreach ( array( 0, 1, 2 ) as $index ) {
+					$comparison = strcmp( $left[ $index ], $right[ $index ] );
+					if ( 0 !== $comparison ) {
+						return $comparison;
+					}
+				}
+				return 0;
+			}
+		);
+		$active_end = null;
+		foreach ( $intervals as $interval ) {
+			if ( null !== $active_end && strcmp( $interval[0], $active_end ) < 0 ) {
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			if ( null === $active_end || strcmp( $interval[1], $active_end ) > 0 ) {
+				$active_end = $interval[1];
+			}
 		}
 	}
 
@@ -680,7 +1290,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			$sql  = "UPDATE `{$tables['plans']}` SET plan_id = UNHEX(%s), store_generation = 2, schema_version = %s,";
 			$sql .= ' current_revision = %s, watermark_operation_id = UNHEX(%s), watermark_at = %s, plan_json = %s,';
 			$sql .= ' plan_hash = UNHEX(%s), updated_at = %s';
-			$sql .= ' WHERE owner_id = %d AND plan_id IS NULL AND store_generation = 2 AND schema_version IS NULL AND current_revision = 0';
+			$sql .= ' WHERE owner_id = %d AND plan_id IS NULL AND store_generation IN (1, 2) AND schema_version IS NULL AND current_revision = 0';
 			$sql .= ' AND watermark_operation_id IS NULL AND watermark_at IS NULL AND plan_json IS NULL AND plan_hash IS NULL';
 			$prepared = $this->prepare(
 				$sql,
@@ -867,11 +1477,12 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		if (
 			(string) $owner_id !== (string) ( $plan['owner_id'] ?? '' )
 			|| $this->uuid_from_hex( $plan['plan_hex'] ?? null ) !== $plan_id
-			|| '2' !== (string) ( $plan['store_generation'] ?? '' )
-			|| MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $plan['schema_version'] ?? '' )
-			|| $revision !== (string) ( $plan['current_revision'] ?? '' )
-			|| ! hash_equals( $plan_json, (string) ( $plan['plan_json'] ?? '' ) )
-			|| ! hash_equals( $plan_hash, (string) ( $plan['plan_hash_hex'] ?? '' ) )
+				|| '2' !== (string) ( $plan['store_generation'] ?? '' )
+				|| MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $plan['schema_version'] ?? '' )
+				|| $revision !== (string) ( $plan['current_revision'] ?? '' )
+				|| ! hash_equals( $plan_json, (string) ( $plan['plan_json'] ?? '' ) )
+				|| ! hash_equals( $plan_hash, (string) ( $plan['plan_hash_hex'] ?? '' ) )
+				|| (string) ( $plan['updated_at'] ?? '' ) !== $now
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
@@ -884,11 +1495,24 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 
 	/** @return string */
 	private function trusted_timestamp() {
-		$value = $this->scalar( 'SELECT UTC_TIMESTAMP(6)' );
-		if ( ! $this->valid_timestamp( $value ) ) {
+		return $this->database_clock_timestamp();
+	}
+
+	/** Convert the trusted server instant to the server-owned learner civil date. */
+	private function learner_local_date( $timestamp, $timezone ) {
+		if ( ! $this->valid_timestamp( $timestamp ) || ! is_string( $timezone ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		return $value;
+		try {
+			$instant = DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s.u', $timestamp, new DateTimeZone( 'UTC' ) );
+			$zone = new DateTimeZone( $timezone );
+		} catch ( Throwable $error ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if ( ! $instant instanceof DateTimeImmutable ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $instant->setTimezone( $zone )->format( 'Y-m-d' );
 	}
 
 	/** @return string */
@@ -900,12 +1524,301 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 	private function hit( $name ) {
 		if ( null !== $this->failpoint ) {
 			call_user_func( $this->failpoint, (string) $name );
+			if ( 'after_commit' === $name ) {
+				$this->assert_transaction_ended();
+				$this->assert_session_encoding_pinned();
+			} else {
+				$this->assert_transaction_context();
+			}
 		}
 	}
 
-	/** @return void */
-	private function assert_fence_result( $result ) {
+	/** Invoke one exact synthetic seam behind a transaction-continuity canary. */
+	private function invoke_fence( $method, $owner_id ) {
+		if ( ! in_array( $method, array( 'lock_control_rows', 'lock_calendar_rows' ), true ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$savepoint = 'v1_e2_' . bin2hex( random_bytes( 16 ) );
+		$this->execute( 'SAVEPOINT `' . $savepoint . '`', 'v1_command_fence_savepoint_failed' );
+		$result = call_user_func( array( $this->fence, $method ), $this->database, $this->connection_id, $owner_id );
 		if ( true !== $result ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->assert_transaction_context();
+		$this->execute( 'RELEASE SAVEPOINT `' . $savepoint . '`', 'v1_command_fence_savepoint_lost' );
+		$this->assert_transaction_context();
+	}
+
+	/** Require an injected seam to preserve this exact live transaction. */
+	private function assert_transaction_context() {
+		$this->verify_connection();
+		if ( true !== $this->transaction_active() ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->assert_session_integrity( true );
+	}
+
+	/** Require all relational and session invariants used by the writer. */
+	private function assert_session_integrity( $inside_transaction, $require_hardened_mode = true, $require_pinned_encoding = true ) {
+		if (
+			1 !== (int) $this->scalar( 'SELECT @@SESSION.autocommit' )
+			|| 1 !== (int) $this->scalar( 'SELECT @@SESSION.foreign_key_checks' )
+			|| 1 !== (int) $this->scalar( 'SELECT @@SESSION.unique_checks' )
+			|| ( $this->is_mariadb() && 1 !== (int) $this->scalar( 'SELECT @@SESSION.check_constraint_checks' ) )
+			|| 0 !== (int) $this->scalar( $this->is_mariadb() ? 'SELECT @@SESSION.tx_read_only' : 'SELECT @@SESSION.transaction_read_only' )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$modes = array_map( 'trim', explode( ',', strtoupper( (string) $this->scalar( 'SELECT @@SESSION.sql_mode' ) ) ) );
+		if (
+			( $require_hardened_mode && ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) )
+			|| ( $require_hardened_mode && ! in_array( 'NO_ZERO_IN_DATE', $modes, true ) )
+			|| ( $require_hardened_mode && ! in_array( 'NO_ZERO_DATE', $modes, true ) )
+			|| ( $require_hardened_mode && ! in_array( 'ERROR_FOR_DIVISION_BY_ZERO', $modes, true ) )
+			|| ( $require_hardened_mode && ! in_array( 'NO_ENGINE_SUBSTITUTION', $modes, true ) )
+			|| ( $inside_transaction && 'READ-COMMITTED' !== $this->isolation_level() )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		if ( $require_pinned_encoding ) {
+			$this->assert_session_encoding_pinned();
+		}
+		$this->assert_database_clock_unspoofed();
+	}
+
+	/** Capture every mutable relational control guarded by this writer. */
+	private function session_controls() {
+		$controls = array(
+			'autocommit' => (string) $this->scalar( 'SELECT @@SESSION.autocommit' ),
+			'foreign_key_checks' => (string) $this->scalar( 'SELECT @@SESSION.foreign_key_checks' ),
+			'unique_checks' => (string) $this->scalar( 'SELECT @@SESSION.unique_checks' ),
+			'check_constraint_checks' => $this->is_mariadb() ? (string) $this->scalar( 'SELECT @@SESSION.check_constraint_checks' ) : null,
+			'transaction_read_only' => (string) $this->scalar( $this->is_mariadb() ? 'SELECT @@SESSION.tx_read_only' : 'SELECT @@SESSION.transaction_read_only' ),
+		);
+		if (
+			'1' !== $controls['autocommit']
+			|| '1' !== $controls['foreign_key_checks']
+			|| '1' !== $controls['unique_checks']
+			|| ( $this->is_mariadb() && '1' !== $controls['check_constraint_checks'] )
+			|| ( ! $this->is_mariadb() && null !== $controls['check_constraint_checks'] )
+			|| '0' !== $controls['transaction_read_only']
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $controls;
+	}
+
+	/** Restore the exact clean relational controls after any rejected transaction seam. */
+	private function restore_session_controls( $controls ) {
+		if (
+			! is_array( $controls )
+			|| array( 'autocommit', 'foreign_key_checks', 'unique_checks', 'check_constraint_checks', 'transaction_read_only' ) !== array_keys( $controls )
+			|| '1' !== $controls['autocommit']
+			|| '1' !== $controls['foreign_key_checks']
+			|| '1' !== $controls['unique_checks']
+			|| ( $this->is_mariadb() && '1' !== $controls['check_constraint_checks'] )
+			|| ( ! $this->is_mariadb() && null !== $controls['check_constraint_checks'] )
+			|| '0' !== $controls['transaction_read_only']
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->execute( 'SET SESSION ' . ( $this->is_mariadb() ? 'tx_read_only' : 'transaction_read_only' ) . ' = 0', 'v1_command_read_only_restore_failed' );
+		$this->execute( 'SET SESSION foreign_key_checks = 1', 'v1_command_foreign_keys_restore_failed' );
+		$this->execute( 'SET SESSION unique_checks = 1', 'v1_command_unique_checks_restore_failed' );
+		if ( $this->is_mariadb() ) {
+			$this->execute( 'SET SESSION check_constraint_checks = 1', 'v1_command_check_constraints_restore_failed' );
+		}
+		$this->execute( 'SET SESSION autocommit = 1', 'v1_command_autocommit_restore_failed' );
+		$this->execute( 'SET SESSION timestamp = DEFAULT', 'v1_command_timestamp_restore_failed' );
+		if ( $controls !== $this->session_controls() ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+	}
+
+	/** Bound mutable @@timestamp to independent process and server clocks. */
+	private function assert_database_clock_unspoofed() {
+		$this->database_clock_timestamp();
+	}
+
+	/** Return one UTC timestamp only when the session clock demonstrably advances. */
+	private function database_clock_timestamp() {
+		$previous = null;
+		for ( $attempt = 0; $attempt < 3; ++$attempt ) {
+			$current = $this->database_clock_sample();
+			if ( null !== $previous && strcmp( $current, $previous ) > 0 ) {
+				return $current;
+			}
+			$previous = $current;
+		}
+		throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+	}
+
+	/** Return one UTC timestamp from a single independently bounded clock row. */
+	private function database_clock_sample() {
+		$process_before = microtime( true );
+		$rows = $this->rows(
+			'SELECT @@SESSION.timestamp AS session_epoch, UNIX_TIMESTAMP(SYSDATE(6)) AS system_epoch,'
+			. ' UTC_TIMESTAMP(6) AS utc_now'
+		);
+		$process_after = microtime( true );
+		if ( 1 !== count( $rows ) || $process_after < $process_before ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$row = $rows[0];
+		$session_timestamp = $row['session_epoch'] ?? null;
+		$server_timestamp = $row['system_epoch'] ?? null;
+		$utc_now = $row['utc_now'] ?? null;
+		if ( ! is_numeric( $session_timestamp ) || ! is_numeric( $server_timestamp ) || ! $this->valid_timestamp( $utc_now ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$minimum = $process_before - self::CLOCK_SKEW_SECONDS;
+		$maximum = $process_after + self::CLOCK_SKEW_SECONDS;
+		$session = (float) $session_timestamp;
+		$server = (float) $server_timestamp;
+		if (
+			$session < $minimum
+			|| $session > $maximum
+			|| $server < $minimum
+			|| $server > $maximum
+			|| abs( $session - $server ) > self::CLOCK_SKEW_SECONDS
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$parsed = DateTimeImmutable::createFromFormat( '!Y-m-d H:i:s.u', $utc_now, new DateTimeZone( 'UTC' ) );
+		if ( ! $parsed instanceof DateTimeImmutable || abs( (float) $parsed->format( 'U.u' ) - $session ) > self::CLOCK_SKEW_SECONDS ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $utc_now;
+	}
+
+	/** Return the exact supported session isolation level. */
+	private function isolation_level() {
+		$sql = $this->is_mariadb() ? 'SELECT @@SESSION.tx_isolation' : 'SELECT @@SESSION.transaction_isolation';
+		$value = strtoupper( str_replace( array( '_', ' ' ), '-', (string) $this->scalar( $sql ) ) );
+		if ( ! in_array( $value, array( 'READ-UNCOMMITTED', 'READ-COMMITTED', 'REPEATABLE-READ', 'SERIALIZABLE' ), true ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $value;
+	}
+
+	/** @return string */
+	private function native_sql_mode() {
+		$value = $this->scalar( 'SELECT @@SESSION.sql_mode' );
+		if ( ! is_string( $value ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $value;
+	}
+
+	/** Return the exact connection encoding tuple used by the current native session. */
+	private function session_encoding() {
+		$rows = $this->rows(
+			'SELECT @@SESSION.character_set_client AS character_set_client,'
+			. ' @@SESSION.character_set_connection AS character_set_connection,'
+			. ' @@SESSION.character_set_results AS character_set_results,'
+			. ' @@SESSION.collation_connection AS collation_connection'
+		);
+		if ( 1 !== count( $rows ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$row = $rows[0];
+		$encoding = array(
+			'character_set_client' => $row['character_set_client'] ?? null,
+			'character_set_connection' => $row['character_set_connection'] ?? null,
+			'character_set_results' => $row['character_set_results'] ?? null,
+			'collation_connection' => $row['collation_connection'] ?? null,
+		);
+		if (
+			! $this->encoding_identifier( $encoding['character_set_client'] )
+			|| ! $this->encoding_identifier( $encoding['character_set_connection'] )
+			|| ( null !== $encoding['character_set_results'] && ! $this->encoding_identifier( $encoding['character_set_results'] ) )
+			|| ! $this->encoding_identifier( $encoding['collation_connection'] )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $encoding;
+	}
+
+	/** Pin all text ingress/egress to the exact utf8mb4 storage contract. */
+	private function pin_session_encoding() {
+		$this->execute( 'SET NAMES utf8mb4 COLLATE utf8mb4_bin', 'v1_command_encoding_set_failed' );
+		$this->assert_session_encoding_pinned();
+	}
+
+	/** Require the complete canonical connection tuple. */
+	private function assert_session_encoding_pinned() {
+		$expected = array(
+			'character_set_client' => MMED_V1_Study_Schema::TABLE_CHARSET,
+			'character_set_connection' => MMED_V1_Study_Schema::TABLE_CHARSET,
+			'character_set_results' => MMED_V1_Study_Schema::TABLE_CHARSET,
+			'collation_connection' => MMED_V1_Study_Schema::TABLE_COLLATION,
+		);
+		if ( $expected !== $this->session_encoding() ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+	}
+
+	/** Restore the caller's exact clean-session connection tuple. */
+	private function restore_session_encoding( $encoding ) {
+		if (
+			! is_array( $encoding )
+			|| array( 'character_set_client', 'character_set_connection', 'character_set_results', 'collation_connection' ) !== array_keys( $encoding )
+			|| ! $this->encoding_identifier( $encoding['character_set_client'] )
+			|| ! $this->encoding_identifier( $encoding['character_set_connection'] )
+			|| ( null !== $encoding['character_set_results'] && ! $this->encoding_identifier( $encoding['character_set_results'] ) )
+			|| ! $this->encoding_identifier( $encoding['collation_connection'] )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->execute( $this->prepare( 'SET SESSION character_set_client = %s', $encoding['character_set_client'] ), 'v1_command_encoding_restore_failed' );
+		$this->execute( $this->prepare( 'SET SESSION character_set_connection = %s', $encoding['character_set_connection'] ), 'v1_command_encoding_restore_failed' );
+		if ( null === $encoding['character_set_results'] ) {
+			$this->execute( 'SET SESSION character_set_results = NULL', 'v1_command_encoding_restore_failed' );
+		} else {
+			$this->execute( $this->prepare( 'SET SESSION character_set_results = %s', $encoding['character_set_results'] ), 'v1_command_encoding_restore_failed' );
+		}
+		$this->execute( $this->prepare( 'SET SESSION collation_connection = %s', $encoding['collation_connection'] ), 'v1_command_encoding_restore_failed' );
+		if ( $encoding !== $this->session_encoding() ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+	}
+
+	/** @return bool */
+	private function encoding_identifier( $value ) {
+		return is_string( $value ) && 1 === preg_match( '/^[A-Za-z0-9_]{1,64}$/D', $value );
+	}
+
+	/** @return string */
+	private function hardened_sql_mode( $current ) {
+		$modes = array_values( array_filter( array_map( 'trim', explode( ',', strtoupper( (string) $current ) ) ), 'strlen' ) );
+		if ( ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) ) {
+			$modes[] = 'STRICT_ALL_TABLES';
+		}
+		foreach ( array( 'NO_ZERO_IN_DATE', 'NO_ZERO_DATE', 'ERROR_FOR_DIVISION_BY_ZERO', 'NO_ENGINE_SUBSTITUTION' ) as $required ) {
+			if ( ! in_array( $required, $modes, true ) ) {
+				$modes[] = $required;
+			}
+		}
+		return implode( ',', $modes );
+	}
+
+	/** @return void */
+	private function native_set_sql_mode( $mode ) {
+		$this->execute( $this->prepare( 'SET SESSION sql_mode = %s', (string) $mode ), 'v1_command_sql_mode_set_failed' );
+	}
+
+	/** @return void */
+	private function assert_sql_mode_hardened() {
+		$this->assert_session_integrity( false, true );
+	}
+
+	/** Restore the caller's clean-session isolation exactly. */
+	private function restore_isolation( $isolation ) {
+		if ( ! in_array( $isolation, array( 'READ-UNCOMMITTED', 'READ-COMMITTED', 'REPEATABLE-READ', 'SERIALIZABLE' ), true ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->execute( 'SET SESSION TRANSACTION ISOLATION LEVEL ' . str_replace( '-', ' ', $isolation ), 'v1_command_isolation_restore_failed' );
+		if ( $isolation !== $this->isolation_level() ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 	}
@@ -944,12 +1857,12 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 
 	/** @return int */
 	private function current_connection_id() {
-		$id = $this->database->get_var( 'SELECT CONNECTION_ID()' );
-		$this->assert_query( 'v1_command_connection_unavailable' );
-		if ( null === $id || (int) $id <= 0 ) {
+		$handle = $this->pinned_native_handle();
+		$id = @mysqli_thread_id( $handle );
+		if ( ! is_int( $id ) || $id <= 0 ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		return (int) $id;
+		return $id;
 	}
 
 	/** @return void */
@@ -961,51 +1874,133 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 
 	/** @return mixed */
 	private function scalar( $sql ) {
-		if ( $this->connection_id > 0 ) {
-			$this->verify_connection();
+		$failure = null;
+		$result = $this->native_query( $sql, $failure );
+		if ( ! is_object( $result ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		$value = $this->database->get_var( $sql );
-		$this->assert_query( 'v1_command_query_failed' );
-		if ( $this->connection_id > 0 ) {
-			$this->verify_connection();
+		$row = @mysqli_fetch_row( $result );
+		@mysqli_free_result( $result );
+		$this->pinned_native_handle();
+		if ( ! is_array( $row ) || 1 !== count( $row ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		return $value;
+		return $row[0];
 	}
 
 	/** @return array */
 	private function rows( $sql ) {
-		$this->verify_connection();
-		$format = defined( 'ARRAY_A' ) ? ARRAY_A : 'ARRAY_A';
-		$rows = $this->database->get_results( $sql, $format );
-		$this->assert_query( 'v1_command_query_failed' );
-		$this->verify_connection();
-		if ( ! is_array( $rows ) ) {
+		$failure = null;
+		$result = $this->native_query( $sql, $failure );
+		if ( ! is_object( $result ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$rows = array();
+		while ( true ) {
+			$row = @mysqli_fetch_assoc( $result );
+			if ( null === $row ) {
+				break;
+			}
+			if ( false === $row || ! is_array( $row ) ) {
+				@mysqli_free_result( $result );
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			$rows[] = $row;
+		}
+		@mysqli_free_result( $result );
+		$this->pinned_native_handle();
 		return $rows;
 	}
 
 	/** @return void */
 	private function execute( $sql, $error_code ) {
-		$this->verify_connection();
-		$result = $this->database->query( $sql );
-		$this->assert_query( $error_code );
-		$this->verify_connection();
-		if ( false === $result ) {
+		unset( $error_code );
+		$failure = null;
+		$result = $this->native_query( $sql, $failure );
+		if ( true !== $result ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 	}
 
 	/** @return int */
 	private function execute_affected( $sql, $error_code ) {
-		$this->verify_connection();
-		$result = $this->database->query( $sql );
-		$this->assert_query( $error_code );
-		$this->verify_connection();
-		if ( false === $result || ! is_int( $result ) ) {
+		unset( $error_code );
+		$failure = null;
+		$result = $this->native_query( $sql, $failure );
+		if ( true !== $result ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$affected = $this->native_affected_rows();
+		$this->assert_transaction_context();
+		return $affected;
+	}
+
+	/** Return and continuously verify the exact original mysqli handle. */
+	private function pinned_native_handle() {
+		$handle = isset( $this->database->dbh ) ? $this->database->dbh : null;
+		if (
+			! is_object( $handle )
+			|| ! is_object( $this->native_handle )
+			|| $handle !== $this->native_handle
+			|| ! function_exists( 'mysqli_thread_id' )
+			|| ! function_exists( 'mysqli_query' )
+			|| ! function_exists( 'mysqli_fetch_row' )
+			|| ! function_exists( 'mysqli_fetch_assoc' )
+			|| ! function_exists( 'mysqli_free_result' )
+			|| ! function_exists( 'mysqli_affected_rows' )
+			|| ! function_exists( 'mysqli_errno' )
+			|| ! function_exists( 'mysqli_sqlstate' )
+		) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$id = @mysqli_thread_id( $handle );
+		if ( ! is_int( $id ) || $id <= 0 || ( $this->connection_id > 0 && $id !== $this->connection_id ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $handle;
+	}
+
+	/** Native no-reconnect query with normalized exact error evidence. @return mixed */
+	private function native_query( $sql, &$failure ) {
+		$failure = array( 'errno' => 0, 'sqlstate' => '' );
+		$handle = $this->pinned_native_handle();
+		try {
+			$result = @mysqli_query( $handle, $sql );
+		} catch ( Throwable $error ) {
+			$failure['errno'] = (int) $error->getCode();
+			$failure['sqlstate'] = method_exists( $error, 'getSqlState' )
+				? (string) $error->getSqlState()
+				: (string) @mysqli_sqlstate( $handle );
+			$this->pinned_native_handle();
+			return false;
+		}
+		if ( false === $result ) {
+			$failure['errno'] = (int) @mysqli_errno( $handle );
+			$failure['sqlstate'] = (string) @mysqli_sqlstate( $handle );
+		}
+		$this->pinned_native_handle();
 		return $result;
+	}
+
+	/** @return int */
+	private function native_affected_rows() {
+		$affected = @mysqli_affected_rows( $this->pinned_native_handle() );
+		if ( ! is_int( $affected ) || $affected < 0 ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		return $affected;
+	}
+
+	/** Best-effort cleanup on the original handle after a forbidden reconnect. */
+	private function best_effort_detached_rollback() {
+		$handle = $this->native_handle;
+		if ( is_object( $handle ) && function_exists( 'mysqli_query' ) ) {
+			try {
+				@mysqli_query( $handle, 'ROLLBACK AND NO CHAIN NO RELEASE' );
+			} catch ( Throwable $error ) {
+				unset( $error );
+			}
+		}
 	}
 
 	/** @return string */
@@ -1017,14 +2012,6 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 		return $prepared;
-	}
-
-	/** @return void */
-	private function assert_query( $error_code ) {
-		unset( $error_code );
-		if ( ! property_exists( $this->database, 'last_error' ) || '' !== (string) $this->database->last_error ) {
-			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
-		}
 	}
 
 	/** @return bool */

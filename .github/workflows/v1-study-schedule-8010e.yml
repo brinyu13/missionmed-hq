@@ -52,7 +52,7 @@ jobs:
             database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
             php: "7.4"
             php_image: wordpress:6.1.1-php7.4-apache@sha256:7e46cf3373751b6d62b7a0fc3a7d6686f641a34a2a0eb18947da5375c55fd009
-            extended: "0"
+            extended: "1"
           - database: MariaDB 10.11
             database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
             php: "8.3"
@@ -163,3 +163,12 @@ jobs:
         run: |
           set -eu
           php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010e-e1-process.php
+
+      - name: Prove E2 cross-process concurrency, crash rollback, and exact replay
+        if: matrix.extended == '1'
+        env:
+          V1_REPO_ROOT: ${{ github.workspace }}
+          V1_WP_ROOT: /tmp/v1-wordpress
+        run: |
+          set -eu
+          php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010e-e2-process.php

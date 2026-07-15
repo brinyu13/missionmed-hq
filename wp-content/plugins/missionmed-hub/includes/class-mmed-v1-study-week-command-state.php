@@ -103,7 +103,15 @@ final class MMED_V1_Study_Week_Command_State {
 			);
 			$block_dtos = array();
 			foreach ( $blocks_by_week[ $week_hex ] ?? array() as $block ) {
-				if ( (string) ( $block['week_start_local'] ?? '' ) !== $week_dto['week_start_local'] ) {
+				if (
+					(string) ( $block['week_start_local'] ?? '' ) !== $week_dto['week_start_local']
+					|| (string) ( $block['timezone'] ?? '' ) !== $week_dto['timezone']
+					|| (string) ( $block['profile_version'] ?? '' ) !== $week_dto['profile_version']
+					|| (string) ( $block['tzdb_version'] ?? '' ) !== $week_dto['tzdb_version']
+					|| (string) ( $block['temporal_policy_version'] ?? '' ) !== $week_dto['temporal_policy_version']
+					|| ! is_string( $block['temporal_context_hash_hex'] ?? null )
+					|| ! hash_equals( $week_dto['temporal_context_hash_hex'], $block['temporal_context_hash_hex'] )
+				) {
 					throw new MMED_V1_Study_Week_Domain_Exception( 'week_storage_ownership_invalid' );
 				}
 				$block_dtos[] = self::block_dto( $owner_id, $plan_id, $week_id, $block );
@@ -121,6 +129,110 @@ final class MMED_V1_Study_Week_Command_State {
 			'schema_version' => MMED_V1_Study_Week_Schema::SCHEMA_VERSION,
 			'weeks'          => $models,
 		);
+	}
+
+	/**
+	 * Build the exact replayable response for one accepted Week command.
+	 *
+	 * Mission is derived from the selected Week and is never stored as separate
+	 * truth. The complete response is persisted in the immutable operation
+	 * receipt so a later retry cannot mix revisions after subsequent commands.
+	 *
+	 * @return array
+	 */
+	public static function command_result( $snapshot, $week_start, $today, $action, $block_id, $operation_id, $plan_hash ) {
+		if (
+			! is_array( $snapshot )
+			|| ! isset( $snapshot['weeks'] )
+			|| ! is_array( $snapshot['weeks'] )
+			|| ! is_string( $week_start )
+			|| ! is_string( $today )
+			|| ! is_string( $plan_hash )
+			|| 1 !== preg_match( '/^[a-f0-9]{64}$/D', $plan_hash )
+			|| ! hash_equals( $plan_hash, hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $snapshot ) ) )
+		) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'command_result_invalid' );
+		}
+		$week = null;
+		foreach ( $snapshot['weeks'] as $candidate ) {
+			if ( is_array( $candidate ) && $week_start === (string) ( $candidate['week_start'] ?? '' ) ) {
+				if ( null !== $week ) {
+					throw new MMED_V1_Study_Week_Domain_Exception( 'week_projection_duplicate_week' );
+				}
+				$week = $candidate;
+			}
+		}
+		if ( null === $week ) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'week_projection_missing' );
+		}
+		$result = array(
+			'action'       => $action,
+			'block_id'     => $block_id,
+			'mission'      => MMED_V1_Study_Week_Domain::derive_mission( $week, $today ),
+			'operation_id' => $operation_id,
+			'plan_hash'    => $plan_hash,
+			'revision'     => (string) ( $snapshot['revision'] ?? '' ),
+			'today'        => $today,
+			'week'         => $week,
+		);
+		return self::assert_command_result( $result );
+	}
+
+	/** Validate the exact public command result allowlist and revision binding. @return array */
+	public static function assert_command_result( $result ) {
+		try {
+			return self::assert_command_result_inner( $result );
+		} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
+			unset( $error );
+			throw new MMED_V1_Study_Week_Domain_Exception( 'command_result_invalid' );
+		}
+	}
+
+	/** Validate the result while collapsing every nested DTO error to one reason. */
+	private static function assert_command_result_inner( $result ) {
+		if ( ! is_array( $result ) ) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'command_result_invalid' );
+		}
+		$keys = array_keys( $result );
+		sort( $keys, SORT_STRING );
+		if ( array( 'action', 'block_id', 'mission', 'operation_id', 'plan_hash', 'revision', 'today', 'week' ) !== $keys ) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'command_result_invalid' );
+		}
+		if (
+			! in_array( $result['action'], MMED_V1_Study_Week_Domain::commands(), true )
+			|| MMED_V1_Study_Week_Domain::uuid( $result['block_id'] ) !== $result['block_id']
+			|| MMED_V1_Study_Week_Domain::uuid( $result['operation_id'] ) !== $result['operation_id']
+			|| ! is_string( $result['plan_hash'] )
+			|| 1 !== preg_match( '/^[a-f0-9]{64}$/D', $result['plan_hash'] )
+			|| MMED_V1_Study_Week_Domain::decimal_revision( $result['revision'] ) !== $result['revision']
+			|| ! is_array( $result['week'] )
+			|| ! is_array( $result['mission'] )
+		) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'command_result_invalid' );
+		}
+		$derived = MMED_V1_Study_Week_Domain::derive_mission( $result['week'], $result['today'] );
+		$target_count = 0;
+		$target_state = null;
+		foreach ( $result['week']['blocks'] ?? array() as $block ) {
+			if ( is_array( $block ) && $result['block_id'] === (string) ( $block['block_id'] ?? '' ) ) {
+				++$target_count;
+				$target_state = $block['state'] ?? null;
+			}
+		}
+		if (
+			$result['revision'] !== (string) ( $result['week']['revision'] ?? '' )
+			|| $result['revision'] !== (string) ( $result['mission']['revision'] ?? '' )
+			|| 1 !== $target_count
+			|| ( MMED_V1_Study_Week_Domain::COMMAND_DELETE === $result['action'] && MMED_V1_Study_Week_Domain::STATE_TOMBSTONE !== $target_state )
+			|| ( MMED_V1_Study_Week_Domain::COMMAND_DELETE !== $result['action'] && MMED_V1_Study_Week_Domain::STATE_FLEXIBLE !== $target_state )
+			|| ! hash_equals(
+				MMED_V1_Study_Week_Domain::canonical_json( $derived ),
+				MMED_V1_Study_Week_Domain::canonical_json( $result['mission'] )
+			)
+		) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'command_result_invalid' );
+		}
+		return $result;
 	}
 
 	/**
