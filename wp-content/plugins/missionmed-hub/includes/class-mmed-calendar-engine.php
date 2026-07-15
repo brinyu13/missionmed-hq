@@ -205,6 +205,36 @@ class MMED_Calendar_Engine {
 	}
 
 	/**
+	 * Fence Calendar-owned Study mutations through the V1 cutover decision.
+	 *
+	 * This closes generic Calendar and bulk route bypasses in 8010C. The gate is
+	 * deliberately a compatibility fence only; 8010D must place Calendar DML and
+	 * the first V1 watermark under one per-owner arbitration mechanism before a V1
+	 * writer can be activated.
+	 *
+	 * @param string $event_type Calendar event type.
+	 * @param int    $owner_id Event owner.
+	 * @return true|WP_Error
+	 */
+	private static function v1_study_writer_gate( $event_type, $owner_id ) {
+		if ( 'study_block' !== (string) $event_type || ! class_exists( 'MMED_V1_Study_Access' ) ) {
+			return true;
+		}
+
+		$decision = MMED_V1_Study_Access::legacy_writer_decision( (int) $owner_id );
+		if ( ! empty( $decision['allowed'] ) ) {
+			return true;
+		}
+
+		$status = isset( $decision['status'] ) ? (int) $decision['status'] : 503;
+		return new WP_Error(
+			503 === $status ? 'mmed_study_dependency_unavailable' : 'mmed_study_write_disabled',
+			503 === $status ? 'Study write service is unavailable.' : 'Study writes are disabled.',
+			array( 'status' => $status )
+		);
+	}
+
+	/**
 	 * Create an event for the current user.
 	 *
 	 * @param WP_REST_Request $request REST request.
@@ -224,6 +254,11 @@ class MMED_Calendar_Engine {
 		$payload['user_id']    = self::resolve_event_user_id( $raw, get_current_user_id(), $payload['source'] ?? '' );
 		$payload['created_at'] = current_time( 'mysql' );
 		$payload['updated_at'] = current_time( 'mysql' );
+
+		$writer_gate = self::v1_study_writer_gate( $payload['event_type'] ?? '', (int) $payload['user_id'] );
+		if ( is_wp_error( $writer_gate ) ) {
+			return $writer_gate;
+		}
 
 		$inserted = $wpdb->insert( self::table_name(), $payload, self::format_map( $payload ) );
 		if ( false === $inserted ) {
@@ -283,6 +318,23 @@ class MMED_Calendar_Engine {
 			: self::resolve_event_user_id( $raw, (int) $event->user_id, $event_source );
 		if ( current_user_can( 'manage_options' ) && (int) $event->user_id !== $target_user_id ) {
 			$payload['user_id'] = $target_user_id;
+		}
+
+		$target_type = isset( $payload['event_type'] ) ? (string) $payload['event_type'] : (string) $event->event_type;
+		if ( 'study_block' === (string) $event->event_type ) {
+			$writer_gate = self::v1_study_writer_gate( 'study_block', (int) $event->user_id );
+			if ( is_wp_error( $writer_gate ) ) {
+				return $writer_gate;
+			}
+		}
+		if (
+			'study_block' === $target_type
+			&& ( 'study_block' !== (string) $event->event_type || (int) $event->user_id !== $target_user_id )
+		) {
+			$writer_gate = self::v1_study_writer_gate( 'study_block', $target_user_id );
+			if ( is_wp_error( $writer_gate ) ) {
+				return $writer_gate;
+			}
 		}
 
 		if ( empty( $payload ) ) {
@@ -373,6 +425,11 @@ class MMED_Calendar_Engine {
 
 		if ( ! self::event_matches_expected_state( $event, $expected_status, false, null ) ) {
 			return self::mutation_conflict();
+		}
+
+		$writer_gate = self::v1_study_writer_gate( (string) $event->event_type, (int) $event->user_id );
+		if ( is_wp_error( $writer_gate ) ) {
+			return $writer_gate;
 		}
 
 		$where = array(
