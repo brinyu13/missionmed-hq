@@ -11,11 +11,12 @@
   if (!config.exposure || config.exposure.allowed !== true) return;
   if (!config.reader || config.reader.allowed !== true) return;
   if (!config.release || !/^[a-f0-9]{64}$/.test(config.release.digest || '')) return;
+  if (!/^[a-f0-9]{64}$/.test(config.release.asset_digest || '')) return;
 
   var script = document.currentScript;
   var source = script && typeof script.src === 'string' ? script.src : '';
   var match = source.match(/v1-study-loader\.([a-f0-9]{16})\.js(?:[?#].*)?$/);
-  if (!match || config.release.digest.slice(0, 16) !== match[1]) return;
+  if (!match || config.release.asset_digest.slice(0, 16) !== match[1]) return;
 
   if (root.study_schedule_v1_bootstrapped === config.release.digest) return;
   root.study_schedule_v1_bootstrapped = config.release.digest;

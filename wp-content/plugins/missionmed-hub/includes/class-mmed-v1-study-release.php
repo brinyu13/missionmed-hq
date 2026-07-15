@@ -22,12 +22,12 @@ final class MMED_V1_Study_Release {
 	const STORE_OPTION   = 'mmed_v1_study_store_provenance_v1';
 	const RELEASE_OPTION = 'mmed_v1_study_release_provenance_v1';
 
-	const LOADER_ASSET  = 'v1-study-loader.5345977f2cc77f84.js';
-	const LOADER_SHA256 = '5345977f2cc77f848c347cd4c3678507722a8203491db9fee30367e18abd310e';
+	const LOADER_ASSET  = 'v1-study-loader.3306a14e53f00510.js';
+	const LOADER_SHA256 = '3306a14e53f0051051511ccf31e638e5411f43dd7574fcdccb007a76c163aa37';
 	const STYLE_ASSET   = 'v1-study-loader.8f5fec1fc495e441.css';
 	const STYLE_SHA256  = '8f5fec1fc495e441bdd29b0a3cee675b7396e83463acd0c67f0c8970e92f266b';
-	const MANIFEST_ASSET = 'v1-study-release.f07cd46b855c40a2.json';
-	const RELEASE_SHA256 = 'f07cd46b855c40a245200bbb67b733bcb68fb4cf9bcc99e18c257627a3f2c44a';
+	const MANIFEST_ASSET = 'v1-study-release.c711b79e783160d9.json';
+	const RELEASE_SHA256 = 'c711b79e783160d9f2cbbbcc4682c289958b1f5a80df1b5a881e2d8e882511bc';
 
 	/**
 	 * Canonical, independently hashable release manifest payload.

@@ -152,8 +152,9 @@ final class MMED_V1_Study_Loader {
 			),
 			'writer'           => array( 'allowed' => ! empty( $mode['v1_writer_allowed'] ) ),
 			'release'          => array(
-				'id'     => MMED_V1_Study_Release::RELEASE_ID,
-				'digest' => MMED_V1_Study_Release::RELEASE_SHA256,
+				'id'           => MMED_V1_Study_Release::RELEASE_ID,
+				'digest'       => MMED_V1_Study_Release::RELEASE_SHA256,
+				'asset_digest' => MMED_V1_Study_Release::LOADER_SHA256,
 			),
 		);
 	}
@@ -167,7 +168,11 @@ final class MMED_V1_Study_Loader {
 			'exposure'         => array( 'allowed' => false ),
 			'reader'           => array( 'allowed' => false, 'version' => null ),
 			'writer'           => array( 'allowed' => false ),
-			'release'          => array( 'id' => MMED_V1_Study_Release::RELEASE_ID, 'digest' => null ),
+			'release'          => array(
+				'id'           => MMED_V1_Study_Release::RELEASE_ID,
+				'digest'       => null,
+				'asset_digest' => null,
+			),
 		);
 	}
 

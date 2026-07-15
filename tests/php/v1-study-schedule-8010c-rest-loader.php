@@ -333,7 +333,15 @@ v1_rest_expect_same( 1, $repository->calls, 'permission and callback resolve rep
 
 $payload = $response->get_data();
 v1_rest_expect_same( array( 'contract_version', 'mode', 'entitlement', 'exposure', 'reader', 'writer', 'release' ), array_keys( $payload ), 'public payload exact allowlist' );
-v1_rest_expect_same( MMED_V1_Study_Release::RELEASE_SHA256, $payload['release']['digest'], 'public payload carries canonical release digest' );
+v1_rest_expect_same(
+	array(
+		'id'           => MMED_V1_Study_Release::RELEASE_ID,
+		'digest'       => MMED_V1_Study_Release::RELEASE_SHA256,
+		'asset_digest' => MMED_V1_Study_Release::LOADER_SHA256,
+	),
+	$payload['release'],
+	'public payload separates canonical release and executable asset digests'
+);
 v1_rest_expect_same( false, array_key_exists( 'api', $payload ), 'public payload contains no API or nonce carrier' );
 v1_rest_expect_same( false, false !== strpos( json_encode( $payload ), 'course_ids' ), 'public payload omits raw claim data' );
 
