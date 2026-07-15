@@ -170,7 +170,13 @@ $block_row = array(
 v1_8010e_wp_expect( 1 === (int) $wpdb->query( v1_8010e_wp_block_sql( $wpdb, $week_tables['blocks'], $block_row ) ), 'synthetic normalized Block inserts' );
 
 $loaded = $repository->load( $owner_id, '2' );
-v1_8010e_wp_expect( ! empty( $loaded['ok'] ) && $snapshot === $loaded['plan'], 'reader returns the exact canonical normalized snapshot' );
+$expected_snapshot_hash = hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $snapshot ) );
+$actual_snapshot_hash = isset( $loaded['plan'] ) && is_array( $loaded['plan'] ) ? hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $loaded['plan'] ) ) : 'none';
+$loaded_reason = isset( $loaded['reason_code'] ) ? (string) $loaded['reason_code'] : 'none';
+v1_8010e_wp_expect(
+	! empty( $loaded['ok'] ) && $snapshot === $loaded['plan'],
+	'reader returns the exact canonical normalized snapshot; reason=' . $loaded_reason . ' expected_hash=' . $expected_snapshot_hash . ' actual_hash=' . $actual_snapshot_hash
+);
 v1_8010e_wp_expect( MMED_V1_Study_Domain::TRUTH_PRESENT === $repository->cutover_provenance( $owner_id )['state'], 'hash-verified Plan is positive cutover truth' );
 v1_8010e_wp_expect( 'dependency_unavailable' === $repository->load( $owner_id, '1' )['reason_code'], 'unimplemented reader 1 fails closed' );
 

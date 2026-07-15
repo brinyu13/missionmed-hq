@@ -140,8 +140,9 @@ final class MMED_V1_Study_Week_Current_Reader {
 		$block_sql .= ' b.goal_source_version, CAST(b.source_code AS CHAR) AS source_code,';
 		$block_sql .= ' LOWER(HEX(b.source_namespace_hash)) AS source_namespace_hash_hex,';
 		$block_sql .= ' LOWER(HEX(b.source_ref_hash)) AS source_ref_hash_hex, LOWER(HEX(b.source_version_hash)) AS source_version_hash_hex,';
-		$block_sql .= " DATE_FORMAT(b.start_at_utc, '%Y-%m-%d %H:%i:%s.%f') AS start_at_utc,";
-		$block_sql .= " DATE_FORMAT(b.end_at_utc, '%Y-%m-%d %H:%i:%s.%f') AS end_at_utc,";
+		// Escaped percent signs survive wpdb::prepare() as DATE_FORMAT literals.
+		$block_sql .= " DATE_FORMAT(b.start_at_utc, '%%Y-%%m-%%d %%H:%%i:%%s.%%f') AS start_at_utc,";
+		$block_sql .= " DATE_FORMAT(b.end_at_utc, '%%Y-%%m-%%d %%H:%%i:%%s.%%f') AS end_at_utc,";
 		$block_sql .= ' b.timezone, b.profile_version, b.tzdb_version, b.local_date,';
 		$block_sql .= ' CAST(b.local_minute AS CHAR) AS local_minute, CAST(b.fold_code AS CHAR) AS fold_code,';
 		$block_sql .= ' b.temporal_policy_version, LOWER(HEX(b.temporal_context_hash)) AS temporal_context_hash_hex,';
