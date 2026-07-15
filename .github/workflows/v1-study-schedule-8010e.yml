@@ -3,6 +3,7 @@ name: V1 Study Schedule 8010E Week contract
 on:
   pull_request:
     paths:
+      - "wp-content/plugins/missionmed-hub/missionmed-hub.php"
       - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
       - "tests/php/v1-study-schedule-8010e-*.php"
       - "tests/php/run-v1-study-schedule-8010e*.sh"
