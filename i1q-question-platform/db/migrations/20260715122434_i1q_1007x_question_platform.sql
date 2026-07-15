@@ -2925,6 +2925,7 @@ BEGIN
       );
     END LOOP;
     normalized := pg_catalog.replace(normalized, '%25', '%');
+    normalized := pg_catalog.lower(normalized);
     EXIT WHEN normalized = previous;
   END LOOP;
 
@@ -2945,7 +2946,7 @@ BEGIN
   normalized := pg_catalog.regexp_replace(normalized, '&#0*45;?', '-', 'g');
   normalized := pg_catalog.regexp_replace(normalized, '&#0*46;?', '.', 'g');
   normalized := pg_catalog.regexp_replace(normalized, '&#0*32;?', ' ', 'g');
-  normalized := pg_catalog.normalize(normalized, 'NFKC');
+  normalized := pg_catalog.lower(pg_catalog.normalize(normalized, 'NFKC'));
 
   IF pg_catalog.octet_length(normalized) > max_security_text_bytes THEN
     RAISE EXCEPTION 'security_text_size_limit_exceeded'

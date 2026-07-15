@@ -299,10 +299,13 @@ test('channel artifacts bind policy, phase, class, and pre-answer fields', () =>
   assert.match(normalizedText, /FOR decode_round IN 1\.\.max_url_decode_rounds LOOP/u);
   assert.match(normalizedText, /FOR ascii_code IN 32\.\.126 LOOP/u);
   assert.match(normalizedText, /CONTINUE WHEN ascii_code = 37/u);
+  assert.match(normalizedText, /normalized := pg_catalog\.lower\(normalized\);/u);
+  assert.match(normalizedText, /normalized := pg_catalog\.lower\(pg_catalog\.normalize\(normalized, 'NFKC'\)\);/u);
   assert.match(normalizedText, /normalized ~ '%\[0-9a-f\]\{2\}'/u);
   assert.match(normalizedText, /security_text_encoding_depth_exceeded/u);
   assert.match(normalizedText, /security_text_size_limit_exceeded/u);
   assert.ok(normalizedText.indexOf('FOR ascii_code IN 32..126 LOOP') < normalizedText.indexOf("replace(normalized, '%25', '%')"));
+  assert.ok(normalizedText.indexOf("replace(normalized, '%25', '%')") < normalizedText.indexOf('normalized := pg_catalog.lower(normalized);'));
   assert.match(markerCheck, /i1q\.normalize_security_marker\(candidate\)/u);
   assert.match(markerLeak, /i1q\.normalize_security_text\(candidate\)/u);
   assert.ok(markerLeak.includes('source([[:space:]_.-]*record)?[[:space:]_.-]*ids?'));

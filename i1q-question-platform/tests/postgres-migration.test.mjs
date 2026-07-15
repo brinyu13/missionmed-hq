@@ -223,10 +223,13 @@ test('student artifacts reject exact release-scoped Class D values embedded in p
   assert.match(normalizedText, /FOR decode_round IN 1\.\.max_url_decode_rounds LOOP/u);
   assert.match(normalizedText, /FOR ascii_code IN 32\.\.126 LOOP/u);
   assert.match(normalizedText, /CONTINUE WHEN ascii_code = 37/u);
+  assert.match(normalizedText, /normalized := pg_catalog\.lower\(normalized\);/u);
+  assert.match(normalizedText, /normalized := pg_catalog\.lower\(pg_catalog\.normalize\(normalized, 'NFKC'\)\);/u);
   assert.match(normalizedText, /normalized ~ '%\[0-9a-f\]\{2\}'/u);
   assert.match(normalizedText, /security_text_encoding_depth_exceeded/u);
   assert.match(normalizedText, /security_text_size_limit_exceeded/u);
   assert.ok(normalizedText.indexOf('FOR ascii_code IN 32..126 LOOP') < normalizedText.indexOf("replace(normalized, '%25', '%')"));
+  assert.ok(normalizedText.indexOf("replace(normalized, '%25', '%')") < normalizedText.indexOf('normalized := pg_catalog.lower(normalized);'));
   assert.ok(createArtifact.indexOf("IF target_data_class IN ('A', 'C')") < createArtifact.indexOf('calculated_hash := '));
   assert.ok(createArtifact.indexOf('calculated_hash := ') < createArtifact.indexOf('INSERT INTO i1q.channel_artifacts'));
   for (const family of ['item', 'revision', 'source', 'claim', 'reviewer', 'misconception', 'psychometric']) {
@@ -398,10 +401,15 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     VALUES ('mvv_synthetic', 'synthetic_v1', 'active', repeat('b', 64));
     INSERT INTO i1q.misconception_entries (
       id, vocabulary_version_id, label, definition, content_hash
-    ) VALUES (
-      'misconception_synthetic', 'mvv_synthetic', 'Synthetic misconception',
-      'Synthetic non-clinical fixture definition', repeat('b', 64)
-    );
+    ) VALUES
+      (
+        'misconception_synthetic', 'mvv_synthetic', 'Synthetic misconception',
+        'Synthetic non-clinical fixture definition', repeat('b', 64)
+      ),
+      (
+        'Misconception_MixedCase', 'mvv_synthetic', 'Synthetic mixed-case misconception',
+        'Synthetic non-clinical mixed-case fixture definition', repeat('6', 64)
+      );
     INSERT INTO i1q.concepts (id, taxonomy_version_id, canonical_name, learning_objective, lifecycle, content_hash)
     VALUES ('concept_synthetic', 'tax_synthetic', 'Synthetic concept', 'Synthetic objective', 'active', repeat('c', 64));
     INSERT INTO i1q.variant_groups (id, concept_id, assertion, lifecycle, content_hash)
@@ -416,6 +424,17 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       'itemrev_synthetic', 'item_synthetic', 1, '00000000-0000-0000-0000-000000000002', 'candidate',
       'AI_DRAFT_NOT_MEDICALLY_VALIDATED', 'tax_synthetic', 'mvv_synthetic',
       'concept_synthetic', 'Synthetic prompt?', 'Alpha', 'Beta', 'Gamma', 'Delta', '{}', repeat('e', 64)
+    );
+    INSERT INTO i1q.items (id, variant_group_id, item_type, variant_form, lifecycle)
+    VALUES ('Item_MixedCase', 'vg_synthetic', 'single_best_answer', 'recall', 'active');
+    INSERT INTO i1q.item_revisions (
+      id, item_id, revision_number, author_actor_id, workflow_status,
+      medical_validation_status, taxonomy_version_id, misconception_vocabulary_version_id,
+      concept_id, prompt, choice_a, choice_b, choice_c, choice_d, classification, content_hash
+    ) VALUES (
+      'ItemRev_MixedCase', 'Item_MixedCase', 1, '00000000-0000-0000-0000-000000000002', 'candidate',
+      'AI_DRAFT_NOT_MEDICALLY_VALIDATED', 'tax_synthetic', 'mvv_synthetic',
+      'concept_synthetic', 'Synthetic mixed-case prompt?', 'Alpha', 'Beta', 'Gamma', 'Delta', '{}', repeat('6', 64)
     );
     INSERT INTO i1q.item_revision_answers (
       item_revision_id, answer, explanation, correct_answer_rationale,
@@ -442,10 +461,15 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       ('itemrev_synthetic', 'Source_MixedCase', 'supporting');
     INSERT INTO i1q.item_revision_misconceptions (
       item_revision_id, choice_key, misconception_id, vocabulary_version_id, trap_type, provenance
-    ) VALUES (
-      'itemrev_synthetic', 'B', 'misconception_synthetic', 'mvv_synthetic',
-      'synthetic_trap', 'reviewer_authored'
-    );
+    ) VALUES
+      (
+        'itemrev_synthetic', 'B', 'misconception_synthetic', 'mvv_synthetic',
+        'synthetic_trap', 'reviewer_authored'
+      ),
+      (
+        'itemrev_synthetic', 'C', 'Misconception_MixedCase', 'mvv_synthetic',
+        'synthetic_mixed_case_trap', 'reviewer_authored'
+      );
     INSERT INTO i1q.restricted_source_references (
       id, source_record_id, raw_artifact_hash, private_storage_ref
     ) VALUES (
@@ -456,19 +480,25 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       credential_verification_id, active
     ) VALUES
       ('reviewer_editor', '00000000-0000-0000-0000-000000000003', 'Synthetic Editor', ARRAY['editorial_reviewer'], 'editorial', 'not_applicable', NULL, true),
-      ('reviewer_physician', '00000000-0000-0000-0000-000000000004', 'Synthetic Credentialed Reviewer', ARRAY['physician_reviewer'], 'md', 'verified', 'synthetic-verification', true);
+      ('reviewer_physician', '00000000-0000-0000-0000-000000000004', 'Synthetic Credentialed Reviewer', ARRAY['physician_reviewer'], 'md', 'verified', 'synthetic-verification', true),
+      ('Reviewer_MixedCase', '00000000-0000-0000-0000-000000000009', 'Synthetic Mixed-Case Reviewer', ARRAY['editorial_reviewer'], 'editorial', 'not_applicable', NULL, true);
     INSERT INTO i1q.evidence_claims (
       id, statement, claim_type, authority_class, status, verified_by_reviewer_id,
       evidence_review_date, review_by_date, content_hash
-    ) VALUES (
-      'claim_synthetic', 'Synthetic fixture claim', 'other', 'physician_attested',
-      'verified', 'reviewer_physician', CURRENT_DATE, CURRENT_DATE + 1, repeat('c', 64)
-    );
+    ) VALUES
+      (
+        'claim_synthetic', 'Synthetic fixture claim', 'other', 'physician_attested',
+        'verified', 'reviewer_physician', CURRENT_DATE, CURRENT_DATE + 1, repeat('c', 64)
+      ),
+      (
+        'Claim_MixedCase', 'Synthetic mixed-case fixture claim', 'other', 'physician_attested',
+        'verified', 'Reviewer_MixedCase', CURRENT_DATE, CURRENT_DATE + 1, repeat('6', 64)
+      );
     INSERT INTO i1q.item_revision_claims (
       item_revision_id, evidence_claim_id, claim_role
-    ) VALUES (
-      'itemrev_synthetic', 'claim_synthetic', 'primary'
-    );
+    ) VALUES
+      ('itemrev_synthetic', 'claim_synthetic', 'primary'),
+      ('itemrev_synthetic', 'Claim_MixedCase', 'supporting');
     UPDATE i1q.governance_slots
        SET reviewer_id = 'reviewer_editor',
            assigned_by_actor_id = '00000000-0000-0000-0000-000000000001',
@@ -502,24 +532,35 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     );
     INSERT INTO i1q.export_question_identities (
       question_id, item_id, created_by_actor_id
-    ) VALUES (
-      'Q1', 'item_synthetic', '00000000-0000-0000-0000-000000000008'
-    );
+    ) VALUES
+      ('Q1', 'item_synthetic', '00000000-0000-0000-0000-000000000008'),
+      ('Q2', 'Item_MixedCase', '00000000-0000-0000-0000-000000000008');
     INSERT INTO i1q.release_memberships (
       release_id, position, item_id, item_revision_id, revision_number,
       content_hash, dataset_version, question_id
-    ) VALUES (
-      'release_synthetic', 1, 'item_synthetic', 'itemrev_synthetic', 1,
-      repeat('e', 64), 'synthetic_release_v1', 'Q1'
-    );
+    ) VALUES
+      (
+        'release_synthetic', 1, 'item_synthetic', 'itemrev_synthetic', 1,
+        repeat('e', 64), 'synthetic_release_v1', 'Q1'
+      ),
+      (
+        'release_synthetic', 2, 'Item_MixedCase', 'ItemRev_MixedCase', 1,
+        repeat('6', 64), 'synthetic_release_v1', 'Q2'
+      );
     INSERT INTO i1q.psychometric_snapshots (
       id, item_revision_id, release_id, channel, sample_window_start,
       sample_window_end, attempt_count, metrics, content_hash
-    ) VALUES (
-      'psychometric_synthetic', 'itemrev_synthetic', 'release_synthetic', 'stat',
-      pg_catalog.clock_timestamp() - interval '2 days',
-      pg_catalog.clock_timestamp() - interval '1 day', 0, '{}', repeat('d', 64)
-    );
+    ) VALUES
+      (
+        'psychometric_synthetic', 'itemrev_synthetic', 'release_synthetic', 'stat',
+        pg_catalog.clock_timestamp() - interval '2 days',
+        pg_catalog.clock_timestamp() - interval '1 day', 0, '{}', repeat('d', 64)
+      ),
+      (
+        'Psychometric_MixedCase', 'itemrev_synthetic', 'release_synthetic', 'drills',
+        pg_catalog.clock_timestamp() - interval '2 days',
+        pg_catalog.clock_timestamp() - interval '1 day', 0, '{}', repeat('6', 64)
+      );
     INSERT INTO i1q.channel_security_policies (
       id, channel, policy_version, field_rules, content_hash, status
     ) VALUES
@@ -850,18 +891,48 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       FOR identifier_family, identifier_value IN
         SELECT fixture.identifier_family, fixture.identifier_value
           FROM (VALUES
-            ('item', 'item_synthetic'),
-            ('revision', 'itemrev_synthetic'),
-            ('source', 'source_synthetic'),
-            ('claim', 'claim_synthetic'),
-            ('reviewer', 'reviewer_editor'),
-            ('misconception', 'misconception_synthetic'),
-            ('psychometric', 'psychometric_synthetic')
+            ('item', 'Item_MixedCase'),
+            ('revision', 'ItemRev_MixedCase'),
+            ('source', 'Source_MixedCase'),
+            ('claim', 'Claim_MixedCase'),
+            ('reviewer', 'Reviewer_MixedCase'),
+            ('misconception', 'Misconception_MixedCase'),
+            ('psychometric', 'Psychometric_MixedCase')
           ) fixture(identifier_family, identifier_value)
       LOOP
         FOREACH candidate_field IN ARRAY ARRAY[
           'explanation', 'correct_answer_rationale', 'why_tempting', 'why_wrong'
         ]::text[] LOOP
+          PERFORM pg_temp.expect_class_d_value_denied(
+            pg_catalog.format('artifact_mixed_direct_%s_%s', identifier_family, candidate_field),
+            identifier_value,
+            candidate_field,
+            'mixed_case_direct',
+            0
+          );
+          PERFORM pg_temp.expect_class_d_value_denied(
+            pg_catalog.format('artifact_mixed_base64_%s_%s', identifier_family, candidate_field),
+            pg_catalog.encode(pg_catalog.convert_to(identifier_value, 'UTF8'), 'base64'),
+            candidate_field,
+            'mixed_case_base64',
+            1
+          );
+          PERFORM pg_temp.expect_class_d_value_denied(
+            pg_catalog.format('artifact_mixed_base64url_%s_%s', identifier_family, candidate_field),
+            pg_catalog.rtrim(
+              pg_catalog.replace(
+                pg_catalog.replace(
+                  pg_catalog.encode(pg_catalog.convert_to(identifier_value, 'UTF8'), 'base64'),
+                  '+', '-'
+                ),
+                '/', '_'
+              ),
+              '='
+            ),
+            candidate_field,
+            'mixed_case_base64url',
+            1
+          );
           FOREACH encoding_depth IN ARRAY ARRAY[2, 3]::integer[] LOOP
             PERFORM pg_temp.expect_class_d_value_denied(
               pg_catalog.format(
@@ -931,6 +1002,15 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     RESET ROLE;
     DO $probe_check$
     BEGIN
+      IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'mixed_case_direct') <> 28 THEN
+        RAISE EXCEPTION 'mixed_case_direct_probe_count_invalid';
+      END IF;
+      IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'mixed_case_base64') <> 28 THEN
+        RAISE EXCEPTION 'mixed_case_base64_probe_count_invalid';
+      END IF;
+      IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'mixed_case_base64url') <> 28 THEN
+        RAISE EXCEPTION 'mixed_case_base64url_probe_count_invalid';
+      END IF;
       IF (SELECT pg_catalog.count(*) FROM pg_temp.class_d_denial_probes WHERE probe_group = 'iterative_identifier') <> 56 THEN
         RAISE EXCEPTION 'iterative_identifier_probe_count_invalid';
       END IF;
@@ -946,6 +1026,7 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       IF EXISTS (
         SELECT 1 FROM pg_temp.class_d_denial_probes
          WHERE probe_group IN (
+           'mixed_case_direct', 'mixed_case_base64', 'mixed_case_base64url',
            'iterative_identifier', 'iterative_marker',
            'iterative_ascii_identifier', 'iterative_ascii_marker'
          )
