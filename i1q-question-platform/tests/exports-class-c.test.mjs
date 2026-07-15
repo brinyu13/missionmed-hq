@@ -280,6 +280,37 @@ test('Class C value isolation rejects encoded IDs and structured Class D markers
   ));
 });
 
+test('Class C rejects mixed-case identifier bytes encoded as base64 in every prose field', () => {
+  const injectors = [
+    (revision, value) => { revision.explanation = `Synthetic prose ${value}.`; },
+    (revision, value) => { revision.correct_answer_rationale = `Synthetic prose ${value}.`; },
+    (revision, value) => { revision.choices[0].why_tempting = `Synthetic prose ${value}.`; },
+    (revision, value) => { revision.choices[0].why_wrong = `Synthetic prose ${value}.`; },
+  ];
+  const transforms = [
+    (value) => Buffer.from(value, 'utf8').toString('base64'),
+    (value) => Buffer.from(value, 'utf8').toString('base64url'),
+  ];
+
+  for (const inject of injectors) {
+    for (const transform of transforms) {
+      const revision = makeSyntheticRevision();
+      revision.source_ids = ['Internal_Source_MixedCase'];
+      inject(revision, transform(revision.source_ids[0]));
+      assert.throws(() => buildReleaseArtifacts({
+        releaseId: 'synthetic_release_mixed_case_encoded_class_d',
+        datasetVersion: 'synthetic_v1',
+        revisions: [revision],
+      }), (error) => (
+        error.code === 'class_c_debrief_validation_failed'
+        && error.statusCode === 422
+        && error.findings.some((finding) => finding.endsWith(':class_d_identifier_value'))
+        && !JSON.stringify(error.findings).includes(revision.source_ids[0])
+      ));
+    }
+  }
+});
+
 test('Class C value isolation permits the opaque release question ID outside prose', () => {
   const revision = makeSyntheticRevision();
   const generated = buildReleaseArtifacts({

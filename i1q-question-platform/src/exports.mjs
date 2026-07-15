@@ -84,6 +84,10 @@ function normalizeLeakValue(value) {
   return typeof value === 'string' ? decodeLeakText(value).trim().toLocaleLowerCase('en-US') : '';
 }
 
+function canonicalLeakValue(value) {
+  return typeof value === 'string' ? decodeLeakText(value).trim() : '';
+}
+
 function classDIdentifierKey(key) {
   const normalized = String(key).replace(/[^a-z0-9]/giu, '').toLocaleLowerCase('en-US');
   if (!normalized || PUBLIC_IDENTIFIER_KEYS.has(normalized)) return false;
@@ -98,12 +102,15 @@ function classDIdentifierKey(key) {
 }
 
 function addIdentifierValueVariants(value, output) {
-  const normalized = normalizeLeakValue(value);
+  const canonical = canonicalLeakValue(value);
+  const normalized = canonical.toLocaleLowerCase('en-US');
   if (normalized.length < 4) return;
   output.add(normalized);
-  output.add(encodeURIComponent(normalized).toLocaleLowerCase('en-US'));
-  output.add(Buffer.from(normalized, 'utf8').toString('base64').toLocaleLowerCase('en-US'));
-  output.add(Buffer.from(normalized, 'utf8').toString('base64url').toLocaleLowerCase('en-US'));
+  for (const variant of new Set([canonical, normalized])) {
+    output.add(encodeURIComponent(variant).toLocaleLowerCase('en-US'));
+    output.add(Buffer.from(variant, 'utf8').toString('base64').toLocaleLowerCase('en-US'));
+    output.add(Buffer.from(variant, 'utf8').toString('base64url').toLocaleLowerCase('en-US'));
+  }
 }
 
 function collectStringValues(value, output) {

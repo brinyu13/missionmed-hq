@@ -214,6 +214,8 @@ test('student artifacts reject exact release-scoped Class D values embedded in p
   assert.match(identifierLeak, /pg_catalog\.strpos\(candidate_entry\.normalized, identifier\.normalized\) > 0/u);
   assert.match(identifierLeak, /pg_catalog\.length\(identifier\.normalized\) >= 4/u);
   assert.match(identifierLeak, /'base64'/u);
+  assert.match(identifierLeak, /identifier\.canonical/u);
+  assert.match(identifierLeak, /canonical_base64_value/u);
   for (const family of ['item', 'revision', 'source', 'claim', 'reviewer', 'misconception', 'psychometric']) {
     assert.match(identifierValues, new RegExp(`SELECT '${family}'`, 'u'));
   }
@@ -413,14 +415,18 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     VALUES ('rights_synthetic', 'synthetic', 'cleared_for', ARRAY['question_derivation']);
     INSERT INTO i1q.source_records (
       id, source_type, canonical_source_id, title, source_hash, rights_record_id
-    ) VALUES (
-      'source_synthetic', 'REVIEWER_AUTHORED', 'synthetic-source', 'Synthetic source', repeat('8', 64), 'rights_synthetic'
-    );
+    ) VALUES
+      (
+        'source_synthetic', 'REVIEWER_AUTHORED', 'synthetic-source', 'Synthetic source', repeat('8', 64), 'rights_synthetic'
+      ),
+      (
+        'Source_MixedCase', 'REVIEWER_AUTHORED', 'synthetic-source-mixed', 'Synthetic mixed-case source', repeat('7', 64), 'rights_synthetic'
+      );
     INSERT INTO i1q.item_revision_sources (
       item_revision_id, source_record_id, source_role
-    ) VALUES (
-      'itemrev_synthetic', 'source_synthetic', 'primary'
-    );
+    ) VALUES
+      ('itemrev_synthetic', 'source_synthetic', 'primary'),
+      ('itemrev_synthetic', 'Source_MixedCase', 'supporting');
     INSERT INTO i1q.item_revision_misconceptions (
       item_revision_id, choice_key, misconception_id, vocabulary_version_id, trap_type, provenance
     ) VALUES (
@@ -695,6 +701,25 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_misconception_leak', 'misconception_synthetic');
     SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_psychometric_leak', 'psychometric_synthetic');
     SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_marker_leak', 'source%5Fid');
+    SELECT pg_temp.expect_class_d_value_denied(
+      'artifact_class_c_mixed_case_base64_leak',
+      pg_catalog.encode(pg_catalog.convert_to('Source_MixedCase', 'UTF8'), 'base64')
+    );
+    SELECT pg_temp.expect_class_d_value_denied(
+      'artifact_class_c_mixed_case_base64url_leak',
+      pg_catalog.rtrim(
+        pg_catalog.replace(
+          pg_catalog.replace(
+            pg_catalog.encode(pg_catalog.convert_to('Source_MixedCase', 'UTF8'), 'base64'),
+            '+',
+            '-'
+          ),
+          '/',
+          '_'
+        ),
+        '='
+      )
+    );
     SELECT i1q.create_channel_artifact(
       'artifact_safe', 'release_synthetic', 'csp_stat_pre_answer',
       'stat_pre_answer', 'pre_answer', 'A', 'application/json',

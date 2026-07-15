@@ -2863,6 +2863,32 @@ AS $function$
    WHERE pg_catalog.jsonb_typeof(walk.value) = 'string'
 $function$;
 
+CREATE OR REPLACE FUNCTION i1q.canonical_security_text(candidate text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+  SELECT pg_catalog.replace(
+           pg_catalog.replace(
+             pg_catalog.replace(
+               pg_catalog.replace(
+                 pg_catalog.normalize(candidate, 'NFKC'),
+                 pg_catalog.chr(8203),
+                 ''
+               ),
+               pg_catalog.chr(8204),
+               ''
+             ),
+             pg_catalog.chr(8205),
+             ''
+           ),
+           pg_catalog.chr(65279),
+           ''
+         )
+$function$;
+
 CREATE OR REPLACE FUNCTION i1q.normalize_security_text(candidate text)
 RETURNS text
 LANGUAGE plpgsql
@@ -2873,11 +2899,7 @@ AS $function$
 DECLARE
   normalized text;
 BEGIN
-  normalized := pg_catalog.lower(pg_catalog.normalize(candidate, 'NFKC'));
-  normalized := pg_catalog.replace(normalized, pg_catalog.chr(8203), '');
-  normalized := pg_catalog.replace(normalized, pg_catalog.chr(8204), '');
-  normalized := pg_catalog.replace(normalized, pg_catalog.chr(8205), '');
-  normalized := pg_catalog.replace(normalized, pg_catalog.chr(65279), '');
+  normalized := pg_catalog.lower(i1q.canonical_security_text(candidate));
   normalized := pg_catalog.replace(normalized, '%25', '%');
   normalized := pg_catalog.replace(normalized, '%5f', '_');
   normalized := pg_catalog.replace(normalized, '%2d', '-');
@@ -3027,7 +3049,8 @@ AS $function$
   WITH candidate_value AS (
     SELECT i1q.normalize_security_text(candidate) AS normalized
   ), identifiers AS (
-    SELECT i1q.normalize_security_text(identifier.identifier_value) AS normalized
+    SELECT i1q.normalize_security_text(identifier.identifier_value) AS normalized,
+           i1q.canonical_security_text(identifier.identifier_value) AS canonical
       FROM i1q.release_class_d_identifier_values(target_release_id) identifier
   ), variants AS (
     SELECT identifier.normalized,
@@ -3041,7 +3064,18 @@ AS $function$
                pg_catalog.chr(13),
                ''
              )
-           ) AS base64_value
+           ) AS base64_value,
+           pg_catalog.lower(
+             pg_catalog.replace(
+               pg_catalog.replace(
+                 pg_catalog.encode(pg_catalog.convert_to(identifier.canonical, 'UTF8'), 'base64'),
+                 pg_catalog.chr(10),
+                 ''
+               ),
+               pg_catalog.chr(13),
+               ''
+             )
+           ) AS canonical_base64_value
       FROM identifiers identifier
      WHERE pg_catalog.length(identifier.normalized) >= 4
   )
@@ -3051,11 +3085,23 @@ AS $function$
       CROSS JOIN variants identifier
      WHERE pg_catalog.strpos(candidate_entry.normalized, identifier.normalized) > 0
         OR pg_catalog.strpos(candidate_entry.normalized, identifier.base64_value) > 0
+        OR pg_catalog.strpos(candidate_entry.normalized, identifier.canonical_base64_value) > 0
         OR pg_catalog.strpos(
              candidate_entry.normalized,
              pg_catalog.rtrim(
                pg_catalog.replace(
                  pg_catalog.replace(identifier.base64_value, '+', '-'),
+                 '/',
+                 '_'
+               ),
+               '='
+             )
+           ) > 0
+        OR pg_catalog.strpos(
+             candidate_entry.normalized,
+             pg_catalog.rtrim(
+               pg_catalog.replace(
+                 pg_catalog.replace(identifier.canonical_base64_value, '+', '-'),
                  '/',
                  '_'
                ),
