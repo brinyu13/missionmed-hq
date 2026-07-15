@@ -73,3 +73,11 @@ _AI_HANDOFFS/**
 *token*
 _SYSTEM/r2.env
 **/.DS_Store
+
+# RISE generated deployment assets are reproducible from tracked source.
+rise/dist/
+
+# Preserve P1-RISE-4006 release evidence despite global binary/report ignores.
+!_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_COMPLETION/artifacts/
+!_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_COMPLETION/artifacts/**/*.json
+!_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_COMPLETION/artifacts/**/*.png
