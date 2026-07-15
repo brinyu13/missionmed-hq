@@ -89,6 +89,13 @@ function current_time( string $format ): string { return '2026-07-15 00:00:00'; 
 function date_i18n( string $format, int $timestamp ): string { return date( $format, $timestamp ); }
 function get_current_user_id(): int { return 42; }
 
+final class MMED_V1_Study_Access {
+	public static function legacy_writer_decision( $owner_id ): array {
+		unset( $owner_id );
+		return array( 'allowed' => true, 'status' => 200 );
+	}
+}
+
 final class MMED_Calendar_Engine {
 	public static array $events = array();
 	public static ?WP_REST_Request $created = null;

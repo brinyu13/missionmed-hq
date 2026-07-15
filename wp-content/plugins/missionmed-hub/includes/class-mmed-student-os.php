@@ -759,27 +759,41 @@ class MMED_Student_OS {
 			return '';
 		}
 
-		$return_to = home_url( '/member-dashboard/#dashboard' );
-		$final     = add_query_arg(
+		$return_to = home_url( '/member-dashboard/' ) . '#dashboard';
+		$final     = self::build_cam_query_url(
+			$target,
 			array(
 				'entry'     => 'matrix',
 				'return_to' => $return_to,
-			),
-			$target
+			)
 		);
 		$auth_url  = 'https://cam-hq-production-cam-production.up.railway.app/api/auth/start';
 
 		return esc_url_raw(
-			add_query_arg(
+			self::build_cam_query_url(
+				$auth_url,
 				array(
 					'audience'  => 'cam',
 					'entry'     => 'matrix',
 					'return_to' => $return_to,
 					'final'     => $final,
-				),
-				$auth_url
+				)
 			)
 		);
+	}
+
+	/**
+	 * Build a CAM URL with RFC3986 encoding so nested fragments remain query data.
+	 *
+	 * WordPress add_query_arg() preserves a literal # inside parameter values. In a
+	 * browser that starts the outer fragment early and drops the nested final URL.
+	 *
+	 * @param string $base Base HTTPS URL without a query or fragment.
+	 * @param array  $args Query parameters.
+	 * @return string
+	 */
+	private static function build_cam_query_url( $base, $args ) {
+		return rtrim( (string) $base, '?' ) . '?' . http_build_query( $args, '', '&', PHP_QUERY_RFC3986 );
 	}
 
 	/**

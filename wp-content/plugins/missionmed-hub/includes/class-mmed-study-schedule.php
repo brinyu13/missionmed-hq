@@ -158,14 +158,18 @@ class MMED_Study_Schedule {
 	}
 
 	/**
-	 * Apply the V1 cutover law before any Calendar lookup or mutation. Legacy-only
-	 * fixtures and installations without the 8010C boundary retain 8010B behavior.
+	 * Apply the V1 cutover law before any Calendar lookup or mutation. A missing
+	 * access boundary is a dependency failure; Study writes never fail open.
 	 *
 	 * @return true|WP_Error
 	 */
 	protected static function v1_legacy_writer_gate() {
 		if ( ! class_exists( 'MMED_V1_Study_Access' ) ) {
-			return true;
+			return new WP_Error(
+				'mmed_study_dependency_unavailable',
+				'Study write service is unavailable.',
+				array( 'status' => 503 )
+			);
 		}
 
 		$decision = MMED_V1_Study_Access::legacy_writer_decision( get_current_user_id() );

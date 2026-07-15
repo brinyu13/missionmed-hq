@@ -65,6 +65,13 @@ function absint( $value ): int { return abs( (int) $value ); }
 function wp_json_encode( $value ): string { return json_encode( $value, JSON_THROW_ON_ERROR ); }
 function date_i18n( string $format, int $timestamp ): string { return date( $format, $timestamp ); }
 
+final class MMED_V1_Study_Access {
+	public static function legacy_writer_decision( $owner_id ): array {
+		unset( $owner_id );
+		return array( 'allowed' => true, 'status' => 200 );
+	}
+}
+
 final class V1_Strict_WPDB {
 	public string $prefix = 'wp_';
 	public array $events = array();

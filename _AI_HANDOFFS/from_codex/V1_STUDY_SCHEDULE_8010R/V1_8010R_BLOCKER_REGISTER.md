@@ -1,7 +1,7 @@
 # V1 Study Schedule 8010R — Live Blocker Register
 
 Updated: 2026-07-15 UTC  
-Current governed boundary: 8010C complete as inert source
+Current governed boundary: 8010E E0 + E1 verified; E2 synthetic command-writer work authorized
 
 ## Active gates
 
@@ -9,8 +9,11 @@ Current governed boundary: 8010C complete as inert source
 |---|---|---|---|---|
 | BLK-12 | Decision 12 remains HOLD | Real learner data, cohort exposure, production telemetry/retention, activation, deployment | Isolated synthetic 8010D engineering and tests | Explicit founder decisions plus recorded policy/control version |
 | BLK-C-PROVISION | Missing live control records intentionally fail closed | Any live activation of C source | Source governance and synthetic D | Two-phase idempotent pre-provision/readback/rollback proof for matched generation, `never_commissioned`, `LEGACY_PRECUTOVER`, hold, no exposure, `stop=false` |
+| BLK-D-PHYSICAL | Active database, locked C control snapshot, and the verified E1 repository are not yet integrated | Any real schema or repository promotion | Isolated E1 migration/reader proof | Read-only active-database identity/capability evidence and fail-closed physical probe against locked C control |
 | BLK-D-ARBITER | No transactional shared per-owner writer arbiter yet | Any V1 writer or per-owner cutover | Read-only C and isolated schema work | Two-session race oracle proving exactly one writer and atomic first operation + watermark |
-| BLK-D-STICKY | Commissioning and reader floor are not yet physically implemented | Post-watermark operation or rollback | Pre-watermark synthetic design | Monotonic commissioned state, durable generation, repository probe, current/N-1 readers, degraded rollback proof |
+| BLK-E2-COMMAND | No canonical Plan command writer or first-operation transaction yet | Persistent Week mutation claim | Verified E1 migration/current reads | Same-key replay, changed-request conflict, stale revision, two-owner and multi-process first-operation atomicity |
+| BLK-D-STICKY | Current/N-1 release binding and degraded rollback are not yet implemented | Post-watermark rollback or promotion | Verified current reader in isolated generation 2 | Monotonic release control, current/N-1 readers, degraded rollback and sticky-watermark proof |
+| BLK-D-BACKUP | No staging backup/restore and degraded-reader rehearsal exists | Migration promotion or rollback claim | Isolated kernel proof | Exact backup manifest, restore rehearsal, retained bytes, and fail-closed degraded-reader evidence |
 | BLK-D-ACTOR | No production explicit actor adapter | Learner or mentor exposure | Default-hidden C and synthetic D | Server-owned learner/mentor evidence adapter with assignment and entitlement tests |
 | BLK-RC-DIGEST | No full release-candidate package digest | RC/deployment attestation | Inert C and synthetic D | Canonical full-package manifest with exact-digest CI and rollback package |
 | BLK-VISIBLE-UX | No learner-visible slice exists yet | UI/UX 9.0 closure, accessibility, responsive and usability launch claims | Backend/storage synthetic work | Independent visible-slice reviews, accessibility/responsive evidence, scores at least 9.0/10 |
@@ -28,6 +31,16 @@ Current governed boundary: 8010C complete as inert source
 | RES-C-MANIFEST | Release identity is reproducible from a canonical content-addressed manifest. |
 | RES-C-DIGEST-SEAM | Release digest and executable asset digest are separated and cross-layer tested. |
 | RES-C-CI | Exact governed commit passed all nine PHP/WordPress/loader/containment lanes. |
+| RES-D-KERNEL | Exact validation commit `3d392dbd...` passed six digest-pinned PHP 7.4/8.3, WordPress, MariaDB 10.11, MySQL 8, and extended concurrency/crash lanes. |
+| RES-D-CLOCK | Session `timestamp` replay spoofing is independently bounded before mutation and every ledger clock read; 2037 contamination fails before DDL on both database families. |
+| RES-D-REVIEW | Three read-only P0/P1 audits closed with no remaining P0/P1 in final kernel digests. |
+| RES-E0-DOMAIN | Pure Week/Block normalization, temporal intent, collision, tombstone, and Mission projection laws passed PHP 7.4/8.3. |
+| RES-E0-SCHEMA | Exact migrations 6–7 and constraints passed physical MySQL 8 and MariaDB 10.11 inspection/enforcement at commit `9e8e2f...`. |
+| RES-E0-REGRESSION | All 8010C, containment, 8010D, and 8010E exact-tree CI jobs passed together. |
+| RES-E1-MIGRATION | Exact commit `e9c537ab...` proved shared-lock generation-2 migration, 12 SIGKILL durable states, every exception hook, and idempotent recovery on MySQL 8/MariaDB 10.11. |
+| RES-E1-READER | Bounded canonical current reads, immutable/current receipts, caller-session safety, seven-table temporary-shadow rejection, two-owner isolation, and a live revision tear passed. |
+| RES-E1-REVIEW | Two independent final read-only audits found no remaining E1 P0/P1 in tree `95ae6a85...`. |
+| RES-E1-REGRESSION | All 21 8010E, 8010C, containment, and 8010D jobs passed at the accepted exact tree. |
 
 ## Informational maintenance
 
@@ -35,6 +48,6 @@ GitHub Actions reports an upstream Node 20 deprecation annotation for the pinned
 
 ## Current stop/go statement
 
-- GO: isolated synthetic V1-8010D implementation and verification.
+- GO: continue isolated synthetic V1-8010E E2 command-writer work from the verified E1 contract.
 - GO: documentation, exact-digest packaging, reversible test infrastructure, and read-only authority checks.
-- NO-GO: production source activation, option pre-provisioning, schema creation, learner data, cohort exposure, feature flags, merge if it auto-deploys, or production deployment.
+- NO-GO: real schema creation, production source activation, option pre-provisioning, learner data, cohort exposure, feature flags, merge if it auto-deploys, or production deployment.

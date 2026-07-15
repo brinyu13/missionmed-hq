@@ -1,0 +1,156 @@
+name: V1 Study Schedule 8010D persistence kernel
+
+on:
+  pull_request:
+    paths:
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
+      - "tests/php/v1-study-schedule-8010d-*.php"
+      - "tests/php/run-v1-study-schedule-8010d.sh"
+      - ".github/workflows/v1-study-schedule-8010d.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  php-contract:
+    name: PHP ${{ matrix.php }} inert schema contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: "7.4-cli"
+            php_image: "php:7.4-cli@sha256:620a6b9f4d4feef2210026172570465e9d0c1de79766418d3affd09190a7fda5"
+          - php: "8.3-cli"
+            php_image: "php:8.3-cli@sha256:2a3f699b6cb31e5638c5432e4d37d4047853ba6351a692c91e0a073af00a55cc"
+    container: ${{ matrix.php_image }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Run pure 8010D contract
+        run: sh tests/php/run-v1-study-schedule-8010d.sh
+
+  innodb-capability:
+    name: ${{ matrix.database }} / PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: MariaDB 10.11
+            database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
+            php: "7.4"
+            php_image: wordpress:6.1.1-php7.4-apache@sha256:7e46cf3373751b6d62b7a0fc3a7d6686f641a34a2a0eb18947da5375c55fd009
+            extended: "0"
+          - database: MariaDB 10.11
+            database_image: mariadb:10.11@sha256:be981e4113326ada8d6004174dd09eeaefc03094037f811182a52d4f2e737350
+            php: "8.3"
+            php_image: wordpress:6.6.2-php8.3-apache@sha256:04be81de853887fca707742785b32bf93fb4a692246dd1bc90b3790105071a9a
+            extended: "1"
+          - database: MySQL 8
+            database_image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+            php: "7.4"
+            php_image: wordpress:6.1.1-php7.4-apache@sha256:7e46cf3373751b6d62b7a0fc3a7d6686f641a34a2a0eb18947da5375c55fd009
+            extended: "0"
+          - database: MySQL 8
+            database_image: mysql:8.0@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+            php: "8.3"
+            php_image: wordpress:6.6.2-php8.3-apache@sha256:04be81de853887fca707742785b32bf93fb4a692246dd1bc90b3790105071a9a
+            extended: "1"
+    container:
+      image: ${{ matrix.php_image }}
+    services:
+      database:
+        image: ${{ matrix.database_image }}
+        env:
+          MYSQL_DATABASE: wordpress
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_ROOT_HOST: "%"
+          MARIADB_DATABASE: wordpress
+          MARIADB_ALLOW_EMPTY_ROOT_PASSWORD: "1"
+          MARIADB_ROOT_HOST: "%"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Wait for disposable database
+        run: |
+          set -eu
+          php -r '
+            $deadline = microtime(true) + 90;
+            do {
+              mysqli_report(MYSQLI_REPORT_OFF);
+              $db = @new mysqli("database", "root", "", "wordpress");
+              if (!$db->connect_errno) {
+                $db->close();
+                exit(0);
+              }
+              usleep(250000);
+            } while (microtime(true) < $deadline);
+            fwrite(STDERR, "Disposable database did not become ready.\n");
+            exit(1);
+          '
+
+      - name: Install disposable WordPress 6.6.2
+        run: |
+          set -eu
+          php -r '
+            $source = "https://wordpress.org/wordpress-6.6.2.tar.gz";
+            if (!copy($source, "/tmp/wordpress-6.6.2.tar.gz")) {
+              fwrite(STDERR, "WordPress source download failed.\n");
+              exit(1);
+            }
+          '
+          echo "2697a68cb3dcf483f4fce8804925698c7466401b369fc32de2707a59c4c207d6  /tmp/wordpress-6.6.2.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/wordpress-6.6.2.tar.gz -C /tmp
+          mv /tmp/wordpress /tmp/v1-wordpress
+          cp /tmp/v1-wordpress/wp-config-sample.php /tmp/v1-wordpress/wp-config.php
+          sed -i "s/database_name_here/wordpress/" /tmp/v1-wordpress/wp-config.php
+          sed -i "s/username_here/root/" /tmp/v1-wordpress/wp-config.php
+          sed -i "s/password_here//" /tmp/v1-wordpress/wp-config.php
+          sed -i "s/localhost/database/" /tmp/v1-wordpress/wp-config.php
+          php -r '
+            define("WP_INSTALLING", true);
+            require "/tmp/v1-wordpress/wp-load.php";
+            require_once ABSPATH . "wp-admin/includes/upgrade.php";
+            $installed = wp_install(
+              "V1 Study Schedule 8010D synthetic capability",
+              "v1kernel",
+              "v1kernel@example.invalid",
+              false,
+              "",
+              ""
+            );
+            if (!is_array($installed) || empty($installed["user_id"])) {
+              fwrite(STDERR, "Disposable WordPress installation failed.\n");
+              exit(1);
+            }
+          '
+
+      - name: Run real InnoDB migration and invariant proof
+        env:
+          V1_REPO_ROOT: ${{ github.workspace }}
+          V1_WP_ROOT: /tmp/v1-wordpress
+          V1_D_EXTENDED: ${{ matrix.extended }}
+        run: |
+          set -eu
+          php -d display_errors=1 -d error_reporting=-1 -r '
+            chdir(getenv("V1_WP_ROOT"));
+            require getenv("V1_WP_ROOT") . "/wp-load.php";
+            require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010d-wordpress.php";
+          '
+
+      - name: Run independent-session exclusion and crash proof
+        if: matrix.extended == '1'
+        env:
+          V1_REPO_ROOT: ${{ github.workspace }}
+          V1_WP_ROOT: /tmp/v1-wordpress
+        run: php -d display_errors=1 -d error_reporting=-1 tests/php/v1-study-schedule-8010d-concurrency.php
