@@ -924,9 +924,9 @@ $past_midnight_result = $boundary_service->execute( $past_midnight, $boundary_ow
 v1_8010e_e2_physical_expect_failure( $past_midnight_result, 'outside_display_window', 422, 'Sunday 23:45 plus 30 minutes exceeds the civil canvas' );
 v1_8010e_wp_expect( 2 === v1_8010e_e2_physical_owner_counts( $wpdb, $boundary_owner )['operations'], 'boundary rejection creates no third revision' );
 
-/* A daytime civil fold reaches the writer and is never guessed. */
+/* A learner-visible civil fold reaches the writer and is never guessed. */
 $fold_owner = 8418;
-$fold_temporal = MMED_V1_Study_Week_Domain::temporal_envelope( '2022-03-07', 'Antarctica/Casey', 'profile-casey-v1', $runtime_tzdb );
+$fold_temporal = MMED_V1_Study_Week_Domain::temporal_envelope( '2010-03-01', 'Antarctica/Casey', 'profile-casey-v1', $runtime_tzdb );
 $fold_service = new MMED_V1_Study_Command_Service(
 	new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, new V1_8010E_E2_Synthetic_Fence(), new V1_8010E_E2_UUID_Source( 30500 ) )
 );
@@ -935,18 +935,18 @@ $fold_body = v1_8010e_e2_physical_body(
 	'0',
 	MMED_V1_Study_Week_Domain::COMMAND_CREATE,
 	array(
-		'title' => 'Daytime fold earlier',
+		'title' => 'Visible fold earlier',
 		'activity_type' => 'qbank',
 		'priority' => 'normal',
-		'local_date' => '2022-03-12',
-		'local_time' => '22:00',
+		'local_date' => '2010-03-04',
+		'local_time' => '23:30',
 		'duration_minutes' => 30,
 		'fold' => null,
 		'temporal_context' => $fold_temporal['context'],
 	)
 );
 $fold_missing = $fold_service->execute( $fold_body, $fold_owner, $fold_owner, 'learner', $fold_temporal );
-v1_8010e_e2_physical_expect_failure( $fold_missing, 'dst_fold_choice_required', 422, 'ambiguous daytime fold requires an explicit earlier/later choice' );
+v1_8010e_e2_physical_expect_failure( $fold_missing, 'dst_fold_choice_required', 422, 'ambiguous learner-visible fold requires an explicit earlier/later choice' );
 v1_8010e_wp_expect( array( 'plans' => 0, 'operations' => 0, 'weeks' => 0, 'blocks' => 0 ) === v1_8010e_e2_physical_owner_counts( $wpdb, $fold_owner ), 'missing fold choice writes no provisional truth' );
 $fold_body['payload']['fold'] = 'earlier';
 $fold_earlier = $fold_service->execute( $fold_body, $fold_owner, $fold_owner, 'learner', $fold_temporal );
@@ -957,7 +957,7 @@ v1_8010e_wp_expect( 'earlier' === $fold_earlier_result['week']['blocks'][0]['fol
 $fold_later_body = $fold_body;
 $fold_later_body['idempotency_key'] = '8010E-e2-daytime-fold-0002';
 $fold_later_body['expected_revision'] = '1';
-$fold_later_body['payload']['title'] = 'Daytime fold later';
+$fold_later_body['payload']['title'] = 'Visible fold later';
 $fold_later_body['payload']['fold'] = 'later';
 $fold_later = $fold_service->execute( $fold_later_body, $fold_owner, $fold_owner, 'learner', $fold_temporal );
 v1_8010e_wp_expect( ! empty( $fold_later['ok'] ) && '2' === $fold_later['result']['revision'], 'explicit later fold commits the distinct repeated-wall-time instant' );
@@ -978,11 +978,11 @@ v1_8010e_wp_expect(
 	is_array( $fold_rows )
 	&& 2 === count( $fold_rows )
 	&& '1' === $fold_rows[0]['fold_code']
-	&& '2022-03-12 11:00:00.000000' === $fold_rows[0]['start_utc']
-	&& '2022-03-12 11:30:00.000000' === $fold_rows[0]['end_utc']
+	&& '2010-03-04 12:30:00.000000' === $fold_rows[0]['start_utc']
+	&& '2010-03-04 13:00:00.000000' === $fold_rows[0]['end_utc']
 	&& '2' === $fold_rows[1]['fold_code']
-	&& '2022-03-12 14:00:00.000000' === $fold_rows[1]['start_utc']
-	&& '2022-03-12 14:30:00.000000' === $fold_rows[1]['end_utc']
+	&& '2010-03-04 15:30:00.000000' === $fold_rows[1]['start_utc']
+	&& '2010-03-04 16:00:00.000000' === $fold_rows[1]['end_utc']
 	&& 10800 === strtotime( $fold_rows[1]['start_utc'] . ' UTC' ) - strtotime( $fold_rows[0]['start_utc'] . ' UTC' ),
 	'physical fold code and UTC intervals preserve the three-hour Casey repetition exactly'
 );
