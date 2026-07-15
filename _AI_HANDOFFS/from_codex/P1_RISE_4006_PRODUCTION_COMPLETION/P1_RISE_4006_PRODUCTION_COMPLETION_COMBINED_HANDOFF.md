@@ -1582,6 +1582,7 @@ At `2026-07-15 11:26 EDT`, the production boundary was re-audited before accepti
 - Railway exposed no RISE project or service, and Supabase exposed no RISE project. The isolated candidate remained unlinked to any deployment target.
 - `https://missionmedinstitute.com/rise/?recheck=20260715T1528` returned HTTP `404` with no redirect. The in-app browser independently rendered title `Page not found - MissionMed Institute` and the WordPress missing-page heading.
 - The shared critical gate still failed with protected concurrent changes in `missionmed-hq/server.mjs` and `_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json`, USCE and Arena CDN hash mismatches, and three outstanding browser journeys.
+- GitHub reported four open Dependabot alerts against the default branch lockfile: two high, one medium, and one low. The candidate lockfile already resolves the affected packages to patched versions (`form-data@4.0.6`, `ws@8.21.1`, and `esbuild@0.28.1`), consistent with its zero-vulnerability clean-install audit.
 - No staging activation, production deployment, schema migration, registry ingestion, or production data read was attempted.
 
 The canonical Drive handoff was corrected in place under file ID `1MaJIdOkxgtfWMQWgSmhG2JuVgZ_wtrkB`; the file ID and parent were preserved so downstream references do not fork.
