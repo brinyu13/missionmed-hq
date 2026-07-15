@@ -268,13 +268,18 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 				);
 			} catch ( MMED_V1_Study_Week_Domain_Exception $error ) {
 				unset( $error );
+				$this->hit( 'snapshot_rebuild_failed' );
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
+			$this->hit( 'after_snapshot_rebuild' );
 			$verified_json = MMED_V1_Study_Week_Domain::canonical_json( $verified_snapshot );
 			if ( ! hash_equals( $plan_json, $verified_json ) || ! hash_equals( $plan_hash, hash( 'sha256', $verified_json ) ) ) {
+				$this->hit( 'snapshot_mismatch' );
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
+			$this->hit( 'after_snapshot_match' );
 			$this->assert_published_plan( $owner_id, $ids['plan_id'], $reduced['next_revision'], $plan_json, $plan_hash, $ids['operation_id'], $state['revision'], $now );
+			$this->hit( 'after_plan_verify' );
 			$this->hit( 'after_snapshot_verify' );
 
 			$this->insert_receipt( $owner_id, $actor_id, $normalized, $ids, $reduced['next_revision'], $plan_hash, $result_json, $now );
