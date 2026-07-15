@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T16:19:20.962Z",
+  "generated_at": "2026-07-15T16:39:34.024Z",
   "status": "pass",
   "artifact_count": 44,
   "artifacts": [
@@ -10,8 +10,8 @@
     },
     {
       "path": "i1q-question-platform/db/migrations/20260715122434_i1q_1007x_question_platform.sql",
-      "bytes": 136254,
-      "sha256": "2a8b3651336f4820986c842e1c03a286f789001ff8483270aee0a24cfab7c38e"
+      "bytes": 136320,
+      "sha256": "0c2ca0c48436c7684b97ce88d6b7d518b0780c3e336ad1b5bfd457c4fd60b5e3"
     },
     {
       "path": "i1q-question-platform/db/rollback/0001_compensating_disable.sql",
@@ -180,8 +180,8 @@
     },
     {
       "path": "i1q-question-platform/tests/migration-1007x.test.mjs",
-      "bytes": 18864,
-      "sha256": "41b0dae119ca9410e4f62a1a937e915c5d3a18a75a2dfe729a1becb5a0efd706"
+      "bytes": 19207,
+      "sha256": "e4b5537ca200543e32ce9b4b16f1577dadb287862e73757a0cd0b839f3aac450"
     },
     {
       "path": "i1q-question-platform/tests/migration.test.mjs",
@@ -200,8 +200,8 @@
     },
     {
       "path": "i1q-question-platform/tests/postgres-migration.test.mjs",
-      "bytes": 55804,
-      "sha256": "ce49b211dd2052b32d70fe26533d50a17d1d74564ad8d56b6936b57db9edf40d"
+      "bytes": 60082,
+      "sha256": "1678c60fee0f08a5dbea9212d1b78f86e2f8a30234c5b73b1a9446553c88a1c3"
     },
     {
       "path": "i1q-question-platform/tests/postgres-repository.test.mjs",
