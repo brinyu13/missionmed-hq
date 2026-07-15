@@ -5,6 +5,14 @@
 
 declare(strict_types=1);
 
+if ( ! class_exists( 'MMED_V1_Study_Access' ) ) {
+	final class MMED_V1_Study_Access {
+		public static function legacy_writer_decision( $owner_id ): array {
+			return array( 'allowed' => (int) $owner_id > 0, 'status' => 200 );
+		}
+	}
+}
+
 if ( defined( 'WPINC' ) ) {
 	/**
 	 * Assert one disposable WordPress integration condition.

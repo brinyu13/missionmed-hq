@@ -217,8 +217,15 @@ class MMED_Calendar_Engine {
 	 * @return true|WP_Error
 	 */
 	private static function v1_study_writer_gate( $event_type, $owner_id ) {
-		if ( 'study_block' !== (string) $event_type || ! class_exists( 'MMED_V1_Study_Access' ) ) {
+		if ( 'study_block' !== (string) $event_type ) {
 			return true;
+		}
+		if ( ! class_exists( 'MMED_V1_Study_Access' ) ) {
+			return new WP_Error(
+				'mmed_study_dependency_unavailable',
+				'Study write service is unavailable.',
+				array( 'status' => 503 )
+			);
 		}
 
 		$decision = MMED_V1_Study_Access::legacy_writer_decision( (int) $owner_id );
