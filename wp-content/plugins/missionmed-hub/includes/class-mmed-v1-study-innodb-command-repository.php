@@ -450,14 +450,20 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 
 	/** @return void */
 	private function assert_clean_session() {
-		if (
-			1 !== (int) $this->scalar( 'SELECT @@SESSION.autocommit' )
-			|| true === $this->transaction_active()
-			|| 0 !== (int) $this->scalar( $this->is_mariadb() ? 'SELECT @@SESSION.tx_read_only' : 'SELECT @@SESSION.transaction_read_only' )
-		) {
+		if ( 1 !== (int) $this->scalar( 'SELECT @@SESSION.autocommit' ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->observe( 'after_clean_autocommit' );
+		if ( true === $this->transaction_active() ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->observe( 'after_clean_transaction_probe' );
+		if ( 0 !== (int) $this->scalar( $this->is_mariadb() ? 'SELECT @@SESSION.tx_read_only' : 'SELECT @@SESSION.transaction_read_only' ) ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$this->observe( 'after_clean_read_only' );
 		$this->assert_session_integrity( false, false, false );
+		$this->observe( 'after_clean_integrity' );
 	}
 
 	/**
@@ -1685,6 +1691,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->observe( 'after_relational_integrity' );
 		$modes = array_map( 'trim', explode( ',', strtoupper( (string) $this->scalar( 'SELECT @@SESSION.sql_mode' ) ) ) );
 		if (
 			( $require_hardened_mode && ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) )
@@ -1696,10 +1703,13 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
+		$this->observe( 'after_mode_integrity' );
 		if ( $require_pinned_encoding ) {
 			$this->assert_session_encoding_pinned();
 		}
+		$this->observe( 'after_encoding_integrity' );
 		$this->assert_database_clock_unspoofed();
+		$this->observe( 'after_clock_integrity' );
 	}
 
 	/** Capture every mutable relational control guarded by this writer. */
