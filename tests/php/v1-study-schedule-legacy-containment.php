@@ -170,12 +170,13 @@ function expect_same( $expected, $actual, string $label ): void {
 	}
 }
 
-function event_fixture( int $id, int $owner, string $type, array $meta = array() ): object {
+function event_fixture( int $id, int $owner, string $type, array $meta = array(), string $status = 'active' ): object {
 	return (object) array(
 		'id' => $id,
 		'user_id' => $owner,
 		'event_type' => $type,
 		'meta_json' => json_encode( $meta, JSON_THROW_ON_ERROR ),
+		'status' => $status,
 		'updated_at' => '2026-07-15 00:00:00',
 	);
 }
@@ -184,6 +185,7 @@ MMED_Calendar_Engine::$events = array(
 	10 => event_fixture( 10, 42, 'study_block', array( 'subject' => 'Renal', 'completed' => false, 'mentor_hint' => 'retain' ) ),
 	11 => event_fixture( 11, 42, 'appointment' ),
 	12 => event_fixture( 12, 99, 'study_block' ),
+	13 => event_fixture( 13, 42, 'study_block', array(), 'cancelled' ),
 );
 
 $foreign_type = MMED_Study_Schedule::update_block( new WP_REST_Request( array( 'completed' => true ), array( 'id' => 11 ) ) );
@@ -219,6 +221,13 @@ expect_same( false, array_key_exists( 'user_id', $update_body ), 'owner mass ass
 expect_same( false, array_key_exists( 'meeting_url', $update_body ), 'Calendar-only mass assignment is ignored' );
 expect_same( true, MMED_Calendar_Engine::$updated->get_param( '_mmed_strict_owner' ), 'admin fallback disabled' );
 expect_same( 'study_block', MMED_Calendar_Engine::$updated->get_param( '_mmed_required_event_type' ), 'atomic type constraint supplied' );
+expect_same( 'active', MMED_Calendar_Engine::$updated->get_param( '_mmed_expected_status' ), 'status snapshot supplied' );
+expect_same( true, MMED_Calendar_Engine::$updated->get_param( '_mmed_expect_meta_snapshot' ), 'metadata replacement is snapshot constrained' );
+expect_same(
+	MMED_Calendar_Engine::$events[10]->meta_json,
+	MMED_Calendar_Engine::$updated->get_param( '_mmed_expected_meta_json' ),
+	'original metadata snapshot supplied'
+);
 $update_response = $updated->get_data();
 expect_same(
 	array( 'id', 'title', 'subject', 'notes', 'start_at', 'end_at', 'duration', 'status', 'completed', 'category' ),
@@ -232,6 +241,17 @@ expect_same( false, array_key_exists( 'meta', $update_response ), 'update omits 
 
 $deleted = MMED_Study_Schedule::delete_block( new WP_REST_Request( array(), array( 'id' => 10 ) ) );
 expect_same( 200, $deleted->status, 'owned Study delete delegated' );
+expect_same( 'active', MMED_Calendar_Engine::$deleted->get_param( '_mmed_expected_status' ), 'delete carries status snapshot' );
+
+$cancelled_update = MMED_Study_Schedule::update_block(
+	new WP_REST_Request( array( 'completed' => false ), array( 'id' => 13 ) )
+);
+expect_same( true, is_wp_error( $cancelled_update ), 'cancelled Study event cannot be resurrected' );
+expect_same( 'mmed_study_block_not_found', $cancelled_update->code, 'cancelled update is non-enumerating' );
+
+$cancelled_delete = MMED_Study_Schedule::delete_block( new WP_REST_Request( array(), array( 'id' => 13 ) ) );
+expect_same( true, is_wp_error( $cancelled_delete ), 'cancelled Study event cannot be deleted again' );
+expect_same( 'mmed_study_block_not_found', $cancelled_delete->code, 'cancelled delete is non-enumerating' );
 
 $created = MMED_Study_Schedule::create_block(
 	new WP_REST_Request(

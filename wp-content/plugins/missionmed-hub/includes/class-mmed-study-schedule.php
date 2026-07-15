@@ -120,7 +120,7 @@ class MMED_Study_Schedule {
 
 		$event_request = self::request_from_payload( $payload );
 		$event_request->set_param( 'id', absint( $request['id'] ) );
-		self::scope_legacy_mutation( $event_request );
+		self::scope_legacy_mutation( $event_request, $event, isset( $payload['meta'] ) );
 
 		$response = MMED_Calendar_Engine::update_event( $event_request );
 		return self::format_mutation_response( $response );
@@ -138,7 +138,7 @@ class MMED_Study_Schedule {
 			return $event;
 		}
 
-		self::scope_legacy_mutation( $request );
+		self::scope_legacy_mutation( $request, $event );
 		return MMED_Calendar_Engine::delete_event( $request );
 	}
 
@@ -148,12 +148,20 @@ class MMED_Study_Schedule {
 	 * These parameters can only narrow a generic Calendar mutation. The Study
 	 * adapter overwrites any client values after it verifies the current row.
 	 *
-	 * @param WP_REST_Request $request Internal Calendar request.
+	 * @param WP_REST_Request $request      Internal Calendar request.
+	 * @param object          $event        Preflighted Study event snapshot.
+	 * @param bool            $protect_meta Whether the update replaces metadata.
 	 * @return void
 	 */
-	protected static function scope_legacy_mutation( $request ) {
+	protected static function scope_legacy_mutation( $request, $event, $protect_meta = false ) {
 		$request->set_param( '_mmed_strict_owner', true );
 		$request->set_param( '_mmed_required_event_type', 'study_block' );
+		$request->set_param( '_mmed_expected_status', (string) ( $event->status ?? '' ) );
+
+		if ( $protect_meta ) {
+			$request->set_param( '_mmed_expect_meta_snapshot', true );
+			$request->set_param( '_mmed_expected_meta_json', $event->meta_json ?? null );
+		}
 	}
 
 	/**
@@ -172,7 +180,12 @@ class MMED_Study_Schedule {
 			? MMED_Calendar_Engine::get_owned_event( $event_id, $user_id )
 			: null;
 
-		if ( ! $event || 'study_block' !== (string) ( $event->event_type ?? '' ) ) {
+		$status = (string) ( $event->status ?? '' );
+		if (
+			! $event
+			|| 'study_block' !== (string) ( $event->event_type ?? '' )
+			|| ! in_array( $status, array( 'active', 'completed' ), true )
+		) {
 			return new WP_Error(
 				'mmed_study_block_not_found',
 				'Study block not found.',
@@ -329,7 +342,10 @@ class MMED_Study_Schedule {
 	protected static function request_from_payload( $payload ) {
 		$request = new WP_REST_Request();
 		$request->set_body_params( $payload );
-		$request->set_header( 'content-type', 'application/json' );
+		// This is an internal request, not an HTTP JSON body. Marking it as JSON
+		// makes real WP_REST_Request::set_param() place the later owner/type
+		// constraints in a separate JSON bag; Calendar would then ignore these
+		// body params and report a false no-op success.
 		return $request;
 	}
 

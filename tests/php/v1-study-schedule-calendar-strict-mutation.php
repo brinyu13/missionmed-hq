@@ -69,6 +69,10 @@ final class V1_Strict_WPDB {
 	public string $prefix = 'wp_';
 	public array $events = array();
 	public array $last_where = array();
+	public $before_update = null;
+	public $after_update = null;
+	public bool $force_zero_without_write = false;
+	public bool $force_failure = false;
 
 	public function prepare( string $query, ...$values ): array {
 		if ( 1 === count( $values ) && is_array( $values[0] ) ) {
@@ -90,6 +94,12 @@ final class V1_Strict_WPDB {
 
 	public function update( string $table, array $payload, array $where, array $formats, array $where_formats ) {
 		$this->last_where = $where;
+		if ( is_callable( $this->before_update ) ) {
+			$before_update       = $this->before_update;
+			$this->before_update = null;
+			$before_update( $this, $payload, $where );
+		}
+
 		$id               = (int) ( $where['id'] ?? 0 );
 		$row              = $this->events[ $id ] ?? null;
 		if ( ! $row ) {
@@ -102,15 +112,34 @@ final class V1_Strict_WPDB {
 			}
 		}
 
+		if ( $this->force_failure ) {
+			$this->force_failure = false;
+			return false;
+		}
+
+		if ( $this->force_zero_without_write ) {
+			$this->force_zero_without_write = false;
+			return 0;
+		}
+
+		$changed = false;
 		foreach ( $payload as $key => $value ) {
+			if ( (string) ( $row->{$key} ?? '' ) !== (string) $value ) {
+				$changed = true;
+			}
 			$row->{$key} = $value;
 		}
 		$this->events[ $id ] = $row;
-		return 1;
+		if ( is_callable( $this->after_update ) ) {
+			$after_update       = $this->after_update;
+			$this->after_update = null;
+			$after_update( $this, $payload, $where );
+		}
+		return $changed ? 1 : 0;
 	}
 }
 
-function fixture( int $id, int $owner, string $type, string $meta = '{}' ): object {
+function fixture( int $id, int $owner, string $type, ?string $meta = '{}' ): object {
 	return (object) array(
 		'id' => $id,
 		'user_id' => $owner,
@@ -137,12 +166,18 @@ function fixture( int $id, int $owner, string $type, string $meta = '{}' ): obje
 	);
 }
 
-function strict_params( int $id ): array {
-	return array(
+function strict_params( int $id, string $status = 'active', bool $protect_meta = false, $meta = null ): array {
+	$params = array(
 		'id' => $id,
 		'_mmed_strict_owner' => true,
 		'_mmed_required_event_type' => 'study_block',
+		'_mmed_expected_status' => $status,
 	);
+	if ( $protect_meta ) {
+		$params['_mmed_expect_meta_snapshot'] = true;
+		$params['_mmed_expected_meta_json']   = $meta;
+	}
+	return $params;
 }
 
 function expect_same( $expected, $actual, string $label ): void {
@@ -160,17 +195,32 @@ $wpdb->events = array(
 	12 => fixture( 12, 99, 'study_block' ),
 	13 => fixture( 13, 99, 'study_block' ),
 	14 => fixture( 14, 42, 'study_block' ),
+	15 => fixture( 15, 42, 'study_block', '{"subject":"Cardio"}' ),
+	16 => fixture( 16, 42, 'study_block', '{"subject":"Neuro"}' ),
+	17 => fixture( 17, 42, 'study_block' ),
+	18 => fixture( 18, 42, 'study_block' ),
+	19 => fixture( 19, 42, 'study_block' ),
+	20 => fixture( 20, 42, 'study_block' ),
+	21 => fixture( 21, 42, 'study_block' ),
+	22 => fixture( 22, 42, 'study_block' ),
+	23 => fixture( 23, 42, 'study_block' ),
+	24 => fixture( 24, 42, 'study_block', null ),
+	25 => fixture( 25, 42, 'study_block' ),
+	26 => fixture( 26, 42, 'study_block' ),
+	27 => fixture( 27, 42, 'study_block' ),
 );
 $GLOBALS['wpdb'] = $wpdb;
 
 $request = new WP_REST_Request(
 	array( 'status' => 'completed', 'meta' => array( 'subject' => 'Renal', 'completed' => true ) ),
-	strict_params( 10 )
+	strict_params( 10, 'active', true, '{"subject":"Renal"}' )
 );
 $result = MMED_Calendar_Engine::update_event( $request );
 expect_same( 200, $result->status, 'strict owned Study update succeeds' );
 expect_same( 42, $wpdb->last_where['user_id'] ?? null, 'owner is in atomic predicate' );
 expect_same( 'study_block', $wpdb->last_where['event_type'] ?? null, 'type is in atomic predicate' );
+expect_same( 'active', $wpdb->last_where['status'] ?? null, 'status snapshot is in atomic predicate' );
+expect_same( '{"subject":"Renal"}', $wpdb->last_where['meta_json'] ?? null, 'metadata snapshot is in atomic predicate' );
 
 $foreign_type = MMED_Calendar_Engine::update_event(
 	new WP_REST_Request( array( 'status' => 'completed' ), strict_params( 11 ) )
@@ -210,7 +260,147 @@ expect_same( 200, $generic_learner_delete->status, 'unscoped learner delete beha
 expect_same( 'cancelled', $wpdb->events[14]->status, 'unscoped learner delete still soft-cancels' );
 
 $deleted = MMED_Calendar_Engine::delete_event( new WP_REST_Request( array(), strict_params( 10 ) ) );
-expect_same( 200, $deleted->status, 'strict owned Study delete succeeds' );
+expect_same( true, is_wp_error( $deleted ), 'stale status snapshot cannot delete a completed Study event' );
+expect_same( 409, $deleted->data['status'] ?? null, 'stale delete status returns conflict' );
+expect_same( 'completed', $wpdb->events[10]->status, 'stale delete leaves target untouched' );
+
+$deleted = MMED_Calendar_Engine::delete_event( new WP_REST_Request( array(), strict_params( 10, 'completed' ) ) );
+expect_same( 200, $deleted->status, 'strict owned Study delete succeeds with current snapshot' );
 expect_same( 'cancelled', $wpdb->events[10]->status, 'strict delete soft-cancels only target' );
+
+$wpdb->before_update = static function ( V1_Strict_WPDB $db ): void {
+	$db->events[15]->status = 'cancelled';
+};
+$status_race = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request(
+		array( 'status' => 'completed' ),
+		strict_params( 15, 'active' )
+	)
+);
+expect_same( true, is_wp_error( $status_race ), 'concurrent cancellation denies stale update' );
+expect_same( 409, $status_race->data['status'] ?? null, 'concurrent cancellation returns conflict' );
+expect_same( 'cancelled', $wpdb->events[15]->status, 'cancelled Study event is never resurrected' );
+
+$wpdb->before_update = static function ( V1_Strict_WPDB $db ): void {
+	$db->events[16]->meta_json = '{"subject":"Neuro","mentor_hint":"new"}';
+};
+$meta_race = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request(
+		array( 'meta' => array( 'subject' => 'Neuro', 'completed' => true ) ),
+		strict_params( 16, 'active', true, '{"subject":"Neuro"}' )
+	)
+);
+expect_same( true, is_wp_error( $meta_race ), 'concurrent metadata change denies stale replacement' );
+expect_same( 409, $meta_race->data['status'] ?? null, 'metadata race returns conflict' );
+expect_same(
+	'{"subject":"Neuro","mentor_hint":"new"}',
+	$wpdb->events[16]->meta_json,
+	'concurrent metadata remains intact'
+);
+
+$meta_retry = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request(
+		array( 'meta' => array( 'subject' => 'Neuro', 'mentor_hint' => 'new', 'completed' => true ) ),
+		strict_params( 16, 'active', true, '{"subject":"Neuro","mentor_hint":"new"}' )
+	)
+);
+expect_same( 200, $meta_retry->status, 'retry succeeds after reloading the metadata snapshot' );
+expect_same(
+	array( 'subject' => 'Neuro', 'mentor_hint' => 'new', 'completed' => true ),
+	json_decode( $wpdb->events[16]->meta_json, true ),
+	'retry preserves concurrent metadata and applies intended change'
+);
+
+$wpdb->events[17]->title      = 'Fixture event';
+$wpdb->events[17]->updated_at = '2026-07-15 00:01:00';
+$no_op = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request( array( 'title' => 'Fixture event' ), strict_params( 17 ) )
+);
+expect_same( 200, $no_op->status, 'verified zero-row no-op remains successful' );
+
+$wpdb->before_update = static function ( V1_Strict_WPDB $db ): void {
+	$db->events[18]->event_type = 'appointment';
+};
+$type_race = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request( array( 'status' => 'completed' ), strict_params( 18 ) )
+);
+expect_same( true, is_wp_error( $type_race ), 'concurrent type change denies stale update' );
+expect_same( 404, $type_race->data['status'] ?? null, 'concurrent type change stays non-enumerating' );
+
+$wpdb->before_update = static function ( V1_Strict_WPDB $db ): void {
+	$db->events[19]->status = 'cancelled';
+};
+$delete_race = MMED_Calendar_Engine::delete_event(
+	new WP_REST_Request( array(), strict_params( 19 ) )
+);
+expect_same( true, is_wp_error( $delete_race ), 'concurrent delete is not reported as this request success' );
+expect_same( 409, $delete_race->data['status'] ?? null, 'concurrent delete returns conflict' );
+
+$wpdb->before_update = static function ( V1_Strict_WPDB $db ): void {
+	$db->events[20]->user_id = 99;
+};
+$owner_race = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request( array( 'status' => 'completed' ), strict_params( 20 ) )
+);
+expect_same( true, is_wp_error( $owner_race ), 'concurrent owner change denies stale update' );
+expect_same( 404, $owner_race->data['status'] ?? null, 'concurrent owner change stays non-enumerating' );
+
+$wpdb->force_zero_without_write = true;
+$zero_mismatch = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request( array( 'title' => 'Unapplied title' ), strict_params( 21 ) )
+);
+expect_same( true, is_wp_error( $zero_mismatch ), 'unapplied zero-row update is not reported as success' );
+expect_same( 409, $zero_mismatch->data['status'] ?? null, 'unapplied zero-row update returns conflict' );
+
+$wpdb->after_update = static function ( V1_Strict_WPDB $db ): void {
+	$db->events[22]->event_type = 'appointment';
+};
+$post_write_type_race = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request( array( 'status' => 'completed' ), strict_params( 22 ) )
+);
+expect_same( true, is_wp_error( $post_write_type_race ), 'post-write type change is not projected as Study' );
+expect_same( 404, $post_write_type_race->data['status'] ?? null, 'post-write type change stays non-enumerating' );
+
+$wpdb->after_update = static function ( V1_Strict_WPDB $db ): void {
+	$db->events[23]->status = 'cancelled';
+};
+$post_write_cancel = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request( array( 'title' => 'Applied before delete' ), strict_params( 23 ) )
+);
+expect_same( true, is_wp_error( $post_write_cancel ), 'post-write cancellation is not projected as mutable Study' );
+expect_same( 409, $post_write_cancel->data['status'] ?? null, 'post-write cancellation returns conflict' );
+
+$invalid_meta_snapshot = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request(
+		array( 'meta' => array( 'completed' => true ) ),
+		strict_params( 24, 'active', true, array( 'not' => 'a database scalar' ) )
+	)
+);
+expect_same( true, is_wp_error( $invalid_meta_snapshot ), 'invalid metadata snapshot fails closed' );
+expect_same( 409, $invalid_meta_snapshot->data['status'] ?? null, 'invalid metadata snapshot returns conflict' );
+
+$owner_only_scope = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request(
+		array( 'title' => 'Owner-only narrowed update' ),
+		array( 'id' => 25, '_mmed_strict_owner' => true )
+	)
+);
+expect_same( 200, $owner_only_scope->status, 'owner-only narrowing does not create a false post-write 404' );
+
+$wpdb->force_failure = true;
+$failed_update = MMED_Calendar_Engine::update_event(
+	new WP_REST_Request( array( 'title' => 'Must not persist' ), strict_params( 26 ) )
+);
+expect_same( true, is_wp_error( $failed_update ), 'database update failure returns an error' );
+expect_same( 500, $failed_update->data['status'] ?? null, 'database update failure returns 500' );
+expect_same( 'Fixture event', $wpdb->events[26]->title, 'failed update leaves original row intact' );
+
+$wpdb->force_failure = true;
+$failed_delete = MMED_Calendar_Engine::delete_event(
+	new WP_REST_Request( array(), strict_params( 27 ) )
+);
+expect_same( true, is_wp_error( $failed_delete ), 'database delete failure returns an error' );
+expect_same( 500, $failed_delete->data['status'] ?? null, 'database delete failure returns 500' );
+expect_same( 'active', $wpdb->events[27]->status, 'failed delete leaves original row active' );
 
 echo "Calendar strict mutation seam: ok\n";

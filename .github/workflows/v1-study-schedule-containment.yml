@@ -33,3 +33,81 @@ jobs:
 
       - name: Run containment fixtures
         run: sh tests/php/run-v1-study-schedule-containment.sh
+
+  wordpress-integration:
+    name: WordPress ${{ matrix.php }} / MariaDB integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: "7.4"
+            image: wordpress:6.1.1-php7.4-apache
+          - php: "8.3"
+            image: wordpress:6.6.2-php8.3-apache
+    container:
+      image: ${{ matrix.image }}
+    services:
+      database:
+        image: mariadb:10.11
+        env:
+          MARIADB_DATABASE: wordpress
+          MARIADB_ROOT_PASSWORD: v1synthetic
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Install disposable WordPress
+        run: |
+          set -eu
+          php -r '
+            $source = "https://wordpress.org/wordpress-6.6.2.tar.gz";
+            if (!copy($source, "/tmp/wordpress-6.6.2.tar.gz")) {
+              fwrite(STDERR, "WordPress source download failed.\n");
+              exit(1);
+            }
+          '
+          echo "7acbf69d5fdaf804e3db322bad23b08d2e2e42ec  /tmp/wordpress-6.6.2.tar.gz" | sha1sum -c -
+          tar -xzf /tmp/wordpress-6.6.2.tar.gz -C /tmp
+          mv /tmp/wordpress /tmp/v1-wordpress
+          cp /tmp/v1-wordpress/wp-config-sample.php /tmp/v1-wordpress/wp-config.php
+          sed -i "s/database_name_here/wordpress/" /tmp/v1-wordpress/wp-config.php
+          sed -i "s/username_here/root/" /tmp/v1-wordpress/wp-config.php
+          sed -i "s/password_here/v1synthetic/" /tmp/v1-wordpress/wp-config.php
+          sed -i "s/localhost/database/" /tmp/v1-wordpress/wp-config.php
+          php -r '
+            define("WP_INSTALLING", true);
+            require "/tmp/v1-wordpress/wp-load.php";
+            require_once ABSPATH . "wp-admin/includes/upgrade.php";
+            $installed = wp_install(
+              "V1 Study Schedule synthetic integration",
+              "v1bootstrap",
+              "v1bootstrap@example.invalid",
+              false,
+              "",
+              "v1synthetic-bootstrap-password"
+            );
+            if (!is_array($installed) || empty($installed["user_id"])) {
+              fwrite(STDERR, "Disposable WordPress installation failed.\n");
+              exit(1);
+            }
+          '
+
+      - name: Run real WordPress and wpdb containment proof
+        env:
+          V1_REPO_ROOT: ${{ github.workspace }}
+        run: |
+          set -eu
+          php -r '
+            chdir("/tmp/v1-wordpress");
+            require "/tmp/v1-wordpress/wp-load.php";
+            require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-route-baseline.php";
+          '

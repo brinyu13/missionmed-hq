@@ -246,11 +246,15 @@ class MMED_Calendar_Engine {
 
 		self::maybe_install();
 
-		$event_id      = absint( $request['id'] );
-		$user_id       = get_current_user_id();
-		$strict_owner  = self::is_strict_owner_request( $request );
-		$required_type = self::required_event_type( $request );
-		$event         = self::get_owned_event( $event_id, $user_id );
+		$event_id        = absint( $request['id'] );
+		$user_id         = get_current_user_id();
+		$strict_owner    = self::is_strict_owner_request( $request );
+		$required_type   = self::required_event_type( $request );
+		$strict_scope    = $strict_owner && '' !== $required_type;
+		$expected_status = $strict_scope ? self::expected_event_status( $request ) : '';
+		$expect_meta     = $strict_scope ? self::expects_event_meta_snapshot( $request ) : false;
+		$expected_meta   = $expect_meta ? $request->get_param( '_mmed_expected_meta_json' ) : null;
+		$event           = self::get_owned_event( $event_id, $user_id );
 
 		if ( ! $event && ! $strict_owner && current_user_can( 'manage_options' ) ) {
 			$event = self::get_admin_editable_event( $event_id );
@@ -258,6 +262,13 @@ class MMED_Calendar_Engine {
 
 		if ( ! $event || ( $required_type && $required_type !== (string) $event->event_type ) ) {
 			return new WP_Error( 'mmed_event_not_found', 'Event not found.', array( 'status' => 404 ) );
+		}
+		if ( $expect_meta && null !== $expected_meta && ! is_string( $expected_meta ) ) {
+			return self::mutation_conflict();
+		}
+
+		if ( ! self::event_matches_expected_state( $event, $expected_status, $expect_meta, $expected_meta ) ) {
+			return self::mutation_conflict();
 		}
 
 		$raw     = self::request_payload( $request );
@@ -291,6 +302,16 @@ class MMED_Calendar_Engine {
 			$where_formats[]      = '%s';
 		}
 
+		if ( $expected_status ) {
+			$where['status'] = $expected_status;
+			$where_formats[] = '%s';
+		}
+
+		if ( $expect_meta ) {
+			$where['meta_json'] = $expected_meta;
+			$where_formats[]    = '%s';
+		}
+
 		$updated = $wpdb->update(
 			self::table_name(),
 			$payload,
@@ -303,7 +324,24 @@ class MMED_Calendar_Engine {
 			return new WP_Error( 'mmed_event_update_failed', 'Event could not be updated.', array( 'status' => 500 ) );
 		}
 
-		return new WP_REST_Response( self::format_event( self::get_owned_event( $event_id, $target_user_id ) ), 200 );
+		$current = self::get_owned_event( $event_id, $target_user_id );
+		if ( $strict_scope && ( ! $current || $required_type !== (string) $current->event_type ) ) {
+			return new WP_Error( 'mmed_event_not_found', 'Event not found.', array( 'status' => 404 ) );
+		}
+		if ( $strict_scope && ! in_array( (string) $current->status, array( 'active', 'completed' ), true ) ) {
+			return self::mutation_conflict();
+		}
+
+		if ( $strict_scope && 0 === (int) $updated ) {
+			if (
+				! self::event_matches_expected_state( $current, $expected_status, $expect_meta, $expected_meta )
+				|| ! self::event_matches_payload( $current, $payload )
+			) {
+				return self::mutation_conflict();
+			}
+		}
+
+		return new WP_REST_Response( self::format_event( $current ), 200 );
 	}
 
 	/**
@@ -317,10 +355,12 @@ class MMED_Calendar_Engine {
 
 		self::maybe_install();
 
-		$event_id      = absint( $request['id'] );
-		$user_id       = get_current_user_id();
-		$strict_owner  = self::is_strict_owner_request( $request );
-		$required_type = self::required_event_type( $request );
+		$event_id        = absint( $request['id'] );
+		$user_id         = get_current_user_id();
+		$strict_owner    = self::is_strict_owner_request( $request );
+		$required_type   = self::required_event_type( $request );
+		$strict_scope    = $strict_owner && '' !== $required_type;
+		$expected_status = $strict_scope ? self::expected_event_status( $request ) : '';
 
 		$event = self::get_owned_event( $event_id, $user_id );
 		if ( ! $event && ! $strict_owner && current_user_can( 'manage_options' ) ) {
@@ -329,6 +369,10 @@ class MMED_Calendar_Engine {
 
 		if ( ! $event || ( $required_type && $required_type !== (string) $event->event_type ) ) {
 			return new WP_Error( 'mmed_event_not_found', 'Event not found.', array( 'status' => 404 ) );
+		}
+
+		if ( ! self::event_matches_expected_state( $event, $expected_status, false, null ) ) {
+			return self::mutation_conflict();
 		}
 
 		$where = array(
@@ -340,6 +384,11 @@ class MMED_Calendar_Engine {
 		if ( $required_type ) {
 			$where['event_type'] = $required_type;
 			$where_formats[]      = '%s';
+		}
+
+		if ( $expected_status ) {
+			$where['status'] = $expected_status;
+			$where_formats[] = '%s';
 		}
 
 		$deleted = $wpdb->update(
@@ -355,6 +404,15 @@ class MMED_Calendar_Engine {
 
 		if ( false === $deleted && $strict_owner ) {
 			return new WP_Error( 'mmed_event_delete_failed', 'Event could not be deleted.', array( 'status' => 500 ) );
+		}
+
+		if ( $strict_scope && 0 === (int) $deleted ) {
+			$current = self::get_owned_event( $event_id, $user_id );
+			if ( ! $current || $required_type !== (string) $current->event_type ) {
+				return new WP_Error( 'mmed_event_not_found', 'Event not found.', array( 'status' => 404 ) );
+			}
+
+			return self::mutation_conflict();
 		}
 
 		return new WP_REST_Response( array( 'deleted' => true, 'id' => $event_id ), 200 );
@@ -384,6 +442,115 @@ class MMED_Calendar_Engine {
 
 		$type = sanitize_key( $request->get_param( '_mmed_required_event_type' ) );
 		return in_array( $type, self::event_types(), true ) ? $type : '';
+	}
+
+	/**
+	 * Read the Study adapter's preflight status snapshot.
+	 *
+	 * The value is used only with strict owner and type constraints, and can only
+	 * narrow the SQL mutation predicate.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return string
+	 */
+	protected static function expected_event_status( $request ) {
+		if ( ! $request instanceof WP_REST_Request ) {
+			return '';
+		}
+
+		$status = sanitize_key( $request->get_param( '_mmed_expected_status' ) );
+		return in_array( $status, self::statuses(), true ) ? $status : '';
+	}
+
+	/**
+	 * Determine whether a strict metadata replacement carries its source snapshot.
+	 *
+	 * @param WP_REST_Request $request REST request.
+	 * @return bool
+	 */
+	protected static function expects_event_meta_snapshot( $request ) {
+		return $request instanceof WP_REST_Request
+			&& self::is_truthy_request_value( $request->get_param( '_mmed_expect_meta_snapshot' ) );
+	}
+
+	/**
+	 * Compare a current row to the Study adapter's preflight state.
+	 *
+	 * @param object|null $event           Current event row.
+	 * @param string      $expected_status Expected status, or empty.
+	 * @param bool        $expect_meta     Whether metadata is constrained.
+	 * @param mixed       $expected_meta   Expected nullable metadata JSON.
+	 * @return bool
+	 */
+	protected static function event_matches_expected_state( $event, $expected_status, $expect_meta, $expected_meta ) {
+		if ( ! $event ) {
+			return false;
+		}
+
+		if ( $expected_status && $expected_status !== (string) ( $event->status ?? '' ) ) {
+			return false;
+		}
+
+		if ( $expect_meta && ! self::database_values_match( $expected_meta, $event->meta_json ?? null ) ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Confirm that a zero-row strict update was a genuine database no-op.
+	 *
+	 * @param object $event   Current event row.
+	 * @param array  $payload Sanitized update payload.
+	 * @return bool
+	 */
+	protected static function event_matches_payload( $event, $payload ) {
+		foreach ( $payload as $key => $value ) {
+			$current = $event->{$key} ?? null;
+			if ( 'meta_json' === $key ) {
+				$current_json = null === $current ? null : json_decode( (string) $current, true );
+				$value_json   = null === $value ? null : json_decode( (string) $value, true );
+				if ( $current_json !== $value_json ) {
+					return false;
+				}
+				continue;
+			}
+
+			if ( ! self::database_values_match( $current, $value ) ) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/**
+	 * Compare nullable database scalar values without type noise from wpdb.
+	 *
+	 * @param mixed $left  First value.
+	 * @param mixed $right Second value.
+	 * @return bool
+	 */
+	protected static function database_values_match( $left, $right ) {
+		if ( null === $left || null === $right ) {
+			return null === $left && null === $right;
+		}
+
+		return (string) $left === (string) $right;
+	}
+
+	/**
+	 * Return the common non-enumerating strict mutation conflict.
+	 *
+	 * @return WP_Error
+	 */
+	protected static function mutation_conflict() {
+		return new WP_Error(
+			'mmed_event_conflict',
+			'Event changed before the update could be applied. Reload and try again.',
+			array( 'status' => 409 )
+		);
 	}
 
 	/**
