@@ -266,10 +266,12 @@ v1_8010e_expect( '00:00' === MMED_V1_Study_Week_Domain::resolve_slot_from_envelo
 
 $gap = v1_8010e_reason( static function () { MMED_V1_Study_Week_Domain::resolve_local_instant( '2026-03-08', '02:00', 'America/New_York', null ); } );
 v1_8010e_expect( 'dst_gap' === $gap[0] && '2026-03-08' === $gap[1]['suggested_slot']['local_date'] && '03:00' === $gap[1]['suggested_slot']['local_time'], 'one-hour spring gap returns a complete valid-slot suggestion' );
+v1_8010e_expect( array( 'fold_required', 'local_date', 'local_time' ) === array_keys( $gap[1]['suggested_slot'] ), 'one-hour gap suggestion uses the exact canonical public key order' );
 $lord_howe = v1_8010e_reason( static function () { MMED_V1_Study_Week_Domain::resolve_local_instant( '2026-10-04', '02:00', 'Australia/Lord_Howe', null ); } );
 v1_8010e_expect( 'dst_gap' === $lord_howe[0] && '02:30' === $lord_howe[1]['suggested_slot']['local_time'], 'half-hour DST gap returns the first valid quarter-hour slot' );
 $apia = v1_8010e_reason( static function () { MMED_V1_Study_Week_Domain::resolve_local_instant( '2011-12-30', '09:00', 'Pacific/Apia', null ); } );
 v1_8010e_expect( 'dst_gap' === $apia[0] && '2011-12-31' === $apia[1]['suggested_slot']['local_date'], 'skipped civil date searches safely into the next valid date' );
+v1_8010e_expect( array( 'fold_required', 'local_date', 'local_time' ) === array_keys( $apia[1]['suggested_slot'] ), 'skipped-date suggestion uses the exact canonical public key order' );
 v1_8010e_expect( 'dst_fold_choice_required' === v1_8010e_reason( static function () { MMED_V1_Study_Week_Domain::resolve_local_instant( '2026-11-01', '01:30', 'America/New_York', null ); } )[0], 'fall-back fold is never guessed' );
 $earlier = MMED_V1_Study_Week_Domain::resolve_local_instant( '2026-11-01', '01:30', 'America/New_York', 'earlier' );
 $later = MMED_V1_Study_Week_Domain::resolve_local_instant( '2026-11-01', '01:30', 'America/New_York', 'later' );

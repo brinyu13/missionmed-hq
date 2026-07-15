@@ -80,23 +80,14 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 	/** @return array */
 	public function commit( $candidate, $owner_id, $actor_id, $actor_kind, $temporal_envelope ) {
 		$idempotency_key = $this->outer_idempotency_key( $candidate );
-		$this->observe( 'after_idempotency_preflight' );
 		$this->assert_identity( $owner_id, $actor_id, $actor_kind );
-		$this->observe( 'after_identity_preflight' );
 		$this->connection_id = $this->current_connection_id();
-		$this->observe( 'after_connection_preflight' );
 		$this->assert_clean_session();
-		$this->observe( 'after_clean_session_preflight' );
 		$original_session_controls = $this->session_controls();
-		$this->observe( 'after_session_controls_preflight' );
 		$original_isolation = $this->isolation_level();
-		$this->observe( 'after_isolation_preflight' );
 		$original_sql_mode = $this->native_sql_mode();
-		$this->observe( 'after_sql_mode_preflight' );
 		$original_encoding = $this->session_encoding();
-		$this->observe( 'after_encoding_preflight' );
 		$this->assert_physical_provenance();
-		$this->observe( 'after_provenance_preflight' );
 		MMED_V1_Study_Native_Session_Guard::assert_no_temporary_table_shadows(
 			$this->database,
 			$this->connection_id,
@@ -105,7 +96,6 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 				array_values( MMED_V1_Study_Week_Schema::table_names( $this->database ) )
 			)
 		);
-		$this->observe( 'after_shadow_preflight' );
 
 		$started = false;
 		$isolation_changed = false;
@@ -114,24 +104,19 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		try {
 			$encoding_changed = true;
 			$this->pin_session_encoding();
-			$this->observe( 'after_encoding_pin' );
 			$sql_mode_changed = true;
 			$this->native_set_sql_mode( $this->hardened_sql_mode( $original_sql_mode ) );
 			$this->assert_sql_mode_hardened();
-			$this->observe( 'after_sql_mode_pin' );
 			$isolation_changed = true;
 			$this->execute( 'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED', 'v1_command_isolation_failed' );
 			if ( 'READ-COMMITTED' !== $this->isolation_level() ) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
-			$this->observe( 'after_isolation_pin' );
 			$this->execute( 'START TRANSACTION READ WRITE', 'v1_command_begin_failed' );
 			$started = true;
-			$this->observe( 'after_start' );
 			if ( true !== $this->transaction_active() ) {
 				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 			}
-			$this->observe( 'after_transaction_probe' );
 			$this->hit( 'after_begin' );
 
 			$this->lock_store_gate();
@@ -453,17 +438,13 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		if ( 1 !== (int) $this->scalar( 'SELECT @@SESSION.autocommit' ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		$this->observe( 'after_clean_autocommit' );
 		if ( true === $this->transaction_active() ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		$this->observe( 'after_clean_transaction_probe' );
 		if ( 0 !== (int) $this->scalar( $this->is_mariadb() ? 'SELECT @@SESSION.tx_read_only' : 'SELECT @@SESSION.transaction_read_only' ) ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		$this->observe( 'after_clean_read_only' );
 		$this->assert_session_integrity( false, false, false );
-		$this->observe( 'after_clean_integrity' );
 	}
 
 	/**
@@ -888,38 +869,6 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		}
 		if ( ! $this->valid_timestamp( $receipt['committed_at'] ?? null ) ) {
 			$this->hit( 'receipt_shape_failed_timestamp' );
-			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
-		}
-		if (
-			(string) $owner_id !== (string) ( $receipt['owner_id'] ?? '' )
-			|| ( null !== $plan_id && $receipt_plan_id !== $plan_id )
-			|| $revision !== MMED_V1_Study_Week_Domain::increment_revision( $expected )
-			|| ! is_string( $receipt['idempotency_key'] ?? null )
-			|| strlen( $receipt['idempotency_key'] ) < 16
-			|| strlen( $receipt['idempotency_key'] ) > 64
-				|| ! is_string( $receipt['request_json'] ?? null )
-				|| ! is_numeric( $receipt['request_bytes'] ?? null )
-				|| (int) $receipt['request_bytes'] <= 0
-				|| (int) $receipt['request_bytes'] > self::MAX_RECEIPT_BYTES
-				|| (int) $receipt['request_bytes'] !== strlen( $receipt['request_json'] )
-			|| ! $this->is_hash_hex( $receipt['request_hash_hex'] ?? null )
-			|| ! hash_equals( (string) $receipt['request_hash_hex'], (string) ( $receipt['request_actual_hash_hex'] ?? '' ) )
-			|| (int) ( $receipt['actor_id'] ?? 0 ) <= 0
-			|| 'learner' !== (string) ( $receipt['actor_kind'] ?? '' )
-			|| ! in_array( (string) ( $receipt['action'] ?? '' ), MMED_V1_Study_Week_Domain::commands(), true )
-			|| '2' !== (string) ( $receipt['store_generation'] ?? '' )
-			|| MMED_V1_Study_Week_Schema::SCHEMA_VERSION !== (string) ( $receipt['schema_version'] ?? '' )
-			|| ! $this->is_hash_hex( $receipt['plan_hash_hex'] ?? null )
-			|| 200 !== (int) ( $receipt['result_status'] ?? 0 )
-				|| ! is_string( $receipt['result_json'] ?? null )
-				|| ! is_numeric( $receipt['result_bytes'] ?? null )
-				|| (int) $receipt['result_bytes'] <= 0
-				|| (int) $receipt['result_bytes'] > self::MAX_RECEIPT_BYTES
-				|| (int) $receipt['result_bytes'] !== strlen( $receipt['result_json'] )
-			|| ! $this->is_hash_hex( $receipt['result_hash_hex'] ?? null )
-			|| ! hash_equals( (string) $receipt['result_hash_hex'], (string) ( $receipt['result_actual_hash_hex'] ?? '' ) )
-			|| ! $this->valid_timestamp( $receipt['committed_at'] ?? null )
-		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
 		$this->hit( 'receipt_shape_valid' );
@@ -1648,13 +1597,6 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		}
 	}
 
-	/** Report a synthetic diagnostic boundary without asserting transaction state. */
-	private function observe( $name ) {
-		if ( null !== $this->failpoint ) {
-			call_user_func( $this->failpoint, (string) $name );
-		}
-	}
-
 	/** Invoke one exact synthetic seam behind a transaction-continuity canary. */
 	private function invoke_fence( $method, $owner_id ) {
 		if ( ! in_array( $method, array( 'lock_control_rows', 'lock_calendar_rows' ), true ) ) {
@@ -1691,7 +1633,6 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		$this->observe( 'after_relational_integrity' );
 		$modes = array_map( 'trim', explode( ',', strtoupper( (string) $this->scalar( 'SELECT @@SESSION.sql_mode' ) ) ) );
 		if (
 			( $require_hardened_mode && ! in_array( 'STRICT_TRANS_TABLES', $modes, true ) && ! in_array( 'STRICT_ALL_TABLES', $modes, true ) )
@@ -1703,13 +1644,10 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
-		$this->observe( 'after_mode_integrity' );
 		if ( $require_pinned_encoding ) {
 			$this->assert_session_encoding_pinned();
 		}
-		$this->observe( 'after_encoding_integrity' );
 		$this->assert_database_clock_unspoofed();
-		$this->observe( 'after_clock_integrity' );
 	}
 
 	/** Capture every mutable relational control guarded by this writer. */

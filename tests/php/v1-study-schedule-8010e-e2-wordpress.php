@@ -207,11 +207,7 @@ v1_8010e_wp_expect( '' !== $runtime_tzdb && strlen( $runtime_tzdb ) <= 64 && 1 =
 $temporal = MMED_V1_Study_Week_Domain::temporal_envelope( '2026-07-13', 'America/New_York', 'profile-e2-v1', $runtime_tzdb );
 $fence = new V1_8010E_E2_Synthetic_Fence();
 $uuid_source = new V1_8010E_E2_UUID_Source( 1000 );
-$main_hits = array();
-$main_probe = static function ( $name ) use ( &$main_hits ) {
-	$main_hits[] = (string) $name;
-};
-$service = new MMED_V1_Study_Command_Service( new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, $fence, $uuid_source, $main_probe ) );
+$service = new MMED_V1_Study_Command_Service( new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, $fence, $uuid_source ) );
 
 /* Generation 2 must accept and atomically upgrade an inherited empty E1 fence. */
 $inherited_owner = 8202;
@@ -227,8 +223,9 @@ $inherited_probe = static function ( $name ) use ( &$inherited_hits ) {
 	$inherited_hits[] = (string) $name;
 };
 $inherited_service = new MMED_V1_Study_Command_Service( new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, $fence, $uuid_source, $inherited_probe ) );
+$inherited_body = v1_8010e_e2_physical_create( '8010E-e2-inherited-fence-001', '0', $temporal, 'Inherited fence command', '15:00', 30 );
 $inherited = $inherited_service->execute(
-	v1_8010e_e2_physical_create( '8010E-e2-inherited-fence-001', '0', $temporal, 'Inherited fence command', '15:00', 30 ),
+	$inherited_body,
 	$inherited_owner,
 	$inherited_owner,
 	'learner',
@@ -240,6 +237,71 @@ v1_8010e_wp_expect(
 	'first command succeeds from an inherited generation-1 empty fence; reason=' . (string) ( $inherited['reason_code'] ?? 'missing' ) . '; last=' . $inherited_last_hit
 );
 v1_8010e_wp_expect( '2' === (string) $wpdb->get_var( $wpdb->prepare( "SELECT CAST(store_generation AS CHAR) FROM `{$kernel['plans']}` WHERE owner_id = %d", $inherited_owner ) ), 'first command atomically upgrades the inherited fence to generation 2' );
+
+/* A self-consistent stored CREATE-family rewrite must fail semantic re-derivation. */
+$inherited_receipt = $wpdb->get_row(
+	$wpdb->prepare(
+		"SELECT request_json, LOWER(HEX(request_hash)) AS request_hash_hex FROM `{$kernel['operations']}` WHERE owner_id = %d AND revision = 1",
+		$inherited_owner
+	),
+	ARRAY_A
+);
+$inherited_request = is_array( $inherited_receipt ) ? json_decode( (string) $inherited_receipt['request_json'], true ) : null;
+v1_8010e_wp_expect(
+	is_array( $inherited_request )
+	&& 'practice' === (string) ( $inherited_request['payload']['family'] ?? '' )
+	&& hash( 'sha256', (string) $inherited_receipt['request_json'] ) === (string) $inherited_receipt['request_hash_hex'],
+	'fixture captures the exact server-derived CREATE-family receipt'
+);
+$inherited_request_tampered = $inherited_request;
+$inherited_request_tampered['payload']['family'] = 'life';
+$inherited_tampered_json = MMED_V1_Study_Week_Domain::canonical_json( $inherited_request_tampered );
+$inherited_tampered_hash = hash( 'sha256', $inherited_tampered_json );
+v1_8010e_wp_expect(
+	1 === (int) $wpdb->query(
+		$wpdb->prepare(
+			"UPDATE `{$kernel['operations']}` SET request_json = %s, request_hash = UNHEX(%s) WHERE owner_id = %d AND revision = 1",
+			$inherited_tampered_json,
+			$inherited_tampered_hash,
+			$inherited_owner
+		)
+	),
+	'fixture rewrites CREATE family and both integrity representations consistently'
+);
+$inherited_hits = array();
+$inherited_tamper_replay = $inherited_service->execute( $inherited_body, $inherited_owner, $inherited_owner, 'learner', $temporal );
+v1_8010e_e2_physical_expect_failure(
+	$inherited_tamper_replay,
+	'dependency_unavailable',
+	503,
+	'self-consistent stored CREATE-family tamper fails closed after semantic re-derivation'
+);
+v1_8010e_wp_expect(
+	in_array( 'receipt_shape_valid', $inherited_hits, true )
+	&& in_array( 'receipt_request_normalized', $inherited_hits, true )
+	&& ! in_array( 'receipt_request_valid', $inherited_hits, true ),
+	'CREATE-family tamper reaches semantic normalization and fails before request acceptance'
+);
+v1_8010e_wp_expect(
+	array( 'plans' => 1, 'operations' => 1, 'weeks' => 1, 'blocks' => 1 ) === v1_8010e_e2_physical_owner_counts( $wpdb, $inherited_owner ),
+	'CREATE-family tamper rejection writes no duplicate truth'
+);
+v1_8010e_wp_expect(
+	1 === (int) $wpdb->query(
+		$wpdb->prepare(
+			"UPDATE `{$kernel['operations']}` SET request_json = %s, request_hash = UNHEX(%s) WHERE owner_id = %d AND revision = 1",
+			$inherited_receipt['request_json'],
+			$inherited_receipt['request_hash_hex'],
+			$inherited_owner
+		)
+	),
+	'fixture restores the exact original CREATE receipt'
+);
+$inherited_restored = $inherited_service->execute( $inherited_body, $inherited_owner, $inherited_owner, 'learner', $temporal );
+v1_8010e_wp_expect(
+	! empty( $inherited_restored['ok'] ) && true === $inherited_restored['replayed'] && $inherited['result'] === $inherited_restored['result'],
+	'restored CREATE receipt replays the exact original result'
+);
 
 $create = v1_8010e_e2_physical_create( '8010E-e2-physical-create-0001', '0', $temporal, 'Cardiology question bank', '09:00', 90 );
 $first = $service->execute( $create, $owner_id, $owner_id, 'learner', $temporal );
@@ -278,12 +340,10 @@ $mission = MMED_V1_Study_Week_Domain::derive_mission( $loaded['plan']['weeks'][0
 v1_8010e_wp_expect( '1' === $mission['revision'] && $block_id === $mission['primary']['block_id'], 'Mission derives from the same committed Week revision' );
 
 $changed_temporal = MMED_V1_Study_Week_Domain::temporal_envelope( '2026-07-13', 'America/New_York', 'profile-e2-v2', 'synthetic-future-tzdb-v2' );
-$main_hits = array();
 $replay = $service->execute( $create, $owner_id, $owner_id, 'learner', $changed_temporal );
-$replay_last_hit = empty( $main_hits ) ? 'none' : (string) end( $main_hits );
 v1_8010e_wp_expect(
 	! empty( $replay['ok'] ) && true === $replay['replayed'] && $first_result === $replay['result'],
-	'exact replay survives a later server temporal-envelope version; reason=' . (string) ( $replay['reason_code'] ?? 'missing' ) . '; status=' . (string) ( $replay['status'] ?? 'missing' ) . '; last=' . $replay_last_hit
+	'exact replay survives a later server temporal-envelope version; reason=' . (string) ( $replay['reason_code'] ?? 'missing' ) . '; status=' . (string) ( $replay['status'] ?? 'missing' )
 );
 v1_8010e_wp_expect( $counts === v1_8010e_e2_physical_owner_counts( $wpdb, $owner_id ), 'exact replay writes no duplicate physical row' );
 
@@ -803,13 +863,11 @@ v1_8010e_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'SET SESSION complet
 $driver = new mysqli_driver();
 $original_report_mode = $driver->report_mode;
 $driver->report_mode = MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT;
-$main_hits = array();
 $strict_replay = $service->execute( $create, $owner_id, $owner_id, 'learner', $changed_temporal );
 $driver->report_mode = $original_report_mode;
-$strict_replay_last_hit = empty( $main_hits ) ? 'none' : (string) end( $main_hits );
 v1_8010e_wp_expect(
 	! empty( $strict_replay['ok'] ) && true === $strict_replay['replayed'] && $first_result === $strict_replay['result'],
-	'native duplicate fence accepts only exact 1062/23000 under strict MySQLi reporting; reason=' . (string) ( $strict_replay['reason_code'] ?? 'missing' ) . '; status=' . (string) ( $strict_replay['status'] ?? 'missing' ) . '; last=' . $strict_replay_last_hit
+	'native duplicate fence accepts only exact 1062/23000 under strict MySQLi reporting; reason=' . (string) ( $strict_replay['reason_code'] ?? 'missing' ) . '; status=' . (string) ( $strict_replay['status'] ?? 'missing' )
 );
 
 $shadow_owner = 8415;
