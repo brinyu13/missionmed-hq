@@ -55,13 +55,16 @@ async function runTests() {
     env: { ...process.env, NO_COLOR: '1' },
   });
   const output = `${run.stdout || ''}\n${run.stderr || ''}`;
-  const count = (pattern) => (output.match(pattern) || []).length;
+  const summaryCount = (label, fallbackPattern) => {
+    const match = output.match(new RegExp(`^ℹ ${label} (\\d+)$`, 'mu'));
+    return match ? Number(match[1]) : (output.match(fallbackPattern) || []).length;
+  };
   return {
     status: run.status === 0 ? 'pass' : 'fail',
     exit_code: run.status,
     test_files: files,
-    passed_assertions: count(/^✔ /gmu),
-    failed_assertions: count(/^✖ /gmu),
+    passed_assertions: summaryCount('pass', /^✔ /gmu),
+    failed_assertions: summaryCount('fail', /^✖ /gmu),
     output_sha256: sha256(output),
   };
 }
