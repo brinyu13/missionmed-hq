@@ -637,7 +637,7 @@ $original_encoding = v1_8010e_e2_session_encoding( $wpdb );
 v1_8010e_wp_expect( false !== $wpdb->query( 'SET NAMES latin1' ), 'fixture supplies a hostile latin1 connection tuple' );
 $latin1_encoding = v1_8010e_e2_session_encoding( $wpdb );
 $unicode_owner = 8405;
-$unicode_title = 'Café β-cells 🧠';
+$unicode_title = 'Café β-cells 🧠 — 100% exact %s %d';
 $unicode_service = new MMED_V1_Study_Command_Service(
 	new MMED_V1_Study_InnoDB_Command_Repository( $wpdb, new V1_8010E_E2_Synthetic_Fence(), new V1_8010E_E2_UUID_Source( 30150 ) )
 );

@@ -330,6 +330,7 @@ foreach ( array( 'wp_remote_', 'curl_', 'INSERT IGNORE', 'DELETE FROM' ) as $for
 v1_8010e_e2_expect( false === stripos( $source, 'mmed_study_schedule' ), 'E2 contains no legacy Calendar table SQL' );
 v1_8010e_e2_expect( false === strpos( $source, '$this->database->query' ), 'transactional E2 SQL never uses reconnecting wpdb mutation' );
 v1_8010e_e2_expect( false !== strpos( $source, 'pinned_native_handle' ) && false !== strpos( $source, 'mysqli_thread_id' ), 'E2 pins one native database session and rejects reconnects' );
+v1_8010e_e2_expect( false !== strpos( $source, 'remove_placeholder_escape' ), 'E2 removes the wpdb placeholder token before native SQL execution' );
 v1_8010e_e2_expect( false !== strpos( $source, 'READ COMMITTED' ) && false !== strpos( $source, 'READ-COMMITTED' ), 'E2 pins and verifies READ COMMITTED' );
 v1_8010e_e2_expect( false !== strpos( $source, '@@SESSION.timestamp AS session_epoch' ) && false !== strpos( $source, 'UNIX_TIMESTAMP(SYSDATE(6))' ), 'E2 bounds the mutable session clock against server and process time' );
 v1_8010e_e2_expect( false !== strpos( $source, 'SET NAMES utf8mb4 COLLATE utf8mb4_bin' ) && false !== strpos( $source, '@@SESSION.character_set_client' ), 'E2 pins and verifies the complete utf8mb4 connection tuple' );

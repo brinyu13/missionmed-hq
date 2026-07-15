@@ -60,6 +60,7 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			|| ! method_exists( $database, 'get_var' )
 			|| ! method_exists( $database, 'get_results' )
 			|| ! method_exists( $database, 'prepare' )
+			|| ! method_exists( $database, 'remove_placeholder_escape' )
 			|| ! $fence instanceof MMED_V1_Study_Command_Fence
 			|| MMED_V1_Study_Command_Fence::SCOPE_SYNTHETIC_ISOLATED !== $fence->scope()
 			|| ( null !== $uuid_source && ! $uuid_source instanceof MMED_V1_Study_UUID_Source )
@@ -258,6 +259,29 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 			$this->hit( 'after_domain_write' );
 
 			$verified_rows = $this->lock_domain_rows( $owner_id );
+			$verified_current_block = null;
+			foreach ( $verified_rows['blocks'] as $verified_block ) {
+				if ( (string) ( $verified_block['block_hex'] ?? '' ) === (string) $reduced['block_after']['block_hex'] ) {
+					$verified_current_block = $verified_block;
+					break;
+				}
+			}
+			if ( ! is_array( $verified_current_block ) ) {
+				$this->hit( 'verified_block_missing' );
+				throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+			}
+			foreach ( array( 'start_at_utc', 'end_at_utc' ) as $interval_field ) {
+				$verified_interval = $verified_current_block[ $interval_field ] ?? null;
+				if ( ! $this->valid_timestamp( $verified_interval ) ) {
+					$length = is_string( $verified_interval ) ? strlen( $verified_interval ) : -1;
+					$this->hit( 'verified_' . $interval_field . '_invalid_length_' . $length );
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
+				if ( ! hash_equals( (string) $reduced['block_after'][ $interval_field ], $verified_interval ) ) {
+					$this->hit( 'verified_' . $interval_field . '_mismatch' );
+					throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+				}
+			}
 			try {
 				$verified_snapshot = MMED_V1_Study_Week_Command_State::snapshot(
 					$owner_id,
@@ -2013,6 +2037,10 @@ final class MMED_V1_Study_InnoDB_Command_Repository implements MMED_V1_Study_Com
 		$args = func_get_args();
 		$sql = array_shift( $args );
 		$prepared = $this->database->prepare( $sql, $args );
+		if ( ! is_string( $prepared ) || '' === $prepared ) {
+			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
+		}
+		$prepared = $this->database->remove_placeholder_escape( $prepared );
 		if ( ! is_string( $prepared ) || '' === $prepared ) {
 			throw new MMED_V1_Study_Command_Exception( 'dependency_unavailable' );
 		}
