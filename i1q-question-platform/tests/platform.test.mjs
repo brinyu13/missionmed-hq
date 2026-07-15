@@ -222,6 +222,49 @@ test('workflow-managed entities reject generic create and update bypasses', () =
   assert.throws(() => platform.update('item_revisions', revision.id, { workflow_status: 'approved' }, actors.admin), /workflow_endpoint_required/);
 });
 
+test('review events use the canonical needs_revision verdict', () => {
+  const { platform, revision } = seedPlatform();
+  const assignment = platform.createReviewAssignment({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    review_type: 'editorial',
+  }, actors.admin);
+  for (const toStatus of ['candidate', 'editorial_review']) {
+    platform.submitReviewEvent({
+      item_revision_id: revision.id,
+      reviewer_id: 'reviewer_editor',
+      assignment_id: assignment.id,
+      review_type: 'editorial',
+      verdict: 'pass',
+      to_status: toStatus,
+    }, actors.editor);
+  }
+  const event = platform.submitReviewEvent({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    assignment_id: assignment.id,
+    review_type: 'editorial',
+    verdict: 'needs_revision',
+    to_status: 'candidate',
+  }, actors.editor);
+  assert.equal(event.verdict, 'needs_revision');
+
+  const second = seedPlatform();
+  const secondAssignment = second.platform.createReviewAssignment({
+    item_revision_id: second.revision.id,
+    reviewer_id: 'reviewer_editor',
+    review_type: 'editorial',
+  }, actors.admin);
+  assert.throws(() => second.platform.submitReviewEvent({
+    item_revision_id: second.revision.id,
+    reviewer_id: 'reviewer_editor',
+    assignment_id: secondAssignment.id,
+    review_type: 'editorial',
+    verdict: 'changes_requested',
+    to_status: 'candidate',
+  }, actors.editor), /review_verdict_invalid/);
+});
+
 test('private source references are hidden from ordinary internal readers', () => {
   const { platform } = seedPlatform();
   platform.repository.update('source_records', 'src_test', { private_storage_ref: 'private://fixture' }, { actorId: actors.admin.id });

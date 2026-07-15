@@ -751,7 +751,7 @@ export class QuestionPlatform {
 
     const fromStatus = this.revisionStatus(revision.id);
     assert((REVISION_TRANSITIONS[fromStatus] || []).includes(eventInput.to_status), 'illegal_revision_transition');
-    assert(['pass', 'fail', 'changes_requested'].includes(eventInput.verdict), 'review_verdict_invalid');
+    assert(['pass', 'needs_revision', 'fail'].includes(eventInput.verdict), 'review_verdict_invalid');
 
     if (eventInput.review_type === 'editorial') {
       assert(eventInput.to_status !== 'approved', 'editorial_cannot_medically_approve');

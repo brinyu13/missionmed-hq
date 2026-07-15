@@ -1026,7 +1026,7 @@ async function editorialTemplate() {
         : 'The assignment hash does not match the selected immutable revision.';
   const decisionButtons = canReview
     ? `<button class="button button-danger" type="button" data-action="editorial-decision" data-verdict="fail" data-to-status="rejected">Reject</button>
-       <button class="button" type="button" data-action="editorial-decision" data-verdict="changes_requested" data-to-status="candidate">Request revision</button>
+       <button class="button" type="button" data-action="editorial-decision" data-verdict="needs_revision" data-to-status="candidate">Request revision</button>
        <button class="button button-primary" type="button" data-action="editorial-decision" data-verdict="pass" data-to-status="medical_review">Pass editorial</button>`
     : `${disabledCommand('Reject', reason, { tone: 'danger' })}${disabledCommand('Request revision', reason)}${disabledCommand('Pass editorial', reason, { tone: 'primary' })}`;
   return {
