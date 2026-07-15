@@ -533,14 +533,30 @@ final class MMED_V1_Study_Week_Domain {
 			$seen_block_ids[ $block_id ] = true;
 			$projection_block = self::projection_block_from_storage_row( $block_row, $week_start, $plan_revision, $week_created_revision, $week_updated_revision );
 			if ( self::STATE_TOMBSTONE !== $projection_block['state'] ) {
-				foreach ( $active_intervals as $active_interval ) {
-					if ( self::intervals_overlap( $block_row['start_at_utc'], $block_row['end_at_utc'], $active_interval[0], $active_interval[1] ) ) {
-						throw new MMED_V1_Study_Week_Domain_Exception( 'week_storage_collision_invalid' );
-					}
-				}
-				$active_intervals[] = array( $block_row['start_at_utc'], $block_row['end_at_utc'] );
+				$active_intervals[] = array( $block_row['start_at_utc'], $block_row['end_at_utc'], $block_id );
 			}
 			$blocks[] = $projection_block;
+		}
+		usort(
+			$active_intervals,
+			static function ( $left, $right ) {
+				foreach ( array( 0, 1, 2 ) as $index ) {
+					$comparison = strcmp( $left[ $index ], $right[ $index ] );
+					if ( 0 !== $comparison ) {
+						return $comparison;
+					}
+				}
+				return 0;
+			}
+		);
+		$active_end = null;
+		foreach ( $active_intervals as $active_interval ) {
+			if ( null !== $active_end && strcmp( $active_interval[0], $active_end ) < 0 ) {
+				throw new MMED_V1_Study_Week_Domain_Exception( 'week_storage_collision_invalid' );
+			}
+			if ( null === $active_end || strcmp( $active_interval[1], $active_end ) > 0 ) {
+				$active_end = $active_interval[1];
+			}
 		}
 
 		return self::build_week_model( $plan_id, $week_id, $week_start, $plan_revision, $blocks );

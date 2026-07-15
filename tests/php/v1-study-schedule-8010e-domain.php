@@ -337,6 +337,29 @@ v1_8010e_expect( 2 === count( MMED_V1_Study_Week_Domain::week_model_from_reposit
 $deleted_overlap = array_merge( $overlap_b, array( 'state_code' => '3', 'tombstoned_revision' => '7' ) );
 v1_8010e_expect( 2 === count( MMED_V1_Study_Week_Domain::week_model_from_repository_rows( 42, $week_row, array( $overlap_a, $deleted_overlap ) )['blocks'] ), 'tombstones do not create false collision failures' );
 
+$dense_rows = array();
+$dense_week_start = new DateTimeImmutable( '2026-07-13 00:00:00', new DateTimeZone( 'UTC' ) );
+$dense_index = 1;
+for ( $day = 0; $day < 7; ++$day ) {
+	$local_date = $dense_week_start->modify( '+' . $day . ' days' )->format( 'Y-m-d' );
+	for ( $slot_index = 0; $slot_index < 72; ++$slot_index ) {
+		$dense_rows[] = v1_8010e_storage_block_at(
+			$local_date,
+			360 + ( $slot_index * 15 ),
+			15,
+			array(
+				'block_id' => sprintf( '30000000-0000-4000-8000-%012d', $dense_index ),
+				'activity_type' => 'flashcards',
+				'family_code' => '2',
+			)
+		);
+		++$dense_index;
+	}
+}
+$dense_model = MMED_V1_Study_Week_Domain::week_model_from_repository_rows( 42, $week_row, array_reverse( $dense_rows ) );
+v1_8010e_expect( 504 === count( $dense_model['blocks'] ), 'maximum quarter-hour Week density remains deterministic under unsorted input' );
+unset( $dense_rows, $dense_model, $dense_week_start );
+
 foreach ( array( '1', '2', '3' ) as $state_code ) {
 	foreach ( array( '2026-07-12', '2026-07-20' ) as $outside_date ) {
 		$outside_row = v1_8010e_storage_block_at();

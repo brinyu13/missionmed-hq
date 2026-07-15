@@ -21,6 +21,8 @@ final class MMED_V1_Study_Week_Current_Reader {
 
 	const MAX_SNAPSHOT_BYTES = 2097152;
 	const MAX_RECEIPT_BYTES = 262144;
+	const MAX_WEEKS_PER_PLAN = 260;
+	const MAX_BLOCKS_PER_PLAN = 4096;
 
 	/** @var object */
 	private $database;
@@ -135,8 +137,11 @@ final class MMED_V1_Study_Week_Current_Reader {
 		$week_sql .= ' LOWER(HEX(temporal_context_hash)) AS temporal_context_hash_hex,';
 		$week_sql .= ' CAST(created_revision AS CHAR) AS created_revision, CAST(updated_revision AS CHAR) AS updated_revision';
 		$week_sql .= " FROM `{$week['weeks']}` WHERE owner_id = %d AND plan_id = UNHEX(%s)";
-		$week_sql .= ' ORDER BY week_start_local, week_id';
+		$week_sql .= ' ORDER BY week_start_local, week_id LIMIT ' . ( self::MAX_WEEKS_PER_PLAN + 1 );
 		$week_rows = $this->rows( $this->prepare( $week_sql, $owner_id, $plan['plan_hex'] ) );
+		if ( count( $week_rows ) > self::MAX_WEEKS_PER_PLAN ) {
+			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_week_limit_exceeded' );
+		}
 
 		$block_sql  = 'SELECT CAST(b.owner_id AS CHAR) AS owner_id, LOWER(HEX(b.plan_id)) AS plan_hex,';
 		$block_sql .= ' LOWER(HEX(b.week_id)) AS week_hex, w.week_start_local, LOWER(HEX(b.block_id)) AS block_hex,';
@@ -156,8 +161,11 @@ final class MMED_V1_Study_Week_Current_Reader {
 		$block_sql .= ' CAST(b.updated_revision AS CHAR) AS updated_revision, CAST(b.tombstoned_revision AS CHAR) AS tombstoned_revision';
 		$block_sql .= " FROM `{$week['blocks']}` b INNER JOIN `{$week['weeks']}` w";
 		$block_sql .= ' ON w.owner_id = b.owner_id AND w.plan_id = b.plan_id AND w.week_id = b.week_id';
-		$block_sql .= ' WHERE b.owner_id = %d AND b.plan_id = UNHEX(%s) ORDER BY b.week_id, b.block_id';
+		$block_sql .= ' WHERE b.owner_id = %d AND b.plan_id = UNHEX(%s) ORDER BY b.week_id, b.block_id LIMIT ' . ( self::MAX_BLOCKS_PER_PLAN + 1 );
 		$block_rows = $this->rows( $this->prepare( $block_sql, $owner_id, $plan['plan_hex'] ) );
+		if ( count( $block_rows ) > self::MAX_BLOCKS_PER_PLAN ) {
+			throw new MMED_V1_Study_Reader_Corruption( 'v1_reader_block_limit_exceeded' );
+		}
 
 		$blocks_by_week = array();
 		foreach ( $block_rows as $row ) {
