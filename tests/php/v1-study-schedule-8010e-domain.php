@@ -377,7 +377,7 @@ v1_8010e_expect( 'week_storage_temporal_invalid' === v1_8010e_reason( static fun
 $late_invalid = v1_8010e_storage_block_at( '2026-07-15', 1410, 30 );
 $late_invalid['duration_minutes'] = '45';
 v1_8010e_expect( 'outside_display_window' === v1_8010e_reason( static function () use ( $week_row, $late_invalid ) { MMED_V1_Study_Week_Domain::week_model_from_repository_rows( 42, $week_row, array( $late_invalid ) ); } )[0], 'row projection rejects 23:30 plus 45 minutes' );
-v1_8010e_expect( 1 === count( MMED_V1_Study_Week_Domain::week_model_from_repository_rows( 42, $week_row, array( v1_8010e_storage_block_at( '2026-07-15', 1425, 15 ) ) )['blocks'] ), '23:45 plus 15 minutes is the exact valid upper boundary' );
+v1_8010e_expect( 1 === count( MMED_V1_Study_Week_Domain::week_model_from_repository_rows( 42, $week_row, array( v1_8010e_storage_block_at( '2026-07-15', 1425, 15, array( 'activity_type' => 'flashcards' ) ) ) )['blocks'] ), '23:45 plus 15 minutes is the exact valid upper boundary' );
 
 v1_8010e_expect( true === MMED_V1_Study_Week_Domain::assert_mutation_target( 'move_block', v1_8010e_block( array( 'block_id' => $uuid ) ), $move['payload'] ), 'flexible move target is legal' );
 v1_8010e_expect( true === MMED_V1_Study_Week_Domain::assert_mutation_target( 'resize_block', v1_8010e_block( array( 'block_id' => $uuid ) ), $resize['payload'] ), 'flexible resize target is legal' );
