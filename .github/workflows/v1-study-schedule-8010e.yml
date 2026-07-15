@@ -1,0 +1,41 @@
+name: V1 Study Schedule 8010E Week contract
+
+on:
+  pull_request:
+    paths:
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
+      - "tests/php/v1-study-schedule-8010e-*.php"
+      - "tests/php/run-v1-study-schedule-8010e*.sh"
+      - ".github/workflows/v1-study-schedule-8010e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pure-contract:
+    name: PHP ${{ matrix.php }} Week domain and additive schema
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: "7.4"
+            php_image: "php:7.4-cli@sha256:620a6b9f4d4feef2210026172570465e9d0c1de79766418d3affd09190a7fda5"
+          - php: "8.3"
+            php_image: "php:8.3-cli@sha256:2a3f699b6cb31e5638c5432e4d37d4047853ba6351a692c91e0a073af00a55cc"
+    container: ${{ matrix.php_image }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Run pure 8010E contract
+        run: sh tests/php/run-v1-study-schedule-8010e.sh
+
+      - name: Preserve accepted 8010C and 8010D pure contracts
+        run: |
+          sh tests/php/run-v1-study-schedule-8010c.sh
+          sh tests/php/run-v1-study-schedule-8010d.sh

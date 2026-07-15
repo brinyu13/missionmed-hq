@@ -10,7 +10,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /** Reject missing, partial, drifted, or extra kernel schema. */
-final class MMED_V1_Study_Schema_Inspector {
+class MMED_V1_Study_Schema_Inspector {
 
 	const STATE_ABSENT       = 'absent';
 	const STATE_COMPATIBLE   = 'compatible';
@@ -83,6 +83,11 @@ final class MMED_V1_Study_Schema_Inspector {
 		return $this->schema_name;
 	}
 
+	/** Read-only subclass seam for additive schema inspectors. @return object */
+	protected function database_connection() {
+		return $this->database;
+	}
+
 	/** Inspect one named kernel table against its complete descriptor. @return array */
 	public function inspect_table( $table_key ) {
 		$names    = MMED_V1_Study_Schema::table_names( $this->database );
@@ -119,7 +124,7 @@ final class MMED_V1_Study_Schema_Inspector {
 	}
 
 	/** @return array */
-	private function read_tables( $table_names ) {
+	protected function read_tables( $table_names ) {
 		$sql  = 'SELECT TABLE_NAME, ENGINE, TABLE_COLLATION, ROW_FORMAT FROM information_schema.TABLES';
 		$sql .= ' WHERE TABLE_SCHEMA = %s AND TABLE_NAME IN (' . implode( ', ', array_fill( 0, count( $table_names ), '%s' ) ) . ')';
 		$rows = $this->rows( $this->database->prepare( $sql, array_merge( array( $this->schema_name ), $table_names ) ) );
@@ -134,7 +139,7 @@ final class MMED_V1_Study_Schema_Inspector {
 	}
 
 	/** @return array */
-	private function compare_table( $table_name, $actual, $expected, $table_names ) {
+	protected function compare_table( $table_name, $actual, $expected, $table_names ) {
 		$errors = array();
 		if ( 0 !== strcasecmp( (string) $expected['engine'], (string) ( $actual['ENGINE'] ?? '' ) ) ) {
 			$errors[] = $table_name . ':engine';
@@ -633,7 +638,7 @@ final class MMED_V1_Study_Schema_Inspector {
 	}
 
 	/** @return array */
-	private function result( $state, $ok, $errors, $tables ) {
+	protected function result( $state, $ok, $errors, $tables ) {
 		return array(
 			'state'  => $state,
 			'ok'     => (bool) $ok,
