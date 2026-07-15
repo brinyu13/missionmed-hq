@@ -43,6 +43,7 @@ final class MMED_V1_Study_Week_Schema {
 			'week_plan'       => 'week_plan_fk',
 			'week_monday'     => 'week_monday_ck',
 			'week_revision'   => 'week_revision_ck',
+			'week_provenance' => 'week_provenance_ck',
 			'block_week'      => 'block_week_fk',
 			'block_family'    => 'block_family_ck',
 			'block_state'     => 'block_state_ck',
@@ -144,12 +145,13 @@ final class MMED_V1_Study_Week_Schema {
 				updated_at datetime(6) NOT NULL,
 				PRIMARY KEY (owner_id, week_id),
 				UNIQUE KEY uq_week_id (week_id),
-				UNIQUE KEY uq_owner_plan_week (owner_id, plan_id, week_id, week_start_local),
+				UNIQUE KEY uq_owner_plan_week (owner_id, plan_id, week_id),
 				UNIQUE KEY uq_owner_plan_start (owner_id, plan_id, week_start_local),
 				KEY idx_owner_start (owner_id, week_start_local),
 				CONSTRAINT `{{week_plan}}` FOREIGN KEY (owner_id, plan_id) REFERENCES `{{plans}}` (owner_id, plan_id) ON UPDATE RESTRICT ON DELETE RESTRICT,
 				CONSTRAINT `{{week_monday}}` CHECK (WEEKDAY(week_start_local) = 0),
-				CONSTRAINT `{{week_revision}}` CHECK (created_revision > 0 AND updated_revision >= created_revision)
+				CONSTRAINT `{{week_revision}}` CHECK (created_revision > 0 AND updated_revision >= created_revision),
+				CONSTRAINT `{{week_provenance}}` CHECK (OCTET_LENGTH(timezone) BETWEEN 1 AND 64 AND OCTET_LENGTH(profile_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(tzdb_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(temporal_policy_version) BETWEEN 1 AND 32)
 			) {$tail}",
 			),
 			array(
@@ -160,7 +162,6 @@ final class MMED_V1_Study_Week_Schema {
 				owner_id bigint unsigned NOT NULL,
 				plan_id binary(16) NOT NULL,
 				week_id binary(16) NOT NULL,
-				week_start_local date NOT NULL,
 				block_id binary(16) NOT NULL,
 				title varchar(120) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
 				activity_type varbinary(32) NOT NULL,
@@ -196,9 +197,10 @@ final class MMED_V1_Study_Week_Schema {
 				UNIQUE KEY uq_block_id (block_id),
 				UNIQUE KEY uq_owner_plan_block (owner_id, plan_id, block_id),
 				UNIQUE KEY uq_owner_source_version (owner_id, source_namespace_hash, source_ref_hash, source_version_hash),
+				KEY idx_owner_plan_week (owner_id, plan_id, week_id),
 				KEY idx_owner_week_interval (owner_id, week_id, start_at_utc, end_at_utc, state_code),
 				KEY idx_owner_plan_local (owner_id, plan_id, local_date, local_minute),
-				CONSTRAINT `{{block_week}}` FOREIGN KEY (owner_id, plan_id, week_id, week_start_local) REFERENCES `{{weeks}}` (owner_id, plan_id, week_id, week_start_local) ON UPDATE RESTRICT ON DELETE RESTRICT,
+				CONSTRAINT `{{block_week}}` FOREIGN KEY (owner_id, plan_id, week_id) REFERENCES `{{weeks}}` (owner_id, plan_id, week_id) ON UPDATE RESTRICT ON DELETE RESTRICT,
 				CONSTRAINT `{{block_family}}` CHECK (family_code BETWEEN 1 AND 6),
 				CONSTRAINT `{{block_state}}` CHECK (state_code BETWEEN 1 AND 3),
 				CONSTRAINT `{{block_priority}}` CHECK (priority_code BETWEEN 0 AND 1),
@@ -206,10 +208,10 @@ final class MMED_V1_Study_Week_Schema {
 				CONSTRAINT `{{block_local}}` CHECK (local_minute BETWEEN 360 AND 1425 AND MOD(local_minute, 15) = 0 AND local_minute + duration_minutes <= 1440),
 				CONSTRAINT `{{block_duration}}` CHECK (duration_minutes BETWEEN 15 AND 720 AND MOD(duration_minutes, 15) = 0),
 				CONSTRAINT `{{block_interval}}` CHECK (start_at_utc < end_at_utc AND end_at_utc = TIMESTAMPADD(MINUTE, duration_minutes, start_at_utc)),
-				CONSTRAINT `{{block_revision}}` CHECK (created_revision > 0 AND updated_revision >= created_revision AND ((state_code = 3 AND tombstoned_revision = updated_revision AND tombstoned_at IS NOT NULL) OR (state_code <> 3 AND tombstoned_revision IS NULL AND tombstoned_at IS NULL))),
+				CONSTRAINT `{{block_revision}}` CHECK (created_revision > 0 AND updated_revision >= created_revision AND ((state_code = 3 AND tombstoned_revision IS NOT NULL AND tombstoned_revision = updated_revision AND tombstoned_at IS NOT NULL) OR (state_code <> 3 AND tombstoned_revision IS NULL AND tombstoned_at IS NULL))),
 				CONSTRAINT `{{block_source}}` CHECK ((source_code = 1 AND state_code <> 2 AND source_namespace_hash IS NULL AND source_ref_hash IS NULL AND source_version_hash IS NULL) OR (source_code = 2 AND state_code <> 1 AND source_namespace_hash IS NOT NULL AND source_ref_hash IS NOT NULL AND source_version_hash IS NOT NULL)),
-				CONSTRAINT `{{block_goal}}` CHECK ((goal_ref_hash IS NULL AND goal_source_version IS NULL) OR (goal_ref_hash IS NOT NULL AND goal_source_version IS NOT NULL)),
-				CONSTRAINT `{{block_provenance}}` CHECK (OCTET_LENGTH(activity_catalog_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(storage_codebook_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(profile_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(tzdb_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(temporal_policy_version) BETWEEN 1 AND 32)
+				CONSTRAINT `{{block_goal}}` CHECK ((goal_ref_hash IS NULL AND goal_source_version IS NULL) OR (goal_ref_hash IS NOT NULL AND goal_source_version IS NOT NULL AND OCTET_LENGTH(goal_source_version) BETWEEN 1 AND 64)),
+				CONSTRAINT `{{block_provenance}}` CHECK (CHAR_LENGTH(title) BETWEEN 1 AND 120 AND OCTET_LENGTH(activity_type) BETWEEN 1 AND 32 AND OCTET_LENGTH(activity_catalog_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(storage_codebook_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(timezone) BETWEEN 1 AND 64 AND OCTET_LENGTH(profile_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(tzdb_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(temporal_policy_version) BETWEEN 1 AND 32)
 			) {$tail}",
 			),
 		);
@@ -307,7 +309,7 @@ final class MMED_V1_Study_Week_Schema {
 				array(
 					'PRIMARY'              => self::index( true, array( 'owner_id', 'week_id' ) ),
 					'uq_week_id'           => self::index( true, array( 'week_id' ) ),
-					'uq_owner_plan_week'   => self::index( true, array( 'owner_id', 'plan_id', 'week_id', 'week_start_local' ) ),
+					'uq_owner_plan_week'   => self::index( true, array( 'owner_id', 'plan_id', 'week_id' ) ),
 					'uq_owner_plan_start'  => self::index( true, array( 'owner_id', 'plan_id', 'week_start_local' ) ),
 					'idx_owner_start'      => self::index( false, array( 'owner_id', 'week_start_local' ) ),
 				),
@@ -324,6 +326,7 @@ final class MMED_V1_Study_Week_Schema {
 				array(
 					$constraints['week_monday']   => 'WEEKDAY(week_start_local) = 0',
 					$constraints['week_revision'] => 'created_revision > 0 AND updated_revision >= created_revision',
+					$constraints['week_provenance'] => 'OCTET_LENGTH(timezone) BETWEEN 1 AND 64 AND OCTET_LENGTH(profile_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(tzdb_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(temporal_policy_version) BETWEEN 1 AND 32',
 				)
 			),
 			'blocks' => self::table_shape(
@@ -331,7 +334,6 @@ final class MMED_V1_Study_Week_Schema {
 					'owner_id'               => self::column( 'bigint', false, null, null, true ),
 					'plan_id'                => $binary16,
 					'week_id'                => $binary16,
-					'week_start_local'       => self::column( 'date', false, null ),
 					'block_id'               => $binary16,
 					'title'                  => self::column( 'varchar', false, null, 120, false, null, self::TABLE_CHARSET, self::TABLE_COLLATION ),
 					'activity_type'          => self::column( 'varbinary', false, null, 32 ),
@@ -369,14 +371,15 @@ final class MMED_V1_Study_Week_Schema {
 					'uq_block_id'             => self::index( true, array( 'block_id' ) ),
 					'uq_owner_plan_block'     => self::index( true, array( 'owner_id', 'plan_id', 'block_id' ) ),
 					'uq_owner_source_version'=> self::index( true, array( 'owner_id', 'source_namespace_hash', 'source_ref_hash', 'source_version_hash' ) ),
+					'idx_owner_plan_week'     => self::index( false, array( 'owner_id', 'plan_id', 'week_id' ) ),
 					'idx_owner_week_interval' => self::index( false, array( 'owner_id', 'week_id', 'start_at_utc', 'end_at_utc', 'state_code' ) ),
 					'idx_owner_plan_local'    => self::index( false, array( 'owner_id', 'plan_id', 'local_date', 'local_minute' ) ),
 				),
 				array(
 					$constraints['block_week'] => array(
-						'columns'            => array( 'owner_id', 'plan_id', 'week_id', 'week_start_local' ),
+						'columns'            => array( 'owner_id', 'plan_id', 'week_id' ),
 						'referenced_table'   => 'weeks',
-						'referenced_columns' => array( 'owner_id', 'plan_id', 'week_id', 'week_start_local' ),
+						'referenced_columns' => array( 'owner_id', 'plan_id', 'week_id' ),
 						'update_rule'        => 'RESTRICT',
 						'delete_rule'        => 'RESTRICT',
 						'match_option'       => 'NONE',
@@ -390,10 +393,10 @@ final class MMED_V1_Study_Week_Schema {
 					$constraints['block_local']    => 'local_minute BETWEEN 360 AND 1425 AND MOD(local_minute, 15) = 0 AND local_minute + duration_minutes <= 1440',
 					$constraints['block_duration'] => 'duration_minutes BETWEEN 15 AND 720 AND MOD(duration_minutes, 15) = 0',
 					$constraints['block_interval'] => 'start_at_utc < end_at_utc AND end_at_utc = TIMESTAMPADD(MINUTE, duration_minutes, start_at_utc)',
-					$constraints['block_revision'] => 'created_revision > 0 AND updated_revision >= created_revision AND ((state_code = 3 AND tombstoned_revision = updated_revision AND tombstoned_at IS NOT NULL) OR (state_code <> 3 AND tombstoned_revision IS NULL AND tombstoned_at IS NULL))',
+					$constraints['block_revision'] => 'created_revision > 0 AND updated_revision >= created_revision AND ((state_code = 3 AND tombstoned_revision IS NOT NULL AND tombstoned_revision = updated_revision AND tombstoned_at IS NOT NULL) OR (state_code <> 3 AND tombstoned_revision IS NULL AND tombstoned_at IS NULL))',
 					$constraints['block_source']   => '(source_code = 1 AND state_code <> 2 AND source_namespace_hash IS NULL AND source_ref_hash IS NULL AND source_version_hash IS NULL) OR (source_code = 2 AND state_code <> 1 AND source_namespace_hash IS NOT NULL AND source_ref_hash IS NOT NULL AND source_version_hash IS NOT NULL)',
-					$constraints['block_goal']     => '(goal_ref_hash IS NULL AND goal_source_version IS NULL) OR (goal_ref_hash IS NOT NULL AND goal_source_version IS NOT NULL)',
-					$constraints['block_provenance'] => 'OCTET_LENGTH(activity_catalog_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(storage_codebook_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(profile_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(tzdb_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(temporal_policy_version) BETWEEN 1 AND 32',
+					$constraints['block_goal']     => '(goal_ref_hash IS NULL AND goal_source_version IS NULL) OR (goal_ref_hash IS NOT NULL AND goal_source_version IS NOT NULL AND OCTET_LENGTH(goal_source_version) BETWEEN 1 AND 64)',
+					$constraints['block_provenance'] => 'CHAR_LENGTH(title) BETWEEN 1 AND 120 AND OCTET_LENGTH(activity_type) BETWEEN 1 AND 32 AND OCTET_LENGTH(activity_catalog_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(storage_codebook_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(timezone) BETWEEN 1 AND 64 AND OCTET_LENGTH(profile_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(tzdb_version) BETWEEN 1 AND 64 AND OCTET_LENGTH(temporal_policy_version) BETWEEN 1 AND 32',
 				)
 			),
 		);

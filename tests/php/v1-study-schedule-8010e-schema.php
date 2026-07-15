@@ -54,7 +54,7 @@ v1_8010e_schema_expect(
 $constraints_a = MMED_V1_Study_Week_Schema::constraint_names( $database_a );
 $constraints_b = MMED_V1_Study_Week_Schema::constraint_names( $database_b );
 v1_8010e_schema_expect( $constraints_a !== $constraints_b, 'Week constraint symbols are deployment-prefix scoped' );
-v1_8010e_schema_expect( 15 === count( $constraints_a ), 'all fifteen portable Week ownership and invariant constraints are named' );
+v1_8010e_schema_expect( 16 === count( $constraints_a ), 'all sixteen portable Week ownership and invariant constraints are named' );
 foreach ( $constraints_a as $constraint ) {
 	v1_8010e_schema_expect( strlen( $constraint ) <= 64 && 1 === preg_match( '/^[A-Za-z0-9_]+$/', $constraint ), 'constraint identifier is safe and portable' );
 }
@@ -63,8 +63,10 @@ $shapes = MMED_V1_Study_Week_Schema::expected_shapes( $database_a );
 v1_8010e_schema_expect( array( 'weeks', 'blocks' ) === array_keys( $shapes ), 'all and only normalized 8010E tables have exact postconditions' );
 v1_8010e_schema_expect( isset( $shapes['weeks']['indexes']['uq_owner_plan_week'] ), 'Week composite identity is database unique' );
 v1_8010e_schema_expect( isset( $shapes['weeks']['foreign_keys'][ $constraints_a['week_plan'] ] ), 'Week owner/Plan ownership is database enforced' );
+v1_8010e_schema_expect( isset( $shapes['weeks']['checks'][ $constraints_a['week_provenance'] ] ), 'Week temporal provenance cannot be stored empty' );
 v1_8010e_schema_expect( isset( $shapes['blocks']['foreign_keys'][ $constraints_a['block_week'] ] ), 'Block owner/Plan/Week ownership is database enforced' );
-v1_8010e_schema_expect( array( 'owner_id', 'plan_id', 'week_id', 'week_start_local' ) === $shapes['blocks']['foreign_keys'][ $constraints_a['block_week'] ]['columns'], 'Block FK binds the exact civil Week identity' );
+v1_8010e_schema_expect( array( 'owner_id', 'plan_id', 'week_id' ) === $shapes['blocks']['foreign_keys'][ $constraints_a['block_week'] ]['columns'], 'Block FK binds exact owner/Plan/Week identity' );
+v1_8010e_schema_expect( array( 'owner_id', 'plan_id', 'week_id' ) === $shapes['blocks']['indexes']['idx_owner_plan_week']['columns'], 'Block FK uses one explicit portable child index' );
 v1_8010e_schema_expect( isset( $shapes['blocks']['indexes']['idx_owner_week_interval'] ), 'owner-serialized collision query has an exact supporting index' );
 v1_8010e_schema_expect( isset( $shapes['blocks']['indexes']['uq_owner_source_version'] ), 'one versioned external anchor cannot materialize twice for an owner' );
 v1_8010e_schema_expect( isset( $shapes['blocks']['columns']['start_at_utc'], $shapes['blocks']['columns']['timezone'], $shapes['blocks']['columns']['local_date'], $shapes['blocks']['columns']['local_minute'], $shapes['blocks']['columns']['fold_code'] ), 'UTC instant and local temporal identity are both persisted' );
@@ -74,7 +76,9 @@ v1_8010e_schema_expect( isset( $shapes['blocks']['columns']['source_namespace_ha
 v1_8010e_schema_expect( isset( $shapes['blocks']['checks'][ $constraints_a['block_duration'] ] ), 'duration step and bounds are database constrained' );
 v1_8010e_schema_expect( isset( $shapes['blocks']['checks'][ $constraints_a['block_source'] ] ), 'fixed/flexible source ownership is database constrained' );
 v1_8010e_schema_expect( isset( $shapes['blocks']['checks'][ $constraints_a['block_goal'] ] ), 'server-owned goal reference and source version are paired' );
+v1_8010e_schema_expect( false !== strpos( $shapes['blocks']['checks'][ $constraints_a['block_goal'] ], 'OCTET_LENGTH(goal_source_version) BETWEEN 1 AND 64' ), 'goal source versions cannot be empty' );
 v1_8010e_schema_expect( isset( $shapes['blocks']['checks'][ $constraints_a['block_revision'] ] ), 'tombstone and revision shape are database constrained' );
+v1_8010e_schema_expect( false !== strpos( $shapes['blocks']['checks'][ $constraints_a['block_revision'] ], 'tombstoned_revision IS NOT NULL' ), 'tombstone CHECK closes the SQL UNKNOWN null loophole' );
 v1_8010e_schema_expect( false !== strpos( $shapes['blocks']['checks'][ $constraints_a['block_local'] ], 'local_minute + duration_minutes <= 1440' ), 'database prevents a Block from crossing local midnight' );
 v1_8010e_schema_expect( false !== strpos( $shapes['blocks']['checks'][ $constraints_a['block_interval'] ], 'TIMESTAMPADD(MINUTE, duration_minutes, start_at_utc)' ), 'database interval length exactly equals duration' );
 v1_8010e_schema_expect( false !== strpos( $shapes['blocks']['checks'][ $constraints_a['block_source'] ], 'source_version_hash IS NOT NULL' ), 'source-owned anchors require a versioned external reference' );
