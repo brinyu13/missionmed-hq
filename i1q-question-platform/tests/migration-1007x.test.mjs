@@ -251,11 +251,43 @@ test('medical revision requests can return to a fresh editorial assignment', () 
 
 test('channel artifacts bind policy, phase, class, and pre-answer fields', () => {
   const createArtifact = functionBlock(migration, 'create_channel_artifact(');
+  const identifierValues = functionBlock(migration, 'release_class_d_identifier_values(');
+  const stringValues = functionBlock(migration, 'jsonb_string_values(');
+  const markerCheck = functionBlock(migration, 'is_class_d_field_marker(');
   assert.match(createArtifact, /policy\.channel <> target_channel/u);
   assert.match(createArtifact, /contract_valid/u);
   assert.match(createArtifact, /i1q\.jsonb_field_paths\(artifact_payload\)/u);
   assert.match(createArtifact, /channel_artifact_policy_field_denied/u);
   assert.match(createArtifact, /channel_artifact_pre_answer_leak/u);
+  assert.match(createArtifact, /target_data_class IN \('A', 'C'\)/u);
+  assert.match(createArtifact, /channel_artifact_class_d_scan_unavailable/u);
+  assert.match(createArtifact, /i1q\.jsonb_field_names\(artifact_payload\)/u);
+  assert.match(createArtifact, /i1q\.jsonb_string_values\(artifact_payload\)/u);
+  assert.match(createArtifact, /identifier\.identifier_value = scalar\.string_value/u);
+  assert.match(createArtifact, /channel_artifact_class_d_field_marker/u);
+  assert.match(createArtifact, /channel_artifact_class_d_value_leak/u);
+  for (const relation of [
+    'release_memberships',
+    'item_revision_sources',
+    'item_revision_claims',
+    'review_assignments',
+    'review_events',
+    'item_revision_misconceptions',
+    'psychometric_snapshots',
+  ]) {
+    assert.match(identifierValues, new RegExp(`i1q\\.${relation}`, 'u'));
+  }
+  assert.match(identifierValues, /'item'/u);
+  assert.match(identifierValues, /'revision'/u);
+  assert.match(identifierValues, /'source'/u);
+  assert.match(identifierValues, /'claim'/u);
+  assert.match(identifierValues, /'reviewer'/u);
+  assert.match(identifierValues, /'misconception'/u);
+  assert.match(identifierValues, /'psychometric'/u);
+  assert.match(stringValues, /pg_catalog\.jsonb_typeof\(walk\.value\) = 'string'/u);
+  assert.match(markerCheck, /i1q\.normalize_security_marker\(candidate\)/u);
+  assert.match(markerCheck, /'sourceid'/u);
+  assert.match(markerCheck, /'psychometricsnapshotid'/u);
 });
 
 test('compensating rollback is forward-only, preserving, and reapply-safe', () => {

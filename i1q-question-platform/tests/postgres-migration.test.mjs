@@ -199,6 +199,31 @@ test('release identity, exact membership, hash chains, and disabled consumer fla
   assert.doesNotMatch(migration, /ON i1q\.feature_flags FOR (?:INSERT|UPDATE|DELETE)/iu);
 });
 
+test('student artifacts reject exact release-scoped Class D values without prose substring matching', () => {
+  const createArtifact = functionDefinition('create_channel_artifact');
+  const identifierValues = functionDefinition('release_class_d_identifier_values');
+  const markerCheck = functionDefinition('is_class_d_field_marker');
+
+  assert.match(createArtifact, /target_data_class IN \('A', 'C'\)/u);
+  assert.match(createArtifact, /i1q\.release_memberships membership/u);
+  assert.match(createArtifact, /channel_artifact_class_d_scan_unavailable/u);
+  assert.match(createArtifact, /i1q\.jsonb_string_values\(artifact_payload\)/u);
+  assert.match(createArtifact, /identifier\.identifier_value = scalar\.string_value/u);
+  assert.doesNotMatch(createArtifact, /identifier\.identifier_value\s+(?:LIKE|ILIKE)/iu);
+  assert.doesNotMatch(createArtifact, /(?:position|strpos)\s*\(\s*scalar\.string_value/iu);
+  for (const family of ['item', 'revision', 'source', 'claim', 'reviewer', 'misconception', 'psychometric']) {
+    assert.match(identifierValues, new RegExp(`SELECT '${family}'`, 'u'));
+  }
+  assert.match(identifierValues, /JOIN i1q\.item_revision_sources/u);
+  assert.match(identifierValues, /JOIN i1q\.item_revision_claims/u);
+  assert.match(identifierValues, /JOIN i1q\.review_assignments/u);
+  assert.match(identifierValues, /JOIN i1q\.review_events/u);
+  assert.match(identifierValues, /JOIN i1q\.item_revision_misconceptions/u);
+  assert.match(identifierValues, /JOIN i1q\.psychometric_snapshots/u);
+  assert.match(markerCheck, /'sourceid'/u);
+  assert.match(markerCheck, /'psychometricsnapshotid'/u);
+});
+
 test('application adapter membership and projection contracts map exactly to SQL', () => {
   const hash = 'a'.repeat(64);
   const membership = buildReleaseMembership([{
@@ -290,7 +315,20 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     prompt: 'Synthetic?',
     choices: ['A', 'B', 'C', 'D'],
   }];
+  const cleanClassCArtifactPayload = [{
+    dataset_version: 'synthetic_release_v1',
+    question_id: 'Q1',
+    answer: 'A',
+    explanation: 'A source and reviewer can support a medical claim without exposing internal identifiers.',
+    correct_answer_rationale: 'The item revision is coherent.',
+    distractor_rationales: [{
+      choice_key: 'B',
+      why_tempting: 'Psychometric evidence can make a distractor seem plausible.',
+      why_wrong: 'The stated reasoning does not support that choice.',
+    }],
+  }];
   const safeArtifactSql = JSON.stringify(safeArtifactPayload).replaceAll("'", "''");
+  const cleanClassCArtifactSql = JSON.stringify(cleanClassCArtifactPayload).replaceAll("'", "''");
   runPsql([], `
     CREATE SCHEMA IF NOT EXISTS auth;
     CREATE OR REPLACE FUNCTION auth.uid()
@@ -339,6 +377,12 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     VALUES ('tax_synthetic', 'synthetic_v1', 'active', '{}', repeat('a', 64));
     INSERT INTO i1q.misconception_vocabulary_versions (id, version, status, content_hash)
     VALUES ('mvv_synthetic', 'synthetic_v1', 'active', repeat('b', 64));
+    INSERT INTO i1q.misconception_entries (
+      id, vocabulary_version_id, label, definition, content_hash
+    ) VALUES (
+      'misconception_synthetic', 'mvv_synthetic', 'Synthetic misconception',
+      'Synthetic non-clinical fixture definition', repeat('b', 64)
+    );
     INSERT INTO i1q.concepts (id, taxonomy_version_id, canonical_name, learning_objective, lifecycle, content_hash)
     VALUES ('concept_synthetic', 'tax_synthetic', 'Synthetic concept', 'Synthetic objective', 'active', repeat('c', 64));
     INSERT INTO i1q.variant_groups (id, concept_id, assertion, lifecycle, content_hash)
@@ -368,6 +412,17 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     ) VALUES (
       'source_synthetic', 'REVIEWER_AUTHORED', 'synthetic-source', 'Synthetic source', repeat('8', 64), 'rights_synthetic'
     );
+    INSERT INTO i1q.item_revision_sources (
+      item_revision_id, source_record_id, source_role
+    ) VALUES (
+      'itemrev_synthetic', 'source_synthetic', 'primary'
+    );
+    INSERT INTO i1q.item_revision_misconceptions (
+      item_revision_id, choice_key, misconception_id, vocabulary_version_id, trap_type, provenance
+    ) VALUES (
+      'itemrev_synthetic', 'B', 'misconception_synthetic', 'mvv_synthetic',
+      'synthetic_trap', 'reviewer_authored'
+    );
     INSERT INTO i1q.restricted_source_references (
       id, source_record_id, raw_artifact_hash, private_storage_ref
     ) VALUES (
@@ -379,6 +434,18 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     ) VALUES
       ('reviewer_editor', '00000000-0000-0000-0000-000000000003', 'Synthetic Editor', ARRAY['editorial_reviewer'], 'editorial', 'not_applicable', NULL, true),
       ('reviewer_physician', '00000000-0000-0000-0000-000000000004', 'Synthetic Credentialed Reviewer', ARRAY['physician_reviewer'], 'md', 'verified', 'synthetic-verification', true);
+    INSERT INTO i1q.evidence_claims (
+      id, statement, claim_type, authority_class, status, verified_by_reviewer_id,
+      evidence_review_date, review_by_date, content_hash
+    ) VALUES (
+      'claim_synthetic', 'Synthetic fixture claim', 'other', 'physician_attested',
+      'verified', 'reviewer_physician', CURRENT_DATE, CURRENT_DATE + 1, repeat('c', 64)
+    );
+    INSERT INTO i1q.item_revision_claims (
+      item_revision_id, evidence_claim_id, claim_role
+    ) VALUES (
+      'itemrev_synthetic', 'claim_synthetic', 'primary'
+    );
     UPDATE i1q.governance_slots
        SET reviewer_id = 'reviewer_editor',
            assigned_by_actor_id = '00000000-0000-0000-0000-000000000001',
@@ -410,18 +477,54 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
       repeat('1', 64), pg_catalog.jsonb_build_object('manifest_hash', repeat('1', 64)),
       pg_catalog.clock_timestamp(), '00000000-0000-0000-0000-000000000008'
     );
+    INSERT INTO i1q.export_question_identities (
+      question_id, item_id, created_by_actor_id
+    ) VALUES (
+      'Q1', 'item_synthetic', '00000000-0000-0000-0000-000000000008'
+    );
+    INSERT INTO i1q.release_memberships (
+      release_id, position, item_id, item_revision_id, revision_number,
+      content_hash, dataset_version, question_id
+    ) VALUES (
+      'release_synthetic', 1, 'item_synthetic', 'itemrev_synthetic', 1,
+      repeat('e', 64), 'synthetic_release_v1', 'Q1'
+    );
+    INSERT INTO i1q.psychometric_snapshots (
+      id, item_revision_id, release_id, channel, sample_window_start,
+      sample_window_end, attempt_count, metrics, content_hash
+    ) VALUES (
+      'psychometric_synthetic', 'itemrev_synthetic', 'release_synthetic', 'stat',
+      pg_catalog.clock_timestamp() - interval '2 days',
+      pg_catalog.clock_timestamp() - interval '1 day', 0, '{}', repeat('d', 64)
+    );
     INSERT INTO i1q.channel_security_policies (
       id, channel, policy_version, field_rules, content_hash, status
-    ) VALUES (
-      'csp_stat_pre_answer', 'stat_pre_answer', 1,
-      pg_catalog.jsonb_build_array(
-        pg_catalog.jsonb_build_object('field_path', 'dataset_version', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
-        pg_catalog.jsonb_build_object('field_path', 'question_id', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
-        pg_catalog.jsonb_build_object('field_path', 'prompt', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
-        pg_catalog.jsonb_build_object('field_path', 'choices', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer'))
+    ) VALUES
+      (
+        'csp_stat_pre_answer', 'stat_pre_answer', 1,
+        pg_catalog.jsonb_build_array(
+          pg_catalog.jsonb_build_object('field_path', 'dataset_version', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'question_id', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'prompt', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'choices', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_pre_answer'), 'phases', pg_catalog.jsonb_build_array('pre_answer'))
+        ),
+        repeat('2', 64), 'active'
       ),
-      repeat('2', 64), 'active'
-    );
+      (
+        'csp_stat_post_answer', 'stat_post_answer_debrief', 1,
+        pg_catalog.jsonb_build_array(
+          pg_catalog.jsonb_build_object('field_path', 'dataset_version', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'question_id', 'class_name', 'A', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'answer', 'class_name', 'C', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'explanation', 'class_name', 'C', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'correct_answer_rationale', 'class_name', 'C', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'distractor_rationales', 'class_name', 'C', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'distractor_rationales.choice_key', 'class_name', 'C', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'distractor_rationales.why_tempting', 'class_name', 'C', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer')),
+          pg_catalog.jsonb_build_object('field_path', 'distractor_rationales.why_wrong', 'class_name', 'C', 'channels', pg_catalog.jsonb_build_array('stat_post_answer_debrief'), 'phases', pg_catalog.jsonb_build_array('post_answer'))
+        ),
+        repeat('3', 64), 'active'
+      );
 
     SET ROLE i1q_test_runtime;
 
@@ -436,6 +539,45 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
         RETURN;
       END;
       RAISE EXCEPTION 'expected_42501:%', command;
+    END
+    $expect$;
+
+    CREATE OR REPLACE FUNCTION pg_temp.expect_class_d_value_denied(
+      candidate_artifact_id text,
+      candidate_value text
+    )
+    RETURNS void
+    LANGUAGE plpgsql
+    AS $expect$
+    DECLARE
+      candidate_payload jsonb;
+    BEGIN
+      candidate_payload := pg_catalog.jsonb_build_array(
+        pg_catalog.jsonb_build_object(
+          'dataset_version', 'synthetic_release_v1',
+          'question_id', 'Q1',
+          'answer', 'A',
+          'explanation', candidate_value,
+          'correct_answer_rationale', 'Synthetic permitted rationale.',
+          'distractor_rationales', pg_catalog.jsonb_build_array(
+            pg_catalog.jsonb_build_object(
+              'choice_key', 'B',
+              'why_tempting', 'Synthetic permitted lure.',
+              'why_wrong', 'Synthetic permitted correction.'
+            )
+          )
+        )
+      );
+      BEGIN
+        PERFORM i1q.create_channel_artifact(
+          candidate_artifact_id, 'release_synthetic', 'csp_stat_post_answer',
+          'stat_post_answer_debrief', 'post_answer', 'C', 'application/json',
+          candidate_payload
+        );
+      EXCEPTION WHEN insufficient_privilege THEN
+        RETURN;
+      END;
+      RAISE EXCEPTION 'expected_class_d_value_denial:%:%', candidate_artifact_id, candidate_value;
     END
     $expect$;
 
@@ -541,10 +683,23 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
         '[{"dataset_version":"synthetic_release_v1","question_id":"Q1","prompt":"Synthetic?","choices":["A","B","C","D"],"answer":"A"}]'::jsonb
       )
     $sql$);
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_source_leak', 'source_synthetic');
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_item_leak', 'item_synthetic');
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_revision_leak', 'itemrev_synthetic');
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_claim_leak', 'claim_synthetic');
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_reviewer_leak', 'reviewer_editor');
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_misconception_leak', 'misconception_synthetic');
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_psychometric_leak', 'psychometric_synthetic');
+    SELECT pg_temp.expect_class_d_value_denied('artifact_class_c_marker_leak', 'source%5Fid');
     SELECT i1q.create_channel_artifact(
       'artifact_safe', 'release_synthetic', 'csp_stat_pre_answer',
       'stat_pre_answer', 'pre_answer', 'A', 'application/json',
       '${safeArtifactSql}'::jsonb
+    );
+    SELECT i1q.create_channel_artifact(
+      'artifact_class_c_clean', 'release_synthetic', 'csp_stat_post_answer',
+      'stat_post_answer_debrief', 'post_answer', 'C', 'application/json',
+      '${cleanClassCArtifactSql}'::jsonb
     );
     SELECT pg_temp.expect_denied($sql$
       SELECT i1q.record_export_validation(
@@ -566,7 +721,7 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
     DO $check$ BEGIN
       IF (SELECT pg_catalog.jsonb_array_length(artifact_results)
             FROM i1q.export_validation_results
-           WHERE id = 'validation_synthetic') <> 1 THEN
+           WHERE id = 'validation_synthetic') <> 2 THEN
         RAISE EXCEPTION 'artifact_validation_results_missing';
       END IF;
     END $check$;
@@ -605,32 +760,38 @@ test('ephemeral PostgreSQL apply, reapply, role attacks, compensation, and reapp
 
   const validationVector = JSON.parse(runPsql(['--tuples-only', '--no-align'], `
     SELECT pg_catalog.jsonb_build_object(
-      'release_id', artifact.release_id,
+      'release_id', release.id,
       'manifest_hash', release.manifest_hash,
-      'channel', artifact.channel,
-      'phase', artifact.phase,
-      'data_class', artifact.data_class,
-      'artifact_hash', artifact.artifact_hash,
-      'record_count', artifact.record_count,
+      'artifacts', pg_catalog.jsonb_agg(
+        pg_catalog.jsonb_build_object(
+          'channel', artifact.channel,
+          'phase', artifact.phase,
+          'data_class', artifact.data_class,
+          'artifact_hash', artifact.artifact_hash,
+          'record_count', artifact.record_count
+        ) ORDER BY artifact.channel
+      ),
       'evidence_hash', i1q.release_validation_evidence_hash(release.id)
     )::text
       FROM i1q.channel_artifacts artifact
       JOIN i1q.release_snapshots release ON release.id = artifact.release_id
-     WHERE artifact.id = 'artifact_safe';
+     WHERE artifact.id IN ('artifact_safe', 'artifact_class_c_clean')
+     GROUP BY release.id, release.manifest_hash;
   `).trim());
   const nodeEvidenceHash = releaseValidationEvidenceHash({
     releaseId: validationVector.release_id,
     manifestHash: validationVector.manifest_hash,
-    artifacts: [{
-      channel: validationVector.channel,
-      phase: validationVector.phase,
-      data_class: validationVector.data_class,
-      artifact_hash: validationVector.artifact_hash,
-      record_count: validationVector.record_count,
-    }],
+    artifacts: validationVector.artifacts,
     checks: REQUIRED_RELEASE_VALIDATION_CHECK_IDS.map((id) => ({ id, status: 'pass' })),
   });
-  assert.equal(validationVector.artifact_hash, sha256(safeArtifactPayload));
+  assert.equal(
+    validationVector.artifacts.find((artifact) => artifact.channel === 'stat_pre_answer')?.artifact_hash,
+    sha256(safeArtifactPayload),
+  );
+  assert.equal(
+    validationVector.artifacts.find((artifact) => artifact.channel === 'stat_post_answer_debrief')?.artifact_hash,
+    sha256(cleanClassCArtifactPayload),
+  );
   assert.equal(nodeEvidenceHash, validationVector.evidence_hash);
 
   runPsql(['--file', compensationPath]);

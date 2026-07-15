@@ -2805,6 +2805,176 @@ AS $function$
    WHERE walk.field_path <> ''
 $function$;
 
+CREATE OR REPLACE FUNCTION i1q.jsonb_field_names(document jsonb)
+RETURNS TABLE(field_name text)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, i1q
+AS $function$
+  WITH RECURSIVE walk(value) AS (
+    SELECT document
+    UNION ALL
+    SELECT child.value
+      FROM walk
+      CROSS JOIN LATERAL (
+        SELECT object_entry.value
+          FROM pg_catalog.jsonb_each(
+            CASE WHEN pg_catalog.jsonb_typeof(walk.value) = 'object' THEN walk.value ELSE '{}'::jsonb END
+          ) object_entry
+        UNION ALL
+        SELECT array_entry.value
+          FROM pg_catalog.jsonb_array_elements(
+            CASE WHEN pg_catalog.jsonb_typeof(walk.value) = 'array' THEN walk.value ELSE '[]'::jsonb END
+          ) array_entry(value)
+      ) child
+  )
+  SELECT DISTINCT object_entry.key
+    FROM walk
+    CROSS JOIN LATERAL pg_catalog.jsonb_each(
+      CASE WHEN pg_catalog.jsonb_typeof(walk.value) = 'object' THEN walk.value ELSE '{}'::jsonb END
+    ) object_entry
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.jsonb_string_values(document jsonb)
+RETURNS TABLE(string_value text)
+LANGUAGE sql
+IMMUTABLE
+SET search_path = pg_catalog, i1q
+AS $function$
+  WITH RECURSIVE walk(value) AS (
+    SELECT document
+    UNION ALL
+    SELECT child.value
+      FROM walk
+      CROSS JOIN LATERAL (
+        SELECT object_entry.value
+          FROM pg_catalog.jsonb_each(
+            CASE WHEN pg_catalog.jsonb_typeof(walk.value) = 'object' THEN walk.value ELSE '{}'::jsonb END
+          ) object_entry
+        UNION ALL
+        SELECT array_entry.value
+          FROM pg_catalog.jsonb_array_elements(
+            CASE WHEN pg_catalog.jsonb_typeof(walk.value) = 'array' THEN walk.value ELSE '[]'::jsonb END
+          ) array_entry(value)
+      ) child
+  )
+  SELECT DISTINCT walk.value #>> '{}' AS string_value
+    FROM walk
+   WHERE pg_catalog.jsonb_typeof(walk.value) = 'string'
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.normalize_security_marker(candidate text)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+  SELECT pg_catalog.regexp_replace(
+           pg_catalog.regexp_replace(
+             pg_catalog.replace(
+               pg_catalog.lower(pg_catalog.normalize(candidate, 'NFC')),
+               '%25',
+               '%'
+             ),
+             '%(2e|2d|5f|5b|5d)',
+             '',
+             'g'
+           ),
+           '[^a-z0-9]',
+           '',
+           'g'
+         )
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.is_class_d_field_marker(candidate text)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+STRICT
+SET search_path = pg_catalog, i1q
+AS $function$
+  SELECT i1q.normalize_security_marker(candidate) = ANY(ARRAY[
+    'itemid', 'itemrevisionid', 'itemrevid', 'revisionid', 'revisionnumber',
+    'variantgroupid', 'vgid', 'conceptid', 'misconceptionid',
+    'reviewerid', 'reviewassignmentid', 'revieweventid',
+    'evidenceclaimid', 'claimid', 'psychometricid', 'psychometricsnapshotid',
+    'incidentid', 'sourceid', 'sourcerecordid', 'extractionid',
+    'rightsrecordid', 'redactionrecordid', 'privacyredactionrecordid'
+  ]::text[])
+$function$;
+
+CREATE OR REPLACE FUNCTION i1q.release_class_d_identifier_values(target_release_id text)
+RETURNS TABLE(identifier_family text, identifier_value text)
+LANGUAGE sql
+STABLE
+SECURITY INVOKER
+SET search_path = pg_catalog, i1q
+AS $function$
+  WITH target_memberships AS MATERIALIZED (
+    SELECT membership.item_id, membership.item_revision_id
+      FROM i1q.release_memberships membership
+     WHERE membership.release_id = target_release_id
+  ), identifiers(identifier_family, identifier_value) AS (
+    SELECT 'item', membership.item_id
+      FROM target_memberships membership
+    UNION ALL
+    SELECT 'revision', membership.item_revision_id
+      FROM target_memberships membership
+    UNION ALL
+    SELECT 'source', source_link.source_record_id
+      FROM target_memberships membership
+      JOIN i1q.item_revision_sources source_link
+        ON source_link.item_revision_id = membership.item_revision_id
+    UNION ALL
+    SELECT 'claim', claim_link.evidence_claim_id
+      FROM target_memberships membership
+      JOIN i1q.item_revision_claims claim_link
+        ON claim_link.item_revision_id = membership.item_revision_id
+    UNION ALL
+    SELECT 'reviewer', assignment.reviewer_id
+      FROM target_memberships membership
+      JOIN i1q.review_assignments assignment
+        ON assignment.item_revision_id = membership.item_revision_id
+    UNION ALL
+    SELECT 'reviewer', review_event.reviewer_id
+      FROM target_memberships membership
+      JOIN i1q.review_events review_event
+        ON review_event.item_revision_id = membership.item_revision_id
+    UNION ALL
+    SELECT 'reviewer', claim.verified_by_reviewer_id
+      FROM target_memberships membership
+      JOIN i1q.item_revision_claims claim_link
+        ON claim_link.item_revision_id = membership.item_revision_id
+      JOIN i1q.evidence_claims claim
+        ON claim.id = claim_link.evidence_claim_id
+    UNION ALL
+    SELECT 'reviewer', redaction.reviewer_id
+      FROM target_memberships membership
+      JOIN i1q.item_revision_sources source_link
+        ON source_link.item_revision_id = membership.item_revision_id
+      JOIN i1q.source_records source
+        ON source.id = source_link.source_record_id
+      JOIN i1q.privacy_redaction_records redaction
+        ON redaction.id = source.privacy_redaction_record_id
+    UNION ALL
+    SELECT 'misconception', misconception.misconception_id
+      FROM target_memberships membership
+      JOIN i1q.item_revision_misconceptions misconception
+        ON misconception.item_revision_id = membership.item_revision_id
+    UNION ALL
+    SELECT 'psychometric', psychometric.id
+      FROM target_memberships membership
+      JOIN i1q.psychometric_snapshots psychometric
+        ON psychometric.release_id = target_release_id
+       AND psychometric.item_revision_id = membership.item_revision_id
+  )
+  SELECT DISTINCT identifiers.identifier_family, identifiers.identifier_value
+    FROM identifiers
+   WHERE identifiers.identifier_value IS NOT NULL
+     AND pg_catalog.btrim(identifiers.identifier_value) <> ''
+$function$;
+
 CREATE OR REPLACE FUNCTION i1q.create_channel_artifact(
   artifact_id text,
   target_release_id text,
@@ -2882,6 +3052,40 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'channel_artifact_policy_field_denied'
       USING ERRCODE = '42501';
+  END IF;
+
+  IF target_data_class IN ('A', 'C') THEN
+    IF NOT EXISTS (
+      SELECT 1
+        FROM i1q.release_memberships membership
+       WHERE membership.release_id = target_release_id
+    ) THEN
+      RAISE EXCEPTION 'channel_artifact_class_d_scan_unavailable'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+        FROM i1q.jsonb_field_names(artifact_payload) field
+       WHERE i1q.is_class_d_field_marker(field.field_name)
+    ) THEN
+      RAISE EXCEPTION 'channel_artifact_class_d_field_marker'
+        USING ERRCODE = '42501';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+        FROM i1q.jsonb_string_values(artifact_payload) scalar
+       WHERE i1q.is_class_d_field_marker(scalar.string_value)
+          OR EXISTS (
+            SELECT 1
+              FROM i1q.release_class_d_identifier_values(target_release_id) identifier
+             WHERE identifier.identifier_value = scalar.string_value
+          )
+    ) THEN
+      RAISE EXCEPTION 'channel_artifact_class_d_value_leak'
+        USING ERRCODE = '42501';
+    END IF;
   END IF;
 
   IF target_phase = 'pre_answer' AND EXISTS (
