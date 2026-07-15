@@ -237,6 +237,7 @@ const state = {
   editorRevision: null,
   editorDirty: false,
   extractionStatuses: new Map(),
+  syntheticRuns: [],
   inventoryFilter: { query: '', status: 'all' },
   search: { query: '', status: 'all', sort: 'newest', page: 0 },
   auditFilter: { query: '', entity: 'all' },
@@ -719,7 +720,7 @@ async function extractionTemplate() {
     ...jobsPage.rows.map((job) => ({ ...job, status: state.extractionStatuses.get(job.id) || 'queued' })),
     ...runsPage.rows,
   ];
-  const allRuns = [...EXTRACTION_FIXTURES, ...apiRuns];
+  const allRuns = [...state.syntheticRuns, ...EXTRACTION_FIXTURES, ...apiRuns];
   const selected = allRuns.find((run) => run.id === state.selectedRunId) || allRuns[0];
   state.selectedRunId = selected?.id || null;
   const selectedStatus = state.extractionStatuses.get(selected?.id) || selected?.status || 'queued';
@@ -1325,3 +1326,411 @@ async function auditTemplate() {
       </div>`,
   };
 }
+
+const WORKFLOW_TEMPLATES = Object.freeze({
+  dashboard: dashboardTemplate,
+  inventory: inventoryTemplate,
+  source: sourceTemplate,
+  privacy: privacyTemplate,
+  transcript: transcriptTemplate,
+  extraction: extractionTemplate,
+  triage: triageTemplate,
+  editor: editorTemplate,
+  distractors: distractorsTemplate,
+  evidence: evidenceTemplate,
+  editorial: editorialTemplate,
+  physician: physicianTemplate,
+  diff: diffTemplate,
+  search: searchTemplate,
+  release: releaseTemplate,
+  incidents: incidentsTemplate,
+  audit: auditTemplate,
+});
+
+function setActiveNavigation(name) {
+  primaryNav.querySelectorAll('[data-screen]').forEach((button) => {
+    const active = button.dataset.screen === name;
+    button.classList.toggle('is-active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+}
+
+function setMobileNavigation(open) {
+  const expanded = Boolean(open);
+  navToggle.setAttribute('aria-expanded', String(expanded));
+  primaryNav.classList.toggle('is-open', expanded);
+}
+
+function showLoading(name) {
+  const [, nextTitle] = WORKFLOW_META[name];
+  screen.setAttribute('aria-busy', 'true');
+  screen.innerHTML = `<div class="loading-state" data-state="loading" role="status">Loading ${escapeHtml(nextTitle.toLowerCase())}</div>`;
+}
+
+async function renderScreen(name, { focusHeading = false } = {}) {
+  if (!REQUIRED_WORKFLOWS.includes(name)) return;
+  const token = ++state.renderToken;
+  const previousScreen = state.currentScreen;
+  state.currentScreen = name;
+  if (previousScreen !== name) state.editorDirty = false;
+  clearActionStatus();
+  setActiveNavigation(name);
+  setMobileNavigation(false);
+  const [nextKicker, nextTitle] = WORKFLOW_META[name];
+  kicker.textContent = nextKicker;
+  title.textContent = nextTitle;
+  showLoading(name);
+
+  if (state.scenario !== 'live') {
+    setContext([
+      ['Scenario', badge(state.scenario, 'blue')],
+      ['Data boundary', 'Non-clinical deterministic fixture'],
+    ]);
+    screen.innerHTML = scenarioTemplate(state.scenario);
+    screen.setAttribute('aria-busy', 'false');
+    if (focusHeading) screen.querySelector('h2[tabindex="-1"]')?.focus({ preventScroll: true });
+    announce(`${nextTitle} synthetic ${humanize(state.scenario)} state loaded`);
+    return;
+  }
+
+  try {
+    const result = await WORKFLOW_TEMPLATES[name]();
+    if (token !== state.renderToken) return;
+    setContext(result.context || []);
+    screen.innerHTML = result.markup;
+    screen.setAttribute('aria-busy', 'false');
+    if (focusHeading) title.focus({ preventScroll: true });
+    announce(`${nextTitle} loaded`);
+  } catch (error) {
+    if (token !== state.renderToken) return;
+    setContext([]);
+    screen.innerHTML = renderError(error);
+    screen.setAttribute('aria-busy', 'false');
+    screen.querySelector('[tabindex="-1"]')?.focus({ preventScroll: true });
+    announce(`${nextTitle} unavailable`, true);
+  }
+}
+
+function navigate(name) {
+  if (!REQUIRED_WORKFLOWS.includes(name)) return;
+  if (state.currentScreen === 'editor' && state.editorDirty && name !== 'editor') {
+    const discard = window.confirm('Discard unsaved draft changes and leave this revision?');
+    if (!discard) return;
+  }
+  void renderScreen(name, { focusHeading: true });
+}
+
+function newSyntheticRun(originId, mode) {
+  const run = {
+    id: actionKey(`run_fixture_${mode}`),
+    status: 'queued',
+    stage: mode === 'resume' ? 'GX-5_CANDIDATE_QUESTION_DETECTION' : 'GX-0_INVENTORY',
+    processed: 0,
+    failed: 0,
+    checkpoint: mode === 'resume'
+      ? `New run from the safe checkpoint of ${originId}`
+      : `New run requested from ${originId || 'the extraction queue'}`,
+  };
+  state.syntheticRuns.unshift(run);
+  state.selectedRunId = run.id;
+  return run;
+}
+
+async function openCandidate(id) {
+  state.selectedCandidateId = id;
+  state.selectedCandidateDetail = await getResource('extraction_candidates', id);
+  await renderScreen('triage');
+}
+
+async function submitEditor(form) {
+  if (!form.reportValidity()) return;
+  const revision = state.editorRevision;
+  if (!revision || form.dataset.revisionId !== revision.id) {
+    throw new ApiError('stale_edit', 409);
+  }
+
+  const current = await getResource('item_revisions', revision.id);
+  if (current.content_hash !== form.dataset.revisionHash) {
+    throw new ApiError('concurrent_edit', 409);
+  }
+  const page = await listResource('item_revisions');
+  const newest = page.rows
+    .filter((entry) => entry.item_id === revision.item_id)
+    .sort((left, right) => Number(right.revision_number) - Number(left.revision_number))[0];
+  if (newest && newest.id !== revision.id) {
+    const conflict = document.querySelector('#editor-conflict');
+    conflict.innerHTML = stateNotice(
+      'stale-edit',
+      'A newer immutable revision exists',
+      'This form was stopped before it could create a revision from stale content.',
+      'Compare the newer revision, then deliberately reapply the draft.',
+      'warning',
+    );
+    showActionStatus('Save stopped because a newer immutable revision exists.', {
+      tone: 'warning',
+      focus: true,
+      assertive: true,
+    });
+    return;
+  }
+
+  const data = new FormData(form);
+  const answer = String(data.get('answer') || '');
+  const choices = ['A', 'B', 'C', 'D'].map((key) => ({
+    key,
+    text: String(data.get(`choice_${key}`) || '').trim(),
+    why_tempting: String(data.get(`tempting_${key}`) || '').trim(),
+    why_wrong: String(data.get(`wrong_${key}`) || '').trim(),
+    misconception_id: String(data.get(`misconception_${key}`) || '').trim(),
+  }));
+  const payload = {
+    item_id: revision.item_id,
+    concept_id: revision.concept_id,
+    source_ids: safeArray(revision.source_ids),
+    evidence_claim_ids: safeArray(revision.evidence_claim_ids),
+    prompt: String(data.get('prompt') || '').trim(),
+    choices,
+    answer,
+    explanation: String(data.get('explanation') || '').trim(),
+    correct_answer_rationale: String(data.get('correct_answer_rationale') || '').trim(),
+    topic: revision.topic || '',
+    subtopic: revision.subtopic || '',
+    lineage: revision.lineage || 'INTERNAL_HUMAN_EDIT',
+    drills: revision.drills,
+  };
+  const created = await api('/api/v1/item-revisions', {
+    method: 'POST',
+    body: payload,
+    headers: { 'Idempotency-Key': actionKey('revision') },
+  });
+  state.editorDirty = false;
+  state.selectedRevisionId = created.id;
+  showActionStatus('New immutable draft revision created.', { focus: true });
+  await renderScreen('editor');
+}
+
+async function submitEditorialDecision(button) {
+  const form = button.closest('#editorial-form');
+  if (!form) return;
+  const data = new FormData(form);
+  const verdict = button.dataset.verdict;
+  const note = String(data.get('note') || '').trim();
+  const rubric = ['single_answer', 'parallel_choices', 'answerable_lead_in', 'distinct_misconceptions', 'complete_explanation'];
+  if (verdict === 'pass' && rubric.some((key) => data.get(key) !== 'on')) {
+    showActionStatus('Complete every editorial rubric item before passing.', {
+      tone: 'warning',
+      focus: true,
+      assertive: true,
+    });
+    return;
+  }
+  if (verdict !== 'pass' && !note) {
+    showActionStatus('A review note is required for rejection or revision requests.', {
+      tone: 'warning',
+      focus: true,
+      assertive: true,
+    });
+    return;
+  }
+  await api('/api/v1/review-events', {
+    method: 'POST',
+    body: {
+      item_revision_id: form.dataset.revisionId,
+      reviewer_id: form.dataset.reviewerId,
+      assignment_id: form.dataset.assignmentId,
+      review_type: 'editorial',
+      exact_revision_hash: form.dataset.revisionHash,
+      verdict,
+      to_status: button.dataset.toStatus,
+      structured_findings: {
+        rubric: Object.fromEntries(rubric.map((key) => [key, data.get(key) === 'on'])),
+        note,
+      },
+    },
+  });
+  showActionStatus('Editorial decision recorded for the exact revision.', { focus: true });
+  await renderScreen('editorial');
+}
+
+async function handleAction(button) {
+  const action = button.dataset.action;
+  if (button.getAttribute('aria-disabled') === 'true') {
+    const reason = button.closest('.disabled-command')?.querySelector('.control-reason')?.textContent
+      || 'This command is blocked.';
+    showActionStatus(reason, { tone: 'warning', focus: true });
+    return;
+  }
+
+  switch (action) {
+    case 'retry-view':
+      await renderScreen(state.currentScreen, { focusHeading: true });
+      break;
+    case 'exit-scenario':
+      state.scenario = 'live';
+      scenarioSelect.value = 'live';
+      await renderScreen(state.currentScreen, { focusHeading: true });
+      break;
+    case 'open-source':
+      state.selectedSourceId = button.dataset.id;
+      navigate('source');
+      break;
+    case 'select-run':
+      state.selectedRunId = button.dataset.id;
+      await renderScreen('extraction');
+      break;
+    case 'queue-extraction': {
+      const run = newSyntheticRun('', 'queue');
+      showActionStatus(`Synthetic extraction ${run.id} queued.`, { focus: true });
+      await renderScreen('extraction');
+      break;
+    }
+    case 'retry-extraction':
+    case 'resume-extraction': {
+      const run = newSyntheticRun(button.dataset.id, action === 'resume-extraction' ? 'resume' : 'retry');
+      showActionStatus(`Synthetic extraction ${run.id} queued as a new run.`, { focus: true });
+      await renderScreen('extraction');
+      break;
+    }
+    case 'open-candidate':
+      await openCandidate(button.dataset.id);
+      break;
+    case 'open-editor':
+    case 'open-revision':
+      state.selectedRevisionId = button.dataset.id;
+      navigate('editor');
+      break;
+    case 'search-page':
+      state.search.page = Math.max(0, Number(button.dataset.page) || 0);
+      await renderScreen('search');
+      break;
+    case 'inspect-audit':
+      state.selectedAuditId = button.dataset.id;
+      await renderScreen('audit');
+      break;
+    case 'editorial-decision':
+      await submitEditorialDecision(button);
+      break;
+    case 'assemble-release': {
+      const datasetVersion = String(document.querySelector('#dataset-version')?.value || '').trim();
+      const assembled = await api('/api/v1/releases', {
+        method: 'POST',
+        body: { datasetVersion, itemRevisionIds: [button.dataset.revisionId] },
+      });
+      showActionStatus(`Internal release ${assembled.release.id} assembled.`, { focus: true });
+      await renderScreen('release');
+      break;
+    }
+    case 'preview-release': {
+      const artifact = await api(`/api/v1/releases/${encodeURIComponent(button.dataset.id)}/artifacts/stat_pre_answer`);
+      showActionStatus(`Answer-free artifact ${artifact.id || 'metadata'} verified for inspection.`, { focus: true });
+      break;
+    }
+    case 'blocked-command':
+      break;
+    default:
+      break;
+  }
+}
+
+primaryNav.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-screen]');
+  if (button) navigate(button.dataset.screen);
+});
+
+navToggle.addEventListener('click', () => {
+  setMobileNavigation(navToggle.getAttribute('aria-expanded') !== 'true');
+});
+
+refreshButton.addEventListener('click', () => {
+  void renderScreen(state.currentScreen, { focusHeading: true });
+});
+
+scenarioSelect.addEventListener('change', () => {
+  state.scenario = scenarioSelect.value;
+  void renderScreen(state.currentScreen, { focusHeading: true });
+});
+
+screen.addEventListener('click', (event) => {
+  const navigation = event.target.closest('[data-nav-screen]');
+  if (navigation) {
+    navigate(navigation.dataset.navScreen);
+    return;
+  }
+  const action = event.target.closest('[data-action]');
+  if (!action) return;
+  void handleAction(action).catch((error) => {
+    showActionStatus(humanize(error?.code || error?.message || 'request failed'), {
+      tone: 'danger',
+      focus: true,
+      assertive: true,
+    });
+  });
+});
+
+screen.addEventListener('input', (event) => {
+  if (!event.target.closest('#editor-form')) return;
+  state.editorDirty = true;
+  const saveState = document.querySelector('#save-state');
+  if (saveState) saveState.textContent = 'Unsaved changes';
+});
+
+screen.addEventListener('submit', (event) => {
+  event.preventDefault();
+  const form = event.target;
+  if (form.id === 'inventory-filter-form') {
+    const data = new FormData(form);
+    state.inventoryFilter = {
+      query: String(data.get('query') || ''),
+      status: String(data.get('status') || 'all'),
+    };
+    void renderScreen('inventory');
+  } else if (form.id === 'search-form') {
+    const data = new FormData(form);
+    state.search = {
+      query: String(data.get('query') || ''),
+      status: String(data.get('status') || 'all'),
+      sort: String(data.get('sort') || 'newest'),
+      page: 0,
+    };
+    void renderScreen('search');
+  } else if (form.id === 'audit-filter-form') {
+    const data = new FormData(form);
+    state.auditFilter = {
+      query: String(data.get('query') || ''),
+      entity: String(data.get('entity') || 'all'),
+    };
+    void renderScreen('audit');
+  } else if (form.id === 'editor-form') {
+    void submitEditor(form).catch((error) => {
+      showActionStatus(humanize(error?.code || error?.message || 'request failed'), {
+        tone: 'danger',
+        focus: true,
+        assertive: true,
+      });
+    });
+  }
+});
+
+async function boot() {
+  scenarioSelect.innerHTML = [
+    '<option value="live">Live safe routes</option>',
+    ...REQUIRED_STATES.map((id) => `<option value="${escapeHtml(id)}">${escapeHtml(humanize(id))}</option>`),
+  ].join('');
+  try {
+    state.health = await api('/api/health');
+    const localDemo = state.health.mode === 'LOCAL_SYNTHETIC_DEMO';
+    scenarioControl.hidden = !localDemo;
+    environmentMode.textContent = localDemo ? 'Local synthetic fixture' : 'Authenticated internal adapter';
+    actorIdentity.textContent = localDemo ? 'Local synthetic reviewer' : 'Authenticated internal session';
+    await renderScreen('dashboard');
+  } catch (error) {
+    environmentMode.textContent = 'Service unavailable';
+    actorIdentity.textContent = 'Identity unavailable';
+    screen.innerHTML = renderError(error);
+    screen.setAttribute('aria-busy', 'false');
+    announce('Question Platform unavailable', true);
+  }
+}
+
+export const bootPromise = boot();

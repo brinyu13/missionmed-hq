@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { JSDOM } from 'jsdom';
 
 const htmlPath = new URL('../public/index.html', import.meta.url);
 const cssPath = new URL('../public/styles.css', import.meta.url);
@@ -66,5 +67,58 @@ test('client declares every required operational state and privacy class', async
     'THIRD_PARTY_IDENTITY', 'IDENTIFYING_CLINICAL_ANECDOTE', 'SOURCE_METADATA',
   ]) {
     assert.match(app, new RegExp(`'${privacyClass}'`, 'u'));
+  }
+});
+
+test('client boots the dashboard and navigates with API-backed rendering', async () => {
+  const html = await readFile(htmlPath, 'utf8');
+  const dom = new JSDOM(html, { url: 'http://127.0.0.1:4176/' });
+  const originalGlobals = Object.fromEntries([
+    'document', 'window', 'FormData', 'fetch',
+  ].map((key) => [key, globalThis[key]]));
+  const payloads = new Map([
+    ['/api/health', { ok: true, service: 'i1q-question-platform', mode: 'LOCAL_SYNTHETIC_DEMO' }],
+    ['/api/v1/dashboard', {
+      inventory_sources: 1,
+      extraction_jobs: 0,
+      candidates: 0,
+      review_assignments: 0,
+      blocked_releases: 0,
+      incidents: 0,
+      governance_unassigned: ['medical_governance_lead'],
+      production_gate: 'BLOCKED',
+    }],
+    ['/api/v1/governance', { medical_governance_lead: null }],
+    ['/api/v1/resources/feature_flags?limit=200', { total: 0, rows: [] }],
+    ['/api/v1/resources/inventory_sources?limit=200', { total: 0, rows: [] }],
+  ]);
+
+  try {
+    globalThis.window = dom.window;
+    globalThis.document = dom.window.document;
+    globalThis.FormData = dom.window.FormData;
+    globalThis.fetch = async (path) => ({
+      ok: payloads.has(String(path)),
+      status: payloads.has(String(path)) ? 200 : 404,
+      json: async () => payloads.get(String(path)) || { error: 'not_found' },
+    });
+    dom.window.confirm = () => true;
+
+    const moduleUrl = `${appPath.href}?ui-test=${Date.now()}`;
+    const app = await import(moduleUrl);
+    await app.bootPromise;
+    assert.equal(dom.window.document.querySelector('#screen').getAttribute('aria-busy'), 'false');
+    assert.match(dom.window.document.querySelector('#screen').textContent, /Governance owners/u);
+
+    dom.window.document.querySelector('[data-screen="inventory"]').click();
+    await new Promise((resolve) => dom.window.setTimeout(resolve, 0));
+    assert.match(dom.window.document.querySelector('#screen').textContent, /No sources match/u);
+    assert.equal(dom.window.document.querySelector('[data-screen="inventory"]').getAttribute('aria-current'), 'page');
+  } finally {
+    dom.window.close();
+    for (const [key, value] of Object.entries(originalGlobals)) {
+      if (value === undefined) delete globalThis[key];
+      else globalThis[key] = value;
+    }
   }
 });
