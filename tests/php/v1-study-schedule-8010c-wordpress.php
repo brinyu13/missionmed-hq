@@ -203,6 +203,7 @@ try {
 	$request = new WP_REST_Request( 'GET', $v1_route );
 	$request->set_header( 'X-WP-Nonce', wp_create_nonce( 'wp_rest' ) );
 	$response = rest_do_request( $request );
+	$response = apply_filters( 'rest_post_dispatch', $response, rest_get_server(), $request );
 	v1_8010c_wp_expect_same( 200, $response->get_status(), 'real authenticated V1 bootstrap succeeds' );
 	v1_8010c_wp_expect_same( 1, $provider->calls, 'real permission and callback normalize entitlement once' );
 	v1_8010c_wp_expect_same( 1, $repository->calls, 'real permission and callback resolve mode once' );
@@ -213,7 +214,9 @@ try {
 	v1_8010c_wp_expect_same( 'private, no-store, max-age=0, must-revalidate', $headers['Cache-Control'] ?? null, 'real success is private no-store' );
 	v1_8010c_wp_expect_same( 'Cookie, X-WP-Nonce', $headers['Vary'] ?? null, 'real success varies on auth inputs' );
 
-	$missing_nonce = rest_do_request( new WP_REST_Request( 'GET', $v1_route ) );
+	$missing_request = new WP_REST_Request( 'GET', $v1_route );
+	$missing_nonce = rest_do_request( $missing_request );
+	$missing_nonce = apply_filters( 'rest_post_dispatch', $missing_nonce, rest_get_server(), $missing_request );
 	v1_8010c_wp_expect_same( 403, $missing_nonce->get_status(), 'real direct endpoint rejects missing nonce' );
 	$missing_headers = $missing_nonce->get_headers();
 	v1_8010c_wp_expect_same( 'private, no-store, max-age=0, must-revalidate', $missing_headers['Cache-Control'] ?? null, 'real denial is private no-store' );
