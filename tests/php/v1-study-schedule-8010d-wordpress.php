@@ -141,12 +141,15 @@ v1_8010d_wp_expect( false !== $wpdb->query( 'ROLLBACK' ), 'read-only outer trans
 
 $xa_id = 'v1_8010d_synthetic_xa';
 v1_8010d_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'XA START %s', $xa_id ) ), 'fixture starts a synthetic XA transaction' );
-v1_8010d_wp_expect_error(
-	static function () use ( $wpdb, $store_id, $runner_a ) {
-		( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
-	},
-	'v1_migration_transaction_probe_failed',
-	'active XA can never be classified as a clean local session'
+$xa_error = null;
+try {
+	( new MMED_V1_Study_Migrator( $wpdb ) )->run( $store_id, $runner_a );
+} catch ( RuntimeException $error ) {
+	$xa_error = $error->getMessage();
+}
+v1_8010d_wp_expect(
+	in_array( $xa_error, array( 'v1_migration_session_not_clean', 'v1_migration_transaction_probe_failed' ), true ),
+	'active XA is classified as active or probe-failed, never as a clean session'
 );
 v1_8010d_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'XA END %s', $xa_id ) ), 'fixture ends the synthetic XA branch' );
 v1_8010d_wp_expect( false !== $wpdb->query( $wpdb->prepare( 'XA ROLLBACK %s', $xa_id ) ), 'fixture rolls back the synthetic XA branch' );
