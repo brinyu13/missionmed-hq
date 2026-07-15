@@ -26,18 +26,52 @@ final class MMED_V1_Study_Release {
 	const LOADER_SHA256 = '5345977f2cc77f848c347cd4c3678507722a8203491db9fee30367e18abd310e';
 	const STYLE_ASSET   = 'v1-study-loader.8f5fec1fc495e441.css';
 	const STYLE_SHA256  = '8f5fec1fc495e441bdd29b0a3cee675b7396e83463acd0c67f0c8970e92f266b';
-	const RELEASE_SHA256 = '1ee979a7daf061c29308ef992f2906b5c0b2544daee0051aac5e7ff94505dcd8';
+	const MANIFEST_ASSET = 'v1-study-release.f07cd46b855c40a2.json';
+	const RELEASE_SHA256 = 'f07cd46b855c40a245200bbb67b733bcb68fb4cf9bcc99e18c257627a3f2c44a';
+
+	/**
+	 * Canonical, independently hashable release manifest payload.
+	 *
+	 * The checked-in JSON asset is exactly this object encoded without escaped
+	 * slashes and followed by one newline. It intentionally excludes its own
+	 * filename and digest so the fingerprint is reproducible and non-circular.
+	 *
+	 * @return array
+	 */
+	public static function manifest_descriptor() {
+		return array(
+			'bootstrap_route'  => self::BOOTSTRAP_ROUTE,
+			'contract_version' => self::CONTRACT_VERSION,
+			'control_version'  => self::CONTROL_VERSION,
+			'javascript'       => array(
+				'asset'  => self::LOADER_ASSET,
+				'sha256' => self::LOADER_SHA256,
+			),
+			'release_id'       => self::RELEASE_ID,
+			'release_option'   => self::RELEASE_OPTION,
+			'rest_namespace'   => self::REST_NAMESPACE,
+			'store_option'     => self::STORE_OPTION,
+			'stylesheet'       => array(
+				'asset'  => self::STYLE_ASSET,
+				'sha256' => self::STYLE_SHA256,
+			),
+		);
+	}
 
 	/** @return array */
 	public static function loader_descriptor() {
 		return array(
-			'release_id' => self::RELEASE_ID,
+			'release_id'     => self::RELEASE_ID,
 			'release_sha256' => self::RELEASE_SHA256,
-			'javascript' => array(
+			'manifest'       => array(
+				'asset'  => self::MANIFEST_ASSET,
+				'sha256' => self::RELEASE_SHA256,
+			),
+			'javascript'     => array(
 				'asset'  => self::LOADER_ASSET,
 				'sha256' => self::LOADER_SHA256,
 			),
-			'stylesheet' => array(
+			'stylesheet'     => array(
 				'asset'  => self::STYLE_ASSET,
 				'sha256' => self::STYLE_SHA256,
 			),

@@ -52,7 +52,7 @@ final class MMED_V1_Study_Loader {
 				'outcome'        => ! empty( $decision['allowed'] ) ? 'allow' : 'deny',
 				'reason_code'    => isset( $decision['reason_code'] ) ? $decision['reason_code'] : 'unknown',
 				'http_status'    => isset( $decision['status'] ) ? $decision['status'] : 500,
-				'release_digest' => MMED_V1_Study_Release::LOADER_SHA256,
+				'release_digest' => MMED_V1_Study_Release::RELEASE_SHA256,
 			)
 		);
 
@@ -87,6 +87,7 @@ final class MMED_V1_Study_Loader {
 	 */
 	public static function assets_valid() {
 		$assets = array(
+			array( MMED_V1_Study_Release::MANIFEST_ASSET, MMED_V1_Study_Release::RELEASE_SHA256, '.json' ),
 			array( MMED_V1_Study_Release::LOADER_ASSET, MMED_V1_Study_Release::LOADER_SHA256, '.js' ),
 			array( MMED_V1_Study_Release::STYLE_ASSET, MMED_V1_Study_Release::STYLE_SHA256, '.css' ),
 		);
@@ -110,7 +111,9 @@ final class MMED_V1_Study_Loader {
 			}
 		}
 
-		return true;
+		$manifest_path = MMED_HUB_PATH . 'assets/' . MMED_V1_Study_Release::MANIFEST_ASSET;
+		$manifest      = json_decode( (string) file_get_contents( $manifest_path ), true );
+		return is_array( $manifest ) && MMED_V1_Study_Release::manifest_descriptor() === $manifest;
 	}
 
 	/**
@@ -119,29 +122,12 @@ final class MMED_V1_Study_Loader {
 	 * @return bool
 	 */
 	private static function handles_available() {
-		$expected_script = MMED_HUB_URL . 'assets/' . MMED_V1_Study_Release::LOADER_ASSET;
-		$expected_style  = MMED_HUB_URL . 'assets/' . MMED_V1_Study_Release::STYLE_ASSET;
-
 		if ( wp_script_is( self::SCRIPT_HANDLE, 'registered' ) ) {
-			$scripts = function_exists( 'wp_scripts' ) ? wp_scripts() : null;
-			if (
-				! is_object( $scripts )
-				|| empty( $scripts->registered[ self::SCRIPT_HANDLE ] )
-				|| $expected_script !== (string) $scripts->registered[ self::SCRIPT_HANDLE ]->src
-			) {
-				return false;
-			}
+			return false;
 		}
 
 		if ( function_exists( 'wp_style_is' ) && wp_style_is( self::STYLE_HANDLE, 'registered' ) ) {
-			$styles = function_exists( 'wp_styles' ) ? wp_styles() : null;
-			if (
-				! is_object( $styles )
-				|| empty( $styles->registered[ self::STYLE_HANDLE ] )
-				|| $expected_style !== (string) $styles->registered[ self::STYLE_HANDLE ]->src
-			) {
-				return false;
-			}
+			return false;
 		}
 
 		return true;
@@ -167,7 +153,7 @@ final class MMED_V1_Study_Loader {
 			'writer'           => array( 'allowed' => ! empty( $mode['v1_writer_allowed'] ) ),
 			'release'          => array(
 				'id'     => MMED_V1_Study_Release::RELEASE_ID,
-				'digest' => MMED_V1_Study_Release::LOADER_SHA256,
+				'digest' => MMED_V1_Study_Release::RELEASE_SHA256,
 			),
 		);
 	}

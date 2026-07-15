@@ -333,6 +333,7 @@ v1_rest_expect_same( 1, $repository->calls, 'permission and callback resolve rep
 
 $payload = $response->get_data();
 v1_rest_expect_same( array( 'contract_version', 'mode', 'entitlement', 'exposure', 'reader', 'writer', 'release' ), array_keys( $payload ), 'public payload exact allowlist' );
+v1_rest_expect_same( MMED_V1_Study_Release::RELEASE_SHA256, $payload['release']['digest'], 'public payload carries canonical release digest' );
 v1_rest_expect_same( false, array_key_exists( 'api', $payload ), 'public payload contains no API or nonce carrier' );
 v1_rest_expect_same( false, false !== strpos( json_encode( $payload ), 'course_ids' ), 'public payload omits raw claim data' );
 
@@ -375,6 +376,13 @@ v1_rest_expect_same( array( 'mmed-student-os-js' ), $script['dependencies'], 'lo
 $inline = $GLOBALS['v1_inline_scripts'][ MMED_V1_Study_Loader::SCRIPT_HANDLE ]['source'];
 v1_rest_expect_same( false, false !== strpos( $inline, 'nonce' ), 'inline bootstrap contains no nonce' );
 v1_rest_expect_same( true, MMED_V1_Study_Loader::assets_valid(), 'full local asset hashes validate' );
+$manifest_path = MMED_HUB_PATH . 'assets/' . MMED_V1_Study_Release::MANIFEST_ASSET;
+v1_rest_expect_same( MMED_V1_Study_Release::RELEASE_SHA256, hash_file( 'sha256', $manifest_path ), 'release digest is recomputed from canonical manifest bytes' );
+v1_rest_expect_same(
+	MMED_V1_Study_Release::manifest_descriptor(),
+	json_decode( (string) file_get_contents( $manifest_path ), true ),
+	'canonical manifest exactly matches source descriptor'
+);
 
 // A conflicting prior registration refuses both the asset and trusted bootstrap.
 $GLOBALS['v1_enqueued_scripts'] = array();
@@ -386,6 +394,28 @@ $GLOBALS['v1_registered_script'][ MMED_V1_Study_Loader::SCRIPT_HANDLE ] = $confl
 MMED_V1_Study_Loader::enqueue();
 v1_rest_expect_same( false, isset( $GLOBALS['v1_enqueued_scripts'][ MMED_V1_Study_Loader::SCRIPT_HANDLE ] ), 'conflicting script handle blocks enqueue' );
 v1_rest_expect_same( false, isset( $GLOBALS['v1_inline_scripts'][ MMED_V1_Study_Loader::SCRIPT_HANDLE ] ), 'conflicting script handle blocks bootstrap' );
+
+// Even an exact-URL foreign registration is untrusted: dependencies, strategy,
+// and prior inline data are not owned by this release.
+$GLOBALS['v1_enqueued_scripts']  = array();
+$GLOBALS['v1_enqueued_styles']   = array();
+$GLOBALS['v1_inline_scripts']    = array();
+$GLOBALS['v1_registered_script'] = array();
+$GLOBALS['v1_registered_style']  = array();
+$same_source = new stdClass();
+$same_source->src = MMED_HUB_URL . 'assets/' . MMED_V1_Study_Release::LOADER_ASSET;
+$GLOBALS['v1_registered_script'][ MMED_V1_Study_Loader::SCRIPT_HANDLE ] = $same_source;
+MMED_V1_Study_Loader::enqueue();
+v1_rest_expect_same( array(), $GLOBALS['v1_enqueued_scripts'], 'exact-source foreign script registration blocks enqueue' );
+v1_rest_expect_same( array(), $GLOBALS['v1_inline_scripts'], 'exact-source foreign script registration blocks bootstrap' );
+
+$GLOBALS['v1_registered_script'] = array();
+$same_style = new stdClass();
+$same_style->src = MMED_HUB_URL . 'assets/' . MMED_V1_Study_Release::STYLE_ASSET;
+$GLOBALS['v1_registered_style'][ MMED_V1_Study_Loader::STYLE_HANDLE ] = $same_style;
+MMED_V1_Study_Loader::enqueue();
+v1_rest_expect_same( array(), $GLOBALS['v1_enqueued_styles'], 'exact-source foreign style registration blocks enqueue' );
+v1_rest_expect_same( array(), $GLOBALS['v1_inline_scripts'], 'exact-source foreign style registration blocks bootstrap' );
 
 // Decision 12 hold remains entirely hidden and emits no assets.
 $GLOBALS['v1_options'][ MMED_V1_Study_Release::STORE_OPTION ] = v1_rest_store_record( 'never_commissioned' );

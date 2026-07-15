@@ -5,6 +5,7 @@ on:
     paths:
       - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
       - "wp-content/plugins/missionmed-hub/assets/v1-study-loader.*"
+      - "wp-content/plugins/missionmed-hub/assets/v1-study-release.*"
       - "wp-content/plugins/missionmed-hub/includes/class-mmed-calendar-engine.php"
       - "wp-content/plugins/missionmed-hub/includes/class-mmed-study-schedule.php"
       - "wp-content/plugins/missionmed-hub/missionmed-hub.php"
