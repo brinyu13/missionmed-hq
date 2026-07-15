@@ -1,11 +1,12 @@
 {
-  "generated_at": "2026-07-15T14:36:54.656Z",
+  "generated_at": "2026-07-15T15:08:38.684Z",
   "status": "pass",
   "exit_code": 0,
   "test_files": [
     "tests/adapters-security.test.mjs",
     "tests/api.test.mjs",
     "tests/evidence-validator.test.mjs",
+    "tests/exports-class-c.test.mjs",
     "tests/migration-1007x.test.mjs",
     "tests/migration.test.mjs",
     "tests/performance.test.mjs",
@@ -16,7 +17,7 @@
     "tests/security-regressions.test.mjs",
     "tests/ui.test.mjs"
   ],
-  "passed_assertions": 205,
+  "passed_assertions": 213,
   "failed_assertions": 0,
-  "output_sha256": "a197deb9a28a2bfd23f88aa37d62025eeac00641d553c284b1deb2d8e226670e"
+  "output_sha256": "91a413394fcedac145f025024c42b3f188b10f7ae5a0940504d9b7594edd6fe3"
 }

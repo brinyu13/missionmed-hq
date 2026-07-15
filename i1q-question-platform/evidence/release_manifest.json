@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-15T14:36:54.656Z",
+  "generated_at": "2026-07-15T15:08:38.684Z",
   "status": "CONTRACT_FIXTURE_NOT_RELEASE",
   "classification": "SYNTHETIC_NON_CLINICAL",
   "manifest": {
@@ -35,7 +35,7 @@
         "channel": "stat_post_answer_debrief",
         "phase": "post_answer",
         "data_class": "C",
-        "sha256": "7f72388cd7a45c28b41c2f8fde4bd00dbed415bb1b1594cc4f3f499bc8e61795",
+        "sha256": "7a243b4a49eb71521e1887ee717e5d566716f1ff85f6e181474947e4d91ac382",
         "record_count": 1
       },
       {
@@ -109,7 +109,7 @@
         "record_count": 0
       }
     ],
-    "manifest_hash": "3859f07fc0541f3f0ddcf7fa8183cad1544b0de6e78a53363aadcc706b71dcd4"
+    "manifest_hash": "28512bf9db39fae7480b23e74ceb355152e0734831221b94be13b626b444d976"
   },
   "artifact_summaries": [
     {
@@ -127,7 +127,7 @@
     {
       "channel": "stat_post_answer_debrief",
       "phase": "post_answer",
-      "sha256": "7f72388cd7a45c28b41c2f8fde4bd00dbed415bb1b1594cc4f3f499bc8e61795",
+      "sha256": "7a243b4a49eb71521e1887ee717e5d566716f1ff85f6e181474947e4d91ac382",
       "record_count": 1
     },
     {
