@@ -1,6 +1,7 @@
 import {
   FEATURE_FLAG_KEYS,
   GOVERNANCE_SLOTS,
+  REQUIRED_RELEASE_VALIDATION_CHECK_IDS,
   RELEASE_RESTRICTED_FEATURE_FLAG_KEYS,
   RELEASE_TRANSITIONS,
   REVISION_TRANSITIONS,
@@ -18,6 +19,7 @@ import {
   assertPostAnswerAccess,
   buildReleaseArtifacts,
   projectDrillsAdapter,
+  releaseValidationEvidenceHash,
   scanForAnswerLeak,
 } from './exports.mjs';
 import { deterministicId, sha256 } from './hash.mjs';
@@ -27,6 +29,9 @@ const LOCAL_SYNTHETIC_CAPABILITY = Symbol('local_synthetic_capability');
 const SHA256_HEX = /^[0-9a-f]{64}$/u;
 const LOCKED_OFF_FLAGS = new Set(RELEASE_RESTRICTED_FEATURE_FLAG_KEYS);
 const REVIEWER_ROLES = new Set(['editorial_reviewer', 'physician_reviewer']);
+const GLOBAL_READ_ROLES = new Set(['platform_admin', 'content_operator', 'release_manager', 'system']);
+const PRIVACY_READ_ROLES = new Set(['platform_admin', 'privacy_officer', 'release_manager', 'system']);
+const OPERATIONAL_READ_ROLES = new Set(['platform_admin', 'content_operator', 'privacy_officer', 'system']);
 const REVISION_FIELDS = new Set([
   'item_id',
   'concept_id',
@@ -90,6 +95,20 @@ const REVIEW_EVENT_FIELDS = new Set([
   'verdict',
   'to_status',
   'structured_findings',
+]);
+const DRAFT_REVISION_PATCH_FIELDS = new Set([
+  'concept_id',
+  'source_ids',
+  'evidence_claim_ids',
+  'prompt',
+  'choices',
+  'answer',
+  'explanation',
+  'correct_answer_rationale',
+  'topic',
+  'subtopic',
+  'lineage',
+  'drills',
 ]);
 const ANSWER_FIELD_KEYS = new Set([
   'answer',
@@ -381,6 +400,14 @@ export class QuestionPlatform {
     return structuredClone(this.#governance);
   }
 
+  featureFlagEnabled(key) {
+    assert(FEATURE_FLAG_KEYS.includes(key), 'unknown_feature_flag');
+    return this.#repository.list('feature_flags', {
+      predicate: (row) => row.key === key && row.enabled === true,
+      limit: 1,
+    }).total > 0;
+  }
+
   assignGovernanceSlot(slot, reviewerId, actorInput) {
     const actor = requireRole(actorInput, 'platform_admin');
     assert(GOVERNANCE_SLOTS.includes(slot), 'unknown_governance_slot');
@@ -450,7 +477,11 @@ export class QuestionPlatform {
     if (entityType === 'audit_events') {
       requireAnyRole(actor, ['platform_admin', 'incident_owner', 'system']);
     }
-    const page = this.#repository.list(entityType, query);
+    const suppliedPredicate = typeof query?.predicate === 'function' ? query.predicate : () => true;
+    const page = this.#repository.list(entityType, {
+      ...query,
+      predicate: (row) => suppliedPredicate(row) && this.#canReadResource(entityType, row, actor),
+    });
     return { ...page, rows: page.rows.map((row) => this.#sanitizeResource(entityType, row, actor)) };
   }
 
@@ -468,7 +499,11 @@ export class QuestionPlatform {
     if (entityType === 'audit_events') {
       requireAnyRole(actor, ['platform_admin', 'incident_owner', 'system']);
     }
-    return this.#sanitizeResource(entityType, this.#repository.get(entityType, id), actor);
+    const row = this.#repository.get(entityType, id);
+    if (!this.#canReadResource(entityType, row, actor)) {
+      throw new AuthorizationError('resource_not_permitted');
+    }
+    return this.#sanitizeResource(entityType, row, actor);
   }
 
   update(entityType, id, patch, actorInput, options = {}) {
@@ -592,6 +627,92 @@ export class QuestionPlatform {
     }, { actorId: actor.id });
   }
 
+  #hasAnyRole(actor, roles) {
+    return actor.roles.some((role) => roles.has(role));
+  }
+
+  #hasGovernanceAccess(actor) {
+    return Object.values(this.#governance).some((reviewerId) => {
+      if (!reviewerId || !this.#repository.has('reviewers', reviewerId)) return false;
+      return this.#repository.get('reviewers', reviewerId).actor_id === actor.id;
+    });
+  }
+
+  #canReadRevision(revision, actor) {
+    if (this.#hasAnyRole(actor, GLOBAL_READ_ROLES)) return true;
+    if (revision.author_actor_id === actor.id && actor.roles.includes('author')) return true;
+    const assigned = this.#repository.list('review_assignments', {
+      predicate: (assignment) => assignment.item_revision_id === revision.id
+        && assignment.reviewer_actor_id === actor.id
+        && ['open', 'accepted', 'completed'].includes(assignment.state),
+      limit: 1,
+    }).total > 0;
+    if (assigned) return true;
+    return actor.roles.includes('read_only') && this.revisionStatus(revision.id) === 'approved';
+  }
+
+  #canReadResource(entityType, row, actor) {
+    if (entityType === 'feature_flags') return true;
+    if (entityType === 'item_revisions') return this.#canReadRevision(row, actor);
+    if (entityType === 'source_records') {
+      if (this.#hasAnyRole(actor, PRIVACY_READ_ROLES)) return true;
+      return this.#repository.list('item_revisions', {
+        predicate: (revision) => revision.source_ids?.includes(row.id) && this.#canReadRevision(revision, actor),
+        limit: 1,
+      }).total > 0;
+    }
+    if (entityType === 'evidence_claims') {
+      if (this.#hasAnyRole(actor, GLOBAL_READ_ROLES)) return true;
+      return this.#repository.list('item_revisions', {
+        predicate: (revision) => revision.evidence_claim_ids?.includes(row.id) && this.#canReadRevision(revision, actor),
+        limit: 1,
+      }).total > 0;
+    }
+    if (['review_assignments', 'review_events'].includes(entityType)) {
+      if (this.#hasAnyRole(actor, new Set(['platform_admin', 'release_manager', 'system']))) return true;
+      const revision = this.#repository.get('item_revisions', row.item_revision_id);
+      return row.reviewer_actor_id === actor.id
+        || revision.author_actor_id === actor.id
+        || this.#hasGovernanceAccess(actor);
+    }
+    if (entityType === 'reviewers') {
+      return row.actor_id === actor.id
+        || this.#hasAnyRole(actor, new Set(['platform_admin', 'release_manager', 'system']))
+        || this.#hasGovernanceAccess(actor);
+    }
+    if (['rights_records', 'privacy_redaction_records'].includes(entityType)) {
+      return this.#hasAnyRole(actor, PRIVACY_READ_ROLES);
+    }
+    if ([
+      'inventory_sources',
+      'transcript_artifacts',
+      'normalized_transcript_segments',
+      'extraction_runs',
+      'extraction_candidates',
+      'candidate_quality_flags',
+      'batch_jobs',
+      'job_checkpoints',
+      'api_idempotency_keys',
+    ].includes(entityType)) {
+      return this.#hasAnyRole(actor, OPERATIONAL_READ_ROLES);
+    }
+    if (entityType === 'audit_events') {
+      return this.#hasAnyRole(actor, new Set(['platform_admin', 'incident_owner', 'system']));
+    }
+    if (['export_validation_results', 'release_promotion_records'].includes(entityType)) {
+      return this.#hasAnyRole(actor, new Set(['release_manager', 'system']));
+    }
+    if (entityType === 'release_snapshots') {
+      if (this.#hasAnyRole(actor, GLOBAL_READ_ROLES)) return true;
+      const state = this.#repository.list('release_promotion_records', {
+        predicate: (promotion) => promotion.release_id === row.id,
+        limit: 200,
+      }).rows.sort((left, right) => left.sequence - right.sequence).at(-1)?.to_state || row.state;
+      return state === 'published' && actor.roles.includes('read_only');
+    }
+    return !actor.roles.includes('read_only');
+  }
+
   #sanitizeResource(entityType, row, actor) {
     let sanitized = structuredClone(row);
     if (entityType === 'item_revisions') {
@@ -671,6 +792,54 @@ export class QuestionPlatform {
     );
   }
 
+  editDraftRevision(itemRevisionId, patch, actorInput) {
+    const actor = requireAnyRole(actorInput, ['author', 'platform_admin']);
+    const revision = this.#repository.get('item_revisions', itemRevisionId);
+    assert(
+      revision.author_actor_id === actor.id || actor.roles.includes('platform_admin'),
+      'draft_revision_actor_mismatch',
+    );
+    assert(this.revisionStatus(revision.id) === 'draft', 'draft_revision_frozen');
+    const permittedPatch = allowlistedPayload(patch, DRAFT_REVISION_PATCH_FIELDS);
+    const candidatePayload = {};
+    for (const field of REVISION_FIELDS) {
+      if (field === 'item_id' || field === 'export_question_id' || DRAFT_REVISION_PATCH_FIELDS.has(field)) {
+        candidatePayload[field] = Object.hasOwn(permittedPatch, field) ? permittedPatch[field] : revision[field];
+      }
+    }
+    const candidate = validateRevisionPayload(candidatePayload);
+    assert(this.#repository.has('concepts', candidate.concept_id), 'concept_not_found');
+    for (const sourceId of candidate.source_ids) {
+      assert(this.#repository.has('source_records', sourceId), 'source_not_found');
+    }
+    for (const claimId of candidate.evidence_claim_ids) {
+      assert(this.#repository.has('evidence_claims', claimId), 'claim_not_found');
+    }
+    assert(candidate.source_ids.includes(candidate.drills.source_record_id), 'drills_source_record_mismatch');
+    const drillsSource = this.#repository.get('source_records', candidate.drills.source_record_id);
+    assert(drillsSource.source_hash === candidate.drills.source_hash, 'drills_source_hash_mismatch');
+    return this.#repository.updateItemRevision(revision.id, candidate, {
+      actorId: actor.id,
+      expectedHash: revision.content_hash,
+      action: 'draft_revision_edited',
+    });
+  }
+
+  submitRevisionCandidate(itemRevisionId, actorInput) {
+    const actor = requireAnyRole(actorInput, ['author', 'platform_admin']);
+    const revision = this.#repository.get('item_revisions', itemRevisionId);
+    assert(
+      revision.author_actor_id === actor.id || actor.roles.includes('platform_admin'),
+      'revision_submission_actor_mismatch',
+    );
+    assert(this.revisionStatus(revision.id) === 'draft', 'revision_submission_state_invalid');
+    return this.#repository.updateItemRevision(revision.id, { workflow_status: 'candidate' }, {
+      actorId: actor.id,
+      expectedHash: revision.content_hash,
+      action: 'revision_submitted_candidate',
+    });
+  }
+
   #assertNoReviewConflict(reviewer, revision) {
     assert(revision.author_actor_id !== reviewer.actor_id, 'self_review_forbidden');
     assert(reviewer.delegated_by_actor_id !== revision.author_actor_id, 'indirect_self_review_forbidden');
@@ -693,13 +862,19 @@ export class QuestionPlatform {
     if (assignmentInput.review_type === 'medical') {
       assert(currentMedicalCredential(reviewer), 'physician_credential_not_verified');
     }
+    const workflowState = this.revisionStatus(revision.id);
+    if (assignmentInput.review_type === 'medical') {
+      assert(workflowState === 'medical_review', 'medical_review_requires_editorial_pass');
+    } else {
+      assert(workflowState === 'candidate', 'editorial_assignment_state_invalid');
+    }
     if (assignmentInput.exact_revision_hash !== undefined) {
       assert(assignmentInput.exact_revision_hash === revision.content_hash, 'assignment_revision_hash_mismatch');
     }
     assert(this.#repository.list('review_assignments', {
       predicate: (row) => row.item_revision_id === revision.id
         && row.review_type === assignmentInput.review_type
-        && row.state === 'accepted',
+        && ['open', 'accepted'].includes(row.state),
       limit: 1,
     }).total === 0, 'active_assignment_exists');
     return this.#repository.create('review_assignments', {
@@ -711,9 +886,30 @@ export class QuestionPlatform {
       exact_revision_hash: revision.content_hash,
       credential_status: reviewer.credential?.status || 'not_applicable',
       credential_verification_id: reviewer.credential?.verification_id || null,
-      state: 'accepted',
+      state: 'open',
       assigned_by: actor.id,
     }, { actorId: actor.id });
+  }
+
+  acceptReviewAssignment(assignmentId, actorInput) {
+    const actor = requireWrite(actorInput);
+    const assignment = this.#repository.get('review_assignments', assignmentId);
+    assert(assignment.reviewer_actor_id === actor.id, 'assignment_actor_mismatch');
+    assert(actor.roles.includes(assignment.required_role), 'assignment_role_mismatch');
+    const reviewer = this.#repository.get('reviewers', assignment.reviewer_id);
+    if (assignment.review_type === 'medical') {
+      assert(currentMedicalCredential(reviewer), 'physician_credential_not_verified');
+      assert(assignment.credential_verification_id === reviewer.credential.verification_id, 'assignment_credential_mismatch');
+    }
+    if (assignment.state === 'accepted') return assignment;
+    assert(assignment.state === 'open', 'assignment_not_open');
+    return this.#repository.update('review_assignments', assignment.id, {
+      state: 'accepted',
+      accepted_at: this.#repository.now(),
+    }, {
+      actorId: actor.id,
+      expectedHash: assignment.content_hash,
+    });
   }
 
   revisionStatus(itemRevisionId) {
@@ -722,7 +918,18 @@ export class QuestionPlatform {
       predicate: (event) => event.item_revision_id === itemRevisionId,
       limit: 200,
     }).rows.sort((a, b) => a.sequence - b.sequence);
-    return events.at(-1)?.to_status || revision.workflow_status;
+    const current = events.at(-1)?.to_status || revision.workflow_status;
+    if (current === 'candidate') {
+      const acceptedEditorial = this.#repository.list('review_assignments', {
+        predicate: (assignment) => assignment.item_revision_id === itemRevisionId
+          && assignment.review_type === 'editorial'
+          && assignment.state === 'accepted'
+          && assignment.exact_revision_hash === revision.content_hash,
+        limit: 1,
+      }).total > 0;
+      if (acceptedEditorial) return 'editorial_review';
+    }
+    return current;
   }
 
   submitReviewEvent(payload, actorInput) {
@@ -750,11 +957,14 @@ export class QuestionPlatform {
     }
 
     const fromStatus = this.revisionStatus(revision.id);
-    assert((REVISION_TRANSITIONS[fromStatus] || []).includes(eventInput.to_status), 'illegal_revision_transition');
     assert(['pass', 'needs_revision', 'fail'].includes(eventInput.verdict), 'review_verdict_invalid');
 
+    let toStatus;
     if (eventInput.review_type === 'editorial') {
-      assert(eventInput.to_status !== 'approved', 'editorial_cannot_medically_approve');
+      assert(fromStatus === 'editorial_review', 'editorial_review_state_invalid');
+      toStatus = eventInput.verdict === 'pass'
+        ? 'medical_review'
+        : eventInput.verdict === 'needs_revision' ? 'candidate' : 'rejected';
     } else {
       assert(fromStatus === 'medical_review', 'medical_review_requires_editorial_pass');
       assert(currentMedicalCredential(reviewer), 'physician_credential_not_verified');
@@ -763,17 +973,21 @@ export class QuestionPlatform {
         assignment.credential_verification_id === reviewer.credential.verification_id,
         'assignment_credential_mismatch',
       );
-      if (eventInput.to_status === 'approved') {
+      toStatus = eventInput.verdict === 'pass'
+        ? 'approved'
+        : eventInput.verdict === 'needs_revision' ? 'editorial_review' : 'rejected';
+      if (toStatus === 'approved') {
         assert(this.#governance.medical_governance_lead !== null, 'medical_governance_lead_unassigned');
         assert(eventInput.verdict === 'pass', 'medical_pass_required');
       }
     }
+    assert(eventInput.to_status === toStatus, 'review_transition_mismatch');
 
     const sequence = this.#repository.list('review_events', {
       predicate: (event) => event.item_revision_id === revision.id,
       limit: 200,
     }).total + 1;
-    return this.#repository.create('review_events', {
+    const event = this.#repository.create('review_events', {
       item_revision_id: revision.id,
       reviewer_id: reviewer.id,
       reviewer_actor_id: reviewer.actor_id,
@@ -785,13 +999,22 @@ export class QuestionPlatform {
       credential_status: reviewer.credential?.status || 'not_applicable',
       credential_verification_id: reviewer.credential?.verification_id || null,
       verdict: eventInput.verdict,
-      to_status: eventInput.to_status,
+      to_status: toStatus,
       structured_findings: validateReviewFindings(eventInput.structured_findings),
       from_status: fromStatus,
       sequence,
       exact_revision_hash: revision.content_hash,
       actor_id: actor.id,
     }, { actorId: actor.id });
+    this.#repository.update('review_assignments', assignment.id, {
+      state: 'completed',
+      completed_at: this.#repository.now(),
+      review_event_id: event.id,
+    }, {
+      actorId: actor.id,
+      expectedHash: assignment.content_hash,
+    });
+    return event;
   }
 
   assembleRelease(payload, actorInput) {
@@ -831,6 +1054,7 @@ export class QuestionPlatform {
         const rights = this.#repository.get('rights_records', source.rights_record_id);
         const privacy = this.#repository.get('privacy_redaction_records', source.privacy_redaction_record_id);
         assert(rights.rights_status === 'cleared_for', 'source_rights_not_cleared');
+        assert(!rights.expires_at || Date.parse(rights.expires_at) > Date.now(), 'source_rights_expired');
         assert(['pass', 'pass_with_redactions'].includes(privacy.status), 'source_privacy_not_cleared');
         if (source.id === revision.drills.source_record_id) {
           assert(source.source_hash === revision.drills.source_hash, 'drills_source_hash_mismatch');
@@ -881,13 +1105,44 @@ export class QuestionPlatform {
     const release = this.#repository.get('release_snapshots', releaseId);
     assert(validationInput.manifest_hash === release.manifest.manifest_hash, 'manifest_hash_mismatch');
     assert(SHA256_HEX.test(validationInput.evidence_hash || ''), 'validator_evidence_hash_required');
-    assert(Array.isArray(validationInput.checks) && validationInput.checks.length > 0, 'validator_checks_required');
+    assert(Array.isArray(validationInput.checks), 'validator_checks_required');
     const checkIds = validationInput.checks.map((check) => {
       const normalized = allowlistedPayload(check, new Set(['id', 'status']));
       assert(typeof normalized.id === 'string' && normalized.id.trim(), 'validator_check_id_required');
       assert(normalized.status === 'pass', 'validator_check_failed');
       return normalized.id.trim();
     });
+    const uniqueCheckIds = unique(checkIds).sort();
+    assert(
+      checkIds.length === REQUIRED_RELEASE_VALIDATION_CHECK_IDS.length
+      && uniqueCheckIds.length === REQUIRED_RELEASE_VALIDATION_CHECK_IDS.length
+      && uniqueCheckIds.every((checkId, index) => checkId === REQUIRED_RELEASE_VALIDATION_CHECK_IDS[index]),
+      'official_validator_checks_required',
+    );
+    const artifacts = this.#repository.list('channel_artifacts', {
+      predicate: (artifact) => artifact.release_id === releaseId,
+      limit: 200,
+    }).rows;
+    const manifestArtifacts = release.manifest.artifact_hashes || [];
+    assert(artifacts.length > 0 && artifacts.length === manifestArtifacts.length, 'validator_artifact_set_mismatch');
+    for (const artifact of artifacts) {
+      const manifestArtifact = manifestArtifacts.find((entry) => entry.channel === artifact.channel);
+      assert(
+        manifestArtifact
+        && manifestArtifact.phase === artifact.phase
+        && manifestArtifact.data_class === artifact.data_class
+        && manifestArtifact.sha256 === artifact.sha256
+        && manifestArtifact.record_count === artifact.record_count,
+        'validator_artifact_manifest_mismatch',
+      );
+    }
+    const expectedEvidenceHash = releaseValidationEvidenceHash({
+      releaseId,
+      manifestHash: release.manifest.manifest_hash,
+      artifacts,
+      checks: validationInput.checks,
+    });
+    assert(validationInput.evidence_hash === expectedEvidenceHash, 'validator_evidence_hash_mismatch');
     assert(release.assembled_by_actor_id && release.assembled_by_actor_id !== actor.id, 'release_actor_separation_required');
     assert(this.#repository.list('export_validation_results', {
       predicate: (row) => row.release_id === releaseId && row.status === 'pass',
@@ -897,7 +1152,14 @@ export class QuestionPlatform {
       release_id: releaseId,
       manifest_hash: release.manifest.manifest_hash,
       evidence_hash: validationInput.evidence_hash,
-      check_ids: unique(checkIds),
+      check_ids: uniqueCheckIds,
+      artifact_results: artifacts.map((artifact) => ({
+        artifact_id: artifact.id,
+        channel: artifact.channel,
+        artifact_hash: artifact.sha256,
+        check_ids: uniqueCheckIds,
+        status: 'pass',
+      })),
       status: 'pass',
       validator_actor_id: actor.id,
       validated_at: this.#repository.now(),
@@ -988,10 +1250,8 @@ export class QuestionPlatform {
       assert(actor.id !== release.assembled_by_actor_id, 'release_actor_separation_required');
       assert(actor.id !== validation.validator_actor_id, 'release_actor_separation_required');
       assert(actor.id !== ratifiedPromotion.actor_id, 'release_actor_separation_required');
-      const studentFlag = this.#repository.list('feature_flags', {
-        predicate: (row) => row.key === 'student_release_enabled' && row.enabled === true,
-      }).rows[0];
-      assert(Boolean(studentFlag), 'student_release_feature_flag_disabled');
+      assert(this.featureFlagEnabled('student_content_enabled'), 'student_content_feature_flag_disabled');
+      assert(this.featureFlagEnabled('student_release_enabled'), 'student_release_feature_flag_disabled');
       assert(this.#governance.release_manager !== null, 'release_manager_unassigned');
       assert(this.#governance.medical_governance_lead !== null, 'medical_governance_lead_unassigned');
       const releaseManager = this.#repository.get('reviewers', this.#governance.release_manager);
@@ -1018,6 +1278,11 @@ export class QuestionPlatform {
 
   artifactForPhase(releaseId, channel, finalizationContext, actorInput) {
     const actor = requireRead(actorInput);
+    if (channel === 'drills') {
+      assert(this.featureFlagEnabled('drills_adapter_enabled'), 'consumer_feature_flag_disabled');
+    } else if (channel.startsWith('stat_') || channel === 'question_metadata') {
+      assert(this.featureFlagEnabled('stat_adapter_enabled'), 'consumer_feature_flag_disabled');
+    }
     const artifact = this.#repository.list('channel_artifacts', {
       predicate: (row) => row.release_id === releaseId && row.channel === channel,
       limit: 2,

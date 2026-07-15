@@ -194,6 +194,43 @@ export function createQuestionPlatformServer({
         actor = localDemoActor(request, localDemo);
       }
 
+      if (request.method === 'GET' && url.pathname === '/api/v1/session') {
+        json(response, 200, {
+          actor: { id: actor.id, roles: [...actor.roles] },
+          session: identityContext ? {
+            expires_at: identityContext.session.expiresAt,
+            csrf_token: identityContext.requestSecurity?.csrfToken || null,
+          } : {
+            expires_at: null,
+            csrf_token: null,
+          },
+        });
+        return;
+      }
+
+      const featureFlagMutation = request.method === 'PUT'
+        && /^\/api\/v1\/feature-flags\/[a-z_]+$/u.test(url.pathname);
+      if (
+        !localDemo
+        && !featureFlagMutation
+        && !platform.featureFlagEnabled('internal_platform_enabled')
+      ) {
+        throw new AuthorizationError('internal_platform_disabled', 403);
+      }
+
+      const reviewMutation = request.method === 'POST' && (
+        url.pathname === '/api/v1/review-assignments'
+        || /^\/api\/v1\/review-assignments\/[^/]+\/accept$/u.test(url.pathname)
+        || url.pathname === '/api/v1/review-events'
+      );
+      if (
+        !localDemo
+        && reviewMutation
+        && !platform.featureFlagEnabled('internal_review_enabled')
+      ) {
+        throw new AuthorizationError('internal_review_disabled', 403);
+      }
+
       if (request.method === 'GET' && url.pathname === '/api/v1/dashboard') {
         json(response, 200, dashboard(platform, actor));
         return;
@@ -260,8 +297,28 @@ export function createQuestionPlatformServer({
         }));
         return;
       }
+      const draftRevisionMatch = url.pathname.match(/^\/api\/v1\/item-revisions\/([^/]+)\/draft$/u);
+      if (request.method === 'PATCH' && draftRevisionMatch) {
+        json(response, 200, platform.editDraftRevision(draftRevisionMatch[1], await readJson(request), actor));
+        return;
+      }
+      const submitRevisionMatch = url.pathname.match(/^\/api\/v1\/item-revisions\/([^/]+)\/submit-candidate$/u);
+      if (request.method === 'POST' && submitRevisionMatch) {
+        json(response, 200, platform.submitRevisionCandidate(submitRevisionMatch[1], actor));
+        return;
+      }
       if (request.method === 'POST' && url.pathname === '/api/v1/review-assignments') {
         json(response, 201, platform.createReviewAssignment(await readJson(request), actor));
+        return;
+      }
+      const acceptAssignmentMatch = url.pathname.match(/^\/api\/v1\/review-assignments\/([^/]+)\/accept$/u);
+      if (request.method === 'POST' && acceptAssignmentMatch) {
+        json(response, 200, platform.acceptReviewAssignment(acceptAssignmentMatch[1], actor));
+        return;
+      }
+      const assignmentAcceptMatch = url.pathname.match(/^\/api\/v1\/review-assignments\/([^/]+)\/accept$/u);
+      if (request.method === 'POST' && assignmentAcceptMatch) {
+        json(response, 200, platform.acceptReviewAssignment(assignmentAcceptMatch[1], actor));
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/v1/review-events') {

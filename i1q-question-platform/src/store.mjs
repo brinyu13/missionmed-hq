@@ -100,6 +100,18 @@ export class MemoryRepository {
     if (IMMUTABLE_ENTITY_TYPES.has(entityType)) {
       throw new ConflictError(`immutable_entity:${entityType}`);
     }
+    return this.#writeUpdate(entityType, id, patch, { actorId, expectedHash });
+  }
+
+  updateItemRevision(id, patch, { actorId = 'system', expectedHash = null, action = 'workflow_update' } = {}) {
+    return this.#writeUpdate('item_revisions', id, patch, { actorId, expectedHash, action });
+  }
+
+  #writeUpdate(entityType, id, patch, {
+    actorId = 'system',
+    expectedHash = null,
+    action = 'update',
+  } = {}) {
     const current = this.get(entityType, id);
     if (expectedHash && current.content_hash !== expectedHash) {
       throw new ConflictError(`optimistic_lock_failed:${entityType}:${id}`);
@@ -114,7 +126,7 @@ export class MemoryRepository {
     delete nextPayload.content_hash;
     const next = Object.freeze({ ...nextPayload, content_hash: sha256(nextPayload) });
     this.#collections.get(entityType).set(id, next);
-    this.appendAudit({ actor_id: actorId, action: 'update', entity_type: entityType, entity_id: id });
+    this.appendAudit({ actor_id: actorId, action, entity_type: entityType, entity_id: id });
     return clone(next);
   }
 

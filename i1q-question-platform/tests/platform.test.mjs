@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  REQUIRED_RELEASE_VALIDATION_CHECK_IDS,
   STAT_DATASET_FIELDS,
 } from '../src/contracts.mjs';
 import {
   buildReleaseArtifacts,
   projectStatDatasetQuestion,
+  releaseValidationEvidenceHash,
   scanForAnswerLeak,
 } from '../src/exports.mjs';
 import { canonicalJson, sha256, statPackHash } from '../src/hash.mjs';
@@ -120,22 +122,26 @@ function seedPlatform() {
 }
 
 function passEditorial(platform, revision) {
+  platform.submitRevisionCandidate(revision.id, actors.author);
   const assignment = platform.createReviewAssignment({
     item_revision_id: revision.id,
     reviewer_id: 'reviewer_editor',
     review_type: 'editorial',
   }, actors.admin);
-  for (const toStatus of ['candidate', 'editorial_review', 'medical_review']) {
-    platform.submitReviewEvent({
-      item_revision_id: revision.id,
-      reviewer_id: 'reviewer_editor',
-      assignment_id: assignment.id,
-      review_type: 'editorial',
-      verdict: 'pass',
-      to_status: toStatus,
-      structured_findings: {},
-    }, actors.editor);
-  }
+  platform.acceptReviewAssignment(assignment.id, actors.editor);
+  platform.submitReviewEvent({
+    item_revision_id: revision.id,
+    reviewer_id: 'reviewer_editor',
+    assignment_id: assignment.id,
+    review_type: 'editorial',
+    verdict: 'pass',
+    to_status: 'medical_review',
+    structured_findings: {},
+  }, actors.editor);
+}
+
+function officialChecks() {
+  return REQUIRED_RELEASE_VALIDATION_CHECK_IDS.map((id) => ({ id, status: 'pass' }));
 }
 
 test('canonical hashing normalizes Unicode and object key order', () => {
@@ -211,8 +217,8 @@ test('item revisions and audit events are immutable and audit chain verifies', (
 test('idempotent revision creation returns one exact result', () => {
   const { platform, revision } = seedPlatform();
   const page = platform.list('item_revisions', {}, actors.reader);
-  assert.equal(page.total, 1);
-  assert.equal(page.rows[0].id, revision.id);
+  assert.equal(page.total, 0);
+  assert.equal(platform.list('item_revisions', {}, actors.author).rows[0].id, revision.id);
 });
 
 test('workflow-managed entities reject generic create and update bypasses', () => {
@@ -224,21 +230,13 @@ test('workflow-managed entities reject generic create and update bypasses', () =
 
 test('review events use the canonical needs_revision verdict', () => {
   const { platform, revision } = seedPlatform();
+  platform.submitRevisionCandidate(revision.id, actors.author);
   const assignment = platform.createReviewAssignment({
     item_revision_id: revision.id,
     reviewer_id: 'reviewer_editor',
     review_type: 'editorial',
   }, actors.admin);
-  for (const toStatus of ['candidate', 'editorial_review']) {
-    platform.submitReviewEvent({
-      item_revision_id: revision.id,
-      reviewer_id: 'reviewer_editor',
-      assignment_id: assignment.id,
-      review_type: 'editorial',
-      verdict: 'pass',
-      to_status: toStatus,
-    }, actors.editor);
-  }
+  platform.acceptReviewAssignment(assignment.id, actors.editor);
   const event = platform.submitReviewEvent({
     item_revision_id: revision.id,
     reviewer_id: 'reviewer_editor',
@@ -250,11 +248,13 @@ test('review events use the canonical needs_revision verdict', () => {
   assert.equal(event.verdict, 'needs_revision');
 
   const second = seedPlatform();
+  second.platform.submitRevisionCandidate(second.revision.id, actors.author);
   const secondAssignment = second.platform.createReviewAssignment({
     item_revision_id: second.revision.id,
     reviewer_id: 'reviewer_editor',
     review_type: 'editorial',
   }, actors.admin);
+  second.platform.acceptReviewAssignment(secondAssignment.id, actors.editor);
   assert.throws(() => second.platform.submitReviewEvent({
     item_revision_id: second.revision.id,
     reviewer_id: 'reviewer_editor',
@@ -268,7 +268,7 @@ test('review events use the canonical needs_revision verdict', () => {
 test('private source references are hidden from ordinary internal readers', () => {
   const { platform } = seedPlatform();
   platform.repository.update('source_records', 'src_test', { private_storage_ref: 'private://fixture' }, { actorId: actors.admin.id });
-  const readerView = platform.get('source_records', 'src_test', actors.reader);
+  const readerView = platform.get('source_records', 'src_test', actors.author);
   const adminView = platform.get('source_records', 'src_test', actors.admin);
   assert.equal(readerView.private_storage_ref, undefined);
   assert.equal(adminView.private_storage_ref, 'private://fixture');
@@ -277,19 +277,11 @@ test('private source references are hidden from ordinary internal readers', () =
 test('medical approval cannot occur before editorial review', () => {
   const { platform, revision } = seedPlatform();
   platform.assignGovernanceSlot('medical_governance_lead', 'reviewer_physician', actors.admin);
-  const assignment = platform.createReviewAssignment({
+  assert.throws(() => platform.createReviewAssignment({
     item_revision_id: revision.id,
     reviewer_id: 'reviewer_physician',
     review_type: 'medical',
-  }, actors.admin);
-  assert.throws(() => platform.submitReviewEvent({
-    item_revision_id: revision.id,
-    reviewer_id: 'reviewer_physician',
-    assignment_id: assignment.id,
-    review_type: 'medical',
-    verdict: 'pass',
-    to_status: 'approved',
-  }, actors.physician), /illegal_revision_transition|medical_review_requires_editorial_pass/);
+  }, actors.admin), /medical_review_requires_editorial_pass/);
 });
 
 test('unassigned medical governance blocks exact approval', () => {
@@ -300,6 +292,7 @@ test('unassigned medical governance blocks exact approval', () => {
     reviewer_id: 'reviewer_physician',
     review_type: 'medical',
   }, actors.admin);
+  platform.acceptReviewAssignment(assignment.id, actors.physician);
   assert.throws(() => platform.submitReviewEvent({
     item_revision_id: revision.id,
     reviewer_id: 'reviewer_physician',
@@ -320,6 +313,7 @@ test('credentialed exact-revision approval enables assembly but not publication'
     reviewer_id: 'reviewer_physician',
     review_type: 'medical',
   }, actors.admin);
+  platform.acceptReviewAssignment(assignment.id, actors.physician);
   platform.submitReviewEvent({
     item_revision_id: revision.id,
     reviewer_id: 'reviewer_physician',
@@ -333,10 +327,16 @@ test('credentialed exact-revision approval enables assembly but not publication'
   assert.deepEqual(assembled.release.release_membership, assembled.release.manifest.release_membership);
   assert.equal(assembled.release.release_membership[0].question_id, revision.export_question_id);
   assert.equal(assembled.artifacts.some((artifact) => Object.hasOwn(artifact, 'payload')), false);
+  const checks = officialChecks();
   const validation = platform.recordReleaseValidation(assembled.release.id, {
     manifest_hash: assembled.release.manifest.manifest_hash,
-    evidence_hash: sha256('synthetic release validation evidence'),
-    checks: [{ id: 'synthetic_release_suite', status: 'pass' }],
+    evidence_hash: releaseValidationEvidenceHash({
+      releaseId: assembled.release.id,
+      manifestHash: assembled.release.manifest.manifest_hash,
+      artifacts: assembled.artifacts,
+      checks,
+    }),
+    checks,
   }, actors.validator);
   platform.promoteRelease(assembled.release.id, {
     to_state: 'validated',
@@ -352,8 +352,8 @@ test('credentialed exact-revision approval enables assembly but not publication'
     to_state: 'published',
     manifest_hash: assembled.release.manifest.manifest_hash,
     validation_evidence_id: validation.id,
-  }, actors.publisher), /student_release_feature_flag_disabled/);
-  assert.throws(() => platform.artifactForPhase(assembled.release.id, 'stat_post_answer_debrief', 'pre_answer', actors.admin), /finalization_required/);
+  }, actors.publisher), /student_content_feature_flag_disabled|student_release_feature_flag_disabled/);
+  assert.throws(() => platform.artifactForPhase(assembled.release.id, 'stat_post_answer_debrief', 'pre_answer', actors.admin), /consumer_feature_flag_disabled/);
 });
 
 test('retracted claims and restricted rights block release assembly', () => {
@@ -365,6 +365,7 @@ test('retracted claims and restricted rights block release assembly', () => {
     reviewer_id: 'reviewer_physician',
     review_type: 'medical',
   }, actors.admin);
+  platform.acceptReviewAssignment(assignment.id, actors.physician);
   platform.submitReviewEvent({
     item_revision_id: revision.id,
     reviewer_id: 'reviewer_physician',
@@ -378,6 +379,11 @@ test('retracted claims and restricted rights block release assembly', () => {
   platform.repository.update('evidence_claims', 'claim_test', { status: 'verified' }, { actorId: actors.admin.id });
   platform.repository.update('rights_records', 'rights_test', { rights_status: 'restricted' }, { actorId: actors.admin.id });
   assert.throws(() => platform.assembleRelease({ datasetVersion: 'fixture_bad_rights', itemRevisionIds: [revision.id] }, actors.admin), /source_rights_not_cleared/);
+  platform.repository.update('rights_records', 'rights_test', {
+    rights_status: 'cleared_for',
+    expires_at: '2020-01-01T00:00:00.000Z',
+  }, { actorId: actors.admin.id });
+  assert.throws(() => platform.assembleRelease({ datasetVersion: 'fixture_expired_rights', itemRevisionIds: [revision.id] }, actors.admin), /source_rights_expired/);
 });
 
 test('pipeline normalizes, redacts, and never auto-approves', () => {

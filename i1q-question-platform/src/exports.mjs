@@ -1,5 +1,6 @@
 import {
   CHANNELS,
+  REQUIRED_RELEASE_VALIDATION_CHECK_IDS,
   STAT_CHANNEL_CONTRACTS,
 } from './contracts.mjs';
 import {
@@ -177,4 +178,35 @@ export function buildReleaseArtifacts({ releaseId, datasetVersion, revisions, pr
 
 export function scanForAnswerLeak(value, path = '$') {
   return scanClassASecrets(value, path);
+}
+
+export function releaseValidationEvidenceHash({ releaseId, manifestHash, artifacts, checks }) {
+  const normalizedChecks = checks
+    .map(({ id, status }) => ({ id: String(id), status: String(status) }))
+    .sort((left, right) => left.id.localeCompare(right.id));
+  const normalizedArtifacts = artifacts
+    .map((entry) => ({
+      channel: String(entry.channel),
+      phase: String(entry.phase),
+      data_class: String(entry.data_class),
+      sha256: String(entry.sha256 || entry.artifact_hash || ''),
+      record_count: Number(entry.record_count),
+    }))
+    .sort((left, right) => left.channel.localeCompare(right.channel));
+  if (
+    normalizedChecks.length !== REQUIRED_RELEASE_VALIDATION_CHECK_IDS.length
+    || normalizedChecks.some((check, index) => (
+      check.id !== REQUIRED_RELEASE_VALIDATION_CHECK_IDS[index]
+      || check.status !== 'pass'
+    ))
+  ) {
+    throw new Error('official_validator_checks_required');
+  }
+  return sha256({
+    contract: 'i1q.release-validation.v1',
+    release_id: String(releaseId),
+    manifest_hash: String(manifestHash),
+    artifacts: normalizedArtifacts,
+    checks: normalizedChecks,
+  });
 }

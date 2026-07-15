@@ -86,6 +86,15 @@ export const RELEASE_RESTRICTED_FEATURE_FLAG_KEYS = Object.freeze([
   'drills_adapter_enabled',
 ]);
 
+export const REQUIRED_RELEASE_VALIDATION_CHECK_IDS = Object.freeze([
+  'LT-1',
+  'LT-2',
+  'LT-3',
+  'LT-4',
+  'LT-5',
+  'LT-6',
+]);
+
 export const REQUIRED_PRIVACY_CLASSES = Object.freeze([
   'NON_DRJ_SPEECH',
   'STUDENT_NAME',

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createQuestionPlatformServer } from '../src/server.mjs';
+import { REQUIRED_RELEASE_VALIDATION_CHECK_IDS } from '../src/contracts.mjs';
+import { releaseValidationEvidenceHash } from '../src/exports.mjs';
 import { QuestionPlatform } from '../src/platform.mjs';
 import { sha256 } from '../src/hash.mjs';
 import { MemoryRepository } from '../src/store.mjs';
@@ -138,6 +140,10 @@ function seedAnswerBearingRevision(repository, suffix = 'read') {
   }, { id: `itemrev_${suffix}`, actorId: actors.author.id });
 }
 
+function enableSyntheticFlag(repository, key) {
+  repository.create('feature_flags', { key, enabled: true }, { id: `flag_${key}` });
+}
+
 test('ordinary resource GET and list are answer-free and generic artifacts stay protected', async () => {
   const repository = new MemoryRepository();
   const platform = new QuestionPlatform({ repository });
@@ -149,10 +155,9 @@ test('ordinary resource GET and list are answer-free and generic artifacts stay 
     payload: [{ answer: 'B', explanation: 'SECRET_ARTIFACT_EXPLANATION' }],
   }, { id: 'artifact_read' });
 
-  for (const view of [
-    platform.get('item_revisions', revision.id, actors.reader),
-    platform.list('item_revisions', {}, actors.reader).rows[0],
-  ]) {
+  assert.throws(() => platform.get('item_revisions', revision.id, actors.reader), /resource_not_permitted/);
+  assert.equal(platform.list('item_revisions', {}, actors.reader).total, 0);
+  for (const view of [platform.get('item_revisions', revision.id, actors.author)]) {
     const serialized = JSON.stringify(view);
     assert.equal(view.answer, undefined);
     assert.equal(view.explanation, undefined);
@@ -165,6 +170,7 @@ test('ordinary resource GET and list are answer-free and generic artifacts stay 
     () => platform.get('channel_artifacts', 'artifact_read', actors.assembler),
     /protected_route_required/,
   );
+  enableSyntheticFlag(repository, 'stat_adapter_enabled');
   assert.equal(
     platform.artifactForPhase('release_read', 'stat_dataset_questions', null, actors.assembler).payload[0].answer,
     'B',
@@ -175,8 +181,7 @@ test('ordinary resource GET and list are answer-free and generic artifacts stay 
     identityResolver: async () => identityContext(actors.reader),
   }, async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/v1/resources/item_revisions/${revision.id}`);
-    assert.equal(response.status, 200);
-    assert.doesNotMatch(JSON.stringify(await response.json()), /SECRET_|answerKey|why_wrong|why_tempting/u);
+    assert.equal(response.status, 403);
   });
 });
 
@@ -214,6 +219,8 @@ test('caller phase strings cannot unlock post-answer artifacts and participant p
     phase: 'post_answer',
     payload: [{ answer: 'B', explanation: 'Synthetic debrief' }],
   }, { id: 'artifact_phase' });
+  enableSyntheticFlag(repository, 'internal_platform_enabled');
+  enableSyntheticFlag(repository, 'stat_adapter_enabled');
 
   assert.throws(
     () => platform.artifactForPhase(
@@ -263,11 +270,13 @@ test('review events reject administrator impersonation, assignment-type swaps, a
     roles: ['editorial_reviewer'],
     credential: { type: 'editorial', status: 'verified' },
   }, actors.admin, { id: 'reviewer_editor_security' });
+  platform.submitRevisionCandidate(revision.id, actors.author);
   const assignment = platform.createReviewAssignment({
     item_revision_id: revision.id,
     reviewer_id: reviewer.id,
     review_type: 'editorial',
   }, actors.admin);
+  platform.acceptReviewAssignment(assignment.id, actors.editor);
   const baseEvent = {
     item_revision_id: revision.id,
     reviewer_id: reviewer.id,
@@ -333,20 +342,45 @@ test('release validation and ratification require exact evidence and independent
   const repository = new MemoryRepository();
   const platform = new QuestionPlatform({ repository });
   const manifestHash = 'a'.repeat(64);
+  const artifact = repository.create('channel_artifacts', {
+    release_id: 'release_separation',
+    channel: 'stat_pre_answer',
+    phase: 'pre_answer',
+    data_class: 'A',
+    sha256: 'd'.repeat(64),
+    record_count: 1,
+    payload: [{ question_id: 'Q1' }],
+  }, { id: 'artifact_separation' });
   const release = repository.create('release_snapshots', {
     release_id: 'release_separation',
     dataset_version: 'fixture_security_v1',
     state: 'assembled',
     item_revision_ids: [],
     release_membership: [],
-    manifest: { manifest_hash: manifestHash, release_membership: [] },
+    manifest: {
+      manifest_hash: manifestHash,
+      release_membership: [],
+      artifact_hashes: [{
+        channel: artifact.channel,
+        phase: artifact.phase,
+        data_class: artifact.data_class,
+        sha256: artifact.sha256,
+        record_count: artifact.record_count,
+      }],
+    },
     assembled_by_actor_id: actors.assembler.id,
   }, { id: 'release_separation', actorId: actors.assembler.id });
   const evidenceInput = {
     manifest_hash: manifestHash,
-    evidence_hash: 'b'.repeat(64),
-    checks: [{ id: 'synthetic_validator_suite', status: 'pass' }],
+    evidence_hash: '',
+    checks: REQUIRED_RELEASE_VALIDATION_CHECK_IDS.map((id) => ({ id, status: 'pass' })),
   };
+  evidenceInput.evidence_hash = releaseValidationEvidenceHash({
+    releaseId: release.id,
+    manifestHash,
+    artifacts: [artifact],
+    checks: evidenceInput.checks,
+  });
 
   assert.throws(
     () => platform.recordReleaseValidation(release.id, evidenceInput, actors.assembler),
@@ -388,7 +422,11 @@ test('release validation and ratification require exact evidence and independent
 });
 
 test('resolver-backed mutations require a session-bound CSRF token and trusted Origin', async () => {
+  const repository = new MemoryRepository();
+  enableSyntheticFlag(repository, 'internal_platform_enabled');
+  const platform = new QuestionPlatform({ repository });
   await withServer({
+    platform,
     identityResolver: async () => identityContext(actors.admin),
   }, async (baseUrl) => {
     const body = JSON.stringify({ title: 'Synthetic CSRF concept' });
