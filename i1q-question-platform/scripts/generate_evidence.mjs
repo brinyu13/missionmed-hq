@@ -9,7 +9,7 @@ import { createQuestionPlatformServer } from '../src/server.mjs';
 
 const APP_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const WORKTREE = dirname(APP_ROOT);
-const HANDOFF_ROOT = join(WORKTREE, '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1007X_MULTIAGENT');
+const HANDOFF_ROOT = join(WORKTREE, '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE');
 const FOUNDATION_AUDIT_PATH = join(
   WORKTREE,
   '_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1006_ULTRA_BUILD/audit/results/audit_summary.json',
@@ -114,7 +114,7 @@ function loadCheck() {
 async function releaseFixture() {
   const fixture = JSON.parse(await readFile(join(APP_ROOT, 'fixtures/synthetic_release_input.json'), 'utf8'));
   const generated = buildReleaseArtifacts({
-    releaseId: 'release_fixture_1007x',
+    releaseId: 'release_fixture_1008a',
     datasetVersion: fixture.dataset_version,
     revisions: [{
       ...fixture.revision,
@@ -232,10 +232,10 @@ async function main() {
   });
 
   await writeEvidence('browser_results.json', {
-    status: 'BLOCKED_NOT_RUN',
+    status: 'pass_local_synthetic_app',
     workflows: 17,
-    viewport_workflow_checks: 0,
-    viewport_widths: [390, 1024, 1440],
+    viewport_workflow_checks: 187,
+    viewport_widths: [320, 375, 390, 430, 768, 1024, 1280, 1366, 1440, 1728, 1920],
     page_level_horizontal_overflow_failures: 0,
     console_warning_or_error_count: 0,
     keyboard_checks: {
@@ -245,8 +245,8 @@ async function main() {
     },
     state_checks: {
       autosave_unsaved_then_saved: 'not_run',
-      physician_approve_disabled: 'not_run',
-      release_assemble_disabled: 'not_run',
+      physician_approve_disabled: 'pass',
+      release_assemble_disabled: 'pass',
     },
     screenshot_counts: {
       desktop: 0,
@@ -256,7 +256,7 @@ async function main() {
   });
 
   await writeEvidence('accessibility_results.json', {
-    status: 'BLOCKED_NOT_RUN',
+    status: 'pass_automated_and_browser_heuristics',
     standard_target: 'WCAG 2.2 AA',
     results: {
       one_h1: true,
@@ -270,7 +270,7 @@ async function main() {
       warning_banner_contrast_ratio: 8.98,
       active_navigation_contrast_ratio: 10.05,
     },
-    external_human_gap: 'Real browser, screen-reader, assistive-technology, zoom, reflow, and human validation were not available.',
+    external_human_gap: 'The local in-app browser matrix and width-equivalent reflow simulation passed. Native zoom, supported-browser coverage, screen readers, assistive technology, authenticated staging, real devices, and human validation were not run.',
   });
 
   const personas = [
@@ -285,27 +285,27 @@ async function main() {
     'release_manager',
     'incident_responder',
   ];
-  const preRepairScores = {
-    clarity: 7.4,
-    speed: 5.8,
-    cognitive_load: 6.4,
-    error_prevention: 6.2,
-    trust: 6.0,
-    accessibility: 5.6,
-    discoverability: 6.3,
-    responsiveness: 5.2,
-    visual_quality: 4.8,
-    workflow_completeness: 6.1,
+  const finalRepairScores = {
+    clarity: 8.2,
+    speed: 6.8,
+    cognitive_load: 7.2,
+    error_prevention: 8.6,
+    trust: 8.6,
+    accessibility: 8.4,
+    discoverability: 7.7,
+    responsiveness: 8.7,
+    visual_quality: 8.6,
+    workflow_completeness: 8.2,
   };
   await writeEvidence('ux_scorecard.json', {
     status: 'fail_heuristic_only',
     minimum_score: 9,
     board: personas.map((persona) => ({
       persona,
-      scores: { ...preRepairScores },
-      dependency: 'Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run.',
+      scores: { ...finalRepairScores },
+      dependency: 'Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run.',
     })),
-    disclaimer: 'Pre-repair simulated expert baseline from commit 4b154e8: aggregate 5.87 and minimum 4.3. Repairs landed in 57eee4f, but no post-repair browser, assistive-technology, or human rescore was run. The current UX gate remains unproven.',
+    disclaimer: 'The final 14-category simulated expert score at commit fd7ddcd7688a0fc89cc4fc1320806220221046ae is 8.21 with a 6.8 task-speed floor, below the required 9.0 aggregate and 8.5 floor. This ten-field evidence projection maps clarity and workflow completeness to the 8.2 workflow-clarity score. The immediate predecessor scored 8.04. No authenticated staging, native zoom, assistive-technology, cross-browser, or human validation was run.',
   });
 
   await writeEvidence('load_results.json', loadCheck());
@@ -341,6 +341,9 @@ async function main() {
       'disposable_postgres_apply_reapply_rls_and_compensation',
     ],
     blocked_or_not_executed: [
+      'canonical_persistent_runtime_adapter',
+      'authorized_preview_datastore_and_hosted_rls',
+      'authenticated_staging_deployment',
       'canonical_auth_session_penetration_test',
       'production_idor_test',
       'production_csrf_test',
@@ -348,21 +351,21 @@ async function main() {
       'staging_runtime_role_and_rls_test',
       'browser_accessibility_and_human_test',
     ],
-    critical_open_defects: 0,
-    high_open_defects: 0,
+    critical_open_defects: 2,
+    high_open_defects: 6,
   });
 
   await writeEvidence('health_check_results.json', await healthCheck());
   await writeEvidence('release_manifest.json', await releaseFixture());
 
-  const migrationPath = join(APP_ROOT, 'db/migrations/20260715122434_i1q_1007x_question_platform.sql');
-  const rollbackPath = join(APP_ROOT, 'db/rollback/20260715122435_i1q_1007x_compensating_disable.sql');
+  const migrationPath = join(APP_ROOT, 'db/migrations/20260715193625_i1q_1008a_identity_runtime_contract.sql');
+  const rollbackPath = join(APP_ROOT, 'db/rollback/20260715193845_i1q_1008a_compensating_disable.sql');
   await writeEvidence('migration_validation.json', {
     status: 'STATIC_PASS_PREVIEW_NOT_RUN',
     migration: relative(WORKTREE, migrationPath),
     sha256: sha256(await readFile(migrationPath)),
     production_or_staging_apply_count: 0,
-    reason: 'Static validation and a disposable local PostgreSQL apply, reapply, RLS, compensation, and reapply proof passed. Canonical preview and staging were not available.',
+    reason: 'Static validation and disposable local PostgreSQL apply, RLS, hostile-role, compensation, and reapply proofs passed. No authorized canonical preview or staging target was available.',
   });
   await writeEvidence('rollback_manifest.json', {
     status: 'DESIGNED_NOT_EXECUTED',
@@ -381,7 +384,7 @@ async function main() {
 
   await writeEvidence('deployment_manifest.json', {
     status: 'BLOCKED_NOT_DEPLOYED',
-    success_level: 'STATE_A',
+    success_level: 'BELOW_LEVEL_1',
     deployment_urls: [],
     canonical_route: null,
     feature_flags: {
@@ -393,13 +396,13 @@ async function main() {
       drills_adapter_enabled: false,
     },
     blockers: [
-      'canonical_auth_adapter_unresolved',
-      'canonical_unprivileged_runtime_role_and_repository_wiring_unresolved',
-      'canonical_preview_staging_and_github_deployment_route_unresolved',
-      'all_real_sources_privacy_blocked',
-      'medical_governance_lead_unassigned',
-      'browser_accessibility_and_human_validation_not_run',
-      'staging_and_production_rollback_not_executed',
+      'authorized_preview_target_unassigned',
+      'i1q_preview_github_environment_and_secrets_absent',
+      'staging_application_target_and_url_absent',
+      'canonical_authenticated_role_tokens_unavailable',
+      'application_runtime_actor_binder_and_table_grants_not_authorized',
+      'authenticated_staging_security_and_accessibility_validation_not_run',
+      'preview_or_staging_rollback_not_executed',
     ],
   });
 

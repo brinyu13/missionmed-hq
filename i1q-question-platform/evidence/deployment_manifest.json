@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-07-15T16:39:34.024Z",
+  "generated_at": "2026-07-16T01:47:12.462Z",
   "status": "BLOCKED_NOT_DEPLOYED",
-  "success_level": "STATE_A",
+  "success_level": "BELOW_LEVEL_1",
   "deployment_urls": [],
   "canonical_route": null,
   "feature_flags": {
@@ -13,12 +13,12 @@
     "drills_adapter_enabled": false
   },
   "blockers": [
-    "canonical_auth_adapter_unresolved",
-    "canonical_unprivileged_runtime_role_and_repository_wiring_unresolved",
-    "canonical_preview_staging_and_github_deployment_route_unresolved",
-    "all_real_sources_privacy_blocked",
-    "medical_governance_lead_unassigned",
-    "browser_accessibility_and_human_validation_not_run",
-    "staging_and_production_rollback_not_executed"
+    "authorized_preview_target_unassigned",
+    "i1q_preview_github_environment_and_secrets_absent",
+    "staging_application_target_and_url_absent",
+    "canonical_authenticated_role_tokens_unavailable",
+    "application_runtime_actor_binder_and_table_grants_not_authorized",
+    "authenticated_staging_security_and_accessibility_validation_not_run",
+    "preview_or_staging_rollback_not_executed"
   ]
 }

@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-07-15T16:39:34.024Z",
+  "generated_at": "2026-07-16T01:47:12.462Z",
   "status": "CONTRACT_FIXTURE_NOT_RELEASE",
   "classification": "SYNTHETIC_NON_CLINICAL",
   "manifest": {
-    "release_id": "release_fixture_1007x",
+    "release_id": "release_fixture_1008a",
     "dataset_version": "i1q_fixture_v1",
     "previous_manifest_hash": null,
     "release_membership": [
@@ -63,7 +63,7 @@
         "channel": "drills",
         "phase": "internal",
         "data_class": "internal",
-        "sha256": "0ed2f96737883174254c74aa5102bfc0fe360bfe8a84b6275287667c28d105ad",
+        "sha256": "5b66032c00edff8683c2af2065bf67a8a53ffd5b683f23e2792b735eed86818a",
         "record_count": 1
       },
       {
@@ -109,7 +109,7 @@
         "record_count": 0
       }
     ],
-    "manifest_hash": "28512bf9db39fae7480b23e74ceb355152e0734831221b94be13b626b444d976"
+    "manifest_hash": "2feb344d3e12b1d7c81b2a5ef082e506faea08e1ab7b429add5792171a63786b"
   },
   "artifact_summaries": [
     {
@@ -151,7 +151,7 @@
     {
       "channel": "drills",
       "phase": "internal",
-      "sha256": "0ed2f96737883174254c74aa5102bfc0fe360bfe8a84b6275287667c28d105ad",
+      "sha256": "5b66032c00edff8683c2af2065bf67a8a53ffd5b683f23e2792b735eed86818a",
       "record_count": 1
     },
     {

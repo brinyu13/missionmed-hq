@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-15T16:39:34.024Z",
+  "generated_at": "2026-07-16T01:47:12.462Z",
   "status": "pass_json_and_contract_shape",
   "openapi": "3.1.0",
-  "path_count": 20,
+  "path_count": 22,
   "security_scheme": [
     "MissionMedInternalSession"
   ],

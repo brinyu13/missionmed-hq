@@ -1,168 +1,168 @@
 {
-  "generated_at": "2026-07-15T16:39:34.024Z",
+  "generated_at": "2026-07-16T01:47:12.462Z",
   "status": "fail_heuristic_only",
   "minimum_score": 9,
   "board": [
     {
       "persona": "physician_reviewer",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "medical_educator",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "assessment_scientist",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "editorial_reviewer",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "privacy_officer",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "novice_operator",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "power_operator",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "assistive_technology_user",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "release_manager",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     },
     {
       "persona": "incident_responder",
       "scores": {
-        "clarity": 7.4,
-        "speed": 5.8,
-        "cognitive_load": 6.4,
-        "error_prevention": 6.2,
-        "trust": 6,
-        "accessibility": 5.6,
-        "discoverability": 6.3,
-        "responsiveness": 5.2,
-        "visual_quality": 4.8,
-        "workflow_completeness": 6.1
+        "clarity": 8.2,
+        "speed": 6.8,
+        "cognitive_load": 7.2,
+        "error_prevention": 8.6,
+        "trust": 8.6,
+        "accessibility": 8.4,
+        "discoverability": 7.7,
+        "responsiveness": 8.7,
+        "visual_quality": 8.6,
+        "workflow_completeness": 8.2
       },
-      "dependency": "Shared pre-repair simulated category scores only; persona-specific browser or human validation was not run."
+      "dependency": "Shared final simulated category projection only; persona-specific browser, authenticated staging, or human validation was not run."
     }
   ],
-  "disclaimer": "Pre-repair simulated expert baseline from commit 4b154e8: aggregate 5.87 and minimum 4.3. Repairs landed in 57eee4f, but no post-repair browser, assistive-technology, or human rescore was run. The current UX gate remains unproven."
+  "disclaimer": "The final 14-category simulated expert score at commit fd7ddcd7688a0fc89cc4fc1320806220221046ae is 8.21 with a 6.8 task-speed floor, below the required 9.0 aggregate and 8.5 floor. This ten-field evidence projection maps clarity and workflow completeness to the 8.2 workflow-clarity score. The immediate predecessor scored 8.04. No authenticated staging, native zoom, assistive-technology, cross-browser, or human validation was run."
 }

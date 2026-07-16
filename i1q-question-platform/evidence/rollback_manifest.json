@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-07-15T16:39:34.024Z",
+  "generated_at": "2026-07-16T01:47:12.462Z",
   "status": "DESIGNED_NOT_EXECUTED",
-  "compensating_migration": "i1q-question-platform/db/rollback/20260715122435_i1q_1007x_compensating_disable.sql",
-  "sha256": "25e317428ca75c8cce29269e19c7002ea69860080aac7f59496312bbed34446a",
+  "compensating_migration": "i1q-question-platform/db/rollback/20260715193845_i1q_1008a_compensating_disable.sql",
+  "sha256": "6368c122615d9ca394e2ff2f150cf23a1e1ab28fedf9e10f5a297ddfd4d85b9f",
   "disables": [
     "internal_platform_enabled",
     "internal_review_enabled",

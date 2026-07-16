@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-07-15T16:39:34.024Z",
-  "status": "BLOCKED_NOT_RUN",
+  "generated_at": "2026-07-16T01:47:12.462Z",
+  "status": "pass_automated_and_browser_heuristics",
   "standard_target": "WCAG 2.2 AA",
   "results": {
     "one_h1": true,
@@ -14,5 +14,5 @@
     "warning_banner_contrast_ratio": 8.98,
     "active_navigation_contrast_ratio": 10.05
   },
-  "external_human_gap": "Real browser, screen-reader, assistive-technology, zoom, reflow, and human validation were not available."
+  "external_human_gap": "The local in-app browser matrix and width-equivalent reflow simulation passed. Native zoom, supported-browser coverage, screen readers, assistive technology, authenticated staging, real devices, and human validation were not run."
 }
