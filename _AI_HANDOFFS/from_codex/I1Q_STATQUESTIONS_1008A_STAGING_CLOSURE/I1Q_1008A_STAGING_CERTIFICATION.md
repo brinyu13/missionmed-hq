@@ -35,7 +35,7 @@ The final local product candidate is additive, fail closed, tested, and suitable
 | Monitoring | Design only | No telemetry backend, alert route, dashboard, burn-in, or runbook drill |
 | Dependent systems | Protected files unchanged | Authenticated Matrix, Arena, STAT, Drills, Daily, and WordPress journeys blocked or not run |
 | Protected runtime parity | Unresolved | Four tracked protected runtimes differ from deployed CDN bytes |
-| Independent Red Team | Veto | Final verdict remains binding for any achieved-state or deployment claim |
+| Independent Red Team | Veto | Exact-commit rerun passed local reproduction, closed stale evidence, and retained 13 active findings |
 
 ## Local Candidate Strengths
 

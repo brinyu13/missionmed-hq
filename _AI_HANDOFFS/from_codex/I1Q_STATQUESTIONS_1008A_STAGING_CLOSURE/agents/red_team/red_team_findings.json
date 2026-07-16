@@ -2,7 +2,7 @@
   "schema_version": "i1q.independent-red-team.v1",
   "mission": "I1Q-1008A",
   "role": "INDEPENDENT_RED_TEAM",
-  "reviewed_at_utc": "2026-07-16T00:45:12Z",
+  "reviewed_at_utc": "2026-07-16T01:55:00Z",
   "verdict": "VETO",
   "highest_achieved_state": "LOCAL_BLOCKED_ENGINEERING_CANDIDATE",
   "states": {
@@ -11,13 +11,44 @@
     "STATE_C": "VETO_NOT_ACHIEVED",
     "STATE_D": "VETO_OUT_OF_SCOPE_AND_BLOCKED"
   },
+  "finding_counts": {
+    "active_total": 13,
+    "active_by_severity": {
+      "CRITICAL": 2,
+      "HIGH": 6,
+      "MEDIUM": 5
+    },
+    "closed_total": 1,
+    "closed_by_severity": {
+      "HIGH": 1
+    },
+    "active_finding_ids": [
+      "RT-1008A-001",
+      "RT-1008A-002",
+      "RT-1008A-003",
+      "RT-1008A-005",
+      "RT-1008A-006",
+      "RT-1008A-007",
+      "RT-1008A-008",
+      "RT-1008A-009",
+      "RT-1008A-010",
+      "RT-1008A-011",
+      "RT-1008A-012",
+      "RT-1008A-013",
+      "RT-1008A-014"
+    ],
+    "closed_finding_ids": [
+      "RT-1008A-004"
+    ]
+  },
   "candidate": {
     "worktree": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008A",
     "branch": "i1q-statquestions-1008a",
-    "head": "483b0f76f42bc3a1da674ccd4f61432aab84668b",
-    "tree": "8e48125fbb160b73880516685aef0389d6854a82",
+    "head": "efaae9401a5bc659c8b0cc34b8736de05c958fb7",
+    "tree": "f221add141b97ed33702c0437b84158d3ae66334",
+    "product_implementation_commit": "fd7ddcd7688a0fc89cc4fc1320806220221046ae",
     "working_tree_state": "IMMUTABLE_COMMIT_REVIEWED_FROM_ISOLATED_EXPORT",
-    "post_commit_worktree_changes_excluded": true,
+    "working_tree_clean_at_review": true,
     "preview_target": "ABSENT_UNASSIGNED",
     "staging_url": null
   },
@@ -35,27 +66,11 @@
       "expected": 20,
       "present": 20,
       "parsed": 20,
-      "errors": 14,
-      "claimed_state": "STATE_A",
-      "verdict": "FAIL_UNSUPPORTED_STATE_AND_STALE_INCOMPLETE_EVIDENCE",
-      "stale_artifacts": [
-        "i1q-question-platform/openapi.json",
-        "i1q-question-platform/package.json",
-        "i1q-question-platform/public/app.js",
-        "i1q-question-platform/public/index.html",
-        "i1q-question-platform/public/styles.css",
-        "i1q-question-platform/src/auth.mjs",
-        "i1q-question-platform/src/contracts.mjs",
-        "i1q-question-platform/src/platform.mjs",
-        "i1q-question-platform/src/server.mjs",
-        "i1q-question-platform/tests/api.test.mjs",
-        "i1q-question-platform/tests/security-regressions.test.mjs",
-        "i1q-question-platform/tests/ui.test.mjs"
-      ],
-      "additional_errors": [
-        "E_ARTIFACT_INVENTORY",
-        "E_TEST_EVIDENCE_STALE"
-      ]
+      "errors": 0,
+      "claimed_state": "BLOCKED",
+      "verdict": "PASS",
+      "stale_artifacts": [],
+      "additional_errors": []
     },
     "ui_regression_test": {
       "classification": "LOCAL",
@@ -82,7 +97,7 @@
     }
   },
   "controls_not_disproved": [
-    "The validator detects 14 synchronization errors; its reported STATE_A claim is rejected because external gates are unexecuted and deployment records are blocked/not deployed.",
+    "The exact-commit evidence validator passes 20/20 with zero errors and truthful claimed state BLOCKED; prior RT-004 is closed.",
     "The supplied disposable PostgreSQL results report 13/13 base and 1/1 runtime passes.",
     "The 1008A migration is locally deny-by-default: forced RLS, no broad table grants, app runtime deny-all, and flags off.",
     "The preview workflow separates secret-free validation, uses step-scoped secrets, pins actions, binds candidate/history/approval bytes, validates MR-078A timestamp/header/diff controls, separates phases, runs post-operation checks, and gates upload on redaction success.",
@@ -211,40 +226,35 @@
     {
       "id": "RT-1008A-004",
       "severity": "HIGH",
-      "title": "Committed evidence is stale, incomplete, and reports unsupported STATE_A",
-      "classification": "LOCAL",
+      "status": "CLOSED",
+      "title": "Evidence synchronization and claimed-state integrity",
+      "classification": "LOCAL_PASS",
       "domains": [
         "source_integrity",
         "evidence_integrity"
       ],
-      "readiness_claim_disproved": "The committed evidence proves integrity, provenance, or achieved State A for the exact candidate.",
+      "prior_claim_reassessed": "The stale/incomplete evidence finding is disproved by the synchronized certification packet.",
       "reproducible_evidence": [
         {
           "command": "npm run validate --prefix i1q-question-platform",
-          "result": "Exact-commit isolated run fails with 14 errors: 12 stale checksums, incomplete artifact inventory, and stale test inventory; claimed_state is STATE_A."
+          "result": "Exact-commit isolated run passes 20/20 files with zero errors and claimed_state BLOCKED."
         },
         {
           "path": "i1q-question-platform/evidence/artifact_checksums.json",
-          "observation": "Stale entries cover OpenAPI, package, UI, auth, contracts, platform, server, and tests. Runtime, identity, 1008A migration/test, workflow, and closure files remain outside complete binding."
-        },
-        {
-          "path": "i1q-question-platform/evidence/combined_handoff_validation.json",
-          "lines": "1-8",
-          "observation": "Validation references the older I1Q_STATQUESTIONS_1007X_MULTIAGENT handoff."
+          "observation": "Checksums and test inventory are synchronized for the exact certification candidate."
         },
         {
           "path": "i1q-question-platform/evidence/deployment_manifest.json",
-          "observation": "The file says BLOCKED_NOT_DEPLOYED while success_level is STATE_A; preview-target.json is unassigned."
+          "observation": "The file consistently says BLOCKED_NOT_DEPLOYED and BELOW_LEVEL_1; preview-target.json remains unassigned."
         }
       ],
-      "achieved_state_verdict": "BLOCKS_CERTIFICATION_OF_ALL_STATES",
+      "achieved_state_verdict": "CLOSED_DOES_NOT_ESTABLISH_STATE_A_B_OR_C",
       "repairability": {
-        "verdict": "REPAIRABLE_LOCAL",
-        "required_action": "Regenerate evidence from commit 483b0f7, remove the unsupported state claim, and bind all product, workflow, migration, deployment, and closure evidence to one complete manifest."
+        "verdict": "CLOSED_LOCAL",
+        "required_action": "No current repair; preserve synchronized evidence and truthful state claims."
       },
       "rerun_triggers": [
-        "Exact-commit validator passes without an unsupported state claim.",
-        "Current packet validator covers every claimed release artifact."
+        "Reopen if validator fails, inventory becomes incomplete, or any unsupported achieved-state claim appears."
       ]
     },
     {
@@ -615,7 +625,6 @@
     }
   ],
   "explicit_rerun_gate": [
-    "Regenerate and fully manifest-bind evidence for commit 483b0f76f42bc3a1da674ccd4f61432aab84668b, with no unsupported achieved-state claim.",
     "Ratify identity, application grants, actor binding, rollback semantics, target, and approver authority.",
     "Fix protected shared-auth findings through the Critical Systems process and prove source/runtime parity.",
     "Compose canonical identity, persistent datastore, durable audit, readiness, and production workflow resolvers.",

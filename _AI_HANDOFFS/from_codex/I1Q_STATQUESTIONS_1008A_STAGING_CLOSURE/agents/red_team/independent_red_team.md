@@ -4,21 +4,25 @@
 
 **Highest achieved state:** `LOCAL BLOCKED ENGINEERING CANDIDATE`
 
-No I1Q-1008A State A, B, C, or D is achieved or certified. Commit `483b0f76f42bc3a1da674ccd4f61432aab84668b` is immutable and contains useful fail-closed local controls, but it remains unwired, unapplied to an authorized preview target, and undeployed. Red Team does not authorize migration, preview application, staging deployment, feature enablement, production activity, or student use.
+No I1Q-1008A State A, B, C, or D is achieved or certified. Certification commit `efaae9401a5bc659c8b0cc34b8736de05c958fb7` is immutable and contains synchronized, truthful evidence for product implementation `fd7ddcd7688a0fc89cc4fc1320806220221046ae`, but the implementation remains unwired, unapplied to an authorized preview target, and undeployed. Red Team does not authorize migration, preview application, staging deployment, feature enablement, production activity, or student use.
 
 ## Review Boundary
 
 - Reviewed branch: `i1q-statquestions-1008a`
-- Exact candidate commit: `483b0f76f42bc3a1da674ccd4f61432aab84668b`
-- Candidate tree: `8e48125fbb160b73880516685aef0389d6854a82`
-- Execution boundary: tests and validation ran from an isolated `git archive` of that commit. Post-commit uncommitted evidence-generator/report changes present in the shared worktree were excluded.
+- Exact certification commit: `efaae9401a5bc659c8b0cc34b8736de05c958fb7`
+- Candidate tree: `f221add141b97ed33702c0437b84158d3ae66334`
+- Product implementation commit: `fd7ddcd7688a0fc89cc4fc1320806220221046ae`
+- Execution boundary: tests and validation ran from an isolated `git archive` of the certification commit; branch HEAD was clean.
 - Review time: 2026-07-16 UTC
 - External boundary: no preview or staging target exists. No localhost result is treated as preview, staging, deployment, hosted RLS, or runtime proof.
-- Independent exact-commit execution: `npm test` returned 287 total, 285 pass, 0 fail, and 2 database-target skips. `node --test tests/ui.test.mjs` returned 19/19. `npm run validate` returned `FAIL` with 14 integrity errors and reported claimed state `STATE_A`; that claim is not accepted.
+- Independent exact-commit execution: `npm test` returned 287 total, 285 pass, 0 fail, and 2 database-target skips. `node --test tests/ui.test.mjs` returned 19/19. `npm run validate` returned `PASS`, 20/20 files, zero errors, claimed state `BLOCKED`.
+- Repaired local UI controls: responsive root/table containment, pagination reflow, cursor exhaustion through 50,000 rows with fail-closed overlap/snapshot/cap handling, and deliberately selected exact-revision release assembly all pass their exact-commit regressions.
 - Database boundary: the supplied fresh disposable PostgreSQL results (13/13 base and 1/1 runtime) were inspected but not independently rerun because no independent disposable database URL was provisioned. The two database lanes skipped in the independent default run.
 - Protected boundary: all 20 protected baseline hashes were independently rechecked and unchanged. Protected files were read only.
 
-This verdict is bound only to commit `483b0f76f42bc3a1da674ccd4f61432aab84668b`. Shared-worktree changes above that commit are neither reviewed candidate bytes nor evidence for this verdict.
+This verdict is bound only to commit `efaae9401a5bc659c8b0cc34b8736de05c958fb7`, tree `f221add141b97ed33702c0437b84158d3ae66334`.
+
+**Active finding count:** 13 total: 2 Critical, 6 High, 5 Medium. Prior High finding RT-004 is closed and excluded from active counts.
 
 ## State Verdict
 
@@ -79,19 +83,19 @@ The committed approval JSON is byte-bound, but its `approved_by` value is only d
 
 **Rerun trigger:** workflow source includes all MR-078A checks, approval provenance is owner-controlled, static workflow tests pass, and a first authorized `validate` run produces reviewable artifacts before any apply.
 
-### RT-1008A-004 - High - Committed evidence is stale, incomplete, and reports unsupported State A
+### RT-1008A-004 - Closed - Evidence synchronization and claimed-state integrity
 
-**Classification:** `LOCAL SOURCE/EVIDENCE INTEGRITY GAP`
+**Classification:** `LOCAL PASS`
 
-Against the exact commit, `npm run validate` fails with 14 errors: 12 stale checksum entries (`openapi.json`, `package.json`, `public/app.js`, `public/index.html`, `public/styles.css`, `src/auth.mjs`, `src/contracts.mjs`, `src/platform.mjs`, `src/server.mjs`, `tests/api.test.mjs`, `tests/security-regressions.test.mjs`, and `tests/ui.test.mjs`), `E_ARTIFACT_INVENTORY`, and `E_TEST_EVIDENCE_STALE`. The inventory omits current files including the runtime root, identity adapter, 1008A migrations, runtime tests, and preview workflow. More seriously, the validator reports claimed state `STATE_A` even though `deployment_manifest.json` says `BLOCKED_NOT_DEPLOYED`, the preview target is unassigned, and no canonical runtime adapter exists. The exact commit is immutable, but its evidence is neither synchronized nor whole-packet bound; the target manifest also contains no candidate commit or artifact hashes.
+The certification packet repairs the stale checksums and test inventory, incorporates the machine-readable agent evidence, and consistently records the operational boundary. Independent exact-commit validation passes 20/20 files with zero errors and claimed state `BLOCKED`; `deployment_manifest.json` says `BLOCKED_NOT_DEPLOYED` and `BELOW_LEVEL_1`. No unsupported achieved-state claim was found.
 
-**Readiness claim disproved:** the exact candidate does not have a passing evidence-integrity result, and the validator's bounded scope would not establish whole-packet integrity even after checksum regeneration.
+**Prior claim reassessed:** the stale/incomplete evidence finding is disproved by the synchronized certification packet.
 
-**Achieved-state verdict:** blocks certification of all states.
+**Achieved-state verdict:** `CLOSED`; does not block certification by itself and does not establish State A, B, or C.
 
-**Repairability:** `REPAIRABLE LOCAL`. Regenerate a complete evidence estate from this exact commit, bind workflow, migrations, deployment records, and closure reports, remove the unsupported achieved-state claim, and prevent post-signoff mutation.
+**Repairability:** `CLOSED LOCAL`.
 
-**Rerun trigger:** the exact candidate has a passing validator, a complete manifest covering the entire current packet, and no state claim above the externally demonstrated state.
+**Rerun trigger:** reopen if any candidate/evidence byte changes, validation fails, inventory becomes incomplete, or a state above `BLOCKED` is claimed without external proof.
 
 ### RT-1008A-005 - High - Canonical identity and shared-auth safety are not closed
 
@@ -255,7 +259,7 @@ MMOS authority was current and DR-006 validly permits additive local I1Q work ag
 | Domain challenged | Classification | Independent result |
 | --- | --- | --- |
 | Authority | Local plus owner-external | DR-006 permits local work; no achieved-state authority exists. |
-| Source integrity | Local | Commit `483b0f7` is immutable; its committed evidence manifest is stale and incomplete. |
+| Source integrity | Local pass | Commit `efaae94` is immutable, clean at review, and exact-commit tests/validation reproduce. |
 | Identity | Local pass plus external | Adapter and durable-audit failure tests pass; canonical adapter, lifecycle, ratification, wiring, and users are absent. |
 | Authentication | Protected plus external | Protected expiry/secret/CORS/replay gates block reliance on shared auth. |
 | RLS/grants | Local plus external | Deny-by-default local contract passes; hosted roles, actor binding, app grants, and attacks are absent. |
@@ -268,11 +272,11 @@ MMOS authority was current and DR-006 validly permits additive local I1Q work ag
 | Performance | Local pass plus external | Cursor completeness is repaired and locally tested; persistent-stack latency, memory, concurrency, and SLO evidence remain absent. |
 | Dependent systems | Protected plus external | Protected files are unchanged, but local/CDN drift and journey safety are unresolved. |
 | Monitoring | Local contract plus external | Audit/readiness fail-closed contracts exist; no concrete durable telemetry, alert, runbook, or burn-in evidence. |
-| Evidence integrity | Local | Exact-commit validator fails 14 checks and reports unsupported `STATE_A`; the packet is not whole-manifest bound. |
+| Evidence integrity | Local pass | Validator passes 20/20 with zero errors and truthful claimed state `BLOCKED`; RT-004 is closed. |
 
 ## Reproduction Commands
 
-For exact reproduction, export commit `483b0f76f42bc3a1da674ccd4f61432aab84668b` to a clean temporary directory, make the worktree's existing `node_modules` available read-only, and run without setting secrets. Running directly in the shared worktree may include post-commit evidence changes.
+For exact reproduction, export commit `efaae9401a5bc659c8b0cc34b8736de05c958fb7` to a clean temporary directory, make the worktree's existing `node_modules` available read-only, and run without setting secrets.
 
 ```sh
 npm test --prefix i1q-question-platform
@@ -304,13 +308,12 @@ These public dependency observations do not constitute I1Q preview or staging pr
 
 Red Team will rerun only after all of the following are true:
 
-1. Commit `483b0f76f42bc3a1da674ccd4f61432aab84668b` has a synchronized, complete, passing evidence manifest with no unsupported state claim.
-2. Identity, app grants, actor binding, rollback semantics, target, and approver authority are ratified.
-3. Protected shared-auth findings are fixed through the Critical Systems process and runtime parity is proved.
-4. The production composition uses canonical identity and a persistent datastore with durable audit and readiness.
-5. The workflow implements all MR-078A checks and first passes an authorized validation run.
-6. A synthetic-only preview executes apply, hosted RLS attacks, backup restore, compensation, reapply, and post-action drift checks.
-7. An authenticated non-localhost staging deployment passes API, answer/source isolation, dependent-system, accessibility, performance, monitoring, alert, restart, and rollback tests.
-8. Security and Release withdraw their vetoes on the exact same candidate and evidence hashes.
+1. Identity, app grants, actor binding, rollback semantics, target, and approver authority are ratified.
+2. Protected shared-auth findings are fixed through the Critical Systems process and runtime parity is proved.
+3. The production composition uses canonical identity and a persistent datastore with durable audit and readiness.
+4. The workflow first passes an authorized validation run against the exact approved target.
+5. A synthetic-only preview executes apply, hosted RLS attacks, backup restore, compensation, reapply, and post-action drift checks.
+6. An authenticated non-localhost staging deployment passes API, answer/source isolation, dependent-system, accessibility, performance, monitoring, alert, restart, and rollback tests.
+7. Security and Release withdraw their vetoes on the exact same candidate and evidence hashes.
 
 Until then, Red Team veto remains in force.

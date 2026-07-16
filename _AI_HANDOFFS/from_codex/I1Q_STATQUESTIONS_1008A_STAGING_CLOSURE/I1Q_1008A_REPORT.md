@@ -18,6 +18,7 @@ Independently executable local work: `COMPLETE`. Authority mapping, implementati
 - Branch: `i1q-statquestions-1008a`
 - Verified source: `81273add2c0fe350d330902d229683662896a1b1`
 - Final product candidate: `fd7ddcd7688a0fc89cc4fc1320806220221046ae`
+- Red Team reviewed certification candidate: `efaae9401a5bc659c8b0cc34b8736de05c958fb7`
 - Identity contract: `i1q.identity.v1`
 - Datastore target: `UNASSIGNED`
 - Staging URL: none
@@ -44,6 +45,7 @@ Independently executable local work: `COMPLETE`. Authority mapping, implementati
 | Base disposable PostgreSQL | 13 of 13 pass |
 | Runtime-role, compensation, reapply PostgreSQL | 1 of 1 pass |
 | Evidence validator | 20 of 20 files, zero errors, claimed state `BLOCKED` |
+| Independent Red Team | Veto, 13 active findings: 2 Critical, 6 High, 5 Medium; prior stale-evidence finding closed |
 | Root dependency audit | Zero production dependency vulnerabilities |
 | JSON and YAML syntax | Pass |
 | Protected baseline hashes | All unchanged |

@@ -6,6 +6,8 @@
 
 The local candidate has strong fail-closed controls, but no authorized preview database, canonical authenticated I1Q journey, or non-localhost staging runtime exists. Local synthetic proof cannot satisfy the ticket's preview or staging attack gates.
 
+The final independent Red Team review reproduced certification commit `efaae9401a5bc659c8b0cc34b8736de05c958fb7`, closed the prior stale-evidence finding, and retained its veto with 13 active findings: 2 Critical, 6 High, and 5 Medium.
+
 ## Verified Local Controls
 
 - The final immutable product candidate at commit `fd7ddcd` passes 287 tests with 285 passes, zero failures, and two intentional database-target skips.
