@@ -4,6 +4,7 @@ const kicker = document.querySelector('#screen-kicker');
 const primaryNav = document.querySelector('#primary-nav');
 const navToggle = document.querySelector('#nav-toggle');
 const refreshButton = document.querySelector('#refresh-button');
+const logoutButton = document.querySelector('#logout-button');
 const recordContext = document.querySelector('#record-context');
 const globalStatus = document.querySelector('#global-status');
 const actionStatus = document.querySelector('#action-status');
@@ -236,6 +237,8 @@ const state = {
   selectedCandidateId: null,
   selectedCandidateDetail: null,
   selectedRevisionId: null,
+  diffSelection: { itemId: null, beforeRevisionId: null, afterRevisionId: null },
+  selectedReleaseRevisionId: null,
   selectedAuditId: null,
   editorRevision: null,
   editorDirty: false,
@@ -295,7 +298,7 @@ function toneForStatus(value) {
 }
 
 function badge(label, tone = toneForStatus(label)) {
-  return `<span class="badge badge-${tone}">${escapeHtml(humanize(label))}</span>`;
+  return `<span class="badge badge-${tone}"><span>${escapeHtml(humanize(label))}</span></span>`;
 }
 
 function stateNotice(id, titleText, message, remedy, tone = 'warning') {
@@ -337,6 +340,22 @@ function selectedOption(value, expected) {
   return value === expected ? ' selected' : '';
 }
 
+function syncChoiceRationaleFields(form) {
+  const answer = String(form.elements.namedItem('answer')?.value || '');
+  for (const key of ['A', 'B', 'C', 'D']) {
+    const isCorrect = key === answer;
+    const group = form.querySelector(`[data-choice-rationale="${key}"]`);
+    if (group) group.dataset.correctOption = String(isCorrect);
+    for (const prefix of ['tempting', 'wrong', 'misconception']) {
+      const input = form.elements.namedItem(`${prefix}_${key}`);
+      if (!input) continue;
+      input.disabled = isCorrect;
+      input.required = !isCorrect;
+      if (isCorrect) input.value = '';
+    }
+  }
+}
+
 function actionKey(prefix = 'action') {
   const random = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`;
   return `${prefix}-${random}`;
@@ -360,8 +379,49 @@ async function api(path, { method = 'GET', body, headers = {} } = {}) {
   return payload;
 }
 
-function listResource(entityType, limit = 200) {
-  return api(`/api/v1/resources/${encodeURIComponent(entityType)}?limit=${limit}`);
+async function listResource(entityType) {
+  const pageSize = 200;
+  const maximumRows = 50_000;
+  const rows = [];
+  const rowIds = new Set();
+  const cursors = new Set();
+  let cursor = '';
+  let expectedTotal = null;
+
+  for (let pageNumber = 0; pageNumber < Math.ceil(maximumRows / pageSize); pageNumber += 1) {
+    const query = new URLSearchParams({ limit: String(pageSize) });
+    if (cursor) query.set('cursor', cursor);
+    const page = await api(`/api/v1/resources/${encodeURIComponent(entityType)}?${query}`);
+    if (!Array.isArray(page?.rows) || !Number.isInteger(page.total) || page.total < 0) {
+      throw new ApiError('resource_page_invalid', 502);
+    }
+    if (expectedTotal === null) {
+      expectedTotal = page.total;
+      if (expectedTotal > maximumRows) throw new ApiError('resource_result_limit_exceeded', 409);
+    } else if (page.total !== expectedTotal) {
+      throw new ApiError('resource_snapshot_changed', 409);
+    }
+
+    for (const row of page.rows) {
+      const id = typeof row?.id === 'string' ? row.id : '';
+      if (!id || rowIds.has(id)) throw new ApiError('resource_page_overlap', 409);
+      rowIds.add(id);
+      rows.push(row);
+    }
+
+    const nextCursor = page.next_cursor;
+    if (nextCursor === null || nextCursor === undefined || nextCursor === '') {
+      if (rows.length !== expectedTotal) throw new ApiError('resource_page_incomplete', 409);
+      return { rows, total: expectedTotal, next_cursor: null, complete: true };
+    }
+    if (typeof nextCursor !== 'string' || page.rows.length === 0 || cursors.has(nextCursor)) {
+      throw new ApiError('resource_cursor_invalid', 409);
+    }
+    cursors.add(nextCursor);
+    cursor = nextCursor;
+  }
+
+  throw new ApiError('resource_page_limit_exceeded', 409);
 }
 
 function getResource(entityType, id) {
@@ -459,21 +519,108 @@ function scenarioTemplate(id) {
 }
 
 function renderError(error) {
+  const identityState = {
+    session_expired: {
+      stateId: 'session-expired',
+      heading: 'Session expired',
+      remedy: 'Return through canonical authentication to start a new internal session.',
+    },
+    session_revoked: {
+      stateId: 'session-revoked',
+      heading: 'Access revoked',
+      remedy: 'Close this session and contact the identity and access owner before trying again.',
+    },
+    identity_adapter_unavailable: {
+      stateId: 'identity-outage',
+      heading: 'Identity service unavailable',
+      remedy: 'Retry canonical authentication after the identity service recovers.',
+    },
+  }[error?.code];
   const unauthorized = [401, 403].includes(error?.status);
-  const stateId = unauthorized ? 'unauthorized' : 'error';
-  const heading = unauthorized ? 'Access unavailable' : 'View unavailable';
-  const remedy = unauthorized
+  const stateId = identityState?.stateId || (unauthorized ? 'unauthorized' : 'error');
+  const heading = identityState?.heading || (unauthorized ? 'Access unavailable' : 'View unavailable');
+  const remedy = identityState?.remedy || (unauthorized
     ? 'Return through canonical authentication with the required internal role.'
-    : 'Retry the same safe route. No previous record was changed.';
+    : 'Retry the same safe route. No previous record was changed.');
   return `
     <section class="error-state" data-state="${stateId}" role="alert" aria-labelledby="view-error-heading">
       <div>
-        <strong id="view-error-heading" tabindex="-1">${heading}</strong>
+        <h2 id="view-error-heading" tabindex="-1">${heading}</h2>
         <p>${escapeHtml(humanize(error?.code || error?.message || 'request failed'))}</p>
         <p>${escapeHtml(remedy)}</p>
         <button class="button" type="button" data-action="retry-view">Retry</button>
       </div>
     </section>`;
+}
+
+function showScreenError(error, announcement) {
+  screen.innerHTML = renderError(error);
+  screen.setAttribute('aria-busy', 'false');
+  screen.querySelector('#view-error-heading')?.focus({ preventScroll: true });
+  announce(announcement, true);
+}
+
+function setWorkspaceControlsEnabled(enabled) {
+  refreshButton.disabled = !enabled;
+  primaryNav.querySelectorAll('[data-screen]').forEach((button) => {
+    button.disabled = !enabled;
+    if (!enabled) {
+      button.classList.remove('is-active');
+      button.removeAttribute('aria-current');
+    }
+  });
+}
+
+function clearInMemoryUiState() {
+  state.currentScreen = 'dashboard';
+  state.scenario = 'live';
+  state.renderToken += 1;
+  state.health = null;
+  state.session = null;
+  state.dashboard = null;
+  state.selectedInventorySourceId = null;
+  state.selectedSourceRecordId = null;
+  state.selectedTranscriptArtifactId = null;
+  state.selectedRunId = null;
+  state.selectedCandidateId = null;
+  state.selectedCandidateDetail = null;
+  state.selectedRevisionId = null;
+  state.diffSelection = { itemId: null, beforeRevisionId: null, afterRevisionId: null };
+  state.selectedReleaseRevisionId = null;
+  state.selectedAuditId = null;
+  state.editorRevision = null;
+  state.editorDirty = false;
+  state.extractionStatuses.clear();
+  state.syntheticRuns = [];
+  state.inventoryFilter = { query: '', status: 'all' };
+  state.search = { query: '', status: 'all', sort: 'newest', page: 0 };
+  state.auditFilter = { query: '', entity: 'all' };
+}
+
+function showSignedOutState() {
+  setWorkspaceControlsEnabled(false);
+  logoutButton.hidden = true;
+  scenarioControl.hidden = true;
+  scenarioSelect.value = 'live';
+  setContext([]);
+  clearActionStatus();
+  kicker.textContent = 'Session';
+  title.textContent = 'Signed out';
+  environmentMode.textContent = 'Session ended';
+  actorIdentity.textContent = 'Identity unavailable';
+  globalStatus.className = 'status-banner status-warning';
+  globalStatus.innerHTML = '<strong>Internal session ended</strong><span>Protected workspace content has been cleared from this page.</span>';
+  screen.innerHTML = `
+    <section class="empty-state signed-out-state" data-state="unauthorized" role="status" aria-labelledby="signed-out-heading">
+      <div>
+        <h2 id="signed-out-heading" tabindex="-1">Signed out</h2>
+        <p>The canonical internal session has ended.</p>
+        <p>Return through canonical authentication to continue.</p>
+      </div>
+    </section>`;
+  screen.setAttribute('aria-busy', 'false');
+  screen.querySelector('#signed-out-heading')?.focus({ preventScroll: true });
+  announce('Signed out');
 }
 
 async function dashboardTemplate() {
@@ -619,8 +766,8 @@ async function sourceTemplate() {
             ['Title', escapeHtml(sourceTitle)],
             ['Source record ID', `<span class="hash-text">${escapeHtml(source?.id || 'Not supplied')}</span>`],
             ['Canonical video ID', `<span class="hash-text">${escapeHtml(inventory?.canonical_video_id || 'Not supplied')}</span>`],
-            ['Source hash', `<span class="hash-text" title="${escapeHtml(source?.source_hash || '')}">${escapeHtml(shortHash(source?.source_hash))}</span>`],
-            ['Record hash', `<span class="hash-text" title="${escapeHtml(source?.content_hash || '')}">${escapeHtml(shortHash(source?.content_hash))}</span>`],
+            ['Source hash', `<span class="hash-text">${escapeHtml(source?.source_hash || 'Not supplied')}</span>`],
+            ['Record hash', `<span class="hash-text">${escapeHtml(source?.content_hash || 'Not supplied')}</span>`],
             ['Created', escapeHtml(formatTimestamp(source?.created_at || inventory?.created_at))],
             ['Private source content', 'Not rendered by this shell'],
           ])}
@@ -688,7 +835,7 @@ async function privacyTemplate() {
           <h2 id="privacy-decision-heading">Decision record</h2>
           ${detailList([
             ['Immutable record', `<span class="hash-text">${escapeHtml(record.id)}</span>`],
-            ['Content hash', `<span class="hash-text" title="${escapeHtml(record.content_hash || '')}">${escapeHtml(shortHash(record.content_hash))}</span>`],
+            ['Content hash', `<span class="hash-text">${escapeHtml(record.content_hash || 'Not supplied')}</span>`],
             ['Created', escapeHtml(formatTimestamp(record.created_at))],
             ['Source wording', 'Withheld from this decision summary'],
           ])}
@@ -891,7 +1038,7 @@ function choiceEditor(choice) {
     <fieldset class="choice-editor">
       <legend>Choice ${escapeHtml(key)}</legend>
       <label>Choice text<input name="choice_${escapeHtml(key)}" value="${escapeHtml(choice.text || '')}" required></label>
-      <div class="choice-rationale">
+      <div class="choice-rationale" data-choice-rationale="${escapeHtml(key)}" data-correct-option="false">
         <label>Why it may be tempting<input name="tempting_${escapeHtml(key)}" autocomplete="off" required></label>
         <label>Why it is wrong<input name="wrong_${escapeHtml(key)}" autocomplete="off" required></label>
         <label>Misconception ID<input name="misconception_${escapeHtml(key)}" autocomplete="off" required></label>
@@ -922,7 +1069,7 @@ async function editorTemplate() {
     context: [
       ['Item', `<span class="hash-text">${escapeHtml(revision.item_id)}</span>`],
       ['Immutable revision', `<span class="hash-text">${escapeHtml(revision.id)}</span>`],
-      ['Revision hash', `<span class="hash-text" title="${escapeHtml(revision.content_hash || '')}">${escapeHtml(shortHash(revision.content_hash))}</span>`],
+      ['Revision hash', `<span class="hash-text">${escapeHtml(revision.content_hash || 'Not supplied')}</span>`],
       ['Source', escapeHtml(sourceLabels.join(', ') || 'Not supplied')],
       ['Role', 'Author'],
       ['Medical status', badge(revision.medical_validation_status || 'Not validated')],
@@ -970,7 +1117,7 @@ async function distractorsTemplate() {
     context: [
       ['Item', `<span class="hash-text">${escapeHtml(revision.item_id)}</span>`],
       ['Immutable revision', `<span class="hash-text">${escapeHtml(revision.id)}</span>`],
-      ['Revision hash', `<span class="hash-text" title="${escapeHtml(revision.content_hash || '')}">${escapeHtml(shortHash(revision.content_hash))}</span>`],
+      ['Revision hash', `<span class="hash-text">${escapeHtml(revision.content_hash || 'Not supplied')}</span>`],
       ['Answer key', 'Withheld by safe generic read'],
     ],
     markup: `
@@ -1050,7 +1197,7 @@ function revisionIdentity(revision, role, assignment, evidenceStatus, conflict) 
   return [
     ['Item', `<span class="hash-text">${escapeHtml(revision?.item_id || 'Not supplied')}</span>`],
     ['Immutable revision', `<span class="hash-text">${escapeHtml(revision?.id || 'Not supplied')}</span>`],
-    ['Revision hash', `<span class="hash-text" title="${escapeHtml(revision?.content_hash || '')}">${escapeHtml(shortHash(revision?.content_hash))}</span>`],
+    ['Revision hash', `<span class="hash-text">${escapeHtml(revision?.content_hash || 'Not supplied')}</span>`],
     ['Assignment', `<span class="hash-text">${escapeHtml(assignment?.id || 'None')}</span>`],
     ['Current role', escapeHtml(role)],
     ['Evidence currency', evidenceStatus],
@@ -1305,15 +1452,78 @@ function comparableRevisionFields(revision) {
 async function diffTemplate() {
   const revisionsPage = await listResource('item_revisions');
   const revisions = [...revisionsPage.rows].sort((left, right) => Number(left.revision_number) - Number(right.revision_number));
-  if (revisions.length < 2) {
-    const only = revisions[0];
+  const itemIds = [...new Set(revisions.map((revision) => revision.item_id).filter(Boolean))].sort();
+  const selectedRevision = revisions.find((revision) => revision.id === state.selectedRevisionId) || null;
+  let itemId = state.diffSelection.itemId;
+  if (!itemIds.includes(itemId)) {
+    itemId = selectedRevision && itemIds.includes(selectedRevision.item_id)
+      ? selectedRevision.item_id
+      : itemIds.length === 1 ? itemIds[0] : null;
+  }
+
+  const itemRevisions = revisions.filter((revision) => revision.item_id === itemId);
+  let before = itemRevisions.find((revision) => revision.id === state.diffSelection.beforeRevisionId) || null;
+  let after = itemRevisions.find((revision) => revision.id === state.diffSelection.afterRevisionId) || null;
+  if (!before || !after || before.id === after.id) {
+    const selectedIndex = itemRevisions.findIndex((revision) => revision.id === state.selectedRevisionId);
+    if (selectedIndex > 0) {
+      before = itemRevisions[selectedIndex - 1];
+      after = itemRevisions[selectedIndex];
+    } else if (selectedIndex === 0 && itemRevisions.length > 1) {
+      [before, after] = itemRevisions;
+    } else if (itemRevisions.length > 1) {
+      before = itemRevisions.at(-2);
+      after = itemRevisions.at(-1);
+    } else {
+      before = null;
+      after = null;
+    }
+  }
+  if (before?.item_id !== itemId || after?.item_id !== itemId || before?.id === after?.id) {
+    before = null;
+    after = null;
+  }
+
+  state.diffSelection = {
+    itemId,
+    beforeRevisionId: before?.id || null,
+    afterRevisionId: after?.id || null,
+  };
+  const revisionOptions = (selectedId) => itemRevisions.map((revision) => `
+    <option value="${escapeHtml(revision.id)}"${selectedOption(selectedId, revision.id)}>Revision ${escapeHtml(revision.revision_number)} - ${escapeHtml(revision.id)} - ${escapeHtml(shortHash(revision.content_hash))}</option>`).join('');
+  const selection = `
+    <section class="panel" aria-labelledby="revision-selection-heading">
+      <h2 id="revision-selection-heading">Exact comparison pair</h2>
+      <form id="diff-selection-form" class="filters">
+        <label>Item<select id="diff-item-id" name="item_id" required>
+          <option value="">Select item</option>
+          ${itemIds.map((id) => `<option value="${escapeHtml(id)}"${selectedOption(itemId, id)}>${escapeHtml(id)}</option>`).join('')}
+        </select></label>
+        <label>Before revision<select name="before_revision_id"${itemId ? '' : ' disabled'} required>
+          <option value="">Select before revision</option>
+          ${revisionOptions(before?.id)}
+        </select></label>
+        <label>After revision<select name="after_revision_id"${itemId ? '' : ' disabled'} required>
+          <option value="">Select after revision</option>
+          ${revisionOptions(after?.id)}
+        </select></label>
+        <button class="button button-primary filter-submit" type="submit"${itemRevisions.length > 1 ? '' : ' disabled'}>Compare exact pair</button>
+      </form>
+    </section>`;
+
+  if (!itemId) {
     return {
-      context: only ? [['Item', `<span class="hash-text">${escapeHtml(only.item_id)}</span>`], ['Revision count', '1']] : [],
-      markup: emptyState('A second revision is required', 'Save a new immutable draft before opening revision comparison.'),
+      context: [['Item count', String(itemIds.length)], ['Comparison pair', 'Not selected']],
+      markup: `${selection}${emptyState('Select one item', 'Choose an explicit item before selecting an exact revision pair.')}`,
     };
   }
-  const before = revisions.at(-2);
-  const after = revisions.at(-1);
+  if (!before || !after) {
+    return {
+      context: [['Item', `<span class="hash-text">${escapeHtml(itemId)}</span>`], ['Revision count', String(itemRevisions.length)]],
+      markup: `${selection}${emptyState('A second revision is required', 'Save a new immutable draft for this item before opening revision comparison.')}`,
+    };
+  }
+
   const beforeFields = new Map(comparableRevisionFields(before));
   const afterFields = new Map(comparableRevisionFields(after));
   state.selectedRevisionId = after.id;
@@ -1322,10 +1532,12 @@ async function diffTemplate() {
       ['Item', `<span class="hash-text">${escapeHtml(after.item_id)}</span>`],
       ['Before revision', `<span class="hash-text">${escapeHtml(before.id)}</span>`],
       ['After revision', `<span class="hash-text">${escapeHtml(after.id)}</span>`],
-      ['After hash', `<span class="hash-text" title="${escapeHtml(after.content_hash || '')}">${escapeHtml(shortHash(after.content_hash))}</span>`],
+      ['Before hash', `<span class="hash-text">${escapeHtml(before.content_hash || 'Not supplied')}</span>`],
+      ['After hash', `<span class="hash-text">${escapeHtml(after.content_hash || 'Not supplied')}</span>`],
     ],
     markup: `
-      <section class="panel" aria-labelledby="revision-diff-heading">
+      ${selection}
+      <section class="panel" aria-labelledby="revision-diff-heading" data-item-id="${escapeHtml(itemId)}" data-before-revision-id="${escapeHtml(before.id)}" data-after-revision-id="${escapeHtml(after.id)}">
         <div class="toolbar"><div><h2 id="revision-diff-heading">Revision ${escapeHtml(before.revision_number)} to revision ${escapeHtml(after.revision_number)}</h2><span class="muted">Protected answer and rationale fields are omitted by the safe route.</span></div><button class="button" type="button" data-action="open-editor" data-id="${escapeHtml(after.id)}">Open latest revision</button></div>
         <div class="table-wrap" tabindex="0" role="region" aria-label="Revision comparison table"><table>
           <thead><tr><th scope="col">Field</th><th scope="col">Before</th><th scope="col">After</th></tr></thead>
@@ -1391,16 +1603,20 @@ async function releaseTemplate() {
     listResource('evidence_claims'),
     listResource('feature_flags'),
   ]);
-  const revisions = [...revisionsPage.rows].sort((left, right) => Number(right.revision_number) - Number(left.revision_number));
-  const revision = revisions[0] || null;
-  const medicalPass = revision && eventsPage.rows.some((event) => event.item_revision_id === revision.id && event.review_type === 'medical' && event.verdict === 'pass' && event.to_status === 'approved' && event.exact_revision_hash === revision.content_hash);
+  const revisions = [...revisionsPage.rows].sort((left, right) => {
+    const itemOrder = String(left.item_id || '').localeCompare(String(right.item_id || ''));
+    return itemOrder || Number(left.revision_number) - Number(right.revision_number);
+  });
+  const revision = revisions.find((row) => row.id === state.selectedReleaseRevisionId) || null;
+  if (!revision) state.selectedReleaseRevisionId = null;
+  const medicalPass = Boolean(revision && eventsPage.rows.some((event) => event.item_revision_id === revision.id && event.review_type === 'medical' && event.verdict === 'pass' && event.to_status === 'approved' && event.exact_revision_hash === revision.content_hash));
   const relevantClaims = revision ? claimsPage.rows.filter((claim) => safeArray(revision.evidence_claim_ids).includes(claim.id)) : [];
   const claimsCurrent = relevantClaims.length > 0 && relevantClaims.every((claim) => claim.status === 'verified' && (!claim.expires_at || Date.parse(claim.expires_at) > Date.now()));
   const eligible = Boolean(revision && revision.workflow_status === 'approved' && medicalPass && claimsCurrent);
   const latestRelease = releasesPage.rows.at(-1) || null;
   const flags = new Map(flagsPage.rows.map((flag) => [flag.key, flag.enabled === true]));
   const releaseReason = !revision
-    ? 'No revision is available for release assembly.'
+    ? 'Select one exact immutable revision for release assembly.'
     : revision.workflow_status !== 'approved'
       ? 'The selected revision is not approved.'
       : !medicalPass
@@ -1408,8 +1624,9 @@ async function releaseTemplate() {
         : 'At least one linked evidence claim is missing, unverified, or expired.';
   return {
     context: [
+      ['Item', `<span class="hash-text">${escapeHtml(revision?.item_id || 'None')}</span>`],
       ['Revision', `<span class="hash-text">${escapeHtml(revision?.id || 'None')}</span>`],
-      ['Revision hash', `<span class="hash-text">${escapeHtml(shortHash(revision?.content_hash))}</span>`],
+      ['Revision hash', `<span class="hash-text">${escapeHtml(revision?.content_hash || 'None')}</span>`],
       ['Medical approval', badge(medicalPass ? 'Present' : 'Missing')],
       ['Evidence currency', badge(claimsCurrent ? 'Current' : 'Blocked')],
       ['Release', `<span class="hash-text">${escapeHtml(latestRelease?.id || 'Not assembled')}</span>`],
@@ -1433,8 +1650,12 @@ async function releaseTemplate() {
         </section>
         <aside class="panel field-stack" aria-labelledby="release-command-heading">
           <h2 id="release-command-heading">Assembly and inspection</h2>
+          <label>Exact immutable revision<select id="release-revision" required>
+            <option value="">Select exact revision</option>
+            ${revisions.map((entry) => `<option value="${escapeHtml(entry.id)}"${selectedOption(state.selectedReleaseRevisionId, entry.id)}>Item ${escapeHtml(entry.item_id)} - revision ${escapeHtml(entry.revision_number)} - ${escapeHtml(entry.id)} - ${escapeHtml(shortHash(entry.content_hash))}</option>`).join('')}
+          </select></label>
           <label>Dataset version<input id="dataset-version" value="local-synthetic-preview" autocomplete="off"></label>
-          ${eligible ? `<button class="button button-primary" type="button" data-action="assemble-release" data-revision-id="${escapeHtml(revision.id)}">Assemble internal release</button>` : disabledCommand('Assemble internal release', releaseReason, { tone: 'primary' })}
+          ${eligible ? `<button class="button button-primary" type="button" data-action="assemble-release" data-revision-id="${escapeHtml(revision.id)}" data-revision-hash="${escapeHtml(revision.content_hash || '')}">Assemble internal release</button>` : disabledCommand('Assemble internal release', releaseReason, { tone: 'primary' })}
           ${latestRelease ? `<button class="button" type="button" data-action="preview-release" data-id="${escapeHtml(latestRelease.id)}">Inspect pre-answer metadata</button>` : disabledCommand('Inspect pre-answer metadata', 'No assembled release exists on the authorized release route.')}
           ${disabledCommand('Promote release', 'Publication ratification and independent validation are unavailable in this local shell.', { tone: 'primary' })}
           <p class="privacy-note">Artifact payloads are never rendered in this view. Student-facing consumers remain off.</p>
@@ -1504,8 +1725,8 @@ async function auditTemplate() {
             ['Actor', `<span class="hash-text">${escapeHtml(selected.actor_id)}</span>`],
             ['Action', escapeHtml(humanize(selected.action))],
             ['Entity', `${escapeHtml(humanize(selected.entity_type))}: <span class="hash-text">${escapeHtml(selected.entity_id)}</span>`],
-            ['Previous hash', `<span class="hash-text" title="${escapeHtml(selected.previous_hash || '')}">${escapeHtml(shortHash(selected.previous_hash))}</span>`],
-            ['Event hash', `<span class="hash-text" title="${escapeHtml(selected.event_hash || '')}">${escapeHtml(shortHash(selected.event_hash))}</span>`],
+            ['Previous hash', `<span class="hash-text">${escapeHtml(selected.previous_hash || 'Not supplied')}</span>`],
+            ['Event hash', `<span class="hash-text">${escapeHtml(selected.event_hash || 'Not supplied')}</span>`],
           ]) : '<p class="muted">Select an immutable audit event.</p>'}
         </aside>
       </div>`,
@@ -1590,10 +1811,7 @@ async function renderScreen(name, { focusHeading = false, preserveStatus = false
   } catch (error) {
     if (token !== state.renderToken) return;
     setContext([]);
-    screen.innerHTML = renderError(error);
-    screen.setAttribute('aria-busy', 'false');
-    screen.querySelector('[tabindex="-1"]')?.focus({ preventScroll: true });
-    announce(`${nextTitle} unavailable`, true);
+    showScreenError(error, `${nextTitle} unavailable`);
   }
 }
 
@@ -1629,6 +1847,7 @@ async function openCandidate(id) {
 }
 
 async function submitEditor(form) {
+  syncChoiceRationaleFields(form);
   if (!form.reportValidity()) return;
   const revision = state.editorRevision;
   if (!revision || form.dataset.revisionId !== revision.id) {
@@ -1662,13 +1881,16 @@ async function submitEditor(form) {
 
   const data = new FormData(form);
   const answer = String(data.get('answer') || '');
-  const choices = ['A', 'B', 'C', 'D'].map((key) => ({
-    key,
-    text: String(data.get(`choice_${key}`) || '').trim(),
-    why_tempting: String(data.get(`tempting_${key}`) || '').trim(),
-    why_wrong: String(data.get(`wrong_${key}`) || '').trim(),
-    misconception_id: String(data.get(`misconception_${key}`) || '').trim(),
-  }));
+  const choices = ['A', 'B', 'C', 'D'].map((key) => {
+    const isCorrect = key === answer;
+    return {
+      key,
+      text: String(data.get(`choice_${key}`) || '').trim(),
+      why_tempting: isCorrect ? null : String(data.get(`tempting_${key}`) || '').trim(),
+      why_wrong: isCorrect ? null : String(data.get(`wrong_${key}`) || '').trim(),
+      misconception_id: isCorrect ? null : String(data.get(`misconception_${key}`) || '').trim(),
+    };
+  });
   const payload = {
     concept_id: revision.concept_id,
     source_ids: safeArray(revision.source_ids),
@@ -1685,6 +1907,7 @@ async function submitEditor(form) {
   if (revision.drills) payload.drills = revision.drills;
   const updated = await api(`/api/v1/item-revisions/${encodeURIComponent(revision.id)}/draft`, {
     method: 'PATCH',
+    headers: { 'If-Match': form.dataset.revisionHash },
     body: payload,
   });
   state.editorDirty = false;
@@ -1844,6 +2067,11 @@ async function handleAction(button) {
       await renderScreen(state.currentScreen, { preserveStatus: true });
       break;
     case 'assemble-release': {
+      if (!state.selectedReleaseRevisionId
+        || button.dataset.revisionId !== state.selectedReleaseRevisionId
+        || !button.dataset.revisionHash) {
+        throw new ApiError('exact_revision_selection_required', 409);
+      }
       const datasetVersion = String(document.querySelector('#dataset-version')?.value || '').trim();
       const assembled = await api('/api/v1/releases', {
         method: 'POST',
@@ -1907,6 +2135,27 @@ screen.addEventListener('input', (event) => {
   if (saveState) saveState.textContent = 'Unsaved changes';
 });
 
+screen.addEventListener('change', (event) => {
+  const answer = event.target.closest('#editor-form [name="answer"]');
+  if (answer) {
+    syncChoiceRationaleFields(answer.form);
+    return;
+  }
+  if (event.target.id === 'diff-item-id') {
+    state.diffSelection = {
+      itemId: event.target.value || null,
+      beforeRevisionId: null,
+      afterRevisionId: null,
+    };
+    void renderScreen('diff', { focusHeading: true });
+    return;
+  }
+  if (event.target.id === 'release-revision') {
+    state.selectedReleaseRevisionId = event.target.value || null;
+    void renderScreen('release', { focusHeading: true });
+  }
+});
+
 screen.addEventListener('submit', (event) => {
   event.preventDefault();
   const form = event.target;
@@ -1933,6 +2182,14 @@ screen.addEventListener('submit', (event) => {
       entity: String(data.get('entity') || 'all'),
     };
     void renderScreen('audit');
+  } else if (form.id === 'diff-selection-form') {
+    const data = new FormData(form);
+    state.diffSelection = {
+      itemId: String(data.get('item_id') || '') || null,
+      beforeRevisionId: String(data.get('before_revision_id') || '') || null,
+      afterRevisionId: String(data.get('after_revision_id') || '') || null,
+    };
+    void renderScreen('diff', { focusHeading: true });
   } else if (form.id === 'editor-form') {
     void submitEditor(form).catch((error) => {
       showActionStatus(humanize(error?.code || error?.message || 'request failed'), {
@@ -1942,6 +2199,25 @@ screen.addEventListener('submit', (event) => {
       });
     });
   }
+});
+
+async function logoutSession() {
+  const result = await api('/api/v1/logout', { method: 'POST' });
+  if (result.logged_out !== true) throw new ApiError('logout_failed', 503);
+  clearInMemoryUiState();
+  showSignedOutState();
+}
+
+logoutButton.addEventListener('click', () => {
+  logoutButton.disabled = true;
+  void logoutSession().catch((error) => {
+    logoutButton.disabled = false;
+    showActionStatus(humanize(error?.code || error?.message || 'logout failed'), {
+      tone: 'danger',
+      focus: true,
+      assertive: true,
+    });
+  });
 });
 
 async function boot() {
@@ -1954,17 +2230,20 @@ async function boot() {
     state.session = await api('/api/v1/session');
     const localDemo = state.health.mode === 'LOCAL_SYNTHETIC_DEMO';
     scenarioControl.hidden = !localDemo;
+    logoutButton.hidden = localDemo;
+    logoutButton.disabled = false;
+    setWorkspaceControlsEnabled(true);
     environmentMode.textContent = localDemo ? 'Local synthetic fixture' : 'Authenticated internal adapter';
     actorIdentity.textContent = localDemo
       ? 'Local synthetic reviewer'
-      : `Authenticated as ${state.session.actor.id}`;
+      : `Authenticated as ${state.session.actor.id}. Roles: ${safeArray(state.session.actor.roles).map(humanize).join(', ') || 'none'}. Session active until ${formatTimestamp(state.session.session.expires_at)}.`;
     await renderScreen('dashboard');
   } catch (error) {
+    logoutButton.hidden = true;
+    setWorkspaceControlsEnabled(false);
     environmentMode.textContent = 'Service unavailable';
     actorIdentity.textContent = 'Identity unavailable';
-    screen.innerHTML = renderError(error);
-    screen.setAttribute('aria-busy', 'false');
-    announce('Question Platform unavailable', true);
+    showScreenError(error, 'Question Platform unavailable');
   }
 }
 
