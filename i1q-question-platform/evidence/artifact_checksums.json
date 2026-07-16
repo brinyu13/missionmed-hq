@@ -1,8 +1,33 @@
 {
-  "generated_at": "2026-07-16T01:47:12.462Z",
+  "generated_at": "2026-07-16T18:46:33.653Z",
   "status": "pass",
-  "artifact_count": 56,
+  "artifact_count": 75,
   "artifacts": [
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/generated/candidate-library.json",
+      "bytes": 274578,
+      "sha256": "bad272124c0e35690a9918c3837620bbc4c7836dc2c36ac631e7d3b6f898abe5"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/generated/candidate-library.md",
+      "bytes": 57609,
+      "sha256": "5fbb43e88e8bb45ffc2b486439e3ec9a1cc3d2f458dcaed58c5897daa5d419ec"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-authoring-b.mjs",
+      "bytes": 33201,
+      "sha256": "c763aabdb234b4f07ec5d42fe94b311ca7a0b22871694713acdf6a31fc12116a"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-authoring.mjs",
+      "bytes": 35124,
+      "sha256": "70675d59148467183c72683990743a3bf2b114ca6af41e67b5a1fb6d3c310116"
+    },
+    {
+      "path": "i1q-question-platform/content/i1q-1008c/pilot-library.mjs",
+      "bytes": 365,
+      "sha256": "e14dc1ac2fe3ad5e3ead020c204f10cbb2429a4307de101a88ac8b3aedfe0c85"
+    },
     {
       "path": "i1q-question-platform/db/migrations/0001_i1q_question_platform.sql",
       "bytes": 25581,
@@ -70,8 +95,8 @@
     },
     {
       "path": "i1q-question-platform/package.json",
-      "bytes": 357,
-      "sha256": "04f668103dabd4899a0d829e7575e8a0a34d18e4a6f1a9b87958f953db510736"
+      "bytes": 594,
+      "sha256": "1d0f474a687fbcce98103c3010894a2177dd1f17327aca82e1fca2f0e55372f6"
     },
     {
       "path": "i1q-question-platform/public/app.js",
@@ -94,9 +119,24 @@
       "sha256": "084487acd9e7b3b0e8ec96f5a3a879c591c0dd12b3a0d538dac5d3cb6b12b623"
     },
     {
+      "path": "i1q-question-platform/scripts/build-source-factory.mjs",
+      "bytes": 9249,
+      "sha256": "8ea5d6557f3ffb7920f274ed36820355540a2e41c1f5d4b452dd09c4f0d0bdb5"
+    },
+    {
       "path": "i1q-question-platform/scripts/generate_evidence.mjs",
       "bytes": 17933,
       "sha256": "880de458ddf2eae06747783e31f9429b1cb9ff27794c3ed608db7acf6d7c1de0"
+    },
+    {
+      "path": "i1q-question-platform/scripts/refresh-evidence-integrity-1008c.mjs",
+      "bytes": 3020,
+      "sha256": "73e43a8b13a4aa76d0a6eb22e2494273fd9d8d0d1f36846d867c5fefabe6412f"
+    },
+    {
+      "path": "i1q-question-platform/scripts/validate-source-factory.mjs",
+      "bytes": 17976,
+      "sha256": "f5b2b29237ee2bfdbb9ec88f7eba48786f993c8235befae027c66743a530093b"
     },
     {
       "path": "i1q-question-platform/src/adapters/class-a.mjs",
@@ -167,6 +207,56 @@
       "path": "i1q-question-platform/src/server.mjs",
       "bytes": 22201,
       "sha256": "f0088ad814e3747bfe1316bc41a7c2f86b70f5ec3aceb51c22417a8d6135d6aa"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/authoring.mjs",
+      "bytes": 14701,
+      "sha256": "6682acecc2957bb80e35e7d35ca88a6d03204264b255bbf79a75644eca0759c2"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/contracts.mjs",
+      "bytes": 5160,
+      "sha256": "7740966d513fb74bb336fbb270b78e8fb116f8c896b146f289de2dc3f7ca780b"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/dedupe.mjs",
+      "bytes": 3203,
+      "sha256": "752b629f1864d9f3e81a1f87b03a7731afe167fbf2b31b61fc2cc9bddb188f0f"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/envelopes.mjs",
+      "bytes": 12368,
+      "sha256": "f9172c2139dd002ad7eca0a1ae810bdca44571003695a97e11481361ab0651b1"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/legacy-v4.mjs",
+      "bytes": 11491,
+      "sha256": "49b9b95947b5f3f24be73d4006d75be5ea465a96d6bdf776ab5a9702f605eb8b"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/quality.mjs",
+      "bytes": 32736,
+      "sha256": "3ed2ea7fbdf8f362eb34766f878fb1184ef5331546ed32efce67444fcae16461"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/restricted-corpus.mjs",
+      "bytes": 17546,
+      "sha256": "111d4ae12db752263de988ded44eb3fba98f32b30b07087200b18557eb6a2d80"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/taxonomy.mjs",
+      "bytes": 10684,
+      "sha256": "6389ff2fb1e51ff395576939dff3627e7c3f2402a6ec7c064e73beed15031373"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/transcript-resume.mjs",
+      "bytes": 12357,
+      "sha256": "2da0239886522a89b6a5ec3f36de2cffa037e2431c6fe282504daf30d06e6270"
+    },
+    {
+      "path": "i1q-question-platform/src/source-factory/workspace-corpus-probe.mjs",
+      "bytes": 7673,
+      "sha256": "59529682a3be3453c0d19fad06cd04c7aca142a6c2c32610d60be9764ef1661f"
     },
     {
       "path": "i1q-question-platform/src/store.mjs",
@@ -277,6 +367,11 @@
       "path": "i1q-question-platform/tests/security-regressions.test.mjs",
       "bytes": 34449,
       "sha256": "6b8d754572aa2fe82d24d859e1d03450de6c7c5112985a24f540f67c9a15412b"
+    },
+    {
+      "path": "i1q-question-platform/tests/source-factory.test.mjs",
+      "bytes": 33491,
+      "sha256": "e1343ea85ff3a19e4fcc0b85f6c27a0de9fede540ebf2528709fd3cb01fe8fae"
     },
     {
       "path": "i1q-question-platform/tests/ui.test.mjs",

@@ -7,7 +7,10 @@
     "start": "node src/runtime.mjs",
     "demo": "I1Q_LOCAL_DEMO=1 node src/server.mjs",
     "test": "node --test tests/*.test.mjs",
-    "validate": "node src/validate-evidence.mjs"
+    "validate": "node src/validate-evidence.mjs",
+    "source-factory:build": "node scripts/build-source-factory.mjs",
+    "source-factory:validate": "node scripts/validate-source-factory.mjs",
+    "source-factory:refresh-integrity": "node scripts/refresh-evidence-integrity-1008c.mjs"
   },
   "engines": {
     "node": ">=20"
