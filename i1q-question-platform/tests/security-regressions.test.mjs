@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createQuestionPlatformServer } from '../src/server.mjs';
-import { REQUIRED_RELEASE_VALIDATION_CHECK_IDS } from '../src/contracts.mjs';
+import {
+  IDENTITY_CONTRACT_VERSION,
+  REQUIRED_RELEASE_VALIDATION_CHECK_IDS,
+} from '../src/contracts.mjs';
 import { releaseValidationEvidenceHash } from '../src/exports.mjs';
 import { QuestionPlatform } from '../src/platform.mjs';
 import { sha256 } from '../src/hash.mjs';
@@ -50,6 +53,13 @@ function identityContext(actor = actors.reader, overrides = {}) {
     validated: true,
     actor,
     session,
+    identity: {
+      contract_version: IDENTITY_CONTRACT_VERSION,
+      canonical_actor_id: actor.id,
+      supabase_user_id: actor.id,
+      active: true,
+      revoked: false,
+    },
     request_security: requestSecurity,
     ...overrides,
     ...(overrides.session === null ? { session: null } : { session }),
@@ -214,6 +224,37 @@ test('ordinary resource GET and list are answer-free and generic artifacts stay 
     const response = await fetch(`${baseUrl}/api/v1/resources/item_revisions/${revision.id}`);
     assert.equal(response.status, 403);
   });
+});
+
+test('identity contract version and canonical actor are mandatory at the server boundary', async (t) => {
+  const cases = [
+    ['missing identity', { identity: null }],
+    ['wrong version', { identity: {
+      contract_version: 'i1q.identity.v0',
+      canonical_actor_id: actors.reader.id,
+      supabase_user_id: actors.reader.id,
+      active: true,
+      revoked: false,
+    } }],
+    ['wrong canonical actor', { identity: {
+      contract_version: IDENTITY_CONTRACT_VERSION,
+      canonical_actor_id: 'actor_other_security',
+      supabase_user_id: actors.reader.id,
+      active: true,
+      revoked: false,
+    } }],
+  ];
+  for (const [name, override] of cases) {
+    await t.test(name, async () => {
+      await withServer({
+        identityResolver: async () => identityContext(actors.reader, override),
+      }, async (baseUrl) => {
+        const response = await fetch(`${baseUrl}/api/v1/session`);
+        assert.equal(response.status, 401);
+        assert.deepEqual(await response.json(), { error: 'authentication_required' });
+      });
+    });
+  }
 });
 
 test('static serving rejects normalized paths outside the public directory', async () => {

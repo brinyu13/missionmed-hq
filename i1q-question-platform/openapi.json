@@ -35,15 +35,60 @@
         }
       }
     },
+    "/api/ready": {
+      "get": {
+        "security": [],
+        "operationId": "getReadiness",
+        "responses": {
+          "200": {
+            "description": "All required runtime adapters and backing services are ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Readiness"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Runtime is not eligible for deployment promotion"
+          }
+        }
+      }
+    },
     "/api/v1/session": {
       "get": {
         "operationId": "getSessionContext",
         "responses": {
           "200": {
-            "description": "Safe actor, role, expiry, and CSRF bootstrap"
+            "description": "Safe actor, role, expiry, and CSRF bootstrap",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BrowserSession"
+                }
+              }
+            }
           },
           "401": {
             "$ref": "#/components/responses/Unauthenticated"
+          }
+        }
+      }
+    },
+    "/api/v1/logout": {
+      "post": {
+        "operationId": "logoutSession",
+        "description": "Invokes the injected canonical session revocation adapter. No local-only logout fallback is permitted.",
+        "responses": {
+          "200": {
+            "description": "Canonical session was revoked"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthenticated"
+          },
+          "503": {
+            "description": "Canonical logout adapter is unavailable"
           }
         }
       }
@@ -288,6 +333,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "description": "Exact SHA-256 content hash observed when the draft was loaded.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
           }
         ],
         "requestBody": {
@@ -304,8 +359,11 @@
           "200": {
             "description": "Guarded update to an author-owned draft"
           },
+          "409": {
+            "description": "Observed draft hash is stale"
+          },
           "422": {
-            "description": "Revision is frozen, stale, unauthorized, or invalid"
+            "description": "Revision is frozen, unauthorized, invalid, or missing an exact hash"
           }
         }
       }
@@ -527,8 +585,10 @@
   "components": {
     "securitySchemes": {
       "MissionMedInternalSession": {
-        "type": "openIdConnect",
-        "openIdConnectUrl": "OPEN_CANONICAL_MISSIONMED_IDENTITY_ADAPTER"
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Canonical MissionMed-issued access token resolved to the closed i1q.identity.v1 contract. Application roles are always database-owned."
       }
     },
     "parameters": {
@@ -581,8 +641,92 @@
           "mode": {
             "enum": [
               "LOCAL_SYNTHETIC_DEMO",
+              "INJECTED_AUTH_ADAPTER",
               "AUTH_ADAPTER_REQUIRED"
             ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "Readiness": {
+        "type": "object",
+        "required": [
+          "ready",
+          "service",
+          "version",
+          "mode"
+        ],
+        "properties": {
+          "ready": {
+            "type": "boolean"
+          },
+          "service": {
+            "const": "i1q-question-platform"
+          },
+          "version": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "LOCAL_SYNTHETIC_DEMO",
+              "AUTHENTICATED_RUNTIME_READY",
+              "RUNTIME_NOT_READY"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "BrowserSession": {
+        "type": "object",
+        "required": [
+          "actor",
+          "session"
+        ],
+        "properties": {
+          "actor": {
+            "type": "object",
+            "required": [
+              "id",
+              "roles"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "roles": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "session": {
+            "type": "object",
+            "required": [
+              "expires_at",
+              "csrf_token"
+            ],
+            "properties": {
+              "expires_at": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "csrf_token": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "additionalProperties": false
           }
         },
         "additionalProperties": false

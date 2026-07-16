@@ -792,8 +792,9 @@ export class QuestionPlatform {
     );
   }
 
-  editDraftRevision(itemRevisionId, patch, actorInput) {
+  editDraftRevision(itemRevisionId, patch, actorInput, { expectedHash } = {}) {
     const actor = requireAnyRole(actorInput, ['author', 'platform_admin']);
+    assert(SHA256_HEX.test(String(expectedHash || '')), 'optimistic_lock_required');
     const revision = this.#repository.get('item_revisions', itemRevisionId);
     assert(
       revision.author_actor_id === actor.id || actor.roles.includes('platform_admin'),
@@ -820,7 +821,7 @@ export class QuestionPlatform {
     assert(drillsSource.source_hash === candidate.drills.source_hash, 'drills_source_hash_mismatch');
     return this.#repository.updateItemRevision(revision.id, candidate, {
       actorId: actor.id,
-      expectedHash: revision.content_hash,
+      expectedHash,
       action: 'draft_revision_edited',
     });
   }

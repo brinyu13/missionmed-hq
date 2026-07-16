@@ -111,17 +111,33 @@ function publicErrorCode(error, statusCode) {
   return 'request_rejected';
 }
 
-function dashboard(platform, actor) {
-  const count = (entityType) => platform.list(entityType, { limit: 1 }, actor).total;
-  const governance = platform.governance(actor);
+async function dashboard(platform, actor) {
+  const count = async (entityType) => (await platform.list(entityType, { limit: 1 }, actor)).total;
+  const [
+    inventorySources,
+    extractionJobs,
+    candidates,
+    reviewAssignments,
+    blockedReleases,
+    incidents,
+    governance,
+  ] = await Promise.all([
+    count('inventory_sources'),
+    count('batch_jobs'),
+    count('extraction_candidates'),
+    count('review_assignments'),
+    count('release_snapshots'),
+    count('incident_records'),
+    platform.governance(actor),
+  ]);
   const unassigned = Object.entries(governance).filter(([, owner]) => owner === null).map(([slot]) => slot);
   return {
-    inventory_sources: count('inventory_sources'),
-    extraction_jobs: count('batch_jobs'),
-    candidates: count('extraction_candidates'),
-    review_assignments: count('review_assignments'),
-    blocked_releases: count('release_snapshots'),
-    incidents: count('incident_records'),
+    inventory_sources: inventorySources,
+    extraction_jobs: extractionJobs,
+    candidates,
+    review_assignments: reviewAssignments,
+    blocked_releases: blockedReleases,
+    incidents,
     current_release: null,
     governance_unassigned: unassigned,
     production_gate: 'BLOCKED_EXTERNAL_AUTH_AND_GOVERNANCE',
@@ -216,6 +232,9 @@ export function createQuestionPlatformServer({
   platform: suppliedPlatform = null,
   localDemo = false,
   identityResolver = null,
+  staticAccessResolver = null,
+  logoutResolver = null,
+  readinessResolver = null,
   finalizationResolver = null,
   reviewContentResolver = null,
 } = {}) {
@@ -225,6 +244,15 @@ export function createQuestionPlatformServer({
   }
   if (identityResolver !== null && typeof identityResolver !== 'function') {
     throw new AuthorizationError('identity_adapter_required', 500);
+  }
+  if (staticAccessResolver !== null && (typeof staticAccessResolver !== 'function' || !identityResolver)) {
+    throw new AuthorizationError('static_access_adapter_invalid', 500);
+  }
+  if (logoutResolver !== null && (typeof logoutResolver !== 'function' || !identityResolver)) {
+    throw new AuthorizationError('logout_adapter_invalid', 500);
+  }
+  if (readinessResolver !== null && typeof readinessResolver !== 'function') {
+    throw new AuthorizationError('readiness_adapter_invalid', 500);
   }
   if (finalizationResolver !== null && (typeof finalizationResolver !== 'function' || !identityResolver)) {
     throw new AuthorizationError('finalization_adapter_invalid', 500);
@@ -259,7 +287,54 @@ export function createQuestionPlatformServer({
       return;
     }
 
+    if (url.pathname === '/api/ready') {
+      if (localDemo) {
+        json(response, 200, {
+          ready: true,
+          service: 'i1q-question-platform',
+          version: PLATFORM_VERSION,
+          mode: 'LOCAL_SYNTHETIC_DEMO',
+        });
+        return;
+      }
+      let ready = false;
+      if (identityResolver && staticAccessResolver && logoutResolver && readinessResolver) {
+        try {
+          const status = await readinessResolver();
+          ready = status?.datastore === true
+            && status?.migration === true
+            && status?.audit === true
+            && status?.feature_flags_off === true;
+        } catch {
+          ready = false;
+        }
+      }
+      json(response, ready ? 200 : 503, {
+        ready,
+        service: 'i1q-question-platform',
+        version: PLATFORM_VERSION,
+        mode: ready ? 'AUTHENTICATED_RUNTIME_READY' : 'RUNTIME_NOT_READY',
+      });
+      return;
+    }
+
     if (!url.pathname.startsWith('/api/')) {
+      if (!localDemo) {
+        if (!staticAccessResolver) {
+          json(response, 401, { error: 'authentication_required' });
+          return;
+        }
+        let allowed = false;
+        try {
+          allowed = await staticAccessResolver(request) === true;
+        } catch {
+          allowed = false;
+        }
+        if (!allowed) {
+          json(response, 401, { error: 'authentication_required' });
+          return;
+        }
+      }
       await serveStatic(url.pathname, response);
       return;
     }
@@ -271,7 +346,16 @@ export function createQuestionPlatformServer({
         let resolved;
         try {
           resolved = await identityResolver(request);
-        } catch {
+        } catch (error) {
+          if (Number(error?.statusCode) >= 500) {
+            throw new AuthorizationError('identity_adapter_unavailable', 503);
+          }
+          if (error?.code === 'token_expired') {
+            throw new AuthorizationError('session_expired', 401);
+          }
+          if (error?.code === 'identity_revoked') {
+            throw new AuthorizationError('session_revoked', 401);
+          }
           throw new AuthorizationError('authentication_required', 401);
         }
         identityContext = normalizeIdentityContext(resolved);
@@ -295,13 +379,25 @@ export function createQuestionPlatformServer({
         return;
       }
 
+      if (request.method === 'POST' && url.pathname === '/api/v1/logout') {
+        if (!logoutResolver) {
+          throw new AuthorizationError('logout_adapter_required', 503);
+        }
+        const loggedOut = await logoutResolver({ request, identityContext });
+        if (loggedOut !== true) {
+          throw new AuthorizationError('logout_failed', 503);
+        }
+        json(response, 200, { logged_out: true });
+        return;
+      }
+
       const featureFlagMutation = request.method === 'PUT'
         && /^\/api\/v1\/feature-flags\/[a-z_]+$/u.test(url.pathname);
       const reviewContentMatch = url.pathname.match(/^\/api\/v1\/item-revisions\/([^/]+)\/review-content$/u);
       if (
         !localDemo
         && !featureFlagMutation
-        && !platform.featureFlagEnabled('internal_platform_enabled')
+        && !(await platform.featureFlagEnabled('internal_platform_enabled'))
       ) {
         throw new AuthorizationError('internal_platform_disabled', 403);
       }
@@ -315,34 +411,34 @@ export function createQuestionPlatformServer({
       if (
         !localDemo
         && reviewRoute
-        && !platform.featureFlagEnabled('internal_review_enabled')
+        && !(await platform.featureFlagEnabled('internal_review_enabled'))
       ) {
         throw new AuthorizationError('internal_review_disabled', 403);
       }
 
       if (request.method === 'GET' && url.pathname === '/api/v1/dashboard') {
-        json(response, 200, dashboard(platform, actor));
+        json(response, 200, await dashboard(platform, actor));
         return;
       }
       if (request.method === 'GET' && url.pathname === '/api/v1/governance') {
-        json(response, 200, platform.governance(actor));
+        json(response, 200, await platform.governance(actor));
         return;
       }
       const governanceMatch = url.pathname.match(/^\/api\/v1\/governance\/([a-z_]+)$/u);
       if (request.method === 'PUT' && governanceMatch) {
         const body = await readJson(request);
-        json(response, 200, platform.assignGovernanceSlot(governanceMatch[1], body.reviewer_id, actor));
+        json(response, 200, await platform.assignGovernanceSlot(governanceMatch[1], body.reviewer_id, actor));
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/v1/reviewers') {
         const body = await readJson(request);
-        json(response, 201, platform.registerReviewer(body, actor));
+        json(response, 201, await platform.registerReviewer(body, actor));
         return;
       }
       const flagMatch = url.pathname.match(/^\/api\/v1\/feature-flags\/([a-z_]+)$/u);
       if (request.method === 'PUT' && flagMatch) {
         const body = await readJson(request);
-        json(response, 200, platform.setFeatureFlag(flagMatch[1], body.enabled, body.scope, actor));
+        json(response, 200, await platform.setFeatureFlag(flagMatch[1], body.enabled, body.scope, actor));
         return;
       }
 
@@ -354,11 +450,11 @@ export function createQuestionPlatformServer({
           return;
         }
         if (request.method === 'GET' && id) {
-          json(response, 200, platform.get(entityType, id, actor));
+          json(response, 200, await platform.get(entityType, id, actor));
           return;
         }
         if (request.method === 'GET') {
-          json(response, 200, platform.list(entityType, {
+          json(response, 200, await platform.list(entityType, {
             cursor: url.searchParams.get('cursor') || '',
             limit: url.searchParams.get('limit') || 50,
           }, actor));
@@ -366,14 +462,14 @@ export function createQuestionPlatformServer({
         }
         if (request.method === 'POST' && !id) {
           const body = await readJson(request);
-          json(response, 201, platform.create(entityType, body, actor, {
+          json(response, 201, await platform.create(entityType, body, actor, {
             idempotencyKey: request.headers['idempotency-key'],
           }));
           return;
         }
         if (request.method === 'PATCH' && id) {
           const body = await readJson(request);
-          json(response, 200, platform.update(entityType, id, body, actor, {
+          json(response, 200, await platform.update(entityType, id, body, actor, {
             expectedHash: request.headers['if-match'],
           }));
           return;
@@ -381,19 +477,24 @@ export function createQuestionPlatformServer({
       }
 
       if (request.method === 'POST' && url.pathname === '/api/v1/item-revisions') {
-        json(response, 201, platform.createRevision(await readJson(request), actor, {
+        json(response, 201, await platform.createRevision(await readJson(request), actor, {
           idempotencyKey: request.headers['idempotency-key'],
         }));
         return;
       }
       const draftRevisionMatch = url.pathname.match(/^\/api\/v1\/item-revisions\/([^/]+)\/draft$/u);
       if (request.method === 'PATCH' && draftRevisionMatch) {
-        json(response, 200, platform.editDraftRevision(draftRevisionMatch[1], await readJson(request), actor));
+        json(response, 200, await platform.editDraftRevision(
+          draftRevisionMatch[1],
+          await readJson(request),
+          actor,
+          { expectedHash: request.headers['if-match'] },
+        ));
         return;
       }
       const submitRevisionMatch = url.pathname.match(/^\/api\/v1\/item-revisions\/([^/]+)\/submit-candidate$/u);
       if (request.method === 'POST' && submitRevisionMatch) {
-        json(response, 200, platform.submitRevisionCandidate(submitRevisionMatch[1], actor));
+        json(response, 200, await platform.submitRevisionCandidate(submitRevisionMatch[1], actor));
         return;
       }
       if (request.method === 'GET' && reviewContentMatch) {
@@ -402,7 +503,7 @@ export function createQuestionPlatformServer({
         const purpose = url.searchParams.get('purpose') || '';
         let content;
         if (localDemo) {
-          content = platform.readAssignedReviewContent(itemRevisionId, assignmentId, purpose, actor);
+          content = await platform.readAssignedReviewContent(itemRevisionId, assignmentId, purpose, actor);
         } else {
           if (!reviewContentResolver) {
             throw new AuthorizationError('review_content_adapter_required', 503);
@@ -420,25 +521,25 @@ export function createQuestionPlatformServer({
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/v1/review-assignments') {
-        json(response, 201, platform.createReviewAssignment(await readJson(request), actor));
+        json(response, 201, await platform.createReviewAssignment(await readJson(request), actor));
         return;
       }
       const acceptAssignmentMatch = url.pathname.match(/^\/api\/v1\/review-assignments\/([^/]+)\/accept$/u);
       if (request.method === 'POST' && acceptAssignmentMatch) {
-        json(response, 200, platform.acceptReviewAssignment(acceptAssignmentMatch[1], actor));
+        json(response, 200, await platform.acceptReviewAssignment(acceptAssignmentMatch[1], actor));
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/v1/review-events') {
-        json(response, 201, platform.submitReviewEvent(await readJson(request), actor));
+        json(response, 201, await platform.submitReviewEvent(await readJson(request), actor));
         return;
       }
       if (request.method === 'POST' && url.pathname === '/api/v1/releases') {
-        json(response, 201, platform.assembleRelease(await readJson(request), actor));
+        json(response, 201, await platform.assembleRelease(await readJson(request), actor));
         return;
       }
       const validationMatch = url.pathname.match(/^\/api\/v1\/releases\/([^/]+)\/validations$/u);
       if (request.method === 'POST' && validationMatch) {
-        json(response, 201, platform.recordReleaseValidation(
+        json(response, 201, await platform.recordReleaseValidation(
           validationMatch[1],
           await readJson(request),
           actor,
@@ -448,7 +549,7 @@ export function createQuestionPlatformServer({
       const promotionMatch = url.pathname.match(/^\/api\/v1\/releases\/([^/]+)\/promotions$/u);
       if (request.method === 'POST' && promotionMatch) {
         const body = await readJson(request);
-        json(response, 201, platform.promoteRelease(promotionMatch[1], body, actor));
+        json(response, 201, await platform.promoteRelease(promotionMatch[1], body, actor));
         return;
       }
       const artifactMatch = url.pathname.match(/^\/api\/v1\/releases\/([^/]+)\/artifacts\/([^/]+)$/u);
@@ -473,7 +574,7 @@ export function createQuestionPlatformServer({
             finalizationContext = null;
           }
         }
-        json(response, 200, platform.artifactForPhase(
+        json(response, 200, await platform.artifactForPhase(
           artifactMatch[1],
           artifactMatch[2],
           finalizationContext,
@@ -496,8 +597,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const host = '127.0.0.1';
   const port = Number(process.env.PORT || 4176);
   const localDemo = process.env.I1Q_LOCAL_DEMO === '1';
+  if (!localDemo) {
+    process.stderr.write('runtime_composition_required: use npm start with a hash-pinned canonical runtime composition\n');
+    process.exitCode = 1;
+  } else {
   const server = createQuestionPlatformServer({ localDemo });
   server.listen(port, host, () => {
-    process.stdout.write(`I1Q Question Platform listening on http://${host}:${port} (${localDemo ? 'local-demo' : 'auth-required'})\n`);
+      process.stdout.write(`I1Q Question Platform listening on http://${host}:${port} (local-demo)\n`);
   });
+  }
 }

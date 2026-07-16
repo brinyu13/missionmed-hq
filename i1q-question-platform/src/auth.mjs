@@ -1,5 +1,10 @@
 import { timingSafeEqual } from 'node:crypto';
-import { READ_ROLES, ROLES, WRITE_ROLES } from './contracts.mjs';
+import {
+  IDENTITY_CONTRACT_VERSION,
+  READ_ROLES,
+  ROLES,
+  WRITE_ROLES,
+} from './contracts.mjs';
 
 const DEFAULT_IDENTITY_MAX_AGE_MS = 5 * 60 * 1000;
 const FORWARDED_REQUEST_HEADERS = Object.freeze([
@@ -117,6 +122,8 @@ export function normalizeIdentityContext(
   const sessionId = stringValue(sessionInput.id);
   const expiresAt = Date.parse(stringValue(sessionInput.expires_at));
   const validatedAt = Date.parse(stringValue(sessionInput.validated_at));
+  const issuedAtValue = stringValue(sessionInput.issued_at);
+  const issuedAt = issuedAtValue ? Date.parse(issuedAtValue) : null;
   const boundedMaxAge = Number.isFinite(maxValidationAgeMs) && maxValidationAgeMs > 0
     ? Math.min(maxValidationAgeMs, DEFAULT_IDENTITY_MAX_AGE_MS)
     : DEFAULT_IDENTITY_MAX_AGE_MS;
@@ -127,6 +134,7 @@ export function normalizeIdentityContext(
     || !Number.isFinite(expiresAt)
     || expiresAt <= now
     || !Number.isFinite(validatedAt)
+    || (issuedAt !== null && (!Number.isFinite(issuedAt) || issuedAt > validatedAt + 30_000 || issuedAt >= expiresAt))
     || age < -30_000
     || age > boundedMaxAge
   ) {
@@ -136,6 +144,7 @@ export function normalizeIdentityContext(
   const securityInput = resolved.request_security;
   const requestSecurity = securityInput && typeof securityInput === 'object'
     ? Object.freeze({
+      transport: stringValue(securityInput.transport) || 'csrf',
       sessionId: stringValue(securityInput.session_id),
       csrfToken: stringValue(securityInput.csrf_token),
       trustedOrigins: Object.freeze((Array.isArray(securityInput.trusted_origins)
@@ -144,13 +153,50 @@ export function normalizeIdentityContext(
     })
     : null;
 
+  const identityInput = resolved.identity && typeof resolved.identity === 'object'
+    ? resolved.identity
+    : null;
+  const canonicalActorId = identityInput ? stringValue(identityInput.canonical_actor_id) : '';
+  const supabaseUserId = identityInput ? stringValue(identityInput.supabase_user_id) : '';
+  if (
+    requestSecurity
+    && !['csrf', 'bearer'].includes(requestSecurity.transport)
+  ) {
+    throw authenticationRequired();
+  }
+  if (
+    !identityInput
+    || stringValue(identityInput.contract_version) !== IDENTITY_CONTRACT_VERSION
+    || (
+      canonicalActorId !== actor.id
+      || (supabaseUserId && supabaseUserId !== actor.id)
+      || identityInput.active !== true
+      || identityInput.revoked === true
+    )
+  ) {
+    throw authenticationRequired();
+  }
   const context = Object.freeze({
     actor,
     session: Object.freeze({
       id: sessionId,
+      issuedAt: issuedAt === null ? null : new Date(issuedAt).toISOString(),
       expiresAt: new Date(expiresAt).toISOString(),
       validatedAt: new Date(validatedAt).toISOString(),
       revoked: false,
+    }),
+    identity: Object.freeze({
+      contractVersion: IDENTITY_CONTRACT_VERSION,
+      canonicalActorId,
+      supabaseUserId: supabaseUserId || null,
+      wordpressUserId: Number.isSafeInteger(identityInput.wordpress_user_id)
+        ? identityInput.wordpress_user_id
+        : null,
+      email: stringValue(identityInput.email) || null,
+      credentialStatus: stringValue(identityInput.credential_status) || 'not_applicable',
+      credentialVerified: identityInput.credential_verified === true,
+      active: identityInput.active === true,
+      revoked: identityInput.revoked === true,
     }),
     requestSecurity,
   });
@@ -168,6 +214,22 @@ export function enforceRequestIntegrity(request, identityContext) {
 
   const security = identityContext.requestSecurity;
   const suppliedOrigin = canonicalOrigin(headerValue(request, 'origin'));
+  if (security?.transport === 'bearer') {
+    const authorization = headerValue(request, 'authorization');
+    const fetchSite = headerValue(request, 'sec-fetch-site').toLowerCase();
+    if (
+      !security.sessionId
+      || security.sessionId !== identityContext.session.id
+      || !security.trustedOrigins.length
+      || !suppliedOrigin
+      || !security.trustedOrigins.includes(suppliedOrigin)
+      || !/^Bearer [A-Za-z0-9._~-]+$/u.test(authorization)
+      || fetchSite === 'cross-site'
+    ) {
+      throw requestVerificationFailed();
+    }
+    return;
+  }
   const suppliedToken = headerValue(request, 'x-csrf-token');
   if (
     !security

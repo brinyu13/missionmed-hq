@@ -362,3 +362,4 @@ export function assertKnownEntityType(entityType) {
     throw new Error(`unknown_entity_type:${entityType}`);
   }
 }
+export const IDENTITY_CONTRACT_VERSION = 'i1q.identity.v1';
