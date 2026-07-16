@@ -1423,7 +1423,7 @@ async function physicianTemplate() {
           ${detailList([
             ['Credential', badge(reviewer?.credential?.status || 'Not verified')],
             ['Medical governance lead', `<span class="hash-text">${escapeHtml(governance.medical_governance_lead || 'Unassigned')}</span>`],
-            ['Exact revision hash', `<span class="hash-text">${escapeHtml(shortHash(revision.content_hash))}</span>`],
+            ['Exact revision hash', `<span class="hash-text">${escapeHtml(revision.content_hash || 'Not supplied')}</span>`],
           ])}
           <label>Medical review note<textarea name="note" placeholder="Required for rejection or revision request"></textarea></label>
           ${canAccept ? `<button class="button button-primary" type="button" data-action="accept-assignment" data-id="${escapeHtml(assignment.id)}">Accept assignment</button>` : ''}

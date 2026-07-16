@@ -152,6 +152,14 @@ input[type="checkbox"] {
   font-size: 0.78rem;
 }
 
+.environment-label > span:last-child {
+  display: inline-flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+}
+
 .status-dot {
   display: inline-block;
   width: 9px;
@@ -506,6 +514,7 @@ h3 {
 }
 
 .table-wrap {
+  position: relative;
   width: 100%;
   min-width: 0;
   max-width: 100%;

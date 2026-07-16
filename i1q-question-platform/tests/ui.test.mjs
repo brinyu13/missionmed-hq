@@ -440,6 +440,7 @@ test('wide tables remain contained and pagination labels do not shrink', async (
   const tableWrapRule = css.match(/\.table-wrap\s*\{([\s\S]*?)\}/u)?.[1] || '';
   const paginationButtonRule = css.match(/\.pagination \.button\s*\{([\s\S]*?)\}/u)?.[1] || '';
   assert.match(mainRule, /overflow-x:\s*clip/u);
+  assert.match(tableWrapRule, /position:\s*relative/u);
   assert.match(tableWrapRule, /max-width:\s*100%/u);
   assert.match(tableWrapRule, /overflow-x:\s*auto/u);
   assert.match(paginationButtonRule, /flex:\s*0 0 auto/u);
@@ -462,6 +463,7 @@ test('immutable revision hashes are fully visible without title-only disclosure'
   const appSource = await readFile(appPath, 'utf8');
   assert.doesNotMatch(appSource, /class="hash-text" title=/u);
   assert.match(appSource, /\['Revision hash', `<span class="hash-text">\$\{escapeHtml\(revision\.content_hash \|\| 'Not supplied'\)\}<\/span>`\]/u);
+  assert.match(appSource, /\['Exact revision hash', `<span class="hash-text">\$\{escapeHtml\(revision\.content_hash \|\| 'Not supplied'\)\}<\/span>`\]/u);
   assert.match(appSource, /\['After hash', `<span class="hash-text">\$\{escapeHtml\(after\.content_hash \|\| 'Not supplied'\)\}<\/span>`\]/u);
 });
 
