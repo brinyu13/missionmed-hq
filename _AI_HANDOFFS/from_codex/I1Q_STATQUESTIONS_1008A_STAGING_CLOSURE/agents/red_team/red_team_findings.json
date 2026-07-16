@@ -1,0 +1,627 @@
+{
+  "schema_version": "i1q.independent-red-team.v1",
+  "mission": "I1Q-1008A",
+  "role": "INDEPENDENT_RED_TEAM",
+  "reviewed_at_utc": "2026-07-16T00:45:12Z",
+  "verdict": "VETO",
+  "highest_achieved_state": "LOCAL_BLOCKED_ENGINEERING_CANDIDATE",
+  "states": {
+    "STATE_A": "VETO_NOT_ACHIEVED",
+    "STATE_B": "VETO_NOT_ACHIEVED",
+    "STATE_C": "VETO_NOT_ACHIEVED",
+    "STATE_D": "VETO_OUT_OF_SCOPE_AND_BLOCKED"
+  },
+  "candidate": {
+    "worktree": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008A",
+    "branch": "i1q-statquestions-1008a",
+    "head": "483b0f76f42bc3a1da674ccd4f61432aab84668b",
+    "tree": "8e48125fbb160b73880516685aef0389d6854a82",
+    "working_tree_state": "IMMUTABLE_COMMIT_REVIEWED_FROM_ISOLATED_EXPORT",
+    "post_commit_worktree_changes_excluded": true,
+    "preview_target": "ABSENT_UNASSIGNED",
+    "staging_url": null
+  },
+  "independent_checks": {
+    "npm_test": {
+      "classification": "LOCAL",
+      "total": 287,
+      "passed": 285,
+      "failed": 0,
+      "skipped": 2,
+      "note": "Both skipped tests require independently provisioned disposable PostgreSQL targets."
+    },
+    "evidence_validator": {
+      "classification": "LOCAL",
+      "expected": 20,
+      "present": 20,
+      "parsed": 20,
+      "errors": 14,
+      "claimed_state": "STATE_A",
+      "verdict": "FAIL_UNSUPPORTED_STATE_AND_STALE_INCOMPLETE_EVIDENCE",
+      "stale_artifacts": [
+        "i1q-question-platform/openapi.json",
+        "i1q-question-platform/package.json",
+        "i1q-question-platform/public/app.js",
+        "i1q-question-platform/public/index.html",
+        "i1q-question-platform/public/styles.css",
+        "i1q-question-platform/src/auth.mjs",
+        "i1q-question-platform/src/contracts.mjs",
+        "i1q-question-platform/src/platform.mjs",
+        "i1q-question-platform/src/server.mjs",
+        "i1q-question-platform/tests/api.test.mjs",
+        "i1q-question-platform/tests/security-regressions.test.mjs",
+        "i1q-question-platform/tests/ui.test.mjs"
+      ],
+      "additional_errors": [
+        "E_ARTIFACT_INVENTORY",
+        "E_TEST_EVIDENCE_STALE"
+      ]
+    },
+    "ui_regression_test": {
+      "classification": "LOCAL",
+      "total": 19,
+      "passed": 19,
+      "failed": 0,
+      "verdict": "PASS"
+    },
+    "database_evidence": {
+      "classification": "SUPPLIED_LOCAL_EVIDENCE_NOT_INDEPENDENTLY_RERUN",
+      "base": "13/13",
+      "runtime": "1/1",
+      "reason_not_rerun": "No independent disposable database URL was provisioned; no preview target exists."
+    },
+    "protected_hashes": {
+      "classification": "LOCAL_READ_ONLY",
+      "expected": 20,
+      "matched": 20,
+      "modified": 0
+    },
+    "external_candidate_runtime": {
+      "classification": "NOT_RUN_NONEXISTENT",
+      "localhost_claimed_as_staging": false
+    }
+  },
+  "controls_not_disproved": [
+    "The validator detects 14 synchronization errors; its reported STATE_A claim is rejected because external gates are unexecuted and deployment records are blocked/not deployed.",
+    "The supplied disposable PostgreSQL results report 13/13 base and 1/1 runtime passes.",
+    "The 1008A migration is locally deny-by-default: forced RLS, no broad table grants, app runtime deny-all, and flags off.",
+    "The preview workflow separates secret-free validation, uses step-scoped secrets, pins actions, binds candidate/history/approval bytes, validates MR-078A timestamp/header/diff controls, separates phases, runs post-operation checks, and gates upload on redaction success.",
+    "Identity audit outage fails closed and the hash-pinned runtime root rejects MemoryRepository and incomplete resolver composition.",
+    "All 20 protected local baseline hashes are unchanged."
+  ],
+  "findings": [
+    {
+      "id": "RT-1008A-001",
+      "severity": "CRITICAL",
+      "title": "No concrete canonical persistent runtime adapter exists",
+      "classification": "LOCAL_SAFETY_PASS_BOUNDED_BY_EXTERNAL",
+      "domains": [
+        "identity",
+        "auth",
+        "deployment",
+        "datastore",
+        "api"
+      ],
+      "readiness_claim_disproved": "The source-complete API and adapter candidate is deployable as an authenticated persistent service.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/src/runtime.mjs",
+          "lines": "12-41,55-164",
+          "observation": "Hash-pinned staging root rejects MemoryRepository, incomplete platform methods, missing resolvers, unauthorized mode, and invalid bind configuration."
+        },
+        {
+          "path": "i1q-question-platform/package.json",
+          "observation": "npm start enters the fail-closed runtime root; current runtime-composition regressions pass."
+        },
+        {
+          "command": "find i1q-question-platform/runtime-adapters -type f",
+          "result": "No runtime-adapters directory or concrete canonical adapter exists. PostgresRepository does not provide the complete required platform surface."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_A_THROUGH_STATE_C",
+      "repairability": {
+        "verdict": "MIXED_LOCAL_EXTERNAL",
+        "required_action": "Implement and ratify the hash-pinned canonical adapter, complete persistent platform surface, and every required resolver, then prove it on authenticated non-localhost staging."
+      },
+      "rerun_triggers": [
+        "Concrete canonical runtime adapter is committed and hash-bound.",
+        "Authenticated persistence and restart smoke passes on exact staging commit."
+      ]
+    },
+    {
+      "id": "RT-1008A-002",
+      "severity": "CRITICAL",
+      "title": "No preview, staging deployment, or external operation exists",
+      "classification": "EXTERNAL",
+      "domains": [
+        "deployment",
+        "migration",
+        "rollback",
+        "monitoring",
+        "evidence"
+      ],
+      "readiness_claim_disproved": "Local checks establish preview or staging readiness.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/deployment/preview-target.json",
+          "observation": "Target is unassigned and contains no final target, approval, candidate, history, or backup binding."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/I1Q_1008A_STAGING_DEPLOYMENT.md",
+          "observation": "Deployment is explicitly not run."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/I1Q_1008A_MONITORING.md",
+          "observation": "Monitoring is explicitly design-only."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_B_THROUGH_STATE_D",
+      "repairability": {
+        "verdict": "REQUIRES_EXTERNAL_OWNER",
+        "required_action": "Assign and approve synthetic-only preview and staging targets, execute the exact workflow phases, deploy the app, and retain immutable evidence."
+      },
+      "rerun_triggers": [
+        "Authorized target and approval records exist.",
+        "Workflow run IDs, deployment URL, exact commit, and artifact hashes exist."
+      ]
+    },
+    {
+      "id": "RT-1008A-003",
+      "severity": "MEDIUM",
+      "title": "Static MR-078A controls pass but authorization and execution are absent",
+      "classification": "LOCAL_PASS_BOUNDED_BY_EXTERNAL",
+      "domains": [
+        "authority",
+        "migration_workflow",
+        "source_integrity",
+        "approval"
+      ],
+      "readiness_claim_disproved": "Passing static workflow controls establish target authorization, human review, or executed MR-078A evidence.",
+      "reproducible_evidence": [
+        {
+          "path": ".github/workflows/i1q-1008a-preview.yml",
+          "lines": "231-276,369-462",
+          "observation": "Latest source validates UTC/no-future timestamps, 60-second gaps, required headers, pre-action db diff, and zero-content post-action diff. Static regressions pass."
+        },
+        {
+          "path": "i1q-question-platform/deployment/preview-target.json",
+          "observation": "Target and approval fields remain unassigned, so no owner-controlled authorization or diff review exists."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/I1Q_1008A_MIGRATION_PREVIEW.md",
+          "observation": "Every target operation, generated diff, review, backup/restore check, and workflow artifact remains NOT_RUN."
+        },
+        {
+          "path": ".github/workflows/i1q-1008a-preview.yml",
+          "lines": "151-188",
+          "observation": "Source binds approval bytes; authentic human provenance still depends on the absent owner-controlled environment and approval record."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_B_AND_HIGHER",
+      "repairability": {
+        "verdict": "REQUIRES_EXTERNAL_AUTHORITY_AND_EXECUTION",
+        "required_action": "Configure the owner-controlled environment, assign the synthetic target, run validation, review the exact diff, bind approval, and execute only the authorized phase."
+      },
+      "rerun_triggers": [
+        "Exact pre-action diff is generated and owner-reviewed before apply.",
+        "Protected environment and approver controls are inspectable.",
+        "Authorized validate run passes before apply."
+      ]
+    },
+    {
+      "id": "RT-1008A-004",
+      "severity": "HIGH",
+      "title": "Committed evidence is stale, incomplete, and reports unsupported STATE_A",
+      "classification": "LOCAL",
+      "domains": [
+        "source_integrity",
+        "evidence_integrity"
+      ],
+      "readiness_claim_disproved": "The committed evidence proves integrity, provenance, or achieved State A for the exact candidate.",
+      "reproducible_evidence": [
+        {
+          "command": "npm run validate --prefix i1q-question-platform",
+          "result": "Exact-commit isolated run fails with 14 errors: 12 stale checksums, incomplete artifact inventory, and stale test inventory; claimed_state is STATE_A."
+        },
+        {
+          "path": "i1q-question-platform/evidence/artifact_checksums.json",
+          "observation": "Stale entries cover OpenAPI, package, UI, auth, contracts, platform, server, and tests. Runtime, identity, 1008A migration/test, workflow, and closure files remain outside complete binding."
+        },
+        {
+          "path": "i1q-question-platform/evidence/combined_handoff_validation.json",
+          "lines": "1-8",
+          "observation": "Validation references the older I1Q_STATQUESTIONS_1007X_MULTIAGENT handoff."
+        },
+        {
+          "path": "i1q-question-platform/evidence/deployment_manifest.json",
+          "observation": "The file says BLOCKED_NOT_DEPLOYED while success_level is STATE_A; preview-target.json is unassigned."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_CERTIFICATION_OF_ALL_STATES",
+      "repairability": {
+        "verdict": "REPAIRABLE_LOCAL",
+        "required_action": "Regenerate evidence from commit 483b0f7, remove the unsupported state claim, and bind all product, workflow, migration, deployment, and closure evidence to one complete manifest."
+      },
+      "rerun_triggers": [
+        "Exact-commit validator passes without an unsupported state claim.",
+        "Current packet validator covers every claimed release artifact."
+      ]
+    },
+    {
+      "id": "RT-1008A-005",
+      "severity": "HIGH",
+      "title": "Canonical identity and shared-auth safety are not closed",
+      "classification": "PROTECTED_DEPENDENCY_AND_EXTERNAL",
+      "domains": [
+        "identity",
+        "auth",
+        "monitoring",
+        "dependent_systems"
+      ],
+      "readiness_claim_disproved": "Synthetic adapter tests establish a canonical, replay-safe, revocable, and auditable auth lifecycle.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/src/identity-adapter.mjs",
+          "lines": "159-164,195-200",
+          "observation": "Latest adapter requires an explicit audit sink and fails 503 when it is unavailable; this repaired local control is accepted."
+        },
+        {
+          "path": "missionmed-hq/server.mjs",
+          "lines": "81-83,1002-1037,3058-3070",
+          "observation": "Random secret fallback, non-rejecting expiry checks, and credentialed origin reflection exist in protected source."
+        },
+        {
+          "command": "curl -sS -D - -o /dev/null -H 'Origin: https://red-team-invalid.example' https://missionmed-hq-production.up.railway.app/api/auth/session",
+          "result": "HTTP 200 with Access-Control-Allow-Origin reflecting the hostile origin and Access-Control-Allow-Credentials: true on 2026-07-16 UTC."
+        },
+        {
+          "path": "wp-content/mu-plugins/missionmed-hq-auth-handoff.php",
+          "lines": "107-117",
+          "observation": "A nonce is emitted; one-time consumption is not proved in the reviewed HQ parser."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_A_AND_ALL_DEPENDENT_STATES",
+      "repairability": {
+        "verdict": "REQUIRES_PROTECTED_OWNER",
+        "required_action": "Resolve protected defects through Critical Systems authority, ratify and wire I1Q identity, and pass the full canonical-user auth attack suite."
+      },
+      "rerun_triggers": [
+        "Protected auth decision and fixes exist.",
+        "Source/runtime parity is established.",
+        "Login, expiry, replay, revocation, logout, restart, outage, and CORS attacks pass on staging."
+      ]
+    },
+    {
+      "id": "RT-1008A-006",
+      "severity": "HIGH",
+      "title": "RLS and grants lack hosted-target fidelity and functional app authorization",
+      "classification": "MIXED_LOCAL_EXTERNAL",
+      "domains": [
+        "rls",
+        "grants",
+        "identity",
+        "datastore"
+      ],
+      "readiness_claim_disproved": "Disposable PostgreSQL tests certify the hosted RLS and application grant model.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/db/migrations/20260715193625_i1q_1008a_identity_runtime_contract.sql",
+          "lines": "328-355",
+          "observation": "Only identity profile capability is granted; i1q_app_runtime intentionally remains deny-all."
+        },
+        {
+          "path": "i1q-question-platform/tests/postgres-runtime-1008a.test.mjs",
+          "lines": "52-65",
+          "observation": "The test creates synthetic authenticated/anon roles and auth.uid rather than using target role defaults."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/agents/security/rls_attack_matrix.md",
+          "observation": "Hosted owner/non-owner, actor binding, pool isolation, and exact app-grant attacks are not run."
+        }
+      ],
+      "achieved_state_verdict": "LOCAL_DENY_BY_DEFAULT_ONLY_STATE_B_NOT_ACHIEVED",
+      "repairability": {
+        "verdict": "MIXED_LOCAL_EXTERNAL",
+        "required_action": "Ratify exact app grants and actor binding, then test actual hosted roles, ownership, schema exposure, default privileges, and pooled actor substitution."
+      },
+      "rerun_triggers": [
+        "Approved app grant and actor-binder migrations exist.",
+        "Fresh hosted attack matrix passes on authorized preview."
+      ]
+    },
+    {
+      "id": "RT-1008A-007",
+      "severity": "HIGH",
+      "title": "Answer and source isolation have no production authorization path",
+      "classification": "MIXED_LOCAL_EXTERNAL",
+      "domains": [
+        "answer_isolation",
+        "source_isolation",
+        "auth",
+        "api"
+      ],
+      "readiness_claim_disproved": "Local policy tests prove deployed answer and source isolation.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/src/server.mjs",
+          "lines": "215-247,571-578",
+          "observation": "Finalization and review-content resolvers are optional injection points and absent from the executable composition."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/agents/security/answer_isolation_results.md",
+          "observation": "Local synthetic tests exist; deployed sealed-pack and cross-user attacks do not."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_A_THROUGH_STATE_C_FOR_ANSWER_WORKFLOWS",
+      "repairability": {
+        "verdict": "MIXED_LOCAL_EXTERNAL",
+        "required_action": "Implement persisted authoritative finalization and assignment resolvers, then run the full staging isolation attack matrix."
+      },
+      "rerun_triggers": [
+        "Production resolvers are committed and wired.",
+        "Pre/post-answer, cross-user, replay, direct URL, cache, export, and rollback attacks pass on staging."
+      ]
+    },
+    {
+      "id": "RT-1008A-008",
+      "severity": "MEDIUM",
+      "title": "Pagination completeness is repaired locally but persistent-stack performance is unproved",
+      "classification": "LOCAL_PASS_BOUNDED_BY_EXTERNAL",
+      "domains": [
+        "api",
+        "ui",
+        "performance",
+        "release_safety"
+      ],
+      "readiness_claim_disproved": "Cursor-complete local behavior proves persistent-stack performance and operational SLOs at the intended corpus size.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/public/app.js",
+          "lines": "382-429",
+          "observation": "Latest listResource drains cursors and rejects invalid totals, snapshot changes, overlapping IDs, cursor loops, incomplete results, and results above 50,000 rows."
+        },
+        {
+          "command": "node --test i1q-question-platform/tests/ui.test.mjs",
+          "result": "19/19 pass, including a 250-row cursor-draining regression."
+        },
+        {
+          "path": "i1q-question-platform/evidence/load_results.json",
+          "observation": "The 10,000-row result is explicitly in-memory rather than persistent-stack or staging evidence."
+        }
+      ],
+      "achieved_state_verdict": "LOCAL_PAGINATION_COMPLETENESS_PASS_STATE_C_PERFORMANCE_BLOCKED",
+      "repairability": {
+        "verdict": "REQUIRES_EXTERNAL_VALIDATION_WITH_LOCAL_OPTIMIZATION_IF_NEEDED",
+        "required_action": "Run representative persistent-stack/browser scale tests and move expensive joins or filters server-side if approved thresholds are missed."
+      },
+      "rerun_triggers": [
+        "Authenticated staging load suite meets latency, memory, error, concurrency, completeness, and rendering thresholds."
+      ]
+    },
+    {
+      "id": "RT-1008A-009",
+      "severity": "HIGH",
+      "title": "Compensation and reapply are not an operational rollback",
+      "classification": "MIXED_LOCAL_EXTERNAL",
+      "domains": [
+        "migration",
+        "rollback",
+        "reapply",
+        "deployment"
+      ],
+      "readiness_claim_disproved": "Local idempotent compensation/reapply execution proves recoverability.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/db/reapply/20260715193955_i1q_1008a_runtime_reapply.sql",
+          "observation": "Reapply restores only identity-profile capability and keeps behavior flags off and app runtime deny-all."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/agents/release_reliability/rollback_execution.md",
+          "observation": "No authorized target rollback or restore execution exists."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/agents/lorentz/rollback_contract.md",
+          "observation": "State B rollback acceptance interpretation remains open."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_B_AND_STATE_C",
+      "repairability": {
+        "verdict": "MIXED_LOCAL_EXTERNAL",
+        "required_action": "Ratify rollback semantics, cover approved functional grants, and run backup restore, compensation, reapply, drift, data integrity, and app smoke on preview."
+      },
+      "rerun_triggers": [
+        "Signed rollback contract exists.",
+        "Complete target recovery evidence exists."
+      ]
+    },
+    {
+      "id": "RT-1008A-010",
+      "severity": "HIGH",
+      "title": "Fail-closed monitoring contracts exist but monitoring operation is absent",
+      "classification": "MIXED_LOCAL_EXTERNAL",
+      "domains": [
+        "monitoring",
+        "audit",
+        "deployment",
+        "reliability"
+      ],
+      "readiness_claim_disproved": "The monitoring packet establishes operating readiness.",
+      "reproducible_evidence": [
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/I1Q_1008A_MONITORING.md",
+          "observation": "Monitoring is explicitly design-only."
+        },
+        {
+          "path": "i1q-question-platform/src/identity-adapter.mjs",
+          "lines": "159-164,195-200",
+          "observation": "Audit transport is required and outage fails closed."
+        },
+        {
+          "path": "i1q-question-platform/src/runtime.mjs",
+          "lines": "55-101",
+          "observation": "Runtime descriptor and readiness resolver are required, but no concrete adapter or telemetry implementation exists."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_C",
+      "repairability": {
+        "verdict": "MIXED_LOCAL_EXTERNAL",
+        "required_action": "Implement durable logs, metrics, tracing, audit, readiness, SLOs, alerts, responders, and tested runbooks."
+      },
+      "rerun_triggers": [
+        "Staging telemetry is retained and redacted.",
+        "Alert and rollback-trigger drills pass."
+      ]
+    },
+    {
+      "id": "RT-1008A-011",
+      "severity": "HIGH",
+      "title": "Protected dependent-system source and runtime are unreconciled",
+      "classification": "PROTECTED_DEPENDENCY_AND_EXTERNAL",
+      "domains": [
+        "dependent_systems",
+        "source_integrity",
+        "deployment",
+        "rollback"
+      ],
+      "readiness_claim_disproved": "Unchanged protected local files establish dependent-system safety.",
+      "reproducible_evidence": [
+        {
+          "command": "shasum -a 256 LIVE/arena.html LIVE/stat.html LIVE/drills.html LIVE/daily.html",
+          "result": "Local hashes: 2b881db5..., 350108cc..., cd79a2f1..., aa7b7ff4...."
+        },
+        {
+          "command": "curl -fsSL https://cdn.missionmedinstitute.com/html-system/LIVE/{consumer}.html | shasum -a 256",
+          "result": "Public hashes on 2026-07-16 UTC: Arena 7bb0ad1c..., STAT 77303e63..., Drills c480c014..., Daily 409a89d0...; all differ from local."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_C_INTEGRATION",
+      "repairability": {
+        "verdict": "REQUIRES_PROTECTED_OWNERS",
+        "required_action": "Choose and record authoritative bytes, reconcile source/runtime, then run authenticated before/after/rollback consumer journeys."
+      },
+      "rerun_triggers": [
+        "Owner-approved reconciliation record exists.",
+        "Arena, STAT, Drills, and Daily contract journeys pass."
+      ]
+    },
+    {
+      "id": "RT-1008A-012",
+      "severity": "MEDIUM",
+      "title": "OpenAPI security shape is repaired but deployed conformance is absent",
+      "classification": "LOCAL_PASS_BOUNDED_BY_EXTERNAL",
+      "domains": [
+        "api",
+        "identity",
+        "evidence"
+      ],
+      "readiness_claim_disproved": "Passing local API shape tests establish deployed API conformance.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/openapi.json",
+          "observation": "Latest spec uses an explicit HTTP bearer JWT scheme for the closed i1q.identity.v1 contract; the previous placeholder is removed."
+        },
+        {
+          "path": "i1q-question-platform/tests/api.test.mjs",
+          "lines": "255-311",
+          "observation": "Current local test asserts the exact route and security-scheme shape; no persistent staging service exists for conformance."
+        }
+      ],
+      "achieved_state_verdict": "LOCAL_API_SHAPE_PASS_STATE_C_CONFORMANCE_BLOCKED",
+      "repairability": {
+        "verdict": "REQUIRES_EXTERNAL_VALIDATION",
+        "required_action": "Run a standards validator and generated-client suite, then compare authenticated persistent-staging responses to the exact spec."
+      },
+      "rerun_triggers": [
+        "Final OpenAPI passes standards and generated-client validation.",
+        "Staging conformance suite passes."
+      ]
+    },
+    {
+      "id": "RT-1008A-013",
+      "severity": "MEDIUM",
+      "title": "Local UI repairs pass but accessibility certification remains not run",
+      "classification": "LOCAL_PASS_BOUNDED_BY_EXTERNAL",
+      "domains": [
+        "accessibility",
+        "ui",
+        "identity",
+        "evidence"
+      ],
+      "readiness_claim_disproved": "Repaired source and local regression tests establish WCAG 2.2 AA and operational reviewer usability on staging.",
+      "reproducible_evidence": [
+        {
+          "path": "i1q-question-platform/public/styles.css",
+          "lines": "508-518,663-679,940-1050",
+          "observation": "Latest bytes contain page-root and table containment, nonshrinking pagination, and wrapping mobile environment/identity context."
+        },
+        {
+          "path": "i1q-question-platform/public/app.js",
+          "lines": "711-712,779-780,1012-1015,1060-1063,1140-1143",
+          "observation": "Latest bytes render full visible hashes without title-only disclosure."
+        },
+        {
+          "command": "node --test i1q-question-platform/tests/ui.test.mjs",
+          "result": "19 tests, 19 pass, 0 fail, including accessibility, cursor-draining, and distinct session-recovery regressions."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/agents/ux_accessibility/human_validation_protocol.md",
+          "observation": "Human, assistive-technology, zoom, reflow, and browser validation remains not run because no authenticated staging service exists."
+        }
+      ],
+      "achieved_state_verdict": "BLOCKS_STATE_C_ACCESSIBILITY_AND_UI",
+      "repairability": {
+        "verdict": "REQUIRES_EXTERNAL_VALIDATION",
+        "required_action": "Preserve the repaired bytes, synchronize evidence, and pass human keyboard, AT, zoom, reflow, browser, and workflow validation on authenticated staging."
+      },
+      "rerun_triggers": [
+        "Authenticated staging UI exists.",
+        "Human and assistive-technology protocol passes with no release blockers."
+      ]
+    },
+    {
+      "id": "RT-1008A-014",
+      "severity": "MEDIUM",
+      "title": "Authority permits local work but is not closure-ready",
+      "classification": "AUTHORITY_AND_EXTERNAL",
+      "domains": [
+        "authority",
+        "identity",
+        "release"
+      ],
+      "readiness_claim_disproved": "Local build authorization is achieved-state or release authorization.",
+      "reproducible_evidence": [
+        {
+          "path": "/Users/brianb/MissionMed_OS/decisions/DR-006_i1q_question_platform_internal_integration.md",
+          "observation": "DR-006 permits additive internal I1Q work while requiring canonical auth, preview first, forced RLS, isolation, and no student release."
+        },
+        {
+          "path": "/Users/brianb/MissionMed_OS/CURRENT.md",
+          "observation": "Canonical current routing remains I1Q-1006 rather than an immutable 1008A candidate."
+        },
+        {
+          "path": "_AI_HANDOFFS/from_codex/I1Q_STATQUESTIONS_1008A_STAGING_CLOSURE/agents/herschel/identity_authority_map.md",
+          "observation": "Global canonical identity architecture and I1Q identity ratification remain unresolved."
+        }
+      ],
+      "achieved_state_verdict": "LOCAL_INTERNAL_CANDIDATE_ONLY_ALL_RELEASE_STATES_BLOCKED",
+      "repairability": {
+        "verdict": "REQUIRES_AUTHORITY_OWNERS",
+        "required_action": "Resolve identity, target, grants, rollback semantics, owners, and canonical candidate routing through authority records."
+      },
+      "rerun_triggers": [
+        "Authority records are complete and conflict-free.",
+        "Exact immutable candidate is canonically routed."
+      ]
+    }
+  ],
+  "explicit_rerun_gate": [
+    "Regenerate and fully manifest-bind evidence for commit 483b0f76f42bc3a1da674ccd4f61432aab84668b, with no unsupported achieved-state claim.",
+    "Ratify identity, application grants, actor binding, rollback semantics, target, and approver authority.",
+    "Fix protected shared-auth findings through the Critical Systems process and prove source/runtime parity.",
+    "Compose canonical identity, persistent datastore, durable audit, readiness, and production workflow resolvers.",
+    "Implement every MR-078A workflow check and pass an authorized validation run.",
+    "Execute preview apply, hosted RLS attacks, backup restore, compensation, reapply, and drift checks.",
+    "Deploy authenticated non-localhost staging and pass API, isolation, dependent-system, accessibility, performance, monitoring, alert, restart, and rollback tests.",
+    "Obtain Security and Release withdrawal of veto on the identical candidate and evidence hashes."
+  ]
+}
