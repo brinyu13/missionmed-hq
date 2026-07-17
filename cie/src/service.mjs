@@ -66,6 +66,7 @@ export class CieService {
   #consentPolicy;
   #externalDeletionProofVerifier;
   #authorityAdapter;
+  #lastTimestampMs = Number.NEGATIVE_INFINITY;
 
   constructor(repository, options = {}) {
     invariant(typeof options.authorityAdapter?.accepts === "function", 500, "AUTHORITY_ADAPTER_REQUIRED", "CIE service requires one pinned MissionMed authority adapter");
@@ -78,12 +79,16 @@ export class CieService {
   }
 
   #timestamp() {
-    return this.#now().toISOString();
+    const next = Math.max(this.#now().getTime(), this.#lastTimestampMs + 1);
+    this.#lastTimestampMs = next;
+    return new Date(next).toISOString();
   }
 
   #timestampAfter(value) {
     const floor = value ? Date.parse(value) + 1 : Number.NEGATIVE_INFINITY;
-    return new Date(Math.max(this.#now().getTime(), floor)).toISOString();
+    const next = Math.max(this.#now().getTime(), this.#lastTimestampMs + 1, floor);
+    this.#lastTimestampMs = next;
+    return new Date(next).toISOString();
   }
 
   #activeSession(store, sessionId) {

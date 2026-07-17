@@ -244,6 +244,7 @@ test("C0 service enforces self-first mentor review, exact grants, and hidden Opp
   }
 
   await value.service.revokeAccess(student, value.session.id, value.grant.id, value.meta("author-grant-revoke", 1));
+  assert.equal(Date.parse(value.repository.getVisibilityGrant(value.grant.id).revoked_at) > Date.parse(opportunity.opportunity.created_at), true);
   assert.throws(() => value.service.listTimeline(mentor, value.session.id, { limit: 20 }), { code: "RESOURCE_UNAVAILABLE" });
   const mentorBAfterRevoke = value.service.listTimeline(mentorB, value.session.id, { limit: 20 });
   assert.equal(mentorBAfterRevoke.items.some((item) => item.kind === "opportunity"), false);
