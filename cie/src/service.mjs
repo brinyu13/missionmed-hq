@@ -560,7 +560,7 @@ export class CieService {
       const grant = requireFound(store.getVisibilityGrant(grantId), "RESOURCE_UNAVAILABLE", "This resource is not available");
       invariant(grant.session_id === session.id, 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
       invariant(envelope.expected_row_version !== null, 428, "ROW_VERSION_REQUIRED", "Revoking access requires If-Match row version");
-      const revoked = store.revokeVisibilityGrant(grant.id, session.owner_user_id, envelope.expected_row_version, this.#timestamp());
+      const revoked = store.revokeVisibilityGrant(grant.id, session.owner_user_id, envelope.expected_row_version, this.#timestampAfter(grant.issued_at));
       this.#audit(store, auth, session.id, "cie.visibility.revoked", "visibility_grant", grant.id, envelope, { row_version: revoked.row_version });
       return revoked;
     });

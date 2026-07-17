@@ -254,6 +254,7 @@ test("C0 service enforces self-first mentor review, exact grants, and hidden Opp
   }), value.meta("cross-mentor-consent-withdrawal"));
   assert.throws(() => value.service.listTimeline(mentorB, value.session.id, { limit: 20 }), { code: "RESOURCE_UNAVAILABLE" });
   assert.equal(value.repository.getVisibilityGrant(mentorBGrant.id).revoked_at, null);
+  assert.doesNotThrow(() => new MemoryCieRepository(value.repository.exportState()));
 });
 
 test("grant revocation and consent withdrawal fail closed without enumerating Moments", async () => {
