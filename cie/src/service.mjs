@@ -661,6 +661,8 @@ export class CieService {
       artifactType = "moment";
       artifactId = item.payload.moment_id;
     } else if (item.kind === "opportunity") {
+      const opportunity = store.getOpportunity(item.payload?.opportunity_id);
+      if (!opportunity || opportunity.reviewer?.subject_id !== auth.subject_id || opportunity.reviewer?.role !== "mentor") return false;
       artifactType = "moment";
       artifactId = item.payload.source_moment_id;
     }

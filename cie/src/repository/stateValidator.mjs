@@ -283,6 +283,7 @@ export function validateSerializedRepository(serialized) {
     valid(priority && [priority.spotlight_snapshot_id, priority.supporting_snapshot_id].includes(opportunity.skill_snapshot_id), "Opportunity is outside the active priority set");
     const track = tracks.get(`${opportunity.track_item_id}:${opportunity.track_item_revision}`);
     valid(track && track.kind === "opportunity" && track.session_id === session.id && track.payload?.opportunity_id === opportunity.id, "Opportunity track binding is invalid");
+    valid(track.author?.subject_id === opportunity.reviewer.subject_id && track.author?.role === opportunity.reviewer.role, "Opportunity reviewer and track author binding is invalid");
   }
 
   const grants = index(serialized.visibility_grants, (value) => value.id, "Visibility grant");

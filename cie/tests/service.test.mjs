@@ -12,6 +12,7 @@ const principal = (subject_id, role, capabilities = []) => authority.verify({ su
 const student = await principal(TEST_SUBJECTS.student, "student");
 const studentB = await principal(TEST_SUBJECTS.studentB, "student");
 const mentor = await principal(TEST_SUBJECTS.mentor, "mentor");
+const mentorB = await principal(TEST_SUBJECTS.mentorB, "mentor");
 const admin = await principal(TEST_SUBJECTS.admin, "admin");
 const integration = await principal(TEST_SUBJECTS.integration, "integration", ["cie:skill-snapshot:import", "cie:priority:write", "cie:review:write"]);
 const deletionWorker = await principal(TEST_SUBJECTS.deletionWorker, "integration", ["cie:deletion:work"]);
@@ -175,6 +176,26 @@ test("C0 service enforces self-first mentor review, exact grants, and hidden Opp
   assert.equal(mentorTimeline.items.some((item) => item.payload?.moment_id === second.moment.id), false);
   assert.equal(mentorTimeline.items.some((item) => item.kind === "opportunity"), true);
 
+  const mentorBGrant = await value.service.grantAccess(student, value.session.id, {
+    grantee_user_id: mentorB.subject_id,
+    artifact_type: "moment",
+    artifact_id: value.moment.id,
+    scope: "review",
+    consent_receipt_id: value.sharing.id,
+    expires_at: "2026-07-18T12:00:00.000Z"
+  }, value.meta("second-mentor-grant"));
+  const mentorBTimeline = value.service.listTimeline(mentorB, value.session.id, { limit: 20 });
+  assert.equal(mentorBTimeline.items.some((item) => item.payload?.moment_id === value.moment.id), true);
+  assert.equal(mentorBTimeline.items.some((item) => item.kind === "opportunity"), false);
+
+  await assert.rejects(value.service.grantAccess(student, value.session.id, {
+    grantee_user_id: mentorB.subject_id,
+    artifact_type: "track_item",
+    artifact_id: opportunity.track_item.track_item_id,
+    scope: "review",
+    consent_receipt_id: value.sharing.id
+  }, value.meta("opportunity-grant-forbidden")), { code: "VISIBILITY_STATE_MISMATCH" });
+
   await assert.rejects(value.service.createMoment(mentor, value.session.id, {
     range_kind: "SPAN",
     t0_ms: 10_500,
@@ -220,6 +241,18 @@ test("C0 service enforces self-first mentor review, exact grants, and hidden Opp
   for (const denied of [studentB, admin]) {
     assert.throws(() => value.service.resolveMomentLink(denied, value.session.id, value.moment.id), { code: "RESOURCE_UNAVAILABLE" });
   }
+
+  await value.service.revokeAccess(student, value.session.id, value.grant.id, value.meta("author-grant-revoke", 1));
+  assert.throws(() => value.service.listTimeline(mentor, value.session.id, { limit: 20 }), { code: "RESOURCE_UNAVAILABLE" });
+  const mentorBAfterRevoke = value.service.listTimeline(mentorB, value.session.id, { limit: 20 });
+  assert.equal(mentorBAfterRevoke.items.some((item) => item.kind === "opportunity"), false);
+
+  await value.service.recordConsent(student, value.session.id, consentInput("mentor_sharing", {
+    granted: false,
+    supersedes_receipt_id: value.sharing.id
+  }), value.meta("cross-mentor-consent-withdrawal"));
+  assert.throws(() => value.service.listTimeline(mentorB, value.session.id, { limit: 20 }), { code: "RESOURCE_UNAVAILABLE" });
+  assert.equal(value.repository.getVisibilityGrant(mentorBGrant.id).revoked_at, null);
 });
 
 test("grant revocation and consent withdrawal fail closed without enumerating Moments", async () => {
@@ -246,6 +279,39 @@ test("grant revocation and consent withdrawal fail closed without enumerating Mo
   assert.equal(withdrawal.authority_ref, "cie-test-authority");
   assert.equal(withdrawal.authority_session_ref, student.authority_session_ref);
   assert.throws(() => value.service.resolveMomentLink(mentor, value.session.id, value.moment.id), { code: "RESOURCE_UNAVAILABLE" });
+});
+
+test("repository restore rejects Opportunity reviewer and track-author drift", async () => {
+  const value = await seeded();
+  await value.service.setPriorities(mentor, value.session.id, {
+    spotlight_snapshot_id: value.snapshot.id,
+    supporting_snapshot_id: value.supportingSnapshot.id,
+    consent_receipt_ids: [value.evidence.id],
+    review_moment_id: value.moment.id
+  }, value.meta("reviewer-binding-priorities"));
+  const created = await value.service.createOpportunity(mentor, value.session.id, {
+    range_kind: "SPAN",
+    t0_ms: 2_000,
+    t1_ms: 6_000,
+    segment_id: "segment_1",
+    media_revision_ref: "media_revision_1",
+    source: "mentor-manual",
+    type: "missed_clarifying_question",
+    skill_snapshot_id: value.snapshot.id,
+    evidence_note: "Synthetic reviewer-binding fixture.",
+    context: { fixture: true, patient_data: false },
+    uncertainty: "low",
+    consent_receipt_ids: [value.evidence.id, value.sharing.id],
+    evidence_claim: { ...observedClaim, evidence_refs: [value.moment.id], statement: "The selected replay range begins with a counterpoint." },
+    coaching_claim: { tier: "L3", badge: "MENTOR", statement: "Ask one clarifying question.", evidence_refs: [value.moment.id], method_status: "human_observation" }
+  }, value.meta("reviewer-binding-opportunity"));
+  const state = value.repository.exportState();
+  const corrupted = state.opportunities.find((entry) => entry.id === created.opportunity.id);
+  corrupted.reviewer = { subject_id: mentorB.subject_id, role: "mentor" };
+  const body = { ...corrupted };
+  delete body.content_hash;
+  corrupted.content_hash = sha256(body);
+  assert.throws(() => new MemoryCieRepository(state), { code: "REPOSITORY_STATE_INVALID" });
 });
 
 test("timeline pagination is bound to one event snapshot under concurrent inserts", async () => {

@@ -7,6 +7,7 @@ export const TEST_SUBJECTS = Object.freeze({
   student: testUuid(0x1001),
   studentB: testUuid(0x1002),
   mentor: testUuid(0x2001),
+  mentorB: testUuid(0x2002),
   admin: testUuid(0x3001),
   integration: testUuid(0x4001),
   deletionWorker: testUuid(0x4002),
