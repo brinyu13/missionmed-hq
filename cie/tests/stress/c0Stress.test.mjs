@@ -48,12 +48,13 @@ test("10,000 versioned track items persist and range-query deterministically", a
 test("250 concurrent writes allocate unique sequences and survive retries exactly once", async () => {
   const repository = new MemoryCieRepository();
   let id = 0;
+  const authority = createAuthorityAdapter(async (value) => value, "cie-stress-authority");
   const service = new CieService(repository, {
+    authorityAdapter: authority,
     now: () => new Date("2026-07-17T12:00:00.000Z"),
     uuid: () => testUuid(++id),
     consentPolicy: async () => ({ policy_version: "v1", policy_text_hash: "a".repeat(64), locale: "en-US", retention_policy_ref: "stress-retention" })
   });
-  const authority = createAuthorityAdapter(async (value) => value, "cie-stress-authority");
   const auth = await authority.verify({ subject_id: TEST_SUBJECTS.stressStudent, role: "student", capabilities: [], authority_session_ref: "stress-auth-session" });
   const meta = (name) => ({ idempotencyKey: name, requestId: `request-${name}`, correlationId: "stress-correlation" });
   const created = await service.createSession(auth, { external_session_ref: "stress-cam", mode_ref: "M1", media_revision_ref: "media_revision_1", clock: sessionClock }, meta("create"));

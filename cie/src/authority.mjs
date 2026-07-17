@@ -21,8 +21,12 @@ function subjectId(value) {
 export function createAuthorityAdapter(verifier, authorityRef) {
   invariant(typeof verifier === "function", 500, "AUTHORITY_VERIFIER_REQUIRED", "Authority adapter requires a verifier");
   const ref = safeId(authorityRef, "AUTHORITY_REF_INVALID", "Authority reference");
+  const adapterPrincipals = new WeakSet();
   return Object.freeze({
     authority_ref: ref,
+    accepts(value) {
+      return Boolean(value && typeof value === "object" && adapterPrincipals.has(value));
+    },
     async verify(source) {
       const result = await verifier(source);
       invariant(result && typeof result === "object", 401, "AUTH_VERIFICATION_FAILED", "MissionMed authentication could not be verified");
@@ -36,6 +40,7 @@ export function createAuthorityAdapter(verifier, authorityRef) {
         authority_ref: ref,
         authority_session_ref: safeId(result.authority_session_ref, "AUTH_SESSION_INVALID", "Authority session")
       });
+      adapterPrincipals.add(principal);
       principals.add(principal);
       return principal;
     }

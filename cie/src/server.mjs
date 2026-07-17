@@ -83,11 +83,12 @@ export async function createLocalCieServer(options = {}) {
   const statePath = options.statePath || process.env.CIE_LOCAL_STATE_PATH || path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.local/cie-state.json");
   const witnessPath = options.witnessPath || process.env.CIE_LOCAL_WITNESS_PATH || undefined;
   const repository = await FileCieRepository.open(statePath, { witnessPath });
+  const localAuthority = createAuthorityAdapter(async (source) => source, "cie-local-test-authority");
   const serviceOptions = { ...options.serviceOptions };
   if (!serviceOptions.consentPolicy) serviceOptions.consentPolicy = async () => LOCAL_CONSENT_POLICY;
+  serviceOptions.authorityAdapter = localAuthority;
   const service = new CieService(repository, serviceOptions);
   const adapter = new CieApiAdapter(service);
-  const localAuthority = createAuthorityAdapter(async (source) => source, "cie-local-test-authority");
   const [reviewHtml, reviewCss, reviewJavaScript] = await Promise.all([
     readFile(path.join(PUBLIC_DIRECTORY, "review.html")),
     readFile(path.join(PUBLIC_DIRECTORY, "review.css")),

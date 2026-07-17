@@ -21,7 +21,7 @@ function headers(name) {
 test("host adapter requires pre-verified auth and caller-stable mutation metadata", async () => {
   const repository = new MemoryCieRepository();
   let id = 0;
-  const service = new CieService(repository, { now: () => new Date("2026-07-17T12:00:00.000Z"), uuid: () => testUuid(++id) });
+  const service = new CieService(repository, { authorityAdapter: authority, now: () => new Date("2026-07-17T12:00:00.000Z"), uuid: () => testUuid(++id) });
   const adapter = new CieApiAdapter(service);
   const contracts = await adapter.handle({ method: "GET", path: "/v1/cie/contracts", headers: {} });
   assert.equal(contracts.status, 200);
@@ -34,6 +34,11 @@ test("host adapter requires pre-verified auth and caller-stable mutation metadat
   const forged = await adapter.handle({ method: "POST", path: "/v1/cie/sessions", auth: { verified: true, subject_id: "forged", role: "admin", capabilities: ["cie:review:write"] }, headers: headers("forged"), body: {} });
   assert.equal(forged.status, 401);
   assert.equal(forged.body.error.code, "AUTH_CONTEXT_UNVERIFIED");
+  const foreignAuthority = createAuthorityAdapter(async (value) => value, authority.authority_ref);
+  const foreignPrincipal = await foreignAuthority.verify({ subject_id: TEST_SUBJECTS.apiStudent, role: "student", capabilities: [], authority_session_ref: "foreign-api-session" });
+  const foreign = await adapter.handle({ method: "POST", path: "/v1/cie/sessions", auth: foreignPrincipal, headers: headers("foreign-authority"), body: {} });
+  assert.equal(foreign.status, 401);
+  assert.equal(foreign.body.error.code, "AUTH_AUTHORITY_MISMATCH");
 
   const missingIdempotency = await adapter.handle({ method: "POST", path: "/v1/cie/sessions", auth, headers: { "x-request-id": "request-only" }, body: {} });
   assert.equal(missingIdempotency.status, 400);

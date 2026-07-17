@@ -22,6 +22,7 @@ function harness() {
   let request = 0;
   const now = new Date("2026-07-17T12:00:00.000Z");
   const service = new CieService(repository, {
+    authorityAdapter: authority,
     now: () => new Date(now),
     uuid: () => testUuid(++uuid),
     consentPolicy: async ({ purpose }) => ({
@@ -281,7 +282,7 @@ test("grant revocation and consent withdrawal fail closed without enumerating Mo
   assert.throws(() => value.service.resolveMomentLink(mentor, value.session.id, value.moment.id), { code: "RESOURCE_UNAVAILABLE" });
 });
 
-test("repository restore rejects Opportunity reviewer and track-author drift", async () => {
+test("repository restore rejects a coordinated ungranted Opportunity reviewer rewrite", async () => {
   const value = await seeded();
   await value.service.setPriorities(mentor, value.session.id, {
     spotlight_snapshot_id: value.snapshot.id,
@@ -307,10 +308,48 @@ test("repository restore rejects Opportunity reviewer and track-author drift", a
   }, value.meta("reviewer-binding-opportunity"));
   const state = value.repository.exportState();
   const corrupted = state.opportunities.find((entry) => entry.id === created.opportunity.id);
+  const corruptedTrack = state.track_items.find((entry) => entry.track_item_id === created.track_item.track_item_id);
   corrupted.reviewer = { subject_id: mentorB.subject_id, role: "mentor" };
-  const body = { ...corrupted };
-  delete body.content_hash;
-  corrupted.content_hash = sha256(body);
+  corrupted.status_history[0].reviewer_id = mentorB.subject_id;
+  const opportunityBody = { ...corrupted };
+  delete opportunityBody.content_hash;
+  corrupted.content_hash = sha256(opportunityBody);
+  corruptedTrack.author = { subject_id: mentorB.subject_id, role: "mentor" };
+  const trackBody = { ...corruptedTrack };
+  delete trackBody.content_hash;
+  corruptedTrack.content_hash = sha256(trackBody);
+  assert.throws(() => new MemoryCieRepository(state), { code: "REPOSITORY_STATE_INVALID" });
+});
+
+test("repository restore requires historical source-Moment authority for mentor Moments", async () => {
+  const value = await seeded();
+  const created = await value.service.createMoment(mentor, value.session.id, {
+    range_kind: "SPAN",
+    t0_ms: 2_000,
+    t1_ms: 4_000,
+    segment_id: "segment_1",
+    media_revision_ref: "media_revision_1",
+    source: "mentor",
+    review_source_moment_id: value.moment.id,
+    type: "mentor-selected",
+    label: "Synthetic mentor selection",
+    note: "Synthetic fixture only.",
+    visibility: "mentor",
+    consent_receipt_ids: [value.evidence.id, value.sharing.id],
+    provenance: { ...observedClaim, statement: "The mentor selected this synthetic replay range." }
+  }, value.meta("mentor-moment-authority"));
+  const state = value.repository.exportState();
+  const corrupted = state.moments.find((entry) => entry.id === created.moment.id);
+  const corruptedTrack = state.track_items.find((entry) => entry.track_item_id === created.track_item.track_item_id);
+  corrupted.author = { subject_id: mentorB.subject_id, role: "mentor" };
+  const momentBody = { ...corrupted };
+  delete momentBody.content_hash;
+  delete momentBody.deep_link;
+  corrupted.content_hash = sha256(momentBody);
+  corruptedTrack.author = { subject_id: mentorB.subject_id, role: "mentor" };
+  const trackBody = { ...corruptedTrack };
+  delete trackBody.content_hash;
+  corruptedTrack.content_hash = sha256(trackBody);
   assert.throws(() => new MemoryCieRepository(state), { code: "REPOSITORY_STATE_INVALID" });
 });
 

@@ -85,6 +85,19 @@ function validateAuthor(value, label) {
   safeRef(value.role, `${label} author role`);
 }
 
+function hasHistoricalReviewGrant(grants, artifact, sourceMomentId, reviewerId) {
+  const createdAt = Date.parse(artifact.created_at);
+  return [...grants.values()].some((grant) => grant.session_id === artifact.session_id
+    && grant.grantee_user_id === reviewerId
+    && grant.scope === "review"
+    && grant.artifact_type === "moment"
+    && grant.artifact_id === sourceMomentId
+    && artifact.consent_receipt_ids.includes(grant.consent_receipt_id)
+    && Date.parse(grant.issued_at) <= createdAt
+    && (!grant.expires_at || Date.parse(grant.expires_at) > createdAt)
+    && (!grant.revoked_at || Date.parse(grant.revoked_at) > createdAt));
+}
+
 function assertSegment(session, value, label) {
   const segment = session.clock?.segments?.find((entry) => entry.segment_id === value.segment_id);
   valid(segment && segment.media_revision_ref === value.media_revision_ref, `${label} is not bound to its session media segment`);
@@ -228,6 +241,7 @@ export function validateSerializedRepository(serialized) {
     valid(session && session.state !== "DELETED" && session.owner_user_id === moment.owner_user_id, "Moment owner or session binding is invalid");
     valid(moment.contract_version === CONTRACT_VERSION, "Moment contract version is invalid");
     validateAuthor(moment.author, "Moment");
+    timestamp(moment.created_at, "Moment created_at");
     valid(moment.author.role === moment.source, "Moment author role does not match its source");
     validateMomentInput(moment, { authorRole: moment.source, sourceKind: "human" });
     assertSegment(session, { ...moment, range_kind: "SPAN" }, "Moment");
@@ -235,7 +249,8 @@ export function validateSerializedRepository(serialized) {
     verifyContentHash(moment, "Moment", ["deep_link"]);
     valid(moment.deep_link === `/review/${session.id}/${moment.id}`, "Moment deep link is invalid");
     const track = tracks.get(`${moment.track_item_id}:${moment.track_item_revision}`);
-    valid(track && track.kind === "moment" && track.session_id === session.id && track.owner_user_id === session.owner_user_id && track.payload?.moment_id === moment.id && track.t0_ms === moment.t0_ms && track.t1_ms === moment.t1_ms, "Moment track binding is invalid");
+    valid(track && track.kind === "moment" && track.session_id === session.id && track.owner_user_id === session.owner_user_id && track.payload?.moment_id === moment.id && track.t0_ms === moment.t0_ms && track.t1_ms === moment.t1_ms && track.created_at === moment.created_at, "Moment track binding is invalid");
+    valid(stableJson(track.author) === stableJson(moment.author) && stableJson(track.provenance) === stableJson(moment.provenance) && stableJson(track.consent_receipt_ids) === stableJson(moment.consent_receipt_ids), "Moment track authorship, provenance, or consent binding is invalid");
     for (const snapshotId of moment.skill_snapshot_ids) valid(snapshots.get(snapshotId)?.owner_user_id === session.owner_user_id, "Moment skill snapshot binding is invalid");
   }
   for (const moment of moments.values()) {
@@ -271,19 +286,23 @@ export function validateSerializedRepository(serialized) {
     valid(session && session.state !== "DELETED" && session.owner_user_id === opportunity.owner_user_id, "Opportunity owner or session binding is invalid");
     valid(opportunity.contract_version === CONTRACT_VERSION, "Opportunity contract version is invalid");
     validateAuthor(opportunity.reviewer, "Opportunity");
+    timestamp(opportunity.created_at, "Opportunity created_at");
     valid(opportunity.reviewer.role === "mentor", "Opportunity reviewer must be a mentor");
     validateOpportunityInput(opportunity, { authorRole: "mentor", sourceKind: "human" });
+    valid(Array.isArray(opportunity.status_history) && opportunity.status_history.length === 1 && opportunity.status_history[0]?.status === "approved" && opportunity.status_history[0]?.source === "mentor-manual" && opportunity.status_history[0]?.reviewer_id === opportunity.reviewer.subject_id && opportunity.status_history[0]?.at === opportunity.created_at, "Opportunity status history is invalid");
     assertSegment(session, { ...opportunity, range_kind: "SPAN" }, "Opportunity");
     assertConsentReferences(opportunity, session, consents, "Opportunity");
     verifyContentHash(opportunity, "Opportunity");
     const source = moments.get(opportunity.source_moment_id);
     valid(source && source.source === "student" && source.session_id === session.id && source.t0_ms <= opportunity.t0_ms && source.t1_ms >= opportunity.t1_ms, "Opportunity source Moment is invalid");
+    valid(opportunity.evidence_claim.evidence_refs.includes(source.id) && opportunity.coaching_claim.evidence_refs.includes(source.id), "Opportunity claims are not bound to the source Moment");
     valid(snapshots.get(opportunity.skill_snapshot_id)?.owner_user_id === session.owner_user_id, "Opportunity skill snapshot binding is invalid");
     const priority = priorities.get(session.id);
     valid(priority && [priority.spotlight_snapshot_id, priority.supporting_snapshot_id].includes(opportunity.skill_snapshot_id), "Opportunity is outside the active priority set");
     const track = tracks.get(`${opportunity.track_item_id}:${opportunity.track_item_revision}`);
-    valid(track && track.kind === "opportunity" && track.session_id === session.id && track.payload?.opportunity_id === opportunity.id, "Opportunity track binding is invalid");
+    valid(track && track.kind === "opportunity" && track.session_id === session.id && track.payload?.opportunity_id === opportunity.id && track.payload?.source_moment_id === source.id && track.payload?.skill_snapshot_id === opportunity.skill_snapshot_id && track.payload?.type === opportunity.type && track.created_at === opportunity.created_at, "Opportunity track binding is invalid");
     valid(track.author?.subject_id === opportunity.reviewer.subject_id && track.author?.role === opportunity.reviewer.role, "Opportunity reviewer and track author binding is invalid");
+    valid(stableJson(track.provenance) === stableJson(opportunity.coaching_claim) && stableJson(track.consent_receipt_ids) === stableJson(opportunity.consent_receipt_ids), "Opportunity track provenance or consent binding is invalid");
   }
 
   const grants = index(serialized.visibility_grants, (value) => value.id, "Visibility grant");
@@ -319,6 +338,12 @@ export function validateSerializedRepository(serialized) {
       valid(!activeGrantKeys.has(key), "Active visibility grant is duplicated");
       activeGrantKeys.add(key);
     }
+  }
+  for (const moment of moments.values()) {
+    if (moment.source === "mentor") valid(hasHistoricalReviewGrant(grants, moment, moment.review_source_moment_id, moment.author.subject_id), "Mentor Moment lacks historical source-Moment authority");
+  }
+  for (const opportunity of opportunities.values()) {
+    valid(hasHistoricalReviewGrant(grants, opportunity, opportunity.source_moment_id, opportunity.reviewer.subject_id), "Opportunity lacks historical source-Moment authority");
   }
 
   const deletionJobs = index(serialized.deletion_jobs, (value) => value.id, "Deletion job");

@@ -65,13 +65,16 @@ export class CieService {
   #uuid;
   #consentPolicy;
   #externalDeletionProofVerifier;
+  #authorityAdapter;
 
   constructor(repository, options = {}) {
+    invariant(typeof options.authorityAdapter?.accepts === "function", 500, "AUTHORITY_ADAPTER_REQUIRED", "CIE service requires one pinned MissionMed authority adapter");
     this.#repository = repository;
     this.#now = options.now || (() => new Date());
     this.#uuid = options.uuid || randomUUID;
     this.#consentPolicy = options.consentPolicy || null;
     this.#externalDeletionProofVerifier = options.externalDeletionProofVerifier || null;
+    this.#authorityAdapter = options.authorityAdapter;
   }
 
   #timestamp() {
@@ -87,6 +90,12 @@ export class CieService {
     const session = requireFound(store.getSession(sessionId), "RESOURCE_UNAVAILABLE", "This resource is not available");
     invariant(!["DELETING", "DELETED"].includes(session.state), 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
     return session;
+  }
+
+  #auth(input) {
+    const auth = normalizeAuthContext(input);
+    invariant(this.#authorityAdapter.accepts(auth), 401, "AUTH_AUTHORITY_MISMATCH", "The principal was not issued by this CIE authority boundary");
+    return auth;
   }
 
   #author(auth) {
@@ -161,7 +170,7 @@ export class CieService {
   }
 
   async #mutate(authInput, operation, payload, meta, work) {
-    const auth = normalizeAuthContext(authInput);
+    const auth = this.#auth(authInput);
     const envelope = createMutationEnvelope(meta, payload);
     return this.#repository.transaction(async (store) => {
       const initialSessionId = payload?.sessionId || (payload?.jobId ? store.getDeletionJob(payload.jobId)?.session_id : null) || null;
@@ -313,7 +322,7 @@ export class CieService {
         provenance: {
           tier: "L4",
           badge: "MISSIONMED",
-          statement: "One Spotlight and one optional Supporting skill define the next-rep focus.",
+          statement: "One Spotlight and one Supporting skill define the next-rep focus.",
           evidence_refs: [],
           simulated: false,
           numeric_value: null,
@@ -453,6 +462,7 @@ export class CieService {
       invariant(selfMoment, 409, "SELF_FIRST_MOMENT_REQUIRED", "A student-authored Moment covering the evidence range is required first");
       this.#requireReviewAuthority(store, auth, session, { artifactType: "moment", artifactId: selfMoment.id });
       invariant(validated.evidence_claim.evidence_refs.includes(selfMoment.id), 409, "OPPORTUNITY_EVIDENCE_REF_INVALID", "Opportunity evidence claim must reference the covering student Moment");
+      invariant(validated.coaching_claim.evidence_refs.includes(selfMoment.id), 409, "OPPORTUNITY_COACHING_REF_INVALID", "Opportunity coaching claim must reference the covering student Moment");
       const snapshot = requireFound(store.getSkillSnapshot(validated.skill_snapshot_id), "SKILL_SNAPSHOT_NOT_FOUND", "Skill snapshot is not available");
       invariant(snapshot.owner_user_id === session.owner_user_id, 409, "SKILL_SNAPSHOT_OWNER_MISMATCH", "Opportunity skill snapshot must belong to the session owner");
       const priorities = requireFound(store.getPriorities(session.id), "PRIORITY_SET_REQUIRED", "A current priority set is required");
@@ -642,7 +652,7 @@ export class CieService {
   }
 
   getDeletionStatus(authInput, jobId) {
-    const auth = normalizeAuthContext(authInput);
+    const auth = this.#auth(authInput);
     const job = requireFound(this.#repository.getDeletionJob(jobId), "RESOURCE_UNAVAILABLE", "This resource is not available");
     invariant(auth.subject_id === job.owner_user_id || hasCapability(auth, "cie:deletion:work"), 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
     return immutableCopy({ job, steps: this.#repository.listDeletionSteps(job.id) });
@@ -673,7 +683,7 @@ export class CieService {
   }
 
   listTimeline(authInput, sessionId, options = {}) {
-    const auth = normalizeAuthContext(authInput);
+    const auth = this.#auth(authInput);
     const session = this.#activeSession(this.#repository, sessionId);
     if (auth.subject_id !== session.owner_user_id) {
       const anyGrant = this.#repository.listVisibilityGrants(session.id, { granteeUserId: auth.subject_id }).some((grant) => this.#grantIsLive(this.#repository, grant));
@@ -710,7 +720,7 @@ export class CieService {
   }
 
   resolveMomentLink(authInput, sessionId, momentId) {
-    const auth = normalizeAuthContext(authInput);
+    const auth = this.#auth(authInput);
     const unavailable = () => { throw new CieError(404, "RESOURCE_UNAVAILABLE", "This resource is not available"); };
     const session = this.#repository.getSession(sessionId);
     const moment = this.#repository.getMoment(momentId);
