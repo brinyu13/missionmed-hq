@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Moment Replay | MissionMed</title>
+  <link rel="stylesheet" href="/cie/review.css">
+  <script src="/cie/review.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="app-header">
+    <div class="brand" aria-label="MissionMed Communication Intelligence Engine">
+      <span class="brand-mark" aria-hidden="true">M</span>
+      <span>MissionMed</span>
+    </div>
+    <span class="surface-name">Moment Replay</span>
+  </header>
+
+  <main id="main-content">
+    <section class="status-band" aria-labelledby="page-title">
+      <p class="eyebrow">Communication Intelligence Engine</p>
+      <h1 id="page-title">Moment Replay</h1>
+      <p id="status" role="status" aria-live="polite">Authorizing this Moment...</p>
+    </section>
+
+    <section id="moment" class="moment-layout" aria-labelledby="moment-title" hidden>
+      <div id="replay-region" class="replay-region">
+        <video id="player" controls preload="metadata" playsinline aria-label="Authorized Moment replay" aria-describedby="replay-help"></video>
+        <p id="replay-help" class="supporting-copy">Playback access is issued for this Moment only and may expire.</p>
+      </div>
+
+      <div class="evidence-region">
+        <div class="evidence-heading">
+          <span id="claim-badge" class="badge"></span>
+          <span id="range" class="range"></span>
+        </div>
+        <h2 id="moment-title"></h2>
+        <p id="moment-note"></p>
+
+        <dl class="evidence-list">
+          <div>
+            <dt>Source</dt>
+            <dd id="source"></dd>
+          </div>
+          <div>
+            <dt>Evidence</dt>
+            <dd id="claim"></dd>
+          </div>
+          <div>
+            <dt>Limitations</dt>
+            <dd id="limitations"></dd>
+          </div>
+        </dl>
+
+        <section id="priority" class="priority-band" aria-labelledby="priority-title" hidden>
+          <h2 id="priority-title">Next-rep focus</h2>
+          <p id="priority-copy"></p>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

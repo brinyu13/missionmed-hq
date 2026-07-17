@@ -24,6 +24,31 @@ test("local API is loopback-bound, explicitly local, and durably persists C0 sta
     assert.equal(health.status, 200);
     assert.deepEqual(await health.json(), { ok: true, service: "missionmed-cie-c0", runtime_mode: "local", production_ready: false });
 
+    const review = await fetch(`${base}/review/session_safe/moment_safe`);
+    assert.equal(review.status, 200);
+    assert.match(review.headers.get("content-type"), /^text\/html/u);
+    assert.match(review.headers.get("content-security-policy"), /script-src 'self'/u);
+    assert.match(review.headers.get("content-security-policy"), /frame-ancestors 'none'/u);
+    assert.equal(review.headers.get("x-robots-tag"), "noindex, nofollow, noarchive");
+    assert.match(await review.text(), /<main id="main-content">/u);
+
+    const css = await fetch(`${base}/cie/review.css`);
+    assert.equal(css.status, 200);
+    assert.match(css.headers.get("content-type"), /^text\/css/u);
+    assert.match(await css.text(), /prefers-reduced-motion/u);
+
+    const script = await fetch(`${base}/cie/review.js`);
+    assert.equal(script.status, 200);
+    assert.match(script.headers.get("content-type"), /^text\/javascript/u);
+    assert.match(await script.text(), /RESOURCE_UNAVAILABLE|unavailable/u);
+
+    const denied = await fetch(`${base}/v1/cie/review/session_safe/moment_safe`);
+    assert.equal(denied.status, 401);
+    assert.deepEqual((await denied.json()).error, { code: "AUTH_CONTEXT_UNVERIFIED", message: "An opaque MissionMed principal is required" });
+
+    const unsafeReview = await fetch(`${base}/review/session%20unsafe/moment_safe`);
+    assert.notEqual(unsafeReview.headers.get("content-type"), "text/html; charset=utf-8");
+
     const createdResponse = await fetch(`${base}/v1/cie/sessions`, {
       method: "POST",
       headers: {

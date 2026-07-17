@@ -1,4 +1,5 @@
 import { createServer as createNodeServer } from "node:http";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CieApiAdapter } from "./apiAdapter.mjs";
@@ -7,6 +8,16 @@ import { FileCieRepository } from "./repository/fileRepository.mjs";
 import { CieService } from "./service.mjs";
 
 const MAX_BODY_BYTES = 256 * 1024;
+const SAFE_PATH_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/u;
+const PUBLIC_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
+const STATIC_SECURITY_HEADERS = Object.freeze({
+  "cache-control": "no-store",
+  "content-security-policy": "default-src 'self'; script-src 'self'; style-src 'self'; media-src 'self' https://*.videodelivery.net https://*.cloudflarestream.com blob:; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
+  "referrer-policy": "no-referrer",
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "x-robots-tag": "noindex, nofollow, noarchive"
+});
 
 async function readJson(request) {
   let size = 0;
@@ -37,8 +48,23 @@ function localAuthSource(headers) {
 }
 
 function write(response, result) {
-  response.writeHead(result.status, { ...result.headers, "content-security-policy": "default-src 'none'; frame-ancestors 'none'", "x-content-type-options": "nosniff" });
+  response.writeHead(result.status, {
+    ...result.headers,
+    "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
+    "referrer-policy": "no-referrer",
+    "x-content-type-options": "nosniff"
+  });
   response.end(`${JSON.stringify(result.body)}\n`);
+}
+
+function writeStatic(response, contentType, body) {
+  response.writeHead(200, { ...STATIC_SECURITY_HEADERS, "content-type": contentType });
+  response.end(body);
+}
+
+function isReviewPath(pathname) {
+  const parts = pathname.split("/").filter(Boolean);
+  return parts.length === 3 && parts[0] === "review" && SAFE_PATH_ID.test(parts[1]) && SAFE_PATH_ID.test(parts[2]);
 }
 
 export async function createLocalCieServer(options = {}) {
@@ -48,8 +74,16 @@ export async function createLocalCieServer(options = {}) {
   const service = new CieService(repository, options.serviceOptions);
   const adapter = new CieApiAdapter(service);
   const localAuthority = createAuthorityAdapter(async (source) => source, "cie-local-test-authority");
+  const [reviewHtml, reviewCss, reviewJavaScript] = await Promise.all([
+    readFile(path.join(PUBLIC_DIRECTORY, "review.html")),
+    readFile(path.join(PUBLIC_DIRECTORY, "review.css")),
+    readFile(path.join(PUBLIC_DIRECTORY, "review.js"))
+  ]);
   const server = createNodeServer(async (request, response) => {
     const url = new URL(request.url || "/", "http://127.0.0.1");
+    if (request.method === "GET" && isReviewPath(url.pathname)) return writeStatic(response, "text/html; charset=utf-8", reviewHtml);
+    if (request.method === "GET" && url.pathname === "/cie/review.css") return writeStatic(response, "text/css; charset=utf-8", reviewCss);
+    if (request.method === "GET" && url.pathname === "/cie/review.js") return writeStatic(response, "text/javascript; charset=utf-8", reviewJavaScript);
     if (request.method === "GET" && url.pathname === "/health") {
       return write(response, { status: 200, headers: { "content-type": "application/json; charset=utf-8" }, body: { ok: true, service: "missionmed-cie-c0", runtime_mode: "local", production_ready: false } });
     }
