@@ -3,6 +3,20 @@ import { CieError, invariant } from "../errors.mjs";
 import { validateSerializedRepository } from "./stateValidator.mjs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+const LIFECYCLE_TIMESTAMP_FIELDS = Object.freeze([
+  "created_at",
+  "updated_at",
+  "recorded_at",
+  "issued_at",
+  "revoked_at",
+  "requested_at",
+  "completed_at",
+  "verified_at",
+  "redacted_at",
+  "deleted_at",
+  "occurred_at",
+  "checked_at"
+]);
 
 function emptyState() {
   return {
@@ -27,19 +41,50 @@ function mapValues(map) {
   return [...map.values()].map(clone);
 }
 
+function readLifecycleTimestampMs(state) {
+  const collections = [
+    state.sessions.values(),
+    state.consentReceipts.values(),
+    state.trackItems.values(),
+    state.skillSnapshots.values(),
+    state.priorities.values(),
+    state.moments.values(),
+    state.opportunities.values(),
+    state.visibilityGrants.values(),
+    state.deletionJobs.values(),
+    state.deletionSteps.values(),
+    state.auditEvents.values(),
+    state.mutationReceipts.values()
+  ];
+  let latest = Number.NEGATIVE_INFINITY;
+  for (const records of collections) {
+    for (const record of records) {
+      for (const field of LIFECYCLE_TIMESTAMP_FIELDS) {
+        const parsed = typeof record?.[field] === "string" ? Date.parse(record[field]) : Number.NaN;
+        if (Number.isFinite(parsed)) latest = Math.max(latest, parsed);
+      }
+    }
+  }
+  return latest;
+}
+
 export class MemoryCieRepository {
   #state;
   #writeQueue = Promise.resolve();
+  #lifecycleTimestampMs;
 
   constructor(initialState = null) {
     this.#state = initialState ? MemoryCieRepository.decode(initialState) : emptyState();
+    this.#lifecycleTimestampMs = readLifecycleTimestampMs(this.#state);
   }
 
   async transaction(work) {
     const execute = async () => {
       const backup = structuredClone(this.#state);
       try {
-        return await work(this);
+        const result = await work(this);
+        this.#lifecycleTimestampMs = readLifecycleTimestampMs(this.#state);
+        return result;
       } catch (error) {
         this.#state = backup;
         throw error;
@@ -427,6 +472,10 @@ export class MemoryCieRepository {
 
   listMutationReceipts(sessionId) {
     return mapValues(this.#state.mutationReceipts).filter((record) => record.session_id === sessionId);
+  }
+
+  latestLifecycleTimestampMs() {
+    return this.#lifecycleTimestampMs;
   }
 
   completeMutation(ownerUserId, operation, idempotencyKey, response, sessionId, completedAt) {

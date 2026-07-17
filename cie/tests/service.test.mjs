@@ -21,7 +21,7 @@ function harness() {
   let uuid = 0;
   let request = 0;
   const now = new Date("2026-07-17T12:00:00.000Z");
-  const service = new CieService(repository, {
+  const serviceOptions = {
     authorityAdapter: authority,
     now: () => new Date(now),
     uuid: () => testUuid(++uuid),
@@ -36,14 +36,16 @@ function harness() {
       provider: "synthetic-cam-adapter",
       provider_receipt_hash: sha256(providerReceipt || null)
     })
-  });
+  };
+  const restartService = (targetRepository = repository) => new CieService(targetRepository, serviceOptions);
+  const service = restartService();
   const meta = (name, expectedRowVersion = null) => ({
     idempotencyKey: `${name}-${++request}`,
     requestId: `request-${request}`,
     correlationId: "correlation-c0",
     expectedRowVersion
   });
-  return { repository, service, meta, now };
+  return { repository, service, restartService, meta, now };
 }
 
 function consentInput(purpose, overrides = {}) {
@@ -243,7 +245,8 @@ test("C0 service enforces self-first mentor review, exact grants, and hidden Opp
     assert.throws(() => value.service.resolveMomentLink(denied, value.session.id, value.moment.id), { code: "RESOURCE_UNAVAILABLE" });
   }
 
-  await value.service.revokeAccess(student, value.session.id, value.grant.id, value.meta("author-grant-revoke", 1));
+  const restartedService = value.restartService();
+  await restartedService.revokeAccess(student, value.session.id, value.grant.id, value.meta("author-grant-revoke", 1));
   assert.equal(Date.parse(value.repository.getVisibilityGrant(value.grant.id).revoked_at) > Date.parse(opportunity.opportunity.created_at), true);
   assert.throws(() => value.service.listTimeline(mentor, value.session.id, { limit: 20 }), { code: "RESOURCE_UNAVAILABLE" });
   const mentorBAfterRevoke = value.service.listTimeline(mentorB, value.session.id, { limit: 20 });
@@ -282,6 +285,30 @@ test("grant revocation and consent withdrawal fail closed without enumerating Mo
   assert.equal(withdrawal.authority_ref, "cie-test-authority");
   assert.equal(withdrawal.authority_session_ref, student.authority_session_ref);
   assert.throws(() => value.service.resolveMomentLink(mentor, value.session.id, value.moment.id), { code: "RESOURCE_UNAVAILABLE" });
+});
+
+test("lifecycle ordering survives serialized repository and service restart", async () => {
+  const value = await seeded();
+  const mentorMoment = await value.service.createMoment(mentor, value.session.id, {
+    range_kind: "SPAN",
+    t0_ms: 2_000,
+    t1_ms: 4_000,
+    segment_id: "segment_1",
+    media_revision_ref: "media_revision_1",
+    source: "mentor",
+    review_source_moment_id: value.moment.id,
+    type: "mentor-selected",
+    label: "Restart ordering fixture",
+    visibility: "mentor",
+    consent_receipt_ids: [value.evidence.id, value.sharing.id],
+    provenance: { ...observedClaim, statement: "The shared replay range contains the selected event." }
+  }, value.meta("restart-mentor-moment"));
+  const restoredRepository = new MemoryCieRepository(value.repository.exportState());
+  const restartedService = value.restartService(restoredRepository);
+  await restartedService.revokeAccess(student, value.session.id, value.grant.id, value.meta("restart-grant-revoke", 1));
+  const revoked = restoredRepository.getVisibilityGrant(value.grant.id);
+  assert.equal(Date.parse(revoked.revoked_at) > Date.parse(mentorMoment.moment.created_at), true);
+  assert.doesNotThrow(() => new MemoryCieRepository(restoredRepository.exportState()));
 });
 
 test("repository restore rejects a coordinated ungranted Opportunity reviewer rewrite", async () => {

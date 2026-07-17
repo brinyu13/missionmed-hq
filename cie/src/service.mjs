@@ -79,14 +79,16 @@ export class CieService {
   }
 
   #timestamp() {
-    const next = Math.max(this.#now().getTime(), this.#lastTimestampMs + 1);
+    const persisted = this.#repository.latestLifecycleTimestampMs();
+    const next = Math.max(this.#now().getTime(), this.#lastTimestampMs + 1, persisted + 1);
     this.#lastTimestampMs = next;
     return new Date(next).toISOString();
   }
 
   #timestampAfter(value) {
     const floor = value ? Date.parse(value) + 1 : Number.NEGATIVE_INFINITY;
-    const next = Math.max(this.#now().getTime(), this.#lastTimestampMs + 1, floor);
+    const persisted = this.#repository.latestLifecycleTimestampMs();
+    const next = Math.max(this.#now().getTime(), this.#lastTimestampMs + 1, persisted + 1, floor);
     this.#lastTimestampMs = next;
     return new Date(next).toISOString();
   }
