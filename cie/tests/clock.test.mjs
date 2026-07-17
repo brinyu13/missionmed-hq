@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { CLOCK_ID, CLOCK_VERSION, MonotonicSessionClock, SegmentedSessionClock, validateClockContract, validateSessionClockContract } from "../src/clock.mjs";
 import { captureClock } from "./fixtures.mjs";
+import { sha256 } from "../src/canonical.mjs";
 
 test("monotonic session clock advances independently of paint cadence", () => {
   let now = 1000;
@@ -54,4 +55,22 @@ test("segmented session clock maps multiple rep media timelines without overlap"
   assert.doesNotThrow(() => validateSessionClockContract(clock.contract()));
   assert.throws(() => clock.assertRange("s1", 900, 1300, "SPAN"), { code: "TIME_RANGE_OUTSIDE_SEGMENT" });
   assert.throws(() => clock.addSegment({ segment_id: "overlap", rep_ref: "r4", media_revision_ref: "m4", global_t0_ms: 100, validated_duration_ms: 100, capture_clock: captureClock }), { code: "CLOCK_SEGMENT_OVERLAP" });
+  assert.throws(() => clock.addSegment({ segment_id: "gap-outside", rep_ref: "r5", media_revision_ref: "m5", validated_duration_ms: 100, capture_clock: { ...captureClock, gaps: [{ reason: "hidden", t0_ms: 50, t1_ms: 101 }] } }), { code: "CLOCK_GAP_OUTSIDE_SEGMENT" });
+});
+
+test("session clock validation rejects inconsistent mappings and round-trips every boundary", () => {
+  const clock = new SegmentedSessionClock();
+  clock.addSegment({ segment_id: "mapping", rep_ref: "rep_mapping", media_revision_ref: "media_mapping", validated_duration_ms: 1000, capture_clock: captureClock });
+  for (const local of [0, 1, 500, 999]) {
+    const global = clock.localToGlobal("mapping", local);
+    assert.equal(clock.globalToLocal(global).local_ms, local);
+  }
+  const valid = clock.contract();
+  const segment = { ...valid.segments[0], global_t1_ms: 10 };
+  delete segment.content_hash;
+  const hashedSegment = { ...segment, content_hash: sha256(segment) };
+  const broken = { ...valid, segments: [hashedSegment] };
+  delete broken.content_hash;
+  const rehashed = { ...broken, content_hash: sha256(broken) };
+  assert.throws(() => validateSessionClockContract(rehashed), { code: "CLOCK_SEGMENT_DURATION_MISMATCH" });
 });

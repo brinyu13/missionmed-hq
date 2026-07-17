@@ -4,11 +4,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CieApiAdapter } from "./apiAdapter.mjs";
 import { createAuthorityAdapter } from "./authority.mjs";
+import { sha256 } from "./canonical.mjs";
 import { FileCieRepository } from "./repository/fileRepository.mjs";
 import { CieService } from "./service.mjs";
 
 const MAX_BODY_BYTES = 256 * 1024;
 const SAFE_PATH_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/u;
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "::1", "localhost"]);
 const PUBLIC_DIRECTORY = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../public");
 const STATIC_SECURITY_HEADERS = Object.freeze({
   "cache-control": "no-store",
@@ -17,6 +19,12 @@ const STATIC_SECURITY_HEADERS = Object.freeze({
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
   "x-robots-tag": "noindex, nofollow, noarchive"
+});
+const LOCAL_CONSENT_POLICY = Object.freeze({
+  policy_version: "synthetic-local-c0-v1",
+  policy_text_hash: sha256("MissionMed CIE synthetic local foundation consent"),
+  locale: "en-US",
+  retention_policy_ref: "synthetic-local-delete-after-test"
 });
 
 async function readJson(request) {
@@ -50,6 +58,7 @@ function localAuthSource(headers) {
 function write(response, result) {
   response.writeHead(result.status, {
     ...result.headers,
+    "cache-control": "no-store",
     "content-security-policy": "default-src 'none'; frame-ancestors 'none'",
     "referrer-policy": "no-referrer",
     "x-content-type-options": "nosniff"
@@ -69,9 +78,14 @@ function isReviewPath(pathname) {
 
 export async function createLocalCieServer(options = {}) {
   if ((options.runtimeMode || process.env.CIE_RUNTIME_MODE) !== "local") throw new Error("CIE local server refuses to start outside explicit local mode");
+  const host = options.host || process.env.CIE_LOCAL_HOST || "127.0.0.1";
+  if (!LOOPBACK_HOSTS.has(host)) throw new Error("CIE local server requires an explicit loopback host");
   const statePath = options.statePath || process.env.CIE_LOCAL_STATE_PATH || path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../.local/cie-state.json");
-  const repository = await FileCieRepository.open(statePath);
-  const service = new CieService(repository, options.serviceOptions);
+  const witnessPath = options.witnessPath || process.env.CIE_LOCAL_WITNESS_PATH || undefined;
+  const repository = await FileCieRepository.open(statePath, { witnessPath });
+  const serviceOptions = { ...options.serviceOptions };
+  if (!serviceOptions.consentPolicy) serviceOptions.consentPolicy = async () => LOCAL_CONSENT_POLICY;
+  const service = new CieService(repository, serviceOptions);
   const adapter = new CieApiAdapter(service);
   const localAuthority = createAuthorityAdapter(async (source) => source, "cie-local-test-authority");
   const [reviewHtml, reviewCss, reviewJavaScript] = await Promise.all([
@@ -97,12 +111,11 @@ export async function createLocalCieServer(options = {}) {
       return write(response, { status: error.status || 400, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }, body: { ok: false, error: { code: error.status === 413 ? "BODY_TOO_LARGE" : "INVALID_JSON", message: error.status === 413 ? "Request body exceeds 256 KiB" : "Request body is invalid" } } });
     }
   });
-  return { server, repository, service, adapter };
+  return { server, repository, service, adapter, host };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const { server } = await createLocalCieServer();
-  const host = process.env.CIE_LOCAL_HOST || "127.0.0.1";
+  const { server, host } = await createLocalCieServer();
   const port = Number(process.env.PORT || 4321);
   server.listen(port, host, () => process.stdout.write(`CIE C0 local API listening on http://${host}:${port}\n`));
 }

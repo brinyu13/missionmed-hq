@@ -6,6 +6,7 @@ export const CLOCK_ID = "missionmed.cie.monotonic-session-clock";
 export const CLOCK_VERSION = 1;
 export const SESSION_CLOCK_ID = "missionmed.cie.segmented-session-timeline";
 export const SESSION_CLOCK_VERSION = 1;
+const SAFE_REF = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/u;
 
 export class MonotonicSessionClock {
   #now;
@@ -93,6 +94,7 @@ export class SegmentedSessionClock {
       capture_clock: validateClockContract(input.capture_clock)
     };
     invariant(segment.segment_id && segment.rep_ref && segment.media_revision_ref, 400, "CLOCK_SEGMENT_REFERENCE_REQUIRED", "Segment identity, rep, and media revision are required");
+    invariant(segment.capture_clock.gaps.every((gap) => gap.t1_ms <= duration), 400, "CLOCK_GAP_OUTSIDE_SEGMENT", "Capture clock gaps must remain inside the validated media duration");
     invariant(!this.#segments.some((value) => value.segment_id === segment.segment_id), 409, "CLOCK_SEGMENT_EXISTS", "Segment already exists");
     const immutable = Object.freeze({ ...segment, content_hash: sha256(segment) });
     this.#segments.push(immutable);
@@ -150,12 +152,16 @@ export function validateSessionClockContract(value) {
   const ids = new Set();
   for (const segment of value.segments) {
     invariant(segment && typeof segment === "object", 400, "CLOCK_SEGMENT_INVALID", "Clock segment is invalid");
+    invariant(SAFE_REF.test(String(segment.segment_id || "")) && SAFE_REF.test(String(segment.rep_ref || "")) && SAFE_REF.test(String(segment.media_revision_ref || "")), 400, "CLOCK_SEGMENT_REFERENCE_REQUIRED", "Clock segment identity, rep, and media revision references are invalid");
     invariant(!ids.has(segment.segment_id), 409, "CLOCK_SEGMENT_EXISTS", "Clock segment identity is duplicated");
     ids.add(segment.segment_id);
     invariant(Number.isSafeInteger(segment.global_t0_ms) && Number.isSafeInteger(segment.global_t1_ms), 400, "CLOCK_SEGMENT_RANGE_INVALID", "Clock segment range is invalid");
     invariant(segment.global_t0_ms >= previousEnd && segment.global_t1_ms > segment.global_t0_ms, 409, "CLOCK_SEGMENT_OVERLAP", "Clock segments must be ordered and non-overlapping");
+    invariant(Number.isSafeInteger(segment.validated_duration_ms) && segment.validated_duration_ms > 0, 400, "CLOCK_SEGMENT_DURATION_INVALID", "Clock segment duration must be a positive integer");
     invariant(segment.local_t0_ms === 0 && segment.local_t1_ms === segment.validated_duration_ms, 400, "CLOCK_SEGMENT_MAPPING_INVALID", "Clock segment local mapping is invalid");
+    invariant(segment.global_t1_ms - segment.global_t0_ms === segment.validated_duration_ms, 400, "CLOCK_SEGMENT_DURATION_MISMATCH", "Clock segment global and local durations must match");
     validateClockContract(segment.capture_clock);
+    invariant(segment.capture_clock.gaps.every((gap) => gap.t1_ms <= segment.validated_duration_ms), 400, "CLOCK_GAP_OUTSIDE_SEGMENT", "Capture clock gaps must remain inside the validated media duration");
     const unhashed = { ...segment };
     delete unhashed.content_hash;
     invariant(segment.content_hash === sha256(unhashed), 409, "CLOCK_SEGMENT_HASH_MISMATCH", "Clock segment hash is invalid");

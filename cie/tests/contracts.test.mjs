@@ -37,6 +37,7 @@ test("track items are ranges with structural claim provenance", () => {
   assert.equal(item.provenance.tier, "L1");
   assert.throws(() => validateTrackItemInput({ ...item, kind: "transcript" }, { authorRole: "student", sourceKind: "human" }), { code: "TRACK_KIND_INVALID" });
   assert.throws(() => validateTrackItemInput({ ...item, t0_ms: -1 }, { authorRole: "student", sourceKind: "human" }), { code: "TIME_RANGE_INVALID" });
+  assert.throws(() => validateTrackItemInput({ ...item, t0_ms: null }, { authorRole: "student", sourceKind: "human" }), { code: "TIME_RANGE_INVALID" });
 });
 
 test("Ladder laws prohibit numeric coaching and person inference", () => {
@@ -57,6 +58,30 @@ test("Ladder laws prohibit numeric coaching and person inference", () => {
     evidence_refs: ["moment_1"],
     method_status: "active_validated"
   }, { authorRole: "system", sourceKind: "machine" }), { code: "PERSON_INFERENCE_FORBIDDEN" });
+
+  const measured = {
+    tier: "L0",
+    badge: "MEASURED",
+    statement: "Synthetic elapsed time from the fixture clock.",
+    evidence_refs: ["fixture-input-sha256"],
+    numeric_value: 1.25,
+    unit: "seconds",
+    algorithm_id: "synthetic-clock",
+    algorithm_version: "v1",
+    limitations: "Synthetic contract fixture only.",
+    method_status: "active_validated"
+  };
+  assert.equal(validateClaimMetadata(measured).numeric_value, 1.25);
+  for (const invalid of [Number.NaN, Number.POSITIVE_INFINITY, "1.25", Number.MAX_VALUE, 1.0000001]) {
+    assert.throws(() => validateClaimMetadata({ ...measured, numeric_value: invalid }), { code: "CLAIM_NUMERIC_INVALID" });
+  }
+  assert.throws(() => validateClaimMetadata({
+    tier: "L4",
+    badge: "MISSIONMED",
+    statement: "Caller-authored doctrine claim.",
+    evidence_refs: [],
+    doctrine_ref: "caller-doctrine"
+  }, { authorRole: "student", sourceKind: "human" }), { code: "CLAIM_DOCTRINE_AUTHORITY_REQUIRED" });
 });
 
 test("skill snapshots are content addressed and domains are not assignable", () => {
@@ -74,9 +99,11 @@ test("priority contract enforces exactly one spotlight and one supporting refere
   assert.deepEqual(validatePriorityInput({ spotlight_snapshot_id: "snap_1", supporting_snapshot_id: "snap_2" }), {
     contract_version: "cie.c0.v1",
     spotlight_snapshot_id: "snap_1",
-    supporting_snapshot_id: "snap_2"
+    supporting_snapshot_id: "snap_2",
+    review_moment_id: null
   });
   assert.throws(() => validatePriorityInput({ spotlight_snapshot_id: "snap_1", supporting_snapshot_id: "snap_1" }), { code: "PRIORITY_DUPLICATE" });
+  assert.throws(() => validatePriorityInput({ spotlight_snapshot_id: "snap_1", supporting_snapshot_id: null }), { code: "PRIORITY_SUPPORTING_REQUIRED" });
 });
 
 test("Moments require a watchable range and verified human source", () => {
@@ -92,6 +119,7 @@ test("Moments require a watchable range and verified human source", () => {
     provenance: observedClaim
   }, { authorRole: "student", sourceKind: "human" });
   assert.equal(moment.source, "student");
+  assert.equal(moment.review_source_moment_id, null);
   assert.throws(() => validateMomentInput({ ...moment, t1_ms: moment.t0_ms }, { authorRole: "student", sourceKind: "human" }), { code: "SPAN_RANGE_INVALID" });
 });
 

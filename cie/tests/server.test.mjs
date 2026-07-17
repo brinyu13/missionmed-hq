@@ -5,17 +5,20 @@ import path from "node:path";
 import test from "node:test";
 import { createLocalCieServer } from "../src/server.mjs";
 import { sessionClock } from "./fixtures.mjs";
+import { TEST_SUBJECTS, testUuid } from "./testIds.mjs";
 
 test("local API is loopback-bound, explicitly local, and durably persists C0 state", async () => {
   const directory = await mkdtemp(path.join(os.tmpdir(), "cie-local-api-"));
   const statePath = path.join(directory, "state.json");
+  const witnessPath = path.join(directory, "witness", "state.jsonl");
   let running;
   try {
     let id = 0;
     running = await createLocalCieServer({
       runtimeMode: "local",
       statePath,
-      serviceOptions: { now: () => new Date("2026-07-17T12:00:00.000Z"), uuid: () => `http_id_${++id}` }
+      witnessPath,
+      serviceOptions: { now: () => new Date("2026-07-17T12:00:00.000Z"), uuid: () => testUuid(++id) }
     });
     await new Promise((resolve) => running.server.listen(0, "127.0.0.1", resolve));
     const address = running.server.address();
@@ -53,7 +56,7 @@ test("local API is loopback-bound, explicitly local, and durably persists C0 sta
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-cie-local-subject": "student_http",
+        "x-cie-local-subject": TEST_SUBJECTS.httpStudent,
         "x-cie-local-role": "student",
         "idempotency-key": "http-session-create",
         "x-request-id": "http-request-create"
@@ -67,7 +70,7 @@ test("local API is loopback-bound, explicitly local, and durably persists C0 sta
     await new Promise((resolve, reject) => running.server.close((error) => error ? reject(error) : resolve()));
     running = null;
 
-    const reopened = await createLocalCieServer({ runtimeMode: "local", statePath });
+    const reopened = await createLocalCieServer({ runtimeMode: "local", statePath, witnessPath });
     assert.equal(reopened.repository.getSession(created.data.id).external_session_ref, "cam-http-session");
     await new Promise((resolve) => reopened.server.close(resolve));
   } finally {
@@ -78,4 +81,5 @@ test("local API is loopback-bound, explicitly local, and durably persists C0 sta
 
 test("local server refuses non-local runtime activation", async () => {
   await assert.rejects(createLocalCieServer({ runtimeMode: "production", statePath: "/tmp/never-written-cie.json" }), /refuses to start/u);
+  await assert.rejects(createLocalCieServer({ runtimeMode: "local", host: "0.0.0.0", statePath: "/tmp/never-written-cie.json" }), /loopback host/u);
 });

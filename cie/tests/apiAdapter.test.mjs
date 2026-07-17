@@ -5,9 +5,10 @@ import { CieApiAdapter } from "../src/apiAdapter.mjs";
 import { MemoryCieRepository } from "../src/repository/memoryRepository.mjs";
 import { CieService } from "../src/service.mjs";
 import { sessionClock } from "./fixtures.mjs";
+import { TEST_SUBJECTS, testUuid } from "./testIds.mjs";
 
 const authority = createAuthorityAdapter(async (value) => value, "cie-api-test-authority");
-const auth = await authority.verify({ subject_id: "student_api", role: "student", capabilities: [], authority_session_ref: "api-session" });
+const auth = await authority.verify({ subject_id: TEST_SUBJECTS.apiStudent, role: "student", capabilities: [], authority_session_ref: "api-session" });
 
 function headers(name) {
   return {
@@ -20,10 +21,11 @@ function headers(name) {
 test("host adapter requires pre-verified auth and caller-stable mutation metadata", async () => {
   const repository = new MemoryCieRepository();
   let id = 0;
-  const service = new CieService(repository, { now: () => new Date("2026-07-17T12:00:00.000Z"), uuid: () => `api_id_${++id}` });
+  const service = new CieService(repository, { now: () => new Date("2026-07-17T12:00:00.000Z"), uuid: () => testUuid(++id) });
   const adapter = new CieApiAdapter(service);
   const contracts = await adapter.handle({ method: "GET", path: "/v1/cie/contracts", headers: {} });
   assert.equal(contracts.status, 200);
+  assert.equal(contracts.headers["cache-control"], "no-store");
   assert.equal(contracts.body.data.contracts.includes("GET /v1/cie/review/:sessionId/:momentId"), true);
 
   const missingAuth = await adapter.handle({ method: "POST", path: "/v1/cie/sessions", headers: headers("missing-auth"), body: {} });
@@ -52,6 +54,9 @@ test("host adapter requires pre-verified auth and caller-stable mutation metadat
   const wrongPrefix = await adapter.handle({ method: "GET", path: `/not-cie/sessions/${created.body.data.id}/timeline`, auth, headers: {} });
   assert.equal(wrongPrefix.status, 404);
   assert.equal(wrongPrefix.body.error.code, "ROUTE_NOT_FOUND");
+  const malformed = await adapter.handle({ method: "GET", path: "/v1/cie/review/%E0%A4%A/moment", auth, headers: {} });
+  assert.equal(malformed.status, 400);
+  assert.equal(malformed.body.error.code, "PATH_ENCODING_INVALID");
 });
 
 test("host adapter redacts unexpected exceptions", async () => {

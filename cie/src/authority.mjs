@@ -3,12 +3,19 @@ import { invariant } from "./errors.mjs";
 
 const principals = new WeakSet();
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/u;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const ROLES = new Set(["student", "mentor", "faculty", "admin", "integration"]);
 
 function safeId(value, code, label) {
   const result = String(value || "").trim();
   invariant(SAFE_ID.test(result), 401, code, `${label} is invalid`);
   return result;
+}
+
+function subjectId(value) {
+  const result = String(value || "").trim();
+  invariant(UUID.test(result), 401, "AUTH_SUBJECT_INVALID", "Authority subject must be a UUID");
+  return result.toLowerCase();
 }
 
 export function createAuthorityAdapter(verifier, authorityRef) {
@@ -23,7 +30,7 @@ export function createAuthorityAdapter(verifier, authorityRef) {
       invariant(ROLES.has(role), 403, "AUTH_ROLE_INVALID", "Verified auth role is not supported");
       const capabilities = [...new Set(Array.isArray(result.capabilities) ? result.capabilities.map((value) => safeId(value, "AUTH_CAPABILITY_INVALID", "Authority capability")) : [])].sort();
       const principal = deepFreeze({
-        subject_id: safeId(result.subject_id, "AUTH_SUBJECT_INVALID", "Authority subject"),
+        subject_id: subjectId(result.subject_id),
         role,
         capabilities,
         authority_ref: ref,

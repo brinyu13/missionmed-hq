@@ -1,5 +1,8 @@
-import { clone, immutableCopy } from "../canonical.mjs";
+import { clone, immutableCopy, sha256 } from "../canonical.mjs";
 import { CieError, invariant } from "../errors.mjs";
+import { validateSerializedRepository } from "./stateValidator.mjs";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 function emptyState() {
   return {
@@ -48,7 +51,9 @@ export class MemoryCieRepository {
   }
 
   insertSession(record) {
+    invariant(UUID.test(record.id) && UUID.test(record.owner_user_id), 400, "SESSION_IDENTITY_INVALID", "Session and owner identities must be UUIDs");
     invariant(!this.#state.sessions.has(record.id), 409, "SESSION_EXISTS", "Session already exists");
+    invariant(![...this.#state.sessions.values()].some((session) => session.owner_user_id === record.owner_user_id && session.external_session_ref === record.external_session_ref), 409, "SESSION_EXTERNAL_REF_EXISTS", "External session reference already exists for this owner");
     this.#state.sessions.set(record.id, clone(record));
     return immutableCopy(record);
   }
@@ -71,6 +76,26 @@ export class MemoryCieRepository {
     };
     invariant(transitions[current.state || "DRAFT"].includes(state), 409, "SESSION_STATE_INVALID", "Session state transition is invalid");
     const next = { ...current, state, row_version: current.row_version + 1 };
+    this.#state.sessions.set(id, next);
+    return immutableCopy(next);
+  }
+
+  redactDeletedSession(id, expectedRowVersion, deletedAt) {
+    const current = this.#state.sessions.get(id);
+    invariant(current, 404, "SESSION_NOT_FOUND", "Session was not found");
+    invariant(current.state === "DELETING" && current.row_version === expectedRowVersion, 409, "SESSION_STATE_INVALID", "Only the current deleting session may be redacted");
+    const next = {
+      ...current,
+      external_session_ref_hash: sha256(current.external_session_ref),
+      clock_hash: current.clock?.content_hash || sha256(current.clock),
+      external_session_ref: null,
+      mode_ref: null,
+      media_revision_ref: null,
+      clock: null,
+      state: "DELETED",
+      deleted_at: deletedAt,
+      row_version: current.row_version + 1
+    };
     this.#state.sessions.set(id, next);
     return immutableCopy(next);
   }
@@ -130,6 +155,11 @@ export class MemoryCieRepository {
     return next;
   }
 
+  currentEventSeq(sessionId) {
+    invariant(this.#state.sessions.has(sessionId), 404, "SESSION_NOT_FOUND", "Session was not found");
+    return this.#state.sessionEventSeq.get(sessionId) || 0;
+  }
+
   getTrackItem(trackItemId, itemRevision) {
     const value = this.#state.trackItems.get(`${trackItemId}:${itemRevision}`);
     return value ? immutableCopy(value) : null;
@@ -138,9 +168,11 @@ export class MemoryCieRepository {
   listTrackItems(sessionId, options = {}) {
     const from = options.fromMs ?? 0;
     const to = options.toMs ?? Number.MAX_SAFE_INTEGER;
+    const maxEventSeq = options.maxEventSeq ?? Number.MAX_SAFE_INTEGER;
     const latest = new Map();
     for (const record of this.#state.trackItems.values()) {
       if (record.session_id !== sessionId) continue;
+      if (record.event_seq > maxEventSeq) continue;
       const intersects = record.t0_ms === record.t1_ms
         ? record.t0_ms >= from && record.t0_ms < to
         : record.t0_ms < to && record.t1_ms > from;
@@ -222,9 +254,8 @@ export class MemoryCieRepository {
       && grant.scope === record.scope
       && grant.artifact_type === record.artifact_type
       && grant.artifact_id === record.artifact_id
-      && !grant.revoked_at
-      && (!grant.expires_at || Date.parse(grant.expires_at) > Date.parse(record.issued_at)));
-    invariant(!duplicate, 409, "VISIBILITY_GRANT_ACTIVE", "An active visibility grant already exists");
+      && !grant.revoked_at);
+    invariant(!duplicate, 409, "VISIBILITY_GRANT_ACTIVE", "An unrevoked visibility grant already exists");
     this.#state.visibilityGrants.set(record.id, clone(record));
     return immutableCopy(record);
   }
@@ -245,9 +276,7 @@ export class MemoryCieRepository {
     return this.listVisibilityGrants(sessionId, { granteeUserId }).find((grant) => {
       if (grant.scope !== request.scope || grant.revoked_at) return false;
       if (grant.expires_at && Date.parse(grant.expires_at) <= now) return false;
-      const exact = grant.artifact_type === request.artifactType && grant.artifact_id === request.artifactId;
-      const sessionWide = request.allowSession === true && grant.artifact_type === "session" && grant.artifact_id === sessionId;
-      return exact || sessionWide;
+      return grant.artifact_type === request.artifactType && grant.artifact_id === request.artifactId;
     }) || null;
   }
 
@@ -306,17 +335,18 @@ export class MemoryCieRepository {
     return mapValues(this.#state.deletionSteps).filter((step) => step.job_id === jobId).sort((a, b) => a.resource_class.localeCompare(b.resource_class));
   }
 
-  verifyDeletionStep(jobId, resourceClass, proof, proofHash, verifiedAt) {
+  verifyDeletionStep(jobId, resourceClass, proof, proofHash, verifiedAt, verifiedState = "VERIFIED_ABSENT") {
+    invariant(["VERIFIED_ABSENT", "VERIFIED_PRESERVED", "VERIFIED_REDACTED"].includes(verifiedState), 500, "DELETION_VERIFICATION_STATE_INVALID", "Deletion verification state is invalid");
     const key = `${jobId}:${resourceClass}`;
     const current = this.#state.deletionSteps.get(key);
     invariant(current, 404, "DELETION_STEP_NOT_FOUND", "Deletion step was not found");
-    if (current.state === "VERIFIED_ABSENT") {
-      invariant(current.proof_hash === proofHash, 409, "DELETION_PROOF_CONFLICT", "Deletion step already has different proof");
+    if (["VERIFIED_ABSENT", "VERIFIED_PRESERVED", "VERIFIED_REDACTED"].includes(current.state)) {
+      invariant(current.state === verifiedState && current.proof_hash === proofHash, 409, "DELETION_PROOF_CONFLICT", "Deletion step already has different proof");
       return immutableCopy(current);
     }
     const next = {
       ...current,
-      state: "VERIFIED_ABSENT",
+      state: verifiedState,
       attempt: current.attempt + 1,
       proof_hash: proofHash,
       proof: clone(proof),
@@ -336,7 +366,22 @@ export class MemoryCieRepository {
     return immutableCopy(next);
   }
 
-  purgeSessionArtifacts(sessionId) {
+  redactSessionMutationReceipts(sessionId, redactedAt) {
+    let count = 0;
+    for (const [key, current] of this.#state.mutationReceipts.entries()) {
+      if (current.session_id !== sessionId || current.response === null) continue;
+      this.#state.mutationReceipts.set(key, {
+        ...current,
+        response_hash: current.response_hash || sha256(current.response),
+        response: null,
+        redacted_at: redactedAt
+      });
+      count += 1;
+    }
+    return count;
+  }
+
+  purgeSessionArtifacts(sessionId, redactedAt) {
     const counts = {};
     const purge = (map, predicate) => {
       let count = 0;
@@ -352,8 +397,10 @@ export class MemoryCieRepository {
     counts.moments = purge(this.#state.moments, (value) => value.session_id === sessionId);
     counts.track_items = purge(this.#state.trackItems, (value) => value.session_id === sessionId);
     for (const key of this.#state.trackEventSeq) if (key.startsWith(`${sessionId}:`)) this.#state.trackEventSeq.delete(key);
+    this.#state.sessionEventSeq.delete(sessionId);
     counts.session_priorities = this.#state.priorities.delete(sessionId) ? 1 : 0;
     counts.consent_receipts = purge(this.#state.consentReceipts, (value) => value.session_id === sessionId);
+    counts.mutation_receipts = this.redactSessionMutationReceipts(sessionId, redactedAt);
     return counts;
   }
 
@@ -378,11 +425,25 @@ export class MemoryCieRepository {
     return { replay: false, receipt: immutableCopy(record), response: null };
   }
 
-  completeMutation(ownerUserId, operation, idempotencyKey, response) {
+  listMutationReceipts(sessionId) {
+    return mapValues(this.#state.mutationReceipts).filter((record) => record.session_id === sessionId);
+  }
+
+  completeMutation(ownerUserId, operation, idempotencyKey, response, sessionId, completedAt) {
     const key = `${ownerUserId}:${operation}:${idempotencyKey}`;
     const existing = this.#state.mutationReceipts.get(key);
     invariant(existing, 500, "MUTATION_RECEIPT_MISSING", "Mutation receipt is missing");
-    const completed = { ...existing, state: "completed", response: clone(response) };
+    const session = sessionId ? this.#state.sessions.get(sessionId) : null;
+    const shouldRedact = Boolean(session && ["DELETING", "DELETED"].includes(session.state));
+    const completed = {
+      ...existing,
+      session_id: sessionId || existing.session_id || null,
+      state: "completed",
+      response_hash: sha256(response),
+      response: shouldRedact ? null : clone(response),
+      redacted_at: shouldRedact ? completedAt : null,
+      updated_at: completedAt
+    };
     this.#state.mutationReceipts.set(key, completed);
     return immutableCopy(completed);
   }
@@ -407,7 +468,7 @@ export class MemoryCieRepository {
   }
 
   static decode(serialized) {
-    invariant(serialized?.format === "missionmed.cie.repository.v1", 500, "REPOSITORY_FORMAT_INVALID", "Repository format is invalid");
+    validateSerializedRepository(serialized);
     const state = emptyState();
     for (const record of serialized.sessions || []) state.sessions.set(record.id, clone(record));
     for (const record of serialized.consent_receipts || []) state.consentReceipts.set(record.id, clone(record));

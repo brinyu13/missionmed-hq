@@ -3,6 +3,7 @@ import { immutableCopy, sha256 } from "./canonical.mjs";
 import { hasCapability, normalizeAuthContext, requireCapability, requireOwner } from "./authz.mjs";
 import {
   validateConsentReceiptInput,
+  validateConsentPolicy,
   validateMomentInput,
   validateOpportunityInput,
   validatePriorityInput,
@@ -24,19 +25,23 @@ const LOCAL_DELETION_CLASSES = Object.freeze([
   "track_items",
   "session_priorities",
   "consent_receipts",
+  "mutation_receipts",
   "future_derived_artifacts"
 ]);
 const DELETION_CLASSES = Object.freeze([...LOCAL_DELETION_CLASSES, "cam_media_revision", "audit_finalization"]);
 
-function encodeCursor(item) {
-  return Buffer.from(JSON.stringify([item.t0_ms, item.t1_ms, item.track_item_id, item.item_revision]), "utf8").toString("base64url");
+function encodeCursor(snapshotEventSeq, item) {
+  return Buffer.from(JSON.stringify({
+    snapshot_event_seq: snapshotEventSeq,
+    tuple: [item.t0_ms, item.t1_ms, item.track_item_id, item.item_revision]
+  }), "utf8").toString("base64url");
 }
 
 function decodeCursor(value) {
   if (!value) return null;
   try {
     const parsed = JSON.parse(Buffer.from(String(value), "base64url").toString("utf8"));
-    invariant(Array.isArray(parsed) && parsed.length === 4, 400, "CURSOR_INVALID", "Timeline cursor is invalid");
+    invariant(parsed && typeof parsed === "object" && Number.isSafeInteger(parsed.snapshot_event_seq) && parsed.snapshot_event_seq >= 0 && Array.isArray(parsed.tuple) && parsed.tuple.length === 4, 400, "CURSOR_INVALID", "Timeline cursor is invalid");
     return parsed;
   } catch (error) {
     if (error instanceof CieError) throw error;
@@ -44,12 +49,12 @@ function decodeCursor(value) {
   }
 }
 
-function afterCursor(item, cursor) {
-  if (!cursor) return true;
+function afterCursor(item, cursorTuple) {
+  if (!cursorTuple) return true;
   const tuple = [item.t0_ms, item.t1_ms, item.track_item_id, item.item_revision];
   for (let index = 0; index < tuple.length; index += 1) {
-    if (tuple[index] > cursor[index]) return true;
-    if (tuple[index] < cursor[index]) return false;
+    if (tuple[index] > cursorTuple[index]) return true;
+    if (tuple[index] < cursorTuple[index]) return false;
   }
   return false;
 }
@@ -58,15 +63,24 @@ export class CieService {
   #repository;
   #now;
   #uuid;
+  #consentPolicy;
+  #externalDeletionProofVerifier;
 
   constructor(repository, options = {}) {
     this.#repository = repository;
     this.#now = options.now || (() => new Date());
     this.#uuid = options.uuid || randomUUID;
+    this.#consentPolicy = options.consentPolicy || null;
+    this.#externalDeletionProofVerifier = options.externalDeletionProofVerifier || null;
   }
 
   #timestamp() {
     return this.#now().toISOString();
+  }
+
+  #timestampAfter(value) {
+    const floor = value ? Date.parse(value) + 1 : Number.NEGATIVE_INFINITY;
+    return new Date(Math.max(this.#now().getTime(), floor)).toISOString();
   }
 
   #activeSession(store, sessionId) {
@@ -121,15 +135,10 @@ export class CieService {
     return this.#grantIsLive(store, grant) ? grant : null;
   }
 
-  #hasAnyReviewGrant(store, auth, session) {
-    return store.listVisibilityGrants(session.id, { granteeUserId: auth.subject_id })
-      .some((grant) => grant.scope === "review" && this.#grantIsLive(store, grant));
-  }
-
-  #requireReviewAuthority(store, auth, session, request = null) {
-    if (hasCapability(auth, "cie:review:write")) return "integration";
+  #requireReviewAuthority(store, auth, session, request) {
     invariant(auth.role === "mentor", 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
-    const grant = request ? this.#findGrant(store, auth, session, { ...request, scope: "review" }) : (this.#hasAnyReviewGrant(store, auth, session) ? true : null);
+    invariant(request?.artifactType && request?.artifactId, 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
+    const grant = this.#findGrant(store, auth, session, { ...request, scope: "review" });
     invariant(grant, 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
     return "mentor";
   }
@@ -155,6 +164,7 @@ export class CieService {
     const auth = normalizeAuthContext(authInput);
     const envelope = createMutationEnvelope(meta, payload);
     return this.#repository.transaction(async (store) => {
+      const initialSessionId = payload?.sessionId || (payload?.jobId ? store.getDeletionJob(payload.jobId)?.session_id : null) || null;
       const mutation = store.beginMutation({
         owner_user_id: auth.subject_id,
         operation,
@@ -163,13 +173,27 @@ export class CieService {
         request_id: envelope.request_id,
         correlation_id: envelope.correlation_id,
         causation_id: envelope.causation_id,
+        session_id: initialSessionId,
         state: "accepted",
         response: null,
-        created_at: this.#timestamp()
+        response_hash: null,
+        redacted_at: null,
+        created_at: this.#timestamp(),
+        updated_at: this.#timestamp()
       });
-      if (mutation.replay) return immutableCopy(mutation.response);
+      if (mutation.replay) {
+        if (mutation.receipt.redacted_at || mutation.response === null) {
+          const deletionOperations = new Set(["request_session_deletion", "run_local_deletion", "record_external_deletion_proof"]);
+          invariant(deletionOperations.has(operation), 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
+          const job = payload?.jobId ? store.getDeletionJob(payload.jobId) : store.getDeletionJobBySession(mutation.receipt.session_id);
+          invariant(job && (auth.subject_id === job.owner_user_id || hasCapability(auth, "cie:deletion:work")), 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
+          return immutableCopy({ job, steps: store.listDeletionSteps(job.id) });
+        }
+        return immutableCopy(mutation.response);
+      }
       const result = await work(store, auth, envelope);
-      store.completeMutation(auth.subject_id, operation, envelope.idempotency_key, result);
+      const completedSessionId = initialSessionId || (operation === "create_session" ? result?.id : null) || result?.session_id || result?.job?.session_id || null;
+      store.completeMutation(auth.subject_id, operation, envelope.idempotency_key, result, completedSessionId, this.#timestamp());
       return immutableCopy(result);
     });
   }
@@ -187,27 +211,34 @@ export class CieService {
         row_version: 1
       };
       store.insertSession(record);
-      this.#audit(store, auth, record.id, "cie.session.created", "session", record.id, envelope, { external_session_ref: record.external_session_ref });
+      this.#audit(store, auth, record.id, "cie.session.created", "session", record.id, envelope, { external_session_ref_hash: sha256(record.external_session_ref) });
       return record;
     });
   }
 
   async recordConsent(authInput, sessionId, input, meta) {
-    return this.#mutate(authInput, "record_consent", { sessionId, input }, meta, (store, auth, envelope) => {
+    return this.#mutate(authInput, "record_consent", { sessionId, input }, meta, async (store, auth, envelope) => {
       const session = this.#activeSession(store, sessionId);
       requireOwner(auth, session.owner_user_id);
       const validated = validateConsentReceiptInput(input);
+      invariant(typeof this.#consentPolicy === "function", 503, "CONSENT_POLICY_UNAVAILABLE", "Consent policy authority is unavailable");
+      const policy = validateConsentPolicy(await this.#consentPolicy({ purpose: validated.purpose, session_id: session.id, owner_user_id: session.owner_user_id }));
       const latest = store.latestConsent(session.id, validated.purpose);
       if (latest) {
         invariant(validated.supersedes_receipt_id === latest.id, 409, "CONSENT_SUPERSESSION_REQUIRED", "Consent change must supersede the latest receipt");
-        invariant(Date.parse(validated.recorded_at) > Date.parse(latest.recorded_at), 409, "CONSENT_TIME_REGRESSION", "Consent revisions must advance recorded time");
       }
+      const recordedAt = this.#timestampAfter(latest?.recorded_at);
+      if (validated.expires_at) invariant(Date.parse(validated.expires_at) > Date.parse(recordedAt), 400, "CONSENT_EXPIRY_INVALID", "Consent expiry must follow the server-recorded consent time");
       const record = {
         id: this.#uuid(),
         session_id: session.id,
         owner_user_id: session.owner_user_id,
         receipt_revision: (latest?.receipt_revision || 0) + 1,
         ...validated,
+        ...policy,
+        authority_ref: auth.authority_ref,
+        authority_session_ref: auth.authority_session_ref,
+        recorded_at: recordedAt,
         created_at: this.#timestamp()
       };
       store.appendConsent(record);
@@ -249,8 +280,12 @@ export class CieService {
   async setPriorities(authInput, sessionId, input, meta) {
     return this.#mutate(authInput, "set_priorities", { sessionId, input }, meta, (store, auth, envelope) => {
       const session = this.#activeSession(store, sessionId);
-      if (!hasCapability(auth, "cie:priority:write")) this.#requireReviewAuthority(store, auth, session);
       const validated = validatePriorityInput(input);
+      if (!hasCapability(auth, "cie:priority:write")) {
+        const reviewMoment = requireFound(store.getMoment(validated.review_moment_id), "RESOURCE_UNAVAILABLE", "This resource is not available");
+        invariant(reviewMoment.session_id === session.id, 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
+        this.#requireReviewAuthority(store, auth, session, { artifactType: "moment", artifactId: reviewMoment.id });
+      }
       const snapshots = [validated.spotlight_snapshot_id, validated.supporting_snapshot_id].filter(Boolean).map((id) => requireFound(store.getSkillSnapshot(id), "SKILL_SNAPSHOT_NOT_FOUND", "Skill snapshot is not available"));
       invariant(snapshots.every((snapshot) => snapshot.owner_user_id === session.owner_user_id), 409, "SKILL_SNAPSHOT_OWNER_MISMATCH", "Priority snapshots must belong to the session owner");
       const consent = this.#assertConsent(store, session.id, "evidence_storage", input.consent_receipt_ids || []);
@@ -323,7 +358,7 @@ export class CieService {
       const authorRole = auth.subject_id === session.owner_user_id ? "student" : auth.role;
       const validated = validateTrackItemInput(input, { authorRole, sourceKind: "human" });
       invariant(["event", "text"].includes(validated.kind), 409, "TRACK_KIND_INACTIVE", "Generic C0 writes accept human event or text tracks only");
-      invariant(validated.provenance.tier !== "L0", 409, "MEASUREMENT_METHOD_INACTIVE", "C0 has no active generic measurement method");
+      invariant(validated.provenance.tier === "L1", 409, "CLAIM_RUNG_WRITE_FORBIDDEN", "Generic C0 writes accept replay-verifiable human observations only");
       this.#segment(session, validated.segment_id, validated.media_revision_ref, validated.t0_ms, validated.t1_ms, validated.range_kind);
       this.#assertConsent(store, session.id, "evidence_storage", validated.consent_receipt_ids);
       this.#assertVisibilityConsent(store, session.id, validated.visibility, validated.consent_receipt_ids);
@@ -346,12 +381,16 @@ export class CieService {
   async createMoment(authInput, sessionId, input, meta) {
     return this.#mutate(authInput, "create_moment", { sessionId, input }, meta, (store, auth, envelope) => {
       const session = this.#activeSession(store, sessionId);
-      let authorRole = "student";
-      if (auth.subject_id !== session.owner_user_id) {
-        this.#requireReviewAuthority(store, auth, session);
-        authorRole = "mentor";
-      }
+      const authorRole = auth.subject_id === session.owner_user_id ? "student" : auth.role;
       const validated = validateMomentInput(input, { authorRole, sourceKind: "human" });
+      if (authorRole === "mentor") {
+        const sourceMoment = requireFound(store.getMoment(validated.review_source_moment_id), "RESOURCE_UNAVAILABLE", "This resource is not available");
+        invariant(sourceMoment.session_id === session.id && sourceMoment.source === "student" && sourceMoment.t0_ms <= validated.t0_ms && sourceMoment.t1_ms >= validated.t1_ms, 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
+        this.#requireReviewAuthority(store, auth, session, { artifactType: "moment", artifactId: sourceMoment.id });
+      } else {
+        invariant(authorRole === "student", 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
+        invariant(validated.review_source_moment_id === null, 400, "MOMENT_REVIEW_SOURCE_INVALID", "Student Moments cannot claim a mentor review source");
+      }
       this.#segment(session, validated.segment_id, validated.media_revision_ref, validated.t0_ms, validated.t1_ms, "SPAN");
       this.#assertConsent(store, session.id, "evidence_storage", validated.consent_receipt_ids);
       this.#assertVisibilityConsent(store, session.id, validated.visibility, validated.consent_receipt_ids);
@@ -412,7 +451,7 @@ export class CieService {
       this.#assertConsent(store, session.id, "mentor_sharing", validated.consent_receipt_ids);
       const selfMoment = store.listMoments(session.id).find((moment) => moment.source === "student" && moment.t0_ms <= validated.t0_ms && moment.t1_ms >= validated.t1_ms);
       invariant(selfMoment, 409, "SELF_FIRST_MOMENT_REQUIRED", "A student-authored Moment covering the evidence range is required first");
-      this.#requireReviewAuthority(store, auth, session, { artifactType: "moment", artifactId: selfMoment.id, allowSession: true });
+      this.#requireReviewAuthority(store, auth, session, { artifactType: "moment", artifactId: selfMoment.id });
       invariant(validated.evidence_claim.evidence_refs.includes(selfMoment.id), 409, "OPPORTUNITY_EVIDENCE_REF_INVALID", "Opportunity evidence claim must reference the covering student Moment");
       const snapshot = requireFound(store.getSkillSnapshot(validated.skill_snapshot_id), "SKILL_SNAPSHOT_NOT_FOUND", "Skill snapshot is not available");
       invariant(snapshot.owner_user_id === session.owner_user_id, 409, "SKILL_SNAPSHOT_OWNER_MISMATCH", "Opportunity skill snapshot must belong to the session owner");
@@ -474,9 +513,7 @@ export class CieService {
       invariant(validated.grantee_user_id !== session.owner_user_id, 400, "VISIBILITY_SELF_GRANT_INVALID", "Owner access does not require a visibility grant");
       const purpose = this.#grantConsentPurpose(validated.scope);
       const consent = this.#assertConsent(store, session.id, purpose, [validated.consent_receipt_id]);
-      if (validated.artifact_type === "session") {
-        invariant(validated.artifact_id === session.id && validated.scope === "review", 400, "VISIBILITY_ARTIFACT_INVALID", "Only review access may target the complete session");
-      } else if (validated.artifact_type === "moment") {
+      if (validated.artifact_type === "moment") {
         const moment = requireFound(store.getMoment(validated.artifact_id), "RESOURCE_UNAVAILABLE", "This resource is not available");
         invariant(moment.session_id === session.id, 404, "RESOURCE_UNAVAILABLE", "This resource is not available");
         invariant((validated.scope === "review" && moment.visibility === "mentor") || (validated.scope === "showcase" && moment.visibility === "showcase"), 409, "VISIBILITY_STATE_MISMATCH", "Moment visibility does not permit this grant");
@@ -493,6 +530,8 @@ export class CieService {
         owner_user_id: session.owner_user_id,
         ...validated,
         consent_receipt_id: consent.id,
+        authority_ref: auth.authority_ref,
+        authority_session_ref: auth.authority_session_ref,
         issued_at: issuedAt,
         revoked_at: null,
         row_version: 1
@@ -549,13 +588,15 @@ export class CieService {
       requireCapability(auth, "cie:deletion:work");
       const job = requireFound(store.getDeletionJob(jobId), "DELETION_JOB_NOT_FOUND", "Deletion job was not found");
       invariant(["TOMBSTONED", "CLEANUP_PENDING", "FAILED_RETRYABLE"].includes(job.state), 409, "DELETION_STATE_INVALID", "Deletion job cannot run from its current state");
-      const counts = store.purgeSessionArtifacts(job.session_id);
       const verifiedAt = this.#timestamp();
+      const counts = store.purgeSessionArtifacts(job.session_id, verifiedAt);
       for (const resourceClass of LOCAL_DELETION_CLASSES) {
         const proof = resourceClass === "future_derived_artifacts"
           ? { verified_absent: true, active_future_capabilities: 0, authority_ref: "cie-capability-registry-v1" }
+          : resourceClass === "mutation_receipts"
+            ? { verified_redacted: true, redacted_response_count: counts[resourceClass] || 0, authority_ref: "cie-local-store-v1" }
           : { verified_absent: true, removed_count: counts[resourceClass] || 0, authority_ref: "cie-local-store-v1" };
-        store.verifyDeletionStep(job.id, resourceClass, proof, sha256(proof), verifiedAt);
+        store.verifyDeletionStep(job.id, resourceClass, proof, sha256(proof), verifiedAt, resourceClass === "mutation_receipts" ? "VERIFIED_REDACTED" : "VERIFIED_ABSENT");
       }
       const updated = store.updateDeletionJob(job.id, job.row_version, "CLEANUP_PENDING");
       this.#audit(store, auth, job.session_id, "cie.deletion.local_cleanup_verified", "deletion_job", job.id, envelope, { resource_classes: LOCAL_DELETION_CLASSES });
@@ -564,34 +605,37 @@ export class CieService {
   }
 
   async recordExternalDeletionProof(authInput, jobId, resourceClass, proofInput, meta) {
-    return this.#mutate(authInput, "record_external_deletion_proof", { jobId, resourceClass, proofInput }, meta, (store, auth, envelope) => {
+    return this.#mutate(authInput, "record_external_deletion_proof", { jobId, resourceClass, proofInput }, meta, async (store, auth, envelope) => {
       requireCapability(auth, "cie:deletion:work");
       invariant(resourceClass === "cam_media_revision", 400, "DELETION_RESOURCE_INVALID", "Only the adopted CAM media boundary may submit external C0 proof");
       const job = requireFound(store.getDeletionJob(jobId), "DELETION_JOB_NOT_FOUND", "Deletion job was not found");
       invariant(job.state !== "COMPLETE", 409, "DELETION_STATE_INVALID", "Deletion job is already complete");
-      invariant(proofInput?.verified_absent === true, 409, "DELETION_ABSENCE_NOT_VERIFIED", "External deletion proof must verify absence");
-      invariant(typeof proofInput.authority_ref === "string" && proofInput.authority_ref.length > 0, 400, "DELETION_AUTHORITY_REQUIRED", "External deletion proof requires authority provenance");
-      const checkedAt = new Date(proofInput.checked_at);
-      invariant(Number.isFinite(checkedAt.getTime()), 400, "DELETION_PROOF_TIME_INVALID", "External deletion proof timestamp is invalid");
+      invariant(proofInput?.authority_ref === undefined && proofInput?.authority_session_ref === undefined && proofInput?.checked_at === undefined && proofInput?.verified_absent === undefined && proofInput?.provider_receipt_hash === undefined, 400, "DELETION_PROOF_SERVER_FIELD_FORBIDDEN", "Deletion proof authority, result, hash, and time are server-owned");
+      invariant(typeof this.#externalDeletionProofVerifier === "function", 503, "DELETION_PROOF_VERIFIER_UNAVAILABLE", "The adopted provider deletion verifier is unavailable");
+      const attestation = await this.#externalDeletionProofVerifier({ auth, job, resourceClass, providerReceipt: proofInput?.provider_receipt });
+      invariant(attestation?.verified_absent === true, 409, "DELETION_ABSENCE_NOT_VERIFIED", "The adopted provider boundary did not verify absence");
+      invariant(/^[a-f0-9]{64}$/u.test(String(attestation.provider_receipt_hash || "")), 502, "DELETION_RECEIPT_HASH_INVALID", "The adopted provider deletion receipt hash is invalid");
       const proof = {
         verified_absent: true,
-        authority_ref: proofInput.authority_ref,
-        checked_at: checkedAt.toISOString(),
-        provider_receipt_hash: proofInput.provider_receipt_hash || null
+        authority_ref: auth.authority_ref,
+        authority_session_ref: auth.authority_session_ref,
+        checked_at: this.#timestamp(),
+        provider: String(attestation.provider || "adopted-cam-media-boundary"),
+        provider_receipt_hash: attestation.provider_receipt_hash
       };
       store.verifyDeletionStep(job.id, resourceClass, proof, sha256(proof), this.#timestamp());
       let current = store.getDeletionJob(job.id);
       let steps = store.listDeletionSteps(job.id);
-      const nonAuditComplete = steps.filter((step) => step.resource_class !== "audit_finalization").every((step) => step.state === "VERIFIED_ABSENT");
+      const nonAuditComplete = steps.filter((step) => step.resource_class !== "audit_finalization").every((step) => step.resource_class === "mutation_receipts" ? step.state === "VERIFIED_REDACTED" : step.state === "VERIFIED_ABSENT");
       if (nonAuditComplete) {
         this.#audit(store, auth, job.session_id, "cie.deletion.completed", "deletion_job", job.id, envelope, { proof_hashes: steps.filter((step) => step.proof_hash).map((step) => step.proof_hash) });
-        const auditProof = { verified_absent: true, authority_ref: "cie-append-only-audit-v1", event_type: "cie.deletion.completed" };
-        store.verifyDeletionStep(job.id, "audit_finalization", auditProof, sha256(auditProof), this.#timestamp());
+        const auditProof = { verified_preserved: true, authority_ref: "cie-append-only-audit-v1", event_type: "cie.deletion.completed" };
+        store.verifyDeletionStep(job.id, "audit_finalization", auditProof, sha256(auditProof), this.#timestamp(), "VERIFIED_PRESERVED");
         steps = store.listDeletionSteps(job.id);
-        invariant(steps.every((step) => step.state === "VERIFIED_ABSENT"), 409, "DELETION_CLOSURE_INCOMPLETE", "Deletion closure is incomplete");
+        invariant(steps.every((step) => step.resource_class === "audit_finalization" ? step.state === "VERIFIED_PRESERVED" : step.resource_class === "mutation_receipts" ? step.state === "VERIFIED_REDACTED" : step.state === "VERIFIED_ABSENT"), 409, "DELETION_CLOSURE_INCOMPLETE", "Deletion closure is incomplete");
         current = store.updateDeletionJob(job.id, current.row_version, "COMPLETE", { completed_at: this.#timestamp() });
         const session = requireFound(store.getSession(job.session_id), "SESSION_NOT_FOUND", "Session was not found");
-        store.updateSessionState(session.id, session.row_version, "DELETED");
+        store.redactDeletedSession(session.id, session.row_version, this.#timestamp());
       }
       return { job: current, steps };
     });
@@ -620,7 +664,7 @@ export class CieService {
       artifactType = "moment";
       artifactId = item.payload.source_moment_id;
     }
-    if (!this.#findGrant(store, auth, session, { scope, artifactType, artifactId, allowSession: true })) return false;
+    if (!this.#findGrant(store, auth, session, { scope, artifactType, artifactId })) return false;
     const purpose = item.kind === "physio" ? "physiology_storage" : (item.visibility === "showcase" ? "showcase_sharing" : "mentor_sharing");
     const consent = store.latestConsent(session.id, purpose);
     return Boolean(consent?.granted && (!consent.expires_at || Date.parse(consent.expires_at) > this.#now().getTime()) && item.consent_receipt_ids.includes(consent.id));
@@ -639,8 +683,9 @@ export class CieService {
     const limit = Math.min(200, Math.max(1, Number(options.limit || 50)));
     invariant(Number.isSafeInteger(limit), 400, "TIMELINE_LIMIT_INVALID", "Timeline limit is invalid");
     const cursor = decodeCursor(options.cursor);
-    const readable = this.#repository.listTrackItems(session.id, { fromMs, toMs })
-      .filter((item) => afterCursor(item, cursor))
+    const snapshotEventSeq = cursor?.snapshot_event_seq ?? this.#repository.currentEventSeq(session.id);
+    const readable = this.#repository.listTrackItems(session.id, { fromMs, toMs, maxEventSeq: snapshotEventSeq })
+      .filter((item) => afterCursor(item, cursor?.tuple || null))
       .filter((item) => this.#itemReadable(this.#repository, auth, session, item, auth.subject_id === session.owner_user_id ? "student" : "reviewer"));
     const page = readable.slice(0, limit);
     return immutableCopy({
@@ -650,13 +695,14 @@ export class CieService {
           type: item.kind,
           range: item.range_kind === "POINT" ? `${item.t0_ms} ms` : `${item.t0_ms}-${item.t1_ms} ms`,
           author_role: item.author.role,
-          claim_badge: item.provenance.badge,
+          claim_badge: item.provenance.simulation_badge ? `${item.provenance.simulation_badge} · ${item.provenance.badge}` : item.provenance.badge,
           limitations: item.provenance.limitations,
           visibility: item.visibility,
           gap_state: item.provenance.missing_gap_state || null
         }
       })),
-      next_cursor: readable.length > limit ? encodeCursor(page.at(-1)) : null,
+      next_cursor: readable.length > limit ? encodeCursor(snapshotEventSeq, page.at(-1)) : null,
+      snapshot_event_seq: snapshotEventSeq,
       partial: false
     });
   }
@@ -672,7 +718,7 @@ export class CieService {
       if (auth.subject_id !== session.owner_user_id) {
         if (moment.visibility === "private") return unavailable();
         const scope = moment.visibility === "showcase" ? "showcase" : "review";
-        readGrant = this.#findGrant(this.#repository, auth, session, { scope, artifactType: "moment", artifactId: moment.id, allowSession: true });
+        readGrant = this.#findGrant(this.#repository, auth, session, { scope, artifactType: "moment", artifactId: moment.id });
         if (!readGrant) return unavailable();
         const purpose = moment.visibility === "showcase" ? "showcase_sharing" : "mentor_sharing";
         const consent = this.#repository.latestConsent(session.id, purpose);
@@ -693,7 +739,7 @@ export class CieService {
       state: "READY",
       session: { id: session.id, mode_ref: session.mode_ref, clock_hash: session.clock.content_hash },
       moment,
-      priorities: auth.subject_id === session.owner_user_id || readGrant?.artifact_type === "session" ? this.#repository.getPriorities(session.id) : null,
+      priorities: auth.subject_id === session.owner_user_id ? this.#repository.getPriorities(session.id) : null,
       replay: {
         manifest,
         seek_to_ms: manifest.members[0].media_t0_ms,

@@ -37,3 +37,31 @@ test("runtime integrity migration closes ownership, revision, grant, future, and
   assert.doesNotMatch(sql, /grant\s+(?:insert|update|delete|all).*\bauthenticated\b/iu);
   assert.doesNotMatch(sql, /drop\s+(?:table|schema)|truncate\s+|delete\s+from\s+/iu);
 });
+
+test("authority proof migration binds field authority and exposes only an internal deletion command", async () => {
+  const sql = await readFile(new URL("../migrations/20260717100000_y1_cie_c0_authority_proof.sql", import.meta.url), "utf8");
+  for (const required of [
+    "authority_session_ref",
+    "VERIFIED_PRESERVED",
+    "VERIFIED_REDACTED",
+    "cie_deletion_step_proof_check",
+    "cie_deletion_step_semantics_check",
+    "create table cie.deletion_attestations",
+    "cie.register_deletion_attestation_v1",
+    "cie_deletion_verifier",
+    "cie_deletion_executor",
+    "cie_moment_track_binding_fk",
+    "cie_opportunity_track_binding_fk",
+    "cie_priority_exact_one_plus_one_check",
+    "cie.purge_session_artifacts_v1",
+    "cie.finalize_session_deletion_v1",
+    "revoke all on function cie.purge_session_artifacts_v1",
+    "grant execute on function cie.register_deletion_attestation_v1",
+    "grant execute on function cie.finalize_session_deletion_v1",
+    "revoke all on all tables in schema cie from public, anon, authenticated"
+  ]) assert.match(sql, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"), "u"));
+  assert.doesNotMatch(sql, /p_provider_proof_hash|p_audit_proof_hash/iu);
+  assert.doesNotMatch(sql, /target\.owner_user_id,\s*\n\s*'cie\.deletion\.completed'/iu);
+  assert.doesNotMatch(sql, /drop\s+(?:table|schema)|truncate\s+/iu);
+  assert.doesNotMatch(sql, /grant\s+(?:insert|update|delete|all).*\bauthenticated\b/iu);
+});

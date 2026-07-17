@@ -39,10 +39,26 @@ export class ReplaySyncController {
   #groupElapsedMs = 0;
   #toleranceMs;
   #durationMs;
+  #operationEpoch = 0;
 
   constructor(manifest, players, options = {}) {
+    invariant(manifest?.contract_version === "cie.replay-sync-manifest.v1" && Array.isArray(manifest.members) && manifest.members.length > 0, 400, "REPLAY_MANIFEST_INVALID", "Replay manifest contract is invalid");
+    invariant(typeof manifest.session_id === "string" && manifest.session_id.length > 0 && /^[a-f0-9]{64}$/u.test(String(manifest.session_clock_hash || "")), 400, "REPLAY_MANIFEST_INVALID", "Replay manifest session binding is invalid");
+    const manifestBody = { ...manifest };
+    delete manifestBody.content_hash;
+    invariant(manifest.content_hash === sha256(manifestBody), 409, "REPLAY_MANIFEST_HASH_MISMATCH", "Replay manifest integrity check failed");
+    const memberIds = new Set();
+    for (const member of manifest.members) {
+      invariant(member && typeof member === "object" && typeof member.member_id === "string" && member.member_id.length > 0 && !memberIds.has(member.member_id), 400, "REPLAY_MANIFEST_INVALID", "Replay manifest member identity is invalid");
+      memberIds.add(member.member_id);
+      invariant(typeof member.segment_id === "string" && member.segment_id.length > 0 && typeof member.media_revision_ref === "string" && member.media_revision_ref.length > 0, 400, "REPLAY_MANIFEST_INVALID", "Replay manifest media binding is invalid");
+      invariant(/^[a-f0-9]{64}$/u.test(String(member.evidence_hash || "")), 400, "REPLAY_MANIFEST_INVALID", "Replay manifest evidence hash is invalid");
+      invariant([member.range_t0_ms, member.range_t1_ms, member.media_t0_ms, member.media_t1_ms].every((value) => Number.isSafeInteger(value) && value >= 0), 400, "REPLAY_MANIFEST_INVALID", "Replay manifest range must use non-negative integer milliseconds");
+      invariant(member.range_t1_ms > member.range_t0_ms && member.media_t1_ms > member.media_t0_ms && member.range_t1_ms - member.range_t0_ms === member.media_t1_ms - member.media_t0_ms, 400, "REPLAY_MANIFEST_INVALID", "Replay manifest range mapping is invalid");
+    }
     this.#manifest = manifest;
     this.#players = new Map(players.map((player) => [player.memberId, player]));
+    invariant(this.#players.size === players.length && this.#players.size === manifest.members.length, 400, "REPLAY_PLAYER_SET_INVALID", "Replay players must match the manifest exactly");
     this.#toleranceMs = Number(options.toleranceMs ?? 100);
     invariant(Number.isFinite(this.#toleranceMs) && this.#toleranceMs >= 0 && this.#toleranceMs <= 1000, 400, "REPLAY_TOLERANCE_INVALID", "Replay drift tolerance is invalid");
     invariant(manifest.members.every((member) => this.#players.has(member.member_id)), 400, "REPLAY_PLAYER_MISSING", "Every replay member requires a player adapter");
@@ -67,9 +83,23 @@ export class ReplaySyncController {
     this.#state = "PAUSED";
   }
 
-  play() {
+  async play() {
     invariant(["READY", "PAUSED"].includes(this.#state), 409, "REPLAY_STATE_INVALID", "Replay group cannot play from its current state");
-    for (const player of this.#players.values()) player.play();
+    const operationEpoch = ++this.#operationEpoch;
+    this.#state = "STARTING";
+    const results = await Promise.allSettled(
+      [...this.#players.values()].map((player) => Promise.resolve().then(() => player.play()))
+    );
+    if (operationEpoch !== this.#operationEpoch || this.#state !== "STARTING") {
+      for (const player of this.#players.values()) player.pause();
+      invariant(false, 409, "REPLAY_OPERATION_CANCELLED", "Replay start was cancelled");
+    }
+    const rejected = results.find((result) => result.status === "rejected");
+    if (rejected) {
+      for (const player of this.#players.values()) player.pause();
+      this.#state = "PAUSED";
+      throw rejected.reason;
+    }
     this.#state = "PLAYING";
   }
 
@@ -84,8 +114,11 @@ export class ReplaySyncController {
     const leaderMember = this.#manifest.members.find((member) => member.member_id === leaderMemberId);
     invariant(leaderMember, 400, "REPLAY_LEADER_INVALID", "Replay leader is invalid");
     const leader = this.#players.get(leaderMemberId);
-    const elapsedMs = Math.max(0, leader.currentTime() * 1000 - leaderMember.media_t0_ms);
+    const leaderDurationMs = leaderMember.media_t1_ms - leaderMember.media_t0_ms;
+    const elapsedMs = Math.min(leaderDurationMs, Math.max(0, leader.currentTime() * 1000 - leaderMember.media_t0_ms));
     this.#groupElapsedMs = elapsedMs;
+    const leaderExpectedMs = leaderMember.media_t0_ms + elapsedMs;
+    if (Math.abs(leader.currentTime() * 1000 - leaderExpectedMs) > this.#toleranceMs) leader.seek(leaderExpectedMs / 1000);
     for (const member of this.#manifest.members) {
       if (member.member_id === leaderMemberId) continue;
       const player = this.#players.get(member.member_id);
@@ -97,6 +130,7 @@ export class ReplaySyncController {
 
   close() {
     if (this.#state === "CLOSED") return;
+    this.#operationEpoch += 1;
     for (const player of this.#players.values()) player.pause();
     this.#state = "CLOSED";
   }

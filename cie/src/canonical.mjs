@@ -3,10 +3,25 @@ import { createHash, randomUUID } from "node:crypto";
 export function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === "object") {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError("Canonical JSON accepts plain objects only");
+    }
     return Object.keys(value).sort().reduce((result, key) => {
-      result[key] = stableValue(value[key]);
+      Object.defineProperty(result, key, {
+        value: stableValue(value[key]),
+        enumerable: true,
+        configurable: true,
+        writable: true
+      });
       return result;
     }, {});
+  }
+  if (typeof value === "number" && !Number.isFinite(value)) {
+    throw new TypeError("Canonical JSON rejects non-finite numbers");
+  }
+  if (["undefined", "function", "symbol", "bigint"].includes(typeof value)) {
+    throw new TypeError("Canonical JSON rejects unsupported values");
   }
   return value;
 }

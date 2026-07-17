@@ -16,7 +16,7 @@ const server = createServer(async (request, response) => {
     for (const [name, value] of Object.entries(request.headers)) {
       if (value !== undefined && !["host", "connection", "content-length"].includes(name)) headers.set(name, Array.isArray(value) ? value.join(", ") : value);
     }
-    headers.set("x-cie-local-subject", "synthetic_student_browser");
+    headers.set("x-cie-local-subject", "00000000-0000-4000-8000-000000007001");
     headers.set("x-cie-local-role", "student");
     headers.set("x-cie-local-session", "synthetic_local_authority_session");
     const upstream = await fetch(new URL(request.url || "/", target), {

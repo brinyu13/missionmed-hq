@@ -2,6 +2,17 @@ import { CAPABILITY_REGISTRY } from "./capabilities.mjs";
 import { isVerifiedPrincipal } from "./authority.mjs";
 import { CieError, invariant } from "./errors.mjs";
 
+function validatePlaybackCapability(value, moment) {
+  if (value === null || value === undefined) return null;
+  invariant(value && typeof value === "object" && !Array.isArray(value), 502, "PLAYBACK_CAPABILITY_INVALID", "Playback issuer returned an invalid capability");
+  invariant(value.contract_version === "cie.range-playback-capability.v1" && value.range_enforced === true, 502, "PLAYBACK_CAPABILITY_INVALID", "Playback must use the authorization-aware range proxy");
+  invariant(/^\/v1\/cie\/playback-grants\/[A-Za-z0-9._:-]+\/stream$/u.test(String(value.url || "")), 502, "PLAYBACK_CAPABILITY_INVALID", "Playback capability URL must be an opaque same-origin proxy path");
+  invariant(value.moment_id === moment.id && value.moment_content_hash === moment.content_hash && value.t0_ms === moment.t0_ms && value.t1_ms === moment.t1_ms, 502, "PLAYBACK_CAPABILITY_RANGE_MISMATCH", "Playback capability does not match the authorized Moment range");
+  const expiresAt = Date.parse(value.expires_at);
+  invariant(Number.isFinite(expiresAt) && expiresAt > Date.now(), 502, "PLAYBACK_CAPABILITY_EXPIRED", "Playback capability is expired");
+  return { ...value };
+}
+
 const API_CONTRACTS = Object.freeze([
   "POST /v1/cie/sessions",
   "POST /v1/cie/sessions/:id/consents",
@@ -50,14 +61,19 @@ function pathParts(pathname) {
   const value = String(pathname || "").split("?", 1)[0];
   invariant(value.startsWith("/"), 400, "PATH_INVALID", "API path is invalid");
   return value.split("/").filter(Boolean).map((part) => {
-    const decoded = decodeURIComponent(part);
+    let decoded;
+    try {
+      decoded = decodeURIComponent(part);
+    } catch {
+      throw new CieError(400, "PATH_ENCODING_INVALID", "API path encoding is invalid");
+    }
     invariant(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/u.test(decoded), 400, "PATH_IDENTIFIER_INVALID", "API path identifier is invalid");
     return decoded;
   });
 }
 
 function success(data, requestId, status = 200) {
-  return { status, headers: { "content-type": "application/json; charset=utf-8", "x-request-id": requestId || "read-only" }, body: { ok: true, data, request_id: requestId || null } };
+  return { status, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "x-request-id": requestId || "read-only" }, body: { ok: true, data, request_id: requestId || null } };
 }
 
 function failure(error, requestId) {
@@ -131,7 +147,10 @@ export class CieApiAdapter {
         data = this.#service.listTimeline(auth, parts[3], request.query || {});
       } else if (method === "GET" && parts.length === 5 && parts[2] === "review") {
         data = this.#service.resolveMomentLink(auth, parts[3], parts[4]);
-        if (this.#playbackIssuer) data = { ...data, replay: { ...data.replay, playback_capability: await this.#playbackIssuer({ auth, session: data.session, moment: data.moment }) } };
+        if (this.#playbackIssuer) {
+          const capability = validatePlaybackCapability(await this.#playbackIssuer({ auth, session: data.session, moment: data.moment }), data.moment);
+          data = { ...data, replay: { ...data.replay, playback_capability: capability } };
+        }
       } else if (method === "DELETE" && parts.length === 4 && parts[2] === "sessions") {
         data = await this.#service.requestSessionDeletion(auth, parts[3], meta);
         status = 202;

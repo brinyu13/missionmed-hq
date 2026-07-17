@@ -14,7 +14,7 @@ export const CLAIM_BADGES = Object.freeze({
 });
 export const CONSENT_PURPOSES = Object.freeze(["evidence_storage", "mentor_sharing", "showcase_sharing", "physiology_storage"]);
 export const GRANT_SCOPES = Object.freeze(["review", "showcase", "physiology"]);
-export const GRANT_ARTIFACT_TYPES = Object.freeze(["session", "moment", "track_item"]);
+export const GRANT_ARTIFACT_TYPES = Object.freeze(["moment", "track_item"]);
 export const OPPORTUNITY_TYPES = Object.freeze([
   "missed_acknowledgment",
   "missed_empathy_statement",
@@ -42,6 +42,7 @@ export const SKILL_CARD_FIELDS = Object.freeze([
 ]);
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/u;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 const HASH = /^[a-f0-9]{64}$/u;
 const BANNED_PERSON_CLAIMS = /\b(confiden(?:t|ce)|empath(?:y|etic)|honest(?:y)?|personality|intelligen(?:t|ce)|anxious|anxiety|stress(?:ed)?|emotion(?:al)?|professionalism|readiness|rank(?:ing)?|residency suitability|clinical competence)\b/iu;
 
@@ -56,6 +57,12 @@ function safeId(value, code, label) {
   return result;
 }
 
+function uuidId(value, code, label) {
+  const result = String(value || "").trim();
+  invariant(UUID.test(result), 400, code, `${label} must be a UUID`);
+  return result.toLowerCase();
+}
+
 function boundedText(value, code, label, max, required = true) {
   const result = String(value ?? "").trim();
   invariant(!required || result.length > 0, 400, code, `${label} is required`);
@@ -64,7 +71,8 @@ function boundedText(value, code, label, max, required = true) {
 }
 
 function integerMs(value, code, label) {
-  const result = Number(value);
+  invariant(typeof value === "number", 400, code, `${label} must be a non-negative integer`);
+  const result = value;
   invariant(Number.isSafeInteger(result) && result >= 0, 400, code, `${label} must be a non-negative integer`);
   return result;
 }
@@ -107,9 +115,12 @@ export function validateClaimMetadata(input, context = {}) {
   const evidenceRefs = stringList(value.evidence_refs, "CLAIM_EVIDENCE_INVALID", "Claim evidence refs", 30);
   const numeric = value.numeric_value !== undefined && value.numeric_value !== null;
   invariant(!numeric || ["L0", "L1"].includes(tier), 400, "CLAIM_NUMERIC_FORBIDDEN", "Only L0/L1 claims may be numeric");
+  invariant(!numeric || (typeof value.numeric_value === "number" && Number.isFinite(value.numeric_value) && Number.isSafeInteger(value.numeric_value * 1_000_000)), 400, "CLAIM_NUMERIC_INVALID", "Numeric claims require a finite JSON number with at most six decimal places");
   if (tier === "L0") {
+    invariant(evidenceRefs.length > 0, 400, "CLAIM_INPUT_PROVENANCE_REQUIRED", "L0 claims require an immutable input reference");
     invariant(typeof value.unit === "string" && value.unit.trim(), 400, "CLAIM_UNIT_REQUIRED", "L0 claims require a unit");
     invariant(typeof value.algorithm_id === "string" && value.algorithm_id.trim(), 400, "CLAIM_ALGORITHM_REQUIRED", "L0 claims require an algorithm or instrument identifier");
+    invariant(typeof value.algorithm_version === "string" && value.algorithm_version.trim(), 400, "CLAIM_ALGORITHM_VERSION_REQUIRED", "L0 claims require an algorithm or instrument version");
     invariant(typeof value.limitations === "string" && value.limitations.trim(), 400, "CLAIM_LIMITATIONS_REQUIRED", "L0 claims require limitations");
     invariant(value.method_status === "active_validated", 400, "CLAIM_METHOD_NOT_VALIDATED", "L0 measurement methods must be active and validated");
   }
@@ -125,15 +136,19 @@ export function validateClaimMetadata(input, context = {}) {
     invariant(context.authorRole === "mentor", 400, "CLAIM_MENTOR_AUTHORITY_REQUIRED", "L3 claims require a mentor author");
     invariant(evidenceRefs.length > 0, 400, "CLAIM_EVIDENCE_REQUIRED", "Mentor interpretation must anchor to evidence");
   }
-  if (tier === "L4") invariant(typeof value.doctrine_ref === "string" && value.doctrine_ref.trim(), 400, "CLAIM_DOCTRINE_REQUIRED", "L4 claims require a MissionMed doctrine reference");
+  if (tier === "L4") {
+    invariant(context.authorRole === "integration" && context.canAuthorDoctrine === true, 400, "CLAIM_DOCTRINE_AUTHORITY_REQUIRED", "L4 claims require trusted MissionMed doctrine authority");
+    invariant(typeof value.doctrine_ref === "string" && value.doctrine_ref.trim(), 400, "CLAIM_DOCTRINE_REQUIRED", "L4 claims require a MissionMed doctrine reference");
+  }
   if (context.sourceKind !== "human") invariant(!BANNED_PERSON_CLAIMS.test(statement), 400, "PERSON_INFERENCE_FORBIDDEN", "Machine-authored person inference is forbidden");
   return {
     tier,
     badge: value.badge,
+    simulation_badge: value.simulated === true ? "SIMULATED" : null,
     statement,
     evidence_refs: evidenceRefs,
     simulated: value.simulated === true,
-    numeric_value: numeric ? Number(value.numeric_value) : null,
+    numeric_value: numeric ? value.numeric_value : null,
     unit: value.unit ? String(value.unit).trim() : null,
     algorithm_id: value.algorithm_id ? String(value.algorithm_id).trim() : null,
     algorithm_version: value.algorithm_version ? String(value.algorithm_version).trim() : null,
@@ -159,25 +174,31 @@ export function validateSessionInput(input) {
 
 export function validateConsentReceiptInput(input) {
   const value = object(input, "CONSENT_REQUIRED", "Consent receipt");
+  for (const field of ["authority_ref", "authority_session_ref", "policy_version", "policy_text_hash", "locale", "retention_policy_ref", "recorded_at"]) {
+    invariant(value[field] === undefined, 400, "CONSENT_SERVER_FIELD_FORBIDDEN", `Consent ${field} is server-owned`);
+  }
   invariant(CONSENT_PURPOSES.includes(value.purpose), 400, "CONSENT_PURPOSE_INVALID", "Consent purpose is invalid");
   invariant(typeof value.granted === "boolean", 400, "CONSENT_GRANT_INVALID", "Consent granted must be boolean");
-  const recordedAt = isoTimestamp(value.recorded_at, "CONSENT_RECORDED_AT_INVALID", "Consent recorded_at");
-  const policyTextHash = String(value.policy_text_hash || "");
-  invariant(HASH.test(policyTextHash), 400, "CONSENT_POLICY_HASH_INVALID", "Consent policy text hash is invalid");
   const scope = object(value.scope, "CONSENT_SCOPE_INVALID", "Consent scope");
   return {
     contract_version: CONTRACT_VERSION,
     purpose: value.purpose,
     granted: value.granted,
-    authority_ref: safeId(value.authority_ref, "CONSENT_AUTHORITY_REF_INVALID", "Consent authority reference"),
+    scope: stableValue(scope),
+    expires_at: isoTimestamp(value.expires_at, "CONSENT_EXPIRY_INVALID", "Consent expires_at", false),
+    supersedes_receipt_id: value.supersedes_receipt_id ? safeId(value.supersedes_receipt_id, "CONSENT_SUPERSESSION_INVALID", "Superseded consent receipt") : null
+  };
+}
+
+export function validateConsentPolicy(input) {
+  const value = object(input, "CONSENT_POLICY_REQUIRED", "Consent policy");
+  const policyTextHash = String(value.policy_text_hash || "");
+  invariant(HASH.test(policyTextHash), 500, "CONSENT_POLICY_HASH_INVALID", "Consent policy text hash is invalid");
+  return {
     policy_version: safeId(value.policy_version, "CONSENT_POLICY_VERSION_INVALID", "Consent policy version"),
     policy_text_hash: policyTextHash,
     locale: boundedText(value.locale || "en-US", "CONSENT_LOCALE_INVALID", "Consent locale", 32),
-    retention_policy_ref: safeId(value.retention_policy_ref, "CONSENT_RETENTION_REF_INVALID", "Consent retention policy reference"),
-    scope: stableValue(scope),
-    recorded_at: recordedAt,
-    expires_at: isoTimestamp(value.expires_at, "CONSENT_EXPIRY_INVALID", "Consent expires_at", false),
-    supersedes_receipt_id: value.supersedes_receipt_id ? safeId(value.supersedes_receipt_id, "CONSENT_SUPERSESSION_INVALID", "Superseded consent receipt") : null
+    retention_policy_ref: safeId(value.retention_policy_ref, "CONSENT_RETENTION_REF_INVALID", "Consent retention policy reference")
   };
 }
 
@@ -288,24 +309,32 @@ export function validatePriorityInput(input) {
   const spotlight = value.spotlight_snapshot_id ? safeId(value.spotlight_snapshot_id, "PRIORITY_REF_INVALID", "Spotlight snapshot") : null;
   const supporting = value.supporting_snapshot_id ? safeId(value.supporting_snapshot_id, "PRIORITY_REF_INVALID", "Supporting snapshot") : null;
   invariant(spotlight, 400, "PRIORITY_SPOTLIGHT_REQUIRED", "An active priority set requires exactly one Spotlight");
-  invariant(!spotlight || !supporting || spotlight !== supporting, 400, "PRIORITY_DUPLICATE", "Spotlight and supporting priorities must differ");
-  return { contract_version: CONTRACT_VERSION, spotlight_snapshot_id: spotlight, supporting_snapshot_id: supporting };
+  invariant(supporting, 400, "PRIORITY_SUPPORTING_REQUIRED", "An active priority set requires exactly one Supporting skill");
+  invariant(spotlight !== supporting, 400, "PRIORITY_DUPLICATE", "Spotlight and supporting priorities must differ");
+  return {
+    contract_version: CONTRACT_VERSION,
+    spotlight_snapshot_id: spotlight,
+    supporting_snapshot_id: supporting,
+    review_moment_id: value.review_moment_id ? safeId(value.review_moment_id, "PRIORITY_REVIEW_MOMENT_INVALID", "Priority review Moment") : null
+  };
 }
 
 export function validateVisibilityGrantInput(input) {
   const value = object(input, "VISIBILITY_GRANT_REQUIRED", "Visibility grant");
+  for (const field of ["authority_ref", "authority_session_ref", "issued_at", "granted_at", "revoked_at", "row_version", "content_hash"]) {
+    invariant(value[field] === undefined, 400, "VISIBILITY_SERVER_FIELD_FORBIDDEN", `Visibility ${field} is server-owned`);
+  }
   const scope = String(value.scope || "");
   const artifactType = String(value.artifact_type || "");
   invariant(GRANT_SCOPES.includes(scope), 400, "VISIBILITY_GRANT_SCOPE_INVALID", "Visibility grant scope is invalid");
   invariant(GRANT_ARTIFACT_TYPES.includes(artifactType), 400, "VISIBILITY_GRANT_ARTIFACT_INVALID", "Visibility grant artifact type is invalid");
   return {
     contract_version: "cie.visibility-grant.v1",
-    grantee_user_id: safeId(value.grantee_user_id, "VISIBILITY_GRANTEE_INVALID", "Visibility grantee"),
+    grantee_user_id: uuidId(value.grantee_user_id, "VISIBILITY_GRANTEE_INVALID", "Visibility grantee"),
     artifact_type: artifactType,
     artifact_id: safeId(value.artifact_id, "VISIBILITY_ARTIFACT_ID_INVALID", "Visibility artifact ID"),
     scope,
     consent_receipt_id: safeId(value.consent_receipt_id, "VISIBILITY_CONSENT_INVALID", "Visibility consent receipt"),
-    authority_ref: safeId(value.authority_ref, "VISIBILITY_AUTHORITY_INVALID", "Visibility authority reference"),
     expires_at: isoTimestamp(value.expires_at, "VISIBILITY_EXPIRY_INVALID", "Visibility grant expiry", false)
   };
 }
@@ -326,6 +355,7 @@ export function validateMomentInput(input, context) {
     segment_id: safeId(value.segment_id, "MOMENT_SEGMENT_REQUIRED", "Moment segment"),
     media_revision_ref: safeId(value.media_revision_ref, "MOMENT_MEDIA_REVISION_REQUIRED", "Moment media revision"),
     source,
+    review_source_moment_id: value.review_source_moment_id ? safeId(value.review_source_moment_id, "MOMENT_REVIEW_SOURCE_INVALID", "Moment review source") : null,
     type: safeId(value.type || "custom", "MOMENT_TYPE_INVALID", "Moment type"),
     label: boundedText(value.label, "MOMENT_LABEL_REQUIRED", "Moment label", 240),
     note: boundedText(value.note, "MOMENT_NOTE_INVALID", "Moment note", 4000, false),

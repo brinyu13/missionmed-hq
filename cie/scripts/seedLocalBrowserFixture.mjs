@@ -1,4 +1,3 @@
-import { sha256 } from "../src/canonical.mjs";
 import { CLOCK_ID, CLOCK_VERSION, SegmentedSessionClock } from "../src/clock.mjs";
 
 const baseUrl = new URL(process.env.CIE_FIXTURE_BASE_URL || "http://127.0.0.1:4327");
@@ -7,7 +6,7 @@ if (!process.env.CIE_FIXTURE_ALLOW || !["127.0.0.1", "localhost"].includes(baseU
 }
 
 const identity = Object.freeze({
-  subject: "synthetic_student_browser",
+  subject: "00000000-0000-4000-8000-000000007001",
   role: "student",
   session: "synthetic_local_authority_session"
 });
@@ -56,13 +55,7 @@ const session = await command("/v1/cie/sessions", {
 const consent = await command(`/v1/cie/sessions/${session.id}/consents`, {
   purpose: "evidence_storage",
   granted: true,
-  authority_ref: "synthetic_browser_fixture",
-  policy_version: "local-c0-v1",
-  policy_text_hash: sha256("synthetic local C0 fixture policy"),
-  locale: "en-US",
-  retention_policy_ref: "synthetic-local-delete-after-test",
-  scope: { device_class: "synthetic", session_only: true },
-  recorded_at: new Date().toISOString()
+  scope: { device_class: "synthetic", session_only: true }
 });
 const result = await command(`/v1/cie/sessions/${session.id}/moments`, {
   range_kind: "SPAN",
