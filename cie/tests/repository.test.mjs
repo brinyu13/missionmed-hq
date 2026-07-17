@@ -16,6 +16,15 @@ const session = {
   created_at: "2026-07-17T12:00:00.000Z"
 };
 
+function track(overrides) {
+  return {
+    owner_user_id: session.owner_user_id,
+    kind: "event",
+    event_seq: 1,
+    ...overrides
+  };
+}
+
 test("memory transaction rolls back every partial write", async () => {
   const repository = new MemoryCieRepository();
   await assert.rejects(repository.transaction(async (store) => {
@@ -31,13 +40,13 @@ test("track revisions are append-only, contiguous, and range ordered", async () 
   const repository = new MemoryCieRepository();
   await repository.transaction(async (store) => {
     store.insertSession(session);
-    store.appendTrackItem({ track_item_id: "track_b", item_revision: 1, supersedes_item_revision: null, session_id: session.id, t0_ms: 300, t1_ms: 500 });
-    store.appendTrackItem({ track_item_id: "track_a", item_revision: 1, supersedes_item_revision: null, session_id: session.id, t0_ms: 100, t1_ms: 200 });
-    store.appendTrackItem({ track_item_id: "track_a", item_revision: 2, supersedes_item_revision: 1, session_id: session.id, t0_ms: 100, t1_ms: 250 });
+    store.appendTrackItem(track({ track_item_id: "track_b", item_revision: 1, supersedes_item_revision: null, event_seq: 1, session_id: session.id, t0_ms: 300, t1_ms: 500 }));
+    store.appendTrackItem(track({ track_item_id: "track_a", item_revision: 1, supersedes_item_revision: null, event_seq: 2, session_id: session.id, t0_ms: 100, t1_ms: 200 }));
+    store.appendTrackItem(track({ track_item_id: "track_a", item_revision: 2, supersedes_item_revision: 1, event_seq: 3, session_id: session.id, t0_ms: 100, t1_ms: 250 }));
   });
   assert.deepEqual(repository.listTrackItems(session.id, { fromMs: 0, toMs: 1000 }).map((item) => [item.track_item_id, item.item_revision]), [["track_a", 2], ["track_b", 1]]);
   await assert.rejects(repository.transaction(async (store) => {
-    store.appendTrackItem({ track_item_id: "track_a", item_revision: 4, supersedes_item_revision: 3, session_id: session.id, t0_ms: 100, t1_ms: 250 });
+    store.appendTrackItem(track({ track_item_id: "track_a", item_revision: 4, supersedes_item_revision: 3, event_seq: 4, session_id: session.id, t0_ms: 100, t1_ms: 250 }));
   }), { code: "TRACK_SUPERSESSION_MISSING" });
 });
 
@@ -61,7 +70,7 @@ test("file repository persists atomically and restores hash-stable records", asy
     const repository = await FileCieRepository.open(file);
     await repository.transaction(async (store) => {
       store.insertSession(session);
-      store.appendTrackItem({ track_item_id: "track_1", item_revision: 1, supersedes_item_revision: null, session_id: session.id, t0_ms: 0, t1_ms: 100 });
+      store.appendTrackItem(track({ track_item_id: "track_1", item_revision: 1, supersedes_item_revision: null, event_seq: 1, session_id: session.id, t0_ms: 0, t1_ms: 100 }));
     });
     const firstBytes = await readFile(file, "utf8");
     const reopened = await FileCieRepository.open(file);

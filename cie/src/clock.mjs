@@ -111,7 +111,7 @@ export class SegmentedSessionClock {
     const segment = this.#segments.find((entry) => entry.segment_id === segmentId);
     invariant(segment, 404, "CLOCK_SEGMENT_NOT_FOUND", "Clock segment was not found");
     const value = Number(localMs);
-    invariant(Number.isSafeInteger(value) && value >= 0 && value <= segment.validated_duration_ms, 400, "CLOCK_POSITION_INVALID", "Local clock position is outside its media segment");
+    invariant(Number.isSafeInteger(value) && value >= 0 && value < segment.validated_duration_ms, 400, "CLOCK_POSITION_INVALID", "Local clock position is outside its half-open media segment");
     return segment.global_t0_ms + value;
   }
 
@@ -122,8 +122,8 @@ export class SegmentedSessionClock {
     const t1 = Number(t1Ms);
     invariant(Number.isSafeInteger(t0) && Number.isSafeInteger(t1), 400, "TIME_RANGE_INVALID", "Timeline range must use integer milliseconds");
     invariant(t0 >= segment.global_t0_ms && t1 <= segment.global_t1_ms, 422, "TIME_RANGE_OUTSIDE_SEGMENT", "Timeline range is outside its media segment");
-    if (rangeKind === "POINT") invariant(t0 === t1, 400, "POINT_RANGE_INVALID", "Point events require t0_ms equal to t1_ms");
-    else invariant(rangeKind === "SPAN" && t1 > t0, 400, "SPAN_RANGE_INVALID", "Span ranges are half-open and require t1_ms greater than t0_ms");
+    if (rangeKind === "POINT") invariant(t0 === t1 && t0 < segment.global_t1_ms, 400, "POINT_RANGE_INVALID", "Point events require an in-segment position with equal boundaries");
+    else invariant(rangeKind === "SPAN" && t1 > t0 && t0 < segment.global_t1_ms, 400, "SPAN_RANGE_INVALID", "Span ranges are half-open and require t1_ms greater than t0_ms");
     return segment;
   }
 

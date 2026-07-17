@@ -1,4 +1,5 @@
 import { CLOCK_ID, CLOCK_VERSION, SegmentedSessionClock } from "../src/clock.mjs";
+import { sha256 } from "../src/canonical.mjs";
 
 export const captureClock = Object.freeze({
   clock_id: CLOCK_ID,
@@ -71,6 +72,8 @@ export const skillSnapshotInput = Object.freeze({
   source_authority: {
     kind: "synthetic_fixture",
     authority_ref: "fixture_cie_d4_aba_001_v1",
+    source_version: "v1.0",
+    content_hash: sha256(fullSkillCard),
     verified_at: "2026-07-17T12:00:00.000Z"
   }
 });

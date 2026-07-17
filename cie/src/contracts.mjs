@@ -13,6 +13,8 @@ export const CLAIM_BADGES = Object.freeze({
   L4: "MISSIONMED"
 });
 export const CONSENT_PURPOSES = Object.freeze(["evidence_storage", "mentor_sharing", "showcase_sharing", "physiology_storage"]);
+export const GRANT_SCOPES = Object.freeze(["review", "showcase", "physiology"]);
+export const GRANT_ARTIFACT_TYPES = Object.freeze(["session", "moment", "track_item"]);
 export const OPPORTUNITY_TYPES = Object.freeze([
   "missed_acknowledgment",
   "missed_empathy_statement",
@@ -28,6 +30,15 @@ export const OPPORTUNITY_TYPES = Object.freeze([
   "missed_audience_adjusted_explanation",
   "missed_invitation_for_questions",
   "missed_specific_next_step"
+]);
+export const SKILL_CARD_FIELDS = Object.freeze([
+  "skill_id", "version", "status", "student_title", "mentor_title", "plain_description",
+  "parent_domain", "competency_cluster", "atomic_target", "positive_examples", "counterexamples",
+  "observable_markers", "eligible_metrics", "metric_limitations", "mode_relevance",
+  "scenario_relevance", "age_relevance", "evidence_tier", "mm_coaching_note", "practice_drills",
+  "moment_labels", "next_rep_success", "comparison_criteria", "prerequisites", "related_skills",
+  "context_guidance", "accessibility_notes", "cultural_note", "content_owner", "review_date",
+  "version_history", "archival_reason"
 ]);
 
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,179}$/u;
@@ -56,6 +67,13 @@ function integerMs(value, code, label) {
   const result = Number(value);
   invariant(Number.isSafeInteger(result) && result >= 0, 400, code, `${label} must be a non-negative integer`);
   return result;
+}
+
+function isoTimestamp(value, code, label, required = true) {
+  if (!required && (value === null || value === undefined || value === "")) return null;
+  const parsed = new Date(value);
+  invariant(Number.isFinite(parsed.getTime()), 400, code, `${label} is invalid`);
+  return parsed.toISOString();
 }
 
 function timeRange(value) {
@@ -143,7 +161,7 @@ export function validateConsentReceiptInput(input) {
   const value = object(input, "CONSENT_REQUIRED", "Consent receipt");
   invariant(CONSENT_PURPOSES.includes(value.purpose), 400, "CONSENT_PURPOSE_INVALID", "Consent purpose is invalid");
   invariant(typeof value.granted === "boolean", 400, "CONSENT_GRANT_INVALID", "Consent granted must be boolean");
-  const recordedAt = new Date(value.recorded_at).toISOString();
+  const recordedAt = isoTimestamp(value.recorded_at, "CONSENT_RECORDED_AT_INVALID", "Consent recorded_at");
   const policyTextHash = String(value.policy_text_hash || "");
   invariant(HASH.test(policyTextHash), 400, "CONSENT_POLICY_HASH_INVALID", "Consent policy text hash is invalid");
   const scope = object(value.scope, "CONSENT_SCOPE_INVALID", "Consent scope");
@@ -158,7 +176,7 @@ export function validateConsentReceiptInput(input) {
     retention_policy_ref: safeId(value.retention_policy_ref, "CONSENT_RETENTION_REF_INVALID", "Consent retention policy reference"),
     scope: stableValue(scope),
     recorded_at: recordedAt,
-    expires_at: value.expires_at ? new Date(value.expires_at).toISOString() : null,
+    expires_at: isoTimestamp(value.expires_at, "CONSENT_EXPIRY_INVALID", "Consent expires_at", false),
     supersedes_receipt_id: value.supersedes_receipt_id ? safeId(value.supersedes_receipt_id, "CONSENT_SUPERSESSION_INVALID", "Superseded consent receipt") : null
   };
 }
@@ -172,6 +190,8 @@ export function validateTrackItemInput(input, context) {
   invariant(VISIBILITIES.includes(visibility), 400, "VISIBILITY_INVALID", "Visibility is invalid");
   const itemRevision = Number(value.item_revision ?? 1);
   invariant(Number.isSafeInteger(itemRevision) && itemRevision >= 1, 400, "TRACK_REVISION_INVALID", "Track item revision must be a positive integer");
+  const supersedes = value.supersedes_item_revision === null || value.supersedes_item_revision === undefined ? null : Number(value.supersedes_item_revision);
+  invariant((itemRevision === 1 && supersedes === null) || (itemRevision > 1 && Number.isSafeInteger(supersedes) && supersedes === itemRevision - 1), 400, "TRACK_SUPERSESSION_INVALID", "Track item revisions must be contiguous");
   object(value.payload, "TRACK_PAYLOAD_INVALID", "Track payload");
   invariant(Buffer.byteLength(JSON.stringify(value.payload)) <= 64 * 1024, 413, "TRACK_PAYLOAD_TOO_LARGE", "Track payload exceeds 64 KiB");
   const provenance = validateClaimMetadata(value.provenance, context);
@@ -179,7 +199,7 @@ export function validateTrackItemInput(input, context) {
     contract_version: CONTRACT_VERSION,
     track_item_id: value.track_item_id ? safeId(value.track_item_id, "TRACK_ID_INVALID", "Track item ID") : null,
     item_revision: itemRevision,
-    supersedes_item_revision: value.supersedes_item_revision === null || value.supersedes_item_revision === undefined ? null : Number(value.supersedes_item_revision),
+    supersedes_item_revision: supersedes,
     payload_schema_version: safeId(value.payload_schema_version || `${kind}.v1`, "PAYLOAD_SCHEMA_VERSION_INVALID", "Payload schema version"),
     segment_id: safeId(value.segment_id, "TRACK_SEGMENT_REQUIRED", "Track segment"),
     media_revision_ref: safeId(value.media_revision_ref, "TRACK_MEDIA_REVISION_REQUIRED", "Track media revision"),
@@ -195,8 +215,12 @@ export function validateTrackItemInput(input, context) {
 export function validateSkillSnapshotInput(input) {
   const value = object(input, "SKILL_SNAPSHOT_REQUIRED", "Skill snapshot");
   const card = object(value.full_card, "SKILL_CARD_REQUIRED", "Full skill card");
+  const actualFields = Object.keys(card).sort();
+  const expectedFields = [...SKILL_CARD_FIELDS].sort();
+  invariant(actualFields.length === expectedFields.length && actualFields.every((field, index) => field === expectedFields[index]), 400, "SKILL_CARD_FIELD_SET_INVALID", "Skill card must contain exactly the authoritative 32 fields");
   const tier = String(card.evidence_tier || "").split(/\s/u)[0];
   invariant(["T1", "T2", "T3", "T4"].includes(tier), 400, "SKILL_TIER_INVALID", "Skill evidence tier must be T1-T4");
+  invariant(["draft", "published", "archived", "deprecated"].includes(card.status), 400, "SKILL_STATUS_INVALID", "Skill status is invalid");
   invariant(card.status === "published" || value.source_authority?.kind === "synthetic_fixture", 409, "SKILL_NOT_PUBLISHED", "Only a verified published skill may be snapshotted");
   const skillId = safeId(card.skill_id, "SKILL_ID_INVALID", "Skill ID");
   invariant(!/^D[1-6]$/u.test(skillId), 400, "SKILL_DOMAIN_NOT_ASSIGNABLE", "Domains are not assignable skill cards");
@@ -220,10 +244,27 @@ export function validateSkillSnapshotInput(input) {
     boundedText(card[field], "SKILL_CARD_FIELD_REQUIRED", field, 4000);
   }
   invariant(Array.isArray(card.eligible_metrics), 400, "SKILL_METRICS_INVALID", "Eligible metrics must be an array");
+  for (const metric of card.eligible_metrics) safeId(metric, "SKILL_METRIC_INVALID", "Eligible metric");
+  textList(card.moment_labels, "SKILL_MOMENT_LABELS_INVALID", "Moment labels", 1, 12, 240);
+  stringList(card.prerequisites, "SKILL_PREREQUISITE_INVALID", "Skill prerequisites", 20);
+  stringList(card.related_skills, "SKILL_RELATED_INVALID", "Related skills", 20);
   invariant(Array.isArray(card.version_history), 400, "SKILL_HISTORY_INVALID", "Version history must be an array");
+  invariant(card.version_history.length > 0 && card.version_history.length <= 100, 400, "SKILL_HISTORY_INVALID", "Version history must contain 1-100 entries");
+  for (const entry of card.version_history) {
+    object(entry, "SKILL_HISTORY_INVALID", "Version history entry");
+    invariant(/^v\d+\.\d+$/u.test(String(entry.version || "")), 400, "SKILL_HISTORY_INVALID", "Version history entry version is invalid");
+    boundedText(entry.change, "SKILL_HISTORY_INVALID", "Version history change", 2000);
+  }
+  if (["archived", "deprecated"].includes(card.status)) boundedText(card.archival_reason, "SKILL_ARCHIVAL_REASON_REQUIRED", "Archival reason", 2000);
+  else invariant(card.archival_reason === null, 400, "SKILL_ARCHIVAL_REASON_INVALID", "Published or draft skills must not carry an archival reason");
   const sourceAuthority = object(value.source_authority, "SKILL_SOURCE_AUTHORITY_REQUIRED", "Skill source authority");
   invariant(["wordpress_library", "synthetic_fixture"].includes(sourceAuthority.kind), 400, "SKILL_SOURCE_AUTHORITY_INVALID", "Skill source authority is invalid");
   const fullCard = stableValue(card);
+  const sourceHash = String(sourceAuthority.content_hash || "");
+  invariant(HASH.test(sourceHash) && sourceHash === sha256(fullCard), 409, "SKILL_SOURCE_HASH_MISMATCH", "Skill source authority hash does not match the canonical 32-field card");
+  safeId(sourceAuthority.authority_ref, "SKILL_SOURCE_AUTHORITY_INVALID", "Skill source authority reference");
+  safeId(sourceAuthority.source_version, "SKILL_SOURCE_VERSION_INVALID", "Skill source version");
+  isoTimestamp(sourceAuthority.verified_at, "SKILL_SOURCE_TIME_INVALID", "Skill source verification time");
   const snapshot = {
     contract_version: CONTRACT_VERSION,
     skill_id: skillId,
@@ -249,6 +290,24 @@ export function validatePriorityInput(input) {
   invariant(spotlight, 400, "PRIORITY_SPOTLIGHT_REQUIRED", "An active priority set requires exactly one Spotlight");
   invariant(!spotlight || !supporting || spotlight !== supporting, 400, "PRIORITY_DUPLICATE", "Spotlight and supporting priorities must differ");
   return { contract_version: CONTRACT_VERSION, spotlight_snapshot_id: spotlight, supporting_snapshot_id: supporting };
+}
+
+export function validateVisibilityGrantInput(input) {
+  const value = object(input, "VISIBILITY_GRANT_REQUIRED", "Visibility grant");
+  const scope = String(value.scope || "");
+  const artifactType = String(value.artifact_type || "");
+  invariant(GRANT_SCOPES.includes(scope), 400, "VISIBILITY_GRANT_SCOPE_INVALID", "Visibility grant scope is invalid");
+  invariant(GRANT_ARTIFACT_TYPES.includes(artifactType), 400, "VISIBILITY_GRANT_ARTIFACT_INVALID", "Visibility grant artifact type is invalid");
+  return {
+    contract_version: "cie.visibility-grant.v1",
+    grantee_user_id: safeId(value.grantee_user_id, "VISIBILITY_GRANTEE_INVALID", "Visibility grantee"),
+    artifact_type: artifactType,
+    artifact_id: safeId(value.artifact_id, "VISIBILITY_ARTIFACT_ID_INVALID", "Visibility artifact ID"),
+    scope,
+    consent_receipt_id: safeId(value.consent_receipt_id, "VISIBILITY_CONSENT_INVALID", "Visibility consent receipt"),
+    authority_ref: safeId(value.authority_ref, "VISIBILITY_AUTHORITY_INVALID", "Visibility authority reference"),
+    expires_at: isoTimestamp(value.expires_at, "VISIBILITY_EXPIRY_INVALID", "Visibility grant expiry", false)
+  };
 }
 
 export function validateMomentInput(input, context) {
@@ -284,7 +343,7 @@ export function validateOpportunityInput(input, context) {
   invariant(OPPORTUNITY_TYPES.includes(value.type), 400, "OPPORTUNITY_TYPE_INVALID", "Opportunity type is not registered");
   const range = timeRange(value);
   invariant(range.t1_ms > range.t0_ms, 400, "OPPORTUNITY_RANGE_REQUIRED", "Opportunity evidence must be a replayable range");
-  invariant(["low", "medium", "high"].includes(value.uncertainty), 400, "OPPORTUNITY_UNCERTAINTY_INVALID", "Opportunity uncertainty is invalid");
+  invariant(value.uncertainty === "low", 400, "OPPORTUNITY_UNCERTAINTY_INVALID", "C0 mentor-manual Opportunities require low uncertainty");
   const evidenceClaim = validateClaimMetadata(value.evidence_claim, { ...context, authorRole: "mentor", sourceKind: "human" });
   invariant(evidenceClaim.tier === "L1", 400, "OPPORTUNITY_EVIDENCE_CLAIM_INVALID", "Opportunity replay evidence must be L1");
   const coachingClaim = validateClaimMetadata(value.coaching_claim, { ...context, authorRole: "mentor", sourceKind: "human" });

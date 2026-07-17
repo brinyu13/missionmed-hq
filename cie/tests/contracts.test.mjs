@@ -64,6 +64,10 @@ test("skill snapshots are content addressed and domains are not assignable", () 
   assert.match(snapshot.content_hash, /^[a-f0-9]{64}$/u);
   assert.equal(snapshot.render_subset.title, fullSkillCard.student_title);
   assert.throws(() => validateSkillSnapshotInput({ ...skillSnapshotInput, full_card: { ...fullSkillCard, skill_id: "D4" } }), { code: "SKILL_DOMAIN_NOT_ASSIGNABLE" });
+  const missing = { ...fullSkillCard };
+  delete missing.moment_labels;
+  assert.throws(() => validateSkillSnapshotInput({ ...skillSnapshotInput, full_card: missing }), { code: "SKILL_CARD_FIELD_SET_INVALID" });
+  assert.throws(() => validateSkillSnapshotInput({ ...skillSnapshotInput, source_authority: { ...skillSnapshotInput.source_authority, content_hash: "f".repeat(64) } }), { code: "SKILL_SOURCE_HASH_MISMATCH" });
 });
 
 test("priority contract enforces exactly one spotlight and one supporting reference", () => {
