@@ -1,0 +1,131 @@
+{
+  "ticket": "Y1-CIE-C0-0001",
+  "status": "PASS",
+  "started_at": "2026-07-17T14:24:27.220Z",
+  "completed_at": "2026-07-17T14:24:32.146Z",
+  "branch": "codex/y1-cie-c0-0001-foundation",
+  "base_ref": "origin/main",
+  "rc1_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-3023/index.html",
+  "rc1_expected_sha256": "211d91e8e7dad05148dde4b7e62cef55f6bb571765e4b61a7a8eaf14e883ca99",
+  "rc1_before_sha256": "211d91e8e7dad05148dde4b7e62cef55f6bb571765e4b61a7a8eaf14e883ca99",
+  "rc1_after_sha256": "211d91e8e7dad05148dde4b7e62cef55f6bb571765e4b61a7a8eaf14e883ca99",
+  "runtime_scope": "isolated local C0 only",
+  "production_touched": false,
+  "staging_touched": false,
+  "provider_touched": false,
+  "credentials_used": false,
+  "real_student_data_used": false,
+  "synthetic_data_only": true,
+  "cleanup": "Disposable PostgreSQL clusters and local file fixtures are owned and removed by their tests; browser fixture servers are stopped by the supervisor.",
+  "results": [
+    {
+      "name": "rc1_before",
+      "status": "PASS",
+      "required": true,
+      "observed_sha256": "211d91e8e7dad05148dde4b7e62cef55f6bb571765e4b61a7a8eaf14e883ca99"
+    },
+    {
+      "name": "bounded_path_scope",
+      "status": "PASS",
+      "required": true,
+      "changed_path_count": 59,
+      "out_of_scope_paths": []
+    },
+    {
+      "name": "cie_syntax",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 1030,
+      "output_tail": "\n> @missionmed/cie-core@0.1.0-c0 check\n> node scripts/check.mjs\n\nCIE syntax check passed (32 modules)\n"
+    },
+    {
+      "name": "cie_unit_integration",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 431,
+      "output_tail": "\n> @missionmed/cie-core@0.1.0-c0 test\n> node --test tests/*.test.mjs\n\n✔ host adapter requires pre-verified auth and caller-stable mutation metadata (5.38675ms)\n✔ host adapter redacts unexpected exceptions (0.122708ms)\n✔ only manual mentor Opportunity writes are active in C0 (0.859375ms)\n✔ monotonic session clock advances independently of paint cadence (0.813709ms)\n✔ clock records explicit unavailable gaps and rejects regression (0.280417ms)\n✔ clock contract fails closed when paint cadence is claimed as evidence (0.087375ms)\n✔ segmented session clock maps multiple rep media timelines without overlap (5.298792ms)\n✔ session clock validation rejects inconsistent mappings and round-trips every boundary (0.251291ms)\n✔ session contract preserves one canonical clock (1.729875ms)\n✔ track items are ranges with structural claim provenance (2.014875ms)\n✔ Ladder laws prohibit numeric coaching and person inference (0.819167ms)\n✔ skill snapshots are content addressed and domains are not assignable (1.647667ms)\n✔ priority contract enforces exactly one spotlight and one supporting reference (0.141959ms)\n✔ Moments require a watchable range and verified human source (0.14725ms)\n✔ C0 Opportunities are manual, mentor-authored, evidence-anchored L3 only (0.189458ms)\n✔ foundation migration is additive, force-RLS, and grants no authenticated direct DML (10.352792ms)\n✔ runtime integrity migration closes ownership, revision, grant, future, and deletion boundaries (3.006417ms)\n✔ authority proof migration binds field authority and exposes only an internal deletion command (3.177333ms)\n✔ Moment review surface is semantic, keyboard-visible, responsive, and future-feature silent (9.493084ms)\n✔ replay synchronization coordinates independently authorized ranges within 100 ms (1.493375ms)\n✔ replay synchronization rejects extra players and rolls back a failed group play (1.429667ms)\n✔ replay start is single-flight and cannot resurrect a closed controller (0.291708ms)\n✔ replay manifests reject duplicate members, cross-segment media, and mutable evidence (0.289542ms)\n✔ canonical hashing distinguishes hostile own keys without prototype mutation (0.658333ms)\n✔ memory transaction rolls back every partial write (0.702ms)\n✔ track revisions are append-only, contiguous, and range ordered (1.012584ms)\n✔ skill snapshot identity is immutable across retries (0.206ms)\n✔ file repository persists atomically and restores hash-stable records (44.09125ms)\n✔ idempotency key replay returns the original response and rejects hash drift (0.375291ms)\n✔ file repository rejects stale writers, tampering, and state rollback (70.851625ms)\n✔ file repository recovers interrupted commits and dead writer locks (61.601459ms)\n✔ file repository rejects hash-valid semantic corruption on restore (27.650375ms)\n✔ repository restore rejects unknown persisted contract versions even when hashes are recomputed (0.433042ms)\n✔ local API is loopback-bound, explicitly local, and durably persists C0 state (76.298791ms)\n✔ local server refuses non-local runtime activation (0.281542ms)\n✔ C0 service enforces self-first mentor review, exact grants, and hidden Opportunities (22.79325ms)\n✔ grant revocation and consent withdrawal fail closed without enumerating Moments (2.824084ms)\n✔ lifecycle ordering survives serialized repository and service restart (4.0995ms)\n✔ repository restore rejects a coordinated ungranted Opportunity reviewer rewrite (3.654417ms)\n✔ repository restore requires historical source-Moment authority for mentor Moments (3.074583ms)\n✔ timeline pagination is bound to one event snapshot under concurrent inserts (3.116417ms)\n✔ consent authority, policy, and timestamp fields are server-owned (1.799542ms)\n✔ mutation retries are idempotent and priority updates reject stale writers (1.984791ms)\n✔ inactive future inputs produce no artifact (2.589833ms)\n✔ skill snapshot identity is owner-scoped without cross-user reuse (0.764584ms)\n✔ session deletion remains pending until local closure and external CAM absence are proven (8.669917ms)\nℹ tests 46\nℹ suites 0\nℹ pass 46\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 301.085792\n"
+    },
+    {
+      "name": "cie_stress_concurrency",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 788,
+      "output_tail": "\n> @missionmed/cie-core@0.1.0-c0 test:stress\n> node --test tests/stress/*.test.mjs\n\n✔ 10,000 versioned track items persist and range-query deterministically (71.633958ms)\n✔ 250 concurrent writes allocate unique sequences and survive retries exactly once (529.054625ms)\n✔ malformed time ranges fail closed rather than coercing evidence (2.722208ms)\n✔ file persistence failure rolls the in-memory transaction back (2.557791ms)\nℹ tests 4\nℹ suites 0\nℹ pass 4\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 658.531125\n"
+    },
+    {
+      "name": "cie_disposable_postgres",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 1438,
+      "output_tail": "\n> @missionmed/cie-core@0.1.0-c0 test:postgres\n> node scripts/validatePostgres.mjs\n\n{\"ticket\":\"Y1-CIE-C0-0001\",\"status\":\"PASS\",\"postgres\":\"postgres (PostgreSQL) 16.13 (Homebrew)\",\"capability_count\":8,\"inactive_capabilities_accepting_writes\":0,\"force_rls_table_count\":14,\"consumed_attestation_count\":2,\"deletion_audit_actor\":\"00000000-0000-4000-8000-000000000004\",\"sentinel_matches_after_deletion\":0,\"checks\":[{\"name\":\"postgres_init\",\"status\":\"PASS\"},{\"name\":\"postgres_start\",\"status\":\"PASS\"},{\"name\":\"supabase_stub\",\"status\":\"PASS\"},{\"name\":\"foundation_migration\",\"status\":\"PASS\"},{\"name\":\"integrity_migration\",\"status\":\"PASS\"},{\"name\":\"authority_proof_migration\",\"status\":\"PASS\"},{\"name\":\"capability_registry_count\",\"status\":\"PASS\"},{\"name\":\"future_write_gate\",\"status\":\"PASS\"},{\"name\":\"forced_rls_inventory\",\"status\":\"PASS\"},{\"name\":\"authenticated_direct_dml_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"authenticated_internal_command_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"canonical_integrity_fixture_seed\",\"status\":\"PASS\"},{\"name\":\"cross_owner_moment_track_binding_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"session_wide_grant_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"mentor_moment_without_review_source_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"one_slot_priority_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"append_only_update_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"preserved_non_audit_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"executor_guc_dml_bypass_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"executor_attestation_registration_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"wrong_attestation_class_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"wrong_attestation_job_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"expired_attestation_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"sql_deletion_purge_command\",\"status\":\"PASS\"},{\"name\":\"sql_local_absence_scan\",\"status\":\"PASS\"},{\"name\":\"trusted_attestation_registration\",\"status\":\"PASS\"},{\"name\":\"unattested_finalize_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"wrong_attestation_resource_binding_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"mismatched_attestation_authority_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"unexpected_deletion_resource_fixture\",\"status\":\"PASS\"},{\"name\":\"unexpected_deletion_resource_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"unexpected_deletion_resource_cleanup\",\"status\":\"PASS\"},{\"name\":\"sql_deletion_finalize_command\",\"status\":\"PASS\"},{\"name\":\"consumed_attestation_replay_denied\",\"status\":\"PASS\",\"expected_failure\":true},{\"name\":\"attestation_consumption_verified\",\"status\":\"PASS\"},{\"name\":\"trusted_worker_audit_actor\",\"status\":\"PASS\"},{\"name\":\"sql_full_sentinel_scan\",\"status\":\"PASS\"},{\"name\":\"sql_terminal_deletion_state\",\"status\":\"PASS\"}]}\n"
+    },
+    {
+      "name": "combined_handoff_mirror",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 39,
+      "output_tail": "{\"status\":\"PASS\",\"report_count\":15,\"canonical_path\":\"/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/Y1_CIE_C0_0001_COMPLETE_COMBINED_HANDOFF.md\",\"mirror_path\":\"/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/_AI_HANDOFFS/from_codex/Y1_CIE_C0_0001/Y1_CIE_C0_0001_COMPLETE_COMBINED_HANDOFF.md\",\"sha256\":\"dbdc0419da1290d422600b7448a22286d925f6fd043647caa05578d35e79222c\",\"byte_identical\":true}\n"
+    },
+    {
+      "name": "security_future_off_redaction",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 44,
+      "output_tail": "{\"ticket\":\"Y1-CIE-C0-0001\",\"status\":\"PASS\",\"text_files_scanned\":42,\"credential_findings\":0,\"active_write_capabilities\":[\"mentor_manual_opportunity\"],\"inactive_future_capabilities\":[\"transcript_generation\",\"storyforge_linkage\",\"polar_ingestion\",\"mode_pack_registry\",\"wordpress_skill_sync\",\"ai_opportunity_source\",\"voice_persona_provider\"],\"production_touched\":false}\n"
+    },
+    {
+      "name": "shared_hq_syntax",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 31,
+      "output_tail": ""
+    },
+    {
+      "name": "root_regression",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 218,
+      "output_tail": "\n> missionmed@1.0.0 test\n> tsx --test tests/**/*.spec.ts\n\nℹ tests 0\nℹ suites 0\nℹ pass 0\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 3.97\n"
+    },
+    {
+      "name": "git_diff_check",
+      "status": "PASS",
+      "required": true,
+      "duration_ms": 22,
+      "output_tail": ""
+    },
+    {
+      "name": "root_typecheck_preexisting_baseline",
+      "status": "BASELINE_CONFIRMED",
+      "required": false,
+      "duration_ms": 150,
+      "output_tail": "\n> missionmed@1.0.0 typecheck\n> tsc --noEmit\n\nVersion 6.0.3\ntsc: The TypeScript Compiler - Version 6.0.3\n\nCOMMON COMMANDS\n\n  tsc\n  Compiles the current project (tsconfig.json in the working directory.)\n\n  tsc app.ts util.ts\n  Ignoring tsconfig.json, compiles the specified files with default compiler options.\n\n  tsc -b\n  Build a composite project in the working directory.\n\n  tsc --init\n  Creates a tsconfig.json with the recommended settings in the working directory.\n\n  tsc -p ./path/to/tsconfig.json\n  Compiles the TypeScript project located at the specified path.\n\n  tsc --help --all\n  An expanded version of this information, showing all possible compiler options\n\n  tsc --noEmit\n  tsc --target esnext\n  Compiles the current project, with additional settings.\n\nCOMMAND LINE FLAGS\n\n--help, -h\nPrint this message.\n\n--watch, -w\nWatch input files.\n\n--all\nShow all compiler options.\n\n--version, -v\nPrint the compiler's version.\n\n--init\nInitializes a TypeScript project and creates a tsconfig.json file.\n\n--project, -p\nCompile the project given the path to its configuration file, or to a folder with a 'tsconfig.json'.\n\n--showConfig\nPrint the final configuration instead of building.\n\n--ignoreConfig\nIgnore the tsconfig found and build with commandline options and files.\n\n--build, -b\nBuild one or more projects and their dependencies, if out of date\n\nCOMMON COMPILER OPTIONS\n\n--pretty\nEnable color and formatting in TypeScript's output to make compiler errors easier to read.\ntype: boolean\ndefault: true\n\n--declaration, -d\nGenerate .d.ts files from TypeScript and JavaScript files in your project.\ntype: boolean\ndefault: `false`, unless `composite` is set\n\n--declarationMap\nCreate sourcemaps for d.ts files.\ntype: boolean\ndefault: false\n\n--emitDeclarationOnly\nOnly output d.ts files and not JavaScript files.\ntype: boolean\ndefault: false\n\n--sourceMap\nCreate source map files for emitted JavaScript files.\ntype: boolean\ndefault: false\n\n--noEmit\nDisable emitting files from a compilation.\ntype: boolean\ndefault: false\n\n--target, -t\nSet the JavaScript language version for emitted JavaScript and include compatible library declarations.\none of: es6/es2015, es2016, es2017, es2018, es2019, es2020, es2021, es2022, es2023, es2024, es2025, esnext\ndefault: es2025\n\n--module, -m\nSpecify what module code is generated.\none of: commonjs, es6/es2015, es2020, es2022, esnext, node16, node18, node20, nodenext, preserve\ndefault: undefined\n\n--lib\nSpecify a set of bundled library declaration files that describe the target runtime environment.\none or more: es5, es6/es2015, es7/es2016, es2017, es2018, es2019, es2020, es2021, es2022, es2023, es2024, es2025, esnext, dom, dom.iterable, dom.asynciterable, webworker, webworker.importscripts, webworker.iterable, webworker.asynciterable, scripthost, es2015.core, es2015.collection, es2015.generator, es2015.iterable, es2015.promise, es2015.proxy, es2015.reflect, es2015.symbol, es2015.symbol.wellknown, es2016.array.include, es2016.intl, es2017.arraybuffer, es2017.date, es2017.object, es2017.sharedmemory, es2017.string, es2017.intl, es2017.typedarrays, es2018.asyncgenerator, es2018.asynciterable/esnext.asynciterable, es2018.intl, es2018.promise, es2018.regexp, es2019.array, es2019.object, es2019.string, es2019.symbol/esnext.symbol, es2019.intl, es2020.bigint/esnext.bigint, es2020.date, es2020.promise, es2020.sharedmemory, es2020.string, es2020.symbol.wellknown, es2020.intl, es2020.number, es2021.promise, es2021.string, es2021.weakref/esnext.weakref, es2021.intl, es2022.array, es2022.error, es2022.intl, es2022.object, es2022.string, es2022.regexp, es2023.array, es2023.collection, es2023.intl, es2024.arraybuffer, es2024.collection, es2024.object/esnext.object, es2024.promise, es2024.regexp/esnext.regexp, es2024.sharedmemory, es2024.string/esnext.string, es2025.collection, es2025.float16/esnext.float16, es2025.intl, es2025.iterator/esnext.iterator, es2025.promise/esnext.promise, es2025.regexp, esnext.array, esnext.collection, esnext.date, esnext.decorators, esnext.disposable, esnext.error, esnext.intl, esnext.sharedmemory, esnext.temporal, esnext.typedarrays, decorators, decorators.legacy\ndefault: undefined\n\n--allowJs\nAllow JavaScript files to be a part of your program. Use the 'checkJs' option to get errors from these files.\ntype: boolean\ndefault: `false`, unless `checkJs` is set\n\n--checkJs\nEnable error reporting in type-checked JavaScript files.\ntype: boolean\ndefault: false\n\n--jsx\nSpecify what JSX code is generated.\none of: preserve, react, react-native, react-jsx, react-jsxdev\ndefault: undefined\n\n--outFile\nSpecify a file that bundles all outputs into one JavaScript file. If 'declaration' is true, also designates a file that bundles all .d.ts output.\n\n--outDir\nSpecify an output folder for all emitted files.\n\n--removeComments\nDisable emitting comments.\ntype: boolean\ndefault: false\n\n--strict\nEnable all strict type-checking options.\ntype: boolean\ndefault: true\n\n--types\nSpecify type package names to be included without being referenced in a source file.\n\n--esModuleInterop\nEmit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility.\ntype: boolean\ndefault: true\n\nYou can learn about all of the compiler options at https://aka.ms/tsc\n\n\n"
+    },
+    {
+      "name": "cie_dependency_surface",
+      "status": "PASS",
+      "required": true,
+      "dependency_count": 0
+    },
+    {
+      "name": "root_dependency_audit",
+      "status": "BASELINE_DEBT",
+      "required": false,
+      "vulnerabilities": {
+        "info": 0,
+        "low": 1,
+        "moderate": 0,
+        "high": 2,
+        "critical": 0,
+        "total": 3
+      },
+      "cie_runtime_dependency_count": 0
+    },
+    {
+      "name": "rc1_after",
+      "status": "PASS",
+      "required": true,
+      "observed_sha256": "211d91e8e7dad05148dde4b7e62cef55f6bb571765e4b61a7a8eaf14e883ca99"
+    }
+  ]
+}
