@@ -1,6 +1,6 @@
 {
   "contract_version": "missionmed.y2.phase0-final-verification.v1",
-  "generated_at": "2026-07-19T02:04:15.531Z",
+  "generated_at": "2026-07-19T02:22:23.250Z",
   "expected_outcome": "KILL_RULE_TRIGGERED",
   "commands": [
     {
@@ -56,7 +56,7 @@
         "ℹ cancelled 0",
         "ℹ skipped 0",
         "ℹ todo 0",
-        "ℹ duration_ms 2031.083083"
+        "ℹ duration_ms 2003.487833"
       ],
       "stderr_tail": [
         ""
@@ -128,7 +128,7 @@
       "expected_exit_code": 0,
       "pass": true,
       "stdout_tail": [
-        "{\"output\":\"/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_ARTIFACT_PRIVACY_SCAN.json\",\"scanned_files\":97,\"findings\":0,\"pass\":true}"
+        "{\"output\":\"/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_ARTIFACT_PRIVACY_SCAN.json\",\"scanned_files\":101,\"findings\":0,\"pass\":true}"
       ],
       "stderr_tail": [
         ""
@@ -173,14 +173,16 @@
     ],
     "holdout_deterministic": true,
     "git_status_lines": [
-      " M Y2-3100-3101-3102/evidence/Y2_3101_FINAL_VERIFICATION.json",
+      " M Y2-3100-3101-3102/evidence/Y2_3101_ARTIFACT_PRIVACY_SCAN.json",
       " M Y2-3100-3101-3102/evidence/Y2_3101_FROZEN_HOLDOUT_EVALUATION.json",
-      " M interviewer-brain/tests/evaluator.test.mjs",
+      "?? Y2-3100-3101-3102/Y2_3100_3101_3102_MASTER_COMPLETE_COMBINED_HANDOFF.md",
       "?? Y2-3100-3101-3102/Y2_3101_BRAIN_ARCHITECTURE.md",
+      "?? Y2-3100-3101-3102/Y2_3101_COMPLETE_COMBINED_HANDOFF.md",
       "?? Y2-3100-3101-3102/Y2_3101_CONTRACTS_AND_SCHEMAS.md",
       "?? Y2-3100-3101-3102/Y2_3101_EXECUTION_LEDGER.md",
       "?? Y2-3100-3101-3102/Y2_3101_FINAL_STATUS_AND_NEXT_ACTION.md",
       "?? Y2-3100-3101-3102/Y2_3101_FOLLOWUP_POLICY_AND_GUARDRAILS.md",
+      "?? Y2-3100-3101-3102/Y2_3101_FRESH_CONTEXT_VERIFICATION.md",
       "?? Y2-3100-3101-3102/Y2_3101_HOLDOUT_EVALUATION.md",
       "?? Y2-3100-3101-3102/Y2_3101_INSTRUCTOR_VISIBILITY_REVIEW.md",
       "?? Y2-3100-3101-3102/Y2_3101_LEDGER_MEMORY_AND_RECONNECTION.md",
@@ -190,7 +192,8 @@
       "?? Y2-3100-3101-3102/Y2_3101_SECURITY_PRIVACY_AND_PROVENANCE.md",
       "?? Y2-3100-3101-3102/Y2_3101_SPECIALIST_BOARD.md",
       "?? Y2-3100-3101-3102/Y2_3101_SYNTHETIC_FIXTURES.md",
-      "?? Y2-3100-3101-3102/Y2_3101_TEST_AND_EVALUATION_REPORT.md"
+      "?? Y2-3100-3101-3102/Y2_3101_TEST_AND_EVALUATION_REPORT.md",
+      "?? _AI_HANDOFFS/from_codex/Y2_3100_3101_3102/"
     ],
     "scope_violations": [],
     "y1_source_mutation_absent": true,

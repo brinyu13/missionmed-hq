@@ -3589,7 +3589,7 @@
           "contains_score_or_ranking": false,
           "human_review_required": true
         },
-        "generation_seconds": 0.00004104200000028868,
+        "generation_seconds": 0.000049333999999817026,
         "word_count": 62
       },
       {
@@ -3680,7 +3680,7 @@
           "contains_score_or_ranking": false,
           "human_review_required": true
         },
-        "generation_seconds": 0.000009250000000065484,
+        "generation_seconds": 0.000012083000000075118,
         "word_count": 75
       },
       {
@@ -3747,7 +3747,7 @@
           "contains_score_or_ranking": false,
           "human_review_required": true
         },
-        "generation_seconds": 0.0000068750000000363795,
+        "generation_seconds": 0.000008834000000206289,
         "word_count": 49
       },
       {
@@ -3813,7 +3813,7 @@
           "contains_score_or_ranking": false,
           "human_review_required": true
         },
-        "generation_seconds": 0.000005917000000408734,
+        "generation_seconds": 0.000008166999999957625,
         "word_count": 58
       }
     ],
@@ -4198,7 +4198,7 @@
         "details": [
           {
             "case_id": "SUMMARY-001",
-            "generation_seconds": 0.00004104200000028868,
+            "generation_seconds": 0.000049333999999817026,
             "word_count": 62,
             "checks": {
               "timestamped_transcript": true,
@@ -4217,7 +4217,7 @@
           },
           {
             "case_id": "SUMMARY-002",
-            "generation_seconds": 0.000009250000000065484,
+            "generation_seconds": 0.000012083000000075118,
             "word_count": 75,
             "checks": {
               "timestamped_transcript": true,
@@ -4236,7 +4236,7 @@
           },
           {
             "case_id": "SUMMARY-003",
-            "generation_seconds": 0.0000068750000000363795,
+            "generation_seconds": 0.000008834000000206289,
             "word_count": 49,
             "checks": {
               "timestamped_transcript": true,
@@ -4255,7 +4255,7 @@
           },
           {
             "case_id": "SUMMARY-004",
-            "generation_seconds": 0.000005917000000408734,
+            "generation_seconds": 0.000008166999999957625,
             "word_count": 58,
             "checks": {
               "timestamped_transcript": true,
