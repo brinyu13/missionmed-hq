@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://missionmed.local/schemas/i1q-1008g-question-record-v1.json",
+  "title": "I1Q-1008G occurrence-preserving question record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "question_id", "drill_id", "drill_order", "drill_date",
+    "source_transcript", "source_nodes", "question_order", "student_sequence_id",
+    "student_sequence_order", "question_order_in_sequence", "question_role",
+    "verbatim_question", "minimally_normalized_question", "timestamp_start_us",
+    "timestamp_end_us", "specialty", "subject", "topic", "subtopic",
+    "organ_system", "question_type", "cognitive_level", "confidence_ppm",
+    "confidence_basis_codes", "ambiguity_flag", "ambiguity_flags",
+    "metadata_status", "medical_question_status", "answer_binding_status",
+    "transcript_hash", "nodes_hash", "transcript_binding_root",
+    "nodes_binding_root", "question_provenance_hash", "source_question_content_hash",
+    "processing_receipt", "source_aliases", "release_status", "record_hash"
+  ],
+  "properties": {
+    "schema_version": { "const": "missionmed.i1q.1008g.question-record.v1" },
+    "question_id": { "type": "string", "pattern": "^question_sha256_[a-f0-9]{64}$" },
+    "drill_id": { "type": "string", "pattern": "^drill_sha256_[a-f0-9]{64}$" },
+    "drill_order": { "type": "integer", "minimum": 1, "maximum": 97 },
+    "drill_date": { "type": ["string", "null"], "pattern": "^\\d{4}-\\d{2}-\\d{2}$" },
+    "source_transcript": { "type": "string", "minLength": 1 },
+    "source_nodes": { "type": "string", "minLength": 1 },
+    "question_order": { "type": "integer", "minimum": 1 },
+    "student_sequence_id": { "type": "string", "pattern": "^sequence_sha256_[a-f0-9]{64}$" },
+    "student_sequence_order": { "type": "integer", "minimum": 1 },
+    "question_order_in_sequence": { "type": "integer", "minimum": 1 },
+    "question_role": { "enum": ["PRIMARY", "FOLLOW_UP"] },
+    "verbatim_question": { "type": "string", "minLength": 1 },
+    "minimally_normalized_question": { "type": ["string", "null"] },
+    "timestamp_start_us": { "type": "integer", "minimum": 0 },
+    "timestamp_end_us": { "type": "integer", "minimum": 0 },
+    "specialty": { "type": "string", "minLength": 1 },
+    "subject": { "type": "string", "minLength": 1 },
+    "topic": { "type": "string", "minLength": 1 },
+    "subtopic": { "type": "string", "minLength": 1 },
+    "organ_system": { "type": "string", "minLength": 1 },
+    "question_type": { "enum": ["DIRECT_INTERROGATIVE", "IMPERATIVE_MEDICAL_PROMPT"] },
+    "cognitive_level": { "type": "string", "minLength": 1 },
+    "confidence_ppm": { "type": "integer", "minimum": 0, "maximum": 1000000 },
+    "confidence_basis_codes": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "ambiguity_flag": { "type": "boolean" },
+    "ambiguity_flags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "metadata_status": { "const": "SOURCE_METADATA_ABSENT_UNCLASSIFIED" },
+    "medical_question_status": { "enum": ["RETAINED", "AMBIGUOUS_RETAINED_QUARANTINED"] },
+    "answer_binding_status": { "type": "string", "minLength": 1 },
+    "transcript_hash": { "$ref": "#/$defs/hash" },
+    "nodes_hash": { "$ref": "#/$defs/hash" },
+    "transcript_binding_root": { "$ref": "#/$defs/hash" },
+    "nodes_binding_root": { "anyOf": [{ "$ref": "#/$defs/hash" }, { "type": "null" }] },
+    "question_provenance_hash": { "$ref": "#/$defs/hash" },
+    "source_question_content_hash": { "$ref": "#/$defs/hash" },
+    "processing_receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source_schema_version", "run_contract_hash", "shard_id",
+        "shard_content_hash", "shard_safe_projection_hash", "question_content_hash",
+        "question_provenance_hash", "validation_receipt_bindings"
+      ],
+      "properties": {
+        "source_schema_version": { "type": "string", "minLength": 1 },
+        "run_contract_hash": { "$ref": "#/$defs/hash" },
+        "shard_id": { "type": "string", "pattern": "^shard_sha256_[a-f0-9]{64}$" },
+        "shard_content_hash": { "$ref": "#/$defs/hash" },
+        "shard_safe_projection_hash": { "$ref": "#/$defs/hash" },
+        "question_content_hash": { "$ref": "#/$defs/hash" },
+        "question_provenance_hash": { "$ref": "#/$defs/hash" },
+        "validation_receipt_bindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/hash" },
+          "uniqueItems": true
+        }
+      }
+    },
+    "source_aliases": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["drill_source_alias", "transcript_artifact_alias", "nodes_artifact_alias"],
+      "properties": {
+        "drill_source_alias": { "type": "string", "minLength": 1 },
+        "transcript_artifact_alias": { "type": "string", "minLength": 1 },
+        "nodes_artifact_alias": { "type": "string", "minLength": 1 }
+      }
+    },
+    "release_status": { "const": "RESTRICTED_ONLY" },
+    "record_hash": { "$ref": "#/$defs/hash" }
+  },
+  "$defs": {
+    "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}
