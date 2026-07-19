@@ -1,6 +1,6 @@
 {
   "contract_version": "missionmed.y2.phase0-final-verification.v1",
-  "generated_at": "2026-07-19T01:59:28.612Z",
+  "generated_at": "2026-07-19T02:04:15.531Z",
   "expected_outcome": "KILL_RULE_TRIGGERED",
   "commands": [
     {
@@ -49,14 +49,14 @@
       "expected_exit_code": 0,
       "pass": true,
       "stdout_tail": [
-        "ℹ tests 25",
+        "ℹ tests 27",
         "ℹ suites 0",
-        "ℹ pass 25",
+        "ℹ pass 27",
         "ℹ fail 0",
         "ℹ cancelled 0",
         "ℹ skipped 0",
         "ℹ todo 0",
-        "ℹ duration_ms 1792.903917"
+        "ℹ duration_ms 2031.083083"
       ],
       "stderr_tail": [
         ""
@@ -175,8 +175,7 @@
     "git_status_lines": [
       " M Y2-3100-3101-3102/evidence/Y2_3101_FINAL_VERIFICATION.json",
       " M Y2-3100-3101-3102/evidence/Y2_3101_FROZEN_HOLDOUT_EVALUATION.json",
-      " M interviewer-brain/scripts/holdout-compat.mjs",
-      " M interviewer-brain/scripts/run-verification.mjs",
+      " M interviewer-brain/tests/evaluator.test.mjs",
       "?? Y2-3100-3101-3102/Y2_3101_BRAIN_ARCHITECTURE.md",
       "?? Y2-3100-3101-3102/Y2_3101_CONTRACTS_AND_SCHEMAS.md",
       "?? Y2-3100-3101-3102/Y2_3101_EXECUTION_LEDGER.md",
@@ -191,9 +190,7 @@
       "?? Y2-3100-3101-3102/Y2_3101_SECURITY_PRIVACY_AND_PROVENANCE.md",
       "?? Y2-3100-3101-3102/Y2_3101_SPECIALIST_BOARD.md",
       "?? Y2-3100-3101-3102/Y2_3101_SYNTHETIC_FIXTURES.md",
-      "?? Y2-3100-3101-3102/Y2_3101_TEST_AND_EVALUATION_REPORT.md",
-      "?? Y2-3100-3101-3102/evidence/Y2_3101_ARTIFACT_PRIVACY_SCAN.json",
-      "?? interviewer-brain/scripts/run-artifact-scan.mjs"
+      "?? Y2-3100-3101-3102/Y2_3101_TEST_AND_EVALUATION_REPORT.md"
     ],
     "scope_violations": [],
     "y1_source_mutation_absent": true,

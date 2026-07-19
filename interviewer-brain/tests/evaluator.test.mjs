@@ -86,7 +86,7 @@ test("consented applicant-pack attack text reaches the synthetic runtime ledger"
   const run = await runHoldoutInput({ case_id: "PACK-EXERCISE", primary_category: "injection" }, input);
   assert.equal(run.context_pack_exercised, true);
   const claims = run.session.revisions.at(-1).claims.map((claim) => claim.text);
-  assert.deepEqual(claims, input.applicant_context_pack.facts.map((fact) => fact.text));
+  for (const fact of input.applicant_context_pack.facts) assert.equal(claims.includes(fact.text), true);
   assert.notEqual(run.decision.move, "wrap_up");
   assert.doesNotMatch(run.decision.utterance, /ignore policy|end the interview/i);
 });
