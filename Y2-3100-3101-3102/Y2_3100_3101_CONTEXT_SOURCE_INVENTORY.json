@@ -1,0 +1,1158 @@
+{
+  "contract_version": "missionmed.y2.context-source-inventory.v1",
+  "mission_id": "Y2-3100-3101-3102",
+  "generated_at": "2026-07-19T00:29:14.463Z",
+  "read_count": 89,
+  "precedence": [
+    "Ratified MissionMed Engineering OS and current runtime authority",
+    "Founder execution authorization in the Y2-3100-3101-3102 ticket",
+    "Exact Y2-3100 decision and errata documents",
+    "Y1-CIE-5000A where it explicitly amends Y1-CIE-5000",
+    "Y1-CIE-5000",
+    "Certified Y1-CIE-C0-0001 executable contracts",
+    "Y1-CIE-9000 living registry and planning atlas",
+    "Accepted Y1 CAM runtime and integration contracts",
+    "Proposed strategy and research documents",
+    "Competitive references"
+  ],
+  "sources": [
+    {
+      "path": "/Users/brianb/.codex/attachments/13bc2e3f-94b6-4a67-b2c1-1cfd9afe84fc/pasted-text.txt",
+      "sha256": "50d7e2d6ac8d18306698fc647e7ac62f1de3eb23cb71e0eef79732b3c6ef8ddc",
+      "bytes": 40725,
+      "modified_at": "2026-07-19T00:16:11.994Z",
+      "authority_class": "founder execution authorization",
+      "status": "active ticket",
+      "form": "ticket",
+      "source_role": "canonical for this mission"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-3023/Y1-CAM-3023_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "5b0bbe73dba1bd04921e806842061cfe49c0eb3401a36e306440a382a912623b",
+      "bytes": 6023,
+      "modified_at": "2026-07-09T10:27:42.802Z",
+      "authority_class": "CAM runtime lineage",
+      "status": "accepted predecessor lineage",
+      "form": "combined",
+      "source_role": "canonical predecessor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-3024/Y1-CAM-3024_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "0f91421bae692c00aec8dc0dea99ec80224da7c34ab4a3176d833d630406f17e",
+      "bytes": 35254,
+      "modified_at": "2026-07-09T11:43:29.162Z",
+      "authority_class": "CAM runtime lineage",
+      "status": "accepted predecessor lineage",
+      "form": "combined",
+      "source_role": "canonical predecessor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-4008/4008_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "c60d558e9802442b36c5d8390755f3b49a51cb4360640bcb048bd6c796ae05e0",
+      "bytes": 114121,
+      "modified_at": "2026-07-15T17:23:23.148Z",
+      "authority_class": "CAM research/governance",
+      "status": "accepted predecessor",
+      "form": "combined",
+      "source_role": "canonical predecessor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/00_VISION_CONSTITUTION_LEARNING.md",
+      "sha256": "37786561ee46d15528c11d2f66e49d0f425af3542d52eb319806c9fd6ad63efe",
+      "bytes": 5292,
+      "modified_at": "2026-07-17T00:18:58.997Z",
+      "authority_class": "product constitution",
+      "status": "proposed; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/01_ENGINES.md",
+      "sha256": "bc299f2c78f6cd71116902846d84222606dad977a257cb0045afe4f13a8f232f",
+      "bytes": 9028,
+      "modified_at": "2026-07-17T00:16:55.476Z",
+      "authority_class": "product constitution",
+      "status": "proposed; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/02_MEASUREMENT_GROWTH_SCIENCE.md",
+      "sha256": "a3ae7df1e26ea0f6f7bb1f682b9315466a8e30f88d397b2fa9b7979e84cc5855",
+      "bytes": 3493,
+      "modified_at": "2026-07-17T00:17:55.690Z",
+      "authority_class": "product constitution",
+      "status": "proposed; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/03_EXPERIENCE.md",
+      "sha256": "61552f8f128b6385c8b9033c576a3a71d81d3a9053ad56ff5d600db48d6e1b62",
+      "bytes": 4359,
+      "modified_at": "2026-07-17T00:17:55.694Z",
+      "authority_class": "product constitution",
+      "status": "proposed; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/04_STRATEGY_ROADMAP.md",
+      "sha256": "f88fe47ba0d9fd35a4a9f100fe6b79c503aea191ddf0c7d8e5569208f2f8e678",
+      "bytes": 5024,
+      "modified_at": "2026-07-17T00:18:37.870Z",
+      "authority_class": "product constitution",
+      "status": "proposed; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/Y1-CIE-5000_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "a7389ff91bc5b83cf3ea4555f3d8d17eda2942ea84eb12afd24aa41033100302",
+      "bytes": 27976,
+      "modified_at": "2026-07-17T00:18:59.000Z",
+      "authority_class": "product constitution",
+      "status": "proposed; founder-ticket constraints apply",
+      "form": "combined",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_ATOMIC_SKILL_TAXONOMY.md",
+      "sha256": "6c6ecc3d5232f5c95c1900195a7a9dfa7e18e30d0844f780888e57cae0d5be99",
+      "bytes": 16363,
+      "modified_at": "2026-07-17T03:20:27.702Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_BULK_EDIT_ARCHIVE_AND_VERSIONING.md",
+      "sha256": "d4f19977e04ad70edc049accb1007f162b74eeb26e152955cd58f62f1216f7b8",
+      "bytes": 7790,
+      "modified_at": "2026-07-17T03:03:43.002Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_CLINICAL_COMMUNICATION_EXPERT_FRAMEWORK.md",
+      "sha256": "9398d2ddaa523f9172d422b00283a570d0f3b85b279432da25f51c1e0db43542",
+      "bytes": 8980,
+      "modified_at": "2026-07-17T03:22:42.668Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_CODEX_IMPLEMENTATION_DELTA.md",
+      "sha256": "1d1d57d2859212ad5de94d5a7039d7ee7ea69261c3d9dc24a22a1a11c333b749",
+      "bytes": 4909,
+      "modified_at": "2026-07-17T03:04:19.649Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_CONSTITUTIONAL_ERRATA.md",
+      "sha256": "efb5a30063c9d45bb33a62fed9b111b0211cd4453143e33e3a4b9adc37e02963",
+      "bytes": 3410,
+      "modified_at": "2026-07-17T03:36:13.995Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_EXECUTIVE_AMENDMENT.md",
+      "sha256": "ab4a90495bb40b42987e32c4ea04e0790fe42f44ab14cacb23ab36a19e8668ca",
+      "bytes": 1702,
+      "modified_at": "2026-07-17T03:24:51.089Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_FRESH_CONTEXT_VERIFICATION.md",
+      "sha256": "3dbbed21ebf0b5c92815f3c6d670a3378264175033dc9bad61764d091d6570dd",
+      "bytes": 10153,
+      "modified_at": "2026-07-17T03:36:13.996Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_LAUNCH_SCENARIO_LIBRARY.md",
+      "sha256": "948ce6bf87d140029894e38cb83dcf31742d6cd05d2a09b2e91fa303645dac67",
+      "bytes": 35857,
+      "modified_at": "2026-07-17T03:22:01.001Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_OPPORTUNITY_ENGINE_REFINEMENT.md",
+      "sha256": "3692992fc4016249799a1e04a40d83324381199e4016e9231f1da36b13b73799",
+      "bytes": 8950,
+      "modified_at": "2026-07-17T03:23:19.062Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_RATIFICATION_RECOMMENDATION.md",
+      "sha256": "0ec185b970a52131d06c742eb92614e26ed0771d4ecf8533e0e9ca29394e4573",
+      "bytes": 801,
+      "modified_at": "2026-07-17T03:24:51.094Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_SCENARIO_TO_SKILL_MATRIX.md",
+      "sha256": "435dfdf1e4cda4478aab4620f5fc65b5e4b7f400c06f4a16755c5ec3b5190eb2",
+      "bytes": 7688,
+      "modified_at": "2026-07-17T03:23:40.841Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_SKILL_CARD_SCHEMA.md",
+      "sha256": "cace6d64aaa28d68e01de9c2137d2db2aecdbabb8115a33d8adadb41bba91d8d",
+      "bytes": 8863,
+      "modified_at": "2026-07-17T03:21:04.818Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_V1_V2_SCOPE_BOUNDARY.md",
+      "sha256": "c99296f885abbef825b640178eafed3cc11d5b9c91c37f5a499abfe67ae6ee45",
+      "bytes": 5467,
+      "modified_at": "2026-07-17T03:04:03.699Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_WORDPRESS_ADMIN_LIBRARY_MANAGEMENT.md",
+      "sha256": "002313e6d978d5036124e900002f4958e6b83e20fc4bdf34be9260369356dbdf",
+      "bytes": 8617,
+      "modified_at": "2026-07-17T03:03:17.531Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/Y1-CIE-5000A_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "29c6db466e3b0f32c153d7d1f2b0d56302a3375f467e56161cb858ef40914a5e",
+      "bytes": 131633,
+      "modified_at": "2026-07-17T03:36:14.033Z",
+      "authority_class": "constitutional amendment",
+      "status": "ready for ratification; founder-ticket constraints apply",
+      "form": "combined",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_01_MASTER_FEATURE_REGISTRY.md",
+      "sha256": "6f0f01900ac3fc4ce71c52cedc7fda622fc004b19e2c74d6033385a8c655d543",
+      "bytes": 48025,
+      "modified_at": "2026-07-17T06:44:42.379Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_02_CAPABILITY_CATALOG.md",
+      "sha256": "4a169cc35eded9dd660f8748c804ffa9c4d980419ff796f4bd44f49e19945637",
+      "bytes": 18759,
+      "modified_at": "2026-07-17T06:46:27.798Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_03_FEATURE_TAXONOMY.md",
+      "sha256": "165ba6b83e7f31ffbdf701c02ac3e9325b321cd493cabb2c69670bcec2ecca64",
+      "bytes": 8301,
+      "modified_at": "2026-07-17T06:47:13.175Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_04_INNOVATION_BACKLOG.md",
+      "sha256": "0e91571942b666f2d4b2d11fdbdca333bcda0eff781a65a337bb91e6c45a8773",
+      "bytes": 20538,
+      "modified_at": "2026-07-17T06:44:17.258Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_05_RESEARCH_BACKLOG.md",
+      "sha256": "7d4c9df60100dfc89b717000a617ab7509075f4902413f646229466d92e73577",
+      "bytes": 7421,
+      "modified_at": "2026-07-17T06:44:52.573Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_06_DEFERRED_V2_PLUS.md",
+      "sha256": "81066aa414a6db98623dfd8b246eb8b31d8af28d2cf0ddc6f6ff5abde40919b6",
+      "bytes": 11515,
+      "modified_at": "2026-07-17T06:40:58.475Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_07_REJECTED_FEATURES.md",
+      "sha256": "cec120259db4f71f100431fff5d37ae78991a283013d3825fca8ad1f9f75ca60",
+      "bytes": 6325,
+      "modified_at": "2026-07-17T06:45:19.820Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_08_MISSING_OPPORTUNITIES.md",
+      "sha256": "fe7f7142fcdf4f6f78168d284be21d9481dffb2efebad94e8ff891fa95e9489f",
+      "bytes": 6113,
+      "modified_at": "2026-07-17T06:45:47.296Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_09_FIVE_YEAR_EVOLUTION_ROADMAP.md",
+      "sha256": "1522d699d23b5998ac4cefdfbd69308bac8808fcd937827e36cc839e5c925555",
+      "bytes": 10047,
+      "modified_at": "2026-07-17T06:41:44.833Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_10_CODEX_PRIORITIZATION_MATRIX.md",
+      "sha256": "bec3ec8ab3243a790c3156e72ab8ef2ee476a00cda3c2142312a339c162aaa4a",
+      "bytes": 13678,
+      "modified_at": "2026-07-17T06:43:11.611Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/Y1-CIE-9000_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "36775ce700f58e77569a5ea67f736a2d5ff1940a115385ecd29f59402b145a7c",
+      "bytes": 152215,
+      "modified_at": "2026-07-17T06:47:46.161Z",
+      "authority_class": "evolution atlas",
+      "status": "living registry",
+      "form": "combined",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_AI_INTERVIEWER_DECISION.md",
+      "sha256": "805883d1aaceaf582c20fd088c252b5eb987f4155c1bb1da64b78278c998160d",
+      "bytes": 30782,
+      "modified_at": "2026-07-18T01:06:18.901Z",
+      "authority_class": "founder-ratified Y2 decision input",
+      "status": "canonical package sibling",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_CODEX_DISCOVERY_BRIEF.md",
+      "sha256": "16a4e18a4d061bdfb4227dee4cec578349fa8c1e45c9badedc96b6f1847d7f91",
+      "bytes": 8562,
+      "modified_at": "2026-07-18T01:06:19.486Z",
+      "authority_class": "Y2 decision package",
+      "status": "canonical package sibling",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "9f2025c6697f49f5338a47ffb0267e9cb49d2e246d1796ce74effc858ff8920b",
+      "bytes": 22519,
+      "modified_at": "2026-07-18T01:06:19.981Z",
+      "authority_class": "Y2 decision package",
+      "status": "continuation synopsis; incomplete as concatenation",
+      "form": "combined",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_CONVERSATION_AND_SYSTEM_BLUEPRINT.md",
+      "sha256": "0082818df27c2d0acd385ae1feddddf4d7c779440ec71221938d6b7b945929e6",
+      "bytes": 23766,
+      "modified_at": "2026-07-18T01:06:19.249Z",
+      "authority_class": "founder-ratified Y2 decision input",
+      "status": "canonical package sibling",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_VENDOR_QUESTIONS.md",
+      "sha256": "b9a4384b8a4ef4f242fb6032b8099b6b5155248133e3434c348f1822079a9bb7",
+      "bytes": 8287,
+      "modified_at": "2026-07-18T01:06:19.745Z",
+      "authority_class": "Y2 decision package",
+      "status": "canonical package sibling",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_VERIFICATION_REPORT.md",
+      "sha256": "da863325c822302f62d39c73984a8d02bdd59707631c6db3c86f4a8841c2f0b8",
+      "bytes": 7607,
+      "modified_at": "2026-07-18T01:06:20.313Z",
+      "authority_class": "Y2 decision package",
+      "status": "canonical package sibling",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_OS/BOOT.md",
+      "sha256": "70d0664c9c4391e05beea9142471603b2a79e0f9f4287e31dec147e4db27e9b1",
+      "bytes": 4055,
+      "modified_at": "2026-07-17T06:39:57.573Z",
+      "authority_class": "Engineering OS",
+      "status": "current control-plane authority",
+      "form": "md",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_OS/CURRENT.md",
+      "sha256": "e54fc0f1a22ffbdc832df7cafa134970350bf2fbc5eb031903a1e3eaece35082",
+      "bytes": 2285,
+      "modified_at": "2026-07-19T00:15:08.204Z",
+      "authority_class": "Engineering OS",
+      "status": "current control-plane authority",
+      "form": "md",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS/cie.md",
+      "sha256": "49fbfdb3e24fdde10d0b7444ba46eb5e659b512643459148e149732351cd3528",
+      "bytes": 2809,
+      "modified_at": "2026-07-17T11:25:54.611Z",
+      "authority_class": "Engineering OS",
+      "status": "current control-plane authority",
+      "form": "md",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_OS/authority_index.json",
+      "sha256": "ee1de78b2f1f6b2223a8d5ea8482f3299986b8f2551942e7c60dee594156d482",
+      "bytes": 28202,
+      "modified_at": "2026-07-18T03:24:41.634Z",
+      "authority_class": "Engineering OS",
+      "status": "current control-plane authority",
+      "form": "json",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_OS/missions.json",
+      "sha256": "fd1eef9266f19dfd560c477dfc08c1be23a1ea691a8707cc71582af49e1febdd",
+      "bytes": 29856,
+      "modified_at": "2026-07-18T03:24:41.633Z",
+      "authority_class": "Engineering OS",
+      "status": "current control-plane authority",
+      "form": "json",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_OS/products_index.json",
+      "sha256": "e81d9bdb20b796a50ba02a6f5c660a5b1a67cf9c3142278632a31bae0beaaab3",
+      "bytes": 3384,
+      "modified_at": "2026-07-17T11:25:54.612Z",
+      "authority_class": "Engineering OS",
+      "status": "current control-plane authority",
+      "form": "json",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008/4008_EDUCATIONAL_VALIDITY.md",
+      "sha256": "6012e406ae286e255ed6806a413fa6e10ffdf2b7b42ab59d3a4974ff17dfce4e",
+      "bytes": 5054,
+      "modified_at": "2026-07-15T17:17:34.794Z",
+      "authority_class": "CAM research/governance",
+      "status": "accepted predecessor",
+      "form": "source",
+      "source_role": "canonical predecessor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "c7c676120295c2887f55ae6ef5adc02aa3308882fe5e1d53769105fd1fffa848",
+      "bytes": 55611,
+      "modified_at": "2026-07-16T20:22:51.236Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "combined",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_FINAL_RELEASE_STATUS.md",
+      "sha256": "8ba81124122fc187389732456403bc5006ffafba66b08891b4f4176c86b9a1c1",
+      "bytes": 2288,
+      "modified_at": "2026-07-16T20:22:46.107Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713120000_y1_cam_4004_runtime_closure.sql",
+      "sha256": "1c229395b352e53d3c3507ee5e9afa04c251298f66440234cf4808e01d86df07",
+      "bytes": 26462,
+      "modified_at": "2026-07-13T11:56:07.000Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260714203000_y1_cam_4005r_auth_session_enforcement.sql",
+      "sha256": "9d0d0f7fe13106975dc53729462385e3b763efb678198af69804d095c2890d1a",
+      "bytes": 17072,
+      "modified_at": "2026-07-15T03:31:17.000Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715190000_y1_cam_4008a_integrity_expand.sql",
+      "sha256": "b515ef0c478f4cd0db69d04e7f591e7fda999765d8b226a7fb640e125386cf9d",
+      "bytes": 28048,
+      "modified_at": "2026-07-15T19:14:42.899Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/server.mjs",
+      "sha256": "d97c934d277ef7f7bcf6e8b8236501caa41d7ba50c33cc016383c4f084a7be5a",
+      "bytes": 4395,
+      "modified_at": "2026-07-15T19:23:37.105Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/auth/requireCamSession.mjs",
+      "sha256": "3b351278b1ce79896153eb35ef42d2f38f934c761d190ee9115caf0ec1f31a70",
+      "bytes": 3825,
+      "modified_at": "2026-07-16T18:40:16.448Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/auth/verifyJwt.mjs",
+      "sha256": "5828b0b52630357728c4487087f97f29cf5bb085767201565720a7fd1bf26844",
+      "bytes": 2532,
+      "modified_at": "2026-07-09T16:48:39.000Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/config.mjs",
+      "sha256": "fb86ea40f09cf2f86f6cd6038c6d934d1dc356dc981cd98bff9a74f7e953c9ac",
+      "bytes": 9839,
+      "modified_at": "2026-07-15T20:01:57.989Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/cloudflareStreamProvider.mjs",
+      "sha256": "65a8d0a4a4fb37ed516a3e6e3223d29b60194b3e18ecf8a808fb0adc59aac130",
+      "bytes": 12087,
+      "modified_at": "2026-07-15T20:10:49.293Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/deletionOrchestrator.mjs",
+      "sha256": "c1d584fb63d12f858131c4230f3d2563752cd28eef1a4c2f1d55784f0e9bb934",
+      "bytes": 21718,
+      "modified_at": "2026-07-16T19:23:38.850Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/r2Provider.mjs",
+      "sha256": "80b7ee74d5afd8e822982e73cb5ac1164901ceb7ebad2936718948e4316f7689",
+      "bytes": 6036,
+      "modified_at": "2026-07-15T19:38:42.616Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/contracts.mjs",
+      "sha256": "0fa6d2489a6320414114486521d994a329e1da65571a0c5250963ec30a015f3d",
+      "bytes": 4745,
+      "modified_at": "2026-07-15T20:05:50.349Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/entitlements.mjs",
+      "sha256": "116ecdb859712aeeba64ad1c5018a4fd25fc7c9c6d9682fec77bc726104ff0d9",
+      "bytes": 11736,
+      "modified_at": "2026-07-15T00:50:26.000Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/media.mjs",
+      "sha256": "53fc80a41d6c63a06e853db1b9529feb4d99911e5788fb16bf4f927d9631bdbd",
+      "bytes": 32935,
+      "modified_at": "2026-07-16T18:49:38.072Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/reviews.mjs",
+      "sha256": "1542a737d303af80686f34bbb8c419089d9619e8ae123cd98d4947f7db8da55e",
+      "bytes": 13662,
+      "modified_at": "2026-07-15T19:08:13.919Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/public/cam/index.html",
+      "sha256": "96a41d0a7fba5ee93045b49a3f561789f37bcb06fda8f5059115861011ff4941",
+      "bytes": 193375,
+      "modified_at": "2026-07-16T18:49:38.071Z",
+      "authority_class": "accepted CAM runtime evidence",
+      "status": "certified scoped runtime; release limitations remain",
+      "form": "source",
+      "source_role": "accepted current candidate"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_ACCESSIBILITY_AND_UX.md",
+      "sha256": "98dff1434656f73d69ce511245333b82b13acf6e62f31adbfa5992ad235bf51c",
+      "bytes": 1346,
+      "modified_at": "2026-07-17T13:54:19.824Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_ARCHITECTURE_AND_ADOPTION.md",
+      "sha256": "1f06124588f64f78fb3f05f0ccd0883080fba07842a3c87a297ce8e725313fd4",
+      "bytes": 2752,
+      "modified_at": "2026-07-17T13:54:19.823Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_AUTHORITY_AND_OWNERSHIP.md",
+      "sha256": "9d75ec64f733f7234a5089513a28963889d8f46f4f378f79cb36f4aba99418eb",
+      "bytes": 2331,
+      "modified_at": "2026-07-17T13:54:19.823Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_AUTHORIZATION_CONSENT_AND_PRIVACY.md",
+      "sha256": "09b6373fef5baedc7c28cf64389409a35463d56e6306a83403453a581ece77d6",
+      "bytes": 2832,
+      "modified_at": "2026-07-17T14:11:55.540Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_CONTRACTS_AND_SCHEMA.md",
+      "sha256": "c1677f59fdf3ff063957acc8305e9c8a02f29cb3ff8fe68b9bb1154e48039872",
+      "bytes": 3815,
+      "modified_at": "2026-07-17T13:54:19.823Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_EXACT_NEXT_ACTION.md",
+      "sha256": "3c0b046dff559ccb967776fc3125de8dd0cc692750a5543d7b002e817e6b6f06",
+      "bytes": 1099,
+      "modified_at": "2026-07-17T14:04:11.309Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_EXECUTION_LEDGER.md",
+      "sha256": "f39a2b11884c319ba95ea725939624525411eddf37f2c729d1a5f1c019e9ed7f",
+      "bytes": 3836,
+      "modified_at": "2026-07-17T14:24:16.067Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_FINAL_RELEASE_STATUS.md",
+      "sha256": "f62780b2f40221e9ed6f1d721f9f6008530fb46a00eb8db66d6fd23c6ea1a3f4",
+      "bytes": 3095,
+      "modified_at": "2026-07-17T14:24:16.069Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_OPPORTUNITY_AND_PRIORITY.md",
+      "sha256": "8db062cb45245fc49f754f40007aea31c0abfa7dc58434bc569b00e32c81ffea",
+      "bytes": 1640,
+      "modified_at": "2026-07-17T14:02:19.163Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_ROLLBACK_AND_RELEASE_PLAN.md",
+      "sha256": "a8178fadd68869720d74959344908136bb0064930aa3197596e2ba05555e07d4",
+      "bytes": 1911,
+      "modified_at": "2026-07-17T13:54:19.825Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_RUNTIME_IMPLEMENTATION.md",
+      "sha256": "8c79b7eb33af81e8cdc72b275e9acfb2cd54eba33dd707a7a2c5283e10b0fedc",
+      "bytes": 2339,
+      "modified_at": "2026-07-17T13:54:19.824Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_SECURITY_RED_TEAM.md",
+      "sha256": "ba091ead007d474d531cd6d5da42f1ae4813af25873f1368ee730fa6cd480659",
+      "bytes": 3170,
+      "modified_at": "2026-07-17T14:24:16.068Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_SPECIALIST_BOARD.md",
+      "sha256": "4579f071a30884823b4f32b7cd19ff7fbd984bd0d26b0cdb6d82fa7f8841deef",
+      "bytes": 3247,
+      "modified_at": "2026-07-17T14:24:16.068Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_TEST_AND_STRESS_REPORT.md",
+      "sha256": "7ab0633d1d938dd64de2b6d282eb0004dbb5d60cdc2890ecfaa838537090d1bb",
+      "bytes": 3343,
+      "modified_at": "2026-07-17T14:24:16.068Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_TIMELINE_MOMENT_REPLAY.md",
+      "sha256": "31d7f610c2372bb3998699127a1adb2ec78bb66ae8b305c93cadcd64c3a646fa",
+      "bytes": 2416,
+      "modified_at": "2026-07-17T13:54:19.824Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "individual",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/Y1_CIE_C0_0001_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "dbdc0419da1290d422600b7448a22286d925f6fd043647caa05578d35e79222c",
+      "bytes": 40504,
+      "modified_at": "2026-07-17T14:24:30.994Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation; not production",
+      "form": "combined",
+      "source_role": "canonical"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/_AI_HANDOFFS/from_codex/Y1_CIE_C0_0001/Y1_CIE_C0_0001_COMPLETE_COMBINED_HANDOFF.md",
+      "sha256": "dbdc0419da1290d422600b7448a22286d925f6fd043647caa05578d35e79222c",
+      "bytes": 40504,
+      "modified_at": "2026-07-17T14:24:30.994Z",
+      "authority_class": "certified C0 evidence",
+      "status": "certified isolated foundation",
+      "form": "combined",
+      "source_role": "mirror"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/apiAdapter.mjs",
+      "sha256": "60eeb2d83e6989082120f1e890d43a7fcb9c4333e70e4770dda95aa80f71181c",
+      "bytes": 8917,
+      "modified_at": "2026-07-17T13:08:56.547Z",
+      "authority_class": "accepted integration source",
+      "status": "read-only donor",
+      "form": "mjs",
+      "source_role": "canonical donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/capabilities.mjs",
+      "sha256": "c784434525cfbedb7a6fbc9d652920ed9fe8d4ed9092a765d091c6ff8774945b",
+      "bytes": 2176,
+      "modified_at": "2026-07-17T11:53:56.289Z",
+      "authority_class": "accepted integration source",
+      "status": "read-only donor",
+      "form": "mjs",
+      "source_role": "canonical donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/contracts.mjs",
+      "sha256": "e771a424f44781565eb8dade4d72697574eaa7bc6068a2ea6d2cbe2941e670dc",
+      "bytes": 27145,
+      "modified_at": "2026-07-17T13:13:22.010Z",
+      "authority_class": "accepted integration source",
+      "status": "read-only donor",
+      "form": "mjs",
+      "source_role": "canonical donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/replaySync.mjs",
+      "sha256": "ea4bf77960c3731f2261e8639b552a1bf96ffdd234a10b708124c99bd84eb6c3",
+      "bytes": 8450,
+      "modified_at": "2026-07-17T13:33:33.823Z",
+      "authority_class": "accepted integration source",
+      "status": "read-only donor",
+      "form": "mjs",
+      "source_role": "canonical donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/service.mjs",
+      "sha256": "ac9cf0e87ab8639984f2b4f4cc5a8169543ad6482d54255c08d61d9790d3cb24",
+      "bytes": 44648,
+      "modified_at": "2026-07-17T14:19:53.027Z",
+      "authority_class": "accepted integration source",
+      "status": "read-only donor",
+      "form": "mjs",
+      "source_role": "canonical donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y2-3100-3101-os/handoffs/from_codex/Y2_3100_3101_REGISTRATION_RECEIPT.md",
+      "sha256": "ca2016aa0e23f40ba0b91fa16d02b4368b9a6fc668489cc56d3d3a05f17453df",
+      "bytes": 1171,
+      "modified_at": "2026-07-19T00:14:21.040Z",
+      "authority_class": "accepted integration source",
+      "status": "read-only donor",
+      "form": "md",
+      "source_role": "canonical donor"
+    }
+  ],
+  "package_checks": {
+    "cie_5000": {
+      "combined_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/Y1-CIE-5000_COMPLETE_COMBINED_HANDOFF.md",
+      "children": [
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/00_VISION_CONSTITUTION_LEARNING.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/01_ENGINES.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/02_MEASUREMENT_GROWTH_SCIENCE.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/03_EXPERIENCE.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000/04_STRATEGY_ROADMAP.md",
+          "occurrences_unabridged": 1
+        }
+      ],
+      "complete_unabridged_once": true
+    },
+    "cie_5000a": {
+      "combined_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/Y1-CIE-5000A_COMPLETE_COMBINED_HANDOFF.md",
+      "children": [
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_ATOMIC_SKILL_TAXONOMY.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_BULK_EDIT_ARCHIVE_AND_VERSIONING.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_CLINICAL_COMMUNICATION_EXPERT_FRAMEWORK.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_CODEX_IMPLEMENTATION_DELTA.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_CONSTITUTIONAL_ERRATA.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_EXECUTIVE_AMENDMENT.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_FRESH_CONTEXT_VERIFICATION.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_LAUNCH_SCENARIO_LIBRARY.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_OPPORTUNITY_ENGINE_REFINEMENT.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_RATIFICATION_RECOMMENDATION.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_SCENARIO_TO_SKILL_MATRIX.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_SKILL_CARD_SCHEMA.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_V1_V2_SCOPE_BOUNDARY.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-5000A/5000A_WORDPRESS_ADMIN_LIBRARY_MANAGEMENT.md",
+          "occurrences_unabridged": 1
+        }
+      ],
+      "complete_unabridged_once": true
+    },
+    "cie_9000": {
+      "combined_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/Y1-CIE-9000_COMPLETE_COMBINED_HANDOFF.md",
+      "children": [
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_01_MASTER_FEATURE_REGISTRY.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_02_CAPABILITY_CATALOG.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_03_FEATURE_TAXONOMY.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_04_INNOVATION_BACKLOG.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_05_RESEARCH_BACKLOG.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_06_DEFERRED_V2_PLUS.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_07_REJECTED_FEATURES.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_08_MISSING_OPPORTUNITIES.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_09_FIVE_YEAR_EVOLUTION_ROADMAP.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CIE-9000/9000_10_CODEX_PRIORITIZATION_MATRIX.md",
+          "occurrences_unabridged": 1
+        }
+      ],
+      "complete_unabridged_once": true
+    },
+    "c0": {
+      "combined_path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/Y1_CIE_C0_0001_COMPLETE_COMBINED_HANDOFF.md",
+      "children": [
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_ACCESSIBILITY_AND_UX.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_ARCHITECTURE_AND_ADOPTION.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_AUTHORITY_AND_OWNERSHIP.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_AUTHORIZATION_CONSENT_AND_PRIVACY.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_CONTRACTS_AND_SCHEMA.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_EXACT_NEXT_ACTION.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_EXECUTION_LEDGER.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_FINAL_RELEASE_STATUS.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_OPPORTUNITY_AND_PRIORITY.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_ROLLBACK_AND_RELEASE_PLAN.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_RUNTIME_IMPLEMENTATION.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_SECURITY_RED_TEAM.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_SPECIALIST_BOARD.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_TEST_AND_STRESS_REPORT.md",
+          "occurrences_unabridged": 1
+        },
+        {
+          "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_TIMELINE_MOMENT_REPLAY.md",
+          "occurrences_unabridged": 1
+        }
+      ],
+      "complete_unabridged_once": true
+    },
+    "c0_mirror": {
+      "canonical_path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/Y1_CIE_C0_0001_COMPLETE_COMBINED_HANDOFF.md",
+      "mirror_path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/_AI_HANDOFFS/from_codex/Y1_CIE_C0_0001/Y1_CIE_C0_0001_COMPLETE_COMBINED_HANDOFF.md",
+      "byte_identical": true,
+      "sha256": "dbdc0419da1290d422600b7448a22286d925f6fd043647caa05578d35e79222c"
+    },
+    "y2_3100": {
+      "combined_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_COMPLETE_COMBINED_HANDOFF.md",
+      "children": [
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_AI_INTERVIEWER_DECISION.md",
+          "occurrences_unabridged": 0
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_CODEX_DISCOVERY_BRIEF.md",
+          "occurrences_unabridged": 0
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_CONVERSATION_AND_SYSTEM_BLUEPRINT.md",
+          "occurrences_unabridged": 0
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_VENDOR_QUESTIONS.md",
+          "occurrences_unabridged": 0
+        },
+        {
+          "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100/Y2-3100_VERIFICATION_REPORT.md",
+          "occurrences_unabridged": 0
+        }
+      ],
+      "complete_unabridged_once": false
+    }
+  },
+  "conflicts": [
+    "Y2-3100_COMPLETE_COMBINED_HANDOFF.md is a continuation synopsis and embeds none of its five sibling documents unabridged; the exact decision and blueprint siblings control.",
+    "Y1-CIE-5000 is proposed and Y1-CIE-5000A is ready for ratification, not independently ratified; this founder ticket authorizes only the isolated synthetic Phase 0 implementation and does not activate C10.",
+    "Y1-CIE-5000A resolves taxonomy, schema, roadmap, and count conflicts through E7-E9; explicit errata control.",
+    "Skill semantic version and publication sequence use ambiguous source vocabulary; implementation must use distinct field names.",
+    "Y1 CAM has no product passport in the current MissionMed OS index; current runtime handoffs and exact source govern this read-only integration map.",
+    "CAM purpose-specific AI consent and long-session voice media are absent; Phase 0 remains synthetic text-only and cannot claim these boundaries exist.",
+    "CIE C0 is certified only as an isolated local foundation; its production PostgreSQL command adapter remains absent.",
+    "Y2 blueprint permits up to three probes while accepted IVOC law is stricter; the Brain applies the stricter one-probe cap at pressure rungs 0-1 and two at rung 2+."
+  ],
+  "missing_authority": [
+    "No CAM/IV Prep On-Call product passport is present in /Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS.",
+    "No production CIE adapter is authorized or present; this is a recorded future integration prerequisite, not a Phase 0 blocker."
+  ]
+}
