@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.grounding-ref.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "grounding_id", "source_kind", "source_id", "source_version", "source_hash", "turn_id", "span", "consent_receipt_ids", "authorization", "untrusted_data", "simulated", "content_hash"],
+  "properties": {
+    "contract_version": { "const": "missionmed.grounding-ref.v1" }, "grounding_id": { "type": "string" },
+    "source_kind": { "enum": ["synthetic_answer", "synthetic_domain_pack", "synthetic_instructor_focus"] },
+    "source_id": { "type": "string" }, "source_version": { "type": "string" }, "source_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "turn_id": { "type": ["string", "null"] },
+    "span": { "type": "object", "additionalProperties": false, "required": ["start", "end", "quote"], "properties": { "start": { "type": "integer", "minimum": 0 }, "end": { "type": "integer", "minimum": 1 }, "quote": { "type": "string" } } },
+    "consent_receipt_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "authorization": { "type": "object", "additionalProperties": false, "required": ["decision", "basis"], "properties": { "decision": { "const": "ALLOWED" }, "basis": { "const": "synthetic_phase0" } } },
+    "untrusted_data": { "const": true }, "simulated": { "const": true }, "content_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

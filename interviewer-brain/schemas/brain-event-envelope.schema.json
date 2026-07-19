@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.brain-event-envelope.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "event_id", "session_id", "sequence", "emitted_at", "actor", "event_type", "correlation_id", "causation_id", "idempotency_key", "privacy_zone", "payload", "payload_hash", "previous_event_hash", "event_hash"],
+  "properties": {
+    "contract_version": { "const": "missionmed.brain-event-envelope.v1" }, "event_id": { "type": "string" }, "session_id": { "type": "string" },
+    "sequence": { "type": "integer", "minimum": 1 }, "emitted_at": { "type": "string", "format": "date-time" },
+    "actor": { "type": "object", "additionalProperties": false, "required": ["type", "id"], "properties": { "type": { "enum": ["synthetic_applicant", "interviewer_brain", "system"] }, "id": { "type": "string" } } },
+    "event_type": { "enum": ["session.started", "applicant.turn.accepted", "interviewer.turn.decided", "session.reconnected", "session.completed", "session.aborted"] },
+    "correlation_id": { "type": "string" }, "causation_id": { "type": ["string", "null"] }, "idempotency_key": { "type": "string" },
+    "privacy_zone": { "const": "synthetic_phase0" }, "payload": { "type": "object" },
+    "payload_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }, "previous_event_hash": { "type": ["string", "null"] }, "event_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

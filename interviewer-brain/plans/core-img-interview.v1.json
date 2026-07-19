@@ -1,0 +1,30 @@
+{
+  "contract_version": "missionmed.interview-plan.v1",
+  "plan_id": "plan:core-img-interview",
+  "revision": 1,
+  "title": "Synthetic IMG Residency Interview Practice",
+  "mode": "synthetic_text_phase0",
+  "session_objective": "Practice concise, evidence-grounded residency interview responses with bounded formative follow-up.",
+  "persona_ref": {
+    "persona_id": "persona:warm-structured",
+    "revision": 1,
+    "content_hash": "1b6a255cecd9935634ce3c0562d5c50915ccb73f557498763fbfef535cad3697"
+  },
+  "duration_target_seconds": 1200,
+  "total_probe_budget": 6,
+  "question_families": ["behavioral", "general", "professional_timeline"],
+  "required_coverage": ["introduction", "teamwork", "learning"],
+  "optional_coverage": ["professional_timeline"],
+  "transition_conditions": ["answer_complete", "probe_cap_reached", "low_instructional_value", "sensitive_boundary"],
+  "callback_opportunities": ["material_early_claim_after_ten_turns", "unresolved_professional_thread"],
+  "wrap_up_criteria": ["required_coverage_complete", "time_budget_reached", "last_question_complete"],
+  "questions": [
+    { "question_id": "question:introduction", "prompt": "Please introduce yourself and tell me what led you toward this specialty.", "category": "general", "pressure_rung": 0, "focus_tags": ["introduction"], "red_flag_boundary": null, "wrap_up": false },
+    { "question_id": "question:teamwork", "prompt": "Tell me about a time you worked through a difficult team situation.", "category": "behavioral", "pressure_rung": 1, "focus_tags": ["teamwork", "communication"], "red_flag_boundary": null, "wrap_up": false },
+    { "question_id": "question:timeline", "prompt": "Please walk me through a challenging point in your professional timeline and the steps you took afterward.", "category": "red_flag", "pressure_rung": 2, "focus_tags": ["timeline", "learning"], "red_flag_boundary": "Clarify chronology, action, outcome, or learning only; do not solicit protected or medical details.", "wrap_up": false },
+    { "question_id": "question:closing", "prompt": "What would you like an interviewer to understand about how you approach learning and teamwork?", "category": "general", "pressure_rung": 0, "focus_tags": ["learning", "teamwork"], "red_flag_boundary": null, "wrap_up": true }
+  ],
+  "restricted_topics": ["ancestry", "citizenship", "criminal_history", "disability", "family_status", "medical_history", "religion", "sexual_orientation"],
+  "synthetic_only": true,
+  "content_hash": "a61bdcd785092293fc63e1f3ef50f3616cf92b1b72b7a011f3172eba7c11adfd"
+}

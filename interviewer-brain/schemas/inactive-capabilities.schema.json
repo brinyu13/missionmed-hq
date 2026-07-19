@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.inactive-capabilities.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "capability", "activation_state", "provider", "accepted_writes", "content_hash"],
+  "properties": {
+    "contract_version": { "enum": ["missionmed.voice-rail-adapter.v1", "missionmed.avatar-adapter.v1"] },
+    "capability": { "enum": ["voice", "avatar"] }, "activation_state": { "const": "INACTIVE" }, "provider": { "type": "null" }, "accepted_writes": { "const": false }, "content_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

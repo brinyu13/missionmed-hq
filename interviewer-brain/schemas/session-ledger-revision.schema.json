@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.session-ledger-revision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "session_id", "revision", "last_event_sequence", "previous_revision_hash", "reconnect_epoch", "persona_ref", "plan_ref", "policy_ref", "model_ref", "claims", "topics", "callbacks", "threads", "possible_inconsistencies", "star_coverage", "status", "content_hash"],
+  "properties": {
+    "contract_version": { "const": "missionmed.session-ledger-revision.v1" }, "session_id": { "type": "string" }, "revision": { "type": "integer", "minimum": 1 }, "last_event_sequence": { "type": "integer", "minimum": 1 },
+    "previous_revision_hash": { "type": ["string", "null"] }, "reconnect_epoch": { "type": "integer", "minimum": 0 },
+    "persona_ref": { "type": "object" }, "plan_ref": { "type": "object" }, "policy_ref": { "type": "object" }, "model_ref": { "type": "object" },
+    "claims": { "type": "array", "items": { "type": "object" } }, "topics": { "type": "array", "items": { "type": "object" } }, "callbacks": { "type": "array", "items": { "type": "object" }, "maxItems": 10000 },
+    "threads": { "type": "array", "items": { "type": "object" } }, "possible_inconsistencies": { "type": "array", "items": { "type": "object" } },
+    "star_coverage": { "type": "object", "additionalProperties": false, "required": ["situation", "task", "action", "result", "reflection"], "properties": { "situation": { "type": "boolean" }, "task": { "type": "boolean" }, "action": { "type": "boolean" }, "result": { "type": "boolean" }, "reflection": { "type": "boolean" } } },
+    "status": { "enum": ["ACTIVE", "RECOVERING", "COMPLETE", "ABORTED"] }, "content_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

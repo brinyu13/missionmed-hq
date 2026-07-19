@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "missionmed.interviewer-turn-decision.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "decision_id", "session_id", "turn_id", "move", "utterance", "grounding_ref_ids", "policy_rule", "probe_index", "probe_cap", "active_thread_id", "unresolved_item_ids", "possible_inconsistency_ref_ids", "guardrails", "decision_uncertainty", "instructor_rationale_tags", "content_hash"],
+  "properties": {
+    "contract_version": { "const": "missionmed.interviewer-turn-decision.v1" }, "decision_id": { "type": "string" }, "session_id": { "type": "string" }, "turn_id": { "type": "string" },
+    "move": { "enum": ["clarification", "context", "evidence", "outcome", "reflection", "star_gap", "callback", "focus", "inconsistency", "transition", "wrap_up", "designed_recovery", "red_flag_clarification", "silence_recovery", "policy_refusal", "injection_defense"] },
+    "utterance": { "type": "string" }, "grounding_ref_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }, "policy_rule": { "type": "string" },
+    "probe_index": { "type": "integer", "minimum": 0, "maximum": 2 }, "probe_cap": { "type": "integer", "minimum": 1, "maximum": 2 }, "active_thread_id": { "type": ["string", "null"] },
+    "unresolved_item_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }, "possible_inconsistency_ref_ids": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "guardrails": { "type": "object", "additionalProperties": false, "required": ["grounded_or_silent", "sensitive_boundary", "prohibited_inference", "persona_consistency", "prompt_injection"], "properties": { "grounded_or_silent": { "enum": ["PASS", "BLOCKED"] }, "sensitive_boundary": { "enum": ["PASS", "BLOCKED"] }, "prohibited_inference": { "enum": ["PASS", "BLOCKED"] }, "persona_consistency": { "enum": ["PASS", "BLOCKED"] }, "prompt_injection": { "enum": ["PASS", "BLOCKED"] } } },
+    "decision_uncertainty": { "enum": ["LOW", "MEDIUM", "ABSTAIN"] }, "instructor_rationale_tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true }, "content_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+  }
+}

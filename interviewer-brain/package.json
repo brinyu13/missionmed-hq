@@ -1,0 +1,21 @@
+{
+  "name": "@missionmed/interviewer-brain-phase0",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated synthetic text-first MissionMed Interviewer Brain proof harness",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "check": "find src tests scripts -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check",
+    "typecheck": "../node_modules/.bin/tsc --allowJs --noEmit --checkJs false --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext src/*.mjs src/adapters/*.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "evaluate:development": "node scripts/run-development-evaluation.mjs",
+    "evaluate:holdout": "node scripts/run-frozen-holdout.mjs",
+    "test:stress": "node scripts/run-stress.mjs",
+    "scan:security": "node scripts/run-security-scan.mjs",
+    "freeze:policy": "node scripts/freeze-policy.mjs",
+    "verify": "node scripts/run-verification.mjs"
+  }
+}
