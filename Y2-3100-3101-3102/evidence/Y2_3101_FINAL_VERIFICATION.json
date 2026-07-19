@@ -1,6 +1,6 @@
 {
   "contract_version": "missionmed.y2.phase0-final-verification.v1",
-  "generated_at": "2026-07-19T01:39:03.433Z",
+  "generated_at": "2026-07-19T01:59:28.612Z",
   "expected_outcome": "KILL_RULE_TRIGGERED",
   "commands": [
     {
@@ -56,7 +56,7 @@
         "ℹ cancelled 0",
         "ℹ skipped 0",
         "ℹ todo 0",
-        "ℹ duration_ms 1937.698875"
+        "ℹ duration_ms 1792.903917"
       ],
       "stderr_tail": [
         ""
@@ -119,6 +119,22 @@
       ]
     },
     {
+      "name": "artifact_privacy_scan",
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/run-artifact-scan.mjs"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "pass": true,
+      "stdout_tail": [
+        "{\"output\":\"/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_ARTIFACT_PRIVACY_SCAN.json\",\"scanned_files\":97,\"findings\":0,\"pass\":true}"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    },
+    {
       "name": "frozen_holdout_expected_kill",
       "command": [
         "/usr/local/bin/node",
@@ -157,8 +173,27 @@
     ],
     "holdout_deterministic": true,
     "git_status_lines": [
-      "?? Y2-3100-3101-3102/evidence/",
-      "?? interviewer-brain/"
+      " M Y2-3100-3101-3102/evidence/Y2_3101_FINAL_VERIFICATION.json",
+      " M Y2-3100-3101-3102/evidence/Y2_3101_FROZEN_HOLDOUT_EVALUATION.json",
+      " M interviewer-brain/scripts/holdout-compat.mjs",
+      " M interviewer-brain/scripts/run-verification.mjs",
+      "?? Y2-3100-3101-3102/Y2_3101_BRAIN_ARCHITECTURE.md",
+      "?? Y2-3100-3101-3102/Y2_3101_CONTRACTS_AND_SCHEMAS.md",
+      "?? Y2-3100-3101-3102/Y2_3101_EXECUTION_LEDGER.md",
+      "?? Y2-3100-3101-3102/Y2_3101_FINAL_STATUS_AND_NEXT_ACTION.md",
+      "?? Y2-3100-3101-3102/Y2_3101_FOLLOWUP_POLICY_AND_GUARDRAILS.md",
+      "?? Y2-3100-3101-3102/Y2_3101_HOLDOUT_EVALUATION.md",
+      "?? Y2-3100-3101-3102/Y2_3101_INSTRUCTOR_VISIBILITY_REVIEW.md",
+      "?? Y2-3100-3101-3102/Y2_3101_LEDGER_MEMORY_AND_RECONNECTION.md",
+      "?? Y2-3100-3101-3102/Y2_3101_MODEL_VOICE_AND_AVATAR_ADAPTERS.md",
+      "?? Y2-3100-3101-3102/Y2_3101_PERSONA_PACKS_AND_INTERVIEW_PLANS.md",
+      "?? Y2-3100-3101-3102/Y2_3101_POLICY_ITERATION_REPORT.md",
+      "?? Y2-3100-3101-3102/Y2_3101_SECURITY_PRIVACY_AND_PROVENANCE.md",
+      "?? Y2-3100-3101-3102/Y2_3101_SPECIALIST_BOARD.md",
+      "?? Y2-3100-3101-3102/Y2_3101_SYNTHETIC_FIXTURES.md",
+      "?? Y2-3100-3101-3102/Y2_3101_TEST_AND_EVALUATION_REPORT.md",
+      "?? Y2-3100-3101-3102/evidence/Y2_3101_ARTIFACT_PRIVACY_SCAN.json",
+      "?? interviewer-brain/scripts/run-artifact-scan.mjs"
     ],
     "scope_violations": [],
     "y1_source_mutation_absent": true,

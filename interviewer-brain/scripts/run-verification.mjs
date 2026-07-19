@@ -52,6 +52,7 @@ const commands = [
     "scripts/run-security-scan.mjs",
     "--output", resolve(EVIDENCE, "Y2_3101_SECURITY_SCAN.json"),
   ]),
+  run("artifact_privacy_scan", process.execPath, ["scripts/run-artifact-scan.mjs"]),
   run("frozen_holdout_expected_kill", process.execPath, [
     "scripts/run-frozen-holdout.mjs",
     "--expected-hash", EXPECTED_HOLDOUT_HASH,
@@ -64,13 +65,16 @@ const manifestPath = "/tmp/Y2_3101_FROZEN_HOLDOUT/manifest.json";
 const holdoutReport = JSON.parse(await readFile(resolve(EVIDENCE, "Y2_3101_FROZEN_HOLDOUT_EVALUATION.json"), "utf8"));
 const policy = await buildPolicySnapshot();
 const git = spawnSync("git", ["-C", REPOSITORY, "status", "--porcelain"], { encoding: "utf8" });
-const statusLines = (git.stdout ?? "").trim().split("\n").filter(Boolean);
-const allowedPrefixes = [
-  "?? Y2-3100-3101-3102/",
-  "?? interviewer-brain/",
-  "?? _AI_HANDOFFS/from_codex/Y2_3100_3101_3102/",
+const statusLines = (git.stdout ?? "").split("\n").filter(Boolean);
+const allowedRoots = [
+  "Y2-3100-3101-3102/",
+  "interviewer-brain/",
+  "_AI_HANDOFFS/from_codex/Y2_3100_3101_3102/",
 ];
-const scopeViolations = statusLines.filter((line) => !allowedPrefixes.some((prefix) => line.startsWith(prefix)));
+const scopeViolations = statusLines.filter((line) => {
+  const path = line.slice(3).split(" -> ").at(-1);
+  return !allowedRoots.some((root) => path.startsWith(root));
+});
 
 const invariants = {
   policy_hash: policy.aggregate_sha256,
