@@ -1,0 +1,12 @@
+{
+  "contract_version": "missionmed.y2.security-scan.v1",
+  "scanned_source_files": 13,
+  "source_findings": [],
+  "zero_runtime_dependencies": true,
+  "synthetic_fixture_package": true,
+  "synthetic_personas": true,
+  "synthetic_plan": true,
+  "voice_inactive": true,
+  "avatar_inactive": true,
+  "pass": true
+}

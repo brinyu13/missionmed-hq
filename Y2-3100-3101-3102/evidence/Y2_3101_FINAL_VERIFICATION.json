@@ -1,0 +1,170 @@
+{
+  "contract_version": "missionmed.y2.phase0-final-verification.v1",
+  "generated_at": "2026-07-19T01:39:03.433Z",
+  "expected_outcome": "KILL_RULE_TRIGGERED",
+  "commands": [
+    {
+      "name": "syntax",
+      "command": [
+        "npm",
+        "run",
+        "check"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "pass": true,
+      "stdout_tail": [
+        "> @missionmed/interviewer-brain-phase0@0.1.0 check",
+        "> find src tests scripts -type f -name '*.mjs' -print0 | xargs -0 -n1 node --check"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    },
+    {
+      "name": "typecheck",
+      "command": [
+        "npm",
+        "run",
+        "typecheck"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "pass": true,
+      "stdout_tail": [
+        "> @missionmed/interviewer-brain-phase0@0.1.0 typecheck",
+        "> ../node_modules/.bin/tsc --allowJs --noEmit --checkJs false --skipLibCheck --target ES2022 --module NodeNext --moduleResolution NodeNext src/*.mjs src/adapters/*.mjs"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    },
+    {
+      "name": "unit_and_integration",
+      "command": [
+        "npm",
+        "test"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "pass": true,
+      "stdout_tail": [
+        "ℹ tests 25",
+        "ℹ suites 0",
+        "ℹ pass 25",
+        "ℹ fail 0",
+        "ℹ cancelled 0",
+        "ℹ skipped 0",
+        "ℹ todo 0",
+        "ℹ duration_ms 1937.698875"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    },
+    {
+      "name": "development_evaluation",
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/run-development-evaluation.mjs",
+        "--label",
+        "post-holdout-policy-v3-reverification",
+        "--output",
+        "/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_DEVELOPMENT_REVERIFY.json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "pass": true,
+      "stdout_tail": [
+        "{\"output\":\"/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_DEVELOPMENT_REVERIFY.json\",\"fixture_count\":20,\"fixture_passes\":20,\"metrics\":{\"T1\":true,\"T2\":true,\"T3\":true,\"T4\":true,\"T5\":true,\"T6\":true,\"T7\":true},\"determinism\":true,\"decision\":\"CONTINUE\",\"pass\":true}"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    },
+    {
+      "name": "stress",
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/run-stress.mjs",
+        "--output",
+        "/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_STRESS_RESULTS.json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "pass": true,
+      "stdout_tail": [
+        "{\"output\":\"/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_STRESS_RESULTS.json\",\"deterministic_fixture_count\":20,\"iterations_per_fixture\":100,\"long_session_events\":1000,\"stale_writer_denied\":true,\"pass\":true}"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    },
+    {
+      "name": "security",
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/run-security-scan.mjs",
+        "--output",
+        "/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_SECURITY_SCAN.json"
+      ],
+      "exit_code": 0,
+      "expected_exit_code": 0,
+      "pass": true,
+      "stdout_tail": [
+        "{\"output\":\"/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_SECURITY_SCAN.json\",\"scanned_source_files\":13,\"findings\":0,\"zero_runtime_dependencies\":true,\"pass\":true}"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    },
+    {
+      "name": "frozen_holdout_expected_kill",
+      "command": [
+        "/usr/local/bin/node",
+        "scripts/run-frozen-holdout.mjs",
+        "--expected-hash",
+        "eaf3494e6d763401ec5b7512ddfdeb38ea45e596758f467ee89b933888bdb0d2",
+        "--output",
+        "/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_FROZEN_HOLDOUT_EVALUATION.json"
+      ],
+      "exit_code": 1,
+      "expected_exit_code": 1,
+      "pass": true,
+      "stdout_tail": [
+        "{\"output\":\"/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_FROZEN_HOLDOUT_EVALUATION.json\",\"case_count\":76,\"atomic_result_count\":91,\"atomic_passes\":3,\"metrics\":{\"T1\":false,\"T2\":true,\"T3\":false,\"T4\":false,\"T5\":false,\"T6\":false,\"T7\":false},\"kill_rule\":{\"triggered\":true,\"reason\":\"CENTRAL_CAPABILITY_MATERIAL_FAILURE_AFTER_TWO_POLICY_ITERATIONS\",\"central_failures\":[\"T1\",\"T3\",\"T4\"]},\"checksum_unchanged\":true,\"pass\":false}"
+      ],
+      "stderr_tail": [
+        ""
+      ]
+    }
+  ],
+  "invariants": {
+    "policy_hash": "764d711be19c54d81e96b2e2638904c4db2628c7585cb6ef110e4b16885b53d4",
+    "expected_policy_hash": "764d711be19c54d81e96b2e2638904c4db2628c7585cb6ef110e4b16885b53d4",
+    "policy_unchanged": true,
+    "holdout_hash": "eaf3494e6d763401ec5b7512ddfdeb38ea45e596758f467ee89b933888bdb0d2",
+    "expected_holdout_hash": "eaf3494e6d763401ec5b7512ddfdeb38ea45e596758f467ee89b933888bdb0d2",
+    "holdout_unchanged": true,
+    "holdout_manifest_hash": "b62e4db4e5646eb08f5278a32f6d49c12b18d28031bc0388ecd6ecc3f8c67c81",
+    "holdout_report_checksum_unchanged": true,
+    "holdout_kill_rule_triggered": true,
+    "holdout_kill_reason": "CENTRAL_CAPABILITY_MATERIAL_FAILURE_AFTER_TWO_POLICY_ITERATIONS",
+    "holdout_central_failures": [
+      "T1",
+      "T3",
+      "T4"
+    ],
+    "holdout_deterministic": true,
+    "git_status_lines": [
+      "?? Y2-3100-3101-3102/evidence/",
+      "?? interviewer-brain/"
+    ],
+    "scope_violations": [],
+    "y1_source_mutation_absent": true,
+    "external_network_or_provider_used": false,
+    "production_or_staging_mutated": false,
+    "real_applicant_data_used": false
+  },
+  "pass": true
+}

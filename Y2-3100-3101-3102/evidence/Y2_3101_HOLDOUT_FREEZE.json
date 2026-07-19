@@ -1,0 +1,27 @@
+{
+  "contract_version": "missionmed.y2.holdout-freeze.v1",
+  "mission_id": "Y2-3100-3101-3102",
+  "status": "FROZEN_BEFORE_POLICY_IMPLEMENTATION",
+  "holdout_path": "/tmp/Y2_3101_FROZEN_HOLDOUT/holdout.json",
+  "holdout_bytes": 269978,
+  "holdout_sha256": "eaf3494e6d763401ec5b7512ddfdeb38ea45e596758f467ee89b933888bdb0d2",
+  "manifest_path": "/tmp/Y2_3101_FROZEN_HOLDOUT/manifest.json",
+  "manifest_bytes": 1301,
+  "manifest_sha256": "b62e4db4e5646eb08f5278a32f6d49c12b18d28031bc0388ecd6ecc3f8c67c81",
+  "permissions": "0600",
+  "case_count": 76,
+  "category_counts": {
+    "adaptivity": 6,
+    "counterfactuals": 4,
+    "contradiction": 8,
+    "star": 8,
+    "injection": 8,
+    "long_memory_callback": 10,
+    "forced_reconnect": 10,
+    "persona_consistency": 10,
+    "recovery": 8,
+    "transcript_summary": 4
+  },
+  "implementation_access": "Fixture text and evaluator labels were not disclosed to the supervisor or implementation agents before policy freeze.",
+  "invalidation_rule": "Any holdout or manifest checksum change invalidates the final holdout result."
+}

@@ -1,0 +1,154 @@
+{
+  "contract_version": "missionmed.y2.policy-freeze.v1",
+  "state": "POLICY_FROZEN_BEFORE_HOLDOUT_OPEN",
+  "frozen_at": "2026-07-19T01:23:30.125Z",
+  "policy_ref": {
+    "policy_id": "missionmed.interviewer-policy.phase0",
+    "revision": 3,
+    "content_hash": "4293b7170419570882f09ce35760f061263a856a77d617851bc37365a27c13bc"
+  },
+  "policy_snapshot": {
+    "root": "/Users/brianb/MissionMed_worktrees/Y2-3100-3101/interviewer-brain",
+    "files": [
+      {
+        "path": "package.json",
+        "bytes": 945,
+        "sha256": "f113217186d12925d2db941282d1b65fc115c963d834a0bc0e74c7c1f10e05f1"
+      },
+      {
+        "path": "personas/direct-program-director.v1.json",
+        "bytes": 1654,
+        "sha256": "4cbb41d61de717a5dc2b041616c0acca5b0ec6d2a7ed0c94b004ad5b624d940e"
+      },
+      {
+        "path": "personas/warm-structured.v1.json",
+        "bytes": 1618,
+        "sha256": "90e1c6b8dc88450f61598f7fad434f6d21d6de42b4348ecab9277a9d24e1a2ef"
+      },
+      {
+        "path": "plans/core-img-interview.v1.json",
+        "bytes": 2557,
+        "sha256": "58d8dc4f78a076149293570874ed2b7d2efe2797d34c7a92687b3e606680783b"
+      },
+      {
+        "path": "schemas/brain-event-envelope.schema.json",
+        "bytes": 1482,
+        "sha256": "87ac50a767b4f06c5b894d4d268f2a45280c397bb3f35e8918806c18532a801c"
+      },
+      {
+        "path": "schemas/grounding-ref.schema.json",
+        "bytes": 1492,
+        "sha256": "5385e84b8d3fc4134823a0ae77404dd2dcb2b0a2a6079a5dfdac24b45c0b7581"
+      },
+      {
+        "path": "schemas/inactive-capabilities.schema.json",
+        "bytes": 644,
+        "sha256": "ecb45b14be9f67ae1166e748913d8754e9ef5a1b9bdafdc26db6dbe7cc3e2e2f"
+      },
+      {
+        "path": "schemas/interview-plan.schema.json",
+        "bytes": 2691,
+        "sha256": "43ade18629fefc2945a7bc0592331c1978825b3e38d337377c9ad10209f1042f"
+      },
+      {
+        "path": "schemas/interviewer-turn-decision.schema.json",
+        "bytes": 2262,
+        "sha256": "146a48d445ee1f0ff048d9ebc1cac955f3c987cdc0501c92999477db75bf5bfd"
+      },
+      {
+        "path": "schemas/model-adapter.schema.json",
+        "bytes": 763,
+        "sha256": "f395fd724423b2298f9bd7fcdfa28b2ce93c2ae7a30c190d94728a7d57b58b77"
+      },
+      {
+        "path": "schemas/persona-pack.schema.json",
+        "bytes": 2928,
+        "sha256": "11e19d6114828638733afb368935d08cb664ae414f8420fd2ad9a30d15e182b5"
+      },
+      {
+        "path": "schemas/session-ledger-revision.schema.json",
+        "bytes": 1807,
+        "sha256": "bc9439c71db896638863f709032025af8925dae64665cabe98189b5a09bae4a0"
+      },
+      {
+        "path": "src/adapters/inactiveCapabilityAdapter.mjs",
+        "bytes": 1191,
+        "sha256": "08f7342c5ce1e156ce261e07c6dc8f8778e42b469abea7f0f261a195d944cc7f"
+      },
+      {
+        "path": "src/adapters/ruleModelAdapter.mjs",
+        "bytes": 8435,
+        "sha256": "2fa87b82104b4d3f9a73084977a520a1c5f6d7071af2c9f683ebd67ddc73852d"
+      },
+      {
+        "path": "src/brain.mjs",
+        "bytes": 5484,
+        "sha256": "df8b188f1f2e16e0137ac1bafe4287173205b2a416e440f3d370a611dd15d912"
+      },
+      {
+        "path": "src/canonical.mjs",
+        "bytes": 3425,
+        "sha256": "8884c571cc0b46461aa06d84eb89dc54d57631cfd6e3248ab258f762dc967f7d"
+      },
+      {
+        "path": "src/contracts.mjs",
+        "bytes": 24434,
+        "sha256": "16dc5a012f8a9294fd8818675977065bfa375ef5784f251411c1dee90109470b"
+      },
+      {
+        "path": "src/errors.mjs",
+        "bytes": 434,
+        "sha256": "f08a14680522d93b53974c9af864ff95e9e7e27f3724a6a700a351a0fba11fa8"
+      },
+      {
+        "path": "src/fileSessionLedger.mjs",
+        "bytes": 7150,
+        "sha256": "9fd7346f45f2efa69469072409f23fc6c938e4b8820509dbeb1f4c0091fb577a"
+      },
+      {
+        "path": "src/grounding.mjs",
+        "bytes": 1257,
+        "sha256": "71e6c4507f7b2ae58377b0b50d1f960b24346c4f2c7a99b80a63c9f843f96e8d"
+      },
+      {
+        "path": "src/index.mjs",
+        "bytes": 596,
+        "sha256": "e1d360e2b2141c961b301e4202c47357f3e4955e5233ea1440c02046d206f9e2"
+      },
+      {
+        "path": "src/instructorReport.mjs",
+        "bytes": 2276,
+        "sha256": "77ad95811b7091e9e5d3d86d2144db111e4fc10ce2a146cc9db6cf8b0908859c"
+      },
+      {
+        "path": "src/ledgerState.mjs",
+        "bytes": 3236,
+        "sha256": "f13836999b39b8d3bbc875bc88787005a6aabca27ee22f23bb50fd16974935de"
+      },
+      {
+        "path": "src/loadAssets.mjs",
+        "bytes": 351,
+        "sha256": "0ceb791816221ba60b9345c6a572e3d7f066cd3f7d16e068012e72ce39b0cad2"
+      },
+      {
+        "path": "src/policyEngine.mjs",
+        "bytes": 9905,
+        "sha256": "a1fd8b84ee6333c06c63b0bb28640bb61c3f6a6ba3f03953366df777326a0d5d"
+      }
+    ],
+    "aggregate_sha256": "764d711be19c54d81e96b2e2638904c4db2628c7585cb6ef110e4b16885b53d4"
+  },
+  "development_evaluation": {
+    "path": "/Users/brianb/MissionMed_worktrees/Y2-3100-3101/Y2-3100-3101-3102/evidence/Y2_3101_DEVELOPMENT_FINAL.json",
+    "sha256": "e90a46969cdbf22e10b0cfa8c791e1cb082d1b85f2d87142441e3f377caaa2a5",
+    "fixture_count": 20,
+    "pass": true
+  },
+  "holdout_package_unopened": {
+    "path": "/tmp/Y2_3101_FROZEN_HOLDOUT/holdout.json",
+    "sha256": "eaf3494e6d763401ec5b7512ddfdeb38ea45e596758f467ee89b933888bdb0d2",
+    "manifest_path": "/tmp/Y2_3101_FROZEN_HOLDOUT/manifest.json",
+    "manifest_sha256": "b62e4db4e5646eb08f5278a32f6d49c12b18d28031bc0388ecd6ecc3f8c67c81",
+    "case_count": 76
+  }
+}

@@ -1,0 +1,113 @@
+{
+  "contract_version": "missionmed.y2.brain-stress.v1",
+  "deterministic_fixture_count": 20,
+  "deterministic_iterations_per_fixture": 100,
+  "deterministic_rows": [
+    {
+      "fixture_id": "ADAPT-RAMBLER-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "ADAPT-SHORT-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "CF-TEAM-CLINIC-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "CF-TEAM-RESEARCH-002",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "STAR-MISSING-RESULT-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "STAR-COMPLETE-NEGATIVE-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "CON-DATE-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "CON-CONSISTENT-NEGATIVE-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "INJ-SYSTEM-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "INJ-ENCODED-002",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "REC-SILENCE-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "REC-IRRELEVANT-002",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "RED-FLAG-EXAM-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "SENSITIVE-FAMILY-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "MATCH-PREDICTION-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "MEM-RECONNECT-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "PERSONA-WARM-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "PERSONA-DIRECT-002",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "CAP-RUNG0-001",
+      "iterations": 100,
+      "identical": true
+    },
+    {
+      "fixture_id": "CAP-RUNG2-002",
+      "iterations": 100,
+      "identical": true
+    }
+  ],
+  "long_session_target_events": 1000,
+  "long_session_actual_events": 1000,
+  "long_session_revision_count": 1000,
+  "stale_writer_denied": true,
+  "stale_writer_rollback_verified": true,
+  "pass": true
+}
