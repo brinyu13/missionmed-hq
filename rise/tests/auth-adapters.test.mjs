@@ -28,6 +28,8 @@ test("HQ adapter introspects the exact audience and exposes only a bound RISE se
       authenticated: true,
       sessionPersistent: true,
       authAudience: "rise",
+      revoked: false,
+      revokedAt: null,
       csrfToken: "upstreamCsrfTokenForRise00000000",
       expiresAt: "2026-07-22T13:00:00.000Z",
       accessToken: "must-never-leave-the-adapter",
@@ -69,15 +71,21 @@ test("HQ adapter introspects the exact audience and exposes only a bound RISE se
   }
 });
 
-test("HQ adapter rejects expired, revoked, and audience-drifted upstream sessions", async () => {
+test("HQ adapter rejects expired, revoked, malformed-revocation, and audience-drifted upstream sessions", async () => {
   let mode = "expired";
   const fixture = await listen((_request, response) => {
     response.writeHead(200, { "Content-Type": "application/json" });
+    const revocation = mode === "revoked" ? { revoked: true, revokedAt: "2026-07-22T11:30:00.000Z" }
+      : mode === "revoked-string" ? { revoked: "true", revokedAt: null }
+        : mode === "revoked-number" ? { revoked: 1, revokedAt: null }
+          : mode === "revoked-date-empty" ? { revoked: false, revokedAt: "" }
+            : mode === "revocation-omitted" ? {}
+              : { revoked: false, revokedAt: null };
     response.end(JSON.stringify({
       authenticated: true,
       sessionPersistent: true,
       authAudience: mode === "audience" ? "arena" : "rise",
-      revoked: mode === "revoked",
+      ...revocation,
       csrfToken: "upstreamCsrfTokenForRise00000000",
       expiresAt: mode === "expired" ? "2026-07-22T11:59:00.000Z" : "2026-07-22T13:00:00.000Z",
       user: { id: 7, roles: ["administrator"] },
@@ -91,8 +99,10 @@ test("HQ adapter rejects expired, revoked, and audience-drifted upstream session
       now: () => Date.parse("2026-07-22T12:00:00.000Z"),
     });
     assert.equal(await authenticate({ headers: { cookie: "mmhq_session=expired" } }), null);
-    mode = "revoked";
-    assert.equal(await authenticate({ headers: { cookie: "mmhq_session=revoked" } }), null);
+    for (const invalidMode of ["revoked", "revoked-string", "revoked-number", "revoked-date-empty", "revocation-omitted"]) {
+      mode = invalidMode;
+      assert.equal(await authenticate({ headers: { cookie: `mmhq_session=${invalidMode}` } }), null);
+    }
     mode = "audience";
     assert.equal(await authenticate({ headers: { cookie: "mmhq_session=wrong-audience" } }), null);
   } finally {
@@ -165,7 +175,10 @@ test("source-rights adapter requires a fresh release-bound decision and fails cl
     });
     const input = { registryReleaseId: "rise_registry_test", authorizationSha256s: [authorizationSha256] };
     assert.equal(controller.scope, "shared_durable_current");
-    assert.equal(await controller.assertCurrent(input), true);
+    const decision = await controller.assertCurrent(input);
+    assert.equal(decision.current, true);
+    assert.equal(decision.decisionId, "source-rights-decision-test");
+    assert.equal(decision.checkedAt, "2026-07-22T12:00:00.000Z");
     assert.equal(observed[0].authorization, "Bearer rights-test-token-0000000000000000");
     assert.deepEqual(observed[0].body.authorizationSha256s, [authorizationSha256]);
     for (const invalidMode of ["revoked", "stale", "wrong-release", "wrong-authorization", "overlong"]) {

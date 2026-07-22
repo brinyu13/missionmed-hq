@@ -387,12 +387,14 @@ test("injected sessions reject issuer drift, expiration, and revocation", async 
   const guarded = createRiseServer({
     registryIndex,
     authMode: "injected",
-    authIssuer: AUTH_ISSUER,
+    authIssuer: `${AUTH_ISSUER}/`,
     authenticator: async (request) => {
       const mode = request.headers["x-test-session"];
       if (mode === "issuer") return authenticatedSession({ issuer: "https://evil.example.test" });
       if (mode === "expired") return authenticatedSession({ expiresAt: new Date(Date.now() - 1_000).toISOString() });
       if (mode === "revoked") return authenticatedSession({ revoked: true });
+      if (mode === "revoked-malformed") return authenticatedSession({ revoked: "true" });
+      if (mode === "revoked-at-malformed") return authenticatedSession({ revokedAt: "" });
       return authenticatedSession();
     },
     logger: { info() {}, error() {} },
@@ -400,7 +402,7 @@ test("injected sessions reject issuer drift, expiration, and revocation", async 
   await new Promise((resolve) => guarded.listen(0, "127.0.0.1", resolve));
   const guardedBase = `http://127.0.0.1:${guarded.address().port}`;
   try {
-    for (const mode of ["issuer", "expired", "revoked"]) {
+    for (const mode of ["issuer", "expired", "revoked", "revoked-malformed", "revoked-at-malformed"]) {
       assert.equal((await fetch(`${guardedBase}/api/rise/v1/status`, {
         headers: { "X-Test-Session": mode },
       })).status, 401);
@@ -446,6 +448,7 @@ test("production source rights fail closed after activation when the live decisi
   const source = sourceControlledIndex();
   let current = true;
   let controllerUnavailable = false;
+  const logs = [];
   const guarded = createRiseServer({
     registryIndex: activeProductionIndex(source.index),
     authMode: "injected",
@@ -463,16 +466,17 @@ test("production source rights fail closed after activation when the live decisi
       scope: "shared_durable_current",
       async assertCurrent() {
         if (controllerUnavailable) throw new Error("controller unavailable");
-        return current;
+        return current ? { current: true, decisionId: "source-rights-live-test" } : false;
       },
     },
-    logger: { info() {}, error() {} },
+    logger: { info(entry) { logs.push(entry); }, error() {} },
   });
   await new Promise((resolve) => guarded.listen(0, "127.0.0.1", resolve));
   const origin = `http://127.0.0.1:${guarded.address().port}`;
   try {
     assert.equal((await fetch(`${origin}/api/rise/v1/health`)).status, 200);
     assert.equal((await fetch(`${origin}/api/rise/v1/status`)).status, 200);
+    assert.ok(logs.some((entry) => entry.sourceRightsDecisionId === "source-rights-live-test"));
     current = false;
     assert.equal((await fetch(`${origin}/api/rise/v1/health`)).status, 503);
     const blocked = await fetch(`${origin}/api/rise/v1/status`);

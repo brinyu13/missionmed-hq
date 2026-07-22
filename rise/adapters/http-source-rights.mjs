@@ -101,7 +101,14 @@ export function createRiseSourceRightsController({
         if (!response.ok || !String(response.headers.get("content-type") ?? "").toLowerCase().includes("application/json")) {
           return false;
         }
-        return validDecision(await readLimitedJson(response), request, now());
+        const payload = await readLimitedJson(response);
+        if (!validDecision(payload, request, now())) return false;
+        return {
+          current: true,
+          decisionId: payload.decisionId.trim(),
+          checkedAt: new Date(Date.parse(payload.checkedAt)).toISOString(),
+          validUntil: new Date(Date.parse(payload.validUntil)).toISOString(),
+        };
       } catch {
         return false;
       }

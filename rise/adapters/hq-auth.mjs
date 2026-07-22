@@ -100,8 +100,8 @@ export function createHqAuthenticator({
     if (
       payload?.authenticated !== true ||
       payload?.sessionPersistent !== true ||
-      payload?.revoked === true ||
-      payload?.revokedAt ||
+      payload?.revoked !== false ||
+      payload?.revokedAt !== null ||
       payload?.authAudience !== "rise" ||
       !userId || userId.length > 128 ||
       !Number.isFinite(expiresAt) || expiresAt <= now() ||

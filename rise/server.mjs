@@ -362,19 +362,36 @@ function validTimestamp(value) {
   return Number.isFinite(timestamp) ? timestamp : null;
 }
 
+function canonicalIssuerOrigin(value) {
+  try {
+    const url = new URL(String(value ?? ""));
+    if (url.username || url.password || url.pathname !== "/" || url.search || url.hash) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 function normalizeSession(session, { audience, issuer, now = Date.now() }) {
-  if (!session || typeof session !== "object" || session.revoked === true || session.revokedAt) return null;
+  if (
+    !session || typeof session !== "object" ||
+    (session.revoked !== undefined && session.revoked !== false) ||
+    (session.revokedAt !== undefined && session.revokedAt !== null)
+  ) return null;
   const subject = String(session.subject ?? "").trim();
   const role = String(session.role ?? "student").trim().toLowerCase();
   const validatedAt = validTimestamp(session.validatedAt);
   const expiresAt = validTimestamp(session.expiresAt);
   const sessionId = String(session.sessionId ?? "");
   const csrfToken = String(session.csrfToken ?? "");
+  const previewIssuer = issuer === "rise:local-preview";
+  const expectedIssuer = previewIssuer ? issuer : canonicalIssuerOrigin(issuer);
+  const sessionIssuer = previewIssuer ? session.issuer : canonicalIssuerOrigin(session.issuer);
   if (
     !subject || subject.length > 256 ||
     !SESSION_ROLES.has(role) ||
     session.audience !== audience ||
-    session.issuer !== issuer ||
+    !expectedIssuer || sessionIssuer !== expectedIssuer ||
     validatedAt === null || validatedAt > now + 5_000 || now - validatedAt > MAX_AUTH_VALIDATION_AGE_MS ||
     expiresAt === null || expiresAt <= now || expiresAt - now > MAX_SESSION_LIFETIME_MS ||
     !/^[a-f0-9]{64}$/.test(sessionId) ||
@@ -390,7 +407,7 @@ function normalizeSession(session, { audience, issuer, now = Date.now() }) {
     subject,
     role,
     audience,
-    issuer,
+    issuer: expectedIssuer,
     capabilities,
     sessionId,
     csrfToken,
@@ -687,21 +704,21 @@ export function createRiseServer({
       expectedAuthorizationSha256s: expectedSourceAuthorizationSha256s,
       revokedAuthorizationSha256s: revokedSourceAuthorizationSha256s,
     });
-    let current = false;
+    let decision = null;
     try {
-      current = await sourceRights.assertCurrent({
+      decision = await sourceRights.assertCurrent({
         registryReleaseId: registryIndex.registryReleaseId,
         authorizationSha256s,
       });
     } catch {
-      current = false;
+      decision = null;
     }
-    if (!current) {
+    if (decision !== true && decision?.current !== true) {
       const error = new Error("Current source-rights validation is unavailable or revoked");
       error.code = "SOURCE_RIGHTS_UNAVAILABLE";
       throw error;
     }
-    return true;
+    return decision === true ? { current: true, decisionId: null } : decision;
   }
   const metrics = createRuntimeMetrics();
   return http.createServer(async (request, response) => {
@@ -709,6 +726,7 @@ export function createRiseServer({
     const startedAt = performance.now();
     let status = 500;
     let subjectAuditId = null;
+    let sourceRightsDecisionId = null;
     try {
       const url = new URL(request.url ?? "/", "http://rise.local");
       const preAuthAllowed = await abuse.allowPreAuth({
@@ -726,7 +744,8 @@ export function createRiseServer({
         let sourceRightsCurrent = true;
         if (!syntheticTestFixture) {
           try {
-            await assertLiveSourceRights();
+            const decision = await assertLiveSourceRights();
+            sourceRightsDecisionId = decision.decisionId;
           } catch {
             sourceRightsCurrent = false;
           }
@@ -802,7 +821,8 @@ export function createRiseServer({
         return;
       }
       if (!syntheticTestFixture) {
-        await assertLiveSourceRights();
+        const decision = await assertLiveSourceRights();
+        sourceRightsDecisionId = decision.decisionId;
       }
       if (authMode === "local-preview") response.setHeader("X-RISE-Preview", "true");
 
@@ -940,6 +960,7 @@ export function createRiseServer({
         status,
         durationMs,
         subjectAuditId,
+        sourceRightsDecisionId,
       });
     }
   });

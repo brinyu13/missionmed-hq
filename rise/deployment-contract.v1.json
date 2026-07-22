@@ -58,6 +58,7 @@
     "registryArtifactsFetchedFromOnePinnedOrigin": true,
     "registryArtifactsRequireServerSideBearerAuthentication": true,
     "syntheticRegistryProhibitedInProduction": true,
+    "hqSessionIntrospectionMustReturnExplicitNonRevokedState": true,
     "registryIndexMustPassImmutableManifestVerification": true,
     "activationReceiptMustBindIndexAndManifest": true,
     "sourceAuthorizationHashesMustMatchRuntimePins": true,

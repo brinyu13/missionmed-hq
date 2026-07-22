@@ -80,6 +80,7 @@ test("production contract pins auth, source rights, index, assets, and abuse con
   assert.equal(contract.runtimeArtifactPolicy.registryArtifactsFetchedFromOnePinnedOrigin, true);
   assert.equal(contract.runtimeArtifactPolicy.activationReceiptMustBindIndexAndManifest, true);
   assert.equal(contract.runtimeArtifactPolicy.syntheticRegistryProhibitedInProduction, true);
+  assert.equal(contract.runtimeArtifactPolicy.hqSessionIntrospectionMustReturnExplicitNonRevokedState, true);
   assert.equal(contract.runtimeArtifactPolicy.sourceAuthorizationHashesMustMatchRuntimePins, true);
   assert.equal(contract.runtimeArtifactPolicy.liveSourceRightsMustBeRevalidatedAtStartupAndEveryAuthenticatedRequest, true);
   assert.equal(contract.runtimeArtifactPolicy.insecureLoopbackOverridesProhibitedInProduction, true);
