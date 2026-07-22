@@ -3379,3 +3379,37 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 **Result:** Self-contained prompt ready to paste into ChatGPT. Contains every detail needed to direct the full TIE build without referencing external documents.
 
 **Status:** COMPLETE
+
+---
+
+### Prompt ID: A1_MMC_CAM_MENTOR_EXPERIENCE_007
+**Date:** 2026-07-22
+**Task:** CAM v2 Mentor Experience and Operations local release candidate
+
+**Canonical Source:**
+- Worktree: `/Users/brianb/MissionMed_worktrees/A1-MacAirMMCMentorIntelligence-005`
+- Branch: `a1-mmc-cam-mentor-experience-007`
+- Code/evidence commit: `90cd9998b29beeb1dc484380bd32b5759478822d`
+- Remote: `origin/a1-mmc-cam-mentor-experience-007`; final certification publication is verified after the documentation commit
+
+**Implemented:**
+- Default-off, authenticated FIXTURE/LOCAL CAM v2 mentor surface and exact mentor API
+- Today, Students, Work, Reviews, capability-gated Operations, Student Workspace, Call Prep, pinned Session, per-item Review, evidence inspector, and complete honest-state library
+- Thirteen query resources, eleven versioned/idempotent local commands, one owning adapter per command, assignment/subject continuity, no-store private JSON, exact-origin/CSRF enforcement, and bounded local fixture scale
+- Isolated Chrome Founder review harness and 22 hashed synthetic screenshots
+
+**Verification:**
+- Full isolated Chromium suite: PASS, 73/73
+- Screenshot manifest: PASS, 6/6; 22 JPEGs; 1,237,469 bytes
+- All 006 foundation and applicable legacy MMC non-staging regressions: PASS
+- Report-only critical-systems local gate: PASS; production network checks intentionally NOT RUN
+- Independent final audit: P0 0, P1 0, P2 0
+
+**Boundaries:**
+- CAM v2 schema remains unapplied to configured environments
+- No student plane, provider, durable configured writer, staging, deployment, production mutation, PR, or merge
+- Partner Demo remains historical, synthetic, design-rejected, and not CAM v2 authority
+
+**Result:** `MMC_CAM_MENTOR_READY` at local/fixture scope. MegaRun 008 is the next isolated continuation; production readiness is not claimed.
+
+**Status:** COMPLETE
