@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-07-22T15:20:33Z",
+  "generatedAt": "2026-07-22T15:50:08Z",
   "classification": "founder_review_candidate_not_production_connected",
-  "implementationCommit": "7c415489bdfacf596778d54eb07b050f5c8e94b9",
+  "implementationCommit": "f99e126399508d2630e9b2a17b8671d87cff1ca2",
   "branch": "codex/p1-rise-4006-production",
   "webBuildId": "rise_web_8d2c636a88b7",
   "verification": {
@@ -12,6 +12,22 @@
     "npmAuditVulnerabilities": 0,
     "rootProductionNpmAuditVulnerabilities": 0,
     "defaultBranchDependabotAlerts": { "high": 2, "moderate": 1, "low": 1 },
+    "container": {
+      "imageBuild": "PASS",
+      "failClosedSmoke": "PASS",
+      "buildWarnings": 0,
+      "architecture": "linux/arm64",
+      "sbomPackages": 20,
+      "vulnerabilityScan": {
+        "status": "PASS",
+        "scanner": "Trivy 0.72.0",
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "unknown": 0
+      }
+    },
     "syntheticStress": {
       "programs": 6500,
       "concurrentRequests": 200,

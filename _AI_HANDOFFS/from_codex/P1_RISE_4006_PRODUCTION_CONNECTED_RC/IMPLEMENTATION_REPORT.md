@@ -2,7 +2,7 @@
 
 ## Candidate
 
-- Commit: `7c415489bdfacf596778d54eb07b050f5c8e94b9`
+- Commit: `f99e126399508d2630e9b2a17b8671d87cff1ca2`
 - Branch: `codex/p1-rise-4006-production`
 - Web build: `rise_web_8d2c636a88b7`
 - Scope: isolated `rise/` package only
@@ -24,7 +24,9 @@
 - Added an activation-receipt schema binding release, index, manifest, actor, decision, and validation status.
 - Required production activation, a source-controlled registry, a current exact authorization set, and an independently verified activation receipt.
 - Expanded `deployment-contract.v1.json` and added `route-contract.v1.json` for exact environment, adapter, service-root, same-origin, route, and edge approval requirements.
-- Pinned the multiarch Node 22 Alpine base digest in the Dockerfile. The registry digest was verified; the image itself was not built because the local Docker daemon was unavailable.
+- Pinned the multiarch Node 22 Alpine base digest in the Dockerfile. The image built locally without warnings, reproduced `rise_web_8d2c636a88b7`, runs as `node`, and keeps both adapter module paths in runtime configuration rather than image metadata.
+- Removed npm and all runtime `node_modules` from the final image. The Lucide development fallback now resolves only when the production-built vendor bundle is absent.
+- Generated a 20-package SPDX SBOM for the 58,181,739-byte local arm64 image. Trivy 0.72.0, run from pinned scanner image digest `sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f`, reported zero vulnerabilities at every severity across Alpine and Node packages.
 
 ## Database Hardening
 

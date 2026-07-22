@@ -11,7 +11,7 @@ No production system changed in this run, so there is nothing to roll back in Wo
 
 | Boundary | Rollback point |
 | --- | --- |
-| Candidate implementation | `7c415489bdfacf596778d54eb07b050f5c8e94b9` |
+| Candidate implementation | `f99e126399508d2630e9b2a17b8671d87cff1ca2` |
 | Candidate parent | `54d0090b35340180bdc6699ff9131c9268840e22` |
 | Prior core implementation | `8549c84` |
 | Production deployment | None |
@@ -27,7 +27,7 @@ The down migrations intentionally refuse destructive schema deletion or evidence
 
 ## Code Rollback Procedure
 
-Before any future deployment, the release operator must preserve the currently deployed image and commit. If this candidate later needs to be withdrawn, create a reviewed revert of implementation commit `7c415489bdfacf596778d54eb07b050f5c8e94b9` or redeploy the previously approved immutable image. Do not move a protected branch or force-push history.
+Before any future deployment, the release operator must preserve the currently deployed image and commit. If this candidate later needs to be withdrawn, create a reviewed revert of implementation commit `f99e126399508d2630e9b2a17b8671d87cff1ca2` or redeploy the previously approved immutable image. Do not move a protected branch or force-push history.
 
 ## Required Pre-Deployment Backup Set
 

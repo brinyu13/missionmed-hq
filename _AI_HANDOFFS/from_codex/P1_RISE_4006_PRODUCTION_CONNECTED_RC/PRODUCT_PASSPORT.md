@@ -15,7 +15,7 @@ This passport is a review candidate. It does not create runtime authority.
 | Current route | 404, unprovisioned |
 | Runtime | Isolated Node.js service under `rise/` |
 | Review build | `rise_web_8d2c636a88b7` |
-| Review commit | `7c415489bdfacf596778d54eb07b050f5c8e94b9` |
+| Review commit | `f99e126399508d2630e9b2a17b8671d87cff1ca2` |
 | Data classification | Synthetic test fixture only |
 | Activation status | Offline shadow only |
 | Production owner | UNKNOWN - Founder decision required |

@@ -25,7 +25,7 @@ The isolated RISE engineering candidate is ready for Founder review. It is not a
 - Repository: `https://github.com/brinyu13/missionmed-hq.git`
 - Worktree: `/Users/brianb/MissionMed_worktrees/P1-RISE-4006-production`
 - Branch: `codex/p1-rise-4006-production`
-- Executable candidate commit: `7c415489bdfacf596778d54eb07b050f5c8e94b9`
+- Executable candidate commit: `f99e126399508d2630e9b2a17b8671d87cff1ca2`
 - Parent rollback point: `54d0090b35340180bdc6699ff9131c9268840e22`
 - Web build: `rise_web_8d2c636a88b7`
 
@@ -132,7 +132,7 @@ This passport is a review candidate. It does not create runtime authority.
 | Current route | 404, unprovisioned |
 | Runtime | Isolated Node.js service under `rise/` |
 | Review build | `rise_web_8d2c636a88b7` |
-| Review commit | `7c415489bdfacf596778d54eb07b050f5c8e94b9` |
+| Review commit | `f99e126399508d2630e9b2a17b8671d87cff1ca2` |
 | Data classification | Synthetic test fixture only |
 | Activation status | Offline shadow only |
 | Production owner | UNKNOWN - Founder decision required |
@@ -206,7 +206,7 @@ Release gate: **NO-GO** until the ownership, data-rights, runtime, database, sta
 
 ## Candidate
 
-- Commit: `7c415489bdfacf596778d54eb07b050f5c8e94b9`
+- Commit: `f99e126399508d2630e9b2a17b8671d87cff1ca2`
 - Branch: `codex/p1-rise-4006-production`
 - Web build: `rise_web_8d2c636a88b7`
 - Scope: isolated `rise/` package only
@@ -228,7 +228,9 @@ Release gate: **NO-GO** until the ownership, data-rights, runtime, database, sta
 - Added an activation-receipt schema binding release, index, manifest, actor, decision, and validation status.
 - Required production activation, a source-controlled registry, a current exact authorization set, and an independently verified activation receipt.
 - Expanded `deployment-contract.v1.json` and added `route-contract.v1.json` for exact environment, adapter, service-root, same-origin, route, and edge approval requirements.
-- Pinned the multiarch Node 22 Alpine base digest in the Dockerfile. The registry digest was verified; the image itself was not built because the local Docker daemon was unavailable.
+- Pinned the multiarch Node 22 Alpine base digest in the Dockerfile. The image built locally without warnings, reproduced `rise_web_8d2c636a88b7`, runs as `node`, and keeps both adapter module paths in runtime configuration rather than image metadata.
+- Removed npm and all runtime `node_modules` from the final image. The Lucide development fallback now resolves only when the production-built vendor bundle is absent.
+- Generated a 20-package SPDX SBOM for the 58,181,739-byte local arm64 image. Trivy 0.72.0, run from pinned scanner image digest `sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f`, reported zero vulnerabilities at every severity across Alpine and Node packages.
 
 ## Database Hardening
 
@@ -298,6 +300,9 @@ The isolated implementation has no known failing automated test. This does not e
 | Synthetic stress | 200/200 HTTP 200 | 6,500 synthetic programs, complete bodies consumed |
 | npm audit | 0 vulnerabilities | Production and development dependency graph in `rise/` |
 | Root production npm audit | 0 vulnerabilities | Candidate branch root lockfile; does not close default-branch Dependabot alerts |
+| Docker image build | PASS | Pinned base, non-root runtime, exact web build, no build warnings |
+| Container fail-closed smoke | PASS | Exited 1 before startup when artifact origin was absent |
+| Container vulnerability scan | PASS | Trivy 0.72.0; 0 Critical, High, Medium, Low, or Unknown findings |
 | JavaScript syntax | PASS | Every `.mjs` file outside generated dependencies and `dist` |
 | JSON parsing | PASS | Deployment, route, package, integration, and schema contracts |
 | Git whitespace check | PASS | `git diff --check` |
@@ -337,11 +342,12 @@ npm test
 npm run test:browser
 node tests/stress-synthetic.mjs
 npm audit --json
+docker build --pull --tag missionmed-rise:f99e126 --file Dockerfile .
+docker run --rm missionmed-rise:f99e126
 ```
 
 ## Not Run
 
-- Docker image build: Docker daemon unavailable. Base digest was resolved, but no image-build pass is claimed.
 - Authenticated staging student and mentor journeys: no RISE staging service or approved accounts.
 - Production user journeys and monitoring: no deployment and no Founder approval.
 - Real registry import: source-authorization pins are absent.
@@ -404,6 +410,15 @@ No unresolved Critical or High defect was found in the isolated candidate after 
 - Authorization redemption identity is composite-bound to sessions.
 - Registry reader loses base-table and quarantine access and receives only active non-quarantine views.
 - Proposed down migrations refuse destructive weakening.
+
+### Container Packaging
+
+- The pinned image built without Docker warnings and runs as the unprivileged `node` user.
+- Adapter module paths are required at runtime and are not baked into image environment metadata.
+- The image reproduced the authenticated web build and failed closed before server startup when artifact configuration was absent.
+- npm and runtime `node_modules` are absent from the final image; the service uses the production-built Lucide bundle.
+- A 20-package SPDX SBOM was generated and hashed. Trivy 0.72.0 reported zero Critical, High, Medium, Low, or Unknown findings across Alpine and Node packages.
+- The scanner image was pinned to digest `sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f`; the full report is preserved as `artifacts/container-vulnerability-scan.trivy.json`.
 
 ## Adversarial Coverage
 
@@ -563,9 +578,18 @@ Evidence: `artifacts/synthetic-stress-6500x200.json`.
 
 These are review budgets, not production SLOs.
 
+## Container Evidence
+
+- Local arm64 image size: 58,181,739 bytes.
+- Local image ID: `sha256:244ee6e217f4aaeacadb25464b3b82b1f23f1d3e61f87447f7947fd190e63461`.
+- Runtime user: `node`.
+- Entrypoint command: `node tools/start-production.mjs`.
+- SPDX SBOM: 20 packages, SHA-256 `fdee20b81f774277d96529b4b860a5765d6f351c3ee191d309965546f87f940c`.
+- Trivy 0.72.0 vulnerability scan: zero findings across all severities; report SHA-256 `1056ba5b02b6bf97204d2c8a288426c5e945e00855deadd387ccfe306ed75a5c`.
+
 ## Missing Production Evidence
 
-- Container build and image scan were not run because the Docker daemon was unavailable.
+- The eventual target-architecture image pushed to an approved registry does not exist and must be scanned again by approved CI or staging.
 - No Railway CPU or memory profile exists.
 - No real HQ introspection, durable rate service, artifact host, PostgreSQL query plan, CDN cache, WordPress shell, or geographic service was measured.
 - No long-duration soak, autoscaling, multi-instance metric aggregation, alert, or production error-rate baseline exists.
@@ -589,7 +613,7 @@ This identity names the exact executable candidate. It is not a deployment recei
 | Ticket | `P1-RISE-4006` |
 | Repository | `brinyu13/missionmed-hq` |
 | Branch | `codex/p1-rise-4006-production` |
-| Implementation commit | `7c415489bdfacf596778d54eb07b050f5c8e94b9` |
+| Implementation commit | `f99e126399508d2630e9b2a17b8671d87cff1ca2` |
 | Parent rollback point | `54d0090b35340180bdc6699ff9131c9268840e22` |
 | Build ID | `rise_web_8d2c636a88b7` |
 | Runtime package | `rise/` |
@@ -619,7 +643,19 @@ The Dockerfile pins Node 22 Alpine by multiarch digest:
 
 `sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2`
 
-The digest was resolved from the registry. No local image digest exists because the Docker daemon was unavailable, so an image build is not part of this candidate identity.
+The local image built from the committed candidate with:
+
+- image ID: `sha256:244ee6e217f4aaeacadb25464b3b82b1f23f1d3e61f87447f7947fd190e63461`;
+- architecture: `linux/arm64`;
+- size: 58,181,739 bytes;
+- runtime user: `node`;
+- command: `node tools/start-production.mjs`;
+- build warnings: zero;
+- web build: `rise_web_8d2c636a88b7`;
+- SPDX SBOM: `artifacts/container-sbom.spdx.json`, 20 packages, SHA-256 `fdee20b81f774277d96529b4b860a5765d6f351c3ee191d309965546f87f940c`;
+- Trivy 0.72.0 report: `artifacts/container-vulnerability-scan.trivy.json`, zero findings across all severities, SHA-256 `1056ba5b02b6bf97204d2c8a288426c5e945e00855deadd387ccfe306ed75a5c`.
+
+This is a scanned local arm64 image identity, not a pushed production registry digest. Approved CI or staging must rebuild and scan the exact immutable target-architecture registry image.
 
 ## Registry Identity
 
@@ -660,7 +696,7 @@ No production system changed in this run, so there is nothing to roll back in Wo
 
 | Boundary | Rollback point |
 | --- | --- |
-| Candidate implementation | `7c415489bdfacf596778d54eb07b050f5c8e94b9` |
+| Candidate implementation | `f99e126399508d2630e9b2a17b8671d87cff1ca2` |
 | Candidate parent | `54d0090b35340180bdc6699ff9131c9268840e22` |
 | Prior core implementation | `8549c84` |
 | Production deployment | None |
@@ -676,7 +712,7 @@ The down migrations intentionally refuse destructive schema deletion or evidence
 
 ## Code Rollback Procedure
 
-Before any future deployment, the release operator must preserve the currently deployed image and commit. If this candidate later needs to be withdrawn, create a reviewed revert of implementation commit `7c415489bdfacf596778d54eb07b050f5c8e94b9` or redeploy the previously approved immutable image. Do not move a protected branch or force-push history.
+Before any future deployment, the release operator must preserve the currently deployed image and commit. If this candidate later needs to be withdrawn, create a reviewed revert of implementation commit `f99e126399508d2630e9b2a17b8671d87cff1ca2` or redeploy the previously approved immutable image. Do not move a protected branch or force-push history.
 
 ## Required Pre-Deployment Backup Set
 
@@ -711,7 +747,7 @@ This procedure is credible at the application layer, but it is not production-pr
 
 ## Review Candidate
 
-- Commit: `7c415489bdfacf596778d54eb07b050f5c8e94b9`
+- Commit: `f99e126399508d2630e9b2a17b8671d87cff1ca2`
 - Build: `rise_web_8d2c636a88b7`
 - Local route: `http://127.0.0.1:4178/rise/`
 - Data: conspicuously synthetic interaction fixture
@@ -829,7 +865,7 @@ Any one of B-01 through B-10 blocks a production-connected release claim.
 
 | ID | Severity | Limitation | Disposition |
 | --- | --- | --- | --- |
-| L-01 | Medium | Docker daemon was unavailable; no local image build or image scan was run | Build and scan the pinned image in CI or staging before acceptance |
+| L-01 | Medium | The local arm64 image has a clean Trivy scan, but no target-architecture image has been pushed to an approved registry | Build and scan the exact immutable registry image in approved CI or staging before acceptance |
 | L-02 | Medium | Production performance, query plans, caching, autoscaling, alerting, and soak behavior are unknown | Measure actual topology with authorized data in staging |
 | L-03 | Medium | VoiceOver, TalkBack, forced-colors, and real shell zoom were not manually accepted | Run assistive-technology acceptance on staging |
 | L-04 | Medium | Fable 5 review was unavailable | Run Fable review before student release; do not delay source-independent platform work |
@@ -873,7 +909,7 @@ CANONICAL STATE
 
 Repository: /Users/brianb/MissionMed_worktrees/P1-RISE-4006-production
 Branch: codex/p1-rise-4006-production
-Implementation commit: 7c415489bdfacf596778d54eb07b050f5c8e94b9
+Implementation commit: f99e126399508d2630e9b2a17b8671d87cff1ca2
 Web build: rise_web_8d2c636a88b7
 Handoff: _AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_CONNECTED_RC/COMPLETE_COMBINED_HANDOFF.md
 Draft PR: https://github.com/brinyu13/missionmed-hq/pull/15

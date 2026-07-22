@@ -49,6 +49,15 @@ No unresolved Critical or High defect was found in the isolated candidate after 
 - Registry reader loses base-table and quarantine access and receives only active non-quarantine views.
 - Proposed down migrations refuse destructive weakening.
 
+### Container Packaging
+
+- The pinned image built without Docker warnings and runs as the unprivileged `node` user.
+- Adapter module paths are required at runtime and are not baked into image environment metadata.
+- The image reproduced the authenticated web build and failed closed before server startup when artifact configuration was absent.
+- npm and runtime `node_modules` are absent from the final image; the service uses the production-built Lucide bundle.
+- A 20-package SPDX SBOM was generated and hashed. Trivy 0.72.0 reported zero Critical, High, Medium, Low, or Unknown findings across Alpine and Node packages.
+- The scanner image was pinned to digest `sha256:cffe3f5161a47a6823fbd23d985795b3ed72a4c806da4c4df16266c02accdd6f`; the full report is preserved as `artifacts/container-vulnerability-scan.trivy.json`.
+
 ## Adversarial Coverage
 
 Tests exercised authorization drift, capability denial, wrong issuer, expiration, revocation, browser bearer rejection, missing CSRF, oversized and malformed bodies, pre-auth abuse rejection, cross-subject session insertion, audit predecessor tampering, index and asset hash tampering, source-rights expiry and revocation, synthetic production activation, XSS-shaped search, Unicode, stale async responses, and fake integration references.

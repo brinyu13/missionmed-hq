@@ -11,7 +11,7 @@ This identity names the exact executable candidate. It is not a deployment recei
 | Ticket | `P1-RISE-4006` |
 | Repository | `brinyu13/missionmed-hq` |
 | Branch | `codex/p1-rise-4006-production` |
-| Implementation commit | `7c415489bdfacf596778d54eb07b050f5c8e94b9` |
+| Implementation commit | `f99e126399508d2630e9b2a17b8671d87cff1ca2` |
 | Parent rollback point | `54d0090b35340180bdc6699ff9131c9268840e22` |
 | Build ID | `rise_web_8d2c636a88b7` |
 | Runtime package | `rise/` |
@@ -41,7 +41,19 @@ The Dockerfile pins Node 22 Alpine by multiarch digest:
 
 `sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2`
 
-The digest was resolved from the registry. No local image digest exists because the Docker daemon was unavailable, so an image build is not part of this candidate identity.
+The local image built from the committed candidate with:
+
+- image ID: `sha256:244ee6e217f4aaeacadb25464b3b82b1f23f1d3e61f87447f7947fd190e63461`;
+- architecture: `linux/arm64`;
+- size: 58,181,739 bytes;
+- runtime user: `node`;
+- command: `node tools/start-production.mjs`;
+- build warnings: zero;
+- web build: `rise_web_8d2c636a88b7`;
+- SPDX SBOM: `artifacts/container-sbom.spdx.json`, 20 packages, SHA-256 `fdee20b81f774277d96529b4b860a5765d6f351c3ee191d309965546f87f940c`;
+- Trivy 0.72.0 report: `artifacts/container-vulnerability-scan.trivy.json`, zero findings across all severities, SHA-256 `1056ba5b02b6bf97204d2c8a288426c5e945e00855deadd387ccfe306ed75a5c`.
+
+This is a scanned local arm64 image identity, not a pushed production registry digest. Approved CI or staging must rebuild and scan the exact immutable target-architecture registry image.
 
 ## Registry Identity
 

@@ -21,7 +21,7 @@ Any one of B-01 through B-10 blocks a production-connected release claim.
 
 | ID | Severity | Limitation | Disposition |
 | --- | --- | --- | --- |
-| L-01 | Medium | Docker daemon was unavailable; no local image build or image scan was run | Build and scan the pinned image in CI or staging before acceptance |
+| L-01 | Medium | The local arm64 image has a clean Trivy scan, but no target-architecture image has been pushed to an approved registry | Build and scan the exact immutable registry image in approved CI or staging before acceptance |
 | L-02 | Medium | Production performance, query plans, caching, autoscaling, alerting, and soak behavior are unknown | Measure actual topology with authorized data in staging |
 | L-03 | Medium | VoiceOver, TalkBack, forced-colors, and real shell zoom were not manually accepted | Run assistive-technology acceptance on staging |
 | L-04 | Medium | Fable 5 review was unavailable | Run Fable review before student release; do not delay source-independent platform work |

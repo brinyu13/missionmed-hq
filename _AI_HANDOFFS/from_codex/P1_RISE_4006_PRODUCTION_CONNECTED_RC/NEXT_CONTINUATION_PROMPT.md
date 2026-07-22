@@ -15,7 +15,7 @@ CANONICAL STATE
 
 Repository: /Users/brianb/MissionMed_worktrees/P1-RISE-4006-production
 Branch: codex/p1-rise-4006-production
-Implementation commit: 7c415489bdfacf596778d54eb07b050f5c8e94b9
+Implementation commit: f99e126399508d2630e9b2a17b8671d87cff1ca2
 Web build: rise_web_8d2c636a88b7
 Handoff: _AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_CONNECTED_RC/COMPLETE_COMBINED_HANDOFF.md
 Draft PR: https://github.com/brinyu13/missionmed-hq/pull/15

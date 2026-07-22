@@ -17,6 +17,9 @@ The isolated implementation has no known failing automated test. This does not e
 | Synthetic stress | 200/200 HTTP 200 | 6,500 synthetic programs, complete bodies consumed |
 | npm audit | 0 vulnerabilities | Production and development dependency graph in `rise/` |
 | Root production npm audit | 0 vulnerabilities | Candidate branch root lockfile; does not close default-branch Dependabot alerts |
+| Docker image build | PASS | Pinned base, non-root runtime, exact web build, no build warnings |
+| Container fail-closed smoke | PASS | Exited 1 before startup when artifact origin was absent |
+| Container vulnerability scan | PASS | Trivy 0.72.0; 0 Critical, High, Medium, Low, or Unknown findings |
 | JavaScript syntax | PASS | Every `.mjs` file outside generated dependencies and `dist` |
 | JSON parsing | PASS | Deployment, route, package, integration, and schema contracts |
 | Git whitespace check | PASS | `git diff --check` |
@@ -56,11 +59,12 @@ npm test
 npm run test:browser
 node tests/stress-synthetic.mjs
 npm audit --json
+docker build --pull --tag missionmed-rise:f99e126 --file Dockerfile .
+docker run --rm missionmed-rise:f99e126
 ```
 
 ## Not Run
 
-- Docker image build: Docker daemon unavailable. Base digest was resolved, but no image-build pass is claimed.
 - Authenticated staging student and mentor journeys: no RISE staging service or approved accounts.
 - Production user journeys and monitoring: no deployment and no Founder approval.
 - Real registry import: source-authorization pins are absent.

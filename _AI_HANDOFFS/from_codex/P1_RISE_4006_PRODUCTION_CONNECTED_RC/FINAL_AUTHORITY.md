@@ -19,7 +19,7 @@ The isolated RISE engineering candidate is ready for Founder review. It is not a
 - Repository: `https://github.com/brinyu13/missionmed-hq.git`
 - Worktree: `/Users/brianb/MissionMed_worktrees/P1-RISE-4006-production`
 - Branch: `codex/p1-rise-4006-production`
-- Executable candidate commit: `7c415489bdfacf596778d54eb07b050f5c8e94b9`
+- Executable candidate commit: `f99e126399508d2630e9b2a17b8671d87cff1ca2`
 - Parent rollback point: `54d0090b35340180bdc6699ff9131c9268840e22`
 - Web build: `rise_web_8d2c636a88b7`
 

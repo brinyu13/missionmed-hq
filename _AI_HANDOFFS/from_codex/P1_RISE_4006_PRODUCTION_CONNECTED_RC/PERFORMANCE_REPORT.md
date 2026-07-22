@@ -64,9 +64,18 @@ Evidence: `artifacts/synthetic-stress-6500x200.json`.
 
 These are review budgets, not production SLOs.
 
+## Container Evidence
+
+- Local arm64 image size: 58,181,739 bytes.
+- Local image ID: `sha256:244ee6e217f4aaeacadb25464b3b82b1f23f1d3e61f87447f7947fd190e63461`.
+- Runtime user: `node`.
+- Entrypoint command: `node tools/start-production.mjs`.
+- SPDX SBOM: 20 packages, SHA-256 `fdee20b81f774277d96529b4b860a5765d6f351c3ee191d309965546f87f940c`.
+- Trivy 0.72.0 vulnerability scan: zero findings across all severities; report SHA-256 `1056ba5b02b6bf97204d2c8a288426c5e945e00855deadd387ccfe306ed75a5c`.
+
 ## Missing Production Evidence
 
-- Container build and image scan were not run because the Docker daemon was unavailable.
+- The eventual target-architecture image pushed to an approved registry does not exist and must be scanned again by approved CI or staging.
 - No Railway CPU or memory profile exists.
 - No real HQ introspection, durable rate service, artifact host, PostgreSQL query plan, CDN cache, WordPress shell, or geographic service was measured.
 - No long-duration soak, autoscaling, multi-instance metric aggregation, alert, or production error-rate baseline exists.
