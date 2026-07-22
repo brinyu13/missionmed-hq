@@ -11,6 +11,7 @@ $GLOBALS['v1_rc_logged_in'] = true;
 $GLOBALS['v1_rc_roles'] = array( 'subscriber' );
 $GLOBALS['v1_rc_entitlement_filters'] = 0;
 $GLOBALS['v1_rc_user_timezone'] = '';
+$GLOBALS['v1_rc_site_timezone'] = 'America/New_York';
 
 function add_action( $hook, $callback ) {
 	$GLOBALS['v1_rc_hooks'][] = array( 'action', $hook, $callback );
@@ -42,7 +43,7 @@ function get_user_meta( $owner_id, $key, $single ) {
 	return $GLOBALS['v1_rc_user_timezone'];
 }
 function wp_timezone_string() {
-	return 'America/New_York';
+	return $GLOBALS['v1_rc_site_timezone'];
 }
 function mmhq_cam_build_entitlement( $user_id ) {
 	return array(
@@ -113,12 +114,28 @@ final class V1_RC_Entitlement_Provider implements MMED_V1_Study_Entitlement_Prov
 	}
 }
 
+final class V1_RC_Failing_Entitlement_Provider implements MMED_V1_Study_Entitlement_Provider {
+	public function claim( $user_id ) {
+		unset( $user_id );
+		throw new RuntimeException( 'synthetic unavailable' );
+	}
+}
+
+final class V1_RC_Malformed_Timezone_Provider implements MMED_V1_Study_Timezone_Provider {
+	public function profile( $owner_id ) {
+		unset( $owner_id );
+		return array( 'profile_version' => 'synthetic-v1', 'source' => 'client', 'timezone' => 'UTC' );
+	}
+}
+
 $actor = MMED_V1_Study_Runtime_Actor::resolve( strtotime( '2026-07-22T12:00:30Z' ), new V1_RC_Entitlement_Provider() );
 v1_rc_expect( true === $actor['allowed'] && 44 === $actor['owner_id'] && 'learner' === $actor['actor_kind'], 'direct actor resolver binds entitled learner to self' );
 v1_rc_expect( 1 === preg_match( '/^[a-f0-9]{64}$/D', $actor['entitlement_digest'] ), 'actor resolver emits only a normalized entitlement digest' );
 $actor = MMED_V1_Study_Runtime_Actor::resolve( strtotime( '2026-07-22T12:00:30Z' ) );
 v1_rc_expect( true === $actor['allowed'], 'runtime actor uses the direct WordPress entitlement adapter' );
 v1_rc_expect( 0 === $GLOBALS['v1_rc_entitlement_filters'], 'runtime actor never consults the legacy entitlement filter' );
+$actor = MMED_V1_Study_Runtime_Actor::resolve( strtotime( '2026-07-22T12:00:30Z' ), new V1_RC_Failing_Entitlement_Provider() );
+v1_rc_expect( false === $actor['allowed'] && 'entitlement_unavailable' === $actor['reason_code'], 'runtime actor fails closed when the direct provider fails' );
 $GLOBALS['v1_rc_roles'] = array( 'mentor' );
 v1_rc_expect( false === MMED_V1_Study_Runtime_Actor::resolve( strtotime( '2026-07-22T12:00:30Z' ), new V1_RC_Entitlement_Provider() )['allowed'], 'mentor role cannot enter learner runtime' );
 $GLOBALS['v1_rc_roles'] = array( 'subscriber' );
@@ -132,6 +149,39 @@ v1_rc_expect( '+05:30' === $temporal['timezone'], 'learner profile overrides the
 $slot = MMED_V1_Study_Week_Domain::resolve_slot_from_envelope( '2026-07-20', '06:00', 30, null, $temporal );
 v1_rc_expect( '2026-07-20 00:30:00.000000' === $slot['start_at_utc'], 'fixed-offset civil time resolves to exact UTC' );
 v1_rc_expect( 'UTC' === MMED_V1_Study_Temporal_Context::normalize_timezone( '+00:00' ), 'zero offset canonicalizes to UTC' );
+foreach ( array( '-03:30', '+14:00', '-14:00', '+05:45' ) as $valid_timezone ) {
+	v1_rc_expect( $valid_timezone === MMED_V1_Study_Temporal_Context::normalize_timezone( $valid_timezone ), 'valid fixed offset survives canonical validation: ' . $valid_timezone );
+}
+foreach ( array( '+14:01', '-14:01', 'EST', 'client/timezone', '' ) as $invalid_timezone ) {
+	$rejected = false;
+	try {
+		MMED_V1_Study_Temporal_Context::normalize_timezone( $invalid_timezone );
+	} catch ( RuntimeException $error ) {
+		$rejected = true;
+	}
+	v1_rc_expect( $rejected, 'invalid timezone fails closed: ' . $invalid_timezone );
+}
+$GLOBALS['v1_rc_user_timezone'] = '';
+$GLOBALS['v1_rc_site_timezone'] = '-03:30';
+v1_rc_expect( '-03:30' === MMED_V1_Study_Temporal_Context::for_week( '2026-07-20', 44 )['timezone'], 'site fixed offset is a valid fallback' );
+$GLOBALS['v1_rc_user_timezone'] = '+14:01';
+$rejected = false;
+try {
+	MMED_V1_Study_Temporal_Context::for_week( '2026-07-20', 44 );
+} catch ( RuntimeException $error ) {
+	$rejected = true;
+}
+v1_rc_expect( $rejected, 'invalid learner timezone metadata fails closed' );
+$rejected = false;
+try {
+	MMED_V1_Study_Temporal_Context::for_week( '2026-07-20', 44, new V1_RC_Malformed_Timezone_Provider() );
+} catch ( RuntimeException $error ) {
+	$rejected = true;
+}
+v1_rc_expect( $rejected, 'malformed injected timezone profile fails closed' );
+$GLOBALS['v1_rc_user_timezone'] = '';
+$GLOBALS['v1_rc_site_timezone'] = 'America/New_York';
+v1_rc_expect( 'America/New_York' === MMED_V1_Study_Temporal_Context::for_week( '2026-11-02', 44 )['timezone'], 'named DST zone remains valid' );
 
 $database = (object) array( 'prefix' => 'wp_' );
 $migrations = MMED_V1_Study_Runtime_Schema::migrations( $database );

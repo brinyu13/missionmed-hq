@@ -1001,6 +1001,11 @@ final class MMED_V1_Study_Week_Domain {
 		return $candidate;
 	}
 
+	/** Public canonical timezone validator shared by runtime profile authority. */
+	public static function normalize_timezone( $candidate ) {
+		return self::timezone( $candidate );
+	}
+
 	/** @return array */
 	private static function utc_candidates( $local_key, $zone ) {
 		$naive = DateTimeImmutable::createFromFormat( '!Y-m-d H:i', $local_key, new DateTimeZone( 'UTC' ) );

@@ -114,14 +114,10 @@ final class MMED_V1_Study_Temporal_Context {
 			$value = 'UTC';
 		}
 		try {
-			$zone = new DateTimeZone( $value );
+			return MMED_V1_Study_Week_Domain::normalize_timezone( $value );
 		} catch ( Throwable $error ) {
 			unset( $error );
 			throw new RuntimeException( 'V1 learner timezone is unavailable.' );
 		}
-		if ( $zone->getName() !== $value && 'UTC' !== $value ) {
-			throw new RuntimeException( 'V1 learner timezone is unavailable.' );
-		}
-		return $value;
 	}
 }
