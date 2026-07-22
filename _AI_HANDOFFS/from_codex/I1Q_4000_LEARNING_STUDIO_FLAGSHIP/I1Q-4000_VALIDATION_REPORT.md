@@ -24,6 +24,26 @@ Results:
 
 The nine tests cover shell/CSP, required product surfaces, boundary wording and external-request absence, persistence/recovery and responsive contracts, unique exact-intersection queues, catalog count/subject consistency, reducer ordering and durable Quick reveal, explicit builder presets plus active-session hydration, and checksum-valid malformed-state rejection.
 
+## Founder launcher integration
+
+I1Q now uses the shared MMOS-LAUNCHER-001 local standard candidate through three executable package-root entry points and strict `prototype.launch.json` configuration.
+
+Live prepared-Mac result:
+
+- exact Node `>=22.13.0` and `pnpm 11.9.0` verification: PASS;
+- six representative dependency probes: PASS; no install ran;
+- fixed `127.0.0.1:3000` server bind and stable `http://localhost:3000/` browser origin: PASS;
+- HTTP 200 plus exact `MissionMed Learning Studio · P4 Prototype` marker before browser: PASS;
+- Chrome opening from the package wrapper invoked in `/tmp`: PASS;
+- duplicate owned-instance reuse with no second server: PASS;
+- private state/control modes: PASS (`0700` directories, `0600` state/log/socket);
+- authenticated owned process-group stop and port release: PASS;
+- package-local SHA-256 verification of the sibling bootstrap and engine before execution: PASS.
+
+The shared deterministic launcher suite passed 8/8, including path-with-spaces/wrong-cwd, foreign-port isolation, bad-health cleanup, frozen dependency restoration, static private-file denial/security headers, ordinary signal cleanup, and signal interruption during dependency restoration.
+
+The integration remains local, not deployed, not production-integrated, and not canonical. Windows, clean-machine runtime distribution, Gatekeeper/notarization, and Intel macOS remain unverified.
+
 ## Sealed package validation
 
 Executed from the package root after the final documentation and screenshot repair:
@@ -32,7 +52,7 @@ Executed from the package root after the final documentation and screenshot repa
 node tools/validate-package.mjs
 ```
 
-Result: PASS. The seal contains 60 included artifacts with 60 matching SHA-256 ledger entries, 21 distinct true-PNG scenario captures, five independently rechecked external/predecessor source hashes, no included symlinks, and null D1/R2 hosting fields. Dependency and generated runtime state (`node_modules`, `dist`, and `.wrangler`) is explicitly excluded and must remain unstaged.
+Result: PASS. The seal contains 67 included artifacts with 67 matching SHA-256 ledger entries, 21 distinct true-PNG scenario captures, five independently rechecked external/predecessor source hashes, no included symlinks, and null D1/R2 hosting fields. Dependency and generated runtime state (`node_modules`, `dist`, and `.wrangler`) is explicitly excluded and must remain unstaged.
 
 ## Browser interaction checks
 
@@ -68,7 +88,7 @@ See `SCREENSHOT_BOOK/README.md` for per-image provenance and limitations.
 - Vitruvius: PASS for the local P4 accessibility/responsive gate after keyboard, focus, semantics, target-size, readability, and contrast repairs; not formal WCAG or assistive-technology certification.
 - Turing: initial PARTIAL stress result identified reset, malformed-payload, reducer-ordering, Quick-reveal, and dead-control defects; each identified blocker was fixed and covered by the final tests/browser pass.
 - Sagan: no remaining release-blocking active-UI truth or functional defect after hardening; prompt preservation remains PARTIAL because a 30–60 minute Founder session was not timed and no production/medical/canonical claim is authorized.
-- Sentinel: final PASS for the sealed local review package: exact included-tree/manifest/ledger parity, 60/60 checksums, 21 distinct meaningful PNG scenarios, no sealed secrets or client network/production wiring, null D1/R2, and all required deliverables. This is not deployment or release approval.
+- Sentinel: final PASS for the sealed local review package: exact included-tree/manifest/ledger parity, 67/67 checksums, 21 distinct meaningful PNG scenarios, no sealed secrets or client network/production wiring, null D1/R2, and all required deliverables. This is not deployment or release approval.
 
 ## Known limits
 

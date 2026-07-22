@@ -1,0 +1,49 @@
+{
+  "schema": "missionmed.prototype-launcher",
+  "schemaVersion": 1,
+  "frameworkVersion": "1.0.0",
+  "prototypeId": "replace-with-stable-prototype-id",
+  "displayName": "Replace with prototype display name",
+  "projectDirectory": "prototype",
+  "port": 4173,
+  "openUrl": "http://localhost:4173/",
+  "node": {
+    "minimumVersion": "20.0.0"
+  },
+  "health": {
+    "url": "http://localhost:4173/",
+    "status": 200,
+    "bodyIncludes": "Replace with exact application identity marker",
+    "timeoutMs": 120000,
+    "intervalMs": 400
+  },
+  "dependencies": {
+    "mode": "package-manager",
+    "manager": "pnpm",
+    "version": "11.9.0",
+    "lockfile": "pnpm-lock.yaml",
+    "probes": [
+      "node_modules/.bin/vite"
+    ],
+    "installArgs": [
+      "install",
+      "--frozen-lockfile"
+    ],
+    "timeoutMs": 900000
+  },
+  "server": {
+    "mode": "process",
+    "tool": "packageManager",
+    "args": [
+      "exec",
+      "vite",
+      "--host",
+      "127.0.0.1",
+      "--port",
+      "4173",
+      "--strictPort"
+    ],
+    "environment": {},
+    "shutdownGraceMs": 8000
+  }
+}

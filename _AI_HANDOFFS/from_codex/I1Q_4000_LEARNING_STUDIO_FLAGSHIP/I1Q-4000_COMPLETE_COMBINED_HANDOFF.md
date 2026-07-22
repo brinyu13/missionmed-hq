@@ -11,13 +11,13 @@ This is not a production implementation, deployment, medical validation, psychom
 
 ## Start here
 
-```bash
-cd prototype
-pnpm install --frozen-lockfile
-pnpm dev
-```
+Double-click `OPEN_IN_CHROME.command` at the package root. The launcher verifies the prepared local runtime and dependencies, starts or safely reuses only this prototype server, waits for the application identity check, and opens the stable review origin in Chrome. `OPEN_IN_DEFAULT_BROWSER.command` uses the macOS default browser, and `STOP_LOCAL_SERVER.command` stops only a server owned by this launcher.
 
-Open `http://localhost:3000/`. The simulated Daily Drills entry is `http://localhost:3000/#/daily`.
+Before any shared launcher byte executes, the sealed package-local integrity gate verifies the sibling `bootstrap.sh` and engine against `LAUNCHER_FRAMEWORK_CHECKSUMS.sha256`. A same-version but byte-different framework fails closed.
+
+The stable review origin remains `http://localhost:3000/`, preserving the browser-local Founder-review state established by this package. The simulated Daily Drills entry is `http://localhost:3000/#/daily`.
+
+The technical `pnpm` workflow remains available inside `prototype/` for engineering diagnostics, but it is no longer part of the Founder workflow.
 
 From the package root, verify the sealed handoff with:
 
@@ -54,6 +54,8 @@ The prompt asked for enough depth to support a 30–60 minute review. That durat
 ## Evidence map
 
 - application and launch instructions: `prototype/README.md`
+- Founder launch instruction and entry points: `README_FIRST.txt` and the three package-root `.command` files
+- strict launcher binding: `prototype.launch.json`, `launcher-integrity.sh`, and `LAUNCHER_FRAMEWORK_CHECKSUMS.sha256`
 - screenshot evidence: `SCREENSHOT_BOOK/README.md`
 - UX rationale: `I1Q-4000_UX_RATIONALE.md`
 - educational rationale: `I1Q-4000_EDUCATIONAL_RATIONALE.md`
@@ -83,7 +85,7 @@ I1Q-3000 informed design synthesis only. The historical I1Q-2002 Rounds verdict 
 - TypeScript: PASS
 - browser paths and state transitions: PASS for the exercised local scenarios
 - responsive probes: no horizontal overflow at 320/390/720/1440 CSS pixels
-- sealed package: PASS, 60 included artifacts and 60 matching SHA-256 entries
+- sealed package: PASS, 67 included artifacts and 67 matching SHA-256 entries
 - 21-image screenshot book: distinct true PNG scenarios, captured after source freeze
 - local accessibility/responsive review: PASS, not formal certification
 

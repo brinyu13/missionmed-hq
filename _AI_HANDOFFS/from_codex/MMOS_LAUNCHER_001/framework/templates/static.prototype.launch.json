@@ -1,0 +1,44 @@
+{
+  "schema": "missionmed.prototype-launcher",
+  "schemaVersion": 1,
+  "frameworkVersion": "1.0.0",
+  "prototypeId": "replace-with-stable-static-id",
+  "displayName": "Replace with static prototype display name",
+  "projectDirectory": "prototype",
+  "port": 4173,
+  "openUrl": "http://localhost:4173/",
+  "node": {
+    "minimumVersion": "20.0.0"
+  },
+  "health": {
+    "url": "http://localhost:4173/",
+    "status": 200,
+    "bodyIncludes": "Replace with exact application identity marker",
+    "timeoutMs": 30000,
+    "intervalMs": 250
+  },
+  "dependencies": {
+    "mode": "none"
+  },
+  "server": {
+    "mode": "static",
+    "rootDirectory": ".",
+    "entryFile": "index.html",
+    "allowedExtensions": [
+      ".html",
+      ".css",
+      ".js",
+      ".mjs",
+      ".png",
+      ".jpg",
+      ".jpeg",
+      ".svg",
+      ".webp",
+      ".gif",
+      ".ico",
+      ".woff",
+      ".woff2"
+    ],
+    "shutdownGraceMs": 3000
+  }
+}

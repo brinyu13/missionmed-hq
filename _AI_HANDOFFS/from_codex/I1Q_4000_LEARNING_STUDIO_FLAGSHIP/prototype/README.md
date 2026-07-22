@@ -4,7 +4,9 @@ This directory contains the standalone, fully interactive Founder-review prototy
 
 ## Run locally
 
-Requirements: Node.js 22.13 or newer and pnpm 11.9.0. `pnpm-lock.yaml` is the only dependency lock.
+For Founder review, return to the package root and double-click `OPEN_IN_CHROME.command`. The shared launcher keeps the stable `http://localhost:3000/` origin, opens the browser only after the application identity check passes, and owns only the server it starts.
+
+For engineering diagnostics, the underlying requirements remain Node.js 22.13 or newer and pnpm 11.9.0. `pnpm-lock.yaml` is the only dependency lock:
 
 ```bash
 pnpm install --frozen-lockfile

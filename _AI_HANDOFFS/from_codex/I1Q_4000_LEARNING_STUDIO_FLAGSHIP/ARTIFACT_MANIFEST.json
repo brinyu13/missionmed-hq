@@ -3,7 +3,7 @@
   "schema_version": 1,
   "ticket": "I1Q-4000",
   "status": "LOCAL_P4_INTERACTION_CANDIDATE",
-  "generated_at": "2026-07-22T14:04:28.092Z",
+  "generated_at": "2026-07-22T15:59:13.626Z",
   "root": ".",
   "algorithm": "SHA-256",
   "exclusions": {
@@ -60,8 +60,8 @@
     }
   ],
   "summary": {
-    "artifact_count": 60,
-    "total_bytes": 8321442
+    "artifact_count": 67,
+    "total_bytes": 8333494
   },
   "artifacts": [
     {
@@ -80,8 +80,8 @@
     },
     {
       "path": "I1Q-4000_COMPLETE_COMBINED_HANDOFF.md",
-      "sha256": "6814a1ab8365df0a46ee1ecfd812738e81279de8b372e67ee3881b2186421066",
-      "bytes": 5561,
+      "sha256": "26c7edd2a63a932ed770de08351a3a8fde3097492c7f55d50ad9c8a3db3c8075",
+      "bytes": 6623,
       "media_type": "text/markdown",
       "role": "evidence-document"
     },
@@ -115,10 +115,38 @@
     },
     {
       "path": "I1Q-4000_VALIDATION_REPORT.md",
-      "sha256": "82dfca1c51c85d089b77cf1a5e35e5c7495d7e36a99754fb74382b0a75ba3166",
-      "bytes": 5075,
+      "sha256": "91ba0eb694f9621ac34eee68109280e426f31c512ee8ba57be8bdf1e2ef1f42a",
+      "bytes": 6483,
       "media_type": "text/markdown",
       "role": "evidence-document"
+    },
+    {
+      "path": "LAUNCHER_FRAMEWORK_CHECKSUMS.sha256",
+      "sha256": "e62d7dcb423a063b4c4a8fd20705286d2041531db6f619c214c69b3bca6f391c",
+      "bytes": 241,
+      "media_type": "text/plain",
+      "role": "launcher-integrity-binding"
+    },
+    {
+      "path": "OPEN_IN_CHROME.command",
+      "sha256": "396e5f33c43a5cfeea5c2ce9068cbc0d1cd6d27b6ce9ed36a6dc66e9ae0e26c5",
+      "bytes": 207,
+      "media_type": "text/x-shellscript",
+      "role": "founder-launch-entrypoint"
+    },
+    {
+      "path": "OPEN_IN_DEFAULT_BROWSER.command",
+      "sha256": "c1727ee4280b4ce0c60b15fdbc1a0e3a3727ba07f24eaa3078a60cdf35184314",
+      "bytes": 208,
+      "media_type": "text/x-shellscript",
+      "role": "founder-launch-entrypoint"
+    },
+    {
+      "path": "README_FIRST.txt",
+      "sha256": "cf432781159c080f09cf3a8f3923d60c805b12636ccb34e0511f524d346cf382",
+      "bytes": 37,
+      "media_type": "text/plain",
+      "role": "founder-launch-instruction"
     },
     {
       "path": "SCREENSHOT_BOOK/01_home_desktop.png",
@@ -275,6 +303,27 @@
       "role": "screenshot-index"
     },
     {
+      "path": "STOP_LOCAL_SERVER.command",
+      "sha256": "6057f4b9bdbc844a88388b4eb3a7d071263c33d4d3961c7de4f6bf1940031b50",
+      "bytes": 188,
+      "media_type": "text/x-shellscript",
+      "role": "founder-launch-entrypoint"
+    },
+    {
+      "path": "launcher-integrity.sh",
+      "sha256": "dae0120e9557077c1988c09fe21130c3726c55f92e55592107533353034819ba",
+      "bytes": 1103,
+      "media_type": "text/x-shellscript",
+      "role": "launcher-integrity-binding"
+    },
+    {
+      "path": "prototype.launch.json",
+      "sha256": "86aaeb134d04cc39ee6a8d35ff9d7b1045d7ccf6df239cb7c0adf2aab00157ef",
+      "bytes": 1346,
+      "media_type": "application/json",
+      "role": "prototype-launch-configuration"
+    },
+    {
       "path": "prototype/.gitignore",
       "sha256": "9330ec0cf46e80c4e038be7c3abd363b518b902387f46c7f5842c46de5d28f9c",
       "bytes": 491,
@@ -290,8 +339,8 @@
     },
     {
       "path": "prototype/README.md",
-      "sha256": "663e4c842cadd71ef20a09642b23ede9f8de48f56f8c77d7ecab9ab359ce459d",
-      "bytes": 3615,
+      "sha256": "ff63368ede358efeccf66e7439523d5437f7b67220d58e01645c59a94f0e29dc",
+      "bytes": 3930,
       "media_type": "text/markdown",
       "role": "prototype-configuration"
     },
@@ -472,15 +521,15 @@
     },
     {
       "path": "tools/seal-package.mjs",
-      "sha256": "2135dc25a369b3d73dd5d37c8fb958c323684cd0393861a802fac100209416a1",
-      "bytes": 7699,
+      "sha256": "8c89dacb96e4a36d345f6b386476ee95de864325abc45fc74c318b8ff8f93427",
+      "bytes": 8308,
       "media_type": "text/javascript",
       "role": "package-integrity-tool"
     },
     {
       "path": "tools/validate-package.mjs",
-      "sha256": "b75a626183e15335d787816e2beee06c2c73c735ad0f23e62b5dd7abce40949b",
-      "bytes": 16758,
+      "sha256": "fe714d64a96136a77a44acf194f6314c71ae387dc2e9fb6f8cb462ef902e2e8c",
+      "bytes": 22086,
       "media_type": "text/javascript",
       "role": "package-integrity-tool"
     }

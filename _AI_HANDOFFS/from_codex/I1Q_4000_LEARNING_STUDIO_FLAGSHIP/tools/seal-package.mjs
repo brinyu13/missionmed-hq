@@ -63,6 +63,7 @@ function mediaTypeFor(packagePath) {
   const extension = extname(packagePath).toLowerCase();
   const mediaTypes = {
     ".css": "text/css",
+    ".command": "text/x-shellscript",
     ".html": "text/html",
     ".js": "text/javascript",
     ".json": "application/json",
@@ -70,9 +71,12 @@ function mediaTypeFor(packagePath) {
     ".md": "text/markdown",
     ".mjs": "text/javascript",
     ".png": "image/png",
+    ".sh": "text/x-shellscript",
+    ".sha256": "text/plain",
     ".svg": "image/svg+xml",
     ".ts": "text/typescript",
     ".tsx": "text/typescript",
+    ".txt": "text/plain",
     ".yaml": "application/yaml",
     ".yml": "application/yaml",
   };
@@ -80,6 +84,18 @@ function mediaTypeFor(packagePath) {
 }
 
 function roleFor(packagePath) {
+  if (packagePath === "README_FIRST.txt") {
+    return "founder-launch-instruction";
+  }
+  if (/^(?:OPEN_IN_CHROME|OPEN_IN_DEFAULT_BROWSER|STOP_LOCAL_SERVER)\.command$/.test(packagePath)) {
+    return "founder-launch-entrypoint";
+  }
+  if (packagePath === "prototype.launch.json") {
+    return "prototype-launch-configuration";
+  }
+  if (packagePath === "launcher-integrity.sh" || packagePath === "LAUNCHER_FRAMEWORK_CHECKSUMS.sha256") {
+    return "launcher-integrity-binding";
+  }
   if (/^SCREENSHOT_BOOK\/\d{2}_.+\.png$/.test(packagePath)) {
     return "founder-review-screenshot";
   }

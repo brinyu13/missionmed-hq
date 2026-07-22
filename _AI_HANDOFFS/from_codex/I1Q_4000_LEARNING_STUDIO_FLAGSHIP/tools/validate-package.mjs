@@ -6,11 +6,14 @@ import { access, readdir, readFile } from "node:fs/promises";
 import { constants as fsConstants } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pathToFileURL } from "node:url";
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const REPOSITORY_ROOT = resolve(PACKAGE_ROOT, "../../..");
 const MANIFEST_PATH = resolve(PACKAGE_ROOT, "ARTIFACT_MANIFEST.json");
 const CHECKSUMS_PATH = resolve(PACKAGE_ROOT, "CHECKSUMS.sha256");
+const LAUNCHER_FRAMEWORK_ROOT = resolve(PACKAGE_ROOT, "../MMOS_LAUNCHER_001/framework");
+const LAUNCHER_ENTRYPOINT = resolve(LAUNCHER_FRAMEWORK_ROOT, "missionmed-prototype-launcher.mjs");
 
 const EXCLUDED_DIRECTORIES = new Set([
   "node_modules",
@@ -26,6 +29,10 @@ const EXCLUDED_FILES = new Set([
 ]);
 
 const REQUIRED_FILES = [
+  "OPEN_IN_CHROME.command",
+  "OPEN_IN_DEFAULT_BROWSER.command",
+  "README_FIRST.txt",
+  "STOP_LOCAL_SERVER.command",
   "I1Q-4000_ASSET_PROVENANCE.md",
   "I1Q-4000_AUTHORITY_AND_BOUNDARY_RECEIPT.md",
   "I1Q-4000_COMPLETE_COMBINED_HANDOFF.md",
@@ -34,7 +41,9 @@ const REQUIRED_FILES = [
   "I1Q-4000_FOUNDER_DECISION_LOG.md",
   "I1Q-4000_UX_RATIONALE.md",
   "I1Q-4000_VALIDATION_REPORT.md",
+  "LAUNCHER_FRAMEWORK_CHECKSUMS.sha256",
   "SCREENSHOT_BOOK/README.md",
+  "launcher-integrity.sh",
   "prototype/.openai/hosting.json",
   "prototype/README.md",
   "prototype/app/LearningStudio.tsx",
@@ -49,6 +58,7 @@ const REQUIRED_FILES = [
   "prototype/public/og.png",
   "prototype/tests/learning-studio.test.mjs",
   "prototype/tsconfig.json",
+  "prototype.launch.json",
   "tools/seal-package.mjs",
   "tools/validate-package.mjs",
 ];
@@ -149,6 +159,96 @@ async function requireFiles() {
   }
   assert.equal(await isReadable(MANIFEST_PATH), true, "ARTIFACT_MANIFEST.json is absent");
   assert.equal(await isReadable(CHECKSUMS_PATH), true, "CHECKSUMS.sha256 is absent");
+}
+
+async function validateLauncherIntegration() {
+  const readme = await readFile(resolve(PACKAGE_ROOT, "README_FIRST.txt"), "utf8");
+  assert.equal(
+    readme,
+    "Double-click OPEN_IN_CHROME.command.\n",
+    "README_FIRST.txt must contain exactly the Founder instruction plus one final newline",
+  );
+
+  const commands = [
+    "OPEN_IN_CHROME.command",
+    "OPEN_IN_DEFAULT_BROWSER.command",
+    "STOP_LOCAL_SERVER.command",
+  ];
+  for (const command of commands) {
+    const absolutePath = resolve(PACKAGE_ROOT, command);
+    await access(absolutePath, fsConstants.X_OK);
+    const source = await readFile(absolutePath, "utf8");
+    assert.ok(source.includes("launcher-integrity.sh"), `${command} must delegate through the sealed integrity gate`);
+    assert.ok(source.includes("prototype.launch.json"), `${command} must use the package launcher configuration`);
+    for (const forbidden of ["pnpm ", "npm ", "pkill", "kill ", "lsof", "eval ", "sudo "]) {
+      assert.equal(source.includes(forbidden), false, `${command} contains forbidden local lifecycle logic: ${forbidden}`);
+    }
+  }
+
+  const integrityScript = resolve(PACKAGE_ROOT, "launcher-integrity.sh");
+  await access(integrityScript, fsConstants.X_OK);
+  const integritySource = await readFile(integrityScript, "utf8");
+  assert.ok(integritySource.includes("/usr/bin/shasum -a 256 -c CHECKSUMS.sha256"), "Launcher integrity gate must verify the package seal before execution");
+  assert.ok(integritySource.includes("/usr/bin/shasum -a 256 -c LAUNCHER_FRAMEWORK_CHECKSUMS.sha256"), "Launcher integrity gate must verify the sealed framework ledger");
+  assert.ok(integritySource.includes("../MMOS_LAUNCHER_001/framework/bootstrap.sh"), "Launcher integrity gate must delegate only after verification");
+
+  const frameworkLedger = parseChecksums(
+    await readFile(resolve(PACKAGE_ROOT, "LAUNCHER_FRAMEWORK_CHECKSUMS.sha256"), "utf8"),
+  );
+  assert.deepEqual(
+    [...frameworkLedger.keys()],
+    [
+      "../MMOS_LAUNCHER_001/framework/bootstrap.sh",
+      "../MMOS_LAUNCHER_001/framework/missionmed-prototype-launcher.mjs",
+    ],
+    "I1Q launcher framework ledger must bind the exact executable runtime files",
+  );
+  for (const [relativePath, expected] of frameworkLedger) {
+    const absolutePath = resolve(PACKAGE_ROOT, relativePath);
+    assert.equal(digest(await readFile(absolutePath)), expected, `Launcher framework digest mismatch: ${relativePath}`);
+  }
+
+  for (const required of [
+    "bootstrap.sh",
+    "missionmed-prototype-launcher.mjs",
+    "package.json",
+  ]) {
+    assert.equal(
+      await isReadable(resolve(LAUNCHER_FRAMEWORK_ROOT, required)),
+      true,
+      `Shared launcher framework file is absent: ${required}`,
+    );
+  }
+  await access(resolve(LAUNCHER_FRAMEWORK_ROOT, "bootstrap.sh"), fsConstants.X_OK);
+  await access(LAUNCHER_ENTRYPOINT, fsConstants.X_OK);
+
+  const launcherModule = await import(pathToFileURL(LAUNCHER_ENTRYPOINT).href);
+  assert.equal(launcherModule.FRAMEWORK_VERSION, "1.0.0", "Unexpected shared launcher version");
+  const launcherConfig = await launcherModule.loadConfig(resolve(PACKAGE_ROOT, "prototype.launch.json"));
+  assert.equal(launcherConfig.prototypeId, "i1q-4000-learning-studio", "I1Q launcher identity drifted");
+  assert.equal(launcherConfig.projectPath, resolve(PACKAGE_ROOT, "prototype"), "I1Q launcher project path drifted");
+  assert.equal(launcherConfig.port, 3000, "I1Q launcher must preserve fixed port 3000");
+  assert.equal(launcherConfig.openUrl, "http://localhost:3000/", "I1Q launcher must preserve the stable browser origin");
+  assert.equal(launcherConfig.health.url, "http://localhost:3000/", "I1Q health URL drifted");
+  assert.equal(launcherConfig.health.bodyIncludes, "MissionMed Learning Studio · P4 Prototype", "I1Q health identity drifted");
+  assert.equal(launcherConfig.dependencies.manager, "pnpm", "I1Q launcher package manager drifted");
+  assert.equal(launcherConfig.dependencies.version, "11.9.0", "I1Q launcher package-manager version drifted");
+  assert.deepEqual(launcherConfig.dependencies.installArgs, ["install", "--frozen-lockfile"], "I1Q launcher install must remain frozen-lockfile only");
+  assert.deepEqual(
+    launcherConfig.dependencies.probes,
+    [
+      "node_modules/.modules.yaml",
+      "node_modules/.bin/vinext",
+      "node_modules/vinext/package.json",
+      "node_modules/react/package.json",
+      "node_modules/@cloudflare/vite-plugin/package.json",
+      "node_modules/typescript/package.json",
+    ],
+    "I1Q launcher dependency probes drifted",
+  );
+  assert.equal(launcherConfig.server.mode, "process", "I1Q launcher server mode drifted");
+  assert.equal(launcherConfig.server.tool, "packageManager", "I1Q launcher server tool drifted");
+  assert.ok(launcherConfig.server.args.includes("127.0.0.1"), "I1Q launcher server must bind loopback only");
 }
 
 function pngDimensions(buffer, path) {
@@ -426,6 +526,7 @@ async function validateAvailableLineageFiles(sourceLineage) {
 
 async function main() {
   await requireFiles();
+  await validateLauncherIntegration();
   await validateScreenshots();
   const { manifest, sourceLineage } = await validateSeal();
   await validatePrototypeMarkers();
