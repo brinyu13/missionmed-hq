@@ -253,16 +253,19 @@ test("release hardening binds activation to validation and current source rights
   assert.match(sql, /ADD COLUMN data_classification text/);
   assert.match(sql, /ADD COLUMN source_authorization_set_sha256 char\(64\)/);
   assert.match(sql, /CREATE TABLE rise\.source_authorization_receipts/);
+  assert.match(sql, /CREATE TABLE rise\.source_authorization_revocations/);
   assert.match(sql, /CREATE TABLE rise\.release_validation_receipts/);
   assert.match(sql, /CREATE FUNCTION rise\.enforce_release_activation_evidence\(\)/);
   assert.match(sql, /NEW\.data_classification IS DISTINCT FROM 'source_controlled_registry'/);
   assert.match(sql, /auth_receipt\.revoked_at IS NOT NULL/);
   assert.match(sql, /auth_receipt\.valid_through < current_date/);
+  assert.match(sql, /auth_revocation\.release_id IS NOT NULL/);
   assert.match(sql, /CREATE TRIGGER rise_registry_release_activation_evidence/);
+  assert.match(sql, /CREATE TRIGGER rise_source_authorization_revocations_append_only/);
   assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
 });
 
-test("release hardening binds session identity and serializes an HMAC audit chain", async () => {
+test("release hardening binds session identity and serializes externally computed HMAC audit records", async () => {
   const sql = await fs.readFile(hardeningUpPath, "utf8");
   assert.match(sql, /UNIQUE \(jti_sha256, subject_id, issuer, audience, role, capabilities\)/);
   assert.match(sql, /FOREIGN KEY \(jti_sha256, subject_id, issuer, audience, role, capabilities\)/);
@@ -277,12 +280,15 @@ test("release hardening binds session identity and serializes an HMAC audit chai
 test("registry readers can select only active, non-quarantine views", async () => {
   const sql = await fs.readFile(hardeningUpPath, "utf8");
   assert.match(sql, /REVOKE SELECT ON ALL TABLES IN SCHEMA rise FROM rise_registry_reader/);
+  assert.match(sql, /CREATE VIEW rise\.current_authorized_release/);
+  assert.match(sql, /LEFT JOIN rise\.source_authorization_revocations AS revocation/);
   for (const view of [
     "active_registry_release", "active_programs", "active_specialties", "active_program_specialties",
     "active_browse_memberships", "active_claims", "active_source_documents",
   ]) {
     assert.match(sql, new RegExp(`CREATE VIEW rise\\.${view}`));
   }
+  assert.equal((sql.match(/JOIN rise\.current_authorized_release AS active/g) ?? []).length, 7);
   assert.match(sql, /WHERE claim\.publication = 'source_attributed_snapshot'/);
   assert.doesNotMatch(sql, /GRANT SELECT ON[\s\S]*quarantined_observations[\s\S]*TO rise_registry_reader/);
 });

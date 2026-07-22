@@ -193,6 +193,9 @@ test("health is public and static responses include restrictive headers", async 
   assert.equal(vendor.status, 200);
   assert.equal(vendor.headers.get("cache-control"), "no-cache");
 
+  const unlistedManifest = await fetch(`${baseUrl}/rise/asset-manifest.json`);
+  assert.equal(unlistedManifest.status, 404);
+
   const traversal = await fetch(`${baseUrl}/rise/%2e%2e/package.json`);
   assert.equal(traversal.status, 404);
   assert.equal((await traversal.json()).error.code, "NOT_FOUND");
@@ -419,14 +422,68 @@ test("production requires a shared durable abuse controller", () => {
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
   };
   assert.throws(() => createRiseServer(options), /shared durable abuse controller/);
+  const abuseController = {
+    scope: "shared_durable",
+    async allowPreAuth() { return true; },
+    async allowAuthenticatedSubject() { return true; },
+  };
+  assert.throws(() => createRiseServer({
+    ...options,
+    abuseController,
+  }), /shared current source-rights controller/);
   createRiseServer({
     ...options,
+    abuseController,
+    sourceRightsController: {
+      scope: "shared_durable_current",
+      async assertCurrent() { return true; },
+    },
+  });
+});
+
+test("production source rights fail closed after activation when the live decision is revoked", async () => {
+  const source = sourceControlledIndex();
+  let current = true;
+  let controllerUnavailable = false;
+  const guarded = createRiseServer({
+    registryIndex: activeProductionIndex(source.index),
+    authMode: "injected",
+    authenticator: async () => authenticatedSession(),
+    authIssuer: AUTH_ISSUER,
+    auditHmacKey: AUDIT_HMAC_KEY,
+    production: true,
+    expectedSourceAuthorizationSha256s: source.authorizationSha256,
     abuseController: {
       scope: "shared_durable",
       async allowPreAuth() { return true; },
       async allowAuthenticatedSubject() { return true; },
     },
+    sourceRightsController: {
+      scope: "shared_durable_current",
+      async assertCurrent() {
+        if (controllerUnavailable) throw new Error("controller unavailable");
+        return current;
+      },
+    },
+    logger: { info() {}, error() {} },
   });
+  await new Promise((resolve) => guarded.listen(0, "127.0.0.1", resolve));
+  const origin = `http://127.0.0.1:${guarded.address().port}`;
+  try {
+    assert.equal((await fetch(`${origin}/api/rise/v1/health`)).status, 200);
+    assert.equal((await fetch(`${origin}/api/rise/v1/status`)).status, 200);
+    current = false;
+    assert.equal((await fetch(`${origin}/api/rise/v1/health`)).status, 503);
+    const blocked = await fetch(`${origin}/api/rise/v1/status`);
+    assert.equal(blocked.status, 503);
+    assert.equal((await blocked.json()).error.code, "SOURCE_RIGHTS_UNAVAILABLE");
+    controllerUnavailable = true;
+    const rejected = await fetch(`${origin}/api/rise/v1/status`);
+    assert.equal(rejected.status, 503);
+    assert.equal((await rejected.json()).error.code, "SOURCE_RIGHTS_UNAVAILABLE");
+  } finally {
+    await new Promise((resolve, reject) => guarded.close((error) => error ? reject(error) : resolve()));
+  }
 });
 
 test("production rejects an offline registry and requires a keyed audit identity", () => {

@@ -26,6 +26,9 @@
     "RISE_ABUSE_ADAPTER_MODULE",
     "RISE_ABUSE_CONTROL_URL",
     "RISE_ABUSE_CONTROL_TOKEN",
+    "RISE_SOURCE_RIGHTS_ADAPTER_MODULE",
+    "RISE_SOURCE_RIGHTS_CONTROL_URL",
+    "RISE_SOURCE_RIGHTS_CONTROL_TOKEN",
     "RISE_ARTIFACT_ORIGIN",
     "RISE_ARTIFACT_BEARER_TOKEN",
     "RISE_INDEX_URL",
@@ -47,7 +50,8 @@
     "RISE_ENVIRONMENT": "production",
     "RISE_AUTH_MODE": "injected",
     "RISE_AUTH_ADAPTER_MODULE": "/app/adapters/hq-auth.mjs",
-    "RISE_ABUSE_ADAPTER_MODULE": "/app/adapters/http-abuse.mjs"
+    "RISE_ABUSE_ADAPTER_MODULE": "/app/adapters/http-abuse.mjs",
+    "RISE_SOURCE_RIGHTS_ADAPTER_MODULE": "/app/adapters/http-source-rights.mjs"
   },
   "runtimeArtifactPolicy": {
     "registryIndexEmbeddedInImage": false,
@@ -57,6 +61,10 @@
     "registryIndexMustPassImmutableManifestVerification": true,
     "activationReceiptMustBindIndexAndManifest": true,
     "sourceAuthorizationHashesMustMatchRuntimePins": true,
-    "webAssetsMustPassManifestVerification": true
+    "liveSourceRightsMustBeRevalidatedAtStartupAndEveryAuthenticatedRequest": true,
+    "insecureLoopbackControllersProhibitedInProduction": true,
+    "webAssetsMustPassManifestVerification": true,
+    "webAssetsMustRemainRootOwned": true,
+    "readOnlyRootFilesystemRequired": true
   }
 }

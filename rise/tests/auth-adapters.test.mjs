@@ -4,6 +4,7 @@ import test from "node:test";
 
 import { createHqAuthenticator } from "../adapters/hq-auth.mjs";
 import { createRiseAbuseController } from "../adapters/http-abuse.mjs";
+import { createRiseSourceRightsController } from "../adapters/http-source-rights.mjs";
 
 async function listen(handler) {
   const server = http.createServer(handler);
@@ -68,7 +69,7 @@ test("HQ adapter introspects the exact audience and exposes only a bound RISE se
   }
 });
 
-test("HQ adapter rejects expired and audience-drifted upstream sessions", async () => {
+test("HQ adapter rejects expired, revoked, and audience-drifted upstream sessions", async () => {
   let mode = "expired";
   const fixture = await listen((_request, response) => {
     response.writeHead(200, { "Content-Type": "application/json" });
@@ -76,6 +77,7 @@ test("HQ adapter rejects expired and audience-drifted upstream sessions", async 
       authenticated: true,
       sessionPersistent: true,
       authAudience: mode === "audience" ? "arena" : "rise",
+      revoked: mode === "revoked",
       csrfToken: "upstreamCsrfTokenForRise00000000",
       expiresAt: mode === "expired" ? "2026-07-22T11:59:00.000Z" : "2026-07-22T13:00:00.000Z",
       user: { id: 7, roles: ["administrator"] },
@@ -89,6 +91,8 @@ test("HQ adapter rejects expired and audience-drifted upstream sessions", async 
       now: () => Date.parse("2026-07-22T12:00:00.000Z"),
     });
     assert.equal(await authenticate({ headers: { cookie: "mmhq_session=expired" } }), null);
+    mode = "revoked";
+    assert.equal(await authenticate({ headers: { cookie: "mmhq_session=revoked" } }), null);
     mode = "audience";
     assert.equal(await authenticate({ headers: { cookie: "mmhq_session=wrong-audience" } }), null);
   } finally {
@@ -127,6 +131,47 @@ test("durable abuse adapter sends pseudonymous decisions and fails closed", asyn
     validResponse = false;
     assert.equal(await controller.allowPreAuth({ method: "GET", path: "/", cost: 1 }), false);
     assert.equal(await controller.allowAuthenticatedSubject({ subjectKey: "invalid" }), false);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test("source-rights adapter requires a fresh release-bound decision and fails closed", async () => {
+  const observed = [];
+  const now = Date.parse("2026-07-22T12:00:00.000Z");
+  const authorizationSha256 = "a".repeat(64);
+  let mode = "current";
+  const fixture = await listen(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += chunk;
+    observed.push({ authorization: request.headers.authorization, body: JSON.parse(body) });
+    response.writeHead(200, { "Content-Type": "application/json" });
+    response.end(JSON.stringify({
+      schemaVersion: 1,
+      current: mode !== "revoked",
+      registryReleaseId: mode === "wrong-release" ? "other-release" : "rise_registry_test",
+      authorizationSha256s: [mode === "wrong-authorization" ? "b".repeat(64) : authorizationSha256],
+      checkedAt: new Date(mode === "stale" ? now - 61_000 : now).toISOString(),
+      validUntil: new Date(mode === "overlong" ? now + 301_000 : now + 60_000).toISOString(),
+      decisionId: "source-rights-decision-test",
+    }));
+  });
+  try {
+    const controller = createRiseSourceRightsController({
+      controlUrl: `${fixture.origin}/v1/current`,
+      bearerToken: "rights-test-token-0000000000000000",
+      allowInsecureLoopback: true,
+      now: () => now,
+    });
+    const input = { registryReleaseId: "rise_registry_test", authorizationSha256s: [authorizationSha256] };
+    assert.equal(controller.scope, "shared_durable_current");
+    assert.equal(await controller.assertCurrent(input), true);
+    assert.equal(observed[0].authorization, "Bearer rights-test-token-0000000000000000");
+    assert.deepEqual(observed[0].body.authorizationSha256s, [authorizationSha256]);
+    for (const invalidMode of ["revoked", "stale", "wrong-release", "wrong-authorization", "overlong"]) {
+      mode = invalidMode;
+      assert.equal(await controller.assertCurrent(input), false);
+    }
   } finally {
     await fixture.close();
   }

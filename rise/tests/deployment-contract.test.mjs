@@ -32,8 +32,11 @@ test("isolated RISE deployment contract cannot launch the HQ service", async () 
   assert.doesNotMatch(dockerfile, /RISE_ABUSE_ADAPTER_MODULE=/);
   const runtimeStage = dockerfile.slice(dockerfile.indexOf(" AS runtime"));
   assert.match(runtimeStage, /rm -rf \/usr\/local\/lib\/node_modules\/npm/);
+  assert.match(runtimeStage, /\/usr\/local\/lib\/node_modules\/corepack/);
+  assert.match(runtimeStage, /\/opt\/yarn-v\$\{YARN_VERSION\}/);
   assert.doesNotMatch(runtimeStage, /npm ci/);
   assert.doesNotMatch(runtimeStage, /COPY package\.json package-lock\.json/);
+  assert.doesNotMatch(runtimeStage, /--chown=node:node \/app\/dist/);
   assert.doesNotMatch(serverSource, /LUCIDE_UMD_PATH\s*=\s*require\.resolve/);
   assert.doesNotMatch(dockerfile, /missionmed-hq/);
 });
@@ -47,6 +50,9 @@ test("production contract pins auth, source rights, index, assets, and abuse con
     "RISE_AUDIT_HMAC_KEY",
     "RISE_ABUSE_ADAPTER_MODULE",
     "RISE_ABUSE_CONTROL_URL",
+    "RISE_SOURCE_RIGHTS_ADAPTER_MODULE",
+    "RISE_SOURCE_RIGHTS_CONTROL_URL",
+    "RISE_SOURCE_RIGHTS_CONTROL_TOKEN",
     "RISE_ARTIFACT_ORIGIN",
     "RISE_INDEX_URL",
     "RISE_INDEX_SHA256",
@@ -62,11 +68,16 @@ test("production contract pins auth, source rights, index, assets, and abuse con
     assert.ok(contract.requiredEnvironment.includes(name), `missing ${name}`);
   }
   assert.equal(contract.requiredValues.RISE_AUTH_MODE, "injected");
+  assert.equal(contract.requiredValues.RISE_SOURCE_RIGHTS_ADAPTER_MODULE, "/app/adapters/http-source-rights.mjs");
   assert.equal(contract.runtimeArtifactPolicy.registryIndexEmbeddedInImage, false);
   assert.equal(contract.runtimeArtifactPolicy.registryArtifactsFetchedFromOnePinnedOrigin, true);
   assert.equal(contract.runtimeArtifactPolicy.activationReceiptMustBindIndexAndManifest, true);
   assert.equal(contract.runtimeArtifactPolicy.syntheticRegistryProhibitedInProduction, true);
   assert.equal(contract.runtimeArtifactPolicy.sourceAuthorizationHashesMustMatchRuntimePins, true);
+  assert.equal(contract.runtimeArtifactPolicy.liveSourceRightsMustBeRevalidatedAtStartupAndEveryAuthenticatedRequest, true);
+  assert.equal(contract.runtimeArtifactPolicy.insecureLoopbackControllersProhibitedInProduction, true);
+  assert.equal(contract.runtimeArtifactPolicy.webAssetsMustRemainRootOwned, true);
+  assert.equal(contract.runtimeArtifactPolicy.readOnlyRootFilesystemRequired, true);
 });
 
 test("production environment validation enforces the deployment contract", () => {
@@ -85,6 +96,9 @@ test("production environment validation enforces the deployment contract", () =>
     RISE_ABUSE_ADAPTER_MODULE: "/app/adapters/http-abuse.mjs",
     RISE_ABUSE_CONTROL_URL: "https://abuse.example.test/v1/decisions",
     RISE_ABUSE_CONTROL_TOKEN: "abuse-token-000000000000000000000",
+    RISE_SOURCE_RIGHTS_ADAPTER_MODULE: "/app/adapters/http-source-rights.mjs",
+    RISE_SOURCE_RIGHTS_CONTROL_URL: "https://rights.example.test/v1/current",
+    RISE_SOURCE_RIGHTS_CONTROL_TOKEN: "rights-token-00000000000000000000",
     RISE_ARTIFACT_ORIGIN: "https://artifacts.example.test",
     RISE_ARTIFACT_BEARER_TOKEN: "artifact-token-0000000000000000000",
     RISE_INDEX_URL: "https://artifacts.example.test/rise/api-index.json",
@@ -110,6 +124,16 @@ test("production environment validation enforces the deployment contract", () =>
     () => validateProductionEnvironment({ ...environment, RISE_HQ_AUTH_SESSION_URL: "https://evil.example.test/api/auth/session" }),
     /topology/,
   );
+  for (const name of [
+    "RISE_ALLOW_INSECURE_LOOPBACK_AUTH",
+    "RISE_ALLOW_INSECURE_LOOPBACK_ABUSE",
+    "RISE_ALLOW_INSECURE_LOOPBACK_SOURCE_RIGHTS",
+  ]) {
+    assert.throws(
+      () => validateProductionEnvironment({ ...environment, [name]: "true" }),
+      new RegExp(`${name}.*prohibited`),
+    );
+  }
 });
 
 test("same-origin route contract covers the application, vendor asset, and API", async () => {

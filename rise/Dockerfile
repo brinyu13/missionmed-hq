@@ -14,13 +14,18 @@ ENV NODE_ENV=production \
     RISE_WEB_DIRECTORY=/app/dist
 WORKDIR /app
 RUN rm -rf /usr/local/lib/node_modules/npm \
+    /usr/local/lib/node_modules/corepack \
+    /opt/yarn-v${YARN_VERSION} \
     /usr/local/bin/npm \
-    /usr/local/bin/npx
+    /usr/local/bin/npx \
+    /usr/local/bin/corepack \
+    /usr/local/bin/yarn \
+    /usr/local/bin/yarnpkg
 COPY server.mjs ./server.mjs
 COPY src ./src
 COPY adapters ./adapters
 COPY tools/prepare-runtime.mjs tools/start-production.mjs ./tools/
-COPY --from=build --chown=node:node /app/dist ./dist
+COPY --from=build /app/dist ./dist
 USER node
 EXPOSE 4177
 CMD ["node", "tools/start-production.mjs"]

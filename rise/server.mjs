@@ -36,6 +36,7 @@ const MIME_TYPES = new Map([
   [".png", "image/png"],
   [".woff2", "font/woff2"],
 ]);
+const STATIC_ASSET_PATHS = new Set(["index.html", "styles.css", "app.js"]);
 
 function securityHeaders(response, requestId) {
   response.setHeader("Content-Security-Policy", [
@@ -283,6 +284,9 @@ const PRODUCTION_REQUIRED_ENVIRONMENT = [
   "RISE_ABUSE_ADAPTER_MODULE",
   "RISE_ABUSE_CONTROL_URL",
   "RISE_ABUSE_CONTROL_TOKEN",
+  "RISE_SOURCE_RIGHTS_ADAPTER_MODULE",
+  "RISE_SOURCE_RIGHTS_CONTROL_URL",
+  "RISE_SOURCE_RIGHTS_CONTROL_TOKEN",
   "RISE_ARTIFACT_ORIGIN",
   "RISE_ARTIFACT_BEARER_TOKEN",
   "RISE_INDEX_URL",
@@ -309,11 +313,25 @@ export function validateProductionEnvironment(environment = process.env) {
   if (environment.RISE_AUTH_MODE !== "injected") {
     throw new Error("Production RISE requires RISE_AUTH_MODE=injected");
   }
+  for (const name of [
+    "RISE_ALLOW_INSECURE_LOOPBACK_AUTH",
+    "RISE_ALLOW_INSECURE_LOOPBACK_ABUSE",
+    "RISE_ALLOW_INSECURE_LOOPBACK_SOURCE_RIGHTS",
+  ]) {
+    if (environment[name] === "true") throw new Error(`${name} is prohibited in production`);
+  }
   for (const name of ["RISE_INDEX_SHA256", "RISE_INDEX_MANIFEST_SHA256", "RISE_ACTIVATION_RECEIPT_SHA256", "RISE_ASSET_MANIFEST_SHA256"]) {
     if (!/^[a-f0-9]{64}$/.test(environment[name])) throw new Error(`${name} must be a lowercase SHA-256`);
   }
-  for (const name of ["RISE_AUTH_ADAPTER_MODULE", "RISE_ABUSE_ADAPTER_MODULE", "RISE_INDEX_PATH", "RISE_INDEX_MANIFEST_PATH", "RISE_ACTIVATION_RECEIPT_PATH"]) {
+  for (const name of ["RISE_AUTH_ADAPTER_MODULE", "RISE_ABUSE_ADAPTER_MODULE", "RISE_SOURCE_RIGHTS_ADAPTER_MODULE", "RISE_INDEX_PATH", "RISE_INDEX_MANIFEST_PATH", "RISE_ACTIVATION_RECEIPT_PATH"]) {
     if (!path.isAbsolute(environment[name])) throw new Error(`${name} must be an absolute path`);
+  }
+  for (const [name, expected] of Object.entries({
+    RISE_AUTH_ADAPTER_MODULE: "/app/adapters/hq-auth.mjs",
+    RISE_ABUSE_ADAPTER_MODULE: "/app/adapters/http-abuse.mjs",
+    RISE_SOURCE_RIGHTS_ADAPTER_MODULE: "/app/adapters/http-source-rights.mjs",
+  })) {
+    if (environment[name] !== expected) throw new Error(`${name} must be ${expected}`);
   }
   const publicOrigin = new URL(environment.RISE_PUBLIC_ORIGIN);
   const authIssuer = new URL(environment.RISE_AUTH_ISSUER);
@@ -546,6 +564,17 @@ function resolveAbuseController(controller, { production }) {
   return controller;
 }
 
+function resolveSourceRightsController(controller, { production }) {
+  if (!controller) {
+    if (production) throw new Error("Production RISE requires an injected shared current source-rights controller");
+    return { scope: "process_local_test_only", async assertCurrent() { return true; } };
+  }
+  if (typeof controller.assertCurrent !== "function" || (production && controller.scope !== "shared_durable_current")) {
+    throw new Error("RISE source-rights controller must provide assertCurrent(); production scope must be shared_durable_current");
+  }
+  return controller;
+}
+
 async function serveStatic(request, requestPath, response, webDirectory, requestId) {
   let relative = requestPath === "/rise/" || requestPath === "/rise" ? "index.html" : requestPath.slice("/rise/".length);
   if (requestPath === "/rise/vendor/lucide.js") {
@@ -577,6 +606,7 @@ async function serveStatic(request, requestPath, response, webDirectory, request
   } catch {
     return false;
   }
+  if (!STATIC_ASSET_PATHS.has(relative)) return false;
   const absolute = path.resolve(webDirectory, relative);
   const root = `${path.resolve(webDirectory)}${path.sep}`;
   if (!absolute.startsWith(root) && absolute !== path.resolve(webDirectory, "index.html")) return false;
@@ -615,6 +645,7 @@ export function createRiseServer({
   loginUrl = process.env.RISE_LOGIN_URL,
   auditHmacKey = process.env.RISE_AUDIT_HMAC_KEY,
   abuseController,
+  sourceRightsController,
   logger = createJsonLogger(),
 } = {}) {
   if (!registryIndex?.programs || !registryIndex?.registryReleaseId) {
@@ -643,6 +674,33 @@ export function createRiseServer({
   const authenticate = createAuthenticator({ mode: authMode, authenticator, issuer: authIssuer, production });
   const abuse = resolveAbuseController(abuseController, { production });
   const auditKey = resolveAuditHmacKey(auditHmacKey, { production });
+  const sourceRights = syntheticTestFixture
+    ? null
+    : resolveSourceRightsController(sourceRightsController, { production });
+  const authorizationSha256s = registryIndex.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [];
+  async function assertLiveSourceRights() {
+    if (syntheticTestFixture) return true;
+    assertCurrentSourceRights(registryIndex.releaseGate, {
+      production,
+      expectedAuthorizationSha256s: expectedSourceAuthorizationSha256s,
+      revokedAuthorizationSha256s: revokedSourceAuthorizationSha256s,
+    });
+    let current = false;
+    try {
+      current = await sourceRights.assertCurrent({
+        registryReleaseId: registryIndex.registryReleaseId,
+        authorizationSha256s,
+      });
+    } catch {
+      current = false;
+    }
+    if (!current) {
+      const error = new Error("Current source-rights validation is unavailable or revoked");
+      error.code = "SOURCE_RIGHTS_UNAVAILABLE";
+      throw error;
+    }
+    return true;
+  }
   const metrics = createRuntimeMetrics();
   return http.createServer(async (request, response) => {
     const requestId = randomUUID();
@@ -666,11 +724,7 @@ export function createRiseServer({
         let sourceRightsCurrent = true;
         if (!syntheticTestFixture) {
           try {
-            assertCurrentSourceRights(registryIndex.releaseGate, {
-              production,
-              expectedAuthorizationSha256s: expectedSourceAuthorizationSha256s,
-              revokedAuthorizationSha256s: revokedSourceAuthorizationSha256s,
-            });
+            await assertLiveSourceRights();
           } catch {
             sourceRightsCurrent = false;
           }
@@ -746,11 +800,7 @@ export function createRiseServer({
         return;
       }
       if (!syntheticTestFixture) {
-        assertCurrentSourceRights(registryIndex.releaseGate, {
-          production,
-          expectedAuthorizationSha256s: expectedSourceAuthorizationSha256s,
-          revokedAuthorizationSha256s: revokedSourceAuthorizationSha256s,
-        });
+        await assertLiveSourceRights();
       }
       if (authMode === "local-preview") response.setHeader("X-RISE-Preview", "true");
 
@@ -869,6 +919,9 @@ export function createRiseServer({
       } else if (error.code === "INVALID_JSON") {
         status = 400;
         apiError(response, 400, error.code, error.message, requestId);
+      } else if (error.code === "SOURCE_RIGHTS_UNAVAILABLE") {
+        status = 503;
+        apiError(response, 503, error.code, "Current registry source rights could not be verified", requestId);
       } else {
         status = 500;
         logger.error?.({ event: "rise_request_error", requestId, message: error.message });
@@ -1025,6 +1078,7 @@ export async function startFromEnvironment() {
   const authMode = process.env.RISE_AUTH_MODE ?? "local-preview";
   let authenticator;
   let abuseController;
+  let sourceRightsController;
   if (authMode === "injected") {
     const adapterPath = process.env.RISE_AUTH_ADAPTER_MODULE;
     if (!adapterPath) throw new Error("RISE_AUTH_ADAPTER_MODULE is required for injected authentication");
@@ -1041,6 +1095,21 @@ export async function startFromEnvironment() {
       throw new Error("RISE abuse adapter must export createRiseAbuseController()");
     }
     abuseController = await adapter.createRiseAbuseController();
+  }
+  const sourceRightsAdapterPath = process.env.RISE_SOURCE_RIGHTS_ADAPTER_MODULE;
+  if (sourceRightsAdapterPath) {
+    const adapter = await import(pathToFileURL(path.resolve(sourceRightsAdapterPath)).href);
+    if (typeof adapter.createRiseSourceRightsController !== "function") {
+      throw new Error("RISE source-rights adapter must export createRiseSourceRightsController()");
+    }
+    sourceRightsController = await adapter.createRiseSourceRightsController();
+  }
+  if (production && index.dataClassification !== "synthetic_test_fixture") {
+    const current = await sourceRightsController?.assertCurrent({
+      registryReleaseId: index.registryReleaseId,
+      authorizationSha256s: index.releaseGate?.sourceRights?.map((right) => right.sha256) ?? [],
+    });
+    if (!current) throw new Error("Production RISE source rights are not currently verified");
   }
   const webBuild = await loadWebBuild(webDirectory, { production });
   if (production && !process.env.RISE_BUILD_ID) {
@@ -1060,6 +1129,7 @@ export async function startFromEnvironment() {
     loginUrl: process.env.RISE_LOGIN_URL,
     auditHmacKey: process.env.RISE_AUDIT_HMAC_KEY,
     abuseController,
+    sourceRightsController,
     buildId: webBuild.buildId,
     production,
   });

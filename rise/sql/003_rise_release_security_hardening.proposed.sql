@@ -49,6 +49,25 @@ CREATE TABLE rise.source_authorization_receipts (
   CHECK (revoked_at IS NULL OR revoked_at >= verified_at)
 );
 
+ALTER TABLE rise.source_authorization_receipts
+  ADD CONSTRAINT rise_source_authorization_receipt_identity_unique
+  UNIQUE (release_id, source_authority, authorization_sha256);
+
+CREATE TABLE rise.source_authorization_revocations (
+  release_id text NOT NULL,
+  source_authority text NOT NULL,
+  authorization_sha256 char(64) NOT NULL CHECK (authorization_sha256 ~ '^[0-9a-f]{64}$'),
+  decision_record_id text NOT NULL CHECK (btrim(decision_record_id) <> ''),
+  recorded_by_subject text NOT NULL CHECK (btrim(recorded_by_subject) <> ''),
+  revoked_at timestamptz NOT NULL,
+  reason text NOT NULL CHECK (btrim(reason) <> ''),
+  PRIMARY KEY (release_id, source_authority),
+  FOREIGN KEY (release_id, source_authority, authorization_sha256)
+    REFERENCES rise.source_authorization_receipts (
+      release_id, source_authority, authorization_sha256
+    )
+);
+
 CREATE TABLE rise.release_validation_receipts (
   release_id text PRIMARY KEY REFERENCES rise.registry_releases(release_id),
   validation_status text NOT NULL CHECK (validation_status = 'passed'),
@@ -135,9 +154,14 @@ BEGIN
       LEFT JOIN rise.source_authorization_receipts AS auth_receipt
         ON auth_receipt.release_id = NEW.release_id
        AND auth_receipt.source_authority = required_source.authority
+      LEFT JOIN rise.source_authorization_revocations AS auth_revocation
+        ON auth_revocation.release_id = auth_receipt.release_id
+       AND auth_revocation.source_authority = auth_receipt.source_authority
+       AND auth_revocation.authorization_sha256 = auth_receipt.authorization_sha256
       WHERE auth_receipt.release_id IS NULL
          OR auth_receipt.revoked_at IS NOT NULL
          OR auth_receipt.valid_through < current_date
+         OR auth_revocation.release_id IS NOT NULL
   ) THEN
     RAISE EXCEPTION 'RISE release has a missing, expired, or revoked source authorization receipt'
       USING ERRCODE = '55000';
@@ -161,6 +185,9 @@ CREATE TRIGGER rise_source_authorization_receipts_append_only
   FOR EACH ROW EXECUTE FUNCTION rise.reject_snapshot_mutation();
 CREATE TRIGGER rise_release_validation_receipts_append_only
   BEFORE UPDATE OR DELETE ON rise.release_validation_receipts
+  FOR EACH ROW EXECUTE FUNCTION rise.reject_snapshot_mutation();
+CREATE TRIGGER rise_source_authorization_revocations_append_only
+  BEFORE UPDATE OR DELETE ON rise.source_authorization_revocations
   FOR EACH ROW EXECUTE FUNCTION rise.reject_snapshot_mutation();
 
 ALTER TABLE rise_app.authorization_code_redemptions
@@ -246,40 +273,65 @@ CREATE TRIGGER rise_audit_events_chain_guard
   BEFORE INSERT ON rise_audit.audit_events
   FOR EACH ROW EXECUTE FUNCTION rise_audit.enforce_event_chain();
 
+CREATE VIEW rise.current_authorized_release
+WITH (security_barrier = true)
+AS
+SELECT active.active_release_id
+  FROM rise.registry_active_release AS active
+  WHERE active.singleton_key = true
+    AND NOT EXISTS (
+      SELECT 1
+        FROM (
+          SELECT DISTINCT source.authority
+            FROM rise.source_documents AS source
+            WHERE source.release_id = active.active_release_id
+        ) AS required_source
+        LEFT JOIN rise.source_authorization_receipts AS receipt
+          ON receipt.release_id = active.active_release_id
+         AND receipt.source_authority = required_source.authority
+        LEFT JOIN rise.source_authorization_revocations AS revocation
+          ON revocation.release_id = receipt.release_id
+         AND revocation.source_authority = receipt.source_authority
+         AND revocation.authorization_sha256 = receipt.authorization_sha256
+        WHERE receipt.release_id IS NULL
+           OR receipt.revoked_at IS NOT NULL
+           OR receipt.valid_through < current_date
+           OR revocation.release_id IS NOT NULL
+    );
+
 CREATE VIEW rise.active_registry_release
 WITH (security_barrier = true)
 AS
 SELECT release.*
   FROM rise.registry_releases AS release
-  JOIN rise.registry_active_release AS active
+  JOIN rise.current_authorized_release AS active
     ON active.active_release_id = release.release_id
-  WHERE active.singleton_key = true
-    AND release.activation_status = 'active';
+  WHERE release.activation_status = 'active';
 
 CREATE VIEW rise.active_programs WITH (security_barrier = true) AS
 SELECT program.* FROM rise.programs AS program
-JOIN rise.registry_active_release AS active ON active.active_release_id = program.release_id;
+JOIN rise.current_authorized_release AS active ON active.active_release_id = program.release_id;
 CREATE VIEW rise.active_specialties WITH (security_barrier = true) AS
 SELECT specialty.* FROM rise.specialties AS specialty
-JOIN rise.registry_active_release AS active ON active.active_release_id = specialty.release_id;
+JOIN rise.current_authorized_release AS active ON active.active_release_id = specialty.release_id;
 CREATE VIEW rise.active_program_specialties WITH (security_barrier = true) AS
 SELECT offering.* FROM rise.program_specialties AS offering
-JOIN rise.registry_active_release AS active ON active.active_release_id = offering.release_id;
+JOIN rise.current_authorized_release AS active ON active.active_release_id = offering.release_id;
 CREATE VIEW rise.active_browse_memberships WITH (security_barrier = true) AS
 SELECT membership.* FROM rise.browse_memberships AS membership
-JOIN rise.registry_active_release AS active ON active.active_release_id = membership.release_id;
+JOIN rise.current_authorized_release AS active ON active.active_release_id = membership.release_id;
 CREATE VIEW rise.active_claims WITH (security_barrier = true) AS
 SELECT claim.* FROM rise.claims AS claim
-JOIN rise.registry_active_release AS active ON active.active_release_id = claim.release_id
+JOIN rise.current_authorized_release AS active ON active.active_release_id = claim.release_id
 WHERE claim.publication = 'source_attributed_snapshot';
 CREATE VIEW rise.active_source_documents WITH (security_barrier = true) AS
 SELECT source.* FROM rise.source_documents AS source
-JOIN rise.registry_active_release AS active ON active.active_release_id = source.release_id;
+JOIN rise.current_authorized_release AS active ON active.active_release_id = source.release_id;
 
 REVOKE SELECT ON ALL TABLES IN SCHEMA rise FROM rise_registry_reader;
-REVOKE ALL ON rise.source_authorization_receipts, rise.release_validation_receipts FROM PUBLIC;
+REVOKE ALL ON rise.source_authorization_receipts, rise.source_authorization_revocations, rise.release_validation_receipts FROM PUBLIC;
 GRANT USAGE ON SCHEMA rise TO rise_registry_governance_manager, rise_registry_validator;
-GRANT SELECT, INSERT ON rise.source_authorization_receipts TO rise_registry_governance_manager;
+GRANT SELECT, INSERT ON rise.source_authorization_receipts, rise.source_authorization_revocations TO rise_registry_governance_manager;
 GRANT SELECT, INSERT ON rise.release_validation_receipts TO rise_registry_validator;
 GRANT SELECT ON
   rise.active_registry_release,
