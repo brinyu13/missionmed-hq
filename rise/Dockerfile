@@ -11,9 +11,7 @@ FROM node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb
 
 ENV NODE_ENV=production \
     RISE_ENVIRONMENT=production \
-    RISE_WEB_DIRECTORY=/app/dist \
-    RISE_AUTH_ADAPTER_MODULE=/app/adapters/hq-auth.mjs \
-    RISE_ABUSE_ADAPTER_MODULE=/app/adapters/http-abuse.mjs
+    RISE_WEB_DIRECTORY=/app/dist
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
