@@ -287,6 +287,7 @@ export async function buildIndex(releaseDirectory, outputParent, {
   const states = [...new Set(records.map((record) => record.display.state).filter(Boolean))].sort();
   const specialties = [...new Set(records.flatMap((record) =>
     record.browseMemberships.map((membership) => membership.browseSpecialty)))].sort();
+  const designations = [...new Set(records.map((record) => record.designation).filter(Boolean))].sort();
   const indexSeed = {
     builderVersion: BUILDER_VERSION,
     releaseId: release.releaseId,
@@ -315,7 +316,7 @@ export async function buildIndex(releaseDirectory, outputParent, {
       retrievalDate: release.source.retrievalDate,
     },
     counts: release.counts,
-    filters: { states, specialties },
+    filters: { states, specialties, designations },
     selectedFields: [...SELECTED_FIELDS],
     programs: records,
   })}\n`, { flag: "wx" });

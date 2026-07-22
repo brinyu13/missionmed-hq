@@ -9,6 +9,8 @@ const upPath = path.resolve(here, "../sql/001_rise_registry.proposed.sql");
 const downPath = path.resolve(here, "../sql/001_rise_registry.down.proposed.sql");
 const appUpPath = path.resolve(here, "../sql/002_rise_app_and_audit.proposed.sql");
 const appDownPath = path.resolve(here, "../sql/002_rise_app_and_audit.down.proposed.sql");
+const hardeningUpPath = path.resolve(here, "../sql/003_rise_release_security_hardening.proposed.sql");
+const hardeningDownPath = path.resolve(here, "../sql/003_rise_release_security_hardening.down.proposed.sql");
 
 async function readUp() {
   return fs.readFile(upPath, "utf8");
@@ -239,6 +241,54 @@ test("audit and recovery evidence are append-only and private", async () => {
 
 test("app and audit rollback refuses destructive schema deletion", async () => {
   const sql = await fs.readFile(appDownPath, "utf8");
+  assert.match(sql, /intentionally fail-closed/);
+  assert.match(sql, /RAISE EXCEPTION/);
+  assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
+});
+
+test("release hardening binds activation to validation and current source rights", async () => {
+  const sql = await fs.readFile(hardeningUpPath, "utf8");
+  assert.match(sql, /^BEGIN;/m);
+  assert.match(sql, /^COMMIT;/m);
+  assert.match(sql, /ADD COLUMN data_classification text/);
+  assert.match(sql, /ADD COLUMN source_authorization_set_sha256 char\(64\)/);
+  assert.match(sql, /CREATE TABLE rise\.source_authorization_receipts/);
+  assert.match(sql, /CREATE TABLE rise\.release_validation_receipts/);
+  assert.match(sql, /CREATE FUNCTION rise\.enforce_release_activation_evidence\(\)/);
+  assert.match(sql, /NEW\.data_classification IS DISTINCT FROM 'source_controlled_registry'/);
+  assert.match(sql, /auth_receipt\.revoked_at IS NOT NULL/);
+  assert.match(sql, /auth_receipt\.valid_through < current_date/);
+  assert.match(sql, /CREATE TRIGGER rise_registry_release_activation_evidence/);
+  assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);
+});
+
+test("release hardening binds session identity and serializes an HMAC audit chain", async () => {
+  const sql = await fs.readFile(hardeningUpPath, "utf8");
+  assert.match(sql, /UNIQUE \(jti_sha256, subject_id, issuer, audience, role, capabilities\)/);
+  assert.match(sql, /FOREIGN KEY \(jti_sha256, subject_id, issuer, audience, role, capabilities\)/);
+  assert.match(sql, /ADD COLUMN hash_algorithm text NOT NULL CHECK \(hash_algorithm = 'hmac-sha256'\)/);
+  assert.match(sql, /UNIQUE \(event_sha256\)/);
+  assert.match(sql, /FOREIGN KEY \(previous_event_sha256\) REFERENCES rise_audit\.audit_events\(event_sha256\)/);
+  assert.match(sql, /pg_advisory_xact_lock\(hashtext\('rise_audit_event_chain_v1'\)\)/);
+  assert.match(sql, /NEW\.previous_event_sha256 IS DISTINCT FROM v_previous_sha256/);
+  assert.match(sql, /CREATE TRIGGER rise_audit_events_chain_guard/);
+});
+
+test("registry readers can select only active, non-quarantine views", async () => {
+  const sql = await fs.readFile(hardeningUpPath, "utf8");
+  assert.match(sql, /REVOKE SELECT ON ALL TABLES IN SCHEMA rise FROM rise_registry_reader/);
+  for (const view of [
+    "active_registry_release", "active_programs", "active_specialties", "active_program_specialties",
+    "active_browse_memberships", "active_claims", "active_source_documents",
+  ]) {
+    assert.match(sql, new RegExp(`CREATE VIEW rise\\.${view}`));
+  }
+  assert.match(sql, /WHERE claim\.publication = 'source_attributed_snapshot'/);
+  assert.doesNotMatch(sql, /GRANT SELECT ON[\s\S]*quarantined_observations[\s\S]*TO rise_registry_reader/);
+});
+
+test("security-hardening rollback refuses weakening the evidence guards", async () => {
+  const sql = await fs.readFile(hardeningDownPath, "utf8");
   assert.match(sql, /intentionally fail-closed/);
   assert.match(sql, /RAISE EXCEPTION/);
   assert.doesNotMatch(sql, /DROP\s+(?:DATABASE|ROLE|SCHEMA|TABLE)/i);

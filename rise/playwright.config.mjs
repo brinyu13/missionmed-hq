@@ -16,7 +16,7 @@ export default defineConfig({
   workers: 1,
   reporter: [
     ["line"],
-    ["json", { outputFile: path.join(root, "_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_COMPLETION/artifacts/playwright-report.json") }],
+    ["json", { outputFile: path.join(root, "_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_CONNECTED_RC/artifacts/playwright-report.json") }],
   ],
   webServer: process.env.RISE_BASE_URL ? undefined : {
     command: "node tests/browser/fixture-server.mjs",
