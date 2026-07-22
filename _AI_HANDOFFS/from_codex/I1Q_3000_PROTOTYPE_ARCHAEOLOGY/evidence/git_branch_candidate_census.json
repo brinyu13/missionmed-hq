@@ -1,0 +1,69 @@
+{
+  "branch_count": 10,
+  "branches": [
+    {
+      "branch": "origin/i1q-question-platform-ultra-1007x-ma",
+      "matching_path_count": 79,
+      "status": "ok",
+      "tip": "81273add2c0fe350d330902d229683662896a1b1|2026-07-15T13:01:25-04:00|Brian B|docs(i1q): build complete combined handoff"
+    },
+    {
+      "branch": "origin/i1q-statquestions-1008a",
+      "matching_path_count": 90,
+      "status": "ok",
+      "tip": "817fb2ad4f3baf0524d2ac7ae0857e1bbd9ea67e|2026-07-15T22:00:31-04:00|Brian B|docs(i1q): finalize 1008a blocked certification"
+    },
+    {
+      "branch": "origin/i1q-statquestions-1008b-source-factory",
+      "matching_path_count": 120,
+      "status": "ok",
+      "tip": "b77fd09b23436e66cb7d9a8d8f956440dbed114b|2026-07-16T14:47:02-04:00|Brian B|feat(i1q): seal transcript-first source factory checkpoint"
+    },
+    {
+      "branch": "origin/i1q-statquestions-1008d-canonical-corpus-discovery",
+      "matching_path_count": 127,
+      "status": "ok",
+      "tip": "c8397c9c0eba9a6cffec16b926ec7e61a869fa5f|2026-07-17T17:21:32-04:00|Brian B|complete I1Q-1008E restricted corpus handoff"
+    },
+    {
+      "branch": "origin/codex/i1q-1008f-drill-question-gold-set",
+      "matching_path_count": 127,
+      "status": "ok",
+      "tip": "fb0c88af2f120f1f1d15d5a6863e7d9fbce1fdbc|2026-07-18T20:42:24-04:00|Brian B|complete 1008F drill question gold set"
+    },
+    {
+      "branch": "origin/codex/i1q-1008g-question-database-builder",
+      "matching_path_count": 127,
+      "status": "ok",
+      "tip": "e542d61a591bb96bf7db930a224c9baa8561c4dc|2026-07-18T22:04:39-04:00|Brian B|build 1008G question database exports"
+    },
+    {
+      "branch": "origin/md-daily-drills-sot-recon-004",
+      "matching_path_count": 11,
+      "status": "ok",
+      "tip": "753d4c22c2b3800e5dc73b6bdffaa2b6311683ea|2026-05-03T14:14:42-04:00|Brian B|MD Daily/Drills SOT reconciliation contract B partial"
+    },
+    {
+      "branch": "origin/md-daily-drills-nonwiring-megarun-007",
+      "matching_path_count": 12,
+      "status": "ok",
+      "tip": "5c19f4a6a90fcb1a92f75c674f4c908aa8b4a01c|2026-05-04T01:27:55-04:00|Brian B|MD Daily/Drills non-wiring merge completion"
+    },
+    {
+      "branch": "origin/md-daily-drills-single-html-t16-011",
+      "matching_path_count": 14,
+      "status": "ok",
+      "tip": "dcc73b5b14a725224db8bbdfcbf4851cba873abc|2026-05-06T06:28:45-04:00|Brian B|MD Daily/Drills single HTML essential engine parity"
+    },
+    {
+      "branch": "origin/md-daily-drills-v3-side-by-side-014",
+      "matching_path_count": 16,
+      "status": "ok",
+      "tip": "1225074a894f993dbabeba2d20c57c26432b4060|2026-05-08T12:17:24-04:00|Brian B|MD Daily/Drills v3 start runtime from beginning"
+    }
+  ],
+  "generated_at_utc": "2026-07-22T11:35:48.940139Z",
+  "privacy_contract": "Branch names, tips, status, and aggregate match counts only.",
+  "repository": "/Users/brianb/MissionMed",
+  "schema_version": "i1q-3000-git-branch-summary-v1"
+}

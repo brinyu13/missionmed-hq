@@ -1,0 +1,1290 @@
+{
+  "aggregate": {
+    "by_extension": {
+      ".bak_mr-r2-credential-cdn-repair-027_20260427070525": 14,
+      ".before_drj-access-001": 1,
+      ".bundle": 1,
+      ".cjs": 4,
+      ".css": 19,
+      ".csv": 8,
+      ".diff": 1,
+      ".docx": 14,
+      ".example": 7,
+      ".gz": 2,
+      ".headers": 3,
+      ".html": 6445,
+      ".jpg": 10,
+      ".js": 908,
+      ".json": 2209,
+      ".jsonl": 1,
+      ".jsx": 1,
+      ".lock": 1,
+      ".log": 6,
+      ".md": 4545,
+      ".mjs": 611,
+      ".ndjson": 10,
+      ".patch": 4,
+      ".pdf": 5,
+      ".php": 1533,
+      ".png": 213,
+      ".py": 212,
+      ".sh": 95,
+      ".sha256": 1,
+      ".sql": 406,
+      ".tmp": 1,
+      ".ts": 333,
+      ".tsv": 7,
+      ".tsx": 42,
+      ".txt": 221,
+      ".yml": 3,
+      "none": 71
+    },
+    "by_root": {
+      "/Users/brianb/Desktop": 256,
+      "/Users/brianb/Documents": 3,
+      "/Users/brianb/Downloads": 354,
+      "/Users/brianb/MissionMed": 1463,
+      "/Users/brianb/MissionMed_AI_Sandbox": 4300,
+      "/Users/brianb/MissionMed_OS": 124,
+      "/Users/brianb/MissionMed_worktrees": 11468
+    },
+    "candidate_count": 17968,
+    "content_term_hits": {
+      "arena": 8994,
+      "assessment": 1780,
+      "bakeoff": 65,
+      "daily_drills": 2359,
+      "dr_j": 7124,
+      "i1q": 2647,
+      "prototype": 11143,
+      "question_factory": 12,
+      "question_flow": 84,
+      "question_ladder": 1954,
+      "question_replay": 2127,
+      "rounds": 5003,
+      "usmle_comlex": 4398,
+      "zoom_notes": 1049
+    },
+    "dataless_count": 9,
+    "launch_signal_count": 8046,
+    "path_term_hits": {
+      "arena": 1270,
+      "assessment": 63,
+      "bakeoff": 1,
+      "daily_drills": 724,
+      "dr_j": 652,
+      "i1q": 4074,
+      "prototype": 628,
+      "question_replay": 2,
+      "rounds": 152,
+      "usmle_comlex": 11,
+      "zoom_notes": 6
+    },
+    "protected_content_count": 0
+  },
+  "coverage": [
+    {
+      "candidates": 4300,
+      "directories_seen": 11876,
+      "files_seen": 31274,
+      "protected_prunes": 9,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "status": "scanned",
+      "technical_prunes": 25
+    },
+    {
+      "candidates": 11468,
+      "directories_seen": 19167,
+      "files_seen": 71890,
+      "protected_prunes": 9,
+      "root": "/Users/brianb/MissionMed_worktrees",
+      "status": "scanned",
+      "symlinks_skipped": 3,
+      "technical_prunes": 29
+    },
+    {
+      "candidates": 1463,
+      "directories_seen": 4411,
+      "files_seen": 29717,
+      "protected_prunes": 49,
+      "root": "/Users/brianb/MissionMed",
+      "status": "scanned",
+      "symlinks_skipped": 164,
+      "technical_prunes": 557
+    },
+    {
+      "candidates": 124,
+      "directories_seen": 189,
+      "files_seen": 955,
+      "root": "/Users/brianb/MissionMed_OS",
+      "status": "scanned",
+      "technical_prunes": 1
+    },
+    {
+      "root": "/Users/brianb/CLAUDE_FILES",
+      "status": "absent"
+    },
+    {
+      "candidates": 354,
+      "directories_seen": 584,
+      "files_seen": 6170,
+      "protected_prunes": 2,
+      "root": "/Users/brianb/Downloads",
+      "status": "scanned",
+      "symlinks_skipped": 23
+    },
+    {
+      "candidates": 256,
+      "directories_seen": 683,
+      "files_seen": 6961,
+      "protected_prunes": 19,
+      "root": "/Users/brianb/Desktop",
+      "status": "scanned",
+      "symlinks_skipped": 9338,
+      "technical_prunes": 203
+    },
+    {
+      "candidates": 3,
+      "directories_seen": 1565,
+      "files_seen": 4528,
+      "root": "/Users/brianb/Documents",
+      "status": "scanned",
+      "symlinks_skipped": 653,
+      "technical_prunes": 3
+    }
+  ],
+  "curated_candidate_count": 51,
+  "curated_candidates": [
+    {
+      "allocated_bytes": 0,
+      "birthtime_utc": "2026-02-12T18:54:58Z",
+      "content_terms": [],
+      "dataless": true,
+      "extension": ".html",
+      "launch_signal": false,
+      "mtime_utc": "2026-02-12T18:54:58Z",
+      "path": "/Users/brianb/Desktop/GIT_TEMP_HOLD/_REFERENCE_SYSTEMS/missionmed-codex-legacy/drj-jbank-engine/DrJ_JBank_WORKING Immuno.html",
+      "path_terms": [
+        "dr_j"
+      ],
+      "probe_skip": "size_dataless_or_protected",
+      "protected_content": false,
+      "root": "/Users/brianb/Desktop",
+      "size_bytes": 229045
+    },
+    {
+      "allocated_bytes": 0,
+      "birthtime_utc": "2026-02-12T18:54:58Z",
+      "content_terms": [],
+      "dataless": true,
+      "extension": ".html",
+      "launch_signal": false,
+      "mtime_utc": "2026-02-12T18:54:58Z",
+      "path": "/Users/brianb/Desktop/GIT_TEMP_HOLD/_REFERENCE_SYSTEMS/missionmed-codex-legacy/drj-jbank-engine/DrJ_JBank_WORKING.html",
+      "path_terms": [
+        "dr_j"
+      ],
+      "probe_skip": "size_dataless_or_protected",
+      "protected_content": false,
+      "root": "/Users/brianb/Desktop",
+      "size_bytes": 229045
+    },
+    {
+      "allocated_bytes": 0,
+      "birthtime_utc": "2026-02-12T18:44:37Z",
+      "content_terms": [],
+      "dataless": true,
+      "extension": ".html",
+      "launch_signal": false,
+      "mtime_utc": "2026-02-12T18:44:37Z",
+      "path": "/Users/brianb/Desktop/GIT_TEMP_HOLD/_REFERENCE_SYSTEMS/missionmed-codex-legacy/drj-jbank-engine/index.html",
+      "path_terms": [
+        "dr_j"
+      ],
+      "probe_skip": "size_dataless_or_protected",
+      "protected_content": false,
+      "root": "/Users/brianb/Desktop",
+      "size_bytes": 229044
+    },
+    {
+      "allocated_bytes": 282624,
+      "birthtime_utc": "2026-02-05T22:57:08.971999Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-02-05T22:57:14.273401Z",
+      "path": "/Users/brianb/Downloads/immunology_quiz_full_updated.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "63e82f117a50d0bb66d67af2cef31447f7e75c0020fb11123ddbf3a0f62846f1",
+      "size_bytes": 281580
+    },
+    {
+      "allocated_bytes": 282624,
+      "birthtime_utc": "2026-02-06T11:45:29.317302Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-02-06T11:45:32.869899Z",
+      "path": "/Users/brianb/Downloads/immunology_quiz_full_updated_FIXED.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "a83a5ad038149be04cf0373e7a87f0b15a417c0f2df5b5dcf41333421752ec82",
+      "size_bytes": 281357
+    },
+    {
+      "allocated_bytes": 286720,
+      "birthtime_utc": "2026-02-06T12:52:53.697886Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-02-06T12:52:56.057757Z",
+      "path": "/Users/brianb/Downloads/immunology_quiz_full_updated_WORKING.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "4bca3c9be751079576141908be22dea860b63edc9f2c62d63f1f3febf706a4a9",
+      "size_bytes": 283359
+    },
+    {
+      "allocated_bytes": 16384,
+      "birthtime_utc": "2026-07-07T00:17:24.761100Z",
+      "content_terms": [
+        "dr_j",
+        "zoom_notes"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-07T00:17:24.761326Z",
+      "path": "/Users/brianb/Downloads/usmle-148e9fcd8fb8 (1).html",
+      "path_terms": [
+        "usmle_comlex"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "8665b94dbf187c252908add5a1b6316f97e87704b7fe775e3707ccc659e84d15",
+      "size_bytes": 14687
+    },
+    {
+      "allocated_bytes": 16384,
+      "birthtime_utc": "2026-07-07T00:16:58.934684Z",
+      "content_terms": [
+        "dr_j",
+        "zoom_notes"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-07T00:16:58.935685Z",
+      "path": "/Users/brianb/Downloads/usmle-148e9fcd8fb8.html",
+      "path_terms": [
+        "usmle_comlex"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "8665b94dbf187c252908add5a1b6316f97e87704b7fe775e3707ccc659e84d15",
+      "size_bytes": 14687
+    },
+    {
+      "allocated_bytes": 16384,
+      "birthtime_utc": "2026-07-01T16:36:14.823234Z",
+      "content_terms": [
+        "dr_j",
+        "zoom_notes"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-01T16:36:14.823728Z",
+      "path": "/Users/brianb/Downloads/usmle-82975dee97c2.html",
+      "path_terms": [
+        "usmle_comlex"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "ce7974725bd4a617c44445dd24c911d631b87199c0bedf56b5c54308e0333ee6",
+      "size_bytes": 14681
+    },
+    {
+      "allocated_bytes": 16384,
+      "birthtime_utc": "2026-06-30T20:44:34.456074Z",
+      "content_terms": [
+        "dr_j",
+        "prototype",
+        "question_ladder",
+        "zoom_notes"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-06-30T20:44:34.456493Z",
+      "path": "/Users/brianb/Downloads/usmle-fcf4a9bc63f7.html",
+      "path_terms": [
+        "usmle_comlex"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "d487348a37506a9a2fca2aa81a99154f8cfc248c5bcdf252899eb841bd821b63",
+      "size_bytes": 13934
+    },
+    {
+      "allocated_bytes": 118784,
+      "birthtime_utc": "2026-04-07T00:18:10.192451Z",
+      "content_terms": [
+        "dr_j",
+        "prototype"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-04-07T00:18:10.193133Z",
+      "path": "/Users/brianb/Downloads/vdrl-090_drj_drill_production (1).html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "7dc3944fbfecafea5bc2df66f403f00f2b816096c4b355aa46d19a834cbcc63b",
+      "size_bytes": 115318
+    },
+    {
+      "allocated_bytes": 118784,
+      "birthtime_utc": "2026-04-06T23:48:44.549380Z",
+      "content_terms": [
+        "dr_j",
+        "prototype"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-04-06T23:48:44.550327Z",
+      "path": "/Users/brianb/Downloads/vdrl-090_drj_drill_production.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/Downloads",
+      "sha256": "9a67b20c5fc4fa55cfe5aaf4d18860fbbb88bdce77b30ca48c598ca9e8e6a516",
+      "size_bytes": 116754
+    },
+    {
+      "allocated_bytes": 151552,
+      "birthtime_utc": "2026-05-20T17:09:01.962049Z",
+      "content_terms": [
+        "arena",
+        "prototype",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-20T17:09:01.962399Z",
+      "path": "/Users/brianb/MissionMed/LIVE/daily.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed",
+      "sha256": "aa7b7ff42f51f85c8af6b8953eac26c65f75c223818706fb08818a47df49e5af",
+      "size_bytes": 150069
+    },
+    {
+      "allocated_bytes": 151552,
+      "birthtime_utc": "2026-04-26T02:39:32.620128Z",
+      "content_terms": [
+        "arena",
+        "prototype",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-04-26T02:39:32.620830Z",
+      "path": "/Users/brianb/MissionMed/LIVE/mode_dailyrounds_v1.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed",
+      "sha256": "98bed43f11f8dc9ebf794c9b0bee7b43ff94d1152534f390520db9dc61ce92d5",
+      "size_bytes": 150124
+    },
+    {
+      "allocated_bytes": 307200,
+      "birthtime_utc": "2026-07-09T13:10:47.242795Z",
+      "content_terms": [
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-09T13:24:45.449207Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Codex-HTMLPreview-406A-KeynoteClassicSpriteIntegration.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "281ec7e7289d19453c7fd7ee86c1c63961c459a734102ec222c865f8a2c62cd6",
+      "size_bytes": 306650
+    },
+    {
+      "allocated_bytes": 385024,
+      "birthtime_utc": "2026-07-10T17:41:01.030382Z",
+      "content_terms": [
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-19T04:53:06.976306Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-DefinitiveFullProductPrototype-407F.html",
+      "path_terms": [
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "b78532d5c91189b8ab401be598beb3f14dbee7929ebbeeea981e8ca307ad7337",
+      "size_bytes": 383586
+    },
+    {
+      "allocated_bytes": 77824,
+      "birthtime_utc": "2026-07-08T16:04:37.563010Z",
+      "content_terms": [
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-08T16:04:37.563543Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-403.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "b29a8b5ce3f3544f4d39c62dd3bcf330ee8d106310d731f4c7244a30e116a4fb",
+      "size_bytes": 75755
+    },
+    {
+      "allocated_bytes": 282624,
+      "birthtime_utc": "2026-07-08T16:22:49.756692Z",
+      "content_terms": [
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-08T16:23:01.994455Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-404-SelfReviewThemeLoop.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "9549d3ae3112d83bcac32f64412cf57e0da6b86825285e52f9d068f94c056c8b",
+      "size_bytes": 282444
+    },
+    {
+      "allocated_bytes": 294912,
+      "birthtime_utc": "2026-07-08T16:46:37.730308Z",
+      "content_terms": [
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-08T16:46:37.730939Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-405-UXClarityInterviewUseLoop.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "9696efb8c1152a921a1e46dc247b9929c05fbcc7a1a2bf6be0e323ea6aa05638",
+      "size_bytes": 291717
+    },
+    {
+      "allocated_bytes": 299008,
+      "birthtime_utc": "2026-07-09T00:04:19.395072Z",
+      "content_terms": [
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-09T00:04:19.395599Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-406-UXPolishLoop.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "0ec40e9085fd6933caaca24d696be8386b94479c5f3d24584731958569093908",
+      "size_bytes": 298931
+    },
+    {
+      "allocated_bytes": 45056,
+      "birthtime_utc": "2026-07-08T14:59:43.996111Z",
+      "content_terms": [
+        "arena",
+        "question_replay",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-08T14:59:43.999269Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/CAM_CONCEPT_LAB/prototype_D/index.html",
+      "path_terms": [
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "24efc6ab1c7b4d397391cf3cecf17c3af09ec2af186d169c5692131d48f311b8",
+      "size_bytes": 42363
+    },
+    {
+      "allocated_bytes": 102400,
+      "birthtime_utc": "2026-07-09T13:48:12.869240Z",
+      "content_terms": [
+        "arena",
+        "assessment",
+        "dr_j",
+        "prototype",
+        "question_replay"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-09T13:48:12.869468Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_911_FUNCTIONAL_SHELL/I1_STAT4_911_FUNCTIONAL_SHELL_CAM_S1.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "c5f6d29b314f0d5cbcb13ef5513de76abd4f518393936d605691dc1a98c04e6a",
+      "size_bytes": 99404
+    },
+    {
+      "allocated_bytes": 81920,
+      "birthtime_utc": "2026-07-13T10:28:47.909423Z",
+      "content_terms": [
+        "arena",
+        "prototype",
+        "question_replay"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-13T10:28:47.913957Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913_DEFINITIVE_RUNTIME_REBUILD/I1_STAT4_913_DEFINITIVE_RUNTIME_CAM_S1.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "ff7a6cc385c2397757712c64327481c27bf5a938755e0ee88ba3e0000ba2ce6d",
+      "size_bytes": 80128
+    },
+    {
+      "allocated_bytes": 40960,
+      "birthtime_utc": "2026-07-13T10:32:17.014900Z",
+      "content_terms": [
+        "arena",
+        "prototype",
+        "question_replay"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-13T10:32:17.019552Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913_DEFINITIVE_RUNTIME_REBUILD_FABLE_B/I1_STAT4_913_DEFINITIVE_RUNTIME_CAM_S1.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "37ef3b139acb53e235fe36eb08dfce523835ee4d424e5271b4fcae404ac38428",
+      "size_bytes": 40505
+    },
+    {
+      "allocated_bytes": 98304,
+      "birthtime_utc": "2026-07-13T11:56:18.270546Z",
+      "content_terms": [
+        "arena",
+        "assessment",
+        "dr_j",
+        "prototype",
+        "question_replay",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-13T11:56:18.274245Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913A_CANONICAL_FULL_GAME/I1_STAT4_913A_STAT_V4_CANONICAL_FULL_GAME_CAM_V2.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "d90fecbeda9081ffef33a50b5dbd7a2f93429de0bf49d363929cb68c9f65eba7",
+      "size_bytes": 96564
+    },
+    {
+      "allocated_bytes": 217088,
+      "birthtime_utc": "2026-07-13T11:56:18.274245Z",
+      "content_terms": [
+        "arena",
+        "assessment",
+        "dr_j",
+        "prototype",
+        "question_replay",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-15T20:07:16.022388Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_914B_RENDERED_REPAIR_MEGARUN/I1_STAT4_914B_STAT_V4_RENDERED_REPAIR_CAM_V2.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "7ceb7834c006cb7349db3344dc039a68e39c5e8d43a5cad1f80639f2f7b6b804",
+      "size_bytes": 214607
+    },
+    {
+      "allocated_bytes": 131072,
+      "birthtime_utc": "2026-07-19T03:01:02.425729Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "i1q",
+        "prototype",
+        "question_ladder",
+        "question_replay",
+        "usmle_comlex",
+        "zoom_notes"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-19T03:01:02.426683Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html",
+      "path_terms": [
+        "i1q",
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "2536da09d639e5d8b83f9611a6ffceb55a2a4128cc526f8ec866e22e03e8a545",
+      "size_bytes": 127703
+    },
+    {
+      "allocated_bytes": 348160,
+      "birthtime_utc": "2026-07-19T04:42:06.518508Z",
+      "content_terms": [
+        "arena",
+        "assessment",
+        "daily_drills",
+        "dr_j",
+        "i1q",
+        "prototype",
+        "question_ladder",
+        "question_replay",
+        "usmle_comlex",
+        "zoom_notes"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-19T04:42:06.518770Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html",
+      "path_terms": [
+        "daily_drills",
+        "i1q",
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "a49906190db13f80dcba57e933f094b8a5eed3616a29cfe21f7a04b8cfd40753",
+      "size_bytes": 346619
+    },
+    {
+      "allocated_bytes": 40960,
+      "birthtime_utc": "2026-07-20T16:21:51.575685Z",
+      "content_terms": [
+        "arena",
+        "assessment",
+        "bakeoff",
+        "daily_drills",
+        "dr_j",
+        "i1q",
+        "prototype",
+        "question_ladder",
+        "question_replay",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-20T16:21:51.576138Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2002_Interaction_Model_Bakeoff_Prototype.html",
+      "path_terms": [
+        "bakeoff",
+        "i1q",
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "8eb98c1a8dab85543894ea3ebeec6c1e8e2bc8b19d08aaa5d653abab2aa5a254",
+      "size_bytes": 37983
+    },
+    {
+      "allocated_bytes": 40960,
+      "birthtime_utc": "2026-07-08T11:23:06.653566Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "i1q",
+        "prototype",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".md",
+      "launch_signal": false,
+      "mtime_utc": "2026-07-08T11:23:06.653801Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q_1002_QUESTION_PLATFORM_ARCHITECTURE.md",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "size_bytes": 38497
+    },
+    {
+      "allocated_bytes": 135168,
+      "birthtime_utc": "2026-07-13T10:49:25.595018Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "i1q",
+        "prototype",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".md",
+      "launch_signal": false,
+      "mtime_utc": "2026-07-13T10:49:25.598952Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q_1004C_COMBINED_HANDOFF.md",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "size_bytes": 134682
+    },
+    {
+      "allocated_bytes": 12288,
+      "birthtime_utc": "2026-07-16T15:14:06.624148Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "i1q",
+        "prototype",
+        "question_ladder",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".md",
+      "launch_signal": false,
+      "mtime_utc": "2026-07-16T15:14:06.624572Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q_DRJ_QUESTION_FACTORY_FABLE/20_OUTPUTS/individual/12_I1Q_1008B_MISSIONMEDOS_QUESTION_LIBRARY_APPLICATION.md",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "size_bytes": 9351
+    },
+    {
+      "allocated_bytes": 192512,
+      "birthtime_utc": "2026-05-05T12:02:08.682903Z",
+      "content_terms": [
+        "arena",
+        "prototype",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-05T12:02:08.683220Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-10_TournaMed_5Concept_Demo_v3.html",
+      "path_terms": [
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "c1d3fa69a7f2e1fd2c8258910fc8caa344822988157e715bc43d73a728420195",
+      "size_bytes": 189148
+    },
+    {
+      "allocated_bytes": 147456,
+      "birthtime_utc": "2026-05-05T13:48:48.237538Z",
+      "content_terms": [
+        "arena",
+        "prototype",
+        "question_ladder",
+        "question_replay",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-05T13:48:48.237932Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_3Concept_Demo.html",
+      "path_terms": [
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "92bf57f9a2d115336d59ff3ec65a946ce42630f0a8d401aec5a1f9f476235401",
+      "size_bytes": 145025
+    },
+    {
+      "allocated_bytes": 81920,
+      "birthtime_utc": "2026-05-05T14:01:46.931336Z",
+      "content_terms": [
+        "arena",
+        "question_ladder",
+        "question_replay",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-05T14:01:46.932135Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_PRODUCTION_v1.html",
+      "path_terms": [],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "8d8304b6910ddc3c4b94721161dd3939f41f6c86863b619a9b9aa4797c328fb4",
+      "size_bytes": 81282
+    },
+    {
+      "allocated_bytes": 167936,
+      "birthtime_utc": "2026-05-05T14:49:41.165329Z",
+      "content_terms": [
+        "arena",
+        "daily_drills",
+        "prototype",
+        "question_replay",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-05T14:49:41.165571Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-12_DailyDrills_Merged_009.html",
+      "path_terms": [
+        "daily_drills"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "0b636203b5af70d2e4199010d08f9a2a4c2ae78f8e8eee9bd7b912835a5911e1",
+      "size_bytes": 164096
+    },
+    {
+      "allocated_bytes": 106496,
+      "birthtime_utc": "2026-05-05T18:50:22.768121Z",
+      "content_terms": [
+        "arena",
+        "daily_drills",
+        "dr_j",
+        "prototype",
+        "question_replay",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-05T18:50:22.768270Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-13_DailyDrills_Merged_RealDrills_010.html",
+      "path_terms": [
+        "daily_drills"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "15b00d51508482c7fa42cfc532a87352a0c78057c4e83a87b79e3b12da392522",
+      "size_bytes": 102641
+    },
+    {
+      "allocated_bytes": 114688,
+      "birthtime_utc": "2026-05-05T22:48:10.592310Z",
+      "content_terms": [
+        "arena",
+        "daily_drills",
+        "dr_j",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-05T22:48:10.592699Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-14_DailyDrills_3Versions_011.html",
+      "path_terms": [
+        "daily_drills"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "1bc7b3812113b257c13b2258afba8fa09516b6caf2954129a8f4bc8767739a00",
+      "size_bytes": 112565
+    },
+    {
+      "allocated_bytes": 118784,
+      "birthtime_utc": "2026-05-06T07:28:47.243656Z",
+      "content_terms": [
+        "arena",
+        "daily_drills",
+        "dr_j",
+        "prototype",
+        "question_replay",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-06T07:28:47.243888Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_DailyDrills_3Versions_012.html",
+      "path_terms": [
+        "daily_drills"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "8c5690a3463b793c239f7eb432fa6b823e876697f47e398a5ee903e11162fe70",
+      "size_bytes": 116070
+    },
+    {
+      "allocated_bytes": 45056,
+      "birthtime_utc": "2026-05-06T07:19:42.474842Z",
+      "content_terms": [
+        "prototype",
+        "question_replay"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-06T07:19:42.475260Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_Sessions_5Concepts.html",
+      "path_terms": [
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "2b14218d66f67a52dd7f794f689a6d13de2f3651e962f7b7c77d43fed78d36ca",
+      "size_bytes": 41276
+    },
+    {
+      "allocated_bytes": 40960,
+      "birthtime_utc": "2026-05-06T07:16:12.708370Z",
+      "content_terms": [
+        "prototype"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-06T07:16:12.708480Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_TopicPicker_5Concepts.html",
+      "path_terms": [
+        "prototype"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "8513a120f2f69a42b9ba024eb5841636b926523aab165288d2f4d084f0cf3451",
+      "size_bytes": 38254
+    },
+    {
+      "allocated_bytes": 122880,
+      "birthtime_utc": "2026-05-06T07:45:46.189313Z",
+      "content_terms": [
+        "arena",
+        "daily_drills",
+        "dr_j",
+        "prototype",
+        "question_replay",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-06T07:45:46.189512Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-16_DailyDrills_Production_013.html",
+      "path_terms": [
+        "daily_drills"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "e27a996307c9df2fd9d352cd44ad120a7d2d79d16a6ecbe9ba93128693abf286",
+      "size_bytes": 122495
+    },
+    {
+      "allocated_bytes": 110592,
+      "birthtime_utc": "2026-07-13T14:02:21Z",
+      "content_terms": [
+        "arena",
+        "assessment",
+        "prototype",
+        "question_replay",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-13T14:02:21Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2500/U1_GR_2500_FUNCTIONAL_SHELL.html",
+      "path_terms": [
+        "rounds"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "87c420e16be91395394885223afafa281beb2e73d77c788d7ed131f15d80d9af",
+      "size_bytes": 106816
+    },
+    {
+      "allocated_bytes": 118784,
+      "birthtime_utc": "2026-07-13T18:50:11Z",
+      "content_terms": [
+        "arena",
+        "assessment",
+        "prototype",
+        "question_replay",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-13T18:50:11Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2503/U1_GR_2503_FUNCTIONAL_SHELL_v2.html",
+      "path_terms": [
+        "rounds"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "dc0a8210acc1660d0b9fb5959eba46716015676f0d648a462fd006c1b497072f",
+      "size_bytes": 117040
+    },
+    {
+      "allocated_bytes": 73728,
+      "birthtime_utc": "2026-07-13T20:17:08Z",
+      "content_terms": [
+        "arena",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-13T20:17:08Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2504/U1_GR_2504_PHOTOREALISTIC_LIVE_V3.html",
+      "path_terms": [
+        "rounds"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "db0b56e885ab2ac5aca7756266ea054f402a1948ba95b111ac35dc5ce169c758",
+      "size_bytes": 70956
+    },
+    {
+      "allocated_bytes": 73728,
+      "birthtime_utc": "2026-07-18T20:43:02Z",
+      "content_terms": [
+        "arena",
+        "dr_j",
+        "prototype",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-18T20:43:02Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/00_INPUTS/U1_GR_2519X_EXPERIENCE_PROTOTYPE.html",
+      "path_terms": [
+        "prototype",
+        "rounds"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "3c1be723d725db2cad313824ec9d0cbba7ce5089e5dbac53667d1100ad581f32",
+      "size_bytes": 71664
+    },
+    {
+      "allocated_bytes": 126976,
+      "birthtime_utc": "2026-07-18T22:17:56Z",
+      "content_terms": [
+        "arena",
+        "dr_j",
+        "prototype",
+        "question_ladder",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-18T22:17:56Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/04_PROTOTYPES/U1_GR_2522F_EXPERIENCE_PROTOTYPE.html",
+      "path_terms": [
+        "prototype",
+        "rounds"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "0f9af14f7946518353452de873459afeae3c5def5bcb17ec2426ed0f60e5539a",
+      "size_bytes": 125567
+    },
+    {
+      "allocated_bytes": 446464,
+      "birthtime_utc": "2026-07-19T05:15:44.923928Z",
+      "content_terms": [
+        "dr_j",
+        "prototype",
+        "question_ladder",
+        "rounds"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-19T05:15:44.924060Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2600F/01_PROTOTYPE/GRAND_ROUNDS_2600F.html",
+      "path_terms": [
+        "prototype",
+        "rounds"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "5347c90fb3553d7d4a1bc16cd4843bb30502d21f6ae411ccb7a3bd6a5ae30b1e",
+      "size_bytes": 443999
+    },
+    {
+      "allocated_bytes": 565248,
+      "birthtime_utc": "2026-07-20T15:32:48.032743Z",
+      "content_terms": [
+        "assessment",
+        "dr_j",
+        "prototype",
+        "question_ladder",
+        "rounds",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-20T15:32:48.033585Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2601F/01_PROTOTYPE/GRAND_ROUNDS_2601F.html",
+      "path_terms": [
+        "prototype",
+        "rounds"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "d88d25b42229fad55e503ace97c4bb36929798b41b0b3ec30ea5020db97aa0c1",
+      "size_bytes": 562570
+    },
+    {
+      "allocated_bytes": 102400,
+      "birthtime_utc": "2026-05-17T03:44:24.864847Z",
+      "content_terms": [
+        "assessment",
+        "prototype",
+        "usmle_comlex"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-05-17T03:51:42.102316Z",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/MM-QBANK-Step2CK_FullDualUIDemo_v0.1.html",
+      "path_terms": [
+        "assessment"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "sha256": "1d03a598e7f183308c8f3eebfcf5e9e84195f36e8091ad242fb593e7903108f8",
+      "size_bytes": 99323
+    },
+    {
+      "allocated_bytes": 8192,
+      "birthtime_utc": "2026-07-16T16:06:11.635738Z",
+      "content_terms": [
+        "prototype"
+      ],
+      "dataless": false,
+      "extension": ".html",
+      "launch_signal": true,
+      "mtime_utc": "2026-07-16T16:06:11.636023Z",
+      "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008B-SourceFactory/i1q-question-platform/public/index.html",
+      "path_terms": [
+        "i1q"
+      ],
+      "probe_skip": null,
+      "protected_content": false,
+      "root": "/Users/brianb/MissionMed_worktrees",
+      "sha256": "63b4f2b3006179ca571ca5ab5665c0d65e4a3bc2eac00f06c2445b4cd3293f29",
+      "size_bytes": 4757
+    }
+  ],
+  "generated_at_utc": "2026-07-22T11:35:48.940139Z",
+  "privacy_contract": "Aggregate coverage plus curated source paths only; unrelated local paths are intentionally omitted.",
+  "schema_version": "i1q-3000-census-privacy-safe-v1"
+}

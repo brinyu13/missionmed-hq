@@ -1,0 +1,19 @@
+{
+  "by_reason": {
+    "protected_content_prune": 88,
+    "technical_prune": 818
+  },
+  "by_root": {
+    "/Users/brianb/Desktop": 222,
+    "/Users/brianb/Documents": 3,
+    "/Users/brianb/Downloads": 2,
+    "/Users/brianb/MissionMed": 606,
+    "/Users/brianb/MissionMed_AI_Sandbox": 34,
+    "/Users/brianb/MissionMed_OS": 1,
+    "/Users/brianb/MissionMed_worktrees": 38
+  },
+  "exclusion_count": 906,
+  "generated_at_utc": "2026-07-22T11:35:48.940139Z",
+  "privacy_contract": "Counts only; excluded local paths are intentionally omitted.",
+  "schema_version": "i1q-3000-scan-exclusion-summary-v1"
+}

@@ -1,0 +1,201 @@
+{
+  "generated_at_utc": "2026-07-22T11:35:48.940139Z",
+  "group_count": 24,
+  "groups": [
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-12_DailyDrills_Merged_009.html"
+      ],
+      "sha256": "0b636203b5af70d2e4199010d08f9a2a4c2ae78f8e8eee9bd7b912835a5911e1",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/04_PROTOTYPES/U1_GR_2522F_EXPERIENCE_PROTOTYPE.html"
+      ],
+      "sha256": "0f9af14f7946518353452de873459afeae3c5def5bcb17ec2426ed0f60e5539a",
+      "unlisted_copy_count": 2
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-13_DailyDrills_Merged_RealDrills_010.html"
+      ],
+      "sha256": "15b00d51508482c7fa42cfc532a87352a0c78057c4e83a87b79e3b12da392522",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-14_DailyDrills_3Versions_011.html"
+      ],
+      "sha256": "1bc7b3812113b257c13b2258afba8fa09516b6caf2954129a8f4bc8767739a00",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/CAM_CONCEPT_LAB/prototype_D/index.html"
+      ],
+      "sha256": "24efc6ab1c7b4d397391cf3cecf17c3af09ec2af186d169c5692131d48f311b8",
+      "unlisted_copy_count": 11
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_Sessions_5Concepts.html"
+      ],
+      "sha256": "2b14218d66f67a52dd7f794f689a6d13de2f3651e962f7b7c77d43fed78d36ca",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913_DEFINITIVE_RUNTIME_REBUILD_FABLE_B/I1_STAT4_913_DEFINITIVE_RUNTIME_CAM_S1.html"
+      ],
+      "sha256": "37ef3b139acb53e235fe36eb08dfce523835ee4d424e5271b4fcae404ac38428",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/00_INPUTS/U1_GR_2519X_EXPERIENCE_PROTOTYPE.html"
+      ],
+      "sha256": "3c1be723d725db2cad313824ec9d0cbba7ce5089e5dbac53667d1100ad581f32",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2600F/01_PROTOTYPE/GRAND_ROUNDS_2600F.html"
+      ],
+      "sha256": "5347c90fb3553d7d4a1bc16cd4843bb30502d21f6ae411ccb7a3bd6a5ae30b1e",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008B-SourceFactory/i1q-question-platform/public/index.html"
+      ],
+      "sha256": "63b4f2b3006179ca571ca5ab5665c0d65e4a3bc2eac00f06c2445b4cd3293f29",
+      "unlisted_copy_count": 2
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_TopicPicker_5Concepts.html"
+      ],
+      "sha256": "8513a120f2f69a42b9ba024eb5841636b926523aab165288d2f4d084f0cf3451",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 2,
+      "curated_paths": [
+        "/Users/brianb/Downloads/usmle-148e9fcd8fb8 (1).html",
+        "/Users/brianb/Downloads/usmle-148e9fcd8fb8.html"
+      ],
+      "sha256": "8665b94dbf187c252908add5a1b6316f97e87704b7fe775e3707ccc659e84d15",
+      "unlisted_copy_count": 0
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2500/U1_GR_2500_FUNCTIONAL_SHELL.html"
+      ],
+      "sha256": "87c420e16be91395394885223afafa281beb2e73d77c788d7ed131f15d80d9af",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_DailyDrills_3Versions_012.html"
+      ],
+      "sha256": "8c5690a3463b793c239f7eb432fa6b823e876697f47e398a5ee903e11162fe70",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_PRODUCTION_v1.html"
+      ],
+      "sha256": "8d8304b6910ddc3c4b94721161dd3939f41f6c86863b619a9b9aa4797c328fb4",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_3Concept_Demo.html"
+      ],
+      "sha256": "92bf57f9a2d115336d59ff3ec65a946ce42630f0a8d401aec5a1f9f476235401",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed/LIVE/mode_dailyrounds_v1.html"
+      ],
+      "sha256": "98bed43f11f8dc9ebf794c9b0bee7b43ff94d1152534f390520db9dc61ce92d5",
+      "unlisted_copy_count": 205
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed/LIVE/daily.html"
+      ],
+      "sha256": "aa7b7ff42f51f85c8af6b8953eac26c65f75c223818706fb08818a47df49e5af",
+      "unlisted_copy_count": 439
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-10_TournaMed_5Concept_Demo_v3.html"
+      ],
+      "sha256": "c1d3fa69a7f2e1fd2c8258910fc8caa344822988157e715bc43d73a728420195",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_911_FUNCTIONAL_SHELL/I1_STAT4_911_FUNCTIONAL_SHELL_CAM_S1.html"
+      ],
+      "sha256": "c5f6d29b314f0d5cbcb13ef5513de76abd4f518393936d605691dc1a98c04e6a",
+      "unlisted_copy_count": 4
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913A_CANONICAL_FULL_GAME/I1_STAT4_913A_STAT_V4_CANONICAL_FULL_GAME_CAM_V2.html"
+      ],
+      "sha256": "d90fecbeda9081ffef33a50b5dbd7a2f93429de0bf49d363929cb68c9f65eba7",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2504/U1_GR_2504_PHOTOREALISTIC_LIVE_V3.html"
+      ],
+      "sha256": "db0b56e885ab2ac5aca7756266ea054f402a1948ba95b111ac35dc5ce169c758",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2503/U1_GR_2503_FUNCTIONAL_SHELL_v2.html"
+      ],
+      "sha256": "dc0a8210acc1660d0b9fb5959eba46716015676f0d648a462fd006c1b497072f",
+      "unlisted_copy_count": 1
+    },
+    {
+      "curated_path_count": 1,
+      "curated_paths": [
+        "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-16_DailyDrills_Production_013.html"
+      ],
+      "sha256": "e27a996307c9df2fd9d352cd44ad120a7d2d79d16a6ecbe9ba93128693abf286",
+      "unlisted_copy_count": 1
+    }
+  ],
+  "privacy_contract": "Only curated paths are listed; unrelated duplicate paths are counted but omitted.",
+  "schema_version": "i1q-3000-curated-duplicate-evidence-v1"
+}

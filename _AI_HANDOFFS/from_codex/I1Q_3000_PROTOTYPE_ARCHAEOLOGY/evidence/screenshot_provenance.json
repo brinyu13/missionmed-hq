@@ -1,0 +1,559 @@
+{
+  "generated_at_utc": "2026-07-22T11:35:48.940139Z",
+  "schema_version": "i1q-3000-screenshot-provenance-v1",
+  "screenshot_count": 69,
+  "screenshots": [
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2000_01_splash_desktop.jpg",
+      "sha256": "824b692c742bec059624fbc7be7a1230ee084019aaf395c0c7f8a76171407502",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html",
+      "source_sha256": "2536da09d639e5d8b83f9611a6ffceb55a2a4128cc526f8ec866e22e03e8a545",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2000_02_ladder_question_desktop.jpg",
+      "sha256": "774695e6bd10cb84bd507043d166820a8e6a24b770ced70b5eef0a7ff836446a",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html",
+      "source_sha256": "2536da09d639e5d8b83f9611a6ffceb55a2a4128cc526f8ec866e22e03e8a545",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2000_03_verdict_desktop.jpg",
+      "sha256": "c5de063d9c9731593eba3c4095a9c6ec31163291aca0a5195501c232576df374",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html",
+      "source_sha256": "2536da09d639e5d8b83f9611a6ffceb55a2a4128cc526f8ec866e22e03e8a545",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2000_04_replay_overlay_desktop.jpg",
+      "sha256": "24a3dfe5ebf1d5f131aaf9a5010e7bdab6bcf86cebd82b8508ba3eaab53f582c",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html",
+      "source_sha256": "2536da09d639e5d8b83f9611a6ffceb55a2a4128cc526f8ec866e22e03e8a545",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2000_05_verdict_mobile_390.jpg",
+      "sha256": "9bba6684ce6a0dea4acddbaaab7493df53f78e3ae09a373e67fdfbdc3ec86130",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html",
+      "source_sha256": "2536da09d639e5d8b83f9611a6ffceb55a2a4128cc526f8ec866e22e03e8a545",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2001_01_splash_redacted_desktop.jpg",
+      "sha256": "f831efa11789ae5df2e2d33e3a9c942f0b3105a005b57cbb71dd3dc6421321b2",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html",
+      "source_sha256": "a49906190db13f80dcba57e933f094b8a5eed3616a29cfe21f7a04b8cfd40753",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2001_02_arena_home_redacted_desktop.jpg",
+      "sha256": "811ab3521ca69af151cdeeff72617e44d632c43f36507d2d299a3ce9c789af6a",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html",
+      "source_sha256": "a49906190db13f80dcba57e933f094b8a5eed3616a29cfe21f7a04b8cfd40753",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2001_03_drill_hub_redacted_desktop.jpg",
+      "sha256": "e7ea8f3a216e4c3d0c32a13fcb30ae8a06c538d5515e9ec1dbfe86eb958a9278",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html",
+      "source_sha256": "a49906190db13f80dcba57e933f094b8a5eed3616a29cfe21f7a04b8cfd40753",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2001_04_quiz_redacted_desktop.jpg",
+      "sha256": "53aa8dadca19544d39c22749066d3d256c2d0ea187fbaf3fecda5359c2c48c2f",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html",
+      "source_sha256": "a49906190db13f80dcba57e933f094b8a5eed3616a29cfe21f7a04b8cfd40753",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2001_05_quiz_redacted_mobile_390.jpg",
+      "sha256": "30e7cded5d2b99e4fa4377ea2e87060ebfd98d915afffbdc7f2fd1f920467a2c",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html",
+      "source_sha256": "a49906190db13f80dcba57e933f094b8a5eed3616a29cfe21f7a04b8cfd40753",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2002_02_rounds_redacted_desktop.jpg",
+      "sha256": "87772b3615c7312c1276d6eab49fda3eb0a3cc9d904926ebc63293928f72a494",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2002_Interaction_Model_Bakeoff_Prototype.html",
+      "source_sha256": "8eb98c1a8dab85543894ea3ebeec6c1e8e2bc8b19d08aaa5d653abab2aa5a254",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-2002_03_historical_verdict_redacted_desktop.jpg",
+      "sha256": "8a2de3a132b428072f8a869d1b5ca69561f7283066e94b9ad6186f14645d5ea4",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2002_Interaction_Model_Bakeoff_Prototype.html",
+      "source_sha256": "8eb98c1a8dab85543894ea3ebeec6c1e8e2bc8b19d08aaa5d653abab2aa5a254",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture of generated gallery",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-3000_GALLERY_01_desktop.jpg",
+      "sha256": "f34e87796c950381afad3b312764c79760e587a6e9a37568ffac8713c4158ea0",
+      "source_path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008B-SourceFactory/_AI_HANDOFFS/from_codex/I1Q_3000_PROTOTYPE_ARCHAEOLOGY/I1Q-3000_PROTOTYPE_GALLERY.html",
+      "source_sha256": "c0600567a089981f792e40dd4bfc076899c877a6e240af26660b792fd942e01d",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture of generated gallery",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-3000_GALLERY_02_tablet_768.jpg",
+      "sha256": "fc3c303c7f65fbb2fa6dc41a5e9e1365e1f3e71fd79b8babce562269e3c8e19f",
+      "source_path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008B-SourceFactory/_AI_HANDOFFS/from_codex/I1Q_3000_PROTOTYPE_ARCHAEOLOGY/I1Q-3000_PROTOTYPE_GALLERY.html",
+      "source_sha256": "c0600567a089981f792e40dd4bfc076899c877a6e240af26660b792fd942e01d",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture of generated gallery",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/I1Q-3000_GALLERY_03_mobile_390.jpg",
+      "sha256": "5262a2feec122eee614be666e1efccbed5a43d8301915afc72edde405b95276a",
+      "source_path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008B-SourceFactory/_AI_HANDOFFS/from_codex/I1Q_3000_PROTOTYPE_ARCHAEOLOGY/I1Q-3000_PROTOTYPE_GALLERY.html",
+      "source_sha256": "c0600567a089981f792e40dd4bfc076899c877a6e240af26660b792fd942e01d",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/cam-d_01_home_redacted.jpg",
+      "sha256": "3b0eb39fba1055bc989d36c63b802d4f3ecb02527b291c36f5aaadb683554e3a",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/CAM_CONCEPT_LAB/prototype_D/index.html",
+      "source_sha256": "24efc6ab1c7b4d397391cf3cecf17c3af09ec2af186d169c5692131d48f311b8",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/daily-rounds-live_01_home_redacted.jpg",
+      "sha256": "ebe4ae220db2542566efd43fa7e73cc71123b74374dd55dab611b7638d040c4d",
+      "source_path": "/Users/brianb/MissionMed/LIVE/daily.html",
+      "source_sha256": "aa7b7ff42f51f85c8af6b8953eac26c65f75c223818706fb08818a47df49e5af",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/daily-rounds-v1_01_home_redacted.jpg",
+      "sha256": "ebe4ae220db2542566efd43fa7e73cc71123b74374dd55dab611b7638d040c4d",
+      "source_path": "/Users/brianb/MissionMed/LIVE/mode_dailyrounds_v1.html",
+      "source_sha256": "98bed43f11f8dc9ebf794c9b0bee7b43ff94d1152534f390520db9dc61ce92d5",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2500_01_home_redacted.jpg",
+      "sha256": "bc69d371b580a6813693021ebde62f591a59f15b9fb83afaa3e264c4713c02ab",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2500/U1_GR_2500_FUNCTIONAL_SHELL.html",
+      "source_sha256": "87c420e16be91395394885223afafa281beb2e73d77c788d7ed131f15d80d9af",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2503_01_home_redacted.jpg",
+      "sha256": "065afa241a183bf175c3433b1346aca6dab2bb3d65afca72af020b4cea9d151d",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2503/U1_GR_2503_FUNCTIONAL_SHELL_v2.html",
+      "source_sha256": "dc0a8210acc1660d0b9fb5959eba46716015676f0d648a462fd006c1b497072f",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2504_01_home_redacted.jpg",
+      "sha256": "32c0c465fc83a4a1cb0e36c245fd3af09c63cd1f88223cb92b400463ac0c12f4",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2504/U1_GR_2504_PHOTOREALISTIC_LIVE_V3.html",
+      "source_sha256": "db0b56e885ab2ac5aca7756266ea054f402a1948ba95b111ac35dc5ce169c758",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2519x_01_home_redacted.jpg",
+      "sha256": "ecc264bd0f1c9f133094e2b5c102bdb32ead5b9a9bdbe3aae17d7808f9e20e65",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/00_INPUTS/U1_GR_2519X_EXPERIENCE_PROTOTYPE.html",
+      "source_sha256": "3c1be723d725db2cad313824ec9d0cbba7ce5089e5dbac53667d1100ad581f32",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2522f_01_home_redacted.jpg",
+      "sha256": "579e0f0c262092ef2c195f9297b1407b5ed04b216537a34d03ab0f22450a44c2",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/04_PROTOTYPES/U1_GR_2522F_EXPERIENCE_PROTOTYPE.html",
+      "source_sha256": "0f9af14f7946518353452de873459afeae3c5def5bcb17ec2426ed0f60e5539a",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2600f_01_home_redacted.jpg",
+      "sha256": "fd181869e7dc4af62448cd7b0d7ec9b45e3907d5e8dad1736715312fb7aecbd0",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2600F/01_PROTOTYPE/GRAND_ROUNDS_2600F.html",
+      "source_sha256": "5347c90fb3553d7d4a1bc16cd4843bb30502d21f6ae411ccb7a3bd6a5ae30b1e",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2601f_01_home_redacted.jpg",
+      "sha256": "fd181869e7dc4af62448cd7b0d7ec9b45e3907d5e8dad1736715312fb7aecbd0",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2601F/01_PROTOTYPE/GRAND_ROUNDS_2601F.html",
+      "source_sha256": "d88d25b42229fad55e503ace97c4bb36929798b41b0b3ec30ea5020db97aa0c1",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2601f_02_unique_podiums_synthetic.jpg",
+      "sha256": "9296aae0fa0166487d2388ae0f997a113d9313ea1f627ec1f48faa9dc470e344",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2601F/03_QA_EVIDENCE/03_stage_dimensional_podiums.png",
+      "source_sha256": "70acfa9dc9e2d855d396a58a65fef2a87fc13bf73b38183011ef7c455fa5c3c6",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2601f_03_question_ruling_synthetic.jpg",
+      "sha256": "06dff6ed4a91a79b3c603b86b4f6bfd0f3b406cbe939dbcc510be295f76cab93",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2601F/03_QA_EVIDENCE/09_livehost_ruling.png",
+      "source_sha256": "d58558764138c063e5eb8de28935e39d60960b87a175e767a50023c341379445",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2601f_04_readiness_analytics_synthetic.jpg",
+      "sha256": "6bec412ccfa03e8474be570cd256a6d39b6d2165158bab17edeb9939a7644d76",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2601F/03_QA_EVIDENCE/05_exam_readiness_populated.png",
+      "source_sha256": "5c7a05cbef96426976b135ba49f5bc2d0f2b729fe0c96c87655e3d5a297104e1",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/gr-2601f_05_career_results_synthetic.jpg",
+      "sha256": "2e7672cacfc80222d1e0ddff9a44cee0a884313de9a171b76dfc6d39bff45747",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2601F/03_QA_EVIDENCE/06_career_progression.png",
+      "source_sha256": "80d5a93fe955c01d475677b7776a1b59447ce17d1d408d128cd566d80cc61799",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/i1q-2000_01_home_redacted.jpg",
+      "sha256": "e0d652b54180b3a26f4df91cf2644421b1b19f656eece30ef58010f285b8a413",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html",
+      "source_sha256": "2536da09d639e5d8b83f9611a6ffceb55a2a4128cc526f8ec866e22e03e8a545",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/i1q-2001_01_home_redacted.jpg",
+      "sha256": "b66c07cb7e077d58f6bd63df8eb9ed462139e7983b1eb508404aa047ff04494c",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html",
+      "source_sha256": "a49906190db13f80dcba57e933f094b8a5eed3616a29cfe21f7a04b8cfd40753",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/i1q-2002_01_home_redacted.jpg",
+      "sha256": "e0a3d43753629a40ee838d694941df258ba05907cf716c2d855eeb2364a097c5",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2002_Interaction_Model_Bakeoff_Prototype.html",
+      "source_sha256": "8eb98c1a8dab85543894ea3ebeec6c1e8e2bc8b19d08aaa5d653abab2aa5a254",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/i1q-platform_01_home.jpg",
+      "sha256": "812a040d2c04edae689f2fde4c7a39a3cb6010019f812564c13cceb319790e5b",
+      "source_path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008B-SourceFactory/i1q-question-platform/public/index.html",
+      "source_sha256": "63b4f2b3006179ca571ca5ab5665c0d65e4a3bc2eac00f06c2445b4cd3293f29",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/legacy-jbank-01_01_home_redacted.jpg",
+      "sha256": "ca3b855b00568b017f34a97ae1cbe6aecfae8615bc3e201c2b0f2e5e5bab9f54",
+      "source_path": "/Users/brianb/Downloads/immunology_quiz_full_updated.html",
+      "source_sha256": "63e82f117a50d0bb66d67af2cef31447f7e75c0020fb11123ddbf3a0f62846f1",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/legacy-jbank-02_01_home_redacted.jpg",
+      "sha256": "ef1dcce364207861b6b01caf13ab1bcaef5d0d08d096d0e5c0f60226619ee7fd",
+      "source_path": "/Users/brianb/Downloads/immunology_quiz_full_updated_FIXED.html",
+      "source_sha256": "a83a5ad038149be04cf0373e7a87f0b15a417c0f2df5b5dcf41333421752ec82",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/legacy-jbank-03_01_home_redacted.jpg",
+      "sha256": "ef1dcce364207861b6b01caf13ab1bcaef5d0d08d096d0e5c0f60226619ee7fd",
+      "source_path": "/Users/brianb/Downloads/immunology_quiz_full_updated_WORKING.html",
+      "source_sha256": "4bca3c9be751079576141908be22dea860b63edc9f2c62d63f1f3febf706a4a9",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/qbank-003_01_home_redacted.jpg",
+      "sha256": "774686ccd809282fe6a196bb94672126a3a2e40a57a2dc0cf219a4791b93ede6",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/MM-QBANK-Step2CK_FullDualUIDemo_v0.1.html",
+      "source_sha256": "1d03a598e7f183308c8f3eebfcf5e9e84195f36e8091ad242fb593e7903108f8",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/qbank-003_02_question_synthetic.jpg",
+      "sha256": "3a93ccecefae91304cd53144f959fddeb7bd9cf01b1dcf59cda75d79dcd62956",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/screenshots/03-light-question.png",
+      "source_sha256": "366bd2cdd569f221c005008ee91287814292f9aa7abc2e9f6173e9ef2b5c2db2",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/qbank-003_03_explanation_synthetic.jpg",
+      "sha256": "7f4f52cacce6a91572d90358e7ab5f1b536e69a6f60bf202f449bcf94fa53d2a",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/screenshots/06-dark-explanation.png",
+      "source_sha256": "ee4e7083a71fac256a1f94fa0c16449fdd22ce21bf144cab77457467a7cd6f2d",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/qbank-003_04_results_analytics_synthetic.jpg",
+      "sha256": "1205a1ae7c9f48ff10bbb0c34ac54c599679328f6bc4a7b0d05f98c40e852521",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/screenshots/07-assessment-report.png",
+      "source_sha256": "8ab7b6055d8cfec55f315d815602a1628fec5a7b2c8401f0f2bda2311d119565",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/qbank-003_05_reviewer_unique_synthetic.jpg",
+      "sha256": "1a4be0b1aea4067ad4c82083d5e22cb7887466fd86bbbaecfa128c9d054aeeb7",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/screenshots/08-admin-reviewer-preview.png",
+      "source_sha256": "ecb9aff65406335bc148174c87ca0aaa2ec709bca3a71629e096ebdb5b3ab750",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/qbank-003_06_mobile_home_synthetic.jpg",
+      "sha256": "cfe64471879276ab6f415618b7fe6de6e76a1bb62b75244217266e2eed35f548",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/screenshots/09-mobile-main-menu.png",
+      "source_sha256": "3103068b804784dd2f91a048105eeaf42d7fd7b950c8b8405fdc4132dd685f7d",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-911_01_home_redacted.jpg",
+      "sha256": "381bf8ad260180863d2b885c1df94dc9a1b089f9d403e6824aadd710b65427aa",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_911_FUNCTIONAL_SHELL/I1_STAT4_911_FUNCTIONAL_SHELL_CAM_S1.html",
+      "source_sha256": "c5f6d29b314f0d5cbcb13ef5513de76abd4f518393936d605691dc1a98c04e6a",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-913-a_01_home_redacted.jpg",
+      "sha256": "3a18996f27f0ed69bd0d57225a6575648fa77aafa096e23fdba3d4b3a72110b0",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913_DEFINITIVE_RUNTIME_REBUILD/I1_STAT4_913_DEFINITIVE_RUNTIME_CAM_S1.html",
+      "source_sha256": "ff7a6cc385c2397757712c64327481c27bf5a938755e0ee88ba3e0000ba2ce6d",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-913-b_01_home_redacted.jpg",
+      "sha256": "aea34d7478ce525131966406f46d1deaf5fa8db873e181b061906fcf05605459",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913_DEFINITIVE_RUNTIME_REBUILD_FABLE_B/I1_STAT4_913_DEFINITIVE_RUNTIME_CAM_S1.html",
+      "source_sha256": "37ef3b139acb53e235fe36eb08dfce523835ee4d424e5271b4fcae404ac38428",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-913a_01_home_redacted.jpg",
+      "sha256": "d315c08857e593c5b8722b2e9e34001bda595d46f1809374f2673790144a7803",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913A_CANONICAL_FULL_GAME/I1_STAT4_913A_STAT_V4_CANONICAL_FULL_GAME_CAM_V2.html",
+      "source_sha256": "d90fecbeda9081ffef33a50b5dbd7a2f93429de0bf49d363929cb68c9f65eba7",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-914b_01_home_redacted.jpg",
+      "sha256": "379a3151e30b412eaa494886add7e385b302f9f3f864c126993a02db3c72a7a5",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_914B_RENDERED_REPAIR_MEGARUN/I1_STAT4_914B_STAT_V4_RENDERED_REPAIR_CAM_V2.html",
+      "source_sha256": "7ceb7834c006cb7349db3344dc039a68e39c5e8d43a5cad1f80639f2f7b6b804",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-914b_02_question_runtime_synthetic.jpg",
+      "sha256": "9d364955d770a97d27f5e86fba63d4fb6e27e3490fff956ef037954cfdb3b0bc",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_914B_RENDERED_REPAIR_MEGARUN/evidence/final_914b/required_48/15_standard_runtime_1440x900.png",
+      "source_sha256": "c1581255c61d98c5da4778d5168a88d92af267dc87069af6ce53cb11efaacdb2",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-914b_03_replay_synthetic.jpg",
+      "sha256": "8a5d018b7bfdf657e63d601f504eb14f95455ea4877cfc2d7659b6eb3c375a5b",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_914B_RENDERED_REPAIR_MEGARUN/evidence/final_914b/required_48/33_sealed_replay_1440x900.png",
+      "source_sha256": "0c68033d189e2a5fa890538e02ce700aa6c469d72cbca142e3511f15adc9a436",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-914b_04_results_debrief_synthetic.jpg",
+      "sha256": "fcdab1906a3a738dfd786ef7ea196fcc3267ce1c4fbce48c917c80ab7239600a",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_914B_RENDERED_REPAIR_MEGARUN/evidence/final_914b/required_48/31_debrief_summary_1440x900.png",
+      "source_sha256": "4fef91295e4fee9ef9c7da4906ec3c52b5676c176f1ebbc7b7b19d7fd1c6ae86",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "converted copy of pre-existing synthetic QA screenshot",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/stat-914b_05_mobile_runtime_synthetic.jpg",
+      "sha256": "6286381d7f534a514e2915986428aafdbdc8aef15c12989465fc8e98aad191f5",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_914B_RENDERED_REPAIR_MEGARUN/evidence/final_914b/required_48/46_mobile_runtime_390x844.png",
+      "source_sha256": "295ce0b6aad9e003e9c7cdd3da03eb23cf02af9987aaf67c37196a2231c8b91f",
+      "synthetic_or_redacted": "synthetic"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t10-v3_01_home_redacted.jpg",
+      "sha256": "e683d3dae47597125a67936c8e6b1680cd95ce451248e7ce3beb06c620ca06b7",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-10_TournaMed_5Concept_Demo_v3.html",
+      "source_sha256": "c1d3fa69a7f2e1fd2c8258910fc8caa344822988157e715bc43d73a728420195",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t11-concepts_01_home_redacted.jpg",
+      "sha256": "7536ad1c2ff426ac7b899f06e891521cc470e71240cb25f5033efd8066e7062b",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_3Concept_Demo.html",
+      "source_sha256": "92bf57f9a2d115336d59ff3ec65a946ce42630f0a8d401aec5a1f9f476235401",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t11-production_01_home_redacted.jpg",
+      "sha256": "06a1659b2a99e815f0e6445ff942993610c82e02fe0ae2d22b1d501ba052b19c",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_PRODUCTION_v1.html",
+      "source_sha256": "8d8304b6910ddc3c4b94721161dd3939f41f6c86863b619a9b9aa4797c328fb4",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t12_01_home_redacted.jpg",
+      "sha256": "af6aa1bafeb93dc33d9305bf38b85839c02f63a190510af70818bf2b0d9c9a37",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-12_DailyDrills_Merged_009.html",
+      "source_sha256": "0b636203b5af70d2e4199010d08f9a2a4c2ae78f8e8eee9bd7b912835a5911e1",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t13_01_home_redacted.jpg",
+      "sha256": "87028a91644a56af5409e628126b710e31ddc69cc3233ff57e2168a8083c77bf",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-13_DailyDrills_Merged_RealDrills_010.html",
+      "source_sha256": "15b00d51508482c7fa42cfc532a87352a0c78057c4e83a87b79e3b12da392522",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t14_01_home_redacted.jpg",
+      "sha256": "98aa13f418452cc30263de42e8f013499441b08665fca7bb9162f5d5a8e50165",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-14_DailyDrills_3Versions_011.html",
+      "source_sha256": "1bc7b3812113b257c13b2258afba8fa09516b6caf2954129a8f4bc8767739a00",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t15-daily_01_home_redacted.jpg",
+      "sha256": "8b5a85ba81bc3a84d081411085a908665bef00319bb597684315c55988907f02",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_DailyDrills_3Versions_012.html",
+      "source_sha256": "8c5690a3463b793c239f7eb432fa6b823e876697f47e398a5ee903e11162fe70",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t15-sessions_01_home_redacted.jpg",
+      "sha256": "c5d1f3493de2d32645fc3c9fad8dba000c225a994d508fcfdec3a24e4f128656",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_Sessions_5Concepts.html",
+      "source_sha256": "2b14218d66f67a52dd7f794f689a6d13de2f3651e962f7b7c77d43fed78d36ca",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t15-topic_01_home_redacted.jpg",
+      "sha256": "b422395950ba05be2b299a760089134d46d7c866127763a69eacf6ff1ccb4ed0",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_TopicPicker_5Concepts.html",
+      "source_sha256": "8513a120f2f69a42b9ba024eb5841636b926523aab165288d2f4d084f0cf3451",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/t16_01_home_redacted.jpg",
+      "sha256": "61830f637adbca2cfb86db1b65a8c9675b66979862d13f124e0a332e9b273f81",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-16_DailyDrills_Production_013.html",
+      "source_sha256": "e27a996307c9df2fd9d352cd44ad120a7d2d79d16a6ecbe9ba93128693abf286",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/timeline-403_01_home_redacted.jpg",
+      "sha256": "684d84a0f9519615e33f1007f27bdb4095643f0ab12cfd380890ef3f0539ccc8",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-403.html",
+      "source_sha256": "b29a8b5ce3f3544f4d39c62dd3bcf330ee8d106310d731f4c7244a30e116a4fb",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/timeline-404_01_home_redacted.jpg",
+      "sha256": "873468a7b71458ab7fe8432e7dbbcf158e0408321adb619b259b08db904a0bc3",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-404-SelfReviewThemeLoop.html",
+      "source_sha256": "9549d3ae3112d83bcac32f64412cf57e0da6b86825285e52f9d068f94c056c8b",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/timeline-405_01_home_redacted.jpg",
+      "sha256": "ab1c4ed75078ffb138ce32998cab3fa21f13a437ed0a1ed80d56dedc2ae9586e",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-405-UXClarityInterviewUseLoop.html",
+      "source_sha256": "9696efb8c1152a921a1e46dc247b9929c05fbcc7a1a2bf6be0e323ea6aa05638",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/timeline-406_01_home_redacted.jpg",
+      "sha256": "bb345110633f398f54945b2c6e090b71e8d6adf905580bdebd395cb6559e0b3e",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-406-UXPolishLoop.html",
+      "source_sha256": "0ec40e9085fd6933caaca24d696be8386b94479c5f3d24584731958569093908",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/timeline-406a_01_home_redacted.jpg",
+      "sha256": "383635a14d9deea0cb9a1811082a3ed68014f8086420989d86033bb926cc8856",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Codex-HTMLPreview-406A-KeynoteClassicSpriteIntegration.html",
+      "source_sha256": "281ec7e7289d19453c7fd7ee86c1c63961c459a734102ec222c865f8a2c62cd6",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/timeline-407f_01_home_redacted.jpg",
+      "sha256": "880bf319e63de4fb7815fef9869d18af8453d537c76a48273551c33dd568ad0f",
+      "source_path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-DefinitiveFullProductPrototype-407F.html",
+      "source_sha256": "b78532d5c91189b8ab401be598beb3f14dbee7929ebbeeea981e8ca307ad7337",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/vdrl-090-a_01_home_redacted.jpg",
+      "sha256": "3eebcd736b184b61ee31e5b6bf35dc234e8a13becafd03f292cbc4a6cb5ddcf7",
+      "source_path": "/Users/brianb/Downloads/vdrl-090_drj_drill_production.html",
+      "source_sha256": "9a67b20c5fc4fa55cfe5aaf4d18860fbbb88bdce77b30ca48c598ca9e8e6a516",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    },
+    {
+      "capture_mode": "browser capture with privacy-safe local server",
+      "file": "I1Q-3000_SCREENSHOT_BOOK/vdrl-090-b_01_home_redacted.jpg",
+      "sha256": "b28a381768f89c5d42a40f24cba055b0b07e37569e127a30a6bb5220b2168047",
+      "source_path": "/Users/brianb/Downloads/vdrl-090_drj_drill_production (1).html",
+      "source_sha256": "7dc3944fbfecafea5bc2df66f403f00f2b816096c4b355aa46d19a834cbcc63b",
+      "synthetic_or_redacted": "redacted-or-non-sensitive"
+    }
+  ]
+}

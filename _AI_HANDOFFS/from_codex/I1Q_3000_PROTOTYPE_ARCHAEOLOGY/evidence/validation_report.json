@@ -1,0 +1,154 @@
+{
+  "schema_version": "i1q-3000-validation-v1",
+  "generated_at_utc": "2026-07-22T11:35:49.198344Z",
+  "verdict": "PASS",
+  "checks_passed": 29,
+  "checks_total": 29,
+  "checks": [
+    {
+      "name": "required_deliverables",
+      "status": "PASS",
+      "detail": "10/10 present; missing=[]"
+    },
+    {
+      "name": "inventory_count",
+      "status": "PASS",
+      "detail": "items=46 declared=46"
+    },
+    {
+      "name": "unique_ids",
+      "status": "PASS",
+      "detail": "unique=46/46"
+    },
+    {
+      "name": "chronology_rank",
+      "status": "PASS",
+      "detail": "rank range=1..46 unique=46"
+    },
+    {
+      "name": "chronology_date_order",
+      "status": "PASS",
+      "detail": "first=2026-02-05 last=2026-07-20"
+    },
+    {
+      "name": "launchability_counts",
+      "status": "PASS",
+      "detail": "launchable=41 nonlaunchable=5"
+    },
+    {
+      "name": "source_paths_exist",
+      "status": "PASS",
+      "detail": "46/46 exist"
+    },
+    {
+      "name": "allocated_source_hashes",
+      "status": "PASS",
+      "detail": "45/45 matched; failures=[]"
+    },
+    {
+      "name": "dataless_fail_closed",
+      "status": "PASS",
+      "detail": "records=['legacy-jbank-reference']"
+    },
+    {
+      "name": "primary_screenshot_coverage",
+      "status": "PASS",
+      "detail": "41/41 launchable records; missing=[]"
+    },
+    {
+      "name": "screenshot_count",
+      "status": "PASS",
+      "detail": "JPEG files=69"
+    },
+    {
+      "name": "screenshot_extensions",
+      "status": "PASS",
+      "detail": "png_files=0 bad_jpeg_magic=[]"
+    },
+    {
+      "name": "required_state_categories",
+      "status": "PASS",
+      "detail": "{\"analytics\": 3, \"explanation_or_verdict\": 4, \"home_or_entry\": 45, \"question_or_runtime\": 10, \"replay\": 2, \"responsive\": 6, \"results_or_debrief\": 3, \"unique_interaction\": 4}"
+    },
+    {
+      "name": "screenshot_provenance",
+      "status": "PASS",
+      "detail": "rows=69 files=69 failures=[]"
+    },
+    {
+      "name": "comparison_dimensions",
+      "status": "PASS",
+      "detail": "21 dimensions on 46/46 records"
+    },
+    {
+      "name": "score_narrative_consistency",
+      "status": "PASS",
+      "detail": "contradictions=[]"
+    },
+    {
+      "name": "gallery_cards",
+      "status": "PASS",
+      "detail": "cards=46 inventory=46"
+    },
+    {
+      "name": "gallery_filters",
+      "status": "PASS",
+      "detail": "filters=['adjacent', 'all', 'core', 'design-donor', 'direct-ancestor', 'requirements', 'supporting-artifact']"
+    },
+    {
+      "name": "gallery_search_semantics",
+      "status": "PASS",
+      "detail": "replay_hits=6 notes_hits=6 negative_boilerplate_hits=0"
+    },
+    {
+      "name": "gallery_pagination_accessibility",
+      "status": "PASS",
+      "detail": "page size 3, valid focus target, and hidden-state rule present"
+    },
+    {
+      "name": "question_platform_launch_help",
+      "status": "PASS",
+      "detail": "server-backed local launch command present"
+    },
+    {
+      "name": "localhost_launch_routes",
+      "status": "PASS",
+      "detail": "allowlisted card launch routes=40"
+    },
+    {
+      "name": "gallery_javascript_syntax",
+      "status": "PASS",
+      "detail": "syntax OK"
+    },
+    {
+      "name": "launch_allowlist",
+      "status": "PASS",
+      "detail": "routes=41 expected=41"
+    },
+    {
+      "name": "restricted_launch_exclusions",
+      "status": "PASS",
+      "detail": "dataless and restricted records excluded"
+    },
+    {
+      "name": "safe_server_boundary",
+      "status": "PASS",
+      "detail": "localhost bind and fail-closed CSP present"
+    },
+    {
+      "name": "user_facing_private_label_scan",
+      "status": "PASS",
+      "detail": "matches=[]"
+    },
+    {
+      "name": "discovery_convergence",
+      "status": "PASS",
+      "detail": "raw=17968 curated=46"
+    },
+    {
+      "name": "census_privacy_minimized",
+      "status": "PASS",
+      "detail": "schema=i1q-3000-census-privacy-safe-v1 curated_candidates=51"
+    }
+  ]
+}

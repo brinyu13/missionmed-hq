@@ -1,0 +1,95 @@
+{
+  "coverage": [
+    {
+      "candidates": 4300,
+      "directories_seen": 11876,
+      "files_seen": 31274,
+      "protected_prunes": 9,
+      "root": "/Users/brianb/MissionMed_AI_Sandbox",
+      "status": "scanned",
+      "technical_prunes": 25
+    },
+    {
+      "candidates": 11468,
+      "directories_seen": 19167,
+      "files_seen": 71890,
+      "protected_prunes": 9,
+      "root": "/Users/brianb/MissionMed_worktrees",
+      "status": "scanned",
+      "symlinks_skipped": 3,
+      "technical_prunes": 29
+    },
+    {
+      "candidates": 1463,
+      "directories_seen": 4411,
+      "files_seen": 29717,
+      "protected_prunes": 49,
+      "root": "/Users/brianb/MissionMed",
+      "status": "scanned",
+      "symlinks_skipped": 164,
+      "technical_prunes": 557
+    },
+    {
+      "candidates": 124,
+      "directories_seen": 189,
+      "files_seen": 955,
+      "root": "/Users/brianb/MissionMed_OS",
+      "status": "scanned",
+      "technical_prunes": 1
+    },
+    {
+      "root": "/Users/brianb/CLAUDE_FILES",
+      "status": "absent"
+    },
+    {
+      "candidates": 354,
+      "directories_seen": 584,
+      "files_seen": 6170,
+      "protected_prunes": 2,
+      "root": "/Users/brianb/Downloads",
+      "status": "scanned",
+      "symlinks_skipped": 23
+    },
+    {
+      "candidates": 256,
+      "directories_seen": 683,
+      "files_seen": 6961,
+      "protected_prunes": 19,
+      "root": "/Users/brianb/Desktop",
+      "status": "scanned",
+      "symlinks_skipped": 9338,
+      "technical_prunes": 203
+    },
+    {
+      "candidates": 3,
+      "directories_seen": 1565,
+      "files_seen": 4528,
+      "root": "/Users/brianb/Documents",
+      "status": "scanned",
+      "symlinks_skipped": 653,
+      "technical_prunes": 3
+    }
+  ],
+  "curated_inventory_count": 46,
+  "explicit_gaps": [
+    "APFS dataless legacy reference was not hydrated",
+    "restricted Zoom Notes export was cataloged but not launched or screenshotted",
+    "unmounted, offline, or inaccessible external archives were not inspectable",
+    "authoring AI remains unknown where the artifacts do not establish it"
+  ],
+  "generated_at_utc": "2026-07-22T11:35:48.940139Z",
+  "launchable_count": 41,
+  "methods": [
+    "bounded filesystem census across requested roots",
+    "semantic path and content-term matching",
+    "byte-hash duplicate grouping",
+    "Git branch and history inspection",
+    "handoff and ticket-lineage inspection",
+    "manual specialist review and visual launch verification"
+  ],
+  "nonlaunchable_count": 5,
+  "privacy_minimization": "Unrelated local candidate and exclusion paths were reduced to aggregate counts before handoff.",
+  "raw_candidate_count_before_privacy_minimization": 17968,
+  "schema_version": "i1q-3000-discovery-convergence-v1",
+  "status": "converged for accessible local evidence; offline, restricted, dataless, and unmounted archives remain explicit gaps"
+}

@@ -1,0 +1,209 @@
+{
+  "routes": [
+    {
+      "id": "legacy-jbank-01",
+      "type": "file",
+      "path": "/Users/brianb/Downloads/immunology_quiz_full_updated.html"
+    },
+    {
+      "id": "legacy-jbank-02",
+      "type": "file",
+      "path": "/Users/brianb/Downloads/immunology_quiz_full_updated_FIXED.html"
+    },
+    {
+      "id": "legacy-jbank-03",
+      "type": "file",
+      "path": "/Users/brianb/Downloads/immunology_quiz_full_updated_WORKING.html"
+    },
+    {
+      "id": "qbank-003",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/qbank-demo/QBANK-003/MM-QBANK-Step2CK_FullDualUIDemo_v0.1.html"
+    },
+    {
+      "id": "vdrl-090-a",
+      "type": "file",
+      "path": "/Users/brianb/Downloads/vdrl-090_drj_drill_production.html"
+    },
+    {
+      "id": "vdrl-090-b",
+      "type": "file",
+      "path": "/Users/brianb/Downloads/vdrl-090_drj_drill_production (1).html"
+    },
+    {
+      "id": "daily-rounds-v1",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed/LIVE/mode_dailyrounds_v1.html"
+    },
+    {
+      "id": "daily-rounds-live",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed/LIVE/daily.html"
+    },
+    {
+      "id": "t10-v3",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-10_TournaMed_5Concept_Demo_v3.html"
+    },
+    {
+      "id": "t11-concepts",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_3Concept_Demo.html"
+    },
+    {
+      "id": "t11-production",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-11_STAT_PRODUCTION_v1.html"
+    },
+    {
+      "id": "t12",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-12_DailyDrills_Merged_009.html"
+    },
+    {
+      "id": "t13",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-13_DailyDrills_Merged_RealDrills_010.html"
+    },
+    {
+      "id": "t14",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-14_DailyDrills_3Versions_011.html"
+    },
+    {
+      "id": "t15-daily",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_DailyDrills_3Versions_012.html"
+    },
+    {
+      "id": "t15-topic",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_TopicPicker_5Concepts.html"
+    },
+    {
+      "id": "t15-sessions",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-15_Sessions_5Concepts.html"
+    },
+    {
+      "id": "t16",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/T-16_DailyDrills_Production_013.html"
+    },
+    {
+      "id": "stat-911",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_911_FUNCTIONAL_SHELL/I1_STAT4_911_FUNCTIONAL_SHELL_CAM_S1.html"
+    },
+    {
+      "id": "stat-913-a",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913_DEFINITIVE_RUNTIME_REBUILD/I1_STAT4_913_DEFINITIVE_RUNTIME_CAM_S1.html"
+    },
+    {
+      "id": "stat-913-b",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913_DEFINITIVE_RUNTIME_REBUILD_FABLE_B/I1_STAT4_913_DEFINITIVE_RUNTIME_CAM_S1.html"
+    },
+    {
+      "id": "stat-913a",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_913A_CANONICAL_FULL_GAME/I1_STAT4_913A_STAT_V4_CANONICAL_FULL_GAME_CAM_V2.html"
+    },
+    {
+      "id": "stat-914b",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1_STAT4_914B_RENDERED_REPAIR_MEGARUN/I1_STAT4_914B_STAT_V4_RENDERED_REPAIR_CAM_V2.html"
+    },
+    {
+      "id": "i1q-2000",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2000_The_Ladder_Prototype.html"
+    },
+    {
+      "id": "i1q-2001",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2001_The_Ladder_Daily_Drills_Prototype.html"
+    },
+    {
+      "id": "i1q-2002",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/I1Q-2002_Interaction_Model_Bakeoff_Prototype.html"
+    },
+    {
+      "id": "gr-2500",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2500/U1_GR_2500_FUNCTIONAL_SHELL.html"
+    },
+    {
+      "id": "gr-2503",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2503/U1_GR_2503_FUNCTIONAL_SHELL_v2.html"
+    },
+    {
+      "id": "gr-2504",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2520F/00_INPUTS/FABLE_2504/U1_GR_2504_PHOTOREALISTIC_LIVE_V3.html"
+    },
+    {
+      "id": "gr-2519x",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/00_INPUTS/U1_GR_2519X_EXPERIENCE_PROTOTYPE.html"
+    },
+    {
+      "id": "gr-2522f",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2522F/04_PROTOTYPES/U1_GR_2522F_EXPERIENCE_PROTOTYPE.html"
+    },
+    {
+      "id": "gr-2600f",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2600F/01_PROTOTYPE/GRAND_ROUNDS_2600F.html"
+    },
+    {
+      "id": "gr-2601f",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/U1_GRAND_ROUNDS_2601F/01_PROTOTYPE/GRAND_ROUNDS_2601F.html"
+    },
+    {
+      "id": "timeline-403",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-403.html"
+    },
+    {
+      "id": "timeline-404",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-404-SelfReviewThemeLoop.html"
+    },
+    {
+      "id": "timeline-405",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-405-UXClarityInterviewUseLoop.html"
+    },
+    {
+      "id": "timeline-406",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-HTMLPreview-406-UXPolishLoop.html"
+    },
+    {
+      "id": "timeline-406a",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Codex-HTMLPreview-406A-KeynoteClassicSpriteIntegration.html"
+    },
+    {
+      "id": "timeline-407f",
+      "type": "file",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/(D1)-MacProTimeline-Fable5-DefinitiveFullProductPrototype-407F.html"
+    },
+    {
+      "id": "cam-d",
+      "type": "tree",
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/CAM_CONCEPT_LAB/prototype_D"
+    },
+    {
+      "id": "i1q-3000-gallery",
+      "type": "tree",
+      "path": "/Users/brianb/MissionMed_worktrees/I1Q-STATQuestions-1008B-SourceFactory/_AI_HANDOFFS/from_codex/I1Q_3000_PROTOTYPE_ARCHAEOLOGY"
+    }
+  ]
+}
