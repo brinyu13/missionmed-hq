@@ -27,6 +27,8 @@ test("isolated RISE deployment contract cannot launch the HQ service", async () 
   assert.match(dockerfile, /CMD \["node", "tools\/start-production\.mjs"\]/);
   assert.match(dockerfile, /node:22-alpine@sha256:[a-f0-9]{64}/);
   assert.match(dockerfile, /COPY adapters \.\/adapters/);
+  assert.doesNotMatch(dockerfile, /RISE_AUTH_ADAPTER_MODULE=/);
+  assert.doesNotMatch(dockerfile, /RISE_ABUSE_ADAPTER_MODULE=/);
   assert.doesNotMatch(dockerfile, /missionmed-hq/);
 });
 
