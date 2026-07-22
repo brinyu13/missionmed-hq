@@ -20,6 +20,9 @@ if ( ! is_string( $root ) || '' === $root ) {
 	throw new RuntimeException( 'V1_REPO_ROOT is required.' );
 }
 
+// This fixture exercises the explicitly enabled legacy 8010C seam. The
+// separate default-off WordPress fixture proves that normal plugin boot is inert.
+define( 'MMED_V1_STUDY_RUNTIME_BINDING', true );
 update_option( 'mmed_student_os_enabled', 1, false );
 require_once $root . '/wp-content/plugins/missionmed-hub/missionmed-hub.php';
 require_once ABSPATH . 'wp-admin/includes/user.php';
