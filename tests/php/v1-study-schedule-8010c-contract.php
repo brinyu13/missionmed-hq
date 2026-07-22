@@ -422,9 +422,17 @@ v1_expect_same( 20, count( MMED_V1_Study_Observability::request_buffer() ), 'obs
 MMED_V1_Study_Observability::reset();
 v1_expect_same( 0, count( MMED_V1_Study_Observability::request_buffer() ), 'observability reset clears request state' );
 
-// Static writer and Calendar isolation.
+// Static writer and Calendar isolation. The E3 owner-arbiter is an explicitly
+// unbound synthetic proof that must inspect the Calendar table; keep that
+// narrow exception visible and prove that the plugin bootstrap cannot load it.
 $v1_files = glob( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php' );
+$plugin_source = (string) file_get_contents( $root . '/wp-content/plugins/missionmed-hub/missionmed-hub.php' );
 foreach ( $v1_files as $file ) {
+	if ( 'class-mmed-v1-study-owner-arbiter.php' === basename( $file ) ) {
+		v1_expect_same( false, false !== strpos( $plugin_source, basename( $file ) ), 'E3 owner arbiter remains absent from plugin bootstrap' );
+		v1_expect_same( false, false !== strpos( $plugin_source, 'MMED_V1_Study_Owner_Arbiter' ), 'E3 owner arbiter remains uninstantiated by plugin bootstrap' );
+		continue;
+	}
 	$source = (string) file_get_contents( $file );
 	v1_expect_same( 0, preg_match( '/MMED_Calendar_Engine|(?:wp_)?mmed_events/', $source ), basename( $file ) . ' has no Calendar dependency' );
 }
