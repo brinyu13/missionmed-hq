@@ -16,7 +16,11 @@ INSERT INTO rise.registry_releases (
   ('rise_registry_b', 'snapshot-b', repeat('3', 64), 'staging', '{"programs":1}',
    'source_controlled_registry', repeat('c', 64)),
   ('rise_registry_revoked', 'snapshot-revoked', repeat('4', 64), 'staging', '{"programs":1}',
-   'source_controlled_registry', repeat('d', 64));
+   'source_controlled_registry', repeat('d', 64)),
+  ('rise_registry_future_auth', 'snapshot-future-auth', repeat('5', 64), 'staging', '{"programs":1}',
+   'source_controlled_registry', repeat('e', 64)),
+  ('rise_registry_future_validation', 'snapshot-future-validation', repeat('6', 64), 'staging', '{"programs":1}',
+   'source_controlled_registry', repeat('f', 64));
 
 DO $$
 BEGIN
@@ -35,25 +39,50 @@ INSERT INTO rise.source_documents (
 ) VALUES
   ('rise_registry_a', 'source-a', 'OFFICIAL_REHEARSAL', 'authoritative', '[]', current_date),
   ('rise_registry_b', 'source-b', 'OFFICIAL_REHEARSAL', 'authoritative', '[]', current_date),
-  ('rise_registry_revoked', 'source-revoked', 'OFFICIAL_REHEARSAL', 'authoritative', '[]', current_date);
+  ('rise_registry_revoked', 'source-revoked', 'OFFICIAL_REHEARSAL', 'authoritative', '[]', current_date),
+  ('rise_registry_future_auth', 'source-future-auth', 'OFFICIAL_REHEARSAL', 'authoritative', '[]', current_date),
+  ('rise_registry_future_validation', 'source-future-validation', 'OFFICIAL_REHEARSAL', 'authoritative', '[]', current_date);
 
 INSERT INTO rise.programs (
   release_id, program_id, canonical_external_id, program_name, source_document_id
 ) VALUES
   ('rise_registry_a', 'program-a', 'external-a', 'Rehearsal Program A', 'source-a'),
   ('rise_registry_b', 'program-b', 'external-b', 'Rehearsal Program B', 'source-b'),
-  ('rise_registry_revoked', 'program-revoked', 'external-revoked', 'Revoked Rehearsal Program', 'source-revoked');
+  ('rise_registry_revoked', 'program-revoked', 'external-revoked', 'Revoked Rehearsal Program', 'source-revoked'),
+  ('rise_registry_future_auth', 'program-future-auth', 'external-future-auth', 'Future Authorization Program', 'source-future-auth'),
+  ('rise_registry_future_validation', 'program-future-validation', 'external-future-validation', 'Future Validation Program', 'source-future-validation');
+
+DO $$
+BEGIN
+  INSERT INTO rise.source_authorization_receipts (
+    release_id, source_authority, source_authorization_set_sha256, authorization_basis,
+    authorization_sha256, decision_record_id, verified_by_subject, verified_at, valid_through
+  ) VALUES (
+    'rise_registry_a', 'OFFICIAL_REHEARSAL', repeat('e', 64),
+    'public_official_source_approval', repeat('3', 64), 'wrong-set-decision',
+    'governance-rehearsal', now(), current_date + 1
+  );
+  RAISE EXCEPTION 'authorization receipt with unrelated set hash unexpectedly succeeded';
+EXCEPTION
+  WHEN foreign_key_violation THEN
+    INSERT INTO rehearsal_checks VALUES ('authorization_receipt_set_binding_enforced', true);
+END
+$$;
 
 INSERT INTO rise.source_authorization_receipts (
-  release_id, source_authority, authorization_basis, authorization_sha256,
+  release_id, source_authority, source_authorization_set_sha256, authorization_basis, authorization_sha256,
   decision_record_id, verified_by_subject, verified_at, valid_through
 ) VALUES
-  ('rise_registry_a', 'OFFICIAL_REHEARSAL', 'public_official_source_approval', repeat('4', 64),
+  ('rise_registry_a', 'OFFICIAL_REHEARSAL', repeat('b', 64), 'public_official_source_approval', repeat('4', 64),
    'decision-a', 'governance-rehearsal', now(), current_date + 1),
-  ('rise_registry_b', 'OFFICIAL_REHEARSAL', 'public_official_source_approval', repeat('5', 64),
+  ('rise_registry_b', 'OFFICIAL_REHEARSAL', repeat('c', 64), 'public_official_source_approval', repeat('5', 64),
    'decision-b', 'governance-rehearsal', now(), current_date + 1),
-  ('rise_registry_revoked', 'OFFICIAL_REHEARSAL', 'public_official_source_approval', repeat('c', 64),
-   'decision-revoked', 'governance-rehearsal', now(), current_date + 1);
+  ('rise_registry_revoked', 'OFFICIAL_REHEARSAL', repeat('d', 64), 'public_official_source_approval', repeat('c', 64),
+   'decision-revoked', 'governance-rehearsal', now(), current_date + 1),
+  ('rise_registry_future_auth', 'OFFICIAL_REHEARSAL', repeat('e', 64), 'public_official_source_approval', repeat('d', 64),
+   'decision-future-auth', 'governance-rehearsal', now() + interval '1 hour', current_date + 1),
+  ('rise_registry_future_validation', 'OFFICIAL_REHEARSAL', repeat('f', 64), 'public_official_source_approval', repeat('e', 64),
+   'decision-future-validation', 'governance-rehearsal', now(), current_date + 1);
 
 INSERT INTO rise.release_validation_receipts (
   release_id, validation_status, release_manifest_sha256, api_index_sha256,
@@ -65,7 +94,11 @@ INSERT INTO rise.release_validation_receipts (
   ('rise_registry_b', 'passed', repeat('9', 64), repeat('a', 64), repeat('b', 64),
    repeat('c', 64), 'rehearsal-v1', '{"passed":true}', 'validator-rehearsal', now()),
   ('rise_registry_revoked', 'passed', repeat('c', 64), repeat('d', 64), repeat('e', 64),
-   repeat('d', 64), 'rehearsal-v1', '{"passed":true}', 'validator-rehearsal', now());
+   repeat('d', 64), 'rehearsal-v1', '{"passed":true}', 'validator-rehearsal', now()),
+  ('rise_registry_future_auth', 'passed', repeat('d', 64), repeat('e', 64), repeat('f', 64),
+   repeat('e', 64), 'rehearsal-v1', '{"passed":true}', 'validator-rehearsal', now()),
+  ('rise_registry_future_validation', 'passed', repeat('e', 64), repeat('f', 64), repeat('0', 64),
+   repeat('f', 64), 'rehearsal-v1', '{"passed":true}', 'validator-rehearsal', now() + interval '1 hour');
 
 INSERT INTO rise.source_authorization_revocations (
   release_id, source_authority, authorization_sha256, decision_record_id,
@@ -95,6 +128,32 @@ BEGIN
 EXCEPTION
   WHEN SQLSTATE '55000' THEN
     INSERT INTO rehearsal_checks VALUES ('revoked_evidence_activation_rejected', true);
+END
+$$;
+
+DO $$
+BEGIN
+  PERFORM rise.set_active_registry_release(
+    'rise_registry_future_auth', 'activate', 'rise_registry_a', 'rehearsal-operator',
+    'must fail because source authorization evidence is future-dated'
+  );
+  RAISE EXCEPTION 'future authorization activation unexpectedly succeeded';
+EXCEPTION
+  WHEN SQLSTATE '55000' THEN
+    INSERT INTO rehearsal_checks VALUES ('future_authorization_activation_rejected', true);
+END
+$$;
+
+DO $$
+BEGIN
+  PERFORM rise.set_active_registry_release(
+    'rise_registry_future_validation', 'activate', 'rise_registry_a', 'rehearsal-operator',
+    'must fail because validation evidence is future-dated'
+  );
+  RAISE EXCEPTION 'future validation activation unexpectedly succeeded';
+EXCEPTION
+  WHEN SQLSTATE '55000' THEN
+    INSERT INTO rehearsal_checks VALUES ('future_validation_activation_rejected', true);
 END
 $$;
 

@@ -255,10 +255,15 @@ test("release hardening binds activation to validation and current source rights
   assert.match(sql, /CREATE TABLE rise\.source_authorization_receipts/);
   assert.match(sql, /CREATE TABLE rise\.source_authorization_revocations/);
   assert.match(sql, /CREATE TABLE rise\.release_validation_receipts/);
+  assert.match(sql, /UNIQUE \(release_id, source_authorization_set_sha256\)/);
+  assert.equal((sql.match(/FOREIGN KEY \(release_id, source_authorization_set_sha256\)/g) ?? []).length, 2);
   assert.match(sql, /CREATE FUNCTION rise\.enforce_release_activation_evidence\(\)/);
   assert.match(sql, /NEW\.data_classification IS DISTINCT FROM 'source_controlled_registry'/);
   assert.match(sql, /auth_receipt\.revoked_at IS NOT NULL/);
   assert.match(sql, /auth_receipt\.valid_through < current_date/);
+  assert.match(sql, /auth_receipt\.source_authorization_set_sha256 IS DISTINCT FROM NEW\.source_authorization_set_sha256/);
+  assert.match(sql, /auth_receipt\.verified_at > now\(\)/);
+  assert.match(sql, /v_validation\.validated_at > now\(\)/);
   assert.match(sql, /auth_revocation\.release_id IS NOT NULL/);
   assert.match(sql, /CREATE TRIGGER rise_registry_release_activation_evidence/);
   assert.match(sql, /CREATE TRIGGER rise_source_authorization_revocations_append_only/);

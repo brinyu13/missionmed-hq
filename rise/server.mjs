@@ -36,7 +36,8 @@ const MIME_TYPES = new Map([
   [".png", "image/png"],
   [".woff2", "font/woff2"],
 ]);
-const STATIC_ASSET_PATHS = new Set(["index.html", "styles.css", "app.js"]);
+const REQUIRED_WEB_ASSET_PATHS = Object.freeze(["index.html", "styles.css", "app.js", "vendor/lucide.js"]);
+const STATIC_ASSET_PATHS = new Set(REQUIRED_WEB_ASSET_PATHS.filter((asset) => !asset.startsWith("vendor/")));
 
 function securityHeaders(response, requestId) {
   response.setHeader("Content-Security-Policy", [
@@ -317,6 +318,7 @@ export function validateProductionEnvironment(environment = process.env) {
     "RISE_ALLOW_INSECURE_LOOPBACK_AUTH",
     "RISE_ALLOW_INSECURE_LOOPBACK_ABUSE",
     "RISE_ALLOW_INSECURE_LOOPBACK_SOURCE_RIGHTS",
+    "RISE_ALLOW_INSECURE_LOOPBACK_ARTIFACTS",
   ]) {
     if (environment[name] === "true") throw new Error(`${name} is prohibited in production`);
   }
@@ -836,7 +838,7 @@ export function createRiseServer({
           registryReleaseId: registryIndex.registryReleaseId,
           ...result,
           filterOptions: registryIndex.filters,
-        }, { cache: "private, max-age=60", requestId });
+        }, { cache: "no-store", requestId });
         return;
       }
       const profileMatch = url.pathname.match(/^\/api\/rise\/v1\/program-specialties\/([^/]+)$/);
@@ -1051,8 +1053,15 @@ export async function loadWebBuild(webDirectory, {
     throw new Error("RISE web asset manifest hash mismatch");
   }
   const manifest = JSON.parse(bytes.toString("utf8"));
-  if (manifest.schemaVersion !== 1 || !manifest.buildId || !manifest.files || typeof manifest.files !== "object") {
+  if (
+    manifest.schemaVersion !== 1 || !manifest.buildId || !manifest.files ||
+    typeof manifest.files !== "object" || Array.isArray(manifest.files)
+  ) {
     throw new Error("Unsupported RISE web asset manifest");
+  }
+  if (production) {
+    const missing = REQUIRED_WEB_ASSET_PATHS.filter((relative) => !Object.hasOwn(manifest.files, relative));
+    if (missing.length) throw new Error(`RISE web asset manifest is incomplete: ${missing.join(", ")}`);
   }
   const root = `${path.resolve(webDirectory)}${path.sep}`;
   for (const [relative, expected] of Object.entries(manifest.files)) {

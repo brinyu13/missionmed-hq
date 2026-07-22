@@ -104,6 +104,10 @@ export async function prepareRuntimeArtifacts({
   outputParent = os.tmpdir(),
 } = {}) {
   if (typeof fetchImpl !== "function") throw new Error("A fetch implementation is required");
+  const production = environment.NODE_ENV === "production" || environment.RISE_ENVIRONMENT === "production";
+  if (production && allowInsecureLoopback) {
+    throw new Error("RISE_ALLOW_INSECURE_LOOPBACK_ARTIFACTS is prohibited in production");
+  }
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000 || timeoutMs > 120_000) {
     throw new Error("RISE_ARTIFACT_TIMEOUT_MS must be between 1000 and 120000");
   }

@@ -13,6 +13,7 @@ test("isolated RISE deployment contract cannot launch the HQ service", async () 
   const railway = JSON.parse(await fs.readFile(path.join(riseRoot, "railway.json"), "utf8"));
   const dockerfile = await fs.readFile(path.join(riseRoot, "Dockerfile"), "utf8");
   const serverSource = await fs.readFile(path.join(riseRoot, "server.mjs"), "utf8");
+  const startProductionSource = await fs.readFile(path.join(riseRoot, "tools/start-production.mjs"), "utf8");
   const packageJson = JSON.parse(await fs.readFile(path.join(riseRoot, "package.json"), "utf8"));
 
   assert.equal(contract.service, "missionmed-rise");
@@ -39,6 +40,12 @@ test("isolated RISE deployment contract cannot launch the HQ service", async () 
   assert.doesNotMatch(runtimeStage, /--chown=node:node \/app\/dist/);
   assert.doesNotMatch(serverSource, /LUCIDE_UMD_PATH\s*=\s*require\.resolve/);
   assert.doesNotMatch(dockerfile, /missionmed-hq/);
+  assert.match(startProductionSource, /if \(isProductionEnvironment\(\)\) validateProductionEnvironment\(\);/);
+  assert.ok(
+    startProductionSource.indexOf("validateProductionEnvironment();") <
+      startProductionSource.indexOf("prepareRuntimeArtifacts();"),
+    "production environment validation must run before artifact fetching",
+  );
 });
 
 test("production contract pins auth, source rights, index, assets, and abuse control", async () => {
@@ -75,8 +82,10 @@ test("production contract pins auth, source rights, index, assets, and abuse con
   assert.equal(contract.runtimeArtifactPolicy.syntheticRegistryProhibitedInProduction, true);
   assert.equal(contract.runtimeArtifactPolicy.sourceAuthorizationHashesMustMatchRuntimePins, true);
   assert.equal(contract.runtimeArtifactPolicy.liveSourceRightsMustBeRevalidatedAtStartupAndEveryAuthenticatedRequest, true);
-  assert.equal(contract.runtimeArtifactPolicy.insecureLoopbackControllersProhibitedInProduction, true);
+  assert.equal(contract.runtimeArtifactPolicy.insecureLoopbackOverridesProhibitedInProduction, true);
+  assert.equal(contract.runtimeArtifactPolicy.webAssetManifestMustCoverEveryServedAsset, true);
   assert.equal(contract.runtimeArtifactPolicy.webAssetsMustRemainRootOwned, true);
+  assert.equal(contract.runtimeArtifactPolicy.registryResponsesMustNotBeCached, true);
   assert.equal(contract.runtimeArtifactPolicy.readOnlyRootFilesystemRequired, true);
 });
 
@@ -128,6 +137,7 @@ test("production environment validation enforces the deployment contract", () =>
     "RISE_ALLOW_INSECURE_LOOPBACK_AUTH",
     "RISE_ALLOW_INSECURE_LOOPBACK_ABUSE",
     "RISE_ALLOW_INSECURE_LOOPBACK_SOURCE_RIGHTS",
+    "RISE_ALLOW_INSECURE_LOOPBACK_ARTIFACTS",
   ]) {
     assert.throws(
       () => validateProductionEnvironment({ ...environment, [name]: "true" }),

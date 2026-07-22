@@ -62,9 +62,11 @@
     "activationReceiptMustBindIndexAndManifest": true,
     "sourceAuthorizationHashesMustMatchRuntimePins": true,
     "liveSourceRightsMustBeRevalidatedAtStartupAndEveryAuthenticatedRequest": true,
-    "insecureLoopbackControllersProhibitedInProduction": true,
+    "insecureLoopbackOverridesProhibitedInProduction": true,
     "webAssetsMustPassManifestVerification": true,
+    "webAssetManifestMustCoverEveryServedAsset": true,
     "webAssetsMustRemainRootOwned": true,
+    "registryResponsesMustNotBeCached": true,
     "readOnlyRootFilesystemRequired": true
   }
 }

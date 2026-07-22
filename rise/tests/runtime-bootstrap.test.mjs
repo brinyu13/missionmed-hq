@@ -12,6 +12,25 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex");
 }
 
+test("production bootstrap rejects insecure artifact transport before any fetch", async () => {
+  let fetchCalls = 0;
+  await assert.rejects(
+    prepareRuntimeArtifacts({
+      environment: {
+        NODE_ENV: "production",
+        RISE_ARTIFACT_ORIGIN: "http://127.0.0.1:4177",
+      },
+      allowInsecureLoopback: true,
+      fetchImpl: async () => {
+        fetchCalls += 1;
+        throw new Error("must not fetch");
+      },
+    }),
+    /prohibited in production/,
+  );
+  assert.equal(fetchCalls, 0);
+});
+
 test("production bootstrap fetches only same-origin, authenticated, hash-pinned artifacts", async () => {
   const bodies = new Map([
     ["/registry.json", Buffer.from('{"registry":"fixture"}\n')],

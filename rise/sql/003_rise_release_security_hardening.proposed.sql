@@ -24,11 +24,14 @@ ALTER TABLE rise.registry_releases
     CHECK (
       source_authorization_set_sha256 IS NULL
       OR source_authorization_set_sha256 ~ '^[0-9a-f]{64}$'
-    );
+    ),
+  ADD CONSTRAINT rise_registry_release_authorization_identity_unique
+    UNIQUE (release_id, source_authorization_set_sha256);
 
 CREATE TABLE rise.source_authorization_receipts (
-  release_id text NOT NULL REFERENCES rise.registry_releases(release_id),
+  release_id text NOT NULL,
   source_authority text NOT NULL CHECK (btrim(source_authority) <> ''),
+  source_authorization_set_sha256 char(64) NOT NULL CHECK (source_authorization_set_sha256 ~ '^[0-9a-f]{64}$'),
   authorization_basis text NOT NULL CHECK (authorization_basis IN (
     'written_source_owner_grant', 'public_official_source_approval', 'missionmed_owned'
   )),
@@ -40,6 +43,8 @@ CREATE TABLE rise.source_authorization_receipts (
   valid_through date NOT NULL,
   revoked_at timestamptz,
   PRIMARY KEY (release_id, source_authority),
+  FOREIGN KEY (release_id, source_authorization_set_sha256)
+    REFERENCES rise.registry_releases (release_id, source_authorization_set_sha256),
   CHECK (
     (authorization_basis = 'written_source_owner_grant'
       AND source_owner_grant_sha256 IS NOT NULL
@@ -69,7 +74,7 @@ CREATE TABLE rise.source_authorization_revocations (
 );
 
 CREATE TABLE rise.release_validation_receipts (
-  release_id text PRIMARY KEY REFERENCES rise.registry_releases(release_id),
+  release_id text PRIMARY KEY,
   validation_status text NOT NULL CHECK (validation_status = 'passed'),
   release_manifest_sha256 char(64) NOT NULL CHECK (release_manifest_sha256 ~ '^[0-9a-f]{64}$'),
   api_index_sha256 char(64) NOT NULL CHECK (api_index_sha256 ~ '^[0-9a-f]{64}$'),
@@ -78,7 +83,9 @@ CREATE TABLE rise.release_validation_receipts (
   validator_version text NOT NULL CHECK (btrim(validator_version) <> ''),
   validation_summary jsonb NOT NULL CHECK (jsonb_typeof(validation_summary) = 'object'),
   validated_by_subject text NOT NULL CHECK (btrim(validated_by_subject) <> ''),
-  validated_at timestamptz NOT NULL
+  validated_at timestamptz NOT NULL,
+  FOREIGN KEY (release_id, source_authorization_set_sha256)
+    REFERENCES rise.registry_releases (release_id, source_authorization_set_sha256)
 );
 
 CREATE OR REPLACE FUNCTION rise.enforce_registry_release_immutability()
@@ -139,7 +146,8 @@ BEGIN
     WHERE release_id = NEW.release_id;
   IF NOT FOUND
     OR v_validation.validation_status <> 'passed'
-    OR v_validation.source_authorization_set_sha256 IS DISTINCT FROM NEW.source_authorization_set_sha256 THEN
+    OR v_validation.source_authorization_set_sha256 IS DISTINCT FROM NEW.source_authorization_set_sha256
+    OR v_validation.validated_at > now() THEN
     RAISE EXCEPTION 'RISE release validation evidence is missing or does not match authorization lineage'
       USING ERRCODE = '55000';
   END IF;
@@ -159,6 +167,8 @@ BEGIN
        AND auth_revocation.source_authority = auth_receipt.source_authority
        AND auth_revocation.authorization_sha256 = auth_receipt.authorization_sha256
       WHERE auth_receipt.release_id IS NULL
+         OR auth_receipt.source_authorization_set_sha256 IS DISTINCT FROM NEW.source_authorization_set_sha256
+         OR auth_receipt.verified_at > now()
          OR auth_receipt.revoked_at IS NOT NULL
          OR auth_receipt.valid_through < current_date
          OR auth_revocation.release_id IS NOT NULL
@@ -278,6 +288,8 @@ WITH (security_barrier = true)
 AS
 SELECT active.active_release_id
   FROM rise.registry_active_release AS active
+  JOIN rise.registry_releases AS release
+    ON release.release_id = active.active_release_id
   WHERE active.singleton_key = true
     AND NOT EXISTS (
       SELECT 1
@@ -294,6 +306,8 @@ SELECT active.active_release_id
          AND revocation.source_authority = receipt.source_authority
          AND revocation.authorization_sha256 = receipt.authorization_sha256
         WHERE receipt.release_id IS NULL
+           OR receipt.source_authorization_set_sha256 IS DISTINCT FROM release.source_authorization_set_sha256
+           OR receipt.verified_at > now()
            OR receipt.revoked_at IS NOT NULL
            OR receipt.valid_through < current_date
            OR revocation.release_id IS NOT NULL

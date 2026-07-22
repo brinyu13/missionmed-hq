@@ -216,6 +216,7 @@ test("local preview session is explicit and status is evidence truthful", async 
 test("combined records require explicit inclusion for specialty browsing", async () => {
   const exact = await fetch(`${baseUrl}/api/rise/v1/programs?specialty=Internal%20Medicine&includeCombined=false`);
   const exactBody = await exact.json();
+  assert.equal(exact.headers.get("cache-control"), "no-store");
   assert.equal(exactBody.total, 1);
   assert.equal(exactBody.records[0].designation, "Internal Medicine");
 
@@ -704,9 +705,31 @@ test("authenticated rate limiting is subject-scoped, bounded, and audit-safe", a
 
 test("web build manifest and every asset hash are authenticated", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "rise-web-build-test-"));
-  await fs.writeFile(path.join(directory, "app.js"), "console.log('fixture');\n");
-  const assetSha = createHash("sha256").update(await fs.readFile(path.join(directory, "app.js"))).digest("hex");
-  const manifest = { schemaVersion: 1, buildId: "rise_web_fixture", files: { "app.js": assetSha } };
+  const assets = {
+    "index.html": "<!doctype html><title>RISE fixture</title>\n",
+    "styles.css": "body { color: black; }\n",
+    "app.js": "console.log('fixture');\n",
+    "vendor/lucide.js": "globalThis.lucide = {};\n",
+  };
+  await fs.mkdir(path.join(directory, "vendor"));
+  for (const [relative, contents] of Object.entries(assets)) {
+    await fs.writeFile(path.join(directory, relative), contents);
+  }
+  const files = {};
+  for (const relative of Object.keys(assets)) {
+    files[relative] = createHash("sha256").update(await fs.readFile(path.join(directory, relative))).digest("hex");
+  }
+  const incompleteManifest = { schemaVersion: 1, buildId: "rise_web_fixture", files: { "app.js": files["app.js"] } };
+  const incompleteBytes = Buffer.from(`${JSON.stringify(incompleteManifest)}\n`);
+  await fs.writeFile(path.join(directory, "asset-manifest.json"), incompleteBytes);
+  await assert.rejects(
+    loadWebBuild(directory, {
+      production: true,
+      expectedManifestSha256: createHash("sha256").update(incompleteBytes).digest("hex"),
+    }),
+    /manifest is incomplete/,
+  );
+  const manifest = { schemaVersion: 1, buildId: "rise_web_fixture", files };
   const manifestBytes = Buffer.from(`${JSON.stringify(manifest)}\n`);
   await fs.writeFile(path.join(directory, "asset-manifest.json"), manifestBytes);
   const manifestSha = createHash("sha256").update(manifestBytes).digest("hex");
