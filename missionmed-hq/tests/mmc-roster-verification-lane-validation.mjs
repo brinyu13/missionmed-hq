@@ -7,6 +7,10 @@ import {
   verifyRosterCandidate,
   ROSTER_VERIFICATION_STATUS,
 } from '../lib/mmc-roster-verification-lane.mjs';
+import {
+  handleMmcCoachingPipelineRoute,
+  isMmcCoachingPipelinePath,
+} from '../routes/mmc-coaching-pipeline.mjs';
 
 const rootDir = process.cwd();
 const routeSource = readFileSync(path.join(rootDir, 'missionmed-hq/routes/mmc-coaching-pipeline.mjs'), 'utf8');
@@ -157,11 +161,79 @@ assert.equal(adminApproved.status, ROSTER_VERIFICATION_STATUS.VERIFIED, 'Explici
 assert.equal(adminApproved.adminApproved, true, 'Admin approval must be recorded.');
 assert.equal(summarizeRosterVerificationForReview(adminApproved).strongAnchors, 1, 'Review summary must expose strong anchor count.');
 
-assert.match(routeSource, /roster-verification\/sources/u, 'Pipeline route must expose roster source inventory.');
-assert.match(routeSource, /roster-verification\/resolve/u, 'Pipeline route must expose roster verification resolve.');
-assert.match(routeSource, /roster-verification\/approve/u, 'Pipeline route must expose roster bridge approval.');
-assert.match(routeSource, /ensureVerifiedRosterBridge/u, 'Pipeline route must persist verified bridge rows only after verification.');
-assert.match(routeSource, /primary_anchor_type=eq\.missionmed_roster_student/u, 'Attachment path must prefer verified missionmed_roster_student references.');
+assert.equal(isMmcCoachingPipelinePath('/api/mmc/coaching-pipeline/roster-verification/sources'), true,
+  'The compatibility boundary must continue to recognize sealed legacy roster paths.');
+assert.equal(isMmcCoachingPipelinePath('/api/mmc/v2/status'), true,
+  'The compatibility boundary must recognize the exact CAM v2 API prefix.');
+assert.equal(isMmcCoachingPipelinePath('/api/mmc/v20/status'), false,
+  'The compatibility boundary must not delegate lookalike API prefixes.');
+assert.match(routeSource, /if \(isMmcV2Path\(url\.pathname\)\) \{\s*await handleMmcV2Route\(request, response, url, deps\);/u,
+  'The compatibility boundary must delegate exact /api/mmc/v2 paths to the CAM v2 handler.');
+assert.match(routeSource, /mmc_legacy_pipeline_sealed/u,
+  'Legacy coaching-pipeline routes must return the permanent seal response.');
+assert.match(routeSource, /MMC_V2_PREFIX_FOR_STATUS = '\/api\/mmc\/v2'/u,
+  'The legacy seal must identify only /api/mmc/v2 as its replacement.');
+for (const removedLegacyWiring of [
+  /roster-verification\/sources/u,
+  /roster-verification\/resolve/u,
+  /roster-verification\/approve/u,
+  /ensureVerifiedRosterBridge/u,
+  /primary_anchor_type=eq\.missionmed_roster_student/u,
+]) {
+  assert.doesNotMatch(routeSource, removedLegacyWiring,
+    'The seal-only compatibility route must not retain legacy roster endpoint or persistence wiring.');
+}
+
+const session = { csrfToken: 'csrf_roster_verification_lane_seal' };
+const baseDeps = {
+  session,
+  authHeaders: {},
+  isAuthorizedMmcPrivateSession: () => true,
+  sendJson: (response, status, payload, headers) => Object.assign(response, { status, payload, headers }),
+};
+
+async function invokePipeline(pathname, method = 'GET', headers = {}, dependencyOverrides = {}) {
+  const response = {};
+  await handleMmcCoachingPipelineRoute(
+    { method, headers },
+    response,
+    new URL(`https://mmc.local.test${pathname}`),
+    { ...baseDeps, ...dependencyOverrides },
+  );
+  return response;
+}
+
+let routeResponse = await invokePipeline('/api/mmc/coaching-pipeline/roster-verification/sources');
+assert.equal(routeResponse.status, 410, 'Legacy roster source inventory must remain sealed.');
+assert.equal(routeResponse.payload.error, 'mmc_legacy_pipeline_sealed');
+assert.equal(routeResponse.payload.replacement, '/api/mmc/v2');
+
+routeResponse = await invokePipeline('/api/mmc/coaching-pipeline/roster-verification/resolve', 'POST');
+assert.equal(routeResponse.status, 403, 'A sealed legacy roster mutation must still enforce CSRF first.');
+assert.equal(routeResponse.payload.error, 'CSRF_VALIDATION_FAILED');
+routeResponse = await invokePipeline(
+  '/api/mmc/coaching-pipeline/roster-verification/resolve',
+  'POST',
+  { 'x-mmhq-csrf': session.csrfToken },
+);
+assert.equal(routeResponse.status, 410, 'A CSRF-valid legacy roster mutation must remain sealed.');
+assert.equal(routeResponse.payload.error, 'mmc_legacy_pipeline_sealed');
+
+routeResponse = await invokePipeline('/api/mmc/v2/status', 'GET', {}, {
+  buildMmcPrincipal: () => ({ id: '00600000-0000-4000-8000-000000000301', role: 'admin' }),
+  v2Config: {
+    gatewayEnabled: true,
+    commandEnabled: false,
+    inMemoryKernelEnabled: true,
+    tenantId: '00600000-0000-4000-8000-000000000302',
+    environment: 'LOCAL',
+    approvedOrigins: ['https://mmc.local.test'],
+    maxJsonBytes: 64 * 1024,
+  },
+});
+assert.equal(routeResponse.status, 200, 'Exact /api/mmc/v2 paths must delegate to the CAM v2 handler.');
+assert.equal(routeResponse.payload.data.apiVersion, 'v2');
+assert.equal(routeResponse.payload.data.authority, 'CAM_V2');
 assert.doesNotMatch(moduleSource, /fetch\(/u, 'Roster verification lane must not hide production fetches.');
 assert.doesNotMatch(moduleSource, /service_role/iu, 'Roster verification lane must not introduce service_role runtime.');
 assert.match(appSource, /pipeline-roster-verification-card/u, 'Pipeline Admin must render roster verification review UI.');

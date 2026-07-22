@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { decodeCanonicalRequestPathname } from '../lib/mmc/trust/security.mjs';
+
 const rootDir = process.cwd();
 const serverPath = path.join(rootDir, 'missionmed-hq/server.mjs');
+const securityPath = path.join(rootDir, 'missionmed-hq/lib/mmc/trust/security.mjs');
 const mountDir = path.join(rootDir, 'missionmed-hq/public/mmc-private');
 const requiredMountFiles = [
   'index.html',
@@ -14,6 +17,7 @@ const requiredMountFiles = [
 ];
 
 const serverSource = readFileSync(serverPath, 'utf8');
+const securitySource = readFileSync(securityPath, 'utf8');
 const mountSources = requiredMountFiles
   .map((relativePath) => readFileSync(path.join(mountDir, relativePath), 'utf8'))
   .join('\n');
@@ -40,14 +44,65 @@ for (const requiredServerPattern of [
   /readSessionFromRequest\(request\)/u,
   /isAuthorizedMmcPrivateUser\(session\.user\)/u,
   /X-MissionMed-Private-Mount/u,
-  /X-Robots-Tag/u,
+  /MMC_JSON_SECURITY_HEADERS/u,
+  /mmc_historical_surface_sealed/u,
+  /decodeCanonicalRequestPathname\(url\.pathname\)/u,
 ]) {
   assert.match(serverSource, requiredServerPattern, `Missing private mount guard pattern: ${requiredServerPattern}`);
 }
 
-const privateSessionAuthSource = extractBetween(serverSource, 'function isAuthorizedMmcPrivateSession', 'function resolveMmcPrivateStaticPath');
+for (const [encodedPath, decodedPath] of [
+  ['/mmc-private/index.html', '/mmc-private/index.html'],
+  ['/mmc-private%2Fsrc%2Fapp.js', '/mmc-private/src/app.js'],
+  ['/students/Ada%20Lovelace', '/students/Ada Lovelace'],
+]) {
+  assert.equal(decodeCanonicalRequestPathname(encodedPath), decodedPath,
+    `Canonical request path should decode safely: ${encodedPath}`);
+}
+
+for (const encodedPath of [
+  '/x/%2e%2e%2fmmc-private/index.html',
+  '/x/%2E%2E%2Fmmc-private/src/app.js',
+  '/x/%2e%2e/mmc-private/index.html',
+  '/x/%2e/mmc-private/index.html',
+  '/x/%5c..%5cmmc-private/index.html',
+  '/%2Fmmc-private/index.html',
+  '/%2fmmc-private/src/app.js',
+  '/x/%2f..%2fmmc-private/index.html',
+  '/mmc-private/%00index.html',
+  '/bad/%E0%A4%A',
+]) {
+  assert.throws(
+    () => decodeCanonicalRequestPathname(encodedPath),
+    (error) => error?.statusCode === 400
+      && ['INVALID_REQUEST_PATH', 'NON_CANONICAL_REQUEST_PATH'].includes(error?.code),
+    `Non-canonical or malformed path must fail closed before static routing: ${encodedPath}`,
+  );
+}
+
+for (const strictHeaderPattern of [
+  /'Cache-Control': 'no-store, max-age=0'/u,
+  /'Content-Security-Policy': "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"/u,
+  /'Cross-Origin-Resource-Policy': 'same-origin'/u,
+  /'Referrer-Policy': 'no-referrer'/u,
+  /'X-Content-Type-Options': 'nosniff'/u,
+  /'X-Frame-Options': 'DENY'/u,
+  /'X-Robots-Tag': 'noindex, nofollow, noarchive'/u,
+]) {
+  assert.match(securitySource, strictHeaderPattern, `Missing strict MMC response header: ${strictHeaderPattern}`);
+}
+
+const privateSessionAuthSource = extractBetween(serverSource, 'function isAuthorizedMmcPrivateSession', 'async function handleMmcPrivateMount');
 assert.doesNotMatch(privateSessionAuthSource, /isAuthorizedWordPressUser/u, 'MMC private route must not inherit the broad shared HQ role allowlist.');
 assert.match(privateSessionAuthSource, /isAuthorizedMmcPrivateUser\(session\.user\)/u, 'MMC private route must use its route-specific authorization predicate.');
+
+const privateMountHandlerSource = extractBetween(serverSource, 'async function handleMmcPrivateMount', 'function getMmcPersistenceConfig');
+assert.match(privateMountHandlerSource, /sendJson\(response, 410/u,
+  'The historical HTML surface must be sealed at the authenticated runtime mount.');
+assert.match(privateMountHandlerSource, /\.\.\.MMC_JSON_SECURITY_HEADERS/u,
+  'The sealed mount response must enforce the strict MMC JSON CSP and no-store header set.');
+assert.doesNotMatch(privateMountHandlerSource, /serveStatic/u,
+  'The runtime mount must not serve the inline-handler historical HTML surface.');
 
 const privateRouteIndex = serverSource.indexOf('if (isMmcPrivatePath(pathname))');
 const apiRouteIndex = serverSource.indexOf("if (pathname.startsWith('/api/'))");
@@ -120,7 +175,13 @@ for (const approvedSurface of [
 }
 
 assert.match(appSource, /productionDependencies:\s*false/u, 'MMC private mount must keep production dependencies disabled.');
-assert.match(appSource, /apiCalls:\s*ownershipRuntime \? 'same-origin \/api\/mmc\/persistence \+ \/api\/mmc\/coaching-pipeline only'/u, 'MMC private mount must limit API calls to approved same-origin MMC persistence and coaching pipeline routes.');
+assert.match(mountSources, /productionIntegration:\s*false/u, 'Historical MMC UI must not claim production integration.');
+assert.match(mountSources, /schemaPersistenceEnabled:\s*false/u, 'Historical MMC UI must not claim whole-state persistence readiness.');
+assert.match(mountSources, /writeMode:\s*"sealed"/u, 'Historical MMC UI must expose the sealed v1 write boundary.');
+assert.match(mountSources, /TRUST_KERNEL_UI_REVIEW_ONLY/u, 'Historical MMC UI must expose its current review-only status.');
+assert.doesNotMatch(readFileSync(path.join(mountDir, 'src/mmc-ownership-layer.js'), 'utf8'), /persistenceFetchOptions\("POST"/u,
+  'Historical ownership runtime must not submit a v1 whole-state POST.');
+assert.match(appSource, /apiCalls:\s*ownershipRuntime \? 'same-origin \/api\/mmc\/persistence \+ \/api\/mmc\/coaching-pipeline only'/u, 'Preserved historical archaeology must document its former same-origin MMC boundary.');
 assert.match(appSource, /data-testid="pipeline-admin-panel"/u, 'MMC private mount must expose the admin-only Pipeline Admin panel.');
 assert.match(appSource, /data-testid="pipeline-run-analysis"/u, 'MMC private mount must expose the real analysis workflow control.');
 assert.match(appSource, /\/analysis-runs\/analyze/u, 'MMC private mount must call the same-origin real analysis route.');

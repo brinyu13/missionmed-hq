@@ -1,6 +1,6 @@
-// MMC-021 ownership layer.
-// This module keeps the approved MMC UX while syncing MMC-owned domains through
-// the private same-origin persistence route backed by the validated mmc.* schema.
+// Historical MMC functional surface retained for local CAM v2 archaeology.
+// It can hydrate through the v1 read adapter, but all whole-state writes are
+// deliberately sealed until typed CAM v2 commands replace them.
 (function () {
   "use strict";
 
@@ -16,20 +16,21 @@
   });
 
   const ownershipGate = Object.freeze({
-    version: "MMC-021",
-    launchReadinessVersion: "MMC-MEGARUN-100",
+    version: "MMC-CAM-V2-006",
+    launchReadinessVersion: "MMC-TRUST-KERNEL-006",
     baseline: "MMC-011 / MMC-016 / MMC-018 / MMC-020A",
-    mode: "mmc-schema-persistence",
-    verdict: "PERSISTENCE_INTEGRATION_READY",
-    productionIntegration: true,
+    mode: "v1-read-adapter-cam-v2-command-pending",
+    verdict: "TRUST_KERNEL_LOCAL_FOUNDATION",
+    productionIntegration: false,
     productionHydration: false,
     externalRequestsEnabled: false,
     externalWritesEnabled: false,
-    sameOriginPersistenceEnabled: true,
+    sameOriginPersistenceEnabled: false,
+    sameOriginReadAdapterEnabled: true,
     localOwnedWritesEnabled: false,
     localStorageEnabled: false,
     localStorageFallbackEnabled: false,
-    schemaPersistenceEnabled: true,
+    schemaPersistenceEnabled: false,
     schemaPersistenceTarget: "mmc.*",
     ownsMentorMemory: true,
     ownsCoachingSessions: true,
@@ -338,6 +339,7 @@
       enabled: Boolean(persistenceEndpoint),
       endpoint: persistenceEndpoint,
       mode: "mmc-schema",
+      writeMode: "sealed",
       status: "initializing",
       loadedFromSchema: false,
       lastLoadedAt: null,
@@ -490,7 +492,9 @@
           persistenceMeta.localStorageFallback = false;
           return false;
         }
-        persistenceMeta.status = "connected";
+        persistenceMeta.mode = payload.mode || "v1-read-adapter-only";
+        persistenceMeta.writeMode = "sealed";
+        persistenceMeta.status = "read_only";
         persistenceMeta.loadedFromSchema = applyPersistedState(payload.state);
         persistenceMeta.lastLoadedAt = new Date().toISOString();
         persistenceMeta.csrfToken = payload.csrfToken || persistenceMeta.csrfToken;
@@ -505,69 +509,23 @@
       }
     }
 
-    function buildDerivedPersistenceState() {
-      const base = clone(state);
-      base.students = demoStudents.map((student) => ({
-        id: student.id,
-        name: student.name,
-        initials: student.initials
-      }));
-      base.openLoops = getAssignedStudentIds().flatMap((studentId) =>
-        getOpenLoops(studentId).map((loop) => ({
-          id: `loop-${studentId}-${loop.id}`,
-          studentId,
-          title: loop.title,
-          type: loop.type,
-          status: loop.status,
-          severity: loop.severity,
-          detail: loop.detail
-        }))
-      );
-      base.intelligenceSnapshots = getAssignedStudentIds().map((studentId) => ({
-        id: `snapshot-${studentId}-student-briefing`,
-        studentId,
-        snapshotType: "student_briefing",
-        summary: getStudentBriefing(studentId),
-        confidenceScore: 1
-      }));
-      return base;
-    }
-
     function persistState(reason) {
-      persistenceMeta.lastPersistReason = reason || "schema-write";
+      persistenceMeta.lastPersistReason = reason || "typed-command-required";
       if (!persistenceEndpoint || typeof fetch !== "function") {
         persistenceMeta.status = "unavailable";
         persistenceMeta.error = "MMC schema persistence fetch is unavailable.";
         return false;
       }
 
-      persistenceMeta.status = "saving";
-      pendingPersistence = pendingPersistence
-        .catch(() => null)
-        .then(async () => {
-          try {
-            const response = await fetch(persistenceEndpoint, persistenceFetchOptions("POST", {
-              reason: persistenceMeta.lastPersistReason,
-              state: buildDerivedPersistenceState()
-            }));
-            const payload = await response.json().catch(() => null);
-            if (!response.ok || !payload || payload.ok === false) {
-              throw new Error(payload && payload.message ? payload.message : "MMC schema persistence save failed.");
-            }
-            persistenceMeta.status = "connected";
-            persistenceMeta.loadedFromSchema = applyPersistedState(payload.state) || persistenceMeta.loadedFromSchema;
-            persistenceMeta.lastSavedAt = new Date().toISOString();
-            persistenceMeta.lastWriteCount = Number(payload.writeCount || 0);
-            persistenceMeta.persistedDomains = Array.isArray(payload.persistedDomains) ? payload.persistedDomains : persistenceMeta.persistedDomains;
-            persistenceMeta.error = null;
-            return payload;
-          } catch (error) {
-            persistenceMeta.status = "error";
-            persistenceMeta.error = error instanceof Error ? error.message : "MMC schema persistence save failed.";
-            return { ok: false, error: persistenceMeta.error };
-          }
-        });
-      return true;
+      persistenceMeta.status = "unsaved";
+      persistenceMeta.writeMode = "sealed";
+      persistenceMeta.error = "Local changes are unsaved because the v1 whole-state writer is sealed; typed CAM v2 commands are required.";
+      pendingPersistence = Promise.resolve({
+        ok: false,
+        status: "SEALED",
+        error: "mmc_v1_whole_state_writer_sealed"
+      });
+      return false;
     }
 
     function flushPersistence() {
@@ -1505,7 +1463,7 @@
     function exportPilotSnapshot() {
       const snapshot = {
         exportedAt: nowIso(),
-        status: "PRIVATE_ALPHA_LAUNCH_READY_CANDIDATE",
+        status: "TRUST_KERNEL_UI_REVIEW_ONLY",
         scope: "MMC-owned private alpha data only",
         productionHydration: false,
         externalRequestsEnabled: false,
@@ -1523,13 +1481,13 @@
       const activeSession = getActiveSession();
       const recoverableSession = latestRecoverableSession();
       const blockers = [];
-      if (persistenceMeta.status !== "connected") blockers.push("schema persistence is not connected");
+      if (persistenceMeta.status !== "connected") blockers.push("typed CAM v2 command persistence is not connected");
       if (persistenceMeta.localStorageFallback) blockers.push("localStorage fallback is enabled");
       if (!stats.assignedStudents) blockers.push("no mentor assignments available");
       if (!stats.memoryItems) blockers.push("no mentor memory available");
       if (!stats.goals) blockers.push("no goals available");
       return {
-        status: blockers.length ? "PRIVATE_ALPHA_REVIEW_NEEDED" : "PRIVATE_ALPHA_LAUNCH_READY",
+        status: blockers.length ? "TRUST_KERNEL_UI_REVIEW_ONLY" : "LOCAL_COMMAND_FOUNDATION_READY",
         blockers,
         mentorBootstrapReady: stats.assignedStudents > 0,
         assignmentCount: stats.assignedStudents,
@@ -1551,14 +1509,14 @@
         version: ownershipGate.version,
         launchReadinessVersion: ownershipGate.launchReadinessVersion,
         mode: ownershipGate.mode,
-        productionIntegration: true,
+        productionIntegration: false,
         productionHydration: false,
         externalRequestsEnabled: false,
         externalWritesEnabled: false,
         localOwnedWritesEnabled: false,
         localStorageEnabled: false,
         localStorageFallbackEnabled: false,
-        schemaPersistenceEnabled: true,
+        schemaPersistenceEnabled: false,
         persistence: Object.assign({}, persistenceMeta),
         profilePhotoStorage: Object.assign({}, profilePhotoStorageMeta),
         model: ownershipModel,

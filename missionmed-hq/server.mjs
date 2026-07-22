@@ -33,6 +33,11 @@ import {
   handleMmcCoachingPipelineRoute,
   isMmcCoachingPipelinePath,
 } from './routes/mmc-coaching-pipeline.mjs';
+import {
+  MMC_JSON_SECURITY_HEADERS,
+  decodeCanonicalRequestPathname,
+} from './lib/mmc/trust/security.mjs';
+import { resolveMmcAuthenticatedRole } from './lib/mmc/trust/session-principal.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
 
@@ -46,7 +51,6 @@ const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
 const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
-const MMC_PRIVATE_INDEX_PATH = `${MMC_PRIVATE_ROUTE_PREFIX}/index.html`;
 const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
 const USCE_ADMIN_AUTH_AUDIENCE = 'usce_admin';
 const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
@@ -236,7 +240,15 @@ const server = http.createServer(async (request, response) => {
 
   try {
     const url = new URL(request.url || '/', getRequestOrigin(request));
-    pathname = decodeURIComponent(url.pathname);
+    try {
+      pathname = decodeCanonicalRequestPathname(url.pathname);
+    } catch {
+      sendJson(response, 400, {
+        error: 'invalid_request_path',
+        message: 'The request path is invalid.',
+      });
+      return;
+    }
 
     if (request.method === 'GET' && request.url === '/health') {
       response.writeHead(200, { 'Content-Type': 'application/json' });
@@ -2596,15 +2608,7 @@ async function handleApiRoute(request, response, url, context) {
       session,
       authHeaders,
       isAuthorizedMmcPrivateSession,
-      getMmcPersistenceConfig,
-      buildMmcPersistenceContext,
-      ensureMmcMentor,
-      ensureMmcSubjectRef,
-      ensureMmcAssignment,
-      selectMmcRows,
-      insertMmcRow,
-      updateMmcRow,
-      readJsonBody,
+      buildMmcPrincipal,
       sendJson,
     });
     return;
@@ -3104,16 +3108,13 @@ function isAuthorizedMmcPrivateSession(session = null) {
   return isAuthorizedMmcPrivateUser(session.user);
 }
 
-function resolveMmcPrivateStaticPath(pathname = '') {
-  const normalized = String(pathname || MMC_PRIVATE_ROUTE_PREFIX).replace(/\/+$/u, '') || MMC_PRIVATE_ROUTE_PREFIX;
-  if (normalized === MMC_PRIVATE_ROUTE_PREFIX) {
-    return MMC_PRIVATE_INDEX_PATH;
+async function handleMmcPrivateMount(request, response) {
+  for (const [name, value] of Object.entries(MMC_JSON_SECURITY_HEADERS)) {
+    response.setHeader(name, value);
   }
+  response.setHeader('X-MissionMed-Private-Mount', 'historical-surface-sealed');
+  response.setHeader('X-MissionMed-Route', 'mmc-private');
 
-  return pathname;
-}
-
-async function handleMmcPrivateMount(request, response, pathname) {
   if (request.method !== 'GET') {
     sendMethodNotAllowed(response, ['GET']);
     return;
@@ -3132,15 +3133,23 @@ async function handleMmcPrivateMount(request, response, pathname) {
       error: 'mmc_private_forbidden',
       message: 'MMC private review is limited to authorized MissionMed HQ operators.',
     }, {
+      ...MMC_JSON_SECURITY_HEADERS,
       'X-MissionMed-Private-Mount': 'forbidden',
     });
     return;
   }
 
-  response.setHeader('X-MissionMed-Private-Mount', 'admin-only');
-  response.setHeader('X-MissionMed-Route', 'mmc-private');
-  response.setHeader('X-Robots-Tag', 'noindex, nofollow');
-  await serveStatic(response, resolveMmcPrivateStaticPath(pathname));
+  sendJson(response, 410, {
+    ok: false,
+    status: 'SEALED',
+    error: 'mmc_historical_surface_sealed',
+    message: 'The historical MMC v1 review surface is preserved as design archaeology but is not an operational runtime.',
+    replacement: '/api/mmc/v2',
+  }, {
+    ...MMC_JSON_SECURITY_HEADERS,
+    'X-MissionMed-Private-Mount': 'historical-surface-sealed',
+    'X-MissionMed-Route': 'mmc-private',
+  });
 }
 
 function getMmcPersistenceConfig() {
@@ -3153,7 +3162,7 @@ function getMmcPersistenceConfig() {
     };
   }
 
-  const projectRef = getSupabaseProjectRef(CONFIG.mmcSupabaseUrl);
+  const projectRef = getExactMmcSupabaseProjectRef(CONFIG.mmcSupabaseUrl);
   if (!CONFIG.mmcSupabaseUrl || !projectRef) {
     return {
       ok: false,
@@ -3178,7 +3187,7 @@ function getMmcPersistenceConfig() {
       ok: false,
       status: 403,
       code: 'mmc_supabase_project_mismatch',
-      message: `MMC persistence expected project ${allowedProjectRef} but received ${projectRef}.`,
+      message: 'MMC persistence refused a Supabase project outside the exact approved staging boundary.',
     };
   }
 
@@ -3225,16 +3234,7 @@ function stableUuidFromString(value = '') {
 
 function resolveMmcRoleForSession(session = null) {
   const user = normalizeWordPressUser(session?.user || {});
-  const roles = Array.isArray(user.roles) ? user.roles : [];
-  if (user.capabilities?.manage_options || roles.includes('administrator')) {
-    return 'admin';
-  }
-
-  if (roles.some((role) => ['admin', 'hq_admin', 'hq_operator', 'operator'].includes(role))) {
-    return 'admin';
-  }
-
-  return 'mentor';
+  return resolveMmcAuthenticatedRole(user);
 }
 
 function buildMmcPrincipal(session = null) {
@@ -3417,27 +3417,18 @@ async function selectMmcRows(context, table, query = 'select=*') {
 }
 
 async function insertMmcRow(context, table, payload) {
-  const result = await fetchMmcSupabase(context.config, context.jwt, table, {
-    method: 'POST',
-    body: JSON.stringify(payload),
-    prefer: 'return=representation',
-  });
-  if (!result.ok) {
-    throw new Error(result.error || `MMC ${table} insert failed.`);
-  }
-  return Array.isArray(result.data) ? result.data[0] : result.data;
+  void context;
+  void table;
+  void payload;
+  throw new Error('The MMC v1 whole-state persistence writer is permanently sealed; use typed CAM v2 commands.');
 }
 
 async function updateMmcRow(context, table, id, payload) {
-  const result = await fetchMmcSupabase(context.config, context.jwt, `${table}?id=eq.${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-    prefer: 'return=representation',
-  });
-  if (!result.ok) {
-    throw new Error(result.error || `MMC ${table} update failed.`);
-  }
-  return Array.isArray(result.data) ? result.data[0] : result.data;
+  void context;
+  void table;
+  void id;
+  void payload;
+  throw new Error('The MMC v1 whole-state persistence writer is permanently sealed; use typed CAM v2 commands.');
 }
 
 function stripMmcCreateOnlyFields(payload = {}) {
@@ -4280,6 +4271,7 @@ function responseForMmcPersistenceUnavailable(response, configStatus, extraHeade
 }
 
 async function handleMmcPersistenceRoute(request, response, url, { session, authHeaders }) {
+  const persistenceHeaders = { ...(authHeaders || {}), ...MMC_JSON_SECURITY_HEADERS };
   if (!['GET', 'POST'].includes(request.method)) {
     sendMethodNotAllowed(response, ['GET', 'POST']);
     return;
@@ -4290,13 +4282,34 @@ async function handleMmcPersistenceRoute(request, response, url, { session, auth
       ok: false,
       error: 'mmc_private_forbidden',
       message: 'MMC persistence requires the private MMC route-specific authorization model.',
-    }, authHeaders);
+    }, persistenceHeaders);
+    return;
+  }
+
+  if (request.method === 'POST') {
+    if (!validateCsrf(request, session)) {
+      sendJson(response, 403, {
+        ok: false,
+        status: 'SEALED',
+        error: 'csrf_validation_failed',
+        message: 'Missing or invalid CSRF token.',
+      }, persistenceHeaders);
+      return;
+    }
+    sendJson(response, 410, {
+      ok: false,
+      status: 'SEALED',
+      mode: 'v1-read-adapter-only',
+      error: 'mmc_v1_whole_state_writer_sealed',
+      message: 'The MMC v1 whole-state writer is sealed; typed CAM v2 commands are required.',
+      replacement: '/api/mmc/v2/commands',
+    }, persistenceHeaders);
     return;
   }
 
   const configStatus = getMmcPersistenceConfig();
   if (!configStatus.ok) {
-    responseForMmcPersistenceUnavailable(response, configStatus, authHeaders);
+    responseForMmcPersistenceUnavailable(response, configStatus, persistenceHeaders);
     return;
   }
 
@@ -4307,8 +4320,7 @@ async function handleMmcPersistenceRoute(request, response, url, { session, auth
       sendJson(response, 200, {
         ok: true,
         status: 'VERIFIED',
-        mode: 'mmc-schema',
-        projectRef: configStatus.projectRef,
+        mode: 'v1-read-adapter-only',
         csrfToken: session?.csrfToken || '',
         localStorageFallback: false,
         persistedDomains: [
@@ -4322,40 +4334,18 @@ async function handleMmcPersistenceRoute(request, response, url, { session, auth
           'mmc.intelligence_snapshots',
         ],
         state,
-      }, authHeaders);
+      }, persistenceHeaders);
       return;
     }
-
-    const payload = await readJsonBody(request);
-    const saved = await saveMmcPersistenceState(context, payload?.state || {}, request);
-    sendJson(response, 200, {
-      ok: true,
-      status: 'VERIFIED',
-      mode: 'mmc-schema',
-      projectRef: configStatus.projectRef,
-      writeCount: saved.writeCount,
-      localStorageFallback: false,
-      persistedDomains: [
-        'mmc.mentor_memory',
-        'mmc.private_notes',
-        'mmc.action_items',
-        'mmc.goals',
-        'mmc.coaching_sessions',
-        'mmc.session_artifacts',
-        'mmc.open_loops',
-        'mmc.intelligence_snapshots',
-      ],
-      state: saved.state,
-    }, authHeaders);
   } catch (error) {
     sendJson(response, 502, {
       ok: false,
       status: 'CONFLICT',
       mode: 'fixture-memory-fallback',
       error: 'mmc_persistence_failed',
-      message: error instanceof Error ? error.message : 'MMC persistence request failed.',
+      message: 'MMC persistence could not complete the authorized read.',
       localStorageFallback: false,
-    }, authHeaders);
+    }, persistenceHeaders);
   }
 }
 
@@ -7822,6 +7812,20 @@ function getSupabaseProjectRef(supabaseUrl = '') {
     const hostname = new URL(String(supabaseUrl || '')).hostname;
     const [projectRef = ''] = hostname.split('.');
     return String(projectRef || '').trim().toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function getExactMmcSupabaseProjectRef(supabaseUrl = '') {
+  try {
+    const parsed = new URL(String(supabaseUrl || '').trim());
+    if (parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.port
+      || parsed.pathname !== '/' || parsed.search || parsed.hash) {
+      return '';
+    }
+    const match = parsed.hostname.toLowerCase().match(/^([a-z0-9]{20})\.supabase\.co$/u);
+    return match?.[1] || '';
   } catch {
     return '';
   }

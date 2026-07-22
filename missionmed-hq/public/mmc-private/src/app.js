@@ -304,11 +304,15 @@ function updateSchemaPersistenceStatus() {
   const status = summary.persistence.status || 'initializing';
   const display = status === 'connected'
     ? 'Schema Connected'
-    : status === 'saving'
-      ? 'Saving'
-      : status === 'error'
-        ? 'Persistence Attention'
-        : 'Fixture Fallback';
+    : status === 'read_only'
+      ? 'Read-only v1'
+      : status === 'unsaved'
+        ? 'Unsaved · v2 commands pending'
+        : status === 'saving'
+          ? 'Saving'
+          : status === 'error'
+            ? 'Persistence Attention'
+            : 'Fixture Fallback';
   if (label) label.textContent = display;
   if (indicator) indicator.className = 'sync-indicator ' + status;
   if (dot) dot.className = 'sync-dot ' + status;
@@ -2357,9 +2361,9 @@ window.MMC_MENTOR_INTELLIGENCE = {
 };
 
 window.MMC_PRIVATE_ALPHA = {
-  authority: 'MMC-MEGARUN-100',
-  status: ownershipRuntime ? 'PRIVATE_ALPHA_LAUNCH_READY_CANDIDATE' : 'not-loaded',
-  persistence: ownershipRuntime ? 'same-origin /api/mmc/persistence' : false,
+  authority: 'CAM-V2-ARCHITECTURE-005 / TRUST-KERNEL-006',
+  status: ownershipRuntime ? 'TRUST_KERNEL_UI_REVIEW_ONLY' : 'not-loaded',
+  persistence: ownershipRuntime ? 'v1 read adapter only; typed v2 commands pending' : false,
   localStorageFallback: false,
   productionHydration: false,
   sessionRecovery: true,
