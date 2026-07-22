@@ -56,6 +56,8 @@ Tests exercised authorization drift, capability denial, wrong issuer, expiration
 ## Dependency and Secret Review
 
 - `npm audit --json`: 0 vulnerabilities across 103 dependencies.
+- Root `npm audit --omit=dev --json`: 0 vulnerabilities across 195 dependencies on this candidate branch.
+- GitHub reports four open alerts on the default branch: two High (`form-data`, `ws`), one Medium (`ws`), and one Low (`esbuild`). Candidate root lockfile changes predate this continuation and may resolve the local audit, but they affect shared dependencies and require repository-owner review before merge. This report does not claim that RISE closed the default-branch alerts.
 - Secret-pattern scan found only two deliberately fake bearer values in test assertions.
 - No credential, private key, production export, database URL, service-role key, or live access token was added.
 

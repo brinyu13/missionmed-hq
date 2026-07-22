@@ -297,6 +297,7 @@ The isolated implementation has no known failing automated test. This does not e
 | PostgreSQL behavior checks | 7 passed, 0 failed | Migrations 001-003, activation evidence, rollback, session identity, audit chain, active-only reader |
 | Synthetic stress | 200/200 HTTP 200 | 6,500 synthetic programs, complete bodies consumed |
 | npm audit | 0 vulnerabilities | Production and development dependency graph in `rise/` |
+| Root production npm audit | 0 vulnerabilities | Candidate branch root lockfile; does not close default-branch Dependabot alerts |
 | JavaScript syntax | PASS | Every `.mjs` file outside generated dependencies and `dist` |
 | JSON parsing | PASS | Deployment, route, package, integration, and schema contracts |
 | Git whitespace check | PASS | `git diff --check` |
@@ -411,6 +412,8 @@ Tests exercised authorization drift, capability denial, wrong issuer, expiration
 ## Dependency and Secret Review
 
 - `npm audit --json`: 0 vulnerabilities across 103 dependencies.
+- Root `npm audit --omit=dev --json`: 0 vulnerabilities across 195 dependencies on this candidate branch.
+- GitHub reports four open alerts on the default branch: two High (`form-data`, `ws`), one Medium (`ws`), and one Low (`esbuild`). Candidate root lockfile changes predate this continuation and may resolve the local audit, but they affect shared dependencies and require repository-owner review before merge. This report does not claim that RISE closed the default-branch alerts.
 - Secret-pattern scan found only two deliberately fake bearer values in test assertions.
 - No credential, private key, production export, database URL, service-role key, or live access token was added.
 
@@ -834,6 +837,7 @@ Any one of B-01 through B-10 blocks a production-connected release claim.
 | L-06 | Low | In-process operator metrics are per instance and not a durable observability backend | Platform owner connects logs and metrics to approved shared telemetry |
 | L-07 | Low | Local stress uses in-memory synthetic data and loopback networking | Do not treat it as capacity certification |
 | L-08 | Governance | MissionMed activity log was not updated because no canonical active RISE mission or safe owner entry exists and shared control-plane work is concurrent | Update only after MissionMed OS ratification through its authorized writer |
+| L-09 | High ecosystem review | GitHub default branch reports two High, one Medium, and one Low Dependabot alerts; the candidate root audit is clean but relies on shared lockfile changes predating this continuation | Repository owner reviews the root dependency diff and closes or dismisses each alert through a separate shared-dependency decision |
 
 ## Deliberate Non-Features
 

@@ -16,6 +16,7 @@ The isolated implementation has no known failing automated test. This does not e
 | PostgreSQL behavior checks | 7 passed, 0 failed | Migrations 001-003, activation evidence, rollback, session identity, audit chain, active-only reader |
 | Synthetic stress | 200/200 HTTP 200 | 6,500 synthetic programs, complete bodies consumed |
 | npm audit | 0 vulnerabilities | Production and development dependency graph in `rise/` |
+| Root production npm audit | 0 vulnerabilities | Candidate branch root lockfile; does not close default-branch Dependabot alerts |
 | JavaScript syntax | PASS | Every `.mjs` file outside generated dependencies and `dist` |
 | JSON parsing | PASS | Deployment, route, package, integration, and schema contracts |
 | Git whitespace check | PASS | `git diff --check` |

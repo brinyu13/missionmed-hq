@@ -10,6 +10,8 @@
     "browserTests": { "passed": 34, "failed": 0 },
     "postgresRehearsalChecks": { "passed": 7, "failed": 0 },
     "npmAuditVulnerabilities": 0,
+    "rootProductionNpmAuditVulnerabilities": 0,
+    "defaultBranchDependabotAlerts": { "high": 2, "moderate": 1, "low": 1 },
     "syntheticStress": {
       "programs": 6500,
       "concurrentRequests": 200,

@@ -29,6 +29,7 @@ Any one of B-01 through B-10 blocks a production-connected release claim.
 | L-06 | Low | In-process operator metrics are per instance and not a durable observability backend | Platform owner connects logs and metrics to approved shared telemetry |
 | L-07 | Low | Local stress uses in-memory synthetic data and loopback networking | Do not treat it as capacity certification |
 | L-08 | Governance | MissionMed activity log was not updated because no canonical active RISE mission or safe owner entry exists and shared control-plane work is concurrent | Update only after MissionMed OS ratification through its authorized writer |
+| L-09 | High ecosystem review | GitHub default branch reports two High, one Medium, and one Low Dependabot alerts; the candidate root audit is clean but relies on shared lockfile changes predating this continuation | Repository owner reviews the root dependency diff and closes or dismisses each alert through a separate shared-dependency decision |
 
 ## Deliberate Non-Features
 
