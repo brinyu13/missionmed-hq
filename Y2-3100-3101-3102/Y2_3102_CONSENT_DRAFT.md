@@ -13,7 +13,7 @@ Each purpose requires an independent affirmative choice:
 - Live AI text/voice processing by named processors.
 - Audio recording.
 - Transcript storage.
-- Grounding on an explicitly selected applicant-material pack.
+- Grounding on an explicitly selected applicant-material pack only after D3 and a later pilot protocol explicitly authorize it; it is excluded from the current ten-student draft.
 - Grounding on instructor-set focus items.
 - Sharing specified artifacts with a named instructor.
 - Product-improvement research use.

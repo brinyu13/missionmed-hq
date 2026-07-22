@@ -32,4 +32,4 @@
 - CIE C0: all 15 individual reports occur unabridged exactly once; canonical and mirror combined handoffs are byte-identical at SHA-256 `dbdc0419da1290d422600b7448a22286d925f6fd043647caa05578d35e79222c`.
 - Y2-3100: none of the five sibling documents occurs unabridged in `Y2-3100_COMPLETE_COMBINED_HANDOFF.md`; exact decision and blueprint siblings take precedence.
 
-The complete 89-source path, hash, size, modification-time, classification, and conflict ledger is in `Y2_3100_3101_CONTEXT_SOURCE_INVENTORY.json`.
+The complete 148-source path, hash, size, modification-time, classification, and conflict ledger is in `Y2_3100_3101_CONTEXT_SOURCE_INVENTORY.json`.

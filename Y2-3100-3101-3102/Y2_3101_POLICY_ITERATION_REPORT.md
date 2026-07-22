@@ -31,7 +31,7 @@ One bounded revision added domain-cue-specific outcome wording while preserving 
 
 Policy revision 3 was then frozen with aggregate SHA-256:
 
-`764d711be19c54d81e96b2e2638904c4db2628c758f467ee89b933888bdb0d2`
+`764d711be19c54d81e96b2e2638904c4db2628c7585cb6ef110e4b16885b53d4`
 
 ## Frozen Holdout
 

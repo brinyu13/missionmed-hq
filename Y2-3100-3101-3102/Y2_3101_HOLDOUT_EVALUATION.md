@@ -7,7 +7,7 @@
 - Atomic outputs: 91
 - Package SHA before open: `eaf3494e6d763401ec5b7512ddfdeb38ea45e596758f467ee89b933888bdb0d2`
 - Package SHA after final run: identical
-- Policy aggregate: `764d711be19c54d81e96b2e2638904c4db2628c758f467ee89b933888bdb0d2`
+- Policy aggregate: `764d711be19c54d81e96b2e2638904c4db2628c7585cb6ef110e4b16885b53d4`
 - Deterministic rerun: byte-identical projection
 - Development on holdout: none
 

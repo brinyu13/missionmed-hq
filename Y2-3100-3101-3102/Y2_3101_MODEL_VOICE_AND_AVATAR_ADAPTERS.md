@@ -5,7 +5,7 @@
 The model adapter contract records:
 
 - adapter identity and revision;
-- provider-neutral mode;
+- execution mode;
 - network access;
 - provider and retention profile;
 - raw-output persistence;
@@ -15,7 +15,7 @@ The Phase 0 `RuleModelAdapter` is deterministic, has no provider, performs no ne
 
 ## Model Finding
 
-The adapter boundary is sound, but the rule implementation is not adequate for the frozen language distribution. The T1, T3 and T4 failures are consistent with limited semantic classification rather than a ledger failure. A stronger model adapter is likely to help, but that hypothesis requires a new frozen development/holdout protocol and cannot be claimed proven.
+The rule implementation is not adequate for the frozen language distribution, and the current adapter boundary is not yet genuinely replaceable. Its descriptor hard-locks deterministic-rule, provider-null execution and there is no validated analysis-output contract. The T1, T3 and T4 failures are consistent with limited semantic classification, while separate ledger defects remain named. A stronger model adapter may help, but that hypothesis requires a new frozen development/holdout protocol and cannot be claimed proven.
 
 ## Voice Boundary
 

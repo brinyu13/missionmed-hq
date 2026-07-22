@@ -78,3 +78,44 @@ node scripts/run-stress.mjs --output /tmp/stress.json
 node scripts/run-security-scan.mjs --output /tmp/security.json
 node scripts/run-frozen-holdout.mjs --expected-hash eaf3494e6d763401ec5b7512ddfdeb38ea45e596758f467ee89b933888bdb0d2 --output /tmp/holdout.json
 ```
+
+## Amended-Prompt Reverification, 2026-07-22
+
+The historical verdict above applies to committed target `fa441bb` and the then-present external holdout package. The amended prompt triggered a new read-only audit of the current branch and expanded deliverable law.
+
+### Fresh Facts
+
+- **VERIFIED:** The exact amended prompt is 40,725 bytes with SHA-256 `50d7e2d6ac8d18306698fc647e7ac62f1de3eb23cb71e0eef79732b3c6ef8ddc`.
+- **VERIFIED:** Fresh non-holdout gates pass: syntax, type-loader, 27/27 tests, two byte-identical 20/20 development runs, 2,000 stress analyses, 1,000 ledger events, a 13-file source scan, and a 115-file artifact scan.
+- **UNKNOWN:** The original `/tmp/Y2_3101_FROZEN_HOLDOUT/` package is absent. No current holdout rerun is claimed, and the package was not reconstructed.
+- **VERIFIED:** Synthetic adversarial probes reproduced arbitrary protected-topic instructor focus, raw sensitive-answer retention after a refusal, an encoded-injection miss, Unicode/code-switching rejection, and acceptance of an overly broad suitability claim contract.
+- **VERIFIED:** The prior package omitted the required exact DISC-01 through DISC-10 reports and did not nest subgroup combined handoffs in the master. Those packaging defects are repaired in the amended closeout.
+- **VERIFIED:** The exact T1-T7 acceptance language is now preserved in `Y2_3101_TEST_AND_EVALUATION_REPORT.md`; T7 remains pending human timed review.
+
+### Superseding Product Verdict
+
+`KILL_RULE_TRIGGERED`
+
+The engineering harness may be preserved as research evidence, but it is not approved for Y1 integration, student use, pilot, voice, avatar, staging, or production. The newly reproduced runtime defects are mandatory Y2-3103 repair and new-holdout inputs, not reasons to tune the opened Y2-3101 policy.
+
+## Second Final Fresh Pass
+
+The first amended-prompt package audit returned `FAIL` for three documentation defects: an incomplete DISC-8 inventory/deployment account, nonconforming `REQUIRED` claim labels, and security wording broader than the later adversarial counterexamples. Those defects were repaired without changing Brain source, policy, fixtures, holdout evidence, Y1 source, infrastructure, or product scope.
+
+The same read-only verifier then returned:
+
+`PASS WITH NAMED NONBLOCKING LIMITATIONS`
+
+It found no P0 or P1 package-compliance defect and verified:
+
+- DISC-8 contains the complete bridge, Railway-ID, retired-variable, CAM flag, and accepted DEV/production evidence inventory.
+- The ten DISC reports and synthesis use only `VERIFIED`, `UNKNOWN`, `INFERENCE`, or `ASSUMPTION` as declared claim labels.
+- All 51 child Markdown bodies appear exactly once in the master.
+- All four combined-handoff mirrors are byte-identical.
+- The 148-source inventory has no missing or drifted source.
+- T1-T7 governing text is exact 7/7.
+- The 25-file frozen policy snapshot is unchanged.
+- The 115-file privacy scan has zero findings.
+- Brain source, policy, fixtures, and Y1 CAM donor source are unchanged.
+
+Named nonblocking limitations remain: the current external holdout bytes are absent; exact tracked canonical CAM source is unknown; the Y2 OS receipt is unmerged; timed human T7 is pending; and the documented adversarial safety/privacy defects require Y2-3103 repair. These limitations prevent expansion but do not invalidate the truthful `KILL_RULE_TRIGGERED` closeout.

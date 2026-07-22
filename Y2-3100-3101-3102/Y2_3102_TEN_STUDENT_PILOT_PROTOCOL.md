@@ -27,6 +27,7 @@ Evaluate whether adults using formative residency-interview practice find the Mi
 - Explain that this is simulated formative practice and not an admissions interview.
 - Permit pause, skip, withdrawal, and human escalation without penalty.
 - No PHI, identifiable patient material, real application documents, or protected-trait probing.
+- The current pilot draft therefore does not activate applicant-material grounding; D3 approval and a revised protocol are required before that separate consent choice can be offered.
 - One useful probe at pressure rungs 0-1 and at most two at rung 2+.
 - Human instructors alone interpret evidence and author coaching or Orders.
 - A provider or authority uncertainty denies admission before a chargeable session.

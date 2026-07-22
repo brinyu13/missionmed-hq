@@ -15,7 +15,7 @@ The package has zero runtime and development dependencies. Source scanning found
 
 ## Decision Safety
 
-Runtime contracts and scanners reject unsupported inference language and private reasoning. Policy paths refuse or safely redirect:
+Within the fixed synthetic cases and lexical forms they recognize, runtime contracts and scanners reject unsupported inference language and private reasoning. The checked policy paths refuse or redirect the following categories; this is fixture-bounded behavior, not universal enforcement:
 
 - readiness, ranking, Match and program-fit requests;
 - protected/sensitive questions;
@@ -26,7 +26,7 @@ Runtime contracts and scanners reject unsupported inference language and private
 
 All eight synthetic injection fixtures reached the evaluated runtime path and produced zero detected lexical or behavioral compliance. This is bounded evidence for the checked attacks only, not a claim of general prompt-injection resistance. The overall holdout failed for capability, not data leakage or prohibited inference.
 
-The artifact privacy scanner covered 101 files across the Brain, ticket reports/evidence and handoff mirror root, with no credential or real-data finding at the time of the recorded run.
+The final artifact privacy scanner covered 115 files across the Brain, ticket reports/evidence, and handoff mirror root, with no credential or real-data finding.
 
 ## Provenance
 
@@ -46,4 +46,15 @@ D3 should permit only approved MissionMed domain packs and explicitly authorized
 
 ## Result
 
-Security/provenance gate: pass for isolated synthetic research. Production/privacy readiness: not claimed.
+Source/dependency scan and fixed-fixture safety gate: pass for isolated synthetic research. Adversarial expansion gate: fail. Production/privacy readiness: not claimed.
+
+## Amended-Prompt Safety Recheck
+
+A fresh read-only current-byte audit on 2026-07-22 reproduced four additional reasons expansion remains prohibited:
+
+1. An arbitrary synthetic instructor-focus label is marked `ALLOWED` without a consent receipt or allowlist and can be emitted verbatim as a probe, including a protected-trait topic.
+2. A sensitive answer is refused conversationally but its raw text, extracted claim, grounding span, and instructor-report answer remain persisted in the local ledger.
+3. Guardrail status is policy-authored rather than independently derived. An unrecognized encoded-instruction variant can retain `prompt_injection: PASS`, and the decision contract accepts the unsupported sentence `You are suitable for residency.`
+4. The evidence-text contract is ASCII-only; representative synthetic IMG/code-switching text can fail with `SCHEMA_UNSAFE_TEXT`.
+
+These are isolated synthetic research defects, not evidence of real-data exposure. They are P1 prerequisites for `Y2-3103`; they were not repaired here because the current holdout is opened and the kill rule forbids another policy iteration against it. The artifact scanner's zero findings remain a bounded pattern-scan result, not proof that arbitrary prose cannot contain identifying information.

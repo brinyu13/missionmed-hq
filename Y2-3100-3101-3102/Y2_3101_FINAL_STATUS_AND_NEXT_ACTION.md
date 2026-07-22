@@ -4,12 +4,12 @@
 
 `KILL_RULE_TRIGGERED`
 
-The isolated Brain Harness is runnable, deterministic, durable and safely bounded. It is not capable enough to proceed to voice or student-facing integration because the frozen unseen holdout materially failed T1, T3 and T4 after both permitted policy iterations.
+The isolated Brain Harness is runnable and deterministic under the tested synthetic corpus, with a durable local ledger. It is not capable or safely bounded enough to proceed to voice or student-facing integration because the frozen unseen holdout materially failed T1, T3 and T4 after both permitted policy iterations, and the amended-prompt audit found additional contract and safety gaps.
 
 ## Proven Strengths
 
-- Versioned personas, plan, policy and adapters.
-- Exact runtime contracts and canonical hashes.
+- Versioned personas, plan, policy and inactive adapters.
+- Runtime validators and canonical hashes; JSON-schema parity and provider substitution remain incomplete.
 - Durable idempotent event/revision ledger.
 - 20/20 long-memory and reconnect callbacks with zero confabulation.
 - One/two probe cap with zero holdout violations.
@@ -42,6 +42,14 @@ The isolated Brain Harness is runnable, deterministic, durable and safely bounde
 - T7 blind human accuracy remains pending.
 - Raw path and timing fields are environment-specific, though normalized reruns are semantically identical.
 
+## Amended-Prompt Reconciliation
+
+The exact amended prompt at `/Users/brianb/.codex/attachments/13bc2e3f-94b6-4a67-b2c1-1cfd9afe84fc/pasted-text.txt` has SHA-256 `50d7e2d6ac8d18306698fc647e7ac62f1de3eb23cb71e0eef79732b3c6ef8ddc` and was already the canonical founder ticket in the committed context inventory. A 2026-07-22 rerun reconfirmed every available non-holdout gate without changing policy or runtime code.
+
+The external holdout package is no longer present at its recorded temporary path, so its current bytes cannot be rerun. The committed pre-open hash, unchanged post-run hash, full evaluation, and independent deterministic rerun remain preserved; future work must create a new holdout rather than reconstruct or tune against this one.
+
+Fresh adversarial probes also confirmed arbitrary instructor-focus authorization, persistence of sensitive refused text, false-positive guardrail `PASS` states, ASCII-only evidence input, policy/model provenance ambiguity, ledger-lock and commit-integrity gaps, schema/runtime divergence, and a model boundary that is not yet genuinely replaceable. These defects strengthen the existing kill decision and are mandatory `Y2-3103` prerequisites. They do not authorize a third policy iteration here.
+
 ## Smallest Exact Next Ticket
 
 `Y2-3103: Provider-Neutral Semantic Model Adapter Bakeoff and New Frozen Holdout`
@@ -55,5 +63,8 @@ Scope:
 5. Compare the rule baseline with candidate replaceable adapters; no voice, production or real data.
 6. Require T1, T3 and T4 plus safety to pass without weakening one/two probe law.
 7. Stop again if the new holdout fails.
+8. Repair and independently test instructor-focus authorization, sensitive-text minimization, guardrail-result derivation, Unicode/code-switching support, ledger locking and provenance binding before opening the new holdout.
+9. Make runtime and JSON schemas executable against the same instances and add a validated provider-neutral `ModelAnalysisV1` boundary.
+10. Run a timed blind instructor review on the actual runtime projection; machine generation timing is not a substitute for three-minute comprehension.
 
 Do not reuse this opened holdout as a future unseen gate.

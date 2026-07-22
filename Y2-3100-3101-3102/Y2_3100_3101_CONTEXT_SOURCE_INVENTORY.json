@@ -1,8 +1,8 @@
 {
   "contract_version": "missionmed.y2.context-source-inventory.v1",
   "mission_id": "Y2-3100-3101-3102",
-  "generated_at": "2026-07-19T00:29:14.463Z",
-  "read_count": 89,
+  "generated_at": "2026-07-22T13:20:54.148Z",
+  "read_count": 148,
   "precedence": [
     "Ratified MissionMed Engineering OS and current runtime authority",
     "Founder execution authorization in the Y2-3100-3101-3102 ticket",
@@ -25,6 +25,16 @@
       "status": "active ticket",
       "form": "ticket",
       "source_role": "canonical for this mission"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MM-FABLE-CAM-3001_CAM_Platform_Architecture_Bible.md",
+      "sha256": "7e664799a256644dbb2b1fae1978266bccbeb8af9d668c5e02bb22206d829da5",
+      "bytes": 147192,
+      "modified_at": "2026-07-07T18:39:02.117Z",
+      "authority_class": "CAM architecture blueprint",
+      "status": "architecture input; runtime source controls conflicts",
+      "form": "individual",
+      "source_role": "canonical input"
     },
     {
       "path": "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-3023/Y1-CAM-3023_COMPLETE_COMBINED_HANDOFF.md",
@@ -442,19 +452,19 @@
       "bytes": 4055,
       "modified_at": "2026-07-17T06:39:57.573Z",
       "authority_class": "Engineering OS",
-      "status": "current control-plane authority",
+      "status": "current local control-plane state; working tree may contain unfiled concurrent changes",
       "form": "md",
-      "source_role": "canonical"
+      "source_role": "current local authority"
     },
     {
       "path": "/Users/brianb/MissionMed_OS/CURRENT.md",
-      "sha256": "e54fc0f1a22ffbdc832df7cafa134970350bf2fbc5eb031903a1e3eaece35082",
-      "bytes": 2285,
-      "modified_at": "2026-07-19T00:15:08.204Z",
+      "sha256": "530089ab1438edccf9566559a710fb3835c45089df63d028880b66c459000f34",
+      "bytes": 2613,
+      "modified_at": "2026-07-22T12:55:20.497Z",
       "authority_class": "Engineering OS",
-      "status": "current control-plane authority",
+      "status": "current local control-plane state; working tree may contain unfiled concurrent changes",
       "form": "md",
-      "source_role": "canonical"
+      "source_role": "current local authority"
     },
     {
       "path": "/Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS/cie.md",
@@ -462,39 +472,39 @@
       "bytes": 2809,
       "modified_at": "2026-07-17T11:25:54.611Z",
       "authority_class": "Engineering OS",
-      "status": "current control-plane authority",
+      "status": "current local control-plane state; working tree may contain unfiled concurrent changes",
       "form": "md",
-      "source_role": "canonical"
+      "source_role": "current local authority"
     },
     {
       "path": "/Users/brianb/MissionMed_OS/authority_index.json",
-      "sha256": "ee1de78b2f1f6b2223a8d5ea8482f3299986b8f2551942e7c60dee594156d482",
-      "bytes": 28202,
-      "modified_at": "2026-07-18T03:24:41.634Z",
+      "sha256": "f96490ae9365e18d34b3b1b0c311cdbd45a4c88f1034f69c67572a59dea55d3b",
+      "bytes": 29145,
+      "modified_at": "2026-07-22T12:58:01.532Z",
       "authority_class": "Engineering OS",
-      "status": "current control-plane authority",
+      "status": "current local control-plane state; working tree may contain unfiled concurrent changes",
       "form": "json",
-      "source_role": "canonical"
+      "source_role": "current local authority"
     },
     {
       "path": "/Users/brianb/MissionMed_OS/missions.json",
-      "sha256": "fd1eef9266f19dfd560c477dfc08c1be23a1ea691a8707cc71582af49e1febdd",
-      "bytes": 29856,
-      "modified_at": "2026-07-18T03:24:41.633Z",
+      "sha256": "68d7e83d143c33177a36db144ef7a2340f89fd3e264bbac8eb833310c0db74f5",
+      "bytes": 31584,
+      "modified_at": "2026-07-22T12:53:45.679Z",
       "authority_class": "Engineering OS",
-      "status": "current control-plane authority",
+      "status": "current local control-plane state; working tree may contain unfiled concurrent changes",
       "form": "json",
-      "source_role": "canonical"
+      "source_role": "current local authority"
     },
     {
       "path": "/Users/brianb/MissionMed_OS/products_index.json",
-      "sha256": "e81d9bdb20b796a50ba02a6f5c660a5b1a67cf9c3142278632a31bae0beaaab3",
-      "bytes": 3384,
-      "modified_at": "2026-07-17T11:25:54.612Z",
+      "sha256": "d442a0373d0c4bd51916474cd1dd961a45d7a0a124ac943f83012c32124c3423",
+      "bytes": 3392,
+      "modified_at": "2026-07-22T12:53:45.680Z",
       "authority_class": "Engineering OS",
-      "status": "current control-plane authority",
+      "status": "current local control-plane state; working tree may contain unfiled concurrent changes",
       "form": "json",
-      "source_role": "canonical"
+      "source_role": "current local authority"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008/4008_EDUCATIONAL_VALIDITY.md",
@@ -507,174 +517,754 @@
       "source_role": "canonical predecessor"
     },
     {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_CAPTURE_TIMELINE_AND_PROVENANCE_CONTRACT.md",
+      "sha256": "52c6ecb8543174478c1eefbf92e5df9d3c2fe1e6357c4f4df08af01165ee1e82",
+      "bytes": 2863,
+      "modified_at": "2026-07-16T20:17:58.990Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_COMPLETE_COMBINED_HANDOFF.md",
       "sha256": "c7c676120295c2887f55ae6ef5adc02aa3308882fe5e1d53769105fd1fffa848",
       "bytes": 55611,
       "modified_at": "2026-07-16T20:22:51.236Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "combined",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_FINAL_RELEASE_STATUS.md",
       "sha256": "8ba81124122fc187389732456403bc5006ffafba66b08891b4f4176c86b9a1c1",
       "bytes": 2288,
       "modified_at": "2026-07-16T20:22:46.107Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_FUTURE_DERIVED_ARTIFACT_DELETION_MAP.md",
+      "sha256": "77443e94f359affcee33224a739370aa51777b95d6d9dd1fb316745c4e3a8a01",
+      "bytes": 2694,
+      "modified_at": "2026-07-16T20:17:58.990Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713030000_y1_cam_4002_rep_metadata.sql",
+      "sha256": "e876210522462b8207619fff4da725468767e7749d2f95af426dfaba63d7d6e1",
+      "bytes": 3141,
+      "modified_at": "2026-07-13T03:00:12.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713030100_y1_cam_4002_persistence.sql",
+      "sha256": "fa3312de213a514ea27eae24839d93fef86b913c46a18b9848969e5fe7b31b8f",
+      "bytes": 20056,
+      "modified_at": "2026-07-13T03:00:12.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713030200_y1_cam_4002_relational_ownership.sql",
+      "sha256": "3313dfbefbbf5075df87de8dd40134e3a6ac540d1d3934735d5d0c907dab81ec",
+      "bytes": 7825,
+      "modified_at": "2026-07-13T03:00:12.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713030300_y1_cam_4002_mentor_share_access.sql",
+      "sha256": "645ff0bae9f6024c7733ef2598773a47c08414255985f9a05f05f9c71f78acfa",
+      "bytes": 1835,
+      "modified_at": "2026-07-13T03:00:12.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713030400_y1_cam_4002_soft_delete_rpc.sql",
+      "sha256": "fc154de306ffbdd3cfbfb0a41148c062637b602d65067311ba9a47481c313b92",
+      "bytes": 3120,
+      "modified_at": "2026-07-13T03:06:20.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713030500_y1_cam_4002_rep_replay_soft_delete_repair.sql",
+      "sha256": "91df3ee44b365e01f0f3f4a281e9623c752d01b877ba2a1832b61c82d1fc3495",
+      "bytes": 2486,
+      "modified_at": "2026-07-13T03:19:11.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713030600_y1_cam_4002_one_order_constraint.sql",
+      "sha256": "ba69b12854d7502f7d1915179d953de8ca6bf5707c815ef5af3c92d343ccdfaf",
+      "bytes": 1012,
+      "modified_at": "2026-07-13T03:50:40.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713120000_y1_cam_4004_runtime_closure.sql",
       "sha256": "1c229395b352e53d3c3507ee5e9afa04c251298f66440234cf4808e01d86df07",
       "bytes": 26462,
       "modified_at": "2026-07-13T11:56:07.000Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713125000_y1_cam_4004_story_soft_delete.sql",
+      "sha256": "53395950ec4c40ffa8ee3376e0592e726f0ab7481f9c3a79afc7c7d5fcc53067",
+      "bytes": 1433,
+      "modified_at": "2026-07-13T12:44:28.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260714202000_y1_cam_4005r_auth_session_foundation.sql",
+      "sha256": "e2e320b28fcb7d5df192c95ab9034610fd2e520be9f6e28b09a920d534f46700",
+      "bytes": 2555,
+      "modified_at": "2026-07-15T00:50:58.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260714203000_y1_cam_4005r_auth_session_enforcement.sql",
       "sha256": "9d0d0f7fe13106975dc53729462385e3b763efb678198af69804d095c2890d1a",
       "bytes": 17072,
       "modified_at": "2026-07-15T03:31:17.000Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715094500_y1_cam_4006_deletion_job_owner_policies.sql",
+      "sha256": "c810cd6d2b29a248991f38db834d5f8a4b95ed6c3172ca4178417c36e7fb4978",
+      "bytes": 1283,
+      "modified_at": "2026-07-15T10:41:15.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715125500_y1_cam_4006_rep_idempotency_atomic_delete.sql",
+      "sha256": "4af09dbd0892c4dad315a45ba2ede68839e8c1e66feffbce67cea4d8740f160d",
+      "bytes": 6230,
+      "modified_at": "2026-07-15T12:54:27.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715133000_y1_cam_4006_atomic_delete_qualification.sql",
+      "sha256": "3cafb2c03c56aeddf74ceb4fab80112207604d96523069b8494a88ea2af51bb3",
+      "bytes": 2480,
+      "modified_at": "2026-07-15T13:18:55.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715190000_y1_cam_4008a_integrity_expand.sql",
       "sha256": "b515ef0c478f4cd0db69d04e7f591e7fda999765d8b226a7fb640e125386cf9d",
       "bytes": 28048,
       "modified_at": "2026-07-15T19:14:42.899Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715193000_y1_cam_4008a_authority_contract.sql",
+      "sha256": "f16d781797cd78b68f8ec7acb606cde2fca5750e59d8d71441e83fbaedeeffb5",
+      "bytes": 1882,
+      "modified_at": "2026-07-15T19:07:37.978Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715200000_y1_cam_4008a_provider_replay_closure.sql",
+      "sha256": "ad4b2f572d2ddb8c761243280fc24feeed8c39dcf7c44ed0020861a53164d1c5",
+      "bytes": 10723,
+      "modified_at": "2026-07-15T19:34:16.195Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715203000_y1_cam_4008a_dev_findings_repair.sql",
+      "sha256": "2aa0bdc014d84412e79f84b020d5c3c35cc97a150edc7951bd1752e18b18248a",
+      "bytes": 2789,
+      "modified_at": "2026-07-15T20:10:49.293Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715210000_y1_cam_4008a_authority_deletion_certification.sql",
+      "sha256": "093e3408397807e7b6d4e0036503afdb0a71328b50c198ff0a5b790f267052d5",
+      "bytes": 20563,
+      "modified_at": "2026-07-16T18:56:29.826Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715213000_y1_cam_4008a_certification_closure_repair.sql",
+      "sha256": "f1d4060dda13a700703bec115d97886899a130d86512b63ffb5c52060ca0d090",
+      "bytes": 58817,
+      "modified_at": "2026-07-16T19:26:05.506Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715214000_y1_cam_4008a_review_deletion_race_repair.sql",
+      "sha256": "41471720e412a9a734b44e879f5a581e3f4ada12f430ef8ad869f0d172820ab9",
+      "bytes": 14797,
+      "modified_at": "2026-07-16T19:36:45.023Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/package.json",
+      "sha256": "4708ae536bb45baf21722521a84d40cd46badf5d9e3af3ef23e1dd5448d61e38",
+      "bytes": 2545,
+      "modified_at": "2026-07-15T19:55:06.253Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/railway.json",
+      "sha256": "ff3ad9ccf74fdda084278d4146edac139facc0bb3b2cd442855aaeb6ab64f268",
+      "bytes": 293,
+      "modified_at": "2026-07-13T03:34:10.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/server.mjs",
       "sha256": "d97c934d277ef7f7bcf6e8b8236501caa41d7ba50c33cc016383c4f084a7be5a",
       "bytes": 4395,
       "modified_at": "2026-07-15T19:23:37.105Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/auth/requireCamSession.mjs",
       "sha256": "3b351278b1ce79896153eb35ef42d2f38f934c761d190ee9115caf0ec1f31a70",
       "bytes": 3825,
       "modified_at": "2026-07-16T18:40:16.448Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/auth/verifyJwt.mjs",
       "sha256": "5828b0b52630357728c4487087f97f29cf5bb085767201565720a7fd1bf26844",
       "bytes": 2532,
       "modified_at": "2026-07-09T16:48:39.000Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/config.mjs",
       "sha256": "fb86ea40f09cf2f86f6cd6038c6d934d1dc356dc981cd98bff9a74f7e953c9ac",
       "bytes": 9839,
       "modified_at": "2026-07-15T20:01:57.989Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/environment/missionmedEnvBridge.mjs",
+      "sha256": "99d64e0cb27662c6521f1a314bee7fa6a33aaa5ebeff158a67ab8463285f5054",
+      "bytes": 12285,
+      "modified_at": "2026-07-13T11:51:26.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/auditStore.mjs",
+      "sha256": "48363021131ac2843a7350486332af2e3dc7117b9aa79416c0d452e37cbc0837",
+      "bytes": 1332,
+      "modified_at": "2026-07-15T23:48:32.538Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/cloudflareStreamProvider.mjs",
       "sha256": "65a8d0a4a4fb37ed516a3e6e3223d29b60194b3e18ecf8a808fb0adc59aac130",
       "bytes": 12087,
       "modified_at": "2026-07-15T20:10:49.293Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/deletionOrchestrator.mjs",
       "sha256": "c1d584fb63d12f858131c4230f3d2563752cd28eef1a4c2f1d55784f0e9bb934",
       "bytes": 21718,
       "modified_at": "2026-07-16T19:23:38.850Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/mentorDirectory.mjs",
+      "sha256": "9aea9dc6a007b255993fee019d750d35876caa90f6926a1dd6ad72514a976f3b",
+      "bytes": 5816,
+      "modified_at": "2026-07-15T12:52:51.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/mutationEnvelope.mjs",
+      "sha256": "9974d96a3378355f0b5a65719672a4eef5ac2cda0766b987445b92130379b03f",
+      "bytes": 1990,
+      "modified_at": "2026-07-15T18:51:04.396Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/mutationReceiptStore.mjs",
+      "sha256": "28c2089a2f5b33c347b0829cf2530afa5725a316d16639fcc74903e9137e69a4",
+      "bytes": 3103,
+      "modified_at": "2026-07-15T18:56:05.613Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/providerCapabilityStore.mjs",
+      "sha256": "0c741d6edd7841d09e82f2ad9c2dedd5b07b24e615832498888d1b058939983c",
+      "bytes": 7426,
+      "modified_at": "2026-07-15T19:39:40.692Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/r2Provider.mjs",
       "sha256": "80b7ee74d5afd8e822982e73cb5ac1164901ceb7ebad2936718948e4316f7689",
       "bytes": 6036,
       "modified_at": "2026-07-15T19:38:42.616Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/supabaseMediaStore.mjs",
+      "sha256": "5e932c5088ebef610f2707ebb76d3ffe1f310736c2d4af3b7170e9b4df58736e",
+      "bytes": 16318,
+      "modified_at": "2026-07-16T18:40:52.419Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/supabaseServerClient.mjs",
+      "sha256": "481fd8058ee7637a4607b7b1c1c2ae763c025d46dee708fb662a21a544e7b499",
+      "bytes": 2852,
+      "modified_at": "2026-07-15T18:51:04.396Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/middleware/cors.mjs",
+      "sha256": "03cdc3840a82677b93561b33b83494168d73baaf6f6b1441a5dca4ed7c67dcc4",
+      "bytes": 1602,
+      "modified_at": "2026-07-15T20:14:20.234Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/auth.mjs",
+      "sha256": "94fe9f07eae3c72a43796472722b7775f7ed7178249461ea4adc3000e917615f",
+      "bytes": 1030,
+      "modified_at": "2026-07-13T10:48:27.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/contracts.mjs",
       "sha256": "0fa6d2489a6320414114486521d994a329e1da65571a0c5250963ec30a015f3d",
       "bytes": 4745,
       "modified_at": "2026-07-15T20:05:50.349Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/entitlements.mjs",
       "sha256": "116ecdb859712aeeba64ad1c5018a4fd25fc7c9c6d9682fec77bc726104ff0d9",
       "bytes": 11736,
       "modified_at": "2026-07-15T00:50:26.000Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/health.mjs",
+      "sha256": "fdfd3070cb7328068ce64067e074d17204f77632531cdef070af6ee757f04ce3",
+      "bytes": 2432,
+      "modified_at": "2026-07-13T10:49:09.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/media.mjs",
       "sha256": "53fc80a41d6c63a06e853db1b9529feb4d99911e5788fb16bf4f927d9631bdbd",
       "bytes": 32935,
       "modified_at": "2026-07-16T18:49:38.072Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/reps.mjs",
+      "sha256": "2692b270150941dac65929337478a2ddb94a009dd021f34518a756715e2ecce1",
+      "bytes": 6690,
+      "modified_at": "2026-07-15T18:58:54.126Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/reviews.mjs",
       "sha256": "1542a737d303af80686f34bbb8c419089d9619e8ae123cd98d4947f7db8da55e",
       "bytes": 13662,
       "modified_at": "2026-07-15T19:08:13.919Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/rise.mjs",
+      "sha256": "c49d1ab4c6959806a226e96ece374924c69b5006e576bd757f51380ad82b0793",
+      "bytes": 3029,
+      "modified_at": "2026-07-09T17:01:42.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/routeHelpers.mjs",
+      "sha256": "deca73969666828d8a66c3a6f62600e645ac78f25992b3fae6e0bb51f53d75bb",
+      "bytes": 2454,
+      "modified_at": "2026-07-15T00:25:16.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/transcripts.mjs",
+      "sha256": "0b5f44e450e56b8765c10937ae21728ab83fc44416d49bc22bd6a0f33a1c4ac7",
+      "bytes": 3699,
+      "modified_at": "2026-07-09T17:01:42.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/vault.mjs",
+      "sha256": "26196c29fa44a483818c25db9f02464a463be70333f38035b1ddf3d1c1c72ccf",
+      "bytes": 9118,
+      "modified_at": "2026-07-15T19:00:52.512Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/package.json",
+      "sha256": "cb7b8c7eaacf956e4d4e046e3305de02c8294fc2b273a30d07890d3c8fd9b256",
+      "bytes": 385,
+      "modified_at": "2026-07-15T01:39:19.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/public/cam/cam-dev-adapter.js",
+      "sha256": "90981a795fe3492cf604806475c0568cfda0521714ef58da967b8071e78b9367",
+      "bytes": 102893,
+      "modified_at": "2026-07-15T19:33:48.279Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/public/cam/cam-runtime-integrity.js",
+      "sha256": "8f313068d46c611eb75422b2f2b2757fa9272834cd343577d142d7241f8ad65d",
+      "bytes": 14091,
+      "modified_at": "2026-07-16T18:49:38.071Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/public/cam/index.html",
       "sha256": "96a41d0a7fba5ee93045b49a3f561789f37bcb06fda8f5059115861011ff4941",
       "bytes": 193375,
       "modified_at": "2026-07-16T18:49:38.071Z",
-      "authority_class": "accepted CAM runtime evidence",
-      "status": "certified scoped runtime; release limitations remain",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
       "form": "source",
-      "source_role": "accepted current candidate"
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/railway.json",
+      "sha256": "ff3ad9ccf74fdda084278d4146edac139facc0bb3b2cd442855aaeb6ab64f268",
+      "bytes": 293,
+      "modified_at": "2026-07-13T03:34:10.000Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/server.mjs",
+      "sha256": "ca6727f4a028bdf19bc91f061695c324742d5fa0a2905b4ab1169843b04ab49a",
+      "bytes": 485809,
+      "modified_at": "2026-07-16T18:40:16.340Z",
+      "authority_class": "accepted CAM deployed-candidate evidence",
+      "status": "certified scoped runtime evidence; tracked canonical source unknown",
+      "form": "source",
+      "source_role": "accepted deployed-candidate donor"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/MM-CAM-000_COMBINED_RATIFICATION_PACKAGE.md",
+      "sha256": "1bb5c03678b6149952748e558c8df18d55f8a746897f218413960f51f5a07acd",
+      "bytes": 63880,
+      "modified_at": "2026-07-07T20:10:01.469Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/MM-CAM-000_RATIFICATION_RECORD.md",
+      "sha256": "f0acd838f86768480e83d76c122e67dcad7b0efdc870bb5bce8090f257f9a9cc",
+      "bytes": 3448,
+      "modified_at": "2026-07-07T19:43:38.020Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/ai_deployment_gates.contract.md",
+      "sha256": "bbf9af6d9d27eabfd0bbe34faa31db1764ea2285a3b45f623b342a70e9479e9e",
+      "bytes": 3593,
+      "modified_at": "2026-07-07T19:43:38.020Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/cam_ledger_events.contract.md",
+      "sha256": "b5e27ec053abed6b97305aacd498515f734d5e804945c32d04be0e2b8ae05554",
+      "bytes": 5650,
+      "modified_at": "2026-07-07T19:43:38.018Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/cam_rep.contract.md",
+      "sha256": "dee2acc32fdaeee4b5557eb88d93948e40bf987c30e31dc2fa469426457d1421",
+      "bytes": 7016,
+      "modified_at": "2026-07-07T19:43:38.017Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/coaching_emission.contract.md",
+      "sha256": "db1d03c75aad405d2b64529a04729944729cb863cc7f8bb36d10ac96536dfdb7",
+      "bytes": 4506,
+      "modified_at": "2026-07-07T19:43:38.018Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/domain_pack.contract.md",
+      "sha256": "c0e9173ed65868893269caf9cd80795432ccf33666be2eb14f62fb744888da97",
+      "bytes": 4461,
+      "modified_at": "2026-07-07T19:43:38.019Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/evidence_object.contract.md",
+      "sha256": "0d164065e90d6f0ffb8000cdfc652e77811a3e0069f782207c93acae677d2327",
+      "bytes": 3715,
+      "modified_at": "2026-07-07T19:43:38.017Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/learner_model_structural_preferences.contract.md",
+      "sha256": "f36ddb4e22ea23a4755f7205ea8e0f9ead5437c0048d6c692e1a206d79e11b53",
+      "bytes": 2881,
+      "modified_at": "2026-07-07T19:43:38.019Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/measurement_registry_v1.contract.md",
+      "sha256": "cf4a88b8b41ef6beb11e6b4cf2a15f5d607a15efb5a0b07e99cf94e1b9427236",
+      "bytes": 4980,
+      "modified_at": "2026-07-07T19:43:38.018Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/moment.contract.md",
+      "sha256": "ce627026015f663d04052ebe3225a4f5cc6539c2234df2ec178ddd343bb34c0a",
+      "bytes": 2995,
+      "modified_at": "2026-07-07T19:43:38.017Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/rep_fsm.contract.md",
+      "sha256": "0aaa50f1947497751b77ff85c549e909d48808c2031c77aae2cb1bcc96735c43",
+      "bytes": 4305,
+      "modified_at": "2026-07-07T19:43:38.019Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/review_fsm.contract.md",
+      "sha256": "e297a9eb3c29aa0ba6182bf5f9be4012d57b5e738dc6576f0e7f95b7e493ce37",
+      "bytes": 2550,
+      "modified_at": "2026-07-07T19:43:38.019Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts/upload_fsm.contract.md",
+      "sha256": "99fc3b20d847298a99d8b97cb551a99c356ad69258b79f12151bd5cccd9891da",
+      "bytes": 2409,
+      "modified_at": "2026-07-07T19:43:38.019Z",
+      "authority_class": "ratified CAM contract",
+      "status": "ratified contract package",
+      "form": "source",
+      "source_role": "canonical contract"
+    },
+    {
+      "path": "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_fable/MM-FABLE-CAM-3001_CAM_Platform_Architecture_Bible.md",
+      "sha256": "7e664799a256644dbb2b1fae1978266bccbeb8af9d668c5e02bb22206d829da5",
+      "bytes": 147192,
+      "modified_at": "2026-07-07T18:39:12.016Z",
+      "authority_class": "CAM architecture blueprint",
+      "status": "architecture input; runtime source controls conflicts",
+      "form": "individual",
+      "source_role": "mirror"
     },
     {
       "path": "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001/C0_ACCESSIBILITY_AND_UX.md",
@@ -901,10 +1491,10 @@
       "sha256": "ca2016aa0e23f40ba0b91fa16d02b4368b9a6fc668489cc56d3d3a05f17453df",
       "bytes": 1171,
       "modified_at": "2026-07-19T00:14:21.040Z",
-      "authority_class": "accepted integration source",
-      "status": "read-only donor",
+      "authority_class": "Engineering OS registration receipt",
+      "status": "isolated branch receipt; unmerged to MissionMed_OS/main",
       "form": "md",
-      "source_role": "canonical donor"
+      "source_role": "unmerged registration evidence"
     }
   ],
   "package_checks": {
@@ -1149,10 +1739,14 @@
     "Y1 CAM has no product passport in the current MissionMed OS index; current runtime handoffs and exact source govern this read-only integration map.",
     "CAM purpose-specific AI consent and long-session voice media are absent; Phase 0 remains synthetic text-only and cannot claim these boundaries exist.",
     "CIE C0 is certified only as an isolated local foundation; its production PostgreSQL command adapter remains absent.",
-    "Y2 blueprint permits up to three probes while accepted IVOC law is stricter; the Brain applies the stricter one-probe cap at pressure rungs 0-1 and two at rung 2+."
+    "Y2 blueprint permits up to three probes while accepted IVOC law is stricter; the Brain applies the stricter one-probe cap at pressure rungs 0-1 and two at rung 2+.",
+    "The Y2 registration receipt exists only on an isolated MissionMed OS branch and is not present on current MissionMed_OS/main; it is unmerged registration evidence, not canonical filed authority.",
+    "The inspected 4008A source is accepted deployed-candidate evidence inside an untracked donor directory; exact tracked canonical CAM source remains unknown.",
+    "Current MissionMed_OS routing files advanced after the original inventory and the local OS worktree contains unrelated concurrent changes; this inventory records exact current bytes without claiming they are filed Y2 authority."
   ],
   "missing_authority": [
     "No CAM/IV Prep On-Call product passport is present in /Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS.",
-    "No production CIE adapter is authorized or present; this is a recorded future integration prerequisite, not a Phase 0 blocker."
+    "No production CIE adapter is authorized or present; this is a recorded future integration prerequisite, not a Phase 0 blocker.",
+    "No tracked canonical source repository for the deployed 4008A CAM bytes is established by the inspected authority package."
   ]
 }

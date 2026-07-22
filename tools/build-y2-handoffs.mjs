@@ -9,6 +9,17 @@ const mirror = path.join(root, "_AI_HANDOFFS/from_codex/Y2_3100_3101_3102");
 const workstreamA = [
   "Y2_3100_DISCOVERY_EXECUTIVE_SUMMARY.md",
   "Y2_3100_SOURCE_AND_AUTHORITY_MAP.md",
+  "Y2_3100_DISC_01_API_AND_SESSION_AUTHORITY.md",
+  "Y2_3100_DISC_02_DATA_MODEL_AND_MIGRATIONS.md",
+  "Y2_3100_DISC_03_DELETION_CLOSURE.md",
+  "Y2_3100_DISC_04_MEDIA_AND_STORAGE.md",
+  "Y2_3100_DISC_05_FRONTEND_RUNTIME.md",
+  "Y2_3100_DISC_06_EVENTS_IDEMPOTENCY_AND_AUDIT.md",
+  "Y2_3100_DISC_07_REVIEW_SURFACES.md",
+  "Y2_3100_DISC_08_DEPLOYMENT_AND_ENVIRONMENT.md",
+  "Y2_3100_DISC_09_PRIVACY_AND_RETENTION.md",
+  "Y2_3100_DISC_10_REUSE_AND_DEAD_ENDS.md",
+  "Y2_3100_DISCOVERY_SYNTHESIS.md",
   "Y2_3100_SESSION_API_AUTH_AND_RLS.md",
   "Y2_3100_MEDIA_CONSENT_DELETION_AND_PROVENANCE.md",
   "Y2_3100_REVIEW_UI_FLAGS_AND_ATTACHMENT_POINTS.md",
@@ -58,7 +69,12 @@ const definitions = {
   master: {
     title: "Y2-3100-3101-3102 Master Complete Combined Handoff",
     output: "Y2_3100_3101_3102_MASTER_COMPLETE_COMBINED_HANDOFF.md",
-    files: ["Y2_3100_3101_CONTEXT_SOURCE_INVENTORY.md", ...workstreamA, ...workstreamB, ...workstreamC],
+    files: [
+      "Y2_3100_3101_CONTEXT_SOURCE_INVENTORY.md",
+      "Y2_3100_COMPLETE_COMBINED_HANDOFF.md",
+      "Y2_3101_COMPLETE_COMBINED_HANDOFF.md",
+      "Y2_3102_COMPLETE_COMBINED_HANDOFF.md",
+    ],
   },
 };
 
@@ -86,28 +102,27 @@ async function build(key) {
     bodies.push({ filename, body });
     sections.push(`<!-- BEGIN ${filename} -->\n${body.trimEnd()}\n<!-- END ${filename} -->`);
   }
-  const header = `# ${definition.title}\n\n- Contract: \`missionmed.y2.combined-handoff.v1\`\n- Source files: \`${definition.files.length}\`\n- Inclusion law: every primary source report below is unabridged exactly once.\n- Derived subgroup combined handoffs are not nested into the master because nesting would duplicate primary report contents.\n`;
+  const inclusionLaw = key === "master"
+    ? "The context inventory and each subgroup combined handoff are nested unabridged exactly once. Each primary report therefore appears through exactly one subgroup, without duplicate primary bodies."
+    : "Every primary source report below is unabridged exactly once.";
+  const header = `# ${definition.title}\n\n- Contract: \`missionmed.y2.combined-handoff.v1\`\n- Source files: \`${definition.files.length}\`\n- Inclusion law: ${inclusionLaw}\n`;
   const output = `${header}\n${sections.join("\n\n")}\n`;
   for (const { filename, body } of bodies) {
     if (countOccurrences(output, body.trimEnd()) !== 1) throw new Error(`${filename} is not embedded exactly once`);
   }
   const outputPath = path.join(mission, definition.output);
   await writeFile(outputPath, output);
-  return { key, outputPath, sha256: sha256(output), bytes: Buffer.byteLength(output), source_count: bodies.length };
+  await mkdir(mirror, { recursive: true });
+  const mirrorPath = path.join(mirror, definition.output);
+  await writeFile(mirrorPath, output);
+  const mirrored = await readFile(mirrorPath, "utf8");
+  if (mirrored !== output) throw new Error(`${definition.output} mirror is not byte-identical`);
+  return { key, outputPath, mirrorPath, sha256: sha256(output), bytes: Buffer.byteLength(output), source_count: bodies.length };
 }
 
 const requested = process.argv.slice(2);
 if (requested.length === 0) throw new Error("Specify one or more groups: A B C master");
 const results = [];
 for (const key of requested) results.push(await build(key));
-
-if (requested.includes("master")) {
-  await mkdir(mirror, { recursive: true });
-  const masterName = definitions.master.output;
-  const masterBody = await readFile(path.join(mission, masterName));
-  await writeFile(path.join(mirror, masterName), masterBody);
-  const mirrored = await readFile(path.join(mirror, masterName));
-  if (!masterBody.equals(mirrored)) throw new Error("Master mirror is not byte-identical");
-}
 
 process.stdout.write(`${JSON.stringify(results, null, 2)}\n`);

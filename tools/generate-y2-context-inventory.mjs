@@ -13,6 +13,9 @@ const roots = {
   c0Canonical: "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/Y1-CIE-C0-0001",
   c0Mirror: "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/_AI_HANDOFFS/from_codex/Y1_CIE_C0_0001",
   y23100: "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/outputs/Y2-3100",
+  camRoutes: "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes",
+  camMigrations: "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations",
+  mmCamContracts: "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/contracts",
 };
 
 const fixedSources = [
@@ -27,24 +30,39 @@ const fixedSources = [
   "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-3023/Y1-CAM-3023_COMPLETE_COMBINED_HANDOFF.md",
   "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-3024/Y1-CAM-3024_COMPLETE_COMBINED_HANDOFF.md",
   "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/Y1-CAM-4008/4008_COMPLETE_COMBINED_HANDOFF.md",
+  "/Users/brianb/MissionMed_AI_Sandbox/CLAUDE_FILES/MM-FABLE-CAM-3001_CAM_Platform_Architecture_Bible.md",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_fable/MM-FABLE-CAM-3001_CAM_Platform_Architecture_Bible.md",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/MM-CAM-000_COMBINED_RATIFICATION_PACKAGE.md",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/_AI_HANDOFFS/from_codex/MM-CAM-000/MM-CAM-000_RATIFICATION_RECORD.md",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_COMPLETE_COMBINED_HANDOFF.md",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_FINAL_RELEASE_STATUS.md",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_CAPTURE_TIMELINE_AND_PROVENANCE_CONTRACT.md",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/4008A_FUTURE_DERIVED_ARTIFACT_DELETION_MAP.md",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008/4008_EDUCATIONAL_VALIDITY.md",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/server.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/package.json",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/railway.json",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/config.mjs",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/auth/verifyJwt.mjs",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/auth/requireCamSession.mjs",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/contracts.mjs",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/entitlements.mjs",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/media.mjs",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/routes/reviews.mjs",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/config.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/environment/missionmedEnvBridge.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/middleware/cors.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/auditStore.mjs",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/cloudflareStreamProvider.mjs",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/r2Provider.mjs",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/deletionOrchestrator.mjs",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260713120000_y1_cam_4004_runtime_closure.sql",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260714203000_y1_cam_4005r_auth_session_enforcement.sql",
-  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/migrations/20260715190000_y1_cam_4008a_integrity_expand.sql",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/mentorDirectory.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/mutationEnvelope.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/mutationReceiptStore.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/providerCapabilityStore.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/r2Provider.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/supabaseMediaStore.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-api/src/lib/supabaseServerClient.mjs",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/package.json",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/railway.json",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/server.mjs",
   "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/public/cam/index.html",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/public/cam/cam-dev-adapter.js",
+  "/Users/brianb/MissionMed_worktrees/Y1-CAM-3000/Y1-CAM-4008A/candidates/cam-hq/public/cam/cam-runtime-integrity.js",
   "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/apiAdapter.mjs",
   "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/service.mjs",
   "/Users/brianb/MissionMed_worktrees/Y1-CIE-C0-0001/cie/src/contracts.mjs",
@@ -74,6 +92,11 @@ async function markdownFiles(directory) {
   return names.filter((name) => name.endsWith(".md")).sort().map((name) => path.join(directory, name));
 }
 
+async function regularFiles(directory) {
+  const names = await readdir(directory, { withFileTypes: true });
+  return names.filter((entry) => entry.isFile()).map((entry) => path.join(directory, entry.name)).sort();
+}
+
 function classify(file) {
   const combined = /COMPLETE_COMBINED_HANDOFF\.md$/.test(file);
   if (file.includes("/Y1-CIE-5000A/")) return { authority_class: "constitutional amendment", status: "ready for ratification; founder-ticket constraints apply", form: combined ? "combined" : "individual", source_role: "canonical" };
@@ -82,10 +105,13 @@ function classify(file) {
   if (file.includes("/_AI_HANDOFFS/from_codex/Y1_CIE_C0_0001/")) return { authority_class: "certified C0 evidence", status: "certified isolated foundation", form: combined ? "combined" : "individual", source_role: "mirror" };
   if (file.includes("/Y1-CIE-C0-0001/Y1-CIE-C0-0001/")) return { authority_class: "certified C0 evidence", status: "certified isolated foundation; not production", form: combined ? "combined" : "individual", source_role: "canonical" };
   if (file.includes("/outputs/Y2-3100/")) return { authority_class: /AI_INTERVIEWER_DECISION|CONVERSATION_AND_SYSTEM_BLUEPRINT/.test(file) ? "founder-ratified Y2 decision input" : "Y2 decision package", status: /COMPLETE_COMBINED/.test(file) ? "continuation synopsis; incomplete as concatenation" : "canonical package sibling", form: combined ? "combined" : "individual", source_role: "canonical" };
-  if (file.includes("Y1-CAM-4008A")) return { authority_class: "accepted CAM runtime evidence", status: "certified scoped runtime; release limitations remain", form: combined ? "combined" : "source", source_role: "accepted current candidate" };
+  if (file.includes("MM-FABLE-CAM-3001")) return { authority_class: "CAM architecture blueprint", status: "architecture input; runtime source controls conflicts", form: "individual", source_role: file.includes("/_AI_HANDOFFS/from_fable/") ? "mirror" : "canonical input" };
+  if (file.includes("/MM-CAM-000/")) return { authority_class: "ratified CAM contract", status: "ratified contract package", form: combined ? "combined" : "source", source_role: "canonical contract" };
+  if (file.includes("Y1-CAM-4008A")) return { authority_class: "accepted CAM deployed-candidate evidence", status: "certified scoped runtime evidence; tracked canonical source unknown", form: combined ? "combined" : "source", source_role: "accepted deployed-candidate donor" };
   if (file.includes("Y1-CAM-4008")) return { authority_class: "CAM research/governance", status: "accepted predecessor", form: combined ? "combined" : "source", source_role: "canonical predecessor" };
   if (file.includes("Y1-CAM-3023") || file.includes("Y1-CAM-3024")) return { authority_class: "CAM runtime lineage", status: "accepted predecessor lineage", form: "combined", source_role: "canonical predecessor" };
-  if (file.includes("MissionMed_OS")) return { authority_class: "Engineering OS", status: "current control-plane authority", form: path.extname(file).slice(1) || "source", source_role: file.includes("Y2-3100-3101-os") ? "isolated registration branch" : "canonical" };
+  if (file.includes("Y2-3100-3101-os")) return { authority_class: "Engineering OS registration receipt", status: "isolated branch receipt; unmerged to MissionMed_OS/main", form: path.extname(file).slice(1) || "source", source_role: "unmerged registration evidence" };
+  if (file.includes("MissionMed_OS")) return { authority_class: "Engineering OS", status: "current local control-plane state; working tree may contain unfiled concurrent changes", form: path.extname(file).slice(1) || "source", source_role: "current local authority" };
   if (file.includes(".codex/attachments")) return { authority_class: "founder execution authorization", status: "active ticket", form: "ticket", source_role: "canonical for this mission" };
   return { authority_class: "accepted integration source", status: "read-only donor", form: path.extname(file).slice(1) || "source", source_role: "canonical donor" };
 }
@@ -126,7 +152,11 @@ async function combinedCheck(directory, combinedName) {
 
 async function main() {
   const dynamicSources = (
-    await Promise.all(Object.values(roots).map((directory) => markdownFiles(directory)))
+    await Promise.all([
+      ...[roots.cie5000, roots.cie5000a, roots.cie9000, roots.c0Canonical, roots.c0Mirror, roots.y23100, roots.mmCamContracts].map((directory) => markdownFiles(directory)),
+      regularFiles(roots.camRoutes),
+      regularFiles(roots.camMigrations),
+    ])
   ).flat();
   const paths = [...new Set([...dynamicSources, ...fixedSources])].sort();
   const sources = [];
@@ -161,10 +191,14 @@ async function main() {
       "CAM purpose-specific AI consent and long-session voice media are absent; Phase 0 remains synthetic text-only and cannot claim these boundaries exist.",
       "CIE C0 is certified only as an isolated local foundation; its production PostgreSQL command adapter remains absent.",
       "Y2 blueprint permits up to three probes while accepted IVOC law is stricter; the Brain applies the stricter one-probe cap at pressure rungs 0-1 and two at rung 2+.",
+      "The Y2 registration receipt exists only on an isolated MissionMed OS branch and is not present on current MissionMed_OS/main; it is unmerged registration evidence, not canonical filed authority.",
+      "The inspected 4008A source is accepted deployed-candidate evidence inside an untracked donor directory; exact tracked canonical CAM source remains unknown.",
+      "Current MissionMed_OS routing files advanced after the original inventory and the local OS worktree contains unrelated concurrent changes; this inventory records exact current bytes without claiming they are filed Y2 authority.",
     ],
     missing_authority: [
       "No CAM/IV Prep On-Call product passport is present in /Users/brianb/MissionMed_OS/PRODUCT_PASSPORTS.",
       "No production CIE adapter is authorized or present; this is a recorded future integration prerequisite, not a Phase 0 blocker.",
+      "No tracked canonical source repository for the deployed 4008A CAM bytes is established by the inspected authority package.",
     ],
   };
 

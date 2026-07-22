@@ -2,7 +2,7 @@
 
 ## Contract Set
 
-Eight JSON schemas and matching runtime validators define the Phase 0 boundary:
+Eight JSON schemas and runtime validators describe the Phase 0 boundary:
 
 1. `persona-pack.schema.json`
 2. `interview-plan.schema.json`
@@ -13,7 +13,7 @@ Eight JSON schemas and matching runtime validators define the Phase 0 boundary:
 7. `model-adapter.schema.json`
 8. `inactive-capabilities.schema.json`
 
-The source of runtime authority is `interviewer-brain/src/contracts.mjs`; JSON schemas are interoperable documentation and static validation artifacts.
+The source of runtime authority is `interviewer-brain/src/contracts.mjs`; JSON schemas are documentation artifacts only. The amended-prompt audit found they are not yet executable parity contracts.
 
 ## Version Vocabulary
 
@@ -71,3 +71,16 @@ Private free-form reasoning, scores, rankings, emotion, personality, deception, 
 ## Compatibility Limits
 
 These are Phase 0 synthetic contracts. They do not replace CIE timeline items, Y1 CAM sessions, consent receipts, media revisions, review grants, deletion jobs, or production audit events. A later adapter must translate them into accepted Y1/CIE contracts without granting these local IDs authority.
+
+## Amended-Prompt Contract Audit
+
+The current package is not contract-ready for substitution or integration:
+
+- the decision JSON schema permits `PASS|BLOCKED`, while the runtime permits `PASS|ABSTAIN`;
+- nested ledger JSON schema records are largely untyped, and tests parse schemas without validating runtime instances against them;
+- the model descriptor accepts only `deterministic_rule`, provider-null operation and has no validated `ModelAnalysisV1` output contract;
+- session-start idempotency binds persona, plan and first question but omits policy and model references;
+- turn execution can use current policy/model components while recording prior ledger references;
+- Y2 wall-clock events lack CIE's segmented monotonic clock, ranges, consent/visibility revisions and Ladder provenance.
+
+These are P1 research prerequisites for `Y2-3103`. No direct Y1/CIE mount is permitted.

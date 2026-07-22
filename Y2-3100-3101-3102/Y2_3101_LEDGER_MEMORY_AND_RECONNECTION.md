@@ -46,3 +46,5 @@ Callbacks are durable structured records, not prompt-window memory. Policy may u
 ## Limitations
 
 The file ledger is an isolated research store. It is not a production database, not a multi-host consensus system, not Y1 authorization, and not a CIE timeline. Production integration requires an accepted transactional repository, RLS-safe command adapter, consent and deletion closure, and separately trusted audit/rollback anchors.
+
+The amended-prompt audit also found commit-time integrity and locking gaps: commit validates revision number and event sequence but does not bind the incoming revision's session ID or previous-revision hash before persistence, so some corruptions fail only on reopen. Lock cleanup removes the lock path even if this process failed to acquire it, which can remove another writer's live lock. These defects are mandatory `Y2-3103` repairs and further prohibit production use.
