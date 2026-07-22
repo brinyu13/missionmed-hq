@@ -8,7 +8,6 @@ import { assertCurrentSourceRights } from "./src/source-authorization.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
-const LUCIDE_UMD_PATH = require.resolve("lucide/dist/umd/lucide.min.js");
 const DEFAULT_WEB_DIRECTORY = path.join(here, "web");
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_PAGE_SIZE = 50;
@@ -556,7 +555,7 @@ async function serveStatic(request, requestPath, response, webDirectory, request
       body = await fs.readFile(bundledVendorPath);
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
-      body = await fs.readFile(LUCIDE_UMD_PATH);
+      body = await fs.readFile(require.resolve("lucide/dist/umd/lucide.min.js"));
     }
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/javascript; charset=utf-8");

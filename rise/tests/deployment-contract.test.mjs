@@ -12,6 +12,7 @@ test("isolated RISE deployment contract cannot launch the HQ service", async () 
   const contract = JSON.parse(await fs.readFile(path.join(riseRoot, "deployment-contract.v1.json"), "utf8"));
   const railway = JSON.parse(await fs.readFile(path.join(riseRoot, "railway.json"), "utf8"));
   const dockerfile = await fs.readFile(path.join(riseRoot, "Dockerfile"), "utf8");
+  const serverSource = await fs.readFile(path.join(riseRoot, "server.mjs"), "utf8");
   const packageJson = JSON.parse(await fs.readFile(path.join(riseRoot, "package.json"), "utf8"));
 
   assert.equal(contract.service, "missionmed-rise");
@@ -29,6 +30,11 @@ test("isolated RISE deployment contract cannot launch the HQ service", async () 
   assert.match(dockerfile, /COPY adapters \.\/adapters/);
   assert.doesNotMatch(dockerfile, /RISE_AUTH_ADAPTER_MODULE=/);
   assert.doesNotMatch(dockerfile, /RISE_ABUSE_ADAPTER_MODULE=/);
+  const runtimeStage = dockerfile.slice(dockerfile.indexOf(" AS runtime"));
+  assert.match(runtimeStage, /rm -rf \/usr\/local\/lib\/node_modules\/npm/);
+  assert.doesNotMatch(runtimeStage, /npm ci/);
+  assert.doesNotMatch(runtimeStage, /COPY package\.json package-lock\.json/);
+  assert.doesNotMatch(serverSource, /LUCIDE_UMD_PATH\s*=\s*require\.resolve/);
   assert.doesNotMatch(dockerfile, /missionmed-hq/);
 });
 

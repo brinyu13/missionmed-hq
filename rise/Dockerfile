@@ -13,8 +13,9 @@ ENV NODE_ENV=production \
     RISE_ENVIRONMENT=production \
     RISE_WEB_DIRECTORY=/app/dist
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+RUN rm -rf /usr/local/lib/node_modules/npm \
+    /usr/local/bin/npm \
+    /usr/local/bin/npx
 COPY server.mjs ./server.mjs
 COPY src ./src
 COPY adapters ./adapters
