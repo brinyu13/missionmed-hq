@@ -13,6 +13,15 @@ const CONSUMER_EFFECT_KINDS = new Set([
 const CONSUMER_TARGET_KINDS = new Set(['SUBJECT', 'ASSIGNMENT', 'SESSION', 'JOB', 'PUBLICATION']);
 const OUTBOX_QUEUE = 'mmc.outbox';
 
+export const MMC_JOB_KINDS = Object.freeze([
+  'SOURCE_DISCOVERY',
+  'ASSET_ACQUISITION',
+  'TRANSCRIPT_PROCESSING',
+  'AI_ANALYSIS',
+  'PUBLICATION_RENDER',
+  'RECONCILIATION',
+]);
+
 export class MemoryJobRepository {
   #state;
   #transactionTail = Promise.resolve();
@@ -669,10 +678,7 @@ function validateEnqueue(input) {
     idempotencyKey: requireOpaqueId(input.idempotencyKey, 'idempotencyKey'),
     targetId: requireUuid(input.targetId, 'targetId'),
     queueName: requireQueueName(input.queueName),
-    jobKind: requireEnum(input.jobKind, new Set([
-      'SOURCE_DISCOVERY', 'ASSET_ACQUISITION', 'TRANSCRIPT_PROCESSING',
-      'AI_ANALYSIS', 'PUBLICATION_RENDER', 'RECONCILIATION',
-    ]), 'jobKind'),
+    jobKind: requireEnum(input.jobKind, new Set(MMC_JOB_KINDS), 'jobKind'),
     assetHandle: requireOpaqueId(input.assetHandle, 'assetHandle'),
     authorityGrantId: requireOpaqueId(input.authorityGrantId, 'authorityGrantId'),
     payloadHash: requireHash(input.payloadHash, 'payloadHash'),

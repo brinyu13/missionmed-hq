@@ -37,6 +37,12 @@ import {
   MMC_JSON_SECURITY_HEADERS,
   decodeCanonicalRequestPathname,
 } from './lib/mmc/trust/security.mjs';
+import {
+  MMC_PRIVATE_ROUTE_PREFIX,
+  isMmcCamV2LocalUiEnabled,
+  serveMmcCamV2LocalUi,
+} from './lib/mmc/ui/local-review-mount.mjs';
+import { sendMmcPrivateJson } from './lib/mmc/trust/private-json-response.mjs';
 import { resolveMmcAuthenticatedRole } from './lib/mmc/trust/session-principal.mjs';
 
 const { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } = crypto;
@@ -50,7 +56,6 @@ const ENV_FILE = path.join(__dirname, '.env');
 const ENV_LOCAL_FILE = path.join(__dirname, '.env.local');
 const INTERNAL_REQUEST_ORIGIN = 'http://internal.invalid';
 const WORDPRESS_AUTH_REDIRECT_ACTION = 'mmac_hq_auth_redirect';
-const MMC_PRIVATE_ROUTE_PREFIX = '/mmc-private';
 const USCE_ADMIN_AUTH_RELAY_PATH = '/api/usce/admin/auth/relay';
 const USCE_ADMIN_AUTH_AUDIENCE = 'usce_admin';
 const USCE_ADMIN_CDN_URL = 'https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html';
@@ -143,6 +148,15 @@ const CONFIG = {
   wpAllowedRoles: splitCsv(envValue('MMHQ_ALLOWED_WP_ROLES', 'administrator')),
   mmcPrivateAllowedRoles: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_ROLES', 'administrator')),
   mmcPrivateAllowedEmails: splitCsv(envValue('MMHQ_MMC_PRIVATE_ALLOWED_WP_EMAILS', '')),
+  mmcCamV2LocalUiEnabled: envFlag('MMHQ_MMC_CAM_V2_LOCAL_UI_ENABLED', false),
+  mmcCamMentorEnabled: envFlag('MMHQ_MMC_CAM_MENTOR_ENABLED', false),
+  mmcCamMentorCommandsEnabled: envFlag('MMHQ_MMC_CAM_MENTOR_COMMANDS_ENABLED', false),
+  mmcCamLocalInMemoryEnabled: envFlag('MMHQ_MMC_CAM_LOCAL_IN_MEMORY_ENABLED', false),
+  mmcCamLocalHttpEnabled: envFlag('MMHQ_MMC_CAM_LOCAL_HTTP_ENABLED', false),
+  mmcV2TenantId: String(envValue('MMHQ_MMC_V2_TENANT_ID', '')).trim(),
+  mmcV2Environment: String(envValue('MMHQ_MMC_V2_ENVIRONMENT', '')).trim().toUpperCase(),
+  mmcV2ApprovedOrigins: splitCsv(envValue('MMHQ_MMC_V2_APPROVED_ORIGINS', '')),
+  mmcV2MaxJsonBytes: Number(envValue('MMHQ_MMC_V2_MAX_JSON_BYTES', String(64 * 1024))),
   mmcPersistenceEnabled: envFlag('MMHQ_MMC_PERSISTENCE_ENABLED', false),
   mmcSupabaseUrl: sanitizeServiceUrl(envValue('MMHQ_MMC_SUPABASE_URL', '')),
   mmcSupabaseAnonKey: String(envValue('MMHQ_MMC_SUPABASE_ANON_KEY', '')).trim(),
@@ -2609,6 +2623,8 @@ async function handleApiRoute(request, response, url, context) {
       authHeaders,
       isAuthorizedMmcPrivateSession,
       buildMmcPrincipal,
+      mentorConfig: getMmcMentorLocalConfig(),
+      mentorSendJson: sendMmcPrivateJson,
       sendJson,
     });
     return;
@@ -3108,7 +3124,7 @@ function isAuthorizedMmcPrivateSession(session = null) {
   return isAuthorizedMmcPrivateUser(session.user);
 }
 
-async function handleMmcPrivateMount(request, response) {
+async function handleMmcPrivateMount(request, response, pathname = MMC_PRIVATE_ROUTE_PREFIX) {
   for (const [name, value] of Object.entries(MMC_JSON_SECURITY_HEADERS)) {
     response.setHeader(name, value);
   }
@@ -3139,6 +3155,15 @@ async function handleMmcPrivateMount(request, response) {
     return;
   }
 
+  if (isMmcCamV2LocalUiEnabled({
+    isProduction: IS_PRODUCTION,
+    enabled: CONFIG.mmcCamV2LocalUiEnabled,
+    environment: CONFIG.mmcV2Environment,
+  })) {
+    await serveMmcCamV2LocalUi(response, pathname);
+    return;
+  }
+
   sendJson(response, 410, {
     ok: false,
     status: 'SEALED',
@@ -3149,6 +3174,20 @@ async function handleMmcPrivateMount(request, response) {
     ...MMC_JSON_SECURITY_HEADERS,
     'X-MissionMed-Private-Mount': 'historical-surface-sealed',
     'X-MissionMed-Route': 'mmc-private',
+  });
+}
+
+function getMmcMentorLocalConfig() {
+  const localRuntimeAllowed = !IS_PRODUCTION && ['FIXTURE', 'LOCAL'].includes(CONFIG.mmcV2Environment);
+  return Object.freeze({
+    enabled: localRuntimeAllowed && CONFIG.mmcCamMentorEnabled === true,
+    commandsEnabled: localRuntimeAllowed && CONFIG.mmcCamMentorCommandsEnabled === true,
+    inMemoryEnabled: localRuntimeAllowed && CONFIG.mmcCamLocalInMemoryEnabled === true,
+    tenantId: CONFIG.mmcV2TenantId,
+    environment: CONFIG.mmcV2Environment,
+    approvedOrigins: Object.freeze([...CONFIG.mmcV2ApprovedOrigins]),
+    allowLoopbackHttp: localRuntimeAllowed && CONFIG.mmcCamLocalHttpEnabled === true,
+    maxJsonBytes: CONFIG.mmcV2MaxJsonBytes,
   });
 }
 

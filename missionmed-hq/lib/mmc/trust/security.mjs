@@ -83,6 +83,18 @@ export const MMC_JSON_SECURITY_HEADERS = Object.freeze({
   'X-Robots-Tag': 'noindex, nofollow, noarchive',
 });
 
+export const MMC_CAM_UI_SECURITY_HEADERS = Object.freeze({
+  'Cache-Control': 'no-store, max-age=0',
+  'Content-Security-Policy': "default-src 'none'; base-uri 'none'; connect-src 'self'; form-action 'none'; frame-ancestors 'none'; img-src 'self' data:; manifest-src 'none'; object-src 'none'; script-src 'self'; style-src 'self'; worker-src 'none'",
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+  'Referrer-Policy': 'no-referrer',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-Robots-Tag': 'noindex, nofollow, noarchive',
+});
+
 export class MmcHttpError extends Error {
   constructor(statusCode, code, publicMessage, options = {}) {
     super(publicMessage, { cause: options.cause });

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Matrix Mentor Console">
+  <path fill="#0b0e14" d="M4 4h48l8 8v48H12l-8-8z"/>
+  <path fill="none" stroke="#ffb340" stroke-width="4" d="M14 44V20l10 14 8-14 8 14 10-14v24"/>
+  <circle cx="32" cy="46" r="3" fill="#39d6ff"/>
+</svg>

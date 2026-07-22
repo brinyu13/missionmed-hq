@@ -12,6 +12,7 @@ import {
   readBoundedJsonBody,
   safeMmcErrorPayload,
 } from '../../lib/mmc/trust/security.mjs';
+import { handleMmcMentorRoute, isMmcMentorPath } from './mentor.mjs';
 
 export const MMC_V2_PREFIX = '/api/mmc/v2';
 const LOCAL_KERNEL_ENVIRONMENTS = new Set(['FIXTURE', 'LOCAL']);
@@ -23,6 +24,10 @@ export function isMmcV2Path(pathname = '') {
 }
 
 export async function handleMmcV2Route(request, response, url, deps = {}) {
+  if (isMmcMentorPath(url?.pathname)) {
+    await handleMmcMentorRoute(request, response, url, deps);
+    return;
+  }
   const correlationId = `corr_${crypto.randomUUID()}`;
   const headers = { ...(deps.authHeaders || {}), ...MMC_JSON_SECURITY_HEADERS };
   const send = (status, payload) => deps.sendJson(response, status, payload, headers);

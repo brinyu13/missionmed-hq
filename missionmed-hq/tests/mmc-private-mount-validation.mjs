@@ -7,6 +7,7 @@ import { decodeCanonicalRequestPathname } from '../lib/mmc/trust/security.mjs';
 const rootDir = process.cwd();
 const serverPath = path.join(rootDir, 'missionmed-hq/server.mjs');
 const securityPath = path.join(rootDir, 'missionmed-hq/lib/mmc/trust/security.mjs');
+const localReviewMountPath = path.join(rootDir, 'missionmed-hq/lib/mmc/ui/local-review-mount.mjs');
 const mountDir = path.join(rootDir, 'missionmed-hq/public/mmc-private');
 const requiredMountFiles = [
   'index.html',
@@ -18,6 +19,7 @@ const requiredMountFiles = [
 
 const serverSource = readFileSync(serverPath, 'utf8');
 const securitySource = readFileSync(securityPath, 'utf8');
+const localReviewMountSource = readFileSync(localReviewMountPath, 'utf8');
 const mountSources = requiredMountFiles
   .map((relativePath) => readFileSync(path.join(mountDir, relativePath), 'utf8'))
   .join('\n');
@@ -29,7 +31,7 @@ for (const relativePath of requiredMountFiles) {
 }
 
 for (const requiredServerPattern of [
-  /const MMC_PRIVATE_ROUTE_PREFIX = '\/mmc-private';/u,
+  /MMC_PRIVATE_ROUTE_PREFIX/u,
   /MMHQ_MMC_PRIVATE_ALLOWED_WP_ROLES/u,
   /MMHQ_MMC_PRIVATE_ALLOWED_WP_EMAILS/u,
   /function isMmcPrivatePath/u,
@@ -46,6 +48,9 @@ for (const requiredServerPattern of [
   /X-MissionMed-Private-Mount/u,
   /MMC_JSON_SECURITY_HEADERS/u,
   /mmc_historical_surface_sealed/u,
+  /MMHQ_MMC_CAM_V2_LOCAL_UI_ENABLED/u,
+  /isMmcCamV2LocalUiEnabled/u,
+  /serveMmcCamV2LocalUi/u,
   /decodeCanonicalRequestPathname\(url\.pathname\)/u,
 ]) {
   assert.match(serverSource, requiredServerPattern, `Missing private mount guard pattern: ${requiredServerPattern}`);
@@ -99,10 +104,18 @@ assert.match(privateSessionAuthSource, /isAuthorizedMmcPrivateUser\(session\.use
 const privateMountHandlerSource = extractBetween(serverSource, 'async function handleMmcPrivateMount', 'function getMmcPersistenceConfig');
 assert.match(privateMountHandlerSource, /sendJson\(response, 410/u,
   'The historical HTML surface must be sealed at the authenticated runtime mount.');
+assert.match(privateMountHandlerSource, /isMmcCamV2LocalUiEnabled/u,
+  'The CAM v2 review surface must require the explicit local-only enablement predicate.');
 assert.match(privateMountHandlerSource, /\.\.\.MMC_JSON_SECURITY_HEADERS/u,
   'The sealed mount response must enforce the strict MMC JSON CSP and no-store header set.');
 assert.doesNotMatch(privateMountHandlerSource, /serveStatic/u,
   'The runtime mount must not serve the inline-handler historical HTML surface.');
+assert.match(localReviewMountSource, /\['FIXTURE', 'LOCAL'\]\.includes\(environment\)/u,
+  'The CAM v2 review surface must be restricted to fixture/local environments.');
+assert.match(localReviewMountSource, /options\.isProduction !== true/u,
+  'The CAM v2 local review surface must fail closed in production.');
+assert.match(localReviewMountSource, /realpath/u,
+  'The CAM v2 asset resolver must canonicalize files before serving them.');
 
 const privateRouteIndex = serverSource.indexOf('if (isMmcPrivatePath(pathname))');
 const apiRouteIndex = serverSource.indexOf("if (pathname.startsWith('/api/'))");
@@ -200,7 +213,13 @@ assert.match(appSource, /exportPilotSnapshot/u, 'MMC private mount must expose l
 assert.match(appSource, /recoverSession/u, 'MMC private mount must expose session recovery.');
 
 const discoveredFiles = listFiles(mountDir).map((file) => path.relative(mountDir, file).replaceAll(path.sep, '/')).sort();
-assert.deepEqual(discoveredFiles, requiredMountFiles.sort(), 'MMC private mount should contain only the expected packaged alpha files.');
+const historicalFiles = discoveredFiles.filter((file) => !file.startsWith('src/cam/'));
+const camV2Files = discoveredFiles.filter((file) => file.startsWith('src/cam/'));
+assert.deepEqual(historicalFiles, requiredMountFiles.sort(),
+  'The sealed historical mount should contain only its preserved archaeology files outside the isolated CAM v2 root.');
+assert.ok(camV2Files.includes('src/cam/index.html'), 'The isolated CAM v2 review root must include its own index.');
+assert.ok(camV2Files.every((file) => file.startsWith('src/cam/')),
+  'Every new CAM v2 review asset must remain inside the isolated CAM root.');
 
 console.log('MMC private mount validation passed');
 

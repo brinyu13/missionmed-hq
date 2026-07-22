@@ -10,6 +10,7 @@ import {
   MMC_STUDENT_RESPONSE_KINDS,
 } from '../../../lib/mmc/contracts/command-contract.mjs';
 import { ENVIRONMENT } from '../../../lib/mmc/contracts/state-contract.mjs';
+import { MMC_JOB_KINDS } from '../../../lib/mmc/jobs/durable-job-kernel.mjs';
 import { PUBLICATION_ITEM_KIND } from '../../../lib/mmc/publication/publication-contract.mjs';
 
 const testDirectory = dirname(fileURLToPath(import.meta.url));
@@ -26,10 +27,6 @@ const migrationTimestamp = migrationName.match(migrationPattern)[1];
 const migration = readFileSync(resolve(migrationsDirectory, migrationName), 'utf8');
 const validationName = '20260715_mmc_cam_v2_rls_validation.sql';
 const validation = readFileSync(resolve(snippetsDirectory, validationName), 'utf8');
-const durableJobKernel = readFileSync(
-  resolve(repositoryRoot, 'missionmed-hq/lib/mmc/jobs/durable-job-kernel.mjs'),
-  'utf8',
-);
 
 function sorted(values) {
   return [...values].sort();
@@ -305,13 +302,8 @@ assert.doesNotMatch(migration, /'ACKNOWLEDGE'|'AGREE'|'COMMENT'/,
   'legacy response spellings must not remain admissible in the v2 schema');
 
 // Exact-set parity is executable rather than a loose string-presence check.
-// The durable-job module does not export its enqueue vocabulary yet, so this
-// validator extracts the canonical JS Set used by validateEnqueue directly.
-const jsJobKindsMatch = durableJobKernel.match(
-  /jobKind: requireEnum\(input\.jobKind, new Set\(\[([\s\S]*?)\]\), 'jobKind'\)/,
-);
-assert.ok(jsJobKindsMatch, 'could not extract canonical JS durable-job vocabulary');
-const jsJobKinds = parseSqlStringList(jsJobKindsMatch[1]);
+// MegaRun 007 exports the durable vocabulary so both this gate and the
+// machine-readable parity manifest consume one JavaScript authority.
 assert.deepEqual(
   sorted(extractSqlCheckVocabulary('cam_v2_tenants', 'environment')),
   sorted(Object.values(ENVIRONMENT)),
@@ -319,7 +311,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   sorted(extractSqlCheckVocabulary('cam_v2_jobs', 'job_kind')),
-  sorted(jsJobKinds),
+  sorted(MMC_JOB_KINDS),
   'SQL and JS durable-job kind vocabularies drifted',
 );
 assert.deepEqual(

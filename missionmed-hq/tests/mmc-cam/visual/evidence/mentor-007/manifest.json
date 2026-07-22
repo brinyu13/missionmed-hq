@@ -1,0 +1,390 @@
+{
+  "schemaVersion": 1,
+  "title": "MMC CAM 007 Founder Review Screenshot Manifest",
+  "capturedAt": "2026-07-22T16:30:57.723Z",
+  "dataClassification": "SYNTHETIC_ONLY",
+  "productionConnections": false,
+  "captureSurface": "viewport only; browser chrome excluded",
+  "browserClaim": "Chromium via local system Google Chrome (150.0.7871.181)",
+  "axeClaim": "NOT_RUN",
+  "voiceOverClaim": "NOT_RUN",
+  "humanUsabilityClaim": "NOT_RUN",
+  "totalFiles": 22,
+  "totalBytes": 1237469,
+  "entries": [
+    {
+      "id": "call-prep-1280x800",
+      "file": "call-prep-1280x800.jpg",
+      "sha256": "862c9363455ef8a85638b3b2dad2c93390154608bb022e5765f7ca9975b04c48",
+      "bytes": 67663,
+      "route": "/mmc-private/students/subject_007_001/prep",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "long-rtl-1280x800",
+      "file": "long-rtl-1280x800.jpg",
+      "sha256": "7aa6fe23654a428d6ca0617b46ad83eaa0a7caa422d514e83a1361d5fd07128c",
+      "bytes": 73953,
+      "route": "/mmc-private/students/subject_007_001/overview",
+      "scenario": "long-rtl",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "long-transcript-1280x800",
+      "file": "long-transcript-1280x800.jpg",
+      "sha256": "b8818ced717e3ac6baf65c828a07760acedcbb323816cc7f353fd0ed7c41cb2b",
+      "bytes": 76386,
+      "route": "/mmc-private/students/subject_007_001/history/sessions/session_007_history_001",
+      "scenario": "long-transcript",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "operations-1280x800",
+      "file": "operations-1280x800.jpg",
+      "sha256": "8a6df32f049de8ecd894f3f59953c858d53cce9a2a8f6e3ef6c5edd406362818",
+      "bytes": 82256,
+      "route": "/mmc-private/operations",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "reviews-1280x800",
+      "file": "reviews-1280x800.jpg",
+      "sha256": "f6552e093bc021390f3c075609c01db923f36b9ac05def321d3c548eb36df3eb",
+      "bytes": 67045,
+      "route": "/mmc-private/reviews",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-conflict-390x844",
+      "file": "state-conflict-390x844.jpg",
+      "sha256": "e11dec69e4e5df97cc211ebdeb79e026c6eed24d17c6f5a3f632d6fbabba1a5a",
+      "bytes": 36562,
+      "route": "/mmc-private/students",
+      "scenario": "conflict",
+      "expectedState": "CONFLICT",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-empty-390x844",
+      "file": "state-empty-390x844.jpg",
+      "sha256": "535381b7f80249ec8d0aae12885c2f3d020eb4cef1fcb8ee18ea286b8fcfdfa6",
+      "bytes": 37710,
+      "route": "/mmc-private/today",
+      "scenario": "empty",
+      "expectedState": null,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-error-390x844",
+      "file": "state-error-390x844.jpg",
+      "sha256": "23ad43c23fab766962261a761e4bba782d3d1d5f6242b0d94cdb1b4fbc2b6cd7",
+      "bytes": 32529,
+      "route": "/mmc-private/today",
+      "scenario": "error",
+      "expectedState": null,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Environment unconfirmed",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-loading-390x844",
+      "file": "state-loading-390x844.jpg",
+      "sha256": "f880bb698c29b00e49055a33337c4103d62ead06136d8246625c876f45c3acd8",
+      "bytes": 25962,
+      "route": "/mmc-private/today",
+      "scenario": "loading",
+      "expectedState": "loading",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Environment unconfirmed",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-offline-not-saved-390x844",
+      "file": "state-offline-not-saved-390x844.jpg",
+      "sha256": "2776a9ff360c718c90d3c7a0da79df77599478d27d3c5d6281d58906d42e650b",
+      "bytes": 34914,
+      "route": "/mmc-private/students",
+      "scenario": "offline-not-saved",
+      "expectedState": "OFFLINE_NOT_SAVED",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-partial-390x844",
+      "file": "state-partial-390x844.jpg",
+      "sha256": "b530feeb1c9dc79b658a7d0bee65bc28135d45b85e56c49c2cb483c41353f330",
+      "bytes": 38957,
+      "route": "/mmc-private/today",
+      "scenario": "partial",
+      "expectedState": null,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-revoked-390x844",
+      "file": "state-revoked-390x844.jpg",
+      "sha256": "672b6b11446ee5be0f46b96a6d5c8b587fe6ba72bf2b492788b4df63de906761",
+      "bytes": 30642,
+      "route": "/mmc-private/today",
+      "scenario": "revoked",
+      "expectedState": null,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Environment unconfirmed",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "state-stale-390x844",
+      "file": "state-stale-390x844.jpg",
+      "sha256": "01b3847ed9ba9b358ae262f00c56b2c7eef83f6cf8a503cf785cfeceec21f345",
+      "bytes": 38360,
+      "route": "/mmc-private/today",
+      "scenario": "stale",
+      "expectedState": null,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "student-overview-1280x800",
+      "file": "student-overview-1280x800.jpg",
+      "sha256": "4b6a16d4fb8e609b5574c729fbe330d202015c4bf2a7387004abca4ad8d4d352",
+      "bytes": 73255,
+      "route": "/mmc-private/students/subject_007_001/overview",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "students-1280x800",
+      "file": "students-1280x800.jpg",
+      "sha256": "6977cb572dbea48ecaf385dfd92f488f1ec3312d7f2af94935a935d6adaa05f2",
+      "bytes": 63646,
+      "route": "/mmc-private/students",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "today-1024x768",
+      "file": "today-1024x768.jpg",
+      "sha256": "25b997936c734df98a3f202d879a3245b2d311f5a4036dc408b63c9117ad37c2",
+      "bytes": 72455,
+      "route": "/mmc-private/today",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1024,
+        "height": 768
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "today-1280x800",
+      "file": "today-1280x800.jpg",
+      "sha256": "ebbc45608dc5ec293b077e830af17b45632b3d8068a38512d5c37151c2c535c2",
+      "bytes": 78985,
+      "route": "/mmc-private/today",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "today-1440x900",
+      "file": "today-1440x900.jpg",
+      "sha256": "46746b67153c84784af4d230c009cccf9338723d6770df85d745997c7b7ef17f",
+      "bytes": 91162,
+      "route": "/mmc-private/today",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "today-320x740",
+      "file": "today-320x740.jpg",
+      "sha256": "ef3d9de1332f5f57583bb4b12b7eb6a655cf19361843986cfec12f04168b7801",
+      "bytes": 32101,
+      "route": "/mmc-private/today",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 320,
+        "height": 740
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "today-390x844",
+      "file": "today-390x844.jpg",
+      "sha256": "f776ac6693b2705dcbca3e7b1ebf638f153451963cc95a4ea47b72c92f58d908",
+      "bytes": 38515,
+      "route": "/mmc-private/today",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "today-768x1024",
+      "file": "today-768x1024.jpg",
+      "sha256": "2b1ba30ec49549f5072f3dd549c9921e585db961d903f87c850bd0872733af26",
+      "bytes": 78479,
+      "route": "/mmc-private/today",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 768,
+        "height": 1024
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    },
+    {
+      "id": "work-1280x800",
+      "file": "work-1280x800.jpg",
+      "sha256": "1128144a01f8ffba0a71bcbc5dee2e026391be7498a810be42b47319a9e52cdb",
+      "bytes": 65932,
+      "route": "/mmc-private/work",
+      "scenario": "default",
+      "expectedState": null,
+      "viewport": {
+        "width": 1280,
+        "height": 800
+      },
+      "browser": "Chromium via local system Google Chrome (150.0.7871.181)",
+      "visibleEnvironmentBadge": "Fixture · synthetic data",
+      "dataClassification": "SYNTHETIC_ONLY",
+      "productionConnections": false
+    }
+  ]
+}
