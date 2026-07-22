@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 import { assertCurrentSourceRights } from "../src/source-authorization.mjs";
+
+const riseRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function gate(validThrough = "2099-12-31") {
   return {
@@ -44,4 +49,13 @@ test("production requires an exact set of authorization pins", () => {
     production: true,
     expectedAuthorizationSha256s: "a".repeat(64),
   }), true);
+});
+
+test("blocked source configuration exposes no direct source locator or real-program resolution", async () => {
+  const dataset = JSON.parse(await fs.readFile(path.join(riseRoot, "config/dataset.v1.json"), "utf8"));
+  const resolutions = JSON.parse(await fs.readFile(path.join(riseRoot, "config/source-resolutions.v1.json"), "utf8"));
+  assert.equal(dataset.canonicalGoogleSheetId, null);
+  assert.equal(dataset.requiredSourceAuthorizations[0].approvedRecordSha256, null);
+  assert.equal(resolutions.authorizationStatus, "blocked_pending_source_owner_rights");
+  assert.deepEqual(resolutions.resolutions, {});
 });

@@ -118,7 +118,7 @@ test("same-origin route contract covers the application, vendor asset, and API",
   assert.equal(routeContract.browserApiUrls, "relative_same_origin_only");
   assert.deepEqual(routeContract.requiredPathMappings.map((item) => item.publicPrefix), [
     "/rise",
-    "/vendor/lucide.js",
+    "/rise/vendor/lucide.js",
     "/api/rise/v1",
   ]);
   assert.equal(routeContract.edgeOwnerApprovalRequired, true);

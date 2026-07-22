@@ -548,7 +548,7 @@ function resolveAbuseController(controller, { production }) {
 
 async function serveStatic(request, requestPath, response, webDirectory, requestId) {
   let relative = requestPath === "/rise/" || requestPath === "/rise" ? "index.html" : requestPath.slice("/rise/".length);
-  if (requestPath === "/vendor/lucide.js") {
+  if (requestPath === "/rise/vendor/lucide.js") {
     const bundledVendorPath = path.resolve(webDirectory, "vendor/lucide.js");
     let body;
     try {

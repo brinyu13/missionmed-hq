@@ -1,31 +1,7 @@
 {
   "schemaVersion": 1,
-  "reviewedAt": "2026-07-15",
-  "reviewedBy": "Codex",
-  "resolutions": {
-    "1401900001": {
-      "id": "rise_source_resolution_1401900001_2026-07-15",
-      "action": "quarantine_stale_malformed_duplicate",
-      "normalizedExternalProgramId": "1401900001",
-      "winningRawExternalProgramId": "1401900001",
-      "quarantinedRawExternalProgramId": "1401900001 ",
-      "winningObservation": {
-        "sheet": "Internal Medicine",
-        "sourceRow": 685,
-        "programName": "University of Kansas School of Medicine (Olathe) Program",
-        "sourceUpdatedAt": "2026-02-19",
-        "surveyReceivedAt": "2025-06-11",
-        "freidaUrl": "https://freida.ama-assn.org/program/1401900001/program-work-schedule"
-      },
-      "quarantinedObservation": {
-        "sheet": "Internal Medicine",
-        "sourceRow": 684,
-        "programName": "University of Kansas School of Medicine (Olathe) Program",
-        "sourceUpdatedAt": "2024-04-19",
-        "surveyReceivedAt": null,
-        "freidaUrl": "https://freida.ama-assn.org/program/1401900001 /program-work-schedule"
-      },
-      "rationale": "The observations normalize to the same FREIDA/ACGME identifier and name/institution/location. The quarantined observation has a trailing-space identifier, malformed URL, no survey receipt, zero residents, and older sparse data. The normalized observation is current and populated. The stale row remains in the release quarantine and is not silently deleted or merged."
-    }
-  }
+  "reviewedAt": null,
+  "reviewedBy": null,
+  "authorizationStatus": "blocked_pending_source_owner_rights",
+  "resolutions": {}
 }

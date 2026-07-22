@@ -189,7 +189,7 @@ test("health is public and static responses include restrictive headers", async 
   assert.equal(head.status, 200);
   assert.equal(await head.text(), "");
 
-  const vendor = await fetch(`${baseUrl}/vendor/lucide.js`);
+  const vendor = await fetch(`${baseUrl}/rise/vendor/lucide.js`);
   assert.equal(vendor.status, 200);
   assert.equal(vendor.headers.get("cache-control"), "no-cache");
 

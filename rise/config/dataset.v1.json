@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "datasetVersion": "rise-freida-2026-07-09",
-  "canonicalGoogleSheetId": "1sHpiFtlQgCZMN9eIR5ZtudyErPP9OkFAeCiXPmQ8uVA",
+  "canonicalGoogleSheetId": null,
   "canonicalWorkbook": "MissionMed_RISE_Residency_Database_EVERY_SPECIALTY_GSHEETS.xlsx",
   "canonicalContentSha256": "40d86561cf08ff56ede703d999849740bad36ac536518da23495cbada1262494",
   "referenceLocalWorkbookSha256": "c627397c69d2fad42c07a0b66951f3f3a4957a86c231d93a5bd925cdb2d87b9e",

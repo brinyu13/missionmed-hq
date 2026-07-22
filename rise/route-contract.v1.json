@@ -10,8 +10,8 @@
       "methods": ["GET", "HEAD"]
     },
     {
-      "publicPrefix": "/vendor/lucide.js",
-      "servicePrefix": "/vendor/lucide.js",
+      "publicPrefix": "/rise/vendor/lucide.js",
+      "servicePrefix": "/rise/vendor/lucide.js",
       "methods": ["GET", "HEAD"]
     },
     {

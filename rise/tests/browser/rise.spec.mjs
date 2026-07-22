@@ -91,7 +91,7 @@ test.beforeEach(async ({ page }) => {
     const url = new URL(request.url());
     const cacheable = request.method() === "GET" && (
       url.pathname.startsWith("/rise") ||
-      url.pathname === "/vendor/lucide.js" ||
+      url.pathname === "/rise/vendor/lucide.js" ||
       url.pathname.startsWith("/api/rise/v1/")
     );
     if (!cacheable) {
@@ -157,7 +157,7 @@ test("signed-out users receive an explicit access state without registry data", 
 });
 
 test("production assets render the selected Lucide bundle within budget", async ({ page, request }) => {
-  const response = await request.get("/vendor/lucide.js");
+  const response = await request.get("/rise/vendor/lucide.js");
   expect(response.ok()).toBeTruthy();
   expect((await response.body()).byteLength).toBeLessThan(30_000);
 
