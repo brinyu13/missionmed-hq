@@ -1094,6 +1094,40 @@ a {
   overflow-x: auto;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
+  scrollbar-gutter: stable;
+}
+
+.compare-column-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.compare-column-actions .button {
+  max-width: min(100%, 360px);
+}
+
+.compare-column-actions .button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.compare-scroll-cue {
+  display: none;
+  min-height: 24px;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--text-dim);
+}
+
+.compare-source {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-dim);
+  font-family: var(--mono);
+  font-size: 10px;
 }
 
 .compare-table {
@@ -1136,6 +1170,12 @@ a {
   min-height: 44px;
   padding: 8px 10px;
   font-size: 12px;
+}
+
+@media (max-width: 700px) {
+  .compare-scroll-cue {
+    display: flex;
+  }
 }
 
 .integration-grid {

@@ -1,4 +1,7 @@
 import { createRiseServer } from "../../server.mjs";
+import { fileURLToPath } from "node:url";
+
+const SELECTED_FIELD_COUNT = 72;
 
 function known(value) {
   return {
@@ -18,6 +21,23 @@ function unknown() {
 }
 
 function program({ id, name, designation, city, state, memberships, j1, h1b, director }) {
+  const fields = {
+    "Program Website": known("https://example.test/program"),
+    "Program Best Described As": known("University-based"),
+    "Program Director": known(director),
+    "Program Director Credentials": known("MD"),
+    "Program Coordinator": known("Synthetic Coordinator"),
+    "Total Residents": known(36),
+    "Residents Per Year": known(12),
+    "Salary PGY1": known(72000),
+    Vacation: known("20 days"),
+    J1: j1 ? known(true) : unknown(),
+    H1B: h1b ? known(true) : unknown(),
+    "COMLEX Accepted": unknown(),
+    "Research Track": known(false),
+  };
+  const knownSelectedClaims = Object.values(fields)
+    .filter((field) => field.knowledge.state === "known").length;
   return {
     id: `rise_prg_${id}`,
     programSpecialtyId: `rise_ps_${id}`,
@@ -34,31 +54,17 @@ function program({ id, name, designation, city, state, memberships, j1, h1b, dir
     entryFormat: "categorical",
     components: designation.split("/"),
     browseMemberships: memberships,
-    fields: {
-      "Program Website": known("https://example.test/program"),
-      "Program Best Described As": known("University-based"),
-      "Program Director": known(director),
-      "Program Director Credentials": known("MD"),
-      "Program Coordinator": known("Synthetic Coordinator"),
-      "Total Residents": known(36),
-      "Residents Per Year": known(12),
-      "Salary PGY1": known(72000),
-      Vacation: known("20 days"),
-      J1: j1 ? known(true) : unknown(),
-      H1B: h1b ? known(true) : unknown(),
-      "COMLEX Accepted": unknown(),
-      "Research Track": known(false),
-    },
+    fields,
     evidence: {
-      knownClaims: 10,
-      knownEvidenceLabeledClaims: 10,
-      knownSelectedClaims: 10,
-      evidenceLabeledClaims: 12,
+      knownClaims: knownSelectedClaims,
+      knownEvidenceLabeledClaims: knownSelectedClaims,
+      knownSelectedClaims,
+      evidenceLabeledClaims: Object.keys(fields).length,
       quarantinedClaims: 0,
-      coveragePercent: 62.5,
-      selectedFieldCount: 62,
-      absentSelectedClaims: 50,
-      unknownSelectedClaims: 52,
+      coveragePercent: Math.round(knownSelectedClaims / SELECTED_FIELD_COUNT * 1000) / 10,
+      selectedFieldCount: SELECTED_FIELD_COUNT,
+      absentSelectedClaims: SELECTED_FIELD_COUNT - Object.keys(fields).length,
+      unknownSelectedClaims: SELECTED_FIELD_COUNT - knownSelectedClaims,
       matchableClaims: 0,
     },
     source: {
@@ -103,6 +109,7 @@ const registryIndex = {
   filters: {
     states: ["CA", "IL", "NY", "WA"],
     specialties: ["Internal Medicine", "Neurology", "Pediatrics"],
+    designations: ["Internal Medicine", "Internal Medicine/Pediatrics", "Neurology", "Pediatrics"],
   },
   programs: [
     program({
@@ -155,6 +162,7 @@ const server = createRiseServer({
   authMode: "local-preview",
   buildId: "synthetic-browser-fixture",
   environment: "test",
+  webDirectory: fileURLToPath(new URL("../../dist/", import.meta.url)),
   logger: { info() {}, error() {} },
 });
 

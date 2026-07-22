@@ -5,7 +5,11 @@
 !server.mjs
 !src/
 !src/**
+!adapters/
+!adapters/**
 !tools/
 !tools/build-app.mjs
+!tools/prepare-runtime.mjs
+!tools/start-production.mjs
 !web/
 !web/**

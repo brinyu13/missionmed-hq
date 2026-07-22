@@ -1,16 +1,17 @@
 # MissionMed RISE
 
-This directory contains the isolated production-candidate foundation for RISE. It does not modify or deploy the protected MissionMed HQ, WordPress, Matrix, ACTN, CAM, StoryForge, Railway, or Supabase runtimes.
+This directory contains the isolated Founder-review candidate for RISE. It does not modify or deploy the protected MissionMed HQ, WordPress, Matrix, ACTN, CAM, StoryForge, Railway, Cloudflare, MissionMed OS, or Supabase runtimes.
 
 ## Isolated Service Package
 
-RISE has its own package boundary, lockfile, container recipe, and Railway config under `rise/`. A future approved Railway service must use `/rise` as its service root and `/rise/railway.json` as its config path. The contract in `deployment-contract.v1.json` prevents the service from falling through to the shared HQ entrypoint and records every required production pin. It is a reviewable deployment blueprint only; no Railway service currently exists.
+RISE has its own package boundary, lockfile, pinned container recipe, and Railway config under `rise/`. A future approved Railway service must use `/rise` as its service root and `/rise/railway.json` as its config path. The contracts in `deployment-contract.v1.json` and `route-contract.v1.json` prevent the service from falling through to the shared HQ entrypoint, require an approved same-origin reverse proxy, and record every production pin. They are reviewable deployment blueprints only; no RISE Railway service or edge route currently exists.
 
 ```bash
 cd rise
 npm ci
 npm test
 npm run build
+npm run test:browser
 ```
 
 ## Registry Import
@@ -65,17 +66,34 @@ Legacy ordinal `RISE_ID` values are aliases only. Missing claims remain unknown.
 
 FREIDA values are labeled as dated, program-reported census data. FREIDA and Residency Explorer ingestion are each blocked unless a separately reviewed, current written authorization record from the applicable owner explicitly permits creating or supplementing the RISE database.
 
-## Runtime Authentication
+## Production Runtime
 
-Local preview uses a synthetic fixture on a loopback address only. A hosted runtime must set `RISE_AUTH_MODE=injected`, provide `RISE_AUTH_ADAPTER_MODULE`, and return a host-authenticated session with audience `rise` plus `rise:read` (and `rise:operator` where needed). Browser bearer tokens are rejected. Production is detected from either `NODE_ENV=production` or `RISE_ENVIRONMENT=production` and requires `RISE_INDEX_SHA256`, `RISE_INDEX_MANIFEST_PATH`, `RISE_SOURCE_AUTHORIZATION_SHA256S`, `RISE_ASSET_MANIFEST_SHA256`, an authenticated web asset manifest, and `RISE_ABUSE_ADAPTER_MODULE` exporting a shared durable abuse-controller factory. `RISE_REVOKED_SOURCE_AUTHORIZATION_SHA256S` immediately blocks listed authorization records.
+Local preview uses a synthetic fixture on a loopback address only. A hosted runtime uses the concrete HQ introspection adapter in `adapters/hq-auth.mjs`; it accepts only the named HQ session cookie, binds issuer and audience exactly to `rise`, rejects browser bearer tokens, and exposes no email or upstream access token. State-changing requests require the session CSRF token. The signed-out shell is public, while every registry and operator API remains authenticated and capability-gated.
+
+`tools/start-production.mjs` downloads the API index, index manifest, activation receipt, and web asset manifest into a new temporary runtime directory. Each artifact is fetched from the configured same-origin HTTPS origin with the dedicated artifact credential and is size- and SHA-256-verified before the server starts. The server independently revalidates the release, manifest, activation receipt, current source-authorization set, and every web asset hash. Production also requires the shared durable abuse adapter in `adapters/http-abuse.mjs`, an HMAC audit key, a verified activation decision, and the exact environment listed in `deployment-contract.v1.json`.
+
+```bash
+cd rise
+npm run start:production
+```
+
+That command is intentionally fail-closed today because the real source-authorization pins, activation receipt, runtime artifacts, service secrets, and approved route do not exist.
+
+Cross-product contracts live in `contracts/`. Matrix projections are consent- and purpose-bound; ACTN and StoryForge payloads carry references without copying canonical content; all owner activation statuses remain disabled until their respective owners approve and implement them.
 
 ## Proposed Database Migrations
 
-`001_rise_registry.proposed.sql` defines immutable, release-scoped registry data and atomic activation. `002_rise_app_and_audit.proposed.sql` defines private session, consented Matrix projection, saved/compare, assessment, handoff, operator-queue, append-only audit, and recovery-checkpoint planes. All app tables are RLS-enabled and forced with no policies or runtime grants, so they remain inaccessible until the approved identity and database owners install narrowly scoped policies. Both down migrations refuse destructive deletion.
+`001_rise_registry.proposed.sql` defines immutable, release-scoped registry data and atomic activation. `002_rise_app_and_audit.proposed.sql` defines private session, consented Matrix projection, saved/compare, assessment, handoff, operator-queue, append-only audit, and recovery-checkpoint planes. `003_rise_release_security_hardening.proposed.sql` binds activation to current source-authorization and validation receipts, binds sessions to the complete authorization identity, serializes an HMAC audit chain, and limits registry readers to active non-quarantine views. All app tables remain RLS-enabled and forced with no policies or runtime grants until approved owners install narrowly scoped policies. Every down migration refuses destructive weakening.
+
+The three migrations and activation/rollback behavior can be rehearsed only in a new disposable PostgreSQL database using `tests/fixtures/postgres-rehearsal.sql`. They must not be applied to any shared or production database without database-owner approval, a backup, and an independently proven rollback point.
 
 ## Tests
 
 ```bash
-node --test rise/tests/*.test.mjs
-npm run test:rise:browser
+cd rise
+npm test
+npm run test:browser
+node tests/stress-synthetic.mjs
 ```
+
+The browser command builds and tests the authenticated `dist` artifact, including the selected official Lucide icon bundle. The stress harness uses synthetic programs, consumes complete response bodies, and does not establish production capacity.

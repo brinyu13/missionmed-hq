@@ -13,27 +13,27 @@ const skipLink = document.querySelector("#skip-link");
 
 const FIELD_GROUPS = {
   overview: [
-    "Program Website", "Program Best Described As", "Program Length", "First Year Positions",
-    "Residents Per Year", "Total Residents", "Official Program Description", "Curriculum Summary",
+    "Program Website", "FREIDA URL", "Program Best Described As", "Program Length", "First Year Positions",
+    "Categorical Positions", "Residents Per Year", "Total Residents", "Official Program Description", "Curriculum Summary",
   ],
   training: [
-    "Salary PGY1", "Salary PGY2", "Salary PGY3", "Vacation", "Meal Allowance",
-    "Educational Stipend", "Average Work Hours", "Research Track", "Research Opportunities",
+    "Salary PGY1", "Salary PGY2", "Salary PGY3", "Salary PGY4", "Vacation", "Meal Allowance",
+    "Educational Stipend", "Average Work Hours", "Research Requirement", "Research Track", "Research Opportunities",
     "Night Float", "Call Schedule", "Clinic Structure", "Moonlighting", "Simulation Center",
-    "Didactics", "Career Mentorship", "Benefits", "Wellness",
+    "Didactics", "Career Mentorship", "Board Pass Rate", "Benefits", "Housing", "Parking", "Childcare", "Wellness",
   ],
   application: [
     "Application Deadline", "Application Service", "Applicant Interview Format", "ERAS Participates",
     "NRMP Main Match Participation", "Minimum LOR", "Maximum LOR", "Specialty Specific LOR Required",
     "Requires Previous GME", "Offers Preliminary Positions", "Required Away Rotations",
     "Required Supplemental Information", "Osteopathic Recognition", "Medical School Graduation Timeline",
-    "COMLEX Accepted", "Step Preferences", "US MD Step 1 Required", "IMG Step 1 Required",
+    "Gap Experience Requirement", "COMLEX Accepted", "Step Preferences", "US MD Step 1 Required", "US MD Step 2 Required", "IMG Step 1 Required",
     "IMG Step 2 Required", "DO COMLEX Level 1 Required", "DO COMLEX Level 2 Required",
     "DO Step 1 Required", "DO Step 2 Required", "Visa Sponsorship", "J1", "H1B", "F1 OPT First Year",
   ],
   people: [
     "Program Director", "Program Director Credentials", "Program Coordinator", "Coordinator Email",
-    "Coordinator Phone", "International Graduates", "US Graduates", "DO Graduates Percent",
+    "Coordinator Phone", "Faculty Page URL", "DO Graduates Percent",
     "US MD Graduates Percent", "IMG Graduates Percent",
   ],
 };
@@ -48,6 +48,7 @@ const state = {
   status: null,
   session: null,
   currentSearch: null,
+  lastExplorerRoute: "explorer",
   profile: null,
   profileTab: "overview",
   compareIds: readCompareIds(),
@@ -182,9 +183,16 @@ function createIcons() {
 }
 
 async function fetchJson(url, options = {}) {
+  const method = String(options.method ?? "GET").toUpperCase();
+  const mutation = new Set(["POST", "PUT", "PATCH", "DELETE"]).has(method);
   const response = await fetch(url, {
     ...options,
-    headers: { Accept: "application/json", ...(options.body ? { "Content-Type": "application/json" } : {}), ...options.headers },
+    headers: {
+      Accept: "application/json",
+      ...(options.body ? { "Content-Type": "application/json" } : {}),
+      ...(mutation && state.session?.csrfToken ? { "X-RISE-CSRF": state.session.csrfToken } : {}),
+      ...options.headers,
+    },
   });
   const body = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -246,7 +254,9 @@ function focusRenderedControl(selector, fallbackSelector) {
 function readCompareIds() {
   try {
     const parsed = JSON.parse(sessionStorage.getItem("rise-compare") || "[]");
-    return Array.isArray(parsed) ? parsed.filter((item) => typeof item === "string").slice(0, 4) : [];
+    return Array.isArray(parsed)
+      ? [...new Set(parsed.filter((item) => typeof item === "string" && /^[A-Za-z0-9:_-]{1,200}$/.test(item)))].slice(0, 4)
+      : [];
   } catch {
     return [];
   }
@@ -287,7 +297,7 @@ function renderLoading(label = "Loading registry data") {
 
 function renderError(title, message, action = "") {
   viewport.innerHTML = `
-    <div class="content-width error-state">
+    <div class="content-width error-state" role="alert">
       <div class="state-inner">
         <span class="state-icon"><i data-lucide="circle-alert"></i></span>
         <h1>${escapeHtml(title)}</h1>
@@ -406,8 +416,9 @@ function option(value, label, selectedValue) {
 }
 
 function renderExplorerShell(params) {
-  const filters = state.currentSearch?.filterOptions || { specialties: [], states: [] };
+  const filters = state.currentSearch?.filterOptions || { specialties: [], designations: [], states: [] };
   const specialty = params.get("specialty") || "";
+  const designation = params.get("designation") || "";
   const jurisdiction = params.get("jurisdiction") || "";
   const region = params.get("region") || "";
   const programType = params.get("programType") || "";
@@ -416,7 +427,7 @@ function renderExplorerShell(params) {
   const sort = params.get("sort") || "name";
   const q = params.get("q") || "";
   const includeCombined = params.get("includeCombined") !== "false";
-  const advancedFiltersOpen = Boolean(region || programType || visa || evidence);
+  const advancedFiltersOpen = Boolean(designation || region || programType || visa || evidence);
   setHeading("Explorer", "RISE / Programs");
   viewport.innerHTML = `
     <div class="content-width">
@@ -454,6 +465,13 @@ function renderExplorerShell(params) {
         </div>
         <button type="button" class="button button-quiet filter-more-toggle" data-toggle-more-filters aria-controls="filter-more-fields" aria-expanded="${advancedFiltersOpen}"><i data-lucide="sliders-horizontal"></i><span>${advancedFiltersOpen ? "Hide" : "More"} filters</span></button>
         <div class="filter-more${advancedFiltersOpen ? " is-open" : ""}" id="filter-more-fields">
+          <div class="field">
+            <label for="designation-filter">Exact Designation</label>
+            <select class="select-input" id="designation-filter" name="designation">
+              ${option("", "All exact designations", designation)}
+              ${(filters.designations || []).map((item) => option(item, item, designation)).join("")}
+            </select>
+          </div>
           <div class="field">
             <label for="region-filter">Region</label>
             <select class="select-input" id="region-filter" name="region">
@@ -508,10 +526,11 @@ function renderExplorerResults(result) {
         <div class="state-actions"><button type="button" class="button button-quiet" data-clear-filters>Clear filters</button></div>
       </div></div>`;
     createIcons();
+    routeAnnouncer.textContent = "No programs found for the selected filters";
     return;
   }
   container.innerHTML = `
-    <div class="result-meta"><span>${formatNumber(result.total)} program-specialty entries</span><span>Page ${result.page} of ${result.totalPages}</span></div>
+    <div class="result-meta" role="status" aria-live="polite"><span>${formatNumber(result.total)} program-specialty entries</span><span>Page ${result.page} of ${result.totalPages}</span></div>
     <div class="program-list">${result.records.map(programCard).join("")}</div>
     <nav class="pager" aria-label="Program result pages">
       <button type="button" class="button button-quiet" data-page="${result.page - 1}"${result.page <= 1 ? " disabled" : ""}><i data-lucide="chevron-left"></i>Previous</button>
@@ -519,6 +538,7 @@ function renderExplorerResults(result) {
       <button type="button" class="button button-quiet" data-page="${result.page + 1}"${result.page >= result.totalPages ? " disabled" : ""}>Next<i data-lucide="chevron-right"></i></button>
     </nav>`;
   createIcons();
+  routeAnnouncer.textContent = `${formatNumber(result.total)} program-specialty entries; page ${result.page} of ${result.totalPages}`;
 }
 
 function programCard(record) {
@@ -558,6 +578,8 @@ function visaSummary(visa) {
 }
 
 async function renderExplorer(params, context) {
+  state.lastExplorerRoute = window.location.hash.slice(1) || "explorer";
+  state.currentSearch = null;
   renderExplorerShell(params);
   const results = document.querySelector("#explorer-results");
   results.innerHTML = `<div class="loading-state" role="status"><div class="skeleton-lines" aria-hidden="true"><div class="skeleton-line"></div><div class="skeleton-line"></div><div class="skeleton-line"></div></div><span class="sr-only">Loading program results</span></div>`;
@@ -572,7 +594,8 @@ async function renderExplorer(params, context) {
     renderExplorerResults(state.currentSearch);
   } catch (error) {
     if (error.name === "AbortError" || !isCurrentRoute(context)) return;
-    results.innerHTML = `<div class="error-state"><div class="state-inner"><h2>Explorer unavailable</h2><p>${escapeHtml(error.message)}</p></div></div>`;
+    results.innerHTML = `<div class="error-state" role="alert"><div class="state-inner"><h2>Explorer unavailable</h2><p>${escapeHtml(error.message)}</p></div></div>`;
+    routeAnnouncer.textContent = `Explorer unavailable: ${error.message}`;
   }
 }
 
@@ -587,7 +610,7 @@ async function renderProfile(programSpecialtyId, context) {
     drawProfile();
   } catch (error) {
     if (error.name === "AbortError" || !isCurrentRoute(context)) return;
-    renderError("Program unavailable", error.message, `<div class="state-actions"><button class="button button-quiet" type="button" data-route="explorer">Return to Explorer</button></div>`);
+    renderError("Program unavailable", error.message, `<div class="state-actions"><button class="button button-quiet" type="button" data-route="${escapeHtml(state.lastExplorerRoute)}">Return to Explorer</button></div>`);
   }
 }
 
@@ -598,7 +621,7 @@ function drawProfile() {
   const combinedMemberships = record.browseMemberships.filter((item) => item.relationship === "RELATED_COMBINED");
   viewport.innerHTML = `
     <div class="content-width">
-      <button type="button" class="button button-quiet profile-back" data-route="explorer"><i data-lucide="arrow-left"></i>Explorer</button>
+      <button type="button" class="button button-quiet profile-back" data-route="${escapeHtml(state.lastExplorerRoute)}"><i data-lucide="arrow-left"></i>Explorer</button>
       <header class="profile-header">
         <div>
           <h1>${escapeHtml(record.display.programName)}</h1>
@@ -712,20 +735,41 @@ async function renderCompare(context) {
   }
   renderLoading("Loading program comparison");
   try {
-    const responses = await Promise.all(state.compareIds.map((id) => fetchJson(
+    const responses = await Promise.allSettled(state.compareIds.map((id) => fetchJson(
       `/api/rise/v1/program-specialties/${encodeURIComponent(id)}`,
       { signal: context.signal },
     )));
     if (!isCurrentRoute(context)) return;
-    const programs = responses.map((item) => item.program);
+    const programs = responses
+      .filter((item) => item.status === "fulfilled")
+      .map((item) => item.value.program);
+    const staleIds = state.compareIds.filter((_, index) => responses[index]?.status === "rejected");
+    if (staleIds.length) {
+      const validIds = new Set(programs.map((program) => program.programSpecialtyId));
+      state.compareIds = state.compareIds.filter((id) => validIds.has(id));
+      saveCompareIds();
+    }
+    if (!programs.length) {
+      viewport.innerHTML = `<div class="content-width empty-state"><div class="state-inner"><span class="state-icon"><i data-lucide="circle-alert"></i></span><h1>Comparison reset</h1><p>Saved selections were not available in this registry release and have been removed.</p><div class="state-actions"><button class="button button-primary" type="button" data-route="explorer">Open Explorer</button></div></div></div>`;
+      createIcons();
+      appendDecisionBoundary();
+      routeAnnouncer.textContent = "Unavailable comparison selections removed";
+      return;
+    }
     viewport.innerHTML = `
       <div class="content-width">
         <header class="page-header"><div><h1>Program comparison</h1><p>${programs.length} of 4 program slots selected. Unknown values remain visibly unknown.</p></div><div class="page-actions"><button type="button" class="button button-quiet" data-clear-compare><i data-lucide="trash-2"></i>Clear</button></div></header>
-        <div class="compare-table-wrap"><table class="compare-table">
-          <thead><tr><th scope="col">Field</th>${programs.map((program) => `<th scope="col"><span class="compare-program-name">${escapeHtml(program.display.programName)}</span><button type="button" class="link-button compare-remove" data-toggle-compare="${escapeHtml(program.programSpecialtyId)}" aria-label="${escapeHtml(compareActionLabel(program, true))}"><i data-lucide="x"></i>Remove</button></th>`).join("")}</tr></thead>
+        ${staleIds.length ? `<div class="callout" role="status"><strong>Comparison updated.</strong><p>${staleIds.length} unavailable selection${staleIds.length === 1 ? " was" : "s were"} removed.</p></div>` : ""}
+        <div class="compare-column-actions" role="group" aria-label="Remove programs from comparison">
+          ${programs.map((program) => `<button type="button" class="button button-quiet" data-toggle-compare="${escapeHtml(program.programSpecialtyId)}" aria-label="${escapeHtml(compareActionLabel(program, true))}"><i data-lucide="x"></i><span>${escapeHtml(program.display.programName)}</span></button>`).join("")}
+        </div>
+        <div class="compare-scroll-cue" aria-hidden="true"><i data-lucide="move-horizontal"></i></div>
+        <div class="compare-table-wrap" tabindex="0" role="region" aria-label="Scrollable comparison table for ${programs.length} programs"><table class="compare-table">
+          <thead><tr><th scope="col">Field</th>${programs.map((program) => `<th scope="col"><span class="compare-program-name">${escapeHtml(program.display.programName)}</span></th>`).join("")}</tr></thead>
           <tbody>
             ${compareRow(programs, "Specialty", (program) => program.designation)}
             ${compareRow(programs, "Location", (program) => [program.display.city, program.display.state].filter(Boolean).join(", "))}
+            ${compareRow(programs, "Source authority", (program) => program.source.authority)}
             ${compareRow(programs, "Source-attributed field completeness", (program) => `${program.evidence.coveragePercent}%`)}
             ${COMPARE_FIELDS.map((name) => compareFieldRow(programs, name)).join("")}
           </tbody>
@@ -750,7 +794,10 @@ function compareFieldRow(programs, fieldName) {
   return `<tr><th scope="row">${escapeHtml(displayFieldName(fieldName))}</th>${programs.map((program) => {
     const known = knownField(program, fieldName);
     const value = known ? formatValue(fieldName, known.value, known.field.assertionClass) : "Unknown";
-    return `<td${known ? "" : ' class="unknown-value"'}><span class="compare-cell-value">${escapeHtml(value)}</span>${fieldProvenance(program, fieldName, true)}</td>`;
+    const provenance = known
+      ? `<small class="compare-source">${escapeHtml(assertionClassLabel(known.field.assertionClass))} · ${escapeHtml(metadataValue(known.field.authority ?? program.source.authority))}</small>`
+      : "";
+    return `<td${known ? "" : ' class="unknown-value"'}><span class="compare-cell-value">${escapeHtml(value)}</span>${provenance}</td>`;
   }).join("")}</tr>`;
 }
 
@@ -818,7 +865,9 @@ async function renderRoute({ focusSelector = null, fallbackFocusSelector = null 
     renderError("RISE unavailable", error.message);
   } finally {
     if (!isCurrentRoute(context)) return;
-    routeAnnouncer.textContent = `${viewName.textContent} view loaded`;
+    routeAnnouncer.textContent = route.route === "explorer" && state.currentSearch
+      ? `${formatNumber(state.currentSearch.total)} program-specialty entries; page ${state.currentSearch.page} of ${state.currentSearch.totalPages}`
+      : `${viewName.textContent} view loaded`;
     const focusedControl = focusRenderedControl(focusSelector, fallbackFocusSelector);
     if (!focusedControl && state.routeFocusRequested) {
       const previousScrollBehavior = viewport.style.scrollBehavior;
@@ -1194,8 +1243,18 @@ async function boot() {
     document.querySelector("#sidebar-registry").textContent = state.status.registryReleaseId.replace("rise_registry_", "").slice(0, 18);
     await renderRoute();
   } catch (error) {
-    setHeading("Unavailable", "RISE / Error");
-    renderError("RISE could not start", error.message);
+    if (error.code === "UNAUTHENTICATED") {
+      setHeading("Sign In", "RISE / Access");
+      const loginUrl = safeUrl(error.details?.loginUrl);
+      renderError(
+        "Sign in to open RISE",
+        "Your MissionMed session is missing or expired.",
+        loginUrl ? `<div class="state-actions"><a class="button button-primary" href="${escapeHtml(loginUrl)}">Sign in</a></div>` : "",
+      );
+    } else {
+      setHeading("Unavailable", "RISE / Error");
+      renderError("RISE could not start", error.message);
+    }
   }
 }
 

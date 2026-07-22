@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import fs from "node:fs/promises";
 import http from "node:http";
 import { createRequire } from "node:module";
@@ -12,6 +12,10 @@ const LUCIDE_UMD_PATH = require.resolve("lucide/dist/umd/lucide.min.js");
 const DEFAULT_WEB_DIRECTORY = path.join(here, "web");
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_PAGE_SIZE = 50;
+const MAX_SESSION_LIFETIME_MS = 12 * 60 * 60 * 1000;
+const MAX_AUTH_VALIDATION_AGE_MS = 60 * 1000;
+const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const SESSION_ROLES = new Set(["student", "mentor", "operator", "admin"]);
 
 const REGION_BY_JURISDICTION = new Map(Object.entries({
   CT: "Northeast", ME: "Northeast", MA: "Northeast", NH: "Northeast", RI: "Northeast", VT: "Northeast",
@@ -66,6 +70,45 @@ function sendJson(response, status, body, { cache = "no-store", requestId } = {}
 
 function apiError(response, status, code, message, requestId, details) {
   sendJson(response, status, { error: { code, message, requestId, details } }, { requestId });
+}
+
+function createJsonLogger({ stdout = process.stdout, stderr = process.stderr } = {}) {
+  const write = (stream, level, entry) => {
+    stream.write(`${JSON.stringify({ timestamp: new Date().toISOString(), level, ...entry })}\n`);
+  };
+  return {
+    info(entry) { write(stdout, "info", entry); },
+    error(entry) { write(stderr, "error", entry); },
+  };
+}
+
+function createRuntimeMetrics() {
+  const startedAt = Date.now();
+  const statuses = new Map();
+  let requests = 0;
+  let totalDurationMs = 0;
+  let maxDurationMs = 0;
+  return {
+    observe(status, durationMs) {
+      requests += 1;
+      statuses.set(String(status), (statuses.get(String(status)) ?? 0) + 1);
+      totalDurationMs += durationMs;
+      maxDurationMs = Math.max(maxDurationMs, durationMs);
+    },
+    snapshot() {
+      return {
+        schemaVersion: 1,
+        startedAt: new Date(startedAt).toISOString(),
+        uptimeSeconds: Math.floor((Date.now() - startedAt) / 1000),
+        requests,
+        statusCounts: Object.fromEntries([...statuses].sort(([left], [right]) => left.localeCompare(right))),
+        durationMs: {
+          mean: requests ? Math.round(totalDurationMs / requests * 10) / 10 : 0,
+          max: Math.round(maxDurationMs * 10) / 10,
+        },
+      };
+    },
+  };
 }
 
 function normalizeQuery(value) {
@@ -152,6 +195,7 @@ function selectedSpecialtyMatch(record, specialty, includeCombined, metadata) {
 function searchPrograms(readModel, searchParams) {
   const query = normalizeQuery(searchParams.get("q"));
   const specialty = String(searchParams.get("specialty") ?? "").trim();
+  const designation = String(searchParams.get("designation") ?? "").trim();
   const jurisdiction = String(searchParams.get("jurisdiction") ?? "").trim();
   const region = String(searchParams.get("region") ?? "").trim();
   const programType = normalizeQuery(searchParams.get("programType"));
@@ -165,6 +209,7 @@ function searchPrograms(readModel, searchParams) {
   let records = readModel.byName.filter((record) => {
     const metadata = readModel.metadata.get(record);
     if (!selectedSpecialtyMatch(record, specialty, includeCombined, metadata)) return false;
+    if (designation && record.designation !== designation) return false;
     if (jurisdiction && record.display.state !== jurisdiction) return false;
     if (region && metadata.region !== region) return false;
     if (programType && !metadata.programType.includes(programType)) return false;
@@ -188,7 +233,7 @@ function searchPrograms(readModel, searchParams) {
   const start = (page - 1) * pageSize;
   const pageRecords = records.slice(start, start + pageSize).map(listView);
   return {
-    query: { q: query, specialty, jurisdiction, region, programType, visa, evidence, includeCombined, sort },
+    query: { q: query, specialty, designation, jurisdiction, region, programType, visa, evidence, includeCombined, sort },
     page,
     pageSize,
     total,
@@ -227,20 +272,164 @@ export function isProductionEnvironment({
     String(riseEnvironment ?? "").toLowerCase() === "production";
 }
 
-function createAuthenticator({ mode, authenticator, audience = "rise", production = false }) {
+const PRODUCTION_REQUIRED_ENVIRONMENT = [
+  "RISE_AUTH_MODE",
+  "RISE_AUTH_ADAPTER_MODULE",
+  "RISE_AUTH_ISSUER",
+  "RISE_LOGIN_URL",
+  "RISE_HQ_AUTH_SESSION_URL",
+  "RISE_HQ_SESSION_COOKIE_NAME",
+  "RISE_SESSION_BINDING_HMAC_KEY",
+  "RISE_AUDIT_HMAC_KEY",
+  "RISE_ABUSE_ADAPTER_MODULE",
+  "RISE_ABUSE_CONTROL_URL",
+  "RISE_ABUSE_CONTROL_TOKEN",
+  "RISE_ARTIFACT_ORIGIN",
+  "RISE_ARTIFACT_BEARER_TOKEN",
+  "RISE_INDEX_URL",
+  "RISE_INDEX_PATH",
+  "RISE_INDEX_SHA256",
+  "RISE_INDEX_MANIFEST_URL",
+  "RISE_INDEX_MANIFEST_PATH",
+  "RISE_INDEX_MANIFEST_SHA256",
+  "RISE_ACTIVATION_RECEIPT_URL",
+  "RISE_ACTIVATION_RECEIPT_PATH",
+  "RISE_ACTIVATION_RECEIPT_SHA256",
+  "RISE_SOURCE_AUTHORIZATION_SHA256S",
+  "RISE_ASSET_MANIFEST_SHA256",
+  "RISE_BUILD_ID",
+  "RISE_PUBLIC_ORIGIN",
+];
+
+export function validateProductionEnvironment(environment = process.env) {
+  if (environment.NODE_ENV !== "production" || environment.RISE_ENVIRONMENT !== "production") {
+    throw new Error("Production RISE requires NODE_ENV=production and RISE_ENVIRONMENT=production");
+  }
+  const missing = PRODUCTION_REQUIRED_ENVIRONMENT.filter((name) => !String(environment[name] ?? "").trim());
+  if (missing.length) throw new Error(`Production RISE environment is incomplete: ${missing.join(", ")}`);
+  if (environment.RISE_AUTH_MODE !== "injected") {
+    throw new Error("Production RISE requires RISE_AUTH_MODE=injected");
+  }
+  for (const name of ["RISE_INDEX_SHA256", "RISE_INDEX_MANIFEST_SHA256", "RISE_ACTIVATION_RECEIPT_SHA256", "RISE_ASSET_MANIFEST_SHA256"]) {
+    if (!/^[a-f0-9]{64}$/.test(environment[name])) throw new Error(`${name} must be a lowercase SHA-256`);
+  }
+  for (const name of ["RISE_AUTH_ADAPTER_MODULE", "RISE_ABUSE_ADAPTER_MODULE", "RISE_INDEX_PATH", "RISE_INDEX_MANIFEST_PATH", "RISE_ACTIVATION_RECEIPT_PATH"]) {
+    if (!path.isAbsolute(environment[name])) throw new Error(`${name} must be an absolute path`);
+  }
+  const publicOrigin = new URL(environment.RISE_PUBLIC_ORIGIN);
+  const authIssuer = new URL(environment.RISE_AUTH_ISSUER);
+  const hqSessionUrl = new URL(environment.RISE_HQ_AUTH_SESSION_URL);
+  const loginUrl = new URL(environment.RISE_LOGIN_URL);
+  if (
+    publicOrigin.protocol !== "https:" || publicOrigin.pathname !== "/" || publicOrigin.search || publicOrigin.hash ||
+    authIssuer.protocol !== "https:" || authIssuer.href !== `${authIssuer.origin}/` ||
+    hqSessionUrl.protocol !== "https:" || hqSessionUrl.origin !== authIssuer.origin || hqSessionUrl.pathname !== "/api/auth/session" ||
+    loginUrl.protocol !== "https:" || loginUrl.origin !== authIssuer.origin ||
+    loginUrl.username || loginUrl.password || loginUrl.hash
+  ) {
+    throw new Error("RISE public-origin and HQ-auth topology is invalid");
+  }
+  return true;
+}
+
+function safeStringEqual(left, right) {
+  const leftBytes = Buffer.from(String(left ?? ""));
+  const rightBytes = Buffer.from(String(right ?? ""));
+  return leftBytes.length === rightBytes.length && timingSafeEqual(leftBytes, rightBytes);
+}
+
+function validTimestamp(value) {
+  const timestamp = Date.parse(String(value ?? ""));
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function normalizeSession(session, { audience, issuer, now = Date.now() }) {
+  if (!session || typeof session !== "object" || session.revoked === true || session.revokedAt) return null;
+  const subject = String(session.subject ?? "").trim();
+  const role = String(session.role ?? "student").trim().toLowerCase();
+  const validatedAt = validTimestamp(session.validatedAt);
+  const expiresAt = validTimestamp(session.expiresAt);
+  const sessionId = String(session.sessionId ?? "");
+  const csrfToken = String(session.csrfToken ?? "");
+  if (
+    !subject || subject.length > 256 ||
+    !SESSION_ROLES.has(role) ||
+    session.audience !== audience ||
+    session.issuer !== issuer ||
+    validatedAt === null || validatedAt > now + 5_000 || now - validatedAt > MAX_AUTH_VALIDATION_AGE_MS ||
+    expiresAt === null || expiresAt <= now || expiresAt - now > MAX_SESSION_LIFETIME_MS ||
+    !/^[a-f0-9]{64}$/.test(sessionId) ||
+    !/^[A-Za-z0-9_-]{24,256}$/.test(csrfToken)
+  ) {
+    return null;
+  }
+  const capabilities = Array.isArray(session.capabilities)
+    ? [...new Set(session.capabilities.filter((item) =>
+      typeof item === "string" && /^[a-z0-9:_-]{1,128}$/.test(item)))].slice(0, 32)
+    : [];
+  return {
+    subject,
+    role,
+    audience,
+    issuer,
+    capabilities,
+    sessionId,
+    csrfToken,
+    expiresAt: new Date(expiresAt).toISOString(),
+    preview: session.preview === true,
+  };
+}
+
+function publicSession(session) {
+  return {
+    authenticated: true,
+    role: session.role,
+    audience: session.audience,
+    capabilities: session.capabilities,
+    expiresAt: session.expiresAt,
+    csrfToken: session.csrfToken,
+    preview: session.preview,
+  };
+}
+
+function validCsrf(request, session) {
+  if (!MUTATION_METHODS.has(request.method)) return true;
+  const token = request.headers["x-rise-csrf"];
+  return typeof token === "string" && safeStringEqual(token, session.csrfToken);
+}
+
+function resolveAuditHmacKey(value, { production }) {
+  if (value) {
+    const key = Buffer.from(String(value));
+    if (key.length < 32) throw new Error("RISE_AUDIT_HMAC_KEY must contain at least 32 bytes");
+    return key;
+  }
+  if (production) throw new Error("RISE_AUDIT_HMAC_KEY is required in production");
+  return randomBytes(32);
+}
+
+function createAuthenticator({ mode, authenticator, audience = "rise", issuer, production = false }) {
   if (mode === "local-preview") {
     if (production) {
       throw new Error("local-preview authentication is prohibited in production");
     }
-    return async () => ({
+    const previewSession = {
       subject: "local-preview",
       role: "admin",
       audience,
+      issuer: "rise:local-preview",
       capabilities: ["rise:read", "rise:operator"],
+      sessionId: randomBytes(32).toString("hex"),
+      csrfToken: randomBytes(24).toString("base64url"),
+      expiresAt: new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString(),
       preview: true,
-    });
+    };
+    return async () => normalizeSession({
+      ...previewSession,
+      validatedAt: new Date().toISOString(),
+    }, { audience, issuer: previewSession.issuer });
   }
-  if (mode !== "injected" || typeof authenticator !== "function") {
+  if (mode !== "injected" || typeof authenticator !== "function" || !issuer) {
     throw new Error("RISE requires local-preview outside production or an injected host authentication adapter");
   }
   return async (request) => {
@@ -248,17 +437,7 @@ function createAuthenticator({ mode, authenticator, audience = "rise", productio
     // A browser-visible bearer credential must never be forwarded or replayed.
     if (request.headers.authorization) return null;
     const session = await authenticator(request);
-    if (!session || typeof session !== "object") return null;
-    const actualAudience = session.authAudience ?? session.audience;
-    if (actualAudience !== audience || !session.subject) return null;
-    return {
-      subject: String(session.subject),
-      role: String(session.role ?? "student"),
-      audience,
-      capabilities: Array.isArray(session.capabilities)
-        ? [...new Set(session.capabilities.filter((item) => typeof item === "string"))]
-        : [],
-    };
+    return normalizeSession(session, { audience, issuer });
   };
 }
 
@@ -280,6 +459,35 @@ export function validateListenConfiguration({
     throw new Error("local-preview authentication is prohibited in production");
   }
   return true;
+}
+
+function validateActivationReceipt(receipt, {
+  registryReleaseId,
+  apiIndexSha256,
+  indexManifestSha256,
+  now = Date.now(),
+}) {
+  const approvedAt = validTimestamp(receipt?.approvedAt);
+  if (
+    receipt?.schemaVersion !== 1 ||
+    receipt?.immutable !== true ||
+    receipt?.action !== "activate" ||
+    receipt?.revoked === true ||
+    receipt?.registryReleaseId !== registryReleaseId ||
+    receipt?.apiIndexSha256 !== apiIndexSha256 ||
+    receipt?.indexManifestSha256 !== indexManifestSha256 ||
+    !String(receipt?.decisionRecordId ?? "").trim() ||
+    !String(receipt?.approvedBySubject ?? "").trim() ||
+    approvedAt === null || approvedAt > now + 5 * 60 * 1000
+  ) {
+    throw new Error("RISE activation receipt is invalid or does not bind the runtime artifacts");
+  }
+  return {
+    verified: true,
+    action: receipt.action,
+    decisionRecordId: String(receipt.decisionRecordId),
+    approvedAt: new Date(approvedAt).toISOString(),
+  };
 }
 
 function rateLimiter({ limit = 120, windowMs = 60_000, maxBuckets = 10_000 } = {}) {
@@ -316,8 +524,8 @@ function localAbuseController() {
     async allowPreAuth() {
       return allowGlobal("global", 1);
     },
-    async allowAuthenticatedSubject({ subject, cost }) {
-      return allowSubject(subject, cost);
+    async allowAuthenticatedSubject({ subjectKey, cost }) {
+      return allowSubject(subjectKey, cost);
     },
   };
 }
@@ -339,7 +547,7 @@ function resolveAbuseController(controller, { production }) {
   return controller;
 }
 
-async function serveStatic(requestPath, response, webDirectory, requestId) {
+async function serveStatic(request, requestPath, response, webDirectory, requestId) {
   let relative = requestPath === "/rise/" || requestPath === "/rise" ? "index.html" : requestPath.slice("/rise/".length);
   if (requestPath === "/vendor/lucide.js") {
     const bundledVendorPath = path.resolve(webDirectory, "vendor/lucide.js");
@@ -353,8 +561,15 @@ async function serveStatic(requestPath, response, webDirectory, requestId) {
     response.statusCode = 200;
     response.setHeader("Content-Type", "text/javascript; charset=utf-8");
     response.setHeader("Cache-Control", "no-cache");
+    const etag = `"${createHash("sha256").update(body).digest("hex")}"`;
+    response.setHeader("ETag", etag);
     securityHeaders(response, requestId);
-    response.end(body);
+    if (request.headers["if-none-match"] === etag) {
+      response.statusCode = 304;
+      response.end();
+    } else {
+      response.end(request.method === "HEAD" ? undefined : body);
+    }
     return true;
   }
   if (!requestPath.startsWith("/rise")) return false;
@@ -371,8 +586,15 @@ async function serveStatic(requestPath, response, webDirectory, requestId) {
     response.statusCode = 200;
     response.setHeader("Content-Type", MIME_TYPES.get(path.extname(absolute)) ?? "application/octet-stream");
     response.setHeader("Cache-Control", "no-cache");
+    const etag = `"${createHash("sha256").update(body).digest("hex")}"`;
+    response.setHeader("ETag", etag);
     securityHeaders(response, requestId);
-    response.end(body);
+    if (request.headers["if-none-match"] === etag) {
+      response.statusCode = 304;
+      response.end();
+    } else {
+      response.end(request.method === "HEAD" ? undefined : body);
+    }
     return true;
   } catch (error) {
     if (error.code === "ENOENT") return false;
@@ -390,8 +612,11 @@ export function createRiseServer({
   production = isProductionEnvironment({ riseEnvironment: environment }),
   expectedSourceAuthorizationSha256s = process.env.RISE_SOURCE_AUTHORIZATION_SHA256S,
   revokedSourceAuthorizationSha256s = process.env.RISE_REVOKED_SOURCE_AUTHORIZATION_SHA256S,
+  authIssuer = process.env.RISE_AUTH_ISSUER,
+  loginUrl = process.env.RISE_LOGIN_URL,
+  auditHmacKey = process.env.RISE_AUDIT_HMAC_KEY,
   abuseController,
-  logger = console,
+  logger = createJsonLogger(),
 } = {}) {
   if (!registryIndex?.programs || !registryIndex?.registryReleaseId) {
     throw new Error("A validated RISE API index is required");
@@ -408,10 +633,18 @@ export function createRiseServer({
   if (production && syntheticTestFixture) {
     throw new Error("Synthetic RISE fixtures are prohibited in production");
   }
+  if (production && (
+    registryIndex.activationStatus !== "active" ||
+    registryIndex.activationReceipt?.verified !== true
+  )) {
+    throw new Error("Production RISE requires a verified active-release receipt");
+  }
   const byProgramSpecialtyId = new Map(registryIndex.programs.map((record) => [record.programSpecialtyId, record]));
   const searchReadModel = buildSearchReadModel(registryIndex.programs);
-  const authenticate = createAuthenticator({ mode: authMode, authenticator, production });
+  const authenticate = createAuthenticator({ mode: authMode, authenticator, issuer: authIssuer, production });
   const abuse = resolveAbuseController(abuseController, { production });
+  const auditKey = resolveAuditHmacKey(auditHmacKey, { production });
+  const metrics = createRuntimeMetrics();
   return http.createServer(async (request, response) => {
     const requestId = randomUUID();
     const startedAt = performance.now();
@@ -422,7 +655,7 @@ export function createRiseServer({
       const preAuthAllowed = await abuse.allowPreAuth({
         method: request.method,
         path: url.pathname,
-        remoteAddress: request.socket.remoteAddress ?? null,
+        cost: requestRateCost(url),
       });
       if (!preAuthAllowed) {
         status = 429;
@@ -448,6 +681,7 @@ export function createRiseServer({
           ok: sourceRightsCurrent,
           service: "missionmed-rise",
           registryReleaseId: registryIndex.registryReleaseId,
+          activationStatus: registryIndex.activationStatus ?? "offline_shadow_only",
           buildId,
           environment,
           sourceRightsCurrent,
@@ -462,10 +696,28 @@ export function createRiseServer({
         response.end();
         return;
       }
+      if (!url.pathname.startsWith("/api/rise/v1/")) {
+        if (!new Set(["GET", "HEAD"]).has(request.method)) {
+          status = 405;
+          apiError(response, 405, "METHOD_NOT_ALLOWED", "Static RISE routes accept GET or HEAD only", requestId);
+          return;
+        }
+        if (authMode === "local-preview") response.setHeader("X-RISE-Preview", "true");
+        const served = await serveStatic(request, url.pathname, response, webDirectory, requestId);
+        if (served) {
+          status = response.statusCode;
+          return;
+        }
+        status = 404;
+        apiError(response, 404, "NOT_FOUND", "Route not found", requestId);
+        return;
+      }
       const session = await authenticate(request);
       if (!session) {
         status = 401;
-        apiError(response, 401, "UNAUTHENTICATED", "A valid RISE host session is required", requestId);
+        apiError(response, 401, "UNAUTHENTICATED", "A valid RISE host session is required", requestId, {
+          loginUrl: loginUrl || null,
+        });
         return;
       }
       if (!hasCapability(session, "rise:read")) {
@@ -473,9 +725,13 @@ export function createRiseServer({
         apiError(response, 403, "FORBIDDEN", "RISE read capability required", requestId);
         return;
       }
-      subjectAuditId = createHash("sha256").update(session.subject).digest("hex").slice(0, 16);
+      subjectAuditId = createHmac("sha256", auditKey)
+        .update("rise-audit-subject-v1\0")
+        .update(session.subject)
+        .digest("hex")
+        .slice(0, 32);
       if (!await abuse.allowAuthenticatedSubject({
-        subject: session.subject,
+        subjectKey: subjectAuditId,
         method: request.method,
         path: url.pathname,
         cost: requestRateCost(url),
@@ -483,6 +739,11 @@ export function createRiseServer({
         status = 429;
         response.setHeader("Retry-After", "60");
         apiError(response, 429, "RATE_LIMITED", "Authenticated RISE request budget exceeded", requestId);
+        return;
+      }
+      if (!validCsrf(request, session)) {
+        status = 403;
+        apiError(response, 403, "CSRF_INVALID", "A valid RISE CSRF token is required", requestId);
         return;
       }
       if (!syntheticTestFixture) {
@@ -494,25 +755,9 @@ export function createRiseServer({
       }
       if (authMode === "local-preview") response.setHeader("X-RISE-Preview", "true");
 
-      if (!url.pathname.startsWith("/api/rise/v1/")) {
-        if (!new Set(["GET", "HEAD"]).has(request.method)) {
-          status = 405;
-          apiError(response, 405, "METHOD_NOT_ALLOWED", "Static RISE routes accept GET or HEAD only", requestId);
-          return;
-        }
-        const served = await serveStatic(url.pathname, response, webDirectory, requestId);
-        if (served) {
-          status = 200;
-          return;
-        }
-        status = 404;
-        apiError(response, 404, "NOT_FOUND", "Route not found", requestId);
-        return;
-      }
-
       if (request.method === "GET" && url.pathname === "/api/rise/v1/session") {
         status = 200;
-        sendJson(response, 200, session, { requestId });
+        sendJson(response, 200, publicSession(session), { requestId });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/rise/v1/status") {
@@ -526,6 +771,7 @@ export function createRiseServer({
           sourceRightsApproved,
           buildId,
           environment,
+          activationDecisionRecordId: registryIndex.activationReceipt?.decisionRecordId ?? null,
           integrations: { matrix: "disabled", actn: "disabled", cam: "disabled", storyforge: "disabled" },
           sourcePolicy: registryIndex.sourcePolicy ?? {
             freida: "written_authorization_required",
@@ -605,6 +851,16 @@ export function createRiseServer({
           });
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/rise/v1/operator/metrics") {
+        if (!hasCapability(session, "rise:operator")) {
+          status = 403;
+          apiError(response, 403, "FORBIDDEN", "Operator capability required", requestId);
+          return;
+        }
+        status = 200;
+        sendJson(response, 200, metrics.snapshot(), { requestId });
+        return;
+      }
       status = 404;
       apiError(response, 404, "NOT_FOUND", "API route not found", requestId);
     } catch (error) {
@@ -620,13 +876,15 @@ export function createRiseServer({
         apiError(response, 500, "INTERNAL_ERROR", "Unexpected service error", requestId);
       }
     } finally {
+      const durationMs = Math.round((performance.now() - startedAt) * 10) / 10;
+      metrics.observe(status, durationMs);
       logger.info?.({
         event: "rise_request",
         requestId,
         method: request.method,
         path: String(request.url ?? "").split("?", 1)[0],
         status,
-        durationMs: Math.round((performance.now() - startedAt) * 10) / 10,
+        durationMs,
         subjectAuditId,
       });
     }
@@ -636,6 +894,9 @@ export function createRiseServer({
 export async function loadRegistryIndex(indexPath, {
   expectedSha256 = process.env.RISE_INDEX_SHA256,
   manifestPath = process.env.RISE_INDEX_MANIFEST_PATH,
+  expectedManifestSha256 = process.env.RISE_INDEX_MANIFEST_SHA256,
+  activationReceiptPath = process.env.RISE_ACTIVATION_RECEIPT_PATH,
+  expectedActivationReceiptSha256 = process.env.RISE_ACTIVATION_RECEIPT_SHA256,
   production = isProductionEnvironment(),
   expectedSourceAuthorizationSha256s = process.env.RISE_SOURCE_AUTHORIZATION_SHA256S,
   revokedSourceAuthorizationSha256s = process.env.RISE_REVOKED_SOURCE_AUTHORIZATION_SHA256S,
@@ -644,9 +905,18 @@ export async function loadRegistryIndex(indexPath, {
     throw new Error("RISE_INDEX_SHA256 is required in production");
   }
   let preReadManifest = null;
+  let manifestSha256 = null;
   if (production || manifestPath) {
     if (!manifestPath) throw new Error("RISE_INDEX_MANIFEST_PATH is required in production");
-    preReadManifest = JSON.parse(await fs.readFile(manifestPath, "utf8"));
+    const manifestBytes = await fs.readFile(manifestPath);
+    manifestSha256 = createHash("sha256").update(manifestBytes).digest("hex");
+    if (production && !expectedManifestSha256) {
+      throw new Error("RISE_INDEX_MANIFEST_SHA256 is required in production");
+    }
+    if (expectedManifestSha256 && manifestSha256 !== expectedManifestSha256) {
+      throw new Error("RISE index manifest hash mismatch");
+    }
+    preReadManifest = JSON.parse(manifestBytes.toString("utf8"));
     if (
       preReadManifest.schemaVersion !== 1 ||
       preReadManifest.immutable !== true ||
@@ -689,6 +959,25 @@ export async function loadRegistryIndex(indexPath, {
       revokedAuthorizationSha256s: revokedSourceAuthorizationSha256s,
     });
   }
+  if (production || activationReceiptPath) {
+    if (!activationReceiptPath) throw new Error("RISE_ACTIVATION_RECEIPT_PATH is required in production");
+    if (production && !expectedActivationReceiptSha256) {
+      throw new Error("RISE_ACTIVATION_RECEIPT_SHA256 is required in production");
+    }
+    const receiptBytes = await fs.readFile(activationReceiptPath);
+    const receiptSha256 = createHash("sha256").update(receiptBytes).digest("hex");
+    if (expectedActivationReceiptSha256 && receiptSha256 !== expectedActivationReceiptSha256) {
+      throw new Error("RISE activation receipt hash mismatch");
+    }
+    const activationReceipt = validateActivationReceipt(JSON.parse(receiptBytes.toString("utf8")), {
+      registryReleaseId: index.registryReleaseId,
+      apiIndexSha256: actualSha256,
+      indexManifestSha256: manifestSha256,
+    });
+    index.artifactActivationStatus = index.activationStatus;
+    index.activationStatus = "active";
+    index.activationReceipt = { ...activationReceipt, sha256: receiptSha256 };
+  }
   return index;
 }
 
@@ -726,9 +1015,10 @@ export async function loadWebBuild(webDirectory, {
 }
 
 export async function startFromEnvironment() {
+  const production = isProductionEnvironment();
+  if (production) validateProductionEnvironment();
   const indexPath = process.env.RISE_INDEX_PATH;
   if (!indexPath) throw new Error("RISE_INDEX_PATH is required");
-  const production = isProductionEnvironment();
   const index = await loadRegistryIndex(path.resolve(indexPath), { production });
   const webDirectory = process.env.RISE_WEB_DIRECTORY
     ? path.resolve(process.env.RISE_WEB_DIRECTORY)
@@ -754,6 +1044,9 @@ export async function startFromEnvironment() {
     abuseController = await adapter.createRiseAbuseController();
   }
   const webBuild = await loadWebBuild(webDirectory, { production });
+  if (production && !process.env.RISE_BUILD_ID) {
+    throw new Error("RISE_BUILD_ID is required in production");
+  }
   if (process.env.RISE_BUILD_ID && process.env.RISE_BUILD_ID !== webBuild.buildId) {
     throw new Error("RISE_BUILD_ID does not match the authenticated web build");
   }
@@ -764,6 +1057,9 @@ export async function startFromEnvironment() {
     webDirectory,
     authMode,
     authenticator,
+    authIssuer: process.env.RISE_AUTH_ISSUER,
+    loginUrl: process.env.RISE_LOGIN_URL,
+    auditHmacKey: process.env.RISE_AUDIT_HMAC_KEY,
     abuseController,
     buildId: webBuild.buildId,
     production,

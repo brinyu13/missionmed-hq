@@ -14,6 +14,37 @@ import {
   validateListenConfiguration,
 } from "../server.mjs";
 
+const AUTH_ISSUER = "https://auth.example.test";
+const AUDIT_HMAC_KEY = "audit-test-key-000000000000000000";
+
+function authenticatedSession(overrides = {}) {
+  const subject = String(overrides.subject ?? "test-subject");
+  return {
+    subject,
+    role: "student",
+    audience: "rise",
+    issuer: AUTH_ISSUER,
+    capabilities: ["rise:read"],
+    sessionId: createHash("sha256").update(subject).digest("hex"),
+    csrfToken: "csrfTokenForRiseTests000000000000",
+    validatedAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    ...overrides,
+  };
+}
+
+function activeProductionIndex(index) {
+  return {
+    ...index,
+    activationStatus: "active",
+    activationReceipt: {
+      verified: true,
+      decisionRecordId: "TEST-ONLY-ACTIVATION",
+      approvedAt: new Date().toISOString(),
+    },
+  };
+}
+
 function known(value) {
   return { knowledge: { state: "known", value, explicit: true } };
 }
@@ -121,6 +152,7 @@ function sourceControlledIndex() {
 
 let server;
 let baseUrl;
+let csrfToken;
 
 before(async () => {
   server = createRiseServer({
@@ -129,6 +161,7 @@ before(async () => {
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${server.address().port}`;
+  csrfToken = (await (await fetch(`${baseUrl}/api/rise/v1/session`)).json()).csrfToken;
 });
 
 after(async () => {
@@ -146,6 +179,15 @@ test("health is public and static responses include restrictive headers", async 
   assert.equal(page.headers.get("x-frame-options"), "DENY");
   assert.equal(page.headers.get("cache-control"), "no-cache");
   assert.ok(page.headers.get("x-request-id"));
+  assert.match(page.headers.get("etag"), /^"[a-f0-9]{64}"$/);
+
+  const notModified = await fetch(`${baseUrl}/rise/`, {
+    headers: { "If-None-Match": page.headers.get("etag") },
+  });
+  assert.equal(notModified.status, 304);
+  const head = await fetch(`${baseUrl}/rise/`, { method: "HEAD" });
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), "");
 
   const vendor = await fetch(`${baseUrl}/vendor/lucide.js`);
   assert.equal(vendor.status, 200);
@@ -178,6 +220,11 @@ test("combined records require explicit inclusion for specialty browsing", async
   const combinedBody = await withCombined.json();
   assert.equal(combinedBody.total, 2);
   assert.deepEqual(combinedBody.records.map((item) => item.designation), ["Internal Medicine", "Internal Medicine/Pediatrics"]);
+
+  const exactCombined = await fetch(`${baseUrl}/api/rise/v1/programs?designation=Internal%20Medicine%2FPediatrics`);
+  const exactCombinedBody = await exactCombined.json();
+  assert.equal(exactCombinedBody.total, 1);
+  assert.equal(exactCombinedBody.records[0].designation, "Internal Medicine/Pediatrics");
 });
 
 test("search includes immutable and external program identifiers", async () => {
@@ -226,7 +273,7 @@ test("profiles return evidence records and unknowns without coercion", async () 
 test("matching, integrations, and operator writes fail closed", async () => {
   const match = await fetch(`${baseUrl}/api/rise/v1/matches:evaluate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": csrfToken },
     body: JSON.stringify({ programSpecialtyId: "ps-im" }),
   });
   assert.equal(match.status, 409);
@@ -234,7 +281,7 @@ test("matching, integrations, and operator writes fail closed", async () => {
 
   const handoff = await fetch(`${baseUrl}/api/rise/v1/handoffs/actn`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": csrfToken },
     body: "{}",
   });
   assert.equal(handoff.status, 409);
@@ -243,12 +290,37 @@ test("matching, integrations, and operator writes fail closed", async () => {
   const queue = await fetch(`${baseUrl}/api/rise/v1/operator/queue`);
   assert.equal(queue.status, 409);
   assert.equal((await queue.json()).error.details.quarantinedSourceRows, 1);
+
+  const metrics = await fetch(`${baseUrl}/api/rise/v1/operator/metrics`);
+  const metricsBody = await metrics.json();
+  assert.equal(metrics.status, 200);
+  assert.equal(metricsBody.schemaVersion, 1);
+  assert.ok(metricsBody.requests > 0);
+  assert.equal(JSON.stringify(metricsBody).includes("local-preview"), false);
+});
+
+test("state-changing APIs require the authenticated session CSRF token", async () => {
+  const missing = await fetch(`${baseUrl}/api/rise/v1/matches:evaluate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: "{}",
+  });
+  assert.equal(missing.status, 403);
+  assert.equal((await missing.json()).error.code, "CSRF_INVALID");
+
+  const invalid = await fetch(`${baseUrl}/api/rise/v1/matches:evaluate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": "invalid-token-value-0000000000" },
+    body: "{}",
+  });
+  assert.equal(invalid.status, 403);
+  assert.equal((await invalid.json()).error.code, "CSRF_INVALID");
 });
 
 test("oversized and invalid request bodies are rejected", async () => {
   const invalid = await fetch(`${baseUrl}/api/rise/v1/matches:evaluate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": csrfToken },
     body: "{",
   });
   assert.equal(invalid.status, 400);
@@ -256,7 +328,7 @@ test("oversized and invalid request bodies are rejected", async () => {
 
   const large = await fetch(`${baseUrl}/api/rise/v1/matches:evaluate`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "X-RISE-CSRF": csrfToken },
     body: JSON.stringify({ value: "x".repeat(70_000) }),
   });
   assert.equal(large.status, 413);
@@ -277,14 +349,19 @@ test("production refuses preview auth and injected host sessions require audienc
     registryIndex,
     authMode: "injected",
     authenticator: async (request) => request.headers.cookie === "missionmed_session=accepted"
-      ? { subject: "user-1", role: "student", audience: "rise", capabilities: ["rise:read"] }
+      ? authenticatedSession({ subject: "user-1" })
       : null,
+    authIssuer: AUTH_ISSUER,
+    loginUrl: `${AUTH_ISSUER}/api/auth/start?audience=rise`,
     logger: { info() {}, error() {} },
   });
   await new Promise((resolve) => authenticated.listen(0, "127.0.0.1", resolve));
   const authBase = `http://127.0.0.1:${authenticated.address().port}`;
   try {
-    assert.equal((await fetch(`${authBase}/api/rise/v1/status`)).status, 401);
+    assert.equal((await fetch(`${authBase}/rise/`)).status, 200);
+    const signedOut = await fetch(`${authBase}/api/rise/v1/status`);
+    assert.equal(signedOut.status, 401);
+    assert.equal((await signedOut.json()).error.details.loginUrl, `${AUTH_ISSUER}/api/auth/start?audience=rise`);
     const bearerRejected = await fetch(`${authBase}/api/rise/v1/session`, {
       headers: { Authorization: "Bearer test-token", Cookie: "missionmed_session=accepted" },
     });
@@ -293,18 +370,51 @@ test("production refuses preview auth and injected host sessions require audienc
       headers: { Cookie: "missionmed_session=accepted" },
     });
     assert.equal(accepted.status, 200);
-    assert.equal((await accepted.json()).subject, "user-1");
+    const publicBody = await accepted.json();
+    assert.equal(publicBody.authenticated, true);
+    assert.equal(publicBody.subject, undefined);
+    assert.equal(publicBody.audience, "rise");
   } finally {
     await new Promise((resolve, reject) => authenticated.close((error) => error ? reject(error) : resolve()));
+  }
+});
+
+test("injected sessions reject issuer drift, expiration, and revocation", async () => {
+  const guarded = createRiseServer({
+    registryIndex,
+    authMode: "injected",
+    authIssuer: AUTH_ISSUER,
+    authenticator: async (request) => {
+      const mode = request.headers["x-test-session"];
+      if (mode === "issuer") return authenticatedSession({ issuer: "https://evil.example.test" });
+      if (mode === "expired") return authenticatedSession({ expiresAt: new Date(Date.now() - 1_000).toISOString() });
+      if (mode === "revoked") return authenticatedSession({ revoked: true });
+      return authenticatedSession();
+    },
+    logger: { info() {}, error() {} },
+  });
+  await new Promise((resolve) => guarded.listen(0, "127.0.0.1", resolve));
+  const guardedBase = `http://127.0.0.1:${guarded.address().port}`;
+  try {
+    for (const mode of ["issuer", "expired", "revoked"]) {
+      assert.equal((await fetch(`${guardedBase}/api/rise/v1/status`, {
+        headers: { "X-Test-Session": mode },
+      })).status, 401);
+    }
+    assert.equal((await fetch(`${guardedBase}/api/rise/v1/status`)).status, 200);
+  } finally {
+    await new Promise((resolve, reject) => guarded.close((error) => error ? reject(error) : resolve()));
   }
 });
 
 test("production requires a shared durable abuse controller", () => {
   const source = sourceControlledIndex();
   const options = {
-    registryIndex: source.index,
+    registryIndex: activeProductionIndex(source.index),
     authMode: "injected",
-    authenticator: async () => ({ subject: "test", audience: "rise", capabilities: ["rise:read"] }),
+    authenticator: async () => authenticatedSession(),
+    authIssuer: AUTH_ISSUER,
+    auditHmacKey: AUDIT_HMAC_KEY,
     production: true,
     expectedSourceAuthorizationSha256s: source.authorizationSha256,
   };
@@ -319,6 +429,28 @@ test("production requires a shared durable abuse controller", () => {
   });
 });
 
+test("production rejects an offline registry and requires a keyed audit identity", () => {
+  const source = sourceControlledIndex();
+  const baseOptions = {
+    registryIndex: source.index,
+    authMode: "injected",
+    authenticator: async () => authenticatedSession(),
+    authIssuer: AUTH_ISSUER,
+    expectedSourceAuthorizationSha256s: source.authorizationSha256,
+    production: true,
+  };
+  assert.throws(() => createRiseServer(baseOptions), /active-release receipt/);
+  assert.throws(() => createRiseServer({
+    ...baseOptions,
+    registryIndex: activeProductionIndex(source.index),
+    abuseController: {
+      scope: "shared_durable",
+      async allowPreAuth() { return true; },
+      async allowAuthenticatedSubject() { return true; },
+    },
+  }), /RISE_AUDIT_HMAC_KEY is required/);
+});
+
 test("pre-auth abuse control rejects requests before authentication work", async () => {
   let authenticatorCalls = 0;
   const protectedServer = createRiseServer({
@@ -326,8 +458,9 @@ test("pre-auth abuse control rejects requests before authentication work", async
     authMode: "injected",
     authenticator: async () => {
       authenticatorCalls += 1;
-      return { subject: "test", audience: "rise", capabilities: ["rise:read"] };
+      return authenticatedSession();
     },
+    authIssuer: AUTH_ISSUER,
     abuseController: {
       scope: "test",
       async allowPreAuth() { return false; },
@@ -351,7 +484,8 @@ test("RISE_ENVIRONMENT production independently enables every production guard",
   assert.throws(() => createRiseServer({
     registryIndex,
     authMode: "injected",
-    authenticator: async () => ({ subject: "test", audience: "rise", capabilities: ["rise:read"] }),
+    authenticator: async () => authenticatedSession(),
+    authIssuer: AUTH_ISSUER,
     environment: "production",
   }), /Synthetic RISE fixtures are prohibited in production/);
   assert.throws(
@@ -369,7 +503,8 @@ test("injected sessions without RISE capabilities are forbidden", async () => {
   const restricted = createRiseServer({
     registryIndex,
     authMode: "injected",
-    authenticator: async () => ({ subject: "user-2", audience: "rise", capabilities: [] }),
+    authenticator: async () => authenticatedSession({ subject: "user-2", capabilities: [] }),
+    authIssuer: AUTH_ISSUER,
     logger: { info() {}, error() {} },
   });
   await new Promise((resolve) => restricted.listen(0, "127.0.0.1", resolve));
@@ -424,7 +559,7 @@ test("source-controlled indexes require current runtime authorization pins", asy
   await fs.writeFile(indexPath, bytes);
   const indexSha = createHash("sha256").update(bytes).digest("hex");
   const manifestPath = path.join(directory, "index-manifest.json");
-  await fs.writeFile(manifestPath, JSON.stringify({
+  const manifestBytes = Buffer.from(JSON.stringify({
     schemaVersion: 1,
     immutable: true,
     registryReleaseId: sourceIndex.registryReleaseId,
@@ -433,12 +568,29 @@ test("source-controlled indexes require current runtime authorization pins", asy
     sourceRights: sourceIndex.releaseGate.sourceRights,
     apiIndexSha256: indexSha,
   }));
+  await fs.writeFile(manifestPath, manifestBytes);
+  const manifestSha = createHash("sha256").update(manifestBytes).digest("hex");
+  const activationReceiptPath = path.join(directory, "activation-receipt.json");
+  const activationReceiptBytes = Buffer.from(JSON.stringify({
+    schemaVersion: 1,
+    immutable: true,
+    action: "activate",
+    registryReleaseId: sourceIndex.registryReleaseId,
+    apiIndexSha256: indexSha,
+    indexManifestSha256: manifestSha,
+    decisionRecordId: "TEST-ONLY-ACTIVATION",
+    approvedBySubject: "test-reviewer",
+    approvedAt: "2026-07-22T12:00:00.000Z",
+  }));
+  await fs.writeFile(activationReceiptPath, activationReceiptBytes);
+  const activationReceiptSha = createHash("sha256").update(activationReceiptBytes).digest("hex");
   try {
     await assert.rejects(
       loadRegistryIndex(path.join(directory, "must-not-be-read.json"), {
         production: true,
         expectedSha256: indexSha,
         manifestPath,
+        expectedManifestSha256: manifestSha,
       }),
       /SOURCE_AUTHORIZATION_SHA256S is required/,
     );
@@ -447,6 +599,7 @@ test("source-controlled indexes require current runtime authorization pins", asy
         production: true,
         expectedSha256: indexSha,
         manifestPath,
+        expectedManifestSha256: manifestSha,
         expectedSourceAuthorizationSha256s: "c".repeat(64),
       }),
       /authorization hashes do not match/,
@@ -455,9 +608,14 @@ test("source-controlled indexes require current runtime authorization pins", asy
       production: true,
       expectedSha256: indexSha,
       manifestPath,
+      expectedManifestSha256: manifestSha,
       expectedSourceAuthorizationSha256s: authorizationSha,
+      activationReceiptPath,
+      expectedActivationReceiptSha256: activationReceiptSha,
     });
     assert.equal(loaded.registryReleaseId, registryIndex.registryReleaseId);
+    assert.equal(loaded.activationStatus, "active");
+    assert.equal(loaded.artifactActivationStatus, "test_fixture");
   } finally {
     await fs.rm(directory, { recursive: true, force: true });
   }
@@ -468,11 +626,10 @@ test("authenticated rate limiting is subject-scoped, bounded, and audit-safe", a
   const limited = createRiseServer({
     registryIndex,
     authMode: "injected",
-    authenticator: async (request) => ({
+    authenticator: async (request) => authenticatedSession({
       subject: request.headers["x-test-subject"] ?? "user-a",
-      audience: "rise",
-      capabilities: ["rise:read"],
     }),
+    authIssuer: AUTH_ISSUER,
     logger: { info(entry) { logs.push(entry); }, error() {} },
   });
   await new Promise((resolve) => limited.listen(0, "127.0.0.1", resolve));
@@ -481,7 +638,7 @@ test("authenticated rate limiting is subject-scoped, bounded, and audit-safe", a
     for (let index = 0; index < 20; index += 1) assert.equal((await fetch(url)).status, 200);
     assert.equal((await fetch(url)).status, 429);
     assert.equal((await fetch(url, { headers: { "X-Test-Subject": "user-b" } })).status, 200);
-    assert.ok(logs.some((entry) => /^[a-f0-9]{16}$/.test(entry.subjectAuditId ?? "")));
+    assert.ok(logs.some((entry) => /^[a-f0-9]{32}$/.test(entry.subjectAuditId ?? "")));
     assert.equal(logs.some((entry) => entry.subject === "user-a"), false);
   } finally {
     await new Promise((resolve, reject) => limited.close((error) => error ? reject(error) : resolve()));

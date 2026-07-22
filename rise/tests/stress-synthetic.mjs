@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 
@@ -75,18 +76,32 @@ const registryIndex = {
     omittedBlankCells: 0,
     matchableClaims: 0,
   },
-  filters: { states: ["CA", "NY"], specialties: ["Internal Medicine", "Pediatrics"] },
+  filters: {
+    states: ["CA", "NY"],
+    specialties: ["Internal Medicine", "Pediatrics"],
+    designations: ["Internal Medicine", "Internal Medicine/Pediatrics"],
+  },
   programs,
 };
 
 const server = createRiseServer({
   registryIndex,
   authMode: "injected",
-  authenticator: async (request) => ({
-    subject: request.headers["x-test-subject"],
-    audience: "rise",
-    capabilities: ["rise:read"],
-  }),
+  authenticator: async (request) => {
+    const subject = String(request.headers["x-test-subject"] ?? "");
+    return {
+      subject,
+      role: "student",
+      audience: "rise",
+      issuer: "https://auth.synthetic.test",
+      capabilities: ["rise:read"],
+      sessionId: createHash("sha256").update(subject).digest("hex"),
+      csrfToken: "syntheticStressCsrfToken000000000",
+      validatedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    };
+  },
+  authIssuer: "https://auth.synthetic.test",
   buildId: "synthetic-stress-fixture",
   environment: "test",
   logger: { info() {}, error() {} },
@@ -103,6 +118,7 @@ try {
       `${baseUrl}/api/rise/v1/programs?specialty=Internal%20Medicine&includeCombined=true&q=synthetic&pageSize=100&sort=${index % 2 ? "evidence" : "name"}`,
       { headers: { "X-Test-Subject": `stress-subject-${index}` } },
     );
+    await response.arrayBuffer();
     durations.push(performance.now() - requestStartedAt);
     return response;
   }));

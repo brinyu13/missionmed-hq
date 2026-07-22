@@ -7,7 +7,7 @@ import axe from "axe-core";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "../../..");
-const screenshotDirectory = path.join(root, "_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_COMPLETION/artifacts/screenshots");
+const screenshotDirectory = path.join(root, "_AI_HANDOFFS/from_codex/P1_RISE_4006_PRODUCTION_CONNECTED_RC/artifacts/screenshots");
 const ATLAS_IDENTITY = "Atlas Internal Medicine Program; Internal Medicine; New York, NY; program-specialty ID rise_ps_atlas_im";
 const BEACON_IDENTITY = "Beacon Medicine Pediatrics Program; Internal Medicine/Pediatrics; Chicago, IL; program-specialty ID rise_ps_beacon_medpeds";
 const DUPLICATE_BEACON_IDENTITY = "Atlas Internal Medicine Program; Internal Medicine/Pediatrics; Chicago, IL; program-specialty ID rise_ps_beacon_medpeds";
@@ -38,6 +38,14 @@ async function axeViolations(page) {
       help: violation.help,
       targets: violation.nodes.map((node) => node.target),
     }));
+  });
+}
+
+async function settleFounderCapture(page, { waitForToasts = false } = {}) {
+  if (waitForToasts) await expect(page.locator(".toast")).toHaveCount(0, { timeout: 5_000 });
+  await page.mouse.move(1, 1);
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   });
 }
 
@@ -125,6 +133,39 @@ test("command view reports the immutable evidence posture", async ({ page }) => 
   expect(errors).toEqual([]);
 });
 
+test("signed-out users receive an explicit access state without registry data", async ({ page }) => {
+  await page.route(/\/api\/rise\/v1\/(status|session)$/, async (route) => {
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({
+        error: {
+          code: "UNAUTHENTICATED",
+          message: "A valid RISE host session is required",
+          details: { loginUrl: "https://os.missionmedinstitute.com/api/auth/start?audience=rise" },
+        },
+      }),
+    });
+  });
+  await page.goto("/rise/#home");
+  await expect(page.getByRole("heading", { name: "Sign in to open RISE" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign in" })).toHaveAttribute(
+    "href",
+    "https://os.missionmedinstitute.com/api/auth/start?audience=rise",
+  );
+  await expect(page.locator(".program-card")).toHaveCount(0);
+});
+
+test("production assets render the selected Lucide bundle within budget", async ({ page, request }) => {
+  const response = await request.get("/vendor/lucide.js");
+  expect(response.ok()).toBeTruthy();
+  expect((await response.body()).byteLength).toBeLessThan(30_000);
+
+  await page.goto("/rise/");
+  await expect(page.locator('svg[data-lucide="search"]').first()).toBeVisible();
+  await expect(page.locator('i[data-lucide="search"]')).toHaveCount(0);
+});
+
 test("synthetic and current-availability notices persist on every view", async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem("rise-compare", JSON.stringify(["rise_ps_atlas_im"])));
   await page.goto("/rise/#home");
@@ -153,6 +194,7 @@ test("Explorer exposes exact accessible filters and component-specialty projecti
   await waitForRegistry(page);
 
   await expect(page.getByLabel("Specialty", { exact: true })).toHaveValue("Internal Medicine");
+  await expect(page.getByLabel("Exact Designation", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Jurisdiction", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Sort Results", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Region", { exact: true })).toBeVisible();
@@ -160,11 +202,22 @@ test("Explorer exposes exact accessible filters and component-specialty projecti
   await expect(page.getByLabel("Visa Listed In Source (Not Current Sponsorship)", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Source-attributed Field Completeness", { exact: true })).toBeVisible();
   await expect(page.locator(".result-meta").getByText("2 program-specialty entries", { exact: true })).toBeVisible();
+  await expect(page.locator("#route-announcer")).toContainText("2 program-specialty entries");
 
   await page.getByLabel("Include component-specialty browse projections").uncheck();
   await page.getByRole("button", { name: "Apply filters" }).click();
   await expect(page.locator(".result-meta").getByText("1 program-specialty entries", { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test("Explorer can select an exact combined designation", async ({ page }) => {
+  await page.goto("/rise/#explorer?includeCombined=true");
+  await waitForRegistry(page);
+  await page.getByLabel("Exact Designation", { exact: true }).selectOption("Internal Medicine/Pediatrics");
+  await page.getByRole("button", { name: "Apply filters" }).click();
+  await expect(page.locator(".program-card")).toHaveCount(1);
+  await expect(page.locator(".program-card")).toContainText("Beacon Medicine Pediatrics Program");
+  await expect(page.locator(".program-card")).toContainText("Internal Medicine/Pediatrics");
 });
 
 test("synthetic profile preserves evidence and supports keyboard tabs", async ({ page }) => {
@@ -185,6 +238,9 @@ test("synthetic profile preserves evidence and supports keyboard tabs", async ({
   await page.keyboard.press("End");
   await expect(page.getByRole("tab", { name: "Evidence" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByText("SYNTHETIC_TEST", { exact: true })).toBeVisible();
+  await page.locator("#viewport").getByRole("button", { name: "Explorer", exact: true }).click();
+  await expect(page).toHaveURL(/#explorer\?q=Atlas&specialty=Internal\+Medicine&includeCombined=true$/);
+  await expect(page.getByLabel("Search Programs")).toHaveValue("Atlas");
   expect(errors).toEqual([]);
 });
 
@@ -229,7 +285,8 @@ test("profile fields disclose true synthetic assertion class and separate proven
   await expect(page.locator(".field-row").filter({ has: page.getByText(/J-1 listed by source/) })).toContainText("Synthetic fixture reports Yes");
   await expect(page.getByText("F-1 OPT employment authorization listed by source (not visa sponsorship)", { exact: true })).toBeVisible();
   await page.getByRole("tab", { name: "People" }).click();
-  await expect(page.getByText("Graduates of medical schools outside the U.S. (cohort and reporting period unavailable)", { exact: true })).toBeVisible();
+  await expect(page.getByText("Faculty Page URL", { exact: true })).toBeVisible();
+  await expect(page.getByText("Graduates of medical schools outside the U.S. (cohort and reporting period unavailable)", { exact: true })).toHaveCount(0);
 
   await page.getByRole("tab", { name: "Evidence" }).click();
   const unknownText = await page.locator(".status-row").filter({ hasText: "Unknown selected claims" }).locator("strong").textContent();
@@ -238,21 +295,28 @@ test("profile fields disclose true synthetic assertion class and separate proven
   expect(Number(absentText.replaceAll(",", ""))).toBe(38);
 });
 
-test("Compare includes claim-level provenance and 44px remove targets", async ({ page }) => {
+test("Compare uses compact source labels and 44px remove targets", async ({ page }) => {
   await page.addInitScript(() => sessionStorage.setItem("rise-compare", JSON.stringify(["rise_ps_atlas_im"])));
   await page.goto("/rise/#compare");
   await waitForRegistry(page);
 
   const salaryRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: "Salary PGY1" }) });
-  await expect(salaryRow.getByText("Assertion class", { exact: true })).toBeVisible();
-  await expect(salaryRow.getByText("Synthetic fixture", { exact: true })).toBeVisible();
-  await expect(salaryRow.getByText("Source updated", { exact: true })).toBeVisible();
-  await expect(salaryRow.getByText("Retrieved", { exact: true })).toBeVisible();
-  await expect(salaryRow.getByText("Reporting period", { exact: true })).toBeVisible();
+  await expect(salaryRow.getByText("Synthetic fixture · SYNTHETIC_TEST", { exact: true })).toBeVisible();
+  await expect(page.locator(".compare-table .field-provenance")).toHaveCount(0);
+  await expect(page.locator(".compare-table-wrap")).toHaveAttribute("aria-label", "Scrollable comparison table for 1 programs");
 
   const remove = page.getByRole("button", { name: `Remove ${ATLAS_IDENTITY} from comparison` });
   const box = await remove.boundingBox();
   expect(box.height).toBeGreaterThanOrEqual(44);
+});
+
+test("stale comparison selections recover without wedging the view", async ({ page }) => {
+  await page.addInitScript(() => sessionStorage.setItem("rise-compare", JSON.stringify(["rise_ps_missing"])));
+  await page.goto("/rise/#compare");
+  await waitForRegistry(page);
+  await expect(page.getByRole("heading", { name: "Comparison reset" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open Explorer" })).toBeVisible();
+  expect(await page.evaluate(() => sessionStorage.getItem("rise-compare"))).toBe("[]");
 });
 
 test("comparison uses native actions without nested interactive controls", async ({ page }) => {
@@ -472,6 +536,68 @@ test("desktop and mobile views have no serious accessibility violations", async 
   await expect(page.locator(".program-card").first()).toBeVisible();
   expect(await axeViolations(page)).toEqual([]);
 });
+
+test("Founder review captures the primary desktop workflows", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rise/#home");
+  await waitForRegistry(page);
+  await settleFounderCapture(page);
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "rise-command-1440x900.png"),
+    animations: "disabled",
+  });
+
+  await page.goto("/rise/#explorer?specialty=Internal+Medicine&includeCombined=true");
+  await expect(page.locator(".program-card").first()).toBeVisible();
+  await settleFounderCapture(page);
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "rise-explorer-review-1440x900.png"),
+    animations: "disabled",
+  });
+
+  await page.goto("/rise/#profile/rise_ps_atlas_im");
+  await expect(page.getByRole("heading", { name: "Atlas Internal Medicine Program" })).toBeVisible();
+  await settleFounderCapture(page);
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "rise-profile-1440x900.png"),
+    animations: "disabled",
+  });
+
+  await page.goto("/rise/#explorer?specialty=Internal+Medicine&includeCombined=true");
+  await page.getByRole("button", { name: `Add ${ATLAS_IDENTITY} to comparison` }).click();
+  await page.getByRole("button", { name: `Add ${BEACON_IDENTITY} to comparison` }).click();
+  await page.getByRole("button", { name: "Open program comparison" }).click();
+  await expect(page.getByRole("heading", { name: "Program comparison" })).toBeVisible();
+  await settleFounderCapture(page, { waitForToasts: true });
+  await page.screenshot({
+    path: path.join(screenshotDirectory, "rise-compare-1440x900.png"),
+    animations: "disabled",
+  });
+});
+
+for (const zoom of [
+  { percent: 125, width: 1152, height: 720 },
+  { percent: 150, width: 960, height: 600 },
+  { percent: 200, width: 720, height: 450 },
+]) {
+  test(`${zoom.percent}% effective browser zoom preserves Explorer access`, async ({ page }) => {
+    await page.setViewportSize({ width: zoom.width, height: zoom.height });
+    await page.goto("/rise/#explorer?specialty=Internal+Medicine&includeCombined=true");
+    await expect(page.locator(".program-card").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: `Add ${ATLAS_IDENTITY} to comparison` })).toBeVisible();
+
+    const metrics = await page.evaluate(() => ({
+      globalOverflow: document.documentElement.scrollWidth - window.innerWidth,
+      nestedInteractive: document.querySelectorAll("a a, a button, button a, button button").length,
+      clippedControls: [...document.querySelectorAll("button, input, select")]
+        .filter((node) => node.getClientRects().length && !node.classList.contains("icon-button") && node.scrollWidth - node.clientWidth > 1)
+        .map((node) => node.getAttribute("aria-label") || node.textContent.trim()),
+    }));
+    expect(metrics.globalOverflow).toBeLessThanOrEqual(1);
+    expect(metrics.nestedInteractive).toBe(0);
+    expect(metrics.clippedControls).toEqual([]);
+  });
+}
 
 for (const viewport of [
   { width: 390, height: 844 },

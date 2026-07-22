@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "defaultState": "disabled",
+  "browserCredentialsAllowed": false,
+  "targets": {
+    "matrix": {
+      "owner": "Matrix",
+      "direction": "read_only_into_rise",
+      "schema": "matrix-projection.schema.json",
+      "timeoutMs": 5000,
+      "automaticRetries": 0,
+      "requiresConsentReceipt": true,
+      "requiresOwnerDecision": true,
+      "currentState": "owner_contract_unapproved"
+    },
+    "actn": {
+      "owner": "ACTN",
+      "direction": "read_only_into_rise",
+      "schema": "actn-context.schema.json",
+      "timeoutMs": 3000,
+      "automaticRetries": 1,
+      "requiresRoleVisibilityDecision": true,
+      "requiresOwnerDecision": true,
+      "currentState": "owner_contract_unapproved"
+    },
+    "cam": {
+      "owner": "CAM",
+      "direction": "one_time_handoff_from_rise",
+      "runtimeValidator": "../src/cam-context.mjs",
+      "timeoutMs": 5000,
+      "automaticRetries": 0,
+      "idempotency": "single_use_jti",
+      "requiresOwnerDecision": true,
+      "currentState": "owner_contract_unapproved"
+    },
+    "storyforge": {
+      "owner": "StoryForge",
+      "direction": "consented_references_into_rise",
+      "schema": "storyforge-context.schema.json",
+      "timeoutMs": 3000,
+      "automaticRetries": 0,
+      "requiresConsentReceipt": true,
+      "requiresOwnerDecision": true,
+      "currentState": "owner_contract_unapproved"
+    }
+  }
+}
