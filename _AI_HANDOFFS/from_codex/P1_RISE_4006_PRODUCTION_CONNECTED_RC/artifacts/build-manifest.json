@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "buildId": "rise_web_8d2c636a88b7",
+  "activationStatus": "offline_shadow_only",
+  "files": {
+    "index.html": "d1adca99bfb7b8d7177327f9676f8af675375d36e26ca7f04134472600a36132",
+    "styles.css": "3e2321722e66fc693a94564b851c1acc666c1ab4d8ecf8878ce1678a1c5ea696",
+    "app.js": "6d32344f610979cd2ceb0d72d309bb669f476e9fa7d33c06623a219674a595f3",
+    "vendor/lucide.js": "f586795cb401e516e22377ce6dde1bb3cb047190bd57e7acd4971872298ea306"
+  },
+  "bytes": {
+    "index.html": 4994,
+    "styles.css": 27975,
+    "app.js": 63632,
+    "vendor/lucide.js": 5680,
+    "asset-manifest.json": 471,
+    "total": 102752
+  },
+  "gzipBytes": {
+    "index.html": 1219,
+    "styles.css": 5605,
+    "app.js": 15771,
+    "vendor/lucide.js": 2016,
+    "asset-manifest.json": 338,
+    "total": 24949
+  }
+}

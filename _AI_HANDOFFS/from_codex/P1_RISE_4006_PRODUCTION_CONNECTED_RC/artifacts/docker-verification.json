@@ -1,0 +1,10 @@
+{
+  "checkedAt": "2026-07-22T15:10:30Z",
+  "dockerClientInstalled": true,
+  "dockerDaemonAvailable": false,
+  "imageBuildRun": false,
+  "baseImage": "node:22-alpine",
+  "baseImageMultiarchDigest": "sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2",
+  "digestResolvedFromRegistry": true,
+  "verdict": "UNVERIFIED_LOCAL_IMAGE_BUILD"
+}

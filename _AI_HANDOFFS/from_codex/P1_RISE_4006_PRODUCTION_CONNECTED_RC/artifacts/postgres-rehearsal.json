@@ -1,0 +1,22 @@
+{
+  "generatedAt": "2026-07-22T15:10:00Z",
+  "environment": "disposable_local_cluster",
+  "postgresVersion": "16.13 (Homebrew)",
+  "migrationsApplied": ["001", "002", "003"],
+  "tables": 25,
+  "activeViews": 7,
+  "checks": {
+    "missingEvidenceActivationRejected": true,
+    "crossSubjectSessionRejected": true,
+    "wrongAuditPredecessorRejected": true,
+    "activeViewContainsRestoredRelease": true,
+    "readerCannotReadBasePrograms": true,
+    "readerCanReadActivePrograms": true,
+    "readerCannotReadQuarantine": true
+  },
+  "activeReleaseAfterRollback": "rise_registry_a",
+  "activationHistoryRows": 3,
+  "auditChainRows": 2,
+  "sessionRows": 1,
+  "productionDatabaseTouched": false
+}
