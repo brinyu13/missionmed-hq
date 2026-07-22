@@ -121,11 +121,16 @@ jobs:
             }
           '
 
-      - name: Run real WordPress 8010C proof
+      - name: Prove real WordPress default-off and enabled 8010C states
         env:
           V1_REPO_ROOT: ${{ github.workspace }}
         run: |
           set -eu
+          php -r '
+            chdir("/tmp/v1-wordpress");
+            require "/tmp/v1-wordpress/wp-load.php";
+            require getenv("V1_REPO_ROOT") . "/tests/php/v1-study-schedule-8010c-wordpress-default-off.php";
+          '
           php -r '
             chdir("/tmp/v1-wordpress");
             require "/tmp/v1-wordpress/wp-load.php";

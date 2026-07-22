@@ -130,8 +130,7 @@ require_once MMED_HUB_PATH . 'includes/class-mmed-v1-study-release.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-v1-study-repository.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-v1-study-access.php';
 require_once MMED_HUB_PATH . 'includes/class-mmed-v1-study-observability.php';
-require_once MMED_HUB_PATH . 'includes/class-mmed-v1-study-rest-api.php';
-require_once MMED_HUB_PATH . 'includes/class-mmed-v1-study-loader.php';
+require_once MMED_HUB_PATH . 'includes/class-mmed-v1-study-runtime.php';
 
 if ( mmed_hub_is_student_os_enabled() ) {
     require_once MMED_HUB_PATH . 'includes/class-mmed-student-os.php';
@@ -348,8 +347,7 @@ if ( class_exists( 'MMED_Live_Drills_SDK_V3' ) ) {
 if ( class_exists( 'MMED_REST_API' ) ) {
     MMED_REST_API::init();
 }
-MMED_V1_Study_REST_API::init();
-MMED_V1_Study_Loader::init();
+MMED_V1_Study_Runtime::init();
 
 /* Admin hooks */
 add_action( 'admin_init',           array( 'MMED_Task_CPT',    'register_meta_fields' ) );

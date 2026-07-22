@@ -1,0 +1,37 @@
+name: V1 Study Schedule production-connected RC
+
+on:
+  pull_request:
+    paths:
+      - "wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php"
+      - "wp-content/plugins/missionmed-hub/missionmed-hub.php"
+      - "tests/php/v1-study-schedule-rc-*.php"
+      - "tests/php/run-v1-study-schedule-rc.sh"
+      - ".github/workflows/v1-study-schedule-rc.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  default-off-contract:
+    name: PHP ${{ matrix.php }} default-off runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - php: "7.4-cli"
+            image: "php:7.4-cli@sha256:620a6b9f4d4feef2210026172570465e9d0c1de79766418d3affd09190a7fda5"
+          - php: "8.3-cli"
+            image: "php:8.3-cli@sha256:2a3f699b6cb31e5638c5432e4d37d4047853ba6351a692c91e0a073af00a55cc"
+    container: ${{ matrix.image }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+        with:
+          persist-credentials: false
+
+      - name: Prove inert runtime and pure support contracts
+        run: bash tests/php/run-v1-study-schedule-rc.sh

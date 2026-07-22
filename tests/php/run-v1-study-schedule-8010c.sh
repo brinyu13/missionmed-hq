@@ -21,6 +21,7 @@ for file in \
   "$ROOT_DIR/wp-content/plugins/missionmed-hub/missionmed-hub.php" \
   "$ROOT_DIR/tests/php/v1-study-schedule-8010c-contract.php" \
   "$ROOT_DIR/tests/php/v1-study-schedule-8010c-rest-loader.php" \
+  "$ROOT_DIR/tests/php/v1-study-schedule-8010c-wordpress-default-off.php" \
   "$ROOT_DIR/tests/php/v1-study-schedule-8010c-wordpress.php"
 do
   php -l "$file"

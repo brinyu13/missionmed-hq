@@ -336,8 +336,8 @@ $loaded = $reader->load( $owner_id, '2' );
 v1_8010e_wp_expect( ! empty( $loaded['ok'] ) && '1' === $loaded['plan']['revision'], 'accepted current reader sees the committed command immediately' );
 v1_8010e_wp_expect( $first_result['plan_hash'] === hash( 'sha256', MMED_V1_Study_Week_Domain::canonical_json( $loaded['plan'] ) ), 'current reader reconstructs the exact committed Plan hash' );
 v1_8010e_wp_expect( $first_result['week'] === $loaded['plan']['weeks'][0], 'command response and accepted reader return the exact same Week bytes' );
-$mission = MMED_V1_Study_Week_Domain::derive_mission( $loaded['plan']['weeks'][0], $first_result['today'] );
-v1_8010e_wp_expect( '1' === $mission['revision'] && $block_id === $mission['primary']['block_id'], 'Mission derives from the same committed Week revision' );
+$mission = MMED_V1_Study_Week_Domain::derive_mission( $loaded['plan']['weeks'][0], $create['payload']['local_date'] );
+v1_8010e_wp_expect( '1' === $mission['revision'] && $block_id === $mission['primary']['block_id'], 'Mission derives from the same committed Week revision on the scheduled day' );
 
 $changed_temporal = MMED_V1_Study_Week_Domain::temporal_envelope( '2026-07-13', 'America/New_York', 'profile-e2-v2', 'synthetic-future-tzdb-v2' );
 $replay = $service->execute( $create, $owner_id, $owner_id, 'learner', $changed_temporal );

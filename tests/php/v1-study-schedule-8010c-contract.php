@@ -422,12 +422,31 @@ v1_expect_same( 20, count( MMED_V1_Study_Observability::request_buffer() ), 'obs
 MMED_V1_Study_Observability::reset();
 v1_expect_same( 0, count( MMED_V1_Study_Observability::request_buffer() ), 'observability reset clears request state' );
 
-// Static writer and Calendar isolation.
-$v1_files = glob( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-*.php' );
+// Static writer and Calendar isolation for the exact accepted 8010C slice.
+// Later separately governed persistence/runtime files have their own contracts;
+// a wildcard must not retroactively misclassify those explicit boundaries.
+$v1_files = array_map(
+	static function ( $name ) use ( $root ) {
+		return $root . '/wp-content/plugins/missionmed-hub/includes/' . $name;
+	},
+	array(
+		'class-mmed-v1-study-domain.php',
+		'class-mmed-v1-study-release.php',
+		'class-mmed-v1-study-repository.php',
+		'class-mmed-v1-study-access.php',
+		'class-mmed-v1-study-observability.php',
+		'class-mmed-v1-study-rest-api.php',
+		'class-mmed-v1-study-loader.php',
+	)
+);
+$plugin_source = (string) file_get_contents( $root . '/wp-content/plugins/missionmed-hub/missionmed-hub.php' );
 foreach ( $v1_files as $file ) {
 	$source = (string) file_get_contents( $file );
 	v1_expect_same( 0, preg_match( '/MMED_Calendar_Engine|(?:wp_)?mmed_events/', $source ), basename( $file ) . ' has no Calendar dependency' );
 }
+$owner_arbiter = 'class-mmed-v1-study-owner-arbiter.php';
+v1_expect_same( false, false !== strpos( $plugin_source, $owner_arbiter ), 'E3 synthetic owner arbiter remains absent from plugin bootstrap' );
+v1_expect_same( false, false !== strpos( $plugin_source, 'MMED_V1_Study_Synthetic_InnoDB_Owner_Arbiter' ), 'E3 synthetic owner arbiter remains uninstantiated by plugin bootstrap' );
 $repository_source = (string) file_get_contents( $root . '/wp-content/plugins/missionmed-hub/includes/class-mmed-v1-study-repository.php' );
 v1_expect_same( 0, preg_match( '/function\s+commit\s*\(/', $repository_source ), '8010C repository source has no commit method' );
 
