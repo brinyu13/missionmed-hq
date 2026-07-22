@@ -24,6 +24,21 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	const STAFF_META_BYTES_LIMIT = 8388608;
 	const STAFF_EVENT_PAGE_SIZE = 200;
 	const STAFF_EVENT_LIMIT = 5000;
+	const DOCUMENT_META_BYTES_LIMIT = 262144;
+	const DOCUMENT_META_WRITE_BYTES_LIMIT = 245760;
+	const OWNER_DOCUMENT_LIMIT = 250;
+	const OWNER_META_BYTES_LIMIT = 4194304;
+	const DISPLAY_NAME_LENGTH_LIMIT = 160;
+	const NOTE_LENGTH_LIMIT = 2000;
+	const MAX_VERSIONS = 100;
+	const MAX_COMMENTS = 100;
+	const MAX_SCORES = 100;
+	const MAX_ACTIVITY_EVENTS = 500;
+	const COMMENT_RATE_LIMIT = 20;
+	const COMMENT_RATE_WINDOW = 300;
+	const DOWNLOAD_EVENT_WINDOW = 300;
+	const LEGACY_UPLOAD_RATE_LIMIT = 10;
+	const LEGACY_UPLOAD_RATE_WINDOW = 300;
 
 	/**
 	 * Return the supported document vocabulary.
@@ -283,11 +298,14 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 *
 	 * @param int    $user_id Target student ID.
 	 * @param string $viewer_role Viewer role.
-	 * @return array
+	 * @return array|WP_Error
 	 */
 	public static function bootstrap( $user_id, $viewer_role ) {
 		$user_id   = absint( $user_id );
 		$documents = $user_id ? self::list_documents( $user_id ) : array();
+		if ( is_wp_error( $documents ) ) {
+			return $documents;
+		}
 		$journey   = self::build_journey( $documents, $user_id );
 		$activity  = self::build_activity( $documents );
 		$user      = $user_id ? get_user_by( 'id', $user_id ) : null;
@@ -325,18 +343,27 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * List V2-formatted documents for one student.
 	 *
 	 * @param int $user_id Student ID.
-	 * @return array
+	 * @return array|WP_Error
 	 */
 	public static function list_documents( $user_id ) {
 		global $wpdb;
 
 		parent::maybe_install();
+		$scope = self::owner_scope_preflight( absint( $user_id ) );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				'SELECT * FROM ' . parent::table_name() . ' WHERE user_id = %d ORDER BY updated_at DESC, id DESC',
-				absint( $user_id )
+				'SELECT * FROM ' . parent::table_name() . ' WHERE user_id = %d ORDER BY updated_at DESC, id DESC LIMIT %d',
+				absint( $user_id ),
+				self::OWNER_DOCUMENT_LIMIT + 1
 			)
 		);
+		$loaded_scope = self::validate_loaded_owner_rows( $rows );
+		if ( is_wp_error( $loaded_scope ) ) {
+			return $loaded_scope;
+		}
 
 		return array_map( array( __CLASS__, 'format_document' ), is_array( $rows ) ? $rows : array() );
 	}
@@ -394,9 +421,48 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( ! $row ) {
 			return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
 		}
-		$meta               = self::meta_for_row( $row );
-		$meta['activity'][] = self::event( 'compatibility_download_issued', $actor_id, 'Secure compatibility download issued.' );
-		return self::save_meta( $row, $meta );
+		$meta = self::meta_for_row( $row );
+		return self::record_throttled_activity( $row, $meta, $actor_id, 'compatibility_download_issued', 'Secure compatibility download issued.' );
+	}
+
+	/**
+	 * Reserve the shared owner mutation lock before a legacy upload row is inserted.
+	 *
+	 * @param int $user_id Owner ID.
+	 * @return string|WP_Error Opaque lock token on success.
+	 */
+	public static function begin_legacy_upload( $user_id ) {
+		$user_id = absint( $user_id );
+		if ( ! $user_id ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_invalid', 'A valid Vault owner is required.', array( 'status' => 422 ) );
+		}
+		$lock_key   = self::confirm_lock_key( $user_id );
+		$lock_token = self::acquire_owned_lock( $lock_key, 120 );
+		if ( ! $lock_token ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_write_in_progress', 'Another Vault change is being saved. Reload and try again.', array( 'status' => 409 ) );
+		}
+		$capacity = self::owner_write_capacity( $user_id, 0, 0 );
+		if ( is_wp_error( $capacity ) ) {
+			self::release_owned_lock( $lock_key, $lock_token );
+			return $capacity;
+		}
+		$rate = self::reserve_legacy_upload_rate( $user_id );
+		if ( is_wp_error( $rate ) ) {
+			self::release_owned_lock( $lock_key, $lock_token );
+			return $rate;
+		}
+		return $lock_token;
+	}
+
+	/**
+	 * Release a legacy upload insertion lock only when the caller owns its token.
+	 *
+	 * @param int    $user_id Owner ID.
+	 * @param string $lock_token Opaque token from begin_legacy_upload().
+	 * @return bool
+	 */
+	public static function end_legacy_upload( $user_id, $lock_token ) {
+		return self::release_owned_lock( self::confirm_lock_key( absint( $user_id ) ), (string) $lock_token );
 	}
 
 	/**
@@ -427,58 +493,80 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( is_wp_error( $validated ) ) {
 			return $validated;
 		}
+		$definition       = self::document_types()[ $document_type ];
+		$raw_display_name = (string) ( $params['display_name'] ?? $definition['label'] );
+		$raw_note         = (string) ( $params['note'] ?? '' );
+		if ( strlen( $raw_display_name ) > self::DISPLAY_NAME_LENGTH_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_display_name_invalid', 'Document names must be 160 characters or fewer.', array( 'status' => 422 ) );
+		}
+		if ( strlen( $raw_note ) > self::NOTE_LENGTH_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_note_invalid', 'Document notes must be 2,000 characters or fewer.', array( 'status' => 422 ) );
+		}
+		$display_name = trim( sanitize_text_field( $raw_display_name ) );
+		$note         = trim( sanitize_textarea_field( $raw_note ) );
+		if ( $row && count( self::internal_versions( $row, $row_meta ) ) >= self::MAX_VERSIONS ) {
+			return new WP_Error( 'mmed_file_vault_v2_version_limit', 'This document has reached its retained version limit.', array( 'status' => 409 ) );
+		}
 		$owner_lock = self::issuance_owner_lock_key( $user_id );
 		$actor_lock = self::issuance_actor_lock_key( $actor_id );
-		if ( ! self::acquire_lock( $owner_lock ) ) {
+		$owner_lock_token = self::acquire_owned_lock( $owner_lock, 120 );
+		if ( ! $owner_lock_token ) {
 			return new WP_Error( 'mmed_file_vault_v2_issue_in_progress', 'Another upload is being prepared for this Vault. Try again.', array( 'status' => 409 ) );
 		}
-		if ( ! self::acquire_lock( $actor_lock ) ) {
-			delete_option( $owner_lock );
+		$actor_lock_token = self::acquire_owned_lock( $actor_lock, 120 );
+		if ( ! $actor_lock_token ) {
+			self::release_owned_lock( $owner_lock, $owner_lock_token );
 			return new WP_Error( 'mmed_file_vault_v2_issue_in_progress', 'Another upload is being prepared by this account. Try again.', array( 'status' => 409 ) );
 		}
 
 		try {
-		$limit = self::check_upload_limits( $user_id, $actor_id, $validated['file_size'] );
-		if ( is_wp_error( $limit ) ) {
-			return $limit;
-		}
+			$upload_id     = wp_generate_uuid4();
+			$confirm_token = self::random_token();
+			$category      = $row ? self::sanitize_category( $row->category, 'other' ) : $definition['category'];
+			$version       = $row ? max( 1, absint( $row->version ) + 1 ) : 1;
+			$extension     = strtolower( pathinfo( $validated['filename'], PATHINFO_EXTENSION ) );
+			$version_uuid  = wp_generate_uuid4();
+			$document_uuid = ! empty( $row_meta['document_uuid'] ) ? sanitize_text_field( $row_meta['document_uuid'] ) : wp_generate_uuid4();
+			$filename      = 'MMED_' . $document_type . '_v' . $version . '_' . gmdate( 'Ymd_His' ) . '_' . substr( $version_uuid, 0, 8 ) . '.' . $extension;
+			$r2_key        = 'student-files/v2/staging/' . $upload_id . '.' . $extension;
+			$intent        = array(
+				'upload_id'        => $upload_id,
+				'token_hash'       => hash( 'sha256', $confirm_token ),
+				'user_id'          => $user_id,
+				'actor_id'         => $actor_id,
+				'file_id'          => $file_id,
+				'filename'         => $filename,
+				'original_name'    => $validated['filename'],
+				'mime_type'        => $validated['mime_type'],
+				'declared_size'    => $validated['file_size'],
+				'max_size'         => $validated['max_size'],
+				'declared_sha256'  => $validated['sha256'],
+				'category'         => $category,
+				'document_type'    => $document_type,
+				'display_name'     => $display_name ?: sanitize_text_field( $definition['label'] ),
+				'note'             => $note,
+				'ready_for_review' => rest_sanitize_boolean( $params['ready_for_review'] ?? false ),
+				'version'          => $version,
+				'document_uuid'    => $document_uuid,
+				'version_uuid'     => $version_uuid,
+				'r2_key'           => $r2_key,
+				'final_r2_key'     => 'student-files/v2/objects/' . $document_uuid . '/' . $version_uuid . '.' . $extension,
+				'created_at'       => gmdate( 'c' ),
+			);
+			$projected_meta = self::projected_upload_meta_json( $row, $row_meta, $intent, $actor_id );
+			if ( is_wp_error( $projected_meta ) ) {
+				return $projected_meta;
+			}
+			$capacity = self::owner_write_capacity( $user_id, $file_id, strlen( $projected_meta ) );
+			if ( is_wp_error( $capacity ) ) {
+				return $capacity;
+			}
+			$limit = self::check_upload_limits( $user_id, $actor_id, $validated['file_size'] );
+			if ( is_wp_error( $limit ) ) {
+				return $limit;
+			}
 
-		$upload_id     = wp_generate_uuid4();
-		$confirm_token = self::random_token();
-		$definition    = self::document_types()[ $document_type ];
-		$category      = $row ? self::sanitize_category( $row->category, 'other' ) : $definition['category'];
-		$version       = $row ? max( 1, absint( $row->version ) + 1 ) : 1;
-		$extension     = strtolower( pathinfo( $validated['filename'], PATHINFO_EXTENSION ) );
-		$version_uuid  = wp_generate_uuid4();
-		$document_uuid = ! empty( $row_meta['document_uuid'] ) ? sanitize_text_field( $row_meta['document_uuid'] ) : wp_generate_uuid4();
-		$filename      = 'MMED_' . $document_type . '_v' . $version . '_' . gmdate( 'Ymd_His' ) . '_' . substr( $version_uuid, 0, 8 ) . '.' . $extension;
-		$r2_key        = 'student-files/v2/staging/' . $upload_id . '.' . $extension;
-		$intent        = array(
-			'upload_id'        => $upload_id,
-			'token_hash'       => hash( 'sha256', $confirm_token ),
-			'user_id'          => $user_id,
-			'actor_id'         => $actor_id,
-			'file_id'          => $file_id,
-			'filename'         => $filename,
-			'original_name'    => $validated['filename'],
-			'mime_type'        => $validated['mime_type'],
-			'declared_size'    => $validated['file_size'],
-			'max_size'         => $validated['max_size'],
-			'declared_sha256'  => $validated['sha256'],
-			'category'         => $category,
-			'document_type'    => $document_type,
-			'display_name'     => sanitize_text_field( $params['display_name'] ?? $definition['label'] ),
-			'note'             => sanitize_textarea_field( $params['note'] ?? '' ),
-			'ready_for_review' => rest_sanitize_boolean( $params['ready_for_review'] ?? false ),
-			'version'          => $version,
-			'document_uuid'    => $document_uuid,
-			'version_uuid'     => $version_uuid,
-			'r2_key'           => $r2_key,
-			'final_r2_key'     => 'student-files/v2/objects/' . $document_uuid . '/' . $version_uuid . '.' . $extension,
-			'created_at'       => gmdate( 'c' ),
-		);
-
-		$upload_url = self::presign_upload_url( $r2_key, $validated['mime_type'], $validated['sha256'] );
+			$upload_url = self::presign_upload_url( $r2_key, $validated['mime_type'], $validated['sha256'] );
 		if ( '' === $upload_url ) {
 			return new WP_Error( 'mmed_file_vault_v2_r2_adapter_unavailable', 'A private upload URL could not be issued.', array( 'status' => 503 ) );
 		}
@@ -502,11 +590,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				'Content-Type'          => $validated['mime_type'],
 				'x-amz-checksum-sha256' => base64_encode( hex2bin( $validated['sha256'] ) ),
 				),
-			);
-		} finally {
-			delete_option( $actor_lock );
-			delete_option( $owner_lock );
-		}
+				);
+			} finally {
+				self::release_owned_lock( $actor_lock, $actor_lock_token );
+				self::release_owned_lock( $owner_lock, $owner_lock_token );
+			}
 	}
 
 	/**
@@ -527,13 +615,13 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		}
 		$completed = get_transient( self::completed_key( $upload_id ) );
 		if ( is_array( $completed ) ) {
-			if ( absint( $completed['actor_id'] ?? 0 ) !== absint( $actor_id ) || ! hash_equals( (string) ( $completed['token_hash'] ?? '' ), $supplied_hash ) ) {
-				return new WP_Error( 'mmed_file_vault_v2_intent_missing', 'Upload session not found.', array( 'status' => 404 ) );
-			}
-			return self::get_document( absint( $completed['file_id'] ?? 0 ) );
+			return self::completed_upload_response( $completed, $supplied_hash, $actor_id );
 		}
 
 		$intent = get_transient( self::intent_key( $upload_id ) );
+		if ( is_array( $intent ) && 'completed' === sanitize_key( $intent['state'] ?? '' ) ) {
+			return self::completed_upload_response( $intent, $supplied_hash, $actor_id );
+		}
 		if ( ! is_array( $intent ) || ! hash_equals( (string) ( $intent['upload_id'] ?? '' ), $upload_id ) || ! hash_equals( (string) ( $intent['token_hash'] ?? '' ), $supplied_hash ) ) {
 			return new WP_Error( 'mmed_file_vault_v2_intent_missing', 'Upload session not found.', array( 'status' => 404 ) );
 		}
@@ -611,7 +699,15 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['versions'][] = self::version_entry( $intent, $probe, $actor_id );
 			$meta['workflow_status'] = $status;
 			$meta['note']             = sanitize_textarea_field( $intent['note'] ?? '' );
-			$meta['activity'][]       = $event;
+			$meta                     = self::append_activity( $meta, $event );
+			$meta_json                = self::encode_meta_json( $row, $meta );
+			if ( is_wp_error( $meta_json ) ) {
+				return $meta_json;
+			}
+			$capacity = self::owner_write_capacity( absint( $intent['user_id'] ), absint( $row->id ), strlen( $meta_json ) );
+			if ( is_wp_error( $capacity ) ) {
+				return $capacity;
+			}
 			$updated = $wpdb->update(
 				parent::table_name(),
 				array(
@@ -622,7 +718,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 					'file_size'     => absint( $probe['size'] ),
 					'version'       => absint( $intent['version'] ),
 					'status'        => self::legacy_status( $status ),
-					'meta_json'     => self::merge_meta_json( $row, $meta ),
+					'meta_json'     => $meta_json,
 					'updated_at'    => $now,
 				),
 				array(
@@ -648,7 +744,15 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			$meta['note']           = sanitize_textarea_field( $intent['note'] );
 			$meta['workflow_status'] = $status;
 			$meta['versions'][]     = self::version_entry( $intent, $probe, $actor_id );
-			$meta['activity'][]     = $event;
+			$meta                   = self::append_activity( $meta, $event );
+			$meta_json              = self::encode_meta_json( null, $meta );
+			if ( is_wp_error( $meta_json ) ) {
+				return $meta_json;
+			}
+			$capacity = self::owner_write_capacity( absint( $intent['user_id'] ), 0, strlen( $meta_json ) );
+			if ( is_wp_error( $capacity ) ) {
+				return $capacity;
+			}
 			$inserted = $wpdb->insert(
 				parent::table_name(),
 				array(
@@ -661,7 +765,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 					'category'      => $intent['category'],
 					'version'       => 1,
 					'status'        => self::legacy_status( $status ),
-					'meta_json'     => wp_json_encode( array( self::META_KEY => $meta ) ),
+					'meta_json'     => $meta_json,
 					'created_at'    => $now,
 					'updated_at'    => $now,
 				),
@@ -674,17 +778,24 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		}
 		$persisted = true;
 
-		delete_transient( self::intent_key( $upload_id ) );
-		self::remove_pending_upload( absint( $intent['user_id'] ), $upload_id );
-		set_transient(
-			self::completed_key( $upload_id ),
-			array(
-				'file_id'    => $file_id,
-				'actor_id'   => absint( $actor_id ),
-				'token_hash' => $supplied_hash,
-			),
-			300
+		$receipt = array(
+			'file_id'    => $file_id,
+			'actor_id'   => absint( $actor_id ),
+			'user_id'    => absint( $intent['user_id'] ?? 0 ),
+			'token_hash' => $supplied_hash,
 		);
+		$receipt_saved = set_transient( self::completed_key( $upload_id ), $receipt, 300 );
+		if ( $receipt_saved ) {
+			delete_transient( self::intent_key( $upload_id ) );
+		} else {
+			$receipt['state']     = 'completed';
+			$receipt['upload_id'] = $upload_id;
+			$receipt_saved        = set_transient( self::intent_key( $upload_id ), $receipt, 300 );
+			if ( ! $receipt_saved ) {
+				do_action( 'mmed_file_vault_v2_completion_receipt_failed', $upload_id, $file_id );
+			}
+		}
+		self::remove_pending_upload( absint( $intent['user_id'] ), $upload_id );
 		do_action( 'mmed_file_uploaded', $file_id, absint( $intent['user_id'] ) );
 
 			return self::get_document( $file_id );
@@ -695,6 +806,25 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				}
 				self::release_owned_lock( $lock_key, $lock_token );
 			}
+	}
+
+	/**
+	 * Revalidate a completed confirmation receipt before returning document data.
+	 *
+	 * @param array  $receipt Completed confirmation receipt.
+	 * @param string $supplied_hash Hash of the supplied one-time token.
+	 * @param int    $actor_id Current actor.
+	 * @return array|WP_Error
+	 */
+	protected static function completed_upload_response( $receipt, $supplied_hash, $actor_id ) {
+		if ( absint( $receipt['actor_id'] ?? 0 ) !== absint( $actor_id ) || ! hash_equals( (string) ( $receipt['token_hash'] ?? '' ), (string) $supplied_hash ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_intent_missing', 'Upload session not found.', array( 'status' => 404 ) );
+		}
+		$completed_owner = absint( $receipt['user_id'] ?? 0 );
+		if ( ! $completed_owner || ( $completed_owner !== absint( $actor_id ) && ! user_can( absint( $actor_id ), 'mmed_manage_file_vault' ) ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_intent_forbidden', 'Your current role no longer permits access to this upload result.', array( 'status' => 403 ) );
+		}
+		return self::get_document( absint( $receipt['file_id'] ?? 0 ) );
 	}
 
 	/**
@@ -738,8 +868,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( '' === $url ) {
 			return new WP_Error( 'mmed_file_vault_v2_r2_adapter_unavailable', 'A private download URL could not be issued.', array( 'status' => 503 ) );
 		}
-		$meta['activity'][] = self::event( 'download_issued', $actor_id, 'Secure download issued.' );
-		$saved = self::save_meta( $row, $meta );
+		$saved = self::record_throttled_activity( $row, $meta, $actor_id, 'download_issued', 'Secure download issued.' );
 		if ( is_wp_error( $saved ) ) {
 			return $saved;
 		}
@@ -762,16 +891,27 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * @return array|WP_Error
 	 */
 	public static function add_comment( $file_id, $actor_id, $role, $body ) {
-		$row  = self::get_file_by_id( absint( $file_id ) );
-		$body = trim( sanitize_textarea_field( $body ) );
+		$row      = self::get_file_by_id( absint( $file_id ) );
+		$raw_body = (string) $body;
 		if ( ! $row ) {
 			return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
 		}
-		if ( '' === $body || strlen( $body ) > 2000 ) {
+		if ( strlen( $raw_body ) > self::NOTE_LENGTH_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_comment_invalid', 'Comment text must be between 1 and 2,000 characters.', array( 'status' => 422 ) );
+		}
+		$body = trim( sanitize_textarea_field( $raw_body ) );
+		if ( '' === $body ) {
 			return new WP_Error( 'mmed_file_vault_v2_comment_invalid', 'Comment text must be between 1 and 2,000 characters.', array( 'status' => 422 ) );
 		}
 
 		$meta    = self::meta_for_row( $row );
+		if ( count( $meta['comments'] ) >= self::MAX_COMMENTS ) {
+			return new WP_Error( 'mmed_file_vault_v2_comment_limit', 'This document has reached its retained comment limit.', array( 'status' => 409 ) );
+		}
+		$rate = self::reserve_comment_rate( absint( $file_id ), absint( $actor_id ) );
+		if ( is_wp_error( $rate ) ) {
+			return $rate;
+		}
 		$comment = array(
 			'id'          => wp_generate_uuid4(),
 			'author_id'   => absint( $actor_id ),
@@ -783,7 +923,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'created_at'  => gmdate( 'c' ),
 		);
 		$meta['comments'][] = $comment;
-		$meta['activity'][] = self::event( 'comment_added', $actor_id, 'Comment added.' );
+		$meta               = self::append_activity( $meta, self::event( 'comment_added', $actor_id, 'Comment added.' ) );
 		$saved = self::save_meta( $row, $meta );
 		if ( is_wp_error( $saved ) ) {
 			return $saved;
@@ -819,7 +959,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( ! $found ) {
 			return new WP_Error( 'mmed_file_vault_v2_comment_not_found', 'Comment not found.', array( 'status' => 404 ) );
 		}
-		$meta['activity'][] = self::event( 'comment_resolved', $actor_id, 'Comment resolved.' );
+		$meta = self::append_activity( $meta, self::event( 'comment_resolved', $actor_id, 'Comment resolved.' ) );
 		$saved = self::save_meta( $row, $meta );
 		if ( is_wp_error( $saved ) ) {
 			return $saved;
@@ -854,7 +994,12 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_v2_status_transition', 'That review status transition is not allowed.', array( 'status' => 409 ) );
 		}
 		$meta['workflow_status'] = $status;
-		$meta['review_note']     = sanitize_textarea_field( $note );
+		$raw_note = (string) $note;
+		if ( strlen( $raw_note ) > self::NOTE_LENGTH_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_review_note_invalid', 'Review notes must be 2,000 characters or fewer.', array( 'status' => 422 ) );
+		}
+		$note = trim( sanitize_textarea_field( $raw_note ) );
+		$meta['review_note']     = $note;
 		$meta['versions']        = self::internal_versions( $row, $meta );
 		for ( $index = count( $meta['versions'] ) - 1; $index >= 0; --$index ) {
 			if ( absint( $meta['versions'][ $index ]['number'] ?? 0 ) === max( 1, absint( $row->version ) ) ) {
@@ -862,24 +1007,42 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 				break;
 			}
 		}
-		$meta['activity'][]      = self::event( 'status_changed', $actor_id, 'Status changed from ' . $previous . ' to ' . $status . '.' );
-		$updated = $wpdb->update(
-			parent::table_name(),
-			array(
-				'status'      => self::legacy_status( $status ),
-				'reviewed_by' => absint( $actor_id ),
-				'reviewed_at' => current_time( 'mysql' ),
-				'meta_json'   => self::merge_meta_json( $row, $meta ),
-				'updated_at'  => current_time( 'mysql' ),
-			),
-			array(
-				'id'        => absint( $file_id ),
-				'status'    => (string) $row->status,
-				'meta_json' => isset( $row->meta_json ) ? $row->meta_json : null,
-			),
-			array( '%s', '%d', '%s', '%s', '%s' ),
-			array( '%d', '%s', '%s' )
-		);
+		$meta                    = self::append_activity( $meta, self::event( 'status_changed', $actor_id, 'Status changed from ' . $previous . ' to ' . $status . '.' ) );
+		$meta_json               = self::encode_meta_json( $row, $meta );
+		if ( is_wp_error( $meta_json ) ) {
+			return $meta_json;
+		}
+		$owner_id  = absint( $row->user_id ?? 0 );
+		$lock_key  = self::confirm_lock_key( $owner_id );
+		$lock_token = self::acquire_owned_lock( $lock_key, 120 );
+		if ( ! $lock_token ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_write_in_progress', 'Another Vault change is being saved. Reload and try again.', array( 'status' => 409 ) );
+		}
+		try {
+			$capacity = self::owner_write_capacity( $owner_id, absint( $row->id ), strlen( $meta_json ) );
+			if ( is_wp_error( $capacity ) ) {
+				return $capacity;
+			}
+			$updated = $wpdb->update(
+				parent::table_name(),
+				array(
+					'status'      => self::legacy_status( $status ),
+					'reviewed_by' => absint( $actor_id ),
+					'reviewed_at' => current_time( 'mysql' ),
+					'meta_json'   => $meta_json,
+					'updated_at'  => current_time( 'mysql' ),
+				),
+				array(
+					'id'        => absint( $file_id ),
+					'status'    => (string) $row->status,
+					'meta_json' => isset( $row->meta_json ) ? $row->meta_json : null,
+				),
+				array( '%s', '%d', '%s', '%s', '%s' ),
+				array( '%d', '%s', '%s' )
+			);
+		} finally {
+			self::release_owned_lock( $lock_key, $lock_token );
+		}
 		if ( 0 === $updated ) {
 			return new WP_Error( 'mmed_file_vault_v2_write_conflict', 'The document changed while this review was being saved. Reload and try again.', array( 'status' => 409 ) );
 		}
@@ -904,6 +1067,9 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_v2_not_found', 'Document not found.', array( 'status' => 404 ) );
 		}
 		$meta   = self::meta_for_row( $row );
+		if ( count( $meta['scores'] ) >= self::MAX_SCORES ) {
+			return new WP_Error( 'mmed_file_vault_v2_score_limit', 'This document has reached its retained score limit.', array( 'status' => 409 ) );
+		}
 		$rubric = self::rubric( $meta['document_type'] );
 		if ( empty( $rubric ) ) {
 			return new WP_Error( 'mmed_file_vault_v2_rubric_unavailable', 'A review rubric has not been configured for this document type.', array( 'status' => 503 ) );
@@ -919,6 +1085,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		}
 		$maximum = count( $rubric ) * 10;
 		$total   = min( $maximum, array_sum( $categories ) );
+		$raw_score_notes = (string) ( $params['notes'] ?? '' );
+		if ( strlen( $raw_score_notes ) > self::NOTE_LENGTH_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_score_note_invalid', 'Score notes must be 2,000 characters or fewer.', array( 'status' => 422 ) );
+		}
+		$score_notes = trim( sanitize_textarea_field( $raw_score_notes ) );
 		$score = array(
 			'id'              => wp_generate_uuid4(),
 			'total_score'     => $total,
@@ -927,12 +1098,12 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 			'version'         => max( 1, absint( $row->version ) ),
 			'category_scores' => $categories,
 			'readiness_label' => self::score_label( $total ),
-			'notes'           => sanitize_textarea_field( $params['notes'] ?? '' ),
+			'notes'           => $score_notes,
 			'scorer_name'     => self::actor_name( $actor_id ),
 			'created_at'      => gmdate( 'c' ),
 		);
-		$meta['scores'][]   = $score;
-		$meta['activity'][] = self::event( 'score_added', $actor_id, 'Review score added.' );
+		$meta['scores'][] = $score;
+		$meta             = self::append_activity( $meta, self::event( 'score_added', $actor_id, 'Review score added.' ) );
 		$saved = self::save_meta( $row, $meta );
 		if ( is_wp_error( $saved ) ) {
 			return $saved;
@@ -1024,19 +1195,38 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( ! empty( $student_ids ) ) {
 			parent::maybe_install();
 			$placeholders = implode( ', ', array_fill( 0, count( $student_ids ), '%d' ) );
-			$rows         = $wpdb->get_results(
+			$query_args   = array_merge( $student_ids, array( self::STAFF_DOCUMENT_LIMIT + 1 ) );
+			$meta_rows    = $wpdb->get_results(
+				$wpdb->prepare(
+					'SELECT id, user_id, OCTET_LENGTH(meta_json) AS meta_bytes FROM ' . parent::table_name() . ' WHERE user_id IN (' . $placeholders . ') ORDER BY user_id ASC, updated_at DESC, id DESC LIMIT %d',
+					$query_args
+				)
+			);
+			if ( count( (array) $meta_rows ) > self::STAFF_DOCUMENT_LIMIT ) {
+				return new WP_Error( 'mmed_file_vault_v2_staff_scope_too_large', 'This staff roster page contains too many document records. Narrow the student search or page size.', array( 'status' => 503 ) );
+			}
+			$meta_bytes = 0;
+			foreach ( (array) $meta_rows as $meta_row ) {
+				$row_meta_bytes = absint( $meta_row->meta_bytes ?? 0 );
+				$meta_bytes    += $row_meta_bytes;
+				if ( $row_meta_bytes > self::DOCUMENT_META_BYTES_LIMIT || $meta_bytes > self::STAFF_META_BYTES_LIMIT ) {
+					return new WP_Error( 'mmed_file_vault_v2_staff_payload_too_large', 'This staff roster page contains too much document metadata. Narrow the student search or page size.', array( 'status' => 503 ) );
+				}
+			}
+			$rows = $wpdb->get_results(
 				$wpdb->prepare(
 					'SELECT * FROM ' . parent::table_name() . ' WHERE user_id IN (' . $placeholders . ') ORDER BY user_id ASC, updated_at DESC, id DESC LIMIT %d',
-					array_merge( $student_ids, array( self::STAFF_DOCUMENT_LIMIT + 1 ) )
+					$query_args
 				)
 			);
 			if ( count( (array) $rows ) > self::STAFF_DOCUMENT_LIMIT ) {
 				return new WP_Error( 'mmed_file_vault_v2_staff_scope_too_large', 'This staff roster page contains too many document records. Narrow the student search or page size.', array( 'status' => 503 ) );
 			}
-			$meta_bytes = 0;
+			$loaded_meta_bytes = 0;
 			foreach ( (array) $rows as $row ) {
-				$meta_bytes += strlen( (string) ( $row->meta_json ?? '' ) );
-				if ( $meta_bytes > self::STAFF_META_BYTES_LIMIT ) {
+				$row_meta_bytes     = strlen( (string) ( $row->meta_json ?? '' ) );
+				$loaded_meta_bytes += $row_meta_bytes;
+				if ( $row_meta_bytes > self::DOCUMENT_META_BYTES_LIMIT || $loaded_meta_bytes > self::STAFF_META_BYTES_LIMIT ) {
 					return new WP_Error( 'mmed_file_vault_v2_staff_payload_too_large', 'This staff roster page contains too much document metadata. Narrow the student search or page size.', array( 'status' => 503 ) );
 				}
 				$owner_id = absint( $row->user_id ?? 0 );
@@ -1421,27 +1611,152 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	}
 
 	/**
+	 * Read bounded per-owner document and metadata metrics without loading JSON bodies.
+	 *
+	 * @param int $user_id Owner ID.
+	 * @return array|WP_Error
+	 */
+	protected static function owner_metadata_metrics( $user_id ) {
+		global $wpdb;
+
+		parent::maybe_install();
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, OCTET_LENGTH(meta_json) AS meta_bytes FROM ' . parent::table_name() . ' WHERE user_id = %d ORDER BY id ASC LIMIT %d',
+				absint( $user_id ),
+				self::OWNER_DOCUMENT_LIMIT + 1
+			)
+		);
+		if ( ! is_array( $rows ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_scope_unavailable', 'The document scope could not be verified.', array( 'status' => 503 ) );
+		}
+		$bytes_by_id = array();
+		$total       = 0;
+		foreach ( $rows as $row ) {
+			$row_id = absint( $row->id ?? 0 );
+			$bytes  = absint( $row->meta_bytes ?? 0 );
+			if ( $row_id ) {
+				$bytes_by_id[ $row_id ] = $bytes;
+			}
+			$total += $bytes;
+		}
+		return array( 'count' => count( $rows ), 'meta_bytes' => $total, 'bytes_by_id' => $bytes_by_id );
+	}
+
+	/**
+	 * Fail closed before loading one owner's complete document rows.
+	 *
+	 * @param int $user_id Owner ID.
+	 * @return array|WP_Error
+	 */
+	protected static function owner_scope_preflight( $user_id ) {
+		$metrics = self::owner_metadata_metrics( $user_id );
+		if ( is_wp_error( $metrics ) ) {
+			return $metrics;
+		}
+		if ( $metrics['count'] > self::OWNER_DOCUMENT_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_scope_too_large', 'This Vault contains too many document records for a bounded response.', array( 'status' => 503 ) );
+		}
+		if ( $metrics['meta_bytes'] > self::OWNER_META_BYTES_LIMIT || array_filter( $metrics['bytes_by_id'], static function ( $bytes ) { return $bytes > self::DOCUMENT_META_BYTES_LIMIT; } ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_payload_too_large', 'This Vault contains too much document metadata for a bounded response.', array( 'status' => 503 ) );
+		}
+		return $metrics;
+	}
+
+	/**
+	 * Recheck rows after loading to close the preflight/read race.
+	 *
+	 * @param array|null $rows Loaded database rows.
+	 * @return true|WP_Error
+	 */
+	protected static function validate_loaded_owner_rows( $rows ) {
+		if ( ! is_array( $rows ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_scope_unavailable', 'The document scope could not be loaded.', array( 'status' => 503 ) );
+		}
+		if ( count( $rows ) > self::OWNER_DOCUMENT_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_scope_too_large', 'This Vault contains too many document records for a bounded response.', array( 'status' => 503 ) );
+		}
+		$total = 0;
+		foreach ( $rows as $row ) {
+			$bytes  = strlen( (string) ( $row->meta_json ?? '' ) );
+			$total += $bytes;
+			if ( $bytes > self::DOCUMENT_META_BYTES_LIMIT || $total > self::OWNER_META_BYTES_LIMIT ) {
+				return new WP_Error( 'mmed_file_vault_v2_owner_payload_too_large', 'This Vault contains too much document metadata for a bounded response.', array( 'status' => 503 ) );
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * Enforce projected per-owner count and aggregate metadata before a write.
+	 *
+	 * @param int $user_id Owner ID.
+	 * @param int $row_id Existing row ID, or zero for a new document.
+	 * @param int $new_meta_bytes Serialized bytes for the projected row.
+	 * @return true|WP_Error
+	 */
+	protected static function owner_write_capacity( $user_id, $row_id, $new_meta_bytes ) {
+		$metrics = self::owner_metadata_metrics( $user_id );
+		if ( is_wp_error( $metrics ) ) {
+			return $metrics;
+		}
+		$row_id        = absint( $row_id );
+		$current_bytes = absint( $metrics['bytes_by_id'][ $row_id ] ?? 0 );
+		$is_update     = $row_id && array_key_exists( $row_id, $metrics['bytes_by_id'] );
+		$projected_count = $metrics['count'] + ( $is_update ? 0 : 1 );
+		$projected_bytes = $metrics['meta_bytes'] - $current_bytes + absint( $new_meta_bytes );
+		$other_oversized = array_filter( $metrics['bytes_by_id'], static function ( $bytes, $id ) use ( $row_id ) {
+			return absint( $id ) !== $row_id && $bytes > self::DOCUMENT_META_BYTES_LIMIT;
+		}, ARRAY_FILTER_USE_BOTH );
+		if ( $projected_count > self::OWNER_DOCUMENT_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_document_limit', 'This Vault has reached its document limit.', array( 'status' => 409 ) );
+		}
+		if ( $projected_bytes > self::OWNER_META_BYTES_LIMIT || ! empty( $other_oversized ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_metadata_limit', 'This Vault has reached its aggregate metadata limit.', array( 'status' => 409 ) );
+		}
+		return true;
+	}
+
+	/**
 	 * Save one metadata document while preserving unrelated legacy metadata.
 	 *
 	 * @param object $row Database row.
 	 * @param array  $meta V2 metadata.
 	 * @return bool
 	 */
-	protected static function save_meta( $row, $meta ) {
+	protected static function save_meta( $row, $meta, $max_bytes = self::DOCUMENT_META_WRITE_BYTES_LIMIT ) {
 		global $wpdb;
-		$result = $wpdb->update(
-			parent::table_name(),
-			array(
-				'meta_json'  => self::merge_meta_json( $row, $meta ),
-				'updated_at' => current_time( 'mysql' ),
-			),
-			array(
-				'id'        => absint( $row->id ),
-				'meta_json' => isset( $row->meta_json ) ? $row->meta_json : null,
-			),
-			array( '%s', '%s' ),
-			array( '%d', '%s' )
-		);
+		$meta_json = self::encode_meta_json( $row, $meta, $max_bytes );
+		if ( is_wp_error( $meta_json ) ) {
+			return $meta_json;
+		}
+		$owner_id   = absint( $row->user_id ?? 0 );
+		$lock_key   = self::confirm_lock_key( $owner_id );
+		$lock_token = self::acquire_owned_lock( $lock_key, 120 );
+		if ( ! $lock_token ) {
+			return new WP_Error( 'mmed_file_vault_v2_owner_write_in_progress', 'Another Vault change is being saved. Reload and try again.', array( 'status' => 409 ) );
+		}
+		try {
+			$capacity = self::owner_write_capacity( $owner_id, absint( $row->id ?? 0 ), strlen( $meta_json ) );
+			if ( is_wp_error( $capacity ) ) {
+				return $capacity;
+			}
+			$result = $wpdb->update(
+				parent::table_name(),
+				array(
+					'meta_json'  => $meta_json,
+					'updated_at' => current_time( 'mysql' ),
+				),
+				array(
+					'id'        => absint( $row->id ),
+					'meta_json' => isset( $row->meta_json ) ? $row->meta_json : null,
+				),
+				array( '%s', '%s' ),
+				array( '%d', '%s' )
+			);
+		} finally {
+			self::release_owned_lock( $lock_key, $lock_token );
+		}
 		if ( 0 === $result ) {
 			return new WP_Error( 'mmed_file_vault_v2_write_conflict', 'The document changed while this action was being saved. Reload and try again.', array( 'status' => 409 ) );
 		}
@@ -1452,20 +1767,78 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	}
 
 	/**
-	 * Preserve non-V2 keys in meta_json.
+	 * Preserve non-V2 keys and enforce hard write-time metadata ceilings.
 	 *
-	 * @param object $row Database row.
+	 * @param object|null $row Database row for an update, or null for an insert.
 	 * @param array  $meta V2 metadata.
-	 * @return string
+	 * @param int         $max_bytes Write ceiling, never above the hard document limit.
+	 * @return string|WP_Error
 	 */
-	protected static function merge_meta_json( $row, $meta ) {
+	protected static function encode_meta_json( $row, $meta, $max_bytes = self::DOCUMENT_META_WRITE_BYTES_LIMIT ) {
+		$limits = array(
+			'versions' => self::MAX_VERSIONS,
+			'comments' => self::MAX_COMMENTS,
+			'scores'   => self::MAX_SCORES,
+			'activity' => self::MAX_ACTIVITY_EVENTS,
+		);
+		foreach ( $limits as $collection => $limit ) {
+			if ( count( (array) ( $meta[ $collection ] ?? array() ) ) > $limit ) {
+				return new WP_Error( 'mmed_file_vault_v2_metadata_collection_limit', 'This document history has reached its safe retained-record limit.', array( 'status' => 409 ) );
+			}
+		}
 		$root = array();
-		if ( ! empty( $row->meta_json ) ) {
+		if ( $row && ! empty( $row->meta_json ) ) {
 			$decoded = json_decode( (string) $row->meta_json, true );
 			$root    = is_array( $decoded ) ? $decoded : array();
 		}
 		$root[ self::META_KEY ] = $meta;
-		return wp_json_encode( $root );
+		$encoded = wp_json_encode( $root );
+		$max_bytes = min( self::DOCUMENT_META_BYTES_LIMIT, max( 1, absint( $max_bytes ) ) );
+		if ( ! is_string( $encoded ) || strlen( $encoded ) > $max_bytes ) {
+			return new WP_Error( 'mmed_file_vault_v2_metadata_limit', 'This document history has reached its safe metadata limit.', array( 'status' => 409 ) );
+		}
+		return $encoded;
+	}
+
+	/**
+	 * Build the metadata shape confirmation is expected to persist before signing.
+	 *
+	 * @param object|null $row Existing row for a version, or null for a new document.
+	 * @param array       $row_meta Existing V2 metadata.
+	 * @param array       $intent Candidate upload intent.
+	 * @param int         $actor_id Actor ID.
+	 * @return string|WP_Error
+	 */
+	protected static function projected_upload_meta_json( $row, $row_meta, $intent, $actor_id ) {
+		$status            = ! empty( $intent['ready_for_review'] ) ? 'submitted' : 'draft';
+		$projected_intent  = $intent;
+		$projected_intent['r2_key'] = (string) $intent['final_r2_key'];
+		$probe = array(
+			'size'               => absint( $intent['declared_size'] ),
+			'etag'               => str_repeat( 'f', 256 ),
+			'sha256'             => sanitize_text_field( $intent['declared_sha256'] ),
+			'verification_state' => 'ready_clean',
+		);
+		if ( $row ) {
+			$meta                     = $row_meta;
+			$meta['document_uuid']    = sanitize_text_field( $intent['document_uuid'] );
+			$meta['versions']         = self::internal_versions( $row, $meta );
+			$meta['versions'][]       = self::version_entry( $projected_intent, $probe, $actor_id );
+			$meta['workflow_status']  = $status;
+			$meta['note']             = sanitize_textarea_field( $intent['note'] ?? '' );
+			$meta                     = self::append_activity( $meta, self::event( 'version_uploaded', $actor_id, 'New version uploaded.' ) );
+			return self::encode_meta_json( $row, $meta );
+		}
+
+		$meta                    = self::empty_meta();
+		$meta['document_type']   = self::normalize_document_type( $intent['document_type'] );
+		$meta['document_uuid']   = sanitize_text_field( $intent['document_uuid'] );
+		$meta['display_name']    = sanitize_text_field( $intent['display_name'] );
+		$meta['note']            = sanitize_textarea_field( $intent['note'] );
+		$meta['workflow_status'] = $status;
+		$meta['versions'][]      = self::version_entry( $projected_intent, $probe, $actor_id );
+		$meta                    = self::append_activity( $meta, self::event( 'document_uploaded', $actor_id, 'Document uploaded.' ) );
+		return self::encode_meta_json( null, $meta );
 	}
 
 	/**
@@ -1914,6 +2287,102 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	}
 
 	/**
+	 * Append one operational event while retaining a bounded rolling history.
+	 *
+	 * @param array $meta Document metadata.
+	 * @param array $event Event payload.
+	 * @return array
+	 */
+	protected static function append_activity( $meta, $event ) {
+		$events   = array_values( (array) ( $meta['activity'] ?? array() ) );
+		$events[] = $event;
+		if ( count( $events ) > self::MAX_ACTIVITY_EVENTS ) {
+			$events = array_slice( $events, -self::MAX_ACTIVITY_EVENTS );
+		}
+		$meta['activity'] = $events;
+		return $meta;
+	}
+
+	/**
+	 * Record at most one identical download event per actor and document window.
+	 *
+	 * @param object $row Database row.
+	 * @param array  $meta Document metadata.
+	 * @param int    $actor_id Actor ID.
+	 * @param string $type Event type.
+	 * @param string $message Event message.
+	 * @return true|WP_Error
+	 */
+	protected static function record_throttled_activity( $row, $meta, $actor_id, $type, $message ) {
+		$key = 'mmed_fv2_activity_' . sanitize_key( $type ) . '_' . absint( $row->id ) . '_' . absint( $actor_id );
+		if ( false !== get_transient( $key ) ) {
+			return true;
+		}
+		if ( ! set_transient( $key, 1, self::DOWNLOAD_EVENT_WINDOW ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_audit_unavailable', 'The secure download could not be audited. Try again.', array( 'status' => 503 ) );
+		}
+		$meta = self::append_activity( $meta, self::event( $type, $actor_id, $message ) );
+		do {
+			$saved = self::save_meta( $row, $meta, self::DOCUMENT_META_BYTES_LIMIT );
+			if ( ! is_wp_error( $saved ) || 'mmed_file_vault_v2_metadata_limit' !== $saved->get_error_code() || count( $meta['activity'] ) <= 1 ) {
+				break;
+			}
+			array_shift( $meta['activity'] );
+		} while ( true );
+		if ( is_wp_error( $saved ) ) {
+			delete_transient( $key );
+		}
+		return $saved;
+	}
+
+	/**
+	 * Reserve one bounded comment attempt for an actor and document.
+	 *
+	 * @param int $file_id File ID.
+	 * @param int $actor_id Actor ID.
+	 * @return true|WP_Error
+	 */
+	protected static function reserve_comment_rate( $file_id, $actor_id ) {
+		$key      = 'mmed_fv2_comment_rate_' . absint( $file_id ) . '_' . absint( $actor_id );
+		$now      = time();
+		$attempts = get_transient( $key );
+		$attempts = is_array( $attempts ) ? array_values( array_filter( array_map( 'absint', $attempts ), static function ( $timestamp ) use ( $now ) {
+			return $timestamp > $now - self::COMMENT_RATE_WINDOW;
+		} ) ) : array();
+		if ( count( $attempts ) >= self::COMMENT_RATE_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_comment_rate', 'Too many comments were submitted. Try again in a few minutes.', array( 'status' => 429 ) );
+		}
+		$attempts[] = $now;
+		if ( ! set_transient( $key, $attempts, self::COMMENT_RATE_WINDOW ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_comment_rate_unavailable', 'Comment rate protection is unavailable. Try again.', array( 'status' => 503 ) );
+		}
+		return true;
+	}
+
+	/**
+	 * Bound legacy metadata-row issuance while V1 remains the rollback surface.
+	 *
+	 * @param int $user_id Owner ID.
+	 * @return true|WP_Error
+	 */
+	protected static function reserve_legacy_upload_rate( $user_id ) {
+		$key      = 'mmed_fv2_legacy_issue_' . absint( $user_id );
+		$now      = time();
+		$attempts = get_transient( $key );
+		$attempts = is_array( $attempts ) ? array_values( array_filter( array_map( 'absint', $attempts ), static function ( $timestamp ) use ( $now ) {
+			return $timestamp > $now - self::LEGACY_UPLOAD_RATE_WINDOW;
+		} ) ) : array();
+		if ( count( $attempts ) >= self::LEGACY_UPLOAD_RATE_LIMIT ) {
+			return new WP_Error( 'mmed_file_vault_v2_legacy_upload_rate', 'Too many upload sessions were requested. Try again in a few minutes.', array( 'status' => 429 ) );
+		}
+		$attempts[] = $now;
+		if ( ! set_transient( $key, $attempts, self::LEGACY_UPLOAD_RATE_WINDOW ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_legacy_rate_unavailable', 'Upload rate protection is unavailable. Try again.', array( 'status' => 503 ) );
+		}
+		return true;
+	}
+
+	/**
 	 * Create an audit event without exposing IDs in the browser response.
 	 *
 	 * @param string $type Event type.
@@ -1963,7 +2432,7 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	}
 
 	/**
-	 * Build the atomic WordPress option lock key for confirmation.
+	 * Build the atomic WordPress option lock key for owner metadata mutations.
 	 *
 	 * @param int $user_id Owner ID.
 	 * @return string
@@ -1980,24 +2449,6 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	/** @return string */
 	protected static function issuance_actor_lock_key( $actor_id ) {
 		return 'mmed_fv2_issue_actor_' . absint( $actor_id );
-	}
-
-	/**
-	 * Acquire a short atomic lock using wp_options' unique option name.
-	 *
-	 * @param string $lock_key Lock option key.
-	 * @return bool
-	 */
-	protected static function acquire_lock( $lock_key ) {
-		$expires = time() + 120;
-		if ( add_option( $lock_key, $expires, '', false ) ) {
-			return true;
-		}
-		if ( absint( get_option( $lock_key, 0 ) ) >= time() ) {
-			return false;
-		}
-		delete_option( $lock_key );
-		return add_option( $lock_key, $expires, '', false );
 	}
 
 	/**
@@ -2019,8 +2470,42 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( $expires >= time() ) {
 			return false;
 		}
-		delete_option( $lock_key );
-		return add_option( $lock_key, $value, '', false ) ? $token : false;
+		return self::compare_and_swap_option( $lock_key, $current, $value ) ? $token : false;
+	}
+
+	/**
+	 * Atomically replace one exact stale option value without a delete/add race.
+	 *
+	 * @param string $option Option name.
+	 * @param mixed  $expected Exact serialized value currently observed.
+	 * @param mixed  $replacement Replacement value.
+	 * @return bool
+	 */
+	protected static function compare_and_swap_option( $option, $expected, $replacement ) {
+		global $wpdb;
+
+		if ( ! isset( $wpdb->options ) ) {
+			return false;
+		}
+		$updated = $wpdb->update(
+			$wpdb->options,
+			array( 'option_value' => maybe_serialize( $replacement ) ),
+			array(
+				'option_name'  => (string) $option,
+				'option_value' => maybe_serialize( $expected ),
+			),
+			array( '%s' ),
+			array( '%s', '%s' )
+		);
+		if ( 1 !== $updated ) {
+			return false;
+		}
+		if ( function_exists( 'wp_cache_delete' ) ) {
+			wp_cache_delete( (string) $option, 'options' );
+			wp_cache_delete( 'alloptions', 'options' );
+			wp_cache_delete( 'notoptions', 'options' );
+		}
+		return true;
 	}
 
 	/**
@@ -2064,6 +2549,9 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		}
 
 		$current       = self::used_storage_bytes( $user_id );
+		if ( is_wp_error( $current ) ) {
+			return $current;
+		}
 		$pending_bytes = array_sum( array_map( static function ( $item ) { return absint( $item['size'] ?? 0 ); }, $pending ) );
 		if ( $current + $pending_bytes + absint( $new_size ) > $quota ) {
 			return new WP_Error( 'mmed_file_vault_v2_quota_exceeded', 'This upload would exceed the configured private storage quota.', array( 'status' => 413 ) );
@@ -2095,7 +2583,11 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 		if ( ! $intent_found ) {
 			$pending_bytes += absint( $size );
 		}
-		if ( self::used_storage_bytes( $user_id ) + $pending_bytes > $quota ) {
+		$current = self::used_storage_bytes( $user_id );
+		if ( is_wp_error( $current ) ) {
+			return $current;
+		}
+		if ( $current + $pending_bytes > $quota ) {
 			return new WP_Error( 'mmed_file_vault_v2_quota_exceeded', 'This upload no longer fits within the configured private storage quota.', array( 'status' => 413 ) );
 		}
 		return true;
@@ -2105,17 +2597,26 @@ class MMED_File_Vault_V2_Repository extends MMED_File_Vault {
 	 * Count every retained immutable version, not only each row's current size.
 	 *
 	 * @param int $user_id Owner ID.
-	 * @return int
+	 * @return int|WP_Error
 	 */
 	protected static function used_storage_bytes( $user_id ) {
 		global $wpdb;
 
+		$scope = self::owner_scope_preflight( absint( $user_id ) );
+		if ( is_wp_error( $scope ) ) {
+			return $scope;
+		}
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				'SELECT * FROM ' . parent::table_name() . ' WHERE user_id = %d',
-				absint( $user_id )
+				'SELECT * FROM ' . parent::table_name() . ' WHERE user_id = %d ORDER BY id ASC LIMIT %d',
+				absint( $user_id ),
+				self::OWNER_DOCUMENT_LIMIT + 1
 			)
 		);
+		$loaded_scope = self::validate_loaded_owner_rows( $rows );
+		if ( is_wp_error( $loaded_scope ) ) {
+			return $loaded_scope;
+		}
 		$total = 0;
 		foreach ( is_array( $rows ) ? $rows : array() as $row ) {
 			$versions = self::internal_versions( $row, self::meta_for_row( $row ) );

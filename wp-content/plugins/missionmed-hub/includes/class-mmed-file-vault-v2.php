@@ -52,14 +52,14 @@ class MMED_File_Vault_V2 {
 		self::route( '/file-vault/audit', WP_REST_Server::READABLE, 'get_audit', 'can_audit' );
 		self::route( '/file-vault/files/(?P<id>\d+)', WP_REST_Server::READABLE, 'get_file', 'can_use_v2', self::id_args() );
 		self::route( '/file-vault/files/(?P<id>\d+)/download', WP_REST_Server::READABLE, 'download_file', 'can_use_v2', self::id_args() );
-		self::route( '/file-vault/uploads', WP_REST_Server::CREATABLE, 'create_upload' );
-		self::route( '/file-vault/uploads/(?P<upload_id>[a-f0-9-]{36})/confirm', WP_REST_Server::CREATABLE, 'confirm_upload' );
-		self::route( '/file-vault/files/(?P<id>\d+)/versions', WP_REST_Server::CREATABLE, 'create_version', 'can_use_v2', self::id_args() );
-		self::route( '/file-vault/files/(?P<id>\d+)/comments', WP_REST_Server::CREATABLE, 'add_comment', 'can_use_v2', self::id_args() );
+		self::route( '/file-vault/uploads', WP_REST_Server::CREATABLE, 'create_upload', 'can_use_v2', self::upload_args( true ) );
+		self::route( '/file-vault/uploads/(?P<upload_id>[a-f0-9-]{36})/confirm', WP_REST_Server::CREATABLE, 'confirm_upload', 'can_use_v2', self::confirm_args() );
+		self::route( '/file-vault/files/(?P<id>\d+)/versions', WP_REST_Server::CREATABLE, 'create_version', 'can_use_v2', array_merge( self::id_args(), self::upload_args( false ) ) );
+		self::route( '/file-vault/files/(?P<id>\d+)/comments', WP_REST_Server::CREATABLE, 'add_comment', 'can_use_v2', array_merge( self::id_args(), self::comment_args() ) );
 		self::route( '/file-vault/files/(?P<id>\d+)/comments/(?P<comment_id>[a-f0-9-]{36})/resolve', WP_REST_Server::EDITABLE, 'resolve_comment', 'can_staff', self::id_args() );
 		self::route( '/file-vault/files/(?P<id>\d+)/submit', WP_REST_Server::CREATABLE, 'submit_file', 'can_use_v2', self::id_args() );
-		self::route( '/file-vault/files/(?P<id>\d+)/status', WP_REST_Server::EDITABLE, 'update_status', 'can_staff', self::id_args() );
-		self::route( '/file-vault/files/(?P<id>\d+)/score', WP_REST_Server::CREATABLE, 'add_score', 'can_staff', self::id_args() );
+		self::route( '/file-vault/files/(?P<id>\d+)/status', WP_REST_Server::EDITABLE, 'update_status', 'can_staff', array_merge( self::id_args(), self::status_args() ) );
+		self::route( '/file-vault/files/(?P<id>\d+)/score', WP_REST_Server::CREATABLE, 'add_score', 'can_staff', array_merge( self::id_args(), self::score_args() ) );
 	}
 
 	/**
@@ -235,6 +235,9 @@ class MMED_File_Vault_V2 {
 		}
 
 		$data                 = MMED_File_Vault_V2_Repository::bootstrap( $target_id, $role );
+		if ( is_wp_error( $data ) ) {
+			return $data;
+		}
 		$data['mode']         = self::get_mode();
 		$data['capabilities'] = self::capabilities( $target_id );
 		if ( 'student' !== $role ) {
@@ -262,6 +265,9 @@ class MMED_File_Vault_V2 {
 			return self::forbidden_student();
 		}
 		$data                 = MMED_File_Vault_V2_Repository::bootstrap( $student_id, self::role_for_user() );
+		if ( is_wp_error( $data ) ) {
+			return $data;
+		}
 		$data['mode']         = self::get_mode();
 		$data['capabilities'] = self::capabilities( $student_id );
 		return new WP_REST_Response( $data, 200 );
@@ -568,6 +574,55 @@ class MMED_File_Vault_V2 {
 		);
 	}
 
+	/** @return array */
+	protected static function upload_args( $include_student ) {
+		$args = array(
+			'filename'         => array( 'required' => true, 'type' => 'string' ),
+			'mime_type'        => array( 'required' => true, 'type' => 'string' ),
+			'file_size'        => array( 'required' => true, 'type' => 'integer', 'minimum' => 1 ),
+			'document_type'    => array( 'type' => 'string' ),
+			'display_name'     => array( 'type' => 'string' ),
+			'note'             => array( 'type' => 'string' ),
+			'sha256'           => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9]{64}$' ),
+			'ready_for_review' => array( 'type' => 'boolean' ),
+		);
+		if ( $include_student ) {
+			$args['student_id'] = array( 'type' => 'integer', 'minimum' => 1 );
+		}
+		return $args;
+	}
+
+	/** @return array */
+	protected static function confirm_args() {
+		return array(
+			'confirm_token' => array( 'required' => true, 'type' => 'string', 'pattern' => '^[a-fA-F0-9]{64}$' ),
+		);
+	}
+
+	/** @return array */
+	protected static function comment_args() {
+		return array(
+			'body' => array( 'required' => true, 'type' => 'string', 'minLength' => 1, 'maxLength' => MMED_File_Vault_V2_Repository::NOTE_LENGTH_LIMIT ),
+		);
+	}
+
+	/** @return array */
+	protected static function status_args() {
+		return array(
+			'status' => array( 'required' => true, 'type' => 'string' ),
+			'note'   => array( 'type' => 'string', 'maxLength' => MMED_File_Vault_V2_Repository::NOTE_LENGTH_LIMIT ),
+		);
+	}
+
+	/** @return array */
+	protected static function score_args() {
+		return array(
+			'total_score'     => array( 'type' => 'integer', 'minimum' => 0 ),
+			'category_scores' => array( 'required' => true, 'type' => 'object' ),
+			'notes'           => array( 'type' => 'string', 'maxLength' => MMED_File_Vault_V2_Repository::NOTE_LENGTH_LIMIT ),
+		);
+	}
+
 	/**
 	 * Read JSON params safely.
 	 *
@@ -691,11 +746,10 @@ class MMED_File_Vault_V2 {
 		}
 
 		$method = method_exists( $request, 'get_method' ) ? strtoupper( (string) $request->get_method() ) : 'GET';
-		if ( ! in_array( $method, array( 'GET', 'HEAD', 'OPTIONS' ), true ) ) {
-			$origin = trim( (string) $request->get_header( 'origin' ) );
-			if ( ! self::is_same_origin( $origin, home_url( '/' ) ) ) {
-				return new WP_Error( 'mmed_file_vault_v2_origin_invalid', 'The request origin is not allowed.', array( 'status' => 403 ) );
-			}
+		$origin = trim( (string) $request->get_header( 'origin' ) );
+		$safe_method = in_array( $method, array( 'GET', 'HEAD', 'OPTIONS' ), true );
+		if ( ( $origin && ! self::is_same_origin( $origin, home_url( '/' ) ) ) || ( ! $safe_method && ! $origin ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_origin_invalid', 'The request origin is not allowed.', array( 'status' => 403 ) );
 		}
 
 		return true;

@@ -126,15 +126,17 @@ class MMED_File_Vault {
 	}
 
 	/**
-	 * Create a metadata row and return a presigned upload URL.
+	 * Delegate legacy upload issuance only to a verified bounded server adapter.
 	 *
 	 * @param WP_REST_Request $request REST request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function get_upload_url( $request ) {
-		global $wpdb;
-
 		self::maybe_install();
+		$user_id = get_current_user_id();
+		if ( class_exists( 'MMED_File_Vault_V2' ) && method_exists( 'MMED_File_Vault_V2', 'is_user_eligible' ) && MMED_File_Vault_V2::is_user_eligible( $user_id ) ) {
+			return new WP_Error( 'mmed_file_vault_v2_upload_required', 'Use the current File Vault upload workflow for this account.', array( 'status' => 409 ) );
+		}
 
 		if ( ! self::storage_configured() ) {
 			return new WP_Error(
@@ -144,64 +146,16 @@ class MMED_File_Vault {
 			);
 		}
 
-		$params        = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
-		$original_name = sanitize_file_name( $params['filename'] ?? '' );
-		$mime_type     = sanitize_text_field( $params['mime_type'] ?? 'application/octet-stream' );
-		$category      = self::sanitize_category( $params['category'] ?? 'other', 'other' );
-		$user_id       = get_current_user_id();
-
-		if ( '' === $original_name ) {
-			return new WP_Error( 'mmed_file_name_required', 'A filename is required.', array( 'status' => 400 ) );
-		}
-
-		$filename = time() . '_' . $original_name;
-		$r2_key   = 'student-files/' . $user_id . '/' . $category . '/' . $filename;
-
-		$inserted = $wpdb->insert(
-			self::table_name(),
-			array(
-				'user_id'       => $user_id,
-				'filename'      => $filename,
-				'original_name' => $original_name,
-				'r2_key'        => $r2_key,
-				'mime_type'     => $mime_type,
-				'file_size'     => 0,
-				'category'      => $category,
-				'version'       => 1,
-				'status'        => 'pending_review',
-				'created_at'    => current_time( 'mysql' ),
-				'updated_at'    => current_time( 'mysql' ),
-			),
-			array( '%d', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%s', '%s' )
-		);
-
-		if ( false === $inserted ) {
-			return new WP_Error( 'mmed_file_create_failed', 'File metadata could not be created.', array( 'status' => 500 ) );
-		}
-
-		$file_id = (int) $wpdb->insert_id;
-		$url     = self::presign_url( 'PUT', $r2_key, 900 );
-
-		return new WP_REST_Response(
-			array(
-				'upload_url' => $url,
-				'file_id'    => $file_id,
-				'r2_key'     => $r2_key,
-				'expires'    => 900,
-			),
-			201
-		);
+		return new WP_Error( 'mmed_file_vault_v1_bounded_upload_unavailable', 'Legacy direct upload is unavailable until a bounded private-storage adapter is verified.', array( 'status' => 503 ) );
 	}
 
 	/**
-	 * Confirm direct browser upload completion.
+	 * Delegate legacy confirmation only to authoritative object verification.
 	 *
 	 * @param WP_REST_Request $request REST request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function confirm_upload( $request ) {
-		global $wpdb;
-
 		self::maybe_install();
 
 		$file_id = absint( $request['id'] );
@@ -215,25 +169,7 @@ class MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_v2_confirm_required', 'This document is managed by File Vault V2 and cannot be changed through the legacy confirmation route.', array( 'status' => 409 ) );
 		}
 
-		$params    = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
-		$file_size = isset( $params['file_size'] ) ? absint( $params['file_size'] ) : 0;
-
-		$wpdb->update(
-			self::table_name(),
-			array(
-				'file_size'  => $file_size,
-				'status'     => 'uploaded',
-				'updated_at' => current_time( 'mysql' ),
-			),
-			array(
-				'id'      => $file_id,
-				'user_id' => $user_id,
-			),
-			array( '%d', '%s', '%s' ),
-			array( '%d', '%d' )
-		);
-
-		return new WP_REST_Response( self::format_file( self::get_owned_file( $file_id, $user_id ) ), 200 );
+		return new WP_Error( 'mmed_file_vault_v1_bounded_confirm_unavailable', 'Legacy upload confirmation requires authoritative object verification.', array( 'status' => 503 ) );
 	}
 
 	/**
@@ -415,14 +351,12 @@ class MMED_File_Vault {
 	}
 
 	/**
-	 * Create a metadata row for an admin-shared file and return a presigned upload URL.
+	 * Delegate admin-shared upload issuance to a verified bounded server adapter.
 	 *
 	 * @param WP_REST_Request $request REST request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function admin_get_student_upload_url( $request ) {
-		global $wpdb;
-
 		self::maybe_install();
 
 		if ( ! self::storage_configured() ) {
@@ -440,71 +374,16 @@ class MMED_File_Vault {
 			return new WP_Error( 'mmed_file_vault_student_not_found', 'Student not found.', array( 'status' => 404 ) );
 		}
 
-		$params        = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
-		$original_name = sanitize_file_name( $params['filename'] ?? '' );
-		$mime_type     = sanitize_text_field( $params['mime_type'] ?? 'application/octet-stream' );
-		$category      = self::sanitize_category( $params['category'] ?? 'documents', 'documents' );
-
-		if ( '' === $original_name ) {
-			return new WP_Error( 'mmed_file_name_required', 'A filename is required.', array( 'status' => 400 ) );
-		}
-
-		$filename = time() . '_admin_' . wp_generate_uuid4() . '_' . $original_name;
-		$r2_key   = self::student_prefix( $user_id ) . $category . '/' . $filename;
-		$meta     = array(
-			'origin'      => 'admin_hq',
-			'uploaded_by' => get_current_user_id(),
-			'shared_to'   => $user_id,
-		);
-
-		$inserted = $wpdb->insert(
-			self::table_name(),
-			array(
-				'user_id'       => $user_id,
-				'filename'      => $filename,
-				'original_name' => $original_name,
-				'r2_key'        => $r2_key,
-				'mime_type'     => $mime_type,
-				'file_size'     => 0,
-				'category'      => $category,
-				'version'       => 1,
-				'status'        => 'verified',
-				'reviewed_by'   => get_current_user_id(),
-				'reviewed_at'   => current_time( 'mysql' ),
-				'meta_json'     => wp_json_encode( $meta ),
-				'created_at'    => current_time( 'mysql' ),
-				'updated_at'    => current_time( 'mysql' ),
-			),
-			array( '%d', '%s', '%s', '%s', '%s', '%d', '%s', '%d', '%s', '%d', '%s', '%s', '%s', '%s' )
-		);
-
-		if ( false === $inserted ) {
-			return new WP_Error( 'mmed_file_create_failed', 'File metadata could not be created.', array( 'status' => 500 ) );
-		}
-
-		$file_id = (int) $wpdb->insert_id;
-
-		return new WP_REST_Response(
-			array(
-				'upload_url' => self::presign_url( 'PUT', $r2_key, 900 ),
-				'file_id'    => $file_id,
-				'r2_key'     => $r2_key,
-				'expires'    => 900,
-				'file'       => self::format_admin_file( self::get_file_by_id( $file_id ) ),
-			),
-			201
-		);
+		return new WP_Error( 'mmed_file_vault_v1_bounded_upload_unavailable', 'Legacy direct upload is unavailable until a bounded private-storage adapter is verified.', array( 'status' => 503 ) );
 	}
 
 	/**
-	 * Confirm an admin-shared browser upload.
+	 * Delegate admin-shared confirmation to authoritative object verification.
 	 *
 	 * @param WP_REST_Request $request REST request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public static function admin_confirm_student_upload( $request ) {
-		global $wpdb;
-
 		self::maybe_install();
 
 		$file_id = absint( $request['id'] );
@@ -515,27 +394,7 @@ class MMED_File_Vault {
 			return new WP_Error( 'mmed_file_not_found', 'File not found for this student.', array( 'status' => 404 ) );
 		}
 
-		$params    = is_array( $request->get_json_params() ) ? $request->get_json_params() : array();
-		$file_size = isset( $params['file_size'] ) ? absint( $params['file_size'] ) : 0;
-
-		$wpdb->update(
-			self::table_name(),
-			array(
-				'file_size'   => $file_size,
-				'status'      => 'verified',
-				'reviewed_by' => get_current_user_id(),
-				'reviewed_at' => current_time( 'mysql' ),
-				'updated_at'  => current_time( 'mysql' ),
-			),
-			array(
-				'id'      => $file_id,
-				'user_id' => $user_id,
-			),
-			array( '%d', '%s', '%d', '%s', '%s' ),
-			array( '%d', '%d' )
-		);
-
-		return new WP_REST_Response( self::format_admin_file( self::get_owned_file( $file_id, $user_id ) ), 200 );
+		return new WP_Error( 'mmed_file_vault_v1_bounded_confirm_unavailable', 'Legacy upload confirmation requires authoritative object verification.', array( 'status' => 503 ) );
 	}
 
 	/**

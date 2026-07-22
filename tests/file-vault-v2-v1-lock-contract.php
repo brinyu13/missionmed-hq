@@ -50,5 +50,9 @@ fv2_v1_assert( false !== strpos( $v1_repository, 'ready_clean' ), 'V1 compatibil
 fv2_v1_assert( false !== strpos( $v1_repository, '$expires = 60' ), 'V1 compatibility download uses the V2 short expiry' );
 fv2_v1_assert( false !== strpos( $v1_repository, 'record_compatibility_download' ), 'V1 compatibility download records an operational event' );
 fv2_v1_assert( false !== strpos( $v1_repository, "'needs_changes', 'reviewed', 'final'" ), 'V1 response projects V2 workflow status for rollback truth' );
+fv2_v1_assert( false !== strpos( $v1_repository, 'mmed_file_vault_v2_upload_required' ) && false !== strpos( $v1_repository, 'is_user_eligible' ), 'V1 upload issuance is unavailable to accounts actively routed to V2' );
+fv2_v1_assert( false !== strpos( $v1_repository, 'mmed_file_vault_v1_bounded_upload_unavailable' ) && false !== strpos( $v1_repository, 'mmed_file_vault_v1_bounded_confirm_unavailable' ), 'unbounded V1 PUT issuance and client-trusted confirmation fail closed without a verified server adapter' );
+fv2_v1_assert( false === strpos( $v1_repository, "self::presign_url( 'PUT'" ), 'V1 fallback does not issue an unrestricted direct PUT URL' );
+fv2_v1_assert( false === strpos( $v1_repository, "apply_filters( 'mmed_file_vault_v1_bounded" ), 'no unenforced V1 adapter hook can bypass the fail-closed upload boundary' );
 
 echo "PASS: {$checks} File Vault V1 fallback lock checks\n";
