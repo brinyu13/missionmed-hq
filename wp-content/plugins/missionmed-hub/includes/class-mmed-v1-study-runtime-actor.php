@@ -30,6 +30,12 @@ final class MMED_V1_Study_Runtime_Actor {
 			}
 		}
 
+		// Production runtime authority is bound directly. A provider may be
+		// injected only by an explicit caller (for deterministic tests); the
+		// global legacy resolver is never consulted from this path.
+		$provider = $provider instanceof MMED_V1_Study_Entitlement_Provider
+			? $provider
+			: new MMED_V1_Study_Runtime_Entitlement_Provider();
 		$entitlement = MMED_V1_Study_Entitlement::evaluate( $actor_id, $now, $provider );
 		if ( empty( $entitlement['allowed'] ) ) {
 			return self::denied( ! empty( $entitlement['dependency_error'] ) ? 'entitlement_unavailable' : 'not_found' );

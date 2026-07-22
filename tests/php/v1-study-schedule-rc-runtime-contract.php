@@ -9,12 +9,20 @@ $GLOBALS['v1_rc_hooks'] = array();
 $GLOBALS['v1_rc_actor'] = 44;
 $GLOBALS['v1_rc_logged_in'] = true;
 $GLOBALS['v1_rc_roles'] = array( 'subscriber' );
+$GLOBALS['v1_rc_entitlement_filters'] = 0;
+$GLOBALS['v1_rc_user_timezone'] = '';
 
 function add_action( $hook, $callback ) {
 	$GLOBALS['v1_rc_hooks'][] = array( 'action', $hook, $callback );
 }
 function add_filter( $hook, $callback ) {
 	$GLOBALS['v1_rc_hooks'][] = array( 'filter', $hook, $callback );
+}
+function apply_filters( $hook, $value ) {
+	if ( 'mmed_v1_study_entitlement_provider' === $hook ) {
+		$GLOBALS['v1_rc_entitlement_filters']++;
+	}
+	return $value;
 }
 function is_user_logged_in() {
 	return $GLOBALS['v1_rc_logged_in'];
@@ -29,8 +37,33 @@ function get_userdata( $actor_id ) {
 	unset( $actor_id );
 	return (object) array( 'roles' => $GLOBALS['v1_rc_roles'] );
 }
+function get_user_meta( $owner_id, $key, $single ) {
+	unset( $owner_id, $key, $single );
+	return $GLOBALS['v1_rc_user_timezone'];
+}
 function wp_timezone_string() {
 	return 'America/New_York';
+}
+function mmhq_cam_build_entitlement( $user_id ) {
+	return array(
+		'product'                 => 'cam',
+		'source'                  => 'wordpress_learndash_handoff',
+		'active'                  => true,
+		'status'                  => 'active',
+		'verified'                => true,
+		'trusted'                 => true,
+		'current_access_verified' => true,
+		'revocation_checked'      => true,
+		'enrollment_verified'     => true,
+		'restricted'              => false,
+		'revoked'                 => false,
+		'authority_mode'          => 'learndash_current_access',
+		'purchase_verified'       => false,
+		'purchase_match_found'    => false,
+		'course_ids'              => array( 360 ),
+		'evaluated_at'            => '2026-07-22T12:00:00Z',
+		'expires_at'              => '2026-07-23T12:00:00Z',
+	);
 }
 
 function v1_rc_expect( $condition, $message ) {
@@ -83,12 +116,22 @@ final class V1_RC_Entitlement_Provider implements MMED_V1_Study_Entitlement_Prov
 $actor = MMED_V1_Study_Runtime_Actor::resolve( strtotime( '2026-07-22T12:00:30Z' ), new V1_RC_Entitlement_Provider() );
 v1_rc_expect( true === $actor['allowed'] && 44 === $actor['owner_id'] && 'learner' === $actor['actor_kind'], 'direct actor resolver binds entitled learner to self' );
 v1_rc_expect( 1 === preg_match( '/^[a-f0-9]{64}$/D', $actor['entitlement_digest'] ), 'actor resolver emits only a normalized entitlement digest' );
+$actor = MMED_V1_Study_Runtime_Actor::resolve( strtotime( '2026-07-22T12:00:30Z' ) );
+v1_rc_expect( true === $actor['allowed'], 'runtime actor uses the direct WordPress entitlement adapter' );
+v1_rc_expect( 0 === $GLOBALS['v1_rc_entitlement_filters'], 'runtime actor never consults the legacy entitlement filter' );
 $GLOBALS['v1_rc_roles'] = array( 'mentor' );
 v1_rc_expect( false === MMED_V1_Study_Runtime_Actor::resolve( strtotime( '2026-07-22T12:00:30Z' ), new V1_RC_Entitlement_Provider() )['allowed'], 'mentor role cannot enter learner runtime' );
+$GLOBALS['v1_rc_roles'] = array( 'subscriber' );
 
 $temporal = MMED_V1_Study_Temporal_Context::for_week( '2026-07-20' );
 v1_rc_expect( 'America/New_York' === $temporal['timezone'] && '2026-07-20' === $temporal['week_start'], 'temporal envelope is server-owned and Monday-bound' );
 v1_rc_expect( 1 === preg_match( '/^[a-f0-9]{64}$/D', $temporal['context'] ), 'temporal envelope has an exact context digest' );
+$GLOBALS['v1_rc_user_timezone'] = '+05:30';
+$temporal = MMED_V1_Study_Temporal_Context::for_week( '2026-07-20', 44 );
+v1_rc_expect( '+05:30' === $temporal['timezone'], 'learner profile overrides the site timezone with a valid fixed offset' );
+$slot = MMED_V1_Study_Week_Domain::resolve_slot_from_envelope( '2026-07-20', '06:00', 30, null, $temporal );
+v1_rc_expect( '2026-07-20 00:30:00.000000' === $slot['start_at_utc'], 'fixed-offset civil time resolves to exact UTC' );
+v1_rc_expect( 'UTC' === MMED_V1_Study_Temporal_Context::normalize_timezone( '+00:00' ), 'zero offset canonicalizes to UTC' );
 
 $database = (object) array( 'prefix' => 'wp_' );
 $migrations = MMED_V1_Study_Runtime_Schema::migrations( $database );

@@ -983,7 +983,19 @@ final class MMED_V1_Study_Week_Domain {
 
 	/** @return string */
 	private static function timezone( $candidate ) {
-		if ( ! is_string( $candidate ) || strlen( $candidate ) < 1 || strlen( $candidate ) > 64 || ! in_array( $candidate, DateTimeZone::listIdentifiers(), true ) ) {
+		$fixed_offset = is_string( $candidate ) && 1 === preg_match( '/^[+-](?:0\d|1[0-3]):[0-5]\d$|^[+-]14:00$/D', $candidate );
+		if (
+			! is_string( $candidate )
+			|| strlen( $candidate ) < 1
+			|| strlen( $candidate ) > 64
+			|| ( ! $fixed_offset && ! in_array( $candidate, DateTimeZone::listIdentifiers(), true ) )
+		) {
+			throw new MMED_V1_Study_Week_Domain_Exception( 'timezone_invalid' );
+		}
+		try {
+			new DateTimeZone( $candidate );
+		} catch ( Throwable $error ) {
+			unset( $error );
 			throw new MMED_V1_Study_Week_Domain_Exception( 'timezone_invalid' );
 		}
 		return $candidate;
@@ -1002,6 +1014,10 @@ final class MMED_V1_Study_Week_Domain {
 			if ( isset( $transition['offset'] ) ) {
 				$offsets[ (int) $transition['offset'] ] = true;
 			}
+		}
+		// Fixed-offset DateTimeZone instances expose no transition table.
+		if ( empty( $offsets ) ) {
+			$offsets[ (int) $zone->getOffset( $naive ) ] = true;
 		}
 		$candidates = array();
 		foreach ( array_keys( $offsets ) as $offset ) {
