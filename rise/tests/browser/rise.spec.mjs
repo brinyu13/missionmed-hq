@@ -458,6 +458,7 @@ test("route changes reset scroll and move focus to the rendered main view", asyn
   await expect(page).toHaveURL(/#home$/);
   await expect(page.locator("#viewport")).toBeFocused();
   expect(await page.locator("#viewport").evaluate((element) => element.scrollTop)).toBe(0);
+  expect(await page.locator("#viewport").evaluate((element) => getComputedStyle(element).outlineStyle)).toBe("none");
   await expect(page.locator("#route-announcer")).toHaveText("Command view loaded");
 });
 

@@ -422,6 +422,10 @@ a {
   scroll-behavior: auto;
 }
 
+.viewport:focus-visible {
+  outline: none;
+}
+
 .content-width {
   width: min(1260px, 100%);
   margin: 0 auto;
