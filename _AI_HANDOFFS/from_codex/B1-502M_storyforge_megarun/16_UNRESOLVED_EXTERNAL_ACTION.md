@@ -9,10 +9,15 @@ Recorded: 2026-07-27
 ## Current safe production state
 
 - The active StoryForge MU route and runtime `current` pointer are absent.
-- Read-only verification at `2026-07-27T22:04:58Z` found `/storyforge`,
-  `/storyforge/`, `/storyforge/healthz`, `/storyforge/config`, and
-  `/storyforge/library` returning the prior WordPress 404 with Cloudflare
-  `DYNAMIC`, private/no-store policy, and Kinsta `EXPIRED` or `MISS`.
+- The full read-only snapshot at `2026-07-27T22:04:58Z` found the five sampled
+  paths returning the prior WordPress 404 with Cloudflare `DYNAMIC`,
+  private/no-store policy, and Kinsta `EXPIRED` or `MISS`.
+- A continuation check at `2026-07-27T22:32:03Z` reconfirmed all five paths as
+  404 with Cloudflare `DYNAMIC` and private/no-store policy, while Kinsta now
+  returned `HIT` on the inactive WordPress 404 responses. SSH and sanitized
+  WordPress reads separately reconfirmed route/pointer absence, feature false,
+  and zero allowlist/overrides. V5 remains inactive; the provider cache bypass
+  remains mandatory.
 - The feature flag is false; founder allowlist and role overrides are empty;
   mentor configuration is false; mentor overrides and assignments are empty;
   mentor access is false.

@@ -10,7 +10,7 @@ Recorded: 2026-07-27
 | Production disposition | **ROLLED BACK — SAFE PRODUCTION ROUTE ABSENCE RESTORED** |
 | StoryForge V5 live inside Matrix | **No** |
 | Authorized URL | `https://missionmedinstitute.com/storyforge/` |
-| Last verified route behavior | Five sampled StoryForge paths returned the prior WordPress 404 at `2026-07-27T22:04:58Z` |
+| Last verified route behavior | Five sampled StoryForge paths returned the prior WordPress 404 at `2026-07-27T22:32:03Z`; Cloudflare `DYNAMIC`, Kinsta `HIT`, private/no-store |
 | Enabled cohort | None |
 | Founder bound | No |
 | Mentor access | Disabled |
@@ -33,8 +33,8 @@ Recorded: 2026-07-27
   `v-963b8f5eb4d8c727`.
 - Candidate bundle SHA-256:
   `845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`.
-- Evidence checkpoint:
-  `07d620f8b788c2f2c01180a464b93b0c0dddf143`.
+- Terminal handoff checkpoint:
+  `e531d565fab9ed1c85b780d578a408112fe8cb41`.
 - MissionMed OS authority:
   `d49fffbd1cd92854bd1390fb5f4dbf68be95796d`.
 
@@ -53,7 +53,9 @@ rollback artifacts, not active deployment.
 - Runtime pointer: absent.
 - Exact `62ed421...` and `4bd956...` release directories: dormant.
 - Latest read-only route sample: Cloudflare `DYNAMIC`, private/no-store policy,
-  and Kinsta `EXPIRED` or `MISS` on the safely absent route.
+  and Kinsta `HIT` on the safely absent route's WordPress 404. This is not V5
+  traffic, but it independently confirms that the managed-cache exclusion is
+  required before retry.
 - Required next provider change: Kinsta Support must bypass server/full-page
   and corresponding edge caching for paths beginning exactly with
   `/storyforge`.

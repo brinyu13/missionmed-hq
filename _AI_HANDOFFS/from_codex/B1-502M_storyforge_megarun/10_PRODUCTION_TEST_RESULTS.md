@@ -124,6 +124,15 @@ An additional anonymous no-cookie/no-follow GET sample at
 `DYNAMIC`, Kinsta `EXPIRED`, and the private/no-store policy. This was read-only
 and made no remote mutation.
 
+A continuation sample at `2026-07-27T22:32:03Z` again returned 404,
+Cloudflare `DYNAMIC`, and the exact private/no-store policy on all five paths,
+but Kinsta now returned `HIT`. SSH and sanitized WordPress reads independently
+proved that the StoryForge route/pointer remained absent, the feature remained
+false, and allowlist/override counts remained zero. The cached object was the
+inactive WordPress 404, not StoryForge V5; no application data or user access
+was exposed. The result nevertheless reconfirms that a provider-managed
+`/storyforge` cache exclusion is a hard precondition for retry.
+
 Earlier rollback after the first Kinsta attempt used the broader
 `purge_complete_caches(true)` helper. That scope defect is retained in the
 deployment and rollback evidence; subsequent attempts used only the approved

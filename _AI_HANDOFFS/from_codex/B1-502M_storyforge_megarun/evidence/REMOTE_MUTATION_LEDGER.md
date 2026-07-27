@@ -622,3 +622,52 @@ rechecked the same five StoryForge paths. Every path still returned 404 with
 `CF-Cache-Status: DYNAMIC`, `X-Kinsta-Cache: EXPIRED`, and
 `Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private`.
 This was read-only and made no remote mutation.
+
+## 20. Terminal handoff push and authentication continuation
+
+Commit `e531d565fab9ed1c85b780d578a408112fe8cb41`
+(`B1-502M: record safe rollback terminal handoff`) was committed at
+`2026-07-27T22:28:06Z` and pushed normally afterward to
+`origin/b1-502-storyforge-production-deployment`. It contains 15 scoped
+documentation/evidence files. After the push, local HEAD and the remote branch
+both resolved to the exact commit, `git status --short` was empty, and no pull
+request existed. The exact server-side push timestamp was not separately
+captured and is not invented. This push made no provider deployment, feature,
+identity, cache, database, or production mutation.
+
+At `2026-07-27T22:32:03Z`, the Supervisor continued the authentication and
+safe-state audit:
+
+- the Cloudflare browser remained at Google's interactive `Email or phone`
+  credential field; no credential was entered;
+- MyKinsta remained authenticated and its empty Support issue form remained
+  open; the prepared cache-exclusion request remained untyped and unsent;
+- active Kinsta StoryForge route: absent;
+- active runtime `current` pointer: absent;
+- `storyforge_enabled=false`;
+- founder allowlist count: 0;
+- application-role override count: 0;
+- all five sampled StoryForge paths: 404;
+- Cloudflare: `DYNAMIC`;
+- Kinsta: `HIT`;
+- effective policy:
+  `no-cache, must-revalidate, max-age=0, no-store, private`;
+- Railway API deployment
+  `fb43a551-04c8-41f7-a6e6-fb16aae3894e`: `SUCCESS`, running;
+- Railway PostgreSQL deployment
+  `f5c7179e-b805-4e82-b080-d2349a0a47cf`: `SUCCESS`, running;
+- API health: `{"ok":true,"service":"storyforge-v5"}`;
+- API root: 404;
+- unauthenticated `/api/session`: 401.
+
+The Critical Systems manifest parsed and the local
+`critical_systems_gate.py --skip-network --enforce` continuation run exited 0.
+The documentation secret-pattern scan returned no bearer tokens, database
+URLs, or private-key blocks.
+
+The Kinsta hit is on the inactive WordPress 404, not a StoryForge application
+response, so it does not weaken route-absence containment or expose data. It
+does further prove that the provider-managed cache exclusion remains a hard
+gate before any feature-off reinstall. All continuation checks were read-only
+and made no Git, provider, cache, feature, identity, database, or production
+mutation.

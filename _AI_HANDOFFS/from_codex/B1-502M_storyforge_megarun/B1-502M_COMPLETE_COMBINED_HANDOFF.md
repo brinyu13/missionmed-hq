@@ -28,20 +28,20 @@ package supports a claim of `DEPLOYED — FOUNDER TEST READY`,
 AAA-quality live production release.
 
 The latest full provider/database snapshot is the sanitized read-only check at
-`2026-07-27T22:04:58Z`. A later anonymous route-only recheck at
-`2026-07-27T22:21:37Z` reconfirmed the safe public route state:
+`2026-07-27T22:04:58Z`. A continuation route/runtime/provider recheck at
+`2026-07-27T22:32:03Z` reconfirmed the safe production state:
 
 | Control | Current verified state |
 |---|---|
 | Authorized V5 URL | `https://missionmedinstitute.com/storyforge/` |
 | Active Kinsta StoryForge MU route | Absent |
 | Active runtime `current` pointer | Absent |
-| `/storyforge` | Prior WordPress `404` at `2026-07-27T22:21:37Z` |
-| `/storyforge/` | Prior WordPress `404` at `2026-07-27T22:21:37Z` |
-| `/storyforge/healthz` | Prior WordPress `404` at `2026-07-27T22:21:37Z` |
-| `/storyforge/config` | Prior WordPress `404` at `2026-07-27T22:21:37Z` |
-| `/storyforge/library` | Prior WordPress `404` at `2026-07-27T22:21:37Z` |
-| Latest effective safe-state cache observation | Cloudflare `DYNAMIC`; Kinsta `EXPIRED`; `Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private` |
+| `/storyforge` | Prior WordPress `404` at `2026-07-27T22:32:03Z` |
+| `/storyforge/` | Prior WordPress `404` at `2026-07-27T22:32:03Z` |
+| `/storyforge/healthz` | Prior WordPress `404` at `2026-07-27T22:32:03Z` |
+| `/storyforge/config` | Prior WordPress `404` at `2026-07-27T22:32:03Z` |
+| `/storyforge/library` | Prior WordPress `404` at `2026-07-27T22:32:03Z` |
+| Latest effective safe-state cache observation | Cloudflare `DYNAMIC`; Kinsta `HIT` on the inactive WordPress 404; `Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private` |
 | WordPress SSO plugin | Installed and active, but feature-off |
 | `storyforge_enabled` | `false` |
 | Founder allowlist | Empty |
@@ -133,6 +133,7 @@ The protected fallback entry remains:
 | DR-013 execution-private runtime | `62ed421309c236d4b6ac05faca606108c0143592` |
 | Exact next feature-off retry candidate | `4bd956b6ea222d20428c41415236a73b93576447` |
 | Safe-rollback/provider-gate evidence checkpoint | `07d620f8b788c2f2c01180a464b93b0c0dddf143` |
+| Terminal safe-rollback handoff checkpoint | `e531d565fab9ed1c85b780d578a408112fe8cb41` |
 | MissionMed OS DR-013 authority head | `d49fffbd1cd92854bd1390fb5f4dbf68be95796d` |
 
 Application remote:
@@ -434,7 +435,8 @@ minutes plus route verification.
 
 ### MissionMed OS and application Git
 
-All nine authority/application pushes were normal and are enumerated here:
+All ten authority/application pushes captured before this continuation update
+were normal and are enumerated here:
 
 | UTC | Revision | Mutation |
 |---|---|---|
@@ -447,6 +449,7 @@ All nine authority/application pushes were normal and are enumerated here:
 | `2026-07-27T21:16:20Z` | `62ed421309c236d4b6ac05faca606108c0143592` | 30-file Kinsta runtime hardening |
 | `2026-07-27T21:43:09Z` | `4bd956b6ea222d20428c41415236a73b93576447` | Edge-storage prevention / exact retry candidate |
 | `2026-07-27T21:57:39Z` | `07d620f8b788c2f2c01180a464b93b0c0dddf143` | Documentation-only safe-rollback/provider-gate checkpoint |
+| `2026-07-27T22:28:06Z` (commit) | `e531d565fab9ed1c85b780d578a408112fe8cb41` | 15-file safe-rollback terminal handoff; pushed normally afterward |
 
 The final checkpoint push made no provider deployment or feature change.
 
@@ -826,6 +829,9 @@ The Critical Systems gate emitted only expected informational warnings:
 Protected paths, runtime/import/syntax checks, and StoryForge local asset/hash
 checks passed.
 
+The same Critical Systems command was rerun after the continuation evidence
+update and again exited 0.
+
 The closeout-package documentation scan found no bearer tokens, database URLs,
 private-key blocks, or assignments to known production secret variables.
 
@@ -874,10 +880,13 @@ Green:
 - physical rollback and restored 404 route absence.
 
 The route-absence result was independently refreshed at
-`2026-07-27T22:21:37Z`: anonymous no-cookie/no-follow GETs to all five sampled
-StoryForge paths returned `404`, Cloudflare `DYNAMIC`, Kinsta `EXPIRED`, and
-the exact private/no-store policy. The recheck was read-only and made no Git,
-provider, cache, feature, identity, or production mutation.
+`2026-07-27T22:32:03Z`: anonymous no-cookie/no-follow GETs to all five sampled
+StoryForge paths returned `404`, Cloudflare `DYNAMIC`, Kinsta `HIT`, and the
+exact private/no-store policy. SSH and sanitized WordPress reads separately
+proved route/pointer absence, feature false, and zero allowlist/overrides. The
+hit is on the inactive WordPress 404, not V5, but it reinforces the provider
+cache-exclusion gate. The recheck was read-only and made no Git, provider,
+cache, feature, identity, or production mutation.
 
 Not green or not run:
 
@@ -1134,7 +1143,7 @@ into this combined handoff:
 Remote actions that occurred:
 
 - four normal MissionMed OS authority pushes;
-- five normal application branch pushes;
+- six normal application branch pushes before this continuation update;
 - isolated Railway project/environment/application/PostgreSQL creation;
 - three StoryForge database migrations and least-privilege role creation;
 - isolated Railway API deployment, public API-only domain, and port correction;
@@ -1189,9 +1198,9 @@ Therefore:
   gate set.
 - No broader cohort may be enabled under this authority.
 
-At assembly time this combined handoff and the concurrent closeout documents
-were local, unstaged closeout work. A clean-worktree claim is intentionally
-deferred to the Supervisor's final exact-scope review, commit, push, and
-post-commit `git status --short` verification. This document itself performs
-no staging, commit, push, browser action, provider mutation, or production
-mutation.
+The first terminal handoff checkpoint was committed and normally pushed as
+`e531d565fab9ed1c85b780d578a408112fe8cb41`; local and remote heads matched,
+the worktree was clean, and no pull request existed before the continuation
+recheck. This append-only continuation records the later authentication and
+safe-state observation. The exact containing commit/push for any further
+handoff update is necessarily reported by the Supervisor after it occurs.

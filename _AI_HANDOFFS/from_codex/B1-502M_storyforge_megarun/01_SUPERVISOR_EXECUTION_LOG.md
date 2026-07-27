@@ -130,6 +130,18 @@ ledger.
     Railway API/database deployments remained `SUCCESS`; the database retained
     three migration rows, RLS on all 15 application tables, and zero users,
     assignments, stories, or audit events. No mutation occurred.
+25. Committed and normally pushed the 15-file terminal handoff checkpoint
+    `e531d565fab9ed1c85b780d578a408112fe8cb41`. Local and remote branch heads
+    matched, the worktree was clean, and no pull request existed.
+26. At `2026-07-27T22:32:03Z`, rechecked the unresolved authentication and
+    safe production state. Cloudflare remained at interactive Google
+    credential entry. The Kinsta route/pointer remained absent; feature false
+    and zero allowlist/overrides remained exact. All five public paths remained
+    404 and Cloudflare `DYNAMIC` with private/no-store policy, while Kinsta now
+    returned `HIT` on the inactive WordPress 404 responses. Railway API and
+    PostgreSQL deployments remained `SUCCESS`, and API health/404/401
+    boundaries remained exact. These checks were read-only and made no remote
+    mutation.
 
 ## Decisions
 

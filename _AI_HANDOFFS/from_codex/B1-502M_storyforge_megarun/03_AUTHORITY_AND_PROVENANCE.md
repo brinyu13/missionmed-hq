@@ -38,6 +38,10 @@ behavior only; they may not determine V5 presentation or workflow.
   `07d620f8b788c2f2c01180a464b93b0c0dddf143`, pushed normally at
   `2026-07-27T21:57:39Z`; this documentation-only checkpoint made no provider
   or production mutation;
+- terminal safe-rollback handoff checkpoint:
+  `e531d565fab9ed1c85b780d578a408112fe8cb41`, committed at
+  `2026-07-27T22:28:06Z` and pushed normally afterward; this 15-file
+  documentation/evidence checkpoint made no provider or production mutation;
 - repository remote:
   `https://github.com/brinyu13/missionmed-hq.git`.
 

@@ -13,10 +13,15 @@ The production disposition beneath that authentication blocker is:
 - The authorized production URL remains
   `https://missionmedinstitute.com/storyforge/`.
 - The active StoryForge MU route and runtime `current` pointer are absent.
-- Read-only verification at `2026-07-27T22:04:58Z` found `/storyforge`,
-  `/storyforge/`, `/storyforge/healthz`, `/storyforge/config`, and
-  `/storyforge/library` returning the prior WordPress 404 with Cloudflare
+- The full provider/database snapshot at `2026-07-27T22:04:58Z` found the five
+  sampled StoryForge paths returning the prior WordPress 404 with Cloudflare
   `DYNAMIC`, private/no-store policy, and Kinsta `EXPIRED` or `MISS`.
+- A continuation check at `2026-07-27T22:32:03Z` reconfirmed the absent route
+  and pointer, feature false, empty allowlist/overrides, and all five paths as
+  404 with Cloudflare `DYNAMIC` and the private/no-store policy. Kinsta now
+  reported `HIT` on those inactive WordPress 404 responses. This does not make
+  V5 live or expose application data; it further proves that the managed-cache
+  exclusion remains mandatory before any feature-off retry.
 - The WordPress feature flag is false.
 - The founder allowlist and role overrides are empty.
 - No founder, administrator, student, mentor, or other account is enabled.
@@ -51,7 +56,7 @@ The production disposition beneath that authentication blocker is:
 | Exact Kinsta retry candidate | `4bd956b6ea222d20428c41415236a73b93576447` |
 | Candidate route SHA-256 | `23ca6d28268a780c46c27083a726dab18c3e6125a46a6fda600fd9c03eee2d88` |
 | Generated runtime bundle | `v-963b8f5eb4d8c727`; SHA-256 `845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1` |
-| Evidence checkpoint | `07d620f8b788c2f2c01180a464b93b0c0dddf143` |
+| Terminal handoff checkpoint | `e531d565fab9ed1c85b780d578a408112fe8cb41` |
 | MissionMed OS authority | `d49fffbd1cd92854bd1390fb5f4dbf68be95796d` |
 | Railway API deployment | `fb43a551-04c8-41f7-a6e6-fb16aae3894e` |
 | Active Kinsta gateway revision | None; route and pointer physically removed |

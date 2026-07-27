@@ -10,7 +10,7 @@ Production target:
 | System | Mutation performed | Last verified production state |
 |---|---|---|
 | MissionMed OS | DR-011, DR-012, and DR-013 authority filed and pushed | Authority active at `d49fffbd1cd92854bd1390fb5f4dbf68be95796d` |
-| Application Git | Five implementation/evidence checkpoints pushed through `07d620f8b788c2f2c01180a464b93b0c0dddf143` | Branch and local remote-tracking ref match `07d620f...`; exact retry candidate is `4bd956...` |
+| Application Git | Six implementation/evidence checkpoints pushed through `e531d565fab9ed1c85b780d578a408112fe8cb41` | Local and remote branch heads match `e531d56...`; exact retry candidate remains `4bd956...` |
 | Railway PostgreSQL | Isolated service created; three migrations applied | 3/3 ledger, 15/15 RLS, zero users/content/assignments |
 | Railway API | Isolated API-only service deployed | Deployment `fb43a551-04c8-41f7-a6e6-fb16aae3894e` healthy and access-controlled |
 | WordPress SSO | Isolated plugin installed and activated | Installed; feature false; allowlist/overrides empty; mentor disabled |
@@ -30,6 +30,8 @@ Production target:
    edge-cache storage prevention and exact feature-off retry candidate.
 5. `07d620f8b788c2f2c01180a464b93b0c0dddf143` —
    safe rollback and provider-cache evidence checkpoint.
+6. `e531d565fab9ed1c85b780d578a408112fe8cb41` —
+   15-file safe-rollback terminal handoff checkpoint.
 
 All application pushes were normal; no force push, history rewrite, pull
 request, merge, or general release occurred.
@@ -120,6 +122,10 @@ Last verified after propagation:
   `/storyforge/`, `/storyforge/healthz`, `/storyforge/config`, and
   `/storyforge/library` returning the prior WordPress 404 with Cloudflare
   `DYNAMIC`, private/no-store policy, and Kinsta `EXPIRED` or `MISS`;
+- continuation verification at `2026-07-27T22:32:03Z` reconfirmed the absent
+  route/pointer and all five paths as 404 with Cloudflare `DYNAMIC` and
+  private/no-store policy; Kinsta reported `HIT` on the inactive WordPress 404
+  responses, reinforcing the provider exclusion gate without exposing V5;
 - no user enabled.
 
 ## Cloudflare deployment and containment
