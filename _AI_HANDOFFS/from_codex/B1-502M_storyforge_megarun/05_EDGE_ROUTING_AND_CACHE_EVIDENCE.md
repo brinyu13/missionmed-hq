@@ -117,3 +117,54 @@ pointer, moves only the StoryForge MU route file out of the auto-loaded
 directory when route absence is required, leaves the sibling evidence release
 unchanged, purges Kinsta site/CDN cache, and verifies the recorded WordPress 404
 before-state.
+
+## DR-013 production cache evidence
+
+Exact pushed commit
+`62ed421309c236d4b6ac05faca606108c0143592` was installed feature-off at
+`2026-07-27T21:23:59Z`. The route, release, topology, aliases, direct-execution
+guards, protected hashes, and feature-off denials passed. Repeated requests
+then proved that Kinsta/Cloudflare storage returned StoryForge HTML, health,
+configuration, and all 13 approved aliases as cache hits and replaced the
+manifest policy with `public, max-age=0, s-maxage=86400`. The route and pointer
+were physically removed at `2026-07-27T21:37:13Z`; scoped Kinsta site-cache and
+CDN-cache purges each returned HTTP 200; `/storyforge`, `/storyforge/`, and
+`/storyforge/healthz` returned the prior WordPress 404 after propagation.
+
+## Exact cache-repair retry
+
+Exact pushed repair commit
+`4bd956b6ea222d20428c41415236a73b93576447` was installed feature-off at
+`2026-07-27T21:44:33Z`. Its route SHA-256 was
+`23ca6d28268a780c46c27083a726dab18c3e6125a46a6fda600fd9c03eee2d88`
+at 30,528 bytes. Its generated bundle remained exactly
+`845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`
+at 409,055 bytes.
+
+The first anonymous pass returned the exact application policies with
+`CF-Cache-Status: DYNAMIC` and `X-Kinsta-Cache: MISS`. The second and third
+passes kept Cloudflare at `DYNAMIC`, proving the application repair prevented
+edge storage, but changed to `X-Kinsta-Cache: HIT` and
+`public, max-age=0, s-maxage=86400` for the shell, deep link, health,
+configuration, application alias, and license alias. This is a managed
+server/full-page cache boundary, not a remaining source-code defect.
+
+The route and pointer were physically removed at `2026-07-27T21:45:23Z`.
+Scoped site-cache and CDN-cache purges each returned HTTP 200. After
+propagation, `/storyforge`, `/storyforge/`, and `/storyforge/healthz` again
+returned the prior 404. The feature flag remained false; the allowlist and role
+overrides remained empty; no founder or other account was enabled.
+
+Kinsta's current documentation identifies its full-page server cache as a
+managed layer and directs customers to Support for a specific-page cache
+exclusion. Its edge-cache documentation likewise directs specific exclusion
+requests to Support:
+
+- <https://kinsta.com/docs/wordpress-hosting/caching/site-caching/>
+- <https://kinsta.com/docs/wordpress-hosting/caching/edge-caching/>
+
+Required provider action: exclude URL paths beginning exactly with
+`/storyforge` from Kinsta server/full-page caching and the corresponding
+edge-cache layer, without disabling global caching or changing unrelated
+routes. Founder enablement remains `NO_GO` until this exclusion is applied and
+the repeated cache gate passes.

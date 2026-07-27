@@ -44,7 +44,7 @@ not be deleted, overwritten, moved, or publicly mirrored.
 - Railway application absent prestate:
   `B1-502M-RP-RWY-ABSENT-20260727T171118Z`.
 
-## Execution state before the DR-013 repair
+## Execution state after the DR-013 cache-repair retry
 
 - The isolated Railway database and API are deployed.
 - The isolated WordPress SSO plugin is installed with the feature flag false,
@@ -58,22 +58,26 @@ not be deleted, overwritten, moved, or publicly mirrored.
   remained intact.
 - MissionMed OS DR-013 is filed at
   `d49fffbd1cd92854bd1390fb5f4dbf68be95796d`.
-- The exact DR-013 product commit and fresh exact-tree Sentinel decision remain
-  pending. No founder enablement is authorized before both exist and the
-  feature-off production gates pass.
+- Exact DR-013 commit
+  `62ed421309c236d4b6ac05faca606108c0143592` and exact cache-repair commit
+  `4bd956b6ea222d20428c41415236a73b93576447` were pushed and installed
+  feature-off in separate guarded attempts.
+- Both attempts were physically rolled back. The second kept Cloudflare
+  dynamic but proved Kinsta's managed server cache still stores the route.
+- The active route and pointer are absent; StoryForge routes return the prior
+  404; no user is enabled.
+- Founder enablement remains unauthorized pending the exact Kinsta cache
+  exclusion, fresh founder-authenticated binding, and same-UID authority
+  decision.
 
 ## Remaining guarded order
 
-### Stage 0 — DR-013 source and authority (pending)
+### Stage 0 — DR-013 source and authority (completed)
 
-1. complete the approved dark V5 correction;
-2. run Miyamoto, Vitruvius, Turing, Sagan, Osler, and Sentinel review;
-3. build reproducibly and register exact final asset paths and hashes;
-4. run the complete local unit, PostgreSQL, browser, integration, syntax,
-   bundle, dependency, manifest, diff, and rollback suite;
-5. remove generated reports and restore historical screenshot drift;
-6. verify every changed/untracked file is B1-502M source or evidence;
-7. commit and push the approved release revision normally.
+The approved dark V5 correction, independent reviews, reproducible build,
+complete local gate suite, exact-tree cleanup, source commits, and normal
+pushes are complete through
+`4bd956b6ea222d20428c41415236a73b93576447`.
 
 ### Stage 1 — database and origin (schema/API completed; founder row pending)
 
@@ -95,9 +99,11 @@ not be deleted, overwritten, moved, or publicly mirrored.
 
 ### Stage 2 — feature-off WordPress and same-origin gateway
 
-The isolated SSO plugin portion is complete and remains feature-off. Items 4–9
-below are the pending DR-013 gateway repair; items 1–3 are retained as required
-preconditions and must be reverified before the route is installed.
+The isolated SSO plugin portion is complete and remains feature-off. Items 1–3
+are retained preconditions. Items 4–8 passed locally and during feature-off
+execution but must be repeated after Kinsta applies the exact `/storyforge`
+server/full-page and edge-cache exclusion. Item 9 remains pending fresh
+Cloudflare authentication.
 
 1. upload and activate only `missionmed-storyforge-sso`;
 2. install protected configuration with an empty allowlist and the flag
@@ -233,10 +239,11 @@ authorization PASS, deterministic build and syntax checks, bundle secret scan,
 npm audit, and Wrangler dry-run PASS. No remaining DR-013 source blocker was
 found.
 
-This GO authorizes only guarded staging, source commit/push, and the feature-off
-production gates. It is not founder enablement, general release, or
-live-production completion. Those still require the exact pushed product
-commit, commit-named immutable release directory, atomic pointer proof,
-direct-execution denial, root MU-plugin autoload exclusion, every
-alias/raw-path/cache check, physical rollback rehearsal, and shared-system
-health.
+This GO authorized only guarded staging, source commit/push, and the
+feature-off production gates. It was not founder enablement, general release,
+or live-production completion. Exact pushed commits `62ed421...` and
+`4bd956...` subsequently passed the release-directory, pointer,
+direct-execution, root-autoload, alias/raw-path, protected-hash, rollback, and
+shared-health checks. The cache gate failed at Kinsta's managed server layer,
+both attempts were physically rolled back, and founder enablement remains
+`NO_GO`.

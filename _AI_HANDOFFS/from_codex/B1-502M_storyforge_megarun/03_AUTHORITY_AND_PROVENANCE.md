@@ -31,7 +31,9 @@ behavior only; they may not determine V5 presentation or workflow.
   `2026-07-27T21:16:20Z`; its feature-off Kinsta attempt was physically
   rolled back after the live cache gate failed;
 - Kinsta edge-storage response-header repair:
-  **PENDING exact guarded source commit and normal push**;
+  `4bd956b6ea222d20428c41415236a73b93576447`, pushed normally at
+  `2026-07-27T21:43:09Z`; its feature-off retry kept Cloudflare dynamic but
+  was physically rolled back after Kinsta's server cache returned hits;
 - repository remote:
   `https://github.com/brinyu13/missionmed-hq.git`.
 
@@ -81,7 +83,8 @@ Verified production facts:
 - `missionmed-hub` active at 1.5.1;
 - seven WordPress administrators, which proves administrator-role admission
   would be overbroad;
-- one exact active founder administrator selected for the pilot;
+- one opaque founder authorization handle exists, but exact WordPress profile
+  binding remains pending a fresh founder-authenticated session;
 - isolated StoryForge plugin and option absent before deployment;
 - StoryForge V5 Worker absent before deployment;
 - `/storyforge`, `/storyforge/`, and `/storyforge/healthz` returned 404 before
@@ -110,6 +113,25 @@ commit-versioned `release.php` below the MU-plugin autoload root and non-index
 browser assets use exact `/storyforge/_asset/<sha12>` aliases. It does not change
 product authority, founder scope, feature gating, protected Matrix boundaries,
 Railway origin ownership, or database authorization.
+
+Exact cache-repair commit
+`4bd956b6ea222d20428c41415236a73b93576447` then proved a narrower provider
+boundary. `DONOTCDN`, surrogate/CDN no-store headers, and `X-Accel-Expires: 0`
+kept Cloudflare at `DYNAMIC`, but Kinsta's managed server/full-page cache
+changed to `HIT` on the second and third passes and replaced the application
+policy with `public, max-age=0, s-maxage=86400`. The route and active pointer
+were immediately removed, scoped site/CDN purges succeeded, and the prior
+WordPress 404 route state was restored.
+
+Founder enablement therefore remains unauthorized pending all of:
+
+- Kinsta Support applying a server/full-page cache bypass and corresponding
+  edge-cache bypass for URL paths beginning exactly with `/storyforge`;
+- a fresh founder-authenticated WordPress session for exact one-profile
+  binding;
+- explicit Founder acceptance of the same-UID managed-hosting residual for
+  this one-founder pilot, or provider-enforced different-principal isolation;
+- authenticated Cloudflare cleanup of the inert StoryForge Worker and routes.
 
 ## Protected runtime provenance
 

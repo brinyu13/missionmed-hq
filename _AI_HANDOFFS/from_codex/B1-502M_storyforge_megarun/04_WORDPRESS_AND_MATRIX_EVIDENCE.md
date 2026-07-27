@@ -14,8 +14,9 @@ Recorded: 2026-07-27
 - `missionmed-storyforge-sso` is absent.
 - `missionmed_storyforge_settings` has zero rows.
 - Seven administrator accounts exist.
-- The exact founder account was selected without persisting its raw numeric ID
-  in repository evidence.
+- An opaque founder authorization handle was recorded without a raw numeric ID.
+  Exact live profile binding requires a fresh founder-authenticated session and
+  may not be inferred from retained artifacts.
 - Anonymous `/member-dashboard/` redirects to the existing WordPress login.
 
 ## Isolated integration contract
@@ -119,10 +120,13 @@ provider-specific reasons:
   requests before WordPress could dispatch them to the MU gateway.
 
 No founder or other user was enabled. The WordPress feature flag stayed false
-and the allowlist and role overrides stayed empty. The active pointer and MU
-route file were physically removed, Kinsta caches were purged, and independent
-follow-up probes confirmed the restored state: StoryForge routes 404, root 200,
-anonymous member dashboard 302 to login, and `wp-json` 200. The protected
-`missionmed-hub` and legacy StoryForge assets remained unchanged. The DR-013
-bundle/alias mechanism above remains a candidate pending exact-tree review,
-commit, push, feature-off deployment, and live verification.
+and the allowlist and role overrides stayed empty. Exact pushed DR-013 commits
+`62ed421309c236d4b6ac05faca606108c0143592` and
+`4bd956b6ea222d20428c41415236a73b93576447` were each installed feature-off
+and physically rolled back after live cache gates. The second retry kept
+Cloudflare dynamic, but Kinsta's managed server cache became a hit and rewrote
+the response policy. Follow-up probes confirmed the restored state:
+StoryForge routes 404, root 200, anonymous member dashboard 302 to login, and
+`wp-json` 200. The protected `missionmed-hub` and legacy StoryForge assets
+remained unchanged. Founder enablement awaits the exact Kinsta cache exclusion,
+fresh founder binding, and the same-UID authority decision.

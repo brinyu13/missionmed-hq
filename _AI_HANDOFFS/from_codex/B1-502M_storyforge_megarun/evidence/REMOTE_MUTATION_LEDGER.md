@@ -485,3 +485,79 @@ assertions. Validation currently passes:
 The cache repair is local and uncommitted at this ledger update. It has not
 been redeployed. Rollback reference remains the verified route-absent state
 above.
+
+## 18. Exact cache-repair push, feature-off retry, and safe rollback
+
+This append-only entry supersedes only the time-bound candidate status at the
+end of section 17. Exact repair commit
+`4bd956b6ea222d20428c41415236a73b93576447`
+(`B1-502M: prevent StoryForge edge cache storage`) was committed and pushed
+normally to
+`origin/b1-502-storyforge-production-deployment` at
+`2026-07-27T21:43:09Z`.
+
+At `2026-07-27T21:44:33Z`, that exact commit was installed feature-off on the
+pinned Kinsta production site:
+
+- route:
+  `public/wp-content/mu-plugins/missionmed-storyforge-route.php`;
+- selected release:
+  `public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases/4bd956b6ea222d20428c41415236a73b93576447/release.php`;
+- atomic pointer target:
+  `releases/4bd956b6ea222d20428c41415236a73b93576447`;
+- route SHA-256:
+  `23ca6d28268a780c46c27083a726dab18c3e6125a46a6fda600fd9c03eee2d88`;
+- route size: 30,528 bytes;
+- bundle SHA-256:
+  `845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`;
+- bundle size: 409,055 bytes;
+- route and bundle mode: `0444`;
+- runtime, releases, and exact release directory mode: `0555`.
+
+The feature flag remained false, founder allowlist and role overrides remained
+empty, and mentor access remained disabled. Scoped site-cache and CDN-cache
+purges each returned HTTP 200.
+
+Anonymous cache proof:
+
+1. Pass one returned the exact application policies with
+   `CF-Cache-Status: DYNAMIC` and `X-Kinsta-Cache: MISS`.
+2. Passes two and three kept Cloudflare at `DYNAMIC`, proving that the repair
+   prevented Cloudflare edge storage.
+3. Passes two and three returned `X-Kinsta-Cache: HIT` and
+   `public, max-age=0, s-maxage=86400` for the shell, deep link, health,
+   configuration, application alias, and license alias.
+
+This proved that the remaining cache defect is Kinsta's managed
+server/full-page layer. At `2026-07-27T21:45:23Z`, the Supervisor physically
+removed the exact route and active `current` pointer. Only the scoped Kinsta
+site-cache and CDN-cache purge methods were used; both returned HTTP 200. After
+provider propagation, `/storyforge`, `/storyforge/`, and
+`/storyforge/healthz` returned the prior WordPress 404.
+
+Current safe state:
+
+- StoryForge route and active pointer: absent;
+- exact `62ed421...` and `4bd956...` release directories: dormant;
+- feature flag: false;
+- founder allowlist and role overrides: empty;
+- no founder, general user, or mentor enabled;
+- protected Matrix and legacy StoryForge hashes: exact;
+- Railway API and database: isolated, feature-inaccessible without valid
+  identity;
+- inert Cloudflare StoryForge Worker and routes: cleanup pending fresh
+  authenticated Cloudflare access.
+
+Remaining external/human gates:
+
+1. authenticated MyKinsta access and Kinsta Support action to exclude URL paths
+   beginning exactly with `/storyforge` from server/full-page and corresponding
+   edge caching;
+2. fresh founder-authenticated WordPress access for exact one-profile binding;
+3. explicit Founder acceptance of the same-UID managed-hosting residual for
+   this exact one-founder pilot, or provider-enforced different-principal
+   isolation;
+4. fresh authenticated Cloudflare access to remove only the inert isolated
+   StoryForge Worker and its exact/wildcard routes.
+
+Rollback reference remains the verified route-absent state above.

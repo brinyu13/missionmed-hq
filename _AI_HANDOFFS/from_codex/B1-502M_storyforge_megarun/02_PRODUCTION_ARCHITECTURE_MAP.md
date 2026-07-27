@@ -61,8 +61,9 @@ because the repository root contains the unrelated MissionMed HQ runtime.
 - The Railway origin is API-only outside local development.
 - The StoryForge database is isolated from all existing MissionMed Supabase
   projects and the existing HQ Railway service.
-- The initial database contains one founder student profile only, zero mentor
-  assignments, and no demo or fixture data.
+- The initial database contains zero user profiles, zero mentor assignments,
+  and no demo or fixture data. The sole founder profile remains pending a fresh
+  founder-authenticated WordPress binding.
 - Mentor access remains disabled.
 - AI and audio capabilities remain disabled/unconfigured for the founder
   launch.
@@ -99,5 +100,8 @@ The feature flag stayed false and the allowlist stayed empty. The MU route file
 and active pointer were physically removed, Kinsta caches were purged, and
 independent follow-up probes again returned the recorded 404 for StoryForge
 routes. Root returned 200, the anonymous member dashboard retained its 302 login
-redirect, and WordPress REST returned 200. The architecture above is therefore
-the DR-013 repair candidate, not a claim that StoryForge is currently live.
+redirect, and WordPress REST returned 200. The architecture above was later
+exercised by exact pushed commits
+`62ed421309c236d4b6ac05faca606108c0143592` and
+`4bd956b6ea222d20428c41415236a73b93576447`, then physically rolled back after
+the live cache gates. It is not a claim that StoryForge is currently live.

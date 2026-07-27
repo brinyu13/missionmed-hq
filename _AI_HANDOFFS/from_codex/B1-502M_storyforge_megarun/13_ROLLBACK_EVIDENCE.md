@@ -125,7 +125,58 @@ Outcome: **SAFE PRODUCTION ROUTE ABSENCE RESTORED.**
 MissionMed OS commit
 `d49fffbd1cd92854bd1390fb5f4dbf68be95796d` authorizes the narrower nested
 execution-private `release.php`, atomic runtime pointer, and extensionless
-non-index alias mechanism. Its exact product commit, fresh Sentinel approval,
-feature-off deployment, pointer rollback rehearsal, and production validation
-remain pending. The successful rollback above must not be represented as proof
-that the DR-013 candidate is deployed or founder-ready.
+non-index alias mechanism.
+
+#### Exact-release feature-off rollback
+
+Exact pushed commit
+`62ed421309c236d4b6ac05faca606108c0143592` was installed feature-off at
+`2026-07-27T21:23:59Z`. The exact 409,055-byte bundle SHA-256 was
+`845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`;
+the 29,548-byte route SHA-256 was
+`78cecf86bbcffe6c30a7eefd43fbe15f5c7e01247f550397ccf14cae3084c432`.
+The route and bundle were mode `0444`; the runtime, releases, and selected
+release directories were mode `0555`. Route, topology, alias,
+direct-execution, protected-hash, and feature-off checks passed.
+
+The cache gate then failed: repeat requests returned Kinsta/Cloudflare cache
+hits and `public, max-age=0, s-maxage=86400` for StoryForge HTML, health,
+configuration, and approved aliases. At `2026-07-27T21:37:13Z`, the route and
+`current` pointer were physically moved into the scoped private rollback
+directory. Separate Kinsta site-cache and CDN-cache purges each returned HTTP
+200. After propagation, `/storyforge`, `/storyforge/`, and
+`/storyforge/healthz` returned the prior WordPress 404.
+
+#### Exact cache-repair retry rollback
+
+Exact pushed commit
+`4bd956b6ea222d20428c41415236a73b93576447` was installed feature-off at
+`2026-07-27T21:44:33Z`. Its 30,528-byte route SHA-256 was
+`23ca6d28268a780c46c27083a726dab18c3e6125a46a6fda600fd9c03eee2d88`;
+the exact bundle hash and size were unchanged. The first anonymous pass
+returned exact application cache policies with Cloudflare `DYNAMIC` and
+Kinsta `MISS`. Passes two and three kept Cloudflare `DYNAMIC`, but Kinsta
+changed to `HIT` and rewrote the policy to
+`public, max-age=0, s-maxage=86400`.
+
+At `2026-07-27T21:45:23Z`, the route and `current` pointer were again
+physically removed. Only the scoped Kinsta site-cache and CDN-cache purge
+methods were used; both returned HTTP 200. After propagation,
+`/storyforge`, `/storyforge/`, and `/storyforge/healthz` again returned the
+prior WordPress 404.
+
+Current safe state:
+
+- active StoryForge MU route: absent;
+- active runtime `current` pointer: absent;
+- exact `62ed421...` and `4bd956...` releases: dormant and byte-identical;
+- feature flag: false;
+- founder allowlist and role overrides: empty;
+- founder, general-user, and mentor access: disabled;
+- protected Matrix and legacy StoryForge hashes: exact.
+
+The rollback proof establishes safe production route absence, not founder
+readiness. Remaining gates are the exact Kinsta server/full-page and edge-cache
+exclusion, fresh founder-authenticated profile binding, explicit same-UID risk
+acceptance or provider-enforced different-principal isolation, and
+authenticated cleanup of the inert Cloudflare StoryForge Worker and routes.

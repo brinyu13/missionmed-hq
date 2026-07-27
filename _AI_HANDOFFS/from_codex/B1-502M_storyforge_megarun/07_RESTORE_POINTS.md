@@ -156,11 +156,12 @@ The exact gateway rollback is:
    evidence release for forensics unless their integrity is itself the rollback
    cause.
 
-Production rollback rehearsal must exercise the physical MU-file removal and
-reinstallation plus atomic runtime-pointer disablement/restoration. The first
-attempt proves physical route removal and restored 404; the exact DR-013 pointer
-mechanism still requires feature-off production rehearsal. A local feature
-constant or test-only route bypass is supplemental evidence, not a substitute.
+Production rollback rehearsal exercised physical MU-file installation/removal
+and atomic runtime-pointer activation/disablement for exact pushed commits
+`62ed421...` and `4bd956...`. Both restorations returned `/storyforge`,
+`/storyforge/`, and `/storyforge/healthz` to the prior WordPress 404 after
+scoped Kinsta site/CDN purges. The selected release directories remain dormant
+and byte-identical.
 
 Rollback owner: B1-502M Codex Supervisor under DR-011 as amended by DR-012 and
 DR-013.

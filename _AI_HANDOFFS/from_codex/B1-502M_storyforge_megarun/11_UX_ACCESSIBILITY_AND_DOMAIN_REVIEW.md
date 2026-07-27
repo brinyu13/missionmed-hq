@@ -57,10 +57,10 @@ The stable candidate includes:
 - mobile safe-area spacing and no page-level horizontal overflow at the tested
   320 px mentor layout.
 
-The final Vitruvius report records keyboard, axe, contrast, breakpoint,
-reduced-motion, and production-founder evidence. Production checks remain
-pending until the exact feature-off deployment and founder session are
-available.
+The final Vitruvius report records keyboard, axe, contrast, breakpoint, and
+reduced-motion evidence. Exact feature-off deployments were exercised and
+rolled back at the cache gate. Production-founder evidence remains pending the
+Kinsta cache exclusion and fresh founder-authenticated session.
 
 ## Medical education and IMG domain review
 
@@ -82,6 +82,7 @@ assignment exists.
 
 ## Release disposition
 
-The exact final Miyamoto, Vitruvius, Turing, Osler, and Sentinel dispositions
-are appended after the rebuilt asset hashes and complete local suite are
-verified.
+The exact final Miyamoto, Vitruvius, Turing, Osler, and Sentinel reports are
+recorded under `agents/`. Local product and security gates pass. Production
+founder readiness remains `NO_GO` until the provider cache, founder binding,
+and same-UID authority gates close.
