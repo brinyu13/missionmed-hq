@@ -1,11 +1,12 @@
 
-Running 6 tests using 1 worker
+Running 7 tests using 1 worker
 
-  ✓  1 tests/integration/storyforge-sso.spec.mjs:27:1 › anonymous login returns to the exact mounted deep link and obtains a real WP-backed session (1.9s)
-  ✓  2 tests/integration/storyforge-sso.spec.mjs:41:1 › Matrix navigation and dashboard tile are server-gated and StoryForge wins route precedence (2.3s)
-  ✓  3 tests/integration/storyforge-sso.spec.mjs:106:1 › founder-only zero-assignment workflow remains private and truthful (1.6s)
-  ✓  4 tests/integration/storyforge-sso.spec.mjs:160:1 › nonce, JWT signature, and allowed-origin checks fail closed (1.3s)
-  ✓  5 tests/integration/storyforge-sso.spec.mjs:220:1 › an ended WordPress session locks an already-open app without persisting authority (5.0s)
-  ✓  6 tests/integration/storyforge-sso.spec.mjs:231:1 › eligibility revocation locks the open app before one short token TTL elapses (5.9s)
+  ✓  1 tests/integration/storyforge-sso.spec.mjs:27:1 › anonymous login returns to the exact mounted deep link and obtains a real WP-backed session (1.3s)
+  ✓  2 tests/integration/storyforge-sso.spec.mjs:41:1 › Matrix navigation and dashboard tile are server-gated and StoryForge wins route precedence (2.1s)
+  ✓  3 tests/integration/storyforge-sso.spec.mjs:108:1 › the WordPress gateway is exact, manifest-bound, and fail-closed (126ms)
+  ✓  4 tests/integration/storyforge-sso.spec.mjs:154:1 › founder-only zero-assignment workflow remains private and truthful (1.2s)
+  ✓  5 tests/integration/storyforge-sso.spec.mjs:208:1 › nonce, JWT signature, and allowed-origin checks fail closed (942ms)
+  ✓  6 tests/integration/storyforge-sso.spec.mjs:268:1 › an ended WordPress session locks an already-open app without persisting authority (3.1s)
+  ✓  7 tests/integration/storyforge-sso.spec.mjs:279:1 › eligibility revocation locks the open app before one short token TTL elapses (5.1s)
 
-  6 passed (20.6s)
+  7 passed (15.1s)

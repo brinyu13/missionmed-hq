@@ -11,17 +11,18 @@ Recorded: 2026-07-27
    eligible founder's StoryForge control or `#storyforge` deep link.
 4. The browser opens the same-origin URL
    `https://missionmedinstitute.com/storyforge/`.
-5. A dedicated Cloudflare Worker owns only the exact `/storyforge` and
+5. An isolated Kinsta must-use plugin owns only the exact `/storyforge` and
    `/storyforge/*` route patterns.
-6. The Worker serves fingerprinted static V5 assets and proxies
+6. The gateway serves the exact hash-pinned static V5 release from a
+   versioned directory outside the public document root and proxies
    `/storyforge/api/*` and `/storyforge/healthz` to an isolated Railway
    origin.
 7. The browser uses the existing WordPress session only against the
    same-origin WordPress bootstrap and token endpoints.
 8. The WordPress seam issues a short-lived signed token only for the exact
    allowlisted founder account.
-9. The Worker strips WordPress cookies and forwards only the permitted API
-   headers to Railway.
+9. The MU gateway strips WordPress cookies and forwards only the permitted
+   API headers to Railway.
 10. The Railway Node service validates the signed token and executes all
     database work through the least-privilege `storyforge_app` login and
     transaction-local `authenticated` policy role.
@@ -32,7 +33,8 @@ Recorded: 2026-07-27
 |---|---|---|
 | Matrix and legacy StoryForge | Protected Kinsta `missionmed-hub` | Inspected and hash-verified; **DO NOT TOUCH** |
 | WordPress SSO/entitlement seam | Isolated Kinsta plugin | `wp-content/plugins/missionmed-storyforge-sso/` |
-| Same-origin static/API edge | Cloudflare Workers | `missionmed-storyforge-v5` |
+| Same-origin static/API gateway | Isolated Kinsta MU plugin | `storyforge-v5/infra/wordpress/missionmed-storyforge-route.php` deployed as `public/wp-content/mu-plugins/missionmed-storyforge-route.php` |
+| Static release | Private Kinsta runtime | `private/b1-502m/runtime/storyforge-v5/releases/<release>/` through atomic `current` pointer |
 | Application origin | Railway | project `875e7c17-d06f-4301-a4bb-e61016f153cf`, service `dab015bf-15ef-4698-9f16-cbf8cf23de7a` |
 | PostgreSQL | Railway | service `a4a66362-c3ba-475a-ae21-2aa46624bafe` |
 | Release authority | MissionMed OS DR-011 | Founder-only, feature-off first |
@@ -47,7 +49,7 @@ because the repository root contains the unrelated MissionMed HQ runtime.
 - The legacy Matrix route
   `https://missionmedinstitute.com/member-dashboard/#storyforge` and its V2
   assets remain the fallback until founder acceptance.
-- The Worker has no `workers.dev` or preview URL exposure.
+- Static release bytes have no alternate public `wp-content` URL.
 - The Railway origin is API-only outside local development.
 - The StoryForge database is isolated from all existing MissionMed Supabase
   projects and the existing HQ Railway service.
@@ -56,6 +58,11 @@ because the repository root contains the unrelated MissionMed HQ runtime.
 - Mentor access remains disabled.
 - AI and audio capabilities remain disabled/unconfigured for the founder
   launch.
+- The two initially configured Cloudflare Worker routes are not traffic
+  authoritative because the apex reaches Kinsta through a DNS-only record.
+  They remain decommission-pending until the Kinsta gateway passes live
+  feature-off checks, after which the exact bindings and isolated Worker are
+  removed to prevent future split-brain ownership.
 
 ## Exact public surface
 

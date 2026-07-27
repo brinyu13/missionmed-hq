@@ -1,12 +1,10 @@
 HTTP/1.1 200 OK
-cache-control: no-store, max-age=0
-connection: Keep-Alive
-content-type: text/html; charset=UTF-8
-date: Mon, 27 Jul 2026 18:44:24 GMT
-keep-alive: timeout=5, max=100
-link: <http://127.0.0.1:4179/wp-json/>; rel="https://api.w.org/", <http://127.0.0.1:4179/wp-json/wp/v2/pages/4>; rel="alternate"; title="JSON"; type="application/json", <http://127.0.0.1:4179/?p=4>; rel=shortlink
-server: Apache/2.4.65 (Debian)
-vary: Accept-Encoding
-x-powered-by: PHP/8.3.26
-x-storyforge-local-edge: wordpress
+Date: Mon, 27 Jul 2026 20:08:34 GMT
+Server: Apache/2.4.65 (Debian)
+X-Powered-By: PHP/8.3.26
+Link: <http://127.0.0.1:18081/wp-json/>; rel="https://api.w.org/"
+Link: <http://127.0.0.1:18081/wp-json/wp/v2/pages/4>; rel="alternate"; title="JSON"; type="application/json"
+Link: <http://127.0.0.1:18081/?p=4>; rel=shortlink
+Vary: Accept-Encoding
 Transfer-Encoding: chunked
+Content-Type: text/html; charset=UTF-8

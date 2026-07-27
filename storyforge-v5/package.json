@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node server/app.mjs",
-    "build": "node scripts/build-static.mjs",
+    "build": "node scripts/build-static.mjs && node scripts/build-wordpress-route-manifest.mjs",
+    "check:wp-route-manifest": "node scripts/build-wordpress-route-manifest.mjs --check",
     "scan:secrets": "node scripts/scan-bundle-secrets.mjs",
     "test": "node --test tests/unit/*.test.mjs",
     "test:postgres": "bash scripts/run-postgres-tests.sh",

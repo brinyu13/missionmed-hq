@@ -50,10 +50,16 @@ Normal StoryForge rollback does not require restoring protected
 is:
 
 1. force the StoryForge option to disabled;
-2. deactivate and remove only `missionmed-storyforge-sso`;
-3. verify that the option and plugin directory match the recorded absent
+2. move only
+   `wp-content/mu-plugins/missionmed-storyforge-route.php` outside the MU-plugin
+   directory, remove or repoint only the private StoryForge `current` release
+   symlink, and purge the Kinsta site/CDN caches;
+3. verify `/storyforge`, `/storyforge/`, `/storyforge/healthz`, and a
+   `/storyforge/api/*` probe all return the recorded origin-owned 404;
+4. deactivate and remove only `missionmed-storyforge-sso`;
+5. verify that the option and plugin directory match the recorded absent
    before-state;
-4. verify the protected Matrix and legacy StoryForge hashes.
+6. verify the protected Matrix and legacy StoryForge hashes.
 
 The full database or protected plugin archive is restored only if a rollback
 condition proves corruption or unintended mutation. That destructive recovery
@@ -66,9 +72,44 @@ Rollback owner: B1-502M Codex Supervisor under DR-011.
 Expected restoration time:
 
 - feature off and isolated plugin deactivation: under 5 minutes;
+- isolated MU gateway removal, release-pointer removal, and cache purge: under
+  5 minutes;
 - protected archive restoration if required: under 10 minutes;
 - full WordPress database restoration if required: approximately 15–30 minutes
   plus verification.
+
+## Kinsta StoryForge route gateway
+
+The isolated route candidate is additive and owns only these new targets:
+
+- `wp-content/mu-plugins/missionmed-storyforge-route.php`;
+- `/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/releases/<release>/`;
+- `/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/current`.
+
+The protected `missionmed-hub` plugin, WordPress theme, DNS, and legacy
+StoryForge files are not gateway targets. The gateway is installed
+feature-off first and binds only the canonical production host plus the exact
+`/storyforge` route family.
+
+The exact gateway rollback is:
+
+1. force the StoryForge feature option off;
+2. move the single MU gateway PHP file out of `wp-content/mu-plugins`;
+3. remove or repoint only the private StoryForge `current` symlink;
+4. purge Kinsta site and CDN caches;
+5. verify every `/storyforge*` probe returns the recorded 404 while Matrix,
+   WordPress REST, legacy StoryForge, and unrelated modules remain healthy;
+6. retain the immutable private release directory for forensics unless its
+   integrity is itself the rollback cause.
+
+Production rollback rehearsal must exercise the physical MU-file removal and
+reinstallation. A local feature constant or test-only route bypass is
+supplemental evidence, not a substitute.
+
+Rollback owner: B1-502M Codex Supervisor under DR-011 as amended by DR-012.
+
+Expected restoration time: under 5 minutes plus cache propagation and health
+verification.
 
 ## StoryForge PostgreSQL
 
@@ -131,13 +172,20 @@ The intended release owns exactly:
 - `missionmedinstitute.com/storyforge`;
 - `missionmedinstitute.com/storyforge/*`.
 
-Because the Worker and both routes were absent, the exact edge restoration is
-to disable the WordPress flag first and delete only
-`missionmed-storyforge-v5`; deletion returns both route patterns to their
-recorded origin-owned 404 before-state. No DNS record, catch-all route, shared
-Worker, Pages project, or unrelated cache rule is in B1-502M scope.
+The isolated Worker and both exact route records were later created, but live
+diagnosis proved them inert: the apex DNS record is DNS-only and production
+requests continue directly to Kinsta. The Worker is therefore not the active
+StoryForge route owner and is pending narrow decommission after the Kinsta
+gateway is proven.
 
-Rollback owner: B1-502M Codex Supervisor under DR-011.
+The exact Cloudflare cleanup is to disable StoryForge first, remove only the
+two recorded StoryForge route bindings, verify no unrelated binding changed,
+and delete only `missionmed-storyforge-v5`. Removing those inert records must
+not affect the Kinsta-owned route. No DNS record may be proxied, and no
+catch-all route, shared Worker, Pages project, or unrelated cache rule is in
+B1-502M scope.
+
+Rollback owner: B1-502M Codex Supervisor under DR-011 as amended by DR-012.
 
 Expected restoration time: under 5 minutes, followed by route-isolation,
 Matrix, and legacy health verification.

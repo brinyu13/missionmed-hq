@@ -20,7 +20,7 @@ Recorded: 2026-07-27
 
 ## Isolated integration contract
 
-The B1-502M plugin:
+The B1-502M SSO plugin:
 
 - defaults the feature flag to false and forces it false on activation;
 - uses a default-empty exact `allowed_user_ids` allowlist;
@@ -39,6 +39,22 @@ The B1-502M plugin:
 - leaves all protected `missionmed-hub` files unchanged;
 - disables itself and clears its rate-limit state on deactivation.
 
+The separate isolated MU route gateway:
+
+- claims only the canonical host and exact `/storyforge` route family;
+- serves only 14 hash-pinned files from a private versioned release outside
+  the public document root;
+- proxies only health and API paths to one pinned Railway HTTPS hostname;
+- never forwards WordPress cookies, nonces, referrers, forwarding headers, or
+  caller-selected targets;
+- blocks protected API proxying immediately while the feature is off or the
+  SSO owner is unavailable;
+- applies bounded request/response sizes, zero redirects, JSON validation,
+  private no-store API/error policy, immutable fingerprinted assets, and the
+  approved security headers;
+- is removed atomically by moving one file out of `mu-plugins`, restoring the
+  recorded WordPress 404 without editing `missionmed-hub`.
+
 ## Founder-only release configuration
 
 Stage A must install and activate the plugin with:
@@ -48,6 +64,10 @@ Stage A must install and activate the plugin with:
 - no mentor roles enabled;
 - exact production paths and origins;
 - signing material held only in protected server configuration.
+
+Stage A also installs the feature-off MU gateway only after a private release
+hash check and immediately verifies no HTML/API/private response is a Kinsta or
+Cloudflare cache hit.
 
 Stage B may then configure exactly:
 

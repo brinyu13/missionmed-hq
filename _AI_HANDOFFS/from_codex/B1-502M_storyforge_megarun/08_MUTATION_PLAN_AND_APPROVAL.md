@@ -5,7 +5,8 @@ Recorded: 2026-07-27
 Risk: **HIGH — production authentication, private data, protected Matrix, edge
 routing, and database**
 
-Founder authorization: **PRESENT under MissionMed OS DR-011**
+Founder authorization: **PRESENT under MissionMed OS DR-011, with the routing
+mechanism amended forward by DR-012**
 
 Supervisor mutation rule: no application/schema/plugin/edge mutation until the
 canonical V5 UI, manifest, source inventory, full local suite, rollback
@@ -16,8 +17,8 @@ evidence, and independent reviews all pass.
 1. isolated StoryForge PostgreSQL service on Railway;
 2. isolated StoryForge Node application service on Railway;
 3. isolated `missionmed-storyforge-sso` plugin on Kinsta;
-4. isolated `missionmed-storyforge-v5` Cloudflare Worker;
-5. exactly two Cloudflare route patterns;
+4. isolated `missionmed-storyforge-route.php` Kinsta MU gateway;
+5. one private, versioned 14-file static release and atomic `current` pointer;
 6. one exact founder WordPress allowlist entry and one matching StoryForge
    profile row;
 7. MissionMed Critical Systems registration for the final deployed artifacts.
@@ -66,18 +67,21 @@ outside the mutation set.
 8. verify the provider health check and that direct-origin UI access fails
    closed.
 
-### Stage 2 — feature-off WordPress and edge
+### Stage 2 — feature-off WordPress and same-origin gateway
 
 1. upload and activate only `missionmed-storyforge-sso`;
 2. install protected configuration with an empty allowlist and the flag
    explicitly false;
 3. verify shared WordPress, Matrix, member-dashboard, and legacy behavior;
-4. upload a version of `missionmed-storyforge-v5` without a public route;
-5. verify its immutable version/bindings;
-6. deploy that version and attach only the exact and wildcard StoryForge
-   routes;
-7. verify route isolation, cache policy, API denial, static hashes, and shared
-   system health while the feature remains off.
+4. upload the exact 14-file release into a new private version directory and
+   verify every manifest hash;
+5. atomically point the private `current` symlink to that release;
+6. stage and PHP-lint `missionmed-storyforge-route.php` outside `mu-plugins`,
+   then move only that file into the auto-loaded directory;
+7. purge Kinsta site/CDN cache and verify route isolation, cache policy,
+   feature-off protected-API denial, static hashes, and shared-system health;
+8. after the Kinsta route is proven, remove the two inert Cloudflare
+   StoryForge bindings and isolated Worker to prevent split-brain ownership.
 
 ### Stage 3 — exact founder enablement
 
@@ -93,11 +97,14 @@ outside the mutation set.
 ## Rollback order
 
 1. set `storyforge_enabled=false`;
-2. delete only the StoryForge Worker and its exact two routes;
-3. deactivate/remove only `missionmed-storyforge-sso`;
-4. take the isolated Railway application offline;
-5. restore the isolated database only if corruption requires it;
-6. verify Matrix login, member dashboard, legacy StoryForge, unrelated routes,
+2. move only `missionmed-storyforge-route.php` out of `mu-plugins`, restore the
+   prior private release pointer if needed, and purge Kinsta site/CDN cache;
+3. prove every `/storyforge*` request returns the recorded WordPress 404;
+4. deactivate/remove only `missionmed-storyforge-sso` if the SSO seam itself
+   must be removed;
+5. take the isolated Railway application offline;
+6. restore the isolated database only if corruption requires it;
+7. verify Matrix login, member dashboard, legacy StoryForge, unrelated routes,
    and the recorded protected hashes.
 
 ## Premutation gate table
@@ -107,7 +114,7 @@ outside the mutation set.
 | Production target | Exact Kinsta, Railway, Cloudflare targets proven |
 | Source/revision | Clean committed and pushed final candidate |
 | WordPress/Matrix | Isolated deploy path and feature-off behavior proven |
-| Edge | Exact and wildcard routes, cache, header, and rollback behavior proven |
+| Same-origin gateway | Exact route ownership, private release, cache, header, and rollback behavior proven |
 | Database | Atomic runner, readable backup, collision-free target, least privilege |
 | Founder entitlement | Exact account only; all other admins denied |
 | Assignment | Mentor access disabled; zero active assignments |
@@ -131,11 +138,12 @@ founder WordPress account; install that account as the sole allowlist entry and
 sole student-role override; bind the same WordPress ID to the sole
 `public.sf_users` UUID row; keep assignments and demo data at zero; and verify
 every other tested administrator, student, mentor, and anonymous request is
-denied. After edge routing, repeated effective cache probes must show no
+denied. After gateway routing, repeated effective cache probes must show no
 `CF-Cache-Status: HIT`, no `Age`, and no weakening of private/no-store headers.
 Any failure invokes the recorded rollback order.
 
-Final precommit evidence:
+Initial feature-off foundation precommit evidence for
+`f23d7daeb289c7340ec4ab1903956cc4cfec282a`:
 
 - intended staged files: 96;
 - unstaged/untracked files: 0/0;
@@ -146,6 +154,11 @@ Final precommit evidence:
 - unit: 23/23;
 - PostgreSQL authorization: PASS;
 - browser: 7/7;
-- production-style integration: 6/6;
+- production-style integration: 7/7 through the actual WordPress gateway;
 - bundle secrets, dependency audit, PHP/Bash/Node syntax, deterministic build,
   and Wrangler dry-run: PASS.
+
+The separate Kinsta MU gateway repair is committed and recorded only after its
+DR-012 authority amendment, strengthened 7/7 integration run, 23/23 unit run,
+7/7 existing browser run, PostgreSQL authorization run, audit, deterministic
+manifest build, PHP/Bash/Node syntax, and Git whitespace checks pass.

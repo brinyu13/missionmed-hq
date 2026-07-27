@@ -35,18 +35,20 @@ production evidence and adversarial review.
 ## MissionMed OS authority
 
 The protected MissionMed OS authority was refreshed through its normal writer
-in an isolated worktree. The final authority correction is:
+in an isolated worktree. The active authority head is:
 
-`4f3c7e89efbb55956a39066bce7e42598f55a244`
+`d7c5f3b26dd4f51928d0145e12b3e84bfa99dfb6`
 
-That commit and its predecessor
+That forward DR-012 amendment and its predecessors
+`4f3c7e89efbb55956a39066bce7e42598f55a244` and
 `18df24dc4f1360551c7bf217f08d257a6e0cfee3` were pushed normally to the
 canonical MissionMed OS `main`; local `origin/main` was verified at
-`4f3c7e89efbb55956a39066bce7e42598f55a244`.
+`d7c5f3b26dd4f51928d0145e12b3e84bfa99dfb6`.
 
 The filed authority includes:
 
 - DR-011 founder authorization;
+- DR-012 forward amendment for the isolated Kinsta MU routing mechanism;
 - B1-502M active mission registration;
 - StoryForge production passport;
 - product and authority index entries;
@@ -76,6 +78,13 @@ Verified production facts:
 - no existing Supabase project is StoryForge authority;
 - isolated Railway project/application/PostgreSQL targets were created under
   B1-502M authority.
+
+Direct production evidence later proved that the initially created Cloudflare
+route records were inert because the apex reaches Kinsta through a DNS-only
+record. DR-012 changes only the delivery mechanism to the smallest isolated
+equivalent: one Kinsta MU gateway plus private versioned assets. It does not
+change product authority, founder scope, feature gating, protected Matrix
+boundaries, Railway origin ownership, or database authorization.
 
 ## Protected runtime provenance
 

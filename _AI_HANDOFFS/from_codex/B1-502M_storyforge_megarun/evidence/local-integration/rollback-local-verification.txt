@@ -1,4 +1,8 @@
 default_off_shortcodes=empty
 flag_off_access_state=storyforge_disabled
+flag_off_gateway_api_http=403
+missing_sso_stale_true_api_http=403
+gateway_mock_controls=pass
+path_attack_matrix=pass
 route_removed_wordpress_http=404
 plugin_deactivation_forced_flag_off=true

@@ -3,7 +3,7 @@
   "status": "ACTIVE",
   "lock_name": "MissionMed Critical Systems Contract",
   "owner": "Brian",
-  "last_updated_utc": "2026-07-27T18:40:36Z",
+  "last_updated_utc": "2026-07-27T19:57:29Z",
   "known_good": {
     "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
     "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
@@ -76,8 +76,27 @@
         }
       ]
     },
+    "kinsta_storyforge_gateway": {
+      "host": "kinsta-wordpress-mu-plugin",
+      "site_root": "/www/theresidencyacademy_209",
+      "environment": "production",
+      "release_state": "approved_feature_off_candidate",
+      "entrypoint": "storyforge-v5/infra/wordpress/missionmed-storyforge-route.php",
+      "production_entrypoint": "public/wp-content/mu-plugins/missionmed-storyforge-route.php",
+      "asset_source": "storyforge-v5/dist",
+      "private_release_root": "private/b1-502m/runtime/storyforge-v5/releases",
+      "active_release_symlink": "private/b1-502m/runtime/storyforge-v5/current",
+      "origin_runtime_owner": "railway_storyforge_v5",
+      "routes": [
+        "https://missionmedinstitute.com/storyforge",
+        "https://missionmedinstitute.com/storyforge/*"
+      ]
+    },
     "cloudflare_storyforge_edge": {
       "host": "cloudflare-workers",
+      "release_state": "decommission_pending_after_kinsta_gateway_validation",
+      "routing_effective": false,
+      "routing_note": "The apex is DNS-only to Kinsta, so these Worker bindings do not receive live requests.",
       "account_id": "eeaaf73d1670b47a162d251ca67e7cfa",
       "zone_id": "7549e75c42eeef33eafbd071b3142b14",
       "zone_name": "missionmedinstitute.com",
@@ -134,7 +153,10 @@
     "storyforge-v5/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql",
     "storyforge-v5/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql",
     "storyforge-v5/scripts/build-static.mjs",
+    "storyforge-v5/scripts/build-wordpress-route-manifest.mjs",
     "storyforge-v5/scripts/apply-production-migrations.sh",
+    "storyforge-v5/scripts/run-integration.sh",
+    "storyforge-v5/infra/wordpress/missionmed-storyforge-route.php",
     "wp-content/plugins/missionmed-storyforge-sso/missionmed-storyforge-sso.php",
     "wp-content/plugins/missionmed-storyforge-sso/assets/matrix-launch.js"
   ],
@@ -463,7 +485,24 @@
       "method": "GET",
       "expected_status": 308,
       "expected_headers_contains": {
-        "location": "/storyforge/"
+        "location": "/storyforge/",
+        "x-storyforge-route": "wordpress-gateway"
+      },
+      "must_not_status": [
+        404,
+        500
+      ]
+    },
+    {
+      "id": "storyforge_index",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/",
+      "method": "GET",
+      "expected_status": 200,
+      "body_contains": "StoryForge · MissionMed",
+      "expected_headers": {
+        "cache-control": "no-store, max-age=0",
+        "x-storyforge-route": "wordpress-gateway"
       },
       "must_not_status": [
         404,
@@ -477,6 +516,10 @@
       "method": "GET",
       "expected_status": 200,
       "body_contains": "\"service\":\"storyforge-v5\"",
+      "expected_headers": {
+        "cache-control": "no-store, private",
+        "x-storyforge-route": "wordpress-gateway"
+      },
       "must_not_status": [
         404,
         500
@@ -490,7 +533,8 @@
       "expected_status": 401,
       "body_contains": "\"code\":\"auth_required\"",
       "expected_headers": {
-        "cache-control": "no-store, private"
+        "cache-control": "no-store, private",
+        "x-storyforge-route": "wordpress-gateway"
       },
       "must_not_status": [
         200,
@@ -601,9 +645,10 @@
     },
     "storyforge_v5": {
       "owner": "MissionMed Matrix / Dr. Brian",
-      "runtime_owner": "cloudflare_storyforge_edge",
+      "runtime_owner": "kinsta_storyforge_gateway",
       "origin_runtime_owner": "railway_storyforge_v5",
       "wordpress_owner": "Kinsta missionmed-storyforge-sso",
+      "route_owner": "Kinsta missionmed-storyforge-route MU gateway",
       "source_of_truth": "storyforge-v5/ plus wp-content/plugins/missionmed-storyforge-sso/",
       "classes": [
         "auth_session",
@@ -622,7 +667,7 @@
         "WordPress production session and REST nonce",
         "Exact founder WordPress user ID allowlist",
         "Railway StoryForge PostgreSQL service",
-        "Cloudflare Worker static assets and API proxy"
+        "Kinsta StoryForge MU gateway with private versioned static release"
       ],
       "feature_flag": {
         "owner": "WordPress option missionmed_storyforge_settings.storyforge_enabled",
@@ -635,7 +680,7 @@
         "route": "https://missionmedinstitute.com/member-dashboard/#storyforge",
         "protected_assets_unchanged": true
       },
-      "rollback": "Set storyforge_enabled false; remove only the two StoryForge Worker routes; deactivate only missionmed-storyforge-sso; leave isolated dormant schema/data intact unless corruption requires the verified database restore."
+      "rollback": "Set storyforge_enabled false; move only missionmed-storyforge-route.php out of mu-plugins; purge Kinsta site/CDN cache; deactivate only missionmed-storyforge-sso if the SSO seam itself must be removed; leave isolated dormant schema/data intact unless corruption requires the verified database restore. Dormant Cloudflare StoryForge bindings are separately decommissioned after gateway validation."
     }
   },
   "browser_journeys": [

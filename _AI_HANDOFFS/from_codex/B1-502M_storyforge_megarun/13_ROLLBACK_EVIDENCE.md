@@ -37,13 +37,20 @@ migrated database through the application.
 ## Production rollback order
 
 1. set the WordPress flag false;
-2. delete only `missionmed-storyforge-v5`, removing the exact and wildcard
-   StoryForge routes;
-3. deactivate and remove only `missionmed-storyforge-sso`;
-4. take the isolated Railway application service/domain offline;
-5. restore the isolated database only if corruption requires it;
-6. reverify Matrix login, WordPress admin, member dashboard, legacy StoryForge,
+2. move only `missionmed-storyforge-route.php` out of the auto-loaded
+   `mu-plugins` directory and restore the prior private release pointer if
+   needed;
+3. purge Kinsta site and CDN caches and prove `/storyforge*` returns the
+   recorded WordPress 404;
+4. deactivate and remove only `missionmed-storyforge-sso` if the SSO seam
+   itself must also be removed;
+5. take the isolated Railway application service/domain offline;
+6. restore the isolated database only if corruption requires it;
+7. reverify Matrix login, WordPress admin, member dashboard, legacy StoryForge,
    unrelated routes, and protected hashes.
+
+The two inert Cloudflare route bindings and isolated Worker are removed after
+the Kinsta gateway is proven. They are not a live rollback owner.
 
 Restore details and RTOs:
 `07_RESTORE_POINTS.md`

@@ -18,24 +18,29 @@ pick_free_port() {
 }
 
 SF_PG_PORT="${STORYFORGE_INTEGRATION_PG_PORT:-$(pick_free_port 55441)}"
-SF_EDGE_PORT="${STORYFORGE_INTEGRATION_EDGE_PORT:-$(pick_free_port 4179)}"
-SF_APP_PORT="${STORYFORGE_INTEGRATION_APP_PORT:-$(pick_free_port 4180 "$SF_EDGE_PORT")}"
-if [[ "$SF_APP_PORT" == "$SF_EDGE_PORT" ]]; then
-  echo "StoryForge integration app and edge ports must differ." >&2
+SF_WP_PORT="${STORYFORGE_INTEGRATION_WP_PORT:-$(pick_free_port 18081)}"
+SF_APP_PORT="${STORYFORGE_INTEGRATION_APP_PORT:-$(pick_free_port 4180 "$SF_WP_PORT")}"
+SF_MOCK_PORT="${STORYFORGE_INTEGRATION_MOCK_PORT:-$(pick_free_port 4190 "$SF_APP_PORT")}"
+if [[ "$SF_APP_PORT" == "$SF_WP_PORT" ]]; then
+  echo "StoryForge integration app and WordPress ports must differ." >&2
   exit 1
 fi
 SF_SERVER_PID=""
-SF_EDGE_PID=""
+SF_MOCK_PID=""
 SF_SECRET="b1-501-local-wordpress-signing-secret-32-bytes"
-SF_ISSUER="http://127.0.0.1:${SF_EDGE_PORT}/wp-json/missionmed/v1/storyforge"
+SF_ISSUER="http://127.0.0.1:${SF_WP_PORT}/wp-json/missionmed/v1/storyforge"
 EVIDENCE_DIR="$WORKTREE_DIR/_AI_HANDOFFS/from_codex/B1-502M_storyforge_megarun/evidence/local-integration"
 
 mkdir -p "$SF_PGSOCKET" "$EVIDENCE_DIR"
+export STORYFORGE_INTEGRATION_WP_PORT="$SF_WP_PORT"
+export STORYFORGE_INTEGRATION_WP_URL="http://127.0.0.1:$SF_WP_PORT"
+export STORYFORGE_INTEGRATION_APP_PORT="$SF_APP_PORT"
+export STORYFORGE_ROUTE_ENABLED=1
 
 cleanup() {
-  if [[ -n "$SF_EDGE_PID" ]]; then
-    kill "$SF_EDGE_PID" >/dev/null 2>&1 || true
-    wait "$SF_EDGE_PID" >/dev/null 2>&1 || true
+  if [[ -n "$SF_MOCK_PID" ]]; then
+    kill "$SF_MOCK_PID" >/dev/null 2>&1 || true
+    wait "$SF_MOCK_PID" >/dev/null 2>&1 || true
   fi
   if [[ -n "$SF_SERVER_PID" ]]; then
     kill "$SF_SERVER_PID" >/dev/null 2>&1 || true
@@ -70,7 +75,7 @@ psql "${PSQL_ARGS[@]}" -c "UPDATE public.sf_mentor_assignments SET active = fals
 
 docker compose -f "$COMPOSE_FILE" up -d db wordpress
 for _ in {1..80}; do
-  if curl -fsS "http://127.0.0.1:18081/wp-admin/install.php" >/dev/null 2>&1; then
+  if curl -fsS "http://127.0.0.1:$SF_WP_PORT/wp-admin/install.php" >/dev/null 2>&1; then
     break
   fi
   sleep 0.5
@@ -81,7 +86,7 @@ wp() {
 }
 
 wp core install \
-  --url="http://127.0.0.1:${SF_EDGE_PORT}" \
+  --url="http://127.0.0.1:${SF_WP_PORT}" \
   --title="StoryForge Integration" \
   --admin_user="localadmin" \
   --admin_password="local-admin-password" \
@@ -159,11 +164,11 @@ fi
 
 export STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_PG_PORT/storyforge"
 export STORYFORGE_PORT="$SF_APP_PORT"
-export STORYFORGE_HOST="127.0.0.1"
-export STORYFORGE_PUBLIC_ORIGIN="http://127.0.0.1:$SF_EDGE_PORT"
+export STORYFORGE_HOST="0.0.0.0"
+export STORYFORGE_PUBLIC_ORIGIN="http://127.0.0.1:$SF_WP_PORT"
 export STORYFORGE_BASE_PATH="/storyforge/"
-export STORYFORGE_MATRIX_BASE_URL="http://127.0.0.1:$SF_EDGE_PORT/member-dashboard/"
-export STORYFORGE_ALLOWED_ORIGINS="http://127.0.0.1:$SF_EDGE_PORT"
+export STORYFORGE_MATRIX_BASE_URL="http://127.0.0.1:$SF_WP_PORT/member-dashboard/"
+export STORYFORGE_ALLOWED_ORIGINS="http://127.0.0.1:$SF_WP_PORT"
 export STORYFORGE_STATIC_DIR="dist"
 export STORYFORGE_ORIGIN_API_ONLY=1
 export STORYFORGE_JWT_SECRET="$SF_SECRET"
@@ -174,29 +179,58 @@ unset STORYFORGE_DEV_AUTH STORYFORGE_DEV_JWT_SECRET
 
 node "$PACKAGE_DIR/server/app.mjs" >"$SF_TMP/server.log" 2>&1 &
 SF_SERVER_PID=$!
-STORYFORGE_EDGE_PORT="$SF_EDGE_PORT" \
-STORYFORGE_EDGE_APP_ORIGIN="http://127.0.0.1:$SF_APP_PORT" \
-STORYFORGE_EDGE_WP_ORIGIN="http://127.0.0.1:18081" \
-STORYFORGE_EDGE_STATIC_DIR="$PACKAGE_DIR/dist" \
-STORYFORGE_BASE_PATH="/storyforge/" \
-node "$PACKAGE_DIR/infra/edge/local-router.mjs" >"$SF_TMP/edge.log" 2>&1 &
-SF_EDGE_PID=$!
 
 for _ in {1..80}; do
-  if curl -fsS "http://127.0.0.1:$SF_EDGE_PORT/storyforge/healthz" >/dev/null 2>&1; then
+  if curl -fsS "http://127.0.0.1:$SF_WP_PORT/storyforge/healthz" >/dev/null 2>&1; then
     break
   fi
   sleep 0.25
 done
-if ! curl -fsS "http://127.0.0.1:$SF_EDGE_PORT/storyforge/healthz" >/dev/null; then
+if ! curl -fsS "http://127.0.0.1:$SF_WP_PORT/storyforge/healthz" >/dev/null; then
+  curl -sS -D - "http://127.0.0.1:$SF_WP_PORT/storyforge/healthz" >&2 || true
   sed -n '1,220p' "$SF_TMP/server.log" >&2
-  sed -n '1,220p' "$SF_TMP/edge.log" >&2
+  exit 1
+fi
+
+for attack_path in \
+  '/storyforge/api/x/../../api/dev/session/student' \
+  '/storyforge/%2e%2e/api/session' \
+  '/storyforge/%252e%252e/api/session'; do
+  ATTACK_CODE="$(curl --path-as-is -sS -o /dev/null -w '%{http_code}' \
+    "http://127.0.0.1:$SF_WP_PORT$attack_path")"
+  if [[ "$ATTACK_CODE" != "400" ]]; then
+    echo "Gateway path attack check expected HTTP 400 for $attack_path, got $ATTACK_CODE." >&2
+    exit 1
+  fi
+done
+REPEATED_SLASH_CODE="$(curl --path-as-is -sS -o /dev/null -w '%{http_code}' --max-redirs 0 \
+  "http://127.0.0.1:$SF_WP_PORT/storyforge//api/session")"
+if [[ "$REPEATED_SLASH_CODE" != "308" ]]; then
+  echo "Repeated-slash canonicalization expected HTTP 308, got $REPEATED_SLASH_CODE." >&2
+  exit 1
+fi
+curl -sS -D "$SF_TMP/alternate-host.headers" -o /dev/null \
+  -H 'Host: alternate.example.test' \
+  "http://127.0.0.1:$SF_WP_PORT/storyforge/" || true
+if rg -qi '^X-StoryForge-Route:' "$SF_TMP/alternate-host.headers"; then
+  echo "StoryForge gateway claimed a noncanonical host." >&2
+  exit 1
+fi
+dd if=/dev/zero of="$SF_TMP/oversize-request.json" bs=1048576 count=7 2>/dev/null
+OVERSIZE_REQUEST_CODE="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -H 'Authorization: Bearer aaa.bbb.ccc' \
+  -H 'Content-Type: application/json' \
+  -H 'Transfer-Encoding: chunked' \
+  --data-binary "@$SF_TMP/oversize-request.json" \
+  "http://127.0.0.1:$SF_WP_PORT/storyforge/api/stories")"
+if [[ "$OVERSIZE_REQUEST_CODE" != "413" ]]; then
+  echo "Chunked request bound expected HTTP 413, got $OVERSIZE_REQUEST_CODE." >&2
   exit 1
 fi
 
 HASHED_ASSET="$(find "$PACKAGE_DIR/dist/assets" -maxdepth 1 -type f -name 'app.*.js' -exec basename {} \; | head -1)"
 HASHED_FONT="$(find "$PACKAGE_DIR/dist/assets/fonts" -maxdepth 1 -type f -name 'archivo-normal.*.woff2' -exec basename {} \; | head -1)"
-export STORYFORGE_INTEGRATION_BASE_URL="http://127.0.0.1:$SF_EDGE_PORT"
+export STORYFORGE_INTEGRATION_BASE_URL="http://127.0.0.1:$SF_WP_PORT"
 export STORYFORGE_INTEGRATION_COMPOSE_FILE="$COMPOSE_FILE"
 export STORYFORGE_INTEGRATION_FOUNDER_ID="$FOUNDER_ID"
 export STORYFORGE_INTEGRATION_STUDENT_ID="$STUDENT_ID"
@@ -205,7 +239,9 @@ export STORYFORGE_INTEGRATION_PASSWORD="local-admin-password"
 export STORYFORGE_INTEGRATION_HASHED_ASSET="$HASHED_ASSET"
 export STORYFORGE_INTEGRATION_HASHED_FONT="$HASHED_FONT"
 curl -sS -D - -o /dev/null --max-redirs 0 \
-  "http://127.0.0.1:$SF_EDGE_PORT/member-dashboard/" \
+  "http://127.0.0.1:$SF_WP_PORT/member-dashboard/" \
+  | tr -d '\r' \
+  | sed '/^$/d' \
   | tee "$EVIDENCE_DIR/wordpress-permalink-probe.headers"
 (
   cd "$PACKAGE_DIR"
@@ -218,6 +254,75 @@ node "$PACKAGE_DIR/scripts/reconcile-mentor-assignments.mjs" \
   --wp-json "$WP_ASSIGNMENTS" \
   --output "$EVIDENCE_DIR/gate-7-mentor-assignment-reconciliation.json"
 
+STORYFORGE_GATEWAY_MOCK_PORT="$SF_MOCK_PORT" \
+  node "$PACKAGE_DIR/tests/fixtures/wordpress-gateway-origin.mjs" >"$SF_TMP/gateway-mock.log" 2>&1 &
+SF_MOCK_PID=$!
+for _ in {1..40}; do
+  if lsof -nP -iTCP:"$SF_MOCK_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+export STORYFORGE_INTEGRATION_APP_PORT="$SF_MOCK_PORT"
+docker compose -f "$COMPOSE_FILE" up -d --force-recreate wordpress >/dev/null
+for _ in {1..80}; do
+  if curl -sS "http://127.0.0.1:$SF_WP_PORT/" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+
+curl -sS -D "$SF_TMP/mock-echo.headers" -o "$SF_TMP/mock-echo.json" \
+  -H 'Authorization: Bearer aaa.bbb.ccc' \
+  -H 'Content-Type: application/json' \
+  -H "Origin: http://127.0.0.1:$SF_WP_PORT" \
+  -H 'Cookie: wordpress_logged_in=must-not-forward' \
+  -H 'X-WP-Nonce: must-not-forward' \
+  -H 'Referer: https://example.invalid/must-not-forward' \
+  -H 'X-Forwarded-For: 192.0.2.1' \
+  --data '{}' \
+  "http://127.0.0.1:$SF_WP_PORT/storyforge/api/test-echo"
+node -e '
+  const fs = require("fs");
+  const value = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+  const expected = {
+    authorizationPresent: true,
+    contentTypePresent: true,
+    originPresent: true,
+    cookiePresent: false,
+    noncePresent: false,
+    refererPresent: false,
+    forwardedPresent: false,
+    bodyBytes: 2,
+  };
+  if (JSON.stringify(value) !== JSON.stringify(expected)) process.exit(1);
+' "$SF_TMP/mock-echo.json"
+if rg -qi '^(Set-Cookie|Location):' "$SF_TMP/mock-echo.headers"; then
+  echo "Gateway propagated a forbidden origin response header." >&2
+  exit 1
+fi
+
+for mock_path in test-redirect test-invalid-json test-oversize test-timeout; do
+  MOCK_CODE="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
+    -H 'Authorization: Bearer aaa.bbb.ccc' \
+    "http://127.0.0.1:$SF_WP_PORT/storyforge/api/$mock_path")"
+  if [[ "$MOCK_CODE" != "502" ]]; then
+    echo "Gateway mock failure check expected HTTP 502 for $mock_path, got $MOCK_CODE." >&2
+    exit 1
+  fi
+done
+kill "$SF_MOCK_PID" >/dev/null 2>&1 || true
+wait "$SF_MOCK_PID" >/dev/null 2>&1 || true
+SF_MOCK_PID=""
+export STORYFORGE_INTEGRATION_APP_PORT="$SF_APP_PORT"
+docker compose -f "$COMPOSE_FILE" up -d --force-recreate wordpress >/dev/null
+for _ in {1..80}; do
+  if curl -fsS "http://127.0.0.1:$SF_WP_PORT/storyforge/healthz" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.25
+done
+
 wp eval "\$s=mmsf_settings();\$s['storyforge_enabled']=false;update_option(MMSF_OPTION,\$s,false);"
 FLAG_OFF_STATE="$(wp eval "\$u=get_user_by('id',$STUDENT_ID);wp_set_current_user(\$u->ID);\$state=mmsf_access_state(\$u);echo is_wp_error(\$state)?\$state->get_error_code():'allowed';")"
 if [[ "$FLAG_OFF_STATE" != "storyforge_disabled" ]]; then
@@ -225,9 +330,11 @@ if [[ "$FLAG_OFF_STATE" != "storyforge_disabled" ]]; then
   exit 1
 fi
 
-ROUTE_REMOVED_CODE="$(curl -sS -o /dev/null -w '%{http_code}' -H "Host: 127.0.0.1:$SF_EDGE_PORT" "http://127.0.0.1:18081/storyforge/")"
-if [[ "$ROUTE_REMOVED_CODE" != "404" ]]; then
-  echo "Route-removal rollback check expected WordPress 404, got $ROUTE_REMOVED_CODE." >&2
+FLAG_OFF_API_CODE="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -H 'Authorization: Bearer aaa.bbb.ccc' \
+  "http://127.0.0.1:$SF_WP_PORT/storyforge/api/session")"
+if [[ "$FLAG_OFF_API_CODE" != "403" ]]; then
+  echo "Feature-off gateway check expected HTTP 403, got $FLAG_OFF_API_CODE." >&2
   exit 1
 fi
 
@@ -238,9 +345,36 @@ if [[ "$DEACTIVATED_FLAG" != *'"storyforge_enabled":false'* ]]; then
   exit 1
 fi
 
+wp option update missionmed_storyforge_settings '{"storyforge_enabled":true}' --format=json >/dev/null
+STALE_TRUE_API_CODE="$(curl -sS -o /dev/null -w '%{http_code}' \
+  -H 'Authorization: Bearer aaa.bbb.ccc' \
+  "http://127.0.0.1:$SF_WP_PORT/storyforge/api/session")"
+if [[ "$STALE_TRUE_API_CODE" != "403" ]]; then
+  echo "Missing-SSO fail-closed check expected HTTP 403, got $STALE_TRUE_API_CODE." >&2
+  exit 1
+fi
+
+export STORYFORGE_ROUTE_ENABLED=0
+docker compose -f "$COMPOSE_FILE" up -d --force-recreate wordpress >/dev/null
+for _ in {1..80}; do
+  if curl -sS "http://127.0.0.1:$SF_WP_PORT/" >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.5
+done
+ROUTE_REMOVED_CODE="$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$SF_WP_PORT/storyforge/")"
+if [[ "$ROUTE_REMOVED_CODE" != "404" ]]; then
+  echo "Route-removal rollback check expected WordPress 404, got $ROUTE_REMOVED_CODE." >&2
+  exit 1
+fi
+
 {
   echo "default_off_shortcodes=empty"
   echo "flag_off_access_state=$FLAG_OFF_STATE"
+  echo "flag_off_gateway_api_http=$FLAG_OFF_API_CODE"
+  echo "missing_sso_stale_true_api_http=$STALE_TRUE_API_CODE"
+  echo "gateway_mock_controls=pass"
+  echo "path_attack_matrix=pass"
   echo "route_removed_wordpress_http=$ROUTE_REMOVED_CODE"
   echo "plugin_deactivation_forced_flag_off=true"
 } >"$EVIDENCE_DIR/rollback-local-verification.txt"

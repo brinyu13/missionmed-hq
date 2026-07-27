@@ -24,20 +24,36 @@ DYNAMIC`, private/no-store headers, no `Age`, and HTTP 404. Post-deploy repeated
 response checks are required to prove the effective policy and trigger
 immediate rollback on any private/HTML cache hit.
 
-## Route contract
+## Cloudflare route diagnosis
 
-The Worker owns exactly:
+The isolated Worker and both intended route records were created:
 
 - `missionmedinstitute.com/storyforge`;
 - `missionmedinstitute.com/storyforge/*`.
 
-The slashless route returns a `308` to `/storyforge/`. Repeated slashes are
-normalized before routing. Deep links beneath `/storyforge/` receive the
-application shell. `/storyforge/api`, `/storyforge/api/*`, and
-`/storyforge/healthz` are proxied to the isolated Railway origin.
+Repeated live probes nevertheless continued to return the Kinsta WordPress
+404 with no Worker marker. The same behavior occurred on pre-existing Worker
+route patterns. Current DNS and retained authenticated inventory establish
+that the apex reaches Kinsta through a DNS-only record, so zone Worker routes
+do not enter the request path.
 
-No DNS, catch-all route, shared Worker, Pages project, or unrelated origin is
-changed.
+Changing the apex to proxied would activate eight unrelated legacy Worker
+routes and subject the whole site to unreadable account-level rules. B1-502M
+therefore rejects that broad DNS mutation. The two inert StoryForge bindings
+and isolated Worker are decommission-pending after the replacement gateway is
+verified.
+
+## Active route contract
+
+An isolated Kinsta MU gateway owns exactly `/storyforge` and
+`/storyforge/*`. It serves only the 14 manifest-approved bytes from a
+versioned private release, uses the application shell for safe extensionless
+deep links, and proxies only `/storyforge/api`, `/storyforge/api/*`, and
+`/storyforge/healthz` to the pinned Railway HTTPS origin.
+
+All other paths fall through untouched to WordPress/Matrix. No DNS, shared
+Worker, protected `missionmed-hub` file, public `storyforge` directory, or
+unrelated origin changes.
 
 ## Privacy and cache contract
 
@@ -49,18 +65,20 @@ changed.
 - WordPress cookies and unrelated request headers are not forwarded to
   Railway;
 - origin redirects are not automatically followed;
-- security headers include CSP, referrer policy, nosniff, same-origin framing,
-  and a bounded permissions policy.
+- security headers include CSP with `object-src 'none'`, referrer policy,
+  nosniff, same-origin framing, `noindex`, and a bounded permissions policy.
 
 The browser uses a ten-second bounded request path so an origin or edge fault
 cannot leave an indefinite opening state.
 
 ## Deployment boundary
 
-The Worker version is uploaded before route activation. Routes are attached
-only after the Railway API and feature-off WordPress seam pass their health
-checks. The exact deployed Worker version, deployment revision, route receipt,
-and post-deploy hashes are recorded in `09_DEPLOYMENT_LOG.md`.
+The exact 14-file release is uploaded into a new private version directory.
+Its hash manifest is verified before an atomic `current` pointer switch. The
+MU file is staged outside the auto-loaded directory and moved into place only
+after PHP lint, local gateway tests, restore-point checks, and feature-off
+configuration pass.
 
-Rollback removes only this Worker and its two StoryForge routes, returning the
-recorded 404 before-state.
+Rollback sets the feature off, moves only the StoryForge MU file out of the
+auto-loaded directory, restores the prior release pointer if needed, purges
+Kinsta site/CDN cache, and verifies the recorded WordPress 404 before-state.

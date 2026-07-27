@@ -59,9 +59,11 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
 
   const appRoute = await request.get('/storyforge/library');
   expect(appRoute.status()).toBe(200);
-  expect(appRoute.headers()['x-storyforge-local-edge']).toBe('storyforge');
+  expect(appRoute.headers()['x-storyforge-route']).toBe('wordpress-gateway');
   expect(await appRoute.text()).toContain('<title>StoryForge · MissionMed</title>');
   expect(appRoute.headers()['cache-control']).toContain('no-store');
+  expect(appRoute.headers()['content-security-policy']).toContain("object-src 'none'");
+  expect(appRoute.headers()['x-robots-tag']).toContain('noindex');
 
   const canonical = await request.get('/storyforge', { maxRedirects: 0 });
   expect(canonical.status()).toBe(308);
@@ -73,7 +75,7 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
 
   const wpRoute = await request.get('/member-dashboard/');
   expect(wpRoute.status()).toBe(200);
-  expect(wpRoute.headers()['x-storyforge-local-edge']).toBe('wordpress');
+  expect(wpRoute.headers()['x-storyforge-route']).toBeUndefined();
   expect(await wpRoute.text()).toContain('Matrix Test Dashboard');
 
   const assetName = process.env.STORYFORGE_INTEGRATION_HASHED_ASSET;
@@ -101,6 +103,52 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
     lora: 1,
     loraItalic: 1,
   });
+});
+
+test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({ request }) => {
+  const health = await request.get('/storyforge/healthz');
+  expect(health.status()).toBe(200);
+  expect(health.headers()['cache-control']).toBe('no-store, private');
+  expect(health.headers()['x-storyforge-route']).toBe('wordpress-gateway');
+  expect(await health.json()).toEqual({ ok: true, service: 'storyforge-v5' });
+
+  const assetName = process.env.STORYFORGE_INTEGRATION_HASHED_ASSET;
+  const head = await request.head(`/storyforge/assets/${assetName}`);
+  expect(head.status()).toBe(200);
+  expect(head.headers()['cache-control']).toContain('immutable');
+  expect(await head.body()).toHaveLength(0);
+
+  const missing = await request.get('/storyforge/assets/app.deadbeefcafe.js');
+  expect(missing.status()).toBe(404);
+  expect(missing.headers()['cache-control']).toBe('no-store, private');
+
+  const wrongMethod = await request.post(`/storyforge/assets/${assetName}`, { data: '{}' });
+  expect(wrongMethod.status()).toBe(405);
+
+  const devRoute = await request.post('/storyforge/api/dev/session/student', {
+    headers: { 'Content-Type': 'application/json' },
+    data: {},
+  });
+  expect(devRoute.status()).toBe(404);
+
+  const missingBearer = await request.get('/storyforge/api/session');
+  expect(missingBearer.status()).toBe(401);
+  expect((await missingBearer.json()).error.code).toBe('auth_required');
+
+  const forbiddenMethod = await request.put('/storyforge/api/session', {
+    headers: { 'Content-Type': 'application/json' },
+    data: {},
+  });
+  expect(forbiddenMethod.status()).toBe(405);
+
+  const encodedDelimiter = await request.get('/storyforge/%25encoded');
+  expect(encodedDelimiter.status()).toBe(400);
+
+  const alternatePublicAsset = await request.get(
+    '/wp-content/plugins/missionmed-storyforge-sso/dist/index.html',
+  );
+  expect(alternatePublicAsset.status()).toBe(404);
+  expect(alternatePublicAsset.headers()['x-storyforge-route']).toBeUndefined();
 });
 
 test('founder-only zero-assignment workflow remains private and truthful', async ({ page }) => {

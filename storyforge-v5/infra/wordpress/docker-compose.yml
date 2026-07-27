@@ -22,24 +22,32 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "127.0.0.1:18081:80"
+      - "127.0.0.1:${STORYFORGE_INTEGRATION_WP_PORT:-18081}:80"
     environment:
       WORDPRESS_DB_HOST: db
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: wordpress-local-only
       WORDPRESS_DB_NAME: wordpress
+      STORYFORGE_INTEGRATION_WP_URL: "${STORYFORGE_INTEGRATION_WP_URL:-http://127.0.0.1:18081}"
+      STORYFORGE_INTEGRATION_APP_PORT: "${STORYFORGE_INTEGRATION_APP_PORT:-4180}"
+      STORYFORGE_ROUTE_ENABLED: "${STORYFORGE_ROUTE_ENABLED:-1}"
       WORDPRESS_CONFIG_EXTRA: |
         if (!empty($$_SERVER['HTTP_X_FORWARDED_HOST'])) {
           $$_SERVER['HTTP_HOST'] = $$_SERVER['HTTP_X_FORWARDED_HOST'];
         }
-        define('WP_HOME', 'http://127.0.0.1:4179');
-        define('WP_SITEURL', 'http://127.0.0.1:4179');
+        define('WP_HOME', getenv('STORYFORGE_INTEGRATION_WP_URL') ?: 'http://127.0.0.1:18081');
+        define('WP_SITEURL', getenv('STORYFORGE_INTEGRATION_WP_URL') ?: 'http://127.0.0.1:18081');
         define('WP_ENVIRONMENT_TYPE', 'local');
         define('MISSIONMED_STORYFORGE_LOCAL_FIXTURES', true);
         define('STORYFORGE_JWT_SECRET', 'b1-501-local-wordpress-signing-secret-32-bytes');
+        define('MISSIONMED_STORYFORGE_ROUTE_ENABLED', getenv('STORYFORGE_ROUTE_ENABLED') !== '0');
+        define('MISSIONMED_STORYFORGE_RELEASE_DIR', '/srv/storyforge-v5-release');
+        define('MISSIONMED_STORYFORGE_ORIGIN', 'http://host.docker.internal:' . (getenv('STORYFORGE_INTEGRATION_APP_PORT') ?: '4180'));
     volumes:
       - wordpress_files:/var/www/html
       - ../../../wp-content/plugins/missionmed-storyforge-sso:/var/www/html/wp-content/plugins/missionmed-storyforge-sso:ro
+      - ./missionmed-storyforge-route.php:/var/www/html/wp-content/mu-plugins/missionmed-storyforge-route.php:ro
+      - ../../dist:/srv/storyforge-v5-release:ro
       - ./.htaccess:/var/www/html/.htaccess:ro
 
   wpcli:
@@ -54,9 +62,14 @@ services:
       WORDPRESS_DB_USER: wordpress
       WORDPRESS_DB_PASSWORD: wordpress-local-only
       WORDPRESS_DB_NAME: wordpress
+      STORYFORGE_INTEGRATION_WP_URL: "${STORYFORGE_INTEGRATION_WP_URL:-http://127.0.0.1:18081}"
+      STORYFORGE_INTEGRATION_APP_PORT: "${STORYFORGE_INTEGRATION_APP_PORT:-4180}"
+      STORYFORGE_ROUTE_ENABLED: "${STORYFORGE_ROUTE_ENABLED:-1}"
     volumes:
       - wordpress_files:/var/www/html
       - ../../../wp-content/plugins/missionmed-storyforge-sso:/var/www/html/wp-content/plugins/missionmed-storyforge-sso:ro
+      - ./missionmed-storyforge-route.php:/var/www/html/wp-content/mu-plugins/missionmed-storyforge-route.php:ro
+      - ../../dist:/srv/storyforge-v5-release:ro
 
 volumes:
   wordpress_db:
