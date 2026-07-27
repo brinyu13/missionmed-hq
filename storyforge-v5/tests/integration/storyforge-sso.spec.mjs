@@ -1,4 +1,7 @@
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { test, expect } from '@playwright/test';
 
 const composeFile = process.env.STORYFORGE_INTEGRATION_COMPOSE_FILE;
@@ -7,6 +10,10 @@ const studentId = process.env.STORYFORGE_INTEGRATION_STUDENT_ID;
 const integrationBaseUrl = (process.env.STORYFORGE_INTEGRATION_BASE_URL || 'http://127.0.0.1:4179').replace(/\/$/, '');
 const founderUsername = process.env.STORYFORGE_INTEGRATION_USERNAME || 'localadmin';
 const founderPassword = process.env.STORYFORGE_INTEGRATION_PASSWORD || 'local-admin-password';
+const assetAliases = JSON.parse(process.env.STORYFORGE_INTEGRATION_ASSET_ALIASES || '{}');
+const indexAlias = process.env.STORYFORGE_INTEGRATION_INDEX_ALIAS || '';
+const distDir = process.env.STORYFORGE_INTEGRATION_DIST_DIR || '';
+const productCommit = process.env.STORYFORGE_INTEGRATION_PRODUCT_COMMIT || '';
 
 function wp(...args) {
   return execFileSync(
@@ -60,7 +67,8 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
   const appRoute = await request.get('/storyforge/library');
   expect(appRoute.status()).toBe(200);
   expect(appRoute.headers()['x-storyforge-route']).toBe('wordpress-gateway');
-  expect(await appRoute.text()).toContain('<title>StoryForge · MissionMed</title>');
+  const appHtml = await appRoute.text();
+  expect(appHtml).toContain('<title>StoryForge · MissionMed</title>');
   expect(appRoute.headers()['cache-control']).toContain('no-store');
   expect(appRoute.headers()['content-security-policy']).toContain("object-src 'none'");
   expect(appRoute.headers()['x-robots-tag']).toContain('noindex');
@@ -78,16 +86,22 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
   expect(wpRoute.headers()['x-storyforge-route']).toBeUndefined();
   expect(await wpRoute.text()).toContain('Matrix Test Dashboard');
 
-  const assetName = process.env.STORYFORGE_INTEGRATION_HASHED_ASSET;
-  const asset = await request.get(`/storyforge/assets/${assetName}`);
+  const appAlias = process.env.STORYFORGE_INTEGRATION_APP_ALIAS;
+  expect(appHtml).toContain(`src="./_asset/${appAlias}"`);
+  expect(appHtml).not.toContain('./assets/');
+  const asset = await request.get(`/storyforge/_asset/${appAlias}`);
   expect(asset.status()).toBe(200);
   expect(asset.headers()['cache-control']).toContain('immutable');
+  const assetBytes = await asset.body();
+  expect(createHash('sha256').update(assetBytes).digest('hex').slice(0, 12)).toBe(appAlias);
 
-  const fontName = process.env.STORYFORGE_INTEGRATION_HASHED_FONT;
-  const font = await request.get(`/storyforge/assets/fonts/${fontName}`);
+  const fontAlias = process.env.STORYFORGE_INTEGRATION_FONT_ALIAS;
+  const font = await request.get(`/storyforge/_asset/${fontAlias}`);
   expect(font.status()).toBe(200);
   expect(font.headers()['content-type']).toContain('font/woff2');
   expect(font.headers()['cache-control']).toContain('immutable');
+  const fontBytes = await font.body();
+  expect(createHash('sha256').update(fontBytes).digest('hex').slice(0, 12)).toBe(fontAlias);
 
   const loadedFonts = await page.evaluate(async () => ({
     archivo: (await document.fonts.load('400 16px Archivo')).length,
@@ -112,18 +126,77 @@ test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({
   expect(health.headers()['x-storyforge-route']).toBe('wordpress-gateway');
   expect(await health.json()).toEqual({ ok: true, service: 'storyforge-v5' });
 
-  const assetName = process.env.STORYFORGE_INTEGRATION_HASHED_ASSET;
-  const head = await request.head(`/storyforge/assets/${assetName}`);
+  const appAlias = process.env.STORYFORGE_INTEGRATION_APP_ALIAS;
+  const head = await request.head(`/storyforge/_asset/${appAlias}`);
   expect(head.status()).toBe(200);
   expect(head.headers()['cache-control']).toContain('immutable');
   expect(await head.body()).toHaveLength(0);
 
-  const missing = await request.get('/storyforge/assets/app.deadbeefcafe.js');
+  const missing = await request.get('/storyforge/_asset/deadbeefcafe');
   expect(missing.status()).toBe(404);
   expect(missing.headers()['cache-control']).toBe('no-store, private');
 
-  const wrongMethod = await request.post(`/storyforge/assets/${assetName}`, { data: '{}' });
+  const wrongMethod = await request.post(`/storyforge/_asset/${appAlias}`, { data: '{}' });
   expect(wrongMethod.status()).toBe(405);
+
+  const legacyExtensionAsset = await request.get(`/storyforge/assets/app.${appAlias}.js`);
+  expect(legacyExtensionAsset.status()).toBe(404);
+
+  expect(Object.keys(assetAliases)).toHaveLength(13);
+  for (const [alias, entry] of Object.entries(assetAliases)) {
+    const expected = await readFile(path.join(distDir, entry.path));
+    const aliased = await request.get(`/storyforge/_asset/${alias}`);
+    const actual = await aliased.body();
+    expect(aliased.status(), entry.path).toBe(200);
+    expect(actual.equals(expected), entry.path).toBe(true);
+    expect(actual).toHaveLength(entry.size);
+    expect(createHash('sha256').update(actual).digest('hex')).toBe(entry.sha256);
+    expect(aliased.headers()['content-type']).toBe(entry.type);
+    expect(aliased.headers()['cache-control']).toBe(
+      entry.cache === 'immutable'
+        ? 'public, max-age=31536000, immutable'
+        : 'no-cache',
+    );
+
+    const raw = await request.get(`/storyforge/${entry.path}`);
+    expect(raw.status(), entry.path).toBe(404);
+    const pluginRaw = await request.get(`/wp-content/plugins/missionmed-storyforge-sso/dist/${entry.path}`);
+    expect(pluginRaw.status(), entry.path).toBe(404);
+    const muPluginRaw = await request.get(`/wp-content/mu-plugins/missionmed-storyforge-runtime/${entry.path}`);
+    expect(muPluginRaw.status(), entry.path).toBe(404);
+  }
+
+  expect(indexAlias).toMatch(/^[a-f0-9]{12}$/);
+  const indexAliasResponse = await request.get(`/storyforge/_asset/${indexAlias}`);
+  expect(indexAliasResponse.status()).toBe(404);
+  const rawIndex = await request.get('/storyforge/index.html');
+  expect(rawIndex.status()).toBe(404);
+  for (const publicIndexPath of [
+    '/wp-content/plugins/missionmed-storyforge-sso/dist/index.html',
+    '/wp-content/mu-plugins/missionmed-storyforge-runtime/index.html',
+  ]) {
+    const response = await request.get(publicIndexPath);
+    expect(response.status(), publicIndexPath).toBe(404);
+  }
+
+  expect(productCommit).toMatch(/^[a-f0-9]{40}$/);
+  for (const directBundlePath of [
+    process.env.STORYFORGE_INTEGRATION_RELEASE_BUNDLE_PATH,
+    `/wp-content/mu-plugins/missionmed-storyforge-runtime/releases/${productCommit}/release.php`,
+  ]) {
+    const directBundle = await request.get(directBundlePath);
+    expect(directBundle.status(), directBundlePath).toBe(404);
+    expect(await directBundle.body(), directBundlePath).toHaveLength(0);
+    expect(directBundle.headers()['cache-control']).toBe('no-store, private');
+    expect(directBundle.headers()['x-content-type-options']).toBe('nosniff');
+    expect(directBundle.headers()['x-storyforge-route']).toBeUndefined();
+  }
+
+  const rootStoryForgeMuFiles = JSON.parse(wp(
+    'eval',
+    '$found=array();foreach(scandir(WPMU_PLUGIN_DIR) as $name){$file=WPMU_PLUGIN_DIR."/".$name;if(is_file($file)&&str_ends_with(strtolower($name),".php")&&false!==stripos($name,"storyforge")){$found[]=$name;}}sort($found);echo wp_json_encode($found);',
+  ));
+  expect(rootStoryForgeMuFiles).toEqual(['missionmed-storyforge-route.php']);
 
   const devRoute = await request.post('/storyforge/api/dev/session/student', {
     headers: { 'Content-Type': 'application/json' },
@@ -144,9 +217,7 @@ test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({
   const encodedDelimiter = await request.get('/storyforge/%25encoded');
   expect(encodedDelimiter.status()).toBe(400);
 
-  const alternatePublicAsset = await request.get(
-    '/wp-content/plugins/missionmed-storyforge-sso/dist/index.html',
-  );
+  const alternatePublicAsset = await request.get('/wp-content/plugins/missionmed-storyforge-sso/dist/index.html');
   expect(alternatePublicAsset.status()).toBe(404);
   expect(alternatePublicAsset.headers()['x-storyforge-route']).toBeUndefined();
 });

@@ -43,24 +43,53 @@ therefore rejects that broad DNS mutation. The two inert StoryForge bindings
 and isolated Worker are decommission-pending after the replacement gateway is
 verified.
 
-## Active route contract
+## First Kinsta gateway attempt
 
-An isolated Kinsta MU gateway owns exactly `/storyforge` and
-`/storyforge/*`. It serves only the 14 manifest-approved bytes from a
-versioned private release, uses the application shell for safe extensionless
-deep links, and proxies only `/storyforge/api`, `/storyforge/api/*`, and
-`/storyforge/healthz` to the pinned Railway HTTPS origin.
+Pushed gateway commit `94504372c710372ea121a0b62ad7094e893e026b`
+was installed feature-off with the sibling private 14-file release. The attempt
+failed closed and established two production routing constraints:
+
+1. Kinsta PHP-FPM could not read the sibling private release and returned
+   `release_unavailable`, even when required traversal and file-read
+   permissions were present.
+2. Kinsta Nginx intercepted extension-bearing `/storyforge/assets/*` requests
+   before WordPress and returned 404.
+
+No permission bypass, Nginx change, public raw asset copy, DNS mutation, or broad
+WordPress router was attempted. The flag remained false and the allowlist
+remained empty. The active release pointer and MU route file were physically
+removed, Kinsta caches were purged, and independently repeated StoryForge probes
+returned the prior 404. Root remained 200, the anonymous member dashboard kept
+its 302 login handoff, and WordPress REST remained 200.
+
+## DR-013 route candidate
+
+After feature-off deployment, the isolated Kinsta MU gateway owns exactly
+`/storyforge` and `/storyforge/*`. It loads only one guarded generated bundle
+from
+`wp-content/mu-plugins/missionmed-storyforge-runtime/releases/<exact-product-commit>/release.php`
+through an atomic runtime `current` pointer. The sibling private release remains
+immutable evidence only.
+
+The application shell and safe extensionless SPA deep links resolve to bundled
+`index.html`. Non-index browser assets resolve only through unique exact
+`/storyforge/_asset/<sha12>` aliases. Raw extension-bearing logical paths,
+unknown or malformed aliases, the index hash as an asset alias, root MU release
+files, and direct nested-bundle execution fail closed. API ownership remains
+limited to `/storyforge/api`, `/storyforge/api/*`, and `/storyforge/healthz`
+against the pinned Railway HTTPS origin.
 
 All other paths fall through untouched to WordPress/Matrix. No DNS, shared
-Worker, protected `missionmed-hub` file, public `storyforge` directory, or
-unrelated origin changes.
+Worker, protected `missionmed-hub` file, public raw-asset directory, or unrelated
+origin changes.
 
 ## Privacy and cache contract
 
 - HTML and redirects: `no-store`;
 - API and API errors: `no-store, private` plus `Pragma: no-cache`;
 - non-success static responses: noncacheable;
-- fingerprinted static assets: one-year immutable caching;
+- approved SHA-derived non-index aliases: one-year immutable caching only when
+  their generated cache class is `immutable`;
 - other successful static resources: revalidate;
 - WordPress cookies and unrelated request headers are not forwarded to
   Railway;
@@ -73,12 +102,18 @@ cannot leave an indefinite opening state.
 
 ## Deployment boundary
 
-The exact 14-file release is uploaded into a new private version directory.
-Its hash manifest is verified before an atomic `current` pointer switch. The
-MU file is staged outside the auto-loaded directory and moved into place only
-after PHP lint, local gateway tests, restore-point checks, and feature-off
-configuration pass.
+The exact committed 14-file release deterministically generates one guarded
+`release.php`. The bundle is staged into a new commit-named immutable directory
+below the MU-plugin root. Its complete manifest, bytes, hash, size, direct
+execution guard, owner, and modes are verified before an atomic runtime
+`current` pointer switch. No release PHP file, duplicate, loader, backup, or
+temporary PHP file may exist in the root MU-plugin autoload directory. The MU
+route file is staged outside that root and moved into place only after PHP lint,
+local gateway tests, restore-point checks, feature-off configuration, and fresh
+exact-tree Sentinel approval pass.
 
-Rollback sets the feature off, moves only the StoryForge MU file out of the
-auto-loaded directory, restores the prior release pointer if needed, purges
-Kinsta site/CDN cache, and verifies the recorded WordPress 404 before-state.
+Rollback sets the feature off, atomically restores or disables only the runtime
+pointer, moves only the StoryForge MU route file out of the auto-loaded
+directory when route absence is required, leaves the sibling evidence release
+unchanged, purges Kinsta site/CDN cache, and verifies the recorded WordPress 404
+before-state.

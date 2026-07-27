@@ -24,6 +24,10 @@ behavior only; they may not determine V5 presentation or workflow.
   `5ba56c7e3dd4f251ef4fc66c9de5fc4300c8acbc`;
 - B1-502 premutation discovery commit:
   `e76193176e50fa0f0c329b40017c3e48b94510ef`;
+- pushed first Kinsta MU gateway commit:
+  `94504372c710372ea121a0b62ad7094e893e026b`;
+- DR-013 execution-private bundle repair commit:
+  **PENDING exact guarded source commit and normal push**;
 - repository remote:
   `https://github.com/brinyu13/missionmed-hq.git`.
 
@@ -37,18 +41,21 @@ production evidence and adversarial review.
 The protected MissionMed OS authority was refreshed through its normal writer
 in an isolated worktree. The active authority head is:
 
-`d7c5f3b26dd4f51928d0145e12b3e84bfa99dfb6`
+`d49fffbd1cd92854bd1390fb5f4dbf68be95796d`
 
-That forward DR-012 amendment and its predecessors
+That forward DR-013 amendment and its predecessors
+`d7c5f3b26dd4f51928d0145e12b3e84bfa99dfb6`,
 `4f3c7e89efbb55956a39066bce7e42598f55a244` and
 `18df24dc4f1360551c7bf217f08d257a6e0cfee3` were pushed normally to the
 canonical MissionMed OS `main`; local `origin/main` was verified at
-`d7c5f3b26dd4f51928d0145e12b3e84bfa99dfb6`.
+`d49fffbd1cd92854bd1390fb5f4dbf68be95796d`.
 
 The filed authority includes:
 
 - DR-011 founder authorization;
 - DR-012 forward amendment for the isolated Kinsta MU routing mechanism;
+- DR-013 forward amendment for the execution-private runtime bundle and exact
+  extensionless non-index aliases;
 - B1-502M active mission registration;
 - StoryForge production passport;
 - product and authority index entries;
@@ -79,12 +86,26 @@ Verified production facts:
 - isolated Railway project/application/PostgreSQL targets were created under
   B1-502M authority.
 
-Direct production evidence later proved that the initially created Cloudflare
+Direct production evidence first proved that the initially created Cloudflare
 route records were inert because the apex reaches Kinsta through a DNS-only
-record. DR-012 changes only the delivery mechanism to the smallest isolated
-equivalent: one Kinsta MU gateway plus private versioned assets. It does not
-change product authority, founder scope, feature gating, protected Matrix
-boundaries, Railway origin ownership, or database authorization.
+record. DR-012 changed route ownership to one isolated Kinsta MU gateway.
+
+Feature-off deployment of gateway commit
+`94504372c710372ea121a0b62ad7094e893e026b` then proved two narrower Kinsta
+constraints: PHP-FPM could not read the sibling private 14-file release and
+returned `release_unavailable`, and Nginx intercepted extension-bearing
+`/storyforge/assets/*` requests before WordPress. The feature flag remained
+false and the founder allowlist remained empty. The MU route file and active
+pointer were physically removed, caches were purged, StoryForge routes returned
+the prior 404 again, and root, Matrix login handoff, WordPress REST, legacy
+StoryForge, and protected hashes remained healthy.
+
+DR-013 changes only the runtime asset mechanism: the sibling private release is
+immutable evidence, while runtime bytes are generated into one guarded
+commit-versioned `release.php` below the MU-plugin autoload root and non-index
+browser assets use exact `/storyforge/_asset/<sha12>` aliases. It does not change
+product authority, founder scope, feature gating, protected Matrix boundaries,
+Railway origin ownership, or database authorization.
 
 ## Protected runtime provenance
 

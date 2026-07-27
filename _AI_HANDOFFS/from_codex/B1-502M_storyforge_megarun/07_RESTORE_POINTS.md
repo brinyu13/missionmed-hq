@@ -2,10 +2,13 @@
 
 Recorded: 2026-07-27
 
-Status: **PREMUTATION RESTORE EVIDENCE VERIFIED**
+Status: **PREMUTATION RESTORE EVIDENCE VERIFIED; FIRST KINSTA GATEWAY
+ATTEMPT SAFELY ROLLED BACK**
 
 No StoryForge application, schema, WordPress plugin, Worker, route, or feature
-flag had been deployed when these restore points were recorded.
+flag had been deployed when the original restore points were recorded.
+Subsequent mutations and their current rollback state are recorded below; this
+opening statement is historical prestate, not current production state.
 
 ## WordPress, Matrix, and legacy StoryForge
 
@@ -52,14 +55,18 @@ is:
 1. force the StoryForge option to disabled;
 2. move only
    `wp-content/mu-plugins/missionmed-storyforge-route.php` outside the MU-plugin
-   directory, remove or repoint only the private StoryForge `current` release
-   symlink, and purge the Kinsta site/CDN caches;
+   directory, atomically restore or disable only
+   `wp-content/mu-plugins/missionmed-storyforge-runtime/current`, and purge the
+   Kinsta site/CDN caches;
 3. verify `/storyforge`, `/storyforge/`, `/storyforge/healthz`, and a
    `/storyforge/api/*` probe all return the recorded origin-owned 404;
 4. deactivate and remove only `missionmed-storyforge-sso`;
 5. verify that the option and plugin directory match the recorded absent
    before-state;
 6. verify the protected Matrix and legacy StoryForge hashes.
+
+The sibling private release is retained immutable evidence and is not removed,
+repointed, or used by PHP-FPM during normal rollback.
 
 The full database or protected plugin archive is restored only if a rollback
 condition proves corruption or unintended mutation. That destructive recovery
@@ -80,33 +87,83 @@ Expected restoration time:
 
 ## Kinsta StoryForge route gateway
 
-The isolated route candidate is additive and owns only these new targets:
+The DR-013 isolated route candidate is additive and owns only these new targets:
 
 - `wp-content/mu-plugins/missionmed-storyforge-route.php`;
-- `/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/releases/<release>/`;
-- `/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/current`.
+- `wp-content/mu-plugins/missionmed-storyforge-runtime/releases/<exact-product-commit>/release.php`;
+- `wp-content/mu-plugins/missionmed-storyforge-runtime/current`.
+
+The earlier sibling release at
+`/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/releases/94504372c710372ea121a0b62ad7094e893e026b/`
+is not a target of the DR-013 runtime. It remains immutable evidence only.
 
 The protected `missionmed-hub` plugin, WordPress theme, DNS, and legacy
 StoryForge files are not gateway targets. The gateway is installed
 feature-off first and binds only the canonical production host plus the exact
 `/storyforge` route family.
 
+### First feature-off attempt and physical rollback
+
+The first attempt used pushed gateway commit
+`94504372c710372ea121a0b62ad7094e893e026b`. The route failed closed with
+`release_unavailable` because Kinsta PHP-FPM could not read the sibling private
+release, and Kinsta Nginx returned 404 before WordPress for extension-bearing
+`/storyforge/assets/*` paths. The feature flag stayed false and the allowlist
+stayed empty.
+
+The active pointer and MU route file were physically removed, Kinsta caches were
+purged, and StoryForge routes independently returned the prior 404. Shared-site
+checks passed: root 200, anonymous member dashboard 302 to login, and WordPress
+REST 200. Protected and legacy StoryForge assets remained unchanged.
+
+The initial install and rollback purge calls used Kinsta's
+`purge_complete_caches(true)` helper, which invalidates object, site, and CDN
+caches. This broader-than-intended scope is recorded rather than hidden; shared
+health passed afterward. All DR-013 deployment and rollback operations must use
+only the separate site-cache and CDN-cache purge methods.
+
+Live read-only filesystem verification after rollback recorded owner
+`theresidencyacademy:www-data` throughout the scoped tree and these final modes:
+
+| Scope | Final mode / shape |
+|---|---|
+| `/www/theresidencyacademy_209/private` | `0755` |
+| `private/b1-502m` | `0700` |
+| `runtime`, `runtime/storyforge-v5`, `releases`, and the `94504372...` release directory | `0755` |
+| immutable evidence release contents | three directories at `0755`; 14 files at `0644` |
+| retained rollback directory | `0700` |
+| retained gateway staging directory | `0750` |
+| failed-installed gateway file retained outside active MU loading | `0644` |
+
+All 14 evidence files matched the exact SHA-256 values in the committed
+`94504372c710372ea121a0b62ad7094e893e026b` release. Temporary access-mode
+changes were therefore restored to this verified final state; no broader
+permission remains as runtime authority.
+
+### DR-013 candidate rollback
+
 The exact gateway rollback is:
 
 1. force the StoryForge feature option off;
-2. move the single MU gateway PHP file out of `wp-content/mu-plugins`;
-3. remove or repoint only the private StoryForge `current` symlink;
+2. atomically restore or disable only
+   `wp-content/mu-plugins/missionmed-storyforge-runtime/current`;
+3. move the single MU route PHP file out of `wp-content/mu-plugins` when route
+   absence is required;
 4. purge Kinsta site and CDN caches;
 5. verify every `/storyforge*` probe returns the recorded 404 while Matrix,
    WordPress REST, legacy StoryForge, and unrelated modules remain healthy;
-6. retain the immutable private release directory for forensics unless its
-   integrity is itself the rollback cause.
+6. retain both the immutable nested release directory and the sibling private
+   evidence release for forensics unless their integrity is itself the rollback
+   cause.
 
 Production rollback rehearsal must exercise the physical MU-file removal and
-reinstallation. A local feature constant or test-only route bypass is
-supplemental evidence, not a substitute.
+reinstallation plus atomic runtime-pointer disablement/restoration. The first
+attempt proves physical route removal and restored 404; the exact DR-013 pointer
+mechanism still requires feature-off production rehearsal. A local feature
+constant or test-only route bypass is supplemental evidence, not a substitute.
 
-Rollback owner: B1-502M Codex Supervisor under DR-011 as amended by DR-012.
+Rollback owner: B1-502M Codex Supervisor under DR-011 as amended by DR-012 and
+DR-013.
 
 Expected restoration time: under 5 minutes plus cache propagation and health
 verification.

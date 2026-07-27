@@ -1,4 +1,7 @@
+import assetAliases from './generated-asset-aliases.mjs';
+
 const DEFAULT_BASE_PATH = '/storyforge/';
+const ASSET_ALIAS_PATTERN = /^\/_asset\/([a-f0-9]{12})$/;
 
 function basePath(env) {
   const value = String(env.STORYFORGE_BASE_PATH || DEFAULT_BASE_PATH).trim();
@@ -51,15 +54,75 @@ function strippedRequest(request, url, prefix) {
   return new Request(target, request);
 }
 
+async function sha256Hex(bytes) {
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function staticError(status, message, pathname) {
+  return withCachePolicy(
+    new Response(message, {
+      status,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    }),
+    pathname,
+  );
+}
+
+async function aliasedAssetResponse(request, env, url, alias) {
+  const entry = assetAliases[alias];
+  if (!entry || entry.path === 'index.html') {
+    return staticError(404, 'StoryForge asset not found.', `/_asset/${alias}`);
+  }
+
+  const target = new URL(url);
+  target.pathname = `/${entry.path}`;
+  target.search = '';
+  const source = await env.ASSETS.fetch(new Request(target, { method: 'GET' }));
+  if (source.status !== 200) {
+    return staticError(503, 'StoryForge release is temporarily unavailable.', target.pathname);
+  }
+
+  const bytes = await source.arrayBuffer();
+  const hash = await sha256Hex(bytes);
+  if (bytes.byteLength !== entry.size || hash !== entry.sha256 || hash.slice(0, 12) !== alias) {
+    return staticError(503, 'StoryForge release integrity check failed.', target.pathname);
+  }
+
+  const headers = new Headers(source.headers);
+  headers.delete('Content-Encoding');
+  headers.delete('Set-Cookie');
+  headers.delete('Transfer-Encoding');
+  headers.set('Content-Length', String(bytes.byteLength));
+  headers.set('Content-Type', entry.type);
+  const response = new Response(request.method === 'HEAD' ? null : bytes, {
+    status: 200,
+    headers,
+  });
+  return withCachePolicy(response, target.pathname);
+}
+
 async function staticResponse(request, env, url, prefix) {
   const assetRequest = strippedRequest(request, url, prefix);
+  const assetPath = new URL(assetRequest.url).pathname;
+  const aliasMatch = assetPath.match(ASSET_ALIAS_PATTERN);
+  if (aliasMatch) {
+    return aliasedAssetResponse(request, env, url, aliasMatch[1]);
+  }
+  if (
+    assetPath.startsWith('/_asset/')
+    || assetPath.startsWith('/assets/')
+    || /\.[a-z0-9]+$/i.test(assetPath)
+  ) {
+    return staticError(404, 'StoryForge asset not found.', assetPath);
+  }
   let response = await env.ASSETS.fetch(assetRequest);
   if (response.status === 404 && !/\.[a-z0-9]+$/i.test(assetRequest.url)) {
     const fallback = new URL(assetRequest.url);
     fallback.pathname = '/index.html';
     response = await env.ASSETS.fetch(new Request(fallback, assetRequest));
   }
-  return withCachePolicy(response, new URL(assetRequest.url).pathname);
+  return withCachePolicy(response, assetPath);
 }
 
 async function apiResponse(request, env, url, prefix) {

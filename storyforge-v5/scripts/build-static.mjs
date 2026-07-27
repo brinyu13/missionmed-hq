@@ -13,6 +13,14 @@ function digest(value) {
   return createHash('sha256').update(value).digest('hex').slice(0, 12);
 }
 
+function replaceExactlyOnce(source, needle, replacement, label) {
+  const pieces = source.split(needle);
+  if (pieces.length !== 2) {
+    throw new Error(`Expected exactly one ${label} reference in the StoryForge source.`);
+  }
+  return `${pieces[0]}${replacement}${pieces[1]}`;
+}
+
 const [sourceHtml, sourceApp, sourceAuth, sourceStyles] = await Promise.all([
   readFile(path.join(publicDir, 'index.html'), 'utf8'),
   readFile(path.join(publicDir, 'app.js'), 'utf8'),
@@ -20,6 +28,7 @@ const [sourceHtml, sourceApp, sourceAuth, sourceStyles] = await Promise.all([
   readFile(path.join(publicDir, 'styles.css'), 'utf8'),
 ]);
 const fontNames = (await readdir(fontsDir)).sort();
+const fontAliases = new Map();
 for (const fontName of fontNames.filter((name) => name.endsWith('.woff2'))) {
   const fingerprint = fontName.match(/\.([a-f0-9]{12})\.woff2$/i)?.[1];
   if (!fingerprint) {
@@ -29,16 +38,44 @@ for (const fontName of fontNames.filter((name) => name.endsWith('.woff2'))) {
   if (digest(font) !== fingerprint.toLowerCase()) {
     throw new Error(`Self-hosted font fingerprint does not match its content: ${fontName}`);
   }
+  fontAliases.set(fontName, fingerprint.toLowerCase());
 }
 
 const authName = `auth.${digest(sourceAuth)}.js`;
-const rewrittenApp = sourceApp.replace("from './auth.js'", `from './${authName}'`);
+const authAlias = digest(sourceAuth);
+const rewrittenApp = replaceExactlyOnce(
+  sourceApp,
+  "from './auth.js'",
+  `from './${authAlias}'`,
+  'auth module',
+);
 const appName = `app.${digest(rewrittenApp)}.js`;
-const stylesName = `styles.${digest(sourceStyles)}.css`;
-const html = sourceHtml
-  .replace('<head>', '<head>\n  <base href="/storyforge/">')
-  .replace('href="./styles.css"', `href="./assets/${stylesName}"`)
-  .replace('src="./app.js"', `src="./assets/${appName}"`);
+let rewrittenStyles = sourceStyles;
+for (const [fontName, alias] of fontAliases) {
+  rewrittenStyles = replaceExactlyOnce(
+    rewrittenStyles,
+    `./fonts/${fontName}`,
+    `./${alias}`,
+    `${fontName} font`,
+  );
+}
+const stylesName = `styles.${digest(rewrittenStyles)}.css`;
+const html = replaceExactlyOnce(
+  replaceExactlyOnce(
+    replaceExactlyOnce(
+      sourceHtml,
+      '<head>',
+      '<head>\n  <base href="/storyforge/">',
+      'document head',
+    ),
+    'href="./styles.css"',
+    `href="./_asset/${digest(rewrittenStyles)}"`,
+    'stylesheet',
+  ),
+  'src="./app.js"',
+  `src="./_asset/${digest(rewrittenApp)}"`,
+  'application module',
+);
 
 await rm(distDir, { recursive: true, force: true });
 await mkdir(assetsDir, { recursive: true });
@@ -46,7 +83,7 @@ await Promise.all([
   writeFile(path.join(distDir, 'index.html'), html),
   writeFile(path.join(assetsDir, appName), rewrittenApp),
   writeFile(path.join(assetsDir, authName), sourceAuth),
-  writeFile(path.join(assetsDir, stylesName), sourceStyles),
+  writeFile(path.join(assetsDir, stylesName), rewrittenStyles),
   cp(fontsDir, path.join(assetsDir, 'fonts'), { recursive: true }),
 ]);
 
@@ -59,4 +96,10 @@ console.log(JSON.stringify({
     stylesName,
     ...fontNames.map((name) => `fonts/${name}`),
   ],
+  aliases: {
+    app: digest(rewrittenApp),
+    auth: authAlias,
+    styles: digest(rewrittenStyles),
+    fonts: Object.fromEntries(fontAliases),
+  },
 }, null, 2));

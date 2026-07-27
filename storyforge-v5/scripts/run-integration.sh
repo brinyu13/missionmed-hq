@@ -7,6 +7,7 @@ COMPOSE_FILE="$PACKAGE_DIR/infra/wordpress/docker-compose.yml"
 SF_TMP="$(mktemp -d /tmp/storyforge-v5.integration.XXXXXX)"
 SF_PGDATA="$SF_TMP/pgdata"
 SF_PGSOCKET="$SF_TMP/pgsocket"
+SF_WP_RUNTIME="$SF_TMP/wordpress-runtime"
 
 pick_free_port() {
   local candidate="$1"
@@ -60,6 +61,16 @@ trap cleanup EXIT INT TERM
 docker compose -f "$COMPOSE_FILE" down -v --remove-orphans >/dev/null 2>&1 || true
 npm run build --prefix "$PACKAGE_DIR"
 npm run scan:secrets --prefix "$PACKAGE_DIR"
+SF_PRODUCT_COMMIT="$(git -C "$WORKTREE_DIR" rev-parse HEAD^{commit})"
+if [[ ! "$SF_PRODUCT_COMMIT" =~ ^[a-f0-9]{40}$ ]]; then
+  echo "StoryForge integration release requires an exact 40-character product commit." >&2
+  exit 1
+fi
+mkdir -p "$SF_WP_RUNTIME/releases/$SF_PRODUCT_COMMIT"
+cp "$PACKAGE_DIR/infra/wordpress/missionmed-storyforge-runtime/release.php" \
+  "$SF_WP_RUNTIME/releases/$SF_PRODUCT_COMMIT/release.php"
+ln -s "releases/$SF_PRODUCT_COMMIT" "$SF_WP_RUNTIME/current"
+export STORYFORGE_INTEGRATION_RUNTIME_DIR="$SF_WP_RUNTIME"
 
 initdb -D "$SF_PGDATA" -A trust -U postgres --no-locale --encoding=UTF8 >/dev/null
 pg_ctl -D "$SF_PGDATA" -o "-p $SF_PG_PORT -k $SF_PGSOCKET -h 127.0.0.1" -w start >/dev/null
@@ -230,14 +241,46 @@ fi
 
 HASHED_ASSET="$(find "$PACKAGE_DIR/dist/assets" -maxdepth 1 -type f -name 'app.*.js' -exec basename {} \; | head -1)"
 HASHED_FONT="$(find "$PACKAGE_DIR/dist/assets/fonts" -maxdepth 1 -type f -name 'archivo-normal.*.woff2' -exec basename {} \; | head -1)"
+HASHED_ASSET_ALIAS="${HASHED_ASSET#app.}"
+HASHED_ASSET_ALIAS="${HASHED_ASSET_ALIAS%.js}"
+HASHED_FONT_ALIAS="${HASHED_FONT#archivo-normal.}"
+HASHED_FONT_ALIAS="${HASHED_FONT_ALIAS%.woff2}"
+ASSET_ALIAS_MANIFEST="$(node --input-type=module -e \
+  'import { pathToFileURL } from "node:url"; const loaded = await import(pathToFileURL(process.argv[1]).href); process.stdout.write(JSON.stringify(loaded.default));' \
+  "$PACKAGE_DIR/infra/edge/generated-asset-aliases.mjs")"
+INDEX_ALIAS="$(shasum -a 256 "$PACKAGE_DIR/dist/index.html" | awk '{print substr($1,1,12)}')"
+RELEASE_BUNDLE_RELATIVE="missionmed-storyforge-runtime/current/release.php"
+if [[
+  ! "$HASHED_ASSET_ALIAS" =~ ^[a-f0-9]{12}$
+  || ! "$HASHED_FONT_ALIAS" =~ ^[a-f0-9]{12}$
+  || ! "$INDEX_ALIAS" =~ ^[a-f0-9]{12}$
+  || -z "$ASSET_ALIAS_MANIFEST"
+]]; then
+  echo "Generated StoryForge extensionless aliases are invalid." >&2
+  exit 1
+fi
+if [[ ! -f "$SF_WP_RUNTIME/releases/$SF_PRODUCT_COMMIT/release.php" || ! -L "$SF_WP_RUNTIME/current" ]]; then
+  echo "StoryForge integration release staging is incomplete." >&2
+  exit 1
+fi
+MU_PLUGIN_FILES="$(wp eval 'require_once ABSPATH."wp-admin/includes/plugin.php";echo wp_json_encode(array_map("basename",wp_get_mu_plugins()));')"
+if [[ "$MU_PLUGIN_FILES" != *'"missionmed-storyforge-route.php"'* || "$MU_PLUGIN_FILES" == *'"release.php"'* ]]; then
+  echo "Nested StoryForge release bundle crossed the MU-plugin root autoload boundary." >&2
+  exit 1
+fi
 export STORYFORGE_INTEGRATION_BASE_URL="http://127.0.0.1:$SF_WP_PORT"
 export STORYFORGE_INTEGRATION_COMPOSE_FILE="$COMPOSE_FILE"
 export STORYFORGE_INTEGRATION_FOUNDER_ID="$FOUNDER_ID"
 export STORYFORGE_INTEGRATION_STUDENT_ID="$STUDENT_ID"
 export STORYFORGE_INTEGRATION_USERNAME="localadmin"
 export STORYFORGE_INTEGRATION_PASSWORD="local-admin-password"
-export STORYFORGE_INTEGRATION_HASHED_ASSET="$HASHED_ASSET"
-export STORYFORGE_INTEGRATION_HASHED_FONT="$HASHED_FONT"
+export STORYFORGE_INTEGRATION_APP_ALIAS="$HASHED_ASSET_ALIAS"
+export STORYFORGE_INTEGRATION_FONT_ALIAS="$HASHED_FONT_ALIAS"
+export STORYFORGE_INTEGRATION_ASSET_ALIASES="$ASSET_ALIAS_MANIFEST"
+export STORYFORGE_INTEGRATION_INDEX_ALIAS="$INDEX_ALIAS"
+export STORYFORGE_INTEGRATION_DIST_DIR="$PACKAGE_DIR/dist"
+export STORYFORGE_INTEGRATION_PRODUCT_COMMIT="$SF_PRODUCT_COMMIT"
+export STORYFORGE_INTEGRATION_RELEASE_BUNDLE_PATH="/wp-content/mu-plugins/$RELEASE_BUNDLE_RELATIVE"
 curl -sS -D - -o /dev/null --max-redirs 0 \
   "http://127.0.0.1:$SF_WP_PORT/member-dashboard/" \
   | tr -d '\r' \

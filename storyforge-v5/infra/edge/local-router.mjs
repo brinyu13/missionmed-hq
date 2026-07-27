@@ -1,8 +1,10 @@
 import http from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { Readable } from 'node:stream';
 import { fileURLToPath } from 'node:url';
+import assetAliases from './generated-asset-aliases.mjs';
 
 const listenPort = Number.parseInt(process.env.STORYFORGE_EDGE_PORT || '4179', 10);
 const listenHost = process.env.STORYFORGE_EDGE_HOST || '127.0.0.1';
@@ -24,7 +26,7 @@ const mimeTypes = new Map([
   ['.woff2', 'font/woff2'],
 ]);
 
-function cacheHeaders(headers, url, status) {
+function cacheHeaders(headers, url, status, assetCache = '') {
   const next = new Headers(headers);
   const pathname = url.pathname;
   const contentType = String(next.get('content-type') || '').toLowerCase();
@@ -45,8 +47,13 @@ function cacheHeaders(headers, url, status) {
     next.set('cache-control', 'no-store, max-age=0');
   } else if (contentType.includes('text/html')) {
     next.set('cache-control', 'no-store, max-age=0');
-  } else if (/\/assets\/(?:[^/]+\/)*[^/]+\.[a-f0-9]{12}\.(?:css|js|svg|png|woff2?)$/i.test(pathname)) {
+  } else if (
+    assetCache === 'immutable'
+    || /\/assets\/(?:[^/]+\/)*[^/]+\.[a-f0-9]{12}\.(?:css|js|svg|png|woff2?)$/i.test(pathname)
+  ) {
     next.set('cache-control', 'public, max-age=31536000, immutable');
+  } else if (assetCache === 'revalidate') {
+    next.set('cache-control', 'no-cache');
   }
   next.set('x-storyforge-local-edge', pathname.startsWith(basePath) ? 'storyforge' : 'wordpress');
   return next;
@@ -73,6 +80,42 @@ function localSecurityHeaders(headers) {
   return next;
 }
 
+function sendStaticError(response, incoming, status, message) {
+  response.statusCode = status;
+  for (const [name, value] of localSecurityHeaders(cacheHeaders(
+    new Headers({ 'content-type': 'text/plain; charset=utf-8' }),
+    incoming,
+    status,
+  ))) {
+    response.setHeader(name, value);
+  }
+  response.end(message);
+}
+
+async function readAliasedAsset(alias) {
+  const entry = assetAliases[alias];
+  if (!entry || entry.path === 'index.html') return null;
+
+  const [root, candidate] = await Promise.all([
+    realpath(staticDir),
+    realpath(path.resolve(staticDir, entry.path)),
+  ]);
+  const expected = path.join(root, ...entry.path.split('/'));
+  if (candidate !== expected || !candidate.startsWith(`${root}${path.sep}`)) {
+    throw new Error('StoryForge alias resolved outside the approved static root.');
+  }
+  const details = await stat(candidate);
+  if (!details.isFile() || details.size !== entry.size) {
+    throw new Error('StoryForge alias size check failed.');
+  }
+  const data = await readFile(candidate);
+  const sha256 = createHash('sha256').update(data).digest('hex');
+  if (sha256 !== entry.sha256 || sha256.slice(0, 12) !== alias) {
+    throw new Error('StoryForge alias integrity check failed.');
+  }
+  return { data, entry };
+}
+
 async function serveStatic(request, response, incoming) {
   if (!['GET', 'HEAD'].includes(request.method || 'GET')) {
     response.statusCode = 405;
@@ -83,11 +126,46 @@ async function serveStatic(request, response, incoming) {
   }
 
   let requested;
+  let isRootRequest = false;
   try {
     const remainder = decodeURIComponent(incoming.pathname.slice(basePath.length));
+    isRootRequest = remainder === '';
     requested = remainder || 'index.html';
   } catch {
     requested = '';
+  }
+  const aliasMatch = requested.match(/^_asset\/([a-f0-9]{12})$/);
+  if (aliasMatch) {
+    let asset;
+    try {
+      asset = await readAliasedAsset(aliasMatch[1]);
+    } catch {
+      sendStaticError(response, incoming, 503, 'StoryForge release integrity check failed.');
+      return;
+    }
+    if (!asset) {
+      sendStaticError(response, incoming, 404, 'StoryForge asset not found.');
+      return;
+    }
+    response.statusCode = 200;
+    const headers = localSecurityHeaders(cacheHeaders(
+      new Headers({ 'content-type': asset.entry.type }),
+      incoming,
+      200,
+      asset.entry.cache,
+    ));
+    headers.set('content-length', String(asset.data.length));
+    for (const [name, value] of headers) response.setHeader(name, value);
+    response.end(request.method === 'HEAD' ? undefined : asset.data);
+    return;
+  }
+  if (
+    requested.startsWith('_asset/')
+    || requested.startsWith('assets/')
+    || (!isRootRequest && path.extname(requested))
+  ) {
+    sendStaticError(response, incoming, 404, 'StoryForge asset not found.');
+    return;
   }
   let filePath = path.resolve(staticDir, requested);
   const insideStaticDir = filePath === staticDir || filePath.startsWith(`${staticDir}${path.sep}`);
@@ -111,15 +189,7 @@ async function serveStatic(request, response, incoming) {
     }
   }
   if (!data) {
-    response.statusCode = 404;
-    for (const [name, value] of localSecurityHeaders(cacheHeaders(
-      new Headers({ 'content-type': 'text/plain; charset=utf-8' }),
-      incoming,
-      404,
-    ))) {
-      response.setHeader(name, value);
-    }
-    response.end('StoryForge asset not found.');
+    sendStaticError(response, incoming, 404, 'StoryForge asset not found.');
     return;
   }
 

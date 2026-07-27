@@ -24,96 +24,115 @@ define( 'MMSFR_BASE_PATH', '/storyforge/' );
 define( 'MMSFR_MAX_BODY_BYTES', 6291456 );
 define( 'MMSFR_MAX_RESPONSE_BYTES', 33554432 );
 define( 'MMSFR_TIMEOUT_SECONDS', 9 );
+// BEGIN GENERATED STORYFORGE RELEASE ID.
+define( 'MMSFR_RELEASE_ID', 'v-963b8f5eb4d8c727' );
+define( 'MMSFR_RELEASE_PHP_SHA256', '845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1' );
+define( 'MMSFR_RELEASE_PHP_SIZE', 409055 );
+// END GENERATED STORYFORGE RELEASE ID.
 
 /**
  * Return the release manifest generated from storyforge-v5/dist.
  *
- * @return array<string,array{sha256:string,size:int,type:string,cache:string}>
+ * @return array<string,array{alias:string,sha256:string,size:int,type:string,cache:string}>
  */
 function mmsfr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED STORYFORGE ASSET MANIFEST.
-		'assets/app.be5fd3fe4ee9.js' => array(
-			'sha256' => 'be5fd3fe4ee9ff840d103dab448010bec5204a01748f83ba2785f839185399fd',
-			'size' => 53123,
+		'assets/app.3a60a405a47d.js' => array(
+			'alias' => '3a60a405a47d',
+			'sha256' => '3a60a405a47d78d943d507720a9c3f0b91198876a9194d8046e5fe292cdcc82b',
+			'size' => 53115,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'assets/auth.960289f115f2.js' => array(
+			'alias' => '960289f115f2',
 			'sha256' => '960289f115f2661c8e1bcad314cca3e4e7a592ab918455c3da8acb37d497544e',
 			'size' => 7159,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'assets/fonts/archivo-italic.e1989a572737.woff2' => array(
+			'alias' => 'e1989a572737',
 			'sha256' => 'e1989a5727374fcd299979407c8087669ca223f5281f8645891e5400f3e61aeb',
 			'size' => 39132,
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
 		'assets/fonts/archivo-normal.7150c0ec5ad3.woff2' => array(
+			'alias' => '7150c0ec5ad3',
 			'sha256' => '7150c0ec5ad356453013d11affec1fbab95de0dd2dcecb043b4f1cb7f87c4ba4',
 			'size' => 34940,
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
 		'assets/fonts/lora-italic.3d536d49566e.woff2' => array(
+			'alias' => '3d536d49566e',
 			'sha256' => '3d536d49566e82a7905c8b0096758005f6616029ac08528d1f4789c1100dff6a',
 			'size' => 40648,
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
 		'assets/fonts/lora-normal.6b102ab35aa1.woff2' => array(
+			'alias' => '6b102ab35aa1',
 			'sha256' => '6b102ab35aa1f2b315788bb4853434ed1e52137603bf7a3da71a682276748d45',
 			'size' => 37792,
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
 		'assets/fonts/OFL-Archivo.txt' => array(
+			'alias' => '1778201b7bd3',
 			'sha256' => '1778201b7bd33e8c08a2eda32a4ad2f69bc38ced9731b01cc3fc47f268c8ef3c',
 			'size' => 4387,
 			'type' => 'text/plain; charset=utf-8',
 			'cache' => 'revalidate',
 		),
 		'assets/fonts/OFL-Lora.txt' => array(
+			'alias' => '6d6bc7bbb828',
 			'sha256' => '6d6bc7bbb828514925dabcaf89e4771398d12c60dd1cb2bbb90eea129535d0f4',
 			'size' => 4422,
 			'type' => 'text/plain; charset=utf-8',
 			'cache' => 'revalidate',
 		),
 		'assets/fonts/OFL-Rajdhani.txt' => array(
+			'alias' => '793bdd8538a0',
 			'sha256' => '793bdd8538a0c03afb5bc10906be27ad1dc76f143cfeac8c55cd9075a5b3a55c',
 			'size' => 4372,
 			'type' => 'text/plain; charset=utf-8',
 			'cache' => 'revalidate',
 		),
 		'assets/fonts/rajdhani-500.4745b75b6e92.woff2' => array(
+			'alias' => '4745b75b6e92',
 			'sha256' => '4745b75b6e92d917e2402925dc1a6c1c6300e6e0f607a1ce286da54b33d80d3b',
 			'size' => 8964,
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
 		'assets/fonts/rajdhani-600.35f7e628ec8e.woff2' => array(
+			'alias' => '35f7e628ec8e',
 			'sha256' => '35f7e628ec8e7dd3bf434e95ce28289803401f12d8605c56ca83db2b4b301d33',
 			'size' => 9400,
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
 		'assets/fonts/rajdhani-700.7597c31a957a.woff2' => array(
+			'alias' => '7597c31a957a',
 			'sha256' => '7597c31a957ae3d2e1ebc786238752d883c15ce2e6b5da617dc3453a9fd86335',
 			'size' => 9304,
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
-		'assets/styles.0938034a27f6.css' => array(
-			'sha256' => '0938034a27f6a288ae621eb2c222f2d5748bb0d6f880ab58ad08af2a9414fb4e',
-			'size' => 27805,
+		'assets/styles.c4724118cf63.css' => array(
+			'alias' => 'c4724118cf63',
+			'sha256' => 'c4724118cf635c83c2451e6cef4f84edab69cf03ed446c3c5a13227e909dee1d',
+			'size' => 27628,
 			'type' => 'text/css; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'index.html' => array(
-			'sha256' => 'e01b4565a81b0ca796e485dbda29417adc7e30c7f4dcb55144a4624a1bdcd7b6',
-			'size' => 778,
+			'alias' => '7132385f74c2',
+			'sha256' => '7132385f74c28b01fa8205f77aceb45b3ca141911c04cb3c6641875c947a8ac4',
+			'size' => 760,
 			'type' => 'text/html; charset=utf-8',
 			'cache' => 'html',
 		),
@@ -342,19 +361,6 @@ function mmsfr_send_redirect( $path ) {
 }
 
 /**
- * Resolve the immutable release directory.
- *
- * @return string
- */
-function mmsfr_release_directory() {
-	$default = '/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/current';
-	$value   = defined( 'MISSIONMED_STORYFORGE_RELEASE_DIR' )
-		? (string) MISSIONMED_STORYFORGE_RELEASE_DIR
-		: $default;
-	return rtrim( (string) apply_filters( 'missionmed_storyforge_release_dir', $value ), '/' );
-}
-
-/**
  * Resolve and validate the pinned Railway origin.
  *
  * @return string
@@ -472,17 +478,200 @@ function mmsfr_static_manifest_key( $path ) {
 		return '';
 	}
 	$manifest = mmsfr_asset_manifest();
-	if ( isset( $manifest[ $safe ] ) && ( 'index.html' === $safe || str_starts_with( $safe, 'assets/' ) ) ) {
-		return $safe;
+	if ( 1 === preg_match( '#^_asset/([a-f0-9]{12})$#', $safe, $matches ) ) {
+		foreach ( $manifest as $manifest_key => $entry ) {
+			if (
+				'index.html' !== $manifest_key
+				&& isset( $entry['alias'] )
+				&& is_string( $entry['alias'] )
+				&& hash_equals( $entry['alias'], $matches[1] )
+			) {
+				return $manifest_key;
+			}
+		}
+		return '';
 	}
-	if ( str_starts_with( $safe, 'assets/' ) || '' !== pathinfo( basename( $safe ), PATHINFO_EXTENSION ) ) {
+	if (
+		str_starts_with( $safe, '_asset/' )
+		|| str_starts_with( $safe, 'assets/' )
+		|| '' !== pathinfo( basename( $safe ), PATHINFO_EXTENSION )
+	) {
 		return '';
 	}
 	return 'index.html';
 }
 
 /**
- * Serve one exact manifest-approved asset.
+ * Load the exact nested release bundle without relying on a sibling filesystem path.
+ *
+ * @return array{release_id:string,assets:array<string,array<string,mixed>>}|null
+ */
+function mmsfr_release_bundle() {
+	static $loaded = false;
+	static $bundle = null;
+	if ( $loaded ) {
+		return $bundle;
+	}
+	$loaded = true;
+
+	if (
+		1 !== preg_match( '/^v-[a-f0-9]{16}$/', MMSFR_RELEASE_ID )
+		|| 1 !== preg_match( '/^[a-f0-9]{64}$/', MMSFR_RELEASE_PHP_SHA256 )
+		|| MMSFR_RELEASE_PHP_SIZE < 1
+	) {
+		return null;
+	}
+	$runtime_root  = __DIR__ . '/missionmed-storyforge-runtime';
+	$releases_path = $runtime_root . '/releases';
+	$current_link  = $runtime_root . '/current';
+	if (
+		is_link( $runtime_root )
+		|| ! is_dir( $runtime_root )
+		|| is_link( $releases_path )
+		|| ! is_dir( $releases_path )
+		|| ! is_link( $current_link )
+	) {
+		return null;
+	}
+	$releases_root = realpath( $releases_path );
+	$current_target = readlink( $current_link );
+	if (
+		false === $releases_root
+		|| ! is_string( $current_target )
+		|| 1 !== preg_match( '#^releases/([a-f0-9]{40})$#', $current_target, $matches )
+	) {
+		return null;
+	}
+	$selected_path = $releases_path . '/' . $matches[1];
+	if ( is_link( $selected_path ) || ! is_dir( $selected_path ) ) {
+		return null;
+	}
+	$selected = realpath( $selected_path );
+	$current  = realpath( $current_link );
+	if (
+		false === $selected
+		|| false === $current
+		|| $selected !== $releases_root . '/' . $matches[1]
+		|| $current !== $selected
+	) {
+		return null;
+	}
+	$bundle_file = $selected . '/release.php';
+	$bundle_real = realpath( $bundle_file );
+	if (
+		false === $bundle_real
+		|| $bundle_real !== $bundle_file
+		|| ! is_file( $bundle_real )
+		|| is_link( $bundle_file )
+	) {
+		return null;
+	}
+	$bundle_size = filesize( $bundle_real );
+	$bundle_hash = hash_file( 'sha256', $bundle_real );
+	if (
+		false === $bundle_size
+		|| (int) $bundle_size !== MMSFR_RELEASE_PHP_SIZE
+		|| ! is_string( $bundle_hash )
+		|| ! hash_equals( MMSFR_RELEASE_PHP_SHA256, $bundle_hash )
+	) {
+		return null;
+	}
+	$candidate = require $bundle_real;
+	if (
+		! is_array( $candidate )
+		|| ! isset( $candidate['release_id'], $candidate['assets'] )
+		|| ! is_string( $candidate['release_id'] )
+		|| ! hash_equals( MMSFR_RELEASE_ID, $candidate['release_id'] )
+		|| ! is_array( $candidate['assets'] )
+	) {
+		return null;
+	}
+
+	$manifest = mmsfr_asset_manifest();
+	if ( count( $candidate['assets'] ) !== count( $manifest ) ) {
+		return null;
+	}
+	foreach ( $manifest as $entry ) {
+		if (
+			! isset( $entry['alias'] )
+			|| ! is_string( $entry['alias'] )
+			|| ! isset( $candidate['assets'][ $entry['alias'] ] )
+		) {
+			return null;
+		}
+	}
+	$bundle = $candidate;
+	return $bundle;
+}
+
+/**
+ * Return verified bytes for one exact manifest-approved asset.
+ *
+ * @param string $manifest_key Manifest path.
+ * @return array{bytes:string,entry:array{alias:string,sha256:string,size:int,type:string,cache:string}}|null
+ */
+function mmsfr_release_asset( $manifest_key ) {
+	$manifest = mmsfr_asset_manifest();
+	$bundle   = mmsfr_release_bundle();
+	if (
+		null === $bundle
+		|| ! isset( $manifest[ $manifest_key ] )
+		|| ! is_array( $manifest[ $manifest_key ] )
+	) {
+		return null;
+	}
+	$entry = $manifest[ $manifest_key ];
+	if (
+		! isset(
+			$entry['alias'],
+			$entry['sha256'],
+			$entry['size'],
+			$entry['type'],
+			$entry['cache'],
+			$bundle['assets'][ $entry['alias'] ]
+		)
+		|| ! is_array( $bundle['assets'][ $entry['alias'] ] )
+	) {
+		return null;
+	}
+	$bundled = $bundle['assets'][ $entry['alias'] ];
+	foreach ( array( 'path', 'alias', 'sha256', 'size', 'type', 'cache', 'bytes_base64' ) as $field ) {
+		if ( ! array_key_exists( $field, $bundled ) ) {
+			return null;
+		}
+	}
+	if (
+		! is_string( $bundled['path'] )
+		|| ! hash_equals( $manifest_key, $bundled['path'] )
+		|| ! is_string( $bundled['alias'] )
+		|| ! hash_equals( (string) $entry['alias'], $bundled['alias'] )
+		|| ! is_string( $bundled['sha256'] )
+		|| ! hash_equals( (string) $entry['sha256'], $bundled['sha256'] )
+		|| (int) $entry['size'] !== (int) $bundled['size']
+		|| ! is_string( $bundled['type'] )
+		|| ! hash_equals( (string) $entry['type'], $bundled['type'] )
+		|| ! is_string( $bundled['cache'] )
+		|| ! hash_equals( (string) $entry['cache'], $bundled['cache'] )
+		|| ! is_string( $bundled['bytes_base64'] )
+	) {
+		return null;
+	}
+	$bytes = base64_decode( $bundled['bytes_base64'], true );
+	if (
+		! is_string( $bytes )
+		|| strlen( $bytes ) !== (int) $entry['size']
+		|| ! hash_equals( (string) $entry['sha256'], hash( 'sha256', $bytes ) )
+	) {
+		return null;
+	}
+	return array(
+		'bytes' => $bytes,
+		'entry' => $entry,
+	);
+}
+
+/**
+ * Serve one exact manifest-approved bundle asset.
  *
  * @param string $manifest_key Manifest path.
  */
@@ -498,36 +687,12 @@ function mmsfr_serve_static( $manifest_key ) {
 	if ( '' === $manifest_key || ! isset( $manifest[ $manifest_key ] ) ) {
 		mmsfr_send_error( 404, 'asset_not_found', 'StoryForge asset not found.' );
 	}
-	$entry = $manifest[ $manifest_key ];
-	$root  = realpath( mmsfr_release_directory() );
-	if ( false === $root || ! is_dir( $root ) ) {
-		mmsfr_send_error( 503, 'release_unavailable', 'StoryForge is temporarily unavailable.' );
-	}
-	$file = realpath( $root . DIRECTORY_SEPARATOR . $manifest_key );
-	if (
-		false === $file
-		|| ! is_file( $file )
-		|| ! str_starts_with( $file, $root . DIRECTORY_SEPARATOR )
-	) {
-		mmsfr_send_error( 503, 'release_incomplete', 'StoryForge is temporarily unavailable.' );
-	}
-	$cursor = $root;
-	foreach ( explode( '/', $manifest_key ) as $segment ) {
-		$cursor .= DIRECTORY_SEPARATOR . $segment;
-		if ( is_link( $cursor ) ) {
-			mmsfr_send_error( 503, 'release_integrity_failed', 'StoryForge is temporarily unavailable.' );
-		}
-	}
-	$size = filesize( $file );
-	$hash = hash_file( 'sha256', $file );
-	if (
-		false === $size
-		|| (int) $size !== (int) $entry['size']
-		|| ! is_string( $hash )
-		|| ! hash_equals( (string) $entry['sha256'], $hash )
-	) {
+	$asset = mmsfr_release_asset( $manifest_key );
+	if ( null === $asset ) {
 		mmsfr_send_error( 503, 'release_integrity_failed', 'StoryForge is temporarily unavailable.' );
 	}
+	$entry = $asset['entry'];
+	$bytes = $asset['bytes'];
 
 	$cache = 'no-cache';
 	if ( 'html' === $entry['cache'] ) {
@@ -540,9 +705,9 @@ function mmsfr_serve_static( $manifest_key ) {
 	status_header( 200 );
 	mmsfr_send_security_headers( $cache, false );
 	header( 'Content-Type: ' . $entry['type'], true );
-	header( 'Content-Length: ' . (int) $size, true );
+	header( 'Content-Length: ' . strlen( $bytes ), true );
 	if ( 'HEAD' !== mmsfr_request_method() ) {
-		readfile( $file );
+		echo $bytes;
 	}
 	exit;
 }

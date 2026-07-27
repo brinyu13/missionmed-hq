@@ -1,6 +1,6 @@
 # B1-502M Remote Mutation Ledger
 
-Updated: 2026-07-27T20:15:47Z
+Updated: 2026-07-27T20:51:41Z
 
 This ledger records every remote write performed by the B1-502M Supervisor.
 Read-only provider, Git, HTTP, SSH, and browser observations are excluded.
@@ -245,3 +245,127 @@ route mechanism.
 - general users and mentors: not enabled;
 - pull request: none;
 - production rollback: not required.
+
+## 12. Pushed Kinsta gateway source
+
+At 2026-07-27T20:18:32Z, the canonical application remote-tracking reflog
+recorded a normal push of commit
+`94504372c710372ea121a0b62ad7094e893e026b`
+(`B1-502M: add isolated StoryForge WordPress gateway`) to
+`b1-502-storyforge-production-deployment`.
+
+Outcome: 24 source/evidence files were committed and pushed; no force push,
+history rewrite, pull request, or unrelated branch mutation occurred.
+
+Rollback reference: parent
+`f23d7daeb289c7340ec4ab1903956cc4cfec282a`.
+
+## 13. First Kinsta feature-off gateway attempt and safe rollback
+
+After the gateway push and before DR-013 was filed, the exact
+`94504372c710372ea121a0b62ad7094e893e026b` gateway and its 14-file release
+were staged on the pinned Kinsta production site. The sibling evidence release
+was placed under:
+
+`/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/releases/94504372c710372ea121a0b62ad7094e893e026b/`
+
+The active sibling pointer and isolated
+`public/wp-content/mu-plugins/missionmed-storyforge-route.php` were installed
+only for feature-off validation. Required traversal/read mode changes were
+applied during diagnosis. The exact provider mutation timestamps were not
+captured in the earlier product ledger; none are invented here.
+
+The attempt established two provider constraints:
+
+1. Kinsta PHP-FPM could not read the sibling private release and the gateway
+   failed closed with `release_unavailable`, even with required traversal and
+   read permissions present.
+2. Kinsta Nginx intercepted extension-bearing `/storyforge/assets/*` requests
+   before WordPress and returned 404.
+
+No founder or other user was enabled. Throughout the attempt:
+
+- `storyforge_enabled=false`;
+- founder allowlist empty;
+- role overrides empty;
+- mentor access disabled;
+- protected `missionmed-hub` and legacy StoryForge assets unchanged;
+- no Nginx, DNS, shared Worker, theme, or protected-plugin mutation.
+
+Rollback was physical and immediate:
+
+- the active sibling pointer was removed;
+- the MU route file was moved out of active MU-plugin loading;
+- temporary access-mode changes were restored;
+- the initial install and rollback purge calls used Kinsta's
+  `purge_complete_caches(true)` helper, invalidating object, site, and CDN
+  caches; this broader-than-intended mutation is recorded explicitly, and all
+  subsequent DR-013 operations are constrained to the separate site-cache and
+  CDN-cache purge methods;
+- independent StoryForge route probes returned the prior 404;
+- root returned 200;
+- anonymous member dashboard returned the expected 302 login handoff;
+- WordPress REST returned 200.
+
+Read-only verification after rollback recorded owner
+`theresidencyacademy:www-data` and these final modes:
+
+- `/www/theresidencyacademy_209/private`: `0755`;
+- `private/b1-502m`: `0700`;
+- `runtime`, `runtime/storyforge-v5`, `releases`, and the `94504372...` release
+  directory: `0755`;
+- evidence-release contents: three directories at `0755` and 14 files at
+  `0644`;
+- retained rollback directory: `0700`;
+- retained gateway staging directory: `0750`;
+- failed-installed gateway file retained outside active MU loading: `0644`.
+
+All 14 evidence files matched the exact SHA-256 values in the committed
+`94504372c710372ea121a0b62ad7094e893e026b` release. The sibling release remains
+immutable private evidence only; it is not a PHP-FPM runtime source and must not
+be deleted, overwritten, moved, or publicly mirrored.
+
+Outcome: `ROLLED_BACK — SAFE PRODUCTION ROUTE ABSENCE RESTORED`.
+
+Rollback reference: the pre-attempt WordPress 404 route state plus Kinsta
+restore identifier `B1-502M-RP-KINSTA-PRE-20260727T174625Z`.
+
+## 14. MissionMed OS DR-013 amendment
+
+At 2026-07-27T20:35:45Z, commit
+`d49fffbd1cd92854bd1390fb5f4dbf68be95796d`
+(`B1-502M: authorize execution-private StoryForge assets`) was pushed normally
+to canonical MissionMed OS `main`.
+
+Scope: forward-only DR-013, StoryForge passport, mission and product indexes,
+authority index, generated `CURRENT.md`, and append-only activity log. DR-011,
+DR-012, and historical receipts were preserved.
+
+Outcome: DR-013 authorizes only one deterministic guarded runtime bundle at
+`wp-content/mu-plugins/missionmed-storyforge-runtime/releases/<exact-product-commit>/release.php`,
+an atomic runtime `current` pointer, and exact extensionless SHA-derived aliases
+for non-index assets. The sibling private release is evidence only. The
+amendment authorizes no raw public asset copy, permission bypass, Nginx/DNS
+change, root MU release autoload, broad cache purge, or founder enablement.
+
+Rollback reference: parent
+`d7c5f3b26dd4f51928d0145e12b3e84bfa99dfb6`. DR-013 records actual provider
+constraints and remains active while the corrected delivery mechanism is
+selected.
+
+## 15. Current state at this update
+
+- Railway database/API: deployed and inaccessible without valid authorized
+  identity;
+- WordPress SSO: installed, feature-off, empty allowlist, empty role overrides;
+- Kinsta MU route file: not active;
+- Kinsta active StoryForge release pointer: absent;
+- live `/storyforge*`: restored prior WordPress 404;
+- sibling `94504372...` release: byte-verified immutable evidence only;
+- DR-013 nested `release.php`/extensionless-alias product revision: exact final
+  commit pending;
+- fresh exact-tree Sentinel decision: pending;
+- founder profile/allowlist enablement: not performed;
+- Cloudflare StoryForge Worker/routes: inert and decommission-pending;
+- general users and mentors: not enabled;
+- pull request: none.

@@ -1,4 +1,4 @@
-import { createAuthClient } from './auth.960289f115f2.js';
+import { createAuthClient } from './960289f115f2';
 
 const app = document.querySelector('#app');
 const toastNode = document.querySelector('#toast');
