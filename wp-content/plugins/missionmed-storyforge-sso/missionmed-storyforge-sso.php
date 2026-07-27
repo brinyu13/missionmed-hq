@@ -21,6 +21,8 @@ const MMSF_VERSION = '0.1.0';
 function mmsf_defaults() {
     return array(
         'storyforge_enabled' => false,
+        'allowed_user_ids' => array(),
+        'app_role_overrides' => array(),
         'allowed_roles' => array('student', 'mentor', 'admin'),
         'allowed_cohorts' => array(),
         'base_path' => '/storyforge/',
@@ -44,6 +46,19 @@ function mmsf_settings() {
         array('student', 'mentor', 'admin'),
         array_map('sanitize_key', (array) $settings['allowed_roles'])
     ));
+    $settings['allowed_user_ids'] = array_values(array_unique(array_filter(array_map(
+        'absint',
+        (array) $settings['allowed_user_ids']
+    ))));
+    $role_overrides = array();
+    foreach ((array) $settings['app_role_overrides'] as $user_id => $role) {
+        $user_id = absint($user_id);
+        $role = sanitize_key((string) $role);
+        if ($user_id > 0 && in_array($role, array('student', 'mentor', 'admin'), true)) {
+            $role_overrides[$user_id] = $role;
+        }
+    }
+    $settings['app_role_overrides'] = $role_overrides;
     $settings['allowed_cohorts'] = array_values(array_filter(array_map(
         'sanitize_text_field',
         (array) $settings['allowed_cohorts']
@@ -67,9 +82,10 @@ function mmsf_settings() {
 }
 
 function mmsf_activate() {
-    if (get_option(MMSF_OPTION, null) === null) {
-        add_option(MMSF_OPTION, mmsf_defaults(), '', false);
-    }
+    $stored = get_option(MMSF_OPTION, array());
+    $settings = is_array($stored) ? wp_parse_args($stored, mmsf_defaults()) : mmsf_defaults();
+    $settings['storyforge_enabled'] = false;
+    update_option(MMSF_OPTION, $settings, false);
 }
 register_activation_hook(__FILE__, 'mmsf_activate');
 
@@ -93,7 +109,7 @@ function mmsf_bool($value) {
     return in_array(strtolower(trim((string) $value)), array('1', 'true', 'yes', 'on'), true);
 }
 
-function mmsf_role_for_user($user) {
+function mmsf_native_role_for_user($user) {
     if (!($user instanceof WP_User) || !$user->exists()) {
         return '';
     }
@@ -105,6 +121,29 @@ function mmsf_role_for_user($user) {
         return 'mentor';
     }
     return 'student';
+}
+
+function mmsf_user_is_allowlisted($user, $settings = null) {
+    if (!($user instanceof WP_User) || !$user->exists()) {
+        return false;
+    }
+    $settings = is_array($settings) ? $settings : mmsf_settings();
+    return in_array((int) $user->ID, array_map('absint', (array) ($settings['allowed_user_ids'] ?? array())), true);
+}
+
+function mmsf_role_for_user($user, $settings = null) {
+    $native_role = mmsf_native_role_for_user($user);
+    if ($native_role === '') {
+        return '';
+    }
+    $settings = is_array($settings) ? $settings : mmsf_settings();
+    if (!mmsf_user_is_allowlisted($user, $settings)) {
+        return $native_role;
+    }
+    $override = sanitize_key((string) ($settings['app_role_overrides'][(int) $user->ID] ?? ''));
+    return in_array($override, array('student', 'mentor', 'admin'), true)
+        ? $override
+        : $native_role;
 }
 
 function mmsf_cohort_for_user($user_id) {
@@ -128,15 +167,18 @@ function mmsf_assignment_student_ids($mentor_id) {
 
 function mmsf_entitlement_for_user($user) {
     $role = mmsf_role_for_user($user);
+    $native_role = mmsf_native_role_for_user($user);
     $entitlement = null;
 
-    if ($role === 'admin') {
+    if ($native_role === 'admin') {
         $entitlement = array(
             'trusted' => true,
             'verified' => true,
             'active' => true,
             'status' => 'active',
-            'source' => 'wordpress_admin_capability',
+            'source' => $role === 'admin'
+                ? 'wordpress_admin_capability'
+                : 'wordpress_exact_user_pilot_override',
         );
     } elseif ($role === 'mentor') {
         $assigned = mmsf_assignment_student_ids((int) $user->ID);
@@ -201,7 +243,15 @@ function mmsf_access_state($user) {
         return new WP_Error('storyforge_disabled', 'StoryForge is not enabled for this pilot.', array('status' => 403));
     }
 
-    $role = mmsf_role_for_user($user);
+    if (!mmsf_user_is_allowlisted($user, $settings)) {
+        return new WP_Error(
+            'user_not_enabled',
+            'StoryForge is not enabled for this account.',
+            array('status' => 403)
+        );
+    }
+
+    $role = mmsf_role_for_user($user, $settings);
     if (!in_array($role, $settings['allowed_roles'], true)) {
         return new WP_Error('role_not_enabled', 'StoryForge is not enabled for this account role.', array('status' => 403));
     }
@@ -367,6 +417,62 @@ function mmsf_no_store($response) {
     return $response;
 }
 
+function mmsf_send_private_no_store_headers() {
+    nocache_headers();
+    if (!headers_sent()) {
+        header('Cache-Control: no-store, private', true);
+        header('Pragma: no-cache', true);
+    }
+}
+
+function mmsf_is_token_rest_request($request = null) {
+    $expected_route = '/' . MMSF_REST_NAMESPACE . MMSF_REST_ROUTE;
+    if (
+        $request instanceof WP_REST_Request
+        && untrailingslashit($request->get_route()) === untrailingslashit($expected_route)
+    ) {
+        return true;
+    }
+    $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
+    $request_path = (string) wp_parse_url(esc_url_raw($request_uri), PHP_URL_PATH);
+    $route_suffix = '/' . ltrim(MMSF_REST_NAMESPACE . MMSF_REST_ROUTE, '/');
+    if (
+        $request_path !== ''
+        && str_ends_with(untrailingslashit($request_path), untrailingslashit($route_suffix))
+    ) {
+        return true;
+    }
+    $expected_path = (string) wp_parse_url(
+        rest_url(MMSF_REST_NAMESPACE . MMSF_REST_ROUTE),
+        PHP_URL_PATH
+    );
+    return $request_path !== ''
+        && untrailingslashit($request_path) === untrailingslashit($expected_path);
+}
+
+function mmsf_rest_private_no_store($response, $server, $request) {
+    unset($server);
+    if (mmsf_is_token_rest_request($request) && $response instanceof WP_REST_Response) {
+        $GLOBALS['mmsf_private_rest_response'] = true;
+        $response->header('Cache-Control', 'no-store, private');
+        $response->header('Pragma', 'no-cache');
+    }
+    return $response;
+}
+add_filter('rest_post_dispatch', 'mmsf_rest_private_no_store', 10, 3);
+
+function mmsf_rest_preserve_private_cache_headers($send_nocache_headers) {
+    if (!empty($GLOBALS['mmsf_private_rest_response']) || mmsf_is_token_rest_request()) {
+        if (!headers_sent()) {
+            header('Cache-Control: no-store, private', true);
+            header('Pragma: no-cache', true);
+        }
+        return false;
+    }
+    return $send_nocache_headers;
+}
+add_filter('rest_send_nocache_headers', 'mmsf_rest_preserve_private_cache_headers');
+
 function mmsf_token_endpoint($request) {
     $origin = mmsf_verify_origin($request);
     if (is_wp_error($origin)) {
@@ -429,7 +535,7 @@ function mmsf_bootstrap_payload($return_to) {
 }
 
 function mmsf_ajax_bootstrap() {
-    nocache_headers();
+    mmsf_send_private_no_store_headers();
     $return_to = isset($_GET['return_to']) ? wp_unslash($_GET['return_to']) : '';
     if (!is_user_logged_in()) {
         $safe_return = mmsf_safe_return_url($return_to);
@@ -469,6 +575,37 @@ function mmsf_user_can_enter() {
     }
     return !is_wp_error(mmsf_access_state(wp_get_current_user()));
 }
+
+function mmsf_is_matrix_request() {
+    $matrix_path = (string) wp_parse_url(mmsf_settings()['matrix_url'], PHP_URL_PATH);
+    $request_uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
+    $request_path = (string) wp_parse_url(esc_url_raw($request_uri), PHP_URL_PATH);
+    return $matrix_path !== ''
+        && untrailingslashit($request_path) === untrailingslashit($matrix_path);
+}
+
+function mmsf_enqueue_matrix_launch_adapter() {
+    if (!mmsf_is_matrix_request() || !mmsf_user_can_enter()) {
+        return;
+    }
+    $handle = 'missionmed-storyforge-matrix-launch';
+    wp_enqueue_script(
+        $handle,
+        plugins_url('assets/matrix-launch.js', __FILE__),
+        array(),
+        MMSF_VERSION,
+        true
+    );
+    wp_add_inline_script(
+        $handle,
+        'window.MissionMedStoryForgeLaunch=' . wp_json_encode(array(
+            'target' => home_url(mmsf_settings()['base_path']),
+            'matrixPath' => (string) wp_parse_url(mmsf_settings()['matrix_url'], PHP_URL_PATH),
+        )) . ';',
+        'before'
+    );
+}
+add_action('wp_enqueue_scripts', 'mmsf_enqueue_matrix_launch_adapter', 30);
 
 function mmsf_navigation_item($items) {
     if (!mmsf_user_can_enter()) {

@@ -24,8 +24,14 @@ export async function withIdentity(identity, operation) {
       `SELECT
          set_config('request.jwt.claim.sub', $1, true),
          set_config('request.jwt.claim.app_role', $2, true),
-         set_config('request.jwt.claim.storyforge_eligible', $3, true)`,
-      [identity.sub, identity.role, identity.eligible ? 'true' : 'false'],
+         set_config('request.jwt.claim.storyforge_eligible', $3, true),
+         set_config('request.jwt.claim.wp_user_id', $4, true)`,
+      [
+        identity.sub,
+        identity.role,
+        identity.eligible ? 'true' : 'false',
+        String(identity.wpUserId),
+      ],
     );
     const value = await operation(client);
     await client.query('COMMIT');

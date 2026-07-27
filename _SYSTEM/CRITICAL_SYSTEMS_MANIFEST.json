@@ -3,7 +3,7 @@
   "status": "ACTIVE",
   "lock_name": "MissionMed Critical Systems Contract",
   "owner": "Brian",
-  "last_updated_utc": "2026-06-25T19:53:29Z",
+  "last_updated_utc": "2026-07-27T18:40:36Z",
   "known_good": {
     "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
     "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
@@ -31,6 +31,69 @@
           "fail_if_missing": true
         }
       ]
+    },
+    "railway_storyforge_v5": {
+      "host": "railway",
+      "project_id": "875e7c17-d06f-4301-a4bb-e61016f153cf",
+      "service_id": "dab015bf-15ef-4698-9f16-cbf8cf23de7a",
+      "environment_id": "bcef8734-e42b-44df-8488-c2a3de68213f",
+      "environment": "production",
+      "start_command": "node storyforge-v5/server/app.mjs",
+      "deploy_root": "storyforge-v5",
+      "railway_config": "storyforge-v5/railway.json",
+      "deploy_command_shape": "railway up storyforge-v5 --path-as-root --project 875e7c17-d06f-4301-a4bb-e61016f153cf --environment bcef8734-e42b-44df-8488-c2a3de68213f --service dab015bf-15ef-4698-9f16-cbf8cf23de7a",
+      "active_source_roots": [
+        "storyforge-v5/"
+      ],
+      "public_origin_mode": "api_only",
+      "required_env": [
+        {
+          "name": "STORYFORGE_DATABASE_URL",
+          "fail_if_missing": true,
+          "must_use_role": "storyforge_app"
+        },
+        {
+          "name": "STORYFORGE_JWT_SECRET",
+          "fail_if_missing": true
+        },
+        {
+          "name": "STORYFORGE_JWT_ISSUER",
+          "fail_if_missing": true
+        },
+        {
+          "name": "STORYFORGE_ALLOWED_ORIGINS",
+          "fail_if_missing": true
+        },
+        {
+          "name": "STORYFORGE_ORIGIN_API_ONLY",
+          "fail_if_missing": true,
+          "expected": "true"
+        },
+        {
+          "name": "STORYFORGE_BASE_PATH",
+          "fail_if_missing": true,
+          "expected": "/storyforge/"
+        }
+      ]
+    },
+    "cloudflare_storyforge_edge": {
+      "host": "cloudflare-workers",
+      "account_id": "eeaaf73d1670b47a162d251ca67e7cfa",
+      "zone_id": "7549e75c42eeef33eafbd071b3142b14",
+      "zone_name": "missionmedinstitute.com",
+      "worker": "missionmed-storyforge-v5",
+      "entrypoint": "storyforge-v5/infra/edge/worker.mjs",
+      "asset_directory": "storyforge-v5/dist",
+      "routes": [
+        "missionmedinstitute.com/storyforge",
+        "missionmedinstitute.com/storyforge/*"
+      ],
+      "required_env": [
+        {
+          "name": "STORYFORGE_ORIGIN",
+          "fail_if_missing": true
+        }
+      ]
     }
   },
   "protected_paths": [
@@ -42,7 +105,38 @@
     "_SYSTEM/tools/matrix_runtime_guard.py",
     "_SYSTEM/CRITICAL_SYSTEMS_CONTRACT.md",
     "_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json",
-    "_SYSTEM/tools/critical_systems_gate.py"
+    "_SYSTEM/tools/critical_systems_gate.py",
+    "storyforge-v5/package.json",
+    "storyforge-v5/package-lock.json",
+    "storyforge-v5/railway.json",
+    "storyforge-v5/server/app.mjs",
+    "storyforge-v5/server/auth.mjs",
+    "storyforge-v5/server/config.mjs",
+    "storyforge-v5/server/db.mjs",
+    "storyforge-v5/public/index.html",
+    "storyforge-v5/public/app.js",
+    "storyforge-v5/public/auth.js",
+    "storyforge-v5/public/styles.css",
+    "storyforge-v5/public/fonts/OFL-Archivo.txt",
+    "storyforge-v5/public/fonts/OFL-Lora.txt",
+    "storyforge-v5/public/fonts/OFL-Rajdhani.txt",
+    "storyforge-v5/public/fonts/archivo-italic.e1989a572737.woff2",
+    "storyforge-v5/public/fonts/archivo-normal.7150c0ec5ad3.woff2",
+    "storyforge-v5/public/fonts/lora-italic.3d536d49566e.woff2",
+    "storyforge-v5/public/fonts/lora-normal.6b102ab35aa1.woff2",
+    "storyforge-v5/public/fonts/rajdhani-500.4745b75b6e92.woff2",
+    "storyforge-v5/public/fonts/rajdhani-600.35f7e628ec8e.woff2",
+    "storyforge-v5/public/fonts/rajdhani-700.7597c31a957a.woff2",
+    "storyforge-v5/infra/edge/worker.mjs",
+    "storyforge-v5/infra/edge/wrangler.toml",
+    "storyforge-v5/infra/postgres/bootstrap_production.sql",
+    "storyforge-v5/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql",
+    "storyforge-v5/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql",
+    "storyforge-v5/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql",
+    "storyforge-v5/scripts/build-static.mjs",
+    "storyforge-v5/scripts/apply-production-migrations.sh",
+    "wp-content/plugins/missionmed-storyforge-sso/missionmed-storyforge-sso.php",
+    "wp-content/plugins/missionmed-storyforge-sso/assets/matrix-launch.js"
   ],
   "supabase_projects": {
     "ranklistiq": {
@@ -74,31 +168,202 @@
       ]
     }
   },
+  "postgres_projects": {
+    "storyforge_v5": {
+      "provider": "railway",
+      "project_id": "875e7c17-d06f-4301-a4bb-e61016f153cf",
+      "database_service_id": "a4a66362-c3ba-475a-ae21-2aa46624bafe",
+      "environment_id": "bcef8734-e42b-44df-8488-c2a3de68213f",
+      "schema": "public",
+      "migration_ledger": "public.sf_schema_migrations",
+      "migration_files": [
+        "storyforge-v5/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql",
+        "storyforge-v5/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql",
+        "storyforge-v5/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql"
+      ],
+      "application_role": "storyforge_app",
+      "policy_role": "authenticated",
+      "application_role_must_not_own_tables": true,
+      "application_role_bypassrls": false,
+      "seed_policy": "No demo data. Founder row only after feature-off schema validation.",
+      "mentor_assignment_policy": "Disabled for B1-502M founder launch.",
+      "pre_migration_backup_id": "B1-502M-RP-DB-PRE-20260727T173144Z"
+    }
+  },
   "asset_checks": [
     {
       "id": "cdn_usce_admin_live",
       "system": "usce_admin",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/usce_admin.html",
-      "approved_sha256": "115aa040f57a0fdaf3f49f6e398423b93635633b901eb01d7ffc85142e91ddd4",
+      "approved_sha256": "9b6eade1c5e5d60044a418d6ec334958f037ba8ae948472673ad064a0862c29c",
       "required_markers": [
         "/api/usce/admin/public-intake-requests",
         "/api/usce/admin/auth/relay",
         "/api/auth/session",
         "Live protected"
       ],
-      "local_source_note": "LIVE/usce_admin.html currently differs from live CDN. Live CDN is pinned until source reconciliation."
+      "local_source_note": "Metadata-only reconciliation to the deployed June 29 archive-precedence repair. Live CDN and R2 bytes matched; B1-502M did not mutate USCE."
     },
     {
       "id": "cdn_arena_live",
       "system": "arena",
       "url": "https://cdn.missionmedinstitute.com/html-system/LIVE/arena.html",
-      "approved_sha256": "19a519f583439056af56bcf513f2fb26f872369c458ac958093bde48d9acb12a",
+      "approved_sha256": "7bb0ad1cf1cf9e3d1fbaa021606d98fbd0000b2b0cac3898bce6c73225a37705",
       "required_markers": [
         "/api/auth/exchange",
         "/api/auth/bootstrap",
         "fglyvdykwgbuivikqoah"
       ],
-      "local_source_path": "LIVE/arena.html"
+      "local_source_path": "LIVE/arena.html",
+      "local_source_note": "Metadata-only reconciliation to the Y1-CAM-4006 deployed and Y1-CAM-4007 validated Arena baseline. Live CDN and R2 bytes matched; B1-502M did not mutate Arena."
+    },
+    {
+      "id": "storyforge_v5_index",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/",
+      "approved_sha256": "e01b4565a81b0ca796e485dbda29417adc7e30c7f4dcb55144a4624a1bdcd7b6",
+      "required_markers": [
+        "StoryForge · MissionMed",
+        "MissionMed 360",
+        "Opening your story workspace"
+      ],
+      "local_source_path": "storyforge-v5/dist/index.html",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_app_bundle",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/app.be5fd3fe4ee9.js",
+      "approved_sha256": "be5fd3fe4ee9ff840d103dab448010bec5204a01748f83ba2785f839185399fd",
+      "required_markers": [
+        "Back to Matrix",
+        "Mentor review unavailable",
+        "StoryForge could not open safely"
+      ],
+      "local_source_path": "storyforge-v5/dist/assets/app.be5fd3fe4ee9.js",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_auth_bundle",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/auth.960289f115f2.js",
+      "approved_sha256": "960289f115f2661c8e1bcad314cca3e4e7a592ab918455c3da8acb37d497544e",
+      "required_markers": [
+        "boundedFetch",
+        "request_timeout",
+        "credentials: 'omit'"
+      ],
+      "local_source_path": "storyforge-v5/dist/assets/auth.960289f115f2.js",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_styles",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/styles.0938034a27f6.css",
+      "approved_sha256": "0938034a27f6a288ae621eb2c222f2d5748bb0d6f880ab58ad08af2a9414fb4e",
+      "required_markers": [
+        "data-background=\"ember\"",
+        "mobile-matrix-link",
+        "prefers-reduced-motion"
+      ],
+      "local_source_path": "storyforge-v5/dist/assets/styles.0938034a27f6.css",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_archivo_normal",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/archivo-normal.7150c0ec5ad3.woff2",
+      "approved_sha256": "7150c0ec5ad356453013d11affec1fbab95de0dd2dcecb043b4f1cb7f87c4ba4",
+      "required_markers": [],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/archivo-normal.7150c0ec5ad3.woff2",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_archivo_italic",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/archivo-italic.e1989a572737.woff2",
+      "approved_sha256": "e1989a5727374fcd299979407c8087669ca223f5281f8645891e5400f3e61aeb",
+      "required_markers": [],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/archivo-italic.e1989a572737.woff2",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_rajdhani_500",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/rajdhani-500.4745b75b6e92.woff2",
+      "approved_sha256": "4745b75b6e92d917e2402925dc1a6c1c6300e6e0f607a1ce286da54b33d80d3b",
+      "required_markers": [],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/rajdhani-500.4745b75b6e92.woff2",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_rajdhani_600",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/rajdhani-600.35f7e628ec8e.woff2",
+      "approved_sha256": "35f7e628ec8e7dd3bf434e95ce28289803401f12d8605c56ca83db2b4b301d33",
+      "required_markers": [],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/rajdhani-600.35f7e628ec8e.woff2",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_rajdhani_700",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/rajdhani-700.7597c31a957a.woff2",
+      "approved_sha256": "7597c31a957ae3d2e1ebc786238752d883c15ce2e6b5da617dc3453a9fd86335",
+      "required_markers": [],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/rajdhani-700.7597c31a957a.woff2",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_lora_normal",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/lora-normal.6b102ab35aa1.woff2",
+      "approved_sha256": "6b102ab35aa1f2b315788bb4853434ed1e52137603bf7a3da71a682276748d45",
+      "required_markers": [],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/lora-normal.6b102ab35aa1.woff2",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_lora_italic",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/lora-italic.3d536d49566e.woff2",
+      "approved_sha256": "3d536d49566e82a7905c8b0096758005f6616029ac08528d1f4789c1100dff6a",
+      "required_markers": [],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/lora-italic.3d536d49566e.woff2",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_license_archivo",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/OFL-Archivo.txt",
+      "approved_sha256": "1778201b7bd33e8c08a2eda32a4ad2f69bc38ced9731b01cc3fc47f268c8ef3c",
+      "required_markers": [
+        "SIL OPEN FONT LICENSE Version 1.1"
+      ],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/OFL-Archivo.txt",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_license_rajdhani",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/OFL-Rajdhani.txt",
+      "approved_sha256": "793bdd8538a0c03afb5bc10906be27ad1dc76f143cfeac8c55cd9075a5b3a55c",
+      "required_markers": [
+        "SIL OPEN FONT LICENSE Version 1.1"
+      ],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/OFL-Rajdhani.txt",
+      "local_source_required": true
+    },
+    {
+      "id": "storyforge_v5_font_license_lora",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/assets/fonts/OFL-Lora.txt",
+      "approved_sha256": "6d6bc7bbb828514925dabcaf89e4771398d12c60dd1cb2bbb90eea129535d0f4",
+      "required_markers": [
+        "SIL OPEN FONT LICENSE Version 1.1"
+      ],
+      "local_source_path": "storyforge-v5/dist/assets/fonts/OFL-Lora.txt",
+      "local_source_required": true
     }
   ],
   "route_checks": [
@@ -190,6 +455,64 @@
         404,
         500
       ]
+    },
+    {
+      "id": "storyforge_slashless_canonical",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge",
+      "method": "GET",
+      "expected_status": 308,
+      "expected_headers_contains": {
+        "location": "/storyforge/"
+      },
+      "must_not_status": [
+        404,
+        500
+      ]
+    },
+    {
+      "id": "storyforge_health",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/healthz",
+      "method": "GET",
+      "expected_status": 200,
+      "body_contains": "\"service\":\"storyforge-v5\"",
+      "must_not_status": [
+        404,
+        500
+      ]
+    },
+    {
+      "id": "storyforge_api_unauthorized",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/storyforge/api/session",
+      "method": "GET",
+      "expected_status": 401,
+      "body_contains": "\"code\":\"auth_required\"",
+      "expected_headers": {
+        "cache-control": "no-store, private"
+      },
+      "must_not_status": [
+        200,
+        404,
+        500
+      ]
+    },
+    {
+      "id": "storyforge_wordpress_bootstrap_unauthorized",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/wp-admin/admin-ajax.php?action=missionmed_storyforge_bootstrap",
+      "method": "GET",
+      "expected_status": 401,
+      "body_contains": "\"code\":\"session_required\"",
+      "expected_headers": {
+        "cache-control": "no-store, private"
+      },
+      "must_not_status": [
+        200,
+        404,
+        500
+      ]
     }
   ],
   "systems": {
@@ -275,6 +598,44 @@
         "https://missionmedinstitute.com/member-dashboard/#messages",
         "https://missionmedinstitute.com/member-dashboard/#storyforge"
       ]
+    },
+    "storyforge_v5": {
+      "owner": "MissionMed Matrix / Dr. Brian",
+      "runtime_owner": "cloudflare_storyforge_edge",
+      "origin_runtime_owner": "railway_storyforge_v5",
+      "wordpress_owner": "Kinsta missionmed-storyforge-sso",
+      "source_of_truth": "storyforge-v5/ plus wp-content/plugins/missionmed-storyforge-sso/",
+      "classes": [
+        "auth_session",
+        "route",
+        "cdn_asset",
+        "wordpress_wrapper",
+        "matrix_runtime",
+        "deploy_artifact",
+        "browser_journey"
+      ],
+      "routes_or_assets": [
+        "https://missionmedinstitute.com/storyforge",
+        "https://missionmedinstitute.com/storyforge/*"
+      ],
+      "dependencies": [
+        "WordPress production session and REST nonce",
+        "Exact founder WordPress user ID allowlist",
+        "Railway StoryForge PostgreSQL service",
+        "Cloudflare Worker static assets and API proxy"
+      ],
+      "feature_flag": {
+        "owner": "WordPress option missionmed_storyforge_settings.storyforge_enabled",
+        "default": false,
+        "initial_cohort": "B1-502M-FOUNDER-01",
+        "general_students": false,
+        "mentors": false
+      },
+      "legacy_fallback": {
+        "route": "https://missionmedinstitute.com/member-dashboard/#storyforge",
+        "protected_assets_unchanged": true
+      },
+      "rollback": "Set storyforge_enabled false; remove only the two StoryForge Worker routes; deactivate only missionmed-storyforge-sso; leave isolated dormant schema/data intact unless corruption requires the verified database restore."
     }
   },
   "browser_journeys": [
@@ -308,6 +669,18 @@
       ],
       "expected_app_mode_body_class": true,
       "manual_or_browser_plugin_required": true
+    },
+    {
+      "id": "storyforge_founder_matrix_launch",
+      "system": "storyforge_v5",
+      "url": "https://missionmedinstitute.com/member-dashboard/#storyforge",
+      "expected_text": "StoryForge",
+      "expected_final_url": "https://missionmedinstitute.com/storyforge/",
+      "expected_back_link": "https://missionmedinstitute.com/member-dashboard/",
+      "expected_console_errors": 0,
+      "cohort": "B1-502M-FOUNDER-01",
+      "ineligible_users_must_be_denied": true,
+      "manual_or_browser_plugin_required": true
     }
   ],
   "new_system_registration": {
@@ -322,4 +695,3 @@
     ]
   }
 }
-

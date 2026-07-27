@@ -66,7 +66,7 @@ function sendJson(response, status, payload) {
   response.end(body);
 }
 
-function publicError(error) {
+export function publicError(error) {
   const databaseStatus = {
     '22023': 400,
     '23514': 409,
@@ -84,6 +84,8 @@ function publicError(error) {
     'eligibility_required',
     'invalid_role_claim',
     'invalid_subject_claim',
+    'invalid_token_identifier_claim',
+    'invalid_wp_user_id_claim',
     'dev_auth_unavailable',
     'ai_feature_gated',
     'origin_not_allowed',
@@ -104,8 +106,9 @@ function publicError(error) {
     'audio_storage_unavailable',
     'audio_verification_failed',
   ]);
+  const joseAuthFailure = /^ERR_(?:JOSE|JWS|JWT)_/.test(String(error?.code || ''));
   const status = databaseStatus
-    || (authCodes.has(error?.code) ? 401 : null)
+    || (authCodes.has(error?.code) || joseAuthFailure ? 401 : null)
     || (forbiddenCodes.has(error?.code) ? 403 : null)
     || (error?.code === 'request_too_large' ? 413 : null)
     || (inputCodes.has(error?.code) ? 400 : null)
@@ -187,7 +190,7 @@ async function api(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/session') {
     const user = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT id, wp_user_id, display_name, role, eligible, cohort
+        `SELECT id, wp_user_id, display_name, role, eligible, cohort, background_preference
          FROM public.sf_users WHERE id = $1`,
         [identity.sub],
       );
@@ -199,6 +202,18 @@ async function api(request, response, url) {
       throw error;
     }
     return sendJson(response, 200, { user });
+  }
+
+  if (request.method === 'PATCH' && url.pathname === '/api/preferences/background') {
+    const body = await readJson(request);
+    const backgroundPreference = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT public.sf_set_background_preference($1) AS background_preference`,
+        [body.background],
+      );
+      return result.rows[0]?.background_preference;
+    });
+    return sendJson(response, 200, { backgroundPreference });
   }
 
   if (request.method === 'GET' && url.pathname === '/api/stories') {
@@ -231,7 +246,13 @@ async function api(request, response, url) {
     const id = safeUuid(storyRoute[1]);
     const detail = await withIdentity(identity, async (client) => {
       const storyResult = await client.query(
-        `SELECT ${storyProjection('s')}, u.display_name AS student_name
+        `SELECT ${storyProjection('s')}, u.display_name AS student_name,
+           EXISTS (
+             SELECT 1
+             FROM public.sf_mentor_assignments assignment
+             WHERE assignment.student_id = s.student_id
+               AND assignment.active
+           ) AS mentor_review_available
          FROM public.sf_stories s
          JOIN public.sf_users u ON u.id = s.student_id
          WHERE s.id = $1`,
@@ -598,7 +619,7 @@ async function serveStatic(response, url) {
     response.setHeader('Content-Length', data.length);
     if (path.basename(filePath) === 'index.html') {
       response.setHeader('Cache-Control', 'no-store, max-age=0');
-    } else if (/\/assets\/[^/]+\.[a-f0-9]{12}\.(?:css|js|svg|png|woff2?)$/i.test(filePath)) {
+    } else if (/\/assets\/(?:[^/]+\/)*[^/]+\.[a-f0-9]{12}\.(?:css|js|svg|png|woff2?)$/i.test(filePath)) {
       response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
     } else {
       response.setHeader('Cache-Control', 'no-cache');
@@ -619,20 +640,21 @@ async function serveStatic(response, url) {
   }
 }
 
-export function createAppServer() {
+export function createAppServer({ checkHealth = healthCheck } = {}) {
   return http.createServer(async (request, response) => {
     setSecurityHeaders(response);
     const url = new URL(request.url || '/', config.publicOrigin);
     try {
       if (request.method === 'GET' && url.pathname === '/healthz') {
-        const db = await healthCheck();
+        await checkHealth();
         return sendJson(response, 200, {
           ok: true,
           service: 'storyforge-v5',
-          database: db.database,
         });
       }
       if (url.pathname.startsWith('/api/')) {
+        response.setHeader('Cache-Control', 'no-store, private');
+        response.setHeader('Pragma', 'no-cache');
         enforceAllowedOrigin(request, response);
         if (request.method === 'OPTIONS') {
           response.statusCode = 204;
@@ -641,7 +663,7 @@ export function createAppServer() {
         }
         return await api(request, response, url);
       }
-      if (request.method === 'GET' && await serveStatic(response, url)) return;
+      if (!config.originApiOnly && request.method === 'GET' && await serveStatic(response, url)) return;
       sendJson(response, 404, { error: { code: 'not_found', message: 'Resource not found.' } });
     } catch (error) {
       const failure = publicError(error);

@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-07-27T18:44:48.289Z",
+  "source": "wordpress_mentor_assignments",
+  "database": "public.sf_mentor_assignments",
+  "wp_count": 0,
+  "database_count": 0,
+  "missing_in_database": [],
+  "missing_in_wordpress": [],
+  "clean": true
+}

@@ -29,6 +29,8 @@ BEGIN
         );
       WHEN 'create' THEN
         PERFORM public.sf_create_story('Denied', 'This must not persist.', 'text', 'quick');
+      WHEN 'preference' THEN
+        PERFORM public.sf_set_background_preference('aurora');
       ELSE
         RAISE EXCEPTION 'unknown test operation';
     END CASE;
@@ -46,6 +48,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 SELECT set_config('request.jwt.claim.app_role', 'student', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
 SELECT (public.sf_create_story(
   'Advocacy on night shift',
   'I noticed that a patient and family were not being heard, so I slowed the team down and clarified their concern.',
@@ -72,6 +75,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', true);
 SELECT set_config('request.jwt.claim.app_role', 'student', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1102', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 0,
   'student-other sees zero rows by direct story id'
@@ -88,6 +92,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
 SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2101', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 0,
   'assigned mentor cannot read a private story by id'
@@ -103,6 +108,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', true);
 SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2103', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 0,
   'unassigned mentor cannot read a private story by id'
@@ -115,6 +121,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', true);
 SELECT set_config('request.jwt.claim.app_role', 'admin', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '3101', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 0,
   'admin cannot read a private story by id'
@@ -126,11 +133,63 @@ SELECT public.sf_test_assert(
   NOT has_table_privilege('anon', 'public.sf_stories', 'SELECT'),
   'anonymous role has no story read privilege'
 );
+
+\echo 'AUTH MATRIX: mismatched WordPress identity binding is closed'
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+SELECT set_config('request.jwt.claim.app_role', 'student', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1102', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 0,
+  'matching subject with mismatched WordPress user ID sees zero story rows'
+);
+SELECT public.sf_test_assert(
+  public.sf_test_expect_denied('create'),
+  'matching subject with mismatched WordPress user ID cannot invoke state RPCs'
+);
+SELECT public.sf_test_assert(
+  public.sf_test_expect_denied('preference'),
+  'matching subject with mismatched WordPress user ID cannot change preferences'
+);
+COMMIT;
+
+\echo 'PREFERENCES: authenticated background selection is owner-bound'
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+SELECT set_config('request.jwt.claim.app_role', 'student', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
+SELECT public.sf_test_assert(
+  public.sf_set_background_preference('aurora') = 'aurora',
+  'student can persist a canonical background through the own-user RPC'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT background_preference = 'aurora'
+    FROM public.sf_users
+    WHERE id = '11111111-1111-4111-8111-111111111111'
+  ),
+  'background preference persists on the authenticated user row'
+);
+COMMIT;
+SELECT public.sf_test_assert(
+  (
+    SELECT background_preference = 'ember'
+    FROM public.sf_users
+    WHERE id = '22222222-2222-4222-8222-222222222222'
+  ),
+  'changing one preference does not change another user row'
+);
+
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 SELECT set_config('request.jwt.claim.app_role', 'student', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'false', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 0,
   'revoked or missing eligibility closes reads'
@@ -141,12 +200,46 @@ SELECT public.sf_test_assert(
 );
 COMMIT;
 
+\echo 'LIFECYCLE: zero-assignment student remains private and editable'
+UPDATE public.sf_mentor_assignments
+SET active = false
+WHERE student_id = '22222222-2222-4222-8222-222222222222';
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', true);
+SELECT set_config('request.jwt.claim.app_role', 'student', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1102', true);
+SELECT (public.sf_create_story(
+  'Private founder workflow',
+  'This story must remain editable while mentor review is unavailable.',
+  'text',
+  'quick'
+)).id AS unassigned_story_id \gset
+SELECT public.sf_test_assert(
+  public.sf_test_expect_denied('submit', :'unassigned_story_id'::uuid),
+  'zero-assignment student cannot submit through the state RPC'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT status = 'private' AND submitted_at IS NULL
+    FROM public.sf_stories
+    WHERE id = :'unassigned_story_id'
+  ),
+  'denied submission leaves the story private and editable'
+);
+COMMIT;
+UPDATE public.sf_mentor_assignments
+SET active = true
+WHERE student_id = '22222222-2222-4222-8222-222222222222';
+
 \echo 'LIFECYCLE: student edits without overwriting original and submits'
 BEGIN;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 SELECT set_config('request.jwt.claim.app_role', 'student', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
 SELECT public.sf_update_story(
   :'story_id'::uuid,
   'Advocacy on night shift',
@@ -176,6 +269,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
 SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2101', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 1,
   'assigned mentor can read a submitted story'
@@ -197,6 +291,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', true);
 SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2103', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_stories WHERE id = :'story_id') = 0,
   'unassigned mentor sees zero submitted story rows'
@@ -213,6 +308,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 SELECT set_config('request.jwt.claim.app_role', 'student', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
 SELECT public.sf_test_assert(
   (SELECT count(*) FROM public.sf_notifications WHERE story_id = :'story_id' AND read_at IS NULL) = 1,
   'mentor review and student notification committed together'
@@ -237,6 +333,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', true);
 SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2102', true);
 SELECT public.sf_open_story(:'story_id'::uuid, 'quick');
 SELECT public.sf_review_story(
   :'story_id'::uuid,
@@ -271,6 +368,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
 SELECT set_config('request.jwt.claim.app_role', 'student', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
 SELECT (public.sf_create_workshop(
   '11111111-1111-4111-8111-111111111111',
   '10000000-0000-4000-8000-000000000001',
@@ -289,6 +387,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
 SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2101', true);
 SELECT public.sf_update_workshop(
   :'workshop_id'::uuid, 5::smallint, 3::smallint, NULL, NULL,
   'Keep the advocacy question first and prepare one follow-up about disagreement.',
@@ -310,6 +409,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
 SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2101', true);
 SELECT (public.sf_commit_question_import(
   'mentor-questions.csv',
   'csv',

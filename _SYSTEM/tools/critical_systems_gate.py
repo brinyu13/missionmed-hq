@@ -125,8 +125,39 @@ def check_imports(start_file: Path, results: list[dict]) -> None:
 
 def check_runtime_owners(manifest: dict, results: list[dict]) -> None:
     for owner_id, owner in manifest.get("runtime_owners", {}).items():
+        deploy_root_setting = str(owner.get("deploy_root", "")).strip()
+        railway_config_setting = str(owner.get("railway_config", "")).strip()
+        if deploy_root_setting:
+            deploy_root = ROOT / deploy_root_setting
+            if deploy_root.is_dir():
+                result(results, "PASS", "runtime_deploy_root", f"Deploy root exists for {owner_id}: {rel(deploy_root)}")
+            else:
+                result(results, "FAIL", "runtime_deploy_root", f"Deploy root missing for {owner_id}: {rel(deploy_root)}")
+        if railway_config_setting:
+            railway_config = ROOT / railway_config_setting
+            expected_parent = (ROOT / deploy_root_setting).resolve() if deploy_root_setting else None
+            if not railway_config.is_file():
+                result(results, "FAIL", "railway_config", f"Railway config missing for {owner_id}: {rel(railway_config)}")
+            elif expected_parent and railway_config.parent.resolve() != expected_parent:
+                result(
+                    results,
+                    "FAIL",
+                    "railway_config",
+                    f"Railway config is outside the pinned deploy root for {owner_id}: {rel(railway_config)}",
+                )
+            else:
+                try:
+                    load_manifest(railway_config)
+                except (OSError, json.JSONDecodeError) as exc:
+                    result(results, "FAIL", "railway_config", f"Railway config is invalid for {owner_id}: {exc}")
+                else:
+                    result(results, "PASS", "railway_config", f"Railway config is pinned for {owner_id}: {rel(railway_config)}")
+
         command = str(owner.get("start_command", "")).strip()
         start_file = parse_node_start_file(command)
+        if not start_file and str(owner.get("host", "")).strip() == "cloudflare-workers":
+            entrypoint = str(owner.get("entrypoint", "")).strip()
+            start_file = ROOT / entrypoint if entrypoint else None
         if not start_file:
             result(results, "WARN", "runtime_start_command", f"{owner_id} has unsupported start command: {command}")
             continue
@@ -200,6 +231,56 @@ def check_routes(manifest: dict, results: list[dict]) -> None:
         result(results, "PASS", "route", f"{check_id} passed with status {status}")
 
 
+def check_local_assets(manifest: dict, results: list[dict]) -> None:
+    for asset in manifest.get("asset_checks", []):
+        if not asset.get("local_source_required", False):
+            continue
+
+        asset_id = asset.get("id", "(unnamed)")
+        source_setting = str(asset.get("local_source_path", "")).strip()
+        if not source_setting:
+            result(results, "FAIL", "local_asset_path", f"{asset_id} requires a local source but does not name one")
+            continue
+
+        source = ROOT / source_setting
+        if not source.is_file():
+            result(results, "FAIL", "local_asset_exists", f"{asset_id} local source is missing", {"path": source_setting})
+            continue
+
+        body = source.read_bytes()
+        digest = hashlib.sha256(body).hexdigest()
+        expected = str(asset.get("approved_sha256", "")).strip()
+        if expected and digest != expected:
+            result(
+                results,
+                "FAIL",
+                "local_asset_hash",
+                f"{asset_id} local source SHA256 mismatch",
+                {"path": source_setting, "expected": expected, "actual": digest},
+            )
+            continue
+
+        text = body.decode("utf-8", errors="ignore")
+        missing = [marker for marker in asset.get("required_markers", []) if marker not in text]
+        if missing:
+            result(
+                results,
+                "FAIL",
+                "local_asset_markers",
+                f"{asset_id} local source is missing required markers",
+                {"path": source_setting, "missing": missing},
+            )
+            continue
+
+        result(
+            results,
+            "PASS",
+            "local_asset",
+            f"{asset_id} local source passed SHA256 and marker checks",
+            {"path": source_setting, "sha256": digest},
+        )
+
+
 def check_assets(manifest: dict, results: list[dict]) -> None:
     for asset in manifest.get("asset_checks", []):
         asset_id = asset.get("id", "(unnamed)")
@@ -246,6 +327,7 @@ def main() -> int:
 
     check_protected_paths(manifest, results)
     check_runtime_owners(manifest, results)
+    check_local_assets(manifest, results)
     if args.skip_network:
         result(results, "WARN", "network", "Network checks skipped by flag")
     else:

@@ -3,7 +3,40 @@ import { createAuthClient } from './auth.js';
 const app = document.querySelector('#app');
 const toastNode = document.querySelector('#toast');
 const fixturePersonaKey = 'storyforge_local_fixture_persona';
-const fixturePersonas = new Set(['student', 'mentor', 'mentorTwo', 'unassignedMentor', 'admin']);
+const fixturePersonas = new Set(['student', 'studentOther', 'mentor', 'mentorTwo', 'unassignedMentor', 'admin']);
+const backgroundEnvironments = Object.freeze([
+  {
+    id: 'ember',
+    name: 'Emberlight',
+    description: 'Rising ember warmth with quiet violet and cyan depth.',
+  },
+  {
+    id: 'aurora',
+    name: 'Aurora',
+    description: 'Slow curtains of northern color across the dark.',
+  },
+  {
+    id: 'constellation',
+    name: 'Night Constellation',
+    description: 'A quiet star field with faint connected points.',
+  },
+  {
+    id: 'tide',
+    name: 'Deep Tide',
+    description: 'Soft light currents moving through deep water.',
+  },
+  {
+    id: 'meridian',
+    name: 'Meridian',
+    description: 'Restrained contour lines with a low cyan glow.',
+  },
+  {
+    id: 'static',
+    name: 'Static Dark',
+    description: 'A flat, still dark background with no motion.',
+  },
+]);
+const backgroundIds = new Set(backgroundEnvironments.map(({ id }) => id));
 
 const state = {
   config: null,
@@ -15,6 +48,7 @@ const state = {
   questions: [],
   selectedScore: null,
   captureMode: 'text',
+  libraryFilter: 'all',
   queueBucket: 'all',
   importPreview: [],
 };
@@ -32,6 +66,7 @@ const icons = {
   library: '▤',
   capture: '＋',
   notifications: '●',
+  settings: '⚙',
   students: '◎',
   queue: '◫',
   prep: '◇',
@@ -41,25 +76,49 @@ const icons = {
 const routesByRole = {
   student: [
     ['home', 'Home'],
-    ['library', 'Library'],
-    ['capture', 'Capture'],
-    ['prep', 'Prep'],
+    ['library', 'Story Library'],
+    ['prep', 'Interview Prep'],
     ['notifications', 'Notifications'],
+    ['settings', 'Settings'],
   ],
   mentor: [
     ['home', 'Home'],
     ['students', 'Students'],
     ['queue', 'Review Queue'],
-    ['prep', 'Prep'],
     ['activity', 'My Activity'],
+    ['prep', 'Interview Prep'],
+    ['settings', 'Settings'],
   ],
   admin: [
     ['home', 'Home'],
     ['students', 'Students'],
     ['prep', 'Question Governance'],
     ['activity', 'Audit'],
+    ['settings', 'Settings'],
   ],
 };
+
+function matrixHref() {
+  return state.config?.matrixBaseUrl
+    || new URL('/member-dashboard/', window.location.origin).toString();
+}
+
+function activeBackground() {
+  const preferred = state.user?.background_preference;
+  return backgroundIds.has(preferred) ? preferred : 'ember';
+}
+
+function applyEnvironment() {
+  document.body.dataset.background = activeBackground();
+  document.body.dataset.role = state.user?.role || 'student';
+}
+
+function focusPrimaryHeading() {
+  const heading = app.querySelector('h1');
+  if (!heading) return;
+  heading.setAttribute('tabindex', '-1');
+  heading.focus({ preventScroll: true });
+}
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -101,13 +160,16 @@ function scoreControl(value, label = 'Self') {
 }
 
 function navButton(route, label) {
-  return `<button type="button" data-nav="${route}" class="${state.route === route ? 'active' : ''}" aria-current="${state.route === route ? 'page' : 'false'}">
+  const active = state.route === route;
+  return `<button type="button" data-nav="${route}" class="${active ? 'active' : ''}"
+    aria-label="${escapeHtml(label)}" ${active ? 'aria-current="page"' : ''}>
     <span class="nav-icon" aria-hidden="true">${icons[route] || '·'}</span>
     <span class="nav-label">${escapeHtml(label)}</span>
   </button>`;
 }
 
 function shell(content, title = '') {
+  applyEnvironment();
   const routes = routesByRole[state.user.role] || routesByRole.student;
   app.innerHTML = `<div class="app-shell">
     <aside class="rail" aria-label="StoryForge navigation">
@@ -115,9 +177,10 @@ function shell(content, title = '') {
         <span class="brand-mark" aria-hidden="true">S</span>
         <div><strong>StoryForge</strong><small>MissionMed 360</small></div>
       </div>
+      ${state.user.role === 'student' ? '<button class="rail-primary" type="button" data-nav="capture"><span aria-hidden="true">＋</span><span>Quick capture</span></button>' : ''}
       <nav class="nav">${routes.map(([route, label]) => navButton(route, label)).join('')}</nav>
       <div class="rail-foot">
-        <a class="matrix-link" href="${escapeHtml(state.config.matrixBaseUrl)}">← Back to Matrix</a>
+        <a class="matrix-link" href="${escapeHtml(matrixHref())}">← Back to Matrix</a>
         <div class="identity">
           <strong>${escapeHtml(state.user.display_name)}</strong>
           <small>${escapeHtml(state.user.role)}${state.user.cohort ? ` · ${escapeHtml(state.user.cohort)}` : ''}</small>
@@ -129,6 +192,7 @@ function shell(content, title = '') {
       <header class="topbar">
         <div class="breadcrumbs">StoryForge <span aria-hidden="true">/</span> <strong>${escapeHtml(title || state.route)}</strong></div>
         <div class="top-actions">
+          <a class="matrix-link mobile-matrix-link" href="${escapeHtml(matrixHref())}">← Back to Matrix</a>
           ${state.config.identityMode === 'local-signed-fixture' ? '<span class="badge">Local signed fixture</span>' : '<span class="badge">MissionMed identity</span>'}
           ${state.user.role === 'student' ? '<button class="button secondary" data-nav="capture">+ Quick capture</button>' : ''}
         </div>
@@ -173,6 +237,7 @@ async function navigate(route, id = null) {
   history.pushState(null, '', `${base}${suffix}`);
   try {
     await renderRoute();
+    focusPrimaryHeading();
   } catch (error) {
     notify(error.message);
     if (!state.user && !state.lockout) renderLogin();
@@ -304,6 +369,18 @@ async function renderHome() {
 
 async function renderLibrary() {
   const stories = await loadStories();
+  const filters = [
+    ['all', 'All'],
+    ['private', 'Private'],
+    ['submitted', 'With mentor'],
+    ['approved', 'Approved'],
+  ];
+  const filterStories = (filter) => {
+    if (filter === 'all') return stories;
+    if (filter === 'submitted') return stories.filter((story) => story.status !== 'private');
+    return stories.filter((story) => story.status === filter);
+  };
+  const visible = filterStories(state.libraryFilter);
   shell(`
     <div class="page-head">
       <div><p class="eyebrow">Story library</p><h1>Your stories, with their history intact.</h1>
@@ -311,24 +388,26 @@ async function renderLibrary() {
       <button class="button" data-nav="capture">New story</button>
     </div>
     <div class="button-row" aria-label="Library filters">
-      <button class="button secondary" data-filter="all">All ${stories.length}</button>
-      <button class="button ghost" data-filter="private">Private ${stories.filter((s) => s.status === 'private').length}</button>
-      <button class="button ghost" data-filter="submitted">With mentor ${stories.filter((s) => s.status !== 'private').length}</button>
-      <button class="button ghost" data-filter="approved">Approved ${stories.filter((s) => s.status === 'approved').length}</button>
+      ${filters.map(([key, label]) => `
+        <button class="button ${state.libraryFilter === key ? 'secondary' : 'ghost'}" data-filter="${key}"
+          aria-pressed="${state.libraryFilter === key}">${label} ${filterStories(key).length}</button>
+      `).join('')}
     </div>
-    <div class="section-head"><h2>All stories</h2></div>
-    <div id="library-list">${storyRows(stories)}</div>
+    <div class="section-head"><h2 id="library-filter-title">${escapeHtml(filters.find(([key]) => key === state.libraryFilter)?.[1] || 'All')} stories</h2></div>
+    <div id="library-list" aria-labelledby="library-filter-title">${storyRows(visible)}</div>
   `, 'Library');
   bindStoryRows();
   document.querySelectorAll('[data-filter]').forEach((button) => {
     button.addEventListener('click', () => {
-      const filter = button.dataset.filter;
-      const visible = filter === 'all'
-        ? stories
-        : filter === 'submitted'
-          ? stories.filter((story) => story.status !== 'private')
-          : stories.filter((story) => story.status === filter);
-      document.querySelector('#library-list').innerHTML = storyRows(visible);
+      state.libraryFilter = button.dataset.filter;
+      document.querySelectorAll('[data-filter]').forEach((filterButton) => {
+        const selected = filterButton.dataset.filter === state.libraryFilter;
+        filterButton.classList.toggle('secondary', selected);
+        filterButton.classList.toggle('ghost', !selected);
+        filterButton.setAttribute('aria-pressed', String(selected));
+      });
+      document.querySelector('#library-filter-title').textContent = `${filters.find(([key]) => key === state.libraryFilter)?.[1] || 'All'} stories`;
+      document.querySelector('#library-list').innerHTML = storyRows(filterStories(state.libraryFilter));
       bindStoryRows();
     });
   });
@@ -339,8 +418,10 @@ function captureForm() {
     <div class="capture-hero">
       <section class="card capture-card">
         <div class="mode-tabs" aria-label="Capture mode">
-          <button type="button" data-mode="text" class="${state.captureMode === 'text' ? 'active' : ''}">Write</button>
-          <button type="button" data-mode="audio" class="${state.captureMode === 'audio' ? 'active' : ''}">Record</button>
+          <button type="button" data-mode="text" class="${state.captureMode === 'text' ? 'active' : ''}"
+            aria-pressed="${state.captureMode === 'text'}">Write</button>
+          <button type="button" data-mode="audio" class="${state.captureMode === 'audio' ? 'active' : ''}"
+            aria-pressed="${state.captureMode === 'audio'}">Record</button>
         </div>
         ${state.captureMode === 'audio' ? `
           <div class="field">
@@ -383,6 +464,7 @@ async function renderCapture() {
     button.addEventListener('click', () => {
       state.captureMode = button.dataset.mode;
       renderCapture();
+      document.querySelector(`[data-mode="${state.captureMode}"]`)?.focus();
     });
   });
   document.querySelector('#capture-form')?.addEventListener('submit', async (event) => {
@@ -417,6 +499,7 @@ async function renderStory() {
   }
   const editable = state.user.role === 'student' && ['private', 'needs_revision'].includes(story.status);
   const mentor = state.user.role === 'mentor';
+  const mentorReviewAvailable = story.mentor_review_available === true;
   state.selectedScore = mentor ? story.mentor_score : story.student_score;
   shell(`
     <div class="page-head">
@@ -437,8 +520,18 @@ async function renderStory() {
             <div class="field"><label for="story-uses">Uses</label><input id="story-uses" value="${escapeHtml((story.uses || []).join(', '))}" placeholder="behavioral, personal-statement"></div>
             <div class="button-row">
               <button class="button secondary" type="submit">Save revision</button>
-              <button class="button" type="button" id="submit-story">${story.status === 'needs_revision' ? 'Resubmit to mentors' : 'Submit to mentors'}</button>
+              <button class="button" type="button" id="submit-story"
+                ${mentorReviewAvailable ? '' : 'disabled aria-describedby="mentor-review-gate"'}>
+                ${mentorReviewAvailable
+                  ? (story.status === 'needs_revision' ? 'Resubmit to mentors' : 'Submit to mentors')
+                  : 'Mentor review unavailable'}
+              </button>
             </div>
+            ${mentorReviewAvailable ? '' : `
+              <div class="callout info" id="mentor-review-gate">
+                Mentor review is not enabled yet. Your private story remains editable.
+              </div>
+            `}
           ` : ''}
         </form>
         ${!editable && state.user.role === 'student' ? '<div class="callout info">This version is read-only while it is with your mentors.</div>' : ''}
@@ -563,9 +656,9 @@ async function renderStudents() {
     <div class="page-head"><div><p class="eyebrow">Assigned roster</p><h1>Students</h1>
     <p class="lede">Counts include only students the signed identity may see.</p></div></div>
     <div class="grid three">${students.map((student) => `
-      <div class="card">
+      <div class="card student-card">
         <p class="eyebrow">Cohort ${escapeHtml(student.cohort || '—')}</p>
-        <h3>${escapeHtml(student.display_name)}</h3>
+        <h2>${escapeHtml(student.display_name)}</h2>
         <p>${student.story_count} visible stories · ${student.awaiting_review} awaiting review</p>
         <button class="button secondary" data-nav="queue">Open workspace</button>
       </div>
@@ -588,7 +681,8 @@ async function renderQueue() {
     <div class="page-head"><div><p class="eyebrow">Five-bucket queue</p><h1>Review Queue</h1>
     <p class="lede">Opening is separate from reviewing. Every status and notification comes from a committed action.</p></div></div>
     <div class="queue-buckets">${buckets.map(([key, label]) => `
-      <button class="button ${state.queueBucket === key ? '' : 'secondary'}" data-bucket="${key}">${label} · ${key === 'all' ? stories.length : stories.filter((story) => story.bucket === key).length}</button>
+      <button class="button ${state.queueBucket === key ? '' : 'secondary'}" data-bucket="${key}"
+        aria-pressed="${state.queueBucket === key}">${label} · ${key === 'all' ? stories.length : stories.filter((story) => story.bucket === key).length}</button>
     `).join('')}</div>
     <div class="section-head"><h2>${escapeHtml(buckets.find(([key]) => key === state.queueBucket)?.[1] || 'All')}</h2></div>
     ${storyRows(visible, 'No stories are in this queue bucket.')}
@@ -597,7 +691,9 @@ async function renderQueue() {
   document.querySelectorAll('[data-bucket]').forEach((button) => {
     button.addEventListener('click', () => {
       state.queueBucket = button.dataset.bucket;
-      renderQueue();
+      renderQueue().then(() => {
+        document.querySelector(`[data-bucket="${state.queueBucket}"]`)?.focus();
+      }).catch((error) => notify(error.message));
     });
   });
 }
@@ -630,6 +726,65 @@ async function renderNotifications() {
   });
 }
 
+async function renderSettings() {
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const selectedBackground = activeBackground();
+  shell(`
+    <div class="page-head"><div><p class="eyebrow">Settings</p><h1>Your environment.</h1>
+    <p class="lede">StoryForge stays dark by default. Your selection is saved to your authenticated profile and follows you across devices.</p></div></div>
+    <section class="card">
+      <div class="section-head"><div><p class="eyebrow">Background environment</p><h2>Choose the atmosphere, not the authority.</h2></div></div>
+      <div class="background-grid">
+        ${backgroundEnvironments.map((background) => `
+          <button class="background-card ${selectedBackground === background.id ? 'active' : ''}"
+            type="button" data-background="${background.id}"
+            aria-pressed="${selectedBackground === background.id}">
+            <span class="background-preview ${background.id}" aria-hidden="true"></span>
+            <span class="background-copy">
+              <strong>${escapeHtml(background.name)}</strong>
+              <small>${escapeHtml(background.description)}</small>
+              ${selectedBackground === background.id ? '<span class="active-environment">Active</span>' : ''}
+            </span>
+          </button>
+        `).join('')}
+      </div>
+      <p class="hint motion-status">Reduced motion is ${reducedMotion
+        ? 'on. Every environment is rendered as a still frame.'
+        : 'off. Environments move gently and stop automatically when your system requests reduced motion.'}</p>
+    </section>
+    <section class="card spaced">
+      <div class="setting-row">
+        <div><p class="eyebrow">Signed identity</p><h3>${escapeHtml(state.user.display_name)}</h3>
+        <p class="hint">${escapeHtml(state.user.role)}${state.user.cohort ? ` · cohort ${escapeHtml(state.user.cohort)}` : ''}. Role and eligibility come from the signed MissionMed session.</p></div>
+      </div>
+      <div class="setting-row">
+        <div><p class="eyebrow">MissionMed Matrix</p><h3>Return to the platform</h3>
+        <p class="hint">Leave StoryForge without creating a second sign-out path.</p></div>
+        <a class="button secondary settings-matrix-link" href="${escapeHtml(matrixHref())}">← Back to Matrix</a>
+      </div>
+    </section>
+  `, 'Settings');
+  document.querySelectorAll('.background-card[data-background]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        const payload = await request('/api/preferences/background', {
+          method: 'PATCH',
+          body: JSON.stringify({ background: button.dataset.background }),
+        });
+        state.user.background_preference = payload.backgroundPreference;
+        applyEnvironment();
+        notify(`${backgroundEnvironments.find(({ id }) => id === payload.backgroundPreference)?.name || 'Background'} applied.`);
+        await renderSettings();
+        document.querySelector(`.background-card[data-background="${payload.backgroundPreference}"]`)?.focus();
+      } catch (error) {
+        button.disabled = false;
+        notify(error.message);
+      }
+    });
+  });
+}
+
 async function renderPrep() {
   const [questionData, workshopData, nextData] = await Promise.all([
     request('/api/questions'),
@@ -643,7 +798,7 @@ async function renderPrep() {
     <p class="lede">Question strength belongs to each story–question pair. Student and mentor judgments remain visibly separate.</p></div></div>
     <div class="grid three">
       ${state.questions.filter((question) => question.governance_state === 'approved').slice(0, 6).map((question) => `
-        <div class="card question-card"><span class="family">${escapeHtml(question.family)}</span><h3>${escapeHtml(question.text)}</h3>
+        <div class="card question-card"><span class="family">${escapeHtml(question.family)}</span><h2>${escapeHtml(question.text)}</h2>
         <span class="status ${escapeHtml(question.governance_state)}">${escapeHtml(question.governance_state)} · ${escapeHtml(question.provenance)}</span></div>
       `).join('')}
     </div>
@@ -804,10 +959,12 @@ async function renderRoute() {
   if (route === 'notifications') return renderNotifications();
   if (route === 'prep') return renderPrep();
   if (route === 'activity') return renderActivity();
+  if (route === 'settings') return renderSettings();
   return navigate('home');
 }
 
 function renderLogin(errorMessage = '') {
+  applyEnvironment();
   app.innerHTML = `<main class="login" id="main">
     <section class="login-panel">
       <div class="login-art">
@@ -844,10 +1001,12 @@ function renderLogin(errorMessage = '') {
       }
     });
   });
+  focusPrimaryHeading();
 }
 
 function parseRoute() {
-  const legacy = location.hash.replace(/^#/, '');
+  const fragment = location.hash.replace(/^#/, '');
+  const legacy = fragment === 'main' ? '' : fragment;
   const base = state.config.basePath;
   const relative = legacy || (location.pathname.startsWith(base) ? location.pathname.slice(base.length) : '');
   const [route, id] = relative.replace(/^\/+|\/+$/g, '').split('/');
@@ -856,7 +1015,49 @@ function parseRoute() {
 }
 
 function renderLockout(lockoutState = 'access_unavailable', message = '') {
-  const revoked = lockoutState === 'eligibility_revoked';
+  applyEnvironment();
+  const presentations = {
+    eligibility_revoked: {
+      eyebrow: 'Access changed',
+      heading: 'Your 360 access has changed.',
+      fallback: 'StoryForge locked as soon as WordPress reported the eligibility change.',
+    },
+    session_required: {
+      eyebrow: 'Session unavailable',
+      heading: 'Your MissionMed session ended.',
+      fallback: 'Sign in through MissionMed to return to this exact StoryForge page.',
+    },
+    session_ended: {
+      eyebrow: 'Session unavailable',
+      heading: 'Your MissionMed session ended.',
+      fallback: 'Sign in through MissionMed to return to this exact StoryForge page.',
+    },
+    user_not_enabled: {
+      eyebrow: 'Access unavailable',
+      heading: 'StoryForge is not enabled for this account.',
+      fallback: 'Return to Matrix to continue using the tools enabled for this account.',
+    },
+    role_not_enabled: {
+      eyebrow: 'Access unavailable',
+      heading: 'StoryForge is not enabled for this account.',
+      fallback: 'Return to Matrix to continue using the tools enabled for this account.',
+    },
+    cohort_not_enabled: {
+      eyebrow: 'Access unavailable',
+      heading: 'StoryForge is not enabled for this account.',
+      fallback: 'Return to Matrix to continue using the tools enabled for this account.',
+    },
+    storyforge_disabled: {
+      eyebrow: 'Pilot unavailable',
+      heading: 'StoryForge is not enabled yet.',
+      fallback: 'Return to Matrix while this pilot remains off.',
+    },
+  };
+  const presentation = presentations[lockoutState] || {
+    eyebrow: 'Temporarily unavailable',
+    heading: 'StoryForge could not open safely.',
+    fallback: 'Return to Matrix and try again in a moment.',
+  };
   app.innerHTML = `<main class="login" id="main">
     <section class="login-panel">
       <div class="login-art">
@@ -864,15 +1065,43 @@ function renderLockout(lockoutState = 'access_unavailable', message = '') {
         <blockquote>“Your stories remain preserved.”</blockquote>
       </div>
       <div class="login-form">
-        <p class="eyebrow">${revoked ? 'Access changed' : 'Session unavailable'}</p>
-        <h1>${revoked ? 'Your 360 access has changed.' : 'Your MissionMed session ended.'}</h1>
-        <p>${escapeHtml(message || (revoked
-          ? 'StoryForge locked as soon as WordPress reported the eligibility change.'
-          : 'Sign in through MissionMed to return to this exact StoryForge page.'))}</p>
-        <a class="button" href="${escapeHtml(state.config.matrixBaseUrl)}">Back to Matrix</a>
+        <div role="alert" aria-live="assertive">
+          <p class="eyebrow">${presentation.eyebrow}</p>
+          <h1>${presentation.heading}</h1>
+          <p>${escapeHtml(message || presentation.fallback)}</p>
+        </div>
+        <a class="button" href="${escapeHtml(matrixHref())}">Back to Matrix</a>
       </div>
     </section>
   </main>`;
+  focusPrimaryHeading();
+}
+
+function renderStartupFailure() {
+  applyEnvironment();
+  app.innerHTML = `<main class="login" id="main">
+    <section class="login-panel">
+      <div class="login-art">
+        <div class="brand"><span class="brand-mark">S</span><div><strong>StoryForge</strong><small>MissionMed 360</small></div></div>
+        <blockquote>“Your stories were not changed.”</blockquote>
+      </div>
+      <div class="login-form">
+        <div role="alert" aria-live="assertive">
+          <p class="eyebrow">Temporarily unavailable</p>
+          <h1>StoryForge could not open safely.</h1>
+          <p>We could not reach the StoryForge service. Retry, or return to Matrix and come back in a moment.</p>
+        </div>
+        <div class="button-row">
+          <button class="button" type="button" id="retry-startup">Retry</button>
+          <a class="button secondary" href="${escapeHtml(matrixHref())}">Back to Matrix</a>
+        </div>
+      </div>
+    </section>
+  </main>`;
+  document.querySelector('#retry-startup')?.addEventListener('click', () => {
+    init();
+  });
+  focusPrimaryHeading();
 }
 
 async function bootstrapSession() {
@@ -884,6 +1113,7 @@ async function bootstrapSession() {
     const allowed = new Set((routesByRole[user.role] || []).map(([route]) => route).concat('story'));
     if (!allowed.has(state.route)) state.route = 'home';
     await renderRoute();
+    focusPrimaryHeading();
   } catch (error) {
     state.user = null;
     if (!error.redirecting && !state.lockout) renderLogin(error.message);
@@ -891,6 +1121,8 @@ async function bootstrapSession() {
 }
 
 async function init() {
+  applyEnvironment();
+  app.innerHTML = '<main class="boot" id="main"><div role="status" aria-live="polite"><p class="eyebrow">MissionMed 360</p><h1>StoryForge</h1><p>Opening your story workspace…</p></div></main>';
   try {
     state.config = await auth.publicRequest('api/config');
     auth.configure(state.config);
@@ -907,15 +1139,30 @@ async function init() {
     await bootstrapSession();
   } catch (error) {
     if (!error.redirecting && !state.lockout) {
-      app.innerHTML = `<main class="boot" id="main"><p class="eyebrow">StoryForge unavailable</p><h1>We could not open this workspace.</h1><p>${escapeHtml(error.message)}</p></main>`;
+      renderStartupFailure();
     }
   }
 }
 
-window.addEventListener('popstate', () => {
+window.addEventListener('popstate', async () => {
   if (!state.user) return;
   parseRoute();
-  renderRoute().catch((error) => notify(error.message));
+  try {
+    await renderRoute();
+    focusPrimaryHeading();
+  } catch (error) {
+    notify(error.message);
+  }
+});
+
+document.querySelector('.skip-link')?.addEventListener('click', (event) => {
+  event.preventDefault();
+  const main = document.querySelector('#main');
+  const heading = main?.querySelector('h1');
+  if (!main || !heading) return;
+  main.scrollIntoView({ block: 'start' });
+  heading.setAttribute('tabindex', '-1');
+  heading.focus();
 });
 
 init();

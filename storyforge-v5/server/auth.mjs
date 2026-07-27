@@ -69,11 +69,17 @@ export async function verifyToken(token, options = {}) {
     error.code = 'auth_required';
     throw error;
   }
-  const result = await jwtVerify(token, options.key || verifierKey(), {
+  const key = options.key || verifierKey();
+  const verification = {
     issuer: options.issuer || config.jwtIssuer,
     audience: options.audience || config.jwtAudience,
     clockTolerance: 5,
-  });
+    requiredClaims: ['sub', 'iat', 'exp', 'jti'],
+  };
+  if (options.algorithms || key instanceof Uint8Array) {
+    verification.algorithms = options.algorithms || ['HS256'];
+  }
+  const result = await jwtVerify(token, key, verification);
   const claims = result.payload;
   const role = String(claims.app_role || '');
   if (!allowedRoles.has(role)) {
@@ -86,16 +92,27 @@ export async function verifyToken(token, options = {}) {
     error.code = 'eligibility_required';
     throw error;
   }
-  if (!/^[a-f0-9-]{36}$/i.test(String(claims.sub || ''))) {
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(String(claims.sub || ''))) {
     const error = new Error('The signed StoryForge subject is invalid.');
     error.code = 'invalid_subject_claim';
+    throw error;
+  }
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(String(claims.jti || ''))) {
+    const error = new Error('The signed StoryForge token identifier is invalid.');
+    error.code = 'invalid_token_identifier_claim';
+    throw error;
+  }
+  const wpUserId = Number(claims.wp_user_id);
+  if (!Number.isSafeInteger(wpUserId) || wpUserId <= 0) {
+    const error = new Error('The signed WordPress user identifier is invalid.');
+    error.code = 'invalid_wp_user_id_claim';
     throw error;
   }
   return Object.freeze({
     sub: String(claims.sub),
     role,
     eligible: true,
-    wpUserId: Number(claims.wp_user_id || 0),
+    wpUserId,
     name: String(claims.name || ''),
     issuer: String(claims.iss || ''),
   });
@@ -126,7 +143,7 @@ export async function issueDevToken(persona, request, overrides = {}) {
     .setAudience(config.jwtAudience)
     .setSubject(identity.sub)
     .setIssuedAt()
-    .setExpirationTime(overrides.expiration || '1h')
+    .setExpirationTime(overrides.expiration || '5m')
     .setJti(crypto.randomUUID())
     .sign(encoder.encode(config.devJwtSecret));
 }

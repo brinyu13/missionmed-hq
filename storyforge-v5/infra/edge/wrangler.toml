@@ -16,3 +16,7 @@ not_found_handling = "none"
 [[routes]]
 pattern = "missionmedinstitute.com/storyforge/*"
 zone_name = "missionmedinstitute.com"
+
+[[routes]]
+pattern = "missionmedinstitute.com/storyforge"
+zone_name = "missionmedinstitute.com"

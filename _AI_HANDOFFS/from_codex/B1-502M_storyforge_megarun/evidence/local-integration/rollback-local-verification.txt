@@ -1,0 +1,4 @@
+default_off_shortcodes=empty
+flag_off_access_state=storyforge_disabled
+route_removed_wordpress_http=404
+plugin_deactivation_forced_flag_off=true

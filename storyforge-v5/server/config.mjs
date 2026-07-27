@@ -37,16 +37,18 @@ function csv(name, fallback = '') {
 const staticDirSetting = text('STORYFORGE_STATIC_DIR', 'public');
 const staticDir = path.resolve(packageDir, staticDirSetting);
 const publicOrigin = text('STORYFORGE_PUBLIC_ORIGIN', 'http://127.0.0.1:4180');
+const providerPort = boundedInteger('PORT', 4180, 1, 65535);
 
 export const config = Object.freeze({
   packageDir,
   publicDir: staticDir,
-  port: boundedInteger('STORYFORGE_PORT', 4180, 1, 65535),
+  port: boundedInteger('STORYFORGE_PORT', providerPort, 1, 65535),
   host: text('STORYFORGE_HOST', flag('STORYFORGE_DEV_AUTH') ? '127.0.0.1' : '0.0.0.0'),
   databaseUrl: text('STORYFORGE_DATABASE_URL'),
   publicOrigin,
   basePath: normalizedBasePath(text('STORYFORGE_BASE_PATH', flag('STORYFORGE_DEV_AUTH') ? '/' : '/storyforge/')),
   matrixBaseUrl: text('STORYFORGE_MATRIX_BASE_URL', `${originOf(publicOrigin)}/member-dashboard/`),
+  originApiOnly: flag('STORYFORGE_ORIGIN_API_ONLY', !flag('STORYFORGE_DEV_AUTH')),
   wpBootstrapPath: text(
     'STORYFORGE_WP_BOOTSTRAP_PATH',
     '/wp-admin/admin-ajax.php?action=missionmed_storyforge_bootstrap',
@@ -85,6 +87,9 @@ export function validateConfig() {
   if (!config.devAuth && !config.jwksUrl && !config.jwtSecret) {
     errors.push('production auth requires STORYFORGE_JWKS_URL or STORYFORGE_JWT_SECRET');
   }
+  if (!config.devAuth && !config.jwksUrl && config.jwtSecret && config.jwtSecret.length < 32) {
+    errors.push('STORYFORGE_JWT_SECRET must contain at least 32 characters');
+  }
   if (config.devAuth && config.devJwtSecret.length < 24) {
     errors.push('STORYFORGE_DEV_JWT_SECRET must contain at least 24 characters');
   }
@@ -93,6 +98,12 @@ export function validateConfig() {
   if (!originOf(config.matrixBaseUrl)) errors.push('STORYFORGE_MATRIX_BASE_URL must be an absolute URL');
   if (!config.devAuth && config.allowedOrigins.length === 0) {
     errors.push('STORYFORGE_ALLOWED_ORIGINS must pin at least one Matrix origin');
+  }
+  if (!config.devAuth && !config.originApiOnly) {
+    errors.push('production requires STORYFORGE_ORIGIN_API_ONLY=true');
+  }
+  if (!config.devAuth && config.basePath !== '/storyforge/') {
+    errors.push('production requires STORYFORGE_BASE_PATH=/storyforge/');
   }
   if (config.devAuth && config.host !== '127.0.0.1') {
     errors.push('local fixture auth must bind STORYFORGE_HOST to 127.0.0.1');

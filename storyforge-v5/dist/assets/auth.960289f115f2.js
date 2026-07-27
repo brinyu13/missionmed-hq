@@ -22,6 +22,34 @@ function decodeExpiration(token) {
   }
 }
 
+const requestTimeoutMs = 10_000;
+
+export async function boundedFetch(input, init = {}, timeoutMs = requestTimeoutMs) {
+  const controller = new AbortController();
+  const upstreamSignal = init.signal;
+  const relayAbort = () => controller.abort(upstreamSignal?.reason);
+  if (upstreamSignal) {
+    if (upstreamSignal.aborted) relayAbort();
+    else upstreamSignal.addEventListener('abort', relayAbort, { once: true });
+  }
+  const timer = globalThis.setTimeout(() => controller.abort('storyforge_request_timeout'), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted && !upstreamSignal?.aborted) {
+      const timeout = new Error('StoryForge took too long to respond. Return to Matrix and try again.');
+      timeout.code = 'request_timeout';
+      timeout.state = 'access_unavailable';
+      timeout.status = 503;
+      throw timeout;
+    }
+    throw error;
+  } finally {
+    globalThis.clearTimeout(timer);
+    upstreamSignal?.removeEventListener('abort', relayAbort);
+  }
+}
+
 export function createAuthClient({ onLockout = () => {} } = {}) {
   let config = {};
   let token = '';
@@ -84,7 +112,7 @@ export function createAuthClient({ onLockout = () => {} } = {}) {
       window.location.origin,
     );
     endpoint.searchParams.set('return_to', window.location.href);
-    const response = await fetch(endpoint, {
+    const response = await boundedFetch(endpoint, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
       cache: 'no-store',
@@ -103,7 +131,7 @@ export function createAuthClient({ onLockout = () => {} } = {}) {
 
   async function performExchange() {
     const bridge = await bootstrapBridge({ redirectOnUnauthenticated: !token });
-    const response = await fetch(bridge.token_endpoint || config.wpTokenPath, {
+    const response = await boundedFetch(bridge.token_endpoint || config.wpTokenPath, {
       method: 'POST',
       credentials: 'include',
       cache: 'no-store',
@@ -142,7 +170,11 @@ export function createAuthClient({ onLockout = () => {} } = {}) {
     const headers = { Accept: 'application/json', ...(options.headers || {}) };
     if (token) headers.Authorization = `Bearer ${token}`;
     if (options.body && !(options.body instanceof Blob)) headers['Content-Type'] = 'application/json';
-    const response = await fetch(apiUrl(pathname), { ...options, headers });
+    const response = await boundedFetch(apiUrl(pathname), {
+      ...options,
+      credentials: 'omit',
+      headers,
+    });
     if (response.status === 401 && !config.devAuth && !retried) {
       await exchange();
       return request(pathname, options, true);
@@ -157,8 +189,9 @@ export function createAuthClient({ onLockout = () => {} } = {}) {
   }
 
   async function publicRequest(pathname, options = {}) {
-    const response = await fetch(publicUrl(pathname), {
+    const response = await boundedFetch(publicUrl(pathname), {
       ...options,
+      credentials: 'omit',
       headers: { Accept: 'application/json', ...(options.headers || {}) },
     });
     const payload = await readJson(response);

@@ -10,7 +10,7 @@ const issuer = 'storyforge-unit-test';
 const audience = 'storyforge';
 
 async function token(claims = {}, expiration = '5m', signingKey = key) {
-  return new SignJWT({
+  const builder = new SignJWT({
     app_role: 'student',
     storyforge_eligible: true,
     wp_user_id: 101,
@@ -21,8 +21,9 @@ async function token(claims = {}, expiration = '5m', signingKey = key) {
     .setAudience(audience)
     .setSubject(claims.sub || '11111111-1111-4111-8111-111111111111')
     .setIssuedAt()
-    .setExpirationTime(expiration)
-    .sign(signingKey);
+    .setJti(crypto.randomUUID());
+  if (expiration) builder.setExpirationTime(expiration);
+  return builder.sign(signingKey);
 }
 
 test('accepts a signed, purpose-bound, eligible identity', async () => {
@@ -54,5 +55,16 @@ test('rejects missing eligibility and a forged application role', async () => {
   await assert.rejects(
     verifyToken(await token({ app_role: 'service_role' }), { key, issuer, audience }),
     (error) => error.code === 'invalid_role_claim',
+  );
+});
+
+test('rejects non-expiring tokens and malformed issuer identity metadata', async () => {
+  await assert.rejects(
+    verifyToken(await token({}, null), { key, issuer, audience }),
+    (error) => error.code === 'ERR_JWT_CLAIM_VALIDATION_FAILED',
+  );
+  await assert.rejects(
+    verifyToken(await token({ wp_user_id: 0 }), { key, issuer, audience }),
+    (error) => error.code === 'invalid_wp_user_id_claim',
   );
 });
