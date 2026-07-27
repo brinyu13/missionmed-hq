@@ -276,3 +276,32 @@ After the local block is repaired and before founder enablement:
 - **Student/IMG cohort release:** not assessed as ready; requires real-cohort
   terminology validation, de-identification guidance, mentor-source
   reconciliation, and production evidence.
+
+## Supervisor-validated closeout — 2026-07-27T22:10:13Z
+
+The original zero-mentor submission blocker is repaired in the exact local
+candidate. The UI disables submission when no active mentor assignment exists,
+the detail projection truthfully exposes assignment availability, and the
+server/database transition denies submission without an active assignment.
+The founder can create and edit a private draft but cannot falsely submit it
+for review. Local product, browser, integration, and real PostgreSQL evidence
+cover that repaired boundary.
+
+Production remains safely inactive: the active StoryForge route and runtime
+`current` pointer are absent, the feature flag is false, the allowlist and role
+overrides are empty, and the enabled cohort is zero. The isolated Railway API
+and PostgreSQL service remain healthy and fail closed without authorized
+identity. Protected Matrix and legacy StoryForge hashes remain exact against
+the canonical active lock under `/Users/brianb/MissionMed`; the target
+worktree's delegated copy is stale and non-authoritative.
+
+The `4bd956b6ea222d20428c41415236a73b93576447` repair kept Cloudflare
+`DYNAMIC`, but Kinsta's managed server cache became `HIT`; the resulting
+feature-off retry was rolled back safely. Osler therefore retains **PASS for
+controlled founder testing** on the repaired educational workflow, with AI and
+audio off, no fixtures, and synthetic or non-patient-identifying content.
+Production founder acceptance is still pending the provider cache exclusion,
+fresh authenticated founder journey, and explicit Founder acceptance of the
+same-UID hosting residual or stronger provider isolation.
+
+No student/IMG or mentor cohort release is approved by this closeout.

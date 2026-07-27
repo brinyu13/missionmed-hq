@@ -561,3 +561,64 @@ Remaining external/human gates:
    StoryForge Worker and its exact/wildcard routes.
 
 Rollback reference remains the verified route-absent state above.
+
+## 19. Evidence checkpoint push and read-only safe-state verification
+
+Commit `07d620f8b788c2f2c01180a464b93b0c0dddf143`
+(`B1-502M: record safe rollback and provider cache gate`) was pushed normally
+to `origin/b1-502-storyforge-production-deployment` at
+`2026-07-27T21:57:39Z`. The commit contains evidence and authority-record
+updates only. The push used no force, history rewrite, pull request, provider
+deployment, feature change, founder enablement, or other production mutation.
+
+At `2026-07-27T22:04:58Z`, the Supervisor performed a sanitized read-only
+safe-state verification. It proved:
+
+- active StoryForge MU route: absent;
+- runtime `current` pointer: absent;
+- SSO plugin: active;
+- settings option: present;
+- `storyforge_enabled=false`;
+- founder allowlist: 0;
+- role overrides: 0;
+- mentor role configured: false;
+- mentor overrides: 0;
+- mentor assignments: 0;
+- mentor access: false.
+
+Anonymous no-cookie/no-follow requests to `/storyforge`, `/storyforge/`,
+`/storyforge/healthz`, `/storyforge/config`, and `/storyforge/library` all
+returned 404 with `CF-Cache-Status: DYNAMIC`, a private/no-store policy, and
+`X-Kinsta-Cache: EXPIRED` or `MISS`.
+
+The protected runtime hashes remained exact and matched the current canonical
+delegated Matrix lock:
+
+| Asset | SHA-256 |
+|---|---|
+| Legacy StoryForge JS | `a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa` |
+| Legacy StoryForge CSS | `5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8` |
+| Matrix shell | `c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a` |
+| Matrix PHP | `5ed6e92eb9bf748a01f475bc5a6a72e249e21a2b7560d07d2acf66f8058e8d95` |
+
+Railway application deployment
+`fb43a551-04c8-41f7-a6e6-fb16aae3894e` and PostgreSQL deployment
+`f5c7179e-b805-4e82-b080-d2349a0a47cf` both remained `SUCCESS` with
+`stopped=false`. The API returned
+`{"ok":true,"service":"storyforge-v5"}` from health, 404 at its origin root,
+and 401 for an unauthenticated `/api/session` request.
+
+Database reads returned three migration-ledger rows, 15 StoryForge application
+tables with RLS enabled plus the separate migration ledger, zero users, zero
+mentor assignments, zero stories, and zero audit events. The application role
+remained least privilege with `rolbypassrls=false`.
+
+This verification made no Git, Kinsta, WordPress, Cloudflare, Railway,
+PostgreSQL, DNS, Matrix, cache, feature, identity, or production mutation.
+Rollback reference remains the exact route-absent, feature-off state.
+
+At `2026-07-27T22:21:37Z`, a further anonymous no-cookie/no-follow GET sample
+rechecked the same five StoryForge paths. Every path still returned 404 with
+`CF-Cache-Status: DYNAMIC`, `X-Kinsta-Cache: EXPIRED`, and
+`Cache-Control: no-cache, must-revalidate, max-age=0, no-store, private`.
+This was read-only and made no remote mutation.

@@ -644,3 +644,42 @@ No fetch, pull, `ls-remote`, provider CLI/API call, production HTTP/DNS probe,
 SSH session, authenticated browser action, credential read, private-data
 query, source/authority mutation, remote write, push, deploy, rollback, or
 production mutation was performed.
+
+## Supervisor-validated closeout — 2026-07-27T22:10:13Z
+
+This closeout supersedes the earlier delegated-lock conflict in this report.
+The canonical active Matrix lock is
+`/Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json`.
+Its four protected values match the retained live, origin, and public evidence:
+
+- legacy StoryForge JS:
+  `a4aa9665012206771fc8549c897cb5d22801899347c706626062dbafb29c81fa`;
+- legacy StoryForge CSS:
+  `5b0426a7af9dbc36a1401c5d2829ca8cf7827e8070b783fbfe64875c847af7d8`;
+- Matrix PHP:
+  `5ed6e92eb9bf748a01f475bc5a6a72e249e21a2b7560d07d2acf66f8058e8d95`;
+- fingerprinted Matrix shell:
+  `c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a`.
+
+The copy under the B1-StoryForge-502 worktree is stale delegated metadata and
+is not the active production authority. It must not be used to reopen a
+protected-runtime conflict or to normalize the target worktree.
+
+The exact pushed cache repair
+`4bd956b6ea222d20428c41415236a73b93576447` kept Cloudflare at `DYNAMIC`,
+but Kinsta's managed server/full-page cache became `HIT` on repeated requests
+and replaced the application cache policy. The route and runtime `current`
+pointer were therefore physically removed, scoped cache purges completed, and
+the prior route-absent state was restored. The feature flag is false, the
+allowlist and role overrides are empty, the founder cohort is zero, and the
+four protected hashes remain exact.
+
+The isolated Railway API and PostgreSQL deployment remain healthy and
+inaccessible without valid authorized identity. This is a verified safe
+rollback state, not founder readiness. Production founder enablement remains
+pending the exact Kinsta cache exclusion, fresh founder-authenticated binding,
+and explicit Founder acceptance of the same-UID hosting residual or
+provider-enforced different-principal isolation.
+
+This section is a documentation-only supervisor reconciliation. It does not
+record or authorize a new production mutation.

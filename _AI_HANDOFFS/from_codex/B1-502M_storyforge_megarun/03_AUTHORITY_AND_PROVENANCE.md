@@ -34,6 +34,10 @@ behavior only; they may not determine V5 presentation or workflow.
   `4bd956b6ea222d20428c41415236a73b93576447`, pushed normally at
   `2026-07-27T21:43:09Z`; its feature-off retry kept Cloudflare dynamic but
   was physically rolled back after Kinsta's server cache returned hits;
+- safe-rollback and provider-gate evidence checkpoint:
+  `07d620f8b788c2f2c01180a464b93b0c0dddf143`, pushed normally at
+  `2026-07-27T21:57:39Z`; this documentation-only checkpoint made no provider
+  or production mutation;
 - repository remote:
   `https://github.com/brinyu13/missionmed-hq.git`.
 
@@ -123,6 +127,17 @@ policy with `public, max-age=0, s-maxage=86400`. The route and active pointer
 were immediately removed, scoped site/CDN purges succeeded, and the prior
 WordPress 404 route state was restored.
 
+Read-only verification at `2026-07-27T22:04:58Z` reconfirmed that safe state:
+the active MU route and runtime `current` pointer were absent; the isolated SSO
+plugin remained active with its settings present, but
+`storyforge_enabled=false`, founder allowlist and role overrides both had zero
+entries, mentor configuration and access were false, and mentor overrides and
+assignments both had zero entries. Anonymous no-cookie/no-follow checks of
+`/storyforge`, `/storyforge/`, `/storyforge/healthz`, `/storyforge/config`, and
+`/storyforge/library` all returned 404 with Cloudflare `DYNAMIC`,
+private/no-store policy, and Kinsta `EXPIRED` or `MISS`. No mutation occurred
+during this verification.
+
 Founder enablement therefore remains unauthorized pending all of:
 
 - Kinsta Support applying a server/full-page cache bypass and corresponding
@@ -135,7 +150,18 @@ Founder enablement therefore remains unauthorized pending all of:
 
 ## Protected runtime provenance
 
-The live protected assets matched the active Matrix lock before B1-502M:
+The canonical delegated Matrix lock is:
+
+`/Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json`
+
+It was last updated at `2026-07-15T11:43:51.670Z`. The similarly named lock
+copy inside this B1-502 worktree is older infrastructure metadata dated
+`2026-06-23T18:30:57Z`; it is not the canonical live-lock source.
+
+Live filesystem, public cache-busted response where applicable, private backup
+extraction, and the canonical lock were first triangulated at
+`2026-07-27T18:06:40Z`. The live protected hashes were reverified read-only at
+`2026-07-27T22:04:58Z`:
 
 | Asset | SHA-256 |
 |---|---|
@@ -144,7 +170,8 @@ The live protected assets matched the active Matrix lock before B1-502M:
 | Matrix PHP | `5ed6e92eb9bf748a01f475bc5a6a72e249e21a2b7560d07d2acf66f8058e8d95` |
 | Matrix shell | `c1d97237eab4936d014ec00549deb2358a056d5b8f430fe7713f5dd2ac39e76a` |
 
-B1-502M does not edit those assets.
+All four values match the current canonical delegated lock. B1-502M does not
+edit those assets.
 
 ## Reconciled shared-system pins
 

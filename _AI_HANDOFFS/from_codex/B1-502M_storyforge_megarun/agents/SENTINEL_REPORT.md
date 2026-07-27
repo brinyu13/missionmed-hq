@@ -995,3 +995,40 @@ Subject to these exact conditions, Sentinel approves the bounded feature-off
 Stage A plan. Sentinel does not approve founder enablement by role, by a
 non-unique identity match, before effective cache checks, or before the
 matching WordPress/UUID/database binding is proven.
+
+## Supervisor-validated closeout — 2026-07-27T22:10:13Z
+
+The feature-off candidate advanced through an exact production retry at pushed
+commit `4bd956b6ea222d20428c41415236a73b93576447`. Application cache controls
+kept Cloudflare at `DYNAMIC`; repeated probes nevertheless became
+`X-Kinsta-Cache: HIT` and Kinsta replaced the required response policy with
+`public, max-age=0, s-maxage=86400`. This proves a managed Kinsta
+server/full-page cache boundary rather than an unresolved application-code
+cache defect.
+
+Fail-safe rollback executed correctly. The active StoryForge MU route and
+runtime `current` pointer are absent, `/storyforge*` is back at the prior
+WordPress 404 state, the feature flag is false, the allowlist and role
+overrides are empty, and the enabled founder cohort is zero. The protected
+Matrix and legacy StoryForge assets remain exact against the canonical active
+lock at
+`/Users/brianb/MissionMed/_SYSTEM/KNOWN_GOOD/MATRIX_RUNTIME_LOCK_MANIFEST.json`;
+the delegated lock copy in this target worktree is stale and non-authoritative.
+The isolated Railway API and PostgreSQL service remain healthy and fail closed
+without valid authorized identity.
+
+Sentinel therefore records:
+
+- safe rolled-back production state: **PASS**;
+- protected-runtime integrity: **PASS**;
+- isolated database/API health and authorization boundary: **PASS**;
+- founder production enablement: **NO-GO** pending a Kinsta server/full-page
+  and corresponding edge-cache exclusion for paths beginning exactly with
+  `/storyforge`;
+- founder production acceptance: **NO-GO** pending a fresh authenticated
+  founder binding and explicit Founder acceptance of the same-UID hosting
+  residual, or provider-enforced different-principal isolation.
+
+No cohort expansion is authorized. A later retry must begin feature-off and
+repeat the full cache, authorization, integrity, shared-system, and
+authenticated founder-journey gates before enablement.

@@ -510,3 +510,36 @@ the founder identity.
 
 After these local corrections pass and the real provider targets plus restore
 points are pinned, Sentinel can evaluate a concrete feature-off mutation packet.
+
+## Supervisor-validated closeout — 2026-07-27T22:10:13Z
+
+The narrow security and authorization repairs described above are now present
+in the exact pushed candidate. The isolated Railway API and PostgreSQL service
+are healthy, the real PostgreSQL authorization suite passes, and the deployed
+boundary rejects access without a valid authorized identity. Production
+remains feature-off with an empty allowlist, empty role overrides, zero founder
+cohort, zero mentor cohort, and no production fixture identity.
+
+The `4bd956b6ea222d20428c41415236a73b93576447` cache repair correctly kept
+Cloudflare `DYNAMIC`, but repeated requests were stored by Kinsta's managed
+server/full-page cache and returned `X-Kinsta-Cache: HIT` with a rewritten
+public cache policy. The active route and runtime `current` pointer were
+removed immediately, scoped purges completed, and the prior 404 state was
+restored. The protected Matrix and legacy StoryForge hashes remain exact
+against the canonical lock under `/Users/brianb/MissionMed`; the delegated
+copy in this worktree is stale and non-authoritative.
+
+This is a secure rolled-back state. It does not authorize founder access.
+Founder production acceptance remains pending:
+
+1. a provider-applied server/full-page and corresponding edge-cache exclusion
+   for paths beginning exactly with `/storyforge`;
+2. a fresh founder-authenticated WordPress-to-UUID binding; and
+3. explicit Founder acceptance of Kinsta PHP-FPM and the authorized deployment
+   session sharing the same Unix owner for this exact one-founder pilot, or
+   provider-enforced different-principal isolation.
+
+File modes and per-request integrity checks remain defense in depth; they are
+not same-principal compromise isolation. No student, mentor, other
+administrator, or anonymous enablement is approved while these gates remain
+open.
