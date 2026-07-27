@@ -17,13 +17,43 @@ function boundedInteger(name, fallback, min, max) {
   return Number.isInteger(value) && value >= min && value <= max ? value : fallback;
 }
 
+function normalizedBasePath(value) {
+  const clean = String(value || '/').trim().replace(/^\/+|\/+$/g, '');
+  return clean ? `/${clean}/` : '/';
+}
+
+function originOf(value) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return '';
+  }
+}
+
+function csv(name, fallback = '') {
+  return [...new Set(text(name, fallback).split(',').map((value) => originOf(value.trim())).filter(Boolean))];
+}
+
+const staticDirSetting = text('STORYFORGE_STATIC_DIR', 'public');
+const staticDir = path.resolve(packageDir, staticDirSetting);
+const publicOrigin = text('STORYFORGE_PUBLIC_ORIGIN', 'http://127.0.0.1:4180');
+
 export const config = Object.freeze({
   packageDir,
-  publicDir: path.join(packageDir, 'public'),
+  publicDir: staticDir,
   port: boundedInteger('STORYFORGE_PORT', 4180, 1, 65535),
   host: text('STORYFORGE_HOST', flag('STORYFORGE_DEV_AUTH') ? '127.0.0.1' : '0.0.0.0'),
   databaseUrl: text('STORYFORGE_DATABASE_URL'),
-  publicOrigin: text('STORYFORGE_PUBLIC_ORIGIN', 'http://127.0.0.1:4180'),
+  publicOrigin,
+  basePath: normalizedBasePath(text('STORYFORGE_BASE_PATH', flag('STORYFORGE_DEV_AUTH') ? '/' : '/storyforge/')),
+  matrixBaseUrl: text('STORYFORGE_MATRIX_BASE_URL', `${originOf(publicOrigin)}/member-dashboard/`),
+  wpBootstrapPath: text(
+    'STORYFORGE_WP_BOOTSTRAP_PATH',
+    '/wp-admin/admin-ajax.php?action=missionmed_storyforge_bootstrap',
+  ),
+  wpTokenPath: text('STORYFORGE_WP_TOKEN_PATH', '/wp-json/missionmed/v1/storyforge/token'),
+  allowedOrigins: Object.freeze(csv('STORYFORGE_ALLOWED_ORIGINS', originOf(publicOrigin))),
+  tokenRefreshSkewSeconds: boundedInteger('STORYFORGE_TOKEN_REFRESH_SKEW_SECONDS', 15, 1, 120),
   jwtIssuer: text('STORYFORGE_JWT_ISSUER'),
   jwtAudience: text('STORYFORGE_JWT_AUDIENCE', 'storyforge'),
   jwksUrl: text('STORYFORGE_JWKS_URL'),
@@ -48,6 +78,9 @@ export const config = Object.freeze({
 
 export function validateConfig() {
   const errors = [];
+  if (!config.publicDir.startsWith(`${config.packageDir}${path.sep}`)) {
+    errors.push('STORYFORGE_STATIC_DIR must stay inside the StoryForge package');
+  }
   if (!config.databaseUrl) errors.push('STORYFORGE_DATABASE_URL is required');
   if (!config.devAuth && !config.jwksUrl && !config.jwtSecret) {
     errors.push('production auth requires STORYFORGE_JWKS_URL or STORYFORGE_JWT_SECRET');
@@ -56,6 +89,11 @@ export function validateConfig() {
     errors.push('STORYFORGE_DEV_JWT_SECRET must contain at least 24 characters');
   }
   if (!config.jwtIssuer) errors.push('STORYFORGE_JWT_ISSUER is required');
+  if (!originOf(config.publicOrigin)) errors.push('STORYFORGE_PUBLIC_ORIGIN must be an absolute URL');
+  if (!originOf(config.matrixBaseUrl)) errors.push('STORYFORGE_MATRIX_BASE_URL must be an absolute URL');
+  if (!config.devAuth && config.allowedOrigins.length === 0) {
+    errors.push('STORYFORGE_ALLOWED_ORIGINS must pin at least one Matrix origin');
+  }
   if (config.devAuth && config.host !== '127.0.0.1') {
     errors.push('local fixture auth must bind STORYFORGE_HOST to 127.0.0.1');
   }

@@ -18,6 +18,7 @@ const mimeTypes = new Map([
 ]);
 
 function setSecurityHeaders(response) {
+  const matrixOrigin = new URL(config.matrixBaseUrl).origin;
   response.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self'",
@@ -26,8 +27,8 @@ function setSecurityHeaders(response) {
     "media-src 'self' blob:",
     "connect-src 'self'",
     "font-src 'self'",
-    "frame-ancestors 'self' https://missionmedinstitute.com",
-    "base-uri 'none'",
+    `frame-ancestors 'self' ${matrixOrigin}`,
+    "base-uri 'self'",
     "form-action 'self'",
   ].join('; '));
   response.setHeader('Referrer-Policy', 'no-referrer');
@@ -35,6 +36,26 @@ function setSecurityHeaders(response) {
   response.setHeader('X-Frame-Options', 'SAMEORIGIN');
   response.setHeader('Permissions-Policy', 'camera=(), geolocation=(), microphone=(self)');
   response.setHeader('Cache-Control', 'no-store');
+}
+
+function enforceAllowedOrigin(request, response) {
+  const origin = String(request.headers.origin || '').trim();
+  if (!origin) return;
+  let normalized = '';
+  try {
+    normalized = new URL(origin).origin;
+  } catch {
+    normalized = '';
+  }
+  if (!normalized || !config.allowedOrigins.includes(normalized)) {
+    const error = new Error('This origin is not allowed to call StoryForge.');
+    error.code = 'origin_not_allowed';
+    throw error;
+  }
+  response.setHeader('Access-Control-Allow-Origin', normalized);
+  response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  response.setHeader('Vary', 'Origin');
 }
 
 function sendJson(response, status, payload) {
@@ -65,6 +86,7 @@ function publicError(error) {
     'invalid_subject_claim',
     'dev_auth_unavailable',
     'ai_feature_gated',
+    'origin_not_allowed',
   ]);
   const inputCodes = new Set([
     'invalid_identifier',
@@ -146,6 +168,11 @@ async function api(request, response, url) {
       audioAvailable: isAudioConfigured(),
       ai: config.flags,
       identityMode: config.devAuth ? 'local-signed-fixture' : 'missionmed-signed-jwt',
+      basePath: config.basePath,
+      matrixBaseUrl: config.matrixBaseUrl,
+      wpBootstrapPath: config.wpBootstrapPath,
+      wpTokenPath: config.wpTokenPath,
+      tokenRefreshSkewSeconds: config.tokenRefreshSkewSeconds,
     });
   }
 
@@ -569,6 +596,13 @@ async function serveStatic(response, url) {
     response.statusCode = 200;
     response.setHeader('Content-Type', mimeTypes.get(path.extname(filePath)) || 'application/octet-stream');
     response.setHeader('Content-Length', data.length);
+    if (path.basename(filePath) === 'index.html') {
+      response.setHeader('Cache-Control', 'no-store, max-age=0');
+    } else if (/\/assets\/[^/]+\.[a-f0-9]{12}\.(?:css|js|svg|png|woff2?)$/i.test(filePath)) {
+      response.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    } else {
+      response.setHeader('Cache-Control', 'no-cache');
+    }
     response.end(data);
     return true;
   } catch {
@@ -577,6 +611,7 @@ async function serveStatic(response, url) {
       response.statusCode = 200;
       response.setHeader('Content-Type', 'text/html; charset=utf-8');
       response.setHeader('Content-Length', data.length);
+      response.setHeader('Cache-Control', 'no-store, max-age=0');
       response.end(data);
       return true;
     }
@@ -598,6 +633,12 @@ export function createAppServer() {
         });
       }
       if (url.pathname.startsWith('/api/')) {
+        enforceAllowedOrigin(request, response);
+        if (request.method === 'OPTIONS') {
+          response.statusCode = 204;
+          response.end();
+          return;
+        }
         return await api(request, response, url);
       }
       if (request.method === 'GET' && await serveStatic(response, url)) return;

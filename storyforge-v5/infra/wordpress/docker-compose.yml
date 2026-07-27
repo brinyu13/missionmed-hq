@@ -1,0 +1,63 @@
+name: b1_501_storyforge_integration
+
+services:
+  db:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: wordpress-local-only
+      MARIADB_ROOT_PASSWORD: root-local-only
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - wordpress_db:/var/lib/mysql
+
+  wordpress:
+    image: wordpress:6.8.2-php8.3-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18081:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress-local-only
+      WORDPRESS_DB_NAME: wordpress
+      WORDPRESS_CONFIG_EXTRA: |
+        if (!empty($$_SERVER['HTTP_X_FORWARDED_HOST'])) {
+          $$_SERVER['HTTP_HOST'] = $$_SERVER['HTTP_X_FORWARDED_HOST'];
+        }
+        define('WP_HOME', 'http://127.0.0.1:4179');
+        define('WP_SITEURL', 'http://127.0.0.1:4179');
+        define('WP_ENVIRONMENT_TYPE', 'local');
+        define('MISSIONMED_STORYFORGE_LOCAL_FIXTURES', true);
+        define('STORYFORGE_JWT_SECRET', 'b1-501-local-wordpress-signing-secret-32-bytes');
+    volumes:
+      - wordpress_files:/var/www/html
+      - ../../../wp-content/plugins/missionmed-storyforge-sso:/var/www/html/wp-content/plugins/missionmed-storyforge-sso:ro
+      - ./.htaccess:/var/www/html/.htaccess:ro
+
+  wpcli:
+    image: wordpress:cli-php8.3
+    depends_on:
+      db:
+        condition: service_healthy
+      wordpress:
+        condition: service_started
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress-local-only
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - wordpress_files:/var/www/html
+      - ../../../wp-content/plugins/missionmed-storyforge-sso:/var/www/html/wp-content/plugins/missionmed-storyforge-sso:ro
+
+volumes:
+  wordpress_db:
+  wordpress_files:

@@ -8,9 +8,12 @@
   },
   "scripts": {
     "start": "node server/app.mjs",
+    "build": "node scripts/build-static.mjs",
+    "scan:secrets": "node scripts/scan-bundle-secrets.mjs",
     "test": "node --test tests/unit/*.test.mjs",
     "test:postgres": "bash scripts/run-postgres-tests.sh",
     "test:e2e": "bash scripts/run-e2e.sh",
+    "test:integration": "bash scripts/run-integration.sh",
     "dev:db": "bash scripts/run-local.sh"
   },
   "dependencies": {
