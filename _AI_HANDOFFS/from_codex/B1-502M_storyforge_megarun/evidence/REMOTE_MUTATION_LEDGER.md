@@ -1,6 +1,6 @@
 # B1-502M Remote Mutation Ledger
 
-Updated: 2026-07-27T20:51:41Z
+Updated: 2026-07-27T21:38:40Z
 
 This ledger records every remote write performed by the B1-502M Supervisor.
 Read-only provider, Git, HTTP, SSH, and browser observations are excluded.
@@ -369,3 +369,119 @@ selected.
 - Cloudflare StoryForge Worker/routes: inert and decommission-pending;
 - general users and mentors: not enabled;
 - pull request: none.
+
+## 16. DR-013 product source commit and push
+
+At 2026-07-27T21:16:20Z, the canonical application remote-tracking reflog
+recorded a normal push of commit
+`62ed421309c236d4b6ac05faca606108c0143592`
+(`B1-502M: harden Kinsta StoryForge runtime delivery`) to
+`b1-502-storyforge-production-deployment`.
+
+Scope: 30 source/evidence files, including the deterministic execution-private
+`release.php`, extensionless non-index alias routing, Kinsta-compatible local
+router parity, expanded unit/integration security coverage, the reconciled
+Critical Systems manifest, and the first-attempt/rollback evidence.
+
+Pinned release metadata:
+
+- exact product source commit:
+  `62ed421309c236d4b6ac05faca606108c0143592`;
+- generated release ID: `v-963b8f5eb4d8c727`;
+- generated `release.php` SHA-256:
+  `845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`;
+- generated `release.php` size: 409,055 bytes.
+
+Outcome: push succeeded normally. No force push, history rewrite, pull request,
+deployment, Kinsta mutation, Railway mutation, Cloudflare mutation, database
+mutation, feature enablement, or founder enablement occurred as part of this
+source push.
+
+This receipt supersedes section 15 only for source-revision status. Production
+remains predeployment:
+
+- the Kinsta MU route file is not active;
+- the Kinsta execution-private runtime `current` pointer is absent;
+- live `/storyforge*` remains the restored prior WordPress 404;
+- WordPress SSO remains installed with feature false, empty allowlist, and empty
+  role overrides;
+- the sibling `94504372...` release remains immutable evidence only;
+- the fresh Sentinel decision authorizes guarded commit/push and feature-off
+  gates only, not founder enablement;
+- general users and mentors remain disabled.
+
+Rollback reference: parent
+`94504372c710372ea121a0b62ad7094e893e026b`. This reference is source history,
+not an instruction to restore the failed sibling-runtime mechanism.
+
+## 17. DR-013 feature-off install, cache-gate failure, and physical rollback
+
+At 2026-07-27T21:23:59Z, exact pushed product commit
+`62ed421309c236d4b6ac05faca606108c0143592` was installed feature-off on the
+pinned Kinsta site. The selected runtime topology was:
+
+- route:
+  `public/wp-content/mu-plugins/missionmed-storyforge-route.php`;
+- release:
+  `public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases/62ed421309c236d4b6ac05faca606108c0143592/release.php`;
+- atomic pointer target:
+  `releases/62ed421309c236d4b6ac05faca606108c0143592`;
+- route SHA-256:
+  `78cecf86bbcffe6c30a7eefd43fbe15f5c7e01247f550397ccf14cae3084c432`;
+- route size: 29,548 bytes;
+- bundle SHA-256:
+  `845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`;
+- bundle size: 409,055 bytes.
+
+The route and bundle were hardened to mode `0444`; the runtime, releases, and
+selected-release directories were hardened to `0555`. Exactly one root
+StoryForge route PHP file and one nested release PHP file existed. The sibling
+`94504372...` evidence release was not changed or selected. Cache invalidation
+used only Kinsta's separate site-cache and CDN-cache purge methods.
+
+Feature-off validation passed the route, bundle, alias, direct-execution,
+raw-path, shared-health, SSO-denial, and protected-hash checks. It then found a
+hard cache defect: after an initial origin response, Kinsta edge storage
+returned HTML, health, configuration, and every approved alias as a cache hit
+and replaced the manifest response policy with
+`public, max-age=0, s-maxage=86400`. No founder or other account was enabled;
+the protected API remained denied while the feature was off.
+
+The owner/mode receipt also established a managed-hosting residual: PHP-FPM
+and the deployment account share the same site owner. `0444`/`0555` prevents
+ordinary writes, but the owner can in principle change modes or unlink entries
+from an owner-writable parent. This remains a founder-enable gate pending an
+explicit authority ruling or provider-enforced ownership.
+
+At 2026-07-27T21:37:13Z, the Supervisor physically moved the exact route and
+`current` pointer into the scoped private rollback directory. The exact release
+directory remained dormant and byte-identical. Separate site-cache and
+CDN-cache purge calls each returned HTTP 200. After provider propagation,
+independent anonymous probes returned the prior WordPress 404 for:
+
+- `/storyforge`;
+- `/storyforge/`;
+- `/storyforge/healthz`.
+
+Shared root, anonymous Matrix login handoff, and WordPress REST remained
+healthy. All four protected Matrix/legacy StoryForge hashes remained exact.
+The feature flag remained false; allowlist and role overrides remained empty;
+general users and mentors remained disabled.
+
+Outcome: `ROLLED_BACK — SAFE PRODUCTION ROUTE ABSENCE RESTORED`.
+
+A smallest local repair now marks all StoryForge responses ineligible for
+Kinsta/Cloudflare edge storage while preserving the browser-facing
+manifest cache class. It changes only the gateway and focused integration
+assertions. Validation currently passes:
+
+- unit: 27/27;
+- WordPress integration: 7/7;
+- browser E2E: 7/7;
+- PostgreSQL authorization: `STORYFORGE_POSTGRES_SUITE_PASS`;
+- secret scan and npm audit: clean;
+- PHP lint and deterministic route-manifest check: pass.
+
+The cache repair is local and uncommitted at this ledger update. It has not
+been redeployed. Rollback reference remains the verified route-absent state
+above.

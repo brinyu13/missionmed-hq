@@ -1,12 +1,12 @@
 
 Running 7 tests using 1 worker
 
-  ✓  1 tests/integration/storyforge-sso.spec.mjs:27:1 › anonymous login returns to the exact mounted deep link and obtains a real WP-backed session (1.3s)
-  ✓  2 tests/integration/storyforge-sso.spec.mjs:41:1 › Matrix navigation and dashboard tile are server-gated and StoryForge wins route precedence (2.1s)
-  ✓  3 tests/integration/storyforge-sso.spec.mjs:108:1 › the WordPress gateway is exact, manifest-bound, and fail-closed (126ms)
-  ✓  4 tests/integration/storyforge-sso.spec.mjs:154:1 › founder-only zero-assignment workflow remains private and truthful (1.2s)
-  ✓  5 tests/integration/storyforge-sso.spec.mjs:208:1 › nonce, JWT signature, and allowed-origin checks fail closed (942ms)
-  ✓  6 tests/integration/storyforge-sso.spec.mjs:268:1 › an ended WordPress session locks an already-open app without persisting authority (3.1s)
-  ✓  7 tests/integration/storyforge-sso.spec.mjs:279:1 › eligibility revocation locks the open app before one short token TTL elapses (5.1s)
+  ✓  1 tests/integration/storyforge-sso.spec.mjs:34:1 › anonymous login returns to the exact mounted deep link and obtains a real WP-backed session (1.8s)
+  ✓  2 tests/integration/storyforge-sso.spec.mjs:48:1 › Matrix navigation and dashboard tile are server-gated and StoryForge wins route precedence (2.4s)
+  ✓  3 tests/integration/storyforge-sso.spec.mjs:128:1 › the WordPress gateway is exact, manifest-bound, and fail-closed (3.7s)
+  ✓  4 tests/integration/storyforge-sso.spec.mjs:239:1 › founder-only zero-assignment workflow remains private and truthful (1.5s)
+  ✓  5 tests/integration/storyforge-sso.spec.mjs:293:1 › nonce, JWT signature, and allowed-origin checks fail closed (1.0s)
+  ✓  6 tests/integration/storyforge-sso.spec.mjs:353:1 › an ended WordPress session locks an already-open app without persisting authority (3.8s)
+  ✓  7 tests/integration/storyforge-sso.spec.mjs:364:1 › eligibility revocation locks the open app before one short token TTL elapses (5.4s)
 
-  7 passed (15.1s)
+  7 passed (21.4s)

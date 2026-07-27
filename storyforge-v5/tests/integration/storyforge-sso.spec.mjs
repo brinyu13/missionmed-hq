@@ -70,6 +70,10 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
   const appHtml = await appRoute.text();
   expect(appHtml).toContain('<title>StoryForge · MissionMed</title>');
   expect(appRoute.headers()['cache-control']).toContain('no-store');
+  expect(appRoute.headers()['surrogate-control']).toBe('no-store');
+  expect(appRoute.headers()['cdn-cache-control']).toBe('no-store');
+  expect(appRoute.headers()['cloudflare-cdn-cache-control']).toBe('no-store');
+  expect(appRoute.headers()['x-accel-expires']).toBe('0');
   expect(appRoute.headers()['content-security-policy']).toContain("object-src 'none'");
   expect(appRoute.headers()['x-robots-tag']).toContain('noindex');
 
@@ -80,6 +84,7 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
   const apiConfig = await request.get('/storyforge/api/config');
   expect(apiConfig.status()).toBe(200);
   expect(apiConfig.headers()['cache-control']).toBe('no-store, private');
+  expect(apiConfig.headers()['cdn-cache-control']).toBe('no-store');
 
   const wpRoute = await request.get('/member-dashboard/');
   expect(wpRoute.status()).toBe(200);
@@ -92,6 +97,7 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
   const asset = await request.get(`/storyforge/_asset/${appAlias}`);
   expect(asset.status()).toBe(200);
   expect(asset.headers()['cache-control']).toContain('immutable');
+  expect(asset.headers()['cdn-cache-control']).toBe('no-store');
   const assetBytes = await asset.body();
   expect(createHash('sha256').update(assetBytes).digest('hex').slice(0, 12)).toBe(appAlias);
 
@@ -123,6 +129,10 @@ test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({
   const health = await request.get('/storyforge/healthz');
   expect(health.status()).toBe(200);
   expect(health.headers()['cache-control']).toBe('no-store, private');
+  expect(health.headers()['surrogate-control']).toBe('no-store');
+  expect(health.headers()['cdn-cache-control']).toBe('no-store');
+  expect(health.headers()['cloudflare-cdn-cache-control']).toBe('no-store');
+  expect(health.headers()['x-accel-expires']).toBe('0');
   expect(health.headers()['x-storyforge-route']).toBe('wordpress-gateway');
   expect(await health.json()).toEqual({ ok: true, service: 'storyforge-v5' });
 
@@ -157,6 +167,10 @@ test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({
         ? 'public, max-age=31536000, immutable'
         : 'no-cache',
     );
+    expect(aliased.headers()['surrogate-control'], entry.path).toBe('no-store');
+    expect(aliased.headers()['cdn-cache-control'], entry.path).toBe('no-store');
+    expect(aliased.headers()['cloudflare-cdn-cache-control'], entry.path).toBe('no-store');
+    expect(aliased.headers()['x-accel-expires'], entry.path).toBe('0');
 
     const raw = await request.get(`/storyforge/${entry.path}`);
     expect(raw.status(), entry.path).toBe(404);

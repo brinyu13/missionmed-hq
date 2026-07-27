@@ -27,6 +27,10 @@ behavior only; they may not determine V5 presentation or workflow.
 - pushed first Kinsta MU gateway commit:
   `94504372c710372ea121a0b62ad7094e893e026b`;
 - DR-013 execution-private bundle repair commit:
+  `62ed421309c236d4b6ac05faca606108c0143592`, pushed normally at
+  `2026-07-27T21:16:20Z`; its feature-off Kinsta attempt was physically
+  rolled back after the live cache gate failed;
+- Kinsta edge-storage response-header repair:
   **PENDING exact guarded source commit and normal push**;
 - repository remote:
   `https://github.com/brinyu13/missionmed-hq.git`.

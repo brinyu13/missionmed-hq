@@ -218,6 +218,24 @@ function mmsfr_set_cache_guard() {
 	if ( ! defined( 'DONOTCACHEPAGE' ) ) {
 		define( 'DONOTCACHEPAGE', true );
 	}
+	if ( ! defined( 'DONOTCDN' ) ) {
+		define( 'DONOTCDN', true );
+	}
+}
+
+/**
+ * Mark a response as ineligible for every provider cache layer.
+ *
+ * Kinsta's edge cache can evaluate a response independently of WordPress page
+ * caching, so dynamic StoryForge responses require both runtime constants and
+ * explicit surrogate/CDN response policy. Fingerprinted assets do not call
+ * this guard and retain their manifest-approved cache class.
+ */
+function mmsfr_set_no_store_guard() {
+	mmsfr_set_cache_guard();
+	if ( ! defined( 'DONOTCACHEOBJECT' ) ) {
+		define( 'DONOTCACHEOBJECT', true );
+	}
 }
 
 if ( mmsfr_is_target_path( mmsfr_request_path() ) && mmsfr_is_canonical_host() ) {
@@ -246,6 +264,11 @@ function mmsfr_send_security_headers( $cache_control, $private = false ) {
 		return;
 	}
 
+	$no_store = str_contains( strtolower( $cache_control ), 'no-store' );
+	if ( $no_store ) {
+		mmsfr_set_no_store_guard();
+	}
+
 	header_remove( 'Location' );
 	header_remove( 'Set-Cookie' );
 	header_remove( 'Access-Control-Allow-Origin' );
@@ -253,6 +276,13 @@ function mmsfr_send_security_headers( $cache_control, $private = false ) {
 	header_remove( 'Content-Encoding' );
 	header_remove( 'Transfer-Encoding' );
 	header( 'Cache-Control: ' . $cache_control, true );
+	header( 'Surrogate-Control: no-store', true );
+	header( 'CDN-Cache-Control: no-store', true );
+	header( 'Cloudflare-CDN-Cache-Control: no-store', true );
+	header( 'X-Accel-Expires: 0', true );
+	if ( $no_store ) {
+		header( 'Vary: Cookie, Authorization', true );
+	}
 	if ( $private ) {
 		header( 'Pragma: no-cache', true );
 	} else {
