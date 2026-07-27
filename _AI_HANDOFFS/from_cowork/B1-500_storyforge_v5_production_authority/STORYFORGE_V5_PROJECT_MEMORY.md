@@ -1,0 +1,21 @@
+# STORYFORGE_V5_PROJECT_MEMORY
+B1-500 · One lesson per note. For downstream agents: read before assuming. Append via the same one-note format; after repository discovery, mirror these into the repo's memory mechanism (AGENTS.md section or the repo's established notes convention) — Codex decides the exact location in Phase 0 and records it here.
+
+1. **Canonical authority is `storyforge-v5.html` only.** Three older documents each call an older artifact "canonical" — all revoked. Never open `storyforge.html` or `storyforge-v2.html` to answer a product question.
+2. **The canonical file contains dead code.** Later script blocks override earlier ones at load (dead v2 `renderPrep` ~line 1381 vs live ~line 2642; old `rowHTML`/`renderQuick`/`renderSettings`/`persist`). Executed behavior is canon; diff-reading the file without running it has already misled one audit.
+3. **Opening ≠ reviewing.** First mentor open stamps `firstOpened` and logs an event but never changes status. This was deliberately engineered and re-verified twice; do not "optimize" it away.
+4. **`feedbackSent` is stamped only by real comments.** An earlier build stamped it on every status change — that was identified as a trust-breaking bug and removed. Do not reintroduce.
+5. **Notification coalescing preserves status wording** and appends "New feedback is attached." An earlier "keep newest text" rule swallowed status changes and was corrected.
+6. **Quick Look/Quick Review is a centered modal, not a right drawer** (founder-tested correction in V5). The only right-side drawer is Assign Interview Questions — the founder specifically values that pattern there.
+7. **Scores are stoplight dots with S/M keys, numeral, and aria text** — "My rating: 4/5" text as the primary display was rejected in founder testing. In Mentor View the student's rating is labeled "Self", never "My rating" (perspective bug fixed in v2 review).
+8. **Question strength belongs to the story–question pair**, never the story alone; student and mentor strengths are separate columns; student mappings are proposals until mentor-confirmed.
+9. **The pair also owns `why` and `fups`;** the student owns `qpref` (preferred answer per question) and receives `qcoach` notes. These arrived in V5 and are missing from older schema sketches.
+10. **Anonymized Teaching Mode labels are "Story A/B", not "Student A/B"** — two stories from the same student made "Student A/B" factually wrong. Toasts are suppressed while teaching (projected screens).
+11. **The environment canvas needs explicit `width:100%;height:100%`** — `position:fixed;inset:0` alone leaves a canvas at intrinsic 300×150 and the entire flagship background system invisibly broken. This shipped broken once and was caught by a fresh-context verifier.
+12. **Italics are reserved** for quotations, the full-story title, and hero headings. Production must not carry the prototype's neutralized `<em>` markup.
+13. **Mentor writes to student-owned fields are suggestions, never edits** (uses, proposed mappings). An early build let mentors toggle student fields silently — treated as a trust violation and reversed.
+14. **Client authority is the enemy.** Every "security" behavior in the prototype is render-time filtering, bypassable from the console. RLS + server RPCs are the real product; the UI only renders authority.
+15. **Rejected approaches:** metaphorical vocabulary (Spark/Forged/Desk/embers) — founder-rejected for plain language; attention-weighted mentor queues — replaced by state-derived buckets; per-story global strength for interview fit — replaced by pair scores; localStorage as persistence — demo-only.
+16. **"Codex 5.6 Sol Ultra" = model `gpt-5.6-sol` + Ultra reasoning mode** (four parallel agents; usage-intensive). `xhigh` is the confirmed effort literal; exact TOML for max/ultra unconfirmed as of July 2026 — set in-session and record.
+17. **Prototype localStorage keys (`storyforge-proto3`, `storyforge-v2`, `storyforge-v5`, `storyforge-bg`) are demo state.** No production migration reads them.
+18. **Clinical AI is not generic AI with a red border.** The interface promises a specialized medically-aware layer; shipping a generic model behind the clinical label violates Invariant 16. Manual mentor workflow is the approved GA path.

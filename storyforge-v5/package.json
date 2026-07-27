@@ -1,0 +1,28 @@
+{
+  "name": "@missionmed/storyforge-v5",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/app.mjs",
+    "test": "node --test tests/unit/*.test.mjs",
+    "test:postgres": "bash scripts/run-postgres-tests.sh",
+    "test:e2e": "bash scripts/run-e2e.sh",
+    "dev:db": "bash scripts/run-local.sh"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.864.0",
+    "@aws-sdk/s3-request-presigner": "^3.864.0",
+    "jose": "^6.0.12",
+    "pg": "^8.16.3",
+    "read-excel-file": "^9.3.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0",
+    "axe-core": "^4.10.3",
+    "fflate": "^0.8.2"
+  }
+}
