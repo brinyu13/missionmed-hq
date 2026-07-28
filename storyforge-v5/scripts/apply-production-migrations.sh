@@ -1,78 +1,151 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+umask 077
+
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+REPOSITORY_DIR="$(cd "$PACKAGE_DIR/.." && pwd)"
 EXPECTED_PROJECT_ID="875e7c17-d06f-4301-a4bb-e61016f153cf"
+EXPECTED_ENVIRONMENT_ID="bcef8734-e42b-44df-8488-c2a3de68213f"
 EXPECTED_DATABASE_SERVICE_ID="a4a66362-c3ba-475a-ae21-2aa46624bafe"
 
-: "${STORYFORGE_RAILWAY_PROJECT_ID:?STORYFORGE_RAILWAY_PROJECT_ID is required}"
-: "${STORYFORGE_RAILWAY_DATABASE_SERVICE_ID:?STORYFORGE_RAILWAY_DATABASE_SERVICE_ID is required}"
-: "${STORYFORGE_DB_BACKUP_ID:?STORYFORGE_DB_BACKUP_ID is required}"
-: "${STORYFORGE_DEPLOY_GIT_COMMIT:?STORYFORGE_DEPLOY_GIT_COMMIT is required}"
-: "${STORYFORGE_APP_DB_PASSWORD:?STORYFORGE_APP_DB_PASSWORD is required}"
-: "${PGHOST:?PGHOST is required}"
-: "${PGPORT:?PGPORT is required}"
-: "${PGUSER:?PGUSER is required}"
-: "${PGPASSWORD:?PGPASSWORD is required}"
-: "${PGDATABASE:?PGDATABASE is required}"
+usage() {
+  cat >&2 <<'EOF'
+Usage:
+  apply-production-migrations.sh preflight|apply
 
-if [[ "$STORYFORGE_RAILWAY_PROJECT_ID" != "$EXPECTED_PROJECT_ID" ]]; then
-  echo "Refusing migration: Railway project ID does not match B1-503 / DR-014 authority." >&2
+`preflight` performs only local/source/backup/target/ledger reads.
+`apply` additionally requires:
+  STORYFORGE_MIGRATION_CONFIRM=B1-503-APPLY-TWO-MIGRATIONS
+
+The environment contract is documented in:
+  _AI_HANDOFFS/from_codex/B1-503_evidence/B1-503_CUTOVER_ROLLBACK_PACKET.md
+EOF
+  exit 2
+}
+
+fail() {
+  printf 'Refusing B1-503 migration: %s\n' "$*" >&2
   exit 1
-fi
-if [[ "$STORYFORGE_RAILWAY_DATABASE_SERVICE_ID" != "$EXPECTED_DATABASE_SERVICE_ID" ]]; then
-  echo "Refusing migration: Railway database service ID does not match B1-503 / DR-014 authority." >&2
-  exit 1
-fi
-if [[ ! "$STORYFORGE_DEPLOY_GIT_COMMIT" =~ ^[a-f0-9]{40}$ ]]; then
-  echo "Refusing migration: deploy Git commit must be a full lowercase SHA-1." >&2
-  exit 1
-fi
-if [[ ! "$STORYFORGE_DB_BACKUP_ID" =~ ^[A-Za-z0-9._:-]{1,160}$ ]]; then
-  echo "Refusing migration: backup ID contains unsupported characters." >&2
-  exit 1
-fi
+}
+
+contains_control() {
+  case "$1" in
+    *$'\n'*|*$'\r'*|*$'\t'*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+sha256_stream() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  else
+    shasum -a 256 | awk '{print $1}'
+  fi
+}
+
+require_regular_file() {
+  local label="$1"
+  local path="$2"
+  [[ -f "$path" && ! -L "$path" ]] || fail "$label is not a regular non-symlink file: $path"
+}
+
+[[ $# = 1 ]] || usage
+mode="$1"
+[[ "$mode" = "preflight" || "$mode" = "apply" ]] || usage
+
+required_variables=(
+  STORYFORGE_RAILWAY_PROJECT_ID
+  STORYFORGE_RAILWAY_ENVIRONMENT_ID
+  STORYFORGE_RAILWAY_DATABASE_SERVICE_ID
+  STORYFORGE_DB_BACKUP_ID
+  STORYFORGE_DB_BACKUP_RECEIPT
+  STORYFORGE_DB_BACKUP_RECEIPT_SHA256
+  STORYFORGE_DEPLOY_GIT_COMMIT
+  STORYFORGE_SOURCE_MODE
+  STORYFORGE_APP_DB_PASSWORD
+  STORYFORGE_EXPECTED_PGHOST
+  STORYFORGE_EXPECTED_PGPORT
+  STORYFORGE_EXPECTED_PGUSER
+  STORYFORGE_EXPECTED_PGDATABASE
+  STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER
+  STORYFORGE_EXPECTED_USER_COUNT
+  STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT
+  RAILWAY_PROJECT_ID
+  RAILWAY_ENVIRONMENT_ID
+  RAILWAY_SERVICE_ID
+  PGHOST
+  PGPORT
+  PGUSER
+  PGPASSWORD
+  PGDATABASE
+)
+for variable_name in "${required_variables[@]}"; do
+  [[ -n "${!variable_name:-}" ]] || fail "$variable_name is required"
+  contains_control "${!variable_name}" && fail "$variable_name contains a tab or line break"
+done
+
+[[ "$STORYFORGE_RAILWAY_PROJECT_ID" = "$EXPECTED_PROJECT_ID" ]] \
+  || fail "ticket Railway project ID does not match B1-503 / DR-014 authority"
+[[ "$STORYFORGE_RAILWAY_ENVIRONMENT_ID" = "$EXPECTED_ENVIRONMENT_ID" ]] \
+  || fail "ticket Railway environment ID does not match B1-503 / DR-014 authority"
+[[ "$STORYFORGE_RAILWAY_DATABASE_SERVICE_ID" = "$EXPECTED_DATABASE_SERVICE_ID" ]] \
+  || fail "ticket Railway database service ID does not match B1-503 / DR-014 authority"
+[[ "$RAILWAY_PROJECT_ID" = "$EXPECTED_PROJECT_ID" ]] \
+  || fail "provider-injected RAILWAY_PROJECT_ID does not match the ticket"
+[[ "$RAILWAY_ENVIRONMENT_ID" = "$EXPECTED_ENVIRONMENT_ID" ]] \
+  || fail "provider-injected RAILWAY_ENVIRONMENT_ID does not match the ticket"
+[[ "$RAILWAY_SERVICE_ID" = "$EXPECTED_DATABASE_SERVICE_ID" ]] \
+  || fail "provider-injected RAILWAY_SERVICE_ID does not match the database service"
+
+[[ "$STORYFORGE_DEPLOY_GIT_COMMIT" =~ ^[a-f0-9]{40}$ ]] \
+  || fail "deploy Git commit must be a full lowercase SHA-1"
+[[ "$STORYFORGE_DB_BACKUP_ID" =~ ^[A-Za-z0-9._:-]{1,160}$ ]] \
+  || fail "backup ID contains unsupported characters"
+[[ "$STORYFORGE_DB_BACKUP_RECEIPT_SHA256" =~ ^[a-f0-9]{64}$ ]] \
+  || fail "backup receipt SHA-256 is invalid"
+[[ "$STORYFORGE_EXPECTED_PGPORT" =~ ^[1-9][0-9]{0,4}$ ]] \
+  || fail "expected PostgreSQL port is invalid"
+(( STORYFORGE_EXPECTED_PGPORT <= 65535 )) || fail "expected PostgreSQL port exceeds 65535"
+[[ "$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER" =~ ^[1-9][0-9]{15,24}$ ]] \
+  || fail "expected PostgreSQL system identifier is invalid"
+[[ "$STORYFORGE_EXPECTED_USER_COUNT" =~ ^[0-9]+$ ]] \
+  || fail "expected StoryForge user count is invalid"
+[[ "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" =~ ^[0-9]+$ ]] \
+  || fail "expected active assignment count is invalid"
 if (( ${#STORYFORGE_APP_DB_PASSWORD} < 32 )); then
-  echo "Refusing migration: application database password must be at least 32 characters." >&2
-  exit 1
+  fail "application database password must be at least 32 characters"
 fi
+contains_control "$STORYFORGE_APP_DB_PASSWORD" \
+  && fail "application database password must be a single-line value without tabs"
+
+[[ "$PGHOST" = "$STORYFORGE_EXPECTED_PGHOST" ]] \
+  || fail "PGHOST differs from the explicit target binding"
+[[ "$PGPORT" = "$STORYFORGE_EXPECTED_PGPORT" ]] \
+  || fail "PGPORT differs from the explicit target binding"
+[[ "$PGUSER" = "$STORYFORGE_EXPECTED_PGUSER" ]] \
+  || fail "PGUSER differs from the explicit target binding"
+[[ "$PGDATABASE" = "$STORYFORGE_EXPECTED_PGDATABASE" ]] \
+  || fail "PGDATABASE differs from the explicit target binding"
 
 export PGSSLMODE="${PGSSLMODE:-require}"
+[[ "$PGSSLMODE" = "require" || "$PGSSLMODE" = "verify-full" ]] \
+  || fail "PGSSLMODE must be require or verify-full"
+unset PGHOSTADDR PGSERVICE PGSERVICEFILE
 
-ledger_present="$(psql -v ON_ERROR_STOP=1 -Atqc "
-  SELECT (to_regclass('public.sf_schema_migrations') IS NOT NULL)::int
-")"
-if [[ "$ledger_present" = "1" ]]; then
-  ledger_count="$(psql -v ON_ERROR_STOP=1 -Atqc 'SELECT count(*) FROM public.sf_schema_migrations')"
-else
-  ledger_count="0"
-fi
-storyforge_object_count="$(psql -v ON_ERROR_STOP=1 -Atqc "
-  SELECT
-    (SELECT count(*)
-     FROM pg_class
-     WHERE relnamespace = 'public'::regnamespace
-       AND relname LIKE 'sf_%'
-       AND relname <> 'sf_schema_migrations')
-    +
-    (SELECT count(*)
-     FROM pg_proc
-     WHERE pronamespace = 'public'::regnamespace
-       AND proname LIKE 'sf_%')
-")"
-if [[ "$ledger_count" = "0" && "$storyforge_object_count" != "0" ]]; then
-  echo "Refusing migration: StoryForge objects exist without ledger entries." >&2
-  exit 1
-fi
-storyforge_role_count="$(psql -v ON_ERROR_STOP=1 -Atqc "
-  SELECT count(*)
-  FROM pg_roles
-  WHERE rolname IN ('anon', 'authenticated', 'storyforge_app')
-")"
-if [[ "$ledger_present" = "0" && "$storyforge_role_count" != "0" ]]; then
-  echo "Refusing migration: StoryForge role names exist without the StoryForge migration ledger." >&2
-  exit 1
-fi
+psql_bin="$(command -v psql || true)"
+[[ -n "$psql_bin" && "$psql_bin" = /* && -x "$psql_bin" ]] || fail "psql is unavailable"
+psql_major="$("$psql_bin" --version | sed -E 's/^psql \(PostgreSQL\) ([0-9]+).*/\1/')"
+[[ "$psql_major" = "18" ]] || fail "PostgreSQL 18 psql is required (found major $psql_major)"
+psql_read=("$psql_bin" -X -v ON_ERROR_STOP=1)
 
 migrations=(
   "$PACKAGE_DIR/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql"
@@ -81,52 +154,261 @@ migrations=(
   "$PACKAGE_DIR/infra/postgres/migrations/20260728045100_b1_503_story_domain_conformance.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql"
 )
+expected_versions=(
+  "20260726150000"
+  "20260727170000"
+  "20260727190000"
+  "20260728045100"
+  "20260728045444"
+)
+expected_files=(
+  "20260726150000_b1_500_storyforge_v5_foundation.sql"
+  "20260727170000_b1_502_storyforge_submit_assignment_gate.sql"
+  "20260727190000_b1_502_storyforge_background_preference.sql"
+  "20260728045100_b1_503_story_domain_conformance.sql"
+  "20260728045444_b1_503_interview_mentor_conformance.sql"
+)
+expected_hashes=(
+  "93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f"
+  "95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f"
+  "ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405"
+  "fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68"
+  "5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2"
+)
+
+for ((index = 0; index < ${#migrations[@]}; index++)); do
+  require_regular_file "migration source" "${migrations[$index]}"
+  actual_file="$(basename "${migrations[$index]}")"
+  actual_version="${actual_file%%_*}"
+  actual_hash="$(sha256_file "${migrations[$index]}")"
+  [[ "$actual_file" = "${expected_files[$index]}" ]] \
+    || fail "migration filename differs at index $index"
+  [[ "$actual_version" = "${expected_versions[$index]}" ]] \
+    || fail "migration version differs for $actual_file"
+  [[ "$actual_hash" = "${expected_hashes[$index]}" ]] \
+    || fail "migration source checksum differs for $actual_file"
+done
+
+require_regular_file "production bootstrap" "$PACKAGE_DIR/infra/postgres/bootstrap_production.sql"
+require_regular_file "migration runner" "$PACKAGE_DIR/scripts/apply-production-migrations.sh"
+
+source_paths=(
+  "storyforge-v5/scripts/apply-production-migrations.sh"
+  "storyforge-v5/infra/postgres/bootstrap_production.sql"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[0]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[1]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[2]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[3]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[4]}"
+)
+
+case "$STORYFORGE_SOURCE_MODE" in
+  git)
+    git_root="$(git -C "$REPOSITORY_DIR" rev-parse --show-toplevel 2>/dev/null)" \
+      || fail "source mode git requires a repository"
+    [[ "$(realpath "$git_root")" = "$(realpath "$REPOSITORY_DIR")" ]] \
+      || fail "Git repository root is not the StoryForge package parent"
+    actual_head="$(git -C "$git_root" rev-parse HEAD^{commit})"
+    [[ "$actual_head" = "$STORYFORGE_DEPLOY_GIT_COMMIT" ]] \
+      || fail "Git HEAD differs from STORYFORGE_DEPLOY_GIT_COMMIT"
+    [[ -z "$(git -C "$git_root" status --porcelain=v1 --untracked-files=all)" ]] \
+      || fail "Git source is not an exact clean commit"
+    ;;
+  archive)
+    : "${STORYFORGE_SOURCE_ARCHIVE:?STORYFORGE_SOURCE_ARCHIVE is required in archive mode}"
+    : "${STORYFORGE_SOURCE_ARCHIVE_SHA256:?STORYFORGE_SOURCE_ARCHIVE_SHA256 is required in archive mode}"
+    archive_prefix="${STORYFORGE_SOURCE_ARCHIVE_PREFIX:-}"
+    contains_control "$STORYFORGE_SOURCE_ARCHIVE" && fail "source archive path contains control data"
+    contains_control "$archive_prefix" && fail "source archive prefix contains control data"
+    [[ "$STORYFORGE_SOURCE_ARCHIVE" = /* ]] || fail "source archive path must be absolute"
+    [[ "$STORYFORGE_SOURCE_ARCHIVE_SHA256" =~ ^[a-f0-9]{64}$ ]] \
+      || fail "source archive SHA-256 is invalid"
+    [[ "$archive_prefix" =~ ^([A-Za-z0-9._-]+/)*$ ]] \
+      || fail "source archive prefix is unsafe"
+    require_regular_file "Git source archive" "$STORYFORGE_SOURCE_ARCHIVE"
+    [[ "$(sha256_file "$STORYFORGE_SOURCE_ARCHIVE")" = "$STORYFORGE_SOURCE_ARCHIVE_SHA256" ]] \
+      || fail "Git source archive SHA-256 mismatch"
+    archive_commit="$(git get-tar-commit-id < "$STORYFORGE_SOURCE_ARCHIVE" 2>/dev/null)" \
+      || fail "source archive lacks a Git commit identity"
+    [[ "$archive_commit" = "$STORYFORGE_DEPLOY_GIT_COMMIT" ]] \
+      || fail "Git archive commit differs from STORYFORGE_DEPLOY_GIT_COMMIT"
+    for relative in "${source_paths[@]}"; do
+      local_path="$REPOSITORY_DIR/$relative"
+      archive_hash="$(tar -xOf "$STORYFORGE_SOURCE_ARCHIVE" "$archive_prefix$relative" | sha256_stream)" \
+        || fail "required path is missing from the Git source archive: $relative"
+      [[ "$archive_hash" = "$(sha256_file "$local_path")" ]] \
+        || fail "running source differs from the committed archive: $relative"
+    done
+    ;;
+  *)
+    fail "STORYFORGE_SOURCE_MODE must be git or archive"
+    ;;
+esac
+
+require_regular_file "database backup receipt" "$STORYFORGE_DB_BACKUP_RECEIPT"
+[[ "$(sha256_file "$STORYFORGE_DB_BACKUP_RECEIPT")" = "$STORYFORGE_DB_BACKUP_RECEIPT_SHA256" ]] \
+  || fail "database backup receipt SHA-256 mismatch"
+
+backup_format=""
+backup_id=""
+backup_project_id=""
+backup_environment_id=""
+backup_service_id=""
+backup_volume_instance_id=""
+backup_pg_host=""
+backup_pg_port=""
+backup_pg_database=""
+backup_system_identifier=""
+backup_dump_sha256=""
+backup_pg_dump_major=""
+backup_restore_rehearsal=""
+backup_locked=""
+backup_expires_at=""
+backup_created_at=""
+backup_field_count=0
+while IFS=$'\t' read -r key value extra || [[ -n "$key" ]]; do
+  [[ -z "$key" ]] && continue
+  case "$key" in
+    \#*) continue ;;
+  esac
+  [[ -n "$key" && -n "$value" && -z "${extra:-}" ]] || fail "database backup receipt has a malformed row"
+  contains_control "$key" && fail "database backup receipt key contains control data"
+  contains_control "$value" && fail "database backup receipt value contains control data"
+  case "$key" in
+    format) [[ -z "$backup_format" ]] || fail "duplicate backup field: $key"; backup_format="$value" ;;
+    backup_id) [[ -z "$backup_id" ]] || fail "duplicate backup field: $key"; backup_id="$value" ;;
+    project_id) [[ -z "$backup_project_id" ]] || fail "duplicate backup field: $key"; backup_project_id="$value" ;;
+    environment_id) [[ -z "$backup_environment_id" ]] || fail "duplicate backup field: $key"; backup_environment_id="$value" ;;
+    database_service_id) [[ -z "$backup_service_id" ]] || fail "duplicate backup field: $key"; backup_service_id="$value" ;;
+    volume_instance_id) [[ -z "$backup_volume_instance_id" ]] || fail "duplicate backup field: $key"; backup_volume_instance_id="$value" ;;
+    pg_host) [[ -z "$backup_pg_host" ]] || fail "duplicate backup field: $key"; backup_pg_host="$value" ;;
+    pg_port) [[ -z "$backup_pg_port" ]] || fail "duplicate backup field: $key"; backup_pg_port="$value" ;;
+    pg_database) [[ -z "$backup_pg_database" ]] || fail "duplicate backup field: $key"; backup_pg_database="$value" ;;
+    db_system_identifier) [[ -z "$backup_system_identifier" ]] || fail "duplicate backup field: $key"; backup_system_identifier="$value" ;;
+    pg_dump_sha256) [[ -z "$backup_dump_sha256" ]] || fail "duplicate backup field: $key"; backup_dump_sha256="$value" ;;
+    pg_dump_major) [[ -z "$backup_pg_dump_major" ]] || fail "duplicate backup field: $key"; backup_pg_dump_major="$value" ;;
+    restore_rehearsal) [[ -z "$backup_restore_rehearsal" ]] || fail "duplicate backup field: $key"; backup_restore_rehearsal="$value" ;;
+    provider_backup_locked) [[ -z "$backup_locked" ]] || fail "duplicate backup field: $key"; backup_locked="$value" ;;
+    provider_backup_expires_at) [[ -z "$backup_expires_at" ]] || fail "duplicate backup field: $key"; backup_expires_at="$value" ;;
+    provider_backup_created_at) [[ -z "$backup_created_at" ]] || fail "duplicate backup field: $key"; backup_created_at="$value" ;;
+    *) fail "unknown database backup receipt field: $key" ;;
+  esac
+  backup_field_count=$((backup_field_count + 1))
+done < "$STORYFORGE_DB_BACKUP_RECEIPT"
+
+[[ "$backup_field_count" = "16" ]] || fail "database backup receipt must contain exactly 16 fields"
+[[ "$backup_format" = "B1-503-DB-BACKUP-V1" ]] || fail "database backup receipt format is unsupported"
+[[ "$backup_id" = "$STORYFORGE_DB_BACKUP_ID" ]] || fail "backup receipt ID differs from the requested backup"
+[[ "$backup_project_id" = "$EXPECTED_PROJECT_ID" ]] || fail "backup receipt project ID mismatch"
+[[ "$backup_environment_id" = "$EXPECTED_ENVIRONMENT_ID" ]] || fail "backup receipt environment ID mismatch"
+[[ "$backup_service_id" = "$EXPECTED_DATABASE_SERVICE_ID" ]] || fail "backup receipt service ID mismatch"
+[[ "$backup_volume_instance_id" =~ ^[a-f0-9-]{36}$ ]] || fail "backup receipt volume instance ID is invalid"
+[[ "$backup_pg_host" = "$STORYFORGE_EXPECTED_PGHOST" ]] || fail "backup receipt PG host mismatch"
+[[ "$backup_pg_port" = "$STORYFORGE_EXPECTED_PGPORT" ]] || fail "backup receipt PG port mismatch"
+[[ "$backup_pg_database" = "$STORYFORGE_EXPECTED_PGDATABASE" ]] || fail "backup receipt database mismatch"
+[[ "$backup_system_identifier" = "$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER" ]] \
+  || fail "backup receipt system identifier mismatch"
+[[ "$backup_dump_sha256" =~ ^[a-f0-9]{64}$ ]] || fail "backup receipt dump SHA-256 is invalid"
+[[ "$backup_pg_dump_major" = "18" ]] || fail "backup receipt must prove a PostgreSQL 18 dump"
+[[ "$backup_restore_rehearsal" = "PASS" ]] || fail "backup receipt must prove restore rehearsal PASS"
+[[ "$backup_locked" = "true" ]] || fail "Railway provider backup is not recorded as locked"
+[[ "$backup_expires_at" = "null" ]] || fail "Railway provider backup has an expiry"
+[[ "$backup_created_at" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?Z$ ]] \
+  || fail "provider backup creation time is invalid"
+
+target_identity="$(
+  "${psql_read[@]}" -AtF $'\t' -c "
+    SELECT current_database(),
+           current_user,
+           (SELECT system_identifier::text FROM pg_control_system()),
+           COALESCE((SELECT ssl::text FROM pg_stat_ssl WHERE pid = pg_backend_pid()), 'false');
+  "
+)"
+IFS=$'\t' read -r actual_database actual_user actual_system_identifier actual_ssl extra <<< "$target_identity"
+[[ -z "${extra:-}" ]] || fail "database target identity returned unexpected fields"
+[[ "$actual_database" = "$STORYFORGE_EXPECTED_PGDATABASE" ]] || fail "connected database identity mismatch"
+[[ "$actual_user" = "$STORYFORGE_EXPECTED_PGUSER" ]] || fail "connected PostgreSQL user mismatch"
+[[ "$actual_system_identifier" = "$STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER" ]] \
+  || fail "connected PostgreSQL system identifier mismatch"
+[[ "$actual_ssl" = "true" ]] || fail "PostgreSQL session is not using SSL"
+
+expected_pre_ledger="$(
+  printf '%s|%s|%s\n' \
+    "${expected_versions[0]}" "${expected_files[0]}" "${expected_hashes[0]}" \
+    "${expected_versions[1]}" "${expected_files[1]}" "${expected_hashes[1]}" \
+    "${expected_versions[2]}" "${expected_files[2]}" "${expected_hashes[2]}"
+)"
+ledger_present="$("${psql_read[@]}" -Atqc "SELECT (to_regclass('public.sf_schema_migrations') IS NOT NULL)::int")"
+[[ "$ledger_present" = "1" ]] || fail "the exact B1-502 migration ledger is absent"
+actual_pre_ledger="$(
+  "${psql_read[@]}" -AtF '|' -c "
+    SELECT version, file_name, sha256
+    FROM public.sf_schema_migrations
+    ORDER BY version;
+  "
+)"
+[[ "$actual_pre_ledger" = "$expected_pre_ledger" ]] \
+  || fail "pre-migration ledger is not exactly the three known B1-500/B1-502 rows"
+
+pre_counts="$(
+  "${psql_read[@]}" -AtF '|' -c "
+    SELECT
+      (SELECT count(*) FROM public.sf_users),
+      (SELECT count(*) FROM public.sf_mentor_assignments WHERE active);
+  "
+)"
+[[ "$pre_counts" = "$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" ]] \
+  || fail "pre-migration StoryForge user/assignment counts differ from the explicit receipt"
+
 pending_migrations=()
 pending_versions=()
 pending_files=()
 pending_hashes=()
-pending_count=0
-
-for migration in "${migrations[@]}"; do
-  file_name="$(basename "$migration")"
-  version="${file_name%%_*}"
-  sha256="$(shasum -a 256 "$migration" | awk '{print $1}')"
-  existing_sha=""
-  if [[ "$ledger_present" = "1" ]]; then
-    existing_sha="$(
-      psql -v ON_ERROR_STOP=1 -At \
-        --set=version="$version" \
-        <<'SQL'
+for ((index = 0; index < ${#migrations[@]}; index++)); do
+  existing_sha="$(
+    "${psql_read[@]}" -At \
+      --set=version="${expected_versions[$index]}" \
+      <<'SQL'
 SELECT sha256
 FROM public.sf_schema_migrations
 WHERE version = :'version';
 SQL
-    )"
-  fi
-
+  )"
   if [[ -n "$existing_sha" ]]; then
-    if [[ "$existing_sha" != "$sha256" ]]; then
-      echo "Refusing migration: applied checksum differs for $file_name." >&2
-      exit 1
-    fi
-    echo "Migration already verified: $file_name"
+    [[ "$existing_sha" = "${expected_hashes[$index]}" ]] \
+      || fail "applied checksum differs for ${expected_files[$index]}"
     continue
   fi
-
-  pending_migrations+=("$migration")
-  pending_versions+=("$version")
-  pending_files+=("$file_name")
-  pending_hashes+=("$sha256")
-  pending_count=$((pending_count + 1))
+  pending_migrations+=("${migrations[$index]}")
+  pending_versions+=("${expected_versions[$index]}")
+  pending_files+=("${expected_files[$index]}")
+  pending_hashes+=("${expected_hashes[$index]}")
 done
 
+[[ "${#pending_migrations[@]}" = "2" ]] \
+  || fail "the exact prestate must leave exactly two B1-503 migrations pending"
+[[ "${pending_files[0]}" = "${expected_files[3]}" && "${pending_files[1]}" = "${expected_files[4]}" ]] \
+  || fail "pending migration set is not exactly the two B1-503 migrations"
+
+if [[ "$mode" = "preflight" ]]; then
+  printf '%s\n' "B1_503_PRODUCTION_MIGRATION_PREFLIGHT_PASS"
+  printf 'project_id=%s\nenvironment_id=%s\ndatabase_service_id=%s\n' \
+    "$EXPECTED_PROJECT_ID" "$EXPECTED_ENVIRONMENT_ID" "$EXPECTED_DATABASE_SERVICE_ID"
+  printf 'db_system_identifier=%s\npending_migrations=2\n' "$actual_system_identifier"
+  exit 0
+fi
+
+[[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = "B1-503-APPLY-TWO-MIGRATIONS" ]] \
+  || fail "apply mode requires STORYFORGE_MIGRATION_CONFIRM=B1-503-APPLY-TWO-MIGRATIONS"
+
 psql_args=(
+  -X
   -v ON_ERROR_STOP=1
   --single-transaction
   --set=git_commit="$STORYFORGE_DEPLOY_GIT_COMMIT"
   --set=backup_id="$STORYFORGE_DB_BACKUP_ID"
 )
-for ((index = 0; index < pending_count; index++)); do
+for ((index = 0; index < ${#pending_migrations[@]}; index++)); do
   psql_args+=(
     --set="version_${index}=${pending_versions[$index]}"
     --set="file_${index}=${pending_files[$index]}"
@@ -135,12 +417,48 @@ for ((index = 0; index < pending_count; index++)); do
 done
 
 {
+  cat <<'SQL'
+\getenv app_password STORYFORGE_APP_DB_PASSWORD
+SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-503.production-migration', 0));
+DO $b1_503_pre$
+BEGIN
+  IF EXISTS (
+    (SELECT version, file_name, sha256 FROM public.sf_schema_migrations
+     EXCEPT
+     VALUES
+       ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
+       ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
+       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'))
+  ) OR EXISTS (
+    (VALUES
+       ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
+       ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
+       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405')
+     EXCEPT
+     SELECT version, file_name, sha256 FROM public.sf_schema_migrations)
+  ) THEN
+    RAISE EXCEPTION 'B1-503 ledger changed after preflight';
+  END IF;
+END
+$b1_503_pre$;
+SQL
+  cat <<SQL
+DO \$b1_503_counts\$
+BEGIN
+  IF (SELECT count(*) FROM public.sf_users) <> $STORYFORGE_EXPECTED_USER_COUNT
+     OR (SELECT count(*) FROM public.sf_mentor_assignments WHERE active)
+        <> $STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT THEN
+    RAISE EXCEPTION 'B1-503 data counts changed after preflight';
+  END IF;
+END
+\$b1_503_counts\$;
+SQL
   sed -E \
     -e '/^[[:space:]]*\\set[[:space:]]+ON_ERROR_STOP[[:space:]]+on[[:space:]]*$/d' \
     -e '/^[[:space:]]*BEGIN;[[:space:]]*$/d' \
     -e '/^[[:space:]]*COMMIT;[[:space:]]*$/d' \
     "$PACKAGE_DIR/infra/postgres/bootstrap_production.sql"
-  for ((index = 0; index < pending_count; index++)); do
+  for ((index = 0; index < ${#pending_migrations[@]}; index++)); do
     sed -E \
       -e '/^[[:space:]]*\\set[[:space:]]+ON_ERROR_STOP[[:space:]]+on[[:space:]]*$/d' \
       -e '/^[[:space:]]*BEGIN;[[:space:]]*$/d' \
@@ -152,27 +470,83 @@ done
       'VALUES' \
       "  (:'version_${index}', :'file_${index}', :'sha_${index}', :'git_commit', :'backup_id');"
   done
-} | psql "${psql_args[@]}"
+  cat <<'SQL'
+SET LOCAL password_encryption = 'scram-sha-256';
+ALTER ROLE storyforge_app PASSWORD :'app_password';
+ALTER ROLE storyforge_app LOGIN;
+DO $b1_503_post$
+BEGIN
+  IF EXISTS (
+    (SELECT version, file_name, sha256 FROM public.sf_schema_migrations
+     EXCEPT
+     VALUES
+       ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
+       ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
+       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
+       ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
+       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'))
+  ) OR EXISTS (
+    (VALUES
+       ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
+       ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
+       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
+       ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
+       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2')
+     EXCEPT
+     SELECT version, file_name, sha256 FROM public.sf_schema_migrations)
+  ) THEN
+    RAISE EXCEPTION 'B1-503 post-migration ledger is not exact';
+  END IF;
+  IF (SELECT count(*) FROM pg_roles
+      WHERE rolname = 'storyforge_app'
+        AND rolcanlogin
+        AND NOT rolsuper
+        AND NOT rolcreatedb
+        AND NOT rolcreaterole
+        AND NOT rolreplication
+        AND NOT rolbypassrls
+        AND NOT rolinherit) <> 1 THEN
+    RAISE EXCEPTION 'B1-503 application role is not exact least privilege LOGIN';
+  END IF;
+  IF NOT pg_has_role('storyforge_app', 'authenticated', 'member') THEN
+    RAISE EXCEPTION 'B1-503 application role lacks authenticated membership';
+  END IF;
+END
+$b1_503_post$;
+SQL
+  cat <<SQL
+DO \$b1_503_post_counts\$
+BEGIN
+  IF (SELECT count(*) FROM public.sf_users) <> $STORYFORGE_EXPECTED_USER_COUNT
+     OR (SELECT count(*) FROM public.sf_mentor_assignments WHERE active)
+        <> $STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT THEN
+    RAISE EXCEPTION 'B1-503 post-migration data counts are not exact';
+  END IF;
+END
+\$b1_503_post_counts\$;
+SQL
+} | "$psql_bin" "${psql_args[@]}"
 
-for ((index = 0; index < pending_count; index++)); do
-  echo "Migration applied and ledgered: ${pending_files[$index]}"
-done
+post_state="$(
+  "${psql_read[@]}" -AtF '|' -c "
+    SELECT
+      (SELECT count(*) FROM public.sf_schema_migrations),
+      (SELECT count(*) FROM pg_roles
+       WHERE rolname = 'storyforge_app'
+         AND rolcanlogin
+         AND NOT rolsuper
+         AND NOT rolcreatedb
+         AND NOT rolcreaterole
+         AND NOT rolreplication
+         AND NOT rolbypassrls
+         AND NOT rolinherit),
+      (SELECT count(*) FROM public.sf_users),
+      (SELECT count(*) FROM public.sf_mentor_assignments WHERE active);
+  "
+)"
+[[ "$post_state" = "5|1|$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" ]] \
+  || fail "committed post-migration state differs from the exact gate"
 
-printf '%s\n%s\n' "$STORYFORGE_APP_DB_PASSWORD" "$STORYFORGE_APP_DB_PASSWORD" |
-  psql -v ON_ERROR_STOP=1 \
-    -c "SET password_encryption = 'scram-sha-256'" \
-    -c '\password storyforge_app'
-psql -v ON_ERROR_STOP=1 -c 'ALTER ROLE storyforge_app LOGIN'
-
-psql -v ON_ERROR_STOP=1 -Atqc "
-  SELECT
-    (SELECT count(*) FROM public.sf_schema_migrations) AS migration_count,
-    (SELECT count(*) FROM pg_roles
-     WHERE rolname = 'storyforge_app'
-       AND rolcanlogin
-       AND NOT rolsuper
-       AND NOT rolbypassrls
-       AND NOT rolinherit) AS least_privilege_app_role,
-    (SELECT count(*) FROM public.sf_users) AS storyforge_user_count,
-    (SELECT count(*) FROM public.sf_mentor_assignments WHERE active) AS active_assignment_count
-"
+printf '%s\n' "B1_503_PRODUCTION_MIGRATIONS_APPLIED"
+printf 'migration_count=5\nleast_privilege_app_role=1\nstoryforge_user_count=%s\nactive_assignment_count=%s\n' \
+  "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT"
