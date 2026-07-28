@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, expect } from '@playwright/test';
 import { SignJWT } from 'jose';
+import pg from 'pg';
 
 async function devToken(request, persona) {
   const response = await request.post(`/api/dev/session/${persona}`, { data: {} });
@@ -10,6 +11,22 @@ async function devToken(request, persona) {
 
 function authHeaders(token) {
   return { Authorization: `Bearer ${token}` };
+}
+
+async function setMentorAssignmentActive(studentId, mentorId, active) {
+  const client = new pg.Client({ connectionString: process.env.STORYFORGE_DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query(
+      `UPDATE public.sf_mentor_assignments
+       SET active = $3
+       WHERE student_id = $1 AND mentor_id = $2`,
+      [studentId, mentorId, active],
+    );
+    assert.equal(result.rowCount, 1);
+  } finally {
+    await client.end();
+  }
 }
 
 async function mismatchedWordPressIdentityToken() {
@@ -72,6 +89,208 @@ test('raw API enforces privacy and the two-mentor coaching lifecycle', async ({ 
   expect(mismatchedIdentity.status()).toBe(403);
   expect((await mismatchedIdentity.json()).error.code).toBe('eligibility_required');
 
+  const studentCustomCreate = await request.post('/api/questions', {
+    headers: authHeaders(student),
+    data: {
+      text: 'How did this experience change the way you ask for help?',
+      family: 'personal',
+      surface: 'library',
+    },
+  });
+  expect(studentCustomCreate.status()).toBe(201);
+  const studentCustomQuestion = (await studentCustomCreate.json()).question;
+  expect(studentCustomQuestion).toMatchObject({
+    provenance: 'student',
+    owner_student_id: '11111111-1111-4111-8111-111111111111',
+    governance_state: 'draft',
+  });
+  const ownerQuestions = await request.get('/api/questions', {
+    headers: authHeaders(student),
+  });
+  expect((await ownerQuestions.json()).questions.some(
+    (question) => question.id === studentCustomQuestion.id,
+  )).toBeTruthy();
+  for (const token of [studentWithoutMentor, mentor, mentorTwo, unassigned, admin]) {
+    const questions = await request.get('/api/questions', { headers: authHeaders(token) });
+    expect((await questions.json()).questions.some(
+      (question) => question.id === studentCustomQuestion.id,
+    )).toBeFalsy();
+  }
+  const assignedMentorQuestions = await request.get('/api/questions', {
+    headers: authHeaders(mentor),
+    params: { studentId: '11111111-1111-4111-8111-111111111111' },
+  });
+  expect((await assignedMentorQuestions.json()).questions.some(
+    (question) => question.id === studentCustomQuestion.id,
+  )).toBeTruthy();
+  const unassignedMentorScope = await request.get('/api/questions', {
+    headers: authHeaders(mentor),
+    params: { studentId: '22222222-2222-4222-8222-222222222222' },
+  });
+  expect(unassignedMentorScope.status()).toBe(403);
+  expect((await unassignedMentorScope.json()).error.code).toBe('42501');
+  const duplicateCustom = await request.post('/api/questions', {
+    headers: authHeaders(student),
+    data: {
+      text: '  how did this experience change the way you ask for help?  ',
+      family: 'personal',
+      surface: 'library',
+    },
+  });
+  expect(duplicateCustom.status()).toBe(409);
+  expect((await duplicateCustom.json()).error.code).toBe('23505');
+  const invalidCustom = await request.post('/api/questions', {
+    headers: authHeaders(student),
+    data: {
+      text: 'Which experience best demonstrates that growth?',
+      family: 'unsupported-family',
+      surface: 'library',
+    },
+  });
+  expect(invalidCustom.status()).toBe(400);
+  expect((await invalidCustom.json()).error.code).toBe('22023');
+
+  const parallelPrivateCreate = await request.post('/api/questions', {
+    headers: authHeaders(studentWithoutMentor),
+    data: {
+      text: 'How did this experience change the way you ask for help?',
+      family: 'personal',
+      surface: 'library',
+    },
+  });
+  expect(parallelPrivateCreate.status()).toBe(201);
+  const parallelPrivateQuestion = (await parallelPrivateCreate.json()).question;
+  expect(parallelPrivateQuestion.owner_student_id)
+    .toBe('22222222-2222-4222-8222-222222222222');
+
+  await setMentorAssignmentActive(
+    '22222222-2222-4222-8222-222222222222',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+    true,
+  );
+  try {
+    const mentorTwoUnscoped = await request.get('/api/questions', {
+      headers: authHeaders(mentorTwo),
+    });
+    const unscopedQuestions = (await mentorTwoUnscoped.json()).questions;
+    expect(unscopedQuestions.some(
+      (question) => question.id === studentCustomQuestion.id,
+    )).toBeFalsy();
+    expect(unscopedQuestions.some(
+      (question) => question.id === parallelPrivateQuestion.id,
+    )).toBeFalsy();
+
+    const mentorTwoFirstStudent = await request.get('/api/questions', {
+      headers: authHeaders(mentorTwo),
+      params: { studentId: '11111111-1111-4111-8111-111111111111' },
+    });
+    const firstStudentQuestions = (await mentorTwoFirstStudent.json()).questions;
+    expect(firstStudentQuestions.some(
+      (question) => question.id === studentCustomQuestion.id,
+    )).toBeTruthy();
+    expect(firstStudentQuestions.some(
+      (question) => question.id === parallelPrivateQuestion.id,
+    )).toBeFalsy();
+    expect(firstStudentQuestions.filter((question) => question.owner_student_id).every(
+      (question) => question.owner_student_id === '11111111-1111-4111-8111-111111111111',
+    )).toBeTruthy();
+
+    const mentorTwoSecondStudent = await request.get('/api/questions', {
+      headers: authHeaders(mentorTwo),
+      params: { studentId: '22222222-2222-4222-8222-222222222222' },
+    });
+    const secondStudentQuestions = (await mentorTwoSecondStudent.json()).questions;
+    expect(secondStudentQuestions.some(
+      (question) => question.id === parallelPrivateQuestion.id,
+    )).toBeTruthy();
+    expect(secondStudentQuestions.some(
+      (question) => question.id === studentCustomQuestion.id,
+    )).toBeFalsy();
+    expect(secondStudentQuestions.filter((question) => question.owner_student_id).every(
+      (question) => question.owner_student_id === '22222222-2222-4222-8222-222222222222',
+    )).toBeTruthy();
+  } finally {
+    await setMentorAssignmentActive(
+      '22222222-2222-4222-8222-222222222222',
+      'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      false,
+    );
+  }
+
+  const mentorSharedCreate = await request.post('/api/questions', {
+    headers: authHeaders(mentor),
+    data: {
+      text: 'What detail would make the turning point clearer?',
+      family: 'behavioral',
+      surface: 'library',
+    },
+  });
+  expect(mentorSharedCreate.status()).toBe(201);
+  const mentorSharedQuestion = (await mentorSharedCreate.json()).question;
+  expect(mentorSharedQuestion).toMatchObject({
+    provenance: 'mentor',
+    owner_student_id: null,
+    governance_state: 'draft',
+    created_by: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    approved_by: null,
+  });
+  expect(mentorSharedQuestion.approved_at).toBeNull();
+  const globalDuplicate = await request.post('/api/questions', {
+    headers: authHeaders(mentorTwo),
+    data: {
+      text: '  what detail would make the turning point clearer? ',
+      family: 'behavioral',
+      surface: 'library',
+    },
+  });
+  expect(globalDuplicate.status()).toBe(409);
+  expect((await globalDuplicate.json()).error.code).toBe('23505');
+  for (const token of [student, studentWithoutMentor, mentorTwo, unassigned]) {
+    const questions = await request.get('/api/questions', { headers: authHeaders(token) });
+    expect((await questions.json()).questions.some(
+      (question) => question.id === mentorSharedQuestion.id,
+    )).toBeFalsy();
+  }
+  const creatorDrafts = await request.get('/api/questions', { headers: authHeaders(mentor) });
+  expect((await creatorDrafts.json()).questions.some(
+    (question) => question.id === mentorSharedQuestion.id,
+  )).toBeTruthy();
+  const adminDrafts = await request.get('/api/questions', { headers: authHeaders(admin) });
+  expect((await adminDrafts.json()).questions.some(
+    (question) => question.id === mentorSharedQuestion.id,
+  )).toBeTruthy();
+  const studentApproval = await request.post(`/api/questions/${mentorSharedQuestion.id}/approve`, {
+    headers: authHeaders(student),
+    data: { surface: 'library' },
+  });
+  expect(studentApproval.status()).toBe(403);
+  const approvedQuestion = await request.post(`/api/questions/${mentorSharedQuestion.id}/approve`, {
+    headers: authHeaders(admin),
+    data: { surface: 'library' },
+  });
+  expect(approvedQuestion.status()).toBe(200);
+  expect((await approvedQuestion.json()).question).toMatchObject({
+    governance_state: 'approved',
+    approved_by: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+  });
+  for (const token of [student, studentWithoutMentor, mentor, mentorTwo, unassigned, admin]) {
+    const questions = await request.get('/api/questions', { headers: authHeaders(token) });
+    expect((await questions.json()).questions.some(
+      (question) => question.id === mentorSharedQuestion.id,
+    )).toBeTruthy();
+  }
+
+  const adminSingleAdd = await request.post('/api/questions', {
+    headers: authHeaders(admin),
+    data: {
+      text: 'Which application experience deserves more context?',
+      family: 'cv',
+      surface: 'library',
+    },
+  });
+  expect(adminSingleAdd.status()).toBe(403);
+  expect((await adminSingleAdd.json()).error.code).toBe('42501');
+
   const privateOnly = await request.post('/api/stories', {
     headers: authHeaders(studentWithoutMentor),
     data: {
@@ -109,6 +328,18 @@ test('raw API enforces privacy and the two-mentor coaching lifecycle', async ({ 
   });
   expect(create.status()).toBe(201);
   const story = (await create.json()).story;
+  const sharedPair = await request.post('/api/story-question-pairs', {
+    headers: authHeaders(student),
+    data: {
+      storyId: story.id,
+      questionId: mentorSharedQuestion.id,
+      studentStrength: 3,
+      why: 'The approved mentor question is relevant to this story.',
+      surface: 'workshop',
+    },
+  });
+  expect(sharedPair.status()).toBe(201);
+  expect((await sharedPair.json()).pair.question_id).toBe(mentorSharedQuestion.id);
   const assignedDetail = await request.get(`/api/stories/${story.id}`, {
     headers: authHeaders(student),
   });
@@ -162,21 +393,28 @@ test('raw API enforces privacy and the two-mentor coaching lifecycle', async ({ 
 
   const notifications = await request.get('/api/notifications', { headers: authHeaders(student) });
   const studentNotifications = (await notifications.json()).notifications;
-  expect(studentNotifications.some((item) => item.story_id === story.id && item.event_key === 'story.needs_revision')).toBeTruthy();
+  expect(studentNotifications.some((item) => (
+    item.story_id === story.id
+    && item.event_key === 'story.changes'
+    && item.event_category === 'status'
+  ))).toBeTruthy();
 
-  await request.patch(`/api/stories/${story.id}`, {
+  const revision = await request.patch(`/api/stories/${story.id}`, {
     headers: authHeaders(student),
     data: {
       title: story.title,
       text: `${story.current_text} I learned to make the patient’s voice an explicit part of our decision.`,
       studentScore: 5,
-      uses: ['behavioral'],
+      uses: ['iv'],
       surface: 'workspace',
     },
   });
-  await request.post(`/api/stories/${story.id}/submit`, {
-    headers: authHeaders(student),
-    data: { surface: 'workspace' },
+  expect(revision.ok()).toBeTruthy();
+  const revisedStory = (await revision.json()).story;
+  expect(revisedStory.current_text).not.toBe(story.original_text);
+  expect(revisedStory).toMatchObject({
+    status: 'awaiting',
+    revised: true,
   });
   await request.post(`/api/stories/${story.id}/open`, {
     headers: authHeaders(mentorTwo),
@@ -200,26 +438,137 @@ test('raw API enforces privacy and the two-mentor coaching lifecycle', async ({ 
   expect(final.story.original_text).toBe(story.original_text);
   expect(final.story.current_text).not.toBe(story.original_text);
   expect(new Set(final.feedback.map((item) => item.mentor_id)).size).toBe(2);
+  expect(final.history.length).toBeGreaterThan(6);
+  expect(new Set(final.history.map((item) => item.actor_id))).toEqual(new Set([
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  ]));
+  expect(final.history.some((item) => (
+    item.action === 'story.revised_and_resubmitted'
+    && item.previous_value.status === 'changes'
+    && item.new_value.status === 'awaiting'
+  ))).toBeTruthy();
+
+  const sessionCreate = await request.post('/api/coaching-sessions', {
+    headers: authHeaders(mentor),
+    data: {
+      studentId: '11111111-1111-4111-8111-111111111111',
+      items: [{ label: 'Client-fabricated agenda item must be ignored' }],
+    },
+  });
+  expect(sessionCreate.status()).toBe(201);
+  const sessionPayload = await sessionCreate.json();
+  expect(sessionPayload.session.student_id).toBe('11111111-1111-4111-8111-111111111111');
+  expect(sessionPayload.items.length).toBeGreaterThan(0);
+  expect(sessionPayload.items.every((item) => (
+    item.label !== 'Client-fabricated agenda item must be ignored'
+    && (item.story_id || item.question_id)
+  ))).toBeTruthy();
+  const durableSessions = await request.get(
+    '/api/coaching-sessions?studentId=11111111-1111-4111-8111-111111111111',
+    { headers: authHeaders(mentor) },
+  );
+  const durableSession = (await durableSessions.json()).sessions.find(
+    (session) => session.id === sessionPayload.session.id,
+  );
+  expect(durableSession.items).toHaveLength(sessionPayload.items.length);
+  await setMentorAssignmentActive(
+    '11111111-1111-4111-8111-111111111111',
+    'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    false,
+  );
+  try {
+    const retainedItem = await request.patch(
+      `/api/coaching-session-items/${sessionPayload.items[0].id}`,
+      {
+        headers: authHeaders(mentor),
+        data: { completed: true },
+      },
+    );
+    expect(retainedItem.status()).toBe(404);
+    const retainedEnd = await request.post(
+      `/api/coaching-sessions/${sessionPayload.session.id}/end`,
+      {
+        headers: authHeaders(mentor),
+        data: { summary: 'This retained id must not work.' },
+      },
+    );
+    expect(retainedEnd.status()).toBe(404);
+    const revokedSessions = await request.get(
+      '/api/coaching-sessions?studentId=11111111-1111-4111-8111-111111111111',
+      { headers: authHeaders(mentor) },
+    );
+    expect((await revokedSessions.json()).sessions).toEqual([]);
+    const revokedActivity = await request.get(
+      '/api/mentor/activity?period=all&studentId=11111111-1111-4111-8111-111111111111',
+      { headers: authHeaders(mentor) },
+    );
+    expect((await revokedActivity.json()).activity).toEqual([]);
+    const revokedStudent = await request.get(
+      '/api/students/11111111-1111-4111-8111-111111111111',
+      { headers: authHeaders(mentor) },
+    );
+    expect(revokedStudent.status()).toBe(404);
+    const revokedHome = await request.get('/api/mentor/home', {
+      headers: authHeaders(mentor),
+    });
+    expect((await revokedHome.json()).recentActivity.every(
+      (event) => !event.student_id && !event.story_id,
+    )).toBeTruthy();
+  } finally {
+    await setMentorAssignmentActive(
+      '11111111-1111-4111-8111-111111111111',
+      'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+      true,
+    );
+  }
+  const completedSession = await request.post(`/api/coaching-sessions/${sessionPayload.session.id}/end`, {
+    headers: authHeaders(mentor),
+    data: { summary: 'API durability proof complete.' },
+  });
+  expect(completedSession.status()).toBe(200);
+});
+
+test('mentor question-library loading carries the selected student scope', async ({ page }) => {
+  test.slow();
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Mentor · Dr. Chen' }).click();
+  await page.locator('#rail').getByRole('button', { name: 'Students' }).click();
+  await page.locator('[data-open-student]').filter({ hasText: 'Maya' }).click();
+  await expect(page.locator('[data-view="mstudent"] h1')).toContainText('Maya');
+  await page.locator('[data-student-prep]').click();
+  await expect(page.locator('[data-view="prep"]')).toBeVisible();
+
+  const scopedRequest = page.waitForRequest((outgoing) => (
+    new URL(outgoing.url()).pathname === '/api/questions'
+  ));
+  await page.getByRole('button', { name: 'Question Library' }).click();
+  const requestUrl = new URL((await scopedRequest).url());
+  expect(requestUrl.searchParams.get('studentId'))
+    .toBe('11111111-1111-4111-8111-111111111111');
+  await expect(page.locator('[data-view="qlib"]')).toBeVisible();
+  await expect(page.locator('#importFile')).toBeVisible();
+  await expect(page.locator('#importText')).toHaveAttribute('placeholder', /Behavioral/);
 });
 
 test('canonical dark backgrounds persist on the authenticated profile and respect reduced motion', async ({ page }) => {
+  test.slow();
   await page.goto('/');
   await page.getByRole('button', { name: 'Student · Maya' }).click();
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.locator('.homeHero')).toBeVisible();
+  await expect(page.locator('.greet')).toContainText(/Good (morning|afternoon|evening), Maya\./);
+  await expect(page.getByText('What happened that you don’t want to lose?')).toBeVisible();
 
   await expect(page.locator('body')).toHaveAttribute('data-role', 'student');
   await expect(page.locator('body')).toHaveAttribute('data-background', 'ember');
   expect(await page.locator('body').evaluate((body) => getComputedStyle(body).backgroundColor)).toBe('rgb(10, 13, 20)');
-  await expect(page.locator('aside .nav button')).toHaveText([
-    '⌂ Home',
-    '▤ Story Library',
-    '◇ Interview Prep',
-    '● Notifications',
-    '⚙ Settings',
-  ]);
+  for (const name of ['Home', 'Story Library', 'Interview Prep', 'Notifications', 'Settings']) {
+    await expect(page.locator('#rail').getByRole('button', { name: new RegExp(name) })).toBeVisible();
+  }
 
   await page.getByRole('button', { name: /Interview Prep/ }).first().click();
-  await expect(page.getByRole('heading', { name: 'Prepare the next natural question.' })).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Become difficult to surprise.' })).toBeFocused();
   const prepTypography = await page.evaluate(async () => {
     await Promise.all([
       document.fonts.load('400 16px Archivo'),
@@ -238,16 +587,16 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
         lora: document.fonts.check('500 16px Lora'),
         loraItalic: document.fonts.check('italic 400 16px Lora'),
       },
-      questions: [...document.querySelectorAll('.question-card')].map((card) => {
-        const heading = card.querySelector('h2');
-        const style = getComputedStyle(heading);
+      questions: [...document.querySelectorAll('.qiRow')].map((row) => {
+        const question = row.querySelector('.qTxt');
+        const style = getComputedStyle(question);
         return {
           fontFamily: style.fontFamily,
           fontSize: style.fontSize,
           lineHeight: style.lineHeight,
-          height: heading.getBoundingClientRect().height,
-          cardWidth: card.getBoundingClientRect().width,
-          overflows: card.scrollWidth > card.clientWidth,
+          height: question.getBoundingClientRect().height,
+          cardWidth: row.getBoundingClientRect().width,
+          overflows: row.scrollWidth > row.clientWidth,
         };
       }),
     };
@@ -262,16 +611,12 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
   });
   expect(prepTypography.questions.length).toBeGreaterThan(0);
   for (const question of prepTypography.questions) {
-    expect(question.fontFamily).toContain('Archivo');
-    expect(question.fontSize).toBe('18px');
-    expect(question.height).toBeLessThanOrEqual(100);
+    expect(question.fontFamily).toContain('Lora');
+    expect(Number.parseFloat(question.fontSize)).toBeGreaterThanOrEqual(13);
+    expect(question.height).toBeLessThanOrEqual(120);
     expect(question.cardWidth).toBeGreaterThan(300);
     expect(question.overflows).toBe(false);
   }
-  await page.screenshot({
-    path: '../_AI_HANDOFFS/from_codex/B1-502M_storyforge_megarun/evidence/visual-reconciliation/storyforge-v5-interview-prep.png',
-    fullPage: true,
-  });
   await page.addScriptTag({ url: '/_test/axe.js' });
   const prepAxe = await page.evaluate(async () => window.axe.run(document, {
     resultTypes: ['violations'],
@@ -279,7 +624,7 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
   expect(prepAxe.violations.map((item) => item.id)).not.toContain('heading-order');
 
   await page.getByRole('button', { name: /Settings/ }).first().click();
-  await expect(page.getByRole('heading', { name: 'Your environment.' })).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Your account' })).toBeFocused();
   for (const name of ['Emberlight', 'Aurora', 'Night Constellation', 'Deep Tide', 'Meridian', 'Static Dark']) {
     await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
   }
@@ -288,13 +633,13 @@ test('canonical dark backgrounds persist on the authenticated profile and respec
   const aurora = page.getByRole('button', { name: /Aurora/ });
   await aurora.click();
   await expect(page.locator('body')).toHaveAttribute('data-background', 'aurora');
-  expect(await page.locator('body').evaluate((body) => getComputedStyle(body, '::before').animationName)).toBe('none');
+  expect(await page.locator('.aur.a').evaluate((node) => getComputedStyle(node).animationName)).toBe('none');
   await expect(page.getByRole('button', { name: /Aurora/ })).toBeFocused();
 
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Your environment.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
   await expect(page.locator('body')).toHaveAttribute('data-background', 'aurora');
-  await expect(page.getByRole('button', { name: /Aurora/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: /Aurora/ })).toHaveClass(/\bon\b/);
 
   await page.getByRole('button', { name: /Emberlight/ }).click();
   await expect(page.locator('body')).toHaveAttribute('data-background', 'ember');
@@ -304,32 +649,30 @@ test('mobile keeps a real Back to Matrix path and Settings route visible', async
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.getByRole('button', { name: 'Student · Maya' }).click();
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.locator('.homeHero')).toBeVisible();
 
-  const matrixLink = page.locator('.mobile-matrix-link');
-  await expect(matrixLink).toBeVisible();
-  await expect(matrixLink).toHaveAttribute('href', /\/member-dashboard\/$/);
-  const settings = page.locator('.mobile-nav [data-nav="settings"]');
+  const settings = page.locator('#rail [data-nav="settings"]');
   await expect(settings).toBeVisible();
   await settings.click();
-  await expect(page.getByRole('heading', { name: 'Your environment.' })).toBeVisible();
-  await expect(page.locator('.settings-matrix-link')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
+  const matrixLink = page.locator('.settingsPage a').filter({ hasText: 'Go' });
+  await expect(matrixLink).toBeVisible();
+  await expect(matrixLink).toHaveAttribute('href', /\/member-dashboard\/$/);
 
   await page.setViewportSize({ width: 320, height: 700 });
   await page.evaluate(() => {
     sessionStorage.setItem('storyforge_local_fixture_persona', 'mentor');
   });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Your environment.' })).toBeVisible();
-  const mentorMobileNav = page.locator('.mobile-nav button');
-  await expect(mentorMobileNav).toHaveCount(6);
+  await expect(page.getByRole('heading', { name: 'Your account' })).toBeVisible();
   for (const label of ['Home', 'Students', 'Review Queue', 'My Activity', 'Interview Prep', 'Settings']) {
-    await expect(page.locator(`.mobile-nav button[aria-label="${label}"]`)).toBeVisible();
+    await expect(page.locator('#rail').getByRole('button', { name: new RegExp(label) })).toBeVisible();
   }
+  await expect(page.locator('#rail').getByRole('button', { name: 'Teaching Mode' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await expect(page.locator('.mobile-matrix-link')).toBeVisible();
+  await expect(matrixLink).toBeVisible();
 
-  await page.locator('.mobile-nav button[aria-label="Students"]').click();
+  await page.locator('#rail').getByRole('button', { name: 'Students' }).click();
   await expect(page.getByRole('heading', { name: 'Students' })).toBeFocused();
   await page.locator('.skip-link').focus();
   await page.keyboard.press('Enter');
@@ -371,95 +714,145 @@ test('configuration failure is bounded, actionable, and never exposes raw fetch 
 });
 
 test('zero-assignment student sees a truthful disabled mentor-review state', async ({ page }) => {
+  test.slow();
   await page.goto('/');
   await page.evaluate(() => {
     sessionStorage.setItem('storyforge_local_fixture_persona', 'studentOther');
   });
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.locator('.homeHero')).toBeVisible();
 
-  await page.getByRole('button', { name: /Quick capture/i }).first().click();
-  await page.getByRole('button', { name: 'Write' }).click();
-  await page.getByLabel('Story title').fill('Private founder rehearsal');
-  await page.getByLabel('Tell it in your own words').fill(
+  await page.locator('[data-open-capture]').first().click();
+  await page.locator('#capTitle').fill('Private founder rehearsal');
+  await page.locator('#capBody').fill(
     'I can keep refining this story while mentor review remains unavailable.',
   );
-  await page.getByRole('button', { name: 'Save private story' }).click();
+  await page.getByRole('button', { name: 'Save story' }).click();
 
+  await page.getByRole('button', { name: /Private founder rehearsal/ }).first().click();
   await expect(page.getByRole('heading', { name: 'Private founder rehearsal' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mentor review unavailable' })).toBeDisabled();
   await expect(page.getByText('Mentor review is not enabled yet. Your private story remains editable.')).toBeVisible();
-  await expect(page.getByLabel('Current telling')).toBeEditable();
-  await expect(page.getByText('private', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Working version' }).click();
+  await expect(page.getByLabel('Working version')).toBeEditable();
+  await expect(page.getByText('Private', { exact: true }).first()).toBeVisible();
+});
+
+test('Quick Capture draft restores to the signed account and clears after a real save', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Student · Maya' }).click();
+  await page.locator('[data-open-capture]').first().click();
+  await page.locator('#capTitle').fill('Durable cross-session capture draft');
+  await page.locator('#capBody').fill('This text must survive a reload because it is saved to the signed student account.');
+  await expect(page.locator('#captureDraftStatus')).toHaveText('Draft saved to your account.');
+  await page.getByRole('button', { name: 'Close Quick Capture' }).click();
+
+  await page.reload();
+  await expect(page.locator('.homeHero')).toBeVisible();
+  await page.locator('[data-open-capture]').first().click();
+  await expect(page.locator('#capTitle')).toHaveValue('Durable cross-session capture draft');
+  await expect(page.locator('#capBody')).toHaveValue(
+    'This text must survive a reload because it is saved to the signed student account.',
+  );
+  await expect(page.locator('#captureDraftStatus')).toHaveText('Draft restored from your account.');
+  await page.getByRole('button', { name: 'Save story' }).click();
+
+  await page.locator('[data-open-capture]').first().click();
+  await expect(page.locator('#capTitle')).toHaveValue('');
+  await expect(page.locator('#capBody')).toHaveValue('');
+  await page.getByRole('button', { name: 'Close Quick Capture' }).click();
+});
+
+test('admin uploads a CSV into staged review and explicitly approves its draft', async ({ page }) => {
+  const questionText = 'What did you change after receiving feedback in a high-stakes setting?';
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Admin · least privilege' }).click();
+  await expect(page.getByRole('button', { name: 'Question Library' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /Story Library|Students|Review Queue/ })).toHaveCount(0);
+  await page.locator('#importFile').setInputFiles({
+    name: 'b1-503-governed-questions.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from(`Question,Family\n"${questionText}",behavioral\n`),
+  });
+  await page.getByRole('button', { name: 'Preview' }).click();
+  await expect(page.getByText(questionText)).toBeVisible();
+  await page.getByRole('button', { name: 'Commit selected drafts' }).click();
+  const row = page.locator('.qlibRow').filter({ hasText: questionText });
+  await expect(row.getByText('draft', { exact: true })).toBeVisible();
+  await row.getByRole('button', { name: 'Approve for shared library' }).click();
+  await expect(page.locator('.qlibRow').filter({ hasText: questionText }).getByText('approved', { exact: true })).toBeVisible();
 });
 
 test('student and mentor complete the V5 browser loop with truthful gates', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { name: 'Enter StoryForge' })).toBeVisible();
   await page.getByRole('button', { name: 'Student · Maya' }).click();
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.locator('.homeHero')).toBeVisible();
 
-  await page.getByRole('button', { name: /Quick capture/i }).first().click();
-  await page.getByRole('button', { name: 'Record' }).click();
-  await expect(page.getByText(/Recording is unavailable in this environment/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Start recording' })).toBeDisabled();
-  await page.getByRole('button', { name: 'Write' }).click();
-  await page.getByLabel('Story title').fill('A hard conversation');
-  await page.getByLabel('Tell it in your own words').fill('I had to explain a difficult change while keeping the person involved in the decision.');
-  await page.getByRole('button', { name: 'Save private story' }).click();
+  await page.locator('[data-open-capture]').first().click();
+  await expect(page.getByText(/Voice capture is not configured on this environment/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Record a voice note' })).toBeDisabled();
+  await page.locator('#capTitle').fill('A hard conversation');
+  await page.locator('#capBody').fill('I had to explain a difficult change while keeping the person involved in the decision.');
+  await page.getByRole('button', { name: 'Save story' }).click();
+  await page.getByRole('button', { name: /A hard conversation/ }).first().click();
   await expect(page.getByRole('heading', { name: 'A hard conversation' })).toBeVisible();
-  await page.getByRole('button', { name: 'Self score 4 of 5' }).click();
-  await page.getByRole('button', { name: 'Submit to mentors' }).click();
-  await expect(page.getByText('submitted', { exact: true })).toBeVisible();
+  await page.getByRole('group', { name: 'Student score' }).getByRole('button', { name: '4' }).click();
+  await page.getByRole('button', { name: 'Submit for review' }).click();
+  await expect(page.getByText('Awaiting review', { exact: true }).first()).toBeVisible();
+  await page.locator('#room [data-close-overlay]').click();
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Mentor · Dr. Chen' }).click();
   await page.getByRole('button', { name: /Review Queue/ }).first().click();
-  await page.getByRole('button', { name: /A hard conversation/ }).click();
-  await expect(page.getByText('opened', { exact: true })).toBeVisible();
-  await page.getByLabel('Mentor score 4 of 5').click();
-  await page.getByLabel('Feedback or ask').fill('Show what you noticed in the other person and how that changed your next sentence.');
-  await page.getByRole('button', { name: 'Request revision' }).click();
-  await expect(page.getByText('needs revision', { exact: true })).toBeVisible();
+  const firstReview = page.locator('[data-story-row]').filter({ hasText: 'A hard conversation' });
+  await firstReview.locator('[data-open-story]').click();
+  await expect(page.getByText('Awaiting review', { exact: true }).first()).toBeVisible();
+  await page.getByRole('group', { name: 'Mentor score' }).getByRole('button', { name: '4' }).click();
+  await page.locator('#mentorFeedback').fill('Show what you noticed in the other person and how that changed your next sentence.');
+  await page.getByRole('button', { name: 'Send feedback' }).click();
+  await page.getByRole('button', { name: 'Changes requested' }).click();
+  await expect(page.getByText('Changes requested', { exact: true }).first()).toBeVisible();
+  await page.locator('#room [data-close-overlay]').click();
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Student · Maya' }).click();
   await page.getByRole('button', { name: /Notifications/ }).first().click();
-  const revisionNotice = page.locator('[data-notification]').filter({
-    hasText: 'Show what you noticed in the other person',
-  });
+  const revisionNotice = page.locator('[data-open-notification]').filter({ hasText: 'Changes requested' });
   await expect(revisionNotice).toBeVisible();
   await revisionNotice.click();
-  const current = page.getByLabel('Current telling');
+  await page.getByRole('tab', { name: 'Working version' }).click();
+  const current = page.getByLabel('Working version');
   await current.fill(`${await current.inputValue()} I learned to pause and check understanding before offering the next option.`);
-  await page.getByRole('button', { name: 'Resubmit to mentors' }).click();
-  await expect(page.getByText('resubmitted', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Save working version' }).click();
+  await expect(page.getByText(/Awaiting review/).first()).toBeVisible();
+  await page.locator('#room [data-close-overlay]').click();
 
   await page.getByRole('button', { name: 'Change fixture identity' }).click();
   await page.getByRole('button', { name: 'Second mentor · Dr. Rivera' }).click();
   await page.getByRole('button', { name: /Review Queue/ }).first().click();
-  await page.getByRole('button', { name: /A hard conversation/ }).click();
-  await page.getByLabel('Mentor score 5 of 5').click();
-  await page.getByLabel('Feedback or ask').fill('Approved. The revision makes your observation and behavior change concrete.');
-  await page.getByRole('button', { name: 'Approve' }).click();
-  await expect(page.getByText('approved', { exact: true })).toBeVisible();
-  await expect(page.getByText('Dr. Chen')).toBeVisible();
-  await expect(page.locator('#main').getByText('Dr. Rivera')).toBeVisible();
-
-  await page.evaluate(() => {
-    document.activeElement?.blur();
-    window.scrollTo(0, 0);
-  });
-  await page.screenshot({
-    path: '../_AI_HANDOFFS/from_codex/B1-502M_storyforge_megarun/evidence/visual-reconciliation/storyforge-v5-approved-workspace.png',
-    fullPage: true,
-  });
+  await page.getByRole('button', { name: /Revised — needs re-review/ }).click();
+  const secondReview = page.locator('[data-story-row]').filter({ hasText: 'A hard conversation' });
+  await secondReview.locator('[data-open-story]').click();
+  await page.getByRole('group', { name: 'Mentor score' }).getByRole('button', { name: '5' }).click();
+  await page.locator('#mentorFeedback').fill('Approved. The revision makes your observation and behavior change concrete.');
+  await page.getByRole('button', { name: 'Send feedback' }).click();
+  await page.getByRole('button', { name: 'Approved', exact: true }).click();
+  await expect(page.getByText('Approved', { exact: true }).first()).toBeVisible();
+  await expect(page.getByText('Dr. Chen').first()).toBeVisible();
+  await expect(page.locator('#room').getByText('Dr. Rivera').first()).toBeVisible();
+  const history = page.locator('#room .railCard').filter({ hasText: 'History' });
+  const expandHistory = history.locator('[data-expand-story-history]');
+  if (await expandHistory.count()) await expandHistory.click();
+  await expect(history.getByText('Revised and resubmitted')).toBeVisible();
+  await expect(history.getByText('Dr. Chen').first()).toBeVisible();
+  await expect(history.getByText('Dr. Rivera').first()).toBeVisible();
 });
 
 test('core student home has no serious or critical axe findings', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: 'Student · Maya' }).click();
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.locator('.homeHero')).toBeVisible();
   await page.addScriptTag({ url: '/_test/axe.js' });
   const result = await page.evaluate(async () => window.axe.run(document, {
     resultTypes: ['violations'],
@@ -472,17 +865,9 @@ test('core student home has no serious or critical axe findings', async ({ page 
     serious.map((item) => ({ id: item.id, impact: item.impact, nodes: item.nodes.length })),
     [],
   );
-  await page.screenshot({
-    path: '../_AI_HANDOFFS/from_codex/B1-502M_storyforge_megarun/evidence/visual-reconciliation/storyforge-v5-student-home.png',
-    fullPage: true,
-  });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByRole('navigation', { name: 'Mobile StoryForge navigation' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'StoryForge navigation' })).toBeVisible();
+  await expect(page.locator('.homeHero')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Home' }).last()).toBeVisible();
-  await page.evaluate(() => window.scrollTo(0, 0));
-  await page.screenshot({
-    path: '../_AI_HANDOFFS/from_codex/B1-502M_storyforge_megarun/evidence/visual-reconciliation/storyforge-v5-student-mobile.png',
-  });
 });

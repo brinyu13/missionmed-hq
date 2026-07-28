@@ -3,11 +3,31 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  assertReleaseSource,
+  parseBuildMode,
+} from './release-source.mjs';
+
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const publicDir = path.join(packageDir, 'public');
-const distDir = path.join(packageDir, 'dist');
+const guardedReleasePaths = [publicDir, path.join(packageDir, 'dist')];
+const mode = parseBuildMode(process.argv.slice(2), { defaultMode: 'development' });
+const releaseProof = mode === 'release'
+  ? assertReleaseSource({
+    startDirectory: packageDir,
+    forbiddenIgnoredPaths: guardedReleasePaths,
+  })
+  : null;
+const distDir = mode === 'release'
+  ? path.join(packageDir, 'dist')
+  : path.join(packageDir, '.local', 'development-dist');
 const assetsDir = path.join(distDir, 'assets');
 const fontsDir = path.join(publicDir, 'fonts');
+const developmentMarker = Buffer.from(`${JSON.stringify({
+  mode: 'development',
+  deployable: false,
+  warning: 'StoryForge development output is not a release artifact.',
+}, null, 2)}\n`);
 
 function digest(value) {
   return createHash('sha256').update(value).digest('hex').slice(0, 12);
@@ -60,12 +80,19 @@ for (const [fontName, alias] of fontAliases) {
   );
 }
 const stylesName = `styles.${digest(rewrittenStyles)}.css`;
+const head = mode === 'release'
+  ? '<head>\n  <base href="/storyforge/">'
+  : [
+    '<head>',
+    '  <base href="/">',
+    '  <meta name="storyforge-build-mode" content="development-only">',
+  ].join('\n');
 const html = replaceExactlyOnce(
   replaceExactlyOnce(
     replaceExactlyOnce(
       sourceHtml,
       '<head>',
-      '<head>\n  <base href="/storyforge/">',
+      head,
       'document head',
     ),
     'href="./styles.css"',
@@ -79,16 +106,36 @@ const html = replaceExactlyOnce(
 
 await rm(distDir, { recursive: true, force: true });
 await mkdir(assetsDir, { recursive: true });
-await Promise.all([
+const writes = [
   writeFile(path.join(distDir, 'index.html'), html),
   writeFile(path.join(assetsDir, appName), rewrittenApp),
   writeFile(path.join(assetsDir, authName), sourceAuth),
   writeFile(path.join(assetsDir, stylesName), rewrittenStyles),
   cp(fontsDir, path.join(assetsDir, 'fonts'), { recursive: true }),
-]);
+];
+if (mode === 'development') {
+  writes.push(writeFile(path.join(distDir, 'DEVELOPMENT_ONLY.json'), developmentMarker));
+}
+await Promise.all(writes);
+const completedReleaseProof = mode === 'release'
+  ? assertReleaseSource({
+    startDirectory: packageDir,
+    allowedDirtyPaths: [distDir],
+    forbiddenIgnoredPaths: guardedReleasePaths,
+  })
+  : null;
 
 console.log(JSON.stringify({
-  basePath: '/storyforge/',
+  mode,
+  deployable: false,
+  releaseCandidate: mode === 'release',
+  expectedCommit: releaseProof?.expectedCommit || null,
+  cleanAfterBuild: completedReleaseProof?.clean ?? null,
+  warning: mode === 'release'
+    ? 'Release candidate bytes require the terminal clean provenance check.'
+    : 'Development-only output cannot be used as a StoryForge release.',
+  outputDirectory: path.relative(packageDir, distDir),
+  basePath: mode === 'release' ? '/storyforge/' : '/',
   index: 'index.html',
   assets: [
     appName,

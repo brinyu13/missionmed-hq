@@ -27,8 +27,9 @@ psql -h 127.0.0.1 -p "$SF_PG_PORT" -U postgres -d postgres \
 
 PSQL_ARGS=(-h 127.0.0.1 -p "$SF_PG_PORT" -U postgres -d storyforge -v ON_ERROR_STOP=1)
 psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/bootstrap_local.sql"
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql"
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql"
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql"
+while IFS= read -r migration_file; do
+  psql "${PSQL_ARGS[@]}" -f "$migration_file"
+done < <(find "$PACKAGE_DIR/infra/postgres/migrations" -maxdepth 1 -type f -name '*.sql' | sort)
 psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/seed_local.sql"
 psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/tests/postgres/authorization_matrix.sql"
+psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/tests/postgres/b1_503_conformance_matrix.sql"

@@ -8,37 +8,68 @@ import { fileURLToPath } from 'node:url';
 
 const packageDir = fileURLToPath(new URL('../..', import.meta.url));
 
+function git(directory, args) {
+  const result = spawnSync('git', ['-C', directory, ...args], { encoding: 'utf8' });
+  assert.equal(
+    result.status,
+    0,
+    String(result.stderr || result.stdout || '').trim(),
+  );
+  return String(result.stdout || '').trim();
+}
+
 test('WordPress release generation rejects symlinks outside the approved regular-file topology', async (context) => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), 'storyforge-build-security.'));
+  const fixturePackage = path.join(temporary, 'storyforge-v5');
   context.after(async () => {
     await rm(temporary, { recursive: true, force: true });
   });
 
   await Promise.all([
-    mkdir(path.join(temporary, 'scripts'), { recursive: true }),
-    mkdir(path.join(temporary, 'infra', 'wordpress'), { recursive: true }),
-    mkdir(path.join(temporary, 'infra', 'edge'), { recursive: true }),
-    cp(path.join(packageDir, 'dist'), path.join(temporary, 'dist'), { recursive: true }),
+    mkdir(path.join(fixturePackage, 'scripts'), { recursive: true }),
+    mkdir(path.join(fixturePackage, 'infra', 'wordpress'), { recursive: true }),
+    mkdir(path.join(fixturePackage, 'infra', 'edge'), { recursive: true }),
+    cp(path.join(packageDir, 'dist'), path.join(fixturePackage, 'dist'), { recursive: true }),
   ]);
   await Promise.all([
     cp(
       path.join(packageDir, 'scripts', 'build-wordpress-route-manifest.mjs'),
-      path.join(temporary, 'scripts', 'build-wordpress-route-manifest.mjs'),
+      path.join(fixturePackage, 'scripts', 'build-wordpress-route-manifest.mjs'),
+    ),
+    cp(
+      path.join(packageDir, 'scripts', 'release-source.mjs'),
+      path.join(fixturePackage, 'scripts', 'release-source.mjs'),
     ),
     cp(
       path.join(packageDir, 'infra', 'wordpress', 'missionmed-storyforge-route.php'),
-      path.join(temporary, 'infra', 'wordpress', 'missionmed-storyforge-route.php'),
+      path.join(fixturePackage, 'infra', 'wordpress', 'missionmed-storyforge-route.php'),
     ),
   ]);
   await symlink(
     process.execPath,
-    path.join(temporary, 'dist', 'assets', 'unexpected-runtime-link'),
+    path.join(fixturePackage, 'dist', 'assets', 'unexpected-runtime-link'),
   );
+  git(temporary, ['init', '--quiet']);
+  git(temporary, ['config', 'user.email', 'storyforge-test@example.test']);
+  git(temporary, ['config', 'user.name', 'StoryForge Test']);
+  git(temporary, ['add', '--all']);
+  git(temporary, ['commit', '--quiet', '-m', 'test release topology']);
+  const expectedCommit = git(temporary, ['rev-parse', 'HEAD^{commit}']);
 
   const result = spawnSync(
     process.execPath,
-    [path.join(temporary, 'scripts', 'build-wordpress-route-manifest.mjs')],
-    { encoding: 'utf8' },
+    [
+      path.join(fixturePackage, 'scripts', 'build-wordpress-route-manifest.mjs'),
+      '--mode=release',
+    ],
+    {
+      cwd: fixturePackage,
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        STORYFORGE_EXPECTED_COMMIT: expectedCommit,
+      },
+    },
   );
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unsupported StoryForge release filesystem entry/);

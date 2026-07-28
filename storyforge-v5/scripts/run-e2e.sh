@@ -33,9 +33,9 @@ psql -h 127.0.0.1 -p "$SF_PG_PORT" -U postgres -d postgres \
 
 PSQL_ARGS=(-h 127.0.0.1 -p "$SF_PG_PORT" -U postgres -d storyforge -v ON_ERROR_STOP=1)
 psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/bootstrap_local.sql" >/dev/null
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql" >/dev/null
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql" >/dev/null
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql" >/dev/null
+while IFS= read -r migration; do
+  psql "${PSQL_ARGS[@]}" -f "$migration" >/dev/null
+done < <(find "$PACKAGE_DIR/infra/postgres/migrations" -maxdepth 1 -type f -name '*.sql' -print | LC_ALL=C sort)
 psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/seed_local.sql" >/dev/null
 psql "${PSQL_ARGS[@]}" -c \
   "UPDATE public.sf_mentor_assignments SET active = false WHERE student_id = '22222222-2222-4222-8222-222222222222'" \

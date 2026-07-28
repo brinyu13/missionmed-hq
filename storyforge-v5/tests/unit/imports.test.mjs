@@ -15,10 +15,11 @@ test('paste preview flags exact duplicates, near duplicates, empty rows, and for
     format: 'paste',
     text: [
       existingQuestions[0].text,
-      'Tell me about a time you advocated for someone who was not heard.',
+      'Tell me about a time you advocated for someone whose needs were not heard.',
       '=HYPERLINK("https://example.test","bad")',
+      '-2+3',
       '',
-      'How did you adapt when a plan changed?',
+      'How did you adapt when a plan changed? | Behavioral',
     ].join('\n'),
     existingQuestions,
   });
@@ -27,8 +28,11 @@ test('paste preview flags exact duplicates, near duplicates, empty rows, and for
   assert.equal(rows[1].nearDuplicateId, existingQuestions[0].id);
   assert.equal(rows[2].formulaLike, true);
   assert.match(rows[2].safeExportText, /^'/);
-  assert.ok(rows[3].error);
-  assert.equal(rows[4].selected, true);
+  assert.equal(rows[3].formulaLike, true);
+  assert.match(rows[3].safeExportText, /^'/);
+  assert.ok(rows[4].error);
+  assert.equal(rows[5].selected, true);
+  assert.equal(rows[5].family, 'behavioral');
 });
 
 test('XLSX preview reads question and family columns as data only', async () => {
@@ -78,8 +82,24 @@ test('XLSX preview reads question and family columns as data only', async () => 
   const dataBase64 = Buffer.from(archive).toString('base64');
   const rows = await previewImport({ format: 'xlsx', dataBase64, existingQuestions: [] });
   assert.equal(rows.length, 1);
-  assert.equal(rows[0].family, 'growth');
+  assert.equal(rows[0].family, 'core');
   assert.equal(rows[0].selected, true);
+});
+
+test('XLSX preview rejects a highly compressed expansion before workbook parsing', async () => {
+  const archive = zipSync({
+    'xl/worksheets/sheet1.xml': strToU8('A'.repeat(1_000_000)),
+  }, { level: 9 });
+  assert.ok(archive.byteLength < 5 * 1024 * 1024);
+
+  await assert.rejects(
+    previewImport({
+      format: 'xlsx',
+      dataBase64: Buffer.from(archive).toString('base64'),
+      existingQuestions: [],
+    }),
+    (error) => error.code === 'import_too_large',
+  );
 });
 
 test('unsupported formats and oversize row sets fail closed', async () => {

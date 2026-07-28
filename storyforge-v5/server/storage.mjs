@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config, isAudioConfigured } from './config.mjs';
 
@@ -74,5 +74,19 @@ export async function verifyAudioUpload({ objectKey, expectedType, expectedSize 
     contentType: result.ContentType,
     byteSize: Number(result.ContentLength),
     etag: String(result.ETag || '').replaceAll('"', ''),
+  };
+}
+
+export async function createAudioPlayback({ objectKey }) {
+  const command = new GetObjectCommand({
+    Bucket: config.r2.bucket,
+    Key: objectKey,
+  });
+  const playbackUrl = await getSignedUrl(storageClient(), command, {
+    expiresIn: config.r2.signedUrlTtlSeconds,
+  });
+  return {
+    playbackUrl,
+    expiresIn: config.r2.signedUrlTtlSeconds,
   };
 }

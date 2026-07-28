@@ -1,14 +1,16 @@
 import http from 'node:http';
+import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { authorize, issueDevToken, isLoopbackRequest } from './auth.mjs';
 import { config, isAudioConfigured, validateConfig } from './config.mjs';
-import { closePool, healthCheck, pool, withIdentity } from './db.mjs';
+import { closePool, healthCheck, withIdentity } from './db.mjs';
 import { previewImport } from './imports.mjs';
-import { createAudioUpload, verifyAudioUpload } from './storage.mjs';
+import { createAudioPlayback, createAudioUpload, verifyAudioUpload } from './storage.mjs';
 
-const jsonLimit = 6 * 1024 * 1024;
+// A 5 MB CSV/XLSX expands to roughly 6.7 MB when carried as base64 JSON.
+const jsonLimit = 8 * 1024 * 1024;
 const mimeTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
@@ -16,6 +18,18 @@ const mimeTypes = new Map([
   ['.svg', 'image/svg+xml'],
   ['.png', 'image/png'],
 ]);
+
+function importReviewFingerprint(rows) {
+  const contract = rows.map((row) => ({
+    rowNumber: row.rowNumber,
+    text: row.text,
+    exactDuplicateId: row.exactDuplicateId,
+    nearDuplicateId: row.nearDuplicateId,
+    formulaLike: row.formulaLike,
+    error: row.error,
+  }));
+  return createHash('sha256').update(JSON.stringify(contract)).digest('hex');
+}
 
 function setSecurityHeaders(response) {
   const matrixOrigin = new URL(config.matrixBaseUrl).origin;
@@ -54,7 +68,7 @@ function enforceAllowedOrigin(request, response) {
   }
   response.setHeader('Access-Control-Allow-Origin', normalized);
   response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
   response.setHeader('Vary', 'Origin');
 }
 
@@ -69,8 +83,10 @@ function sendJson(response, status, payload) {
 export function publicError(error) {
   const databaseStatus = {
     '22023': 400,
+    '22P02': 400,
     '23514': 409,
     '23505': 409,
+    '40001': 409,
     '42501': 403,
     P0002: 404,
   }[error?.code];
@@ -94,7 +110,9 @@ export function publicError(error) {
     'invalid_identifier',
     'invalid_json',
     'invalid_audio_size',
+    'import_preview_stale',
     'malformed_csv',
+    'malformed_xlsx',
     'request_failed',
     'too_many_import_rows',
     'unsupported_audio_format',
@@ -110,7 +128,7 @@ export function publicError(error) {
   const status = databaseStatus
     || (authCodes.has(error?.code) || joseAuthFailure ? 401 : null)
     || (forbiddenCodes.has(error?.code) ? 403 : null)
-    || (error?.code === 'request_too_large' ? 413 : null)
+    || (['request_too_large', 'import_too_large'].includes(error?.code) ? 413 : null)
     || (inputCodes.has(error?.code) ? 400 : null)
     || (unavailableCodes.has(error?.code) ? 503 : null)
     || 500;
@@ -129,7 +147,7 @@ async function readJson(request) {
   for await (const chunk of request) {
     total += chunk.length;
     if (total > jsonLimit) {
-      const error = new Error('Request exceeds the 6 MB limit.');
+      const error = new Error('Request exceeds the 8 MB limit.');
       error.code = 'request_too_large';
       throw error;
     }
@@ -160,8 +178,110 @@ function storyProjection(prefix = '') {
   return `${p}id, ${p}student_id, ${p}title, ${p}original_text, ${p}current_text,
     ${p}capture_type, ${p}status, ${p}student_score, ${p}mentor_score,
     ${p}classification, ${p}starred, ${p}needs_followup, ${p}uses,
-    ${p}revision_no, ${p}submitted_at, ${p}opened_at, ${p}reviewed_at,
-    ${p}approved_at, ${p}created_at, ${p}updated_at`;
+    (SELECT count(*)::integer
+       FROM public.sf_story_questions projection_pair
+      WHERE projection_pair.story_id = ${p}id
+        AND projection_pair.state IN ('suggested', 'confirmed')) AS question_count,
+    (SELECT projection_audio.id
+       FROM public.sf_audio_assets projection_audio
+      WHERE projection_audio.story_id = ${p}id
+        AND projection_audio.state = 'verified'
+      ORDER BY projection_audio.verified_at DESC, projection_audio.created_at DESC
+      LIMIT 1) AS audio_asset_id,
+    (SELECT projection_audio.duration_ms
+       FROM public.sf_audio_assets projection_audio
+      WHERE projection_audio.story_id = ${p}id
+        AND projection_audio.state = 'verified'
+      ORDER BY projection_audio.verified_at DESC, projection_audio.created_at DESC
+      LIMIT 1) AS audio_duration_ms,
+    ${p}prefix_enabled, ${p}lesson, ${p}themes, ${p}student_star,
+    ${p}mentor_star, ${p}birds, ${p}positions, ${p}revised,
+    ${p}reviewed_by,
+    (SELECT reviewer.display_name
+       FROM public.sf_users reviewer
+      WHERE reviewer.id = ${p}reviewed_by) AS reviewed_by_name,
+    ${p}row_version, ${p}revision_no,
+    ${p}submitted_at, ${p}last_submitted_at, ${p}opened_at,
+    ${p}reviewed_at, ${p}approved_at, ${p}student_updated_at,
+    ${p}status_changed_at, ${p}feedback_sent_at, ${p}feedback_opened_at,
+    ${p}student_responded_at, ${p}archived_at, ${p}created_at, ${p}updated_at`;
+}
+
+async function requireDatabaseRole(client, roles) {
+  const result = await client.query(
+    `SELECT public.sf_has_live_identity($1::text[]) AS allowed`,
+    [roles],
+  );
+  if (!result.rows[0]?.allowed) {
+    const error = new Error('This StoryForge role cannot use that surface.');
+    error.code = '42501';
+    throw error;
+  }
+}
+
+function agendaTitle(value, maxLength = 72) {
+  const title = String(value || '').trim();
+  return title.length <= maxLength ? title : `${title.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+export function defaultStoryAgendaItems(stories = []) {
+  return stories.flatMap((story) => {
+    const title = agendaTitle(story.title || 'Untitled story');
+    if (story.status === 'awaiting' && story.revised) {
+      return [{
+        label: `Re-review the revision of “${title}”`,
+        storyId: story.id,
+        route: '/library',
+      }];
+    }
+    if (story.status === 'awaiting') {
+      return [{
+        label: `First review: “${title}”`,
+        storyId: story.id,
+        route: '/library',
+      }];
+    }
+    if (story.status === 'changes') {
+      return [{
+        label: `Walk through requested changes on “${title}”`,
+        storyId: story.id,
+        route: '/library',
+      }];
+    }
+    if (!story.mentor_score) {
+      return [{
+        label: `Score “${title}”`,
+        storyId: story.id,
+        route: '/library',
+      }];
+    }
+    return [{
+      label: `Discuss “${title}”`,
+      storyId: story.id,
+      route: '/library',
+    }];
+  });
+}
+
+export function defaultQuestionAgendaItems(questions = []) {
+  return questions.map((question) => {
+    const text = agendaTitle(question.text);
+    const pairCount = Number(question.pair_count || 0);
+    const confirmedCount = Number(question.confirmed_count || 0);
+    const followupCount = Number(question.followup_count || 0);
+    const preparedFollowupCount = Number(question.prepared_followup_count || 0);
+    let label = `Finish follow-up prep for “${text}”`;
+    if (!pairCount) label = `Find a story for “${text}”`;
+    else if (!confirmedCount) label = `Confirm the strongest story for “${text}”`;
+    else if (!question.preferred_story_id) label = `Choose the preferred story for “${text}”`;
+    else if (!followupCount) label = `Prepare a follow-up for “${text}”`;
+    else if (preparedFollowupCount >= followupCount) return null;
+    return {
+      label,
+      questionId: question.id,
+      route: '/prep',
+    };
+  }).filter(Boolean);
 }
 
 async function api(request, response, url) {
@@ -190,7 +310,8 @@ async function api(request, response, url) {
   if (request.method === 'GET' && url.pathname === '/api/session') {
     const user = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT id, wp_user_id, display_name, role, eligible, cohort, background_preference
+        `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
+           cohort, academic_year, specialty, application_cycle, background_preference
          FROM public.sf_users WHERE id = $1`,
         [identity.sub],
       );
@@ -222,6 +343,7 @@ async function api(request, response, url) {
         `SELECT ${storyProjection('s')}, u.display_name AS student_name
          FROM public.sf_stories s
          JOIN public.sf_users u ON u.id = s.student_id
+         WHERE s.archived_at IS NULL
          ORDER BY s.updated_at DESC`,
       );
       return result.rows;
@@ -233,8 +355,8 @@ async function api(request, response, url) {
     const body = await readJson(request);
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT * FROM public.sf_create_story($1, $2, $3, $4)`,
-        [body.title, body.text, body.captureType || 'text', body.surface || 'quick'],
+        `SELECT * FROM public.sf_create_story_v5($1::jsonb, $2)`,
+        [JSON.stringify(body), body.surface || 'quick'],
       );
       return result.rows[0];
     });
@@ -259,7 +381,12 @@ async function api(request, response, url) {
         [id],
       );
       if (!storyResult.rows[0]) return null;
-      const [revisions, feedback, mappings] = await Promise.all([
+      const [original, revisions, feedback, reflections, suggestions, mappings, craft, history] = await Promise.all([
+        client.query(
+          `SELECT original_transcript, audio_asset_id, capture_type, created_at
+           FROM public.sf_story_originals WHERE story_id = $1`,
+          [id],
+        ),
         client.query(
           `SELECT id, revision_no, text_snapshot, title_snapshot, actor_id, reason, created_at
            FROM public.sf_story_revisions WHERE story_id = $1 ORDER BY created_at`,
@@ -272,17 +399,75 @@ async function api(request, response, url) {
           [id],
         ),
         client.query(
-          `SELECT sq.*, q.text AS question_text
+          `SELECT r.*, u.display_name AS author_name
+           FROM public.sf_story_reflections r
+           JOIN public.sf_users u ON u.id = r.author_id
+           WHERE r.story_id = $1
+           ORDER BY r.created_at`,
+          [id],
+        ),
+        client.query(
+          `SELECT s.*, u.display_name AS suggested_by_name
+           FROM public.sf_use_suggestions s
+           JOIN public.sf_users u ON u.id = s.suggested_by
+           WHERE s.story_id = $1
+           ORDER BY s.created_at`,
+          [id],
+        ),
+        client.query(
+          `SELECT sq.*, q.canonical_key, q.text AS question_text, q.family,
+             pref.story_id = sq.story_id AS preferred,
+             coalesce(
+               (
+                 SELECT jsonb_agg(
+                   jsonb_build_object(
+                     'id', followup.id,
+                     'text', followup.text,
+                     'source', followup.source,
+                     'clinical', followup.clinical,
+                     'prepared', followup.prepared,
+                     'note', followup.preparation_note,
+                     'sortOrder', followup.sort_order,
+                     'rowVersion', followup.row_version
+                   )
+                   ORDER BY followup.sort_order, followup.created_at
+                 )
+                 FROM public.sf_pair_followups followup
+                 WHERE followup.story_question_id = sq.id
+                   AND followup.removed_at IS NULL
+               ),
+               '[]'::jsonb
+             ) AS followups
            FROM public.sf_story_questions sq JOIN public.sf_questions q ON q.id = sq.question_id
+           LEFT JOIN public.sf_question_preferences pref
+             ON pref.student_id = $2
+            AND pref.question_id = sq.question_id
            WHERE sq.story_id = $1`,
+          [id, storyResult.rows[0].student_id],
+        ),
+        client.query(
+          `SELECT * FROM public.sf_story_craft WHERE story_id = $1`,
+          [id],
+        ),
+        client.query(
+          `SELECT id, actor_id, actor_role, actor_display, action, entity_type,
+             entity_id, surface, detail, previous_value, new_value, created_at
+           FROM public.sf_audit_events
+           WHERE story_id = $1
+           ORDER BY created_at DESC, id DESC`,
           [id],
         ),
       ]);
       return {
         story: storyResult.rows[0],
+        original: original.rows[0] || null,
         revisions: revisions.rows,
         feedback: feedback.rows,
+        reflections: reflections.rows,
+        useSuggestions: suggestions.rows,
         questionMappings: mappings.rows,
+        craft: craft.rows[0] || null,
+        history: history.rows,
       };
     });
     if (!detail) {
@@ -298,8 +483,8 @@ async function api(request, response, url) {
     const body = await readJson(request);
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT * FROM public.sf_update_story($1, $2, $3, $4::smallint, $5::text[], $6)`,
-        [id, body.title, body.text, body.studentScore, body.uses || null, body.surface || 'workspace'],
+        `SELECT * FROM public.sf_update_story_v5($1, $2::jsonb, $3::bigint, $4)`,
+        [id, JSON.stringify(body), body.expectedVersion ?? null, body.surface || 'workspace'],
       );
       return result.rows[0];
     });
@@ -342,6 +527,161 @@ async function api(request, response, url) {
     return sendJson(response, 200, { story });
   }
 
+  const storyStatus = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/status$/i);
+  if (request.method === 'POST' && storyStatus) {
+    const id = safeUuid(storyStatus[1]);
+    const body = await readJson(request);
+    const story = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_set_story_status($1, $2, $3)`,
+        [id, body.status, body.surface || 'workspace'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { story });
+  }
+
+  const storyFeedback = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/feedback$/i);
+  if (request.method === 'POST' && storyFeedback) {
+    const id = safeUuid(storyFeedback[1]);
+    const body = await readJson(request);
+    const feedback = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_add_story_feedback($1, $2, $3, $4)`,
+        [id, body.body, body.disposition || 'feedback', body.surface || 'workspace'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 201, { feedback });
+  }
+
+  const storyReflections = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/reflections$/i);
+  if (request.method === 'POST' && storyReflections) {
+    const id = safeUuid(storyReflections[1]);
+    const body = await readJson(request);
+    const reflection = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_add_story_reflection($1, $2, $3)`,
+        [id, body.prompt, body.surface || 'workspace'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 201, { reflection });
+  }
+
+  const storyUseSuggestions = url.pathname.match(
+    /^\/api\/stories\/([a-f0-9-]+)\/use-suggestions$/i,
+  );
+  if (request.method === 'POST' && storyUseSuggestions) {
+    const body = await readJson(request);
+    const suggestion = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_set_use_suggestion($1, $2, $3, $4)`,
+        [
+          safeUuid(storyUseSuggestions[1]),
+          body.useKey,
+          body.active !== false,
+          body.surface || 'workspace',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { suggestion });
+  }
+
+  const reflectionAnswer = url.pathname.match(/^\/api\/reflections\/([a-f0-9-]+)$/i);
+  const reflectionAnswerAlias = url.pathname.match(
+    /^\/api\/stories\/[a-f0-9-]+\/reflections\/([a-f0-9-]+)$/i,
+  );
+  if (request.method === 'PATCH' && (reflectionAnswer || reflectionAnswerAlias)) {
+    const body = await readJson(request);
+    const reflection = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_answer_story_reflection($1, $2, $3)`,
+        [
+          safeUuid((reflectionAnswer || reflectionAnswerAlias)[1]),
+          body.answer,
+          body.surface || 'workspace',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { reflection });
+  }
+
+  const storyEvaluation = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/evaluation$/i);
+  if (request.method === 'PATCH' && storyEvaluation) {
+    const id = safeUuid(storyEvaluation[1]);
+    const body = await readJson(request);
+    const story = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_update_story_evaluation($1, $2::jsonb, $3)`,
+        [id, JSON.stringify(body), body.surface || 'workspace'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { story });
+  }
+
+  const storyCraft = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/craft$/i);
+  if (request.method === 'PATCH' && storyCraft) {
+    const id = safeUuid(storyCraft[1]);
+    const body = await readJson(request);
+    const craft = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_update_story_craft($1, $2::jsonb, $3)`,
+        [id, JSON.stringify(body), body.surface || 'workspace'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { craft });
+  }
+
+  const storyArchive = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/(archive|restore)$/i);
+  if (request.method === 'POST' && storyArchive) {
+    const body = await readJson(request);
+    const story = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_set_story_archived($1, $2, $3)`,
+        [
+          safeUuid(storyArchive[1]),
+          storyArchive[2] === 'archive',
+          body.surface || 'library',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { story });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/drafts/story-builder') {
+    const draft = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT payload, row_version, updated_at
+         FROM public.sf_story_drafts
+         WHERE user_id = $1`,
+        [identity.sub],
+      );
+      return result.rows[0] || null;
+    });
+    return sendJson(response, 200, { draft });
+  }
+
+  if (request.method === 'PATCH' && url.pathname === '/api/drafts/story-builder') {
+    const body = await readJson(request);
+    const draft = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_save_story_draft($1::jsonb, $2::bigint)`,
+        [
+          JSON.stringify(body.payload || {}),
+          body.expectedVersion ?? null,
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { draft });
+  }
+
   if (request.method === 'GET' && url.pathname === '/api/notifications') {
     const notifications = await withIdentity(identity, async (client) => {
       const result = await client.query(
@@ -353,6 +693,14 @@ async function api(request, response, url) {
       return result.rows;
     });
     return sendJson(response, 200, { notifications });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/notifications/read-all') {
+    const count = await withIdentity(identity, async (client) => {
+      const result = await client.query(`SELECT public.sf_mark_all_notifications_read() AS count`);
+      return result.rows[0]?.count || 0;
+    });
+    return sendJson(response, 200, { count });
   }
 
   const notificationRead = url.pathname.match(/^\/api\/notifications\/([a-f0-9-]+)\/read$/i);
@@ -370,12 +718,18 @@ async function api(request, response, url) {
 
   if (request.method === 'GET' && url.pathname === '/api/students') {
     const students = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor']);
       const result = await client.query(
         `SELECT u.id, u.display_name, u.cohort,
            count(s.id)::integer AS story_count,
-           count(s.id) FILTER (WHERE s.status IN ('submitted', 'resubmitted'))::integer AS awaiting_review
+           count(s.id) FILTER (WHERE s.status = 'awaiting' AND NOT s.revised)::integer AS awaiting_review,
+           count(s.id) FILTER (WHERE s.status = 'awaiting' AND s.revised)::integer AS revised,
+           count(s.id) FILTER (WHERE s.status = 'changes')::integer AS waiting_on_student,
+           count(s.id) FILTER (WHERE s.mentor_score IS NULL AND s.status <> 'private')::integer AS unscored,
+           max(s.last_submitted_at) AS last_submitted_at,
+           max(coalesce(s.student_updated_at, s.updated_at)) AS last_activity_at
          FROM public.sf_users u
-         LEFT JOIN public.sf_stories s ON s.student_id = u.id
+         LEFT JOIN public.sf_stories s ON s.student_id = u.id AND s.archived_at IS NULL
          WHERE u.role = 'student'
          GROUP BY u.id, u.display_name, u.cohort
          ORDER BY u.display_name`,
@@ -387,36 +741,957 @@ async function api(request, response, url) {
 
   if (request.method === 'GET' && url.pathname === '/api/queue') {
     const stories = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor']);
       const result = await client.query(
         `SELECT ${storyProjection('s')}, u.display_name AS student_name,
            CASE
-             WHEN s.status IN ('submitted', 'resubmitted') THEN 'awaiting_review'
-             WHEN s.status = 'opened' THEN 'in_review'
-             WHEN s.status = 'needs_revision' THEN 'waiting_on_student'
+             WHEN s.status = 'awaiting' AND s.revised THEN 'revised'
+             WHEN s.status = 'awaiting' THEN 'awaiting_review'
+             WHEN s.status = 'in_review' THEN 'in_review'
+             WHEN s.status = 'changes' THEN 'waiting_on_student'
+             WHEN s.status = 'reviewed' THEN 'reviewed'
              WHEN s.status = 'approved' THEN 'approved'
              ELSE 'other'
            END AS bucket
          FROM public.sf_stories s
          JOIN public.sf_users u ON u.id = s.student_id
-         WHERE s.status <> 'private'
-         ORDER BY coalesce(s.submitted_at, s.updated_at) DESC`,
+         WHERE s.status <> 'private' AND s.archived_at IS NULL
+         ORDER BY coalesce(s.last_submitted_at, s.submitted_at, s.updated_at) DESC`,
       );
       return result.rows;
     });
     return sendJson(response, 200, { stories });
   }
 
-  if (request.method === 'GET' && url.pathname === '/api/questions') {
-    const questions = await withIdentity(identity, async (client) => {
+  if (request.method === 'GET' && url.pathname === '/api/mentor/home') {
+    const home = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor']);
+      const [storiesResult, studentsResult, activityResult] = await Promise.all([
+        client.query(
+          `SELECT ${storyProjection('story')}, student.display_name AS student_name,
+             CASE
+               WHEN story.status = 'awaiting' AND story.revised THEN 'revised'
+               WHEN story.status = 'awaiting' THEN 'awaiting'
+               WHEN story.status = 'changes' THEN 'waiting'
+               WHEN story.status = 'in_review' THEN 'in_review'
+               WHEN story.status = 'reviewed' THEN 'reviewed'
+               WHEN story.status = 'approved' THEN 'approved'
+               ELSE 'other'
+             END AS bucket
+           FROM public.sf_stories story
+           JOIN public.sf_users student ON student.id = story.student_id
+           WHERE story.status <> 'private' AND story.archived_at IS NULL
+           ORDER BY coalesce(story.student_responded_at, story.last_submitted_at, story.updated_at) DESC`,
+        ),
+        client.query(
+          `SELECT count(DISTINCT student_id)::integer AS count
+           FROM public.sf_mentor_assignments
+           WHERE mentor_id = $1 AND active`,
+          [identity.sub],
+        ),
+        client.query(
+          `SELECT event.id, event.action, event.entity_type, event.entity_id,
+             event.student_id, event.story_id, event.question_id, event.detail,
+             event.previous_value, event.new_value, event.created_at,
+             event.actor_id, event.actor_display,
+             story.title AS story_title,
+             student.display_name AS student_name, student.cohort
+           FROM public.sf_audit_events event
+           LEFT JOIN public.sf_stories story ON story.id = event.story_id
+           LEFT JOIN public.sf_users student ON student.id = event.student_id
+           WHERE event.actor_id = $1
+             AND (
+               (event.student_id IS NULL AND event.story_id IS NULL)
+               OR (
+                 event.student_id IS NOT NULL
+                 AND public.sf_is_assigned(event.student_id)
+               )
+               OR (
+                 event.student_id IS NULL
+                 AND event.story_id IS NOT NULL
+                 AND public.sf_is_assigned(story.student_id)
+               )
+             )
+           ORDER BY event.created_at DESC
+           LIMIT 12`,
+          [identity.sub],
+        ),
+      ]);
+      const stories = storiesResult.rows;
+      return {
+        stats: {
+          students: studentsResult.rows[0]?.count || 0,
+          awaiting: stories.filter((story) => story.bucket === 'awaiting').length,
+          revised: stories.filter((story) => story.bucket === 'revised').length,
+          waiting: stories.filter((story) => story.bucket === 'waiting').length,
+          unscored: stories.filter((story) => !story.mentor_score).length,
+        },
+        awaiting: stories.filter((story) => ['awaiting', 'revised'].includes(story.bucket)).slice(0, 8),
+        recentActivity: activityResult.rows,
+      };
+    });
+    return sendJson(response, 200, home);
+  }
+
+  const studentDetail = url.pathname.match(/^\/api\/(?:mentor\/)?students\/([a-f0-9-]+)$/i);
+  if (request.method === 'GET' && studentDetail) {
+    const studentId = safeUuid(studentDetail[1]);
+    const detail = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor']);
+      const studentResult = await client.query(
+        `SELECT id, display_name, first_name, pronouns, cohort, academic_year,
+           specialty, application_cycle
+         FROM public.sf_users
+         WHERE id = $1
+           AND role = 'student'
+           AND public.sf_is_assigned(id)`,
+        [studentId],
+      );
+      if (!studentResult.rows[0]) return null;
+      const [storiesResult, sessionsResult, activityResult] = await Promise.all([
+        client.query(
+          `SELECT ${storyProjection('story')}
+           FROM public.sf_stories story
+           WHERE story.student_id = $1 AND story.archived_at IS NULL
+           ORDER BY story.updated_at DESC`,
+          [studentId],
+        ),
+        client.query(
+          `SELECT session.*,
+             count(item.id)::integer AS item_count,
+             count(item.id) FILTER (WHERE item.completed)::integer AS completed_count
+           FROM public.sf_coaching_sessions session
+           LEFT JOIN public.sf_coaching_session_items item ON item.session_id = session.id
+           WHERE session.student_id = $1
+           GROUP BY session.id
+           ORDER BY session.started_at DESC`,
+          [studentId],
+        ),
+        client.query(
+          `SELECT id, actor_id, actor_display, action, entity_type, entity_id,
+             story_id, question_id, detail, previous_value, new_value, created_at
+           FROM public.sf_audit_events
+           WHERE student_id = $1
+           ORDER BY created_at DESC
+           LIMIT 100`,
+          [studentId],
+        ),
+      ]);
+      return {
+        student: studentResult.rows[0],
+        stories: storiesResult.rows,
+        coachingHistory: sessionsResult.rows,
+        activity: activityResult.rows,
+      };
+    });
+    if (!detail) {
+      const error = new Error('Student not found.');
+      error.code = 'P0002';
+      throw error;
+    }
+    return sendJson(response, 200, detail);
+  }
+
+  if (
+    request.method === 'GET'
+    && (url.pathname === '/api/mentor/activity' || url.pathname === '/api/activity')
+  ) {
+    const period = String(url.searchParams.get('period') || 'week');
+    const interval = {
+      day: '1 day',
+      week: '7 days',
+      month: '30 days',
+      all: '100 years',
+    }[period] || '7 days';
+    const studentId = url.searchParams.get('studentId')
+      ? safeUuid(url.searchParams.get('studentId'))
+      : null;
+    const actionType = String(url.searchParams.get('type') || '').trim();
+    const activity = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor']);
       const result = await client.query(
-        `SELECT id, text, family, provenance, owner_student_id, import_batch_id,
-          governance_state, created_by, approved_by, approved_at, created_at
+        `SELECT event.id, event.actor_id, event.actor_display, event.action,
+           event.entity_type, event.entity_id, event.student_id, event.story_id,
+           event.question_id, event.detail, event.previous_value, event.new_value,
+           event.surface, event.created_at, story.title AS story_title,
+           student.display_name AS student_name, student.cohort
+         FROM public.sf_audit_events event
+         LEFT JOIN public.sf_stories story ON story.id = event.story_id
+         LEFT JOIN public.sf_users student ON student.id = event.student_id
+         WHERE event.actor_id = $1
+           AND event.created_at >= now() - $2::interval
+           AND ($3::uuid IS NULL OR event.student_id = $3)
+           AND (
+             (event.student_id IS NULL AND event.story_id IS NULL)
+             OR (
+               event.student_id IS NOT NULL
+               AND public.sf_is_assigned(event.student_id)
+             )
+             OR (
+               event.student_id IS NULL
+               AND event.story_id IS NOT NULL
+               AND public.sf_is_assigned(story.student_id)
+             )
+           )
+           AND (
+             $4 = ''
+             OR event.action LIKE
+               CASE $4
+                 WHEN 'status' THEN 'story.%'
+                 WHEN 'feedback' THEN 'story.feedback%'
+                 WHEN 'score' THEN '%score%'
+                 WHEN 'question' THEN 'question.%'
+                 WHEN 'star' THEN '%star%'
+                 ELSE $4 || '%'
+               END
+           )
+         ORDER BY event.created_at DESC
+         LIMIT 250`,
+        [identity.sub, interval, studentId, actionType],
+      );
+      return result.rows;
+    });
+    return sendJson(response, 200, { activity, period });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/teaching/stories') {
+    const stories = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor']);
+      const result = await client.query(
+        `SELECT ${storyProjection('story')}, student.display_name AS student_name,
+           craft.detail AS craft_detail, craft.stakes AS craft_stakes,
+           craft.turn AS craft_turn, craft.honest AS craft_honest,
+           craft.lesson AS craft_lesson
+         FROM public.sf_stories story
+         JOIN public.sf_users student ON student.id = story.student_id
+         LEFT JOIN public.sf_story_craft craft ON craft.story_id = story.id
+         WHERE story.status <> 'private' AND story.archived_at IS NULL
+         ORDER BY coalesce(story.mentor_score, 0) DESC, story.updated_at DESC`,
+      );
+      return result.rows;
+    });
+    return sendJson(response, 200, { stories });
+  }
+
+  if (
+    request.method === 'GET'
+    && (
+      url.pathname === '/api/coaching-sessions'
+      || url.pathname === '/api/mentor/sessions'
+      || url.pathname === '/api/sessions'
+    )
+  ) {
+    const studentId = url.searchParams.get('studentId')
+      ? safeUuid(url.searchParams.get('studentId'))
+      : null;
+    const sessions = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT session.*,
+           coalesce(
+             jsonb_agg(
+               jsonb_build_object(
+                 'id', item.id,
+                 'label', item.label,
+                 'storyId', item.story_id,
+                 'questionId', item.question_id,
+                 'route', item.route,
+                 'sortOrder', item.sort_order,
+                 'completed', item.completed,
+                 'completedAt', item.completed_at
+               )
+               ORDER BY item.sort_order, item.created_at
+             ) FILTER (WHERE item.id IS NOT NULL),
+             '[]'::jsonb
+           ) AS items
+         FROM public.sf_coaching_sessions session
+         LEFT JOIN public.sf_coaching_session_items item ON item.session_id = session.id
+         WHERE ($1::uuid IS NULL OR session.student_id = $1)
+         GROUP BY session.id
+         ORDER BY session.started_at DESC`,
+        [studentId],
+      );
+      return result.rows;
+    });
+    return sendJson(response, 200, { sessions });
+  }
+
+  if (
+    request.method === 'POST'
+    && (
+      url.pathname === '/api/coaching-sessions'
+      || url.pathname === '/api/mentor/sessions'
+      || url.pathname === '/api/sessions'
+    )
+  ) {
+    const body = await readJson(request);
+    const studentId = safeUuid(body.studentId);
+    const payload = await withIdentity(identity, async (client) => {
+      const storiesResult = await client.query(
+        `SELECT id, title, status, revised, mentor_score
+         FROM public.sf_stories
+         WHERE student_id = $1
+           AND status <> 'private'
+           AND archived_at IS NULL
+         ORDER BY coalesce(student_responded_at, last_submitted_at, updated_at) DESC`,
+        [studentId],
+      );
+      const questionsResult = await client.query(
+        `SELECT question.id, question.text, preference.story_id AS preferred_story_id,
+           count(DISTINCT pair.id) FILTER (
+             WHERE story.id IS NOT NULL
+               AND pair.state IN ('suggested', 'confirmed')
+           )::integer AS pair_count,
+           count(DISTINCT pair.id) FILTER (
+             WHERE story.id IS NOT NULL
+               AND pair.state = 'confirmed'
+           )::integer AS confirmed_count,
+           count(DISTINCT followup.id)::integer AS followup_count,
+           count(DISTINCT followup.id) FILTER (
+             WHERE followup.prepared
+           )::integer AS prepared_followup_count
+         FROM public.sf_questions question
+         LEFT JOIN public.sf_story_questions pair
+           ON pair.question_id = question.id
+          AND pair.state IN ('suggested', 'confirmed')
+         LEFT JOIN public.sf_stories story
+           ON story.id = pair.story_id
+          AND story.student_id = $1
+          AND story.status <> 'private'
+          AND story.archived_at IS NULL
+         LEFT JOIN public.sf_pair_followups followup
+           ON followup.story_question_id = pair.id
+          AND followup.removed_at IS NULL
+          AND story.id IS NOT NULL
+         LEFT JOIN public.sf_question_preferences preference
+           ON preference.student_id = $1
+          AND preference.question_id = question.id
+         WHERE question.governance_state = 'approved'
+            OR question.owner_student_id = $1
+         GROUP BY question.id, question.text, question.family,
+           question.canonical_key, preference.story_id
+         HAVING preference.story_id IS NULL
+           OR count(DISTINCT pair.id) FILTER (
+             WHERE story.id IS NOT NULL
+               AND pair.state = 'confirmed'
+           ) = 0
+           OR count(DISTINCT followup.id) = 0
+           OR count(DISTINCT followup.id) FILTER (
+             WHERE followup.prepared
+           ) < count(DISTINCT followup.id)
+         ORDER BY
+           CASE question.family
+             WHEN 'core' THEN 1 WHEN 'behavioral' THEN 2 WHEN 'clinical' THEN 3
+             WHEN 'cv' THEN 4 WHEN 'redflag' THEN 5 WHEN 'personal' THEN 6
+             ELSE 7
+           END,
+           question.canonical_key NULLS LAST,
+           question.text
+         LIMIT 8`,
+        [studentId],
+      );
+      const storyItems = defaultStoryAgendaItems(storiesResult.rows).slice(0, 4);
+      const questionItems = defaultQuestionAgendaItems(questionsResult.rows)
+        .slice(0, Math.max(0, 6 - storyItems.length));
+      const agenda = [...storyItems, ...questionItems];
+      const result = await client.query(
+        `SELECT * FROM public.sf_start_coaching_session($1, $2::jsonb)`,
+        [studentId, JSON.stringify(agenda)],
+      );
+      const session = result.rows[0];
+      const itemsResult = await client.query(
+        `SELECT id, label, story_id, question_id, route, sort_order,
+           completed, completed_at, created_at, updated_at
+         FROM public.sf_coaching_session_items
+         WHERE session_id = $1
+         ORDER BY sort_order, created_at`,
+        [session.id],
+      );
+      return { session, items: itemsResult.rows };
+    });
+    return sendJson(response, 201, payload);
+  }
+
+  const sessionItem = url.pathname.match(
+    /^\/api\/(?:coaching-session-items|sessions\/items)\/([a-f0-9-]+)$/i,
+  );
+  if (request.method === 'PATCH' && sessionItem) {
+    const body = await readJson(request);
+    const item = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_toggle_coaching_session_item($1, $2)`,
+        [safeUuid(sessionItem[1]), Boolean(body.completed)],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { item });
+  }
+
+  const sessionEnd = url.pathname.match(
+    /^\/api\/(?:coaching-sessions|sessions)\/([a-f0-9-]+)\/end$/i,
+  );
+  if (request.method === 'POST' && sessionEnd) {
+    const body = await readJson(request);
+    const session = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_end_coaching_session($1, $2)`,
+        [safeUuid(sessionEnd[1]), body.summary || null],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { session });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/questions') {
+    const requestedStudentId = identity.role === 'mentor'
+      ? String(url.searchParams.get('studentId') || '').trim()
+      : '';
+    const selectedStudentId = requestedStudentId ? safeUuid(requestedStudentId) : null;
+    const questions = await withIdentity(identity, async (client) => {
+      if (identity.role === 'mentor' && selectedStudentId) {
+        const assignment = await client.query(
+          `SELECT public.sf_is_assigned($1) AS assigned`,
+          [selectedStudentId],
+        );
+        if (!assignment.rows[0]?.assigned) {
+          const error = new Error('The selected student is not assigned to this mentor.');
+          error.code = '42501';
+          throw error;
+        }
+      }
+      const scopeStudentId = identity.role === 'student'
+        ? identity.sub
+        : selectedStudentId;
+      const result = await client.query(
+        `SELECT id, canonical_key, text, family, provenance, owner_student_id, import_batch_id,
+          governance_state, created_by, approved_by, approved_at, created_at, updated_at
          FROM public.sf_questions
+         WHERE owner_student_id IS NULL
+            OR ($1::uuid IS NOT NULL AND owner_student_id = $1)
          ORDER BY family, text`,
+        [scopeStudentId],
       );
       return result.rows;
     });
     return sendJson(response, 200, { questions });
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/questions') {
+    const body = await readJson(request);
+    const question = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_create_custom_question($1, $2, $3)`,
+        [
+          body.text,
+          body.family ?? 'custom',
+          body.surface ?? 'library',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 201, { question });
+  }
+
+  const questionApproval = url.pathname.match(/^\/api\/questions\/([a-f0-9-]+)\/approve$/i);
+  if (request.method === 'POST' && questionApproval) {
+    const body = await readJson(request);
+    const question = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_approve_question($1, $2)`,
+        [safeUuid(questionApproval[1]), body.surface || 'library'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { question });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/interview-intelligence') {
+    const studentId = safeUuid(url.searchParams.get('studentId') || identity.sub);
+    const payload = await withIdentity(identity, async (client) => {
+      const studentResult = await client.query(
+        `SELECT id, display_name, first_name, cohort, academic_year, specialty
+         FROM public.sf_users
+         WHERE id = $1 AND role = 'student'`,
+        [studentId],
+      );
+      if (!studentResult.rows[0]) return null;
+      const result = await client.query(
+        `SELECT q.id, q.canonical_key, q.text, q.family, q.provenance,
+           preferred_story.id AS preferred_story_id,
+           count(DISTINCT pair.id) FILTER (
+             WHERE pair.state IN ('suggested', 'confirmed') AND story.id IS NOT NULL
+           )::integer AS pair_count,
+           count(DISTINCT pair.id) FILTER (
+             WHERE pair.state = 'confirmed' AND story.id IS NOT NULL
+           )::integer AS confirmed_count,
+           count(DISTINCT pair.id) FILTER (
+             WHERE pair.state = 'confirmed'
+               AND coalesce(pair.mentor_strength, 0) >= 3
+               AND pair.story_id = preferred_story.id
+               AND story.id IS NOT NULL
+           )::integer AS ready_pair_count,
+           max(pair.student_strength) FILTER (
+             WHERE pair.state IN ('suggested', 'confirmed') AND story.id IS NOT NULL
+           ) AS best_student_strength,
+           max(pair.mentor_strength) FILTER (
+             WHERE pair.state IN ('suggested', 'confirmed') AND story.id IS NOT NULL
+           ) AS best_mentor_strength,
+           count(DISTINCT followup.id)::integer AS followups_total,
+           count(DISTINCT followup.id) FILTER (WHERE followup.prepared)::integer AS followups_prepared
+         FROM public.sf_questions q
+         LEFT JOIN public.sf_story_questions pair
+           ON pair.question_id = q.id
+         LEFT JOIN public.sf_stories story
+           ON story.id = pair.story_id
+          AND story.student_id = $1
+          AND story.archived_at IS NULL
+         LEFT JOIN public.sf_pair_followups followup
+           ON followup.story_question_id = pair.id
+          AND followup.removed_at IS NULL
+          AND story.id IS NOT NULL
+         LEFT JOIN public.sf_question_preferences pref
+           ON pref.student_id = $1
+          AND pref.question_id = q.id
+         LEFT JOIN public.sf_stories preferred_story
+           ON preferred_story.id = pref.story_id
+          AND preferred_story.student_id = $1
+          AND preferred_story.archived_at IS NULL
+         WHERE q.governance_state = 'approved'
+            OR q.owner_student_id = $1
+         GROUP BY q.id, q.canonical_key, q.text, q.family, q.provenance,
+           preferred_story.id
+         ORDER BY
+           CASE q.family
+             WHEN 'core' THEN 1 WHEN 'behavioral' THEN 2 WHEN 'clinical' THEN 3
+             WHEN 'cv' THEN 4 WHEN 'redflag' THEN 5 WHEN 'personal' THEN 6
+             ELSE 7
+           END,
+           q.canonical_key NULLS LAST,
+           q.text`,
+        [studentId],
+      );
+      const questions = result.rows.map((row) => {
+        const ready = Boolean(row.preferred_story_id)
+          && row.ready_pair_count > 0;
+        return {
+          id: row.id,
+          canonicalKey: row.canonical_key,
+          text: row.text,
+          family: row.family,
+          provenance: row.provenance,
+          state: ready ? 'ready' : (row.pair_count > 0 ? 'progress' : 'none'),
+          preferredStoryId: row.preferred_story_id,
+          pairCount: row.pair_count,
+          confirmedCount: row.confirmed_count,
+          readyPairCount: row.ready_pair_count,
+          bestStudentStrength: row.best_student_strength,
+          bestMentorStrength: row.best_mentor_strength,
+          followupsTotal: row.followups_total,
+          followupsPrepared: row.followups_prepared,
+        };
+      });
+      const stats = questions.reduce((summary, question) => {
+        summary[question.state === 'none' ? 'gaps' : question.state] += 1;
+        summary.followupsTotal += question.followupsTotal;
+        summary.followupsPrepared += question.followupsPrepared;
+        return summary;
+      }, {
+        total: questions.length,
+        ready: 0,
+        progress: 0,
+        gaps: 0,
+        followupsTotal: 0,
+        followupsPrepared: 0,
+      });
+      return {
+        student: studentResult.rows[0],
+        studentId,
+        stats,
+        families: [
+          { id: 'core', label: 'Core & Common' },
+          { id: 'behavioral', label: 'Behavioral' },
+          { id: 'clinical', label: 'Clinical' },
+          { id: 'cv', label: 'CV & Application' },
+          { id: 'redflag', label: 'Red Flag' },
+          { id: 'personal', label: 'Personal' },
+          { id: 'custom', label: 'Custom' },
+        ],
+        questions,
+      };
+    });
+    if (!payload) {
+      const error = new Error('Student not found.');
+      error.code = 'P0002';
+      throw error;
+    }
+    return sendJson(response, 200, payload);
+  }
+
+  const questionWorkshop = url.pathname.match(/^\/api\/questions\/([a-f0-9-]+)\/workshop$/i);
+  if (request.method === 'GET' && questionWorkshop) {
+    const questionId = safeUuid(questionWorkshop[1]);
+    const studentId = safeUuid(url.searchParams.get('studentId') || identity.sub);
+    const workshop = await withIdentity(identity, async (client) => {
+      const accessResult = await client.query(
+        `SELECT id FROM public.sf_users WHERE id = $1 AND role = 'student'`,
+        [studentId],
+      );
+      if (!accessResult.rows[0]) return null;
+      const questionResult = await client.query(
+        `SELECT id, canonical_key, text, family, provenance
+         FROM public.sf_questions
+         WHERE id = $1
+           AND (governance_state = 'approved' OR owner_student_id = $2)`,
+        [questionId, studentId],
+      );
+      if (!questionResult.rows[0]) return null;
+      const questionFamily = questionResult.rows[0].family;
+      const [preferenceResult, pairsResult, coachingResult, suggestionsResult] = await Promise.all([
+        client.query(
+          `SELECT preference.story_id, preference.set_by, preference.set_at,
+             preference.row_version
+           FROM public.sf_question_preferences preference
+           JOIN public.sf_stories story
+             ON story.id = preference.story_id
+            AND story.student_id = preference.student_id
+            AND story.archived_at IS NULL
+           WHERE preference.student_id = $1
+             AND preference.question_id = $2`,
+          [studentId, questionId],
+        ),
+        client.query(
+          `SELECT pair.id, pair.story_id, story.title, story.current_text,
+             story.prefix_enabled, story.lesson, story.status, story.revised,
+             story.student_score, story.mentor_score, story.themes, story.uses,
+             student.display_name AS student_name,
+             pair.student_strength, pair.mentor_strength, pair.student_proposed,
+             pair.mentor_confirmed, pair.state, pair.proposed_by, pair.proposed_role,
+             pair.why, pair.clinical, pair.created_at, pair.updated_at, pair.row_version,
+             proposer.display_name AS proposed_by_name,
+             coalesce(
+               (
+                 SELECT jsonb_agg(
+                   jsonb_build_object(
+                     'id', followup.id,
+                     'text', followup.text,
+                     'source', followup.source,
+                     'clinical', followup.clinical,
+                     'prepared', followup.prepared,
+                     'note', followup.preparation_note,
+                     'sortOrder', followup.sort_order,
+                     'rowVersion', followup.row_version,
+                     'createdAt', followup.created_at,
+                     'updatedAt', followup.updated_at
+                   )
+                   ORDER BY followup.sort_order, followup.created_at
+                 )
+                 FROM public.sf_pair_followups followup
+                 WHERE followup.story_question_id = pair.id
+                   AND followup.removed_at IS NULL
+               ),
+               '[]'::jsonb
+             ) AS followups
+           FROM public.sf_story_questions pair
+           JOIN public.sf_stories story ON story.id = pair.story_id
+           JOIN public.sf_users student ON student.id = story.student_id
+           LEFT JOIN public.sf_users proposer ON proposer.id = pair.proposed_by
+           WHERE pair.question_id = $2
+             AND story.student_id = $1
+             AND story.archived_at IS NULL
+             AND pair.state IN ('suggested', 'confirmed')
+           ORDER BY
+             CASE WHEN pair.state = 'confirmed' THEN 0 ELSE 1 END,
+             coalesce(pair.mentor_strength, pair.student_strength, 0) DESC,
+             story.updated_at DESC`,
+          [studentId, questionId],
+        ),
+        client.query(
+          `SELECT note.id, note.story_id, note.body, note.created_at,
+             note.mentor_id, mentor.display_name AS mentor_name
+           FROM public.sf_question_coaching_notes note
+           JOIN public.sf_users mentor ON mentor.id = note.mentor_id
+           WHERE note.student_id = $1
+             AND note.question_id = $2
+             AND (
+               note.story_id IS NULL
+               OR EXISTS (
+                 SELECT 1
+                 FROM public.sf_stories note_story
+                 WHERE note_story.id = note.story_id
+                   AND note_story.student_id = note.student_id
+                   AND note_story.archived_at IS NULL
+               )
+             )
+           ORDER BY note.created_at`,
+          [studentId, questionId],
+        ),
+        client.query(
+          `SELECT ${storyProjection('story')}, student.display_name AS student_name
+           FROM public.sf_stories story
+           JOIN public.sf_users student ON student.id = story.student_id
+           WHERE story.student_id = $1
+             AND story.status <> 'private'
+             AND story.archived_at IS NULL
+             AND (
+               $3 = 'custom'
+               OR story.themes && CASE $3
+                 WHEN 'core' THEN ARRAY['identity', 'growth']::text[]
+                 WHEN 'behavioral' THEN ARRAY[
+                   'mistake', 'conflict', 'leader', 'team', 'growth', 'resil', 'comm'
+                 ]::text[]
+                 WHEN 'clinical' THEN ARRAY['patient', 'advoc', 'mistake']::text[]
+                 WHEN 'cv' THEN ARRAY['identity', 'leader', 'team']::text[]
+                 WHEN 'redflag' THEN ARRAY['resil', 'growth', 'mistake']::text[]
+                 WHEN 'personal' THEN ARRAY['identity', 'resil']::text[]
+                 ELSE ARRAY[]::text[]
+               END
+             )
+             AND NOT EXISTS (
+               SELECT 1 FROM public.sf_story_questions pair
+               WHERE pair.story_id = story.id
+                 AND pair.question_id = $2
+                 AND pair.state IN ('suggested', 'confirmed')
+             )
+           ORDER BY coalesce(story.mentor_score, story.student_score, 0) DESC, story.updated_at DESC
+           LIMIT 6`,
+          [studentId, questionId, questionFamily],
+        ),
+      ]);
+      const preferredStoryId = preferenceResult.rows[0]?.story_id || null;
+      const pairs = pairsResult.rows.map((pair) => ({
+        ...pair,
+        preferred: pair.story_id === preferredStoryId,
+      }));
+      const confirmed = pairs.some((pair) => pair.state === 'confirmed');
+      const readyPair = pairs.some(
+        (pair) => pair.preferred
+          && pair.state === 'confirmed'
+          && Number(pair.mentor_strength || 0) >= 3,
+      );
+      const focus = pairs.find((pair) => pair.preferred) || pairs[0] || null;
+      const followups = focus?.followups || [];
+      const gaps = {
+        preferredStoryChosen: Boolean(preferredStoryId),
+        mentorConfirmed: confirmed,
+        followupsMapped: followups.length > 0,
+        allFollowupsPrepared: followups.length > 0 && followups.every((item) => item.prepared),
+      };
+      return {
+        studentId,
+        question: questionResult.rows[0],
+        state: preferredStoryId && readyPair
+          ? 'ready'
+          : (pairs.length ? 'progress' : 'none'),
+        preferredStoryId,
+        preference: preferenceResult.rows[0] || null,
+        pairs,
+        coachingNotes: coachingResult.rows,
+        suggestedStories: suggestionsResult.rows,
+        gaps,
+      };
+    });
+    if (!workshop) {
+      const error = new Error('Question workshop not found.');
+      error.code = 'P0002';
+      throw error;
+    }
+    return sendJson(response, 200, workshop);
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/story-question-pairs') {
+    const body = await readJson(request);
+    if (
+      (identity.role === 'student' && Object.hasOwn(body, 'mentorStrength'))
+      || (identity.role === 'mentor' && Object.hasOwn(body, 'studentStrength'))
+    ) {
+      const error = new Error('Story-question strength is owned by the signed role.');
+      error.code = '42501';
+      throw error;
+    }
+    const patch = {
+      ...body,
+      strength: identity.role === 'mentor'
+        ? (body.mentorStrength ?? body.strength)
+        : (body.studentStrength ?? body.strength),
+    };
+    const pair = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_upsert_story_question($1, $2, $3::jsonb, $4)`,
+        [
+          safeUuid(body.storyId),
+          safeUuid(body.questionId),
+          JSON.stringify(patch),
+          body.surface || 'workshop',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 201, { pair });
+  }
+
+  const pairRoute = url.pathname.match(/^\/api\/story-question-pairs\/([a-f0-9-]+)$/i);
+  if (request.method === 'PATCH' && pairRoute) {
+    const pairId = safeUuid(pairRoute[1]);
+    const body = await readJson(request);
+    if (
+      (identity.role === 'student' && Object.hasOwn(body, 'mentorStrength'))
+      || (identity.role === 'mentor' && Object.hasOwn(body, 'studentStrength'))
+    ) {
+      const error = new Error('Story-question strength is owned by the signed role.');
+      error.code = '42501';
+      throw error;
+    }
+    const patch = {
+      ...body,
+      strength: identity.role === 'mentor'
+        ? (body.mentorStrength ?? body.strength)
+        : (body.studentStrength ?? body.strength),
+    };
+    const pair = await withIdentity(identity, async (client) => {
+      const current = await client.query(
+        `SELECT story_id, question_id FROM public.sf_story_questions WHERE id = $1`,
+        [pairId],
+      );
+      if (!current.rows[0]) return null;
+      const result = await client.query(
+        `SELECT * FROM public.sf_upsert_story_question($1, $2, $3::jsonb, $4)`,
+        [
+          current.rows[0].story_id,
+          current.rows[0].question_id,
+          JSON.stringify(patch),
+          body.surface || 'workshop',
+        ],
+      );
+      return result.rows[0];
+    });
+    if (!pair) {
+      const error = new Error('Story-question pair not found.');
+      error.code = 'P0002';
+      throw error;
+    }
+    return sendJson(response, 200, { pair });
+  }
+
+  const pairDecision = url.pathname.match(
+    /^\/api\/story-question-pairs\/([a-f0-9-]+)\/(confirm|reject|remove)$/i,
+  );
+  if (request.method === 'POST' && pairDecision) {
+    const pairId = safeUuid(pairDecision[1]);
+    const action = pairDecision[2];
+    const body = await readJson(request);
+    const pair = await withIdentity(identity, async (client) => {
+      const result = action === 'remove'
+        ? await client.query(
+          `SELECT * FROM public.sf_remove_story_question($1, $2)`,
+          [pairId, body.surface || 'workshop'],
+        )
+        : await client.query(
+          `SELECT * FROM public.sf_review_story_question($1, $2, $3, $4)`,
+          [pairId, action === 'confirm' ? 'confirmed' : 'rejected', body.reason || null, body.surface || 'workshop'],
+        );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { pair });
+  }
+
+  const questionPreferencePut = url.pathname.match(/^\/api\/question-preferences\/([a-f0-9-]+)$/i);
+  if (
+    (request.method === 'POST' && url.pathname === '/api/question-preferences')
+    || (request.method === 'PUT' && questionPreferencePut)
+  ) {
+    const body = await readJson(request);
+    const preference = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_set_question_preference($1, $2, $3, $4)`,
+        [
+          safeUuid(body.studentId || identity.sub),
+          safeUuid(questionPreferencePut?.[1] || body.questionId),
+          safeUuid(body.storyId),
+          body.surface || 'workshop',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { preference });
+  }
+
+  const questionCoachingAlias = url.pathname.match(/^\/api\/questions\/([a-f0-9-]+)\/coaching$/i);
+  if (
+    request.method === 'POST'
+    && (url.pathname === '/api/question-coaching-notes' || questionCoachingAlias)
+  ) {
+    const body = await readJson(request);
+    const note = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_add_question_coaching_note($1, $2, $3, $4, $5)`,
+        [
+          safeUuid(body.studentId),
+          safeUuid(questionCoachingAlias?.[1] || body.questionId),
+          body.storyId ? safeUuid(body.storyId) : null,
+          body.body,
+          body.surface || 'workshop',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 201, { note });
+  }
+
+  const pairFollowupCreateAlias = url.pathname.match(
+    /^\/api\/story-question-pairs\/([a-f0-9-]+)\/followups$/i,
+  );
+  if (
+    request.method === 'POST'
+    && (url.pathname === '/api/pair-followups' || pairFollowupCreateAlias)
+  ) {
+    const body = await readJson(request);
+    const followup = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_add_pair_followup($1, $2, $3, $4, $5, $6)`,
+        [
+          safeUuid(pairFollowupCreateAlias?.[1] || body.pairId),
+          body.text,
+          Boolean(body.clinical),
+          Boolean(body.prepared),
+          body.note || '',
+          body.surface || 'workshop',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 201, { followup });
+  }
+
+  const followupRoute = url.pathname.match(/^\/api\/(?:pair-followups|followups)\/([a-f0-9-]+)$/i);
+  if (request.method === 'PATCH' && followupRoute) {
+    const body = await readJson(request);
+    const followup = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_update_pair_followup($1, $2::jsonb, $3::bigint, $4)`,
+        [
+          safeUuid(followupRoute[1]),
+          JSON.stringify(body),
+          body.expectedVersion ?? null,
+          body.surface || 'workshop',
+        ],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { followup });
+  }
+
+  const followupRemove = url.pathname.match(
+    /^\/api\/(?:pair-followups|followups)\/([a-f0-9-]+)\/remove$/i,
+  );
+  if (request.method === 'POST' && followupRemove) {
+    const body = await readJson(request);
+    const followup = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_remove_pair_followup($1, $2)`,
+        [safeUuid(followupRemove[1]), body.surface || 'workshop'],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { followup });
   }
 
   if (request.method === 'GET' && url.pathname === '/api/workshops') {
@@ -495,21 +1770,83 @@ async function api(request, response, url) {
   if (request.method === 'POST' && url.pathname === '/api/imports/preview') {
     const body = await readJson(request);
     const existingQuestions = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor', 'admin']);
       const result = await client.query(`SELECT id, text FROM public.sf_questions WHERE governance_state <> 'retired'`);
       return result.rows;
     });
     const rows = await previewImport({ ...body, existingQuestions });
-    return sendJson(response, 200, { rows, selectedCount: rows.filter((row) => row.selected).length });
+    return sendJson(response, 200, {
+      rows,
+      selectedCount: rows.filter((row) => row.selected).length,
+      reviewFingerprint: importReviewFingerprint(rows),
+    });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/imports') {
+    const batches = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor', 'admin']);
+      const result = await client.query(
+        `SELECT batch.id, batch.source_name, batch.source_format, batch.state,
+           batch.row_count, batch.committed_at, batch.rolled_back_at, batch.created_at,
+           creator.display_name AS created_by_name,
+           count(row.id) FILTER (WHERE row.created_question_id IS NOT NULL)::integer
+             AS created_question_count
+         FROM public.sf_import_batches batch
+         JOIN public.sf_users creator ON creator.id = batch.created_by
+         LEFT JOIN public.sf_import_rows row ON row.batch_id = batch.id
+         GROUP BY batch.id, creator.display_name
+         ORDER BY batch.created_at DESC
+         LIMIT 50`,
+      );
+      return result.rows;
+    });
+    return sendJson(response, 200, { batches });
   }
 
   if (request.method === 'POST' && url.pathname === '/api/imports/commit') {
     const body = await readJson(request);
-    const rows = Array.isArray(body.rows) ? body.rows.map((row) => ({
-      text: String(row.text || ''),
-      family: String(row.family || 'general'),
-      selected: Boolean(row.selected),
-    })) : [];
     const batch = await withIdentity(identity, async (client) => {
+      await requireDatabaseRole(client, ['mentor', 'admin']);
+      const submittedRows = Array.isArray(body.rows) ? body.rows : [];
+      const existingResult = await client.query(
+        `SELECT id, text
+         FROM public.sf_questions
+         WHERE governance_state <> 'retired'`,
+      );
+      const previewRows = await previewImport({
+        format: 'paste',
+        text: submittedRows.map((row) => `${String(row.text || '')} | ${String(row.family || '')}`).join('\n'),
+        existingQuestions: existingResult.rows,
+      });
+      const fingerprint = importReviewFingerprint(previewRows);
+      if (!/^[a-f0-9]{64}$/.test(String(body.reviewFingerprint || ''))
+          || body.reviewFingerprint !== fingerprint) {
+        const error = new Error('Import preview is missing or stale. Preview the source again before committing.');
+        error.code = 'import_preview_stale';
+        throw error;
+      }
+      const rows = previewRows.map((row, index) => {
+        const submitted = submittedRows[index] || {};
+        const selected = Boolean(submitted.selected);
+        if (
+          selected
+          && (
+            row.error
+            || row.exactDuplicateId
+            || String(submitted.nearDuplicateId || '') !== String(row.nearDuplicateId || '')
+          )
+        ) {
+          const error = new Error(`Import row ${row.rowNumber} must be reviewed again before commit.`);
+          error.code = 'import_preview_stale';
+          throw error;
+        }
+        return {
+          text: row.text,
+          family: row.family,
+          selected,
+          nearDuplicateReviewed: Boolean(row.nearDuplicateId && selected),
+        };
+      });
       const result = await client.query(
         `SELECT * FROM public.sf_commit_question_import($1, $2, $3::jsonb)`,
         [body.sourceName, body.format, JSON.stringify(rows)],
@@ -553,6 +1890,7 @@ async function api(request, response, url) {
   const audioConfirm = url.pathname.match(/^\/api\/audio\/([a-f0-9-]+)\/confirm$/i);
   if (request.method === 'POST' && audioConfirm) {
     const assetId = safeUuid(audioConfirm[1]);
+    const body = await readJson(request);
     const assetResult = await withIdentity(identity, async (client) => client.query(
       `SELECT * FROM public.sf_audio_assets WHERE id = $1 AND student_id = $2`,
       [assetId, identity.sub],
@@ -568,14 +1906,44 @@ async function api(request, response, url) {
       expectedType: asset.content_type,
       expectedSize: Number(asset.byte_size),
     });
-    const result = await pool.query(
-      `UPDATE public.sf_audio_assets
-       SET state = 'verified', verified_at = now()
-       WHERE id = $1 AND student_id = $2 AND state = 'pending'
-       RETURNING *`,
-      [assetId, identity.sub],
-    );
-    return sendJson(response, 200, { asset: result.rows[0], verified });
+    const confirmed = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT * FROM public.sf_confirm_audio_asset($1, $2, $3)`,
+        [assetId, body.checksumSha256 || null, body.durationMs ?? null],
+      );
+      return result.rows[0];
+    });
+    return sendJson(response, 200, { asset: confirmed, verified });
+  }
+
+  const audioPlayback = url.pathname.match(/^\/api\/audio\/([a-f0-9-]+)\/playback$/i);
+  if (request.method === 'GET' && audioPlayback) {
+    const assetId = safeUuid(audioPlayback[1]);
+    const asset = await withIdentity(identity, async (client) => {
+      const result = await client.query(
+        `SELECT id, story_id, object_key, content_type, byte_size, duration_ms
+         FROM public.sf_audio_assets
+         WHERE id = $1 AND state = 'verified'`,
+        [assetId],
+      );
+      return result.rows[0] || null;
+    });
+    if (!asset) {
+      const error = new Error('Audio asset not found.');
+      error.code = 'P0002';
+      throw error;
+    }
+    const playback = await createAudioPlayback({ objectKey: asset.object_key });
+    return sendJson(response, 200, {
+      asset: {
+        id: asset.id,
+        storyId: asset.story_id,
+        contentType: asset.content_type,
+        byteSize: Number(asset.byte_size),
+        durationMs: asset.duration_ms,
+      },
+      ...playback,
+    });
   }
 
   if (request.method === 'POST' && url.pathname === '/api/ai/suggest') {

@@ -1,42 +1,162 @@
 import { createAuthClient } from './auth.js';
 
-const app = document.querySelector('#app');
-const toastNode = document.querySelector('#toast');
-const fixturePersonaKey = 'storyforge_local_fixture_persona';
-const fixturePersonas = new Set(['student', 'studentOther', 'mentor', 'mentorTwo', 'unassignedMentor', 'admin']);
-const backgroundEnvironments = Object.freeze([
-  {
-    id: 'ember',
-    name: 'Emberlight',
-    description: 'Rising ember warmth with quiet violet and cyan depth.',
-  },
-  {
-    id: 'aurora',
-    name: 'Aurora',
-    description: 'Slow curtains of northern color across the dark.',
-  },
-  {
-    id: 'constellation',
-    name: 'Night Constellation',
-    description: 'A quiet star field with faint connected points.',
-  },
-  {
-    id: 'tide',
-    name: 'Deep Tide',
-    description: 'Soft light currents moving through deep water.',
-  },
-  {
-    id: 'meridian',
-    name: 'Meridian',
-    description: 'Restrained contour lines with a low cyan glow.',
-  },
-  {
-    id: 'static',
-    name: 'Static Dark',
-    description: 'A flat, still dark background with no motion.',
-  },
+/*
+ * StoryForge V5 production adapter
+ *
+ * The founder-approved V5 HTML is the presentation and interaction authority.
+ * This file deliberately keeps its state small: identity and durable product data
+ * come from the signed StoryForge API; only navigation, filters, and open-surface
+ * state live in the browser.
+ */
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const rail = $('#rail');
+const hdr = $('#hdr');
+const main = $('#main');
+const advBanner = $('#advBanner');
+const room = $('#room');
+const capture = $('#capture');
+const quick = $('#quick');
+const qad = $('#qad');
+const palette = $('#pal');
+const sessionBar = $('#sesh');
+const teaching = $('#teach');
+const toastNode = $('#toast');
+
+const FIXTURE_PERSONA_KEY = 'storyforge_local_fixture_persona';
+const FIXTURE_PERSONAS = new Set([
+  'student',
+  'studentOther',
+  'mentor',
+  'mentorTwo',
+  'unassignedMentor',
+  'admin',
 ]);
-const backgroundIds = new Set(backgroundEnvironments.map(({ id }) => id));
+
+const STATUS = Object.freeze({
+  private: {
+    label: 'Private',
+    hint: 'Only you can see this. Submit it when you want feedback.',
+    col: 'st-private',
+  },
+  awaiting: {
+    label: 'Awaiting review',
+    hint: 'Submitted — your mentor hasn’t completed a review yet.',
+    col: 'st-awaiting',
+  },
+  in_review: {
+    label: 'In review',
+    hint: 'Your mentor is actively working on this story.',
+    col: 'st-in_review',
+  },
+  changes: {
+    label: 'Changes requested',
+    hint: 'Your mentor asked for a revision. Read the feedback and resubmit.',
+    col: 'st-changes',
+  },
+  reviewed: {
+    label: 'Reviewed',
+    hint: 'Your mentor completed a review of this story.',
+    col: 'st-reviewed',
+  },
+  approved: {
+    label: 'Approved',
+    hint: 'Ready to use in your application.',
+    col: 'st-approved',
+  },
+});
+
+const THEMES = Object.freeze([
+  { id: 'mistake', label: 'Mistakes', hue: '#ff8a5c' },
+  { id: 'patient', label: 'Patient care', hue: '#ff6b8a' },
+  { id: 'leader', label: 'Leadership', hue: '#ffd76a' },
+  { id: 'conflict', label: 'Conflict', hue: '#ff5470' },
+  { id: 'comm', label: 'Communication', hue: '#39d6ff' },
+  { id: 'team', label: 'Teamwork', hue: '#4ade9d' },
+  { id: 'resil', label: 'Resilience', hue: '#ffb340' },
+  { id: 'growth', label: 'Growth', hue: '#7ee0a3' },
+  { id: 'identity', label: 'Identity', hue: '#8a7dff' },
+  { id: 'advoc', label: 'Advocacy', hue: '#5cc8ff' },
+]);
+
+const USES = Object.freeze([
+  { id: 'ps', label: 'Personal statement' },
+  { id: 'iv', label: 'Interview set' },
+  { id: 'letter', label: 'Letter conversations' },
+  { id: 'later', label: 'Someday / fellowship' },
+]);
+
+const BIRDS = Object.freeze([
+  { id: 'peacock', label: 'Peacock', emo: '🦚', hue: '#8a7dff', hint: 'Expressive, colorful, memorable in the room' },
+  { id: 'dove', label: 'Dove', emo: '🕊️', hue: '#aab8d1', hint: 'Warm, empathetic, patient-centered' },
+  { id: 'owl', label: 'Owl', emo: '🦉', hue: '#ffb340', hint: 'Analytical, careful, learns from error' },
+  { id: 'eagle', label: 'Eagle', emo: '🦅', hue: '#4ade9d', hint: 'Decisive, leads, takes ownership' },
+]);
+
+const POSITIONS = Object.freeze([
+  { id: 'pd', label: 'Program Director' },
+  { id: 'apd', label: 'Associate Program Director' },
+  { id: 'faculty', label: 'Faculty' },
+  { id: 'resident', label: 'Resident' },
+  { id: 'behaviorist', label: 'Behaviorist' },
+]);
+
+const FAMILIES = Object.freeze([
+  { id: 'core', label: 'Core & Common', ico: '★', hue: '#39d6ff', desc: 'The questions every applicant gets. Have these cold.' },
+  { id: 'behavioral', label: 'Behavioral', ico: '⇄', hue: '#4ade9d', desc: '“Tell me about a time…” — teamwork, mistakes, conflict, leadership.' },
+  { id: 'clinical', label: 'Clinical', ico: '✚', hue: '#ff5470', desc: 'Patient stories — and the medical follow-ups they invite.' },
+  { id: 'cv', label: 'CV & Application', ico: '▤', hue: '#ffd76a', desc: 'Anything on your application is fair game.' },
+  { id: 'redflag', label: 'Red Flag', ico: '⚑', hue: '#ff7a3d', desc: 'Scores, gaps, weaknesses — answer without flinching.' },
+  { id: 'personal', label: 'Personal', ico: '◉', hue: '#8a7dff', desc: 'Who you are outside the hospital.' },
+  { id: 'custom', label: 'Custom', ico: '✎', hue: '#aab8d1', desc: 'Questions written for this student specifically.' },
+]);
+
+const BACKGROUNDS = Object.freeze([
+  { id: 'ember', name: 'Emberlight', ico: '🔥', desc: 'Rising embers with warm aurora depth — the StoryForge signature.', prev: 'radial-gradient(circle at 30% 80%,rgba(255,150,60,.35),transparent 55%),radial-gradient(circle at 75% 20%,rgba(90,77,208,.4),transparent 60%),#0a0d14' },
+  { id: 'aurora', name: 'Aurora', ico: '🌌', desc: 'Slow curtains of northern light drifting across the dark.', prev: 'linear-gradient(115deg,rgba(74,222,157,.22),transparent 40%),linear-gradient(245deg,rgba(57,214,255,.25),transparent 50%),#0a0e16' },
+  { id: 'constellation', name: 'Night Constellation', ico: '✦', desc: 'A quiet star field with faint constellations tracing themselves.', prev: 'radial-gradient(1.5px 1.5px at 20% 30%,#fff,transparent),radial-gradient(1px 1px at 70% 60%,#9fd8ff,transparent),radial-gradient(1.5px 1.5px at 45% 75%,#fff,transparent),#080b13' },
+  { id: 'tide', name: 'Deep Tide', ico: '〰', desc: 'Soft light currents moving slowly through deep water.', prev: 'linear-gradient(180deg,transparent 30%,rgba(57,214,255,.16) 45%,transparent 60%,rgba(90,141,255,.14) 78%,transparent 92%),#090d15' },
+  { id: 'meridian', name: 'Meridian', ico: '▤', desc: 'Restrained geometric contour lines gliding with a soft glow.', prev: 'repeating-linear-gradient(175deg,transparent 0 18px,rgba(57,214,255,.09) 18px 19px),#0a0d14' },
+  { id: 'static', name: 'Static Dark', ico: '■', desc: 'A flat, still dark background. No motion at all.', prev: '#0b0e14' },
+]);
+
+const MEMORY_PROMPTS = Object.freeze([
+  'Was there a moment this week when a patient surprised you?',
+  'What almost went wrong on your last rotation?',
+  'Did anyone thank you recently? What for?',
+  'When did you last feel like a real doctor?',
+  'What is something you did this month that scared you a little?',
+]);
+
+const REFLECTION_PROMPTS = Object.freeze([
+  'What would you do differently now?',
+  'What does this story prove about you that a transcript cannot?',
+  'Who else was in the room, and what did they see?',
+  'What did this cost you, and what did it give you?',
+  'If an interviewer pushed back on this story, what is the hard question?',
+]);
+
+const NAV = Object.freeze({
+  student: [
+    ['home', 'Home', '⌂'],
+    ['library', 'Story Library', '▤'],
+    ['prep', 'Interview Prep', '◇'],
+    ['notifications', 'Notifications', '●'],
+    ['settings', 'Settings', '⚙'],
+  ],
+  mentor: [
+    ['home', 'Home', '⌂'],
+    ['students', 'Students', '◎'],
+    ['queue', 'Review Queue', '◫'],
+    ['activity', 'My Activity', '↗'],
+    ['prep', 'Interview Prep', '◇'],
+    ['settings', 'Settings', '⚙'],
+  ],
+  admin: [
+    ['qlib', 'Question Library', '◇'],
+  ],
+});
 
 const state = {
   config: null,
@@ -45,12 +165,35 @@ const state = {
   route: 'home',
   routeId: null,
   stories: [],
+  notifications: [],
+  students: [],
   questions: [],
-  selectedScore: null,
-  captureMode: 'text',
-  libraryFilter: 'all',
+  intelligence: null,
+  selectedStudent: null,
+  storyDetail: null,
+  storyHistoryExpanded: false,
+  workshop: null,
+  workshopFocusPairId: null,
+  quick: null,
+  assign: null,
+  capturePrompt: null,
+  capturePairQuestionId: null,
+  promptIndex: 0,
+  library: { query: '', status: '', sort: 'new', star: '', bird: '', position: '' },
   queueBucket: 'all',
+  questionFamily: 'all',
+  questionQuery: '',
+  questionStatus: '',
+  questionSource: '',
   importPreview: [],
+  importReviewFingerprint: '',
+  importBatches: [],
+  importSource: { name: 'pasted-questions', format: 'paste' },
+  captureDraftVersion: null,
+  captureDraftSaveTimer: 0,
+  captureDraftSuppressCloseSave: false,
+  returnFocus: null,
+  busy: false,
 };
 
 const auth = createAuthClient({
@@ -61,66 +204,7 @@ const auth = createAuthClient({
   },
 });
 
-const icons = {
-  home: '⌂',
-  library: '▤',
-  capture: '＋',
-  notifications: '●',
-  settings: '⚙',
-  students: '◎',
-  queue: '◫',
-  prep: '◇',
-  activity: '↗',
-};
-
-const routesByRole = {
-  student: [
-    ['home', 'Home'],
-    ['library', 'Story Library'],
-    ['prep', 'Interview Prep'],
-    ['notifications', 'Notifications'],
-    ['settings', 'Settings'],
-  ],
-  mentor: [
-    ['home', 'Home'],
-    ['students', 'Students'],
-    ['queue', 'Review Queue'],
-    ['activity', 'My Activity'],
-    ['prep', 'Interview Prep'],
-    ['settings', 'Settings'],
-  ],
-  admin: [
-    ['home', 'Home'],
-    ['students', 'Students'],
-    ['prep', 'Question Governance'],
-    ['activity', 'Audit'],
-    ['settings', 'Settings'],
-  ],
-};
-
-function matrixHref() {
-  return state.config?.matrixBaseUrl
-    || new URL('/member-dashboard/', window.location.origin).toString();
-}
-
-function activeBackground() {
-  const preferred = state.user?.background_preference;
-  return backgroundIds.has(preferred) ? preferred : 'ember';
-}
-
-function applyEnvironment() {
-  document.body.dataset.background = activeBackground();
-  document.body.dataset.role = state.user?.role || 'student';
-}
-
-function focusPrimaryHeading() {
-  const heading = app.querySelector('h1');
-  if (!heading) return;
-  heading.setAttribute('tabindex', '-1');
-  heading.focus({ preventScroll: true });
-}
-
-function escapeHtml(value) {
+function esc(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')
@@ -129,1007 +213,4056 @@ function escapeHtml(value) {
     .replaceAll("'", '&#039;');
 }
 
-function humanStatus(value) {
-  return String(value || '').replaceAll('_', ' ');
+function attr(value) {
+  return esc(value).replaceAll('`', '&#096;');
+}
+
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function progressClass(value) {
+  const rounded = Math.max(0, Math.min(100, Math.round(Number(value || 0) / 5) * 5));
+  return `progress-${rounded}`;
+}
+
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
+function isoValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toISOString();
 }
 
 function formatDate(value) {
   if (!value) return 'Not yet';
-  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(value));
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() === new Date().getFullYear() ? undefined : 'numeric',
+  }).format(date);
 }
 
-function notify(message) {
+function formatDateTime(value) {
+  if (!value) return 'Not yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return `${new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date)} at ${new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date)}`;
+}
+
+function ago(value) {
+  if (!value) return 'not yet';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const days = Math.max(0, (Date.now() - date.getTime()) / 86_400_000);
+  if (days < 1) return 'today';
+  if (days < 2) return 'yesterday';
+  if (days < 7) return `${Math.round(days)} days ago`;
+  if (days < 30) return `${Math.round(days / 7)}w ago`;
+  if (days < 365) return `${Math.round(days / 30)}mo ago`;
+  return `${Math.round(days / 36.5) / 10}y ago`;
+}
+
+function canonicalStatus(raw) {
+  const value = String(raw || 'private').toLowerCase();
+  return ({
+    submitted: 'awaiting',
+    resubmitted: 'awaiting',
+    opened: 'in_review',
+    needs_revision: 'changes',
+    pending: 'awaiting',
+  })[value] || (STATUS[value] ? value : 'private');
+}
+
+function serverStatus(value) {
+  return ({
+    awaiting: 'submitted',
+    in_review: 'opened',
+    changes: 'needs_revision',
+  })[value] || value;
+}
+
+function normalizeStory(raw = {}) {
+  const statusRaw = firstDefined(raw.status, raw.review_status, 'private');
+  const status = canonicalStatus(statusRaw);
+  const revisions = asArray(firstDefined(raw.revisions, raw.story_revisions));
+  const mappings = asArray(firstDefined(raw.questionMappings, raw.question_mappings, raw.pairs, raw.story_question_pairs));
+  const audio = firstDefined(raw.audio, raw.audio_asset, raw.audioAsset, null);
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.story_id, '')),
+    studentId: String(firstDefined(raw.studentId, raw.student_id, '')),
+    studentName: String(firstDefined(raw.studentName, raw.student_name, state.user?.display_name, 'Student')),
+    title: String(firstDefined(raw.title, raw.title_snapshot, 'Untitled story')),
+    text: String(firstDefined(raw.text, raw.body, raw.current_text, raw.working_text, '')),
+    originalText: String(firstDefined(raw.original?.text, raw.original_text, raw.originalText, revisions[0]?.text_snapshot, raw.text, '')),
+    originalTitle: String(firstDefined(raw.original?.title, raw.original_title, raw.originalTitle, revisions[0]?.title_snapshot, raw.title, 'Untitled story')),
+    lesson: String(firstDefined(raw.lesson, '')),
+    prefixEnabled: Boolean(firstDefined(raw.prefixEnabled, raw.prefix_enabled, true)),
+    status,
+    revised: Boolean(firstDefined(raw.revised, statusRaw === 'resubmitted')),
+    studentScore: Number(firstDefined(raw.studentScore, raw.student_score, 0)) || 0,
+    mentorScore: Number(firstDefined(raw.mentorScore, raw.mentor_score, 0)) || 0,
+    studentStar: Boolean(firstDefined(raw.studentStar, raw.student_star, false)),
+    mentorStar: Boolean(firstDefined(raw.mentorStar, raw.mentor_star, false)),
+    themes: asArray(raw.themes).map(String),
+    uses: asArray(raw.uses).map(String),
+    birds: asArray(raw.birds).map(String),
+    positions: asArray(raw.positions).map(String),
+    rowVersion: Number(firstDefined(raw.rowVersion, raw.row_version, 0)) || 0,
+    captureType: String(firstDefined(raw.captureType, raw.capture_type, 'text')),
+    createdAt: isoValue(firstDefined(raw.createdAt, raw.created_at, raw.captured_at)),
+    updatedAt: isoValue(firstDefined(raw.studentUpdatedAt, raw.student_updated_at, raw.updatedAt, raw.updated_at)),
+    submittedAt: isoValue(firstDefined(raw.submittedAt, raw.submitted_at)),
+    lastSubmittedAt: isoValue(firstDefined(raw.lastSubmittedAt, raw.last_submitted_at)),
+    openedAt: isoValue(firstDefined(raw.openedAt, raw.opened_at, raw.firstOpenedAt, raw.first_opened_at)),
+    reviewedAt: isoValue(firstDefined(raw.reviewedAt, raw.reviewed_at, raw.lastReviewedAt, raw.last_reviewed_at)),
+    statusChangedAt: isoValue(firstDefined(raw.statusChangedAt, raw.status_changed_at)),
+    feedbackSentAt: isoValue(firstDefined(raw.feedbackSentAt, raw.feedback_sent_at)),
+    feedbackOpenedAt: isoValue(firstDefined(raw.feedbackOpenedAt, raw.feedback_opened_at)),
+    studentRespondedAt: isoValue(firstDefined(raw.studentRespondedAt, raw.student_responded_at)),
+    reviewedByName: String(firstDefined(raw.reviewedByName, raw.reviewed_by_name, '')),
+    feedback: asArray(firstDefined(raw.feedback, raw.comments)),
+    revisions,
+    history: asArray(firstDefined(raw.history, raw.auditEvents, raw.audit_events)),
+    reflections: asArray(raw.reflections),
+    mappings,
+    questionCount: Number(firstDefined(raw.questionCount, raw.question_count, mappings.length)) || mappings.length,
+    useSuggestions: asArray(firstDefined(raw.useSuggestions, raw.use_suggestions, raw.suggestions)),
+    mentorReviewAvailable: Boolean(firstDefined(raw.mentorReviewAvailable, raw.mentor_review_available, true)),
+    audio,
+    audioAssetId: String(firstDefined(raw.audioAssetId, raw.audio_asset_id, audio?.id, raw.original?.audio_asset_id, '')),
+    audioDurationMs: Number(firstDefined(
+      raw.audioDurationMs,
+      raw.audio_duration_ms,
+      audio?.durationMs,
+      audio?.duration_ms,
+      raw.original?.audio_duration_ms,
+      0,
+    )) || 0,
+    unreadMentorActivity: Boolean(firstDefined(
+      raw.unreadMentorActivity,
+      raw.unread_mentor_activity,
+      raw.hasUnreadFeedback,
+      raw.has_unread_feedback,
+      raw.unread,
+      false,
+    )),
+    craft: firstDefined(raw.craft, {
+      detail: raw.craft_detail,
+      stakes: raw.craft_stakes,
+      turn: raw.craft_turn,
+      honest: raw.craft_honest,
+      lesson: raw.craft_lesson,
+    }),
+  };
+}
+
+function normalizeQuestion(raw = {}) {
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.question_id, '')),
+    text: String(firstDefined(raw.text, raw.question_text, raw.q, '')),
+    family: String(firstDefined(raw.family, raw.fam, 'custom')),
+    source: String(firstDefined(raw.source, raw.provenance, 'MissionMed')),
+    governanceState: String(firstDefined(raw.governanceState, raw.governance_state, 'approved')),
+    state: String(firstDefined(raw.state, raw.coverage_state, 'none')),
+    storyCount: Number(firstDefined(raw.storyCount, raw.story_count, 0)) || 0,
+  };
+}
+
+function normalizeStudent(raw = {}) {
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.student_id, '')),
+    name: String(firstDefined(raw.name, raw.display_name, raw.student_name, 'Student')),
+    first: String(firstDefined(raw.first, raw.first_name, raw.display_name, raw.student_name, 'Student')).split(/\s+/)[0],
+    cohort: String(firstDefined(raw.cohort, '')),
+    year: String(firstDefined(raw.year, raw.training_year, raw.academic_year, '')),
+    specialty: String(firstDefined(raw.specialty, raw.specialty_interest, '')),
+    cycle: String(firstDefined(raw.cycle, raw.application_cycle, '')),
+    storyCount: Number(firstDefined(raw.storyCount, raw.story_count, 0)) || 0,
+    awaitingReview: Number(firstDefined(raw.awaitingReview, raw.awaiting_review, 0)) || 0,
+    revised: Number(firstDefined(raw.revised, raw.revised_count, 0)) || 0,
+    waitingOnStudent: Number(firstDefined(raw.waitingOnStudent, raw.waiting_on_student, 0)) || 0,
+    unscored: Number(firstDefined(raw.unscored, raw.unscored_count, 0)) || 0,
+    unreadCount: Number(firstDefined(raw.unreadCount, raw.unread_count, 0)) || 0,
+    lastCaptureAt: isoValue(firstDefined(raw.lastCaptureAt, raw.last_capture_at, raw.last_activity_at)),
+    lastSubmittedAt: isoValue(firstDefined(raw.lastSubmittedAt, raw.last_submitted_at, raw.last_shared_at)),
+  };
+}
+
+function unwrapStory(payload) {
+  const root = payload?.story ? { ...payload.story, ...payload } : payload;
+  return normalizeStory(root || {});
+}
+
+function jsonOptions(method, body) {
+  return {
+    method,
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  };
+}
+
+async function optionalRequest(path, fallback) {
+  try {
+    return await auth.request(path);
+  } catch (error) {
+    if ([404, 405, 501].includes(error.status)) return fallback;
+    throw error;
+  }
+}
+
+const api = Object.freeze({
+  config: () => auth.publicRequest('api/config'),
+  session: () => auth.request('/api/session'),
+  fixture: (persona) => auth.request(`/api/dev/session/${persona}`, jsonOptions('POST', {})),
+  stories: () => auth.request('/api/stories'),
+  story: (id) => auth.request(`/api/stories/${id}`),
+  createStory: (body) => auth.request('/api/stories', jsonOptions('POST', body)),
+  updateStory: (id, body) => auth.request(`/api/stories/${id}`, jsonOptions('PATCH', body)),
+  submitStory: (id, surface = 'workspace') => auth.request(`/api/stories/${id}/submit`, jsonOptions('POST', { surface })),
+  viewStory: (id, surface = 'workspace') => auth.request(`/api/stories/${id}/open`, jsonOptions('POST', { surface })),
+  legacyOpenStory: (id, surface = 'workspace') => auth.request(`/api/stories/${id}/open`, jsonOptions('POST', { surface })),
+  storyStatus: (id, status, surface = 'workspace') => auth.request(`/api/stories/${id}/status`, jsonOptions('POST', { status, surface })),
+  legacyReview: (id, body) => auth.request(`/api/stories/${id}/review`, jsonOptions('POST', body)),
+  feedback: (id, body) => auth.request(`/api/stories/${id}/feedback`, jsonOptions('POST', body)),
+  ask: (id, prompt, surface = 'workspace') => auth.request(`/api/stories/${id}/reflections`, jsonOptions('POST', { prompt, surface })),
+  evaluation: (id, body) => auth.request(`/api/stories/${id}/evaluation`, jsonOptions('PATCH', body)),
+  addReflection: (id, prompt) => auth.request(`/api/stories/${id}/reflections`, jsonOptions('POST', { prompt })),
+  answerReflection: (_id, reflectionId, answer) => auth.request(`/api/reflections/${reflectionId}`, jsonOptions('PATCH', { answer, surface: 'workspace' })),
+  notifications: () => auth.request('/api/notifications'),
+  readNotification: (id) => auth.request(`/api/notifications/${id}/read`, jsonOptions('POST', {})),
+  readAllNotifications: () => auth.request('/api/notifications/read-all', jsonOptions('POST', {})),
+  preference: (background) => auth.request('/api/preferences/background', jsonOptions('PATCH', { background })),
+  questions: (studentId = '') => auth.request(`/api/questions${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
+  createQuestion: (body) => auth.request('/api/questions', jsonOptions('POST', body)),
+  approveQuestion: (id, surface = 'library') => auth.request(`/api/questions/${id}/approve`, jsonOptions('POST', { surface })),
+  storyDraft: () => auth.request('/api/drafts/story-builder'),
+  saveStoryDraft: (payload, expectedVersion = null) => auth.request('/api/drafts/story-builder', jsonOptions('PATCH', { payload, expectedVersion })),
+  useSuggestion: (id, useKey, active) => auth.request(`/api/stories/${id}/use-suggestions`, jsonOptions('POST', {
+    useKey,
+    active,
+    surface: 'workspace',
+  })),
+  intelligence: (studentId = '') => auth.request(`/api/interview-intelligence${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
+  workshop: (questionId, studentId = '') => auth.request(`/api/questions/${questionId}/workshop${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
+  createPair: (body) => auth.request('/api/story-question-pairs', jsonOptions('POST', body)),
+  updatePair: (id, body) => auth.request(`/api/story-question-pairs/${id}`, jsonOptions('PATCH', body)),
+  confirmPair: (id) => auth.request(`/api/story-question-pairs/${id}/confirm`, jsonOptions('POST', {})),
+  rejectPair: (id) => auth.request(`/api/story-question-pairs/${id}/reject`, jsonOptions('POST', {})),
+  removePair: (id) => auth.request(`/api/story-question-pairs/${id}/remove`, jsonOptions('POST', { surface: 'assign' })),
+  preferenceForQuestion: (questionId, body) => auth.request('/api/question-preferences', jsonOptions('POST', { ...body, questionId })),
+  coaching: (body) => auth.request('/api/question-coaching-notes', jsonOptions('POST', body)),
+  addFollowup: (pairId, body) => auth.request('/api/pair-followups', jsonOptions('POST', { ...body, pairId })),
+  updateFollowup: (id, body) => auth.request(`/api/pair-followups/${id}`, jsonOptions('PATCH', body)),
+  removeFollowup: (id) => auth.request(`/api/pair-followups/${id}/remove`, jsonOptions('POST', { surface: 'workshop' })),
+  students: () => auth.request('/api/students'),
+  mentorHome: () => auth.request('/api/mentor/home'),
+  mentorStudent: (id) => auth.request(`/api/students/${id}`),
+  queue: () => auth.request('/api/queue'),
+  activity: (query = '') => auth.request(`/api/mentor/activity${query ? `?${query}` : ''}`),
+  createSession: (studentId) => auth.request('/api/coaching-sessions', jsonOptions('POST', { studentId })),
+  coverSessionItem: (_sessionId, itemId, covered) => auth.request(`/api/coaching-session-items/${itemId}`, jsonOptions('PATCH', { completed: covered })),
+  endSession: (id) => auth.request(`/api/coaching-sessions/${id}/end`, jsonOptions('POST', {})),
+  teachingStories: (studentId = '') => auth.request(`/api/teaching/stories${studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''}`),
+  craft: (id, body) => auth.request(`/api/stories/${id}/craft`, jsonOptions('PATCH', { ...body, surface: 'teach' })),
+  importPreview: (body) => auth.request('/api/imports/preview', jsonOptions('POST', body)),
+  imports: () => auth.request('/api/imports'),
+  importCommit: (body) => auth.request('/api/imports/commit', jsonOptions('POST', body)),
+  importRollback: (id) => auth.request(`/api/imports/${id}/rollback`, jsonOptions('POST', {})),
+  aiSuggest: (body) => auth.request('/api/ai/suggest', jsonOptions('POST', body)),
+  audioPlayback: (id) => auth.request(`/api/audio/${id}/playback`),
+});
+
+function isMentor() {
+  return state.user?.role === 'mentor';
+}
+
+function isAdmin() {
+  return state.user?.role === 'admin';
+}
+
+function isStudent() {
+  return state.user?.role === 'student';
+}
+
+function canGovernQuestions() {
+  return isMentor() || isAdmin();
+}
+
+function roleName() {
+  if (isAdmin()) return 'admin';
+  return isMentor() ? 'mentor' : 'student';
+}
+
+function viewLabel() {
+  if (isAdmin()) return 'Question Governance';
+  return isMentor() ? 'Mentor View' : 'Student View';
+}
+
+function firstName() {
+  return String(state.user?.display_name || 'there').split(/\s+/)[0];
+}
+
+function matrixHref() {
+  return state.config?.matrixBaseUrl
+    || new URL('/member-dashboard/', window.location.origin).toString();
+}
+
+function activeBackground() {
+  const preferred = state.user?.background_preference;
+  return BACKGROUNDS.some(({ id }) => id === preferred) ? preferred : 'ember';
+}
+
+function applyEnvironment() {
+  document.body.dataset.role = isMentor() || isAdmin() ? 'advisor' : 'student';
+  document.body.dataset.background = activeBackground();
+  document.body.classList.toggle('is-booting', !state.user);
+}
+
+function notify(message, kind = '') {
   toastNode.textContent = message;
+  toastNode.dataset.kind = kind;
   toastNode.classList.add('show');
   window.clearTimeout(notify.timer);
-  notify.timer = window.setTimeout(() => toastNode.classList.remove('show'), 3200);
+  notify.timer = window.setTimeout(() => toastNode.classList.remove('show'), 3600);
 }
 
-async function request(path, options = {}) {
-  return auth.request(path, options);
+async function withBusy(task, message = '') {
+  if (state.busy) return null;
+  state.busy = true;
+  document.body.classList.add('mutating');
+  try {
+    const value = await task();
+    if (message) notify(message);
+    return value;
+  } finally {
+    state.busy = false;
+    document.body.classList.remove('mutating');
+  }
 }
 
-function scoreControl(value, label = 'Self') {
-  return `<div class="score" role="group" aria-label="${escapeHtml(label)} score">
-    ${[1, 2, 3, 4, 5].map((score) => `
-      <button type="button" data-score="${score}" class="${Number(value) >= score ? 'on' : ''}"
-        aria-label="${escapeHtml(label)} score ${score} of 5" aria-pressed="${Number(value) === score}">${score}</button>
-    `).join('')}
-    <span class="score-key">${escapeHtml(label)} · ${value ? `${value}/5` : 'not scored'}</span>
+function statusChip(story) {
+  const meta = STATUS[story.status] || STATUS.private;
+  return `<span class="stChip ${meta.col}" title="${attr(meta.hint)}">${esc(meta.label)}${story.revised && story.status === 'awaiting' ? ' · revised' : ''}</span>`;
+}
+
+function studentReviewAction(story) {
+  if (!story.mentorReviewAvailable) {
+    return `<button class="noteSend" type="button" disabled>Mentor review unavailable</button>
+      <div class="stageHint">Mentor review is not enabled yet. Your private story remains editable.</div>`;
+  }
+  return `<button class="noteSend" type="button" data-submit-story>${story.status === 'changes' ? 'Resubmit for review' : 'Submit for review'}</button>`;
+}
+
+function scoreDots(value, owner = 'student', label = 'Score') {
+  const score = Number(value) || 0;
+  return `<span class="embers ${owner === 'mentor' ? 'mentor' : ''}" role="meter" aria-label="${attr(`${label}: ${score ? `${score} of 5` : 'not scored'}`)}"
+    aria-valuemin="0" aria-valuemax="5" aria-valuenow="${score}">
+    ${[1, 2, 3, 4, 5].map((n) => `<i class="${n <= score ? 'on' : ''}"></i>`).join('')}
+  </span>`;
+}
+
+function scorePicker(scope, value, mentor = false) {
+  const score = Number(value) || 0;
+  return `<div class="scorePick ${mentor ? 'cy' : ''}" data-score-scope="${scope}" role="group" aria-label="${mentor ? 'Mentor' : 'Student'} score">
+    ${[1, 2, 3, 4, 5].map((n) => `<button type="button" data-score="${n}" class="${n <= score ? 'on' : ''}" aria-pressed="${n === score}">${n}</button>`).join('')}
+    <span class="spv">${mentor ? 'mentor' : 'self'} ${score ? `${score}/5` : '—'}</span>
   </div>`;
 }
 
-function navButton(route, label) {
-  const active = state.route === route;
-  return `<button type="button" data-nav="${route}" class="${active ? 'active' : ''}"
-    aria-label="${escapeHtml(label)}" ${active ? 'aria-current="page"' : ''}>
-    <span class="nav-icon" aria-hidden="true">${icons[route] || '·'}</span>
-    <span class="nav-label">${escapeHtml(label)}</span>
+function birdMini(story) {
+  const birds = story.birds.map((id) => BIRDS.find((item) => item.id === id)).filter(Boolean);
+  return birds.length
+    ? `<span class="birdMini">${birds.map((item) => `<span title="${attr(item.label)}">${item.emo}</span>`).join('')}</span>`
+    : '';
+}
+
+function developmentState(story) {
+  const told = story.text.trim().split(/\s+/).filter(Boolean).length >= 40;
+  if (told && story.lesson) return 'Complete';
+  if (told || story.lesson) return 'In progress';
+  return 'Draft';
+}
+
+function storyTitle(story) {
+  return `${story.prefixEnabled ? 'The One Where ' : ''}${story.title}`;
+}
+
+function excerpt(story, length = 150) {
+  const value = story.text.trim();
+  return value.length > length ? `${value.slice(0, length).trim()}…` : value;
+}
+
+function formatDuration(milliseconds) {
+  const seconds = Math.max(0, Math.round(Number(milliseconds || 0) / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function storyHasUnreadMentorActivity(story) {
+  if (isMentor()) return false;
+  if (story.unreadMentorActivity) return true;
+  return state.notifications.some((notification) => (
+    !notificationRead(notification)
+    && notificationStoryId(notification) === story.id
+  ));
+}
+
+function storyRow(story, options = {}) {
+  const quickLabel = isMentor() ? 'Quick review' : 'Quick look';
+  const unread = storyHasUnreadMentorActivity(story);
+  const audio = story.captureType === 'audio' || story.audioAssetId;
+  const duration = story.audioDurationMs ? formatDuration(story.audioDurationMs) : '';
+  return `<article class="sRow" data-story-row="${attr(story.id)}">
+    <button class="starBtn ${isMentor() ? 'mentor' : ''} ${(isMentor() ? story.mentorStar : story.studentStar) ? 'on' : ''}" type="button"
+      data-toggle-star="${attr(story.id)}" aria-label="${isMentor() ? 'Toggle mentor star' : 'Toggle story star'}">★</button>
+    <div class="rMain">
+      <div class="rTitle">${story.prefixEnabled ? '<span class="pre">The One Where</span>' : ''}${esc(story.title)}
+        ${unread ? '<span class="emberDot" title="New mentor feedback"></span>' : ''}
+        ${audio ? `<span class="audChip" title="Original audio preserved${duration ? ` — ${duration}` : ''}">🎙${duration ? ` ${duration}` : ''}</span>` : ''}
+      </div>
+      <div class="rSub">
+        ${excerpt(story) ? `<span class="exc">“${esc(excerpt(story))}”</span>` : '<span class="exc">No telling yet — add it when you have two minutes.</span>'}
+        ${isMentor() ? '' : `<span>${esc(developmentState(story))}</span><span>·</span>`}
+        ${options.showStudent ? `<span>·</span><span class="text-cy">${esc(story.studentName)}</span>` : ''}
+        <span>updated ${esc(ago(story.updatedAt || story.createdAt))}</span>
+      </div>
+      <div class="rLessonLine">${story.lesson
+        ? `<span class="lTag">Lesson</span><span class="lTxt" title="${attr(story.lesson)}">${esc(story.lesson)}</span>`
+        : '<span class="lTag none">Lesson</span><span class="lTxt none">Not written yet</span>'}</div>
+    </div>
+    <div class="rMeta">
+      ${birdMini(story)}
+      ${story.questionCount ? `<span class="scoreTag" title="Interview questions this story answers">${story.questionCount} question${story.questionCount === 1 ? '' : 's'}</span>` : ''}
+      ${scoreDots(isMentor() ? story.studentScore : story.studentScore, 'student', 'Student score')}
+      ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', 'Mentor score')}
+      ${statusChip(story)}
+      <button class="rowBtn" type="button" data-open-quick="${attr(story.id)}">${quickLabel}</button>
+      <button class="rowBtn pri" type="button" data-open-story="${attr(story.id)}">${isMentor() ? 'Full review' : 'Open story'}</button>
+    </div>
+  </article>`;
+}
+
+function emptyState(title, detail, action = '') {
+  return `<div class="emptyLib"><div class="big">${esc(title)}</div><div>${esc(detail)}</div>${action}</div>`;
+}
+
+function loadingView(label = 'Opening your story workspace…') {
+  return `<section class="loadingState" role="status" aria-live="polite"><span class="emberDot"></span>${esc(label)}</section>`;
+}
+
+function routeTitle(route = state.route) {
+  const names = {
+    home: 'Home',
+    library: 'Story Library',
+    notifications: 'Notifications',
+    settings: 'Settings',
+    prep: 'Interview Prep',
+    qshop: 'Question Workshop',
+    qlib: 'Question Library',
+    students: 'Students',
+    student: 'Student Workspace',
+    queue: 'Review Queue',
+    activity: 'My Activity',
+  };
+  return names[route] || 'StoryForge';
+}
+
+function railNavButton([route, label, icon]) {
+  const active = state.route === route || (route === 'prep' && ['qshop', 'qlib'].includes(state.route));
+  const unread = route === 'notifications'
+    ? state.notifications.filter((item) => !firstDefined(item.read, item.read_at)).length
+    : 0;
+  const queueCount = route === 'queue'
+    ? mentorState().queue.filter((item) => ['awaiting', 'revised'].includes(item.bucket)).length
+    : 0;
+  return `<button type="button" data-nav="${route}" class="rtab ${active ? 'on' : ''}" ${active ? 'aria-current="page"' : ''}>
+    ${esc(label)}${unread || queueCount ? `<span class="badge">${unread || queueCount}</span>` : ''}
   </button>`;
 }
 
-function shell(content, title = '') {
+function renderShell() {
+  if (!state.user) return;
   applyEnvironment();
-  const routes = routesByRole[state.user.role] || routesByRole.student;
-  app.innerHTML = `<div class="app-shell">
-    <aside class="rail" aria-label="StoryForge navigation">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">S</span>
-        <div><strong>StoryForge</strong><small>MissionMed 360</small></div>
+  const nav = NAV[roleName()];
+  rail.innerHTML = `
+    <div class="logo" aria-label="StoryForge">Story<b>Forge</b></div><div class="logoSub">MissionMed</div>
+    ${isStudent() ? '<button class="railCta" type="button" data-open-capture>＋ <span class="rct">New Story</span></button>' : ''}
+    ${nav.map(railNavButton).join('')}
+    ${isMentor() ? '<button type="button" class="rtab" data-open-teaching>Teaching Mode</button>' : ''}
+    <div class="railFoot">
+      <a class="rtab matrixAnchor" href="${attr(matrixHref())}">↩ Back to Matrix</a>
+      <div class="roleSwitch roleReadOnly">
+        <div class="rsLbl">Viewing as</div>
+        <span class="on">• ${viewLabel()}</span>
       </div>
-      ${state.user.role === 'student' ? '<button class="rail-primary" type="button" data-nav="capture"><span aria-hidden="true">＋</span><span>Quick capture</span></button>' : ''}
-      <nav class="nav">${routes.map(([route, label]) => navButton(route, label)).join('')}</nav>
-      <div class="rail-foot">
-        <a class="matrix-link" href="${escapeHtml(matrixHref())}">← Back to Matrix</a>
-        <div class="identity">
-          <strong>${escapeHtml(state.user.display_name)}</strong>
-          <small>${escapeHtml(state.user.role)}${state.user.cohort ? ` · ${escapeHtml(state.user.cohort)}` : ''}</small>
-          ${state.config.devAuth ? '<button class="link-button" id="sign-out">Change fixture identity</button>' : ''}
-        </div>
-      </div>
-    </aside>
-    <div class="main-wrap">
-      <header class="topbar">
-        <div class="breadcrumbs">StoryForge <span aria-hidden="true">/</span> <strong>${escapeHtml(title || state.route)}</strong></div>
-        <div class="top-actions">
-          <a class="matrix-link mobile-matrix-link" href="${escapeHtml(matrixHref())}">← Back to Matrix</a>
-          ${state.config.identityMode === 'local-signed-fixture' ? '<span class="badge">Local signed fixture</span>' : '<span class="badge">MissionMed identity</span>'}
-          ${state.user.role === 'student' ? '<button class="button secondary" data-nav="capture">+ Quick capture</button>' : ''}
-        </div>
-      </header>
-      <main class="content" id="main">${content}</main>
-    </div>
-    <nav class="mobile-nav" aria-label="Mobile StoryForge navigation">
-      ${routes.map(([route, label]) => navButton(route, label)).join('')}
-    </nav>
-  </div>`;
-  bindGlobal();
+      <div class="signedIdentity">${esc(state.user.display_name)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</div>
+      ${state.config?.devAuth ? '<button class="rowBtn fixtureChange" type="button" data-change-fixture>Change fixture identity</button>' : ''}
+    </div>`;
+
+  hdr.innerHTML = `
+    <span class="viewChip roleReadOnly" title="This view comes from your signed MissionMed role">${viewLabel()}</span>
+    ${isMentor() && state.selectedStudent ? `<button class="stuSelBtn" type="button" data-open-palette>
+      <span class="fLbl">Viewing</span><span class="stuAv">${esc(state.selectedStudent.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+      <span class="nm">${esc(state.selectedStudent.name)}</span>${state.selectedStudent.cohort ? `<span class="cohortChip">${esc(state.selectedStudent.cohort)}</span>` : ''}<span class="car">▾</span>
+    </button>` : ''}
+    ${isAdmin() ? '' : `<div class="hSearch">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <input id="omni" type="search" placeholder="${isMentor() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() ? 'Search students and stories' : 'Search your stories'}">
+      <span class="kbd">/</span>
+    </div>`}
+    ${isStudent() ? '<button class="btnCatch" type="button" data-open-capture>＋ <span class="bc-txt">New Story</span></button>' : ''}`;
+
+  advBanner.classList.toggle('show', isMentor());
+  advBanner.querySelector('span').textContent = isMentor()
+    ? 'Mentor View · Students’ private stories remain invisible until they submit them to you.'
+    : '';
+  document.body.classList.remove('is-booting');
 }
 
-function bindGlobal() {
-  document.querySelectorAll('[data-nav]').forEach((button) => {
-    button.addEventListener('click', () => navigate(button.dataset.nav));
+function clearOverlays() {
+  [room, capture, quick, qad, palette, sessionBar, teaching].forEach((node) => {
+    node.classList.remove('open');
+    node.innerHTML = '';
   });
-  document.querySelector('#sign-out')?.addEventListener('click', signOut);
+  state.storyDetail = null;
+  state.quick = null;
+  state.assign = null;
+  state.workshop = null;
+}
+
+function pushPath(route, id = null, replace = false) {
+  const base = state.config?.basePath || '/';
+  const suffix = route === 'home' ? '' : `${route}${id ? `/${encodeURIComponent(id)}` : ''}`;
+  const target = `${base}${suffix}`;
+  history[replace ? 'replaceState' : 'pushState'](null, '', target);
+}
+
+function parseRoute() {
+  const fragment = location.hash.replace(/^#/, '');
+  const legacy = fragment === 'main' ? '' : fragment;
+  const base = state.config?.basePath || '/';
+  const relative = legacy || (location.pathname.startsWith(base) ? location.pathname.slice(base.length) : '');
+  const [route, id] = relative.replace(/^\/+|\/+$/g, '').split('/');
+  state.route = route || 'home';
+  state.routeId = id ? decodeURIComponent(id) : null;
+}
+
+async function navigate(route, id = null, options = {}) {
+  clearOverlays();
+  state.route = route;
+  state.routeId = id;
+  pushPath(route, id, options.replace);
+  await renderRoute();
+  const heading = $('h1, .h1', main);
+  if (heading) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
+}
+
+async function loadStories() {
+  const payload = await api.stories();
+  state.stories = asArray(payload?.stories).map(normalizeStory);
+  return state.stories;
+}
+
+async function loadNotifications() {
+  if (isMentor()) return [];
+  const payload = await api.notifications();
+  state.notifications = asArray(payload?.notifications);
+  return state.notifications;
+}
+
+async function loadQuestions() {
+  const studentId = isMentor()
+    ? firstDefined(
+      state.selectedStudent?.id,
+      state.route === 'student' ? state.routeId : '',
+      '',
+    )
+    : '';
+  const payload = await api.questions(studentId);
+  state.questions = asArray(payload?.questions).map(normalizeQuestion);
+  return state.questions;
+}
+
+async function loadImportBatches() {
+  if (!canGovernQuestions()) {
+    state.importBatches = [];
+    return [];
+  }
+  const payload = await api.imports();
+  state.importBatches = asArray(payload?.batches);
+  return state.importBatches;
+}
+
+async function loadStudents() {
+  const payload = await api.students();
+  state.students = asArray(payload?.students).map(normalizeStudent);
+  return state.students;
+}
+
+async function refreshShellData() {
+  const jobs = [loadStories()];
+  if (isMentor()) jobs.push(loadStudents().catch(() => []));
+  else jobs.push(loadNotifications().catch(() => []));
+  await Promise.all(jobs);
+  renderShell();
+}
+
+/* ========================= Student surfaces ========================= */
+
+function notificationText(notification) {
+  return String(firstDefined(
+    notification.text,
+    notification.message,
+    notification.body,
+    notification.event_text,
+    'Your mentor updated one of your stories.',
+  ));
+}
+
+function notificationStoryId(notification) {
+  return String(firstDefined(notification.storyId, notification.story_id, ''));
+}
+
+function notificationTime(notification) {
+  return firstDefined(notification.lastEventAt, notification.last_event_at, notification.createdAt, notification.created_at);
+}
+
+function notificationRead(notification) {
+  return Boolean(firstDefined(notification.read, notification.read_at, false));
+}
+
+function renderHome() {
+  const unfinished = state.stories
+    .filter((story) => developmentState(story) !== 'Complete')
+    .slice(0, 4);
+  const latest = state.notifications.slice(0, 3);
+  const counts = Object.fromEntries(Object.keys(STATUS).map((key) => [key, 0]));
+  state.stories.forEach((story) => { counts[story.status] = (counts[story.status] || 0) + 1; });
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  main.innerHTML = `<section data-view="home" class="live">
+    <div class="homeHero">
+      <div class="greet">${greeting}, <em>${esc(firstName())}</em>.</div>
+      <div class="greetSub">What happened that you don’t want to lose?</div>
+      <div class="heroCapture">
+        <span class="pfx">The One Where</span>
+        <input id="heroTitle" placeholder="…type it before it fades" autocomplete="off" aria-label="Story title">
+        <button class="heroMic" type="button" data-open-capture data-capture-voice title="${state.config?.audioAvailable ? 'Tell it out loud' : 'Voice capture is unavailable'}" ${state.config?.audioAvailable ? '' : 'aria-disabled="true"'}>
+          <span aria-hidden="true">●</span><span class="srOnly">Tell it out loud</span>
+        </button>
+        <button class="heroGo" type="button" data-capture-title-from="heroTitle">Save it</button>
+      </div>
+      <button class="sparkPrompt" type="button" data-next-prompt title="A memory prompt — choose Write about this to begin">
+        <span class="tag">Memory prompt</span><span id="promptTxt">${esc(MEMORY_PROMPTS[state.promptIndex])}</span><span aria-hidden="true">↻</span>
+      </button>
+      <button class="rowBtn" type="button" data-capture-prompt="${attr(MEMORY_PROMPTS[state.promptIndex])}">Write about this</button>
+    </div>
+
+    <div class="homeGrid">
+      <div class="panel">
+        <div class="pHead"><div class="h2">Unfinished <em>stories</em></div><button class="pMore" type="button" data-nav="library">Story Library ▸</button></div>
+        <div class="pBody">
+          <p class="stageHint">Started, but not fully told yet. Finish the telling and add what it taught you.</p>
+          ${unfinished.length ? unfinished.map((story) => `<button class="shortItem" type="button" data-open-story="${attr(story.id)}">
+            <span class="si">${story.prefixEnabled ? '<span class="pre">The One Where </span>' : ''}${esc(story.title)}</span>
+            <span class="sd">${esc(developmentState(story))} · ${esc(ago(story.updatedAt || story.createdAt))}</span>
+            <span class="rowBtn pri">Finish it</span>
+          </button>`).join('') : '<div class="storyEmpty">Every story you’ve started is finished. Nice.</div>'}
+        </div>
+      </div>
+
+      <div>
+        <div class="panel panel-gap">
+          <div class="pHead"><div class="h2">From your <em>mentor</em></div>
+            ${state.notifications.filter((item) => !notificationRead(item)).length ? `<span class="newEmber">${state.notifications.filter((item) => !notificationRead(item)).length} new</span>` : ''}
+            <button class="pMore" type="button" data-nav="notifications">All notifications ▸</button>
+          </div>
+          <div class="pBody">
+            ${latest.length ? latest.map((item) => `<button class="advNote ${notificationRead(item) ? '' : 'unseen'}" type="button"
+              data-open-notification="${attr(item.id)}" data-story-id="${attr(notificationStoryId(item))}">
+              <span class="avc adv">M</span><span><span class="who">${notificationRead(item) ? '' : '<i class="emberDot"></i>'}${esc(ago(notificationTime(item)))}</span>
+              <span class="txt">${esc(notificationText(item))}</span></span>
+            </button>`).join('') : '<div class="storyEmpty">Feedback will appear here the moment your mentor reviews a story.</div>'}
+          </div>
+        </div>
+        <div class="panel">
+          <div class="pHead"><div class="h2">Where your stories <em>stand</em></div><button class="pMore" type="button" data-nav="prep">Interview Prep ▸</button></div>
+          <div class="pBody"><div class="classChips">
+            ${Object.entries(STATUS).filter(([key]) => counts[key]).map(([key, meta]) => `<button class="cChip" type="button" data-library-status="${key}" title="${attr(meta.hint)}"><b>${counts[key]}</b> ${esc(meta.label)}</button>`).join('') || '<span class="stageHint">Your first story will appear here.</span>'}
+          </div></div>
+        </div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function filteredStories() {
+  const filter = state.library;
+  const query = filter.query.trim().toLowerCase();
+  const stories = state.stories.filter((story) => {
+    if (filter.status && story.status !== filter.status) return false;
+    if (filter.star === 'me' && !story.studentStar) return false;
+    if (filter.star === 'mentor' && !story.mentorStar) return false;
+    if (filter.bird && !story.birds.includes(filter.bird)) return false;
+    if (filter.position && !story.positions.includes(filter.position)) return false;
+    if (query && !`${storyTitle(story)} ${story.text} ${story.lesson}`.toLowerCase().includes(query)) return false;
+    return true;
+  });
+  const sorters = {
+    new: (a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)),
+    old: (a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)),
+    myscore: (a, b) => b.studentScore - a.studentScore,
+    mentorscore: (a, b) => b.mentorScore - a.mentorScore,
+    title: (a, b) => a.title.localeCompare(b.title),
+  };
+  return [...stories].sort(sorters[filter.sort] || sorters.new);
+}
+
+function renderLibrary() {
+  const list = filteredStories();
+  const filter = state.library;
+  main.innerHTML = `<section data-view="library" class="live">
+    <div class="eyebrow">Your story library</div>
+    <h1 class="h1">${state.stories.length} ${state.stories.length === 1 ? 'story' : 'stories'}, <em>none forgotten</em>.</h1>
+    <div class="listBar">
+      <input type="search" id="libQ" placeholder="Search stories…" value="${attr(filter.query)}" aria-label="Search stories">
+      <select id="libStatus" aria-label="Filter by status">
+        <option value="">Status: all</option>
+        ${Object.entries(STATUS).map(([key, meta]) => `<option value="${key}" ${filter.status === key ? 'selected' : ''}>${esc(meta.label)}</option>`).join('')}
+      </select>
+      <select id="libSort" aria-label="Sort stories">
+        <option value="new" ${filter.sort === 'new' ? 'selected' : ''}>Sort: newest</option>
+        <option value="old" ${filter.sort === 'old' ? 'selected' : ''}>Oldest</option>
+        <option value="myscore" ${filter.sort === 'myscore' ? 'selected' : ''}>My rating (high→low)</option>
+        <option value="mentorscore" ${filter.sort === 'mentorscore' ? 'selected' : ''}>Mentor score (high→low)</option>
+        <option value="title" ${filter.sort === 'title' ? 'selected' : ''}>Title A–Z</option>
+      </select>
+      <select id="libStar" aria-label="Filter starred stories">
+        <option value="">Starred: any</option>
+        <option value="me" ${filter.star === 'me' ? 'selected' : ''}>Starred by me</option>
+        <option value="mentor" ${filter.star === 'mentor' ? 'selected' : ''}>Starred by mentor</option>
+      </select>
+      <select id="libBird" aria-label="Filter bird type">
+        <option value="">Bird type: any</option>
+        ${BIRDS.map((bird) => `<option value="${bird.id}" ${filter.bird === bird.id ? 'selected' : ''}>${bird.emo} ${esc(bird.label)}</option>`).join('')}
+      </select>
+      <select id="libPosition" aria-label="Filter ideal position">
+        <option value="">Ideal for: any</option>
+        ${POSITIONS.map((position) => `<option value="${position.id}" ${filter.position === position.id ? 'selected' : ''}>${esc(position.label)}</option>`).join('')}
+      </select>
+      <span class="countNote">${list.length} of ${state.stories.length}</span>
+    </div>
+    <div id="libraryRows">${list.length ? list.map((story) => storyRow(story)).join('') : emptyState('No stories match.', 'Clear a filter, or capture the story this search was looking for.')}</div>
+  </section>`;
+}
+
+function renderNotifications() {
+  const unread = state.notifications.filter((item) => !notificationRead(item)).length;
+  main.innerHTML = `<section data-view="notifications" class="live">
+    <div class="eyebrow">Notifications</div>
+    <h1 class="h1">${unread ? `${unread} unread` : 'All caught up'}<em>${unread ? '' : ' ✓'}</em></h1>
+    <div class="notificationLead">
+      <span>Everything your mentor does on your stories lands here — open any item to go to that story.</span>
+      ${unread ? '<button class="rowBtn" type="button" data-read-all>Mark all as read</button>' : ''}
+    </div>
+    ${state.notifications.length ? state.notifications.map((item) => `<button class="nRow ${notificationRead(item) ? 'read' : 'unread'}" type="button"
+      data-open-notification="${attr(item.id)}" data-story-id="${attr(notificationStoryId(item))}">
+      <span class="nDot"></span>
+      <span class="nCopy"><span class="nTxt">${esc(notificationText(item))}</span><span class="nWhen">${esc(formatDateTime(notificationTime(item)))}</span></span>
+      <span class="nGo">${notificationStoryId(item) ? 'Open story ▸' : 'Mark read'}</span>
+    </button>`).join('') : emptyState('Nothing here yet.', 'When your mentor reviews a story, you’ll see it here immediately.')}
+  </section>`;
+}
+
+function renderSettings() {
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  main.innerHTML = `<section data-view="settings" class="live settingsPage">
+    <div class="eyebrow">Settings</div>
+    <h1 class="h1">Your <em>account</em></h1>
+    <div class="panel panel-spaced">
+        <div class="pHead"><div class="h2">Background <em>environment</em></div></div>
+      <div class="pBody">
+        <p class="stageHint">Choose the visual atmosphere behind your workspace. Your choice follows your signed-in account.</p>
+        <div class="bgGrid">
+          ${BACKGROUNDS.map((background) => `<button class="bgCard bg-${background.id} ${activeBackground() === background.id ? 'on' : ''}" type="button"
+            data-background="${background.id}">
+            <span class="bgPrev"></span>
+            <span class="bgMeta"><span class="bgName"><span>${background.ico}</span>${esc(background.name)}${activeBackground() === background.id ? '<span class="onTag">Active</span>' : ''}</span>
+              <span class="bgDesc">${esc(background.desc)}</span></span>
+          </button>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="panel panel-spaced"><div class="pBody pbody-top">
+      <div class="setRow"><div class="sTxt"><b>Signed in as</b><span>${esc(state.user.display_name)} · ${esc(state.user.role)}${state.user.cohort ? ` · ${esc(state.user.cohort)}` : ''}</span></div></div>
+      <div class="setRow"><div class="sTxt"><b>View access</b><span>Your ${isMentor() ? 'Mentor' : 'Student'} View comes from your signed MissionMed role. It cannot be changed in the browser.</span></div><span class="rolePill roleReadOnly">${isMentor() ? 'Mentor View' : 'Student View'}</span></div>
+      <div class="setRow"><div class="sTxt"><b>Time zone</b><span>Dates and times are shown in ${esc(timeZone)}. Authoritative UTC timestamps are preserved underneath.</span></div></div>
+      <div class="setRow"><div class="sTxt"><b>Reduced motion</b><span>StoryForge follows your system setting automatically. Currently: ${reducedMotion ? 'ON — ambient animation is paused' : 'OFF — the ambient background is animated'}.</span></div></div>
+      <div class="setRow"><div class="sTxt"><b>Back to Matrix</b><span>Return to the MissionMed Matrix hub.</span></div><a class="rowBtn" href="${attr(matrixHref())}">Go</a></div>
+      ${state.config?.devAuth ? '<div class="setRow"><div class="sTxt"><b>Local verification identity</b><span>This control exists only in local signed-fixture mode.</span></div><button class="rowBtn" type="button" data-change-fixture>Change identity</button></div>' : ''}
+    </div></div>
+  </section>`;
+}
+
+let captureDraftSavePromise = Promise.resolve();
+
+function captureDraftPayload() {
+  if (!capture.classList.contains('open')) return null;
+  return {
+    title: $('#capTitle')?.value || '',
+    text: $('#capBody')?.value || '',
+    lesson: $('#capLesson')?.value || '',
+    prompt: state.capturePrompt || '',
+    prefixEnabled: capture.dataset.prefixEnabled !== 'false',
+    themes: JSON.parse(capture.dataset.themes || '[]'),
+    studentScore: Number(capture.dataset.score || 0) || null,
+  };
+}
+
+function setCaptureDraftStatus(message) {
+  const status = $('#captureDraftStatus');
+  if (status) status.textContent = message;
+}
+
+function persistCaptureDraft(payload) {
+  captureDraftSavePromise = captureDraftSavePromise
+    .catch(() => {})
+    .then(async () => {
+      setCaptureDraftStatus('Saving draft to your account…');
+      const result = await api.saveStoryDraft(payload, state.captureDraftVersion);
+      const draft = result?.draft || result;
+      state.captureDraftVersion = Number(firstDefined(draft?.row_version, draft?.rowVersion, 0));
+      setCaptureDraftStatus('Draft saved to your account.');
+      return draft;
+    })
+    .catch((error) => {
+      setCaptureDraftStatus(
+        error.status === 409
+          ? 'This draft changed in another session. Close and reopen to restore the newest copy.'
+          : 'Draft autosave is temporarily unavailable.',
+      );
+      throw error;
+    });
+  return captureDraftSavePromise;
+}
+
+function scheduleCaptureDraftSave() {
+  const payload = captureDraftPayload();
+  if (!payload) return;
+  window.clearTimeout(state.captureDraftSaveTimer);
+  state.captureDraftSaveTimer = window.setTimeout(() => {
+    state.captureDraftSaveTimer = 0;
+    void persistCaptureDraft(payload).catch(() => {});
+  }, 600);
+  setCaptureDraftStatus('Draft changes waiting to save…');
+}
+
+async function openCapture({
+  title = '',
+  prompt = '',
+  voice = false,
+  pairQuestionId = null,
+} = {}) {
+  if (!isStudent()) {
+    notify('Capture belongs to the student. This signed role cannot create a student story.');
+    return;
+  }
+  let durableDraft = null;
+  try {
+    const result = await api.storyDraft();
+    durableDraft = result?.draft || null;
+  } catch (error) {
+    notify(error.message || 'Your saved capture draft could not be restored.');
+  }
+  const saved = durableDraft?.payload && typeof durableDraft.payload === 'object'
+    ? durableDraft.payload
+    : {};
+  const restored = Boolean(
+    String(saved.title || '').trim()
+    || String(saved.text || '').trim()
+    || String(saved.lesson || '').trim()
+    || asArray(saved.themes).length
+    || Number(saved.studentScore || 0),
+  );
+  title = String(saved.title || title || '');
+  prompt = String(saved.prompt || prompt || '');
+  const text = String(saved.text || '');
+  const lesson = String(saved.lesson || '');
+  const themes = asArray(saved.themes).map(String).filter((id) => THEMES.some((theme) => theme.id === id));
+  const studentScore = Math.max(0, Math.min(5, Number(saved.studentScore || 0)));
+  const prefixEnabled = saved.prefixEnabled !== false;
+  state.captureDraftVersion = durableDraft
+    ? Number(firstDefined(durableDraft.row_version, durableDraft.rowVersion, 0))
+    : null;
+  state.returnFocus = document.activeElement;
+  state.capturePrompt = prompt;
+  state.capturePairQuestionId = pairQuestionId ? String(pairQuestionId) : null;
+  const audioAvailable = Boolean(state.config?.audioAvailable && navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+  capture.innerHTML = `<form class="capSheet" id="captureForm" role="dialog" aria-modal="true" aria-labelledby="captureDialogTitle">
+    <button class="capClose" type="button" data-close-overlay aria-label="Close Quick Capture">✕</button>
+    <div class="capKicker" id="captureDialogTitle">＋ New story — Save it before it fades</div>
+    ${prompt ? `<div class="capHint">Prompt: “${esc(prompt)}”</div>` : ''}
+    <div class="capTitleRow">
+      <button class="capPre" type="button" id="capturePrefix" aria-pressed="true">The One Where</button>
+      <input id="capTitle" name="title" placeholder="…what happened?" autocomplete="off" value="${attr(title)}" required>
+    </div>
+    <div class="capHint">Name it the way you’d bring it up with a friend. If the title makes you smile or wince, it’s right.</div>
+    <div class="capTellWrap">
+      <textarea class="capField" id="capBody" name="text" placeholder="Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.">${esc(text)}</textarea>
+      <div class="micBar">
+        <button class="micBtn" type="button" data-record-audio ${audioAvailable ? '' : 'disabled'}><span aria-hidden="true">●</span><span>${voice && audioAvailable ? 'Start recording' : 'Record a voice note'}</span></button>
+        <span class="micTime" id="captureTimer"></span>
+        <span class="wave" id="captureWave" aria-hidden="true"></span>
+      </div>
+      ${audioAvailable
+        ? '<div class="capturePrivacy">Your recording is uploaded only to private StoryForge storage after you save. Nothing is transcribed or claimed complete until the server confirms it.</div>'
+        : '<div class="capUnavailable">Voice capture is not configured on this environment. You can still save the story in your own words.</div>'}
+    </div>
+    <details class="capMore">
+      <summary class="capMoreHead">Add more now <span>— optional</span></summary>
+      <div class="capMoreBody">
+        <label class="fLbl" for="capLesson">What did this story teach you?</label>
+        <textarea class="capField" id="capLesson" name="lesson" placeholder="One or two honest sentences.">${esc(lesson)}</textarea>
+        <div class="fLbl">Themes</div>
+        <div class="classChips">${THEMES.map((theme) => `<button class="cChip tone-${theme.id} ${themes.includes(theme.id) ? 'on' : ''}" type="button" data-capture-theme="${theme.id}">${esc(theme.label)}</button>`).join('')}</div>
+        <div class="fLbl">How much does this story matter to you?</div>
+        ${scorePicker('capture', studentScore)}
+      </div>
+    </details>
+    <div class="capActions">
+      <button class="btnSave" type="submit">Save story</button>
+      <span class="capNote" id="captureDraftStatus">${restored ? 'Draft restored from your account.' : 'Draft changes save to your account as you type.'}</span>
+      <span class="privNote">🔒 Only you can see it</span>
+    </div>
+  </form>`;
+  capture.classList.add('open');
+  capture.dataset.prefixEnabled = String(prefixEnabled);
+  capture.dataset.score = String(studentScore);
+  capture.dataset.themes = JSON.stringify(themes);
+  capture.dataset.audioRequested = voice ? 'true' : 'false';
+  $('#capturePrefix')?.classList.toggle('off', !prefixEnabled);
+  $('#capturePrefix')?.setAttribute('aria-pressed', String(prefixEnabled));
+  recordedBlob = null;
+  recordedDurationMs = 0;
+  $('#capTitle')?.focus({ preventScroll: true });
+}
+
+function closeOverlay(node) {
+  if (!node) return;
+  if (node === capture) {
+    const pendingDraft = state.captureDraftSaveTimer ? captureDraftPayload() : null;
+    window.clearTimeout(state.captureDraftSaveTimer);
+    state.captureDraftSaveTimer = 0;
+    stopRecording();
+    if (pendingDraft && !state.captureDraftSuppressCloseSave) {
+      void persistCaptureDraft(pendingDraft).catch(() => {});
+    }
+    state.captureDraftSuppressCloseSave = false;
+  }
+  node.classList.remove('open');
+  node.innerHTML = '';
+  if (node === room) state.storyDetail = null;
+  if (node === quick) state.quick = null;
+  if (node === qad) state.assign = null;
+  const focus = state.returnFocus;
+  state.returnFocus = null;
+  if (focus?.isConnected) focus.focus({ preventScroll: true });
+}
+
+let recorder = null;
+let recordingStream = null;
+let recordingStartedAt = 0;
+let recordingTimer = 0;
+let recordedChunks = [];
+let recordedBlob = null;
+let recordedDurationMs = 0;
+let recordingStopPromise = Promise.resolve();
+let resolveRecordingStop = () => {};
+
+function stopRecording() {
+  window.clearInterval(recordingTimer);
+  if (recorder?.state === 'recording') recorder.stop();
+  recordingStream?.getTracks().forEach((track) => track.stop());
+  recorder = null;
+  recordingStream = null;
+}
+
+async function toggleRecording(button) {
+  if (recorder?.state === 'recording') {
+    recordedDurationMs = Math.max(0, Date.now() - recordingStartedAt);
+    recorder.stop();
+    recordingStream?.getTracks().forEach((track) => track.stop());
+    window.clearInterval(recordingTimer);
+    button.classList.remove('rec');
+    $('span:last-child', button).textContent = 'Voice note attached ✓';
+    $('#captureWave')?.classList.remove('on');
+    return;
+  }
+  try {
+    recordedChunks = [];
+    recordedBlob = null;
+    recordedDurationMs = 0;
+    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const preferredType = ['audio/webm', 'audio/mp4', 'audio/ogg'].find((type) => MediaRecorder.isTypeSupported(type));
+    recorder = new MediaRecorder(recordingStream, preferredType ? { mimeType: preferredType } : undefined);
+    recordingStopPromise = new Promise((resolve) => {
+      resolveRecordingStop = resolve;
+    });
+    recorder.addEventListener('dataavailable', (event) => {
+      if (event.data.size) recordedChunks.push(event.data);
+    });
+    recorder.addEventListener('stop', () => {
+      if (!recordedDurationMs) recordedDurationMs = Math.max(0, Date.now() - recordingStartedAt);
+      recordedBlob = new Blob(recordedChunks, { type: recorder.mimeType || 'audio/webm' });
+      recorder = null;
+      recordingStream = null;
+      resolveRecordingStop();
+      resolveRecordingStop = () => {};
+    });
+    recorder.start();
+    recordingStartedAt = Date.now();
+    button.classList.add('rec');
+    $('span:last-child', button).textContent = 'Listening… tap to finish';
+    $('#captureWave')?.classList.add('on');
+    recordingTimer = window.setInterval(() => {
+      const seconds = Math.floor((Date.now() - recordingStartedAt) / 1000);
+      const timer = $('#captureTimer');
+      if (timer) timer.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    }, 250);
+  } catch (error) {
+    notify(error.message || 'Microphone access was not available.');
+  }
+}
+
+async function uploadRecordedAudio(storyId) {
+  if (!recordedBlob) return null;
+  const presign = await auth.request('/api/audio/presign', jsonOptions('POST', {
+    storyId,
+    contentType: recordedBlob.type,
+    byteSize: recordedBlob.size,
+  }));
+  const uploadUrl = firstDefined(presign?.upload?.uploadUrl, presign?.upload?.upload_url);
+  if (!uploadUrl) throw new Error('Private audio upload could not be prepared.');
+  const response = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': recordedBlob.type },
+    body: recordedBlob,
+    credentials: 'omit',
+  });
+  if (!response.ok) throw new Error('Private audio upload did not complete.');
+  const assetId = firstDefined(presign?.asset?.id, presign?.asset_id);
+  if (!assetId) throw new Error('Private audio verification could not begin.');
+  return auth.request(`/api/audio/${assetId}/confirm`, jsonOptions('POST', {
+    durationMs: recordedDurationMs,
+  }));
+}
+
+async function saveCapture(form) {
+  if (recorder?.state === 'recording') {
+    notify('Finish the recording before saving.');
+    return;
+  }
+  await recordingStopPromise;
+  const title = $('#capTitle', form)?.value.trim();
+  if (!title) return;
+  const text = $('#capBody', form)?.value.trim() || '';
+  const lesson = $('#capLesson', form)?.value.trim() || '';
+  const themes = JSON.parse(capture.dataset.themes || '[]');
+  const studentScore = Number(capture.dataset.score || 0) || null;
+  const prefixEnabled = capture.dataset.prefixEnabled !== 'false';
+  const destinationQuestionId = state.capturePairQuestionId;
+  const created = await withBusy(async () => {
+    window.clearTimeout(state.captureDraftSaveTimer);
+    state.captureDraftSaveTimer = 0;
+    await captureDraftSavePromise;
+    const result = await api.createStory({
+      title,
+      text,
+      captureType: recordedBlob ? 'audio' : 'text',
+      lesson,
+      prefixEnabled,
+      themes,
+      studentScore,
+      draftVersion: state.captureDraftVersion ?? 0,
+      surface: 'quick',
+    });
+    const story = unwrapStory(result);
+    if (recordedBlob) await uploadRecordedAudio(story.id);
+    if (destinationQuestionId) {
+      await api.createPair({
+        storyId: story.id,
+        questionId: destinationQuestionId,
+        studentStrength: 3,
+        surface: 'workshop-capture',
+      });
+    }
+    return story;
+  });
+  if (!created) return;
+  stopRecording();
+  recordedBlob = null;
+  recordedDurationMs = 0;
+  state.captureDraftSuppressCloseSave = true;
+  state.capturePairQuestionId = null;
+  closeOverlay(capture);
+  await loadStories();
+  renderShell();
+  if (destinationQuestionId) {
+    await openWorkshop(destinationQuestionId);
+    notify(`Saved and paired. “${storyTitle(created)}” now appears in this Question Workshop.`);
+  } else {
+    renderHome();
+    notify(`Saved. “${storyTitle(created)}” is private until you submit it for review.`);
+  }
+}
+
+/* ========================= Story workspace ========================= */
+
+function normalizePair(raw = {}) {
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.pair_id, '')),
+    storyId: String(firstDefined(raw.storyId, raw.story_id, '')),
+    questionId: String(firstDefined(raw.questionId, raw.question_id, '')),
+    questionText: String(firstDefined(raw.questionText, raw.question_text, raw.text, '')),
+    confirmed: Boolean(firstDefined(raw.confirmed, raw.is_confirmed, raw.mentor_confirmed, raw.state === 'confirmed', raw.status === 'confirmed')),
+    studentStrength: Number(firstDefined(raw.studentStrength, raw.student_strength, raw.s_student, 0)) || 0,
+    mentorStrength: Number(firstDefined(raw.mentorStrength, raw.mentor_strength, raw.s_mentor, 0)) || 0,
+    why: String(firstDefined(raw.why, raw.rationale, '')),
+    proposedBy: String(firstDefined(raw.proposedBy, raw.proposed_by_name, raw.proposed_by, '')),
+    followups: asArray(firstDefined(raw.followups, raw.follow_ups)),
+  };
+}
+
+function pairQuestion(pair) {
+  return state.questions.find((question) => question.id === pair.questionId)
+    || normalizeQuestion({ id: pair.questionId, text: pair.questionText, family: 'custom' });
+}
+
+function feedbackBody(item) {
+  return String(firstDefined(item.body, item.text, item.feedback, ''));
+}
+
+function feedbackAuthor(item) {
+  return String(firstDefined(item.mentorName, item.mentor_name, item.actor_name, state.storyDetail?.reviewedByName, 'Mentor'));
+}
+
+function feedbackTime(item) {
+  return firstDefined(item.createdAt, item.created_at, item.sent_at);
+}
+
+function reflectionQuestion(item) {
+  return String(firstDefined(item.prompt, item.question, item.q, 'Reflection'));
+}
+
+function reflectionAnswer(item) {
+  return String(firstDefined(item.answer, item.a, ''));
+}
+
+function reflectionFromMentor(item) {
+  return Boolean(firstDefined(item.fromMentor, item.from_mentor, firstDefined(item.from, item.source) === 'mentor', false));
+}
+
+function storyTimestamps(story) {
+  const lines = [
+    ['Submitted', story.submittedAt],
+    ['First opened by mentor', story.openedAt],
+    ['Last reviewed', story.reviewedAt, story.reviewedByName ? ` by ${story.reviewedByName}` : ''],
+    ['Feedback sent', story.feedbackSentAt],
+    ['Feedback opened', story.feedbackOpenedAt],
+    ['Revised / responded', story.studentRespondedAt],
+    ['Last edited', story.updatedAt],
+  ].filter(([, value]) => value);
+  return lines.length
+    ? lines.map(([label, value, suffix = '']) => `<div class="tsLine"><span class="tk">${esc(label)}</span><span>${esc(formatDateTime(value))}${esc(suffix)}</span></div>`).join('')
+    : `<div class="tsLine"><span class="tk">Captured</span><span>${esc(formatDateTime(story.createdAt))}</span></div>`;
+}
+
+function classificationButtons(story, scope = 'room') {
+  return `<div class="fLbl">Bird personality type <span>— pick any that fit</span></div>
+    <div class="classChips">
+      ${BIRDS.map((bird) => `<button class="cChip tone-${bird.id} ${story.birds.includes(bird.id) ? 'on' : ''}" type="button"
+        data-classification="${bird.id}" data-kind="birds" data-scope="${scope}" title="${attr(bird.hint)}">${bird.emo} ${esc(bird.label)}</button>`).join('')}
+    </div>
+    <div class="fLbl">Ideal for position <span>— who this story lands with</span></div>
+    <div class="classChips">
+      ${POSITIONS.map((position) => `<button class="cChip ${story.positions.includes(position.id) ? 'on' : ''}" type="button"
+        data-classification="${position.id}" data-kind="positions" data-scope="${scope}">${esc(position.label)}</button>`).join('')}
+    </div>`;
+}
+
+function mappedQuestionMarkup(story, limit = Infinity) {
+  const pairs = story.mappings.map(normalizePair).slice(0, limit);
+  return pairs.length ? pairs.map((pair) => {
+    const question = pairQuestion(pair);
+    return `<div class="qLink ${pair.confirmed ? 'on' : 'prop'}">
+      <span class="qm">${pair.confirmed ? '✓' : '◌'}</span>
+      <span>${esc(question.text || 'Interview question')}
+        <small>${pair.confirmed ? 'Confirmed' : 'Suggested, not yet confirmed'} · self ${pair.studentStrength || '—'}/5 · mentor ${pair.mentorStrength || '—'}/5</small>
+      </span>
+    </div>`;
+  }).join('') : '<div class="stageHint">None yet. “Assign” opens the question library.</div>';
+}
+
+function feedbackMarkup(story) {
+  return story.feedback.length
+    ? story.feedback.map((item) => `<div class="noteItem">
+      <div class="nt">“${esc(feedbackBody(item))}”</div>
+      <div class="nd">${esc(feedbackAuthor(item))} · ${esc(formatDateTime(feedbackTime(item)))}</div>
+    </div>`).join('')
+    : '<div class="stageHint">No written feedback yet.</div>';
+}
+
+function audioMarkup(story) {
+  const audio = firstDefined(story.audio, story.audio_asset, story.audioAsset);
+  if (!audio && !story.audioAssetId && story.captureType !== 'audio') return '';
+  const audioId = firstDefined(audio?.id, story.audioAssetId);
+  const duration = story.audioDurationMs
+    ? formatDuration(story.audioDurationMs)
+    : String(firstDefined(audio?.duration, audio?.duration_label, ''));
+  return `<div class="audioCard">
+    <button class="audPlay" type="button" ${audioId ? `data-play-audio="${attr(audioId)}"` : 'disabled'} aria-label="Play original audio">▶</button>
+    <div class="audBody"><div class="audLbl">Original voice note${duration ? ` <span>· ${esc(duration)}</span>` : ''}</div><div class="audTrack"><i></i></div>
+      <div class="audioPrivacy">${audioId ? 'Private playback · requested only when you press play' : 'Private audio is not available for playback'}</div></div>
+    <div class="audTime">${duration || '—:—'}</div>
+  </div>`;
+}
+
+const HISTORY_ACTION_LABELS = Object.freeze({
+  'story.captured': 'Captured the story',
+  'story.working_version_edited': 'Edited the working version',
+  'story.revised_and_resubmitted': 'Revised and resubmitted',
+  'story.title_renamed': 'Renamed the story',
+  'story.lesson_edited': 'Updated the lesson',
+  'story.student_score_updated': 'Updated own rating',
+  'story.student_star_updated': 'Updated own star',
+  'story.submitted': 'Submitted for review',
+  'story.resubmitted': 'Resubmitted for review',
+  'story.opened': 'Opened the story for review',
+  'story.feedback_opened': 'Opened mentor feedback',
+  'story.status_changed': 'Changed review status',
+  'story.feedback_added': 'Left feedback',
+  'story.ask_added': 'Asked a reflection question',
+  'story.reflection_prompt_added': 'Added a reflection prompt',
+  'story.ask_answered': 'Answered a mentor question',
+  'story.reflection_answered': 'Answered a reflection prompt',
+  'story.evaluation_updated': 'Updated scores or classifications',
+  'story.use_suggested': 'Suggested an interview use',
+  'story.use_suggestion_withdrawn': 'Withdrew an interview-use suggestion',
+  'story.archived': 'Archived the story',
+  'story.restored': 'Restored the story',
+  'question.pair_created': 'Assigned an interview question',
+  'question.pair_updated': 'Updated an interview-question pairing',
+  'question.pair_reviewed': 'Reviewed an interview-question pairing',
+  'question.pair_removed': 'Removed an interview-question pairing',
+  'story.craft_updated': 'Updated Story Anatomy',
+});
+
+function historyValue(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return {};
+  }
+}
+
+function historyAction(event) {
+  const action = String(event.action || '');
+  if (HISTORY_ACTION_LABELS[action]) return HISTORY_ACTION_LABELS[action];
+  return action
+    .replace(/^[^.]+\./, '')
+    .replaceAll('_', ' ')
+    .replace(/^\w/, (letter) => letter.toUpperCase()) || 'Recorded an action';
+}
+
+function historyDetail(event) {
+  if (event.detail) return String(event.detail);
+  const next = historyValue(firstDefined(event.new_value, event.newValue));
+  if (next.status) return `to ${STATUS[canonicalStatus(next.status)]?.label || next.status}`;
+  if (next.mentor_score != null) return `mentor score ${next.mentor_score}/5`;
+  if (next.student_score != null) return `student score ${next.student_score}/5`;
+  if (next.revision_no != null) return `revision ${next.revision_no}`;
+  if (next.prompt) return `“${String(next.prompt).slice(0, 120)}”`;
+  if (next.use_key) return String(next.use_key);
+  return '';
+}
+
+function historyPrevious(event) {
+  const previous = historyValue(firstDefined(event.previous_value, event.previousValue));
+  if (previous.status) return STATUS[canonicalStatus(previous.status)]?.label || String(previous.status);
+  if (previous.mentor_score != null) return `${previous.mentor_score}/5`;
+  if (previous.student_score != null) return `${previous.student_score}/5`;
+  if (previous.title) return String(previous.title);
+  return '';
+}
+
+function storyHistoryMarkup(story) {
+  const events = asArray(story.history);
+  const visible = state.storyHistoryExpanded ? events : events.slice(0, 6);
+  if (!visible.length) {
+    return '<div class="stageHint">No audited story actions have been recorded yet.</div>';
+  }
+  return `${visible.map((event) => {
+    const previous = historyPrevious(event);
+    const detail = historyDetail(event);
+    return `<div class="hRow"><span class="hw">${esc(formatDateTime(firstDefined(event.created_at, event.createdAt)))}</span><span><b>${esc(firstDefined(event.actor_display, event.actorDisplay, 'StoryForge system'))}</b> — ${esc(historyAction(event))}${detail ? ` · ${esc(detail)}` : ''}${previous ? ` <span class="prev">(was: ${esc(previous)})</span>` : ''}</span></div>`;
+  }).join('')}${events.length > 6 && !state.storyHistoryExpanded
+    ? `<button class="reflAdd" type="button" data-expand-story-history>Show full history (${events.length})</button>`
+    : ''}`;
+}
+
+async function fetchStoryDetail(id, surface = 'workspace') {
+  if (isMentor()) {
+    try {
+      await api.viewStory(id, surface);
+    } catch (error) {
+      if (![404, 405, 501].includes(error.status)) throw error;
+    }
+  }
+  return unwrapStory(await api.story(id));
+}
+
+async function openStory(id) {
+  state.returnFocus = document.activeElement;
+  room.innerHTML = `<div class="roomSheet">${loadingView('Opening the complete story workspace…')}</div>`;
+  room.classList.add('open');
+  try {
+    state.storyDetail = await fetchStoryDetail(id, 'workspace');
+    state.storyTab = state.storyDetail.revised ? 'working' : 'original';
+    state.storyHistoryExpanded = false;
+    renderStoryRoom();
+    room.scrollTop = 0;
+  } catch (error) {
+    closeOverlay(room);
+    notify(error.message);
+  }
+}
+
+async function reloadStorySurface(surface = 'room') {
+  const id = state.storyDetail?.id || state.quick?.currentId;
+  if (!id) return;
+  const story = await fetchStoryDetail(id, surface);
+  state.storyDetail = story;
+  state.stories = state.stories.map((item) => item.id === story.id ? story : item);
+  renderShell();
+  if (room.classList.contains('open')) renderStoryRoom();
+  if (quick.classList.contains('open')) {
+    state.quick.story = story;
+    renderQuick();
+  }
+}
+
+function renderStoryRoom() {
+  const story = state.storyDetail;
+  if (!story) return;
+  const mentor = isMentor();
+  const originalTab = state.storyTab !== 'working';
+  const title = originalTab ? story.originalTitle : story.title;
+  const text = originalTab ? story.originalText : story.text;
+
+  room.innerHTML = `<div class="roomSheet" role="dialog" aria-modal="true" aria-labelledby="roomStoryTitle">
+    <div class="roomTop">
+      <button class="backBtn" type="button" data-close-overlay>‹ ${mentor ? `${esc(story.studentName)}’s stories` : 'Your library'}</button>
+      <span class="eyebrow">Captured ${esc(formatDate(story.createdAt))}${story.captureType === 'audio' ? ' · from a voice note' : ''} · ${esc(developmentState(story))}</span>
+    </div>
+    ${mentor && story.revised ? `<div class="respStrip">✎ ${esc(story.studentName.split(/\s+/)[0])} revised this story after feedback (${esc(formatDateTime(story.studentRespondedAt || story.updatedAt))}). You’re looking at the revision — the original telling is one tab away.</div>` : ''}
+    <div class="roomTitleWrap">
+      ${story.prefixEnabled ? '<div class="roomPre">The One Where</div>' : ''}
+      <h1 class="roomTitle" id="roomStoryTitle">${esc(story.title)}</h1>
+    </div>
+    <div class="roomMeta">
+      ${statusChip(story)}
+      ${scoreDots(story.studentScore, 'student', mentor ? 'Student’s own rating' : 'My rating')}
+      ${story.status === 'private' ? '' : scoreDots(story.mentorScore, 'mentor', 'Mentor score')}
+      ${birdMini(story)}
+      <span class="flex-spacer"></span>
+      <button class="rowBtn" type="button" data-open-assign="${attr(story.id)}">Assign interview questions</button>
+    </div>
+    <div class="roomGrid">
+      <div>
+        ${audioMarkup(story)}
+        <div class="voiceTabs" role="tablist" aria-label="Story versions">
+          <button type="button" role="tab" class="${originalTab ? 'on' : ''}" aria-selected="${originalTab}" data-story-tab="original">Original telling</button>
+          <button type="button" role="tab" class="${!originalTab ? 'on' : ''}" aria-selected="${!originalTab}" data-story-tab="working">Working version</button>
+        </div>
+        ${!mentor && !originalTab ? `<form id="storyEditForm">
+          <label class="srOnly" for="storyEditTitle">Story title</label>
+          <input class="roomTitle roomTitleInput" id="storyEditTitle" value="${attr(story.title)}" required>
+          <label class="srOnly" for="storyEditText">Working version</label>
+          <textarea class="storyProse storyProseEdit" id="storyEditText" data-empty="${text ? 'false' : 'true'}" placeholder="Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.">${esc(text)}</textarea>
+          <div class="origNote">Edit freely here. The original telling stays untouched, always. Edits after mentor feedback are flagged for re-review.</div>
+          <div class="lessonBlock"><label class="lbl" for="storyLesson">What this story taught you — the takeaway that travels with it</label>
+            <textarea class="lessonTxt lessonEdit" id="storyLesson" placeholder="One or two honest sentences. What did this leave you with?">${esc(story.lesson)}</textarea>
+          </div>
+          <div class="inlineActions"><button class="btnSave" type="submit">Save working version</button><span class="saveState">Durable only after StoryForge confirms the save.</span></div>
+        </form>` : `
+          <div class="storyProse" data-empty="${text ? 'false' : 'true'}">${text ? esc(text) : '<span class="storyEmpty">No telling has been written yet.</span>'}</div>
+          <div class="origNote">${originalTab ? '🔒 Preserved exactly as first told — your authentic voice, kept safe' : `${mentor ? `${esc(story.studentName.split(/\s+/)[0])}’s` : 'Your'} editable working copy — the original stays untouched`}</div>
+          <div class="lessonBlock"><div class="lbl">What this story taught ${mentor ? 'the student' : 'you'} — the takeaway that travels with it</div>
+            <div class="lessonTxt">${story.lesson ? esc(story.lesson) : '<span class="storyEmpty">No lesson added yet.</span>'}</div>
+          </div>`}
+
+        <div class="reflBlock">
+          <div class="eyebrow">Reflection</div>
+          ${story.reflections.length ? story.reflections.map((reflection) => `<div class="reflQ ${reflectionFromMentor(reflection) ? 'fromMentor' : ''}">
+            <div class="qTag">${reflectionFromMentor(reflection) ? `${esc(firstDefined(reflection.author_name, feedbackAuthor(reflection)))} asks` : 'Prompt'}</div>
+            <div class="q">${esc(reflectionQuestion(reflection))}</div>
+            ${mentor ? `<div class="a">${esc(reflectionAnswer(reflection)) || '<span class="storyEmpty">Waiting for the student’s reflection.</span>'}</div>` : `<textarea class="a" data-reflection-answer="${attr(reflection.id)}" placeholder="Write what this brings up…">${esc(reflectionAnswer(reflection))}</textarea>
+              <button class="rowBtn" type="button" data-save-reflection="${attr(reflection.id)}">Save reflection</button>`}
+          </div>`).join('') : '<div class="storyEmpty">No reflection prompts yet.</div>'}
+          ${mentor ? `<div class="askRow"><input id="mentorAskText" placeholder="Ask ${esc(story.studentName.split(/\s+/)[0])} a question that deepens this story…"><button class="noteSend" type="button" data-send-ask>Ask</button></div>`
+            : '<button class="reflAdd" type="button" data-add-reflection>+ Pull another reflection prompt</button>'}
+        </div>
+      </div>
+
+      <aside>
+        <div class="railCard ${mentor ? 'advPanel' : ''}">
+          <div class="rLbl">Review status</div>
+          <div>${statusChip(story)}</div>
+          <div class="stageHint">${esc(STATUS[story.status].hint)}</div>
+          ${mentor ? `<div class="statusRow">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-set-status="${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}">${esc(STATUS[status].label)}</button>`).join('')}</div>`
+            : ['private', 'changes'].includes(story.status) ? studentReviewAction(story) : ''}
+          <div class="tsList">${storyTimestamps(story)}</div>
+        </div>
+
+        <div class="railCard">
+          <div class="rLbl">Scores</div>
+          <div class="fLbl">${mentor ? `${esc(story.studentName.split(/\s+/)[0])}’s own rating` : 'My rating — how much this story matters to you'}</div>
+          ${mentor ? `<span class="scoreTag">${story.studentScore ? `<b>${story.studentScore}</b>/5` : 'not rated yet'}</span>` : scorePicker('room-student', story.studentScore)}
+          <div class="fLbl">Mentor score${story.reviewedByName ? ` — ${esc(story.reviewedByName)}` : ''}</div>
+          ${mentor ? scorePicker('room-mentor', story.mentorScore, true) : `<span class="scoreTag">${story.mentorScore ? `<b>${story.mentorScore}</b>/5` : 'not scored yet'}</span>`}
+          <div class="classChips">
+            <button class="starBtn ${story.studentStar ? 'on' : ''}" type="button" data-toggle-star="${attr(story.id)}" data-star-kind="student" ${mentor ? 'disabled' : ''}>★</button><span>Student star</span>
+            <button class="starBtn mentor ${story.mentorStar ? 'on' : ''}" type="button" data-toggle-star="${attr(story.id)}" data-star-kind="mentor" ${mentor ? '' : 'disabled'}>★</button><span>Mentor star</span>
+          </div>
+        </div>
+
+        <div class="railCard"><div class="rLbl">Classification</div>${classificationButtons(story)}</div>
+        <div class="railCard">
+          <div class="rLbl">Interview questions <button class="pMore" type="button" data-open-assign="${attr(story.id)}">Assign ▸</button></div>
+          ${mappedQuestionMarkup(story)}
+        </div>
+        <div class="railCard">
+          <div class="rLbl">Where it could serve</div>
+          <div class="useBtns">${USES.map((use) => {
+            const suggestion = story.useSuggestions.find((item) => (
+              firstDefined(item.useKey, item.use_key) === use.id
+              && !firstDefined(item.withdrawnAt, item.withdrawn_at)
+            ));
+            return `<button class="useBtn ${story.uses.includes(use.id) ? 'on' : ''}" type="button" data-toggle-use="${use.id}">${esc(use.label)}${suggestion && !story.uses.includes(use.id) ? `<span class="sugTag">${esc(firstDefined(suggestion.suggestedByName, suggestion.suggested_by_name, 'Mentor'))} suggests</span>` : ''}<span class="chk">✓</span></button>`;
+          }).join('')}</div>
+        </div>
+        ${story.status !== 'private' || mentor ? `<div class="railCard ${mentor ? '' : 'advPanel'}">
+          <div class="rLbl label-cy">Mentor feedback</div>
+          ${feedbackMarkup(story)}
+          ${mentor ? `<div class="noteCompose"><textarea id="mentorFeedback" placeholder="Leave ${esc(story.studentName.split(/\s+/)[0])} feedback…"></textarea><button class="noteSend" type="button" data-send-feedback>Send feedback</button></div>` : ''}
+        </div>` : ''}
+        <div class="railCard">
+          <div class="rLbl">History</div>
+          ${storyHistoryMarkup(story)}
+        </div>
+      </aside>
+    </div>
+  </div>`;
+}
+
+async function openQuick(id) {
+  state.returnFocus = document.activeElement;
+  const ids = filteredStories().map((story) => story.id);
+  state.quick = { ids: ids.includes(id) ? ids : [id], index: Math.max(0, ids.indexOf(id)), currentId: id, story: null };
+  quick.innerHTML = `<div class="drawer">${loadingView('Opening Quick Look…')}</div>`;
+  quick.classList.add('open');
+  try {
+    state.quick.story = await fetchStoryDetail(id, 'quick');
+    renderQuick();
+  } catch (error) {
+    closeOverlay(quick);
+    notify(error.message);
+  }
+}
+
+function renderQuick() {
+  const context = state.quick;
+  const story = context?.story;
+  if (!context || !story) return;
+  const mentor = isMentor();
+  quick.innerHTML = `
+    <button class="qNavSide prev" type="button" data-quick-move="-1" ${context.index === 0 ? 'disabled' : ''} aria-label="Previous story">‹</button>
+    <button class="qNavSide next" type="button" data-quick-move="1" ${context.index >= context.ids.length - 1 ? 'disabled' : ''} aria-label="Next story">›</button>
+    <div class="drawer" role="dialog" aria-modal="true" aria-labelledby="quickTitle">
+    <div class="drHead">
+      <div>
+        <div class="eyebrow">${mentor ? 'Quick review' : 'Quick look'}${mentor ? ` · ${esc(story.studentName)}` : ''} · ${context.index + 1} of ${context.ids.length}</div>
+        <h2 class="h2" id="quickTitle">${story.prefixEnabled ? '<span class="roomPre">The One Where</span>' : ''}${esc(story.title)}</h2>
+        <div class="inlineActions">${statusChip(story)}${birdMini(story)}<span class="scoreTag">${esc(developmentState(story))}</span></div>
+      </div>
+      <button class="drClose" type="button" data-close-overlay aria-label="Close Quick Look">✕</button>
+    </div>
+    <div class="drBody">
+      ${audioMarkup(story)}
+      <div class="drSec"><div class="dsLbl">The story</div><div class="drExc">${story.text ? esc(story.text) : '<span class="storyEmpty">No telling yet.</span>'}</div>
+        ${story.lesson ? `<div class="qkLesson">Lesson: “${esc(story.lesson)}”</div>` : ''}</div>
+      <div class="drSec"><div class="dsLbl">Review status</div>
+        ${mentor ? `<div class="statusRow">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-set-status="${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}">${esc(STATUS[status].label)}</button>`).join('')}</div>`
+          : ['private', 'changes'].includes(story.status) ? studentReviewAction(story) : `<div class="stageHint">${esc(STATUS[story.status].hint)}</div>`}
+        ${storyTimestamps(story)}
+      </div>
+      <div class="drSec"><div class="dsLbl">${mentor ? 'Your score (mentor)' : 'My rating — how much this story matters to me'}</div>
+        ${scorePicker(mentor ? 'quick-mentor' : 'quick-student', mentor ? story.mentorScore : story.studentScore, mentor)}
+        <div class="stageHint">${mentor ? `${esc(story.studentName.split(/\s+/)[0])}’s own rating: ${story.studentScore || 'not rated'}` : `Mentor score: ${story.mentorScore || 'not scored yet'}`}</div>
+        <button class="quickStar starBtn ${mentor ? 'mentor' : ''} ${(mentor ? story.mentorStar : story.studentStar) ? 'on' : ''}" type="button"
+          data-toggle-star="${attr(story.id)}" data-star-kind="${mentor ? 'mentor' : 'student'}"
+          aria-pressed="${mentor ? story.mentorStar : story.studentStar}">★ <span>${mentor ? 'Star as mentor' : 'Star this story'}</span></button>
+      </div>
+      <div class="drSec"><div class="dsLbl">Classification</div>${classificationButtons(story, 'quick')}</div>
+      <div class="drSec"><div class="dsLbl">Interview questions (${story.mappings.length}) <button class="pMore" type="button" data-open-assign="${attr(story.id)}">Assign ▸</button></div>${mappedQuestionMarkup(story, 4)}</div>
+      <div class="drSec"><div class="dsLbl">${mentor ? 'Leave feedback' : 'Mentor feedback'}</div>${feedbackMarkup(story)}
+        ${mentor ? `<div class="noteCompose"><textarea id="quickFeedback" placeholder="Feedback for ${esc(story.studentName.split(/\s+/)[0])}…"></textarea><button class="noteSend" type="button" data-send-feedback data-feedback-source="quick">Send feedback</button></div>` : ''}
+      </div>
+    </div>
+    <div class="drFoot">
+      <button class="rowBtn" type="button" data-quick-move="-1" ${context.index === 0 ? 'disabled' : ''}>‹ Previous</button>
+      <button class="rowBtn" type="button" data-quick-move="1" ${context.index >= context.ids.length - 1 ? 'disabled' : ''}>Next ›</button>
+      <span class="flex-spacer"></span>
+      <button class="rowBtn pri" type="button" data-quick-full="${attr(story.id)}">Open full story</button>
+    </div>
+  </div>`;
+}
+
+async function moveQuick(delta) {
+  if (!state.quick) return;
+  const index = state.quick.index + Number(delta);
+  if (index < 0 || index >= state.quick.ids.length) return;
+  state.quick.index = index;
+  state.quick.currentId = state.quick.ids[index];
+  quick.innerHTML = `<div class="drawer">${loadingView('Opening next story…')}</div>`;
+  state.quick.story = await fetchStoryDetail(state.quick.currentId, 'quick');
+  renderQuick();
+}
+
+async function saveStoryEdit(form) {
+  const story = state.storyDetail;
+  if (!story) return;
+  const resubmitting = story.status === 'changes'
+    && $('#storyEditText', form).value.trim() !== story.text;
+  const result = await withBusy(() => api.updateStory(story.id, {
+    title: $('#storyEditTitle', form).value.trim(),
+    text: $('#storyEditText', form).value.trim(),
+    lesson: $('#storyLesson', form).value.trim(),
+    prefixEnabled: story.prefixEnabled,
+    expectedVersion: story.rowVersion ?? 0,
+    surface: 'workspace',
+  }));
+  if (!result) return;
+  await reloadStorySurface('workspace');
+  notify(resubmitting
+    ? 'Revision saved and returned to Awaiting review. Your mentor will see that it needs another review.'
+    : 'Working version saved. The original telling remains preserved.');
+}
+
+async function submitCurrentStory() {
+  const story = state.storyDetail || state.quick?.story;
+  if (!story) return;
+  await withBusy(() => api.submitStory(story.id, room.classList.contains('open') ? 'workspace' : 'quick'));
+  await reloadStorySurface(room.classList.contains('open') ? 'workspace' : 'quick');
+  notify(story.status === 'changes' ? 'Resubmitted. Your mentor will see that it needs another review.' : 'Submitted for review.');
+}
+
+async function setCurrentStatus(status) {
+  const story = state.storyDetail || state.quick?.story;
+  if (!story || !isMentor()) return;
+  await withBusy(async () => {
+    try {
+      return await api.storyStatus(story.id, status, room.classList.contains('open') ? 'workspace' : 'quick');
+    } catch (error) {
+      if (![404, 405, 501].includes(error.status)) throw error;
+      return api.legacyReview(story.id, {
+        status: serverStatus(status),
+        mentorScore: story.mentorScore || null,
+        feedback: null,
+        needsFollowup: status === 'changes',
+        classification: story.birds[0] || null,
+        surface: room.classList.contains('open') ? 'workspace' : 'quick',
+      });
+    }
+  });
+  await reloadStorySurface(room.classList.contains('open') ? 'workspace' : 'quick');
+  notify(`Status set to “${STATUS[status].label}” — saved with your name and time.`);
+}
+
+async function updateEvaluation(patch) {
+  const story = state.storyDetail || state.quick?.story || state.stories.find((item) => item.id === patch.storyId);
+  if (!story) return;
+  const body = { ...patch, surface: room.classList.contains('open') ? 'workspace' : quick.classList.contains('open') ? 'quick' : 'library' };
+  delete body.storyId;
+  await withBusy(async () => {
+    try {
+      return await api.evaluation(story.id, body);
+    } catch (error) {
+      if (![404, 405, 501].includes(error.status) || isMentor()) throw error;
+      return api.updateStory(story.id, {
+        title: story.title,
+        text: story.text,
+        studentScore: body.studentScore,
+        uses: story.uses,
+        surface: body.surface,
+      });
+    }
+  });
+  if (room.classList.contains('open') || quick.classList.contains('open')) await reloadStorySurface(body.surface);
+  else {
+    await loadStories();
+    renderRoute();
+  }
+}
+
+async function toggleStar(id, kind = isMentor() ? 'mentor' : 'student') {
+  const story = state.storyDetail?.id === id ? state.storyDetail
+    : state.quick?.story?.id === id ? state.quick.story
+      : state.stories.find((item) => item.id === id);
+  if (!story) return;
+  const patch = kind === 'mentor'
+    ? { storyId: id, mentorStar: !story.mentorStar }
+    : { storyId: id, studentStar: !story.studentStar };
+  await updateEvaluation(patch);
+  notify(`${kind === 'mentor' ? 'Mentor' : 'Story'} star ${kind === 'mentor' ? !story.mentorStar : !story.studentStar ? 'added' : 'updated'}.`);
+}
+
+async function toggleClassification(kind, id) {
+  const story = state.storyDetail || state.quick?.story;
+  if (!story) return;
+  const values = story[kind].includes(id) ? story[kind].filter((value) => value !== id) : [...story[kind], id];
+  await updateEvaluation({ storyId: story.id, [kind]: values });
+  notify('Classification saved.');
+}
+
+async function toggleUse(id) {
+  const story = state.storyDetail;
+  if (!story) return;
+  if (isMentor()) {
+    const active = story.useSuggestions.some((item) => (
+      firstDefined(item.useKey, item.use_key) === id
+      && !firstDefined(item.withdrawnAt, item.withdrawn_at)
+    ));
+    await withBusy(() => api.useSuggestion(story.id, id, !active));
+    await reloadStorySurface('workspace');
+    notify(active ? 'Suggestion withdrawn.' : `Suggested to ${story.studentName.split(/\s+/)[0]}.`);
+    return;
+  }
+  const uses = story.uses.includes(id) ? story.uses.filter((value) => value !== id) : [...story.uses, id];
+  await withBusy(() => api.updateStory(story.id, {
+    title: story.title,
+    text: story.text,
+    lesson: story.lesson,
+    uses,
+    expectedVersion: story.rowVersion ?? 0,
+    surface: 'workspace',
+  }));
+  await reloadStorySurface('workspace');
+  notify('Where it could serve saved.');
+}
+
+async function sendFeedback(source = 'room') {
+  const story = state.storyDetail || state.quick?.story;
+  const field = source === 'quick' ? $('#quickFeedback') : $('#mentorFeedback');
+  const body = field?.value.trim();
+  if (!story || !body || !isMentor()) return;
+  await withBusy(async () => {
+    try {
+      return await api.feedback(story.id, { body, surface: source === 'quick' ? 'quick' : 'workspace' });
+    } catch (error) {
+      if (![404, 405, 501].includes(error.status)) throw error;
+      return api.legacyReview(story.id, {
+        feedback: body,
+        status: serverStatus(story.status === 'awaiting' ? 'in_review' : story.status),
+        mentorScore: story.mentorScore || null,
+        needsFollowup: false,
+        classification: story.birds[0] || null,
+        surface: source === 'quick' ? 'quick' : 'workspace',
+      });
+    }
+  });
+  await reloadStorySurface(source === 'quick' ? 'quick' : 'workspace');
+  notify('Feedback sent. The student was notified.');
+}
+
+async function sendAsk() {
+  const story = state.storyDetail;
+  const prompt = $('#mentorAskText')?.value.trim();
+  if (!story || !prompt || !isMentor()) return;
+  await withBusy(() => api.ask(story.id, prompt));
+  await reloadStorySurface('workspace');
+  notify('Reflection question sent to the student.');
+}
+
+async function addReflection() {
+  const story = state.storyDetail;
+  if (!story || isMentor()) return;
+  const used = new Set(story.reflections.map(reflectionQuestion));
+  const prompt = REFLECTION_PROMPTS.find((value) => !used.has(value));
+  if (!prompt) {
+    notify('You’ve pulled every reflection prompt for this story.');
+    return;
+  }
+  await withBusy(() => api.addReflection(story.id, prompt));
+  await reloadStorySurface('workspace');
+}
+
+async function saveReflection(id) {
+  const story = state.storyDetail;
+  const field = $(`[data-reflection-answer="${CSS.escape(id)}"]`);
+  if (!story || !field || isMentor()) return;
+  await withBusy(() => api.answerReflection(story.id, id, field.value.trim()));
+  await reloadStorySurface('workspace');
+  notify('Reflection saved.');
+}
+
+async function playAudio(id, button) {
+  try {
+    button.disabled = true;
+    const result = await api.audioPlayback(id);
+    const url = firstDefined(result?.playbackUrl, result?.playback_url, result?.url);
+    if (!url) throw new Error('Private audio playback is not available.');
+    const audio = new Audio(url);
+    audio.addEventListener('ended', () => { button.disabled = false; button.textContent = '▶'; }, { once: true });
+    audio.addEventListener('error', () => { button.disabled = false; button.textContent = '▶'; notify('Private audio playback could not start.'); }, { once: true });
+    button.textContent = 'Ⅱ';
+    await audio.play();
+  } catch (error) {
+    button.disabled = false;
+    notify(error.message);
+  }
+}
+
+async function openAssign(storyId) {
+  state.returnFocus = document.activeElement;
+  state.assign = { storyId, query: '' };
+  qad.innerHTML = `<div class="drawer">${loadingView('Opening the question library…')}</div>`;
+  qad.classList.add('open');
+  try {
+    if (!state.questions.length) await loadQuestions();
+    if (state.storyDetail?.id !== storyId && state.quick?.story?.id !== storyId) {
+      state.storyDetail = await fetchStoryDetail(storyId, 'assign');
+    }
+    renderAssign();
+  } catch (error) {
+    closeOverlay(qad);
+    notify(error.message);
+  }
+}
+
+function renderAssign() {
+  const context = state.assign;
+  const story = state.storyDetail?.id === context?.storyId ? state.storyDetail : state.quick?.story;
+  if (!context || !story) return;
+  const query = context.query.trim().toLowerCase();
+  const pairs = story.mappings.map(normalizePair);
+  const families = [...new Set(state.questions.map((question) => question.family))];
+  qad.innerHTML = `<div class="drawer" role="dialog" aria-modal="true" aria-labelledby="assignTitle">
+    <div class="drHead"><div><div class="eyebrow">Assign interview questions</div><h2 class="h2" id="assignTitle">“${esc(story.title)}”</h2>
+      <div class="stageHint">Pick every question this story could answer, then score how well it answers each one. Strength belongs to this exact story–question pair.</div></div>
+      <button class="drClose" type="button" data-close-overlay aria-label="Close question assignment">✕</button>
+    </div>
+    <div class="drBody">
+      <input type="search" id="assignSearch" placeholder="Search questions…" value="${attr(context.query)}">
+      ${families.map((family) => {
+        const questions = state.questions.filter((question) => question.family === family && (!query || question.text.toLowerCase().includes(query)));
+        if (!questions.length) return '';
+        const familyMeta = FAMILIES.find((item) => item.id === family);
+        return `<div class="drSec"><div class="dsLbl">${esc(familyMeta?.label || family)}</div>
+          ${questions.map((question) => {
+            const pair = pairs.find((item) => item.questionId === question.id);
+            return `<div class="qaRow ${pair ? 'sel' : ''}">
+              <div class="qaTop">
+                <button class="qaCk" type="button" data-toggle-pair="${attr(question.id)}" aria-pressed="${Boolean(pair)}">✓</button>
+                <div><div class="qq2">${esc(question.text)}</div>${pair ? `<div class="qaHist">${pair.confirmed ? 'Assigned' : 'Suggested'}${pair.proposedBy ? ` by ${esc(pair.proposedBy)}` : ''}</div>` : ''}</div>
+                ${pair ? `<span class="qaState">${pair.confirmed ? 'assigned' : 'suggested'}</span>` : ''}
+              </div>
+              ${pair ? `<div class="qaCtl"><span class="fLbl">Strength — this story vs this question</span>
+                ${scorePicker(`pair-${attr(pair.id)}-${isMentor() ? 'mentor' : 'student'}`, isMentor() ? pair.mentorStrength : pair.studentStrength, isMentor())}
+                <span class="stageHint">${isMentor() ? `self: ${pair.studentStrength || '—'}/5` : `mentor: ${pair.mentorStrength || '—'}/5`}</span>
+                ${isMentor() && !pair.confirmed ? `<button class="rowBtn pri" type="button" data-confirm-pair="${attr(pair.id)}">Confirm</button><button class="rowBtn" type="button" data-reject-pair="${attr(pair.id)}">Reject</button>` : ''}
+              </div>` : ''}
+            </div>`;
+          }).join('')}
+        </div>`;
+      }).join('')}
+      <div class="drSec"><div class="dsLbl">Custom questions</div><p class="stageHint">Custom questions are governed records. Add and review them in the Question Library.</p><button class="rowBtn" type="button" data-go-question-library>Open Question Library</button></div>
+    </div>
+    <div class="drFoot"><span>${pairs.length} question${pairs.length === 1 ? '' : 's'} on this story · every confirmed change is logged</span><button class="rowBtn pri" type="button" data-close-overlay>Done</button></div>
+  </div>`;
+}
+
+async function refreshAssignedStory() {
+  const id = state.assign?.storyId;
+  if (!id) return;
+  const story = await fetchStoryDetail(id, 'assign');
+  state.storyDetail = story;
+  if (state.quick?.story?.id === id) state.quick.story = story;
+  renderAssign();
+}
+
+async function togglePair(questionId) {
+  const story = state.storyDetail;
+  if (!story) return;
+  const pair = story.mappings.map(normalizePair).find((item) => item.questionId === questionId);
+  if (pair) {
+    await withBusy(() => api.removePair(pair.id));
+    notify('Question removed from this story.');
+  } else {
+    await withBusy(() => api.createPair({
+      storyId: story.id,
+      questionId,
+      studentStrength: isMentor() ? undefined : 3,
+      surface: 'assign',
+    }));
+    notify(isMentor() ? 'Question assigned to this story.' : 'Question suggested for mentor confirmation.');
+  }
+  await refreshAssignedStory();
+}
+
+async function updatePairScore(scope, score) {
+  const match = scope.match(/^pair-(.+)-(mentor|student)$/);
+  if (!match) return;
+  const [, pairId, owner] = match;
+  await withBusy(() => api.updatePair(pairId, {
+    [owner === 'mentor' ? 'mentorStrength' : 'studentStrength']: Number(score),
+    surface: 'assign',
+  }));
+  await refreshAssignedStory();
+  notify('Question strength saved.');
+}
+
+/* ========================= Interview intelligence ========================= */
+
+function familyMeta(id) {
+  return FAMILIES.find((family) => family.id === id) || FAMILIES.at(-1);
+}
+
+function questionState(raw) {
+  const stateValue = String(firstDefined(raw.state, raw.coverage_state, 'none'));
+  if (['ready', 'progress', 'none'].includes(stateValue)) return stateValue;
+  if (['covered', 'complete'].includes(stateValue)) return 'ready';
+  if (['in_progress', 'suggested'].includes(stateValue)) return 'progress';
+  return 'none';
+}
+
+function questionStateLabel(value) {
+  return ({ ready: 'Ready', progress: 'In progress', none: 'No story yet' })[value] || 'No story yet';
+}
+
+function normalizeIntelligence(payload = {}) {
+  const questions = asArray(firstDefined(payload.questions, payload.questionCoverage, payload.question_coverage))
+    .map((raw) => {
+      const pairs = asArray(raw.pairs);
+      return {
+        ...normalizeQuestion(raw),
+        state: questionState(raw),
+        pairs,
+        pairCount: Number(firstDefined(raw.pairCount, raw.pair_count, pairs.length)) || 0,
+        bestStudentStrength: Number(firstDefined(raw.bestStudentStrength, raw.best_student_strength, 0)) || 0,
+        bestMentorStrength: Number(firstDefined(raw.bestMentorStrength, raw.best_mentor_strength, 0)) || 0,
+        followupsTotal: Number(firstDefined(raw.followupsTotal, raw.followups_total, 0)) || 0,
+        followupsPrepared: Number(firstDefined(raw.followupsPrepared, raw.followups_prepared, 0)) || 0,
+      };
+    });
+  const serverFamilies = asArray(payload.families);
+  const families = FAMILIES.map((meta) => {
+    const source = serverFamilies.find((item) => firstDefined(item.id, item.family) === meta.id) || {};
+    const familyQuestions = questions.filter((question) => question.family === meta.id);
+    return {
+      ...meta,
+      count: Number(firstDefined(source.count, source.question_count, familyQuestions.length)) || familyQuestions.length,
+      ready: Number(firstDefined(source.ready, source.ready_count, familyQuestions.filter((question) => question.state === 'ready').length)) || 0,
+      progress: Number(firstDefined(source.progress, source.progress_count, familyQuestions.filter((question) => question.state === 'progress').length)) || 0,
+    };
+  });
+  const ready = questions.filter((question) => question.state === 'ready').length;
+  const progress = questions.filter((question) => question.state === 'progress').length;
+  const readiness = firstDefined(payload.readiness, payload.stats, {});
+  return {
+    questions,
+    families,
+    readiness: {
+      ready: Number(firstDefined(readiness.ready, readiness.ready_count, ready)) || 0,
+      progress: Number(firstDefined(readiness.progress, readiness.progress_count, progress)) || 0,
+      gaps: Number(firstDefined(readiness.gaps, readiness.gap_count, Math.max(0, questions.length - ready - progress))) || 0,
+      total: Number(firstDefined(readiness.total, readiness.question_count, questions.length)) || questions.length,
+      percent: Number(firstDefined(readiness.percent, readiness.percentage, questions.length ? Math.round((ready / questions.length) * 100) : 0)) || 0,
+      followupsTotal: Number(firstDefined(readiness.followupsTotal, readiness.followups_total, 0)) || 0,
+      followupsPrepared: Number(firstDefined(readiness.followupsPrepared, readiness.followups_prepared, 0)) || 0,
+    },
+  };
+}
+
+async function loadIntelligence() {
+  const studentId = isMentor() ? firstDefined(state.selectedStudent?.id, state.routeId, '') : '';
+  try {
+    state.intelligence = normalizeIntelligence(await api.intelligence(studentId));
+  } catch (error) {
+    if (![404, 405, 501].includes(error.status)) throw error;
+    if (!state.questions.length) await loadQuestions();
+    state.intelligence = normalizeIntelligence({ questions: state.questions });
+  }
+  return state.intelligence;
+}
+
+function renderPrep() {
+  const intelligence = state.intelligence || normalizeIntelligence();
+  const readiness = intelligence.readiness;
+  const studentLabel = isMentor() && state.selectedStudent ? ` · ${state.selectedStudent.name}` : '';
+  const visibleFamilies = intelligence.families.filter((family) => family.id !== 'custom' || family.count);
+  const visibleQuestions = intelligence.questions.filter((question) => {
+    if (state.questionFamily !== 'all' && question.family !== state.questionFamily) return false;
+    if (state.questionStatus && question.state !== state.questionStatus) return false;
+    return !state.questionQuery
+      || question.text.toLowerCase().includes(state.questionQuery.trim().toLowerCase());
+  });
+
+  main.innerHTML = `<section data-view="prep" class="live">
+    ${isMentor() && state.selectedStudent ? `<button class="backBtn" type="button" data-nav="student" data-nav-id="${attr(state.selectedStudent.id)}">‹ ${esc(state.selectedStudent.first)}’s stories</button>` : ''}
+    <div class="eyebrow">Interview Prep${esc(studentLabel)}</div>
+    <h1 class="h1">Become difficult <em>to surprise</em>.</h1>
+
+    <div class="readyStrip">
+      <div class="fstat"><div class="n metric-green">${readiness.ready}</div><div class="l">Ready</div></div>
+      <div class="fstat"><div class="n metric-cyan">${readiness.progress}</div><div class="l">In progress</div></div>
+      <div class="fstat"><div class="n metric-dim">${readiness.gaps}</div><div class="l">No story yet</div></div>
+      <div class="fstat"><div class="n">${firstDefined(state.intelligence?.readiness?.followupsPrepared, 0)}<span>/${firstDefined(state.intelligence?.readiness?.followupsTotal, 0)}</span></div><div class="l">Follow-ups prepared</div></div>
+      <div class="push-right"><button class="rowBtn" type="button" data-nav="qlib">Question Library</button><p class="stageHint">Every question opens a workshop: stories, strengths, and the follow-up questions your answer will invite.</p></div>
+    </div>
+
+    <div class="famGrid">
+      ${visibleFamilies.map((family) => {
+        const covered = family.ready + family.progress;
+        const width = family.count ? Math.round((covered / family.count) * 100) : 0;
+        return `<button class="famCard family-${family.id} ${state.questionFamily === family.id ? 'on' : ''}" type="button"
+          data-prep-family="${family.id}">
+        <span class="fName"><span class="fIco">${family.ico}</span>${esc(family.label)}</span>
+        <span class="fDesc">${esc(family.desc)}</span>
+        <progress class="famBar" max="100" value="${width}" aria-label="${width}% of ${esc(family.label)} questions have a story"></progress>
+        <span class="fCnt">${covered} of ${family.count} have a story</span>
+      </button>`;
+      }).join('')}
+    </div>
+
+    <div class="listBar">
+      <input type="text" id="prepQ" placeholder="Search questions…" value="${attr(state.questionQuery)}">
+      <select id="prepSt" aria-label="Question status">
+        <option value="">Status: all</option>
+        <option value="ready" ${state.questionStatus === 'ready' ? 'selected' : ''}>Ready</option>
+        <option value="progress" ${state.questionStatus === 'progress' ? 'selected' : ''}>In progress</option>
+        <option value="none" ${state.questionStatus === 'none' ? 'selected' : ''}>No story yet</option>
+      </select>
+      ${state.questionFamily !== 'all' ? `<button class="rowBtn" type="button" data-clear-prep-family>Family: ${esc(familyMeta(state.questionFamily).label)} ✕</button>` : ''}
+      <span class="countNote">${visibleQuestions.length} of ${intelligence.questions.length} questions · click any question to open its workshop</span>
+    </div>
+    ${visibleQuestions.map((question) => {
+      const meta = familyMeta(question.family);
+      const stateValue = question.state;
+      const pairCount = question.pairCount;
+      return `<button class="qiRow family-${meta.id}" type="button" data-open-workshop="${attr(question.id)}">
+        <span class="qiCopy"><span class="qFam">${meta.ico} ${esc(meta.label)}${question.source && question.source !== 'MissionMed' ? ` · ${esc(question.source)}` : ''}</span>
+          <span class="qTxt">“${esc(question.text)}”</span></span>
+        ${pairCount ? `<span class="scoreTag">${pairCount} ${pairCount === 1 ? 'story' : 'stories'}</span>` : ''}
+        ${pairCount ? scoreDots(question.bestMentorStrength, 'mentor', 'Best mentor strength for this question') : ''}
+        ${question.followupsTotal ? `<span class="scoreTag" title="Follow-up questions prepared">${question.followupsPrepared}/${question.followupsTotal} follow-ups</span>` : ''}
+        <span class="qiSt ${stateValue}">${esc(questionStateLabel(stateValue))}</span>
+      </button>`;
+    }).join('') || emptyState('No questions match.', 'Clear a filter or choose another family.')}
+  </section>`;
+}
+
+function normalizeWorkshopPair(raw = {}) {
+  const pair = normalizePair(raw);
+  const storyRaw = firstDefined(raw.story, raw.story_detail, {});
+  const story = normalizeStory({
+    ...storyRaw,
+    id: firstDefined(storyRaw.id, pair.storyId),
+    title: firstDefined(storyRaw.title, raw.story_title, raw.title),
+    text: firstDefined(storyRaw.text, raw.story_text, raw.story_excerpt, raw.current_text),
+    status: firstDefined(storyRaw.status, raw.story_status, 'submitted'),
+    student_name: firstDefined(storyRaw.student_name, raw.student_name),
+  });
+  return {
+    ...pair,
+    clinical: Boolean(firstDefined(raw.clinical, pair.clinical, false)),
+    followups: pair.followups
+      .map(normalizeFollowup)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)),
+    story,
+  };
+}
+
+function normalizeWorkshop(payload = {}) {
+  const question = normalizeQuestion(firstDefined(payload.question, payload, {}));
+  const pairs = asArray(firstDefined(payload.pairs, payload.storyPairs, payload.story_pairs)).map(normalizeWorkshopPair);
+  return {
+    question,
+    state: questionState(firstDefined(payload.state, payload.question, {})),
+    preferredStoryId: String(firstDefined(payload.preferredStoryId, payload.preferred_story_id, '')),
+    pairs,
+    suggestedStories: asArray(firstDefined(payload.suggestedStories, payload.suggested_stories)).map(normalizeStory),
+    coachingNotes: asArray(firstDefined(payload.coachingNotes, payload.coaching_notes)),
+    gaps: Array.isArray(payload.gaps)
+      ? payload.gaps.map((item) => typeof item === 'string' ? item : String(firstDefined(item.text, item.gap, '')))
+      : [
+        !payload.gaps?.preferredStoryChosen ? 'Choose a preferred story for this question.' : '',
+        !payload.gaps?.mentorConfirmed ? 'A mentor still needs to confirm the story–question fit.' : '',
+        !payload.gaps?.followupsMapped ? 'Map the natural follow-up questions this story invites.' : '',
+        payload.gaps?.followupsMapped && !payload.gaps?.allFollowupsPrepared ? 'Prepare every mapped follow-up before interview day.' : '',
+      ].filter(Boolean),
+  };
+}
+
+async function openWorkshop(questionId) {
+  state.route = 'qshop';
+  state.routeId = questionId;
+  pushPath('qshop', questionId);
+  main.innerHTML = loadingView('Opening Question Workshop…');
+  try {
+    const studentId = isMentor() ? state.selectedStudent?.id || '' : '';
+    state.workshop = normalizeWorkshop(await api.workshop(questionId, studentId));
+    state.workshopFocusPairId = null;
+    renderShell();
+    renderQuestionWorkshop();
+  } catch (error) {
+    notify(error.message);
+    await navigate('prep', null, { replace: true });
+  }
+}
+
+function coachingNoteText(note) {
+  return String(typeof note === 'string' ? note : firstDefined(note.body, note.text, note.note, ''));
+}
+
+function followupText(item) {
+  return String(typeof item === 'string' ? item : firstDefined(item.text, item.question, ''));
+}
+
+function normalizeFollowup(raw = {}, index = 0) {
+  if (typeof raw === 'string') {
+    return {
+      id: '',
+      text: raw,
+      source: 'student',
+      clinical: false,
+      prepared: false,
+      note: '',
+      sortOrder: index,
+      rowVersion: 0,
+      createdAt: '',
+    };
+  }
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.followup_id, '')),
+    text: followupText(raw),
+    source: String(firstDefined(raw.source, raw.created_by_role, 'student')).toLowerCase(),
+    clinical: Boolean(firstDefined(raw.clinical, false)),
+    prepared: Boolean(firstDefined(raw.prepared, false)),
+    note: String(firstDefined(raw.note, raw.preparationNote, raw.preparation_note, '')),
+    sortOrder: Number(firstDefined(raw.sortOrder, raw.sort_order, index)) || 0,
+    rowVersion: Number(firstDefined(raw.rowVersion, raw.row_version, 0)) || 0,
+    createdAt: String(firstDefined(raw.createdAt, raw.created_at, '')),
+  };
+}
+
+function followupSourceMeta(followup) {
+  if (followup.source === 'ai') return { className: 'ai', label: 'AI', title: 'Accepted from an AI suggestion' };
+  if (followup.source === 'mentor') return { className: 'mentor', label: 'DB', title: 'Added by mentor' };
+  return { className: 'student', label: 'You', title: 'Added by student' };
+}
+
+function workshopThemeIds(family) {
+  return ({
+    core: ['identity', 'growth'],
+    behavioral: ['mistake', 'conflict', 'leader', 'team', 'growth', 'resil', 'comm'],
+    clinical: ['patient', 'advoc', 'mistake'],
+    cv: ['identity', 'leader', 'team'],
+    redflag: ['resil', 'growth', 'mistake'],
+    personal: ['identity', 'resil'],
+    custom: [],
+  })[family] || [];
+}
+
+function workshopSuggestedStories(workshop) {
+  const pairedIds = new Set(workshop.pairs.map((pair) => pair.story.id));
+  const familyThemes = workshopThemeIds(workshop.question.family);
+  return [...new Map(workshop.suggestedStories.map((story) => [story.id, story])).values()]
+    .filter((story) => !pairedIds.has(story.id))
+    .filter((story) => !familyThemes.length || story.themes.some((theme) => familyThemes.includes(theme)))
+    .sort((a, b) => (b.mentorScore || b.studentScore) - (a.mentorScore || a.studentScore))
+    .slice(0, 3);
+}
+
+function renderQuestionWorkshop() {
+  const workshop = state.workshop;
+  if (!workshop) return;
+  const question = workshop.question;
+  const family = familyMeta(question.family);
+  const studentName = state.selectedStudent?.first || 'the student';
+  const focusPair = workshop.pairs.find((pair) => pair.id === state.workshopFocusPairId)
+    || workshop.pairs.find((pair) => pair.story.id === workshop.preferredStoryId)
+    || workshop.pairs[0]
+    || null;
+  if (focusPair) state.workshopFocusPairId = focusPair.id;
+  const suggested = workshopSuggestedStories(workshop);
+  const clinicalMode = Boolean(
+    focusPair
+    && (
+      focusPair.clinical
+      || question.family === 'clinical'
+      || focusPair.story.themes.includes('patient')
+      || focusPair.followups.some((followup) => followup.clinical)
+    )
+  );
+  const gaps = [
+    { ok: workshop.pairs.length > 0, text: workshop.pairs.length ? 'At least one story assigned' : 'Assign a story that can answer this' },
+    { ok: Boolean(workshop.preferredStoryId), text: workshop.preferredStoryId ? 'Preferred answer chosen' : 'Choose the preferred story for this question' },
+    { ok: workshop.pairs.some((pair) => pair.confirmed), text: workshop.pairs.some((pair) => pair.confirmed) ? 'Mentor confirmed a pairing' : 'Awaiting mentor confirmation' },
+    { ok: Boolean(focusPair?.followups.length), text: focusPair?.followups.length ? 'Follow-up questions mapped' : 'Map the follow-up questions this answer invites' },
+    { ok: Boolean(focusPair?.followups.length && focusPair.followups.every((followup) => followup.prepared)), text: 'Every follow-up marked prepared' },
+  ];
+
+  main.innerHTML = `<section data-view="qshop" class="live">
+    <button class="backBtn" type="button" data-nav="prep">‹ Interview Prep</button>
+    <div class="qshopMeta"><span class="qFam family-${family.id}">${family.ico} ${esc(family.label)}</span><span class="qiSt ${workshop.state}">${esc(questionStateLabel(workshop.state))}</span>
+      ${isMentor() ? '' : '<span class="stageHint">Your mentor sees this same workshop and can confirm or adjust your judgments.</span>'}</div>
+    <h1 class="h1">“${esc(question.text)}”</h1>
+
+    <div class="wsGrid">
+      <div>
+        <div class="panel workshopStories"><div class="pHead"><div class="h2">Stories that <em>answer this</em></div><button class="pMore" type="button" data-nav="library">+ Assign a story ▸</button></div>
+          <div class="pBody">
+            ${isStudent() ? `<button class="rowBtn pri workshopCapture" type="button" data-open-capture
+              data-pair-question-id="${attr(question.id)}" data-capture-prompt="${attr(question.text)}">＋ Capture a new story for this question</button>` : ''}
+            ${workshop.pairs.length ? workshop.pairs.map((pair) => {
+              const preferred = workshop.preferredStoryId === pair.story.id;
+              return `<article class="pairCard ${preferred ? 'pref' : ''}">
+                <div class="pTop"><button class="pTtl" type="button" data-open-story="${attr(pair.story.id)}">${esc(storyTitle(pair.story))}</button>
+                  ${preferred ? '<span class="prefTag">★ Preferred answer</span>' : `<button class="prefBtn" type="button" data-prefer-story="${attr(pair.story.id)}">Make preferred</button>`}
+                  ${pair.story.audioAssetId || pair.story.captureType === 'audio' ? '<span class="audChip" title="Original audio preserved">🎙</span>' : ''}
+                </div>
+                <div class="pairCtl"><span class="fLbl">Strength for this question</span>${scoreDots(pair.studentStrength, 'student', 'Student strength')}${scoreDots(pair.mentorStrength, 'mentor', 'Mentor strength')}
+                  ${scorePicker(`workshop-${attr(pair.id)}-${isMentor() ? 'mentor' : 'student'}`, isMentor() ? pair.mentorStrength : pair.studentStrength, isMentor())}
+                  <span class="confTag ${pair.confirmed ? 'confirmed' : 'suggested'}">${pair.confirmed ? '✓ Confirmed by mentor' : '◌ Suggested — awaiting confirmation'}</span>
+                  ${isMentor() && !pair.confirmed ? `<button class="rowBtn pri" type="button" data-confirm-pair="${attr(pair.id)}">Confirm</button><button class="rowBtn" type="button" data-reject-pair="${attr(pair.id)}">Reject</button>` : ''}
+                </div>
+                <label class="srOnly" for="pairWhy-${attr(pair.id)}">Why this story works for this question</label>
+                <textarea class="pairWhy" id="pairWhy-${attr(pair.id)}" data-pair-why="${attr(pair.id)}" placeholder="Why this story works for this question — one or two sentences…">${esc(pair.why)}</textarea>
+                <button class="rowBtn savePairWhy" type="button" data-save-pair-why="${attr(pair.id)}">Save why</button>
+              </article>`;
+            }).join('') : `<div class="storyEmpty"><b>No story is assigned yet.</b>${isMentor() ? `Open a submitted story from ${esc(studentName)} and assign this question.` : 'Open one of your stories and assign this question.'}<br><button class="rowBtn pri" type="button" data-nav="library">Open Story Library</button></div>`}
+            ${suggested.length ? `<div class="dsLbl couldAlso">Could also answer this</div>${suggested.map((story) => `<div class="shortItem"><span class="si">${esc(storyTitle(story))}</span>${scoreDots(story.mentorScore, 'mentor', 'Overall mentor score')}<button class="rowBtn push-right" type="button" data-add-suggested-story="${attr(story.id)}">+ Assign</button></div>`).join('')}` : ''}
+          </div>
+        </div>
+        <div class="panel coachingPanel"><div class="pHead"><div class="h2">Coaching <em>notes</em></div></div><div class="pBody">
+          ${workshop.coachingNotes.length ? workshop.coachingNotes.map((note) => `<div class="noteItem"><div class="nt">“${esc(coachingNoteText(note))}”</div><div class="nd">${esc(firstDefined(note.mentor_name, note.mentorName, 'Mentor'))} · ${esc(formatDateTime(firstDefined(note.created_at, note.createdAt)))}</div></div>`).join('') : '<div class="stageHint">No coaching notes on this question yet.</div>'}
+          ${isMentor() ? `<div class="askRow"><input id="coachingNote" placeholder="Coach ${esc(studentName)} on this question…"><button class="noteSend" type="button" data-send-coaching>Add</button></div>` : ''}
+        </div></div>
+        <div class="panel gapsPanel"><div class="pHead"><div class="h2">Gaps to <em>close</em></div></div><div class="pBody"><div class="gapChecklist">
+          ${gaps.map((gap) => `<div class="gc ${gap.ok ? 'done' : ''}"><i>${gap.ok ? '✓' : '○'}</i>${esc(gap.text)}</div>`).join('')}
+        </div></div></div>
+      </div>
+
+      <aside class="nnqPanel ${clinicalMode ? 'clinical' : ''}">
+        <div class="nnqHead"><h2 class="h2">Next natural <em>questions</em></h2>${clinicalMode ? '<span class="srcB clin">✚ Clinical mode</span>' : ''}</div>
+        <p class="stageHint">Your answer creates the interviewer’s next question. Map them here, prepare each one, and you become difficult to surprise.</p>
+        ${focusPair ? `${workshop.pairs.length > 1 ? `<label class="fLbl" for="workshopFocusPair">Follow-ups for</label>
+            <select class="tSel workshopPairSelect" id="workshopFocusPair">${workshop.pairs.map((pair) => `<option value="${attr(pair.id)}" ${pair.id === focusPair.id ? 'selected' : ''}>${esc(storyTitle(pair.story).slice(0, 52))}</option>`).join('')}</select>`
+          : `<div class="fLbl">For: ${esc(storyTitle(focusPair.story))}</div>`}
+          ${focusPair.followups.length ? focusPair.followups.map((followup, index) => {
+            const source = followupSourceMeta(followup);
+            return `<div class="fupRow ${followup.prepared ? 'prep' : ''}">
+              <div class="fTop"><label class="fupCk"><input class="srOnly" type="checkbox" data-followup-prepared="${attr(followup.id)}" ${followup.prepared ? 'checked' : ''}><span>✓</span></label>
+                <input class="fupQ" data-followup-text="${attr(followup.id)}" value="${attr(followup.text)}" aria-label="Follow-up question">
+                <span class="srcB ${source.className}" title="${attr(source.title)}">${source.label}</span>
+                <label class="clinicalToggle" title="Mark as a clinical follow-up"><input type="checkbox" data-followup-clinical="${attr(followup.id)}" ${followup.clinical ? 'checked' : ''}><span class="srcB clin">✚ Clinical</span></label>
+              </div>
+              <textarea class="fupNote" data-followup-note="${attr(followup.id)}" placeholder="Answer notes — what you’ll actually say…">${esc(followup.note)}</textarea>
+              <div class="fupTools">
+                <button type="button" data-move-followup="${attr(followup.id)}" data-move-delta="-1" ${index === 0 ? 'disabled' : ''} title="Move up">↑ Up</button>
+                <button type="button" data-move-followup="${attr(followup.id)}" data-move-delta="1" ${index === focusPair.followups.length - 1 ? 'disabled' : ''} title="Move down">↓ Down</button>
+                <button type="button" data-save-followup="${attr(followup.id)}">Save edits</button>
+                <button type="button" data-remove-followup="${attr(followup.id)}" class="dangerText">Remove</button>
+              </div>
+            </div>`;
+          }).join('') : '<div class="stageHint">None mapped yet — add the questions your answer will invite.</div>'}
+          <div class="askRow followupAdd"><input data-new-followup="${attr(focusPair.id)}" placeholder="Add a follow-up question the interviewer might ask…">
+            <label class="clinicalToggle"><input type="checkbox" data-new-followup-clinical="${attr(focusPair.id)}" ${clinicalMode ? 'checked' : ''}><span class="srcB clin">✚ Clinical</span></label>
+            <button class="noteSend" type="button" data-add-followup="${attr(focusPair.id)}">Add</button></div>`
+          : '<div class="truthState">Assign a story first. Strength for this question, Make preferred, Confirmed by mentor, and Next natural questions all belong to a real story–question pairing.</div>'}
+        <div class="aiBoundary"><p>StoryForge never invents a student story or clinical fact.</p>
+          ${state.config?.ai?.[isMentor() ? 'aiClinicalMentor' : 'aiClinicalStudent']
+            ? '<button class="rowBtn" type="button" data-request-ai>✦ Suggest follow-ups (AI)</button><div id="aiResult" class="aiSug" hidden></div>'
+            : '<span class="apiHint">AI suggestions are not enabled for this signed role.</span>'}
+        </div>
+      </aside>
+    </div>
+  </section>`;
+}
+
+async function reloadWorkshop() {
+  if (!state.workshop?.question.id) return;
+  const studentId = isMentor() ? state.selectedStudent?.id || '' : '';
+  state.workshop = normalizeWorkshop(await api.workshop(state.workshop.question.id, studentId));
+  renderQuestionWorkshop();
+}
+
+async function workshopScore(scope, score) {
+  const match = scope.match(/^workshop-(.+)-(student|mentor)$/);
+  if (!match) return;
+  const [, pairId, owner] = match;
+  if (owner === 'mentor' && !isMentor()) return;
+  await withBusy(() => api.updatePair(pairId, {
+    [owner === 'mentor' ? 'mentorStrength' : 'studentStrength']: Number(score),
+    surface: 'workshop',
+  }));
+  await reloadWorkshop();
+  notify('Question strength saved.');
+}
+
+async function preferStory(storyId) {
+  if (!state.workshop) return;
+  await withBusy(() => api.preferenceForQuestion(state.workshop.question.id, {
+    ...(isMentor() && state.selectedStudent ? { studentId: state.selectedStudent.id } : {}),
+    storyId,
+    surface: 'workshop',
+  }));
+  await reloadWorkshop();
+  notify('Preferred story saved for this question.');
+}
+
+async function addSuggestedStory(storyId) {
+  if (!state.workshop) return;
+  await withBusy(() => api.createPair({
+    storyId,
+    questionId: state.workshop.question.id,
+    studentStrength: isMentor() ? undefined : 3,
+    surface: 'workshop',
+  }));
+  await reloadWorkshop();
+  notify(isMentor() ? 'Story assigned to this question.' : 'Story suggested for mentor confirmation.');
+}
+
+async function savePairWhy(pairId) {
+  const value = $(`[data-pair-why="${CSS.escape(pairId)}"]`)?.value.trim() || '';
+  await withBusy(() => api.updatePair(pairId, { why: value, surface: 'workshop' }));
+  await reloadWorkshop();
+  notify('Why this story works saved.');
+}
+
+async function addFollowup(pairId) {
+  const field = $(`[data-new-followup="${CSS.escape(pairId)}"]`);
+  const text = field?.value.trim();
+  if (!text) return;
+  const clinical = Boolean($(`[data-new-followup-clinical="${CSS.escape(pairId)}"]`)?.checked);
+  await withBusy(() => api.addFollowup(pairId, { text, clinical, surface: 'workshop' }));
+  await reloadWorkshop();
+  notify('Next natural question added.');
+}
+
+function workshopFollowup(id) {
+  for (const pair of state.workshop?.pairs || []) {
+    const followup = pair.followups.find((item) => item.id === id);
+    if (followup) return { pair, followup };
+  }
+  return null;
+}
+
+async function saveFollowup(id) {
+  const context = workshopFollowup(id);
+  if (!context) return;
+  const text = $(`[data-followup-text="${CSS.escape(id)}"]`)?.value.trim() || '';
+  const note = $(`[data-followup-note="${CSS.escape(id)}"]`)?.value.trim() || '';
+  const clinical = Boolean($(`[data-followup-clinical="${CSS.escape(id)}"]`)?.checked);
+  if (!text) {
+    notify('A follow-up question cannot be empty.');
+    return;
+  }
+  await withBusy(() => api.updateFollowup(id, {
+    text,
+    note,
+    clinical,
+    expectedVersion: context.followup.rowVersion ?? 0,
+    surface: 'workshop',
+  }));
+  await reloadWorkshop();
+  notify('Follow-up question and answer notes saved.');
+}
+
+async function moveFollowup(id, delta) {
+  const context = workshopFollowup(id);
+  if (!context) return;
+  const list = context.pair.followups;
+  const index = list.findIndex((item) => item.id === id);
+  const nextIndex = index + Number(delta);
+  if (index < 0 || nextIndex < 0 || nextIndex >= list.length) return;
+  const neighbor = list[nextIndex];
+  const currentOrder = context.followup.sortOrder;
+  const neighborOrder = neighbor.sortOrder;
+  await withBusy(async () => {
+    await api.updateFollowup(context.followup.id, {
+      sortOrder: neighborOrder,
+      expectedVersion: context.followup.rowVersion ?? 0,
+      surface: 'workshop',
+    });
+    await api.updateFollowup(neighbor.id, {
+      sortOrder: currentOrder,
+      expectedVersion: neighbor.rowVersion ?? 0,
+      surface: 'workshop',
+    });
+  });
+  await reloadWorkshop();
+  notify('Follow-up order saved.');
+}
+
+async function sendCoaching() {
+  const body = $('#coachingNote')?.value.trim();
+  if (!body || !state.workshop || !state.selectedStudent) return;
+  await withBusy(() => api.coaching({
+    studentId: state.selectedStudent.id,
+    questionId: state.workshop.question.id,
+    body,
+    surface: 'workshop',
+  }));
+  await reloadWorkshop();
+  notify('Coaching note sent.');
+}
+
+async function requestAiSuggestion() {
+  if (!state.workshop) return;
+  const target = $('#aiResult');
+  try {
+    const result = await withBusy(() => api.aiSuggest({
+      mode: 'clinical',
+      questionId: state.workshop.question.id,
+      studentId: state.selectedStudent?.id,
+    }));
+    const suggestion = firstDefined(result?.suggestion, result?.text, '');
+    if (!suggestion) throw new Error('The configured provider returned no grounded suggestion.');
+    target.hidden = false;
+    target.textContent = suggestion;
+  } catch (error) {
+    notify(error.message);
+  }
+}
+
+function questionLibraryRows() {
+  const query = state.questionQuery.trim().toLowerCase();
+  return state.questions.filter((question) => {
+    if (state.questionFamily !== 'all' && question.family !== state.questionFamily) return false;
+    if (state.questionSource && questionSourceKey(question) !== state.questionSource) return false;
+    return !query || question.text.toLowerCase().includes(query);
+  });
+}
+
+function questionSourceKey(question) {
+  const source = String(question.source || '').toLowerCase();
+  if (source === 'student' || source === 'custom') return 'custom';
+  if (source === 'mentor') return 'mentor';
+  if (source === 'imported') return 'imported';
+  return 'missionmed';
+}
+
+function questionSourceLabel(question) {
+  return ({ missionmed: 'MissionMed', mentor: 'Mentor', custom: 'Custom', imported: 'Imported' })[questionSourceKey(question)];
+}
+
+function renderQuestionLibrary() {
+  const rows = questionLibraryRows();
+  const groups = FAMILIES.filter((family) => rows.some((question) => question.family === family.id));
+  main.innerHTML = `<section data-view="qlib" class="live">
+    ${isAdmin() ? '' : '<button class="backBtn" type="button" data-nav="prep">‹ Interview Prep</button>'}
+    <div class="eyebrow">MissionMed Question Library</div>
+    <h1 class="h1">${state.questions.length} questions, <em>one shared library</em>.</h1>
+    <p class="questionLibraryIntro">Institutional MissionMed questions, mentor-written questions, and student-specific customs live side by side, always labeled by source. Assign from any story or workshop; manage and import here.</p>
+    <div class="listBar">
+      <input id="questionSearch" type="search" placeholder="Search the library…" value="${attr(state.questionQuery)}">
+      <select id="questionFamily">
+        <option value="all">Family: all</option>
+        ${FAMILIES.map((family) => `<option value="${family.id}" ${state.questionFamily === family.id ? 'selected' : ''}>${esc(family.label)}</option>`).join('')}
+      </select>
+      <select id="questionSource">
+        <option value="">Source: all</option>
+        <option value="missionmed" ${state.questionSource === 'missionmed' ? 'selected' : ''}>MissionMed</option>
+        <option value="mentor" ${state.questionSource === 'mentor' ? 'selected' : ''}>Mentor</option>
+        <option value="imported" ${state.questionSource === 'imported' ? 'selected' : ''}>Imported</option>
+        <option value="custom" ${state.questionSource === 'custom' ? 'selected' : ''}>Custom</option>
+      </select>
+      <span class="countNote">${rows.length} of ${state.questions.length}</span>
+    </div>
+    ${canGovernQuestions() ? `<div class="impBox">
+      <div class="h2">Import <em>question candidates</em></div>
+      <p class="stageHint">Paste one question per line, optionally “question | family,” or choose a real CSV/XLSX file. Review every family and duplicate flag before any selected draft is committed.</p>
+      <textarea id="importText" placeholder="Tell me about a time… | Behavioral"></textarea>
+      <div class="inlineActions"><label class="rowBtn" for="importFile">Choose CSV/XLSX</label><input id="importFile" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"><span class="stageHint" id="importSourceName">${esc(state.importSource.name === 'pasted-questions' ? 'No file selected — paste mode' : state.importSource.name)}</span></div>
+      <div class="inlineActions"><button class="rowBtn" type="button" data-preview-import>Preview</button><button class="rowBtn pri" type="button" data-commit-import ${state.importPreview.some((row) => row.selected) ? '' : 'disabled'}>Commit selected drafts</button></div>
+      <div id="importPreview">${renderImportPreview()}</div>
+      ${renderImportHistory()}
+    </div>` : ''}
+    ${state.user.role === 'admin' ? '' : `<form id="questionAddForm" class="listBar questionAdd">
+      <input type="text" name="text" placeholder="${isMentor() ? 'Add a question draft for review…' : 'Add a private custom question for your own prep…'}" required>
+      <select name="family" aria-label="New question family">${FAMILIES.map((family) => `<option value="${family.id}">${esc(family.label)}</option>`).join('')}</select>
+      <button class="noteSend" type="submit">Add</button>
+      <span class="apiHint">${isMentor() ? 'Mentor questions remain governed drafts until approved.' : 'Student customs remain private to their owner.'}</span>
+    </form>`}
+    ${groups.length ? groups.map((family) => {
+      const familyRows = rows.filter((question) => question.family === family.id);
+      return `<div class="libGroup"><div class="gTitle"><div class="h2 familyHeading family-${family.id}">${family.ico} ${esc(family.label)}</div><span class="cnt">${familyRows.length}</span></div>
+        ${familyRows.map((question) => `<div class="qlibRow">
+          <span class="qt">“${esc(question.text)}”</span>
+          <span class="srcB ${questionSourceKey(question) === 'custom' ? 'student' : questionSourceKey(question)}" title="Source">${esc(questionSourceLabel(question))}</span>
+          <span class="scoreTag">${esc(question.governanceState)}</span>
+          <span class="scoreTag">${question.storyCount || 0} assigned</span>
+          ${canGovernQuestions() && ['draft', 'review'].includes(question.governanceState) && !firstDefined(question.owner_student_id, question.ownerStudentId)
+            ? `<button class="rowBtn" type="button" data-approve-question="${attr(question.id)}">Approve for shared library</button>`
+            : ''}
+          ${isAdmin() ? '' : `<button class="rowBtn pri" type="button" data-open-workshop="${attr(question.id)}">Open workshop</button>`}
+        </div>`).join('')}</div>`;
+    }).join('') : emptyState('No questions match.', 'Clear the search or choose another family.')}
+  </section>`;
+}
+
+async function createCustomQuestion(form) {
+  const values = new FormData(form);
+  const text = String(values.get('text') || '').trim();
+  const family = String(values.get('family') || 'custom');
+  if (!text) return;
+  await withBusy(() => api.createQuestion({ text, family, surface: 'library' }));
+  await loadQuestions();
+  renderQuestionLibrary();
+  notify(isMentor() ? 'Question saved as a governed draft.' : 'Private custom question added.');
+}
+
+async function approveQuestion(id) {
+  await withBusy(() => api.approveQuestion(id, 'library'));
+  await loadQuestions();
+  renderQuestionLibrary();
+  notify('Question explicitly approved for the shared library.');
+}
+
+function renderImportPreview() {
+  return state.importPreview.map((row, index) => `<label class="impRow ${row.exactDuplicateId || row.nearDuplicateId ? 'dup' : ''}">
+    <input type="checkbox" data-import-row="${index}" ${row.selected ? 'checked' : ''} ${row.error || row.exactDuplicateId ? 'disabled' : ''}>
+    <span>${esc(row.rowNumber)}</span><span class="it">${esc(row.text || 'Empty row')}<small>${esc(row.error || (row.exactDuplicateId ? 'Exact duplicate — cannot be added twice' : row.nearDuplicateId ? `Possible duplicate · ${row.similarity} — unchecked by default` : 'Ready for draft review'))}</small></span>
+    <select data-import-family="${index}" aria-label="Family for import row ${index + 1}">
+      ${FAMILIES.map((family) => `<option value="${family.id}" ${row.family === family.id ? 'selected' : ''}>${esc(family.label)}</option>`).join('')}
+    </select>
+  </label>`).join('');
+}
+
+function renderImportHistory() {
+  if (!state.importBatches.length) {
+    return '<div class="impHistory"><div class="fLbl">Recent import batches</div><p class="stageHint">No import batch has been committed by this account.</p></div>';
+  }
+  return `<div class="impHistory"><div class="fLbl">Recent import batches</div>
+    ${state.importBatches.map((batch) => {
+      const id = String(batch.id || '');
+      const status = String(batch.state || 'committed');
+      const count = Number(firstDefined(batch.created_question_count, batch.createdQuestionCount, 0)) || 0;
+      return `<div class="impBatch">
+        <span><b>${esc(firstDefined(batch.source_name, batch.sourceName, 'Untitled import'))}</b>
+          <small>${count} draft${count === 1 ? '' : 's'} · ${esc(status.replaceAll('_', ' '))} · ${esc(formatDateTime(firstDefined(batch.committed_at, batch.created_at)))}</small></span>
+        ${status === 'committed'
+          ? `<button class="rowBtn" type="button" data-rollback-import="${attr(id)}">Roll back this import batch</button>`
+          : '<span class="scoreTag">Rolled back</span>'}
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  }
+  return btoa(binary);
+}
+
+async function previewImport() {
+  const file = $('#importFile')?.files?.[0] || null;
+  let body;
+  if (file) {
+    const format = file.name.toLowerCase().endsWith('.csv')
+      ? 'csv'
+      : file.name.toLowerCase().endsWith('.xlsx')
+        ? 'xlsx'
+        : '';
+    if (!format) throw new Error('Choose a CSV or XLSX file.');
+    if (!file.size || file.size > 5 * 1024 * 1024) {
+      throw new Error('Import files must be non-empty and no larger than 5 MB.');
+    }
+    body = { format, dataBase64: arrayBufferToBase64(await file.arrayBuffer()) };
+    state.importSource = { name: file.name, format };
+  } else {
+    body = { format: 'paste', text: $('#importText')?.value || '' };
+    state.importSource = { name: 'pasted-questions', format: 'paste' };
+  }
+  const result = await withBusy(() => api.importPreview(body));
+  state.importPreview = asArray(result?.rows);
+  state.importReviewFingerprint = String(result?.reviewFingerprint || '');
+  renderQuestionLibrary();
+}
+
+async function commitImport() {
+  const result = await withBusy(() => api.importCommit({
+    sourceName: state.importSource.name,
+    format: state.importSource.format,
+    rows: state.importPreview,
+    reviewFingerprint: state.importReviewFingerprint,
+  }));
+  const committed = firstDefined(result?.batch, result);
+  state.importPreview = [];
+  state.importReviewFingerprint = '';
+  state.importSource = { name: 'pasted-questions', format: 'paste' };
+  await Promise.all([loadQuestions(), loadImportBatches()]);
+  renderQuestionLibrary();
+  notify(`Selected questions committed as governed drafts${committed?.id ? ' in a reversible batch' : ''}.`);
+}
+
+async function rollbackImport(batchId) {
+  const batch = state.importBatches.find((item) => String(item.id) === String(batchId));
+  const label = firstDefined(batch?.source_name, batch?.sourceName, 'this import batch');
+  if (!window.confirm(`Roll back “${label}”? Its still-draft imported questions will be retired. This cannot roll back questions already approved or in use.`)) return;
+  await withBusy(() => api.importRollback(batchId));
+  await Promise.all([loadQuestions(), loadImportBatches()]);
+  renderQuestionLibrary();
+  notify('Import batch rolled back. Its unused drafts are retired and the action is audited.');
+}
+
+/* ========================= Mentor workspace ========================= */
+
+const QUEUE_BUCKETS = Object.freeze([
+  ['awaiting', 'Awaiting my review'],
+  ['revised', 'Revised — needs re-review'],
+  ['waiting', 'Waiting on student'],
+  ['reviewed', 'Reviewed'],
+  ['approved', 'Approved'],
+]);
+
+const CRAFT = Object.freeze([
+  { id: 'detail', label: 'Specific detail', hint: 'The tomatillos. The nine names. Details prove it happened.' },
+  { id: 'stakes', label: 'Real stakes', hint: 'Something a reader can feel was at risk.' },
+  { id: 'turn', label: 'The turn', hint: 'A before and an after — the moment something changed.' },
+  { id: 'honest', label: 'Honest reflection', hint: 'The writer admits something true and unflattering.' },
+  { id: 'lesson', label: 'Transferable lesson', hint: 'It predicts the doctor they will be.' },
+]);
+
+function mentorState() {
+  if (!state.mentor) {
+    state.mentor = {
+      home: null,
+      studentQuery: '',
+      studentCohort: '',
+      studentSort: 'attention',
+      storyQuery: '',
+      storyFilter: '',
+      storySort: 'new',
+      queue: [],
+      queueCohort: '',
+      activity: [],
+      activityFilters: { student: '', cohort: '', type: '', period: 'week', from: '', to: '' },
+      teaching: null,
+      session: null,
+    };
+  }
+  return state.mentor;
+}
+
+function queueBucket(story, rawBucket = '') {
+  const value = String(rawBucket || story.bucket || '').toLowerCase();
+  if (['awaiting', 'awaiting_review'].includes(value)) return story.revised ? 'revised' : 'awaiting';
+  if (['revised', 're_review', 'needs_re_review'].includes(value)) return 'revised';
+  if (['waiting', 'waiting_on_student'].includes(value)) return 'waiting';
+  if (['reviewed', 'approved'].includes(value)) return value;
+  if (story.status === 'awaiting') return story.revised ? 'revised' : 'awaiting';
+  if (story.status === 'in_review') return 'awaiting';
+  if (story.status === 'changes') return 'waiting';
+  return story.status;
+}
+
+function activityRecord(raw = {}) {
+  const action = String(firstDefined(raw.action, raw.event_type, raw.type, 'Updated story'));
+  return {
+    ...raw,
+    id: String(firstDefined(raw.id, raw.event_id, '')),
+    storyId: String(firstDefined(raw.storyId, raw.story_id, '')),
+    storyTitle: String(firstDefined(raw.storyTitle, raw.story_title, 'Story')),
+    studentId: String(firstDefined(raw.studentId, raw.student_id, '')),
+    studentName: String(firstDefined(raw.studentName, raw.student_name, 'Student')),
+    mentorName: String(firstDefined(raw.mentorName, raw.mentor_name, raw.actor_name, state.user?.display_name, 'Mentor')),
+    action: humanActivityAction(action),
+    detail: String(firstDefined(raw.detail, raw.description, '')),
+    cohort: String(firstDefined(raw.cohort, '')),
+    createdAt: firstDefined(raw.createdAt, raw.created_at, raw.occurred_at),
+  };
+}
+
+function humanActivityAction(action) {
+  const exact = {
+    'question.assigned': 'Assigned an interview question',
+    'question.confirmed': 'Confirmed an interview-question pairing',
+    'question.rejected': 'Rejected an interview-question pairing',
+    'story.opened': 'Opened a story for review',
+    'story.status_changed': 'Changed the review status',
+    'story.evaluation_updated': 'Updated story scores or classification',
+    'story.feedback_added': 'Left feedback',
+    'story.feedback_opened': 'Feedback was opened',
+    'story.updated': 'Updated the working story',
+    'story.submitted': 'Received a submitted story',
+    'story.star_updated': 'Updated a story star',
+    'pair.preferred': 'Chose the preferred story',
+    'pair.followup_added': 'Added a follow-up question',
+    'pair.followup_updated': 'Updated a follow-up question',
+    'coaching.note_added': 'Added a coaching note',
+  };
+  if (exact[action]) return exact[action];
+  if (!/^[a-z][a-z0-9_.-]*$/.test(action)) return action;
+  const words = action.split(/[._-]+/).filter(Boolean);
+  const phrase = words.join(' ');
+  return phrase ? `${phrase[0].toUpperCase()}${phrase.slice(1)}` : 'Updated story';
+}
+
+async function loadQueue() {
+  const payload = await api.queue();
+  mentorState().queue = asArray(firstDefined(payload?.stories, payload?.queue, payload?.items)).map((raw) => {
+    const story = normalizeStory(raw.story ? { ...raw.story, ...raw } : raw);
+    return { story, bucket: queueBucket(story, raw.bucket) };
+  });
+  return mentorState().queue;
+}
+
+async function loadActivity() {
+  const filters = mentorState().activityFilters;
+  const params = new URLSearchParams();
+  if (filters.student) params.set('studentId', filters.student);
+  if (filters.cohort) params.set('cohort', filters.cohort);
+  if (filters.type) params.set('type', filters.type);
+  params.set('period', ({ today: 'day', week: 'week', month: 'month', all: 'all', custom: 'all' })[filters.period] || 'week');
+  if (filters.period === 'custom') {
+    if (filters.from) params.set('from', filters.from);
+    if (filters.to) params.set('to', filters.to);
+  }
+  const payload = await api.activity(params.toString());
+  mentorState().activity = asArray(firstDefined(payload?.activity, payload?.events, payload?.items)).map(activityRecord);
+  return mentorState().activity;
+}
+
+async function loadMentorHome() {
+  const mentor = mentorState();
+  try {
+    mentor.home = await api.mentorHome();
+  } catch (error) {
+    if (![404, 405, 501].includes(error.status)) throw error;
+    await Promise.all([loadQueue(), loadActivity().catch(() => [])]);
+    mentor.home = null;
+  }
+  return mentor.home;
+}
+
+function mentorHomeMetric(key, fallback = 0) {
+  const home = mentorState().home || {};
+  const metrics = firstDefined(home.metrics, home.stats, home.counts, home);
+  return Number(firstDefined(metrics?.[key], metrics?.[key.replace(/[A-Z]/g, (match) => `_${match.toLowerCase()}`)], fallback)) || 0;
+}
+
+function renderMentorHome() {
+  const mentor = mentorState();
+  const queue = mentor.queue;
+  const awaiting = mentorHomeMetric('awaitingReview', queue.filter((item) => item.bucket === 'awaiting').length);
+  const revised = mentorHomeMetric('revised', queue.filter((item) => item.bucket === 'revised').length);
+  const waiting = mentorHomeMetric('waitingOnStudent', queue.filter((item) => item.bucket === 'waiting').length);
+  const recent = asArray(firstDefined(mentor.home?.recentActivity, mentor.home?.recent_activity, mentor.activity)).map(activityRecord).slice(0, 5);
+  const outstanding = asArray(firstDefined(mentor.home?.awaiting, queue.map((item) => item.story)));
+  const outstandingNames = [...new Set(outstanding
+    .filter((item) => ['awaiting', 'revised', 'awaiting_review'].includes(String(firstDefined(item.bucket, queueBucket(normalizeStory(item))))))
+    .map((item) => String(firstDefined(item.studentName, item.student_name, '')).trim())
+    .filter(Boolean))];
+  const todayKey = new Date().toDateString();
+  const actionsToday = mentor.activity.filter((item) => new Date(item.createdAt).toDateString() === todayKey).length;
+  const actionsThisWeek = mentor.activity.filter((item) => (
+    item.createdAt && Date.now() - new Date(item.createdAt).getTime() < 7 * 86_400_000
+  )).length;
+
+  main.innerHTML = `<section data-view="mhome" class="live">
+    <div class="homeHero">
+      <div class="eyebrow">Mentor View · ${state.students.length} students</div>
+      <h1 class="h1">Welcome, <em>${esc(state.user.display_name)}</em>.</h1>
+      <p class="greetSub">Find a student, work the review queue, or start teaching — everything else lives one click away.</p>
+    </div>
+    <div class="inlineActions mentorActions">
+      <button class="bigAction" type="button" data-nav="students"><span class="ba1">Find a student</span><span class="ba2">All ${state.students.length} students with search, cohort, and activity filters.</span><span class="baGo">Open Students ▸</span></button>
+      <button class="bigAction" type="button" data-nav="queue"><span class="ba1">Review queue</span><span class="ba2"><b>${awaiting + revised} stories</b> are waiting for your review${revised ? ` — ${revised} revised for a second look` : ''}.</span><span class="baGo">Open Review Queue ▸</span></button>
+      <button class="bigAction" type="button" data-open-teaching><span class="ba1">Teaching Mode</span><span class="ba2">Present any submitted story, score its craft live, compare two, and hide names for class.</span><span class="baGo">Start Teaching ▸</span></button>
+    </div>
+    <div class="homeGrid">
+      <div class="panel"><div class="pHead"><div class="h2">Outstanding <em>work</em></div><button class="pMore" type="button" data-nav="queue">Review Queue ▸</button></div>
+        <div class="pBody"><div class="forgeStats">
+          <div class="fstat"><div class="n"><em>${awaiting}</em></div><div class="l">Awaiting review</div></div>
+          <div class="fstat"><div class="n metric-green">${revised}</div><div class="l">Revised · re-review</div></div>
+          <div class="fstat"><div class="n metric-ember">${waiting}</div><div class="l">Waiting on students</div></div>
+        </div>
+          <p class="outstandingNames">Students with outstanding review work:
+            <b>${esc(outstandingNames.slice(0, 6).join(', ') || 'none')}</b>${outstandingNames.length > 6 ? ` <button class="pMore inlineMore" type="button" data-nav="students">+${outstandingNames.length - 6} more ▸</button>` : ''}
+          </p>
+        </div>
+      </div>
+      <div class="panel"><div class="pHead"><div class="h2">Your recent <em>activity</em></div><button class="pMore" type="button" data-nav="activity">My Activity ▸</button></div>
+        <div class="pBody"><div class="forgeStats activitySummary">
+          <div class="fstat"><div class="n">${actionsToday}</div><div class="l">Actions today</div></div>
+          <div class="fstat"><div class="n">${actionsThisWeek}</div><div class="l">This week</div></div>
+        </div>${recent.length ? recent.map((item) => `<button class="actRow" type="button" data-open-story="${attr(item.storyId)}">
+          <span class="aw">${esc(formatDate(item.createdAt))}</span><span>${esc(item.action)}${item.detail ? ` · ${esc(item.detail)}` : ''} — <b>“${esc(item.storyTitle)}”</b> (${esc(item.studentName)})</span>
+        </button>`).join('') : '<div class="stageHint">No recent mentor activity.</div>'}</div>
+      </div>
+    </div>
+  </section>`;
+}
+
+function filteredStudents() {
+  const mentor = mentorState();
+  const query = mentor.studentQuery.trim().toLowerCase();
+  const result = state.students.filter((student) => {
+    if (mentor.studentCohort && student.cohort !== mentor.studentCohort) return false;
+    return !query || `${student.name} ${student.specialty} ${student.year} ${student.cohort}`.toLowerCase().includes(query);
+  });
+  const sorters = {
+    attention: (a, b) => (b.awaitingReview + b.revised) - (a.awaitingReview + a.revised),
+    active: (a, b) => String(b.lastCaptureAt).localeCompare(String(a.lastCaptureAt)),
+    submitted: (a, b) => String(b.lastSubmittedAt || b.lastCaptureAt).localeCompare(String(a.lastSubmittedAt || a.lastCaptureAt)),
+    unscored: (a, b) => b.unscored - a.unscored,
+    name: (a, b) => a.name.localeCompare(b.name),
+  };
+  return [...result].sort(sorters[mentor.studentSort] || sorters.attention);
+}
+
+function renderStudents() {
+  const mentor = mentorState();
+  const students = filteredStudents();
+  const cohorts = [...new Set(state.students.map((student) => student.cohort).filter(Boolean))].sort();
+  main.innerHTML = `<section data-view="mstudents" class="live">
+    <div class="eyebrow">Students</div>
+    <h1 class="h1">${state.students.length} students, <em>each mid-story</em>.</h1>
+    <div class="listBar">
+      <input id="studentSearch" type="search" placeholder="Search by name, specialty, cohort…" value="${attr(mentor.studentQuery)}">
+      <select id="studentCohort"><option value="">Cohort: all</option>${cohorts.map((cohort) => `<option ${mentor.studentCohort === cohort ? 'selected' : ''}>${esc(cohort)}</option>`).join('')}</select>
+      <select id="studentSort">
+        <option value="attention" ${mentor.studentSort === 'attention' ? 'selected' : ''}>Sort: most needing review</option>
+        <option value="active" ${mentor.studentSort === 'active' ? 'selected' : ''}>Recently active</option>
+        <option value="submitted" ${mentor.studentSort === 'submitted' ? 'selected' : ''}>Recently submitted</option>
+        <option value="unscored" ${mentor.studentSort === 'unscored' ? 'selected' : ''}>Most unscored</option>
+        <option value="name" ${mentor.studentSort === 'name' ? 'selected' : ''}>Name A–Z</option>
+      </select>
+      <span class="countNote">${students.length} of ${state.students.length} · press K to jump</span>
+    </div>
+    ${students.length ? students.map((student) => `<button class="mStuRow" type="button" data-open-student="${attr(student.id)}">
+      <span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+      <span class="rMain"><span class="rTitle">${esc(student.name)}</span><span class="rSub">${esc([student.year, student.specialty].filter(Boolean).join(' · '))} · last active ${esc(ago(student.lastCaptureAt))}</span></span>
+      ${student.cohort ? `<span class="cohortChip">${esc(student.cohort)}</span>` : ''}
+      <span class="numPair"><span class="n">${student.storyCount}</span><span class="l">Submitted</span></span>
+      <span class="numPair"><span class="n">${student.awaitingReview + student.revised}</span><span class="l">To review</span></span>
+      <span class="numPair"><span class="n metric-violet">${student.unscored}</span><span class="l">Unscored</span></span>
+      <span class="rowBtn pri">Open</span>
+    </button>`).join('') : emptyState('No student matches.', 'Clear a filter or search another name.')}
+  </section>`;
+}
+
+async function openStudentWorkspace(id) {
+  state.route = 'student';
+  state.routeId = id;
+  pushPath('student', id);
+  main.innerHTML = loadingView('Opening the student workspace…');
+  try {
+    const payload = await api.mentorStudent(id);
+    const student = normalizeStudent(firstDefined(payload?.student, state.students.find((item) => item.id === id), { id }));
+    student.stories = asArray(firstDefined(payload?.stories, payload?.student?.stories)).map(normalizeStory);
+    student.history = asArray(firstDefined(payload?.history, payload?.activity, payload?.student?.history)).map(activityRecord);
+    student.mappingsLoaded = false;
+    state.selectedStudent = student;
+    state.stories = student.stories;
+    if (!state.questions.length) await loadQuestions();
+    renderShell();
+    renderStudentWorkspace();
+  } catch (error) {
+    notify(error.message);
+    await navigate('students', null, { replace: true });
+  }
+}
+
+function filteredStudentStories() {
+  const mentor = mentorState();
+  const student = state.selectedStudent;
+  if (!student) return [];
+  const query = mentor.storyQuery.trim().toLowerCase();
+  const stories = student.stories.filter((story) => {
+    if (mentor.storyFilter === 'unreviewed' && !['awaiting', 'in_review'].includes(story.status)) return false;
+    if (mentor.storyFilter === 'unscored' && story.mentorScore) return false;
+    if (mentor.storyFilter === 'changes' && story.status !== 'changes') return false;
+    if (mentor.storyFilter === 'approved' && story.status !== 'approved') return false;
+    if (mentor.storyFilter === 'starStudent' && !story.studentStar) return false;
+    if (mentor.storyFilter === 'starMentor' && !story.mentorStar) return false;
+    if (mentor.storyFilter.startsWith('bird:') && !story.birds.includes(mentor.storyFilter.slice(5))) return false;
+    if (mentor.storyFilter.startsWith('position:') && !story.positions.includes(mentor.storyFilter.slice(9))) return false;
+    if (mentor.storyFilter.startsWith('question:') && !story.mappings.some((pair) => (
+      normalizePair(pair).questionId === mentor.storyFilter.slice(9)
+    ))) return false;
+    if (query && !`${storyTitle(story)} ${story.text}`.toLowerCase().includes(query)) return false;
+    return true;
+  });
+  const sorters = {
+    new: (a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)),
+    old: (a, b) => String(a.updatedAt).localeCompare(String(b.updatedAt)),
+    high: (a, b) => b.mentorScore - a.mentorScore,
+    low: (a, b) => (a.mentorScore || 9) - (b.mentorScore || 9),
+  };
+  return [...stories].sort(sorters[mentor.storySort] || sorters.new);
+}
+
+async function ensureStudentStoryMappings() {
+  const student = state.selectedStudent;
+  if (!student || student.mappingsLoaded) return;
+  const stories = await Promise.all(student.stories.map(async (story) => {
+    try {
+      const detail = unwrapStory(await api.story(story.id));
+      return normalizeStory({ ...story, ...detail });
+    } catch {
+      return story;
+    }
+  }));
+  student.stories = stories;
+  student.mappingsLoaded = true;
+  state.stories = stories;
+}
+
+function renderStudentWorkspace() {
+  const student = state.selectedStudent;
+  if (!student) return;
+  const mentor = mentorState();
+  const stories = filteredStudentStories();
+  main.innerHTML = `<section data-view="mstudent" class="live">
+    <button class="backBtn" type="button" data-nav="students">‹ All students</button>
+    <div class="profHead">
+      <span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+      <div><h1 class="h1">${esc(student.first)} <em>${esc(student.name.split(/\s+/).slice(1).join(' '))}</em></h1>
+        <div class="eyebrow">${esc([student.year, student.specialty, student.cohort, student.cycle].filter(Boolean).join(' · '))}</div></div>
+      <div class="profActions">
+        <button class="btnGhost" type="button" data-student-prep>Interview Prep</button>
+        <button class="btnGhost" type="button" data-toggle-history>Coaching history</button>
+        <button class="btnGhost" type="button" data-open-teaching data-student-id="${attr(student.id)}">Teach from this library</button>
+        <button class="btnSesh" type="button" data-start-session="${attr(student.id)}">Start 1:1 session</button>
+      </div>
+    </div>
+    <div class="listBar">
+      <input id="studentStorySearch" type="search" placeholder="Search ${attr(student.first)}’s stories…" value="${attr(mentor.storyQuery)}">
+      <select id="studentStoryFilter">
+        <option value="">Show: all submitted</option>
+        <option value="unreviewed" ${mentor.storyFilter === 'unreviewed' ? 'selected' : ''}>Not yet reviewed</option>
+        <option value="unscored" ${mentor.storyFilter === 'unscored' ? 'selected' : ''}>Not yet scored</option>
+        <option value="changes" ${mentor.storyFilter === 'changes' ? 'selected' : ''}>Changes requested</option>
+        <option value="approved" ${mentor.storyFilter === 'approved' ? 'selected' : ''}>Approved</option>
+        <option value="starStudent" ${mentor.storyFilter === 'starStudent' ? 'selected' : ''}>Starred by student</option>
+        <option value="starMentor" ${mentor.storyFilter === 'starMentor' ? 'selected' : ''}>Starred by me</option>
+        <optgroup label="Bird type">${BIRDS.map((bird) => `<option value="bird:${bird.id}" ${mentor.storyFilter === `bird:${bird.id}` ? 'selected' : ''}>${bird.emo} ${esc(bird.label)}</option>`).join('')}</optgroup>
+        <optgroup label="Ideal for">${POSITIONS.map((position) => `<option value="position:${position.id}" ${mentor.storyFilter === `position:${position.id}` ? 'selected' : ''}>${esc(position.label)}</option>`).join('')}</optgroup>
+        <optgroup label="Interview question">${state.questions.map((question) => `<option value="question:${attr(question.id)}" ${mentor.storyFilter === `question:${question.id}` ? 'selected' : ''}>${esc(question.text.slice(0, 52))}${question.text.length > 52 ? '…' : ''}</option>`).join('')}</optgroup>
+      </select>
+      <select id="studentStorySort">
+        <option value="new" ${mentor.storySort === 'new' ? 'selected' : ''}>Sort: newest</option>
+        <option value="old" ${mentor.storySort === 'old' ? 'selected' : ''}>Oldest</option>
+        <option value="high" ${mentor.storySort === 'high' ? 'selected' : ''}>My score (high→low)</option>
+        <option value="low" ${mentor.storySort === 'low' ? 'selected' : ''}>My score (low→high)</option>
+      </select>
+      <span class="countNote">${stories.length} of ${student.stories.length} submitted</span>
+    </div>
+    <div id="studentHistory" class="panel" hidden><div class="pHead"><div class="h2">Coaching <em>history</em></div></div>
+      <div class="pBody">${student.history.length ? student.history.map((item) => `<div class="histRow"><span class="hd">${esc(formatDate(item.createdAt))}</span><span>${esc(item.action)}${item.detail ? ` · ${esc(item.detail)}` : ''}</span></div>`).join('') : '<div class="stageHint">No coaching history yet.</div>'}</div>
+    </div>
+    ${stories.length ? stories.map((story) => storyRow(story)).join('') : emptyState('No stories match this filter.', 'Choose another filter.')}
+  </section>`;
+}
+
+function renderQueue() {
+  const mentor = mentorState();
+  const cohorts = [...new Set(mentor.queue.map((item) => item.story.cohort || item.story.student_cohort).filter(Boolean))].sort();
+  const filtered = mentor.queue.filter((item) => !mentor.queueCohort || firstDefined(item.story.cohort, item.story.student_cohort) === mentor.queueCohort);
+  const counts = Object.fromEntries(QUEUE_BUCKETS.map(([key]) => [key, filtered.filter((item) => item.bucket === key).length]));
+  const activeBucket = mentor.queueBucket || 'awaiting';
+  const list = filtered.filter((item) => item.bucket === activeBucket);
+  main.innerHTML = `<section data-view="mqueue" class="live">
+    <div class="eyebrow">Review Queue · every student</div>
+    <h1 class="h1">${(counts.awaiting || 0) + (counts.revised || 0)} stories <em>waiting on you</em>.</h1>
+    <div class="listBar">
+      <div class="bucketChips">${QUEUE_BUCKETS.map(([key, label]) => `<button class="bChip ${activeBucket === key ? 'on' : ''}" type="button" data-queue-bucket="${key}">${esc(label)}<span class="bn">${counts[key] || 0}</span></button>`).join('')}</div>
+      <select id="queueCohort"><option value="">Cohort: all</option>${cohorts.map((cohort) => `<option ${mentor.queueCohort === cohort ? 'selected' : ''}>${esc(cohort)}</option>`).join('')}</select>
+    </div>
+    ${list.length ? list.map(({ story }) => storyRow(story, { showStudent: true })).join('') : emptyState(`Nothing in “${QUEUE_BUCKETS.find(([key]) => key === activeBucket)?.[1] || 'this queue'}”.`, 'That’s what an empty queue is supposed to look like.')}
+  </section>`;
+}
+
+function renderActivity() {
+  const mentor = mentorState();
+  const filters = mentor.activityFilters;
+  const cohorts = [...new Set(state.students.map((student) => student.cohort).filter(Boolean))].sort();
+  main.innerHTML = `<section data-view="mactivity" class="live">
+    <div class="eyebrow">My Review Activity</div>
+    <h1 class="h1">${mentor.activity.length} actions <em>in this view</em>.</h1>
+    <div class="listBar">
+      <select id="activityStudent"><option value="">Student: all</option>${state.students.map((student) => `<option value="${attr(student.id)}" ${filters.student === student.id ? 'selected' : ''}>${esc(student.name)}</option>`).join('')}</select>
+      <select id="activityCohort"><option value="">Cohort: all</option>${cohorts.map((cohort) => `<option ${filters.cohort === cohort ? 'selected' : ''}>${esc(cohort)}</option>`).join('')}</select>
+      <select id="activityType"><option value="">Action: all</option>${['status', 'feedback', 'score', 'question', 'star'].map((type) => `<option value="${type}" ${filters.type === type ? 'selected' : ''}>${type[0].toUpperCase()}${type.slice(1)}</option>`).join('')}</select>
+      <select id="activityPeriod"><option value="today" ${filters.period === 'today' ? 'selected' : ''}>Today</option><option value="week" ${filters.period === 'week' ? 'selected' : ''}>This week</option><option value="month" ${filters.period === 'month' ? 'selected' : ''}>This month</option><option value="custom" ${filters.period === 'custom' ? 'selected' : ''}>Custom range…</option><option value="all" ${filters.period === 'all' ? 'selected' : ''}>All time</option></select>
+      ${filters.period === 'custom' ? `<input id="activityFrom" type="date" value="${attr(filters.from)}"><span>to</span><input id="activityTo" type="date" value="${attr(filters.to)}">` : ''}
+    </div>
+    <div class="panel"><div class="pBody">
+      ${mentor.activity.length ? mentor.activity.map((item) => `<button class="actRow" type="button" data-open-story="${attr(item.storyId)}">
+        <span class="aw">${esc(formatDateTime(item.createdAt))}</span><span><b>${esc(item.mentorName)}</b> — ${esc(item.action)}${item.detail ? ` · ${esc(item.detail)}` : ''} on <b>“${esc(item.storyTitle)}”</b> · ${esc(item.studentName)}${item.cohort ? ` (${esc(item.cohort)})` : ''}</span>
+      </button>`).join('') : '<div class="stageHint">No mentor actions in this period.</div>'}
+    </div></div>
+  </section>`;
+}
+
+async function reloadActivityView() {
+  await loadActivity();
+  renderActivity();
+}
+
+function teachingEntry(raw = {}) {
+  const story = normalizeStory(raw.story ? { ...raw.story, ...raw } : raw);
+  return {
+    story,
+    student: normalizeStudent(firstDefined(raw.student, {
+      id: story.studentId,
+      display_name: story.studentName,
+    })),
+    craft: firstDefined(raw.craft, raw.craft_scores, story.craft, {}),
+  };
+}
+
+async function openTeaching(studentId = '') {
+  if (!isMentor()) return;
+  state.returnFocus = document.activeElement;
+  teaching.innerHTML = loadingView('Opening Teaching Mode…');
+  teaching.classList.add('open');
+  try {
+    const payload = await api.teachingStories(studentId);
+    const entries = asArray(firstDefined(payload?.stories, payload?.items)).map(teachingEntry);
+    mentorState().teaching = {
+      entries,
+      a: entries[0] || null,
+      b: null,
+      anonymous: true,
+    };
+    renderTeaching();
+  } catch (error) {
+    teaching.innerHTML = `<div class="teachUnavailable" role="dialog" aria-modal="true">
+      <h2>Teaching Mode is unavailable</h2><p>${esc(error.message)}</p><button class="rowBtn" type="button" data-close-overlay>Close</button>
+    </div>`;
+  }
+}
+
+function teachingColumn(entry, side) {
+  if (!entry) return '';
+  const { story, student, craft } = entry;
+  const context = mentorState().teaching;
+  const score = CRAFT.reduce((sum, dimension) => sum + (Number(craft?.[dimension.id]) || 0), 0);
+  return `<div class="tCol">
+    <div class="tWho">${context.anonymous ? `Story ${side}` : `${esc(student.name)}${student.year ? ` · ${esc(student.year)}` : ''}`} · ${esc(STATUS[story.status].label)}${story.mentorScore ? ` · Mentor score ${story.mentorScore}/5` : ''}</div>
+    ${story.prefixEnabled ? '<div class="tPre">The One Where</div>' : ''}<div class="tTtl">${esc(story.title)}</div>
+    <div class="tBody">${esc(story.text)}</div>${story.lesson ? `<div class="tLesson">“${esc(story.lesson)}”</div>` : ''}
+    <div class="anatomy"><div class="aHead">Story anatomy · ${score}/15</div><div class="aSub">Score it live — segments light as you teach why this story works.</div>
+      ${CRAFT.map((dimension) => {
+        const value = Number(craft?.[dimension.id]) || 0;
+        return `<div class="aDim"><span class="al">${esc(dimension.label)}</span><span class="segs" data-teach-side="${side}" data-craft="${dimension.id}">${[1, 2, 3].map((n) => `<button type="button" data-craft-score="${n}" class="${value >= n ? 'lit' : ''}" aria-label="${esc(dimension.label)} ${n}"></button>`).join('')}</span><span class="tScore">${value}</span></div><div class="tHint">${esc(dimension.hint)}</div>`;
+      }).join('')}
+    </div>
+    <div class="tActs"><span class="fLbl">Live actions</span>
+      <div class="statusRow">${['in_review', 'changes', 'reviewed', 'approved'].map((status) => `<button type="button" data-teach-status="${side}:${status}" class="${story.status === status ? `on ${STATUS[status].col}` : ''}">${esc(STATUS[status].label)}</button>`).join('')}</div>
+      ${scorePicker(`teach-${side}`, story.mentorScore, true)}
+      <button class="rowBtn" type="button" data-teach-assign="${side}">Assign questions</button>
+      <div class="askRow"><input data-teach-comment="${side}" placeholder="Comment — saves to the story, notifies the student…"><button class="noteSend" type="button" data-send-teach-comment="${side}">Send</button></div>
+    </div>
+  </div>`;
+}
+
+function renderTeaching() {
+  const context = mentorState().teaching;
+  if (!context) return;
+  if (!context.entries.length) {
+    teaching.innerHTML = `<div class="teachUnavailable" role="dialog" aria-modal="true"><h2>No submitted stories are available</h2><p>Teaching Mode never reveals private stories.</p><button class="rowBtn" type="button" data-close-overlay>Close</button></div>`;
+    return;
+  }
+  const optionMarkup = (selected) => context.entries.map((entry) => `<option value="${attr(entry.story.id)}" ${selected?.story.id === entry.story.id ? 'selected' : ''}>${context.anonymous ? 'Story' : esc(entry.student.name)} — ${esc(storyTitle(entry.story).slice(0, 48))}</option>`).join('');
+  teaching.innerHTML = `<div role="dialog" aria-modal="true" aria-label="Teaching Mode">
+    <div class="tBar">
+      <div class="tTitle">Teaching <em>Mode</em></div>
+      <select class="tSel" id="teachA">${optionMarkup(context.a)}</select>
+      <select class="tSel" id="teachB"><option value="">+ Compare with…</option>${optionMarkup(context.b)}</select>
+      <div class="tglRow"><button class="tgl ${context.anonymous ? 'on' : ''}" type="button" data-toggle-anonymous aria-pressed="${context.anonymous}" aria-label="Hide student names"><i></i></button> Hide names<span class="tglHint">— on by default for class</span></div>
+      <button class="btnGhost" type="button" data-close-overlay>Exit Teaching Mode</button>
+    </div>
+    <div class="teachGrid ${context.b ? 'two' : ''}">${teachingColumn(context.a, 'A')}${teachingColumn(context.b, 'B')}</div>
+  </div>`;
+}
+
+function teachingSide(side) {
+  return side === 'A' ? mentorState().teaching?.a : mentorState().teaching?.b;
+}
+
+async function setCraft(side, dimension, score) {
+  const entry = teachingSide(side);
+  if (!entry) return;
+  const current = Number(entry.craft?.[dimension]) || 0;
+  const value = current === Number(score) ? Math.max(0, Number(score) - 1) : Number(score);
+  await withBusy(() => api.craft(entry.story.id, { [dimension]: value }));
+  entry.craft = { ...entry.craft, [dimension]: value };
+  renderTeaching();
+}
+
+async function startSession(studentId) {
+  try {
+    const result = await withBusy(() => api.createSession(studentId));
+    const session = firstDefined(result?.session, result);
+    mentorState().session = {
+      id: String(firstDefined(session.id, session.session_id, '')),
+      studentId,
+      studentName: String(firstDefined(session.student_name, state.selectedStudent?.name, 'Student')),
+      items: asArray(firstDefined(session.items, result?.items)).map((item) => ({
+        ...item,
+        id: String(firstDefined(item.id, item.item_id, '')),
+        label: String(firstDefined(item.label, item.text, item.title, 'Agenda item')),
+        covered: Boolean(firstDefined(item.covered, item.completed, false)),
+        storyId: String(firstDefined(item.storyId, item.story_id, '')),
+        questionId: String(firstDefined(item.questionId, item.question_id, '')),
+      })),
+      expanded: false,
+    };
+    renderSessionBar();
+    notify(`1:1 session started with ${mentorState().session.studentName}. Work the agenda in any order; tap the circle when an item is covered.`);
+  } catch (error) {
+    notify(error.message);
+  }
+}
+
+function renderSessionBar() {
+  const session = mentorState().session;
+  if (!session) {
+    sessionBar.classList.remove('on');
+    sessionBar.innerHTML = '';
+    document.body.classList.remove('seshOn');
+    return;
+  }
+  const covered = session.items.filter((item) => item.covered).length;
+  sessionBar.classList.add('on');
+  sessionBar.classList.toggle('exp', session.expanded);
+  document.body.classList.add('seshOn');
+  sessionBar.innerHTML = `<span class="sLbl">1:1 · ${esc(session.studentName)}</span>
+    <button class="agSum" type="button" data-expand-session>Agenda ${covered}/${session.items.length} ${session.expanded ? '▾' : '▴'}</button>
+    <div class="agWrap">${session.items.map((item) => `<button class="agChip ${item.covered ? 'done' : ''}" type="button" data-session-item="${attr(item.id)}" data-story-id="${attr(item.storyId)}" data-question-id="${attr(item.questionId)}"><i class="agCk">${item.covered ? '✓' : ''}</i>${esc(item.label)}</button>`).join('')}</div>
+    <button class="rowBtn" type="button" data-end-session>End session</button>`;
+}
+
+async function toggleSessionItem(itemId) {
+  const session = mentorState().session;
+  const item = session?.items.find((entry) => entry.id === itemId);
+  if (!session || !item) return;
+  const result = await withBusy(() => api.coverSessionItem(session.id, item.id, !item.covered));
+  item.covered = Boolean(firstDefined(result?.item?.covered, !item.covered));
+  renderSessionBar();
+}
+
+async function endSession() {
+  const session = mentorState().session;
+  if (!session) return;
+  await withBusy(() => api.endSession(session.id));
+  const covered = session.items.filter((item) => item.covered).length;
+  notify(`Session logged — ${covered} of ${session.items.length} agenda items covered.`);
+  mentorState().session = null;
+  renderSessionBar();
+}
+
+function openPalette() {
+  if (!isMentor()) return;
+  state.returnFocus = document.activeElement;
+  renderPalette('');
+  palette.classList.add('open');
+  window.setTimeout(() => $('#paletteSearch')?.focus(), 30);
+}
+
+function renderPalette(query) {
+  const value = query.trim().toLowerCase();
+  const students = state.students.filter((student) => !value || `${student.name} ${student.specialty} ${student.cohort}`.toLowerCase().includes(value)).slice(0, 8);
+  const stories = value ? state.stories.filter((story) => `${storyTitle(story)} ${story.text}`.toLowerCase().includes(value)).slice(0, 5) : [];
+  palette.innerHTML = `<div class="palBox" role="dialog" aria-modal="true" aria-label="Find a student">
+    <input id="paletteSearch" placeholder="Jump to a student — or search submitted stories…" value="${attr(query)}" autocomplete="off">
+    ${students.map((student) => `<button class="palItem" type="button" data-open-student="${attr(student.id)}"><span class="stuAv">${esc(student.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span><span class="pn">${esc(student.name)}</span><span class="pm">${esc(student.cohort)} · ${esc(student.specialty)}${student.awaitingReview ? `<br><span class="attn">${student.awaitingReview} to review</span>` : ''}</span></button>`).join('')}
+    ${stories.length ? '<div class="palSec">Stories · submitted students</div>' : ''}
+    ${stories.map((story) => `<button class="palItem" type="button" data-open-story="${attr(story.id)}"><span class="stuAv">S</span><span class="pn">${esc(storyTitle(story))}</span><span class="pm">${esc(story.studentName)}</span></button>`).join('')}
+    ${students.length || stories.length ? '' : '<div class="deskClear">No student or submitted story matches.</div>'}
+  </div>`;
+}
+
+/* ========================= Routing, events, and signed boot ========================= */
+
+async function renderRoute() {
+  if (!state.user) return;
+  renderShell();
+  main.innerHTML = loadingView(`Opening ${routeTitle()}…`);
+
+  if (isAdmin()) {
+    if (state.route === 'qlib') {
+      await Promise.all([loadQuestions(), loadImportBatches()]);
+      renderQuestionLibrary();
+      return;
+    }
+    await navigate('qlib', null, { replace: true });
+    return;
+  }
+
+  if (!isMentor()) {
+    if (state.route === 'home') {
+      await Promise.all([loadStories(), loadNotifications()]);
+      renderShell();
+      renderHome();
+      return;
+    }
+    if (state.route === 'library') {
+      await Promise.all([loadStories(), loadNotifications().catch(() => [])]);
+      renderShell();
+      renderLibrary();
+      return;
+    }
+    if (state.route === 'notifications') {
+      await loadNotifications();
+      renderShell();
+      renderNotifications();
+      return;
+    }
+    if (state.route === 'settings') {
+      renderSettings();
+      return;
+    }
+    if (state.route === 'prep') {
+      await loadIntelligence();
+      renderPrep();
+      return;
+    }
+    if (state.route === 'qshop' && state.routeId) {
+      const payload = await api.workshop(state.routeId);
+      state.workshop = normalizeWorkshop(payload);
+      renderQuestionWorkshop();
+      return;
+    }
+    if (state.route === 'qlib') {
+      await loadQuestions();
+      renderQuestionLibrary();
+      return;
+    }
+    if (state.route === 'story' && state.routeId) {
+      await Promise.all([loadStories(), loadNotifications()]);
+      renderShell();
+      renderLibrary();
+      await openStory(state.routeId);
+      return;
+    }
+    await navigate('home', null, { replace: true });
+    return;
+  }
+
+  if (state.route === 'home') {
+    await Promise.all([
+      loadStudents(),
+      loadQueue(),
+      loadActivity().catch(() => []),
+      loadMentorHome().catch(() => null),
+    ]);
+    renderShell();
+    renderMentorHome();
+    return;
+  }
+  if (state.route === 'students') {
+    await loadStudents();
+    renderStudents();
+    return;
+  }
+  if (state.route === 'student' && state.routeId) {
+    await openStudentWorkspace(state.routeId);
+    return;
+  }
+  if (state.route === 'queue') {
+    await loadQueue();
+    state.stories = mentorState().queue.map((item) => item.story);
+    renderQueue();
+    return;
+  }
+  if (state.route === 'activity') {
+    await Promise.all([loadStudents(), loadActivity()]);
+    renderActivity();
+    return;
+  }
+  if (state.route === 'prep') {
+    await loadIntelligence();
+    renderPrep();
+    return;
+  }
+  if (state.route === 'qshop' && state.routeId) {
+    const studentId = state.selectedStudent?.id || '';
+    state.workshop = normalizeWorkshop(await api.workshop(state.routeId, studentId));
+    renderQuestionWorkshop();
+    return;
+  }
+  if (state.route === 'qlib') {
+    await Promise.all([loadQuestions(), loadImportBatches()]);
+    renderQuestionLibrary();
+    return;
+  }
+  if (state.route === 'settings') {
+    renderSettings();
+    return;
+  }
+  if (state.route === 'story' && state.routeId) {
+    await Promise.all([loadStudents(), loadQueue()]);
+    state.stories = mentorState().queue.map((item) => item.story);
+    renderMentorHome();
+    await openStory(state.routeId);
+    return;
+  }
+  await navigate('home', null, { replace: true });
+}
+
+async function changeBackground(id) {
+  if (!BACKGROUNDS.some((background) => background.id === id)) return;
+  const result = await withBusy(() => api.preference(id));
+  state.user.background_preference = firstDefined(result?.backgroundPreference, result?.background_preference, id);
+  applyEnvironment();
+  renderSettings();
+  window.setTimeout(() => {
+    $(`button[data-background="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+  }, 0);
+  notify(`${BACKGROUNDS.find((background) => background.id === id).name} selected.`);
+}
+
+async function openNotification(id, storyId) {
+  const item = state.notifications.find((notification) => String(notification.id) === String(id));
+  if (item && !notificationRead(item)) {
+    await withBusy(() => api.readNotification(id));
+    await loadNotifications();
+    renderShell();
+  }
+  if (storyId) await openStory(storyId);
+  else renderNotifications();
+}
+
+async function readAllNotifications() {
+  await withBusy(async () => {
+    try {
+      return await api.readAllNotifications();
+    } catch (error) {
+      if (![404, 405, 501].includes(error.status)) throw error;
+      return Promise.all(state.notifications.filter((item) => !notificationRead(item)).map((item) => api.readNotification(item.id)));
+    }
+  });
+  await loadNotifications();
+  renderShell();
+  renderNotifications();
+  notify('All notifications marked as read.');
+}
+
+async function confirmPair(id) {
+  await withBusy(() => api.confirmPair(id));
+  if (qad.classList.contains('open')) await refreshAssignedStory();
+  else await reloadWorkshop();
+  notify('Question assignment confirmed.');
+}
+
+async function rejectPair(id) {
+  await withBusy(() => api.rejectPair(id));
+  if (qad.classList.contains('open')) await refreshAssignedStory();
+  else await reloadWorkshop();
+  notify('Question assignment removed.');
+}
+
+async function removeFollowup(id) {
+  await withBusy(() => api.removeFollowup(id));
+  await reloadWorkshop();
+  notify('Follow-up removed.');
+}
+
+async function updateFollowupPrepared(id, prepared) {
+  const context = workshopFollowup(id);
+  if (!context) return;
+  await withBusy(() => api.updateFollowup(id, {
+    prepared,
+    expectedVersion: context.followup.rowVersion ?? 0,
+    surface: 'workshop',
+  }));
+  await reloadWorkshop();
+}
+
+function selectTeaching(side, storyId) {
+  const context = mentorState().teaching;
+  if (!context) return;
+  context[side === 'A' ? 'a' : 'b'] = storyId ? context.entries.find((entry) => entry.story.id === storyId) || null : null;
+  renderTeaching();
+}
+
+async function teachingEvaluation(side, patch) {
+  const entry = teachingSide(side);
+  if (!entry) return;
+  await withBusy(() => api.evaluation(entry.story.id, { ...patch, surface: 'teach' }));
+  Object.assign(entry.story, {
+    ...(patch.mentorScore !== undefined ? { mentorScore: patch.mentorScore } : {}),
+    ...(patch.mentorStar !== undefined ? { mentorStar: patch.mentorStar } : {}),
+  });
+  renderTeaching();
+  notify('Teaching action saved to the story record.');
+}
+
+async function teachingStatus(side, status) {
+  const entry = teachingSide(side);
+  if (!entry) return;
+  await withBusy(() => api.storyStatus(entry.story.id, status, 'teach'));
+  entry.story.status = status;
+  renderTeaching();
+  notify(`“${STATUS[status].label}” saved and logged with your name.`);
+}
+
+async function teachingComment(side) {
+  const entry = teachingSide(side);
+  const body = $(`[data-teach-comment="${side}"]`)?.value.trim();
+  if (!entry || !body) return;
+  await withBusy(() => api.feedback(entry.story.id, { body, surface: 'teach' }));
+  notify('Comment saved to the story record. The student was notified.');
+  const field = $(`[data-teach-comment="${side}"]`);
+  if (field) field.value = '';
+}
+
+async function handleScore(scope, score) {
+  const value = Number(score);
+  if (scope === 'capture') {
+    capture.dataset.score = String(value);
+    $$('[data-score-scope="capture"] [data-score]').forEach((button) => button.classList.toggle('on', Number(button.dataset.score) <= value));
+    const output = $('[data-score-scope="capture"] .spv');
+    if (output) output.textContent = `self ${value}/5`;
+    scheduleCaptureDraftSave();
+    return;
+  }
+  if (scope === 'room-student' || scope === 'quick-student') {
+    await updateEvaluation({ storyId: (state.storyDetail || state.quick?.story).id, studentScore: value });
+    return;
+  }
+  if (scope === 'room-mentor' || scope === 'quick-mentor') {
+    await updateEvaluation({ storyId: (state.storyDetail || state.quick?.story).id, mentorScore: value });
+    return;
+  }
+  if (scope.startsWith('pair-')) {
+    await updatePairScore(scope, value);
+    return;
+  }
+  if (scope.startsWith('workshop-')) {
+    await workshopScore(scope, value);
+    return;
+  }
+  if (scope.startsWith('teach-')) {
+    await teachingEvaluation(scope.slice(-1), { mentorScore: value });
+  }
+}
+
+function rerenderWithFocus(render, selector, value) {
+  render();
+  const input = $(selector);
+  if (input) {
+    input.focus();
+    if ('setSelectionRange' in input) input.setSelectionRange(value.length, value.length);
+  }
+}
+
+function overlayContaining(target) {
+  return [qad, quick, capture, room, palette, teaching].find((node) => node.contains(target) && node.classList.contains('open'));
+}
+
+document.addEventListener('click', async (event) => {
+  const target = event.target;
+  const button = target.closest('button, a');
+  if (!button) return;
+  try {
+    if (button.matches('[data-nav]')) {
+      event.preventDefault();
+      await navigate(button.dataset.nav, button.dataset.navId || null);
+      return;
+    }
+    if (button.matches('[data-close-overlay]')) {
+      event.preventDefault();
+      closeOverlay(overlayContaining(button));
+      if (button.closest('#qad') && quick.classList.contains('open')) renderQuick();
+      if (button.closest('#qad') && room.classList.contains('open')) renderStoryRoom();
+      return;
+    }
+    if (button.matches('[data-change-fixture]')) {
+      signOut();
+      return;
+    }
+    if (button.matches('[data-open-capture]')) {
+      const sourceId = button.dataset.captureTitleFrom;
+      const title = sourceId ? $(`#${CSS.escape(sourceId)}`)?.value.trim() || '' : '';
+      await openCapture({
+        title,
+        prompt: button.dataset.capturePrompt || '',
+        voice: button.hasAttribute('data-capture-voice'),
+        pairQuestionId: button.dataset.pairQuestionId || null,
+      });
+      return;
+    }
+    if (button.matches('[data-capture-title-from]')) {
+      await openCapture({ title: $(`#${CSS.escape(button.dataset.captureTitleFrom)}`)?.value.trim() || '' });
+      return;
+    }
+    if (button.matches('[data-capture-prompt]')) {
+      await openCapture({ prompt: button.dataset.capturePrompt });
+      return;
+    }
+    if (button.matches('[data-next-prompt]')) {
+      state.promptIndex = (state.promptIndex + 1) % MEMORY_PROMPTS.length;
+      renderHome();
+      return;
+    }
+    if (button.matches('[data-library-status]')) {
+      state.library.status = button.dataset.libraryStatus;
+      await navigate('library');
+      return;
+    }
+    if (button.matches('[data-open-quick]')) {
+      await openQuick(button.dataset.openQuick);
+      return;
+    }
+    if (button.matches('[data-open-story]')) {
+      if (palette.classList.contains('open')) closeOverlay(palette);
+      await openStory(button.dataset.openStory);
+      return;
+    }
+    if (button.matches('[data-open-notification]')) {
+      await openNotification(button.dataset.openNotification, button.dataset.storyId);
+      return;
+    }
+    if (button.matches('[data-read-all]')) {
+      await readAllNotifications();
+      return;
+    }
+    if (button.matches('[data-background]')) {
+      await changeBackground(button.dataset.background);
+      return;
+    }
+    if (button.id === 'capturePrefix') {
+      const enabled = capture.dataset.prefixEnabled !== 'false';
+      capture.dataset.prefixEnabled = String(!enabled);
+      button.classList.toggle('off', enabled);
+      button.setAttribute('aria-pressed', String(!enabled));
+      scheduleCaptureDraftSave();
+      return;
+    }
+    if (button.matches('[data-capture-theme]')) {
+      const themes = JSON.parse(capture.dataset.themes || '[]');
+      const id = button.dataset.captureTheme;
+      capture.dataset.themes = JSON.stringify(themes.includes(id) ? themes.filter((value) => value !== id) : [...themes, id]);
+      button.classList.toggle('on');
+      scheduleCaptureDraftSave();
+      return;
+    }
+    if (button.matches('[data-record-audio]')) {
+      await toggleRecording(button);
+      return;
+    }
+    if (button.matches('[data-story-tab]')) {
+      state.storyTab = button.dataset.storyTab;
+      renderStoryRoom();
+      return;
+    }
+    if (button.matches('[data-set-status]')) {
+      await setCurrentStatus(button.dataset.setStatus);
+      return;
+    }
+    if (button.matches('[data-submit-story]')) {
+      await submitCurrentStory();
+      return;
+    }
+    if (button.matches('[data-score]')) {
+      const picker = button.closest('[data-score-scope]');
+      if (picker) await handleScore(picker.dataset.scoreScope, button.dataset.score);
+      return;
+    }
+    if (button.matches('[data-toggle-star]')) {
+      await toggleStar(button.dataset.toggleStar, button.dataset.starKind);
+      return;
+    }
+    if (button.matches('[data-classification]')) {
+      await toggleClassification(button.dataset.kind, button.dataset.classification);
+      return;
+    }
+    if (button.matches('[data-toggle-use]')) {
+      await toggleUse(button.dataset.toggleUse);
+      return;
+    }
+    if (button.matches('[data-send-feedback]')) {
+      await sendFeedback(button.dataset.feedbackSource || 'room');
+      return;
+    }
+    if (button.matches('[data-send-ask]')) {
+      await sendAsk();
+      return;
+    }
+    if (button.matches('[data-add-reflection]')) {
+      await addReflection();
+      return;
+    }
+    if (button.matches('[data-save-reflection]')) {
+      await saveReflection(button.dataset.saveReflection);
+      return;
+    }
+    if (button.matches('[data-play-audio]')) {
+      await playAudio(button.dataset.playAudio, button);
+      return;
+    }
+    if (button.matches('[data-open-assign]')) {
+      await openAssign(button.dataset.openAssign);
+      return;
+    }
+    if (button.matches('[data-quick-move]')) {
+      await moveQuick(button.dataset.quickMove);
+      return;
+    }
+    if (button.matches('[data-quick-full]')) {
+      const id = button.dataset.quickFull;
+      closeOverlay(quick);
+      await openStory(id);
+      return;
+    }
+    if (button.matches('[data-toggle-pair]')) {
+      await togglePair(button.dataset.togglePair);
+      return;
+    }
+    if (button.matches('[data-confirm-pair]')) {
+      await confirmPair(button.dataset.confirmPair);
+      return;
+    }
+    if (button.matches('[data-reject-pair]')) {
+      await rejectPair(button.dataset.rejectPair);
+      return;
+    }
+    if (button.matches('[data-go-question-library]')) {
+      closeOverlay(qad);
+      await navigate('qlib');
+      return;
+    }
+    if (button.matches('[data-prep-family]')) {
+      state.questionFamily = state.questionFamily === button.dataset.prepFamily
+        ? 'all'
+        : button.dataset.prepFamily;
+      renderPrep();
+      return;
+    }
+    if (button.matches('[data-clear-prep-family]')) {
+      state.questionFamily = 'all';
+      renderPrep();
+      return;
+    }
+    if (button.matches('[data-open-workshop]')) {
+      await openWorkshop(button.dataset.openWorkshop);
+      return;
+    }
+    if (button.matches('[data-prefer-story]')) {
+      await preferStory(button.dataset.preferStory);
+      return;
+    }
+    if (button.matches('[data-add-suggested-story]')) {
+      await addSuggestedStory(button.dataset.addSuggestedStory);
+      return;
+    }
+    if (button.matches('[data-save-pair-why]')) {
+      await savePairWhy(button.dataset.savePairWhy);
+      return;
+    }
+    if (button.matches('[data-add-followup]')) {
+      await addFollowup(button.dataset.addFollowup);
+      return;
+    }
+    if (button.matches('[data-save-followup]')) {
+      await saveFollowup(button.dataset.saveFollowup);
+      return;
+    }
+    if (button.matches('[data-move-followup]')) {
+      await moveFollowup(button.dataset.moveFollowup, button.dataset.moveDelta);
+      return;
+    }
+    if (button.matches('[data-remove-followup]')) {
+      await removeFollowup(button.dataset.removeFollowup);
+      return;
+    }
+    if (button.matches('[data-send-coaching]')) {
+      await sendCoaching();
+      return;
+    }
+    if (button.matches('[data-request-ai]')) {
+      await requestAiSuggestion();
+      return;
+    }
+    if (button.matches('[data-preview-import]')) {
+      await previewImport();
+      return;
+    }
+    if (button.matches('[data-commit-import]')) {
+      await commitImport();
+      return;
+    }
+    if (button.matches('[data-rollback-import]')) {
+      await rollbackImport(button.dataset.rollbackImport);
+      return;
+    }
+    if (button.matches('[data-approve-question]')) {
+      await approveQuestion(button.dataset.approveQuestion);
+      return;
+    }
+    if (button.matches('[data-expand-story-history]')) {
+      state.storyHistoryExpanded = true;
+      renderStoryRoom();
+      return;
+    }
+    if (button.matches('[data-open-student]')) {
+      if (palette.classList.contains('open')) closeOverlay(palette);
+      await openStudentWorkspace(button.dataset.openStudent);
+      return;
+    }
+    if (button.matches('[data-student-prep]')) {
+      state.route = 'prep';
+      state.routeId = null;
+      pushPath('prep');
+      await loadIntelligence();
+      renderShell();
+      renderPrep();
+      return;
+    }
+    if (button.matches('[data-toggle-history]')) {
+      const panel = $('#studentHistory');
+      if (panel) panel.hidden = !panel.hidden;
+      return;
+    }
+    if (button.matches('[data-queue-bucket]')) {
+      mentorState().queueBucket = button.dataset.queueBucket;
+      renderQueue();
+      return;
+    }
+    if (button.matches('[data-open-teaching]')) {
+      await openTeaching(button.dataset.studentId || state.selectedStudent?.id || '');
+      return;
+    }
+    if (button.matches('[data-open-palette]')) {
+      openPalette();
+      return;
+    }
+    if (button.matches('[data-toggle-anonymous]')) {
+      mentorState().teaching.anonymous = !mentorState().teaching.anonymous;
+      renderTeaching();
+      return;
+    }
+    if (button.matches('[data-craft-score]')) {
+      const group = button.closest('[data-teach-side]');
+      await setCraft(group.dataset.teachSide, group.dataset.craft, button.dataset.craftScore);
+      return;
+    }
+    if (button.matches('[data-teach-status]')) {
+      const [side, status] = button.dataset.teachStatus.split(':');
+      await teachingStatus(side, status);
+      return;
+    }
+    if (button.matches('[data-teach-assign]')) {
+      const entry = teachingSide(button.dataset.teachAssign);
+      if (entry) await openAssign(entry.story.id);
+      return;
+    }
+    if (button.matches('[data-send-teach-comment]')) {
+      await teachingComment(button.dataset.sendTeachComment);
+      return;
+    }
+    if (button.matches('[data-start-session]')) {
+      await startSession(button.dataset.startSession);
+      return;
+    }
+    if (button.matches('[data-expand-session]')) {
+      mentorState().session.expanded = !mentorState().session.expanded;
+      renderSessionBar();
+      return;
+    }
+    if (button.matches('[data-session-item]')) {
+      if (target.closest('.agCk')) await toggleSessionItem(button.dataset.sessionItem);
+      else if (button.dataset.storyId) await openQuick(button.dataset.storyId);
+      else if (button.dataset.questionId) await openWorkshop(button.dataset.questionId);
+      return;
+    }
+    if (button.matches('[data-end-session]')) {
+      await endSession();
+    }
+  } catch (error) {
+    notify(error.message || 'StoryForge could not complete that action.');
+  }
+});
+
+document.addEventListener('submit', async (event) => {
+  try {
+    if (event.target.id === 'captureForm') {
+      event.preventDefault();
+      await saveCapture(event.target);
+    }
+    if (event.target.id === 'storyEditForm') {
+      event.preventDefault();
+      await saveStoryEdit(event.target);
+    }
+    if (event.target.id === 'questionAddForm') {
+      event.preventDefault();
+      await createCustomQuestion(event.target);
+    }
+  } catch (error) {
+    notify(error.message || 'StoryForge could not save that change.');
+  }
+});
+
+document.addEventListener('input', (event) => {
+  const target = event.target;
+  if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
+    scheduleCaptureDraftSave();
+  } else if (target.id === 'omni' && !isMentor()) {
+    state.library.query = target.value;
+    if (state.route !== 'library') {
+      navigate('library').then(() => {
+        const input = $('#libQ');
+        input?.focus();
+        input?.setSelectionRange(input.value.length, input.value.length);
+      });
+    } else {
+      rerenderWithFocus(renderLibrary, '#libQ', target.value);
+    }
+  } else if (target.id === 'libQ') {
+    state.library.query = target.value;
+    rerenderWithFocus(renderLibrary, '#libQ', target.value);
+  } else if (target.id === 'assignSearch') {
+    state.assign.query = target.value;
+    rerenderWithFocus(renderAssign, '#assignSearch', target.value);
+  } else if (target.id === 'questionSearch') {
+    state.questionQuery = target.value;
+    rerenderWithFocus(renderQuestionLibrary, '#questionSearch', target.value);
+  } else if (target.id === 'prepQ') {
+    state.questionQuery = target.value;
+    rerenderWithFocus(renderPrep, '#prepQ', target.value);
+  } else if (target.id === 'studentSearch') {
+    mentorState().studentQuery = target.value;
+    rerenderWithFocus(renderStudents, '#studentSearch', target.value);
+  } else if (target.id === 'studentStorySearch') {
+    mentorState().storyQuery = target.value;
+    rerenderWithFocus(renderStudentWorkspace, '#studentStorySearch', target.value);
+  } else if (target.id === 'paletteSearch') {
+    renderPalette(target.value);
+    const next = $('#paletteSearch');
+    next?.focus();
+    next?.setSelectionRange(next.value.length, next.value.length);
+  }
+});
+
+document.addEventListener('focusin', (event) => {
+  if (event.target.id === 'omni' && isMentor()) {
+    event.target.blur();
+    openPalette();
+  }
+});
+
+document.addEventListener('change', async (event) => {
+  const target = event.target;
+  try {
+    if (target.id === 'libStatus') {
+      state.library.status = target.value;
+      renderLibrary();
+    } else if (target.id === 'libSort') {
+      state.library.sort = target.value;
+      renderLibrary();
+    } else if (target.id === 'libStar') {
+      state.library.star = target.value;
+      renderLibrary();
+    } else if (target.id === 'libBird') {
+      state.library.bird = target.value;
+      renderLibrary();
+    } else if (target.id === 'libPosition') {
+      state.library.position = target.value;
+      renderLibrary();
+    } else if (target.id === 'prepSt') {
+      state.questionStatus = target.value;
+      renderPrep();
+    } else if (target.id === 'questionFamily') {
+      state.questionFamily = target.value;
+      renderQuestionLibrary();
+    } else if (target.id === 'questionSource') {
+      state.questionSource = target.value;
+      renderQuestionLibrary();
+    } else if (target.matches('[data-import-row]')) {
+      state.importPreview[Number(target.dataset.importRow)].selected = target.checked;
+      renderQuestionLibrary();
+    } else if (target.matches('[data-import-family]')) {
+      state.importPreview[Number(target.dataset.importFamily)].family = target.value;
+    } else if (target.id === 'importFile') {
+      const file = target.files?.[0];
+      state.importSource = file
+        ? { name: file.name, format: file.name.toLowerCase().endsWith('.csv') ? 'csv' : 'xlsx' }
+        : { name: 'pasted-questions', format: 'paste' };
+      const label = $('#importSourceName');
+      if (label) label.textContent = file?.name || 'No file selected — paste mode';
+    } else if (target.matches('[data-followup-prepared]')) {
+      await updateFollowupPrepared(target.dataset.followupPrepared, target.checked);
+    } else if (target.id === 'workshopFocusPair') {
+      state.workshopFocusPairId = target.value;
+      renderQuestionWorkshop();
+    } else if (target.id === 'studentCohort') {
+      mentorState().studentCohort = target.value;
+      renderStudents();
+    } else if (target.id === 'studentSort') {
+      mentorState().studentSort = target.value;
+      renderStudents();
+    } else if (target.id === 'studentStoryFilter') {
+      if (target.value.startsWith('question:')) await ensureStudentStoryMappings();
+      mentorState().storyFilter = target.value;
+      renderStudentWorkspace();
+    } else if (target.id === 'studentStorySort') {
+      mentorState().storySort = target.value;
+      renderStudentWorkspace();
+    } else if (target.id === 'queueCohort') {
+      mentorState().queueCohort = target.value;
+      renderQueue();
+    } else if (target.id === 'activityStudent') {
+      mentorState().activityFilters.student = target.value;
+      await reloadActivityView();
+    } else if (target.id === 'activityCohort') {
+      mentorState().activityFilters.cohort = target.value;
+      await reloadActivityView();
+    } else if (target.id === 'activityType') {
+      mentorState().activityFilters.type = target.value;
+      await reloadActivityView();
+    } else if (target.id === 'activityPeriod') {
+      mentorState().activityFilters.period = target.value;
+      await reloadActivityView();
+    } else if (target.id === 'activityFrom') {
+      mentorState().activityFilters.from = target.value;
+      await reloadActivityView();
+    } else if (target.id === 'activityTo') {
+      mentorState().activityFilters.to = target.value;
+      await reloadActivityView();
+    } else if (target.id === 'teachA') {
+      selectTeaching('A', target.value);
+    } else if (target.id === 'teachB') {
+      selectTeaching('B', target.value);
+    }
+  } catch (error) {
+    notify(error.message);
+  }
+});
+
+document.addEventListener('mousedown', (event) => {
+  for (const node of [qad, quick, capture, room, palette]) {
+    if (node.classList.contains('open') && event.target === node) {
+      closeOverlay(node);
+      break;
+    }
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  const openOverlay = [qad, quick, capture, room, palette, teaching].find((node) => node.classList.contains('open'));
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
+  if (event.key === 'Escape') {
+    if (openOverlay) {
+      event.preventDefault();
+      closeOverlay(openOverlay);
+    }
+    return;
+  }
+  if (event.key === 'Tab' && openOverlay) {
+    const focusable = $$('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])', openOverlay)
+      .filter((item) => item.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+    return;
+  }
+  if (typing) return;
+  if ((event.key === 'n' || event.key === 'N') && isStudent()) {
+    event.preventDefault();
+    void openCapture();
+  }
+  if ((event.key === 'k' || event.key === 'K') && isMentor()) {
+    event.preventDefault();
+    openPalette();
+  }
+  if (event.key === '/') {
+    event.preventDefault();
+    if (isMentor()) openPalette();
+    else if (state.route !== 'library') navigate('library').then(() => $('#libQ')?.focus());
+    else $('#libQ')?.focus();
+  }
+});
+
+function hideApplicationChrome() {
+  rail.innerHTML = '';
+  hdr.innerHTML = '';
+  advBanner.classList.remove('show');
+  clearOverlays();
+  document.body.classList.add('is-booting');
+}
+
+function gateMarkup({ eyebrow, heading, message, action = '' }) {
+  return `<section class="gatePage">
+    <div class="gateShell">
+      <div class="gateArt"><div class="gateLogo">Story<em>Forge</em><small>MissionMed 360</small></div><blockquote>“Your story is evidence of how you notice, decide, and grow.”</blockquote><span>Private by default · Original preserved · Real mentor attribution</span></div>
+      <div class="gateBody"><div role="${eyebrow === 'Identity required' ? 'status' : 'alert'}" aria-live="assertive"><p class="eyebrow">${esc(eyebrow)}</p><h1>${esc(heading)}</h1><p>${esc(message)}</p></div>${action}</div>
+    </div>
+  </section>`;
+}
+
+function renderLogin(errorMessage = '') {
+  hideApplicationChrome();
+  const fixtureButtons = state.config?.devAuth ? `<div class="fixtureGrid">
+    <button class="gateBtn" type="button" data-fixture-persona="student">Student · Maya</button>
+    <button class="gateBtn" type="button" data-fixture-persona="studentOther">Second student · privacy boundary</button>
+    <button class="gateBtn" type="button" data-fixture-persona="mentor">Mentor · Dr. Chen</button>
+    <button class="gateBtn" type="button" data-fixture-persona="mentorTwo">Second mentor · Dr. Rivera</button>
+    <button class="gateBtn" type="button" data-fixture-persona="unassignedMentor">Unassigned mentor · privacy probe</button>
+    <button class="gateBtn" type="button" data-fixture-persona="admin">Admin · least privilege</button>
+  </div>` : `<div class="truthState">Open StoryForge through your signed-in MissionMed 360 account.</div>`;
+  main.innerHTML = gateMarkup({
+    eyebrow: 'Identity required',
+    heading: 'Enter StoryForge',
+    message: errorMessage || (state.config?.devAuth
+      ? 'Choose a locally signed fixture identity. This is test infrastructure, not production WordPress SSO.'
+      : 'The production StoryForge issuer has not supplied an eligible session.'),
+    action: fixtureButtons,
+  });
+  const heading = $('h1', main);
+  if (heading) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
+}
+
+function lockoutPresentation(lockoutState) {
+  const presentations = {
+    eligibility_revoked: ['Access changed', 'Your 360 access has changed.', 'StoryForge locked as soon as WordPress reported the eligibility change.'],
+    session_required: ['Session unavailable', 'Your MissionMed session ended.', 'Sign in through MissionMed to return to this exact StoryForge page.'],
+    session_ended: ['Session unavailable', 'Your MissionMed session ended.', 'Sign in through MissionMed to return to this exact StoryForge page.'],
+    user_not_enabled: ['Access unavailable', 'StoryForge is not enabled for this account.', 'Return to Matrix to continue using the tools enabled for this account.'],
+    role_not_enabled: ['Access unavailable', 'StoryForge is not enabled for this account.', 'Return to Matrix to continue using the tools enabled for this account.'],
+    cohort_not_enabled: ['Access unavailable', 'StoryForge is not enabled for this account.', 'Return to Matrix to continue using the tools enabled for this account.'],
+    storyforge_disabled: ['Pilot unavailable', 'StoryForge is not enabled yet.', 'Return to Matrix while this pilot remains off.'],
+  };
+  return presentations[lockoutState] || ['Temporarily unavailable', 'StoryForge could not open safely.', 'Return to Matrix and try again in a moment.'];
+}
+
+function renderLockout(lockoutState = 'access_unavailable', message = '') {
+  hideApplicationChrome();
+  const [eyebrow, heading, fallback] = lockoutPresentation(lockoutState);
+  main.innerHTML = gateMarkup({
+    eyebrow,
+    heading,
+    message: message || fallback,
+    action: `<a class="gateBtn" href="${attr(matrixHref())}">Back to Matrix</a>`,
+  });
+  const headingNode = $('h1', main);
+  if (headingNode) {
+    headingNode.tabIndex = -1;
+    headingNode.focus({ preventScroll: true });
+  }
+}
+
+function renderStartupFailure(message = '') {
+  hideApplicationChrome();
+  main.innerHTML = gateMarkup({
+    eyebrow: 'Temporarily unavailable',
+    heading: 'StoryForge could not open safely.',
+    message: message || 'We could not reach the StoryForge service. Your stories were not changed.',
+    action: `<div class="gateActions"><button class="gateBtn" type="button" data-retry-startup>Retry</button><a class="gateBtn" href="${attr(matrixHref())}">Back to Matrix</a></div>`,
+  });
+  const heading = $('h1', main);
+  if (heading) {
+    heading.tabIndex = -1;
+    heading.focus({ preventScroll: true });
+  }
+}
+
+async function enterFixturePersona(persona) {
+  if (!FIXTURE_PERSONAS.has(persona)) throw new Error('Unknown local fixture identity.');
+  const { token } = await api.fixture(persona);
+  auth.setToken(token);
+  sessionStorage.setItem(FIXTURE_PERSONA_KEY, persona);
+  await bootstrapSession();
 }
 
 function signOut() {
   state.user = null;
   state.lockout = null;
   auth.clear();
-  if (state.config?.devAuth) sessionStorage.removeItem(fixturePersonaKey);
+  sessionStorage.removeItem(FIXTURE_PERSONA_KEY);
   renderLogin();
 }
 
-async function enterFixturePersona(persona) {
-  if (!fixturePersonas.has(persona)) throw new Error('Unknown local fixture identity.');
-  const { token } = await request(`/api/dev/session/${persona}`, { method: 'POST', body: '{}' });
-  auth.setToken(token);
-  sessionStorage.setItem(fixturePersonaKey, persona);
-  await bootstrapSession();
-}
-
-async function navigate(route, id = null) {
-  state.route = route;
-  state.routeId = id;
-  const base = state.config.basePath;
-  const suffix = route === 'home' ? '' : `${route}${id ? `/${id}` : ''}`;
-  history.pushState(null, '', `${base}${suffix}`);
-  try {
-    await renderRoute();
-    focusPrimaryHeading();
-  } catch (error) {
-    notify(error.message);
-    if (!state.user && !state.lockout) renderLogin();
-  }
-}
-
-async function loadStories() {
-  state.stories = (await request('/api/stories')).stories;
-  return state.stories;
-}
-
-function storyRows(stories, empty = 'No stories are in this view yet.') {
-  if (!stories.length) return `<div class="card empty">${escapeHtml(empty)}</div>`;
-  return `<div class="story-list">${stories.map((story) => `
-    <button type="button" class="story-row" data-story="${story.id}">
-      <span>
-        <strong>${escapeHtml(story.title)}</strong>
-        <small>${escapeHtml(story.student_name || humanStatus(story.capture_type))} · ${escapeHtml((story.current_text || '').slice(0, 100))}${story.current_text?.length > 100 ? '…' : ''}</small>
-      </span>
-      <span class="status ${escapeHtml(story.status)}">${escapeHtml(humanStatus(story.status))}</span>
-      <time datetime="${escapeHtml(story.updated_at)}">${escapeHtml(formatDate(story.updated_at))}</time>
-    </button>
-  `).join('')}</div>`;
-}
-
-function bindStoryRows() {
-  document.querySelectorAll('[data-story]').forEach((row) => {
-    row.addEventListener('click', () => navigate('story', row.dataset.story));
-  });
-}
-
-async function studentHome() {
-  const stories = await loadStories();
-  const privateCount = stories.filter((story) => story.status === 'private').length;
-  const reviewCount = stories.filter((story) => ['submitted', 'opened', 'resubmitted'].includes(story.status)).length;
-  const approvedCount = stories.filter((story) => story.status === 'approved').length;
-  shell(`
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">Your story practice</p>
-        <h1>Shape what only you can tell.</h1>
-        <p class="lede">Capture first. Decide when it is ready. Your mentor cannot see a private story until you submit it.</p>
-      </div>
-      <button class="button" data-nav="capture">Capture a story</button>
-    </div>
-    <div class="grid four" aria-label="Story summary">
-      <div class="card metric"><span><i class="metric-dot"></i>All stories</span><strong>${stories.length}</strong></div>
-      <div class="card metric"><span><i class="metric-dot"></i>Private</span><strong>${privateCount}</strong></div>
-      <div class="card metric"><span><i class="metric-dot"></i>With mentors</span><strong>${reviewCount}</strong></div>
-      <div class="card metric"><span><i class="metric-dot"></i>Approved</span><strong>${approvedCount}</strong></div>
-    </div>
-    <div class="section-head"><h2>Continue shaping</h2><button class="link-button" data-nav="library">See library</button></div>
-    ${storyRows(stories.slice(0, 4), 'Your first private story starts with Quick Capture.')}
-    <div class="section-head"><h2>Prepare for the question after the question</h2></div>
-    <div class="grid two">
-      <button class="card interactive" data-nav="prep">
-        <p class="eyebrow">Question workshop</p>
-        <h3>Compare two interview questions</h3>
-        <p>Build distinct answers and decide which story serves each one best.</p>
-      </button>
-      <div class="card">
-        <p class="eyebrow">AI status</p>
-        <h3>Suggestions are gated</h3>
-        <p>StoryForge will never show canned suggestions as if a model created them. Your manual prep tools remain available.</p>
-      </div>
-    </div>
-  `, 'Home');
-  bindStoryRows();
-  bindGlobal();
-}
-
-async function mentorHome() {
-  const [queue, students] = await Promise.all([
-    request('/api/queue'),
-    request('/api/students'),
-  ]);
-  const awaiting = queue.stories.filter((story) => ['submitted', 'resubmitted'].includes(story.status));
-  const followup = queue.stories.filter((story) => story.needs_followup);
-  shell(`
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">Mentor view</p>
-        <h1>Coach the story, not the student’s voice.</h1>
-        <p class="lede">Your queue is derived from real submission state. Private stories never enter it.</p>
-      </div>
-      <button class="button" data-nav="queue">Open review queue</button>
-    </div>
-    <div class="grid four">
-      <div class="card metric"><span>Assigned students</span><strong>${students.students.length}</strong></div>
-      <div class="card metric"><span>Awaiting review</span><strong>${awaiting.length}</strong></div>
-      <div class="card metric"><span>Needs follow-up</span><strong>${followup.length}</strong></div>
-      <div class="card metric"><span>Approved</span><strong>${queue.stories.filter((story) => story.status === 'approved').length}</strong></div>
-    </div>
-    <div class="section-head"><h2>Next reviews</h2><button class="link-button" data-nav="queue">View all buckets</button></div>
-    ${storyRows(awaiting.slice(0, 5), 'No submitted stories are waiting for you.')}
-    <div class="section-head"><h2>Mentor tools</h2></div>
-    <div class="grid three">
-      <button class="card interactive" data-nav="students"><p class="eyebrow">Roster</p><h3>Students</h3><p>Open assigned workspaces and coaching history.</p></button>
-      <button class="card interactive" data-nav="prep"><p class="eyebrow">Prep</p><h3>Question workshops</h3><p>Compare questions and add manual coaching notes.</p></button>
-      <div class="card"><p class="eyebrow">Teaching mode</p><h3>Founder-gated integration</h3><p>Live-session actions are not represented as ready until their protected Matrix owner is integrated.</p></div>
-    </div>
-  `, 'Mentor Home');
-  bindStoryRows();
-  bindGlobal();
-}
-
-async function adminHome() {
-  const [students, questions] = await Promise.all([request('/api/students'), request('/api/questions')]);
-  shell(`
-    <div class="page-head">
-      <div><p class="eyebrow">Program administration</p><h1>Govern access without reading private stories.</h1>
-      <p class="lede">Admin can inspect profiles, assignment metadata, and question governance. There is no private-story support override.</p></div>
-    </div>
-    <div class="grid three">
-      <div class="card metric"><span>Visible student profiles</span><strong>${students.students.length}</strong></div>
-      <div class="card metric"><span>Question records</span><strong>${questions.questions.length}</strong></div>
-      <div class="card metric"><span>Private stories readable</span><strong>0</strong></div>
-    </div>
-    <div class="section-head"><h2>Founder-gated policies</h2></div>
-    <div class="card callout">Retention/deletion/export/archive and emergency support access remain unresolved founder decisions. This build does not invent either policy.</div>
-  `, 'Administration');
-}
-
-async function renderHome() {
-  if (state.user.role === 'student') return studentHome();
-  if (state.user.role === 'mentor') return mentorHome();
-  return adminHome();
-}
-
-async function renderLibrary() {
-  const stories = await loadStories();
-  const filters = [
-    ['all', 'All'],
-    ['private', 'Private'],
-    ['submitted', 'With mentor'],
-    ['approved', 'Approved'],
-  ];
-  const filterStories = (filter) => {
-    if (filter === 'all') return stories;
-    if (filter === 'submitted') return stories.filter((story) => story.status !== 'private');
-    return stories.filter((story) => story.status === filter);
-  };
-  const visible = filterStories(state.libraryFilter);
-  shell(`
-    <div class="page-head">
-      <div><p class="eyebrow">Story library</p><h1>Your stories, with their history intact.</h1>
-      <p class="lede">Original captures and later revisions are separate. Submitted stories are read-only until a mentor requests revision.</p></div>
-      <button class="button" data-nav="capture">New story</button>
-    </div>
-    <div class="button-row" aria-label="Library filters">
-      ${filters.map(([key, label]) => `
-        <button class="button ${state.libraryFilter === key ? 'secondary' : 'ghost'}" data-filter="${key}"
-          aria-pressed="${state.libraryFilter === key}">${label} ${filterStories(key).length}</button>
-      `).join('')}
-    </div>
-    <div class="section-head"><h2 id="library-filter-title">${escapeHtml(filters.find(([key]) => key === state.libraryFilter)?.[1] || 'All')} stories</h2></div>
-    <div id="library-list" aria-labelledby="library-filter-title">${storyRows(visible)}</div>
-  `, 'Library');
-  bindStoryRows();
-  document.querySelectorAll('[data-filter]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.libraryFilter = button.dataset.filter;
-      document.querySelectorAll('[data-filter]').forEach((filterButton) => {
-        const selected = filterButton.dataset.filter === state.libraryFilter;
-        filterButton.classList.toggle('secondary', selected);
-        filterButton.classList.toggle('ghost', !selected);
-        filterButton.setAttribute('aria-pressed', String(selected));
-      });
-      document.querySelector('#library-filter-title').textContent = `${filters.find(([key]) => key === state.libraryFilter)?.[1] || 'All'} stories`;
-      document.querySelector('#library-list').innerHTML = storyRows(filterStories(state.libraryFilter));
-      bindStoryRows();
-    });
-  });
-}
-
-function captureForm() {
-  return `
-    <div class="capture-hero">
-      <section class="card capture-card">
-        <div class="mode-tabs" aria-label="Capture mode">
-          <button type="button" data-mode="text" class="${state.captureMode === 'text' ? 'active' : ''}"
-            aria-pressed="${state.captureMode === 'text'}">Write</button>
-          <button type="button" data-mode="audio" class="${state.captureMode === 'audio' ? 'active' : ''}"
-            aria-pressed="${state.captureMode === 'audio'}">Record</button>
-        </div>
-        ${state.captureMode === 'audio' ? `
-          <div class="field">
-            <h2>Record the first telling</h2>
-            <p>Audio is private and durable only when the approved StoryForge R2 store is configured.</p>
-          </div>
-          <div class="callout ${state.config.audioAvailable ? 'success' : ''}">
-            ${state.config.audioAvailable
-              ? 'Private recording storage is configured. Create a story shell before recording.'
-              : 'Recording is unavailable in this environment because private StoryForge audio storage is not configured. Nothing has been recorded or uploaded.'}
-          </div>
-          <div class="button-row"><button class="button" type="button" id="record-start" ${state.config.audioAvailable ? '' : 'disabled'}>Start recording</button></div>
-        ` : `
-          <form id="capture-form">
-            <div class="field"><label for="story-title">Story title</label><input id="story-title" name="title" maxlength="160" placeholder="A moment you want to understand" required></div>
-            <div class="field"><label for="story-text">Tell it in your own words</label><textarea id="story-text" name="text" minlength="3" placeholder="What happened? What did you notice? What changed?" required></textarea>
-            <p class="hint">This remains private until you explicitly submit it.</p></div>
-            <div class="button-row"><button class="button" type="submit">Save private story</button></div>
-          </form>
-        `}
-      </section>
-      <aside class="card">
-        <p class="eyebrow">Capture promise</p>
-        <h3>Private really means private.</h3>
-        <p>Your assigned mentor cannot read a draft—not in a list and not by guessing its direct identifier.</p>
-        <hr>
-        <p class="eyebrow">Start imperfectly</p>
-        <p>Do not optimize the first telling. StoryForge preserves it so revision never erases where you began.</p>
-      </aside>
-    </div>`;
-}
-
-async function renderCapture() {
-  shell(`
-    <div class="page-head"><div><p class="eyebrow">Quick capture</p><h1>Catch the story before you polish it.</h1>
-    <p class="lede">Write or record a real first telling. You decide when a mentor is invited in.</p></div></div>
-    ${captureForm()}
-  `, 'Quick Capture');
-  document.querySelectorAll('[data-mode]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.captureMode = button.dataset.mode;
-      renderCapture();
-      document.querySelector(`[data-mode="${state.captureMode}"]`)?.focus();
-    });
-  });
-  document.querySelector('#capture-form')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    try {
-      const payload = await request('/api/stories', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: form.get('title'),
-          text: form.get('text'),
-          captureType: 'text',
-          surface: 'quick',
-        }),
-      });
-      notify('Private story saved.');
-      navigate('story', payload.story.id);
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-}
-
-async function renderStory() {
-  const detail = await request(`/api/stories/${state.routeId}`);
-  let story = detail.story;
-  if (state.user.role === 'mentor' && ['submitted', 'resubmitted'].includes(story.status)) {
-    story = (await request(`/api/stories/${story.id}/open`, {
-      method: 'POST',
-      body: JSON.stringify({ surface: 'quick' }),
-    })).story;
-  }
-  const editable = state.user.role === 'student' && ['private', 'needs_revision'].includes(story.status);
-  const mentor = state.user.role === 'mentor';
-  const mentorReviewAvailable = story.mentor_review_available === true;
-  state.selectedScore = mentor ? story.mentor_score : story.student_score;
-  shell(`
-    <div class="page-head">
-      <div>
-        <p class="eyebrow">${mentor ? escapeHtml(story.student_name) : 'Story workspace'}</p>
-        <h1>${escapeHtml(story.title)}</h1>
-        <div class="meta"><span class="status ${escapeHtml(story.status)}">${escapeHtml(humanStatus(story.status))}</span><span>Revision ${story.revision_no}</span><span>Updated ${escapeHtml(formatDate(story.updated_at))}</span></div>
-      </div>
-      <button class="button secondary" data-nav="${mentor ? 'queue' : 'library'}">Back</button>
-    </div>
-    <div class="grid two">
-      <section class="card">
-        <form id="story-form">
-          <div class="field"><label for="workspace-title">Title</label><input id="workspace-title" maxlength="160" value="${escapeHtml(story.title)}" ${editable ? '' : 'readonly'}></div>
-          <div class="field"><label for="workspace-text">Current telling</label><textarea id="workspace-text" ${editable ? '' : 'readonly'}>${escapeHtml(story.current_text)}</textarea></div>
-          <div class="field"><label>${mentor ? 'Mentor score' : 'Self score'}</label>${scoreControl(state.selectedScore, mentor ? 'Mentor' : 'Self')}</div>
-          ${editable ? `
-            <div class="field"><label for="story-uses">Uses</label><input id="story-uses" value="${escapeHtml((story.uses || []).join(', '))}" placeholder="behavioral, personal-statement"></div>
-            <div class="button-row">
-              <button class="button secondary" type="submit">Save revision</button>
-              <button class="button" type="button" id="submit-story"
-                ${mentorReviewAvailable ? '' : 'disabled aria-describedby="mentor-review-gate"'}>
-                ${mentorReviewAvailable
-                  ? (story.status === 'needs_revision' ? 'Resubmit to mentors' : 'Submit to mentors')
-                  : 'Mentor review unavailable'}
-              </button>
-            </div>
-            ${mentorReviewAvailable ? '' : `
-              <div class="callout info" id="mentor-review-gate">
-                Mentor review is not enabled yet. Your private story remains editable.
-              </div>
-            `}
-          ` : ''}
-        </form>
-        ${!editable && state.user.role === 'student' ? '<div class="callout info">This version is read-only while it is with your mentors.</div>' : ''}
-      </section>
-      <aside class="grid">
-        <section class="card">
-          <p class="eyebrow">Original capture</p>
-          <p>This snapshot cannot be overwritten.</p>
-          <div class="original">${escapeHtml(story.original_text || 'No text was captured.')}</div>
-        </section>
-        <section class="card">
-          <p class="eyebrow">Mentor thread</p>
-          <div class="feedback">
-            ${detail.feedback.length ? detail.feedback.map((item) => `
-              <div class="feedback-item"><strong>${escapeHtml(item.mentor_name)}</strong><p>${escapeHtml(item.body)}</p><small>${escapeHtml(formatDate(item.created_at))}</small></div>
-            `).join('') : '<p class="hint">No mentor feedback yet.</p>'}
-          </div>
-        </section>
-      </aside>
-    </div>
-    ${mentor && story.status !== 'approved' ? `
-      <section class="card spaced">
-        <p class="eyebrow">Full review</p>
-        <h2>Respond without rewriting the student’s voice.</h2>
-        <div class="field"><label for="mentor-feedback">Feedback or ask</label><textarea class="review-text" id="mentor-feedback" placeholder="Name what is working and the next concrete move."></textarea></div>
-        <div class="grid two">
-          <div class="field"><label for="classification">Classification</label><select id="classification">
-            <option value="">Choose one</option><option>clinical</option><option>leadership</option><option>teamwork</option><option>challenge</option><option>growth</option><option>other</option>
-          </select></div>
-          <label class="field"><span>Follow-up</span><span><input type="checkbox" id="needs-followup"> Keep in follow-up queue</span></label>
-        </div>
-        <div class="button-row">
-          <button class="button secondary" data-review-status="opened">Add feedback</button>
-          <button class="button secondary" data-review-status="needs_revision">Request revision</button>
-          <button class="button" data-review-status="approved">Approve</button>
-        </div>
-      </section>
-    ` : mentor ? '<section class="card spaced callout success"><strong>Approved and in coaching history.</strong> A new review requires a new student resubmission; the completed record stays attributed to each mentor.</section>' : ''}
-  `, 'Story Workspace');
-
-  document.querySelectorAll('[data-score]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.selectedScore = Number(button.dataset.score);
-      document.querySelectorAll('[data-score]').forEach((dot) => {
-        dot.classList.toggle('on', Number(dot.dataset.score) <= state.selectedScore);
-        dot.setAttribute('aria-pressed', String(Number(dot.dataset.score) === state.selectedScore));
-      });
-      document.querySelector('.score-key').textContent = `${mentor ? 'Mentor' : 'Self'} · ${state.selectedScore}/5`;
-    });
-  });
-
-  document.querySelector('#story-form')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    if (!editable) return;
-    try {
-      await request(`/api/stories/${story.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          title: document.querySelector('#workspace-title').value,
-          text: document.querySelector('#workspace-text').value,
-          studentScore: state.selectedScore,
-          uses: document.querySelector('#story-uses').value.split(',').map((item) => item.trim()).filter(Boolean),
-          surface: 'workspace',
-        }),
-      });
-      notify('Revision saved.');
-      renderStory();
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-
-  document.querySelector('#submit-story')?.addEventListener('click', async () => {
-    try {
-      await request(`/api/stories/${story.id}`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          title: document.querySelector('#workspace-title').value,
-          text: document.querySelector('#workspace-text').value,
-          studentScore: state.selectedScore,
-          uses: document.querySelector('#story-uses').value.split(',').map((item) => item.trim()).filter(Boolean),
-          surface: 'workspace',
-        }),
-      });
-      await request(`/api/stories/${story.id}/submit`, {
-        method: 'POST',
-        body: JSON.stringify({ surface: 'workspace' }),
-      });
-      notify('Story submitted to your assigned mentors.');
-      renderStory();
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-
-  document.querySelectorAll('[data-review-status]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      try {
-        await request(`/api/stories/${story.id}/review`, {
-          method: 'POST',
-          body: JSON.stringify({
-            feedback: document.querySelector('#mentor-feedback').value,
-            status: button.dataset.reviewStatus,
-            mentorScore: state.selectedScore,
-            needsFollowup: document.querySelector('#needs-followup').checked,
-            classification: document.querySelector('#classification').value || null,
-            surface: 'workspace',
-          }),
-        });
-        notify(button.dataset.reviewStatus === 'approved' ? 'Story approved.' : 'Mentor action saved and student notified.');
-        renderStory();
-      } catch (error) {
-        notify(error.message);
-      }
-    });
-  });
-}
-
-async function renderStudents() {
-  const { students } = await request('/api/students');
-  shell(`
-    <div class="page-head"><div><p class="eyebrow">Assigned roster</p><h1>Students</h1>
-    <p class="lede">Counts include only students the signed identity may see.</p></div></div>
-    <div class="grid three">${students.map((student) => `
-      <div class="card student-card">
-        <p class="eyebrow">Cohort ${escapeHtml(student.cohort || '—')}</p>
-        <h2>${escapeHtml(student.display_name)}</h2>
-        <p>${student.story_count} visible stories · ${student.awaiting_review} awaiting review</p>
-        <button class="button secondary" data-nav="queue">Open workspace</button>
-      </div>
-    `).join('') || '<div class="card empty">No assigned students are visible.</div>'}</div>
-  `, 'Students');
-  bindGlobal();
-}
-
-async function renderQueue() {
-  const { stories } = await request('/api/queue');
-  const buckets = [
-    ['all', 'All'],
-    ['awaiting_review', 'Awaiting review'],
-    ['in_review', 'In review'],
-    ['waiting_on_student', 'Waiting on student'],
-    ['approved', 'Approved'],
-  ];
-  const visible = state.queueBucket === 'all' ? stories : stories.filter((story) => story.bucket === state.queueBucket);
-  shell(`
-    <div class="page-head"><div><p class="eyebrow">Five-bucket queue</p><h1>Review Queue</h1>
-    <p class="lede">Opening is separate from reviewing. Every status and notification comes from a committed action.</p></div></div>
-    <div class="queue-buckets">${buckets.map(([key, label]) => `
-      <button class="button ${state.queueBucket === key ? '' : 'secondary'}" data-bucket="${key}"
-        aria-pressed="${state.queueBucket === key}">${label} · ${key === 'all' ? stories.length : stories.filter((story) => story.bucket === key).length}</button>
-    `).join('')}</div>
-    <div class="section-head"><h2>${escapeHtml(buckets.find(([key]) => key === state.queueBucket)?.[1] || 'All')}</h2></div>
-    ${storyRows(visible, 'No stories are in this queue bucket.')}
-  `, 'Review Queue');
-  bindStoryRows();
-  document.querySelectorAll('[data-bucket]').forEach((button) => {
-    button.addEventListener('click', () => {
-      state.queueBucket = button.dataset.bucket;
-      renderQueue().then(() => {
-        document.querySelector(`[data-bucket="${state.queueBucket}"]`)?.focus();
-      }).catch((error) => notify(error.message));
-    });
-  });
-}
-
-async function renderNotifications() {
-  const { notifications } = await request('/api/notifications');
-  shell(`
-    <div class="page-head"><div><p class="eyebrow">Real coaching events</p><h1>Notifications</h1>
-    <p class="lede">A notification exists only because the mentor action and this record committed together.</p></div></div>
-    <section class="card">
-      ${notifications.length ? notifications.map((item) => `
-        <button class="notification ${item.read_at ? 'read' : ''}" data-notification="${item.id}" data-story="${item.story_id || ''}">
-          <span class="notification-dot" aria-hidden="true"></span>
-          <span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.actor_name || 'StoryForge')}</small><p>${escapeHtml(item.body)}</p></span>
-          <time>${escapeHtml(formatDate(item.created_at))}</time>
-        </button>
-      `).join('') : '<div class="empty">No coaching notifications yet.</div>'}
-    </section>
-  `, 'Notifications');
-  document.querySelectorAll('[data-notification]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      try {
-        await request(`/api/notifications/${button.dataset.notification}/read`, { method: 'POST', body: '{}' });
-        if (button.dataset.story) navigate('story', button.dataset.story);
-        else renderNotifications();
-      } catch (error) {
-        notify(error.message);
-      }
-    });
-  });
-}
-
-async function renderSettings() {
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const selectedBackground = activeBackground();
-  shell(`
-    <div class="page-head"><div><p class="eyebrow">Settings</p><h1>Your environment.</h1>
-    <p class="lede">StoryForge stays dark by default. Your selection is saved to your authenticated profile and follows you across devices.</p></div></div>
-    <section class="card">
-      <div class="section-head"><div><p class="eyebrow">Background environment</p><h2>Choose the atmosphere, not the authority.</h2></div></div>
-      <div class="background-grid">
-        ${backgroundEnvironments.map((background) => `
-          <button class="background-card ${selectedBackground === background.id ? 'active' : ''}"
-            type="button" data-background="${background.id}"
-            aria-pressed="${selectedBackground === background.id}">
-            <span class="background-preview ${background.id}" aria-hidden="true"></span>
-            <span class="background-copy">
-              <strong>${escapeHtml(background.name)}</strong>
-              <small>${escapeHtml(background.description)}</small>
-              ${selectedBackground === background.id ? '<span class="active-environment">Active</span>' : ''}
-            </span>
-          </button>
-        `).join('')}
-      </div>
-      <p class="hint motion-status">Reduced motion is ${reducedMotion
-        ? 'on. Every environment is rendered as a still frame.'
-        : 'off. Environments move gently and stop automatically when your system requests reduced motion.'}</p>
-    </section>
-    <section class="card spaced">
-      <div class="setting-row">
-        <div><p class="eyebrow">Signed identity</p><h3>${escapeHtml(state.user.display_name)}</h3>
-        <p class="hint">${escapeHtml(state.user.role)}${state.user.cohort ? ` · cohort ${escapeHtml(state.user.cohort)}` : ''}. Role and eligibility come from the signed MissionMed session.</p></div>
-      </div>
-      <div class="setting-row">
-        <div><p class="eyebrow">MissionMed Matrix</p><h3>Return to the platform</h3>
-        <p class="hint">Leave StoryForge without creating a second sign-out path.</p></div>
-        <a class="button secondary settings-matrix-link" href="${escapeHtml(matrixHref())}">← Back to Matrix</a>
-      </div>
-    </section>
-  `, 'Settings');
-  document.querySelectorAll('.background-card[data-background]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      try {
-        const payload = await request('/api/preferences/background', {
-          method: 'PATCH',
-          body: JSON.stringify({ background: button.dataset.background }),
-        });
-        state.user.background_preference = payload.backgroundPreference;
-        applyEnvironment();
-        notify(`${backgroundEnvironments.find(({ id }) => id === payload.backgroundPreference)?.name || 'Background'} applied.`);
-        await renderSettings();
-        document.querySelector(`.background-card[data-background="${payload.backgroundPreference}"]`)?.focus();
-      } catch (error) {
-        button.disabled = false;
-        notify(error.message);
-      }
-    });
-  });
-}
-
-async function renderPrep() {
-  const [questionData, workshopData, nextData] = await Promise.all([
-    request('/api/questions'),
-    request('/api/workshops'),
-    request('/api/next-questions'),
-  ]);
-  state.questions = questionData.questions;
-  const canImport = ['mentor', 'admin'].includes(state.user.role);
-  shell(`
-    <div class="page-head"><div><p class="eyebrow">Interview prep</p><h1>Prepare the next natural question.</h1>
-    <p class="lede">Question strength belongs to each story–question pair. Student and mentor judgments remain visibly separate.</p></div></div>
-    <div class="grid three">
-      ${state.questions.filter((question) => question.governance_state === 'approved').slice(0, 6).map((question) => `
-        <div class="card question-card"><span class="family">${escapeHtml(question.family)}</span><h2>${escapeHtml(question.text)}</h2>
-        <span class="status ${escapeHtml(question.governance_state)}">${escapeHtml(question.governance_state)} · ${escapeHtml(question.provenance)}</span></div>
-      `).join('')}
-    </div>
-    <div class="section-head"><h2>Question Workshops</h2><button class="button secondary" id="new-workshop">New pair</button></div>
-    <div class="grid">${workshopData.workshops.map((workshop) => `
-      <section class="card">
-        <p class="eyebrow">${escapeHtml(workshop.student_name)} · ${escapeHtml(workshop.status)}</p>
-        <div class="workshop-pair">
-          <div class="workshop-question"><h3>${escapeHtml(workshop.question_a)}</h3><p>Student ${workshop.student_strength_a || '—'} · Mentor ${workshop.mentor_strength_a || '—'}</p></div>
-          <span class="versus">versus</span>
-          <div class="workshop-question"><h3>${escapeHtml(workshop.question_b)}</h3><p>Student ${workshop.student_strength_b || '—'} · Mentor ${workshop.mentor_strength_b || '—'}</p></div>
-        </div>
-        ${workshop.student_why ? `<p><strong>Student’s why:</strong> ${escapeHtml(workshop.student_why)}</p>` : ''}
-        ${workshop.mentor_coaching_notes ? `<p><strong>Mentor coaching:</strong> ${escapeHtml(workshop.mentor_coaching_notes)}</p>` : ''}
-      </section>
-    `).join('') || '<div class="card empty">No workshop pair has been created yet.</div>'}</div>
-    <div class="section-head"><h2>Next Natural Questions</h2></div>
-    <section class="card">
-      <form id="next-question-form" class="button-row">
-        <input class="grow-input" name="text" aria-label="Next natural question" placeholder="Add a manual follow-up question" required>
-        <button class="button" type="submit">Add question</button>
-      </form>
-      <div class="story-list spaced">${nextData.questions.map((question) => `
-        <div class="story-row"><span><strong>${escapeHtml(question.text)}</strong><small>${escapeHtml(question.source)} · ${question.prepared ? 'prepared' : 'working'}</small></span></div>
-      `).join('') || '<p class="hint">No manual follow-ups yet.</p>'}</div>
-    </section>
-    <div class="section-head"><h2>AI suggestions</h2></div>
-    <section class="card callout info">
-      <strong>Truthful gated state.</strong> General and clinical suggestions are unavailable until their separate founder, DPA, budget, and evaluation gates pass.
-      <div class="button-row spaced-sm"><button class="button secondary" id="try-ai">Check availability</button></div>
-    </section>
-    ${canImport ? `
-      <div class="section-head"><h2>Question import</h2></div>
-      <section class="card">
-        <p>Paste, CSV, and XLSX enter review first. New institutional questions commit as drafts; duplicates remain unchecked.</p>
-        <div class="mode-tabs"><button class="active" type="button">Paste</button></div>
-        <div class="field"><label for="import-text">One question per line</label><textarea id="import-text" class="review-text"></textarea></div>
-        <div class="button-row"><button class="button secondary" id="preview-import">Preview import</button><button class="button" id="commit-import" disabled>Commit selected drafts</button></div>
-        <div id="import-preview"></div>
-      </section>
-    ` : ''}
-  `, 'Prep');
-
-  document.querySelector('#new-workshop')?.addEventListener('click', async () => {
-    if (state.questions.length < 2) return notify('At least two approved questions are required.');
-    const studentId = state.user.role === 'student'
-      ? state.user.id
-      : (await request('/api/students')).students[0]?.id;
-    if (!studentId) return notify('No assigned student is available.');
-    try {
-      await request('/api/workshops', {
-        method: 'POST',
-        body: JSON.stringify({
-          studentId,
-          questionAId: state.questions[0].id,
-          questionBId: state.questions[1].id,
-        }),
-      });
-      notify('Question pair created.');
-      renderPrep();
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-
-  document.querySelector('#next-question-form')?.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const studentId = state.user.role === 'student'
-      ? state.user.id
-      : (await request('/api/students')).students[0]?.id;
-    try {
-      await request('/api/next-questions', {
-        method: 'POST',
-        body: JSON.stringify({ studentId, text: new FormData(event.currentTarget).get('text') }),
-      });
-      notify('Manual follow-up saved.');
-      renderPrep();
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-
-  document.querySelector('#try-ai')?.addEventListener('click', async () => {
-    try {
-      await request('/api/ai/suggest', { method: 'POST', body: JSON.stringify({ mode: 'general' }) });
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-
-  document.querySelector('#preview-import')?.addEventListener('click', async () => {
-    try {
-      const result = await request('/api/imports/preview', {
-        method: 'POST',
-        body: JSON.stringify({ format: 'paste', text: document.querySelector('#import-text').value }),
-      });
-      state.importPreview = result.rows;
-      const target = document.querySelector('#import-preview');
-      target.innerHTML = state.importPreview.map((row, index) => `
-        <label class="import-row">
-          <input type="checkbox" data-import-row="${index}" ${row.selected ? 'checked' : ''} ${row.error || row.exactDuplicateId || row.nearDuplicateId ? 'disabled' : ''}>
-          <span>${row.rowNumber}</span>
-          <span>${escapeHtml(row.text || 'Empty row')}<small class="${row.error ? 'error' : ''}">${escapeHtml(row.error || (row.exactDuplicateId ? 'Exact duplicate' : row.nearDuplicateId ? `Possible duplicate · ${row.similarity}` : 'Ready for draft review'))}</small></span>
-          <span>${escapeHtml(row.family)}</span>
-        </label>
-      `).join('');
-      document.querySelector('#commit-import').disabled = !state.importPreview.some((row) => row.selected);
-      target.querySelectorAll('[data-import-row]').forEach((input) => input.addEventListener('change', () => {
-        state.importPreview[Number(input.dataset.importRow)].selected = input.checked;
-        document.querySelector('#commit-import').disabled = !state.importPreview.some((row) => row.selected);
-      }));
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-
-  document.querySelector('#commit-import')?.addEventListener('click', async () => {
-    try {
-      await request('/api/imports/commit', {
-        method: 'POST',
-        body: JSON.stringify({
-          sourceName: 'pasted-questions',
-          format: 'paste',
-          rows: state.importPreview,
-        }),
-      });
-      state.importPreview = [];
-      notify('Selected questions committed as drafts.');
-      renderPrep();
-    } catch (error) {
-      notify(error.message);
-    }
-  });
-}
-
-async function renderActivity() {
-  const stories = state.user.role === 'admin' ? [] : (await request('/api/stories')).stories;
-  shell(`
-    <div class="page-head"><div><p class="eyebrow">${state.user.role === 'admin' ? 'Least privilege' : 'Real actions'}</p><h1>${state.user.role === 'admin' ? 'Audit boundary' : 'My Activity'}</h1>
-    <p class="lede">${state.user.role === 'admin'
-      ? 'Audit access is intentionally narrow. No private-story support path is implemented.'
-      : 'This view is derived from story lifecycle state and retains the real actor on every coaching action.'}</p></div></div>
-    ${state.user.role === 'admin'
-      ? '<div class="card callout">The founder must approve an admin support-access policy before any emergency private-story path can exist.</div>'
-      : storyRows(stories)}
-  `, 'Activity');
-  bindStoryRows();
-}
-
-async function renderRoute() {
-  const route = state.route;
-  if (route === 'home') return renderHome();
-  if (route === 'library') return renderLibrary();
-  if (route === 'capture') return renderCapture();
-  if (route === 'story') return renderStory();
-  if (route === 'students') return renderStudents();
-  if (route === 'queue') return renderQueue();
-  if (route === 'notifications') return renderNotifications();
-  if (route === 'prep') return renderPrep();
-  if (route === 'activity') return renderActivity();
-  if (route === 'settings') return renderSettings();
-  return navigate('home');
-}
-
-function renderLogin(errorMessage = '') {
-  applyEnvironment();
-  app.innerHTML = `<main class="login" id="main">
-    <section class="login-panel">
-      <div class="login-art">
-        <div class="brand"><span class="brand-mark">S</span><div><strong>StoryForge</strong><small>MissionMed 360</small></div></div>
-        <blockquote>“Your story is evidence of how you notice, decide, and grow.”</blockquote>
-        <small>Private by default · Original preserved · Real mentor attribution</small>
-      </div>
-      <div class="login-form">
-        <p class="eyebrow">Identity required</p>
-        <h1>Enter StoryForge</h1>
-        <p>${state.config?.devAuth
-          ? 'Choose a locally signed fixture identity. This is test infrastructure, not production WordPress SSO.'
-          : 'Open StoryForge through your signed-in MissionMed 360 account.'}</p>
-        ${errorMessage ? `<div class="callout">${escapeHtml(errorMessage)}</div>` : ''}
-        ${state.config?.devAuth ? `
-          <div class="fixture-grid">
-            <button class="button" data-persona="student">Student · Maya</button>
-            <button class="button secondary" data-persona="mentor">Mentor · Dr. Chen</button>
-            <button class="button secondary" data-persona="mentorTwo">Second mentor · Dr. Rivera</button>
-            <button class="button secondary" data-persona="unassignedMentor">Unassigned mentor · privacy probe</button>
-            <button class="button secondary" data-persona="admin">Admin · least privilege</button>
-          </div>
-        ` : '<div class="callout">The production StoryForge JWT issuer has not supplied an eligible session.</div>'}
-      </div>
-    </section>
-  </main>`;
-  document.querySelectorAll('[data-persona]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      try {
-        await enterFixturePersona(button.dataset.persona);
-      } catch (error) {
-        renderLogin(error.message);
-      }
-    });
-  });
-  focusPrimaryHeading();
-}
-
-function parseRoute() {
-  const fragment = location.hash.replace(/^#/, '');
-  const legacy = fragment === 'main' ? '' : fragment;
-  const base = state.config.basePath;
-  const relative = legacy || (location.pathname.startsWith(base) ? location.pathname.slice(base.length) : '');
-  const [route, id] = relative.replace(/^\/+|\/+$/g, '').split('/');
-  state.route = route || 'home';
-  state.routeId = id || null;
-}
-
-function renderLockout(lockoutState = 'access_unavailable', message = '') {
-  applyEnvironment();
-  const presentations = {
-    eligibility_revoked: {
-      eyebrow: 'Access changed',
-      heading: 'Your 360 access has changed.',
-      fallback: 'StoryForge locked as soon as WordPress reported the eligibility change.',
-    },
-    session_required: {
-      eyebrow: 'Session unavailable',
-      heading: 'Your MissionMed session ended.',
-      fallback: 'Sign in through MissionMed to return to this exact StoryForge page.',
-    },
-    session_ended: {
-      eyebrow: 'Session unavailable',
-      heading: 'Your MissionMed session ended.',
-      fallback: 'Sign in through MissionMed to return to this exact StoryForge page.',
-    },
-    user_not_enabled: {
-      eyebrow: 'Access unavailable',
-      heading: 'StoryForge is not enabled for this account.',
-      fallback: 'Return to Matrix to continue using the tools enabled for this account.',
-    },
-    role_not_enabled: {
-      eyebrow: 'Access unavailable',
-      heading: 'StoryForge is not enabled for this account.',
-      fallback: 'Return to Matrix to continue using the tools enabled for this account.',
-    },
-    cohort_not_enabled: {
-      eyebrow: 'Access unavailable',
-      heading: 'StoryForge is not enabled for this account.',
-      fallback: 'Return to Matrix to continue using the tools enabled for this account.',
-    },
-    storyforge_disabled: {
-      eyebrow: 'Pilot unavailable',
-      heading: 'StoryForge is not enabled yet.',
-      fallback: 'Return to Matrix while this pilot remains off.',
-    },
-  };
-  const presentation = presentations[lockoutState] || {
-    eyebrow: 'Temporarily unavailable',
-    heading: 'StoryForge could not open safely.',
-    fallback: 'Return to Matrix and try again in a moment.',
-  };
-  app.innerHTML = `<main class="login" id="main">
-    <section class="login-panel">
-      <div class="login-art">
-        <div class="brand"><span class="brand-mark">S</span><div><strong>StoryForge</strong><small>MissionMed 360</small></div></div>
-        <blockquote>“Your stories remain preserved.”</blockquote>
-      </div>
-      <div class="login-form">
-        <div role="alert" aria-live="assertive">
-          <p class="eyebrow">${presentation.eyebrow}</p>
-          <h1>${presentation.heading}</h1>
-          <p>${escapeHtml(message || presentation.fallback)}</p>
-        </div>
-        <a class="button" href="${escapeHtml(matrixHref())}">Back to Matrix</a>
-      </div>
-    </section>
-  </main>`;
-  focusPrimaryHeading();
-}
-
-function renderStartupFailure() {
-  applyEnvironment();
-  app.innerHTML = `<main class="login" id="main">
-    <section class="login-panel">
-      <div class="login-art">
-        <div class="brand"><span class="brand-mark">S</span><div><strong>StoryForge</strong><small>MissionMed 360</small></div></div>
-        <blockquote>“Your stories were not changed.”</blockquote>
-      </div>
-      <div class="login-form">
-        <div role="alert" aria-live="assertive">
-          <p class="eyebrow">Temporarily unavailable</p>
-          <h1>StoryForge could not open safely.</h1>
-          <p>We could not reach the StoryForge service. Retry, or return to Matrix and come back in a moment.</p>
-        </div>
-        <div class="button-row">
-          <button class="button" type="button" id="retry-startup">Retry</button>
-          <a class="button secondary" href="${escapeHtml(matrixHref())}">Back to Matrix</a>
-        </div>
-      </div>
-    </section>
-  </main>`;
-  document.querySelector('#retry-startup')?.addEventListener('click', () => {
-    init();
-  });
-  focusPrimaryHeading();
-}
-
 async function bootstrapSession() {
-  try {
-    const { user } = await request('/api/session');
-    state.user = user;
-    state.lockout = null;
-    parseRoute();
-    const allowed = new Set((routesByRole[user.role] || []).map(([route]) => route).concat('story'));
-    if (!allowed.has(state.route)) state.route = 'home';
-    await renderRoute();
-    focusPrimaryHeading();
-  } catch (error) {
-    state.user = null;
-    if (!error.redirecting && !state.lockout) renderLogin(error.message);
+  const { user } = await api.session();
+  state.user = user;
+  state.lockout = null;
+  state.selectedStudent = null;
+  parseRoute();
+  const studentRoutes = new Set(['home', 'library', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
+  const mentorRoutes = new Set(['home', 'students', 'student', 'queue', 'activity', 'settings', 'prep', 'qshop', 'qlib', 'story']);
+  const adminRoutes = new Set(['qlib']);
+  const allowedRoutes = isAdmin() ? adminRoutes : isMentor() ? mentorRoutes : studentRoutes;
+  if (!allowedRoutes.has(state.route)) {
+    state.route = isAdmin() ? 'qlib' : 'home';
+    state.routeId = null;
+    pushPath(state.route, null, true);
   }
+  await renderRoute();
 }
 
 async function init() {
-  applyEnvironment();
-  app.innerHTML = '<main class="boot" id="main"><div role="status" aria-live="polite"><p class="eyebrow">MissionMed 360</p><h1>StoryForge</h1><p>Opening your story workspace…</p></div></main>';
+  hideApplicationChrome();
+  main.innerHTML = `<section class="gatePage" role="status" aria-live="polite"><p class="eyebrow">MissionMed 360</p><h1 class="h1">Story<em>Forge</em></h1><p>Opening your story workspace…</p></section>`;
   try {
-    state.config = await auth.publicRequest('api/config');
+    state.config = await api.config();
     auth.configure(state.config);
     if (state.config.devAuth) {
-      const rememberedPersona = sessionStorage.getItem(fixturePersonaKey);
-      if (fixturePersonas.has(rememberedPersona)) {
-        await enterFixturePersona(rememberedPersona);
+      const remembered = sessionStorage.getItem(FIXTURE_PERSONA_KEY);
+      if (FIXTURE_PERSONAS.has(remembered)) {
+        await enterFixturePersona(remembered);
         return;
       }
       renderLogin();
@@ -1138,31 +4271,99 @@ async function init() {
     await auth.exchange();
     await bootstrapSession();
   } catch (error) {
-    if (!error.redirecting && !state.lockout) {
-      renderStartupFailure();
-    }
+    if (!error.redirecting && !state.lockout) renderStartupFailure();
   }
 }
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-fixture-persona], [data-retry-startup]');
+  if (!button) return;
+  try {
+    button.disabled = true;
+    if (button.dataset.fixturePersona) await enterFixturePersona(button.dataset.fixturePersona);
+    else await init();
+  } catch (error) {
+    renderLogin(error.message);
+  }
+});
 
 window.addEventListener('popstate', async () => {
   if (!state.user) return;
   parseRoute();
+  clearOverlays();
   try {
     await renderRoute();
-    focusPrimaryHeading();
   } catch (error) {
     notify(error.message);
   }
 });
 
-document.querySelector('.skip-link')?.addEventListener('click', (event) => {
+$('.skip-link')?.addEventListener('click', (event) => {
   event.preventDefault();
-  const main = document.querySelector('#main');
-  const heading = main?.querySelector('h1');
-  if (!main || !heading) return;
-  main.scrollIntoView({ block: 'start' });
-  heading.setAttribute('tabindex', '-1');
-  heading.focus();
+  const heading = $('h1, .h1', main);
+  heading?.setAttribute('tabindex', '-1');
+  heading?.focus();
 });
 
+function startEnvironmentEngine() {
+  const canvas = $('#bgfx');
+  const context = canvas?.getContext('2d');
+  if (!context) return;
+  let particles = [];
+  let stars = [];
+  let builtFor = '';
+  let tick = 0;
+  const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const resize = () => {
+    const bounds = canvas.getBoundingClientRect();
+    const ratio = Math.min(devicePixelRatio || 1, 2);
+    if (canvas.width !== Math.round(bounds.width * ratio) || canvas.height !== Math.round(bounds.height * ratio)) {
+      canvas.width = Math.round(bounds.width * ratio);
+      canvas.height = Math.round(bounds.height * ratio);
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    }
+    return bounds;
+  };
+  const build = (mode) => {
+    builtFor = mode;
+    particles = Array.from({ length: 64 }, () => ({ x: Math.random(), y: Math.random(), size: Math.random(), phase: Math.random() * 7 }));
+    stars = Array.from({ length: 110 }, () => ({ x: Math.random(), y: Math.random(), size: Math.random(), phase: Math.random() * 7 }));
+  };
+  const frame = () => {
+    const bounds = resize();
+    const mode = document.body.dataset.background || 'ember';
+    if (builtFor !== mode) build(mode);
+    context.clearRect(0, 0, bounds.width, bounds.height);
+    tick += reduced() ? 0 : 0.012;
+    if (mode === 'ember') {
+      particles.forEach((particle) => {
+        if (!reduced()) {
+          particle.y -= (0.04 + particle.size * 0.12) / 150;
+          particle.x += Math.sin(tick + particle.phase) * 0.00012;
+          if (particle.y < -0.02) {
+            particle.y = 1.02;
+            particle.x = Math.random();
+          }
+        }
+        const color = particle.size > 0.45 ? '255,179,64' : '57,214,255';
+        context.fillStyle = `rgba(${color},${0.05 + particle.size * 0.11})`;
+        context.beginPath();
+        context.arc(particle.x * bounds.width, particle.y * bounds.height, 0.7 + particle.size * 1.7, 0, Math.PI * 2);
+        context.fill();
+      });
+    } else if (mode === 'constellation') {
+      stars.forEach((star) => {
+        const twinkle = reduced() ? 0.8 : 0.45 + 0.55 * Math.abs(Math.sin(tick * 0.8 + star.phase * 3));
+        context.fillStyle = `rgba(${star.size > 0.6 ? '233,238,251' : '159,216,255'},${(0.15 + star.size * 0.5) * twinkle})`;
+        context.beginPath();
+        context.arc(star.x * bounds.width, star.y * bounds.height, 0.5 + star.size * 1.3, 0, Math.PI * 2);
+        context.fill();
+      });
+    }
+    requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+}
+
+startEnvironmentEngine();
 init();

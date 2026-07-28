@@ -4,6 +4,9 @@ set -euo pipefail
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORKTREE_DIR="$(cd "$PACKAGE_DIR/.." && pwd)"
 COMPOSE_FILE="$PACKAGE_DIR/infra/wordpress/docker-compose.yml"
+: "${STORYFORGE_EXPECTED_COMMIT:?StoryForge release integration requires STORYFORGE_EXPECTED_COMMIT as a full commit.}"
+node "$PACKAGE_DIR/scripts/assert-release-source.mjs" --mode=release
+SF_PRODUCT_COMMIT="$STORYFORGE_EXPECTED_COMMIT"
 SF_TMP="$(mktemp -d /tmp/storyforge-v5.integration.XXXXXX)"
 SF_PGDATA="$SF_TMP/pgdata"
 SF_PGSOCKET="$SF_TMP/pgsocket"
@@ -30,15 +33,17 @@ SF_SERVER_PID=""
 SF_MOCK_PID=""
 SF_SECRET="b1-501-local-wordpress-signing-secret-32-bytes"
 SF_ISSUER="http://127.0.0.1:${SF_WP_PORT}/wp-json/missionmed/v1/storyforge"
-EVIDENCE_DIR="$WORKTREE_DIR/_AI_HANDOFFS/from_codex/B1-502M_storyforge_megarun/evidence/local-integration"
-
-mkdir -p "$SF_PGSOCKET" "$EVIDENCE_DIR"
-export STORYFORGE_INTEGRATION_WP_PORT="$SF_WP_PORT"
-export STORYFORGE_INTEGRATION_WP_URL="http://127.0.0.1:$SF_WP_PORT"
-export STORYFORGE_INTEGRATION_APP_PORT="$SF_APP_PORT"
-export STORYFORGE_ROUTE_ENABLED=1
+EVIDENCE_DIR=""
 
 cleanup() {
+  local sf_exit_code=$?
+  if [[ -n "$EVIDENCE_DIR" && "$sf_exit_code" -ne 0 ]]; then
+    STORYFORGE_EXPECTED_COMMIT="$SF_PRODUCT_COMMIT" \
+      node "$PACKAGE_DIR/scripts/update-integration-evidence.mjs" \
+        --status=failed \
+        --exit-code="$sf_exit_code" \
+        --directory="$EVIDENCE_DIR" >/dev/null 2>&1 || true
+  fi
   if [[ -n "$SF_MOCK_PID" ]]; then
     kill "$SF_MOCK_PID" >/dev/null 2>&1 || true
     wait "$SF_MOCK_PID" >/dev/null 2>&1 || true
@@ -55,17 +60,25 @@ cleanup() {
     /tmp/storyforge-v5.integration.*) rm -rf -- "$SF_TMP" ;;
     *) echo "Refusing to remove unexpected temp path: $SF_TMP" >&2 ;;
   esac
+  trap - EXIT INT TERM
+  exit "$sf_exit_code"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+EVIDENCE_DIR="$(node "$PACKAGE_DIR/scripts/create-integration-evidence-dir.mjs")"
+mkdir -p "$SF_PGSOCKET"
+export STORYFORGE_INTEGRATION_WP_PORT="$SF_WP_PORT"
+export STORYFORGE_INTEGRATION_WP_URL="http://127.0.0.1:$SF_WP_PORT"
+export STORYFORGE_INTEGRATION_APP_PORT="$SF_APP_PORT"
+export STORYFORGE_ROUTE_ENABLED=1
+export STORYFORGE_INTEGRATION_PLAYWRIGHT_OUTPUT_DIR="$EVIDENCE_DIR/playwright-results"
+export STORYFORGE_INTEGRATION_PLAYWRIGHT_REPORT_DIR="$EVIDENCE_DIR/playwright-report"
 
 docker compose -f "$COMPOSE_FILE" down -v --remove-orphans >/dev/null 2>&1 || true
-npm run build --prefix "$PACKAGE_DIR"
+STORYFORGE_EXPECTED_COMMIT="$SF_PRODUCT_COMMIT" npm run build:release --prefix "$PACKAGE_DIR"
 npm run scan:secrets --prefix "$PACKAGE_DIR"
-SF_PRODUCT_COMMIT="$(git -C "$WORKTREE_DIR" rev-parse HEAD^{commit})"
-if [[ ! "$SF_PRODUCT_COMMIT" =~ ^[a-f0-9]{40}$ ]]; then
-  echo "StoryForge integration release requires an exact 40-character product commit." >&2
-  exit 1
-fi
 mkdir -p "$SF_WP_RUNTIME/releases/$SF_PRODUCT_COMMIT"
 cp "$PACKAGE_DIR/infra/wordpress/missionmed-storyforge-runtime/release.php" \
   "$SF_WP_RUNTIME/releases/$SF_PRODUCT_COMMIT/release.php"
@@ -78,9 +91,9 @@ psql -h 127.0.0.1 -p "$SF_PG_PORT" -U postgres -d postgres \
   -v ON_ERROR_STOP=1 -c "CREATE DATABASE storyforge" >/dev/null
 PSQL_ARGS=(-h 127.0.0.1 -p "$SF_PG_PORT" -U postgres -d storyforge -v ON_ERROR_STOP=1)
 psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/bootstrap_local.sql" >/dev/null
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql" >/dev/null
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql" >/dev/null
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql" >/dev/null
+while IFS= read -r migration; do
+  psql "${PSQL_ARGS[@]}" -f "$migration" >/dev/null
+done < <(find "$PACKAGE_DIR/infra/postgres/migrations" -maxdepth 1 -type f -name '*.sql' -print | LC_ALL=C sort)
 psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/seed_local.sql" >/dev/null
 psql "${PSQL_ARGS[@]}" -c "UPDATE public.sf_mentor_assignments SET active = false" >/dev/null
 
@@ -422,4 +435,18 @@ fi
   echo "plugin_deactivation_forced_flag_off=true"
 } >"$EVIDENCE_DIR/rollback-local-verification.txt"
 
-echo "StoryForge B1-501 local integration gates passed."
+TERMINAL_SOURCE_PROOF="$SF_TMP/terminal-source-proof.json"
+node "$PACKAGE_DIR/scripts/assert-release-source.mjs" --mode=release \
+  >"$TERMINAL_SOURCE_PROOF"
+node "$PACKAGE_DIR/scripts/update-integration-evidence.mjs" \
+  --status=complete \
+  --directory="$EVIDENCE_DIR" \
+  --terminal-proof="$TERMINAL_SOURCE_PROOF" \
+  --dist="$PACKAGE_DIR/dist" \
+  --route="$PACKAGE_DIR/infra/wordpress/missionmed-storyforge-route.php" \
+  --release="$PACKAGE_DIR/infra/wordpress/missionmed-storyforge-runtime/release.php" \
+  --edge="$PACKAGE_DIR/infra/edge/generated-asset-aliases.mjs" \
+  --staged-release="$SF_WP_RUNTIME/releases/$SF_PRODUCT_COMMIT/release.php" \
+  --current-link="$SF_WP_RUNTIME/current"
+echo "StoryForge B1-503 release integration gates passed for $SF_PRODUCT_COMMIT."
+echo "Collision-safe integration evidence: $EVIDENCE_DIR"

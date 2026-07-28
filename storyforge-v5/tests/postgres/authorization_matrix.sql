@@ -29,8 +29,22 @@ BEGIN
         );
       WHEN 'create' THEN
         PERFORM public.sf_create_story('Denied', 'This must not persist.', 'text', 'quick');
+      WHEN 'custom_question' THEN
+        PERFORM public.sf_create_custom_question(
+          'This custom question must not persist.',
+          'custom',
+          'library'
+        );
       WHEN 'preference' THEN
         PERFORM public.sf_set_background_preference('aurora');
+      WHEN 'coaching_foreign_question' THEN
+        PERFORM public.sf_add_question_coaching_note(
+          '11111111-1111-4111-8111-111111111111',
+          p_story_id,
+          NULL,
+          'This cross-student question link must not persist.',
+          'workshop'
+        );
       ELSE
         RAISE EXCEPTION 'unknown test operation';
     END CASE;
@@ -39,6 +53,22 @@ BEGIN
     WHEN insufficient_privilege OR no_data_found OR check_violation THEN
       RETURN true;
   END;
+END
+$$;
+
+CREATE OR REPLACE FUNCTION public.sf_test_expect_sqlstate(
+  p_sql text,
+  p_expected text[]
+)
+RETURNS boolean
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  EXECUTE p_sql;
+  RETURN false;
+EXCEPTION
+  WHEN OTHERS THEN
+    RETURN SQLSTATE = ANY (p_expected);
 END
 $$;
 
@@ -153,6 +183,10 @@ SELECT public.sf_test_assert(
   public.sf_test_expect_denied('preference'),
   'matching subject with mismatched WordPress user ID cannot change preferences'
 );
+SELECT public.sf_test_assert(
+  public.sf_test_expect_denied('custom_question'),
+  'matching subject with mismatched WordPress user ID cannot create a custom question'
+);
 COMMIT;
 
 \echo 'PREFERENCES: authenticated background selection is owner-bound'
@@ -197,6 +231,230 @@ SELECT public.sf_test_assert(
 SELECT public.sf_test_assert(
   public.sf_test_expect_denied('create'),
   'ineligible identity cannot create a story'
+);
+SELECT public.sf_test_assert(
+  public.sf_test_expect_denied('custom_question'),
+  'ineligible identity cannot create a custom question'
+);
+COMMIT;
+
+\echo 'QUESTIONS: custom persistence is owner-bound and governed'
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+SELECT set_config('request.jwt.claim.app_role', 'student', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
+SELECT (public.sf_create_custom_question(
+  'How did that experience change the next decision you made?',
+  'personal',
+  'library'
+)).id AS student_custom_question_id \gset
+SELECT public.sf_test_assert(
+  (
+    SELECT provenance = 'student'
+      AND owner_student_id = '11111111-1111-4111-8111-111111111111'
+      AND governance_state = 'draft'
+      AND created_by = '11111111-1111-4111-8111-111111111111'
+    FROM public.sf_questions
+    WHERE id = :'student_custom_question_id'
+  ),
+  'student custom question persists as an owner-bound draft'
+);
+SELECT public.sf_test_assert(
+  NOT has_table_privilege('authenticated', 'public.sf_questions', 'INSERT'),
+  'authenticated clients cannot bypass the custom-question RPC with direct inserts'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT count(*) = 1
+    FROM public.sf_audit_events
+    WHERE action = 'question.custom_created'
+      AND entity_type = 'question'
+      AND entity_id = :'student_custom_question_id'
+      AND question_id = :'student_custom_question_id'
+      AND actor_id = '11111111-1111-4111-8111-111111111111'
+  ),
+  'student custom-question creation is append-only audited'
+);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', true);
+SELECT set_config('request.jwt.claim.app_role', 'student', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1102', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'student_custom_question_id') = 0,
+  'another student cannot read a private custom question by direct id'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT count(*)
+    FROM public.sf_questions
+    WHERE owner_student_id = '11111111-1111-4111-8111-111111111111'
+      AND governance_state = 'draft'
+  ) = 0,
+  'another student list does not leak owner-private custom questions'
+);
+SELECT (public.sf_create_custom_question(
+  'How did that experience change the next decision you made?',
+  'personal',
+  'library'
+)).id AS student_other_custom_question_id \gset
+SELECT public.sf_test_assert(
+  (
+    SELECT id <> :'student_custom_question_id'
+      AND owner_student_id = '22222222-2222-4222-8222-222222222222'
+      AND governance_state = 'draft'
+    FROM public.sf_questions
+    WHERE id = :'student_other_custom_question_id'
+  ),
+  'hidden student namespaces may retain the same wording without exposing one another'
+);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', true);
+SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2103', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'student_custom_question_id') = 0,
+  'unassigned mentor cannot read a student custom question by direct id'
+);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
+SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2101', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'student_custom_question_id') = 1,
+  'assigned mentor retains existing RLS access to the assigned student custom question'
+);
+SELECT public.sf_test_assert(
+  public.sf_test_expect_denied(
+    'coaching_foreign_question',
+    :'student_other_custom_question_id'::uuid
+  ),
+  'assigned mentor cannot link coaching notes to another student private question id'
+);
+SELECT (public.sf_create_custom_question(
+  'What detail would make the turning point clearer?',
+  'behavioral',
+  'library'
+)).id AS mentor_shared_question_id \gset
+SELECT public.sf_test_assert(
+  (
+    SELECT provenance = 'mentor'
+      AND owner_student_id IS NULL
+      AND governance_state = 'draft'
+      AND created_by = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+      AND approved_by IS NULL
+      AND approved_at IS NULL
+    FROM public.sf_questions
+    WHERE id = :'mentor_shared_question_id'
+  ),
+  'mentor single-add persists as an attributed governed draft'
+);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', true);
+SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2102', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'mentor_shared_question_id') = 0,
+  'another mentor cannot read a mentor-authored institutional draft before approval'
+);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', true);
+SELECT set_config('request.jwt.claim.app_role', 'admin', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '3101', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'student_custom_question_id') = 0,
+  'admin cannot read a student-personal question by direct id'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT count(*)
+    FROM public.sf_questions
+    WHERE owner_student_id = '11111111-1111-4111-8111-111111111111'
+  ) = 0,
+  'admin question list excludes all student-personal rows'
+);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'mentor_shared_question_id') = 1,
+  'admin governance can read a global mentor draft'
+);
+SELECT public.sf_approve_question(:'mentor_shared_question_id'::uuid, 'library');
+SELECT public.sf_test_assert(
+  (
+    SELECT governance_state = 'approved'
+      AND approved_by = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+      AND approved_at IS NOT NULL
+    FROM public.sf_questions
+    WHERE id = :'mentor_shared_question_id'
+  ),
+  'explicit admin confirmation approves a mentor-authored institutional draft'
+);
+SELECT public.sf_test_assert(
+  public.sf_test_expect_denied('custom_question'),
+  'admin single-add is denied so admin remains on the governed import workflow'
+);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+SELECT set_config('request.jwt.claim.app_role', 'student', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '1101', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'mentor_shared_question_id') = 1,
+  'student can read a mentor single-add only after explicit approval'
+);
+SELECT pair.id AS mentor_shared_pair_id
+FROM public.sf_upsert_story_question(
+  :'story_id'::uuid,
+  :'mentor_shared_question_id'::uuid,
+  jsonb_build_object(
+    'strength', 3,
+    'why', 'The mentor question is shared and relevant to this story.'
+  ),
+  'workshop'
+) AS pair \gset
+SELECT public.sf_test_assert(
+  (
+    SELECT question_id = :'mentor_shared_question_id'
+      AND story_id = :'story_id'
+    FROM public.sf_story_questions
+    WHERE id = :'mentor_shared_pair_id'
+  ),
+  'student can assign the mentor-shared question to an owned story'
+);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', true);
+SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '2102', true);
+SELECT public.sf_test_assert(
+  (SELECT count(*) FROM public.sf_questions WHERE id = :'mentor_shared_question_id') = 1,
+  'another mentor can read the explicitly approved global mentor question'
 );
 COMMIT;
 
@@ -245,7 +503,7 @@ SELECT public.sf_update_story(
   'Advocacy on night shift',
   'I noticed that a patient and family were not being heard. I paused, listened, and helped the team change the plan.',
   4::smallint,
-  ARRAY['behavioral', 'personal-statement'],
+  ARRAY['iv', 'ps'],
   'workspace'
 );
 SELECT public.sf_test_assert(
@@ -258,8 +516,8 @@ SELECT public.sf_test_assert(
 );
 SELECT public.sf_submit_story(:'story_id'::uuid, 'workspace');
 SELECT public.sf_test_assert(
-  (SELECT status = 'submitted' FROM public.sf_stories WHERE id = :'story_id'),
-  'private story transitions to submitted'
+  (SELECT status = 'awaiting' FROM public.sf_stories WHERE id = :'story_id'),
+  'private story transitions to canonical awaiting-review state'
 );
 COMMIT;
 
@@ -318,13 +576,16 @@ SELECT public.sf_update_story(
   'Advocacy on night shift',
   'I noticed that a patient and family were not being heard. I paused, listened, and helped the team change the plan. I learned to treat silence as a signal to invite the patient back into the decision.',
   5::smallint,
-  ARRAY['behavioral', 'personal-statement'],
+  ARRAY['iv', 'ps'],
   'workspace'
 );
-SELECT public.sf_submit_story(:'story_id'::uuid, 'workspace');
 SELECT public.sf_test_assert(
-  (SELECT status = 'resubmitted' FROM public.sf_stories WHERE id = :'story_id'),
-  'needs-revision story transitions to resubmitted'
+  (
+    SELECT status = 'awaiting' AND revised
+    FROM public.sf_stories
+    WHERE id = :'story_id'
+  ),
+  'editing after requested changes automatically transitions to the canonical awaiting-review revision'
 );
 COMMIT;
 
@@ -406,16 +667,17 @@ COMMIT;
 \echo 'IMPORT: draft-first governance, duplicate protection, rollback'
 BEGIN;
 SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', true);
-SELECT set_config('request.jwt.claim.app_role', 'mentor', true);
+SELECT set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', true);
+SELECT set_config('request.jwt.claim.app_role', 'admin', true);
 SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
-SELECT set_config('request.jwt.claim.wp_user_id', '2101', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '3101', true);
 SELECT (public.sf_commit_question_import(
-  'mentor-questions.csv',
+  'admin-governance-questions.csv',
   'csv',
   jsonb_build_array(
-    jsonb_build_object('text', 'How did you respond when a plan changed unexpectedly?', 'family', 'adaptability', 'selected', true),
-    jsonb_build_object('text', 'Tell me about a time you advocated for someone whose needs were not being heard.', 'family', 'advocacy', 'selected', true)
+    jsonb_build_object('text', 'How did you respond when a plan changed unexpectedly?', 'family', 'behavioral', 'selected', true),
+    jsonb_build_object('text', 'Tell me about a time you advocated for someone whose needs were not being heard.', 'family', 'behavioral', 'selected', true),
+    jsonb_build_object('text', 'What surprised you about your own growth?', 'family', 'growth', 'selected', true)
   )
 )).id AS batch_id \gset
 SELECT public.sf_test_assert(
@@ -423,7 +685,23 @@ SELECT public.sf_test_assert(
     SELECT count(*) = 1 AND bool_and(governance_state = 'draft')
     FROM public.sf_questions WHERE import_batch_id = :'batch_id'
   ),
-  'selected non-duplicate import rows create draft questions only'
+  'admin governed import creates selected non-duplicate rows as drafts only'
+);
+SELECT id AS imported_question_id
+FROM public.sf_questions
+WHERE import_batch_id = :'batch_id'
+ORDER BY created_at, id
+LIMIT 1 \gset
+SELECT public.sf_approve_question(:'imported_question_id'::uuid, 'import');
+SELECT public.sf_test_assert(
+  (
+    SELECT governance_state = 'approved'
+      AND provenance = 'imported'
+      AND approved_by = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+    FROM public.sf_questions
+    WHERE id = :'imported_question_id'
+  ),
+  'an imported draft becomes institutional authority only after explicit governance approval'
 );
 SELECT public.sf_test_assert(
   (
@@ -432,13 +710,154 @@ SELECT public.sf_test_assert(
   ),
   'exact duplicates are flagged and not silently committed'
 );
-SELECT public.sf_rollback_question_import(:'batch_id'::uuid);
 SELECT public.sf_test_assert(
   (
-    SELECT bool_and(governance_state = 'retired')
-    FROM public.sf_questions WHERE import_batch_id = :'batch_id'
+    SELECT count(*) = 1
+    FROM public.sf_import_rows
+    WHERE batch_id = :'batch_id' AND error = 'Invalid question family'
   ),
-  'import rollback retires rather than hard-deletes questions'
+  'direct import RPC calls cannot persist noncanonical family values'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT bool_and(family = 'behavioral')
+    FROM public.sf_import_rows
+    WHERE batch_id = :'batch_id'
+  ),
+  'reviewed canonical family values persist with every import row'
+);
+SELECT public.sf_test_assert(
+  public.sf_test_expect_sqlstate(
+    format(
+      'SELECT public.sf_rollback_question_import(%L::uuid)',
+      :'batch_id'
+    ),
+    ARRAY['23514']
+  ),
+  'an approved imported question makes its source batch non-rollbackable'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT state = 'committed' AND rolled_back_at IS NULL
+    FROM public.sf_import_batches
+    WHERE id = :'batch_id'
+  )
+  AND (
+    SELECT governance_state = 'approved'
+    FROM public.sf_questions
+    WHERE id = :'imported_question_id'
+  ),
+  'a denied rollback leaves the approved question and batch unchanged'
+);
+
+SELECT (public.sf_commit_question_import(
+  'unused-draft-rollback.csv',
+  'csv',
+  jsonb_build_array(
+    jsonb_build_object(
+      'text', 'When did a handoff reveal a hidden assumption in your plan?',
+      'family', 'behavioral',
+      'selected', true,
+      'nearDuplicateReviewed', true
+    )
+  )
+)).id AS rollback_batch_id \gset
+SELECT id AS rollback_question_id
+FROM public.sf_questions
+WHERE import_batch_id = :'rollback_batch_id'
+LIMIT 1 \gset
+SELECT public.sf_rollback_question_import(:'rollback_batch_id'::uuid);
+SELECT public.sf_test_assert(
+  (
+    SELECT state = 'rolled_back' AND rolled_back_at IS NOT NULL
+    FROM public.sf_import_batches
+    WHERE id = :'rollback_batch_id'
+  )
+  AND (
+    SELECT count(*) = 0
+    FROM public.sf_questions
+    WHERE id = :'rollback_question_id'
+  )
+  AND EXISTS (
+    SELECT 1
+    FROM public.sf_audit_events
+    WHERE action = 'question_import.rolled_back'
+      AND entity_id = :'rollback_batch_id'
+      AND actor_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'
+      AND previous_value->>'state' = 'committed'
+      AND new_value->>'state' = 'rolled_back'
+      AND new_value->>'retired_question_count' = '1'
+  ),
+  'an unused draft-only import rollback leaves no active question visible and is append-only audited'
+);
+
+SELECT (public.sf_commit_question_import(
+  'downstream-use-rollback-block.csv',
+  'csv',
+  jsonb_build_array(
+    jsonb_build_object(
+      'text', 'What did you do when an escalation pathway failed during a handoff?',
+      'family', 'clinical',
+      'selected', true,
+      'nearDuplicateReviewed', true
+    )
+  )
+)).id AS downstream_batch_id \gset
+SELECT id AS downstream_question_id
+FROM public.sf_questions
+WHERE import_batch_id = :'downstream_batch_id'
+LIMIT 1 \gset
+COMMIT;
+
+SELECT public.sf_test_assert(
+  (
+    SELECT governance_state = 'retired'
+    FROM public.sf_questions
+    WHERE id = :'rollback_question_id'
+  ),
+  'successful rollback retires the imported question in place rather than deleting it'
+);
+
+INSERT INTO public.sf_story_questions (
+  story_id, question_id, student_proposed, proposed_by, proposed_role, why
+)
+VALUES (
+  :'story_id'::uuid,
+  :'downstream_question_id'::uuid,
+  true,
+  '11111111-1111-4111-8111-111111111111'::uuid,
+  'student',
+  'Legacy downstream-use fixture for rollback safety.'
+);
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', true);
+SELECT set_config('request.jwt.claim.app_role', 'admin', true);
+SELECT set_config('request.jwt.claim.storyforge_eligible', 'true', true);
+SELECT set_config('request.jwt.claim.wp_user_id', '3101', true);
+SELECT public.sf_test_assert(
+  public.sf_test_expect_sqlstate(
+    format(
+      'SELECT public.sf_rollback_question_import(%L::uuid)',
+      :'downstream_batch_id'
+    ),
+    ARRAY['23514']
+  ),
+  'a downstream story-question reference makes a draft import non-rollbackable'
+);
+SELECT public.sf_test_assert(
+  (
+    SELECT state = 'committed'
+    FROM public.sf_import_batches
+    WHERE id = :'downstream_batch_id'
+  )
+  AND (
+    SELECT governance_state = 'draft'
+    FROM public.sf_questions
+    WHERE id = :'downstream_question_id'
+  ),
+  'a denied downstream-use rollback leaves the referenced draft and batch unchanged'
 );
 COMMIT;
 
@@ -458,5 +877,6 @@ SELECT public.sf_test_assert(
 
 DROP FUNCTION public.sf_test_assert(boolean, text);
 DROP FUNCTION public.sf_test_expect_denied(text, uuid);
+DROP FUNCTION public.sf_test_expect_sqlstate(text, text[]);
 
 \echo 'STORYFORGE_POSTGRES_SUITE_PASS'

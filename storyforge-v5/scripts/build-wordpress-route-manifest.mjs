@@ -3,13 +3,30 @@ import { mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  assertReleaseSource,
+  parseBuildMode,
+} from './release-source.mjs';
+
 const packageDir = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const distDir = path.join(packageDir, 'dist');
 const wordpressDir = path.join(packageDir, 'infra', 'wordpress');
 const routeFile = path.join(wordpressDir, 'missionmed-storyforge-route.php');
 const runtimeRoot = path.join(wordpressDir, 'missionmed-storyforge-runtime');
 const edgeAliasFile = path.join(packageDir, 'infra', 'edge', 'generated-asset-aliases.mjs');
+const guardedReleasePaths = [distDir, runtimeRoot];
 const checkOnly = process.argv.includes('--check');
+const mode = parseBuildMode(process.argv.slice(2));
+if (mode !== 'release') {
+  throw new Error(
+    'StoryForge release provenance failed: WordPress artifacts require --mode=release.',
+  );
+}
+const releaseProof = assertReleaseSource({
+  startDirectory: packageDir,
+  allowedDirtyPaths: checkOnly ? [] : [distDir],
+  forbiddenIgnoredPaths: guardedReleasePaths,
+});
 const manifestStartMarker = '\t\t// BEGIN GENERATED STORYFORGE ASSET MANIFEST.';
 const manifestEndMarker = '\t\t// END GENERATED STORYFORGE ASSET MANIFEST.';
 const releaseStartMarker = '// BEGIN GENERATED STORYFORGE RELEASE ID.';
@@ -279,45 +296,68 @@ const bundleFile = path.join(runtimeRoot, 'release.php');
 
 if (checkOnly) {
   if (next !== source) {
-    throw new Error('StoryForge WordPress route manifest is stale; run npm run build.');
+    throw new Error('StoryForge WordPress route manifest is stale; run npm run build:release.');
   }
   let releaseEntries;
   try {
     releaseEntries = await readdir(runtimeRoot, { withFileTypes: true });
   } catch {
-    throw new Error('StoryForge WordPress release bundle is missing; run npm run build.');
+    throw new Error('StoryForge WordPress release bundle is missing; run npm run build:release.');
   }
   if (
     releaseEntries.length !== 1
     || !releaseEntries[0].isFile()
     || releaseEntries[0].name !== 'release.php'
   ) {
-    throw new Error('StoryForge WordPress release source is stale; run npm run build.');
+    throw new Error('StoryForge WordPress release source is stale; run npm run build:release.');
   }
   let existingBundle;
   try {
     existingBundle = await readFile(bundleFile, 'utf8');
   } catch {
-    throw new Error('StoryForge WordPress release bundle is incomplete; run npm run build.');
+    throw new Error('StoryForge WordPress release bundle is incomplete; run npm run build:release.');
   }
   if (existingBundle !== bundleSource) {
-    throw new Error('StoryForge WordPress release bundle bytes are stale; run npm run build.');
+    throw new Error('StoryForge WordPress release bundle bytes are stale; run npm run build:release.');
   }
   let existingEdgeAliases;
   try {
     existingEdgeAliases = await readFile(edgeAliasFile, 'utf8');
   } catch {
-    throw new Error('StoryForge edge alias manifest is missing; run npm run build.');
+    throw new Error('StoryForge edge alias manifest is missing; run npm run build:release.');
   }
   if (existingEdgeAliases !== edgeAliasSource) {
-    throw new Error('StoryForge edge alias manifest is stale; run npm run build.');
+    throw new Error('StoryForge edge alias manifest is stale; run npm run build:release.');
   }
-  console.log(`StoryForge WordPress route and ${releaseId} release.php match the approved 14-file release.`);
+  const completedReleaseProof = assertReleaseSource({
+    startDirectory: packageDir,
+    forbiddenIgnoredPaths: guardedReleasePaths,
+  });
+  console.log(
+    `StoryForge WordPress route and ${releaseId} release.php match commit `
+      + `${completedReleaseProof.expectedCommit}'s approved 14-file release.`,
+  );
 } else {
   await rm(runtimeRoot, { recursive: true, force: true });
   await mkdir(runtimeRoot, { recursive: true });
   await writeFile(bundleFile, bundleSource);
   await writeFile(edgeAliasFile, edgeAliasSource);
   await writeFile(routeFile, next);
-  console.log(`StoryForge WordPress route and ${releaseId} release.php updated from the approved 14-file release.`);
+  const completedReleaseProof = assertReleaseSource({
+    startDirectory: packageDir,
+    allowedDirtyPaths: [
+      distDir,
+      routeFile,
+      runtimeRoot,
+      edgeAliasFile,
+    ],
+    forbiddenIgnoredPaths: guardedReleasePaths,
+  });
+  const sourceLabel = completedReleaseProof.clean
+    ? ` from clean commit ${releaseProof.expectedCommit}`
+    : '';
+  console.log(
+    `StoryForge WordPress route and ${releaseId} release.php generated as a candidate`
+      + `${sourceLabel}; terminal clean provenance verification is still required.`,
+  );
 }

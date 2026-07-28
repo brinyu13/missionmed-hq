@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SignJWT } from 'jose';
-import { createAppServer, publicError } from '../../server/app.mjs';
+import {
+  createAppServer,
+  defaultQuestionAgendaItems,
+  defaultStoryAgendaItems,
+  publicError,
+} from '../../server/app.mjs';
 import { verifyToken } from '../../server/auth.mjs';
 
 const encoder = new TextEncoder();
@@ -180,4 +185,141 @@ test('signed identity-claim failures are rejected without becoming internal erro
       message: 'issuer claim rejected',
     });
   }
+});
+
+test('default 1:1 story agenda is derived only from durable review state', () => {
+  assert.deepEqual(defaultStoryAgendaItems([
+    {
+      id: 'story-revised',
+      title: 'A revised advocacy story',
+      status: 'awaiting',
+      revised: true,
+      mentor_score: 4,
+    },
+    {
+      id: 'story-review',
+      title: 'A first-review story',
+      status: 'awaiting',
+      revised: false,
+      mentor_score: null,
+    },
+    {
+      id: 'story-changes',
+      title: 'A story awaiting changes',
+      status: 'changes',
+      revised: false,
+      mentor_score: 3,
+    },
+    {
+      id: 'story-score',
+      title: 'A reviewed but unscored story',
+      status: 'reviewed',
+      revised: false,
+      mentor_score: null,
+    },
+    {
+      id: 'story-complete',
+      title: 'A finished story',
+      status: 'approved',
+      revised: false,
+      mentor_score: 5,
+    },
+  ]), [
+    {
+      label: 'Re-review the revision of “A revised advocacy story”',
+      storyId: 'story-revised',
+      route: '/library',
+    },
+    {
+      label: 'First review: “A first-review story”',
+      storyId: 'story-review',
+      route: '/library',
+    },
+    {
+      label: 'Walk through requested changes on “A story awaiting changes”',
+      storyId: 'story-changes',
+      route: '/library',
+    },
+    {
+      label: 'Score “A reviewed but unscored story”',
+      storyId: 'story-score',
+      route: '/library',
+    },
+    {
+      label: 'Discuss “A finished story”',
+      storyId: 'story-complete',
+      route: '/library',
+    },
+  ]);
+});
+
+test('default 1:1 question agenda names only persisted readiness gaps', () => {
+  assert.deepEqual(defaultQuestionAgendaItems([
+    {
+      id: 'question-unmapped',
+      text: 'Tell me about yourself.',
+      pair_count: 0,
+      confirmed_count: 0,
+      preferred_story_id: null,
+      followup_count: 0,
+      prepared_followup_count: 0,
+    },
+    {
+      id: 'question-unconfirmed',
+      text: 'Tell me about a difficult team decision.',
+      pair_count: 2,
+      confirmed_count: 0,
+      preferred_story_id: null,
+      followup_count: 0,
+      prepared_followup_count: 0,
+    },
+    {
+      id: 'question-no-preference',
+      text: 'Why this specialty?',
+      pair_count: 1,
+      confirmed_count: 1,
+      preferred_story_id: null,
+      followup_count: 1,
+      prepared_followup_count: 1,
+    },
+    {
+      id: 'question-no-followup',
+      text: 'Describe a challenging clinical decision.',
+      pair_count: 1,
+      confirmed_count: 1,
+      preferred_story_id: 'story-clinical',
+      followup_count: 0,
+      prepared_followup_count: 0,
+    },
+    {
+      id: 'question-ready',
+      text: 'What do you do outside medicine?',
+      pair_count: 1,
+      confirmed_count: 1,
+      preferred_story_id: 'story-personal',
+      followup_count: 1,
+      prepared_followup_count: 1,
+    },
+  ]), [
+    {
+      label: 'Find a story for “Tell me about yourself.”',
+      questionId: 'question-unmapped',
+      route: '/prep',
+    },
+    {
+      label: 'Confirm the strongest story for “Tell me about a difficult team decision.”',
+      questionId: 'question-unconfirmed',
+      route: '/prep',
+    },
+    {
+      label: 'Choose the preferred story for “Why this specialty?”',
+      questionId: 'question-no-preference',
+      route: '/prep',
+    },
+    {
+      label: 'Prepare a follow-up for “Describe a challenging clinical decision.”',
+      questionId: 'question-no-followup',
+      route: '/prep',
+    },
+  ]);
 });

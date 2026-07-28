@@ -17,11 +17,11 @@ EXPECTED_DATABASE_SERVICE_ID="a4a66362-c3ba-475a-ae21-2aa46624bafe"
 : "${PGDATABASE:?PGDATABASE is required}"
 
 if [[ "$STORYFORGE_RAILWAY_PROJECT_ID" != "$EXPECTED_PROJECT_ID" ]]; then
-  echo "Refusing migration: Railway project ID does not match B1-502M authority." >&2
+  echo "Refusing migration: Railway project ID does not match B1-503 / DR-014 authority." >&2
   exit 1
 fi
 if [[ "$STORYFORGE_RAILWAY_DATABASE_SERVICE_ID" != "$EXPECTED_DATABASE_SERVICE_ID" ]]; then
-  echo "Refusing migration: Railway database service ID does not match B1-502M authority." >&2
+  echo "Refusing migration: Railway database service ID does not match B1-503 / DR-014 authority." >&2
   exit 1
 fi
 if [[ ! "$STORYFORGE_DEPLOY_GIT_COMMIT" =~ ^[a-f0-9]{40}$ ]]; then
@@ -78,6 +78,8 @@ migrations=(
   "$PACKAGE_DIR/infra/postgres/migrations/20260726150000_b1_500_storyforge_v5_foundation.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql"
+  "$PACKAGE_DIR/infra/postgres/migrations/20260728045100_b1_503_story_domain_conformance.sql"
+  "$PACKAGE_DIR/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql"
 )
 pending_migrations=()
 pending_versions=()

@@ -25,9 +25,13 @@ function wp(...args) {
 
 async function logIn(page, username = founderUsername, password = founderPassword) {
   await page.goto('/wp-login.php');
-  await page.getByLabel('Username or Email Address').fill(username);
-  await page.locator('#user_pass').fill(password);
-  await page.getByRole('button', { name: 'Log In' }).click();
+  const usernameField = page.locator('input[name="log"]');
+  const passwordField = page.locator('input[name="pwd"]');
+  await passwordField.fill(password);
+  await usernameField.fill(username);
+  await expect(usernameField).toHaveValue(username);
+  await expect(passwordField).toHaveValue(password);
+  await page.locator('#wp-submit').click();
   await expect(page).toHaveURL(/\/wp-admin\/(?:profile\.php)?$/);
 }
 
@@ -38,8 +42,9 @@ test('anonymous login returns to the exact mounted deep link and obtains a real 
   await page.locator('#user_pass').fill(founderPassword);
   await page.getByRole('button', { name: 'Log In' }).click();
   await expect(page).toHaveURL(/\/storyforge\/library\?filter=mine&sort=updated$/);
-  await expect(page.getByRole('heading', { name: 'Your stories, with their history intact.' })).toBeVisible();
-  await expect(page.getByRole('link', { name: '← Back to Matrix' })).toHaveAttribute(
+  await expect(page.getByText('Your story library', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /\d+ stories, none forgotten\./i })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Back to Matrix/i })).toHaveAttribute(
     'href',
     `${integrationBaseUrl}/member-dashboard/`,
   );
@@ -62,13 +67,14 @@ test('Matrix navigation and dashboard tile are server-gated and StoryForge wins 
   await expect(page).toHaveURL(/\/storyforge\/$/);
 
   await page.goto('/storyforge/prep/workshop');
-  await expect(page.getByRole('heading', { name: 'Prepare the next natural question.' })).toBeVisible();
+  await expect(page.locator('#main').getByText('Interview Prep', { exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Become difficult to surprise.' })).toBeVisible();
 
   const appRoute = await request.get('/storyforge/library');
   expect(appRoute.status()).toBe(200);
   expect(appRoute.headers()['x-storyforge-route']).toBe('wordpress-gateway');
   const appHtml = await appRoute.text();
-  expect(appHtml).toContain('<title>StoryForge · MissionMed</title>');
+  expect(appHtml).toContain('<title>StoryForge V5 · MissionMed</title>');
   expect(appRoute.headers()['cache-control']).toContain('no-store');
   expect(appRoute.headers()['surrogate-control']).toBe('no-store');
   expect(appRoute.headers()['cdn-cache-control']).toBe('no-store');
@@ -239,19 +245,30 @@ test('the WordPress gateway is exact, manifest-bound, and fail-closed', async ({
 test('founder-only zero-assignment workflow remains private and truthful', async ({ page }) => {
   await logIn(page);
   await page.goto('/storyforge/');
-  await page.getByRole('button', { name: /Quick capture/i }).first().click();
-  await page.getByLabel('Story title').fill('Founder private rehearsal');
-  await page.getByLabel('Tell it in your own words').fill(
+  await page.getByRole('button', { name: /New Story/i }).first().click();
+  const captureDialog = page.getByRole('dialog', { name: /New story — Save it before it fades/i });
+  await captureDialog.locator('[name="title"]').fill('Founder private rehearsal');
+  await captureDialog.locator('[name="text"]').fill(
     'This private story remains editable while mentor review is disabled.',
   );
-  await page.getByRole('button', { name: 'Save private story' }).click();
+  await captureDialog.getByRole('button', { name: 'Save story' }).click();
+
+  await page.getByRole('button', { name: 'Story Library' }).first().click();
+  const storyRow = page.locator('[data-story-row]')
+    .filter({ hasText: 'Founder private rehearsal' })
+    .first();
+  await expect(storyRow).toBeVisible();
+  const openStory = storyRow.locator('[data-open-story]').first();
+  const storyId = await openStory.getAttribute('data-open-story');
+  expect(storyId).toMatch(/^[a-f0-9-]{36}$/i);
+  await openStory.click();
 
   await expect(page.getByRole('button', { name: 'Mentor review unavailable' })).toBeDisabled();
   await expect(page.getByText('Mentor review is not enabled yet. Your private story remains editable.')).toBeVisible();
-  await expect(page.getByLabel('Current telling')).toBeEditable();
-  await expect(page.getByText('private', { exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: 'Working version' }).click();
+  await expect(page.getByRole('textbox', { name: 'Working version' })).toBeEditable();
+  await expect(page.locator('#room .roomMeta .stChip').filter({ hasText: /^Private$/ })).toBeVisible();
 
-  const storyId = new URL(page.url()).pathname.split('/').filter(Boolean).at(-1);
   const directProbe = await page.evaluate(async (id) => {
     const bootstrap = await fetch(
       `/wp-admin/admin-ajax.php?action=missionmed_storyforge_bootstrap&return_to=${encodeURIComponent(location.href)}`,
@@ -293,7 +310,7 @@ test('founder-only zero-assignment workflow remains private and truthful', async
 test('nonce, JWT signature, and allowed-origin checks fail closed', async ({ page, request }) => {
   await logIn(page);
   await page.goto('/storyforge/');
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.getByText('What happened that you don’t want to lose?', { exact: true })).toBeVisible();
 
   const probe = await page.evaluate(async () => {
     const bootstrapResponse = await fetch(
@@ -353,7 +370,7 @@ test('nonce, JWT signature, and allowed-origin checks fail closed', async ({ pag
 test('an ended WordPress session locks an already-open app without persisting authority', async ({ page }) => {
   await logIn(page);
   await page.goto('/storyforge/');
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.getByText('What happened that you don’t want to lose?', { exact: true })).toBeVisible();
 
   wp('user', 'session', 'destroy', founderId, '--all');
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
@@ -365,7 +382,7 @@ test('eligibility revocation locks the open app before one short token TTL elaps
   wp('eval', `$s=mmsf_settings();$s['allowed_user_ids']=array(${founderId},${studentId});update_option(MMSF_OPTION,$s,false);`);
   await logIn(page, 'maya', 'storyforge-local-password');
   await page.goto('/storyforge/');
-  await expect(page.getByRole('heading', { name: 'Shape what only you can tell.' })).toBeVisible();
+  await expect(page.getByText('What happened that you don’t want to lose?', { exact: true })).toBeVisible();
 
   wp('user', 'meta', 'update', studentId, '_missionmed_storyforge_local_eligible', '0');
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
