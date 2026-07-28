@@ -1243,3 +1243,144 @@ After the founder confirms both pending actions, the Supervisor must delete
 the isolated Worker, submit this exact Kinsta request, verify the Worker is
 absent and the safe `404` remains, and then wait for Kinsta's explicit cache
 exclusion confirmation before any feature-off retry.
+
+## 21. B1-502N confirmed provider actions and pilot-only residual acceptance
+
+The Founder supplied the following exact confirmation:
+
+> CONFIRM B1-502N. Permanently delete only missionmed-storyforge-v5 and submit
+> the prepared Kinsta request. I explicitly accept, for B1-502M's exact
+> one-founder pilot only, that Kinsta PHP-FPM and the deployment session share
+> the Unix owner; 0444/0555 and integrity checks are defense in depth, not
+> host-enforced immutability. This acceptance expires before any non-founder
+> enablement or hosting-principal change.
+
+Under that exact authority, the Supervisor pressed the final Cloudflare
+deletion control for only `missionmed-storyforge-v5`. The dashboard returned
+to the Workers & Pages inventory, where the exact Worker was absent and the
+six unrelated applications remained. A subsequent exact-name search produced
+no StoryForge Worker result. No unrelated Worker, Pages application, route,
+DNS record, cache rule, account setting, or zone resource was changed.
+
+The Supervisor then verified the prepared MyKinsta request text and submitted
+it to Technical Support for `MissionMed Institute (Live)`. By
+`2026-07-28T00:55:27Z`, MyKinsta displayed the submitted request in an active
+support conversation with status `Not seen yet`. No ticket/conversation
+identifier was exposed by the available interface and none is invented.
+
+The Founder acceptance above resolves the same-Unix-owner decision only for
+B1-502M's exact one-founder pilot. It does not assert host-enforced
+immutability, authorize another account or cohort, survive a
+hosting-principal change, or waive any provider-confirmation, feature-off,
+cache, authorization, negative-account, founder-identity, acceptance, or
+rollback gate.
+
+While awaiting Kinsta, the Supervisor re-proved:
+
+- local and remote candidate identity remains exact commit
+  `4bd956b6ea222d20428c41415236a73b93576447`;
+- route hash/size:
+  `23ca6d28268a780c46c27083a726dab18c3e6125a46a6fda600fd9c03eee2d88`,
+  30,528 bytes;
+- bundle hash/size:
+  `845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`,
+  409,055 bytes;
+- restore point `B1-502M-RP-KINSTA-PRE-20260727T174625Z` remains readable;
+- active Kinsta MU route and runtime `current` pointer remain absent;
+- the exact dormant release remains readable and byte-identical;
+- `storyforge_enabled=false`, founder allowlist count `0`, and role-override
+  count `0`;
+- anonymous no-cookie/no-follow `/storyforge` and `/storyforge/` requests
+  remain `404`, `CF-Cache-Status: DYNAMIC`, `X-Kinsta-Cache: EXPIRED`, with
+  `no-cache, must-revalidate, max-age=0, no-store, private`.
+
+Kinsta request submission and conversation creation are not provider
+confirmation or cache-exclusion completion. No gateway reinstall, feature
+enablement, founder binding, cache purge, database write, or product
+deployment may occur until Kinsta explicitly confirms the requested cache
+bypass for every URL path beginning `/storyforge`.
+
+## 22. B1-502N provider bypass proof and green feature-off reactivation
+
+Kinsta Support subsequently reported that it had installed the exclusion rule
+for URLs beginning `/storyforge` and that the route was already showing
+`BYPASS`. This response completed the exact request that named both
+server/full-page and corresponding edge caching. Independent live evidence,
+not the provider statement alone, was required before continuation.
+
+The Supervisor reactivated only exact product commit
+`4bd956b6ea222d20428c41415236a73b93576447` in feature-off mode. The retained
+route and dormant bundle were rehashed, resized, PHP-linted, and topology
+checked before activation. A new unique rollback receipt was created at:
+
+`/www/theresidencyacademy_209/private/b1-502m/runtime/storyforge-v5/rollback/b1-502n-4bd956b6ea222d20428c41415236a73b93576447-20260728T011355Z`
+
+The runtime `current` pointer was atomically recreated to the exact release,
+the exact saved route was restored through a unique staged filename, and
+post-activation checks proved:
+
+- route SHA-256/size:
+  `23ca6d28268a780c46c27083a726dab18c3e6125a46a6fda600fd9c03eee2d88`,
+  30,528 bytes;
+- bundle SHA-256/size:
+  `845289a4c646b0ea496fa864186a0b9f534425ff8aad8b40e0e3993ebf05a3f1`,
+  409,055 bytes;
+- route and bundle mode: `0444`;
+- runtime, releases, and selected release mode: `0555`;
+- feature false, allowlist count `0`, override count `0`, and mentor role
+  disabled.
+
+Separate Kinsta site-cache and CDN-cache purges each returned HTTP 200. The
+forbidden broad object/site/CDN helper was not used.
+
+Three consecutive anonymous, no-cookie, no-follow passes covered:
+
+- slashless shell, canonical shell, and deep link;
+- health and public configuration;
+- all 13 approved non-index aliases.
+
+Every one of the 54 responses retained `CF-Cache-Status: DYNAMIC`,
+`X-Kinsta-Cache: BYPASS`, no `Age`, exact route ownership, exact cache policy,
+and exact alias bytes. Immutable and revalidation classes remained distinct.
+
+Additional feature-off gates passed:
+
+- index/unknown alias, raw extension, and raw filename denial;
+- feature-off session/bootstrap/token denial;
+- development path denial and repeated-slash canonicalization;
+- unsupported asset method denial;
+- nested exact-release and active-pointer `release.php` requests returned 404
+  with zero bytes;
+- direct route execution returned zero bytes and disclosed no source;
+- shared root 200, anonymous member dashboard 302 login handoff, and WordPress
+  REST 200;
+- all four protected Matrix and legacy StoryForge hashes exact;
+- isolated Railway API health 200, root 404, unauthenticated session 401, and
+  unapproved origin 403;
+- Railway API and PostgreSQL deployments remained `SUCCESS` and running;
+- database state remained three migrations, 15 RLS tables, one
+  least-privilege application role, and zero users, active assignments,
+  stories, or audit events.
+
+The complete local rerun also passed: deterministic build, manifest check,
+secret scan, 27 unit tests, PostgreSQL authorization, seven browser tests,
+seven WordPress integration tests, npm audit, Critical Systems local gate,
+`git diff --check`, and unchanged generated distribution.
+
+A WordPress CLI `plugin is-active` probe emitted pre-existing unrelated plugin
+notices and its PHP process exited with a segmentation fault. The same state
+was immediately rechecked through a direct, notice-suppressed WordPress
+bootstrap and passed: SSO active, feature false, allowlist/overrides empty,
+seven administrators present with zero allowed, and mentor role disabled.
+Public WordPress, Matrix handoff, REST, StoryForge, and protected-hash checks
+remained green. The incident was therefore isolated to that CLI invocation and
+did not change production state.
+
+At `2026-07-28T01:29:42Z`, the only remaining gate was a fresh
+founder-authenticated WordPress session. Chrome reached the exact MissionMed
+WordPress login page for `/member-dashboard/`; no existing authenticated
+session was available. No credential was entered, no identity was inferred by
+name or role, no founder row or metadata was created, and the feature remained
+false. The one unavoidable human action is to complete that open WordPress
+login, including MFA if requested, so the exact account can be derived from
+the authenticated session.
