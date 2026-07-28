@@ -5,19 +5,34 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0a0d14">
-  <title>StoryForge · MissionMed</title>
-  <link rel="stylesheet" href="./_asset/c4724118cf63">
+  <title>StoryForge V5 · MissionMed</title>
+  <link rel="stylesheet" href="./_asset/41e546d34bfd">
 </head>
-<body data-background="ember" data-role="student">
+<body data-role="student" data-background="ember" class="is-booting">
   <a class="skip-link" href="#main">Skip to content</a>
-  <div id="app">
-    <main class="boot" id="main">
+  <canvas id="bgfx" aria-hidden="true"></canvas>
+  <div class="aur a" aria-hidden="true"></div>
+  <div class="aur b" aria-hidden="true"></div>
+  <div class="aur c" aria-hidden="true"></div>
+  <div class="vg" aria-hidden="true"></div>
+  <nav id="rail" aria-label="StoryForge navigation"></nav>
+  <header id="hdr"></header>
+  <div id="advBanner"><span></span></div>
+  <main id="main">
+    <section class="gatePage" role="status" aria-live="polite">
       <p class="eyebrow">MissionMed 360</p>
-      <h1>StoryForge</h1>
+      <h1 class="h1">Story<em>Forge</em></h1>
       <p>Opening your story workspace…</p>
-    </main>
-  </div>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script type="module" src="./_asset/3a60a405a47d"></script>
+    </section>
+  </main>
+  <div id="room"></div>
+  <div id="capture"></div>
+  <div id="quick" class="drawerWrap"></div>
+  <div id="qad" class="drawerWrap"></div>
+  <div id="pal"></div>
+  <div id="sesh"></div>
+  <div id="teach"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./_asset/71f618e9afac"></script>
 </body>
 </html>
