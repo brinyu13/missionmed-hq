@@ -1204,3 +1204,42 @@ the worktree was clean, and no pull request existed before the continuation
 recheck. This append-only continuation records the later authentication and
 safe-state observation. The exact containing commit/push for any further
 handoff update is necessarily reported by the Supervisor after it occurs.
+
+## 20. B1-502N continuation checkpoint — Cloudflare route cleanup and Kinsta request preparation
+
+At `2026-07-28T00:31:05Z`, the B1-502N continuation resumed from this handoff
+without regenerating the package.
+
+Cloudflare browser authentication was available. The Supervisor verified the
+exact account `eeaaf73d1670b47a162d251ca67e7cfa`, the exact StoryForge Worker
+`missionmed-storyforge-v5`, and its only two attached routes:
+
+- `missionmedinstitute.com/storyforge`
+- `missionmedinstitute.com/storyforge/*`
+
+Using the Cloudflare dashboard, the Supervisor removed only those two inert
+StoryForge routes. A refreshed Worker Domains view then reported `No custom
+domains`; no unrelated Worker, route, DNS record, zone setting, or account
+resource was changed. Anonymous, no-cookie, no-follow checks after route
+removal returned the safe Kinsta-owned `404` for both `/storyforge` and
+`/storyforge/`.
+
+The exact Worker deletion dialog is prepared with
+`missionmed-storyforge-v5`, but its final irreversible `Delete` action has not
+been pressed. That deletion awaits the required action-time founder
+confirmation.
+
+In MyKinsta, Technical Support was opened for `MissionMed Institute (Live)` and
+the following exact request was entered:
+
+> On the production MissionMed Institute WordPress environment, add a
+> server/full-page cache bypass and corresponding edge-cache bypass for URL
+> paths beginning exactly with `/storyforge`. Do not disable global caching,
+> change DNS, alter unrelated routes, or change any other cache rule. Please
+> confirm the effective pattern and completion.
+
+The request is prepared at the final `Submit` button but has not been sent.
+After the founder confirms both pending actions, the Supervisor must delete
+the isolated Worker, submit this exact Kinsta request, verify the Worker is
+absent and the safe `404` remains, and then wait for Kinsta's explicit cache
+exclusion confirmation before any feature-off retry.
