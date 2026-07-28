@@ -32,6 +32,62 @@ function sha256(bytes) {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
+function writeFakeKinstaWpLoad(remoteRoot) {
+  writeFileSync(path.join(remoteRoot, 'wp-load.php'), `<?php
+class WP_Error {}
+
+function is_wp_error($value) {
+    return $value instanceof WP_Error;
+}
+
+function wp_remote_retrieve_response_code($response) {
+    return isset($response['response']['code']) ? (int) $response['response']['code'] : 0;
+}
+
+function wp_remote_retrieve_body($response) {
+    return isset($response['body']) ? (string) $response['body'] : '';
+}
+
+final class B1_503_Fake_Kinsta_Cache_Purge {
+    private function response($kind) {
+        $log = getenv('FAKE_KINSTA_PURGE_LOG');
+        if (is_string($log) && '' !== $log) {
+            file_put_contents($log, $kind . PHP_EOL, FILE_APPEND);
+        }
+
+        $mode = getenv('FAKE_KINSTA_PURGE_MODE');
+        if (!is_string($mode) || '' === $mode) {
+            $mode = 'success';
+        }
+        if ($mode === $kind . '_wp_error') {
+            return new WP_Error();
+        }
+
+        $code = $mode === $kind . '_http' ? 503 : 200;
+        $body = $mode === $kind . '_body'
+            ? 'Unexpected cache response.'
+            : 'Cache has been cleared.';
+        return array(
+            'response' => array('code' => $code),
+            'body' => $body,
+        );
+    }
+
+    public function purge_complete_site_cache() {
+        return $this->response('site');
+    }
+
+    public function purge_complete_cdn_cache() {
+        return $this->response('cdn');
+    }
+}
+
+$kinsta_muplugin = (object) array(
+    'kinsta_cache_purge' => new B1_503_Fake_Kinsta_Cache_Purge(),
+);
+`);
+}
+
 function run(script, args, environment = {}) {
   const bashArgs = process.env.STORYFORGE_TEST_CUTOVER_TRACE
     ? ['-x', script, ...args]
@@ -64,10 +120,12 @@ test('guarded Kinsta install and rollback preserve exact prior state and immutab
   const releaseSource = path.join(stagingRoot, 'release.php');
   const fakeWp = path.join(fixture, 'fake-wp');
   const fakeWpLog = path.join(fixture, 'fake-wp.log');
+  const fakeKinstaPurgeLog = path.join(fixture, 'fake-kinsta-purge.log');
 
   mkdirSync(oldReleaseDir, { recursive: true });
   mkdirSync(stagingRoot, { recursive: true });
   mkdirSync(rollbackParent, { recursive: true });
+  writeFakeKinstaWpLoad(remoteRoot);
   const rollbackDir = path.join(realpathSync(rollbackParent), 'B1-503-test-receipt');
   writeFileSync(path.join(oldReleaseDir, 'release.php'), "<?php\nreturn array('release_id' => 'v-oldoldoldoldold0');\n");
   symlinkSync(`releases/${oldCommit}`, currentLink);
@@ -98,8 +156,6 @@ set -euo pipefail
 printf '%s\\n' "$*" >> "$FAKE_WP_LOG"
 case "$*" in
   *" eval "*) exit 0 ;;
-  *" kinsta cache purge --site") exit 0 ;;
-  *" kinsta cache purge --cdn") exit 0 ;;
   *) exit 9 ;;
 esac
 `);
@@ -127,7 +183,11 @@ esac
     '--wp-cli', fakeWp,
     '--php-cli', phpCli,
   ];
-  const fixtureEnvironment = { FAKE_WP_LOG: fakeWpLog };
+  const fixtureEnvironment = {
+    FAKE_WP_LOG: fakeWpLog,
+    FAKE_KINSTA_PURGE_LOG: fakeKinstaPurgeLog,
+    FAKE_KINSTA_PURGE_MODE: 'success',
+  };
 
   const preflight = run(installScript, ['preflight', ...installArgs], fixtureEnvironment);
   assert.equal(preflight.status, 0, preflight.stderr || preflight.stdout);
@@ -156,7 +216,16 @@ esac
     '--receipt', receipt,
     '--receipt-sha256', receiptSha,
     '--wp-cli', fakeWp,
+    '--php-cli', phpCli,
   ];
+  const rollbackWithoutPhpArgs = rollbackArgs.slice(0, -2);
+  const rollbackWithoutPhp = run(
+    rollbackScript,
+    ['preflight', ...rollbackWithoutPhpArgs],
+    fixtureEnvironment,
+  );
+  assert.notEqual(rollbackWithoutPhp.status, 0);
+  assert.match(rollbackWithoutPhp.stderr, /required argument is empty/);
 
   const rollbackPreflight = run(
     rollbackScript,
@@ -191,16 +260,22 @@ esac
     routeSha,
   );
 
-  const cacheCommands = readFileSync(fakeWpLog, 'utf8')
+  const wpCacheCommands = readFileSync(fakeWpLog, 'utf8')
     .split('\n')
     .filter((line) => line.includes('kinsta cache purge'));
-  assert.deepEqual(cacheCommands.map((line) => line.split('kinsta cache purge ')[1]), [
-    '--site',
-    '--cdn',
-    '--site',
-    '--cdn',
-  ]);
-  assert.doesNotMatch(cacheCommands.join('\n'), /--all|--object|purge_complete_caches/);
+  assert.deepEqual(wpCacheCommands, []);
+  assert.deepEqual(
+    readFileSync(fakeKinstaPurgeLog, 'utf8').trim().split('\n'),
+    ['site', 'cdn', 'site', 'cdn'],
+  );
+  const cutoverSources = [
+    readFileSync(installScript, 'utf8'),
+    readFileSync(rollbackScript, 'utf8'),
+  ].join('\n');
+  assert.doesNotMatch(
+    cutoverSources,
+    /kinsta cache purge|purge_complete_object_cache|purge_complete_caches|--all|--object/,
+  );
 
   const repeatedInstall = run(installScript, ['preflight', ...installArgs], fixtureEnvironment);
   assert.notEqual(repeatedInstall.status, 0);
@@ -220,6 +295,148 @@ esac
   );
   assert.notEqual(tampered.status, 0);
   assert.match(tampered.stderr, /receipt SHA-256 mismatch/);
+});
+
+test('guarded Kinsta install refuses every invalid scoped cache response', () => {
+  assert.ok(phpCli, 'PHP CLI is required for the local cutover fixture');
+  const cases = [
+    ['site_wp_error', 74, /site cache purge returned WP_Error/, ['site']],
+    ['site_http', 74, /site cache purge did not return HTTP 200/, ['site']],
+    ['site_body', 74, /site cache purge returned an unexpected body/, ['site']],
+    ['cdn_wp_error', 75, /CDN cache purge returned WP_Error/, ['site', 'cdn']],
+    ['cdn_http', 75, /CDN cache purge did not return HTTP 200/, ['site', 'cdn']],
+    ['cdn_body', 75, /CDN cache purge returned an unexpected body/, ['site', 'cdn']],
+  ];
+
+  for (const [mode, expectedStatus, expectedError, expectedCalls] of cases) {
+    const fixture = mkdtempSync(path.join(os.tmpdir(), `storyforge-b1-503-${mode}-`));
+    const remoteRoot = path.join(fixture, 'remote', 'public');
+    const muRoot = path.join(remoteRoot, 'wp-content', 'mu-plugins');
+    const runtimeRoot = path.join(muRoot, 'missionmed-storyforge-runtime');
+    const releasesRoot = path.join(runtimeRoot, 'releases');
+    const stagingRoot = path.join(fixture, 'private', 'staging');
+    const rollbackParent = path.join(fixture, 'private', 'rollback');
+    const releaseCommit = '3333333333333333333333333333333333333333';
+    const releaseId = 'v-fedcba9876543210';
+    const routeSource = path.join(stagingRoot, 'missionmed-storyforge-route.php');
+    const releaseSource = path.join(stagingRoot, 'release.php');
+    const fakeWp = path.join(fixture, 'fake-wp');
+    const fakeWpLog = path.join(fixture, 'fake-wp.log');
+    const fakeKinstaPurgeLog = path.join(fixture, 'fake-kinsta-purge.log');
+
+    mkdirSync(releasesRoot, { recursive: true });
+    mkdirSync(stagingRoot, { recursive: true });
+    mkdirSync(rollbackParent, { recursive: true });
+    writeFakeKinstaWpLoad(remoteRoot);
+    const rollbackDir = path.join(realpathSync(rollbackParent), 'B1-503-test-receipt');
+
+    const releaseBytes = `<?php
+return array(
+  'release_id' => '${releaseId}',
+  'assets' => array(),
+);
+`;
+    writeFileSync(releaseSource, releaseBytes);
+    const releaseSha = sha256(releaseBytes);
+    const routeBytes = `<?php
+define( 'MMSFR_RELEASE_ID', '${releaseId}' );
+define( 'MMSFR_RELEASE_PHP_SHA256', '${releaseSha}' );
+define( 'MMSFR_RELEASE_PHP_SIZE', ${Buffer.byteLength(releaseBytes)} );
+`;
+    writeFileSync(routeSource, routeBytes);
+    const routeSha = sha256(routeBytes);
+
+    writeFileSync(fakeWp, `#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\\n' "$*" >> "$FAKE_WP_LOG"
+case "$*" in
+  *" eval "*) exit 0 ;;
+  *) exit 9 ;;
+esac
+`);
+    chmodSync(fakeWp, 0o755);
+    chmodSync(releasesRoot, 0o555);
+    chmodSync(runtimeRoot, 0o555);
+    chmodSync(muRoot, 0o555);
+
+    const installArgs = [
+      '--remote-root', realpathSync(remoteRoot),
+      '--release-commit', releaseCommit,
+      '--route-source', realpathSync(routeSource),
+      '--release-source', realpathSync(releaseSource),
+      '--route-sha256', routeSha,
+      '--route-size', String(Buffer.byteLength(routeBytes)),
+      '--release-sha256', releaseSha,
+      '--release-size', String(Buffer.byteLength(releaseBytes)),
+      '--release-id', releaseId,
+      '--expected-owner', owner,
+      '--expected-current-target', 'absent',
+      '--expected-route-sha256', 'absent',
+      '--rollback-dir', rollbackDir,
+      '--wp-cli', fakeWp,
+      '--php-cli', phpCli,
+    ];
+    const refusal = run(
+      installScript,
+      ['install', ...installArgs, '--confirm', 'B1-503-INSTALL'],
+      {
+        FAKE_WP_LOG: fakeWpLog,
+        FAKE_KINSTA_PURGE_LOG: fakeKinstaPurgeLog,
+        FAKE_KINSTA_PURGE_MODE: mode,
+      },
+    );
+
+    assert.equal(refusal.status, expectedStatus, refusal.stderr || refusal.stdout);
+    assert.match(refusal.stderr, expectedError);
+    assert.doesNotMatch(refusal.stdout, /B1_503_KINSTA_INSTALL_PASS/);
+    assert.deepEqual(
+      readFileSync(fakeKinstaPurgeLog, 'utf8').trim().split('\n'),
+      expectedCalls,
+    );
+    assert.doesNotMatch(readFileSync(fakeWpLog, 'utf8'), /kinsta cache purge/);
+    assert.equal(existsSync(rollbackDir), true, 'failed purge must retain the sealed receipt');
+
+    if (mode === 'site_body') {
+      const receipt = path.join(rollbackDir, 'rollback.tsv');
+      const rollbackRefusal = run(
+        rollbackScript,
+        [
+          'rollback',
+          '--remote-root', realpathSync(remoteRoot),
+          '--receipt', receipt,
+          '--receipt-sha256', sha256(readFileSync(receipt)),
+          '--wp-cli', fakeWp,
+          '--php-cli', phpCli,
+          '--confirm', 'B1-503-ROLLBACK',
+        ],
+        {
+          FAKE_WP_LOG: fakeWpLog,
+          FAKE_KINSTA_PURGE_LOG: fakeKinstaPurgeLog,
+          FAKE_KINSTA_PURGE_MODE: 'cdn_body',
+        },
+      );
+      assert.equal(rollbackRefusal.status, 75, rollbackRefusal.stderr || rollbackRefusal.stdout);
+      assert.match(
+        rollbackRefusal.stderr,
+        /CDN cache purge returned an unexpected body/,
+      );
+      assert.doesNotMatch(rollbackRefusal.stdout, /B1_503_KINSTA_ROLLBACK_PASS/);
+      assert.deepEqual(
+        readFileSync(fakeKinstaPurgeLog, 'utf8').trim().split('\n'),
+        ['site', 'site', 'cdn'],
+      );
+      assert.equal(
+        existsSync(path.join(runtimeRoot, 'current')),
+        false,
+        'failed rollback purge occurs only after the prior pointer is restored',
+      );
+      assert.equal(
+        existsSync(path.join(muRoot, 'missionmed-storyforge-route.php')),
+        false,
+        'failed rollback purge occurs only after the prior route is restored',
+      );
+    }
+  }
 });
 
 test('production migration runner pins source, backup, provider, DB, and exact ledgers', () => {

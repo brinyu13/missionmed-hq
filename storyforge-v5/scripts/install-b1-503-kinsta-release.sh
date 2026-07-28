@@ -125,6 +125,57 @@ echo "storyforge_enabled=false\n";
 ' >/dev/null
 }
 
+purge_scoped_kinsta_caches() {
+  B1_503_REMOTE_ROOT="$remote_root" "$php_cli" \
+    -d display_errors=0 \
+    -d error_reporting=0 \
+    -d log_errors=0 \
+    -r '
+function b1_503_cache_purge_fail($message, $exit_code) {
+    fwrite(STDERR, "B1-503 scoped cache purge refused: " . $message . PHP_EOL);
+    exit($exit_code);
+}
+
+function b1_503_validate_cache_purge_response($label, $response, $exit_code) {
+    if (is_wp_error($response)) {
+        b1_503_cache_purge_fail($label . " cache purge returned WP_Error", $exit_code);
+    }
+    if (200 !== (int) wp_remote_retrieve_response_code($response)) {
+        b1_503_cache_purge_fail($label . " cache purge did not return HTTP 200", $exit_code);
+    }
+    if ("Cache has been cleared." !== (string) wp_remote_retrieve_body($response)) {
+        b1_503_cache_purge_fail($label . " cache purge returned an unexpected body", $exit_code);
+    }
+}
+
+$remote_root = getenv("B1_503_REMOTE_ROOT");
+if (!is_string($remote_root) || "" === $remote_root) {
+    b1_503_cache_purge_fail("remote root is unavailable", 70);
+}
+require $remote_root . "/wp-load.php";
+
+global $kinsta_muplugin;
+if (!is_object($kinsta_muplugin) || !isset($kinsta_muplugin->kinsta_cache_purge)
+    || !is_object($kinsta_muplugin->kinsta_cache_purge)) {
+    b1_503_cache_purge_fail("Kinsta cache API is unavailable", 71);
+}
+
+$purger = $kinsta_muplugin->kinsta_cache_purge;
+if (!is_callable(array($purger, "purge_complete_site_cache"))) {
+    b1_503_cache_purge_fail("Kinsta site-cache purge method is unavailable", 72);
+}
+if (!is_callable(array($purger, "purge_complete_cdn_cache"))) {
+    b1_503_cache_purge_fail("Kinsta CDN-cache purge method is unavailable", 73);
+}
+
+$site_response = $purger->purge_complete_site_cache();
+b1_503_validate_cache_purge_response("site", $site_response, 74);
+
+$cdn_response = $purger->purge_complete_cdn_cache();
+b1_503_validate_cache_purge_response("CDN", $cdn_response, 75);
+'
+}
+
 atomic_replace_pointer() {
   local source="$1"
   local destination="$2"
@@ -463,8 +514,7 @@ require_file_identity "installed route" "$route_target" "$route_sha256" "$route_
 require_owner "$route_target"
 verify_feature_off
 
-"$wp_cli" --path="$remote_root" kinsta cache purge --site >/dev/null
-"$wp_cli" --path="$remote_root" kinsta cache purge --cdn >/dev/null
+purge_scoped_kinsta_caches
 verify_feature_off
 
 printf '%s\n' "B1_503_KINSTA_INSTALL_PASS"

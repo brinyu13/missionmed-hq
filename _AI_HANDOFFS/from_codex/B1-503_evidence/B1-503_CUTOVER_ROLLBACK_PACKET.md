@@ -1,13 +1,10 @@
 # B1-503 Cutover and Rollback Packet
 
-Status: **PREPARED AND LOCALLY REHEARSED — NOT YET EXECUTED IN PRODUCTION**
+Status: **PASS — CUTOVER EXECUTED; ROLLBACK READY AND NOT REQUIRED**
 
-This is the executable safety packet for the guarded B1-503 production
-cutover. It records root/SQL-agent evidence supplied to this worktree and the
-exact fail-closed command contracts added by the B1-503 safety closure. The
-author of this packet did not create the provider backups and did not run any
-SSH, Kinsta, Railway, PostgreSQL production, deployment, feature-flag, cache, or
-production rollback command while preparing it.
+This is the executable safety packet and completed cutover record for B1-503.
+It records the root/SQL-agent recovery evidence, the exact fail-closed command
+contracts, the executed production cutover, and the still-ready rollback.
 
 ## 1. Pinned recovery evidence
 
@@ -69,43 +66,44 @@ B1-503 candidate:
 | `release.php` SHA-256 | `3215eed4837d9a9d712706003e352ead3423e399bea76c20818270d93fcb199e` |
 | `release.php` size | `741148` |
 
-The commit-named release directory must use the final clean, pushed cutover
-commit that contains this safety tooling and the already-generated artifacts.
-Do not substitute source commit `36e823d...` or artifact-generation commit
-`5141939...` after a later safety commit exists. Resolve the full final commit
-once, then use the same value for the source/archive gate, migration ledger,
-Railway deployment receipt, Kinsta release directory, and `current` pointer.
+The cutover used clean, pushed commit
+`6f45dbbd2150ba11000236a4959f70434f6edb77` consistently for the source/archive
+gate, migration ledger, Railway deployment receipt, Kinsta release directory,
+and `current` pointer. Source commit `36e823d...` and artifact-generation
+commit `5141939...` remain provenance commits, not deployed pointer names.
 
-## 3. Mandatory cutover order
+## 3. Executed mandatory cutover order
 
-1. Verify the exact final commit is clean, pushed, and byte-identical to the
+All steps below completed in this order:
+
+1. Verified the exact final commit was clean, pushed, and byte-identical to the
    source or Git archive used for every command.
 2. Revalidate the MyKinsta, private Kinsta, PostgreSQL 18, and locked Railway
    receipts above.
-3. Resolve and record the absolute Kinsta `wp` and `php` executable paths, the
+3. Resolved and recorded the absolute Kinsta `wp` and `php` executable paths, the
    canonical WordPress root, the exact Unix owner, and private staging paths.
-4. Stage the two Kinsta scripts, route, and release bundle outside the public
+4. Staged the two Kinsta scripts, route, and release bundle outside the public
    WordPress root; verify their hashes before use.
-5. Run the Kinsta install script in `preflight` mode. It is read-only.
-6. Force `storyforge_enabled=false`, verify allowlist/override counts did not
+5. Ran the Kinsta install script in read-only `preflight` mode.
+6. Forced `storyforge_enabled=false`, verified allowlist/override counts did not
    drift, wait at least 65 seconds (one 60-second token TTL plus margin), and
    reverify feature-off.
-7. Run the migration script in `preflight` mode from PostgreSQL 18 tooling in
+7. Ran the migration script in `preflight` mode from PostgreSQL 18 tooling in
    the exact Railway project/environment/database-service context.
-8. Run the migration script once in confirmed `apply` mode. It must report
+8. Ran the migration script once in confirmed `apply` mode. It reported
    exactly two pending B1-503 migrations before the transaction and exactly
    five known ledger rows afterward.
-9. Deploy only the API-only `storyforge-v5/` package from the same final
-   commit. Prove direct Railway `/` remains denied and the redacted health/API
-   checks pass.
-10. Rerun Kinsta `preflight`, then run confirmed `install`. Record the emitted
-    sealed rollback receipt path and SHA-256 outside the host session.
-11. While feature-off, validate route aliases, raw/direct-path denial,
+9. Deployed only the API-only `storyforge-v5/` package from the same final
+   commit. Direct Railway `/` remained denied and the redacted health/API
+   checks passed.
+10. Reran Kinsta `preflight`, then ran confirmed `install`. Preserved the emitted
+    sealed rollback receipt and SHA-256 outside the host session.
+11. While feature-off, validated route aliases, raw/direct-path denial,
     candidate hashes, cache behavior, API, database counts, protected Matrix
     hashes, Matrix login, WordPress REST/admin, legacy StoryForge, and unrelated
     routes.
-12. Only after every feature-off gate passes, re-enable the exact one-Founder
-    student pilot and perform authenticated production validation without fake
+12. Only after every feature-off gate passed, re-enabled the exact one-Founder
+    student pilot and performed authenticated production validation without fake
     saved student data.
 
 The install script verifies feature-off but cannot prove the required TTL wait.
@@ -224,7 +222,9 @@ The script:
 - uses only the exact relative pointer
   `releases/<final-commit>` and an atomic pointer replacement;
 - atomically replaces only `missionmed-storyforge-route.php`;
-- purges only `wp --path=<root> kinsta cache purge --site` and then `--cdn`;
+- purges only Kinsta's separate `purge_complete_site_cache()` and
+  `purge_complete_cdn_cache()` methods through the pinned PHP CLI, requiring
+  non-`WP_Error`, HTTP `200`, and the exact success body for each;
 - leaves every earlier release directory untouched.
 
 If any step fails after the new release directory is published, do not remove
@@ -251,7 +251,8 @@ bash rollback-b1-503-kinsta-release.sh preflight \
   --remote-root /www/theresidencyacademy_209/public \
   --receipt <EXACT_EMITTED_ROLLBACK_RECEIPT> \
   --receipt-sha256 <EXACT_EMITTED_RECEIPT_SHA256> \
-  --wp-cli <ABSOLUTE_WP_CLI>
+  --wp-cli <ABSOLUTE_WP_CLI> \
+  --php-cli <ABSOLUTE_PHP_CLI>
 ```
 
 Rollback uses the identical arguments plus:
@@ -271,7 +272,8 @@ The rollback sequence is fixed:
 4. Restore the exact prior relative pointer from the receipt.
 5. Restore the exact prior route bytes/mode, or exact route absence, from the
    receipt.
-6. Purge only Kinsta site cache and CDN cache.
+6. Purge only Kinsta site cache and CDN cache through their separate scoped
+   PHP methods, with strict response validation.
 7. Reverify feature-off and the restored pointer/route.
 8. Prove both old and new immutable release directories still exist.
 
@@ -316,5 +318,49 @@ The local cutover unit fixture performs:
   database, TLS, three-row pre-ledger, two-pending, five-row post-ledger,
   advisory-lock, and password non-disclosure checks.
 
-This local rehearsal is candidate evidence. It is not a production deployment
-or production rollback result.
+The local rehearsal covers both the original cutover contract and strict
+failure handling for every invalid scoped cache response. Production cutover
+was separately completed; production rollback was not required or executed.
+
+## 9. Completed production cutover
+
+- Feature-off timestamp: `2026-07-28T08:45:08Z`.
+- Deployed commit:
+  `6f45dbbd2150ba11000236a4959f70434f6edb77`.
+- Railway deployment:
+  `fa7ad084-4dae-4039-a154-2250a407d95e` (`SUCCESS`).
+- Kinsta pointer:
+  `releases/6f45dbbd2150ba11000236a4959f70434f6edb77`.
+- Rollback directory:
+  `/www/theresidencyacademy_209/private/b1-503/rollback/B1-503-6f45dbbd-20260728T084409Z`.
+- Rollback receipt SHA-256:
+  `a2f4cf3638e2356ae68037fc44ec102a67c841d80b5861d8d8ff066c1acd390b`.
+- Final feature flag: enabled.
+- Final allowlist/override: exactly one Founder mapped to student.
+- Final database: five migration rows, one user, zero stories, 26 questions,
+  zero audit events, and zero active assignments.
+- Authenticated Founder production validation: PASS.
+- Remaining material product differences: NONE.
+
+The Kinsta install published and fully verified the exact product bytes before
+WP-CLI exited `139` while attempting its site-cache command. The provider had
+accepted that scoped request, and a separate scoped CDN call returned HTTP
+`200` with the exact success body. Three complete live validation passes then
+proved exact bytes, `CF-Cache-Status: DYNAMIC`, `X-Kinsta-Cache: BYPASS`, and no
+`Age`. The scripts now use the previously proven PHP methods directly so the
+same WP-CLI crash path is absent from both future installation and rollback.
+No broad or object-cache purge occurred.
+
+After 44/44 unit tests, syntax checks, six invalid-response refusal cases, and
+the forbidden-purge scan passed, the corrected scripts were atomically
+restaged under the existing private commit-named staging directory:
+
+- install:
+  `b29550c0741301d30b7bfed9ce74fd3f41f0f9d1156a3b4a13d0c8ed044b8197`;
+- rollback:
+  `86622d6a291f396b6d8195c2ea67f96dae28d997481671d87da167dde8f54d8e`.
+
+Both remote files are mode `0700`, owner
+`theresidencyacademy:www-data`. Exact prior versions were retained under fixed
+private recovery names. This restaging did not touch public runtime bytes,
+WordPress configuration, feature state, caches, or application data.

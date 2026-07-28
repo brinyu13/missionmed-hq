@@ -11,6 +11,7 @@ Usage:
     --receipt /absolute/private/rollback/rollback.tsv \
     --receipt-sha256 <64-lowercase-hex> \
     --wp-cli /absolute/path/to/wp \
+    --php-cli /absolute/path/to/php \
     [--confirm B1-503-ROLLBACK]
 
 The script runs on the Kinsta host. `preflight` is read-only. `rollback`
@@ -125,6 +126,57 @@ echo "storyforge_enabled=false\n";
 ' >/dev/null
 }
 
+purge_scoped_kinsta_caches() {
+  B1_503_REMOTE_ROOT="$remote_root" "$php_cli" \
+    -d display_errors=0 \
+    -d error_reporting=0 \
+    -d log_errors=0 \
+    -r '
+function b1_503_cache_purge_fail($message, $exit_code) {
+    fwrite(STDERR, "B1-503 scoped cache purge refused: " . $message . PHP_EOL);
+    exit($exit_code);
+}
+
+function b1_503_validate_cache_purge_response($label, $response, $exit_code) {
+    if (is_wp_error($response)) {
+        b1_503_cache_purge_fail($label . " cache purge returned WP_Error", $exit_code);
+    }
+    if (200 !== (int) wp_remote_retrieve_response_code($response)) {
+        b1_503_cache_purge_fail($label . " cache purge did not return HTTP 200", $exit_code);
+    }
+    if ("Cache has been cleared." !== (string) wp_remote_retrieve_body($response)) {
+        b1_503_cache_purge_fail($label . " cache purge returned an unexpected body", $exit_code);
+    }
+}
+
+$remote_root = getenv("B1_503_REMOTE_ROOT");
+if (!is_string($remote_root) || "" === $remote_root) {
+    b1_503_cache_purge_fail("remote root is unavailable", 70);
+}
+require $remote_root . "/wp-load.php";
+
+global $kinsta_muplugin;
+if (!is_object($kinsta_muplugin) || !isset($kinsta_muplugin->kinsta_cache_purge)
+    || !is_object($kinsta_muplugin->kinsta_cache_purge)) {
+    b1_503_cache_purge_fail("Kinsta cache API is unavailable", 71);
+}
+
+$purger = $kinsta_muplugin->kinsta_cache_purge;
+if (!is_callable(array($purger, "purge_complete_site_cache"))) {
+    b1_503_cache_purge_fail("Kinsta site-cache purge method is unavailable", 72);
+}
+if (!is_callable(array($purger, "purge_complete_cdn_cache"))) {
+    b1_503_cache_purge_fail("Kinsta CDN-cache purge method is unavailable", 73);
+}
+
+$site_response = $purger->purge_complete_site_cache();
+b1_503_validate_cache_purge_response("site", $site_response, 74);
+
+$cdn_response = $purger->purge_complete_cdn_cache();
+b1_503_validate_cache_purge_response("CDN", $cdn_response, 75);
+'
+}
+
 atomic_replace_pointer() {
   local source="$1"
   local destination="$2"
@@ -140,6 +192,7 @@ remote_root=""
 receipt=""
 receipt_sha256=""
 wp_cli=""
+php_cli=""
 confirm=""
 
 [[ $# -ge 1 ]] || usage
@@ -151,13 +204,14 @@ while [[ $# -gt 0 ]]; do
     --receipt) [[ $# -ge 2 ]] || usage; receipt="$2"; shift 2 ;;
     --receipt-sha256) [[ $# -ge 2 ]] || usage; receipt_sha256="$2"; shift 2 ;;
     --wp-cli) [[ $# -ge 2 ]] || usage; wp_cli="$2"; shift 2 ;;
+    --php-cli) [[ $# -ge 2 ]] || usage; php_cli="$2"; shift 2 ;;
     --confirm) [[ $# -ge 2 ]] || usage; confirm="$2"; shift 2 ;;
     *) usage ;;
   esac
 done
 
 [[ "$mode" = "preflight" || "$mode" = "rollback" ]] || usage
-for value in "$remote_root" "$receipt" "$receipt_sha256" "$wp_cli"; do
+for value in "$remote_root" "$receipt" "$receipt_sha256" "$wp_cli" "$php_cli"; do
   [[ -n "$value" ]] || fail "a required argument is empty"
   contains_control "$value" && fail "an argument contains a tab or line break"
 done
@@ -165,6 +219,7 @@ done
 [[ "$receipt" = /* ]] || fail "receipt path must be absolute"
 [[ "$receipt_sha256" =~ ^[a-f0-9]{64}$ ]] || fail "receipt SHA-256 is invalid"
 [[ "$wp_cli" = /* && -x "$wp_cli" ]] || fail "WP CLI must be an absolute executable path"
+[[ "$php_cli" = /* && -x "$php_cli" ]] || fail "PHP CLI must be an absolute executable path"
 
 require_regular_file "rollback receipt" "$receipt"
 [[ "$(sha256_file "$receipt")" = "$receipt_sha256" ]] || fail "rollback receipt SHA-256 mismatch"
@@ -413,8 +468,7 @@ chmod 0500 "$observed_dir"
 chmod "$receipt_dir_original_mode" "$receipt_dir"
 receipt_dir_original_mode=""
 
-"$wp_cli" --path="$remote_root" kinsta cache purge --site >/dev/null
-"$wp_cli" --path="$remote_root" kinsta cache purge --cdn >/dev/null
+purge_scoped_kinsta_caches
 verify_feature_off
 
 if [[ "$prior_current_state" = "present" ]]; then
