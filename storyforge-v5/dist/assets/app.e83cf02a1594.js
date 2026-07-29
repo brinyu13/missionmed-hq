@@ -1202,6 +1202,7 @@ const VOICE_ERROR_COPY = Object.freeze({
   voiceDisabled: 'Voice capture is currently unavailable. Every word so far is kept in your draft. You can keep typing.',
   dailyLimit: "You've reached today's recording limit. Everything you captured is saved, and typing is always available. Recording returns tomorrow.",
   lengthLimit: 'This recording reached its length limit and was stopped. Everything you said is captured below.',
+  attachFailed: "We couldn't attach your audio this time. Every word is safe in your story text. You can save your story now, and you can record again anytime.",
 });
 
 function voiceTime(milliseconds) {
@@ -2028,6 +2029,21 @@ async function pollVoiceRecording() {
       }
       if (transcribeState.includes('failed')) hasFailure = true;
     });
+    const transcriptionAvailable = firstDefined(
+      recording?.transcriptionAvailable,
+      payload?.transcriptionAvailable,
+      true,
+    ) !== false;
+    if (
+      !transcriptionAvailable
+      && segments.some((segment) => (
+        String(firstDefined(segment.transcribeState, segment.transcribe_state, ''))
+        !== 'transcribed'
+      ))
+    ) {
+      hasFailure = true;
+      hasPending = false;
+    }
     const segmentsBySeq = new Map(segments.map((segment) => [
       Number(firstDefined(segment.seq, segment.sequence, 0)),
       segment,
@@ -2350,6 +2366,7 @@ async function voiceDiscard() {
   cleanupVoiceMedia();
   stopVoicePolling();
   await voiceState.uploadQueue.catch(() => {});
+  await api.cancelRecording(recordingId);
   const body = $('#capBody');
   const hadWords = Boolean(body && voiceState.voiceSpans.some(
     (span) => body.value.slice(span.start, span.end).trim(),
@@ -2376,7 +2393,6 @@ async function voiceDiscard() {
   voiceState.trackedText = preservedText;
   voiceState.transcriptText = '';
   voiceState.dismissedTerms.clear();
-  await api.cancelRecording(recordingId);
   await clearVoiceSegments(recordingId);
   if (voiceState.visibilityHandler) {
     document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
@@ -2525,6 +2541,59 @@ async function uploadRecordedAudio(storyId) {
   }));
 }
 
+const voiceAssemblyRetryMs = 2_000;
+const voiceAssemblyWaitMs = 90_000;
+
+function voiceDelay(milliseconds) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+async function saveRecordedStoryWhenAssembled(recordingId, storyPayload) {
+  const deadline = Date.now() + voiceAssemblyWaitMs;
+  while (true) {
+    const payload = await api.recording(recordingId);
+    const recording = payload?.recording || payload;
+    const recordingState = String(firstDefined(recording?.state, payload?.state, ''));
+    if (recordingState === 'failed') {
+      stopVoicePolling();
+      cleanupVoiceMedia();
+      await voiceState.uploadQueue.catch(() => {});
+      await clearVoiceSegments(recordingId).catch(() => {});
+      if (voiceState.visibilityHandler) {
+        document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
+      }
+      window.clearTimeout(state.captureDraftSaveTimer);
+      state.captureDraftSaveTimer = 0;
+      await captureDraftSavePromise.catch(() => {});
+      const preservedText = $('#capBody')?.value || '';
+      voiceState = newVoiceState({ text: preservedText });
+      renderVoiceDock('idle');
+      const typedDraft = captureDraftPayload();
+      if (typedDraft) await persistCaptureDraft(typedDraft);
+      throw Object.assign(new Error(VOICE_ERROR_COPY.attachFailed), {
+        code: 'assembly_failed',
+      });
+    }
+    if (['assembled', 'attached'].includes(recordingState)) {
+      try {
+        return await api.createStory(storyPayload);
+      } catch (error) {
+        if (error.code !== 'voice_assembly_pending') throw error;
+      }
+    }
+    if (Date.now() >= deadline) {
+      // The authority references an existing E5 confirm choice that is absent
+      // from this product source. Leave the draft/session intact so retrying
+      // means "keep waiting" and the existing discard control remains usable.
+      throw Object.assign(new Error('Your recording is still being prepared.'), {
+        code: 'voice_assembly_pending',
+        status: 409,
+      });
+    }
+    await voiceDelay(voiceAssemblyRetryMs);
+  }
+}
+
 async function saveCapture(form) {
   if (voiceState.recordingId && ['rec', 'paused', 'arming'].includes(voiceState.mode)) {
     await voiceDone();
@@ -2536,7 +2605,6 @@ async function saveCapture(form) {
   await recordingStopPromise;
   const title = $('#capTitle', form)?.value.trim();
   if (!title) return;
-  const text = $('#capBody', form)?.value.trim() || '';
   const lesson = $('#capLesson', form)?.value.trim() || '';
   const themes = JSON.parse(capture.dataset.themes || '[]');
   const studentScore = Number(capture.dataset.score || 0) || null;
@@ -2567,8 +2635,10 @@ async function saveCapture(form) {
         );
       }
       await api.finishRecording(recordingId, voiceState.durationMs);
+      await pollVoiceRecording();
     }
-    const result = await api.createStory({
+    const text = $('#capBody', form)?.value.trim() || '';
+    const storyPayload = {
       title,
       text,
       captureType: recordingId || recordedBlob ? 'audio' : 'text',
@@ -2579,7 +2649,10 @@ async function saveCapture(form) {
       ...(recordingId ? { recordingId } : {}),
       draftVersion: state.captureDraftVersion ?? 0,
       surface: 'quick',
-    });
+    };
+    const result = recordingId
+      ? await saveRecordedStoryWhenAssembled(recordingId, storyPayload)
+      : await api.createStory(storyPayload);
     const story = unwrapStory(result);
     if (!recordingId && recordedBlob) await uploadRecordedAudio(story.id);
     if (destinationQuestionId) {
@@ -3223,14 +3296,47 @@ async function saveReflection(id) {
 async function playAudio(id, button) {
   try {
     button.disabled = true;
-    const result = await api.audioPlayback(id);
-    const url = firstDefined(result?.playbackUrl, result?.playback_url, result?.url);
-    if (!url) throw new Error('Private audio playback is not available.');
-    const audio = new Audio(url);
-    audio.addEventListener('ended', () => { button.disabled = false; button.textContent = '▶'; }, { once: true });
-    audio.addEventListener('error', () => { button.disabled = false; button.textContent = '▶'; notify('Private audio playback could not start.'); }, { once: true });
+    const playbackUrls = (result) => asArray(firstDefined(
+      result?.playbackUrls,
+      result?.playback_urls,
+      [firstDefined(result?.playbackUrl, result?.playback_url, result?.url)].filter(Boolean),
+    )).filter(Boolean);
+    let urls = playbackUrls(await api.audioPlayback(id));
+    if (!urls.length) throw new Error('Private audio playback is not available.');
+    let index = 0;
+    let audio;
+    const reset = () => {
+      button.disabled = false;
+      button.textContent = '▶';
+    };
+    const playNext = async () => {
+      if (index > 0) {
+        const refreshed = playbackUrls(await api.audioPlayback(id));
+        if (refreshed.length !== urls.length || !refreshed[index]) {
+          throw new Error('Private audio playback is not available.');
+        }
+        urls = refreshed;
+      }
+      audio = new Audio(urls[index]);
+      audio.addEventListener('ended', () => {
+        index += 1;
+        if (index >= urls.length) {
+          reset();
+          return;
+        }
+        void playNext().catch(() => {
+          reset();
+          notify('Private audio playback could not start.');
+        });
+      }, { once: true });
+      audio.addEventListener('error', () => {
+        reset();
+        notify('Private audio playback could not start.');
+      }, { once: true });
+      await audio.play();
+    };
     button.textContent = 'Ⅱ';
-    await audio.play();
+    await playNext();
   } catch (error) {
     button.disabled = false;
     notify(error.message);
