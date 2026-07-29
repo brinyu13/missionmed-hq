@@ -1,0 +1,18 @@
+const RESOLVED=new Set(["ACCEPTED","REJECTED","MERGED","KEPT_BOTH","SOURCE_NOT_SELECTED"]);
+
+function text(value){return String(value||"").toLowerCase();}
+
+export class ReviewWorkspace{
+  constructor(controller,releaseState){this.controller=controller;this.state=releaseState.review;this.listeners=new Set();}
+  subscribe(listener){this.listeners.add(listener);listener(this.summary());return()=>this.listeners.delete(listener);}
+  notify(){const value=this.summary();this.listeners.forEach((listener)=>listener(value));return value;}
+  set(patch){Object.assign(this.state,patch);if(!Object.prototype.hasOwnProperty.call(patch,"page"))this.state.page=1;this.state.selectedCandidateIds=this.state.selectedCandidateIds.filter((id)=>this.controller.candidate(id));return this.notify();}
+  filtered(){const query=text(this.state.query);return this.controller.state.extractionCandidates.filter((candidate)=>{if(this.state.status!=="ALL"&&candidate.reviewStatus!==this.state.status)return false;if(this.state.confidence!=="ALL"&&candidate.confidence?.level!==this.state.confidence)return false;if(this.state.type!=="ALL"&&candidate.candidateKind!==this.state.type)return false;if(this.state.source!=="ALL"&&!candidate.sourceDocumentIds?.includes(this.state.source))return false;if(this.state.group==="DUPLICATES"&&!candidate.duplicateGroupIds?.length)return false;if(this.state.group==="CONFLICTS"&&!candidate.conflictIds?.length)return false;if(this.state.group==="UNRESOLVED"&&RESOLVED.has(candidate.reviewStatus))return false;if(query&&!text([candidate.title,candidate.organization,candidate.siteName,candidate.location,candidate.canonicalType,candidate.provenance?.map((item)=>item.fileName+" "+item.sourceExcerpt).join(" ")].join(" ")).includes(query))return false;return true;});}
+  pageInfo(){const filtered=this.filtered(),pageSize=Number(this.state.pageSize)||25,pages=Math.max(1,Math.ceil(filtered.length/pageSize)),page=Math.min(Math.max(1,Number(this.state.page)||1),pages);this.state.page=page;return {filtered,pageSize,pages,page,start:(page-1)*pageSize,end:Math.min(filtered.length,page*pageSize),items:filtered.slice((page-1)*pageSize,page*pageSize)};}
+  visibleIds(){return this.pageInfo().items.map((candidate)=>candidate.id);}
+  toggle(id,selected=null){const set=new Set(this.state.selectedCandidateIds),next=selected==null?!set.has(id):!!selected;if(next)set.add(id);else set.delete(id);this.state.selectedCandidateIds=[...set];return this.notify();}
+  selectPage(){const set=new Set(this.state.selectedCandidateIds);this.visibleIds().forEach((id)=>set.add(id));this.state.selectedCandidateIds=[...set];return this.notify();}
+  clearSelection(){this.state.selectedCandidateIds=[];return this.notify();}
+  bulkAcceptSafe(){const selected=[...new Set(this.state.selectedCandidateIds)],result=this.controller.acceptCandidatesSafe(selected);const accepted=new Set(result.eventIds);this.state.selectedCandidateIds=this.state.selectedCandidateIds.filter((id)=>{const candidate=this.controller.candidate(id);return !candidate||candidate.reviewStatus!=="ACCEPTED";});return {...result,acceptedEventIds:[...accepted]};}
+  summary(){const info=this.pageInfo(),all=this.controller.state.extractionCandidates;return {total:all.length,filtered:info.filtered.length,page:info.page,pages:info.pages,pageSize:info.pageSize,start:info.filtered.length?info.start+1:0,end:info.end,selected:this.state.selectedCandidateIds.length,visibleIds:info.items.map((item)=>item.id),duplicates:all.filter((item)=>item.duplicateGroupIds?.length).length,conflicts:all.filter((item)=>item.conflictIds?.length).length,pending:all.filter((item)=>item.reviewStatus==="PENDING").length};}
+}

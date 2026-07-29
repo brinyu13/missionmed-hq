@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Matrix App Mode Demo, Mission Timeline</title>
+  <link rel="icon" href="data:,">
+  <style>
+    html,body{margin:0;min-height:100%;background:#090b10;color:#fff;font-family:Arial,sans-serif}
+    #matrix-dashboard{padding:48px;max-width:900px;margin:auto}
+    #matrix-dashboard button{min-height:44px;padding:0 18px;border:1px solid #ff7139;background:#b8411e;color:#fff;font-weight:700;cursor:pointer}
+    #matrix-dashboard button:focus-visible{outline:3px solid #56d7ff;outline-offset:3px}
+  </style>
+</head>
+<body>
+  <section id="matrix-dashboard">
+    <h1>Matrix Runtime v2 App Mode Demo</h1>
+    <p>This local harness demonstrates the proposed non-iframe lifecycle. It has no production session and therefore remains local-only.</p>
+    <button id="openTimeline" type="button">Open Mission Timeline</button>
+  </section>
+  <div id="matrix-app-root"></div>
+  <script type="module">
+    import {mountMissionTimelineAppMode} from "../timeline-app-mode.js";
+    document.querySelector("#openTimeline").addEventListener("click",async()=>{
+      document.querySelector("#matrix-dashboard").hidden=true;
+      await mountMissionTimelineAppMode({
+        root:document.querySelector("#matrix-app-root"),
+        assetBase:"/timeline/",
+        apiBase:"/api/timeline/v1",
+        timelineToken:null,
+        programId:"program_demo",
+        returnUrl:"/matrix/demo/"
+      });
+    });
+  </script>
+</body>
+</html>
