@@ -1819,8 +1819,38 @@ function domainStepMarkup404(step){
     +'<section class="builderSaved" aria-label="Saved '+domain+' entries"><h2>Saved '+(domain==='clinical'?'rotations':domain+' entries')+'</h2>'+domainSavedList404(domain)+'</section>'
     +'<button type="button" class="homeTertiary builderSkip" data-builder-skip="'+step+'">I have nothing to add here → skip</button></section>';
 }
+function reviewSnapshot404(){
+  const review=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.review;
+  if(review&&typeof review.snapshot==='function')return review.snapshot();
+  return{
+    completeness:BUILDER_STEPS_404.slice(0,6).map((item,index)=>({
+      step:index+1,label:item.title,count:index===0?(coreInfoValid()?1:0):builderDomainCount(index+1),state:builderStepState(index+1)
+    })),
+    checks:[]
+  };
+}
+function reviewGlyph404(value){
+  return{complete:'✓',started:'◐',skipped:'—',empty:'○',untouched:'○'}[value]||'○';
+}
+function reviewFinishMarkup404(){
+  const review=reviewSnapshot404();
+  const completeness=review.completeness.map(row=>'<li class="builderReviewRow '+esc(row.state)+'">'
+    +'<span class="builderReviewGlyph" aria-label="'+esc(row.state)+'">'+reviewGlyph404(row.state)+'</span>'
+    +'<span>'+esc(row.label)+' · '+Number(row.count||0)+' events</span>'
+    +'<button type="button" class="homeTertiary" aria-label="Edit '+esc(row.label)+'" data-review-step="'+Number(row.step)+'">Edit</button></li>').join('');
+  const checks=review.checks.length?review.checks.map(check=>'<li class="builderStoryRow" data-story-check="'+esc(check.type)+'">'
+    +'<span>'+esc(check.message)+'</span><button type="button" class="homeTertiary" data-review-step="'+Number(check.target&&check.target.step||1)+'"'
+    +(check.target&&check.target.eventId?' data-review-event="'+esc(check.target.eventId)+'"':'')
+    +(check.target&&check.target.examId?' data-review-exam="'+esc(check.target.examId)+'"':'')+'>Review</button></li>').join('')
+    :'<li class="builderStoryEmpty">No story checks right now. Your timeline is ready to refine.</li>';
+  return '<section class="builderReviewFinish">'
+    +'<section class="builderReviewBlock" aria-labelledby="builderCompletenessTitle"><h2 id="builderCompletenessTitle">Completeness summary</h2><ul>'+completeness+'</ul></section>'
+    +'<section class="builderReviewBlock" aria-labelledby="builderStoryTitle"><h2 id="builderStoryTitle">Story checks</h2><ul>'+checks+'</ul></section>'
+    +'<div class="builderReviewActions"><button type="button" class="btnD go" data-review-open-canvas>OPEN MY CANVAS →</button>'
+    +'<button type="button" class="btnD alt" data-review-export>EXPORT NOW</button></div></section>';
+}
 function builderPlaceholderMarkup(step){
-  if(step===7)return'<div class="builderPlaceholder"><p>Your completeness summary and story checks arrive in M6.</p><button class="btnD go" data-nav="canvas">OPEN MY CANVAS →</button></div>';
+  if(step===7)return reviewFinishMarkup404();
   return'<div class="builderPlaceholder"><p>This step is ready for its domain workflow.</p><button class="homeTertiary" data-builder-skip="'+step+'">I have nothing to add here → skip</button></div>';
 }
 function renderBuilder404(){
@@ -1838,6 +1868,7 @@ function renderBuilder404(){
   $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():(step===2?examsMarkup404():(step>=3&&step<=6?domainStepMarkup404(step):builderPlaceholderMarkup(step)));
   $('#builderBack').disabled=step===1;
   $('#builderContinue').textContent=step===7?'OPEN MY CANVAS →':'CONTINUE →';
+  $('#builderContinue').hidden=step===7;
 }
 function parseBuilderMonth(value){
   const raw=String(value||'').trim();
@@ -2002,6 +2033,23 @@ function showDomainErrors404(form,errors){
 document.addEventListener('click',e=>{
   const typeaheadChoice=e.target.closest('[data-typeahead-choice]');
   if(typeaheadChoice){commitTypeahead404(typeaheadChoice.closest('[data-domain-typeahead]'),typeaheadChoice.dataset.typeaheadChoice);return}
+  const reviewJump=e.target.closest('[data-review-step]');
+  if(reviewJump){
+    const step=Number(reviewJump.dataset.reviewStep)||1;
+    const opened=reviewJump.dataset.reviewEvent?runDomainAction404('edit',reviewJump.dataset.reviewEvent):false;
+    if(!opened){state.builder.step=step;renderBuilder404()}
+    requestAnimationFrame(()=>{
+      if(reviewJump.dataset.reviewExam){
+        const exam=document.querySelector('[data-exam-card="'+reviewJump.dataset.reviewExam+'"]');
+        exam&&exam.scrollIntoView({block:'center'});
+      }
+    });
+    return;
+  }
+  const reviewCanvas=e.target.closest('[data-review-open-canvas]');
+  if(reviewCanvas){state.mode='blank';go('canvas');return}
+  const reviewExport=e.target.closest('[data-review-export]');
+  if(reviewExport){go('export');return}
   const stepButton=e.target.closest('[data-builder-step]');
   if(stepButton){state.builder.step=+stepButton.dataset.builderStep;renderBuilder404();return}
   const degree=e.target.closest('[data-degree]');

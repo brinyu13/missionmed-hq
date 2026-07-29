@@ -181,13 +181,46 @@ remain available as engineering sources, but `web/index.html` does not load
 - Data authority:
   `https://www.acgme.org/globalassets/pdfs/specialtieslist.pdf`
   (`©2026 ACGME`, May 2026).
+- Commit: `a530cda`
+
+### M6 — Review & Finish
+
+- Connected the retained completeness and story-check engine to canonical 407F
+  through the engineering adapter; no duplicate gap/overlap/exam logic was
+  introduced.
+- Rendered exactly six completeness rows with complete, started, skipped, and
+  empty glyphs, event counts, and accessible Edit links to the owning Builder
+  step.
+- Rendered only the three frozen neutral check types: six-month-or-longer gaps,
+  more-than-two concurrent duration events, and awaiting exam results.
+- Review links route to the owning Builder step/entry or exam, including the
+  retained edit-draft path for domain entries.
+- Added the ungated `Open my canvas →` and `Export now` actions; Canvas opens in
+  the student's Guided/blank-data mode. The redundant Step 7 sticky Continue
+  control is hidden so the primary action appears exactly once.
+- Extended the 407F-to-engineering mapping for Core Info and Builder touched
+  state so completeness is computed from canonical durable data rather than
+  display-only state.
+- Browser assertions: pass — six rows, one active story check in the local
+  fixture, accessible row labels, Work edit jump, owning Exams story jump,
+  Guided Canvas route, and Export route.
+- Browser errors from the final M6 rerun: 0.
+- Regression evidence: 395/395 tests pass in segmented runs: 109/109
+  non-performance TypeScript, 10/10 isolated performance, and 276/276 module
+  tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M6-review-and-finish.png`
+- Visual verdict: pass — the contextual summary retains 407F's dark premium
+  cards, strong type hierarchy, cyan builder edge, and gold action language.
 - Commit: recorded with the next milestone ledger update.
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 390/390 segmented inventory (109 TypeScript functional + 10 isolated performance + 271 module); required floor 370 |
+| Regression floor | PASS — 395/395 segmented inventory (109 TypeScript functional + 10 isolated performance + 276 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -209,6 +242,7 @@ remain available as engineering sources, but `web/index.html` does not load
 | M2 | `114dc37` | `git revert 114dc37` |
 | M3 | `5f2b3e6` | `git revert 5f2b3e6` |
 | M4 | `8f11597` | `git revert 8f11597` |
+| M5 | `a530cda` | `git revert a530cda` |
 
 ## Precedence resolutions
 

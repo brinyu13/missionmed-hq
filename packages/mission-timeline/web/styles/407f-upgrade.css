@@ -931,6 +931,87 @@
   font-size:13px;
 }
 
+.builderReviewFinish{
+  display:grid;
+  gap:22px;
+}
+
+.builderReviewBlock{
+  background:linear-gradient(155deg,rgba(27,37,56,.82),rgba(12,17,27,.91));
+  border:1px solid var(--edge2);
+  border-left:3px solid var(--cy);
+  padding:20px;
+}
+
+.builderReviewBlock>h2{
+  color:var(--tx);
+  font-size:16px;
+  margin-bottom:14px;
+}
+
+.builderReviewBlock ul{
+  display:grid;
+  gap:7px;
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+
+.builderReviewRow,
+.builderStoryRow,
+.builderStoryEmpty{
+  align-items:center;
+  background:rgba(7,11,19,.35);
+  border:1px solid var(--edge);
+  color:var(--mid);
+  display:grid;
+  font-size:12px;
+  gap:10px;
+  min-height:44px;
+  padding:8px 10px;
+}
+
+.builderReviewRow{
+  grid-template-columns:22px minmax(0,1fr) auto;
+}
+
+.builderStoryRow{
+  grid-template-columns:minmax(0,1fr) auto;
+  line-height:1.5;
+}
+
+.builderStoryEmpty{
+  color:var(--dim);
+  grid-template-columns:1fr;
+}
+
+.builderReviewGlyph{
+  color:var(--gn);
+  font-family:var(--num);
+  font-size:15px;
+  font-weight:800;
+  text-align:center;
+}
+
+.builderReviewRow.started .builderReviewGlyph{
+  color:var(--cy);
+}
+
+.builderReviewRow.skipped .builderReviewGlyph,
+.builderReviewRow.empty .builderReviewGlyph{
+  color:var(--dim);
+}
+
+.builderReviewActions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+}
+
+.builderReviewActions .btnD{
+  min-height:44px;
+}
+
 .matrixBack:focus-visible,
 #rail .rtab:focus-visible,
 .headerExport:focus-visible,
@@ -946,6 +1027,9 @@
 .retakeChip:focus-visible,
 .builderDomainActions button:focus-visible,
 .builderSavedList button:focus-visible,
+.builderReviewRow button:focus-visible,
+.builderStoryRow button:focus-visible,
+.builderReviewActions button:focus-visible,
 .builderIconGrid button:focus-visible,
 .builderField input:focus-visible,
 .builderField select:focus-visible{

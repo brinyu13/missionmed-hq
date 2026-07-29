@@ -14,6 +14,10 @@ import {
   rankCountryMatches,
   typeaheadRows
 } from "./uxr-002/builder.js";
+import {
+  buildCompletenessSummary,
+  computeStoryChecks
+} from "./uxr-002/review.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -155,8 +159,13 @@ export function apply407FStateToDocument(state,document){
   document.events=(state.user?.events||[]).map(event407FToDocument);
   document.studentProfile={
     ...document.studentProfile,
-    fullName:state.profile?.name||"",
+    fullName:state.wiz?.name||state.profile?.name||"",
+    medicalSchool:state.wiz?.school||"",
     medicalSchoolCountry:state.profile?.country||"",
+    graduationDate:state.wiz?.grad||"",
+    graduationExpected:!!state.wiz?.notGraduated,
+    degree:state.wiz?.degree||"",
+    degreeOther:state.wiz?.degreeOther||"",
     visaStatus:state.profile?.visa||"",
     specialtyGoal:state.profile?.goal||""
   };
@@ -170,6 +179,9 @@ export function apply407FStateToDocument(state,document){
     examSystems:clone(state.builder?.examSystems||[]),
     drafts:clone(state.builder?.domainDrafts||document.builder?.drafts||{}),
     editing:clone(state.builder?.domainEditing||document.builder?.editing||{}),
+    touched:Object.entries(state.builder?.touched||{})
+      .filter(([,touched])=>!!touched)
+      .map(([step])=>Number(step)),
     skipped:Object.entries(state.builder?.skipped||{})
       .filter(([,skipped])=>!!skipped)
       .map(([step])=>Number(step))
@@ -369,6 +381,16 @@ export async function boot407FEngineeringAdapter({
     },
     rankCountries(matches,options){
       return rankCountryMatches(clone(matches||[]),clone(options||{}));
+    }
+  });
+  api.review=Object.freeze({
+    snapshot(options={}){
+      const current=clone(store.document);
+      apply407FStateToDocument(bridge.state,current);
+      return{
+        completeness:buildCompletenessSummary(current),
+        checks:computeStoryChecks(current,clone(options||{}))
+      };
     }
   });
   api.undo=()=>{
