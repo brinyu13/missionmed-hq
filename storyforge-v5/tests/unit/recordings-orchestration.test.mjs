@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   RecordingError,
   createRecordingsService,
+  parseReconciliationAudioObject,
   recordingConstants,
 } from '../../server/recordings.mjs';
 
@@ -159,6 +160,7 @@ function storeFixture(overrides = {}) {
       return { segmentCount: 1 };
     },
     async recordObjectDeleteRetry() {},
+    async recordReconciliationDeleted() {},
     async recordProviderFailover() {},
     async sweepCandidates() {
       return [];
@@ -185,6 +187,7 @@ function serviceFixture({
   assemblyOverrides = {},
   environment = {},
   delay = async () => {},
+  now = () => new Date('2026-07-29T12:00:00.000Z'),
 } = {}) {
   const calls = {
     events: [],
@@ -263,7 +266,7 @@ function serviceFixture({
       calls.events.push(event);
     },
     environment,
-    now: () => new Date('2026-07-29T12:00:00.000Z'),
+    now,
     delay,
   });
   return { service, calls };
@@ -999,6 +1002,33 @@ test('10-minute maintenance retries pending durable audio even when session swee
       failed: 0,
     },
     transcriptions: { queued: 0 },
+    audioReconciliation: {
+      mode: 'off',
+      suspended: false,
+      invalidConfig: false,
+      due: false,
+      aborted: false,
+      abortReason: null,
+      listed: 0,
+      truncated: false,
+      candidates: 0,
+      referenced: 0,
+      preserved: {
+        outsidePrefix: 0,
+        control: 0,
+        invalidMetadata: 0,
+        notOldEnough: 0,
+        invalidIdentifier: 0,
+        referenced: 0,
+        deletionCap: 0,
+        deleteFailed: 0,
+      },
+      deleted: 0,
+      retried: 0,
+      failed: 0,
+      wouldDelete: [],
+      markerWriteFailed: false,
+    },
   });
   assert.equal(pendingScans, 1);
 });
@@ -1212,4 +1242,582 @@ test('legacy playback signs a stored full key verbatim without selecting an asse
     object_key: objectKey,
     content_type: 'audio/mp4',
   }), [objectKey]);
+});
+
+const reconciliationStoryId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+const reconciliationNow = new Date('2026-07-29T12:00:00.000Z');
+
+function reconciliationAssetId(index) {
+  return `eeeeeeee-eeee-4eee-8eee-${index.toString(16).padStart(12, '0')}`;
+}
+
+function reconciliationObject(index, {
+  lastModified = new Date('2026-07-22T11:59:59.999Z'),
+  option = 'A',
+  objectKey,
+  byteSize = index + 1,
+} = {}) {
+  const id = reconciliationAssetId(index);
+  return {
+    objectKey: objectKey || (
+      option === 'B'
+        ? `storyforge-audio/${studentId}/${reconciliationStoryId}/${id}/seg-00000.webm`
+        : `storyforge-audio/${studentId}/${reconciliationStoryId}/${id}.webm`
+    ),
+    byteSize,
+    lastModified,
+  };
+}
+
+function reconciliationStorage(objects, overrides = {}) {
+  return {
+    async readAudioControlObject() {
+      return null;
+    },
+    async listAudioObjectsPage() {
+      return {
+        objects,
+        continuationToken: null,
+        truncated: false,
+      };
+    },
+    async writeAudioControlObject() {},
+    async deleteAudioObject() {},
+    ...overrides,
+  };
+}
+
+test('weekly reconciliation parses only the two ruled permanent object layouts', () => {
+  const optionA = reconciliationObject(1);
+  const optionB = reconciliationObject(2, { option: 'B' });
+  assert.deepEqual(parseReconciliationAudioObject(optionA.objectKey), {
+    objectKey: optionA.objectKey,
+    entityId: reconciliationAssetId(1),
+    studentId,
+    storyId: reconciliationStoryId,
+  });
+  assert.deepEqual(parseReconciliationAudioObject(optionB.objectKey), {
+    objectKey: optionB.objectKey,
+    entityId: reconciliationAssetId(2),
+    studentId,
+    storyId: reconciliationStoryId,
+  });
+  for (const key of [
+    `storyforge-rec/${studentId}/${recordingId}/seg-00000.webm`,
+    'storyforge-audio/_control/reconciliation.json',
+    `storyforge-audio/${studentId}/${reconciliationStoryId}/junk.webm`,
+    `storyforge-audio/${studentId}/not-a-story/${reconciliationAssetId(3)}.webm`,
+    `storyforge-audio/${studentId}/${reconciliationStoryId}/${reconciliationAssetId(3)}/seg-1.webm`,
+  ]) {
+    assert.equal(parseReconciliationAudioObject(key), null);
+  }
+  assert.deepEqual(recordingConstants.audioReconciliation, {
+    ageMs: 604_800_000,
+    cadenceMs: 604_800_000,
+    pageSize: 1000,
+    referenceBatchSize: 1000,
+    evaluationCap: 5000,
+    deleteCap: 200,
+    prefix: 'storyforge-audio/',
+    controlPrefix: 'storyforge-audio/_control/',
+    controlKey: 'storyforge-audio/_control/reconciliation.json',
+    deleteRetries: 1,
+  });
+});
+
+test('reconciliation gate order suspends before mode and treats every non-exact mode as off', async () => {
+  let storageCalls = 0;
+  const storageOverrides = {
+    async readAudioControlObject() {
+      storageCalls += 1;
+      return null;
+    },
+  };
+  const suspended = serviceFixture({
+    environment: {
+      STORYFORGE_AUDIO_RECONCILIATION_SUSPENDED: ' ',
+      STORYFORGE_AUDIO_RECONCILIATION: 'on',
+    },
+    storageOverrides,
+  });
+  assert.equal((await suspended.service.runWeeklyAudioReconciliation()).suspended, true);
+  assert.equal(storageCalls, 0);
+  assert.equal(
+    suspended.calls.events.at(-1).event,
+    'audio_reconciliation',
+  );
+
+  for (const value of ['ON', ' on ', 'unexpected']) {
+    const fixture = serviceFixture({
+      environment: { STORYFORGE_AUDIO_RECONCILIATION: value },
+      storageOverrides,
+    });
+    const result = await fixture.service.runWeeklyAudioReconciliation();
+    assert.equal(result.mode, 'off');
+    assert.equal(result.invalidConfig, true);
+  }
+  assert.equal(storageCalls, 0);
+});
+
+test('reconciliation cadence skips a recent marker and corrupt or absent markers are due', async () => {
+  let listCalls = 0;
+  const recent = serviceFixture({
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'dry_run' },
+    storageOverrides: reconciliationStorage([], {
+      async readAudioControlObject() {
+        return { completedAt: '2026-07-22T12:00:00.001Z' };
+      },
+      async listAudioObjectsPage() {
+        listCalls += 1;
+        assert.fail('a run younger than seven days must not list');
+      },
+    }),
+  });
+  assert.equal((await recent.service.runWeeklyAudioReconciliation()).due, false);
+  assert.equal(listCalls, 0);
+
+  for (const markerRead of [
+    async () => null,
+    async () => {
+      throw new SyntaxError('corrupt marker');
+    },
+    async () => ({ completedAt: 'not-a-date' }),
+    async () => ({ completedAt: '2026-07-22T12:00:00.000Z' }),
+  ]) {
+    let marker;
+    const fixture = serviceFixture({
+      environment: { STORYFORGE_AUDIO_RECONCILIATION: 'dry_run' },
+      storageOverrides: reconciliationStorage([], {
+        readAudioControlObject: markerRead,
+        async writeAudioControlObject(input) {
+          marker = input;
+        },
+      }),
+    });
+    const result = await fixture.service.runWeeklyAudioReconciliation();
+    assert.equal(result.due, true);
+    assert.equal(marker.objectKey, 'storyforge-audio/_control/reconciliation.json');
+    assert.equal(marker.value.mode, 'dry_run');
+  }
+});
+
+test('dry-run filters fail closed, checks references, and reports the exact would-delete set', async () => {
+  const unreferenced = reconciliationObject(10);
+  const referenced = reconciliationObject(11, { option: 'B' });
+  const exactBoundary = reconciliationObject(12, {
+    lastModified: new Date(reconciliationNow.getTime() - 604_800_000),
+  });
+  const objects = [
+    unreferenced,
+    referenced,
+    exactBoundary,
+    reconciliationObject(13, { lastModified: new Date('2026-07-28T12:00:00Z') }),
+    reconciliationObject(14, { lastModified: null }),
+    reconciliationObject(18, { byteSize: null }),
+    reconciliationObject(15, {
+      objectKey: `storyforge-audio/${studentId}/${reconciliationStoryId}/junk.webm`,
+    }),
+    reconciliationObject(16, {
+      objectKey: 'storyforge-audio/_control/reconciliation.json',
+    }),
+    reconciliationObject(17, {
+      objectKey: `storyforge-rec/${studentId}/${recordingId}/seg-00000.webm`,
+    }),
+  ];
+  let checkedKeys;
+  const deleted = [];
+  let marker;
+  const store = storeFixture({
+    async checkAudioReferences(keys) {
+      checkedKeys = keys;
+      return keys.map((objectKey) => ({
+        objectKey,
+        referenced: objectKey === referenced.objectKey,
+      }));
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'dry_run' },
+    storageOverrides: reconciliationStorage(objects, {
+      async deleteAudioObject(input) {
+        deleted.push(input);
+      },
+      async writeAudioControlObject(input) {
+        marker = input.value;
+      },
+    }),
+  });
+  const result = await service.runWeeklyAudioReconciliation();
+  assert.deepEqual(checkedKeys, [unreferenced.objectKey, referenced.objectKey]);
+  assert.deepEqual(result.wouldDelete, [unreferenced.objectKey]);
+  assert.equal(result.candidates, 2);
+  assert.equal(result.referenced, 1);
+  assert.equal(result.preserved.notOldEnough, 2);
+  assert.equal(result.preserved.invalidMetadata, 2);
+  assert.equal(result.preserved.invalidIdentifier, 1);
+  assert.equal(result.preserved.control, 1);
+  assert.equal(result.preserved.outsidePrefix, 1);
+  assert.deepEqual(deleted, []);
+  assert.deepEqual(marker.counts.preserved, result.preserved);
+});
+
+test('reconciliation listing enforces five 1000-key pages and reports truncation', async () => {
+  const maxKeys = [];
+  let pages = 0;
+  let marker;
+  const { service } = serviceFixture({
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'dry_run' },
+    storageOverrides: reconciliationStorage([], {
+      async listAudioObjectsPage(input) {
+        pages += 1;
+        maxKeys.push(input.maxKeys);
+        return {
+          objects: Array.from({ length: 1000 }, (_, index) => ({
+            objectKey: `storyforge-audio/_control/page-${pages}-${index}`,
+            byteSize: 1,
+            lastModified: new Date('2026-07-01T00:00:00Z'),
+          })),
+          continuationToken: `page-${pages + 1}`,
+          truncated: true,
+        };
+      },
+      async writeAudioControlObject(input) {
+        marker = input.value;
+      },
+    }),
+  });
+  const result = await service.runWeeklyAudioReconciliation();
+  assert.equal(pages, 5);
+  assert.deepEqual(maxKeys, [1000, 1000, 1000, 1000, 1000]);
+  assert.equal(result.listed, 5000);
+  assert.equal(result.truncated, true);
+  assert.equal(result.preserved.control, 5000);
+  assert.equal(marker.counts.truncated, true);
+});
+
+test('reference ambiguity aborts before every deletion and remains isolated in maintenance', async () => {
+  const object = reconciliationObject(20);
+  let deletes = 0;
+  const store = storeFixture({
+    async checkAudioReferences() {
+      throw new Error('M3 function absent');
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'on' },
+    storageOverrides: reconciliationStorage([object], {
+      async deleteAudioObject() {
+        deletes += 1;
+      },
+    }),
+  });
+  const result = await service.runMaintenance();
+  assert.equal(result.audioReconciliation.aborted, true);
+  assert.equal(result.audioReconciliation.abortReason, 'reference_check_failed');
+  assert.equal(deletes, 0);
+  assert.deepEqual(result.sessions, { scanned: 0, cleaned: 0, failures: [] });
+  assert.deepEqual(result.pendingAudioAssets, {
+    scanned: 0,
+    verified: 0,
+    failed: 0,
+  });
+  assert.deepEqual(result.transcriptions, { queued: 0 });
+});
+
+test('configured reconciliation probes M3 even when the fresh listing has no candidates', async () => {
+  for (const mode of ['dry_run', 'on']) {
+    let referenceCalls = 0;
+    const store = storeFixture({
+      async checkAudioReferences(keys) {
+        referenceCalls += 1;
+        assert.deepEqual(keys, []);
+        throw new Error('M3 function absent');
+      },
+    });
+    const { service } = serviceFixture({
+      store,
+      environment: { STORYFORGE_AUDIO_RECONCILIATION: mode },
+      storageOverrides: reconciliationStorage([]),
+    });
+    const result = await service.runWeeklyAudioReconciliation();
+    assert.equal(result.aborted, true);
+    assert.equal(result.abortReason, 'reference_check_failed');
+    assert.equal(result.deleted, 0);
+    assert.equal(referenceCalls, 1);
+  }
+});
+
+test('reference checks split 1001 candidates into complete same-run batches before dry-run selection', async () => {
+  const objects = Array.from({ length: 1001 }, (_, index) => (
+    reconciliationObject(1_000 + index)
+  ));
+  const batches = [];
+  const store = storeFixture({
+    async checkAudioReferences(keys) {
+      batches.push([...keys]);
+      return keys.map((objectKey) => ({ objectKey, referenced: false }));
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'dry_run' },
+    storageOverrides: reconciliationStorage([], {
+      async listAudioObjectsPage({ continuationToken }) {
+        const secondPage = continuationToken === 'page-2';
+        return {
+          objects: secondPage ? objects.slice(1000) : objects.slice(0, 1000),
+          continuationToken: secondPage ? null : 'page-2',
+          truncated: !secondPage,
+        };
+      },
+    }),
+  });
+  const result = await service.runWeeklyAudioReconciliation();
+  assert.deepEqual(batches.map((batch) => batch.length), [1000, 1]);
+  assert.equal(result.candidates, 1001);
+  assert.equal(result.wouldDelete.length, 200);
+  assert.equal(result.preserved.deletionCap, 801);
+});
+
+test('missing, duplicate, unexpected, and non-boolean reference evidence all fail closed', async () => {
+  const object = reconciliationObject(50);
+  const malformedResults = [
+    [],
+    [
+      { objectKey: object.objectKey, referenced: false },
+      { objectKey: object.objectKey, referenced: false },
+    ],
+    [{ objectKey: reconciliationObject(51).objectKey, referenced: false }],
+    [{ objectKey: object.objectKey, referenced: null }],
+  ];
+  for (const references of malformedResults) {
+    let deletes = 0;
+    const store = storeFixture({
+      async checkAudioReferences() {
+        return references;
+      },
+    });
+    const { service } = serviceFixture({
+      store,
+      environment: { STORYFORGE_AUDIO_RECONCILIATION: 'on' },
+      storageOverrides: reconciliationStorage([object], {
+        async deleteAudioObject() {
+          deletes += 1;
+        },
+      }),
+    });
+    const result = await service.runWeeklyAudioReconciliation();
+    assert.equal(result.aborted, true);
+    assert.equal(result.abortReason, 'reference_check_failed');
+    assert.equal(deletes, 0);
+  }
+});
+
+test('marker-write failure is visible and leaves the next tick due', async () => {
+  let listCalls = 0;
+  const { service, calls } = serviceFixture({
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'dry_run' },
+    storageOverrides: reconciliationStorage([], {
+      async listAudioObjectsPage() {
+        listCalls += 1;
+        return {
+          objects: [],
+          continuationToken: null,
+          truncated: false,
+        };
+      },
+      async writeAudioControlObject() {
+        throw new Error('marker unavailable');
+      },
+    }),
+  });
+  const first = await service.runWeeklyAudioReconciliation();
+  const second = await service.runWeeklyAudioReconciliation();
+  assert.equal(first.markerWriteFailed, true);
+  assert.equal(second.markerWriteFailed, true);
+  assert.equal(first.due, true);
+  assert.equal(second.due, true);
+  assert.equal(listCalls, 2);
+  assert.equal(
+    calls.events.filter((event) => event.event === 'audio_reconciliation').length,
+    2,
+  );
+});
+
+test('a retry-audit failure aborts visibly after a successful retry', async () => {
+  const object = reconciliationObject(52);
+  let deleteAttempts = 0;
+  let deletionAudits = 0;
+  const store = storeFixture({
+    async checkAudioReferences(keys) {
+      return keys.map((objectKey) => ({ objectKey, referenced: false }));
+    },
+    async recordObjectDeleteRetry() {
+      throw new Error('retry audit unavailable');
+    },
+    async recordReconciliationDeleted() {
+      deletionAudits += 1;
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'on' },
+    storageOverrides: reconciliationStorage([object], {
+      async deleteAudioObject() {
+        deleteAttempts += 1;
+        if (deleteAttempts === 1) throw new Error('initial delete failed');
+      },
+    }),
+  });
+  const result = await service.runWeeklyAudioReconciliation();
+  assert.equal(deleteAttempts, 2);
+  assert.equal(deletionAudits, 0);
+  assert.equal(result.deleted, 1);
+  assert.equal(result.failed, 1);
+  assert.equal(result.aborted, true);
+  assert.equal(result.abortReason, 'delete_retry_audit_failed');
+});
+
+test('a successful reconciliation lane remains complete when another maintenance lane fails', async () => {
+  const store = storeFixture({
+    async sweepCandidates() {
+      throw new Error('session sweep unavailable');
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'dry_run' },
+    storageOverrides: reconciliationStorage([]),
+  });
+  const result = await service.runMaintenance();
+  assert.deepEqual(result.sessions, { failed: true });
+  assert.equal(result.audioReconciliation.mode, 'dry_run');
+  assert.equal(result.audioReconciliation.due, true);
+  assert.equal(result.audioReconciliation.aborted, false);
+});
+
+test('on mode retries each failed delete exactly once and writes only ruled audits', async () => {
+  const retrySucceeds = reconciliationObject(30);
+  const retryFails = reconciliationObject(31);
+  const attempts = new Map();
+  const retryAudits = [];
+  const deletionAudits = [];
+  const store = storeFixture({
+    async checkAudioReferences(keys) {
+      return keys.map((objectKey) => ({ objectKey, referenced: false }));
+    },
+    async recordObjectDeleteRetry(event) {
+      retryAudits.push(event);
+    },
+    async recordReconciliationDeleted(event) {
+      deletionAudits.push(event);
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'on' },
+    storageOverrides: reconciliationStorage([retrySucceeds, retryFails], {
+      async deleteAudioObject({ objectKey }) {
+        const count = (attempts.get(objectKey) || 0) + 1;
+        attempts.set(objectKey, count);
+        if (objectKey === retryFails.objectKey || count === 1) {
+          throw new Error('bounded delete failure');
+        }
+      },
+    }),
+  });
+  const result = await service.runWeeklyAudioReconciliation();
+  assert.equal(attempts.get(retrySucceeds.objectKey), 2);
+  assert.equal(attempts.get(retryFails.objectKey), 2);
+  assert.equal(result.retried, 2);
+  assert.equal(result.deleted, 1);
+  assert.equal(result.failed, 1);
+  assert.equal(result.preserved.deleteFailed, 1);
+  assert.equal(retryAudits.length, 2);
+  assert.deepEqual(deletionAudits, [{
+    entityId: reconciliationAssetId(30),
+    studentId,
+    storyId: reconciliationStoryId,
+    objectCount: 1,
+    byteSize: 31,
+  }]);
+});
+
+test('a reconciliation audit failure aborts every later deletion', async () => {
+  const first = reconciliationObject(40);
+  const second = reconciliationObject(41);
+  const deletes = [];
+  const store = storeFixture({
+    async checkAudioReferences(keys) {
+      return keys.map((objectKey) => ({ objectKey, referenced: false }));
+    },
+    async recordReconciliationDeleted() {
+      throw new Error('audit unavailable');
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'on' },
+    storageOverrides: reconciliationStorage([first, second], {
+      async deleteAudioObject({ objectKey }) {
+        deletes.push(objectKey);
+      },
+    }),
+  });
+  const result = await service.runWeeklyAudioReconciliation();
+  assert.deepEqual(deletes, [first.objectKey]);
+  assert.equal(result.deleted, 1);
+  assert.equal(result.failed, 1);
+  assert.equal(result.aborted, true);
+  assert.equal(result.abortReason, 'reconciliation_audit_failed');
+});
+
+test('the deletion cap is exact and a fresh-list rerun is idempotent', async () => {
+  const objects = new Map(
+    Array.from({ length: 201 }, (_, index) => {
+      const object = reconciliationObject(100 + index);
+      return [object.objectKey, object];
+    }),
+  );
+  const audits = [];
+  let deletes = 0;
+  const store = storeFixture({
+    async checkAudioReferences(keys) {
+      return keys.map((objectKey) => ({ objectKey, referenced: false }));
+    },
+    async recordReconciliationDeleted(event) {
+      audits.push(event);
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_AUDIO_RECONCILIATION: 'on' },
+    storageOverrides: reconciliationStorage([], {
+      async listAudioObjectsPage() {
+        return {
+          objects: [...objects.values()],
+          continuationToken: null,
+          truncated: false,
+        };
+      },
+      async deleteAudioObject({ objectKey }) {
+        deletes += 1;
+        objects.delete(objectKey);
+      },
+    }),
+  });
+  const first = await service.runWeeklyAudioReconciliation();
+  assert.equal(first.deleted, 200);
+  assert.equal(first.preserved.deletionCap, 1);
+  assert.equal(deletes, 200);
+  assert.equal(audits.length, 200);
+  const second = await service.runWeeklyAudioReconciliation();
+  assert.equal(second.deleted, 1);
+  assert.equal(deletes, 201);
+  assert.equal(audits.length, 201);
+  const third = await service.runWeeklyAudioReconciliation();
+  assert.equal(third.deleted, 0);
+  assert.equal(audits.length, 201);
 });

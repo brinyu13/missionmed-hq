@@ -14,6 +14,16 @@ const maxRecordingDurationMs = 20 * 60 * 1000;
 const maxSegments = 200;
 const defaultDailyMinutes = 60;
 const sweepIntervalMs = 10 * 60 * 1000;
+const audioReconciliationAgeMs = 168 * 60 * 60 * 1000;
+const audioReconciliationCadenceMs = 7 * 24 * 60 * 60 * 1000;
+const audioReconciliationPageSize = 1000;
+const audioReconciliationReferenceBatchSize = 1000;
+const audioReconciliationEvaluationCap = 5000;
+const audioReconciliationDeleteCap = 200;
+const audioReconciliationPrefix = 'storyforge-audio/';
+const audioReconciliationControlPrefix = 'storyforge-audio/_control/';
+const audioReconciliationControlKey = `${audioReconciliationControlPrefix}reconciliation.json`;
+const permanentAudioExtensions = new Set(['webm', 'm4a', 'mp4', 'ogg', 'wav']);
 const retryDelaysMs = Object.freeze([0, 2_000, 8_000]);
 const usageMetricNames = Object.freeze([
   'inputTokens',
@@ -68,6 +78,44 @@ function safeUuid(value) {
     );
   }
   return result;
+}
+
+export function parseReconciliationAudioObject(objectKeyValue) {
+  const objectKey = String(objectKeyValue || '');
+  if (
+    !objectKey.startsWith(audioReconciliationPrefix)
+    || objectKey.startsWith(audioReconciliationControlPrefix)
+  ) {
+    return null;
+  }
+  const parts = objectKey.slice(audioReconciliationPrefix.length).split('/');
+  if (parts.length < 3 || parts.length > 4) return null;
+  const [studentId, storyId] = parts;
+  if (!uuidPattern.test(studentId) || !uuidPattern.test(storyId)) return null;
+
+  let entityId = '';
+  if (parts.length === 3) {
+    const match = parts[2].match(/^([a-f0-9-]+)\.([a-z0-9]+)$/i);
+    if (
+      !match
+      || !uuidPattern.test(match[1])
+      || !permanentAudioExtensions.has(match[2].toLowerCase())
+    ) {
+      return null;
+    }
+    entityId = match[1];
+  } else {
+    if (!uuidPattern.test(parts[2])) return null;
+    const match = parts[3].match(/^seg-\d{5}\.([a-z0-9]+)$/i);
+    if (!match || !permanentAudioExtensions.has(match[1].toLowerCase())) return null;
+    entityId = parts[2];
+  }
+  return Object.freeze({
+    objectKey,
+    entityId,
+    studentId,
+    storyId,
+  });
 }
 
 function assertStudent(identity) {
@@ -1073,7 +1121,7 @@ export function createPostgresRecordingStore({
       );
       return result.rows.map((row) => ({
         objectKey: row.object_key,
-        referenced: row.referenced === true,
+        referenced: row.referenced,
       }));
     });
   }
@@ -1107,6 +1155,24 @@ export function createPostgresRecordingStore({
       storyId,
       previousValue: null,
       newValue: { objectCount, retryCount: 1 },
+    }));
+  }
+
+  async function recordReconciliationDeleted({
+    entityId,
+    studentId,
+    storyId,
+    objectCount,
+    byteSize,
+  }) {
+    return withServiceTransaction((client) => appendServiceAudit(client, {
+      action: 'reconciliation_deleted',
+      entityType: 'audio_asset',
+      entityId,
+      studentId,
+      storyId,
+      previousValue: null,
+      newValue: { objectCount, byteSize },
     }));
   }
 
@@ -1210,6 +1276,7 @@ export function createPostgresRecordingStore({
     readOwnedSession,
     readStatus,
     recordObjectDeleteRetry,
+    recordReconciliationDeleted,
     recordProviderFailover,
     retryCandidates,
     sweepCandidates,
@@ -1313,6 +1380,7 @@ export function createRecordingsService({
     'readOwnedSession',
     'readStatus',
     'recordObjectDeleteRetry',
+    'recordReconciliationDeleted',
     'recordProviderFailover',
     'retryCandidates',
     'sweepCandidates',
@@ -1347,6 +1415,10 @@ export function createRecordingsService({
     copyAudioObject: storage?.copyAudioObject,
     headAudioObject: storage?.headAudioObject,
     listAudioObjects: storage?.listAudioObjects,
+    listAudioObjectsPage: storage?.listAudioObjectsPage,
+    readAudioControlObject: storage?.readAudioControlObject,
+    writeAudioControlObject: storage?.writeAudioControlObject,
+    deleteAudioObject: storage?.deleteAudioObject,
     deleteRecordingPrefix: storage?.deleteRecordingPrefix,
   });
   requireFunction(transcription?.transcribeSegment, 'transcription.transcribeSegment');
@@ -1895,11 +1967,349 @@ export function createRecordingsService({
     return { scanned: candidates.length, cleaned, failures };
   }
 
+  function audioReconciliationResult(mode = 'off') {
+    return {
+      mode,
+      suspended: false,
+      invalidConfig: false,
+      due: false,
+      aborted: false,
+      abortReason: null,
+      listed: 0,
+      truncated: false,
+      candidates: 0,
+      referenced: 0,
+      preserved: {
+        outsidePrefix: 0,
+        control: 0,
+        invalidMetadata: 0,
+        notOldEnough: 0,
+        invalidIdentifier: 0,
+        referenced: 0,
+        deletionCap: 0,
+        deleteFailed: 0,
+      },
+      deleted: 0,
+      retried: 0,
+      failed: 0,
+      wouldDelete: [],
+      markerWriteFailed: false,
+    };
+  }
+
+  function emitAudioReconciliation(result) {
+    try {
+      emitEvent(Object.freeze({
+        t: now().toISOString(),
+        event: 'audio_reconciliation',
+        mode: result.mode,
+        suspended: result.suspended,
+        invalidConfig: result.invalidConfig,
+        due: result.due,
+        aborted: result.aborted,
+        abortReason: result.abortReason,
+        listed: result.listed,
+        truncated: result.truncated,
+        candidates: result.candidates,
+        referenced: result.referenced,
+        preserved: result.preserved,
+        deleted: result.deleted,
+        retried: result.retried,
+        failed: result.failed,
+        wouldDelete: result.wouldDelete,
+        markerWriteFailed: result.markerWriteFailed,
+      }));
+    } catch {
+      // Telemetry is evidence, never authority to continue or repeat deletion.
+    }
+  }
+
+  async function completeAudioReconciliation(result, startedAt) {
+    const completedAt = now().toISOString();
+    result.completedAt = completedAt;
+    const marker = {
+      mode: result.mode,
+      startedAt,
+      completedAt,
+      counts: {
+        listed: result.listed,
+        truncated: result.truncated,
+        candidates: result.candidates,
+        referenced: result.referenced,
+        preserved: result.preserved,
+        deleted: result.deleted,
+        retried: result.retried,
+        failed: result.failed,
+      },
+      ...(result.aborted ? { aborted: result.abortReason } : {}),
+    };
+    try {
+      await requireFunction(
+        segmentStorage.writeAudioControlObject,
+        'storage.writeAudioControlObject',
+      )({
+        objectKey: audioReconciliationControlKey,
+        value: marker,
+      });
+    } catch {
+      result.markerWriteFailed = true;
+    }
+    emitAudioReconciliation(result);
+    return result;
+  }
+
+  function abortAudioReconciliation(result, reason) {
+    result.aborted = true;
+    result.abortReason = reason;
+    return result;
+  }
+
+  async function runWeeklyAudioReconciliation() {
+    if (String(environment.STORYFORGE_AUDIO_RECONCILIATION_SUSPENDED ?? '') !== '') {
+      const result = audioReconciliationResult();
+      result.suspended = true;
+      emitAudioReconciliation(result);
+      return result;
+    }
+
+    const rawMode = String(environment.STORYFORGE_AUDIO_RECONCILIATION ?? '');
+    const configuredMode = rawMode === '' ? 'off' : rawMode;
+    if (!['off', 'dry_run', 'on'].includes(configuredMode)) {
+      const result = audioReconciliationResult();
+      result.invalidConfig = true;
+      emitAudioReconciliation(result);
+      return result;
+    }
+    const result = audioReconciliationResult(configuredMode);
+    if (configuredMode === 'off') return result;
+
+    let marker = null;
+    try {
+      marker = await requireFunction(
+        segmentStorage.readAudioControlObject,
+        'storage.readAudioControlObject',
+      )({ objectKey: audioReconciliationControlKey });
+    } catch {
+      marker = null;
+    }
+    if (marker && typeof marker.completedAt === 'string') {
+      const completedAtMs = new Date(marker.completedAt).getTime();
+      if (
+        Number.isFinite(completedAtMs)
+        && now().getTime() - completedAtMs < audioReconciliationCadenceMs
+      ) {
+        return result;
+      }
+    }
+
+    result.due = true;
+    const startedAt = now().toISOString();
+    const listedObjects = [];
+    const seenTokens = new Set();
+    let continuationToken = null;
+    try {
+      const listPage = requireFunction(
+        segmentStorage.listAudioObjectsPage,
+        'storage.listAudioObjectsPage',
+      );
+      do {
+        const maxKeys = Math.min(
+          audioReconciliationPageSize,
+          audioReconciliationEvaluationCap - listedObjects.length,
+        );
+        const page = await listPage({
+          prefix: audioReconciliationPrefix,
+          continuationToken,
+          maxKeys,
+        });
+        if (
+          !page
+          || !Array.isArray(page.objects)
+          || page.objects.length > maxKeys
+          || typeof page.truncated !== 'boolean'
+        ) {
+          throw new Error('invalid_listing_page');
+        }
+        listedObjects.push(...page.objects);
+        const nextToken = page.continuationToken == null
+          ? null
+          : String(page.continuationToken);
+        if (page.truncated !== Boolean(nextToken)) {
+          throw new Error('invalid_listing_cursor');
+        }
+        if (nextToken && seenTokens.has(nextToken)) {
+          throw new Error('repeated_listing_cursor');
+        }
+        if (
+          listedObjects.length >= audioReconciliationEvaluationCap
+          && nextToken
+        ) {
+          result.truncated = true;
+          break;
+        }
+        if (nextToken) seenTokens.add(nextToken);
+        continuationToken = nextToken;
+      } while (continuationToken);
+    } catch {
+      result.listed = listedObjects.length;
+      abortAudioReconciliation(result, 'list_failed');
+      return completeAudioReconciliation(result, startedAt);
+    }
+    result.listed = listedObjects.length;
+
+    const evaluatedAtMs = now().getTime();
+    const candidates = [];
+    for (const object of listedObjects) {
+      const objectKey = String(object?.objectKey || '');
+      if (!objectKey.startsWith(audioReconciliationPrefix)) {
+        result.preserved.outsidePrefix += 1;
+        continue;
+      }
+      if (objectKey.startsWith(audioReconciliationControlPrefix)) {
+        result.preserved.control += 1;
+        continue;
+      }
+      const modifiedAtMs = new Date(object?.lastModified).getTime();
+      const byteSize = object?.byteSize;
+      if (
+        !object?.lastModified
+        || !Number.isFinite(modifiedAtMs)
+        || typeof byteSize !== 'number'
+        || !Number.isInteger(byteSize)
+        || byteSize < 0
+      ) {
+        result.preserved.invalidMetadata += 1;
+        continue;
+      }
+      if (evaluatedAtMs - modifiedAtMs <= audioReconciliationAgeMs) {
+        result.preserved.notOldEnough += 1;
+        continue;
+      }
+      const identity = parseReconciliationAudioObject(objectKey);
+      if (!identity) {
+        result.preserved.invalidIdentifier += 1;
+        continue;
+      }
+      candidates.push({
+        ...identity,
+        byteSize,
+      });
+    }
+    result.candidates = candidates.length;
+
+    let references;
+    try {
+      references = await checkAudioObjectReferences(
+        candidates.map((candidate) => candidate.objectKey),
+      );
+      if (!Array.isArray(references) || references.length !== candidates.length) {
+        throw new Error('incomplete_reference_results');
+      }
+      const expected = new Set(candidates.map((candidate) => candidate.objectKey));
+      const seen = new Set();
+      for (const reference of references) {
+        if (
+          !expected.has(reference?.objectKey)
+          || seen.has(reference.objectKey)
+          || typeof reference.referenced !== 'boolean'
+        ) {
+          throw new Error('invalid_reference_result');
+        }
+        seen.add(reference.objectKey);
+      }
+    } catch {
+      abortAudioReconciliation(result, 'reference_check_failed');
+      return completeAudioReconciliation(result, startedAt);
+    }
+
+    const referenceByKey = new Map(
+      references.map((reference) => [reference.objectKey, reference.referenced]),
+    );
+    const unreferenced = [];
+    for (const candidate of candidates) {
+      if (referenceByKey.get(candidate.objectKey) === true) {
+        result.referenced += 1;
+        result.preserved.referenced += 1;
+      } else {
+        unreferenced.push(candidate);
+      }
+    }
+    const selected = unreferenced.slice(0, audioReconciliationDeleteCap);
+    result.preserved.deletionCap = Math.max(
+      0,
+      unreferenced.length - selected.length,
+    );
+    result.wouldDelete = selected.map((candidate) => candidate.objectKey);
+    if (configuredMode === 'dry_run') {
+      return completeAudioReconciliation(result, startedAt);
+    }
+
+    const deleteObject = segmentStorage.deleteAudioObject;
+    if (typeof deleteObject !== 'function') {
+      abortAudioReconciliation(result, 'delete_unavailable');
+      return completeAudioReconciliation(result, startedAt);
+    }
+    for (const candidate of selected) {
+      let deleted = false;
+      try {
+        await deleteObject({ objectKey: candidate.objectKey });
+        deleted = true;
+      } catch {
+        result.retried += 1;
+        try {
+          await deleteObject({ objectKey: candidate.objectKey });
+          deleted = true;
+        } catch {
+          result.failed += 1;
+          result.preserved.deleteFailed += 1;
+        }
+        try {
+          await store.recordObjectDeleteRetry({
+            entityType: 'audio_asset',
+            entityId: candidate.entityId,
+            studentId: candidate.studentId,
+            storyId: candidate.storyId,
+            objectCount: 1,
+          });
+        } catch {
+          if (deleted) {
+            result.deleted += 1;
+            result.failed += 1;
+          }
+          abortAudioReconciliation(result, 'delete_retry_audit_failed');
+          break;
+        }
+      }
+      if (!deleted) continue;
+      result.deleted += 1;
+      try {
+        await store.recordReconciliationDeleted({
+          entityId: candidate.entityId,
+          studentId: candidate.studentId,
+          storyId: candidate.storyId,
+          objectCount: 1,
+          byteSize: candidate.byteSize,
+        });
+      } catch {
+        result.failed += 1;
+        abortAudioReconciliation(result, 'reconciliation_audit_failed');
+        break;
+      }
+    }
+    return completeAudioReconciliation(result, startedAt);
+  }
+
   async function runMaintenance() {
-    const [sessions, pendingAudioAssets, transcriptions] = await Promise.allSettled([
+    const [
+      sessions,
+      pendingAudioAssets,
+      transcriptions,
+      audioReconciliation,
+    ] = await Promise.allSettled([
       runSweeps(),
       recoverPendingAudioAssets(),
       recoverPendingTranscriptions(),
+      runWeeklyAudioReconciliation(),
     ]);
     return {
       sessions: sessions.status === 'fulfilled'
@@ -1910,6 +2320,9 @@ export function createRecordingsService({
         : { failed: true },
       transcriptions: transcriptions.status === 'fulfilled'
         ? transcriptions.value
+        : { failed: true },
+      audioReconciliation: audioReconciliation.status === 'fulfilled'
+        ? audioReconciliation.value
         : { failed: true },
     };
   }
@@ -2126,9 +2539,18 @@ export function createRecordingsService({
 
   async function checkAudioObjectReferences(objectKeys) {
     const keys = [...new Set((objectKeys || []).map(String).filter(Boolean))];
+    if (!keys.length) {
+      return store.checkAudioReferences([]);
+    }
     const results = [];
-    for (let index = 0; index < keys.length; index += 1000) {
-      results.push(...await store.checkAudioReferences(keys.slice(index, index + 1000)));
+    for (
+      let index = 0;
+      index < keys.length;
+      index += audioReconciliationReferenceBatchSize
+    ) {
+      results.push(...await store.checkAudioReferences(
+        keys.slice(index, index + audioReconciliationReferenceBatchSize),
+      ));
     }
     return results;
   }
@@ -2146,6 +2568,7 @@ export function createRecordingsService({
     recoverPendingAudioAssets,
     recoverPendingTranscriptions,
     retryTranscription,
+    runWeeklyAudioReconciliation,
     runMaintenance,
     runSweeps,
     saveRecordingStory,
@@ -2155,6 +2578,18 @@ export function createRecordingsService({
 }
 
 export const recordingConstants = Object.freeze({
+  audioReconciliation: Object.freeze({
+    ageMs: audioReconciliationAgeMs,
+    cadenceMs: audioReconciliationCadenceMs,
+    pageSize: audioReconciliationPageSize,
+    referenceBatchSize: audioReconciliationReferenceBatchSize,
+    evaluationCap: audioReconciliationEvaluationCap,
+    deleteCap: audioReconciliationDeleteCap,
+    prefix: audioReconciliationPrefix,
+    controlPrefix: audioReconciliationControlPrefix,
+    controlKey: audioReconciliationControlKey,
+    deleteRetries: 1,
+  }),
   allowedMimeTypes: Object.freeze([...allowedMimeTypes]),
   dailyMinutesDefault: defaultDailyMinutes,
   maxAssetBytes,

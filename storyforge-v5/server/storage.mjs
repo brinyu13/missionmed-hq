@@ -203,24 +203,99 @@ export async function listAudioObjects({ prefix }) {
   const objects = [];
   let continuationToken;
   do {
-    const result = await storageClient().send(new ListObjectsV2Command({
-      Bucket: config.r2.bucket,
-      Prefix: prefix,
-      ContinuationToken: continuationToken,
-    }));
-    result.Contents?.forEach((item) => {
-      if (item.Key) {
-        objects.push({
-          objectKey: item.Key,
-          byteSize: Number(item.Size || 0),
-          lastModified: item.LastModified || null,
-          etag: String(item.ETag || '').replaceAll('"', ''),
-        });
-      }
-    });
-    continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined;
+    const page = await listAudioObjectsPage({ prefix, continuationToken });
+    objects.push(...page.objects);
+    continuationToken = page.continuationToken || undefined;
   } while (continuationToken);
   return objects;
+}
+
+export async function listAudioObjectsPage({
+  prefix,
+  continuationToken,
+  maxKeys = 1000,
+}) {
+  const boundedMaxKeys = Math.max(1, Math.min(1000, Number(maxKeys) || 1000));
+  const result = await storageClient().send(new ListObjectsV2Command({
+    Bucket: config.r2.bucket,
+    Prefix: prefix,
+    ContinuationToken: continuationToken || undefined,
+    MaxKeys: boundedMaxKeys,
+  }));
+  const nextContinuationToken = result.IsTruncated
+    ? String(result.NextContinuationToken || '')
+    : '';
+  if (result.IsTruncated && !nextContinuationToken) {
+    const error = new Error('Private audio storage returned an incomplete listing page.');
+    error.code = 'audio_storage_unavailable';
+    throw error;
+  }
+  return {
+    objects: (result.Contents || [])
+      .filter((item) => item.Key)
+      .map((item) => ({
+        objectKey: item.Key,
+        byteSize: item.Size == null ? null : Number(item.Size),
+        lastModified: item.LastModified || null,
+        etag: String(item.ETag || '').replaceAll('"', ''),
+      })),
+    continuationToken: nextContinuationToken || null,
+    truncated: Boolean(result.IsTruncated),
+  };
+}
+
+export async function readAudioControlObject({ objectKey }) {
+  let result;
+  try {
+    result = await storageClient().send(new GetObjectCommand({
+      Bucket: config.r2.bucket,
+      Key: objectKey,
+    }));
+  } catch (error) {
+    if (
+      error?.name === 'NoSuchKey'
+      || error?.Code === 'NoSuchKey'
+      || error?.$metadata?.httpStatusCode === 404
+    ) {
+      return null;
+    }
+    throw error;
+  }
+  let content;
+  if (typeof result.Body?.transformToString === 'function') {
+    content = await result.Body.transformToString();
+  } else if (typeof result.Body?.transformToByteArray === 'function') {
+    content = Buffer.from(await result.Body.transformToByteArray()).toString('utf8');
+  } else {
+    const error = new Error('Private audio storage returned an unreadable control object.');
+    error.code = 'audio_storage_unavailable';
+    throw error;
+  }
+  const parsed = JSON.parse(content);
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    const error = new Error('Private audio storage returned an invalid control object.');
+    error.code = 'audio_storage_unavailable';
+    throw error;
+  }
+  return parsed;
+}
+
+export async function writeAudioControlObject({ objectKey, value }) {
+  const body = JSON.stringify(value);
+  await storageClient().send(new PutObjectCommand({
+    Bucket: config.r2.bucket,
+    Key: objectKey,
+    ContentType: 'application/json',
+    ContentLength: Buffer.byteLength(body),
+    Body: body,
+  }));
+}
+
+export async function deleteAudioObject({ objectKey }) {
+  await storageClient().send(new DeleteObjectCommand({
+    Bucket: config.r2.bucket,
+    Key: objectKey,
+  }));
 }
 
 export async function deleteRecordingPrefix({ prefix }) {

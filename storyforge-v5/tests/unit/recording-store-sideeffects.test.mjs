@@ -516,6 +516,39 @@ test('provider failover is written through the content-free service audit bounda
   }]);
 });
 
+test('reconciliation deletion uses only the bounded service audit vocabulary', async () => {
+  const serviceAudits = [];
+  const store = storeWithClient({}, {
+    appendAudit: async () => assert.fail('reconciliation must not use authenticated audit'),
+    async appendServiceAudit(innerClient, event) {
+      serviceAudits.push(event);
+    },
+  });
+  await store.recordReconciliationDeleted({
+    entityId: assetId,
+    studentId,
+    storyId,
+    objectCount: 1,
+    byteSize: 4096,
+  });
+  assert.deepEqual(serviceAudits, [{
+    action: 'reconciliation_deleted',
+    entityType: 'audio_asset',
+    entityId: assetId,
+    studentId,
+    storyId,
+    previousValue: null,
+    newValue: {
+      objectCount: 1,
+      byteSize: 4096,
+    },
+  }]);
+  assert.deepEqual(Object.keys(serviceAudits[0].newValue).sort(), [
+    'byteSize',
+    'objectCount',
+  ]);
+});
+
 test('a second worker cannot reclaim an in-flight transcription segment', async () => {
   let updates = 0;
   const client = {

@@ -99,4 +99,5 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/recording-rls.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/flags-rls.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/voice-audit-lifecycle.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/audio-reconciliation-runtime.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"

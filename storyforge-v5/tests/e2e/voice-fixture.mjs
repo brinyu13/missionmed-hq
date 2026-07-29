@@ -330,6 +330,69 @@ export async function studentRecordingSessionCount() {
   });
 }
 
+export async function recordingSessionState(recordingId) {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT state, story_id, assembled_asset_id
+         FROM public.sf_recording_sessions
+        WHERE id = $1`,
+      [recordingId],
+    );
+    return result.rows[0] || null;
+  });
+}
+
+export async function setRecordingState(recordingId, state) {
+  await withDatabase(async (client) => {
+    const result = await client.query(
+      `UPDATE public.sf_recording_sessions
+          SET state = $2,
+              updated_at = now()
+        WHERE id = $1`,
+      [recordingId, state],
+    );
+    expect(result.rowCount, 'recording state fixture').toBe(1);
+  });
+}
+
+export async function studentStoriesByTitle(title) {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT id, title, current_text, original_text, capture_type
+         FROM public.sf_stories
+        WHERE student_id = $1
+          AND title = $2
+        ORDER BY created_at`,
+      [STUDENT_ID, title],
+    );
+    return result.rows;
+  });
+}
+
+export async function audioAssetCountForStory(storyId) {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT count(*)::integer AS count
+         FROM public.sf_audio_assets
+        WHERE story_id = $1`,
+      [storyId],
+    );
+    return Number(result.rows[0].count);
+  });
+}
+
+export async function studentCaptureDraft() {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT payload, row_version
+         FROM public.sf_story_drafts
+        WHERE user_id = $1`,
+      [STUDENT_ID],
+    );
+    return result.rows[0] || null;
+  });
+}
+
 export async function loginStudent(page, {
   persona = 'Student · Maya',
 } = {}) {
