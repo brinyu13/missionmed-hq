@@ -2,6 +2,10 @@
 
 Outcome: **PASS**
 
+Historical receipt: this S2 result belongs to baseline commit
+`6e630df672e47e50ae5e14592c8455979e2b1dac`; it is not the current candidate,
+build, or release verdict.
+
 All commands were run from the StoryForge application root:
 `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502/storyforge-v5`.
 

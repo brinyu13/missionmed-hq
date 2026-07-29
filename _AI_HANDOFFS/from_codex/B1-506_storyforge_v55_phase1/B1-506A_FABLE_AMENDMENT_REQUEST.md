@@ -51,9 +51,11 @@ Do not:
 - add application-layer authorization as a substitute;
 - redesign the schema or introduce another role abstraction.
 
-## Required PostgreSQL 18 regression tests
+## Locally added PostgreSQL 18 acceptance regressions — currently red
 
-Extend `storyforge-v5/tests/postgres/recording-rls.test.mjs`.
+The current committed candidate adds the four runtime cases below to
+`storyforge-v5/tests/postgres/recording-rls.test.mjs`. They fail against
+unchanged M1 and do not constitute authority to amend it.
 
 ### Mentor and admin self-row denial
 
@@ -139,6 +141,8 @@ feature-off/environment-kill or, with existing founder authorization and fresh
 backup requirements, the complete B1-506 table rollback.
 
 ## Acceptance
+
+Current acceptance: **NOT MET**.
 
 Approval is implemented only when:
 
