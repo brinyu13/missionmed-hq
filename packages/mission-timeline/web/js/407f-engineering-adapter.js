@@ -3,7 +3,7 @@ import {TimelineStore} from "./uxr-002/store.js";
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
   exams:"usmle",
-  education:"usmle",
+  education:"education",
   clinical:"cl",
   research:"res",
   personal:"personal"
@@ -12,6 +12,7 @@ const CATEGORY_TO_407F=Object.freeze({
 const CATEGORY_FROM_407F=Object.freeze({
   work:"work",
   usmle:"exams",
+  education:"education",
   th:"clinical",
   cl:"clinical",
   res:"research",
@@ -63,7 +64,7 @@ export function event407FToDocument(event,index=0){
   return{
     id:event.id||`event-${index+1}`,
     title:event.t||`Event ${index+1}`,
-    categoryId:CATEGORY_FROM_407F[event.cat]||"personal",
+    categoryId:event.fields?.canonicalCategory||CATEGORY_FROM_407F[event.cat]||"personal",
     eventType:event.mile?"milestone":"duration",
     startDate:event.s||"",
     endDate:event.mile?null:(event.e||null),
@@ -97,6 +98,14 @@ export function applyDocumentTo407FState(document,state){
   };
   state.sticky=document.metadata?.stickyNote??state.sticky;
   state.media=clone(document.metadata?.boardMedia||state.media);
+  state.wiz={
+    ...state.wiz,
+    ...clone(document.metadata?.wizard407F||{})
+  };
+  state.builder={
+    ...state.builder,
+    ...clone(document.metadata?.builder407F||{})
+  };
   state.canvasTheme=document.theme==="season-one-board"?"season":
     document.theme==="clean-advisor-paper"||document.theme==="advisor-paper"?"paper":
     document.theme==="horizon"?"horizon":
@@ -127,6 +136,8 @@ export function apply407FStateToDocument(state,document){
     interview:clone(state.user?.interview||{prog:"",date:"",label:""}),
     stickyNote:state.sticky||"",
     boardMedia:clone(state.media||{}),
+    wizard407F:clone(state.wiz||{}),
+    builder407F:clone(state.builder||{}),
     step1Score:state.profile?.s1||"",
     step2Score:state.profile?.s2||""
   };
@@ -139,7 +150,9 @@ function stableState(state){
     profile:state.profile,
     sticky:state.sticky,
     media:state.media,
-    canvasTheme:state.canvasTheme
+    canvasTheme:state.canvasTheme,
+    wiz:state.wiz,
+    builder:state.builder
   });
 }
 

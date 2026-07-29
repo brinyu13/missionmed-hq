@@ -67,11 +67,55 @@ remain available as engineering sources, but `web/index.html` does not load
   Archivo/Rajdhani character, and Keynote-derived energy.
 - Commit: `fcde6fb`
 
+### M2 — three-region Home
+
+- Rebuilt Home as exactly three 407F-styled regions in the frozen 7/5/12-column
+  layout: Build your timeline, Start from your CV or MyERAS, and Your timeline.
+- Applied all verbatim five-second-contract copy.
+- Added empty/ghost, resume, pending-intake, advisor-approved, live-preview, and
+  start-over/version states without loading demo data into the student's draft.
+- Browser semantic hierarchy: pass — one H1, two H2 region titles.
+- Console warnings/errors: 0.
+- Test baseline: 377/377 (119 TypeScript + 258 module tests).
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M2-three-region-407f-home-desktop.png`
+- Visual verdict: pass — the clearer Home hierarchy remains inside 407F's dark,
+  layered, angular, premium visual system.
+- Commit: `114dc37`
+
+### M3 — seven-step Builder shell and Core Info
+
+- Rebuilt Builder as the frozen three-zone 407F layout: fixed 264px vertical
+  stepper, centered form column, and right-side live preview.
+- Added the exact seven step titles, purpose copy, free step navigation, and
+  complete/started/skipped/empty state glyphs.
+- Implemented Core Info in frozen field order with required validation,
+  flexible month parsing, country selection, degree selection, optional visa
+  status, and canonical Education milestone projection.
+- Persisted wizard and Builder state through the retained engineering adapter.
+- Browser semantic/runtime assertion: pass — seven step buttons, one current
+  step H1, sticky Back/Continue controls, and live preview.
+- Console/runtime errors observed during browser validation: 0.
+- Regression evidence: 381 tests pass when the nine performance tests are
+  isolated from the functional/module run (110 TypeScript functional + 9
+  performance + 262 module tests). The default all-at-once run produced
+  load-sensitive wall-clock misses in pre-existing autosave benchmarks while
+  all correctness assertions and the isolated 9/9 performance run passed.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M3-seven-step-407f-builder.png`
+- Visual verdict: pass — the form hierarchy and live preview remain immediately
+  recognizable as the canonical dark 407F product.
+- Commit: pending local milestone commit
+
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 374/374; required floor 370 |
+| Regression floor | PASS — 381 tests pass across the load-isolated run; required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -90,6 +134,8 @@ remain available as engineering sources, but `web/index.html` does not load
 | --- | --- | --- |
 | M0 | `d5126f8` | `git revert d5126f8` |
 | M1 | `fcde6fb` | `git revert fcde6fb` |
+| M2 | `114dc37` | `git revert 114dc37` |
+| M3 | pending local milestone commit | pending |
 
 ## Precedence resolutions
 

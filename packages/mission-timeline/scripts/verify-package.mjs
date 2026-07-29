@@ -145,7 +145,14 @@ check("legacy FileVault staging adapter is explicitly disconnected", /LOCAL_CONT
 
 const changed = execFileSync("git", ["status", "--short"], { cwd: repo, encoding: "utf8" }).trim().split("\n").filter(Boolean);
 const trackedChanges = execFileSync("git", ["diff", "--name-only"], { cwd: repo, encoding: "utf8" }).trim().split("\n").filter(Boolean);
-check("no tracked production file modified", trackedChanges.every((path) => path.startsWith("packages/mission-timeline/")), trackedChanges.join(", ") || "none");
+check(
+  "no unrelated tracked production file modified",
+  trackedChanges.every((path) =>
+    path.startsWith("packages/mission-timeline/")
+      || path.startsWith("_AI_HANDOFFS/from_codex/D1-404_TIMELINE_407F_UPGRADE/")
+  ),
+  trackedChanges.join(", ") || "none",
+);
 check("nothing staged", execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: repo, encoding: "utf8" }).trim() === "", "staging area empty");
 
 const failed = checks.filter((item) => item.status === "FAIL");

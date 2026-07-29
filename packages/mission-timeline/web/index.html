@@ -552,23 +552,27 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 </section>
 <!-- ================= BUILDER / WIZARD ================= -->
 <section data-view="builder">
-  <div class="trow"><div class="bigt">GUIDED <em>BUILDER</em></div><div class="subt">ANSWER IN PLAIN DATES · THE ENGINE PLACES THE ARROWS</div></div>
-  <div class="grid2" style="grid-template-columns:400px 1fr">
-    <div class="panelD"><div class="pi">
-      <div style="display:flex;gap:6px;margin-bottom:18px" id="wizDots"></div>
-      <div id="wizBody"></div>
-      <div style="display:flex;gap:10px;margin-top:20px;flex-wrap:wrap">
-        <button class="btnD alt sm" id="wizBack">◂ BACK</button>
-        <button class="btnD go sm" id="wizNext">NEXT ▸</button>
-        <button class="btnD alt sm" id="wizSave">SAVE DRAFT</button>
-        <button class="btnD alt sm" id="wizPrev">PREVIEW CHANGES</button>
+  <div class="d1404Builder">
+    <aside class="panelD builderStepper" aria-label="Builder steps">
+      <div class="pi" id="builderStepper"></div>
+    </aside>
+    <section class="panelD builderForm" aria-labelledby="builderStepTitle">
+      <div class="pi">
+        <h1 id="builderStepTitle">Core Info</h1>
+        <p class="builderPurpose" id="builderPurpose">Who you are and where you trained.</p>
+        <div id="builderStepBody"></div>
       </div>
-      <div id="wizQuick"></div>
-    </div></div>
-    <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">LIVE PREVIEW · UPDATES AS YOU TYPE · CLICK ANY ELEMENT TO EDIT</div>
+      <footer class="builderFooter">
+        <button class="homeTertiary" id="builderBack">← Back</button>
+        <button class="btnD go sm" id="builderContinue">CONTINUE →</button>
+      </footer>
+    </section>
+    <aside class="panelD builderPreview">
+      <div class="pi">
+      <div class="builderPreviewLabel">LIVE PREVIEW · GUIDED · INTERVIEW-SAFE</div>
       <div id="boardWizard"></div>
-    </div></div>
+      </div>
+    </aside>
   </div>
 </section>
 
@@ -865,6 +869,7 @@ const QUESTIONS=[
   {q:'What changed after your move to the US?',re:/moved to usa/i}
 ];
 const CATS={
+  education:{n:'Education',c:'#2c6e8f'},
   work:{n:'Work Experience',c:'#3f9b52'},
   personal:{n:'Personal / Not on CV',c:'#8a5bbf'},
   usmle:{n:'USMLE Studies',c:'#3a78c9'},
@@ -903,6 +908,7 @@ const state={
   profile:{name:'Dr. Amara Osei',country:'Ghana',visa:'Green card',s1:'246',s2:'251',goal:'Internal Medicine'},
   sticky:'Helped with baby while rotating',
   photoN:3,wizStep:0,uploadStage:'idle',
+  builder:{step:1,skipped:{},touched:{}},
   candidates:[
     {id:'c1',t:'House Officer',cat:'work',s:'2017-06',e:'2019-07',loc:'Korle Bu Teaching Hospital · Accra',conf:'HIGH CONFIDENCE',cc:'gn',kind:'normal',file:'ERAS_OSEI.PDF',page:2,section:'Experience · Work',q:'House Officer, Korle Bu Teaching Hospital, Accra. June 2017 to July 2019.',inf:[],st:'pending'},
     {id:'c2',t:'Step 1 Preparation',cat:'usmle',s:'2019-09',e:'2020-03',loc:'',conf:'HIGH CONFIDENCE',cc:'gn',kind:'normal',file:'ERAS_OSEI.PDF',page:3,section:'Licensure · Exams',q:'USMLE Step 1, passed March 2020. Dedicated preparation from September 2019.',inf:['Prep start inferred from context'],st:'pending'},
@@ -930,7 +936,7 @@ const state={
     {t:'Step 2 CK spans a visible retake window',s:'CONFIRM PUBLIC',done:false}
   ],
   versions:[{v:'V1',t:'Blank canvas',n:0},{v:'V2',t:'Wizard pass',n:5},{v:'V3',t:'Upload merge',n:9}],
-  wiz:{name:'Dr. Amara Osei',country:'Ghana',visa:'Green card',grad:'2017-05',s1a:'2019-09',s1b:'2020-03',s2a:'2020-01',s2b:'2020-08',cla:'2021-02',clb:'2021-06',tha:'2021-06',thb:'2021-08',ra:'2021-09',rb:'2022-08',pt:'Daughter born',pd:'2021-03',padv:true,ip:'Rutgers IM',idt:'2026-12'}
+  wiz:{name:'Dr. Amara Osei',school:'',country:'Ghana',grad:'2017-05',notGraduated:false,degree:'MBBS',degreeOther:'',visa:'Green card',s1a:'2019-09',s1b:'2020-03',s2a:'2020-01',s2b:'2020-08',cla:'2021-02',clb:'2021-06',tha:'2021-06',thb:'2021-08',ra:'2021-09',rb:'2022-08',pt:'Daughter born',pd:'2021-03',padv:true,ip:'Rutgers IM',idt:'2026-12'}
 };
 let uid=0;const nid=()=>'u'+(++uid);
 
@@ -964,8 +970,8 @@ function visibleEvents(data,scope){
   });
 }
 /* ---- 407F: snapshots + undo ---- */
-function snapshotDoc(){return JSON.parse(JSON.stringify({events:state.user.events,interview:state.user.interview,profile:state.profile,sticky:state.sticky,media:state.media}))}
-function applyDoc(doc){state.user.events=JSON.parse(JSON.stringify(doc.events||[]));state.user.interview=Object.assign({prog:'',date:'',label:''},doc.interview||{});if(doc.profile)state.profile=Object.assign({},doc.profile);if(doc.sticky!=null)state.sticky=doc.sticky;if(doc.media)state.media=JSON.parse(JSON.stringify(doc.media));state.sel=null}
+function snapshotDoc(){return JSON.parse(JSON.stringify({events:state.user.events,interview:state.user.interview,profile:state.profile,sticky:state.sticky,media:state.media,wiz:state.wiz,builder:state.builder}))}
+function applyDoc(doc){state.user.events=JSON.parse(JSON.stringify(doc.events||[]));state.user.interview=Object.assign({prog:'',date:'',label:''},doc.interview||{});if(doc.profile)state.profile=Object.assign({},doc.profile);if(doc.sticky!=null)state.sticky=doc.sticky;if(doc.media)state.media=JSON.parse(JSON.stringify(doc.media));if(doc.wiz)state.wiz=JSON.parse(JSON.stringify(doc.wiz));if(doc.builder)state.builder=JSON.parse(JSON.stringify(doc.builder));state.sel=null}
 function pushUndo(){state.undoStack.push(snapshotDoc());if(state.undoStack.length>30)state.undoStack.shift();state.saved=false}
 function doUndo(){const s=state.undoStack.pop();if(!s){toast('Nothing to undo');return}applyDoc(s);toast('Undone · '+state.undoStack.length+' steps left');renderAll()}
 /* ---- 407F: stress fixtures ---- */
@@ -1318,7 +1324,7 @@ function renderHist(){
 window.D1_407_HARDENING=window.D1_407_HARDENING||{beforeRenderAll:null,afterRenderAll:null};
 function renderAll(){
   if(typeof window.D1_407_HARDENING.beforeRenderAll==='function')window.D1_407_HARDENING.beforeRenderAll();
-  renderThemeButtons();renderHome();renderBoards();renderEvList();renderElems();renderInspector();renderWizQuick();renderHud();renderHist();renderExport();renderAdvisor();renderQuestionsList();renderVersionsPanel();renderCands();refreshSelClasses();
+  renderThemeButtons();renderHome();renderBuilder404();renderBoards();renderEvList();renderElems();renderInspector();renderWizQuick();renderHud();renderHist();renderExport();renderAdvisor();renderQuestionsList();renderVersionsPanel();renderCands();refreshSelClasses();
   if(typeof window.D1_407_HARDENING.afterRenderAll==='function')window.D1_407_HARDENING.afterRenderAll();
   document.dispatchEvent(new CustomEvent('d1:407f-rendered'));
 }
@@ -1503,46 +1509,138 @@ $('#ctlFixtures').onclick=()=>{
 };
 $('#ctlDemoLoad').onclick=()=>{pushUndo();loadDemoIntoUser()};
 $('#ctlDemoClear').onclick=()=>{pushUndo();state.user={events:[],interview:{prog:'',date:'',label:''}};state.sel=null;state.saved=false;toast('Canvas cleared · blank builder restored · undo available');renderAll()};
-/* ============ WIZARD ============ */
-const WSTEPS=[
- {t:'IDENTITY',f:[['name','Student name','text'],['country','Medical school country','country'],['visa','Visa / status','text']]},
- {t:'SCHOOL + EXAMS',f:[['grad','Medical school graduation','month'],['s1a','Step 1 start','month'],['s1b','Step 1 end','month'],['s2a','Step 2 CK start','month'],['s2b','Step 2 CK end','month']]},
- {t:'US EXPERIENCE',f:[['cla','USCE clinic start','month'],['clb','USCE clinic end','month'],['tha','Teaching hospital start','month'],['thb','Teaching hospital end','month'],['ra','Research start','month'],['rb','Research end','month']]},
- {t:'STORY + TARGET',f:[['pt','Personal milestone','text'],['pd','Personal milestone month','month'],['ip','Interview program','text'],['idt','Interview month','month']]}
+/* ============ D1-404 BUILDER ============ */
+const BUILDER_STEPS_404=[
+  {title:'Core Info',purpose:'Who you are and where you trained.'},
+  {title:'Exams',purpose:'Your exam story — scores and results first, dates second.'},
+  {title:'US Clinical Rotations',purpose:"One rotation at a time. We'll fill in what we can."},
+  {title:'Work Experience',purpose:'Clinical or not, US or abroad — work belongs on the story.'},
+  {title:'Research',purpose:'Projects, posters, and papers — with your author position.'},
+  {title:'Personal',purpose:'The life behind the CV — moves, family, service, anything that shaped the journey.'},
+  {title:'Review & finish',purpose:'Everything in one place. Fix anything, then open your canvas.'}
 ];
-function renderWiz(){
-  const host=$('#wizBody');if(!host)return;
-  $('#wizDots').innerHTML=WSTEPS.map((s,i)=>'<span class="chip'+(i===state.wizStep?' em':'')+'" style="cursor:pointer" data-ws="'+i+'">'+(i+1)+' · '+s.t+'</span>').join('');
-  $$('#wizDots .chip').forEach(c=>c.onclick=()=>{state.wizStep=+c.dataset.ws;renderWiz()});
-  const st=WSTEPS[state.wizStep];
-  host.innerHTML=st.f.map(f=>{
-    const[k,l,ty]=f;const v=state.wiz[k]||'';
-    if(ty==='country'){return '<label class="f"><span class="fl">'+l+'</span><select data-wk="'+k+'">'+COUNTRIES.map(c=>'<option'+(c===v?' selected':'')+'>'+c+'</option>').join('')+'</select></label>'}
-    return '<label class="f"><span class="fl">'+l+'</span><input type="'+(ty==='month'?'month':'text')+'" data-wk="'+k+'" value="'+esc(v)+'"></label>';
-  }).join('')
-  +(state.wizStep===3?'<div style="display:flex;align-items:center;gap:10px"><div class="tglD'+(state.wiz.padv?' on':'')+'" id="wPadv"><i></i></div><span style="font-size:12px;color:var(--mid)">Personal milestone is advisor-only</span></div>':'');
-  $$('#wizBody [data-wk]').forEach(inp=>{inp.oninput=()=>{state.wiz[inp.dataset.wk]=inp.value;wizApply()}});
-  const p=$('#wPadv');if(p)p.onclick=()=>{state.wiz.padv=!state.wiz.padv;p.classList.toggle('on');wizApply()};
+const CORE_REQUIRED=['name','school','country','grad','degree'];
+function coreInfoValid(){return CORE_REQUIRED.every(k=>String(state.wiz[k]||'').trim())}
+function coreInfoStarted(){return CORE_REQUIRED.some(k=>String(state.wiz[k]||'').trim())}
+function builderDomainCount(step){
+  const domain={2:'exams',3:'clinical',4:'work',5:'research',6:'personal'}[step];
+  if(!domain)return 0;
+  return state.user.events.filter(e=>{
+    const canonical=e.fields&&e.fields.canonicalCategory;
+    if(domain==='exams')return canonical==='exams'||(!canonical&&e.cat==='usmle');
+    if(domain==='clinical')return canonical==='clinical'||e.cat==='th'||e.cat==='cl';
+    if(domain==='work')return canonical==='work'||e.cat==='work';
+    if(domain==='research')return canonical==='research'||e.cat==='res';
+    return canonical==='personal'||e.cat==='personal';
+  }).length;
 }
-function wizApply(){
-  const w=state.wiz;const ev=state.user.events.filter(e=>e.origin!=='wizard');
-  const push=(t,cat,s,e,mile,vis,loc)=>{if(!s)return;ev.push({id:nid(),t:t,cat:cat,s:s,e:e||null,mile:!!mile,vis:vis||'safe',loc:loc||'',origin:'wizard',notes:'',lane:null})};
-  state.profile.name=w.name||'Dr. ·';state.profile.country=w.country;state.profile.visa=w.visa||'·';
-  push('Medical Degree','usmle',w.grad,null,true);
-  if(w.s1a&&w.s1b)push('Step 1','usmle',w.s1a,w.s1b);
-  if(w.s2a&&w.s2b)push('Step 2 CK','usmle',w.s2a,w.s2b);
-  if(w.cla&&w.clb)push('USCE Clinic','cl',w.cla,w.clb);
-  if(w.tha&&w.thb)push('Teaching Hospital','th',w.tha,w.thb);
-  if(w.ra&&w.rb)push('Research','res',w.ra,w.rb);
-  if(w.pt&&w.pd)push(w.pt,'personal',w.pd,null,true,w.padv?'advisor':'public');
-  state.user.events=ev;
-  state.user.interview={prog:w.ip||'',date:w.idt||'',label:w.ip?('MY BIG '+w.ip.toUpperCase()+' IV'):''};
-  state.saved=false;renderBoards();renderHud();renderEvList();
+function builderStepState(step){
+  if(step===7)return'none';
+  if(step===1)return coreInfoValid()?'complete':(coreInfoStarted()?'started':'empty');
+  if(state.builder.skipped[step])return'skipped';
+  return builderDomainCount(step)?'complete':'empty';
 }
-$('#wizNext').onclick=()=>{if(state.wizStep<3){state.wizStep++;renderWiz()}else{wizApply();go('canvas');toast('Draft placed on the board · everything stays editable')}};
-$('#wizBack').onclick=()=>{if(state.wizStep>0){state.wizStep--;renderWiz()}};
-$('#wizSave').onclick=()=>{wizApply();state.saved=true;toast('Draft saved');renderHud()};
-$('#wizPrev').onclick=()=>{wizApply();toast('Preview updated on the right')};
+function builderGlyph(step){
+  const stateName=builderStepState(step);
+  return{complete:'✓',started:'◐',skipped:'—',empty:'○',none:''}[stateName];
+}
+function coreInfoMarkup(){
+  const w=state.wiz;
+  const countryOptions=COUNTRIES.map(c=>'<option value="'+esc(c)+'"'+(c===w.country?' selected':'')+'>'+esc(c)+'</option>').join('');
+  const degreeButtons=['MD','DO','MBBS','Other'].map(d=>'<button type="button" class="builderSegment'+(w.degree===d?' on':'')+'" data-degree="'+d+'">'+d+'</button>').join('');
+  return '<div class="builderFields">'
+    +'<label class="builderField"><span>Full name</span><input type="text" data-core="name" value="'+esc(w.name||'')+'" placeholder="e.g., Amara Osei"><small data-error="name"></small></label>'
+    +'<label class="builderField"><span>Medical school</span><input type="text" data-core="school" data-provider="schools" list="medicalSchoolOptions" value="'+esc(w.school||'')+'" autocomplete="off"><datalist id="medicalSchoolOptions"></datalist><small class="builderHint">Start typing to search; free text is always allowed.</small><small data-error="school"></small></label>'
+    +'<label class="builderField"><span>Medical school country</span><select data-core="country"><option value="">Select a country</option>'+countryOptions+'</select><small data-error="country"></small></label>'
+    +'<label class="builderField"><span>'+(w.notGraduated?'Expected graduation':'Graduation date')+'</span><input type="text" data-core="grad" value="'+esc(w.grad||'')+'" placeholder="Jun 2023" inputmode="numeric"><small class="builderHint">Enter a month and year, like “Jun 2023”.</small><small data-error="grad"></small></label>'
+    +'<label class="builderToggle"><input type="checkbox" data-core-toggle="notGraduated"'+(w.notGraduated?' checked':'')+'> <span>I haven&apos;t graduated yet</span></label>'
+    +'<fieldset class="builderField"><legend>Degree</legend><div class="builderSegments">'+degreeButtons+'</div><small data-error="degree"></small></fieldset>'
+    +(w.degree==='Other'?'<label class="builderField"><span>Degree name</span><input type="text" data-core="degreeOther" value="'+esc(w.degreeOther||'')+'"></label>':'')
+    +'<label class="builderField"><span>Visa / work status <em>Optional</em></span><select data-core="visa">'
+    +['','US citizen / permanent resident','Need H-1B','Need J-1','Other','Prefer not to say'].map(v=>'<option value="'+v+'"'+(v===w.visa?' selected':'')+'>'+(v||'Select a status')+'</option>').join('')
+    +'</select></label></div>';
+}
+function builderPlaceholderMarkup(step){
+  if(step===7)return'<div class="builderPlaceholder"><p>Your completeness summary and story checks arrive in M6.</p><button class="btnD go" data-nav="canvas">OPEN MY CANVAS →</button></div>';
+  return'<div class="builderPlaceholder"><p>This step is ready for its domain workflow.</p><button class="homeTertiary" data-builder-skip="'+step+'">I have nothing to add here → skip</button></div>';
+}
+function renderBuilder404(){
+  const step=Math.max(1,Math.min(7,state.builder.step||1));
+  state.builder.step=step;
+  const current=BUILDER_STEPS_404[step-1];
+  const stepper=$('#builderStepper');
+  if(stepper)stepper.innerHTML=BUILDER_STEPS_404.map((item,index)=>{
+    const n=index+1;const currentClass=n===step?' current':'';
+    return'<button class="builderStep'+currentClass+'" data-builder-step="'+n+'"'+(n===step?' aria-current="step"':'')+'>'
+      +'<span class="builderStepNumber">'+n+'</span><span class="builderStepTitle">'+item.title+'</span><span class="builderStepGlyph">'+builderGlyph(n)+'</span></button>';
+  }).join('');
+  $('#builderStepTitle').textContent=current.title;
+  $('#builderPurpose').textContent=current.purpose;
+  $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():builderPlaceholderMarkup(step);
+  $('#builderBack').disabled=step===1;
+  $('#builderContinue').textContent=step===7?'OPEN MY CANVAS →':'CONTINUE →';
+}
+function parseBuilderMonth(value){
+  const raw=String(value||'').trim();
+  if(/^\d{4}-(0[1-9]|1[0-2])$/.test(raw))return raw;
+  let match=raw.match(/^(\d{1,2})\/(\d{4})$/);
+  if(match){const month=+match[1];if(month>=1&&month<=12)return match[2]+'-'+String(month).padStart(2,'0')}
+  match=raw.match(/^([A-Za-z]+)\s+(\d{4})$/);
+  if(match){const month=MO.map(x=>x.toLowerCase()).findIndex(x=>match[1].toLowerCase().startsWith(x));if(month>=0)return match[2]+'-'+String(month+1).padStart(2,'0')}
+  return null;
+}
+function syncCoreInfo(){
+  const w=state.wiz;
+  state.profile.name=w.name||'';
+  state.profile.country=w.country||'';
+  state.profile.visa=w.visa||'';
+  const existing=state.user.events.find(e=>e.id==='education-core');
+  if(coreInfoValid()){
+    const next={id:'education-core',t:'Medical Degree — '+w.school,cat:'education',s:w.grad,e:null,mile:true,vis:'safe',loc:w.school,origin:'builder-core',notes:'',lane:null,fields:{canonicalCategory:'education',school:w.school,country:w.country,degree:w.degree==='Other'?(w.degreeOther||'Other'):w.degree,expected:!!w.notGraduated}};
+    if(existing)Object.assign(existing,next);else state.user.events.push(next);
+  }else if(existing){
+    state.user.events=state.user.events.filter(e=>e.id!=='education-core');
+  }
+  state.saved=false;
+  renderBuilder404();renderBoards();renderHud();renderHome();
+}
+function showCoreErrors(){
+  const w=state.wiz;
+  for(const key of CORE_REQUIRED){
+    const target=$('[data-error="'+key+'"]');
+    if(target)target.textContent=String(w[key]||'').trim()?'':'Required.';
+  }
+  const gradTarget=$('[data-error="grad"]');
+  if(gradTarget&&w.grad&&!parseBuilderMonth(w.grad))gradTarget.textContent="Enter a month and year, like 'Jun 2023'.";
+  return coreInfoValid()&&!!parseBuilderMonth(w.grad);
+}
+document.addEventListener('click',e=>{
+  const stepButton=e.target.closest('[data-builder-step]');
+  if(stepButton){state.builder.step=+stepButton.dataset.builderStep;renderBuilder404();return}
+  const degree=e.target.closest('[data-degree]');
+  if(degree){state.wiz.degree=degree.dataset.degree;state.builder.touched[1]=true;syncCoreInfo();return}
+  const skip=e.target.closest('[data-builder-skip]');
+  if(skip){const step=+skip.dataset.builderSkip;state.builder.skipped[step]=true;state.builder.step=Math.min(7,step+1);state.saved=false;renderAll();return}
+});
+document.addEventListener('change',e=>{
+  const field=e.target.closest('[data-core]');
+  if(field){
+    const key=field.dataset.core;
+    let value=field.value;
+    if(key==='grad'){const parsed=parseBuilderMonth(value);if(parsed)value=parsed}
+    state.wiz[key]=value;state.builder.touched[1]=true;syncCoreInfo();
+  }
+  const toggle=e.target.closest('[data-core-toggle]');
+  if(toggle){state.wiz[toggle.dataset.coreToggle]=toggle.checked;state.builder.touched[1]=true;syncCoreInfo()}
+});
+document.addEventListener('focusout',e=>{if(e.target.matches&&e.target.matches('[data-core]'))showCoreErrors()});
+$('#builderBack').onclick=()=>{if(state.builder.step>1){state.builder.step--;renderAll()}};
+$('#builderContinue').onclick=()=>{
+  if(state.builder.step===1&&!showCoreErrors())return;
+  syncCoreInfo();
+  if(state.builder.step===7){go('canvas');return}
+  state.builder.step++;renderAll();
+};
 
 /* ============ INTAKE ============ */
 $$('#docTypes [data-doc]').forEach(b=>b.onclick=()=>{state.intakeDoc=b.dataset.doc;$$('#docTypes [data-doc]').forEach(x=>x.classList.toggle('go',x===b));$$('#docTypes [data-doc]').forEach(x=>x.classList.toggle('alt',x!==b));
@@ -1839,7 +1937,7 @@ lockProdDarkCanvas();
 setInterval(lockProdDarkCanvas,750);
 new MutationObserver(lockProdDarkCanvas).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
 window.D1_407F_TEST={state:state,SPR402:SPR402,CATS:CATS,snapshotDoc:snapshotDoc,applyDoc:applyDoc,pushUndo:pushUndo,doUndo:doUndo,renderAll:renderAll,renderBoard:renderBoard,go:go,toast:toast,computeQuestions:computeQuestions,exCounts:exCounts,exWarnings:exWarnings,fixtureSet:fixtureSet};
-renderWiz();renderElems();renderMediaSlots();renderAdvisor();renderCands();renderAll();lockProdDarkCanvas();
+renderBuilder404();renderElems();renderMediaSlots();renderAdvisor();renderCands();renderAll();lockProdDarkCanvas();
 </script>
 <script type="module" src="./js/407f-engineering-adapter.js"></script>
 </body>

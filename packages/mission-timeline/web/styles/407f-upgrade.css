@@ -320,15 +320,247 @@
   margin-bottom:6px;
 }
 
+.d1404Builder{
+  display:grid;
+  gap:20px;
+  grid-template-columns:264px minmax(420px,560px) minmax(420px,1fr);
+  margin:0 auto;
+  max-width:1440px;
+  min-height:calc(100vh - 132px);
+}
+
+.builderStepper>.pi{
+  padding:18px 12px;
+}
+
+.builderStep{
+  align-items:center;
+  border-left:3px solid transparent;
+  color:var(--mid);
+  display:grid;
+  gap:10px;
+  grid-template-columns:24px minmax(0,1fr) 18px;
+  min-height:52px;
+  padding:8px 10px;
+  text-align:left;
+  width:100%;
+}
+
+.builderStep:hover{
+  background:rgba(49,64,92,.34);
+  color:var(--tx);
+}
+
+.builderStep.current{
+  background:rgba(232,238,251,.06);
+  border-left-color:var(--em);
+  color:var(--tx);
+}
+
+.builderStepNumber{
+  align-items:center;
+  border:1px solid var(--edge2);
+  border-radius:50%;
+  display:flex;
+  font-family:var(--num);
+  font-size:12px;
+  font-weight:700;
+  height:24px;
+  justify-content:center;
+  width:24px;
+}
+
+.builderStep.current .builderStepNumber{
+  border-color:var(--em);
+  color:var(--em);
+}
+
+.builderStepTitle{
+  font-size:14px;
+  font-weight:700;
+}
+
+.builderStepGlyph{
+  color:var(--gn);
+  font-family:var(--num);
+  font-size:16px;
+  font-weight:700;
+  text-align:center;
+}
+
+.builderForm{
+  display:flex;
+  flex-direction:column;
+}
+
+.builderForm>.pi{
+  flex:1;
+  max-width:560px;
+  padding:32px 28px 92px;
+  width:100%;
+}
+
+.builderForm h1{
+  color:var(--tx);
+  font-size:28px;
+  font-weight:800;
+  line-height:1.2;
+}
+
+.builderPurpose{
+  color:var(--mid);
+  font-size:13px;
+  line-height:1.5;
+  margin:8px 0 24px;
+}
+
+.builderFields{
+  display:grid;
+  gap:16px;
+}
+
+.builderField{
+  border:0;
+  display:block;
+  min-width:0;
+}
+
+.builderField>span,
+.builderField>legend{
+  color:var(--tx);
+  display:block;
+  font-size:13px;
+  font-weight:700;
+  margin-bottom:7px;
+}
+
+.builderField>span em{
+  color:var(--dim);
+  font-style:normal;
+  font-weight:500;
+}
+
+.builderField input,
+.builderField select{
+  font-family:var(--disp);
+  font-size:14px;
+  min-height:42px;
+}
+
+.builderField small{
+  color:var(--rd);
+  display:block;
+  font-size:12px;
+  line-height:1.4;
+  margin-top:5px;
+  min-height:1px;
+}
+
+.builderField .builderHint{
+  color:var(--dim);
+}
+
+.builderToggle{
+  align-items:center;
+  color:var(--mid);
+  display:flex;
+  font-size:13px;
+  gap:8px;
+  margin-top:-6px;
+}
+
+.builderToggle input{
+  accent-color:var(--em);
+  height:18px;
+  width:18px;
+}
+
+.builderSegments{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.builderSegment{
+  background:#0f1522;
+  border:1px solid var(--edge2);
+  color:var(--mid);
+  font-size:13px;
+  font-weight:700;
+  min-height:40px;
+  padding:8px 16px;
+}
+
+.builderSegment.on{
+  background:linear-gradient(90deg,var(--em),var(--em2));
+  border-color:var(--em);
+  color:#140b00;
+}
+
+.builderFooter{
+  align-items:center;
+  background:rgba(11,14,20,.94);
+  border-top:1px solid var(--edge);
+  bottom:0;
+  display:flex;
+  justify-content:space-between;
+  margin-top:auto;
+  padding:14px 24px;
+  position:sticky;
+  z-index:3;
+}
+
+.builderFooter .homeTertiary:disabled{
+  cursor:not-allowed;
+  opacity:.35;
+}
+
+.builderPreview>.pi{
+  padding:18px;
+}
+
+.builderPreviewLabel{
+  color:var(--cy);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.14em;
+  margin-bottom:12px;
+}
+
+.builderPlaceholder{
+  color:var(--mid);
+  font-size:14px;
+  line-height:1.6;
+  padding:18px 0;
+}
+
+.builderPlaceholder .btnD{
+  margin-top:18px;
+}
+
 .matrixBack:focus-visible,
 #rail .rtab:focus-visible,
 .headerExport:focus-visible,
 .homeDropzone:focus-visible,
 .homeTertiary:focus-visible,
 .homePending:focus-visible,
-.homeCanvasLink:focus-visible{
+.homeCanvasLink:focus-visible,
+.builderStep:focus-visible,
+.builderSegment:focus-visible,
+.builderField input:focus-visible,
+.builderField select:focus-visible{
   outline:2px solid var(--cy);
   outline-offset:2px;
+}
+
+@media(max-width:1279px){
+  .d1404Builder{
+    grid-template-columns:264px minmax(0,1fr);
+  }
+  .builderPreview{
+    display:none;
+  }
 }
 
 @media (prefers-reduced-motion:reduce){
