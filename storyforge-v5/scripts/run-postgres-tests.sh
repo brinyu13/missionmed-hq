@@ -79,6 +79,7 @@ base_migrations=(
 phase_one_migrations=(
   "20260729000100_b1_506_voice_recording_sessions.sql"
   "20260729000200_b1_506_feature_flags.sql"
+  "20260729010000_b1_506a_voice_audit_lifecycle.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -96,4 +97,6 @@ done
 printf 'PostgreSQL parity: %s\n' "$("$POSTGRES_BIN" --version)"
 node --test \
   "$PACKAGE_DIR/tests/postgres/recording-rls.test.mjs" \
-  "$PACKAGE_DIR/tests/postgres/flags-rls.test.mjs"
+  "$PACKAGE_DIR/tests/postgres/flags-rls.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/voice-audit-lifecycle.test.mjs" \
+  "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"

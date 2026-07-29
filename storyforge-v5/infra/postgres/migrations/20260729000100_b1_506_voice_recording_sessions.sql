@@ -54,15 +54,15 @@ ALTER TABLE public.sf_recording_segments FORCE ROW LEVEL SECURITY;
 -- students only; mentors and admins have NO policy on recordings (pre-save, private by definition)
 CREATE POLICY sf_recording_sessions_rw ON public.sf_recording_sessions
 FOR ALL TO authenticated
-USING (public.sf_has_live_identity() AND student_id = public.sf_actor_id())
-WITH CHECK (public.sf_has_live_identity() AND student_id = public.sf_actor_id());
+USING (public.sf_has_live_identity(ARRAY['student']) AND student_id = public.sf_actor_id())
+WITH CHECK (public.sf_has_live_identity(ARRAY['student']) AND student_id = public.sf_actor_id());
 
 CREATE POLICY sf_recording_segments_rw ON public.sf_recording_segments
 FOR ALL TO authenticated
-USING (public.sf_has_live_identity() AND EXISTS (
+USING (public.sf_has_live_identity(ARRAY['student']) AND EXISTS (
   SELECT 1 FROM public.sf_recording_sessions rs
   WHERE rs.id = session_id AND rs.student_id = public.sf_actor_id()))
-WITH CHECK (public.sf_has_live_identity() AND EXISTS (
+WITH CHECK (public.sf_has_live_identity(ARRAY['student']) AND EXISTS (
   SELECT 1 FROM public.sf_recording_sessions rs
   WHERE rs.id = session_id AND rs.student_id = public.sf_actor_id()));
 

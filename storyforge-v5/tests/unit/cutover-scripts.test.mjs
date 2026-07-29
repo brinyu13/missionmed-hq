@@ -23,6 +23,12 @@ const packageDir = path.resolve(fileURLToPath(new URL('../..', import.meta.url))
 const installScript = path.join(packageDir, 'scripts', 'install-b1-503-kinsta-release.sh');
 const rollbackScript = path.join(packageDir, 'scripts', 'rollback-b1-503-kinsta-release.sh');
 const migrationScript = path.join(packageDir, 'scripts', 'apply-production-migrations.sh');
+const effectiveAuthorityGate = path.join(
+  packageDir,
+  'infra',
+  'postgres',
+  'verify_b1_506a_effective_authority.sql',
+);
 const phaseOneSafetyScript = path.join(
   packageDir,
   'scripts',
@@ -120,6 +126,7 @@ test('browser harnesses pin PostgreSQL 18 and the exact forward-only migration o
   const phaseOneMigrations = [
     '20260729000100_b1_506_voice_recording_sessions.sql',
     '20260729000200_b1_506_feature_flags.sql',
+    '20260729010000_b1_506a_voice_audit_lifecycle.sql',
   ];
 
   for (const harness of postgresHarnesses) {
@@ -492,7 +499,7 @@ esac
   }
 });
 
-test('production migration runner rejects the unresolved M1 authority conflict before target reads', () => {
+test('production migration runner accepts amended M1 before target reads', () => {
   const source = readFileSync(migrationScript, 'utf8');
   const safetyCall = source.indexOf('"$node_bin" "$phase_one_safety"');
   assert(safetyCall > 0);
@@ -503,13 +510,9 @@ test('production migration runner rejects the unresolved M1 authority conflict b
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,
-    /M1 contains an unrestricted live-identity policy predicate/,
+    /STORYFORGE_RAILWAY_PROJECT_ID is required/,
   );
-  assert.match(
-    result.stderr,
-    /Phase 1 release safety gate rejected the migration source/,
-  );
-  assert.doesNotMatch(result.stderr, /STORYFORGE_RAILWAY_PROJECT_ID is required/);
+  assert.doesNotMatch(result.stderr, /M1 contains an unrestricted live-identity policy predicate/);
 });
 
 test('production migration runner pins source, backup, provider, DB, and exact ledgers', () => {
@@ -533,6 +536,7 @@ test('production migration runner pins source, backup, provider, DB, and exact l
     '20260728045444_b1_503_interview_mentor_conformance.sql',
     '20260729000100_b1_506_voice_recording_sessions.sql',
     '20260729000200_b1_506_feature_flags.sql',
+    '20260729010000_b1_506a_voice_audit_lifecycle.sql',
   ];
 
   mkdirSync(candidateScripts, { recursive: true });
@@ -549,6 +553,10 @@ test('production migration runner pins source, backup, provider, DB, and exact l
     path.join(packageDir, 'infra', 'postgres', 'bootstrap_production.sql'),
     path.join(candidatePostgres, 'bootstrap_production.sql'),
   );
+  copyFileSync(
+    effectiveAuthorityGate,
+    path.join(candidatePostgres, path.basename(effectiveAuthorityGate)),
+  );
   for (const file of migrationFiles) {
     copyFileSync(
       path.join(packageDir, 'infra', 'postgres', 'migrations', file),
@@ -559,26 +567,9 @@ test('production migration runner pins source, backup, provider, DB, and exact l
     candidateMigrations,
     '20260729000100_b1_506_voice_recording_sessions.sql',
   );
-  const unresolvedM1 = readFileSync(candidateM1, 'utf8');
-  assert.equal(
-    unresolvedM1.split('public.sf_has_live_identity()').length - 1,
-    4,
-  );
-  const amendedM1 = unresolvedM1.replaceAll(
-    'public.sf_has_live_identity()',
-    "public.sf_has_live_identity(ARRAY['student'])",
-  );
-  const unresolvedM1Sha = 'b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f';
+  const amendedM1 = readFileSync(candidateM1, 'utf8');
   const amendedM1Sha = '6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2';
   assert.equal(sha256(amendedM1), amendedM1Sha);
-  writeFileSync(candidateM1, amendedM1);
-
-  const unresolvedRunner = readFileSync(candidateRunner, 'utf8');
-  assert.equal(unresolvedRunner.split(unresolvedM1Sha).length - 1, 3);
-  writeFileSync(
-    candidateRunner,
-    unresolvedRunner.replaceAll(unresolvedM1Sha, amendedM1Sha),
-  );
   chmodSync(candidateRunner, 0o755);
 
   const gitEnvironment = {
@@ -629,7 +620,10 @@ case "$joined" in
   *"--set=version=20260728045444"*) printf '%s\\n' '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2' ;;
   *"--set=version=20260729000100"*) : ;;
   *"--set=version=20260729000200"*) : ;;
-  *"NOT rolcreatedb"*) printf '7|1|1|0|1\\n' ;;
+  *"--set=version=20260729010000"*) : ;;
+  *"B1_506A_EXACT_ROLE_CLOSURE_POSTCOMMIT"*) printf 'true\\n' ;;
+  *"verify_b1_506a_effective_authority.sql"*) printf 'B1_506A_EFFECTIVE_AUTHORITY_PASS\\n' ;;
+  *"NOT rolcreatedb"*) printf '8|1|1|0|1\\n' ;;
   *"sf_users"*"sf_mentor_assignments"*) printf '1|0|1\\n' ;;
   *) printf 'unexpected fake psql invocation: %s\\n' "$joined" >&2; exit 71 ;;
 esac
@@ -690,7 +684,7 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
   const preflight = run(candidateRunner, ['preflight'], environment);
   assert.equal(preflight.status, 0, preflight.stderr || preflight.stdout);
   assert.match(preflight.stdout, /B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
-  assert.match(preflight.stdout, /pending_migrations=2/);
+  assert.match(preflight.stdout, /pending_migrations=3/);
   assert.equal(existsSync(fakeSqlLog), false, 'preflight must not issue the mutation transaction');
 
   const originalSafety = readFileSync(candidateSafety, 'utf8');
@@ -730,22 +724,36 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
 
   const apply = run(candidateRunner, ['apply'], {
     ...environment,
-    STORYFORGE_MIGRATION_CONFIRM: 'B1-506-APPLY-TWO-MIGRATIONS',
+    STORYFORGE_MIGRATION_CONFIRM: 'B1-506A-APPLY-THREE-MIGRATIONS',
   });
   assert.equal(apply.status, 0, apply.stderr || apply.stdout);
-  assert.match(apply.stdout, /B1_506_PRODUCTION_MIGRATIONS_APPLIED/);
-  assert.match(apply.stdout, /migration_count=7/);
+  assert.match(apply.stdout, /B1_506A_PRODUCTION_MIGRATIONS_APPLIED/);
+  assert.match(apply.stdout, /migration_count=8/);
   assert.doesNotMatch(apply.stdout, /B1_503_PRODUCTION_MIGRATIONS_APPLIED/);
   const transactionSql = readFileSync(fakeSqlLog, 'utf8');
   assert.match(transactionSql, /pg_advisory_xact_lock/);
   assert.match(transactionSql, /\\getenv app_password STORYFORGE_APP_DB_PASSWORD/);
   assert.match(transactionSql, /ALTER ROLE storyforge_app PASSWORD :'app_password'/);
   assert.match(transactionSql, /ALTER ROLE storyforge_app LOGIN/);
+  assert.match(transactionSql, /GRANT authenticated TO storyforge_app WITH INHERIT FALSE, SET TRUE/);
+  assert.match(transactionSql, /application role membership closure is not exact/);
+  assert.match(transactionSql, /application role relation ACL closure is not exact/);
+  assert.match(transactionSql, /application role routine ACL closure is not exact/);
+  assert.match(
+    transactionSql,
+    /effective authenticated\/PUBLIC authority closure is not exact/,
+  );
+  assert.ok(
+    transactionSql.indexOf('application role routine ACL closure is not exact')
+      < transactionSql.indexOf('ALTER ROLE storyforge_app LOGIN'),
+    'exact privilege closure must execute before LOGIN is enabled',
+  );
   assert.match(transactionSql, /storyforge\.founder_user_id/);
   assert.match(transactionSql, /:'founder_user_id'/);
   assert.match(transactionSql, /B1-506 post-migration ledger is not exact/);
   assert.match(transactionSql, /20260729000100_b1_506_voice_recording_sessions\.sql/);
   assert.match(transactionSql, /20260729000200_b1_506_feature_flags\.sql/);
+  assert.match(transactionSql, /20260729010000_b1_506a_voice_audit_lifecycle\.sql/);
   assert.match(apply.stdout, /feature_flag_seeded_by=33333333-3333-4333-8333-333333333333/);
   assert.doesNotMatch(transactionSql, /fixture-password-with-more-than-32-characters/);
   assert.doesNotMatch(transactionSql, /\\password storyforge_app/);

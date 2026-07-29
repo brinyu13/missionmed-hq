@@ -78,6 +78,15 @@ export const config = Object.freeze({
   }),
   transcription: Object.freeze({
     provider: text('STORYFORGE_TRANSCRIBE_PROVIDER', 'none').toLowerCase() || 'none',
+    apiKey: text('STORYFORGE_OPENAI_API_KEY'),
+    primaryModel: text(
+      'STORYFORGE_TRANSCRIBE_PRIMARY_MODEL',
+      'gpt-4o-transcribe',
+    ),
+    fallbackModel: text(
+      'STORYFORGE_TRANSCRIBE_FALLBACK_MODEL',
+      'whisper-1',
+    ),
   }),
 });
 
@@ -111,10 +120,18 @@ export function validateConfig() {
   if (config.devAuth && config.host !== '127.0.0.1') {
     errors.push('local fixture auth must bind STORYFORGE_HOST to 127.0.0.1');
   }
-  if (config.transcription.provider !== 'none') {
-    errors.push(
-      'STORYFORGE_TRANSCRIBE_PROVIDER must remain none until provider authority is amended',
-    );
+  if (!['none', 'openai'].includes(config.transcription.provider)) {
+    errors.push('STORYFORGE_TRANSCRIBE_PROVIDER must be none or openai');
+  }
+  if (config.transcription.provider === 'openai' && !config.transcription.apiKey) {
+    errors.push('STORYFORGE_OPENAI_API_KEY is required when the transcription provider is openai');
+  }
+  const fixedTranscriptionModels = new Set(['gpt-4o-transcribe', 'whisper-1']);
+  if (!fixedTranscriptionModels.has(config.transcription.primaryModel)) {
+    errors.push('STORYFORGE_TRANSCRIBE_PRIMARY_MODEL must use the fixed StoryForge model pair');
+  }
+  if (!fixedTranscriptionModels.has(config.transcription.fallbackModel)) {
+    errors.push('STORYFORGE_TRANSCRIBE_FALLBACK_MODEL must use the fixed StoryForge model pair');
   }
   return errors;
 }

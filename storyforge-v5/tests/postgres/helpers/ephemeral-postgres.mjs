@@ -28,6 +28,7 @@ const baseMigrations = [
 const phaseOneMigrations = [
   '20260729000100_b1_506_voice_recording_sessions.sql',
   '20260729000200_b1_506_feature_flags.sql',
+  '20260729010000_b1_506a_voice_audit_lifecycle.sql',
 ];
 
 function commandPath(name) {
@@ -83,7 +84,9 @@ function applySqlFile(socketDir, file) {
   run(commandPath('psql'), [...psqlArgs(socketDir), '-f', file]);
 }
 
-export async function startEphemeralStoryForgeDatabase() {
+export async function startEphemeralStoryForgeDatabase({
+  applyPhaseOne = true,
+} = {}) {
   const postgresMajor = assertPostgresParity();
   const root = mkdtempSync(path.join(tmpdir(), 'storyforge-v55-pg-'));
   const dataDir = path.join(root, 'data');
@@ -127,11 +130,13 @@ export async function startEphemeralStoryForgeDatabase() {
       socketDir,
       path.join(packageDir, 'infra/postgres/seed_local.sql'),
     );
-    for (const migration of phaseOneMigrations) {
-      applySqlFile(
-        socketDir,
-        path.join(packageDir, 'infra/postgres/migrations', migration),
-      );
+    if (applyPhaseOne) {
+      for (const migration of phaseOneMigrations) {
+        applySqlFile(
+          socketDir,
+          path.join(packageDir, 'infra/postgres/migrations', migration),
+        );
+      }
     }
 
     const client = new Client({
@@ -146,6 +151,7 @@ export async function startEphemeralStoryForgeDatabase() {
       client,
       packageDir,
       postgresMajor,
+      socketDir,
       async stop() {
         await client.end();
         run(commandPath('pg_ctl'), [

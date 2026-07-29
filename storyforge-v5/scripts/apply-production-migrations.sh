@@ -16,7 +16,7 @@ Usage:
 
 `preflight` performs only local/source/backup/target/ledger reads.
 `apply` additionally requires:
-  STORYFORGE_MIGRATION_CONFIRM=B1-506-APPLY-TWO-MIGRATIONS
+  STORYFORGE_MIGRATION_CONFIRM=B1-506A-APPLY-THREE-MIGRATIONS
   STORYFORGE_FOUNDER_USER_ID=<RP-10-confirmed StoryForge UUID>
 
 The environment contract is documented in:
@@ -167,6 +167,7 @@ migrations=(
   "$PACKAGE_DIR/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260729000100_b1_506_voice_recording_sessions.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260729000200_b1_506_feature_flags.sql"
+  "$PACKAGE_DIR/infra/postgres/migrations/20260729010000_b1_506a_voice_audit_lifecycle.sql"
 )
 expected_versions=(
   "20260726150000"
@@ -176,6 +177,7 @@ expected_versions=(
   "20260728045444"
   "20260729000100"
   "20260729000200"
+  "20260729010000"
 )
 expected_files=(
   "20260726150000_b1_500_storyforge_v5_foundation.sql"
@@ -185,6 +187,7 @@ expected_files=(
   "20260728045444_b1_503_interview_mentor_conformance.sql"
   "20260729000100_b1_506_voice_recording_sessions.sql"
   "20260729000200_b1_506_feature_flags.sql"
+  "20260729010000_b1_506a_voice_audit_lifecycle.sql"
 )
 expected_hashes=(
   "93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f"
@@ -192,8 +195,9 @@ expected_hashes=(
   "ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405"
   "fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68"
   "5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2"
-  "b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f"
+  "6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2"
   "8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a"
+  "e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323"
 )
 
 for ((index = 0; index < ${#migrations[@]}; index++)); do
@@ -211,11 +215,14 @@ done
 
 require_regular_file "production bootstrap" "$PACKAGE_DIR/infra/postgres/bootstrap_production.sql"
 require_regular_file "migration runner" "$PACKAGE_DIR/scripts/apply-production-migrations.sh"
+effective_authority_gate="$PACKAGE_DIR/infra/postgres/verify_b1_506a_effective_authority.sql"
+require_regular_file "effective authority gate" "$effective_authority_gate"
 
 source_paths=(
   "storyforge-v5/scripts/apply-production-migrations.sh"
   "storyforge-v5/scripts/phase-one-release-safety.mjs"
   "storyforge-v5/infra/postgres/bootstrap_production.sql"
+  "storyforge-v5/infra/postgres/verify_b1_506a_effective_authority.sql"
   "storyforge-v5/infra/postgres/migrations/${expected_files[0]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[1]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[2]}"
@@ -223,6 +230,7 @@ source_paths=(
   "storyforge-v5/infra/postgres/migrations/${expected_files[4]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[5]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[6]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[7]}"
 )
 
 case "$STORYFORGE_SOURCE_MODE" in
@@ -426,21 +434,23 @@ SQL
   pending_hashes+=("${expected_hashes[$index]}")
 done
 
-[[ "${#pending_migrations[@]}" = "2" ]] \
-  || fail "the exact prestate must leave exactly two B1-506 migrations pending"
-[[ "${pending_files[0]}" = "${expected_files[5]}" && "${pending_files[1]}" = "${expected_files[6]}" ]] \
-  || fail "pending migration set is not exactly the two B1-506 forward migrations"
+[[ "${#pending_migrations[@]}" = "3" ]] \
+  || fail "the exact prestate must leave exactly three B1-506/B1-506A migrations pending"
+[[ "${pending_files[0]}" = "${expected_files[5]}" \
+   && "${pending_files[1]}" = "${expected_files[6]}" \
+   && "${pending_files[2]}" = "${expected_files[7]}" ]] \
+  || fail "pending migration set is not exactly the three B1-506/B1-506A forward migrations"
 
 if [[ "$mode" = "preflight" ]]; then
   printf '%s\n' "B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS"
   printf 'project_id=%s\nenvironment_id=%s\ndatabase_service_id=%s\n' \
     "$EXPECTED_PROJECT_ID" "$EXPECTED_ENVIRONMENT_ID" "$EXPECTED_DATABASE_SERVICE_ID"
-  printf 'db_system_identifier=%s\npending_migrations=2\n' "$actual_system_identifier"
+  printf 'db_system_identifier=%s\npending_migrations=3\n' "$actual_system_identifier"
   exit 0
 fi
 
-[[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = "B1-506-APPLY-TWO-MIGRATIONS" ]] \
-  || fail "apply mode requires STORYFORGE_MIGRATION_CONFIRM=B1-506-APPLY-TWO-MIGRATIONS"
+[[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = "B1-506A-APPLY-THREE-MIGRATIONS" ]] \
+  || fail "apply mode requires STORYFORGE_MIGRATION_CONFIRM=B1-506A-APPLY-THREE-MIGRATIONS"
 
 psql_args=(
   -X
@@ -517,11 +527,18 @@ SQL
       "  (:'version_${index}', :'file_${index}', :'sha_${index}', :'git_commit', :'backup_id');"
   done
   cat <<'SQL'
-SET LOCAL password_encryption = 'scram-sha-256';
-ALTER ROLE storyforge_app PASSWORD :'app_password';
-ALTER ROLE storyforge_app LOGIN;
+REVOKE authenticated FROM storyforge_app;
+GRANT authenticated TO storyforge_app WITH INHERIT FALSE, SET TRUE;
 DO $b1_506_post$
+DECLARE
+  effective_authority_count integer;
+  effective_authority_sha256 text;
 BEGIN
+  PERFORM pg_catalog.set_config(
+    'search_path',
+    'pg_catalog, public',
+    true
+  );
   IF EXISTS (
     (SELECT version, file_name, sha256 FROM public.sf_schema_migrations
      EXCEPT
@@ -531,8 +548,9 @@ BEGIN
        ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
        ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
        ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'),
-       ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', 'b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f'),
-       ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a'))
+       ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', '6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2'),
+       ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a'),
+       ('20260729010000', '20260729010000_b1_506a_voice_audit_lifecycle.sql', 'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323'))
   ) OR EXISTS (
     (VALUES
        ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
@@ -540,8 +558,9 @@ BEGIN
        ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
        ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
        ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'),
-       ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', 'b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f'),
-       ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a')
+       ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', '6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2'),
+       ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a'),
+       ('20260729010000', '20260729010000_b1_506a_voice_audit_lifecycle.sql', 'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323')
      EXCEPT
      SELECT version, file_name, sha256 FROM public.sf_schema_migrations)
   ) THEN
@@ -549,20 +568,530 @@ BEGIN
   END IF;
   IF (SELECT count(*) FROM pg_roles
       WHERE rolname = 'storyforge_app'
-        AND rolcanlogin
+        AND NOT rolcanlogin
         AND NOT rolsuper
         AND NOT rolcreatedb
         AND NOT rolcreaterole
         AND NOT rolreplication
         AND NOT rolbypassrls
-        AND NOT rolinherit) <> 1 THEN
-    RAISE EXCEPTION 'B1-506 application role is not exact least privilege LOGIN';
+        AND NOT rolinherit
+        AND rolconnlimit = -1
+        AND rolvaliduntil IS NULL
+        AND coalesce(cardinality(rolconfig), 0) = 0) <> 1 THEN
+    RAISE EXCEPTION 'B1-506 application role is not exact least privilege before LOGIN';
   END IF;
-  IF NOT pg_has_role('storyforge_app', 'authenticated', 'member') THEN
-    RAISE EXCEPTION 'B1-506 application role lacks authenticated membership';
+  IF (SELECT count(*) FROM pg_roles
+      WHERE rolname = 'authenticated'
+        AND NOT rolcanlogin
+        AND NOT rolsuper
+        AND NOT rolcreatedb
+        AND NOT rolcreaterole
+        AND NOT rolreplication
+        AND NOT rolbypassrls
+        AND NOT rolinherit
+        AND rolconnlimit = -1
+        AND rolvaliduntil IS NULL
+        AND coalesce(cardinality(rolconfig), 0) = 0) <> 1 THEN
+    RAISE EXCEPTION 'B1-506 authenticated role is not exact least privilege';
+  END IF;
+  IF EXISTS (
+    (SELECT granted.rolname::text, member_role.rolname::text,
+            membership.admin_option,
+            membership.inherit_option, membership.set_option
+       FROM pg_auth_members membership
+       JOIN pg_roles granted ON granted.oid = membership.roleid
+       JOIN pg_roles member_role ON member_role.oid = membership.member
+      WHERE membership.member IN (
+              'storyforge_app'::regrole,
+              'authenticated'::regrole
+            )
+         OR membership.roleid IN (
+              'storyforge_app'::regrole,
+              'authenticated'::regrole
+            )
+     EXCEPT
+     VALUES ('authenticated'::text, 'storyforge_app'::text, false, false, true))
+    UNION ALL
+    (VALUES ('authenticated'::text, 'storyforge_app'::text, false, false, true)
+     EXCEPT
+     SELECT granted.rolname::text, member_role.rolname::text,
+            membership.admin_option,
+            membership.inherit_option, membership.set_option
+       FROM pg_auth_members membership
+       JOIN pg_roles granted ON granted.oid = membership.roleid
+       JOIN pg_roles member_role ON member_role.oid = membership.member
+      WHERE membership.member IN (
+              'storyforge_app'::regrole,
+              'authenticated'::regrole
+            )
+         OR membership.roleid IN (
+              'storyforge_app'::regrole,
+              'authenticated'::regrole
+            ))
+  ) THEN
+    RAISE EXCEPTION 'B1-506 application role membership closure is not exact';
+  END IF;
+  IF EXISTS (
+    (SELECT namespace.nspname::text, relation.relname::text,
+            acl.privilege_type::text, acl.is_grantable
+       FROM pg_class relation
+       JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+       CROSS JOIN LATERAL aclexplode(relation.relacl) acl
+      WHERE acl.grantee = 'storyforge_app'::regrole
+     EXCEPT
+     VALUES
+       ('public'::text, 'sf_recording_sessions'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_recording_sessions'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_recording_sessions'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_recording_sessions'::text, 'DELETE'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'DELETE'::text, false),
+       ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false))
+    UNION ALL
+    (VALUES
+       ('public'::text, 'sf_recording_sessions'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_recording_sessions'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_recording_sessions'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_recording_sessions'::text, 'DELETE'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_recording_segments'::text, 'DELETE'::text, false),
+       ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false)
+     EXCEPT
+     SELECT namespace.nspname::text, relation.relname::text,
+            acl.privilege_type::text, acl.is_grantable
+       FROM pg_class relation
+       JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+       CROSS JOIN LATERAL aclexplode(relation.relacl) acl
+      WHERE acl.grantee = 'storyforge_app'::regrole)
+  ) THEN
+    RAISE EXCEPTION 'B1-506 application role relation ACL closure is not exact';
+  END IF;
+  IF EXISTS (
+    (SELECT namespace.nspname::text, routine.proname::text,
+            oidvectortypes(routine.proargtypes)::text,
+            acl.privilege_type::text, acl.is_grantable
+       FROM pg_proc routine
+       JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+       CROSS JOIN LATERAL aclexplode(routine.proacl) acl
+      WHERE acl.grantee = 'storyforge_app'::regrole
+     EXCEPT
+     VALUES
+       ('public'::text, 'sf_append_voice_audit_service'::text,
+        'text, text, uuid, uuid, uuid, jsonb, jsonb'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_sweep_candidates'::text,
+        'integer'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_sweep_purge'::text,
+        'uuid, text'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_asset_pending_candidates'::text,
+        'integer'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_asset_mark_verified'::text,
+        'uuid, bigint, text'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_asset_mark_failed'::text,
+        'uuid'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_audio_reference_check'::text,
+        'text[]'::text, 'EXECUTE'::text, false))
+    UNION ALL
+    (VALUES
+       ('public'::text, 'sf_append_voice_audit_service'::text,
+        'text, text, uuid, uuid, uuid, jsonb, jsonb'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_sweep_candidates'::text,
+        'integer'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_sweep_purge'::text,
+        'uuid, text'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_asset_pending_candidates'::text,
+        'integer'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_asset_mark_verified'::text,
+        'uuid, bigint, text'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_asset_mark_failed'::text,
+        'uuid'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_voice_audio_reference_check'::text,
+        'text[]'::text, 'EXECUTE'::text, false)
+     EXCEPT
+     SELECT namespace.nspname::text, routine.proname::text,
+            oidvectortypes(routine.proargtypes)::text,
+            acl.privilege_type::text, acl.is_grantable
+       FROM pg_proc routine
+       JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+       CROSS JOIN LATERAL aclexplode(routine.proacl) acl
+      WHERE acl.grantee = 'storyforge_app'::regrole)
+  ) THEN
+    RAISE EXCEPTION 'B1-506 application role routine ACL closure is not exact';
+  END IF;
+  IF EXISTS (
+    (SELECT namespace.nspname::text, relation.relname::text,
+            policy.polname::text, policy.polcmd::text, policy.polpermissive
+       FROM pg_policy policy
+       JOIN pg_class relation ON relation.oid = policy.polrelid
+       JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      WHERE 'storyforge_app'::regrole = ANY (policy.polroles)
+     EXCEPT
+     VALUES
+       ('public'::text, 'sf_recording_sessions'::text,
+        'sf_recording_sessions_service'::text, '*'::text, true),
+       ('public'::text, 'sf_recording_segments'::text,
+        'sf_recording_segments_service'::text, '*'::text, true),
+       ('public'::text, 'sf_feature_flags'::text,
+        'sf_feature_flags_service_read'::text, 'r'::text, true))
+    UNION ALL
+    (VALUES
+       ('public'::text, 'sf_recording_sessions'::text,
+        'sf_recording_sessions_service'::text, '*'::text, true),
+       ('public'::text, 'sf_recording_segments'::text,
+        'sf_recording_segments_service'::text, '*'::text, true),
+       ('public'::text, 'sf_feature_flags'::text,
+        'sf_feature_flags_service_read'::text, 'r'::text, true)
+     EXCEPT
+     SELECT namespace.nspname::text, relation.relname::text,
+            policy.polname::text, policy.polcmd::text, policy.polpermissive
+       FROM pg_policy policy
+       JOIN pg_class relation ON relation.oid = policy.polrelid
+       JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      WHERE 'storyforge_app'::regrole = ANY (policy.polroles))
+  ) THEN
+    RAISE EXCEPTION 'B1-506 application role policy closure is not exact';
+  END IF;
+  IF EXISTS (
+    (SELECT dependency.dbid, dependency.classid, dependency.objid, dependency.objsubid,
+            dependency.deptype::text
+       FROM pg_shdepend dependency
+      WHERE dependency.refclassid = 'pg_authid'::regclass
+        AND dependency.refobjid = 'storyforge_app'::regrole
+        AND dependency.deptype IN ('a', 'o')
+     EXCEPT
+     VALUES
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_recording_sessions'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_recording_segments'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_feature_flags'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_append_voice_audit_service(text,text,uuid,uuid,uuid,jsonb,jsonb)'::regprocedure::oid,
+        0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_sweep_candidates(integer)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_sweep_purge(uuid,text)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_asset_pending_candidates(integer)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_asset_mark_verified(uuid,bigint,text)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_asset_mark_failed(uuid)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text))
+    UNION ALL
+    (VALUES
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_recording_sessions'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_recording_segments'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_feature_flags'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_append_voice_audit_service(text,text,uuid,uuid,uuid,jsonb,jsonb)'::regprocedure::oid,
+        0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_sweep_candidates(integer)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_sweep_purge(uuid,text)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_asset_pending_candidates(integer)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_asset_mark_verified(uuid,bigint,text)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_asset_mark_failed(uuid)'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text)
+     EXCEPT
+     SELECT dependency.dbid, dependency.classid, dependency.objid, dependency.objsubid,
+            dependency.deptype::text
+       FROM pg_shdepend dependency
+      WHERE dependency.refclassid = 'pg_authid'::regclass
+        AND dependency.refobjid = 'storyforge_app'::regrole
+        AND dependency.deptype IN ('a', 'o'))
+  ) THEN
+    RAISE EXCEPTION 'B1-506 application role shared dependency closure is not exact';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM pg_database item
+    CROSS JOIN LATERAL aclexplode(item.datacl) acl
+    WHERE acl.grantee = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_namespace item
+    CROSS JOIN LATERAL aclexplode(item.nspacl) acl
+    WHERE acl.grantee = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_type item
+    CROSS JOIN LATERAL aclexplode(item.typacl) acl
+    WHERE acl.grantee = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_default_acl item
+    CROSS JOIN LATERAL aclexplode(item.defaclacl) acl
+    WHERE acl.grantee = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_db_role_setting
+    WHERE setrole = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_database WHERE datdba = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_namespace WHERE nspowner = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_class WHERE relowner = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_proc WHERE proowner = 'storyforge_app'::regrole
+  ) OR EXISTS (
+    SELECT 1 FROM pg_type WHERE typowner = 'storyforge_app'::regrole
+  ) THEN
+    RAISE EXCEPTION 'B1-506 application role has unexpected ACL, setting, or ownership';
+  END IF;
+  WITH effective_authority(entry) AS (
+    SELECT format('DATABASE|CURRENT_DATABASE|%s|%s|%s',
+                  coalesce(grantee.rolname, 'PUBLIC'),
+                  acl.privilege_type, acl.is_grantable)
+      FROM pg_database database_item
+      CROSS JOIN LATERAL aclexplode(
+        coalesce(database_item.datacl, acldefault('d', database_item.datdba))
+      ) acl
+      LEFT JOIN pg_roles grantee ON grantee.oid = acl.grantee
+     WHERE database_item.datname = current_database()
+       AND acl.grantee IN (0, 'authenticated'::regrole::oid)
+    UNION ALL
+    SELECT format('SCHEMA|%s|%s|%s|%s', namespace.nspname,
+                  coalesce(grantee.rolname, 'PUBLIC'),
+                  acl.privilege_type, acl.is_grantable)
+      FROM pg_namespace namespace
+      CROSS JOIN LATERAL aclexplode(
+        coalesce(namespace.nspacl, acldefault('n', namespace.nspowner))
+      ) acl
+      LEFT JOIN pg_roles grantee ON grantee.oid = acl.grantee
+     WHERE namespace.nspname !~ '^pg_'
+       AND namespace.nspname <> 'information_schema'
+       AND acl.grantee IN (0, 'authenticated'::regrole::oid)
+    UNION ALL
+    SELECT format('RELATION|%s|%s|%s|%s|%s',
+                  namespace.nspname, relation.relname,
+                  coalesce(grantee.rolname, 'PUBLIC'),
+                  acl.privilege_type, acl.is_grantable)
+      FROM pg_class relation
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      CROSS JOIN LATERAL aclexplode(
+        coalesce(
+          relation.relacl,
+          acldefault(
+            CASE
+              WHEN relation.relkind = 'S' THEN 'S'::"char"
+              ELSE 'r'::"char"
+            END,
+            relation.relowner
+          )
+        )
+      ) acl
+      LEFT JOIN pg_roles grantee ON grantee.oid = acl.grantee
+     WHERE namespace.nspname !~ '^pg_'
+       AND namespace.nspname <> 'information_schema'
+       AND relation.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+       AND acl.grantee IN (0, 'authenticated'::regrole::oid)
+    UNION ALL
+    SELECT format('COLUMN|%s|%s|%s|%s|%s|%s',
+                  namespace.nspname, relation.relname, attribute.attname,
+                  coalesce(grantee.rolname, 'PUBLIC'),
+                  acl.privilege_type, acl.is_grantable)
+      FROM pg_attribute attribute
+      JOIN pg_class relation ON relation.oid = attribute.attrelid
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+      CROSS JOIN LATERAL aclexplode(attribute.attacl) acl
+      LEFT JOIN pg_roles grantee ON grantee.oid = acl.grantee
+     WHERE namespace.nspname !~ '^pg_'
+       AND namespace.nspname <> 'information_schema'
+       AND attribute.attnum > 0
+       AND NOT attribute.attisdropped
+       AND acl.grantee IN (0, 'authenticated'::regrole::oid)
+    UNION ALL
+    SELECT format('ROUTINE|%s|%s(%s)|%s|%s|%s',
+                  namespace.nspname, routine.proname,
+                  oidvectortypes(routine.proargtypes),
+                  coalesce(grantee.rolname, 'PUBLIC'),
+                  acl.privilege_type, acl.is_grantable)
+      FROM pg_proc routine
+      JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+      CROSS JOIN LATERAL aclexplode(
+        coalesce(routine.proacl, acldefault('f', routine.proowner))
+      ) acl
+      LEFT JOIN pg_roles grantee ON grantee.oid = acl.grantee
+     WHERE namespace.nspname !~ '^pg_'
+       AND namespace.nspname <> 'information_schema'
+       AND acl.grantee IN (0, 'authenticated'::regrole::oid)
+    UNION ALL
+    SELECT format('TYPE|%s|%s|%s|%s|%s',
+                  namespace.nspname, type_item.typname,
+                  coalesce(grantee.rolname, 'PUBLIC'),
+                  acl.privilege_type, acl.is_grantable)
+      FROM pg_type type_item
+      JOIN pg_namespace namespace ON namespace.oid = type_item.typnamespace
+      CROSS JOIN LATERAL aclexplode(
+        coalesce(type_item.typacl, acldefault('T', type_item.typowner))
+      ) acl
+      LEFT JOIN pg_roles grantee ON grantee.oid = acl.grantee
+     WHERE namespace.nspname !~ '^pg_'
+       AND namespace.nspname <> 'information_schema'
+       AND acl.grantee IN (0, 'authenticated'::regrole::oid)
+    UNION ALL
+    SELECT format('DEFAULT|%s|%s|%s|%s|%s|%s',
+                  owner_role.rolname, coalesce(namespace.nspname, '*'),
+                  default_acl.defaclobjtype,
+                  coalesce(grantee.rolname, 'PUBLIC'),
+                  acl.privilege_type, acl.is_grantable)
+      FROM pg_default_acl default_acl
+      JOIN pg_roles owner_role ON owner_role.oid = default_acl.defaclrole
+      LEFT JOIN pg_namespace namespace
+        ON namespace.oid = default_acl.defaclnamespace
+      CROSS JOIN LATERAL aclexplode(default_acl.defaclacl) acl
+      LEFT JOIN pg_roles grantee ON grantee.oid = acl.grantee
+     WHERE acl.grantee IN (0, 'authenticated'::regrole::oid)
+    UNION ALL
+    SELECT format('POLICY|%s|%s|%s|%s|%s|%s|%s|%s',
+                  namespace.nspname, relation.relname, policy.polname,
+                  policy.polcmd::text, policy.polpermissive::text,
+                  array_to_string(
+                    ARRAY(
+                      SELECT CASE
+                               WHEN policy_role = 0 THEN 'PUBLIC'
+                               ELSE policy_role::regrole::text
+                             END
+                        FROM unnest(policy.polroles) policy_role
+                       ORDER BY 1
+                    ),
+                    ','
+                  ),
+                  coalesce(pg_get_expr(policy.polqual, policy.polrelid), ''),
+                  coalesce(pg_get_expr(policy.polwithcheck, policy.polrelid), ''))
+      FROM pg_policy policy
+      JOIN pg_class relation ON relation.oid = policy.polrelid
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+     WHERE namespace.nspname !~ '^pg_'
+       AND namespace.nspname <> 'information_schema'
+       AND (
+         0::oid = ANY (policy.polroles)
+         OR 'authenticated'::regrole::oid = ANY (policy.polroles)
+       )
+    UNION ALL
+    SELECT format(
+             'ROLE|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s|%s',
+             role_item.rolname,
+             role_item.rolsuper,
+             role_item.rolinherit,
+             role_item.rolcreaterole,
+             role_item.rolcreatedb,
+             role_item.rolcanlogin,
+             role_item.rolreplication,
+             role_item.rolbypassrls,
+             role_item.rolconnlimit,
+             coalesce(role_item.rolvaliduntil::text, ''),
+             coalesce(array_to_string(role_item.rolconfig, ','), ''),
+             EXISTS (
+               SELECT 1
+                 FROM pg_authid auth_item
+                WHERE auth_item.oid = role_item.oid
+                  AND auth_item.rolpassword IS NOT NULL
+             )
+           )
+      FROM pg_roles role_item
+     WHERE role_item.rolname = 'authenticated'
+    UNION ALL
+    SELECT format(
+             'MEMBERSHIP|%s|%s|%s|%s|%s',
+             granted.rolname,
+             member_role.rolname,
+             membership.admin_option,
+             membership.inherit_option,
+             membership.set_option
+           )
+      FROM pg_auth_members membership
+      JOIN pg_roles granted ON granted.oid = membership.roleid
+      JOIN pg_roles member_role ON member_role.oid = membership.member
+     WHERE membership.member = 'authenticated'::regrole
+        OR membership.roleid = 'authenticated'::regrole
+    UNION ALL
+    SELECT format(
+             'ROW_SECURITY|%s|%s|%s|%s',
+             namespace.nspname,
+             relation.relname,
+             relation.relrowsecurity,
+             relation.relforcerowsecurity
+           )
+      FROM pg_class relation
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+     WHERE namespace.nspname !~ '^pg_'
+       AND namespace.nspname <> 'information_schema'
+       AND relation.relkind IN ('r', 'p')
+       AND (relation.relrowsecurity OR relation.relforcerowsecurity)
+    UNION ALL
+    SELECT format('OWNERSHIP|DATABASE|%s', database_item.datname)
+      FROM pg_database database_item
+     WHERE database_item.datdba = 'authenticated'::regrole
+    UNION ALL
+    SELECT format('OWNERSHIP|SCHEMA|%s', namespace.nspname)
+      FROM pg_namespace namespace
+     WHERE namespace.nspowner = 'authenticated'::regrole
+    UNION ALL
+    SELECT format('OWNERSHIP|RELATION|%s|%s',
+                  namespace.nspname, relation.relname)
+      FROM pg_class relation
+      JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+     WHERE relation.relowner = 'authenticated'::regrole
+    UNION ALL
+    SELECT format('OWNERSHIP|ROUTINE|%s|%s(%s)',
+                  namespace.nspname, routine.proname,
+                  oidvectortypes(routine.proargtypes))
+      FROM pg_proc routine
+      JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+     WHERE routine.proowner = 'authenticated'::regrole
+    UNION ALL
+    SELECT format('OWNERSHIP|TYPE|%s|%s',
+                  namespace.nspname, type_item.typname)
+      FROM pg_type type_item
+      JOIN pg_namespace namespace ON namespace.oid = type_item.typnamespace
+     WHERE type_item.typowner = 'authenticated'::regrole
+    UNION ALL
+    SELECT format('ROLE_SETTING|%s|%s|%s',
+                  CASE
+                    WHEN setting.setrole = 0 THEN 'PUBLIC'
+                    ELSE 'authenticated'
+                  END,
+                  coalesce(database_item.datname, '*'),
+                  setting.setconfig::text)
+      FROM pg_db_role_setting setting
+      LEFT JOIN pg_database database_item
+        ON database_item.oid = setting.setdatabase
+     WHERE setting.setrole IN (0, 'authenticated'::regrole::oid)
+  )
+  SELECT count(*),
+         pg_catalog.encode(
+           pg_catalog.sha256(
+             pg_catalog.convert_to(
+               pg_catalog.string_agg(entry, E'\n' ORDER BY entry COLLATE "C"),
+               'UTF8'
+             )
+           ),
+           'hex'
+         )
+    INTO effective_authority_count, effective_authority_sha256
+    FROM effective_authority;
+  IF effective_authority_count <> 244
+     OR effective_authority_sha256
+        <> '3b412d5773c7f757da09d57d68f76e9d1d5b25705eeb09e6030b8044d265f1f6' THEN
+    RAISE EXCEPTION 'B1-506 effective authenticated/PUBLIC authority closure is not exact';
   END IF;
 END
 $b1_506_post$;
+SET LOCAL password_encryption = 'scram-sha-256';
+ALTER ROLE storyforge_app PASSWORD :'app_password';
+ALTER ROLE storyforge_app LOGIN;
 SQL
   cat <<SQL
 DO \$b1_506_post_counts\$
@@ -589,7 +1118,10 @@ post_state="$(
          AND NOT rolcreaterole
          AND NOT rolreplication
          AND NOT rolbypassrls
-         AND NOT rolinherit),
+         AND NOT rolinherit
+         AND rolconnlimit = -1
+         AND rolvaliduntil IS NULL
+         AND coalesce(cardinality(rolconfig), 0) = 0),
       (SELECT count(*) FROM public.sf_users),
       (SELECT count(*) FROM public.sf_mentor_assignments WHERE active),
       (SELECT count(*) FROM public.sf_feature_flags
@@ -597,10 +1129,201 @@ post_state="$(
           AND updated_by = '$STORYFORGE_FOUNDER_USER_ID'::uuid);
   "
 )"
-[[ "$post_state" = "7|1|$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT|1" ]] \
+[[ "$post_state" = "8|1|$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT|1" ]] \
   || fail "committed post-migration state differs from the exact gate"
 
-printf '%s\n' "B1_506_PRODUCTION_MIGRATIONS_APPLIED"
-printf 'migration_count=7\nleast_privilege_app_role=1\nstoryforge_user_count=%s\nactive_assignment_count=%s\nfeature_flag_seeded_by=%s\n' \
+post_role_closure="$(
+  "${psql_read[@]}" -At -c "
+    /* B1_506A_EXACT_ROLE_CLOSURE_POSTCOMMIT */
+    WITH expected_membership(
+      granted_role, member_role, admin_option, inherit_option, set_option
+    ) AS (
+      VALUES ('authenticated'::text, 'storyforge_app'::text, false, false, true)
+    ),
+    actual_membership AS (
+      SELECT granted.rolname::text, member_role.rolname::text,
+             membership.admin_option,
+             membership.inherit_option, membership.set_option
+        FROM pg_auth_members membership
+        JOIN pg_roles granted ON granted.oid = membership.roleid
+        JOIN pg_roles member_role ON member_role.oid = membership.member
+       WHERE membership.member IN (
+               'storyforge_app'::regrole,
+               'authenticated'::regrole
+             )
+          OR membership.roleid IN (
+               'storyforge_app'::regrole,
+               'authenticated'::regrole
+             )
+    ),
+    expected_relations(schema_name, relation_name, privilege_type, is_grantable) AS (
+      VALUES
+        ('public'::text, 'sf_recording_sessions'::text, 'SELECT'::text, false),
+        ('public'::text, 'sf_recording_sessions'::text, 'INSERT'::text, false),
+        ('public'::text, 'sf_recording_sessions'::text, 'UPDATE'::text, false),
+        ('public'::text, 'sf_recording_sessions'::text, 'DELETE'::text, false),
+        ('public'::text, 'sf_recording_segments'::text, 'SELECT'::text, false),
+        ('public'::text, 'sf_recording_segments'::text, 'INSERT'::text, false),
+        ('public'::text, 'sf_recording_segments'::text, 'UPDATE'::text, false),
+        ('public'::text, 'sf_recording_segments'::text, 'DELETE'::text, false),
+        ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false)
+    ),
+    actual_relations AS (
+      SELECT namespace.nspname::text, relation.relname::text,
+             acl.privilege_type::text, acl.is_grantable
+        FROM pg_class relation
+        JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+        CROSS JOIN LATERAL aclexplode(relation.relacl) acl
+       WHERE acl.grantee = 'storyforge_app'::regrole
+    ),
+    expected_routines(schema_name, routine_name, identity_arguments, privilege_type, is_grantable) AS (
+      VALUES
+        ('public'::text, 'sf_append_voice_audit_service'::text,
+         'text, text, uuid, uuid, uuid, jsonb, jsonb'::text, 'EXECUTE'::text, false),
+        ('public'::text, 'sf_voice_sweep_candidates'::text,
+         'integer'::text, 'EXECUTE'::text, false),
+        ('public'::text, 'sf_voice_sweep_purge'::text,
+         'uuid, text'::text, 'EXECUTE'::text, false),
+        ('public'::text, 'sf_voice_asset_pending_candidates'::text,
+         'integer'::text, 'EXECUTE'::text, false),
+        ('public'::text, 'sf_voice_asset_mark_verified'::text,
+         'uuid, bigint, text'::text, 'EXECUTE'::text, false),
+        ('public'::text, 'sf_voice_asset_mark_failed'::text,
+         'uuid'::text, 'EXECUTE'::text, false),
+        ('public'::text, 'sf_voice_audio_reference_check'::text,
+         'text[]'::text, 'EXECUTE'::text, false)
+    ),
+    actual_routines AS (
+      SELECT namespace.nspname::text, routine.proname::text,
+             oidvectortypes(routine.proargtypes)::text,
+             acl.privilege_type::text, acl.is_grantable
+        FROM pg_proc routine
+        JOIN pg_namespace namespace ON namespace.oid = routine.pronamespace
+        CROSS JOIN LATERAL aclexplode(routine.proacl) acl
+       WHERE acl.grantee = 'storyforge_app'::regrole
+    ),
+    expected_policies(
+      schema_name, relation_name, policy_name, command, permissive
+    ) AS (
+      VALUES
+        ('public'::text, 'sf_recording_sessions'::text,
+         'sf_recording_sessions_service'::text, '*'::text, true),
+        ('public'::text, 'sf_recording_segments'::text,
+         'sf_recording_segments_service'::text, '*'::text, true),
+        ('public'::text, 'sf_feature_flags'::text,
+         'sf_feature_flags_service_read'::text, 'r'::text, true)
+    ),
+    actual_policies AS (
+      SELECT namespace.nspname::text, relation.relname::text,
+             policy.polname::text, policy.polcmd::text, policy.polpermissive
+        FROM pg_policy policy
+        JOIN pg_class relation ON relation.oid = policy.polrelid
+        JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+       WHERE 'storyforge_app'::regrole = ANY (policy.polroles)
+    ),
+    expected_dependencies(dbid, classid, objid, objsubid, deptype) AS (
+      VALUES
+        ((SELECT oid FROM pg_database WHERE datname = current_database()),
+         'pg_class'::regclass::oid, 'public.sf_recording_sessions'::regclass::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()),
+         'pg_class'::regclass::oid, 'public.sf_recording_segments'::regclass::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()),
+         'pg_class'::regclass::oid, 'public.sf_feature_flags'::regclass::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_append_voice_audit_service(text,text,uuid,uuid,uuid,jsonb,jsonb)'::regprocedure::oid,
+         0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_voice_sweep_candidates(integer)'::regprocedure::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_voice_sweep_purge(uuid,text)'::regprocedure::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_voice_asset_pending_candidates(integer)'::regprocedure::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_voice_asset_mark_verified(uuid,bigint,text)'::regprocedure::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_voice_asset_mark_failed(uuid)'::regprocedure::oid, 0, 'a'::text),
+        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+         'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text)
+    ),
+    actual_dependencies AS (
+      SELECT dependency.dbid, dependency.classid, dependency.objid, dependency.objsubid,
+             dependency.deptype::text
+        FROM pg_shdepend dependency
+       WHERE dependency.refclassid = 'pg_authid'::regclass
+         AND dependency.refobjid = 'storyforge_app'::regrole
+         AND dependency.deptype IN ('a', 'o')
+    )
+    SELECT (
+      NOT EXISTS ((SELECT * FROM actual_membership EXCEPT SELECT * FROM expected_membership)
+                  UNION ALL
+                  (SELECT * FROM expected_membership EXCEPT SELECT * FROM actual_membership))
+      AND NOT EXISTS ((SELECT * FROM actual_relations EXCEPT SELECT * FROM expected_relations)
+                      UNION ALL
+                      (SELECT * FROM expected_relations EXCEPT SELECT * FROM actual_relations))
+      AND NOT EXISTS ((SELECT * FROM actual_routines EXCEPT SELECT * FROM expected_routines)
+                      UNION ALL
+                      (SELECT * FROM expected_routines EXCEPT SELECT * FROM actual_routines))
+      AND NOT EXISTS ((SELECT * FROM actual_policies EXCEPT SELECT * FROM expected_policies)
+                      UNION ALL
+                      (SELECT * FROM expected_policies EXCEPT SELECT * FROM actual_policies))
+      AND NOT EXISTS ((SELECT * FROM actual_dependencies EXCEPT SELECT * FROM expected_dependencies)
+                      UNION ALL
+                      (SELECT * FROM expected_dependencies EXCEPT SELECT * FROM actual_dependencies))
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_database item
+        CROSS JOIN LATERAL aclexplode(item.datacl) acl
+        WHERE acl.grantee = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_namespace item
+        CROSS JOIN LATERAL aclexplode(item.nspacl) acl
+        WHERE acl.grantee = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_type item
+        CROSS JOIN LATERAL aclexplode(item.typacl) acl
+        WHERE acl.grantee = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_default_acl item
+        CROSS JOIN LATERAL aclexplode(item.defaclacl) acl
+        WHERE acl.grantee = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_db_role_setting
+        WHERE setrole = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_database WHERE datdba = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_namespace WHERE nspowner = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_class WHERE relowner = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_proc WHERE proowner = 'storyforge_app'::regrole
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM pg_type WHERE typowner = 'storyforge_app'::regrole
+      )
+      AND EXISTS (
+        SELECT 1
+          FROM pg_authid
+         WHERE rolname = 'storyforge_app'
+           AND rolpassword LIKE 'SCRAM-SHA-256$%'
+      )
+    )::text;
+  "
+)"
+[[ "$post_role_closure" = "true" ]] \
+  || fail "committed application-role privilege closure differs from the exact gate"
+
+"${psql_read[@]}" -f "$effective_authority_gate" >/dev/null \
+  || fail "committed authenticated/PUBLIC effective authority differs from the exact gate"
+
+printf '%s\n' "B1_506A_PRODUCTION_MIGRATIONS_APPLIED"
+printf 'migration_count=8\nleast_privilege_app_role=1\nstoryforge_user_count=%s\nactive_assignment_count=%s\nfeature_flag_seeded_by=%s\n' \
   "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" \
   "$STORYFORGE_FOUNDER_USER_ID"

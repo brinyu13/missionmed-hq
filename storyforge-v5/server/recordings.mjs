@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 const segmentPlanMs = Object.freeze([4_000, 15_000]);
 const allowedMimeTypes = new Set(['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav']);
 const mimeExtensions = Object.freeze({
@@ -13,6 +15,16 @@ const maxSegments = 200;
 const defaultDailyMinutes = 60;
 const sweepIntervalMs = 10 * 60 * 1000;
 const retryDelaysMs = Object.freeze([0, 2_000, 8_000]);
+const usageMetricNames = Object.freeze([
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'durationSeconds',
+  'inputAudioTokens',
+  'inputTextTokens',
+  'outputAudioTokens',
+  'outputTextTokens',
+]);
 const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
 export class RecordingError extends Error {
@@ -119,11 +131,21 @@ function normalizeFlaggedTerms(value) {
   ));
 }
 
+function contentFreeUsage(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    usageMetricNames
+      .map((name) => [name, Number(value[name])])
+      .filter(([, metric]) => Number.isFinite(metric) && metric >= 0),
+  );
+}
+
 function sessionProjection(row) {
   if (!row) return null;
   return {
     id: row.id,
     studentId: row.student_id ?? row.studentId,
+    storyId: row.story_id ?? row.storyId ?? null,
     state: row.state,
     mimeType: row.mime_type ?? row.mimeType ?? null,
     totalDurationMs: Number(row.total_duration_ms ?? row.totalDurationMs ?? 0),
@@ -169,7 +191,7 @@ function recordingAccessDenied() {
 
 function stateConflict() {
   return new RecordingError(
-    'recording_state_conflict',
+    'state_conflict',
     'Recording session is not in a compatible state.',
     409,
   );
@@ -226,18 +248,12 @@ export function createPostgresRecordingStore({
   withIdentity,
   withServiceTransaction,
   appendAudit,
+  appendServiceAudit,
 }) {
   requireFunction(withIdentity, 'withIdentity');
   requireFunction(withServiceTransaction, 'withServiceTransaction');
   requireFunction(appendAudit, 'appendAudit');
-
-  function backgroundLifecycleBlocked() {
-    return new RecordingError(
-      'recording_lifecycle_authority_blocked',
-      'Background recording cleanup requires an approved privacy-preserving draft and audio lifecycle query.',
-      503,
-    );
-  }
+  requireFunction(appendServiceAudit, 'appendServiceAudit');
 
   async function readDraftTitle() {
     // The service role has no approved path into private drafts. Transcription
@@ -249,7 +265,7 @@ export function createPostgresRecordingStore({
   async function findActiveSession(identity) {
     return withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT id, student_id, state, mime_type, total_duration_ms, segment_count,
+        `SELECT id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                 assembled_asset_id, last_activity_at, created_at, updated_at
            FROM public.sf_recording_sessions
           WHERE student_id = $1
@@ -266,7 +282,7 @@ export function createPostgresRecordingStore({
     try {
       return await withIdentity(identity, async (client) => {
         const active = await client.query(
-          `SELECT id, student_id, state, mime_type, total_duration_ms, segment_count,
+          `SELECT id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                   assembled_asset_id, last_activity_at, created_at, updated_at
              FROM public.sf_recording_sessions
             WHERE student_id = $1
@@ -290,7 +306,7 @@ export function createPostgresRecordingStore({
         const inserted = await client.query(
           `INSERT INTO public.sf_recording_sessions (student_id)
            VALUES ($1)
-           RETURNING id, student_id, state, mime_type, total_duration_ms, segment_count,
+           RETURNING id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                      assembled_asset_id, last_activity_at, created_at, updated_at`,
           [identity.sub],
         );
@@ -317,7 +333,7 @@ export function createPostgresRecordingStore({
   async function readOwnedSession(identity, recordingId) {
     return withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT id, student_id, state, mime_type, total_duration_ms, segment_count,
+        `SELECT id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                 assembled_asset_id, last_activity_at, created_at, updated_at
            FROM public.sf_recording_sessions
           WHERE id = $1
@@ -329,15 +345,26 @@ export function createPostgresRecordingStore({
   }
 
   async function auditRecordingDenial(identity, recordingId, surface) {
-    return withIdentity(identity, async (client) => appendAudit(client, {
-      action: 'unauthorized_denied',
-      entityType: 'recording_session',
-      entityId: recordingId,
-      surface,
-      studentId: identity.sub,
-      previousValue: null,
-      newValue: { errorCategory: 'auth' },
-    }));
+    try {
+      return await withIdentity(identity, async (client) => appendAudit(client, {
+        action: 'unauthorized_denied',
+        entityType: 'recording_session',
+        entityId: recordingId,
+        surface,
+        studentId: identity.sub,
+        previousValue: null,
+        newValue: { errorCategory: 'auth' },
+      }));
+    } catch (error) {
+      if (
+        error?.code === 'audit_writer_unavailable'
+        && error?.cause?.code === '42501'
+        && /live identity required/i.test(String(error?.cause?.message || ''))
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async function acceptSegment({
@@ -355,7 +382,7 @@ export function createPostgresRecordingStore({
     requireFunction(compensateObject, 'compensateObject');
     return withIdentity(identity, async (client) => {
       const sessionResult = await client.query(
-        `SELECT id, student_id, state, mime_type, total_duration_ms, segment_count,
+        `SELECT id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                 assembled_asset_id, last_activity_at, created_at, updated_at
            FROM public.sf_recording_sessions
           WHERE id = $1
@@ -377,6 +404,13 @@ export function createPostgresRecordingStore({
         return { segment: segmentProjection(duplicate.rows[0]), created: false };
       }
       if (session.state !== 'recording') throw stateConflict();
+      if (session.mimeType && session.mimeType !== mimeType) {
+        throw new RecordingError(
+          'unsupported_audio_format',
+          'This audio format is not supported.',
+          400,
+        );
+      }
       const accountedDurationMs = nextAccountedDuration(session, durationMs);
       if (session.segmentCount >= maxSegments || accountedDurationMs > maxRecordingDurationMs) {
         throw lengthLimitError();
@@ -470,7 +504,7 @@ export function createPostgresRecordingStore({
                 END
           WHERE id = $1
             AND student_id = $2
-          RETURNING id, student_id, state, mime_type, total_duration_ms, segment_count,
+          RETURNING id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                     assembled_asset_id, last_activity_at, created_at, updated_at`,
         [recordingId, identity.sub],
       );
@@ -491,7 +525,7 @@ export function createPostgresRecordingStore({
   async function finishSession(identity, recordingId, clientDurationMs) {
     return withIdentity(identity, async (client) => {
       const locked = await client.query(
-        `SELECT id, student_id, state, mime_type, total_duration_ms, segment_count,
+        `SELECT id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                 assembled_asset_id, last_activity_at, created_at, updated_at
            FROM public.sf_recording_sessions
           WHERE id = $1
@@ -514,7 +548,7 @@ export function createPostgresRecordingStore({
                 last_activity_at = now(),
                 updated_at = now()
           WHERE id = $1
-          RETURNING id, student_id, state, mime_type, total_duration_ms, segment_count,
+          RETURNING id, student_id, story_id, state, mime_type, total_duration_ms, segment_count,
                     assembled_asset_id, last_activity_at, created_at, updated_at`,
         [recordingId],
       );
@@ -532,26 +566,24 @@ export function createPostgresRecordingStore({
     });
   }
 
-  async function markAssembled(recordingId, studentId, assetId) {
+  async function markAssembled(recordingId, studentId) {
     return withServiceTransaction(async (client) => {
       const updated = await client.query(
         `UPDATE public.sf_recording_sessions
             SET state = 'assembled',
-                assembled_asset_id = $3,
                 last_activity_at = now(),
                 updated_at = now()
           WHERE id = $1
             AND student_id = $2
             AND state = 'finishing'
           RETURNING id`,
-        [recordingId, studentId, assetId],
+        [recordingId, studentId],
       );
       if (!updated.rows[0]) return false;
-      await appendAudit(client, {
+      await appendServiceAudit(client, {
         action: 'assembly_completed',
         entityType: 'recording_session',
         entityId: recordingId,
-        surface: 'system',
         studentId,
         previousValue: { state: 'finishing' },
         newValue: { state: 'assembled' },
@@ -573,11 +605,10 @@ export function createPostgresRecordingStore({
         [recordingId, studentId],
       );
       if (!updated.rows[0]) return false;
-      await appendAudit(client, {
+      await appendServiceAudit(client, {
         action: 'assembly_failed',
         entityType: 'recording_session',
         entityId: recordingId,
-        surface: 'system',
         studentId,
         previousValue: { state: 'finishing' },
         newValue: { state: 'failed', errorCategory: 'assembly' },
@@ -586,7 +617,7 @@ export function createPostgresRecordingStore({
     });
   }
 
-  async function cancelSession(identity, recordingId, purgeObjects) {
+  async function cancelSession(identity, recordingId) {
     return withServiceTransaction(async (client) => {
       const locked = await client.query(
         `SELECT id, student_id, state, assembled_asset_id
@@ -597,7 +628,14 @@ export function createPostgresRecordingStore({
       );
       const session = locked.rows[0];
       if (!session || session.student_id !== identity.sub) throw recordingAccessDenied();
-      if (session.state === 'cancelled') return { state: 'cancelled', changed: false };
+      if (session.state === 'cancelled') {
+        return {
+          state: 'cancelled',
+          changed: false,
+          objectKeys: [],
+          prefix: `storyforge-rec/${identity.sub}/${recordingId}/`,
+        };
+      }
       if (!['recording', 'finishing', 'failed'].includes(session.state)) throw stateConflict();
       const segments = await client.query(
         `SELECT object_key
@@ -607,21 +645,14 @@ export function createPostgresRecordingStore({
           FOR UPDATE`,
         [recordingId],
       );
-      if (session.assembled_asset_id) {
-        throw backgroundLifecycleBlocked();
-      }
-      await appendAudit(client, {
+      if (session.assembled_asset_id) throw stateConflict();
+      await appendServiceAudit(client, {
         action: 'recording_cancelled',
         entityType: 'recording_session',
         entityId: recordingId,
-        surface: 'quick',
         studentId: identity.sub,
         previousValue: { state: session.state },
         newValue: { state: 'cancelled' },
-      });
-      await purgeObjects({
-        segmentKeys: segments.rows.map((row) => row.object_key),
-        asset: null,
       });
       await client.query(
         `DELETE FROM public.sf_recording_segments
@@ -635,8 +666,130 @@ export function createPostgresRecordingStore({
           WHERE id = $1`,
         [recordingId],
       );
-      return { state: 'cancelled', changed: true };
+      return {
+        state: 'cancelled',
+        changed: true,
+        objectKeys: segments.rows.map((row) => row.object_key),
+        prefix: `storyforge-rec/${identity.sub}/${recordingId}/`,
+      };
     });
+  }
+
+  async function attachedStory(client, session, studentId) {
+    const story = await client.query(
+      'SELECT * FROM public.sf_stories WHERE id = $1 AND student_id = $2',
+      [session.story_id, studentId],
+    );
+    const asset = await client.query(
+      `SELECT id, story_id, student_id, object_key, content_type, state
+         FROM public.sf_audio_assets
+        WHERE id = $1 AND student_id = $2`,
+      [session.assembled_asset_id, studentId],
+    );
+    if (!story.rows[0] || !asset.rows[0]) throw stateConflict();
+    return {
+      story: story.rows[0],
+      attachment: {
+        assetId: asset.rows[0].id,
+        recordingId: session.id,
+        studentId,
+        storyId: story.rows[0].id,
+        objectKey: asset.rows[0].object_key,
+        contentType: asset.rows[0].content_type,
+        segmentCount: Number(session.segment_count || 0),
+        state: asset.rows[0].state,
+      },
+      created: false,
+    };
+  }
+
+  async function attachRecording(identity, recordingId, body) {
+    const attach = () => withIdentity(identity, async (client) => {
+      const locked = await client.query(
+        `SELECT id, student_id, story_id, state, mime_type, total_duration_ms,
+                segment_count, assembled_asset_id, created_at, updated_at
+           FROM public.sf_recording_sessions
+          WHERE id = $1
+            AND student_id = $2
+          FOR UPDATE`,
+        [recordingId, identity.sub],
+      );
+      const session = locked.rows[0];
+      if (!session) throw recordingAccessDenied();
+      if (session.state === 'attached') {
+        return attachedStory(client, session, identity.sub);
+      }
+      if (session.state === 'finishing') {
+        const error = new RecordingError(
+          'voice_assembly_pending',
+          'Your recording is still being prepared.',
+          409,
+        );
+        error.retryAfterMs = 2_000;
+        throw error;
+      }
+      if (session.state !== 'assembled') throw stateConflict();
+
+      const payload = {
+        ...body,
+        captureType: 'audio',
+      };
+      const created = await client.query(
+        'SELECT * FROM public.sf_create_story_v5($1::jsonb, $2)',
+        [JSON.stringify(payload), body.surface || 'quick'],
+      );
+      const story = created.rows[0];
+      const attached = await client.query(
+        'SELECT * FROM public.sf_attach_recording($1, $2, $3)',
+        [story.id, recordingId, session.mime_type],
+      );
+      const asset = attached.rows[0];
+      return {
+        story,
+        attachment: {
+          assetId: asset.asset_id,
+          recordingId,
+          studentId: identity.sub,
+          storyId: story.id,
+          objectKey: asset.target_object_key,
+          contentType: session.mime_type,
+          segmentCount: Number(session.segment_count || 0),
+          state: 'pending',
+        },
+        created: true,
+      };
+    });
+
+    try {
+      return await attach();
+    } catch (error) {
+      if (
+        error?.code === '42501'
+        && /recording already attached elsewhere/i.test(String(error?.message || ''))
+      ) {
+        return withIdentity(identity, async (client) => {
+          const result = await client.query(
+            `SELECT id, student_id, story_id, state, segment_count, assembled_asset_id
+               FROM public.sf_recording_sessions
+              WHERE id = $1
+                AND student_id = $2`,
+            [recordingId, identity.sub],
+          );
+          const session = result.rows[0];
+          if (!session || session.state !== 'attached') throw recordingAccessDenied();
+          return attachedStory(client, session, identity.sub);
+        });
+      }
+      if (error?.code === 'P0002') {
+        throw new RecordingError('not_found', 'The recording or story was not found.', 404);
+      }
+      if (error?.code === '23514') throw stateConflict();
+      if (error?.code === '22023') {
+        throw new RecordingError('invalid_request', 'The recording could not be attached.', 400);
+      }
+      if (error?.code === '42501') throw recordingAccessDenied();
+      throw error;
+    }
   }
 
   async function retryCandidates(identity, recordingId, requestedSeq) {
@@ -748,11 +901,10 @@ export function createPostgresRecordingStore({
           WHERE id = $1`,
         [claim.recordingId, result.providerId || null, result.modelId || null],
       );
-      await appendAudit(client, {
+      await appendServiceAudit(client, {
         action: 'segment_transcribed',
         entityType: 'recording_segment',
         entityId: claim.id,
-        surface: 'system',
         studentId: claim.studentId,
         previousValue: { transcribeState: 'transcribing' },
         newValue: {
@@ -779,11 +931,10 @@ export function createPostgresRecordingStore({
         [claim.id],
       );
       if (!updated.rows[0]) return null;
-      await appendAudit(client, {
+      await appendServiceAudit(client, {
         action: 'segment_transcribe_failed',
         entityType: 'recording_segment',
         entityId: claim.id,
-        surface: 'system',
         studentId: claim.studentId,
         previousValue: { transcribeState: 'transcribing' },
         newValue: {
@@ -799,51 +950,175 @@ export function createPostgresRecordingStore({
     });
   }
 
-  async function deleteAudio(identity, assetId, deleteAsset) {
+  async function deleteAudio(identity, assetId) {
     return withIdentity(identity, async (client) => {
       const result = await client.query(
-        `SELECT asset.id, asset.story_id, asset.student_id, asset.object_key,
-                asset.content_type, asset.byte_size, asset.duration_ms, asset.state
-           FROM public.sf_audio_assets asset
-           JOIN public.sf_stories story ON story.id = asset.story_id
-          WHERE asset.id = $1
-            AND asset.student_id = $2
-            AND story.student_id = $2
-          FOR UPDATE OF asset`,
-        [assetId, identity.sub],
-      );
-      const asset = result.rows[0];
-      if (!asset) {
-        throw new RecordingError('audio_not_found', 'Audio asset not found.', 404);
-      }
-      if (asset.state === 'retired') return { state: 'retired', changed: false };
-      await appendAudit(client, {
-        action: 'audio_deleted',
-        entityType: 'audio_asset',
-        entityId: assetId,
-        surface: 'library',
-        studentId: identity.sub,
-        storyId: asset.story_id,
-        previousValue: { state: asset.state },
-        newValue: { state: 'retired' },
-      });
-      await deleteAsset(asset);
-      await client.query(
-        `UPDATE public.sf_audio_assets
-            SET state = 'retired'
-          WHERE id = $1`,
+        'SELECT * FROM public.sf_retire_story_audio($1)',
         [assetId],
       );
-      return { state: 'retired', changed: true };
+      const retired = result.rows[0];
+      if (!retired) throw new RecordingError('audio_not_found', 'Audio asset not found.', 404);
+      return {
+        state: 'retired',
+        changed: retired.changed === true,
+        objectKey: retired.object_key,
+        storyId: retired.story_id,
+      };
     });
   }
 
-  async function sweepCandidates() {
-    throw backgroundLifecycleBlocked();
+  async function sweepCandidates(limit = 50) {
+    return withServiceTransaction(async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.sf_voice_sweep_candidates($1)',
+        [limit],
+      );
+      return result.rows.map((row) => ({
+        recordingId: row.session_id,
+        studentId: row.student_id,
+        state: row.state,
+        reason: row.reason,
+      }));
+    });
   }
 
-  async function sweepSession() {
-    throw backgroundLifecycleBlocked();
+  async function sweepSession(candidate) {
+    return withServiceTransaction(async (client) => {
+      const before = await client.query(
+        `SELECT state,
+                (SELECT count(*)::integer
+                   FROM public.sf_recording_segments
+                  WHERE session_id = $1) AS segment_count
+           FROM public.sf_recording_sessions
+          WHERE id = $1`,
+        [candidate.recordingId],
+      );
+      const result = await client.query(
+        'SELECT * FROM public.sf_voice_sweep_purge($1, $2)',
+        [candidate.recordingId, candidate.reason],
+      );
+      const state = await client.query(
+        `SELECT state,
+                EXISTS (
+                  SELECT 1 FROM public.sf_recording_segments
+                  WHERE session_id = $1
+                ) AS has_segments
+           FROM public.sf_recording_sessions
+          WHERE id = $1`,
+        [candidate.recordingId],
+      );
+      const previousState = before.rows[0]?.state;
+      const previousSegmentCount = Number(before.rows[0]?.segment_count || 0);
+      const currentState = state.rows[0]?.state;
+      const hasSegments = state.rows[0]?.has_segments === true;
+      return {
+        changed: currentState === 'failed' && (
+          result.rows.length > 0
+          || previousState !== currentState
+          || (previousSegmentCount > 0 && !hasSegments)
+        ),
+        objectKeys: result.rows.map((row) => row.object_key),
+        prefix: `storyforge-rec/${candidate.studentId}/${candidate.recordingId}/`,
+      };
+    });
+  }
+
+  async function pendingAudioAssets(limit = 20) {
+    return withServiceTransaction(async (client) => {
+      const result = await client.query(
+        `SELECT candidate.*, session.segment_count
+           FROM public.sf_voice_asset_pending_candidates($1) candidate
+           JOIN public.sf_recording_sessions session
+             ON session.id = candidate.session_id`,
+        [limit],
+      );
+      return result.rows.map((row) => ({
+        assetId: row.asset_id,
+        recordingId: row.session_id,
+        studentId: row.student_id,
+        storyId: row.story_id,
+        objectKey: row.object_key,
+        contentType: row.content_type,
+        segmentCount: Number(row.segment_count),
+        pendingMinutes: Number(row.pending_minutes),
+      }));
+    });
+  }
+
+  async function markAudioVerified(assetId, byteSize, checksumSha256) {
+    return withServiceTransaction(async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.sf_voice_asset_mark_verified($1, $2::bigint, $3)',
+        [assetId, byteSize, checksumSha256],
+      );
+      return result.rows.map((row) => row.object_key);
+    });
+  }
+
+  async function markAudioFailed(assetId) {
+    return withServiceTransaction(async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.sf_voice_asset_mark_failed($1)',
+        [assetId],
+      );
+      return result.rows.map((row) => row.object_key);
+    });
+  }
+
+  async function checkAudioReferences(objectKeys) {
+    return withServiceTransaction(async (client) => {
+      const result = await client.query(
+        'SELECT * FROM public.sf_voice_audio_reference_check($1::text[])',
+        [objectKeys],
+      );
+      return result.rows.map((row) => ({
+        objectKey: row.object_key,
+        referenced: row.referenced === true,
+      }));
+    });
+  }
+
+  async function readAudioManifest(assetId) {
+    return withServiceTransaction(async (client) => {
+      const result = await client.query(
+        `SELECT rs.segment_count
+           FROM public.sf_recording_sessions rs
+          WHERE rs.assembled_asset_id = $1`,
+        [assetId],
+      );
+      return result.rows[0]
+        ? { segmentCount: Number(result.rows[0].segment_count || 0) }
+        : null;
+    });
+  }
+
+  async function recordObjectDeleteRetry({
+    entityType,
+    entityId,
+    studentId,
+    storyId = null,
+    objectCount,
+  }) {
+    return withServiceTransaction((client) => appendServiceAudit(client, {
+      action: 'object_delete_retried',
+      entityType,
+      entityId,
+      studentId,
+      storyId,
+      previousValue: null,
+      newValue: { objectCount, retryCount: 1 },
+    }));
+  }
+
+  async function recordProviderFailover({ recordingId, studentId }) {
+    return withServiceTransaction((client) => appendServiceAudit(client, {
+      action: 'provider_failover',
+      entityType: 'recording_session',
+      entityId: recordingId,
+      studentId,
+      previousValue: null,
+      newValue: null,
+    }));
   }
 
   async function pendingTranscriptions() {
@@ -862,11 +1137,10 @@ export function createPostgresRecordingStore({
                     segment.retry_count, session.student_id`,
       );
       for (const row of stale.rows) {
-        await appendAudit(client, {
+        await appendServiceAudit(client, {
           action: 'segment_transcribe_failed',
           entityType: 'recording_segment',
           entityId: row.id,
-          surface: 'system',
           studentId: row.student_id,
           previousValue: { transcribeState: 'transcribing' },
           newValue: {
@@ -913,7 +1187,9 @@ export function createPostgresRecordingStore({
 
   return Object.freeze({
     acceptSegment,
+    attachRecording,
     auditRecordingDenial,
+    checkAudioReferences,
     cancelSession,
     claimTranscription,
     completeTranscription,
@@ -923,12 +1199,18 @@ export function createPostgresRecordingStore({
     finishSession,
     markAssembled,
     markAssemblyFailed,
+    markAudioFailed,
+    markAudioVerified,
     openSession,
     pendingAssemblies,
+    pendingAudioAssets,
     pendingTranscriptions,
+    readAudioManifest,
     readDraftTitle,
     readOwnedSession,
     readStatus,
+    recordObjectDeleteRetry,
+    recordProviderFailover,
     retryCandidates,
     sweepCandidates,
     sweepSession,
@@ -1001,7 +1283,6 @@ export function createRecordingsService({
   storage,
   transcription,
   assembly,
-  audioRetirement = { available: false },
   emitEvent,
   environment = process.env,
   now = () => new Date(),
@@ -1010,8 +1291,10 @@ export function createRecordingsService({
   if (!store) throw new TypeError('A production recording store must be supplied.');
   for (const method of [
     'acceptSegment',
+    'attachRecording',
     'auditRecordingDenial',
     'cancelSession',
+    'checkAudioReferences',
     'claimTranscription',
     'completeTranscription',
     'deleteAudio',
@@ -1019,12 +1302,18 @@ export function createRecordingsService({
     'finishSession',
     'markAssembled',
     'markAssemblyFailed',
+    'markAudioFailed',
+    'markAudioVerified',
     'openSession',
     'pendingAssemblies',
+    'pendingAudioAssets',
     'pendingTranscriptions',
+    'readAudioManifest',
     'readDraftTitle',
     'readOwnedSession',
     'readStatus',
+    'recordObjectDeleteRetry',
+    'recordProviderFailover',
     'retryCandidates',
     'sweepCandidates',
     'sweepSession',
@@ -1055,6 +1344,10 @@ export function createRecordingsService({
       storage?.deleteAudioAsset || storage?.deleteAudioAssetObject,
       'storage.deleteAudioAssetObject',
     ),
+    copyAudioObject: storage?.copyAudioObject,
+    headAudioObject: storage?.headAudioObject,
+    listAudioObjects: storage?.listAudioObjects,
+    deleteRecordingPrefix: storage?.deleteRecordingPrefix,
   });
   requireFunction(transcription?.transcribeSegment, 'transcription.transcribeSegment');
   requireFunction(transcription?.keywordsForDraft, 'transcription.keywordsForDraft');
@@ -1062,6 +1355,9 @@ export function createRecordingsService({
   requireFunction(emitEvent, 'emitEvent');
   requireFunction(delay, 'delay');
   const transcriptionAvailable = transcription.available !== false;
+  const assemblyOption = ['A', 'B'].includes(assembly?.option)
+    ? assembly.option
+    : null;
 
   const dailyLimitMs = (
     positiveIntegerSetting(
@@ -1085,6 +1381,7 @@ export function createRecordingsService({
       'latencyMs',
       'errorCategory',
       'providerLatencyBucket',
+      ...usageMetricNames,
     ]) {
       if (fields[key] !== undefined && fields[key] !== null) safe[key] = fields[key];
     }
@@ -1097,9 +1394,97 @@ export function createRecordingsService({
     }
   }
 
-  async function purgeObjects({ segmentKeys, asset }) {
-    if (segmentKeys.length) await segmentStorage.deleteObjects({ objectKeys: segmentKeys });
-    if (asset) await segmentStorage.deleteAudioAsset({ asset });
+  function releaseTranscriptionSessionWhenIdle(recordingId) {
+    queue.waitForIdle(recordingId)
+      .then(() => {
+        if (
+          typeof transcription.hasPendingFailover === 'function'
+          && transcription.hasPendingFailover(recordingId)
+        ) {
+          return;
+        }
+        releaseTranscriptionSession(recordingId);
+      })
+      .catch(() => {});
+  }
+
+  async function persistPendingProviderFailover(claim) {
+    if (
+      typeof transcription.hasPendingFailover !== 'function'
+      || typeof transcription.acknowledgeFailover !== 'function'
+      || !transcription.hasPendingFailover(claim.recordingId)
+    ) {
+      return false;
+    }
+    await store.recordProviderFailover(claim);
+    transcription.acknowledgeFailover(claim.recordingId);
+    return true;
+  }
+
+  function recordingPrefix(studentId, recordingId) {
+    return `storyforge-rec/${studentId}/${recordingId}/`;
+  }
+
+  function requireFinalizationStorage() {
+    for (const [name, method] of [
+      ['storage.copyAudioObject', segmentStorage.copyAudioObject],
+      ['storage.headAudioObject', segmentStorage.headAudioObject],
+      ['storage.deleteRecordingPrefix', segmentStorage.deleteRecordingPrefix],
+    ]) {
+      requireFunction(method, name);
+    }
+  }
+
+  async function afterCommitDelete({
+    operation,
+    entityType,
+    entityId,
+    studentId,
+    storyId = null,
+    objectCount,
+  }) {
+    try {
+      await operation();
+      return { retried: false, deleted: true };
+    } catch {
+      let deleted = false;
+      try {
+        await operation();
+        deleted = true;
+      } catch {
+        deleted = false;
+      }
+      await store.recordObjectDeleteRetry({
+        entityType,
+        entityId,
+        studentId,
+        storyId,
+        objectCount: Math.max(0, Number(objectCount) || 0),
+      });
+      return { retried: true, deleted };
+    }
+  }
+
+  async function deleteRecordingTemp({
+    recordingId,
+    studentId,
+    storyId = null,
+    objectKeys = [],
+    entityType = 'recording_session',
+    entityId = recordingId,
+  }) {
+    const prefix = recordingPrefix(studentId, recordingId);
+    const operation = typeof segmentStorage.deleteRecordingPrefix === 'function'
+      ? () => segmentStorage.deleteRecordingPrefix({ prefix })
+      : () => segmentStorage.deleteObjects({ objectKeys });
+    return afterCommitDelete({
+      operation,
+      entityType,
+      entityId,
+      studentId,
+      storyId,
+      objectCount: objectKeys.length,
+    });
   }
 
   async function withAuditedRecordingAccess(identity, recordingId, surface, operation) {
@@ -1124,12 +1509,15 @@ export function createRecordingsService({
     if (flagService.voiceForceOff()) return;
     const claim = await store.claimTranscription(job.recordingId, job.seq);
     if (!claim) return;
+    const startedAt = now().getTime();
+    let raw;
     try {
-      const body = normalizeBytes(await segmentStorage.getSegment({ objectKey: claim.objectKey }));
+      const body = normalizeBytes(
+        await segmentStorage.getSegment({ objectKey: claim.objectKey }),
+      );
       const draftTitle = await store.readDraftTitle(claim.studentId);
       const keywords = await transcription.keywordsForDraft({ draftTitle });
-      const startedAt = now().getTime();
-      const raw = await transcription.transcribeSegment({
+      raw = await transcription.transcribeSegment({
         recordingId: claim.recordingId,
         studentId: claim.studentId,
         buffer: body,
@@ -1139,26 +1527,8 @@ export function createRecordingsService({
         promptTail: claim.promptTail,
         languageHint: 'en',
       });
-      const text = String(raw?.text ?? '');
-      const latencyMs = Number.isFinite(Number(raw?.latencyMs))
-        ? Math.max(0, Math.round(Number(raw.latencyMs)))
-        : Math.max(0, now().getTime() - startedAt);
-      const result = {
-        text,
-        flaggedTerms: normalizeFlaggedTerms(raw?.flaggedTerms),
-        providerId: raw?.providerId ? String(raw.providerId) : null,
-        modelId: raw?.modelId ? String(raw.modelId) : null,
-        latencyMs,
-      };
-      if (await store.completeTranscription(claim, result)) {
-        emit('segment_transcribed', {
-          recordingId: claim.recordingId,
-          studentId: claim.studentId,
-          jobSeq: claim.seq,
-          latencyMs,
-        });
-      }
     } catch (error) {
+      await persistPendingProviderFailover(claim);
       const code = safeTranscriptionCode(error);
       await store.failTranscription(claim, code);
       emit('segment_transcribe_failed', {
@@ -1166,6 +1536,28 @@ export function createRecordingsService({
         studentId: claim.studentId,
         jobSeq: claim.seq,
         errorCategory: 'transcribe',
+      });
+      return;
+    }
+    await persistPendingProviderFailover(claim);
+    const text = String(raw?.text ?? '');
+    const latencyMs = Number.isFinite(Number(raw?.latencyMs))
+      ? Math.max(0, Math.round(Number(raw.latencyMs)))
+      : Math.max(0, now().getTime() - startedAt);
+    const result = {
+      text,
+      flaggedTerms: normalizeFlaggedTerms(raw?.flaggedTerms),
+      providerId: raw?.providerId ? String(raw.providerId) : null,
+      modelId: raw?.modelId ? String(raw.modelId) : null,
+      latencyMs,
+    };
+    if (await store.completeTranscription(claim, result)) {
+      emit('segment_transcribed', {
+        recordingId: claim.recordingId,
+        studentId: claim.studentId,
+        jobSeq: claim.seq,
+        latencyMs,
+        ...contentFreeUsage(raw?.usage),
       });
     }
   }
@@ -1295,12 +1687,10 @@ export function createRecordingsService({
         recordingId: session.id,
         studentId: identity.sub,
       }))
-      .then(async (result) => {
-        const assetId = safeUuid(result?.assetId);
-        if (await store.markAssembled(session.id, identity.sub, assetId)) {
+      .then(async () => {
+        if (await store.markAssembled(session.id, identity.sub)) {
           emit('assembly_completed', {
             recordingId: session.id,
-            assetId,
             studentId: identity.sub,
           });
         }
@@ -1350,6 +1740,34 @@ export function createRecordingsService({
         503,
       );
     }
+    if (transcriptionAvailable) {
+      await queue.waitForIdle(recordingId);
+      const status = await withAuditedRecordingAccess(
+        identity,
+        recordingId,
+        'quick',
+        () => store.readStatus(identity, recordingId),
+      );
+      const segmentStates = status.segments.map((segment) => segment.transcribeState);
+      const incomplete = (
+        status.session.segmentCount > status.segments.length
+        || segmentStates.some((state) => state !== 'transcribed')
+      );
+      if (incomplete) {
+        if (segmentStates.some((state) => String(state).includes('failed'))) {
+          throw new RecordingError(
+            'transcribe_unavailable',
+            'Transcription is currently unavailable.',
+            503,
+          );
+        }
+        throw new RecordingError(
+          'voice_assembly_pending',
+          'Your recording is still being prepared.',
+          409,
+        );
+      }
+    }
     const finished = await store.finishSession(identity, recordingId, clientDurationMs);
     if (finished.transitioned || finished.session.state === 'finishing') {
       beginAssembly(finished.session, identity);
@@ -1358,7 +1776,7 @@ export function createRecordingsService({
       emit('recording_finished', { recordingId, studentId: identity.sub });
     }
     if (['finishing', 'assembled', 'attached'].includes(finished.session.state)) {
-      releaseTranscriptionSession(recordingId);
+      releaseTranscriptionSessionWhenIdle(recordingId);
     }
     return {
       state: finished.session.state,
@@ -1376,9 +1794,14 @@ export function createRecordingsService({
       identity,
       recordingId,
       'quick',
-      () => store.cancelSession(identity, recordingId, purgeObjects),
+      () => store.cancelSession(identity, recordingId),
     );
     if (result.changed) {
+      await deleteRecordingTemp({
+        recordingId,
+        studentId: identity.sub,
+        objectKeys: result.objectKeys,
+      });
       emit('recording_cancelled', { recordingId, studentId: identity.sub });
       releaseTranscriptionSession(recordingId);
     }
@@ -1427,23 +1850,24 @@ export function createRecordingsService({
   async function deleteAudio(identity, assetIdValue) {
     assertStudent(identity);
     const assetId = safeUuid(assetIdValue);
-    if (
-      audioRetirement?.available !== true
-      || typeof audioRetirement.retireAudio !== 'function'
-    ) {
-      throw new RecordingError(
-        'audio_retirement_authority_blocked',
-        'Audio deletion is unavailable until the approved retirement transaction is installed.',
-        503,
-      );
+    const result = await store.deleteAudio(identity, assetId);
+    if (result.changed) {
+      await afterCommitDelete({
+        operation: () => segmentStorage.deleteAudioAsset({
+          asset: { objectKey: result.objectKey },
+        }),
+        entityType: 'audio_asset',
+        entityId: assetId,
+        studentId: identity.sub,
+        storyId: result.storyId,
+        objectCount: 1,
+      });
+      emit('audio_deleted', {
+        assetId,
+        storyId: result.storyId,
+        studentId: identity.sub,
+      });
     }
-    const result = await audioRetirement.retireAudio({
-      identity,
-      assetId,
-      store,
-      deleteAsset: (asset) => segmentStorage.deleteAudioAsset({ asset }),
-    });
-    if (result.changed) emit('audio_deleted', { assetId, studentId: identity.sub });
     return { state: result.state };
   }
 
@@ -1451,18 +1875,43 @@ export function createRecordingsService({
     const candidates = await store.sweepCandidates();
     let cleaned = 0;
     const failures = [];
-    for (const recordingId of candidates) {
+    for (const candidate of candidates) {
       try {
-        if (await store.sweepSession(recordingId, purgeObjects)) {
+        const result = await store.sweepSession(candidate);
+        if (result.changed) {
+          await deleteRecordingTemp({
+            recordingId: candidate.recordingId,
+            studentId: candidate.studentId,
+            objectKeys: result.objectKeys,
+          });
           cleaned += 1;
-          emit('sweep_cleaned', { recordingId });
-          releaseTranscriptionSession(recordingId);
+          emit('sweep_cleaned', { recordingId: candidate.recordingId });
+          releaseTranscriptionSession(candidate.recordingId);
         }
       } catch {
-        failures.push(recordingId);
+        failures.push(candidate.recordingId);
       }
     }
     return { scanned: candidates.length, cleaned, failures };
+  }
+
+  async function runMaintenance() {
+    const [sessions, pendingAudioAssets, transcriptions] = await Promise.allSettled([
+      runSweeps(),
+      recoverPendingAudioAssets(),
+      recoverPendingTranscriptions(),
+    ]);
+    return {
+      sessions: sessions.status === 'fulfilled'
+        ? sessions.value
+        : { failed: true },
+      pendingAudioAssets: pendingAudioAssets.status === 'fulfilled'
+        ? pendingAudioAssets.value
+        : { failed: true },
+      transcriptions: transcriptions.status === 'fulfilled'
+        ? transcriptions.value
+        : { failed: true },
+    };
   }
 
   function startSweeps() {
@@ -1470,7 +1919,7 @@ export function createRecordingsService({
       return Object.freeze({ enabled: false, stop() {} });
     }
     const timer = setInterval(() => {
-      runSweeps().catch(() => {});
+      runMaintenance().catch(() => {});
     }, sweepIntervalMs);
     timer.unref?.();
     return Object.freeze({
@@ -1506,6 +1955,184 @@ export function createRecordingsService({
     return { queued };
   }
 
+  function permanentAudioKeys(attachment) {
+    const objectKey = String(attachment.objectKey || '');
+    const extension = mimeExtensions[String(attachment.contentType || '')];
+    if (!objectKey || !extension || !assemblyOption) {
+      throw new RecordingError(
+        'assembly_authority_blocked',
+        'Recording assembly is unavailable.',
+        503,
+      );
+    }
+    if (assemblyOption === 'A') return [`${objectKey}.${extension}`];
+    const segmentCount = integer(
+      attachment.segmentCount,
+      'invalid_request',
+      'The recording could not be attached.',
+      { min: 1, max: maxSegments },
+    );
+    return Array.from(
+      { length: segmentCount },
+      (_, seq) => `${objectKey}/seg-${String(seq).padStart(5, '0')}.${extension}`,
+    );
+  }
+
+  async function finalizeAttachment(attachment) {
+    requireFinalizationStorage();
+    const extension = mimeExtensions[String(attachment.contentType || '')];
+    const prefix = recordingPrefix(attachment.studentId, attachment.recordingId);
+    const targets = permanentAudioKeys(attachment);
+    const sources = assemblyOption === 'A'
+      ? [`${prefix}assembled.${extension}`]
+      : targets.map((_, seq) => (
+        `${prefix}seg-${String(seq).padStart(5, '0')}.${extension}`
+      ));
+
+    for (let index = 0; index < targets.length; index += 1) {
+      await segmentStorage.copyAudioObject({
+        sourceKey: sources[index],
+        targetKey: targets[index],
+        contentType: attachment.contentType,
+      });
+    }
+
+    const verified = [];
+    for (const objectKey of targets) {
+      const metadata = await segmentStorage.headAudioObject({ objectKey });
+      if (
+        metadata.contentType !== attachment.contentType
+        || !Number.isInteger(metadata.byteSize)
+        || metadata.byteSize < 1
+      ) {
+        throw new RecordingError(
+          'audio_verification_failed',
+          'Private audio verification did not complete.',
+          503,
+        );
+      }
+      verified.push(metadata);
+    }
+
+    let checksumSha256 = null;
+    if (assemblyOption === 'A') {
+      const stored = await segmentStorage.getSegment({
+        objectKey: targets[0],
+      });
+      const bytes = Buffer.isBuffer(stored)
+        ? stored
+        : (stored instanceof Uint8Array ? Buffer.from(stored) : null);
+      if (!bytes || bytes.byteLength < 1 || bytes.byteLength > maxAssetBytes) {
+        throw new RecordingError(
+          'audio_verification_failed',
+          'Private audio verification did not complete.',
+          503,
+        );
+      }
+      checksumSha256 = createHash('sha256').update(bytes).digest('hex');
+    }
+    const byteSize = verified.reduce((total, item) => total + item.byteSize, 0);
+    const tempKeys = await store.markAudioVerified(
+      attachment.assetId,
+      byteSize,
+      checksumSha256,
+    );
+    await deleteRecordingTemp({
+      recordingId: attachment.recordingId,
+      studentId: attachment.studentId,
+      storyId: attachment.storyId,
+      objectKeys: tempKeys,
+      entityType: 'audio_asset',
+      entityId: attachment.assetId,
+    });
+    return {
+      byteSize,
+      checksumSha256,
+      objectKeys: targets,
+      verified: true,
+    };
+  }
+
+  async function saveRecordingStory(identity, recordingIdValue, body) {
+    assertStudent(identity);
+    const recordingId = safeUuid(recordingIdValue);
+    const attached = await withAuditedRecordingAccess(
+      identity,
+      recordingId,
+      'quick',
+      () => store.attachRecording(identity, recordingId, body),
+    );
+    if (attached.attachment.state === 'pending') {
+      try {
+        await finalizeAttachment(attached.attachment);
+        attached.attachment.state = 'verified';
+      } catch {
+        // The story and immutable transcript already committed. The time-based
+        // pending-asset worker owns retries and the terminal 60-minute failure.
+        attached.attachment.state = 'pending';
+      }
+    }
+    releaseTranscriptionSessionWhenIdle(recordingId);
+    return attached;
+  }
+
+  async function recoverPendingAudioAssets() {
+    if (!assemblyOption) return { scanned: 0, verified: 0, failed: 0, blocked: true };
+    const candidates = await store.pendingAudioAssets();
+    let verified = 0;
+    let failed = 0;
+    for (const attachment of candidates) {
+      if (attachment.pendingMinutes >= 60) {
+        const tempKeys = await store.markAudioFailed(attachment.assetId);
+        await deleteRecordingTemp({
+          recordingId: attachment.recordingId,
+          studentId: attachment.studentId,
+          storyId: attachment.storyId,
+          objectKeys: tempKeys,
+          entityType: 'audio_asset',
+          entityId: attachment.assetId,
+        });
+        failed += 1;
+        continue;
+      }
+      try {
+        await finalizeAttachment(attachment);
+        verified += 1;
+      } catch {
+        // The next 10-minute sweep retries this restart-safe pending asset.
+      }
+    }
+    return { scanned: candidates.length, verified, failed };
+  }
+
+  async function playbackKeys(asset) {
+    const objectKey = String(asset?.object_key || asset?.objectKey || '');
+    if (/\.(?:webm|m4a|mp4|ogg|wav)$/i.test(objectKey)) return [objectKey];
+    if (!assemblyOption) {
+      throw new RecordingError(
+        'assembly_authority_blocked',
+        'Recording assembly is unavailable.',
+        503,
+      );
+    }
+    const manifest = await store.readAudioManifest(safeUuid(asset?.id));
+    if (!manifest) throw new RecordingError('not_found', 'Audio asset not found.', 404);
+    return permanentAudioKeys({
+      objectKey,
+      contentType: asset?.content_type || asset?.contentType,
+      segmentCount: manifest.segmentCount,
+    });
+  }
+
+  async function checkAudioObjectReferences(objectKeys) {
+    const keys = [...new Set((objectKeys || []).map(String).filter(Boolean))];
+    const results = [];
+    for (let index = 0; index < keys.length; index += 1000) {
+      results.push(...await store.checkAudioReferences(keys.slice(index, index + 1000)));
+    }
+    return results;
+  }
+
   return Object.freeze({
     addSegment,
     cancelRecording,
@@ -1513,10 +2140,15 @@ export function createRecordingsService({
     deleteAudio,
     finishRecording,
     getRecording,
+    checkAudioObjectReferences,
+    playbackKeys,
     recoverPendingAssemblies,
+    recoverPendingAudioAssets,
     recoverPendingTranscriptions,
     retryTranscription,
+    runMaintenance,
     runSweeps,
+    saveRecordingStory,
     startSweeps,
     waitForTranscriptionIdle: queue.waitForIdle,
   });

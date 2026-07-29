@@ -53,6 +53,73 @@ test('draft keywords are bounded, deduplicated, and tokenized rather than carryi
   assert.ok(keywords.length <= 27);
 });
 
+test('lexicon evidence wins an overlapping provider confidence flag', async () => {
+  const adapter = createTranscriptionAdapter({
+    primary: {
+      async transcribeSegment() {
+        return {
+          ...result('anastomoss stable'),
+          flaggedTerms: [
+            {
+              from: 'anastomoss',
+              to: 'anastomoss',
+              source: 'confidence',
+              confidence: -2,
+            },
+            {
+              from: 'stable',
+              to: 'stable',
+              source: 'confidence',
+              confidence: -1.5,
+            },
+          ],
+        };
+      },
+    },
+  });
+
+  const transcript = await adapter.transcribeSegment({ recordingId, seq: 0 });
+  assert.deepEqual(transcript.flaggedTerms, [
+    {
+      from: 'anastomoss',
+      to: 'anastomosis',
+      source: 'lexicon',
+      lexiconVersion: medicalLexiconVersion,
+    },
+    {
+      from: 'stable',
+      to: 'stable',
+      source: 'confidence',
+      confidence: -1.5,
+    },
+  ]);
+});
+
+test('adapter preserves only fixed content-free provider usage metrics', async () => {
+  const adapter = createTranscriptionAdapter({
+    primary: {
+      async transcribeSegment() {
+        return {
+          ...result('Safe transcript'),
+          usage: {
+            inputTokens: 12,
+            outputTokens: 4,
+            durationSeconds: 3.5,
+            transcript: 'must never pass through',
+            nested: { private: true },
+          },
+        };
+      },
+    },
+  });
+  const transcript = await adapter.transcribeSegment({ recordingId, seq: 0 });
+  assert.deepEqual(transcript.usage, {
+    inputTokens: 12,
+    outputTokens: 4,
+    durationSeconds: 3.5,
+  });
+});
+
 test('timeout gets one immediate retry without inventing transcript content', async () => {
   let calls = 0;
   const adapter = createTranscriptionAdapter({
@@ -127,6 +194,10 @@ test('a hard primary failure switches only that recording session to fallback', 
     studentId,
     seq: 0,
   })).providerId, 'fallback');
+  assert.equal(adapter.hasPendingFailover(recordingId), true);
+  assert.equal(adapter.acknowledgeFailover(recordingId), true);
+  assert.equal(adapter.hasPendingFailover(recordingId), false);
+  assert.equal(adapter.acknowledgeFailover(recordingId), false);
   assert.equal((await adapter.transcribeSegment({ recordingId, seq: 1 })).providerId, 'fallback');
   const other = '22222222-2222-4222-8222-222222222222';
   assert.equal((await adapter.transcribeSegment({ recordingId: other, seq: 0 })).providerId, 'primary');
@@ -198,7 +269,7 @@ test('the unavailable adapter fails truthfully and exposes no fake result', asyn
   );
 });
 
-test('the provider selector implements only the authorized transcription-off mode', async () => {
+test('the provider selector preserves truthful off mode and builds the inert OpenAI pair', async () => {
   const adapter = createTranscriptionAdapterForProvider(' NONE ');
   assert.equal(adapter.available, false);
   assert.deepEqual(adapter.capabilities(), {
@@ -210,6 +281,81 @@ test('the provider selector implements only the authorized transcription-off mod
     (error) => error.code === 'transcribe_unavailable',
   );
 
+  const calls = [];
+  const openai = createTranscriptionAdapterForProvider(' OpEnAi ', {
+    apiKey: 'test-only-openai-key',
+    async fetchImpl(url, init) {
+      calls.push({ url, init });
+      return new Response(JSON.stringify({
+        text: 'Provider response.',
+        logprobs: [
+          { token: 'Provider', logprob: -0.1 },
+          { token: ' response.', logprob: -0.1 },
+        ],
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  assert.equal(openai.available, true);
+  assert.deepEqual(openai.capabilities(), {
+    keywords: true,
+    confidence: true,
+  });
+  const transcript = await openai.transcribeSegment({
+    recordingId,
+    buffer: Buffer.from([1, 2, 3]),
+    mimeType: 'audio/webm',
+    seq: 0,
+    keywords: ['Whipple'],
+    promptTail: '',
+    languageHint: 'en',
+  });
+  assert.equal(transcript.text, 'Provider response.');
+  assert.equal(transcript.modelId, 'gpt-4o-transcribe');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, 'https://api.openai.com/v1/audio/transcriptions');
+  assert.equal(calls[0].init.body.get('model'), 'gpt-4o-transcribe');
+  assert.equal(calls[0].init.body.get('include[]'), 'logprobs');
+
+  const swappedCalls = [];
+  const fixedPairSwap = createTranscriptionAdapterForProvider('openai', {
+    apiKey: 'test-only-openai-key',
+    primaryModel: 'whisper-1',
+    fallbackModel: 'gpt-4o-transcribe',
+    async fetchImpl(_url, init) {
+      swappedCalls.push(init);
+      return new Response(JSON.stringify({ text: '' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+  assert.deepEqual(fixedPairSwap.capabilities(), {
+    keywords: true,
+    confidence: false,
+  });
+  await fixedPairSwap.transcribeSegment({
+    recordingId,
+    buffer: Buffer.from([1]),
+    mimeType: 'audio/wav',
+    seq: 0,
+  });
+  assert.equal(swappedCalls[0].body.get('model'), 'whisper-1');
+  assert.equal(swappedCalls[0].body.has('include[]'), false);
+
+  assert.throws(
+    () => createTranscriptionAdapterForProvider('openai'),
+    /apiKey must be supplied/,
+  );
+  assert.throws(
+    () => createTranscriptionAdapterForProvider('openai', {
+      apiKey: 'test-only-openai-key',
+      primaryModel: 'gpt-4o-mini-transcribe',
+    }),
+    /outside the fixed StoryForge pair/,
+  );
   assert.throws(
     () => createTranscriptionAdapterForProvider('unapproved-provider'),
     (error) => (

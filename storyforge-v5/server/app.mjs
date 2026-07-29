@@ -7,6 +7,7 @@ import { authorize, issueDevToken, isLoopbackRequest } from './auth.mjs';
 import { config, isAudioConfigured, validateConfig } from './config.mjs';
 import {
   appendAudit,
+  appendServiceAudit,
   closePool,
   healthCheck,
   withIdentity as withDatabaseIdentity,
@@ -17,9 +18,13 @@ import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
   createAudioUpload,
+  copyAudioObject,
   deleteAudioAssetObject,
+  deleteRecordingPrefix,
   deleteRecordingObjects,
   getRecordingSegment,
+  headAudioObject,
+  listAudioObjects,
   putRecordingSegment,
   verifyAudioUpload,
 } from './storage.mjs';
@@ -88,15 +93,19 @@ export function createPhaseOneRuntime({
   identityTransaction = withDatabaseIdentity,
   serviceTransaction = withServiceTransaction,
   auditWriter = appendAudit,
+  serviceAuditWriter = appendServiceAudit,
   storage = {
     putRecordingSegment,
     getRecordingSegment,
     deleteRecordingObjects,
     deleteAudioAssetObject,
+    copyAudioObject,
+    headAudioObject,
+    listAudioObjects,
+    deleteRecordingPrefix,
   },
   transcription = createUnavailableTranscriptionAdapter(),
   assembly = { available: false, assembleRecording: authorityBlockedAssembly },
-  audioRetirement = { available: false },
   eventWriter = emitStructuredEvent,
   environment = process.env,
 } = {}) {
@@ -104,6 +113,7 @@ export function createPhaseOneRuntime({
     withIdentity: identityTransaction,
     withServiceTransaction: serviceTransaction,
     appendAudit: auditWriter,
+    appendServiceAudit: serviceAuditWriter,
   });
   const flagService = createFlagService({
     store: flagStore,
@@ -114,6 +124,7 @@ export function createPhaseOneRuntime({
     withIdentity: identityTransaction,
     withServiceTransaction: serviceTransaction,
     appendAudit: auditWriter,
+    appendServiceAudit: serviceAuditWriter,
   });
   const recordingsService = createRecordingsService({
     store: recordingStore,
@@ -121,7 +132,6 @@ export function createPhaseOneRuntime({
     storage,
     transcription,
     assembly,
-    audioRetirement,
     emitEvent: eventWriter,
     environment,
   });
@@ -292,6 +302,9 @@ export function publicError(error) {
     message: status >= 500 && !unavailableCodes.has(error?.code)
       ? 'StoryForge could not complete this request.'
       : String(error?.message || 'Request failed.'),
+    ...(Number.isInteger(error?.retryAfterMs) && error.retryAfterMs > 0
+      ? { retryAfterMs: error.retryAfterMs }
+      : {}),
   };
 }
 
@@ -495,6 +508,7 @@ async function api(request, response, url, {
   withIdentity,
   flagService,
   recordingsService,
+  signAudioPlayback,
 }) {
   if (request.method === 'GET' && url.pathname === '/api/config') {
     return sendJson(response, 200, {
@@ -640,13 +654,15 @@ async function api(request, response, url, {
   if (request.method === 'POST' && url.pathname === '/api/stories') {
     const body = await readJson(request);
     if (body.recordingId) {
-      safeUuid(body.recordingId);
-      const error = new Error(
-        'Saving recorded audio is unavailable until the RP-8 assembly decision is approved.',
+      const attached = await recordingsService.saveRecordingStory(
+        identity,
+        safeUuid(body.recordingId),
+        body,
       );
-      error.code = 'assembly_authority_blocked';
-      error.status = 503;
-      throw error;
+      return sendJson(response, attached.created ? 201 : 200, {
+        story: attached.story,
+        audio: attached.attachment,
+      });
     }
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
@@ -937,39 +953,6 @@ async function api(request, response, url, {
     const body = await readJson(request);
     const storyId = safeUuid(storyArchive[1]);
     const archiving = storyArchive[2] === 'archive';
-    if (archiving) {
-      const hasVoiceData = await withIdentity(identity, async (client) => {
-        const result = await client.query(
-          `SELECT (
-             EXISTS (
-               SELECT 1
-                 FROM public.sf_audio_assets asset
-                WHERE asset.story_id = $1
-                  AND asset.student_id = $2
-                  AND asset.state <> 'retired'
-             )
-             OR EXISTS (
-               SELECT 1
-                 FROM public.sf_recording_sessions session
-                 JOIN public.sf_recording_segments segment
-                   ON segment.session_id = session.id
-                WHERE session.story_id = $1
-                  AND session.student_id = $2
-             )
-           ) AS has_voice_data`,
-          [storyId, identity.sub],
-        );
-        return result.rows[0]?.has_voice_data === true;
-      });
-      if (hasVoiceData) {
-        const error = new Error(
-          'Archiving a voice story is unavailable until the approved retirement transaction is installed.',
-        );
-        error.code = 'audio_retirement_authority_blocked';
-        error.status = 503;
-        throw error;
-      }
-    }
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
         `SELECT * FROM public.sf_set_story_archived($1, $2, $3)`,
@@ -2288,7 +2271,7 @@ async function api(request, response, url, {
         action: 'unauthorized_denied',
         entityType: 'audio_asset',
         entityId: assetId,
-        surface: 'workspace',
+        surface: 'library',
         studentId: identity.sub,
         previousValue: null,
         newValue: { errorCategory: 'auth' },
@@ -2304,7 +2287,10 @@ async function api(request, response, url, {
       error.code = 'P0002';
       throw error;
     }
-    const playback = await createAudioPlayback({ objectKey: asset.object_key });
+    const playbackKeys = await recordingsService.playbackKeys(asset);
+    const playbacks = await Promise.all(
+      playbackKeys.map((objectKey) => signAudioPlayback({ objectKey })),
+    );
     emitEvent({
       t: new Date().toISOString(),
       event: 'audio_playback_granted',
@@ -2320,7 +2306,9 @@ async function api(request, response, url, {
         byteSize: Number(asset.byte_size),
         durationMs: asset.duration_ms,
       },
-      ...playback,
+      playbackUrl: playbacks[0]?.playbackUrl,
+      playbackUrls: playbacks.map((item) => item.playbackUrl),
+      expiresIn: playbacks[0]?.expiresIn,
     });
   }
 
@@ -2392,6 +2380,7 @@ export function createAppServer({
   identityTransaction = withDatabaseIdentity,
   phaseOneRuntime = defaultPhaseOneRuntime,
   auditWriter = appendAudit,
+  audioPlaybackSigner = createAudioPlayback,
   reportEvent = emitStructuredEvent,
   reportError = emitStructuredError,
 } = {}) {
@@ -2402,6 +2391,7 @@ export function createAppServer({
     withIdentity: identityTransaction,
     flagService: phaseOneRuntime.flagService,
     recordingsService: phaseOneRuntime.recordingsService,
+    signAudioPlayback: audioPlaybackSigner,
   });
   return http.createServer(async (request, response) => {
     setSecurityHeaders(response);
@@ -2430,7 +2420,13 @@ export function createAppServer({
     } catch (error) {
       const failure = publicError(error);
       if (failure.status >= 500) reportError(safeRequestFailureEvent(failure));
-      sendJson(response, failure.status, { error: { code: failure.code, message: failure.message } });
+      sendJson(response, failure.status, {
+        error: {
+          code: failure.code,
+          message: failure.message,
+          ...(failure.retryAfterMs ? { retryAfterMs: failure.retryAfterMs } : {}),
+        },
+      });
     }
   });
 }
@@ -2443,11 +2439,18 @@ async function start() {
   const phaseOneRuntime = createPhaseOneRuntime({
     transcription: createTranscriptionAdapterForProvider(
       config.transcription.provider,
+      {
+        apiKey: config.transcription.apiKey,
+        primaryModel: config.transcription.primaryModel,
+        fallbackModel: config.transcription.fallbackModel,
+        emitEvent: emitStructuredEvent,
+      },
     ),
   });
   await healthCheck();
   await phaseOneRuntime.recordingsService.recoverPendingTranscriptions();
   await phaseOneRuntime.recordingsService.recoverPendingAssemblies();
+  await phaseOneRuntime.recordingsService.recoverPendingAudioAssets();
   const sweeps = phaseOneRuntime.recordingsService.startSweeps();
   const server = createAppServer({ phaseOneRuntime });
   server.listen(config.port, config.host, () => {

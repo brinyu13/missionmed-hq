@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
@@ -12,7 +13,23 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config, isAudioConfigured } from './config.mjs';
 
 const allowedTypes = new Set(['audio/webm', 'audio/mp4', 'audio/ogg', 'audio/wav']);
+const legacyAudioExtension = /\.(?:webm|m4a|mp4|ogg|wav)$/i;
 let client;
+
+export function audioExtension(contentType) {
+  const extension = {
+    'audio/webm': 'webm',
+    'audio/mp4': 'm4a',
+    'audio/ogg': 'ogg',
+    'audio/wav': 'wav',
+  }[String(contentType || '').toLowerCase()];
+  if (!extension) {
+    const error = new Error('Unsupported audio format.');
+    error.code = 'unsupported_audio_format';
+    throw error;
+  }
+  return extension;
+}
 
 export function createR2StorageClient({
   endpoint,
@@ -62,12 +79,7 @@ export async function createAudioUpload({ studentId, storyId, contentType, byteS
     error.code = 'invalid_audio_size';
     throw error;
   }
-  const extension = {
-    'audio/webm': 'webm',
-    'audio/mp4': 'm4a',
-    'audio/ogg': 'ogg',
-    'audio/wav': 'wav',
-  }[contentType];
+  const extension = audioExtension(contentType);
   const objectKey = `storyforge-audio/${studentId}/${storyId}/${randomUUID()}.${extension}`;
   const command = new PutObjectCommand({
     Bucket: config.r2.bucket,
@@ -114,6 +126,29 @@ export async function createAudioPlayback({ objectKey }) {
   return {
     playbackUrl,
     expiresIn: config.r2.signedUrlTtlSeconds,
+  };
+}
+
+export async function copyAudioObject({ sourceKey, targetKey, contentType }) {
+  await storageClient().send(new CopyObjectCommand({
+    Bucket: config.r2.bucket,
+    CopySource: `${config.r2.bucket}/${encodeURIComponent(sourceKey).replaceAll('%2F', '/')}`,
+    Key: targetKey,
+    ContentType: contentType,
+    MetadataDirective: 'REPLACE',
+  }));
+}
+
+export async function headAudioObject({ objectKey }) {
+  const result = await storageClient().send(new HeadObjectCommand({
+    Bucket: config.r2.bucket,
+    Key: objectKey,
+  }));
+  return {
+    objectKey,
+    contentType: result.ContentType || null,
+    byteSize: Number(result.ContentLength || 0),
+    etag: String(result.ETag || '').replaceAll('"', ''),
   };
 }
 
@@ -164,8 +199,8 @@ export async function deleteRecordingObjects({ objectKeys }) {
   }
 }
 
-async function objectKeysUnder(prefix) {
-  const keys = [];
+export async function listAudioObjects({ prefix }) {
+  const objects = [];
   let continuationToken;
   do {
     const result = await storageClient().send(new ListObjectsV2Command({
@@ -174,18 +209,36 @@ async function objectKeysUnder(prefix) {
       ContinuationToken: continuationToken,
     }));
     result.Contents?.forEach((item) => {
-      if (item.Key) keys.push(item.Key);
+      if (item.Key) {
+        objects.push({
+          objectKey: item.Key,
+          byteSize: Number(item.Size || 0),
+          lastModified: item.LastModified || null,
+          etag: String(item.ETag || '').replaceAll('"', ''),
+        });
+      }
     });
     continuationToken = result.IsTruncated ? result.NextContinuationToken : undefined;
   } while (continuationToken);
-  return keys;
+  return objects;
+}
+
+export async function deleteRecordingPrefix({ prefix }) {
+  const objects = await listAudioObjects({ prefix });
+  await deleteRecordingObjects({
+    objectKeys: objects.map((item) => item.objectKey),
+  });
+  return { deleted: objects.length };
 }
 
 export async function deleteAudioAssetObject({ asset }) {
   const objectKey = String(asset?.objectKey || asset?.object_key || '');
   if (!objectKey) return;
-  if (objectKey.endsWith('/')) {
-    await deleteRecordingObjects({ objectKeys: await objectKeysUnder(objectKey) });
+  if (!legacyAudioExtension.test(objectKey)) {
+    const objects = await listAudioObjects({ prefix: objectKey });
+    await deleteRecordingObjects({
+      objectKeys: objects.map((item) => item.objectKey),
+    });
     return;
   }
   await storageClient().send(new DeleteObjectCommand({

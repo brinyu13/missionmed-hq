@@ -24,6 +24,21 @@ function validCohortsFrom(environment) {
   return new Set(uniqueStrings(String(environment.STORYFORGE_VALID_COHORTS || '').split(',')));
 }
 
+async function queryFeatureAuditTail(_identity, client) {
+  const result = await client.query(
+    'SELECT * FROM public.sf_feature_audit_tail($1)',
+    [20],
+  );
+  return result.rows;
+}
+
+async function queryVoiceErrorSummary(_identity, client) {
+  const result = await client.query(
+    'SELECT * FROM public.sf_voice_error_summary()',
+  );
+  return result.rows;
+}
+
 function normalizedFlag(row) {
   if (!row) {
     return {
@@ -85,6 +100,18 @@ function validateMutation(input, environment, { allowEligibleAll = false } = {})
       'Allowlist and cohorts must be arrays.',
     );
   }
+  if (input.allowlist.length > 50) {
+    throw new VoiceFlagError(
+      'invalid_voice_allowlist',
+      'Allowlist entries must be StoryForge user identifiers.',
+    );
+  }
+  if (input.cohorts.length > 20) {
+    throw new VoiceFlagError(
+      'invalid_voice_cohort',
+      'Not a recognized 360 cohort.',
+    );
+  }
   if (input.allowlist.some((value) => !String(value).trim())) {
     throw new VoiceFlagError(
       'invalid_voice_allowlist',
@@ -126,8 +153,8 @@ export function createPostgresFlagStore({
   withIdentity,
   withServiceTransaction,
   appendAudit,
-  readFeatureAuditTail = null,
-  readVoiceErrorSummary = null,
+  readFeatureAuditTail = queryFeatureAuditTail,
+  readVoiceErrorSummary = queryVoiceErrorSummary,
 }) {
   requireFunction(withIdentity, 'withIdentity');
   requireFunction(withServiceTransaction, 'withServiceTransaction');
@@ -146,15 +173,26 @@ export function createPostgresFlagStore({
   }
 
   async function auditAdminDenial(identity, surface) {
-    return withIdentity(identity, async (client) => appendAudit(client, {
-      action: 'unauthorized_denied',
-      entityType: 'feature_flag',
-      entityId: null,
-      surface: 'system',
-      studentId: identity.sub,
-      previousValue: null,
-      newValue: { surface, errorCategory: 'auth' },
-    }));
+    try {
+      return await withIdentity(identity, async (client) => appendAudit(client, {
+        action: 'unauthorized_denied',
+        entityType: 'feature_flag',
+        entityId: null,
+        surface: 'system',
+        studentId: identity.sub,
+        previousValue: null,
+        newValue: { surface, errorCategory: 'auth' },
+      }));
+    } catch (error) {
+      if (
+        error?.code === 'audit_writer_unavailable'
+        && error?.cause?.code === '42501'
+        && /live identity required/i.test(String(error?.cause?.message || ''))
+      ) {
+        return null;
+      }
+      throw error;
+    }
   }
 
   async function readAdminFeatures(identity) {
@@ -172,7 +210,17 @@ export function createPostgresFlagStore({
           WHERE key = $1`,
         [voiceFlagKey],
       );
-      const auditRows = await readFeatureAuditTail(identity);
+      let auditRows;
+      try {
+        auditRows = await readFeatureAuditTail(identity, client);
+      } catch (cause) {
+        if (cause instanceof VoiceFlagError) throw cause;
+        throw new VoiceFlagError(
+          'feature_audit_unavailable',
+          'Feature history requires the approved audit query.',
+          503,
+        );
+      }
       return {
         flag: normalizedFlag(flagResult.rows[0]),
         audit: auditRows.map((row) => ({
@@ -258,7 +306,18 @@ export function createPostgresFlagStore({
         503,
       );
     }
-    const errors = await readVoiceErrorSummary(identity);
+    const errors = await withIdentity(identity, async (client) => {
+      try {
+        return await readVoiceErrorSummary(identity, client);
+      } catch (cause) {
+        if (cause instanceof VoiceFlagError) throw cause;
+        throw new VoiceFlagError(
+          'voice_health_audit_unavailable',
+          'Voice health error summaries require the approved audit query.',
+          503,
+        );
+      }
+    });
     const permittedCategories = new Set([
       'mic',
       'upload',

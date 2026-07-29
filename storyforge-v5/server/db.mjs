@@ -67,16 +67,13 @@ export async function appendAudit(client, {
   surface,
   studentId = null,
   storyId = null,
-  questionId = null,
   previousValue = null,
   newValue = null,
-  detail = null,
-  visibility = 'both',
 }) {
   try {
     const result = await client.query(
-      `SELECT public.sf_append_audit(
-         $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11
+      `SELECT public.sf_append_voice_audit(
+         $1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb
        ) AS id`,
       [
         action,
@@ -85,17 +82,55 @@ export async function appendAudit(client, {
         surface,
         studentId,
         storyId,
-        questionId,
         previousValue == null ? null : JSON.stringify(previousValue),
         newValue == null ? null : JSON.stringify(newValue),
-        detail,
-        visibility,
+      ],
+    );
+    return result.rows[0]?.id ?? null;
+  } catch (cause) {
+    if (
+      action === 'unauthorized_denied'
+      && cause?.code === '42501'
+      && /live identity required/i.test(String(cause?.message || ''))
+    ) {
+      return null;
+    }
+    if (cause?.code !== '42501') throw cause;
+    const error = new Error('The StoryForge audit writer is unavailable.', { cause });
+    error.code = 'audit_writer_unavailable';
+    error.status = 503;
+    throw error;
+  }
+}
+
+export async function appendServiceAudit(client, {
+  action,
+  entityType,
+  entityId = null,
+  studentId = null,
+  storyId = null,
+  previousValue = null,
+  newValue = null,
+}) {
+  try {
+    const result = await client.query(
+      `SELECT public.sf_append_voice_audit_service(
+         $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb
+       ) AS id`,
+      [
+        action,
+        entityType,
+        entityId,
+        studentId,
+        storyId,
+        previousValue == null ? null : JSON.stringify(previousValue),
+        newValue == null ? null : JSON.stringify(newValue),
       ],
     );
     return result.rows[0]?.id ?? null;
   } catch (cause) {
     if (cause?.code !== '42501') throw cause;
-    const error = new Error('The StoryForge audit writer is unavailable.', { cause });
+    const error = new Error('The StoryForge service audit writer is unavailable.', { cause });
     error.code = 'audit_writer_unavailable';
     error.status = 503;
     throw error;

@@ -286,6 +286,38 @@ export async function completeServerTranscriptSegment(recordingId, seq, transcri
   });
 }
 
+export async function seedVerifiedAudioAsset(storyId, {
+  durationMs = 19_000,
+} = {}) {
+  const assetId = randomUUID();
+  await withDatabase(async (client) => {
+    await client.query(
+      `INSERT INTO public.sf_audio_assets (
+         id, story_id, student_id, object_key, content_type, byte_size,
+         duration_ms, state, verified_at
+       )
+       VALUES (
+         $1, $2, $3, $4, 'audio/webm', 32, $5, 'verified', now()
+       )`,
+      [
+        assetId,
+        storyId,
+        STUDENT_ID,
+        `storyforge-audio/${STUDENT_ID}/${storyId}/${assetId}`,
+        durationMs,
+      ],
+    );
+  });
+  return assetId;
+}
+
+export async function removeAudioAsset(assetId) {
+  await withDatabase((client) => client.query(
+    'DELETE FROM public.sf_audio_assets WHERE id = $1',
+    [assetId],
+  ));
+}
+
 export async function studentRecordingSessionCount() {
   return withDatabase(async (client) => {
     const result = await client.query(

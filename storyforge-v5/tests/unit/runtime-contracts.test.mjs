@@ -40,6 +40,9 @@ async function loadConfig(environment) {
     'STORYFORGE_JWKS_URL',
     'STORYFORGE_JWT_SECRET',
     'STORYFORGE_TRANSCRIBE_PROVIDER',
+    'STORYFORGE_OPENAI_API_KEY',
+    'STORYFORGE_TRANSCRIBE_PRIMARY_MODEL',
+    'STORYFORGE_TRANSCRIBE_FALLBACK_MODEL',
   ];
   const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   try {
@@ -105,7 +108,7 @@ test('production rejects standalone SPA serving and a noncanonical Matrix base p
   ));
 });
 
-test('transcription stays in the authorized provider-off mode until authority is amended', async () => {
+test('transcription accepts only the bounded provider and fixed model pair', async () => {
   const defaultOff = await loadConfig({});
   assert.equal(defaultOff.config.transcription.provider, 'none');
   assert(!defaultOff.validateConfig().some((error) => (
@@ -121,7 +124,38 @@ test('transcription stays in the authorized provider-off mode until authority is
     STORYFORGE_TRANSCRIBE_PROVIDER: 'unapproved-provider',
   });
   assert(unapproved.validateConfig().includes(
-    'STORYFORGE_TRANSCRIBE_PROVIDER must remain none until provider authority is amended',
+    'STORYFORGE_TRANSCRIBE_PROVIDER must be none or openai',
+  ));
+
+  const missingKey = await loadConfig({
+    STORYFORGE_TRANSCRIBE_PROVIDER: 'openai',
+  });
+  assert(missingKey.validateConfig().includes(
+    'STORYFORGE_OPENAI_API_KEY is required when the transcription provider is openai',
+  ));
+
+  const bounded = await loadConfig({
+    STORYFORGE_TRANSCRIBE_PROVIDER: 'openai',
+    STORYFORGE_OPENAI_API_KEY: 'test-only-key',
+    STORYFORGE_TRANSCRIBE_PRIMARY_MODEL: 'whisper-1',
+    STORYFORGE_TRANSCRIBE_FALLBACK_MODEL: 'gpt-4o-transcribe',
+  });
+  assert.equal(bounded.validateConfig().some((error) => (
+    error.startsWith('STORYFORGE_TRANSCRIBE_')
+  )), false);
+
+  const unapprovedModel = await loadConfig({
+    STORYFORGE_TRANSCRIBE_PRIMARY_MODEL: 'gpt-4o-mini-transcribe',
+  });
+  assert(unapprovedModel.validateConfig().includes(
+    'STORYFORGE_TRANSCRIBE_PRIMARY_MODEL must use the fixed StoryForge model pair',
+  ));
+
+  const unapprovedFallback = await loadConfig({
+    STORYFORGE_TRANSCRIBE_FALLBACK_MODEL: 'another-model',
+  });
+  assert(unapprovedFallback.validateConfig().includes(
+    'STORYFORGE_TRANSCRIBE_FALLBACK_MODEL must use the fixed StoryForge model pair',
   ));
 });
 

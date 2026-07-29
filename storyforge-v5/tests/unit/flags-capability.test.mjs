@@ -15,6 +15,11 @@ const student = Object.freeze({
   eligible: true,
   cohort: 'G7',
 });
+const admin = Object.freeze({
+  sub: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  role: 'admin',
+  eligible: true,
+});
 
 function flag(overrides = {}) {
   return {
@@ -177,11 +182,6 @@ test('scope-change grace is limited to a pre-existing recording for ten minutes'
 
 test('admin mutations validate UUIDs and exact configured cohorts', async () => {
   const fixture = storeFixture();
-  const admin = {
-    sub: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-    role: 'admin',
-    eligible: true,
-  };
   const service = createFlagService({
     store: fixture.store,
     environment: { STORYFORGE_VALID_COHORTS: 'G7,G8' },
@@ -231,6 +231,43 @@ test('admin mutations validate UUIDs and exact configured cohorts', async () => 
   );
 });
 
+test('admin mutation bounds accept exactly 50 allowlist and 20 cohort entries', async () => {
+  const fixture = storeFixture();
+  const allowlist = Array.from({ length: 50 }, (_, index) => (
+    `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
+  ));
+  const cohorts = Array.from({ length: 20 }, (_, index) => `G${index + 1}`);
+  const service = createFlagService({
+    store: fixture.store,
+    environment: { STORYFORGE_VALID_COHORTS: cohorts.join(',') },
+  });
+
+  const boundary = await service.updateVoiceCapture(admin, {
+    scope: 'allowlist',
+    allowlist,
+    cohorts,
+  });
+  assert.equal(boundary.allowlist.length, 50);
+  assert.equal(boundary.cohorts.length, 20);
+
+  await assert.rejects(
+    service.updateVoiceCapture(admin, {
+      scope: 'allowlist',
+      allowlist: [...allowlist, otherStudentId],
+      cohorts: [],
+    }),
+    (error) => error.code === 'invalid_voice_allowlist',
+  );
+  await assert.rejects(
+    service.updateVoiceCapture(admin, {
+      scope: 'cohort',
+      allowlist: [],
+      cohorts: [...cohorts, 'G21'],
+    }),
+    (error) => error.code === 'invalid_voice_cohort',
+  );
+});
+
 test('non-admin feature and health access is denied only after an audit attempt', async () => {
   const fixture = storeFixture();
   const service = createFlagService({ store: fixture.store, environment: {} });
@@ -248,46 +285,153 @@ test('non-admin feature and health access is denied only after an audit attempt'
   );
 });
 
-test('E13 fails closed until the authority-approved cross-student audit query is supplied', async () => {
+test('E13 runs the approved bounded error summary on the same identity client', async () => {
+  const identityQueries = [];
+  const serviceQueries = [];
+  const identityClient = {
+    async query(text, params) {
+      identityQueries.push({ text, params });
+      return {
+        rows: [
+          { error_category: 'transcribe', count: 3 },
+          { error_category: 'assembly', count: 1 },
+        ],
+      };
+    },
+  };
   const store = createPostgresFlagStore({
-    withIdentity: async (identity, operation) => operation({ query: async () => ({ rows: [] }) }),
+    withIdentity: async (identity, operation) => {
+      assert.equal(identity, admin);
+      return operation(identityClient);
+    },
     withServiceTransaction: async (operation) => operation({
-      async query() {
-        return { rows: [{ state: 'recording', count: 2 }] };
+      async query(text, params) {
+        serviceQueries.push({ text, params });
+        return {
+          rows: [
+            { state: 'recording', count: 2 },
+            { state: 'attached', count: 4 },
+          ],
+        };
       },
     }),
     appendAudit: async () => {},
   });
-  await assert.rejects(
-    store.readVoiceHealth({
-      sub: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      role: 'admin',
-      eligible: true,
-    }),
-    (error) => (
-      error.code === 'voice_health_audit_unavailable'
-      && error.status === 503
-    ),
+  assert.deepEqual(await store.readVoiceHealth(admin), {
+    windowHours: 24,
+    sessionsByState: [
+      { state: 'recording', count: 2 },
+      { state: 'attached', count: 4 },
+    ],
+    errorsByCategory: [
+      { errorCategory: 'transcribe', count: 3 },
+      { errorCategory: 'assembly', count: 1 },
+    ],
+  });
+  assert.equal(identityQueries.length, 1);
+  assert.equal(
+    identityQueries[0].text,
+    'SELECT * FROM public.sf_voice_error_summary()',
   );
+  assert.equal(identityQueries[0].params, undefined);
+  assert.equal(serviceQueries.length, 1);
+  assert.match(serviceQueries[0].text, /FROM public\.sf_recording_sessions/);
 });
 
-test('E11 fails closed rather than returning a caller-filtered feature history', async () => {
+test('E11 runs the approved bounded feature history query on the same identity client', async () => {
+  const queries = [];
+  const identityClient = {
+    async query(text, params) {
+      queries.push({ text, params });
+      if (text.includes('FROM public.sf_feature_flags')) {
+        return {
+          rows: [{
+            key: 'voice_capture',
+            scope: 'allowlist',
+            allowlist: [studentId],
+            cohorts: [],
+            updated_by: admin.sub,
+            updated_at: '2026-07-29T13:00:00.000Z',
+          }],
+        };
+      }
+      assert.equal(text, 'SELECT * FROM public.sf_feature_audit_tail($1)');
+      assert.deepEqual(params, [20]);
+      return {
+        rows: [{
+          id: 41,
+          actor_id: admin.sub,
+          action: 'feature_scope_changed',
+          previous_value: { scope: 'off', allowlist: [], cohorts: [] },
+          new_value: {
+            scope: 'allowlist',
+            allowlist: [studentId],
+            cohorts: [],
+          },
+          created_at: '2026-07-29T13:00:00.000Z',
+        }],
+      };
+    },
+  };
+  let identityTransactions = 0;
   const store = createPostgresFlagStore({
-    withIdentity: async (identity, operation) => operation({
+    withIdentity: async (identity, operation) => {
+      identityTransactions += 1;
+      assert.equal(identity, admin);
+      return operation(identityClient);
+    },
+    withServiceTransaction: async (operation) => operation({ query: async () => ({ rows: [] }) }),
+    appendAudit: async () => {},
+  });
+  assert.deepEqual(await store.readAdminFeatures(admin), {
+    flag: {
+      key: 'voice_capture',
+      scope: 'allowlist',
+      allowlist: [studentId],
+      cohorts: [],
+      updatedBy: admin.sub,
+      updatedAt: '2026-07-29T13:00:00.000Z',
+    },
+    audit: [{
+      id: '41',
+      actorId: admin.sub,
+      action: 'feature_scope_changed',
+      previous: { scope: 'off', allowlist: [], cohorts: [] },
+      current: {
+        scope: 'allowlist',
+        allowlist: [studentId],
+        cohorts: [],
+      },
+      createdAt: '2026-07-29T13:00:00.000Z',
+    }],
+  });
+  assert.equal(identityTransactions, 1);
+  assert.equal(queries.length, 2);
+});
+
+test('E11 and E13 retain their 503 seams when an approved query is absent', async () => {
+  const store = createPostgresFlagStore({
+    withIdentity: async (_identity, operation) => operation({
       async query() {
         return { rows: [] };
       },
     }),
-    withServiceTransaction: async (operation) => operation({ query: async () => ({ rows: [] }) }),
+    withServiceTransaction: async (operation) => operation({
+      async query() {
+        return { rows: [] };
+      },
+    }),
     appendAudit: async () => {},
+    readFeatureAuditTail: null,
+    readVoiceErrorSummary: null,
   });
   await assert.rejects(
-    store.readAdminFeatures({
-      sub: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
-      role: 'admin',
-      eligible: true,
-    }),
+    store.readAdminFeatures(admin),
     (error) => error.code === 'feature_audit_unavailable' && error.status === 503,
+  );
+  await assert.rejects(
+    store.readVoiceHealth(admin),
+    (error) => error.code === 'voice_health_audit_unavailable' && error.status === 503,
   );
 });
 

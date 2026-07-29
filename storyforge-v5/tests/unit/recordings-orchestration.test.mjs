@@ -49,7 +49,26 @@ function segment(overrides = {}) {
 
 function storeFixture(overrides = {}) {
   return {
+    async attachRecording() {
+      return {
+        story: { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' },
+        attachment: {
+          assetId,
+          recordingId,
+          studentId,
+          storyId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          objectKey: `storyforge-audio/${studentId}/story/${assetId}`,
+          contentType: 'audio/webm',
+          segmentCount: 1,
+          state: 'pending',
+        },
+        created: true,
+      };
+    },
     async auditRecordingDenial() {},
+    async checkAudioReferences() {
+      return [];
+    },
     async openSession() {
       return { session: session(), created: true };
     },
@@ -108,22 +127,44 @@ function storeFixture(overrides = {}) {
     async markAssemblyFailed() {
       return true;
     },
-    async cancelSession(identity, id, purgeObjects) {
-      await purgeObjects({ segmentKeys: [], asset: null });
-      return { state: 'cancelled', changed: true };
+    async cancelSession(identity, id) {
+      return {
+        state: 'cancelled',
+        changed: true,
+        objectKeys: [],
+        prefix: `storyforge-rec/${identity.sub}/${id}/`,
+      };
     },
     async retryCandidates() {
       return [];
     },
-    async deleteAudio(identity, id, deleteAsset) {
-      await deleteAsset({ id, object_key: `storyforge-audio/${studentId}/story/${id}.webm` });
-      return { state: 'retired', changed: true };
+    async deleteAudio(identity, id) {
+      return {
+        state: 'retired',
+        changed: true,
+        objectKey: `storyforge-audio/${studentId}/story/${id}.webm`,
+        storyId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      };
     },
+    async markAudioFailed() {
+      return [];
+    },
+    async markAudioVerified() {
+      return [];
+    },
+    async pendingAudioAssets() {
+      return [];
+    },
+    async readAudioManifest() {
+      return { segmentCount: 1 };
+    },
+    async recordObjectDeleteRetry() {},
+    async recordProviderFailover() {},
     async sweepCandidates() {
       return [];
     },
     async sweepSession() {
-      return false;
+      return { changed: false, objectKeys: [] };
     },
     async pendingTranscriptions() {
       return [];
@@ -142,12 +183,6 @@ function serviceFixture({
   storageOverrides = {},
   transcriptionOverrides = {},
   assemblyOverrides = {},
-  audioRetirement = {
-    available: true,
-    async retireAudio({ identity, assetId: id, store, deleteAsset }) {
-      return store.deleteAudio(identity, id, deleteAsset);
-    },
-  },
   environment = {},
   delay = async () => {},
 } = {}) {
@@ -156,6 +191,7 @@ function serviceFixture({
     puts: [],
     gets: [],
     deletedObjects: [],
+    deletedPrefixes: [],
     deletedAssets: [],
     transcriptions: [],
     releasedTranscriptionSessions: [],
@@ -175,6 +211,10 @@ function serviceFixture({
     async deleteAudioAssetObject(input) {
       calls.deletedAssets.push(input);
     },
+    async deleteRecordingPrefix(input) {
+      calls.deletedPrefixes.push(input);
+      return { deleted: 0 };
+    },
     ...storageOverrides,
   };
   const transcription = {
@@ -189,6 +229,12 @@ function serviceFixture({
         providerId: 'internal-primary',
         modelId: 'internal-model',
         latencyMs: 375,
+        usage: {
+          inputTokens: 18,
+          outputTokens: 7,
+          totalTokens: 25,
+          transcript: 'never emit provider content',
+        },
       };
     },
     releaseSession(id) {
@@ -197,9 +243,10 @@ function serviceFixture({
     ...transcriptionOverrides,
   };
   const assembly = {
+    available: true,
+    option: 'A',
     async assembleRecording(input) {
       calls.assembly.push(input);
-      return { assetId };
     },
     ...assemblyOverrides,
   };
@@ -212,7 +259,6 @@ function serviceFixture({
     storage,
     transcription,
     assembly,
-    audioRetirement,
     emitEvent(event) {
       calls.events.push(event);
     },
@@ -283,6 +329,84 @@ test('E2 stores a deterministic private segment and completes queued transcripti
   assert.equal(calls.events.some((event) => (
     JSON.stringify(event).includes('The final transcript')
   )), false);
+  const completionEvent = calls.events.find((event) => (
+    event.event === 'segment_transcribed'
+  ));
+  assert.equal(completionEvent.inputTokens, 18);
+  assert.equal(completionEvent.outputTokens, 7);
+  assert.equal(completionEvent.totalTokens, 25);
+  assert.equal('transcript' in completionEvent, false);
+});
+
+test('post-claim storage failure becomes an audited retryable transcription failure', async () => {
+  let failure;
+  const store = storeFixture({
+    async failTranscription(claim, code) {
+      failure = { claim, code };
+      return 1;
+    },
+  });
+  const { service, calls } = serviceFixture({
+    store,
+    storageOverrides: {
+      async getRecordingSegment() {
+        throw new Error('private object-store detail');
+      },
+    },
+  });
+  await service.addSegment(student, recordingId, {
+    seq: 0,
+    mimeType: 'audio/webm',
+    durationMs: 4_000,
+    buffer: Buffer.from('abc'),
+  });
+  await service.waitForTranscriptionIdle(recordingId);
+  assert.equal(failure.code, 'transcribe_unavailable');
+  assert.equal(failure.claim.recordingId, recordingId);
+  assert.equal(calls.transcriptions.length, 0);
+  assert.equal(
+    calls.events.some((event) => event.event === 'segment_transcribe_failed'),
+    true,
+  );
+});
+
+test('provider failover is durably audited before transcript completion', async () => {
+  const order = [];
+  let pending = true;
+  const store = storeFixture({
+    async recordProviderFailover(claim) {
+      order.push(`failover:${claim.recordingId}:${claim.studentId}`);
+    },
+    async completeTranscription() {
+      order.push('transcript-completed');
+      return true;
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    transcriptionOverrides: {
+      hasPendingFailover(id) {
+        return id === recordingId && pending;
+      },
+      acknowledgeFailover(id) {
+        assert.equal(id, recordingId);
+        pending = false;
+        return true;
+      },
+    },
+  });
+  await service.addSegment(student, recordingId, {
+    seq: 0,
+    mimeType: 'audio/webm',
+    durationMs: 4_000,
+    buffer: Buffer.from('abc'),
+  });
+  await service.waitForTranscriptionIdle(recordingId);
+  assert.deepEqual(order, [
+    `failover:${recordingId}:${studentId}`,
+    'transcript-completed',
+  ]);
+  assert.equal(pending, false);
 });
 
 test('E2 duplicate sequence is retry-safe and does not rewrite or retranscribe', async () => {
@@ -452,8 +576,8 @@ test('E3 returns ordered transcript state without provider or storage internals'
 test('E4 delegates assembly without selecting an assembly implementation', async () => {
   let assembled;
   const store = storeFixture({
-    async markAssembled(id, ownerId, completedAssetId) {
-      assembled = { id, ownerId, completedAssetId };
+    async markAssembled(id, ownerId) {
+      assembled = { id, ownerId };
       return true;
     },
   });
@@ -467,8 +591,67 @@ test('E4 delegates assembly without selecting an assembly implementation', async
   assert.deepEqual(assembled, {
     id: recordingId,
     ownerId: studentId,
-    completedAssetId: assetId,
   });
+  assert.deepEqual(calls.releasedTranscriptionSessions, [recordingId]);
+});
+
+test('E4 waits for the final queued transcript before assembly and adapter release', async () => {
+  let resolveTranscription;
+  let transcriptComplete = false;
+  let finishCalls = 0;
+  const store = storeFixture({
+    async completeTranscription() {
+      transcriptComplete = true;
+      return true;
+    },
+    async readStatus() {
+      return {
+        session: session({ segmentCount: 1 }),
+        segments: [segment({
+          transcribeState: transcriptComplete ? 'transcribed' : 'transcribing',
+        })],
+      };
+    },
+    async finishSession() {
+      finishCalls += 1;
+      assert.equal(transcriptComplete, true);
+      return { session: session({ state: 'finishing' }), transitioned: true };
+    },
+  });
+  const { service, calls } = serviceFixture({
+    store,
+    transcriptionOverrides: {
+      async transcribeSegment() {
+        await new Promise((resolve) => {
+          resolveTranscription = resolve;
+        });
+        return {
+          text: 'Final words.',
+          flaggedTerms: [],
+          providerId: 'internal',
+          modelId: 'internal',
+          latencyMs: 1,
+        };
+      },
+    },
+  });
+  await service.addSegment(student, recordingId, {
+    seq: 0,
+    mimeType: 'audio/webm',
+    durationMs: 4_000,
+    buffer: Buffer.from('abc'),
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  const finishing = service.finishRecording(student, recordingId, {
+    clientDurationMs: 4_000,
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(finishCalls, 0);
+  assert.deepEqual(calls.releasedTranscriptionSessions, []);
+  resolveTranscription();
+  assert.deepEqual(await finishing, { state: 'finishing' });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(finishCalls, 1);
   assert.deepEqual(calls.releasedTranscriptionSessions, [recordingId]);
 });
 
@@ -502,15 +685,16 @@ test('E4 fails before session mutation when the RP-8 assembly lane is unavailabl
 test('E5 cancel purges transient objects and E8 deletion remains outside the voice flag', async () => {
   let flagChecks = 0;
   const store = storeFixture({
-    async cancelSession(identity, id, purgeObjects) {
-      await purgeObjects({
-        segmentKeys: [
+    async cancelSession(identity, id) {
+      return {
+        state: 'cancelled',
+        changed: true,
+        objectKeys: [
           `storyforge-rec/${studentId}/${id}/seg-00000.webm`,
           `storyforge-rec/${studentId}/${id}/seg-00001.webm`,
         ],
-        asset: null,
-      });
-      return { state: 'cancelled', changed: true };
+        prefix: `storyforge-rec/${studentId}/${id}/`,
+      };
     },
   });
   const { service, calls } = serviceFixture({
@@ -522,20 +706,30 @@ test('E5 cancel purges transient objects and E8 deletion remains outside the voi
   assert.deepEqual(await service.cancelRecording(student, recordingId), {
     state: 'cancelled',
   });
-  assert.deepEqual(calls.deletedObjects[0].objectKeys, [
-    `storyforge-rec/${studentId}/${recordingId}/seg-00000.webm`,
-    `storyforge-rec/${studentId}/${recordingId}/seg-00001.webm`,
-  ]);
+  assert.deepEqual(calls.deletedPrefixes, [{
+    prefix: `storyforge-rec/${studentId}/${recordingId}/`,
+  }]);
   assert.deepEqual(calls.releasedTranscriptionSessions, [recordingId]);
   const checksBeforeDelete = flagChecks;
   assert.deepEqual(await service.deleteAudio(student, assetId), { state: 'retired' });
   assert.equal(flagChecks, checksBeforeDelete);
-  assert.equal(calls.deletedAssets[0].asset.id, assetId);
+  assert.equal(
+    calls.deletedAssets[0].asset.objectKey,
+    `storyforge-audio/${studentId}/story/${assetId}.webm`,
+  );
 });
 
 test('E8 fails before object deletion while lifecycle transaction authority is unavailable', async () => {
   const { service, calls } = serviceFixture({
-    audioRetirement: { available: false },
+    store: storeFixture({
+      async deleteAudio() {
+        throw new RecordingError(
+          'audio_retirement_authority_blocked',
+          'Audio deletion is unavailable.',
+          503,
+        );
+      },
+    }),
   });
   await assert.rejects(
     service.deleteAudio(student, assetId),
@@ -758,10 +952,19 @@ test('session sweeps isolate failures and never claim failed cleanup as success'
   const second = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
   const store = storeFixture({
     async sweepCandidates() {
-      return [first, second];
+      return [
+        { recordingId: first, studentId, reason: 'abandoned_24h' },
+        { recordingId: second, studentId, reason: 'abandoned_24h' },
+      ];
     },
-    async sweepSession(id) {
-      if (id === first) return true;
+    async sweepSession(candidate) {
+      if (candidate.recordingId === first) {
+        return {
+          changed: true,
+          objectKeys: [],
+          prefix: `storyforge-rec/${studentId}/${first}/`,
+        };
+      }
       throw new Error('object store unavailable');
     },
   });
@@ -771,4 +974,242 @@ test('session sweeps isolate failures and never claim failed cleanup as success'
     cleaned: 1,
     failures: [second],
   });
+});
+
+test('10-minute maintenance retries pending durable audio even when session sweeping fails', async () => {
+  let pendingScans = 0;
+  const store = storeFixture({
+    async sweepCandidates() {
+      throw new Error('session sweep unavailable');
+    },
+    async pendingAudioAssets() {
+      pendingScans += 1;
+      return [];
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    environment: { STORYFORGE_ASSEMBLY_OPTION: 'A' },
+  });
+  assert.deepEqual(await service.runMaintenance(), {
+    sessions: { failed: true },
+    pendingAudioAssets: {
+      scanned: 0,
+      verified: 0,
+      failed: 0,
+    },
+    transcriptions: { queued: 0 },
+  });
+  assert.equal(pendingScans, 1);
+});
+
+test('pending-audio recovery retries a fresh asset and terminally fails an hour-old asset', async () => {
+  const retryAssetId = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
+  const failedAssetId = 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee';
+  const stem = `storyforge-audio/${studentId}/story`;
+  const verified = [];
+  const failed = [];
+  const store = storeFixture({
+    async pendingAudioAssets() {
+      return [
+        {
+          assetId: retryAssetId,
+          recordingId,
+          studentId,
+          storyId: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+          objectKey: `${stem}/${retryAssetId}`,
+          contentType: 'audio/webm',
+          segmentCount: 1,
+          pendingMinutes: 20,
+        },
+        {
+          assetId: failedAssetId,
+          recordingId: '99999999-9999-4999-8999-999999999999',
+          studentId,
+          storyId: '88888888-8888-4888-8888-888888888888',
+          objectKey: `${stem}/${failedAssetId}`,
+          contentType: 'audio/webm',
+          segmentCount: 1,
+          pendingMinutes: 60,
+        },
+      ];
+    },
+    async markAudioVerified(id, byteSize, checksumSha256) {
+      verified.push({ id, byteSize, checksumSha256 });
+      return [`storyforge-rec/${studentId}/${recordingId}/seg-00000.webm`];
+    },
+    async markAudioFailed(id) {
+      failed.push(id);
+      return [
+        `storyforge-rec/${studentId}/99999999-9999-4999-8999-999999999999/seg-00000.webm`,
+      ];
+    },
+  });
+  const assembledBytes = Buffer.from('restart-safe-audio');
+  const { service, calls } = serviceFixture({
+    store,
+    storageOverrides: {
+      async copyAudioObject() {},
+      async headAudioObject() {
+        return { contentType: 'audio/webm', byteSize: assembledBytes.byteLength };
+      },
+      async getRecordingSegment() {
+        return assembledBytes;
+      },
+    },
+    assemblyOverrides: { option: 'A' },
+  });
+  assert.deepEqual(await service.recoverPendingAudioAssets(), {
+    scanned: 2,
+    verified: 1,
+    failed: 1,
+  });
+  assert.equal(verified.length, 1);
+  assert.equal(verified[0].id, retryAssetId);
+  assert.equal(failed[0], failedAssetId);
+  assert.deepEqual(calls.deletedPrefixes.map((item) => item.prefix), [
+    `storyforge-rec/${studentId}/${recordingId}/`,
+    `storyforge-rec/${studentId}/99999999-9999-4999-8999-999999999999/`,
+  ]);
+});
+
+test('E7 Option A copies, HEAD-verifies, checksums, finalizes, and purges temp audio', async () => {
+  const copies = [];
+  const heads = [];
+  let finalized;
+  const assembledBytes = Buffer.from('assembled-option-a');
+  const store = storeFixture({
+    async markAudioVerified(id, byteSize, checksumSha256) {
+      finalized = { id, byteSize, checksumSha256 };
+      return [
+        `storyforge-rec/${studentId}/${recordingId}/seg-00000.webm`,
+        `storyforge-rec/${studentId}/${recordingId}/assembled.webm`,
+      ];
+    },
+  });
+  const { service, calls } = serviceFixture({
+    store,
+    storageOverrides: {
+      async copyAudioObject(input) {
+        copies.push(input);
+      },
+      async headAudioObject(input) {
+        heads.push(input);
+        return { contentType: 'audio/webm', byteSize: assembledBytes.byteLength };
+      },
+      async getRecordingSegment() {
+        return assembledBytes;
+      },
+    },
+    assemblyOverrides: { option: 'A' },
+  });
+
+  const saved = await service.saveRecordingStory(student, recordingId, {
+    title: 'Reviewed voice story',
+    text: 'Reviewed transcript',
+  });
+  const stem = `storyforge-audio/${studentId}/story/${assetId}`;
+  assert.deepEqual(copies, [{
+    sourceKey: `storyforge-rec/${studentId}/${recordingId}/assembled.webm`,
+    targetKey: `${stem}.webm`,
+    contentType: 'audio/webm',
+  }]);
+  assert.deepEqual(heads, [{ objectKey: `${stem}.webm` }]);
+  assert.deepEqual(finalized, {
+    id: assetId,
+    byteSize: assembledBytes.byteLength,
+    checksumSha256: '06787d290b820efe4267073b163877172be6dd5601bc2171432bff875320103a',
+  });
+  assert.equal(saved.attachment.state, 'verified');
+  assert.equal(calls.deletedPrefixes.length, 1);
+  assert.equal(
+    calls.deletedPrefixes[0].prefix,
+    `storyforge-rec/${studentId}/${recordingId}/`,
+  );
+});
+
+test('E7 Option B copies ordered segments, aggregates verified bytes, and retains playback order', async () => {
+  const copies = [];
+  let finalized;
+  const stem = `storyforge-audio/${studentId}/story/${assetId}`;
+  const store = storeFixture({
+    async attachRecording() {
+      return {
+        story: { id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd' },
+        attachment: {
+          assetId,
+          recordingId,
+          studentId,
+          storyId: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          objectKey: stem,
+          contentType: 'audio/mp4',
+          segmentCount: 2,
+          state: 'pending',
+        },
+        created: true,
+      };
+    },
+    async markAudioVerified(id, byteSize, checksumSha256) {
+      finalized = { id, byteSize, checksumSha256 };
+      return [];
+    },
+    async readAudioManifest() {
+      return { segmentCount: 2 };
+    },
+  });
+  const { service } = serviceFixture({
+    store,
+    storageOverrides: {
+      async copyAudioObject(input) {
+        copies.push(input);
+      },
+      async headAudioObject() {
+        return { contentType: 'audio/mp4', byteSize: 11 };
+      },
+    },
+    assemblyOverrides: { option: 'B' },
+  });
+
+  const saved = await service.saveRecordingStory(student, recordingId, {
+    title: 'Reviewed voice story',
+    text: 'Reviewed transcript',
+  });
+  assert.deepEqual(copies, [
+    {
+      sourceKey: `storyforge-rec/${studentId}/${recordingId}/seg-00000.m4a`,
+      targetKey: `${stem}/seg-00000.m4a`,
+      contentType: 'audio/mp4',
+    },
+    {
+      sourceKey: `storyforge-rec/${studentId}/${recordingId}/seg-00001.m4a`,
+      targetKey: `${stem}/seg-00001.m4a`,
+      contentType: 'audio/mp4',
+    },
+  ]);
+  assert.deepEqual(finalized, {
+    id: assetId,
+    byteSize: 22,
+    checksumSha256: null,
+  });
+  assert.equal(saved.attachment.state, 'verified');
+  assert.deepEqual(await service.playbackKeys({
+    id: assetId,
+    object_key: stem,
+    content_type: 'audio/mp4',
+  }), [
+    `${stem}/seg-00000.m4a`,
+    `${stem}/seg-00001.m4a`,
+  ]);
+});
+
+test('legacy playback signs a stored full key verbatim without selecting an assembly option', async () => {
+  const { service } = serviceFixture({
+    assemblyOverrides: { option: undefined },
+  });
+  const objectKey = `storyforge-audio/${studentId}/legacy/${assetId}.mp4`;
+  assert.deepEqual(await service.playbackKeys({
+    id: assetId,
+    object_key: objectKey,
+    content_type: 'audio/mp4',
+  }), [objectKey]);
 });

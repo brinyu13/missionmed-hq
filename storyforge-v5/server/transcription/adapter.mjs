@@ -1,11 +1,27 @@
 import { keywordsForDraft } from './keywords.mjs';
 import { flagLexiconTerms } from './lexicon.mjs';
+import {
+  createOpenAIGpt4oTranscribeDriver,
+} from './openai-gpt-4o-transcribe.mjs';
+import {
+  createOpenAIWhisper1Driver,
+} from './openai-whisper1.mjs';
 
 const safeCodes = new Set([
   'transcribe_unavailable',
   'transcribe_timeout',
   'transcribe_rejected_format',
   'transcribe_failed_permanent',
+]);
+const usageMetricNames = Object.freeze([
+  'inputTokens',
+  'outputTokens',
+  'totalTokens',
+  'durationSeconds',
+  'inputAudioTokens',
+  'inputTextTokens',
+  'outputAudioTokens',
+  'outputTextTokens',
 ]);
 
 export class TranscriptionError extends Error {
@@ -23,6 +39,17 @@ function requireDriver(driver, name) {
   return driver;
 }
 
+function normalizeUsage(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return Object.freeze({});
+  }
+  return Object.freeze(Object.fromEntries(
+    usageMetricNames
+      .map((name) => [name, Number(value[name])])
+      .filter(([, metric]) => Number.isFinite(metric) && metric >= 0),
+  ));
+}
+
 function normalizeResult(result, startedAt, now) {
   return {
     text: String(result?.text || ''),
@@ -33,6 +60,7 @@ function normalizeResult(result, startedAt, now) {
     flaggedTerms: Array.isArray(result?.flaggedTerms) ? result.flaggedTerms : [],
     providerId: result?.providerId ? String(result.providerId) : null,
     modelId: result?.modelId ? String(result.modelId) : null,
+    usage: normalizeUsage(result?.usage),
     latencyMs: Number.isFinite(Number(result?.latencyMs))
       ? Math.max(0, Math.round(Number(result.latencyMs)))
       : Math.max(0, now() - startedAt),
@@ -75,6 +103,23 @@ function hardPrimaryFailure(error) {
     && ![408, 409, 425, 429].includes(status);
 }
 
+function flagSpanKey(flag) {
+  const start = Number(flag?.start);
+  const end = Number(flag?.end);
+  if (Number.isInteger(start) && Number.isInteger(end) && start >= 0 && end >= start) {
+    return `${start}:${end}`;
+  }
+  return String(flag?.from || '').trim().toLowerCase();
+}
+
+function mergeFlaggedTerms(lexiconFlags, providerFlags) {
+  const lexiconKeys = new Set(lexiconFlags.map(flagSpanKey));
+  return [
+    ...lexiconFlags,
+    ...providerFlags.filter((flag) => !lexiconKeys.has(flagSpanKey(flag))),
+  ];
+}
+
 export function createTranscriptionAdapter({
   primary,
   fallback = null,
@@ -91,7 +136,7 @@ export function createTranscriptionAdapter({
     const startedAt = now();
     const result = normalizeResult(await driver.transcribeSegment(input), startedAt, now);
     const lexiconFlags = lexiconMatcher(result.text);
-    result.flaggedTerms = [...result.flaggedTerms, ...lexiconFlags];
+    result.flaggedTerms = mergeFlaggedTerms(lexiconFlags, result.flaggedTerms);
     return result;
   }
 
@@ -106,12 +151,20 @@ export function createTranscriptionAdapter({
 
   function sessionState(input) {
     const recordingId = String(input?.recordingId || '');
-    if (!recordingId) return { recordingId: '', fallback: false, consecutive5xx: 0 };
+    if (!recordingId) {
+      return {
+        recordingId: '',
+        fallback: false,
+        consecutive5xx: 0,
+        failoverAuditPending: false,
+      };
+    }
     if (!sessions.has(recordingId)) {
       sessions.set(recordingId, {
         recordingId,
         fallback: false,
         consecutive5xx: 0,
+        failoverAuditPending: false,
       });
     }
     return sessions.get(recordingId);
@@ -120,6 +173,7 @@ export function createTranscriptionAdapter({
   function switchSessionToFallback(state, input) {
     if (!fallbackDriver || state.fallback) return;
     state.fallback = true;
+    state.failoverAuditPending = true;
     emitEvent(Object.freeze({
       t: new Date(now()).toISOString(),
       event: 'provider_failover',
@@ -186,9 +240,22 @@ export function createTranscriptionAdapter({
     sessions.delete(String(recordingId || ''));
   }
 
+  function hasPendingFailover(recordingId) {
+    return sessions.get(String(recordingId || ''))?.failoverAuditPending === true;
+  }
+
+  function acknowledgeFailover(recordingId) {
+    const state = sessions.get(String(recordingId || ''));
+    if (!state?.failoverAuditPending) return false;
+    state.failoverAuditPending = false;
+    return true;
+  }
+
   return Object.freeze({
+    acknowledgeFailover,
     available: true,
     capabilities,
+    hasPendingFailover,
     keywordsForDraft,
     releaseSession,
     transcribeSegment,
@@ -215,9 +282,35 @@ export function createUnavailableTranscriptionAdapter() {
   });
 }
 
-export function createTranscriptionAdapterForProvider(provider = 'none') {
+function openAIDriver(model, options) {
+  if (model === 'gpt-4o-transcribe') {
+    return createOpenAIGpt4oTranscribeDriver({ ...options, model });
+  }
+  if (model === 'whisper-1') {
+    return createOpenAIWhisper1Driver({ ...options, model });
+  }
+  throw new TypeError('The transcription model is outside the fixed StoryForge pair.');
+}
+
+export function createTranscriptionAdapterForProvider(provider = 'none', {
+  apiKey,
+  fetchImpl = globalThis.fetch,
+  primaryModel = 'gpt-4o-transcribe',
+  fallbackModel = 'whisper-1',
+  emitEvent,
+  now,
+} = {}) {
   const selected = String(provider || 'none').trim().toLowerCase();
   if (selected === 'none') return createUnavailableTranscriptionAdapter();
+  if (selected === 'openai') {
+    const driverOptions = { apiKey, fetchImpl };
+    return createTranscriptionAdapter({
+      primary: openAIDriver(primaryModel, driverOptions),
+      fallback: openAIDriver(fallbackModel, driverOptions),
+      ...(emitEvent ? { emitEvent } : {}),
+      ...(now ? { now } : {}),
+    });
+  }
 
   const error = new Error(
     'The configured transcription provider is not authorized by this release source.',

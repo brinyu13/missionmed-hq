@@ -34,6 +34,7 @@ function runtimeFixture(overrides = {}) {
     finish: [],
     get: [],
     retry: [],
+    saveRecordingStory: [],
     updateFlag: [],
   };
   const flagService = {
@@ -102,6 +103,24 @@ function runtimeFixture(overrides = {}) {
     async retryTranscription(identity, id, input) {
       calls.retry.push({ identity, id, input });
       return { segments: [] };
+    },
+    async saveRecordingStory(identity, id, body) {
+      calls.saveRecordingStory.push({ identity, id, body });
+      return {
+        story: {
+          id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+          title: body.title || '',
+          original_text: body.text || '',
+        },
+        attachment: {
+          assetId: audioId,
+          state: 'pending',
+        },
+        created: true,
+      };
+    },
+    async playbackKeys(asset) {
+      return [asset.object_key];
     },
     async deleteAudio(identity, id) {
       calls.deleteAudio.push({ identity, id });
@@ -245,7 +264,7 @@ test('E10 returns only the caller capability and E11 routes preserve admin servi
   assert.equal(fixture.calls.updateFlag[0].identity.role, 'admin');
 });
 
-test('blocked authority seams fail closed and legacy upload endpoints check the kill gate first', async (context) => {
+test('E7 mounts through the recording service while legacy upload checks the kill gate first', async (context) => {
   const blocked = new Error('Voice capture is currently unavailable.');
   blocked.code = 'voice_disabled';
   blocked.status = 403;
@@ -284,9 +303,10 @@ test('blocked authority seams fail closed and legacy upload endpoints check the 
       recordingId,
     }),
   }));
-  assert.equal(attached.status, 503);
-  assert.equal(attached.body.error.code, 'assembly_authority_blocked');
-  assert.equal(attached.body.error.message, 'StoryForge could not complete this request.');
+  assert.equal(attached.status, 201);
+  assert.equal(attached.body.story.id, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd');
+  assert.equal(attached.body.audio.assetId, audioId);
+  assert.equal(fixture.calls.saveRecordingStory[0].id, recordingId);
 
   const health = await json(await fetch(`${origin}/api/admin/voice/health`, {
     headers: { 'x-test-role': 'admin' },
@@ -294,6 +314,75 @@ test('blocked authority seams fail closed and legacy upload endpoints check the 
   assert.equal(health.status, 503);
   assert.equal(health.body.error.code, 'voice_health_audit_unavailable');
   assert.equal(health.body.error.message, 'StoryForge could not complete this request.');
+});
+
+test('E7 pending response preserves the binding 409 retry contract', async (context) => {
+  const pending = Object.assign(
+    new Error('Your recording is still being prepared.'),
+    {
+      code: 'voice_assembly_pending',
+      status: 409,
+      retryAfterMs: 2_000,
+    },
+  );
+  const fixture = runtimeFixture({
+    recordingsService: {
+      async saveRecordingStory() {
+        throw pending;
+      },
+    },
+  });
+  const origin = await startFixture(context, fixture);
+  const response = await json(await fetch(`${origin}/api/stories`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      title: 'Pending story',
+      text: 'Reviewed transcript',
+      recordingId,
+    }),
+  }));
+  assert.deepEqual(response, {
+    status: 409,
+    body: {
+      error: {
+        code: 'voice_assembly_pending',
+        message: 'Your recording is still being prepared.',
+        retryAfterMs: 2_000,
+      },
+    },
+  });
+});
+
+test('story archive retains attached audio and performs no recording propagation query', async (context) => {
+  const fixture = runtimeFixture();
+  const queries = [];
+  const origin = await startFixture(context, fixture, {
+    identityTransaction: async (identity, operation) => operation({
+      async query(sql) {
+        queries.push(String(sql));
+        if (String(sql).includes('sf_set_story_archived')) {
+          return {
+            rows: [{
+              id: recordingId,
+              student_id: identity.sub,
+              archived_at: '2026-07-29T12:00:00.000Z',
+            }],
+          };
+        }
+        throw new Error(`Unexpected archive query: ${sql}`);
+      },
+    }),
+  });
+  const response = await json(await fetch(`${origin}/api/stories/${recordingId}/archive`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ surface: 'library' }),
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(queries.length, 1);
+  assert.match(queries[0], /sf_set_story_archived/);
+  assert.doesNotMatch(queries[0], /sf_recording_sessions|sf_audio_assets/);
 });
 
 test('segment upload rejects non-multipart input before the recording service', async (context) => {
@@ -348,10 +437,62 @@ test('foreign or missing audio playback is audited and returns the same private 
   })), [{
     action: 'unauthorized_denied',
     entityType: 'audio_asset',
-    surface: 'workspace',
+    surface: 'library',
   }]);
   assert.equal(events[0].event, 'unauthorized_denied');
   assert.equal(events[0].assetId, audioId);
+});
+
+test('verified Option B playback signs every derived key in stable order', async (context) => {
+  const signedKeys = [];
+  const stem = `storyforge-audio/${studentId}/story/${audioId}`;
+  const fixture = runtimeFixture({
+    recordingsService: {
+      async playbackKeys(asset) {
+        assert.equal(asset.object_key, stem);
+        return [
+          `${stem}/seg-00000.webm`,
+          `${stem}/seg-00001.webm`,
+        ];
+      },
+    },
+  });
+  const origin = await startFixture(context, fixture, {
+    identityTransaction: async (identity, operation) => operation({
+      async query(sql, values) {
+        assert.match(String(sql), /FROM public\.sf_audio_assets/);
+        assert.deepEqual(values, [audioId]);
+        return {
+          rows: [{
+            id: audioId,
+            story_id: recordingId,
+            object_key: stem,
+            content_type: 'audio/webm',
+            byte_size: 12,
+            duration_ms: 19_000,
+          }],
+        };
+      },
+    }),
+    async audioPlaybackSigner({ objectKey }) {
+      signedKeys.push(objectKey);
+      return {
+        playbackUrl: `https://private.example/${signedKeys.length}`,
+        expiresIn: 300,
+      };
+    },
+  });
+  const response = await json(await fetch(`${origin}/api/audio/${audioId}/playback`));
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.playbackUrls, [
+    'https://private.example/1',
+    'https://private.example/2',
+  ]);
+  assert.equal(response.body.expiresIn, 300);
+  assert.deepEqual(signedKeys, [
+    `${stem}/seg-00000.webm`,
+    `${stem}/seg-00001.webm`,
+  ]);
 });
 
 test('restoring a linked voice draft emits only content-free recovery metadata', async (context) => {
@@ -432,10 +573,10 @@ test('generic audit helper calls the existing append-only function without conte
     newValue: { state: 'recording' },
   });
   assert.equal(id, '42');
-  assert.match(captured.sql, /public\.sf_append_audit/);
+  assert.match(captured.sql, /public\.sf_append_voice_audit/);
   assert.equal(captured.values[0], 'recording_started');
-  assert.equal(captured.values[7], null);
-  assert.equal(captured.values[8], '{"state":"recording"}');
+  assert.equal(captured.values[6], null);
+  assert.equal(captured.values[7], '{"state":"recording"}');
   assert.equal(JSON.stringify(captured).includes('transcript'), false);
   assert.equal(JSON.stringify(captured).includes('audio bytes'), false);
 });
