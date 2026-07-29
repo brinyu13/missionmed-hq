@@ -774,6 +774,163 @@
   z-index:7;
 }
 
+.builderDomainStep{
+  display:grid;
+  gap:22px;
+}
+
+.builderDomainCard{
+  background:linear-gradient(155deg,rgba(27,37,56,.84),rgba(12,17,27,.92));
+  border:1px solid var(--edge2);
+  border-left:3px solid var(--cy);
+  padding:20px;
+}
+
+.builderDomainCard>h2,
+.builderSaved>h2{
+  color:var(--tx);
+  font-size:16px;
+  font-weight:800;
+  margin-bottom:18px;
+}
+
+.builderDomainGrid{
+  display:grid;
+  gap:12px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.builderDomainActions{
+  align-items:center;
+  display:flex;
+  gap:12px;
+  margin-top:20px;
+}
+
+.builderDomainActions .btnD{
+  min-height:40px;
+}
+
+.domainTypeaheadHint{
+  color:var(--dim);
+  display:block;
+  font-size:11px;
+  margin-top:-11px;
+}
+
+.builderTypeahead{
+  position:relative;
+}
+
+.builderTypeaheadList{
+  background:#111827;
+  border:1px solid var(--edge2);
+  box-shadow:0 16px 40px rgba(0,0,0,.42);
+  display:grid;
+  gap:3px;
+  left:0;
+  list-style:none;
+  margin:4px 0 0;
+  max-height:292px;
+  overflow:auto;
+  padding:5px;
+  position:absolute;
+  right:0;
+  top:100%;
+  z-index:45;
+}
+
+.builderTypeaheadList[hidden]{
+  display:none;
+}
+
+.builderTypeaheadList button{
+  background:transparent;
+  border:0;
+  color:var(--mid);
+  font-size:12px;
+  min-height:38px;
+  padding:8px 10px;
+  text-align:left;
+  width:100%;
+}
+
+.builderTypeaheadList li[aria-selected="true"] button,
+.builderTypeaheadList button:hover{
+  background:rgba(38,207,213,.1);
+  color:var(--tx);
+}
+
+.builderPublication{
+  background:rgba(5,8,14,.35);
+  border:1px solid var(--edge);
+  display:grid;
+  gap:16px;
+  padding:16px;
+}
+
+.builderIconGrid{
+  display:grid;
+  gap:7px;
+  grid-template-columns:repeat(6,1fr);
+}
+
+.builderIconGrid button{
+  align-items:center;
+  background:#0f1522;
+  border:1px solid var(--edge2);
+  color:var(--mid);
+  display:flex;
+  font-size:18px;
+  height:40px;
+  justify-content:center;
+}
+
+.builderIconGrid button.on{
+  background:rgba(176,138,224,.16);
+  border-color:var(--catPers,#8A5BBF);
+  color:var(--tx);
+}
+
+.builderSaved{
+  display:grid;
+  gap:10px;
+}
+
+.builderSavedList{
+  display:grid;
+  gap:8px;
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+
+.builderSavedList li{
+  align-items:center;
+  background:rgba(13,18,29,.76);
+  border:1px solid var(--edge);
+  color:var(--mid);
+  display:grid;
+  font-size:12px;
+  gap:9px;
+  grid-template-columns:10px minmax(0,1fr) auto auto auto;
+  min-height:46px;
+  padding:8px 10px;
+}
+
+.builderSavedDot{
+  background:var(--saved-color);
+  border-radius:50%;
+  height:8px;
+  width:8px;
+}
+
+.builderAdvisorOnly{
+  color:var(--vi);
+  font-family:var(--num);
+  font-size:13px;
+}
+
 .matrixBack:focus-visible,
 #rail .rtab:focus-visible,
 .headerExport:focus-visible,
@@ -787,6 +944,9 @@
 .builderExamChip:focus-visible,
 .builderExamDelete:focus-visible,
 .retakeChip:focus-visible,
+.builderDomainActions button:focus-visible,
+.builderSavedList button:focus-visible,
+.builderIconGrid button:focus-visible,
 .builderField input:focus-visible,
 .builderField select:focus-visible{
   outline:2px solid var(--cy);

@@ -1557,7 +1557,7 @@ function coreInfoMarkup(){
   const degreeButtons=['MD','DO','MBBS','Other'].map(d=>'<button type="button" class="builderSegment'+(w.degree===d?' on':'')+'" data-degree="'+d+'">'+d+'</button>').join('');
   return '<div class="builderFields">'
     +'<label class="builderField"><span>Full name</span><input type="text" data-core="name" value="'+esc(w.name||'')+'" placeholder="e.g., Amara Osei"><small data-error="name"></small></label>'
-    +'<label class="builderField"><span>Medical school</span><input type="text" data-core="school" data-provider="schools" list="medicalSchoolOptions" value="'+esc(w.school||'')+'" autocomplete="off"><datalist id="medicalSchoolOptions"></datalist><small class="builderHint">Start typing to search; free text is always allowed.</small><small data-error="school"></small></label>'
+    +'<label class="builderField"><span>Medical school</span><input type="text" data-core="school" data-provider="schools" list="medicalSchoolOptions" value="'+esc(w.school||'')+'" autocomplete="off"><datalist id="medicalSchoolOptions">'+MEDICAL_SCHOOLS_404.map(name=>'<option value="'+esc(name)+'"></option>').join('')+'</datalist><small class="builderHint">Start typing to search; free text is always allowed.</small><small data-error="school"></small></label>'
     +'<label class="builderField"><span>Medical school country</span><select data-core="country"><option value="">Select a country</option>'+countryOptions+'</select><small data-error="country"></small></label>'
     +'<label class="builderField"><span>'+(w.notGraduated?'Expected graduation':'Graduation date')+'</span><input type="text" data-core="grad" value="'+esc(w.grad||'')+'" placeholder="Jun 2023" inputmode="numeric"><small class="builderHint">Enter a month and year, like “Jun 2023”.</small><small data-error="grad"></small></label>'
     +'<label class="builderToggle"><input type="checkbox" data-core-toggle="notGraduated"'+(w.notGraduated?' checked':'')+'> <span>I haven&apos;t graduated yet</span></label>'
@@ -1579,6 +1579,87 @@ const EXAM_SYSTEMS_404={
     {id:'level-3',label:'Level 3',passFailOnly:false}
   ]
 };
+const MEDICAL_SCHOOLS_404=[
+  'Albert Einstein College of Medicine','Baylor College of Medicine','Boston University Chobanian & Avedisian School of Medicine',
+  'Case Western Reserve University School of Medicine','Columbia University Vagelos College of Physicians and Surgeons',
+  'Duke University School of Medicine','Emory University School of Medicine','Geisel School of Medicine at Dartmouth',
+  'George Washington University School of Medicine and Health Sciences','Harvard Medical School','Howard University College of Medicine',
+  'Icahn School of Medicine at Mount Sinai','Johns Hopkins University School of Medicine','Mayo Clinic Alix School of Medicine',
+  'New York University Grossman School of Medicine','Northwestern University Feinberg School of Medicine',
+  'Perelman School of Medicine at the University of Pennsylvania','Rutgers New Jersey Medical School',
+  'Stanford University School of Medicine','University of California San Francisco School of Medicine',
+  'University of Chicago Pritzker School of Medicine','University of Michigan Medical School',
+  'University of Pittsburgh School of Medicine','Vanderbilt University School of Medicine',
+  'Washington University School of Medicine in St. Louis','Weill Cornell Medicine','Yale School of Medicine'
+];
+// Local-only specialty vocabulary derived from the ACGME May 2026
+// Specialty and Subspecialty Block Diagram/Application Table, plus familiar aliases.
+const SPECIALTIES_404=[
+  'Abdominal Radiology','Addiction Medicine','Addiction Psychiatry','Adolescent Medicine','Adult Cardiothoracic Anesthesiology',
+  'Adult Congenital Heart Disease','Adult Reconstructive Orthopaedic Surgery','Advanced Heart Failure and Transplant Cardiology',
+  'Aerospace Medicine','Allergy and Immunology','Anesthesiology','Anesthesiology Critical Care Medicine',
+  'Blood Banking/Transfusion Medicine','Brain Injury Medicine','Cardiovascular Disease','Chemical Pathology',
+  'Child Abuse Pediatrics','Child and Adolescent Psychiatry','Child Neurology','Clinical Biochemical Genetics',
+  'Clinical Cardiac Electrophysiology','Clinical Informatics','Clinical Neurophysiology','Colon and Rectal Surgery',
+  'Complex Family Planning','Complex General Surgical Oncology','Congenital Cardiac Surgery',
+  'Consultation-Liaison Psychiatry','Correctional (Carceral) Medicine','Craniofacial Plastic Surgery','Critical Care Medicine',
+  'Cytopathology','Dermatology','Dermatopathology','Developmental-Behavioral Pediatrics','Diagnostic Radiology',
+  'Emergency Medical Services','Emergency Medicine','Endocrinology, Diabetes, and Metabolism','Epilepsy',
+  'Family Medicine','Foot and Ankle Orthopaedic Surgery','Forensic Pathology','Forensic Psychiatry',
+  'Gastroenterology','General Surgery','Geriatric Medicine','Geriatric Psychiatry','Gynecologic Oncology','Hand Surgery',
+  'Health Care Administration, Leadership, and Management','Hematology','Hematology and Medical Oncology',
+  'Hematopathology','Hospice and Palliative Medicine','Infectious Disease','Internal Medicine','Internal Medicine-Pediatrics',
+  'Interventional Cardiology','Interventional Pulmonology','Interventional Radiology','Interventional Radiology - Independent',
+  'Interventional Radiology - Integrated','Laboratory Genetics and Genomics',
+  'Maternal-Fetal Medicine','Medical Biochemical Genetics','Medical Genetics and Genomics','Medical Microbiology',
+  'Medical Oncology','Medical Toxicology','Micrographic Surgery and Dermatologic Oncology','Molecular Genetic Pathology',
+  'Musculoskeletal Oncology','Musculoskeletal Radiology','Neonatal-Perinatal Medicine','Nephrology',
+  'Neurocritical Care','Neurodevelopmental Disabilities','Neuroendovascular Intervention','Neurological Surgery',
+  'Neurology','Neuromuscular Medicine','Neuropathology','Neuroradiology','Neurotology','Nuclear Medicine',
+  'Nuclear Radiology','Obstetric Anesthesiology','Obstetrics and Gynecology','Occupational and Environmental Medicine',
+  'Ophthalmic Plastic and Reconstructive Surgery','Ophthalmology','Orthopaedic Sports Medicine','Orthopaedic Surgery',
+  'Orthopaedic Surgery of the Spine','Orthopaedic Trauma','Osteopathic Neuromusculoskeletal Medicine',
+  'Otolaryngology – Head and Neck Surgery','Pain Medicine','Pathology','Pediatric Anesthesiology','Pediatric Cardiac Anesthesiology',
+  'Pediatric Cardiology','Pediatric Critical Care Medicine','Pediatric Dermatology','Pediatric Emergency Medicine',
+  'Pediatric Endocrinology','Pediatric Gastroenterology','Pediatric Hematology-Oncology','Pediatric Hospital Medicine',
+  'Pediatric Infectious Diseases','Pediatric Nephrology','Pediatric Orthopaedic Surgery','Pediatric Otolaryngology',
+  'Pediatric Pathology','Pediatric Pulmonology','Pediatric Radiology','Pediatric Rehabilitation Medicine',
+  'Pediatric Rheumatology','Pediatric Surgery','Pediatric Transplant Hepatology','Pediatric Urology','Pediatrics',
+  'Physical Medicine and Rehabilitation','Plastic Surgery','Preventive Medicine','Psychiatry',
+  'Public Health and General Preventive Medicine','Pulmonary Critical Care','Pulmonary Disease',
+  'Pulmonary Disease and Critical Care Medicine','Radiation Oncology','Radiology',
+  'Regional Anesthesiology and Acute Pain Medicine','Reproductive Endocrinology and Infertility','Rheumatology',
+  'Selective Pathology','Sleep Medicine','Spinal Cord Injury Medicine','Sports Medicine','Surgery','Surgical Critical Care',
+  'Thoracic Surgery','Transitional Year','Transplant Hepatology','Transplant Nephrology','Undersea and Hyperbaric Medicine',
+  'Urogynecology and Reconstructive Pelvic Surgery','Urology','Vascular Neurology','Vascular Surgery'
+];
+const US_TEACHING_INSTITUTIONS_404=[
+  {name:'Barnes-Jewish Hospital',city:'St. Louis',state:'MO',shortName:'Barnes-Jewish'},
+  {name:'Bellevue Hospital Center',city:'New York',state:'NY',shortName:'Bellevue'},
+  {name:'Brigham and Women’s Hospital',city:'Boston',state:'MA',shortName:'Brigham and Women’s'},
+  {name:'Cedars-Sinai Medical Center',city:'Los Angeles',state:'CA',shortName:'Cedars-Sinai'},
+  {name:'Cleveland Clinic',city:'Cleveland',state:'OH',shortName:'Cleveland Clinic'},
+  {name:'Duke University Hospital',city:'Durham',state:'NC',shortName:'Duke'},
+  {name:'Emory University Hospital',city:'Atlanta',state:'GA',shortName:'Emory'},
+  {name:'Hospital of the University of Pennsylvania',city:'Philadelphia',state:'PA',shortName:'Penn'},
+  {name:'Houston Methodist Hospital',city:'Houston',state:'TX',shortName:'Houston Methodist'},
+  {name:'Johns Hopkins Hospital',city:'Baltimore',state:'MD',shortName:'Johns Hopkins'},
+  {name:'Massachusetts General Hospital',city:'Boston',state:'MA',shortName:'Mass General'},
+  {name:'Mayo Clinic Hospital — Rochester',city:'Rochester',state:'MN',shortName:'Mayo Clinic'},
+  {name:'Montefiore Medical Center',city:'Bronx',state:'NY',shortName:'Montefiore'},
+  {name:'Mount Sinai Hospital',city:'New York',state:'NY',shortName:'Mount Sinai'},
+  {name:'NewYork-Presbyterian Hospital',city:'New York',state:'NY',shortName:'NewYork-Presbyterian'},
+  {name:'Northwestern Memorial Hospital',city:'Chicago',state:'IL',shortName:'Northwestern'},
+  {name:'NYU Langone Hospitals',city:'New York',state:'NY',shortName:'NYU Langone'},
+  {name:'Ronald Reagan UCLA Medical Center',city:'Los Angeles',state:'CA',shortName:'UCLA'},
+  {name:'Stanford Health Care',city:'Stanford',state:'CA',shortName:'Stanford'},
+  {name:'UCSF Medical Center',city:'San Francisco',state:'CA',shortName:'UCSF'},
+  {name:'University of Chicago Medical Center',city:'Chicago',state:'IL',shortName:'UChicago'},
+  {name:'University of Michigan Health',city:'Ann Arbor',state:'MI',shortName:'Michigan'},
+  {name:'UPMC Presbyterian',city:'Pittsburgh',state:'PA',shortName:'UPMC'},
+  {name:'Vanderbilt University Medical Center',city:'Nashville',state:'TN',shortName:'Vanderbilt'},
+  {name:'Yale New Haven Hospital',city:'New Haven',state:'CT',shortName:'Yale New Haven'}
+];
 function examDefinition404(record){
   const list=EXAM_SYSTEMS_404[record.system]||[];
   return list.find(item=>item.id===record.examId)||{id:record.examId,label:record.name||record.examId,passFailOnly:!!record.passFailOnly};
@@ -1637,6 +1718,107 @@ function examsMarkup404(){
     +(exams.length?exams.map(examCard404).join(''):'<p class="builderExamEmpty">No exams added yet.</p>')+'</section>'
     +'<button type="button" class="homeTertiary builderSkip" data-builder-skip="2">I have nothing to add here → skip</button></section>';
 }
+function domainDefaults404(domain){
+  if(domain==='clinical')return{institution:'',institutionShortName:'',specialty:'',rotationType:'',city:'',state:'',startDate:'',endDate:'',current:false,notes:''};
+  if(domain==='work')return{role:'',organization:'',country:'',city:'',kind:'',startDate:'',endDate:'',current:false,description:''};
+  if(domain==='research')return{projectTitle:'',institution:'',institutionShortName:'',role:'',roleOther:'',startDate:'',endDate:'',ongoing:false,publicationStatus:'Not published',journal:'',publicationYear:'',authorPosition:'',doiOrPmid:'',markPublication:false};
+  return{happened:'',whenKind:'One date',startDate:'',endDate:'',icon:'star',visibilityState:'INTERVIEWER_SAFE'};
+}
+function domainDraft404(domain){
+  return Object.assign(domainDefaults404(domain),(state.builder.domainDrafts&&state.builder.domainDrafts[domain])||{});
+}
+function domainEvents404(domain){
+  return state.user.events.filter(event=>event.fields&&event.fields.builderDomain===domain&&!event.fields.publicationMilestone);
+}
+function domainField404(label,name,value,options){
+  options=options||{};const required=options.required?' <b aria-hidden="true">*</b>':'';
+  return '<label class="builderField"><span>'+label+required+'</span><input type="'+(options.type||'text')+'" name="'+name+'" value="'+esc(value||'')+'"'+(options.placeholder?' placeholder="'+esc(options.placeholder)+'"':'')+(options.list?' list="'+options.list+'"':'')+(options.inputmode?' inputmode="'+options.inputmode+'"':'')+(options.maxlength?' maxlength="'+options.maxlength+'"':'')+'><small data-domain-error="'+name+'"></small></label>';
+}
+function domainTypeahead404(label,name,value,provider,options){
+  options=options||{};const required=options.required?' <b aria-hidden="true">*</b>':'';
+  const listId='builderTypeahead-'+provider+'-'+name;
+  return '<label class="builderField builderTypeahead" data-domain-typeahead data-typeahead-provider="'+provider+'" data-allow-free-text="'+String(options.allowFreeText!==false)+'"><span>'+label+required+'</span>'
+    +'<input type="text" name="'+name+'" value="'+esc(value||'')+'" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="'+listId+'" data-typeahead-input>'
+    +'<ul id="'+listId+'" class="builderTypeaheadList" role="listbox" hidden></ul><small data-domain-error="'+name+'"></small></label>';
+}
+function domainSelect404(label,name,value,options,required){
+  return '<label class="builderField"><span>'+label+(required?' <b aria-hidden="true">*</b>':'')+'</span><select name="'+name+'"><option value="">Select</option>'
+    +options.map(option=>'<option value="'+esc(option)+'"'+(option===value?' selected':'')+'>'+esc(option)+'</option>').join('')
+    +'</select><small data-domain-error="'+name+'"></small></label>';
+}
+function domainSegments404(label,field,values,selected){
+  return '<fieldset class="builderField"><legend>'+label+'</legend><div class="builderSegments">'
+    +values.map(item=>{const value=typeof item==='string'?item:item.value;const text=typeof item==='string'?item:item.label;return'<button type="button" class="builderSegment'+(selected===value?' on':'')+'" data-domain-segment="'+field+'" data-domain-value="'+esc(value)+'" aria-pressed="'+String(selected===value)+'">'+esc(text)+'</button>'}).join('')
+    +'</div><small data-domain-error="'+field+'"></small></fieldset>';
+}
+function domainSavedSummary404(event,domain){
+  const f=event.fields||{};const dates=event.mile?fmtL(event.s):(fmtL(event.s)+'–'+(event.e?fmtL(event.e):'now'));
+  if(domain==='clinical')return(f.specialty||'Rotation')+' · '+(f.institution||event.loc||'Institution')+' · '+dates;
+  if(domain==='work')return(f.role||'Role')+' · '+(f.organization||event.loc||'Organization')+' · '+dates;
+  if(domain==='research')return(f.projectTitle||event.t||'Research')+' · '+dates;
+  return(event.t||'Personal event')+' · '+dates;
+}
+function domainSavedList404(domain){
+  const events=domainEvents404(domain);
+  if(!events.length)return'<p class="builderExamEmpty">Nothing added yet.</p>';
+  return '<ul class="builderSavedList">'+events.map(event=>'<li><span class="builderSavedDot" style="--saved-color:'+(CATS[event.cat]?CATS[event.cat].c:'#8A5BBF')+'"></span><span>'+esc(domainSavedSummary404(event,domain))+'</span>'
+    +(event.vis==='advisor'?'<span class="builderAdvisorOnly" title="Advisor only">◉̸</span>':'')
+    +'<button type="button" class="homeTertiary" data-domain-edit="'+esc(event.id)+'">Edit</button><button type="button" class="homeTertiary" data-domain-delete="'+esc(event.id)+'">Delete</button></li>').join('')+'</ul>';
+}
+function clinicalMarkup404(draft){
+  return domainTypeahead404('Institution','institution',draft.institution,'clinicalInstitutions')
+    +'<small class="builderHint domainTypeaheadHint">Type 2+ characters; choose a match or keep your text as written.</small>'
+    +domainTypeahead404('Specialty','specialty',draft.specialty,'specialties')
+    +domainSelect404('Rotation type','rotationType',draft.rotationType,['Elective','Sub-internship','Observership','Externship','Clerkship (core)','Other'])
+    +'<div class="builderDomainGrid">'+domainField404('City','city',draft.city)+domainField404('State','state',draft.state)+'</div>'
+    +'<div class="builderDomainGrid">'+domainField404('Start','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.current?'':domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}))+'</div>'
+    +'<label class="builderToggle"><input type="checkbox" name="current" data-domain-toggle="current"'+(draft.current?' checked':'')+'> <span>Currently on this rotation</span></label>'
+    +domainField404('Notes <em>Optional</em>','notes',draft.notes,{placeholder:'e.g., attending name'});
+}
+function workMarkup404(draft){
+  return domainField404('Role / title','role',draft.role,{required:true})
+    +domainField404('Organization','organization',draft.organization,{required:true})
+    +domainTypeahead404('Country','country',draft.country,'countries',{required:true,allowFreeText:false})
+    +domainField404('City <em>Optional</em>','city',draft.city)
+    +domainSegments404('Kind','kind',['Clinical','Non-clinical'],draft.kind)
+    +'<div class="builderDomainGrid">'+domainField404('Start','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.current?'':domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}))+'</div>'
+    +'<label class="builderToggle"><input type="checkbox" name="current" data-domain-toggle="current"'+(draft.current?' checked':'')+'> <span>I still work here</span></label>'
+    +domainField404('One-line description <em>Optional</em>','description',draft.description);
+}
+function researchMarkup404(draft){
+  const hasPublication=['Submitted','Accepted','Published'].includes(draft.publicationStatus);
+  return domainField404('Project title','projectTitle',draft.projectTitle,{required:true})
+    +domainTypeahead404('Institution / lab <em>Optional</em>','institution',draft.institution,'researchInstitutions')
+    +domainSelect404('Role','role',draft.role,['Research assistant','Research fellow','Coordinator','Volunteer','Principal investigator','Other (text)'])
+    +(draft.role==='Other (text)'?domainField404('Role (other)','roleOther',draft.roleOther):'')
+    +'<div class="builderDomainGrid">'+domainField404('Start','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.ongoing?'':domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}))+'</div>'
+    +'<label class="builderToggle"><input type="checkbox" name="ongoing" data-domain-toggle="ongoing"'+(draft.ongoing?' checked':'')+'> <span>Ongoing</span></label>'
+    +domainSegments404('Publication status','publicationStatus',['Not published','Submitted','Accepted','Published'],draft.publicationStatus||'Not published')
+    +(hasPublication?'<div class="builderPublication">'+domainField404('Journal / venue','journal',draft.journal,{required:draft.publicationStatus==='Published'})
+      +domainField404('Publication year','publicationYear',draft.publicationYear,{required:draft.publicationStatus==='Published',inputmode:'numeric',maxlength:'4'})
+      +domainSelect404('Author position','authorPosition',draft.authorPosition,['First author','Co-first author','Second author','Middle author','Last / senior author','Corresponding author'],draft.publicationStatus==='Published')
+      +domainField404('DOI or PMID <em>Optional</em>','doiOrPmid',draft.doiOrPmid)
+      +'<label class="builderToggle"><input type="checkbox" name="markPublication" data-domain-toggle="markPublication"'+(draft.markPublication?' checked':'')+'> <span>Mark the publication on the timeline</span></label></div>':'');
+}
+const PERSONAL_ICONS_404=[['heart','♥'],['home','⌂'],['plane','✈'],['baby','●'],['ring','◯'],['star','★'],['flag','⚑'],['globe','◎'],['shield','⬟'],['sun','☀'],['book','▤'],['sparkle','✦']];
+function personalMarkup404(draft){
+  return domainField404('What happened','happened',draft.happened,{required:true,placeholder:'e.g., Moved to the US · Became a parent · Military service'})
+    +domainSegments404('When','whenKind',['One date','A period'],draft.whenKind||'One date')
+    +'<div class="builderDomainGrid">'+domainField404(draft.whenKind==='A period'?'Start':'Date','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.whenKind==='A period'?domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}):'')+'</div>'
+    +'<fieldset class="builderField"><legend>Icon</legend><div class="builderIconGrid">'+PERSONAL_ICONS_404.map(item=>'<button type="button" class="'+(draft.icon===item[0]?'on':'')+'" data-domain-segment="icon" data-domain-value="'+item[0]+'" aria-label="'+item[0]+'" aria-pressed="'+String(draft.icon===item[0])+'">'+item[1]+'</button>').join('')+'</div></fieldset>'
+    +domainSegments404('Visibility','visibilityState',[{label:'Show everyone',value:'INTERVIEWER_SAFE'},{label:'Advisor only',value:'ADVISOR_ONLY'}],draft.visibilityState||'INTERVIEWER_SAFE');
+}
+function domainStepMarkup404(step){
+  const domain={3:'clinical',4:'work',5:'research',6:'personal'}[step];const draft=domainDraft404(domain);
+  const editing=!!(state.builder.domainEditing&&state.builder.domainEditing[domain]);
+  const title=domain==='clinical'?(editing?'Edit rotation':'Add a rotation'):(editing?'Edit '+domain:(domain==='work'?'Add work experience':domain==='research'?'Add research':'Add personal event'));
+  const fields=domain==='clinical'?clinicalMarkup404(draft):domain==='work'?workMarkup404(draft):domain==='research'?researchMarkup404(draft):personalMarkup404(draft);
+  return '<section class="builderDomainStep" data-domain="'+domain+'"><form class="builderDomainCard" data-domain-form="'+domain+'" novalidate><h2>'+title+'</h2><div class="builderFields">'+fields+'</div>'
+    +'<div class="builderDomainActions"><button type="button" class="btnD go" data-domain-save="'+domain+'">'+(editing?'SAVE CHANGES':(domain==='clinical'?'ADD ROTATION':'ADD '+domain.toUpperCase()))+'</button>'
+    +(editing?'<button type="button" class="homeTertiary" data-domain-cancel="'+domain+'">Cancel</button>':'')+'</div></form>'
+    +'<section class="builderSaved" aria-label="Saved '+domain+' entries"><h2>Saved '+(domain==='clinical'?'rotations':domain+' entries')+'</h2>'+domainSavedList404(domain)+'</section>'
+    +'<button type="button" class="homeTertiary builderSkip" data-builder-skip="'+step+'">I have nothing to add here → skip</button></section>';
+}
 function builderPlaceholderMarkup(step){
   if(step===7)return'<div class="builderPlaceholder"><p>Your completeness summary and story checks arrive in M6.</p><button class="btnD go" data-nav="canvas">OPEN MY CANVAS →</button></div>';
   return'<div class="builderPlaceholder"><p>This step is ready for its domain workflow.</p><button class="homeTertiary" data-builder-skip="'+step+'">I have nothing to add here → skip</button></div>';
@@ -1653,7 +1835,7 @@ function renderBuilder404(){
   }).join('');
   $('#builderStepTitle').textContent=current.title;
   $('#builderPurpose').textContent=current.purpose;
-  $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():(step===2?examsMarkup404():builderPlaceholderMarkup(step));
+  $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():(step===2?examsMarkup404():(step>=3&&step<=6?domainStepMarkup404(step):builderPlaceholderMarkup(step)));
   $('#builderBack').disabled=step===1;
   $('#builderContinue').textContent=step===7?'OPEN MY CANVAS →':'CONTINUE →';
 }
@@ -1703,7 +1885,123 @@ function touchExamField404(recordId,field){
   state.builder.examTouched[recordId]=state.builder.examTouched[recordId]||{};
   state.builder.examTouched[recordId][field]=true;
 }
+function runDomainAction404(method){
+  const domainApi=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.domain;
+  if(!domainApi||typeof domainApi[method]!=='function'){toast('Builder engineering is still initializing');return null}
+  const args=Array.prototype.slice.call(arguments,1);
+  return domainApi[method].apply(domainApi,args);
+}
+function typeaheadSource404(provider){
+  if(provider==='clinicalInstitutions'||provider==='researchInstitutions')return US_TEACHING_INSTITUTIONS_404.map(item=>Object.assign({value:item.name,label:item.name+' — '+item.city+', '+item.state},item));
+  if(provider==='specialties')return SPECIALTIES_404.map(value=>({value:value,label:value}));
+  if(provider==='countries')return COUNTRIES.map(value=>({value:value,label:value}));
+  return[];
+}
+function typeaheadMatches404(provider,query){
+  const needle=String(query||'').trim().toLocaleLowerCase();
+  let matches=typeaheadSource404(provider);
+  if(needle)matches=matches.filter(item=>item.value.toLocaleLowerCase().includes(needle)||item.label.toLocaleLowerCase().includes(needle));
+  matches.sort((left,right)=>{
+    const leftStarts=left.value.toLocaleLowerCase().startsWith(needle)?0:1;
+    const rightStarts=right.value.toLocaleLowerCase().startsWith(needle)?0:1;
+    return leftStarts-rightStarts||left.value.localeCompare(right.value);
+  });
+  if(provider==='countries'){
+    const typeahead=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.typeahead;
+    if(typeahead&&typeof typeahead.rankCountries==='function'){
+      matches=typeahead.rankCountries(matches,{schoolCountry:state.wiz.country||'',pinUnitedStates:true});
+    }else{
+      const pinned=[state.wiz.country,'United States'].filter(Boolean);
+      matches.sort((left,right)=>{
+        const rank=value=>{const index=pinned.indexOf(value);return index<0?pinned.length:index};
+        return rank(left.value)-rank(right.value)||left.value.localeCompare(right.value);
+      });
+    }
+  }
+  return matches.slice(0,8);
+}
+function typeaheadRows404(field){
+  const input=field.querySelector('[data-typeahead-input]');const query=String(input&&input.value||'').trim();
+  const provider=field.dataset.typeaheadProvider;const allowFreeText=field.dataset.allowFreeText!=='false';
+  if(provider!=='countries'&&query.length<2)return[];
+  if(provider==='countries'&&query.length===1)return[];
+  const matches=typeaheadMatches404(provider,query);
+  const typeahead=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.typeahead;
+  if(query.length>=2&&typeahead&&typeof typeahead.rows==='function'){
+    return typeahead.rows(query,matches,{allowFreeText:allowFreeText,limit:8});
+  }
+  return matches.map((item,index)=>Object.assign({id:'match-'+index,kind:'match'},item));
+}
+function paintTypeahead404(field){
+  const input=field.querySelector('[data-typeahead-input]');const list=field.querySelector('[role="listbox"]');
+  if(!input||!list)return;
+  const rows=typeaheadRows404(field);field._rows404=rows;
+  if(!rows.length){list.hidden=true;list.innerHTML='';input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');return}
+  let active=Number(field.dataset.activeIndex);if(!Number.isInteger(active)||active<0||active>=rows.length)active=0;
+  field.dataset.activeIndex=String(active);
+  list.innerHTML=rows.map((row,index)=>'<li role="option" id="'+list.id+'-option-'+index+'" aria-selected="'+String(index===active)+'"><button type="button" data-typeahead-choice="'+index+'">'+esc(row.label)+'</button></li>').join('');
+  list.hidden=false;input.setAttribute('aria-expanded','true');input.setAttribute('aria-activedescendant',list.id+'-option-'+active);
+}
+function moveTypeahead404(field,delta){
+  if(!field._rows404||!field._rows404.length)paintTypeahead404(field);
+  const rows=field._rows404||[];if(!rows.length)return;
+  const current=Number(field.dataset.activeIndex)||0;
+  field.dataset.activeIndex=String((current+delta+rows.length)%rows.length);
+  paintTypeahead404(field);
+}
+function closeTypeahead404(field){
+  const input=field&&field.querySelector('[data-typeahead-input]');const list=field&&field.querySelector('[role="listbox"]');
+  if(list){list.hidden=true;list.innerHTML=''}if(input){input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant')}
+}
+let typeaheadCommitting404=false;
+function commitTypeahead404(field,index){
+  const rows=field._rows404||typeaheadRows404(field);const row=rows[Number(index)];if(!row)return;
+  const form=field.closest('[data-domain-form]');const input=field.querySelector('[data-typeahead-input]');if(!form||!input)return;
+  const domain=form.dataset.domainForm;const name=input.name;const value=String(row.value||'').trim();const changes={[name]:value};
+  input.value=value;
+  if(name==='institution'){
+    const institution=US_TEACHING_INSTITUTIONS_404.find(item=>item.name===value);
+    if(institution&&row.kind!=='free-text')Object.assign(changes,{institutionShortName:institution.shortName,city:institution.city,state:institution.state});
+    else Object.assign(changes,{institutionShortName:'',city:'',state:''});
+  }
+  state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+  closeTypeahead404(field);typeaheadCommitting404=true;
+  try{runDomainAction404('updateDraft',domain,changes)}finally{typeaheadCommitting404=false}
+}
+function domainFormData404(form,domain){
+  const draft=domainDraft404(domain);const next=Object.assign({},draft);
+  form.querySelectorAll('input[name],select[name]').forEach(control=>{
+    if(control.type==='checkbox')next[control.name]=control.checked;
+    else next[control.name]=String(control.value||'').trim();
+  });
+  ['startDate','endDate'].forEach(field=>{if(next[field])next[field]=parseBuilderMonth(next[field])||next[field]});
+  const institution=US_TEACHING_INSTITUTIONS_404.find(item=>item.name===next.institution);
+  if(institution){next.institutionShortName=institution.shortName;next.city=next.city||institution.city;next.state=next.state||institution.state}
+  return next;
+}
+function domainErrors404(domain,entry){
+  const errors={};const required=[];
+  if(domain==='work')required.push(['role','Required.'],['organization','Required.'],['country','Required.'],['kind','Required.']);
+  if(domain==='research')required.push(['projectTitle','Required.']);
+  if(domain==='personal')required.push(['happened','Required.']);
+  required.forEach(item=>{if(!String(entry[item[0]]||'').trim())errors[item[0]]=item[1]});
+  if(entry.startDate&&!parseBuilderMonth(entry.startDate))errors.startDate="Enter a month and year, like 'Jun 2023'.";
+  if(entry.endDate&&!parseBuilderMonth(entry.endDate))errors.endDate="Enter a month and year, like 'Jun 2023'.";
+  if(entry.startDate&&entry.endDate&&parseBuilderMonth(entry.startDate)&&parseBuilderMonth(entry.endDate)&&mi(parseBuilderMonth(entry.endDate))<mi(parseBuilderMonth(entry.startDate)))errors.endDate='End date is before the start date.';
+  if(domain==='research'&&entry.publicationStatus==='Published'){
+    if(!entry.journal)errors.journal='Required.';
+    if(!/^\d{4}$/.test(String(entry.publicationYear||'')))errors.publicationYear='Required.';
+    if(!entry.authorPosition)errors.authorPosition='Required.';
+  }
+  return errors;
+}
+function showDomainErrors404(form,errors){
+  form.querySelectorAll('[data-domain-error]').forEach(node=>{node.textContent=errors[node.dataset.domainError]||''});
+  const first=Object.keys(errors)[0];if(first){const control=form.querySelector('[name="'+first+'"]');if(control)control.focus()}
+}
 document.addEventListener('click',e=>{
+  const typeaheadChoice=e.target.closest('[data-typeahead-choice]');
+  if(typeaheadChoice){commitTypeahead404(typeaheadChoice.closest('[data-domain-typeahead]'),typeaheadChoice.dataset.typeaheadChoice);return}
   const stepButton=e.target.closest('[data-builder-step]');
   if(stepButton){state.builder.step=+stepButton.dataset.builderStep;renderBuilder404();return}
   const degree=e.target.closest('[data-degree]');
@@ -1728,8 +2026,53 @@ document.addEventListener('click',e=>{
     });
     return;
   }
+  const segment=e.target.closest('[data-domain-segment]');
+  if(segment){
+    const form=segment.closest('[data-domain-form]');if(!form)return;
+    const domain=form.dataset.domainForm;const changes={[segment.dataset.domainSegment]:segment.dataset.domainValue};
+    if(domain==='research'&&segment.dataset.domainSegment==='publicationStatus'&&segment.dataset.domainValue==='Published'&&domainDraft404(domain).publicationStatus!=='Published')changes.markPublication=true;
+    state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+    runDomainAction404('updateDraft',domain,changes);return;
+  }
+  const saveDomain=e.target.closest('[data-domain-save]');
+  if(saveDomain){
+    const form=saveDomain.closest('[data-domain-form]');const domain=saveDomain.dataset.domainSave;
+    const entry=domainFormData404(form,domain);const errors=domainErrors404(domain,entry);
+    if(Object.keys(errors).length){showDomainErrors404(form,errors);return}
+    const result=runDomainAction404('save',domain,entry);
+    if(result&&result.ok===false){showDomainErrors404(form,result.errors||{});return}
+    state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+    toast(domain==='clinical'?'Rotation added':domain.charAt(0).toUpperCase()+domain.slice(1)+' event added');
+    return;
+  }
+  const editDomain=e.target.closest('[data-domain-edit]');
+  if(editDomain){runDomainAction404('edit',editDomain.dataset.domainEdit);return}
+  const deleteDomain=e.target.closest('[data-domain-delete]');
+  if(deleteDomain){if(runDomainAction404('delete',deleteDomain.dataset.domainDelete)){toast('Event deleted · Undo is available')}}
+  const cancelDomain=e.target.closest('[data-domain-cancel]');
+  if(cancelDomain){runDomainAction404('cancel',cancelDomain.dataset.domainCancel);return}
   const skip=e.target.closest('[data-builder-skip]');
   if(skip){const step=+skip.dataset.builderSkip;state.builder.skipped[step]=true;state.builder.step=Math.min(7,step+1);state.saved=false;renderAll();return}
+});
+document.addEventListener('mousedown',e=>{
+  if(e.target.closest('[data-typeahead-choice]'))e.preventDefault();
+});
+document.addEventListener('input',e=>{
+  const input=e.target.closest&&e.target.closest('[data-typeahead-input]');
+  if(!input)return;
+  const field=input.closest('[data-domain-typeahead]');field.dataset.activeIndex='0';paintTypeahead404(field);
+});
+document.addEventListener('focusin',e=>{
+  const input=e.target.closest&&e.target.closest('[data-typeahead-input]');
+  if(input)paintTypeahead404(input.closest('[data-domain-typeahead]'));
+});
+document.addEventListener('keydown',e=>{
+  const input=e.target.closest&&e.target.closest('[data-typeahead-input]');if(!input)return;
+  const field=input.closest('[data-domain-typeahead]');
+  if(e.key==='ArrowDown'){e.preventDefault();moveTypeahead404(field,1);return}
+  if(e.key==='ArrowUp'){e.preventDefault();moveTypeahead404(field,-1);return}
+  if(e.key==='Enter'&&!field.querySelector('[role="listbox"]').hidden){e.preventDefault();commitTypeahead404(field,field.dataset.activeIndex||0);return}
+  if(e.key==='Escape'){e.preventDefault();closeTypeahead404(field)}
 });
 document.addEventListener('change',e=>{
   const field=e.target.closest('[data-core]');
@@ -1748,16 +2091,33 @@ document.addEventListener('change',e=>{
     const card=scoreVisible.closest('[data-exam-card]');if(!card)return;
     runExamAction404('update',card.dataset.examCard,{showScoreOnTimeline:scoreVisible.checked});
   }
+  const domainToggle=e.target.closest('[data-domain-toggle]');
+  if(domainToggle){
+    const form=domainToggle.closest('[data-domain-form]');if(!form)return;
+    const domain=form.dataset.domainForm;state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+    runDomainAction404('updateDraft',domain,{[domainToggle.dataset.domainToggle]:domainToggle.checked});
+  }
 });
 document.addEventListener('focusout',e=>{
   if(e.target.matches&&e.target.matches('[data-core]'))showCoreErrors();
   const input=e.target.closest&&e.target.closest('[data-exam-field]');
-  if(!input)return;
-  const card=input.closest('[data-exam-card]');if(!card)return;
-  const field=input.dataset.examField;let value=String(input.value||'').trim();
-  touchExamField404(card.dataset.examCard,field);
-  if(field==='examDate'||field==='studyStartDate'){const parsed=parseBuilderMonth(value);if(parsed)value=parsed}
-  runExamAction404('update',card.dataset.examCard,{[field]:value});
+  if(input){
+    const card=input.closest('[data-exam-card]');if(!card)return;
+    const field=input.dataset.examField;let value=String(input.value||'').trim();
+    touchExamField404(card.dataset.examCard,field);
+    if(field==='examDate'||field==='studyStartDate'){const parsed=parseBuilderMonth(value);if(parsed)value=parsed}
+    runExamAction404('update',card.dataset.examCard,{[field]:value});
+    return;
+  }
+  const domainControl=e.target.closest&&e.target.closest('[data-domain-form] input[name], [data-domain-form] select[name]');
+  if(domainControl){
+    if(typeaheadCommitting404)return;
+    const typeaheadField=domainControl.closest('[data-domain-typeahead]');
+    if(typeaheadField)closeTypeahead404(typeaheadField);
+    const form=domainControl.closest('[data-domain-form]');const domain=form.dataset.domainForm;
+    const entry=domainFormData404(form,domain);state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+    runDomainAction404('updateDraft',domain,entry);
+  }
 });
 $('#builderBack').onclick=()=>{if(state.builder.step>1){state.builder.step--;renderAll()}};
 $('#builderContinue').onclick=()=>{

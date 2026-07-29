@@ -139,13 +139,55 @@ remain available as engineering sources, but `web/index.html` does not load
   `screenshots/M4-exams-407f-workflow.png`
 - Visual verdict: pass — the exam workflow reads as a native extension of the
   dark 407F Builder rather than an imported white-shell component.
-- Commit: pending local milestone commit
+- Commit: `8f11597`
+
+### M5 — Rotations, Work, Research, and Personal
+
+- Connected the retained Builder domain engine to the canonical 407F form layer;
+  commit, edit, delete, undo ownership, linked publication milestones, canonical
+  event projection, and durable draft state remain owned by the existing tested
+  engineering rather than a parallel UI state machine.
+- Implemented the frozen one-at-a-time, unlimited-entry model for US Clinical
+  Rotations, Work Experience, Research, and Personal, including saved rows,
+  Edit/Delete actions, skip actions, exact field order, date-order validation,
+  open-ended spans, and live board projection.
+- Bundled local-only data for medical schools, US teaching institutions, and
+  the May 2026 ACGME specialty/subspecialty vocabulary. No runtime network
+  request is used for search.
+- Reused the retained typeahead row/ranking engineering and implemented the
+  active 407F interaction layer: two-character search, at most eight matches,
+  keyboard navigation/Enter, final `Use "{text}" as written` row, known-site
+  City/State autofill, and editable/manual fields for unlisted sites.
+- Implemented the searchable Work country control with the student's school
+  country and United States pinned above the remaining alphabetical local
+  country list; free-text country creation is disabled.
+- Implemented all six frozen research author positions, conditional publication
+  fields, Published default milestone toggle, linked publication projection,
+  the exact 12 Personal icons, and interviewer-safe/advisor-only visibility.
+- Browser interaction assertions: pass — keyboard and pointer typeahead paths,
+  MGH → Boston/MA autofill, unlisted-site blank City/State, country pinning,
+  research publication disclosure, and 12-icon Personal picker.
+- Browser errors from the final M5 rerun: 0. A nested focusout/render race found
+  during typeahead validation was fixed and did not recur.
+- Regression evidence: 390/390 tests pass in segmented runs: 109/109
+  non-performance TypeScript, 10/10 isolated performance, and 271/271 module
+  tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M5-domain-entry-workflows.png`
+- Visual verdict: pass — the expanded forms, suggestion surface, saved-entry
+  model, and live preview preserve the canonical dark, layered 407F character.
+- Data authority:
+  `https://www.acgme.org/globalassets/pdfs/specialtieslist.pdf`
+  (`©2026 ACGME`, May 2026).
+- Commit: recorded with the next milestone ledger update.
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 385-test inventory; 376 non-performance tests pass and the 9 performance tests are tracked separately; required floor 370 |
+| Regression floor | PASS — 390/390 segmented inventory (109 TypeScript functional + 10 isolated performance + 271 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -166,7 +208,7 @@ remain available as engineering sources, but `web/index.html` does not load
 | M1 | `fcde6fb` | `git revert fcde6fb` |
 | M2 | `114dc37` | `git revert 114dc37` |
 | M3 | `5f2b3e6` | `git revert 5f2b3e6` |
-| M4 | pending local milestone commit | pending |
+| M4 | `8f11597` | `git revert 8f11597` |
 
 ## Precedence resolutions
 

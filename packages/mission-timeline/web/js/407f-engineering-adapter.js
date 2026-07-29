@@ -6,6 +6,14 @@ import {
   setBuilderExamSystem,
   updateBuilderExamAttempt
 } from "./uxr-002/exam-integration.js";
+import {
+  beginBuilderEntryEdit,
+  commitBuilderEntry,
+  deleteBuilderEntry,
+  ensureBuilderState,
+  rankCountryMatches,
+  typeaheadRows
+} from "./uxr-002/builder.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -130,7 +138,9 @@ export function applyDocumentTo407FState(document,state){
     ...clone(document.metadata?.builder407F||{}),
     step:Number(document.builder?.step)||Number(state.builder?.step)||1,
     examSystems:clone(document.builder?.examSystems||[]),
-    exams:clone(document.exams||[])
+    exams:clone(document.exams||[]),
+    domainDrafts:clone(document.builder?.drafts||{}),
+    domainEditing:clone(document.builder?.editing||{})
   };
   state.canvasTheme=document.theme==="season-one-board"?"season":
     document.theme==="clean-advisor-paper"||document.theme==="advisor-paper"?"paper":
@@ -157,7 +167,12 @@ export function apply407FStateToDocument(state,document){
   document.builder={
     ...document.builder,
     step:Number(state.builder?.step)||1,
-    examSystems:clone(state.builder?.examSystems||[])
+    examSystems:clone(state.builder?.examSystems||[]),
+    drafts:clone(state.builder?.domainDrafts||document.builder?.drafts||{}),
+    editing:clone(state.builder?.domainEditing||document.builder?.editing||{}),
+    skipped:Object.entries(state.builder?.skipped||{})
+      .filter(([,skipped])=>!!skipped)
+      .map(([step])=>Number(step))
   };
   document.exams=clone(state.builder?.exams||[]);
   document.metadata={
@@ -302,6 +317,70 @@ export async function boot407FEngineeringAdapter({
       });
     }
   });
+  const commitDomainMutation=(label,mutation)=>{
+    let result=null;
+    store.mutate(label,(document)=>{
+      apply407FStateToDocument(bridge.state,document);
+      ensureBuilderState(document);
+      result=mutation(document);
+    });
+    applying=true;
+    applyDocumentTo407FState(store.document,bridge.state);
+    bridge.renderAll();
+    lastState=stableState(bridge.state);
+    applying=false;
+    return result;
+  };
+  api.domain=Object.freeze({
+    updateDraft(domain,changes){
+      return commitDomainMutation(`Update ${domain} entry`,(document)=>{
+        const builder=ensureBuilderState(document);
+        builder.drafts[domain]={...builder.drafts[domain],...clone(changes||{})};
+        return clone(builder.drafts[domain]);
+      });
+    },
+    save(domain,entry){
+      return commitDomainMutation(`Save ${domain} entry`,(document)=>
+        commitBuilderEntry(document,domain,clone(entry||{}))
+      );
+    },
+    edit(eventId){
+      return commitDomainMutation("Edit Builder entry",(document)=>
+        beginBuilderEntryEdit(document,eventId)
+      );
+    },
+    delete(eventId){
+      return commitDomainMutation("Delete Builder entry",(document)=>
+        deleteBuilderEntry(document,eventId)
+      );
+    },
+    cancel(domain){
+      return commitDomainMutation(`Cancel ${domain} entry`,(document)=>{
+        const builder=ensureBuilderState(document);
+        builder.drafts[domain]={};
+        delete builder.editing[domain];
+        return true;
+      });
+    }
+  });
+  api.typeahead=Object.freeze({
+    rows(query,matches,options){
+      return typeaheadRows(query,clone(matches||[]),clone(options||{}));
+    },
+    rankCountries(matches,options){
+      return rankCountryMatches(clone(matches||[]),clone(options||{}));
+    }
+  });
+  api.undo=()=>{
+    const entry=store.undo();
+    if(!entry)return null;
+    applying=true;
+    applyDocumentTo407FState(store.document,bridge.state);
+    bridge.renderAll();
+    lastState=stableState(bridge.state);
+    applying=false;
+    return entry;
+  };
   window.D1_407F_ENGINEERING=api;
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{
     detail:{documentId:store.document.id,restored:init.restored,adapter:store.adapter.kind}
