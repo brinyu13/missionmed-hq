@@ -198,6 +198,7 @@ const state = {
   captureDraftSaveTimer: 0,
   captureDraftSuppressCloseSave: false,
   captureRecovering: false,
+  captureTypedOnlyFromAudio: false,
   adminFeatures: null,
   adminHealth: null,
   adminFeatureError: '',
@@ -762,6 +763,8 @@ function renderShell() {
 }
 
 function clearOverlays() {
+  activeAudioAssemblyPrompt?.interrupt();
+  if (captureSaveInFlight) captureSaveInterrupted = true;
   [room, capture, quick, qad, palette, sessionBar, teaching].forEach((node) => {
     node.classList.remove('open');
     node.innerHTML = '';
@@ -1481,6 +1484,9 @@ function captureDraftPayload() {
     themes: JSON.parse(capture.dataset.themes || '[]'),
     studentScore: Number(capture.dataset.score || 0) || null,
   };
+  if (state.captureTypedOnlyFromAudio) {
+    payload.typedOnlyFromAudio = true;
+  }
   if (voiceState.recordingId) {
     Object.assign(payload, {
       voice: {
@@ -1576,6 +1582,7 @@ async function openCapture({
   const prefixEnabled = saved.prefixEnabled !== false;
   const voiceEnabled = Boolean(state.capabilities?.voiceCapture);
   const recoveredVoice = Boolean(saved.voice?.recordingId || saved.recordingId);
+  state.captureTypedOnlyFromAudio = saved.typedOnlyFromAudio === true;
   const recoveredWordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
   voiceState = newVoiceState(recoveredVoice ? saved : {});
   if (recoveredVoice && !voiceEnabled) {
@@ -2543,18 +2550,256 @@ async function uploadRecordedAudio(storyId) {
 
 const voiceAssemblyRetryMs = 2_000;
 const voiceAssemblyWaitMs = 90_000;
+const audioAssemblyDecisionRequired = Object.freeze({
+  audioAssemblyDecisionRequired: true,
+});
+let captureSaveInFlight = false;
+let captureSaveInterrupted = false;
+let activeAudioAssemblyPrompt = null;
 
 function voiceDelay(milliseconds) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+}
+
+function recordingState(payload) {
+  const recording = payload?.recording || payload;
+  return String(firstDefined(recording?.state, payload?.state, ''));
+}
+
+function typedStoryPayload(storyPayload, editorText) {
+  const payload = {
+    ...storyPayload,
+    text: String(editorText ?? ''),
+    captureType: 'text',
+  };
+  delete payload.recordingId;
+  return payload;
+}
+
+function isRecordingStateConflict(error) {
+  return error?.status === 409 && error?.code === 'state_conflict';
+}
+
+async function preserveCancelledRecordingDraft(recordingId, editorText) {
+  stopVoicePolling();
+  cleanupVoiceMedia();
+  await clearVoiceSegments(recordingId).catch(() => {});
+  if (voiceState.visibilityHandler) {
+    document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
+  }
+  voiceState = newVoiceState({ text: editorText });
+  state.captureTypedOnlyFromAudio = true;
+  renderVoiceDock('idle');
+  const draft = captureDraftPayload();
+  if (draft) await persistCaptureDraft(draft).catch(() => {});
+  return state.captureDraftVersion;
+}
+
+async function saveWithoutAudioAfterDeadline(recordingId, storyPayload, editorText) {
+  try {
+    await api.cancelRecording(recordingId);
+  } catch (error) {
+    if (!isRecordingStateConflict(error)) {
+      error.audioAssemblyPromptRetry = true;
+      throw error;
+    }
+    let reread = null;
+    try {
+      reread = await api.recording(recordingId);
+    } catch {
+      // The ruled state-conflict sequence is closed. An unreadable race result
+      // cannot authorize audio success, so it proceeds to typed-only fallback.
+    }
+    if (['assembled', 'attached'].includes(recordingState(reread))) {
+      try {
+        return {
+          result: await api.createStory(storyPayload),
+          savedWithoutAudio: false,
+        };
+      } catch {
+        // The single E7 race attempt lost. The ruled typed-only fallback below
+        // is the terminal client path; there is no further E7 attempt.
+      }
+    }
+    const persistedDraftVersion = await preserveCancelledRecordingDraft(
+      recordingId,
+      editorText,
+    );
+    const payload = typedStoryPayload(storyPayload, editorText);
+    if (Number.isInteger(persistedDraftVersion)) {
+      payload.draftVersion = persistedDraftVersion;
+    }
+    const result = await api.createStory(payload);
+    try {
+      await api.cancelRecording(recordingId);
+    } catch {
+      // Exactly one second E5 attempt is permitted. The maintenance sweep owns
+      // a still-conflicted or unreachable session after the typed story exists.
+    }
+    return { result, savedWithoutAudio: true };
+  }
+
+  const persistedDraftVersion = await preserveCancelledRecordingDraft(
+    recordingId,
+    editorText,
+  );
+  const payload = typedStoryPayload(storyPayload, editorText);
+  if (Number.isInteger(persistedDraftVersion)) {
+    payload.draftVersion = persistedDraftVersion;
+  }
+  return {
+    result: await api.createStory(payload),
+    savedWithoutAudio: true,
+  };
+}
+
+function promptForAudioAssemblyDecision({
+  initiator,
+  saveWithoutAudio,
+}) {
+  return new Promise((resolve, reject) => {
+    activeAudioAssemblyPrompt?.interrupt();
+    const layer = document.createElement('div');
+    layer.className = 'audioAssemblyLayer';
+    layer.innerHTML = `<section class="audioAssemblyDialog" role="alertdialog" aria-modal="true" aria-labelledby="audioAssemblyTitle" aria-describedby="audioAssemblyBody" tabindex="-1">
+      <h2 id="audioAssemblyTitle">Your audio is still being prepared</h2>
+      <p id="audioAssemblyBody">Every word of your story is already captured below and will be saved with it. Only the audio is still being prepared. You can keep waiting, or save your story now without the audio.</p>
+      <div class="audioAssemblyActions">
+        <button type="button" class="audioAssemblyKeep">Keep Waiting</button>
+        <button type="button" class="audioAssemblySave">Save Without Audio</button>
+      </div>
+    </section>`;
+    const dialog = $('.audioAssemblyDialog', layer);
+    const keepButton = $('.audioAssemblyKeep', layer);
+    const saveButton = $('.audioAssemblySave', layer);
+    const background = [...document.body.children].filter((node) => node.id !== 'toast');
+    const priorInert = background.map((node) => [node, node.hasAttribute('inert')]);
+    let closed = false;
+    let saving = false;
+    let interrupted = false;
+
+    function restoreBackground() {
+      priorInert.forEach(([node, wasInert]) => {
+        if (!wasInert) node.removeAttribute('inert');
+      });
+    }
+
+    function close() {
+      if (closed) return;
+      closed = true;
+      document.removeEventListener('keydown', trapKeyboard, true);
+      document.removeEventListener('focusin', containFocus, true);
+      layer.remove();
+      restoreBackground();
+      if (activeAudioAssemblyPrompt?.layer === layer) {
+        activeAudioAssemblyPrompt = null;
+      }
+      if (initiator?.isConnected) initiator.focus({ preventScroll: true });
+    }
+
+    function keepWaiting() {
+      if (saving || closed) return;
+      close();
+      resolve({ keepWaiting: true });
+    }
+
+    async function chooseSaveWithoutAudio() {
+      if (saving || closed) return;
+      saving = true;
+      dialog.focus({ preventScroll: true });
+      keepButton.disabled = true;
+      saveButton.disabled = true;
+      try {
+        const outcome = await withBusy(saveWithoutAudio);
+        close();
+        resolve(outcome);
+      } catch (error) {
+        if (interrupted) {
+          resolve({ interrupted: true });
+          return;
+        }
+        if (error?.audioAssemblyPromptRetry) {
+          saving = false;
+          keepButton.disabled = false;
+          saveButton.disabled = false;
+          notify(error.message || 'StoryForge could not save that change.');
+          keepButton.focus({ preventScroll: true });
+          return;
+        }
+        close();
+        reject(error);
+      }
+    }
+
+    function trapKeyboard(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        keepWaiting();
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      event.stopImmediatePropagation();
+      const focusable = [keepButton, saveButton].filter((button) => !button.disabled);
+      if (!focusable.length) {
+        event.preventDefault();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    function containFocus(event) {
+      if (closed || dialog.contains(event.target)) return;
+      event.stopImmediatePropagation();
+      const target = [keepButton, saveButton].find((button) => !button.disabled);
+      (target || dialog).focus({ preventScroll: true });
+    }
+
+    layer.addEventListener('mousedown', (event) => {
+      if (event.target === layer) {
+        event.preventDefault();
+        event.stopPropagation();
+        keepWaiting();
+      }
+    });
+    keepButton.addEventListener('click', keepWaiting);
+    saveButton.addEventListener('click', () => {
+      void chooseSaveWithoutAudio();
+    });
+
+    activeAudioAssemblyPrompt = {
+      layer,
+      interrupt() {
+        if (closed) return;
+        interrupted = true;
+        close();
+        if (!saving) resolve({ interrupted: true });
+      },
+    };
+    background.forEach((node) => node.setAttribute('inert', ''));
+    document.body.append(layer);
+    document.addEventListener('keydown', trapKeyboard, true);
+    document.addEventListener('focusin', containFocus, true);
+    dialog.scrollIntoView({ block: 'nearest' });
+    keepButton.focus({ preventScroll: true });
+  });
 }
 
 async function saveRecordedStoryWhenAssembled(recordingId, storyPayload) {
   const deadline = Date.now() + voiceAssemblyWaitMs;
   while (true) {
     const payload = await api.recording(recordingId);
-    const recording = payload?.recording || payload;
-    const recordingState = String(firstDefined(recording?.state, payload?.state, ''));
-    if (recordingState === 'failed') {
+    if (captureSaveInterrupted) return { captureSaveInterrupted: true };
+    const currentRecordingState = recordingState(payload);
+    if (currentRecordingState === 'failed') {
       stopVoicePolling();
       cleanupVoiceMedia();
       await voiceState.uploadQueue.catch(() => {});
@@ -2574,119 +2819,195 @@ async function saveRecordedStoryWhenAssembled(recordingId, storyPayload) {
         code: 'assembly_failed',
       });
     }
-    if (['assembled', 'attached'].includes(recordingState)) {
+    if (['assembled', 'attached'].includes(currentRecordingState)) {
       try {
-        return await api.createStory(storyPayload);
+        return {
+          result: await api.createStory(storyPayload),
+          savedWithoutAudio: false,
+        };
       } catch (error) {
         if (error.code !== 'voice_assembly_pending') throw error;
       }
     }
     if (Date.now() >= deadline) {
-      // The authority references an existing E5 confirm choice that is absent
-      // from this product source. Leave the draft/session intact so retrying
-      // means "keep waiting" and the existing discard control remains usable.
-      throw Object.assign(new Error('Your recording is still being prepared.'), {
-        code: 'voice_assembly_pending',
-        status: 409,
-      });
+      return audioAssemblyDecisionRequired;
     }
     await voiceDelay(voiceAssemblyRetryMs);
   }
 }
 
 async function saveCapture(form) {
-  if (voiceState.recordingId && ['rec', 'paused', 'arming'].includes(voiceState.mode)) {
-    await voiceDone();
-  }
-  if (recorder?.state === 'recording') {
-    notify('Finish the recording before saving.');
-    return;
-  }
-  await recordingStopPromise;
-  const title = $('#capTitle', form)?.value.trim();
-  if (!title) return;
-  const lesson = $('#capLesson', form)?.value.trim() || '';
-  const themes = JSON.parse(capture.dataset.themes || '[]');
-  const studentScore = Number(capture.dataset.score || 0) || null;
-  const prefixEnabled = capture.dataset.prefixEnabled !== 'false';
-  const destinationQuestionId = state.capturePairQuestionId;
-  const recordingId = voiceState.recordingId;
-  const created = await withBusy(async () => {
-    window.clearTimeout(state.captureDraftSaveTimer);
-    state.captureDraftSaveTimer = 0;
-    await captureDraftSavePromise;
-    if (recordingId) {
-      await voiceState.uploadQueue.catch(() => {});
-      const pending = await flushVoiceSegments();
-      if (voiceState.error === VOICE_ERROR_COPY.voiceDisabled) {
-        throw Object.assign(new Error(VOICE_ERROR_COPY.voiceDisabled), { code: 'voice_disabled' });
-      }
-      if (
-        pending.length
-        || [
-          VOICE_ERROR_COPY.reconnecting,
-          VOICE_ERROR_COPY.deviceFailure,
-          VOICE_ERROR_COPY.dailyLimit,
-        ].includes(voiceState.error)
-      ) {
-        throw Object.assign(
-          new Error('Your recording is still safe on this device, but it has not finished uploading. Retry the upload before saving.'),
-          { code: 'recording_upload_pending' },
-        );
-      }
-      await api.finishRecording(recordingId, voiceState.durationMs);
-      await pollVoiceRecording();
+  if (captureSaveInFlight) return;
+  captureSaveInFlight = true;
+  captureSaveInterrupted = false;
+  try {
+    if (
+      voiceState.recordingId
+      && ['rec', 'paused', 'arming'].includes(voiceState.mode)
+    ) {
+      await voiceDone();
     }
-    const text = $('#capBody', form)?.value.trim() || '';
-    const storyPayload = {
-      title,
-      text,
-      captureType: recordingId || recordedBlob ? 'audio' : 'text',
-      lesson,
-      prefixEnabled,
-      themes,
-      studentScore,
-      ...(recordingId ? { recordingId } : {}),
-      draftVersion: state.captureDraftVersion ?? 0,
-      surface: 'quick',
-    };
-    const result = recordingId
-      ? await saveRecordedStoryWhenAssembled(recordingId, storyPayload)
-      : await api.createStory(storyPayload);
-    const story = unwrapStory(result);
-    if (!recordingId && recordedBlob) await uploadRecordedAudio(story.id);
-    if (destinationQuestionId) {
-      await api.createPair({
-        storyId: story.id,
-        questionId: destinationQuestionId,
-        studentStrength: 3,
-        surface: 'workshop-capture',
+    if (recorder?.state === 'recording') {
+      notify('Finish the recording before saving.');
+      return;
+    }
+    await recordingStopPromise;
+    const title = $('#capTitle', form)?.value.trim();
+    if (!title) return;
+    const lesson = $('#capLesson', form)?.value.trim() || '';
+    const themes = JSON.parse(capture.dataset.themes || '[]');
+    const studentScore = Number(capture.dataset.score || 0) || null;
+    const prefixEnabled = capture.dataset.prefixEnabled !== 'false';
+    const destinationQuestionId = state.capturePairQuestionId;
+    const recordingId = voiceState.recordingId;
+    const saveInitiator = $('[type="submit"]', form);
+    let recordingPrepared = false;
+    let outcome;
+    while (!outcome) {
+      const windowResult = await withBusy(async () => {
+        window.clearTimeout(state.captureDraftSaveTimer);
+        state.captureDraftSaveTimer = 0;
+        await captureDraftSavePromise;
+        if (recordingId && !recordingPrepared) {
+          await voiceState.uploadQueue.catch(() => {});
+          const pending = await flushVoiceSegments();
+          if (voiceState.error === VOICE_ERROR_COPY.voiceDisabled) {
+            throw Object.assign(
+              new Error(VOICE_ERROR_COPY.voiceDisabled),
+              { code: 'voice_disabled' },
+            );
+          }
+          if (
+            pending.length
+            || [
+              VOICE_ERROR_COPY.reconnecting,
+              VOICE_ERROR_COPY.deviceFailure,
+              VOICE_ERROR_COPY.dailyLimit,
+            ].includes(voiceState.error)
+          ) {
+            throw Object.assign(
+              new Error('Your recording is still safe on this device, but it has not finished uploading. Retry the upload before saving.'),
+              { code: 'recording_upload_pending' },
+            );
+          }
+          await api.finishRecording(recordingId, voiceState.durationMs);
+          await pollVoiceRecording();
+          recordingPrepared = true;
+        }
+        const editorText = $('#capBody', form)?.value || '';
+        const text = recordingId || state.captureTypedOnlyFromAudio
+          ? editorText
+          : editorText.trim();
+        const storyPayload = {
+          title,
+          text,
+          captureType: recordingId || recordedBlob ? 'audio' : 'text',
+          lesson,
+          prefixEnabled,
+          themes,
+          studentScore,
+          ...(recordingId ? { recordingId } : {}),
+          draftVersion: state.captureDraftVersion ?? 0,
+          surface: 'quick',
+        };
+        const saveResult = recordingId
+          ? await saveRecordedStoryWhenAssembled(recordingId, storyPayload)
+          : {
+            result: await api.createStory(storyPayload),
+            savedWithoutAudio: false,
+          };
+        if (saveResult.captureSaveInterrupted) {
+          return { captureSaveInterrupted: true };
+        }
+        if (saveResult.audioAssemblyDecisionRequired) {
+          return {
+            audioAssemblyDecisionRequired: true,
+            storyPayload,
+          };
+        }
+        const story = unwrapStory(saveResult.result);
+        if (!recordingId && recordedBlob) await uploadRecordedAudio(story.id);
+        if (destinationQuestionId) {
+          await api.createPair({
+            storyId: story.id,
+            questionId: destinationQuestionId,
+            studentStrength: 3,
+            surface: 'workshop-capture',
+          });
+        }
+        return {
+          story,
+          savedWithoutAudio: saveResult.savedWithoutAudio,
+        };
       });
+      if (!windowResult || windowResult.captureSaveInterrupted) return;
+      if (!windowResult.audioAssemblyDecisionRequired) {
+        outcome = windowResult;
+        break;
+      }
+      const decision = await promptForAudioAssemblyDecision({
+        initiator: saveInitiator,
+        saveWithoutAudio: async () => {
+          const editorText = $('#capBody', form)?.value || '';
+          const saveResult = await saveWithoutAudioAfterDeadline(
+            recordingId,
+            {
+              ...windowResult.storyPayload,
+              text: editorText,
+              draftVersion: state.captureDraftVersion ?? 0,
+            },
+            editorText,
+          );
+          const story = unwrapStory(saveResult.result);
+          if (destinationQuestionId) {
+            await api.createPair({
+              storyId: story.id,
+              questionId: destinationQuestionId,
+              studentStrength: 3,
+              surface: 'workshop-capture',
+            });
+          }
+          return {
+            story,
+            savedWithoutAudio: saveResult.savedWithoutAudio,
+          };
+        },
+      });
+      if (decision?.interrupted) return;
+      if (!decision?.keepWaiting) outcome = decision;
     }
-    return story;
-  });
-  if (!created) return;
-  stopVoicePolling();
-  cleanupVoiceMedia();
-  if (recordingId) await clearVoiceSegments(recordingId).catch(() => {});
-  if (voiceState.visibilityHandler) {
-    document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
-  }
-  voiceState = newVoiceState();
-  stopRecording();
-  recordedBlob = null;
-  recordedDurationMs = 0;
-  state.captureDraftSuppressCloseSave = true;
-  state.capturePairQuestionId = null;
-  closeOverlay(capture);
-  await loadStories();
-  renderShell();
-  if (destinationQuestionId) {
-    await openWorkshop(destinationQuestionId);
-    notify(`Saved and paired. “${storyTitle(created)}” now appears in this Question Workshop.`);
-  } else {
-    renderHome();
-    notify(`Saved. “${storyTitle(created)}” is private until you submit it for review.`);
+    const created = outcome?.story;
+    if (!created) return;
+    stopVoicePolling();
+    cleanupVoiceMedia();
+    if (recordingId) await clearVoiceSegments(recordingId).catch(() => {});
+    if (voiceState.visibilityHandler) {
+      document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
+    }
+    voiceState = newVoiceState();
+    stopRecording();
+    recordedBlob = null;
+    recordedDurationMs = 0;
+    state.captureDraftSuppressCloseSave = true;
+    state.captureTypedOnlyFromAudio = false;
+    state.capturePairQuestionId = null;
+    closeOverlay(capture);
+    await loadStories();
+    renderShell();
+    if (outcome.savedWithoutAudio) {
+      if (destinationQuestionId) await openWorkshop(destinationQuestionId);
+      else renderHome();
+      notify('Saved. Every word was kept — this story has no audio attached.');
+    } else if (destinationQuestionId) {
+      await openWorkshop(destinationQuestionId);
+      notify(`Saved and paired. “${storyTitle(created)}” now appears in this Question Workshop.`);
+    } else {
+      renderHome();
+      notify(`Saved. “${storyTitle(created)}” is private until you submit it for review.`);
+    }
+  } finally {
+    captureSaveInFlight = false;
+    captureSaveInterrupted = false;
   }
 }
 
@@ -5009,7 +5330,9 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-close-overlay]')) {
       event.preventDefault();
-      closeOverlay(overlayContaining(button));
+      const overlay = overlayContaining(button);
+      if (overlay === capture && captureSaveInFlight) return;
+      closeOverlay(overlay);
       if (button.closest('#qad') && quick.classList.contains('open')) renderQuick();
       if (button.closest('#qad') && room.classList.contains('open')) renderStoryRoom();
       return;
@@ -5549,6 +5872,7 @@ document.addEventListener('change', async (event) => {
 document.addEventListener('mousedown', (event) => {
   for (const node of [qad, quick, capture, room, palette]) {
     if (node.classList.contains('open') && event.target === node) {
+      if (node === capture && captureSaveInFlight) return;
       closeOverlay(node);
       break;
     }
@@ -5561,6 +5885,7 @@ document.addEventListener('keydown', (event) => {
   if (event.key === 'Escape') {
     if (openOverlay) {
       event.preventDefault();
+      if (openOverlay === capture && captureSaveInFlight) return;
       closeOverlay(openOverlay);
     }
     return;
