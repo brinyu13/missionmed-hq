@@ -501,39 +501,54 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 <main>
 <!-- ================= COMMAND ================= -->
 <section data-view="command" class="live">
-  <div class="trow"><div class="bigt">MISSION <em>TIMELINE</em> BUILDER</div><div class="subt">GENERATE A MISSION RESIDENCY TIMELINE WITHOUT TOUCHING KEYNOTE</div>
-    <div class="tspacer"><span class="chip em">1 · WIZARD OR UPLOAD</span><span class="chip">2 · CANVAS</span><span class="chip">3 · ADVISOR · EXPORT</span></div></div>
-  <div class="homeLegacySingle">
-    <div class="panelD"><div class="pi hero"><div class="beambg"></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
-        <span class="chip em">OP D1 · TIMELINE ENGINE</span><span class="chip cy">BLANK BUILDER DEFAULT</span><span class="chip">AXIS AUTO-CALIBRATES</span>
+  <div class="d1404HomeGrid">
+    <section class="panelD homeRegion homeBuildRegion" aria-labelledby="homeTitle">
+      <div class="pi">
+        <p class="homeMicro">Build your timeline</p>
+        <h1 id="homeTitle">Turn your medical journey into an interview-ready timeline.</h1>
+        <p class="homeSubline">Answer guided questions about your school, exams, rotations, work, and research. Timeline Builder draws the Keynote-style timeline for you — no design work.</p>
+        <div class="homeActions">
+          <button class="btnD go" id="homeBuild" data-nav="builder">START BUILDING ▸</button>
+          <button class="homeTertiary" id="homeStartOver" hidden>Start over</button>
+        </div>
+        <p class="homeJourneyStrip">1 · ADD YOUR JOURNEY&nbsp;&nbsp;&nbsp;2 · REFINE ON THE CANVAS&nbsp;&nbsp;&nbsp;3 · EXPORT FOR INTERVIEWS</p>
       </div>
-      <div style="font-size:26px;font-weight:800;line-height:1.3;max-width:640px;margin-bottom:8px">Your whole journey, on one board, told the way an interviewer needs to hear it.</div>
-      <div style="color:var(--mid);font-size:13.5px;max-width:560px;line-height:1.6;margin-bottom:20px">Students used to fight the Keynote template: wrong arrow lengths, wrong colors, misaligned years. This engine generates the arrows from your dates. You edit events, not pixels.</div>
-      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
-        <button class="btnD go" data-nav="builder">BUILD WITH GUIDED WIZARD ▸</button>
-        <span class="chip em">RECOMMENDED FIRST STEP</span>
-        <button class="btnD alt" data-nav="intake">UPLOAD CV OR ERAS</button>
-        <button class="btnD alt" data-nav="canvas">OPEN CANVAS EDITOR</button>
-        <button class="btnD alt" id="btnDemoStory">LOAD DEMO STORY</button>
-        <button class="btnD alt" data-nav="reference">VIEW REFERENCE SAMPLE</button>
+    </section>
+
+    <section class="panelD homeRegion homeIntakeRegion" aria-labelledby="homeIntakeTitle">
+      <div class="pi">
+        <h2 id="homeIntakeTitle">Start from your CV or MyERAS</h2>
+        <p class="homeBody">Upload your CV or MyERAS export. We'll read it, suggest timeline events, and you approve each one before it appears.</p>
+        <button class="homeDropzone" id="homeIntake" data-nav="intake">
+          <span class="homeUploadIcon" aria-hidden="true">⇧</span>
+          <span><strong>Drop a PDF here, or browse</strong><small>CV · MyERAS PDF · résumé</small></span>
+        </button>
+        <p class="homeAssurance">Nothing appears on your timeline until you approve it.</p>
       </div>
-      <div class="helper" style="margin-top:14px">THE BOARD STARTS BLANK · EVENTS GENERATE FROM DATES · ARROWS SNAP TO MONTHS · THE OUTPUT IS AN INTERVIEW STORY, NOT JUST A RECORD</div>
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
-        <span class="rolemini"><b>Students</b>Build it without Keynote. The engine places arrows from dates.</span>
-        <span class="rolemini"><b>Advisors</b>Spot gaps, overlaps, privacy, likely questions. Fast.</span>
-        <span class="rolemini"><b>Interviewers</b>Read the journey at a glance, not the whole CV.</span>
+    </section>
+
+    <section class="panelD homeRegion homeTimelineRegion" aria-labelledby="homeTimelineTitle">
+      <div class="pi">
+        <div class="homeTimelineTitleRow">
+          <h2 id="homeTimelineTitle">Your timeline</h2>
+          <div class="homeTimelineMeta">
+            <span class="homeApproved" id="homeApproved" hidden></span>
+            <button class="homePending" id="homePending" data-nav="review" hidden></button>
+            <span id="homeMeta">0 events · 2026–2026 · edited just now</span>
+          </div>
+        </div>
+        <div class="homePreviewShell" id="homePreviewShell">
+          <div id="boardCommand"></div>
+          <button class="homeCanvasLink" id="homeCanvasLink" data-nav="canvas" aria-label="Open canvas"><span>OPEN CANVAS</span></button>
+          <div class="homeEmptyOverlay" id="homeEmptyOverlay">
+            <h3>This is what you're building.</h3>
+            <p>A one-page visual story an interviewer can read at a glance.</p>
+            <button class="homeTertiary" data-nav="builder">Use the guided builder →</button>
+          </div>
+        </div>
       </div>
-    </div></div>
+    </section>
   </div>
-  <div style="margin-top:16px" class="panelD"><div class="pi">
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      <span class="subt">LIVE BOARD PREVIEW · BLANK BUILDER</span>
-      <button class="thBtn">THEME ▾</button>
-      <span class="helper" style="letter-spacing:.08em">ONE VISUAL STORY · EXAMS · USCE · RESEARCH · WORK · FAMILY · GAPS · OVERLAPS</span>
-    </div>
-    <div id="boardCommand"></div>
-  </div></div>
 </section>
 <!-- ================= BUILDER / WIZARD ================= -->
 <section data-view="builder">
@@ -1227,7 +1242,8 @@ function loadDemoIntoUser(){
 
 /* ============ RENDER ORCHESTRATION ============ */
 function renderBoards(){
-  renderBoard('boardCommand',{mode:'blank',tag:'BLANK BUILDER'});
+  const homeHasEvents=state.user.events.length>0;
+  renderBoard('boardCommand',{data:homeHasEvents?state.user:state.demo,scope:'safe',tag:homeHasEvents?'YOUR TIMELINE · INTERVIEW-SAFE':'EXAMPLE · PREVIEW ONLY'});
   renderBoard('boardWizard',{mode:'blank',editable:true,tag:'WIZARD PREVIEW · CLICK ANY ELEMENT'});
   if(state.view==='canvas'){
     if(state.mode==='reference')renderBoard('boardMain',{data:state.demo,tag:'REFERENCE SAMPLE · READ-ONLY'});
@@ -1267,6 +1283,34 @@ function renderHud(){
   const cd=$('#ctlCondensed');if(cd)cd.style.color=state.condensed?'var(--em)':'';
   const vd=$('#vDirty');if(vd){vd.textContent=state.saved?'SAVED ·':'UNSAVED EDITS';vd.className='chip '+(state.saved?'gn':'em')}
 }
+function renderHome(){
+  const count=state.user.events.length;
+  const nowYear=new Date().getFullYear();
+  const ax=count?axisOf(state.user):{y0:nowYear,y1:nowYear};
+  const build=$('#homeBuild');
+  if(build)build.textContent=count?'CONTINUE BUILDING ▸':'START BUILDING ▸';
+  const startOver=$('#homeStartOver');
+  if(startOver)startOver.hidden=!count;
+  const meta=$('#homeMeta');
+  if(meta)meta.textContent=count+' '+(count===1?'event':'events')+' · '+ax.y0+'–'+ax.y1+' · edited just now';
+  const pending=state.candidates.filter(c=>c.st==='pending').length;
+  const pendingButton=$('#homePending');
+  if(pendingButton){
+    pendingButton.hidden=!pending;
+    pendingButton.textContent=pending+' suggestions to review';
+  }
+  const approved=$('#homeApproved');
+  if(approved){
+    approved.hidden=!state.approved;
+    approved.textContent=state.approved?'Advisor approved · '+(state.approvedAt||'today'):'';
+  }
+  const shell=$('#homePreviewShell');
+  if(shell)shell.classList.toggle('isEmpty',!count);
+  const canvasLink=$('#homeCanvasLink');
+  if(canvasLink)canvasLink.hidden=!count;
+  const empty=$('#homeEmptyOverlay');
+  if(empty)empty.hidden=!!count;
+}
 function renderHist(){
   const host=$('#histList');if(!host)return;
   host.innerHTML=state.versions.slice().reverse().map(v=>'<div class="hist"><b>'+v.v+'</b><span>'+esc(v.t)+'</span><span style="margin-left:auto">'+v.n+' EV</span></div>').join('');
@@ -1274,7 +1318,7 @@ function renderHist(){
 window.D1_407_HARDENING=window.D1_407_HARDENING||{beforeRenderAll:null,afterRenderAll:null};
 function renderAll(){
   if(typeof window.D1_407_HARDENING.beforeRenderAll==='function')window.D1_407_HARDENING.beforeRenderAll();
-  renderThemeButtons();renderBoards();renderEvList();renderElems();renderInspector();renderWizQuick();renderHud();renderHist();renderExport();renderAdvisor();renderQuestionsList();renderVersionsPanel();renderCands();refreshSelClasses();
+  renderThemeButtons();renderHome();renderBoards();renderEvList();renderElems();renderInspector();renderWizQuick();renderHud();renderHist();renderExport();renderAdvisor();renderQuestionsList();renderVersionsPanel();renderCands();refreshSelClasses();
   if(typeof window.D1_407_HARDENING.afterRenderAll==='function')window.D1_407_HARDENING.afterRenderAll();
   document.dispatchEvent(new CustomEvent('d1:407f-rendered'));
 }
@@ -1403,6 +1447,21 @@ function go(v){
 $$('#rail .rtab').forEach(b=>b.onclick=()=>go(b.dataset.v));
 document.addEventListener('click',e=>{const n=e.target.closest('[data-nav]');if(n)go(n.dataset.nav)});
 $('#matrixBack').onclick=e=>{e.preventDefault();toast('Matrix connection is unavailable in this local candidate')};
+$('#homeStartOver').onclick=()=>{
+  openModal('<div class="bigt" style="font-size:24px;margin-bottom:10px">Start a new timeline?</div>'
+    +'<p class="homeBody" style="margin-bottom:18px">Your current draft stays in History as a version. You can restore it anytime.</p>'
+    +'<div style="display:flex;gap:10px;justify-content:flex-end"><button class="btnD alt" id="homeStartCancel">Cancel</button><button class="btnD go" id="homeStartConfirm">Save &amp; start new</button></div>');
+  $('#homeStartCancel').onclick=closeModal;
+  $('#homeStartConfirm').onclick=()=>{
+    const date=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+    state.draft++;
+    state.versions.push({v:'V'+state.draft,t:'Before starting over · '+date,n:state.user.events.length});
+    pushUndo();
+    state.user={events:[],interview:{prog:'',date:'',label:''}};
+    state.sel=null;state.wizStep=0;state.saved=false;
+    closeModal();go('builder');toast('New timeline ready');
+  };
+};
 
 /* ============ CANVAS CONTROLS ============ */
 $$('#modeSeg button').forEach(b=>b.onclick=()=>{
@@ -1444,8 +1503,6 @@ $('#ctlFixtures').onclick=()=>{
 };
 $('#ctlDemoLoad').onclick=()=>{pushUndo();loadDemoIntoUser()};
 $('#ctlDemoClear').onclick=()=>{pushUndo();state.user={events:[],interview:{prog:'',date:'',label:''}};state.sel=null;state.saved=false;toast('Canvas cleared · blank builder restored · undo available');renderAll()};
-$('#btnDemoStory').onclick=()=>{pushUndo();loadDemoIntoUser();go('canvas')};
-
 /* ============ WIZARD ============ */
 const WSTEPS=[
  {t:'IDENTITY',f:[['name','Student name','text'],['country','Medical school country','country'],['visa','Visa / status','text']]},
@@ -1672,7 +1729,7 @@ $('#advApprove').onclick=()=>{
    +'<div style="font-weight:800;font-size:18px;margin-bottom:8px">Approve draft V'+state.draft+' for export?</div>'
    +'<div style="font-size:12.5px;color:var(--mid);margin-bottom:18px">The student will see your approval. Interview-safe export unlocks.</div>'
    +'<div style="display:flex;gap:10px"><button class="btnD gd" id="mYes">APPROVE ▸</button><button class="btnD alt" id="mNo">BACK</button></div>');
-  $('#mYes').onclick=()=>{state.approved=true;state.approvals.export=true;state.changes=false;closeModal();toast('◆ Advisor approved · export gate open');renderAll()};
+  $('#mYes').onclick=()=>{state.approved=true;state.approvedAt=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});state.approvals.export=true;state.changes=false;closeModal();toast('◆ Advisor approved · export gate open');renderAll()};
   $('#mNo').onclick=closeModal;
 };
 $('#advChanges').onclick=()=>{state.changes=true;state.approved=false;toast('Changes requested · student notified in the real build');renderHud()};
