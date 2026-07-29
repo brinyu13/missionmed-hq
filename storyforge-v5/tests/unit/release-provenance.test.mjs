@@ -27,6 +27,10 @@ CREATE POLICY sf_recording_segments_rw ON public.sf_recording_segments
 FOR ALL TO authenticated
 USING (public.sf_has_live_identity(ARRAY['student']) AND true)
 WITH CHECK (public.sf_has_live_identity(ARRAY['student']) AND true);
+CREATE POLICY sf_recording_sessions_service ON public.sf_recording_sessions
+FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
+CREATE POLICY sf_recording_segments_service ON public.sf_recording_segments
+FOR ALL TO storyforge_app USING (true) WITH CHECK (true);
 REVOKE ALL ON public.sf_recording_sessions, public.sf_recording_segments FROM PUBLIC;
 `;
 
@@ -254,7 +258,7 @@ REVOKE ALL ON public.sf_recording_sessions, public.sf_recording_segments FROM PU
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,
-    /sf_recording_sessions_rw USING does not require a live student identity/,
+    /M1 contains an unrestricted live-identity policy predicate/,
   );
 
   await writeFile(migration, `
@@ -281,8 +285,48 @@ REVOKE ALL ON public.sf_recording_sessions, public.sf_recording_segments FROM PU
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,
-    /sf_recording_sessions_rw WITH CHECK does not require a live student identity/,
+    /M1 contains an unrestricted live-identity policy predicate/,
   );
+
+  await writeFile(
+    migration,
+    safeM1Fixture.replace(
+      "USING (public.sf_has_live_identity(ARRAY['student']) AND student_id = public.sf_actor_id())",
+      "USING (public.sf_has_live_identity(ARRAY['student']) OR true)",
+    ),
+  );
+  git(fixture.root, ['add', '--all']);
+  git(fixture.root, ['commit', '--quiet', '-m', 'OR-broadened M1']);
+  head = git(fixture.root, ['rev-parse', 'HEAD^{commit}']);
+  result = command(process.execPath, [
+    fixture.assertionScript,
+    '--mode=release',
+  ], {
+    cwd: fixture.fixturePackage,
+    environment: { STORYFORGE_EXPECTED_COMMIT: head },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /sf_recording_sessions_rw may not broaden access with OR/);
+
+  await writeFile(
+    migration,
+    `${safeM1Fixture}
+CREATE POLICY sf_recording_sessions_extra ON public.sf_recording_sessions
+FOR ALL TO authenticated USING (true) WITH CHECK (true);
+`,
+  );
+  git(fixture.root, ['add', '--all']);
+  git(fixture.root, ['commit', '--quiet', '-m', 'extra recording policy']);
+  head = git(fixture.root, ['rev-parse', 'HEAD^{commit}']);
+  result = command(process.execPath, [
+    fixture.assertionScript,
+    '--mode=release',
+  ], {
+    cwd: fixture.fixturePackage,
+    environment: { STORYFORGE_EXPECTED_COMMIT: head },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /exactly the four approved recording policies/);
 
   await writeFile(migration, safeM1Fixture);
   git(fixture.root, ['add', '--all']);

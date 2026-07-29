@@ -503,7 +503,7 @@ test('production migration runner rejects the unresolved M1 authority conflict b
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,
-    /sf_recording_sessions_rw USING does not require a live student identity/,
+    /M1 contains an unrestricted live-identity policy predicate/,
   );
   assert.match(
     result.stderr,
