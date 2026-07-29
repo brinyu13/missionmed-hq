@@ -45,10 +45,22 @@ if (railwayManifest.deploy?.healthcheckPath !== '/healthz') {
   fail('Railway healthcheck must remain /healthz.');
 }
 
-const serverFiles = (await readdir(serverDir, { withFileTypes: true }))
-  .filter((entry) => entry.isFile() && entry.name.endsWith('.mjs'))
-  .map((entry) => `server/${entry.name}`)
-  .sort();
+async function serverModuleFiles(directory, relativeDirectory = 'server') {
+  const modules = [];
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries) {
+    const relative = `${relativeDirectory}/${entry.name}`;
+    if (entry.isSymbolicLink()) fail(`server source must not contain symlinks: ${relative}.`);
+    if (entry.isDirectory()) {
+      modules.push(...await serverModuleFiles(path.join(directory, entry.name), relative));
+    } else if (entry.isFile() && entry.name.endsWith('.mjs')) {
+      modules.push(relative);
+    }
+  }
+  return modules.sort();
+}
+
+const serverFiles = await serverModuleFiles(serverDir);
 if (!serverFiles.includes('server/app.mjs')) {
   fail('server/app.mjs is missing from the provider upload.');
 }

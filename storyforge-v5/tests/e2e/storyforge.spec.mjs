@@ -356,8 +356,8 @@ test('raw API enforces privacy and the two-mentor coaching lifecycle', async ({ 
     headers: authHeaders(student),
     data: { storyId: story.id, contentType: 'audio/webm', byteSize: 128 },
   });
-  expect(gatedAudio.status()).toBe(503);
-  expect((await gatedAudio.json()).error.code).toBe('audio_storage_unavailable');
+  expect(gatedAudio.status()).toBe(403);
+  expect((await gatedAudio.json()).error.code).toBe('voice_disabled');
 
   for (const token of [mentor, unassigned, admin]) {
     const response = await request.get(`/api/stories/${story.id}`, { headers: authHeaders(token) });
@@ -790,8 +790,8 @@ test('student and mentor complete the V5 browser loop with truthful gates', asyn
   await expect(page.locator('.homeHero')).toBeVisible();
 
   await page.locator('[data-open-capture]').first().click();
-  await expect(page.getByText(/Voice capture is not configured on this environment/)).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Record a voice note' })).toBeDisabled();
+  await expect(page.locator('#voxDock')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /voice recording|voice note/i })).toHaveCount(0);
   await page.locator('#capTitle').fill('A hard conversation');
   await page.locator('#capBody').fill('I had to explain a difficult change while keeping the person involved in the decision.');
   await page.getByRole('button', { name: 'Save story' }).click();

@@ -2,6 +2,36 @@
 set -euo pipefail
 
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+fail() {
+  printf 'StoryForge conformance PostgreSQL setup failed: %s\n' "$*" >&2
+  exit 1
+}
+
+pg_tool() {
+  local name="$1"
+  local resolved=""
+  if [[ -n "${STORYFORGE_PG_BIN:-}" ]]; then
+    [[ "$STORYFORGE_PG_BIN" = /* && -d "$STORYFORGE_PG_BIN" ]] \
+      || fail "STORYFORGE_PG_BIN must be an absolute PostgreSQL bin directory"
+    resolved="$STORYFORGE_PG_BIN/$name"
+  else
+    resolved="$(command -v "$name" || true)"
+  fi
+  [[ -n "$resolved" && "$resolved" = /* && -x "$resolved" ]] \
+    || fail "$name is unavailable"
+  printf '%s\n' "$resolved"
+}
+
+INITDB_BIN="$(pg_tool initdb)"
+PG_CTL_BIN="$(pg_tool pg_ctl)"
+POSTGRES_BIN="$(pg_tool postgres)"
+PSQL_BIN="$(pg_tool psql)"
+postgres_major="$("$POSTGRES_BIN" --version | sed -E 's/^postgres \(PostgreSQL\) ([0-9]+).*/\1/')"
+psql_major="$("$PSQL_BIN" --version | sed -E 's/^psql \(PostgreSQL\) ([0-9]+).*/\1/')"
+[[ "$postgres_major" = "18" && "$psql_major" = "18" ]] \
+  || fail "PostgreSQL 18 is required (postgres=$postgres_major, psql=$psql_major)"
+
 SF_CONFORMANCE_TMP="$(mktemp -d /tmp/storyforge-v5.conformance.XXXXXX)"
 SF_CONFORMANCE_PGDATA="$SF_CONFORMANCE_TMP/data"
 SF_CONFORMANCE_PGSOCKET="$SF_CONFORMANCE_TMP/socket"
@@ -17,7 +47,7 @@ cleanup() {
     wait "$SF_CONFORMANCE_SERVER_PID" >/dev/null 2>&1 || true
   fi
   if [[ -s "$SF_CONFORMANCE_PGDATA/postmaster.pid" ]]; then
-    pg_ctl -D "$SF_CONFORMANCE_PGDATA" -m fast stop >/dev/null 2>&1 || true
+    "$PG_CTL_BIN" -D "$SF_CONFORMANCE_PGDATA" -m fast stop >/dev/null 2>&1 || true
   fi
   case "$SF_CONFORMANCE_TMP" in
     /tmp/storyforge-v5.conformance.*) rm -rf -- "$SF_CONFORMANCE_TMP" ;;
@@ -35,11 +65,11 @@ if lsof -nP -iTCP:"$SF_CONFORMANCE_APP_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
   exit 1
 fi
 
-initdb -D "$SF_CONFORMANCE_PGDATA" -A trust -U postgres --no-locale --encoding=UTF8 >/dev/null
-pg_ctl -D "$SF_CONFORMANCE_PGDATA" \
+"$INITDB_BIN" -D "$SF_CONFORMANCE_PGDATA" -A trust -U postgres --no-locale --encoding=UTF8 >/dev/null
+"$PG_CTL_BIN" -D "$SF_CONFORMANCE_PGDATA" \
   -o "-p $SF_CONFORMANCE_PG_PORT -k $SF_CONFORMANCE_PGSOCKET -h 127.0.0.1" \
   -w start >/dev/null
-psql -h 127.0.0.1 -p "$SF_CONFORMANCE_PG_PORT" -U postgres -d postgres \
+"$PSQL_BIN" -h 127.0.0.1 -p "$SF_CONFORMANCE_PG_PORT" -U postgres -d postgres \
   -v ON_ERROR_STOP=1 -c "CREATE DATABASE storyforge" >/dev/null
 
 PSQL_ARGS=(
@@ -48,13 +78,33 @@ PSQL_ARGS=(
   -U postgres
   -d storyforge
   -v ON_ERROR_STOP=1
+  --set=founder_user_id=11111111-1111-4111-8111-111111111111
 )
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/bootstrap_local.sql" >/dev/null
-while IFS= read -r migration_file; do
-  psql "${PSQL_ARGS[@]}" -f "$migration_file" >/dev/null
-done < <(find "$PACKAGE_DIR/infra/postgres/migrations" -maxdepth 1 -type f -name '*.sql' | sort)
-psql "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/seed_local.sql" >/dev/null
+"$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/bootstrap_production.sql" >/dev/null
+base_migrations=(
+  "20260726150000_b1_500_storyforge_v5_foundation.sql"
+  "20260727170000_b1_502_storyforge_submit_assignment_gate.sql"
+  "20260727190000_b1_502_storyforge_background_preference.sql"
+  "20260728045100_b1_503_story_domain_conformance.sql"
+  "20260728045444_b1_503_interview_mentor_conformance.sql"
+)
+phase_one_migrations=(
+  "20260729000100_b1_506_voice_recording_sessions.sql"
+  "20260729000200_b1_506_feature_flags.sql"
+)
+for migration in "${base_migrations[@]}"; do
+  "$PSQL_BIN" "${PSQL_ARGS[@]}" \
+    -f "$PACKAGE_DIR/infra/postgres/migrations/$migration" >/dev/null
+done
+"$PSQL_BIN" "${PSQL_ARGS[@]}" -f "$PACKAGE_DIR/infra/postgres/seed_local.sql" >/dev/null
+for migration in "${phase_one_migrations[@]}"; do
+  "$PSQL_BIN" "${PSQL_ARGS[@]}" \
+    -f "$PACKAGE_DIR/infra/postgres/migrations/$migration" >/dev/null
+done
+"$PSQL_BIN" "${PSQL_ARGS[@]}" -c "ALTER ROLE storyforge_app LOGIN" >/dev/null
 
+# Preserve the B1-503 canonical-comparison fixture's administrator connection;
+# production roles and grants are still created and validated by this harness.
 export STORYFORGE_DATABASE_URL="postgresql://postgres@127.0.0.1:$SF_CONFORMANCE_PG_PORT/storyforge"
 export STORYFORGE_PORT="$SF_CONFORMANCE_APP_PORT"
 export STORYFORGE_HOST="127.0.0.1"

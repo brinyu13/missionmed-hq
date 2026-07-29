@@ -254,6 +254,35 @@ function mmsfr_clear_output_buffers() {
 }
 
 /**
+ * Resolve the exact private-audio origin for CSP. The endpoint is not a
+ * credential; deployments define MISSIONMED_STORYFORGE_R2_ENDPOINT only after
+ * the RP-6 bucket authority is verified.
+ *
+ * @return string Exact http(s) origin, or an empty string when unavailable.
+ */
+function mmsfr_audio_origin() {
+	if ( ! defined( 'MISSIONMED_STORYFORGE_R2_ENDPOINT' ) ) {
+		return '';
+	}
+	$parts = wp_parse_url( (string) constant( 'MISSIONMED_STORYFORGE_R2_ENDPOINT' ) );
+	if (
+		! is_array( $parts )
+		|| empty( $parts['scheme'] )
+		|| empty( $parts['host'] )
+		|| ! in_array( strtolower( $parts['scheme'] ), array( 'http', 'https' ), true )
+		|| isset( $parts['user'] )
+		|| isset( $parts['pass'] )
+	) {
+		return '';
+	}
+	$origin = strtolower( $parts['scheme'] ) . '://' . strtolower( $parts['host'] );
+	if ( isset( $parts['port'] ) ) {
+		$origin .= ':' . (int) $parts['port'];
+	}
+	return preg_match( '#^https?://[a-z0-9.-]+(?::[0-9]{1,5})?$#', $origin ) ? $origin : '';
+}
+
+/**
  * Apply the shared StoryForge security and cache headers.
  *
  * @param string $cache_control Cache-Control value.
@@ -288,8 +317,10 @@ function mmsfr_send_security_headers( $cache_control, $private = false ) {
 	} else {
 		header_remove( 'Pragma' );
 	}
+	$audio_origin = mmsfr_audio_origin();
+	$audio_source = '' !== $audio_origin ? ' ' . $audio_origin : '';
 	header(
-		"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+		"Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; media-src 'self' blob:" . $audio_source . "; connect-src 'self'" . $audio_source . "; font-src 'self'; object-src 'none'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
 		true
 	);
 	header( 'Referrer-Policy: no-referrer', true );

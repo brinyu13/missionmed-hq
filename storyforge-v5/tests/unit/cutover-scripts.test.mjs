@@ -23,6 +23,11 @@ const packageDir = path.resolve(fileURLToPath(new URL('../..', import.meta.url))
 const installScript = path.join(packageDir, 'scripts', 'install-b1-503-kinsta-release.sh');
 const rollbackScript = path.join(packageDir, 'scripts', 'rollback-b1-503-kinsta-release.sh');
 const migrationScript = path.join(packageDir, 'scripts', 'apply-production-migrations.sh');
+const postgresHarnesses = [
+  path.join(packageDir, 'scripts', 'run-e2e.sh'),
+  path.join(packageDir, 'scripts', 'run-integration.sh'),
+  path.join(packageDir, 'scripts', 'run-conformance.sh'),
+];
 const phpCli = spawnSync('sh', ['-c', 'command -v php'], { encoding: 'utf8' }).stdout.trim();
 const owner = `${spawnSync('id', ['-un'], { encoding: 'utf8' }).stdout.trim()}:${
   spawnSync('id', ['-gn'], { encoding: 'utf8' }).stdout.trim()
@@ -98,6 +103,49 @@ function run(script, args, environment = {}) {
     encoding: 'utf8',
   });
 }
+
+test('browser harnesses pin PostgreSQL 18 and the exact forward-only migration order', () => {
+  const baseMigrations = [
+    '20260726150000_b1_500_storyforge_v5_foundation.sql',
+    '20260727170000_b1_502_storyforge_submit_assignment_gate.sql',
+    '20260727190000_b1_502_storyforge_background_preference.sql',
+    '20260728045100_b1_503_story_domain_conformance.sql',
+    '20260728045444_b1_503_interview_mentor_conformance.sql',
+  ];
+  const phaseOneMigrations = [
+    '20260729000100_b1_506_voice_recording_sessions.sql',
+    '20260729000200_b1_506_feature_flags.sql',
+  ];
+
+  for (const harness of postgresHarnesses) {
+    const source = readFileSync(harness, 'utf8');
+    assert.match(source, /STORYFORGE_PG_BIN/);
+    assert.match(source, /PostgreSQL 18 is required/);
+    assert.doesNotMatch(source, /bootstrap_local\.sql/);
+    assert.doesNotMatch(source, /find[^\n]*infra\/postgres\/migrations/);
+    assert.doesNotMatch(source, /_rollback\.sql/);
+
+    const executionMarkers = [
+      'bootstrap_production.sql',
+      'for migration in "${base_migrations[@]}"; do',
+      'seed_local.sql',
+      'for migration in "${phase_one_migrations[@]}"; do',
+    ];
+    let priorIndex = -1;
+    for (const sourceName of executionMarkers) {
+      const sourceIndex = source.indexOf(sourceName);
+      assert.ok(sourceIndex > priorIndex, `${path.basename(harness)} order: ${sourceName}`);
+      priorIndex = sourceIndex;
+    }
+    for (const sourceName of [...baseMigrations, ...phaseOneMigrations]) {
+      assert.equal(
+        source.split(sourceName).length - 1,
+        1,
+        `${path.basename(harness)} pins ${sourceName} exactly once`,
+      );
+    }
+  }
+});
 
 test('guarded Kinsta install and rollback preserve exact prior state and immutable releases', () => {
   assert.ok(phpCli, 'PHP CLI is required for the local cutover fixture');
@@ -458,6 +506,8 @@ test('production migration runner pins source, backup, provider, DB, and exact l
     '20260727190000_b1_502_storyforge_background_preference.sql',
     '20260728045100_b1_503_story_domain_conformance.sql',
     '20260728045444_b1_503_interview_mentor_conformance.sql',
+    '20260729000100_b1_506_voice_recording_sessions.sql',
+    '20260729000200_b1_506_feature_flags.sql',
   ];
 
   mkdirSync(candidateScripts, { recursive: true });
@@ -499,6 +549,8 @@ test('production migration runner pins source, backup, provider, DB, and exact l
     '20260726150000|20260726150000_b1_500_storyforge_v5_foundation.sql|93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f',
     '20260727170000|20260727170000_b1_502_storyforge_submit_assignment_gate.sql|95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f',
     '20260727190000|20260727190000_b1_502_storyforge_background_preference.sql|ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405',
+    '20260728045100|20260728045100_b1_503_story_domain_conformance.sql|fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68',
+    '20260728045444|20260728045444_b1_503_interview_mentor_conformance.sql|5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2',
   ].join('\n');
   writeFileSync(fakePsql, `#!/usr/bin/env bash
 set -euo pipefail
@@ -518,10 +570,12 @@ case "$joined" in
   *"--set=version=20260726150000"*) printf '%s\\n' '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f' ;;
   *"--set=version=20260727170000"*) printf '%s\\n' '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f' ;;
   *"--set=version=20260727190000"*) printf '%s\\n' 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405' ;;
-  *"--set=version=20260728045100"*) : ;;
-  *"--set=version=20260728045444"*) : ;;
-  *"NOT rolcreatedb"*) printf '5|1|1|0\\n' ;;
-  *"sf_users"*"sf_mentor_assignments"*) printf '1|0\\n' ;;
+  *"--set=version=20260728045100"*) printf '%s\\n' 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68' ;;
+  *"--set=version=20260728045444"*) printf '%s\\n' '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2' ;;
+  *"--set=version=20260729000100"*) : ;;
+  *"--set=version=20260729000200"*) : ;;
+  *"NOT rolcreatedb"*) printf '7|1|1|0|1\\n' ;;
+  *"sf_users"*"sf_mentor_assignments"*) printf '1|0|1\\n' ;;
   *) printf 'unexpected fake psql invocation: %s\\n' "$joined" >&2; exit 71 ;;
 esac
 `);
@@ -567,6 +621,7 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
     STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER: expectedSystemIdentifier,
     STORYFORGE_EXPECTED_USER_COUNT: '1',
     STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT: '0',
+    STORYFORGE_FOUNDER_USER_ID: '33333333-3333-4333-8333-333333333333',
     RAILWAY_PROJECT_ID: '875e7c17-d06f-4301-a4bb-e61016f153cf',
     RAILWAY_ENVIRONMENT_ID: 'bcef8734-e42b-44df-8488-c2a3de68213f',
     RAILWAY_SERVICE_ID: 'a4a66362-c3ba-475a-ae21-2aa46624bafe',
@@ -581,22 +636,29 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
 
   const preflight = run(candidateRunner, ['preflight'], environment);
   assert.equal(preflight.status, 0, preflight.stderr || preflight.stdout);
-  assert.match(preflight.stdout, /B1_503_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
+  assert.match(preflight.stdout, /B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
   assert.match(preflight.stdout, /pending_migrations=2/);
   assert.equal(existsSync(fakeSqlLog), false, 'preflight must not issue the mutation transaction');
 
   const apply = run(candidateRunner, ['apply'], {
     ...environment,
-    STORYFORGE_MIGRATION_CONFIRM: 'B1-503-APPLY-TWO-MIGRATIONS',
+    STORYFORGE_MIGRATION_CONFIRM: 'B1-506-APPLY-TWO-MIGRATIONS',
   });
   assert.equal(apply.status, 0, apply.stderr || apply.stdout);
-  assert.match(apply.stdout, /B1_503_PRODUCTION_MIGRATIONS_APPLIED/);
+  assert.match(apply.stdout, /B1_506_PRODUCTION_MIGRATIONS_APPLIED/);
+  assert.match(apply.stdout, /migration_count=7/);
+  assert.doesNotMatch(apply.stdout, /B1_503_PRODUCTION_MIGRATIONS_APPLIED/);
   const transactionSql = readFileSync(fakeSqlLog, 'utf8');
   assert.match(transactionSql, /pg_advisory_xact_lock/);
   assert.match(transactionSql, /\\getenv app_password STORYFORGE_APP_DB_PASSWORD/);
   assert.match(transactionSql, /ALTER ROLE storyforge_app PASSWORD :'app_password'/);
   assert.match(transactionSql, /ALTER ROLE storyforge_app LOGIN/);
-  assert.match(transactionSql, /B1-503 post-migration ledger is not exact/);
+  assert.match(transactionSql, /storyforge\.founder_user_id/);
+  assert.match(transactionSql, /:'founder_user_id'/);
+  assert.match(transactionSql, /B1-506 post-migration ledger is not exact/);
+  assert.match(transactionSql, /20260729000100_b1_506_voice_recording_sessions\.sql/);
+  assert.match(transactionSql, /20260729000200_b1_506_feature_flags\.sql/);
+  assert.match(apply.stdout, /feature_flag_seeded_by=33333333-3333-4333-8333-333333333333/);
   assert.doesNotMatch(transactionSql, /fixture-password-with-more-than-32-characters/);
   assert.doesNotMatch(transactionSql, /\\password storyforge_app/);
 

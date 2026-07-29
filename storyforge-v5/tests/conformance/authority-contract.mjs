@@ -98,6 +98,11 @@ export const PRODUCT_SURFACES = Object.freeze({
       'Save story',
       'Only you can see it',
     ]),
+    // B1-504B supersedes this legacy unflagged V5 affordance: voice controls
+    // must be absent when the server-computed capability is false.
+    flagOffSupersededMarkers: Object.freeze([
+      'Record a voice note',
+    ]),
   }),
   interview_prep: Object.freeze({
     label: 'Interview Prep',

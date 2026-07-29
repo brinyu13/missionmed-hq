@@ -5,12 +5,34 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { authorize, issueDevToken, isLoopbackRequest } from './auth.mjs';
 import { config, isAudioConfigured, validateConfig } from './config.mjs';
-import { closePool, healthCheck, withIdentity } from './db.mjs';
+import {
+  appendAudit,
+  closePool,
+  healthCheck,
+  withIdentity as withDatabaseIdentity,
+  withServiceTransaction,
+} from './db.mjs';
+import { createFlagService, createPostgresFlagStore } from './flags.mjs';
 import { previewImport } from './imports.mjs';
-import { createAudioPlayback, createAudioUpload, verifyAudioUpload } from './storage.mjs';
+import {
+  createAudioPlayback,
+  createAudioUpload,
+  deleteAudioAssetObject,
+  deleteRecordingObjects,
+  getRecordingSegment,
+  putRecordingSegment,
+  verifyAudioUpload,
+} from './storage.mjs';
+import {
+  createPostgresRecordingStore,
+  createRecordingsService,
+} from './recordings.mjs';
+import { createUnavailableTranscriptionAdapter } from './transcription/adapter.mjs';
 
 // A 5 MB CSV/XLSX expands to roughly 6.7 MB when carried as base64 JSON.
 const jsonLimit = 8 * 1024 * 1024;
+const multipartLimit = (5 * 1024 * 1024) + (128 * 1024);
+const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 const mimeTypes = new Map([
   ['.html', 'text/html; charset=utf-8'],
   ['.css', 'text/css; charset=utf-8'],
@@ -18,6 +40,92 @@ const mimeTypes = new Map([
   ['.svg', 'image/svg+xml'],
   ['.png', 'image/png'],
 ]);
+
+function authorityBlockedAssembly() {
+  const error = new Error(
+    'Recording assembly is unavailable until the RP-8 architecture decision is approved.',
+  );
+  error.code = 'assembly_authority_blocked';
+  error.status = 503;
+  throw error;
+}
+
+function emitStructuredEvent(event) {
+  process.stdout.write(`${JSON.stringify(event)}\n`);
+}
+
+function emitStructuredError(event) {
+  process.stderr.write(`${JSON.stringify(event)}\n`);
+}
+
+export function safeRequestFailureEvent(failure, now = new Date()) {
+  const code = String(failure?.code || '');
+  const errorCategory = code.includes('auth')
+    || code.includes('token')
+    || code.includes('identity')
+    || code.includes('denied')
+    || code.includes('required')
+    ? 'auth'
+    : code.includes('transcrib')
+      ? 'transcribe'
+      : code.includes('assembl')
+        ? 'assembly'
+        : code.includes('audio') || code.includes('storage')
+          ? 'upload'
+          : 'save';
+  return Object.freeze({
+    t: now.toISOString(),
+    event: 'request_failed',
+    status: Number(failure?.status) || 500,
+    errorCategory,
+  });
+}
+
+export function createPhaseOneRuntime({
+  identityTransaction = withDatabaseIdentity,
+  serviceTransaction = withServiceTransaction,
+  auditWriter = appendAudit,
+  storage = {
+    putRecordingSegment,
+    getRecordingSegment,
+    deleteRecordingObjects,
+    deleteAudioAssetObject,
+  },
+  transcription = createUnavailableTranscriptionAdapter(),
+  assembly = { available: false, assembleRecording: authorityBlockedAssembly },
+  audioRetirement = { available: false },
+  eventWriter = emitStructuredEvent,
+  environment = process.env,
+} = {}) {
+  const flagStore = createPostgresFlagStore({
+    withIdentity: identityTransaction,
+    withServiceTransaction: serviceTransaction,
+    appendAudit: auditWriter,
+  });
+  const flagService = createFlagService({
+    store: flagStore,
+    environment,
+    emitEvent: eventWriter,
+  });
+  const recordingStore = createPostgresRecordingStore({
+    withIdentity: identityTransaction,
+    withServiceTransaction: serviceTransaction,
+    appendAudit: auditWriter,
+  });
+  const recordingsService = createRecordingsService({
+    store: recordingStore,
+    flagService,
+    storage,
+    transcription,
+    assembly,
+    audioRetirement,
+    emitEvent: eventWriter,
+    environment,
+  });
+  return Object.freeze({ flagService, recordingsService });
+}
+
+const defaultPhaseOneRuntime = createPhaseOneRuntime();
 
 function importReviewFingerprint(rows) {
   const contract = rows.map((row) => ({
@@ -31,20 +139,44 @@ function importReviewFingerprint(rows) {
   return createHash('sha256').update(JSON.stringify(contract)).digest('hex');
 }
 
-function setSecurityHeaders(response) {
-  const matrixOrigin = new URL(config.matrixBaseUrl).origin;
-  response.setHeader('Content-Security-Policy', [
+function exactHttpOrigin(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return (
+      ['http:', 'https:'].includes(parsed.protocol)
+      && !parsed.username
+      && !parsed.password
+    ) ? parsed.origin : '';
+  } catch {
+    return '';
+  }
+}
+
+export function storyForgeContentSecurityPolicy({
+  matrixOrigin,
+  audioOrigin = '',
+} = {}) {
+  const exactAudioOrigin = exactHttpOrigin(audioOrigin);
+  return [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
     "img-src 'self' data:",
-    "media-src 'self' blob:",
-    "connect-src 'self'",
+    `media-src 'self' blob:${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
+    `connect-src 'self'${exactAudioOrigin ? ` ${exactAudioOrigin}` : ''}`,
     "font-src 'self'",
     `frame-ancestors 'self' ${matrixOrigin}`,
     "base-uri 'self'",
     "form-action 'self'",
-  ].join('; '));
+  ].join('; ');
+}
+
+function setSecurityHeaders(response) {
+  const matrixOrigin = new URL(config.matrixBaseUrl).origin;
+  response.setHeader('Content-Security-Policy', storyForgeContentSecurityPolicy({
+    matrixOrigin,
+    audioOrigin: config.r2.endpoint,
+  }));
   response.setHeader('Referrer-Policy', 'no-referrer');
   response.setHeader('X-Content-Type-Options', 'nosniff');
   response.setHeader('X-Frame-Options', 'SAMEORIGIN');
@@ -68,7 +200,7 @@ function enforceAllowedOrigin(request, response) {
   }
   response.setHeader('Access-Control-Allow-Origin', normalized);
   response.setHeader('Access-Control-Allow-Headers', 'Authorization, Content-Type');
-  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, OPTIONS');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   response.setHeader('Vary', 'Origin');
 }
 
@@ -97,6 +229,7 @@ export function publicError(error) {
     'ERR_JWT_CLAIM_VALIDATION_FAILED',
   ]);
   const forbiddenCodes = new Set([
+    'admin_required',
     'eligibility_required',
     'invalid_role_claim',
     'invalid_subject_claim',
@@ -105,11 +238,22 @@ export function publicError(error) {
     'dev_auth_unavailable',
     'ai_feature_gated',
     'origin_not_allowed',
+    'recording_access_denied',
+    'student_required',
+    'voice_disabled',
   ]);
   const inputCodes = new Set([
     'invalid_identifier',
     'invalid_json',
     'invalid_audio_size',
+    'invalid_multipart',
+    'invalid_recording_duration',
+    'invalid_segment_duration',
+    'invalid_segment_sequence',
+    'invalid_voice_allowlist',
+    'invalid_voice_cohort',
+    'invalid_voice_scope',
+    'invalid_voice_scope_values',
     'import_preview_stale',
     'malformed_csv',
     'malformed_xlsx',
@@ -123,9 +267,16 @@ export function publicError(error) {
     'ai_provider_unconfigured',
     'audio_storage_unavailable',
     'audio_verification_failed',
+    'voice_flag_unavailable',
   ]);
   const joseAuthFailure = /^ERR_(?:JOSE|JWS|JWT)_/.test(String(error?.code || ''));
+  const declaredStatus = Number.isInteger(error?.status)
+    && error.status >= 400
+    && error.status <= 599
+    ? error.status
+    : null;
   const status = databaseStatus
+    || declaredStatus
     || (authCodes.has(error?.code) || joseAuthFailure ? 401 : null)
     || (forbiddenCodes.has(error?.code) ? 403 : null)
     || (['request_too_large', 'import_too_large'].includes(error?.code) ? 413 : null)
@@ -161,6 +312,56 @@ async function readJson(request) {
     error.code = 'invalid_json';
     throw error;
   }
+}
+
+async function readMultipartSegment(request) {
+  const contentType = String(request.headers['content-type'] || '');
+  if (!/^multipart\/form-data\s*;/i.test(contentType)) {
+    const error = new Error('Audio segments must use multipart form data.');
+    error.code = 'invalid_multipart';
+    throw error;
+  }
+  const contentLength = Number(request.headers['content-length']);
+  if (Number.isFinite(contentLength) && contentLength > multipartLimit) {
+    const error = new Error('Audio segments may not exceed 5 MB.');
+    error.code = 'segment_too_large';
+    error.status = 413;
+    throw error;
+  }
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of request) {
+    total += chunk.length;
+    if (total > multipartLimit) {
+      const error = new Error('Audio segments may not exceed 5 MB.');
+      error.code = 'segment_too_large';
+      error.status = 413;
+      throw error;
+    }
+    chunks.push(chunk);
+  }
+  let form;
+  try {
+    form = await new Response(Buffer.concat(chunks), {
+      headers: { 'content-type': contentType },
+    }).formData();
+  } catch {
+    const error = new Error('Audio segment form data is malformed.');
+    error.code = 'invalid_multipart';
+    throw error;
+  }
+  const segment = form.get('segment');
+  if (!segment || typeof segment.arrayBuffer !== 'function') {
+    const error = new Error('An audio segment is required.');
+    error.code = 'invalid_audio_size';
+    throw error;
+  }
+  return {
+    seq: form.get('seq'),
+    durationMs: form.get('durationMs'),
+    mimeType: String(form.get('mimeType') || segment.type || ''),
+    buffer: Buffer.from(await segment.arrayBuffer()),
+  };
 }
 
 function safeUuid(value) {
@@ -284,7 +485,14 @@ export function defaultQuestionAgendaItems(questions = []) {
   }).filter(Boolean);
 }
 
-async function api(request, response, url) {
+async function api(request, response, url, {
+  authorizeRequest,
+  auditWriter,
+  emitEvent,
+  withIdentity,
+  flagService,
+  recordingsService,
+}) {
   if (request.method === 'GET' && url.pathname === '/api/config') {
     return sendJson(response, 200, {
       devAuth: config.devAuth && isLoopbackRequest(request),
@@ -305,24 +513,99 @@ async function api(request, response, url) {
     return sendJson(response, 200, { token, fixture: true });
   }
 
-  const identity = await authorize(request);
+  const identity = await authorizeRequest(request);
+
+  if (request.method === 'POST' && url.pathname === '/api/recordings') {
+    await readJson(request);
+    const recording = await recordingsService.createRecording(identity);
+    return sendJson(response, recording.created ? 201 : 200, recording);
+  }
+
+  const recordingRoute = url.pathname.match(
+    /^\/api\/recordings\/([a-f0-9-]+)(?:\/(segments|finish|cancel|retry-transcription))?$/i,
+  );
+  if (recordingRoute) {
+    const recordingId = safeUuid(recordingRoute[1]);
+    const action = recordingRoute[2] || '';
+    if (request.method === 'GET' && !action) {
+      return sendJson(
+        response,
+        200,
+        await recordingsService.getRecording(identity, recordingId),
+      );
+    }
+    if (request.method === 'POST' && action === 'segments') {
+      const segment = await recordingsService.addSegment(
+        identity,
+        recordingId,
+        await readMultipartSegment(request),
+      );
+      return sendJson(response, segment.created ? 201 : 200, segment);
+    }
+    if (request.method === 'POST' && action === 'finish') {
+      const result = await recordingsService.finishRecording(
+        identity,
+        recordingId,
+        await readJson(request),
+      );
+      return sendJson(response, 200, result);
+    }
+    if (request.method === 'POST' && action === 'cancel') {
+      await readJson(request);
+      return sendJson(
+        response,
+        200,
+        await recordingsService.cancelRecording(identity, recordingId),
+      );
+    }
+    if (request.method === 'POST' && action === 'retry-transcription') {
+      return sendJson(
+        response,
+        200,
+        await recordingsService.retryTranscription(
+          identity,
+          recordingId,
+          await readJson(request),
+        ),
+      );
+    }
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/features') {
+    return sendJson(response, 200, await flagService.getAdminFeatures(identity));
+  }
+
+  if (request.method === 'POST' && url.pathname === '/api/admin/features/voice_capture') {
+    const flag = await flagService.updateVoiceCapture(identity, await readJson(request));
+    return sendJson(response, 200, { flag });
+  }
+
+  if (request.method === 'GET' && url.pathname === '/api/admin/voice/health') {
+    return sendJson(response, 200, await flagService.getVoiceHealth(identity));
+  }
 
   if (request.method === 'GET' && url.pathname === '/api/session') {
-    const user = await withIdentity(identity, async (client) => {
-      const result = await client.query(
-        `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
-           cohort, academic_year, specialty, application_cycle, background_preference
-         FROM public.sf_users WHERE id = $1`,
-        [identity.sub],
-      );
-      return result.rows[0] || null;
-    });
+    const [user, voiceCapture] = await Promise.all([
+      withIdentity(identity, async (client) => {
+        const result = await client.query(
+          `SELECT id, wp_user_id, display_name, first_name, pronouns, role, eligible,
+             cohort, academic_year, specialty, application_cycle, background_preference
+           FROM public.sf_users WHERE id = $1`,
+          [identity.sub],
+        );
+        return result.rows[0] || null;
+      }),
+      flagService.voiceCapture(identity),
+    ]);
     if (!user) {
       const error = new Error('StoryForge profile is missing or eligibility was revoked.');
       error.code = 'eligibility_required';
       throw error;
     }
-    return sendJson(response, 200, { user });
+    return sendJson(response, 200, {
+      user,
+      capabilities: { voiceCapture },
+    });
   }
 
   if (request.method === 'PATCH' && url.pathname === '/api/preferences/background') {
@@ -353,6 +636,15 @@ async function api(request, response, url) {
 
   if (request.method === 'POST' && url.pathname === '/api/stories') {
     const body = await readJson(request);
+    if (body.recordingId) {
+      safeUuid(body.recordingId);
+      const error = new Error(
+        'Saving recorded audio is unavailable until the RP-8 assembly decision is approved.',
+      );
+      error.code = 'assembly_authority_blocked';
+      error.status = 503;
+      throw error;
+    }
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
         `SELECT * FROM public.sf_create_story_v5($1::jsonb, $2)`,
@@ -640,12 +932,47 @@ async function api(request, response, url) {
   const storyArchive = url.pathname.match(/^\/api\/stories\/([a-f0-9-]+)\/(archive|restore)$/i);
   if (request.method === 'POST' && storyArchive) {
     const body = await readJson(request);
+    const storyId = safeUuid(storyArchive[1]);
+    const archiving = storyArchive[2] === 'archive';
+    if (archiving) {
+      const hasVoiceData = await withIdentity(identity, async (client) => {
+        const result = await client.query(
+          `SELECT (
+             EXISTS (
+               SELECT 1
+                 FROM public.sf_audio_assets asset
+                WHERE asset.story_id = $1
+                  AND asset.student_id = $2
+                  AND asset.state <> 'retired'
+             )
+             OR EXISTS (
+               SELECT 1
+                 FROM public.sf_recording_sessions session
+                 JOIN public.sf_recording_segments segment
+                   ON segment.session_id = session.id
+                WHERE session.story_id = $1
+                  AND session.student_id = $2
+             )
+           ) AS has_voice_data`,
+          [storyId, identity.sub],
+        );
+        return result.rows[0]?.has_voice_data === true;
+      });
+      if (hasVoiceData) {
+        const error = new Error(
+          'Archiving a voice story is unavailable until the approved retirement transaction is installed.',
+        );
+        error.code = 'audio_retirement_authority_blocked';
+        error.status = 503;
+        throw error;
+      }
+    }
     const story = await withIdentity(identity, async (client) => {
       const result = await client.query(
         `SELECT * FROM public.sf_set_story_archived($1, $2, $3)`,
         [
-          safeUuid(storyArchive[1]),
-          storyArchive[2] === 'archive',
+          storyId,
+          archiving,
           body.surface || 'library',
         ],
       );
@@ -664,6 +991,20 @@ async function api(request, response, url) {
       );
       return result.rows[0] || null;
     });
+    const draftPayload = typeof draft?.payload === 'string'
+      ? (() => {
+          try { return JSON.parse(draft.payload); } catch { return {}; }
+        })()
+      : (draft?.payload || {});
+    const recoveredRecordingId = draftPayload?.voice?.recordingId || draftPayload?.recordingId;
+    if (uuidPattern.test(String(recoveredRecordingId || ''))) {
+      emitEvent({
+        t: new Date().toISOString(),
+        event: 'draft_recovered',
+        recordingId: recoveredRecordingId,
+        studentId: identity.sub,
+      });
+    }
     return sendJson(response, 200, { draft });
   }
 
@@ -1869,6 +2210,7 @@ async function api(request, response, url) {
   }
 
   if (request.method === 'POST' && url.pathname === '/api/audio/presign') {
+    await flagService.assertVoiceEnabled(identity);
     const body = await readJson(request);
     const storyId = safeUuid(body.storyId);
     const signed = await createAudioUpload({
@@ -1889,6 +2231,7 @@ async function api(request, response, url) {
 
   const audioConfirm = url.pathname.match(/^\/api\/audio\/([a-f0-9-]+)\/confirm$/i);
   if (request.method === 'POST' && audioConfirm) {
+    await flagService.assertVoiceEnabled(identity);
     const assetId = safeUuid(audioConfirm[1]);
     const body = await readJson(request);
     const assetResult = await withIdentity(identity, async (client) => client.query(
@@ -1916,6 +2259,15 @@ async function api(request, response, url) {
     return sendJson(response, 200, { asset: confirmed, verified });
   }
 
+  const audioDelete = url.pathname.match(/^\/api\/audio\/([a-f0-9-]+)$/i);
+  if (request.method === 'DELETE' && audioDelete) {
+    return sendJson(
+      response,
+      200,
+      await recordingsService.deleteAudio(identity, safeUuid(audioDelete[1])),
+    );
+  }
+
   const audioPlayback = url.pathname.match(/^\/api\/audio\/([a-f0-9-]+)\/playback$/i);
   if (request.method === 'GET' && audioPlayback) {
     const assetId = safeUuid(audioPlayback[1]);
@@ -1929,11 +2281,34 @@ async function api(request, response, url) {
       return result.rows[0] || null;
     });
     if (!asset) {
+      await withIdentity(identity, async (client) => auditWriter(client, {
+        action: 'unauthorized_denied',
+        entityType: 'audio_asset',
+        entityId: assetId,
+        surface: 'workspace',
+        studentId: identity.sub,
+        previousValue: null,
+        newValue: { errorCategory: 'auth' },
+      }));
+      emitEvent({
+        t: new Date().toISOString(),
+        event: 'unauthorized_denied',
+        assetId,
+        studentId: identity.sub,
+        errorCategory: 'auth',
+      });
       const error = new Error('Audio asset not found.');
       error.code = 'P0002';
       throw error;
     }
     const playback = await createAudioPlayback({ objectKey: asset.object_key });
+    emitEvent({
+      t: new Date().toISOString(),
+      event: 'audio_playback_granted',
+      assetId,
+      storyId: asset.story_id,
+      studentId: identity.sub,
+    });
     return sendJson(response, 200, {
       asset: {
         id: asset.id,
@@ -2008,7 +2383,23 @@ async function serveStatic(response, url) {
   }
 }
 
-export function createAppServer({ checkHealth = healthCheck } = {}) {
+export function createAppServer({
+  checkHealth = healthCheck,
+  authorizeRequest = authorize,
+  identityTransaction = withDatabaseIdentity,
+  phaseOneRuntime = defaultPhaseOneRuntime,
+  auditWriter = appendAudit,
+  reportEvent = emitStructuredEvent,
+  reportError = emitStructuredError,
+} = {}) {
+  const apiRuntime = Object.freeze({
+    authorizeRequest,
+    auditWriter,
+    emitEvent: reportEvent,
+    withIdentity: identityTransaction,
+    flagService: phaseOneRuntime.flagService,
+    recordingsService: phaseOneRuntime.recordingsService,
+  });
   return http.createServer(async (request, response) => {
     setSecurityHeaders(response);
     const url = new URL(request.url || '/', config.publicOrigin);
@@ -2029,13 +2420,13 @@ export function createAppServer({ checkHealth = healthCheck } = {}) {
           response.end();
           return;
         }
-        return await api(request, response, url);
+        return await api(request, response, url, apiRuntime);
       }
       if (!config.originApiOnly && request.method === 'GET' && await serveStatic(response, url)) return;
       sendJson(response, 404, { error: { code: 'not_found', message: 'Resource not found.' } });
     } catch (error) {
       const failure = publicError(error);
-      if (failure.status >= 500) console.error(error);
+      if (failure.status >= 500) reportError(safeRequestFailureEvent(failure));
       sendJson(response, failure.status, { error: { code: failure.code, message: failure.message } });
     }
   });
@@ -2047,11 +2438,15 @@ async function start() {
     throw new Error(`StoryForge configuration is invalid: ${errors.join('; ')}`);
   }
   await healthCheck();
+  await defaultPhaseOneRuntime.recordingsService.recoverPendingTranscriptions();
+  await defaultPhaseOneRuntime.recordingsService.recoverPendingAssemblies();
+  const sweeps = defaultPhaseOneRuntime.recordingsService.startSweeps();
   const server = createAppServer();
   server.listen(config.port, config.host, () => {
     console.log(`StoryForge V5 listening on ${config.host}:${config.port}`);
   });
   const shutdown = async () => {
+    sweeps.stop();
     server.close();
     await closePool();
   };
@@ -2062,7 +2457,9 @@ async function start() {
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   start().catch((error) => {
-    console.error(error);
+    emitStructuredError(safeRequestFailureEvent(
+      { status: 500, code: error?.code || 'startup_failed' },
+    ));
     process.exitCode = 1;
   });
 }

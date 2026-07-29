@@ -25,6 +25,9 @@ const teaching = $('#teach');
 const toastNode = $('#toast');
 
 const FIXTURE_PERSONA_KEY = 'storyforge_local_fixture_persona';
+const VOICE_HINT_KEY = 'storyforge_voice_hint_seen';
+const VOICE_SEGMENT_PLAN = Object.freeze([4000, 15000]);
+const VOICE_MAX_DURATION_SECONDS = 20 * 60;
 const FIXTURE_PERSONAS = new Set([
   'student',
   'studentOther',
@@ -155,12 +158,14 @@ const NAV = Object.freeze({
   ],
   admin: [
     ['qlib', 'Question Library', '◇'],
+    ['settings', 'Release Controls', '⚙'],
   ],
 });
 
 const state = {
   config: null,
   user: null,
+  capabilities: Object.freeze({ voiceCapture: false }),
   lockout: null,
   route: 'home',
   routeId: null,
@@ -192,13 +197,21 @@ const state = {
   captureDraftVersion: null,
   captureDraftSaveTimer: 0,
   captureDraftSuppressCloseSave: false,
+  captureRecovering: false,
+  adminFeatures: null,
+  adminHealth: null,
+  adminFeatureError: '',
+  adminHealthError: '',
   returnFocus: null,
   busy: false,
 };
 
 const auth = createAuthClient({
   onLockout(lockoutState, message) {
+    suspendVoiceForIdentityExit();
     state.user = null;
+    state.capabilities = Object.freeze({ voiceCapture: false });
+    state.captureRecovering = false;
     state.lockout = lockoutState || 'access_unavailable';
     renderLockout(state.lockout, message);
   },
@@ -483,7 +496,23 @@ const api = Object.freeze({
   importCommit: (body) => auth.request('/api/imports/commit', jsonOptions('POST', body)),
   importRollback: (id) => auth.request(`/api/imports/${id}/rollback`, jsonOptions('POST', {})),
   aiSuggest: (body) => auth.request('/api/ai/suggest', jsonOptions('POST', body)),
+  createRecording: () => auth.request('/api/recordings', jsonOptions('POST', {})),
+  recording: (id) => auth.request(`/api/recordings/${id}`),
+  uploadRecordingSegment: (id, body) => auth.request(`/api/recordings/${id}/segments`, {
+    method: 'POST',
+    body,
+  }),
+  finishRecording: (id, clientDurationMs) => auth.request(`/api/recordings/${id}/finish`, jsonOptions('POST', { clientDurationMs })),
+  cancelRecording: (id) => auth.request(`/api/recordings/${id}/cancel`, jsonOptions('POST', {})),
+  retryRecordingTranscription: (id) => auth.request(`/api/recordings/${id}/retry-transcription`, jsonOptions('POST', {})),
   audioPlayback: (id) => auth.request(`/api/audio/${id}/playback`),
+  deleteAudio: (id) => auth.request(`/api/audio/${id}`, { method: 'DELETE' }),
+  adminFeatures: () => auth.request('/api/admin/features'),
+  updateVoiceFeature: (body) => auth.request(
+    '/api/admin/features/voice_capture',
+    jsonOptions('POST', body),
+  ),
+  adminVoiceHealth: () => auth.request('/api/admin/voice/health'),
 });
 
 function isMentor() {
@@ -856,6 +885,13 @@ function renderHome() {
   state.stories.forEach((story) => { counts[story.status] = (counts[story.status] || 0) + 1; });
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const voiceEnabled = Boolean(state.capabilities?.voiceCapture);
+  let voiceHintSeen = false;
+  try {
+    voiceHintSeen = localStorage.getItem(VOICE_HINT_KEY) === '1';
+  } catch {
+    voiceHintSeen = true;
+  }
 
   main.innerHTML = `<section data-view="home" class="live">
     <div class="homeHero">
@@ -863,10 +899,10 @@ function renderHome() {
       <div class="greetSub">What happened that you don’t want to lose?</div>
       <div class="heroCapture">
         <span class="pfx">The One Where</span>
-        <input id="heroTitle" placeholder="…type it before it fades" autocomplete="off" aria-label="Story title">
-        <button class="heroMic" type="button" data-open-capture data-capture-voice title="${state.config?.audioAvailable ? 'Tell it out loud' : 'Voice capture is unavailable'}" ${state.config?.audioAvailable ? '' : 'aria-disabled="true"'}>
+        <input id="heroTitle" placeholder="${voiceEnabled ? '…type it — or just talk' : '…type it before it fades'}" autocomplete="off" aria-label="Story title">
+        ${voiceEnabled ? `<button class="heroMic ${voiceHintSeen ? '' : 'newPulse'}" type="button" data-open-capture data-capture-voice title="Speak it — StoryForge types while you talk">
           <span aria-hidden="true">●</span><span class="srOnly">Tell it out loud</span>
-        </button>
+        </button>` : ''}
         <button class="heroGo" type="button" data-capture-title-from="heroTitle">Save it</button>
       </div>
       <button class="sparkPrompt" type="button" data-next-prompt title="A memory prompt — choose Write about this to begin">
@@ -1022,11 +1058,420 @@ function renderSettings() {
   </section>`;
 }
 
+function voiceScopeLabel(scope) {
+  return ({
+    off: 'Off',
+    allowlist: 'Allowlist',
+    cohort: 'Cohort',
+    eligible_all: 'All eligible (locked)',
+  })[scope] || 'Off';
+}
+
+function renderAdminReleaseControls() {
+  const feature = state.adminFeatures || {};
+  const flag = feature.flag || null;
+  const audit = asArray(feature.audit);
+  const health = state.adminHealth;
+  const unavailable = !flag;
+  main.innerHTML = `<section data-view="settings" class="live settingsPage">
+    <div class="eyebrow">Administration</div>
+    <h1 class="h1">Release <em>Controls</em></h1>
+    <div class="panel panel-spaced">
+      <div class="pHead"><div class="h2">Voice capture <em>scope</em></div></div>
+      <div class="pBody">
+        <p class="stageHint">These controls change server authorization. The browser never grants access by itself, and “All eligible” remains locked pending its separate founder ruling.</p>
+        ${state.adminFeatureError ? `<div class="releaseError" role="alert">${esc(state.adminFeatureError)}</div>` : ''}
+        ${unavailable ? `<div class="setRow"><div class="sTxt"><b>Controls unavailable</b><span>The current feature state could not be read safely. No scope change was made.</span></div><button class="rowBtn" type="button" data-admin-release-reload>Retry</button></div>` : `
+        <form id="voiceFeatureForm">
+          <div class="setRow">
+            <label class="sTxt" for="voiceScope"><b>Scope</b><span>Off / Allowlist / Cohort / All eligible (locked)</span></label>
+            <select id="voiceScope" name="scope" class="releaseSelect">
+              ${[
+                ['off', 'Off'],
+                ['allowlist', 'Allowlist'],
+                ['cohort', 'Cohort'],
+                ['eligible_all', 'All eligible (locked)'],
+              ].map(([value, label]) => `<option value="${value}" ${flag.scope === value ? 'selected' : ''} ${value === 'eligible_all' ? 'disabled' : ''}>${label}</option>`).join('')}
+            </select>
+          </div>
+          <div class="setRow releaseStack">
+            <label class="sTxt" for="voiceAllowlist"><b>Allowlist</b><span>One StoryForge user UUID per line.</span></label>
+            <textarea id="voiceAllowlist" name="allowlist" class="releaseTextarea" rows="5" spellcheck="false" autocomplete="off">${esc(asArray(flag.allowlist).join('\n'))}</textarea>
+          </div>
+          <div class="setRow releaseStack">
+            <label class="sTxt" for="voiceCohorts"><b>Cohorts</b><span>One exact 360 cohort per line.</span></label>
+            <textarea id="voiceCohorts" name="cohorts" class="releaseTextarea" rows="4" spellcheck="false" autocomplete="off" aria-describedby="voiceCohortError">${esc(asArray(flag.cohorts).join('\n'))}</textarea>
+            <span class="releaseInlineError" id="voiceCohortError">${state.adminFeatureError === 'Not a recognized 360 cohort.' ? esc(state.adminFeatureError) : ''}</span>
+          </div>
+          <div class="setRow">
+            <div class="sTxt"><b>Current authorization</b><span>${esc(voiceScopeLabel(flag.scope))} · last changed ${esc(formatDateTime(flag.updatedAt))}</span></div>
+            <button class="rowBtn pri" type="submit">Save release controls</button>
+          </div>
+        </form>`}
+      </div>
+    </div>
+    <div class="panel panel-spaced">
+      <div class="pHead"><div class="h2">Voice health <em>last 24 hours</em></div></div>
+      <div class="pBody">
+        ${state.adminHealthError ? `<div class="releaseError" role="status">${esc(state.adminHealthError)}</div>` : ''}
+        ${health ? `
+          ${asArray(health.sessionsByState).length
+            ? asArray(health.sessionsByState).map((item) => `<div class="setRow"><div class="sTxt"><b>${esc(item.state)}</b><span>Recording sessions</span></div><span class="rolePill">${Number(item.count || 0)}</span></div>`).join('')
+            : '<div class="setRow"><div class="sTxt"><b>No sessions</b><span>No voice recording sessions were created in this window.</span></div></div>'}
+          ${asArray(health.errorsByCategory).map((item) => `<div class="setRow"><div class="sTxt"><b>${esc(item.errorCategory)}</b><span>Content-free error category</span></div><span class="rolePill">${Number(item.count || 0)}</span></div>`).join('')}
+        ` : '<div class="setRow"><div class="sTxt"><b>Health summary unavailable</b><span>No content or student data is exposed when the approved audit aggregation cannot run.</span></div><button class="rowBtn" type="button" data-admin-release-reload>Retry</button></div>'}
+      </div>
+    </div>
+    <div class="panel panel-spaced">
+      <div class="pHead"><div class="h2">Scope audit <em>last 20</em></div></div>
+      <div class="pBody">
+        ${audit.length ? audit.map((item) => {
+          const previous = item.previous || {};
+          const current = item.current || {};
+          return `<div class="setRow"><div class="sTxt"><b>${esc(voiceScopeLabel(previous.scope))} → ${esc(voiceScopeLabel(current.scope))}</b><span>${esc(formatDateTime(item.createdAt))} · allowlist ${asArray(current.allowlist).length} · cohorts ${asArray(current.cohorts).length}</span></div></div>`;
+        }).join('') : '<div class="setRow"><div class="sTxt"><b>No recorded scope changes</b><span>The append-only audit tail is empty.</span></div></div>'}
+      </div>
+    </div>
+  </section>`;
+}
+
+async function loadAdminReleaseControls() {
+  const [features, health] = await Promise.allSettled([
+    api.adminFeatures(),
+    api.adminVoiceHealth(),
+  ]);
+  if (features.status === 'fulfilled') {
+    state.adminFeatures = features.value;
+    state.adminFeatureError = '';
+  } else {
+    state.adminFeatures = null;
+    state.adminFeatureError = features.reason?.code === 'audit_writer_unavailable'
+      ? 'Release controls are unavailable because required audit authorization is not configured.'
+      : (features.reason?.message || 'Release controls are temporarily unavailable.');
+  }
+  if (health.status === 'fulfilled') {
+    state.adminHealth = health.value;
+    state.adminHealthError = '';
+  } else {
+    state.adminHealth = null;
+    state.adminHealthError = health.reason?.code === 'voice_health_audit_unavailable'
+      ? 'Error-category health remains locked until the approved content-free audit query is supplied.'
+      : (health.reason?.message || 'Voice health is temporarily unavailable.');
+  }
+}
+
+async function saveAdminReleaseControls(form) {
+  const lines = (value) => String(value || '')
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const scope = $('#voiceScope', form)?.value || 'off';
+  const allowlist = lines($('#voiceAllowlist', form)?.value);
+  const cohorts = lines($('#voiceCohorts', form)?.value);
+  state.adminFeatureError = '';
+  try {
+    const result = await withBusy(() => api.updateVoiceFeature({ scope, allowlist, cohorts }));
+    if (!result) return;
+    state.adminFeatures = {
+      ...(state.adminFeatures || {}),
+      flag: result.flag,
+    };
+    await loadAdminReleaseControls();
+    renderAdminReleaseControls();
+    notify(`Voice capture scope saved: ${voiceScopeLabel(result.flag?.scope)}.`, '✓');
+  } catch (error) {
+    state.adminFeatureError = error.code === 'invalid_voice_cohort'
+      ? 'Not a recognized 360 cohort.'
+      : error.code === 'eligible_all_locked'
+        ? 'All-eligible activation requires a separate founder ruling.'
+        : error.code === 'audit_writer_unavailable'
+          ? 'Release controls cannot save safely because required audit logging is unavailable.'
+          : (error.message || 'Release controls could not be saved.');
+    renderAdminReleaseControls();
+  }
+}
+
 let captureDraftSavePromise = Promise.resolve();
+
+const MIC_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 15a4 4 0 0 0 4-4V6a4 4 0 1 0-8 0v5a4 4 0 0 0 4 4zm6-4a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22h2v-3.06A8 8 0 0 0 20 11h-2z"/></svg>';
+const VOICE_ERROR_COPY = Object.freeze({
+  micDenied: 'Microphone access was not available. You can allow it in your browser settings, or just keep typing.',
+  reconnecting: 'Connection hiccup. Your recording is safe on this device. Reconnecting…',
+  transcribeUnavailable: "We can't transcribe right now. Your recording is saved. Keep talking, or try transcription again from review.",
+  deviceFailure: "Recording can't continue on this device right now. Everything you said so far is safe. Typing always works.",
+  voiceDisabled: 'Voice capture is currently unavailable. Every word so far is kept in your draft. You can keep typing.',
+  dailyLimit: "You've reached today's recording limit. Everything you captured is saved, and typing is always available. Recording returns tomorrow.",
+  lengthLimit: 'This recording reached its length limit and was stopped. Everything you said is captured below.',
+});
+
+function voiceTime(milliseconds) {
+  const seconds = Math.max(0, Math.floor(Number(milliseconds || 0) / 1000));
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+}
+
+function mergeVoiceTranscript(current, chunk) {
+  const incoming = String(chunk || '').trim();
+  if (!incoming) return String(current || '');
+  const value = String(current || '');
+  const normalize = (text) => text
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const tail = value.split(/\s+/).slice(-30);
+  const words = incoming.split(/\s+/);
+  let drop = 0;
+  for (let count = Math.min(tail.length, words.length); count > 0; count -= 1) {
+    if (normalize(tail.slice(-count).join(' ')) === normalize(words.slice(0, count).join(' '))) {
+      drop = count;
+      break;
+    }
+  }
+  const remainder = words.slice(drop).join(' ');
+  if (!remainder) return value;
+  return value
+    ? `${value}${/\s$/.test(value) ? '' : ' '}${remainder}`
+    : remainder;
+}
+
+function normalizeVoiceSpans(spans, textLength) {
+  const limit = Math.max(0, Number(textLength || 0));
+  const normalized = asArray(spans)
+    .map((span) => {
+      const start = Math.max(0, Math.min(limit, Number(firstDefined(span?.start, span?.[0], 0))));
+      const end = Math.max(start, Math.min(limit, Number(firstDefined(span?.end, span?.[1], 0))));
+      return Number.isFinite(start) && Number.isFinite(end) && end > start
+        ? { start, end }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.start - right.start || left.end - right.end);
+  return normalized.reduce((result, span) => {
+    const previous = result.at(-1);
+    if (previous && span.start <= previous.end) {
+      previous.end = Math.max(previous.end, span.end);
+    } else {
+      result.push({ ...span });
+    }
+    return result;
+  }, []);
+}
+
+function voiceTextFromSpans(text, spans) {
+  const value = String(text || '');
+  return normalizeVoiceSpans(spans, value.length)
+    .map((span) => value.slice(span.start, span.end).trim())
+    .filter(Boolean)
+    .join(' ');
+}
+
+function voiceTermKey(term) {
+  const item = normalizedFlaggedTerm(term);
+  return item ? JSON.stringify([item.from, item.to]) : '';
+}
+
+function trackVoiceTextEdit(nextValue) {
+  const next = String(nextValue || '');
+  const previous = String(voiceState.trackedText || '');
+  const pendingEdit = voiceState.pendingEdit;
+  voiceState.pendingEdit = null;
+  if (previous === next) return;
+  let prefix;
+  let replacedEnd;
+  let insertedEnd;
+  const hasPreciseEdit = (
+    pendingEdit
+    && pendingEdit.previous === previous
+    && Number.isInteger(pendingEdit.start)
+    && Number.isInteger(pendingEdit.end)
+    && pendingEdit.start >= 0
+    && pendingEdit.end >= pendingEdit.start
+    && pendingEdit.end <= previous.length
+    && (
+      pendingEdit.end > pendingEdit.start
+      || String(pendingEdit.inputType || '').startsWith('insert')
+    )
+  );
+  if (hasPreciseEdit) {
+    prefix = pendingEdit.start;
+    replacedEnd = pendingEdit.end;
+    insertedEnd = prefix + Math.max(
+      0,
+      next.length - (previous.length - (replacedEnd - prefix)),
+    );
+  } else {
+    prefix = 0;
+    while (
+      prefix < previous.length
+      && prefix < next.length
+      && previous[prefix] === next[prefix]
+    ) {
+      prefix += 1;
+    }
+    let suffix = 0;
+    while (
+      suffix < previous.length - prefix
+      && suffix < next.length - prefix
+      && previous[previous.length - suffix - 1] === next[next.length - suffix - 1]
+    ) {
+      suffix += 1;
+    }
+    replacedEnd = previous.length - suffix;
+    insertedEnd = next.length - suffix;
+  }
+  const delta = (insertedEnd - prefix) - (replacedEnd - prefix);
+  const adjusted = [];
+  voiceState.voiceSpans.forEach((span) => {
+    if (span.end <= prefix) {
+      adjusted.push({ ...span });
+      return;
+    }
+    if (span.start >= replacedEnd) {
+      adjusted.push({ start: span.start + delta, end: span.end + delta });
+      return;
+    }
+    if (span.start < prefix) {
+      adjusted.push({ start: span.start, end: prefix });
+    }
+    if (span.end > replacedEnd) {
+      adjusted.push({
+        start: insertedEnd,
+        end: span.end + delta,
+      });
+    }
+  });
+  voiceState.voiceSpans = normalizeVoiceSpans(adjusted, next.length);
+  voiceState.trackedText = next;
+}
+
+function appendVoiceText(body, text) {
+  const incoming = String(text || '');
+  if (!incoming) return false;
+  const separator = body.value && !/\s$/.test(body.value) && !/^\s/.test(incoming)
+    ? ' '
+    : '';
+  const start = body.value.length;
+  body.value = `${body.value}${separator}${incoming}`;
+  voiceState.voiceSpans = normalizeVoiceSpans(
+    [...voiceState.voiceSpans, { start, end: body.value.length }],
+    body.value.length,
+  );
+  voiceState.trackedText = body.value;
+  voiceState.pendingEdit = null;
+  return true;
+}
+
+function findVoiceTermIndex(text, term) {
+  const value = String(text || '');
+  const needle = String(term || '');
+  if (!needle) return -1;
+  let index = value.indexOf(needle);
+  while (index >= 0) {
+    const end = index + needle.length;
+    if (voiceState.voiceSpans.some((span) => index >= span.start && end <= span.end)) {
+      return index;
+    }
+    index = value.indexOf(needle, index + 1);
+  }
+  return -1;
+}
+
+function replaceVoiceText(body, from, to) {
+  const start = findVoiceTermIndex(body.value, from);
+  if (start < 0) return false;
+  const end = start + from.length;
+  const delta = to.length - from.length;
+  body.value = `${body.value.slice(0, start)}${to}${body.value.slice(end)}`;
+  voiceState.voiceSpans = normalizeVoiceSpans(
+    voiceState.voiceSpans.map((span) => {
+      if (span.end <= start) return { ...span };
+      if (span.start >= end) {
+        return { start: span.start + delta, end: span.end + delta };
+      }
+      return { start: span.start, end: span.end + delta };
+    }),
+    body.value.length,
+  );
+  voiceState.trackedText = body.value;
+  voiceState.pendingEdit = null;
+  return true;
+}
+
+function removeVoiceText(text, spans) {
+  let result = String(text || '');
+  normalizeVoiceSpans(spans, result.length)
+    .slice()
+    .reverse()
+    .forEach((span) => {
+      result = `${result.slice(0, span.start)}${result.slice(span.end)}`;
+    });
+  return result;
+}
+
+function newVoiceState(saved = {}) {
+  const savedVoice = saved.voice && typeof saved.voice === 'object' && !Array.isArray(saved.voice)
+    ? saved.voice
+    : {};
+  const recordingId = String(savedVoice.recordingId || saved.recordingId || '');
+  const savedText = String(saved.text || '');
+  const anchor = Math.max(0, Math.min(
+    savedText.length,
+    Number(firstDefined(savedVoice.anchorLen, savedVoice.anchor, saved.voiceAnchor, 0)),
+  ));
+  const suppliedSpans = asArray(firstDefined(savedVoice.spans, saved.voiceSpans));
+  const voiceSpans = normalizeVoiceSpans(
+    suppliedSpans.length
+      ? suppliedSpans
+      : (recordingId && savedText.length > anchor ? [{ start: anchor, end: savedText.length }] : []),
+    savedText.length,
+  );
+  return {
+    recordingId,
+    studentId: String(savedVoice.studentId || saved.voiceStudentId || state.user?.id || ''),
+    mode: recordingId ? 'review' : 'idle',
+    segmentPlanMs: VOICE_SEGMENT_PLAN.slice(),
+    nextSegmentSeq: Math.max(0, Number(savedVoice.nextSegmentSeq || saved.nextSegmentSeq || 0)),
+    durationMs: Math.max(
+      0,
+      Number(firstDefined(savedVoice.durationMs, Number(savedVoice.recT || 0) * 1000, saved.voiceDurationMs, 0)),
+    ),
+    anchor,
+    voiceSpans,
+    trackedText: savedText,
+    pendingEdit: null,
+    transcriptText: String(
+      savedVoice.transcriptText
+      || saved.voiceTranscriptText
+      || voiceTextFromSpans(savedText, voiceSpans),
+    ),
+    recorder: null,
+    stream: null,
+    segmentStartedAt: 0,
+    segmentTimeout: 0,
+    clockTimer: 0,
+    pollTimer: 0,
+    uploadQueue: Promise.resolve(),
+    closePromise: null,
+    appliedSegments: new Set(
+      asArray(firstDefined(savedVoice.appliedSegments, saved.appliedVoiceSegments)).map(Number),
+    ),
+    flaggedTerms: [],
+    dismissedTerms: new Set(
+      asArray(firstDefined(savedVoice.dismissedTerms, saved.dismissedVoiceTerms)).map(String),
+    ),
+    autoPaused: false,
+    wakeLock: null,
+    visibilityHandler: null,
+    error: '',
+    limitReached: false,
+  };
+}
+
+let voiceState = newVoiceState();
 
 function captureDraftPayload() {
   if (!capture.classList.contains('open')) return null;
-  return {
+  const payload = {
     title: $('#capTitle')?.value || '',
     text: $('#capBody')?.value || '',
     lesson: $('#capLesson')?.value || '',
@@ -1035,6 +1480,24 @@ function captureDraftPayload() {
     themes: JSON.parse(capture.dataset.themes || '[]'),
     studentScore: Number(capture.dataset.score || 0) || null,
   };
+  if (voiceState.recordingId) {
+    Object.assign(payload, {
+      voice: {
+        recordingId: voiceState.recordingId,
+        recT: Math.round(voiceState.durationMs / 1000),
+        ghost: '',
+        anchorLen: voiceState.anchor,
+        studentId: voiceState.studentId,
+        nextSegmentSeq: voiceState.nextSegmentSeq,
+        durationMs: voiceState.durationMs,
+        spans: voiceState.voiceSpans.map((span) => ({ ...span })),
+        transcriptText: voiceState.transcriptText,
+        appliedSegments: [...voiceState.appliedSegments],
+        dismissedTerms: [...voiceState.dismissedTerms],
+      },
+    });
+  }
+  return payload;
 }
 
 function setCaptureDraftStatus(message) {
@@ -1100,7 +1563,8 @@ async function openCapture({
     || String(saved.text || '').trim()
     || String(saved.lesson || '').trim()
     || asArray(saved.themes).length
-    || Number(saved.studentScore || 0),
+    || Number(saved.studentScore || 0)
+    || String(saved.voice?.recordingId || saved.recordingId || '').trim(),
   );
   title = String(saved.title || title || '');
   prompt = String(saved.prompt || prompt || '');
@@ -1109,33 +1573,35 @@ async function openCapture({
   const themes = asArray(saved.themes).map(String).filter((id) => THEMES.some((theme) => theme.id === id));
   const studentScore = Math.max(0, Math.min(5, Number(saved.studentScore || 0)));
   const prefixEnabled = saved.prefixEnabled !== false;
+  const voiceEnabled = Boolean(state.capabilities?.voiceCapture);
+  const recoveredVoice = Boolean(saved.voice?.recordingId || saved.recordingId);
+  const recoveredWordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+  voiceState = newVoiceState(recoveredVoice ? saved : {});
+  if (recoveredVoice && !voiceEnabled) {
+    voiceState.mode = 'error';
+    voiceState.error = VOICE_ERROR_COPY.voiceDisabled;
+  }
   state.captureDraftVersion = durableDraft
     ? Number(firstDefined(durableDraft.row_version, durableDraft.rowVersion, 0))
     : null;
   state.returnFocus = document.activeElement;
   state.capturePrompt = prompt;
   state.capturePairQuestionId = pairQuestionId ? String(pairQuestionId) : null;
-  const audioAvailable = Boolean(state.config?.audioAvailable && navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+  state.captureRecovering = recoveredVoice;
   capture.innerHTML = `<form class="capSheet" id="captureForm" role="dialog" aria-modal="true" aria-labelledby="captureDialogTitle">
     <button class="capClose" type="button" data-close-overlay aria-label="Close Quick Capture">✕</button>
     <div class="capKicker" id="captureDialogTitle">＋ New story — Save it before it fades</div>
     ${prompt ? `<div class="capHint">Prompt: “${esc(prompt)}”</div>` : ''}
+    ${recoveredVoice ? `<div class="voxRecover">✓ <b>Recovered after an interruption.</b> Everything is safe — ${voiceState.durationMs ? `${voiceTime(voiceState.durationMs)} of dictation and ` : ''}${recoveredWordCount} word${recoveredWordCount === 1 ? '' : 's'} were kept. Pick up where you left off.</div>` : ''}
     <div class="capTitleRow">
       <button class="capPre" type="button" id="capturePrefix" aria-pressed="true">The One Where</button>
       <input id="capTitle" name="title" placeholder="…what happened?" autocomplete="off" value="${attr(title)}" required>
     </div>
     <div class="capHint">Name it the way you’d bring it up with a friend. If the title makes you smile or wince, it’s right.</div>
     <div class="capTellWrap">
-      <textarea class="capField" id="capBody" name="text" placeholder="Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.">${esc(text)}</textarea>
-      <div class="micBar">
-        <button class="micBtn" type="button" data-record-audio ${audioAvailable ? '' : 'disabled'}><span aria-hidden="true">●</span><span>${voice && audioAvailable ? 'Start recording' : 'Record a voice note'}</span></button>
-        <span class="micTime" id="captureTimer"></span>
-        <span class="wave" id="captureWave" aria-hidden="true"></span>
-      </div>
-      ${audioAvailable
-        ? '<div class="capturePrivacy">Your recording is uploaded only to private StoryForge storage after you save. Nothing is transcribed or claimed complete until the server confirms it.</div>'
-        : '<div class="capUnavailable">Voice capture is not configured on this environment. You can still save the story in your own words.</div>'}
+      <textarea class="capField" id="capBody" name="text" placeholder="${voiceEnabled ? 'Tell it like you’d tell a trusted person — type it, or tap Speak below and StoryForge types while you talk.' : 'Tell it like you’d tell a trusted friend. Don’t polish it — just get it down.'}">${esc(text)}</textarea>
     </div>
+    ${voiceEnabled ? '<div class="voxDock idle" id="voxDock"></div>' : (recoveredVoice ? `<div class="voxDock error"><div class="voxState voiceError">${esc(VOICE_ERROR_COPY.voiceDisabled)}</div></div>` : '')}
     <details class="capMore">
       <summary class="capMoreHead">Add more now <span>— optional</span></summary>
       <div class="capMoreBody">
@@ -1162,6 +1628,17 @@ async function openCapture({
   $('#capturePrefix')?.setAttribute('aria-pressed', String(prefixEnabled));
   recordedBlob = null;
   recordedDurationMs = 0;
+  if (voiceEnabled) {
+    renderVoiceDock(voiceState.mode);
+    if (recoveredVoice) {
+      startVoicePolling();
+      void pollVoiceRecording();
+    } else if (voice) {
+      window.setTimeout(() => {
+        void voiceStart();
+      }, 350);
+    }
+  }
   $('#capTitle')?.focus({ preventScroll: true });
 }
 
@@ -1171,11 +1648,22 @@ function closeOverlay(node) {
     const pendingDraft = state.captureDraftSaveTimer ? captureDraftPayload() : null;
     window.clearTimeout(state.captureDraftSaveTimer);
     state.captureDraftSaveTimer = 0;
-    stopRecording();
+    if (voiceState.recordingId) {
+      void voicePause(true);
+      stopVoicePolling();
+      releaseVoiceWakeLock();
+      if (voiceState.visibilityHandler) {
+        document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
+        voiceState.visibilityHandler = null;
+      }
+    } else {
+      stopRecording();
+    }
     if (pendingDraft && !state.captureDraftSuppressCloseSave) {
       void persistCaptureDraft(pendingDraft).catch(() => {});
     }
     state.captureDraftSuppressCloseSave = false;
+    state.captureRecovering = false;
   }
   node.classList.remove('open');
   node.innerHTML = '';
@@ -1185,6 +1673,768 @@ function closeOverlay(node) {
   const focus = state.returnFocus;
   state.returnFocus = null;
   if (focus?.isConnected) focus.focus({ preventScroll: true });
+}
+
+/* ========================= V5.5 Phase 1 voice capture ========================= */
+
+const voiceMemorySegments = new Map();
+let voiceDatabasePromise = null;
+const VOICE_LOCAL_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+
+function voiceSegmentKey(recordingId, seq) {
+  return `${voiceState.studentId || state.user?.id || 'unknown'}:${recordingId}:${seq}`;
+}
+
+function openVoiceDatabase() {
+  if (!('indexedDB' in window)) {
+    return Promise.reject(new Error('Private local recording storage is unavailable.'));
+  }
+  if (!voiceDatabasePromise) {
+    voiceDatabasePromise = new Promise((resolve, reject) => {
+      const request = indexedDB.open('storyforge-voice-segments-v1', 1);
+      request.addEventListener('upgradeneeded', () => {
+        if (!request.result.objectStoreNames.contains('segments')) {
+          request.result.createObjectStore('segments', { keyPath: 'key' });
+        }
+      });
+      request.addEventListener('success', () => {
+        const database = request.result;
+        void purgeExpiredVoiceSegments(database).catch(() => {});
+        resolve(database);
+      });
+      request.addEventListener('error', () => reject(request.error || new Error('Private local recording storage is unavailable.')));
+      request.addEventListener('blocked', () => reject(new Error('Private local recording storage is unavailable.')));
+    });
+  }
+  return voiceDatabasePromise;
+}
+
+async function storeVoiceSegment(record) {
+  const keyed = {
+    ...record,
+    key: voiceSegmentKey(record.recordingId, record.seq),
+    createdAt: Number(record.createdAt) || Date.now(),
+  };
+  voiceMemorySegments.set(keyed.key, keyed);
+  const database = await openVoiceDatabase();
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction('segments', 'readwrite');
+    transaction.objectStore('segments').put(keyed);
+    transaction.addEventListener('complete', resolve);
+    transaction.addEventListener('error', () => reject(transaction.error));
+    transaction.addEventListener('abort', () => reject(transaction.error));
+  });
+}
+
+async function purgeExpiredVoiceSegments(database, currentTime = Date.now()) {
+  const expiresBefore = currentTime - VOICE_LOCAL_RETENTION_MS;
+  for (const [key, record] of voiceMemorySegments) {
+    if (!Number.isFinite(Number(record.createdAt)) || Number(record.createdAt) < expiresBefore) {
+      voiceMemorySegments.delete(key);
+    }
+  }
+  const stored = await new Promise((resolve, reject) => {
+    const transaction = database.transaction('segments', 'readonly');
+    const request = transaction.objectStore('segments').getAll();
+    request.addEventListener('success', () => resolve(request.result));
+    request.addEventListener('error', () => reject(request.error));
+  });
+  const expiredKeys = stored
+    .filter((record) => (
+      !Number.isFinite(Number(record.createdAt))
+      || Number(record.createdAt) < expiresBefore
+    ))
+    .map((record) => record.key);
+  if (!expiredKeys.length) return 0;
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction('segments', 'readwrite');
+    const objectStore = transaction.objectStore('segments');
+    expiredKeys.forEach((key) => objectStore.delete(key));
+    transaction.addEventListener('complete', resolve);
+    transaction.addEventListener('error', () => reject(transaction.error));
+    transaction.addEventListener('abort', () => reject(transaction.error));
+  });
+  return expiredKeys.length;
+}
+
+async function removeVoiceSegment(recordingId, seq) {
+  const key = voiceSegmentKey(recordingId, seq);
+  voiceMemorySegments.delete(key);
+  const database = await openVoiceDatabase().catch(() => null);
+  if (!database) return;
+  await new Promise((resolve, reject) => {
+    const transaction = database.transaction('segments', 'readwrite');
+    transaction.objectStore('segments').delete(key);
+    transaction.addEventListener('complete', resolve);
+    transaction.addEventListener('error', () => reject(transaction.error));
+    transaction.addEventListener('abort', () => reject(transaction.error));
+  });
+}
+
+async function pendingVoiceSegments(recordingId) {
+  const prefix = `${voiceState.studentId || state.user?.id || 'unknown'}:${recordingId}:`;
+  const records = [...voiceMemorySegments.values()].filter((item) => item.key.startsWith(prefix));
+  const database = await openVoiceDatabase().catch(() => null);
+  if (database) {
+    await purgeExpiredVoiceSegments(database).catch(() => {});
+    const stored = await new Promise((resolve, reject) => {
+      const transaction = database.transaction('segments', 'readonly');
+      const request = transaction.objectStore('segments').getAll();
+      request.addEventListener('success', () => resolve(request.result));
+      request.addEventListener('error', () => reject(request.error));
+    });
+    stored.filter((item) => item.key.startsWith(prefix)).forEach((item) => {
+      if (!records.some((existing) => existing.key === item.key)) records.push(item);
+    });
+  }
+  return records.sort((left, right) => left.seq - right.seq);
+}
+
+async function clearVoiceSegments(recordingId) {
+  const records = await pendingVoiceSegments(recordingId);
+  await Promise.all(records.map((record) => removeVoiceSegment(recordingId, record.seq)));
+}
+
+function supportedVoiceMimeType() {
+  if (!window.MediaRecorder) return '';
+  const types = [
+    'audio/webm;codecs=opus',
+    'audio/mp4',
+    'audio/webm',
+    'audio/ogg',
+  ];
+  return types.find((type) => MediaRecorder.isTypeSupported(type)) || '';
+}
+
+function voiceFileName(seq, mimeType) {
+  const extension = mimeType.includes('mp4')
+    ? 'm4a'
+    : mimeType.includes('ogg')
+      ? 'ogg'
+      : 'webm';
+  return `seg-${String(seq).padStart(5, '0')}.${extension}`;
+}
+
+function normalizedFlaggedTerm(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const from = String(firstDefined(raw.from, raw.term, raw.text, raw.original, '')).trim();
+  const to = String(firstDefined(raw.to, raw.suggestion, raw.replacement, raw.expected, '')).trim();
+  return from && to && from !== to ? { from, to } : null;
+}
+
+function voiceFlags() {
+  const seen = new Set();
+  const body = $('#capBody');
+  return voiceState.flaggedTerms.filter((raw) => {
+    const item = normalizedFlaggedTerm(raw);
+    if (!item) return false;
+    const key = voiceTermKey(item);
+    if (
+      seen.has(key)
+      || voiceState.dismissedTerms.has(key)
+      || !body
+      || findVoiceTermIndex(body.value, item.from) < 0
+    ) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  }).map(normalizedFlaggedTerm);
+}
+
+function renderVoiceDock(mode = voiceState.mode) {
+  const dock = $('#voxDock');
+  if (!dock) return;
+  voiceState.mode = mode;
+  dock.className = `voxDock ${mode}`;
+  const body = $('#capBody');
+  const title = $('#capTitle');
+  if (mode === 'idle') {
+    const supported = Boolean(
+      navigator.mediaDevices?.getUserMedia
+      && window.MediaRecorder
+      && supportedVoiceMimeType(),
+    );
+    dock.innerHTML = `<div class="voxRow">
+      <button class="voxMain" type="button" data-voice-start aria-label="Start voice recording" ${supported ? '' : 'disabled'}><span class="rdot"></span>${MIC_SVG} Speak it — StoryForge types while you talk</button>
+      <span class="voxState" role="status" aria-live="polite">${supported ? 'Typing always works too. You can do both in the same story.' : VOICE_ERROR_COPY.deviceFailure}</span>
+    </div>`;
+    return;
+  }
+  if (mode === 'arming') {
+    dock.innerHTML = `<div class="voxRow">
+      <span class="voxTimer"><span class="rdot"></span>0:00</span>
+      <span class="voxState" role="status" aria-live="polite">Getting your microphone ready…</span>
+    </div>`;
+    return;
+  }
+  if (mode === 'rec' || mode === 'paused') {
+    const paused = mode === 'paused';
+    const remainingMs = Math.max(0, VOICE_MAX_DURATION_SECONDS * 1000 - voiceState.durationMs);
+    const nearingLimit = remainingMs <= 2 * 60 * 1000;
+    dock.innerHTML = `<div class="voxRow">
+      <span class="voxTimer" id="voxTime" aria-label="Recorded time">${paused ? '❚❚ ' : ''}<span class="rdot"></span>${voiceTime(voiceState.durationMs)}</span>
+      <div class="voxWave" aria-hidden="true">${Array.from({ length: 13 }, (_, index) => `<i style="animation-delay:${index * 0.07}s"></i>`).join('')}</div>
+      ${paused
+        ? '<button class="voxBtn" type="button" data-voice-resume aria-label="Resume voice recording">▶ Resume</button>'
+        : '<button class="voxBtn" type="button" data-voice-pause aria-label="Pause voice recording">❚❚ Pause</button>'}
+      <button class="voxBtn done" type="button" data-voice-done aria-label="Finish voice recording">✓ Done</button>
+      <button class="voxBtn warn" type="button" data-voice-discard aria-label="Discard voice recording">✕ Discard</button>
+    </div>
+    <div class="voxGhost" id="voxGhost">${esc(voiceState.error === VOICE_ERROR_COPY.transcribeUnavailable ? 'Transcription will retry when available.' : '')}</div>
+    <div class="voxState" role="status" aria-live="polite">${paused
+      ? `<b>Paused${voiceState.autoPaused ? ' automatically when you switched away' : ''} — nothing lost.</b> Resume when you’re ready, or press Done to review.`
+      : '<b>Listening.</b> Your words appear in the story above as you talk — pause any time, edit anything after.'}${nearingLimit ? ` <b>${voiceTime(remainingMs)} remaining.</b>` : ''}</div>`;
+    return;
+  }
+  if (mode === 'error') {
+    dock.innerHTML = `<div class="voxRow">
+      <span class="voxState voiceError" role="status" aria-live="polite">${esc(voiceState.error || VOICE_ERROR_COPY.deviceFailure)}</span>
+      ${voiceState.recordingId && voiceState.error === VOICE_ERROR_COPY.transcribeUnavailable
+        ? '<button class="voxBtn" type="button" data-voice-retry aria-label="Retry transcription">Retry transcription</button>'
+        : ''}
+      ${voiceState.recordingId && voiceState.error === VOICE_ERROR_COPY.reconnecting
+        ? '<button class="voxBtn" type="button" data-voice-retry-upload aria-label="Retry voice upload">Retry upload</button>'
+        : ''}
+      ${voiceState.recordingId ? '<button class="voxBtn done" type="button" data-voice-review aria-label="Review captured transcript">Review what was captured</button>' : ''}
+    </div>`;
+    return;
+  }
+  const flags = voiceFlags();
+  dock.innerHTML = `<div class="voxRow">
+    <span class="voxTimer" style="color:var(--gn)">✓ ${voiceTime(voiceState.durationMs)}</span>
+    <span class="voxState" style="flex:1;min-width:180px" role="status" aria-live="polite"><b>Captured.</b> The transcript above is yours — read it once, fix anything, then save.${title?.value.trim() ? '' : ' <b>Name it above to save.</b>'}</span>
+    <button class="voxBtn" type="button" data-voice-more aria-label="Record more by voice">${MIC_SVG} Record more</button>
+    <button class="voxBtn warn" type="button" data-voice-discard aria-label="Discard this recording">✕ Discard this recording</button>
+  </div>
+  ${voiceState.error ? `<div class="voxState voiceError" role="status" aria-live="polite">${esc(voiceState.error)}
+    ${voiceState.error === VOICE_ERROR_COPY.transcribeUnavailable ? '<button class="rowBtn" type="button" data-voice-retry aria-label="Retry transcription">Retry transcription</button>' : ''}
+    ${voiceState.error === VOICE_ERROR_COPY.reconnecting ? '<button class="rowBtn" type="button" data-voice-retry-upload aria-label="Retry voice upload">Retry upload</button>' : ''}
+  </div>` : ''}
+  ${flags.length ? `<div class="voxChips" id="voxChips"><span class="ckLbl">Transcript check</span>
+    ${flags.map((flag, index) => `<button class="voxChip" type="button" data-voice-fix="${index}" title="Tap to correct">“${esc(flag.from)}” → <b>${esc(flag.to)}</b></button>`).join('')}
+    ${flags.length > 1 ? `<button class="voxFixAll" type="button" data-voice-fix-all>Fix all ${flags.length}</button>` : ''}
+    <span style="font-size:10.5px;color:var(--dim)">Terms the transcription wasn’t sure about — you decide.</span>
+  </div>` : ''}`;
+  if (body) body.scrollTop = body.scrollHeight;
+}
+
+function updateVoiceClock() {
+  const currentMs = voiceState.segmentStartedAt
+    ? Date.now() - voiceState.segmentStartedAt
+    : 0;
+  const elapsed = voiceState.durationMs + currentMs;
+  const timer = $('#voxTime');
+  const display = voiceTime(elapsed);
+  if (timer && timer.dataset.display !== display) {
+    timer.dataset.display = display;
+    timer.innerHTML = `<span class="rdot"></span>${display}`;
+  }
+  if (elapsed >= VOICE_MAX_DURATION_SECONDS * 1000 && !voiceState.limitReached) {
+    voiceState.limitReached = true;
+    void voiceDone({ limitReached: true });
+  }
+}
+
+async function requestVoiceWakeLock() {
+  if (!navigator.wakeLock?.request || document.hidden) return;
+  try {
+    voiceState.wakeLock = await navigator.wakeLock.request('screen');
+  } catch {
+    voiceState.wakeLock = null;
+  }
+}
+
+function releaseVoiceWakeLock() {
+  const lock = voiceState.wakeLock;
+  voiceState.wakeLock = null;
+  if (lock) void lock.release().catch(() => {});
+}
+
+function cleanupVoiceMedia() {
+  window.clearTimeout(voiceState.segmentTimeout);
+  window.clearInterval(voiceState.clockTimer);
+  voiceState.segmentTimeout = 0;
+  voiceState.clockTimer = 0;
+  voiceState.segmentStartedAt = 0;
+  voiceState.stream?.getTracks().forEach((track) => track.stop());
+  voiceState.stream = null;
+  voiceState.recorder = null;
+  releaseVoiceWakeLock();
+}
+
+function stopVoicePolling() {
+  window.clearInterval(voiceState.pollTimer);
+  voiceState.pollTimer = 0;
+}
+
+function suspendVoiceForIdentityExit() {
+  stopVoicePolling();
+  releaseVoiceWakeLock();
+  if (voiceState.visibilityHandler) {
+    document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
+    voiceState.visibilityHandler = null;
+  }
+  if (['rec', 'arming'].includes(voiceState.mode)) {
+    void voicePause(true).catch(() => cleanupVoiceMedia());
+  } else {
+    cleanupVoiceMedia();
+  }
+}
+
+function startVoicePolling() {
+  if (!voiceState.recordingId || voiceState.pollTimer) return;
+  voiceState.pollTimer = window.setInterval(() => {
+    void pollVoiceRecording();
+  }, 2000);
+}
+
+function applyVoiceTranscript(chunk) {
+  const body = $('#capBody');
+  if (!body) return false;
+  const previousTranscript = voiceState.transcriptText;
+  const mergedTranscript = mergeVoiceTranscript(previousTranscript, chunk);
+  if (mergedTranscript === previousTranscript) return false;
+  const appended = mergedTranscript.slice(previousTranscript.length);
+  voiceState.transcriptText = mergedTranscript;
+  if (!appendVoiceText(body, appended)) return false;
+  body.scrollTop = body.scrollHeight;
+  scheduleCaptureDraftSave();
+  return true;
+}
+
+async function pollVoiceRecording() {
+  if (!voiceState.recordingId) return;
+  try {
+    const payload = await api.recording(voiceState.recordingId);
+    const recording = payload?.recording || payload;
+    const segments = asArray(firstDefined(recording?.segments, payload?.segments))
+      .slice()
+      .sort((left, right) => Number(firstDefined(left.seq, left.sequence, 0)) - Number(firstDefined(right.seq, right.sequence, 0)));
+    if (segments.length) {
+      voiceState.nextSegmentSeq = Math.max(
+        voiceState.nextSegmentSeq,
+        ...segments.map((segment) => Number(firstDefined(segment.seq, segment.sequence, 0)) + 1),
+      );
+    }
+    let transcriptChanged = false;
+    let appliedChanged = false;
+    let hasPending = false;
+    let hasFailure = false;
+    segments.forEach((segment) => {
+      const transcribeState = String(firstDefined(segment.transcribeState, segment.transcribe_state, ''));
+      if (['received', 'pending', 'transcribing', 'retrying'].includes(transcribeState)) {
+        hasPending = true;
+      }
+      if (transcribeState.includes('failed')) hasFailure = true;
+    });
+    const segmentsBySeq = new Map(segments.map((segment) => [
+      Number(firstDefined(segment.seq, segment.sequence, 0)),
+      segment,
+    ]));
+    let nextTranscriptSeq = 0;
+    while (voiceState.appliedSegments.has(nextTranscriptSeq)) nextTranscriptSeq += 1;
+    while (segmentsBySeq.has(nextTranscriptSeq)) {
+      const segment = segmentsBySeq.get(nextTranscriptSeq);
+      const transcribeState = String(firstDefined(segment.transcribeState, segment.transcribe_state, ''));
+      if (transcribeState !== 'transcribed') break;
+      const transcript = String(firstDefined(segment.transcript, segment.text, ''));
+      transcriptChanged = applyVoiceTranscript(transcript) || transcriptChanged;
+      voiceState.appliedSegments.add(nextTranscriptSeq);
+      appliedChanged = true;
+      nextTranscriptSeq += 1;
+      while (voiceState.appliedSegments.has(nextTranscriptSeq)) nextTranscriptSeq += 1;
+    }
+    voiceState.flaggedTerms = segments
+      .filter((segment) => voiceState.appliedSegments.has(
+        Number(firstDefined(segment.seq, segment.sequence, 0)),
+      ))
+      .flatMap((segment) => asArray(firstDefined(segment.flaggedTerms, segment.flagged_terms)))
+      .map(normalizedFlaggedTerm)
+      .filter(Boolean);
+    if (hasFailure) {
+      voiceState.error = VOICE_ERROR_COPY.transcribeUnavailable;
+    } else if (!hasPending && voiceState.error === VOICE_ERROR_COPY.transcribeUnavailable) {
+      voiceState.error = '';
+    }
+    const serverDuration = Number(firstDefined(
+      recording?.totalDurationMs,
+      recording?.total_duration_ms,
+      payload?.totalDurationMs,
+      0,
+    ));
+    if (serverDuration > voiceState.durationMs && !voiceState.segmentStartedAt) {
+      voiceState.durationMs = serverDuration;
+    }
+    const serverState = String(firstDefined(recording?.state, payload?.state, ''));
+    if (['limit_reached', 'length_limit'].includes(serverState)) {
+      voiceState.error = VOICE_ERROR_COPY.lengthLimit;
+      voiceState.limitReached = true;
+      if (voiceState.mode === 'rec') await voiceDone({ limitReached: true });
+    }
+    const ghost = $('#voxGhost');
+    if (ghost && !voiceState.error) ghost.textContent = hasPending ? 'Transcribing the latest words…' : '';
+    if (transcriptChanged || appliedChanged) scheduleCaptureDraftSave();
+    if (voiceState.mode === 'review') renderVoiceDock('review');
+  } catch (error) {
+    if (error.code === 'voice_disabled') {
+      voiceState.error = VOICE_ERROR_COPY.voiceDisabled;
+      await voicePause(true);
+      renderVoiceDock('error');
+      return;
+    }
+    if (['transcribe_unavailable', 'transcribe_timeout'].includes(error.code)) {
+      voiceState.error = VOICE_ERROR_COPY.transcribeUnavailable;
+      if (voiceState.mode === 'review') renderVoiceDock('review');
+      return;
+    }
+    if (!navigator.onLine || error.code === 'request_timeout') {
+      voiceState.error = VOICE_ERROR_COPY.reconnecting;
+      await voicePause(true);
+      renderVoiceDock('error');
+    }
+  }
+}
+
+async function ensureVoiceSession() {
+  if (voiceState.recordingId) return;
+  const result = await api.createRecording();
+  voiceState.recordingId = String(firstDefined(result?.recordingId, result?.recording_id, result?.recording?.id, ''));
+  if (!voiceState.recordingId) throw new Error('StoryForge could not open a private recording session.');
+  const plan = asArray(firstDefined(result?.segmentPlanMs, result?.segment_plan_ms)).map(Number);
+  if (plan.length === 2 && plan.every((value) => Number.isInteger(value) && value > 0)) {
+    voiceState.segmentPlanMs = plan;
+  }
+  voiceState.anchor = $('#capBody')?.value.length || 0;
+  startVoicePolling();
+  scheduleCaptureDraftSave();
+}
+
+async function ensureVoiceStream() {
+  if (voiceState.stream?.active) return;
+  voiceState.stream = await navigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  });
+  voiceState.stream.getAudioTracks().forEach((track) => {
+    track.addEventListener('mute', () => {
+      if (voiceState.mode === 'rec') void voicePause(true);
+    });
+    track.addEventListener('ended', () => {
+      if (['rec', 'arming'].includes(voiceState.mode)) {
+        voiceState.error = VOICE_ERROR_COPY.deviceFailure;
+        void voicePause(true).finally(() => renderVoiceDock('error'));
+      }
+    });
+  });
+}
+
+async function uploadVoiceSegment(record) {
+  const form = new FormData();
+  form.set('seq', String(record.seq));
+  form.set('durationMs', String(record.durationMs));
+  form.set('segment', record.blob, voiceFileName(record.seq, record.mimeType));
+  try {
+    await api.uploadRecordingSegment(record.recordingId, form);
+    await removeVoiceSegment(record.recordingId, record.seq);
+    if (voiceState.error === VOICE_ERROR_COPY.reconnecting) voiceState.error = '';
+  } catch (error) {
+    if (error.code === 'voice_disabled') {
+      voiceState.error = VOICE_ERROR_COPY.voiceDisabled;
+    } else if (error.code === 'voice_daily_limit' || error.status === 429) {
+      voiceState.error = VOICE_ERROR_COPY.dailyLimit;
+    } else {
+      voiceState.error = VOICE_ERROR_COPY.reconnecting;
+    }
+    if (voiceState.mode === 'rec') await voicePause(true);
+    renderVoiceDock('error');
+    return false;
+  }
+  await pollVoiceRecording();
+  return true;
+}
+
+async function flushVoiceSegments() {
+  if (!voiceState.recordingId) return [];
+  const records = await pendingVoiceSegments(voiceState.recordingId);
+  for (const record of records) {
+    const uploaded = await uploadVoiceSegment(record);
+    if (!uploaded) break;
+  }
+  return pendingVoiceSegments(voiceState.recordingId);
+}
+
+async function beginVoiceSegment() {
+  if (voiceState.nextSegmentSeq >= 200) {
+    voiceState.limitReached = true;
+    await voiceDone({ limitReached: true });
+    return;
+  }
+  await ensureVoiceStream();
+  const mimeType = supportedVoiceMimeType();
+  if (!mimeType) throw new Error('No supported recording format is available.');
+  const chunks = [];
+  const recorder = new MediaRecorder(voiceState.stream, { mimeType });
+  voiceState.recorder = recorder;
+  voiceState.segmentChunks = chunks;
+  voiceState.segmentMimeType = mimeType;
+  recorder.addEventListener('dataavailable', (event) => {
+    if (event.data.size) chunks.push(event.data);
+  });
+  recorder.start();
+  voiceState.segmentStartedAt = Date.now();
+  const delay = voiceState.nextSegmentSeq === 0
+    ? voiceState.segmentPlanMs[0]
+    : voiceState.segmentPlanMs[1];
+  voiceState.segmentTimeout = window.setTimeout(() => {
+    void closeVoiceSegment({ continueRecording: true });
+  }, delay);
+  window.clearInterval(voiceState.clockTimer);
+  voiceState.clockTimer = window.setInterval(updateVoiceClock, 250);
+  updateVoiceClock();
+}
+
+async function closeVoiceSegment({ continueRecording = false } = {}) {
+  if (voiceState.closePromise) return voiceState.closePromise;
+  const recorder = voiceState.recorder;
+  if (!recorder || recorder.state === 'inactive') return;
+  voiceState.closePromise = (async () => {
+    window.clearTimeout(voiceState.segmentTimeout);
+    voiceState.segmentTimeout = 0;
+    const elapsed = Math.max(1, Date.now() - voiceState.segmentStartedAt);
+    const stopped = new Promise((resolve) => recorder.addEventListener('stop', resolve, { once: true }));
+    recorder.stop();
+    await stopped;
+    const blob = new Blob(voiceState.segmentChunks || [], { type: voiceState.segmentMimeType });
+    voiceState.durationMs += elapsed;
+    voiceState.segmentStartedAt = 0;
+    voiceState.recorder = null;
+    window.clearInterval(voiceState.clockTimer);
+    voiceState.clockTimer = 0;
+    if (blob.size) {
+      const record = {
+        recordingId: voiceState.recordingId,
+        seq: voiceState.nextSegmentSeq,
+        durationMs: elapsed,
+        mimeType: voiceState.segmentMimeType,
+        blob,
+      };
+      await storeVoiceSegment(record);
+      voiceState.nextSegmentSeq += 1;
+      voiceState.uploadQueue = voiceState.uploadQueue
+        .catch(() => {})
+        .then(() => uploadVoiceSegment(record));
+    }
+    scheduleCaptureDraftSave();
+    if (continueRecording && voiceState.mode === 'rec' && !voiceState.limitReached) {
+      await beginVoiceSegment();
+    }
+  })().finally(() => {
+    voiceState.closePromise = null;
+  });
+  return voiceState.closePromise;
+}
+
+async function voiceStart() {
+  if (!state.capabilities?.voiceCapture || ['rec', 'arming'].includes(voiceState.mode)) return;
+  voiceState.error = '';
+  voiceState.autoPaused = false;
+  renderVoiceDock('arming');
+  try {
+    await openVoiceDatabase();
+    await ensureVoiceStream();
+    await ensureVoiceSession();
+    await flushVoiceSegments();
+    if (voiceState.error) {
+      renderVoiceDock('error');
+      return;
+    }
+    voiceState.mode = 'rec';
+    renderVoiceDock('rec');
+    await requestVoiceWakeLock();
+    await beginVoiceSegment();
+    if (!voiceState.visibilityHandler) {
+      voiceState.visibilityHandler = () => {
+        if (document.hidden && voiceState.mode === 'rec') void voicePause(true);
+        if (!document.hidden && voiceState.mode === 'rec') void requestVoiceWakeLock();
+      };
+      document.addEventListener('visibilitychange', voiceState.visibilityHandler);
+    }
+  } catch (error) {
+    cleanupVoiceMedia();
+    voiceState.error = error.name === 'NotAllowedError'
+      ? VOICE_ERROR_COPY.micDenied
+      : error.code === 'voice_daily_limit' || error.status === 429
+        ? VOICE_ERROR_COPY.dailyLimit
+        : error.code === 'voice_disabled'
+          ? VOICE_ERROR_COPY.voiceDisabled
+          : VOICE_ERROR_COPY.deviceFailure;
+    renderVoiceDock('error');
+  }
+}
+
+async function voicePause(auto = false) {
+  if (!['rec', 'arming'].includes(voiceState.mode)) return;
+  voiceState.mode = 'paused';
+  voiceState.autoPaused = Boolean(auto);
+  await closeVoiceSegment();
+  releaseVoiceWakeLock();
+  renderVoiceDock('paused');
+  scheduleCaptureDraftSave();
+}
+
+async function voiceResume() {
+  if (voiceState.mode !== 'paused') return;
+  voiceState.error = '';
+  voiceState.autoPaused = false;
+  try {
+    await flushVoiceSegments();
+    if (voiceState.error) {
+      renderVoiceDock('error');
+      return;
+    }
+    voiceState.mode = 'rec';
+    renderVoiceDock('rec');
+    await requestVoiceWakeLock();
+    await beginVoiceSegment();
+  } catch {
+    voiceState.error = VOICE_ERROR_COPY.deviceFailure;
+    renderVoiceDock('error');
+  }
+}
+
+async function voiceDone({ limitReached = false } = {}) {
+  if (voiceState.mode === 'rec') await closeVoiceSegment();
+  cleanupVoiceMedia();
+  voiceState.limitReached = Boolean(limitReached);
+  if (limitReached) {
+    voiceState.error = VOICE_ERROR_COPY.lengthLimit;
+    notify(VOICE_ERROR_COPY.lengthLimit);
+  }
+  voiceState.mode = 'review';
+  startVoicePolling();
+  await voiceState.uploadQueue.catch(() => {});
+  let pending;
+  try {
+    pending = await pendingVoiceSegments(voiceState.recordingId);
+  } catch {
+    voiceState.error = VOICE_ERROR_COPY.deviceFailure;
+    renderVoiceDock('error');
+    scheduleCaptureDraftSave();
+    return;
+  }
+  if (pending.length || voiceState.error === VOICE_ERROR_COPY.reconnecting) {
+    voiceState.error = VOICE_ERROR_COPY.reconnecting;
+    renderVoiceDock('error');
+    scheduleCaptureDraftSave();
+    return;
+  }
+  await pollVoiceRecording();
+  renderVoiceDock(
+    voiceState.error === VOICE_ERROR_COPY.reconnecting ? 'error' : 'review',
+  );
+  scheduleCaptureDraftSave();
+}
+
+async function voiceDiscard() {
+  const recordingId = voiceState.recordingId;
+  if (!recordingId) {
+    voiceState = newVoiceState();
+    renderVoiceDock('idle');
+    return;
+  }
+  await closeVoiceSegment().catch(() => {});
+  cleanupVoiceMedia();
+  stopVoicePolling();
+  await voiceState.uploadQueue.catch(() => {});
+  const body = $('#capBody');
+  const hadWords = Boolean(body && voiceState.voiceSpans.some(
+    (span) => body.value.slice(span.start, span.end).trim(),
+  ));
+  const preservedText = body
+    ? removeVoiceText(body.value, voiceState.voiceSpans)
+    : '';
+  const scrubbedDraft = {
+    ...captureDraftPayload(),
+    text: preservedText,
+    voice: {
+      ...captureDraftPayload()?.voice,
+      spans: [],
+      transcriptText: '',
+      dismissedTerms: [],
+    },
+  };
+  window.clearTimeout(state.captureDraftSaveTimer);
+  state.captureDraftSaveTimer = 0;
+  await captureDraftSavePromise.catch(() => {});
+  await persistCaptureDraft(scrubbedDraft);
+  if (body) body.value = preservedText;
+  voiceState.voiceSpans = [];
+  voiceState.trackedText = preservedText;
+  voiceState.transcriptText = '';
+  voiceState.dismissedTerms.clear();
+  await api.cancelRecording(recordingId);
+  await clearVoiceSegments(recordingId);
+  if (voiceState.visibilityHandler) {
+    document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
+  }
+  voiceState = newVoiceState({ text: preservedText });
+  renderVoiceDock('idle');
+  const finalDraft = captureDraftPayload();
+  if (finalDraft) await persistCaptureDraft(finalDraft);
+  notify(hadWords
+    ? 'Recording discarded — the words from that take were removed. Typed text stays.'
+    : 'Recording discarded.');
+}
+
+async function retryVoiceTranscription() {
+  if (!voiceState.recordingId) return;
+  await api.retryRecordingTranscription(voiceState.recordingId);
+  voiceState.error = '';
+  await pollVoiceRecording();
+  renderVoiceDock('review');
+}
+
+async function retryVoiceUpload() {
+  if (!voiceState.recordingId) return;
+  voiceState.error = '';
+  const pending = await flushVoiceSegments();
+  if (pending.length || voiceState.error) {
+    voiceState.error ||= VOICE_ERROR_COPY.reconnecting;
+    renderVoiceDock('error');
+    return;
+  }
+  await pollVoiceRecording();
+  renderVoiceDock(
+    voiceState.error === VOICE_ERROR_COPY.reconnecting ? 'error' : 'review',
+  );
+  scheduleCaptureDraftSave();
+}
+
+function applyVoiceFix(index) {
+  const flag = voiceFlags()[index];
+  const body = $('#capBody');
+  if (!flag || !body) return;
+  replaceVoiceText(body, flag.from, flag.to);
+  voiceState.dismissedTerms.add(voiceTermKey(flag));
+  scheduleCaptureDraftSave();
+  renderVoiceDock('review');
+}
+
+function applyAllVoiceFixes() {
+  const body = $('#capBody');
+  const flags = voiceFlags();
+  if (!body || !flags.length) return;
+  flags.forEach((flag) => {
+    replaceVoiceText(body, flag.from, flag.to);
+    voiceState.dismissedTerms.add(voiceTermKey(flag));
+  });
+  scheduleCaptureDraftSave();
+  renderVoiceDock('review');
+  notify(`Transcript corrected — ${flags.length} terms fixed.`, '✓');
 }
 
 let recorder = null;
@@ -1276,6 +2526,9 @@ async function uploadRecordedAudio(storyId) {
 }
 
 async function saveCapture(form) {
+  if (voiceState.recordingId && ['rec', 'paused', 'arming'].includes(voiceState.mode)) {
+    await voiceDone();
+  }
   if (recorder?.state === 'recording') {
     notify('Finish the recording before saving.');
     return;
@@ -1289,23 +2542,46 @@ async function saveCapture(form) {
   const studentScore = Number(capture.dataset.score || 0) || null;
   const prefixEnabled = capture.dataset.prefixEnabled !== 'false';
   const destinationQuestionId = state.capturePairQuestionId;
+  const recordingId = voiceState.recordingId;
   const created = await withBusy(async () => {
     window.clearTimeout(state.captureDraftSaveTimer);
     state.captureDraftSaveTimer = 0;
     await captureDraftSavePromise;
+    if (recordingId) {
+      await voiceState.uploadQueue.catch(() => {});
+      const pending = await flushVoiceSegments();
+      if (voiceState.error === VOICE_ERROR_COPY.voiceDisabled) {
+        throw Object.assign(new Error(VOICE_ERROR_COPY.voiceDisabled), { code: 'voice_disabled' });
+      }
+      if (
+        pending.length
+        || [
+          VOICE_ERROR_COPY.reconnecting,
+          VOICE_ERROR_COPY.deviceFailure,
+          VOICE_ERROR_COPY.dailyLimit,
+        ].includes(voiceState.error)
+      ) {
+        throw Object.assign(
+          new Error('Your recording is still safe on this device, but it has not finished uploading. Retry the upload before saving.'),
+          { code: 'recording_upload_pending' },
+        );
+      }
+      await api.finishRecording(recordingId, voiceState.durationMs);
+    }
     const result = await api.createStory({
       title,
       text,
-      captureType: recordedBlob ? 'audio' : 'text',
+      captureType: recordingId || recordedBlob ? 'audio' : 'text',
       lesson,
       prefixEnabled,
       themes,
       studentScore,
+      ...(recordingId ? { recordingId } : {}),
       draftVersion: state.captureDraftVersion ?? 0,
       surface: 'quick',
     });
     const story = unwrapStory(result);
-    if (recordedBlob) await uploadRecordedAudio(story.id);
+    if (!recordingId && recordedBlob) await uploadRecordedAudio(story.id);
     if (destinationQuestionId) {
       await api.createPair({
         storyId: story.id,
@@ -1317,6 +2593,13 @@ async function saveCapture(form) {
     return story;
   });
   if (!created) return;
+  stopVoicePolling();
+  cleanupVoiceMedia();
+  if (recordingId) await clearVoiceSegments(recordingId).catch(() => {});
+  if (voiceState.visibilityHandler) {
+    document.removeEventListener('visibilitychange', voiceState.visibilityHandler);
+  }
+  voiceState = newVoiceState();
   stopRecording();
   recordedBlob = null;
   recordedDurationMs = 0;
@@ -1440,7 +2723,7 @@ function audioMarkup(story) {
     : String(firstDefined(audio?.duration, audio?.duration_label, ''));
   return `<div class="audioCard">
     <button class="audPlay" type="button" ${audioId ? `data-play-audio="${attr(audioId)}"` : 'disabled'} aria-label="Play original audio">▶</button>
-    <div class="audBody"><div class="audLbl">Original voice note${duration ? ` <span>· ${esc(duration)}</span>` : ''}</div><div class="audTrack"><i></i></div>
+    <div class="audBody"><div class="audLbl">Original audio · preserved forever <span>— your spoken telling, separate from any later editing${duration ? ` · ${esc(duration)}` : ''}</span></div><div class="audTrack"><i></i></div>
       <div class="audioPrivacy">${audioId ? 'Private playback · requested only when you press play' : 'Private audio is not available for playback'}</div></div>
     <div class="audTime">${duration || '—:—'}</div>
   </div>`;
@@ -3337,6 +4620,11 @@ async function renderRoute() {
       renderQuestionLibrary();
       return;
     }
+    if (state.route === 'settings') {
+      await loadAdminReleaseControls();
+      renderAdminReleaseControls();
+      return;
+    }
     await navigate('qlib', null, { replace: true });
     return;
   }
@@ -3627,6 +4915,13 @@ document.addEventListener('click', async (event) => {
     if (button.matches('[data-open-capture]')) {
       const sourceId = button.dataset.captureTitleFrom;
       const title = sourceId ? $(`#${CSS.escape(sourceId)}`)?.value.trim() || '' : '';
+      if (button.hasAttribute('data-capture-voice')) {
+        try {
+          localStorage.setItem(VOICE_HINT_KEY, '1');
+        } catch {
+          // The hint is cosmetic; capture remains available when storage is blocked.
+        }
+      }
       await openCapture({
         title,
         prompt: button.dataset.capturePrompt || '',
@@ -3674,6 +4969,11 @@ document.addEventListener('click', async (event) => {
       await changeBackground(button.dataset.background);
       return;
     }
+    if (button.matches('[data-admin-release-reload]')) {
+      await loadAdminReleaseControls();
+      renderAdminReleaseControls();
+      return;
+    }
     if (button.id === 'capturePrefix') {
       const enabled = capture.dataset.prefixEnabled !== 'false';
       capture.dataset.prefixEnabled = String(!enabled);
@@ -3692,6 +4992,47 @@ document.addEventListener('click', async (event) => {
     }
     if (button.matches('[data-record-audio]')) {
       await toggleRecording(button);
+      return;
+    }
+    if (button.matches('[data-voice-start], [data-voice-more]')) {
+      await voiceStart();
+      return;
+    }
+    if (button.matches('[data-voice-pause]')) {
+      await voicePause(false);
+      return;
+    }
+    if (button.matches('[data-voice-resume]')) {
+      await voiceResume();
+      return;
+    }
+    if (button.matches('[data-voice-done]')) {
+      await voiceDone();
+      return;
+    }
+    if (button.matches('[data-voice-discard]')) {
+      await voiceDiscard();
+      return;
+    }
+    if (button.matches('[data-voice-review]')) {
+      voiceState.mode = 'review';
+      renderVoiceDock('review');
+      return;
+    }
+    if (button.matches('[data-voice-retry]')) {
+      await retryVoiceTranscription();
+      return;
+    }
+    if (button.matches('[data-voice-retry-upload]')) {
+      await retryVoiceUpload();
+      return;
+    }
+    if (button.matches('[data-voice-fix]')) {
+      applyVoiceFix(Number(button.dataset.voiceFix));
+      return;
+    }
+    if (button.matches('[data-voice-fix-all]')) {
+      applyAllVoiceFixes();
       return;
     }
     if (button.matches('[data-story-tab]')) {
@@ -3941,14 +5282,31 @@ document.addEventListener('submit', async (event) => {
       event.preventDefault();
       await createCustomQuestion(event.target);
     }
+    if (event.target.id === 'voiceFeatureForm') {
+      event.preventDefault();
+      await saveAdminReleaseControls(event.target);
+    }
   } catch (error) {
     notify(error.message || 'StoryForge could not save that change.');
+  }
+});
+
+document.addEventListener('beforeinput', (event) => {
+  const target = event.target;
+  if (capture.contains(target) && target.id === 'capBody') {
+    voiceState.pendingEdit = {
+      previous: target.value,
+      start: target.selectionStart,
+      end: target.selectionEnd,
+      inputType: event.inputType,
+    };
   }
 });
 
 document.addEventListener('input', (event) => {
   const target = event.target;
   if (capture.contains(target) && ['capTitle', 'capBody', 'capLesson'].includes(target.id)) {
+    if (target.id === 'capBody') trackVoiceTextEdit(target.value);
     scheduleCaptureDraftSave();
   } else if (target.id === 'omni' && !isMentor()) {
     state.library.query = target.value;
@@ -4228,22 +5586,53 @@ async function enterFixturePersona(persona) {
 }
 
 function signOut() {
+  suspendVoiceForIdentityExit();
   state.user = null;
+  state.capabilities = Object.freeze({ voiceCapture: false });
+  state.captureRecovering = false;
   state.lockout = null;
   auth.clear();
   sessionStorage.removeItem(FIXTURE_PERSONA_KEY);
   renderLogin();
 }
 
+async function recoverVoiceDraftOnBoot() {
+  if (!isStudent() || !state.capabilities?.voiceCapture || state.captureRecovering) return;
+  const result = await api.storyDraft().catch(() => null);
+  const draft = result?.draft?.payload;
+  if (!draft?.voice?.recordingId && !draft?.recordingId) return;
+  await openCapture();
+}
+
+function announceVoiceHintOnBoot() {
+  if (!isStudent() || !state.capabilities?.voiceCapture) return;
+  window.setTimeout(() => {
+    let seen = false;
+    try {
+      seen = localStorage.getItem(VOICE_HINT_KEY) === '1';
+    } catch {
+      seen = true;
+    }
+    if (!seen && !capture.classList.contains('open')) {
+      notify('New in StoryForge — tap the mic and it types while you talk.', '🎙');
+    }
+  }, 1300);
+}
+
 async function bootstrapSession() {
-  const { user } = await api.session();
+  const session = await api.session();
+  const { user } = session;
   state.user = user;
+  state.capabilities = Object.freeze({
+    voiceCapture: Boolean(session?.capabilities?.voiceCapture),
+  });
+  state.captureRecovering = false;
   state.lockout = null;
   state.selectedStudent = null;
   parseRoute();
   const studentRoutes = new Set(['home', 'library', 'notifications', 'settings', 'prep', 'qshop', 'qlib', 'story']);
   const mentorRoutes = new Set(['home', 'students', 'student', 'queue', 'activity', 'settings', 'prep', 'qshop', 'qlib', 'story']);
-  const adminRoutes = new Set(['qlib']);
+  const adminRoutes = new Set(['qlib', 'settings']);
   const allowedRoutes = isAdmin() ? adminRoutes : isMentor() ? mentorRoutes : studentRoutes;
   if (!allowedRoutes.has(state.route)) {
     state.route = isAdmin() ? 'qlib' : 'home';
@@ -4251,6 +5640,8 @@ async function bootstrapSession() {
     pushPath(state.route, null, true);
   }
   await renderRoute();
+  await recoverVoiceDraftOnBoot();
+  announceVoiceHintOnBoot();
 }
 
 async function init() {

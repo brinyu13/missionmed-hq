@@ -44,6 +44,64 @@ export async function withIdentity(identity, operation) {
   }
 }
 
+export async function withServiceTransaction(operation) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL ROLE storyforge_app');
+    const value = await operation(client);
+    await client.query('COMMIT');
+    return value;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export async function appendAudit(client, {
+  action,
+  entityType,
+  entityId = null,
+  surface,
+  studentId = null,
+  storyId = null,
+  questionId = null,
+  previousValue = null,
+  newValue = null,
+  detail = null,
+  visibility = 'both',
+}) {
+  try {
+    const result = await client.query(
+      `SELECT public.sf_append_audit(
+         $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11
+       ) AS id`,
+      [
+        action,
+        entityType,
+        entityId,
+        surface,
+        studentId,
+        storyId,
+        questionId,
+        previousValue == null ? null : JSON.stringify(previousValue),
+        newValue == null ? null : JSON.stringify(newValue),
+        detail,
+        visibility,
+      ],
+    );
+    return result.rows[0]?.id ?? null;
+  } catch (cause) {
+    if (cause?.code !== '42501') throw cause;
+    const error = new Error('The StoryForge audit writer is unavailable.', { cause });
+    error.code = 'audit_writer_unavailable';
+    error.status = 503;
+    throw error;
+  }
+}
+
 export async function closePool() {
   await pool.end();
 }

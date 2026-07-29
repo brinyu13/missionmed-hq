@@ -112,6 +112,7 @@ export async function verifyToken(token, options = {}) {
     sub: String(claims.sub),
     role,
     eligible: true,
+    cohort: typeof claims.cohort === 'string' ? claims.cohort.trim() : '',
     wpUserId,
     name: String(claims.name || ''),
     issuer: String(claims.iss || ''),

@@ -16,16 +16,17 @@ Usage:
 
 `preflight` performs only local/source/backup/target/ledger reads.
 `apply` additionally requires:
-  STORYFORGE_MIGRATION_CONFIRM=B1-503-APPLY-TWO-MIGRATIONS
+  STORYFORGE_MIGRATION_CONFIRM=B1-506-APPLY-TWO-MIGRATIONS
+  STORYFORGE_FOUNDER_USER_ID=<RP-10-confirmed StoryForge UUID>
 
 The environment contract is documented in:
-  _AI_HANDOFFS/from_codex/B1-503_evidence/B1-503_CUTOVER_ROLLBACK_PACKET.md
+  _AI_HANDOFFS/from_cowork/B1-504B_storyforge_v55_infrastructure_platform_authority/B1-504B_DATABASE_RLS_MIGRATION_SPEC.md
 EOF
   exit 2
 }
 
 fail() {
-  printf 'Refusing B1-503 migration: %s\n' "$*" >&2
+  printf 'Refusing B1-506 migration: %s\n' "$*" >&2
   exit 1
 }
 
@@ -79,6 +80,7 @@ required_variables=(
   STORYFORGE_EXPECTED_DB_SYSTEM_IDENTIFIER
   STORYFORGE_EXPECTED_USER_COUNT
   STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT
+  STORYFORGE_FOUNDER_USER_ID
   RAILWAY_PROJECT_ID
   RAILWAY_ENVIRONMENT_ID
   RAILWAY_SERVICE_ID
@@ -121,6 +123,8 @@ done
   || fail "expected StoryForge user count is invalid"
 [[ "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" =~ ^[0-9]+$ ]] \
   || fail "expected active assignment count is invalid"
+[[ "$STORYFORGE_FOUNDER_USER_ID" =~ ^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$ ]] \
+  || fail "RP-10 founder StoryForge user ID must be a canonical lowercase UUID"
 if (( ${#STORYFORGE_APP_DB_PASSWORD} < 32 )); then
   fail "application database password must be at least 32 characters"
 fi
@@ -153,6 +157,8 @@ migrations=(
   "$PACKAGE_DIR/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260728045100_b1_503_story_domain_conformance.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql"
+  "$PACKAGE_DIR/infra/postgres/migrations/20260729000100_b1_506_voice_recording_sessions.sql"
+  "$PACKAGE_DIR/infra/postgres/migrations/20260729000200_b1_506_feature_flags.sql"
 )
 expected_versions=(
   "20260726150000"
@@ -160,6 +166,8 @@ expected_versions=(
   "20260727190000"
   "20260728045100"
   "20260728045444"
+  "20260729000100"
+  "20260729000200"
 )
 expected_files=(
   "20260726150000_b1_500_storyforge_v5_foundation.sql"
@@ -167,6 +175,8 @@ expected_files=(
   "20260727190000_b1_502_storyforge_background_preference.sql"
   "20260728045100_b1_503_story_domain_conformance.sql"
   "20260728045444_b1_503_interview_mentor_conformance.sql"
+  "20260729000100_b1_506_voice_recording_sessions.sql"
+  "20260729000200_b1_506_feature_flags.sql"
 )
 expected_hashes=(
   "93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f"
@@ -174,6 +184,8 @@ expected_hashes=(
   "ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405"
   "fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68"
   "5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2"
+  "b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f"
+  "8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a"
 )
 
 for ((index = 0; index < ${#migrations[@]}; index++)); do
@@ -200,6 +212,8 @@ source_paths=(
   "storyforge-v5/infra/postgres/migrations/${expected_files[2]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[3]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[4]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[5]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[6]}"
 )
 
 case "$STORYFORGE_SOURCE_MODE" in
@@ -336,10 +350,12 @@ expected_pre_ledger="$(
   printf '%s|%s|%s\n' \
     "${expected_versions[0]}" "${expected_files[0]}" "${expected_hashes[0]}" \
     "${expected_versions[1]}" "${expected_files[1]}" "${expected_hashes[1]}" \
-    "${expected_versions[2]}" "${expected_files[2]}" "${expected_hashes[2]}"
+    "${expected_versions[2]}" "${expected_files[2]}" "${expected_hashes[2]}" \
+    "${expected_versions[3]}" "${expected_files[3]}" "${expected_hashes[3]}" \
+    "${expected_versions[4]}" "${expected_files[4]}" "${expected_hashes[4]}"
 )"
 ledger_present="$("${psql_read[@]}" -Atqc "SELECT (to_regclass('public.sf_schema_migrations') IS NOT NULL)::int")"
-[[ "$ledger_present" = "1" ]] || fail "the exact B1-502 migration ledger is absent"
+[[ "$ledger_present" = "1" ]] || fail "the exact B1-503 migration ledger is absent"
 actual_pre_ledger="$(
   "${psql_read[@]}" -AtF '|' -c "
     SELECT version, file_name, sha256
@@ -348,17 +364,19 @@ actual_pre_ledger="$(
   "
 )"
 [[ "$actual_pre_ledger" = "$expected_pre_ledger" ]] \
-  || fail "pre-migration ledger is not exactly the three known B1-500/B1-502 rows"
+  || fail "pre-migration ledger is not exactly the five known B1-500/B1-502/B1-503 rows"
 
 pre_counts="$(
   "${psql_read[@]}" -AtF '|' -c "
     SELECT
       (SELECT count(*) FROM public.sf_users),
-      (SELECT count(*) FROM public.sf_mentor_assignments WHERE active);
+      (SELECT count(*) FROM public.sf_mentor_assignments WHERE active),
+      (SELECT count(*) FROM public.sf_users
+        WHERE id = '$STORYFORGE_FOUNDER_USER_ID'::uuid);
   "
 )"
-[[ "$pre_counts" = "$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" ]] \
-  || fail "pre-migration StoryForge user/assignment counts differ from the explicit receipt"
+[[ "$pre_counts" = "$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT|1" ]] \
+  || fail "pre-migration user/assignment counts or RP-10 founder mapping differ from the explicit receipt"
 
 pending_migrations=()
 pending_versions=()
@@ -386,20 +404,20 @@ SQL
 done
 
 [[ "${#pending_migrations[@]}" = "2" ]] \
-  || fail "the exact prestate must leave exactly two B1-503 migrations pending"
-[[ "${pending_files[0]}" = "${expected_files[3]}" && "${pending_files[1]}" = "${expected_files[4]}" ]] \
-  || fail "pending migration set is not exactly the two B1-503 migrations"
+  || fail "the exact prestate must leave exactly two B1-506 migrations pending"
+[[ "${pending_files[0]}" = "${expected_files[5]}" && "${pending_files[1]}" = "${expected_files[6]}" ]] \
+  || fail "pending migration set is not exactly the two B1-506 forward migrations"
 
 if [[ "$mode" = "preflight" ]]; then
-  printf '%s\n' "B1_503_PRODUCTION_MIGRATION_PREFLIGHT_PASS"
+  printf '%s\n' "B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS"
   printf 'project_id=%s\nenvironment_id=%s\ndatabase_service_id=%s\n' \
     "$EXPECTED_PROJECT_ID" "$EXPECTED_ENVIRONMENT_ID" "$EXPECTED_DATABASE_SERVICE_ID"
   printf 'db_system_identifier=%s\npending_migrations=2\n' "$actual_system_identifier"
   exit 0
 fi
 
-[[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = "B1-503-APPLY-TWO-MIGRATIONS" ]] \
-  || fail "apply mode requires STORYFORGE_MIGRATION_CONFIRM=B1-503-APPLY-TWO-MIGRATIONS"
+[[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = "B1-506-APPLY-TWO-MIGRATIONS" ]] \
+  || fail "apply mode requires STORYFORGE_MIGRATION_CONFIRM=B1-506-APPLY-TWO-MIGRATIONS"
 
 psql_args=(
   -X
@@ -407,6 +425,7 @@ psql_args=(
   --single-transaction
   --set=git_commit="$STORYFORGE_DEPLOY_GIT_COMMIT"
   --set=backup_id="$STORYFORGE_DB_BACKUP_ID"
+  --set=founder_user_id="$STORYFORGE_FOUNDER_USER_ID"
 )
 for ((index = 0; index < ${#pending_migrations[@]}; index++)); do
   psql_args+=(
@@ -419,8 +438,8 @@ done
 {
   cat <<'SQL'
 \getenv app_password STORYFORGE_APP_DB_PASSWORD
-SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-503.production-migration', 0));
-DO $b1_503_pre$
+SELECT pg_advisory_xact_lock(hashtextextended('missionmed.storyforge.b1-506.production-migration', 0));
+DO $b1_506_pre$
 BEGIN
   IF EXISTS (
     (SELECT version, file_name, sha256 FROM public.sf_schema_migrations
@@ -428,30 +447,34 @@ BEGIN
      VALUES
        ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
        ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
-       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'))
+       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
+       ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
+       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'))
   ) OR EXISTS (
     (VALUES
        ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
        ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
-       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405')
+       ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
+       ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
+       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2')
      EXCEPT
      SELECT version, file_name, sha256 FROM public.sf_schema_migrations)
   ) THEN
-    RAISE EXCEPTION 'B1-503 ledger changed after preflight';
+    RAISE EXCEPTION 'B1-506 ledger changed after preflight';
   END IF;
 END
-$b1_503_pre$;
+$b1_506_pre$;
 SQL
   cat <<SQL
-DO \$b1_503_counts\$
+DO \$b1_506_counts\$
 BEGIN
   IF (SELECT count(*) FROM public.sf_users) <> $STORYFORGE_EXPECTED_USER_COUNT
      OR (SELECT count(*) FROM public.sf_mentor_assignments WHERE active)
         <> $STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT THEN
-    RAISE EXCEPTION 'B1-503 data counts changed after preflight';
+    RAISE EXCEPTION 'B1-506 data counts changed after preflight';
   END IF;
 END
-\$b1_503_counts\$;
+\$b1_506_counts\$;
 SQL
   sed -E \
     -e '/^[[:space:]]*\\set[[:space:]]+ON_ERROR_STOP[[:space:]]+on[[:space:]]*$/d' \
@@ -474,7 +497,7 @@ SQL
 SET LOCAL password_encryption = 'scram-sha-256';
 ALTER ROLE storyforge_app PASSWORD :'app_password';
 ALTER ROLE storyforge_app LOGIN;
-DO $b1_503_post$
+DO $b1_506_post$
 BEGIN
   IF EXISTS (
     (SELECT version, file_name, sha256 FROM public.sf_schema_migrations
@@ -484,18 +507,22 @@ BEGIN
        ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
        ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
        ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
-       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'))
+       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'),
+       ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', 'b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f'),
+       ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a'))
   ) OR EXISTS (
     (VALUES
        ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
        ('20260727170000', '20260727170000_b1_502_storyforge_submit_assignment_gate.sql', '95269aeb5a414656c92246ea8e798faac7f0b33d7062540b187f30b8a781315f'),
        ('20260727190000', '20260727190000_b1_502_storyforge_background_preference.sql', 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405'),
        ('20260728045100', '20260728045100_b1_503_story_domain_conformance.sql', 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68'),
-       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2')
+       ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'),
+       ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', 'b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f'),
+       ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a')
      EXCEPT
      SELECT version, file_name, sha256 FROM public.sf_schema_migrations)
   ) THEN
-    RAISE EXCEPTION 'B1-503 post-migration ledger is not exact';
+    RAISE EXCEPTION 'B1-506 post-migration ledger is not exact';
   END IF;
   IF (SELECT count(*) FROM pg_roles
       WHERE rolname = 'storyforge_app'
@@ -506,24 +533,24 @@ BEGIN
         AND NOT rolreplication
         AND NOT rolbypassrls
         AND NOT rolinherit) <> 1 THEN
-    RAISE EXCEPTION 'B1-503 application role is not exact least privilege LOGIN';
+    RAISE EXCEPTION 'B1-506 application role is not exact least privilege LOGIN';
   END IF;
   IF NOT pg_has_role('storyforge_app', 'authenticated', 'member') THEN
-    RAISE EXCEPTION 'B1-503 application role lacks authenticated membership';
+    RAISE EXCEPTION 'B1-506 application role lacks authenticated membership';
   END IF;
 END
-$b1_503_post$;
+$b1_506_post$;
 SQL
   cat <<SQL
-DO \$b1_503_post_counts\$
+DO \$b1_506_post_counts\$
 BEGIN
   IF (SELECT count(*) FROM public.sf_users) <> $STORYFORGE_EXPECTED_USER_COUNT
      OR (SELECT count(*) FROM public.sf_mentor_assignments WHERE active)
         <> $STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT THEN
-    RAISE EXCEPTION 'B1-503 post-migration data counts are not exact';
+    RAISE EXCEPTION 'B1-506 post-migration data counts are not exact';
   END IF;
 END
-\$b1_503_post_counts\$;
+\$b1_506_post_counts\$;
 SQL
 } | "$psql_bin" "${psql_args[@]}"
 
@@ -541,12 +568,16 @@ post_state="$(
          AND NOT rolbypassrls
          AND NOT rolinherit),
       (SELECT count(*) FROM public.sf_users),
-      (SELECT count(*) FROM public.sf_mentor_assignments WHERE active);
+      (SELECT count(*) FROM public.sf_mentor_assignments WHERE active),
+      (SELECT count(*) FROM public.sf_feature_flags
+        WHERE key = 'voice_capture'
+          AND updated_by = '$STORYFORGE_FOUNDER_USER_ID'::uuid);
   "
 )"
-[[ "$post_state" = "5|1|$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" ]] \
+[[ "$post_state" = "7|1|$STORYFORGE_EXPECTED_USER_COUNT|$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT|1" ]] \
   || fail "committed post-migration state differs from the exact gate"
 
-printf '%s\n' "B1_503_PRODUCTION_MIGRATIONS_APPLIED"
-printf 'migration_count=5\nleast_privilege_app_role=1\nstoryforge_user_count=%s\nactive_assignment_count=%s\n' \
-  "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT"
+printf '%s\n' "B1_506_PRODUCTION_MIGRATIONS_APPLIED"
+printf 'migration_count=7\nleast_privilege_app_role=1\nstoryforge_user_count=%s\nactive_assignment_count=%s\nfeature_flag_seeded_by=%s\n' \
+  "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" \
+  "$STORYFORGE_FOUNDER_USER_ID"

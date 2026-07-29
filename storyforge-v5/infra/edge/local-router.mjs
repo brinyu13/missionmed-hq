@@ -10,6 +10,14 @@ const listenPort = Number.parseInt(process.env.STORYFORGE_EDGE_PORT || '4179', 1
 const listenHost = process.env.STORYFORGE_EDGE_HOST || '127.0.0.1';
 const storyforgeOrigin = new URL(process.env.STORYFORGE_EDGE_APP_ORIGIN || 'http://127.0.0.1:4180');
 const wordpressOrigin = new URL(process.env.STORYFORGE_EDGE_WP_ORIGIN || 'http://127.0.0.1:8081');
+const audioOrigin = (() => {
+  try {
+    const parsed = new URL(String(process.env.STORYFORGE_R2_ENDPOINT || ''));
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.origin : '';
+  } catch {
+    return '';
+  }
+})();
 const staticDir = path.resolve(
   process.env.STORYFORGE_EDGE_STATIC_DIR
     || fileURLToPath(new URL('../../dist/', import.meta.url)),
@@ -66,8 +74,8 @@ function localSecurityHeaders(headers) {
     "script-src 'self'",
     "style-src 'self'",
     "img-src 'self' data:",
-    "media-src 'self' blob:",
-    "connect-src 'self'",
+    `media-src 'self' blob:${audioOrigin ? ` ${audioOrigin}` : ''}`,
+    `connect-src 'self'${audioOrigin ? ` ${audioOrigin}` : ''}`,
     "font-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",

@@ -8,7 +8,16 @@ function basePath(env) {
   return `/${value.replace(/^\/+|\/+$/g, '')}/`;
 }
 
-function withCachePolicy(response, pathname) {
+function exactHttpOrigin(value) {
+  try {
+    const parsed = new URL(String(value || ''));
+    return ['http:', 'https:'].includes(parsed.protocol) ? parsed.origin : '';
+  } catch {
+    return '';
+  }
+}
+
+function withCachePolicy(response, pathname, env = {}) {
   const headers = new Headers(response.headers);
   const contentType = String(headers.get('content-type') || '').toLowerCase();
   if (pathname === '/api' || pathname.startsWith('/api/')) {
@@ -23,13 +32,14 @@ function withCachePolicy(response, pathname) {
   } else {
     headers.set('Cache-Control', 'no-cache');
   }
+  const audioOrigin = exactHttpOrigin(env.STORYFORGE_R2_ENDPOINT);
   headers.set('Content-Security-Policy', [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
     "img-src 'self' data:",
-    "media-src 'self' blob:",
-    "connect-src 'self'",
+    `media-src 'self' blob:${audioOrigin ? ` ${audioOrigin}` : ''}`,
+    `connect-src 'self'${audioOrigin ? ` ${audioOrigin}` : ''}`,
     "font-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",
@@ -59,20 +69,21 @@ async function sha256Hex(bytes) {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function staticError(status, message, pathname) {
+function staticError(status, message, pathname, env = {}) {
   return withCachePolicy(
     new Response(message, {
       status,
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     }),
     pathname,
+    env,
   );
 }
 
 async function aliasedAssetResponse(request, env, url, alias) {
   const entry = assetAliases[alias];
   if (!entry || entry.path === 'index.html') {
-    return staticError(404, 'StoryForge asset not found.', `/_asset/${alias}`);
+    return staticError(404, 'StoryForge asset not found.', `/_asset/${alias}`, env);
   }
 
   const target = new URL(url);
@@ -80,13 +91,13 @@ async function aliasedAssetResponse(request, env, url, alias) {
   target.search = '';
   const source = await env.ASSETS.fetch(new Request(target, { method: 'GET' }));
   if (source.status !== 200) {
-    return staticError(503, 'StoryForge release is temporarily unavailable.', target.pathname);
+    return staticError(503, 'StoryForge release is temporarily unavailable.', target.pathname, env);
   }
 
   const bytes = await source.arrayBuffer();
   const hash = await sha256Hex(bytes);
   if (bytes.byteLength !== entry.size || hash !== entry.sha256 || hash.slice(0, 12) !== alias) {
-    return staticError(503, 'StoryForge release integrity check failed.', target.pathname);
+    return staticError(503, 'StoryForge release integrity check failed.', target.pathname, env);
   }
 
   const headers = new Headers(source.headers);
@@ -99,7 +110,7 @@ async function aliasedAssetResponse(request, env, url, alias) {
     status: 200,
     headers,
   });
-  return withCachePolicy(response, target.pathname);
+  return withCachePolicy(response, target.pathname, env);
 }
 
 async function staticResponse(request, env, url, prefix) {
@@ -114,7 +125,7 @@ async function staticResponse(request, env, url, prefix) {
     || assetPath.startsWith('/assets/')
     || /\.[a-z0-9]+$/i.test(assetPath)
   ) {
-    return staticError(404, 'StoryForge asset not found.', assetPath);
+    return staticError(404, 'StoryForge asset not found.', assetPath, env);
   }
   let response = await env.ASSETS.fetch(assetRequest);
   if (response.status === 404 && !/\.[a-z0-9]+$/i.test(assetRequest.url)) {
@@ -122,7 +133,7 @@ async function staticResponse(request, env, url, prefix) {
     fallback.pathname = '/index.html';
     response = await env.ASSETS.fetch(new Request(fallback, assetRequest));
   }
-  return withCachePolicy(response, assetPath);
+  return withCachePolicy(response, assetPath, env);
 }
 
 async function apiResponse(request, env, url, prefix) {
@@ -137,7 +148,7 @@ async function apiResponse(request, env, url, prefix) {
     if (value !== null) headers.set(name, value);
   }
   const response = await fetch(new Request(outbound, { headers, redirect: 'manual' }));
-  return withCachePolicy(response, incoming.pathname);
+  return withCachePolicy(response, incoming.pathname, env);
 }
 
 export default {

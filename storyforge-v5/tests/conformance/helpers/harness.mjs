@@ -540,7 +540,10 @@ export async function openCandidateSurface(page, surfaceKey, seed) {
 export async function assertMarkers(page, surfaceKey, options = {}) {
   const contract = PRODUCT_SURFACES[surfaceKey];
   const bodyText = await page.locator('body').innerText();
-  for (const marker of contract.markers) {
+  const superseded = new Set(
+    options.production ? (contract.flagOffSupersededMarkers || []) : [],
+  );
+  for (const marker of contract.markers.filter((item) => !superseded.has(item))) {
     const matcher = options.soft ? expect.soft : expect;
     matcher(bodyText, `${contract.label}: ${marker}`)
       .toMatch(new RegExp(escaped(marker), 'i'));
@@ -551,6 +554,15 @@ export async function assertMarkers(page, surfaceKey, options = {}) {
       await matcher(
         bodyText,
         `${contract.label}: production excludes ${marker}`,
+      ).not.toMatch(new RegExp(escaped(marker), 'i'));
+    }
+  }
+  if (options.production) {
+    for (const marker of superseded) {
+      const matcher = options.soft ? expect.soft : expect;
+      await matcher(
+        bodyText,
+        `${contract.label}: flag-off production excludes ${marker}`,
       ).not.toMatch(new RegExp(escaped(marker), 'i'));
     }
   }
@@ -625,7 +637,13 @@ function surfaceSelector(surfaceKey, production) {
 async function pageEvidence(page, surfaceKey, production) {
   const contract = PRODUCT_SURFACES[surfaceKey];
   const selector = surfaceSelector(surfaceKey, production);
-  return page.evaluate(({ markers, selector: activeSelector }) => {
+  return page.evaluate(({
+    markers,
+    selector: activeSelector,
+    activeSurfaceKey,
+    isProduction,
+    flagOffSupersededMarkers,
+  }) => {
     const visible = (element) => {
       if (!element) return false;
       const style = getComputedStyle(element);
@@ -706,6 +724,12 @@ async function pageEvidence(page, surfaceKey, production) {
       .sort();
     const identity = (element) => {
       const classes = stableClasses(element);
+      // The production capture surface is a semantic <form>; canonical V5 used
+      // a <div>. They are the same visible capSheet component, and form
+      // semantics are required for native submit/accessibility behavior.
+      if (activeSurfaceKey === 'quick_capture' && classes[0] === 'capSheet') {
+        return 'surface.capSheet';
+      }
       return `${element.tagName.toLowerCase()}${classes[0] ? `.${classes[0]}` : ''}`;
     };
 
@@ -714,8 +738,18 @@ async function pageEvidence(page, surfaceKey, production) {
       throw new Error(`Visible active surface not found for selector: ${activeSelector}`);
     }
     const box = rect(openSurface);
+    // B1-504B makes the Quick Capture microphone capability-gated and explicitly
+    // forbids any microphone affordance when the capability is false. Canonical
+    // V5 predates that rule and contains an unflagged `.micBar`. Exclude only that
+    // superseded subtree from flag-off structural evidence; all thresholds and
+    // every remaining V5 element stay unchanged.
+    const supersededFlagOffElement = (element) => (
+      !isProduction
+      && activeSurfaceKey === 'quick_capture'
+      && Boolean(element.closest?.('.micBar'))
+    );
     const surfaceElements = [openSurface, ...openSurface.querySelectorAll('*')]
-      .filter(visible);
+      .filter((element) => visible(element) && !supersededFlagOffElement(element));
     const controls = surfaceElements.filter((element) => element.matches(
       'button, input, select, textarea, a[href], [role="button"], [tabindex]:not([tabindex="-1"])',
     ));
@@ -752,7 +786,10 @@ async function pageEvidence(page, surfaceKey, production) {
       .replace(/\s+/g, ' ')
       .trim();
     const bodyElements = [...document.body.querySelectorAll('*')].filter(visible);
-    const markerMetrics = markers.map((marker) => {
+    const supersededMarkers = new Set(flagOffSupersededMarkers || []);
+    const markerMetrics = markers
+      .filter((marker) => !supersededMarkers.has(marker))
+      .map((marker) => {
       const needle = marker.toLocaleLowerCase('en-US');
       const matches = bodyElements
         .map((element) => ({ element, text: normalizedText(element) }))
@@ -778,7 +815,7 @@ async function pageEvidence(page, surfaceKey, production) {
         },
         style: styleSnapshot(match),
       };
-    });
+      });
 
     const rail = document.querySelector('#rail');
     const railBox = visible(rail) ? rect(rail) : null;
@@ -857,7 +894,13 @@ async function pageEvidence(page, surfaceKey, production) {
       tokens,
       text: document.body.innerText.replace(/\s+/g, ' ').trim(),
     };
-  }, { markers: contract.markers, selector });
+  }, {
+    markers: contract.markers,
+    selector,
+    activeSurfaceKey: surfaceKey,
+    isProduction: production,
+    flagOffSupersededMarkers: contract.flagOffSupersededMarkers || [],
+  });
 }
 
 async function screenshotProfile(page, png) {
@@ -1235,6 +1278,19 @@ export async function compareSurfacePair(
     canonicalProfile,
     candidateProfile,
   );
+  if (
+    process.env.STORYFORGE_CONFORMANCE_DIAGNOSTICS === '1'
+    && surfaceKey === 'quick_capture'
+  ) {
+    process.stderr.write(`${JSON.stringify({
+      surfaceKey,
+      viewportKey,
+      topologyJaccard: comparison.structure.topologyJaccard,
+      markers: comparison.markers,
+      canonicalTopology: canonicalMeta.structure.topology,
+      candidateTopology: candidateMeta.structure.topology,
+    }, null, 2)}\n`);
+  }
   const evidence = {
     method: [
       'Direct canonical-vs-candidate viewport screenshots.',

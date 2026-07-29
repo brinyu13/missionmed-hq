@@ -8,7 +8,10 @@ const stylesSource = await readFile(new URL('../../public/styles.css', import.me
 
 test('real MediaRecorder capture uses the PostgreSQL audio discriminator everywhere', () => {
   assert.match(appSource, /new MediaRecorder\(/);
-  assert.match(appSource, /captureType:\s*recordedBlob\s*\?\s*'audio'\s*:\s*'text'/);
+  assert.match(
+    appSource,
+    /captureType:\s*\(?\s*recordingId\s*\|\|\s*recordedBlob\s*\)?\s*\?\s*'audio'\s*:\s*'text'/,
+  );
   assert.doesNotMatch(appSource, /captureType\s*(?:===|!==)\s*'voice'/);
   assert.match(appSource, /captureType\s*===\s*'audio'.*voice note/);
 });

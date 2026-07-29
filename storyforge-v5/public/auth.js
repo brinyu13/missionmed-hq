@@ -169,7 +169,13 @@ export function createAuthClient({ onLockout = () => {} } = {}) {
   async function request(pathname, options = {}, retried = false) {
     const headers = { Accept: 'application/json', ...(options.headers || {}) };
     if (token) headers.Authorization = `Bearer ${token}`;
-    if (options.body && !(options.body instanceof Blob)) headers['Content-Type'] = 'application/json';
+    if (
+      options.body
+      && !(options.body instanceof Blob)
+      && !(options.body instanceof FormData)
+    ) {
+      headers['Content-Type'] = 'application/json';
+    }
     const response = await boundedFetch(apiUrl(pathname), {
       ...options,
       credentials: 'omit',
