@@ -475,46 +475,27 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 .visTag.v-advisor{color:var(--gd);border-color:rgba(255,215,106,.5)}
 .visTag.v-student{color:var(--vi);border-color:rgba(138,125,255,.5)}
 </style>
+<link rel="stylesheet" href="./styles/407f-upgrade.css">
 </head>
 <body>
 <canvas id="bgfx"></canvas><div class="vg"></div>
 
-<header>
-  <div>
+<header class="d1404Header">
+  <a class="matrixBack" id="matrixBack" href="#matrix" aria-label="Return to Matrix" title="Matrix connection is unavailable in this local candidate">← MATRIX</a>
+  <div class="brandBlock">
     <div class="logo">TIMELINE<b>//S1</b></div>
     <div class="logoSub">SEASON ONE · TIMELINE OPS</div>
   </div>
-  <div class="hudMid">
-    <span class="chip cy" id="hudName">DR AMARA OSEI</span>
-    <span class="chip" id="hudDraft">DRAFT V3</span>
-    <span class="chip" id="hudCount">EVENTS · 0</span>
-    <span class="chip" id="hudAxis">AXIS · 2023-2026</span>
-    <span class="chip gn" id="hudSave">SAVED ·</span>
-    <span class="chip em" id="hudGate">ADVISOR GATE · PENDING</span>
-    <button class="chip" id="hudSafe" style="cursor:pointer">INTERVIEW-SAFE · OFF</button>
-  </div>
-  <div class="hudRight">
-    <div class="mpWrap"><div class="coin"></div><span id="mpv">1,250</span></div>
-    <div class="lvlHex">7</div>
-    <div class="xpWrap"><div class="xpBar"><div class="xpFill"></div><div class="xpShine"></div></div><div class="xpLab">2,140 / 3,000 XP</div></div>
-    <div class="avHex">AO</div>
-    <button class="btnD go sm" id="hudCta" data-nav="canvas">OPEN CANVAS ▸</button>
-  </div>
+  <div class="headerSpacer"></div>
+  <span class="saveState" id="hudSave" role="status" aria-live="polite">ALL CHANGES SAVED</span>
+  <button class="btnD go sm headerExport" id="hudExport" data-nav="export" disabled aria-disabled="true" title="Add at least one event before exporting">EXPORT ▸</button>
 </header>
 
-<nav id="rail">
-  <button class="rtab on" data-v="command">Command</button>
+<nav id="rail" aria-label="Timeline Builder">
+  <button class="rtab on" data-v="command">Home</button>
   <button class="rtab" data-v="builder">Builder</button>
   <button class="rtab" data-v="canvas">Canvas</button>
-  <button class="rtab" data-v="intake">Intake</button>
-  <button class="rtab" data-v="review">Review<span class="rg" id="railUp"></span></button>
-  <button class="rtab" data-v="media">Media</button>
-  <button class="rtab" data-v="advisor">Advisor</button>
-  <button class="rtab" data-v="questions">Questions</button>
-  <button class="rtab" data-v="versions">Versions</button>
   <button class="rtab" data-v="export">Export</button>
-  <button class="rtab" data-v="reference">Reference</button>
-  <div class="railFoot">MISSION TIMELINE BUILDER<br>KEYNOTE DUPE ENGINE<br>PROTOTYPE 407F · DEFINITIVE<br>LOCAL · NO NETWORK</div>
 </nav>
 
 <main>
@@ -522,7 +503,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 <section data-view="command" class="live">
   <div class="trow"><div class="bigt">MISSION <em>TIMELINE</em> BUILDER</div><div class="subt">GENERATE A MISSION RESIDENCY TIMELINE WITHOUT TOUCHING KEYNOTE</div>
     <div class="tspacer"><span class="chip em">1 · WIZARD OR UPLOAD</span><span class="chip">2 · CANVAS</span><span class="chip">3 · ADVISOR · EXPORT</span></div></div>
-  <div class="grid2">
+  <div class="homeLegacySingle">
     <div class="panelD"><div class="pi hero"><div class="beambg"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
         <span class="chip em">OP D1 · TIMELINE ENGINE</span><span class="chip cy">BLANK BUILDER DEFAULT</span><span class="chip">AXIS AUTO-CALIBRATES</span>
@@ -543,16 +524,6 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
         <span class="rolemini"><b>Advisors</b>Spot gaps, overlaps, privacy, likely questions. Fast.</span>
         <span class="rolemini"><b>Interviewers</b>Read the journey at a glance, not the whole CV.</span>
       </div>
-    </div></div>
-    <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">DRAFT STATUS</div>
-      <div class="chkRow"><span>Draft version</span><span class="cst" id="stDraft">V3</span></div>
-      <div class="chkRow"><span>Events on board</span><span class="cst" id="stCount">0</span></div>
-      <div class="chkRow"><span>Axis span</span><span class="cst" id="stAxis">·</span></div>
-      <div class="chkRow"><span>Upload candidates</span><span class="cst" id="stCand">6 WAITING</span></div>
-      <div class="chkRow"><span>Advisor gate</span><span class="cst" id="stGate">PENDING</span></div>
-      <div style="margin-top:14px;font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--mid);line-height:2">
-        BLANK BUILDER IS THE DEFAULT CANVAS<br>THE COMPLETED SAMPLE IS REFERENCE ONLY<br>UPLOAD CANDIDATES QUARANTINED UNTIL CONFIRMED</div>
     </div></div>
   </div>
   <div style="margin-top:16px" class="panelD"><div class="pi">
@@ -1279,34 +1250,34 @@ function applyZoom(){
   host.style.height=z===1?'':(b.offsetHeight*z)+'px';host.style.overflow=z>1?'auto':'';
 }
 function renderHud(){
-  const data=curData();const ax=axisOf(data);
-  $('#hudCount').textContent='EVENTS · '+data.events.length;
-  $('#hudAxis').textContent='AXIS · '+ax.y0+'-'+ax.y1;
-  $('#hudDraft').textContent='DRAFT V'+state.draft;
-  $('#hudSave').textContent=state.saved?'SAVED ·':'UNSAVED EDITS';
-  $('#hudSave').className='chip '+(state.saved?'gn':'em');
-  const gates=(state.approvals.personal?1:0)+(state.approvals.safeView?1:0)+(state.approvals.export?1:0);
-  $('#hudGate').textContent='ADVISOR GATES · '+(state.changes?'CHANGES REQUESTED':gates+' OF 3');
-  $('#hudGate').className='chip '+(gates===3?'gd':(state.changes?'rd':'em'));
+  const save=$('#hudSave');
+  if(save){
+    save.textContent=state.saved?'ALL CHANGES SAVED':'SAVING…';
+    save.className='saveState '+(state.saved?'isSaved':'isSaving');
+  }
+  const exportButton=$('#hudExport');
+  if(exportButton){
+    const hasEvents=dataOf('blank').events.length>0;
+    exportButton.disabled=!hasEvents;
+    exportButton.setAttribute('aria-disabled',String(!hasEvents));
+    exportButton.title=hasEvents?'Open Export':'Add at least one event before exporting';
+  }
   const cr=$('#ctlCrowd');if(cr)cr.style.display=state._crowd?'':'none';
   const sp=$('#ctlSprites');if(sp)sp.textContent='SPRITES · '+(state.sprites?'ON':'OFF');
   const cd=$('#ctlCondensed');if(cd)cd.style.color=state.condensed?'var(--em)':'';
   const vd=$('#vDirty');if(vd){vd.textContent=state.saved?'SAVED ·':'UNSAVED EDITS';vd.className='chip '+(state.saved?'gn':'em')}
-  $('#hudSafe').textContent='INTERVIEW-SAFE · '+(state.safe?'ON':'OFF');
-  $('#hudName').textContent=state.profile.name.toUpperCase();
-  $('#stDraft').textContent='V'+state.draft;
-  $('#stCount').textContent=String(dataOf('blank').events.length);
-  $('#stAxis').textContent=ax.y0+'-'+ax.y1;
-  const pend=state.candidates.filter(c=>c.st==='pending').length;
-  $('#stCand').textContent=pend?pend+' WAITING':'ALL REVIEWED';
-  $('#railUp').textContent=pend?String(pend):'';
-  $('#stGate').textContent=state.approved?'APPROVED':'PENDING';
 }
 function renderHist(){
   const host=$('#histList');if(!host)return;
   host.innerHTML=state.versions.slice().reverse().map(v=>'<div class="hist"><b>'+v.v+'</b><span>'+esc(v.t)+'</span><span style="margin-left:auto">'+v.n+' EV</span></div>').join('');
 }
-function renderAll(){renderThemeButtons();renderBoards();renderEvList();renderElems();renderInspector();renderWizQuick();renderHud();renderHist();renderExport();renderAdvisor();renderQuestionsList();renderVersionsPanel();renderCands();refreshSelClasses()}
+window.D1_407_HARDENING=window.D1_407_HARDENING||{beforeRenderAll:null,afterRenderAll:null};
+function renderAll(){
+  if(typeof window.D1_407_HARDENING.beforeRenderAll==='function')window.D1_407_HARDENING.beforeRenderAll();
+  renderThemeButtons();renderBoards();renderEvList();renderElems();renderInspector();renderWizQuick();renderHud();renderHist();renderExport();renderAdvisor();renderQuestionsList();renderVersionsPanel();renderCands();refreshSelClasses();
+  if(typeof window.D1_407_HARDENING.afterRenderAll==='function')window.D1_407_HARDENING.afterRenderAll();
+  document.dispatchEvent(new CustomEvent('d1:407f-rendered'));
+}
 
 /* ============ 407F: INTERVIEW QUESTIONS WORKSPACE ============ */
 function renderQuestionsList(){
@@ -1431,7 +1402,7 @@ function go(v){
 }
 $$('#rail .rtab').forEach(b=>b.onclick=()=>go(b.dataset.v));
 document.addEventListener('click',e=>{const n=e.target.closest('[data-nav]');if(n)go(n.dataset.nav)});
-$('#hudSafe').onclick=()=>{state.safe=!state.safe;toast(state.safe?'Interview-safe view on · advisor-only items hidden':'Full view restored');renderAll()};
+$('#matrixBack').onclick=e=>{e.preventDefault();toast('Matrix connection is unavailable in this local candidate')};
 
 /* ============ CANVAS CONTROLS ============ */
 $$('#modeSeg button').forEach(b=>b.onclick=()=>{
@@ -1810,8 +1781,9 @@ function lockProdDarkCanvas(){
 lockProdDarkCanvas();
 setInterval(lockProdDarkCanvas,750);
 new MutationObserver(lockProdDarkCanvas).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
-window.D1_407F_TEST={state:state,SPR402:SPR402,CATS:CATS,snapshotDoc:snapshotDoc,computeQuestions:computeQuestions,exCounts:exCounts,exWarnings:exWarnings,fixtureSet:fixtureSet};
+window.D1_407F_TEST={state:state,SPR402:SPR402,CATS:CATS,snapshotDoc:snapshotDoc,applyDoc:applyDoc,pushUndo:pushUndo,doUndo:doUndo,renderAll:renderAll,renderBoard:renderBoard,go:go,toast:toast,computeQuestions:computeQuestions,exCounts:exCounts,exWarnings:exWarnings,fixtureSet:fixtureSet};
 renderWiz();renderElems();renderMediaSlots();renderAdvisor();renderCands();renderAll();lockProdDarkCanvas();
 </script>
+<script type="module" src="./js/407f-engineering-adapter.js"></script>
 </body>
 </html>

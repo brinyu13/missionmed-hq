@@ -99,7 +99,7 @@ test("Matrix App Mode contract is non-iframe, feature-flagged, and reversible", 
   assert.match(lifecycle, /RETURN TO MATRIX/);
 });
 
-test("D1-404 M0 serves canonical 407F while the superseded UXR shell remains inactive", async () => {
+test("D1-404 upgrades canonical 407F while the superseded UXR shell remains inactive", async () => {
   const index = await readFile(new URL("web/index.html", root), "utf8");
   const styles = await readFile(new URL("web/styles/uxr-002.css", root), "utf8");
   const app = await readFile(new URL("web/js/uxr-002/app.js", root), "utf8");
@@ -109,8 +109,9 @@ test("D1-404 M0 serves canonical 407F while the superseded UXR shell remains ina
   const addendumTwo = await readFile(new URL("docs/D1-UXR-002-CONTRAST-ADDENDUM-002.md", root), "utf8");
   assert.match(index, /<html lang="en">/);
   assert.match(index, /TIMELINE<b>\/\/S1<\/b>/);
-  assert.match(index, /<nav id="rail">/);
+  assert.match(index, /<nav id="rail" aria-label="Timeline Builder">/);
   assert.match(index, /window\.D1_407F_TEST=/);
+  assert.match(index, /<script type="module" src="\.\/js\/407f-engineering-adapter\.js"><\/script>/);
   assert.doesNotMatch(index, /<script type="module" src="\.\/js\/app\.js"><\/script>/);
   assert.doesNotMatch(index, /<link rel="stylesheet" href="\.\/styles\.css">/);
   assert.match(styles, /--accent-gold:#B98A2E/);

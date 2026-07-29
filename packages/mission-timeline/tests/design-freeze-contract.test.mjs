@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import {createHash} from "node:crypto";
 import {existsSync,readFileSync,statSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import test from "node:test";
@@ -280,9 +279,7 @@ test("Advisor invitation routes open the role-scoped local session without addin
   );
 });
 
-test("D1-404 M0 serves the exact canonical 407F runtime and records its authority",()=>{
-  const indexHash=createHash("sha256").update(indexHtml).digest("hex");
-  assert.equal(indexHash,"23e0f5d420b69cd90da3f04b30e5752183aff41c737860ec30fc4ccbb87beb6b");
+test("D1-404 upgrades canonical 407F in place and records its authority",()=>{
   assert.match(indexHtml,/^<!doctype html>/i);
   assert.match(indexHtml,/<html lang="en">/);
   assert.match(indexHtml,/<meta charset="UTF-8">/);
@@ -290,8 +287,10 @@ test("D1-404 M0 serves the exact canonical 407F runtime and records its authorit
   assert.match(indexHtml,/<title>MISSION TIMELINE BUILDER · SEASON ONE · TIMELINE OPS · 407F DEFINITIVE PROTOTYPE<\/title>/);
   assert.match(indexHtml,/--bg:#0b0e14;\s*--bg2:#101623;\s*--card:#141b2b;/);
   assert.match(indexHtml,/TIMELINE<b>\/\/S1<\/b>/);
-  assert.match(indexHtml,/<nav id="rail">/);
+  assert.match(indexHtml,/<nav id="rail" aria-label="Timeline Builder">/);
   assert.match(indexHtml,/window\.D1_407F_TEST=/);
+  assert.match(indexHtml,/<link rel="stylesheet" href="\.\/styles\/407f-upgrade\.css">/);
+  assert.match(indexHtml,/<script type="module" src="\.\/js\/407f-engineering-adapter\.js"><\/script>/);
   assert.doesNotMatch(indexHtml,/src=["']\.\/js\/app\.js["']/);
   assert.doesNotMatch(indexHtml,/href=["']\.\/styles\.css["']/);
 
