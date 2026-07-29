@@ -1,0 +1,66 @@
+# B1-506 · STORYFORGE V5.5 PHASE 1 PRODUCTION MEGARUN
+## Codex GPT-5.6 Sol · Reasoning: Ultra · Computer Use: Enabled · Agents: Enabled · Autonomous self-resolving execution
+
+Paste this prompt only after the founder approves the B1-504A production authority. It is self-contained; every governing fact is either stated here or referenced by exact path and hash.
+
+## MISSION
+
+Implement and deploy StoryForge V5.5 Phase 1 (voice capture and transcription) into the existing live StoryForge production system, activate it for the verified 360 beta cohort behind server-enforced controls, and prove every claim with evidence. Phase 1 only. Phase 2 (mentor Socratic co-pilot) must not be built or deployed. Phase 3 remains locked.
+
+You own: repository modifications, production wiring, migrations, infrastructure changes, API implementation, R2 integration, transcription integration, browser and device testing, deployment, rollback, and production verification. You do not own product design: the product is already designed and locked.
+
+## WORKTREE AND REPOSITORY RULES
+
+- Work ONLY in `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502`. Do not create another worktree.
+- Obey the worktree `AGENTS.md` contract in full (protected Matrix runtime, guarded migration runner, no fake AI or audio success, additive migrations, immutable originals, append-only audit, authorization tests against real PostgreSQL).
+- Serialize all repository writes and all production changes through the orchestrating thread. Agents may read, discover, test, and verify in parallel; only the orchestrator writes.
+- Commit and push your work; leave the worktree clean at the end.
+- Keep all plans, evidence, work logs, and the combined handoff under `_AI_HANDOFFS/from_codex/B1-506_storyforge_v55_phase1/`.
+
+## AUTHORITIES (verify each hash before any change; hard-stop on mismatch)
+
+| Authority | Path | SHA-256 |
+|---|---|---|
+| Canonical V5 parent | `_AI_HANDOFFS/from_cowork/B1-500_storyforge_v5_production_authority/storyforge-v5.html` | `3ac2871ff286552abe89a785ff43967df3315922e3718f67a136b83db1ba8db1` |
+| V5.5 prototype (product authority) | `_AI_HANDOFFS/from_cowork/B1-504A_storyforge_v5_5_production_authority/storyforge-v5.5-prototype.html` (also at `CLAUDE_FILES/B1-504_STORYFORGE_V5.5_PROTOTYPE/`) | `0df61b561b2a6dfa3e132255381bef05028fd384597adfc8969929c646129c90` |
+| V5.5 r2 copy revision (use ONLY if the founder approved the recommended retention policy) | same folder, `storyforge-v5.5-prototype-r2.html` | `95104069500fdca8b92dbe81d5ce9ee7701a5f97400e1d1653414d19d4f13c0b` |
+| B1-504A authority set (all eight documents) | `_AI_HANDOFFS/from_cowork/B1-504A_storyforge_v5_5_production_authority/` | hashes in its `MANIFEST.sha256` |
+| B1-503 production recovery | `_AI_HANDOFFS/from_codex/B1-503_COMBINED_HANDOFF.md` + `B1-503_evidence/B1-503_PRODUCTION_DEPLOYMENT_RECEIPT.md` | as filed |
+| B1-505 360 beta access (MANDATORY FRESH READ AT YOUR RUN TIME) | `_AI_HANDOFFS/from_codex/B1-505_360_BETA_ACCESS_COMBINED_HANDOFF.md` + `B1-505_evidence/B1-505_PRODUCTION_ACCESS_RECEIPT.md` | as filed |
+
+Product-conformance law: The prototype is product authority, not a production bundle. Implement its approved behavior faithfully inside the existing live StoryForge system. Do not reinterpret, simplify, redesign, or deploy the self-contained HTML as a replacement application. Replace every prototype simulation with production truth per the Authority Lock Section 3 table (no demo dictation, no invented uncertainty, no localStorage-only flags or drafts, no simulated playback or recovery).
+
+## HARD STOPS (stop and report; do not improvise around)
+
+1. Any authority hash mismatch.
+2. B1-505 completed authority absent, partial, or reporting failure at your fresh read. (Its absence during B1-504A authoring was expected; it may have completed since. Partial files or a moving worktree state do not qualify.) Exact stop scope, identical to the Authority Lock and Blueprint R-2: stages S0 through S6 may proceed (build, dormant backend and hidden frontend deploys with scope off, staging bake-off), and S7 founder-only validation may proceed (the founder account comes from B1-503's exact-account binding); every allowlist or cohort activation (S8 onward) and every WordPress access-policy change is hard-stopped. "Access-policy change" means changes to `allowed_user_ids` membership, `allowed_roles`, or `allowed_cohorts`; the R-8 founder-account role override (which grants no student any access) is exempt, so S7 cannot deadlock.
+3. Retention-policy founder approval absent when you reach gate G7 (you may build everything and validate founder-only first).
+4. Any acceptance privacy/authorization failure (A15 to A20): fix and fully re-verify before proceeding; if not fixable, contain (feature off) and report.
+5. Any need to modify protected Matrix runtime assets outside the AGENTS.md allowance.
+6. Adopting a NEW transcription vendor (anything beyond the existing OpenAI account) requires founder approval; the bake-off may benchmark, not adopt.
+
+## EVIDENCE DISCIPLINE
+
+Five-level readiness ladder for every existing capability: L1 present in source, L2 in deployed runtime, L3 enabled by production config, L4 reachable by authorized users, L5 verified end-to-end. Code presence proves only L1. The existing audio/R2 chain (storage.mjs, audio endpoints, sf_audio_assets, frontend voice note) is candidate infrastructure: take it to L5 with real recording, upload, authorization, playback, deletion, and failure tests, repairing what fails, before Phase 1 builds on it. B1-503's "audio reports unavailable unless its real chain" is the designed dormant state, not a contradiction. Never claim a level you have not evidenced. Never mock success anywhere.
+
+## STAGES (serialized; agents assist within each)
+
+S0 PREFLIGHT: git status clean + expected branch; all authority hashes; fresh B1-505 read (extract exact cohort values and access policy; quote them in evidence); live baseline identity proof against B1-503/B1-505 receipts (Kinsta release ID, Railway deployment, live app hashes); capture production `STORYFORGE_R2_*` presence/absence (values redacted); confirm StoryForge-scoped OpenAI key plan (`STORYFORGE_OPENAI_API_KEY`, separate from hq's key); verify `gpt-transcribe` and `whisper-1` respond on the production account.
+S1 LADDER-UP THE CANDIDATE AUDIO CHAIN: staging bucket + config first; run the existing voice-note path end to end; fix what fails; file L5 evidence for the existing seam in staging.
+S2 STORAGE: per `B1-504A_R2_AUDIO_STORAGE_PRIVACY_LIFECYCLE.md`: enumerate buckets; create `missionmed-storyforge-audio-prod` + `-staging` if absent; scoped token; CORS pinned to allowed origins; public-access denial proof; set Railway vars (staging then production). CRITICAL ORDERING: setting production `STORYFORGE_R2_*` flips `isAudioConfigured()` true and would re-arm the legacy `/api/audio/presign` + `/api/audio/:id/confirm` voice-note chain for the whole pilot outside any flag; therefore the S3 subordination of those legacy endpoints to the `voice_capture` scope MUST be deployed before or together with production R2 configuration, never after. Playback stays outside the voice flag by design (saved audio survives rollback).
+S3 SCHEMA + API: migrations M1 (`sf_recording_sessions`, `sf_recording_segments`) and M2 (`sf_feature_flags`, seed `voice_capture=off`) exactly per `B1-504A_API_DATA_FEATURE_FLAG_CONTRACTS.md`, additive only, one transaction, guarded runner, RLS mirroring house patterns (FK target `public.sf_users(id)` is verified: the foundation migration's own constraints reference it); implement endpoints E1 to E11 and E13 with the stated auth, idempotency, failure, and audit behavior (E12 only if not folded into E3 polling), INCLUDING the E7 session-ownership check (caller owns the `recordingId` session, state finishing/assembled, not already attached; 403 + audit on violation) and the legacy-endpoint subordination (presign/confirm behind the voice scope and env kill); extend the PostgreSQL authorization suite for the new tables and the cross-student attach/session denials; cohort claim verification (R-6) and admin-role mapping (R-8: admin means the founder's exact account carrying app role `admin`; the current pilot override is `student`, so coordinate the audited settings change with the founder at G5): any SSO plugin or settings change follows the WP backup/version/rollback rule in the Acceptance doc Section 2b.
+S4 TRANSCRIPTION ADAPTER + FRONTEND: `server/transcription/` adapter with drivers `openai-gpt-transcribe` (primary candidate) and `openai-whisper1` (fallback), keywords + prompt-tail support, failover, no vendor names user-facing, no mock output ever; frontend voice dock, ghost line, overlap-merge, transcript check (real signals only: provider confidence if verified available, else the versioned medical lexicon), recovery, discard anchors, wake lock, auto-pause on visibility/mute, per the Blueprint's traceability table and the prototype's exact interaction; segment-scoped recorders on the normative plan `segmentPlanMs [4000, 15000]` (4 s opening segment for fast first text, 15 s steady-state, plus pause and stop boundaries), mimeType feature-detection per segment; assembly Option A (ffmpeg on Railway; verify feasibility) else Option B (manifest playback), with evidence for the choice; poll-merge every 2 s; 20-minute cap with countdown; daily per-student ceiling.
+S5 DEPLOY DORMANT: Railway backend with scope `off`; Kinsta hidden frontend; full regression: 44+ unit, authorization suite, e2e, integration, and the 72-surface conformance comparison with the flag off must all pass; backups per gate G1 first (Kinsta recovery point, PostgreSQL dump + restore rehearsal, variable export).
+S6 BAKE-OFF: execute `B1-504A_TRANSCRIPTION_PROVIDER_BAKEOFF.md` exactly: corpus assembly notes the PEOPLE DEPENDENCY (the founder/team schedules consenting accent-group readers; you cannot record humans; TTS fills vocabulary rows only and is excluded from accent scoring); run candidates C1 and C2 through the real adapter path on the production account (C3 only if C2 misses latency thresholds; do not build the Realtime driver otherwise), score with the committed deterministic scorer, produce `BAKEOFF_DECISION_RECORD.md`, wire primary + fallback, and capture the provider data-handling evidence (training-use, retention, ZDR/BAA posture from current official pages). Cutover thresholds are not weakenable. Time-box: one focused day for runs, scoring, and decision; corpus creation runs in parallel with build stages.
+S7 FOUNDER-ONLY VALIDATION: scope `founder`; run acceptance A2 to A22 on real devices (desktop Chrome, iPhone Safari; plus desktop Safari and Android Chrome capture rows); file evidence per test.
+S8 ACTIVATION: gate G7 (retention policy approved; shipped copy matches shipped behavior; if the recommended policy was approved, ship the r2 revision's exact strings PLUS the two bounded-delegation surfaces whose placement, strings, and behavior are fixed in the Authority Lock: the delete-audio control and the first-recording consent notice; otherwise ship original copy without delete and without the deletion sentence in the notice); then scope `allowlist` test student, abbreviated matrix; then scope `cohort` with the exact B1-505 cohort values.
+S9 MONITORING WINDOW: 72 h with the thresholds in `B1-504A_PRODUCTION_ACCEPTANCE_ROLLOUT_ROLLBACK.md`; rollback ladder ready (containment first: scope off / env kill; never destroy student data to disable a feature).
+S10 CLOSE-OUT: complete evidence bundle; `B1-506_COMBINED_HANDOFF.md` (full record: what shipped, identities, hashes, decisions, test results, open items); update the MissionMed activity log per house format; commit, push, worktree clean.
+
+## ACCEPTANCE (summary; the full matrix in `B1-504A_PRODUCTION_ACCEPTANCE_ROLLOUT_ROLLBACK.md` is binding)
+
+Real founder, real test student, real ineligible account; desktop and mobile; permission denied; quiet and accented speech with medical terminology; pause/resume without duplicated words; app switching and reload recovery (including second-device recovery); transcript editing; save; reopen; playback (policy permitting); story and audio deletion; cross-student (including foreign-recordingId attach and foreign-session endpoints), direct-object, and expired-signature denials; feature-off rollback with data intact (audio deletion still works with scope off, E8 outside the flag); Phase 2 invisibility sweep; flag-off conformance identical to the current product except the single enumerated clip-fix delta (Acceptance Section 2a). PASS criteria: accuracy, medical-term recall, latency, durability, privacy, authorization, mobile usability, rollback, and production health thresholds as written. Evidence for every row.
+
+## RESTRAINT
+
+Implementation choices inside these contracts are yours (module layout, polling internals, assembly mechanics, retry curves). You may not: redesign the product, add AI features, add vendors, add analytics platforms, loosen acceptance thresholds, expose provider names to users, log content, or expand scope beyond Phase 1. When a contract and reality conflict, stop and report with evidence rather than reinterpreting.
