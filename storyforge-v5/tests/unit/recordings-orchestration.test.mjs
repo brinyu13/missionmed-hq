@@ -426,6 +426,7 @@ test('E3 returns ordered transcript state without provider or storage internals'
   const status = await service.getRecording(student, recordingId);
   assert.deepEqual(status, {
     state: 'recording',
+    transcriptionAvailable: true,
     segments: [
       {
         seq: 0,
@@ -608,6 +609,100 @@ test('E6 schedules only retryable segments with the binding backoff', async () =
   assert.equal(result.segments.length, 3);
   await service.waitForTranscriptionIdle(recordingId);
   assert.deepEqual(delayed, [2_000]);
+});
+
+test('transcription-off mode preserves received work without claims or retry consumption', async () => {
+  let claims = 0;
+  let pendingReads = 0;
+  const store = storeFixture({
+    async acceptSegment({ seq, objectKey, mimeType, byteSize, durationMs, persistObject }) {
+      await persistObject();
+      return {
+        segment: segment({
+          seq,
+          objectKey,
+          mimeType,
+          byteSize,
+          durationMs,
+          transcribeState: 'received',
+          retryCount: 0,
+        }),
+        created: true,
+      };
+    },
+    async claimTranscription() {
+      claims += 1;
+      throw new Error('provider-off work must never be claimed');
+    },
+    async pendingTranscriptions() {
+      pendingReads += 1;
+      throw new Error('provider-off startup must not expire or queue claims');
+    },
+    async readStatus() {
+      return {
+        session: {
+          id: recordingId,
+          state: 'recording',
+          totalDurationMs: 4_000,
+          assembledAssetId: null,
+        },
+        segments: [segment({
+          seq: 0,
+          transcribeState: 'received',
+          retryCount: 0,
+        }), segment({
+          seq: 1,
+          transcribeState: 'transcribing',
+          retryCount: 1,
+        })],
+      };
+    },
+    async retryCandidates() {
+      return [segment({
+        seq: 0,
+        transcribeState: 'received',
+        retryCount: 0,
+      }), segment({
+        seq: 1,
+        transcribeState: 'transcribing',
+        retryCount: 1,
+      })];
+    },
+  });
+  const { service, calls } = serviceFixture({
+    store,
+    transcriptionOverrides: {
+      available: false,
+      async transcribeSegment() {
+        throw new Error('provider-off work must never reach a driver');
+      },
+    },
+  });
+
+  await service.addSegment(student, recordingId, {
+    seq: 0,
+    mimeType: 'audio/webm',
+    durationMs: 4_000,
+    buffer: Buffer.from('private-audio'),
+  });
+  await service.waitForTranscriptionIdle(recordingId);
+  const status = await service.getRecording(student, recordingId);
+  const retry = await service.retryTranscription(student, recordingId);
+  const recovery = await service.recoverPendingTranscriptions();
+
+  assert.equal(claims, 0);
+  assert.equal(pendingReads, 0);
+  assert.equal(calls.transcriptions.length, 0);
+  assert.equal(status.transcriptionAvailable, false);
+  assert.equal(status.segments[0].transcribeState, 'received');
+  assert.equal(status.segments[0].transcript, '');
+  assert.equal(status.segments[1].transcribeState, 'transcribing');
+  assert.equal(retry.transcriptionAvailable, false);
+  assert.equal(retry.segments[0].transcribeState, 'received');
+  assert.equal(retry.segments[0].retryCount, 0);
+  assert.equal(retry.segments[1].transcribeState, 'transcribing');
+  assert.equal(retry.segments[1].retryCount, 1);
+  assert.deepEqual(recovery, { queued: 0, blocked: true });
 });
 
 test('per-session transcription orchestration never exceeds two concurrent calls', async () => {

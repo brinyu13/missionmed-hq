@@ -1061,6 +1061,7 @@ export function createRecordingsService({
   requireFunction(assembly?.assembleRecording, 'assembly.assembleRecording');
   requireFunction(emitEvent, 'emitEvent');
   requireFunction(delay, 'delay');
+  const transcriptionAvailable = transcription.available !== false;
 
   const dailyLimitMs = (
     positiveIntegerSetting(
@@ -1118,6 +1119,7 @@ export function createRecordingsService({
   }
 
   async function runTranscription(job) {
+    if (!transcriptionAvailable) return;
     if (job.delayMs > 0) await delay(job.delayMs);
     if (flagService.voiceForceOff()) return;
     const claim = await store.claimTranscription(job.recordingId, job.seq);
@@ -1241,7 +1243,7 @@ export function createRecordingsService({
       compensateObject: () => segmentStorage.deleteObjects({ objectKeys: [objectKey] }),
     });
     if (accepted.created) {
-      queue.enqueue(recordingId, seq);
+      if (transcriptionAvailable) queue.enqueue(recordingId, seq);
       emit('segment_received', {
         recordingId,
         studentId: identity.sub,
@@ -1267,6 +1269,7 @@ export function createRecordingsService({
     );
     return {
       state: session.state,
+      transcriptionAvailable,
       segments: segments.map((segment) => ({
         seq: segment.seq,
         transcribeState: segment.transcribeState,
@@ -1408,10 +1411,11 @@ export function createRecordingsService({
         && segment.retryCount < 3
       ) {
         const delayMs = retryDelaysMs[Math.min(segment.retryCount, retryDelaysMs.length - 1)];
-        queue.enqueue(recordingId, segment.seq, delayMs);
+        if (transcriptionAvailable) queue.enqueue(recordingId, segment.seq, delayMs);
       }
     }
     return {
+      transcriptionAvailable,
       segments: segments.map((segment) => ({
         seq: segment.seq,
         transcribeState: segment.transcribeState,
@@ -1478,6 +1482,7 @@ export function createRecordingsService({
   }
 
   async function recoverPendingTranscriptions() {
+    if (!transcriptionAvailable) return { queued: 0, blocked: true };
     const pending = await store.pendingTranscriptions();
     for (const segment of pending) {
       const delayMs = retryDelaysMs[Math.min(segment.retryCount, retryDelaysMs.length - 1)];

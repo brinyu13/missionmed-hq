@@ -27,7 +27,10 @@ import {
   createPostgresRecordingStore,
   createRecordingsService,
 } from './recordings.mjs';
-import { createUnavailableTranscriptionAdapter } from './transcription/adapter.mjs';
+import {
+  createTranscriptionAdapterForProvider,
+  createUnavailableTranscriptionAdapter,
+} from './transcription/adapter.mjs';
 
 // A 5 MB CSV/XLSX expands to roughly 6.7 MB when carried as base64 JSON.
 const jsonLimit = 8 * 1024 * 1024;
@@ -2437,11 +2440,16 @@ async function start() {
   if (errors.length) {
     throw new Error(`StoryForge configuration is invalid: ${errors.join('; ')}`);
   }
+  const phaseOneRuntime = createPhaseOneRuntime({
+    transcription: createTranscriptionAdapterForProvider(
+      config.transcription.provider,
+    ),
+  });
   await healthCheck();
-  await defaultPhaseOneRuntime.recordingsService.recoverPendingTranscriptions();
-  await defaultPhaseOneRuntime.recordingsService.recoverPendingAssemblies();
-  const sweeps = defaultPhaseOneRuntime.recordingsService.startSweeps();
-  const server = createAppServer();
+  await phaseOneRuntime.recordingsService.recoverPendingTranscriptions();
+  await phaseOneRuntime.recordingsService.recoverPendingAssemblies();
+  const sweeps = phaseOneRuntime.recordingsService.startSweeps();
+  const server = createAppServer({ phaseOneRuntime });
   server.listen(config.port, config.host, () => {
     console.log(`StoryForge V5 listening on ${config.host}:${config.port}`);
   });

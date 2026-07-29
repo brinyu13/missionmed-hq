@@ -15,6 +15,7 @@
     "check:canonical-authority": "node scripts/check-canonical-authority.mjs",
     "check:wp-route-manifest": "node scripts/assert-release-source.mjs --mode=release && node scripts/build-wordpress-route-manifest.mjs --mode=release --check",
     "scan:secrets": "node scripts/scan-bundle-secrets.mjs",
+    "score:transcription-bakeoff": "node scripts/score-transcription-bakeoff.mjs",
     "test": "node --test tests/unit/*.test.mjs",
     "test:postgres": "bash scripts/run-postgres-tests.sh",
     "test:e2e": "bash scripts/run-e2e.sh",

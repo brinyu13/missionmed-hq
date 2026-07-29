@@ -76,6 +76,9 @@ export const config = Object.freeze({
     secretAccessKey: text('STORYFORGE_R2_SECRET_ACCESS_KEY'),
     signedUrlTtlSeconds: boundedInteger('STORYFORGE_R2_SIGNED_URL_TTL_SECONDS', 300, 60, 900),
   }),
+  transcription: Object.freeze({
+    provider: text('STORYFORGE_TRANSCRIBE_PROVIDER', 'none').toLowerCase() || 'none',
+  }),
 });
 
 export function validateConfig() {
@@ -107,6 +110,11 @@ export function validateConfig() {
   }
   if (config.devAuth && config.host !== '127.0.0.1') {
     errors.push('local fixture auth must bind STORYFORGE_HOST to 127.0.0.1');
+  }
+  if (config.transcription.provider !== 'none') {
+    errors.push(
+      'STORYFORGE_TRANSCRIBE_PROVIDER must remain none until provider authority is amended',
+    );
   }
   return errors;
 }

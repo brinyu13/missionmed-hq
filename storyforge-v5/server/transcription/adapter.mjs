@@ -187,6 +187,7 @@ export function createTranscriptionAdapter({
   }
 
   return Object.freeze({
+    available: true,
     capabilities,
     keywordsForDraft,
     releaseSession,
@@ -195,7 +196,7 @@ export function createTranscriptionAdapter({
 }
 
 export function createUnavailableTranscriptionAdapter() {
-  return createTranscriptionAdapter({
+  const adapter = createTranscriptionAdapter({
     primary: {
       async transcribeSegment() {
         throw new TranscriptionError(
@@ -208,4 +209,19 @@ export function createUnavailableTranscriptionAdapter() {
       },
     },
   });
+  return Object.freeze({
+    ...adapter,
+    available: false,
+  });
+}
+
+export function createTranscriptionAdapterForProvider(provider = 'none') {
+  const selected = String(provider || 'none').trim().toLowerCase();
+  if (selected === 'none') return createUnavailableTranscriptionAdapter();
+
+  const error = new Error(
+    'The configured transcription provider is not authorized by this release source.',
+  );
+  error.code = 'transcription_provider_authority_blocked';
+  throw error;
 }

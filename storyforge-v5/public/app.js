@@ -2028,6 +2028,21 @@ async function pollVoiceRecording() {
       }
       if (transcribeState.includes('failed')) hasFailure = true;
     });
+    const transcriptionAvailable = firstDefined(
+      recording?.transcriptionAvailable,
+      payload?.transcriptionAvailable,
+      true,
+    ) !== false;
+    if (
+      !transcriptionAvailable
+      && segments.some((segment) => (
+        String(firstDefined(segment.transcribeState, segment.transcribe_state, ''))
+        !== 'transcribed'
+      ))
+    ) {
+      hasFailure = true;
+      hasPending = false;
+    }
     const segmentsBySeq = new Map(segments.map((segment) => [
       Number(firstDefined(segment.seq, segment.sequence, 0)),
       segment,

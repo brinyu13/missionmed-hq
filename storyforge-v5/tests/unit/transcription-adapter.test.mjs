@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   TranscriptionError,
   createTranscriptionAdapter,
+  createTranscriptionAdapterForProvider,
   createUnavailableTranscriptionAdapter,
 } from '../../server/transcription/adapter.mjs';
 import {
@@ -183,6 +184,7 @@ test('three consecutive 5xx segment failures switch the session after bounded re
 
 test('the unavailable adapter fails truthfully and exposes no fake result', async () => {
   const adapter = createUnavailableTranscriptionAdapter();
+  assert.equal(adapter.available, false);
   assert.deepEqual(adapter.capabilities(), {
     keywords: false,
     confidence: false,
@@ -192,6 +194,27 @@ test('the unavailable adapter fails truthfully and exposes no fake result', asyn
     (error) => (
       error.code === 'transcribe_unavailable'
       && error.message === 'Transcription is currently unavailable.'
+    ),
+  );
+});
+
+test('the provider selector implements only the authorized transcription-off mode', async () => {
+  const adapter = createTranscriptionAdapterForProvider(' NONE ');
+  assert.equal(adapter.available, false);
+  assert.deepEqual(adapter.capabilities(), {
+    keywords: false,
+    confidence: false,
+  });
+  await assert.rejects(
+    adapter.transcribeSegment({ recordingId, seq: 0 }),
+    (error) => error.code === 'transcribe_unavailable',
+  );
+
+  assert.throws(
+    () => createTranscriptionAdapterForProvider('unapproved-provider'),
+    (error) => (
+      error.code === 'transcription_provider_authority_blocked'
+      && !error.message.includes('unapproved-provider')
     ),
   );
 });

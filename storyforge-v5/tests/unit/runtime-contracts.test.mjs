@@ -39,6 +39,7 @@ async function loadConfig(environment) {
     'STORYFORGE_BASE_PATH',
     'STORYFORGE_JWKS_URL',
     'STORYFORGE_JWT_SECRET',
+    'STORYFORGE_TRANSCRIBE_PROVIDER',
   ];
   const previous = Object.fromEntries(names.map((name) => [name, process.env[name]]));
   try {
@@ -101,6 +102,26 @@ test('production rejects standalone SPA serving and a noncanonical Matrix base p
   ));
   assert(!canonical.validateConfig().includes(
     'production requires STORYFORGE_BASE_PATH=/storyforge/',
+  ));
+});
+
+test('transcription stays in the authorized provider-off mode until authority is amended', async () => {
+  const defaultOff = await loadConfig({});
+  assert.equal(defaultOff.config.transcription.provider, 'none');
+  assert(!defaultOff.validateConfig().some((error) => (
+    error.startsWith('STORYFORGE_TRANSCRIBE_PROVIDER')
+  )));
+
+  const explicitOff = await loadConfig({
+    STORYFORGE_TRANSCRIBE_PROVIDER: ' NoNe ',
+  });
+  assert.equal(explicitOff.config.transcription.provider, 'none');
+
+  const unapproved = await loadConfig({
+    STORYFORGE_TRANSCRIBE_PROVIDER: 'unapproved-provider',
+  });
+  assert(unapproved.validateConfig().includes(
+    'STORYFORGE_TRANSCRIBE_PROVIDER must remain none until provider authority is amended',
   ));
 });
 
