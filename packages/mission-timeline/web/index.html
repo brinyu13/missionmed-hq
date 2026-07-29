@@ -908,7 +908,7 @@ const state={
   profile:{name:'Dr. Amara Osei',country:'Ghana',visa:'Green card',s1:'246',s2:'251',goal:'Internal Medicine'},
   sticky:'Helped with baby while rotating',
   photoN:3,wizStep:0,uploadStage:'idle',
-  builder:{step:1,skipped:{},touched:{}},
+  builder:{step:1,skipped:{},touched:{},examSystems:[],exams:[]},
   candidates:[
     {id:'c1',t:'House Officer',cat:'work',s:'2017-06',e:'2019-07',loc:'Korle Bu Teaching Hospital · Accra',conf:'HIGH CONFIDENCE',cc:'gn',kind:'normal',file:'ERAS_OSEI.PDF',page:2,section:'Experience · Work',q:'House Officer, Korle Bu Teaching Hospital, Accra. June 2017 to July 2019.',inf:[],st:'pending'},
     {id:'c2',t:'Step 1 Preparation',cat:'usmle',s:'2019-09',e:'2020-03',loc:'',conf:'HIGH CONFIDENCE',cc:'gn',kind:'normal',file:'ERAS_OSEI.PDF',page:3,section:'Licensure · Exams',q:'USMLE Step 1, passed March 2020. Dedicated preparation from September 2019.',inf:['Prep start inferred from context'],st:'pending'},
@@ -1019,9 +1019,11 @@ function renderBoard(hostId,o){
     const x=lpct(mi(e.s),ax);const up=i%2===0;
     const usa=/usa|green ?card/i.test(e.t);
     const ghosted=(e.vis!=='safe'&&e.vis!=='public');
-    h+='<div class="flag'+(e.cat==='personal'?' pers':'')+(usa?' fUSA':'')+(sprOn?' spr':'')+(state.sel===e.id?' sel':'')+(ghosted?' adv':'')+'" data-ev="'+e.id+'" style="left:'+x+'%;top:'+(up?14:30)+'px'+(sprOn?';--fm:url('+(e.cat==='personal'?SPR402.flagPers:SPR402.flagGray)+')':'')+'">'
+    const failedExam=!!(e.fields&&e.fields.dangerDot);
+    h+='<div class="flag'+(e.cat==='personal'?' pers':'')+(usa?' fUSA':'')+(sprOn?' spr':'')+(failedExam?' failedExam':'')+(state.sel===e.id?' sel':'')+(ghosted?' adv':'')+'" data-ev="'+e.id+'" style="left:'+x+'%;top:'+(up?14:30)+'px'+(sprOn?';--fm:url('+(e.cat==='personal'?SPR402.flagPers:SPR402.flagGray)+')':'')+'">'
       +'<div class="fl8" style="top:-13px;left:12px">'+esc(e.t)+(ghosted?' <span class="visTag v-'+e.vis+'">'+e.vis.toUpperCase()+'</span>':'')+'</div>'
       +(usa?'<div class="pen"></div>':(sprOn?'<div class="fmark"></div>':''))
+      +(failedExam?'<span class="failedExamDot" aria-label="Failed attempt"></span>':'')
       +'<div class="fdate">'+fmt(e.s)+'</div>'
       +'<div class="pole" style="height:'+(up?40:26)+'px"></div></div>';
   });
@@ -1030,12 +1032,15 @@ function renderBoard(hostId,o){
     const top=132+lane*LH;const cc=CATS[e.cat]?CATS[e.cat].c:'#3a78c9';
     const dur=mi(e.e||e.s)-mi(e.s)+1;
     const ghosted=(e.vis!=='safe'&&e.vis!=='public');
+    const provisional=!!(e.fields&&e.fields.provisional);
+    const actionChip=e.fields&&e.fields.actionChip;
     const sprC=sprOn&&SPR402[SPRCAT[e.cat]]?SPR402[SPRCAT[e.cat]]:null;
-    h+='<div class="arrow'+(sprC?' spr':'')+(state.sel===e.id?' sel':'')+(ghosted?' adv':'')+'" data-ev="'+e.id+'" title="'+esc(e.t)+(e.loc?' · '+esc(e.loc):'')+' · '+fmtL(e.s)+' - '+(e.e?fmtL(e.e):'Present')+' · '+esc(VISDEF[e.vis]?VISDEF[e.vis].n:e.vis)+'" style="left:'+x+'%;width:'+w+'%;min-width:52px;top:'+top+'px;--ac:'+cc+';background-color:'+cc+(sprC?';--sc:url('+sprC.cap+');--sb:url('+sprC.body+');--sh:url('+sprC.head+')':'')+'">'
+    h+='<div class="arrow'+(sprC?' spr':'')+(provisional?' examStudy provisional':'')+(state.sel===e.id?' sel':'')+(ghosted?' adv':'')+'" data-ev="'+e.id+'" title="'+esc(e.t)+(e.loc?' · '+esc(e.loc):'')+' · '+fmtL(e.s)+' - '+(e.e?fmtL(e.e):'Present')+' · '+esc(VISDEF[e.vis]?VISDEF[e.vis].n:e.vis)+'" style="left:'+x+'%;width:'+w+'%;min-width:52px;top:'+top+'px;--ac:'+cc+';background-color:'+cc+(sprC?';--sc:url('+sprC.cap+');--sb:url('+sprC.body+');--sh:url('+sprC.head+')':'')+'">'
       +(dur>=6?'<div class="ads">'+fmtL(e.s)+'</div><div class="ade">'+(e.e?fmtL(e.e):'Present')+'</div>'
               :'<div class="ads">'+fmtL(e.s)+' - '+(e.e?fmtL(e.e):'Present')+'</div>')
       +(e.loc?'<div class="aloc">'+esc(e.loc)+'</div>':'')
       +'<div class="al">'+esc(e.t)+'</div>'
+      +(provisional&&actionChip?'<button type="button" class="retakeChip" data-retake-target="'+esc(actionChip.targetAttemptId||'')+'">'+esc(actionChip.label||'Set retake date')+'</button>':'')
       +(o.editable?'<div class="ah" data-h="'+e.id+'"></div>':'')
       +'</div>';
   });
@@ -1071,6 +1076,7 @@ function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'
 /* ============ BOARD INTERACTION (drag + snap) ============ */
 function wireBoard(board,data,ax){
   board.addEventListener('pointerdown',ev=>{
+    if(ev.target.closest('[data-retake-target]'))return;
     const hEl=ev.target.closest('.ah');const aEl=ev.target.closest('.arrow,.flag');
     if(!aEl)return;
     const id=aEl.dataset.ev;const rec=data.events.find(x=>x.id===id);if(!rec)return;
@@ -1538,7 +1544,8 @@ function builderStepState(step){
   if(step===7)return'none';
   if(step===1)return coreInfoValid()?'complete':(coreInfoStarted()?'started':'empty');
   if(state.builder.skipped[step])return'skipped';
-  return builderDomainCount(step)?'complete':'empty';
+  if(builderDomainCount(step))return'complete';
+  return state.builder.touched[step]?'started':'empty';
 }
 function builderGlyph(step){
   const stateName=builderStepState(step);
@@ -1560,6 +1567,76 @@ function coreInfoMarkup(){
     +['','US citizen / permanent resident','Need H-1B','Need J-1','Other','Prefer not to say'].map(v=>'<option value="'+v+'"'+(v===w.visa?' selected':'')+'>'+(v||'Select a status')+'</option>').join('')
     +'</select></label></div>';
 }
+const EXAM_SYSTEMS_404={
+  USMLE:[
+    {id:'step-1',label:'Step 1',passFailOnly:true},
+    {id:'step-2-ck',label:'Step 2 CK',passFailOnly:false},
+    {id:'step-3',label:'Step 3',passFailOnly:false}
+  ],
+  'COMLEX-USA':[
+    {id:'level-1',label:'Level 1',passFailOnly:true},
+    {id:'level-2-ce',label:'Level 2-CE',passFailOnly:false},
+    {id:'level-3',label:'Level 3',passFailOnly:false}
+  ]
+};
+function examDefinition404(record){
+  const list=EXAM_SYSTEMS_404[record.system]||[];
+  return list.find(item=>item.id===record.examId)||{id:record.examId,label:record.name||record.examId,passFailOnly:!!record.passFailOnly};
+}
+function examOrdinal404(value){
+  const n=Number(value)||1;const mod=n%100;
+  return n+(mod>=11&&mod<=13?'th':(n%10===1?'st':(n%10===2?'nd':(n%10===3?'rd':'th'))));
+}
+function examTouched404(record,field){
+  const touched=state.builder.examTouched||{};
+  return !!(touched[record.id]&&touched[record.id][field]);
+}
+function examError404(record,field){
+  if(!examTouched404(record,field))return'';
+  if(field==='result')return ['Passed','Failed','Awaiting result'].includes(record.result)?'':'Required.';
+  if(field==='examDate')return !String(record.examDate||'').trim()?'Required.':(parseBuilderMonth(record.examDate)?'':"Enter a month and year, like 'Jun 2023'.");
+  if(field==='studyStartDate')return record.studyStartDate&&!parseBuilderMonth(record.studyStartDate)?"Enter a month and year, like 'Jun 2023'.":'';
+  if(field==='score'&&String(record.score||'').trim()){
+    const score=Number(record.score);
+    if(record.system==='USMLE'&&(!Number.isInteger(score)||score<1||score>300))return'USMLE scores run 1–300.';
+    if(record.system==='COMLEX-USA'&&(!Number.isInteger(score)||score<9||score>999))return'COMLEX scores run 9–999.';
+  }
+  return'';
+}
+function examCard404(record){
+  const definition=examDefinition404(record);const attempt=Number(record.attempt)||1;
+  const title=attempt>1?definition.label+' — '+examOrdinal404(attempt)+' attempt':definition.label;
+  const resultButtons=['Passed','Failed','Awaiting result'].map(result=>'<button type="button" class="builderSegment'+(record.result===result?' on':'')+'" data-exam-result="'+esc(result)+'" aria-pressed="'+String(record.result===result)+'">'+esc(result)+'</button>').join('');
+  return '<article class="builderExamCard'+(record.automatic?' automatic':'')+'" data-exam-card="'+esc(record.id)+'">'
+    +'<div class="builderExamCardHead"><div><span class="builderExamSystem">'+esc(record.system)+'</span><h2>'+esc(title)+'</h2></div>'
+    +(record.automatic?'<span class="builderAutoBadge">ADDED AUTOMATICALLY</span>':'')
+    +'<button type="button" class="homeTertiary builderExamDelete" data-exam-delete="'+esc(record.id)+'">Delete</button></div>'
+    +'<div class="builderExamPrimary">'
+    +'<fieldset class="builderField"><legend>Result</legend><div class="builderSegments" role="group" aria-label="Result">'+resultButtons+'</div><small data-exam-error="result">'+esc(examError404(record,'result'))+'</small></fieldset>'
+    +(definition.passFailOnly?'':'<label class="builderField builderScore"><span>Score <em>Optional</em></span><input type="text" inputmode="numeric" maxlength="3" data-exam-field="score" value="'+esc(record.score||'')+'"><small data-exam-error="score">'+esc(examError404(record,'score'))+'</small></label>')
+    +'</div><div class="builderExamSecondary">'
+    +'<label class="builderField"><span>'+(record.result==='Awaiting result'?'Exam date (taken)':'Exam date')+'</span><input type="text" inputmode="numeric" placeholder="Jun 2023" data-exam-field="examDate" value="'+esc(record.examDate||'')+'"><small data-exam-error="examDate">'+esc(examError404(record,'examDate'))+'</small></label>'
+    +'<label class="builderField"><span>Started studying <em>Optional</em></span><input type="text" inputmode="numeric" placeholder="Jun 2023" data-exam-field="studyStartDate" value="'+esc(record.studyStartDate||'')+'"><small data-exam-error="studyStartDate">'+esc(examError404(record,'studyStartDate'))+'</small></label>'
+    +'</div>'
+    +(definition.passFailOnly?'':'<label class="builderToggle"><input type="checkbox" data-exam-score-visible'+(record.showScoreOnTimeline?' checked':'')+(record.result==='Failed'?' disabled':'')+'> <span>Show score on timeline</span></label>')
+    +(record.automatic?'<p class="builderExamNote">Created automatically after the previous failed attempt.</p>':'')
+    +'</article>';
+}
+function examsMarkup404(){
+  const systems=new Set(state.builder.examSystems||[]);const exams=state.builder.exams||[];
+  const systemCards=Object.keys(EXAM_SYSTEMS_404).map(system=>'<label class="builderExamSystemCard'+(systems.has(system)?' on':'')+'"><input type="checkbox" data-exam-system="'+esc(system)+'"'+(systems.has(system)?' checked':'')+'><span>'+esc(system)+'</span></label>').join('');
+  const chips=[];
+  systems.forEach(system=>(EXAM_SYSTEMS_404[system]||[]).forEach(exam=>{
+    if(!exams.some(record=>record.system===system&&record.examId===exam.id&&(Number(record.attempt)||1)===1)){
+      chips.push('<button type="button" class="builderExamChip" data-exam-add-system="'+esc(system)+'" data-exam-add-id="'+esc(exam.id)+'">+ Add '+esc(exam.label)+'</button>');
+    }
+  }));
+  return '<section class="builderExamStep"><fieldset class="builderField builderExamSystems"><legend>Exam systems</legend><div class="builderExamSystemCards">'+systemCards+'</div></fieldset>'
+    +(systems.size?'<div class="builderExamChips" aria-label="Add exams">'+chips.join('')+'</div>':'<p class="builderExamEmpty">Choose USMLE, COMLEX, or both.</p>')
+    +'<section class="builderAddedExams" aria-labelledby="builderAddedExams"><h2 id="builderAddedExams">Added exams</h2>'
+    +(exams.length?exams.map(examCard404).join(''):'<p class="builderExamEmpty">No exams added yet.</p>')+'</section>'
+    +'<button type="button" class="homeTertiary builderSkip" data-builder-skip="2">I have nothing to add here → skip</button></section>';
+}
 function builderPlaceholderMarkup(step){
   if(step===7)return'<div class="builderPlaceholder"><p>Your completeness summary and story checks arrive in M6.</p><button class="btnD go" data-nav="canvas">OPEN MY CANVAS →</button></div>';
   return'<div class="builderPlaceholder"><p>This step is ready for its domain workflow.</p><button class="homeTertiary" data-builder-skip="'+step+'">I have nothing to add here → skip</button></div>';
@@ -1576,7 +1653,7 @@ function renderBuilder404(){
   }).join('');
   $('#builderStepTitle').textContent=current.title;
   $('#builderPurpose').textContent=current.purpose;
-  $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():builderPlaceholderMarkup(step);
+  $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():(step===2?examsMarkup404():builderPlaceholderMarkup(step));
   $('#builderBack').disabled=step===1;
   $('#builderContinue').textContent=step===7?'OPEN MY CANVAS →':'CONTINUE →';
 }
@@ -1614,11 +1691,43 @@ function showCoreErrors(){
   if(gradTarget&&w.grad&&!parseBuilderMonth(w.grad))gradTarget.textContent="Enter a month and year, like 'Jun 2023'.";
   return coreInfoValid()&&!!parseBuilderMonth(w.grad);
 }
+function runExamAction404(method){
+  const examApi=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.exam;
+  if(!examApi||typeof examApi[method]!=='function'){toast('Exam engineering is still initializing');return false}
+  const args=Array.prototype.slice.call(arguments,1);
+  examApi[method].apply(examApi,args);
+  return true;
+}
+function touchExamField404(recordId,field){
+  state.builder.examTouched=state.builder.examTouched||{};
+  state.builder.examTouched[recordId]=state.builder.examTouched[recordId]||{};
+  state.builder.examTouched[recordId][field]=true;
+}
 document.addEventListener('click',e=>{
   const stepButton=e.target.closest('[data-builder-step]');
   if(stepButton){state.builder.step=+stepButton.dataset.builderStep;renderBuilder404();return}
   const degree=e.target.closest('[data-degree]');
   if(degree){state.wiz.degree=degree.dataset.degree;state.builder.touched[1]=true;syncCoreInfo();return}
+  const addExam=e.target.closest('[data-exam-add-id]');
+  if(addExam){runExamAction404('add',addExam.dataset.examAddSystem,addExam.dataset.examAddId);return}
+  const deleteExam=e.target.closest('[data-exam-delete]');
+  if(deleteExam){runExamAction404('delete',deleteExam.dataset.examDelete);return}
+  const result=e.target.closest('[data-exam-result]');
+  if(result){
+    const card=result.closest('[data-exam-card]');if(!card)return;
+    touchExamField404(card.dataset.examCard,'result');
+    runExamAction404('update',card.dataset.examCard,{result:result.dataset.examResult});
+    return;
+  }
+  const retake=e.target.closest('[data-retake-target]');
+  if(retake){
+    state.builder.step=2;go('builder');
+    requestAnimationFrame(()=>{
+      const card=document.querySelector('[data-exam-card="'+retake.dataset.retakeTarget+'"]');
+      card&&card.querySelector('[data-exam-field="examDate"]')&&card.querySelector('[data-exam-field="examDate"]').focus();
+    });
+    return;
+  }
   const skip=e.target.closest('[data-builder-skip]');
   if(skip){const step=+skip.dataset.builderSkip;state.builder.skipped[step]=true;state.builder.step=Math.min(7,step+1);state.saved=false;renderAll();return}
 });
@@ -1632,8 +1741,24 @@ document.addEventListener('change',e=>{
   }
   const toggle=e.target.closest('[data-core-toggle]');
   if(toggle){state.wiz[toggle.dataset.coreToggle]=toggle.checked;state.builder.touched[1]=true;syncCoreInfo()}
+  const system=e.target.closest('[data-exam-system]');
+  if(system){state.builder.touched[2]=true;runExamAction404('setSystem',system.dataset.examSystem,system.checked);return}
+  const scoreVisible=e.target.closest('[data-exam-score-visible]');
+  if(scoreVisible){
+    const card=scoreVisible.closest('[data-exam-card]');if(!card)return;
+    runExamAction404('update',card.dataset.examCard,{showScoreOnTimeline:scoreVisible.checked});
+  }
 });
-document.addEventListener('focusout',e=>{if(e.target.matches&&e.target.matches('[data-core]'))showCoreErrors()});
+document.addEventListener('focusout',e=>{
+  if(e.target.matches&&e.target.matches('[data-core]'))showCoreErrors();
+  const input=e.target.closest&&e.target.closest('[data-exam-field]');
+  if(!input)return;
+  const card=input.closest('[data-exam-card]');if(!card)return;
+  const field=input.dataset.examField;let value=String(input.value||'').trim();
+  touchExamField404(card.dataset.examCard,field);
+  if(field==='examDate'||field==='studyStartDate'){const parsed=parseBuilderMonth(value);if(parsed)value=parsed}
+  runExamAction404('update',card.dataset.examCard,{[field]:value});
+});
 $('#builderBack').onclick=()=>{if(state.builder.step>1){state.builder.step--;renderAll()}};
 $('#builderContinue').onclick=()=>{
   if(state.builder.step===1&&!showCoreErrors())return;

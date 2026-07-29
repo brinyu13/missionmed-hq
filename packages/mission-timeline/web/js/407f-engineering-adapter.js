@@ -1,4 +1,11 @@
 import {TimelineStore} from "./uxr-002/store.js";
+import {
+  addBuilderExam,
+  deleteBuilderExamAttempt,
+  finalizeBuilderExams,
+  setBuilderExamSystem,
+  updateBuilderExamAttempt
+} from "./uxr-002/exam-integration.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -56,7 +63,15 @@ export function documentEventTo407F(event,index=0){
     notes:event.notes||"",
     lane:Number.isInteger(event.lane)?event.lane:null,
     provenance:clone(event.provenance||[]),
-    fields:clone(event.fields||{})
+    fields:{
+      ...clone(event.fields||{}),
+      ...(event.dangerDot?{dangerDot:true}:{}),
+      ...(event.provisional?{provisional:true}:{}),
+      ...(event.actionChip?{actionChip:clone(event.actionChip)}:{}),
+      ...(event.fillStyle?{fillStyle:event.fillStyle}:{}),
+      ...(event.fillOpacity!=null?{fillOpacity:event.fillOpacity}:{}),
+      ...(event.outlineStyle?{outlineStyle:event.outlineStyle}:{})
+    }
   };
 }
 
@@ -75,13 +90,21 @@ export function event407FToDocument(event,index=0){
     lane:Number.isInteger(event.lane)?event.lane:null,
     sourceType:event.origin||"407f",
     provenance:clone(event.provenance||[]),
+    ...(event.fields?.dangerDot?{dangerDot:true}:{}),
+    ...(event.fields?.provisional?{provisional:true}:{}),
+    ...(event.fields?.actionChip?{actionChip:clone(event.fields.actionChip)}:{}),
+    ...(event.fields?.fillStyle?{fillStyle:event.fields.fillStyle}:{}),
+    ...(event.fields?.fillOpacity!=null?{fillOpacity:event.fields.fillOpacity}:{}),
+    ...(event.fields?.outlineStyle?{outlineStyle:event.fields.outlineStyle}:{}),
     fields:{...clone(event.fields||{}),legacy407fCategory:event.cat||"personal"}
   };
 }
 
 export function applyDocumentTo407FState(document,state){
   const profile=document.studentProfile||{};
-  state.user.events=(document.events||[]).map(documentEventTo407F);
+  state.user.events=(document.events||[])
+    .filter((event)=>String(event?.startDate||"").trim())
+    .map(documentEventTo407F);
   state.user.interview=clone(document.metadata?.interview||state.user.interview||{
     prog:"",
     date:"",
@@ -104,7 +127,10 @@ export function applyDocumentTo407FState(document,state){
   };
   state.builder={
     ...state.builder,
-    ...clone(document.metadata?.builder407F||{})
+    ...clone(document.metadata?.builder407F||{}),
+    step:Number(document.builder?.step)||Number(state.builder?.step)||1,
+    examSystems:clone(document.builder?.examSystems||[]),
+    exams:clone(document.exams||[])
   };
   state.canvasTheme=document.theme==="season-one-board"?"season":
     document.theme==="clean-advisor-paper"||document.theme==="advisor-paper"?"paper":
@@ -128,6 +154,12 @@ export function apply407FStateToDocument(state,document){
     state.canvasTheme==="paper"?"advisor-paper":
     state.canvasTheme==="horizon"?"horizon":
     state.canvasTheme==="journeys"?"little-journeys":"keynote-classic";
+  document.builder={
+    ...document.builder,
+    step:Number(state.builder?.step)||1,
+    examSystems:clone(state.builder?.examSystems||[])
+  };
+  document.exams=clone(state.builder?.exams||[]);
   document.metadata={
     ...document.metadata,
     source:"D1-402-407F-CANONICAL-RECOVERY",
@@ -232,6 +264,44 @@ export async function boot407FEngineeringAdapter({
       applying=false;
     }
   };
+  const commitExamMutation=(label,mutation)=>{
+    store.mutate(label,(document)=>{
+      apply407FStateToDocument(bridge.state,document);
+      mutation(document);
+    });
+    applying=true;
+    applyDocumentTo407FState(store.document,bridge.state);
+    bridge.renderAll();
+    lastState=stableState(bridge.state);
+    applying=false;
+  };
+  api.exam=Object.freeze({
+    setSystem(system,active){
+      commitExamMutation("Choose exam systems",(document)=>{
+        setBuilderExamSystem(document,system,active);
+      });
+    },
+    add(system,examId){
+      commitExamMutation("Add exam",(document)=>{
+        addBuilderExam(document,system,examId);
+      });
+    },
+    update(recordId,changes){
+      commitExamMutation("Update exam",(document)=>{
+        updateBuilderExamAttempt(document,recordId,changes);
+      });
+    },
+    delete(recordId){
+      commitExamMutation("Delete exam",(document)=>{
+        deleteBuilderExamAttempt(document,recordId);
+      });
+    },
+    finalize(){
+      commitExamMutation("Finish Builder exams",(document)=>{
+        finalizeBuilderExams(document);
+      });
+    }
+  });
   window.D1_407F_ENGINEERING=api;
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{
     detail:{documentId:store.document.id,restored:init.restored,adapter:store.adapter.kind}

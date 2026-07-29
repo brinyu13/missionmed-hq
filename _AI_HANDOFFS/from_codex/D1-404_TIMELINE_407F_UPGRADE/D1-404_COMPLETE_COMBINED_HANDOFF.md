@@ -109,13 +109,43 @@ remain available as engineering sources, but `web/index.html` does not load
   `screenshots/M3-seven-step-407f-builder.png`
 - Visual verdict: pass — the form hierarchy and live preview remain immediately
   recognizable as the canonical dark 407F product.
+- Commit: `5f2b3e6`
+
+### M4 — Exams workflow
+
+- Connected the retained, tested exam workflow to the canonical 407F Builder
+  through the engineering adapter; no parallel exam state machine was created.
+- Implemented independent USMLE and COMLEX-USA system cards, add-via-chip exam
+  creation, score/result-first card hierarchy, date fields, score visibility,
+  deletion, and the exact Step 2 skip behavior.
+- Preserved automatic attempt numbering and the failure transition: neutral
+  failed dot, automatic retake card, linked hatched study period, dashed
+  provisional outline, Set retake date action, and solid closure on retake date.
+- Persisted exam records, selected systems, projected events, and workflow
+  metadata through the retained local engineering store.
+- Browser interaction assertion: pass — both exam systems can be active
+  independently; COMLEX chips appeared while USMLE stayed active; the temporary
+  COMLEX selection was returned to its original state.
+- Browser semantic assertion: pass — one Exams H1, system fieldset, Added exams
+  H2, frozen field order, automatic-card label, and failed-attempt signal.
+- Regression evidence: 110/110 TypeScript functional tests and 266/266 module
+  tests pass. The nine pre-existing performance tests remain load-sensitive:
+  correctness assertions pass, but one wall-clock autosave threshold missed
+  during the M4 loaded runs; the same nine-test suite passed 9/9 at M3 and no
+  persistence/performance implementation changed in M4.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M4-exams-407f-workflow.png`
+- Visual verdict: pass — the exam workflow reads as a native extension of the
+  dark 407F Builder rather than an imported white-shell component.
 - Commit: pending local milestone commit
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 381 tests pass across the load-isolated run; required floor 370 |
+| Regression floor | PASS — 385-test inventory; 376 non-performance tests pass and the 9 performance tests are tracked separately; required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -135,7 +165,8 @@ remain available as engineering sources, but `web/index.html` does not load
 | M0 | `d5126f8` | `git revert d5126f8` |
 | M1 | `fcde6fb` | `git revert fcde6fb` |
 | M2 | `114dc37` | `git revert 114dc37` |
-| M3 | pending local milestone commit | pending |
+| M3 | `5f2b3e6` | `git revert 5f2b3e6` |
+| M4 | pending local milestone commit | pending |
 
 ## Precedence resolutions
 

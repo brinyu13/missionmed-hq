@@ -539,6 +539,241 @@
   margin-top:18px;
 }
 
+.builderExamStep{
+  display:grid;
+  gap:20px;
+}
+
+.builderExamSystems{
+  margin:0;
+}
+
+.builderExamSystemCards{
+  display:grid;
+  gap:10px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.builderExamSystemCard{
+  align-items:center;
+  background:linear-gradient(155deg,#151d2c,#0d121d);
+  border:1px solid var(--edge2);
+  color:var(--mid);
+  cursor:pointer;
+  display:flex;
+  font-family:var(--num);
+  font-size:14px;
+  font-weight:800;
+  justify-content:center;
+  letter-spacing:.08em;
+  min-height:68px;
+  position:relative;
+}
+
+.builderExamSystemCard input{
+  height:1px;
+  opacity:0;
+  position:absolute;
+  width:1px;
+}
+
+.builderExamSystemCard.on{
+  border-color:var(--em);
+  box-shadow:inset 3px 0 0 var(--em),0 0 22px rgba(255,179,64,.08);
+  color:var(--tx);
+}
+
+.builderExamSystemCard.on::after{
+  color:var(--gn);
+  content:"✓";
+  font-size:15px;
+  position:absolute;
+  right:12px;
+  top:10px;
+}
+
+.builderExamChips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+}
+
+.builderExamChip{
+  background:rgba(49,64,92,.25);
+  border:1px solid var(--edge2);
+  border-radius:999px;
+  color:var(--cy);
+  font-size:12px;
+  font-weight:700;
+  min-height:34px;
+  padding:7px 13px;
+}
+
+.builderExamChip:hover{
+  background:rgba(57,214,255,.08);
+  border-color:var(--cy);
+  color:var(--tx);
+}
+
+.builderAddedExams{
+  display:grid;
+  gap:14px;
+}
+
+.builderAddedExams>h2{
+  color:var(--tx);
+  font-size:16px;
+  font-weight:800;
+  margin:4px 0 0;
+}
+
+.builderExamEmpty{
+  border:1px dashed var(--edge2);
+  color:var(--dim);
+  font-size:13px;
+  line-height:1.5;
+  padding:16px;
+}
+
+.builderExamCard{
+  background:linear-gradient(155deg,rgba(27,37,56,.9),rgba(12,17,27,.96));
+  border:1px solid var(--edge2);
+  border-left:3px solid var(--catExams,#3A78C9);
+  box-shadow:0 12px 28px rgba(0,0,0,.2);
+  display:grid;
+  gap:18px;
+  padding:18px;
+}
+
+.builderExamCard.automatic{
+  border-left-style:dashed;
+}
+
+.builderExamCardHead{
+  align-items:flex-start;
+  display:flex;
+  gap:10px;
+}
+
+.builderExamCard h2{
+  color:var(--tx);
+  font-size:18px;
+  line-height:1.25;
+  margin-top:3px;
+}
+
+.builderExamSystem{
+  color:var(--cy);
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.14em;
+}
+
+.builderAutoBadge{
+  border:1px solid rgba(57,214,255,.35);
+  color:var(--cy);
+  font-family:var(--num);
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.1em;
+  margin-left:auto;
+  padding:5px 7px;
+}
+
+.builderExamDelete{
+  margin-left:auto;
+}
+
+.builderAutoBadge+.builderExamDelete{
+  margin-left:0;
+}
+
+.builderExamPrimary,
+.builderExamSecondary{
+  display:grid;
+  gap:14px;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+}
+
+.builderExamPrimary{
+  align-items:start;
+}
+
+.builderExamPrimary .builderField>legend,
+.builderExamPrimary .builderField>span{
+  font-size:14px;
+}
+
+.builderScore input{
+  font-family:var(--num);
+  font-size:18px;
+  font-weight:650;
+}
+
+.builderExamSecondary{
+  border-top:1px solid var(--edge);
+  padding-top:16px;
+}
+
+.builderExamSecondary .builderField>span{
+  color:var(--mid);
+  font-size:12px;
+}
+
+.builderExamNote{
+  color:var(--dim);
+  font-size:12px;
+  line-height:1.45;
+  margin-top:-6px;
+}
+
+.builderSkip{
+  justify-self:start;
+}
+
+.flag.failedExam{
+  position:absolute;
+}
+
+.failedExamDot{
+  background:#C4453B;
+  border:2px solid #fff;
+  border-radius:50%;
+  height:8px;
+  position:absolute;
+  right:-5px;
+  top:-5px;
+  width:8px;
+  z-index:4;
+}
+
+.arrow.examStudy{
+  background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.22) 0 5px,rgba(255,255,255,.04) 5px 10px);
+  opacity:.6;
+}
+
+.arrow.examStudy.provisional{
+  border:2px dashed var(--catExams,#3A78C9);
+}
+
+.retakeChip{
+  background:var(--em);
+  border:1px solid #A67A26;
+  border-radius:999px;
+  color:#191C21;
+  font-size:10px;
+  font-weight:800;
+  left:50%;
+  min-height:24px;
+  padding:3px 9px;
+  position:absolute;
+  top:34px;
+  transform:translateX(-50%);
+  white-space:nowrap;
+  z-index:7;
+}
+
 .matrixBack:focus-visible,
 #rail .rtab:focus-visible,
 .headerExport:focus-visible,
@@ -548,6 +783,10 @@
 .homeCanvasLink:focus-visible,
 .builderStep:focus-visible,
 .builderSegment:focus-visible,
+.builderExamSystemCard:focus-within,
+.builderExamChip:focus-visible,
+.builderExamDelete:focus-visible,
+.retakeChip:focus-visible,
 .builderField input:focus-visible,
 .builderField select:focus-visible{
   outline:2px solid var(--cy);
