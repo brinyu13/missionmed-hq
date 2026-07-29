@@ -360,11 +360,11 @@ test(
     try {
       await seedPreMigrationLedger(database);
       const exactSql = exactRunnerSql(database.packageDir);
-      const marker = 'REVOKE authenticated FROM storyforge_app;';
+      const marker = 'DO $b1_506_post$';
       assert.equal(
         exactSql.split(marker).length - 1,
         1,
-        'membership-normalization marker must be unique',
+        'post-migration authority-gate marker must be unique',
       );
       const driftedSql = exactSql.replace(
         marker,

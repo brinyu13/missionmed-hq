@@ -735,7 +735,11 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
   assert.match(transactionSql, /\\getenv app_password STORYFORGE_APP_DB_PASSWORD/);
   assert.match(transactionSql, /ALTER ROLE storyforge_app PASSWORD :'app_password'/);
   assert.match(transactionSql, /ALTER ROLE storyforge_app LOGIN/);
-  assert.match(transactionSql, /GRANT authenticated TO storyforge_app WITH INHERIT FALSE, SET TRUE/);
+  assert.doesNotMatch(transactionSql, /REVOKE authenticated FROM storyforge_app/);
+  assert.doesNotMatch(
+    transactionSql,
+    /GRANT authenticated TO storyforge_app WITH INHERIT FALSE, SET TRUE/,
+  );
   assert.match(transactionSql, /application role membership closure is not exact/);
   assert.match(transactionSql, /application role relation ACL closure is not exact/);
   assert.match(transactionSql, /application role routine ACL closure is not exact/);

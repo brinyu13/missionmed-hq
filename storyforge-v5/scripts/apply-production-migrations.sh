@@ -527,8 +527,6 @@ SQL
       "  (:'version_${index}', :'file_${index}', :'sha_${index}', :'git_commit', :'backup_id');"
   done
   cat <<'SQL'
-REVOKE authenticated FROM storyforge_app;
-GRANT authenticated TO storyforge_app WITH INHERIT FALSE, SET TRUE;
 DO $b1_506_post$
 DECLARE
   effective_authority_count integer;
