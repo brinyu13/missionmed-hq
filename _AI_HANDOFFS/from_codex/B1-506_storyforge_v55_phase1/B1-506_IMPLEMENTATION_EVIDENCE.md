@@ -4,6 +4,7 @@ Recorded: 2026-07-29T05:37:14Z
 Repository: `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502`
 Branch: `codex/b1-503-storyforge-product-recovery`
 Implementation baseline: `6e630df672e47e50ae5e14592c8455979e2b1dac`
+Local candidate commit: `a8a6d7b505af5d9205c40b15abcc1850b72dd2dd`
 Production mutation: **NONE**
 
 ## Outcome

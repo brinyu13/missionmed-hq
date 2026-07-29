@@ -30,6 +30,8 @@ stop on this authority contradiction. No production action occurred.
   `a3255ad` (`B1-506: commit B1-504A/B1-504B authority folders (per RP-2)`)
 - Founder execution-authority commit:
   `6e630df` (`B1-506: record B1-505C founder execution authority`)
+- Local default-off candidate commit:
+  `a8a6d7b505af5d9205c40b15abcc1850b72dd2dd`
 - Canonical V5 SHA:
   `3ac2871ff286552abe89a785ff43967df3315922e3718f67a136b83db1ba8db1`
 - Discovery:
