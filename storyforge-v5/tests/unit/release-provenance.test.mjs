@@ -18,6 +18,34 @@ import { fileURLToPath } from 'node:url';
 
 const packageDir = fileURLToPath(new URL('../..', import.meta.url));
 const repositoryDir = path.resolve(packageDir, '..');
+const safeM1Fixture = `
+CREATE POLICY sf_recording_sessions_rw ON public.sf_recording_sessions
+FOR ALL TO authenticated
+USING (public.sf_has_live_identity(ARRAY['student']) AND student_id = public.sf_actor_id())
+WITH CHECK (public.sf_has_live_identity(ARRAY['student']) AND student_id = public.sf_actor_id());
+CREATE POLICY sf_recording_segments_rw ON public.sf_recording_segments
+FOR ALL TO authenticated
+USING (public.sf_has_live_identity(ARRAY['student']) AND true)
+WITH CHECK (public.sf_has_live_identity(ARRAY['student']) AND true);
+REVOKE ALL ON public.sf_recording_sessions, public.sf_recording_segments FROM PUBLIC;
+`;
+
+async function writeSafeM1(fixturePackage) {
+  const migrations = path.join(
+    fixturePackage,
+    'infra',
+    'postgres',
+    'migrations',
+  );
+  await mkdir(migrations, { recursive: true });
+  await writeFile(
+    path.join(
+      migrations,
+      '20260729000100_b1_506_voice_recording_sessions.sql',
+    ),
+    safeM1Fixture,
+  );
+}
 
 function command(executable, args, {
   cwd,
@@ -51,10 +79,15 @@ async function releaseFixture(context) {
     await rm(root, { recursive: true, force: true });
   });
   await mkdir(scripts, { recursive: true });
+  await writeSafeM1(fixturePackage);
   await Promise.all([
     cp(
       path.join(packageDir, 'scripts', 'release-source.mjs'),
       path.join(scripts, 'release-source.mjs'),
+    ),
+    cp(
+      path.join(packageDir, 'scripts', 'phase-one-release-safety.mjs'),
+      path.join(scripts, 'phase-one-release-safety.mjs'),
     ),
     cp(
       path.join(packageDir, 'scripts', 'assert-release-source.mjs'),
@@ -170,6 +203,101 @@ test('release source assertion requires an exact clean committed source', async 
   assert.match(dirty.stderr, /release mode requires a clean worktree, including no untracked files/);
 });
 
+test('release source refuses M1 until both recording policies are explicitly student-only', async (context) => {
+  const fixture = await releaseFixture(context);
+  const migrations = path.join(
+    fixture.fixturePackage,
+    'infra',
+    'postgres',
+    'migrations',
+  );
+  const migration = path.join(
+    migrations,
+    '20260729000100_b1_506_voice_recording_sessions.sql',
+  );
+  await rm(migration);
+  git(fixture.root, ['add', '--all']);
+  git(fixture.root, ['commit', '--quiet', '-m', 'missing M1']);
+  let head = git(fixture.root, ['rev-parse', 'HEAD^{commit}']);
+  let result = command(process.execPath, [
+    fixture.assertionScript,
+    '--mode=release',
+  ], {
+    cwd: fixture.fixturePackage,
+    environment: { STORYFORGE_EXPECTED_COMMIT: head },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /the B1-506 M1 migration is missing/);
+
+  await writeFile(migration, `
+-- sf_has_live_identity(ARRAY['student']) appears only in this comment.
+CREATE POLICY sf_recording_sessions_rw ON public.sf_recording_sessions
+FOR ALL TO authenticated
+USING (public.sf_has_live_identity() AND student_id = public.sf_actor_id())
+WITH CHECK (public.sf_has_live_identity() AND student_id = public.sf_actor_id());
+CREATE POLICY sf_recording_segments_rw ON public.sf_recording_segments
+FOR ALL TO authenticated
+USING (public.sf_has_live_identity() AND true)
+WITH CHECK (public.sf_has_live_identity() AND true);
+REVOKE ALL ON public.sf_recording_sessions, public.sf_recording_segments FROM PUBLIC;
+`);
+  git(fixture.root, ['add', '--all']);
+  git(fixture.root, ['commit', '--quiet', '-m', 'comment-only M1']);
+  head = git(fixture.root, ['rev-parse', 'HEAD^{commit}']);
+  result = command(process.execPath, [
+    fixture.assertionScript,
+    '--mode=release',
+  ], {
+    cwd: fixture.fixturePackage,
+    environment: { STORYFORGE_EXPECTED_COMMIT: head },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /sf_recording_sessions_rw USING does not require a live student identity/,
+  );
+
+  await writeFile(migration, `
+CREATE POLICY sf_recording_sessions_rw ON public.sf_recording_sessions
+FOR ALL TO authenticated
+USING (public.sf_has_live_identity(ARRAY['student']) AND student_id = public.sf_actor_id())
+WITH CHECK (public.sf_has_live_identity() AND student_id = public.sf_actor_id());
+CREATE POLICY sf_recording_segments_rw ON public.sf_recording_segments
+FOR ALL TO authenticated
+USING (public.sf_has_live_identity(ARRAY['student']) AND true)
+WITH CHECK (public.sf_has_live_identity(ARRAY['student']) AND true);
+REVOKE ALL ON public.sf_recording_sessions, public.sf_recording_segments FROM PUBLIC;
+`);
+  git(fixture.root, ['add', '--all']);
+  git(fixture.root, ['commit', '--quiet', '-m', 'unsafe M1 WITH CHECK']);
+  head = git(fixture.root, ['rev-parse', 'HEAD^{commit}']);
+  result = command(process.execPath, [
+    fixture.assertionScript,
+    '--mode=release',
+  ], {
+    cwd: fixture.fixturePackage,
+    environment: { STORYFORGE_EXPECTED_COMMIT: head },
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /sf_recording_sessions_rw WITH CHECK does not require a live student identity/,
+  );
+
+  await writeFile(migration, safeM1Fixture);
+  git(fixture.root, ['add', '--all']);
+  git(fixture.root, ['commit', '--quiet', '-m', 'fully student-only M1']);
+  head = git(fixture.root, ['rev-parse', 'HEAD^{commit}']);
+  result = command(process.execPath, [
+    fixture.assertionScript,
+    '--mode=release',
+  ], {
+    cwd: fixture.fixturePackage,
+    environment: { STORYFORGE_EXPECTED_COMMIT: head },
+  });
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('development build is isolated, marked nondeployable, and does not write release paths', async (context) => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'storyforge-development-build.'));
   const fixturePackage = path.join(root, 'storyforge-v5');
@@ -189,6 +317,10 @@ test('development build is isolated, marked nondeployable, and does not write re
     cp(
       path.join(packageDir, 'scripts', 'release-source.mjs'),
       path.join(scripts, 'release-source.mjs'),
+    ),
+    cp(
+      path.join(packageDir, 'scripts', 'phase-one-release-safety.mjs'),
+      path.join(scripts, 'phase-one-release-safety.mjs'),
     ),
   ]);
 
@@ -248,6 +380,7 @@ test('a fully committed release candidate rebuilds deterministically without dir
       recursive: true,
     }),
   ]);
+  await writeSafeM1(fixturePackage);
   await Promise.all([
     ...[
       'assert-release-source.mjs',
@@ -256,6 +389,7 @@ test('a fully committed release candidate rebuilds deterministically without dir
       'check-canonical-authority.mjs',
       'check-product-provenance.mjs',
       'create-integration-evidence-dir.mjs',
+      'phase-one-release-safety.mjs',
       'release-source.mjs',
       'update-integration-evidence.mjs',
     ].map((name) => cp(
@@ -575,6 +709,10 @@ test('integration evidence roots reject traversal, symlink, legacy, and protecte
       path.join(scripts, 'release-source.mjs'),
     ),
     cp(
+      path.join(packageDir, 'scripts', 'phase-one-release-safety.mjs'),
+      path.join(scripts, 'phase-one-release-safety.mjs'),
+    ),
+    cp(
       path.join(packageDir, 'scripts', 'create-integration-evidence-dir.mjs'),
       path.join(scripts, 'create-integration-evidence-dir.mjs'),
     ),
@@ -709,12 +847,17 @@ test('Railway API-only build is self-contained within the uploaded package root'
       path.join(packageDir, 'scripts', 'check-api-only-build.mjs'),
       path.join(fixturePackage, 'scripts', 'check-api-only-build.mjs'),
     ),
+    cp(
+      path.join(packageDir, 'scripts', 'phase-one-release-safety.mjs'),
+      path.join(fixturePackage, 'scripts', 'phase-one-release-safety.mjs'),
+    ),
     symlink(
       path.join(packageDir, 'node_modules'),
       path.join(fixturePackage, 'node_modules'),
       'dir',
     ),
   ]);
+  await writeSafeM1(fixturePackage);
   await assert.rejects(access(path.join(root, '_AI_HANDOFFS')), { code: 'ENOENT' });
 
   const result = command('npm', ['run', 'build:api'], { cwd: fixturePackage });
@@ -727,6 +870,29 @@ test('Railway API-only build is self-contained within the uploaded package root'
 
 test('release scripts preflight before mutation and keep integration evidence out of prior receipts', async () => {
   const packageJson = JSON.parse(await readFile(path.join(packageDir, 'package.json'), 'utf8'));
+  const releaseSource = await readFile(
+    path.join(packageDir, 'scripts', 'release-source.mjs'),
+    'utf8',
+  );
+  assert.match(
+    releaseSource,
+    /import \{ assertPhaseOneStudentOnlyRecordingPolicies \} from '\.\/phase-one-release-safety\.mjs';/,
+  );
+  assert(
+    releaseSource.indexOf('assertPhaseOneStudentOnlyRecordingPolicies({')
+      < releaseSource.indexOf('const expectedCommit = releaseExpectedCommit(environment);'),
+  );
+  for (const scriptName of [
+    'build-static.mjs',
+    'build-wordpress-route-manifest.mjs',
+    'check-product-provenance.mjs',
+  ]) {
+    const scriptSource = await readFile(
+      path.join(packageDir, 'scripts', scriptName),
+      'utf8',
+    );
+    assert.match(scriptSource, /assertReleaseSource\(\{/);
+  }
   assert.equal(packageJson.scripts.build, 'npm run build:development');
   assert.match(packageJson.scripts['build:development'], /--mode=development/);
   assert.doesNotMatch(packageJson.scripts['build:development'], /wordpress/);

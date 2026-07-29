@@ -23,6 +23,11 @@ const packageDir = path.resolve(fileURLToPath(new URL('../..', import.meta.url))
 const installScript = path.join(packageDir, 'scripts', 'install-b1-503-kinsta-release.sh');
 const rollbackScript = path.join(packageDir, 'scripts', 'rollback-b1-503-kinsta-release.sh');
 const migrationScript = path.join(packageDir, 'scripts', 'apply-production-migrations.sh');
+const phaseOneSafetyScript = path.join(
+  packageDir,
+  'scripts',
+  'phase-one-release-safety.mjs',
+);
 const postgresHarnesses = [
   path.join(packageDir, 'scripts', 'run-e2e.sh'),
   path.join(packageDir, 'scripts', 'run-integration.sh'),
@@ -487,6 +492,26 @@ esac
   }
 });
 
+test('production migration runner rejects the unresolved M1 authority conflict before target reads', () => {
+  const source = readFileSync(migrationScript, 'utf8');
+  const safetyCall = source.indexOf('"$node_bin" "$phase_one_safety"');
+  assert(safetyCall > 0);
+  assert(safetyCall < source.indexOf('required_variables=('));
+  assert(safetyCall < source.indexOf('psql_bin='));
+
+  const result = run(migrationScript, ['preflight']);
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /sf_recording_sessions_rw USING does not require a live student identity/,
+  );
+  assert.match(
+    result.stderr,
+    /Phase 1 release safety gate rejected the migration source/,
+  );
+  assert.doesNotMatch(result.stderr, /STORYFORGE_RAILWAY_PROJECT_ID is required/);
+});
+
 test('production migration runner pins source, backup, provider, DB, and exact ledgers', () => {
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'storyforge-b1-503-migration-'));
   const repository = path.join(fixture, 'repo');
@@ -513,7 +538,13 @@ test('production migration runner pins source, backup, provider, DB, and exact l
   mkdirSync(candidateScripts, { recursive: true });
   mkdirSync(candidateMigrations, { recursive: true });
   mkdirSync(fakeBin, { recursive: true });
-  copyFileSync(migrationScript, path.join(candidateScripts, path.basename(migrationScript)));
+  const candidateRunner = path.join(candidateScripts, path.basename(migrationScript));
+  const candidateSafety = path.join(
+    candidateScripts,
+    path.basename(phaseOneSafetyScript),
+  );
+  copyFileSync(migrationScript, candidateRunner);
+  copyFileSync(phaseOneSafetyScript, candidateSafety);
   copyFileSync(
     path.join(packageDir, 'infra', 'postgres', 'bootstrap_production.sql'),
     path.join(candidatePostgres, 'bootstrap_production.sql'),
@@ -524,7 +555,31 @@ test('production migration runner pins source, backup, provider, DB, and exact l
       path.join(candidateMigrations, file),
     );
   }
-  chmodSync(path.join(candidateScripts, path.basename(migrationScript)), 0o755);
+  const candidateM1 = path.join(
+    candidateMigrations,
+    '20260729000100_b1_506_voice_recording_sessions.sql',
+  );
+  const unresolvedM1 = readFileSync(candidateM1, 'utf8');
+  assert.equal(
+    unresolvedM1.split('public.sf_has_live_identity()').length - 1,
+    4,
+  );
+  const amendedM1 = unresolvedM1.replaceAll(
+    'public.sf_has_live_identity()',
+    "public.sf_has_live_identity(ARRAY['student'])",
+  );
+  const unresolvedM1Sha = 'b175549e4f2e1606badccdd194f25e42a11b3954f95b435e0b75ebfb52d2cc5f';
+  const amendedM1Sha = '6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2';
+  assert.equal(sha256(amendedM1), amendedM1Sha);
+  writeFileSync(candidateM1, amendedM1);
+
+  const unresolvedRunner = readFileSync(candidateRunner, 'utf8');
+  assert.equal(unresolvedRunner.split(unresolvedM1Sha).length - 1, 3);
+  writeFileSync(
+    candidateRunner,
+    unresolvedRunner.replaceAll(unresolvedM1Sha, amendedM1Sha),
+  );
+  chmodSync(candidateRunner, 0o755);
 
   const gitEnvironment = {
     ...process.env,
@@ -632,13 +687,46 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
     PGDATABASE: 'railway',
     PGSSLMODE: 'require',
   };
-  const candidateRunner = path.join(candidateScripts, path.basename(migrationScript));
-
   const preflight = run(candidateRunner, ['preflight'], environment);
   assert.equal(preflight.status, 0, preflight.stderr || preflight.stdout);
   assert.match(preflight.stdout, /B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
   assert.match(preflight.stdout, /pending_migrations=2/);
   assert.equal(existsSync(fakeSqlLog), false, 'preflight must not issue the mutation transaction');
+
+  const originalSafety = readFileSync(candidateSafety, 'utf8');
+  const safetyRelative = 'storyforge-v5/scripts/phase-one-release-safety.mjs';
+  let gitResult = spawnSync(
+    'git',
+    ['-C', repository, 'update-index', '--assume-unchanged', safetyRelative],
+    { encoding: 'utf8' },
+  );
+  assert.equal(gitResult.status, 0, gitResult.stderr || gitResult.stdout);
+  writeFileSync(
+    candidateSafety,
+    'console.log(JSON.stringify({ ok: true, bypass: true }));\n',
+  );
+  const hiddenSafetyEdit = run(candidateRunner, ['preflight'], environment);
+  assert.notEqual(hiddenSafetyEdit.status, 0);
+  assert.match(
+    hiddenSafetyEdit.stderr,
+    /rejects assume-unchanged or skip-worktree index flags/,
+  );
+  assert.doesNotMatch(hiddenSafetyEdit.stdout, /B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
+  gitResult = spawnSync(
+    'git',
+    ['-C', repository, 'update-index', '--no-assume-unchanged', safetyRelative],
+    { encoding: 'utf8' },
+  );
+  assert.equal(gitResult.status, 0, gitResult.stderr || gitResult.stdout);
+  writeFileSync(candidateSafety, originalSafety);
+  assert.equal(
+    spawnSync(
+      'git',
+      ['-C', repository, 'status', '--porcelain=v1', '--untracked-files=all'],
+      { encoding: 'utf8' },
+    ).stdout,
+    '',
+  );
 
   const apply = run(candidateRunner, ['apply'], {
     ...environment,

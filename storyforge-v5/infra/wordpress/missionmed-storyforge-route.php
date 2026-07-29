@@ -25,9 +25,9 @@ define( 'MMSFR_MAX_BODY_BYTES', 6291456 );
 define( 'MMSFR_MAX_RESPONSE_BYTES', 33554432 );
 define( 'MMSFR_TIMEOUT_SECONDS', 9 );
 // BEGIN GENERATED STORYFORGE RELEASE ID.
-define( 'MMSFR_RELEASE_ID', 'v-0912286e7dfc2327' );
-define( 'MMSFR_RELEASE_PHP_SHA256', '3215eed4837d9a9d712706003e352ead3423e399bea76c20818270d93fcb199e' );
-define( 'MMSFR_RELEASE_PHP_SIZE', 741148 );
+define( 'MMSFR_RELEASE_ID', 'v-2f3ce82ab6c52b4d' );
+define( 'MMSFR_RELEASE_PHP_SHA256', '44ef76cf5bd23a5fe447e47574ef75bd6f94d277a432385c614b65a01519b30e' );
+define( 'MMSFR_RELEASE_PHP_SIZE', 829243 );
 // END GENERATED STORYFORGE RELEASE ID.
 
 /**
@@ -38,17 +38,17 @@ define( 'MMSFR_RELEASE_PHP_SIZE', 741148 );
 function mmsfr_asset_manifest() {
 	return array(
 		// BEGIN GENERATED STORYFORGE ASSET MANIFEST.
-		'assets/app.71f618e9afac.js' => array(
-			'alias' => '71f618e9afac',
-			'sha256' => '71f618e9afac78d13c1b22d30b0ad43e2b2c7ab162b6e1d92ae607b3b853f3fb',
-			'size' => 214651,
+		'assets/app.9cf10e07fc9e.js' => array(
+			'alias' => '9cf10e07fc9e',
+			'sha256' => '9cf10e07fc9ec1f22c70a7c848eec2dff50a1f32289184651a275090b5a6d150',
+			'size' => 269977,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
-		'assets/auth.960289f115f2.js' => array(
-			'alias' => '960289f115f2',
-			'sha256' => '960289f115f2661c8e1bcad314cca3e4e7a592ab918455c3da8acb37d497544e',
-			'size' => 7159,
+		'assets/auth.d2cfc4e447d2.js' => array(
+			'alias' => 'd2cfc4e447d2',
+			'sha256' => 'd2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6',
+			'size' => 7236,
 			'type' => 'text/javascript; charset=utf-8',
 			'cache' => 'immutable',
 		),
@@ -122,16 +122,16 @@ function mmsfr_asset_manifest() {
 			'type' => 'font/woff2',
 			'cache' => 'immutable',
 		),
-		'assets/styles.41e546d34bfd.css' => array(
-			'alias' => '41e546d34bfd',
-			'sha256' => '41e546d34bfd73f0f9f446047640ba2cf7c303b092841b9f5115911293e7ddf1',
-			'size' => 97142,
+		'assets/styles.98bfa8dd2b0e.css' => array(
+			'alias' => '98bfa8dd2b0e',
+			'sha256' => '98bfa8dd2b0e5d1d9c4b14159565bb43ecb50d84b59a52ecbb6bd60cb8cbbe12',
+			'size' => 103209,
 			'type' => 'text/css; charset=utf-8',
 			'cache' => 'immutable',
 		),
 		'index.html' => array(
-			'alias' => 'ade2b11958fa',
-			'sha256' => 'ade2b11958fa70305e6bb5a99e08f1e9621a37cb3cf7df5ce4af964016fee27b',
+			'alias' => 'ac1f3a4f39d1',
+			'sha256' => 'ac1f3a4f39d174f5de30c2e1d9277d8fee44e9780e90f83c71a78f96c0216bdb',
 			'size' => 1397,
 			'type' => 'text/html; charset=utf-8',
 			'cache' => 'html',

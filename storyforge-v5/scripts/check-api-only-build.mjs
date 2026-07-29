@@ -3,6 +3,8 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { assertPhaseOneStudentOnlyRecordingPolicies } from './phase-one-release-safety.mjs';
+
 const packageDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const serverDir = path.join(packageDir, 'server');
 const packageManifest = JSON.parse(
@@ -28,6 +30,8 @@ function runNode(args, environment = process.env) {
     fail(`node ${args.join(' ')} failed${detail ? `: ${detail}` : '.'}`);
   }
 }
+
+await assertPhaseOneStudentOnlyRecordingPolicies({ packageDir });
 
 if (packageManifest.scripts?.start !== 'node server/app.mjs') {
   fail('package start command must remain node server/app.mjs.');

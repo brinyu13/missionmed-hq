@@ -63,6 +63,14 @@ require_regular_file() {
 mode="$1"
 [[ "$mode" = "preflight" || "$mode" = "apply" ]] || usage
 
+phase_one_safety="$PACKAGE_DIR/scripts/phase-one-release-safety.mjs"
+require_regular_file "Phase 1 release safety gate" "$phase_one_safety"
+node_bin="$(command -v node || true)"
+[[ -n "$node_bin" && "$node_bin" = /* && -x "$node_bin" ]] \
+  || fail "Node.js is unavailable for the Phase 1 release safety gate"
+"$node_bin" "$phase_one_safety" >/dev/null \
+  || fail "Phase 1 release safety gate rejected the migration source"
+
 required_variables=(
   STORYFORGE_RAILWAY_PROJECT_ID
   STORYFORGE_RAILWAY_ENVIRONMENT_ID
@@ -206,6 +214,7 @@ require_regular_file "migration runner" "$PACKAGE_DIR/scripts/apply-production-m
 
 source_paths=(
   "storyforge-v5/scripts/apply-production-migrations.sh"
+  "storyforge-v5/scripts/phase-one-release-safety.mjs"
   "storyforge-v5/infra/postgres/bootstrap_production.sql"
   "storyforge-v5/infra/postgres/migrations/${expected_files[0]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[1]}"
@@ -227,6 +236,20 @@ case "$STORYFORGE_SOURCE_MODE" in
       || fail "Git HEAD differs from STORYFORGE_DEPLOY_GIT_COMMIT"
     [[ -z "$(git -C "$git_root" status --porcelain=v1 --untracked-files=all)" ]] \
       || fail "Git source is not an exact clean commit"
+    flagged_sources="$(
+      git -C "$git_root" ls-files -v -- "${source_paths[@]}" \
+        | awk '$1 == "S" || $1 ~ /^[a-z]$/ { print $2 }'
+    )"
+    [[ -z "$flagged_sources" ]] \
+      || fail "migration source rejects assume-unchanged or skip-worktree index flags"
+    for relative in "${source_paths[@]}"; do
+      git -C "$git_root" cat-file -e "$actual_head:$relative" 2>/dev/null \
+        || fail "required migration source is absent from the deploy commit: $relative"
+      committed_hash="$(git -C "$git_root" show "$actual_head:$relative" | sha256_stream)" \
+        || fail "cannot hash committed migration source: $relative"
+      [[ "$committed_hash" = "$(sha256_file "$REPOSITORY_DIR/$relative")" ]] \
+        || fail "running migration source differs from the deploy commit: $relative"
+    done
     ;;
   archive)
     : "${STORYFORGE_SOURCE_ARCHIVE:?STORYFORGE_SOURCE_ARCHIVE is required in archive mode}"

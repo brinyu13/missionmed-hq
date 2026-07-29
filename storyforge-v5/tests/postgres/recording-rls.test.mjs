@@ -214,3 +214,167 @@ test('recording sessions and segments enforce owner-only RLS and service purge a
     await database.stop();
   }
 });
+
+for (const identity of [MENTOR, ADMIN]) {
+  test(`${identity.role} has zero access to self-owned pre-save recording content`, async () => {
+    const database = await startEphemeralStoryForgeDatabase();
+    const { client } = database;
+    try {
+      await assert.rejects(
+        withIdentity(client, identity, (identityClient) => identityClient.query(
+          `INSERT INTO public.sf_recording_sessions (student_id, mime_type)
+           VALUES ($1, 'audio/webm')`,
+          [identity.sub],
+        )),
+        (error) => error.code === '42501',
+      );
+
+      const seeded = await withRole(client, 'storyforge_app', async (serviceClient) => {
+        const session = await serviceClient.query(
+          `INSERT INTO public.sf_recording_sessions (student_id, mime_type)
+           VALUES ($1, 'audio/webm')
+           RETURNING id`,
+          [identity.sub],
+        );
+        const segment = await serviceClient.query(
+          `INSERT INTO public.sf_recording_segments
+             (session_id, seq, object_key, mime_type, byte_size, duration_ms)
+           VALUES ($1, 0, $2, 'audio/webm', 128, 1000)
+           RETURNING id`,
+          [
+            session.rows[0].id,
+            `storyforge-audio/${identity.sub}/role-denial/segment-0.webm`,
+          ],
+        );
+        return {
+          sessionId: session.rows[0].id,
+          segmentId: segment.rows[0].id,
+        };
+      });
+
+      await withIdentity(client, identity, async (identityClient) => {
+        const sessions = await identityClient.query(
+          'SELECT id FROM public.sf_recording_sessions WHERE id = $1',
+          [seeded.sessionId],
+        );
+        const segments = await identityClient.query(
+          'SELECT id FROM public.sf_recording_segments WHERE id = $1',
+          [seeded.segmentId],
+        );
+        const sessionUpdate = await identityClient.query(
+          `UPDATE public.sf_recording_sessions
+           SET updated_at = now()
+           WHERE id = $1
+           RETURNING id`,
+          [seeded.sessionId],
+        );
+        const segmentUpdate = await identityClient.query(
+          `UPDATE public.sf_recording_segments
+           SET updated_at = now()
+           WHERE id = $1
+           RETURNING id`,
+          [seeded.segmentId],
+        );
+        assert.equal(sessions.rowCount, 0);
+        assert.equal(segments.rowCount, 0);
+        assert.equal(sessionUpdate.rowCount, 0);
+        assert.equal(segmentUpdate.rowCount, 0);
+      });
+
+      await assert.rejects(
+        withIdentity(client, identity, (identityClient) => identityClient.query(
+          `INSERT INTO public.sf_recording_segments
+             (session_id, seq, object_key, mime_type, byte_size, duration_ms)
+           VALUES ($1, 1, $2, 'audio/webm', 128, 1000)`,
+          [
+            seeded.sessionId,
+            `storyforge-audio/${identity.sub}/role-denial/segment-1.webm`,
+          ],
+        )),
+        (error) => error.code === '42501',
+      );
+    } finally {
+      await database.stop();
+    }
+  });
+}
+
+for (const targetRole of ['mentor', 'admin']) {
+  test(`changing a student to ${targetRole} immediately closes retained recording access`, async () => {
+    const database = await startEphemeralStoryForgeDatabase();
+    const { client } = database;
+    try {
+      const created = await withIdentity(client, STUDENT_A, async (identityClient) => {
+        const session = await identityClient.query(
+          `INSERT INTO public.sf_recording_sessions (student_id, mime_type)
+           VALUES ($1, 'audio/webm')
+           RETURNING id`,
+          [STUDENT_A.sub],
+        );
+        const segment = await identityClient.query(
+          `INSERT INTO public.sf_recording_segments
+             (session_id, seq, object_key, mime_type, byte_size, duration_ms)
+           VALUES ($1, 0, $2, 'audio/webm', 128, 1000)
+           RETURNING id`,
+          [
+            session.rows[0].id,
+            `storyforge-audio/${STUDENT_A.sub}/role-change/segment-0.webm`,
+          ],
+        );
+        return {
+          sessionId: session.rows[0].id,
+          segmentId: segment.rows[0].id,
+        };
+      });
+
+      await client.query(
+        'UPDATE public.sf_users SET role = $1 WHERE id = $2',
+        [targetRole, STUDENT_A.sub],
+      );
+      const changedIdentity = { ...STUDENT_A, role: targetRole };
+      await withIdentity(client, changedIdentity, async (identityClient) => {
+        const sessions = await identityClient.query(
+          'SELECT id FROM public.sf_recording_sessions WHERE id = $1',
+          [created.sessionId],
+        );
+        const segments = await identityClient.query(
+          'SELECT id FROM public.sf_recording_segments WHERE id = $1',
+          [created.segmentId],
+        );
+        const sessionUpdate = await identityClient.query(
+          `UPDATE public.sf_recording_sessions
+           SET updated_at = now()
+           WHERE id = $1
+           RETURNING id`,
+          [created.sessionId],
+        );
+        const segmentUpdate = await identityClient.query(
+          `UPDATE public.sf_recording_segments
+           SET updated_at = now()
+           WHERE id = $1
+           RETURNING id`,
+          [created.segmentId],
+        );
+        assert.equal(sessions.rowCount, 0);
+        assert.equal(segments.rowCount, 0);
+        assert.equal(sessionUpdate.rowCount, 0);
+        assert.equal(segmentUpdate.rowCount, 0);
+      });
+
+      await assert.rejects(
+        withIdentity(client, changedIdentity, (identityClient) => identityClient.query(
+          `INSERT INTO public.sf_recording_segments
+             (session_id, seq, object_key, mime_type, byte_size, duration_ms)
+           VALUES ($1, 1, $2, 'audio/webm', 128, 1000)`,
+          [
+            created.sessionId,
+            `storyforge-audio/${STUDENT_A.sub}/role-change/segment-1.webm`,
+          ],
+        )),
+        (error) => error.code === '42501',
+      );
+    } finally {
+      await database.stop();
+    }
+  });
+}

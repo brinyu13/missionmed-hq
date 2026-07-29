@@ -8,6 +8,8 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
+import { assertPhaseOneStudentOnlyRecordingPolicies } from './phase-one-release-safety.mjs';
+
 const fullCommitPattern = /^[a-f0-9]{40}$/;
 const forbiddenGitEnvironment = new Set([
   'GIT_ALTERNATE_OBJECT_DIRECTORIES',
@@ -209,6 +211,9 @@ export function assertReleaseSource({
         + `${expectedRepositoryDir}.`,
     );
   }
+  assertPhaseOneStudentOnlyRecordingPolicies({
+    packageDir: realpathSync(startDirectory),
+  });
   const expectedCommit = releaseExpectedCommit(environment);
   const head = git(repositoryDir, ['rev-parse', 'HEAD^{commit}']);
   if (head !== expectedCommit) {
