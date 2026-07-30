@@ -578,49 +578,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
 <!-- ================= CANVAS EDITOR ================= -->
 <section data-view="canvas">
-  <div class="trow"><div class="bigt">CANVAS <em>EDITOR</em></div><div class="subt">KEYNOTE DUPE · ARROWS SNAP TO MONTHS · DRAG BODY TO MOVE · DRAG TIP TO RESIZE</div></div>
-  <div class="canvasCtl">
-    <div class="seg" id="modeSeg">
-      <button data-m="blank" class="on">Blank Builder</button>
-      <button data-m="demo">Demo Events</button>
-      <button data-m="reference">Reference Sample</button>
-    </div>
-    <button class="btnD alt sm" id="ctlUndo">↩ UNDO</button>
-    <button class="btnD alt sm" id="ctlSnap">SNAP TO DATES</button>
-    <button class="btnD alt sm" id="ctlArrange">AUTO ARRANGE ▸</button>
-    <button class="btnD alt sm" id="ctlDemoLoad">LOAD DEMO STORY</button>
-    <button class="btnD alt sm" id="ctlDemoClear">CLEAR CANVAS</button>
-    <button class="btnD alt sm" id="ctlFixtures">STRESS ▾</button>
-    <span class="chip cy" id="ctlMsg">AXIS LOCKED · ARROWS SNAP TO MONTH</span>
-    <span class="chip em" id="ctlCrowd" style="display:none">CROWDED · CONDENSED MODE SUGGESTED</span>
-  </div>
-  <div class="canvasCtl">
-    <button class="thBtn">THEME ▾</button>
-    <div class="seg" id="zoomSeg"><button data-z="75">75%</button><button data-z="100" class="on">100%</button><button data-z="125">125%</button><button data-z="150">150%</button></div>
-    <button class="btnD alt sm" id="ctlFit">FIT</button>
-    <button class="btnD alt sm" id="ctlFull">FULL CANVAS</button>
-    <button class="btnD alt sm" id="ctlCondensed">CONDENSED</button>
-    <button class="btnD alt sm" id="ctlSprites">SPRITES · ON</button>
-    <span class="helper">DRAG ARROW = DATES · DRAG TIP = DURATION · CLICK KEY = CATEGORIES · KEYBOARD Z = UNDO</span>
-  </div>
-  <div style="display:grid;grid-template-columns:205px minmax(0,1fr) 290px;gap:16px" id="canvasGrid">
-    <div class="panelD"><div class="pi" style="padding:16px 16px">
-      <div class="subt" style="margin-bottom:12px">ADD ELEMENTS</div>
-      <div id="elemList"></div>
-      <div class="subt" style="margin:16px 0 8px">EVENT LIST</div>
-      <div id="evList" style="max-height:340px;overflow:auto"></div>
-    </div></div>
-    <div class="boardWrap">
-      <div class="purpose"><span class="pgoal">GOAL · HELP AN INTERVIEWER UNDERSTAND THE JOURNEY IN ONE GRAPHIC</span><span class="chip cy">CHRONOLOGY</span><span class="chip cy">OVERLAPS</span><span class="chip cy">PERSONAL CONTEXT</span><span class="chip cy">INTERVIEW-SAFE VERSION</span><span class="chip">ARROW SPRITES APPROXIMATED · EXTRACTION NEEDED</span></div>
-      <div id="boardMain"></div>
-    </div>
-    <div class="panelD"><div class="pi" style="padding:16px 18px">
-      <div class="subt" style="margin-bottom:12px">INSPECTOR</div>
-      <div id="inspector"></div>
-      <div class="subt" style="margin:18px 0 8px">DRAFT HISTORY</div>
-      <div id="histList"></div>
-    </div></div>
-  </div>
+  <div id="canvas407F" class="canvas407FHost" aria-live="off"></div>
 </section>
 
 <!-- ================= INTAKE ================= -->
@@ -1479,28 +1437,28 @@ $('#homeStartOver').onclick=()=>{
 $$('#modeSeg button').forEach(b=>b.onclick=()=>{
   state.mode=b.dataset.m;state.sel=null;
   $$('#modeSeg button').forEach(x=>x.classList.toggle('on',x===b));
-  $('#ctlMsg').textContent=state.mode==='reference'?'REFERENCE ONLY · CANVAS STARTS BLANK':'AXIS LOCKED · ARROWS SNAP TO MONTH';
+  const message=$('#ctlMsg');if(message)message.textContent=state.mode==='reference'?'REFERENCE ONLY · CANVAS STARTS BLANK':'AXIS LOCKED · ARROWS SNAP TO MONTH';
   renderAll();
 });
-$('#ctlSnap').onclick=()=>{toast('Snap to dates · every arrow re-aligned to the month grid');renderAll()};
-$('#ctlArrange').onclick=()=>{pushUndo();const d=curData();d.events.forEach(e=>e.lane=null);toast('Auto arrange · stair-step flow rebuilt');renderAll()};
-$('#ctlUndo').onclick=doUndo;
+const legacySnap=$('#ctlSnap');if(legacySnap)legacySnap.onclick=()=>{toast('Snap to dates · every arrow re-aligned to the month grid');renderAll()};
+const legacyArrange=$('#ctlArrange');if(legacyArrange)legacyArrange.onclick=()=>{pushUndo();const d=curData();d.events.forEach(e=>e.lane=null);toast('Auto arrange · stair-step flow rebuilt');renderAll()};
+const legacyUndo=$('#ctlUndo');if(legacyUndo)legacyUndo.onclick=doUndo;
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){if($('#printOv').classList.contains('on')){$('#printOv').classList.remove('on');return}closeModal()}
-  if((e.key==='z'||e.key==='Z')&&(e.ctrlKey||e.metaKey||state.view==='canvas')&&!/input|textarea|select/i.test((e.target&&e.target.tagName)||'')){e.preventDefault();doUndo()}
+  if($('#canvasGrid')&&(e.key==='z'||e.key==='Z')&&(e.ctrlKey||e.metaKey||state.view==='canvas')&&!/input|textarea|select/i.test((e.target&&e.target.tagName)||'')){e.preventDefault();doUndo()}
 });
 $$('#zoomSeg button').forEach(b=>b.onclick=()=>{state.zoom=+b.dataset.z;$$('#zoomSeg button').forEach(x=>x.classList.toggle('on',x===b));applyZoom();toast('Zoom · '+state.zoom+'%')});
-$('#ctlFit').onclick=()=>{
+const legacyFit=$('#ctlFit');if(legacyFit)legacyFit.onclick=()=>{
   const host=$('#boardMain');const b=host&&host.querySelector('.board');if(!b)return;
   const avail=Math.max(320,window.innerHeight-(host.getBoundingClientRect?host.getBoundingClientRect().top:220)-40);
   const z=Math.max(40,Math.min(100,Math.floor(avail/b.offsetHeight*100)));
   state.zoom=z;$$('#zoomSeg button').forEach(x=>x.classList.toggle('on',+x.dataset.z===z));applyZoom();
   toast('Fit · whole board at '+z+'%');
 };
-$('#ctlFull').onclick=()=>{state.fullCanvas=!state.fullCanvas;$('#canvasGrid').classList.toggle('full',state.fullCanvas);$('#ctlFull').style.color=state.fullCanvas?'var(--em)':'';toast(state.fullCanvas?'Full canvas · panels hidden':'Panels restored');applyZoom()};
-$('#ctlCondensed').onclick=()=>{state.condensed=!state.condensed;toast(state.condensed?'Condensed mode · tighter lanes for dense stories':'Standard density');renderAll()};
-$('#ctlSprites').onclick=()=>{state.sprites=!state.sprites;toast(state.sprites?'402A sprites on · exact-derived arrows, axis, flags':'Sprites off · CSS approximation for comparison');renderAll()};
-$('#ctlFixtures').onclick=()=>{
+const legacyFull=$('#ctlFull');if(legacyFull)legacyFull.onclick=()=>{state.fullCanvas=!state.fullCanvas;const grid=$('#canvasGrid');if(grid)grid.classList.toggle('full',state.fullCanvas);legacyFull.style.color=state.fullCanvas?'var(--em)':'';toast(state.fullCanvas?'Full canvas · panels hidden':'Panels restored');applyZoom()};
+const legacyCondensed=$('#ctlCondensed');if(legacyCondensed)legacyCondensed.onclick=()=>{state.condensed=!state.condensed;toast(state.condensed?'Condensed mode · tighter lanes for dense stories':'Standard density');renderAll()};
+const legacySprites=$('#ctlSprites');if(legacySprites)legacySprites.onclick=()=>{state.sprites=!state.sprites;toast(state.sprites?'402A sprites on · exact-derived arrows, axis, flags':'Sprites off · CSS approximation for comparison');renderAll()};
+const legacyFixtures=$('#ctlFixtures');if(legacyFixtures)legacyFixtures.onclick=()=>{
   openModal('<div class="subt" style="margin-bottom:12px">STRESS FIXTURES · COLLISION AND DENSITY PROOF</div>'
    +'<div style="display:flex;gap:10px;flex-wrap:wrap">'
    +'<button class="btnD alt sm" data-fx="fx15">15 EVENTS</button>'
@@ -1513,8 +1471,8 @@ $('#ctlFixtures').onclick=()=>{
   $$('#modalIn [data-fx]').forEach(b=>b.onclick=()=>{closeModal();loadFixture(b.dataset.fx)});
   $('#fxClose').onclick=closeModal;
 };
-$('#ctlDemoLoad').onclick=()=>{pushUndo();loadDemoIntoUser()};
-$('#ctlDemoClear').onclick=()=>{pushUndo();state.user={events:[],interview:{prog:'',date:'',label:''}};state.sel=null;state.saved=false;toast('Canvas cleared · blank builder restored · undo available');renderAll()};
+const legacyDemoLoad=$('#ctlDemoLoad');if(legacyDemoLoad)legacyDemoLoad.onclick=()=>{pushUndo();loadDemoIntoUser()};
+const legacyDemoClear=$('#ctlDemoClear');if(legacyDemoClear)legacyDemoClear.onclick=()=>{pushUndo();state.user={events:[],interview:{prog:'',date:'',label:''}};state.sel=null;state.saved=false;toast('Canvas cleared · blank builder restored · undo available');renderAll()};
 /* ============ D1-404 BUILDER ============ */
 const BUILDER_STEPS_404=[
   {title:'Core Info',purpose:'Who you are and where you trained.'},

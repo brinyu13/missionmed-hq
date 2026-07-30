@@ -18,6 +18,10 @@ import {
   buildCompletenessSummary,
   computeStoryChecks
 } from "./uxr-002/review.js";
+import {
+  createCanvasState,
+  installCanvas
+} from "./uxr-002/canvas.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -215,6 +219,94 @@ function stableState(state){
   });
 }
 
+const CANVAS_DETAIL_FIELDS=Object.freeze({
+  clinical:Object.freeze([
+    ["institution","Institution"],
+    ["specialty","Specialty"],
+    ["rotationType","Rotation type"],
+    ["city","City"],
+    ["state","State"],
+    ["current","Currently on this rotation","checkbox"]
+  ]),
+  work:Object.freeze([
+    ["role","Role / title"],
+    ["organization","Organization"],
+    ["country","Country"],
+    ["city","City"],
+    ["kind","Kind"],
+    ["current","I still work here","checkbox"],
+    ["description","One-line description"]
+  ]),
+  research:Object.freeze([
+    ["projectTitle","Project title"],
+    ["institution","Institution / lab"],
+    ["role","Role"],
+    ["roleOther","Role (other)"],
+    ["ongoing","Ongoing","checkbox"],
+    ["publicationStatus","Publication status"],
+    ["journal","Journal / venue"],
+    ["publicationYear","Publication year"],
+    ["authorPosition","Author position"],
+    ["doiOrPmid","DOI or PMID"],
+    ["markPublication","Mark the publication on the timeline","checkbox"]
+  ]),
+  personal:Object.freeze([
+    ["happened","What happened"],
+    ["whenKind","When"],
+    ["icon","Icon"]
+  ]),
+  exams:Object.freeze([
+    ["examName","Exam"],
+    ["result","Result"],
+    ["score","Score"],
+    ["attempt","Attempt"],
+    ["studyStartDate","Started studying"]
+  ])
+});
+
+function escapeMarkup(value){
+  return String(value??"").replace(/[&<>"']/g,(character)=>({
+    "&":"&amp;",
+    "<":"&lt;",
+    ">":"&gt;",
+    '"':"&quot;",
+    "'":"&#39;"
+  })[character]);
+}
+
+function canvasDetailField([key,label,type="text"],event){
+  const value=event.fields?.[key]??"";
+  if(type==="checkbox"){
+    return `<label class="canvas407FDetailCheck"><input type="checkbox" data-canvas-detail-field="${key}" ${value?"checked":""}> <span>${escapeMarkup(label)}</span></label>`;
+  }
+  return `<label class="canvas407FDetailField"><span>${escapeMarkup(label)}</span><input type="text" data-canvas-detail-field="${key}" value="${escapeMarkup(value)}"></label>`;
+}
+
+function renderCanvasDetails(route,event){
+  const domain=event.fields?.builderDomain||event.categoryId||"personal";
+  const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
+  const isMilestone=event.eventType==="milestone";
+  return `<div class="canvas407FDetails" data-canvas-details-form data-event-id="${escapeMarkup(event.id)}">
+    <div class="canvas407FDetailGrid">
+      <label class="canvas407FDetailField canvas407FDetailWide"><span>Title</span><input type="text" data-canvas-detail-key="title" value="${escapeMarkup(event.title)}"></label>
+      <label class="canvas407FDetailField"><span>Category</span><select data-canvas-detail-key="categoryId">${Object.keys(CATEGORY_TO_407F).map((category)=>`<option value="${category}" ${event.categoryId===category?"selected":""}>${escapeMarkup(category[0].toUpperCase()+category.slice(1))}</option>`).join("")}</select></label>
+      <label class="canvas407FDetailField"><span>Start</span><input type="month" data-canvas-detail-key="startDate" value="${escapeMarkup(event.startDate)}"></label>
+      ${isMilestone?"":`<label class="canvas407FDetailField"><span>End</span><input type="month" data-canvas-detail-key="endDate" value="${escapeMarkup(event.endDate||"")}"></label>`}
+      <label class="canvas407FDetailField"><span>Visibility</span><select data-canvas-detail-key="visibilityState">
+        <option value="INTERVIEWER_SAFE" ${event.visibilityState==="INTERVIEWER_SAFE"?"selected":""}>Show everyone</option>
+        <option value="ADVISOR_ONLY" ${event.visibilityState==="ADVISOR_ONLY"?"selected":""}>Advisor only</option>
+      </select></label>
+      <label class="canvas407FDetailField"><span>Site / location</span><input type="text" data-canvas-detail-key="siteName" value="${escapeMarkup(event.siteName)}"></label>
+      ${detailFields.map((field)=>canvasDetailField(field,event)).join("")}
+      <label class="canvas407FDetailField canvas407FDetailWide"><span>Notes</span><textarea data-canvas-detail-key="notes">${escapeMarkup(event.notes)}</textarea></label>
+    </div>
+    <div class="canvas407FDetailActions">
+      <button type="button" class="btnD go" data-canvas-details-save>Save changes</button>
+      <button type="button" class="btnD alt" data-canvas-builder-step="${route.step}" data-event-id="${escapeMarkup(event.id)}">Open in Builder</button>
+    </div>
+  </div>`;
+}
+
 export async function boot407FEngineeringAdapter({
   bridge=window.D1_407F_TEST,
   store=new TimelineStore()
@@ -225,6 +317,11 @@ export async function boot407FEngineeringAdapter({
 
   const init=await store.initialize();
   let applying=false;
+  let canvasController=null;
+  let canvasSyncing=false;
+  let unsubscribeStore=()=>{};
+  let onCanvasDetailsClick=()=>{};
+  let onCanvasResize=()=>{};
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
@@ -244,11 +341,13 @@ export async function boot407FEngineeringAdapter({
   }
 
   let pending=false;
-  const reconcile=()=>{
+  const reconcile=(event)=>{
+    if(event?.target?.closest?.("#canvas407F"))return;
     if(applying||pending)return;
     pending=true;
     queueMicrotask(()=>{
       pending=false;
+      reflectStoreStatus();
       const nextState=stableState(bridge.state);
       if(nextState===lastState)return;
       lastState=nextState;
@@ -256,6 +355,7 @@ export async function boot407FEngineeringAdapter({
         "407F canonical UI change",
         (document)=>apply407FStateToDocument(bridge.state,document)
       );
+      if(bridge.state.view==="canvas")canvasController?.render();
     });
   };
 
@@ -276,6 +376,10 @@ export async function boot407FEngineeringAdapter({
         (document)=>apply407FStateToDocument(bridge.state,document)
       );
     }
+    canvasController?.destroy();
+    unsubscribeStore();
+    document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
+    window.removeEventListener("resize",onCanvasResize);
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -287,6 +391,7 @@ export async function boot407FEngineeringAdapter({
       applying=true;
       applyDocumentTo407FState(store.document,bridge.state);
       bridge.renderAll();
+      canvasController?.render();
       lastState=stableState(bridge.state);
       applying=false;
     }
@@ -299,6 +404,7 @@ export async function boot407FEngineeringAdapter({
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     bridge.renderAll();
+    canvasController?.render();
     lastState=stableState(bridge.state);
     applying=false;
   };
@@ -339,6 +445,7 @@ export async function boot407FEngineeringAdapter({
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     bridge.renderAll();
+    canvasController?.render();
     lastState=stableState(bridge.state);
     applying=false;
     return result;
@@ -393,12 +500,96 @@ export async function boot407FEngineeringAdapter({
       };
     }
   });
+  const reflectStoreStatus=()=>{
+    const save=document.getElementById("hudSave");
+    if(!save)return;
+    const status=store.saveStatus;
+    save.textContent=status==="error"?"COULDN’T SAVE — RETRY":status==="saving"?"SAVING…":"SAVED JUST NOW";
+    save.className=`saveState ${status==="saved"?"isSaved":status==="saving"?"isSaving":"isError"}`;
+  };
+  unsubscribeStore=store.subscribe(reflectStoreStatus);
+
+  const canvasHost=document.getElementById("canvas407F");
+  if(canvasHost){
+    const syncCanvasDocument=()=>{
+      if(canvasSyncing)return;
+      canvasSyncing=true;
+      applying=true;
+      applyDocumentTo407FState(store.document,bridge.state);
+      bridge.renderAll();
+      reflectStoreStatus();
+      lastState=stableState(bridge.state);
+      applying=false;
+      canvasSyncing=false;
+    };
+    canvasController=installCanvas(canvasHost,store,{
+      state:createCanvasState({
+        viewportWidth:window.innerWidth,
+        mode:store.document.mode
+      }),
+      renderDetails:renderCanvasDetails,
+      onStateChange:syncCanvasDocument,
+      onOpenBuilder:()=>bridge.go("builder"),
+      onDateControl:({edge,event})=>{
+        canvasController?.setUiState({detailsEventId:event.id});
+        queueMicrotask(()=>{
+          canvasHost.querySelector(`[data-canvas-detail-key="${edge==="end"?"endDate":"startDate"}"]`)?.focus();
+        });
+      },
+      onAdvanced:()=>bridge.toast("Advanced Studio is available from the mode switch when enabled."),
+      onGuided:()=>bridge.toast("Guided Mode selected"),
+      onDropReflow:syncCanvasDocument,
+      onToast:(message)=>bridge.toast(message)
+    });
+    api.canvas=canvasController;
+
+    onCanvasDetailsClick=(event)=>{
+      const saveButton=event.target.closest?.("[data-canvas-details-save]");
+      const builderButton=event.target.closest?.("[data-canvas-builder-step]");
+      if(saveButton){
+        const form=saveButton.closest("[data-canvas-details-form]");
+        const eventId=form?.dataset?.eventId;
+        store.mutate("Edit Canvas event details",(document)=>{
+          const selected=document.events.find((item)=>String(item.id)===String(eventId));
+          if(!selected)return;
+          for(const input of form.querySelectorAll("[data-canvas-detail-key]")){
+            const key=input.dataset.canvasDetailKey;
+            selected[key]=input.value;
+          }
+          for(const input of form.querySelectorAll("[data-canvas-detail-field]")){
+            const key=input.dataset.canvasDetailField;
+            selected.fields={...(selected.fields||{}),[key]:input.type==="checkbox"?input.checked:input.value};
+          }
+          selected.title=String(selected.title||"").trim()||"Untitled event";
+          if(selected.eventType!=="milestone"){
+            selected.endDate=selected.endDate||null;
+            selected.openEnded=!selected.endDate;
+          }
+        });
+        canvasController.render({animateLayout:true});
+        bridge.toast("Event details saved");
+        return;
+      }
+      if(builderButton){
+        const step=Math.max(1,Math.min(7,Number(builderButton.dataset.canvasBuilderStep)||1));
+        const eventId=builderButton.dataset.eventId;
+        if(step>=3&&step<=6&&eventId)api.domain.edit(eventId);
+        bridge.state.builder.step=step;
+        bridge.go("builder");
+      }
+    };
+    canvasHost.addEventListener("click",onCanvasDetailsClick);
+    onCanvasResize=()=>canvasController?.setResponsiveWidth(window.innerWidth);
+    window.addEventListener("resize",onCanvasResize);
+  }
   api.undo=()=>{
     const entry=store.undo();
     if(!entry)return null;
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
     bridge.renderAll();
+    canvasController?.render();
+    reflectStoreStatus();
     lastState=stableState(bridge.state);
     applying=false;
     return entry;

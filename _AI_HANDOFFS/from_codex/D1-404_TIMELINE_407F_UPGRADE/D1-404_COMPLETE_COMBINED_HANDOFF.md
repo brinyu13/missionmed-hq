@@ -214,13 +214,54 @@ remain available as engineering sources, but `web/index.html` does not load
   `screenshots/M6-review-and-finish.png`
 - Visual verdict: pass — the contextual summary retains 407F's dark premium
   cards, strong type hierarchy, cyan builder edge, and gold action language.
-- Commit: recorded with the next milestone ledger update.
+- Commit: `f7c6329`
+
+### M7 — contextual Guided Canvas
+
+- Removed the retired permanent Add elements/Event list, Inspector, and Draft
+  history panels from the active Canvas DOM and replaced them with one narrow
+  `canvas407F` mount inside the canonical 407F presentation.
+- Installed the retained Canvas controller against the same `TimelineStore`
+  already used by Builder, persistence, history, review, and export; no parallel
+  Canvas state machine or replacement shell was created.
+- Rendered the frozen 48px toolbar in exact order: Guided/Advanced Studio,
+  divider, Add event, Undo/Redo, divider, Theme, Fit/100%/150%, spacer, History,
+  and conditional advisor comments.
+- Preserved the retained direct-manipulation behavior: month-snapped body moves,
+  start/end resize handles, vertical lane moves, one drop-only adaptive reflow,
+  live date tooltips, chronological keyboard selection, inline label editing,
+  and right-click actions.
+- Preserved flat tapered Keynote arrows and plate-free label rendering through
+  the canonical board renderer.
+- Connected the contextual Details action to a centered 560px 407F sheet backed
+  by the owning Builder entry, including editable shared event fields and an
+  explicit jump to the owning Builder step.
+- Connected continuous 800ms autosave to the 407F header status and preserved
+  the retained 50-step undo/redo limit across view switches.
+- Connected the 360px History slide-over with manual versions, newest-first
+  rows, restore/rename/delete controls, and support for all four automatic
+  version types. No Canvas JSON import/export UI remains.
+- Browser assertions: pass — exact toolbar, six Add-event categories,
+  contextual controls and handles, 560px Details sheet, 360px History
+  slide-over, Fit/100% transitions, and zero retired permanent panels.
+- Browser errors after the M7 interaction run: 0.
+- Regression evidence: 400/400 tests pass in segmented runs: 109/109
+  non-performance TypeScript, 10/10 isolated performance, and 281/281 module
+  tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M7-contextual-407f-canvas.png`
+- Visual verdict: pass — the contextual Canvas retains 407F's dark angular
+  navigation and toolbar while the frozen neutral letterbox frames the
+  Keynote-faithful board.
+- Commit: pending M7 commit.
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 395/395 segmented inventory (109 TypeScript functional + 10 isolated performance + 276 module); required floor 370 |
+| Regression floor | PASS — 400/400 segmented inventory (109 TypeScript functional + 10 isolated performance + 281 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -243,6 +284,8 @@ remain available as engineering sources, but `web/index.html` does not load
 | M3 | `5f2b3e6` | `git revert 5f2b3e6` |
 | M4 | `8f11597` | `git revert 8f11597` |
 | M5 | `a530cda` | `git revert a530cda` |
+| M6 | `f7c6329` | `git revert f7c6329` |
+| M7 | pending M7 commit | patch with the M7 commit hash before M8 completion |
 
 ## Precedence resolutions
 
