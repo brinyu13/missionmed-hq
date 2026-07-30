@@ -6,6 +6,7 @@
 - Starting HEAD: `f70e44b1ae9de0ac96e376a6806a0ecf98b14620`
 - Implementation commit: `5c142358fdc3a27b1bf88f8520f074bb82aea51f`
 - Release-candidate commit: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
+- Acceptance/baseline evidence audit: `57cd20bccfa807cc44624910eafbfdeddc43fe89`
 
 The existing locked StoryForge shell was preserved. One additive product-family header was installed using the existing header mount, Matrix route, actions, fonts, accent token, edge token, and viewport variables.
 
@@ -37,13 +38,28 @@ Reference values used: 64-pixel desktop header, compact italic heavy wordmark, w
 
 ### Checkpoint 1 — baseline
 
-The verified pre-change production Founder home is preserved at:
+Exact starting-HEAD baselines were captured for every affected viewport class.
+The local test server used its normal data fixture while Playwright intercepted
+only `app.js` and `styles.css` with the exact bytes from starting commit
+`f70e44b1ae9de0ac96e376a6806a0ecf98b14620`:
 
-`_AI_HANDOFFS/from_codex/B1-507_storyforge_phase1_launch/screenshots/007-live-storyforge-dormant-founder-home-after.png`
+- `screenshots/checkpoint-1-baseline-desktop-1440x1000.png`
+- `screenshots/checkpoint-1-baseline-laptop-1100x760.png`
+- `screenshots/checkpoint-1-baseline-tablet-768x1024.png`
+- `screenshots/checkpoint-1-baseline-mobile-390x844.png`
+- `screenshots/checkpoint-1-baseline-narrow-320x700.png`
+
+The previously verified pre-change production Founder home also remains
+preserved at
+`_AI_HANDOFFS/from_codex/B1-507_storyforge_phase1_launch/screenshots/007-live-storyforge-dormant-founder-home-after.png`.
 
 ### Checkpoint 2 — structure
 
-The structure and polish landed atomically in the minimum two source files, so there is no fabricated interim screenshot. Structural evidence is the final desktop image plus the geometry test proving `railTop >= headerBottom` and `mainTop >= headerBottom`.
+The structure and polish landed atomically in the minimum two source files, so
+there is no fabricated interim screenshot. Structural evidence is the final
+desktop image plus the geometry test proving `railTop >= headerBottom` and
+`mainTop >= headerBottom`. This is a truthful checkpoint exception, not an
+uncaptured or reconstructed intermediate state.
 
 ### Checkpoint 3 — final brand
 

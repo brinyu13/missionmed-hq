@@ -15,6 +15,7 @@ No deployment, production mutation, provider call, real R2 operation, Railway pr
 - Starting HEAD: `f70e44b1ae9de0ac96e376a6806a0ecf98b14620`
 - Implementation: `5c142358fdc3a27b1bf88f8520f074bb82aea51f`
 - Generated deterministic release candidate: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
+- Acceptance/baseline evidence audit: `57cd20bccfa807cc44624910eafbfdeddc43fe89`
 
 ## Authority verification
 
@@ -100,6 +101,12 @@ No deployment, production mutation, provider call, real R2 operation, Railway pr
 
 The acceptance-matrix total is exactly 163 automated cases: 161 passed and two are explicitly skipped due to contradictions with higher binding authority. The 11 manual RP-8 cases remain operator-only.
 
+A final one-to-one acceptance-ID audit found 163 expected unique IDs and 163
+implemented unique IDs, with no missing or extra IDs. Existing assertions for
+cursor-digest format and scheduler suspension were relabeled with their exact
+authority IDs (`T3-12` and `T8-06`); no assertion or runtime behavior changed.
+The unit suite was rerun after the label correction and remained 218/218.
+
 The Docker-backed WordPress integration harness was intentionally not run. The active steer forbids local container-runtime troubleshooting and destructive Docker operations, while that script begins with `docker compose down -v`. This does not block the deterministic candidate or non-container verification.
 
 ## Two exact Fable amendments required
@@ -122,7 +129,12 @@ Everything safe remains complete without these wording corrections. No implement
 
 ## Screenshot evidence
 
-- Baseline: `_AI_HANDOFFS/from_codex/B1-507_storyforge_phase1_launch/screenshots/007-live-storyforge-dormant-founder-home-after.png`
+- Starting-HEAD desktop: `screenshots/checkpoint-1-baseline-desktop-1440x1000.png`
+- Starting-HEAD laptop: `screenshots/checkpoint-1-baseline-laptop-1100x760.png`
+- Starting-HEAD tablet: `screenshots/checkpoint-1-baseline-tablet-768x1024.png`
+- Starting-HEAD mobile: `screenshots/checkpoint-1-baseline-mobile-390x844.png`
+- Starting-HEAD narrow mobile: `screenshots/checkpoint-1-baseline-narrow-320x700.png`
+- Verified earlier production baseline: `_AI_HANDOFFS/from_codex/B1-507_storyforge_phase1_launch/screenshots/007-live-storyforge-dormant-founder-home-after.png`
 - Final desktop: `screenshots/checkpoint-3-final-brand-desktop-1440x1000.png`
 - Laptop: `screenshots/checkpoint-4-laptop-1100x760.png`
 - Tablet: `screenshots/checkpoint-4-tablet-768x1024.png`
@@ -180,7 +192,7 @@ Evidence and handoffs:
 - this combined handoff;
 - `B1-507B_IMPLEMENTATION_HANDOFF.md`;
 - `B1-507B_STORYFORGE_BRAND_HEADER_HANDOFF.md`;
-- six checkpoint PNGs under `screenshots/`.
+- eleven checkpoint PNGs under `screenshots/`.
 
 ## Remaining external gates (verbatim)
 

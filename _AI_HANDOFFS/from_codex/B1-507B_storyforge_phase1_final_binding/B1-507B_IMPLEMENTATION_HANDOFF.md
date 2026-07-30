@@ -13,6 +13,7 @@ The four authorized B1-507B implementation lanes are complete and committed. A d
 - Starting HEAD: `f70e44b1ae9de0ac96e376a6806a0ecf98b14620`
 - Implementation commit: `5c142358fdc3a27b1bf88f8520f074bb82aea51f`
 - Deterministic release-candidate commit: `bba4647b3869d6ef523e7d0d573a7987c7d28c9a`
+- Acceptance/baseline evidence audit: `57cd20bccfa807cc44624910eafbfdeddc43fe89`
 - No remote action: confirmed
 
 ## Lane completion
@@ -98,6 +99,13 @@ B1-507B automated acceptance accounting is exactly 163 cases:
 - 161 passed.
 - 2 skipped because the lower-priority test matrix contradicts binding repository/SQL authority.
 - 11 RP-8 manual cases remain operator-only.
+
+The final acceptance-ID audit compared the authority matrix with the automated
+test labels and found exactly 163 expected unique IDs and 163 implemented unique
+IDs, with no missing or extra IDs. Two assertions that already existed were
+corrected from descriptive labels to their governing IDs (`T3-12` and `T8-06`);
+the assertions and runtime implementation were unchanged. The unit suite was
+rerun after this correction and remained 218/218.
 
 ## Binding contradictions
 
