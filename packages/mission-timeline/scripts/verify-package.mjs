@@ -22,7 +22,7 @@ function sha(path) {
 
 check(
   "D1-404 candidate remains a canonical 407F in-place upgrade",
-  /TIMELINE<b>\/\/S1<\/b>/.test(text("web/index.html"))
+  /MissionMed<b>\/\/<\/b>TimelineBuilder/.test(text("web/index.html"))
     && /--bg:#0b0e14;\s*--bg2:#101623;\s*--card:#141b2b;/.test(text("web/index.html"))
     && /src="\.\/js\/407f-engineering-adapter\.js"/.test(text("web/index.html")),
   sha("web/index.html"),
@@ -50,10 +50,10 @@ check(
   /^# D1-404 — 407F Upgrade and Production Megarun$/m.test(d1404Authority)
     && /ACTIVE — SUPERSEDES WHITE UXR RUNTIME ACTIVATION/.test(d1404Authority)
     && /b318e9da82a45c187725a6439fa042e0cab54af4973a5d5c7fdb6b5974c63db4/.test(d1404Authority)
-    && /TIMELINE<b>\/\/S1<\/b>/.test(activeIndex)
+    && /MissionMed<b>\/\/<\/b>TimelineBuilder/.test(activeIndex)
     && /<nav id="rail" aria-label="Timeline Builder">/.test(activeIndex)
     && (activeIndex.match(/class="rtab(?: on)?"/g)||[]).length===4
-    && ["Home","Builder","Canvas","Export"].every((label)=>new RegExp(`data-v="[^"]+">${label}<`).test(activeIndex))
+    && ["Home","Builder","Edit Timeline","Export"].every((label)=>new RegExp(`data-v="[^"]+">${label}<`).test(activeIndex))
     && /window\.D1_407F_TEST=/.test(activeIndex),
   "canonical 407F active; D1-404 precedence recorded",
 );

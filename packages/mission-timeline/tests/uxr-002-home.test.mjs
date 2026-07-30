@@ -194,7 +194,7 @@ test("returning Home renders exact metadata, one pending chip, approval, and an 
   assert.match(html,/>2 suggestions to review<\/button>/);
   assert.match(html,/>Advisor approved · Jul 29<\/span>/);
   assert.match(html,/>2 events · 2018–2022 · edited /);
-  assert.match(html,/data-open-canvas aria-label="Open canvas"/);
+  assert.match(html,/data-open-canvas aria-label="Edit timeline"/);
   assert.match(html,/Current interview-safe timeline preview/);
   assert.match(html,/#2C6E8F/,"interviewer-safe event must render");
   assert.doesNotMatch(html,/#8A5BBF/,"advisor-only event must not render in the Home preview");

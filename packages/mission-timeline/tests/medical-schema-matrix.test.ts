@@ -108,7 +108,7 @@ test("D1-404 upgrades canonical 407F while the superseded UXR shell remains inac
   const addendumOne = await readFile(new URL("docs/D1-UXR-002-CONTRAST-ADDENDUM-001.md", root), "utf8");
   const addendumTwo = await readFile(new URL("docs/D1-UXR-002-CONTRAST-ADDENDUM-002.md", root), "utf8");
   assert.match(index, /<html lang="en">/);
-  assert.match(index, /TIMELINE<b>\/\/S1<\/b>/);
+  assert.match(index, /MissionMed<b>\/\/<\/b>TimelineBuilder/);
   assert.match(index, /<nav id="rail" aria-label="Timeline Builder">/);
   assert.match(index, /window\.D1_407F_TEST=/);
   assert.match(index, /<script type="module" src="\.\/js\/407f-engineering-adapter\.js"><\/script>/);

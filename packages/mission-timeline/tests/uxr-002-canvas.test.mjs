@@ -713,7 +713,7 @@ test("M8 install owns delegated Canvas listeners, canonical rendering, responsiv
     now:() => new Date("2031-06-14T12:00:00.000Z")
   });
   assert.match(root.innerHTML,/role="application"/);
-  assert.match(root.innerHTML,/Timeline canvas, 6 events; use Tab to move between events/);
+  assert.match(root.innerHTML,/Timeline visualization, 6 events; use Tab to move between events/);
   assert.deepEqual(
     [...root.listeners.keys()].sort(),
     ["click","contextmenu","dblclick","input","keydown","pointerdown","submit","wheel"].sort()

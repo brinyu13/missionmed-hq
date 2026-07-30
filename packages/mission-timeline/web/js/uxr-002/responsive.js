@@ -220,7 +220,7 @@ function navigationForTier(tier) {
   return freezeDeep({
     placement:bottom ? "bottom-tab-bar" : "side-rail",
     itemCount:4,
-    labels:["Home","Builder","Canvas","Export"],
+    labels:["Home","Builder","Edit Timeline","Export"],
     footer:false
   });
 }

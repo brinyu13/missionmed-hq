@@ -8,7 +8,7 @@ export const HISTORY_LIMIT=50;
 export const NAV_ITEMS=Object.freeze([
   {id:"home",label:"Home",icon:"house"},
   {id:"builder",label:"Builder",icon:"list-checks"},
-  {id:"canvas",label:"Canvas",icon:"presentation"},
+  {id:"canvas",label:"Edit Timeline",icon:"presentation"},
   {id:"export",label:"Export",icon:"download"}
 ]);
 
@@ -19,7 +19,7 @@ export const BUILDER_STEPS=Object.freeze([
   {id:"work",title:"Work Experience",purpose:"Clinical or not, US or abroad — work belongs on the story."},
   {id:"research",title:"Research",purpose:"Projects, posters, and papers — with your author position."},
   {id:"personal",title:"Personal",purpose:"The life behind the CV — moves, family, service, anything that shaped the journey."},
-  {id:"review",title:"Review & finish",purpose:"Everything in one place. Fix anything, then open your canvas."}
+  {id:"review",title:"Review & finish",purpose:"Everything in one place. Fix anything, then edit your timeline."}
 ]);
 
 const CATEGORY_ICONS=Object.freeze({
@@ -41,7 +41,7 @@ export const CATEGORIES=Object.freeze(CATEGORY_DEFINITIONS.map(({id,label,color}
 export const HOME_COPY=Object.freeze({
   heading:"Turn your medical journey into an interview-ready timeline.",
   subline:"Answer guided questions about your school, exams, rotations, work, and research. Timeline Builder draws the Keynote-style timeline for you — no design work.",
-  strip:"1 · ADD YOUR JOURNEY   2 · REFINE ON THE CANVAS   3 · EXPORT FOR INTERVIEWS",
+  strip:"1 · ADD YOUR JOURNEY   2 · EDIT YOUR TIMELINE   3 · EXPORT FOR INTERVIEWS",
   intakeTitle:"Start from your CV or MyERAS",
   intakeBody:"Upload your CV or MyERAS export. We'll read it, suggest timeline events, and you approve each one before it appears.",
   assurance:"Nothing appears on your timeline until you approve it."

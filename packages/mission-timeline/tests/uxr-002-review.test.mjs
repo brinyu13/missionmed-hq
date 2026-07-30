@@ -107,7 +107,7 @@ test("M7 combined checks and markup contain exactly the frozen check classes and
   assert.match(html,/data-review-step="4" data-review-event="later"/);
   assert.match(html,/data-story-check="awaiting-exam"/);
   assert.match(html,/data-review-step="2" data-review-exam="pending"/);
-  assert.match(html,/>Open my canvas →<\/button>/);
+  assert.match(html,/>Edit my timeline →<\/button>/);
   assert.match(html,/>Export now<\/button>/);
   assert.doesNotMatch(html,/alarm|warning|error/i);
 });

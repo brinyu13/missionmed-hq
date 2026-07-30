@@ -12,24 +12,25 @@ function extract(tagExpression){
   return match[0];
 }
 
-test("M1 rail contains exactly Home, Builder, Canvas, and Export in order",()=>{
+test("D1-405 rail contains exactly Home, Builder, Edit Timeline, and Export in order",()=>{
   const rail=extract(/<nav id="rail"[\s\S]*?<\/nav>/);
   const items=[...rail.matchAll(/<button class="rtab(?: on)?" data-v="([^"]+)">([^<]+)<\/button>/g)]
     .map((match)=>({route:match[1],label:match[2]}));
   assert.deepEqual(items,[
     {route:"command",label:"Home"},
     {route:"builder",label:"Builder"},
-    {route:"canvas",label:"Canvas"},
+    {route:"canvas",label:"Edit Timeline"},
     {route:"export",label:"Export"}
   ]);
   assert.equal((rail.match(/class="rtab/g)||[]).length,4);
   assert.doesNotMatch(rail,/Command|Intake|Review|Media|Advisor|Questions|Versions|Reference|railFoot/);
 });
 
-test("M1 header preserves 407F identity and removes the legacy HUD",()=>{
+test("D1-405 header preserves 407F identity with MissionMed branding and removes the legacy HUD",()=>{
   const header=extract(/<header class="d1404Header">[\s\S]*?<\/header>/);
   assert.match(header,/id="matrixBack"[^>]+>← MATRIX<\/a>/);
-  assert.match(header,/TIMELINE<b>\/\/S1<\/b>/);
+  assert.match(header,/MissionMed<b>\/\/<\/b>TimelineBuilder/);
+  assert.match(header,/Mission:Residency Division/);
   assert.match(header,/id="hudSave" role="status" aria-live="polite"/);
   assert.match(header,/id="hudExport" data-nav="export" disabled aria-disabled="true"/);
   assert.doesNotMatch(header,/hudMid|hudRight|hudName|hudDraft|hudCount|hudAxis|hudGate|hudSafe|mpWrap|lvlHex|xpWrap|avHex/);

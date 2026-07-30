@@ -220,7 +220,7 @@ export function renderReviewFinish(document={},options={}){
       </li>`).join("")}</ul>
     </section>
     <div class="review-actions">
-      <button type="button" class="button primary" data-review-open-canvas>Open my canvas →</button>
+      <button type="button" class="button primary" data-review-open-canvas>Edit my timeline →</button>
       <button type="button" class="button secondary" data-review-export>Export now</button>
     </div>
   </section>`;

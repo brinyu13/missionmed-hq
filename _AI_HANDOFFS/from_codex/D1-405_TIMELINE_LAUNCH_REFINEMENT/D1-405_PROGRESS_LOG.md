@@ -29,3 +29,35 @@
 - Founder feedback received: none during M0.
 - Correction performed: none.
 - Next action: M1 branding and four-destination navigation clarity.
+
+## 2026-07-30T19:40:33Z — M1 branding and navigation clarity
+
+- Estimated overall completion: 11%
+- Work completed:
+  - Rebranded the 407F header to `MissionMed//TimelineBuilder` and `Mission:Residency Division`.
+  - Preserved the italic 407F wordmark, amber `//`, hierarchy, and identity placement.
+  - Added the collision-safe phone-only abbreviation `MM//TB`.
+  - Kept exactly four destinations and changed only the founder-facing `Canvas` label to `Edit Timeline`.
+  - Updated journey, preview, Review, intake, accessibility, history, and announcement language while retaining the internal `canvas` route and implementation identifiers.
+  - Stacked the three-step journey strip on phones and removed the non-interactive programmatic-heading focus outline without weakening visible focus for interactive controls.
+- Preservation check:
+  - The 407F route graph, dark blueprint shell, active editor, timeline renderer, persistence, history, advisor flow, export flow, and all internal `canvas` contracts remain unchanged.
+- Screenshots:
+  - `evidence/screenshots/D1-405-M1-branding-navigation.png`
+  - `evidence/screenshots/D1-405-M1-branding-navigation-tablet.png`
+  - `evidence/screenshots/D1-405-M1-branding-navigation-phone.png`
+- Preview URL: `http://localhost:8793/web/`
+- Tests:
+  - Complete functional TypeScript suite: 110/110 passed.
+  - Complete browser/module suite: 320/320 passed.
+  - Typecheck: passed.
+  - Package verification: 23/23 passed.
+  - Production build: passed; 185 files due only to the preserved ignored user-owned HTML copy already recorded in M0.
+- Browser console: 0 fresh warnings or errors.
+- Visual verdict: PASS after correction and recapture at desktop, tablet, and phone sizes.
+- Founder feedback received: none during M1.
+- Correction performed:
+  - Removed the residual focus rectangle from a programmatically focused non-interactive H1.
+  - Prevented phone journey-strip clipping.
+  - Added mobile italic-glyph safe spacing.
+- Next action: M2 Home faster-start and File Vault entry.

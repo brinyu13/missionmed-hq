@@ -382,7 +382,7 @@ test("M4 exposes application/event accessibility metadata, chronological tab ord
   assert.equal(rendered.accessibility.role, "application");
   assert.equal(
     rendered.accessibility.ariaLabel,
-    "Timeline canvas, 7 events; use Tab to move between events"
+    "Timeline visualization, 7 events; use Tab to move between events"
   );
   assert.equal(rendered.accessibility.tabOrder[0], "medical-school");
   assert.match(
@@ -395,7 +395,7 @@ test("M4 exposes application/event accessibility metadata, chronological tab ord
   );
   const svg = serializeKeynoteClassicSvg(rendered);
   assert.match(svg, /role="img" aria-labelledby="d1-keynote-classic-title d1-keynote-classic-description"/);
-  assert.match(svg, /<title id="d1-keynote-classic-title">Timeline canvas, 7 events; use Tab to move between events<\/title>/);
+  assert.match(svg, /<title id="d1-keynote-classic-title">Timeline visualization, 7 events; use Tab to move between events<\/title>/);
   assert.match(svg, /<desc id="d1-keynote-classic-description">/);
   assert.match(svg, /viewBox="0 0 1920 1080" width="1920" height="1080"/);
 });

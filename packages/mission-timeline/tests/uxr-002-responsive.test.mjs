@@ -198,7 +198,7 @@ test("M14 full and compressed desktop retain centered 1440px content and the vis
   assert.deepEqual(full.content,{maximumWidth:1440,centered:true});
   assert.equal(full.navigation.placement,"side-rail");
   assert.equal(full.navigation.itemCount,4);
-  assert.deepEqual(full.navigation.labels,["Home","Builder","Canvas","Export"]);
+  assert.deepEqual(full.navigation.labels,["Home","Builder","Edit Timeline","Export"]);
   assert.equal(full.screens.home.layout,"three-region-grid");
   assert.equal(full.screens.builder.preview,"live-pane");
   assert.equal(full.screens.builder.previewMinimumWidth,420);

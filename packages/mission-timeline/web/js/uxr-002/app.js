@@ -356,7 +356,7 @@ function renderBuilderFoundation(store){
         </form>`:`<div class="step-foundation"><p>Use this step to add your ${step.title.toLowerCase()}.</p>${step.id!=="review"?'<button type="button" class="button tertiary" data-skip-step>I have nothing to add here → skip</button>':""}</div>`}
         <footer class="wizard-footer">
           <button type="button" class="button tertiary" data-builder-back ${store.document.builder.step===1?"disabled":""}>← Back</button>
-          <button type="button" class="button primary" data-builder-next>${store.document.builder.step===7?"Open my canvas →":"Continue →"}</button>
+          <button type="button" class="button primary" data-builder-next>${store.document.builder.step===7?"Edit my timeline →":"Continue →"}</button>
         </footer>
       </section>
       <aside class="builder-preview" aria-label="Live timeline preview">
@@ -370,9 +370,9 @@ function renderBuilderFoundation(store){
 function renderCanvasFoundation(store){
   const history=store.historyStatus();
   return`<div class="screen canvas-screen" data-screen="canvas">
-    <h1 class="sr-only" id="canvas-title" tabindex="-1">Canvas</h1>
+    <h1 class="sr-only" id="canvas-title" tabindex="-1">Edit Timeline</h1>
     <div class="editing-banner">Editing needs a larger screen.</div>
-    <div class="canvas-toolbar" role="toolbar" aria-label="Canvas tools">
+    <div class="canvas-toolbar" role="toolbar" aria-label="Timeline editing tools">
       <div class="segmented mode-switch"><button type="button" class="${store.document.mode==="guided"?"selected":""}">Guided</button><button type="button" class="${store.document.mode==="advanced"?"selected":""}">Advanced Studio</button></div>
       <span class="toolbar-divider"></span>
       <button type="button" class="button secondary compact">+ Add event</button>
@@ -425,10 +425,10 @@ function renderScreen(store){
   if(store.route==="canvas"){
     const fullContent='<div data-canvas-host class="canvas-host"></div>';
     const preview=store.document.events.length
-      ?canonicalBoardPreview(store.document,{label:"Timeline canvas preview",audience:"EVERYTHING"})
+      ?canonicalBoardPreview(store.document,{label:"Timeline visualization preview",audience:"EVERYTHING"})
       :'<div class="canvas-empty-message"><p>No events yet — add one below or use the Builder.</p><button type="button" class="button secondary" data-route="builder">Open Builder</button></div>';
     const previewContent=`<div class="screen canvas-screen canvas-preview-only" data-screen="canvas">
-      <h1 class="sr-only" tabindex="-1">Canvas</h1>
+      <h1 class="sr-only" tabindex="-1">Edit Timeline</h1>
       <div class="canvas-stage">${preview}</div>
     </div>`;
     if(store.responsive?.screens?.canvas?.contentMode==="view-only")return fullContent;
@@ -558,7 +558,7 @@ export async function bootTimelineBuilder(){
     if(!result.changed)return result;
     if(result.effects?.rerunAutoArrange)autoArrange(result.document);
     store.replace(result.document,{
-      label:plan.mutation?.label||"Change Canvas mode",
+      label:plan.mutation?.label||"Change editing mode",
       history:!!plan.mutation
     });
     return result;

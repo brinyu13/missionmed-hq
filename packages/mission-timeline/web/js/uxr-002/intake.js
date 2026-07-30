@@ -1048,7 +1048,7 @@ function doneMarkup(state){
       <span class="success-check" aria-hidden="true">✓</span>
       <h1 id="intake-title">Added ${state.approval.appliedCount} events from ${escapeHtml(filename)}.</h1>
       <p>${INTAKE_COPY.doneBody}</p>
-      <button type="button" class="button primary" data-intake-action="open-canvas">Open my canvas →</button>
+      <button type="button" class="button primary" data-intake-action="open-canvas">Edit my timeline →</button>
       <button type="button" class="button secondary" data-intake-action="open-builder">Review my timeline in the Builder</button>
       <button type="button" class="button tertiary" data-intake-action="delete-document"${state.sourceDeleted?" disabled":""}>Delete the document</button>
     </div>

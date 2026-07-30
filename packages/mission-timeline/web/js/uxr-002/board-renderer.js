@@ -731,7 +731,7 @@ export function buildKeynoteClassicScene(
   const fullName = String(timeline?.studentProfile?.fullName || "Your journey");
   const firstYear = segments[0]?.startYear ?? segments[0]?.year;
   const lastYear = segments.at(-1)?.year ?? segments.at(-1)?.endYear;
-  const ariaLabel = `Timeline canvas, ${events.length} events; use Tab to move between events`;
+  const ariaLabel = `Timeline visualization, ${events.length} events; use Tab to move between events`;
 
   return {
     renderer: "D1-UXR-002-Keynote-Classic",

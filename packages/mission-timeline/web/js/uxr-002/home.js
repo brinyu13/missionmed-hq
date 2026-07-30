@@ -52,9 +52,9 @@ export function renderHome(store){
             <span>${count} events · ${timelineRange(document.events)} · edited ${relativeEdited(document.updatedAt)}</span>
           </div>
         </div>
-        ${count?`<button type="button" class="preview-button" data-open-canvas aria-label="Open canvas">
+        ${count?`<button type="button" class="preview-button" data-open-canvas aria-label="Edit timeline">
           ${simpleBoardPreview(document,{interactive:false,label:"Current interview-safe timeline preview"})}
-          <span class="ghost-action" aria-hidden="true">Open canvas</span>
+          <span class="ghost-action" aria-hidden="true">Edit timeline</span>
         </button>`:`<div class="empty-preview">
           ${simpleBoardPreview(document,{ghost:true,label:"Example timeline illustration"})}
           <div class="empty-preview-card">

@@ -39,7 +39,7 @@ test("407F Step 7 renders the exact completeness, story-check, and action hierar
   const source=sourceBetween("function reviewFinishMarkup404(","function builderPlaceholderMarkup(");
   assert.match(source,/Completeness summary/);
   assert.match(source,/Story checks/);
-  assert.match(source,/OPEN MY CANVAS →/);
+  assert.match(source,/EDIT MY TIMELINE →/);
   assert.match(source,/EXPORT NOW/);
   assert.match(source,/review\.completeness\.map/);
   assert.match(source,/review\.checks\.map/);

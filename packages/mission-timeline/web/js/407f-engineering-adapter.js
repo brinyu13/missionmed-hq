@@ -675,7 +675,7 @@ export async function boot407FEngineeringAdapter({
     if(!result.changed)return result;
     if(result.effects?.rerunAutoArrange)autoArrange(result.document);
     store.replace(result.document,{
-      label:plan.mutation?.label||"Change Canvas mode",
+      label:plan.mutation?.label||"Change editing mode",
       history:!!plan.mutation
     });
     syncBridgeFromStore();
@@ -1392,7 +1392,7 @@ export async function boot407FEngineeringAdapter({
       if(saveButton){
         const form=saveButton.closest("[data-canvas-details-form]");
         const eventId=form?.dataset?.eventId;
-        store.mutate("Edit Canvas event details",(document)=>{
+        store.mutate("Edit timeline event details",(document)=>{
           const selected=document.events.find((item)=>String(item.id)===String(eventId));
           if(!selected)return;
           for(const input of form.querySelectorAll("[data-canvas-detail-key]")){
@@ -1625,7 +1625,7 @@ export async function boot407FEngineeringAdapter({
         addEventOpen:false,
         contextMenu:null
       });
-      announceGlobal("Canvas selection cleared");
+      announceGlobal("Timeline selection cleared");
     }
   };
   document.addEventListener("keydown",onGlobalKeydown);

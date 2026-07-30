@@ -20,7 +20,20 @@
 }
 
 .brandBlock{
-  min-width:170px;
+  min-width:292px;
+}
+
+.brandBlock .logo{
+  font-size:20px;
+  letter-spacing:-.035em;
+}
+
+.brandBlock .logo b{
+  color:var(--em);
+}
+
+.brandShort{
+  display:none;
 }
 
 .headerSpacer{
@@ -53,6 +66,32 @@
   background:var(--edge);
   color:var(--dim);
   opacity:.62;
+}
+
+@media(max-width:720px){
+  .d1404Header{
+    gap:12px;
+    padding-inline:14px;
+  }
+  .brandBlock{
+    min-width:92px;
+  }
+  .brandLong{
+    display:none;
+  }
+  .brandShort{
+    display:inline;
+  }
+  .brandBlock .logo{
+    font-size:21px;
+  }
+  .logoSub{
+    font-size:8px;
+    letter-spacing:.12em;
+  }
+  .saveState{
+    display:none;
+  }
 }
 
 #rail{
@@ -159,8 +198,14 @@
 }
 
 .homeJourneyStrip{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px 18px;
   margin-top:18px;
   text-transform:uppercase;
+}
+
+.homeJourneyStrip span{
   white-space:nowrap;
 }
 
@@ -3526,6 +3571,10 @@ textarea:focus-visible,
   outline-offset:2px;
 }
 
+[tabindex="-1"]:focus{
+  outline:none;
+}
+
 @media(min-width:1280px) and (max-width:1439px){
   .d1404Builder{
     grid-template-columns:264px 480px minmax(420px,1fr);
@@ -3679,9 +3728,13 @@ textarea:focus-visible,
 
   .homeBuildRegion h1{
     font-size:29px;
+    padding-inline:3px;
   }
 
   .homeJourneyStrip{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:2px;
     line-height:1.8;
   }
 

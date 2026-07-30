@@ -4,7 +4,7 @@
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Archivo:ital,wght@0,400;0,600;0,800;0,900;1,800&display=swap" rel="stylesheet">
-<title>MISSION TIMELINE BUILDER · SEASON ONE · TIMELINE OPS · 407F DEFINITIVE PROTOTYPE</title>
+<title>MissionMed Timeline Builder · Mission:Residency Division · 407F</title>
 <style>
 /* ============ MM-CAM-THEME-D-001 TOKENS (verbatim) ============ */
 :root{
@@ -483,8 +483,11 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 <header class="d1404Header">
   <a class="matrixBack" id="matrixBack" href="#matrix" aria-label="Return to Matrix" title="Matrix connection is unavailable in this local candidate">← MATRIX</a>
   <div class="brandBlock">
-    <div class="logo">TIMELINE<b>//S1</b></div>
-    <div class="logoSub">SEASON ONE · TIMELINE OPS</div>
+    <div class="logo" aria-label="MissionMed Timeline Builder">
+      <span class="brandLong">MissionMed<b>//</b>TimelineBuilder</span>
+      <span class="brandShort" aria-hidden="true">MM<b>//</b>TB</span>
+    </div>
+    <div class="logoSub">Mission:Residency Division</div>
   </div>
   <div class="headerSpacer"></div>
   <span class="saveState" id="hudSave" role="status" aria-live="polite">ALL CHANGES SAVED</span>
@@ -494,7 +497,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 <nav id="rail" aria-label="Timeline Builder">
   <button class="rtab on" data-v="command">Home</button>
   <button class="rtab" data-v="builder">Builder</button>
-  <button class="rtab" data-v="canvas">Canvas</button>
+  <button class="rtab" data-v="canvas">Edit Timeline</button>
   <button class="rtab" data-v="export">Export</button>
 </nav>
 
@@ -511,7 +514,11 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
           <button class="btnD go" id="homeBuild" data-nav="builder">START BUILDING ▸</button>
           <button class="homeTertiary" id="homeStartOver" hidden>Start over</button>
         </div>
-        <p class="homeJourneyStrip">1 · ADD YOUR JOURNEY&nbsp;&nbsp;&nbsp;2 · REFINE ON THE CANVAS&nbsp;&nbsp;&nbsp;3 · EXPORT FOR INTERVIEWS</p>
+        <p class="homeJourneyStrip" aria-label="1. Add your journey. 2. Edit your timeline. 3. Export for interviews.">
+          <span>1 · ADD YOUR JOURNEY</span>
+          <span>2 · EDIT YOUR TIMELINE</span>
+          <span>3 · EXPORT FOR INTERVIEWS</span>
+        </p>
       </div>
     </section>
 
@@ -539,7 +546,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
         </div>
         <div class="homePreviewShell" id="homePreviewShell">
           <div id="boardCommand"></div>
-          <button class="homeCanvasLink" id="homeCanvasLink" data-nav="canvas" aria-label="Open canvas"><span>OPEN CANVAS</span></button>
+          <button class="homeCanvasLink" id="homeCanvasLink" data-nav="canvas" aria-label="Edit timeline"><span>EDIT TIMELINE</span></button>
           <div class="homeEmptyOverlay" id="homeEmptyOverlay">
             <h3>This is what you're building.</h3>
             <p>A one-page visual story an interviewer can read at a glance.</p>
@@ -660,10 +667,10 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
 <!-- ================= REFERENCE ================= -->
 <section data-view="reference">
-  <div class="trow"><div class="bigt">REFERENCE <em>SAMPLE</em></div><div class="subt">READ-ONLY TARGET · THE BUILDER CANVAS STARTS BLANK</div></div>
+  <div class="trow"><div class="bigt">REFERENCE <em>SAMPLE</em></div><div class="subt">READ-ONLY TARGET · YOUR TIMELINE STARTS BLANK</div></div>
   <div class="panelD"><div class="pi" style="padding:14px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:0">
     <span class="chip em">REFERENCE ONLY</span>
-    <span style="font-size:12.5px;color:var(--mid)">The builder canvas starts blank and generates editable elements to match this visual language. This sample is never the working canvas.</span>
+    <span style="font-size:12.5px;color:var(--mid)">Your editable timeline starts blank and grows as you add events. This sample is never your working timeline.</span>
   </div></div>
   <div class="grid2" style="margin-top:18px">
     <div class="panelD"><div class="pi">
@@ -1362,7 +1369,7 @@ const legacyFit=$('#ctlFit');if(legacyFit)legacyFit.onclick=()=>{
   state.zoom=z;$$('#zoomSeg button').forEach(x=>x.classList.toggle('on',+x.dataset.z===z));applyZoom();
   toast('Fit · whole board at '+z+'%');
 };
-const legacyFull=$('#ctlFull');if(legacyFull)legacyFull.onclick=()=>{state.fullCanvas=!state.fullCanvas;const grid=$('#canvasGrid');if(grid)grid.classList.toggle('full',state.fullCanvas);legacyFull.style.color=state.fullCanvas?'var(--em)':'';toast(state.fullCanvas?'Full canvas · panels hidden':'Panels restored');applyZoom()};
+const legacyFull=$('#ctlFull');if(legacyFull)legacyFull.onclick=()=>{state.fullCanvas=!state.fullCanvas;const grid=$('#canvasGrid');if(grid)grid.classList.toggle('full',state.fullCanvas);legacyFull.style.color=state.fullCanvas?'var(--em)':'';toast(state.fullCanvas?'Full timeline · panels hidden':'Panels restored');applyZoom()};
 const legacyCondensed=$('#ctlCondensed');if(legacyCondensed)legacyCondensed.onclick=()=>{state.condensed=!state.condensed;toast(state.condensed?'Condensed mode · tighter lanes for dense stories':'Standard density');renderAll()};
 const legacySprites=$('#ctlSprites');if(legacySprites)legacySprites.onclick=()=>{state.sprites=!state.sprites;toast(state.sprites?'402A sprites on · exact-derived arrows, axis, flags':'Sprites off · CSS approximation for comparison');renderAll()};
 const legacyFixtures=$('#ctlFixtures');if(legacyFixtures)legacyFixtures.onclick=()=>{
@@ -1388,7 +1395,7 @@ const BUILDER_STEPS_404=[
   {title:'Work Experience',purpose:'Clinical or not, US or abroad — work belongs on the story.'},
   {title:'Research',purpose:'Projects, posters, and papers — with your author position.'},
   {title:'Personal',purpose:'The life behind the CV — moves, family, service, anything that shaped the journey.'},
-  {title:'Review & finish',purpose:'Everything in one place. Fix anything, then open your canvas.'}
+  {title:'Review & finish',purpose:'Everything in one place. Fix anything, then edit your timeline.'}
 ];
 const CORE_REQUIRED=['name','school','country','grad','degree'];
 function coreInfoValid(){return CORE_REQUIRED.every(k=>String(state.wiz[k]||'').trim())}
@@ -1711,7 +1718,7 @@ function reviewFinishMarkup404(){
   return '<section class="builderReviewFinish">'
     +'<section class="builderReviewBlock" aria-labelledby="builderCompletenessTitle"><h2 id="builderCompletenessTitle">Completeness summary</h2><ul>'+completeness+'</ul></section>'
     +'<section class="builderReviewBlock" aria-labelledby="builderStoryTitle"><h2 id="builderStoryTitle">Story checks</h2><ul>'+checks+'</ul></section>'
-    +'<div class="builderReviewActions"><button type="button" class="btnD go" data-review-open-canvas>OPEN MY CANVAS →</button>'
+    +'<div class="builderReviewActions"><button type="button" class="btnD go" data-review-open-canvas>EDIT MY TIMELINE →</button>'
     +'<button type="button" class="btnD alt" data-review-export>EXPORT NOW</button></div></section>';
 }
 function builderPlaceholderMarkup(step){
@@ -1732,7 +1739,7 @@ function renderBuilder404(){
   $('#builderPurpose').textContent=current.purpose;
   $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():(step===2?examsMarkup404():(step>=3&&step<=6?domainStepMarkup404(step):builderPlaceholderMarkup(step)));
   $('#builderBack').disabled=step===1;
-  $('#builderContinue').textContent=step===7?'OPEN MY CANVAS →':'CONTINUE →';
+  $('#builderContinue').textContent=step===7?'EDIT MY TIMELINE →':'CONTINUE →';
   $('#builderContinue').hidden=step===7;
 }
 function parseBuilderMonth(value){
@@ -2132,7 +2139,7 @@ function candAct(id,act){
   else if(act==='advisor'){state.user.events.push(candToEvent(c,'advisor'));c.st='advisor';toast('Added · advisor-only · never exported to interviewers')}
   else if(act==='acceptFull'){state.user.events.push(candToEvent(c,'full'));c.st='accepted';toast('Added · full story only · excluded from interviewer-safe')}
   else{const ev=candToEvent(c,c.kind==='privacy'?'advisor':'safe');state.user.events.push(ev);c.st='accepted';
-    toast('Confirmed · arrow generated on the blank canvas');
+    toast('Confirmed · event added to your timeline');
     if(act==='edit'){state.mode='blank';$$('#modeSeg button').forEach(x=>x.classList.toggle('on',x.dataset.m==='blank'));go('canvas');select(ev.id);return}}
   renderCands();renderBoards();renderHud();renderEvList();
 }

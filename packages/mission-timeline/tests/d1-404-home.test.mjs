@@ -34,7 +34,9 @@ test("M2 Home renders the verbatim five-second contract copy",()=>{
     "Use the guided builder →"
   ];
   for(const copy of required)assert.ok(home.includes(copy),`missing frozen Home copy: ${copy}`);
-  assert.match(home,/1 · ADD YOUR JOURNEY&nbsp;&nbsp;&nbsp;2 · REFINE ON THE CANVAS&nbsp;&nbsp;&nbsp;3 · EXPORT FOR INTERVIEWS/);
+  assert.match(home,/>1 · ADD YOUR JOURNEY<\/span>/);
+  assert.match(home,/>2 · EDIT YOUR TIMELINE<\/span>/);
+  assert.match(home,/>3 · EXPORT FOR INTERVIEWS<\/span>/);
 });
 
 test("M2 Home supports empty, resume, intake-review, approval, and start-over states",()=>{

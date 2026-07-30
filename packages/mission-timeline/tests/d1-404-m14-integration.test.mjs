@@ -177,7 +177,7 @@ test("M14 provides the global keyboard map, shortcut sheet, and polite announcem
 
 test("M14 exposes Canvas application semantics and independent live announcements",()=>{
   assert.match(canvas,/role="application"/);
-  assert.match(canvas,/Timeline canvas,[^"]*events; use Tab to move between events/);
+  assert.match(canvas,/Timeline visualization,[^"]*events; use Tab to move between events/);
   assert.match(canvas,/aria-live="polite"/);
   assert.match(canvas,/F2/);
   assert.match(canvas,/Delete/);

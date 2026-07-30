@@ -1057,7 +1057,7 @@ export async function restoreCanvasVersion(
 
 function renderModeSwitch(state,disabled) {
   const mode = state?.mode === "advanced" ? "advanced" : "guided";
-  return `<div class="canvas-mode-switch" role="group" aria-label="Canvas mode">
+  return `<div class="canvas-mode-switch" role="group" aria-label="Timeline editing mode">
     <button type="button" data-canvas-action="guided" aria-pressed="${mode === "guided"}" ${disabled ? "disabled" : ""}>Guided</button>
     <button type="button" data-canvas-action="advanced" aria-pressed="${mode === "advanced"}" ${disabled ? "disabled" : ""}>Advanced Studio</button>
   </div>`;
@@ -1065,7 +1065,7 @@ function renderModeSwitch(state,disabled) {
 
 function renderZoom(zoom) {
   const active = zoom?.mode === "fit" ? "fit" : String(zoom?.percent);
-  return `<div class="canvas-zoom" role="group" aria-label="Canvas zoom">
+  return `<div class="canvas-zoom" role="group" aria-label="Timeline zoom">
     ${[
       ["fit","Fit"],
       ["100","100%"],
@@ -1082,7 +1082,7 @@ export function renderCanvasToolbar({
 }) {
   const viewOnly = !isEditable(state);
   const disabled = viewOnly ? "disabled" : "";
-  return `<div class="canvas-toolbar" data-canvas-toolbar data-height="48" style="height:48px" role="toolbar" aria-label="Canvas tools">
+  return `<div class="canvas-toolbar" data-canvas-toolbar data-height="48" style="height:48px" role="toolbar" aria-label="Timeline editing tools">
     <div data-toolbar-item="mode">${renderModeSwitch(state,viewOnly)}</div>
     <span data-toolbar-item="divider" class="toolbar-divider" aria-hidden="true"></span>
     <button type="button" data-toolbar-item="add-event" data-canvas-action="add-event" ${disabled}>+ Add event</button>
@@ -1212,7 +1212,7 @@ function renderSelectionHandles(event,sceneEvent,state) {
 }
 
 function emptyBoardMarkup() {
-  return `<div class="canvas-empty-board" role="application" aria-label="Timeline canvas, 0 events; use Tab to move between events">
+  return `<div class="canvas-empty-board" role="application" aria-label="Timeline visualization, 0 events; use Tab to move between events">
     <div class="canvas-axis-placeholder" aria-hidden="true"></div>
     <div class="canvas-empty-message">
       <p>No events yet — add one below or use the Builder.</p>
@@ -1333,7 +1333,7 @@ export function renderCanvas({
     : "";
 
   return `<div class="screen canvas-screen" data-screen="canvas" data-mode="${viewState.mode}" data-view-only="${!isEditable(viewState)}">
-    <h1 class="sr-only">Canvas</h1>
+    <h1 class="sr-only">Edit Timeline</h1>
     ${viewState.responsive.banner ? `<div class="canvas-responsive-banner" role="status">${escapeHtml(viewState.responsive.banner)}</div>` : ""}
     ${renderCanvasToolbar({state:viewState,historyStatus,commentsCount})}
     ${viewState.themeOpen ? themeMarkup : ""}

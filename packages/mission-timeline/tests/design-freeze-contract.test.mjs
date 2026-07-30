@@ -76,7 +76,7 @@ test("D1-UXR-002 shell exposes exactly the four frozen navigation items in order
     [
       {id:"home",label:"Home"},
       {id:"builder",label:"Builder"},
-      {id:"canvas",label:"Canvas"},
+      {id:"canvas",label:"Edit Timeline"},
       {id:"export",label:"Export"}
     ]
   );
@@ -89,7 +89,7 @@ test("Home authority copy is exact and the three frozen regions consume the regi
   assert.deepEqual(HOME_COPY,{
     heading:"Turn your medical journey into an interview-ready timeline.",
     subline:"Answer guided questions about your school, exams, rotations, work, and research. Timeline Builder draws the Keynote-style timeline for you — no design work.",
-    strip:"1 · ADD YOUR JOURNEY   2 · REFINE ON THE CANVAS   3 · EXPORT FOR INTERVIEWS",
+    strip:"1 · ADD YOUR JOURNEY   2 · EDIT YOUR TIMELINE   3 · EXPORT FOR INTERVIEWS",
     intakeTitle:"Start from your CV or MyERAS",
     intakeBody:"Upload your CV or MyERAS export. We'll read it, suggest timeline events, and you approve each one before it appears.",
     assurance:"Nothing appears on your timeline until you approve it."
@@ -116,7 +116,7 @@ test("Builder has exactly seven frozen steps, titles, purposes, and order",()=>{
     {id:"work",title:"Work Experience",purpose:"Clinical or not, US or abroad — work belongs on the story."},
     {id:"research",title:"Research",purpose:"Projects, posters, and papers — with your author position."},
     {id:"personal",title:"Personal",purpose:"The life behind the CV — moves, family, service, anything that shaped the journey."},
-    {id:"review",title:"Review & finish",purpose:"Everything in one place. Fix anything, then open your canvas."}
+    {id:"review",title:"Review & finish",purpose:"Everything in one place. Fix anything, then edit your timeline."}
   ]);
   assert.equal(BUILDER_STEPS.length,7);
   assert.match(appSource,/BUILDER_STEPS\.map\(\(item,index\)=>/);
@@ -284,9 +284,9 @@ test("D1-404 upgrades canonical 407F in place and records its authority",()=>{
   assert.match(indexHtml,/<html lang="en">/);
   assert.match(indexHtml,/<meta charset="UTF-8">/);
   assert.match(indexHtml,/<meta name="viewport" content="width=device-width,initial-scale=1">/);
-  assert.match(indexHtml,/<title>MISSION TIMELINE BUILDER · SEASON ONE · TIMELINE OPS · 407F DEFINITIVE PROTOTYPE<\/title>/);
+  assert.match(indexHtml,/<title>MissionMed Timeline Builder · Mission:Residency Division · 407F<\/title>/);
   assert.match(indexHtml,/--bg:#0b0e14;\s*--bg2:#101623;\s*--card:#141b2b;/);
-  assert.match(indexHtml,/TIMELINE<b>\/\/S1<\/b>/);
+  assert.match(indexHtml,/MissionMed<b>\/\/<\/b>TimelineBuilder/);
   assert.match(indexHtml,/<nav id="rail" aria-label="Timeline Builder">/);
   assert.match(indexHtml,/window\.D1_407F_TEST=/);
   assert.match(indexHtml,/<link rel="stylesheet" href="\.\/styles\/407f-upgrade\.css">/);
