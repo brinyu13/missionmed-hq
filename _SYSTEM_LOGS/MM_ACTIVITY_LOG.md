@@ -3443,5 +3443,6 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 - WordPress multipart/DELETE and replay gaps were closed locally.
 - No provider call, student audio, production migration, deployment, bucket/key creation, feature activation, or production write occurred.
 - Dormant deployment is blocked on the stale owner-controlled Critical Systems manifest, missing canonical Matrix guard receipt, and the fresh backup/restore sequence that must follow them.
+- Git custody completed at draft PR #19; its broad shared-platform conflicts were preserved for repository-owner integration rather than resolved inside StoryForge scope.
 
 **Status:** BLOCKED ON NON-RP8 EXTERNAL GATES

@@ -28,6 +28,8 @@ or student-audio operation occurred in B1-507.
 | Exact deployment source pin | `09878514fff39b2d1f2ba3ee40c4c3de55ffc473` |
 | Release ID | `v-4f40609482162cbd` |
 | Deterministic Git archive SHA-256 | `fcd8f773d1b1d4fd915244bac7e8d652b35ae5b538c5ed77af682b427a1fea56` |
+| First evidence commit | `789755583ac08f585b6623e1cd3ef320144989b2` |
+| Draft PR | `https://github.com/brinyu13/missionmed-hq/pull/19` |
 
 Documentation-only commits after `09878514...` do not replace the exact
 deployment source pin.
@@ -239,7 +241,10 @@ Remaining non-RP8 external gates:
    `wp-content/plugins/missionmed-hub` sources are absent from this worktree.
    The control-plane/Matrix owner must run the guard in the source-bearing
    worktree or issue the exact asset-scoped ruling.
-3. GitHub custody requires the exact branch push and pull request.
+3. GitHub custody is complete, but PR #19 conflicts with current `main` across
+   shared governance/platform files. The repository owner must provide the
+   bounded current-main integration method; B1-507 cannot choose resolutions
+   for unrelated Matrix/USCE/control-plane history.
 4. A fresh recovery set is required: manual MyKinsta backup; private Kinsta
    pointer/route/plugin/settings receipt; PostgreSQL 18 custom-format dump;
    isolated restore rehearsal; locked non-expiring Railway backup; mode-0600
@@ -420,7 +425,9 @@ the database-role password is also restored under explicit recovery authority.
 
 ## 11. Shortest path
 
-1. Complete GitHub branch/PR custody.
+1. Have the repository/platform owner provide the bounded integration method
+   for draft PR #19 or create a clean StoryForge-only integration branch that
+   preserves exact product pin `09878514...`.
 2. Have the control-plane owner reconcile the stale Critical Systems manifest.
 3. Obtain a green Matrix guard receipt from the canonical source-bearing
    worktree.

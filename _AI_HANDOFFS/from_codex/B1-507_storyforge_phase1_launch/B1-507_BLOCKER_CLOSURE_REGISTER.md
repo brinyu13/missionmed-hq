@@ -2,7 +2,7 @@
 
 | Blocker | Dormant status | Evidence / smallest next action |
 |---|---|---|
-| B01 GitHub custody | In progress | Push final bounded branch, open PR, record checks/review |
+| B01 GitHub custody | Custody closed; integration blocked | Branch pushed and draft PR #19 opened; platform owner must resolve broad current-main conflicts or provide a clean integration branch |
 | B02 stale protected manifest | BLOCKED non-RP8 | Owner workflow or explicit bounded owner-reviewed update required |
 | B03 multipart/DELETE gateway | Closed locally | Production proof follows guarded install |
 | B04 replay conformance | Closed locally | Production proof follows guarded install |

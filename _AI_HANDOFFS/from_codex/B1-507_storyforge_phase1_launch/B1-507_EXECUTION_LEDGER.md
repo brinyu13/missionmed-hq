@@ -13,6 +13,7 @@ Last updated: 2026-07-30T04:36:14Z
 | Production database read | PASS | PostgreSQL 18; system ID `7667256745042145332`; exact five-row ledger; 1 user; 0 active assignments |
 | Kinsta/WordPress read | PASS | Current pointer and hashes reverified; one-Founder text pilot remains enabled |
 | Cloudflare/OpenAI read | PASS | No StoryForge R2 bucket; no scoped StoryForge OpenAI project/key |
+| GitHub custody | PASS; integration blocked | Branch pushed; draft PR #19 open; broad shared-platform conflicts require repository-owner integration |
 | Protected-system gate | BLOCKED | `_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json` is stale; owner workflow is unavailable |
 | Fresh recovery points and restore rehearsal | NOT STARTED | Production writes correctly withheld until the protected-system gate is reconciled |
 | Production migrations/deployment | NOT STARTED | No remote production write occurred |
