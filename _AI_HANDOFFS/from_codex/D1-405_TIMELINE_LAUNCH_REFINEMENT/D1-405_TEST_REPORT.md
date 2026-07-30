@@ -54,3 +54,30 @@ M2 added four module tests for the fail-closed File Vault adapter and chooser. T
 | Vitruvius responsive/layout review | D1 PASS / D2 PASS |
 
 One retained test still asserted the superseded lowercase `Review & finish` spelling. It failed once after the D1-405 capitalization correction, was updated to the approved `Review & Finish` requirement, and the complete final suite passed.
+
+## M4 proportional interactive preview and lightbox
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 332/332 passed |
+| Total | 451/451 passed |
+| M4 dedicated Builder preview suite | 8/8 passed |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic production build | Passed; 186 runtime files |
+| Build manifest SHA-256 | `69a2a3301892693b364c2a6eb288ad6726a6a2687e4f27bc1d691f3598c088b3` |
+| Fresh browser console | 0 warnings/errors |
+| Embedded preview ratio | 1.7778; 1920×1080 view box |
+| Full-preview ratio | 1.7778; 1920×1080 view box |
+| Zoom presets | Fit, 100%, and 150% passed |
+| Enlarged preview overflow | Confined to one modal scrollport |
+| Background inertness | Passed |
+| Escape focus restoration | Passed |
+| Core click-to-edit | Passed |
+| Exact exam Enter-to-edit | Passed; focus lands on the exact attempt result control |
+| Stale owner handling | Passed fail-closed |
+| Miyamoto visual review | PASS |
+| Vitruvius accessibility review | Initial FAIL for interview-marker order and initial tab stop; final PASS after correction |
+
+One browser investigation exposed an overly broad SVG namespace replacement that changed canonical `data-event-id` values. The expression was constrained to actual `id` attributes and canonical IDs were re-proven in-browser. Specialist review then exposed two chronology defects: the interview marker was always ordered last, and the first rendered event retained `tabindex="0"` even when the interview was earlier. Both were corrected, a dedicated regression was added, and the full final suite passed.

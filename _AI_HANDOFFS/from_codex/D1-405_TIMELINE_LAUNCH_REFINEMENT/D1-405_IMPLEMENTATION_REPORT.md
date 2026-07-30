@@ -86,6 +86,37 @@ Preview: `http://localhost:8793/web/`
 - Vitruvius responsive/layout verdict: D1 PASS / D2 PASS.
 - True proportional rendering, preview element activation, and zoom-capable lightbox behavior remain explicitly assigned to M4.
 
+## M4 — Proportional interactive preview and lightbox
+
+- Replaced the Builder preview placeholder path with the same canonical `advancedBoardRenderer` used by Edit Timeline and export.
+- Preserved one timeline document and one store; the embedded preview and full-preview lightbox are projections of the same current state and renderer.
+- Added a true 16:9 preview container using the renderer's 1920×1080 view box, `xMidYMid meet`, and contained letterboxing without stretching or clipping.
+- Added stable per-render SVG namespaces while preserving canonical event IDs and owner metadata.
+- Added deterministic preview ownership for:
+  - Core events,
+  - exact exam attempts,
+  - research/publication,
+  - service and leadership,
+  - work experience,
+  - interests and life events,
+  - explanation seams,
+  - interview seams.
+- Added chronological roving focus, Arrow/Home/End navigation, and Enter/Space activation for actionable preview elements.
+- Core and exam activation now route to the exact Builder step and place focus on the corresponding editable control. Stale owners fail closed.
+- Added 44px transparent hit targets without changing visible marker geometry.
+- Upgraded `Open full preview` into a dedicated focus-trapped dialog with:
+  - Fit, 100%, and 150% zoom presets,
+  - a single contained scrollport at enlarged zoom,
+  - background inertness,
+  - Escape and close-button handling,
+  - opener focus restoration,
+  - activation-driven focus transfer to the selected editor.
+- Removed the competing legacy preview render call so the canonical preview has one renderer owner.
+- Browser-tested proportionality, zoom dimensions, document overflow, inertness, focus trap, Escape restoration, Core routing, exact exam routing, and zero fresh console warnings/errors.
+- Miyamoto final visual verdict: PASS.
+- Vitruvius accessibility verdict: initial FAIL because the interview marker was always ordered last and the first rendered event still owned the initial tab stop; final PASS after both owner order and `tabindex` were derived from the earliest visible chronological target.
+- Explanation and interview owner metadata are forward-compatible seams only; their approved authoring forms remain assigned to M9.
+
 ## Autonomous implementation-level adjustments
 
 | Original | Replacement | Reason | Calculated contrast | Affected components |
@@ -93,5 +124,7 @@ Preview: `http://localhost:8793/web/`
 | Browser-default focus outline on programmatically focused `tabindex="-1"` route heading | `outline:none` for `tabindex="-1"` only | Prevent a non-interactive heading from looking like a selected/editable control while preserving route-focus semantics | Not color-contrast applicable; interactive focus remains 2px cyan | Home route heading and future programmatically focused non-interactive route headings |
 | Renderer isolation for fewer than four normal years because the 28% cap and exact-sum invariant conflict | Equal-width, exact-sum small-span presentation fallback; strict shared allocator retained | Ordinary short student timelines must render; this changes only the impossible implementation constraint | Not color-contrast applicable; 1728px becomes 1728, 864+864, or 576+576+576 | Home latest preview, Edit Timeline renderer, theme miniatures, export renderer |
 | Decorative canvas alone supplied the main atmospheric field | Deterministic dark 407F grid/atmosphere on `main`, with the decorative canvas retained | Prevent a transient pale capture during canvas resize while preserving the accepted visual identity | Existing 407F color tokens retained | All route workspace backdrops |
+| Browser-default SVG pointer targets and focus order | 44px transparent hit targets plus chronological roving focus | Make small timeline markers reliably operable without changing visible geometry or chronology | Not color-contrast applicable; visible focus halo uses the existing high-contrast cyan token | Embedded Builder preview and full-preview lightbox |
+| Competing legacy preview render and broad SVG ID rewriting | One canonical preview owner plus attribute-boundary ID namespacing | Prevent duplicate rendering and preserve event identifiers used for exact editor routing | Not color-contrast applicable | Builder preview SVG definitions, event ownership, and click-to-edit |
 
 No product hierarchy, workflow, behavior, or meaning changed through this adjustment.

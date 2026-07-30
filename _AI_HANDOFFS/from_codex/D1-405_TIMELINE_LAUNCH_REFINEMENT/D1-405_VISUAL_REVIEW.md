@@ -73,3 +73,28 @@ Evidence:
 - `evidence/screenshots/D1-405-M3-builder-horizontal-workflow-tablet-preview.png`
 
 No remaining concrete M3 visual or responsive blocker. True proportional rendering and interactive lightbox behavior remain an explicit M4 obligation.
+
+## M4 proportional interactive preview and lightbox
+
+Initial interaction-evidence verdict: FAIL
+
+Concrete correction requested:
+
+1. Ensure exam marker activation focuses an editable control instead of the adjacent Delete action.
+
+Correction completed:
+
+- Exact exam routing now excludes delete controls and focuses the corresponding attempt result control.
+- The final click-to-edit capture was recorded after an unrelated stale export toast had cleared.
+- The embedded and lightbox previews retain the canonical white 407F timeline board, dark shell, diagonal controls, and MissionMed cyan/orange interaction language.
+- Both preview surfaces preserve a true 16:9 board without stretching, clipping, or an alternate shell.
+
+Final verdict: PASS
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M4-proportional-preview-desktop.png`
+- `evidence/screenshots/D1-405-M4-full-preview-lightbox-desktop.png`
+- `evidence/screenshots/D1-405-M4-click-to-edit-exam-desktop.png`
+
+No remaining concrete M4 visual or interaction blocker.

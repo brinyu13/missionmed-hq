@@ -22,6 +22,18 @@ import {
   createCanvasState,
   installCanvas
 } from "./uxr-002/canvas.js";
+import {
+  createCanvasZoom,
+  updateCanvasZoom
+} from "./uxr-002/canvas.js";
+import {
+  BUILDER_PREVIEW_ZOOM_PRESETS,
+  builderPreviewFocusableTargets,
+  builderPreviewTargetAttributes,
+  enhanceBuilderPreviewSvg,
+  moveBuilderPreviewFocus,
+  resolveBuilderPreviewOwner
+} from "./uxr-002/builder-preview.js";
 import {assignStableLanes} from "./uxr-002/adaptive-layout.js";
 import {createAdvancedBoardRenderer} from "./uxr-002/advanced-board.js";
 import {
@@ -369,15 +381,18 @@ function currentMonth(){
 
 let boardSvgInstance=0;
 
-function namespaceBoardSvg(svg,namespace){
+export function namespaceBoardSvg(svg,namespace){
   const prefix=String(namespace||`d1404-board-${++boardSvgInstance}`)
     .replace(/[^a-zA-Z0-9_-]+/g,"-");
   const ids=new Map();
-  let result=String(svg||"").replace(/\bid="([^"]+)"/g,(match,id)=>{
+  let result=String(svg||"").replace(
+    /(^|[\s<])id="([^"]+)"/g,
+    (match,prefixToken,id)=>{
     const next=`${prefix}-${id}`;
     ids.set(id,next);
-    return`id="${next}"`;
-  });
+    return`${prefixToken}id="${next}"`;
+    }
+  );
   if(!ids.size)return result;
   result=result
     .replace(/url\(#([^)]+)\)/g,(match,id)=>ids.has(id)?`url(#${ids.get(id)})`:match)
@@ -573,11 +588,19 @@ export async function boot407FEngineeringAdapter({
   let onAdvisorHashChange=()=>{};
   let onGlobalKeydown=()=>{};
   let onBuilderPreview=()=>{};
+  let onBuilderPreviewInteraction=()=>{};
+  let onBuilderPreviewFocus=()=>{};
+  let onBuilderPreviewResize=()=>{};
+  let onBuilderPreviewBackdrop=()=>{};
   let onHomeFileVault=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
   let shortcutTrap=null;
   let fileVaultTrap=null;
+  let builderPreviewTrap=null;
+  let builderPreviewZoom=createCanvasZoom("fit");
+  let builderPreviewOpener=null;
+  let builderPreviewRenderQueued=false;
   let lastFocusedView=null;
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
@@ -648,11 +671,21 @@ export async function boot407FEngineeringAdapter({
     document.removeEventListener("d1:407f-rendered",onRouteRendered);
     window.removeEventListener("hashchange",onAdvisorHashChange);
     document.removeEventListener("keydown",onGlobalKeydown);
+    document.removeEventListener("click",onBuilderPreviewInteraction);
+    document.removeEventListener("keydown",onBuilderPreviewInteraction);
+    document.removeEventListener("focusin",onBuilderPreviewFocus);
+    window.removeEventListener("resize",onBuilderPreviewResize);
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onBuilderPreviewBackdrop,
+      true
+    );
     document.getElementById("builderPreviewToggle")?.removeEventListener("click",onBuilderPreview);
     document.getElementById("homeFileVault")?.removeEventListener("click",onHomeFileVault);
     responsiveRuntime?.destroy();
     shortcutTrap?.destroy();
     fileVaultTrap?.destroy();
+    builderPreviewTrap?.destroy();
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -677,6 +710,276 @@ export async function boot407FEngineeringAdapter({
     lastState=stableState(bridge.state);
     applying=false;
   };
+  const previewBackgroundInert=(active)=>{
+    for(const element of [
+      document.querySelector("header"),
+      document.getElementById("rail"),
+      document.querySelector("main")
+    ].filter(Boolean)){
+      element.toggleAttribute("inert",active);
+    }
+    document.documentElement.toggleAttribute("data-builder-preview-open",active);
+  };
+  const updateBuilderPreviewHitTargets=(root)=>{
+    const svg=root?.querySelector?.("svg");
+    if(!svg)return;
+    const bounds=svg.getBoundingClientRect?.();
+    if(!bounds?.width||!bounds?.height)return;
+    const viewBox=svg.viewBox?.baseVal;
+    const scale=Math.min(
+      bounds.width/Math.max(1,viewBox?.width||1920),
+      bounds.height/Math.max(1,viewBox?.height||1080)
+    );
+    if(!Number.isFinite(scale)||scale<=0)return;
+    const minimum=44/scale;
+    for(const target of builderPreviewFocusableTargets(root)){
+      target.querySelector?.(":scope > [data-builder-preview-hit-target]")?.remove();
+      let box=null;
+      try{box=target.getBBox?.();}catch{box=null;}
+      if(!box||!Number.isFinite(box.width)||!Number.isFinite(box.height))continue;
+      const width=Math.max(box.width,minimum);
+      const height=Math.max(box.height,minimum);
+      const hit=document.createElementNS("http://www.w3.org/2000/svg","rect");
+      hit.setAttribute("data-builder-preview-hit-target","true");
+      hit.setAttribute("aria-hidden","true");
+      hit.setAttribute("x",String(box.x-(width-box.width)/2));
+      hit.setAttribute("y",String(box.y-(height-box.height)/2));
+      hit.setAttribute("width",String(width));
+      hit.setAttribute("height",String(height));
+      hit.setAttribute("fill","transparent");
+      hit.setAttribute("pointer-events","all");
+      target.insertBefore(hit,target.firstChild);
+    }
+  };
+  const builderPreviewSvg=(namespace)=>{
+    const rendered=advancedBoardRenderer(store.document,{
+      currentMonth:currentMonth(),
+      audience:"INTERVIEWER_SAFE",
+      idNamespace:namespace
+    });
+    return enhanceBuilderPreviewSvg(rendered.svg,store.document);
+  };
+  const mountBuilderPreview=(host,{
+    surface="embedded",
+    namespace=`d1-405-builder-${surface}`,
+    force=false
+  }={})=>{
+    if(!host)return false;
+    const signature=[
+      surface,
+      store.document?.id,
+      store.document?.updatedAt,
+      store.document?.theme,
+      store.document?.mode
+    ].join("|");
+    if(
+      !force&&
+      host.dataset.builderPreviewSignature===signature&&
+      host.querySelector("[data-builder-preview-surface]")
+    )return false;
+    let svg="";
+    try{
+      svg=builderPreviewSvg(namespace);
+    }catch(error){
+      bridge.toast(String(error?.message||error));
+    }
+    host.dataset.builderPreviewSignature=signature;
+    host.innerHTML=svg
+      ?`<div class="builderPreviewSurface" data-builder-preview-surface="${surface}" role="region" aria-label="Interactive timeline preview. Use arrow keys to move between timeline items and Enter to edit.">${svg}</div>`
+      :`<div class="builderPreviewTrueEmpty" role="status"><strong>Your timeline preview will appear here.</strong><span>Add information in Builder to create the final 16:9 artifact.</span></div>`;
+    requestAnimationFrame(()=>updateBuilderPreviewHitTargets(host));
+    return true;
+  };
+  const renderBuilderEmbeddedPreview=({force=false}={})=>
+    mountBuilderPreview(document.getElementById("boardWizard"),{
+      surface:"embedded",
+      namespace:"d1-405-builder-embedded",
+      force
+    });
+  const queueBuilderEmbeddedPreview=({force=false}={})=>{
+    if(builderPreviewRenderQueued&&!force)return;
+    builderPreviewRenderQueued=true;
+    queueMicrotask(()=>{
+      builderPreviewRenderQueued=false;
+      renderBuilderEmbeddedPreview({force});
+    });
+  };
+  const applyBuilderPreviewZoom=()=>{
+    const canvas=document.querySelector("[data-builder-preview-canvas]");
+    if(!canvas)return;
+    const percent=builderPreviewZoom.mode==="percent"
+      ?builderPreviewZoom.percent
+      :null;
+    canvas.dataset.zoomMode=builderPreviewZoom.mode;
+    canvas.dataset.zoomPercent=percent||"fit";
+    canvas.style.setProperty(
+      "--builder-preview-board-width",
+      `${1920*((percent||100)/100)}px`
+    );
+    document.querySelectorAll("[data-builder-preview-zoom]").forEach((button)=>{
+      const selected=button.dataset.builderPreviewZoom===(
+        builderPreviewZoom.mode==="fit"?"fit":String(builderPreviewZoom.percent)
+      );
+      button.setAttribute("aria-pressed",String(selected));
+    });
+    requestAnimationFrame(()=>{
+      updateBuilderPreviewHitTargets(canvas);
+      document.querySelector("[data-builder-preview-viewport]")?.scrollTo?.({
+        left:0,
+        top:0,
+        behavior:"instant"
+      });
+    });
+  };
+  const closeBuilderPreview=({restoreFocus=true}={})=>{
+    const trap=builderPreviewTrap;
+    builderPreviewTrap=null;
+    trap?.destroy();
+    document.getElementById("modalBk")?.removeEventListener(
+      "click",
+      onBuilderPreviewBackdrop,
+      true
+    );
+    bridge.closeModal?.();
+    previewBackgroundInert(false);
+    if(restoreFocus){
+      trap?.restore?.();
+      if(!trap)builderPreviewOpener?.focus?.();
+    }
+    builderPreviewOpener=null;
+  };
+  const focusBuilderPreviewOwner=(route)=>{
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      let target=null;
+      if(route.kind==="exam-attempt"){
+        target=document.querySelector(
+          `[data-exam-card="${CSS.escape(route.ownerId)}"]`
+        );
+      }else if(route.kind==="core-education"){
+        target=document.querySelector('[data-core="school"]');
+      }else if(route.kind==="explanation"){
+        target=document.querySelector(
+          `[data-explanation-editor="${CSS.escape(route.ownerId)}"]`
+        );
+      }else if(route.kind==="interview-target"){
+        target=document.querySelector("[data-interview-config]");
+      }else{
+        target=document.querySelector(
+          `[data-domain-form="${CSS.escape(route.stepId)}"]`
+        );
+      }
+      target=target||document.getElementById("builderStepPanel");
+      target.scrollIntoView?.({block:"center",behavior:"smooth"});
+      const control=target.matches?.("input,select,textarea,button")
+        ?target
+        :target.querySelector?.(
+          "input:not([type='hidden']):not(:disabled),select:not(:disabled),textarea:not(:disabled),button:not(:disabled):not([data-exam-delete]):not([data-domain-delete])"
+        );
+      (control||target).focus?.({preventScroll:true});
+    }));
+  };
+  const activateBuilderPreviewOwner=(attributes,{fromLightbox=false}={})=>{
+    const route=resolveBuilderPreviewOwner(store.document,attributes);
+    if(!route){
+      bridge.toast("This preview item is not connected to an editable entry.");
+      return false;
+    }
+    if(route.kind==="interview-target"){
+      store.mutate("Open interview configuration",(document)=>{
+        document.builder={...(document.builder||{}),step:7};
+      },{history:false,material:false});
+    }else{
+      store.mutate("Open Builder entry",(document)=>{
+        beginBuilderEntryEdit(document,route.eventId);
+      },{history:false,material:false});
+    }
+    if(fromLightbox)closeBuilderPreview({restoreFocus:false});
+    syncBridgeFromStore();
+    bridge.state.builder.step=route.step;
+    bridge.go("builder");
+    focusBuilderPreviewOwner(route);
+    const event=route.eventId
+      ?store.document.events.find(({id})=>String(id)===String(route.eventId))
+      :null;
+    announceGlobal(
+      route.kind==="interview-target"
+        ?"Opened interview configuration in Review & Finish"
+        :`Opened ${event?.title||"timeline item"} in Builder`
+    );
+    return true;
+  };
+  onBuilderPreviewInteraction=(event)=>{
+    const zoomButton=event.type==="click"
+      ?event.target?.closest?.("[data-builder-preview-zoom]")
+      :null;
+    if(zoomButton){
+      builderPreviewZoom=updateCanvasZoom(builderPreviewZoom,{
+        kind:"preset",
+        value:zoomButton.dataset.builderPreviewZoom
+      });
+      applyBuilderPreviewZoom();
+      return;
+    }
+    const closeButton=event.type==="click"
+      ?event.target?.closest?.("[data-builder-preview-close]")
+      :null;
+    if(closeButton){
+      closeBuilderPreview();
+      return;
+    }
+    const attributes=builderPreviewTargetAttributes(event.target);
+    if(!attributes)return;
+    const target=event.target.closest(
+      "[data-builder-preview-event],[data-builder-preview-interview]"
+    );
+    if(event.type==="keydown"){
+      const moves={
+        ArrowRight:"next",
+        ArrowDown:"next",
+        ArrowLeft:"previous",
+        ArrowUp:"previous",
+        Home:"first",
+        End:"last"
+      };
+      if(moves[event.key]){
+        event.preventDefault();
+        moveBuilderPreviewFocus(
+          target.closest("[data-builder-preview-surface]"),
+          target,
+          moves[event.key]
+        );
+        return;
+      }
+      if(!["Enter"," "].includes(event.key))return;
+      event.preventDefault();
+    }else if(event.type!=="click"){
+      return;
+    }
+    activateBuilderPreviewOwner(attributes,{
+      fromLightbox:!!target.closest('[data-builder-preview-surface="lightbox"]')
+    });
+  };
+  onBuilderPreviewFocus=(event)=>{
+    const target=event.target?.closest?.(
+      "[data-builder-preview-event],[data-builder-preview-interview]"
+    );
+    if(!target)return;
+    for(const item of builderPreviewFocusableTargets(
+      target.closest("[data-builder-preview-surface]")
+    )){
+      item.setAttribute("tabindex",item===target?"0":"-1");
+    }
+  };
+  onBuilderPreviewResize=()=>{
+    updateBuilderPreviewHitTargets(document.getElementById("boardWizard"));
+    updateBuilderPreviewHitTargets(
+      document.querySelector("[data-builder-preview-canvas]")
+    );
+  };
+  document.addEventListener("click",onBuilderPreviewInteraction);
+  document.addEventListener("keydown",onBuilderPreviewInteraction);
+  document.addEventListener("focusin",onBuilderPreviewFocus);
+  window.addEventListener("resize",onBuilderPreviewResize);
   const applyModeDecision=async(plan,decision)=>{
     if(plan.versionRequest&&["enter-advanced","confirm"].includes(decision)){
       await store.saveVersion(plan.versionRequest.name,plan.versionRequest.kind);
@@ -1210,6 +1513,7 @@ export async function boot407FEngineeringAdapter({
   on407FRendered=()=>{
     if(bridge.state.view==="export")queueExportRender();
     if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
+    if(bridge.state.view==="builder")queueBuilderEmbeddedPreview();
   };
   document.addEventListener("d1:407f-rendered",on407FRendered);
   onAdvisorHashChange=()=>{
@@ -1330,6 +1634,7 @@ export async function boot407FEngineeringAdapter({
   };
   unsubscribeStore=store.subscribe(()=>{
     reflectStoreStatus();
+    queueBuilderEmbeddedPreview();
     if(approvalReconciling)return;
     const approval=reconcileApprovalFingerprint(store.document);
     if(!approval.changed)return;
@@ -1569,6 +1874,10 @@ export async function boot407FEngineeringAdapter({
   api.redo=()=>applyHistory("redo");
 
   const closeOwnedModal=()=>{
+    if(builderPreviewTrap){
+      closeBuilderPreview();
+      return;
+    }
     shortcutTrap?.destroy();
     shortcutTrap=null;
     fileVaultTrap?.destroy();
@@ -1691,25 +2000,49 @@ export async function boot407FEngineeringAdapter({
   document.addEventListener("keydown",onGlobalKeydown);
 
   onBuilderPreview=()=>{
-    let board="";
-    try{
-      board=render407FThemedBoard(store.document,{
-        currentMonth:currentMonth(),
-        audience:"INTERVIEWER_SAFE"
-      }).svg;
-    }catch(error){
-      bridge.toast(String(error?.message||error));
-    }
+    builderPreviewOpener=document.activeElement;
+    builderPreviewZoom=createCanvasZoom("fit");
     bridge.openModal?.(`<section class="builderPreview407FSheet" role="dialog" aria-modal="true" aria-labelledby="builderPreview407FTitle" data-builder-preview-sheet>
       <div class="builderPreview407FHeader">
-        <h2 id="builderPreview407FTitle">Live preview</h2>
+        <div>
+          <h2 id="builderPreview407FTitle">Full timeline preview</h2>
+          <p id="builderPreview407FHelp">Use arrow keys to move between timeline items. Press Enter to edit.</p>
+        </div>
         <button type="button" class="btnD alt sm" data-builder-preview-close>Close preview</button>
       </div>
-      <div class="builderPreview407FBoard">${board||"<p>Add an event to preview your timeline.</p>"}</div>
+      <div class="builderPreview407FToolbar" role="toolbar" aria-label="Preview zoom">
+        ${BUILDER_PREVIEW_ZOOM_PRESETS.map(({id,label})=>`<button type="button" class="btnD alt sm" data-builder-preview-zoom="${id}" aria-pressed="${id==="fit"}">${label}</button>`).join("")}
+      </div>
+      <div class="builderPreview407FViewport" data-builder-preview-viewport>
+        <div class="builderPreview407FCanvas" data-builder-preview-canvas></div>
+      </div>
     </section>`);
     const dialog=document.querySelector("[data-builder-preview-sheet]");
-    document.querySelector("[data-builder-preview-close]")?.addEventListener("click",closeOwnedModal,{once:true});
-    if(dialog)shortcutTrap=installFocusTrap(dialog,{onEscape:closeOwnedModal});
+    const canvas=document.querySelector("[data-builder-preview-canvas]");
+    mountBuilderPreview(canvas,{
+      surface:"lightbox",
+      namespace:"d1-405-builder-lightbox",
+      force:true
+    });
+    applyBuilderPreviewZoom();
+    previewBackgroundInert(true);
+    onBuilderPreviewBackdrop=(event)=>{
+      if(event.target?.id!=="modalBk")return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      closeBuilderPreview();
+    };
+    document.getElementById("modalBk")?.addEventListener(
+      "click",
+      onBuilderPreviewBackdrop,
+      true
+    );
+    if(dialog){
+      builderPreviewTrap=installFocusTrap(dialog,{
+        opener:builderPreviewOpener,
+        onEscape:()=>closeBuilderPreview({restoreFocus:false})
+      });
+    }
   };
   document.getElementById("builderPreviewToggle")?.addEventListener("click",onBuilderPreview);
 

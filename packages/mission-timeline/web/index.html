@@ -1140,7 +1140,6 @@ function renderBoards(){
     const homeBoard=$('#boardCommand');
     if(homeBoard)homeBoard.innerHTML='<div class="homePreviewPlaceholder" aria-hidden="true"><span></span><i></i><i></i><i></i></div>';
   }
-  renderBoard('boardWizard',{mode:'blank',editable:true,tag:'WIZARD PREVIEW · CLICK ANY ELEMENT'});
   if(state.view==='canvas'){
     if(state.mode==='reference')renderBoard('boardMain',{data:state.demo,tag:'REFERENCE SAMPLE · READ-ONLY'});
     else renderBoard('boardMain',{mode:state.mode,editable:true,tag:state.mode==='blank'?'BLANK BUILDER':'DEMO EVENTS'});

@@ -135,3 +135,43 @@
   - Added initial/persisted active-tab reveal without focus movement.
   - Replaced the invalid high-DPI crop with CSS-scale tablet editor and scrolled-preview evidence.
 - Next action: M4 true proportional preview, element activation, zoom, and full preview lightbox.
+
+## 2026-07-30T21:16:15Z — M4 proportional interactive preview and lightbox
+
+- Estimated overall completion: 45%
+- Work completed:
+  - Mounted the canonical 1920×1080 `advancedBoardRenderer` in both the embedded Builder preview and the full-preview lightbox.
+  - Preserved a single store/document/data flow while giving each SVG instance an isolated namespace.
+  - Corrected namespace rewriting so canonical `data-event-id` values remain intact.
+  - Added true 16:9 contain/letterbox behavior with no stretching, clipping, or document-level overflow.
+  - Added deterministic owner metadata, chronological roving focus, Arrow/Home/End movement, Enter/Space activation, and 44px hit targets.
+  - Routed Core markers to Core data and exam markers to the exact attempt editor with focus on the corresponding control.
+  - Added Fit, 100%, and 150% lightbox presets with one contained scrollport, focus trap, inert background, Escape close, and focus restoration.
+  - Removed the competing legacy Builder render call.
+  - Preserved forward-compatible explanation and interview owner seams for M9 without exposing unfinished authoring behavior.
+- Screenshots:
+  - `evidence/screenshots/D1-405-M4-proportional-preview-desktop.png`
+  - `evidence/screenshots/D1-405-M4-full-preview-lightbox-desktop.png`
+  - `evidence/screenshots/D1-405-M4-click-to-edit-exam-desktop.png`
+- Preview URL: `http://localhost:8793/web/`
+- Tests:
+  - Complete functional TypeScript suite: 119/119 passed.
+  - Complete browser/module suite: 332/332 passed.
+  - Total: 451/451 passed.
+  - M4 dedicated Builder preview suite: 8/8 passed.
+  - Typecheck: passed.
+  - Package verification: 23/23 passed.
+  - Production build: passed; 186 runtime files.
+  - Build manifest SHA-256: `69a2a3301892693b364c2a6eb288ad6726a6a2687e4f27bc1d691f3598c088b3`.
+- Browser console: 0 fresh warnings or errors after preview, zoom, modal, keyboard, Core routing, and exact exam routing interactions.
+- Visual verdict: Miyamoto PASS.
+- Accessibility verdict: initial FAIL because interview-marker order and the initial tab stop ignored chronology; final Vitruvius PASS after both corrections.
+- Founder feedback received:
+  - None during M4.
+- Corrections performed:
+  - Constrained SVG namespacing to actual `id` attributes after browser proof exposed canonical event-ID corruption.
+  - Narrowed exact exam focus targeting so activation lands on the result control rather than the adjacent Delete button.
+  - Derived the interview marker's roving-focus order from its date instead of always placing it last.
+  - Assigned the initial SVG tab stop to the earliest visible chronological target rather than the first element replaced in DOM order.
+  - Waited for and excluded an unrelated stale export toast before final click-to-edit evidence capture.
+- Next action: M5 shared date controls, followed by M6 Core-data completion.
