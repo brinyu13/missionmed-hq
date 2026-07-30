@@ -763,6 +763,7 @@ function renderShell() {
 }
 
 function clearOverlays() {
+  stopAudioPlayback();
   activeAudioAssemblyPrompt?.interrupt();
   if (captureSaveInFlight) captureSaveInterrupted = true;
   [room, capture, quick, qad, palette, sessionBar, teaching].forEach((node) => {
@@ -1652,6 +1653,7 @@ async function openCapture({
 
 function closeOverlay(node) {
   if (!node) return;
+  if (node === room || node === quick) stopAudioPlayback();
   if (node === capture) {
     const pendingDraft = state.captureDraftSaveTimer ? captureDraftPayload() : null;
     window.clearTimeout(state.captureDraftSaveTimer);
@@ -3108,19 +3110,47 @@ function feedbackMarkup(story) {
     : '<div class="stageHint">No written feedback yet.</div>';
 }
 
-function audioMarkup(story) {
+function audioMarkup(story, compact = false) {
   const audio = firstDefined(story.audio, story.audio_asset, story.audioAsset);
   if (!audio && !story.audioAssetId && story.captureType !== 'audio') return '';
   const audioId = firstDefined(audio?.id, story.audioAssetId);
-  const duration = story.audioDurationMs
-    ? formatDuration(story.audioDurationMs)
-    : String(firstDefined(audio?.duration, audio?.duration_label, ''));
-  return `<div class="audioCard">
-    <button class="audPlay" type="button" ${audioId ? `data-play-audio="${attr(audioId)}"` : 'disabled'} aria-label="Play original audio">▶</button>
-    <div class="audBody"><div class="audLbl">Original audio · preserved forever <span>— your spoken telling, separate from any later editing${duration ? ` · ${esc(duration)}` : ''}</span></div><div class="audTrack"><i></i></div>
-      <div class="audioPrivacy">${audioId ? 'Private playback · requested only when you press play' : 'Private audio is not available for playback'}</div></div>
-    <div class="audTime">${duration || '—:—'}</div>
+  const durationMs = Number(firstDefined(
+    story.audioDurationMs,
+    audio?.durationMs,
+    audio?.duration_ms,
+    0,
+  ));
+  const duration = durationMs > 0 ? formatDuration(durationMs) : '—:—';
+  const player = audioId && audioReplay.id === String(audioId)
+    ? audioReplay
+    : { phase: 'idle', currentSeconds: 0 };
+  const current = player.phase === 'complete'
+    ? durationMs / 1000
+    : Number(player.currentSeconds || 0);
+  const percent = durationMs > 0 ? Math.min(100, (current * 1000 / durationMs) * 100) : 0;
+  const phase = player.phase || 'idle';
+  const isPlaying = phase === 'playing';
+  const label = isPlaying
+    ? 'Pause original audio'
+    : phase === 'paused'
+      ? 'Resume original audio'
+      : phase === 'error'
+        ? 'Retry original audio'
+        : 'Play original audio';
+  const glyph = isPlaying ? '❚❚' : '▶';
+  const card = `<div class="audioCard${compact ? ' compact' : ''}" ${audioId ? `data-audio-card="${attr(audioId)}"` : ''} data-audio-total-ms="${durationMs > 0 ? durationMs : 0}">
+    <button class="audPlay" type="button" ${audioId ? `data-play-audio="${attr(audioId)}"` : 'disabled'} aria-label="${label}" aria-busy="${phase === 'loading'}">${glyph}</button>
+    <div class="audBody">
+      <div class="audLbl">Original audio · preserved forever <span>— your spoken telling, separate from any later editing</span></div>
+      <div class="audTrack" role="progressbar" aria-label="Original audio playback progress" aria-valuemin="0" aria-valuemax="${Math.max(0, Math.round(durationMs / 1000))}" aria-valuenow="${Math.max(0, Math.round(current))}" aria-valuetext="${esc(formatDuration(current * 1000))} of ${esc(duration)}"><i style="width:${percent.toFixed(2)}%"></i></div>
+      ${compact ? '' : `<div class="audWave" aria-hidden="true">${Array.from({ length: 46 }, (_, index) => `<i class="${index / 46 <= percent / 100 ? 'hot' : ''}" style="height:${4 + Math.abs(Math.sin(index * 1.7)) * 12}px"></i>`).join('')}</div>`}
+      <div class="audioStatus" role="status" aria-live="polite"></div>
+    </div>
+    <div class="audTime"><span data-audio-current>${esc(formatDuration(current * 1000))}</span> / <span data-audio-total>${esc(duration)}</span></div>
   </div>`;
+  return compact
+    ? card
+    : `${card}<div class="audioBridge">Original audio → transcribed below as the Original telling → edit safely in the Working version</div>`;
 }
 
 const HISTORY_ACTION_LABELS = Object.freeze({
@@ -3396,7 +3426,7 @@ function renderQuick() {
       <button class="drClose" type="button" data-close-overlay aria-label="Close Quick Look">✕</button>
     </div>
     <div class="drBody">
-      ${audioMarkup(story)}
+      ${audioMarkup(story, true)}
       <div class="drSec"><div class="dsLbl">The story</div><div class="drExc">${story.text ? esc(story.text) : '<span class="storyEmpty">No telling yet.</span>'}</div>
         ${story.lesson ? `<div class="qkLesson">Lesson: “${esc(story.lesson)}”</div>` : ''}</div>
       <div class="drSec"><div class="dsLbl">Review status</div>
@@ -3430,6 +3460,7 @@ async function moveQuick(delta) {
   if (!state.quick) return;
   const index = state.quick.index + Number(delta);
   if (index < 0 || index >= state.quick.ids.length) return;
+  stopAudioPlayback();
   state.quick.index = index;
   state.quick.currentId = state.quick.ids[index];
   quick.innerHTML = `<div class="drawer">${loadingView('Opening next story…')}</div>`;
@@ -3614,53 +3645,282 @@ async function saveReflection(id) {
   notify('Reflection saved.');
 }
 
-async function playAudio(id, button) {
-  try {
-    button.disabled = true;
-    const playbackUrls = (result) => asArray(firstDefined(
-      result?.playbackUrls,
-      result?.playback_urls,
-      [firstDefined(result?.playbackUrl, result?.playback_url, result?.url)].filter(Boolean),
-    )).filter(Boolean);
-    let urls = playbackUrls(await api.audioPlayback(id));
-    if (!urls.length) throw new Error('Private audio playback is not available.');
-    let index = 0;
-    let audio;
-    const reset = () => {
+const audioReplay = {
+  id: null,
+  urls: [],
+  index: 0,
+  audio: null,
+  phase: 'idle',
+  completedSeconds: 0,
+  currentSeconds: 0,
+  totalSeconds: 0,
+  retryUsed: false,
+  generation: 0,
+};
+
+function audioReplayCards(id = audioReplay.id) {
+  if (!id) return [];
+  return $$(`[data-audio-card="${CSS.escape(String(id))}"]`);
+}
+
+function audioReplayStatus() {
+  if (audioReplay.phase === 'loading') return 'Loading private audio…';
+  if (audioReplay.phase === 'playing') return 'Playing original audio.';
+  if (audioReplay.phase === 'paused') {
+    return `Paused at ${formatDuration(audioReplay.currentSeconds * 1000)}.`;
+  }
+  if (audioReplay.phase === 'complete') return 'Original audio finished.';
+  if (audioReplay.phase === 'error') return 'Playback unavailable. Try again.';
+  return '';
+}
+
+function renderAudioReplayState({ announce = false } = {}) {
+  const current = Math.max(0, Number(audioReplay.currentSeconds || 0));
+  const total = Math.max(0, Number(audioReplay.totalSeconds || 0));
+  const percent = total > 0 ? Math.min(100, (current / total) * 100) : 0;
+  const phase = audioReplay.phase;
+  for (const card of audioReplayCards()) {
+    const button = $('[data-play-audio]', card);
+    const track = $('.audTrack', card);
+    const fill = $('.audTrack i', card);
+    const status = $('.audioStatus', card);
+    if (button) {
+      const labels = {
+        loading: 'Loading original audio',
+        playing: 'Pause original audio',
+        paused: 'Resume original audio',
+        complete: 'Replay original audio',
+        error: 'Retry original audio',
+      };
       button.disabled = false;
-      button.textContent = '▶';
-    };
-    const playNext = async () => {
-      if (index > 0) {
-        const refreshed = playbackUrls(await api.audioPlayback(id));
-        if (refreshed.length !== urls.length || !refreshed[index]) {
-          throw new Error('Private audio playback is not available.');
-        }
-        urls = refreshed;
-      }
-      audio = new Audio(urls[index]);
-      audio.addEventListener('ended', () => {
-        index += 1;
-        if (index >= urls.length) {
-          reset();
-          return;
-        }
-        void playNext().catch(() => {
-          reset();
-          notify('Private audio playback could not start.');
-        });
-      }, { once: true });
-      audio.addEventListener('error', () => {
-        reset();
-        notify('Private audio playback could not start.');
-      }, { once: true });
-      await audio.play();
-    };
-    button.textContent = 'Ⅱ';
-    await playNext();
-  } catch (error) {
-    button.disabled = false;
-    notify(error.message);
+      button.setAttribute('aria-busy', String(phase === 'loading'));
+      button.setAttribute('aria-disabled', String(phase === 'loading'));
+      button.setAttribute('aria-label', labels[phase] || 'Play original audio');
+      button.textContent = phase === 'playing' ? '❚❚' : '▶';
+    }
+    if (fill) fill.style.width = `${percent.toFixed(2)}%`;
+    if (track) {
+      track.setAttribute('aria-valuemax', String(Math.round(total)));
+      track.setAttribute('aria-valuenow', String(Math.round(current)));
+      track.setAttribute(
+        'aria-valuetext',
+        `${formatDuration(current * 1000)} of ${total > 0 ? formatDuration(total * 1000) : 'unknown'}`,
+      );
+    }
+    $('[data-audio-current]', card)?.replaceChildren(formatDuration(current * 1000));
+    if (total > 0) {
+      $('[data-audio-total]', card)?.replaceChildren(formatDuration(total * 1000));
+    }
+    $$('.audWave i', card).forEach((bar, index, bars) => {
+      bar.classList.toggle('hot', index / bars.length <= percent / 100);
+    });
+    if (status && announce) {
+      const next = audioReplayStatus();
+      if (status.textContent !== next) status.textContent = next;
+    }
+  }
+}
+
+function stopAudioPlayback({ preserveCompletion = false } = {}) {
+  const previousId = audioReplay.id;
+  audioReplay.generation += 1;
+  if (audioReplay.audio) {
+    try {
+      audioReplay.audio.pause?.();
+      audioReplay.audio.removeAttribute?.('src');
+      audioReplay.audio.load?.();
+    } catch {
+      // The player is already being discarded; no media detail is surfaced.
+    }
+  }
+  if (previousId && !preserveCompletion) {
+    Object.assign(audioReplay, {
+      phase: 'idle',
+      completedSeconds: 0,
+      currentSeconds: 0,
+    });
+    renderAudioReplayState();
+  }
+  Object.assign(audioReplay, {
+    id: preserveCompletion ? previousId : null,
+    urls: [],
+    index: 0,
+    audio: null,
+    phase: preserveCompletion ? 'complete' : 'idle',
+    completedSeconds: preserveCompletion ? audioReplay.totalSeconds : 0,
+    currentSeconds: preserveCompletion ? audioReplay.totalSeconds : 0,
+    retryUsed: false,
+  });
+  if (previousId && preserveCompletion) renderAudioReplayState({ announce: true });
+}
+
+function playbackUrls(result) {
+  const values = asArray(firstDefined(
+    result?.playbackUrls,
+    result?.playback_urls,
+    [firstDefined(result?.playbackUrl, result?.playback_url, result?.url)].filter(Boolean),
+  ));
+  return values.map((value) => {
+    const parsed = new URL(String(value));
+    if (parsed.protocol !== 'https:') throw new Error('invalid_playback_url');
+    return parsed.href;
+  });
+}
+
+async function refreshAudioReplayUrls(expectedCount = 0) {
+  const result = await api.audioPlayback(audioReplay.id);
+  const urls = playbackUrls(result);
+  if (!urls.length || (expectedCount && urls.length !== expectedCount)) {
+    throw new Error('invalid_playback_manifest');
+  }
+  const durationMs = Number(firstDefined(result?.durationMs, result?.duration_ms, 0));
+  if (durationMs > 0) audioReplay.totalSeconds = durationMs / 1000;
+  audioReplay.urls = urls;
+}
+
+function failAudioPlayback() {
+  const id = audioReplay.id;
+  audioReplay.generation += 1;
+  try {
+    audioReplay.audio?.pause?.();
+  } catch {
+    // Failure is already represented by the bounded player state.
+  }
+  audioReplay.audio = null;
+  audioReplay.phase = 'error';
+  audioReplay.id = id;
+  renderAudioReplayState({ announce: true });
+  notify('Private audio playback could not start.');
+}
+
+async function recoverAudioReplaySegment(generation) {
+  if (generation !== audioReplay.generation || audioReplay.retryUsed) {
+    failAudioPlayback();
+    return;
+  }
+  audioReplay.retryUsed = true;
+  const resumeAt = Math.max(0, Number(audioReplay.audio?.currentTime || 0));
+  try {
+    await refreshAudioReplayUrls(audioReplay.urls.length);
+    if (generation !== audioReplay.generation) return;
+    await startAudioReplaySegment({ resumeAt, refresh: false, generation });
+  } catch {
+    if (generation === audioReplay.generation) failAudioPlayback();
+  }
+}
+
+async function startAudioReplaySegment({
+  resumeAt = 0,
+  refresh = audioReplay.index > 0,
+  generation = audioReplay.generation,
+} = {}) {
+  if (refresh) await refreshAudioReplayUrls(audioReplay.urls.length);
+  if (generation !== audioReplay.generation) return;
+  const url = audioReplay.urls[audioReplay.index];
+  if (!url) throw new Error('invalid_playback_manifest');
+  const audio = new Audio(url);
+  audioReplay.audio = audio;
+  audio.preload = 'metadata';
+  const currentTime = () => Math.max(0, Number(audio.currentTime || 0));
+  audio.addEventListener('loadedmetadata', () => {
+    if (generation !== audioReplay.generation || resumeAt <= 0) return;
+    try {
+      audio.currentTime = Math.min(resumeAt, Number(audio.duration) || resumeAt);
+    } catch {
+      // A media element that cannot restore its offset will retry from its start.
+    }
+  }, { once: true });
+  audio.addEventListener('timeupdate', () => {
+    if (generation !== audioReplay.generation) return;
+    audioReplay.currentSeconds = audioReplay.completedSeconds + currentTime();
+    renderAudioReplayState();
+  });
+  audio.addEventListener('play', () => {
+    if (generation !== audioReplay.generation) return;
+    audioReplay.phase = 'playing';
+    renderAudioReplayState({ announce: true });
+  });
+  audio.addEventListener('pause', () => {
+    if (generation !== audioReplay.generation || audio.ended) return;
+    audioReplay.currentSeconds = audioReplay.completedSeconds + currentTime();
+    audioReplay.phase = 'paused';
+    renderAudioReplayState({ announce: true });
+  });
+  audio.addEventListener('ended', () => {
+    if (generation !== audioReplay.generation) return;
+    const segmentSeconds = Number.isFinite(audio.duration) && audio.duration > 0
+      ? audio.duration
+      : currentTime();
+    audioReplay.completedSeconds += segmentSeconds;
+    audioReplay.currentSeconds = audioReplay.completedSeconds;
+    audioReplay.index += 1;
+    audioReplay.retryUsed = false;
+    if (audioReplay.index >= audioReplay.urls.length) {
+      if (audioReplay.totalSeconds <= 0) audioReplay.totalSeconds = audioReplay.currentSeconds;
+      stopAudioPlayback({ preserveCompletion: true });
+      return;
+    }
+    audioReplay.phase = 'loading';
+    renderAudioReplayState({ announce: true });
+    void startAudioReplaySegment({ generation }).catch(() => {
+      if (generation === audioReplay.generation) failAudioPlayback();
+    });
+  }, { once: true });
+  audio.addEventListener('error', () => {
+    if (generation === audioReplay.generation) {
+      void recoverAudioReplaySegment(generation);
+    }
+  }, { once: true });
+  try {
+    await audio.play();
+  } catch {
+    if (generation === audioReplay.generation) {
+      await recoverAudioReplaySegment(generation);
+    }
+    return;
+  }
+  if (generation === audioReplay.generation && audioReplay.phase === 'loading') {
+    audioReplay.phase = 'playing';
+    renderAudioReplayState({ announce: true });
+  }
+}
+
+async function playAudio(id) {
+  const targetId = String(id);
+  if (audioReplay.id === targetId && audioReplay.phase === 'playing') {
+    audioReplay.audio?.pause?.();
+    if (audioReplay.phase === 'playing') {
+      audioReplay.phase = 'paused';
+      renderAudioReplayState({ announce: true });
+    }
+    return;
+  }
+  if (audioReplay.id === targetId && audioReplay.phase === 'paused') {
+    try {
+      await audioReplay.audio?.play?.();
+      audioReplay.phase = 'playing';
+      renderAudioReplayState({ announce: true });
+    } catch {
+      await recoverAudioReplaySegment(audioReplay.generation);
+    }
+    return;
+  }
+  if (audioReplay.id === targetId && audioReplay.phase === 'loading') return;
+  stopAudioPlayback();
+  const card = audioReplayCards(targetId)[0];
+  Object.assign(audioReplay, {
+    id: targetId,
+    phase: 'loading',
+    totalSeconds: Math.max(0, Number(card?.dataset.audioTotalMs || 0) / 1000),
+  });
+  const generation = audioReplay.generation;
+  renderAudioReplayState({ announce: true });
+  try {
+    await refreshAudioReplayUrls();
+    if (generation !== audioReplay.generation) return;
+    await startAudioReplaySegment({ refresh: false, generation });
+  } catch {
+    if (generation === audioReplay.generation) failAudioPlayback();
   }
 }
 

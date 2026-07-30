@@ -838,12 +838,24 @@ body[data-role="advisor"] .qNavSide.next{right:calc(50% - min(470px,48vw) - 60px
 .audLbl{font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.2em;color:var(--rd);text-transform:uppercase;margin-bottom:5px}
 .audLbl span{color:var(--dim);letter-spacing:.06em;text-transform:none;font-weight:600}
 .audioPrivacy{margin-top:6px;font-size:10.5px;color:var(--dim);line-height:1.35}
-.audTrack{height:5px;border-radius:3px;background:var(--edge);position:relative;overflow:hidden;cursor:pointer}
+.audTrack{height:5px;border-radius:3px;background:var(--edge);position:relative;overflow:hidden}
 .audTrack i{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--rd),#ff8ba0);border-radius:3px;width:0%}
 .audTime{font-family:var(--num);font-weight:700;font-size:11.5px;color:var(--mid);flex:none;width:82px;text-align:right}
 .audWave{display:flex;gap:2px;align-items:center;height:18px;margin-top:6px}
 .audWave i{width:3px;border-radius:2px;background:rgba(255,84,112,.4)}
 .audWave i.hot{background:var(--rd)}
+.audioCard.compact{margin:10px 0 4px;padding:9px 12px}
+.audioStatus{margin-top:6px;font-size:10.5px;color:var(--dim);line-height:1.35}
+.audioStatus:empty{display:none}
+.audioBridge{font-family:var(--num);font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:-6px 0 12px}
+@media(max-width:520px){
+  .audioCard{align-items:flex-start;gap:10px;padding:11px 12px}
+  .audTime{width:auto;white-space:nowrap;padding-top:12px}
+  .audLbl span{display:block;margin-top:3px}
+}
+@media(prefers-reduced-motion:reduce){
+  .audPlay{transition:none}
+}
 
 /* --- Interview Intelligence --- */
 .famGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin:18px 0 24px}

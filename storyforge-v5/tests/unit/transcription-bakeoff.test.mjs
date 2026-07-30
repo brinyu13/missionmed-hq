@@ -270,7 +270,7 @@ test('the scorer emits raw aggregate metrics without inventing a cutover verdict
   });
   assert.equal(score.normalizationVersion, bakeoffNormalizationVersion);
   assert.equal(score.evidenceStatus, 'raw_metrics_only_no_cutover_verdict');
-  assert.equal(score.authorityStatus, 'fable_confirmation_required_for_scoring_semantics');
+  assert.equal(score.authorityStatus, 'b1_506a_scoring_semantics_binding');
   assert.equal(score.corpus.passages, 40);
   assert.equal(score.corpus.samples, 120);
   assert.equal(score.corpus.accentGroups, 6);
@@ -284,7 +284,7 @@ test('the scorer emits raw aggregate metrics without inventing a cutover verdict
   assert.equal(score.metrics.finalTextP95Ms, 2_003);
   assert.equal(score.metrics.failureAfterRetryRate, 0);
   assert.equal(score.metrics.costPerRecordingMinuteUsd, 0.004);
-  assert.equal(score.metricsUsableForActivation, false);
+  assert.equal(score.metricsUsableForActivation, true);
   assert.equal(score.provenance.sourceCommit, 'c'.repeat(40));
   assert.equal(
     score.provenance.adapterSourceSha256,

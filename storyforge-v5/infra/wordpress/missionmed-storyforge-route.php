@@ -839,17 +839,159 @@ function mmsfr_request_body() {
 }
 
 /**
+ * Return whether a path is the exact Phase 1 recording-segment upload route.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function mmsfr_is_recording_segment_upload_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/recordings/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/segments$#i',
+		$path
+	);
+}
+
+/**
+ * Return whether a path is the exact Phase 1 audio deletion route.
+ *
+ * @param string $path Request path.
+ * @return bool
+ */
+function mmsfr_is_audio_delete_path( $path ) {
+	return 1 === preg_match(
+		'#^' . preg_quote( MMSFR_BASE_PATH, '#' ) . 'api/audio/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$#i',
+		$path
+	);
+}
+
+/**
+ * Accept the browser-generated multipart content type only when it contains
+ * one bounded RFC-compatible boundary and no additional parameters.
+ *
+ * @param string $content_type Content-Type header value.
+ * @return bool
+ */
+function mmsfr_is_bounded_multipart_content_type( $content_type ) {
+	return 1 === preg_match(
+		'#^multipart/form-data\s*;\s*boundary=(?:"[A-Za-z0-9\'()+_,./:=?-]{1,70}"|[A-Za-z0-9\'()+_,./:=?-]{1,70})\s*$#i',
+		$content_type
+	);
+}
+
+/**
+ * Rebuild PHP's parsed multipart upload into one bounded upstream request.
+ *
+ * PHP consumes multipart request bodies into $_POST and $_FILES before
+ * WordPress runs. The upstream boundary is therefore intentionally new; no
+ * client-supplied filename or multipart header is forwarded.
+ *
+ * @param array  $fields   Validated scalar fields.
+ * @param string $bytes    Validated segment bytes.
+ * @param string $mime_type Validated audio MIME type.
+ * @param string $boundary New upstream multipart boundary.
+ * @return string
+ */
+function mmsfr_build_segment_multipart_body( $fields, $bytes, $mime_type, $boundary ) {
+	$body = '';
+	foreach ( array( 'seq', 'durationMs' ) as $name ) {
+		$body .= '--' . $boundary . "\r\n";
+		$body .= 'Content-Disposition: form-data; name="' . $name . "\"\r\n\r\n";
+		$body .= $fields[ $name ] . "\r\n";
+	}
+	$body .= '--' . $boundary . "\r\n";
+	$body .= "Content-Disposition: form-data; name=\"segment\"; filename=\"segment\"\r\n";
+	$body .= 'Content-Type: ' . $mime_type . "\r\n\r\n";
+	$body .= $bytes . "\r\n";
+	$body .= '--' . $boundary . "--\r\n";
+	return $body;
+}
+
+/**
+ * Read and validate the one exact multipart shape used by Phase 1 recording.
+ *
+ * @return array{body:string,content_type:string}
+ */
+function mmsfr_segment_multipart_request() {
+	$field_names = array_keys( $_POST );
+	$file_names  = array_keys( $_FILES );
+	sort( $field_names );
+	sort( $file_names );
+	if ( array( 'durationMs', 'seq' ) !== $field_names || array( 'segment' ) !== $file_names ) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The audio segment form is invalid.' );
+	}
+	$seq      = $_POST['seq'];
+	$duration = $_POST['durationMs'];
+	if (
+		! is_string( $seq )
+		|| ! is_string( $duration )
+		|| 1 !== preg_match( '/^(?:0|[1-9][0-9]{0,2})$/', $seq )
+		|| 1 !== preg_match( '/^[1-9][0-9]{0,6}$/', $duration )
+	) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The audio segment form is invalid.' );
+	}
+	$file = $_FILES['segment'];
+	if (
+		! is_array( $file )
+		|| UPLOAD_ERR_OK !== ( $file['error'] ?? null )
+		|| ! is_int( $file['size'] ?? null )
+		|| ! is_string( $file['tmp_name'] ?? null )
+		|| ! is_string( $file['type'] ?? null )
+	) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The audio segment upload is invalid.' );
+	}
+	if ( $file['size'] <= 0 ) {
+		mmsfr_send_error( 400, 'invalid_audio_size', 'An audio segment is required.' );
+	}
+	if ( $file['size'] > MMSFR_MAX_BODY_BYTES ) {
+		mmsfr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
+	}
+	$mime_type = strtolower( trim( $file['type'] ) );
+	if ( 1 !== preg_match( '#^audio/(?:webm|mp4|ogg|wav)(?:\s*;\s*codecs=[A-Za-z0-9._-]+)?$#', $mime_type ) ) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The audio segment type is invalid.' );
+	}
+	if ( ! is_uploaded_file( $file['tmp_name'] ) || ! is_readable( $file['tmp_name'] ) ) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The audio segment upload is invalid.' );
+	}
+	$bytes = file_get_contents( $file['tmp_name'] );
+	if ( ! is_string( $bytes ) || strlen( $bytes ) !== $file['size'] ) {
+		mmsfr_send_error( 400, 'invalid_multipart', 'The audio segment upload is invalid.' );
+	}
+	try {
+		$boundary = 'mmsfr-' . bin2hex( random_bytes( 18 ) );
+	} catch ( Exception $error ) {
+		mmsfr_send_error( 503, 'origin_unavailable', 'StoryForge is temporarily unavailable.' );
+	}
+	$body = mmsfr_build_segment_multipart_body(
+		array(
+			'seq'        => $seq,
+			'durationMs' => $duration,
+		),
+		$bytes,
+		$mime_type,
+		$boundary
+	);
+	if ( strlen( $body ) > MMSFR_MAX_BODY_BYTES ) {
+		mmsfr_send_error( 413, 'request_too_large', 'Request exceeds the 6 MB limit.' );
+	}
+	return array(
+		'body'         => $body,
+		'content_type' => 'multipart/form-data; boundary=' . $boundary,
+	);
+}
+
+/**
  * Proxy a strict StoryForge API or health request to the pinned origin.
  *
  * @param string $path Request path.
  */
 function mmsfr_proxy_request( $path ) {
 	$method       = mmsfr_request_method();
+	$is_audio_delete = 'DELETE' === $method && mmsfr_is_audio_delete_path( $path );
 	$allowed      = array( 'GET', 'POST', 'PATCH' );
 	$health_path  = MMSFR_BASE_PATH . 'healthz';
 	$is_health    = $path === $health_path;
 	$health_allow = array( 'GET' );
-	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) ) {
+	if ( ! in_array( $method, $is_health ? $health_allow : $allowed, true ) && ! $is_audio_delete ) {
 		if ( ! headers_sent() ) {
 			header( 'Allow: ' . implode( ', ', $is_health ? $health_allow : $allowed ), true );
 		}
@@ -902,20 +1044,35 @@ function mmsfr_proxy_request( $path ) {
 			mmsfr_send_error( 403, 'origin_not_allowed', 'This origin is not allowed to call StoryForge.' );
 		}
 	}
+	$is_segment_upload = 'POST' === $method && mmsfr_is_recording_segment_upload_path( $path );
 	if ( in_array( $method, array( 'POST', 'PATCH' ), true ) ) {
 		$content_type = $headers['content-type'] ?? '';
-		if ( 1 !== preg_match( '#^application/json(?:\s*;|$)#i', $content_type ) ) {
-			mmsfr_send_error( 415, 'unsupported_content_type', 'StoryForge accepts JSON requests only.' );
+		$is_json           = 1 === preg_match( '#^application/json(?:\s*;|$)#i', $content_type );
+		$is_multipart      = $is_segment_upload && mmsfr_is_bounded_multipart_content_type( $content_type );
+		if ( ( $is_segment_upload && ! $is_multipart ) || ( ! $is_segment_upload && ! $is_json ) ) {
+			mmsfr_send_error(
+				415,
+				'unsupported_content_type',
+				$is_segment_upload
+					? 'StoryForge accepts multipart audio only on this route.'
+					: 'StoryForge accepts JSON requests only.'
+			);
 		}
+	}
+	$request_body = '';
+	if ( $is_segment_upload && isset( $is_multipart ) && $is_multipart ) {
+		$multipart              = mmsfr_segment_multipart_request();
+		$request_body           = $multipart['body'];
+		$headers['content-type'] = $multipart['content_type'];
+	} elseif ( in_array( $method, array( 'POST', 'PATCH' ), true ) ) {
+		$request_body = mmsfr_request_body();
 	}
 
 	$local_fixture = 'http' === (string) wp_parse_url( $origin, PHP_URL_SCHEME );
 	$args          = array(
 		'method'              => $method,
 		'headers'             => $headers,
-		'body'                => in_array( $method, array( 'POST', 'PATCH' ), true )
-			? mmsfr_request_body()
-			: '',
+		'body'                => $request_body,
 		'timeout'             => MMSFR_TIMEOUT_SECONDS,
 		'redirection'         => 0,
 		'blocking'            => true,

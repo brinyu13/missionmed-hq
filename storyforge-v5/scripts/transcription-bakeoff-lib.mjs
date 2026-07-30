@@ -693,14 +693,19 @@ export function scoreBakeoffEvidence({
     (sum, passage) => sum + Number(passage.durationMs),
     0,
   );
+  const metricsUsableForActivation = manifest.passages.every(
+    (passage) => passage.sourceKind === 'human'
+      && passage.consentBasis !== 'not_applicable_tts'
+      && passage.consentArtifact,
+  );
 
   return Object.freeze({
     schemaVersion: bakeoffSchemaVersion,
     normalizationVersion: bakeoffNormalizationVersion,
     candidateId: candidateRuns.candidateId,
     evidenceStatus: 'raw_metrics_only_no_cutover_verdict',
-    authorityStatus: 'fable_confirmation_required_for_scoring_semantics',
-    metricsUsableForActivation: false,
+    authorityStatus: 'b1_506a_scoring_semantics_binding',
+    metricsUsableForActivation,
     provenance: Object.freeze(provenance),
     inputDigests: Object.freeze(inputDigests),
     aggregation: Object.freeze({

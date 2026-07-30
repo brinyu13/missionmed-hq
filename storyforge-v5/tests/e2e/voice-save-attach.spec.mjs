@@ -647,3 +647,122 @@ test('multi-segment playback refreshes E9 before each later segment', async ({
     await removeAudioAsset(assetId);
   }
 });
+
+test('saved audio has one accessible play pause progress and replay control', async ({
+  page,
+  request,
+}) => {
+  const token = await devToken(request);
+  const create = await request.post('/api/stories', {
+    headers: authHeaders(token),
+    data: {
+      title: 'Managed replay proof',
+      text: 'The original telling remains separate from this working text.',
+      captureType: 'text',
+      surface: 'quick',
+    },
+  });
+  expect(create.status()).toBe(201);
+  const story = (await create.json()).story;
+  const assetId = await seedVerifiedAudioAsset(story.id, { durationMs: 8_000 });
+  try {
+    await page.addInitScript(() => {
+      window.__audioInstances = [];
+      window.__rejectAudioPlayCount = 0;
+      class ControlledAudio extends EventTarget {
+        constructor(url) {
+          super();
+          this.url = url;
+          this.currentTime = 0;
+          this.duration = 8;
+          this.paused = true;
+          this.ended = false;
+          window.__audioInstances.push(this);
+        }
+
+        async play() {
+          if (window.__rejectAudioPlayCount > 0) {
+            window.__rejectAudioPlayCount -= 1;
+            throw new Error('expired private URL');
+          }
+          this.paused = false;
+          this.dispatchEvent(new Event('play'));
+        }
+
+        pause() {
+          if (this.paused) return;
+          this.paused = true;
+          this.dispatchEvent(new Event('pause'));
+        }
+
+        removeAttribute() {}
+
+        load() {}
+
+        tick(seconds) {
+          this.currentTime = seconds;
+          this.dispatchEvent(new Event('timeupdate'));
+        }
+
+        finish() {
+          this.currentTime = this.duration;
+          this.ended = true;
+          this.dispatchEvent(new Event('timeupdate'));
+          this.dispatchEvent(new Event('ended'));
+        }
+      }
+      Object.defineProperty(window, 'Audio', {
+        configurable: true,
+        value: ControlledAudio,
+      });
+    });
+    let playbackCalls = 0;
+    await page.route(`**/api/audio/${assetId}/playback`, async (route) => {
+      playbackCalls += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          playbackUrls: ['https://private.example/managed-replay'],
+          durationMs: 8_000,
+          expiresIn: 300,
+        }),
+      });
+    });
+
+    await loginStudent(page);
+    await page.getByRole('button', { name: /Story Library/ }).first().click();
+    await page.locator(`[data-story-row="${story.id}"] [data-open-story]`).click();
+    const card = page.locator(`[data-audio-card="${assetId}"]`);
+    await expect(card.locator('.audWave i')).toHaveCount(46);
+    await expect(page.locator('.audioBridge')).toContainText(
+      'Original audio → transcribed below as the Original telling',
+    );
+    await card.getByRole('button', { name: 'Play original audio' }).click();
+    await expect(card.getByRole('button', { name: 'Pause original audio' })).toBeFocused();
+    await page.evaluate(() => window.__audioInstances.at(-1).tick(2));
+    await expect(card.locator('.audTime')).toHaveText('0:02 / 0:08');
+    await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '2');
+    await expect(card.locator('.audTrack i')).toHaveAttribute('style', /width:\s*25%/);
+
+    await card.getByRole('button', { name: 'Pause original audio' }).click();
+    await expect(card.getByRole('button', { name: 'Resume original audio' })).toBeFocused();
+    await expect(card.getByRole('status')).toHaveText('Paused at 0:02.');
+    await card.getByRole('button', { name: 'Resume original audio' }).click();
+    await expect(card.getByRole('button', { name: 'Pause original audio' })).toBeFocused();
+
+    await page.evaluate(() => window.__audioInstances.at(-1).finish());
+    await expect(card.getByRole('button', { name: 'Replay original audio' })).toBeFocused();
+    await expect(card.locator('.audTime')).toHaveText('0:08 / 0:08');
+    await expect(card.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '8');
+    await page.evaluate(() => {
+      window.__rejectAudioPlayCount = 1;
+    });
+    await card.getByRole('button', { name: 'Replay original audio' }).click();
+    await expect.poll(() => page.evaluate(() => window.__audioInstances.length)).toBe(3);
+    expect(playbackCalls).toBe(3);
+    await expect(card.getByRole('button', { name: 'Pause original audio' })).toBeFocused();
+  } finally {
+    await removeAudioAsset(assetId);
+  }
+});
