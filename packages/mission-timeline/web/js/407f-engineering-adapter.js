@@ -55,9 +55,24 @@ import {
   applyThemeToTimelineRender
 } from "./uxr-002/themes.js";
 import {
+  ADVISOR_SESSION_THEME_ID,
+  addAdvisorComment,
+  advisorQuestionModel,
   applyAdvisorRequest,
+  approveAdvisorReview,
   buildAdvisorRequestPlan,
-  cancelAdvisorRequest
+  cancelAdvisorRequest,
+  deleteAdvisorComment,
+  hideAdvisorQuestion,
+  installAdvisorWorkflow,
+  questionHighlightEffect,
+  reconcileApprovalFingerprint,
+  renderAdvisorSession,
+  renderStudentCommentLayer,
+  requestAdvisorChanges,
+  resolveAdvisorComment,
+  setChecklistState,
+  updateAdvisorComment
 } from "./uxr-002/advisor.js";
 import {
   buildExportPreviewInput,
@@ -502,6 +517,10 @@ export async function boot407FEngineeringAdapter({
   let removeAdvanced=()=>{};
   let exportController=null;
   let exportRenderQueued=false;
+  let approvalReconciling=false;
+  let advisorCleanup=()=>{};
+  let advisorEditingCommentId=null;
+  let advisorHighlightTimer=null;
   let intakeCleanup=()=>{};
   let intakeMachine=null;
   let canvasSyncing=false;
@@ -510,6 +529,7 @@ export async function boot407FEngineeringAdapter({
   let onAdvancedObjectClick=()=>{};
   let onCanvasResize=()=>{};
   let on407FRendered=()=>{};
+  let onAdvisorHashChange=()=>{};
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
@@ -567,6 +587,8 @@ export async function boot407FEngineeringAdapter({
     canvasController?.destroy();
     removeAdvanced();
     exportController?.destroy();
+    advisorCleanup();
+    clearTimeout(advisorHighlightTimer);
     intakeCleanup();
     mediaUrls.revokeAll();
     unsubscribeStore();
@@ -574,6 +596,7 @@ export async function boot407FEngineeringAdapter({
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     window.removeEventListener("resize",onCanvasResize);
     document.removeEventListener("d1:407f-rendered",on407FRendered);
+    window.removeEventListener("hashchange",onAdvisorHashChange);
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -975,10 +998,147 @@ export async function boot407FEngineeringAdapter({
     api.export=exportController;
     exportController.refreshPreview();
   }
+  const applyAdvisorResult=(result,{history=true}={})=>{
+    if(!result?.document)return result;
+    store.replace(result.document,{
+      label:result.mutation?.label||"Update advisor review",
+      history
+    });
+    syncBridgeFromStore();
+    if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
+    if(bridge.state.view==="export")queueExportRender();
+    return result;
+  };
+  const advisorAction=(action)=>{
+    try{
+      return action();
+    }catch(error){
+      bridge.toast(String(error?.message||error));
+      return null;
+    }
+  };
+  const advisorBoardHtml=()=>{
+    const forced={
+      ...clone(store.document),
+      theme:ADVISOR_SESSION_THEME_ID,
+      mode:"guided"
+    };
+    const rendered=render407FThemedBoard(forced,{
+      currentMonth:currentMonth(),
+      audience:"EVERYTHING"
+    });
+    return`<div class="advisor407FBoardRender" data-theme="${ADVISOR_SESSION_THEME_ID}" data-audience="EVERYTHING">${rendered.svg}</div>`;
+  };
+  function renderAdvisorHost(){
+    const advisorHost=document.getElementById("advisor407F");
+    if(!advisorHost)return;
+    advisorCleanup();
+    let boardHtml="";
+    try{
+      boardHtml=advisorBoardHtml();
+    }catch(error){
+      bridge.toast(String(error?.message||error));
+    }
+    advisorHost.innerHTML=renderAdvisorSession(store.document,{
+      route:store.document.advisor?.route,
+      boardHtml,
+      editingCommentId:advisorEditingCommentId
+    });
+    advisorCleanup=installAdvisorWorkflow(advisorHost,{
+      onChecklist:({id,state})=>applyAdvisorResult(
+        setChecklistState(store.document,id,state),
+        {history:false}
+      ),
+      onHideQuestion:(questionId)=>applyAdvisorResult(
+        hideAdvisorQuestion(store.document,questionId),
+        {history:false}
+      ),
+      onQuestion:(questionId)=>{
+        const model=advisorQuestionModel(store.document);
+        const question=[...model.visible,...model.hidden]
+          .find(({id})=>id===questionId);
+        if(!question)return;
+        const effect=questionHighlightEffect(question,{
+          reducedMotion:window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches
+        });
+        const targets=effect.eventIds.flatMap((eventId)=>[
+          ...advisorHost.querySelectorAll(
+            `[data-event-id="${CSS.escape(eventId)}"]`
+          )
+        ]);
+        const nodes=targets.length
+          ?targets
+          :[advisorHost.querySelector("[data-advisor-board]")].filter(Boolean);
+        nodes.forEach((node)=>node.classList.add("advisor-question-highlight"));
+        clearTimeout(advisorHighlightTimer);
+        advisorHighlightTimer=setTimeout(
+          ()=>nodes.forEach((node)=>node.classList.remove("advisor-question-highlight")),
+          effect.animation==="none"?0:effect.durationMs
+        );
+      },
+      onPin:(commentId)=>{
+        advisorEditingCommentId=commentId;
+        renderAdvisorHost();
+      },
+      onCreatePin:(position)=>{
+        const result=advisorAction(()=>addAdvisorComment(store.document,position));
+        if(!result)return;
+        advisorEditingCommentId=result.comment.id;
+        applyAdvisorResult(result,{history:false});
+      },
+      onSaveComment:({id,note})=>{
+        advisorEditingCommentId=null;
+        const result=advisorAction(
+          ()=>updateAdvisorComment(store.document,id,note)
+        );
+        if(result)applyAdvisorResult(result,{history:false});
+      },
+      onEditComment:(commentId)=>{
+        advisorEditingCommentId=commentId;
+        renderAdvisorHost();
+      },
+      onDeleteComment:(commentId)=>{
+        advisorEditingCommentId=null;
+        const result=advisorAction(
+          ()=>deleteAdvisorComment(store.document,commentId)
+        );
+        if(result)applyAdvisorResult(result,{history:false});
+      },
+      onResolveComment:(commentId)=>{
+        const result=advisorAction(
+          ()=>resolveAdvisorComment(store.document,commentId)
+        );
+        if(result)applyAdvisorResult(result);
+      },
+      onApprove:()=>{
+        const result=advisorAction(()=>approveAdvisorReview(store.document));
+        if(result)applyAdvisorResult(result);
+      },
+      onRequestChanges:()=>{
+        const result=advisorAction(()=>requestAdvisorChanges(store.document));
+        if(result)applyAdvisorResult(result);
+      },
+      onAnnounce:(message)=>{
+        const live=advisorHost.querySelector("[data-advisor-live]");
+        if(live)live.textContent=message;
+      }
+    });
+    api.advisor=Object.freeze({
+      route:store.document.advisor?.route||null,
+      active:advisorHost.querySelector("[data-advisor-session]")?.dataset.advisorSession==="active",
+      render:renderAdvisorHost
+    });
+  }
   on407FRendered=()=>{
     if(bridge.state.view==="export")queueExportRender();
+    if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
   };
   document.addEventListener("d1:407f-rendered",on407FRendered);
+  onAdvisorHashChange=()=>{
+    const route=decodeURIComponent(String(window.location.hash||"").replace(/^#/,""));
+    if(route.startsWith("advisor-session:"))bridge.go("advisor");
+  };
+  window.addEventListener("hashchange",onAdvisorHashChange);
   const commitExamMutation=(label,mutation)=>{
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
@@ -1090,7 +1250,18 @@ export async function boot407FEngineeringAdapter({
     save.textContent=status==="error"?"COULDN’T SAVE — RETRY":status==="saving"?"SAVING…":"SAVED JUST NOW";
     save.className=`saveState ${status==="saved"?"isSaved":status==="saving"?"isSaving":"isError"}`;
   };
-  unsubscribeStore=store.subscribe(reflectStoreStatus);
+  unsubscribeStore=store.subscribe(()=>{
+    reflectStoreStatus();
+    if(approvalReconciling)return;
+    const approval=reconcileApprovalFingerprint(store.document);
+    if(!approval.changed)return;
+    approvalReconciling=true;
+    store.replace(approval.document,{
+      label:"Mark advisor approval edited",
+      history:false
+    });
+    approvalReconciling=false;
+  });
 
   const canvasHost=document.getElementById("canvas407F");
   if(canvasHost){
@@ -1112,6 +1283,11 @@ export async function boot407FEngineeringAdapter({
         ...options,
         themeSwatches:THEMES_BY_ID[document.theme]
       }),
+      renderCommentLayer:(document,state)=>renderStudentCommentLayer(document,{
+        visible:state.commentsOpen,
+        activePinId:state.activeAdvisorPinId,
+        context:"canvas"
+      }),
       renderDetails:renderCanvasDetails,
       onStateChange:syncCanvasDocument,
       onOpenBuilder:()=>bridge.go("builder"),
@@ -1123,6 +1299,12 @@ export async function boot407FEngineeringAdapter({
       },
       onAdvanced:()=>requestCanvasMode("advanced"),
       onGuided:()=>requestCanvasMode("guided"),
+      onResolveAdvisorComment:(commentId)=>{
+        const result=advisorAction(
+          ()=>resolveAdvisorComment(store.document,commentId)
+        );
+        if(result)applyAdvisorResult(result);
+      },
       onSelectTheme:(themeId)=>{
         store.mutate("Change theme",(document)=>{
           document.theme=themeId;
@@ -1195,6 +1377,8 @@ export async function boot407FEngineeringAdapter({
       .catch((error)=>bridge.toast(String(error?.message||error)));
   }
   if(document.getElementById("export407F"))renderExportHost();
+  if(document.getElementById("advisor407F"))renderAdvisorHost();
+  onAdvisorHashChange();
   const intakeHost=document.getElementById("intake407F");
   if(intakeHost){
     const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||createD1408PdfIntakeAdapter();

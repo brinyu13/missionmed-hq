@@ -259,6 +259,8 @@ test("M12 advisor card renders never-requested, pending, approved, edited-since,
   document.advisor={status:"pending",requestedAt:"2026-07-28T12:00:00.000Z",comments:[]};
   assert.match(renderExportScreen(document,{now:fixedNow}),/Awaiting advisor review · requested Jul 28, 2026/);
   assert.match(renderExportScreen(document,{now:fixedNow}),/>Cancel request<\/button>/);
+  document.advisor={status:"cancelled",requestedAt:"2026-07-28T12:00:00.000Z",comments:[]};
+  assert.match(renderExportScreen(document,{now:fixedNow}),/Get a second pair of eyes before you export\./);
   document.advisor={status:"approved",approvedAt:"2026-07-27T12:00:00.000Z",editedSince:false,comments:[]};
   assert.match(renderExportScreen(document,{now:fixedNow}),/Advisor approved · Jul 27, 2026/);
   document.advisor.editedSince=true;

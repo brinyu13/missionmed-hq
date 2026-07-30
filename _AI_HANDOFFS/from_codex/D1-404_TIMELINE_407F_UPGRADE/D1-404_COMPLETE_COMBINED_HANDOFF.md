@@ -430,13 +430,43 @@ remain available as engineering sources, but `web/index.html` does not load
   `screenshots/M12-export-407f.png`
 - Visual verdict: pass — Export is now a calm, premium 407F workbench with
   compact dark controls and the final artifact visually dominant at right.
+- Commit: `4a47d79`
+
+### M13 — Advisor session
+
+- Integrated the retained Advisor workflow as an invitation-only local
+  `#advisor-session:{timelineId}` route. It is intentionally absent from the
+  four-item student rail and performs no external invitation or Matrix write.
+- Forced Advisor Paper and Everything inside the read-only advisor board while
+  preserving and labeling the student's selected theme.
+- Added the five frozen tri-state checklist rows, computed review questions,
+  two-second source highlighting with reduced-motion accommodation, canvas
+  comment pins, 280-character notes, comment CRUD/resolution, and verdict gates.
+- Projected advisor comments back onto the student Canvas with local resolution
+  while excluding all review annotations from export output.
+- Reconciled approval fingerprints only when timeline event/exam data changes;
+  theme and Guided/Advanced mode changes do not falsely mark approval stale.
+- Corrected the cancelled-request display path so stale `requestedAt` metadata
+  cannot make a cancelled session appear pending.
+- Browser assertions: pass — Advisor Paper, Everything, student-theme chip,
+  five checklist rows, four fixture questions, read-only board, pin creation,
+  note save, verdict gating, and unchanged four-item student rail.
+- Browser errors during the fresh M13 Advisor run: 0.
+- Regression evidence: 431/431 tests pass in the full run: 119/119 TypeScript
+  and 312/312 module tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M13-advisor-session-407f.png`
+- Visual verdict: pass — the session reads as a focused 407F review surface,
+  with the canonical board dominant and compact editorial controls beside it.
 - Commit: pending
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 425/425 full inventory (119 TypeScript + 306 module); required floor 370 |
+| Regression floor | PASS — 431/431 full inventory (119 TypeScript + 312 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -465,7 +495,8 @@ remain available as engineering sources, but `web/index.html` does not load
 | M9 | `b56e7f5` | `git revert b56e7f5` |
 | M10 | `e2e1da7` | `git revert e2e1da7` |
 | M11 | `4c5f535` | `git revert 4c5f535` |
-| M12 | pending | pending |
+| M12 | `4a47d79` | `git revert 4a47d79` |
+| M13 | pending | pending |
 
 ## Precedence resolutions
 

@@ -3019,3 +3019,378 @@ section[data-view="canvas"]{
     animation:none;
   }
 }
+
+.advisor407FHost{
+  margin:0 auto;
+  max-width:1440px;
+}
+
+.advisor407FHost .advisor-session{
+  align-items:start;
+  display:grid;
+  gap:22px;
+  grid-template-columns:minmax(0,1fr) 380px;
+}
+
+.advisor407FHost .advisor-board-zone{
+  background:linear-gradient(145deg,rgba(20,29,45,.98),rgba(9,14,24,.98));
+  border:1px solid var(--edge);
+  border-radius:12px;
+  box-shadow:0 18px 52px rgba(0,0,0,.34);
+  padding:18px;
+  position:sticky;
+  top:76px;
+}
+
+.advisor407FHost .student-theme-chip{
+  border:1px solid rgba(185,138,46,.48);
+  border-radius:5px;
+  color:var(--em);
+  display:inline-block;
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:800;
+  margin-bottom:12px;
+  padding:5px 8px;
+}
+
+.advisor407FHost .advisor-board{
+  background:#FFFFFF;
+  border:1px solid rgba(255,255,255,.2);
+  border-radius:10px;
+  box-shadow:0 14px 36px rgba(0,0,0,.32);
+  overflow:hidden;
+  position:relative;
+}
+
+.advisor407FHost .advisor407FBoardRender svg{
+  display:block;
+  height:auto;
+  width:100%;
+}
+
+.advisor407FHost .advisor-rail{
+  display:grid;
+  gap:14px;
+}
+
+.advisor407FHost .advisor-checklist,
+.advisor407FHost .advisor-questions,
+.advisor407FHost .advisor-comments,
+.advisor407FHost .advisor-verdict{
+  background:linear-gradient(145deg,rgba(20,29,45,.98),rgba(9,14,24,.98));
+  border:1px solid var(--edge);
+  border-radius:10px;
+  box-shadow:0 12px 32px rgba(0,0,0,.24);
+  padding:16px;
+}
+
+.advisor407FHost .advisor-checklist h2,
+.advisor407FHost .advisor-questions h2,
+.advisor407FHost .advisor-comments h2{
+  color:var(--tx);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:800;
+  letter-spacing:.12em;
+  margin:0 0 12px;
+  text-transform:uppercase;
+}
+
+.advisor407FHost .advisor-checklist ul,
+.advisor407FHost .advisor-questions ul,
+.advisor407FHost .advisor-comments ol{
+  display:grid;
+  gap:8px;
+  list-style:none;
+  margin:0;
+  padding:0;
+}
+
+.advisor407FHost .advisor-checklist li{
+  align-items:center;
+  border-bottom:1px solid rgba(255,255,255,.06);
+  color:var(--mid);
+  display:grid;
+  font-size:12px;
+  gap:10px;
+  grid-template-columns:minmax(0,1fr) auto;
+  line-height:1.4;
+  padding:7px 0 10px;
+}
+
+.advisor407FHost .checklist-tristate{
+  display:flex;
+  gap:5px;
+}
+
+.advisor407FHost .checklist-tristate button{
+  background:#090e18;
+  border:1px solid var(--edge2);
+  border-radius:5px;
+  color:var(--mid);
+  font-size:14px;
+  height:34px;
+  width:34px;
+}
+
+.advisor407FHost .checklist-tristate button[aria-pressed="true"][data-checklist-choice="pass"]{
+  background:rgba(74,222,157,.14);
+  border-color:rgba(74,222,157,.52);
+  color:var(--gn);
+}
+
+.advisor407FHost .checklist-tristate button[aria-pressed="true"][data-checklist-choice="flag"]{
+  background:rgba(185,138,46,.17);
+  border-color:rgba(185,138,46,.58);
+  color:var(--em);
+}
+
+.advisor407FHost .advisor-questions li{
+  align-items:start;
+  display:grid;
+  gap:6px;
+  grid-template-columns:minmax(0,1fr) auto;
+}
+
+.advisor407FHost .advisor-question{
+  background:rgba(31,45,66,.62);
+  border:1px solid var(--edge);
+  border-radius:6px;
+  color:var(--tx);
+  font-size:12px;
+  line-height:1.4;
+  min-height:38px;
+  padding:8px 10px;
+  text-align:left;
+}
+
+.advisor407FHost .advisor-questions .icon-button{
+  background:transparent;
+  border:1px solid transparent;
+  border-radius:5px;
+  color:var(--mid);
+  height:34px;
+  width:34px;
+}
+
+.advisor407FHost .hidden-advisor-questions{
+  color:var(--mid);
+  font-size:12px;
+  margin-top:10px;
+}
+
+.advisor407FHost .advisor-comments>p{
+  color:var(--mid);
+  font-size:12px;
+  line-height:1.45;
+  margin:0 0 12px;
+}
+
+.advisor407FHost .advisor-comments li{
+  background:rgba(8,14,24,.72);
+  border:1px solid var(--edge);
+  border-radius:7px;
+  display:grid;
+  gap:7px;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  padding:9px;
+}
+
+.advisor407FHost .advisor-comments li.resolved{
+  opacity:.65;
+  text-decoration:line-through;
+}
+
+.advisor407FHost .comment-number{
+  align-items:center;
+  background:#B98A2E;
+  border-radius:50%;
+  color:#191C21;
+  display:flex;
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:900;
+  height:24px;
+  justify-content:center;
+  width:24px;
+}
+
+.advisor407FHost .advisor-comments textarea{
+  background:#090e18;
+  border:1px solid var(--edge2);
+  border-radius:6px;
+  color:var(--tx);
+  min-height:70px;
+  padding:8px;
+  resize:vertical;
+  width:100%;
+}
+
+.advisor407FHost .advisor-comments .button,
+.advisor407FHost .advisor-verdict .button{
+  border:1px solid var(--edge2);
+  border-radius:6px;
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:800;
+  min-height:36px;
+  padding:7px 10px;
+}
+
+.advisor407FHost .advisor-comments .button{
+  background:rgba(31,45,66,.7);
+  color:var(--tx);
+}
+
+.advisor407FHost .advisor-verdict{
+  display:grid;
+  gap:9px;
+  position:sticky;
+  bottom:12px;
+}
+
+.advisor407FHost .advisor-verdict .button.primary{
+  background:#B98A2E;
+  border-color:#B98A2E;
+  color:#191C21;
+}
+
+.advisor407FHost .advisor-verdict .button.secondary{
+  background:rgba(31,45,66,.7);
+  color:var(--tx);
+}
+
+.advisor407FHost .advisor-verdict .button:disabled{
+  cursor:not-allowed;
+  opacity:.56;
+}
+
+.advisor407FHost .advisor-approval-confirmation{
+  color:var(--gn);
+  font-size:12px;
+  margin:4px 0 0;
+}
+
+.advisor407FHost .advisor-comment-pin{
+  align-items:center;
+  background:#B98A2E;
+  border:2px solid #191C21;
+  border-radius:50%;
+  color:#191C21;
+  display:flex;
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:900;
+  height:28px;
+  justify-content:center;
+  left:var(--pin-x);
+  position:absolute;
+  top:var(--pin-y);
+  transform:translate(-50%,-50%);
+  width:28px;
+  z-index:8;
+}
+
+.advisor407FHost .advisor-pin-cursor{
+  border:2px dashed #B98A2E;
+  border-radius:50%;
+  height:22px;
+  left:var(--pin-x);
+  pointer-events:none;
+  position:absolute;
+  top:var(--pin-y);
+  transform:translate(-50%,-50%);
+  width:22px;
+  z-index:7;
+}
+
+.advisor407FHost .advisor-question-highlight{
+  animation:advisorHalo407F 2s ease-out;
+  filter:drop-shadow(0 0 10px #B98A2E);
+}
+
+.advisor407FHost .advisor-session-state{
+  align-content:center;
+  background:linear-gradient(145deg,rgba(20,29,45,.98),rgba(9,14,24,.98));
+  border:1px solid var(--edge);
+  border-radius:12px;
+  display:grid;
+  min-height:480px;
+  padding:32px;
+  text-align:center;
+}
+
+.advisor407FHost .advisor-session-state h1{
+  color:var(--tx);
+  font-family:var(--disp);
+}
+
+.advisor407FHost .advisor-inactive-card{
+  color:var(--mid);
+}
+
+.canvas407FHost .student-advisor-comments{
+  inset:0;
+  pointer-events:none;
+  position:absolute;
+  z-index:12;
+}
+
+.canvas407FHost .student-advisor-comments .advisor-comment-pin{
+  align-items:center;
+  background:#B98A2E;
+  border:2px solid #191C21;
+  border-radius:50%;
+  color:#191C21;
+  display:flex;
+  font-size:10px;
+  font-weight:900;
+  height:28px;
+  justify-content:center;
+  left:var(--pin-x);
+  pointer-events:auto;
+  position:absolute;
+  top:var(--pin-y);
+  transform:translate(-50%,-50%);
+  width:28px;
+}
+
+.canvas407FHost .student-advisor-comments .advisor-pin-popover{
+  background:#111a29;
+  border:1px solid var(--edge2);
+  border-radius:8px;
+  color:var(--tx);
+  left:var(--pin-x);
+  max-width:260px;
+  padding:10px;
+  pointer-events:auto;
+  position:absolute;
+  top:calc(var(--pin-y) + 22px);
+}
+
+@keyframes advisorHalo407F{
+  0%,100%{filter:drop-shadow(0 0 0 rgba(185,138,46,0))}
+  35%{filter:drop-shadow(0 0 14px rgba(185,138,46,.95))}
+}
+
+@media(max-width:1050px){
+  .advisor407FHost .advisor-session{
+    grid-template-columns:minmax(0,1fr) 340px;
+  }
+}
+
+@media(max-width:900px){
+  .advisor407FHost .advisor-session{
+    grid-template-columns:1fr;
+  }
+  .advisor407FHost .advisor-board-zone{
+    position:static;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .advisor407FHost .advisor-question-highlight{
+    animation:none;
+  }
+}

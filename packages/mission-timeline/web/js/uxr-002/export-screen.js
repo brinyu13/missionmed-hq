@@ -369,6 +369,9 @@ function normalizeAdvisorState(advisor={}){
   if(["changes-requested","change-requested"].includes(status)){
     return{kind:"changes-requested",date:null,editedSince:false,comments:unresolvedComments};
   }
+  if(["cancelled","canceled","not-requested"].includes(status)){
+    return{kind:"not-requested",date:null,editedSince:false,comments:unresolvedComments};
+  }
   if(advisor.requestedAt||["pending","requested","awaiting"].includes(status)){
     return{
       kind:"pending",

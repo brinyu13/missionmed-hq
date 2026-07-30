@@ -647,39 +647,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
 <!-- ================= ADVISOR ================= -->
 <section data-view="advisor">
-  <div class="trow"><div class="bigt">ADVISOR <em>REVIEW</em></div><div class="subt">HUMAN PASS BEFORE EXPORT · GOLD MEANS COACH</div></div>
-  <div class="grid2">
-    <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">GENERATED BOARD · COMMENT PINS</div>
-      <div id="boardAdvisor"></div>
-    </div></div>
-    <div>
-      <div class="panelD"><div class="pi">
-        <div class="subt" style="margin-bottom:6px">REVIEW CHECKLIST</div>
-        <div id="advChecks"></div>
-        <div style="display:flex;gap:10px;margin-top:18px;align-items:center;flex-wrap:wrap">
-          <button class="btnD gd" id="advApprove" disabled>APPROVE FOR EXPORT ▸</button>
-          <button class="btnD alt sm" id="advChanges">REQUEST CHANGES</button>
-        </div>
-      </div></div>
-      <div class="panelD" style="margin-top:18px"><div class="pi">
-        <div class="subt" style="margin-bottom:12px">ADVISOR CHEAT SHEET · PRE-MOCK BRIEF</div>
-        <div id="advCheat"></div>
-      </div></div>
-      <div class="panelD" style="margin-top:18px"><div class="pi">
-        <div class="subt" style="margin-bottom:12px">INTERVIEW QUESTIONS THIS TIMELINE MAY TRIGGER · CLICK TO HIGHLIGHT THE EVENT</div>
-        <div id="advQs"></div>
-      </div></div>
-      <div class="panelD" style="margin-top:18px"><div class="pi">
-        <div class="subt" style="margin-bottom:12px">COACH COMMENTS · ◆ HUMAN ONLY</div>
-        <div id="advComments"></div>
-      </div></div>
-      <div class="panelD" style="margin-top:18px"><div class="pi">
-        <div class="subt" style="margin-bottom:12px">RISK FLAGS</div>
-        <div id="advFlags"></div>
-      </div></div>
-    </div>
-  </div>
+  <div id="advisor407F" class="advisor407FHost"></div>
 </section>
 
 <!-- ================= EXPORT ================= -->
@@ -2255,7 +2223,7 @@ function renderAdvisor(){
       toast('Highlighted · '+ev.t);
     });}
 }
-$('#advApprove').onclick=()=>{
+if($('#advApprove'))$('#advApprove').onclick=()=>{
   openModal('<div class="subt" style="margin-bottom:10px">ADVISOR GATE</div>'
    +'<div style="font-weight:800;font-size:18px;margin-bottom:8px">Approve draft V'+state.draft+' for export?</div>'
    +'<div style="font-size:12.5px;color:var(--mid);margin-bottom:18px">The student will see your approval. Interview-safe export unlocks.</div>'
@@ -2263,7 +2231,7 @@ $('#advApprove').onclick=()=>{
   $('#mYes').onclick=()=>{state.approved=true;state.approvedAt=new Date().toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});state.approvals.export=true;state.changes=false;closeModal();toast('◆ Advisor approved · export gate open');renderAll()};
   $('#mNo').onclick=closeModal;
 };
-$('#advChanges').onclick=()=>{state.changes=true;state.approved=false;toast('Changes requested · student notified in the real build');renderHud()};
+if($('#advChanges'))$('#advChanges').onclick=()=>{state.changes=true;state.approved=false;toast('Changes requested · student notified in the real build');renderHud()};
 document.addEventListener('click',e=>{
   const p=e.target.closest('.apin');if(!p)return;
   const cm=document.querySelector('[data-cm="'+p.dataset.pin+'"]');
