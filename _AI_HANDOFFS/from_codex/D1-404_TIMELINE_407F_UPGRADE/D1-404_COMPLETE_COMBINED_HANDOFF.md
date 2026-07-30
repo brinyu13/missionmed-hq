@@ -255,13 +255,48 @@ remain available as engineering sources, but `web/index.html` does not load
 - Visual verdict: pass — the contextual Canvas retains 407F's dark angular
   navigation and toolbar while the frozen neutral letterbox frames the
   Keynote-faithful board.
-- Commit: pending M7 commit.
+- Commit: `3d40235`
+
+### M8 — adaptive axis and automatic density response
+
+- Verified that the active 407F Canvas delegates its board render to the retained
+  deterministic adaptive layout and Keynote renderer; no second axis or lane
+  algorithm was introduced.
+- Preserved the frozen span calculation, 12-year cap, fixed 64px condensed early
+  segment, inclusive overlap-month density calculation, bounded three-pass
+  clamp redistribution, and exact left-to-right integer remainder allocation.
+- Preserved month positions as linear within each adaptive year segment and the
+  under-7px month-pitch response that keeps quarter ticks while hiding minor
+  ticks.
+- Preserved stable lane assignment: arrows before flags, start date, longer
+  first, one clear month, category affinity, prior-lane stability, and minimal
+  conflict movement.
+- Confirmed automatic condensed rows activate only above six needed lanes,
+  producing 28px lane height, 22px shafts, and 11px labels. The retired manual
+  Condensed toggle and Crowded chip do not exist in the active Canvas.
+- Bound drop-only layout settling to the 407F Canvas with one 240ms ease-in-out
+  transition and an instant reduced-motion path. Active drag previews never
+  trigger a reflow.
+- Browser DOM evidence: four visible year widths were
+  `2023=436, 2024=484, 2025=404, 2026=404`; the sum is exactly 1728px, and the
+  busy 2024 segment is measurably wider than the sparse years.
+- Browser errors after the M8 axis inspection: 0.
+- Regression evidence: 405/405 tests pass in segmented runs: 109/109
+  non-performance TypeScript, 10/10 isolated performance, and 286/286 module
+  tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M8-adaptive-axis-407f.png`
+- Visual verdict: pass — the adaptive artifact remains framed by 407F chrome
+  and changes board geometry only, never the surrounding shell.
+- Commit: pending M8 commit.
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 400/400 segmented inventory (109 TypeScript functional + 10 isolated performance + 281 module); required floor 370 |
+| Regression floor | PASS — 405/405 segmented inventory (109 TypeScript functional + 10 isolated performance + 286 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -285,7 +320,8 @@ remain available as engineering sources, but `web/index.html` does not load
 | M4 | `8f11597` | `git revert 8f11597` |
 | M5 | `a530cda` | `git revert a530cda` |
 | M6 | `f7c6329` | `git revert f7c6329` |
-| M7 | pending M7 commit | patch with the M7 commit hash before M8 completion |
+| M7 | `3d40235` | `git revert 3d40235` |
+| M8 | pending M8 commit | patch with the M8 commit hash before M9 completion |
 
 ## Precedence resolutions
 

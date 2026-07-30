@@ -1564,8 +1564,24 @@ section[data-view="canvas"]{
   text-decoration:underline;
 }
 
-.canvas407FHost.layout-settling .canvas-application{
-  transition:transform 240ms ease;
+.canvas407FHost .canvas-application{
+  view-transition-name:timeline-board;
+}
+
+.canvas407FHost.layout-settling [data-event-kind],
+.canvas407FHost.layout-settling [data-segment-kind]{
+  animation:canvas407F-layout-settle 240ms ease-in-out;
+}
+
+@keyframes canvas407F-layout-settle{
+  from{opacity:.88}
+  to{opacity:1}
+}
+
+::view-transition-old(timeline-board),
+::view-transition-new(timeline-board){
+  animation-duration:240ms;
+  animation-timing-function:ease-in-out;
 }
 
 @media(max-width:1023px){
@@ -1594,7 +1610,12 @@ section[data-view="canvas"]{
 }
 
 @media(prefers-reduced-motion:reduce){
-  .canvas407FHost.layout-settling .canvas-application{
-    transition:none;
+  .canvas407FHost.layout-settling [data-event-kind],
+  .canvas407FHost.layout-settling [data-segment-kind]{
+    animation:none;
+  }
+  ::view-transition-old(timeline-board),
+  ::view-transition-new(timeline-board){
+    animation-duration:.01ms;
   }
 }
