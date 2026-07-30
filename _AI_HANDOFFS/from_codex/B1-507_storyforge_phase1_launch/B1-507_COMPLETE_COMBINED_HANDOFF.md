@@ -24,6 +24,7 @@ enabled nor claimed.
 |---|---|
 | Worktree | `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502` |
 | Branch | `codex/b1-503-storyforge-product-recovery` |
+| Final local/upstream/PR head | `02a7c491a06b1098cf4198a1f125fab77881db08` |
 | Implementation commit | `e94a305c82c35d492ceb68f13667200b83e6d2dd` |
 | Exact deployed source commit | `09878514fff39b2d1f2ba3ee40c4c3de55ffc473` |
 | Release ID | `v-4f40609482162cbd` |
@@ -328,9 +329,27 @@ The following remain intentionally external:
 - FABLE-C1–C4 and PROBE-C5;
 - reconciliation `dry_run`, automatic deletion, and rollout rungs 1–8.
 
-Shortest next action: obtain the bounded Fable RP-8/reconciliation amendment,
-then perform the authorized non-Docker RP-8 probe. Do not enable provider
-traffic, assembly, R2, recording UI, or broader access before those gates.
+The terminal full-launch audit also confirmed:
+
+- B01 GitHub integration remains partial: PR #19 is open/draft, changes 418
+  files, is 49 commits ahead and 13 behind current `main`, has no checks or
+  reviews, is `CONFLICTING`/`DIRTY`, and is unmerged;
+- B03 and B04 are implemented and deployed dormant but still require real
+  production audio mutation/replay acceptance;
+- B05–B07, B09–B16, and B18 remain external full-launch blockers;
+- no local passing test can substitute for the missing real-service,
+  authority, human-corpus, contractual, entitlement, or physical-device
+  evidence.
+
+The PR body was corrected through the GitHub plugin to record the actual
+rung-0 deployment and remove its obsolete pre-deployment statement. No merge,
+force-push, history rewrite, or repository-setting change occurred.
+
+Shortest next action: the Founder must run the bounded Fable
+RP-8/reconciliation request and return its complete binding Markdown response.
+Then execute the authorized non-Docker RP-8 probe. Do not enable provider
+traffic, assembly, recording UI, broader access, or reconciliation before the
+applicable gates.
 
 ## 14. Handoff custody
 
@@ -347,6 +366,10 @@ Its SHA-256 is
 
 `MANIFEST.sha256` covers the Markdown handoff package. Screenshot binaries and
 private backups are intentionally excluded.
+
+The requirement-by-requirement final audit is:
+
+`_AI_HANDOFFS/from_codex/B1-507_storyforge_phase1_launch/B1-507_FULL_LAUNCH_COMPLETION_AUDIT.md`
 
 ## Appendix A — Superseded pre-cutover snapshot
 

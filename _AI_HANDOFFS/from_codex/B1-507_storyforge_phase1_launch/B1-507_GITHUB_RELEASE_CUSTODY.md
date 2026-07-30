@@ -17,13 +17,16 @@ HISTORY.
   `fcd8f773d1b1d4fd915244bac7e8d652b35ae5b538c5ed77af682b427a1fea56`
 - first complete evidence commit:
   `789755583ac08f585b6623e1cd3ef320144989b2`
-- remote branch head before post-cutover closeout:
-  `c4964c201e554e7949f9e01f0498f66ad869450f`
+- final remote branch head:
+  `02a7c491a06b1098cf4198a1f125fab77881db08`
+- post-cutover evidence commits:
+  `d66217338a77916424de2368174557691f5e016a` and
+  `02a7c491a06b1098cf4198a1f125fab77881db08`
 - draft pull request:
   `https://github.com/brinyu13/missionmed-hq/pull/19`
 
-The exact product deployment pin remains `09878514...` even when later
-documentation-only commits advance the branch.
+The exact product deployment pin remains `09878514...` even though later
+evidence-only commits advance the branch.
 
 ## Remote mutation boundary
 
@@ -52,9 +55,29 @@ inspection:
 - mergeability: `CONFLICTING`;
 - merge-state status: `DIRTY`.
 
+The terminal GitHub plugin and `gh` verification at branch head
+`02a7c491...` confirmed:
+
+- repository identity `brinyu13/missionmed-hq`;
+- default branch `main`;
+- local, upstream, and GitHub PR head all exactly `02a7c491...`;
+- PR #19 open and draft;
+- 418 changed files and 49 branch-only commits;
+- branch 49 commits ahead of and 13 commits behind current `origin/main`;
+- no reported status checks;
+- no submitted reviews;
+- no merge commit;
+- GitHub mergeability `CONFLICTING` and merge state `DIRTY`.
+
+The PR body was corrected after cutover to record the actual rung-0
+deployment, exact release identity, force-off configuration, deferred voice
+gates, and integration boundary. It no longer states that no deployment
+occurred.
+
 The common ancestor is `5cc9144bfc770e5eda78124cc1fa886640041767`.
-The StoryForge branch remains substantially ahead of and behind current
-`origin/main`; the divergence is not limited to StoryForge.
+Current `origin/main` is
+`9c1fa72e6b056db8b6fe0e17031fcaa688f78569`. The divergence is not limited
+to StoryForge.
 
 The conflict set is not confined to StoryForge. It includes shared governance
 and platform files such as `AGENTS.md`, `_SYSTEM/CODEX_EXECUTION_GUARDRAILS.md`,
