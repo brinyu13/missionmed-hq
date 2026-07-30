@@ -510,10 +510,11 @@ remain available as engineering sources, but `web/index.html` does not load
   - `screenshots/M14-desktop-407f.png`
   - `screenshots/M14-tablet-407f.png`
   - `screenshots/M14-phone-407f.png`
+  - `screenshots/M14-final-home-407f.png`
 - Visual verdict: pass — every tier remains immediately recognizable as the
   canonical dark 407F application while progressively reducing editing
   capability exactly as frozen.
-- Commit: `PENDING`
+- Commit: `5c57fd5`
 
 ## Implementation Report
 
@@ -624,7 +625,7 @@ All rows are evaluated against D1-404's binding 407F visual mapping.
 | M11 | COMPLETE | `4c5f535` |
 | M12 | COMPLETE | `4a47d79` |
 | M13 | COMPLETE | `1d9bb12` |
-| M14 | COMPLETE | `PENDING` |
+| M14 | COMPLETE | `5c57fd5` |
 
 ## Verification gates
 
@@ -661,7 +662,7 @@ All rows are evaluated against D1-404's binding 407F visual mapping.
 | M11 | `4c5f535` | `git revert 4c5f535` |
 | M12 | `4a47d79` | `git revert 4a47d79` |
 | M13 | `1d9bb12` | `git revert 1d9bb12` |
-| M14 | `PENDING` | `git revert PENDING` |
+| M14 | `5c57fd5` | `git revert 5c57fd5` |
 
 ## Precedence resolutions
 
