@@ -19,12 +19,12 @@ identity, aliases, hashes, and timestamp metadata. The enforced rerun passed:
   approved aliases, and denied alias shapes;
 - live USCE and Arena asset hashes;
 - live StoryForge index, app, auth, styles, fonts, and license hashes;
-- all tracked protected paths except the intentionally dirty manifest during
-  the pre-commit run.
+- all tracked protected paths.
 
-Final gate result: 0 FAIL. Warnings were the expected Kinsta non-process
-runtime shape, the intentional pre-commit manifest dirtiness, and browser
-journeys handled separately through the authenticated smoke.
+The terminal clean-tree enforced rerun at commit
+`d66217338a77916424de2368174557691f5e016a` also passed with 0 FAIL.
+Its only warnings were the expected Kinsta non-process runtime shape and
+browser journeys handled separately through the authenticated smoke.
 
 No unrelated MissionMed source, deployment, service, bucket, WordPress
 setting, database, or route was changed.
