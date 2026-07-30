@@ -291,6 +291,30 @@ test('E13 runs the approved bounded error summary on the same identity client', 
   const identityClient = {
     async query(text, params) {
       identityQueries.push({ text, params });
+      if (text.includes('sf_reconciliation_report')) {
+        return {
+          rows: [{
+            run_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+            mode: 'dry_run',
+            started_at: '2026-07-30T12:00:00.000Z',
+            finished_at: '2026-07-30T12:01:00.000Z',
+            pages_listed: 1,
+            keys_evaluated: 4,
+            candidates: 1,
+            preserved: 3,
+            deleted_confirmed: 0,
+            object_absent: 0,
+            retried: 0,
+            failed: 0,
+            abort_reason: null,
+            suspended: false,
+            suspension_reason: null,
+            cursor_digest_start: '',
+            cursor_digest_end: 'a'.repeat(64),
+            replica_id: 'replica-fixture',
+          }],
+        };
+      }
       return {
         rows: [
           { error_category: 'transcribe', count: 3 },
@@ -327,13 +351,38 @@ test('E13 runs the approved bounded error summary on the same identity client', 
       { errorCategory: 'transcribe', count: 3 },
       { errorCategory: 'assembly', count: 1 },
     ],
+    reconciliation: [{
+      runId: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+      mode: 'dry_run',
+      startedAt: '2026-07-30T12:00:00.000Z',
+      finishedAt: '2026-07-30T12:01:00.000Z',
+      pagesListed: 1,
+      keysEvaluated: 4,
+      candidates: 1,
+      preserved: 3,
+      deletedConfirmed: 0,
+      objectAbsent: 0,
+      retried: 0,
+      failed: 0,
+      abortReason: null,
+      suspended: false,
+      suspensionReason: null,
+      cursorDigestStart: '',
+      cursorDigestEnd: 'a'.repeat(64),
+      replicaId: 'replica-fixture',
+    }],
   });
-  assert.equal(identityQueries.length, 1);
+  assert.equal(identityQueries.length, 2);
   assert.equal(
     identityQueries[0].text,
     'SELECT * FROM public.sf_voice_error_summary()',
   );
   assert.equal(identityQueries[0].params, undefined);
+  assert.equal(
+    identityQueries[1].text,
+    'SELECT * FROM public.sf_reconciliation_report($1)',
+  );
+  assert.deepEqual(identityQueries[1].params, [5]);
   assert.equal(serviceQueries.length, 1);
   assert.match(serviceQueries[0].text, /FROM public\.sf_recording_sessions/);
 });

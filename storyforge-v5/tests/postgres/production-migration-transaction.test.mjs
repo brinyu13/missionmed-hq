@@ -52,6 +52,11 @@ const ledger = [
     '20260729010000_b1_506a_voice_audit_lifecycle.sql',
     'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323',
   ],
+  [
+    '20260730000100',
+    '20260730000100_b1_507b_reconciliation_state.sql',
+    'ae86a5ea104becf7dff244fa3188338f8ad13eef58190abd47522ca2e2e733d7',
+  ],
 ];
 
 function pgTool(name) {
@@ -265,7 +270,7 @@ test(
       );
       const authority = runSqlFile(database, authorityGate);
       assert.equal(authority.status, 0, authority.stderr || authority.stdout);
-      assert.match(authority.stdout, /B1_506A_EFFECTIVE_AUTHORITY_PASS/);
+      assert.match(authority.stdout, /B1_507B_EFFECTIVE_AUTHORITY_PASS/);
 
       const audit = await database.client.query(
         `SELECT public.sf_append_voice_audit_service(
@@ -308,7 +313,7 @@ test(
         m2_retained: true,
         m3_routine_removed: true,
         m3_index_removed: true,
-        ledger_count: '8',
+        ledger_count: '9',
         audit_count: '1',
       }]);
 
@@ -341,7 +346,7 @@ test(
       assert.deepEqual(reapplied.rows, [{
         m3_routine_restored: true,
         m3_index_restored: true,
-        ledger_count: '8',
+        ledger_count: '9',
         audit_count: '1',
       }]);
     } finally {

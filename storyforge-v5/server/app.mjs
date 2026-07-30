@@ -10,6 +10,7 @@ import {
   appendServiceAudit,
   closePool,
   healthCheck,
+  pool,
   withIdentity as withDatabaseIdentity,
   withServiceTransaction,
 } from './db.mjs';
@@ -18,6 +19,7 @@ import { previewImport } from './imports.mjs';
 import {
   createAudioPlayback,
   createAudioUpload,
+  createR2StorageClient,
   copyAudioObject,
   deleteAudioObject,
   deleteAudioAssetObject,
@@ -40,6 +42,12 @@ import {
   createTranscriptionAdapterForProvider,
   createUnavailableTranscriptionAdapter,
 } from './transcription/adapter.mjs';
+import {
+  createOptionAAssemblyExecutor,
+  createOptionBAssemblyExecutor,
+} from './assembly/executors.mjs';
+import { createReconciliationService } from './reconciliation.mjs';
+import { startReconciliationScheduler } from './reconciliation-scheduler.mjs';
 
 // A 5 MB CSV/XLSX expands to roughly 6.7 MB when carried as base64 JSON.
 const jsonLimit = 8 * 1024 * 1024;
@@ -60,6 +68,51 @@ function authorityBlockedAssembly() {
   error.code = 'assembly_authority_blocked';
   error.status = 503;
   throw error;
+}
+
+export function createAssemblyExecutorForEnvironment({
+  environment = process.env,
+  serviceTransaction = withServiceTransaction,
+  storage = {
+    getRecordingSegment,
+    headAudioObject,
+    putRecordingSegment,
+  },
+} = {}) {
+  const executor = String(environment.STORYFORGE_ASSEMBLY_EXECUTOR || '')
+    .trim()
+    .toLowerCase();
+  const loadSegments = ({ studentId, recordingId }) => serviceTransaction(async (client) => {
+    const result = await client.query(
+      `SELECT segment.seq, segment.mime_type, segment.object_key
+         FROM public.sf_recording_segments segment
+         JOIN public.sf_recording_sessions session
+           ON session.id = segment.session_id
+        WHERE session.id = $1
+          AND session.student_id = $2
+        ORDER BY segment.seq`,
+      [recordingId, studentId],
+    );
+    return result.rows;
+  });
+  if (executor === 'concat') {
+    return createOptionAAssemblyExecutor({
+      loadSegments,
+      getObject: storage.getRecordingSegment,
+      putObject: storage.putRecordingSegment,
+    });
+  }
+  if (executor === 'copy') {
+    return createOptionBAssemblyExecutor({
+      loadSegments,
+      headObject: storage.headAudioObject,
+    });
+  }
+  return Object.freeze({
+    available: false,
+    option: null,
+    assembleRecording: authorityBlockedAssembly,
+  });
 }
 
 function emitStructuredEvent(event) {
@@ -2454,18 +2507,36 @@ async function start() {
         emitEvent: emitStructuredEvent,
       },
     ),
+    assembly: createAssemblyExecutorForEnvironment(),
   });
   await healthCheck();
   await phaseOneRuntime.recordingsService.recoverPendingTranscriptions();
   await phaseOneRuntime.recordingsService.recoverPendingAssemblies();
   await phaseOneRuntime.recordingsService.recoverPendingAudioAssets();
   const sweeps = phaseOneRuntime.recordingsService.startSweeps();
+  const r2Client = isAudioConfigured()
+    ? createR2StorageClient(config.r2)
+    : null;
+  const reconciliationService = createReconciliationService({
+    pool,
+    r2Client,
+    config: {
+      r2: config.r2,
+      audioReconciliation: config.audioReconciliation,
+      audioReconciliationSuspended: config.audioReconciliationSuspended,
+    },
+    logger: emitStructuredEvent,
+  });
+  const reconciliationScheduler = startReconciliationScheduler(
+    reconciliationService,
+  );
   const server = createAppServer({ phaseOneRuntime });
   server.listen(config.port, config.host, () => {
     console.log(`StoryForge V5 listening on ${config.host}:${config.port}`);
   });
   const shutdown = async () => {
     sweeps.stop();
+    reconciliationScheduler.stop();
     server.close();
     await closePool();
   };

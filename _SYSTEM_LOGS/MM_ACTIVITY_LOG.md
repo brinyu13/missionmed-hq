@@ -3517,3 +3517,48 @@ device voice acceptance, broader administrator/360 access, FABLE-C1–C4,
 PROBE-C5, reconciliation, and automatic deletion.
 
 **Status:** STORYFORGE REMAINS AT SAFE ROLLOUT RUNG 0
+
+---
+
+### B1-507B: StoryForge Phase 1 Final Binding Authority Ruling
+**Date:** 2026-07-30
+**Agent:** Claude Fable (Cowork)
+**Mission:** Issue final binding implementation rulings for seven remaining StoryForge Phase 1 production blockers from the B1-507 Codex authority request.
+
+**Scope:** Seven rulings resolving RP-8 assembly probe authorization, FABLE-C1 (deletion/audit truth), FABLE-C2 (operator visibility), FABLE-C3 (orphan attribution), FABLE-C4 (fairness/continuation), and PROBE-C5 (scheduler coordination). No deployment, no production mutation.
+
+**Deliverables (5 documents + manifest, SHA-256 verified):**
+
+1. `B1-507B_FABLE_BINDING_AUTHORITY.md` -- Seven binding rulings with consolidated finish.
+2. `B1-507B_EXECUTABLE_CONTRACTS.md` -- Literal SQL (M4 migration: 3 tables, 3 functions, expanded audit functions), reconciliation service contracts (lease, cursor, intent-first deletion), RP-8 probe contracts. GOVERNS on wording differences.
+3. `B1-507B_TEST_AND_ACCEPTANCE_MATRIX.md` -- 174 tests (17 unit, 135 integration, 11 E2E, 11 manual) across 10 sections with 6 acceptance gates.
+4. `B1-507B_CODEX_IMPLEMENTATION_PROMPT.md` -- Paste-ready Codex prompt with 4 implementation lanes.
+5. `B1-507B_COMPLETE_COMBINED_HANDOFF.md` -- Verdict, summary, sequencing, remaining external gates, authority chain.
+
+**Delivered to:**
+- `_AI_HANDOFFS/from_cowork/B1-507B_storyforge_phase1_final_binding/`
+- `CLAUDE_FILES/B1-507B_STORYFORGE_PHASE1_FINAL_BINDING/`
+
+**Key architectural decisions:**
+
+- Ephemeral Railway/Nixpacks probe authorized as bindingly equivalent to local container probe (Docker no longer required for RP-8)
+- Intent-first deletion protocol: INTEND (durable PG row) -> DELETE (R2) -> RESOLVE (PG + audit atomically); crash between any phases leaves recoverable state
+- Lease-based scheduler coordination on singleton row (30-min duration, 5-min renewal, database clock only); single-replica assumption rejected
+- Durable cursor with bounded consideration proof (ceil(N/5000) runs covers all N keys)
+- Content-free orphan attribution (no FK, no fabricated links, NULL audit FKs for orphans)
+- Live-entity keys preserved unconditionally (prevents reconciliation blockage)
+- Structural redaction: cursor digests (SHA-256) in all visible surfaces, no object keys in report
+
+**Adversarial review findings (2 independent reviewers, all resolved):**
+
+- P0-1: Missing `updated_at` column in sf_audio_deletion_intents DDL -- FIXED (column added)
+- P0-2: ref_state='live' without live asset row had no valid category for intent INSERT -- FIXED (live-entity keys preserved unconditionally)
+- P1-1: dry_run skipped HeadObject age check, inflating candidates -- FIXED (both modes share age check)
+- P1-2: `object_delete_retried` audit action unused -- FIXED (wired in retry path)
+- P2-1 through P2-4: defense-in-depth CHECK added, RESOLVE spec simplified, test coverage expanded
+
+**Blockers resolved:** B06 (RP-8), B12 (C1), B13 (C2), B14 (C3), B15 (C4), B16 (C5)
+
+**Verdict:** READY FOR FINAL PHASE 1 IMPLEMENTATION
+
+**Status:** STORYFORGE REMAINS AT SAFE ROLLOUT RUNG 0

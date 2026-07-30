@@ -168,6 +168,7 @@ migrations=(
   "$PACKAGE_DIR/infra/postgres/migrations/20260729000100_b1_506_voice_recording_sessions.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260729000200_b1_506_feature_flags.sql"
   "$PACKAGE_DIR/infra/postgres/migrations/20260729010000_b1_506a_voice_audit_lifecycle.sql"
+  "$PACKAGE_DIR/infra/postgres/migrations/20260730000100_b1_507b_reconciliation_state.sql"
 )
 expected_versions=(
   "20260726150000"
@@ -178,6 +179,7 @@ expected_versions=(
   "20260729000100"
   "20260729000200"
   "20260729010000"
+  "20260730000100"
 )
 expected_files=(
   "20260726150000_b1_500_storyforge_v5_foundation.sql"
@@ -188,6 +190,7 @@ expected_files=(
   "20260729000100_b1_506_voice_recording_sessions.sql"
   "20260729000200_b1_506_feature_flags.sql"
   "20260729010000_b1_506a_voice_audit_lifecycle.sql"
+  "20260730000100_b1_507b_reconciliation_state.sql"
 )
 expected_hashes=(
   "93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f"
@@ -198,6 +201,7 @@ expected_hashes=(
   "6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2"
   "8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a"
   "e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323"
+  "ae86a5ea104becf7dff244fa3188338f8ad13eef58190abd47522ca2e2e733d7"
 )
 
 for ((index = 0; index < ${#migrations[@]}; index++)); do
@@ -231,6 +235,7 @@ source_paths=(
   "storyforge-v5/infra/postgres/migrations/${expected_files[5]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[6]}"
   "storyforge-v5/infra/postgres/migrations/${expected_files[7]}"
+  "storyforge-v5/infra/postgres/migrations/${expected_files[8]}"
 )
 
 case "$STORYFORGE_SOURCE_MODE" in
@@ -434,23 +439,24 @@ SQL
   pending_hashes+=("${expected_hashes[$index]}")
 done
 
-[[ "${#pending_migrations[@]}" = "3" ]] \
-  || fail "the exact prestate must leave exactly three B1-506/B1-506A migrations pending"
+[[ "${#pending_migrations[@]}" = "4" ]] \
+  || fail "the exact prestate must leave exactly four B1-506/B1-506A/B1-507B migrations pending"
 [[ "${pending_files[0]}" = "${expected_files[5]}" \
    && "${pending_files[1]}" = "${expected_files[6]}" \
-   && "${pending_files[2]}" = "${expected_files[7]}" ]] \
-  || fail "pending migration set is not exactly the three B1-506/B1-506A forward migrations"
+   && "${pending_files[2]}" = "${expected_files[7]}" \
+   && "${pending_files[3]}" = "${expected_files[8]}" ]] \
+  || fail "pending migration set is not exactly the four B1-506/B1-506A/B1-507B forward migrations"
 
 if [[ "$mode" = "preflight" ]]; then
   printf '%s\n' "B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS"
   printf 'project_id=%s\nenvironment_id=%s\ndatabase_service_id=%s\n' \
     "$EXPECTED_PROJECT_ID" "$EXPECTED_ENVIRONMENT_ID" "$EXPECTED_DATABASE_SERVICE_ID"
-  printf 'db_system_identifier=%s\npending_migrations=3\n' "$actual_system_identifier"
+  printf 'db_system_identifier=%s\npending_migrations=4\n' "$actual_system_identifier"
   exit 0
 fi
 
-[[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = "B1-506A-APPLY-THREE-MIGRATIONS" ]] \
-  || fail "apply mode requires STORYFORGE_MIGRATION_CONFIRM=B1-506A-APPLY-THREE-MIGRATIONS"
+[[ "${STORYFORGE_MIGRATION_CONFIRM:-}" = "B1-507B-APPLY-FOUR-MIGRATIONS" ]] \
+  || fail "apply mode requires STORYFORGE_MIGRATION_CONFIRM=B1-507B-APPLY-FOUR-MIGRATIONS"
 
 psql_args=(
   -X
@@ -548,7 +554,8 @@ BEGIN
        ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'),
        ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', '6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2'),
        ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a'),
-       ('20260729010000', '20260729010000_b1_506a_voice_audit_lifecycle.sql', 'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323'))
+       ('20260729010000', '20260729010000_b1_506a_voice_audit_lifecycle.sql', 'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323'),
+       ('20260730000100', '20260730000100_b1_507b_reconciliation_state.sql', 'ae86a5ea104becf7dff244fa3188338f8ad13eef58190abd47522ca2e2e733d7'))
   ) OR EXISTS (
     (VALUES
        ('20260726150000', '20260726150000_b1_500_storyforge_v5_foundation.sql', '93018d16582890890ac9ad696cdfd11b5d8118afa55a709725c531a52fae6a1f'),
@@ -558,7 +565,8 @@ BEGIN
        ('20260728045444', '20260728045444_b1_503_interview_mentor_conformance.sql', '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2'),
        ('20260729000100', '20260729000100_b1_506_voice_recording_sessions.sql', '6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2'),
        ('20260729000200', '20260729000200_b1_506_feature_flags.sql', '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a'),
-       ('20260729010000', '20260729010000_b1_506a_voice_audit_lifecycle.sql', 'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323')
+       ('20260729010000', '20260729010000_b1_506a_voice_audit_lifecycle.sql', 'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323'),
+       ('20260730000100', '20260730000100_b1_507b_reconciliation_state.sql', 'ae86a5ea104becf7dff244fa3188338f8ad13eef58190abd47522ca2e2e733d7')
      EXCEPT
      SELECT version, file_name, sha256 FROM public.sf_schema_migrations)
   ) THEN
@@ -646,7 +654,15 @@ BEGIN
        ('public'::text, 'sf_recording_segments'::text, 'INSERT'::text, false),
        ('public'::text, 'sf_recording_segments'::text, 'UPDATE'::text, false),
        ('public'::text, 'sf_recording_segments'::text, 'DELETE'::text, false),
-       ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false))
+       ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_audio_deletion_intents'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_audio_deletion_intents'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_audio_deletion_intents'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_reconciliation_runs'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_reconciliation_runs'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_reconciliation_runs'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_reconciliation_state'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_reconciliation_state'::text, 'UPDATE'::text, false))
     UNION ALL
     (VALUES
        ('public'::text, 'sf_recording_sessions'::text, 'SELECT'::text, false),
@@ -657,7 +673,15 @@ BEGIN
        ('public'::text, 'sf_recording_segments'::text, 'INSERT'::text, false),
        ('public'::text, 'sf_recording_segments'::text, 'UPDATE'::text, false),
        ('public'::text, 'sf_recording_segments'::text, 'DELETE'::text, false),
-       ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false)
+       ('public'::text, 'sf_feature_flags'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_audio_deletion_intents'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_audio_deletion_intents'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_audio_deletion_intents'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_reconciliation_runs'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_reconciliation_runs'::text, 'INSERT'::text, false),
+       ('public'::text, 'sf_reconciliation_runs'::text, 'UPDATE'::text, false),
+       ('public'::text, 'sf_reconciliation_state'::text, 'SELECT'::text, false),
+       ('public'::text, 'sf_reconciliation_state'::text, 'UPDATE'::text, false)
      EXCEPT
      SELECT namespace.nspname::text, relation.relname::text,
             acl.privilege_type::text, acl.is_grantable
@@ -691,7 +715,9 @@ BEGIN
        ('public'::text, 'sf_voice_asset_mark_failed'::text,
         'uuid'::text, 'EXECUTE'::text, false),
        ('public'::text, 'sf_voice_audio_reference_check'::text,
-        'text[]'::text, 'EXECUTE'::text, false))
+        'text[]'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_reconciliation_sweep_old_runs'::text,
+        ''::text, 'EXECUTE'::text, false))
     UNION ALL
     (VALUES
        ('public'::text, 'sf_append_voice_audit_service'::text,
@@ -707,7 +733,9 @@ BEGIN
        ('public'::text, 'sf_voice_asset_mark_failed'::text,
         'uuid'::text, 'EXECUTE'::text, false),
        ('public'::text, 'sf_voice_audio_reference_check'::text,
-        'text[]'::text, 'EXECUTE'::text, false)
+        'text[]'::text, 'EXECUTE'::text, false),
+       ('public'::text, 'sf_reconciliation_sweep_old_runs'::text,
+        ''::text, 'EXECUTE'::text, false)
      EXCEPT
      SELECT namespace.nspname::text, routine.proname::text,
             oidvectortypes(routine.proargtypes)::text,
@@ -733,7 +761,13 @@ BEGIN
        ('public'::text, 'sf_recording_segments'::text,
         'sf_recording_segments_service'::text, '*'::text, true),
        ('public'::text, 'sf_feature_flags'::text,
-        'sf_feature_flags_service_read'::text, 'r'::text, true))
+        'sf_feature_flags_service_read'::text, 'r'::text, true),
+       ('public'::text, 'sf_audio_deletion_intents'::text,
+        'sf_deletion_intents_service'::text, '*'::text, true),
+       ('public'::text, 'sf_reconciliation_runs'::text,
+        'sf_reconciliation_runs_service'::text, '*'::text, true),
+       ('public'::text, 'sf_reconciliation_state'::text,
+        'sf_reconciliation_state_service'::text, '*'::text, true))
     UNION ALL
     (VALUES
        ('public'::text, 'sf_recording_sessions'::text,
@@ -741,7 +775,13 @@ BEGIN
        ('public'::text, 'sf_recording_segments'::text,
         'sf_recording_segments_service'::text, '*'::text, true),
        ('public'::text, 'sf_feature_flags'::text,
-        'sf_feature_flags_service_read'::text, 'r'::text, true)
+        'sf_feature_flags_service_read'::text, 'r'::text, true),
+       ('public'::text, 'sf_audio_deletion_intents'::text,
+        'sf_deletion_intents_service'::text, '*'::text, true),
+       ('public'::text, 'sf_reconciliation_runs'::text,
+        'sf_reconciliation_runs_service'::text, '*'::text, true),
+       ('public'::text, 'sf_reconciliation_state'::text,
+        'sf_reconciliation_state_service'::text, '*'::text, true)
      EXCEPT
      SELECT namespace.nspname::text, relation.relname::text,
             policy.polname::text, policy.polcmd::text, policy.polpermissive
@@ -767,6 +807,12 @@ BEGIN
         'pg_class'::regclass::oid, 'public.sf_recording_segments'::regclass::oid, 0, 'a'::text),
        ((SELECT oid FROM pg_database WHERE datname = current_database()),
         'pg_class'::regclass::oid, 'public.sf_feature_flags'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_audio_deletion_intents'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_reconciliation_runs'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_reconciliation_state'::regclass::oid, 0, 'a'::text),
        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
         'public.sf_append_voice_audit_service(text,text,uuid,uuid,uuid,jsonb,jsonb)'::regprocedure::oid,
         0, 'a'::text),
@@ -781,7 +827,9 @@ BEGIN
        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
         'public.sf_voice_asset_mark_failed(uuid)'::regprocedure::oid, 0, 'a'::text),
        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
-        'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text))
+        'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_reconciliation_sweep_old_runs()'::regprocedure::oid, 0, 'a'::text))
     UNION ALL
     (VALUES
        ((SELECT oid FROM pg_database WHERE datname = current_database()),
@@ -790,6 +838,12 @@ BEGIN
         'pg_class'::regclass::oid, 'public.sf_recording_segments'::regclass::oid, 0, 'a'::text),
        ((SELECT oid FROM pg_database WHERE datname = current_database()),
         'pg_class'::regclass::oid, 'public.sf_feature_flags'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_audio_deletion_intents'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_reconciliation_runs'::regclass::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()),
+        'pg_class'::regclass::oid, 'public.sf_reconciliation_state'::regclass::oid, 0, 'a'::text),
        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
         'public.sf_append_voice_audit_service(text,text,uuid,uuid,uuid,jsonb,jsonb)'::regprocedure::oid,
         0, 'a'::text),
@@ -804,7 +858,9 @@ BEGIN
        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
         'public.sf_voice_asset_mark_failed(uuid)'::regprocedure::oid, 0, 'a'::text),
        ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
-        'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text)
+        'public.sf_voice_audio_reference_check(text[])'::regprocedure::oid, 0, 'a'::text),
+       ((SELECT oid FROM pg_database WHERE datname = current_database()), 'pg_proc'::regclass::oid,
+        'public.sf_reconciliation_sweep_old_runs()'::regprocedure::oid, 0, 'a'::text)
      EXCEPT
      SELECT dependency.dbid, dependency.classid, dependency.objid, dependency.objsubid,
             dependency.deptype::text
@@ -1080,10 +1136,10 @@ BEGIN
          )
     INTO effective_authority_count, effective_authority_sha256
     FROM effective_authority;
-  IF effective_authority_count <> 244
+  IF effective_authority_count <> 254
      OR effective_authority_sha256
-        <> '3b412d5773c7f757da09d57d68f76e9d1d5b25705eeb09e6030b8044d265f1f6' THEN
-    RAISE EXCEPTION 'B1-506 effective authenticated/PUBLIC authority closure is not exact';
+        <> '2fd0eee3c7ec4e263420ed0593955be5b1fdaaec172ca16e27481a9b5f7ed05e' THEN
+    RAISE EXCEPTION 'B1-507B effective authenticated/PUBLIC authority closure is not exact';
   END IF;
 END
 $b1_506_post$;
@@ -1321,7 +1377,7 @@ post_role_closure="$(
 "${psql_read[@]}" -f "$effective_authority_gate" >/dev/null \
   || fail "committed authenticated/PUBLIC effective authority differs from the exact gate"
 
-printf '%s\n' "B1_506A_PRODUCTION_MIGRATIONS_APPLIED"
-printf 'migration_count=8\nleast_privilege_app_role=1\nstoryforge_user_count=%s\nactive_assignment_count=%s\nfeature_flag_seeded_by=%s\n' \
+printf '%s\n' "B1_507B_PRODUCTION_MIGRATIONS_APPLIED"
+printf 'migration_count=9\nleast_privilege_app_role=1\nstoryforge_user_count=%s\nactive_assignment_count=%s\nfeature_flag_seeded_by=%s\n' \
   "$STORYFORGE_EXPECTED_USER_COUNT" "$STORYFORGE_EXPECTED_ACTIVE_ASSIGNMENT_COUNT" \
   "$STORYFORGE_FOUNDER_USER_ID"

@@ -80,6 +80,7 @@ phase_one_migrations=(
   "20260729000100_b1_506_voice_recording_sessions.sql"
   "20260729000200_b1_506_feature_flags.sql"
   "20260729010000_b1_506a_voice_audit_lifecycle.sql"
+  "20260730000100_b1_507b_reconciliation_state.sql"
 )
 for migration in "${base_migrations[@]}"; do
   "$PSQL_BIN" "${PSQL_ARGS[@]}" \
@@ -101,3 +102,5 @@ node --test \
   "$PACKAGE_DIR/tests/postgres/voice-audit-lifecycle.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/audio-reconciliation-runtime.test.mjs" \
   "$PACKAGE_DIR/tests/postgres/production-migration-transaction.test.mjs"
+
+node --test --test-concurrency=1 "$PACKAGE_DIR"/tests/pg/*.test.mjs

@@ -88,6 +88,9 @@ export const config = Object.freeze({
       'whisper-1',
     ),
   }),
+  assemblyExecutor: text('STORYFORGE_ASSEMBLY_EXECUTOR').toLowerCase(),
+  audioReconciliation: text('STORYFORGE_AUDIO_RECONCILIATION', 'off').toLowerCase() || 'off',
+  audioReconciliationSuspended: text('STORYFORGE_AUDIO_RECONCILIATION_SUSPENDED'),
 });
 
 export function validateConfig() {

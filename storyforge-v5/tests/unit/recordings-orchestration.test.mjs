@@ -979,7 +979,7 @@ test('session sweeps isolate failures and never claim failed cleanup as success'
   });
 });
 
-test('10-minute maintenance retries pending durable audio even when session sweeping fails', async () => {
+test('10-minute maintenance retries pending durable audio while legacy reconciliation stays retired', async () => {
   let pendingScans = 0;
   const store = storeFixture({
     async sweepCandidates() {
@@ -1002,33 +1002,7 @@ test('10-minute maintenance retries pending durable audio even when session swee
       failed: 0,
     },
     transcriptions: { queued: 0 },
-    audioReconciliation: {
-      mode: 'off',
-      suspended: false,
-      invalidConfig: false,
-      due: false,
-      aborted: false,
-      abortReason: null,
-      listed: 0,
-      truncated: false,
-      candidates: 0,
-      referenced: 0,
-      preserved: {
-        outsidePrefix: 0,
-        control: 0,
-        invalidMetadata: 0,
-        notOldEnough: 0,
-        invalidIdentifier: 0,
-        referenced: 0,
-        deletionCap: 0,
-        deleteFailed: 0,
-      },
-      deleted: 0,
-      retried: 0,
-      failed: 0,
-      wouldDelete: [],
-      markerWriteFailed: false,
-    },
+    audioReconciliation: { retired: true },
   });
   assert.equal(pendingScans, 1);
 });
@@ -1496,7 +1470,7 @@ test('reconciliation listing enforces five 1000-key pages and reports truncation
   assert.equal(marker.counts.truncated, true);
 });
 
-test('reference ambiguity aborts before every deletion and remains isolated in maintenance', async () => {
+test('legacy reconciliation cannot delete from the maintenance loop', async () => {
   const object = reconciliationObject(20);
   let deletes = 0;
   const store = storeFixture({
@@ -1514,8 +1488,7 @@ test('reference ambiguity aborts before every deletion and remains isolated in m
     }),
   });
   const result = await service.runMaintenance();
-  assert.equal(result.audioReconciliation.aborted, true);
-  assert.equal(result.audioReconciliation.abortReason, 'reference_check_failed');
+  assert.deepEqual(result.audioReconciliation, { retired: true });
   assert.equal(deletes, 0);
   assert.deepEqual(result.sessions, { scanned: 0, cleaned: 0, failures: [] });
   assert.deepEqual(result.pendingAudioAssets, {
@@ -1680,7 +1653,7 @@ test('a retry-audit failure aborts visibly after a successful retry', async () =
   assert.equal(result.abortReason, 'delete_retry_audit_failed');
 });
 
-test('a successful reconciliation lane remains complete when another maintenance lane fails', async () => {
+test('new reconciliation ownership stays isolated when another maintenance lane fails', async () => {
   const store = storeFixture({
     async sweepCandidates() {
       throw new Error('session sweep unavailable');
@@ -1693,9 +1666,7 @@ test('a successful reconciliation lane remains complete when another maintenance
   });
   const result = await service.runMaintenance();
   assert.deepEqual(result.sessions, { failed: true });
-  assert.equal(result.audioReconciliation.mode, 'dry_run');
-  assert.equal(result.audioReconciliation.due, true);
-  assert.equal(result.audioReconciliation.aborted, false);
+  assert.deepEqual(result.audioReconciliation, { retired: true });
 });
 
 test('on mode retries each failed delete exactly once and writes only ruled audits', async () => {

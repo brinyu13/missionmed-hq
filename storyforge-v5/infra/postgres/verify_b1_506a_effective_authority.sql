@@ -259,12 +259,12 @@ BEGIN
     INTO effective_authority_count, effective_authority_sha256
     FROM effective_authority;
 
-  IF effective_authority_count <> 244
+  IF effective_authority_count <> 254
      OR effective_authority_sha256
-        <> '3b412d5773c7f757da09d57d68f76e9d1d5b25705eeb09e6030b8044d265f1f6' THEN
-    RAISE EXCEPTION 'B1-506 effective authenticated/PUBLIC authority closure is not exact';
+        <> '2fd0eee3c7ec4e263420ed0593955be5b1fdaaec172ca16e27481a9b5f7ed05e' THEN
+    RAISE EXCEPTION 'B1-507B effective authenticated/PUBLIC authority closure is not exact';
   END IF;
 END
 $b1_506a_effective_authority$;
 
-SELECT 'B1_506A_EFFECTIVE_AUTHORITY_PASS' AS result;
+SELECT 'B1_507B_EFFECTIVE_AUTHORITY_PASS' AS result;

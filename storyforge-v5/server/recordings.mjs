@@ -2304,12 +2304,10 @@ export function createRecordingsService({
       sessions,
       pendingAudioAssets,
       transcriptions,
-      audioReconciliation,
     ] = await Promise.allSettled([
       runSweeps(),
       recoverPendingAudioAssets(),
       recoverPendingTranscriptions(),
-      runWeeklyAudioReconciliation(),
     ]);
     return {
       sessions: sessions.status === 'fulfilled'
@@ -2321,9 +2319,7 @@ export function createRecordingsService({
       transcriptions: transcriptions.status === 'fulfilled'
         ? transcriptions.value
         : { failed: true },
-      audioReconciliation: audioReconciliation.status === 'fulfilled'
-        ? audioReconciliation.value
-        : { failed: true },
+      audioReconciliation: { retired: true },
     };
   }
 

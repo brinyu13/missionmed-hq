@@ -39,6 +39,14 @@ async function queryVoiceErrorSummary(_identity, client) {
   return result.rows;
 }
 
+async function queryReconciliationReport(_identity, client) {
+  const result = await client.query(
+    'SELECT * FROM public.sf_reconciliation_report($1)',
+    [5],
+  );
+  return result.rows;
+}
+
 function normalizedFlag(row) {
   if (!row) {
     return {
@@ -155,6 +163,7 @@ export function createPostgresFlagStore({
   appendAudit,
   readFeatureAuditTail = queryFeatureAuditTail,
   readVoiceErrorSummary = queryVoiceErrorSummary,
+  readReconciliationReport = queryReconciliationReport,
 }) {
   requireFunction(withIdentity, 'withIdentity');
   requireFunction(withServiceTransaction, 'withServiceTransaction');
@@ -337,6 +346,58 @@ export function createPostgresFlagStore({
         503,
       );
     }
+    let reconciliation = null;
+    if (typeof readReconciliationReport === 'function') {
+      try {
+        const rows = await withIdentity(identity, (client) => (
+          readReconciliationReport(identity, client)
+        ));
+        const requiredCounts = [
+          'pages_listed',
+          'keys_evaluated',
+          'candidates',
+          'preserved',
+          'deleted_confirmed',
+          'object_absent',
+          'retried',
+          'failed',
+        ];
+        if (
+          !Array.isArray(rows)
+          || rows.some((row) => (
+            !['dry_run', 'on'].includes(row.mode)
+            || requiredCounts.some((key) => (
+              !Number.isInteger(Number(row[key] ?? row[key.replace(/_([a-z])/g, (_, char) => char.toUpperCase())]))
+              || Number(row[key] ?? row[key.replace(/_([a-z])/g, (_, char) => char.toUpperCase())]) < 0
+            ))
+          ))
+        ) {
+          throw new Error('invalid_reconciliation_report');
+        }
+        reconciliation = rows.map((row) => ({
+          runId: row.run_id ?? row.runId,
+          mode: row.mode,
+          startedAt: row.started_at ?? row.startedAt,
+          finishedAt: row.finished_at ?? row.finishedAt,
+          pagesListed: Number(row.pages_listed ?? row.pagesListed),
+          keysEvaluated: Number(row.keys_evaluated ?? row.keysEvaluated),
+          candidates: Number(row.candidates),
+          preserved: Number(row.preserved),
+          deletedConfirmed: Number(row.deleted_confirmed ?? row.deletedConfirmed),
+          objectAbsent: Number(row.object_absent ?? row.objectAbsent),
+          retried: Number(row.retried),
+          failed: Number(row.failed),
+          abortReason: row.abort_reason ?? row.abortReason ?? null,
+          suspended: row.suspended === true,
+          suspensionReason: row.suspension_reason ?? row.suspensionReason ?? null,
+          cursorDigestStart: row.cursor_digest_start ?? row.cursorDigestStart ?? '',
+          cursorDigestEnd: row.cursor_digest_end ?? row.cursorDigestEnd ?? '',
+          replicaId: row.replica_id ?? row.replicaId,
+        }));
+      } catch {
+        reconciliation = null;
+      }
+    }
     return {
       windowHours: 24,
       sessionsByState: states,
@@ -344,6 +405,7 @@ export function createPostgresFlagStore({
         errorCategory: row.errorCategory ?? row.error_category,
         count: Number(row.count),
       })),
+      reconciliation,
     };
   }
 

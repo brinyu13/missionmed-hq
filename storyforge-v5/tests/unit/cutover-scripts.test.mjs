@@ -127,6 +127,7 @@ test('browser harnesses pin PostgreSQL 18 and the exact forward-only migration o
     '20260729000100_b1_506_voice_recording_sessions.sql',
     '20260729000200_b1_506_feature_flags.sql',
     '20260729010000_b1_506a_voice_audit_lifecycle.sql',
+    '20260730000100_b1_507b_reconciliation_state.sql',
   ];
 
   for (const harness of postgresHarnesses) {
@@ -537,6 +538,7 @@ test('production migration runner pins source, backup, provider, DB, and exact l
     '20260729000100_b1_506_voice_recording_sessions.sql',
     '20260729000200_b1_506_feature_flags.sql',
     '20260729010000_b1_506a_voice_audit_lifecycle.sql',
+    '20260730000100_b1_507b_reconciliation_state.sql',
   ];
 
   mkdirSync(candidateScripts, { recursive: true });
@@ -621,8 +623,9 @@ case "$joined" in
   *"--set=version=20260729000100"*) : ;;
   *"--set=version=20260729000200"*) : ;;
   *"--set=version=20260729010000"*) : ;;
+  *"--set=version=20260730000100"*) : ;;
   *"B1_506A_EXACT_ROLE_CLOSURE_POSTCOMMIT"*) printf 'true\\n' ;;
-  *"verify_b1_506a_effective_authority.sql"*) printf 'B1_506A_EFFECTIVE_AUTHORITY_PASS\\n' ;;
+  *"verify_b1_506a_effective_authority.sql"*) printf 'B1_507B_EFFECTIVE_AUTHORITY_PASS\\n' ;;
   *"NOT rolcreatedb"*) printf '8|1|1|0|1\\n' ;;
   *"sf_users"*"sf_mentor_assignments"*) printf '1|0|1\\n' ;;
   *) printf 'unexpected fake psql invocation: %s\\n' "$joined" >&2; exit 71 ;;
@@ -684,7 +687,7 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
   const preflight = run(candidateRunner, ['preflight'], environment);
   assert.equal(preflight.status, 0, preflight.stderr || preflight.stdout);
   assert.match(preflight.stdout, /B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
-  assert.match(preflight.stdout, /pending_migrations=3/);
+  assert.match(preflight.stdout, /pending_migrations=4/);
   assert.equal(existsSync(fakeSqlLog), false, 'preflight must not issue the mutation transaction');
 
   const originalSafety = readFileSync(candidateSafety, 'utf8');
@@ -724,11 +727,11 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
 
   const apply = run(candidateRunner, ['apply'], {
     ...environment,
-    STORYFORGE_MIGRATION_CONFIRM: 'B1-506A-APPLY-THREE-MIGRATIONS',
+    STORYFORGE_MIGRATION_CONFIRM: 'B1-507B-APPLY-FOUR-MIGRATIONS',
   });
   assert.equal(apply.status, 0, apply.stderr || apply.stdout);
-  assert.match(apply.stdout, /B1_506A_PRODUCTION_MIGRATIONS_APPLIED/);
-  assert.match(apply.stdout, /migration_count=8/);
+  assert.match(apply.stdout, /B1_507B_PRODUCTION_MIGRATIONS_APPLIED/);
+  assert.match(apply.stdout, /migration_count=9/);
   assert.doesNotMatch(apply.stdout, /B1_503_PRODUCTION_MIGRATIONS_APPLIED/);
   const transactionSql = readFileSync(fakeSqlLog, 'utf8');
   assert.match(transactionSql, /pg_advisory_xact_lock/);
@@ -758,6 +761,7 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
   assert.match(transactionSql, /20260729000100_b1_506_voice_recording_sessions\.sql/);
   assert.match(transactionSql, /20260729000200_b1_506_feature_flags\.sql/);
   assert.match(transactionSql, /20260729010000_b1_506a_voice_audit_lifecycle\.sql/);
+  assert.match(transactionSql, /20260730000100_b1_507b_reconciliation_state\.sql/);
   assert.match(apply.stdout, /feature_flag_seeded_by=33333333-3333-4333-8333-333333333333/);
   assert.doesNotMatch(transactionSql, /fixture-password-with-more-than-32-characters/);
   assert.doesNotMatch(transactionSql, /\\password storyforge_app/);
