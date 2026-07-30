@@ -359,13 +359,47 @@ remain available as engineering sources, but `web/index.html` does not load
 - Visual verdict: pass — the picker is scoped to the dark 407F Canvas, while
   every miniature and selected board preserves the product's Keynote-derived
   artifact language.
+- Commit: `e2e1da7`
+
+### M11 — Guided and Advanced Studio
+
+- Integrated the retained Advanced Studio state/actions and board compositor
+  directly into the canonical 407F Canvas; Guided remains the default and
+  renders no Advanced controls or retained Advanced layers.
+- Preserved both frozen mode gates verbatim. First entry requires the exact
+  Advanced Studio dialog and persists `Before Advanced Studio · {date}` before
+  the mode mutation; returning requires the exact re-arrangement warning.
+- Added the exact second-row inventory: Image, GIF, Logo, Text, Background,
+  divider, and Layout lock. Layout lock defaults ON; restoring it re-runs the
+  retained stable-lane arrangement while horizontal month snapping remains.
+- Connected local PNG/JPG/GIF media, 120px top-right logos, text blocks,
+  headline/text typography, z-order/delete actions, shared-store history,
+  IndexedDB blob persistence, object-URL hydration, and cleanup.
+- Added the exact Presets, Upload, and Color background tabs; all 12 app-owned
+  presets, PNG/JPG ≤10MB upload with cover/dim behavior, theme colors, exactly
+  20 curated swatches, six-digit hex, conditional EyeDropper, and eight recent
+  colors are sourced from the retained frozen engine.
+- Scoped every Advanced surface to the 407F Canvas or its 407F modal. No
+  Advanced selector can retheme the shell, rail, navigation, or app chrome.
+- Browser assertions: pass — exact six-item insert strip, three background
+  tabs, 12 presets, 20 curated colors, hex and EyeDropper, Layout lock ON,
+  exact return dialog, and complete Guided isolation after return.
+- Browser errors during the fresh M11 interaction run: 0.
+- Regression evidence: 419/419 tests pass in the full run: 119/119 TypeScript
+  and 300/300 module tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M11-advanced-studio-407f.png`
+- Visual verdict: pass — the creative tool row and background studio remain
+  dark, angular, compact 407F controls wrapped around the canonical board.
 - Commit: pending
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 414/414 full inventory (119 TypeScript + 295 module); required floor 370 |
+| Regression floor | PASS — 419/419 full inventory (119 TypeScript + 300 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -392,6 +426,8 @@ remain available as engineering sources, but `web/index.html` does not load
 | M7 | `3d40235` | `git revert 3d40235` |
 | M8 | `17d8880` | `git revert 17d8880` |
 | M9 | `b56e7f5` | `git revert b56e7f5` |
+| M10 | `e2e1da7` | `git revert e2e1da7` |
+| M11 | pending | pending |
 
 ## Precedence resolutions
 

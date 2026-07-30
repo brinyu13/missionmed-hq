@@ -22,6 +22,28 @@ import {
   createCanvasState,
   installCanvas
 } from "./uxr-002/canvas.js";
+import {assignStableLanes} from "./uxr-002/adaptive-layout.js";
+import {createAdvancedBoardRenderer} from "./uxr-002/advanced-board.js";
+import {
+  applyAdvancedObjectAction,
+  applyAdvancedTypography,
+  applyModeSwitch,
+  createFlatColorBackground,
+  createMediaElement,
+  createPresetBackground,
+  createTextBlock,
+  createUploadedBackground,
+  installAdvancedStudio,
+  planModeSwitch,
+  recordRecentColor,
+  renderAdvancedStudio,
+  renderModeDialog,
+  relativeLuminanceFromRgb,
+  sampleEyeDropper,
+  setBackgroundDim,
+  setLayoutLock,
+  updateTextBlockContent
+} from "./uxr-002/advanced-studio.js";
 import {
   renderKeynoteClassicBoard,
   serializeKeynoteClassicSvg
@@ -29,6 +51,7 @@ import {
 import {renderThemePicker} from "./uxr-002/theme-picker.js";
 import {
   DEFAULT_THEME_ID,
+  THEMES_BY_ID,
   applyThemeToTimelineRender
 } from "./uxr-002/themes.js";
 import {
@@ -38,6 +61,7 @@ import {
   renderIntake
 } from "./uxr-002/intake.js";
 import {createD1408PdfIntakeAdapter} from "./uxr-002/intake-d1-408-adapter.js";
+import {uid} from "./uxr-002/utils.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -314,6 +338,97 @@ function render407FThemedBoard(document,options={}){
     });
 }
 
+function autoArrange(document){
+  const lanes=assignStableLanes(document.events||[]).laneById;
+  for(const event of document.events||[]){
+    event.lane=lanes[event.id];
+    delete event.manualY;
+  }
+  return document;
+}
+
+function createObjectUrlRegistry(){
+  const urls=new Map();
+  return{
+    get:(id)=>urls.get(String(id))||null,
+    set(id,blob){
+      const key=String(id);
+      const prior=urls.get(key);
+      if(prior)URL.revokeObjectURL(prior);
+      const url=URL.createObjectURL(blob);
+      urls.set(key,url);
+      return url;
+    },
+    async hydrate(store,document){
+      const advanced=document?.advanced||{};
+      const ids=[
+        advanced.background?.kind==="upload"?advanced.background.mediaId:null,
+        ...(advanced.media||[]).map((item)=>item.id)
+      ].filter(Boolean);
+      let changed=false;
+      for(const id of ids){
+        if(urls.has(String(id)))continue;
+        const blob=await store.adapter.getBlob(String(id));
+        if(blob){this.set(id,blob);changed=true;}
+      }
+      return changed;
+    },
+    revokeAll(){
+      for(const url of urls.values())URL.revokeObjectURL(url);
+      urls.clear();
+    }
+  };
+}
+
+async function imageMetrics(file,{sample=false}={}){
+  if(typeof createImageBitmap!=="function"){
+    return{width:320,height:180,luminance:.5};
+  }
+  const bitmap=await createImageBitmap(file);
+  try{
+    const result={width:bitmap.width,height:bitmap.height,luminance:.5};
+    if(sample){
+      const canvas=document.createElement("canvas");
+      canvas.width=24;
+      canvas.height=24;
+      const context=canvas.getContext("2d",{willReadFrequently:true});
+      context.drawImage(bitmap,0,0,24,24);
+      const pixels=context.getImageData(0,0,24,24).data;
+      let red=0;
+      let green=0;
+      let blue=0;
+      let count=0;
+      for(let index=0;index<pixels.length;index+=4){
+        if(pixels[index+3]===0)continue;
+        red+=pixels[index];
+        green+=pixels[index+1];
+        blue+=pixels[index+2];
+        count+=1;
+      }
+      if(count){
+        result.luminance=relativeLuminanceFromRgb({
+          r:red/count,
+          g:green/count,
+          b:blue/count
+        });
+      }
+    }
+    return result;
+  }finally{
+    bitmap.close?.();
+  }
+}
+
+function chooseLocalFile(accept){
+  return new Promise((resolve)=>{
+    const input=document.createElement("input");
+    input.type="file";
+    input.accept=accept;
+    input.addEventListener("change",()=>resolve(input.files?.[0]||null),{once:true});
+    input.click();
+  });
+}
+
 function canvasDetailField([key,label,type="text"],event){
   const value=event.fields?.[key]??"";
   if(type==="checkbox"){
@@ -356,13 +471,20 @@ export async function boot407FEngineeringAdapter({
   }
 
   const init=await store.initialize();
+  const mediaUrls=createObjectUrlRegistry();
+  const advancedBoardRenderer=createAdvancedBoardRenderer({
+    baseRenderer:render407FThemedBoard,
+    resolveObjectUrl:(id)=>mediaUrls.get(id)
+  });
   let applying=false;
   let canvasController=null;
+  let removeAdvanced=()=>{};
   let intakeCleanup=()=>{};
   let intakeMachine=null;
   let canvasSyncing=false;
   let unsubscribeStore=()=>{};
   let onCanvasDetailsClick=()=>{};
+  let onAdvancedObjectClick=()=>{};
   let onCanvasResize=()=>{};
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
@@ -419,9 +541,12 @@ export async function boot407FEngineeringAdapter({
       );
     }
     canvasController?.destroy();
+    removeAdvanced();
     intakeCleanup();
+    mediaUrls.revokeAll();
     unsubscribeStore();
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
+    document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     window.removeEventListener("resize",onCanvasResize);
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
@@ -447,6 +572,220 @@ export async function boot407FEngineeringAdapter({
     lastState=stableState(bridge.state);
     applying=false;
   };
+  const applyModeDecision=async(plan,decision)=>{
+    if(plan.versionRequest&&["enter-advanced","confirm"].includes(decision)){
+      await store.saveVersion(plan.versionRequest.name,plan.versionRequest.kind);
+    }
+    const result=applyModeSwitch(store.document,plan,decision);
+    if(!result.changed)return result;
+    if(result.effects?.rerunAutoArrange)autoArrange(result.document);
+    store.replace(result.document,{
+      label:plan.mutation?.label||"Change Canvas mode",
+      history:!!plan.mutation
+    });
+    syncBridgeFromStore();
+    return result;
+  };
+  const requestCanvasMode=(targetMode)=>{
+    const plan=planModeSwitch(store.document,targetMode);
+    if(plan.status==="noop")return;
+    if(plan.status==="ready"){
+      applyModeDecision(plan,"confirm")
+        .catch((error)=>bridge.toast(String(error?.message||error)));
+      return;
+    }
+    if(typeof bridge.openModal!=="function")return;
+    bridge.openModal(renderModeDialog(plan.dialog));
+    document.querySelector("[data-mode-dialog-secondary]")?.addEventListener("click",()=>{
+      bridge.closeModal?.();
+      const decision=targetMode==="advanced"?"stay-guided":"cancel";
+      applyModeDecision(plan,decision)
+        .catch((error)=>bridge.toast(String(error?.message||error)));
+    },{once:true});
+    document.querySelector("[data-mode-dialog-primary]")?.addEventListener("click",()=>{
+      bridge.closeModal?.();
+      const decision=targetMode==="advanced"?"enter-advanced":"return-guided";
+      applyModeDecision(plan,decision)
+        .catch((error)=>bridge.toast(String(error?.message||error)));
+    },{once:true});
+  };
+  const persistAdvancedBlob=async(id,file,kind)=>{
+    await store.adapter.putBlob(id,file,{
+      kind,
+      name:file.name,
+      type:file.type,
+      size:file.size,
+      localOnly:true
+    });
+    mediaUrls.set(id,file);
+  };
+  const addAdvancedMedia=async(kind)=>{
+    const accept=kind==="gif"
+      ?".gif,image/gif"
+      :kind==="logo"
+        ?".png,.jpg,.jpeg,.gif,image/png,image/jpeg,image/gif"
+        :".png,.jpg,.jpeg,image/png,image/jpeg";
+    const file=await chooseLocalFile(accept);
+    if(!file)return;
+    const id=uid(`advanced-${kind}`);
+    const metrics=await imageMetrics(file);
+    const media=createMediaElement({
+      id,
+      kind,
+      file,
+      naturalWidth:metrics.width,
+      naturalHeight:metrics.height,
+      layerIndex:store.document.advanced?.media?.length||0
+    });
+    media.source.blobKey=id;
+    await persistAdvancedBlob(id,file,kind);
+    store.mutate(`Add ${kind}`,(document)=>{
+      document.advanced.media.push(media);
+    });
+    syncBridgeFromStore();
+    canvasController?.setUiState({advancedSelection:{type:"media",id}});
+  };
+  const addAdvancedBackground=async(file)=>{
+    if(!file)return;
+    const id=uid("advanced-background");
+    const metrics=await imageMetrics(file,{sample:true});
+    const background=createUploadedBackground(file,{
+      id,
+      luminance:metrics.luminance
+    });
+    background.source.blobKey=id;
+    await persistAdvancedBlob(id,file,"background");
+    store.mutate("Change background",(document)=>{
+      document.advanced.background=background;
+    });
+    syncBridgeFromStore();
+  };
+  const currentTypography=(target)=>{
+    if(target?.type==="headline"){
+      return store.document.advanced?.headlineTypography||{
+        font:"Inter",
+        size:48,
+        weight:700,
+        color:"#191C21",
+        alignment:"left"
+      };
+    }
+    return(store.document.advanced?.textBlocks||[])
+      .find((item)=>String(item.id)===String(target?.id))||null;
+  };
+  const applyTypographyChange=(changes,target)=>{
+    if(!target)return;
+    if(Object.values(changes||{}).some((value)=>value==null||value===""))return;
+    const prior=currentTypography(target);
+    if(!prior)return;
+    const result=applyAdvancedTypography(store.document,target,{
+      font:prior.font,
+      size:Number(prior.size),
+      weight:Number(prior.weight),
+      color:prior.color,
+      alignment:prior.alignment,
+      ...changes
+    });
+    if(changes.color){
+      result.advanced.recentColors=recordRecentColor(
+        result.advanced.recentColors,
+        changes.color
+      );
+    }
+    store.replace(result,{label:"Change Advanced typography"});
+    syncBridgeFromStore();
+    canvasController?.setUiState({advancedSelection:target});
+  };
+  const advancedHooks=()=>({
+    onAction:(action)=>{
+      if(action==="background"){
+        canvasController?.setUiState((state)=>({
+          ...state,
+          backgroundOpen:!state.backgroundOpen
+        }));
+      }else if(action==="text"){
+        const id=uid("advanced-text");
+        store.mutate("Add text",(document)=>{
+          document.advanced.textBlocks.push(createTextBlock({
+            id,
+            text:"",
+            layerIndex:document.advanced.textBlocks.length
+          }));
+        });
+        syncBridgeFromStore();
+        canvasController?.setUiState({advancedSelection:{type:"text",id}});
+      }else if(["image","gif","logo"].includes(action)){
+        addAdvancedMedia(action)
+          .catch((error)=>bridge.toast(String(error?.message||error)));
+      }
+    },
+    onObjectAction:(action,target)=>{
+      const result=applyAdvancedObjectAction(store.document,target,action);
+      if(!result.changed)return;
+      store.replace(result.document,{label:result.mutation.label});
+      syncBridgeFromStore();
+      canvasController?.setUiState({advancedSelection:result.selection});
+    },
+    onTypography:(changes,target)=>applyTypographyChange(changes,target),
+    onTextContent:(text,target)=>{
+      const result=updateTextBlockContent(store.document,target,text);
+      store.replace(result,{label:"Edit Advanced text"});
+      syncBridgeFromStore();
+      canvasController?.setUiState({advancedSelection:target});
+    },
+    onBackgroundTab:(backgroundTab)=>canvasController?.setUiState({backgroundTab}),
+    onBackgroundPreset:(presetId)=>{
+      store.mutate("Change background",(document)=>{
+        document.advanced.background=createPresetBackground(presetId);
+      });
+      syncBridgeFromStore();
+    },
+    onBackgroundUpload:(file)=>{
+      addAdvancedBackground(file)
+        .catch((error)=>bridge.toast(String(error?.message||error)));
+    },
+    onBackgroundDim:(dim)=>{
+      store.mutate("Adjust background readability",(document)=>{
+        document.advanced.background=setBackgroundDim(document.advanced.background,dim);
+      });
+      syncBridgeFromStore();
+    },
+    onColor:(color)=>{
+      if(!color)return;
+      store.mutate("Change background color",(document)=>{
+        document.advanced.background=createFlatColorBackground(color);
+        document.advanced.recentColors=recordRecentColor(
+          document.advanced.recentColors,
+          color
+        );
+      });
+      syncBridgeFromStore();
+    },
+    onHex:(color)=>{
+      if(color)advancedHooks().onColor(color);
+    },
+    onEyeDropper:(_event,context)=>{
+      sampleEyeDropper(window)
+        .then((sample)=>{
+          if(!sample?.color)return;
+          if(context?.scope==="typography"){
+            applyTypographyChange({color:sample.color},context.target);
+          }else{
+            advancedHooks().onColor(sample.color);
+          }
+        })
+        .catch((error)=>{
+          if(error?.name!=="AbortError")bridge.toast(String(error?.message||error));
+        });
+    },
+    onLayoutLock:(locked)=>{
+      const result=setLayoutLock(store.document,locked);
+      if(!result.changed)return;
+      if(result.effects?.rerunAutoArrange)autoArrange(result.document);
+      store.replace(result.document,{label:result.mutation.label});
+      syncBridgeFromStore();
+    }
+  });
   const commitExamMutation=(label,mutation)=>{
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
@@ -574,8 +913,12 @@ export async function boot407FEngineeringAdapter({
         viewportWidth:window.innerWidth,
         mode:store.document.mode
       }),
-      renderBoard:render407FThemedBoard,
+      renderBoard:advancedBoardRenderer,
       renderTheme:(document)=>renderThemePicker(document),
+      renderAdvanced:(document,options)=>renderAdvancedStudio(document,{
+        ...options,
+        themeSwatches:THEMES_BY_ID[document.theme]
+      }),
       renderDetails:renderCanvasDetails,
       onStateChange:syncCanvasDocument,
       onOpenBuilder:()=>bridge.go("builder"),
@@ -585,8 +928,8 @@ export async function boot407FEngineeringAdapter({
           canvasHost.querySelector(`[data-canvas-detail-key="${edge==="end"?"endDate":"startDate"}"]`)?.focus();
         });
       },
-      onAdvanced:()=>bridge.toast("Advanced Studio is available from the mode switch when enabled."),
-      onGuided:()=>bridge.toast("Guided Mode selected"),
+      onAdvanced:()=>requestCanvasMode("advanced"),
+      onGuided:()=>requestCanvasMode("guided"),
       onSelectTheme:(themeId)=>{
         store.mutate("Change theme",(document)=>{
           document.theme=themeId;
@@ -598,6 +941,7 @@ export async function boot407FEngineeringAdapter({
       onToast:(message)=>bridge.toast(message)
     });
     api.canvas=canvasController;
+    removeAdvanced=installAdvancedStudio(canvasHost,advancedHooks());
 
     onCanvasDetailsClick=(event)=>{
       const saveButton=event.target.closest?.("[data-canvas-details-save]");
@@ -634,9 +978,28 @@ export async function boot407FEngineeringAdapter({
         bridge.go("builder");
       }
     };
+    onAdvancedObjectClick=(event)=>{
+      const media=event.target.closest?.("[data-advanced-media]");
+      const text=event.target.closest?.("[data-advanced-text]");
+      const headline=event.target.closest?.("[data-board-headline]");
+      const selection=media
+        ?{type:"media",id:media.dataset.advancedMedia}
+        :text
+          ?{type:"text",id:text.dataset.advancedText}
+          :headline
+            ?{type:"headline",id:"headline"}
+            :null;
+      if(selection)canvasController?.setUiState({advancedSelection:selection});
+    };
     canvasHost.addEventListener("click",onCanvasDetailsClick);
+    canvasHost.addEventListener("click",onAdvancedObjectClick);
     onCanvasResize=()=>canvasController?.setResponsiveWidth(window.innerWidth);
     window.addEventListener("resize",onCanvasResize);
+    mediaUrls.hydrate(store,store.document)
+      .then((changed)=>{
+        if(changed)canvasController?.render();
+      })
+      .catch((error)=>bridge.toast(String(error?.message||error)));
   }
   const intakeHost=document.getElementById("intake407F");
   if(intakeHost){

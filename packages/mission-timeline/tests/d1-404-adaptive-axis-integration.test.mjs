@@ -34,7 +34,11 @@ test("M8 active 407F Canvas delegates rendering to the retained adaptive board e
   assert.match(adapter,/canvasController=installCanvas\(canvasHost,store,\{/);
   assert.match(
     adapter.slice(adapter.indexOf("canvasController=installCanvas"),adapter.indexOf("api.canvas=canvasController")),
-    /renderBoard:render407FThemedBoard/
+    /renderBoard:advancedBoardRenderer/
+  );
+  assert.match(
+    adapter,
+    /createAdvancedBoardRenderer\(\{\s*baseRenderer:render407FThemedBoard/
   );
   assert.match(
     adapter,

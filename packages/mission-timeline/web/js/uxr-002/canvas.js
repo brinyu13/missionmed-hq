@@ -278,6 +278,7 @@ export function createCanvasState({
     detailsEventId:null,
     commentsOpen:false,
     activeAdvisorPinId:null,
+    advancedSelection:null,
     contextMenu:null,
     inlineEdit:null,
     toolbarFocus:false,
@@ -1323,7 +1324,8 @@ export function renderCanvas({
   const advancedMarkup = typeof renderAdvanced === "function"
     ? String(renderAdvanced(document,{
       backgroundOpen:!!viewState.backgroundOpen,
-      activeTab:viewState.backgroundTab
+      activeTab:viewState.backgroundTab,
+      selection:viewState.advancedSelection
     }) || "")
     : "";
   const commentMarkup = typeof renderCommentLayer === "function"
