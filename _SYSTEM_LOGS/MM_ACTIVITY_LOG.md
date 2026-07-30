@@ -3379,3 +3379,44 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 **Result:** Self-contained prompt ready to paste into ChatGPT. Contains every detail needed to direct the full TIE build without referencing external documents.
 
 **Status:** COMPLETE
+
+---
+
+### 2026-07-29 — B1-507A StoryForge Phase 1 Authority Recovery
+
+**Prompt ID:** B1-507A
+
+**Task:** Recover and consolidate the complete StoryForge Phase 1 product, implementation, production, provider, audio-lifecycle, integration, deployment, rollback, and acceptance authority into a production-launch dossier.
+
+**Files created:**
+
+- `_AI_HANDOFFS/from_codex/B1-507A_storyforge_authority_recovery/` — 15 canonical Markdown reports
+- `_AI_HANDOFFS/from_codex/B1-507A_storyforge_authority_recovery/screenshots/` — eight read-only production evidence screenshots
+- `_AI_HANDOFFS/from_codex/B1-507A_storyforge_authority_recovery/MANIFEST.sha256` — 23 verified content hashes
+
+**Files appended:**
+
+- `_SYSTEM_LOGS/MM_ACTIVITY_LOG.md` — this entry
+
+**Result:**
+
+- Verdict: `READY TO AUTHOR THE FULL PHASE 1 PRODUCTION MEGARUN`.
+- Verified worktree `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502`, branch `codex/b1-503-storyforge-product-recovery`, HEAD `82669485c187cd3127ab2c84cb79864d827e0aef`, and release candidate `v-0892c26c62d96206`.
+- Classified 52 authority/evidence artifacts plus three missing/stale findings.
+- Inspected eight production systems read-only.
+- Confirmed healthy B1-503 text production and a substantial locally tested V5.5 candidate, but no live voice release.
+- Recorded 18 real blockers, including WordPress multipart/DELETE, replay conformance, FG-1, RP-7/RP-8, R2, migrations, 360 entitlement authority, FABLE-C1 through C4, PROBE-C5, fresh recovery points, and real-service/device/accessibility acceptance.
+- No deployment, migration, remote write, provider call, credential change, feature activation, student-data mutation, or production mutation occurred.
+
+**Verification:**
+
+- 15/15 required dossier documents present.
+- 8/8 screenshots visually reviewed and indexed.
+- 23/23 `MANIFEST.sha256` entries pass.
+- Canonical V5/V5.5/r2 hashes reverified.
+- `git diff --check` clean.
+- No application-source file changed.
+
+**Risk level:** Read-only investigation; local documentation and activity-log append only.
+
+**Status:** COMPLETE
