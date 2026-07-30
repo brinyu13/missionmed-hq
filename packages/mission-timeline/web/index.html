@@ -558,7 +558,10 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
     </aside>
     <section class="panelD builderForm" aria-labelledby="builderStepTitle">
       <div class="pi">
-        <h1 id="builderStepTitle">Core Info</h1>
+        <div class="builderTitleRow">
+          <h1 id="builderStepTitle">Core Info</h1>
+          <button type="button" class="btnD alt sm builderPreviewToggle" id="builderPreviewToggle">SHOW PREVIEW</button>
+        </div>
         <p class="builderPurpose" id="builderPurpose">Who you are and where you trained.</p>
         <div id="builderStepBody"></div>
       </div>
@@ -664,7 +667,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
   </div></div>
   <div class="grid2" style="margin-top:18px">
     <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">ENGINE RENDER · DEMO DATA · READ-ONLY</div>
+      <div class="subt" style="margin-bottom:12px">CANONICAL RENDER · DEMO DATA · READ-ONLY</div>
       <div id="boardReference"></div>
     </div></div>
     <div class="panelD"><div class="pi">
@@ -674,13 +677,14 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
         <div style="font-weight:800;font-size:14px;margin-bottom:8px">400g clone preview goes here</div>
         <div class="subt" style="letter-spacing:.2em;line-height:2">PLACE renderer_400g_best.png NEXT TO THIS FILE<br>400G CLONE PREVIEW · REVIEW GRADE · TEMPLATE NOT FROZEN</div>
       </div>
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><span class="chip">400G · PSNR 36.16 · READY FOR BRIAN REVIEW · NOT FROZEN</span><span class="chip em">KEYNOTE CLASSIC · 402A SPRITE KIT ACTIVE · VECTOR PARITY PENDING</span></div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap"><span class="chip">400G · PSNR 36.16 · READY FOR BRIAN REVIEW · NOT FROZEN</span><span class="chip em">KEYNOTE CLASSIC · 402A VECTOR KIT ACTIVE · VECTOR PARITY PENDING</span></div>
     </div></div>
   </div>
 </section>
 </main>
 
 <div id="modalBk"><div id="modal" class="panelD"><div class="pi" id="modalIn"></div></div></div>
+<div id="globalLive407F" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="printOv"><div id="printBar"><span class="subt">PRINT PREVIEW · INTERVIEWER-SAFE FILTER APPLIED · SELECTED THEME</span><button class="btnD go sm" id="printGo">PRINT ▸</button><button class="btnD alt sm" id="printClose">CLOSE</button></div><div id="boardPrint"></div></div>
 <div id="toast"></div>
 <script>

@@ -88,6 +88,12 @@ import {
   renderIntake
 } from "./uxr-002/intake.js";
 import {createD1408PdfIntakeAdapter} from "./uxr-002/intake-d1-408-adapter.js";
+import {
+  buildResponsiveModel,
+  focusScreenHeading,
+  installFocusTrap,
+  installResponsiveRuntime
+} from "./uxr-002/responsive.js";
 import {uid} from "./uxr-002/utils.js";
 
 const CATEGORY_TO_407F=Object.freeze({
@@ -355,14 +361,43 @@ function currentMonth(){
   return new Date().toISOString().slice(0,7);
 }
 
+let boardSvgInstance=0;
+
+function namespaceBoardSvg(svg,namespace){
+  const prefix=String(namespace||`d1404-board-${++boardSvgInstance}`)
+    .replace(/[^a-zA-Z0-9_-]+/g,"-");
+  const ids=new Map();
+  let result=String(svg||"").replace(/\bid="([^"]+)"/g,(match,id)=>{
+    const next=`${prefix}-${id}`;
+    ids.set(id,next);
+    return`id="${next}"`;
+  });
+  if(!ids.size)return result;
+  result=result
+    .replace(/url\(#([^)]+)\)/g,(match,id)=>ids.has(id)?`url(#${ids.get(id)})`:match)
+    .replace(/\baria-labelledby="([^"]+)"/g,(match,value)=>{
+      const next=value.split(/\s+/).map((id)=>ids.get(id)||id).join(" ");
+      return`aria-labelledby="${next}"`;
+    })
+    .replace(/\b(?:href|xlink:href)="#([^"]+)"/g,(match,id)=>{
+      if(!ids.has(id))return match;
+      return match.replace(`#${id}`,`#${ids.get(id)}`);
+    });
+  return result;
+}
+
 function render407FThemedBoard(document,options={}){
   const base=renderKeynoteClassicBoard(document,options);
   const themeId=document?.theme||DEFAULT_THEME_ID;
-  return themeId===DEFAULT_THEME_ID
+  const rendered=themeId===DEFAULT_THEME_ID
     ?base
     :applyThemeToTimelineRender(base,themeId,{
       serializeScene:serializeKeynoteClassicSvg
     });
+  return{
+    ...rendered,
+    svg:namespaceBoardSvg(rendered.svg,options.idNamespace)
+  };
 }
 
 function autoArrange(document){
@@ -530,6 +565,12 @@ export async function boot407FEngineeringAdapter({
   let onCanvasResize=()=>{};
   let on407FRendered=()=>{};
   let onAdvisorHashChange=()=>{};
+  let onGlobalKeydown=()=>{};
+  let onBuilderPreview=()=>{};
+  let onRouteRendered=()=>{};
+  let responsiveRuntime=null;
+  let shortcutTrap=null;
+  let lastFocusedView=null;
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
@@ -596,7 +637,12 @@ export async function boot407FEngineeringAdapter({
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     window.removeEventListener("resize",onCanvasResize);
     document.removeEventListener("d1:407f-rendered",on407FRendered);
+    document.removeEventListener("d1:407f-rendered",onRouteRendered);
     window.removeEventListener("hashchange",onAdvisorHashChange);
+    document.removeEventListener("keydown",onGlobalKeydown);
+    document.getElementById("builderPreviewToggle")?.removeEventListener("click",onBuilderPreview);
+    responsiveRuntime?.destroy();
+    shortcutTrap?.destroy();
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -901,6 +947,14 @@ export async function boot407FEngineeringAdapter({
       suggestion.apply?.();
     },{once:true});
   };
+  const currentResponsiveModel=()=>responsiveRuntime?.state||buildResponsiveModel({
+    width:window.innerWidth,
+    height:window.innerHeight,
+    maxTouchPoints:window.navigator?.maxTouchPoints||0,
+    reducedMotion:window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+    higherContrast:window.matchMedia?.("(prefers-contrast: more)")?.matches,
+    forcedColors:window.matchMedia?.("(forced-colors: active)")?.matches
+  });
   function renderExportHost(){
     const exportHost=document.getElementById("export407F");
     if(!exportHost)return;
@@ -914,6 +968,20 @@ export async function boot407FEngineeringAdapter({
       }catch(error){
         bridge.toast(String(error?.message||error));
       }
+    }
+    const responsive=currentResponsiveModel();
+    if(responsive.screens.export.contentMode==="preview-only"){
+      exportHost.innerHTML=`<div class="export407FPhonePreview" data-responsive-screen="export" data-responsive-tier="${responsive.tier.id}" data-responsive-mode="preview-only">
+        <h1>Export</h1>
+        <div class="responsive407FBanner" role="status">Editing needs a larger screen.</div>
+        <div class="export407FPhoneBoard">${previewHtml||"<p>Add an event in Builder to preview your export.</p>"}</div>
+      </div>`;
+      api.export=Object.freeze({
+        state:"preview-only",
+        refreshPreview:renderExportHost,
+        destroy(){}
+      });
+      return;
     }
     exportHost.innerHTML=renderExportScreen(store.document,{
       state:exportState,
@@ -1393,7 +1461,7 @@ export async function boot407FEngineeringAdapter({
         return`<div class="intake407FPreviewEmpty"><strong>Accepted suggestions appear here.</strong><span>Your timeline remains unchanged until final approval.</span></div>`;
       }
       try{
-        const rendered=renderKeynoteClassicBoard({
+        const rendered=render407FThemedBoard({
           ...clone(store.document),
           events
         },{
@@ -1470,8 +1538,12 @@ export async function boot407FEngineeringAdapter({
       render:()=>renderIntakeHost(intakeMachine.snapshot())
     });
   }
-  api.undo=()=>{
-    const entry=store.undo();
+  const announceGlobal=(message)=>{
+    const live=document.getElementById("globalLive407F");
+    if(live)live.textContent=String(message||"");
+  };
+  const applyHistory=(direction)=>{
+    const entry=store[direction]();
     if(!entry)return null;
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
@@ -1480,8 +1552,143 @@ export async function boot407FEngineeringAdapter({
     reflectStoreStatus();
     lastState=stableState(bridge.state);
     applying=false;
+    announceGlobal(`${direction==="undo"?"Undid":"Redid"} ${entry.label}`);
     return entry;
   };
+  api.undo=()=>applyHistory("undo");
+  api.redo=()=>applyHistory("redo");
+
+  const closeOwnedModal=()=>{
+    shortcutTrap?.destroy();
+    shortcutTrap=null;
+    bridge.closeModal?.();
+  };
+  const openShortcuts=()=>{
+    bridge.openModal?.(`<section class="shortcut407FDialog" role="dialog" aria-modal="true" aria-labelledby="shortcut407FTitle" data-shortcut-dialog>
+      <div class="shortcut407FHeader">
+        <h2 id="shortcut407FTitle">Keyboard shortcuts</h2>
+        <button type="button" class="btnD alt sm" data-shortcut-close>Close</button>
+      </div>
+      <dl class="shortcut407FList">
+        <div><dt><kbd>⌘/Ctrl Z</kbd></dt><dd>Undo</dd></div>
+        <div><dt><kbd>⇧ ⌘/Ctrl Z</kbd></dt><dd>Redo</dd></div>
+        <div><dt><kbd>⌘/Ctrl E</kbd></dt><dd>Go to Export</dd></div>
+        <div><dt><kbd>Esc</kbd></dt><dd>Close or deselect</dd></div>
+        <div><dt><kbd>?</kbd></dt><dd>Show this shortcut sheet</dd></div>
+        <div><dt><kbd>F2</kbd></dt><dd>Focus the selected event toolbar</dd></div>
+      </dl>
+    </section>`);
+    const dialog=document.querySelector("[data-shortcut-dialog]");
+    document.querySelector("[data-shortcut-close]")?.addEventListener("click",closeOwnedModal,{once:true});
+    if(dialog){
+      shortcutTrap=installFocusTrap(dialog,{
+        onEscape:closeOwnedModal
+      });
+    }
+  };
+  const isEditableTarget=(target)=>Boolean(
+    target?.closest?.("input, textarea, select, [contenteditable='true']")
+  );
+  onGlobalKeydown=(event)=>{
+    if(event.defaultPrevented)return;
+    const key=String(event.key||"");
+    const lower=key.toLowerCase();
+    const command=event.metaKey||event.ctrlKey;
+    if(command&&lower==="z"&&!isEditableTarget(event.target)){
+      event.preventDefault();
+      (event.shiftKey?api.redo:api.undo)();
+      return;
+    }
+    if(command&&lower==="e"){
+      event.preventDefault();
+      bridge.go("export");
+      announceGlobal("Opened Export");
+      return;
+    }
+    if(key==="?"&&!event.metaKey&&!event.ctrlKey&&!event.altKey&&!isEditableTarget(event.target)){
+      event.preventDefault();
+      openShortcuts();
+      return;
+    }
+    if(key!=="Escape")return;
+    if(document.getElementById("modalBk")?.classList.contains("on")){
+      event.preventDefault();
+      closeOwnedModal();
+      return;
+    }
+    if(bridge.state.view==="canvas"&&canvasController?.state?.selectedEventId){
+      event.preventDefault();
+      canvasController.setUiState({
+        selectedEventId:null,
+        toolbarFocus:false,
+        categoryMenuOpen:false,
+        addEventOpen:false,
+        contextMenu:null
+      });
+      announceGlobal("Canvas selection cleared");
+    }
+  };
+  document.addEventListener("keydown",onGlobalKeydown);
+
+  onBuilderPreview=()=>{
+    let board="";
+    try{
+      board=render407FThemedBoard(store.document,{
+        currentMonth:currentMonth(),
+        audience:"INTERVIEWER_SAFE"
+      }).svg;
+    }catch(error){
+      bridge.toast(String(error?.message||error));
+    }
+    bridge.openModal?.(`<section class="builderPreview407FSheet" role="dialog" aria-modal="true" aria-labelledby="builderPreview407FTitle" data-builder-preview-sheet>
+      <div class="builderPreview407FHeader">
+        <h2 id="builderPreview407FTitle">Live preview</h2>
+        <button type="button" class="btnD alt sm" data-builder-preview-close>Close preview</button>
+      </div>
+      <div class="builderPreview407FBoard">${board||"<p>Add an event to preview your timeline.</p>"}</div>
+    </section>`);
+    const dialog=document.querySelector("[data-builder-preview-sheet]");
+    document.querySelector("[data-builder-preview-close]")?.addEventListener("click",closeOwnedModal,{once:true});
+    if(dialog)shortcutTrap=installFocusTrap(dialog,{onEscape:closeOwnedModal});
+  };
+  document.getElementById("builderPreviewToggle")?.addEventListener("click",onBuilderPreview);
+
+  onRouteRendered=()=>{
+    const active=document.querySelector("section[data-view].live");
+    if(!active)return;
+    const view=String(active.dataset.view||"");
+    if(view===lastFocusedView)return;
+    const result=focusScreenHeading(active,{
+      previousViewKey:lastFocusedView,
+      nextViewKey:view
+    });
+    if(result.focused)lastFocusedView=view;
+  };
+  document.addEventListener("d1:407f-rendered",onRouteRendered);
+
+  responsiveRuntime=installResponsiveRuntime({
+    windowObject:window,
+    documentObject:document,
+    target:document.documentElement,
+    onChange:(model)=>{
+      api.responsive=model;
+      canvasController?.setResponsiveWidth(model.viewport.width);
+      const active=document.querySelector("section[data-view].live");
+      if(active){
+        const screen=bridge.state.view==="command"?"home":bridge.state.view;
+        active.dataset.responsiveScreen=screen;
+        active.dataset.responsiveTier=model.tier.id;
+        active.dataset.responsiveMode=model.screens[screen]?.contentMode||"full";
+      }
+      if(bridge.state.view==="export")queueExportRender();
+    },
+    onMotionChange:(motion)=>announceGlobal(
+      motion.reduced?"Reduced motion enabled":"Standard motion enabled"
+    )
+  });
+  api.responsive=responsiveRuntime.state;
+  onRouteRendered();
+
   window.D1_407F_ENGINEERING=api;
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{
     detail:{documentId:store.document.id,restored:init.restored,adapter:store.adapter.kind}

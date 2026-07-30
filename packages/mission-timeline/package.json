@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Mission Timeline Builder staging-adapter candidate blocked by Matrix source authority",
   "scripts": {
+    "build": "node scripts/build-d1-404-candidate.mjs",
     "test": "node --import tsx --test tests/*.test.ts && node --test tests/*.test.mjs",
     "test:web": "node web/tests/run_410_release_candidate.js",
     "typecheck": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
