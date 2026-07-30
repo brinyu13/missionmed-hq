@@ -12,7 +12,7 @@ function extract(tagExpression){
   return match[0];
 }
 
-test("D1-405 rail contains exactly Home, Builder, Edit Timeline, and Export in order",()=>{
+test("Founder-refined D1-405 rail contains Home, Builder, Edit Timeline, Media, and Export in order",()=>{
   const rail=extract(/<nav id="rail"[\s\S]*?<\/nav>/);
   const items=[...rail.matchAll(/<button class="rtab(?: on)?" data-v="([^"]+)">([^<]+)<\/button>/g)]
     .map((match)=>({route:match[1],label:match[2]}));
@@ -20,10 +20,11 @@ test("D1-405 rail contains exactly Home, Builder, Edit Timeline, and Export in o
     {route:"command",label:"Home"},
     {route:"builder",label:"Builder"},
     {route:"canvas",label:"Edit Timeline"},
+    {route:"media",label:"Media"},
     {route:"export",label:"Export"}
   ]);
-  assert.equal((rail.match(/class="rtab/g)||[]).length,4);
-  assert.doesNotMatch(rail,/Command|Intake|Review|Media|Advisor|Questions|Versions|Reference|railFoot/);
+  assert.equal((rail.match(/class="rtab/g)||[]).length,5);
+  assert.doesNotMatch(rail,/Command|Intake|Review|Advisor|Questions|Versions|Reference|railFoot/);
 });
 
 test("D1-405 header preserves 407F identity with MissionMed branding and removes the legacy HUD",()=>{

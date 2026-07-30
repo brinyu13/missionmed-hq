@@ -79,3 +79,50 @@ Browser proof:
 | Live background remaining interactive beneath modal | `inert` plus focus trap while the lightbox is open | Prevent assistive-technology and keyboard escape into the underlying app | Not color-contrast applicable | Header, navigation rail, main workspace |
 
 No autonomous adjustment changes product hierarchy, workflow, navigation, layout, copy meaning, business behavior, or brand identity.
+
+## M5 shared date controls
+
+- Month/year and exact-day inputs remain ordinary editable text fields with adjacent calendar triggers.
+- Every trigger exposes `aria-controls` and `aria-expanded`; popovers are named dialogs.
+- Month cells use grid/row/gridcell semantics. Exact dates use a deterministic 7×6 grid with weekday headings.
+- Exact-day keyboard support includes Arrow keys, Home, End, Page Up, Page Down, Enter/Space activation, and Escape restoration.
+- Input and trigger targets are at least 44×44px.
+- Help and error text are independently referenced; invalid controls set `aria-invalid`.
+- Typed invalid values remain visible and receive specific correction text.
+- Selected gold cells use Founder-approved `#191C21` text on `#B98A2E`.
+- Cyan focus indicators are independently visible on inputs, triggers, and calendar cells.
+- Phone calendars use the same semantic control in a bottom-sheet position; reduced-motion disables picker animation.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M5-month-picker.png`
+- `evidence/screenshots/D1-405-M5-exact-date-picker.png`
+- `evidence/screenshots/D1-405-M5-date-error-state.png`
+
+## Founder steering — stepper and shared Media
+
+- Stepper tabs retain correct horizontal tab semantics, roving focus, arrow/Home/End navigation, and descriptive state labels.
+- Current, complete, started, skipped, and empty states use shape, border, glyph, underline, text, and ARIA—not color alone.
+- Step controls are 68px high; Media launchers, upload, close, and card actions have a 44px minimum.
+- Step hover/press motion is removed under `prefers-reduced-motion`.
+- Media launchers expose `aria-controls`, `aria-expanded`, and `aria-haspopup="dialog"`.
+- The non-modal Media drawer is named, Escape-closeable, restores its opener, and closes when the route leaves Builder/Edit Timeline.
+- Library rerenders preserve the active upload/place/remove control where it still exists.
+- Place/remove/upload actions update the global polite live region in addition to the visual toast.
+- Cards are not redundant tab stops. Each unplaced asset exposes a real keyboard button with instructions for center placement.
+- Reduced-motion Media markup omits the raw animated GIF URL and presents a visible `GIF · MOTION PAUSED` state.
+- Tablet drawers have a viewport-bound maximum height and internal scroll. Phone page headers/toolbars stack rather than crowd.
+- Contrast review retains the approved candidate tokens: `#191C21` on gold/orange surfaces; mid, dim, cyan, and green content passes on the dark 407F surfaces.
+
+Specialist status:
+
+- Miyamoto: stepper PASS; initial Media FAIL for inherited fixed-header layout; defect corrected and visually recaptured.
+- Vitruvius: initial Media FAIL for focus/live-region/target/semantics/responsive gaps; all enumerated defects corrected; final re-audit PASS with no remaining blocker.
+
+Darwin’s final architecture re-audit also returned PASS with no remaining Media persistence or state-flow blocker.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-founder-steer-premium-stepper.png`
+- `evidence/screenshots/D1-405-founder-steer-media-library-corrected.jpg`
+- `evidence/screenshots/D1-405-founder-steer-media-drawer-builder-corrected.jpg`

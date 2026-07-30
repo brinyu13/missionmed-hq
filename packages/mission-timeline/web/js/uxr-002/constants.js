@@ -5,12 +5,19 @@ export const DOCUMENT_SCHEMA="d1-uxr-002.1";
 export const AUTOSAVE_DELAY=800;
 export const HISTORY_LIMIT=50;
 
-export const NAV_ITEMS=Object.freeze([
+export const PRIMARY_NAV_ITEMS=Object.freeze([
   {id:"home",label:"Home",icon:"house"},
   {id:"builder",label:"Builder",icon:"list-checks"},
   {id:"canvas",label:"Edit Timeline",icon:"presentation"},
+  {id:"media",label:"Media",icon:"image"},
   {id:"export",label:"Export",icon:"download"}
 ]);
+
+// The superseded UXR shell remains inactive and retains its frozen four-item
+// navigation. Active 407F routing uses PRIMARY_NAV_ITEMS.
+export const NAV_ITEMS=Object.freeze(
+  PRIMARY_NAV_ITEMS.filter(({id})=>id!=="media")
+);
 
 export const BUILDER_STEPS=Object.freeze([
   {id:"core",title:"Core Info",purpose:"Who you are and where you trained."},

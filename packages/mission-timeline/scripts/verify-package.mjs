@@ -52,8 +52,8 @@ check(
     && /b318e9da82a45c187725a6439fa042e0cab54af4973a5d5c7fdb6b5974c63db4/.test(d1404Authority)
     && /MissionMed<b>\/\/<\/b>TimelineBuilder/.test(activeIndex)
     && /<nav id="rail" aria-label="Timeline Builder">/.test(activeIndex)
-    && (activeIndex.match(/class="rtab(?: on)?"/g)||[]).length===4
-    && ["Home","Builder","Edit Timeline","Export"].every((label)=>new RegExp(`data-v="[^"]+">${label}<`).test(activeIndex))
+    && (activeIndex.match(/class="rtab(?: on)?"/g)||[]).length===5
+    && ["Home","Builder","Edit Timeline","Media","Export"].every((label)=>new RegExp(`data-v="[^"]+">${label}<`).test(activeIndex))
     && /window\.D1_407F_TEST=/.test(activeIndex),
   "canonical 407F active; D1-404 precedence recorded",
 );

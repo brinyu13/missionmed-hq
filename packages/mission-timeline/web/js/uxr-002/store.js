@@ -1,5 +1,5 @@
 import {IndexedDbAdapter} from "../persistence/indexeddb-adapter.js";
-import {AUTOSAVE_DELAY,CATEGORIES,DOCUMENT_SCHEMA,HISTORY_LIMIT,VISIBILITY} from "./constants.js";
+import {AUTOSAVE_DELAY,CATEGORIES,DOCUMENT_SCHEMA,HISTORY_LIMIT,PRIMARY_NAV_ITEMS,VISIBILITY} from "./constants.js";
 import {clone,isoNow,uid} from "./utils.js";
 
 function defaultDocument(){
@@ -56,6 +56,18 @@ function defaultDocument(){
 function eventFromLegacy(event,index){
   const categoryAliases={th:"education",usmle:"exams",cl:"clinical",res:"research",work:"work",personal:"personal"};
   const categoryId=CATEGORIES.some((item)=>item.id===event.categoryId)?event.categoryId:(categoryAliases[event.cat]||"personal");
+  const fields=clone(event.fields||{});
+  if(categoryId==="clinical"&&!fields.rotationDatePrecision){
+    const hasExact=/^\d{4}-\d{2}-\d{2}$/.test(String(fields.rotationStartDate||""))&&(
+      !!event.openEnded||
+      /^\d{4}-\d{2}-\d{2}$/.test(String(fields.rotationEndDate||""))
+    );
+    fields.rotationStartDate=hasExact?fields.rotationStartDate:null;
+    fields.rotationEndDate=hasExact?(fields.rotationEndDate||null):null;
+    fields.rotationDatePrecision=hasExact
+      ?"day"
+      :(String(event.startDate||event.s||"").trim()?"month-legacy":"unknown");
+  }
   return{
     id:event.id||uid("event"),
     title:event.title||event.t||`Event ${index+1}`,
@@ -70,7 +82,7 @@ function eventFromLegacy(event,index){
     lane:Number.isInteger(event.lane)?event.lane:null,
     sourceType:event.sourceType||event.origin||"legacy",
     provenance:clone(event.provenance||[]),
-    fields:clone(event.fields||{})
+    fields
   };
 }
 
@@ -94,6 +106,14 @@ function migrateDocument(value){
     preferences:{...base.preferences,...clone(source.preferences||{})},
     metadata:{...base.metadata,...clone(source.metadata||{}),sourceSchema:source.schemaVersion||"legacy"}
   };
+  const clinicalDraft=result.builder?.drafts?.clinical;
+  if(clinicalDraft&&!clinicalDraft.rotationDatePrecision){
+    clinicalDraft.rotationStartDate=null;
+    clinicalDraft.rotationEndDate=null;
+    clinicalDraft.rotationDatePrecision=clinicalDraft.startDate
+      ?"month-legacy"
+      :"unknown";
+  }
   result.updatedAt=source.updatedAt||source.metadata?.updatedAt||isoNow();
   return result;
 }
@@ -139,7 +159,8 @@ export class TimelineStore{
   }
 
   navigate(route){
-    if(!["home","builder","canvas","export","intake","advisor"].includes(route))return false;
+    const primary=PRIMARY_NAV_ITEMS.map(({id})=>id);
+    if(![...primary,"intake","advisor"].includes(route))return false;
     this.route=route;this.emit();return true;
   }
 
@@ -166,6 +187,91 @@ export class TimelineStore{
       this.redoStack=[];
     }
     this.saveStatus="saving";this.saveError=null;this.scheduleSave();this.emit();return true;
+  }
+
+  async mutateWithBlobs(
+    label,
+    operation,
+    {blobs=[],history=true,material=true,reason="LOCAL_ASSET_MUTATION"}={}
+  ){
+    await this.saveNow("BEFORE_LOCAL_ASSET_MUTATION");
+    const before=this.snapshot();
+    const advisorEventDataBefore=stable({events:before.events,exams:before.exams});
+    try{
+      operation(this.document);
+    }catch(error){
+      this.document=before;
+      throw error;
+    }
+    if(stable(before)===stable(this.document)&&!blobs.length)return false;
+    this.document.updatedAt=this.now();
+    if(
+      material&&
+      this.document.advisor?.approvedAt&&
+      advisorEventDataBefore!==stable({
+        events:this.document.events,
+        exams:this.document.exams
+      })
+    )this.document.advisor.editedSince=true;
+    const after=this.snapshot();
+    const savedAt=this.now();
+    const sequence=this.saveSequence+1;
+    const record={
+      id:after.id,
+      document:after,
+      schemaVersion:DOCUMENT_SCHEMA,
+      savedAt,
+      sequence,
+      reason
+    };
+    const checkpoint={
+      id:uid("checkpoint"),
+      documentId:after.id,
+      document:clone(after),
+      createdAt:savedAt,
+      sequence,
+      reason
+    };
+    const blobEntries=blobs.map(({key,blob,metadata={}})=>({
+      store:"blobs",
+      key,
+      value:{id:key,blob,metadata:clone(metadata)}
+    }));
+    this.saveStatus="saving";
+    this.saveError=null;
+    this.emit();
+    try{
+      await this.adapter.atomicPut([
+        {store:"documents",key:record.id,value:record},
+        {store:"checkpoints",key:checkpoint.id,value:checkpoint},
+        {
+          store:"settings",
+          key:"uxr-002-active-document",
+          value:{
+            id:"uxr-002-active-document",
+            documentId:after.id,
+            updatedAt:savedAt
+          }
+        },
+        ...blobEntries
+      ]);
+    }catch(error){
+      this.document=before;
+      this.saveStatus="error";
+      this.saveError=String(error?.message||error);
+      this.emit();
+      throw error;
+    }
+    this.saveSequence=sequence;
+    if(history){
+      this.undoStack.push({label,before,after,at:savedAt});
+      if(this.undoStack.length>HISTORY_LIMIT)this.undoStack.shift();
+      this.redoStack=[];
+    }
+    this.saveStatus="saved";
+    this.saveError=null;
+    this.emit();
+    return true;
   }
 
   replace(document,{label="Replace timeline",history=true}={}){

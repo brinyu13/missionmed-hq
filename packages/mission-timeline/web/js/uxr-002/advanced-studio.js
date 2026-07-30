@@ -439,13 +439,15 @@ function recognizedImageType(file){
     "image/png":"png",
     "image/jpeg":"jpg",
     "image/jpg":"jpg",
-    "image/gif":"gif"
+    "image/gif":"gif",
+    "image/webp":"webp"
   }[mime]||null;
   const fromExtension={
     png:"png",
     jpg:"jpg",
     jpeg:"jpg",
-    gif:"gif"
+    gif:"gif",
+    webp:"webp"
   }[extension]||null;
   if(fromMime&&fromExtension&&fromMime!==fromExtension)return null;
   return fromMime||fromExtension;
@@ -593,8 +595,8 @@ export function validateMediaUpload(file,{kind="image"}={}){
   const normalizedKind=String(kind).toLowerCase();
   const type=recognizedImageType(file);
   const allowed=normalizedKind==="gif"?["gif"]:
-    normalizedKind==="image"?["png","jpg"]:
-    normalizedKind==="logo"?["png","jpg","gif"]:[];
+    normalizedKind==="image"?["png","jpg","webp"]:
+    normalizedKind==="logo"?["png","jpg","gif","webp"]:[];
   const valid=!!file&&allowed.includes(type)&&validFileSize(file);
   return valid?{
     valid:true,
@@ -604,7 +606,7 @@ export function validateMediaUpload(file,{kind="image"}={}){
   }:{
     valid:false,
     error:normalizedKind==="gif"?"GIF files only.":normalizedKind==="image"?
-      "PNG or JPG files only.":"PNG, JPG, or GIF files only."
+      "PNG, JPG, or WEBP files only.":"PNG, JPG, WEBP, or GIF files only."
   };
 }
 

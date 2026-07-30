@@ -87,7 +87,7 @@ test("canonical 407F provides one Advisor session host, removes the legacy panel
   const rail=sourceBetween(index,'<nav id="rail"','</nav>');
   assert.deepEqual(
     [...rail.matchAll(/data-v="([^"]+)"/g)].map((match)=>match[1]),
-    ["command","builder","canvas","export"]
+    ["command","builder","canvas","media","export"]
   );
   assert.doesNotMatch(rail,/data-v="advisor"|>\s*Advisor\s*</i);
 });

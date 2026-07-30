@@ -81,3 +81,52 @@ One retained test still asserted the superseded lowercase `Review & finish` spel
 | Vitruvius accessibility review | Initial FAIL for interview-marker order and initial tab stop; final PASS after correction |
 
 One browser investigation exposed an overly broad SVG namespace replacement that changed canonical `data-event-id` values. The expression was constrained to actual `id` attributes and canonical IDs were re-proven in-browser. Specialist review then exposed two chronology defects: the interview marker was always ordered last, and the first rendered event retained `tabindex="0"` even when the interview was earlier. Both were corrected, a dedicated regression was added, and the full final suite passed.
+
+## M5 shared date controls
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 340/340 passed |
+| Total | 459/459 passed |
+| M5 dedicated date-control suite | 8/8 passed |
+| Exact parsing and leap dates | Passed |
+| Ambiguous numeric date rejection | Passed |
+| End-of-month month shifting | Passed |
+| Legacy migration without fabricated days | Passed |
+| Canvas exact-date move/resize synchronization | Passed |
+| Shared Builder/Canvas integration | Passed |
+| 44px/focus/gold-text styling contract | Passed |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic production build | Passed; 187 runtime files |
+| Build manifest SHA-256 | `d3aa5b8a9b6b195e8d9bd2831d2dc500d7eab71d667830ef6764573a563093d3` |
+
+Two retained static source tests initially expected the previous inline month inputs. They were updated to assert the shared-control semantic call while retaining the same frozen field order and `Started studying Optional` copy. The final complete suite passed.
+
+## Founder steering — premium stepper and shared Media
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 353/353 passed |
+| Total | 472/472 passed |
+| Founder Media dedicated suite | 13/13 passed |
+| Active five-item navigation authority | Passed |
+| Same Builder/Canvas drag seam | Passed |
+| Placement without record/blob duplication | Passed |
+| Atomic metadata/blob upload | Passed |
+| Upload failure rollback/no orphan | Passed |
+| Undo retains source bytes | Passed |
+| Existing Advanced asset visibility | Passed |
+| Reduced-motion GIF suppression | Passed |
+| Focus/live-region/dialog/44px assertions | Passed |
+| Premium stepper state/hover/press/focus assertions | Passed |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic production build | Passed; 188 runtime files |
+| Build manifest SHA-256 | `331d2984a7130090058767a30055e109369547e601ae0aaad9a42d62756d32e3` |
+
+The first architecture review found a destructive mismatch: Media metadata deletion was undoable while its blob was immediately deleted. The UI deletion path was removed, upload became an atomic document/blob transaction, and explicit rollback/undo-byte-retention regressions now pass.
+
+Darwin’s final architecture re-audit and Vitruvius’s final accessibility re-audit both returned PASS with no remaining blocker.

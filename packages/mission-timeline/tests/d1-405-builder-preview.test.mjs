@@ -52,7 +52,7 @@ function documentWith(events){
 
 test("M4 replaces the legacy Wizard renderer with one canonical shared preview mount",()=>{
   assert.doesNotMatch(index,/renderBoard\('boardWizard'/);
-  assert.match(adapter,/advancedBoardRenderer\(store\.document,\{/);
+  assert.match(adapter,/renderResponsiveAdvancedBoard\(store\.document,\{/);
   assert.match(adapter,/audience:"INTERVIEWER_SAFE"/);
   assert.match(adapter,/namespace:"d1-405-builder-embedded"/);
   assert.match(adapter,/namespace:"d1-405-builder-lightbox"/);

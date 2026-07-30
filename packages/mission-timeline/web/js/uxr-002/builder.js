@@ -7,6 +7,13 @@ import {
   updateBuilderExamAttempt
 } from "./exam-integration.js";
 import {icon} from "./icons.js";
+import {
+  compareExactDates,
+  exactDateFieldMarkup,
+  installExactDateFields,
+  monthFromExactDate,
+  parseExactDate
+} from "./exact-date-field.js";
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
 import {installReviewFinish,renderReviewFinish} from "./review.js";
 import {escapeHtml,formatMonth,monthIndex,parseMonth,uid} from "./utils.js";
@@ -102,6 +109,9 @@ function blankDraft(domain){
     state:"",
     startDate:"",
     endDate:"",
+    rotationStartDate:"",
+    rotationEndDate:"",
+    rotationDatePrecision:"unknown",
     current:false,
     notes:""
   };
@@ -209,8 +219,26 @@ function dateOrderError(start,end){
 
 export function validateBuilderEntry(domain,entry={}){
   const errors={};
-  const orderError=!entry.current&&!entry.ongoing&&entry.whenKind!=="One date"?dateOrderError(entry.startDate,entry.endDate):null;
-  if(domain==="work"){
+  const exactRotation=domain==="clinical"&&(
+    entry.rotationDatePrecision==="day"||
+    !!entry.rotationStartDate||
+    !!entry.rotationEndDate
+  );
+  const orderError=exactRotation
+    ?(!entry.current&&compareExactDates(
+      entry.rotationStartDate,
+      entry.rotationEndDate
+    )===1?"End date is before the start date.":null)
+    :(!entry.current&&!entry.ongoing&&entry.whenKind!=="One date"
+      ?dateOrderError(entry.startDate,entry.endDate)
+      :null);
+  if(domain==="clinical"){
+    if(exactRotation&&!String(entry.specialty||"").trim())errors.specialty="Required.";
+    if(exactRotation){
+      if(!parseExactDate(entry.rotationStartDate))errors.rotationStartDate="Required.";
+      if(!entry.current&&!parseExactDate(entry.rotationEndDate))errors.rotationEndDate="Required.";
+    }
+  }else if(domain==="work"){
     if(!String(entry.role||"").trim())errors.role="Required.";
     if(!String(entry.organization||"").trim())errors.organization="Required.";
     if(!String(entry.country||"").trim())errors.country="Required.";
@@ -226,6 +254,10 @@ export function validateBuilderEntry(domain,entry={}){
     if(!String(entry.happened||"").trim())errors.happened="Required.";
   }
   if(orderError)errors.endDate=orderError;
+  if(orderError&&exactRotation){
+    delete errors.endDate;
+    errors.rotationEndDate=orderError;
+  }
   return errors;
 }
 
@@ -236,6 +268,7 @@ function stepHasStarted(document,step){
   const domain={3:"clinical",4:"work",5:"research",6:"personal"}[step];
   if(!domain)return false;
   return entryEvents(document,domain).length>0||Object.entries(builder.drafts[domain]).some(([key,value])=>{
+    if(domain==="clinical"&&key==="rotationDatePrecision")return value!=="unknown";
     if(domain==="research"&&key==="publicationStatus")return value!=="Not published";
     if(domain==="personal"&&key==="whenKind")return value!=="One date";
     if(domain==="personal"&&key==="icon")return value!=="star";
@@ -287,10 +320,32 @@ function builderEventBase({id,entryId,domain,categoryId,title,eventType,startDat
   };
 }
 
+export function projectRotationDates(entry={}){
+  const rotationStartDate=parseExactDate(entry.rotationStartDate);
+  const rotationEndDate=entry.current?null:parseExactDate(entry.rotationEndDate);
+  const dayPrecision=!!rotationStartDate&&(entry.current||!!rotationEndDate);
+  return Object.freeze({
+    rotationStartDate,
+    rotationEndDate,
+    rotationDatePrecision:dayPrecision
+      ?"day"
+      :(parseMonth(entry.startDate)?"month-legacy":"unknown"),
+    startDate:rotationStartDate
+      ?monthFromExactDate(rotationStartDate)
+      :(parseMonth(entry.startDate)||""),
+    endDate:entry.current
+      ?null
+      :(rotationEndDate
+        ?monthFromExactDate(rotationEndDate)
+        :(parseMonth(entry.endDate)||null))
+  });
+}
+
 export function eventFromBuilderEntry(domain,entry,{entryId=null,eventId=null,idFactory=uid}={}){
   const resolvedEntryId=entryId||idFactory(`${domain}-entry`);
   const resolvedEventId=eventId||idFactory(`${domain}-event`);
   if(domain==="clinical"){
+    const rotationDates=projectRotationDates(entry);
     const title=[entry.specialty,entry.institutionShortName||entry.institution].filter(Boolean).join(" · ");
     return builderEventBase({
       id:resolvedEventId,
@@ -299,8 +354,8 @@ export function eventFromBuilderEntry(domain,entry,{entryId=null,eventId=null,id
       categoryId:"clinical",
       title,
       eventType:"duration",
-      startDate:entry.startDate,
-      endDate:entry.current?null:entry.endDate,
+      startDate:rotationDates.startDate,
+      endDate:rotationDates.endDate,
       openEnded:entry.current,
       siteName:entry.institution||"",
       notes:entry.notes||"",
@@ -311,7 +366,10 @@ export function eventFromBuilderEntry(domain,entry,{entryId=null,eventId=null,id
         rotationType:entry.rotationType||"",
         city:entry.city||"",
         state:entry.state||"",
-        current:!!entry.current
+        current:!!entry.current,
+        rotationStartDate:rotationDates.rotationStartDate,
+        rotationEndDate:rotationDates.rotationEndDate,
+        rotationDatePrecision:rotationDates.rotationDatePrecision
       }
     });
   }
@@ -459,6 +517,11 @@ export function entryFromBuilderEvent(event){
     state:fields.state||"",
     startDate:event.startDate||"",
     endDate:event.endDate||"",
+    rotationStartDate:fields.rotationStartDate||"",
+    rotationEndDate:fields.rotationEndDate||"",
+    rotationDatePrecision:fields.rotationDatePrecision||(
+      event.startDate?"month-legacy":"unknown"
+    ),
     current:!!event.openEnded,
     notes:event.notes||""
   };
@@ -738,8 +801,8 @@ function clinicalForm(draft,editing){
       ${textField({id:"clinicalState",label:"State",value:draft.state,attributes:entryInputAttributes("clinical","state")})}
     </div>
     <div class="field-row">
-      ${monthFieldMarkup({id:"clinical-start",label:"Start",value:draft.startDate})}
-      ${draft.current?"":monthFieldMarkup({id:"clinical-end",label:"End",value:draft.endDate})}
+      ${exactDateFieldMarkup({id:"clinical-rotation-start",label:"Start date",value:draft.rotationStartDate,required:true,inputAttributes:{name:"rotationStartDate"},help:draft.rotationDatePrecision==="month-legacy"?`Legacy month ${formatMonth(draft.startDate)} — choose the exact day.`:"Exact day required."})}
+      ${draft.current?"":exactDateFieldMarkup({id:"clinical-rotation-end",label:"End date",value:draft.rotationEndDate,required:true,inputAttributes:{name:"rotationEndDate"},help:draft.rotationDatePrecision==="month-legacy"?`Legacy month ${formatMonth(draft.endDate)} — choose the exact day.`:"Exact day required."})}
     </div>
     <label class="check-row"><input type="checkbox" name="current" data-draft-domain="clinical" data-draft-field="current" ${draft.current?"checked":""}><span>Currently on this rotation</span></label>
     ${textField({id:"clinicalNotes",label:"Notes (optional)",value:draft.notes,placeholder:"e.g., attending name",attributes:entryInputAttributes("clinical","notes")})}
@@ -923,7 +986,10 @@ function setInlineErrors(form,errors){
       happened:"personalHappened",
       endDate:"personal-end"
     },
-    clinical:{endDate:"clinical-end"}
+    clinical:{
+      rotationStartDate:"clinical-rotation-start",
+      rotationEndDate:"clinical-rotation-end"
+    }
   };
   for(const [field,message] of Object.entries(errors||{})){
     const aliases={
@@ -993,6 +1059,16 @@ function draftFromForm(form,domain,current={}){
   const booleanName={clinical:"current",work:"current",research:"ongoing"}[domain];
   if(booleanName)next[booleanName]=!!formValue(form,booleanName);
   if(domain==="research")next.markPublication=!!formValue(form,"markPublication");
+  if(domain==="clinical"){
+    next.rotationStartDate=parseExactDate(formValue(form,"rotationStartDate"))||formValue(form,"rotationStartDate").trim();
+    next.rotationEndDate=next.current?"":(
+      parseExactDate(formValue(form,"rotationEndDate"))||
+      formValue(form,"rotationEndDate").trim()
+    );
+    const projected=projectRotationDates(next);
+    Object.assign(next,projected);
+    return next;
+  }
   for(const [suffix,key] of [["start","startDate"],["end","endDate"]]){
     const raw=formValue(form,`${domain}-${suffix}`);
     if(raw)next[key]=parseMonth(raw)||raw;
@@ -1302,6 +1378,17 @@ export function installBuilder(root,store,{
     store.mutate(`Update ${domain} date`,(document)=>{
       ensureBuilderState(document).drafts[domain][key]=value;
       markStepTouched(document,{clinical:3,work:4,research:5,personal:6}[domain]);
+    });
+  }});
+  installExactDateFields(root,{onCommit:(id,value,input)=>{
+    const domain=input.closest?.("[data-entry-form]")?.dataset.entryForm;
+    if(domain!=="clinical")return;
+    const key=id.endsWith("-end")?"rotationEndDate":"rotationStartDate";
+    store.mutate("Update clinical exact date",(document)=>{
+      const draft=ensureBuilderState(document).drafts.clinical;
+      draft[key]=value;
+      Object.assign(draft,projectRotationDates(draft));
+      markStepTouched(document,3);
     });
   }});
   installReviewFinish(root,store,{

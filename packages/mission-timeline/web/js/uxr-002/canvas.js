@@ -2,6 +2,10 @@ import {CATEGORIES,HISTORY_LIMIT,VISIBILITY} from "./constants.js";
 import {renderKeynoteClassicBoard} from "./board-renderer.js";
 import {assignStableLanes} from "./adaptive-layout.js";
 import {
+  compareExactDates,
+  shiftExactDateByMonths
+} from "./exact-date-field.js";
+import {
   addMonths,
   clone,
   escapeHtml,
@@ -580,6 +584,7 @@ function shiftedEvent(before,kind,{monthDelta = 0,targetLane = null,laneDelta = 
     if (type === "arrow" || type === "study-period") {
       if (event.endDate) event.endDate = addMonths(event.endDate,delta);
     }
+    syncClinicalExactDates(before,event,kind);
     return event;
   }
 
@@ -596,6 +601,7 @@ function shiftedEvent(before,kind,{monthDelta = 0,targetLane = null,laneDelta = 
     event.startDate = effectiveEnd && monthIndex(requested) > monthIndex(effectiveEnd)
       ? effectiveEnd
       : requested;
+    syncClinicalExactDates(before,event,kind);
     return event;
   }
   if (kind === "resize-end") {
@@ -605,9 +611,44 @@ function shiftedEvent(before,kind,{monthDelta = 0,targetLane = null,laneDelta = 
       ? event.startDate
       : requested;
     event.openEnded = false;
+    syncClinicalExactDates(before,event,kind);
     return event;
   }
   throw new TypeError(`Unsupported Canvas drag kind: ${String(kind)}`);
+}
+
+function syncClinicalExactDates(before,event,kind){
+  if(
+    (event.fields?.builderDomain||event.categoryId)!=="clinical"||
+    event.fields?.rotationDatePrecision!=="day"
+  )return event;
+  const fields={...(event.fields||{})};
+  const startDelta=(monthIndex(event.startDate)??0)-(monthIndex(before.startDate)??0);
+  const endDelta=(monthIndex(event.endDate)??0)-(monthIndex(before.endDate)??0);
+  if(kind==="move"||kind==="resize-start"){
+    fields.rotationStartDate=shiftExactDateByMonths(
+      before.fields?.rotationStartDate,
+      startDelta
+    );
+  }
+  if(kind==="move"||kind==="resize-end"){
+    fields.rotationEndDate=before.fields?.rotationEndDate
+      ?shiftExactDateByMonths(before.fields.rotationEndDate,endDelta)
+      :null;
+  }
+  if(
+    fields.rotationStartDate&&
+    fields.rotationEndDate&&
+    compareExactDates(fields.rotationStartDate,fields.rotationEndDate)===1
+  ){
+    if(kind==="resize-start")fields.rotationStartDate=fields.rotationEndDate;
+    else fields.rotationEndDate=fields.rotationStartDate;
+  }
+  fields.rotationDatePrecision=fields.rotationStartDate&&(
+    event.openEnded||fields.rotationEndDate
+  )?"day":"month-legacy";
+  event.fields=fields;
+  return event;
 }
 
 export function canvasDateTooltip(event) {

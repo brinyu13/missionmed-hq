@@ -32,7 +32,7 @@ test("M4 keeps result and score primary, dates secondary, with frozen copy",asyn
   assert.match(card,/Passed','Failed','Awaiting result/);
   assert.match(card,/Score <em>Optional/);
   assert.match(card,/Exam date \(taken\)/);
-  assert.match(card,/Started studying <em>Optional/);
+  assert.match(card,/label:'Started studying',optional:true/);
   assert.match(card,/Show score on timeline/);
 });
 

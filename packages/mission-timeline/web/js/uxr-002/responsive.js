@@ -1,4 +1,5 @@
 import {escapeHtml} from "./utils.js";
+import {PRIMARY_NAV_ITEMS} from "./constants.js";
 
 function freezeDeep(value) {
   if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
@@ -34,6 +35,7 @@ export const RESPONSIVE_SCREEN_IDS = freezeDeep([
   "builder",
   "intake",
   "canvas",
+  "media",
   "export"
 ]);
 
@@ -219,8 +221,8 @@ function navigationForTier(tier) {
   const bottom = tier.id === "tablet" || tier.id === "phone";
   return freezeDeep({
     placement:bottom ? "bottom-tab-bar" : "side-rail",
-    itemCount:4,
-    labels:["Home","Builder","Edit Timeline","Export"],
+    itemCount:PRIMARY_NAV_ITEMS.length,
+    labels:PRIMARY_NAV_ITEMS.map(({label})=>label),
     footer:false
   });
 }
@@ -358,6 +360,7 @@ export function buildResponsiveModel({
       builder:builderCapability(tier),
       intake:intakeCapability(),
       canvas:canvasCapability(tier),
+      media:intakeCapability(),
       export:exportCapability(tier)
     }),
     reflow:REFLOW_EVIDENCE_CONTRACT,

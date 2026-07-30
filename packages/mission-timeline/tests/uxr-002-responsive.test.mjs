@@ -197,8 +197,8 @@ test("M14 full and compressed desktop retain centered 1440px content and the vis
   const full = modelAt(1728,{height:1117});
   assert.deepEqual(full.content,{maximumWidth:1440,centered:true});
   assert.equal(full.navigation.placement,"side-rail");
-  assert.equal(full.navigation.itemCount,4);
-  assert.deepEqual(full.navigation.labels,["Home","Builder","Edit Timeline","Export"]);
+  assert.equal(full.navigation.itemCount,5);
+  assert.deepEqual(full.navigation.labels,["Home","Builder","Edit Timeline","Media","Export"]);
   assert.equal(full.screens.home.layout,"three-region-grid");
   assert.equal(full.screens.builder.preview,"live-pane");
   assert.equal(full.screens.builder.previewMinimumWidth,420);
@@ -228,11 +228,11 @@ test("M14 1024–1279 stacks Home and collapses Builder preview while preserving
   }
 });
 
-test("M14 768–1023 tablet uses four bottom tabs and exact Canvas view-only capabilities without over-disabling",() => {
+test("M14 768–1023 tablet uses five bottom tabs and exact Canvas view-only capabilities without over-disabling",() => {
   for (const [width,height] of [[1023,768],[768,1024]]) {
     const model = modelAt(width,{height,touch:true});
     assert.equal(model.navigation.placement,"bottom-tab-bar");
-    assert.equal(model.navigation.itemCount,4);
+    assert.equal(model.navigation.itemCount,5);
     assert.equal(model.screens.home.functional,true);
     assert.equal(model.screens.builder.functional,true);
     assert.equal(model.screens.intake.functional,true);

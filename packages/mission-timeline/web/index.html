@@ -498,6 +498,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
   <button class="rtab on" data-v="command">Home</button>
   <button class="rtab" data-v="builder">Builder</button>
   <button class="rtab" data-v="canvas">Edit Timeline</button>
+  <button class="rtab" data-v="media">Media</button>
   <button class="rtab" data-v="export">Export</button>
 </nav>
 
@@ -585,7 +586,10 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
       <div class="pi">
         <div class="builderPreviewHeader">
           <div class="builderPreviewLabel" id="builderPreviewTitle">LIVE PREVIEW · GUIDED · INTERVIEW-SAFE</div>
-          <button type="button" class="btnD alt sm builderPreviewToggle" id="builderPreviewToggle">OPEN FULL PREVIEW</button>
+          <div class="builderPreviewActions">
+            <button type="button" class="btnD alt sm" data-open-media-library aria-controls="mediaDrawer407F" aria-expanded="false" aria-haspopup="dialog">MEDIA</button>
+            <button type="button" class="btnD alt sm builderPreviewToggle" id="builderPreviewToggle">OPEN FULL PREVIEW</button>
+          </div>
         </div>
         <div class="builderPreviewViewport">
           <div id="boardWizard"></div>
@@ -641,26 +645,16 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
 <!-- ================= MEDIA ================= -->
 <section data-view="media">
-  <div class="trow"><div class="bigt">MEDIA <em>LOCKER</em></div><div class="subt">PHOTOS · PROGRAM LOGO · PROFILE AVATAR · LOCAL DEMO ONLY</div></div>
-  <div class="grid2">
-    <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">PHOTO LAYOUT</div>
-      <div class="seg" id="photoSeg">
-        <button data-n="3" class="on">3 PHOTOS</button><button data-n="4">4 PHOTOS</button><button data-n="5">5 PHOTOS</button>
+  <div class="media407FPage">
+    <header class="media407FPageHeader">
+      <div>
+        <p>MEDIA</p>
+        <h1>Your visual asset library.</h1>
+        <span>Manage images once, then drag them into Builder preview or Edit Timeline.</span>
       </div>
-      <div style="margin:18px 0 8px" class="subt">DROP ZONES</div>
-      <div id="mediaSlots" style="display:flex;gap:12px;flex-wrap:wrap"></div>
-      <div style="margin:20px 0 8px" class="subt">PROGRAM LOGO SLOT</div>
-      <div class="logoSlot" style="width:190px;cursor:pointer" id="mLogo">PROGRAM LOGO · CLICK TO REPLACE</div>
-      <div style="margin:20px 0 8px" class="subt">PROFILE AVATAR SLOT</div>
-      <div class="logoSlot" style="width:110px;height:110px;cursor:pointer" id="mAvatar">PROFILE PHOTO</div>
-      <div class="helper" style="margin-top:18px;letter-spacing:.08em;line-height:2.1">PHOTOS MAKE THE STORY HUMAN · USE 3, 4, OR 5 DEPENDING ON HOW MUCH PERSONAL CONTEXT BELONGS ON THE BOARD<br>PROGRAM LOGO AND RIBBON MARK THE INTERVIEW DESTINATION<br>PROFILE PHOTO IS FOR THE ADVISOR COPY · NOT REQUIRED FOR INTERVIEWER-SAFE EXPORT</div>
-      <div style="margin-top:14px" class="chip rd">LOCAL DEMO · FILES ARE NOT UPLOADED ANYWHERE</div>
-    </div></div>
-    <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">BOARD · MEDIA SLOTS LIVE HERE</div>
-      <div id="boardMedia"></div>
-    </div></div>
+      <div class="media407FLocalBadge">LOCAL DEVICE ONLY</div>
+    </header>
+    <div class="panelD media407FPanel"><div class="pi" id="media407F"></div></div>
   </div>
 </section>
 
@@ -700,6 +694,13 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 </main>
 
 <div id="modalBk"><div id="modal" class="panelD"><div class="pi" id="modalIn"></div></div></div>
+<aside id="mediaDrawer407F" class="media407FDrawer" role="dialog" aria-modal="false" aria-labelledby="mediaDrawer407FTitle" hidden>
+  <header>
+    <div><span>MEDIA</span><h2 id="mediaDrawer407FTitle">Drag onto the timeline</h2></div>
+    <button type="button" class="btnD alt sm" data-close-media-library>CLOSE</button>
+  </header>
+  <div id="mediaDrawer407FContent"></div>
+</aside>
 <div id="globalLive407F" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
 <div id="printOv"><div id="printBar"><span class="subt">PRINT PREVIEW · INTERVIEWER-SAFE FILTER APPLIED · SELECTED THEME</span><button class="btnD go sm" id="printGo">PRINT ▸</button><button class="btnD alt sm" id="printClose">CLOSE</button></div><div id="boardPrint"></div></div>
 <div id="toast"></div>
@@ -1440,6 +1441,31 @@ function builderStateLabel(step){
   const stateName=builderStepState(step);
   return{complete:'Complete',started:'Started',skipped:'Skipped',empty:'Empty',none:'Review'}[stateName]||'Empty';
 }
+function dateAttributeMarkup404(attributes){
+  return Object.keys(attributes||{}).map(name=>attributes[name]===true
+    ?esc(name)
+    :esc(name)+'="'+esc(attributes[name])+'"').join(' ');
+}
+function dateControlMarkup404(options){
+  const controls=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.dateControls;
+  if(controls&&typeof controls.markup==='function')return controls.markup(options);
+  const attributes=dateAttributeMarkup404(options.inputAttributes||{});
+  const errorAttributes=dateAttributeMarkup404(options.errorAttributes||{});
+  return '<label class="builderField"><span>'+esc(options.label)+(options.required?' <b aria-hidden="true">*</b>':'')+'</span>'
+    +'<input type="text" id="'+esc(options.id)+'" value="'+esc(options.value||'')+'" '+attributes+' placeholder="'+(options.precision==='day'?'Jun 15, 2023':'Jun 2023')+'">'
+    +(options.help?'<small class="builderHint">'+esc(options.help)+'</small>':'')
+    +'<small '+errorAttributes+'>'+esc(options.error||'')+'</small></label>';
+}
+function installBuilderDateControls404(){
+  const controls=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.dateControls;
+  if(controls&&typeof controls.install==='function')controls.install($('#builderStepBody'));
+}
+function validExactDate404(value){
+  const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!match)return false;
+  const date=new Date(Date.UTC(+match[1],+match[2]-1,+match[3]));
+  return date.getUTCFullYear()===+match[1]&&date.getUTCMonth()===+match[2]-1&&date.getUTCDate()===+match[3];
+}
 function coreInfoMarkup(){
   const w=state.wiz;
   const countryOptions=COUNTRIES.map(c=>'<option value="'+esc(c)+'"'+(c===w.country?' selected':'')+'>'+esc(c)+'</option>').join('');
@@ -1448,7 +1474,8 @@ function coreInfoMarkup(){
     +'<label class="builderField"><span>Full name</span><input type="text" data-core="name" value="'+esc(w.name||'')+'" placeholder="e.g., Amara Osei"><small data-error="name"></small></label>'
     +'<label class="builderField"><span>Medical school</span><input type="text" data-core="school" data-provider="schools" list="medicalSchoolOptions" value="'+esc(w.school||'')+'" autocomplete="off"><datalist id="medicalSchoolOptions">'+MEDICAL_SCHOOLS_404.map(name=>'<option value="'+esc(name)+'"></option>').join('')+'</datalist><small class="builderHint">Start typing to search; free text is always allowed.</small><small data-error="school"></small></label>'
     +'<label class="builderField"><span>Medical school country</span><select data-core="country"><option value="">Select a country</option>'+countryOptions+'</select><small data-error="country"></small></label>'
-    +'<label class="builderField"><span>'+(w.notGraduated?'Expected graduation':'Graduation date')+'</span><input type="text" data-core="grad" value="'+esc(w.grad||'')+'" placeholder="Jun 2023" inputmode="numeric"><small class="builderHint">Enter a month and year, like “Jun 2023”.</small><small data-error="grad"></small></label>'
+    +'<!-- shared month control: data-core="grad" -->'
+    +dateControlMarkup404({precision:'month',id:'core-graduation-407f',label:w.notGraduated?'Expected graduation':'Graduation date',value:w.grad||'',required:true,help:'Type a month and year or use the calendar.',inputAttributes:{'data-core':'grad'},errorAttributes:{'data-error':'grad'}})
     +'<label class="builderToggle"><input type="checkbox" data-core-toggle="notGraduated"'+(w.notGraduated?' checked':'')+'> <span>I haven&apos;t graduated yet</span></label>'
     +'<fieldset class="builderField"><legend>Degree</legend><div class="builderSegments">'+degreeButtons+'</div><small data-error="degree"></small></fieldset>'
     +(w.degree==='Other'?'<label class="builderField"><span>Degree name</span><input type="text" data-core="degreeOther" value="'+esc(w.degreeOther||'')+'"></label>':'')
@@ -1585,8 +1612,8 @@ function examCard404(record){
     +'<fieldset class="builderField"><legend>Result</legend><div class="builderSegments" role="group" aria-label="Result">'+resultButtons+'</div><small data-exam-error="result">'+esc(examError404(record,'result'))+'</small></fieldset>'
     +(definition.passFailOnly?'':'<label class="builderField builderScore"><span>Score <em>Optional</em></span><input type="text" inputmode="numeric" maxlength="3" data-exam-field="score" value="'+esc(record.score||'')+'"><small data-exam-error="score">'+esc(examError404(record,'score'))+'</small></label>')
     +'</div><div class="builderExamSecondary">'
-    +'<label class="builderField"><span>'+(record.result==='Awaiting result'?'Exam date (taken)':'Exam date')+'</span><input type="text" inputmode="numeric" placeholder="Jun 2023" data-exam-field="examDate" value="'+esc(record.examDate||'')+'"><small data-exam-error="examDate">'+esc(examError404(record,'examDate'))+'</small></label>'
-    +'<label class="builderField"><span>Started studying <em>Optional</em></span><input type="text" inputmode="numeric" placeholder="Jun 2023" data-exam-field="studyStartDate" value="'+esc(record.studyStartDate||'')+'"><small data-exam-error="studyStartDate">'+esc(examError404(record,'studyStartDate'))+'</small></label>'
+    +dateControlMarkup404({precision:'month',id:'exam-date-'+record.id,label:record.result==='Awaiting result'?'Exam date (taken)':'Exam date',value:record.examDate||'',required:true,inputAttributes:{'data-exam-field':'examDate'},error:examError404(record,'examDate'),errorAttributes:{'data-exam-error':'examDate'}})
+    +dateControlMarkup404({precision:'month',id:'exam-study-'+record.id,label:'Started studying',optional:true,value:record.studyStartDate||'',inputAttributes:{'data-exam-field':'studyStartDate'},error:examError404(record,'studyStartDate'),errorAttributes:{'data-exam-error':'studyStartDate'}})
     +'</div>'
     +(definition.passFailOnly?'':'<label class="builderToggle"><input type="checkbox" data-exam-score-visible'+(record.showScoreOnTimeline?' checked':'')+(record.result==='Failed'?' disabled':'')+'> <span>Show score on timeline</span></label>')
     +(record.automatic?'<p class="builderExamNote">Created automatically after the previous failed attempt.</p>':'')
@@ -1608,7 +1635,7 @@ function examsMarkup404(){
     +'<button type="button" class="homeTertiary builderSkip" data-builder-skip="2">I have nothing to add here → skip</button></section>';
 }
 function domainDefaults404(domain){
-  if(domain==='clinical')return{institution:'',institutionShortName:'',specialty:'',rotationType:'',city:'',state:'',startDate:'',endDate:'',current:false,notes:''};
+  if(domain==='clinical')return{institution:'',institutionShortName:'',specialty:'',rotationType:'',city:'',state:'',startDate:'',endDate:'',rotationStartDate:'',rotationEndDate:'',rotationDatePrecision:'unknown',current:false,notes:''};
   if(domain==='work')return{role:'',organization:'',country:'',city:'',kind:'',startDate:'',endDate:'',current:false,description:''};
   if(domain==='research')return{projectTitle:'',institution:'',institutionShortName:'',role:'',roleOther:'',startDate:'',endDate:'',ongoing:false,publicationStatus:'Not published',journal:'',publicationYear:'',authorPosition:'',doiOrPmid:'',markPublication:false};
   return{happened:'',whenKind:'One date',startDate:'',endDate:'',icon:'star',visibilityState:'INTERVIEWER_SAFE'};
@@ -1622,6 +1649,20 @@ function domainEvents404(domain){
 function domainField404(label,name,value,options){
   options=options||{};const required=options.required?' <b aria-hidden="true">*</b>':'';
   return '<label class="builderField"><span>'+label+required+'</span><input type="'+(options.type||'text')+'" name="'+name+'" value="'+esc(value||'')+'"'+(options.placeholder?' placeholder="'+esc(options.placeholder)+'"':'')+(options.list?' list="'+options.list+'"':'')+(options.inputmode?' inputmode="'+options.inputmode+'"':'')+(options.maxlength?' maxlength="'+options.maxlength+'"':'')+'><small data-domain-error="'+name+'"></small></label>';
+}
+function domainDateControl404(domain,label,name,value,options){
+  options=options||{};
+  const precision=options.precision||'month';
+  return dateControlMarkup404({
+    precision:precision,
+    id:'builder-'+domain+'-'+name,
+    label:label,
+    value:value||'',
+    required:!!options.required,
+    help:options.help||'',
+    inputAttributes:{name:name,'data-domain-date':name},
+    errorAttributes:{'data-domain-error':name}
+  });
 }
 function domainTypeahead404(label,name,value,provider,options){
   options=options||{};const required=options.required?' <b aria-hidden="true">*</b>':'';
@@ -1655,12 +1696,14 @@ function domainSavedList404(domain){
     +'<button type="button" class="homeTertiary" data-domain-edit="'+esc(event.id)+'">Edit</button><button type="button" class="homeTertiary" data-domain-delete="'+esc(event.id)+'">Delete</button></li>').join('')+'</ul>';
 }
 function clinicalMarkup404(draft){
+  const startHelp=!draft.rotationStartDate&&draft.startDate?'Legacy month '+fmtL(draft.startDate)+' — choose the exact start day before saving.':'Exact day required.';
+  const endHelp=!draft.rotationEndDate&&draft.endDate?'Legacy month '+fmtL(draft.endDate)+' — choose the exact end day before saving.':'Exact day required unless this rotation is current.';
   return domainTypeahead404('Institution','institution',draft.institution,'clinicalInstitutions')
     +'<small class="builderHint domainTypeaheadHint">Type 2+ characters; choose a match or keep your text as written.</small>'
     +domainTypeahead404('Specialty','specialty',draft.specialty,'specialties')
     +domainSelect404('Rotation type','rotationType',draft.rotationType,['Elective','Sub-internship','Observership','Externship','Clerkship (core)','Other'])
     +'<div class="builderDomainGrid">'+domainField404('City','city',draft.city)+domainField404('State','state',draft.state)+'</div>'
-    +'<div class="builderDomainGrid">'+domainField404('Start','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.current?'':domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}))+'</div>'
+    +'<div class="builderDomainGrid">'+domainDateControl404('clinical','Start','rotationStartDate',draft.rotationStartDate,{precision:'day',required:true,help:startHelp})+(draft.current?'':domainDateControl404('clinical','End','rotationEndDate',draft.rotationEndDate,{precision:'day',required:true,help:endHelp}))+'</div>'
     +'<label class="builderToggle"><input type="checkbox" name="current" data-domain-toggle="current"'+(draft.current?' checked':'')+'> <span>Currently on this rotation</span></label>'
     +domainField404('Notes <em>Optional</em>','notes',draft.notes,{placeholder:'e.g., attending name'});
 }
@@ -1670,7 +1713,7 @@ function workMarkup404(draft){
     +domainTypeahead404('Country','country',draft.country,'countries',{required:true,allowFreeText:false})
     +domainField404('City <em>Optional</em>','city',draft.city)
     +domainSegments404('Kind','kind',['Clinical','Non-clinical'],draft.kind)
-    +'<div class="builderDomainGrid">'+domainField404('Start','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.current?'':domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}))+'</div>'
+    +'<div class="builderDomainGrid">'+domainDateControl404('work','Start','startDate',draft.startDate)+(draft.current?'':domainDateControl404('work','End','endDate',draft.endDate))+'</div>'
     +'<label class="builderToggle"><input type="checkbox" name="current" data-domain-toggle="current"'+(draft.current?' checked':'')+'> <span>I still work here</span></label>'
     +domainField404('One-line description <em>Optional</em>','description',draft.description);
 }
@@ -1680,7 +1723,7 @@ function researchMarkup404(draft){
     +domainTypeahead404('Institution / lab <em>Optional</em>','institution',draft.institution,'researchInstitutions')
     +domainSelect404('Role','role',draft.role,['Research assistant','Research fellow','Coordinator','Volunteer','Principal investigator','Other (text)'])
     +(draft.role==='Other (text)'?domainField404('Role (other)','roleOther',draft.roleOther):'')
-    +'<div class="builderDomainGrid">'+domainField404('Start','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.ongoing?'':domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}))+'</div>'
+    +'<div class="builderDomainGrid">'+domainDateControl404('research','Start','startDate',draft.startDate)+(draft.ongoing?'':domainDateControl404('research','End','endDate',draft.endDate))+'</div>'
     +'<label class="builderToggle"><input type="checkbox" name="ongoing" data-domain-toggle="ongoing"'+(draft.ongoing?' checked':'')+'> <span>Ongoing</span></label>'
     +domainSegments404('Publication status','publicationStatus',['Not published','Submitted','Accepted','Published'],draft.publicationStatus||'Not published')
     +(hasPublication?'<div class="builderPublication">'+domainField404('Journal / venue','journal',draft.journal,{required:draft.publicationStatus==='Published'})
@@ -1693,7 +1736,7 @@ const PERSONAL_ICONS_404=[['heart','♥'],['home','⌂'],['plane','✈'],['baby'
 function personalMarkup404(draft){
   return domainField404('What happened','happened',draft.happened,{required:true,placeholder:'e.g., Moved to the US · Became a parent · Military service'})
     +domainSegments404('When','whenKind',['One date','A period'],draft.whenKind||'One date')
-    +'<div class="builderDomainGrid">'+domainField404(draft.whenKind==='A period'?'Start':'Date','startDate',draft.startDate,{placeholder:'Jun 2023',inputmode:'numeric'})+(draft.whenKind==='A period'?domainField404('End','endDate',draft.endDate,{placeholder:'Jun 2023',inputmode:'numeric'}):'')+'</div>'
+    +'<div class="builderDomainGrid">'+domainDateControl404('personal',draft.whenKind==='A period'?'Start':'Date','startDate',draft.startDate)+(draft.whenKind==='A period'?domainDateControl404('personal','End','endDate',draft.endDate):'')+'</div>'
     +'<fieldset class="builderField"><legend>Icon</legend><div class="builderIconGrid">'+PERSONAL_ICONS_404.map(item=>'<button type="button" class="'+(draft.icon===item[0]?'on':'')+'" data-domain-segment="icon" data-domain-value="'+item[0]+'" aria-label="'+item[0]+'" aria-pressed="'+String(draft.icon===item[0])+'">'+item[1]+'</button>').join('')+'</div></fieldset>'
     +domainSegments404('Visibility','visibilityState',[{label:'Show everyone',value:'INTERVIEWER_SAFE'},{label:'Advisor only',value:'ADVISOR_ONLY'}],draft.visibilityState||'INTERVIEWER_SAFE');
 }
@@ -1775,6 +1818,7 @@ function renderBuilder404(){
   $('#builderStepTitle').textContent=current.title;
   $('#builderPurpose').textContent=current.purpose;
   $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():(step===2?examsMarkup404():(step>=3&&step<=6?domainStepMarkup404(step):builderPlaceholderMarkup(step)));
+  installBuilderDateControls404();
   $('#builderBack').disabled=step===1;
   $('#builderContinue').textContent=step===7?'EDIT MY TIMELINE →':'CONTINUE →';
   $('#builderContinue').hidden=step===7;
@@ -1832,9 +1876,15 @@ function showCoreErrors(){
   for(const key of CORE_REQUIRED){
     const target=$('[data-error="'+key+'"]');
     if(target)target.textContent=String(w[key]||'').trim()?'':'Required.';
+    const message=String(w[key]||'').trim()?'':'Required.';
+    const control=$('[data-core="'+key+'"]');
+    if(control)control.setAttribute('aria-invalid',String(!!message));
   }
   const gradTarget=$('[data-error="grad"]');
-  if(gradTarget&&w.grad&&!parseBuilderMonth(w.grad))gradTarget.textContent="Enter a month and year, like 'Jun 2023'.";
+  if(gradTarget&&w.grad&&!parseBuilderMonth(w.grad)){
+    gradTarget.textContent="Enter a month and year, like 'Jun 2023'.";
+    const control=$('[data-core="grad"]');if(control)control.setAttribute('aria-invalid','true');
+  }
   return coreInfoValid()&&!!parseBuilderMonth(w.grad);
 }
 function runExamAction404(method){
@@ -1936,8 +1986,14 @@ function domainFormData404(form,domain){
   const draft=domainDraft404(domain);const next=Object.assign({},draft);
   form.querySelectorAll('input[name],select[name]').forEach(control=>{
     if(control.type==='checkbox')next[control.name]=control.checked;
-    else next[control.name]=String(control.value||'').trim();
+    else next[control.name]=String(control.dataset.dateCanonical!==undefined?control.dataset.dateCanonical:(control.value||'')).trim();
   });
+  if(domain==='clinical'){
+    if(validExactDate404(next.rotationStartDate))next.startDate=next.rotationStartDate.slice(0,7);
+    if(validExactDate404(next.rotationEndDate))next.endDate=next.rotationEndDate.slice(0,7);
+    if(next.current){next.rotationEndDate='';next.endDate=''}
+    next.rotationDatePrecision=validExactDate404(next.rotationStartDate)&&(next.current||validExactDate404(next.rotationEndDate))?'day':(next.startDate?'month-legacy':'unknown');
+  }
   ['startDate','endDate'].forEach(field=>{if(next[field])next[field]=parseBuilderMonth(next[field])||next[field]});
   const institution=US_TEACHING_INSTITUTIONS_404.find(item=>item.name===next.institution);
   if(institution){next.institutionShortName=institution.shortName;next.city=next.city||institution.city;next.state=next.state||institution.state}
@@ -1945,13 +2001,19 @@ function domainFormData404(form,domain){
 }
 function domainErrors404(domain,entry){
   const errors={};const required=[];
+  if(domain==='clinical'){
+    if(!String(entry.specialty||'').trim())errors.specialty='Required.';
+    if(!validExactDate404(entry.rotationStartDate))errors.rotationStartDate=entry.rotationStartDate?"Enter a complete date, like 'Jun 15, 2023' or '2023-06-15'.":'Required.';
+    if(!entry.current&&!validExactDate404(entry.rotationEndDate))errors.rotationEndDate=entry.rotationEndDate?"Enter a complete date, like 'Jun 15, 2023' or '2023-06-15'.":'Required.';
+    if(validExactDate404(entry.rotationStartDate)&&validExactDate404(entry.rotationEndDate)&&entry.rotationEndDate<entry.rotationStartDate)errors.rotationEndDate='End date is before the start date.';
+  }
   if(domain==='work')required.push(['role','Required.'],['organization','Required.'],['country','Required.'],['kind','Required.']);
   if(domain==='research')required.push(['projectTitle','Required.']);
   if(domain==='personal')required.push(['happened','Required.']);
   required.forEach(item=>{if(!String(entry[item[0]]||'').trim())errors[item[0]]=item[1]});
-  if(entry.startDate&&!parseBuilderMonth(entry.startDate))errors.startDate="Enter a month and year, like 'Jun 2023'.";
-  if(entry.endDate&&!parseBuilderMonth(entry.endDate))errors.endDate="Enter a month and year, like 'Jun 2023'.";
-  if(entry.startDate&&entry.endDate&&parseBuilderMonth(entry.startDate)&&parseBuilderMonth(entry.endDate)&&mi(parseBuilderMonth(entry.endDate))<mi(parseBuilderMonth(entry.startDate)))errors.endDate='End date is before the start date.';
+  if(domain!=='clinical'&&entry.startDate&&!parseBuilderMonth(entry.startDate))errors.startDate="Enter a month and year, like 'Jun 2023'.";
+  if(domain!=='clinical'&&entry.endDate&&!parseBuilderMonth(entry.endDate))errors.endDate="Enter a month and year, like 'Jun 2023'.";
+  if(domain!=='clinical'&&entry.startDate&&entry.endDate&&parseBuilderMonth(entry.startDate)&&parseBuilderMonth(entry.endDate)&&mi(parseBuilderMonth(entry.endDate))<mi(parseBuilderMonth(entry.startDate)))errors.endDate='End date is before the start date.';
   if(domain==='research'&&entry.publicationStatus==='Published'){
     if(!entry.journal)errors.journal='Required.';
     if(!/^\d{4}$/.test(String(entry.publicationYear||'')))errors.publicationYear='Required.';
@@ -2063,6 +2125,29 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!field.querySelector('[role="listbox"]').hidden){e.preventDefault();commitTypeahead404(field,field.dataset.activeIndex||0);return}
   if(e.key==='Escape'){e.preventDefault();closeTypeahead404(field)}
 });
+document.addEventListener('d1:date-commit',e=>{
+  const input=e.target;const value=String(e.detail&&e.detail.value||'');
+  if(input.matches('[data-core="grad"]')){
+    state.wiz.grad=value;state.builder.touched[1]=true;syncCoreInfo();return;
+  }
+  if(input.matches('[data-exam-field]')){
+    const card=input.closest('[data-exam-card]');if(!card)return;
+    const field=input.dataset.examField;touchExamField404(card.dataset.examCard,field);
+    runExamAction404('update',card.dataset.examCard,{[field]:value});return;
+  }
+  if(input.matches('[data-domain-date]')){
+    const form=input.closest('[data-domain-form]');if(!form)return;
+    const domain=form.dataset.domainForm;const field=input.dataset.domainDate;
+    const changes={[field]:value};
+    if(domain==='clinical'){
+      if(field==='rotationStartDate')changes.startDate=value?value.slice(0,7):'';
+      if(field==='rotationEndDate')changes.endDate=value?value.slice(0,7):'';
+      changes.rotationDatePrecision=value?'day':(domainDraft404(domain).startDate?'month-legacy':'unknown');
+    }
+    state.builder.touched[{clinical:3,work:4,research:5,personal:6}[domain]]=true;
+    runDomainAction404('updateDraft',domain,changes);
+  }
+});
 document.addEventListener('change',e=>{
   const field=e.target.closest('[data-core]');
   if(field){
@@ -2088,18 +2173,27 @@ document.addEventListener('change',e=>{
   }
 });
 document.addEventListener('focusout',e=>{
-  if(e.target.matches&&e.target.matches('[data-core]'))showCoreErrors();
+  if(e.target.matches&&e.target.matches('[data-core]')){
+    if(e.target.matches('[data-core="grad"]')){
+      state.wiz.grad=String(e.target.dataset.dateCanonical!==undefined
+        ?e.target.dataset.dateCanonical
+        :e.target.value||'').trim();
+      state.builder.touched[1]=true;
+    }
+    showCoreErrors();
+  }
   const input=e.target.closest&&e.target.closest('[data-exam-field]');
   if(input){
     const card=input.closest('[data-exam-card]');if(!card)return;
     const field=input.dataset.examField;let value=String(input.value||'').trim();
+    if(field==='examDate'||field==='studyStartDate')return;
     touchExamField404(card.dataset.examCard,field);
-    if(field==='examDate'||field==='studyStartDate'){const parsed=parseBuilderMonth(value);if(parsed)value=parsed}
     runExamAction404('update',card.dataset.examCard,{[field]:value});
     return;
   }
   const domainControl=e.target.closest&&e.target.closest('[data-domain-form] input[name], [data-domain-form] select[name]');
   if(domainControl){
+    if(domainControl.matches('[data-domain-date]'))return;
     if(typeaheadCommitting404)return;
     const typeaheadField=domainControl.closest('[data-domain-typeahead]');
     if(typeaheadField)closeTypeahead404(typeaheadField);
@@ -2248,8 +2342,10 @@ function renderMediaSlots(){
   host.innerHTML=h;
   $$('#mediaSlots .pframe').forEach(f=>f.onclick=()=>toast('Local demo · real drop zones arrive in the filesystem build'));
 }
-$('#mLogo').onclick=()=>toast('Program logo slot · click-to-replace is mocked in this preview');
-$('#mAvatar').onclick=()=>toast('Profile photo slot · click-to-replace is mocked in this preview');
+const legacyMediaLogo=$('#mLogo');
+const legacyMediaAvatar=$('#mAvatar');
+if(legacyMediaLogo)legacyMediaLogo.onclick=()=>toast('Program logo slot · click-to-replace is mocked in this preview');
+if(legacyMediaAvatar)legacyMediaAvatar.onclick=()=>toast('Profile photo slot · click-to-replace is mocked in this preview');
 
 /* ============ ADVISOR ============ */
 function renderAdvisor(){

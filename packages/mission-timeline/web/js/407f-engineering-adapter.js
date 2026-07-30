@@ -11,6 +11,7 @@ import {
   commitBuilderEntry,
   deleteBuilderEntry,
   ensureBuilderState,
+  projectRotationDates,
   rankCountryMatches,
   typeaheadRows
 } from "./uxr-002/builder.js";
@@ -34,6 +35,22 @@ import {
   moveBuilderPreviewFocus,
   resolveBuilderPreviewOwner
 } from "./uxr-002/builder-preview.js";
+import {
+  installExactDateFields,
+  exactDateFieldMarkup,
+  parseExactDate
+} from "./uxr-002/exact-date-field.js";
+import {
+  installMonthFields,
+  monthFieldMarkup
+} from "./uxr-002/month-field.js";
+import {
+  createMediaLibraryAsset,
+  mediaLibraryMarkup,
+  nudgeMediaLibraryAsset,
+  placeMediaLibraryAsset,
+  unplaceMediaLibraryAsset
+} from "./uxr-002/media-library.js";
 import {assignStableLanes} from "./uxr-002/adaptive-layout.js";
 import {createAdvancedBoardRenderer} from "./uxr-002/advanced-board.js";
 import {
@@ -112,7 +129,7 @@ import {
   installFocusTrap,
   installResponsiveRuntime
 } from "./uxr-002/responsive.js";
-import {uid} from "./uxr-002/utils.js";
+import {parseMonth,uid} from "./uxr-002/utils.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -442,6 +459,12 @@ function createObjectUrlRegistry(){
       urls.set(key,url);
       return url;
     },
+    revoke(id){
+      const key=String(id);
+      const prior=urls.get(key);
+      if(prior)URL.revokeObjectURL(prior);
+      urls.delete(key);
+    },
     async hydrate(store,document){
       const advanced=document?.advanced||{};
       const ids=[
@@ -524,12 +547,52 @@ function renderCanvasDetails(route,event){
   const domain=event.fields?.builderDomain||event.categoryId||"personal";
   const detailFields=CANVAS_DETAIL_FIELDS[domain]||[];
   const isMilestone=event.eventType==="milestone";
+  const clinical=domain==="clinical";
+  const startDateControl=clinical
+    ?exactDateFieldMarkup({
+      id:`canvas-${event.id}-rotation-start`,
+      label:"Start date",
+      value:event.fields?.rotationStartDate||"",
+      required:true,
+      help:event.fields?.rotationDatePrecision==="month-legacy"
+        ?`Legacy month ${event.startDate} — choose the exact day before saving.`
+        :"Exact day required.",
+      inputAttributes:{"data-canvas-rotation-date":"rotationStartDate"}
+    })
+    :monthFieldMarkup({
+      id:`canvas-${event.id}-start`,
+      label:"Start",
+      value:event.startDate,
+      inputAttributes:{"data-canvas-detail-key":"startDate"}
+    });
+  const endDateControl=isMilestone
+    ?""
+    :clinical
+      ?exactDateFieldMarkup({
+        id:`canvas-${event.id}-rotation-end`,
+        label:"End date",
+        value:event.fields?.rotationEndDate||"",
+        required:!event.openEnded,
+        disabled:event.openEnded,
+        help:event.openEnded
+          ?"Current rotation."
+          :event.fields?.rotationDatePrecision==="month-legacy"
+            ?`Legacy month ${event.endDate||""} — choose the exact day before saving.`
+            :"Exact day required.",
+        inputAttributes:{"data-canvas-rotation-date":"rotationEndDate"}
+      })
+      :monthFieldMarkup({
+        id:`canvas-${event.id}-end`,
+        label:"End",
+        value:event.endDate||"",
+        inputAttributes:{"data-canvas-detail-key":"endDate"}
+      });
   return `<div class="canvas407FDetails" data-canvas-details-form data-event-id="${escapeMarkup(event.id)}">
     <div class="canvas407FDetailGrid">
       <label class="canvas407FDetailField canvas407FDetailWide"><span>Title</span><input type="text" data-canvas-detail-key="title" value="${escapeMarkup(event.title)}"></label>
       <label class="canvas407FDetailField"><span>Category</span><select data-canvas-detail-key="categoryId">${Object.keys(CATEGORY_TO_407F).map((category)=>`<option value="${category}" ${event.categoryId===category?"selected":""}>${escapeMarkup(category[0].toUpperCase()+category.slice(1))}</option>`).join("")}</select></label>
-      <label class="canvas407FDetailField"><span>Start</span><input type="month" data-canvas-detail-key="startDate" value="${escapeMarkup(event.startDate)}"></label>
-      ${isMilestone?"":`<label class="canvas407FDetailField"><span>End</span><input type="month" data-canvas-detail-key="endDate" value="${escapeMarkup(event.endDate||"")}"></label>`}
+      ${startDateControl}
+      ${endDateControl}
       <label class="canvas407FDetailField"><span>Visibility</span><select data-canvas-detail-key="visibilityState">
         <option value="INTERVIEWER_SAFE" ${event.visibilityState==="INTERVIEWER_SAFE"?"selected":""}>Show everyone</option>
         <option value="ADVISOR_ONLY" ${event.visibilityState==="ADVISOR_ONLY"?"selected":""}>Advisor only</option>
@@ -559,6 +622,13 @@ export async function boot407FEngineeringAdapter({
     baseRenderer:render407FThemedBoard,
     resolveObjectUrl:(id)=>mediaUrls.get(id)
   });
+  const renderResponsiveAdvancedBoard=(document,options={})=>
+    advancedBoardRenderer(document,{
+      ...options,
+      reducedMotion:window.matchMedia?.(
+        "(prefers-reduced-motion: reduce)"
+      )?.matches
+    });
   const exportAdapter=createLocalExportAdapter({
     resolveObjectUrl:(id)=>mediaUrls.get(id)
   });
@@ -593,6 +663,13 @@ export async function boot407FEngineeringAdapter({
   let onBuilderPreviewResize=()=>{};
   let onBuilderPreviewBackdrop=()=>{};
   let onHomeFileVault=()=>{};
+  let onMediaLibraryClick=()=>{};
+  let onMediaLibraryChange=()=>{};
+  let onMediaLibraryDragStart=()=>{};
+  let onMediaLibraryDragOver=()=>{};
+  let onMediaLibraryDragLeave=()=>{};
+  let onMediaLibraryDragEnd=()=>{};
+  let onMediaLibraryDrop=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
   let shortcutTrap=null;
@@ -600,6 +677,7 @@ export async function boot407FEngineeringAdapter({
   let builderPreviewTrap=null;
   let builderPreviewZoom=createCanvasZoom("fit");
   let builderPreviewOpener=null;
+  let mediaDrawerOpener=null;
   let builderPreviewRenderQueued=false;
   let lastFocusedView=null;
   let lastState=stableState(bridge.state);
@@ -682,6 +760,13 @@ export async function boot407FEngineeringAdapter({
     );
     document.getElementById("builderPreviewToggle")?.removeEventListener("click",onBuilderPreview);
     document.getElementById("homeFileVault")?.removeEventListener("click",onHomeFileVault);
+    document.removeEventListener("click",onMediaLibraryClick);
+    document.removeEventListener("change",onMediaLibraryChange);
+    document.removeEventListener("dragstart",onMediaLibraryDragStart);
+    document.removeEventListener("dragover",onMediaLibraryDragOver);
+    document.removeEventListener("dragleave",onMediaLibraryDragLeave);
+    document.removeEventListener("dragend",onMediaLibraryDragEnd);
+    document.removeEventListener("drop",onMediaLibraryDrop);
     responsiveRuntime?.destroy();
     shortcutTrap?.destroy();
     fileVaultTrap?.destroy();
@@ -702,6 +787,30 @@ export async function boot407FEngineeringAdapter({
       applying=false;
     }
   };
+  const dispatchDateCommit=(precision,id,value,input)=>{
+    input.dataset.dateCanonical=value;
+    input.dispatchEvent(new CustomEvent("d1:date-commit",{
+      bubbles:true,
+      detail:Object.freeze({precision,id,value})
+    }));
+  };
+  api.dateControls=Object.freeze({
+    markup(options={}){
+      return options.precision==="day"
+        ?exactDateFieldMarkup(options)
+        :monthFieldMarkup(options);
+    },
+    install(root=document){
+      installMonthFields(root,{
+        onCommit:(id,value,input)=>
+          dispatchDateCommit("month",id,value,input)
+      });
+      installExactDateFields(root,{
+        onCommit:(id,value,input)=>
+          dispatchDateCommit("day",id,value,input)
+      });
+    }
+  });
   const syncBridgeFromStore=()=>{
     applying=true;
     applyDocumentTo407FState(store.document,bridge.state);
@@ -710,6 +819,302 @@ export async function boot407FEngineeringAdapter({
     lastState=stableState(bridge.state);
     applying=false;
   };
+  const mediaItems=()=>store.document.advanced?.media||[];
+  const mediaFocusState=()=>{
+    const active=document.activeElement;
+    const root=active?.closest?.("#media407F, #mediaDrawer407FContent");
+    if(!root)return null;
+    const card=active.closest?.("[data-media-asset]");
+    const action=active.closest?.(
+      "[data-media-place], [data-media-unplace], [data-media-nudge], [data-media-upload]"
+    );
+    return{
+      rootId:root.id,
+      assetId:card?.dataset.mediaAsset||null,
+      action:action?.hasAttribute("data-media-nudge")
+        ?`nudge-${action.dataset.mediaNudge}`
+        :action?.hasAttribute("data-media-unplace")
+        ?"unplace"
+        :action?.hasAttribute("data-media-place")
+          ?"place"
+          :action?.hasAttribute("data-media-upload")
+            ?"upload"
+            :null
+    };
+  };
+  const restoreMediaFocus=(state)=>{
+    if(!state)return;
+    const root=document.getElementById(state.rootId);
+    if(!root)return;
+    let target=null;
+    if(state.action==="upload")target=root.querySelector("[data-media-upload]");
+    if(state.assetId){
+      const card=root.querySelector(
+        `[data-media-asset="${CSS.escape(state.assetId)}"]`
+      );
+      target=card?.querySelector(
+        state.action?.startsWith("nudge-")
+          ?`[data-media-nudge="${CSS.escape(state.action.slice(6))}"]`
+          :state.action==="unplace"
+            ?"[data-media-unplace], [data-media-place]"
+            :"[data-media-place], [data-media-unplace]"
+      );
+    }
+    (target||root.querySelector("button, input"))?.focus?.();
+  };
+  const renderMediaLibrarySurfaces=()=>{
+    const focusState=mediaFocusState();
+    const reducedMotion=window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    )?.matches;
+    const page=document.getElementById("media407F");
+    const drawer=document.getElementById("mediaDrawer407FContent");
+    if(page){
+      page.innerHTML=mediaLibraryMarkup(mediaItems(),{
+        resolveObjectUrl:(id)=>mediaUrls.get(id),
+        reducedMotion
+      });
+    }
+    if(drawer){
+      drawer.innerHTML=mediaLibraryMarkup(mediaItems(),{
+        resolveObjectUrl:(id)=>mediaUrls.get(id),
+        compact:true,
+        reducedMotion
+      });
+    }
+    const canvasHost=document.getElementById("canvas407F");
+    if(
+      bridge.state.view==="canvas"&&
+      canvasHost&&
+      !canvasHost.querySelector("[data-open-media-library]")
+    ){
+      canvasHost.insertAdjacentHTML(
+        "afterbegin",
+        '<button type="button" class="btnD alt sm media407FCanvasLauncher" data-open-media-library aria-controls="mediaDrawer407F" aria-expanded="false" aria-haspopup="dialog">MEDIA</button>'
+      );
+    }
+    queueMicrotask(()=>restoreMediaFocus(focusState));
+  };
+  const openMediaLibrary=(opener)=>{
+    const drawer=document.getElementById("mediaDrawer407F");
+    if(!drawer)return;
+    mediaDrawerOpener=opener||document.activeElement;
+    renderMediaLibrarySurfaces();
+    drawer.hidden=false;
+    document.documentElement.setAttribute("data-media-drawer-open","true");
+    document.querySelectorAll("[data-open-media-library]")
+      .forEach((button)=>button.setAttribute("aria-expanded","true"));
+    drawer.querySelector("[data-media-upload]")?.focus();
+  };
+  const closeMediaLibrary=()=>{
+    const drawer=document.getElementById("mediaDrawer407F");
+    if(!drawer||drawer.hidden)return;
+    drawer.hidden=true;
+    document.documentElement.removeAttribute("data-media-drawer-open");
+    document.querySelectorAll("[data-open-media-library]")
+      .forEach((button)=>button.setAttribute("aria-expanded","false"));
+    mediaDrawerOpener?.focus?.();
+    mediaDrawerOpener=null;
+  };
+  const commitMediaPlacement=(id,{x=960,y=540}={})=>{
+    let placed=false;
+    store.mutate("Place Media asset",(document)=>{
+      const result=placeMediaLibraryAsset(document.advanced.media,id,{x,y});
+      placed=result.changed;
+      if(placed)document.advanced.media=result.media;
+    });
+    if(!placed)return false;
+    syncBridgeFromStore();
+    renderMediaLibrarySurfaces();
+    bridge.toast("Media placed on timeline");
+    announceGlobal("Media placed on timeline");
+    return true;
+  };
+  const boardPointFromDrop=(target,event)=>{
+    const svg=target.querySelector?.("svg")||target.closest?.("svg");
+    const bounds=svg?.getBoundingClientRect?.();
+    if(!bounds?.width||!bounds?.height)return{x:960,y:540};
+    return{
+      x:Math.max(0,Math.min(1920,(event.clientX-bounds.left)/bounds.width*1920)),
+      y:Math.max(0,Math.min(1080,(event.clientY-bounds.top)/bounds.height*1080))
+    };
+  };
+  onMediaLibraryClick=(event)=>{
+    const open=event.target.closest?.("[data-open-media-library]");
+    if(open){
+      event.preventDefault();
+      openMediaLibrary(open);
+      return;
+    }
+    if(event.target.closest?.("[data-close-media-library]")){
+      event.preventDefault();
+      closeMediaLibrary();
+      return;
+    }
+    const place=event.target.closest?.("[data-media-place]");
+    if(place){
+      event.preventDefault();
+      commitMediaPlacement(place.dataset.mediaPlace);
+      return;
+    }
+    const unplace=event.target.closest?.("[data-media-unplace]");
+    if(unplace){
+      event.preventDefault();
+      let changed=false;
+      store.mutate("Remove Media from timeline",(document)=>{
+        const result=unplaceMediaLibraryAsset(
+          document.advanced.media,
+          unplace.dataset.mediaUnplace
+        );
+        changed=result.changed;
+        if(changed)document.advanced.media=result.media;
+      });
+      if(changed){
+        syncBridgeFromStore();
+        renderMediaLibrarySurfaces();
+        bridge.toast("Media removed from timeline");
+        announceGlobal("Media removed from timeline");
+      }
+      return;
+    }
+    const nudge=event.target.closest?.("[data-media-nudge]");
+    if(nudge){
+      event.preventDefault();
+      let changed=false;
+      store.mutate("Move Media asset",(document)=>{
+        const result=nudgeMediaLibraryAsset(
+          document.advanced.media,
+          nudge.dataset.mediaId,
+          nudge.dataset.mediaNudge
+        );
+        changed=result.changed;
+        if(changed)document.advanced.media=result.media;
+      });
+      if(changed){
+        syncBridgeFromStore();
+        renderMediaLibrarySurfaces();
+        const message=`Media moved ${nudge.dataset.mediaNudge}`;
+        bridge.toast(message);
+        announceGlobal(message);
+      }
+      return;
+    }
+  };
+  onMediaLibraryChange=async(event)=>{
+    const input=event.target.closest?.("[data-media-upload]");
+    if(!input)return;
+    const files=[...(input.files||[])];
+    input.value="";
+    if(!files.length)return;
+    const existing=mediaItems();
+    const additions=[];
+    const blobs=[];
+    for(const file of files){
+      if([...existing,...additions].some((item)=>
+        item.source?.name===file.name&&
+        Number(item.source?.size)===Number(file.size)&&
+        item.source?.type===file.type
+      )){
+        const message=`${file.name} is already in Media`;
+        bridge.toast(message);
+        announceGlobal(message);
+        continue;
+      }
+      try{
+        const id=uid("media-library");
+        const metrics=await imageMetrics(file);
+        const asset=createMediaLibraryAsset({
+          id,
+          file,
+          naturalWidth:metrics.width,
+          naturalHeight:metrics.height,
+          layerIndex:existing.length+additions.length
+        });
+        asset.source.blobKey=id;
+        additions.push(asset);
+        blobs.push({
+          key:id,
+          blob:file,
+          metadata:{
+            kind:"media-library",
+            name:file.name,
+            type:file.type,
+            size:file.size,
+            localOnly:true
+          }
+        });
+      }catch(error){
+        const message=String(error?.message||error);
+        bridge.toast(message);
+        announceGlobal(`${file.name} could not be added: ${message}`);
+      }
+    }
+    if(!additions.length)return;
+    try{
+      await store.mutateWithBlobs(
+        "Add Media assets",
+        (document)=>document.advanced.media.push(...additions),
+        {blobs,reason:"ADD_MEDIA_ASSETS"}
+      );
+    }catch(error){
+      const message=String(error?.message||error);
+      bridge.toast(message);
+      announceGlobal("Media could not be added");
+      return;
+    }
+    additions.forEach((asset,index)=>mediaUrls.set(asset.id,blobs[index].blob));
+    syncBridgeFromStore();
+    renderMediaLibrarySurfaces();
+    bridge.toast(`${additions.length} Media asset${additions.length===1?"":"s"} added`);
+    announceGlobal(
+      `${additions.length} Media asset${additions.length===1?"":"s"} added`
+    );
+  };
+  onMediaLibraryDragStart=(event)=>{
+    const card=event.target.closest?.("[data-media-asset]");
+    if(!card||!event.dataTransfer)return;
+    event.dataTransfer.effectAllowed="copy";
+    event.dataTransfer.setData(
+      "application/x-missionmed-media-id",
+      card.dataset.mediaAsset
+    );
+    event.dataTransfer.setData("text/plain",card.dataset.mediaAsset);
+  };
+  onMediaLibraryDragOver=(event)=>{
+    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    if(!target||!event.dataTransfer)return;
+    const types=[...(event.dataTransfer.types||[])];
+    if(!types.includes("application/x-missionmed-media-id"))return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect="copy";
+    target.setAttribute("data-media-drop-active","true");
+  };
+  const clearMediaDropTargets=()=>{
+    document.querySelectorAll("[data-media-drop-active]")
+      .forEach((target)=>target.removeAttribute("data-media-drop-active"));
+  };
+  onMediaLibraryDragLeave=(event)=>{
+    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    if(!target||target.contains(event.relatedTarget))return;
+    target.removeAttribute("data-media-drop-active");
+  };
+  onMediaLibraryDragEnd=clearMediaDropTargets;
+  onMediaLibraryDrop=(event)=>{
+    const target=event.target.closest?.("#boardWizard, #canvas407F");
+    if(!target||!event.dataTransfer)return;
+    const id=event.dataTransfer.getData("application/x-missionmed-media-id");
+    clearMediaDropTargets();
+    if(!id)return;
+    event.preventDefault();
+    commitMediaPlacement(id,boardPointFromDrop(target,event));
+  };
+  document.addEventListener("click",onMediaLibraryClick);
+  document.addEventListener("change",onMediaLibraryChange);
+  document.addEventListener("dragstart",onMediaLibraryDragStart);
+  document.addEventListener("dragover",onMediaLibraryDragOver);
+  document.addEventListener("dragleave",onMediaLibraryDragLeave);
+  document.addEventListener("dragend",onMediaLibraryDragEnd);
+  document.addEventListener("drop",onMediaLibraryDrop);
   const previewBackgroundInert=(active)=>{
     for(const element of [
       document.querySelector("header"),
@@ -752,7 +1157,7 @@ export async function boot407FEngineeringAdapter({
     }
   };
   const builderPreviewSvg=(namespace)=>{
-    const rendered=advancedBoardRenderer(store.document,{
+    const rendered=renderResponsiveAdvancedBoard(store.document,{
       currentMonth:currentMonth(),
       audience:"INTERVIEWER_SAFE",
       idNamespace:namespace
@@ -1017,16 +1422,17 @@ export async function boot407FEngineeringAdapter({
         .catch((error)=>bridge.toast(String(error?.message||error)));
     },{once:true});
   };
-  const persistAdvancedBlob=async(id,file,kind)=>{
-    await store.adapter.putBlob(id,file,{
+  const advancedBlobRecord=(id,file,kind)=>({
+    key:id,
+    blob:file,
+    metadata:{
       kind,
       name:file.name,
       type:file.type,
       size:file.size,
       localOnly:true
-    });
-    mediaUrls.set(id,file);
-  };
+    }
+  });
   const addAdvancedMedia=async(kind)=>{
     const accept=kind==="gif"
       ?".gif,image/gif"
@@ -1046,10 +1452,12 @@ export async function boot407FEngineeringAdapter({
       layerIndex:store.document.advanced?.media?.length||0
     });
     media.source.blobKey=id;
-    await persistAdvancedBlob(id,file,kind);
-    store.mutate(`Add ${kind}`,(document)=>{
-      document.advanced.media.push(media);
-    });
+    await store.mutateWithBlobs(
+      `Add ${kind}`,
+      (document)=>document.advanced.media.push(media),
+      {blobs:[advancedBlobRecord(id,file,kind)],reason:"ADD_ADVANCED_MEDIA"}
+    );
+    mediaUrls.set(id,file);
     syncBridgeFromStore();
     canvasController?.setUiState({advancedSelection:{type:"media",id}});
   };
@@ -1062,10 +1470,15 @@ export async function boot407FEngineeringAdapter({
       luminance:metrics.luminance
     });
     background.source.blobKey=id;
-    await persistAdvancedBlob(id,file,"background");
-    store.mutate("Change background",(document)=>{
-      document.advanced.background=background;
-    });
+    await store.mutateWithBlobs(
+      "Change background",
+      (document)=>{document.advanced.background=background;},
+      {
+        blobs:[advancedBlobRecord(id,file,"background")],
+        reason:"CHANGE_ADVANCED_BACKGROUND"
+      }
+    );
+    mediaUrls.set(id,file);
     syncBridgeFromStore();
   };
   const currentTypography=(target)=>{
@@ -1195,7 +1608,7 @@ export async function boot407FEngineeringAdapter({
     }
   });
   const renderExportPreview=(input)=>{
-    const rendered=advancedBoardRenderer(input.timeline,{
+    const rendered=renderResponsiveAdvancedBoard(input.timeline,{
       ...input.rendererOptions,
       currentMonth:currentMonth()
     });
@@ -1514,6 +1927,9 @@ export async function boot407FEngineeringAdapter({
     if(bridge.state.view==="export")queueExportRender();
     if(bridge.state.view==="advisor")queueMicrotask(renderAdvisorHost);
     if(bridge.state.view==="builder")queueBuilderEmbeddedPreview();
+    if(["builder","canvas","media"].includes(bridge.state.view)){
+      queueMicrotask(renderMediaLibrarySurfaces);
+    }
   };
   document.addEventListener("d1:407f-rendered",on407FRendered);
   onAdvisorHashChange=()=>{
@@ -1653,6 +2069,7 @@ export async function boot407FEngineeringAdapter({
       canvasSyncing=true;
       syncBridgeFromStore();
       reflectStoreStatus();
+      queueMicrotask(()=>api.dateControls.install(canvasHost));
       canvasSyncing=false;
     };
     canvasController=installCanvas(canvasHost,store,{
@@ -1660,7 +2077,7 @@ export async function boot407FEngineeringAdapter({
         viewportWidth:window.innerWidth,
         mode:store.document.mode
       }),
-      renderBoard:advancedBoardRenderer,
+      renderBoard:renderResponsiveAdvancedBoard,
       renderTheme:(document)=>renderThemePicker(document),
       renderAdvanced:(document,options)=>renderAdvancedStudio(document,{
         ...options,
@@ -1677,7 +2094,11 @@ export async function boot407FEngineeringAdapter({
       onDateControl:({edge,event})=>{
         canvasController?.setUiState({detailsEventId:event.id});
         queueMicrotask(()=>{
-          canvasHost.querySelector(`[data-canvas-detail-key="${edge==="end"?"endDate":"startDate"}"]`)?.focus();
+          const domain=event.fields?.builderDomain||event.categoryId;
+          const selector=domain==="clinical"
+            ?`[data-canvas-rotation-date="${edge==="end"?"rotationEndDate":"rotationStartDate"}"]`
+            :`[data-canvas-detail-key="${edge==="end"?"endDate":"startDate"}"]`;
+          canvasHost.querySelector(selector)?.focus();
         });
       },
       onAdvanced:()=>requestCanvasMode("advanced"),
@@ -1707,18 +2128,81 @@ export async function boot407FEngineeringAdapter({
       if(saveButton){
         const form=saveButton.closest("[data-canvas-details-form]");
         const eventId=form?.dataset?.eventId;
+        const selectedBefore=store.document.events.find(
+          (item)=>String(item.id)===String(eventId)
+        );
+        const clinical=(selectedBefore?.fields?.builderDomain||
+          selectedBefore?.categoryId)==="clinical";
+        if(clinical){
+          const startInput=form.querySelector(
+            '[data-canvas-rotation-date="rotationStartDate"]'
+          );
+          const endInput=form.querySelector(
+            '[data-canvas-rotation-date="rotationEndDate"]'
+          );
+          const start=parseExactDate(
+            startInput?.dataset?.dateCanonical||startInput?.value
+          );
+          const end=selectedBefore.openEnded
+            ?null
+            :parseExactDate(endInput?.dataset?.dateCanonical||endInput?.value);
+          const error=!start
+            ?"Choose the exact rotation start date."
+            :(!selectedBefore.openEnded&&!end)
+              ?"Choose the exact rotation end date."
+              :end<start
+                ?"End date is before the start date."
+                :"";
+          if(error){
+            const target=!start?startInput:endInput;
+            const message=target?.closest(
+              "[data-exact-date-field]"
+            )?.querySelector(".field-error");
+            if(message)message.textContent=error;
+            target?.setAttribute("aria-invalid","true");
+            target?.focus();
+            return;
+          }
+        }
         store.mutate("Edit timeline event details",(document)=>{
           const selected=document.events.find((item)=>String(item.id)===String(eventId));
           if(!selected)return;
           for(const input of form.querySelectorAll("[data-canvas-detail-key]")){
             const key=input.dataset.canvasDetailKey;
-            selected[key]=input.value;
+            selected[key]=["startDate","endDate"].includes(key)
+              ?(input.dataset.dateCanonical||parseMonth(input.value)||"")
+              :input.value;
           }
           for(const input of form.querySelectorAll("[data-canvas-detail-field]")){
             const key=input.dataset.canvasDetailField;
             selected.fields={...(selected.fields||{}),[key]:input.type==="checkbox"?input.checked:input.value};
           }
           selected.title=String(selected.title||"").trim()||"Untitled event";
+          if(clinical){
+            const rotationStart=form.querySelector(
+              '[data-canvas-rotation-date="rotationStartDate"]'
+            );
+            const rotationEnd=form.querySelector(
+              '[data-canvas-rotation-date="rotationEndDate"]'
+            );
+            const projection=projectRotationDates({
+              startDate:selected.startDate,
+              endDate:selected.endDate,
+              current:selected.openEnded,
+              rotationStartDate:rotationStart?.dataset?.dateCanonical||
+                parseExactDate(rotationStart?.value),
+              rotationEndDate:rotationEnd?.dataset?.dateCanonical||
+                parseExactDate(rotationEnd?.value)
+            });
+            selected.startDate=projection.startDate;
+            selected.endDate=projection.endDate;
+            selected.fields={
+              ...(selected.fields||{}),
+              rotationStartDate:projection.rotationStartDate,
+              rotationEndDate:projection.rotationEndDate,
+              rotationDatePrecision:projection.rotationDatePrecision
+            };
+          }
           if(selected.eventType!=="milestone"){
             selected.endDate=selected.endDate||null;
             selected.openEnded=!selected.endDate;
@@ -1855,7 +2339,9 @@ export async function boot407FEngineeringAdapter({
   }
   const announceGlobal=(message)=>{
     const live=document.getElementById("globalLive407F");
-    if(live)live.textContent=String(message||"");
+    if(!live)return;
+    live.textContent="";
+    queueMicrotask(()=>{live.textContent=String(message||"");});
   };
   const applyHistory=(direction)=>{
     const entry=store[direction]();
@@ -1980,6 +2466,11 @@ export async function boot407FEngineeringAdapter({
       return;
     }
     if(key!=="Escape")return;
+    if(!document.getElementById("mediaDrawer407F")?.hidden){
+      event.preventDefault();
+      closeMediaLibrary();
+      return;
+    }
     if(document.getElementById("modalBk")?.classList.contains("on")){
       event.preventDefault();
       closeOwnedModal();
@@ -2050,6 +2541,8 @@ export async function boot407FEngineeringAdapter({
     const active=document.querySelector("section[data-view].live");
     if(!active)return;
     const view=String(active.dataset.view||"");
+    if(!["builder","canvas"].includes(view))closeMediaLibrary();
+    if(["builder","canvas","media"].includes(view))renderMediaLibrarySurfaces();
     if(view===lastFocusedView)return;
     const result=focusScreenHeading(active,{
       previousViewKey:lastFocusedView,
@@ -2075,14 +2568,21 @@ export async function boot407FEngineeringAdapter({
       }
       if(bridge.state.view==="export")queueExportRender();
     },
-    onMotionChange:(motion)=>announceGlobal(
-      motion.reduced?"Reduced motion enabled":"Standard motion enabled"
-    )
+    onMotionChange:(motion)=>{
+      renderMediaLibrarySurfaces();
+      canvasController?.render();
+      queueBuilderEmbeddedPreview({force:true});
+      if(bridge.state.view==="export")queueExportRender();
+      announceGlobal(
+        motion.reduced?"Reduced motion enabled":"Standard motion enabled"
+      );
+    }
   });
   api.responsive=responsiveRuntime.state;
   onRouteRendered();
 
   window.D1_407F_ENGINEERING=api;
+  bridge.renderAll();
   document.dispatchEvent(new CustomEvent("d1:407f-engineering-ready",{
     detail:{documentId:store.document.id,restored:init.restored,adapter:store.adapter.kind}
   }));

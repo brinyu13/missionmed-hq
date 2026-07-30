@@ -128,3 +128,38 @@ Preview: `http://localhost:8793/web/`
 | Competing legacy preview render and broad SVG ID rewriting | One canonical preview owner plus attribute-boundary ID namespacing | Prevent duplicate rendering and preserve event identifiers used for exact editor routing | Not color-contrast applicable | Builder preview SVG definitions, event ownership, and click-to-edit |
 
 No product hierarchy, workflow, behavior, or meaning changed through this adjustment.
+
+## M5 — Shared month/year and exact-day date controls
+
+- Reused and extended the retained month-field module for every user-facing month/year input in the active 407F Builder and Canvas details.
+- Added one shared exact-day module for clinical rotation dates. It accepts ISO and unambiguous month-name input, stores `YYYY-MM-DD`, and rejects locale-ambiguous numeric dates.
+- Kept the canonical timeline axis month-based. Exact rotation days are additive fields under `event.fields`; `startDate` and `endDate` remain their month projections.
+- Migrated legacy rotations as `month-legacy` without inventing a day.
+- Kept Canvas move and resize atomic: clinical exact dates shift with the same month delta and clamp safely at month ends.
+- Added custom dark 407F month and 7×6 day calendars with keyboard navigation, 44px targets, typed fallback, visible errors, responsive bottom-sheet positioning, and reduced-motion handling.
+- Preserved the frozen Core, exam, and Builder field order/copy while routing the fields through the shared controls.
+- Browser-verified the month picker, exact-day picker, and invalid typed-date state.
+- Full gate: 459/459 tests, typecheck, 23/23 package verification, and deterministic production build passed.
+- Build output: 187 runtime files; manifest SHA-256 `d3aa5b8a9b6b195e8d9bd2831d2dc500d7eab71d667830ef6764573a563093d3`.
+
+## Founder steering refinement received during M5
+
+- Preserve the one-column Builder editor and proportional interactive preview on the right.
+- Refine only the horizontal stepper's visual treatment to be more dimensional, premium, tactile, and 407F.
+- Add one shared local Media destination and reuse the existing asset architecture for Builder-preview and Edit-Timeline drag/drop.
+- No cloud storage, duplicate asset store, alternate shell, or form-layout redesign is authorized.
+
+## Founder steering refinement — implemented checkpoint
+
+- Preserved the horizontal seven-step layout, one primary Builder form column, larger right-side live preview, and full-preview control.
+- Reworked only the stepper treatment with layered 407F texture, inset depth, tactile hover/press motion, gold current state, green complete state, amber started state, dashed skipped state, cyan focus, and a reduced-motion override.
+- Added `Media` as the fifth active 407F navigation destination through one `PRIMARY_NAV_ITEMS` authority while leaving the inactive superseded UXR shell on its frozen four-item navigation.
+- Added one local Media library over the retained `document.advanced.media`, IndexedDB `blobs`, object-URL registry, Advanced renderer, and shared TimelineStore.
+- Builder preview and Edit Timeline use the same drawer, drag payload, placement command, media collection, and blob reference. Placement mutates an existing record and never copies source bytes.
+- Compatible pre-existing Advanced image/GIF/logo records appear in Media; new library assets can become Guided overlays only after explicit placement.
+- Local asset metadata and bytes now commit through one TimelineStore/IndexedDB transaction. Failed upload transactions restore the prior document and leave no orphan blob.
+- Undo retains source bytes so restored metadata cannot point to a deleted image. The refinement does not expose a destructive asset-delete control until version/history-aware garbage collection exists.
+- Media mutations preserve focus, announce status, expose dialog state, close on unrelated routes, provide a keyboard placement action, suppress animated GIF markup under reduced motion, and use 44px controls.
+- Miyamoto’s first review passed the stepper and found global-header inheritance on Media. The Media page/drawer headers were explicitly localized and the desktop drawer was aligned to the full 190px rail edge.
+- Final complete gate: 472/472 tests, typecheck, 23/23 package verification, and deterministic production build passed.
+- Build output: 188 runtime files; manifest SHA-256 `331d2984a7130090058767a30055e109369547e601ae0aaad9a42d62756d32e3`.

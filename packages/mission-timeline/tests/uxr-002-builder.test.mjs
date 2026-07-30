@@ -101,6 +101,9 @@ test("Canvas Details reuses the owning Builder entry fields",()=>{
     state:"MA",
     startDate:"2025-06",
     endDate:"2025-07",
+    rotationStartDate:"2025-06-09",
+    rotationEndDate:"2025-07-04",
+    rotationDatePrecision:"day",
     current:false,
     notes:"Ward team"
   },{entryId:"clinical-entry-1",eventId:"clinical-event-1"});
@@ -112,7 +115,7 @@ test("Canvas Details reuses the owning Builder entry fields",()=>{
   assert.match(html,/value="Harbor Teaching Hospital"/);
   assert.match(html,/value="Internal Medicine"/);
   assert.match(html,/value="Sub-internship" selected/);
-  assert.match(html,/value="Jun 2025"/);
+  assert.match(html,/value="Jun 9, 2025"/);
   assert.match(html,/data-save-entry="clinical">Save changes</);
 });
 

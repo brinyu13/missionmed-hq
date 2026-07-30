@@ -197,7 +197,7 @@ test("407F Export integration keeps preview, download, versions, and document up
   );
   assert.match(
     adapter,
-    /const renderExportPreview=\(input\)=>\{[\s\S]*advancedBoardRenderer\(input\.timeline/
+    /const renderExportPreview=\(input\)=>\{[\s\S]*renderResponsiveAdvancedBoard\(input\.timeline/
   );
   assert.match(integration,/exportAdapter/);
   assert.match(integration,/requestVersion:\s*\(label,\s*kind\)\s*=>\s*store\.saveVersion\(label,\s*kind\)/);

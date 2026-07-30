@@ -114,7 +114,7 @@ test("Canvas receives the themed Advanced renderer, Advanced controls, and exact
     "canvasController=installCanvas(canvasHost,store,{",
     "api.canvas=canvasController"
   );
-  assert.match(canvasInstall,/renderBoard:\s*advancedBoardRenderer/);
+  assert.match(canvasInstall,/renderBoard:\s*renderResponsiveAdvancedBoard/);
   assert.match(
     canvasInstall,
     /renderAdvanced:\s*\(document,\s*options\)\s*=>\s*renderAdvancedStudio\(document/

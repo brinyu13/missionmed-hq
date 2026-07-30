@@ -46,12 +46,26 @@ function backgroundMarkup(background,resolveObjectUrl){
   return null;
 }
 
-function mediaMarkup(media,resolveObjectUrl){
+function mediaMarkup(media,resolveObjectUrl,{
+  guided=false,
+  reducedMotion=false
+}={}){
   return [...media]
+    .filter((item)=>item?.placed!==false&&(!guided||item?.guidedVisible===true))
     .sort((left,right)=>number(left.layerIndex)-number(right.layerIndex))
     .map((item)=>{
       const url=resolveObjectUrl(item.id,item);
       if(!url)return"";
+      if(reducedMotion&&(item.fileType==="gif"||item.animated===true)){
+        const x=number(item.x);
+        const y=number(item.y);
+        const width=number(item.width,1);
+        const height=number(item.height,1);
+        return`<g data-advanced-media="${xml(item.id)}" data-media-kind="${xml(item.kind)}" data-media-motion-paused="true">
+          <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="#111827" stroke="#39D6FF" stroke-width="2"/>
+          <text x="${x+width/2}" y="${y+height/2}" fill="#E8EEFB" font-family="Inter" font-size="18" font-weight="700" text-anchor="middle">GIF · MOTION PAUSED</text>
+        </g>`;
+      }
       return`<image data-advanced-media="${xml(item.id)}" data-media-kind="${xml(item.kind)}" href="${xml(url)}" x="${number(item.x)}" y="${number(item.y)}" width="${number(item.width,1)}" height="${number(item.height,1)}" preserveAspectRatio="none"/>`;
     })
     .join("");
@@ -89,15 +103,34 @@ export function renderAdvancedBoard(
   }={}
 ){
   const rendered=baseRenderer(document,options);
-  if(document?.mode!=="advanced")return rendered;
   const state=advancedStudioState(document);
+  if(document?.mode!=="advanced"){
+    const guidedMedia=mediaMarkup(state.media,resolveObjectUrl,{
+      guided:true,
+      reducedMotion:!!options.reducedMotion
+    });
+    if(!guidedMedia)return rendered;
+    return{
+      ...rendered,
+      svg:rendered.svg.replace(
+        "</svg>",
+        `<g data-guided-media-layer="true">${guidedMedia}</g></svg>`
+      ),
+      advanced:{
+        visible:false,
+        guidedMediaCount:state.media.filter(
+          (item)=>item?.placed!==false&&item?.guidedVisible===true
+        ).length
+      }
+    };
+  }
   let svg=rendered.svg;
   const background=backgroundMarkup(state.background,resolveObjectUrl);
   if(background){
     svg=svg.replace(/<rect data-board-background="true"[^>]*\/>/,background);
   }
   svg=applyHeadlineTypography(svg,state.headlineTypography);
-  const layers=`<g data-advanced-layer="true">${mediaMarkup(state.media,resolveObjectUrl)}${textMarkup(state.textBlocks)}</g>`;
+  const layers=`<g data-advanced-layer="true">${mediaMarkup(state.media,resolveObjectUrl,{reducedMotion:!!options.reducedMotion})}${textMarkup(state.textBlocks)}</g>`;
   svg=svg.replace("</svg>",`${layers}</svg>`);
   return{
     ...rendered,

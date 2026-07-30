@@ -64,3 +64,30 @@ Owner metadata resolves preview elements to Builder destinations:
 - `interview` → future M9 interview seam.
 
 Unknown, deleted, or stale owners fail closed. Explanation and interview markers are not advertised as complete until their M9 authoring surfaces are implemented.
+
+## Shared date model seam — M5
+
+- Month/year controls commit canonical `YYYY-MM` strings.
+- Exact clinical controls commit canonical `YYYY-MM-DD` strings.
+- Clinical `event.fields.rotationStartDate`, `rotationEndDate`, and `rotationDatePrecision` are additive.
+- Canonical `event.startDate` and `event.endDate` remain month projections for the retained renderer, layout, export, persistence, and review engines.
+- Legacy month-only rotations are explicitly `month-legacy`; no exact day is inferred.
+- Canvas drag uses one month delta to update both the month axis and exact clinical fields.
+
+## Shared Media seam — Founder steering refinement
+
+The new Media destination must use the existing `document.advanced.media` asset collection and object-URL registry. Builder preview and Edit Timeline will consume asset references from that same collection. No second blob store, cloud storage, File Vault claim, or production write is permitted.
+
+Implemented seam:
+
+- `PRIMARY_NAV_ITEMS` is the one active five-destination route authority; the inactive superseded shell retains its frozen four-item alias.
+- `document.advanced.media` remains the only active Media metadata collection.
+- IndexedDB `blobs` remains the only source-byte store.
+- `TimelineStore.mutateWithBlobs()` commits document metadata, recovery checkpoint, active pointer, and blob records in one transaction.
+- Failed transactions restore the prior in-memory document and persist neither metadata nor blob.
+- Undo/redo changes metadata only and intentionally retains referenced source bytes through bounded history/version retention.
+- Builder preview and Edit Timeline both consume `application/x-missionmed-media-id` and call the same placement mutation.
+- Placement and keyboard nudging change the existing record’s coordinates/visibility; they do not create a record or blob.
+- Compatible Advanced media records are listed directly without migration to a second store.
+- Immediate destructive asset deletion is not exposed because current versions/history can still reference the source blob.
+- Reduced-motion rendering omits animated GIF image URLs in the library and in placed Guided/Advanced board layers.

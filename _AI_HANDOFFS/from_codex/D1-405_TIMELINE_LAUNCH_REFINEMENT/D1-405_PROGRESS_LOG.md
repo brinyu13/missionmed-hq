@@ -175,3 +175,53 @@
   - Assigned the initial SVG tab stop to the earliest visible chronological target rather than the first element replaced in DOM order.
   - Waited for and excluded an unrelated stale export toast before final click-to-edit evidence capture.
 - Next action: M5 shared date controls, followed by M6 Core-data completion.
+
+## 2026-07-30T21:52:50Z — M5 shared date controls
+
+- Estimated overall completion before Founder steering: 53%.
+- Recalibrated overall completion after Founder steering: 47%.
+- Work completed:
+  - Shared accessible month/year controls across Core, exams, work, research, personal, Canvas details, and retained export paths.
+  - Exact-day clinical rotation controls with ISO storage and locale-safe display.
+  - Additive exact-day rotation fields with month-axis projection and non-fabricating legacy migration.
+  - Canvas move/resize synchronization for exact rotation dates.
+  - Specific typed-date validation that preserves the user's invalid input for correction.
+- Screenshots:
+  - `evidence/screenshots/D1-405-M5-month-picker.png`
+  - `evidence/screenshots/D1-405-M5-exact-date-picker.png`
+  - `evidence/screenshots/D1-405-M5-date-error-state.png`
+- Tests:
+  - Complete functional TypeScript suite: 119/119 passed.
+  - Complete browser/module suite: 340/340 passed.
+  - Total: 459/459 passed.
+  - M5 dedicated date-control suite: 8/8 passed.
+  - Typecheck: passed.
+  - Package verification: 23/23 passed.
+  - Production build: passed; 187 runtime files.
+  - Build manifest SHA-256: `d3aa5b8a9b6b195e8d9bd2831d2dc500d7eab71d667830ef6764573a563093d3`.
+- Founder steering integrated:
+  - keep the current Builder structure,
+  - refine only stepper visual treatment,
+  - add shared local Media navigation/library and drag/drop,
+  - preserve one asset system and no cloud storage.
+- Next action: Miyamoto-reviewed premium 407F stepper refinement, then shared Media implementation.
+
+## 2026-07-30T22:21:35Z — Founder stepper and shared Media checkpoint
+
+- Estimated overall completion: 55%.
+- Preserved the one-column Builder editor and proportional interactive right preview.
+- Implemented the premium 407F stepper treatment without changing workflow, titles, order, or completion logic.
+- Added the active five-item rail: Home, Builder, Edit Timeline, Media, Export.
+- Implemented the local Media page and the same non-modal asset drawer in Builder and Edit Timeline.
+- Added PNG/JPG/WEBP/GIF upload validation, one-asset/one-blob persistence, shared placement, unplacement, drag/drop, and keyboard placement.
+- Corrected Miyamoto’s header-inheritance and rail-edge findings and recaptured both surfaces.
+- Corrected architecture findings: one active navigation authority; atomic metadata/blob upload; failure rollback with no orphan; source-byte retention through undo/history; existing Advanced asset visibility; and no immediate destructive blob deletion.
+- Corrected accessibility findings: focus preservation; polite mutation announcements; no dead card tab stops; keyboard placement instructions; reduced-motion GIF suppression; complete 44px Media targets; launcher/dialog state; route-close behavior; tablet height; and phone stacking.
+- Complete functional TypeScript suite: 119/119 passed.
+- Complete browser/module suite: 353/353 passed.
+- Total: 472/472 passed.
+- Typecheck: passed.
+- Package verification: 23/23 passed.
+- Production build: passed; 188 runtime files.
+- Build manifest SHA-256: `331d2984a7130090058767a30055e109369547e601ae0aaad9a42d62756d32e3`.
+- Next action: close specialist re-audits, checkpoint M5 plus Founder refinement, then continue M6.
