@@ -1,9 +1,30 @@
 # B1-507 Ecosystem Regression Receipt
 
-Status: READ-ONLY ROUTE BASELINE PASS; POST-DEPLOY REGRESSION NOT RUN.
+Status: PASS POST-DEPLOY.
 
-The report-only critical-system gate confirmed current non-StoryForge protected paths are tracked and clean. Current MissionMed HQ health, auth/session, USCE, Arena, WordPress home, and several denial routes responded as expected.
+The first post-cutover critical-system run correctly failed only because its
+StoryForge asset metadata still pinned the pre-cutover release. No
+non-StoryForge check failed.
 
-The same gate fails only its stale StoryForge bundle/live-route pins. No unrelated MissionMed source, deployment, service, bucket, WordPress setting, database, or route was changed.
+The bounded owner manifest reconciliation changed only StoryForge production
+identity, aliases, hashes, and timestamp metadata. The enforced rerun passed:
 
-Post-deploy regression across Matrix, Arena, USCE, HQ, and WordPress remains required after the guarded dormant cutover.
+- HQ health;
+- HQ auth/session CORS;
+- USCE admin auth relay and unauthenticated intake denial;
+- Arena WordPress wrapper;
+- USCE WordPress wrapper;
+- WordPress home;
+- StoryForge canonical redirect, index, health, bootstrap denial, API denial,
+  approved aliases, and denied alias shapes;
+- live USCE and Arena asset hashes;
+- live StoryForge index, app, auth, styles, fonts, and license hashes;
+- all tracked protected paths except the intentionally dirty manifest during
+  the pre-commit run.
+
+Final gate result: 0 FAIL. Warnings were the expected Kinsta non-process
+runtime shape, the intentional pre-commit manifest dirtiness, and browser
+journeys handled separately through the authenticated smoke.
+
+No unrelated MissionMed source, deployment, service, bucket, WordPress
+setting, database, or route was changed.

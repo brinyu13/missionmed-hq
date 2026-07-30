@@ -2,6 +2,360 @@
 
 Recorded: 2026-07-30
 
+## Authoritative post-cutover verdict
+
+**STORYFORGE REMAINS AT SAFE ROLLOUT RUNG 0**
+
+The authorized dormant/default-off run is 100% complete. The original
+end-to-end Phase 1 launch remains approximately 55% complete because production
+voice, provider/storage, physical-device acceptance, broader access, and
+reconciliation/deletion rungs remain intentionally disabled and external.
+
+The exact B1-507 release is live at:
+
+`https://missionmedinstitute.com/storyforge/`
+
+It is a hidden, one-Founder text pilot. Recording/transcription is neither
+enabled nor claimed.
+
+## 1. Exact production identity
+
+| Item | Value |
+|---|---|
+| Worktree | `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502` |
+| Branch | `codex/b1-503-storyforge-product-recovery` |
+| Implementation commit | `e94a305c82c35d492ceb68f13667200b83e6d2dd` |
+| Exact deployed source commit | `09878514fff39b2d1f2ba3ee40c4c3de55ffc473` |
+| Release ID | `v-4f40609482162cbd` |
+| Source archive SHA-256 | `fcd8f773d1b1d4fd915244bac7e8d652b35ae5b538c5ed77af682b427a1fea56` |
+| Railway deployment | `2fe2f8e9-9f24-47c4-b0bd-3a7a0a26a82d` |
+| Railway deployment status | SUCCESS |
+| Railway created | `2026-07-30T05:20:55.288Z` |
+| Railway `meta.imageDigest` | `sha256:2eafe61cfe9400e1395c94fe7938474f82f051fbf07276603bf0ff46a35b4a6d` |
+| Kinsta active target | `releases/09878514fff39b2d1f2ba3ee40c4c3de55ffc473` |
+| GitHub custody | branch pushed; draft PR #19; no merge commit |
+
+Documentation-only closeout commits do not replace the exact deployed source
+pin.
+
+## 2. Authority boundary
+
+The steering correction is binding:
+
+```text
+STORYFORGE_TRANSCRIBE_PROVIDER=none
+STORYFORGE_AUDIO_RECONCILIATION=off
+STORYFORGE_VOICE_FORCE_OFF=1
+STORYFORGE_PLATFORM_OFF=1
+database voice_capture scope=off
+```
+
+`STORYFORGE_PLATFORM_CONSUMERS` remains absent/empty. No R2 or OpenAI
+credential is present.
+
+RP-8 is deferred evidence, not a blocker to this dormant deployment. It
+remains required before provider traffic, production audio assembly, a
+voice-complete claim, or student voice exposure. FABLE-C1–C4 and PROBE-C5
+remain required before reconciliation `dry_run` or `on`. FG-1 remains required
+before changing student-facing consent/retention/deletion behavior.
+
+The active Goal and Founder steering authorized the bounded production writes.
+The Critical Systems manifest was reconciled only to exact StoryForge
+post-cutover deployment, route, and asset pins. The Matrix runtime guard passed
+from the canonical source-bearing J1 worktree with all approved/local/origin/
+public hashes matching and no override. No protected `missionmed-hub` asset was
+edited.
+
+## 3. Implementation and release
+
+The 36/36 locally authorized implementation remains complete. B1-507 added:
+
+1. exact bounded WordPress multipart segment and audio DELETE gateway handling;
+2. canonical saved-audio play/pause/resume/replay/progress/time behavior;
+3. corrected human-corpus transcription bakeoff semantics.
+
+Implementation files:
+
+- `storyforge-v5/infra/wordpress/missionmed-storyforge-route.php`
+- `storyforge-v5/public/app.js`
+- `storyforge-v5/public/styles.css`
+- `storyforge-v5/scripts/transcription-bakeoff-lib.mjs`
+- `storyforge-v5/tests/e2e/voice-save-attach.spec.mjs`
+- `storyforge-v5/tests/unit/transcription-bakeoff.test.mjs`
+- `storyforge-v5/tests/unit/wordpress-gateway-phase1.test.mjs`
+
+No executor was selected, provider called, R2 object written, or student audio
+uploaded.
+
+Release hashes:
+
+| Artifact | SHA-256 |
+|---|---|
+| WordPress route | `51d800dbe52e734aafadb274ec744c7dd710f601291b0ec4af05bc25b570ac3f` |
+| WordPress release | `4304a2bad8818e47f7329e66cfd747604851c88ac0bf6248686765d64c9f6a93` |
+| Index | `d15a7af658241ce686e14c870c6c656e78c54121490af736bb1c136d68777ccb` |
+| App | `749ef6ff5e42743e758e203b5bb14e9684a7db1afaff54582906b4daa0df4bf8` |
+| Auth | `d2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6` |
+| Styles | `3acf10d52131c1c068377559a1a1409f0e70662dc42a2fabd36c13c9dfa2c742` |
+
+## 4. Verification
+
+No local container runtime was used.
+
+| Suite | Result |
+|---|---|
+| Unit | 192/192 PASS |
+| Legacy PostgreSQL authorization | 67/67 PASS |
+| B1-503 PostgreSQL conformance | 71/71 PASS |
+| Phase 1 PostgreSQL lifecycle | 12/12 PASS |
+| PostgreSQL total | 150/150 PASS |
+| Browser E2E | 46/46 PASS |
+| Conformance/accessibility | 72/72 PASS |
+| Secret scan | clean |
+| npm audit | 0 |
+| Deterministic release/provenance/route manifest | PASS |
+
+The full PostgreSQL suite was rerun on isolated Homebrew PostgreSQL 18.4.
+Private log SHA-256:
+`0290db71835e8c297b3d497e923b7e0efdcacca8130e1e00a84ba16a91755427`.
+It contains both suite PASS markers and 12/12 Node PostgreSQL tests.
+
+## 5. Recovery points and restore
+
+Kinsta:
+
+- manual backup note `B1-507 dormant preflight 2026-07-30`;
+- private recovery ID `B1-507-RP-KINSTA-PRE-20260730T050907Z`;
+- WordPress SQL SHA-256
+  `5903fd816bf3e657937fe9fff612f1f19ba25545f7a971ab924ecf851c1ac7b6`;
+- runtime archive SHA-256
+  `19bffc46997ca26412becf6e9ad9a9617651fee008ffc42f63c453f86359c3a4`.
+
+PostgreSQL/Railway:
+
+- locked provider backup
+  `aed95152-2d7e-46ac-9d5d-d303c1c6a474`, expiration none;
+- custom dump SHA-256
+  `42b9394b609b732ceb4b70ddccf45c70a481f8caf586867ff5a0849dfb35f53f`;
+- dump version 18.4, mode `0600`;
+- successful isolated-restore receipt SHA-256
+  `500b3317f4d6d6cb857ad8466b3c87a38c896204b8c6d9e028c6a3a1bc4387e5`;
+- successful v2 server log final SHA-256
+  `6c8deea451021d437f593b6dc7dea6c7fcfec1a537ba0f1a898a65cb04762d17`.
+
+The v2 restore proved PostgreSQL 18.4, 26 pre-cutover StoryForge tables, 25
+policies/RLS tables, 1 user, 0 assignments/stories/audio/audit rows, and the
+exact five-row pre-cutover ledger. The original `isolated-restore.log` is not
+the PASS evidence; its diagnostic query used an incorrect ledger column.
+
+## 6. Production migration
+
+Guarded preflight returned
+`B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS`.
+
+The first apply attempt rolled back completely because the pre-existing
+`storyforge_app` role was already LOGIN while the runner proves NOLOGIN before
+the final transition. The successful apply used a bounded temporary NOLOGIN
+transition, coordinated a newly rotated private application credential with
+Railway, applied exactly three additive migrations, and restored LOGIN.
+
+Final production:
+
+- PostgreSQL 18.4, system ID `7667256745042145332`;
+- exact eight-row migration ledger;
+- 29 StoryForge tables;
+- 28 RLS tables;
+- 3 FORCE-RLS tables;
+- 32 policies;
+- `storyforge_app` LOGIN, non-superuser, no BYPASSRLS, NOINHERIT;
+- 1 user;
+- 0 active assignments;
+- 0 stories;
+- 0 recording sessions;
+- 0 recording segments;
+- 0 audio assets;
+- `voice_capture|off|0|0`.
+
+No unrelated schema or data changed.
+
+## 7. Railway dormant backend
+
+Deployment `2fe2f8e9-9f24-47c4-b0bd-3a7a0a26a82d` is SUCCESS with exactly one
+RUNNING API replica in `us-west2` and one RUNNING PostgreSQL replica.
+
+Checks:
+
+- `/healthz`: 200 with exact service body;
+- `/`: 404;
+- `/api/config`: `devAuth=false`, `audioAvailable=false`,
+  `identityMode=missionmed-signed-jwt`, all AI flags false;
+- anonymous protected API: 401;
+- unapproved Origin: 403;
+- authenticated Founder E1, presign, confirm: each 403 `voice_disabled`;
+- sampled latest 150 post-deploy log records: no 5xx;
+- one non-failing `pg` `client.query()` deprecation warning remains a later
+  maintenance item.
+
+## 8. Kinsta and WordPress
+
+Active immutable state:
+
+- pointer `releases/09878514fff39b2d1f2ba3ee40c4c3de55ffc473`;
+- route 37,413 bytes, mode `0444`;
+- release 867,355 bytes, mode `0444`;
+- release directory mode `0555`;
+- owner/group `theresidencyacademy:www-data`.
+
+The install successfully published the exact bytes, then the final Kinsta PHP
+cache purge failed on an unexpected provider body followed by PHP exit 139.
+The authenticated MyKinsta **Clear all caches** action completed the bounded
+purge. Three consecutive public index requests then matched the exact index
+hash with `CF-Cache-Status: DYNAMIC`, `X-Kinsta-Cache: BYPASS`, and no `Age`.
+
+WordPress was disabled and drained during credential rotation and cutover, then
+restored exactly:
+
+```text
+enabled=true
+allowlist=1
+override=student
+roles=student
+cohorts=0
+ttl=60
+```
+
+An isolated WP-CLI/plugin probe exited 139 once; direct WordPress PHP bootstrap,
+plugin-state checks, and public service checks all passed. No core file was
+created.
+
+## 9. Founder and denial smoke
+
+Authenticated read-only navigation passed:
+
+- Home;
+- Library;
+- Interview Prep;
+- Notifications;
+- Settings;
+- Quick Capture opened and closed without typing or saving;
+- one question workshop.
+
+No microphone, voice dock, recording control, or replay surface was exposed.
+No production story was created, changed, or deleted.
+
+Denials:
+
+- anonymous bootstrap: 401 `session_required`;
+- anonymous token route: 403 `csrf_failed`;
+- anonymous direct API: 401 `auth_required`;
+- authenticated Founder voice routes: 403 `voice_disabled`.
+
+The post-cutover Founder home screenshot is local-only:
+`screenshots/007-live-storyforge-dormant-founder-home-after.png`, SHA-256
+`662a667cad902c1efcf6b2986b6fb2c909901f7c09c11abede45ce942ad2c06d`.
+It contains account/browser context but no private story text or secret.
+
+## 10. Rollback
+
+Sealed Kinsta rollback:
+
+- directory
+  `/www/theresidencyacademy_209/private/b1-507/rollback/B1-507-09878514-20260730T052200Z`;
+- receipt SHA-256
+  `550aa70723e1ab57806c3c7cad5dc22bf85e862f04c0879996625229efde67f5`;
+- prior route SHA-256
+  `1cf024fc47f8130f980a79af6090c9f214148ac82c397fb8b94a8b7945c67f61`;
+- `B1_503_KINSTA_ROLLBACK_PREFLIGHT_PASS` during the feature-off cutover
+  window.
+
+The preflight intentionally refuses while Founder text access is enabled. An
+actual rollback must first disable WordPress StoryForge and drain.
+
+The removed prior Railway deployment cannot be redeployed by ID. API rollback
+must re-upload the verified B1-503 archive SHA-256
+`dd9452428631297cab15cc48304ed3f317eecb492801c5e5be6427f080668870`
+while retaining the database credential matching the rotated role.
+
+No rollback was executed because the cutover passed. Fresh backup, isolated
+restore, sealed receipt, and guarded preflight prove recovery readiness without
+causing an unnecessary outage.
+
+## 11. Ecosystem and protected systems
+
+The first post-cutover gate failed only the expected pre-cutover StoryForge
+asset pins. After the bounded manifest reconciliation, the enforced gate
+returned 0 FAIL across HQ, auth/session, USCE, Arena, WordPress, StoryForge
+routes/denials, and all live asset hashes.
+
+No unrelated MissionMed application, route, source, service, database, bucket,
+or WordPress setting changed.
+
+## 12. Unexpected issues and resolutions
+
+1. Original restore query used `checksum` instead of `sha256`.
+   Resolution: fresh v2 isolated restore and durable receipt passed.
+2. Blank restore cluster lacked required role names.
+   Resolution: precreated only `anon`, `authenticated`, `storyforge_app`.
+3. First migration apply found an already-LOGIN app role.
+   Resolution: complete rollback, bounded temporary NOLOGIN transition, rerun
+   PASS.
+4. Kinsta PHP cache purge returned an unexpected body/exit 139 after exact
+   publication.
+   Resolution: authenticated MyKinsta cache purge plus three-pass byte/header
+   proof.
+5. First post-cutover Critical Systems gate retained pre-cutover aliases.
+   Resolution: StoryForge-only manifest reconciliation and enforced 0-FAIL
+   rerun.
+6. Railway build output and deployment metadata exposed different digest
+   values.
+   Resolution: the receipt uses official deployment `meta.imageDigest`
+   `sha256:2eafe61c...`.
+
+No issue caused data loss, student exposure, provider traffic, audio retention,
+or a production 5xx in the bounded log sample.
+
+## 13. Deferred gates and shortest next path
+
+The following remain intentionally external:
+
+- RP-8 executor selection/probe;
+- private R2 provisioning and denial proof;
+- StoryForge-scoped OpenAI project/privacy/contract evidence;
+- RP-7 human consented corpus bakeoff;
+- FG-1 lifecycle language decision;
+- physical iOS/Safari and Android/Chrome recording acceptance;
+- WordPress administrator and enrolled-360 entitlement authority/identities;
+- FABLE-C1–C4 and PROBE-C5;
+- reconciliation `dry_run`, automatic deletion, and rollout rungs 1–8.
+
+Shortest next action: obtain the bounded Fable RP-8/reconciliation amendment,
+then perform the authorized non-Docker RP-8 probe. Do not enable provider
+traffic, assembly, R2, recording UI, or broader access before those gates.
+
+## 14. Handoff custody
+
+All B1-507 launch documents are under:
+
+`_AI_HANDOFFS/from_codex/B1-507_storyforge_phase1_launch/`
+
+The exact Fable request is:
+
+`_AI_HANDOFFS/from_codex/B1-507/fable_requests/B1-507_FABLE_RP8_AND_RECONCILIATION_AUTHORITY_REQUEST.md`
+
+Its SHA-256 is
+`a7e035c9cb34241ef93caf8f50c1342f91d38ec19c973654f2df7a28620144d6`.
+
+`MANIFEST.sha256` covers the Markdown handoff package. Screenshot binaries and
+private backups are intentionally excluded.
+
+## Appendix A — Superseded pre-cutover snapshot
+
+The material below is retained only as a historical pre-cutover planning
+snapshot. Where it conflicts with Sections 1–14 above, the authoritative
+post-cutover sections above control.
+
+Recorded: 2026-07-30
+
 ## Verdict
 
 **BLOCKED ON NON-RP8 EXTERNAL GATES**

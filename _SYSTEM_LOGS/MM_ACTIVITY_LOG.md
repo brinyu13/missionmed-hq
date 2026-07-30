@@ -3446,3 +3446,74 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 - Git custody completed at draft PR #19; its broad shared-platform conflicts were preserved for repository-owner integration rather than resolved inside StoryForge scope.
 
 **Status:** BLOCKED ON NON-RP8 EXTERNAL GATES
+
+---
+
+### 2026-07-30 — B1-507 StoryForge Dormant Production Cutover
+
+**Prompt ID:** B1-507
+
+**Task:** Complete the authorized hidden, dormant, default-off, one-Founder
+StoryForge deployment without a local container runtime. Keep RP-8 deferred,
+provider `none`, reconciliation `off`, and all voice/platform controls forced
+off.
+
+**Exact product identity:**
+
+- source `09878514fff39b2d1f2ba3ee40c4c3de55ffc473`
+- release `v-4f40609482162cbd`
+- Railway deployment `2fe2f8e9-9f24-47c4-b0bd-3a7a0a26a82d`
+- Kinsta target
+  `releases/09878514fff39b2d1f2ba3ee40c4c3de55ffc473`
+
+**Authorized production changes:**
+
+- created fresh MyKinsta, private Kinsta, locked Railway, and PostgreSQL
+  recovery points;
+- completed an isolated PostgreSQL 18.4 restore rehearsal;
+- applied exactly three additive Phase 1 migrations;
+- rotated the least-privilege `storyforge_app` credential in coordination with
+  Railway;
+- deployed the exact dormant Railway backend;
+- installed the exact immutable Kinsta route/release;
+- temporarily disabled and drained WordPress StoryForge, then restored exactly
+  the one-Founder student text pilot;
+- cleared provider caches through MyKinsta after the host PHP cache-purge seam
+  failed;
+- reconciled only the StoryForge Critical Systems production pins.
+
+**Verification:**
+
+- 192/192 unit;
+- PostgreSQL 67/67 + 71/71 + 12/12 = 150/150;
+- 46/46 browser E2E;
+- 72/72 conformance/accessibility;
+- exact eight-row production migration ledger;
+- one Railway API replica, provider `none`, reconciliation `off`, voice and
+  platform force-off;
+- no R2/OpenAI credentials;
+- zero stories, recordings, segments, and audio assets;
+- exact Kinsta route/release/index/app/auth/style hashes;
+- authenticated Founder Home, Library, Interview Prep, Notifications,
+  Settings, Quick Capture, and question-workshop smoke;
+- authenticated voice entrypoints each denied 403 `voice_disabled`;
+- anonymous WordPress/API access denied;
+- sealed Kinsta rollback receipt and guarded feature-off rollback preflight;
+- post-cutover Critical Systems gate 0 FAIL;
+- Matrix guard PASS from the canonical source-bearing worktree, no override.
+
+**Issues resolved:**
+
+- corrected and reran the isolated restore after an invalid receipt column;
+- rolled back and reran the first migration attempt after the existing app role
+  violated the runner's NOLOGIN precondition;
+- completed Kinsta cache purge through MyKinsta after host PHP exit 139;
+- replaced pre-cutover Critical Systems aliases with exact verified live
+  StoryForge pins;
+- reconciled Railway evidence to official deployment `meta.imageDigest`.
+
+**Deferred:** RP-8, R2, scoped OpenAI/privacy evidence, RP-7, FG-1, physical
+device voice acceptance, broader administrator/360 access, FABLE-C1–C4,
+PROBE-C5, reconciliation, and automatic deletion.
+
+**Status:** STORYFORGE REMAINS AT SAFE ROLLOUT RUNG 0

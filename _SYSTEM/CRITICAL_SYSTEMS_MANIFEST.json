@@ -3,7 +3,7 @@
   "status": "ACTIVE",
   "lock_name": "MissionMed Critical Systems Contract",
   "owner": "Brian",
-  "last_updated_utc": "2026-07-30T04:54:16Z",
+  "last_updated_utc": "2026-07-30T05:38:56Z",
   "known_good": {
     "git_commit": "3f0c27aac55dbf82748b3eaba360006d4041b539",
     "git_tag": "known-good/2026-06-25-critical-auth-usce-arena-matrix",
@@ -39,9 +39,9 @@
       "environment_id": "bcef8734-e42b-44df-8488-c2a3de68213f",
       "environment": "production",
       "database_service_id": "a4a66362-c3ba-475a-ae21-2aa46624bafe",
-      "current_deployment_id": "fa7ad084-4dae-4039-a154-2250a407d95e",
-      "current_product_commit": "6f45dbbd2150ba11000236a4959f70434f6edb77",
-      "current_release_id": "v-0912286e7dfc2327",
+      "current_deployment_id": "2fe2f8e9-9f24-47c4-b0bd-3a7a0a26a82d",
+      "current_product_commit": "09878514fff39b2d1f2ba3ee40c4c3de55ffc473",
+      "current_release_id": "v-4f40609482162cbd",
       "current_replica_count": 1,
       "candidate_product_commit": "09878514fff39b2d1f2ba3ee40c4c3de55ffc473",
       "candidate_release_id": "v-4f40609482162cbd",
@@ -94,20 +94,20 @@
       "host": "kinsta-wordpress-mu-plugin",
       "site_root": "/www/theresidencyacademy_209",
       "environment": "production",
-      "release_state": "b1_503_founder_text_pilot_active_voice_disabled",
+      "release_state": "b1_507_dormant_founder_text_pilot_active_voice_disabled",
       "entrypoint": "storyforge-v5/infra/wordpress/missionmed-storyforge-route.php",
       "production_entrypoint": "public/wp-content/mu-plugins/missionmed-storyforge-route.php",
       "asset_source": "storyforge-v5/dist",
       "generated_release_bundle": "storyforge-v5/infra/wordpress/missionmed-storyforge-runtime/release.php",
-      "generated_release_id": "v-0912286e7dfc2327",
-      "generated_release_bundle_sha256": "3215eed4837d9a9d712706003e352ead3423e399bea76c20818270d93fcb199e",
-      "generated_release_bundle_size": 741148,
-      "route_sha256": "1cf024fc47f8130f980a79af6090c9f214148ac82c397fb8b94a8b7945c67f61",
-      "route_size": 30530,
-      "exact_product_commit": "6f45dbbd2150ba11000236a4959f70434f6edb77",
-      "exact_product_commit_state": "production_founder_text_pilot",
+      "generated_release_id": "v-4f40609482162cbd",
+      "generated_release_bundle_sha256": "4304a2bad8818e47f7329e66cfd747604851c88ac0bf6248686765d64c9f6a93",
+      "generated_release_bundle_size": 867355,
+      "route_sha256": "51d800dbe52e734aafadb274ec744c7dd710f601291b0ec4af05bc25b570ac3f",
+      "route_size": 37413,
+      "exact_product_commit": "09878514fff39b2d1f2ba3ee40c4c3de55ffc473",
+      "exact_product_commit_state": "production_dormant_founder_text_pilot",
       "production_active": true,
-      "active_release_target": "releases/6f45dbbd2150ba11000236a4959f70434f6edb77",
+      "active_release_target": "releases/09878514fff39b2d1f2ba3ee40c4c3de55ffc473",
       "voice_production_active": false,
       "candidate": {
         "exact_product_commit": "09878514fff39b2d1f2ba3ee40c4c3de55ffc473",
@@ -116,7 +116,7 @@
         "route_size": 37413,
         "release_bundle_sha256": "4304a2bad8818e47f7329e66cfd747604851c88ac0bf6248686765d64c9f6a93",
         "release_bundle_size": 867355,
-        "deployment_state": "dormant_default_off_authorized_after_fresh_recovery_gates"
+        "deployment_state": "production_dormant_default_off_founder_text_pilot"
       },
       "production_release_root": "public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases",
       "production_release_shape": "public/wp-content/mu-plugins/missionmed-storyforge-runtime/releases/<exact-product-commit>/release.php",
@@ -236,20 +236,19 @@
         "storyforge-v5/infra/postgres/migrations/20260727170000_b1_502_storyforge_submit_assignment_gate.sql",
         "storyforge-v5/infra/postgres/migrations/20260727190000_b1_502_storyforge_background_preference.sql",
         "storyforge-v5/infra/postgres/migrations/20260728045100_b1_503_story_domain_conformance.sql",
-        "storyforge-v5/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql"
-      ],
-      "pending_migration_files": [
+        "storyforge-v5/infra/postgres/migrations/20260728045444_b1_503_interview_mentor_conformance.sql",
         "storyforge-v5/infra/postgres/migrations/20260729000100_b1_506_voice_recording_sessions.sql",
         "storyforge-v5/infra/postgres/migrations/20260729000200_b1_506_feature_flags.sql",
         "storyforge-v5/infra/postgres/migrations/20260729010000_b1_506a_voice_audit_lifecycle.sql"
       ],
+      "pending_migration_files": [],
       "application_role": "storyforge_app",
       "policy_role": "authenticated",
       "application_role_must_not_own_tables": true,
       "application_role_bypassrls": false,
       "seed_policy": "No demo data. Preserve the existing one-Founder text pilot while dormant Phase 1 migrations remain feature-off.",
       "mentor_assignment_policy": "No active mentor assignments in the verified production baseline.",
-      "current_migration_count": 5,
+      "current_migration_count": 8,
       "current_storyforge_user_count": 1,
       "current_active_assignment_count": 0,
       "system_identifier": "7667256745042145332"
@@ -286,49 +285,53 @@
       "id": "storyforge_v5_index",
       "system": "storyforge_v5",
       "url": "https://missionmedinstitute.com/storyforge/",
-      "approved_sha256": "ade2b11958fa70305e6bb5a99e08f1e9621a37cb3cf7df5ce4af964016fee27b",
+      "approved_sha256": "d15a7af658241ce686e14c870c6c656e78c54121490af736bb1c136d68777ccb",
       "required_markers": [
         "StoryForge V5 · MissionMed",
         "MissionMed 360",
         "Opening your story workspace"
       ],
-      "local_source_note": "Current B1-503 production asset; B1-507 candidate integrity is pinned under runtime_owners.kinsta_storyforge_gateway.candidate and verified by the deterministic release gates."
+      "local_source_path": "storyforge-v5/dist/index.html",
+      "local_source_note": "Current B1-507 dormant production asset; exact live bytes verified after the guarded cutover."
     },
     {
       "id": "storyforge_v5_app_bundle",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/71f618e9afac",
-      "approved_sha256": "71f618e9afac78d13c1b22d30b0ad43e2b2c7ab162b6e1d92ae607b3b853f3fb",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/749ef6ff5e42",
+      "approved_sha256": "749ef6ff5e42743e758e203b5bb14e9684a7db1afaff54582906b4daa0df4bf8",
       "required_markers": [
         "Back to Matrix",
         "Mentor review unavailable",
         "StoryForge could not open safely"
       ],
-      "local_source_note": "Current B1-503 production asset."
+      "local_source_path": "storyforge-v5/dist/assets/app.749ef6ff5e42.js",
+      "local_source_note": "Current B1-507 dormant production asset."
     },
     {
       "id": "storyforge_v5_auth_bundle",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/960289f115f2",
-      "approved_sha256": "960289f115f2661c8e1bcad314cca3e4e7a592ab918455c3da8acb37d497544e",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/d2cfc4e447d2",
+      "approved_sha256": "d2cfc4e447d23c2e6c164978221417a333764b33fd1dfea7cb1ae415b99118e6",
       "required_markers": [
         "boundedFetch",
         "request_timeout",
         "credentials: 'omit'"
       ],
-      "local_source_note": "Current B1-503 production asset."
+      "local_source_path": "storyforge-v5/dist/assets/auth.d2cfc4e447d2.js",
+      "local_source_note": "Current B1-507 dormant production asset."
     },
     {
       "id": "storyforge_v5_styles",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/41e546d34bfd",
-      "approved_sha256": "41e546d34bfd73f0f9f446047640ba2cf7c303b092841b9f5115911293e7ddf1",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/3acf10d52131",
+      "approved_sha256": "3acf10d52131c1c068377559a1a1409f0e70662dc42a2fabd36c13c9dfa2c742",
       "required_markers": [
         ".homeGrid",
         ".wsGrid",
         "prefers-reduced-motion"
       ],
-      "local_source_note": "Current B1-503 production asset."
+      "local_source_path": "storyforge-v5/dist/assets/styles.3acf10d52131.css",
+      "local_source_note": "Current B1-507 dormant production asset."
     },
     {
       "id": "storyforge_v5_font_archivo_normal",
@@ -551,7 +554,7 @@
     {
       "id": "storyforge_app_extensionless_alias",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/71f618e9afac",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/749ef6ff5e42",
       "method": "GET",
       "expected_status": 200,
       "expected_headers": {
@@ -567,7 +570,7 @@
     {
       "id": "storyforge_index_alias_denied",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/_asset/ade2b11958fa",
+      "url": "https://missionmedinstitute.com/storyforge/_asset/d15a7af65824",
       "method": "GET",
       "expected_status": 404,
       "expected_headers": {
@@ -597,7 +600,7 @@
     {
       "id": "storyforge_raw_extension_asset_absent",
       "system": "storyforge_v5",
-      "url": "https://missionmedinstitute.com/storyforge/assets/app.71f618e9afac.js",
+      "url": "https://missionmedinstitute.com/storyforge/assets/app.749ef6ff5e42.js",
       "method": "GET",
       "expected_status": 404,
       "must_not_status": [

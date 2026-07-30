@@ -1,6 +1,6 @@
 # B1-507 WordPress Gateway Receipt
 
-Status: LOCAL IMPLEMENTATION PASS; PRODUCTION WRITE WITHHELD.
+Status: LOCAL AND DORMANT-PRODUCTION PASS.
 
 Candidate route:
 
@@ -18,16 +18,25 @@ Local evidence:
 - PHP syntax passes;
 - 3/3 dedicated gateway unit tests pass.
 
-Production baseline:
+Production:
 
-- live route SHA-256 `1cf024fc47f8130f980a79af6090c9f214148ac82c397fb8b94a8b7945c67f61`;
-- live size 30,530 bytes;
-- current production still has the older GET/POST/PATCH JSON-only behavior.
+- active route SHA-256
+  `51d800dbe52e734aafadb274ec744c7dd710f601291b0ec4af05bc25b570ac3f`;
+- active size 37,413 bytes;
+- active pointer
+  `releases/09878514fff39b2d1f2ba3ee40c4c3de55ffc473`;
+- exact extensionless app/auth/style aliases return 200;
+- unknown/index/raw-extension aliases remain denied;
+- bootstrap without a WordPress session returns 401;
+- the authenticated Founder voice entrypoints return 403 `voice_disabled`
+  before any upload/storage operation.
 
-Actual production multipart/DELETE proof must follow the guarded dormant install. It was not simulated.
+Multipart and DELETE gateway behavior is deployed but intentionally not
+exercised with audio because this rung forbids uploading or retaining student
+audio. Its production safety proof is the live force-off denial plus the local
+3/3 route-shape suite, not a simulated upload.
 
-The separate Matrix runtime guard verified every available approved/origin/public
-hash, then stopped because the protected `missionmed-hub` StoryForge source
-files are absent from this worktree. No recovery override was used. The B1-507
-edit is the isolated `storyforge-v5/infra/wordpress` route, not a protected
+The Matrix runtime guard passed all assets from the canonical source-bearing J1
+worktree and public production. No recovery override was used. The B1-507 edit
+is the isolated `storyforge-v5/infra/wordpress` route, not a protected
 `missionmed-hub` asset.

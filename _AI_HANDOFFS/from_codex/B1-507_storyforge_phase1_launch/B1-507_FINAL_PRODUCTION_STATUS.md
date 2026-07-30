@@ -1,30 +1,59 @@
 # B1-507 Final Production Status
 
-## BLOCKED ON NON-RP8 EXTERNAL GATES
+## STORYFORGE REMAINS AT SAFE ROLLOUT RUNG 0
 
-Current production remains the safe B1-503 Founder-only text pilot. No production write occurred.
+The B1-507 release is live as a hidden, dormant, default-off, one-Founder text
+pilot at:
 
-Dormant release candidate:
+`https://missionmedinstitute.com/storyforge/`
 
-- implementation `e94a305c82c35d492ceb68f13667200b83e6d2dd`;
-- deterministic release `09878514fff39b2d1f2ba3ee40c4c3de55ffc473`;
+Production identity:
+
+- implementation commit
+  `e94a305c82c35d492ceb68f13667200b83e6d2dd`;
+- exact deployed source
+  `09878514fff39b2d1f2ba3ee40c4c3de55ffc473`;
 - release ID `v-4f40609482162cbd`;
-- local gates: 192 + 12 + 46 + 72, all passing;
-- provider `none`, reconciliation `off`, voice force-off required.
+- Railway deployment
+  `2fe2f8e9-9f24-47c4-b0bd-3a7a0a26a82d`;
+- Kinsta pointer
+  `releases/09878514fff39b2d1f2ba3ee40c4c3de55ffc473`.
 
-The immediate blockers are the stale owner-controlled
-`_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json` and a canonical Matrix guard receipt.
-The critical-system gate proves obsolete bundle aliases/hashes and live-route
-expectations. The Matrix guard matched available public hashes but stopped
-because protected `missionmed-hub` sources are absent here. No authorized
-manifest generator exists, hand-editing is forbidden, and no override was used.
+Safety posture:
 
-Remote Git custody is complete at draft PR
-`https://github.com/brinyu13/missionmed-hq/pull/19`. GitHub reports broad
-current-main conflicts across shared platform/governance files, so repository
-integration also requires the platform owner's bounded merge method. No merge,
-rebase, or force-push was attempted.
+```text
+database voice_capture scope = off
+STORYFORGE_VOICE_FORCE_OFF=1
+STORYFORGE_TRANSCRIBE_PROVIDER=none
+STORYFORGE_AUDIO_RECONCILIATION=off
+STORYFORGE_PLATFORM_OFF=1
+R2 credentials absent
+OpenAI key absent
+```
 
-After the owner reconciles the manifest, the remaining production-write sequence is fresh Kinsta/PostgreSQL/Railway recovery points, isolated restore rehearsal, guarded migration preflight/apply, dormant Railway deploy, feature-off Kinsta immutable install, hidden smoke, and restoration of only the one-Founder text pilot.
+Verified:
 
-Text-based Founder-only StoryForge can continue now on the existing B1-503 production release. The new dormant candidate is not deployed.
+- 192/192 unit;
+- PostgreSQL 67/67 + 71/71 + 12/12 = 150/150;
+- 46/46 browser E2E;
+- 72/72 conformance/accessibility;
+- fresh Kinsta, Railway, and PostgreSQL recovery points;
+- fresh isolated PostgreSQL 18 restore;
+- exact eight-row production migration ledger;
+- one Railway API replica and healthy origin;
+- exact Kinsta route/release/index hashes;
+- Founder Home, Library, Interview Prep, Notifications, Settings, Quick
+  Capture, and question workshop;
+- E1/presign/confirm each deny 403 `voice_disabled`;
+- unauthenticated WordPress/API denials;
+- protected-system post-deploy gate 0 FAIL;
+- guarded Kinsta rollback preflight PASS.
+
+The dormant scope is complete. Production recording/transcription is not
+enabled and is not claimed. RP-8, R2, scoped OpenAI/privacy evidence, RP-7,
+FG-1, physical device testing, broader 360 entitlement authority, and
+FABLE-C1–C4/PROBE-C5 remain the external gates to rollout rungs 1–8.
+
+Draft PR #19 remains conflicting with unrelated current-main platform history.
+That repository integration issue does not change the exact deployed product
+source or current production safety.

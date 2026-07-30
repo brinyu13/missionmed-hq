@@ -1,6 +1,6 @@
 # B1-507 Replay Conformance Receipt
 
-Status: LOCAL PASS; PRODUCTION PROOF PENDING DORMANT DEPLOYMENT.
+Status: LOCAL PASS; CODE DEPLOYED DORMANT; AUDIO PROOF DEFERRED.
 
 Implemented and verified:
 
@@ -15,4 +15,9 @@ Implemented and verified:
 
 The canonical prototype does not authorize seeking; no seek interaction was invented.
 
-Dedicated browser evidence: `saved audio has one accessible play pause progress and replay control` PASS. Full browser suite: 46/46 PASS.
+Dedicated browser evidence: `saved audio has one accessible play pause progress
+and replay control` PASS. Full browser suite: 46/46 PASS.
+
+The replay implementation is present in the deployed release, but no production
+audio exists and no audio was uploaded for this rung. Real signed replay remains
+a voice-enable gate after R2/provider/RP-8.

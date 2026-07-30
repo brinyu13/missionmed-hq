@@ -15,4 +15,12 @@ STORYFORGE_PLATFORM_OFF=1
 
 RP-8 remains mandatory before provider traffic, production assembly, a voice-complete claim, or student voice exposure. FABLE-C1 through C4 and PROBE-C5 remain mandatory before reconciliation `dry_run` or `on`. FG-1 remains mandatory before student-facing recording consent, retention, or deletion language is changed.
 
-No authority permits hand-editing `_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json`. The manifest owner is Brian; the available gate is report-only and no generator exists in this worktree.
+The active Goal and Founder steering supplied bounded deployment authority.
+After live bytes were verified, the owner-controlled Critical Systems manifest
+was reconciled only for the StoryForge production deployment, release, route,
+and asset pins. No unrelated system entry changed. The enforced gate then
+passed with 0 FAIL.
+
+The Matrix runtime guard passed against the canonical source-bearing J1
+worktree and public production with no override. No `missionmed-hub` asset was
+edited.

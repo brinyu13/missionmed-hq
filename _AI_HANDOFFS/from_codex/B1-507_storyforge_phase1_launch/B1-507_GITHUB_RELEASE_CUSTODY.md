@@ -17,8 +17,8 @@ HISTORY.
   `fcd8f773d1b1d4fd915244bac7e8d652b35ae5b538c5ed77af682b427a1fea56`
 - first complete evidence commit:
   `789755583ac08f585b6623e1cd3ef320144989b2`
-- remote branch head after first push:
-  `789755583ac08f585b6623e1cd3ef320144989b2`
+- remote branch head before post-cutover closeout:
+  `c4964c201e554e7949f9e01f0498f66ad869450f`
 - draft pull request:
   `https://github.com/brinyu13/missionmed-hq/pull/19`
 
@@ -27,12 +27,18 @@ documentation-only commits advance the branch.
 
 ## Remote mutation boundary
 
-Git branch push and pull-request creation are the only remote writes authorized
-in this custody stage. They do not deploy, migrate, configure, or otherwise
-change production.
+The active B1-507 Goal plus the later dormant-deployment steering authorized
+the bounded production writes recorded in the production write ledger:
 
-Production writes remain blocked by the non-RP8 gates recorded in
-`B1-507_BLOCKER_CLOSURE_REGISTER.md`.
+- recovery points;
+- three additive PostgreSQL migrations and app-role credential rotation;
+- one dormant Railway deployment;
+- one immutable Kinsta route/release cutover;
+- temporary WordPress feature disable/drain and exact one-Founder restore;
+- provider cache clear.
+
+No merge, pull-request integration, R2/OpenAI change, provider call, audio
+upload, broader access, or reconciliation activation occurred.
 
 ## Review state
 
@@ -47,8 +53,8 @@ inspection:
 - merge-state status: `DIRTY`.
 
 The common ancestor is `5cc9144bfc770e5eda78124cc1fa886640041767`.
-The StoryForge branch has 45 commits not in current `origin/main`, while
-`origin/main` has 13 commits not in the StoryForge branch.
+The StoryForge branch remains substantially ahead of and behind current
+`origin/main`; the divergence is not limited to StoryForge.
 
 The conflict set is not confined to StoryForge. It includes shared governance
 and platform files such as `AGENTS.md`, `_SYSTEM/CODEX_EXECUTION_GUARDRAILS.md`,

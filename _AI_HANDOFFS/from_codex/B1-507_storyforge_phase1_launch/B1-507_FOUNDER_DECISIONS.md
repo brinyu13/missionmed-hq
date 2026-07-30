@@ -13,6 +13,13 @@
 
 FG-1 still requires one Founder lifecycle ruling covering first-use consent, retention, explicit deletion, story/account deletion, wind-down, permanent-audio deletion, and all student-facing retention language. Until ruled, the candidate preserves the canonical V5.5 text and exposes no production voice capability.
 
-## Smallest decision needed for the current non-RP8 block
+## Dormant decision status
 
-Provide the normal owner workflow for `_SYSTEM/CRITICAL_SYSTEMS_MANIFEST.json`, or explicitly authorize a bounded owner-reviewed manifest update that replaces stale StoryForge bundle/release hashes, records the current Kinsta/Railway topology, and removes the obsolete live-Worker assumption.
+No additional Founder decision remains for the deployed dormant/default-off
+one-Founder text rung. The bounded StoryForge-only protected manifest
+reconciliation and canonical Matrix guard are complete.
+
+The next required Founder policy action is not needed until voice activation:
+approve FG-1 after RP-8/provider/storage evidence is available. Broader
+administrator/360 access also requires the separate B1-505 entitlement
+authority and representative identities.
