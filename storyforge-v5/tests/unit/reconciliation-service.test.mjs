@@ -72,7 +72,7 @@ test('T4-08 out-of-scope key is explicitly skipped', () => {
   });
 });
 
-test('T5 cursor digest is empty or a 64-character SHA-256', () => {
+test('T3-12 cursor digest is empty or a 64-character SHA-256', () => {
   assert.equal(reconciliationCursorDigest(''), '');
   assert.match(reconciliationCursorDigest('storyforge-audio/example'), /^[a-f0-9]{64}$/);
 });
@@ -156,7 +156,7 @@ test('T8-15 weekly interval is fixed at exactly seven days', () => {
   assert.equal(RECONCILIATION_INTERVAL_MS, 7 * 24 * 60 * 60 * 1000);
 });
 
-test('suspension prevents scheduling before any reconciliation call', () => {
+test('T8-06 suspension prevents scheduling before any reconciliation call', () => {
   let called = false;
   const scheduler = startReconciliationScheduler({ async run() { called = true; } }, {
     environment: {
