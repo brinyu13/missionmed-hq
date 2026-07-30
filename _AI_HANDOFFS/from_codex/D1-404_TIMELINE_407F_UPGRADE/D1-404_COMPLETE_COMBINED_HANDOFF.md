@@ -393,13 +393,50 @@ remain available as engineering sources, but `web/index.html` does not load
   `screenshots/M11-advanced-studio-407f.png`
 - Visual verdict: pass — the creative tool row and background studio remain
   dark, angular, compact 407F controls wrapped around the canonical board.
+- Commit: `4c5f535`
+
+### M12 — Export
+
+- Replaced the legacy simulated Export Bay internals with one `export407F`
+  host while preserving the canonical 407F route, rail, header, and dark
+  presentation.
+- Integrated the retained Export screen/controller and verified local browser
+  export adapter against the shared `TimelineStore`; no parallel export state
+  or fabricated download-success path was introduced.
+- Added the frozen two-column layout with a fixed 380px control stack and fluid
+  letterboxed preview. The preview and downloaded file use the same single-pass
+  audience filter, theme, Advanced layers, interview target, and renderer input.
+- Preserved Interview-safe as default, the exact Everything danger copy, the
+  exact four PNG/PDF formats, conditional 12.7mm PDF margin guide, deterministic
+  `{Last}_{First}_Timeline_{date}.{ext}` filename, local download verification,
+  success/failure toasts, and automatic `Export · {date}` version.
+- Preserved the same global five-theme control and the one-time Advisor Paper
+  PDF suggestion without silently changing the student's theme.
+- Added the collapsed `Printing for interviews` accordion with all six frozen
+  lines, including heavyweight matte cardstock and 3 mil matte lamination.
+- Connected every frozen Advisor review card state to the retained local
+  session handoff: never requested, pending/cancel, approved, edited since, and
+  changes requested/comments.
+- Browser assertions: pass — exact audiences and formats, 380px layout,
+  audience danger copy, themed SVG preview, conditional PDF controls,
+  Advisor Paper suggestion, six-line printing guidance, 12.7mm overlay, and
+  restored default Interview-safe/PNG state.
+- Browser errors during the fresh M12 Export run: 0.
+- Regression evidence: 425/425 tests pass in the full run: 119/119 TypeScript
+  and 306/306 module tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M12-export-407f.png`
+- Visual verdict: pass — Export is now a calm, premium 407F workbench with
+  compact dark controls and the final artifact visually dominant at right.
 - Commit: pending
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 419/419 full inventory (119 TypeScript + 300 module); required floor 370 |
+| Regression floor | PASS — 425/425 full inventory (119 TypeScript + 306 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -427,7 +464,8 @@ remain available as engineering sources, but `web/index.html` does not load
 | M8 | `17d8880` | `git revert 17d8880` |
 | M9 | `b56e7f5` | `git revert b56e7f5` |
 | M10 | `e2e1da7` | `git revert e2e1da7` |
-| M11 | pending | pending |
+| M11 | `4c5f535` | `git revert 4c5f535` |
+| M12 | pending | pending |
 
 ## Precedence resolutions
 

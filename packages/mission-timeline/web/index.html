@@ -684,15 +684,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
 <!-- ================= EXPORT ================= -->
 <section data-view="export">
-  <div class="trow"><div class="bigt">EXPORT <em>BAY</em></div><div class="subt">AUDIENCE-FILTERED · THEME-RENDERED · SIMULATED FILE OUTPUT WITH REAL PRINT PREVIEW</div></div>
-  <div class="canvasCtl" style="margin-bottom:14px">
-    <button class="thBtn">THEME ▾</button>
-    <div class="seg" id="exSize"><button data-s="1920" class="on">1920 × 1080</button><button data-s="2560">2560 × 1440</button></div>
-    <span class="chip gd" id="exGateChip">GATES · 0 OF 3 APPROVED</span>
-    <span class="chip" id="exWarnChip">WARNINGS · ·</span>
-    <button class="btnD alt sm" id="exPrint">PRINT PREVIEW ▸</button>
-  </div>
-  <div class="grid3" id="exGrid"></div>
+  <div id="export407F" class="export407FHost"></div>
 </section>
 
 <!-- ================= REFERENCE ================= -->
@@ -2335,7 +2327,7 @@ function openPrint(scope){
   renderBoard('boardPrint',{mode:'blank',scope:scope||'safe',tag:'PRINT PREVIEW · '+(scope||'safe').toUpperCase()+' SCOPE'});
   $('#printOv').classList.add('on');
 }
-$('#exPrint').onclick=()=>openPrint('safe');
+if($('#exPrint'))$('#exPrint').onclick=()=>openPrint('safe');
 $('#printClose').onclick=()=>$('#printOv').classList.remove('on');
 $('#printGo').onclick=()=>{window.print&&window.print()};
 $$('#exSize button').forEach(b=>b.onclick=()=>{state.exSize=b.dataset.s;$$('#exSize button').forEach(x=>x.classList.toggle('on',x===b));renderExport()});

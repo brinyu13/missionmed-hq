@@ -55,6 +55,18 @@ import {
   applyThemeToTimelineRender
 } from "./uxr-002/themes.js";
 import {
+  applyAdvisorRequest,
+  buildAdvisorRequestPlan,
+  cancelAdvisorRequest
+} from "./uxr-002/advisor.js";
+import {
+  buildExportPreviewInput,
+  installExportScreen,
+  normalizeExportState,
+  renderExportScreen
+} from "./uxr-002/export-screen.js";
+import {createLocalExportAdapter} from "./uxr-002/export-adapter.js";
+import {
   IntakeStateMachine,
   applyApprovalBatchToDocument,
   installIntake,
@@ -476,9 +488,20 @@ export async function boot407FEngineeringAdapter({
     baseRenderer:render407FThemedBoard,
     resolveObjectUrl:(id)=>mediaUrls.get(id)
   });
+  const exportAdapter=createLocalExportAdapter({
+    resolveObjectUrl:(id)=>mediaUrls.get(id)
+  });
+  let exportState=normalizeExportState({
+    suggestionState:{
+      advisorPaperPdfSuggestionShown:
+        !!store.document.preferences?.advisorPaperPdfSuggestionShown
+    }
+  });
   let applying=false;
   let canvasController=null;
   let removeAdvanced=()=>{};
+  let exportController=null;
+  let exportRenderQueued=false;
   let intakeCleanup=()=>{};
   let intakeMachine=null;
   let canvasSyncing=false;
@@ -486,6 +509,7 @@ export async function boot407FEngineeringAdapter({
   let onCanvasDetailsClick=()=>{};
   let onAdvancedObjectClick=()=>{};
   let onCanvasResize=()=>{};
+  let on407FRendered=()=>{};
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
 
@@ -542,12 +566,14 @@ export async function boot407FEngineeringAdapter({
     }
     canvasController?.destroy();
     removeAdvanced();
+    exportController?.destroy();
     intakeCleanup();
     mediaUrls.revokeAll();
     unsubscribeStore();
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     document.getElementById("canvas407F")?.removeEventListener("click",onAdvancedObjectClick);
     window.removeEventListener("resize",onCanvasResize);
+    document.removeEventListener("d1:407f-rendered",on407FRendered);
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -786,6 +812,173 @@ export async function boot407FEngineeringAdapter({
       syncBridgeFromStore();
     }
   });
+  const renderExportPreview=(input)=>{
+    const rendered=advancedBoardRenderer(input.timeline,{
+      ...input.rendererOptions,
+      currentMonth:currentMonth()
+    });
+    return`<div class="board-preview canonical-board-preview export407FBoard" role="img" aria-label="Export preview" data-theme="${escapeMarkup(input.timeline.theme||DEFAULT_THEME_ID)}">${rendered.svg}</div>`;
+  };
+  const queueExportRender=()=>{
+    if(exportRenderQueued)return;
+    exportRenderQueued=true;
+    queueMicrotask(()=>{
+      exportRenderQueued=false;
+      if(bridge.state.view==="export")renderExportHost();
+    });
+  };
+  const openExportThemeDialog=()=>{
+    if(typeof bridge.openModal!=="function")return;
+    const picker=renderThemePicker(store.document)
+      .replace("data-theme-picker hidden","data-theme-picker");
+    bridge.openModal(`<section class="export407FThemeDialog" role="dialog" aria-modal="true" aria-label="Choose theme">
+      <div class="export407FDialogHeader">
+        <h2>Theme</h2>
+        <button type="button" class="btnD alt sm" data-export-theme-close>Close</button>
+      </div>
+      ${picker}
+    </section>`);
+    document.querySelector("[data-export-theme-close]")?.addEventListener("click",()=>{
+      bridge.closeModal?.();
+    },{once:true});
+    document.querySelectorAll("#modalIn [data-select-theme]").forEach((button)=>{
+      button.addEventListener("click",()=>{
+        store.mutate("Change theme",(document)=>{
+          document.theme=button.dataset.selectTheme;
+        });
+        bridge.closeModal?.();
+        syncBridgeFromStore();
+        queueExportRender();
+      },{once:true});
+    });
+    document.querySelector("#modalIn [data-open-backgrounds]")?.addEventListener("click",()=>{
+      bridge.closeModal?.();
+      bridge.go("canvas");
+      queueMicrotask(()=>requestCanvasMode("advanced"));
+    },{once:true});
+  };
+  const openAdvisorPaperSuggestion=(suggestion)=>{
+    if(typeof bridge.openModal!=="function"){
+      bridge.toast(suggestion.message);
+      return;
+    }
+    bridge.openModal(`<section class="export407FSuggestionDialog" role="dialog" aria-modal="true" aria-labelledby="export407FSuggestionTitle">
+      <h2 id="export407FSuggestionTitle">${escapeMarkup(suggestion.message)}</h2>
+      <div>
+        <button type="button" class="btnD alt" data-export-suggestion-dismiss>Not now</button>
+        <button type="button" class="btnD go" data-export-suggestion-apply>${escapeMarkup(suggestion.actionLabel)}</button>
+      </div>
+    </section>`);
+    document.querySelector("[data-export-suggestion-dismiss]")?.addEventListener("click",()=>{
+      bridge.closeModal?.();
+      suggestion.dismiss?.();
+    },{once:true});
+    document.querySelector("[data-export-suggestion-apply]")?.addEventListener("click",()=>{
+      bridge.closeModal?.();
+      suggestion.apply?.();
+    },{once:true});
+  };
+  function renderExportHost(){
+    const exportHost=document.getElementById("export407F");
+    if(!exportHost)return;
+    exportController?.destroy();
+    let previewHtml="";
+    if((store.document.events||[]).length){
+      try{
+        previewHtml=renderExportPreview(
+          buildExportPreviewInput(store.document,exportState)
+        );
+      }catch(error){
+        bridge.toast(String(error?.message||error));
+      }
+    }
+    exportHost.innerHTML=renderExportScreen(store.document,{
+      state:exportState,
+      previewHtml
+    });
+    exportController=installExportScreen(exportHost,store.document,{
+      state:exportState,
+      renderPreview:renderExportPreview,
+      exportAdapter,
+      toast:(message)=>bridge.toast(message),
+      requestVersion:(label,kind)=>store.saveVersion(label,kind),
+      onStateChange:(state,reason)=>{
+        exportState=state;
+        if(["audience","format","print-margins","export-finish"].includes(reason)){
+          queueExportRender();
+        }
+      },
+      onOpenBuilder:()=>bridge.go("builder"),
+      onThemeTrigger:openExportThemeDialog,
+      onThemeChange:(themeId,{suggestionState}={})=>{
+        store.mutate("Change theme",(document)=>{
+          document.theme=themeId;
+          if(suggestionState?.advisorPaperPdfSuggestionShown){
+            document.preferences.advisorPaperPdfSuggestionShown=true;
+          }
+        });
+        syncBridgeFromStore();
+        queueExportRender();
+      },
+      onSuggestionStateChange:(suggestionState)=>{
+        store.mutate("Record export suggestion",(document)=>{
+          document.preferences.advisorPaperPdfSuggestionShown=
+            !!suggestionState.advisorPaperPdfSuggestionShown;
+        },{history:false,material:false});
+      },
+      onAdvisorPaperSuggestion:openAdvisorPaperSuggestion,
+      onInterviewSeasonChange:(value)=>{
+        store.mutate("Set interview season",(document)=>{
+          document.studentProfile.interviewSeason=value;
+        });
+        syncBridgeFromStore();
+        queueExportRender();
+      },
+      onAdvisorRequest:async(request)=>{
+        const plan=buildAdvisorRequestPlan(store.document,{
+          message:request.message,
+          clock:()=>new Date(request.requestedAt)
+        });
+        await store.saveVersion(plan.versionRequest.name,plan.versionRequest.kind);
+        const result=applyAdvisorRequest(store.document,plan);
+        await store.adapter.put("syncRecords",{
+          id:plan.route,
+          kind:"local-advisor-session",
+          timelineId:store.document.id,
+          route:plan.route,
+          createdAt:plan.handoff.createdAt,
+          handoff:plan.handoff,
+          localOnly:true,
+          externalApiCalls:false,
+          productionWrites:false
+        });
+        store.replace(result.document,{label:result.mutation.label});
+        syncBridgeFromStore();
+        queueExportRender();
+        return{versionHandled:true,route:plan.route};
+      },
+      onAdvisorCancel:()=>{
+        const result=cancelAdvisorRequest(store.document);
+        if(!result.changed)return;
+        store.replace(result.document,{label:result.mutation.label});
+        syncBridgeFromStore();
+        queueExportRender();
+      },
+      onAdvisorComments:()=>{
+        bridge.go("canvas");
+        canvasController?.setUiState({
+          commentsOpen:true,
+          activeAdvisorPinId:null
+        });
+      }
+    });
+    api.export=exportController;
+    exportController.refreshPreview();
+  }
+  on407FRendered=()=>{
+    if(bridge.state.view==="export")queueExportRender();
+  };
+  document.addEventListener("d1:407f-rendered",on407FRendered);
   const commitExamMutation=(label,mutation)=>{
     store.mutate(label,(document)=>{
       apply407FStateToDocument(bridge.state,document);
@@ -1001,6 +1194,7 @@ export async function boot407FEngineeringAdapter({
       })
       .catch((error)=>bridge.toast(String(error?.message||error)));
   }
+  if(document.getElementById("export407F"))renderExportHost();
   const intakeHost=document.getElementById("intake407F");
   if(intakeHost){
     const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||createD1408PdfIntakeAdapter();
