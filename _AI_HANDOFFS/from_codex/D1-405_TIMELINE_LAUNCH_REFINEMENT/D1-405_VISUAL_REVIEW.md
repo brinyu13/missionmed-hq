@@ -34,3 +34,42 @@ Evidence:
 - `evidence/screenshots/D1-405-M2-home-populated.png`
 
 No remaining concrete M2 visual blocker.
+
+## M3 horizontal Builder workflow and composition
+
+Initial Vitruvius verdict: D1 PASS / D2 FAIL
+
+Concrete corrections requested:
+
+1. Remove guaranteed exact-1024 overflow from the two-column minimums.
+2. Put the primary editor before the preview in the stacked layout.
+3. Reveal the persisted/current active tab on route entry without moving focus.
+
+Initial Miyamoto recapture verdict: FAIL
+
+Concrete evidence corrections requested:
+
+1. Replace the high-DPI tablet crop with a CSS-scale viewport capture.
+2. Add a scrolled tablet capture proving the preview remains available below the editor.
+
+Corrections completed:
+
+- Builder stacks at 1151px and below.
+- Editor precedes the preview.
+- Horizontal overflow is confined to the step navigator.
+- Active tab is revealed on every render without focus movement.
+- Exact 1024/1023 document widths do not overflow.
+- CSS-scale editor and scrolled-preview captures were recorded.
+
+Final verdicts:
+
+- Miyamoto: PASS.
+- Vitruvius: D1 PASS / D2 PASS.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M3-builder-horizontal-workflow-desktop.png`
+- `evidence/screenshots/D1-405-M3-builder-horizontal-workflow-tablet.png`
+- `evidence/screenshots/D1-405-M3-builder-horizontal-workflow-tablet-preview.png`
+
+No remaining concrete M3 visual or responsive blocker. True proportional rendering and interactive lightbox behavior remain an explicit M4 obligation.

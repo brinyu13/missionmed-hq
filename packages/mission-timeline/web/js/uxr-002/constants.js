@@ -19,7 +19,7 @@ export const BUILDER_STEPS=Object.freeze([
   {id:"work",title:"Work Experience",purpose:"Clinical or not, US or abroad — work belongs on the story."},
   {id:"research",title:"Research",purpose:"Projects, posters, and papers — with your author position."},
   {id:"personal",title:"Personal",purpose:"The life behind the CV — moves, family, service, anything that shaped the journey."},
-  {id:"review",title:"Review & finish",purpose:"Everything in one place. Fix anything, then edit your timeline."}
+  {id:"review",title:"Review & Finish",purpose:"Everything in one place. Fix anything, then edit your timeline."}
 ]);
 
 const CATEGORY_ICONS=Object.freeze({

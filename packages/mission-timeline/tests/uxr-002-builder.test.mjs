@@ -57,7 +57,7 @@ test("Builder renders the frozen seven-step titles and exact Step 1 field order 
     "Work Experience",
     "Research",
     "Personal",
-    "Review &amp; finish"
+    "Review &amp; Finish"
   ];
   let cursor=-1;
   for(const title of stepTitles){

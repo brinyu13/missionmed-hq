@@ -32,3 +32,25 @@ The production builder reported 185 files because it copied the ignored, user-ow
 | Miyamoto visual review | PASS after correction and recapture |
 
 M2 added four module tests for the fail-closed File Vault adapter and chooser. The inherited N<4 isolation expectations were replaced with positive coverage proving that one-to-three-year documents render while exact board width is preserved. The user-owned prelaunch HTML copy is now excluded from candidate packaging without being modified or deleted.
+
+## M3 horizontal Builder workflow and composition
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 324/324 passed |
+| Total | 443/443 passed |
+| M3 targeted Builder/responsive/authority suite | 25/25 passed |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic production build | Passed; 185 runtime files |
+| Fresh browser console | 0 warnings/errors |
+| Horizontal keyboard navigation | Passed; Right, wrap 7→1, Home/End contract present |
+| Rerender focus restoration | Passed |
+| Persisted active-tab reveal | Passed without focus movement |
+| Document overflow at 1440/1279/1024/1023 | None |
+| Navigator overflow at 1024/1023 | Locally contained and active tab fully revealed |
+| Miyamoto visual review | PASS |
+| Vitruvius responsive/layout review | D1 PASS / D2 PASS |
+
+One retained test still asserted the superseded lowercase `Review & finish` spelling. It failed once after the D1-405 capitalization correction, was updated to the approved `Review & Finish` requirement, and the complete final suite passed.

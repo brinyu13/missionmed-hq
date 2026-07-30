@@ -565,14 +565,13 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 <!-- ================= BUILDER / WIZARD ================= -->
 <section data-view="builder">
   <div class="d1404Builder">
-    <aside class="panelD builderStepper" aria-label="Builder steps">
+    <nav class="panelD builderStepper" aria-label="Builder steps">
       <div class="pi" id="builderStepper"></div>
-    </aside>
-    <section class="panelD builderForm" aria-labelledby="builderStepTitle">
+    </nav>
+    <section class="panelD builderForm" id="builderStepPanel" role="tabpanel" aria-labelledby="builderStepTitle" tabindex="-1">
       <div class="pi">
         <div class="builderTitleRow">
           <h1 id="builderStepTitle">Core Info</h1>
-          <button type="button" class="btnD alt sm builderPreviewToggle" id="builderPreviewToggle">SHOW PREVIEW</button>
         </div>
         <p class="builderPurpose" id="builderPurpose">Who you are and where you trained.</p>
         <div id="builderStepBody"></div>
@@ -582,10 +581,15 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
         <button class="btnD go sm" id="builderContinue">CONTINUE →</button>
       </footer>
     </section>
-    <aside class="panelD builderPreview">
+    <aside class="panelD builderPreview" aria-labelledby="builderPreviewTitle">
       <div class="pi">
-      <div class="builderPreviewLabel">LIVE PREVIEW · GUIDED · INTERVIEW-SAFE</div>
-      <div id="boardWizard"></div>
+        <div class="builderPreviewHeader">
+          <div class="builderPreviewLabel" id="builderPreviewTitle">LIVE PREVIEW · GUIDED · INTERVIEW-SAFE</div>
+          <button type="button" class="btnD alt sm builderPreviewToggle" id="builderPreviewToggle">OPEN FULL PREVIEW</button>
+        </div>
+        <div class="builderPreviewViewport">
+          <div id="boardWizard"></div>
+        </div>
       </div>
     </aside>
   </div>
@@ -1405,7 +1409,7 @@ const BUILDER_STEPS_404=[
   {title:'Work Experience',purpose:'Clinical or not, US or abroad — work belongs on the story.'},
   {title:'Research',purpose:'Projects, posters, and papers — with your author position.'},
   {title:'Personal',purpose:'The life behind the CV — moves, family, service, anything that shaped the journey.'},
-  {title:'Review & finish',purpose:'Everything in one place. Fix anything, then edit your timeline.'}
+  {title:'Review & Finish',purpose:'Everything in one place. Fix anything, then edit your timeline.'}
 ];
 const CORE_REQUIRED=['name','school','country','grad','degree'];
 function coreInfoValid(){return CORE_REQUIRED.every(k=>String(state.wiz[k]||'').trim())}
@@ -1432,6 +1436,10 @@ function builderStepState(step){
 function builderGlyph(step){
   const stateName=builderStepState(step);
   return{complete:'✓',started:'◐',skipped:'—',empty:'○',none:''}[stateName];
+}
+function builderStateLabel(step){
+  const stateName=builderStepState(step);
+  return{complete:'Complete',started:'Started',skipped:'Skipped',empty:'Empty',none:'Review'}[stateName]||'Empty';
 }
 function coreInfoMarkup(){
   const w=state.wiz;
@@ -1735,22 +1743,66 @@ function builderPlaceholderMarkup(step){
   if(step===7)return reviewFinishMarkup404();
   return'<div class="builderPlaceholder"><p>This step is ready for its domain workflow.</p><button class="homeTertiary" data-builder-skip="'+step+'">I have nothing to add here → skip</button></div>';
 }
+function revealActiveBuilderStep404(){
+  const stepper=$('#builderStepper');
+  const scroller=stepper&&stepper.closest('.builderStepper');
+  const active=stepper&&stepper.querySelector('[aria-selected="true"]');
+  if(!scroller||!active)return;
+  const left=active.offsetLeft;
+  const right=left+active.offsetWidth;
+  if(left<scroller.scrollLeft)scroller.scrollLeft=Math.max(0,left-8);
+  else if(right>scroller.scrollLeft+scroller.clientWidth)scroller.scrollLeft=right-scroller.clientWidth+8;
+}
 function renderBuilder404(){
   const step=Math.max(1,Math.min(7,state.builder.step||1));
   state.builder.step=step;
   const current=BUILDER_STEPS_404[step-1];
   const stepper=$('#builderStepper');
-  if(stepper)stepper.innerHTML=BUILDER_STEPS_404.map((item,index)=>{
-    const n=index+1;const currentClass=n===step?' current':'';
-    return'<button class="builderStep'+currentClass+'" data-builder-step="'+n+'"'+(n===step?' aria-current="step"':'')+'>'
-      +'<span class="builderStepNumber">'+n+'</span><span class="builderStepTitle">'+item.title+'</span><span class="builderStepGlyph">'+builderGlyph(n)+'</span></button>';
-  }).join('');
+  if(stepper){
+    stepper.setAttribute('role','tablist');
+    stepper.setAttribute('aria-orientation','horizontal');
+    stepper.innerHTML=BUILDER_STEPS_404.map((item,index)=>{
+      const n=index+1;const active=n===step;const currentClass=active?' current':'';const stepState=builderStepState(n);const stateLabel=builderStateLabel(n);
+      return'<button class="builderStep'+currentClass+'" id="builderStepTab'+n+'" type="button" role="tab" data-builder-step="'+n+'"'
+        +' data-state="'+stepState+'" aria-label="Step '+n+' of 7, '+esc(item.title)+', '+stateLabel+'"'
+        +' aria-controls="builderStepPanel" aria-selected="'+active+'" tabindex="'+(active?'0':'-1')+'">'
+        +'<span class="builderStepNumber" aria-hidden="true">'+n+'</span><span class="builderStepTitle" aria-hidden="true">'+item.title+'</span>'
+        +'<span class="builderStepGlyph" aria-hidden="true">'+builderGlyph(n)+'</span></button>';
+    }).join('');
+    requestAnimationFrame(revealActiveBuilderStep404);
+  }
+  const panel=$('#builderStepPanel');
+  if(panel)panel.setAttribute('aria-labelledby','builderStepTab'+step);
   $('#builderStepTitle').textContent=current.title;
   $('#builderPurpose').textContent=current.purpose;
   $('#builderStepBody').innerHTML=step===1?coreInfoMarkup():(step===2?examsMarkup404():(step>=3&&step<=6?domainStepMarkup404(step):builderPlaceholderMarkup(step)));
   $('#builderBack').disabled=step===1;
   $('#builderContinue').textContent=step===7?'EDIT MY TIMELINE →':'CONTINUE →';
   $('#builderContinue').hidden=step===7;
+}
+function moveBuilderStep404(next,{focusNavigator=false,focusPanel=false,renderAllViews=false}={}){
+  state.builder.step=Math.max(1,Math.min(7,Number(next)||1));
+  state.saved=false;
+  if(renderAllViews)renderAll();else renderBuilder404();
+  requestAnimationFrame(()=>{
+    const active=document.querySelector('[data-builder-step="'+state.builder.step+'"]');
+    if(focusNavigator&&active){
+      active.focus();
+      revealActiveBuilderStep404();
+    }
+    if(focusPanel){
+      const title=document.getElementById('builderStepTitle');
+      if(title){
+        title.setAttribute('tabindex','-1');
+        title.focus();
+      }
+    }
+    const live=document.getElementById('globalLive407F');
+    if(live){
+      const item=BUILDER_STEPS_404[state.builder.step-1];
+      live.textContent='Step '+state.builder.step+' of 7, '+item.title+', '+builderStateLabel(state.builder.step);
+    }
+  });
 }
 function parseBuilderMonth(value){
   const raw=String(value||'').trim();
@@ -1933,7 +1985,7 @@ document.addEventListener('click',e=>{
   const reviewExport=e.target.closest('[data-review-export]');
   if(reviewExport){go('export');return}
   const stepButton=e.target.closest('[data-builder-step]');
-  if(stepButton){state.builder.step=+stepButton.dataset.builderStep;renderBuilder404();return}
+  if(stepButton){moveBuilderStep404(stepButton.dataset.builderStep,{focusNavigator:true});return}
   const degree=e.target.closest('[data-degree]');
   if(degree){state.wiz.degree=degree.dataset.degree;state.builder.touched[1]=true;syncCoreInfo();return}
   const addExam=e.target.closest('[data-exam-add-id]');
@@ -1997,6 +2049,14 @@ document.addEventListener('focusin',e=>{
   if(input)paintTypeahead404(input.closest('[data-domain-typeahead]'));
 });
 document.addEventListener('keydown',e=>{
+  const stepButton=e.target.closest&&e.target.closest('[data-builder-step]');
+  if(stepButton&&['ArrowLeft','ArrowRight','Home','End'].includes(e.key)){
+    e.preventDefault();
+    const current=Number(stepButton.dataset.builderStep)||1;
+    const next=e.key==='Home'?1:(e.key==='End'?7:(e.key==='ArrowLeft'?(current===1?7:current-1):(current===7?1:current+1)));
+    moveBuilderStep404(next,{focusNavigator:true});
+    return;
+  }
   const input=e.target.closest&&e.target.closest('[data-typeahead-input]');if(!input)return;
   const field=input.closest('[data-domain-typeahead]');
   if(e.key==='ArrowDown'){e.preventDefault();moveTypeahead404(field,1);return}
@@ -2049,12 +2109,12 @@ document.addEventListener('focusout',e=>{
     runDomainAction404('updateDraft',domain,entry);
   }
 });
-$('#builderBack').onclick=()=>{if(state.builder.step>1){state.builder.step--;renderAll()}};
+$('#builderBack').onclick=()=>{if(state.builder.step>1)moveBuilderStep404(state.builder.step-1,{focusPanel:true,renderAllViews:true})};
 $('#builderContinue').onclick=()=>{
   if(state.builder.step===1&&!showCoreErrors())return;
   syncCoreInfo();
   if(state.builder.step===7){go('canvas');return}
-  state.builder.step++;renderAll();
+  moveBuilderStep404(state.builder.step+1,{focusPanel:true,renderAllViews:true});
 };
 
 /* ============ INTAKE ============ */

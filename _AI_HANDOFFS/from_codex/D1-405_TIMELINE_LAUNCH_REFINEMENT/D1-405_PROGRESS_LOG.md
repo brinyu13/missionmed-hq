@@ -98,3 +98,40 @@
   - Restored a deterministic dark 407F atmospheric/grid field behind the main workspace.
   - Replaced the browser-default white File Vault search field with the existing dark 407F field language.
 - Next action: M3 horizontal Builder workflow and launch-quality Builder composition.
+
+## 2026-07-30T20:47:41Z — M3 horizontal Builder workflow and composition
+
+- Estimated overall completion: 35%
+- Work completed:
+  - Replaced the permanent vertical Builder stepper with the approved horizontal seven-step navigator.
+  - Preserved direct step movement, persisted step state, and complete/started/skipped/empty states.
+  - Added accessible horizontal-tab semantics, non-color state names, roving focus, Left/Right wrap, Home/End, and polite announcements.
+  - Restored focus after interactive rerenders and revealed persisted/current steps on initial route entry without moving focus.
+  - Reclaimed desktop width into a 5:7 editor/preview composition and added the visible `Open full preview` action.
+  - Stacked the editor before the preview at 1151px and below, with navigator-only horizontal overflow.
+  - Verified no document-level horizontal overflow at 1440, 1279, 1024, and 1023.
+  - Preserved all existing Builder forms, route and document state, persistence, domain workflows, preview data, and sticky actions.
+- Screenshots:
+  - `evidence/screenshots/D1-405-M3-builder-horizontal-workflow-desktop.png`
+  - `evidence/screenshots/D1-405-M3-builder-horizontal-workflow-tablet.png`
+  - `evidence/screenshots/D1-405-M3-builder-horizontal-workflow-tablet-preview.png`
+- Preview URL: `http://localhost:8793/web/`
+- Tests:
+  - Complete functional TypeScript suite: 119/119 passed.
+  - Complete browser/module suite: 324/324 passed.
+  - Total: 443/443 passed.
+  - Typecheck: passed.
+  - Package verification: 23/23 passed.
+  - Production build: passed; 185 runtime files.
+- Browser console: 0 fresh warnings or errors.
+- Visual verdict:
+  - Miyamoto: PASS.
+  - Vitruvius: D1 PASS / D2 PASS.
+- Founder feedback received:
+  - Requested and received a shareable current-source ZIP and direct HTML source link during the milestone.
+- Correction performed:
+  - Removed the exact-1024 two-column overflow by stacking at 1151px and below.
+  - Put the primary editor before the stacked preview.
+  - Added initial/persisted active-tab reveal without focus movement.
+  - Replaced the invalid high-DPI crop with CSS-scale tablet editor and scrolled-preview evidence.
+- Next action: M4 true proportional preview, element activation, zoom, and full preview lightbox.

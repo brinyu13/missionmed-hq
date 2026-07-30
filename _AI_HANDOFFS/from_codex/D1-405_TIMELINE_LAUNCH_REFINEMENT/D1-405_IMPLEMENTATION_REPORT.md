@@ -56,6 +56,36 @@ Preview: `http://localhost:8793/web/`
 - Browser-tested Home empty, File Vault unavailable, Escape/focus restoration, one-event creation, and Home populated with zero fresh console warnings/errors.
 - Miyamoto visual verdict: PASS after dark-field and search-control corrections.
 
+## M3 — Horizontal Builder workflow and composition
+
+- Replaced the permanent 264px left stepper with one horizontal seven-step navigator spanning the Builder workspace.
+- Preserved the approved labels, direct movement, persisted step state, and complete/started/skipped/empty presentation.
+- Added a named navigation landmark and horizontal tab model with:
+  - stable tab IDs,
+  - roving `tabindex`,
+  - `aria-selected` and panel linkage,
+  - non-color state labels,
+  - Left/Right wrap plus Home/End movement,
+  - focus preservation after rerender,
+  - polite step announcements.
+- Corrected the seventh label to the exact D1-405 capitalization: `Review & Finish`.
+- Reclaimed desktop width into a 5:7 editor/preview composition:
+  - 488px editor and 683px preview at 1440px,
+  - 420px editor and 589px preview at 1279px,
+  - no document-level horizontal overflow.
+- Added a persistent `Open full preview` action while retaining the existing focus-trapped 407F modal seam for M4 enhancement.
+- At 1151px and below, stacked the editor before the preview and confined horizontal step overflow to the navigator.
+- Verified exact 1024/1023 boundaries:
+  - document `scrollWidth === clientWidth`,
+  - active persisted tab revealed without moving focus,
+  - editor remains the primary first task,
+  - preview remains available below the editor.
+- Preserved the existing Builder domain forms, sticky action footer, state, persistence, timeline engine, and route graph.
+- Browser-tested direct and wrapped keyboard movement, active-step restoration, desktop/tablet composition, and exact boundary overflow with zero fresh console warnings/errors.
+- Miyamoto visual verdict: PASS.
+- Vitruvius responsive/layout verdict: D1 PASS / D2 PASS.
+- True proportional rendering, preview element activation, and zoom-capable lightbox behavior remain explicitly assigned to M4.
+
 ## Autonomous implementation-level adjustments
 
 | Original | Replacement | Reason | Calculated contrast | Affected components |

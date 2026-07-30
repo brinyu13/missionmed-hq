@@ -8,16 +8,24 @@ const css=read("web/styles/407f-upgrade.css");
 const adapter=read("web/js/407f-engineering-adapter.js");
 const builder=index.match(/<!-- ================= BUILDER \/ WIZARD ================= -->([\s\S]*?)<!-- ================= CANVAS EDITOR ================= -->/)?.[1]||"";
 
-test("M3 Builder is a three-zone 407F layout with a fixed 264px vertical stepper",()=>{
+test("D1-405 M3 Builder uses a horizontal workflow above the editor and larger preview",()=>{
   assert.match(builder,/class="d1404Builder"/);
-  assert.match(builder,/class="panelD builderStepper"/);
+  assert.match(builder,/<nav class="panelD builderStepper" aria-label="Builder steps">/);
   assert.match(builder,/class="panelD builderForm"/);
-  assert.match(builder,/class="panelD builderPreview"/);
-  assert.match(css,/grid-template-columns:264px minmax\(420px,560px\) minmax\(420px,1fr\)/);
+  assert.match(builder,/class="panelD builderPreview" aria-labelledby="builderPreviewTitle"/);
+  assert.match(builder,/class="builderPreviewViewport"/);
+  assert.match(builder,/id="builderPreviewToggle">OPEN FULL PREVIEW/);
+  assert.match(css,/grid-template-areas:\s*"steps steps"\s*"form preview"/);
+  assert.match(css,/grid-template-columns:minmax\(420px,5fr\) minmax\(560px,7fr\)/);
+  assert.match(css,/#builderStepper\{\s*display:grid;\s*grid-template-columns:repeat\(7,minmax\(0,1fr\)\)/);
+  assert.match(css,/@media\(max-width:1151px\)\{[\s\S]*grid-template-areas:\s*"steps"\s*"form"\s*"preview"/);
+  assert.match(css,/@media\(max-width:1151px\)\{[\s\S]*\.builderStepper\{[\s\S]*overflow-x:auto/);
+  assert.doesNotMatch(css,/grid-template-columns:264px/);
+  assert.doesNotMatch(css,/grid-template-columns:220px/);
   assert.doesNotMatch(builder,/wizDots|SAVE DRAFT|PREVIEW CHANGES|GUIDED <em>BUILDER/);
 });
 
-test("M3 stepper contains the seven frozen titles and supports free navigation",()=>{
+test("D1-405 M3 stepper contains the seven approved titles and accessible horizontal tab behavior",()=>{
   const titles=[
     "Core Info",
     "Exams",
@@ -25,13 +33,29 @@ test("M3 stepper contains the seven frozen titles and supports free navigation",
     "Work Experience",
     "Research",
     "Personal",
-    "Review & finish"
+    "Review & Finish"
   ];
   for(const title of titles)assert.ok(index.includes(`title:'${title}'`),`missing Builder title: ${title}`);
+  assert.match(index,/setAttribute\('role','tablist'\)/);
+  assert.match(index,/setAttribute\('aria-orientation','horizontal'\)/);
+  assert.match(index,/role="tab"/);
+  assert.match(index,/id="builderStepTab'\+n\+'/);
+  assert.match(index,/aria-controls="builderStepPanel"/);
+  assert.match(index,/aria-selected="'\+active\+'/);
+  assert.match(index,/tabindex="'\+\(active\?'0':'-1'\)\+'/);
+  assert.match(index,/data-state="'\+stepState\+'/);
+  assert.match(index,/aria-label="Step '\+n\+' of 7,/);
+  assert.match(index,/class="builderStepGlyph" aria-hidden="true"/);
+  assert.match(builder,/id="builderStepPanel" role="tabpanel"/);
   assert.match(index,/data-builder-step/);
-  assert.match(index,/aria-current="step"/);
   assert.match(index,/complete:'✓',started:'◐',skipped:'—',empty:'○',none:''/);
-  assert.match(index,/state\.builder\.step=\+stepButton\.dataset\.builderStep/);
+  assert.match(index,/moveBuilderStep404\(stepButton\.dataset\.builderStep,\{focusNavigator:true\}\)/);
+  assert.match(index,/\['ArrowLeft','ArrowRight','Home','End'\]\.includes\(e\.key\)/);
+  assert.match(index,/current===1\?7:current-1/);
+  assert.match(index,/current===7\?1:current\+1/);
+  assert.match(index,/function revealActiveBuilderStep404\(\)/);
+  assert.match(index,/requestAnimationFrame\(revealActiveBuilderStep404\)/);
+  assert.match(index,/scroller\.scrollLeft=right-scroller\.clientWidth\+8/);
 });
 
 test("M3 Core Info preserves frozen field order, validation, and education milestone effect",()=>{
