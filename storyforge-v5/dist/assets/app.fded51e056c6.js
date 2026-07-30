@@ -743,17 +743,26 @@ function renderShell() {
     </div>`;
 
   hdr.innerHTML = `
-    <span class="viewChip roleReadOnly" title="This view comes from your signed MissionMed role">${viewLabel()}</span>
-    ${isMentor() && state.selectedStudent ? `<button class="stuSelBtn" type="button" data-open-palette>
-      <span class="fLbl">Viewing</span><span class="stuAv">${esc(state.selectedStudent.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
-      <span class="nm">${esc(state.selectedStudent.name)}</span>${state.selectedStudent.cohort ? `<span class="cohortChip">${esc(state.selectedStudent.cohort)}</span>` : ''}<span class="car">▾</span>
-    </button>` : ''}
-    ${isAdmin() ? '' : `<div class="hSearch">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
-      <input id="omni" type="search" placeholder="${isMentor() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() ? 'Search students and stories' : 'Search your stories'}">
-      <span class="kbd">/</span>
-    </div>`}
-    ${isStudent() ? '<button class="btnCatch" type="button" data-open-capture>＋ <span class="bc-txt">New Story</span></button>' : ''}`;
+    <a class="storyforgeMatrixBack" href="${attr(matrixHref())}" aria-label="Back to Matrix">
+      <span aria-hidden="true">←</span><span>Matrix</span>
+    </a>
+    <div class="storyforgeBrand" aria-label="MissionMed StoryForge">
+      <div class="storyforgeBrandTitle"><span>MissionMed</span><b>//Storyforge</b></div>
+      <div class="storyforgeBrandSub">MISSION:RESIDENCY DIVISION</div>
+    </div>
+    <div class="storyforgeHeaderActions">
+      <span class="viewChip roleReadOnly" title="This view comes from your signed MissionMed role">${viewLabel()}</span>
+      ${isMentor() && state.selectedStudent ? `<button class="stuSelBtn" type="button" data-open-palette>
+        <span class="fLbl">Viewing</span><span class="stuAv">${esc(state.selectedStudent.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join(''))}</span>
+        <span class="nm">${esc(state.selectedStudent.name)}</span>${state.selectedStudent.cohort ? `<span class="cohortChip">${esc(state.selectedStudent.cohort)}</span>` : ''}<span class="car">▾</span>
+      </button>` : ''}
+      ${isAdmin() ? '' : `<div class="hSearch">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <input id="omni" type="search" placeholder="${isMentor() ? 'Search students and stories…' : 'Search your stories…'}" autocomplete="off" aria-label="${isMentor() ? 'Search students and stories' : 'Search your stories'}">
+        <span class="kbd">/</span>
+      </div>`}
+      ${isStudent() ? '<button class="btnCatch" type="button" data-open-capture>＋ <span class="bc-txt">New Story</span></button>' : ''}
+    </div>`;
 
   advBanner.classList.toggle('show', isMentor());
   advBanner.querySelector('span').textContent = isMentor()
