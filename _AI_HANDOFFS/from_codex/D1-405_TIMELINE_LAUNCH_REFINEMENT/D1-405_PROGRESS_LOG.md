@@ -225,3 +225,38 @@
 - Production build: passed; 188 runtime files.
 - Build manifest SHA-256: `331d2984a7130090058767a30055e109369547e601ae0aaad9a42d62756d32e3`.
 - Next action: close specialist re-audits, checkpoint M5 plus Founder refinement, then continue M6.
+
+## 2026-07-30T23:45:00Z — M6 Core Info normalization checkpoint
+
+- Estimated overall completion: 65%.
+- Extended the canonical 407F Core Info step; no replacement shell, navigation,
+  form-column layout, or preview reduction was introduced.
+- Bundled 196 source-reported U.S. medical-school records:
+  - 154 MD;
+  - 42 DO;
+  - 179 exact active institution-program matches;
+  - 17 program-review records;
+  - 125 normalized display names;
+  - 71 name/crosswalk-review records;
+  - 1 superseded duplicate crosswalk retained as provenance-only.
+- Added local alias/location search, country and MD/DO facets, canonical IDs,
+  source provenance, analytics eligibility, and a durable normalization queue.
+- Added current work-authorization, EAD-status, and residency-visa conditionals
+  without changing the frozen Core Info wording or hierarchy.
+- Browser-verified keyboard selection, active descendant, announcements, focus
+  restoration, required errors, review states, and the unlisted-school queue.
+- Corrected the final visual search inset and guarded transient focused-select
+  rerenders. Fresh-browser console result: zero warnings/errors.
+- Specialist verdicts: Miyamoto PASS, Vitruvius PASS, Darwin PASS.
+- Functional TypeScript suite: 119/119 passed.
+- Browser/module suite: 360/360 passed.
+- Total: 479/479 passed.
+- Typecheck: passed.
+- Package verification: 23/23 passed.
+- Deterministic build: passed; 191 runtime files.
+- Build manifest SHA-256:
+  `3101fed536242fdc0213c36d97722db2d4ee836b7876b16985897a908bf99f21`.
+- Implementation checkpoint: `3f7923f`.
+- Production-only external gate: DAPIP redistribution authority requires legal
+  confirmation before production distribution.
+- Next action: M7 Exams workflow completion.

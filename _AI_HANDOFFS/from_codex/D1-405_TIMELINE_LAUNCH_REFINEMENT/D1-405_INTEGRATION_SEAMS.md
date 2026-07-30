@@ -91,3 +91,27 @@ Implemented seam:
 - Compatible Advanced media records are listed directly without migration to a second store.
 - Immediate destructive asset deletion is not exposed because current versions/history can still reference the source blob.
 - Reduced-motion rendering omits animated GIF image URLs in the library and in placed Guided/Advanced board layers.
+
+## Core Info normalization seam — M6
+
+- `datasets.js` exposes one lazy `createMedicalSchoolProvider()` seam.
+- The provider loads a bundled local JSON chunk and performs no runtime network
+  request.
+- The inverted token index is built once per loaded dataset and reused by
+  canonical name, alias, city, state, country, and degree-type searches.
+- `studentProfile.medicalSchoolRecord` retains canonical ID, source,
+  accreditation, normalization, and analytics eligibility.
+- `medicalSchoolNormalizationQueue` is a top-level canonical document
+  collection and survives migration, persistence, 407F bridge round trips, and
+  autosave.
+- The Education milestone projects only the selected/student-submitted school
+  identity and does not create a parallel school entity.
+- Superseded crosswalk records remain in the immutable source snapshot and
+  bundled provenance dataset, link to the current canonical ID, and are excluded
+  from selection and verified analytics.
+- Unlisted schools reuse the same profile, document, persistence, and milestone
+  seam with an `unverified:` ID; there is no second queue or external write.
+- Work-authorization fields remain Core Info profile attributes and only affect
+  their approved conditional questions.
+- Production redistribution authority is external to the local provider. No
+  code path promotes the local bundle to production or Matrix.

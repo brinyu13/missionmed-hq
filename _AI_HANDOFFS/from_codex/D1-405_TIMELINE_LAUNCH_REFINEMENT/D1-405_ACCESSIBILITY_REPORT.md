@@ -126,3 +126,35 @@ Evidence:
 - `evidence/screenshots/D1-405-founder-steer-premium-stepper.png`
 - `evidence/screenshots/D1-405-founder-steer-media-library-corrected.jpg`
 - `evidence/screenshots/D1-405-founder-steer-media-drawer-builder-corrected.jpg`
+
+## M6 — Core Info registry and conditional authorization fields
+
+- The school search is a named combobox controlling one semantic listbox.
+- The first result is active immediately; Arrow Up/Down, Enter, and Escape use
+  one predictable focus model.
+- Options contain no nested interactive controls.
+- Search status, selection, normalization eligibility, and conditional-field
+  changes are announced through polite atomic live regions.
+- School verification state uses copy, icon, border, and color rather than
+  color alone.
+- Search, filters, unlisted-school fields, and conditional work-authorization
+  controls preserve the 407F minimum target and visible-focus requirements.
+- Error/help text is independently referenced. Required conditional fields set
+  `aria-invalid` and receive focus on failed Continue.
+- Work-authorization rerenders restore focus once and retain the relevant
+  `aria-describedby` relationship.
+- The dark search field uses the canonical 407F `9px 11px` inset. Gold content
+  continues to use Founder-approved `#191C21`; micro-labels continue to use
+  `#565D66`.
+- The selected-school status stacks at narrow widths, result lists are
+  viewport-bounded, and reduced-opacity states do not carry required meaning.
+- Fresh-browser interaction checks completed with zero console warnings/errors.
+
+Specialist verdict: Vitruvius PASS with no remaining local M6 accessibility
+blocker.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M6-core-info-medical-school-registry-corrected.png`
+- `evidence/screenshots/D1-405-M6-medical-school-alias-search-corrected.png`
+- `evidence/screenshots/D1-405-M6-unlisted-school-normalization-queue-corrected.png`

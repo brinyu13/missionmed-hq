@@ -143,3 +143,25 @@ Evidence:
 - `evidence/screenshots/D1-405-founder-steer-media-drawer-builder-corrected.jpg`
 
 Visual verdict after correction: PASS.
+
+## M6 Core Info visual review
+
+Miyamoto’s first M6 review found three presentation defects: a browser-default
+search field, compressed selected-school hierarchy, and crowded filters. The
+corrected registry now uses:
+
+- a full-width dark 407F search surface with the canonical `9px 11px` inset;
+- one-column filter stacking inside the narrow editing column;
+- a selected-school status line beneath the school identity;
+- restrained cyan/gold/green emphasis, inset depth, and tactile list states;
+- a bounded result layer that does not reduce the proportional live preview;
+- the unchanged one-column Builder editor and larger interactive preview on the
+  right.
+
+The final visual re-audit returned PASS.
+
+Evidence:
+
+- `evidence/screenshots/D1-405-M6-core-info-medical-school-registry-corrected.png`
+- `evidence/screenshots/D1-405-M6-medical-school-alias-search-corrected.png`
+- `evidence/screenshots/D1-405-M6-unlisted-school-normalization-queue-corrected.png`

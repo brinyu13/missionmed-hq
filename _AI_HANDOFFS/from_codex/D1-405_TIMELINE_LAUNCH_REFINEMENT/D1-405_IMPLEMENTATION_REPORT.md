@@ -163,3 +163,39 @@ No product hierarchy, workflow, behavior, or meaning changed through this adjust
 - Miyamoto’s first review passed the stepper and found global-header inheritance on Media. The Media page/drawer headers were explicitly localized and the desktop drawer was aligned to the full 190px rail edge.
 - Final complete gate: 472/472 tests, typecheck, 23/23 package verification, and deterministic production build passed.
 - Build output: 188 runtime files; manifest SHA-256 `331d2984a7130090058767a30055e109369547e601ae0aaad9a42d62756d32e3`.
+
+## M6 — Core Info normalization and medical-school registry
+
+- Preserved the exact 407F Step 1 hierarchy and extended its existing Core
+  Info state, Builder projection, shared document, persistence adapter, and
+  Education milestone.
+- Added one lazy local medical-school provider over a bundled DAPIP-derived
+  U.S. MD/DO snapshot. The active application makes no registry network
+  requests.
+- Added canonical school IDs, source and accreditation provenance, normalized
+  aliases, country and MD/DO facets, an inverted token index, and deterministic
+  search ranking.
+- Added an explicit local normalization queue for unlisted, international,
+  ambiguous, source-review, and superseded-crosswalk records. Review-needed
+  records are excluded from verified analytics.
+- Preserved stale source provenance while resolving the duplicate Medical
+  College of Georgia crosswalk to one selectable and analytics-eligible
+  canonical record.
+- Added the current work-authorization choices and only the approved EAD and
+  residency-visa conditionals. No legacy value is silently treated as an
+  unrestricted status.
+- Corrected the registry search inset and transient focused-select rerender
+  guard without changing the Builder layout or workflow.
+- Fresh-browser checks passed search, keyboard selection, active descendant,
+  live announcements, conditional focus, required errors, normalization
+  queuing, and zero console warnings/errors.
+- Specialist re-audits: Miyamoto PASS, Vitruvius PASS, Darwin PASS.
+- Full gate: 479/479 tests, typecheck, 23/23 package verification, deterministic
+  build, and `git diff --check` passed.
+- Build output: 191 runtime files; manifest SHA-256
+  `3101fed536242fdc0213c36d97722db2d4ee836b7876b16985897a908bf99f21`.
+- Implementation checkpoint:
+  `3f7923f feat(timeline): normalize core medical education data`.
+- Production-only external gate: confirm DAPIP redistribution authority before
+  any production distribution. This does not block the local/no-deploy
+  milestone.

@@ -130,3 +130,32 @@ Two retained static source tests initially expected the previous inline month in
 The first architecture review found a destructive mismatch: Media metadata deletion was undoable while its blob was immediately deleted. The UI deletion path was removed, upload became an atomic document/blob transaction, and explicit rollback/undo-byte-retention regressions now pass.
 
 Darwin’s final architecture re-audit and Vitruvius’s final accessibility re-audit both returned PASS with no remaining blocker.
+
+## M6 — Core Info and medical-school registry
+
+| Check | Result |
+|---|---|
+| Functional TypeScript suite | 119/119 passed |
+| Browser/module suite | 360/360 passed |
+| Total | 479/479 passed |
+| M6 dedicated registry suite | 7/7 passed |
+| Related registry/data integration set | 19/19 passed |
+| Canonical ID excludes accreditation sequence | Passed |
+| Exact active program vs agency-only separation | Passed |
+| Alias/location/country/MD-DO search | Passed |
+| Inverted token index | Passed |
+| Superseded crosswalk excluded from selection/analytics | Passed |
+| Unlisted local normalization queue persistence | Passed |
+| Work-authorization conditional validation | Passed |
+| Combobox/listbox/focus/live-region source contract | Passed |
+| Fresh-browser console after interaction | 0 warnings/errors |
+| Typecheck | Passed |
+| Package verification | 23/23 passed |
+| Deterministic build | Passed; 191 runtime files |
+| Build manifest SHA-256 | `3101fed536242fdc0213c36d97722db2d4ee836b7876b16985897a908bf99f21` |
+| `git diff --check` | Passed |
+
+The ingestion evidence validates the raw snapshot, dataset, records payload,
+aggregate accreditation response, manifest, and script hashes. No completeness
+claim is made. The only remaining data issue is an external production
+redistribution authority gate; it is not a local test failure.
