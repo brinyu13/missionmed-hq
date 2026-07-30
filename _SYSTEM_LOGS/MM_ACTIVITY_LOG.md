@@ -3420,3 +3420,28 @@ Dr. Brian rejected v9 redesign ("a hot mess"). Immediate rollback to v8 requeste
 **Risk level:** Read-only investigation; local documentation and activity-log append only.
 
 **Status:** COMPLETE
+
+---
+
+### 2026-07-30 — B1-507 StoryForge Phase 1 Dormant Preflight
+
+**Prompt ID:** B1-507
+
+**Task:** Complete all locally resolvable Phase 1 work and all read-only production preflight while deferring RP-8 and keeping provider traffic, voice, and reconciliation disabled.
+
+**Implementation commits:**
+
+- `18db92b7fd2e62e54f3640573bb49292b05c0654` — authority/evidence recovery
+- `e94a305c82c35d492ceb68f13667200b83e6d2dd` — gateway, replay, and provider-evidence fixes
+- `09878514fff39b2d1f2ba3ee40c4c3de55ffc473` — deterministic release `v-4f40609482162cbd`
+
+**Result:**
+
+- 192 unit, 12 PostgreSQL parity/authorization, 46 browser, and 72 conformance/accessibility tests passed.
+- Deterministic release provenance, secret scan, and dependency audit passed.
+- Railway, PostgreSQL, Kinsta, WordPress, Cloudflare/R2, OpenAI, GitHub, and live StoryForge were inspected read-only.
+- WordPress multipart/DELETE and replay gaps were closed locally.
+- No provider call, student audio, production migration, deployment, bucket/key creation, feature activation, or production write occurred.
+- Dormant deployment is blocked on the stale owner-controlled Critical Systems manifest, missing canonical Matrix guard receipt, and the fresh backup/restore sequence that must follow them.
+
+**Status:** BLOCKED ON NON-RP8 EXTERNAL GATES
