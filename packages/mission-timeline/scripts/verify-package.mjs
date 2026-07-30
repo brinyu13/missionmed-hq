@@ -150,6 +150,7 @@ check(
   trackedChanges.every((path) =>
     path.startsWith("packages/mission-timeline/")
       || path.startsWith("_AI_HANDOFFS/from_codex/D1-404_TIMELINE_407F_UPGRADE/")
+      || path.startsWith("_AI_HANDOFFS/from_codex/D1-405_TIMELINE_LAUNCH_REFINEMENT/")
   ),
   trackedChanges.join(", ") || "none",
 );

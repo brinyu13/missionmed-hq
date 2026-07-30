@@ -230,6 +230,65 @@
   width:100%;
 }
 
+.homeFileVaultButton{
+  min-height:48px;
+  width:100%;
+}
+
+.homeSourceDivider{
+  align-items:center;
+  color:var(--dim);
+  display:grid;
+  font-family:var(--num);
+  font-size:10px;
+  font-weight:700;
+  gap:10px;
+  grid-template-columns:1fr auto 1fr;
+  letter-spacing:.18em;
+  margin:13px 0 10px;
+}
+
+.homeSourceDivider::before,
+.homeSourceDivider::after{
+  background:var(--edge);
+  content:"";
+  height:1px;
+}
+
+.homeLocalUpload{
+  align-items:center;
+  background:rgba(8,17,31,.42);
+  border:1px solid var(--edge2);
+  border-radius:8px;
+  color:var(--mid);
+  display:flex;
+  gap:12px;
+  min-height:66px;
+  padding:12px 14px;
+  text-align:left;
+  width:100%;
+}
+
+.homeLocalUpload:hover{
+  border-color:var(--cy);
+  color:var(--tx);
+}
+
+.homeLocalUpload strong,
+.homeLocalUpload small{
+  display:block;
+}
+
+.homeLocalUpload strong{
+  font-size:13px;
+}
+
+.homeLocalUpload small{
+  color:var(--dim);
+  font-size:12px;
+  margin-top:3px;
+}
+
 .homeDropzone:hover{
   border-color:var(--cy);
   box-shadow:0 0 24px rgba(57,214,255,.12);
@@ -305,8 +364,52 @@
 }
 
 .homePreviewShell.isEmpty #boardCommand{
-  opacity:.4;
   pointer-events:none;
+}
+
+.homePreviewPlaceholder{
+  background:
+    linear-gradient(rgba(57,214,255,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(57,214,255,.035) 1px,transparent 1px),
+    radial-gradient(ellipse at 50% 30%,#17243c 0%,#101a2d 58%,#0a1120 100%);
+  background-size:32px 32px,32px 32px,100% 100%;
+  border:1px solid var(--edge2);
+  border-radius:14px;
+  min-height:248px;
+  overflow:hidden;
+  position:relative;
+}
+
+.homePreviewPlaceholder span{
+  background:linear-gradient(180deg,#29436f,#17294a);
+  height:18px;
+  left:7%;
+  opacity:.58;
+  position:absolute;
+  right:7%;
+  top:45%;
+}
+
+.homePreviewPlaceholder i{
+  background:rgba(169,183,208,.16);
+  border-radius:999px;
+  height:8px;
+  left:18%;
+  position:absolute;
+  top:35%;
+  width:20%;
+}
+
+.homePreviewPlaceholder i:nth-child(3){
+  left:42%;
+  top:57%;
+  width:25%;
+}
+
+.homePreviewPlaceholder i:nth-child(4){
+  left:71%;
+  top:38%;
+  width:12%;
 }
 
 .homeCanvasLink{
@@ -353,6 +456,163 @@
   transform:translate(-50%,-50%);
 }
 
+.fileVaultSourceDialog{
+  display:grid;
+  gap:18px;
+  max-height:min(720px,calc(100vh - 64px));
+  min-width:min(640px,calc(100vw - 48px));
+  overflow:auto;
+}
+
+#modal:has(.fileVaultSourceDialog){
+  width:min(720px,92vw);
+}
+
+.fileVaultSourceDialog>header,
+.fileVaultSourceDialog>footer{
+  align-items:center;
+  display:flex;
+  gap:18px;
+  justify-content:space-between;
+}
+
+.fileVaultSourceDialog>header{
+  backdrop-filter:none;
+  background:none;
+  border:0;
+  height:auto;
+  padding:0;
+  position:static;
+}
+
+.fileVaultSourceDialog h2{
+  font-size:26px;
+  font-style:italic;
+  margin-top:5px;
+}
+
+.fileVaultSourceIntro{
+  color:var(--mid);
+  line-height:1.55;
+  max-width:64ch;
+}
+
+.fileVaultSourceSearch{
+  display:grid;
+  gap:7px;
+}
+
+.fileVaultSourceSearch span,
+.fileVaultSourceRecent h3{
+  color:var(--mid);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+}
+
+.fileVaultSourceSearch input{
+  background:#0b101a;
+  border:1px solid var(--edge2);
+  border-radius:7px;
+  color:var(--tx);
+  font-family:var(--disp);
+  font-size:14px;
+  min-height:44px;
+  padding:10px 12px;
+  width:100%;
+}
+
+.fileVaultSourceSearch input::placeholder{
+  color:var(--dim);
+}
+
+.fileVaultSourceSearch input:focus{
+  border-color:var(--cy);
+  box-shadow:0 0 0 2px rgba(57,214,255,.22);
+  outline:2px solid transparent;
+}
+
+.fileVaultSourceRecent{
+  display:grid;
+  gap:10px;
+}
+
+.fileVaultSourceRows{
+  border:0;
+  display:grid;
+  gap:8px;
+}
+
+.fileVaultSourceRow{
+  align-items:center;
+  background:rgba(8,17,31,.62);
+  border:1px solid var(--edge);
+  border-radius:8px;
+  cursor:pointer;
+  display:grid;
+  gap:12px;
+  grid-template-columns:auto auto minmax(0,1fr);
+  min-height:60px;
+  padding:10px 12px;
+}
+
+.fileVaultSourceRow:focus-within{
+  border-color:var(--cy);
+  box-shadow:0 0 0 2px rgba(57,214,255,.22);
+}
+
+.fileVaultSourceRow strong,
+.fileVaultSourceRow small{
+  display:block;
+}
+
+.fileVaultSourceRow small{
+  color:var(--dim);
+  font-size:12px;
+  margin-top:3px;
+}
+
+.fileVaultSourceIcon{
+  color:var(--cy);
+  font-size:22px;
+}
+
+.fileVaultSourceEmpty{
+  align-items:center;
+  background:rgba(8,17,31,.48);
+  border:1px dashed var(--edge2);
+  border-radius:10px;
+  color:var(--mid);
+  display:grid;
+  gap:7px;
+  justify-items:center;
+  min-height:170px;
+  padding:24px;
+  text-align:center;
+}
+
+.fileVaultSourceEmpty>span{
+  color:var(--cy);
+  font-size:30px;
+}
+
+.fileVaultSourceEmpty strong{
+  color:var(--tx);
+}
+
+.fileVaultSourceDialog>footer{
+  border-top:1px solid var(--edge);
+  color:var(--dim);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.1em;
+  padding-top:14px;
+  text-transform:uppercase;
+}
+
 .homeEmptyOverlay h3{
   font-size:18px;
   margin-bottom:8px;
@@ -363,6 +623,21 @@
   font-size:14px;
   line-height:1.5;
   margin-bottom:6px;
+}
+
+/*
+ * Keep the canonical 407F atmospheric field deterministic even while the
+ * decorative ember canvas resizes or is captured between animation frames.
+ */
+main{
+  background:
+    linear-gradient(rgba(232,238,251,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(232,238,251,.02) 1px,transparent 1px),
+    radial-gradient(ellipse at 18% 12%,rgba(57,214,255,.16),transparent 34%),
+    radial-gradient(ellipse at 88% 18%,rgba(255,122,61,.14),transparent 34%),
+    radial-gradient(ellipse at 56% 92%,rgba(138,125,255,.12),transparent 38%),
+    linear-gradient(135deg,#05070d 0%,#09111f 42%,#070910 100%);
+  background-size:36px 36px,36px 36px,100% 100%,100% 100%,100% 100%,100% 100%;
 }
 
 .d1404Builder{

@@ -654,7 +654,7 @@ test("M8 tablet and phone Canvas contracts are view-only with the exact banner a
   assert.throws(() => selectCanvasEvent(state,"work"),{code:"D1_UXR_002_CANVAS_VIEW_ONLY"});
 });
 
-test("M8 preserves the named N<4 and short-arrow founder branches without inventing visible behavior",() => {
+test("D1-405 renders N<4 canvases while preserving the named short-arrow isolation branch",() => {
   const fewerThanFour = defaultDocument();
   fewerThanFour.events = [{
     id:"two-year",
@@ -665,14 +665,13 @@ test("M8 preserves the named N<4 and short-arrow founder branches without invent
     endDate:"2026-12",
     visibilityState:VISIBILITY.INTERVIEWER_SAFE
   }];
-  assert.throws(
-    () => renderCanvas({
-      document:fewerThanFour,
-      state:createCanvasState(),
-      currentMonth:"2026-07"
-    }),
-    (error) => error.code === CANVAS_FOUNDER_BRANCHES.N_LT_4 && error.isolated === true
-  );
+  const rendered = renderCanvas({
+    document:fewerThanFour,
+    state:createCanvasState(),
+    currentMonth:"2026-07"
+  });
+  assert.match(rendered,/data-renderer="D1-UXR-002-Keynote-Classic"/);
+  assert.doesNotMatch(rendered,/data-render-isolated/);
 
   const shortArrow = defaultDocument();
   shortArrow.events = [

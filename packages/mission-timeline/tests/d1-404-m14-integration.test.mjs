@@ -220,6 +220,7 @@ test("M14 production build packages only the active local 407F runtime and emits
   assert.match(buildScript,/D1-404_TIMELINE_407F/);
   assert.match(buildScript,/407f-engineering-adapter\.js/);
   assert.match(buildScript,/superseded shell entry/);
+  assert.match(buildScript,/TimelineBuilder_v5\.5_PreLaunch\.html/);
   assert.match(buildScript,/productionWrites:false/);
   assert.match(buildScript,/matrixWrites:false/);
   assert.match(buildScript,/manifest\.json/);

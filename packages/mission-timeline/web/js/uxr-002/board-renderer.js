@@ -222,6 +222,69 @@ function yearSegmentsWithDensity(span, events) {
   });
 }
 
+/*
+ * D1-405 launch-candidate compatibility resolution.
+ *
+ * The frozen 28% normal-year maximum is mathematically incompatible with the
+ * exact-sum invariant when fewer than four normal years are visible. Keep the
+ * shared adaptive allocator strict so its original contract remains testable,
+ * but let the presentation layer resolve this implementation-only conflict for
+ * ordinary one-, two-, and three-year student timelines. Equal year widths
+ * preserve a stable time scale, consume the exact board width, and relax only
+ * the impossible maximum.
+ */
+function allocateSmallSpanSegments(segments, { innerWidth }) {
+  const cloned = segments.map((segment) => ({ ...segment }));
+  const yearIndexes = [];
+  let fixedWidth = 0;
+
+  cloned.forEach((segment, index) => {
+    if (segment.kind === "condensed") {
+      segment.width = 64;
+      fixedWidth += segment.width;
+      return;
+    }
+    if (segment.kind === "year") {
+      yearIndexes.push(index);
+      return;
+    }
+    throw new TypeError(`Unsupported timeline segment kind: ${String(segment.kind)}`);
+  });
+
+  if (yearIndexes.length < 1 || yearIndexes.length > 3) {
+    throw new RangeError(
+      "D1-405 small-span allocation requires one to three normal year segments."
+    );
+  }
+
+  const budget = innerWidth - fixedWidth;
+  if (budget <= 0) {
+    throw new RangeError("D1-405 small-span allocation has no normal-year width.");
+  }
+
+  const baseWidth = Math.floor(budget / yearIndexes.length);
+  let remainder = budget - baseWidth * yearIndexes.length;
+  const frozenMaximum = innerWidth * 0.28;
+
+  yearIndexes.forEach((segmentIndex) => {
+    const width = baseWidth + (remainder > 0 ? 1 : 0);
+    if (remainder > 0) remainder -= 1;
+    Object.assign(cloned[segmentIndex], {
+      width,
+      allocationPolicy: "small-span-exact-sum",
+      maximumRelaxed: width > frozenMaximum,
+      frozenMaximum
+    });
+  });
+
+  if (cloned.reduce((sum, segment) => sum + segment.width, 0) !== innerWidth) {
+    throw new RangeError(
+      "D1-405 small-span allocation did not preserve the exact-sum invariant."
+    );
+  }
+  return cloned;
+}
+
 function allocateSegments(span, events) {
   const weighted = yearSegmentsWithDensity(span, events);
   try {
@@ -230,16 +293,9 @@ function allocateSegments(span, events) {
     });
   } catch (cause) {
     if (cause?.code === "D1_UXR_002_UNRESOLVED_N_LT_4_YEAR_WIDTH_CONTRADICTION") {
-      throw isolationError(
-        "D1_UXR_002_M4_ISOLATED_N_LT_4_YEAR_WIDTH_CONTRADICTION",
-        "M4 board rendering is isolated: the frozen 28% maximum and exact-sum guarantee cannot both be rendered for fewer than four normal year segments.",
-        {
-          causeCode: cause.code,
-          normalYearSegmentCount: cause.yearSegmentCount,
-          innerWidth: KEYNOTE_BOARD_GEOMETRY.innerWidth,
-          frozenMaximum: KEYNOTE_BOARD_GEOMETRY.innerWidth * 0.28
-        }
-      );
+      return allocateSmallSpanSegments(weighted, {
+        innerWidth: KEYNOTE_BOARD_GEOMETRY.innerWidth
+      });
     }
     throw cause;
   }

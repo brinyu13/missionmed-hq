@@ -410,29 +410,28 @@ test("M4 scene/SVG rendering is pure and byte-deterministic for the same documen
   assert.equal(second.svg, first.svg);
 });
 
-test("M4 explicitly isolates the founder-visible N<4 adaptive allocation contradiction without inventing widths", () => {
-  assert.throws(
-    () => buildKeynoteClassicScene({
-      studentProfile: { fullName: "Short span" },
-      events: [
-        event({
-          id: "short-span",
-          startDate: "2024-01",
-          endDate: "2024-12"
-        })
-      ]
-    }, { currentMonth: "2026-07" }),
-    (error) => {
-      assert.equal(error.name, "BoardRenderIsolationError");
-      assert.equal(
-        error.code,
-        "D1_UXR_002_M4_ISOLATED_N_LT_4_YEAR_WIDTH_CONTRADICTION"
-      );
-      assert.equal(error.isolated, true);
-      assert.equal(error.details.normalYearSegmentCount, 3);
-      return true;
-    }
+test("D1-405 renders N<4 spans with an exact-sum equal-year fallback", () => {
+  const scene = buildKeynoteClassicScene({
+    studentProfile: { fullName: "Short span" },
+    events: [
+      event({
+        id: "short-span",
+        startDate: "2024-01",
+        endDate: "2024-12"
+      })
+    ]
+  }, { currentMonth: "2026-07" });
+  assert.equal(scene.axis.segments.length, 3);
+  assert.deepEqual(scene.axis.segments.map(({ width }) => width), [576, 576, 576]);
+  assert.equal(
+    scene.axis.segments.reduce((sum, segment) => sum + segment.width, 0),
+    KEYNOTE_BOARD_GEOMETRY.innerWidth
   );
+  for (const segment of scene.axis.segments) {
+    assert.equal(segment.allocationPolicy, "small-span-exact-sum");
+    assert.equal(segment.maximumRelaxed, true);
+    assert.equal(segment.frozenMaximum, KEYNOTE_BOARD_GEOMETRY.innerWidth * 0.28);
+  }
 });
 
 test("M4 explicitly isolates a computed duration width smaller than the frozen 18px head without widening or changing dates", () => {

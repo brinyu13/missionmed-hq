@@ -47,10 +47,11 @@ test("integrated picker exposes Backgrounds only in Advanced and serializes genu
   assert.equal((html.match(/data-select-theme=/g)||[]).length,5);
 });
 
-test("the isolated N<4 founder branch remains named and does not fabricate theme miniatures",()=>{
+test("D1-405 renders all theme miniatures for an N<4 student timeline",()=>{
   const document=defaultDocument();
   document.events=[{id:"one",title:"One",categoryId:"personal",eventType:"milestone",startDate:"2026-01",visibilityState:"INTERVIEWER_SAFE"}];
   const html=renderThemePicker(document,{currentMonth:"2026-07"});
-  assert.match(html,/data-render-isolated="D1_UXR_002_M4_ISOLATED_N_LT_4_YEAR_WIDTH_CONTRADICTION"/);
-  assert.doesNotMatch(html,/data-select-theme=/);
+  assert.doesNotMatch(html,/data-render-isolated/);
+  assert.equal((html.match(/data-select-theme=/g)||[]).length,5);
+  assert.equal((html.match(/data-renderer="D1-UXR-002-Keynote-Classic"/g)||[]).length,5);
 });

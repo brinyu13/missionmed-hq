@@ -61,3 +61,40 @@
   - Prevented phone journey-strip clipping.
   - Added mobile italic-glyph safe spacing.
 - Next action: M2 Home faster-start and File Vault entry.
+
+## 2026-07-30T20:23:58Z — M2 Home and File Vault entry
+
+- Estimated overall completion: 20%
+- Work completed:
+  - Preserved the three-region Home composition while making File Vault the primary faster-start action.
+  - Reframed document intake in direct student language and kept local PDF/DOCX upload visually secondary.
+  - Added an in-app, searchable, recent-first, single-document File Vault chooser using a real fail-closed adapter contract.
+  - Rendered a truthful local unavailable state with no fabricated documents or live-integration claim.
+  - Renamed the lower region to `Latest timeline preview`.
+  - Replaced the false student-like demo timeline on empty Home with a polished non-data placeholder.
+  - Verified populated Home with a real locally created one-event timeline.
+  - Resolved the inherited one-to-three-year allocation conflict at the presentation boundary: equal year widths preserve the exact 1728px board width while relaxing only the mathematically impossible 28% maximum.
+  - Excluded the preserved user-owned `TimelineBuilder_v5.5_PreLaunch.html` copy from deterministic build packaging without modifying or deleting it.
+- Preservation check:
+  - Existing Builder, timeline store, canonical renderer, Canvas/Edit Timeline, intake review, undo/history, export, and persistence behavior remain in place.
+  - The strict shared adaptive allocator and every four-plus-year allocation rule remain unchanged.
+- Screenshots:
+  - `evidence/screenshots/D1-405-M2-home-empty.png`
+  - `evidence/screenshots/D1-405-M2-file-vault-chooser.png`
+  - `evidence/screenshots/D1-405-M2-home-populated.png`
+- Preview URL: `http://localhost:8793/web/`
+- Tests:
+  - Complete functional TypeScript suite: 119/119 passed.
+  - Complete browser/module suite: 324/324 passed.
+  - Total: 443/443 passed.
+  - Typecheck: passed.
+  - Package verification: 23/23 passed.
+  - Production build: passed.
+- Browser console: 0 fresh warnings or errors after empty, chooser, focus-restoration, local event creation, and populated-state interactions.
+- Visual verdict: PASS after Miyamoto-requested corrections and recapture.
+- Founder feedback received:
+  - Requested a complete shareable source artifact during the milestone.
+- Correction performed:
+  - Restored a deterministic dark 407F atmospheric/grid field behind the main workspace.
+  - Replaced the browser-default white File Vault search field with the existing dark 407F field language.
+- Next action: M3 horizontal Builder workflow and launch-quality Builder composition.

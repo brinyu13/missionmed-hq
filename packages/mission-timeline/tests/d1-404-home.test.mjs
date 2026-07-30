@@ -19,19 +19,20 @@ test("M2 Home contains exactly the three frozen regions",()=>{
   assert.match(upgradeCss,/\.homeTimelineRegion\{[\s\S]*?grid-column:1\/-1/);
 });
 
-test("M2 Home renders the verbatim five-second contract copy",()=>{
+test("D1-405 Home preserves the five-second contract while making File Vault primary",()=>{
   const required=[
     "Turn your medical journey into an interview-ready timeline.",
     "Answer guided questions about your school, exams, rotations, work, and research. Timeline Builder draws the Keynote-style timeline for you — no design work.",
-    "Start from your CV or MyERAS",
-    "Upload your CV or MyERAS export. We'll read it, suggest timeline events, and you approve each one before it appears.",
-    "Drop a PDF here, or browse",
-    "CV · MyERAS PDF · résumé",
-    "Nothing appears on your timeline until you approve it.",
-    "Your timeline",
-    "This is what you're building.",
-    "A one-page visual story an interviewer can read at a glance.",
-    "Use the guided builder →"
+    "Start faster from File Vault",
+    "Already have your CV or MyERAS file? Let Timeline Builder do the first pass.",
+    "CHOOSE FROM FILE VAULT ▸",
+    "Upload from this computer",
+    "PDF or DOCX · up to 20 MB",
+    "Nothing is added until you review and approve it.",
+    "Latest timeline preview",
+    "Your timeline will take shape here.",
+    "Your latest working timeline will appear as you add information.",
+    "START BUILDING ▸"
   ];
   for(const copy of required)assert.ok(home.includes(copy),`missing frozen Home copy: ${copy}`);
   assert.match(home,/>1 · ADD YOUR JOURNEY<\/span>/);
@@ -47,6 +48,7 @@ test("M2 Home supports empty, resume, intake-review, approval, and start-over st
   assert.match(index,/>Start a new timeline\?<\/div>/);
   assert.match(index,/Your current draft stays in History as a version\. You can restore it anytime\./);
   assert.match(index,/Before starting over · /);
-  assert.match(index,/homeHasEvents\?state\.user:state\.demo/);
-  assert.match(upgradeCss,/\.homePreviewShell\.isEmpty #boardCommand\{[\s\S]*?opacity:\.4/);
+  assert.doesNotMatch(index,/homeHasEvents\?state\.user:state\.demo/);
+  assert.match(index,/homePreviewPlaceholder/);
+  assert.match(upgradeCss,/\.homePreviewPlaceholder\{/);
 });

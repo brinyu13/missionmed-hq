@@ -524,20 +524,25 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
     <section class="panelD homeRegion homeIntakeRegion" aria-labelledby="homeIntakeTitle">
       <div class="pi">
-        <h2 id="homeIntakeTitle">Start from your CV or MyERAS</h2>
-        <p class="homeBody">Upload your CV or MyERAS export. We'll read it, suggest timeline events, and you approve each one before it appears.</p>
-        <button class="homeDropzone" id="homeIntake" data-nav="intake">
-          <span class="homeUploadIcon" aria-hidden="true">⇧</span>
-          <span><strong>Drop a PDF here, or browse</strong><small>CV · MyERAS PDF · résumé</small></span>
+        <p class="homeMicro">The faster way to begin</p>
+        <h2 id="homeIntakeTitle">Start faster from File Vault</h2>
+        <p class="homeBody">Already have your CV or MyERAS file? Let Timeline Builder do the first pass. We’ll suggest likely schools, exams, rotations, work, and research for you to review.</p>
+        <button class="btnD go homeFileVaultButton" id="homeFileVault" type="button">
+          CHOOSE FROM FILE VAULT ▸
         </button>
-        <p class="homeAssurance">Nothing appears on your timeline until you approve it.</p>
+        <div class="homeSourceDivider" aria-hidden="true"><span>OR</span></div>
+        <button class="homeLocalUpload" id="homeIntake" data-nav="intake">
+          <span class="homeUploadIcon" aria-hidden="true">⇧</span>
+          <span><strong>Upload from this computer</strong><small>PDF or DOCX · up to 20 MB</small></span>
+        </button>
+        <p class="homeAssurance">Nothing is added until you review and approve it.</p>
       </div>
     </section>
 
     <section class="panelD homeRegion homeTimelineRegion" aria-labelledby="homeTimelineTitle">
       <div class="pi">
         <div class="homeTimelineTitleRow">
-          <h2 id="homeTimelineTitle">Your timeline</h2>
+          <h2 id="homeTimelineTitle">Latest timeline preview</h2>
           <div class="homeTimelineMeta">
             <span class="homeApproved" id="homeApproved" hidden></span>
             <button class="homePending" id="homePending" data-nav="intake" hidden></button>
@@ -548,9 +553,9 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
           <div id="boardCommand"></div>
           <button class="homeCanvasLink" id="homeCanvasLink" data-nav="canvas" aria-label="Edit timeline"><span>EDIT TIMELINE</span></button>
           <div class="homeEmptyOverlay" id="homeEmptyOverlay">
-            <h3>This is what you're building.</h3>
-            <p>A one-page visual story an interviewer can read at a glance.</p>
-            <button class="homeTertiary" data-nav="builder">Use the guided builder →</button>
+            <h3>Your timeline will take shape here.</h3>
+            <p>Your latest working timeline will appear as you add information.</p>
+            <button class="btnD go sm" data-nav="builder">START BUILDING ▸</button>
           </div>
         </div>
       </div>
@@ -1125,7 +1130,12 @@ function loadDemoIntoUser(){
 /* ============ RENDER ORCHESTRATION ============ */
 function renderBoards(){
   const homeHasEvents=state.user.events.length>0;
-  renderBoard('boardCommand',{data:homeHasEvents?state.user:state.demo,scope:'safe',tag:homeHasEvents?'YOUR TIMELINE · INTERVIEW-SAFE':'EXAMPLE · PREVIEW ONLY'});
+  if(homeHasEvents){
+    renderBoard('boardCommand',{data:state.user,scope:'safe',tag:'LATEST WORKING VERSION · INTERVIEW-SAFE'});
+  }else{
+    const homeBoard=$('#boardCommand');
+    if(homeBoard)homeBoard.innerHTML='<div class="homePreviewPlaceholder" aria-hidden="true"><span></span><i></i><i></i><i></i></div>';
+  }
   renderBoard('boardWizard',{mode:'blank',editable:true,tag:'WIZARD PREVIEW · CLICK ANY ELEMENT'});
   if(state.view==='canvas'){
     if(state.mode==='reference')renderBoard('boardMain',{data:state.demo,tag:'REFERENCE SAMPLE · READ-ONLY'});

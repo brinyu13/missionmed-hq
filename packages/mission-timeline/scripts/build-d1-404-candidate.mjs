@@ -20,7 +20,8 @@ const applicationRoot=join(outputRoot,"web");
 const prohibitedRuntimePaths=[
   "tests",
   "node_modules",
-  ".DS_Store"
+  ".DS_Store",
+  "TimelineBuilder_v5.5_PreLaunch.html"
 ];
 
 function sha256(path){

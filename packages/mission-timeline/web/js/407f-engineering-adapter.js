@@ -89,6 +89,12 @@ import {
 } from "./uxr-002/intake.js";
 import {createD1408PdfIntakeAdapter} from "./uxr-002/intake-d1-408-adapter.js";
 import {
+  queryFileVaultSource,
+  renderFileVaultSourceChooser,
+  resolveFileVaultSourceAdapter,
+  selectFileVaultSourceDocument
+} from "./uxr-002/filevault-source.js";
+import {
   buildResponsiveModel,
   focusScreenHeading,
   installFocusTrap,
@@ -567,9 +573,11 @@ export async function boot407FEngineeringAdapter({
   let onAdvisorHashChange=()=>{};
   let onGlobalKeydown=()=>{};
   let onBuilderPreview=()=>{};
+  let onHomeFileVault=()=>{};
   let onRouteRendered=()=>{};
   let responsiveRuntime=null;
   let shortcutTrap=null;
+  let fileVaultTrap=null;
   let lastFocusedView=null;
   let lastState=stableState(bridge.state);
   const watchedEvents=["input","change","click","pointerup","blur"];
@@ -641,8 +649,10 @@ export async function boot407FEngineeringAdapter({
     window.removeEventListener("hashchange",onAdvisorHashChange);
     document.removeEventListener("keydown",onGlobalKeydown);
     document.getElementById("builderPreviewToggle")?.removeEventListener("click",onBuilderPreview);
+    document.getElementById("homeFileVault")?.removeEventListener("click",onHomeFileVault);
     responsiveRuntime?.destroy();
     shortcutTrap?.destroy();
+    fileVaultTrap?.destroy();
     store.saveNow("PAGE_EXIT").catch(()=>{});
   },{once:true});
 
@@ -1561,8 +1571,58 @@ export async function boot407FEngineeringAdapter({
   const closeOwnedModal=()=>{
     shortcutTrap?.destroy();
     shortcutTrap=null;
+    fileVaultTrap?.destroy();
+    fileVaultTrap=null;
     bridge.closeModal?.();
   };
+  const fileVaultSource=resolveFileVaultSourceAdapter(
+    window.MISSIONMED_FILEVAULT_SOURCE_ADAPTER
+  );
+  let fileVaultQuerySequence=0;
+  const openFileVaultSource=async(query="")=>{
+    const sequence=++fileVaultQuerySequence;
+    const model=await queryFileVaultSource(fileVaultSource,{query});
+    if(sequence!==fileVaultQuerySequence)return;
+    bridge.openModal?.(renderFileVaultSourceChooser(model));
+    const dialog=document.querySelector("[data-file-vault-source-dialog]");
+    const search=document.querySelector("[data-file-vault-source-search]");
+    const continueButton=document.querySelector("[data-file-vault-source-continue]");
+    document.querySelector("[data-file-vault-source-close]")?.addEventListener(
+      "click",
+      closeOwnedModal,
+      {once:true}
+    );
+    document.querySelectorAll('input[name="file-vault-source"]').forEach((radio)=>{
+      radio.addEventListener("change",()=>{
+        if(continueButton)continueButton.disabled=!radio.checked;
+      });
+    });
+    continueButton?.addEventListener("click",async()=>{
+      const selected=document.querySelector('input[name="file-vault-source"]:checked');
+      if(!selected)return;
+      try{
+        await selectFileVaultSourceDocument(fileVaultSource,selected.value);
+        closeOwnedModal();
+        bridge.go("intake");
+      }catch(error){
+        bridge.toast(String(error?.message||error));
+      }
+    });
+    let searchTimer=null;
+    search?.addEventListener("input",()=>{
+      clearTimeout(searchTimer);
+      searchTimer=setTimeout(()=>openFileVaultSource(search.value),180);
+    });
+    if(dialog){
+      fileVaultTrap?.destroy();
+      fileVaultTrap=installFocusTrap(dialog,{onEscape:closeOwnedModal});
+      queueMicrotask(()=>search?.focus());
+    }
+  };
+  onHomeFileVault=()=>openFileVaultSource().catch((error)=>{
+    bridge.toast(String(error?.message||error));
+  });
+  document.getElementById("homeFileVault")?.addEventListener("click",onHomeFileVault);
   const openShortcuts=()=>{
     bridge.openModal?.(`<section class="shortcut407FDialog" role="dialog" aria-modal="true" aria-labelledby="shortcut407FTitle" data-shortcut-dialog>
       <div class="shortcut407FHeader">
