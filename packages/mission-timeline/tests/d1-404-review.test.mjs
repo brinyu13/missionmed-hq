@@ -119,7 +119,7 @@ test("review snapshot computes only the three frozen neutral story-check types",
 
 test("Review links jump to owning Builder entries and actions route without gating",()=>{
   const handlers=sourceBetween(
-    "document.addEventListener('click',e=>{\n  const typeaheadChoice",
+    "document.addEventListener('click',e=>{\n  const schoolChoice",
     "document.addEventListener('mousedown'"
   );
   assert.match(handlers,/const reviewJump=e\.target\.closest\('\[data-review-step\]'\)/);

@@ -15,6 +15,7 @@ import {
   parseExactDate
 } from "./exact-date-field.js";
 import {installMonthFields,monthFieldMarkup} from "./month-field.js";
+import {createUnverifiedSchoolSubmission} from "./medical-school-registry.js";
 import {installReviewFinish,renderReviewFinish} from "./review.js";
 import {escapeHtml,formatMonth,monthIndex,parseMonth,uid} from "./utils.js";
 
@@ -40,6 +41,66 @@ export const EXAM_SYSTEMS=Object.freeze({
 export const PERSONAL_ICONS=Object.freeze([
   "heart","home","plane","baby","ring","star","flag","globe","shield","sun","book","sparkle"
 ]);
+
+export const WORK_AUTHORIZATION_OPTIONS=Object.freeze([
+  "U.S. Citizen",
+  "Permanent Resident / Green Card",
+  "Employment Authorization Document",
+  "F-1",
+  "J-1",
+  "H-1B",
+  "Other",
+  "Not sure"
+]);
+
+export function normalizeWorkAuthorization(profile={}){
+  const raw=String(
+    profile.currentUsWorkAuthorization||profile.visaStatus||""
+  ).trim();
+  if(WORK_AUTHORIZATION_OPTIONS.includes(raw)){
+    return Object.freeze({
+      currentUsWorkAuthorization:raw,
+      residencyVisaTypesOpenTo:
+        String(profile.residencyVisaTypesOpenTo||"").trim()
+    });
+  }
+  const lower=raw.toLocaleLowerCase();
+  let current="";
+  let openTo=String(profile.residencyVisaTypesOpenTo||"").trim();
+  if(["citizen","us citizen","u.s. citizen"].includes(lower)){
+    current="U.S. Citizen";
+  }else if(
+    lower.includes("green card")&&
+    !lower.includes("citizen")
+  ){
+    current="Permanent Resident / Green Card";
+  }else if(lower.includes("need j-1")){
+    current="Not sure";
+    openTo=openTo||"J-1";
+  }else if(lower.includes("need h-1b")){
+    current="Not sure";
+    openTo=openTo||"H-1B";
+  }else if(raw){
+    current="Not sure";
+  }
+  return Object.freeze({
+    currentUsWorkAuthorization:current,
+    residencyVisaTypesOpenTo:openTo
+  });
+}
+
+export function needsResidencyVisaQuestion(profile={}){
+  const status=normalizeWorkAuthorization(profile).currentUsWorkAuthorization;
+  if(!status)return false;
+  if([
+    "U.S. Citizen",
+    "Permanent Resident / Green Card"
+  ].includes(status))return false;
+  return!(
+    status==="Employment Authorization Document"&&
+    profile.eadStatus==="Active and unrestricted"
+  );
+}
 
 export const TYPEAHEAD_PROVIDER_KEYS=Object.freeze([
   "schools","countries","usTeachingInstitutions","institutions","specialties"
@@ -190,11 +251,18 @@ export function validateCoreInfo(profile={}){
   const errors={};
   if(!String(profile.fullName||"").trim())errors.fullName="Required.";
   if(!String(profile.medicalSchool||"").trim())errors.medicalSchool="Required.";
+  else if(!String(profile.canonicalSchoolId||"").trim()){
+    errors.medicalSchool="Choose a listed school or use “School not listed.”";
+  }
   if(!String(profile.medicalSchoolCountry||"").trim())errors.medicalSchoolCountry="Required.";
   if(!String(profile.graduationDate||"").trim())errors.graduationDate="Required.";
   else if(!parseMonth(profile.graduationDate))errors.graduationDate="Enter a month and year, like 'Jun 2023'.";
   if(!["MD","DO","MBBS","Other"].includes(profile.degree))errors.degree="Required.";
   else if(profile.degree==="Other"&&!String(profile.degreeOther||"").trim())errors.degreeOther="Required.";
+  if(
+    needsResidencyVisaQuestion(profile)&&
+    !String(profile.residencyVisaTypesOpenTo||"").trim()
+  )errors.residencyVisaTypesOpenTo="Required.";
   return errors;
 }
 
@@ -263,7 +331,21 @@ export function validateBuilderEntry(domain,entry={}){
 
 function stepHasStarted(document,step){
   const builder=builderView(document);
-  if(step===1)return Object.values(document?.studentProfile||{}).some(hasValue);
+  if(step===1){
+    const profile=document?.studentProfile||{};
+    return[
+      "fullName",
+      "medicalSchool",
+      "canonicalSchoolId",
+      "medicalSchoolCountry",
+      "graduationDate",
+      "degree",
+      "degreeOther",
+      "currentUsWorkAuthorization",
+      "visaStatus",
+      "residencyVisaTypesOpenTo"
+    ].some((key)=>hasValue(profile[key]));
+  }
   if(step===2)return builder.examSystems.length>0||(document?.exams||[]).length>0;
   const domain={3:"clinical",4:"work",5:"research",6:"personal"}[step];
   if(!domain)return false;
@@ -600,9 +682,35 @@ export function deleteBuilderEntry(document,eventId){
   return document.events.length!==before;
 }
 
+function syncMedicalSchoolNormalizationQueue(document){
+  document.medicalSchoolNormalizationQueue=Array.isArray(
+    document.medicalSchoolNormalizationQueue
+  )?document.medicalSchoolNormalizationQueue:[];
+  const record=document.studentProfile?.medicalSchoolRecord;
+  if(!record?.canonical_school_id)return;
+  const normalizationStatus=record.normalization_status||
+    (record.analytics_eligible===true?"normalized":"review-needed");
+  const index=document.medicalSchoolNormalizationQueue.findIndex(
+    (item)=>item?.canonical_school_id===record.canonical_school_id
+  );
+  if(normalizationStatus==="normalized"){
+    if(index>=0)document.medicalSchoolNormalizationQueue.splice(index,1);
+    return;
+  }
+  const queued={
+      ...record,
+      normalization_status:normalizationStatus,
+    queue_status:"pending-local-review",
+    analytics_eligible:false
+  };
+  if(index>=0)document.medicalSchoolNormalizationQueue[index]=queued;
+  else document.medicalSchoolNormalizationQueue.push(queued);
+}
+
 export function syncEducationMilestone(document,{idFactory=uid}={}){
   document.events=Array.isArray(document.events)?document.events:[];
   const profile=document.studentProfile||{};
+  syncMedicalSchoolNormalizationQueue(document);
   const index=document.events.findIndex((event)=>event?.fields?.builderDomain==="core"&&event?.fields?.educationMilestone);
   if(!String(profile.medicalSchool||"").trim()||!parseMonth(profile.graduationDate)){
     if(index>=0)document.events.splice(index,1);
@@ -623,6 +731,11 @@ export function syncEducationMilestone(document,{idFactory=uid}={}){
     fields:{
       educationMilestone:true,
       medicalSchool:profile.medicalSchool,
+      canonicalSchoolId:profile.canonicalSchoolId||"",
+      medicalSchoolVerificationStatus:
+        profile.medicalSchoolVerificationStatus||"",
+      medicalSchoolAnalyticsEligible:
+        profile.medicalSchoolAnalyticsEligible===true,
       medicalSchoolCountry:profile.medicalSchoolCountry||"",
       degree:profile.degree||"",
       degreeOther:profile.degreeOther||"",
@@ -707,16 +820,62 @@ function renderStepper(document){
 function renderCore(document){
   const profile=document.studentProfile||{};
   const expected=!!profile.expectedGraduation;
+  const unlisted=profile.medicalSchoolEntryMode==="unlisted";
+  const schoolRecord=profile.medicalSchoolRecord;
+  const authorization=normalizeWorkAuthorization(
+    profile
+  ).currentUsWorkAuthorization;
+  const schoolSelector=unlisted
+    ?`<section class="school-unlisted-panel" aria-labelledby="school-unlisted-title">
+      <div class="school-selector-heading">
+        <div>
+          <h2 id="school-unlisted-title">School not listed</h2>
+          <p class="field-help">This entry is unverified and will be queued for administrative normalization.</p>
+        </div>
+        <button type="button" class="button tertiary" data-use-school-registry>Use school registry</button>
+      </div>
+      ${textField({id:"medicalSchool",label:"School name",value:profile.medicalSchool,required:true,attributes:'data-profile-field="medicalSchool"'})}
+      ${typeaheadField({id:"medicalSchoolCountry",label:"Country",value:profile.medicalSchoolCountry,provider:"countries",context:"core-country",required:true,allowFreeText:false})}
+      ${textField({id:"medicalSchoolCity",label:"City (optional)",value:profile.medicalSchoolCity,attributes:'data-profile-field="medicalSchoolCity"'})}
+      <p class="school-verification unverified" role="status">Unverified · queued for normalization · excluded from verified school analytics</p>
+    </section>`
+    :`<section class="school-registry-panel" aria-labelledby="school-registry-title">
+      <div class="school-selector-heading">
+        <div>
+          <h2 id="school-registry-title">Medical school</h2>
+          <p class="field-help">Choose one authoritative record. Search also matches source aliases and location.</p>
+        </div>
+        <span class="school-source-badge">U.S. DAPIP</span>
+      </div>
+      <div class="school-filter-row" aria-label="Medical school filters">
+        ${selectField({id:"schoolCountryFilter",label:"Country filter",value:profile.schoolCountryFilter||"",options:[{label:"All available countries",value:"all"},{label:"United States",value:"United States"}]})}
+        ${selectField({id:"schoolTypeFilter",label:"U.S. school type",value:profile.schoolTypeFilter||"",options:[{label:"MD and DO",value:"all"},"MD","DO"]})}
+      </div>
+      ${typeaheadField({id:"medicalSchool",label:"Search medical schools",value:profile.medicalSchool,provider:"schools",context:"core-school",required:true,placeholder:"School, alias, city, state, or country",allowFreeText:false})}
+      ${schoolRecord?`<article class="school-selected-card" aria-label="Selected medical school">
+        <span class="school-selected-check" aria-hidden="true">✓</span>
+        <div><strong>${escapeHtml(schoolRecord.canonical_name||profile.medicalSchool)}</strong>
+        <span>${escapeHtml([
+          schoolRecord.school_type,
+          [schoolRecord.city,schoolRecord.state_or_region].filter(Boolean).join(", "),
+          schoolRecord.country
+        ].filter(Boolean).join(" · "))}</span></div>
+        <span class="school-verification">Source-reported</span>
+      </article>`:""}
+      <button type="button" class="school-not-listed-link" data-school-not-listed>School not listed?</button>
+      <p class="field-help">Current bundled coverage: U.S. MD/DO records reported through the Department of Education. International entries use the normalization queue.</p>
+    </section>`;
   return`<form class="core-info-form" data-core-form novalidate>
     ${textField({id:"fullName",label:"Full name",value:profile.fullName,required:true,placeholder:"e.g., Amara Osei",attributes:'data-profile-field="fullName"'})}
-    ${typeaheadField({id:"medicalSchool",label:"Medical school",value:profile.medicalSchool,provider:"schools",context:"core-school",required:true})}
-    ${typeaheadField({id:"medicalSchoolCountry",label:"Medical school country",value:profile.medicalSchoolCountry,provider:"countries",context:"core-country",required:true,allowFreeText:false})}
+    ${schoolSelector}
     ${monthFieldMarkup({id:"core-graduation-date",label:expected?"Expected graduation":"Graduation date",value:profile.graduationDate,required:true})}
     <label class="check-row"><input type="checkbox" name="expectedGraduation" data-profile-field="expectedGraduation" ${expected?"checked":""}><span>I haven't graduated yet</span></label>
     ${segmented({legend:"Degree",name:"degree",values:["MD","DO","MBBS","Other"],selected:profile.degree,required:true,attributes:'data-profile-group="degree"'})}
-    ${profile.degree==="Other"?textField({id:"degreeOther",label:"Degree (other)",value:profile.degreeOther,required:true,attributes:'data-profile-field="degreeOther"'}):""}
-    ${selectField({id:"visaStatus",label:"Visa / work status",value:profile.visaStatus,options:["US citizen / permanent resident","Need H-1B","Need J-1","Other (text)","Prefer not to say"]})}
-    ${profile.visaStatus==="Other (text)"?textField({id:"visaStatusOther",label:"Visa / work status (other)",value:profile.visaStatusOther,attributes:'data-profile-field="visaStatusOther"'}):""}
+    ${profile.degree==="Other"?textField({id:"degreeOther",label:"Specify degree",value:profile.degreeOther,required:true,attributes:'data-profile-field="degreeOther"'}):""}
+    ${selectField({id:"currentUsWorkAuthorization",label:"Current U.S. work authorization",value:authorization,options:WORK_AUTHORIZATION_OPTIONS})}
+    ${authorization==="Other"?textField({id:"workAuthorizationOther",label:"Specify current work authorization",value:profile.workAuthorizationOther,attributes:'data-profile-field="workAuthorizationOther"'}):""}
+    ${authorization==="Employment Authorization Document"?selectField({id:"eadStatus",label:"EAD status",value:profile.eadStatus,options:["Active and unrestricted","Restricted or expiring","Not sure"]}):""}
+    ${needsResidencyVisaQuestion({...profile,currentUsWorkAuthorization:authorization})?selectField({id:"residencyVisaTypesOpenTo",label:"Which residency visa types are you open to?",value:profile.residencyVisaTypesOpenTo,options:["J-1","H-1B","Either","Not sure"],required:true}):""}
   </form>`;
 }
 
@@ -1024,17 +1183,58 @@ function formValue(form,name){
 }
 
 function profileFromForm(form,current={}){
+  const currentAuthorization=formValue(
+    form,
+    "currentUsWorkAuthorization"
+  );
   return{
     ...current,
     fullName:formValue(form,"fullName").trim(),
     medicalSchool:formValue(form,"medicalSchool").trim(),
     medicalSchoolCountry:formValue(form,"medicalSchoolCountry").trim(),
+    medicalSchoolCity:formValue(form,"medicalSchoolCity").trim(),
+    schoolCountryFilter:formValue(form,"schoolCountryFilter"),
+    schoolTypeFilter:formValue(form,"schoolTypeFilter"),
     graduationDate:parseMonth(formValue(form,"core-graduation-date"))||formValue(form,"core-graduation-date").trim(),
     expectedGraduation:!!formValue(form,"expectedGraduation"),
     degree:formValue(form,"degree"),
     degreeOther:formValue(form,"degreeOther").trim(),
-    visaStatus:formValue(form,"visaStatus"),
-    visaStatusOther:formValue(form,"visaStatusOther").trim()
+    currentUsWorkAuthorization:currentAuthorization,
+    visaStatus:currentAuthorization,
+    workAuthorizationOther:formValue(form,"workAuthorizationOther").trim(),
+    eadStatus:formValue(form,"eadStatus"),
+    residencyVisaTypesOpenTo:formValue(form,"residencyVisaTypesOpenTo")
+  };
+}
+
+function queueUnverifiedSchool(profile,{idFactory=uid}={}){
+  if(
+    profile.medicalSchoolEntryMode!=="unlisted"||
+    !String(profile.medicalSchool||"").trim()||
+    !String(profile.medicalSchoolCountry||"").trim()
+  )return profile;
+  const existing=profile.medicalSchoolUnlistedSubmission;
+  const submission=existing?.canonical_school_id
+    ?{
+      ...existing,
+      canonical_name:profile.medicalSchool.trim(),
+      country:profile.medicalSchoolCountry.trim(),
+      city:String(profile.medicalSchoolCity||"").trim()
+    }
+    :createUnverifiedSchoolSubmission({
+      name:profile.medicalSchool,
+      country:profile.medicalSchoolCountry,
+      city:profile.medicalSchoolCity,
+      idFactory
+    });
+  return{
+    ...profile,
+    canonicalSchoolId:submission.canonical_school_id,
+    medicalSchoolRecord:submission,
+    medicalSchoolVerificationStatus:"unverified",
+    medicalSchoolNormalizationStatus:"queued",
+    medicalSchoolAnalyticsEligible:false,
+    medicalSchoolUnlistedSubmission:submission
   };
 }
 
@@ -1118,7 +1318,55 @@ function installTypeahead(root,store,providers){
         if(context==="core-school"){
           document.studentProfile.medicalSchool=row.value;
           document.studentProfile.medicalSchoolShortName=row.shortName||row.value;
-          if(row.kind==="match"&&row.country)document.studentProfile.medicalSchoolCountry=String(row.country);
+          if(row.kind==="match"){
+            document.studentProfile.canonicalSchoolId=
+              String(row.canonical_school_id||row.id||"");
+            document.studentProfile.medicalSchoolRecord={
+              canonical_school_id:row.canonical_school_id,
+              canonical_name:row.canonical_name||row.value,
+              alternate_names:[...(row.alternate_names||[])],
+              country:row.country||"",
+              country_code:row.country_code||"",
+              state_or_region:row.state_or_region||"",
+              city:row.city||"",
+              school_type:row.school_type||"Other",
+              display_name_source:row.display_name_source||"",
+              display_name_status:row.display_name_status||"",
+              wikidata_qid:row.wikidata_qid??null,
+              wikidata_alias_qids:[...(row.wikidata_alias_qids||[])],
+              display_name_match_score:row.display_name_match_score??null,
+              parent_institution_name:row.parent_institution_name||"",
+              program_name:row.program_name||"",
+              program_id:row.program_id??null,
+              accreditation_record_id:row.accreditation_record_id??null,
+              campus_or_department_description:
+                row.campus_or_department_description||"",
+              accreditation_status:row.accreditation_status||"",
+              accreditation_review_date:row.accreditation_review_date||"",
+              source:row.source||"",
+              source_identifier:row.source_identifier||"",
+              source_url_or_reference:row.source_url_or_reference||"",
+              accreditation_body:row.accreditation_body||"",
+              active_status_if_known:row.active_status_if_known??null,
+              dataset_version:row.dataset_version||"",
+              verified_at:row.verified_at??null,
+              source_retrieved_at:row.source_retrieved_at||"",
+              verification_status:row.verification_status||"source-reported",
+              normalization_status:row.normalization_status||"normalized",
+              analytics_eligible:row.analytics_eligible!==false,
+              external_crosswalks:{...(row.external_crosswalks||{})}
+            };
+            document.studentProfile.medicalSchoolCountry=String(row.country||"");
+            document.studentProfile.medicalSchoolCity=String(row.city||"");
+            document.studentProfile.medicalSchoolEntryMode="registry";
+            document.studentProfile.medicalSchoolVerificationStatus=
+              row.verification_status||"source-reported";
+            document.studentProfile.medicalSchoolNormalizationStatus=
+              row.normalization_status||"normalized";
+            document.studentProfile.medicalSchoolAnalyticsEligible=
+              row.analytics_eligible!==false;
+            document.studentProfile.medicalSchoolUnlistedSubmission=null;
+          }
           syncEducationMilestone(document);
           markStepTouched(document,1);
         }else if(context==="core-country"){
@@ -1155,7 +1403,18 @@ function installTypeahead(root,store,providers){
     const search=async()=>{
       const query=input.value.trim(),token=++request;
       if(query.length<2){rows=[];paint();return;}
-      let matches=await provider.search(query,{limit:8,context:field.dataset.typeaheadContext});
+      const schoolCountry=root.querySelector(
+        '[name="schoolCountryFilter"]'
+      )?.value;
+      const schoolType=root.querySelector(
+        '[name="schoolTypeFilter"]'
+      )?.value;
+      let matches=await provider.search(query,{
+        limit:8,
+        context:field.dataset.typeaheadContext,
+        country:schoolCountry==="all"?"":schoolCountry,
+        schoolType:schoolType==="all"?"":schoolType
+      });
       if(token!==request)return;
       if(providerKey==="countries")matches=rankCountryMatches(Array.isArray(matches)?matches:matches?.items||[],{
         schoolCountry:store.document.studentProfile?.medicalSchoolCountry
@@ -1178,6 +1437,14 @@ function installTypeahead(root,store,providers){
       if(!input.value.trim())return;
       const fallback={kind:"free-text",value:input.value.trim()};
       const context=field.dataset.typeaheadContext;
+      if(!allowFreeText){
+        if(context==="core-school"){
+          input.value=String(
+            store.document.studentProfile?.medicalSchool||""
+          );
+        }
+        return;
+      }
       if(context!=="core-country"&&context!=="work-country")commit(fallback);
       else{
         store.mutate("Commit country",(document)=>{
@@ -1226,7 +1493,10 @@ export function installBuilder(root,store,{
     }
     if(step===1){
       const form=root.querySelector("[data-core-form]");
-      const profile=profileFromForm(form,store.document.studentProfile);
+      const profile=queueUnverifiedSchool(
+        profileFromForm(form,store.document.studentProfile),
+        {idFactory}
+      );
       const errors=validateCoreInfo(profile);
       store.mutate("Continue Core Info",(document)=>{
         document.studentProfile={...document.studentProfile,...profile};
@@ -1256,9 +1526,56 @@ export function installBuilder(root,store,{
 
   const coreForm=root.querySelector("[data-core-form]");
   if(coreForm){
-    coreForm.querySelectorAll("[data-profile-field],select[name='visaStatus'],input[name='degree']").forEach((control)=>{
+    root.querySelector("[data-school-not-listed]")?.addEventListener(
+      "click",
+      ()=>store.mutate("Use unlisted medical school",(document)=>{
+        Object.assign(document.studentProfile,{
+          medicalSchool:"",
+          canonicalSchoolId:"",
+          medicalSchoolRecord:null,
+          medicalSchoolCountry:"",
+          medicalSchoolCity:"",
+          medicalSchoolEntryMode:"unlisted",
+          medicalSchoolVerificationStatus:"unverified",
+          medicalSchoolNormalizationStatus:"draft",
+          medicalSchoolAnalyticsEligible:false,
+          medicalSchoolUnlistedSubmission:null
+        });
+        markStepTouched(document,1);
+      })
+    );
+    root.querySelector("[data-use-school-registry]")?.addEventListener(
+      "click",
+      ()=>store.mutate("Use medical school registry",(document)=>{
+        Object.assign(document.studentProfile,{
+          medicalSchool:"",
+          canonicalSchoolId:"",
+          medicalSchoolRecord:null,
+          medicalSchoolCountry:"",
+          medicalSchoolCity:"",
+          medicalSchoolEntryMode:"registry",
+          medicalSchoolVerificationStatus:"",
+          medicalSchoolNormalizationStatus:"",
+          medicalSchoolAnalyticsEligible:false,
+          medicalSchoolUnlistedSubmission:null
+        });
+        markStepTouched(document,1);
+      })
+    );
+    coreForm.querySelectorAll(
+      [
+        "[data-profile-field]",
+        "select[name='currentUsWorkAuthorization']",
+        "select[name='eadStatus']",
+        "select[name='residencyVisaTypesOpenTo']",
+        "input[name='degree']"
+      ].join(",")
+    ).forEach((control)=>{
       const commit=()=>{
-        const profile=profileFromForm(coreForm,store.document.studentProfile);
+        const profile=queueUnverifiedSchool(
+          profileFromForm(coreForm,store.document.studentProfile),
+          {idFactory}
+        );
         store.mutate("Update Core Info",(document)=>{
           document.studentProfile={...document.studentProfile,...profile};
           syncEducationMilestone(document,{idFactory});
@@ -1267,6 +1584,13 @@ export function installBuilder(root,store,{
       };
       control.addEventListener(control.matches?.("input[type='text'],input[type='search']")?"blur":"change",commit);
     });
+    coreForm.querySelectorAll(
+      '[name="schoolCountryFilter"],[name="schoolTypeFilter"]'
+    ).forEach((control)=>control.addEventListener("change",()=>{
+      store.mutate("Filter medical schools",(document)=>{
+        document.studentProfile[control.name]=control.value;
+      },{history:false,material:false});
+    }));
   }
 
   root.querySelectorAll("[data-exam-system]").forEach((control)=>control.addEventListener("change",()=>store.mutate("Choose exam systems",(document)=>{

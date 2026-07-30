@@ -17,6 +17,10 @@ import {defaultDocument} from "../web/js/uxr-002/store.js";
 const webRoot=new URL("../web/",import.meta.url);
 const index=await readFile(new URL("index.html",webRoot),"utf8");
 const adapter=await readFile(new URL("js/407f-engineering-adapter.js",webRoot),"utf8");
+const schoolRegistry=await readFile(
+  new URL("js/uxr-002/medical-school-registry.js",webRoot),
+  "utf8"
+);
 
 function sourceBetween(start,end){
   const from=index.indexOf(start);
@@ -106,15 +110,12 @@ test("407F activates one-at-a-time entry workflows for Builder steps 3 through 6
   ],"Personal");
 });
 
-test("407F bundles local typeahead data, preserves free text, and maps a selected teaching institution to city and state",()=>{
-  const schools=literal("MEDICAL_SCHOOLS_404","const SPECIALTIES_404=");
+test("407F uses the normalized local school registry while preserving domain typeaheads and institution mapping",()=>{
   const specialties=literal("SPECIALTIES_404","const US_TEACHING_INSTITUTIONS_404=");
   const institutions=literal("US_TEACHING_INSTITUTIONS_404","function examDefinition404");
 
-  assert.ok(schools.length>=25);
   assert.ok(specialties.length>=130);
   assert.ok(institutions.length>=25);
-  assert.ok(schools.includes("Harvard Medical School"));
   assert.ok(specialties.includes("Internal Medicine"));
   assert.deepEqual(
     institutions.find(({name})=>name==="Massachusetts General Hospital"),
@@ -138,14 +139,17 @@ test("407F bundles local typeahead data, preserves free text, and maps a selecte
   assert.match(typeahead,/institutionShortName:institution\.shortName,city:institution\.city,state:institution\.state/);
   assert.match(typeahead,/institutionShortName:'',city:'',state:''/);
 
+  assert.match(index,/window\.D1_407F_ENGINEERING&&window\.D1_407F_ENGINEERING\.schoolRegistry/);
+  assert.match(index,/data-school-combobox/);
+  assert.match(index,/data-school-choice/);
+  assert.match(index,/data-school-not-listed/);
+  assert.match(schoolRegistry,/MEDICAL_SCHOOL_DATASET_URL/);
+  assert.match(schoolRegistry,/networkRequests:false/);
+
   const serializer=sourceBetween("function domainFormData404(","function domainErrors404(");
   assert.match(serializer,/US_TEACHING_INSTITUTIONS_404\.find\(item=>item\.name===next\.institution\)/);
   assert.match(serializer,/next\.city=next\.city\|\|institution\.city/);
   assert.match(serializer,/next\.state=next\.state\|\|institution\.state/);
-  assert.doesNotMatch(
-    sourceBetween("const MEDICAL_SCHOOLS_404=","function examDefinition404"),
-    /\bfetch\s*\(|XMLHttpRequest|https?:\/\//
-  );
   assert.match(adapter,/\btypeaheadRows\b/);
   assert.match(adapter,/\brankCountryMatches\b/);
 });

@@ -35,13 +35,26 @@ function validProfile(overrides={}){
   return{
     fullName:"Amara Osei",
     medicalSchool:"University of Ghana Medical School",
+    canonicalSchoolId:"verified-school-ugms",
+    medicalSchoolRecord:{
+      canonical_school_id:"verified-school-ugms",
+      canonical_name:"University of Ghana Medical School",
+      country:"Ghana",
+      school_type:"Other"
+    },
+    medicalSchoolEntryMode:"registry",
+    medicalSchoolVerificationStatus:"source-reported",
+    medicalSchoolNormalizationStatus:"normalized",
+    medicalSchoolAnalyticsEligible:true,
     medicalSchoolShortName:"UGMS",
     medicalSchoolCountry:"Ghana",
     graduationDate:"2028-06",
     expectedGraduation:true,
     degree:"MBBS",
     degreeOther:"",
-    visaStatus:"Need J-1",
+    visaStatus:"J-1",
+    currentUsWorkAuthorization:"J-1",
+    residencyVisaTypesOpenTo:"J-1",
     ...overrides
   };
 }
@@ -70,12 +83,14 @@ test("Builder renders the frozen seven-step titles and exact Step 1 field order 
 
   const ordered=[
     'for="fullName">Full name',
-    'for="medicalSchool">Medical school',
-    'for="medicalSchoolCountry">Medical school country',
+    'id="school-registry-title">Medical school',
+    'for="schoolCountryFilter">Country filter',
+    'for="schoolTypeFilter">U.S. school type',
+    'for="medicalSchool">Search medical schools',
     'for="core-graduation-date">Graduation date',
     "I haven't graduated yet",
     "<legend>Degree",
-    'for="visaStatus">Visa / work status'
+    'for="currentUsWorkAuthorization">Current U.S. work authorization'
   ];
   cursor=-1;
   for(const fragment of ordered){
@@ -85,7 +100,8 @@ test("Builder renders the frozen seven-step titles and exact Step 1 field order 
   }
   assert.match(html,/placeholder="e\.g\., Amara Osei"/);
   assert.match(html,/data-typeahead-provider="schools"/);
-  assert.match(html,/data-typeahead-provider="countries"/);
+  assert.match(html,/data-allow-free-text="false"/);
+  assert.match(html,/School not listed\?/);
   assert.equal(document.events.length,0,"rendering must not fabricate an Education event");
   assert.equal(document.exams.length,0,"rendering must not pre-add exams");
 });
@@ -574,6 +590,19 @@ test("Installed handlers preserve free step navigation, exact skip semantics, an
   assert.deepEqual(store.routes,["canvas"]);
 
   const coreDocument=defaultDocument();
+  coreDocument.studentProfile={
+    ...coreDocument.studentProfile,
+    canonicalSchoolId:"verified-school-ugms",
+    medicalSchoolRecord:{
+      canonical_school_id:"verified-school-ugms",
+      canonical_name:"University of Ghana Medical School",
+      country:"Ghana",
+      school_type:"Other"
+    },
+    medicalSchoolVerificationStatus:"source-reported",
+    medicalSchoolNormalizationStatus:"normalized",
+    medicalSchoolAnalyticsEligible:true
+  };
   const coreNext=new FakeElement();
   const coreForm=fakeCoreForm({
     fullName:"Amara Osei",
@@ -583,8 +612,8 @@ test("Installed handlers preserve free step navigation, exact skip semantics, an
     expectedGraduation:true,
     degree:"MBBS",
     degreeOther:"",
-    visaStatus:"Need J-1",
-    visaStatusOther:""
+    currentUsWorkAuthorization:"J-1",
+    residencyVisaTypesOpenTo:"J-1"
   });
   const coreRoot=fakeRoot({next:coreNext,coreForm});
   const coreStore=fakeStore(coreDocument);

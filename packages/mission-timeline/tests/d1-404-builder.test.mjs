@@ -58,11 +58,10 @@ test("D1-405 M3 stepper contains the seven approved titles and accessible horizo
   assert.match(index,/scroller\.scrollLeft=right-scroller\.clientWidth\+8/);
 });
 
-test("M3 Core Info preserves frozen field order, validation, and education milestone effect",()=>{
+test("M6 Core Info preserves 407F order while adding the normalized school selector and current work authorization",()=>{
   const markers=[
     'data-core="name"',
-    'data-core="school"',
-    'data-core="country"',
+    '+schoolMarkup',
     'data-core="grad"',
     '<fieldset class="builderField"><legend>Degree',
     'data-core="visa"'
@@ -73,18 +72,25 @@ test("M3 Core Info preserves frozen field order, validation, and education miles
     assert.ok(next>cursor,`Core Info field order drifted at ${marker}`);
     cursor=next;
   }
+  assert.match(index,/data-school-filter="country"/);
+  assert.match(index,/data-school-filter="type"/);
+  assert.match(index,/data-school-search/);
   assert.match(index,/placeholder="e\.g\., Amara Osei"/);
-  assert.match(index,/data-provider="schools"/);
+  assert.match(index,/data-school-combobox/);
+  assert.match(index,/typed text alone is not saved as a verified school/);
+  assert.match(index,/data-school-not-listed/);
+  assert.match(index,/UNVERIFIED · NORMALIZATION QUEUED/);
   assert.match(index,/I haven&apos;t graduated yet/);
-  assert.match(index,/US citizen \/ permanent resident/);
-  assert.match(index,/Need H-1B/);
-  assert.match(index,/Need J-1/);
-  assert.match(index,/Prefer not to say/);
-  assert.match(index,/target\.textContent=String\(w\[key\]\|\|''\)\.trim\(\)\?'':'Required\.'/);
+  assert.match(index,/U\.S\. Citizen/);
+  assert.match(index,/Permanent Resident \/ Green Card/);
+  assert.match(index,/Employment Authorization Document/);
+  assert.match(index,/Which residency visa types are you open to\?/);
+  assert.match(index,/Choose a listed school or use “School not listed\.”/);
   assert.match(index,/Enter a month and year, like 'Jun 2023'\./);
   assert.match(index,/id:'education-core'/);
   assert.match(index,/t:'Medical Degree — '\+w\.school/);
   assert.match(index,/canonicalCategory:'education'/);
+  assert.match(index,/canonicalSchoolId:w\.canonicalSchoolId\|\|''/);
 });
 
 test("M3 builder state, wizard state, and Education survive the 407F persistence seam",()=>{

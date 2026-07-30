@@ -11,10 +11,12 @@ import {
   commitBuilderEntry,
   deleteBuilderEntry,
   ensureBuilderState,
+  normalizeWorkAuthorization,
   projectRotationDates,
   rankCountryMatches,
   typeaheadRows
 } from "./uxr-002/builder.js";
+import {createRuntimeDatasets} from "./uxr-002/datasets.js";
 import {
   buildCompletenessSummary,
   computeStoryChecks
@@ -226,6 +228,7 @@ export function event407FToDocument(event,index=0){
 
 export function applyDocumentTo407FState(document,state){
   const profile=document.studentProfile||{};
+  const authorization=normalizeWorkAuthorization(profile);
   state.user.events=(document.events||[])
     .filter((event)=>String(event?.startDate||"").trim())
     .map(documentEventTo407F);
@@ -238,7 +241,7 @@ export function applyDocumentTo407FState(document,state){
     ...state.profile,
     name:profile.fullName||state.profile.name,
     country:profile.medicalSchoolCountry||state.profile.country,
-    visa:profile.visaStatus||state.profile.visa,
+    visa:authorization.currentUsWorkAuthorization||state.profile.visa,
     goal:profile.specialtyGoal||state.profile.goal,
     s1:document.metadata?.step1Score||state.profile.s1,
     s2:document.metadata?.step2Score||state.profile.s2
@@ -247,7 +250,43 @@ export function applyDocumentTo407FState(document,state){
   state.media=clone(document.metadata?.boardMedia||state.media);
   state.wiz={
     ...state.wiz,
-    ...clone(document.metadata?.wizard407F||{})
+    ...clone(document.metadata?.wizard407F||{}),
+    school:profile.medicalSchool||state.wiz?.school||"",
+    country:profile.medicalSchoolCountry||state.wiz?.country||"",
+    canonicalSchoolId:
+      profile.canonicalSchoolId||state.wiz?.canonicalSchoolId||"",
+    schoolRecord:clone(
+      profile.medicalSchoolRecord||state.wiz?.schoolRecord||null
+    ),
+    schoolEntryMode:
+      profile.medicalSchoolEntryMode||state.wiz?.schoolEntryMode||"registry",
+    schoolVerificationStatus:
+      profile.medicalSchoolVerificationStatus||
+      state.wiz?.schoolVerificationStatus||
+      "",
+    schoolNormalizationStatus:
+      profile.medicalSchoolNormalizationStatus||
+      state.wiz?.schoolNormalizationStatus||
+      "",
+    schoolAnalyticsEligible:
+      profile.medicalSchoolAnalyticsEligible===true,
+    schoolUnlistedSubmission:clone(
+      profile.medicalSchoolUnlistedSubmission||
+      state.wiz?.schoolUnlistedSubmission||
+      null
+    ),
+    schoolCity:profile.medicalSchoolCity||state.wiz?.schoolCity||"",
+    visa:
+      authorization.currentUsWorkAuthorization||
+      state.wiz?.visa||
+      "",
+    visaOther:
+      profile.workAuthorizationOther||state.wiz?.visaOther||"",
+    eadStatus:profile.eadStatus||state.wiz?.eadStatus||"",
+    residencyVisaTypesOpenTo:
+      authorization.residencyVisaTypesOpenTo||
+      state.wiz?.residencyVisaTypesOpenTo||
+      ""
   };
   state.builder={
     ...state.builder,
@@ -274,14 +313,61 @@ export function apply407FStateToDocument(state,document){
     ...document.studentProfile,
     fullName:state.wiz?.name||state.profile?.name||"",
     medicalSchool:state.wiz?.school||"",
+    canonicalSchoolId:state.wiz?.canonicalSchoolId||"",
+    medicalSchoolRecord:clone(state.wiz?.schoolRecord||null),
     medicalSchoolCountry:state.profile?.country||"",
+    medicalSchoolEntryMode:state.wiz?.schoolEntryMode||"registry",
+    medicalSchoolVerificationStatus:
+      state.wiz?.schoolVerificationStatus||"",
+    medicalSchoolNormalizationStatus:
+      state.wiz?.schoolNormalizationStatus||"",
+    medicalSchoolAnalyticsEligible:
+      state.wiz?.schoolAnalyticsEligible===true,
+    medicalSchoolUnlistedSubmission:clone(
+      state.wiz?.schoolUnlistedSubmission||null
+    ),
+    medicalSchoolCity:state.wiz?.schoolCity||"",
     graduationDate:state.wiz?.grad||"",
     graduationExpected:!!state.wiz?.notGraduated,
     degree:state.wiz?.degree||"",
     degreeOther:state.wiz?.degreeOther||"",
-    visaStatus:state.profile?.visa||"",
+    visaStatus:state.wiz?.visa||state.profile?.visa||"",
+    currentUsWorkAuthorization:
+      state.wiz?.visa||state.profile?.visa||"",
+    workAuthorizationOther:state.wiz?.visaOther||"",
+    eadStatus:state.wiz?.eadStatus||"",
+    residencyVisaTypesOpenTo:
+      state.wiz?.residencyVisaTypesOpenTo||"",
     specialtyGoal:state.profile?.goal||""
   };
+  document.medicalSchoolNormalizationQueue=Array.isArray(
+    document.medicalSchoolNormalizationQueue
+  )?document.medicalSchoolNormalizationQueue:[];
+  const schoolRecord=document.studentProfile.medicalSchoolRecord;
+  if(schoolRecord?.canonical_school_id){
+    const normalizationStatus=schoolRecord.normalization_status||
+      (schoolRecord.analytics_eligible===true?"normalized":"review-needed");
+    const queueIndex=document.medicalSchoolNormalizationQueue.findIndex(
+      (item)=>item?.canonical_school_id===schoolRecord.canonical_school_id
+    );
+    if(normalizationStatus==="normalized"){
+      if(queueIndex>=0){
+        document.medicalSchoolNormalizationQueue.splice(queueIndex,1);
+      }
+    }else{
+      const queuedRecord={
+        ...clone(schoolRecord),
+        normalization_status:normalizationStatus,
+        queue_status:"pending-local-review",
+        analytics_eligible:false
+      };
+      if(queueIndex>=0){
+        document.medicalSchoolNormalizationQueue[queueIndex]=queuedRecord;
+      }else{
+        document.medicalSchoolNormalizationQueue.push(queuedRecord);
+      }
+    }
+  }
   document.theme=state.canvasTheme==="season"?"season-one-board":
     state.canvasTheme==="paper"?"advisor-paper":
     state.canvasTheme==="horizon"?"horizon":
@@ -617,6 +703,7 @@ export async function boot407FEngineeringAdapter({
   }
 
   const init=await store.initialize();
+  const runtimeDatasets=createRuntimeDatasets();
   const mediaUrls=createObjectUrlRegistry();
   const advancedBoardRenderer=createAdvancedBoardRenderer({
     baseRenderer:render407FThemedBoard,
@@ -2029,6 +2116,20 @@ export async function boot407FEngineeringAdapter({
     },
     rankCountries(matches,options){
       return rankCountryMatches(clone(matches||[]),clone(options||{}));
+    }
+  });
+  api.schoolRegistry=Object.freeze({
+    search(query,filters={}){
+      return runtimeDatasets.schools.search(query,{
+        ...clone(filters||{}),
+        limit:Math.min(20,Math.max(1,Number(filters?.limit)||10))
+      });
+    },
+    countries(){
+      return runtimeDatasets.schools.countries();
+    },
+    metadata(){
+      return runtimeDatasets.schools.metadata();
     }
   });
   api.review=Object.freeze({

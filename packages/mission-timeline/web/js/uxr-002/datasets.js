@@ -1,3 +1,5 @@
+import {createMedicalSchoolProvider} from "./medical-school-registry.js";
+
 const NON_COUNTRY_REGION_CODES=new Set(["EU","EZ","UN","XA","XB","ZZ"]);
 
 function regionCodes(){
@@ -48,6 +50,7 @@ export function createCountryProvider(options={}){
 
 export function createRuntimeDatasets(options={}){
   return Object.freeze({
-    countries:createCountryProvider(options)
+    countries:createCountryProvider(options),
+    schools:createMedicalSchoolProvider(options.medicalSchools||{})
   });
 }

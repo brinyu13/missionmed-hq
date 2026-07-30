@@ -575,6 +575,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
           <h1 id="builderStepTitle">Core Info</h1>
         </div>
         <p class="builderPurpose" id="builderPurpose">Who you are and where you trained.</p>
+        <div class="srOnly407F" id="builderLiveStatus407F" role="status" aria-live="polite" aria-atomic="true"></div>
         <div id="builderStepBody"></div>
       </div>
       <footer class="builderFooter">
@@ -816,7 +817,7 @@ const state={
     {t:'Step 2 CK spans a visible retake window',s:'CONFIRM PUBLIC',done:false}
   ],
   versions:[{v:'V1',t:'Blank canvas',n:0},{v:'V2',t:'Wizard pass',n:5},{v:'V3',t:'Upload merge',n:9}],
-  wiz:{name:'Dr. Amara Osei',school:'',country:'Ghana',grad:'2017-05',notGraduated:false,degree:'MBBS',degreeOther:'',visa:'Green card',s1a:'2019-09',s1b:'2020-03',s2a:'2020-01',s2b:'2020-08',cla:'2021-02',clb:'2021-06',tha:'2021-06',thb:'2021-08',ra:'2021-09',rb:'2022-08',pt:'Daughter born',pd:'2021-03',padv:true,ip:'Rutgers IM',idt:'2026-12'}
+  wiz:{name:'Dr. Amara Osei',school:'',canonicalSchoolId:'',schoolRecord:null,schoolEntryMode:'registry',schoolVerificationStatus:'',schoolNormalizationStatus:'',schoolAnalyticsEligible:false,schoolUnlistedSubmission:null,schoolCountryFilter:'',schoolTypeFilter:'',schoolCity:'',country:'Ghana',grad:'2017-05',notGraduated:false,degree:'MBBS',degreeOther:'',visa:'',visaOther:'',eadStatus:'',residencyVisaTypesOpenTo:'',s1a:'2019-09',s1b:'2020-03',s2a:'2020-01',s2b:'2020-08',cla:'2021-02',clb:'2021-06',tha:'2021-06',thb:'2021-08',ra:'2021-09',rb:'2022-08',pt:'Daughter born',pd:'2021-03',padv:true,ip:'Rutgers IM',idt:'2026-12'}
 };
 let uid=0;const nid=()=>'u'+(++uid);
 
@@ -1412,7 +1413,45 @@ const BUILDER_STEPS_404=[
   {title:'Review & Finish',purpose:'Everything in one place. Fix anything, then edit your timeline.'}
 ];
 const CORE_REQUIRED=['name','school','country','grad','degree'];
-function coreInfoValid(){return CORE_REQUIRED.every(k=>String(state.wiz[k]||'').trim())}
+const WORK_AUTHORIZATION_404=[
+  'U.S. Citizen',
+  'Permanent Resident / Green Card',
+  'Employment Authorization Document',
+  'F-1',
+  'J-1',
+  'H-1B',
+  'Other',
+  'Not sure'
+];
+function needsResidencyVisaQuestion404(w){
+  const status=String(w.visa||'').trim();
+  if(!status)return false;
+  if(status==='U.S. Citizen'||status==='Permanent Resident / Green Card')return false;
+  return !(status==='Employment Authorization Document'&&w.eadStatus==='Active and unrestricted');
+}
+function announceBuilder404(message){
+  const live=$('#builderLiveStatus407F');
+  if(!live)return;
+  live.textContent='';
+  requestAnimationFrame(()=>{live.textContent=String(message||'')});
+}
+function restoreBuilderCoreFocus404(key,message){
+  setTimeout(()=>{
+    const control=$('[data-core="'+key+'"]');
+    if(control){
+      control.focus();
+      if(message)announceBuilder404(message);
+    }
+  },80);
+}
+function coreInfoValid(){
+  const w=state.wiz;
+  if(!CORE_REQUIRED.every(k=>String(w[k]||'').trim()))return false;
+  if(!String(w.canonicalSchoolId||'').trim())return false;
+  if(w.degree==='Other'&&!String(w.degreeOther||'').trim())return false;
+  if(needsResidencyVisaQuestion404(w)&&!String(w.residencyVisaTypesOpenTo||'').trim())return false;
+  return true;
+}
 function coreInfoStarted(){return CORE_REQUIRED.some(k=>String(state.wiz[k]||'').trim())}
 function builderDomainCount(step){
   const domain={2:'exams',3:'clinical',4:'work',5:'research',6:'personal'}[step];
@@ -1470,18 +1509,185 @@ function coreInfoMarkup(){
   const w=state.wiz;
   const countryOptions=COUNTRIES.map(c=>'<option value="'+esc(c)+'"'+(c===w.country?' selected':'')+'>'+esc(c)+'</option>').join('');
   const degreeButtons=['MD','DO','MBBS','Other'].map(d=>'<button type="button" class="builderSegment'+(w.degree===d?' on':'')+'" data-degree="'+d+'">'+d+'</button>').join('');
+  const schoolRecord=w.schoolRecord||null;
+  const schoolNeedsReview=schoolRecord&&schoolRecord.normalization_status!=='normalized';
+  const unlisted=w.schoolEntryMode==='unlisted';
+  const schoolMarkup=unlisted
+    ?'<section class="schoolRegistryPanel unlisted" aria-labelledby="schoolRegistryTitle407F">'
+      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">SCHOOL NOT LISTED</div><p>This entry is explicitly unverified and will be queued for administrative normalization.</p></div>'
+      +'<button type="button" class="btnD alt sm" data-school-use-registry>USE REGISTRY</button></div>'
+      +'<label class="builderField"><span>School name</span><input type="text" data-core="school" value="'+esc(w.school||'')+'" autocomplete="organization" aria-describedby="unlistedSchoolError407F"><small id="unlistedSchoolError407F" data-error="school"></small></label>'
+      +'<label class="builderField"><span>Country</span><select data-core="country" aria-describedby="unlistedCountryError407F"><option value="">Select a country</option>'+countryOptions+'</select><small id="unlistedCountryError407F" data-error="country"></small></label>'
+      +'<label class="builderField"><span>City <em>Optional</em></span><input type="text" data-core="schoolCity" value="'+esc(w.schoolCity||'')+'"></label>'
+      +'<div class="schoolVerificationState unverified" role="status">UNVERIFIED · NORMALIZATION QUEUED · EXCLUDED FROM VERIFIED ANALYTICS</div>'
+      +'</section>'
+    :'<section class="schoolRegistryPanel" aria-labelledby="schoolRegistryTitle407F">'
+      +'<div class="schoolRegistryHeading"><div><div class="subt" id="schoolRegistryTitle407F">MEDICAL SCHOOL REGISTRY</div><p>Choose one authoritative record. Search also matches source aliases and location.</p></div><span class="schoolSourceBadge">U.S. DAPIP</span></div>'
+      +'<div class="schoolFilterRow" aria-label="Medical school filters">'
+      +'<label class="builderField"><span>Country filter</span><select data-school-filter="country"><option value="">All available countries</option><option value="United States"'+(w.schoolCountryFilter==='United States'?' selected':'')+'>United States</option></select></label>'
+      +'<label class="builderField"><span>U.S. school type</span><select data-school-filter="type"><option value="">MD and DO</option><option value="MD"'+(w.schoolTypeFilter==='MD'?' selected':'')+'>MD</option><option value="DO"'+(w.schoolTypeFilter==='DO'?' selected':'')+'>DO</option></select></label>'
+      +'</div>'
+      +'<label class="builderField schoolRegistryCombo" data-school-combobox><span>Search medical schools</span>'
+      +'<input type="search" data-school-search role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="schoolRegistryOptions407F" aria-describedby="schoolRegistryHelp407F schoolRegistryError407F" value="'+esc(w.school||'')+'" placeholder="School, alias, city, state, or country" autocomplete="off">'
+      +'<ul id="schoolRegistryOptions407F" class="schoolRegistryOptions" role="listbox" hidden></ul>'
+      +'<div class="schoolRegistryStatus" id="schoolRegistryStatus407F" role="status" aria-live="polite" aria-atomic="true"></div>'
+      +'<small class="builderHint" id="schoolRegistryHelp407F">Select a source-reported record; typed text alone is not saved as a verified school.</small>'
+      +'<small id="schoolRegistryError407F" data-error="school"></small></label>'
+      +(schoolRecord?'<article class="schoolSelectedCard'+(schoolNeedsReview?' needsReview':'')+'" aria-label="Selected medical school"><span class="schoolSelectedCheck" aria-hidden="true">✓</span><div><strong>'+esc(schoolRecord.canonical_name||w.school)+'</strong><span>'+esc([schoolRecord.school_type,[schoolRecord.city,schoolRecord.state_or_region].filter(Boolean).join(', '),schoolRecord.country].filter(Boolean).join(' · '))+'</span></div><span class="schoolVerificationState'+(schoolNeedsReview?' unverified':'')+'">'+(schoolNeedsReview?'NORMALIZATION REVIEW NEEDED':'SOURCE-REPORTED PROGRAM')+'</span></article>':'')
+      +'<button type="button" class="schoolNotListedLink" data-school-not-listed>SCHOOL NOT LISTED?</button>'
+      +'<p class="schoolCoverageNote">Current bundled coverage: U.S. MD/DO institutions reported through the Department of Education. International schools use the normalization queue.</p>'
+      +'</section>';
+  const authorizationOptions=[''].concat(WORK_AUTHORIZATION_404).map(v=>'<option value="'+esc(v)+'"'+(v===w.visa?' selected':'')+'>'+(v||'Select current status')+'</option>').join('');
   return '<div class="builderFields">'
-    +'<label class="builderField"><span>Full name</span><input type="text" data-core="name" value="'+esc(w.name||'')+'" placeholder="e.g., Amara Osei"><small data-error="name"></small></label>'
-    +'<label class="builderField"><span>Medical school</span><input type="text" data-core="school" data-provider="schools" list="medicalSchoolOptions" value="'+esc(w.school||'')+'" autocomplete="off"><datalist id="medicalSchoolOptions">'+MEDICAL_SCHOOLS_404.map(name=>'<option value="'+esc(name)+'"></option>').join('')+'</datalist><small class="builderHint">Start typing to search; free text is always allowed.</small><small data-error="school"></small></label>'
-    +'<label class="builderField"><span>Medical school country</span><select data-core="country"><option value="">Select a country</option>'+countryOptions+'</select><small data-error="country"></small></label>'
+    +'<label class="builderField"><span>Full name</span><input type="text" data-core="name" value="'+esc(w.name||'')+'" placeholder="e.g., Amara Osei" aria-describedby="coreNameError407F"><small id="coreNameError407F" data-error="name"></small></label>'
+    +schoolMarkup
     +'<!-- shared month control: data-core="grad" -->'
     +dateControlMarkup404({precision:'month',id:'core-graduation-407f',label:w.notGraduated?'Expected graduation':'Graduation date',value:w.grad||'',required:true,help:'Type a month and year or use the calendar.',inputAttributes:{'data-core':'grad'},errorAttributes:{'data-error':'grad'}})
     +'<label class="builderToggle"><input type="checkbox" data-core-toggle="notGraduated"'+(w.notGraduated?' checked':'')+'> <span>I haven&apos;t graduated yet</span></label>'
     +'<fieldset class="builderField"><legend>Degree</legend><div class="builderSegments">'+degreeButtons+'</div><small data-error="degree"></small></fieldset>'
-    +(w.degree==='Other'?'<label class="builderField"><span>Degree name</span><input type="text" data-core="degreeOther" value="'+esc(w.degreeOther||'')+'"></label>':'')
-    +'<label class="builderField"><span>Visa / work status <em>Optional</em></span><select data-core="visa">'
-    +['','US citizen / permanent resident','Need H-1B','Need J-1','Other','Prefer not to say'].map(v=>'<option value="'+v+'"'+(v===w.visa?' selected':'')+'>'+(v||'Select a status')+'</option>').join('')
-    +'</select></label></div>';
+    +(w.degree==='Other'?'<label class="builderField"><span>Specify degree</span><input type="text" data-core="degreeOther" value="'+esc(w.degreeOther||'')+'"><small data-error="degreeOther"></small></label>':'')
+    +'<label class="builderField"><span>Current U.S. work authorization <em>Optional</em></span><select data-core="visa" aria-controls="coreWorkAuthorizationConditional407F">'+authorizationOptions+'</select></label>'
+    +(w.visa==='Other'?'<label class="builderField"><span>Specify current work authorization</span><input type="text" data-core="visaOther" value="'+esc(w.visaOther||'')+'"></label>':'')
+    +'<div id="coreWorkAuthorizationConditional407F">'
+    +(w.visa==='Employment Authorization Document'?'<label class="builderField"><span>EAD status</span><select data-core="eadStatus">'+['','Active and unrestricted','Restricted or expiring','Not sure'].map(v=>'<option value="'+esc(v)+'"'+(v===w.eadStatus?' selected':'')+'>'+(v||'Select EAD status')+'</option>').join('')+'</select></label>':'')
+    +(needsResidencyVisaQuestion404(w)?'<label class="builderField"><span>Which residency visa types are you open to?</span><select data-core="residencyVisaTypesOpenTo" aria-describedby="residencyVisaError407F">'+['','J-1','H-1B','Either','Not sure'].map(v=>'<option value="'+esc(v)+'"'+(v===w.residencyVisaTypesOpenTo?' selected':'')+'>'+(v||'Select an option')+'</option>').join('')+'</select><small id="residencyVisaError407F" data-error="residencyVisaTypesOpenTo"></small></label>':'')
+    +'</div>'
+    +'</div>';
+}
+let schoolRegistryRows404=[];
+let schoolRegistryRequest404=0;
+let schoolRegistryActive404=-1;
+let builderCoreChangePending404=false;
+function closeSchoolRegistry404(){
+  const input=$('[data-school-search]');
+  const list=$('#schoolRegistryOptions407F');
+  const status=$('#schoolRegistryStatus407F');
+  if(list){list.hidden=true;list.innerHTML=''}
+  if(status)status.textContent='';
+  if(input){
+    input.setAttribute('aria-expanded','false');
+    input.removeAttribute('aria-activedescendant');
+  }
+  schoolRegistryRows404=[];
+  schoolRegistryActive404=-1;
+}
+function paintSchoolRegistry404(message){
+  const input=$('[data-school-search]');
+  const list=$('#schoolRegistryOptions407F');
+  const status=$('#schoolRegistryStatus407F');
+  if(!input||!list||!status)return;
+  if(message){
+    list.innerHTML='';
+    list.hidden=true;
+    status.textContent=message;
+    input.setAttribute('aria-expanded','false');
+    input.removeAttribute('aria-activedescendant');
+    return;
+  }
+  status.textContent=schoolRegistryRows404.length+
+    (schoolRegistryRows404.length===1?' matching school available.':' matching schools available.');
+  list.innerHTML=schoolRegistryRows404.map((row,index)=>{
+    const location=[row.city,row.state_or_region].filter(Boolean).join(', ');
+    return '<li role="option" tabindex="-1" data-school-choice="'+index+'" id="schoolRegistryOption407F-'+index+'" aria-selected="'+String(index===schoolRegistryActive404)+'">'
+      +'<strong>'+esc(row.canonical_name||row.value)+'</strong>'
+      +'<span>'+esc([row.school_type,location||row.country].filter(Boolean).join(' · '))+'</span></li>';
+  }).join('');
+  list.hidden=!schoolRegistryRows404.length;
+  input.setAttribute('aria-expanded',String(schoolRegistryRows404.length>0));
+  if(schoolRegistryActive404>=0){
+    input.setAttribute('aria-activedescendant','schoolRegistryOption407F-'+schoolRegistryActive404);
+  }else input.removeAttribute('aria-activedescendant');
+}
+async function searchMedicalSchools404(){
+  const input=$('[data-school-search]');
+  if(!input)return;
+  const query=String(input.value||'').trim();
+  const token=++schoolRegistryRequest404;
+  if(query.length<2){closeSchoolRegistry404();return}
+  const registry=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.schoolRegistry;
+  if(!registry||typeof registry.search!=='function'){
+    paintSchoolRegistry404('Medical-school registry is loading…');
+    return;
+  }
+  paintSchoolRegistry404('Searching source-reported schools…');
+  try{
+    const rows=await registry.search(query,{
+      country:state.wiz.schoolCountryFilter||'',
+      schoolType:state.wiz.schoolTypeFilter||'',
+      limit:10
+    });
+    if(token!==schoolRegistryRequest404)return;
+    schoolRegistryRows404=Array.isArray(rows)?rows:[];
+    schoolRegistryActive404=schoolRegistryRows404.length?0:-1;
+    paintSchoolRegistry404(
+      schoolRegistryRows404.length?'':'No matching source-reported school. Use “School not listed?”'
+    );
+  }catch(error){
+    if(token!==schoolRegistryRequest404)return;
+    schoolRegistryRows404=[];
+    schoolRegistryActive404=-1;
+    paintSchoolRegistry404('Registry unavailable. Use “School not listed?”');
+  }
+}
+function chooseMedicalSchool404(index){
+  const row=schoolRegistryRows404[Number(index)];
+  if(!row)return;
+  const w=state.wiz;
+  w.school=row.canonical_name||row.value||'';
+  w.canonicalSchoolId=row.canonical_school_id||row.id||'';
+  w.schoolRecord={
+    canonical_school_id:w.canonicalSchoolId,
+    canonical_name:w.school,
+    alternate_names:Array.isArray(row.alternate_names)?row.alternate_names.slice():[],
+    country:row.country||'',
+    country_code:row.country_code||'',
+    state_or_region:row.state_or_region||'',
+    city:row.city||'',
+    school_type:row.school_type||'Other',
+    display_name_source:row.display_name_source||'',
+    display_name_status:row.display_name_status||'',
+    wikidata_qid:row.wikidata_qid==null?null:row.wikidata_qid,
+    wikidata_alias_qids:Array.isArray(row.wikidata_alias_qids)?row.wikidata_alias_qids.slice():[],
+    display_name_match_score:row.display_name_match_score==null?null:row.display_name_match_score,
+    source:row.source||'',
+    source_identifier:row.source_identifier||'',
+    source_url_or_reference:row.source_url_or_reference||'',
+    accreditation_body:row.accreditation_body||'',
+    active_status_if_known:row.active_status_if_known==null?null:row.active_status_if_known,
+    dataset_version:row.dataset_version||'',
+    verified_at:row.verified_at||'',
+    source_retrieved_at:row.source_retrieved_at||'',
+    verification_status:row.verification_status||'source-reported',
+    normalization_status:row.normalization_status||'normalized',
+    analytics_eligible:row.analytics_eligible!==false,
+    parent_institution_name:row.parent_institution_name||'',
+    program_name:row.program_name||'',
+    program_id:row.program_id==null?null:row.program_id,
+    accreditation_record_id:row.accreditation_record_id==null?null:row.accreditation_record_id,
+    campus_or_department_description:row.campus_or_department_description||'',
+    accreditation_status:row.accreditation_status||'',
+    accreditation_review_date:row.accreditation_review_date||'',
+    external_crosswalks:Object.assign({},row.external_crosswalks||{})
+  };
+  w.country=row.country||'';
+  w.schoolCity=row.city||'';
+  w.schoolEntryMode='registry';
+  w.schoolVerificationStatus=row.verification_status||'source-reported';
+  w.schoolNormalizationStatus=row.normalization_status||'normalized';
+  w.schoolAnalyticsEligible=row.analytics_eligible!==false;
+  w.schoolUnlistedSubmission=null;
+  state.builder.touched[1]=true;
+  closeSchoolRegistry404();
+  syncCoreInfo();
+  requestAnimationFrame(()=>{
+    announceBuilder404(
+      'Selected '+w.school+'. '+
+      (w.schoolNormalizationStatus!=='normalized'
+        ?'Normalization review needed; excluded from verified analytics.'
+        :'Source-reported program record.')
+    );
+    $('#core-graduation-407f')&&$('#core-graduation-407f').focus();
+  });
 }
 const EXAM_SYSTEMS_404={
   USMLE:[
@@ -1495,19 +1701,6 @@ const EXAM_SYSTEMS_404={
     {id:'level-3',label:'Level 3',passFailOnly:false}
   ]
 };
-const MEDICAL_SCHOOLS_404=[
-  'Albert Einstein College of Medicine','Baylor College of Medicine','Boston University Chobanian & Avedisian School of Medicine',
-  'Case Western Reserve University School of Medicine','Columbia University Vagelos College of Physicians and Surgeons',
-  'Duke University School of Medicine','Emory University School of Medicine','Geisel School of Medicine at Dartmouth',
-  'George Washington University School of Medicine and Health Sciences','Harvard Medical School','Howard University College of Medicine',
-  'Icahn School of Medicine at Mount Sinai','Johns Hopkins University School of Medicine','Mayo Clinic Alix School of Medicine',
-  'New York University Grossman School of Medicine','Northwestern University Feinberg School of Medicine',
-  'Perelman School of Medicine at the University of Pennsylvania','Rutgers New Jersey Medical School',
-  'Stanford University School of Medicine','University of California San Francisco School of Medicine',
-  'University of Chicago Pritzker School of Medicine','University of Michigan Medical School',
-  'University of Pittsburgh School of Medicine','Vanderbilt University School of Medicine',
-  'Washington University School of Medicine in St. Louis','Weill Cornell Medicine','Yale School of Medicine'
-];
 // Local-only specialty vocabulary derived from the ACGME May 2026
 // Specialty and Subspecialty Block Diagram/Application Table, plus familiar aliases.
 const SPECIALTIES_404=[
@@ -1796,6 +1989,7 @@ function revealActiveBuilderStep404(){
   else if(right>scroller.scrollLeft+scroller.clientWidth)scroller.scrollLeft=right-scroller.clientWidth+8;
 }
 function renderBuilder404(){
+  if(builderCoreChangePending404)return;
   const step=Math.max(1,Math.min(7,state.builder.step||1));
   state.builder.step=step;
   const current=BUILDER_STEPS_404[step-1];
@@ -1856,14 +2050,49 @@ function parseBuilderMonth(value){
   if(match){const month=MO.map(x=>x.toLowerCase()).findIndex(x=>match[1].toLowerCase().startsWith(x));if(month>=0)return match[2]+'-'+String(month+1).padStart(2,'0')}
   return null;
 }
+function queueUnlistedSchool404(){
+  const w=state.wiz;
+  if(w.schoolEntryMode!=='unlisted'||!String(w.school||'').trim()||!String(w.country||'').trim())return null;
+  const existing=w.schoolUnlistedSubmission||{};
+  const canonicalId=existing.canonical_school_id||('unverified:medical-school-'+nid());
+  const submission={
+    canonical_school_id:canonicalId,
+    canonical_name:String(w.school||'').trim(),
+    alternate_names:[],
+    country:String(w.country||'').trim(),
+    country_code:'',
+    state_or_region:'',
+    city:String(w.schoolCity||'').trim(),
+    school_type:'Other',
+    source:'Student-submitted local normalization queue',
+    source_identifier:canonicalId,
+    source_url_or_reference:'LOCAL_ONLY',
+    accreditation_body:'',
+    active_status_if_known:null,
+    dataset_version:'unverified-local',
+    verified_at:'',
+    verification_status:'unverified',
+    normalization_status:'queued',
+    analytics_eligible:false,
+    submitted_at:existing.submitted_at||new Date().toISOString()
+  };
+  w.canonicalSchoolId=canonicalId;
+  w.schoolRecord=submission;
+  w.schoolUnlistedSubmission=submission;
+  w.schoolVerificationStatus='unverified';
+  w.schoolNormalizationStatus='queued';
+  w.schoolAnalyticsEligible=false;
+  return submission;
+}
 function syncCoreInfo(){
   const w=state.wiz;
+  queueUnlistedSchool404();
   state.profile.name=w.name||'';
   state.profile.country=w.country||'';
   state.profile.visa=w.visa||'';
   const existing=state.user.events.find(e=>e.id==='education-core');
   if(coreInfoValid()){
-    const next={id:'education-core',t:'Medical Degree — '+w.school,cat:'education',s:w.grad,e:null,mile:true,vis:'safe',loc:w.school,origin:'builder-core',notes:'',lane:null,fields:{canonicalCategory:'education',school:w.school,country:w.country,degree:w.degree==='Other'?(w.degreeOther||'Other'):w.degree,expected:!!w.notGraduated}};
+    const next={id:'education-core',t:'Medical Degree — '+w.school,cat:'education',s:w.grad,e:null,mile:true,vis:'safe',loc:w.school,origin:'builder-core',notes:'',lane:null,fields:{canonicalCategory:'education',school:w.school,canonicalSchoolId:w.canonicalSchoolId||'',schoolVerificationStatus:w.schoolVerificationStatus||'',schoolAnalyticsEligible:w.schoolAnalyticsEligible===true,country:w.country,degree:w.degree==='Other'?(w.degreeOther||'Other'):w.degree,expected:!!w.notGraduated}};
     if(existing)Object.assign(existing,next);else state.user.events.push(next);
   }else if(existing){
     state.user.events=state.user.events.filter(e=>e.id!=='education-core');
@@ -1873,19 +2102,57 @@ function syncCoreInfo(){
 }
 function showCoreErrors(){
   const w=state.wiz;
+  let firstInvalid=null;
   for(const key of CORE_REQUIRED){
     const target=$('[data-error="'+key+'"]');
-    if(target)target.textContent=String(w[key]||'').trim()?'':'Required.';
-    const message=String(w[key]||'').trim()?'':'Required.';
-    const control=$('[data-core="'+key+'"]');
-    if(control)control.setAttribute('aria-invalid',String(!!message));
+    let message=String(w[key]||'').trim()?'':'Required.';
+    if(key==='school'&&!message&&!String(w.canonicalSchoolId||'').trim()){
+      message='Choose a listed school or use “School not listed.”';
+    }
+    if(target)target.textContent=message;
+    const control=key==='school'
+      ?$('[data-school-search], [data-core="school"]')
+      :$('[data-core="'+key+'"]');
+    if(control){
+      control.setAttribute('aria-invalid',String(!!message));
+      if(message&&!firstInvalid)firstInvalid=control;
+    }
+  }
+  const degreeOtherError=$('[data-error="degreeOther"]');
+  if(degreeOtherError){
+    const message=w.degree==='Other'&&!String(w.degreeOther||'').trim()?'Required.':'';
+    degreeOtherError.textContent=message;
+    const control=$('[data-core="degreeOther"]');
+    if(control){
+      control.setAttribute('aria-invalid',String(!!message));
+      if(message&&!firstInvalid)firstInvalid=control;
+    }
+  }
+  const visaOpenError=$('[data-error="residencyVisaTypesOpenTo"]');
+  if(visaOpenError){
+    const message=needsResidencyVisaQuestion404(w)&&!String(w.residencyVisaTypesOpenTo||'').trim()?'Required.':'';
+    visaOpenError.textContent=message;
+    const control=$('[data-core="residencyVisaTypesOpenTo"]');
+    if(control){
+      control.setAttribute('aria-invalid',String(!!message));
+      if(message&&!firstInvalid)firstInvalid=control;
+    }
   }
   const gradTarget=$('[data-error="grad"]');
   if(gradTarget&&w.grad&&!parseBuilderMonth(w.grad)){
     gradTarget.textContent="Enter a month and year, like 'Jun 2023'.";
-    const control=$('[data-core="grad"]');if(control)control.setAttribute('aria-invalid','true');
+    const control=$('[data-core="grad"]');
+    if(control){
+      control.setAttribute('aria-invalid','true');
+      if(!firstInvalid)firstInvalid=control;
+    }
   }
-  return coreInfoValid()&&!!parseBuilderMonth(w.grad);
+  const valid=coreInfoValid()&&!!parseBuilderMonth(w.grad);
+  if(!valid&&firstInvalid){
+    firstInvalid.focus();
+    announceBuilder404('Complete the highlighted required field.');
+  }
+  return valid;
 }
 function runExamAction404(method){
   const examApi=window.D1_407F_ENGINEERING&&window.D1_407F_ENGINEERING.exam;
@@ -2026,6 +2293,22 @@ function showDomainErrors404(form,errors){
   const first=Object.keys(errors)[0];if(first){const control=form.querySelector('[name="'+first+'"]');if(control)control.focus()}
 }
 document.addEventListener('click',e=>{
+  const schoolChoice=e.target.closest('[data-school-choice]');
+  if(schoolChoice){chooseMedicalSchool404(schoolChoice.dataset.schoolChoice);return}
+  const schoolNotListed=e.target.closest('[data-school-not-listed]');
+  if(schoolNotListed){
+    Object.assign(state.wiz,{school:'',canonicalSchoolId:'',schoolRecord:null,schoolEntryMode:'unlisted',schoolVerificationStatus:'unverified',schoolNormalizationStatus:'draft',schoolAnalyticsEligible:false,schoolUnlistedSubmission:null,schoolCity:'',country:''});
+    state.builder.touched[1]=true;renderBuilder404();
+    requestAnimationFrame(()=>{const control=$('[data-core="school"]');if(control)control.focus()});
+    return;
+  }
+  const schoolUseRegistry=e.target.closest('[data-school-use-registry]');
+  if(schoolUseRegistry){
+    Object.assign(state.wiz,{school:'',canonicalSchoolId:'',schoolRecord:null,schoolEntryMode:'registry',schoolVerificationStatus:'',schoolNormalizationStatus:'',schoolAnalyticsEligible:false,schoolUnlistedSubmission:null,schoolCity:'',country:''});
+    state.builder.touched[1]=true;renderBuilder404();
+    requestAnimationFrame(()=>{const control=$('[data-school-search]');if(control)control.focus()});
+    return;
+  }
   const typeaheadChoice=e.target.closest('[data-typeahead-choice]');
   if(typeaheadChoice){commitTypeahead404(typeaheadChoice.closest('[data-domain-typeahead]'),typeaheadChoice.dataset.typeaheadChoice);return}
   const reviewJump=e.target.closest('[data-review-step]');
@@ -2098,14 +2381,37 @@ document.addEventListener('click',e=>{
   if(skip){const step=+skip.dataset.builderSkip;state.builder.skipped[step]=true;state.builder.step=Math.min(7,step+1);state.saved=false;renderAll();return}
 });
 document.addEventListener('mousedown',e=>{
+  if(e.target.closest('[data-school-choice]'))e.preventDefault();
   if(e.target.closest('[data-typeahead-choice]'))e.preventDefault();
 });
 document.addEventListener('input',e=>{
+  const schoolInput=e.target.closest&&e.target.closest('[data-school-search]');
+  if(schoolInput){
+    schoolRegistryActive404=-1;
+    searchMedicalSchools404();
+    return;
+  }
+  const coreText=e.target.closest&&e.target.closest(
+    '[data-core="school"],[data-core="schoolCity"],[data-core="degreeOther"],[data-core="visaOther"]'
+  );
+  if(coreText){
+    state.wiz[coreText.dataset.core]=String(coreText.value||'');
+    state.builder.touched[1]=true;
+    state.saved=false;
+    queueUnlistedSchool404();
+    renderHud();
+    return;
+  }
   const input=e.target.closest&&e.target.closest('[data-typeahead-input]');
   if(!input)return;
   const field=input.closest('[data-domain-typeahead]');field.dataset.activeIndex='0';paintTypeahead404(field);
 });
 document.addEventListener('focusin',e=>{
+  const schoolInput=e.target.closest&&e.target.closest('[data-school-search]');
+  if(schoolInput&&String(schoolInput.value||'').trim().length>=2){
+    searchMedicalSchools404();
+    return;
+  }
   const input=e.target.closest&&e.target.closest('[data-typeahead-input]');
   if(input)paintTypeahead404(input.closest('[data-domain-typeahead]'));
 });
@@ -2116,6 +2422,24 @@ document.addEventListener('keydown',e=>{
     const current=Number(stepButton.dataset.builderStep)||1;
     const next=e.key==='Home'?1:(e.key==='End'?7:(e.key==='ArrowLeft'?(current===1?7:current-1):(current===7?1:current+1)));
     moveBuilderStep404(next,{focusNavigator:true});
+    return;
+  }
+  const schoolInput=e.target.closest&&e.target.closest('[data-school-search]');
+  if(schoolInput){
+    if(e.key==='ArrowDown'&&schoolRegistryRows404.length){
+      e.preventDefault();
+      schoolRegistryActive404=(schoolRegistryActive404+1+schoolRegistryRows404.length)%schoolRegistryRows404.length;
+      paintSchoolRegistry404();
+    }else if(e.key==='ArrowUp'&&schoolRegistryRows404.length){
+      e.preventDefault();
+      schoolRegistryActive404=(schoolRegistryActive404-1+schoolRegistryRows404.length)%schoolRegistryRows404.length;
+      paintSchoolRegistry404();
+    }else if(e.key==='Enter'&&schoolRegistryRows404.length){
+      e.preventDefault();
+      chooseMedicalSchool404(schoolRegistryActive404>=0?schoolRegistryActive404:0);
+    }else if(e.key==='Escape'){
+      e.preventDefault();closeSchoolRegistry404();
+    }
     return;
   }
   const input=e.target.closest&&e.target.closest('[data-typeahead-input]');if(!input)return;
@@ -2149,12 +2473,40 @@ document.addEventListener('d1:date-commit',e=>{
   }
 });
 document.addEventListener('change',e=>{
+  const schoolFilter=e.target.closest('[data-school-filter]');
+  if(schoolFilter){
+    if(schoolFilter.dataset.schoolFilter==='country')state.wiz.schoolCountryFilter=schoolFilter.value;
+    else state.wiz.schoolTypeFilter=schoolFilter.value;
+    const schoolInput=$('[data-school-search]');
+    if(schoolInput&&String(schoolInput.value||'').trim().length>=2)searchMedicalSchools404();
+    return;
+  }
   const field=e.target.closest('[data-core]');
   if(field){
     const key=field.dataset.core;
     let value=field.value;
     if(key==='grad'){const parsed=parseBuilderMonth(value);if(parsed)value=parsed}
-    state.wiz[key]=value;state.builder.touched[1]=true;syncCoreInfo();
+    state.wiz[key]=value;state.builder.touched[1]=true;
+    builderCoreChangePending404=true;
+    let announcement='';
+    if(key==='visa'){
+      if(value==='Employment Authorization Document'){
+        announcement='EAD status and residency visa questions are now available.';
+      }else if(needsResidencyVisaQuestion404(state.wiz)){
+        announcement='Residency visa options are now required.';
+      }else{
+        announcement='No residency visa question is required for this status.';
+      }
+    }else if(key==='eadStatus'){
+      announcement=needsResidencyVisaQuestion404(state.wiz)
+        ?'Residency visa options are now required.'
+        :'The residency visa question is no longer required.';
+    }
+    setTimeout(()=>{
+      builderCoreChangePending404=false;
+      syncCoreInfo();
+      restoreBuilderCoreFocus404(key,announcement);
+    },0);
   }
   const toggle=e.target.closest('[data-core-toggle]');
   if(toggle){state.wiz[toggle.dataset.coreToggle]=toggle.checked;state.builder.touched[1]=true;syncCoreInfo()}
@@ -2173,6 +2525,17 @@ document.addEventListener('change',e=>{
   }
 });
 document.addEventListener('focusout',e=>{
+  if(e.target.matches&&e.target.matches('[data-school-search]')){
+    const input=e.target;
+    setTimeout(()=>{
+      if(!input.closest('[data-school-combobox]')?.contains(document.activeElement)){
+        closeSchoolRegistry404();
+        input.value=state.wiz.school||'';
+        showCoreErrors();
+      }
+    },0);
+    return;
+  }
   if(e.target.matches&&e.target.matches('[data-core]')){
     if(e.target.matches('[data-core="grad"]')){
       state.wiz.grad=String(e.target.dataset.dateCanonical!==undefined

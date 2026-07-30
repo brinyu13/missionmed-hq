@@ -73,8 +73,17 @@ test("document and 407F state bridge preserves profile, theme, media, and events
   const document={
     studentProfile:{
       fullName:"Dr. Test",
+      medicalSchool:"Albany Medical College",
+      canonicalSchoolId:"mm-school-us-dapip-46-129312",
+      medicalSchoolRecord:{
+        canonical_school_id:"mm-school-us-dapip-46-129312",
+        canonical_name:"Albany Medical College",
+        country:"United States",
+        school_type:"MD"
+      },
       medicalSchoolCountry:"Ghana",
-      visaStatus:"Citizen",
+      currentUsWorkAuthorization:"F-1",
+      residencyVisaTypesOpenTo:"Either",
       specialtyGoal:"Internal Medicine"
     },
     events:[{
@@ -104,6 +113,10 @@ test("document and 407F state bridge preserves profile, theme, media, and events
   };
   applyDocumentTo407FState(document,state);
   assert.equal(state.profile.name,"Dr. Test");
+  assert.equal(state.wiz.canonicalSchoolId,"mm-school-us-dapip-46-129312");
+  assert.equal(state.wiz.schoolRecord.school_type,"MD");
+  assert.equal(state.wiz.visa,"F-1");
+  assert.equal(state.wiz.residencyVisaTypesOpenTo,"Either");
   assert.equal(state.canvasTheme,"paper");
   assert.equal(state.user.events[0].cat,"res");
   assert.equal(state.user.events[0].vis,"full");
@@ -121,4 +134,10 @@ test("document and 407F state bridge preserves profile, theme, media, and events
   assert.equal(target.metadata.canonicalUi,"407F");
   assert.equal(target.metadata.productionWrites,false);
   assert.equal(target.metadata.localOnly,true);
+  assert.equal(
+    target.studentProfile.canonicalSchoolId,
+    "mm-school-us-dapip-46-129312"
+  );
+  assert.equal(target.studentProfile.currentUsWorkAuthorization,"F-1");
+  assert.equal(target.studentProfile.residencyVisaTypesOpenTo,"Either");
 });

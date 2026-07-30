@@ -893,6 +893,252 @@ main{
   gap:16px;
 }
 
+.schoolRegistryPanel{
+  background:
+    linear-gradient(145deg,rgba(20,31,49,.98),rgba(10,17,29,.98)),
+    radial-gradient(circle at 12% 0%,rgba(74,184,228,.12),transparent 44%);
+  border:1px solid rgba(102,135,174,.35);
+  border-radius:12px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.04),
+    0 10px 26px rgba(0,0,0,.22);
+  display:grid;
+  gap:15px;
+  padding:17px;
+}
+
+.schoolRegistryPanel.unlisted{
+  background:
+    linear-gradient(145deg,rgba(37,29,19,.98),rgba(16,18,24,.98)),
+    radial-gradient(circle at 10% 0%,rgba(255,179,64,.12),transparent 48%);
+  border-color:rgba(255,179,64,.34);
+}
+
+.schoolRegistryHeading{
+  align-items:flex-start;
+  display:flex;
+  gap:14px;
+  justify-content:space-between;
+}
+
+.schoolRegistryHeading .subt{
+  color:var(--cy);
+  font-size:11px;
+  letter-spacing:.12em;
+  margin:0 0 5px;
+}
+
+.schoolRegistryPanel.unlisted .schoolRegistryHeading .subt{
+  color:var(--em);
+}
+
+.schoolRegistryHeading p,
+.schoolCoverageNote{
+  color:var(--mid);
+  font-size:12px;
+  line-height:1.5;
+  margin:0;
+}
+
+.schoolSourceBadge{
+  background:rgba(74,184,228,.1);
+  border:1px solid rgba(74,184,228,.36);
+  border-radius:999px;
+  color:var(--cy);
+  flex:0 0 auto;
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.08em;
+  padding:5px 8px;
+}
+
+.schoolFilterRow{
+  display:grid;
+  gap:12px;
+  grid-template-columns:1fr;
+}
+
+.schoolRegistryCombo{
+  position:relative;
+  z-index:18;
+}
+
+.schoolRegistryCombo input[type="search"]{
+  -webkit-appearance:none;
+  appearance:none;
+  background:#101826;
+  border:1px solid rgba(148,163,184,.32);
+  border-radius:7px;
+  color:var(--tx);
+  min-width:0;
+  padding:9px 11px;
+  width:100%;
+}
+
+.schoolRegistryCombo input[type="search"]::-webkit-search-cancel-button{
+  filter:invert(1);
+  opacity:.72;
+}
+
+.schoolRegistryOptions{
+  background:#111b2a;
+  border:1px solid rgba(74,184,228,.42);
+  border-radius:9px;
+  box-shadow:0 16px 38px rgba(0,0,0,.46);
+  left:0;
+  list-style:none;
+  margin:4px 0 0;
+  max-height:320px;
+  overflow:auto;
+  padding:5px;
+  position:absolute;
+  right:0;
+  top:66px;
+  z-index:340;
+}
+
+.schoolRegistryOptions li{
+  background:transparent;
+  border-radius:7px;
+  color:var(--tx);
+  cursor:pointer;
+  display:grid;
+  gap:4px;
+  margin:0;
+  min-height:48px;
+  padding:9px 10px;
+  text-align:left;
+}
+
+.schoolRegistryOptions li strong{
+  font-size:13px;
+  line-height:1.35;
+}
+
+.schoolRegistryOptions li span{
+  color:var(--mid);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:650;
+  line-height:1.35;
+}
+
+.schoolRegistryOptions li:hover,
+.schoolRegistryOptions [aria-selected="true"]{
+  background:
+    linear-gradient(90deg,rgba(74,184,228,.18),rgba(74,184,228,.06));
+  box-shadow:inset 3px 0 0 var(--cy);
+}
+
+.schoolRegistryStatus{
+  color:var(--mid);
+  font-size:12px;
+  line-height:1.45;
+  min-height:18px;
+  padding:5px 2px 0;
+}
+
+.schoolSelectedCard{
+  align-items:center;
+  background:rgba(74,222,157,.065);
+  border:1px solid rgba(74,222,157,.3);
+  border-radius:9px;
+  display:grid;
+  gap:10px;
+  grid-template-columns:26px minmax(0,1fr);
+  padding:11px;
+}
+
+.schoolSelectedCard>.schoolVerificationState{
+  grid-column:2;
+  justify-self:start;
+}
+
+.schoolSelectedCheck{
+  align-items:center;
+  background:rgba(74,222,157,.16);
+  border:1px solid rgba(74,222,157,.45);
+  border-radius:999px;
+  color:var(--gn);
+  display:flex;
+  font-size:13px;
+  height:24px;
+  justify-content:center;
+  width:24px;
+}
+
+.schoolSelectedCard.needsReview{
+  background:rgba(185,138,46,.08);
+  border-color:rgba(185,138,46,.42);
+}
+
+.srOnly407F{
+  clip:rect(0 0 0 0);
+  clip-path:inset(50%);
+  height:1px;
+  overflow:hidden;
+  position:absolute;
+  white-space:nowrap;
+  width:1px;
+}
+
+.schoolSelectedCard>div{
+  display:grid;
+  gap:3px;
+}
+
+.schoolSelectedCard strong{
+  color:var(--tx);
+  font-size:13px;
+  line-height:1.35;
+}
+
+.schoolSelectedCard>div span{
+  color:var(--mid);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:650;
+  line-height:1.35;
+}
+
+.schoolVerificationState{
+  color:var(--gn);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.08em;
+}
+
+.schoolVerificationState.unverified{
+  color:var(--em);
+  line-height:1.45;
+}
+
+.schoolNotListedLink{
+  background:transparent;
+  border:0;
+  color:var(--cy);
+  font-family:var(--num);
+  font-size:11px;
+  font-weight:700;
+  justify-self:start;
+  letter-spacing:.08em;
+  min-height:44px;
+  padding:0;
+  text-decoration:underline;
+  text-underline-offset:3px;
+}
+
+.schoolNotListedLink:hover{
+  color:#8fd7f5;
+}
+
+.schoolNotListedLink:focus-visible{
+  outline:2px solid var(--cy);
+  outline-offset:3px;
+}
+
 .builderField{
   border:0;
   display:block;
@@ -932,6 +1178,34 @@ main{
 
 .builderField .builderHint{
   color:var(--dim);
+}
+
+@media(max-width:760px){
+  .schoolFilterRow{
+    grid-template-columns:1fr;
+  }
+
+  .schoolRegistryHeading{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .schoolRegistryOptions{
+    max-height:min(240px,35dvh);
+    overscroll-behavior:contain;
+  }
+
+  .schoolSourceBadge{
+    align-self:flex-start;
+  }
+
+  .schoolSelectedCard{
+    grid-template-columns:26px minmax(0,1fr);
+  }
+
+  .schoolSelectedCard>.schoolVerificationState{
+    grid-column:2;
+  }
 }
 
 .builderForm .field,
