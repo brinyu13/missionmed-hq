@@ -1089,6 +1089,15 @@ export function installIntake(root,machine,{
   clearIntervalFn=clearInterval
 }={}){
   let statusTimer=null;
+  const installCandidateMonths=()=>{
+    if(typeof root.querySelectorAll!=="function")return;
+    installMonthFields(root,{onCommit:(_fieldId,value,input)=>{
+      const wrapper=input.closest?.("[data-candidate-month]");
+      const id=wrapper?.dataset?.candidateId;
+      const field=wrapper?.dataset?.candidateField;
+      if(id&&field)machine.editCandidate(id,{[field]:value});
+    }});
+  };
   const stopTicker=()=>{
     if(statusTimer!=null){
       clearIntervalFn(statusTimer);
@@ -1102,6 +1111,7 @@ export function installIntake(root,machine,{
       stopTicker();
     }
     onChange(state);
+    installCandidateMonths();
   });
 
   const handleClick=async(event)=>{
@@ -1192,15 +1202,6 @@ export function installIntake(root,machine,{
   root.addEventListener("change",handleChange);
   root.addEventListener("dragover",handleDragOver);
   root.addEventListener("drop",handleDrop);
-  if(typeof root.querySelectorAll==="function"){
-    installMonthFields(root,{onCommit:(_fieldId,value,input)=>{
-      const wrapper=input.closest?.("[data-candidate-month]");
-      const id=wrapper?.dataset?.candidateId;
-      const field=wrapper?.dataset?.candidateField;
-      if(id&&field)machine.editCandidate(id,{[field]:value});
-    }});
-  }
-
   return()=>{
     stopTicker();
     unsubscribe();

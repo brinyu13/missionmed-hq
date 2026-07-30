@@ -22,6 +22,14 @@ import {
   createCanvasState,
   installCanvas
 } from "./uxr-002/canvas.js";
+import {renderKeynoteClassicBoard} from "./uxr-002/board-renderer.js";
+import {
+  IntakeStateMachine,
+  applyApprovalBatchToDocument,
+  installIntake,
+  renderIntake
+} from "./uxr-002/intake.js";
+import {createD1408PdfIntakeAdapter} from "./uxr-002/intake-d1-408-adapter.js";
 
 const CATEGORY_TO_407F=Object.freeze({
   work:"work",
@@ -150,6 +158,7 @@ export function applyDocumentTo407FState(document,state){
     domainDrafts:clone(document.builder?.drafts||{}),
     domainEditing:clone(document.builder?.editing||{})
   };
+  state.intake=clone(document.intake||state.intake||{});
   state.canvasTheme=document.theme==="season-one-board"?"season":
     document.theme==="clean-advisor-paper"||document.theme==="advisor-paper"?"paper":
     document.theme==="horizon"?"horizon":
@@ -274,6 +283,19 @@ function escapeMarkup(value){
   })[character]);
 }
 
+function persistedIntakeState(state){
+  const value=clone(state);
+  if(value.stage==="done"){
+    value.candidates=(value.candidates||[])
+      .filter((candidate)=>candidate.decision==="undecided");
+  }
+  return value;
+}
+
+function currentMonth(){
+  return new Date().toISOString().slice(0,7);
+}
+
 function canvasDetailField([key,label,type="text"],event){
   const value=event.fields?.[key]??"";
   if(type==="checkbox"){
@@ -318,6 +340,8 @@ export async function boot407FEngineeringAdapter({
   const init=await store.initialize();
   let applying=false;
   let canvasController=null;
+  let intakeCleanup=()=>{};
+  let intakeMachine=null;
   let canvasSyncing=false;
   let unsubscribeStore=()=>{};
   let onCanvasDetailsClick=()=>{};
@@ -377,6 +401,7 @@ export async function boot407FEngineeringAdapter({
       );
     }
     canvasController?.destroy();
+    intakeCleanup();
     unsubscribeStore();
     document.getElementById("canvas407F")?.removeEventListener("click",onCanvasDetailsClick);
     window.removeEventListener("resize",onCanvasResize);
@@ -395,6 +420,14 @@ export async function boot407FEngineeringAdapter({
       lastState=stableState(bridge.state);
       applying=false;
     }
+  };
+  const syncBridgeFromStore=()=>{
+    applying=true;
+    applyDocumentTo407FState(store.document,bridge.state);
+    bridge.renderAll();
+    canvasController?.render();
+    lastState=stableState(bridge.state);
+    applying=false;
   };
   const commitExamMutation=(label,mutation)=>{
     store.mutate(label,(document)=>{
@@ -514,12 +547,8 @@ export async function boot407FEngineeringAdapter({
     const syncCanvasDocument=()=>{
       if(canvasSyncing)return;
       canvasSyncing=true;
-      applying=true;
-      applyDocumentTo407FState(store.document,bridge.state);
-      bridge.renderAll();
+      syncBridgeFromStore();
       reflectStoreStatus();
-      lastState=stableState(bridge.state);
-      applying=false;
       canvasSyncing=false;
     };
     canvasController=installCanvas(canvasHost,store,{
@@ -581,6 +610,97 @@ export async function boot407FEngineeringAdapter({
     canvasHost.addEventListener("click",onCanvasDetailsClick);
     onCanvasResize=()=>canvasController?.setResponsiveWidth(window.innerWidth);
     window.addEventListener("resize",onCanvasResize);
+  }
+  const intakeHost=document.getElementById("intake407F");
+  if(intakeHost){
+    const intakeAdapter=window.D1_TIMELINE_INTAKE_ADAPTER||createD1408PdfIntakeAdapter();
+    window.D1_TIMELINE_INTAKE_ADAPTER=intakeAdapter;
+    const renderIntakePreview=(previewEvents)=>{
+      const replacementIds=new Set((previewEvents||[]).map(({id})=>String(id)));
+      const events=[
+        ...(store.document.events||[]).filter(({id})=>!replacementIds.has(String(id))),
+        ...(previewEvents||[])
+      ];
+      if(!events.length){
+        return`<div class="intake407FPreviewEmpty"><strong>Accepted suggestions appear here.</strong><span>Your timeline remains unchanged until final approval.</span></div>`;
+      }
+      try{
+        const rendered=renderKeynoteClassicBoard({
+          ...clone(store.document),
+          events
+        },{
+          currentMonth:currentMonth(),
+          audience:"EVERYTHING"
+        });
+        return`<div class="intake407FBoardPreview">${rendered.svg}</div>`;
+      }catch{
+        return`<div class="intake407FPreviewEmpty"><strong>${events.length} event${events.length===1?"":"s"} ready to preview.</strong><span>The exact board will settle after approval.</span></div>`;
+      }
+    };
+    const renderIntakeHost=(state)=>{
+      intakeHost.innerHTML=renderIntake(state,{
+        existingEvents:store.document.events,
+        renderPreview:renderIntakePreview
+      });
+    };
+    const openIntakeDialog=(dialog)=>{
+      if(typeof bridge.openModal!=="function")return;
+      bridge.openModal(`<section class="intake407FDialog" role="dialog" aria-modal="true" aria-labelledby="intake407FDialogTitle">
+        <h2 id="intake407FDialogTitle">${escapeMarkup(dialog.title)}</h2>
+        <p>${escapeMarkup(dialog.body)}</p>
+        <div>
+          <button type="button" class="btnD alt" data-intake-dialog-secondary>${escapeMarkup(dialog.secondaryLabel||"Cancel")}</button>
+          <button type="button" class="btnD go" data-intake-dialog-primary>${escapeMarkup(dialog.primaryLabel||"Continue")}</button>
+        </div>
+      </section>`);
+      document.querySelector("[data-intake-dialog-secondary]")?.addEventListener("click",()=>{
+        bridge.closeModal?.();
+        dialog.onSecondary?.();
+      },{once:true});
+      document.querySelector("[data-intake-dialog-primary]")?.addEventListener("click",()=>{
+        bridge.closeModal?.();
+        dialog.onPrimary?.();
+      },{once:true});
+    };
+    intakeMachine=new IntakeStateMachine({
+      adapter:intakeAdapter,
+      initialState:store.document.intake,
+      existingEvents:store.document.events
+    });
+    intakeCleanup=installIntake(intakeHost,intakeMachine,{
+      onChange:(state)=>{
+        renderIntakeHost(state);
+        if(state.stage==="upload")intakeMachine.existingEvents=clone(store.document.events||[]);
+        store.mutate("Update Intake flow",(document)=>{
+          document.intake=persistedIntakeState(state);
+        },{history:false,material:false});
+        bridge.state.intake=persistedIntakeState(state);
+        bridge.renderAll();
+      },
+      onNavigate:(route)=>bridge.go(route),
+      onToast:(message)=>bridge.toast(message),
+      onError:(error)=>bridge.toast(String(error?.message||error)),
+      openDialog:openIntakeDialog,
+      saveVersion:(name,kind)=>store.saveVersion(name,kind),
+      applyBatch:async(batch,contract)=>{
+        let result=null;
+        store.mutate(contract?.label||"Add document suggestions",(document)=>{
+          result=applyApprovalBatchToDocument(document,batch);
+        });
+        syncBridgeFromStore();
+        return result;
+      },
+      deleteSource:async(file)=>{
+        if(typeof intakeAdapter.deleteSource==="function"){
+          await intakeAdapter.deleteSource(file);
+        }
+      }
+    });
+    api.intake=Object.freeze({
+      machine:intakeMachine,
+      adapter:intakeAdapter,
+      render:()=>renderIntakeHost(intakeMachine.snapshot())
+    });
   }
   api.undo=()=>{
     const entry=store.undo();

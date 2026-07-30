@@ -290,13 +290,51 @@ remain available as engineering sources, but `web/index.html` does not load
   `screenshots/M8-adaptive-axis-407f.png`
 - Visual verdict: pass — the adaptive artifact remains framed by 407F chrome
   and changes board geometry only, never the surrounding shell.
-- Commit: pending M8 commit.
+- Commit: `17d8880`
+
+### M9 — document Intake
+
+- Replaced the legacy simulated Intake and separate Extraction Review screens
+  with one `intake407F` host inside the canonical 407F presentation.
+- Reused the retained `IntakeStateMachine`, candidate normalization,
+  confidence and duplicate review, source snippets, inline edits, explicit
+  merge/add-anyway decisions, filters, cancellation guard, Done state, and
+  atomic approval contract.
+- Connected the retained local D1-408 native-text PDF adapter. The active UI
+  makes no fixture, simulated, OCR, network, or unsupported DOCX extraction
+  claim; adapter failures remain explicit and actionable.
+- Preserved the frozen Upload → Read → Review → Done flow, privacy and consent
+  copy, 20MB UI file boundary, disabled-until-file-and-consent Read action,
+  two-second status rotation, live accepted-candidate preview, and failure
+  escape paths.
+- Persisted Intake state through the shared `TimelineStore` and connected
+  Home's pending-suggestions chip back to the same Intake route.
+- Preserved the one-step approval transaction: automatic
+  `Before CV import · {date}` version first, then exactly one
+  `applyApprovalBatchToDocument` mutation and one undo step. No event writes
+  occur before approval.
+- Corrected delegated MonthField installation so candidate date editors remain
+  active after Intake rerenders.
+- Browser assertions: pass — one Intake route, exact four-stage progress,
+  unchecked consent, disabled Read action, frozen copy, and no active legacy
+  fixture/pipeline language.
+- Browser errors from the fresh M9 reload and Intake route interaction: 0.
+- Regression evidence: 410/410 tests pass in the full run: 119/119 TypeScript
+  and 291/291 module tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M9-intake-407f.png`
+- Visual verdict: pass — Intake is a native dark 407F workflow with the same
+  angular actions, luminous progress language, layered panels, and premium
+  Timeline//S1 identity.
+- Commit: pending
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 405/405 segmented inventory (109 TypeScript functional + 10 isolated performance + 286 module); required floor 370 |
+| Regression floor | PASS — 410/410 full inventory (119 TypeScript + 291 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -321,7 +359,7 @@ remain available as engineering sources, but `web/index.html` does not load
 | M5 | `a530cda` | `git revert a530cda` |
 | M6 | `f7c6329` | `git revert f7c6329` |
 | M7 | `3d40235` | `git revert 3d40235` |
-| M8 | pending M8 commit | patch with the M8 commit hash before M9 completion |
+| M8 | `17d8880` | `git revert 17d8880` |
 
 ## Precedence resolutions
 

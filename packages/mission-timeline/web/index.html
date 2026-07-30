@@ -533,7 +533,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
           <h2 id="homeTimelineTitle">Your timeline</h2>
           <div class="homeTimelineMeta">
             <span class="homeApproved" id="homeApproved" hidden></span>
-            <button class="homePending" id="homePending" data-nav="review" hidden></button>
+            <button class="homePending" id="homePending" data-nav="intake" hidden></button>
             <span id="homeMeta">0 events · 2026–2026 · edited just now</span>
           </div>
         </div>
@@ -583,66 +583,7 @@ html.prodDarkCanvas .board.t-keynote{background-color:#07101d!important;backgrou
 
 <!-- ================= INTAKE ================= -->
 <section data-view="intake">
-  <div class="trow"><div class="bigt">DOCUMENT <em>INTAKE</em></div><div class="subt">CV / ERAS INGESTION · FIXTURE EXTRACTION · CANDIDATES QUARANTINED UNTIL CONFIRMED</div></div>
-  <div class="grid2">
-    <div>
-      <div class="panelD" id="dropWrap"><div class="pi" style="padding:22px 24px">
-        <div class="subt" style="margin-bottom:10px">1 · CHOOSE DOCUMENT TYPE</div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px" id="docTypes">
-          <button class="btnD alt sm" data-doc="cv">CV PDF</button>
-          <button class="btnD alt sm" data-doc="eras">ERAS-STYLE PDF</button>
-          <button class="btnD alt sm" data-doc="resume">RESUME</button>
-          <button class="btnD alt sm" data-doc="scan">SCANNED PDF</button>
-        </div>
-        <div style="border:1px dashed var(--edge2);border-radius:12px;padding:26px 20px;cursor:pointer;text-align:center" id="dropzone">
-          <div style="font-size:24px">🗂</div>
-          <div style="font-weight:800;font-size:15px;margin:8px 0 6px" id="dropLabel">Drop your document · or click to simulate</div>
-          <div class="subt" style="letter-spacing:.2em">READ LOCALLY · FIXTURE EXTRACTION · DELETE ANYTIME</div>
-        </div>
-        <div class="subt" style="margin:16px 0 8px">2 · PRIVACY CHECK</div>
-        <div style="display:flex;gap:10px;align-items:flex-start">
-          <div class="tglD on" id="privOk"><i></i></div>
-          <span style="font-size:12px;color:var(--mid);line-height:1.6">I understand this prototype reads the document locally, marks personal items for my review, and nothing appears on the final timeline until I confirm it.</span>
-        </div>
-        <div style="margin-top:14px" class="chip em">NOTHING FROM AN UPLOAD APPEARS ON YOUR FINAL TIMELINE UNTIL YOU CONFIRM IT</div>
-      </div></div>
-      <div class="panelD" id="parseWrap" style="display:none;margin-top:16px"><div class="pi">
-        <div class="subt" style="margin-bottom:12px">3 · PIPELINE · <span id="parseDocName">CV_AMARA_OSEI.PDF</span> · FIXTURE MODE</div>
-        <div id="parseSteps" style="font-family:var(--num);font-weight:600;font-size:12.5px;color:var(--mid);line-height:2.1"></div>
-        <div id="parseDone" style="display:none;margin-top:12px"><button class="btnD go sm" data-nav="review">REVIEW 10 CANDIDATES ▸</button></div>
-      </div></div>
-    </div>
-    <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">WHAT INTAKE DOES</div>
-      <div class="chkRow"><span class="chip cy">STEP</span><span style="font-size:12.5px">File inspection · type, pages, text layer</span></div>
-      <div class="chkRow"><span class="chip cy">STEP</span><span style="font-size:12.5px">Text extraction · OCR fallback for scans</span></div>
-      <div class="chkRow"><span class="chip cy">STEP</span><span style="font-size:12.5px">Section detection · education, experience, research</span></div>
-      <div class="chkRow"><span class="chip cy">STEP</span><span style="font-size:12.5px">Event extraction · dates, sites, categories</span></div>
-      <div class="chkRow"><span class="chip cy">STEP</span><span style="font-size:12.5px">Duplicate + conflict detection across documents</span></div>
-      <div class="chkRow"><span class="chip rd">LAW</span><span style="font-size:12.5px">Candidates stay quarantined until you confirm them</span></div>
-      <div class="helper" style="margin-top:14px;letter-spacing:.08em">FIXTURE EXTRACTION · SIMULATED PARSING, PLAINLY LABELED · REAL PDF PARSING IS THE 408 ENGINEERING TRACK</div>
-    </div></div>
-  </div>
-</section>
-
-<!-- ================= EXTRACTION REVIEW ================= -->
-<section data-view="review">
-  <div class="trow"><div class="bigt">EXTRACTION <em>REVIEW</em></div><div class="subt">CONFIRM · EDIT · MERGE · REJECT · NOTHING LANDS UNTIL YOU DECIDE</div></div>
-  <div class="canvasCtl">
-    <span class="chip em">QUARANTINED</span>
-    <span class="chip" id="candMeter">0 OF 9 REVIEWED</span>
-    <button class="btnD alt sm" id="acceptHigh">ACCEPT ALL HIGH-CONFIDENCE</button>
-    <button class="btnD alt sm" id="rerunX">RE-RUN EXTRACTION</button>
-    <button class="btnD alt sm" id="addMissing">ADD MISSING EVENT</button>
-    <span class="helper">CONFLICTS ARE NEVER SILENTLY DELETED · MERGE OR KEEP BOTH</span>
-  </div>
-  <div class="grid2">
-    <div id="candList"></div>
-    <div class="panelD"><div class="pi">
-      <div class="subt" style="margin-bottom:12px">BOARD · ACCEPTED CANDIDATES LAND HERE</div>
-      <div id="boardUpload"></div>
-    </div></div>
-  </div>
+  <div id="intake407F" class="intake407FHost"></div>
 </section>
 
 <!-- ================= QUESTIONS ================= -->
@@ -1263,7 +1204,9 @@ function renderHome(){
   if(startOver)startOver.hidden=!count;
   const meta=$('#homeMeta');
   if(meta)meta.textContent=count+' '+(count===1?'event':'events')+' · '+ax.y0+'–'+ax.y1+' · edited just now';
-  const pending=state.candidates.filter(c=>c.st==='pending').length;
+  const pending=Array.isArray(state.intake?.candidates)
+    ?state.intake.candidates.filter(candidate=>candidate.decision==='undecided').length
+    :state.candidates.filter(c=>c.st==='pending').length;
   const pendingButton=$('#homePending');
   if(pendingButton){
     pendingButton.hidden=!pending;
@@ -2136,10 +2079,14 @@ $('#builderContinue').onclick=()=>{
 /* ============ INTAKE ============ */
 $$('#docTypes [data-doc]').forEach(b=>b.onclick=()=>{state.intakeDoc=b.dataset.doc;$$('#docTypes [data-doc]').forEach(x=>x.classList.toggle('go',x===b));$$('#docTypes [data-doc]').forEach(x=>x.classList.toggle('alt',x!==b));
   $('#dropLabel').textContent={cv:'Drop your CV PDF · or click to simulate',eras:'Drop your ERAS-style PDF · or click to simulate',resume:'Drop your resume · or click to simulate',scan:'Drop your scanned PDF · OCR fixture path'}[state.intakeDoc];});
-$('#privOk').onclick=()=>{$('#privOk').classList.toggle('on')};
-$('#dropzone').onclick=startParse;
-$('#dropzone').ondragover=e=>{e.preventDefault()};
-$('#dropzone').ondrop=e=>{e.preventDefault();startParse()};
+const legacyPrivacyToggle=$('#privOk');
+if(legacyPrivacyToggle)legacyPrivacyToggle.onclick=()=>legacyPrivacyToggle.classList.toggle('on');
+const legacyDropzone=$('#dropzone');
+if(legacyDropzone){
+  legacyDropzone.onclick=startParse;
+  legacyDropzone.ondragover=e=>{e.preventDefault()};
+  legacyDropzone.ondrop=e=>{e.preventDefault();startParse()};
+}
 function startParse(){
   if(!$('#privOk').classList.contains('on')){toast('Confirm the privacy check first · nothing is read without it');return}
   if(state.uploadStage==='parsing')return;
@@ -2238,14 +2185,17 @@ function openProv(c){
    +'<button class="btnD alt" id="provClose">CLOSE</button>');
   $('#provClose').onclick=closeModal;
 }
-$('#acceptHigh').onclick=()=>{
+const legacyAcceptHigh=$('#acceptHigh');
+if(legacyAcceptHigh)legacyAcceptHigh.onclick=()=>{
   const hi=state.candidates.filter(c=>c.st==='pending'&&c.kind==='normal'&&c.cc==='gn');
   if(!hi.length){toast('No pending high-confidence candidates');return}
   pushUndo();hi.forEach(c=>{state.user.events.push(candToEvent(c,'safe'));c.st='accepted'});
   toast(hi.length+' high-confidence candidates accepted · conflicts still need you');renderCands();renderBoards();renderHud();renderEvList();
 };
-$('#rerunX').onclick=()=>{state.candidates.forEach(c=>{if(c.st==='aside'||c.st==='rejected')c.st='pending'});toast('Extraction re-run · set-aside and rejected candidates restored · accepted events untouched');renderCands()};
-$('#addMissing').onclick=()=>{go('canvas');addElement('work','bar');toast('Add the missing event directly · intake never blocks manual entry')};
+const legacyRerun=$('#rerunX');
+if(legacyRerun)legacyRerun.onclick=()=>{state.candidates.forEach(c=>{if(c.st==='aside'||c.st==='rejected')c.st='pending'});toast('Extraction re-run · set-aside and rejected candidates restored · accepted events untouched');renderCands()};
+const legacyAddMissing=$('#addMissing');
+if(legacyAddMissing)legacyAddMissing.onclick=()=>{go('canvas');addElement('work','bar');toast('Add the missing event directly · intake never blocks manual entry')};
 
 /* ============ MEDIA ============ */
 $$('#photoSeg button').forEach(b=>b.onclick=()=>{
@@ -2427,7 +2377,7 @@ function lockProdDarkCanvas(){
 lockProdDarkCanvas();
 setInterval(lockProdDarkCanvas,750);
 new MutationObserver(lockProdDarkCanvas).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','style']});
-window.D1_407F_TEST={state:state,SPR402:SPR402,CATS:CATS,snapshotDoc:snapshotDoc,applyDoc:applyDoc,pushUndo:pushUndo,doUndo:doUndo,renderAll:renderAll,renderBoard:renderBoard,go:go,toast:toast,computeQuestions:computeQuestions,exCounts:exCounts,exWarnings:exWarnings,fixtureSet:fixtureSet};
+window.D1_407F_TEST={state:state,SPR402:SPR402,CATS:CATS,snapshotDoc:snapshotDoc,applyDoc:applyDoc,pushUndo:pushUndo,doUndo:doUndo,renderAll:renderAll,renderBoard:renderBoard,go:go,toast:toast,openModal:openModal,closeModal:closeModal,computeQuestions:computeQuestions,exCounts:exCounts,exWarnings:exWarnings,fixtureSet:fixtureSet};
 renderBuilder404();renderElems();renderMediaSlots();renderAdvisor();renderCands();renderAll();lockProdDarkCanvas();
 </script>
 <script type="module" src="./js/407f-engineering-adapter.js"></script>
