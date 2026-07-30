@@ -20,7 +20,7 @@ not run.
 ## Current-state proof
 
 - branch: `codex/b1-503-storyforge-product-recovery`;
-- local/upstream/PR head:
+- verified pre-audit local/upstream/PR head:
   `02a7c491a06b1098cf4198a1f125fab77881db08`;
 - exact deployed product source:
   `09878514fff39b2d1f2ba3ee40c4c3de55ffc473`;

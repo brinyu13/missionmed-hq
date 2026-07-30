@@ -17,7 +17,7 @@ HISTORY.
   `fcd8f773d1b1d4fd915244bac7e8d652b35ae5b538c5ed77af682b427a1fea56`
 - first complete evidence commit:
   `789755583ac08f585b6623e1cd3ef320144989b2`
-- final remote branch head:
+- verified pre-audit remote branch head:
   `02a7c491a06b1098cf4198a1f125fab77881db08`
 - post-cutover evidence commits:
   `d66217338a77916424de2368174557691f5e016a` and
@@ -55,7 +55,7 @@ inspection:
 - mergeability: `CONFLICTING`;
 - merge-state status: `DIRTY`.
 
-The terminal GitHub plugin and `gh` verification at branch head
+The terminal pre-audit GitHub plugin and `gh` verification at branch head
 `02a7c491...` confirmed:
 
 - repository identity `brinyu13/missionmed-hq`;

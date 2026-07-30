@@ -24,7 +24,7 @@ enabled nor claimed.
 |---|---|
 | Worktree | `/Users/brianb/MissionMed_worktrees/B1-StoryForge-502` |
 | Branch | `codex/b1-503-storyforge-product-recovery` |
-| Final local/upstream/PR head | `02a7c491a06b1098cf4198a1f125fab77881db08` |
+| Verified pre-audit local/upstream/PR head | `02a7c491a06b1098cf4198a1f125fab77881db08` |
 | Implementation commit | `e94a305c82c35d492ceb68f13667200b83e6d2dd` |
 | Exact deployed source commit | `09878514fff39b2d1f2ba3ee40c4c3de55ffc473` |
 | Release ID | `v-4f40609482162cbd` |
