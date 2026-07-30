@@ -32,9 +32,13 @@ function duration(id,startDate,endDate,categoryId="work"){
 
 test("M8 active 407F Canvas delegates rendering to the retained adaptive board engine",()=>{
   assert.match(adapter,/canvasController=installCanvas\(canvasHost,store,\{/);
-  assert.doesNotMatch(
+  assert.match(
     adapter.slice(adapter.indexOf("canvasController=installCanvas"),adapter.indexOf("api.canvas=canvasController")),
-    /renderBoard:/
+    /renderBoard:render407FThemedBoard/
+  );
+  assert.match(
+    adapter,
+    /function render407FThemedBoard\(document,options=\{\}\)\{\s*const base=renderKeynoteClassicBoard\(document,options\)/
   );
   assert.match(index,/<div id="canvas407F" class="canvas407FHost"/);
 });

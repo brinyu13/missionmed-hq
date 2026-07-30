@@ -1620,6 +1620,132 @@ section[data-view="canvas"]{
   }
 }
 
+/* M10 · five board-only themes with live student-board miniatures. */
+.canvas407FHost .theme-picker-popover{
+  background:linear-gradient(160deg,rgba(20,27,43,.99),rgba(11,14,20,.98));
+  border:1px solid var(--edge2);
+  border-radius:12px;
+  box-shadow:0 22px 60px rgba(0,0,0,.45);
+  padding:14px;
+  position:absolute;
+  right:108px;
+  top:54px;
+  width:456px;
+  z-index:80;
+}
+
+.canvas407FHost .theme-picker-grid{
+  display:grid;
+  gap:12px;
+  grid-template-columns:repeat(3,128px);
+  justify-content:center;
+}
+
+.canvas407FHost .theme-card{
+  align-content:start;
+  background:#0f1522;
+  border:1px solid var(--edge);
+  border-radius:9px;
+  color:var(--tx);
+  display:grid;
+  gap:5px;
+  min-height:126px;
+  overflow:hidden;
+  padding:0 0 8px;
+  position:relative;
+  text-align:left;
+  width:128px;
+}
+
+.canvas407FHost .theme-card:hover:not(:disabled){
+  border-color:var(--cy);
+  box-shadow:0 0 0 1px rgba(57,214,255,.2);
+}
+
+.canvas407FHost .theme-card.active{
+  border-color:var(--gd);
+  box-shadow:inset 0 0 0 1px var(--gd),0 0 18px rgba(255,215,106,.18);
+}
+
+.canvas407FHost .theme-miniature{
+  background:#080b12;
+  border-radius:5px;
+  display:block;
+  height:72px;
+  overflow:hidden;
+  width:128px;
+}
+
+.canvas407FHost .theme-miniature svg{
+  display:block;
+  height:72px;
+  width:128px;
+}
+
+.canvas407FHost .theme-card strong{
+  font-family:var(--disp);
+  font-size:11px;
+  font-weight:800;
+  line-height:1.15;
+  padding:0 8px;
+}
+
+.canvas407FHost .theme-card small{
+  color:var(--mid);
+  font-family:var(--num);
+  font-size:9px;
+  font-weight:600;
+  line-height:1.2;
+  padding:0 8px;
+}
+
+.canvas407FHost .theme-check{
+  background:var(--gd);
+  border-radius:999px;
+  color:#191c21;
+  display:grid;
+  font-size:10px;
+  font-weight:900;
+  height:18px;
+  place-items:center;
+  position:absolute;
+  right:4px;
+  top:4px;
+  width:18px;
+}
+
+.canvas407FHost .theme-special{
+  align-content:center;
+  justify-items:center;
+  text-align:center;
+}
+
+.canvas407FHost .theme-special:disabled{
+  cursor:not-allowed;
+  opacity:.6;
+}
+
+.canvas407FHost .theme-lock{
+  color:var(--em);
+  font-size:28px;
+}
+
+@media(max-width:767px){
+  .canvas407FHost .theme-picker-popover{
+    bottom:68px;
+    left:12px;
+    max-height:70vh;
+    overflow:auto;
+    position:fixed;
+    right:12px;
+    top:auto;
+    width:auto;
+  }
+  .canvas407FHost .theme-picker-grid{
+    grid-template-columns:repeat(2,128px);
+  }
+}
+
 /* M9 · retained Intake state machine and D1-408 parser inside canonical 407F. */
 .intake407FHost{
   color:var(--tx);

@@ -22,7 +22,15 @@ import {
   createCanvasState,
   installCanvas
 } from "./uxr-002/canvas.js";
-import {renderKeynoteClassicBoard} from "./uxr-002/board-renderer.js";
+import {
+  renderKeynoteClassicBoard,
+  serializeKeynoteClassicSvg
+} from "./uxr-002/board-renderer.js";
+import {renderThemePicker} from "./uxr-002/theme-picker.js";
+import {
+  DEFAULT_THEME_ID,
+  applyThemeToTimelineRender
+} from "./uxr-002/themes.js";
 import {
   IntakeStateMachine,
   applyApprovalBatchToDocument,
@@ -296,6 +304,16 @@ function currentMonth(){
   return new Date().toISOString().slice(0,7);
 }
 
+function render407FThemedBoard(document,options={}){
+  const base=renderKeynoteClassicBoard(document,options);
+  const themeId=document?.theme||DEFAULT_THEME_ID;
+  return themeId===DEFAULT_THEME_ID
+    ?base
+    :applyThemeToTimelineRender(base,themeId,{
+      serializeScene:serializeKeynoteClassicSvg
+    });
+}
+
 function canvasDetailField([key,label,type="text"],event){
   const value=event.fields?.[key]??"";
   if(type==="checkbox"){
@@ -556,6 +574,8 @@ export async function boot407FEngineeringAdapter({
         viewportWidth:window.innerWidth,
         mode:store.document.mode
       }),
+      renderBoard:render407FThemedBoard,
+      renderTheme:(document)=>renderThemePicker(document),
       renderDetails:renderCanvasDetails,
       onStateChange:syncCanvasDocument,
       onOpenBuilder:()=>bridge.go("builder"),
@@ -567,6 +587,13 @@ export async function boot407FEngineeringAdapter({
       },
       onAdvanced:()=>bridge.toast("Advanced Studio is available from the mode switch when enabled."),
       onGuided:()=>bridge.toast("Guided Mode selected"),
+      onSelectTheme:(themeId)=>{
+        store.mutate("Change theme",(document)=>{
+          document.theme=themeId;
+        });
+        syncBridgeFromStore();
+        bridge.toast("Theme applied");
+      },
       onDropReflow:syncCanvasDocument,
       onToast:(message)=>bridge.toast(message)
     });

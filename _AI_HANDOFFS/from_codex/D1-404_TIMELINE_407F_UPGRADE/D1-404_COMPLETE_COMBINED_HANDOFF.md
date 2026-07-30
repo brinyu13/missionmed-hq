@@ -328,13 +328,44 @@ remain available as engineering sources, but `web/index.html` does not load
 - Visual verdict: pass — Intake is a native dark 407F workflow with the same
   angular actions, luminous progress language, layered panels, and premium
   Timeline//S1 identity.
+- Commit: `b56e7f5`
+
+### M10 — five themes and live picker
+
+- Activated the retained five-theme catalog in the canonical 407F Canvas:
+  Keynote Classic, Mission Navy, Advisor Paper, Horizon, and Little Journeys.
+- Preserved the exact frozen palettes, typography treatments, axis/flag
+  signatures, shadows, Little Journeys geometry exception, and AA label
+  contrast logic from the shared theme engine.
+- Added the 2×3 Theme popover to the active 407F Canvas. Its five 128×72 live
+  miniatures render the student's actual board; Guided Mode's sixth card is the
+  locked Advanced Studio background teaser.
+- Applied theme selection through one shared-store mutation with undo ownership,
+  then synchronized the existing 407F bridge. No shell token, navigation,
+  layout, or app-chrome theme changes are made.
+- Routed the active Canvas renderer through the retained adaptive renderer and
+  then the shared theme retokening layer; dense-year allocation, lanes, event
+  geometry, and accessibility metadata remain owned by the M8 engine.
+- Browser assertions: pass — six cells, exact five names/descriptors, one locked
+  teaser, Keynote default, Mission Navy applied to the active SVG, and Keynote
+  restored after validation.
+- Browser errors during M10 theme selection and restoration: 0.
+- Regression evidence: 414/414 tests pass in the full run: 119/119 TypeScript
+  and 295/295 module tests.
+- Typecheck: pass.
+- Package verification: 23/23.
+- Screenshot:
+  `screenshots/M10-five-themes-407f.png`
+- Visual verdict: pass — the picker is scoped to the dark 407F Canvas, while
+  every miniature and selected board preserves the product's Keynote-derived
+  artifact language.
 - Commit: pending
 
 ## Verification gates
 
 | Gate | Current result |
 | --- | --- |
-| Regression floor | PASS — 410/410 full inventory (119 TypeScript + 291 module); required floor 370 |
+| Regression floor | PASS — 414/414 full inventory (119 TypeScript + 295 module); required floor 370 |
 | TypeScript | PASS |
 | Package verification | PASS — 23/23 |
 | M0 browser smoke | PASS |
@@ -360,6 +391,7 @@ remain available as engineering sources, but `web/index.html` does not load
 | M6 | `f7c6329` | `git revert f7c6329` |
 | M7 | `3d40235` | `git revert 3d40235` |
 | M8 | `17d8880` | `git revert 17d8880` |
+| M9 | `b56e7f5` | `git revert b56e7f5` |
 
 ## Precedence resolutions
 
