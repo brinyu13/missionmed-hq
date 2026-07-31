@@ -599,6 +599,9 @@ test('production migration runner pins source, backup, provider, DB, and exact l
     '20260727190000|20260727190000_b1_502_storyforge_background_preference.sql|ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405',
     '20260728045100|20260728045100_b1_503_story_domain_conformance.sql|fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68',
     '20260728045444|20260728045444_b1_503_interview_mentor_conformance.sql|5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2',
+    '20260729000100|20260729000100_b1_506_voice_recording_sessions.sql|6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2',
+    '20260729000200|20260729000200_b1_506_feature_flags.sql|8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a',
+    '20260729010000|20260729010000_b1_506a_voice_audit_lifecycle.sql|e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323',
   ].join('\n');
   writeFileSync(fakePsql, `#!/usr/bin/env bash
 set -euo pipefail
@@ -620,13 +623,13 @@ case "$joined" in
   *"--set=version=20260727190000"*) printf '%s\\n' 'ee8ad5cf0a1b850a23c015a07a0f762de2a4b588abbd29a381b35c2db6d79405' ;;
   *"--set=version=20260728045100"*) printf '%s\\n' 'fea497dc32a07ac2c05b8ae21caa6b77d85cc4a571b30816432016719a9a8a68' ;;
   *"--set=version=20260728045444"*) printf '%s\\n' '5b3ea347c1dfb36b22cab81ed6042e0d6e10e2786febb67e83214b56dd4071e2' ;;
-  *"--set=version=20260729000100"*) : ;;
-  *"--set=version=20260729000200"*) : ;;
-  *"--set=version=20260729010000"*) : ;;
+  *"--set=version=20260729000100"*) printf '%s\\n' '6f6a3340bc29d1222b5f78472eb9a4897739722d090241de6d64f3e8f781c9c2' ;;
+  *"--set=version=20260729000200"*) printf '%s\\n' '8899d7d6525c0cbc72790378fcf6a2d8aeb4bc1e7b8afac737be6c3e9af34c3a' ;;
+  *"--set=version=20260729010000"*) printf '%s\\n' 'e67561cc087e2d71d5d7f65ba3033eff06c0dd328a6e43b3915aa58ba1e74323' ;;
   *"--set=version=20260730000100"*) : ;;
   *"B1_506A_EXACT_ROLE_CLOSURE_POSTCOMMIT"*) printf 'true\\n' ;;
   *"verify_b1_506a_effective_authority.sql"*) printf 'B1_507B_EFFECTIVE_AUTHORITY_PASS\\n' ;;
-  *"NOT rolcreatedb"*) printf '8|1|1|0|1\\n' ;;
+  *"NOT rolcreatedb"*) printf '9|1|1|0|1\\n' ;;
   *"sf_users"*"sf_mentor_assignments"*) printf '1|0|1\\n' ;;
   *) printf 'unexpected fake psql invocation: %s\\n' "$joined" >&2; exit 71 ;;
 esac
@@ -686,8 +689,8 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
   };
   const preflight = run(candidateRunner, ['preflight'], environment);
   assert.equal(preflight.status, 0, preflight.stderr || preflight.stdout);
-  assert.match(preflight.stdout, /B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
-  assert.match(preflight.stdout, /pending_migrations=4/);
+  assert.match(preflight.stdout, /B1_508_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
+  assert.match(preflight.stdout, /pending_migrations=1/);
   assert.equal(existsSync(fakeSqlLog), false, 'preflight must not issue the mutation transaction');
 
   const originalSafety = readFileSync(candidateSafety, 'utf8');
@@ -708,7 +711,7 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
     hiddenSafetyEdit.stderr,
     /rejects assume-unchanged or skip-worktree index flags/,
   );
-  assert.doesNotMatch(hiddenSafetyEdit.stdout, /B1_506_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
+  assert.doesNotMatch(hiddenSafetyEdit.stdout, /B1_508_PRODUCTION_MIGRATION_PREFLIGHT_PASS/);
   gitResult = spawnSync(
     'git',
     ['-C', repository, 'update-index', '--no-assume-unchanged', safetyRelative],
@@ -727,12 +730,11 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
 
   const apply = run(candidateRunner, ['apply'], {
     ...environment,
-    STORYFORGE_MIGRATION_CONFIRM: 'B1-507B-APPLY-FOUR-MIGRATIONS',
+    STORYFORGE_MIGRATION_CONFIRM: 'B1-508-APPLY-M4',
   });
   assert.equal(apply.status, 0, apply.stderr || apply.stdout);
-  assert.match(apply.stdout, /B1_507B_PRODUCTION_MIGRATIONS_APPLIED/);
+  assert.match(apply.stdout, /B1_508_PRODUCTION_MIGRATIONS_APPLIED/);
   assert.match(apply.stdout, /migration_count=9/);
-  assert.doesNotMatch(apply.stdout, /B1_503_PRODUCTION_MIGRATIONS_APPLIED/);
   const transactionSql = readFileSync(fakeSqlLog, 'utf8');
   assert.match(transactionSql, /pg_advisory_xact_lock/);
   assert.match(transactionSql, /\\getenv app_password STORYFORGE_APP_DB_PASSWORD/);
@@ -755,13 +757,12 @@ provider_backup_created_at\t2026-07-28T08:07:44.233Z
       < transactionSql.indexOf('ALTER ROLE storyforge_app LOGIN'),
     'exact privilege closure must execute before LOGIN is enabled',
   );
-  assert.match(transactionSql, /storyforge\.founder_user_id/);
-  assert.match(transactionSql, /:'founder_user_id'/);
   assert.match(transactionSql, /B1-506 post-migration ledger is not exact/);
-  assert.match(transactionSql, /20260729000100_b1_506_voice_recording_sessions\.sql/);
-  assert.match(transactionSql, /20260729000200_b1_506_feature_flags\.sql/);
-  assert.match(transactionSql, /20260729010000_b1_506a_voice_audit_lifecycle\.sql/);
   assert.match(transactionSql, /20260730000100_b1_507b_reconciliation_state\.sql/);
+  assert.doesNotMatch(
+    transactionSql,
+    /INSERT INTO public\.sf_schema_migrations[\s\S]*:'version_1'/,
+  );
   assert.match(apply.stdout, /feature_flag_seeded_by=33333333-3333-4333-8333-333333333333/);
   assert.doesNotMatch(transactionSql, /fixture-password-with-more-than-32-characters/);
   assert.doesNotMatch(transactionSql, /\\password storyforge_app/);
